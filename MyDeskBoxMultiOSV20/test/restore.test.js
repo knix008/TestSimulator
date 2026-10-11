@@ -1,10 +1,10 @@
 'use strict';
 
-// 프로그램을 지울 때와 다시 깔 때 지나는 복구 길.
+// The restore path run when the app is uninstalled or reinstalled.
 //
-// 설치 프로그램이 'MyDeskBox.exe --restore-desktop' 으로 부른다.
-// 박스에 담아 둔 파일은 적어 둔 자리로, 적혀 있지 않은 것은 바탕화면으로 돌아가야 한다.
-// 감춘 휴지통과 비켜 둔 아이콘 자리는 desktop.shutdown 이 되돌린다.
+// The installer calls 'MyDeskBox.exe --restore-desktop'.
+// Files held in boxes must go back to their recorded location; unrecorded ones go to the desktop.
+// desktop.shutdown restores the hidden Recycle Bin and the moved icon positions.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -18,7 +18,7 @@ function room(name) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `mydeskbox-${name}-`));
 }
 
-// 무엇을 불렀는지 적어 두는 가짜 바탕화면 모듈.
+// Fake desktop module that records what was called.
 function fakeDesktop() {
   const calls = { init: [], refreshed: [], shutdown: 0 };
   return {
@@ -31,7 +31,7 @@ function fakeDesktop() {
   };
 }
 
-// 박스 하나에 파일을 담아 둔 모습을 만든다. 담는 일은 보관함 모듈이 한다.
+// Sets up a box holding the given files. The hold module does the actual holding.
 function held(names) {
   const userDir = room('user');
   const desk = room('desk');
@@ -47,7 +47,7 @@ function held(names) {
   return { userDir, desk, root, fence, made };
 }
 
-test('담아 둔 파일을 적어 둔 자리로 돌려보낸다', () => {
+test('held files are returned to their recorded location', () => {
   const place = held(['노트.txt', '사진.png']);
   const desktop = fakeDesktop();
 
@@ -59,15 +59,15 @@ test('담아 둔 파일을 적어 둔 자리로 돌려보낸다', () => {
     root: place.root,
   });
 
-  assert.equal(report.back.length, 2, '돌려보내지 않았다');
-  assert.deepEqual(report.left, [], '되돌리지 못한 것이 있다');
+  assert.equal(report.back.length, 2, 'files were not returned');
+  assert.deepEqual(report.left, [], 'some files could not be restored');
   assert.deepEqual(fs.readdirSync(place.desk).sort(), ['노트.txt', '사진.png']);
   for (const item of place.made) {
-    assert.equal(fs.existsSync(item.path), false, '보관함에 파일이 남았다');
+    assert.equal(fs.existsSync(item.path), false, 'a file was left in the storage folder');
   }
 });
 
-test('빈 박스 폴더는 치우고, 탐색기에 알리고, 아이콘 자리도 되돌린다', () => {
+test('empty box folders are removed, Explorer is notified, and icon positions are restored', () => {
   const place = held(['노트.txt']);
   const desktop = fakeDesktop();
 
@@ -79,15 +79,15 @@ test('빈 박스 폴더는 치우고, 탐색기에 알리고, 아이콘 자리�
     root: place.root,
   });
 
-  assert.deepEqual(fs.readdirSync(path.join(place.root)), ['restore.json'], '빈 박스 폴더가 남았다');
-  assert.deepEqual(desktop.calls.init, [place.userDir], '아이콘 자리를 읽지 않았다');
-  assert.ok(desktop.calls.refreshed.includes(place.desk), '탐색기에 알리지 않았다');
-  assert.equal(desktop.calls.shutdown, 1, '감춘 휴지통과 아이콘 자리를 되돌리지 않았다');
+  assert.deepEqual(fs.readdirSync(path.join(place.root)), ['restore.json'], 'an empty box folder was left behind');
+  assert.deepEqual(desktop.calls.init, [place.userDir], 'icon positions were not loaded');
+  assert.ok(desktop.calls.refreshed.includes(place.desk), 'Explorer was not notified');
+  assert.equal(desktop.calls.shutdown, 1, 'the hidden Recycle Bin and icon positions were not restored');
 });
 
-test('적혀 있지 않은 파일도 바탕화면으로 보낸다', () => {
-  // 앱이 갑자기 끝나 기록이 빠졌거나, 사람이 박스 폴더에 직접 넣은 파일이다.
-  // 보관함에 남겨 두면 어디에서도 보이지 않는다.
+test('unrecorded files are also sent to the desktop', () => {
+  // Either the app quit abruptly and the record was lost, or the user dropped the file into the box folder directly.
+  // Left in storage, it would not be visible anywhere.
   const place = held(['노트.txt']);
   const box = path.join(place.root, place.fence.folder);
   fs.writeFileSync(path.join(box, '적히지않은.txt'), '기록 없음');
@@ -106,9 +106,9 @@ test('적혀 있지 않은 파일도 바탕화면으로 보낸다', () => {
   assert.deepEqual(report.left, []);
 });
 
-test('바탕화면에 같은 이름이 있으면 번호를 붙여 둘 다 남긴다', () => {
+test('a name clash on the desktop gets a number so both files are kept', () => {
   const place = held(['노트.txt']);
-  // 담은 뒤에 같은 이름이 바탕화면에 새로 생겼다.
+  // A file with the same name appeared on the desktop after holding.
   fs.writeFileSync(path.join(place.desk, '노트.txt'), '새로 만든 것');
   const desktop = fakeDesktop();
 
@@ -121,10 +121,10 @@ test('바탕화면에 같은 이름이 있으면 번호를 붙여 둘 다 남긴
   });
 
   assert.equal(report.back.length, 1);
-  assert.deepEqual(fs.readdirSync(place.desk).sort(), ['노트 (2).txt', '노트.txt'], '덮어썼거나 남겨 두었다');
+  assert.deepEqual(fs.readdirSync(place.desk).sort(), ['노트 (2).txt', '노트.txt'], 'a file was overwritten or left behind');
 });
 
-test('담아 둔 것이 없으면 아무 일도 없다', () => {
+test('nothing happens when nothing is held', () => {
   const userDir = room('user');
   const desk = room('desk');
   const desktop = fakeDesktop();
@@ -140,23 +140,23 @@ test('담아 둔 것이 없으면 아무 일도 없다', () => {
   assert.deepEqual(report.back, []);
   assert.deepEqual(report.strays, []);
   assert.deepEqual(report.left, []);
-  assert.equal(desktop.calls.shutdown, 1, '감춘 것이 없어도 되돌리기는 지나야 한다');
+  assert.equal(desktop.calls.shutdown, 1, 'the restore step must run even when nothing was hidden');
 });
 
-test('바탕화면 폴더를 모르면 아무것도 건드리지 않는다', () => {
+test('nothing is touched when the desktop folder is unknown', () => {
   const place = held(['노트.txt']);
   const desktop = fakeDesktop();
 
   const report = restoreDesktop({ hold, desktop, userDir: place.userDir, desktopDir: '', root: place.root });
 
   assert.deepEqual(report.back, []);
-  assert.equal(desktop.calls.shutdown, 0, '돌려보낼 자리를 모르는데 끝내는 길을 지났다');
-  assert.equal(fs.existsSync(place.made[0].path), true, '돌려보낼 자리도 모르면서 파일을 옮겼다');
+  assert.equal(desktop.calls.shutdown, 0, 'ran the shutdown step without knowing where to restore to');
+  assert.equal(fs.existsSync(place.made[0].path), true, 'moved files without knowing where to restore them');
 });
 
-test('보관함에 남은 파일만 센다. 보관함이 쓰는 파일은 세지 않는다', () => {
+test('only leftover files in storage are counted, not the files storage itself uses', () => {
   const place = held(['노트.txt']);
   const found = strayFiles(place.root);
   assert.deepEqual(found.map((at) => path.basename(at)), ['노트.txt']);
-  assert.equal(found.some((at) => at.endsWith('restore.json')), false, '기록 파일을 옮기려 한다');
+  assert.equal(found.some((at) => at.endsWith('restore.json')), false, 'tried to move the record file');
 });

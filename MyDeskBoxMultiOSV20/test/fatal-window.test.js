@@ -1,8 +1,8 @@
 'use strict';
 
-// 큰 오류 창을 진짜 Electron 으로 띄워 본다.
-// 가짜 창으로는 글상자에 글이 들어가는지, 골라지는지, 단추가 제 채널로 보내는지 알 수 없다.
-// 클립보드는 사용자 것이라 건드리지 않는다. 복사 단추가 보내는 신호만 받는다.
+// Opens the fatal error window in real Electron.
+// A fake window can't tell us whether the text lands in the text box, is selectable, or whether the buttons send on the right channels.
+// The clipboard belongs to the user, so we leave it alone and only capture the signal the copy button sends.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,9 +27,9 @@ function runElectron(script) {
   });
 }
 
-test('진짜 오류 창에서 글을 고르고 복사와 닫기를 보낼 수 있다', { timeout: 60000 }, async () => {
+test('real error window lets you select text and send copy and close', { timeout: 60000 }, async () => {
   const electron = require('electron');
-  assert.equal(typeof electron, 'string', 'electron 실행 파일을 찾지 못했다');
+  assert.equal(typeof electron, 'string', 'could not find the electron executable');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdb-fatal-'));
   const text = [
     'MyDeskBox 1.0.0',
@@ -100,14 +100,14 @@ app.whenReady().then(async () => {
     assert.ok(line, result.out);
     const out = JSON.parse(line.slice('RESULT '.length));
 
-    assert.equal(out.value, text, '창에 보인 글이 오류 글과 다르다');
-    assert.equal(out.readOnly, true, '오류 글을 고칠 수 있다');
-    assert.equal(out.userSelect, 'text', '오류 글을 고를 수 없다');
-    assert.equal(out.selected, text, '뜨자마자 글 전체를 골라 두지 않았다');
+    assert.equal(out.value, text, 'text shown in the window differs from the error text');
+    assert.equal(out.readOnly, true, 'error text is editable');
+    assert.equal(out.userSelect, 'text', 'error text cannot be selected');
+    assert.equal(out.selected, text, 'full text was not preselected on open');
     assert.equal(out.title, '제목');
     assert.deepEqual(out.buttons, ['복사', '닫기']);
-    assert.equal(out.detail, '복사했습니다', '복사한 뒤 알려 주지 않았다');
-    assert.deepEqual(out.seen, ['copy', 'close', 'close'], '단추나 Esc 가 제 신호를 보내지 않았다');
+    assert.equal(out.detail, '복사했습니다', 'no confirmation shown after copying');
+    assert.deepEqual(out.seen, ['copy', 'close', 'close'], 'a button or Esc did not send its signal');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

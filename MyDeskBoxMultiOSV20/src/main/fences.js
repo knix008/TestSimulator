@@ -151,6 +151,8 @@ function createHost(state) {
     if (desktop.isShellItem && desktop.isShellItem(filePath)) return shellImage(filePath);
     const picture = pictureOf(filePath);
     if (picture) return picture;
+    const fromFile = linkIconFromFile(filePath);
+    if (fromFile) return fromFile;
     const shot = typeof desktop.fileIcon === 'function' ? desktop.fileIcon(filePath) : null;
     if (shot && shot.width && shot.height) {
       try {
@@ -188,10 +190,90 @@ function createHost(state) {
     }
   }
 
+  // 바로가기가 가리키는 것. 바로가기 파일이 그대로면 다시 읽지 않는다.
+  const linkInfo = new Map();
+
+  function linkOf(filePath, mtime) {
+    const seen = linkInfo.get(filePath);
+    if (seen && seen.mtime === mtime) return seen.link;
+    const link = shortcutLink(filePath);
+    if (link) linkInfo.set(filePath, { mtime, link });
+    return link;
+  }
+
+  function expandEnv(text) {
+    return String(text || '').replace(/%([^%]+)%/g, (whole, name) => process.env[name] || whole);
+  }
+
+  // 바로가기 그림을 꺼낼 파일과 그림 번호. 지정된 그림이 없으면 가리키는 프로그램이다.
+  function linkIconSource(link) {
+    if (!link) return null;
+    const icon = expandEnv(link.icon);
+    if (icon) return { file: icon, index: Number(link.iconIndex) || 0 };
+    return link.target ? { file: link.target, index: 0 } : null;
+  }
+
+  function stampOf(source) {
+    if (!source) return '-';
+    try {
+      const stat = fs.statSync(source);
+      return `${stat.mtimeMs}/${stat.size}`;
+    } catch (_err) {
+      return '-';
+    }
+  }
+
+  // 그림을 다시 읽어야 하는지 가리는 열쇠.
+  // 프로그램을 다시 설치하면 바로가기 파일은 그대로인데 가리키는 프로그램이 바뀐다.
+  // 그래서 바로가기는 가리키는 것과 그림 파일의 고친 때도 함께 본다.
+  function thumbKey(filePath) {
+    if (desktop.isShellItem && desktop.isShellItem(filePath)) return `${filePath}:${binState()}`;
+    const mtime = fs.statSync(filePath).mtimeMs;
+    const link = /\.lnk$/i.test(filePath) ? linkOf(filePath, mtime) : null;
+    if (!link) return `${filePath}:${mtime}`;
+    const source = linkIconSource(link);
+    return `${filePath}:${mtime}:${stampOf(link.target)}:${stampOf(source && source.file)}`;
+  }
+
+  // 프로그램을 가리키는 바로가기는 그 프로그램 파일에서 그림을 바로 꺼낸다.
+  // 셸에 물으면 이 프로세스가 처음 본 그림을 계속 주어, 다시 설치해도 예전 그림이 남는다.
+  function linkIconFromFile(filePath) {
+    if (typeof desktop.iconOfFile !== 'function' || !/\.lnk$/i.test(filePath)) return null;
+    let source = null;
+    try {
+      source = linkIconSource(linkOf(filePath, fs.statSync(filePath).mtimeMs));
+    } catch (_err) {
+      return null;
+    }
+    if (!source || !/\.(exe|dll|ico|icl|cpl)$/i.test(source.file)) return null;
+    const shot = desktop.iconOfFile(source.file, source.index);
+    if (!shot || !shot.width || !shot.height) return null;
+    try {
+      const image = nativeImage.createFromBitmap(shot.data, { width: shot.width, height: shot.height });
+      return image.isEmpty() ? null : image;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  // 그림이 바뀐 바로가기가 있는가. 다시 설치한 프로그램을 알아챈다.
+  function iconsStale() {
+    for (const fence of state.fences) {
+      for (const item of fence.items) {
+        if (!/\.lnk$/i.test(item.path)) continue;
+        try {
+          if (!thumbs.has(thumbKey(item.path))) return true;
+        } catch (_err) {
+          /* 없어진 파일은 박스를 맞출 때 다룬다. */
+        }
+      }
+    }
+    return false;
+  }
+
   async function thumb(filePath) {
     try {
-      const shellItem = desktop.isShellItem && desktop.isShellItem(filePath);
-      const key = shellItem ? `${filePath}:${binState()}` : `${filePath}:${fs.statSync(filePath).mtimeMs}`;
+      const key = thumbKey(filePath);
       if (thumbs.has(key)) return thumbs.get(key);
       const image = await iconOf(filePath);
       if (image && !image.isEmpty()) dragIcons.set(filePath, image);
@@ -561,21 +643,30 @@ function createHost(state) {
   // 휴지통은 여기 오지 않는다. 놓을 파일이 없기 때문이다.
   // 받은 쪽이 파일을 가져가 그 자리가 비면 박스에서도 뺀다. 다른 프로그램에 복사만 했으면 박스에 남긴다.
   // 바탕화면에 놓았으면 박스에 있던 것은 지운다. 복사로 두 벌이 되면 안 된다.
-  function dragOut(contents, filePath) {
+  // 여러 개를 골랐으면 그 모두를 한 번의 끌기로 넘긴다. 하나씩 넘기면 첫 끌기에서 손짓이 끝난다.
+  function dragOut(contents, filePaths) {
     if (!contents || typeof contents.startDrag !== 'function') return false;
-    if (!canDragOut(filePath)) return false;
+    const list = [...new Set((Array.isArray(filePaths) ? filePaths : [filePaths]).filter(canDragOut))];
+    if (!list.length) return false;
     hideGhost();
     clearHover();
     const deskDir = desktopFolder();
     const before = namesIn(deskDir);
+    const drag = { file: path.resolve(list[0]), icon: dragIconFor(list[0]) };
+    if (list.length > 1) drag.files = list.map((filePath) => path.resolve(filePath));
     try {
-      contents.startDrag({
-        file: path.resolve(filePath),
-        icon: dragIconFor(filePath),
-      });
+      contents.startDrag(drag);
     } catch (_err) {
       return false;
     }
+    if (list.length === 1) return afterDragOut(list[0], deskDir, before);
+    const done = list.map((filePath) => afterDragOut(filePath, deskDir, before));
+    if (!done.some((one) => one && typeof one.then === 'function')) return true;
+    return Promise.all(done).then(() => true);
+  }
+
+  // 손을 뗀 뒤 그 파일이 어디로 갔는지 보고 박스를 맞춘다.
+  function afterDragOut(filePath, deskDir, before) {
     let still = true;
     try {
       still = fs.existsSync(filePath);
@@ -2276,7 +2367,7 @@ function createHost(state) {
     if (typeof desktop.syncShellIcons === 'function') {
       desktop.syncShellIcons(state.hidden ? [] : captured());
     }
-    if (changed) pushAll();
+    if (changed || iconsStale()) pushAll();
     if (state.hidden) {
       // 박스를 숨기면 밀어낸 아이콘도 제자리로 돌려준다.
       if (typeof desktop.release === 'function') desktop.release([]);

@@ -150,6 +150,40 @@
     return moves;
   }
 
+  // 탐색기의 '아이콘 자동 정렬' 을 박스와 함께 쓴다.
+  //
+  // 탐색기에 맡기면 박스 밑까지 아이콘을 채운다. 그래서 탐색기의 것은 끄고 같은 일을
+  // 여기서 한다. 왼쪽 위부터 위에서 아래로, 다음 줄로 채우고 박스가 가린 칸은 건너뛴다.
+  // 차례는 지금 놓인 자리를 따른다. 손으로 옮긴 아이콘도 놓은 자리의 차례에 들어간다.
+  function pack(icons, blocks, area, grid = steady(metrics(icons))) {
+    if (!icons.length) return [];
+    const colFrom = Math.max(0, Math.ceil((area.x - grid.x0) / grid.dx));
+    const rowFrom = Math.max(0, Math.ceil((area.y - grid.y0) / grid.dy));
+    const colTo = Math.floor((area.x + area.width - grid.x0) / grid.dx) - 1;
+    const rowTo = Math.floor((area.y + area.height - grid.y0) / grid.dy) - 1;
+
+    const free = [];
+    for (let col = colFrom; col <= colTo; col += 1) {
+      for (let row = rowFrom; row <= rowTo; row += 1) {
+        const cell = { col, row };
+        if (!blocked(cell, grid, blocks || [])) free.push(cell);
+      }
+    }
+
+    const order = icons
+      .map((icon) => ({ icon, cell: cellOf(icon, grid) }))
+      .sort((a, b) => a.cell.col - b.cell.col || a.cell.row - b.cell.row || a.icon.index - b.icon.index);
+    const moves = [];
+    order.forEach(({ icon }, i) => {
+      // 칸이 모자라면 남은 것은 그대로 둔다.
+      if (i >= free.length) return;
+      const point = pointOf(free[i], grid);
+      if (point.x === icon.x && point.y === icon.y) return;
+      moves.push({ index: icon.index, x: point.x, y: point.y });
+    });
+    return moves;
+  }
+
   // 빈 칸 가운데 이 아이콘에서 가장 가까운 것. 같은 거리면 탐색기와 같은 차례로 고른다.
   function nearestFree(icon, free, grid) {
     if (!free.length) return null;
@@ -299,7 +333,7 @@
     return out;
   }
 
-  const api = { FALLBACK, INSET, MAGNET, metrics, steady, wrap, smallestGap, pushOut, slideTo, cellOf, pointOf, iconRect, overlaps, inside, blocked, relocate, snapRect };
+  const api = { FALLBACK, INSET, MAGNET, metrics, steady, wrap, smallestGap, pushOut, slideTo, cellOf, pointOf, iconRect, overlaps, inside, blocked, relocate, pack, snapRect };
 
   root.DeskGrid = api;
   if (typeof module === 'object' && module.exports) module.exports = api;

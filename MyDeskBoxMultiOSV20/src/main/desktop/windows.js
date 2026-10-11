@@ -321,6 +321,11 @@ function manualArrange(list) {
   if (autoOn) SetWindowLongPtrW(list, GWL_STYLE, BigInt(style & ~LVS_AUTOARRANGE));
 }
 
+// 사용자가 자동 정렬을 켜 두었는가. 우리가 꺼 둔 것도 켠 것으로 친다.
+function wantsAutoArrange(list) {
+  return turnedOffAutoArrange || (styleOf(list) & LVS_AUTOARRANGE) !== 0;
+}
+
 // 예전 판은 격자 보정을 피하려고 아이콘 영역과 목록 창을 화면 밖까지 넓혔다.
 // 탐색기는 그래도 손을 뗄 때 아이콘을 모니터 안으로 끌어들였고,
 // 탐색기 창 크기를 건드린 탓에 바탕화면이 이름만 그려지는 일까지 생겼다.
@@ -1087,6 +1092,8 @@ function release(items) {
     if (revealFile(filePath)) notifyItem(filePath);
   }
   homeAll();
+  // 박스를 숨긴 동안에는 자동 정렬을 탐색기에 돌려준다.
+  if (turnedOffAutoArrange) restoreArrange();
   persistHomes();
 }
 
@@ -1144,9 +1151,14 @@ function nudge(blocks, live) {
     ));
     // 박스를 맞춘 격자와 같은 것으로 민다. 서로 다른 격자를 쓰면 줄이 어긋난다.
     const grid = latticeOf(session.list, visible);
-    const moves = deskgrid.relocate(visible, walls, desktopArea(), grid);
+    // 자동 정렬을 켜 둔 사람에게는 박스를 비켜 가며 우리가 정렬해 준다.
+    // 가린 것만 옆으로 옮기면 정렬했던 바탕화면이 흐트러진다.
+    const arranging = wantsAutoArrange(session.list);
+    const moves = arranging
+      ? deskgrid.pack(visible, walls, desktopArea(), grid)
+      : deskgrid.relocate(visible, walls, desktopArea(), grid);
     // 박스가 비켜 간 자리로는 밀어냈던 아이콘이 돌아온다.
-    for (const back of homecoming(visible, walls, grid, moves)) moves.push(back);
+    if (!arranging) for (const back of homecoming(visible, walls, grid, moves)) moves.push(back);
     if (!moves.length) return false;
     // 옮기기 전 자리를 적어 둔다. 적어 두지 않으면 끝낼 때 돌려놓을 곳을 모른다.
     // 이미 적힌 것은 그대로 둔다. 처음 자리가 진짜 제자리이기 때문이다.
@@ -1730,6 +1742,18 @@ function recycleBinIcon(filled) {
   return null;
 }
 
+// 프로그램이나 아이콘 파일에서 그림을 바로 꺼낸다.
+// 셸 그림 목록은 이 프로세스에서 한 번 읽은 그림을 계속 준다. 프로그램을 다시 설치해
+// 그림이 바뀌어도 예전 것이 나온다. 파일에서 꺼내면 늘 지금 그림이다.
+function iconOfFile(file, index) {
+  if (!file) return null;
+  for (const size of [64, 48, 32]) {
+    const shot = iconFromFile(path.win32.normalize(String(file)), Number(index) || 0, size);
+    if (shot && shot.width) return shot;
+  }
+  return null;
+}
+
 function fileIcon(filePath) {
   try {
     prepareCom();
@@ -1959,6 +1983,7 @@ module.exports = {
   nativeIcons: true,
   claimSingleInstance,
   fileIcon,
+  iconOfFile,
   recycleBinIcon,
   shellItems,
   init,

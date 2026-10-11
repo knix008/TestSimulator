@@ -9,12 +9,12 @@ const deliver = require('../src/shared/deliver');
 const arrange = require('../src/shared/arrange');
 const { loadHost, fence, baseState, fenceWindows } = require('./helpers/fakes');
 
-// fence() 가 주는 박스의 자리와 크기. 아래 셈은 이 값을 딛고 선다.
+// Position and size of the box that fence() creates. The math below relies on these values.
 const BOX = { x: 100, y: 100, w: 400, h: 300 };
 
-// 박스 안 n 번째 칸의 그림 한가운데(화면 좌표).
-// 여기서 손을 떼면 그 항목 위에 놓은 것이다. 끌고 있던 항목은 목록에서 빠지므로
-// n 은 그 항목을 뺀 뒤의 차례이다.
+// Center of the icon picture in the nth cell of a box (screen coordinates).
+// Releasing here drops onto that item. The dragged item is removed from the list,
+// so n is the index after that item is taken out.
 function onPicture(index, box = BOX) {
   const spot = arrange.slotPoint(index, arrange.gridOf(box.w, box.h, false));
   return {
@@ -34,42 +34,42 @@ function desk() {
   return { root, folder, note, link };
 }
 
-test('받아 주는 자리가 눈에 보이는 그림과 맞는다', () => {
-  // .icon 은 86픽셀 폭에 좌우 4픽셀 여백, 위 8픽셀 여백, 그림은 44×44 가운데 정렬.
-  // 그래서 그림은 가로 21..65, 세로 8..52 에 놓인다. 받아 주는 자리는 여기에 맞고,
-  // 겨누기 쉽도록 둘레로 조금 더 넓혔을 뿐이어야 한다.
+test('the drop target area matches the visible icon picture', () => {
+  // .icon is 86px wide with 4px left/right padding and 8px top padding; the picture is 44x44, centered.
+  // So the picture spans x 21..65 and y 8..52. The drop area must cover this,
+  // only padded slightly around the edges to make it easier to hit.
   const art = { left: 21, right: 65, top: 8, bottom: 52 };
   const { PICTURE } = deliver;
-  assert.ok(PICTURE.left <= art.left && PICTURE.right >= art.right, `그림 ${art.left}..${art.right} 중 ${PICTURE.left}..${PICTURE.right} 만 받는다`);
-  assert.ok(PICTURE.top <= art.top && PICTURE.bottom >= art.bottom, '그림의 위아래를 다 받지 않는다');
+  assert.ok(PICTURE.left <= art.left && PICTURE.right >= art.right, `only ${PICTURE.left}..${PICTURE.right} of picture ${art.left}..${art.right} accepts drops`);
+  assert.ok(PICTURE.top <= art.top && PICTURE.bottom >= art.bottom, 'does not cover the full height of the picture');
 
-  // 그림 안이면 어디를 겨눠도 받는다. 가운데만 되는 것이 아니다.
+  // Anywhere inside the picture accepts, not just the center.
   for (const x of [art.left, 32, 43, 54, art.right]) {
     for (const y of [art.top, 20, 30, 40, art.bottom]) {
-      assert.equal(deliver.onPicture(x, y), true, `그림 안 (${x}, ${y}) 을 받지 않는다`);
+      assert.equal(deliver.onPicture(x, y), true, `point (${x}, ${y}) inside the picture is not accepted`);
     }
   }
 
-  // 칸 좌우 끝과 글자 줄은 '사이에 끼우기' 로 남겨 둔다.
+  // The left/right edges of a cell and the label row are left for "insert between".
   for (const [x, y] of [[0, 30], [8, 30], [78, 30], [85, 30], [43, 60], [43, 80]]) {
-    assert.equal(deliver.onPicture(x, y), false, `(${x}, ${y}) 에서는 끼워 넣을 수 없다`);
+    assert.equal(deliver.onPicture(x, y), false, `cannot insert between items at (${x}, ${y})`);
   }
 
-  // 끼워 넣을 자리가 칸마다 좌우로 넉넉히 남아 있어야 한다.
-  assert.ok(PICTURE.left >= 12, '왼쪽에 끼워 넣을 자리가 없다');
-  assert.ok(arrange.CELL_W - PICTURE.right >= 12, '오른쪽에 끼워 넣을 자리가 없다');
+  // Each cell must keep enough room on both sides for inserting between items.
+  assert.ok(PICTURE.left >= 12, 'no room on the left to insert between items');
+  assert.ok(arrange.CELL_W - PICTURE.right >= 12, 'no room on the right to insert between items');
 });
 
-test('칸 크기가 바뀌면 받아 주는 자리도 함께 고쳐야 한다', () => {
-  // deliver.js 의 PICTURE 는 arrange.js 의 칸 크기와 fence.css 의 값을 셈해 둔 것이다.
-  // 한쪽만 바뀌면 그림과 받아 주는 자리가 다시 어긋난다.
-  assert.equal(arrange.CELL_W, 86, 'deliver.js 의 셈을 함께 고쳐야 한다');
+test('the drop area must be updated when the cell size changes', () => {
+  // PICTURE in deliver.js is computed from the cell size in arrange.js and the values in fence.css.
+  // If only one side changes, the picture and the drop area drift apart again.
+  assert.equal(arrange.CELL_W, 86, 'update the math in deliver.js as well');
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'fence.css'), 'utf8');
-  assert.match(css, /\.icon \{[^}]*width: 86px;[^}]*padding: 8px 4px 0;/s, '.icon 의 크기나 여백이 바뀌었다');
-  assert.match(css, /\.icon img \{[^}]*width: 44px;/s, '.icon img 의 크기가 바뀌었다');
+  assert.match(css, /\.icon \{[^}]*width: 86px;[^}]*padding: 8px 4px 0;/s, '.icon size or padding changed');
+  assert.match(css, /\.icon img \{[^}]*width: 44px;/s, '.icon img size changed');
 });
 
-test('바로가기와 휴지통을 가려 낸다', () => {
+test('detects shortcuts and the Recycle Bin', () => {
   assert.equal(deliver.isShortcut('C:/Desktop/Chrome.lnk'), true);
   assert.equal(deliver.isShortcut('C:/Desktop/사이트.url'), true);
   assert.equal(deliver.isShortcut('C:/Desktop/앱.desktop'), true);
@@ -78,23 +78,23 @@ test('바로가기와 휴지통을 가려 낸다', () => {
   assert.equal(deliver.isRecycle('shell:MyComputerFolder'), false);
 });
 
-test('폴더와 폴더 바로가기에는 파일을 넣고, 휴지통에는 버린다', () => {
-  // 끌어다 놓기는 옮기는 일이다. 그래서 옮겨 넣을 수 있는 곳만 받는다.
+test('folders and folder shortcuts take files in; the Recycle Bin discards them', () => {
+  // Drag and drop is a move, so only places that can take a moved file accept it.
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/Work', directory: true }), 'folder');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/Work.lnk', shortcutDir: 'C:/Work' }), 'folder');
   assert.equal(deliver.receiveKind({ path: 'shell:RecycleBinFolder' }), 'trash');
   assert.equal(deliver.receiveKind(null), '');
-  // 프로그램과 문서는 받지 않는다. 그 위에 놓아도 그냥 그 박스로 옮겨 담긴다.
+  // Programs and documents do not accept drops. Dropping on them just moves the item into that box.
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/Chrome.lnk' }), '');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/노트.txt' }), '');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/tool.exe' }), '');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/Work.lnk', shortcutDir: '' }), '');
 });
 
-test('프로그램 바로가기 위에 놓아도 띄우지 않고 그 자리로 옮긴다', { skip: process.platform !== 'win32' }, async () => {
-  // 끌어다 놓기는 옮기는 일이다. 프로그램 바로가기 위에 놓아도 그 프로그램이 뜨지 않는다.
-  // 앞서는 여기서 프로그램을 띄우고 파일은 제자리에 두었다. 박스에 담으려고 놓다가
-  // 아이콘을 스치면 엉뚱한 프로그램이 떴다.
+test('dropping on a program shortcut moves the item there without launching it', { skip: process.platform !== 'win32' }, async () => {
+  // Drag and drop is a move. Dropping on a program shortcut does not launch the program.
+  // Previously this launched the program and left the file in place, so brushing past
+  // an icon while dropping into a box would launch an unrelated program.
   const place = desk();
   const appLink = path.join(place.root, 'Editor.lnk');
   fs.writeFileSync(appLink, 'link');
@@ -122,15 +122,15 @@ test('프로그램 바로가기 위에 놓아도 띄우지 않고 그 자리로 
   const spot = onPicture(0);
   await host.transfer('a', note, spot.x, spot.y);
 
-  assert.deepEqual(launched, [], '옮기는데 프로그램을 띄웠다');
-  assert.equal(fs.existsSync(note), true, '파일이 사라졌다');
-  assert.equal(state.fences[0].items.some((item) => item.path === note), true, '박스에서 빠졌다');
-  assert.equal(state.fences[0].items.length, 2, '박스에 든 것이 둘이 아니다');
+  assert.deepEqual(launched, [], 'launched a program during a move');
+  assert.equal(fs.existsSync(note), true, 'the file disappeared');
+  assert.equal(state.fences[0].items.some((item) => item.path === note), true, 'removed from the box');
+  assert.equal(state.fences[0].items.length, 2, 'the box does not hold two items');
 });
 
-// 아이콘 그림은 이제 탐색기가 박스 위에 직접 그린다. 우리는 종류만 알면 된다.
-// 메뉴가 휴지통 비우기를 보여 줄지, 바로가기로 다룰지를 이 값으로 고른다.
-test('담긴 항목의 종류를 알려 준다', async () => {
+// Explorer now draws the icon pictures directly on the box; we only need to know the item kind.
+// The menu uses these flags to decide whether to offer "Empty Recycle Bin" or treat it as a shortcut.
+test('reports the kind of each held item', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({
@@ -155,7 +155,7 @@ test('담긴 항목의 종류를 알려 준다', async () => {
   assert.equal(byName['노트.txt'].recycle, false);
 });
 
-test('폴더를 다른 폴더 위에 놓으면 그 안으로 들어가고 박스에서는 빠진다', async () => {
+test('dropping a folder on another folder moves it inside and removes it from the box', async () => {
   const place = desk();
   const bundle = path.join(place.root, '묶음');
   fs.mkdirSync(bundle);
@@ -172,12 +172,12 @@ test('폴더를 다른 폴더 위에 놓으면 그 안으로 들어가고 박스
   await host.dropFiles(state.fences[0].id, [bundle], 0, place.folder);
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work']);
   const work = state.fences[0].items[0].path;
-  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '폴더가 그 안으로 들어가지 않았다');
-  assert.equal(fs.existsSync(bundle), false, '원래 자리에 폴더가 남아 있다');
+  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, 'the folder was not moved inside');
+  assert.equal(fs.existsSync(bundle), false, 'the folder is still in its original location');
 });
 
-// 이름 바꾸기가 거절되는 것만 흉내 낸 검사와 달리, 이쪽은 디스크를 실제로 건넌다.
-// 바탕화면이 C: 이고 폴더 바로가기가 D: 를 가리키는 경우가 그것이다.
+// Unlike the test that only simulates a rejected rename, this one actually crosses drives,
+// e.g. when the desktop is on C: and a folder shortcut points to D:.
 function otherPlace(from) {
   if (process.platform !== 'win32') return '';
   const mine = path.parse(path.resolve(from)).root.toLowerCase();
@@ -194,17 +194,17 @@ function otherPlace(from) {
       fs.rmSync(probe, { recursive: true, force: true });
       return dir;
     } catch (_err) {
-      /* 쓸 수 없는 드라이브는 다음 것을 본다. */
+      /* If the drive is not writable, try the next one. */
     }
   }
   return '';
 }
 
-test('실제로 다른 드라이브의 폴더와 그 바로가기에 넣는다', { skip: process.platform !== 'win32' }, async (t) => {
+test('really moves into a folder and its shortcut on another drive', { skip: process.platform !== 'win32' }, async (t) => {
   const place = desk();
   const sinkRoot = otherPlace(place.root);
   if (!sinkRoot) {
-    t.skip('쓸 수 있는 다른 드라이브가 없다');
+    t.skip('no other writable drive available');
     return;
   }
   const sink = fs.mkdtempSync(path.join(sinkRoot, 'mdb-drop-'));
@@ -219,9 +219,9 @@ test('실제로 다른 드라이브의 폴더와 그 바로가기에 넣는다',
     });
     const folderHost = loadHost(folderState);
     await folderHost.host.dropFiles(folderState.fences[0].id, [bundle], 0, work);
-    assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '폴더가 다른 드라이브로 들어가지 않았다');
-    assert.equal(fs.existsSync(bundle), false, '원래 폴더가 남아 있다');
-    assert.deepEqual(folderState.fences[0].items, [], '넣은 폴더가 박스에 남았다');
+    assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, 'the folder was not moved to the other drive');
+    assert.equal(fs.existsSync(bundle), false, 'the original folder is still there');
+    assert.deepEqual(folderState.fences[0].items, [], 'the moved folder is still in the box');
 
     const linkState = baseState({
       fences: [fence({
@@ -234,15 +234,15 @@ test('실제로 다른 드라이브의 폴더와 그 바로가기에 넣는다',
     const linkHost = loadHost(linkState);
     linkHost.electron.shell.links.set(place.link, { target: work });
     await linkHost.host.dropFiles(linkState.fences[0].id, [place.note], 0, place.link);
-    assert.equal(fs.readFileSync(path.join(work, '노트.txt'), 'utf8'), 'hello', '바로가기가 가리키는 폴더로 들어가지 않았다');
-    assert.equal(fs.existsSync(place.note), false, '바로가기에 넣은 파일이 원래 자리에 남았다');
-    assert.deepEqual(linkState.fences[0].items.map((item) => item.name), ['Work.lnk'], '바로가기 자체가 빠졌다');
+    assert.equal(fs.readFileSync(path.join(work, '노트.txt'), 'utf8'), 'hello', 'the file did not go into the folder the shortcut points to');
+    assert.equal(fs.existsSync(place.note), false, 'the file dropped on the shortcut is still in its original location');
+    assert.deepEqual(linkState.fences[0].items.map((item) => item.name), ['Work.lnk'], 'the shortcut itself was removed');
   } finally {
     fs.rmSync(sink, { recursive: true, force: true });
   }
 });
 
-test('다른 드라이브의 폴더로 넣어도 죽지 않고 폴더가 들어간다', async () => {
+test('moving into a folder on another drive does not crash and the folder moves', async () => {
   const place = desk();
   const bundle = path.join(place.root, '묶음');
   fs.mkdirSync(bundle);
@@ -269,13 +269,13 @@ test('다른 드라이브의 폴더로 넣어도 죽지 않고 폴더가 들어�
   }
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work']);
   const work = state.fences[0].items[0].path;
-  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, '드라이브를 건너지 못했다');
-  assert.equal(fs.existsSync(bundle), false, '복사만 하고 원래 폴더를 남겼다');
+  assert.equal(fs.existsSync(path.join(work, '묶음', '안.txt')), true, 'could not move across drives');
+  assert.equal(fs.existsSync(bundle), false, 'copied but left the original folder behind');
 });
 
-test('파일을 휴지통에 넣어도 프로세스가 죽지 않고 그 자리에서 사라진다', { skip: process.platform !== 'win32' }, async () => {
+test('trashing a file does not crash the process and the file disappears', { skip: process.platform !== 'win32' }, async () => {
   const electron = require('electron');
-  assert.equal(typeof electron, 'string', 'electron 실행 파일을 찾지 못했다');
+  assert.equal(typeof electron, 'string', 'could not find the electron executable');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdb-trash-'));
   const file = path.join(dir, '노트.txt');
   fs.writeFileSync(file, 'bye');
@@ -308,11 +308,11 @@ app.whenReady().then(async () => {
   });
   assert.equal(result.code, 0, result.out);
   assert.match(result.out, /GONE/, result.out);
-  assert.equal(fs.existsSync(file), false, '휴지통으로 보냈는데 파일이 남아 있다');
+  assert.equal(fs.existsSync(file), false, 'the file is still there after being sent to the Recycle Bin');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('휴지통이 거절해도 앱이 죽지 않고 파일은 그대로 남는다', async () => {
+test('if the Recycle Bin refuses, the app does not crash and the file stays', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({
@@ -327,11 +327,11 @@ test('휴지통이 거절해도 앱이 죽지 않고 파일은 그대로 남는�
     throw new Error('locked');
   };
   await host.dropFiles(state.fences[0].id, [place.note], 0, 'shell:RecycleBinFolder');
-  assert.equal(fs.existsSync(place.note), true, '버리지 못했는데 파일이 사라졌다');
-  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true, '실패했는데 박스에서 빠졌다');
+  assert.equal(fs.existsSync(place.note), true, 'the file disappeared even though trashing failed');
+  assert.equal(state.fences[0].items.some((item) => item.path === place.note), true, 'removed from the box even though it failed');
 });
 
-test('파일을 폴더 위에 놓으면 그 폴더로 들어가고 박스에서는 빠진다', async () => {
+test('dropping a file on a folder moves it inside and removes it from the box', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({
@@ -343,14 +343,14 @@ test('파일을 폴더 위에 놓으면 그 폴더로 들어가고 박스에서�
   });
   const { host } = loadHost(state);
   await host.dropFiles(state.fences[0].id, [place.note], 0, place.folder);
-  // 박스에 남은 것은 Work 폴더 하나이고, 그 폴더는 박스 폴더로 옮겨 가 있다.
+  // Only the Work folder remains in the box, and it has been moved into the box folder.
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work']);
   const work = state.fences[0].items[0].path;
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, '놓은 파일이 그 폴더에 없다');
-  assert.equal(fs.existsSync(place.note), false, '원래 자리에 그대로 남아 있다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, 'the dropped file is not in the folder');
+  assert.equal(fs.existsSync(place.note), false, 'the file is still in its original location');
 });
 
-test('폴더를 가리키는 바로가기 위에 놓아도 그 폴더로 들어간다', { skip: process.platform !== 'win32' }, async () => {
+test('dropping on a shortcut to a folder moves the file into that folder', { skip: process.platform !== 'win32' }, async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({
@@ -368,12 +368,12 @@ test('폴더를 가리키는 바로가기 위에 놓아도 그 폴더로 들어�
   const spot = onPicture(0);
   await host.transfer('a', held('노트.txt'), spot.x, spot.y);
 
-  assert.equal(fs.existsSync(path.join(place.folder, '노트.txt')), true, '바로가기가 가리키는 폴더로 들어가지 않았다');
-  // 바로가기는 박스에 남는다. 다만 자리는 박스 폴더 안이다.
+  assert.equal(fs.existsSync(path.join(place.folder, '노트.txt')), true, 'the file did not go into the folder the shortcut points to');
+  // The shortcut stays in the box, but it now lives inside the box folder.
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work.lnk']);
 });
 
-test('파일을 휴지통 위에 놓으면 버리고 박스에서는 빠진다', async () => {
+test('dropping a file on the Recycle Bin discards it and removes it from the box', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({
@@ -387,10 +387,10 @@ test('파일을 휴지통 위에 놓으면 버리고 박스에서는 빠진다',
   await host.dropFiles(state.fences[0].id, [place.note], 0, 'shell:RecycleBinFolder');
   assert.deepEqual(electron.shell.trashed, [place.note]);
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['휴지통']);
-  assert.equal(fs.existsSync(place.note), false, '휴지통으로 보냈는데 그 자리에 남아 있다');
+  assert.equal(fs.existsSync(place.note), false, 'the file is still there after being sent to the Recycle Bin');
 });
 
-test('같은 이름이 이미 있으면 폴더로 넣지 않고 박스에 남긴다', async () => {
+test('a name clash in the folder keeps the file in the box instead', async () => {
   const place = desk();
   fs.writeFileSync(path.join(place.folder, '노트.txt'), 'old');
   const state = baseState({
@@ -398,15 +398,15 @@ test('같은 이름이 이미 있으면 폴더로 넣지 않고 박스에 남긴
   });
   const { host } = loadHost(state);
   await host.dropFiles(state.fences[0].id, [place.note], 0, place.folder);
-  // 같은 이름이 이미 있으면 덮지 않는다. 놓으려던 파일은 박스에 그대로 남는다.
+  // An existing file with the same name is not overwritten; the dropped file stays in the box.
   const work = state.fences[0].items.find((item) => item.name === 'Work');
   assert.equal(fs.readFileSync(path.join(work.path, '노트.txt'), 'utf8'), 'old');
   assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true);
   const note = state.fences[0].items.find((item) => item.name === '노트.txt');
-  assert.equal(fs.existsSync(note.path), true, '박스에 남은 파일이 사라졌다');
+  assert.equal(fs.existsSync(note.path), true, 'the file left in the box disappeared');
 });
 
-test('항목을 자기 위에 놓으면 그대로 둔다', async () => {
+test('dropping an item on itself leaves it alone', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ items: [{ name: '노트.txt', path: place.note }] })],
@@ -417,18 +417,18 @@ test('항목을 자기 위에 놓으면 그대로 둔다', async () => {
   await host.transfer('a', place.note, spot.x, spot.y);
   assert.equal(electron.shell.trashed.length, 0);
   assert.equal(state.fences[0].items.length, 1);
-  assert.equal(fs.existsSync(state.fences[0].items[0].path), true, '제자리에 놓았는데 파일이 사라졌다');
+  assert.equal(fs.existsSync(state.fences[0].items[0].path), true, 'the file disappeared after being dropped in place');
 });
 
-// 폴더도 바로가기도 휴지통도 아닌 항목 위에 놓으면, 그 항목을 실행하며 놓은 파일을 넘긴다.
-test('프로그램도 문서도 받지 않는다. 받는 것은 폴더와 휴지통뿐이다', () => {
+// Drag and drop is a move, so a program or document never receives the dropped files.
+test('programs and documents do not accept drops; only folders and the Recycle Bin do', () => {
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/tool.exe' }), '');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/노트.txt' }), '');
   assert.equal(deliver.receiveKind({ path: '/Applications/Edit.app' }), '');
   assert.equal(deliver.receiveKind({ path: 'C:/Desktop/할일.bat' }), '');
 });
 
-test('프로그램 파일 위에 놓아도 띄우지 않고 박스에 그대로 남는다', async () => {
+test('dropping on a program file does not launch it and the item stays in the box', async () => {
   const place = desk();
   const tool = path.join(place.root, 'tool.exe');
   fs.writeFileSync(tool, 'exe');
@@ -450,12 +450,12 @@ test('프로그램 파일 위에 놓아도 띄우지 않고 박스에 그대로 
   const spot = onPicture(0);
   await host.transfer('a', note, spot.x, spot.y);
 
-  assert.deepEqual(launched, [], '옮기는데 프로그램을 띄웠다');
-  assert.equal(fs.existsSync(note), true, '파일이 사라졌다');
-  assert.equal(state.fences[0].items.some((item) => item.path === note), true, '박스에서 빠졌다');
+  assert.deepEqual(launched, [], 'launched a program during a move');
+  assert.equal(fs.existsSync(note), true, 'the file disappeared');
+  assert.equal(state.fences[0].items.some((item) => item.path === note), true, 'removed from the box');
 });
 
-test('탐색기에서 프로그램 위에 놓으면 띄우지 않고 그 박스에 담는다', async () => {
+test('dropping from Explorer onto a program adds the file to the box without launching', async () => {
   const place = desk();
   const tool = path.join(place.root, 'tool.exe');
   fs.writeFileSync(tool, 'exe');
@@ -466,15 +466,15 @@ test('탐색기에서 프로그램 위에 놓으면 띄우지 않고 그 박스�
 
   await host.dropFiles('a', [place.note], 0, tool);
 
-  assert.deepEqual(launched, [], '옮기는데 프로그램을 띄웠다');
-  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, '박스에 담지 않았다');
-  assert.equal(fs.existsSync(place.note), false, '옮기지 않고 제자리에 두었다');
+  assert.deepEqual(launched, [], 'launched a program during a move');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), true, 'not added to the box');
+  assert.equal(fs.existsSync(place.note), false, 'left in place instead of being moved');
 });
 
-// ── 어디서 끌어 왔든 같은 자리에 놓을 수 있어야 한다 ───────────────────────
+// ── Drop targets must work the same no matter where the drag started ───────
 //
-// 받을 항목을 고르는 일은 메인이 한다. 창이 제 안에서만 하면 제 창 밖은 알 수 없어,
-// 다른 박스나 바탕화면에서 끌어 온 것은 아무리 겨눠도 받아 주지 못했다.
+// The main process picks the receiving item. When each window did this on its own, it could not
+// see outside itself, so items dragged from another box or the desktop were never accepted.
 
 const FAR = { x: 700, y: 100, w: 400, h: 300 };
 
@@ -490,7 +490,7 @@ function twoBoxes(near, far) {
   return { ...loaded, state };
 }
 
-test('다른 박스의 폴더 위에 놓아도 그 폴더로 들어간다', async () => {
+test('dropping on a folder in another box moves the file into that folder', async () => {
   const place = desk();
   const { host, state } = twoBoxes(
     [{ name: '노트.txt', path: place.note }],
@@ -502,12 +502,12 @@ test('다른 박스의 폴더 위에 놓아도 그 폴더로 들어간다', asyn
   const spot = onPicture(0, FAR);
   await host.transfer('a', note, spot.x, spot.y);
 
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, '건너간 폴더로 들어가지 않았다');
-  assert.deepEqual(state.fences[0].items, [], '보낸 박스에 그대로 남았다');
-  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work'], '폴더 옆에 나란히 담겼다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, 'did not go into the folder in the other box');
+  assert.deepEqual(state.fences[0].items, [], 'still in the source box');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work'], 'added next to the folder instead');
 });
 
-test('다른 박스에서 휴지통 위로 끌어 내면 버린다', async () => {
+test('dragging out of one box onto the Recycle Bin in another discards it', async () => {
   const place = desk();
   const state = baseState({
     fences: [
@@ -525,12 +525,12 @@ test('다른 박스에서 휴지통 위로 끌어 내면 버린다', async () =>
   contents.startDrag = () => {};
 
   assert.equal(await host.dragOut(contents, held), true);
-  assert.deepEqual(electron.shell.trashed, [held], '다른 박스의 휴지통이 받지 않았다');
-  assert.equal(state.fences[0].items.length, 0, '버린 항목이 원래 박스에 남았다');
-  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], '휴지통 옆에 담겼다');
+  assert.deepEqual(electron.shell.trashed, [held], 'the Recycle Bin in the other box did not accept it');
+  assert.equal(state.fences[0].items.length, 0, 'the discarded item is still in the source box');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], 'added next to the Recycle Bin instead');
 });
 
-test('휴지통에 같은 이름이 있어도 다른 박스에서 휴지통으로 보낸다', async () => {
+test('sends to the Recycle Bin from another box even if the bin already has the same name', async () => {
   const place = desk();
   const state = baseState({
     fences: [
@@ -555,15 +555,15 @@ test('휴지통에 같은 이름이 있어도 다른 박스에서 휴지통으�
   contents.startDrag = () => {};
 
   assert.equal(await host.dragOut(contents, held), true);
-  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
-  assert.deepEqual(kept, [held], '같은 이름을 다른 항목으로 버리지 않았다');
-  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
-  assert.equal(state.fences[0].items.length, 0, '버린 항목이 원래 박스에 남았다');
-  assert.equal(state.fences[1].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
-  assert.equal(state.fences[1].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, '휴지통이 빠졌다');
+  assert.equal(asks.calls.length, 0, 'asked whether to replace the same-named item in the Recycle Bin');
+  assert.deepEqual(kept, [held], 'did not discard the same-named file as a separate item');
+  assert.deepEqual(electron.shell.trashed, [], 'took the path that replaces the existing item');
+  assert.equal(state.fences[0].items.length, 0, 'the discarded item is still in the source box');
+  assert.equal(state.fences[1].items.some((item) => item.name === '노트.txt'), false, 'added to the box instead of the Recycle Bin');
+  assert.equal(state.fences[1].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, 'the Recycle Bin was removed');
 });
 
-test('다른 박스의 휴지통 위에 놓으면 버린다', async () => {
+test('dropping on the Recycle Bin in another box discards it', async () => {
   const place = desk();
   const { host, electron, state } = twoBoxes(
     [{ name: '노트.txt', path: place.note }],
@@ -575,11 +575,11 @@ test('다른 박스의 휴지통 위에 놓으면 버린다', async () => {
   await host.transfer('a', note, spot.x, spot.y);
 
   assert.deepEqual(electron.shell.trashed, [note]);
-  assert.deepEqual(state.fences[0].items, [], '버렸는데 박스에 남아 있다');
-  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], '휴지통 옆에 담겼다');
+  assert.deepEqual(state.fences[0].items, [], 'still in the box after being discarded');
+  assert.deepEqual(state.fences[1].items.map((item) => item.name), ['휴지통'], 'added next to the Recycle Bin instead');
 });
 
-test('다른 박스의 빈 자리에 놓으면 그 박스에 담긴다', async () => {
+test('dropping on an empty spot in another box adds it to that box', async () => {
   const place = desk();
   const { host, state } = twoBoxes(
     [{ name: '노트.txt', path: place.note }],
@@ -588,15 +588,15 @@ test('다른 박스의 빈 자리에 놓으면 그 박스에 담긴다', async (
   const note = state.fences[0].items[0].path;
   const work = state.fences[1].items[0].path;
 
-  // 폴더의 그림이 아니라 그 오른쪽 칸(빈 자리)에 놓는다.
+  // Drop on the empty cell to the right of the folder, not on its picture.
   const spot = onPicture(1, FAR);
   await host.transfer('a', note, spot.x, spot.y);
 
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '빈 자리에 놓았는데 폴더로 들어갔다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, 'went into the folder despite being dropped on an empty spot');
   assert.deepEqual(state.fences[1].items.map((item) => item.name), ['Work', '노트.txt']);
 });
 
-test('칸의 가장자리에 놓으면 받아 주지 않고 사이에 끼운다', async () => {
+test('dropping on the edge of a cell inserts between items instead of dropping into it', async () => {
   const place = desk();
   const { host, state } = twoBoxes(
     [{ name: '노트.txt', path: place.note }],
@@ -605,15 +605,15 @@ test('칸의 가장자리에 놓으면 받아 주지 않고 사이에 끼운다'
   const note = state.fences[0].items[0].path;
   const work = state.fences[1].items[0].path;
 
-  // 폴더 칸의 왼쪽 끝. 그림 밖이므로 폴더가 받지 않는다.
+  // The left edge of the folder's cell. It is outside the picture, so the folder does not accept it.
   const slot = arrange.slotPoint(0, arrange.gridOf(FAR.w, FAR.h, false));
   await host.transfer('a', note, FAR.x + slot.x + 2, FAR.y + slot.y + 28);
 
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '가장자리인데 폴더가 받았다');
-  assert.equal(state.fences[1].items.length, 2, '박스에 담기지도 않았다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, 'the folder accepted a drop on the edge');
+  assert.equal(state.fences[1].items.length, 2, 'not added to the box either');
 });
 
-test('휴지통에 같은 이름이 있어도 창에 놓은 파일은 휴지통으로 보낸다', async () => {
+test('a file dropped on the window goes to the Recycle Bin even if the bin has the same name', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
@@ -629,14 +629,14 @@ test('휴지통에 같은 이름이 있어도 창에 놓은 파일은 휴지통�
 
   await host.dropFiles('a', [place.note], 0, 'shell:RecycleBinFolder');
 
-  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
-  assert.deepEqual(kept, [place.note], '같은 이름을 다른 항목으로 버리지 않았다');
-  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
-  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
+  assert.equal(asks.calls.length, 0, 'asked whether to replace the same-named item in the Recycle Bin');
+  assert.deepEqual(kept, [place.note], 'did not discard the same-named file as a separate item');
+  assert.deepEqual(electron.shell.trashed, [], 'took the path that replaces the existing item');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, 'added to the box instead of the Recycle Bin');
   assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true);
 });
 
-test('휴지통에 같은 이름이 있어도 바탕화면에서 끌어 온 항목은 휴지통으로 보낸다', async () => {
+test('an item dragged from the desktop goes to the Recycle Bin even if the bin has the same name', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
@@ -653,14 +653,14 @@ test('휴지통에 같은 이름이 있어도 바탕화면에서 끌어 온 항�
   const spot = onPicture(0);
   await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
 
-  assert.equal(asks.calls.length, 0, '휴지통에 있던 같은 이름을 바꿀지 물었다');
-  assert.deepEqual(kept, [place.note], '같은 이름을 다른 항목으로 버리지 않았다');
-  assert.deepEqual(electron.shell.trashed, [], '있던 항목을 바꾸는 길로 보냈다');
-  assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, '휴지통이 박스에서 빠졌다');
-  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, '휴지통 대신 박스에 담았다');
+  assert.equal(asks.calls.length, 0, 'asked whether to replace the same-named item in the Recycle Bin');
+  assert.deepEqual(kept, [place.note], 'did not discard the same-named file as a separate item');
+  assert.deepEqual(electron.shell.trashed, [], 'took the path that replaces the existing item');
+  assert.equal(state.fences[0].items.some((item) => item.path === 'shell:RecycleBinFolder'), true, 'the Recycle Bin was removed from the box');
+  assert.equal(state.fences[0].items.some((item) => item.name === '노트.txt'), false, 'added to the box instead of the Recycle Bin');
 });
 
-test('바탕화면에서 끌어 온 것도 박스 안 휴지통이 받는다', async () => {
+test('the Recycle Bin in a box accepts items dragged from the desktop', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
@@ -671,11 +671,11 @@ test('바탕화면에서 끌어 온 것도 박스 안 휴지통이 받는다', a
   const spot = onPicture(0);
   await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
 
-  assert.deepEqual(electron.shell.trashed, [place.note], '바탕화면에서 끌어 온 것을 버리지 않았다');
-  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['휴지통'], '버린 것을 박스에 담았다');
+  assert.deepEqual(electron.shell.trashed, [place.note], 'the item dragged from the desktop was not discarded');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['휴지통'], 'the discarded item was added to the box');
 });
 
-test('바탕화면에서 끌어 온 것도 박스 안 폴더가 받는다', async () => {
+test('a folder in a box accepts items dragged from the desktop', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
@@ -687,11 +687,11 @@ test('바탕화면에서 끌어 온 것도 박스 안 폴더가 받는다', asyn
   const spot = onPicture(0);
   await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, spot);
 
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, '폴더로 들어가지 않았다');
-  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work'], '폴더 옆에 따로 담겼다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), true, 'did not go into the folder');
+  assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work'], 'added separately next to the folder');
 });
 
-test('바탕화면에서 끌어 온 것을 빈 자리에 놓으면 그냥 담는다', async () => {
+test('an item dragged from the desktop onto an empty spot is simply added', async () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
@@ -702,11 +702,11 @@ test('바탕화면에서 끌어 온 것을 빈 자리에 놓으면 그냥 담는
 
   await host.acceptDesktopDrop({ name: '노트.txt', path: place.note }, onPicture(1));
 
-  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, '빈 자리인데 폴더로 들어갔다');
+  assert.equal(fs.existsSync(path.join(work, '노트.txt')), false, 'went into the folder despite being dropped on an empty spot');
   assert.deepEqual(state.fences[0].items.map((item) => item.name), ['Work', '노트.txt']);
 });
 
-test('끌고 가는 동안 어느 항목이 받을지 그 박스에 알려 준다', () => {
+test('while dragging, the target box is told which item will receive the drop', () => {
   const place = desk();
   const { host, electron, state } = twoBoxes(
     [{ name: '노트.txt', path: place.note }],
@@ -716,20 +716,20 @@ test('끌고 가는 동안 어느 항목이 받을지 그 박스에 알려 준�
   const work = state.fences[1].items[0].path;
   const far = fenceWindows(electron).find((win) => win.loaded.opts.query.id === 'b');
 
-  // 폴더의 그림 위.
+  // Over the folder's picture.
   const on = onPicture(0, FAR);
   host.hover(note, on.x, on.y, '');
-  assert.equal(far.messages('fence:hover').at(-1).into, work, '받을 항목을 알려 주지 않았다');
+  assert.equal(far.messages('fence:hover').at(-1).into, work, 'did not report the receiving item');
 
-  // 그 옆 빈 칸.
+  // The empty cell next to it.
   const off = onPicture(1, FAR);
   host.hover(note, off.x, off.y, '');
-  assert.equal(far.messages('fence:hover').at(-1).into, null, '빈 자리인데 받는다고 알렸다');
+  assert.equal(far.messages('fence:hover').at(-1).into, null, 'reported a receiver over an empty spot');
 });
 
-test('문서 그림 위에서는 받는다고 알리지 않는다', () => {
-  // 받는 것은 폴더와 휴지통뿐이다. 받지 못하는 항목을 밝혀 보여 주면,
-  // 밝아진 아이콘에 놓았는데 아무 일도 일어나지 않는 것처럼 보인다.
+test('hovering over a document picture does not report it as a receiver', () => {
+  // Only folders and the Recycle Bin accept drops. Highlighting an item that cannot accept
+  // would make it look like dropping on the highlighted icon did nothing.
   const place = desk();
   const other = path.join(place.root, '보고서.txt');
   fs.writeFileSync(other, '문서');
@@ -742,10 +742,10 @@ test('문서 그림 위에서는 받는다고 알리지 않는다', () => {
 
   const on = onPicture(0, FAR);
   host.hover(note, on.x, on.y, '');
-  assert.equal(far.messages('fence:hover').at(-1).into, null, '문서가 받는다고 알렸다');
+  assert.equal(far.messages('fence:hover').at(-1).into, null, 'reported a document as a receiver');
 });
 
-test('제 자신 위에서는 받는다고 알리지 않는다', () => {
+test('hovering over itself does not report it as a receiver', () => {
   const place = desk();
   const state = baseState({
     fences: [fence({ ...BOX, items: [{ name: 'Work', path: place.folder }] })],
@@ -758,12 +758,12 @@ test('제 자신 위에서는 받는다고 알리지 않는다', () => {
   const spot = onPicture(0);
   host.hover(work, spot.x, spot.y, '');
 
-  assert.equal(win.messages('fence:hover').at(-1).into, null, '제 자신에게 넣으려 든다');
+  assert.equal(win.messages('fence:hover').at(-1).into, null, 'tried to drop an item into itself');
 });
 
-test('박스를 내려 본 상태에서도 눈에 보이는 항목이 받는다', async () => {
+test('the visible item receives the drop even when the box is scrolled', async () => {
   const place = desk();
-  // 400픽셀 폭이면 한 줄에 네 칸이다. 폴더는 둘째 줄 첫 칸에 둔다.
+  // At 400px wide there are four cells per row. The folder goes in the first cell of the second row.
   const fillers = ['가.txt', '나.txt', '다.txt', '라.txt'].map((name) => {
     const at = path.join(place.root, name);
     fs.writeFileSync(at, name);
@@ -774,11 +774,11 @@ test('박스를 내려 본 상태에서도 눈에 보이는 항목이 받는다'
     [{ name: '노트.txt', path: place.note }]
   );
   const grid = arrange.gridOf(BOX.w, BOX.h, false);
-  assert.equal(grid.cols, 4, '한 줄에 네 칸이라는 앞선 셈이 어긋났다');
+  assert.equal(grid.cols, 4, 'the assumption of four cells per row no longer holds');
   const work = state.fences[0].items[4].path;
   const note = state.fences[1].items[0].path;
 
-  // 한 줄만큼 내려 보면 둘째 줄의 폴더가 첫 줄 자리에 와 있다.
+  // Scrolling down one row puts the second-row folder where the first row was.
   host.setScroll('a', grid.cellH);
   const spot = onPicture(0, BOX);
   await host.transfer('b', note, spot.x, spot.y);
@@ -786,6 +786,6 @@ test('박스를 내려 본 상태에서도 눈에 보이는 항목이 받는다'
   assert.equal(
     fs.existsSync(path.join(work, '노트.txt')),
     true,
-    '내려 본 만큼을 셈에 넣지 않아 엉뚱한 항목이 받았다'
+    'scroll offset was not accounted for, so the wrong item received the drop'
   );
 });

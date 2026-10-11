@@ -7,22 +7,22 @@ const os = require('node:os');
 const path = require('node:path');
 const files = require('../src/main/desktop/files');
 
-test('바탕화면 폴더를 적어도 하나는 찾는다', () => {
+test('finds at least one desktop folder', () => {
   const dirs = files.desktopDirectories();
-  assert.ok(dirs.length >= 1, '바탕화면 폴더를 찾지 못했다');
+  assert.ok(dirs.length >= 1, 'no desktop folder found');
   for (const dir of dirs) assert.equal(path.isAbsolute(dir), true);
 });
 
-test('바탕화면에 있는 항목만 바탕화면 아이콘과 짝짓는다', () => {
+test('pairs only items on the desktop with desktop icons', () => {
   const [desk] = files.desktopDirectories();
-  assert.ok(files.isOnDesktop(path.join(desk, '아무거나.lnk')), '바탕화면 파일을 알아본다');
-  assert.equal(files.isOnDesktop(path.join(desk, '하위폴더', 'a.lnk')), false, '하위 폴더는 바탕화면이 아니다');
+  assert.ok(files.isOnDesktop(path.join(desk, '아무거나.lnk')), 'should recognize a desktop file');
+  assert.equal(files.isOnDesktop(path.join(desk, '하위폴더', 'a.lnk')), false, 'a subfolder is not the desktop');
   assert.equal(files.isOnDesktop(path.join(os.homedir(), 'Documents', 'a.lnk')), false);
   assert.equal(files.isOnDesktop(''), false);
   assert.equal(files.isOnDesktop(null), false);
 });
 
-test('휴지통 경로는 파일이 아니어도 바탕화면 항목이다', () => {
+test('the Recycle Bin path is a desktop item even though it is not a file', () => {
   assert.equal(files.isShellItem('shell:RecycleBinFolder'), true);
   assert.equal(files.isOnDesktop('shell:RecycleBinFolder'), true);
   assert.equal(files.isShellItem('C:/Desktop/노트.txt'), false);
@@ -30,7 +30,7 @@ test('휴지통 경로는 파일이 아니어도 바탕화면 항목이다', () 
   assert.equal(files.isShellItem(null), false);
 });
 
-test('숨김 파일과 바탕화면 설정 파일은 목록에서 뺀다', () => {
+test('hidden files and desktop config files are excluded from the list', () => {
   const names = files.listDesktopFiles().map((file) => file.name.toLowerCase());
   assert.equal(names.includes('desktop.ini'), false);
   assert.equal(names.includes('.localized'), false);
@@ -38,18 +38,18 @@ test('숨김 파일과 바탕화면 설정 파일은 목록에서 뺀다', () =>
   assert.equal(names.some((name) => name.startsWith('.')), false);
 });
 
-test('바로가기 이름은 확장자를 떼고 견준다', () => {
+test('shortcut names are compared without their extension', () => {
   assert.equal(files.labelOf('MyClock.lnk'), 'MyClock');
   assert.equal(files.labelOf('사이트.url'), '사이트');
   assert.equal(files.labelOf('보고서.txt'), '보고서.txt');
 
   assert.equal(files.sameName('MyClock', 'MyClock.lnk'), true);
-  assert.equal(files.sameName('myclock', 'MyClock.lnk'), true, '대소문자는 가리지 않는다');
+  assert.equal(files.sameName('myclock', 'MyClock.lnk'), true, 'comparison should be case-insensitive');
   assert.equal(files.sameName('MyClock', 'MyClock2.lnk'), false);
   assert.equal(files.sameName('', 'MyClock.lnk'), false);
 });
 
-test('확장자를 감춘 바탕화면 이름도 그 파일이다', () => {
+test('a desktop name with the extension hidden still matches its file', () => {
   const notes = { name: '노트.txt', path: 'D:/Desktop/노트.txt' };
   const link = { name: '시계.lnk', path: 'D:/Desktop/시계.lnk' };
   const photo = { name: '사진.png', path: 'D:/Desktop/사진.png' };
@@ -60,133 +60,134 @@ test('확장자를 감춘 바탕화면 이름도 그 파일이다', () => {
   assert.equal(files.matchDesktopEntry('사진', entries), photo);
   assert.equal(files.matchDesktopEntry('없는것', entries), null);
   assert.equal(files.matchDesktopEntry('', entries), null);
-  // 같은 글의 파일이 둘이면 어느 것인지 집지 않는다.
+  // If two files share the same visible name, don't pick either.
   const twin = [notes, { name: '노트.md', path: 'D:/Desktop/노트.md' }];
   assert.equal(files.matchDesktopEntry('노트', twin), null);
 });
 
-// 확장자를 감춰 두면 '보고서.docx' 와 '보고서.pdf' 가 둘 다 '보고서' 로 보인다.
-// 그런 이름을 그냥 버리면 그 아이콘만 끌어다 놓기가 되지 않아, 파일 종류에 따라
-// 되고 안 되는 것처럼 보인다. 그래서 후보를 모두 주고, 몇 번째 아이콘인지로 가린다.
-test('같은 글로 보이는 파일이 여럿이면 후보를 모두 준다', () => {
+// With extensions hidden, '보고서.docx' and '보고서.pdf' both appear as '보고서'.
+// Simply discarding such names would make drag-and-drop fail for just those icons, so it
+// would look like it works for some file types and not others. Instead, return all
+// candidates and disambiguate by icon index.
+test('returns all candidates when several files look like the same name', () => {
   const docx = { name: '보고서.docx', path: 'D:/Desktop/보고서.docx' };
   const pdf = { name: '보고서.pdf', path: 'D:/Desktop/보고서.pdf' };
   const notes = { name: '노트.txt', path: 'D:/Desktop/노트.txt' };
   const entries = [docx, pdf, notes];
   assert.deepEqual(files.matchDesktopEntries('보고서', entries), [docx, pdf]);
   assert.deepEqual(files.matchDesktopEntries('노트', entries), [notes]);
-  // 이름이 그대로 맞으면 그것 하나만 준다. 확장자를 보여 주는 설정에서 오는 길이다.
+  // An exact name match returns just that one. This happens when extensions are shown.
   assert.deepEqual(files.matchDesktopEntries('보고서.pdf', entries), [pdf]);
   assert.deepEqual(files.matchDesktopEntries('없는것', entries), []);
   assert.deepEqual(files.matchDesktopEntries('', entries), []);
 });
 
-// 계측으로 잡은 것이다. LVM_SETWORKAREAS 를 한 번 보내면 바탕화면 아이콘의 그림이
-// 모두 사라지고 이름만 남는다. 탐색기를 다시 띄우기 전에는 돌아오지 않는다.
-// 앱을 켤 때마다 normalizeList 가 이것을 보내고 있었다.
-// 시험: 탐색기를 새로 띄우고 앱을 켠 뒤 27개 중 그림이 보이는 것을 세었다.
-//   아무것도 안 함        -> 27개
-//   이 메시지만 보냄      -> 0개
-//   아이콘 자리잡기만     -> 27개
-//   빼고 전부 켬          -> 27개
-test('바탕화면 아이콘 영역을 건드리지 않는다', () => {
+// Found by measurement. Sending LVM_SETWORKAREAS once makes every desktop icon's image
+// disappear, leaving only the labels, until Explorer is restarted.
+// normalizeList was sending this on every app launch.
+// Experiment: restart Explorer, launch the app, then count how many of 27 icons show images.
+//   nothing done                -> 27
+//   only this message sent      -> 0
+//   only icon positioning       -> 27
+//   everything except this      -> 27
+test('does not touch the desktop icon work area', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  assert.doesNotMatch(source, /SendMessage\w*\([^)]*LVM_SETWORKAREAS/, '아이콘 그림을 지우는 메시지가 되돌아왔다');
+  assert.doesNotMatch(source, /SendMessage\w*\([^)]*LVM_SETWORKAREAS/, 'the message that erases icon images is back');
 });
 
-// 담는다는 것은 그 파일을 박스 폴더로 옮기는 일이다. 바탕화면 아이콘은 밀어내기만 한다.
-// 담긴 파일은 바탕화면 폴더에서 빠져 아이콘이 아예 없으므로 자리를 잡아 줄 일도 없다.
-test('아이콘은 밀어내기만 하고 담는 일은 폴더가 맡는다', () => {
+// Holding means moving the file into the box folder. Desktop icons are only nudged aside.
+// A held file leaves the desktop folder and has no icon at all, so there is nothing to position.
+test('icons are only nudged aside; holding is handled by the folder', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  assert.match(source, /function nudge\(blocks, live\)/, '박스 자리의 아이콘을 밀어내는 길이 없다');
-  assert.equal(/function layoutGroups\(/.test(source), false, '아이콘을 박스 자리로 모으는 길이 남아 있다');
-  assert.equal(/function behindIcons\(/.test(source), false, '아이콘 층 뒤에 판을 넣는 길이 남아 있다');
+  assert.match(source, /function nudge\(blocks, live\)/, 'no path to nudge icons out of a box area');
+  assert.equal(/function layoutGroups\(/.test(source), false, 'the path that gathers icons into box areas still exists');
+  assert.equal(/function behindIcons\(/.test(source), false, 'the path that puts a panel behind the icon layer still exists');
 
-  // 자동 정렬이 켜져 있으면 탐색기가 밀어낸 자리를 곧바로 되돌린다.
-  assert.match(source, /function manualArrange\(list\)[\s\S]*?turnedOffAutoArrange = true/, '끈 것을 적어 두지 않는다');
-  assert.match(source, /function restoreArrange\(\)[\s\S]*?LVS_AUTOARRANGE/, '자동 정렬을 되돌리지 않는다');
+  // With auto-arrange on, Explorer immediately undoes the nudged positions.
+  assert.match(source, /function manualArrange\(list\)[\s\S]*?turnedOffAutoArrange = true/, 'does not record that auto-arrange was turned off');
+  assert.match(source, /function restoreArrange\(\)[\s\S]*?LVS_AUTOARRANGE/, 'does not restore auto-arrange');
 
-  // 박스를 격자에 맞추려면 칸 크기를 알아야 한다.
-  assert.match(source, /function gridInfo\(\)/, '바탕화면 격자를 재는 길이 없다');
+  // Snapping boxes to the grid requires knowing the cell size.
+  assert.match(source, /function gridInfo\(\)/, 'no path to measure the desktop grid');
 
-  // 사용자의 파일에는 숨김 속성을 붙이지 않는다. 보관함 폴더 하나만 감춘다.
-  assert.equal(/function stashFile/.test(source), false, '파일을 바탕화면 밖으로 옮기는 길이 남아 있다');
-  assert.equal(/function hideFile\(/.test(source), false, '파일에 숨김 속성을 붙이는 길이 남아 있다');
-  assert.match(source, /function hidePath\(target\)/, '보관함 폴더를 감추는 길이 없다');
+  // Never set the hidden attribute on user files. Only the storage folder is hidden.
+  assert.equal(/function stashFile/.test(source), false, 'the path that moves files off the desktop still exists');
+  assert.equal(/function hideFile\(/.test(source), false, 'the path that sets the hidden attribute on files still exists');
+  assert.match(source, /function hidePath\(target\)/, 'no path to hide the storage folder');
 });
 
-test('휴지통 그림은 비었을 때와 찼을 때가 다르다', { skip: process.platform !== 'win32' }, () => {
+test('the Recycle Bin icon differs between empty and full', { skip: process.platform !== 'win32' }, () => {
   const desktop = require('../src/main/desktop/windows');
   const empty = desktop.recycleBinIcon(false);
   const full = desktop.recycleBinIcon(true);
-  assert.ok(empty && empty.width >= 32, '빈 휴지통 그림이 없다');
-  assert.ok(full && full.width >= 32, '찬 휴지통 그림이 없다');
-  assert.equal(Buffer.compare(Buffer.from(empty.data), Buffer.from(full.data)) !== 0, true, '빈 그림과 찬 그림이 같다');
+  assert.ok(empty && empty.width >= 32, 'no empty Recycle Bin icon');
+  assert.ok(full && full.width >= 32, 'no full Recycle Bin icon');
+  assert.equal(Buffer.compare(Buffer.from(empty.data), Buffer.from(full.data)) !== 0, true, 'empty and full icons are identical');
 });
 
-test('예전 판이 치워 둔 파일은 되돌릴 수 있다', { skip: process.platform !== 'win32' }, () => {
+test('files stashed by earlier versions can be restored', { skip: process.platform !== 'win32' }, () => {
   const desktop = require('../src/main/desktop/windows');
-  assert.equal(typeof desktop.stashFile, 'undefined', '파일을 치우는 길이 아직 열려 있다');
-  assert.equal(typeof desktop.unstashFile, 'function', '되돌릴 길이 없다');
+  assert.equal(typeof desktop.stashFile, 'undefined', 'the path that stashes files is still exposed');
+  assert.equal(typeof desktop.unstashFile, 'function', 'no path to restore');
 });
 
-// 박스는 제 폴더에서 돌아간다. 바탕화면 아이콘은 이제 만지지 않는다.
-// 자리를 옮기거나 층을 감추면 탐색기와 끝나지 않는 다툼이 생긴다.
-test('바탕화면 아이콘을 옮기거나 감추지 않는다', () => {
+// Boxes work from their own folders. Desktop icons are no longer touched.
+// Moving them or hiding the layer starts an endless fight with Explorer.
+test('does not move or hide desktop icons', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  assert.equal(/function gather\(/.test(source), false, '아이콘을 거두는 길이 남아 있다');
-  assert.equal(/function keepHidden\(/.test(source), false, '되치우는 길이 남아 있다');
-  assert.equal(/function holdParked\(/.test(source), false, '쫓아다니며 되치우는 길이 남아 있다');
+  assert.equal(/function gather\(/.test(source), false, 'the path that gathers icons still exists');
+  assert.equal(/function keepHidden\(/.test(source), false, 'the path that re-hides icons still exists');
+  assert.equal(/function holdParked\(/.test(source), false, 'the path that chases and re-hides icons still exists');
   assert.equal(
     /LVM_SETEXTENDEDLISTVIEWSTYLE, BigInt\(LVS_EX_SNAPTOGRID\), 0n/.test(source),
     false,
-    '격자에 맞춤을 끄고 있다. 그 메시지가 전체 정렬을 부른다'
+    'turns off snap-to-grid; that message triggers a full re-arrange'
   );
 });
 
-// 예전 판으로 쓰던 사람이 올라오면 그때 해 둔 것이 남아 있다. 한 번은 되돌려야 한다.
-test('예전 판이 해 둔 것을 되돌리는 길은 남겨 둔다', () => {
+// Users upgrading from earlier versions still have what those versions did. It must be undone once.
+test('keeps the paths that undo what earlier versions did', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  assert.match(source, /function homeAll/, '화면 밖 아이콘을 제자리로 보내는 길이 없다');
-  assert.match(source, /function showLayer/, '감춰 둔 아이콘 층을 되살리는 길이 없다');
-  assert.match(source, /function release\(items\)[\s\S]*?showLayer\(true\)/, '되돌릴 때 층을 되살리지 않는다');
-  assert.match(source, /function release\(items\)[\s\S]*?homeAll\(\)/, '되돌릴 때 아이콘 자리를 되돌리지 않는다');
+  assert.match(source, /function homeAll/, 'no path to return off-screen icons to their places');
+  assert.match(source, /function showLayer/, 'no path to restore the hidden icon layer');
+  assert.match(source, /function release\(items\)[\s\S]*?showLayer\(true\)/, 'does not restore the layer when undoing');
+  assert.match(source, /function release\(items\)[\s\S]*?homeAll\(\)/, 'does not restore icon positions when undoing');
 });
 
-// 바탕화면 빈 곳을 두 번 누르면 박스를 감추고, 다시 두 번 누르면 보여 준다.
-// 이 길은 탐색기를 직접 두드리므로 검사에서 부를 수 없다. 조건이 제자리에 있는지 글로 본다.
-test('두 번 누르기는 운영체제가 정한 시간을 따른다', () => {
+// Double-clicking an empty spot on the desktop hides the boxes; double-clicking again shows them.
+// This path talks to Explorer directly and can't be called from tests, so check the conditions in the source text.
+test('double-click follows the OS-defined timing', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
 
-  // 320밀리초처럼 박아 두면 보통 속도로 두 번 누른 것이 세지지 않는다.
-  assert.match(source, /function doubleTime\(\)[\s\S]*?GetDoubleClickTime\(\)/, '사이 시간을 운영체제에게 묻지 않는다');
-  assert.match(source, /function doubleSlop\(\)[\s\S]*?SM_CXDOUBLECLK/, '허용 범위를 운영체제에게 묻지 않는다');
-  assert.doesNotMatch(source, /now - last < 320/, '사이 시간이 박혀 있다');
+  // Hard-coding something like 320 ms misses double-clicks at normal speed.
+  assert.match(source, /function doubleTime\(\)[\s\S]*?GetDoubleClickTime\(\)/, 'does not ask the OS for the interval');
+  assert.match(source, /function doubleSlop\(\)[\s\S]*?SM_CXDOUBLECLK/, 'does not ask the OS for the tolerance');
+  assert.doesNotMatch(source, /now - last < 320/, 'the interval is hard-coded');
 
-  // 뗌을 세면 빠른 손의 첫 클릭을 통째로 놓친다. 누름을 세야 한다.
-  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?if \(down && !wasDown\)/, '누름을 세지 않는다');
-  // 자주 물어야 짧은 클릭을 놓치지 않는다.
+  // Counting releases misses a fast hand's first click entirely. Presses must be counted.
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?if \(down && !wasDown\)/, 'does not count presses');
+  // Polling often is needed to catch short clicks.
   const every = /function watchDoubleClick\(onToggle\)[\s\S]*?\}, (\d+)\);/.exec(source);
-  assert.ok(every && Number(every[1]) <= 20, `너무 뜸하게 묻는다: ${every && every[1]}밀리초`);
+  assert.ok(every && Number(every[1]) <= 20, `polls too rarely: ${every && every[1]} ms`);
 
-  // 커서 아래가 바탕화면이어야 한다. 앞 창만 보면 박스 위에서 누른 것도 잡힌다.
-  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?desktopAt\(pos\)/, '커서 아래를 보지 않는다');
-  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?cursorOnIcon\(\)/, '아이콘 위에서도 감춘다');
-  // 세는 일은 순수한 셈에 맡긴다.
-  assert.match(source, /createDeskTaps\(/, '두 번 누르기 셈을 쓰지 않는다');
+  // The desktop must be under the cursor. Checking only the foreground window would also catch clicks on a box.
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?desktopAt\(pos\)/, 'does not check what is under the cursor');
+  assert.match(source, /function watchDoubleClick\(onToggle\)[\s\S]*?cursorOnIcon\(\)/, 'hides even when clicking on an icon');
+  // Counting is delegated to a pure function.
+  assert.match(source, /createDeskTaps\(/, 'does not use the double-click counter');
 });
 
-test('두 번 누르기가 숨김을 뒤집도록 이어져 있다', () => {
+test('double-click is wired to toggle hiding', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
-  assert.match(main, /watchDoubleClick\(\(\) => host\.toggleHidden\(\)\)/, '두 번 눌러도 숨기지 않는다');
+  assert.match(main, /watchDoubleClick\(\(\) => host\.toggleHidden\(\)\)/, 'double-clicking does not hide');
 });
 
-// 운영체제가 주는 4픽셀은 아이콘을 두 번 눌러 여는 잣대다.
-// 빈 바탕화면을 두 번 누르는 데에 그만한 정확도를 요구하면 손이 조금만 움직여도 세지 않는다.
-test('두 번 누르기 자리 범위를 넉넉히 잡는다', () => {
+// The OS's 4 pixels is the threshold for double-clicking icons to open them.
+// Demanding that precision for double-clicking empty desktop makes slight hand movement break the count.
+test('uses a generous position tolerance for double-click', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  assert.match(source, /SLOP_FLOOR = (\d+)/, '최소 범위가 없다');
+  assert.match(source, /SLOP_FLOOR = (\d+)/, 'no minimum tolerance');
   const floor = Number(/SLOP_FLOOR = (\d+)/.exec(source)[1]);
-  assert.ok(floor >= 20, `자리 범위가 너무 좁다: ${floor}픽셀`);
-  assert.match(source, /function doubleSlop\(\)[\s\S]*?SLOP_FLOOR/, '최소 범위를 쓰지 않는다');
+  assert.ok(floor >= 20, `position tolerance is too narrow: ${floor} px`);
+  assert.match(source, /function doubleSlop\(\)[\s\S]*?SLOP_FLOOR/, 'does not use the minimum tolerance');
 });

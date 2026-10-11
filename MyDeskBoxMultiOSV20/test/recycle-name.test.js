@@ -15,19 +15,19 @@ function infoFile(original) {
   return Buffer.concat([head, chars]);
 }
 
-test('같은 이름을 휴지통에 넣을 때는 바꾸지 않는 표시를 쓴다', () => {
+test('recycling a same-named item uses flags that do not rename it', () => {
   const flags = recycle.recycleDeleteFlags();
-  assert.equal(flags & 0x0008, 0x0008, '이름 충돌 때 다른 항목으로 남기지 않는다');
-  assert.equal(flags & 0x0010, 0x0010, '바꿀지 묻는다');
-  assert.equal(flags & 0x0040, 0x0040, '휴지통에 남기지 않는다');
+  assert.equal(flags & 0x0008, 0x0008, 'must not keep a separate item on name collision');
+  assert.equal(flags & 0x0010, 0x0010, 'must ask before replacing');
+  assert.equal(flags & 0x0040, 0x0040, 'must not leave it in the Recycle Bin');
 });
 
-test('$I 파일에서 원래 이름을 읽는다', () => {
+test('reads the original name from a $I file', () => {
   const original = 'C:\\Users\\나\\Desktop\\노트.txt';
   assert.equal(recycle.nameFromInfo(infoFile(original)), original);
 });
 
-test('휴지통 폴더에 같은 이름이 있으면 참이다', () => {
+test('returns true when the Recycle Bin folder has the same name', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-bin-'));
   const sid = path.join(root, 'S-1-5-21');
   fs.mkdirSync(sid);

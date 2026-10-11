@@ -233,7 +233,15 @@ function onIconDragStart(event) {
   }
   event.preventDefault();
   el.dataset.handed = '1';
-  desk.dragOut(item.path);
+  desk.dragOut(handOffPaths(item.path));
+}
+
+// 다른 프로그램으로 넘길 것. 고른 묶음 안의 것을 끌면 묶음 전체가 간다.
+// 끈 것을 맨 앞에 둔다. 운영체제가 그 그림을 커서 밑에 보여 준다.
+function handOffPaths(filePath) {
+  if (!picked.includes(filePath)) return [filePath];
+  const rest = selection().filter((path) => path !== filePath && canHandOff(itemByPath(path)));
+  return [filePath, ...rest];
 }
 
 // 끌어 낸 뒤에 남는 클릭으로는 열지 않는다.
@@ -330,7 +338,7 @@ function onIconDown(event) {
       desk.hover(null);
       layout();
       el.dataset.handed = '1';
-      desk.dragOutLater(filePath);
+      desk.dragOutLater(handOffPaths(filePath));
       taps.forget();
       return;
     }

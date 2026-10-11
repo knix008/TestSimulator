@@ -1,7 +1,7 @@
 'use strict';
 
-// fences.js 는 electron 과 바탕화면 모듈에 기대고 있다.
-// 테스트에서는 둘을 가짜로 바꿔 끼워 순수한 판단만 확인한다.
+// fences.js depends on electron and the desktop module.
+// Tests swap both for fakes so only the pure logic is checked.
 
 const Module = require('node:module');
 const path = require('node:path');
@@ -28,7 +28,7 @@ class FakeWindow extends EventEmitter {
     this.sent = [];
     this.loaded = null;
     this.alwaysOnTop = false;
-    // 시스템 창의 주인으로 넘길 창 번호를 흉내 낸다.
+    // Mimics the window handle passed as the owner of system dialogs.
     this.handle = Buffer.alloc(8);
     this.handle.writeBigUInt64LE(BigInt(0x10000 + FakeWindow.count));
     FakeWindow.count += 1;
@@ -95,7 +95,7 @@ class FakeWindow extends EventEmitter {
     this.emit('closed');
   }
 
-  // 테스트에서 창이 다 그려진 시점을 흉내 낸다.
+  // Simulates the moment the window has finished rendering.
   ready() {
     this.emit('ready-to-show');
   }
@@ -110,11 +110,11 @@ function makeElectron(userData) {
   const menus = [];
   const opened = [];
   const trays = [];
-  // 오류 창에 보여 준 것과 클립보드로 간 글.
+  // What was shown in error dialogs and what text went to the clipboard.
   const errors = [];
   const copied = [];
   let answer = 0;
-  // 오류 창에서 고를 단추. 0 이면 '복사', 1 이면 '닫기'.
+  // Button to pick in the error dialog: 0 is "Copy", 1 is "Close".
   let fatalPick = 1;
   const ipcListeners = new Map();
   const shell = {
@@ -126,17 +126,17 @@ function makeElectron(userData) {
     },
     trashItem: async (target) => {
       shell.trashed.push(target);
-      // 진짜 휴지통처럼 그 자리에서는 없어진다. 이것이 없으면 지운 파일이
-      // 박스 폴더에 남아, 폴더와 맞추는 길(settleBox)이 다시 담아 버린다.
+      // Like the real Recycle Bin, the item disappears from its location. Without this,
+      // the deleted file stays in the box folder and the folder sync (settleBox) picks it up again.
       try {
         fs.rmSync(target, { recursive: true, force: true });
       } catch (_err) {
-        /* 휴지통 같은 셸 항목은 지울 파일이 없다. */
+        /* Shell items such as the Recycle Bin have no file to delete. */
       }
     },
     readShortcutLink: (target) => {
       if (shell.links.has(target)) return shell.links.get(target);
-      throw new Error('바로가기가 아니다');
+      throw new Error('not a shortcut');
     },
   };
 
@@ -162,7 +162,7 @@ function makeElectron(userData) {
     setDialogAnswer(value) {
       answer = value;
     },
-    // 오류 창에서 '복사'를 누른 것으로 한다. 한 번 누르면 다음에는 닫는다.
+    // Pretend "Copy" was clicked in the error dialog. After one click, the next pick is "Close".
     copyOnFatal() {
       fatalPick = 0;
       let turns = 0;
@@ -178,7 +178,7 @@ function makeElectron(userData) {
     },
     module: {
       app: {
-        // main.js 가 건 이벤트를 적어 둔다. 검사에서 'before-quit' 을 직접 부를 수 있다.
+        // Records events registered by main.js so tests can fire 'before-quit' directly.
         handlers: new Map(),
         requestSingleInstanceLock: () => true,
         setAppUserModelId() {},
@@ -188,13 +188,13 @@ function makeElectron(userData) {
         getPath: () => userData,
         getFileIcon: async () => ({ isEmpty: () => true, toDataURL: () => '', getSize: () => ({ width: 0, height: 0 }) }),
         getName: () => 'MyDeskBox',
-        // 설치본일 때만 시작프로그램에 적는다. 검사에서는 설치본인 것으로 둔다.
+        // Startup registration only happens for packaged builds; tests act as a packaged build.
         isPackaged: true,
         login: { openAtLogin: false, path: '' },
         setLoginItemSettings(options) {
           this.login = { ...(options || {}) };
         },
-        // 진짜 앱처럼 적어 둔 것을 그대로 돌려준다. 적은 적이 없으면 꺼져 있다.
+        // Like the real app, returns whatever was set. Off if never set.
         getLoginItemSettings() {
           return { openAtLogin: !!this.login.openAtLogin, executableWillLaunchAtLogin: !!this.login.openAtLogin };
         },
@@ -204,7 +204,7 @@ function makeElectron(userData) {
           list.push(fn);
           this.handlers.set(event, list);
         },
-        // 검사에서 그 이벤트가 일어난 것처럼 만든다.
+        // Lets tests trigger the event as if it had happened.
         async fire(event, ...args) {
           for (const fn of this.handlers.get(event) || []) await fn(...args);
         },
@@ -214,8 +214,8 @@ function makeElectron(userData) {
       BrowserWindow,
       screen: {
         getCursorScreenPoint: () => ({ x: 0, y: 0 }),
-        // 작업 영역까지 준다. 이것이 없으면 화면 안으로 들이는 길과
-        // 가장자리에 붙이는 길이 검사에서 조용히 지나간다.
+        // Includes the work area. Without it, the keep-on-screen and edge-snapping
+        // paths are silently skipped in tests.
         getDisplayNearestPoint: () => ({
           bounds: { x: 0, y: 0, width: 1920, height: 1080 },
           workArea: { x: 0, y: 0, width: 1920, height: 1040 },
@@ -229,7 +229,7 @@ function makeElectron(userData) {
         showErrorBox(title, detail) {
           errors.push({ title, detail });
         },
-        // 큰 오류를 알리는 창. 무엇을 보여 줬는지 적어 두고 '닫기'를 고른 것으로 한다.
+        // Fatal error dialog. Records what was shown and picks the configured button ("Close" by default).
         showMessageBoxSync(options) {
           errors.push(options);
           return fatalPick;
@@ -248,7 +248,7 @@ function makeElectron(userData) {
         },
       },
       nativeImage: {
-        // 어떤 파일을 그림으로 삼았는지 테스트에서 확인할 수 있게 경로를 달아 둔다.
+        // Attaches the path so tests can check which file was used as the image.
         createFromPath: (file) => ({
           path: file,
           isEmpty: () => !fs.existsSync(file),
@@ -288,7 +288,7 @@ function makeElectron(userData) {
           ipcListeners.set(channel, list);
         },
         handle() {},
-        // 검사에서 창이 보낸 것처럼 그 채널의 손잡이를 부른다.
+        // Calls the channel's handlers as if a window had sent the message.
         emit(channel, payload) {
           for (const fn of ipcListeners.get(channel) || []) fn({}, payload);
         },
@@ -303,20 +303,20 @@ function makeDesktop() {
     emptied: 0, binOwners: [], shutdown: 0, shell: [], hidden: [], revealed: [],
     nudged: [], homed: [], refreshed: [], concealedDirs: [], placedAt: [],
   };
-  // 검사에서 바탕화면으로 볼 폴더. 기본은 없다.
+  // Folders treated as the desktop in tests. None by default.
   let deskDirs = [];
-  // 바탕화면 아이콘 격자. 기본은 없다고 두어 박스를 그린 자리에 그대로 둔다.
+  // Desktop icon grid. None by default, so boxes stay exactly where they were drawn.
   let grid = null;
-  // 지금 숨김 속성이 붙어 있는 파일.
+  // Files that currently have the hidden attribute.
   const concealed = new Set();
   return {
     calls,
     concealed,
-    // 검사에서 '이 폴더가 바탕화면이다' 라고 알려 준다.
+    // Tells the fake which folders are the desktop.
     useDesktop(...dirs) {
       deskDirs = dirs.filter(Boolean);
     },
-    // 검사에서 바탕화면 아이콘 격자를 정해 준다. 박스가 여기에 맞춰진다.
+    // Sets the desktop icon grid for a test. Boxes snap to it.
     useGrid(value) {
       grid = value;
     },
@@ -350,7 +350,7 @@ function makeDesktop() {
       watchDesktop: () => () => {},
       labelOf: (name) => String(name).replace(/\.(lnk|url)$/i, ''),
       sameName: () => false,
-      // 진짜 모듈처럼 시스템 창이 닫힌 뒤에 답을 준다.
+      // Like the real module, resolves after the system dialog closes.
       emptyRecycle(owner) {
         calls.emptied += 1;
         calls.binOwners.push(owner);
@@ -359,17 +359,17 @@ function makeDesktop() {
       syncShellIcons(items) {
         calls.shell.push((items || []).filter((item) => String(item.path).startsWith('shell:')).map((item) => item.path));
       },
-      // 박스가 깔고 앉은 바탕화면 아이콘을 밖으로 밀어낸다.
+      // Pushes desktop icons out from under the boxes.
       nudge(blocks) {
         calls.nudged.push((blocks || []).map((rect) => ({ ...rect })));
         calls.blocks.push(blocks || []);
         return true;
       },
-      // 바탕화면 아이콘 격자. 검사에서 useGrid 로 정해 준 것만 돌려준다.
+      // Desktop icon grid. Returns only what the test set with useGrid.
       gridInfo() {
         return grid;
       },
-      // 보관함 폴더를 탐색기에서 감춘다.
+      // Hides the storage folder from Explorer.
       hidePath(dir) {
         calls.concealedDirs.push(dir);
         return true;
@@ -382,7 +382,7 @@ function makeDesktop() {
         calls.homed.push((names || []).slice());
         return true;
       },
-      // 끌어다 놓은 자리에 아이콘을 둔다.
+      // Places the icon where it was dropped.
       putAt(name, point) {
         calls.placedAt.push({ name, point });
         return true;
@@ -401,7 +401,7 @@ function makeDesktop() {
       },
       isOnDesktop: (filePath) => deskDirs.some((dir) => path.relative(dir, path.dirname(String(filePath))) === ''),
       desktopDirectories: () => deskDirs.slice(),
-      // 검사에서 바탕화면으로 본 폴더의 내용. 진짜 모듈처럼 폴더를 그대로 읽는다.
+      // Contents of the test desktop folders. Reads the folders directly, like the real module.
       desktopEntries() {
         const out = [];
         for (const dir of deskDirs) {
@@ -428,10 +428,10 @@ function makeDesktop() {
   };
 }
 
-// fences.js 를 가짜 모듈과 함께 새로 읽어 온다.
+// Freshly loads fences.js with the fake modules.
 function loadHost(state) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-test-'));
-  // 복사·붙여넣기 검사는 메모리만 쓴다. 쓰는 사람의 클립보드를 바꾸면 안 된다.
+  // Copy/paste tests use memory only. They must not touch the user's clipboard.
   require(path.join(__dirname, '..', '..', 'src', 'main', 'clipfiles')).useMemory();
   const electron = makeElectron(userData);
   const desktop = makeDesktop();
@@ -439,19 +439,19 @@ function loadHost(state) {
   const fencesPath = path.join(root, 'fences.js');
   const storePath = path.join(root, 'store.js');
 
-  // 묻는 창은 창을 띄우지 않고 미리 정한 답을 준다.
-  // before 를 달아 두면 답을 주기 직전에 부른다. 묻는 동안 무엇이 바뀌는 경우를 흉내 낸다.
-  // hold 에 약속을 달아 두면 그것이 풀릴 때까지 답하지 않는다. 창이 떠 있는 동안을 흉내 낸다.
+  // Prompts return a preset answer without opening a window.
+  // If `before` is set, it is called right before answering, to simulate changes while the prompt is open.
+  // If `hold` is set to a promise, no answer is given until it resolves, to simulate the dialog staying open.
   const asks = { reply: false, calls: [], before: null, hold: null };
   const askStub = {
-    // 알림창. 고를 것이 없고 알리기만 한다. 부른 것은 confirm 과 같은 자리에 적어 둔다.
+    // Notice dialog: nothing to choose, it only informs. Calls are recorded alongside confirm calls.
     notice(options) {
       return askStub.confirm({ ...options, lone: true });
     },
     confirm(options) {
       asks.calls.push(options);
       if (typeof asks.before === 'function') asks.before(options);
-      // 답은 풀리는 때에 읽는다. 창이 떠 있는 동안 검사가 답을 바꿀 수 있어야 한다.
+      // The answer is read on resolve so tests can change it while the dialog is open.
       if (asks.hold) return asks.hold.then(() => asks.reply);
       return Promise.resolve(asks.reply);
     },
@@ -477,17 +477,17 @@ function loadHost(state) {
   const iconsPath = path.join(root, 'icons.js');
   delete require.cache[trayPath];
   delete require.cache[iconsPath];
-  // autostart 와 props 는 읽을 때 electron 을 붙잡는다. 검사마다 새로 읽어야
-  // 이번 가짜를 쓴다. 묵혀 두면 지난 검사의 창 목록에 속성 창이 쌓인다.
+  // autostart and props capture electron when loaded. They must be reloaded per test
+  // to use the current fake; otherwise property windows pile up in a previous test's window list.
   delete require.cache[path.join(root, 'autostart.js')];
   delete require.cache[path.join(root, 'props.js')];
 
   try {
     const { createHost } = require(fencesPath);
-    // 가짜 모듈이 걸려 있는 동안 미리 읽어 둔다. 나중에 읽으면 진짜 electron 을 찾는다.
+    // Load it now while the fakes are installed; loading later would find the real electron.
     const tray = require(trayPath);
     const host = createHost(state);
-    // 지금까지 쓰던 대로 0 이면 '예', 그 밖이면 '아니오' 로 둔다.
+    // As before, 0 means "Yes" and anything else means "No".
     const setAnswer = electron.setDialogAnswer;
     electron.setDialogAnswer = (value) => {
       asks.reply = value === 0;
@@ -506,7 +506,7 @@ function loadHost(state) {
   }
 }
 
-// main.js 를 가짜 모듈과 함께 띄운다. 시작과 종료 절차를 그대로 밟아 볼 수 있다.
+// Starts main.js with the fake modules so the full startup and shutdown sequence can be exercised.
 async function loadMain(state) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-main-'));
   require(path.join(__dirname, '..', '..', 'src', 'main', 'clipfiles')).useMemory();
@@ -523,7 +523,7 @@ async function loadMain(state) {
     ['./store', '\u0000store'],
   ]);
   const askStub = { confirm: () => Promise.resolve(false), notice: () => Promise.resolve() };
-  // 저장은 하지 않는다. 검사에서 준 상태를 그대로 쓴다.
+  // Nothing is saved; the state given by the test is used as is.
   const storeStub = {
     load: () => state,
     save() {},
@@ -542,7 +542,7 @@ async function loadMain(state) {
     delete require.cache[path.join(root, file)];
   }
 
-  // main.js 는 주기 확인을 건다. 검사가 끝나도 남으면 프로세스가 끝나지 않으므로 모아 둔다.
+  // main.js starts periodic checks. Collect them, since leftover timers keep the process alive after tests.
   const timers = [];
   const realInterval = global.setInterval;
   global.setInterval = (...args) => {
@@ -551,8 +551,17 @@ async function loadMain(state) {
     return timer;
   };
 
-  // main.js 가 프로세스에 거는 손잡이. 검사 프로세스에 남으면 다음 검사까지 따라가므로
-  // 무엇이 늘었는지 적어 두었다가 끝날 때 떼어 낸다.
+  // Handlers main.js attaches to the process. If left on the test process they leak into later tests,
+  // so record which ones were added and remove them at the end.
+  // main.js prints crash reports and notices to the console. Keep them in `logs` instead,
+  // so a passing run prints nothing besides the test results.
+  const logs = [];
+  const realConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+  for (const level of Object.keys(realConsole)) {
+    console[level] = (...args) => logs.push({ level, text: args.map(String).join(' ') });
+  }
+  const restoreConsole = () => Object.assign(console, realConsole);
+
   const SIGNALS = ['uncaughtException', 'unhandledRejection', 'exit', 'SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK'];
   const had = new Map(SIGNALS.map((name) => [name, new Set(process.listeners(name))]));
   const added = () => {
@@ -565,7 +574,7 @@ async function loadMain(state) {
 
   try {
     require(mainPath);
-    // whenReady 가 끝난 뒤에 창과 트레이가 생긴다.
+    // Windows and the tray are created after whenReady finishes.
     await new Promise((done) => setImmediate(done));
     await new Promise((done) => setImmediate(done));
     const hooks = added();
@@ -577,33 +586,38 @@ async function loadMain(state) {
     const stop = () => {
       for (const timer of timers) clearInterval(timer);
       unhook();
+      restoreConsole();
     };
     return {
       electron,
       desktop,
       userData,
       hooks,
+      logs,
       quit: async () => {
         await electron.module.app.fire('before-quit');
         stop();
       },
-      // 큰 오류가 난 것처럼 만든다. 손잡이를 직접 불러 검사 실행기와 섞이지 않게 한다.
+      // Simulates a fatal error. Calls the handlers directly so it doesn't interfere with the test runner.
       crash: (err) => {
         for (const fn of hooks.get('uncaughtException')) fn(err);
         stop();
       },
-      // Ctrl+C 로 끊은 것처럼 만든다.
+      // Simulates an interrupt via Ctrl+C.
       signal: (name = 'SIGINT') => {
         for (const fn of hooks.get(name)) fn();
         stop();
       },
-      // 창을 닫지 못하고 끝나는 길.
+      // Exit path where windows never get a chance to close.
       exit: () => {
         for (const fn of hooks.get('exit')) fn();
         stop();
       },
       stop,
     };
+  } catch (err) {
+    restoreConsole();
+    throw err;
   } finally {
     global.setInterval = realInterval;
     Module._resolveFilename = original;
@@ -627,8 +641,8 @@ function fence(extra) {
   };
 }
 
-// 박스는 제 폴더에서 돌아간다. 검사마다 빈 보관함 폴더를 따로 준다.
-// 이 값이 없으면 진짜 집 폴더에 검사용 폴더가 생긴다.
+// Boxes work out of their own folders. Each test gets its own empty storage folder;
+// without this, test folders would be created in the real home folder.
 function tempRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-root-'));
 }
@@ -654,7 +668,7 @@ function baseState(extra) {
   };
 }
 
-// ghost 나 그리기 창을 빼고 박스 창만 고른다.
+// Selects only box windows, excluding ghost and drawing windows.
 function fenceWindows(electron) {
   return electron.windows.filter((win) => win.loaded && /fence\.html$/.test(win.loaded.file));
 }

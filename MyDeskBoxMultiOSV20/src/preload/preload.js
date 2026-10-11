@@ -23,9 +23,10 @@ contextBridge.exposeInMainWorld('desk', {
   saveBounds: (rect) => ipcRenderer.send('fence:bounds-save', rect),
   hover: (payload) => ipcRenderer.send('fence:hover', payload),
   overForeign: (screenX, screenY) => ipcRenderer.sendSync('fence:over-foreign', { screenX, screenY }),
-  dragOut: (filePath) => ipcRenderer.sendSync('fence:drag-out', filePath),
+  // 파일 하나나 여러 개의 목록을 넘긴다.
+  dragOut: (filePaths) => ipcRenderer.sendSync('fence:drag-out', filePaths),
   // 마우스 메시지가 끝난 뒤에 넘긴다. 그 안에서 넘기면 운영체제가 끌기를 곧 끝낸다.
-  dragOutLater: (filePath) => ipcRenderer.send('fence:drag-out-later', filePath),
+  dragOutLater: (filePaths) => ipcRenderer.send('fence:drag-out-later', filePaths),
   scrolled: (id, top) => ipcRenderer.send('fence:scroll', { id, top }),
   collapse: (id, collapsed) => ipcRenderer.invoke('fence:collapse', { id, collapsed }),
   transfer: (payload) => ipcRenderer.invoke('fence:transfer', payload),

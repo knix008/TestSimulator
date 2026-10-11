@@ -4,48 +4,48 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createTaps, DOUBLE_MS } = require('../src/shared/taps');
 
-// 시계를 직접 쥐고 시간을 흘려 본다.
+// Use a fake clock and advance time manually.
 function fake() {
   let now = 1000;
   const taps = createTaps(DOUBLE_MS, () => now);
   return { taps, wait: (ms) => { now += ms; } };
 }
 
-test('같은 아이콘을 빠르게 두 번 누르면 실행한다', () => {
+test('quickly tapping the same icon twice launches it', () => {
   const { taps, wait } = fake();
-  assert.equal(taps.tap('a.lnk'), false, '한 번 눌러서는 실행하지 않는다');
+  assert.equal(taps.tap('a.lnk'), false, 'a single tap must not launch');
   wait(120);
   assert.equal(taps.tap('a.lnk'), true);
 });
 
-test('천천히 두 번 누르면 실행하지 않는다', () => {
+test('two slow taps do not launch', () => {
   const { taps, wait } = fake();
   taps.tap('a.lnk');
   wait(DOUBLE_MS + 1);
   assert.equal(taps.tap('a.lnk'), false);
 });
 
-test('다른 아이콘을 이어서 누르면 실행하지 않는다', () => {
+test('tapping a different icon next does not launch', () => {
   const { taps, wait } = fake();
   taps.tap('a.lnk');
   wait(50);
   assert.equal(taps.tap('b.lnk'), false);
   wait(50);
-  assert.equal(taps.tap('b.lnk'), true, 'b 를 두 번 누른 것은 센다');
+  assert.equal(taps.tap('b.lnk'), true, 'two taps on b count as a double tap');
 });
 
-test('세 번 눌러도 한 번만 실행한다', () => {
+test('three taps launch only once', () => {
   const { taps, wait } = fake();
   assert.equal(taps.tap('a.lnk'), false);
   wait(80);
   assert.equal(taps.tap('a.lnk'), true);
   wait(80);
-  assert.equal(taps.tap('a.lnk'), false, '세 번째는 새로 세기 시작한다');
+  assert.equal(taps.tap('a.lnk'), false, 'the third tap starts a new count');
   wait(80);
   assert.equal(taps.tap('a.lnk'), true);
 });
 
-test('누르기 전에는 기다리는 아이콘이 없다', () => {
+test('no icon is pending before any tap', () => {
   const { taps } = fake();
   assert.equal(taps.pending(), null);
   taps.tap('a.lnk');
@@ -54,14 +54,14 @@ test('누르기 전에는 기다리는 아이콘이 없다', () => {
   assert.equal(taps.pending(), null);
 });
 
-test('빈 대상은 두 번 눌러도 실행하지 않는다', () => {
+test('an empty target does not launch even when tapped twice', () => {
   const { taps, wait } = fake();
   assert.equal(taps.tap(null), false);
   wait(40);
   assert.equal(taps.tap(null), false);
 });
 
-test('끌어 옮긴 뒤에는 두 번 누른 것으로 세지 않는다', () => {
+test('a tap after dragging does not count as a double tap', () => {
   const { taps, wait } = fake();
   taps.tap('a.lnk');
   taps.forget();

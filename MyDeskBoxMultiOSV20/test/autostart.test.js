@@ -1,10 +1,10 @@
 'use strict';
 
-// Linux 에는 Electron 이 맡아 주는 로그인 항목이 없다.
-// 그래서 ~/.config/autostart 에 .desktop 파일을 손으로 둔다. 그 길만 따로 본다.
+// Linux has no login-item support handled by Electron, so we place a .desktop
+// file in ~/.config/autostart ourselves. This file tests only that path.
 //
-// 이 파일은 운영체제와 electron 을 둘 다 흉내 낸다. 다른 검사와 섞이지 않게
-// 파일 하나를 통째로 쓴다.
+// It fakes both the platform and electron, so it gets a file of its own to
+// avoid interfering with other tests.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -28,7 +28,7 @@ require.cache[KEY] = { id: KEY, filename: KEY, loaded: true, exports: fake };
 
 const autostart = require('../src/main/autostart');
 
-test('켜면 autostart 폴더에 .desktop 파일을 둔다', () => {
+test('enabling writes a .desktop file to the autostart folder', () => {
   assert.equal(autostart.apply(true, 'MyDeskBox'), true);
 
   const file = autostart.desktopFile();
@@ -37,30 +37,30 @@ test('켜면 autostart 폴더에 .desktop 파일을 둔다', () => {
   assert.match(body, /^\[Desktop Entry\]$/m);
   assert.match(body, /^Type=Application$/m);
   assert.match(body, /^Name=MyDeskBox$/m);
-  assert.ok(body.includes(process.execPath), '무엇을 켤지 적혀 있지 않다');
+  assert.ok(body.includes(process.execPath), 'the file does not say what to launch');
   assert.match(body, /^X-GNOME-Autostart-enabled=true$/m);
   assert.equal(autostart.enabled(), true);
 });
 
-test('끄면 그 파일을 치운다', () => {
+test('disabling removes the file', () => {
   autostart.apply(true, 'MyDeskBox');
   assert.equal(autostart.apply(false, 'MyDeskBox'), true);
   assert.equal(fs.existsSync(autostart.desktopFile()), false);
   assert.equal(autostart.enabled(), false);
 });
 
-test('이미 없으면 끄는 길로 아무것도 하지 않는다', () => {
+test('disabling does nothing when the file is already gone', () => {
   autostart.apply(false, 'MyDeskBox');
-  assert.equal(autostart.sync(false, 'MyDeskBox'), false, '없는 것을 또 지운다');
+  assert.equal(autostart.sync(false, 'MyDeskBox'), false, 'tried to delete a file that does not exist');
 });
 
-test('켤 때마다 지금 자리로 다시 적는다', () => {
+test('every enable rewrites the file with the current location', () => {
   autostart.apply(false, 'MyDeskBox');
   assert.equal(autostart.sync(true, 'MyDeskBox'), true);
-  assert.equal(fs.existsSync(autostart.desktopFile()), true, '지웠던 것이 되살아나지 않는다');
+  assert.equal(fs.existsSync(autostart.desktopFile()), true, 'the removed file was not recreated');
 });
 
-test('개발 중에 띄운 것은 등록하지 않는다', () => {
+test('a development (unpackaged) run is not registered', () => {
   autostart.apply(false, 'MyDeskBox');
   fake.app.isPackaged = false;
   try {
@@ -71,22 +71,22 @@ test('개발 중에 띄운 것은 등록하지 않는다', () => {
   }
 });
 
-test('AppImage 는 껍데기 경로를 적는다', () => {
-  // 안쪽 실행 파일은 켤 때마다 자리가 바뀐다. 그것을 적어 두면 다음 로그인에 없다.
+test('an AppImage records the outer AppImage path', () => {
+  // The inner executable moves on every launch; recording it would leave a dead path at next login.
   const shell = '/home/me/Apps/My Desk Box.AppImage';
   process.env.APPIMAGE = shell;
   try {
     autostart.apply(true, 'MyDeskBox');
     const body = fs.readFileSync(autostart.desktopFile(), 'utf8');
-    // 빈칸이 든 경로는 따옴표로 감싸야 한 낱말로 읽힌다.
+    // A path containing spaces must be quoted to be read as a single word.
     assert.match(body, /^Exec="\/home\/me\/Apps\/My Desk Box\.AppImage"$/m);
-    assert.ok(!body.includes(process.execPath), '안쪽 실행 파일을 적었다');
+    assert.ok(!body.includes(process.execPath), 'recorded the inner executable');
   } finally {
     delete process.env.APPIMAGE;
   }
 });
 
-test('빈칸 없는 경로는 따옴표를 붙이지 않는다', () => {
+test('a path without spaces is not quoted', () => {
   process.env.APPIMAGE = '/opt/mydeskbox/MyDeskBox';
   try {
     autostart.apply(true, 'MyDeskBox');
@@ -96,20 +96,20 @@ test('빈칸 없는 경로는 따옴표를 붙이지 않는다', () => {
   }
 });
 
-test('이름을 주지 않아도 사람이 읽을 이름으로 적는다', () => {
+test('a human-readable name is used even when none is given', () => {
   autostart.apply(true);
   assert.match(fs.readFileSync(autostart.desktopFile(), 'utf8'), /^Name=MyDeskBox$/m);
 });
 
-test('.desktop 은 창을 띄우지 않고 목록에도 보이지 않는다', () => {
+test('the .desktop entry opens no terminal and stays out of the app menu', () => {
   autostart.apply(true, 'MyDeskBox');
   const body = fs.readFileSync(autostart.desktopFile(), 'utf8');
-  assert.match(body, /^Terminal=false$/m, '터미널 창이 함께 뜬다');
-  assert.match(body, /^NoDisplay=true$/m, '프로그램 목록에 하나 더 보인다');
-  assert.ok(body.endsWith('\n'), '마지막 줄이 끝나지 않았다');
+  assert.match(body, /^Terminal=false$/m, 'a terminal window opens alongside');
+  assert.match(body, /^NoDisplay=true$/m, 'an extra entry shows up in the app menu');
+  assert.ok(body.endsWith('\n'), 'the last line is not terminated');
 });
 
-test('켜고 또 켜도 한 벌만 남는다', () => {
+test('enabling twice leaves only one file', () => {
   autostart.apply(true, 'MyDeskBox');
   autostart.apply(true, 'MyDeskBox');
   const dir = path.dirname(autostart.desktopFile());

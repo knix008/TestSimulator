@@ -1,9 +1,9 @@
 'use strict';
 
-// npm start 가 앱이 남긴 말을 깨뜨리지 않고 그대로 보여 주는지.
+// Checks that npm start relays the app's output without garbling it.
 //
-// 진짜 Electron 을 띄우면 바탕화면을 차지한다. 그래서 electron 자리에 node 를 끼운다.
-// node 로 켜진 main.js 는 한국어 안내를 남기고 1 로 끝난다. 그 말과 끝난 값을 받아 본다.
+// Launching real Electron would take over the desktop, so node is swapped in for electron.
+// When started under node, main.js prints a Korean notice and exits with 1; we capture both.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -14,7 +14,7 @@ const { spawn } = require('node:child_process');
 
 const START = path.join(__dirname, '..', 'tools', 'start.js');
 
-test('npm start 는 앱이 남긴 한국어를 깨뜨리지 않고 끝난 값도 그대로 넘긴다', async () => {
+test('npm start relays Korean app output intact and passes through the exit code', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdb-start-'));
   const wrapper = path.join(dir, 'run.js');
   fs.writeFileSync(wrapper, `'use strict';
@@ -36,18 +36,18 @@ require(${JSON.stringify(START)});
       child.on('error', reject);
       child.on('close', (code) => resolve({ code, text: Buffer.concat(out).toString('utf8') }));
     });
-    assert.equal(result.code, 1, `앱이 끝난 값을 넘기지 않았다\n${result.text}`);
-    assert.match(result.text, /Electron 이 아니라 Node 로 켜졌습니다/, `앱의 말이 깨졌거나 오지 않았다\n${result.text}`);
-    assert.doesNotMatch(result.text, /\uFFFD/, '깨진 글자가 섞였다');
+    assert.equal(result.code, 1, `the app's exit code was not passed through\n${result.text}`);
+    assert.match(result.text, /Electron 이 아니라 Node 로 켜졌습니다/, `the app's message was garbled or missing\n${result.text}`);
+    assert.doesNotMatch(result.text, /\uFFFD/, 'output contains garbled characters');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('npm start 는 앱의 출력을 받아 글로 풀어 다시 쓴다', () => {
+test('npm start pipes the app output, decodes it as text, and rewrites it', () => {
   const source = fs.readFileSync(START, 'utf8');
-  assert.match(source, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, '앱이 터미널에 바로 써서 CP949 터미널에서 글이 깨진다');
-  assert.match(source, /stdout\.setEncoding\('utf8'\)/, '표준 출력을 UTF-8 로 풀지 않는다');
-  assert.match(source, /stderr\.setEncoding\('utf8'\)/, '오류 출력을 UTF-8 로 풀지 않는다');
-  assert.match(source, /delete env\.ELECTRON_RUN_AS_NODE/, 'ELECTRON_RUN_AS_NODE 를 걷어 내지 않는다');
+  assert.match(source, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, 'the app writes straight to the terminal, so text is garbled in a CP949 terminal');
+  assert.match(source, /stdout\.setEncoding\('utf8'\)/, 'stdout is not decoded as UTF-8');
+  assert.match(source, /stderr\.setEncoding\('utf8'\)/, 'stderr is not decoded as UTF-8');
+  assert.match(source, /delete env\.ELECTRON_RUN_AS_NODE/, 'ELECTRON_RUN_AS_NODE is not removed');
 });

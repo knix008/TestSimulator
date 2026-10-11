@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const { loadHost, fence, baseState, tempRoot, fenceWindows } = require('./helpers/fakes');
 const { THEMES, DEFAULT_THEME } = require('../src/main/themes');
 
-test('박스는 여러 개를 만들 수 있고 저마다 창을 가진다', () => {
+test('multiple boxes can be created, each with its own window', () => {
   const state = baseState();
   const { host, electron } = loadHost(state);
   host.openAll();
@@ -18,21 +18,21 @@ test('박스는 여러 개를 만들 수 있고 저마다 창을 가진다', () 
 
   assert.equal(state.fences.length, 3);
   const ids = new Set([first.id, second.id, third.id]);
-  assert.equal(ids.size, 3, '박스마다 다른 이름표를 갖는다');
-  assert.equal(fenceWindows(electron).length, 3, '박스마다 창이 하나씩 열린다');
+  assert.equal(ids.size, 3, 'each box has a distinct id');
+  assert.equal(fenceWindows(electron).length, 3, 'each box opens one window');
 
   const titles = state.fences.map((entry) => entry.title);
-  assert.equal(new Set(titles).size, 3, `제목이 겹친다: ${titles.join(', ')}`);
+  assert.equal(new Set(titles).size, 3, `duplicate titles: ${titles.join(', ')}`);
 
-  // 자리도 그린 그대로다.
+  // Positions match what was drawn.
   assert.deepEqual(
     state.fences.map((entry) => [entry.x, entry.y]),
     [[10, 10], [400, 20], [80, 400]]
   );
 });
 
-// 박스를 지워도 파일은 건드리지 않는다. 담고 있던 아이콘만 제자리로 돌려놓는다.
-test('박스를 지우면 담고 있던 아이콘이 제자리로 돌아간다', async () => {
+// Deleting a box never touches files. It only returns the icons it held to their original spots.
+test('deleting a box returns its icons to their original spots', async () => {
   const room = tempRoot();
   const made = ['a.lnk', 'b.lnk'].map((name) => {
     const at = path.join(room, name);
@@ -45,31 +45,31 @@ test('박스를 지우면 담고 있던 아이콘이 제자리로 돌아간다',
   for (const win of electron.windows) win.ready();
   host.refreshIcons();
 
-  electron.setDialogAnswer(0); // 삭제를 고른다
+  electron.setDialogAnswer(0); // choose Delete
   await host.removeFence('a');
 
-  assert.equal(state.fences.length, 0, '박스가 사라진다');
-  assert.deepEqual(desktop.calls.homed.at(-1), ['a.lnk', 'b.lnk'], '아이콘을 제자리로 돌려놓지 않았다');
+  assert.equal(state.fences.length, 0, 'the box is removed');
+  assert.deepEqual(desktop.calls.homed.at(-1), ['a.lnk', 'b.lnk'], 'icons were not returned to their original spots');
   for (const item of made) {
-    assert.equal(fs.existsSync(item.path), true, `${item.name} 이 사라졌다`);
+    assert.equal(fs.existsSync(item.path), true, `${item.name} disappeared`);
   }
-  assert.equal(fenceWindows(electron)[0].isDestroyed(), true, '창도 닫는다');
+  assert.equal(fenceWindows(electron)[0].isDestroyed(), true, 'the window is closed too');
 });
 
-test('삭제를 취소하면 박스도 항목도 그대로다', async () => {
+test('canceling deletion leaves the box and its items intact', async () => {
   const items = [{ name: 'a.lnk', path: 'C:/Desktop/a.lnk' }];
   const state = baseState({ fences: [fence({ items })] });
   const { host, electron, desktop } = loadHost(state);
   host.openAll();
 
-  electron.setDialogAnswer(1); // 취소
+  electron.setDialogAnswer(1); // Cancel
   await host.removeFence('a');
 
   assert.equal(state.fences.length, 1);
   assert.equal(desktop.calls.moved.length, 0);
 });
 
-test('박스마다 테마를 따로 정할 수 있다', async () => {
+test('each box can have its own theme', async () => {
   const state = baseState({ fences: [fence({ id: 'a' }), fence({ id: 'b' })] });
   const { host, electron } = loadHost(state);
   host.openAll();
@@ -81,21 +81,21 @@ test('박스마다 테마를 따로 정할 수 있다', async () => {
   assert.equal(state.fences[0].theme, 'sunset');
   assert.equal(state.fences[1].theme, 'night');
 
-  // 화면에도 고른 테마의 색이 그대로 전달된다.
+  // The chosen theme's colors are passed through to the screen as-is.
   await host.push('a');
   const sent = fenceWindows(electron)[0].messages('fence:state').at(-1);
   assert.equal(sent.theme.id, 'sunset');
   assert.equal(sent.theme.bg, THEMES.find((t) => t.id === 'sunset').bg);
 });
 
-test('모르는 테마를 주면 기본 테마로 둔다', () => {
+test('an unknown theme falls back to the default theme', () => {
   const state = baseState({ fences: [fence()] });
   const { host } = loadHost(state);
   host.restyle('a', { theme: '없는테마' });
   assert.equal(state.fences[0].theme, DEFAULT_THEME);
 });
 
-test('투명도는 너무 흐리거나 너무 진해지지 않는다', () => {
+test('opacity is clamped so it is never too faint or too solid', () => {
   const state = baseState({ fences: [fence()] });
   const { host } = loadHost(state);
   host.restyle('a', { opacity: 5 });
@@ -104,7 +104,7 @@ test('투명도는 너무 흐리거나 너무 진해지지 않는다', () => {
   assert.ok(state.fences[0].opacity >= 0.15);
 });
 
-test('삭제는 우리 창으로 묻고, 되돌릴 수 없는 일이라 빨갛게 보여 준다', async () => {
+test('deletion asks in our own window and shows red because it cannot be undone', async () => {
   const state = baseState({ fences: [fence({ title: '일감' })] });
   const { host, electron, asks } = loadHost(state);
   host.openAll();
@@ -113,15 +113,15 @@ test('삭제는 우리 창으로 묻고, 되돌릴 수 없는 일이라 빨갛�
   await host.removeFence('a');
 
   const asked = asks.calls.at(-1);
-  assert.ok(asked, '묻는 창을 띄운다');
-  assert.match(asked.title, /일감/, '어느 박스인지 알려 준다');
-  assert.ok(asked.detail, '무슨 일이 일어나는지 알려 준다');
-  assert.equal(asked.danger, true, '되돌릴 수 없는 일임을 표시한다');
-  assert.ok(asked.icon, '그림도 함께 보여 준다');
-  assert.ok(asked.confirm && asked.cancel, '두 단추의 글이 있다');
+  assert.ok(asked, 'shows a confirmation window');
+  assert.match(asked.title, /일감/, 'says which box it is');
+  assert.ok(asked.detail, 'explains what will happen');
+  assert.equal(asked.danger, true, 'marks the action as irreversible');
+  assert.ok(asked.icon, 'shows an image as well');
+  assert.ok(asked.confirm && asked.cancel, 'both buttons have labels');
 });
 
-test('박스 만들기도 우리 창으로 묻는다', async () => {
+test('creating a box also asks in our own window', async () => {
   const state = baseState();
   const { host, electron, asks } = loadHost(state);
   electron.setDialogAnswer(0);
@@ -129,11 +129,11 @@ test('박스 만들기도 우리 창으로 묻는다', async () => {
 
   const asked = asks.calls.at(-1);
   assert.ok(asked);
-  assert.notEqual(asked.danger, true, '만드는 일은 위험하지 않다');
+  assert.notEqual(asked.danger, true, 'creating is not dangerous');
   assert.ok(asked.icon);
 });
 
-test('묻는 창의 글은 고른 언어를 따른다', async () => {
+test('confirmation window text follows the chosen language', async () => {
   const state = baseState({ settings: { lang: 'en', openAtLogin: false, theme: 'ocean', opacity: 0.52 } });
   const { host, electron, asks } = loadHost(state);
   electron.setDialogAnswer(1);
@@ -143,7 +143,7 @@ test('묻는 창의 글은 고른 언어를 따른다', async () => {
 });
 
 
-test('바탕화면에서 끌어 온 휴지통은 그 박스에 담긴다', async () => {
+test('the Recycle Bin dragged from the desktop goes into that box', async () => {
   const state = baseState({ fences: [fence({ x: 100, y: 100, w: 400, h: 300 })] });
   const { host, electron } = loadHost(state);
   host.openAll();
@@ -161,7 +161,7 @@ test('바탕화면에서 끌어 온 휴지통은 그 박스에 담긴다', async
 
 });
 
-test('박스 밖에 놓은 휴지통은 담지 않는다', async () => {
+test('the Recycle Bin dropped outside a box is not added', async () => {
   const state = baseState({ fences: [fence({ x: 100, y: 100, w: 200, h: 160 })] });
   const { host, electron } = loadHost(state);
   host.openAll();
@@ -175,7 +175,7 @@ test('박스 밖에 놓은 휴지통은 담지 않는다', async () => {
   assert.equal(state.fences[0].items.length, 0);
 });
 
-test('휴지통처럼 끌어 넣을 수 없는 항목은 메뉴로 담는다', async () => {
+test('items that cannot be dragged in, like the Recycle Bin, are added via the menu', async () => {
   const state = baseState({ fences: [fence()] });
   const { host, electron } = loadHost(state);
   host.openAll();
@@ -184,22 +184,22 @@ test('휴지통처럼 끌어 넣을 수 없는 항목은 메뉴로 담는다', a
   host.showMenu('a', null);
   const template = electron.menus.at(-1);
   const special = template.find((item) => item.label === '바탕화면 항목 담기');
-  assert.ok(special, '메뉴에 바탕화면 항목 담기가 있다');
-  assert.ok(special.icon, '머리 항목에 그림이 있다');
+  assert.ok(special, 'the menu has the add-desktop-items entry');
+  assert.ok(special.icon, 'the parent entry has an image');
 
   const bin = special.submenu.find((item) => item.label === '휴지통');
-  assert.ok(bin, '휴지통이 목록에 있다');
-  assert.ok(bin.icon, '휴지통에도 그림이 있다');
+  assert.ok(bin, 'the Recycle Bin is in the list');
+  assert.ok(bin.icon, 'the Recycle Bin also has an image');
 
   await bin.click();
   assert.deepEqual(
     state.fences[0].items.map((item) => item.path),
     ['shell:RecycleBinFolder'],
-    '고르면 박스에 담긴다'
+    'choosing it adds it to the box'
   );
 });
 
-test('이미 담은 바탕화면 항목은 메뉴에 다시 나오지 않는다', () => {
+test('desktop items already added do not appear in the menu again', () => {
   const state = baseState({
     fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
   });
@@ -207,10 +207,10 @@ test('이미 담은 바탕화면 항목은 메뉴에 다시 나오지 않는다'
   host.openAll();
   host.showMenu('a', null);
   const special = electron.menus.at(-1).find((item) => item.label === '바탕화면 항목 담기');
-  assert.equal(special, undefined, '담을 것이 없으면 메뉴도 나오지 않는다');
+  assert.equal(special, undefined, 'the menu does not appear when there is nothing to add');
 });
 
-test('셸 항목은 파일이 없다고 지워지지 않는다', async () => {
+test('shell items are not removed for lacking a file', async () => {
   const state = baseState({
     fences: [fence({ items: [{ name: '휴지통', path: 'shell:RecycleBinFolder' }] })],
   });
@@ -218,5 +218,5 @@ test('셸 항목은 파일이 없다고 지워지지 않는다', async () => {
   host.openAll();
   for (const win of electron.windows) win.ready();
   await host.push('a');
-  assert.equal(state.fences[0].items.length, 1, '셸 항목이 살아남는다');
+  assert.equal(state.fences[0].items.length, 1, 'the shell item survives');
 });

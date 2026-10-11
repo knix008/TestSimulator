@@ -1,6 +1,6 @@
 'use strict';
 
-// npm test reporter. Marks stay ASCII so a Korean console does not print "?".
+// npm test reporter. Marks and labels stay ASCII so any console code page prints them.
 
 const path = require('path');
 
@@ -20,26 +20,39 @@ const grey = paint('90');
 const redBold = paint('1;31');
 const greenBold = paint('1;32');
 
-const RULE = '-'.repeat(52);
+const RULE = '-'.repeat(72);
+const SLOWEST = 5;
 
-const KO = {
-  unknown: '\uC5B4\uB514\uC778\uC9C0 \uBAA8\uB984',
-  expected: '\uBC14\uB77C\uB358 \uAC12',
-  actual: '\uC2E4\uC81C \uAC12  ',
-  todo: '\uD560 \uC77C',
-  skipped: '\uAC74\uB108\uB6F0',
-  failedHead: '\uC2E4\uD328\uD55C \uAC80\uC0AC',
-  passed: '\uD1B5\uACFC',
-  failed: '\uC2E4\uD328',
-  failedZero: '\uC2E4\uD328 0',
-  all: '\uBAA8\uB450',
-  took: '\uAC78\uB9B0 \uC2DC\uAC04',
-  allOk: '+ \uBAA8\uB450 \uD1B5\uACFC\uD588\uC2B5\uB2C8\uB2E4.',
-  someFail: (n) => `x ${n}\uAC1C\uAC00 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.`,
+const EN = {
+  unknown: 'unknown file',
+  expected: 'expected',
+  actual: 'actual  ',
+  todo: 'todo',
+  skipped: 'skipped',
+  failedHead: 'Failed tests',
+  byFile: 'Results by file',
+  slowest: `Slowest ${SLOWEST} tests`,
+  output: 'Console output from tests',
+  totals: 'Totals',
+  file: 'file',
+  pass: 'pass',
+  fail: 'fail',
+  skip: 'skip',
+  time: 'time',
+  files: 'files',
+  tests: 'tests',
+  suites: 'suites',
+  passed: 'passed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+  duration: 'duration',
+  lines: (n) => `${n} ${n === 1 ? 'line' : 'lines'}`,
+  allOk: '+ All tests passed.',
+  someFail: (n) => `x ${n} ${n === 1 ? 'test' : 'tests'} failed.`,
 };
 
 function shortFile(file) {
-  if (!file) return `(${KO.unknown})`;
+  if (!file) return `(${EN.unknown})`;
   return path.relative(process.cwd(), file).replace(/\\/g, '/');
 }
 
@@ -67,90 +80,159 @@ function errorLines(error) {
   const message = firstLine(cause.message || error.message);
   if (message) out.push(message);
   if (cause.expected !== undefined || cause.actual !== undefined) {
-    out.push(`${green(KO.expected)} ${JSON.stringify(cause.expected)}`);
-    out.push(`${red(KO.actual)} ${JSON.stringify(cause.actual)}`);
+    out.push(`${green(EN.expected)} ${JSON.stringify(cause.expected)}`);
+    out.push(`${red(EN.actual)} ${JSON.stringify(cause.actual)}`);
   }
   return out;
 }
 
+// Pads plain text first and paints afterwards, so color codes do not break the columns.
+function cell(text, width, paintFn = String, right = false) {
+  const raw = String(text);
+  const padded = right ? raw.padStart(width) : raw.padEnd(width);
+  return paintFn(padded);
+}
+
+function where(file, line, column) {
+  if (!line) return file;
+  return column ? `${file}:${line}:${column}` : `${file}:${line}`;
+}
+
 module.exports = async function* report(source) {
   const failures = [];
-  const byFile = new Map();
+  const files = new Map();
+  const timings = [];
   let current = null;
   let passed = 0;
   let skipped = 0;
+  let outputLines = 0;
   const started = Date.now();
+
+  const statsOf = (name) => {
+    if (!files.has(name)) files.set(name, { pass: 0, fail: 0, skip: 0, time: 0, output: 0 });
+    return files.get(name);
+  };
 
   const open = (file) => {
     const name = shortFile(file);
+    statsOf(name);
     if (current === name) return '';
     current = name;
-    const count = (byFile.get(name) || 0) + 1;
-    byFile.set(name, count);
     return `\n${bold(blue('* ' + name))}\n`;
   };
 
   for await (const event of source) {
     const data = event.data || {};
     const isFile = data.name && data.file && path.basename(data.file) === data.name;
+    const duration = Number(data.details && data.details.duration_ms) || 0;
 
     switch (event.type) {
       case 'test:pass': {
         if (isFile || data.nesting > 0) break;
+        const head = open(data.file);
+        const stats = statsOf(shortFile(data.file));
+        stats.time += duration;
         if (data.skip || data.todo) {
           skipped += 1;
-          const mark = data.todo ? KO.todo : KO.skipped;
-          yield `${open(data.file)}  ${yellow('o')} ${dim(data.name)} ${grey(`(${mark})`)}${timing(data.details && data.details.duration_ms)}\n`;
+          stats.skip += 1;
+          const mark = data.todo ? EN.todo : EN.skipped;
+          yield `${head}  ${yellow('o')} ${dim(data.name)} ${grey(`(${mark})`)}${timing(duration)}\n`;
           break;
         }
         passed += 1;
-        yield `${open(data.file)}  ${green('+')} ${data.name}${timing(data.details && data.details.duration_ms)}\n`;
+        stats.pass += 1;
+        timings.push({ name: data.name, file: shortFile(data.file), duration });
+        yield `${head}  ${green('+')} ${data.name}${timing(duration)}\n`;
         break;
       }
       case 'test:fail': {
         if (data.nesting > 0) break;
+        const head = open(data.file);
+        const file = shortFile(data.file);
+        const stats = statsOf(file);
+        stats.fail += 1;
+        stats.time += duration;
         const error = data.details && data.details.error;
-        failures.push({ name: data.name, file: shortFile(data.file), error });
-        const head = `${open(data.file)}  ${red('x')} ${bold(data.name)}${timing(data.details && data.details.duration_ms)}\n`;
+        failures.push({ name: data.name, file, line: data.line, column: data.column, error });
+        timings.push({ name: data.name, file, duration });
         const body = errorLines(error).map((line) => `      ${dim(line)}\n`).join('');
-        yield head + body;
+        yield `${head}  ${red('x')} ${bold(data.name)}${timing(duration)}\n${body}`;
         break;
       }
       case 'test:stderr':
       case 'test:stdout': {
         const text = String(data.message || '').trimEnd();
-        if (text) yield `${grey('    | ' + text.split('\n').join('\n    | '))}\n`;
+        if (!text) break;
+        const count = text.split('\n').length;
+        outputLines += count;
+        if (data.file) statsOf(shortFile(data.file)).output += count;
+        yield `${grey('    | ' + text.split('\n').join('\n    | '))}\n`;
         break;
       }
       case 'test:summary': {
         if (data.file) break;
         const counts = data.counts || {};
-        const total = counts.tests ?? passed + failures.length + skipped;
         const failed = counts.failed ?? failures.length;
+        const total = counts.tests ?? passed + failures.length + skipped;
         const ok = failed === 0;
-        const took = ms(data.duration_ms ?? Date.now() - started);
 
         let out = `\n${grey(RULE)}\n`;
-        if (failures.length) {
-          out += `${bold(red(KO.failedHead))}\n`;
-          for (const fail of failures) {
-            out += `  ${red('x')} ${fail.name}  ${grey(fail.file)}\n`;
-            for (const line of errorLines(fail.error)) out += `      ${dim(line)}\n`;
-          }
-          out += `${grey(RULE)}\n`;
+
+        // Results by file.
+        const names = [...files.keys()].sort();
+        const width = Math.max(EN.file.length, ...names.map((name) => name.length));
+        out += `${bold(EN.byFile)}\n`;
+        out += `  ${cell(EN.file, width, grey)}  ${cell(EN.pass, 5, grey, true)}  ${cell(EN.fail, 5, grey, true)}  ${cell(EN.skip, 5, grey, true)}  ${cell(EN.time, 8, grey, true)}\n`;
+        for (const name of names) {
+          const stats = files.get(name);
+          const mark = stats.fail ? red('x') : green('+');
+          out += `${mark} ${cell(name, width)}  ${cell(stats.pass, 5, green, true)}  `
+            + `${cell(stats.fail, 5, stats.fail ? redBold : grey, true)}  `
+            + `${cell(stats.skip, 5, stats.skip ? yellow : grey, true)}  ${cell(ms(stats.time), 8, grey, true)}\n`;
         }
 
-        const parts = [
-          `${green(KO.passed)} ${greenBold(counts.passed ?? passed)}`,
-          failed ? `${red(KO.failed)} ${redBold(failed)}` : `${grey(KO.failedZero)}`,
-        ];
-        if (counts.skipped) parts.push(`${yellow(KO.skipped)} ${counts.skipped}`);
-        if (counts.todo) parts.push(`${yellow(KO.todo)} ${counts.todo}`);
-        parts.push(`${grey(KO.all)} ${total}`);
-        parts.push(`${grey(KO.took)} ${took}`);
+        // Slowest tests.
+        const slow = timings.slice().sort((a, b) => b.duration - a.duration).slice(0, SLOWEST);
+        if (slow.length) {
+          out += `\n${bold(EN.slowest)}\n`;
+          for (const one of slow) {
+            out += `  ${cell(ms(one.duration), 8, one.duration >= 500 ? yellow : grey, true)}  ${one.name}  ${grey(one.file)}\n`;
+          }
+        }
 
-        out += `${parts.join(grey('  |  '))}\n`;
-        out += ok ? `${greenBold(KO.allOk)}\n` : `${redBold(KO.someFail(failed))}\n`;
+        // Anything the tests printed. A clean run prints nothing here.
+        if (outputLines) {
+          out += `\n${bold(yellow(EN.output))}: ${EN.lines(outputLines)}\n`;
+          for (const name of names) {
+            const stats = files.get(name);
+            if (stats.output) out += `  ${cell(name, width)}  ${yellow(EN.lines(stats.output))}\n`;
+          }
+        }
+
+        // Failed tests with where they live.
+        if (failures.length) {
+          out += `\n${bold(red(EN.failedHead))}\n`;
+          for (const fail of failures) {
+            out += `  ${red('x')} ${fail.name}\n      ${grey(where(fail.file, fail.line, fail.column))}\n`;
+            for (const line of errorLines(fail.error)) out += `      ${dim(line)}\n`;
+          }
+        }
+
+        // Totals.
+        out += `\n${bold(EN.totals)}\n`;
+        const row = (label, value, paintFn = String) => `  ${cell(label, 10, grey)} ${paintFn(value)}\n`;
+        out += row(EN.files, names.length);
+        out += row(EN.tests, total);
+        if (counts.suites) out += row(EN.suites, counts.suites);
+        out += row(EN.passed, counts.passed ?? passed, greenBold);
+        out += row(EN.failed, failed, failed ? redBold : grey);
+        out += row(EN.skipped, counts.skipped ?? skipped, (counts.skipped ?? skipped) ? yellow : grey);
+        if (counts.todo) out += row(EN.todo, counts.todo, yellow);
+        if (counts.cancelled) out += row(EN.cancelled, counts.cancelled, red);
+        out += row(EN.duration, ms(data.duration_ms ?? Date.now() - started));
+
+        out += `${grey(RULE)}\n`;
+        out += ok ? `${greenBold(EN.allOk)}\n` : `${redBold(EN.someFail(failed))}\n`;
         yield out;
         break;
       }

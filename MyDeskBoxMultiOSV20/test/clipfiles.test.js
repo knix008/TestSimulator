@@ -4,19 +4,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const clipfiles = require('../src/main/clipfiles');
 
-test('파일 목록은 넓은 글자로 적었다가 그대로 읽힌다', () => {
+test('file list round-trips through wide-character encoding', () => {
   const buf = clipfiles.encodeDrop(['C:\\Users\\나\\Desktop\\노트.txt', 'D:\\Work\\a.txt']);
   assert.deepEqual(clipfiles.decodeDrop(buf), ['C:\\Users\\나\\Desktop\\노트.txt', 'D:\\Work\\a.txt']);
 });
 
-test('복사와 연결이 함께 켜진 것은 잘라내기가 아니다', () => {
+test('copy combined with link is not a cut', () => {
   assert.equal(clipfiles.isCut(clipfiles.COPY), false);
   assert.equal(clipfiles.isCut(clipfiles.COPY | 4), false);
   assert.equal(clipfiles.isCut(clipfiles.MOVE), true);
   assert.equal(clipfiles.isCut(0), false);
 });
 
-test('메모리 클립보드는 복사와 잘라내기를 구분하고 비울 수 있다', () => {
+test('memory clipboard distinguishes copy from cut and can be cleared', () => {
   clipfiles.useMemory();
   assert.equal(clipfiles.write(['C:\\Desk\\a.txt'], clipfiles.COPY), true);
   assert.equal(clipfiles.read().cut, false);
