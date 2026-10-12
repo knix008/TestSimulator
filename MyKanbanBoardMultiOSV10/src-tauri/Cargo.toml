@@ -1,0 +1,31 @@
+[package]
+name = "mykanbanboard"
+version = "1.0.0"
+description = "Cross-platform Kanban board"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "mykanbanboard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+arboard = { version = "3.6", default-features = false }
+fontdb = "0.23"
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "mysql", "postgres", "sqlite"] }
+serde_json = "1"
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[test]]
+name = "db_integration"
+path = "../test/db_integration.rs"

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyKanbanBoard",
+  "mainBinaryName": "MyKanbanBoard",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mykanbanboard",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$APPCONFIG/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Productivity",
+    "shortDescription": "Kanban board",
+    "longDescription": "Plan work on Kanban boards with columns, cards, labels, undo/redo, printing and themes.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/board.ico": "board.ico",
+      "icons/board.icns": "board.icns",
+      "icons/board.png": "board.png",
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mkanban"],
+        "name": "MyKanbanBoard.Board",
+        "description": "MyKanbanBoard Board",
+        "mimeType": "application/x-mykanban",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mkproj"],
+        "name": "MyKanbanBoard.Project",
+        "description": "MyKanbanBoard Project",
+        "mimeType": "application/x-mykanban-project",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/mykanbanboard.xml": "linux/mykanbanboard.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mykanban.png": "icons/board.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mykanban-project.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"],
+        "files": {
+          "/usr/share/mime/packages/mykanbanboard.xml": "linux/mykanbanboard.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mykanban.png": "icons/board.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mykanban-project.png": "icons/project.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

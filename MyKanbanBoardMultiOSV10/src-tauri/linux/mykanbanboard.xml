@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mykanban">
+    <comment>MyKanbanBoard Board</comment>
+    <comment xml:lang="ko">MyKanbanBoard 보드</comment>
+    <icon name="application-x-mykanban"/>
+    <glob pattern="*.mkanban"/>
+  </mime-type>
+  <mime-type type="application/x-mykanban-project">
+    <comment>MyKanbanBoard Project</comment>
+    <comment xml:lang="ko">MyKanbanBoard 프로젝트</comment>
+    <icon name="application-x-mykanban-project"/>
+    <glob pattern="*.mkproj"/>
+  </mime-type>
+</mime-info>

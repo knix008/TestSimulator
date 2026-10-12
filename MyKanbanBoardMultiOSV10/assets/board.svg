@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .mkanban document icon: a 3D page with a folded corner and a small board.
+       Same palette as the app icon; transparent border, glowing top-left. -->
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d6e2ff"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8ea4e0"/>
+      <stop offset="1" stop-color="#5a6fb5"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8c8f5"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5aa2ff"/>
+      <stop offset="1" stop-color="#2236b8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.12" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.3" stop-color="#eef6ff" stop-opacity="0.6"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <clipPath id="pageClip"><path d="M200 80h460l200 200v620a40 40 0 0 1-40 40H200a40 40 0 0 1-40-40V120a40 40 0 0 1 40-40z"/></clipPath>
+  </defs>
+  <ellipse cx="530" cy="972" rx="320" ry="26" fill="#0a1240" opacity="0.4" filter="url(#shadow)"/>
+  <!-- page thickness -->
+  <path d="M212 108h460l200 200v620a40 40 0 0 1-40 40H212a40 40 0 0 1-40-40V148a40 40 0 0 1 40-40z" fill="url(#edge)"/>
+  <!-- page -->
+  <path d="M200 80h460l200 200v620a40 40 0 0 1-40 40H200a40 40 0 0 1-40-40V120a40 40 0 0 1 40-40z" fill="url(#page)"/>
+  <g clip-path="url(#pageClip)">
+    <!-- blue header band with three columns -->
+    <rect x="160" y="300" width="700" height="560" fill="url(#band)"/>
+    <rect x="210" y="350" width="180" height="460" rx="30" fill="#ffffff" opacity="0.2"/>
+    <rect x="422" y="350" width="180" height="460" rx="30" fill="#ffffff" opacity="0.2"/>
+    <rect x="634" y="350" width="180" height="460" rx="30" fill="#ffffff" opacity="0.2"/>
+    <rect x="228" y="378" width="144" height="100" rx="18" fill="#ffffff"/>
+    <rect x="228" y="496" width="144" height="100" rx="18" fill="#ffffff"/>
+    <rect x="440" y="378" width="144" height="100" rx="18" fill="#ffffff"/>
+    <rect x="652" y="378" width="144" height="100" rx="18" fill="#ffffff"/>
+    <rect x="652" y="496" width="144" height="100" rx="18" fill="#ffffff"/>
+    <rect x="248" y="398" width="64" height="16" rx="8" fill="#ff9f1c"/>
+    <rect x="248" y="516" width="50" height="16" rx="8" fill="#ff5d8f"/>
+    <rect x="460" y="398" width="70" height="16" rx="8" fill="#2ec4b6"/>
+    <rect x="672" y="398" width="56" height="16" rx="8" fill="#5dd39e"/>
+    <rect x="672" y="516" width="66" height="16" rx="8" fill="#5dd39e"/>
+    <!-- title lines above the band -->
+    <rect x="220" y="160" width="300" height="34" rx="17" fill="#3a6cf0"/>
+    <rect x="220" y="222" width="220" height="22" rx="11" fill="#9fb2e6"/>
+    <rect x="160" y="80" width="700" height="880" fill="url(#glow)"/>
+  </g>
+  <!-- folded corner -->
+  <path d="M660 80v160a40 40 0 0 0 40 40h160z" fill="url(#fold)"/>
+  <path d="M660 80v160a40 40 0 0 0 40 40h160" fill="none" stroke="#8ea4e0" stroke-width="6"/>
+  <!-- rim -->
+  <path d="M200 80h460l200 200v620a40 40 0 0 1-40 40H200a40 40 0 0 1-40-40V120a40 40 0 0 1 40-40z" fill="none" stroke="#6f86cc" stroke-width="8"/>
+  <circle cx="250" cy="150" r="66" fill="url(#spark)" opacity="0.95"/>
+  <path d="M250 82l11 57 57 11-57 11-11 57-11-57-57-11 57-11z" fill="#ffffff"/>
+</svg>

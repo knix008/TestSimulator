@@ -1,0 +1,517 @@
+pub mod db;
+pub mod files;
+pub mod fonts;
+pub mod i18n;
+pub mod window_state;
+
+use serde::Serialize;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+/// Every webview in the process must share these (WebView2 refuses a second
+/// environment with different arguments).
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
+/// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
+/// by the main window: it can sit outside the main window and closes with it.
+const POPUP_KINDS: [&str; 10] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "project", "image"];
+
+#[derive(Default)]
+struct Shared {
+    /// Board files given on the command line, handed to the UI once.
+    startup_files: Vec<PathBuf>,
+}
+
+type AppState = Mutex<Shared>;
+
+fn lock(state: &AppState) -> std::sync::MutexGuard<'_, Shared> {
+    state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| tr!("작업 실행 실패: {error}", "The task failed: {error}"))?
+}
+
+/// "MyKanbanBoard v1.0.0" — shown in the title bar of every window.
+fn app_title(info: &tauri::PackageInfo) -> String {
+    format!("MyKanbanBoard v{}", info.version)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppInfo {
+    name: String,
+    version: String,
+    commit: &'static str,
+    rustc: &'static str,
+    build_time: u64,
+    target: &'static str,
+    profile: &'static str,
+    tauri: &'static str,
+    os: &'static str,
+    arch: &'static str,
+}
+
+#[tauri::command]
+fn app_info(app: AppHandle) -> AppInfo {
+    AppInfo {
+        name: app.package_info().name.clone(),
+        version: app.package_info().version.to_string(),
+        commit: env!("BUILD_COMMIT"),
+        rustc: env!("BUILD_RUSTC"),
+        build_time: env!("BUILD_UNIX_TIME").parse().unwrap_or(0),
+        target: env!("BUILD_TARGET"),
+        profile: env!("BUILD_PROFILE"),
+        tauri: tauri::VERSION,
+        os: std::env::consts::OS,
+        arch: std::env::consts::ARCH,
+    }
+}
+
+#[tauri::command]
+fn set_language(language: String) {
+    i18n::set_english(language == "en");
+}
+
+#[tauri::command]
+fn startup_files(state: tauri::State<'_, AppState>) -> Vec<PathBuf> {
+    std::mem::take(&mut lock(&state).startup_files)
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Progress {
+    op: String,
+    done: u64,
+    total: u64,
+}
+
+/// Progress of a long file operation, for the main window's progress popup.
+fn reporter(app: &AppHandle, op: String) -> impl FnMut(u64, u64) {
+    let app = app.clone();
+    let mut last = std::time::Instant::now() - std::time::Duration::from_secs(1);
+    move |done, total| {
+        // At most ~20 events per second, plus the final one.
+        if done == total || last.elapsed().as_millis() >= 50 {
+            last = std::time::Instant::now();
+            let progress = Progress { op: op.clone(), done, total };
+            let _ = app.emit("io-progress", progress);
+        }
+    }
+}
+
+#[tauri::command]
+async fn read_text_file(app: AppHandle, path: PathBuf, op: String) -> Result<String, String> {
+    blocking(move || files::read_text(&path, reporter(&app, op))).await
+}
+
+#[tauri::command]
+async fn write_text_file(app: AppHandle, path: PathBuf, content: String, op: String) -> Result<(), String> {
+    blocking(move || files::write_with_progress(&path, content.as_bytes(), reporter(&app, op))).await
+}
+
+#[tauri::command]
+fn paths_exist(paths: Vec<PathBuf>) -> Vec<bool> {
+    paths.iter().map(|path| path.is_file()).collect()
+}
+
+/// Where background images are kept (tests point this elsewhere).
+fn background_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(dir) = std::env::var_os("MYKANBAN_DATA_DIR") {
+        return Ok(PathBuf::from(dir).join("background"));
+    }
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join("background"))
+        .map_err(|error| tr!("데이터 폴더를 찾을 수 없습니다: {error}", "The data folder was not found: {error}"))
+}
+
+fn clear_dir(dir: &Path, keep: Option<&Path>) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if Some(entry.path().as_path()) != keep {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+}
+
+/// Copies an image (any size) into the app's data folder so the background
+/// survives the original being moved, and returns the copy's path.
+#[tauri::command]
+async fn import_background(app: AppHandle, path: PathBuf, op: String) -> Result<PathBuf, String> {
+    let dir = background_dir(&app)?;
+    let _ = app.asset_protocol_scope().allow_directory(&dir, true);
+    let handle = app.clone();
+    blocking(move || {
+        let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "img".into());
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        let target = dir.join(format!("background-{stamp}.{extension}"));
+        files::copy_with_progress(&path, &target, reporter(&handle, op))?;
+        clear_dir(&dir, Some(&target));
+        Ok(target)
+    })
+    .await
+}
+
+#[tauri::command]
+fn remove_background(app: AppHandle) -> Result<(), String> {
+    clear_dir(&background_dir(&app)?, None);
+    Ok(())
+}
+
+/// Lets the page load a background image kept in the data folder.
+#[tauri::command]
+fn allow_background(app: AppHandle, path: PathBuf) -> bool {
+    path.is_file() && app.asset_protocol_scope().allow_file(&path).is_ok()
+}
+
+static FONTS: OnceLock<Vec<String>> = OnceLock::new();
+
+#[tauri::command]
+async fn list_fonts() -> Result<Vec<String>, String> {
+    if let Some(fonts) = FONTS.get() {
+        return Ok(fonts.clone());
+    }
+    let fonts = blocking(|| Ok(fonts::system_families())).await?;
+    Ok(FONTS.get_or_init(|| fonts).clone())
+}
+
+/// Clipboard text through the OS (the webview API refuses while another window
+/// such as a context menu has focus).
+#[tauri::command]
+async fn clipboard_write(text: String) -> Result<(), String> {
+    blocking(move || {
+        arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.set_text(text))
+            .map_err(|error| tr!("클립보드 복사 실패: {error}", "Copying to the clipboard failed: {error}"))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn clipboard_read() -> Result<String, String> {
+    blocking(|| {
+        let mut clipboard = arboard::Clipboard::new().map_err(|error| tr!("클립보드를 열 수 없습니다: {error}", "Could not open the clipboard: {error}"))?;
+        Ok(clipboard.get_text().unwrap_or_default())
+    })
+    .await
+}
+
+/// Opens a popup window at (x, y) logical screen pixels, or brings it back.
+/// It is shown by `popup_ready` / `place_popup` once drawn, so it never flashes
+/// empty. Async: creating a window from a synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, height: f64, show: Option<bool>) -> Result<(), String> {
+    if !POPUP_KINDS.contains(&kind.as_str()) {
+        return Err(format!("unknown popup {kind}"));
+    }
+    // One request at a time: two requests for a popup that is still being created
+    // would otherwise both try to create it.
+    static CREATING: Mutex<()> = Mutex::new(());
+    let _guard = CREATING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let label = format!("popup-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+        let _ = app.emit_to(label.as_str(), "popup-refresh", kind.clone());
+        if show.unwrap_or(true) && kind != "menu" {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+        return Ok(());
+    }
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title(app_title(app.package_info()))
+        .decorations(false)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .skip_taskbar(true)
+        .shadow(true)
+        .visible(false)
+        .focused(show.unwrap_or(true))
+        .position(x, y)
+        .inner_size(width, height)
+        .additional_browser_args(BROWSER_ARGS);
+    if kind == "menu" || kind == "progress" {
+        builder = builder.always_on_top(true);
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        builder = builder.parent(&main).map_err(|error| error.to_string())?;
+    }
+    builder.build().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Called by a popup page once it has drawn itself.
+#[tauri::command]
+fn popup_ready(window: WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Placement {
+    x: f64,
+    y: f64,
+}
+
+/// Sizes the calling popup to its content and places it at (x, y) — logical
+/// screen pixels — so that it is entirely on the monitor's work area, whatever
+/// the size of the main window. When there is no room below, it opens above
+/// `flip_y` (the top of the button that opened it).
+#[tauri::command]
+fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, flip_y: Option<f64>, show: Option<bool>) -> Result<Placement, String> {
+    let monitors = window.available_monitors().map_err(|error| error.to_string())?;
+    let monitor = monitors
+        .iter()
+        .find(|m| {
+            let scale = m.scale_factor();
+            let (p, s) = (m.position(), m.size());
+            let (px, py) = (x * scale, y * scale);
+            px >= f64::from(p.x) && px < f64::from(p.x) + f64::from(s.width) && py >= f64::from(p.y) && py < f64::from(p.y) + f64::from(s.height)
+        })
+        .or(monitors.first());
+    let (mut px, mut py, pw, ph, scale) = match monitor {
+        Some(m) => {
+            let scale = m.scale_factor();
+            (x * scale, y * scale, width * scale, height * scale, scale)
+        }
+        None => (x, y, width, height, 1.0),
+    };
+    if let Some(m) = monitor {
+        let area = m.work_area();
+        let (left, top) = (f64::from(area.position.x), f64::from(area.position.y));
+        let (right, bottom) = (left + f64::from(area.size.width), top + f64::from(area.size.height));
+        if px + pw > right {
+            px = (right - pw).max(left);
+        }
+        px = px.max(left);
+        if py + ph > bottom {
+            py = match flip_y {
+                Some(flip) if flip * scale - ph >= top => flip * scale - ph,
+                _ => (bottom - ph).max(top),
+            };
+        }
+        py = py.max(top);
+    }
+    window.set_size(PhysicalSize::new(pw.round() as u32, ph.round() as u32)).map_err(|error| error.to_string())?;
+    window.set_position(PhysicalPosition::new(px.round() as i32, py.round() as i32)).map_err(|error| error.to_string())?;
+    if show.unwrap_or(true) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(Placement { x: px / scale, y: py / scale })
+}
+
+/// Hides a popup but keeps it for the next time (menus open instantly that way).
+#[tauri::command]
+fn hide_popup(app: AppHandle, kind: String) {
+    if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
+        let _ = window.hide();
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit_to("main", "popup-hidden", kind);
+    }
+}
+
+#[tauri::command]
+fn close_popup(app: AppHandle, kind: String) {
+    if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
+        let _ = window.destroy();
+    }
+}
+
+/// The OS print dialog for the calling window (the print preview popup).
+#[tauri::command]
+fn print_window(window: WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
+}
+
+// ───────────────────────── card attachments
+
+/// Largest file that can be attached (its contents travel inside the board).
+const MAX_ATTACHMENT: u64 = 50 * 1024 * 1024;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileData {
+    name: String,
+    size: u64,
+    data: String,
+}
+
+/// Reads a file to attach to a card (base64), with progress.
+#[tauri::command]
+async fn read_file_base64(app: AppHandle, path: PathBuf, op: String) -> Result<FileData, String> {
+    use base64::Engine;
+    let size = std::fs::metadata(&path).map(|meta| meta.len()).map_err(|error| tr!("파일을 열 수 없습니다 ({}): {error}", "Could not open the file ({}): {error}", path.display()))?;
+    if size > MAX_ATTACHMENT {
+        return Err(tr!("첨부할 수 있는 파일 크기(50 MB)를 넘었습니다: {} ({} MB)", "The file is larger than the 50 MB attachment limit: {} ({} MB)", path.display(), size / 1024 / 1024));
+    }
+    blocking(move || {
+        let bytes = files::read_with_progress(&path, reporter(&app, op))?;
+        let name = path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| "file".into());
+        Ok(FileData { name, size: bytes.len() as u64, data: base64::engine::general_purpose::STANDARD.encode(bytes) })
+    })
+    .await
+}
+
+/// Saves an attachment to a file the user picked.
+#[tauri::command]
+async fn write_base64_file(app: AppHandle, path: PathBuf, data: String, op: String) -> Result<(), String> {
+    use base64::Engine;
+    blocking(move || {
+        let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|error| tr!("첨부 파일 데이터가 손상되었습니다: {error}", "The attachment data is damaged: {error}"))?;
+        files::write_with_progress(&path, &bytes, reporter(&app, op))
+    })
+    .await
+}
+
+/// Opens an attachment with the program the system uses for its type
+/// (written to a temporary folder first). Returns the temporary file.
+#[tauri::command]
+async fn open_attachment(name: String, data: String) -> Result<PathBuf, String> {
+    use base64::Engine;
+    blocking(move || {
+        let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|error| tr!("첨부 파일 데이터가 손상되었습니다: {error}", "The attachment data is damaged: {error}"))?;
+        let safe: String = name.chars().map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c }).collect();
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        let path = std::env::temp_dir().join("mykanbanboard-attachments").join(stamp.to_string()).join(if safe.is_empty() { "file".into() } else { safe });
+        files::write_with_progress(&path, &bytes, |_, _| {})?;
+        files::open_with_system(&path)?;
+        Ok(path)
+    })
+    .await
+}
+
+// ───────────────────────── project storage in a database
+
+#[tauri::command]
+async fn db_test(config: db::DbConfig) -> Result<String, String> {
+    db::test(&config).await
+}
+
+#[tauri::command]
+async fn db_save(config: db::DbConfig, project: db::ProjectRow, boards: Vec<db::BoardRow>) -> Result<(), String> {
+    db::save(&config, &project, &boards).await
+}
+
+#[tauri::command]
+async fn db_load(config: db::DbConfig, project_id: String) -> Result<db::Loaded, String> {
+    db::load(&config, &project_id).await
+}
+
+#[tauri::command]
+async fn db_list(config: db::DbConfig) -> Result<Vec<db::ProjectSummary>, String> {
+    db::list(&config).await
+}
+
+#[tauri::command]
+async fn db_delete(config: db::DbConfig, project_id: String) -> Result<(), String> {
+    db::delete(&config, &project_id).await
+}
+
+/// Ends the app after the UI has handled unsaved changes.
+#[tauri::command]
+fn quit_app(app: AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.destroy();
+    }
+    app.exit(0);
+}
+
+fn focus_main(app: &AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.unminimize();
+        let _ = main.set_focus();
+    }
+}
+
+pub fn run() {
+    let mut builder = tauri::Builder::default();
+    // One MyKanbanBoard: a second launch (double-clicked board file) hands its
+    // files to the running one. Tests run copies side by side (MYKANBAN_MULTI=1).
+    if std::env::var_os("MYKANBAN_MULTI").is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let files = files::board_files(argv);
+            if !files.is_empty() {
+                let _ = app.emit_to("main", "open-files", files);
+            }
+            focus_main(app);
+        }));
+    }
+    builder
+        .plugin(tauri_plugin_dialog::init())
+        .manage(AppState::default())
+        .setup(|app| {
+            lock(&app.state::<AppState>()).startup_files = files::board_files(std::env::args().skip(1));
+            if let Ok(dir) = background_dir(app.handle()) {
+                let _ = app.asset_protocol_scope().allow_directory(&dir, true);
+            }
+            let state_path = window_state::state_file(app.handle());
+            let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title(app_title(app.package_info()))
+                .min_inner_size(900.0, 560.0)
+                .visible(false)
+                .additional_browser_args(BROWSER_ARGS);
+            let builder = match placement {
+                Some((state, scale)) => builder
+                    .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+                    .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+                    .maximized(state.maximized),
+                None => builder.inner_size(1360.0, 820.0).center(),
+            };
+            let main = builder.build()?;
+            if let Some(path) = state_path {
+                window_state::track(&main, path);
+            }
+            // Closing the main window ends the app: the popups go with it.
+            let handle = app.handle().clone();
+            main.on_window_event(move |event| {
+                if let tauri::WindowEvent::Destroyed = event {
+                    handle.exit(0);
+                }
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            set_language,
+            startup_files,
+            read_text_file,
+            write_text_file,
+            paths_exist,
+            import_background,
+            remove_background,
+            allow_background,
+            list_fonts,
+            clipboard_write,
+            clipboard_read,
+            open_popup,
+            popup_ready,
+            place_popup,
+            hide_popup,
+            close_popup,
+            print_window,
+            read_file_base64,
+            write_base64_file,
+            open_attachment,
+            db_test,
+            db_save,
+            db_load,
+            db_list,
+            db_delete,
+            quit_app
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running MyKanbanBoard");
+}

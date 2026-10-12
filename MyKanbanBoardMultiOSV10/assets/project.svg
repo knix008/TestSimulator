@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .mkproj project icon: a 3D folder holding boards. Same palette as the
+       app icon; transparent border, glowing top-left. -->
+  <defs>
+    <linearGradient id="back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a6cf0"/>
+      <stop offset="1" stop-color="#1b2a8f"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6fb0ff"/>
+      <stop offset="0.55" stop-color="#3f76f2"/>
+      <stop offset="1" stop-color="#2236b8"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2a8f"/>
+      <stop offset="1" stop-color="#0f1a5e"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe8ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.3" stop-color="#e8f3ff" stop-opacity="0.5"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#06103f" flood-opacity="0.4"/>
+    </filter>
+    <clipPath id="frontClip"><path d="M112 360h800a40 40 0 0 1 40 40l-40 420a60 60 0 0 1-60 54H172a60 60 0 0 1-60-54L72 400a40 40 0 0 1 40-40z"/></clipPath>
+  </defs>
+  <ellipse cx="520" cy="944" rx="400" ry="30" fill="#0a1240" opacity="0.45" filter="url(#shadow)"/>
+  <!-- folder back with tab -->
+  <path d="M120 170a50 50 0 0 1 50-50h230l60 70h394a50 50 0 0 1 50 50v560H120z" fill="url(#back)"/>
+  <!-- boards sticking out of the folder -->
+  <g filter="url(#cardShadow)">
+    <rect x="200" y="230" width="270" height="250" rx="26" fill="url(#paper)" transform="rotate(-6 335 355)"/>
+    <rect x="430" y="210" width="290" height="270" rx="26" fill="url(#paper)" transform="rotate(4 575 345)"/>
+  </g>
+  <g transform="rotate(-6 335 355)">
+    <rect x="226" y="262" width="60" height="150" rx="12" fill="#ff9f1c" opacity="0.85"/>
+    <rect x="304" y="262" width="60" height="110" rx="12" fill="#2ec4b6" opacity="0.85"/>
+    <rect x="382" y="262" width="60" height="70" rx="12" fill="#5dd39e" opacity="0.85"/>
+  </g>
+  <g transform="rotate(4 575 345)">
+    <rect x="460" y="244" width="66" height="160" rx="12" fill="#3a6cf0" opacity="0.8"/>
+    <rect x="544" y="244" width="66" height="120" rx="12" fill="#ff5d8f" opacity="0.8"/>
+    <rect x="628" y="244" width="66" height="80" rx="12" fill="#5dd39e" opacity="0.8"/>
+  </g>
+  <!-- front panel thickness -->
+  <path d="M112 392h800a40 40 0 0 1 40 40l-40 420a60 60 0 0 1-60 54H172a60 60 0 0 1-60-54L72 432a40 40 0 0 1 40-40z" fill="url(#side)"/>
+  <!-- front panel -->
+  <path d="M112 360h800a40 40 0 0 1 40 40l-40 420a60 60 0 0 1-60 54H172a60 60 0 0 1-60-54L72 400a40 40 0 0 1 40-40z" fill="url(#front)"/>
+  <g clip-path="url(#frontClip)">
+    <!-- three column marks on the front -->
+    <rect x="250" y="520" width="140" height="22" rx="11" fill="#ffffff" opacity="0.8"/>
+    <rect x="442" y="520" width="140" height="22" rx="11" fill="#ffffff" opacity="0.8"/>
+    <rect x="634" y="520" width="140" height="22" rx="11" fill="#ffffff" opacity="0.8"/>
+    <rect x="250" y="566" width="140" height="160" rx="22" fill="#ffffff" opacity="0.25"/>
+    <rect x="442" y="566" width="140" height="110" rx="22" fill="#ffffff" opacity="0.25"/>
+    <rect x="634" y="566" width="140" height="190" rx="22" fill="#ffffff" opacity="0.25"/>
+    <rect x="72" y="360" width="880" height="520" fill="url(#glow)"/>
+  </g>
+  <path d="M112 368h800a32 32 0 0 1 32 34" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="10" stroke-linecap="round"/>
+  <!-- glow and sparkle at the top-left -->
+  <circle cx="200" cy="200" r="90" fill="url(#spark)" opacity="0.75"/>
+  <path d="M200 120l13 66 66 13-66 13-13 66-13-66-66-13 66-13z" fill="#ffffff"/>
+</svg>
