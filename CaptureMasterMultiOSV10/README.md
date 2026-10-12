@@ -33,7 +33,7 @@ npm start          # Vite 개발 서버 + Tauri
 ## 빌드 / 설치 파일
 
 ```bash
-npm run build:win     # Tauri NSIS 설치 파일 (src-tauri/target/release/bundle/nsis)
+npm run build:win     # Tauri NSIS 설치 파일. 만든 뒤 프로젝트 루트로 복사한다.
 ```
 
 ```bash

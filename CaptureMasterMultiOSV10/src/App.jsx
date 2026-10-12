@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { platform, isDesktop, isTauri, onProgress, newTaskId, emitProgress } from './lib/platform.js';
@@ -103,6 +103,7 @@ export default function App() {
   const pending = useRef(new Map());
   const handlers = useRef({});
   const saveTimer = useRef(null);
+  const panelOpenRef = useRef(null);
   settingsRef.current = settings;
   docsRef.current = docs;
   activeRef.current = activeId;
@@ -238,9 +239,22 @@ export default function App() {
     if (i18n.language !== settings.language) i18n.changeLanguage(settings.language);
     document.documentElement.lang = settings.language;
     platform.dialogs.broadcastAppearance(appearanceOf(settings));
+    const snap = `${settings.toolPanel.open}\0${settings.history.open}`;
+    const panelsChanged = panelOpenRef.current !== null && panelOpenRef.current !== snap;
+    panelOpenRef.current = snap;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { platform.saveSettings(settings).catch((err) => reportError(err, 'settings')); }, 300);
+    const write = () => { platform.saveSettings(settings).catch((err) => reportError(err, 'settings')); };
+    // Folding a panel must land on disk before a quick quit; other edits can wait.
+    if (panelsChanged) write();
+    else saveTimer.current = setTimeout(write, 300);
   }, [settings, settingsLoaded, i18n, reportError]);
+
+  // The native window stays hidden until this render, so the first frame already
+  // has the saved panel fold instead of the default open panels.
+  useLayoutEffect(() => {
+    if (!settingsLoaded) return;
+    platform.windowControls.show();
+  }, [settingsLoaded]);
 
   // The settings window pushes every change live; reset comes from there too.
   handlers.current.settingsMessage = (data) => {
@@ -309,6 +323,17 @@ export default function App() {
     return id;
   }, []);
 
+  /** A free PNG path in the capture folder, or '' when this format is not written as the captured PNG. */
+  const captureFilePath = useCallback(async (name) => {
+    if ((settingsRef.current.image.format || 'png') !== 'png') return '';
+    const dir = captureDirectory();
+    if (!dir) throw new Error('No capture folder is set.');
+    const base = `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${String(name).replace(/[\\/:*?"<>|]/g, '_')}`;
+    let path = `${base}.png`;
+    for (let n = 2; await platform.fs.exists(path); n++) path = `${base} (${n}).png`;
+    return path;
+  }, [captureDirectory]);
+
   /** Writes a new capture to the capture folder (desktop) and adds it to the history. */
   const recordCapture = useCallback(async (doc, img, source) => {
     const thumb = await thumbnailOf(img.dataUrl).catch(() => '');
@@ -324,20 +349,27 @@ export default function App() {
         const base = `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${doc.name.replace(/[\\/:*?"<>|]/g, '_')}`;
         path = `${base}.${fmt.ext}`;
         for (let n = 2; await platform.fs.exists(path); n++) path = `${base} (${n}).${fmt.ext}`;
-        // PNG is written as captured; native formats are re-encoded from it on the desktop side.
-        let data;
-        if (fmt.id === 'png' || fmt.native) {
-          data = await dataUrlToBytes(img.dataUrl);
+        // PNG is the bytes already in the data URL. Writing that base64 as a normal
+        // command avoids the raw-body request that fails for a full capture.
+        if (fmt.id === 'png' && isTauri) {
+          const comma = String(img.dataUrl || '').indexOf(',');
+          const payload = comma >= 0 ? img.dataUrl.slice(comma + 1) : '';
+          if (!payload) throw new Error('Could not read image bytes.');
+          bytes = Number(await platform.fs.writeBase64(path, payload)) || 0;
         } else {
-          const el = await loadImage(img.dataUrl);
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.getContext('2d').drawImage(el, 0, 0);
-          data = new Uint8Array(await (await canvasToBlob(canvas, fmt.mime, quality / 100)).arrayBuffer());
+          let data;
+          if (fmt.native) data = await dataUrlToBytes(img.dataUrl);
+          else {
+            const el = await loadImage(img.dataUrl);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(el, 0, 0);
+            data = new Uint8Array(await (await canvasToBlob(canvas, fmt.mime, quality / 100)).arrayBuffer());
+          }
+          if (platform.image) bytes = Number(await platform.image.export(path, data, fmt.native ? fmt.id : 'raw', quality)) || data.length;
+          else { await platform.fs.writeBinary(path, data); bytes = data.length; }
         }
-        if (platform.image) bytes = Number(await platform.image.export(path, data, fmt.native ? fmt.id : 'raw', quality)) || data.length;
-        else { await platform.fs.writeBinary(path, data); bytes = data.length; }
         const saved = doc.history.present;
         updateDoc(doc.id, (d) => ({ ...d, file: path, savedPresent: d.savedPresent || saved }));
       } catch (err) {
@@ -634,6 +666,8 @@ export default function App() {
         for (const d of dirty) { setActiveId(d.id); if (!(await saveDoc(d, false))) return; }
       }
     }
+    clearTimeout(saveTimer.current);
+    try { await platform.saveSettings(settingsRef.current); } catch (err) { console.warn('[CaptureMaster] settings', err); }
     platform.quit();
   };
 
@@ -651,18 +685,41 @@ export default function App() {
         }
         setCountdown(0);
       }
+      const name = stampName(label || 'Capture');
+      // PNG is written by the capture itself, so a full-screen image is not sent back over IPC.
+      let directPath = '';
+      if (isDesktop) {
+        try { directPath = await captureFilePath(name); } catch { directPath = ''; }
+      }
       if (hide) { await platform.capture.hideApp(); await new Promise((r) => setTimeout(r, HIDE_SETTLE_MS)); }
       let result;
       try {
-        result = await grab();
+        result = await grab(directPath);
       } finally {
         if (hide) await platform.capture.showApp();
       }
       if (!result) return null;
       const img = result.width && result.dataUrl.startsWith('data:image/png') ? { dataUrl: result.dataUrl, width: result.width, height: result.height } : await normalizeToPng(result.dataUrl);
-      const doc = addDoc(createImageDocument(img, { name: stampName(label || 'Capture'), source: { type: result.kind || 'screen', name: result.name || '' } }));
+      const doc = addDoc(createImageDocument(img, { name, source: { type: result.kind || 'screen', name: result.name || '' } }));
       if (s.capture.copyToClipboard) platform.clipboard.writeImage(img.dataUrl).catch(() => {});
-      const file = await recordCapture(doc, img, result.kind === 'window' ? 'window' : 'screen');
+      const source = result.kind === 'window' ? 'window' : 'screen';
+      let file = result.savedPath || '';
+      let savedBytes = Number(result.savedBytes) || 0;
+      // The grab kept the PNG. Save it here when the capture itself did not.
+      if (!file && result.shotId && directPath && isTauri) {
+        try {
+          savedBytes = Number(await platform.capture.saveShot({ shotId: result.shotId, path: directPath })) || 0;
+          file = directPath;
+        } catch { file = ''; }
+      }
+      if (file) {
+        const saved = doc.history.present;
+        updateDoc(doc.id, (d) => ({ ...d, file, savedPresent: d.savedPresent || saved }));
+        const thumb = await thumbnailOf(img.dataUrl).catch(() => '');
+        addHistory({ path: file, name: stripExt(nameOf(file)), kind: 'image', source, width: img.width, height: img.height, bytes: savedBytes, thumb, time: doc.createdAt }, doc.id);
+      } else {
+        file = await recordCapture(doc, img, source);
+      }
       toast(file ? t('toast.capturedSaved', { name: nameOf(file), w: img.width, h: img.height }) : t('toast.captured', { w: img.width, h: img.height }));
       return doc;
     } catch (err) {
@@ -672,7 +729,7 @@ export default function App() {
       setCapturing('');
       setCountdown(0);
     }
-  }, [addDoc, recordCapture, reportError, t, toast]);
+  }, [addDoc, addHistory, captureFilePath, recordCapture, reportError, t, toast, updateDoc]);
 
   const pickScreen = useCallback(async (kind) => {
     // Thumbnails mean grabbing every monitor, so only fetch them when there is a choice to make.
@@ -701,7 +758,7 @@ export default function App() {
     try {
       const src = await pickScreen('screen');
       if (!src) return;
-      await performCapture(() => platform.capture.grabScreen(src.id), 'Screen');
+      await performCapture((savePath) => platform.capture.grabScreen(src.id, savePath), 'Screen');
     } catch (err) { reportError(err, t('error.capture')); }
   }, [performCapture, pickScreen, reportError, t]);
 
@@ -713,9 +770,9 @@ export default function App() {
       const r = await ask('sources', { title: t('sources.titleWindow'), kind: 'window', sources, includeSelf });
       if (!r) return;
       const self = !!(r.self || (sources.find((x) => x.id === r.id) || {}).self);
-      await performCapture(async () => {
+      await performCapture(async (savePath) => {
         try {
-          const frame = isTauri ? await platform.capture.grabWindow(r.id) : await grabSourceFrame(r.id);
+          const frame = isTauri ? await platform.capture.grabWindow(r.id, savePath) : await grabSourceFrame(r.id);
           return { ...frame, kind: 'window', name: r.name };
         } catch (err) {
           throw new Error(`${t('error.noSource')} (${err.message})`);
@@ -750,11 +807,31 @@ export default function App() {
       }
       const rect = await ask('region', { title: t('toolbar.captureRegion'), dataUrl: shot.dataUrl, width: shot.width, height: shot.height, displayId });
       if (isDesktop && settingsRef.current.capture.hideWindow) await platform.capture.showApp();
-      if (!rect) return;
+      if (!rect) { platform.capture.dropShot(shot && shot.shotId); return; }
       const img = await cropImage(shot.dataUrl, rect);
-      const doc = addDoc(createImageDocument(img, { name: stampName('Region'), source: { type: 'region', name: shot.name || '' } }));
+      const name = stampName('Region');
+      const doc = addDoc(createImageDocument(img, { name, source: { type: 'region', name: shot.name || '' } }));
       if (settingsRef.current.capture.copyToClipboard) platform.clipboard.writeImage(img.dataUrl).catch(() => {});
-      const file = await recordCapture(doc, img, 'region');
+      // Crop the PNG Rust already has, instead of uploading the picture again.
+      let file = '';
+      let savedBytes = 0;
+      if (isTauri && shot.shotId) {
+        try {
+          const path = await captureFilePath(name);
+          if (path) {
+            savedBytes = Number(await platform.capture.saveShot({ shotId: shot.shotId, path, x: rect.x, y: rect.y, w: rect.w, h: rect.h })) || 0;
+            file = path;
+          }
+        } catch { file = ''; }
+      }
+      if (file) {
+        const saved = doc.history.present;
+        updateDoc(doc.id, (d) => ({ ...d, file, savedPresent: d.savedPresent || saved }));
+        const thumb = await thumbnailOf(img.dataUrl).catch(() => '');
+        addHistory({ path: file, name: stripExt(nameOf(file)), kind: 'image', source: 'region', width: img.width, height: img.height, bytes: savedBytes, thumb, time: doc.createdAt }, doc.id);
+      } else {
+        file = await recordCapture(doc, img, 'region');
+      }
       toast(file ? t('toast.capturedSaved', { name: nameOf(file), w: img.width, h: img.height }) : t('toast.captured', { w: img.width, h: img.height }));
       return doc;
     } catch (err) {
@@ -765,7 +842,7 @@ export default function App() {
       setCountdown(0);
     }
     return null;
-  }, [addDoc, ask, recordCapture, reportError, t, toast]);
+  }, [addDoc, addHistory, ask, captureFilePath, recordCapture, reportError, t, toast, updateDoc]);
 
   // ── Recording ──
   const finishRecording = useCallback(async (discard) => {
@@ -1401,14 +1478,21 @@ export default function App() {
   const toggleToolPanel = useCallback(() => updateSettings((s) => ({ toolPanel: { ...s.toolPanel, open: !s.toolPanel.open } })), [updateSettings]);
   const resizeToolPanel = useCallback((width) => updateSettings((s) => ({ toolPanel: { ...s.toolPanel, width: fitPanel(width, s.toolPanel.width) } })), [fitPanel, updateSettings]);
 
-  useEffect(applyMinWidth, [applyMinWidth, settings.toolPanel.open, settings.toolPanel.width, settings.history.open, settings.history.width]);
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    applyMinWidth();
+  }, [applyMinWidth, settingsLoaded, settings.toolPanel.open, settings.toolPanel.width, settings.history.open, settings.history.width]);
 
   // The minimum height lets the tool panel scroll, but the window opens tall
   // enough to show all of it (within the screen). Measured after the start-up
   // sizing and font loading have settled.
   useEffect(() => {
+    if (!settingsLoaded) return undefined;
+    let cancelled = false;
     const timers = [];
-    const fit = () => {
+    const fit = async () => {
+      const size = await platform.windowControls.getSize();
+      if (cancelled || (size && size.restored)) return;
       const list = document.querySelector('.tool-list, .tool-strip');
       const missing = list ? list.scrollHeight - list.clientHeight : 0;
       if (missing > 0) {
@@ -1416,9 +1500,9 @@ export default function App() {
       }
     };
     timers.push(setTimeout(fit, 600));
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => timers.push(setTimeout(fit, 600)));
-    return () => timers.forEach(clearTimeout);
-  }, []);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) timers.push(setTimeout(fit, 600)); });
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, [settingsLoaded]);
 
   const markMissing = useCallback((entry, gone) => {
     setMissing((m) => {
@@ -1635,6 +1719,8 @@ export default function App() {
     window.__capturemaster = { openPaths, saveDoc, exportImage, print, closeDoc, commit, updateDoc, get docs() { return docsRef.current; }, get active() { return docsRef.current.find((d) => d.id === activeRef.current); }, reportError, settings: settingsRef, updateSettings, history, captureScreen, captureRegion };
     return () => { delete window.__capturemaster; };
   }, [captureRegion, captureScreen, closeDoc, commit, exportImage, history, info.packaged, openPaths, print, reportError, saveDoc, updateDoc, updateSettings]);
+
+  if (!settingsLoaded) return <div className="app booting" />;
 
   return (
     <div className={`app${platform.windowControls.available ? '' : ' no-frame'}`} style={{ '--side-w': `${settings.history.open ? settings.history.width : 30}px` }}>

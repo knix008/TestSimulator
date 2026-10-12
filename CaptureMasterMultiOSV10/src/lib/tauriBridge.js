@@ -55,6 +55,7 @@ export const tauriApi = {
     readBinary: ({ filePath, id }) => readFile('fs_read_binary', filePath, id),
     readText: ({ filePath, id }) => invoke('fs_read_text', { filePath, id }),
     writeBinary: ({ filePath, data, id }) => invoke('fs_write_binary', { filePath, data: Array.from(bytesOf(data)), id }),
+    writeBase64: (path, data) => invoke('fs_write_base64', { path, data }),
     writeText: ({ filePath, content, id }) => invoke('fs_write_text', { filePath, content, id }),
     copyFile: ({ from, to, id }) => invoke('fs_copy_file', { from, to, id }),
     tempPath: (ext) => invoke('fs_temp_path', { ext }),
@@ -101,8 +102,10 @@ export const tauriApi = {
 
   capture: {
     listSources: (opts) => invoke('capture_list_sources', { opts: opts || {} }),
-    grabScreen: (sourceId) => invoke('capture_grab_screen', { sourceId: sourceId || null }),
-    grabWindow: (sourceId) => invoke('capture_grab_window', { sourceId }),
+    grabScreen: (sourceId, savePath) => invoke('capture_grab_screen', { sourceId: sourceId || null, savePath: savePath || null }),
+    grabWindow: (sourceId, savePath) => invoke('capture_grab_window', { sourceId, savePath: savePath || null }),
+    saveShot: ({ shotId, path, x, y, w, h }) => invoke('capture_save_shot', { shotId, path, x, y, w, h }),
+    dropShot: (shotId) => invoke('capture_drop_shot', { shotId }),
     displays: () => invoke('capture_displays'),
     cursorDisplay: () => invoke('capture_cursor_display'),
     hideApp: () => invoke('capture_hide_app'),
@@ -177,6 +180,7 @@ export const tauriApi = {
     setMinHeight: (height) => invoke('win_set_min_height', { height }),
     getSize: () => invoke('win_get_size'),
     setSize: (payload) => invoke('win_set_size', { width: payload && payload.width, height: payload && payload.height }),
+    show: () => invoke('win_show'),
     onMaximizeChange: (cb) => listenEvent('win:maximized', cb),
   },
 

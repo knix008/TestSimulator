@@ -6,6 +6,8 @@ node_modules/
 dist/
 # Rust build output and installers — npm start / npm run build:win
 src-tauri/target/
+# NSIS setup copied to this folder by postbuild:win (scripts/copy-installer.mjs)
+/*-setup.exe
 # schemas Tauri regenerates on every Rust build
 src-tauri/gen/schemas/
 # platform icons generated from assets/*.svg — npm run generate:icons

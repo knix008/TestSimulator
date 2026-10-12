@@ -33,8 +33,35 @@ export function bytesToDataUrl(bytes, mime) {
   });
 }
 
+function bytesFromBase64(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  // Chunked so a full-screen PNG (many megabytes) does not stall in one call.
+  const step = 0x8000;
+  for (let i = 0; i < bin.length; i += step) {
+    const end = Math.min(i + step, bin.length);
+    for (let j = i; j < end; j++) out[j] = bin.charCodeAt(j);
+  }
+  return out;
+}
+
+/**
+ * Bytes of a data URL or any fetchable URL.
+ * Data URLs are decoded here. WebView2's fetch rejects `data:` URLs, and
+ * Chromium's network stack rejects ones larger than about 2MB — a full-screen
+ * PNG is usually bigger than that, so automatic save failed on every capture.
+ */
 export async function dataUrlToBytes(dataUrl) {
-  const res = await fetch(dataUrl);
+  const s = String(dataUrl || '');
+  const comma = s.indexOf(',');
+  if (s.startsWith('data:') && comma >= 0) {
+    const meta = s.slice(0, comma);
+    const payload = s.slice(comma + 1);
+    if (/;base64/i.test(meta)) return bytesFromBase64(payload);
+    return new TextEncoder().encode(decodeURIComponent(payload));
+  }
+  const res = await fetch(s);
+  if (!res.ok) throw new Error('Could not read image bytes.');
   return new Uint8Array(await res.arrayBuffer());
 }
 

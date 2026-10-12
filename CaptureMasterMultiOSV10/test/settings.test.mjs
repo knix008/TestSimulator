@@ -58,6 +58,8 @@ test('tool panel width shares the capture history limits', () => {
   assert.equal(normalizeSettings({ toolPanel: { width: 50 } }).toolPanel.width, HISTORY_WIDTH.min);
   assert.equal(normalizeSettings({ toolPanel: { width: 9999, open: false } }).toolPanel.width, HISTORY_WIDTH.max);
   assert.equal(normalizeSettings({ toolPanel: { open: false } }).toolPanel.open, false);
+  assert.equal(normalizeSettings({ history: { open: false } }).history.open, false);
+  assert.equal(normalizeSettings({ history: { open: false }, toolPanel: { open: false } }).history.open, false);
 });
 
 test('selection shape is kept when known and falls back to a rectangle', () => {

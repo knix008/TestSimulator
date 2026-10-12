@@ -134,9 +134,9 @@ doc = { id, kind:'image'|'video', name, path, file, dir, source,
 
 ## 9. 창 크기와 툴바
 
-툴바(`Toolbar.jsx`)는 두 행의 자식 폭 합(마진 포함, 오른쪽 정렬용 spacer 제외)을 재서 `win:setMinWidth` 로 보내고, 시작 화면(`Welcome`)은 스크롤 없이 다 보이는 데 필요한 높이를 `win:setMinHeight` 로 보낸다. 언어·글꼴이 바뀔 때마다 다시 잰다. main 은 프레임 여백을 더해 최소 크기를 정하고, 창은 항상 최소 크기로 시작한다(생성 후 4초 동안은 측정값을 그대로 따라가고, 그 뒤로는 좁아질 때만 넓힌다). 그래서 어떤 설정에서도 버튼이 가려지지 않는다.
+툴바(`Toolbar.jsx`)는 두 행의 자식 폭 합(마진 포함, 오른쪽 정렬용 spacer 제외)을 재서 `win:setMinWidth` 로 보내고, 시작 화면(`Welcome`)은 스크롤 없이 다 보이는 데 필요한 높이를 `win:setMinHeight` 로 보낸다. 언어·글꼴이 바뀔 때마다 다시 잰다. main 은 프레임 여백을 더해 최소 크기를 정한다. 저장된 크기가 없으면 생성 후 4초 동안 그 최소 크기로 맞추고, 그 뒤로는 최소보다 좁아질 때만 넓힌다. 이동·크기 변경·종료 때 `window-state.json` 에 논리 픽셀 크기·위치·최대화를 남기고, 다음 실행은 창을 숨긴 채 그 값을 적용한 뒤 보여 준다. 최대화 중에는 화면 크기로 저장값을 덮어쓰지 않는다. 좌우 패널 접힘(`toolPanel.open`, `history.open`)은 바뀌는 즉시 `settings.json` 에 저장하고 종료 때 한 번 더 저장한다. 창은 그 설정을 읽어 패널을 그린 뒤에야 `win_show` 로 나타난다(4초 안에 오지 않으면 그대로 보여 준다).
 
-편집 도구 버튼은 툴바가 아니라 왼쪽 도구 모음 패널(`ToolPanel.jsx`, `TOOLS`/`TOOL_KEYS`)에 있다. 펼침 상태와 폭은 설정의 `toolPanel: {open, width}` 에 저장되며, 폭 한계 `TOOL_PANEL_WIDTH` 는 캡처 기록의 `HISTORY_WIDTH`(200–480px)와 같다. 접힌 상태(30px)에서도 아이콘 띠로 도구를 고를 수 있다. `Ctrl+B` 로 접고 펼친다.
+편집 도구 버튼은 툴바가 아니라 왼쪽 도구 모음 패널(`ToolPanel.jsx`, `TOOLS`/`TOOL_KEYS`)에 있다. 펼침 상태와 폭은 설정의 `toolPanel: {open, width}` 에 저장되며, 오른쪽 캡처 기록은 `history: {open, width}` 다. 폭 한계 `TOOL_PANEL_WIDTH` 는 캡처 기록의 `HISTORY_WIDTH`(200–480px)와 같다. 접힌 상태(30px)에서도 아이콘 띠로 도구를 고를 수 있다. `Ctrl+B` 로 도구 모음을, `Ctrl+H` 로 캡처 기록을 접고 펼친다.
 
 선택 영역은 `{x, y, w, h, shape}`(`shape`: `rect` · `round` · `ellipse`, 설정 `editor.selectionShape` 가 새 선택의 기본값)이다. `lib/selection.js` 의 `traceSelection` 이 윤곽을 그리고, `maskToSelection` 이 복사·자르기 결과를 모양 밖으로 투명하게 만들며, `eraseRect` 는 모양을 `destination-out` 으로 지운다. 둥근 사각형의 모서리 반지름은 짧은 변의 1/6 이다.
 
@@ -163,7 +163,7 @@ main: state.quitting = true ─▶ 다이얼로그 창 모두 파괴 ─▶ win.
 - `scripts/generate-icons.mjs`: SVG → sharp 로 래스터 → 자체 ICO/ICNS 인코더(`src/lib/ico.mjs`). 앱 아이콘과 문서 아이콘 두 세트.
 - `scripts/generate-build-info.mjs`: 버전·빌드 시각·커밋을 `src/build-info.json` 에 기록(정보 창이 표시). 패키지에는 `extraResources` 로도 들어간다.
 - electron-builder 설정은 `package.json build`. `fileAssociations` 로 `.cmcap` 을 등록하고, Windows 는 `build/installer.nsh` 가 아이콘·동사·바로가기·데이터 질문을 보강한다. Linux `.deb` 는 `build/linux/after-install.sh` 로 shared-mime-info 와 아이콘을 등록한다.
-- `scripts/copy-installer.js` 가 결과물을 프로젝트 루트로 복사한다.
+- `scripts/copy-installer.mjs` 가 NSIS 설치 파일을 프로젝트 루트로 복사한다(`postbuild:win`).
 
 ## 13. 테스트
 

@@ -20,11 +20,35 @@ fn png_bytes(width: u32, height: u32, raw: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 fn data_url(width: u32, height: u32, raw: &[u8]) -> Result<String, String> {
-    let bytes = png_bytes(width, height, raw)?;
-    Ok(format!(
+    Ok(data_url_of(&png_bytes(width, height, raw)?))
+}
+
+fn data_url_of(png: &[u8]) -> String {
+    format!(
         "data:image/png;base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(bytes)
-    ))
+        base64::engine::general_purpose::STANDARD.encode(png)
+    )
+}
+
+/// Writes the PNG next to the capture so the page does not have to send the
+/// full-screen bytes back over IPC. A missing parent folder is created.
+fn write_capture(path: Option<&str>, png: &[u8]) -> (Value, u64, Value) {
+    let Some(path) = path.filter(|p| !p.is_empty()) else {
+        return (Value::Null, 0, Value::Null);
+    };
+    let write = (|| -> Result<u64, String> {
+        if let Some(parent) = std::path::Path::new(path).parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+        }
+        std::fs::write(path, png).map_err(|e| e.to_string())?;
+        Ok(png.len() as u64)
+    })();
+    match write {
+        Ok(n) => (json!(path), n, Value::Null),
+        Err(e) => (Value::Null, 0, json!(e)),
+    }
 }
 
 fn thumb(img: image::RgbaImage, max_w: u32) -> Option<String> {
@@ -67,6 +91,7 @@ fn num_result<T: Default>(value: Result<T, xcap::XCapError>) -> T {
 
 struct Shot {
     data_url: String,
+    png: Vec<u8>,
     width: u32,
     height: u32,
 }
@@ -74,8 +99,9 @@ struct Shot {
 fn shot_of(img: image::RgbaImage) -> Result<Shot, String> {
     let width = img.width();
     let height = img.height();
-    let data_url = data_url(width, height, img.as_raw())?;
-    Ok(Shot { data_url, width, height })
+    let png = png_bytes(width, height, img.as_raw())?;
+    let data_url = data_url_of(&png);
+    Ok(Shot { data_url, png, width, height })
 }
 
 pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> Result<Vec<Value>, String> {
@@ -178,7 +204,36 @@ fn monitor_by_id(source_id: Option<&str>) -> Result<xcap::Monitor, String> {
     }))
 }
 
-pub fn grab_screen(source_id: Option<&str>) -> Result<Value, String> {
+pub struct Grabbed {
+    pub value: Value,
+    pub png: Vec<u8>,
+}
+
+/// Writes `png`, or the rectangle `(x, y, w, h)` cropped out of it.
+pub fn save_png(png: &[u8], path: &str, crop: Option<(u32, u32, u32, u32)>) -> Result<u64, String> {
+    let bytes = if let Some((x, y, w, h)) = crop {
+        let img = image::load_from_memory(png).map_err(|e| e.to_string())?;
+        let (iw, ih) = (img.width(), img.height());
+        if iw == 0 || ih == 0 {
+            return Err("The capture came back empty.".into());
+        }
+        let x = x.min(iw - 1);
+        let y = y.min(ih - 1);
+        let w = w.max(1).min(iw - x);
+        let h = h.max(1).min(ih - y);
+        let cropped = img.crop_imm(x, y, w, h).to_rgba8();
+        png_bytes(cropped.width(), cropped.height(), cropped.as_raw())?
+    } else {
+        png.to_vec()
+    };
+    let (_saved, n, err) = write_capture(Some(path), &bytes);
+    match err.as_str() {
+        None => Ok(n),
+        Some(message) => Err(message.to_string()),
+    }
+}
+
+pub fn grab_screen(source_id: Option<&str>, save_path: Option<&str>) -> Result<Grabbed, String> {
     let mon = monitor_by_id(source_id)?;
     let id = num_result(mon.id());
     let name = text_result(mon.name());
@@ -187,20 +242,30 @@ pub fn grab_screen(source_id: Option<&str>) -> Result<Value, String> {
     if shot.width == 0 || shot.height == 0 {
         return Err("The screen capture came back empty.".into());
     }
-    Ok(json!({
-        "dataUrl": shot.data_url,
-        "width": shot.width,
-        "height": shot.height,
-        "name": name,
-        "sourceId": format!("screen:{id}"),
-        "displayId": id.to_string(),
-        "scaleFactor": mon.scale_factor().unwrap_or(1.0) as f64,
-        "bounds": { "x": num_result(mon.x()), "y": num_result(mon.y()), "width": num_result(mon.width()), "height": num_result(mon.height()) },
-        "kind": "screen",
-    }))
+    let (saved_path, saved_bytes, save_error) = write_capture(save_path, &shot.png);
+    let width = shot.width;
+    let height = shot.height;
+    let png = shot.png;
+    Ok(Grabbed {
+        png,
+        value: json!({
+            "dataUrl": shot.data_url,
+            "width": width,
+            "height": height,
+            "name": name,
+            "sourceId": format!("screen:{id}"),
+            "displayId": id.to_string(),
+            "scaleFactor": mon.scale_factor().unwrap_or(1.0) as f64,
+            "bounds": { "x": num_result(mon.x()), "y": num_result(mon.y()), "width": num_result(mon.width()), "height": num_result(mon.height()) },
+            "kind": "screen",
+            "savedPath": saved_path,
+            "savedBytes": saved_bytes,
+            "saveError": save_error,
+        }),
+    })
 }
 
-pub fn grab_window(source_id: &str) -> Result<Value, String> {
+pub fn grab_window(source_id: &str, save_path: Option<&str>) -> Result<Grabbed, String> {
     let want = source_id.trim_start_matches("window:");
     let windows = xcap::Window::all().map_err(|e| e.to_string())?;
     let win = windows
@@ -210,14 +275,24 @@ pub fn grab_window(source_id: &str) -> Result<Value, String> {
     let name = text_result(win.title());
     let img = win.capture_image().map_err(|e| e.to_string())?;
     let shot = shot_of(img)?;
-    Ok(json!({
-        "dataUrl": shot.data_url,
-        "width": shot.width,
-        "height": shot.height,
-        "name": name,
-        "sourceId": format!("window:{want}"),
-        "kind": "window",
-    }))
+    let (saved_path, saved_bytes, save_error) = write_capture(save_path, &shot.png);
+    let width = shot.width;
+    let height = shot.height;
+    let png = shot.png;
+    Ok(Grabbed {
+        png,
+        value: json!({
+            "dataUrl": shot.data_url,
+            "width": width,
+            "height": height,
+            "name": name,
+            "sourceId": format!("window:{want}"),
+            "kind": "window",
+            "savedPath": saved_path,
+            "savedBytes": saved_bytes,
+            "saveError": save_error,
+        }),
+    })
 }
 
 pub fn list_displays() -> Result<Vec<Value>, String> {
@@ -279,4 +354,38 @@ pub fn monitor_bounds(display_id: Option<&str>) -> Option<(i32, i32, u32, u32)> 
     };
     let mon = mon.or_else(|| monitors.iter().find(|m| num_result(m.is_primary())).cloned())?;
     Some((num_result(mon.x()), num_result(mon.y()), num_result(mon.width()), num_result(mon.height())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::write_capture;
+
+    #[test]
+    fn writes_capture_file_and_creates_the_folder() {
+        let dir = std::env::temp_dir().join(format!("cm-cap-test-{}", std::process::id()));
+        let path = dir.join("shot.png");
+        let text = path.to_string_lossy().to_string();
+        let (saved, n, err) = write_capture(Some(&text), b"\x89PNG");
+        assert!(err.is_null());
+        assert_eq!(n, 4);
+        assert_eq!(saved.as_str(), Some(text.as_str()));
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x89PNG");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn crops_a_cached_capture_before_saving() {
+        let raw = vec![
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 255, 255,
+        ];
+        let png = super::png_bytes(2, 2, &raw).unwrap();
+        let dir = std::env::temp_dir().join(format!("cm-crop-{}", std::process::id()));
+        let path = dir.join("crop.png");
+        let n = super::save_png(&png, &path.to_string_lossy(), Some((1, 0, 1, 2))).unwrap();
+        assert!(n > 8);
+        let img = image::load_from_memory(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!((img.width(), img.height()), (1, 2));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

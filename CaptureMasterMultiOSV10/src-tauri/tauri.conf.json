@@ -22,7 +22,7 @@
         "decorations": false,
         "shadow": true,
         "resizable": true,
-        "visible": true,
+        "visible": false,
         "center": true,
         "dragDropEnabled": true,
         "backgroundColor": "#12161c"
@@ -46,7 +46,7 @@
     "publisher": "SHKWON",
     "homepage": "https://github.com/knix008/TestSimulator",
     "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
-    "category": "Graphics",
+    "category": "Graphics and Design",
     "shortDescription": "Screen capture and recording",
     "longDescription": "Capture the full screen, a window or a region, annotate the shot, and record the screen.",
     "icon": [

@@ -90,6 +90,7 @@ export const platform = {
     readBinary: (filePath, id) => api.fs.readBinary({ filePath, id }),
     readText: (filePath, id) => api.fs.readText({ filePath, id }),
     writeBinary: (filePath, data, id) => api.fs.writeBinary({ filePath, data, id }),
+    writeBase64: (path, data) => (isTauri ? api.fs.writeBase64(path, data) : Promise.reject(new Error('Base64 save is only available in the desktop app.'))),
     writeText: (filePath, content, id) => api.fs.writeText({ filePath, content, id }),
     copyFile: (from, to, id) => api.fs.copyFile({ from, to, id }),
     tempPath: (ext) => api.fs.tempPath(ext),
@@ -160,8 +161,10 @@ export const platform = {
   capture: {
     available: isDesktop || !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
     listSources: (opts) => (isDesktop ? api.capture.listSources(opts) : Promise.resolve([])),
-    grabScreen: (sourceId) => api.capture.grabScreen(sourceId),
-    grabWindow: (sourceId) => (isTauri ? api.capture.grabWindow(sourceId) : Promise.reject(new Error('Window capture uses the desktop stream.'))),
+    grabScreen: (sourceId, savePath) => api.capture.grabScreen(sourceId, savePath),
+    grabWindow: (sourceId, savePath) => (isTauri ? api.capture.grabWindow(sourceId, savePath) : Promise.reject(new Error('Window capture uses the desktop stream.'))),
+    saveShot: (req) => (isTauri ? api.capture.saveShot(req) : Promise.reject(new Error('Saving a capture is only available in the desktop app.'))),
+    dropShot: (shotId) => (isTauri && shotId ? api.capture.dropShot(shotId) : Promise.resolve(false)),
     displays: () => (isDesktop ? api.capture.displays() : Promise.resolve([{ id: 'web', bounds: { x: 0, y: 0, width: screen.width, height: screen.height }, scaleFactor: devicePixelRatio, isPrimary: true }])),
     cursorDisplay: () => (isDesktop ? api.capture.cursorDisplay() : Promise.resolve('web')),
     hideApp: () => (isDesktop ? api.capture.hideApp() : Promise.resolve(true)),
@@ -212,6 +215,7 @@ export const platform = {
     setMinHeight: (h) => (isDesktop ? api.win.setMinHeight(h) : Promise.resolve(false)),
     getSize: () => (isDesktop ? api.win.getSize() : Promise.resolve(null)),
     setSize: (p) => (isDesktop ? api.win.setSize(p) : Promise.resolve(false)),
+    show: () => (isDesktop ? api.win.show() : Promise.resolve(true)),
   },
 };
 

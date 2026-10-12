@@ -82,6 +82,9 @@ pub fn run() {
             commands::capture_list_sources,
             commands::capture_grab_screen,
             commands::capture_grab_window,
+            commands::capture_save_shot,
+            commands::capture_drop_shot,
+            commands::fs_write_base64,
             commands::capture_displays,
             commands::capture_cursor_display,
             commands::capture_hide_app,
@@ -121,6 +124,7 @@ pub fn run() {
             commands::win_minimize,
             commands::win_toggle_maximize,
             commands::win_close,
+            commands::win_show,
             commands::win_is_maximized,
             commands::win_set_title,
             commands::win_set_min_width,
@@ -138,11 +142,24 @@ pub fn run() {
             if let Some(win) = app.get_webview_window("main") {
                 let handle = app.handle().clone();
                 win.on_window_event(move |event| {
-                    if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) {
+                    let save = matches!(
+                        event,
+                        WindowEvent::Moved(_) | WindowEvent::Resized(_) | WindowEvent::CloseRequested { .. }
+                    );
+                    if save {
                         commands::save_window_state(&handle);
                     }
                 });
             }
+            // Stay hidden until the page has applied saved settings (panel fold
+            // included). Show anyway if that never arrives.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(4));
+                if let Some(win) = handle.get_webview_window("main") {
+                    let _ = win.show();
+                }
+            });
             Ok(())
         })
         .build(tauri::generate_context!())

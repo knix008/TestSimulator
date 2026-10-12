@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 
@@ -268,6 +269,21 @@ pub fn fs_write_binary(window: WebviewWindow, file_path: String, data: Vec<u8>, 
     write_with_progress(&window, id.as_deref().unwrap_or(""), Path::new(&file_path), &data)
 }
 
+/// Writes already-encoded bytes. The payload is the base64 from a data URL, so
+/// automatic save does not depend on a raw-body request or custom headers.
+#[tauri::command]
+pub fn fs_write_base64(path: String, data: String) -> Result<u64, String> {
+    let payload = data.split_once(',').map(|(_, rest)| rest).unwrap_or(data.as_str());
+    let bytes = base64::engine::general_purpose::STANDARD.decode(payload.trim()).map_err(|e| e.to_string())?;
+    if let Some(parent) = Path::new(&path).parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+    Ok(bytes.len() as u64)
+}
+
 #[tauri::command]
 pub fn fs_write_text(window: WebviewWindow, file_path: String, content: String, id: Option<String>) -> Result<bool, String> {
     write_with_progress(&window, id.as_deref().unwrap_or(""), Path::new(&file_path), content.as_bytes())
@@ -485,14 +501,55 @@ pub async fn capture_list_sources(opts: Option<SourceOpts>) -> Result<Vec<Value>
     capture::list_sources(&types, opts.thumb_width.unwrap_or(360), opts.include_self.unwrap_or(true))
 }
 
-#[tauri::command]
-pub async fn capture_grab_screen(source_id: Option<String>) -> Result<Value, String> {
-    capture::grab_screen(source_id.as_deref())
+fn remember_shot(state: &AppState, png: Vec<u8>) -> String {
+    let mut slot = state.shots.lock().unwrap_or_else(|e| e.into_inner());
+    slot.seq = slot.seq.wrapping_add(1);
+    let id = format!("s{}", slot.seq);
+    slot.shot = Some(crate::state::LastShot { id: id.clone(), png });
+    id
+}
+
+fn finish_grab(state: &AppState, mut grabbed: capture::Grabbed) -> Value {
+    let id = remember_shot(state, grabbed.png);
+    grabbed.value["shotId"] = json!(id);
+    grabbed.value
 }
 
 #[tauri::command]
-pub async fn capture_grab_window(source_id: String) -> Result<Value, String> {
-    capture::grab_window(&source_id)
+pub async fn capture_grab_screen(state: tauri::State<'_, AppState>, source_id: Option<String>, save_path: Option<String>) -> Result<Value, String> {
+    let grabbed = capture::grab_screen(source_id.as_deref(), save_path.as_deref())?;
+    Ok(finish_grab(&state, grabbed))
+}
+
+#[tauri::command]
+pub async fn capture_grab_window(state: tauri::State<'_, AppState>, source_id: String, save_path: Option<String>) -> Result<Value, String> {
+    let grabbed = capture::grab_window(&source_id, save_path.as_deref())?;
+    Ok(finish_grab(&state, grabbed))
+}
+
+/// Saves the cached still. A rectangle crops it first (region capture).
+#[tauri::command]
+pub fn capture_save_shot(state: tauri::State<AppState>, shot_id: String, path: String, x: Option<f64>, y: Option<f64>, w: Option<f64>, h: Option<f64>) -> Result<u64, String> {
+    let png = {
+        let slot = state.shots.lock().map_err(|e| e.to_string())?;
+        let shot = slot.shot.as_ref().filter(|s| s.id == shot_id).ok_or_else(|| "The capture is no longer available.".to_string())?;
+        shot.png.clone()
+    };
+    let crop = match (x, y, w, h) {
+        (Some(x), Some(y), Some(w), Some(h)) if w >= 1.0 && h >= 1.0 => Some((x.round().max(0.0) as u32, y.round().max(0.0) as u32, w.round().max(1.0) as u32, h.round().max(1.0) as u32)),
+        _ => None,
+    };
+    capture::save_png(&png, &path, crop)
+}
+
+#[tauri::command]
+pub fn capture_drop_shot(state: tauri::State<AppState>, shot_id: String) -> bool {
+    let mut slot = state.shots.lock().unwrap_or_else(|e| e.into_inner());
+    if slot.shot.as_ref().is_some_and(|s| s.id == shot_id) {
+        slot.shot = None;
+        return true;
+    }
+    false
 }
 
 #[tauri::command]
@@ -871,6 +928,11 @@ pub fn win_close(window: WebviewWindow) {
 }
 
 #[tauri::command]
+pub fn win_show(window: WebviewWindow) {
+    let _ = window.show();
+}
+
+#[tauri::command]
 pub fn win_is_maximized(window: WebviewWindow) -> bool {
     window.is_maximized().unwrap_or(false)
 }
@@ -899,7 +961,8 @@ pub fn win_set_min_width(window: WebviewWindow, state: tauri::State<AppState>, w
     let _ = window.set_min_size(Some(tauri::LogicalSize::new(min_w, min_h)));
     if !window.is_maximized().unwrap_or(false) {
         if let Ok((cw, ch)) = logical_size(&window) {
-            if cw < min_w || starting_up(&state) {
+            let restored = state.size_restored.load(Ordering::SeqCst);
+            if cw < min_w || (starting_up(&state) && !restored) {
                 let _ = window.set_size(tauri::LogicalSize::new(min_w, ch.max(min_h)));
             }
         }
@@ -922,7 +985,8 @@ pub fn win_set_min_height(window: WebviewWindow, state: tauri::State<AppState>, 
     let _ = window.set_min_size(Some(tauri::LogicalSize::new(min_w, min_h)));
     if !window.is_maximized().unwrap_or(false) {
         if let Ok((cw, ch)) = logical_size(&window) {
-            if ch < min_h || starting_up(&state) {
+            let restored = state.size_restored.load(Ordering::SeqCst);
+            if ch < min_h || (starting_up(&state) && !restored) {
                 let _ = window.set_size(tauri::LogicalSize::new(cw.max(min_w), min_h));
             }
         }
@@ -934,7 +998,8 @@ pub fn win_set_min_height(window: WebviewWindow, state: tauri::State<AppState>, 
 pub fn win_get_size(window: WebviewWindow, state: tauri::State<AppState>) -> Option<Value> {
     let (width, height) = logical_size(&window).ok()?;
     let (min_width, min_height) = state.min_size.lock().ok().map(|s| *s).unwrap_or((MIN_W, MIN_H));
-    Some(json!({ "width": width.round(), "height": height.round(), "minWidth": min_width, "minHeight": min_height }))
+    let restored = state.size_restored.load(Ordering::SeqCst);
+    Some(json!({ "width": width.round(), "height": height.round(), "minWidth": min_width, "minHeight": min_height, "restored": restored }))
 }
 
 #[tauri::command]
@@ -950,20 +1015,23 @@ pub fn win_set_size(window: WebviewWindow, state: tauri::State<AppState>, width:
 
 pub fn save_window_state(app: &AppHandle) {
     let Some(win) = app.get_webview_window("main") else { return };
-    let maximized = win.is_maximized().unwrap_or(false);
-    let scale = win.scale_factor().unwrap_or(1.0).max(0.01);
-    let pos = win.outer_position().ok();
-    let size = win.inner_size().ok();
-    let Some(pos) = pos else { return };
-    let Some(size) = size else { return };
-    let data = json!({
-        "x": pos.x as f64 / scale,
-        "y": pos.y as f64 / scale,
-        "width": size.width as f64 / scale,
-        "height": size.height as f64 / scale,
-        "maximized": maximized,
-    });
     let path = window_state_path(app);
+    let mut data = fs::read_to_string(&path).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok()).unwrap_or_else(|| json!({}));
+    if !data.is_object() {
+        data = json!({});
+    }
+    let maximized = win.is_maximized().unwrap_or(false);
+    // A maximized window reports the screen size; keep the size it had before that.
+    if !maximized {
+        let scale = win.scale_factor().unwrap_or(1.0).max(0.01);
+        if let (Ok(pos), Ok(size)) = (win.outer_position(), win.inner_size()) {
+            data["x"] = json!(pos.x as f64 / scale);
+            data["y"] = json!(pos.y as f64 / scale);
+            data["width"] = json!(size.width as f64 / scale);
+            data["height"] = json!(size.height as f64 / scale);
+        }
+    }
+    data["maximized"] = json!(maximized);
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
@@ -975,11 +1043,23 @@ pub fn restore_window_state(app: &AppHandle) {
     let Ok(text) = fs::read_to_string(path) else { return };
     let Ok(data) = serde_json::from_str::<Value>(&text) else { return };
     let Some(win) = app.get_webview_window("main") else { return };
+    let mut restored = false;
+    if let (Some(width), Some(height)) = (data.get("width").and_then(|v| v.as_f64()), data.get("height").and_then(|v| v.as_f64())) {
+        if (200.0..10000.0).contains(&width) && (200.0..10000.0).contains(&height) {
+            let _ = win.set_size(tauri::LogicalSize::new(width.max(MIN_W), height.max(MIN_H)));
+            restored = true;
+        }
+    }
     if let (Some(x), Some(y)) = (data.get("x").and_then(|v| v.as_f64()), data.get("y").and_then(|v| v.as_f64())) {
         if (-4000.0..20000.0).contains(&x) && (-4000.0..20000.0).contains(&y) {
             let _ = win.set_position(tauri::LogicalPosition::new(x, y));
         }
     }
+    if data.get("maximized").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let _ = win.maximize();
+        restored = true;
+    }
+    app.state::<AppState>().size_restored.store(restored, Ordering::SeqCst);
 }
 
 fn current_stamp() -> Value {
