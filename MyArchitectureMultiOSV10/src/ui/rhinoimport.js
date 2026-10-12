@@ -15,7 +15,7 @@ export async function importRhinoFile(app, f) {
     h("ul", { class: "field-hint" },
       h("li", {}, t("3D model: surfaces, polysurfaces, meshes, SubDs and blocks become one piece of furniture, in the file's units, coloured by layer and material.")),
       h("li", {}, t("Plan drawing: the top view — curves, surface and mesh edges, points and texts — on one CAD layer per Rhino layer, to trace walls over."))));
-  const choice = await modal({
+  const choice = await modal({ icon: "import",
     title: t("Import Rhino 3DM"), width: 540, body,
     buttons: [{ label: t("Cancel"), value: null }, { label: t("Plan drawing"), value: "plan" }, { label: t("3D model"), value: "model", primary: true }],
   });

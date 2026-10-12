@@ -196,6 +196,39 @@ const CATALOG = [
     parts: (w, d, h) => [B(0, -d / 2 + 10, 0.25 * h, 0.35 * w, 20, 0.5 * h, "metal"), G(C(0, 0.06 * d, 0, w / 2, h, "main", d * 0.44), 0.6)] },
   { kind: "tableLamp", cat: "Lighting", name: "Table lamp", w: 350, d: 350, h: 550, color: "white", light: { type: "point", lumens: 450, at: (w, d, h) => [0, 0, 0.7 * h] },
     parts: (w, d, h) => [C(0, 0, 0, w * 0.3, 20, "metal", d * 0.3), C(0, 0, 20, 10, 0.5 * h, "metal"), G(C(0, 0, 0.5 * h, w / 2, 0.5 * h, "main", d / 2), 0.5)] },
+  { kind: "chandelier", cat: "Lighting", name: "Chandelier", w: 800, d: 800, h: 700, color: "metal", mount: "ceiling", light: { type: "point", lumens: 2400, at: (w, d, h) => [0, 0, 0.3 * h] },
+    parts: (w, d, h) => [C(0, 0, h - 20, 70, 20, "main"), C(0, 0, 0.35 * h, 8, 0.63 * h, "main"), C(0, 0, 0.28 * h, w * 0.08, 0.1 * h, "main"),
+      ...[0, 1, 2, 3, 4, 5].flatMap((k) => { const a = (k * Math.PI) / 3, x = Math.cos(a) * w * 0.38, y = Math.sin(a) * d * 0.38;
+        return [B(x / 2, y / 2, 0.31 * h, Math.abs(x) + 16, Math.abs(y) + 16, 14, "main"), C(x, y, 0.31 * h, 22, 40, "main"), G(S(x, y, 0.31 * h + 90, Math.min(w, d) * 0.06, "bulb"), 1)]; })] },
+  // ---------------------------------------------------------------- interior extras
+  { kind: "curtain", cat: "Living", name: "Curtains", w: 1800, d: 120, h: 2500, color: "fabric2", parts: (w, d, h) => [
+    B(0, -d / 2 + 15, h - 30, w, 20, 20, "metal"),
+    ...[-1, 1].flatMap((side) => [0, 1, 2, 3, 4, 5].map((k) => B(side * (w / 2 - 0.28 * w + (k + 0.5) * (0.28 * w) / 6), (k % 2 ? 0.12 : -0.12) * d, 20, (0.28 * w) / 6 + 6, d * 0.45, h - 70, "main")))] },
+  { kind: "wallArt", cat: "Living", name: "Wall art", w: 900, d: 40, h: 600, color: "dark", mount: "wall", elev: 1300, parts: (w, d, h) => [
+    B(0, -0.1 * d, 0, w, 0.8 * d, h, "main"), B(0, 0.05 * d, 0.06 * h, 0.9 * w, 0.8 * d, 0.88 * h, "white"),
+    B(-0.18 * w, 0.3 * d, 0.2 * h, 0.34 * w, 0.3 * d, 0.5 * h, "red"), B(0.17 * w, 0.3 * d, 0.32 * h, 0.3 * w, 0.3 * d, 0.42 * h, "fabric"), B(0.05 * w, 0.3 * d, 0.14 * h, 0.5 * w, 0.3 * d, 0.08 * h, "lightwood")] },
+  { kind: "mirror", cat: "Bathroom", name: "Wall mirror", w: 600, d: 30, h: 900, color: "dark", mount: "wall", elev: 1000, parts: (w, d, h) => [B(0, 0, 0, w, d, h, "main", 30), B(0, 0.2 * d, 0.04 * w, 0.92 * w, 0.7 * d, h - 0.08 * w, "metal", 20)] },
+  { kind: "sideboard", cat: "Dining", name: "Sideboard", w: 1800, d: 450, h: 800, color: "wood", parts: (w, d, h) => [
+    B(0, 0, 0.18 * h, w, d, 0.82 * h, "main", 10), ...legs(w * 0.96, d * 0.9, 0.18 * h, 35),
+    ...[-0.375, -0.125, 0.125, 0.375].map((k) => B(k * w, d / 2 - 4, 0.22 * h, w / 4 - 12, 8, 0.74 * h, "lightwood")), ...[-0.25, 0, 0.25].map((k) => B(k * w, d / 2 + 6, 0.55 * h, 10, 12, 0.18 * h, "metal"))] },
+  { kind: "consoleTable", cat: "Living", name: "Console table", w: 1200, d: 350, h: 780, color: "wood", parts: (w, d, h) => [B(0, 0, h - 30, w, d, 30, "main", 10), ...legs(w, d, h - 30, 30), B(0, 0, 0.18 * h, w - 60, d - 60, 18, "main")] },
+  { kind: "pouf", cat: "Living", name: "Pouf", w: 450, d: 450, h: 420, color: "fabric2", parts: (w, d, h) => [C(0, 0, 0, w / 2, h - 30, "main", d / 2), C(0, 0, h - 30, w * 0.48, 30, "cushion", d * 0.48)] },
+  { kind: "wallShelf", cat: "Living", name: "Wall shelf", w: 1000, d: 250, h: 260, color: "wood", mount: "wall", elev: 1400, parts: (w, d, h) => [
+    B(0, 0, 0, w, d, 30, "main"), ...[0, 1, 2, 3, 4].map((k) => B(-0.35 * w + k * 45, 0, 30, 35, 0.75 * d, (0.6 + (k % 3) * 0.12) * h, ["red", "fabric", "lightwood", "dark", "fabric2"][k])), C(0.3 * w, 0, 30, 0.07 * w, 0.5 * h, "ceramic"), S(0.3 * w, 0, 0.62 * h, 0.06 * w, "leaf")] },
+  { kind: "upperCabinet", cat: "Kitchen", name: "Wall cabinets", w: 2400, d: 350, h: 700, color: "white", mount: "wall", elev: 1500, parts: (w, d, h) => [
+    B(0, 0, 0, w, d - 20, h), ...Array.from({ length: Math.max(1, Math.round(w / 600)) }, (_, k, n = Math.max(1, Math.round(w / 600))) => B(-w / 2 + (k + 0.5) * (w / n), d / 2 - 12, 8, w / n - 6, 18, h - 16, "main")),
+    ...Array.from({ length: Math.max(1, Math.round(w / 600)) }, (_, k, n = Math.max(1, Math.round(w / 600))) => B(-w / 2 + (k + 0.5) * (w / n), d / 2 + 2, 30, 0.5 * (w / n), 10, 16, "metal"))] },
+  { kind: "rangeHood", cat: "Kitchen", name: "Range hood", w: 900, d: 500, h: 900, color: "metal", mount: "wall", elev: 1500, parts: (w, d, h) => [
+    B(0, 0, 0, w, d, 0.12 * h, "main"), B(0, -0.15 * d, 0.12 * h, 0.9 * w, 0.7 * d, 0.13 * h, "main"), B(0, -0.25 * d, 0.25 * h, 0.32 * w, 0.5 * d, 0.75 * h, "main")] },
+  { kind: "fireplace", cat: "Living", name: "Fireplace", w: 1500, d: 400, h: 1100, color: "stone", parts: (w, d, h) => [
+    B(0, -0.1 * d, 0, w, 0.8 * d, h, "main"), B(0, 0.3 * d, 0.92 * h, w, 0.4 * d, 0.08 * h, "main"), B(0, 0.25 * d, 0.12 * h, 0.55 * w, 0.48 * d, 0.55 * h, "black"),
+    B(0, 0.3 * d, 0, 0.8 * w, 0.4 * d, 0.08 * h, "dark"), G(B(0, 0.1 * d, 0.13 * h, 0.35 * w, 0.2 * d, 0.12 * h, "red"), 0.6)] },
+  { kind: "roomDivider", cat: "Office", name: "Room divider", w: 1500, d: 40, h: 1700, color: "fabric", parts: (w, d, h) => [
+    ...[-1, 0, 1].flatMap((k) => [B((k * w) / 3, 0, 60, w / 3 - 20, d * 0.6, h - 60, "main"), B((k * w) / 3 - w / 6 + 10, 0, 0, 20, d, h, "metal")]), B(w / 2 - 10, 0, 0, 20, d, h, "metal")] },
+  { kind: "wallTV", cat: "Living", name: "Wall-mounted TV", w: 1400, d: 60, h: 800, color: "black", mount: "wall", elev: 1000, parts: (w, d, h) => [B(0, -0.2 * d, 0.2 * h, 0.3 * w, 0.5 * d, 0.6 * h, "metal"), B(0, 0.15 * d, 0, w, 0.5 * d, h, "main", 10), B(0, 0.42 * d, 0.03 * h, 0.97 * w, 4, 0.94 * h, "screen")] },
+  { kind: "radiator", cat: "Building", name: "Radiator", w: 1000, d: 100, h: 600, color: "white", mount: "wall", elev: 150, parts: (w, d, h) => [
+    ...Array.from({ length: Math.max(2, Math.round(w / 60)) }, (_, k, n = Math.max(2, Math.round(w / 60))) => B(-w / 2 + (k + 0.5) * (w / n), 0, 0, (w / n) * 0.7, d, h, "main", 10)), B(0, -0.3 * d, 0.85 * h, w, 20, 30, "metal")] },
+  { kind: "bedBench", cat: "Bedroom", name: "Bed bench", w: 1400, d: 450, h: 450, color: "fabric", parts: (w, d, h) => [B(0, 0, 0.3 * h, w, d, 0.7 * h, "main", 40), ...legs(w * 0.96, d * 0.9, 0.3 * h, 40).map((p) => ({ ...p, c: "wood" }))] },
   { kind: "box", cat: "Other", name: "Box", w: 1000, d: 1000, h: 1000, color: "main", parts: (w, d, h) => [B(0, 0, 0, w, d, h)] },
   { kind: "cylinder", cat: "Other", name: "Cylinder", w: 600, d: 600, h: 1000, color: "main", parts: (w, d, h) => [C(0, 0, 0, w / 2, h, "main", d / 2)] },
 ];

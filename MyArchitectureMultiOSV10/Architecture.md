@@ -86,8 +86,8 @@ flowchart TB
 | [src/vendor/three](src/vendor/three) | three.js r186 + 애드온(OrbitControls, 로더들, 익스포터들) — 직접 수정 금지 |
 | [electron/](electron) | `main.cjs`(메인 프로세스), `preload.cjs`(IPC 브리지) |
 | [scripts/](scripts) | 실행·서버·테스트·빌드·패키징·예제·문서 스크린숏·튜토리얼 녹화·아이콘 렌더링 |
-| [test/unit](test/unit) | `node --test` 단위 테스트 12개 파일 |
-| [test/smoke](test/smoke) | 실제 Electron 앱을 CDP로 조작하는 GUI 스모크 테스트 |
+| [test/unit](test/unit) | `node --test` 단위 테스트 34개 파일 |
+| [test/smoke](test/smoke) | 실제 Electron 앱을 CDP로 조작하는 GUI 스모크 테스트, 대화상자 창 검사(`windows-smoke.mjs`), 최소 폭 확인(`minsize-probe.mjs`) |
 | [sample/](sample) | 예제 프로젝트 9개 + `index.json` ([scripts/create-samples.mjs](scripts/create-samples.mjs)가 코드로 생성) |
 | [assets/](assets) | 아이콘(`icon.*`, `icons/NxN.png`), 문서 아이콘(`file-icon.*`), `art/hero.png` |
 | [docs/](docs) | 매뉴얼용 스크린숏 `docs/images/{ko,en}/*.webp` |
@@ -174,6 +174,10 @@ NOAA/Spencer 근사식: `sunPosition(lat, lon, date, tz)` → `{azimuth (북에�
 
 - [furniture.js](src/lib/furniture.js): 가구마다 자기 좌표계의 상자·원기둥·구 부품 목록(`parts(w, d, h)`)을 가지며, **평면 기호(`drawFurniturePlan`)와 3D 모델(`furnitureParts`)이 같은 부품 목록에서 나오므로** 늘 일치합니다. `makeFurniture`, `furnitureCorners`(검사·선택용 회전 사각형).
 - [materials.js](src/lib/materials.js): `MATERIALS`(색 + 캔버스에 그리는 절차적 패턴 + 타일 크기 mm + 용도), `DEFAULT_MATERIAL`, `paintPattern`.
+  - 90여 종을 `MATERIAL_CATEGORIES`(페인트, 미장·보드, 벽돌·블록, 콘크리트, 석재, 목재, 타일, 비닐·고무·카펫, 패브릭·벽지, 금속, 유리, 지붕재, 조경·포장, 단열·층 재료)로 묶습니다. 묶음과 표면 물성은 `LOOK` 표 한 곳에 있고(`cat`, `rough` 거칠기, `metal` 금속성, `bump` 패턴 요철, `opacity`), 3D 재질이 그대로 씁니다(패턴 캔버스가 bump map도 됨).
+  - 패턴 21종(`PATTERNS`): 기존 7종에 헤링본, 육각, 서브웨이, 모자이크, 테라조, 줄무늬, 루버, 송판, 자갈, 블록 포장, 직조, 메시, 체커, 아스팔트. 새 패턴은 `PAINTERS`에 넣고, 경계를 넘는 모양은 `wrapped()`로 한 타일 옆에 다시 그려 이음매 없이 반복되게 합니다. 테스트용 가짜 캔버스가 지원하는 메서드(fillRect, moveTo/lineTo, ellipse 등)만 씁니다.
+- [src/core/members.js](src/core/members.js): **구조 부재** `{pts: [[x, y, z]…], profile, w, h, t, roll, role, material}` — 단면(`memberSection`: 사각, 원형 봉강·강관, 각관, I, H, T, L, C, 케이블), 길이·단면적·중량, 선분마다의 좌표계 `segmentFrame`(u는 수평 횡방향, v는 위, t는 축; 수직 부재는 u = 평면 x, `roll`로 회전), 평면 발자국. 축은 단면 중심을 지납니다.
+- [src/core/structures.js](src/core/structures.js): **매개변수 구조물** — `towerMembers`(격자 철탑: 다리, 고리 수평재, X·K·단일 가새, 통로, 마스트), `bridgeMembers`(`BRIDGE_TYPES` 10가지: 거더·트러스·타이드 아치·현수·사장(A형 주탑 2개, 부채꼴)·상로 아치(계곡 바닥에서 솟은 리브와 스팬드럴 기둥)·변단면 거더(교각 위 2.4배 깊이, 50 mm 단위 계단식 조각으로 단면 공유)·단주탑 하프형 사장·엑스트라도즈드(낮은 마스트, 중심 한 면 케이블)·스트레스 리본(경간마다 span/50 처짐 — `at()`이 정렬 높이를 바꿈); `bridgeSpans`가 형식별 교각 측점; `alignment`가 평면 곡선 반지름·종단 경사·볼록 곡선으로 측점 → 위치·방향·높이를 줌). 기록은 `p.structures = [{id, kind, level, name, params}]`이고 부재는 `structure`와 같은 `group`을 가집니다. `updateStructure`는 부재를 다시 만들고, 평면에서 옮기거나 돌리면 `transformElements`가 `params`의 위치·방향(대칭이면 곡선 방향)도 맞추며, 붙여넣은 사본은 새 기록이 됩니다.
 
 ## 6. 스토어와 실행 취소 — [src/ui/store.js](src/ui/store.js)
 
@@ -262,6 +266,25 @@ flowchart LR
 - **재질**: `makeMaterials(THREE)`가 `surface(id)`(절차적 패턴을 캔버스 텍스처로, 타일 크기에 맞춘 `repeat`), `color(hex, opts)`, `glass/frame/door`를 캐시합니다. 유형이 있는 벽은 페인트(`material`)가 없으면 첫 레이어(외부 마감) 재질을 보입니다. 단계 보기가 `all`일 때 철거 항목은 반투명 빨강.
 - **`buildBuilding(THREE, p, mats, opts)`** — `opts: {openDoors, furniture, roofs, solids, levels: Set (보이는 층), phase, loadModel, onAsync}`. 층마다 `Group`(`userData.level`)을 만들고, **모든 메시에 `userData {id, kind, level}`** 을 달아 선택·교차 강조·페인트·푸시/풀이 프로젝트 항목을 찾게 합니다. `modelExtent(p)`는 프레이밍용 범위.
 
+- **공유 단위 지오메트리**: 상자·원기둥·구 부품(가구, 문틀, 문짝, 원형 기둥)은 `unitGeometry`의 단위 도형을 메시 `scale`로 늘린 것이고 `userData.sharedGeometry`가 붙어 버리지 않습니다. 같은 층 안의 컴포넌트 인스턴스도 정의·재질별로 지오메트리를 나눠 씁니다(`buildComponent`의 `cache`; 스토어가 정의를 제자리에서 고치므로 빌드 한 번 안에서만).
+- **층 재사용**: `opts.reuse`(이전 빌드의 `root.userData.levels`)를 주면 `levelKeys(p, opts)`가 층마다 `[global, local]` 문자열을 만들어, 같은 층은 그룹을 그대로 옮겨 씁니다. `global`은 층을 넘나드는 모든 것(층, 유형, 재질, 컴포넌트, 지붕, 슬래브, 샤프트, 구조물 기록, 빌드 옵션), `local`은 그 층의 항목과 그 층 벽의 개구부이고, 시트·뷰·주석·2D 도면처럼 3D와 무관한 것(`NOT_3D`)은 뺍니다. 새 컬렉션을 3D에 넣으면 `PER_LEVEL`이나 `NOT_3D`에 맞게 넣으세요.
+- **인테리어 마감**: 벽의 `finishR`(평면에서 시작 → 끝을 볼 때 오른쪽 = `wallFrame`의 `n` 쪽 면) / `finishL`, 없으면 그 면이 바라보는 방의 `wallFinish`. `wallFinishes()`가 `Geo.split`용 분류 함수를 만들어 마감별로 메시를 나눕니다(면 판단은 법선 부호가 아니라 중심선에 대한 위치로 — 평면 → 월드 변환이 반사이므로). 끝면·윗면·개구부 측면은 벽 재료. 방의 `skirting`(높이 mm)·`skirtingMaterial`이 있으면 `skirtingGeo`가 벽을 따라 15 mm 걸레받이를 세우고 바닥까지 내려오는 문에서 끊습니다.
+- **구조 부재**: [members.js](src/view3d/members.js)의 `memberGeometry`가 단면별 **단위 압출**(mm 단면, 길이 1)을 공유하고, 선분마다 메시 하나를 `makeBasis(u, v, t)`로 돌려 길이만큼 늘립니다. 같은 단면·재질의 부재 수천 개가 지오메트리 하나 → 아래 배칭으로 draw call 하나가 됩니다.
+
+### 8.1.1 배칭과 그리기 비용 — [batch.js](src/view3d/batch.js)
+
+GPU 비용은 삼각형보다 메시(draw call) 수에 좌우됩니다. `createBatcher(THREE)`의 `build(building)`이 **지오메트리를 2번 이상 쓰는 불투명 메시**를 (지오메트리, 재질, 그림자 설정)별 `InstancedMesh`로 묶고, 원래 메시는 `HIDDEN_LAYER`(1)로 옮깁니다. 카메라는 레이어 0만 그리고 레이캐스터는 0과 1을 보므로 **선택·강조·내보내기·모서리선·SketchUp 도구는 원래 메시를 그대로 씁니다**. `show(ids)`는 강조되거나 끌리는 항목을 자기 메시로 그리고 그 인스턴스는 0 행렬로 숨깁니다. 발광 램프 부품과 반투명 재질은 묶지 않습니다.
+
+- 뷰어는 `applyStyle` 끝(재질이 정해진 뒤, 단면 캡 전)에 `build`, 강조·램프 끌기·SketchUp 이동 도구(`ctx.unbatch`)에서 `show`를 부릅니다. 단면 채움(stencil 캡)은 배치마다 인스턴스를 공유하는 캡 두 개로 그립니다.
+- 태양 그림자는 카메라와 무관하므로 `sun.shadow.autoUpdate = false`이고, 모델·재질·단면·태양·조명이 바뀔 때만 `invalidateShadows()`로 다시 그립니다(궤도 회전 중에는 그림자 패스 없음).
+- 선 그리기 스타일의 모서리선은 지오메트리별로 한 번 계산해 월드 좌표로 옮긴 **선 객체 하나**입니다.
+- **움직일 때의 깜빡임 방지(z-fighting)** — [depth.js](src/view3d/depth.js). 같은(또는 거의 같은) 깊이의 두 면은 픽셀마다 번갈아 이겨, 궤도 회전·확대 때 무늬가 흔들립니다. 건물에는 이런 쌍이 많습니다(벽면과 같은 평면의 슬래브 끝, 지면 높이의 부지 매스, 슬래브 1 mm 위 바닥 마감, 자기 면 위의 선). 이것을 하나씩 고치지 않고 세 규칙으로 모두 정합니다.
+  1. **정밀도**: `fitNear()`가 매 프레임(`prepareFrame`, 화면·스크린샷·`renderNow` 공통) 원근 카메라의 near 평면을 모델이 허락하는 만큼 멀리 둡니다(`nearPlane`). 기준은 카메라 앞 빈 공간의 절반, 즉 모델 상자까지의 거리와 지면 위 높이 중 작은 값의 절반입니다. 최소 3 cm(실내 걷기), 최대 far/1000입니다. 외관을 볼 때 깊이 정밀도가 20–300배 좋아져 mm 단위로 떨어진 면도 구분됩니다. 두 점 투시는 이 투영 위에 덧붙입니다.
+  2. **순위**: 완전히 같은 평면은 어떤 정밀도로도 구분되지 않습니다. 그래서 요소 종류마다 `DEPTH_CLASS` 순위를 두고, 같은 평면에서는 늘 낮은 순위가 이깁니다. 높은 순위는 `rankedMaterial`이 polygonOffset(기울기 factor + units)을 준 재질 사본으로 그립니다. 사본은 재질·순위마다 하나라 배칭이 그대로 묶습니다. 순위는 −1 지붕(그 평면까지 올라온 벽 윗면을 덮음), 0 서 있는 요소(벽·개구부·커튼월·기둥·보·부재·계단·경사로·난간·가구, 기본값), 1 수평판(슬래브·바닥·천장), 2 매스·부지 솔리드, 그리고 맨 뒤 지면(`GROUND_OFFSET`)입니다. `applyStyle`에서 모든 스타일·강조 재질에 적용됩니다. 단위 테스트가 모든 예제를 3D로 만들어 이 표에 없는 종류가 나오면 실패합니다(새 요소가 빠지지 않게).
+  3. **선**: 모서리선과 가는 원형 부재의 축선(wire)은 면 위·안에 있고 WebGL 선에는 polygonOffset이 없습니다. 그래서 `pullForward`가 셰이더에서 정규화 깊이 4e-6(24비트 버퍼 약 30단계)만큼 카메라 쪽으로 당깁니다. 지름 `WIRE_MAX`(200 mm) 이하의 케이블·행어·봉·관은 멀리서 1 px보다 가늘어져 끊겼다 이어지므로, `buildWires`가 축을 따라 1 px 선 하나를 함께 그립니다.
+  - **측정**: 카메라를 0.04 %씩 당겨 `renderNow()`로 그린 프레임을 비교해, 크게 바뀐 픽셀을 셉니다. 바뀐 픽셀로 광선을 쏘면 어떤 메시끼리 다투는지 나옵니다. 모던 팜하우스 근경 13,497 → 2,209, 교량 24번 근경 29,038 → 617입니다. 남는 것은 물체 윤곽의 안티에일리어싱입니다.
+- `stats()`는 `meshes`, `triangles`에 더해 마지막 프레임의 `drawCalls`와 `batches`/`instances`를 돌려줍니다. `npm run bench:3d`(Node: 빌드·편집 시간, 메시·지오메트리·draw call)와 `npm run bench:3d:gui`(실제 앱: GPU까지 끝난 프레임 시간, 궤도 FPS, 편집 반영 시간)로 잽니다.
+
 ### 8.2 뷰어 — [viewer.js](src/view3d/viewer.js)
 
 `createViewer(container, options)`가 클로저 API를 돌려줍니다(`setProject`, `setOptions`, `setView`, `zoomToFit`, `highlight`, `onPick`, `onTool`, `orbit`, `pan`, `setNavMode`, `walkKey`, `getCamera`/`setCamera`, `screenshot`, `exportFile`, `exportRoot`, `stats`, `helperInfo`, `rebuild`, `dispose`, `three`). `DEFAULT_OPTIONS`가 옵션의 전체 목록입니다.
@@ -308,7 +331,7 @@ flowchart LR
 | [src/io/svgimport.js](src/io/svgimport.js) | DOM 없는 작은 XML 토크나이저 + 변환 행렬 누적, 베지어를 변환 후 적응 분할, "SVG" 레이어로. `<image>` 는 밑그림(`resolveSvgImages` 로 상대 경로 파일), `<textPath>` 는 직선 텍스트 |
 | [src/io/imageinfo.js](src/io/imageinfo.js) | 이미지 헤더만 읽어 형식·픽셀 크기(PNG/JPEG/GIF/WebP/BMP/SVG), data: URI |
 | [src/io/pdfwrite.js](src/io/pdfwrite.js) | SVG 시트 → 벡터 PDF(웹판 PDF로 저장): 경로·채움·점선·투명도·클립·변환·텍스트(Helvetica + 비내장 Adobe-Korea1 한글 CID 글꼴)·JPEG/PNG, xref 직접 작성, Flate 압축 |
-| [src/io/ifc.js](src/io/ifc.js) | **IFC4 / IFC2X3 왕복**. `exportIfc(project, {schema})`: 사이트·건물·층, 벽(`IfcWallStandardCase`/`IfcWall` + `IfcMaterialLayerSetUsage`), 개구부(`IfcOpeningElement` + `IfcRelVoidsElement`/`IfcRelFillsElement`로 문·창), 공간, 슬래브, 지붕, 계단, 기둥, 가구, 그리드, 속성 세트·분류·단계. `parseStep` + `importIfc`: 아무 STEP 텍스트를 엔티티 맵으로 읽고 `IfcLocalPlacement`/매핑 항목을 3×4 행렬로 풀어, 아는 요소는 평면 항목으로 바꾸고 나머지는 `warnings`·`stats`로 요약. `ifcGuid`는 22자 압축 GUID |
+| [src/io/ifc.js](src/io/ifc.js) | **IFC4 / IFC4.3 / IFC2X3 왕복**. `exportIfc(project, {schema})`(`"IFC4X3"`는 `FILE_SCHEMA('IFC4X3_ADD2')`, 교량 기록마다 사이트 아래 `IfcBridge`(PredefinedType = 형식)를 만들고 그 부재를 `containIn`으로 교량에 담으며 `SUSPENSION_CABLE`·`STAY_CABLE`·`SUSPENDER`·`ARCH_SEGMENT`·`GIRDER_SEGMENT`·`PIERSTEM`·`PIERCAP`; ifcXML 은 IFC4/2X3 스키마 표만 있어 IFC4 로 씀): 사이트·건물·층, 벽(`IfcWallStandardCase`/`IfcWall` + `IfcMaterialLayerSetUsage`), 개구부(`IfcOpeningElement` + `IfcRelVoidsElement`/`IfcRelFillsElement`로 문·창), 공간, 슬래브, 지붕, 계단, 기둥, 가구, 그리드, 속성 세트·분류·단계. `parseStep` + `importIfc`: 아무 STEP 텍스트를 엔티티 맵으로 읽고 `IfcLocalPlacement`/매핑 항목을 3×4 행렬로 풀어, 아는 요소는 평면 항목으로 바꾸고 나머지는 `warnings`·`stats`로 요약. `ifcGuid`는 22자 압축 GUID |
 | [src/io/models3d.js](src/io/models3d.js) | OBJ(+MTL), STL, PLY, glTF/GLB, FBX, DAE, 3MF, 3DS, VRML, AMF를 three.js 로더로 읽어 미터·Y-up·XZ 중심·바닥 Y=0으로 정규화, 크기(mm)·윗면 윤곽·GLB로 구운 base64 자산을 만듦. 단위가 없는 형식은 범위로 추정(>300 → mm, >30 → cm, 그 외 m). 익스포터 공용 도우미(`collectMeshes`, 재질 색·이름) |
 | [src/io/objmtl.js](src/io/objmtl.js) | OBJ + MTL 쓰기(월드 좌표로 구움, 축척 1 = m, 1000 = mm) |
 | [src/io/collada.js](src/io/collada.js) | COLLADA 1.4.1 쓰기(SketchUp·Blender용, `<unit>`이 축척을 따름) |
@@ -323,6 +346,13 @@ flowchart LR
 - **3D 내보내기**: `EXPORT_3D` 목록(GLB, glTF, OBJ+MTL ZIP, DAE, STL, 3MF, PLY, USDZ; FBX는 안내만) → `export3d(app, format, unit)`. 3D 뷰에 보이는 것만 나가며, 3MF는 항상 mm.
 
 ## 10. UI 셸 — [src/ui/app.js](src/ui/app.js)
+
+**단축키 창**([dialogs.js](src/ui/dialogs.js) `shortcuts`): `SHORTCUTS`(분류별 `[키, 설명]`; `i18n-keys.mjs`가 설명을 수집)를 탭·검색·페이지(한 쪽 12줄, 고정 높이)로 보이고, `keyCaps()`가 `Ctrl+Shift+G` · `/` · `, ` · ` or ` · `(…)`를 키캡과 번역된 마우스 동작 글자로 나눕니다.
+
+**대화상자 = 독립 창**: 데스크톱에서 `modal()`([widgets.js](src/ui/widgets.js))은 대화상자를 메인 문서에 숨겨 그려 크기를 잰 뒤 `window.open("about:blank", "myarch-dialog-N")`로 연 자식 창에 옮깁니다(같은 렌더러라 이벤트 처리기가 그대로 동작). [main.cjs](electron/main.cjs)는 이 이름의 창을 프레임 없는 모달 자식 창(중첩이면 바로 위 대화상자의 자식)으로 허용하고 인터페이스 배율을 맞춥니다. 머리줄이 제목 표시줄이자 드래그 핸들이며, 창마다 `modal({ icon })`의 고유 아이콘과 제목을 보입니다(지정이 없으면 연 명령의 아이콘). 그 창에서 연 메뉴·재질 선택기는 그 창 안에 뜹니다(`popupDoc`). 튜토리얼 실행 중과 GUI 테스트(`MYARCH_INLINE_DIALOGS=1`, driver.mjs 기본)는 예전처럼 페이지 안에 그리며, 창 동작은 `npm run smoke:windows`가 검사합니다.
+
+**창 최소 폭**(`minWindowWidth`, 늘어날 때뿐 아니라 줄어들 때도 다시 계산): 제목 표시줄 전체 폭, **가장 넓은 탭의 툴바 한 줄**(`measureToolbars`가 탭마다 툴바를 실제로 그려 재고 현재 탭으로 되돌림; 툴바는 줄바꿈하지 않음), 작업 공간(양쪽 패널 `SIDE_MIN_W` 240 px + 스크롤바 10 px, 숨긴 패널은 레일 34 px, 분할선 2 × 4 px, 가운데 `CENTER_MIN_W` 400 px) 중 가장 큰 값. 화면보다 넓어질 수는 없고 인터페이스 크기(`uiScale`)를 곱합니다. Electron의 `MIN_WIDTH`(720)는 렌더러가 값을 보내기 전의 하한일 뿐입니다. 사이드 패널 열 폭은 내용 폭 + 스크롤바 폭이고 `scrollbar-gutter: stable`이라 스크롤바가 생겨도 내용이 줄지 않으며, 창이 좁으면 `sideWidths()`가 패널을 최소 폭까지 줄여 가운데 영역을 지킵니다.
+
 
 `App` 하나가 전체를 묶고 `window.myarchApp`으로 노출됩니다(디버깅과 스모크 테스트용).
 
@@ -356,7 +386,7 @@ flowchart LR
 
 ## 11. 튜토리얼
 
-[src/ui/tutorial.js](src/ui/tutorial.js)의 `TutorialPlayer`는 `help.tutorial` 명령에서 지연 로드됩니다. 레슨은 [src/ui/tutorial-lessons.js](src/ui/tutorial-lessons.js)의 `LESSONS`로 **16개 레슨, 83단계**(둘러보기, 벽, 문과 창, 방, 가구, 편집, 치수·글자·그리드, 층과 계단, 지붕과 기둥, 매싱, BIM, 모델 검사, 3D 심화, 가져오기/내보내기, 설정, 예제의 고급 기능). 단계 형태:
+[src/ui/tutorial.js](src/ui/tutorial.js)의 `TutorialPlayer`는 `help.tutorial` 명령에서 지연 로드됩니다. 레슨은 [src/ui/tutorial-lessons.js](src/ui/tutorial-lessons.js)의 `LESSONS`로 **19개 레슨, 101단계**(둘러보기, 벽, 문과 창, 방, 가구, 편집, 치수·글자·그리드, 층과 계단, 지붕과 기둥, 매싱, BIM, 모델 검사, 3D 심화, 가져오기/내보내기, 설정, 예제의 고급 기능, 단면도·입면도·시트, 스케치업 도구, 인테리어·재질·철탑·교량). 튜토리얼이 열려 있는 동안은 커서 시연이 보이도록 대화상자를 메인 창 안에 그립니다(`setDialogWindows`). 문서판은 [docs/Tutorial.md](docs/Tutorial.md). 단계 형태:
 
 ```text
 { title: {ko, en}, text: {ko, en},
@@ -366,7 +396,7 @@ flowchart LR
 
 - **보기(watch) 모드**: 움직이는 커서가 실제 툴바·메뉴·캔버스 지점으로 가서 **진짜 포인터·키보드 이벤트**를 보냅니다(0.5–4배속). 모든 단계가 `ctx.expect`로 결과를 확인하므로 레슨이 그대로 종단 간 테스트입니다.
 - **따라 하기(practice) 모드**: 할 일을 보여 주고 대상 위치를 표시한 뒤, 스토어 변경과 DOM 변화를 감시하며 `check`가 참이 되면 다음으로 넘어갑니다. "보여 주기"로 그 단계만 시연할 수 있습니다.
-- `fresh` 레슨(1, 2, 16)은 새 프로젝트나 예제에서 시작합니다. 중간 레슨으로 바로 가면 `ensureReady()`가 이번 세션에서 마지막으로 끝낸 레슨 다음(그 사이에 `fresh` 레슨이 있으면 가장 가까운 그것)부터 대상 직전까지의 단계를 즉시 재생해 상태를 만듭니다.
+- `fresh` 레슨(1, 2, 16, 17, 19 …)은 새 프로젝트나 예제에서 시작합니다. 중간 레슨으로 바로 가면 `ensureReady()`가 이번 세션에서 마지막으로 끝낸 레슨 다음(그 사이에 `fresh` 레슨이 있으면 가장 가까운 그것)부터 대상 직전까지의 단계를 즉시 재생해 상태를 만듭니다.
 - **BASELINE**: 튜토리얼이 열려 있는 동안 `SETTING_DEFAULTS`(모양 관련 `KEEP_OWN` — UI 배율, 애니메이션, 힌트, 자동 저장, 최근 파일 수, 시작 동작 — 제외) + `phaseView: "all"`, `drawPhase: "new"`, `sunStudy: false`, 양쪽 패널 열림을 적용하여 사용자의 격자·스냅·단위 설정과 무관하게 단계가 설명대로 동작하게 합니다. 열 때 `v3d.resetView()`와 선택 도구로 되돌리고, `close()`가 원래 설정을 복원합니다.
 - **`runAll({from, to})`**: 애니메이션 없이 모든 단계를 실행해 `[{lesson, step, ok, error}]` 보고서를 돌려줍니다. **`verifyPractice()`**: 각 단계를 실행하면서 그 practice `check`가 결과를 알아보는지 표본 검사합니다. 둘 다 GUI 스모크 테스트가 부릅니다.
 
@@ -414,9 +444,10 @@ sequenceDiagram
 
 | 명령 | 내용 |
 | --- | --- |
-| `npm test` | [scripts/test.mjs](scripts/test.mjs)가 `test/unit/*.test.mjs` 13개를 **파일마다 따로** `node --test`(+ [test-reporter.mjs](scripts/test-reporter.mjs)의 JSON 줄)로 실행하고, `CATEGORIES`별로 묶어 시간과 함께 출력합니다: 핵심 모델·기하(core, walls, rooms) 269, 평면 편집(plan, store) 91, 검사·집계(check, schedule) 87, 3D 모델(view3d) 124, CAD 교환(dxf) 46, BIM 교환(ifc) 14, 3D 교환(export3d) 18, 예제(samples) 83, 다국어(i18n) 5 — **합계 737개**. `npm test -- ifc dxf`로 파일 이름 필터, `--json out.json`으로 결과 저장. 환경에서 `ELECTRON_RUN_AS_NODE`를 지웁니다 |
-| `npm run smoke` | [test/smoke/gui-smoke.mjs](test/smoke/gui-smoke.mjs) — 실제 Electron 앱을 임시 프로필로 띄워 CDP로 **실제 마우스·키보드 입력**을 보내는 GUI 검사 **104개**(시작, 예제 9개 각각 열기·검사 통과·3D 생성, 마우스로 그리기, BIM, 3D, 형식별 내보내기와 다시 가져오기, 최근 파일, 패널·설정 — **실제 창 크기**가 페이지와 정확히 맞고 UI 배율 100/125%에서도 화면 안에 있는지, 크기 조절 손잡이 드래그 —, 등록된 모든 명령을 평면과 3D에서 실행, 튜토리얼 `runAll` 한국어·영어와 `verifyPractice`). 렌더러의 잡히지 않은 예외가 하나라도 생기면 그 단계가 실패합니다. `MYARCH_FAKE_DIALOGS`로 저장 파일을 임시 폴더에 받아 검사합니다. `--only 3d,export`, `--keep`, `--shots dir` |
-| [test/smoke/driver.mjs](test/smoke/driver.mjs) | `launch({width, height, args, env})`: 무작위 포트로 `--remote-debugging-port`, 임시 `--user-data-dir`, `index.html` 페이지 타깃에 Node 내장 `WebSocket`으로 연결. 창 크기는 에뮬레이션이 아니라 `window.myarch.resizeWindow`로 **실제 창**을 맞춥니다(실패할 때만 `Emulation.setDeviceMetricsOverride`). `ev`, `click`, `move`, `drag`, `key`, `shot`, `errors` |
+| `npm test` | [scripts/test.mjs](scripts/test.mjs)가 `test/unit/*.test.mjs` 를 **파일마다 따로** `node --test`(+ [test-reporter.mjs](scripts/test-reporter.mjs)의 JSON 줄)로 실행하고, `CATEGORIES`별로 묶어 시간과 함께 출력합니다(핵심 모델·기하, 평면 편집, 검사·집계, 뷰·시트, 3D 모델 — view3d, lights, perf3d(배칭·층 재사용), interior(마감·걸레받이·재질), members(단면·좌표계·3D·평면 편집), structures(철탑·교량·IFC4.3) —, 스케치업, CAD·BIM·3D 교환, 예제, 다국어; **약 1,450개**). `npm test -- ifc dxf`로 파일 이름 필터, `--json out.json`으로 결과 저장. 환경에서 `ELECTRON_RUN_AS_NODE`를 지웁니다 |
+| `npm run smoke` | [test/smoke/gui-smoke.mjs](test/smoke/gui-smoke.mjs) — 실제 Electron 앱을 임시 프로필로 띄워 CDP로 **실제 마우스·키보드 입력**을 보내는 GUI 검사 **215개**(시작, 예제 28개 각각 열기·검사 통과·3D 생성, 마우스로 그리기, BIM, 3D, 형식별 내보내기와 다시 가져오기, 최근 파일, 패널·설정 — **실제 창 크기**가 페이지와 정확히 맞고 UI 배율 100/125%에서도 화면 안에 있는지, 크기 조절 손잡이 드래그 —, 등록된 모든 명령을 평면과 3D에서 실행, 튜토리얼 `runAll` 한국어·영어와 `verifyPractice`). 렌더러의 잡히지 않은 예외가 하나라도 생기면 그 단계가 실패합니다. `MYARCH_FAKE_DIALOGS`로 저장 파일을 임시 폴더에 받아 검사합니다. 대화상자는 `MYARCH_INLINE_DIALOGS=1`(드라이버 기본)로 페이지 안에 그립니다. `--only 3d,export`, `--keep`, `--shots dir`. 다른 무거운 작업과 동시에 돌리면 타이밍 단계가 흔들리므로 단독으로 실행 |
+| `npm run smoke:windows` | [test/smoke/windows-smoke.mjs](test/smoke/windows-smoke.mjs) — `launch({ windowedDialogs: true })`로 대화상자 12종이 각각 독립 창(자기 DevTools 타깃, 스크린샷)인지, 제목 표시줄의 고유 아이콘·제목·드래그 영역, 메인 창 밖으로 이동, ✕·Esc·Enter·OS 닫기, 중첩 창, 창 안의 메뉴·재질 선택기, OK 가 프로젝트를 고치는지 검사 |
+| [test/smoke/driver.mjs](test/smoke/driver.mjs) | `launch({width, height, args, env, windowedDialogs})`: 무작위 포트로 `--remote-debugging-port`, 임시 `--user-data-dir`, `index.html` 페이지 타깃에 Node 내장 `WebSocket`으로 연결. 창 크기는 에뮬레이션이 아니라 `window.myarch.resizeWindow`로 **실제 창**을 맞춥니다(실패할 때만 `Emulation.setDeviceMetricsOverride`). `ev`, `click`, `move`, `drag`, `key`, `shot`, `errors` |
 | `npm run build:docs` | [scripts/docs-shots.mjs](scripts/docs-shots.mjs) — 같은 드라이버로 기능별 스크린숏을 `docs/images/<lang>/*.webp`와 캡션 `shots.json`으로 저장(`--lang ko`, `--only plan-`) |
 | `npm run record:tutorial` | [scripts/record-tutorial.mjs](scripts/record-tutorial.mjs) — 튜토리얼 보기 모드를 정상 속도로 재생하며 DevTools 스크린캐스트를 ffmpeg로 25 fps MP4 인코딩(`MyArchitecture-Tutorial.mp4`; `--lang en --out --speed --lessons 1-3`; `FFMPEG` 환경 변수) |
 | `npm run i18n:check` | 빠진 한국어 번역 키 보고 |
@@ -451,4 +482,6 @@ sequenceDiagram
 - **레슨 추가**: `tutorial-lessons.js`의 `LESSONS`에 `{title, fresh?, steps: [{title, text, run, practice}]}`. `run`은 `ctx`로 실제 UI를 조작하고 `ctx.expect`로 확인, `practice.check`는 사용자가 한 결과를 인식해야 합니다. 스모크 테스트가 `runAll`과 `verifyPractice`로 둘 다 검사합니다. 튜토리얼이 기대하는 설정은 `BASELINE`이 보장하므로 사용자 설정에 기대지 마세요.
 - **번역 추가**: 새 `t("…")` 문장을 쓰면 `i18n-ko.js`에 같은 키로 추가하고 `npm run i18n:check`. 자리 표시자 `{x}`와 HTML 태그는 번역에서도 같아야 합니다(`i18n.test.mjs`).
 - **테마 추가**: `themes.js`의 `THEMES`에 `D(...)`/`Lt(...)` 한 줄(어두운/밝은 각 20개 균형 유지).
+- **재질 추가**(보강): `MATERIALS`에 넣고 `LOOK`에 `[cat, rough, metal, bump, opacity]`를, 한국어 이름을 [i18n-ko-design.js](src/ui/i18n-ko-design.js)에 넣습니다. 새 패턴은 `PATTERNS`와 `PAINTERS`에. 속성 패널의 재질 칸은 `bindField(..., { material: [용도…], none })`로 견본 선택기([matpicker.js](src/ui/matpicker.js))가 되며 `select`처럼 `.value`와 `change`로 동작합니다.
+- **구조물 종류 추가**: [structures.js](src/core/structures.js)에 부재 목록을 돌려주는 생성기를 만들고 `generateStructure`에서 고르게 한 뒤, [src/ui/structures.js](src/ui/structures.js)에 대화상자와 명령을 둡니다. 부재 역할(`MEMBER_ROLES`)은 IFC 클래스(`MEMBER_IFC`)로 나갑니다.
 - **IPC 추가**: `main.cjs`의 `ipcMain.handle` → `preload.cjs`의 `window.myarch` → `platform.js`에 웹 대체 구현과 함께 감싸기. UI 코드는 `window.myarch`를 직접 부르지 말고 `platform.js`를 거칩니다.

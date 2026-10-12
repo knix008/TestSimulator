@@ -37,6 +37,7 @@ export const PLAN_TOOLS = {
   slab: { icon: "slab", label: "Floor slab", key: "P", hint: "Click inside the walls for a floor slab under the building outline, or Shift+click to draw its outline (Enter or the first point finishes). Holes, slope and type are on the right." },
   ceiling: { icon: "ceiling", label: "Ceiling", key: "", hint: "Click inside a room for a ceiling over it, or Shift+click to draw its outline. Its height above the floor is on the right." },
   shaft: { icon: "shaft", label: "Shaft opening", key: "", hint: "Click two opposite corners of a vertical shaft. It cuts the slabs, ceilings and roofs of every level it passes through." },
+  member: { icon: "member", label: "Structural member", key: "", hint: "Click the two ends of a steel, timber or concrete member; click the same point twice for a post. Its section, ends' heights and role are on the right." },
   beam: { icon: "beam", label: "Beam", key: "J", hint: "Click the two ends of a beam (it snaps to columns and wall ends). Its top sits at the top of the storey; set a different height at each end for a brace." },
   railing: { icon: "railing", label: "Railing", key: "I", hint: "Click the points of a railing; Enter or double-click ends it. Stairs get their own railings (see the stair's properties)." },
   ramp: { icon: "ramp", label: "Ramp", key: "", hint: "Click the points of the ramp's centre line from the bottom up; Enter or double-click ends. It rises to the level above." },
@@ -391,8 +392,8 @@ export class PlanEditor {
       } else if (h.kind === "dimensions" || h.kind === "grids") {
         const s = this.snapAt(x, y, { onWall: false });
         if (h.handle) { obj.x2 = s.x; obj.y2 = s.y; } else { obj.x1 = s.x; obj.y1 = s.y; }
-      } else if (PTS_KINDS.includes(h.kind) || h.kind === "beams") {
-        const s = this.snapAt(x, y, { exclude: new Set([obj.id]), onWall: h.kind === "beams" });
+      } else if (PTS_KINDS.includes(h.kind) || h.kind === "beams" || h.kind === "members") {
+        const s = this.snapAt(x, y, { exclude: new Set([obj.id]), onWall: h.kind === "beams" || h.kind === "members" });
         dragElementHandle(h.kind, obj, h.handle, s.x, s.y);
         this.cursor = s;
       }
@@ -1043,7 +1044,7 @@ export class PlanEditor {
       if (it.kind === "walls") { handle(it.obj.x1, it.obj.y1); handle(it.obj.x2, it.obj.y2); }
       if ((it.kind === "rooms" || it.kind === "roofs") && this.sel.size === 1) for (const [x, y] of it.obj.pts) handle(x, y);
       if (it.kind === "dimensions" || it.kind === "grids") { handle(it.obj.x1, it.obj.y1); handle(it.obj.x2, it.obj.y2); }
-      if ((PTS_KINDS.includes(it.kind) && this.sel.size === 1) || it.kind === "beams") for (const [hx, hy] of elementHandles(it.kind, it.obj)) handle(hx, hy);
+      if ((PTS_KINDS.includes(it.kind) && this.sel.size === 1) || it.kind === "beams" || it.kind === "members") for (const [hx, hy] of elementHandles(it.kind, it.obj)) handle(hx, hy);
     }
     // Drawing chain (walls / lines / rooms / roofs).
     const c = this.chain;

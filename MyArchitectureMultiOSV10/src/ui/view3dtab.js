@@ -400,13 +400,19 @@ export class View3DTab {
       contextMenu(styleMenu(), r.left, r.bottom + 2);
     }, styleMenu);
     const tog = (k, ic, label) => h("button", { class: `icon-btn ${this.opts[k] ? "on" : ""}`, title: t(label), onclick: () => this.setOpt(k, !this.opts[k]), html: icon(ic, 18) });
+    // Show / hide parts of the model (one menu keeps the toolbar on one row).
+    const SHOW = [["openDoors", "Open doors"], ["furniture", "Furniture"], ["roofs", "Roofs"], ["fog", "Fog"], ["dimensions", "Building dimensions"]];
+    const showItems = () => SHOW.map(([k, label]) => ({ label: t(label), checked: !!this.opts[k], action: () => this.setOpt(k, !this.opts[k]) }));
+    const showMenu = h("div", { class: "split-btn", "data-show-split": "1" },
+      h("button", { class: "icon-btn", title: `${t("Show")}: ${SHOW.map(([, l]) => t(l)).join(", ")}`, "data-show-menu": "main", html: icon("eye", 18), onclick: (e) => { const r = e.currentTarget.parentElement.getBoundingClientRect(); contextMenu(showItems(), r.left, r.bottom + 2); } }),
+      h("button", { class: "icon-btn caret", title: t("Show"), "data-show-menu": "menu", html: icon("chevronDown", 12), onclick: (e) => { const r = e.currentTarget.parentElement.getBoundingClientRect(); contextMenu(showItems(), r.left, r.bottom + 2); } }));
     bar.append(views, sep(),
       tog("ortho", "ortho", "Orthographic projection (O)"), btn("v3d.front"),
       h("button", { class: `icon-btn ${this.opts.section !== null ? "on" : ""}`, title: t("Section cut at the current level (X)"), onclick: () => this.toggleSection(), html: icon("section", 18) }),
-      tog("openDoors", "door", "Open doors"), tog("furniture", "sofa", "Furniture"), tog("roofs", "roof", "Roofs"), tog("fog", "eye", "Fog"), sep(),
+      showMenu, sep(),
       btn("light.all"), btn("v3d.night"), sep(),
       styles, sep(),
-      tog("grid", "grid", "Grid (G)"), tog("axes", "axes", "Axes with scale (X, Y, Z)"), tog("dimensions", "dimension", "Building dimensions"),
+      tog("grid", "grid", "Grid (G)"), tog("axes", "axes", "Axes with scale (X, Y, Z)"),
       h("button", { class: "icon-btn", title: t("Zoom to fit"), html: icon("zoomFit", 18), onclick: () => this.zoomToFit() }), sep(),
       h("button", { class: "icon-btn", title: t("Save 3D image (PNG)…"), html: icon("camera", 18), onclick: () => this.screenshot() }),
       btn("file.export3d"));

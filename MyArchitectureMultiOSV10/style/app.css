@@ -30,6 +30,12 @@
   --status-h: 26px;
   --left-w: 280px;
   --right-w: 300px;
+  /* Side panels: --left-w / --right-w is the width of their content; the
+     column adds the vertical scrollbar (always reserved, see .side), so
+     content never gets narrower — and cut off with "…" — when it scrolls. */
+  --sb-w: 10px;
+  --left-col: calc(var(--left-w) + var(--sb-w));
+  --right-col: calc(var(--right-w) + var(--sb-w));
   --radius: 6px;
   color-scheme: dark;
 }
@@ -58,7 +64,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 button, input, select, textarea { font: inherit; color: inherit; }
 kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line2); background: var(--panel2); color: var(--muted); }
 .ico { flex: 0 0 auto; display: block; }
-::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar { width: var(--sb-w, 10px); height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
@@ -171,14 +177,14 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .layer-chip { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 
 /* ------------------------------------------------------------ workspace */
-.workspace { display: grid; grid-template-columns: var(--left-w) 4px 1fr 4px var(--right-w); min-height: 0; }
-.workspace.no-left { grid-template-columns: 0 0 1fr 4px var(--right-w); }
-.workspace.no-right { grid-template-columns: var(--left-w) 4px 1fr 0 0; }
+.workspace { display: grid; grid-template-columns: var(--left-col) 4px 1fr 4px var(--right-col); min-height: 0; }
+.workspace.no-left { grid-template-columns: 0 0 1fr 4px var(--right-col); }
+.workspace.no-right { grid-template-columns: var(--left-col) 4px 1fr 0 0; }
 .workspace.no-left.no-right { grid-template-columns: 0 0 1fr 0 0; }
 /* The side column scrolls as a whole: panels keep their natural height and are
    never squashed or clipped; only the "grow" panel (library) shrinks, down to a
    usable minimum, and scrolls its own list. */
-.side { background: var(--panel); min-height: 0; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; }
+.side { background: var(--panel); min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; display: flex; flex-direction: column; }
 .side.left { border-right: 1px solid var(--line); }
 .side.right { border-left: 1px solid var(--line); }
 .splitter { cursor: col-resize; background: transparent; }
@@ -350,7 +356,8 @@ select.input { padding-right: 4px; }
 .modal-title { font-weight: 700; font-size: 14px; }
 .modal-body { padding: 14px 16px; overflow: auto; min-height: 0; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
-.modal-foot .left { margin-right: auto; }
+.modal-foot .left { margin-right: 0; }
+.modal-foot .foot-gap { flex: 1 1 auto; }
 .confirm-text { margin: 4px 0; line-height: 1.6; white-space: pre-wrap; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { transform: translateY(8px) scale(.98); opacity: 0; } }
@@ -409,7 +416,7 @@ table.grid td.num { text-align: right; font-family: var(--mono); }
 .sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .sample-card { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; overflow: hidden; cursor: pointer; text-align: left; padding: 0; display: flex; flex-direction: column; }
 .sample-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-.sample-card canvas { width: 100%; height: 130px; display: block; background: #f6f5f0; }
+.sample-card canvas { width: 100%; height: auto; aspect-ratio: 460 / 260; display: block; background: #f6f5f0; } /* the picture's own proportions (start.js draws 460 × 260): never stretched */
 .sample-card .sc-body { padding: 10px 12px 12px; }
 .sample-card b { display: block; margin-bottom: 3px; }
 .sample-card small { color: var(--muted); display: block; line-height: 1.45; }
@@ -511,6 +518,7 @@ table.grid td.num { text-align: right; font-family: var(--mono); }
 .modal-body { overflow: visible; }
 .modal-title { display: flex; align-items: center; gap: 8px; }
 .modal-appicon { border-radius: 4px; flex: 0 0 auto; }
+.modal-icon { display: flex; flex: 0 0 auto; color: var(--accent); }
 .table-wrap { max-height: none; overflow: visible; }
 .qp-list { max-height: none; overflow: visible; }
 .qp-more { padding: 6px 12px 8px; font-size: 12px; color: var(--faint); }
@@ -620,8 +628,8 @@ html.toolbar-wrap { --toolbar-h: auto; }
 .panel-head .ph-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel-head .collapse-btn { margin-left: auto; color: var(--muted); }
 .panel-head .grow + .collapse-btn, .panel-head .icon-btn + .collapse-btn { margin-left: 2px; }
-.workspace.left-rail { grid-template-columns: 34px 0 1fr 4px var(--right-w); }
-.workspace.right-rail { grid-template-columns: var(--left-w) 4px 1fr 0 34px; }
+.workspace.left-rail { grid-template-columns: 34px 0 1fr 4px var(--right-col); }
+.workspace.right-rail { grid-template-columns: var(--left-col) 4px 1fr 0 34px; }
 .workspace.left-rail.right-rail { grid-template-columns: 34px 0 1fr 0 34px; }
 .workspace.left-rail .splitter[data-side="left"], .workspace.right-rail .splitter[data-side="right"] { pointer-events: none; }
 .side-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; height: 100%; padding: 8px 0; border: 0; background: var(--panel); color: var(--muted); cursor: pointer; }
@@ -664,3 +672,47 @@ html.toolbar-wrap { --toolbar-h: auto; }
 .check .item-ico { margin: 0 0 0 1px; }
 .field-label .item-ico, .prop-grid > span .item-ico { margin-right: 5px; }
 .prop-grid { grid-template-columns: minmax(92px, max-content) 1fr; }
+
+/* ------------------------------------------------------------ material picker (src/ui/matpicker.js) */
+.mat-pick { display: grid; grid-template-columns: 20px minmax(0, 1fr) 12px; align-items: center; gap: 6px; width: 100%; min-width: 0; height: 28px; padding: 0 6px 0 4px; text-align: left; cursor: pointer; }
+.mat-pick .mat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mat-pick .mat-caret { display: flex; color: var(--muted); }
+.mat-sw { display: inline-block; width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(128,128,128,.45); background-size: cover; background-position: center; flex: 0 0 auto; }
+.mat-sw.big { width: 100%; height: auto; aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.mat-pop { width: 340px; max-width: calc(100vw - 12px); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.mat-search { width: 100%; height: 28px; }
+.mat-cats { display: flex; flex-wrap: wrap; gap: 3px; }
+.mat-cat { height: 22px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--line2); background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; white-space: nowrap; }
+.mat-cat:hover { color: var(--text); background: var(--panel2); }
+.mat-cat.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.mat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; max-height: min(380px, 55vh); overflow-y: auto; scrollbar-gutter: stable; padding-right: 2px; }
+.mat-head { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--faint); text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }
+.mat-tile { display: flex; flex-direction: column; gap: 3px; padding: 3px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; min-width: 0; }
+.mat-tile:hover { background: var(--panel2); border-color: var(--line2); }
+.mat-tile.on { border-color: var(--accent); background: var(--panel2); }
+.mat-tile-name { font-size: 10.5px; line-height: 1.2; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: keep-all; overflow-wrap: anywhere; }
+.color-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.color-chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
+.color-chip { height: 16px; min-width: 0; border-radius: 3px; border: 1px solid rgba(128,128,128,.45); padding: 0; cursor: pointer; }
+.color-chip:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ------------------------------------------------------------ keyboard shortcuts (dialogs.js shortcuts) */
+.keys-dialog { display: flex; flex-direction: column; gap: 10px; }
+.keys-top { display: flex; align-items: center; gap: 10px; }
+.keys-tabs { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.keys-tab { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--line2); background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.keys-tab small { font-size: 10.5px; opacity: .75; }
+.keys-tab:hover { color: var(--text); background: var(--panel2); }
+.keys-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.keys-search { width: 220px; flex: 0 0 auto; height: 28px; }
+/* Fixed height: twelve rows, one shortcut each, the keys in a wide first column. */
+.keys-list { display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(12, 38px); height: 456px; }
+.keys-row { display: grid; grid-template-columns: 380px minmax(0, 1fr); align-items: center; gap: 16px; border-bottom: 1px solid var(--line); min-width: 0; padding: 0 4px; }
+.keys { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; }
+.keys kbd { font-size: 11.5px; padding: 1px 6px; line-height: 18px; min-width: 14px; text-align: center; color: var(--text); border-bottom-width: 2px; }
+.keys-plus, .keys-or { color: var(--faint); font-size: 11px; }
+.keys-or { margin: 0 2px; }
+.keys-mouse { font-size: 12px; color: var(--muted); }
+.keys-desc { font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+.keys-pager { display: flex; align-items: center; justify-content: center; gap: 8px; height: 28px; color: var(--muted); font-size: 12px; }
+.keys-list .empty-note { grid-column: 1 / -1; }

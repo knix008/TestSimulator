@@ -42,7 +42,7 @@ export async function importDrawing(app, f, kind) {
       ? t("Lines, polylines, arcs, circles, splines, texts, blocks, hatch outlines, multileaders, tables, solid and region edges and external references come in on their own CAD layers; raster images found next to the drawing become tracing underlays. Trace walls over them with W, then hide the layers.")
       : t("Paths, shapes and texts come in on the layer SVG; embedded images become tracing underlays.")));
   const title = { dxf: t("Import DXF drawing"), dwg: t("Import DWG drawing"), "3dm": t("Import Rhino 3DM as a plan drawing") }[kind] || t("Import SVG drawing");
-  const ok = await modal({ title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
+  const ok = await modal({ icon: { dxf: "dxf", dwg: "dxf", "3dm": "model3d" }[kind] || "image", title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return;
   let res;
   if (cad) {
@@ -115,7 +115,7 @@ export async function importModel(app, f) {
     field(t("Units in the file"), select(opts.units, [["auto", t("Detect automatically")], ["mm", "mm"], ["cm", "cm"], ["m", "m"], ["in", t("inches")], ["ft", t("feet")]], { onChange: (v) => { opts.units = v; } })),
     field(t("Up axis"), select(opts.upAxis, [["auto", t("Automatic")], ["y", t("Y is up")], ["z", t("Z is up")]], { onChange: (v) => { opts.upAxis = v; } })),
     h("p", { class: "field-hint span2" }, t("The model becomes a piece of furniture: place it, move it, rotate it and scale it like the others. It is stored inside the project file.")));
-  const ok = await modal({ title: t("Import 3D model — {name}", { name: f.name }), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
+  const ok = await modal({ icon: "model3d", title: t("Import 3D model — {name}", { name: f.name }), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return;
   let mtlText = null;
   if (ext === "obj" && f.path) {
@@ -155,7 +155,7 @@ export async function importUnderlay(app, f) {
     field(t("Width of the image in the plan"), stepper(opts.width, { min: 100, max: 1e6, step: 100, editable: true, format: (v) => `${Math.round(v)} mm`, onChange: (v) => { opts.width = v; } })),
     field(t("Opacity"), stepper(opts.opacity, { min: 10, max: 100, step: 10, format: (v) => `${v}%`, onChange: (v) => { opts.opacity = v; } })),
     h("p", { class: "field-hint span2" }, t("{w} × {h} pixels. The underlay is for tracing: draw walls over it, then hide it (View → Show underlays).", { w: img.naturalWidth, h: img.naturalHeight })));
-  const ok = await modal({ title: t("Import image as tracing underlay"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
+  const ok = await modal({ icon: "underlay", title: t("Import image as tracing underlay"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return;
   const w = opts.width;
   const hh = (w * img.naturalHeight) / img.naturalWidth;
@@ -208,7 +208,7 @@ export async function exportPlanPng(app) {
   const body = h("div", { class: "form-grid" },
     field(t("Image width"), stepper(opts.width, { values: [1000, 2000, 3000, 4000, 6000, 8000], format: (v) => `${v} px`, onChange: (v) => { opts.width = v; } })),
     field(t("Colour"), checkbox(false, t("Black and white"), { onChange: (v) => { opts.mono = v; } })));
-  const ok = await modal({ title: t("Export plan as PNG image"), width: 460, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "image", title: t("Export plan as PNG image"), width: 460, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   const level = app.plan.level;
   const b = planBounds(p, level) || { x1: 0, y1: 0, x2: 10000, y2: 8000 };
@@ -243,7 +243,7 @@ export async function exportDxfFile(app) {
     field(t("Levels"), checkbox(false, t("One file per level"), { onChange: (v) => { opts.all = v; } })),
     field(t("DXF version"), select(opts.version, DXF_VERSIONS.map((v) => [v.id, v.id === "R12" ? `${v.label} — ${t("maximum compatibility")}` : v.label]), { onChange: (v) => { opts.version = v; hint.textContent = hintText(v); } })),
     hint);
-  const ok = await modal({ title: t("Export DXF (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "dxf", title: t("Export DXF (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   if (app.setSetting && opts.version !== app.settings.dxfVersion) app.setSetting("dxfVersion", opts.version);
   const levels = opts.all ? p.levels : [levelById(p, opts.level)];
@@ -263,7 +263,7 @@ export async function exportDwgFile(app) {
     field(t("Level"), select(opts.level, p.levels.map((l) => [l.id, l.name]), { onChange: (v) => { opts.level = v; } })),
     field(t("Levels"), checkbox(false, t("One file per level"), { onChange: (v) => { opts.all = v; } })),
     h("p", { class: "field-hint span2" }, t("AutoCAD 2000 DWG (AC1015) in millimetres with the same standard layers as the DXF export (A-WALL, A-DOOR, A-GLAZ, A-AREA, A-FURN, A-ANNO-DIMS …). AutoCAD, BricsCAD, DraftSight and every program that reads DWG open it.")));
-  const ok = await modal({ title: t("Export DWG (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "dxf", title: t("Export DWG (AutoCAD)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   const { exportDwg } = await import("../io/dwgwrite.js");
   const levels = opts.all ? p.levels : [levelById(p, opts.level)];
@@ -278,16 +278,18 @@ export async function exportDwgFile(app) {
 export async function exportIfcFile(app) {
   const opts = { schema: "IFC4", format: "ifc" };
   const body = h("div", { class: "form-grid" },
-    field(t("IFC version"), select(opts.schema, [["IFC4", "IFC4 (Reference View)"], ["IFC2X3", "IFC2X3 (Coordination View 2.0)"]], { onChange: (v) => { opts.schema = v; } })),
+    field(t("IFC version"), select(opts.schema, [["IFC4", "IFC4 (Reference View)"], ["IFC4X3", t("IFC4.3 (bridges as IfcBridge)")], ["IFC2X3", "IFC2X3 (Coordination View 2.0)"]], { onChange: (v) => { opts.schema = v; } })),
     field(t("File format"), select(opts.format, [["ifc", t("IFC (STEP text, .ifc)")], ["ifcxml", t("ifcXML (.ifcxml)")], ["ifczip", t("IFC ZIP (.ifczip, compressed .ifc)")]], { onChange: (v) => { opts.format = v; } })),
     h("p", { class: "field-hint span2" }, t("Storeys, walls with openings, doors, windows, spaces, floor slabs, roofs, stairs, columns and furniture, for Revit, ArchiCAD, BIMcollab, Solibri and any IFC viewer.")));
-  const ok = await modal({ title: t("Export IFC (BIM)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "bim", title: t("Export IFC (BIM)…"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   const { exportIfc } = await import("../io/ifc.js");
   const p = app.store.project;
   const ifcOpts = { schema: opts.schema, author: p.meta.author, organization: p.meta.company };
   let r;
   if (opts.format === "ifcxml") {
+    // ifcXML is written from the IFC4 / IFC2X3 schema tables only.
+    if (ifcOpts.schema === "IFC4X3") { ifcOpts.schema = "IFC4"; toast(t("ifcXML has no IFC4.3 schema here: written as IFC4."), "warn", 5000); }
     const { exportIfcXml } = await import("../io/ifcxml.js");
     r = await platform.saveTextFile({ name: `${baseName(app)}.ifcxml`, text: exportIfcXml(p, ifcOpts), filters: [{ name: "ifcXML", extensions: ["ifcxml"] }] });
   } else if (opts.format === "ifczip") {
@@ -328,7 +330,7 @@ export async function export3dDialog(app) {
   const body = h("div", {}, list, h("div", { class: "form-grid", style: { marginTop: "10px" } },
     field(t("Units"), select(opts.unit, [["m", t("Metres (glTF standard)")], ["mm", t("Millimetres (3D printing, CAD)")]], { onChange: (v) => { opts.unit = v; } })),
     h("p", { class: "field-hint" }, t("Only what is visible in the 3D view is exported (hidden levels, furniture or roofs are left out)."))));
-  const ok = await modal({ title: t("Export 3D model"), width: 640, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "cube", title: t("Export 3D model"), width: 640, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   await export3d(app, opts.format, opts.unit);
 }

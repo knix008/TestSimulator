@@ -11,7 +11,9 @@ import { h, modal, select, stepper, input, field, checkbox, tabs, toast, context
 import { uid, polygonArea, pointInPolygon, labelPoint, dist } from "../core/geom.js";
 import { levelById, levelAbove, wallLength, LEVEL_COLLECTIONS } from "../core/project.js";
 import { buildingOutlines } from "../core/rooms.js";
-import { MATERIALS, materialsFor, uValue } from "../lib/materials.js";
+import { MATERIALS, materialsFor, uValue, materialById } from "../lib/materials.js";
+import { memberLength, memberWeight, defaultThickness } from "../core/members.js";
+import { registerStructureCommands, editStructure } from "./structures.js";
 import { allFurniture, furnitureDef } from "../lib/furniture.js";
 import {
   TYPE_CATEGORIES, TYPE_PARAMS, TYPE_DEFAULTS, DEFAULT_TYPES, DEFAULT_SLAB_TYPES, DEFAULT_CURTAIN_TYPES, CURTAIN_DEFAULTS, BEAM_PROFILES, RAILING_STYLES, STAIR_SHAPES, STAIR_RAILINGS,
@@ -25,6 +27,9 @@ const CAT_LABEL = { door: "Doors", window: "Windows", column: "Columns", beam: "
 const SHAPE_LABEL = { straight: "Straight", L: "L-shaped (quarter landing)", U: "U-shaped (half landing)", spiral: "Spiral" };
 const RAIL_LABEL = { none: "None", left: "Left", right: "Right", both: "Both sides" };
 const PROFILE_LABEL = { rect: "Rectangle", I: "I-section", T: "T-section", round: "Round" };
+// Structural members (src/core/members.js).
+const MEMBER_PROFILE_LABEL = { rect: "Rectangle", round: "Round bar", tube: "Round tube", box: "Box section", I: "I-section", H: "H-section", T: "T-section", L: "Angle (L)", C: "Channel (C)", cable: "Cable" };
+const MEMBER_ROLE_LABEL = { beam: "Beam", column: "Column", brace: "Brace", chord: "Chord", girder: "Girder", post: "Post", hanger: "Hanger", cable: "Cable", arch: "Arch rib", deck: "Deck", other: "Other" };
 const STYLE_LABEL = { bars: "Balusters", glass: "Glass panels", panel: "Solid panels" };
 const tr = (map) => Object.entries(map).map(([k, v]) => [k, t(v)]);
 
@@ -50,10 +55,18 @@ function injectStyle() {
 // ---------------------------------------------------------------- toolbar
 export const SPLIT_GROUPS = {
   wall: ["plan.wall", "plan.curtainWall"],
-  column: ["plan.column", "plan.beam", "build.beamSystem"],
+  column: ["plan.column", "plan.beam", "plan.member", "build.beamSystem", "-", "build.tower", "build.bridge"],
   stair: ["plan.stair", "stair.straight", "stair.L", "stair.U", "stair.spiral", "-", "plan.ramp", "plan.railing"],
   slab: ["plan.slab", "plan.ceiling", "plan.shaft", "build.slabOpening", "-", "build.autoSlabs", "build.autoCeilings"],
   types: ["build.types", "build.designOptions", "edit.array", "build.materials"],
+  // Grouped so the plan toolbar fits on one row (app.js renderToolbar).
+  light: ["plan.light", "light.all"],
+  mass: ["plan.massRect", "plan.massCircle", "plan.massPoly"],
+  annotate: ["plan.dimension", "plan.text", "plan.line", "plan.grid"],
+  modify: ["edit.rotate", "edit.mirror"],
+  bim: ["build.check", "build.schedules", "build.detectRooms", "build.wallTypes", "build.bimProps"],
+  toggles: ["view.snap", "view.ortho", "view.pan", "view.grid", "view.rulers"],
+  zoom: ["view.fit", "view.zoomIn", "view.zoomOut"],
 };
 
 // A split button: the group's tool (the active one, else the first) and a
@@ -63,6 +76,7 @@ export function splitButton(app, group, btn) {
   const ids = SPLIT_GROUPS[group].filter((x) => x !== "-");
   const active = ids.find((id) => { const c = app.commands.get(id); return c && c.checked && c.checked(); });
   const mainId = active && active.startsWith("plan.") ? active : ids[0];
+  if (!btn(mainId)) return null;
   const main = btn(mainId);
   const anyOn = !!active;
   const caret = h("button", {
@@ -85,6 +99,7 @@ export function registerElementCommands(app, C) {
       if (shape === "spiral") app.setHint(t("Spiral stair: click the centre, then a point on the outside edge where it starts."));
     }, { checked: () => (app.settings.stairShape || "straight") === shape && app.tab === "plan" && app.plan.tool === "stair" });
   }
+  registerStructureCommands(app, C); // lattice towers and bridges (structures.js)
   C("build.types", "Type catalogue (families)…", "typesCat", "", () => typeCatalogDialog(app));
   C("build.materials", "Materials and thermal properties…", "material", "", () => typeCatalogDialog(app, { tab: "materials" }));
   C("build.typeSelectAll", "Select all instances of this type", "select", "", () => selectTypeInstances(app), { enabled: () => !!selectedTyped(app) });
@@ -106,7 +121,7 @@ export function registerElementCommands(app, C) {
 // Menu entries the app adds to its menus.
 export const ELEMENT_MENU = {
   Edit: ["edit.array"],
-  Build: ["build.autoSlabs", "build.autoCeilings", "build.beamSystem", "build.attachTop", "build.slabOpening"],
+  Build: ["build.autoSlabs", "build.autoCeilings", "build.beamSystem", "build.attachTop", "build.slabOpening", "-", "build.tower", "build.bridge", "build.editStructure"],
   BIM: ["build.types", "build.typeSelectAll", "build.typeFromSelection", "build.designOptions", "build.materials"],
 };
 
@@ -210,11 +225,11 @@ export function attachWalls(app) {
 // ---------------------------------------------------------------- inspector
 // Called by panels.js inspector for every selected item: adds the fields of
 // the new element kinds and the extra parameters of walls, openings, columns,
-// stairs, roofs and furniture. ui: {title, grid, act, body, bindField, mmS, deg, matOpts}
+// stairs, roofs and furniture. ui: {title, grid, act, body, bindField, mmS, deg}
 export function elementPanel(app, kind, obj, ui) {
   injectStyle();
   const p = app.store.project;
-  const { title, grid, act, bindField, mmS, deg, matOpts } = ui;
+  const { title, grid, act, bindField, mmS, deg } = ui;
   const num = (step, min = 0) => mmS(step, min);
   const typeField = (cat) => {
     const opts = [["", t("(no type)")], ...typesOf(p, cat).map((ty) => [ty.id, ty.name])];
@@ -236,7 +251,7 @@ export function elementPanel(app, kind, obj, ui) {
       ...bindField(app, t("Top offset"), () => obj.offset || 0, (v) => { obj.offset = v; }, num(50, -1e5)),
       ...bindField(app, t("Slope"), () => obj.slope || 0, (v) => { obj.slope = Math.max(0, Math.min(60, v)); }, { type: "number", step: "1", min: 0, max: 60, format: (v) => `${v}°` }),
       ...bindField(app, t("Slope direction"), () => obj.slopeDir || 0, (v) => { obj.slopeDir = ((v % 360) + 360) % 360; }, deg),
-      ...bindField(app, t("Finish"), () => obj.material || "", (v) => { if (v) obj.material = v; else delete obj.material; }, { options: [["", t("(from the type)")], ...matOpts("floor")] }));
+      ...bindField(app, t("Finish"), () => obj.material || "", (v) => { if (v) obj.material = v; else delete obj.material; }, { material: ["floor"], none: t("(from the type)") }));
     if (obj.type) lockFields(grid, [t("Thickness")]);
     act(t("Add opening"), "shaft", () => app.run("build.slabOpening"));
     if (obj.holes.length) act(t("Remove openings"), "trash", () => app.store.edit(t("Remove openings"), () => { obj.holes = []; }));
@@ -247,7 +262,7 @@ export function elementPanel(app, kind, obj, ui) {
       ...bindField(app, t("Ceiling type"), () => obj.type || "", (v) => { const s2 = slabTypeById(p, v); if (s2) { obj.type = v; obj.thickness = slabTypeThickness(s2); } else delete obj.type; }, { options: [["", t("(no type)")], ...allSlabTypes(p).filter((s2) => s2.use === "ceiling").map((s2) => [s2.id, s2.name])] }),
       ...bindField(app, t("Height"), () => ceilingHeight(p, obj), (v) => { obj.height = Math.max(100, v); }, num(50, 100)),
       ...bindField(app, t("Thickness"), () => obj.thickness, (v) => { obj.thickness = Math.max(1, v); delete obj.type; }, num(5, 1)),
-      ...bindField(app, t("Material"), () => obj.material || "", (v) => { if (v) obj.material = v; else delete obj.material; }, { options: [["", t("(from the type)")], ...matOpts("ceiling"), ...matOpts("wall")].filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i) }));
+      ...bindField(app, t("Material"), () => obj.material || "", (v) => { if (v) obj.material = v; else delete obj.material; }, { material: ["ceiling", "wall"], none: t("(from the type)") }));
     if (obj.type) lockFields(grid, [t("Thickness")]);
     act(t("Add opening"), "shaft", () => app.run("build.slabOpening"));
   } else if (kind === "beams") {
@@ -261,9 +276,29 @@ export function elementPanel(app, kind, obj, ui) {
       ...bindField(app, t("Depth"), () => obj.h, (v) => { obj.h = Math.max(10, v); }, num(10, 10)),
       ...bindField(app, t("Top at start"), () => z1 - lv.elevation, (v) => { obj.z1 = v; if (obj.z2 === null) obj.z2 = z2 - lv.elevation; }, num(50, -1e5)),
       ...bindField(app, t("Top at end"), () => z2 - lv.elevation, (v) => { obj.z2 = v; if (obj.z1 === null) obj.z1 = z1 - lv.elevation; }, num(50, -1e5)),
-      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { options: matOpts("structure").concat(matOpts("wall")).filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i) }));
+      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { material: ["structure", "wall"] }));
     lock(["Profile", "Width", "Depth", "Material"]);
     typeActions();
+  } else if (kind === "members") {
+    const len = memberLength(obj);
+    const mat = materialById(obj.material);
+    const kg = memberWeight(obj, (mat && mat.density) || 7850);
+    title("member", `${t(MEMBER_ROLE_LABEL[obj.role] || "Member")}${obj.name ? ` ${obj.name}` : ""}`, `${(len / 1000).toFixed(2)} m · ${t(MEMBER_PROFILE_LABEL[obj.profile])} ${obj.w}${obj.profile === "round" || obj.profile === "tube" || obj.profile === "cable" ? "" : ` × ${obj.h}`} · ${kg >= 1000 ? `${(kg / 1000).toFixed(2)} t` : `${Math.round(kg)} kg`}`);
+    // Sections and roles typed here become the next member's defaults.
+    const remember = () => { app.settings.memberDefaults = { profile: obj.profile, w: obj.w, h: obj.h, t: obj.t, material: obj.material, role: obj.role }; app.saveSettings(); };
+    const last = obj.pts.length - 1;
+    grid.append(
+      ...bindField(app, t("Role"), () => obj.role, (v) => { obj.role = v; remember(); }, { options: tr(MEMBER_ROLE_LABEL) }),
+      ...bindField(app, t("Profile"), () => obj.profile, (v) => { obj.profile = v; obj.t = defaultThickness(obj); remember(); }, { options: tr(MEMBER_PROFILE_LABEL) }),
+      ...bindField(app, obj.profile === "round" || obj.profile === "tube" || obj.profile === "cable" ? t("Diameter") : t("Width"), () => obj.w, (v) => { obj.w = Math.max(1, v); remember(); }, num(10, 1)),
+      ...(obj.profile === "round" || obj.profile === "tube" || obj.profile === "cable" ? [] : bindField(app, t("Depth"), () => obj.h, (v) => { obj.h = Math.max(1, v); remember(); }, num(10, 1))),
+      ...(["tube", "box", "I", "H", "T", "L", "C"].includes(obj.profile) ? bindField(app, t("Wall / flange thickness"), () => obj.t, (v) => { obj.t = Math.max(0.5, v); remember(); }, num(1, 0.5)) : []),
+      ...bindField(app, t("Roll"), () => obj.roll || 0, (v) => { obj.roll = v; }, deg),
+      ...bindField(app, t("Height at start"), () => obj.pts[0][2], (v) => { obj.pts[0][2] = v; }, num(50, -1e6)),
+      ...bindField(app, t("Height at end"), () => obj.pts[last][2], (v) => { obj.pts[last][2] = v; }, num(50, -1e6)),
+      ...bindField(app, t("Material"), () => obj.material, (v) => { obj.material = v; remember(); }, { material: ["structure", "frame", "wall"] }));
+    const st = obj.structure && (p.structures || []).find((x) => x.id === obj.structure);
+    if (st) act(st.kind === "tower" ? t("Edit tower…") : t("Edit bridge…"), "settings", () => editStructure(app, st));
   } else if (kind === "railings") {
     title("railing", t("Railing"), `${(railingLength(obj) / 1000).toFixed(2)} m · ${obj.height} mm`);
     grid.append(
@@ -272,7 +307,7 @@ export function elementPanel(app, kind, obj, ui) {
       ...bindField(app, t("Base height"), () => obj.z || 0, (v) => { obj.z = v; }, num(50, -1e5)),
       ...bindField(app, t("Style"), () => obj.style, (v) => { obj.style = v; }, { options: tr(STYLE_LABEL) }),
       ...bindField(app, t("Baluster spacing"), () => obj.spacing, (v) => { obj.spacing = Math.max(50, v); }, num(10, 50)),
-      ...bindField(app, t("Material"), () => obj.material || "steel", (v) => { obj.material = v; }, { options: matOpts("frame").concat(matOpts("structure")).filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i) }));
+      ...bindField(app, t("Material"), () => obj.material || "steel", (v) => { obj.material = v; }, { material: ["frame", "structure"] }));
     lock(["Height", "Style", "Baluster spacing", "Material"]);
     typeActions();
   } else if (kind === "ramps") {
@@ -283,7 +318,7 @@ export function elementPanel(app, kind, obj, ui) {
       ...bindField(app, t("Rise"), () => m.rise, (v) => { obj.rise = v; }, num(50, -1e5)),
       ...bindField(app, t("Thickness"), () => obj.thickness, (v) => { obj.thickness = Math.max(20, v); }, num(10, 20)),
       ...bindField(app, t("Railings"), () => obj.railing, (v) => { obj.railing = v; }, { options: tr(RAIL_LABEL) }),
-      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { options: matOpts("floor") }));
+      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { material: ["floor"] }));
   } else if (kind === "shafts") {
     const lvs = shaftLevels(p, obj);
     title("shaft", obj.name || t("Shaft opening"), `${(Math.abs(polygonArea(obj.pts)) / 1e6).toFixed(2)} m² · ${lvs.map((l) => l.name).join(", ")}`);
@@ -467,7 +502,7 @@ export async function typeCatalogDialog(app, { tab = null, typeId = null } = {})
   };
   let close = () => {};
   draw();
-  const result = await modal({ title: t("Type catalogue"), width: 980, body: h("div", { class: "el-types" }, catHost, listHost, editHost), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }], onOpen: (_box, c) => { close = c; } });
+  const result = await modal({ icon: "typesCat", title: t("Type catalogue"), width: 980, body: h("div", { class: "el-types" }, catHost, listHost, editHost), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }], onOpen: (_box, c) => { close = c; } });
   if (!result) return null;
   const builtins = new Map(DEFAULT_TYPES.map((x) => [x.id, JSON.stringify(x)]));
   app.store.edit(t("Type catalogue"), (pr) => {
@@ -536,7 +571,7 @@ export async function designOptionsDialog(app) {
       h("button", { class: "btn small", onclick: () => { actions.push(["main", null]); toast(t("The selection goes back into the main model when you press OK."), "info", 2000); } }, t("Move the selection to the main model"))));
   };
   draw();
-  const ok = await modal({ title: t("Design options"), width: 720, body: host, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "options", title: t("Design options"), width: 720, body: host, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return false;
   const sel = new Set(app.plan.selectedItems().map((i) => i.obj.id));
   app.store.edit(t("Design options"), (pr) => {
@@ -601,7 +636,7 @@ export async function arrayDialog(app) {
     field(t("Centre X (radial)"), stepper(o.cx, { min: -1e7, max: 1e7, step: 100, editable: true, onChange: (v) => { o.cx = v; } })),
     field(t("Centre Y (radial)"), stepper(o.cy, { min: -1e7, max: 1e7, step: 100, editable: true, onChange: (v) => { o.cy = v; } })),
     field(t("Group"), checkbox(o.group, t("Group each copy"), { onChange: (v) => { o.group = v; } })));
-  const ok = await modal({ title: t("Array"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "array", title: t("Array"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return null;
   let made = [];
   app.store.edit(t("Array"), (p) => { made = arrayItems(p, ids, app.plan.level, o); });

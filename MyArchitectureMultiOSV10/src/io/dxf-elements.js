@@ -2,6 +2,7 @@
 // writer): each kind on its own AIA-style layer.
 
 import { wallPoint } from "../core/walls.js";
+import { memberFootprints } from "../core/members.js";
 import { wallLength } from "../core/project.js";
 import { labelPoint } from "../core/geom.js";
 import { beamOutline, rampModel, stairLayout, stairRise, stairRails, curtainGrid, isCurtainWall, shaftsAt, ceilingHeight } from "../core/elements/geometry.js";
@@ -10,6 +11,7 @@ export const ELEMENT_DXF_LAYERS = [
   { name: "A-FLOR-SLAB", color: 8, linetype: "CONTINUOUS", description: "Floor slab and foundation edges, slab openings" },
   { name: "A-CLNG", color: 9, linetype: "DASHED", description: "Ceilings (outline above, with the height)" },
   { name: "S-BEAM", color: 5, linetype: "HIDDEN", description: "Beams and braces above (outline and axis)" },
+  { name: "S-MEMB", color: 4, linetype: "CONTINUOUS", description: "Structural members: towers, bridges, frames (plan footprint and axis)" },
   { name: "A-FLOR-HRAL", color: 6, linetype: "CONTINUOUS", description: "Railings and handrails" },
   { name: "A-FLOR-RAMP", color: 6, linetype: "CONTINUOUS", description: "Ramps: outline, centre line and slope" },
   { name: "A-SHFT", color: 7, linetype: "CONTINUOUS", description: "Shafts: outline and diagonals" },
@@ -28,6 +30,11 @@ export function exportElementsDxf(W, p, L) {
     W.text("A-CLNG", `CLG +${(ceilingHeight(p, c) / 1000).toFixed(2)}`, x, y + 400, 150, { align: "center", valign: "middle" });
   }
   for (const b of on(p.beams)) { W.poly("S-BEAM", beamOutline(b)); W.line("S-BEAM", [b.x1, b.y1], [b.x2, b.y2]); }
+  // Structural members: the plan footprint of every segment and the axis.
+  for (const m of on(p.members)) {
+    for (const f of memberFootprints(m)) W.poly("S-MEMB", f);
+    W.poly("S-MEMB", m.pts.map((q) => [q[0], q[1]]), false);
+  }
   for (const r of on(p.railings)) W.poly("A-FLOR-HRAL", r.pts, false);
   for (const s of on(p.stairs)) for (const rail of stairRails(p, s)) W.poly("A-FLOR-HRAL", rail.map((q) => [q[0], q[1]]), false);
   for (const r of on(p.ramps)) {

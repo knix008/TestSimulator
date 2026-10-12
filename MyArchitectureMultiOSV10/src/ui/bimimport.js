@@ -35,7 +35,7 @@ async function sh3dOptions(f) {
   const body = h("div", { class: "form-grid" },
     field(t("Furniture, lights and roofs"), select(opts.models, [["file", t("Use the file's 3D models")], ["catalog", t("Use MyArchitecture furniture shapes")]], { onChange: (v) => { opts.models = v; } })),
     h("p", { class: "field-hint span2" }, t("The file's 3D models look like they do in Sweet Home 3D and are stored inside the project. Our furniture shapes are lighter and can be changed with the furniture tools; roofs then become roofs of ours.")));
-  const ok = await modal({ title: t("Import Sweet Home 3D home — {name}", { name: f.name }), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
+  const ok = await modal({ icon: "import", title: t("Import Sweet Home 3D home — {name}", { name: f.name }), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Import"), value: true, primary: true }] });
   if (!ok) return null;
   sh3dModels = opts.models;
   return opts;

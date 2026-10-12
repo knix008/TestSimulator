@@ -24,32 +24,102 @@ export function h(tag, attrs = {}, ...children) {
 
 const stack = [];
 
-// modal({title, body: Node, buttons:[{label, value, primary, danger}], width, onOpen, className})
-// → Promise<value> (Escape / ✕ resolve null)
-export function modal({ title, body, buttons = [{ label: t("Close"), value: null }], width = 520, onOpen, className = "", closeOnBackdrop = true, validate }) {
+// ---------------------------------------------------------------- dialogs in their own windows
+// In the desktop app every dialog is a window of its own (a child of the main
+// window, or of the dialog that opened it): it can be moved anywhere on the
+// screen, also outside the main window. Its title bar is the dialog's head —
+// the program icon and the window name — and it is the drag handle.
+// The dialog is built and measured in the main document first, then moved
+// into the new window (same renderer: its event handlers keep working).
+// setDialogWindows(fn): fn() → true when dialogs should open as windows (the
+// app turns it off for the web version, the tutorial and the GUI tests).
+let dialogWindows = () => false;
+// The icon of the command being run (app.run): a dialog it opens shows it
+// unless the dialog names its own.
+let iconHint = null;
+export function dialogIconHint(name) { iconHint = name ? { name, at: Date.now() } : null; }
+let dialogZoom = () => 1; // the interface size: window pixels per page pixel
+export function setDialogWindows(fn, zoom = () => 1) { dialogWindows = fn; dialogZoom = zoom; }
+
+const WINDOW_CSS = `html, body { margin: 0; height: 100%; overflow: hidden; background: var(--panel); }
+body > .modal.in-window { width: 100% !important; height: 100%; max-width: none; max-height: none; border-radius: 0; box-shadow: none; animation: none; box-sizing: border-box; }
+.in-window .modal-head { -webkit-app-region: drag; user-select: none; cursor: default; }
+.in-window .modal-head button, .in-window .modal-head input { -webkit-app-region: no-drag; }`;
+
+// The document of the dialog window on top (menus and pickers opened from a
+// dialog belong in it), else the main document.
+export function popupDoc() {
+  for (let i = stack.length - 1; i >= 0; i--) if (stack[i].win && !stack[i].win.closed) return stack[i].win.document;
+  return document;
+}
+export const openDialogWindows = () => stack.filter((e) => e.win && !e.win.closed).map((e) => e.win);
+
+function openDialogWindow(title, w, h0) {
+  const z = +dialogZoom() || 1;
+  const depth = stack.filter((e) => e.win).length;
+  const W = Math.round(w * z), H = Math.round(h0 * z);
+  const avail = { w: (screen.availWidth || 1920) - 20, h: (screen.availHeight || 1080) - 20 };
+  const ww = Math.min(W, avail.w), hh = Math.min(H, avail.h);
+  // Centred over the window that opens it.
+  const owner = depth ? stack.filter((e) => e.win).pop().win : window;
+  const left = Math.round(owner.screenX + (owner.outerWidth - ww) / 2), top = Math.round(owner.screenY + Math.max(0, (owner.outerHeight - hh) / 2));
+  let win = null;
+  try { win = window.open("about:blank", `myarch-dialog-${depth + 1}`, `width=${ww},height=${hh},left=${left},top=${top}`); } catch { win = null; }
+  if (!win || !win.document) return null;
+  const doc = win.document;
+  doc.title = title;
+  for (const n of document.querySelectorAll('link[rel="stylesheet"], style')) {
+    const c = n.cloneNode(true);
+    if (n.tagName === "LINK") c.href = n.href;
+    doc.head.append(c);
+  }
+  doc.head.append(Object.assign(doc.createElement("style"), { textContent: WINDOW_CSS }));
+  const root = document.documentElement;
+  for (const a of root.attributes) doc.documentElement.setAttribute(a.name, a.value);
+  return win;
+}
+
+// modal({title, icon, body: Node, buttons:[{label, value, primary, danger}], width, onOpen, className})
+// → Promise<value> (Escape / ✕ / closing the window resolve null). `icon`: the
+// icons.js name shown in the title bar — every window its own; without one,
+// the icon of the command that opened it (dialogIconHint), else the program's.
+export function modal({ title, icon: iconName = null, body, buttons = [{ label: t("Close"), value: null }], width = 520, onOpen, className = "", closeOnBackdrop = true, validate }) {
   return new Promise((resolve) => {
     const backdrop = h("div", { class: "modal-backdrop" });
     const box = h("div", { class: `modal ${className}`, role: "dialog", "aria-modal": "true", style: { width: typeof width === "number" ? `${width}px` : width } });
+    let win = null;
+    let done = false;
     const close = (value) => {
+      if (done) return;
       if (value !== null && validate) {
         const err = validate(value);
         if (err) { toast(err, "error"); return; }
       }
+      done = true;
       backdrop.remove();
       stack.splice(stack.indexOf(entry), 1);
-      document.removeEventListener("keydown", onKey, true);
+      (win ? win.document : document).removeEventListener("keydown", onKey, true);
+      if (win && !win.closed) { win.removeEventListener("pagehide", onGone); win.close(); }
+      if (win) window.focus();
       resolve(value);
     };
-    // Every popup title bar shows the program icon and the window name.
+    const onGone = () => close(null); // the window was closed (Alt+F4, the OS)
+    // Every popup title bar shows its icon and the window name.
+    const hinted = !stack.length && iconHint && Date.now() - iconHint.at < 5000 ? iconHint.name : null;
+    iconHint = null;
+    const ic = iconName || hinted;
     const head = h("div", { class: "modal-head" },
-      h("div", { class: "modal-title" }, h("img", { class: "modal-appicon", src: "assets/icon.png", alt: "", width: 18, height: 18 }), h("span", {}, title)),
+      h("div", { class: "modal-title" }, ic ? h("span", { class: "modal-icon", "data-icon": ic, html: icon(ic, 18) }) : h("img", { class: "modal-appicon", src: "assets/icon.png", alt: "", width: 18, height: 18 }), h("span", {}, title)),
       h("button", { class: "icon-btn", title: t("Close"), onclick: () => close(null), html: icon("close", 16) }));
     const foot = h("div", { class: "modal-foot" });
-    for (const b of buttons) {
+    // Buttons marked `left` sit together on the left, the rest on the right.
+    const lastLeft = buttons.map((b) => !!b.left).lastIndexOf(true);
+    buttons.forEach((b, i) => {
       const btn = h("button", { class: `btn ${b.primary ? "primary" : ""} ${b.danger ? "danger" : ""}`, onclick: () => close(typeof b.value === "function" ? b.value() : b.value) }, b.label);
       if (b.left) btn.classList.add("left");
       foot.append(btn);
-    }
+      if (i === lastLeft) foot.append(h("span", { class: "foot-gap" }));
+    });
     box.append(head, h("div", { class: "modal-body" }, body), foot);
     backdrop.append(box);
     backdrop.addEventListener("pointerdown", (e) => { if (e.target === backdrop && closeOnBackdrop) close(null); });
@@ -61,11 +131,29 @@ export function modal({ title, body, buttons = [{ label: t("Close"), value: null
         if (primary) { e.preventDefault(); e.stopPropagation(); close(typeof primary.value === "function" ? primary.value() : primary.value); }
       }
     };
-    const entry = { close, el: backdrop };
+    const entry = { close, el: backdrop, win: null };
+    let windowed = false;
+    try { windowed = dialogWindows(); } catch { windowed = false; }
+    if (windowed) {
+      // Measure the dialog laid out in the main window, then give it a window that size.
+      backdrop.style.visibility = "hidden";
+      document.body.append(backdrop);
+      const r = box.getBoundingClientRect();
+      win = openDialogWindow(title, Math.ceil(r.width), Math.ceil(r.height));
+      if (win) {
+        box.classList.add("in-window");
+        win.document.body.append(box);
+        backdrop.remove();
+        entry.win = win;
+        entry.el = box;
+        win.addEventListener("pagehide", onGone);
+      } else backdrop.style.visibility = "";
+    }
     stack.push(entry);
-    document.addEventListener("keydown", onKey, true);
-    document.body.append(backdrop);
+    (win ? win.document : document).addEventListener("keydown", onKey, true);
+    if (!win) document.body.append(backdrop);
     const first = box.querySelector("input, select, textarea");
+    if (win) win.focus();
     if (first) setTimeout(() => { first.focus(); if (first.select) first.select(); }, 30);
     if (onOpen) onOpen(box, close);
   });
@@ -74,18 +162,18 @@ export function modal({ title, body, buttons = [{ label: t("Close"), value: null
 export function anyModalOpen() {
   // Ask the DOM, not the stack: a dialog removed some other way must never
   // leave the keyboard dead.
-  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].el || !stack[i].el.isConnected) stack.splice(i, 1);
-  return !!document.querySelector(".modal-backdrop, .quickpick, .popup-input");
+  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].el || !stack[i].el.isConnected || (stack[i].win && stack[i].win.closed)) stack.splice(i, 1);
+  return stack.some((e) => e.win) || !!document.querySelector(".modal-backdrop, .quickpick, .popup-input");
 }
 
-export async function confirmDialog(message, { title = t("Confirm"), ok = t("OK"), cancel = t("Cancel"), danger = false } = {}) {
-  const r = await modal({ title, body: h("p", { class: "confirm-text" }, message), width: 440, buttons: [{ label: cancel, value: false }, { label: ok, value: true, primary: true, danger }] });
+export async function confirmDialog(message, { title = t("Confirm"), ok = t("OK"), cancel = t("Cancel"), danger = false, icon: ic = null } = {}) {
+  const r = await modal({ title, icon: ic || (danger ? "warning" : "help"), body: h("p", { class: "confirm-text" }, message), width: 440, buttons: [{ label: cancel, value: false }, { label: ok, value: true, primary: true, danger }] });
   return !!r;
 }
 
-export async function promptDialog(message, value = "", { title = t("Input"), placeholder = "" } = {}) {
+export async function promptDialog(message, value = "", { title = t("Input"), placeholder = "", icon: ic = "text" } = {}) {
   const input = h("input", { type: "text", class: "input wide", value, placeholder });
-  const r = await modal({ title, body: h("label", { class: "field" }, h("span", {}, message), input), width: 420, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: () => input.value, primary: true }] });
+  const r = await modal({ title, icon: ic, body: h("label", { class: "field" }, h("span", {}, message), input), width: 420, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: () => input.value, primary: true }] });
   return r;
 }
 
@@ -137,6 +225,8 @@ export function toast(message, kind = "info", ms = 3200) {
 // contextMenu([{label, icon, shortcut, action, disabled, danger} | "-"], x, y)
 export function contextMenu(items, x, y) {
   closeMenus();
+  const doc = popupDoc(); // a menu opened from a dialog window shows in that window
+  const view = doc.defaultView || window;
   const menu = h("div", { class: "ctx-menu", role: "menu" });
   for (const it of items) {
     if (it === "-") { menu.append(h("div", { class: "menu-sep" })); continue; }
@@ -148,24 +238,27 @@ export function contextMenu(items, x, y) {
     row.addEventListener("click", () => { closeMenus(); if (it.action) it.action(); });
     menu.append(row);
   }
-  document.body.append(menu);
+  doc.body.append(menu);
   const r = menu.getBoundingClientRect();
-  menu.style.left = `${Math.min(x, window.innerWidth - r.width - 6)}px`;
-  menu.style.top = `${Math.min(y, window.innerHeight - r.height - 6)}px`;
-  setTimeout(() => document.addEventListener("pointerdown", outside, true), 0);
+  menu.style.left = `${Math.max(0, Math.min(x, view.innerWidth - r.width - 6))}px`;
+  menu.style.top = `${Math.max(0, Math.min(y, view.innerHeight - r.height - 6))}px`;
+  setTimeout(() => doc.addEventListener("pointerdown", outside, true), 0);
   function outside(e) {
     // A menu removed some other way must not close the next one.
-    if (!menu.isConnected) { document.removeEventListener("pointerdown", outside, true); return; }
+    if (!menu.isConnected) { doc.removeEventListener("pointerdown", outside, true); return; }
     if (!menu.contains(e.target)) closeMenus();
   }
   menu._outside = outside;
+  menu._doc = doc;
   return menu;
 }
 
 export function closeMenus() {
-  for (const m of document.querySelectorAll(".ctx-menu")) {
-    document.removeEventListener("pointerdown", m._outside, true);
-    m.remove();
+  for (const d of [document, ...openDialogWindows().map((w) => w.document)]) {
+    for (const m of d.querySelectorAll(".ctx-menu")) {
+      (m._doc || d).removeEventListener("pointerdown", m._outside, true);
+      m.remove();
+    }
   }
 }
 

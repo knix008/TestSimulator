@@ -19,6 +19,7 @@ import { uid, polygonArea, pointInPolygon, labelPoint, orientedRect } from "../c
 import { levelById, wallHeight, wallLength, openingTags } from "../core/project.js";
 import { wallFrame } from "../core/walls.js";
 import { stepString } from "./ifc.js";
+import { memberSection, memberPoints, segmentFrame, MEMBER_IFC } from "../core/members.js";
 import { DEFAULT_CURTAIN_TYPES, slabTypeById } from "../core/elements/model.js";
 import {
   cutsOf, slabTop, ceilingZ, beamEnds, beamProfile, railingPath, railingParts, rampModel, stairLayout, stairRise, stairRails, STAIR_RAIL,
@@ -57,6 +58,19 @@ function dataOf(kind, it, extra = {}) {
   const { id, level, props, classification, group, phase, ...rest } = it;
   void id; void level; void props; void classification; void group; void phase;
   return JSON.stringify({ ...rest, ...extra, el: kind });
+}
+
+// IFC4.3 kinds of a bridge's members (IfcMemberTypeEnum, IfcBeamTypeEnum, IfcColumnTypeEnum).
+function bridgeEnum(m, ex) {
+  const st = (ex.p.structures || []).find((s) => s.id === m.structure);
+  const type = st && st.params.type;
+  if (m.role === "cable") return /cable/i.test(m.name || "") || type === "suspension" ? "SUSPENSION_CABLE" : "STAY_CABLE";
+  if (m.role === "hanger") return "SUSPENDER";
+  if (m.role === "arch") return "ARCH_SEGMENT";
+  if (m.role === "girder") return "GIRDER_SEGMENT";
+  if (m.role === "beam" && m.name === "Pier cap") return "PIERCAP";
+  if (m.role === "column" && m.name === "Pier") return "PIERSTEM";
+  return null;
 }
 
 // ================================================================ export
@@ -132,6 +146,38 @@ export function exportElements(ex, lv) {
     ex.contain(lv.id, ref);
     ex.bim(ref, b, brace && v4 ? "Pset_MemberCommon" : "Pset_BeamCommon");
     own(ref, "beam", b);
+  }
+  // ---- structural members: the section extruded along every segment of the
+  // axis (profile axes u, v; extrusion along t), as IfcMember / IfcBeam /
+  // IfcColumn / IfcPlate by role. The first member of a tower or bridge
+  // carries the structure's parameters, so it comes back editable.
+  const MEMBER_ENUM = { beam: "BEAM", girder: "BEAM", column: "COLUMN", post: "COLUMN", brace: "BRACE", chord: "CHORD", hanger: "MEMBER", cable: "MEMBER", arch: "MEMBER", deck: "SHEET", other: "MEMBER" };
+  const sectionProfile = (sec) => {
+    if (!sec.hole) return ex.polyProfile(sec.outer);
+    const poly = (r) => ex.add("IFCPOLYLINE", [[...r, r[0]].map((q) => ex.pt([q[0], q[1]]))]);
+    return ex.add("IFCARBITRARYPROFILEDEFWITHVOIDS", [T.E("AREA"), null, poly(ccw(sec.outer)), [poly(ccw(sec.hole).slice().reverse())]]);
+  };
+  const told = new Set();
+  for (const m of (p.members || []).filter((x) => x.level === lv.id)) {
+    const prof = sectionProfile(memberSection(m));
+    const pts = memberPoints(p, m);
+    const items = [];
+    for (let i = 1; i < pts.length; i++) {
+      const f = segmentFrame(pts[i - 1], pts[i], m.roll || 0);
+      if (f.length < 1) continue;
+      const a = pts[i - 1];
+      items.push(ex.style(ex.extrude(prof, f.length, ex.place3([a[0], -a[1], a[2] - el], [f.t[0], -f.t[1], f.t[2]], [f.u[0], -f.u[1], f.u[2]])), "column"));
+    }
+    if (!items.length) continue;
+    const cls = (MEMBER_IFC[m.role] || "IfcMember").toUpperCase();
+    const bridge = ex.v43 && m.structure && ex.bridges && ex.bridges.get(m.structure);
+    const ref = ex.product(cls, m.id, { name: m.name || m.role, objectType: `${m.profile} ${m.w}x${m.h}`, placement: ex.local(storey), shape: ex.shape([ex.body(items)]), tag: m.id }, v4 ? [T.E((bridge && bridgeEnum(m, ex)) || MEMBER_ENUM[m.role] || "NOTDEFINED")] : []);
+    if (bridge) ex.containIn(bridge, ref); // IFC4.3: in its IfcBridge
+    else ex.contain(lv.id, ref);
+    ex.bim(ref, m, cls === "IFCCOLUMN" ? "Pset_ColumnCommon" : cls === "IFCBEAM" ? "Pset_BeamCommon" : cls === "IFCPLATE" ? "Pset_PlateCommon" : "Pset_MemberCommon");
+    const st = m.structure && !told.has(m.structure) ? (p.structures || []).find((x) => x.id === m.structure) : null;
+    if (st) told.add(st.id);
+    own(ref, "member", m, st ? { structureRecord: { kind: st.kind, name: st.name, params: st.params } } : {});
   }
   // ---- railings (free ones and the ones stairs carry)
   const railing = (key, base, r, name, typeEnum, data) => {
@@ -288,7 +334,7 @@ function ownData(rd, id) {
 }
 
 export function readElements(rd) {
-  const out = { slabs: [], ceilings: [], beams: [], railings: [], ramps: [], shafts: [], stairs: [], wallTypes: [], stairRails: [], roofs: [], foreignSlabs: [] };
+  const out = { slabs: [], ceilings: [], beams: [], railings: [], ramps: [], shafts: [], stairs: [], wallTypes: [], stairRails: [], roofs: [], foreignSlabs: [], members: [], structures: [] };
   rd.elementsRead = out;
   const app = (rd.byType.get("IFCAPPLICATION") || []).map((i) => rd.ents.get(i)).some((e) => /myarchitecture/i.test(String(val(e.args[2]) || "") + String(val(e.args[3]) || "")));
   rd.ownFile = app;
@@ -321,6 +367,18 @@ export function readElements(rd) {
     const z = (g.ext ? g.ext.base : Math.min(...g.points.map((q) => q[2]))) * rd.lu - lv.elevation;
     out.ceilings.push(rd.applyBim({ id: uid("cl"), level: lv.id, pts: fp.map((q) => rd.plan(q)), holes: [], thickness: g.ext ? Math.max(1, g.ext.height * rd.lu) : 20, height: Math.max(100, Math.round(z)) }, id));
     rd.consumed.add(id);
+  });
+  // Structural members written by us (any class), with their tower / bridge.
+  take(["IFCMEMBER", "IFCMEMBERSTANDARDCASE", "IFCBEAM", "IFCBEAMSTANDARDCASE", "IFCCOLUMN", "IFCCOLUMNSTANDARDCASE", "IFCPLATE", "IFCPLATESTANDARDCASE"], (id) => {
+    const d = ownData(rd, id);
+    if (!d || d.el !== "member") return;
+    const { structureRecord, ...rest } = d;
+    const m = restore(id, "members", rest);
+    if (m.structure) {
+      m.group = m.structure;
+      if (structureRecord && !out.structures.some((s) => s.id === m.structure)) out.structures.push({ id: m.structure, level: m.level, ...structureRecord });
+    }
+    out.members.push(m);
   });
   take(["IFCBEAM", "IFCBEAMSTANDARDCASE", "IFCMEMBER"], (id) => {
     const d = ownData(rd, id);
@@ -434,7 +492,7 @@ export function readElements(rd) {
 export function importElementsInto(rd, p) {
   const out = rd.elementsRead;
   if (!out) return;
-  for (const k of ["slabs", "ceilings", "beams", "railings", "ramps", "shafts"]) p[k] = out[k];
+  for (const k of ["slabs", "ceilings", "beams", "railings", "ramps", "shafts", "members", "structures"]) p[k] = out[k];
   // Foreign floor slabs (files from other programs): their outline and thickness.
   for (const id of out.foreignSlabs) {
     const e = rd.ents.get(id);

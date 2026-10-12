@@ -1,0 +1,9709 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Lattice towers",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Gangwon",
+  "rev": "A",
+  "date": "2026-10-12",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lvudk5s05wkwy",
+   "name": "1F",
+   "elevation": 0,
+   "height": 3000,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000,
+  "member": 4500000
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [
+  {
+   "id": "wudk5s05wlvi",
+   "level": "lvudk5s05wkwy",
+   "x1": 16000,
+   "y1": -3000,
+   "x2": 22000,
+   "y2": -3000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wudk5s05wmvp",
+   "level": "lvudk5s05wkwy",
+   "x1": 22000,
+   "y1": -3000,
+   "x2": 22000,
+   "y2": 1000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wudk5s05wna5",
+   "level": "lvudk5s05wkwy",
+   "x1": 22000,
+   "y1": 1000,
+   "x2": 16000,
+   "y2": 1000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  },
+  {
+   "id": "wudk5s05wo4r",
+   "level": "lvudk5s05wkwy",
+   "x1": 16000,
+   "y1": 1000,
+   "x2": 16000,
+   "y2": -3000,
+   "thickness": 200,
+   "height": null,
+   "material": "concrete-block",
+   "phase": "new"
+  }
+ ],
+ "openings": [
+  {
+   "id": "oudk5s05wp1w",
+   "wall": "wudk5s05wna5",
+   "kind": "door",
+   "type": "single",
+   "at": 1500,
+   "width": 1000,
+   "height": 2100,
+   "sill": 0,
+   "side": -1,
+   "hinge": "start",
+   "phase": "new"
+  },
+  {
+   "id": "oudk5s05wqxp",
+   "wall": "wudk5s05wna5",
+   "kind": "window",
+   "type": "casement",
+   "at": 4200,
+   "width": 900,
+   "height": 600,
+   "sill": 1200,
+   "side": 1,
+   "hinge": "start",
+   "phase": "new"
+  }
+ ],
+ "rooms": [
+  {
+   "id": "rudk5s05wrw3",
+   "level": "lvudk5s05wkwy",
+   "name": "Equipment room",
+   "pts": [
+    [
+     16100,
+     -2900
+    ],
+    [
+     21900,
+     -2900
+    ],
+    [
+     21900,
+     900
+    ],
+    [
+     16100,
+     900
+    ]
+   ],
+   "floor": "concrete-polished",
+   "phase": "new"
+  }
+ ],
+ "columns": [],
+ "stairs": [],
+ "furniture": [
+  {
+   "id": "uudk5s05ws2k",
+   "level": "lvudk5s05wkwy",
+   "kind": "serverRack",
+   "x": 17000,
+   "y": -2350,
+   "rot": 0,
+   "w": 600,
+   "d": 1000,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uudk5s05wt7x",
+   "level": "lvudk5s05wkwy",
+   "kind": "serverRack",
+   "x": 17700,
+   "y": -2350,
+   "rot": 0,
+   "w": 600,
+   "d": 1000,
+   "h": 2000,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uudk5s05wukm",
+   "level": "lvudk5s05wkwy",
+   "kind": "filing",
+   "x": 21500,
+   "y": -2000,
+   "rot": 270,
+   "w": 500,
+   "d": 600,
+   "h": 1300,
+   "elevation": 0,
+   "color": null,
+   "phase": "new"
+  },
+  {
+   "id": "uudk5s05wvep",
+   "level": "lvudk5s05wkwy",
+   "kind": "ceilingLight",
+   "x": 19000,
+   "y": -1000,
+   "rot": 0,
+   "w": 500,
+   "d": 500,
+   "h": 120,
+   "elevation": 2880,
+   "color": null,
+   "light": {
+    "on": true,
+    "lumens": 2000,
+    "color": "#ffdfba"
+   },
+   "phase": "new"
+  }
+ ],
+ "roofs": [
+  {
+   "id": "fudk5s05ww0i",
+   "level": "lvudk5s05wkwy",
+   "pts": [
+    [
+     22100,
+     -3100
+    ],
+    [
+     15900,
+     -3100
+    ],
+    [
+     15900,
+     1100
+    ],
+    [
+     22100,
+     1100
+    ]
+   ],
+   "kind": "flat",
+   "pitch": 0,
+   "overhang": 300,
+   "thickness": 200,
+   "material": "concrete",
+   "phase": "new"
+  }
+ ],
+ "dimensions": [],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "slabs": [],
+ "ceilings": [],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
+ "members": [
+  {
+   "role": "column",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 1",
+   "id": "twudk5t05wxq7-0",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 2",
+   "id": "twudk5t05wxq7-1",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 3",
+   "id": "twudk5t05wxq7-2",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "tube",
+   "w": 400,
+   "t": 16,
+   "material": "galvanised",
+   "name": "Leg 4",
+   "id": "twudk5t05wxq7-3",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "h": 400,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-4",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-5",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-6",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-7",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-8",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-9",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-10",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-11",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-12",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-13",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-14",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-15",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-16",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-17",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-18",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-19",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-20",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-21",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-22",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-23",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-24",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-25",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-26",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-27",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-28",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-29",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-30",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-31",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-32",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-33",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-34",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-35",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-36",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-37",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-38",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-39",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-40",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-41",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-42",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-43",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-44",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-45",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-46",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-47",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-48",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-49",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-50",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-51",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-52",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-53",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-54",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-55",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-56",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-57",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-58",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-59",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-60",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-61",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5999.999999999999,
+     6000,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-62",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-63",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -6000.000000000001,
+     -5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-64",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-65",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5999.999999999998,
+     -6000.000000000001,
+     0
+    ],
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-66",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     6000,
+     5999.999999999999,
+     0
+    ],
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-67",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-68",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-69",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.029553961593,
+     5364.029553961594,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-70",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-71",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -5364.0295539615945,
+     -5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-72",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-73",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961592,
+     -5364.0295539615945,
+     9639.973076792689
+    ],
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-74",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     5364.029553961594,
+     5364.029553961593,
+     9639.973076792689
+    ],
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-75",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-76",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-77",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.4688426289,
+     4795.468842628901,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-78",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-79",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4795.468842628902,
+     -4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-80",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-81",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.4688426289,
+     -4795.468842628902,
+     18258.1564906777
+    ],
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-82",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4795.468842628901,
+     4795.4688426289,
+     18258.1564906777
+    ],
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-83",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-84",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-85",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.17276616057,
+     4287.172766160571,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-86",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-87",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -4287.172766160572,
+     -4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-88",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-89",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.17276616057,
+     -4287.172766160572,
+     25962.854912934497
+    ],
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-90",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     4287.172766160571,
+     4287.17276616057,
+     25962.854912934497
+    ],
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-91",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-92",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-93",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.753570104096,
+     3832.753570104097,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-94",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-95",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3832.7535701040974,
+     -3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-96",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-97",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.7535701040956,
+     -3832.7535701040974,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-98",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3832.753570104097,
+     3832.753570104096,
+     32850.89325315895
+    ],
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-99",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-100",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-101",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.50057051503,
+     3426.5005705150306,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-102",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-103",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3426.500570515031,
+     -3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-104",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-105",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150297,
+     -3426.500570515031,
+     39008.83345745638
+    ],
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-106",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3426.5005705150306,
+     3426.50057051503,
+     39008.83345745638
+    ],
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-107",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-108",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-109",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181474,
+     3063.308387818148,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-110",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-111",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -3063.3083878181483,
+     -3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-112",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-113",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818147,
+     -3063.3083878181483,
+     44514.062332019654
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-114",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     3063.308387818148,
+     3063.3083878181474,
+     44514.062332019654
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-115",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-116",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-117",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-118",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-119",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-120",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-121",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-122",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-123",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-124",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-125",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.3333215242833,
+     2448.3333215242837,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-126",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-127",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2448.333321524284,
+     -2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-128",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-129",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.333321524283,
+     -2448.333321524284,
+     53835.78965268454
+    ],
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-130",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2448.3333215242837,
+     2448.3333215242833,
+     53835.78965268454
+    ],
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-131",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-132",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-133",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.8220491008683,
+     2188.8220491008688,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-134",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-135",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -2188.822049100869,
+     -2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-136",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-137",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.822049100868,
+     -2188.822049100869,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-138",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     2188.8220491008688,
+     2188.8220491008683,
+     57769.434203102624
+    ],
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-139",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-140",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-141",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.8176932899714,
+     1956.8176932899717,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-142",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-143",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1956.817693289972,
+     -1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-144",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-145",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899712,
+     -1956.817693289972,
+     61286.131806973055
+    ],
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-146",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1956.8176932899717,
+     1956.8176932899714,
+     61286.131806973055
+    ],
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-147",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-148",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-149",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203932,
+     1749.4046564203934,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-150",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-151",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1749.4046564203938,
+     -1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-152",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-153",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.404656420393,
+     -1749.4046564203938,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-154",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1749.4046564203934,
+     1749.4046564203932,
+     64430.07678689087
+    ],
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-155",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-156",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-157",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128365,
+     1563.9763798128367,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-158",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-159",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1563.9763798128372,
+     -1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-160",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-161",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128363,
+     -1563.9763798128372,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-162",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1563.9763798128367,
+     1563.9763798128365,
+     67240.77908494226
+    ],
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-163",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-164",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-165",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689864,
+     1398.2025871689866,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-166",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-167",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1398.2025871689868,
+     -1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-168",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-169",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689862,
+     -1398.2025871689868,
+     69753.56078396483
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-170",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1398.2025871689866,
+     1398.2025871689864,
+     69753.56078396483
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "L",
+   "w": 150,
+   "h": 150,
+   "t": 12,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-171",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-172",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -2738.6127875258308,
+     2738.612787525831,
+     49435.76406276635
+    ],
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-173",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -2738.6127875258317,
+     -2738.6127875258308,
+     49435.76406276635
+    ],
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-174",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     2738.6127875258303,
+     -2738.6127875258317,
+     49435.76406276635
+    ],
+    [
+     2738.612787525831,
+     2738.6127875258308,
+     49435.76406276635
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-175",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-176",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -1250.0000000000007,
+     1250.000000000001,
+     71999.99999999999
+    ],
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-177",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     -1250.0000000000011,
+     -1250.0000000000007,
+     71999.99999999999
+    ],
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-178",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     1250.0000000000005,
+     -1250.0000000000011,
+     71999.99999999999
+    ],
+    [
+     1250.000000000001,
+     1250.0000000000007,
+     71999.99999999999
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wxq7-179",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     0,
+     72000
+    ],
+    [
+     0,
+     0,
+     81000
+    ]
+   ],
+   "profile": "tube",
+   "w": 240,
+   "t": 10,
+   "material": "galvanised",
+   "name": "Mast",
+   "id": "twudk5t05wxq7-180",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "h": 240,
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1250,
+     1249.9999999999998,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-181",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1249.9999999999998,
+     1250,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-182",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     -1250.0000000000002,
+     -1249.9999999999998,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-183",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     1249.9999999999995,
+     -1250.0000000000002,
+     72000
+    ],
+    [
+     0,
+     0,
+     72000
+    ]
+   ],
+   "profile": "L",
+   "w": 120,
+   "h": 120,
+   "t": 10,
+   "material": "galvanised",
+   "id": "twudk5t05wxq7-184",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wxq7",
+   "group": "twudk5t05wxq7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 1",
+   "id": "twudk5t05wyom-0",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 2",
+   "id": "twudk5t05wyom-1",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "tube",
+   "w": 250,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Leg 3",
+   "id": "twudk5t05wyom-2",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "h": 250,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-3",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-4",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-5",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-6",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-7",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-8",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-9",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-10",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-11",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-12",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-13",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-14",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-15",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-16",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-17",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-18",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-19",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-20",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-21",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-22",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-23",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-24",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-25",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-26",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-27",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-28",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-29",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-30",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-31",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-32",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860196,
+     10412.630705264826,
+     3426.144411526252
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-33",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28000,
+     8000.000000000001,
+     0
+    ],
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-34",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-35",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ],
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-36",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32607.067012860192,
+     5587.369294735172,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-37",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36999.99999999999,
+     2803.847577293366,
+     0
+    ],
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-38",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     37000,
+     13196.152422706631,
+     0
+    ],
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-39",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-40",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36785.86597427961,
+     7999.999999999999,
+     3426.144411526252
+    ],
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-41",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-42",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-43",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-44",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     10068.213154934838,
+     9789.330504219066
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-45",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     28856.536102881564,
+     8000.000000000001,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-46",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-47",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ],
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-48",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32805.916578256845,
+     5931.786845065161,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-49",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     3545.6296016473225,
+     6852.288823052504
+    ],
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-50",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36571.731948559216,
+     12454.370398352676,
+     6852.288823052504
+    ],
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-51",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-52",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36388.1668434863,
+     7999.999999999999,
+     9789.330504219066
+    ],
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-53",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-54",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-55",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-56",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     9772.96328232546,
+     15244.133493954338
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-57",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     29590.796523173205,
+     8000.000000000001,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-58",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-59",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ],
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-60",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32976.37917168607,
+     6227.03671767454,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-61",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     4181.517778613322,
+     12726.372185385628
+    ],
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-62",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36204.601738413396,
+     11818.482221386676,
+     12726.372185385628
+    ],
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-63",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-64",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     36047.241656627855,
+     7999.999999999999,
+     15244.133493954338
+    ],
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-65",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-66",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-67",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-68",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.507204204805,
+     9519.862105592934,
+     19920.230534553848
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-69",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30220.23685031538,
+     8000.000000000001,
+     17761.894802523046
+    ],
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-70",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-71",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ],
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-72",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33122.50720420481,
+     6480.137894407066,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-73",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     4726.629092084835,
+     17761.894802523046
+    ],
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-74",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35889.88157484231,
+     11273.370907915163,
+     17761.894802523046
+    ],
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-75",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-76",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35754.98559159038,
+     7999.999999999999,
+     19920.230534553848
+    ],
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-77",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-78",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-79",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-80",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     9302.892644785945,
+     23928.786585844842
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-81",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     30759.82078332308,
+     8000,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-82",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-83",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ],
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-84",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33247.77458080765,
+     6697.107355214055,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-85",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     5193.922485543425,
+     22078.566266584654
+    ],
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-86",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35620.08960833846,
+     10806.077514456574,
+     22078.566266584654
+    ],
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-87",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-88",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35504.4508383847,
+     8000,
+     23928.786585844842
+    ],
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-89",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-90",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-91",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-92",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     9116.896880046277,
+     27365.097140743317
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-93",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31222.375863138128,
+     8000,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-94",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-95",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ],
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-96",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33355.15928564823,
+     6883.103119953723,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-97",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     5594.506935312795,
+     25779.00690510503
+    ],
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-98",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35388.81206843093,
+     10405.493064687205,
+     25779.00690510503
+    ],
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-99",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-100",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35289.68142870354,
+     8000,
+     27365.097140743317
+    ],
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-101",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-102",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-103",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-104",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     8957.45312988704,
+     30310.853687144543
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-105",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31618.8984220477,
+     8000,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-106",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-107",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ],
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-108",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33447.21417772327,
+     7042.5468701129585,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-109",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     5937.905544502096,
+     28951.187376381607
+    ],
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-110",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35190.55078897615,
+     10062.094455497903,
+     28951.187376381607
+    ],
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-111",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-112",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35105.57164455347,
+     8000,
+     30310.853687144543
+    ],
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-113",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-114",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-115",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-116",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004679,
+     8820.770934459508,
+     32836.085761497045
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-117",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     31958.814999738435,
+     8000,
+     31670.51999790748
+    ],
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-118",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-119",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ],
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-120",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33526.12768004678,
+     7179.229065540492,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-121",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     6232.281935949738,
+     31670.51999790748
+    ],
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-122",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     35020.592500130784,
+     9767.718064050261,
+     31670.51999790748
+    ],
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-123",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-124",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34947.744639906436,
+     8000,
+     32836.085761497045
+    ],
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-125",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-126",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-127",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-128",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     8703.600944866106,
+     35000.8257625433
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-129",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32250.206440635826,
+     8000,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-130",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-131",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-132",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     33593.77580507948,
+     7296.399055133894,
+     35000.8257625433
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-133",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     6484.634326212231,
+     34001.65152508661
+    ],
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-134",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34874.89677968209,
+     9515.365673787768,
+     34001.65152508661
+    ],
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-135",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-136",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34812.44838984104,
+     8000,
+     35000.8257625433
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "L",
+   "w": 100,
+   "h": 100,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-137",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ],
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wyom-138",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000.00000000001
+    ],
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wyom-139",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "deck",
+   "pts": [
+    [
+     34750,
+     6700.961894323343,
+     36000.00000000001
+    ],
+    [
+     34750,
+     9299.038105676656,
+     36000.00000000001
+    ]
+   ],
+   "profile": "rect",
+   "w": 900,
+   "h": 60,
+   "material": "metal-mesh",
+   "id": "twudk5t05wyom-140",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "t": 4,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     34000,
+     8000,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     40000
+    ]
+   ],
+   "profile": "tube",
+   "w": 150,
+   "t": 10,
+   "material": "steel-red",
+   "name": "Mast",
+   "id": "twudk5t05wyom-141",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "h": 150,
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34750,
+     9299.038105676658,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-142",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     32500,
+     8000,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-143",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "brace",
+   "pts": [
+    [
+     34750,
+     6700.961894323342,
+     36000
+    ],
+    [
+     34000,
+     8000,
+     36000
+    ]
+   ],
+   "profile": "L",
+   "w": 90,
+   "h": 90,
+   "t": 8,
+   "material": "steel-red",
+   "id": "twudk5t05wyom-144",
+   "level": "lvudk5s05wkwy",
+   "structure": "twudk5t05wyom",
+   "group": "twudk5t05wyom",
+   "phase": "new",
+   "roll": 0
+  }
+ ],
+ "models": [],
+ "solids": [
+  {
+   "id": "vudk5t05wzg5",
+   "level": "lvudk5s05wkwy",
+   "name": "Gravel yard",
+   "pts": [
+    [
+     -14000,
+     -14000
+    ],
+    [
+     40000,
+     -14000
+    ],
+    [
+     40000,
+     18000
+    ],
+    [
+     -14000,
+     18000
+    ]
+   ],
+   "z0": -60,
+   "height": 50,
+   "taper": 1,
+   "material": "gravel",
+   "phase": "new"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "scudk5t05x0ty",
+   "name": "Overview",
+   "camera": {
+    "pos": [
+     61.247958188795465,
+     54.278952962394904,
+     62.309947735994335
+    ],
+    "target": [
+     13,
+     2,
+     2
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scudk5t05x1cl",
+   "name": "Looking up",
+   "camera": {
+    "pos": [
+     9,
+     1.7,
+     9
+    ],
+    "target": [
+     0,
+     40,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lvudk5s05wkwy"
+ },
+ "structures": [
+  {
+   "id": "twudk5t05wxq7",
+   "kind": "tower",
+   "level": "lvudk5s05wkwy",
+   "name": "Main tower",
+   "params": {
+    "height": 72000,
+    "baseWidth": 12000,
+    "topWidth": 2500,
+    "panels": 14,
+    "sides": 4,
+    "bracing": "X",
+    "leg": {
+     "profile": "tube",
+     "w": 400,
+     "t": 16
+    },
+    "brace": {
+     "profile": "L",
+     "w": 150,
+     "h": 150,
+     "t": 12
+    },
+    "strut": {
+     "profile": "L",
+     "w": 120,
+     "h": 120,
+     "t": 10
+    },
+    "platforms": [
+     0.5,
+     1
+    ],
+    "mast": 9000,
+    "material": "galvanised",
+    "x": 0,
+    "y": 0,
+    "rot": 0
+   }
+  },
+  {
+   "id": "twudk5t05wyom",
+   "kind": "tower",
+   "level": "lvudk5s05wkwy",
+   "name": "Relay tower",
+   "params": {
+    "height": 36000,
+    "baseWidth": 6000,
+    "topWidth": 1500,
+    "panels": 9,
+    "sides": 3,
+    "bracing": "K",
+    "leg": {
+     "profile": "tube",
+     "w": 250,
+     "t": 10
+    },
+    "brace": {
+     "profile": "L",
+     "w": 100,
+     "h": 100,
+     "t": 8
+    },
+    "strut": {
+     "profile": "L",
+     "w": 90,
+     "h": 90,
+     "t": 8
+    },
+    "platforms": [
+     1
+    ],
+    "mast": 4000,
+    "material": "steel-red",
+    "x": 34000,
+    "y": 8000,
+    "rot": 0
+   }
+  }
+ ],
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [],
+ "sheets": [
+  {
+   "id": "shudk5u05x7zb",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpudk5u05x84p",
+     "view": "pl-lvudk5s05wkwy",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  }
+ ],
+ "annotations": [],
+ "revisions": [],
+ "publishSets": [],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
+ }
+}

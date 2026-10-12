@@ -4,8 +4,9 @@
 // layered wall and slab types.
 
 import { polygonArea } from "../geom.js";
+import { memberWeight } from "../members.js";
 import { levelById, wallLength, wallHeight } from "../project.js";
-import { uValue } from "../../lib/materials.js";
+import { uValue, materialById } from "../../lib/materials.js";
 import { allTypes, allSlabTypes, typeInstances, TYPE_PARAMS, activeModel } from "./model.js";
 import { slabArea, slabTypeOf, ceilingArea, ceilingHeight, beamLength, railingLength, rampModel, stairRails, pathLength, isCurtainWall, curtainGrid } from "./geometry.js";
 import { openingSpans } from "../walls.js";
@@ -94,4 +95,7 @@ export function elementCostLines(p0, add, c, live) {
   add("Railings", rails / 1000, "m", +c.railing || 0);
   add("Ramps", (p.ramps || []).filter(live).length, "pcs", +c.ramp || 0);
   add("Curtain walls", (p.walls || []).filter((w) => live(w) && isCurtainWall(p, w)).reduce((s, w) => s + wallLength(w) * wallHeight(p, w), 0) / 1e6, "m²", +c.curtainWall || 0);
+  // Structural members (towers, bridges, frames) by weight.
+  const kg = (p.members || []).filter(live).reduce((s, m) => { const mat = materialById(m.material); return s + memberWeight(m, (mat && mat.density) || 7850); }, 0);
+  add("Structural members", kg / 1000, "t", +c.member || 0);
 }

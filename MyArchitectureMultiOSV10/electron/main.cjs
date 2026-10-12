@@ -14,7 +14,10 @@ const APP_VERSION = (() => {
   try { return require(path.join(__dirname, '..', 'package.json')).version } catch { return '10.0.0' }
 })()
 const APP_TITLE = `${APP_NAME} ${APP_VERSION.replace(/\.0$/, '')}`
-const MIN_WIDTH = 1024
+// Floors only: the renderer works out the real minimum from its title bar,
+// toolbars and side panels (src/ui/app.js minWindowWidth) and sends it.
+const MIN_WIDTH = 720
+const dialogWindows = new Map() // depth → the dialog window open at that depth
 const MIN_HEIGHT = 700
 const TITLEBAR_HEIGHT = 38
 const DARK_BACKGROUND = '#15181e'
@@ -124,9 +127,35 @@ function createWindow() {
     event.preventDefault()
     if (isSafeUrl(url)) shell.openExternal(url)
   })
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    // The renderer's dialogs (src/ui/widgets.js modal): a window of their own,
+    // modal to the main window or to the dialog that opened them, so they can
+    // be moved anywhere on the screen. Their head is the title bar.
+    const m = /^myarch-dialog-(\d+)$/.exec(frameName || '')
+    if (url === 'about:blank' && m) {
+      const depth = +m[1]
+      const parent = (depth > 1 && dialogWindows.get(depth - 1)) || mainWindow
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          parent, modal: true, frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+          skipTaskbar: true, show: true, icon: iconPath() || undefined, backgroundColor: DARK_BACKGROUND, autoHideMenuBar: true, title: APP_TITLE,
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false }
+        }
+      }
+    }
     if (isSafeUrl(url)) shell.openExternal(url)
     return { action: 'deny' }
+  })
+  mainWindow.webContents.on('did-create-window', (win, { frameName }) => {
+    const m = /^myarch-dialog-(\d+)$/.exec(frameName || '')
+    if (!m) return
+    const depth = +m[1]
+    dialogWindows.set(depth, win)
+    win.setMenuBarVisibility(false)
+    // A dialog follows the interface size of the main window.
+    try { win.webContents.setZoomFactor(mainWindow.webContents.getZoomFactor()) } catch { /* closed */ }
+    win.on('closed', () => { if (dialogWindows.get(depth) === win) dialogWindows.delete(depth) })
   })
 
   mainWindow.webContents.on('did-finish-load', () => {

@@ -9,6 +9,8 @@
 import { uid } from "./geom.js";
 import { normalizeLight } from "../lib/furniture.js";
 import { normalizeElements } from "./elements/model.js";
+import { normalizeMember, memberValid } from "./members.js";
+import { normalizeStructures } from "./structures.js";
 import { normalizeViews } from "../views/model.js";
 import { normalizeSketchup, syncMeshSolid } from "./skmodel.js";
 
@@ -16,7 +18,7 @@ export const FORMAT = "myarch";
 export const FORMAT_VERSION = 1;
 
 // Item collections that live on a level (openings ride on their wall).
-export const LEVEL_COLLECTIONS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "underlays", "slabs", "ceilings", "beams", "railings", "ramps", "shafts"];
+export const LEVEL_COLLECTIONS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "underlays", "slabs", "ceilings", "beams", "railings", "ramps", "shafts", "members"];
 export const COLLECTIONS = [...LEVEL_COLLECTIONS.slice(0, 1), "openings", ...LEVEL_COLLECTIONS.slice(1)];
 
 export const DEFAULTS = {
@@ -49,7 +51,7 @@ export const PHASES = ["existing", "new", "demolish"];
 // Unit prices for the cost estimate (per m² of wall face or floor, per item).
 export const DEFAULT_COSTS = {
   currency: "KRW", wall: 120000, floor: 80000, roof: 150000, door: 450000, window: 380000, opening: 100000, stair: 2500000, column: 300000, furniture: 0,
-  slab: 90000, ceiling: 45000, beam: 180000, railing: 150000, ramp: 2000000, curtainWall: 650000,
+  slab: 90000, ceiling: 45000, beam: 180000, railing: 150000, ramp: 2000000, curtainWall: 650000, member: 4500000, // member: per tonne
 };
 
 export function newLevel(name = "1F", elevation = 0, height = DEFAULTS.wallHeight) {
@@ -85,6 +87,7 @@ export function newProject(title = "Untitled") {
     railings: [],
     ramps: [],
     shafts: [],
+    members: [], // structural members: frames, braces, chords, cables (core/members.js)
     models: [],
     solids: [],
     scenes: [],
@@ -163,6 +166,9 @@ export function normalizeProject(p) {
   for (const r of out.rooms) {
     r.pts = Array.isArray(r.pts) ? r.pts.filter((q) => Array.isArray(q) && q.length >= 2).map((q) => [num(q[0], 0), num(q[1], 0)]) : [];
     r.name = String(r.name ?? "");
+    // Interior finishes: a skirting board's height (0 = none), wall and skirting materials.
+    if (r.skirting !== undefined) r.skirting = Math.max(0, Math.min(400, num(r.skirting, 0)));
+    for (const k of ["wallFinish", "skirtingMaterial"]) if (r[k] !== undefined && typeof r[k] !== "string") delete r[k];
   }
   out.rooms = out.rooms.filter((r) => r.pts.length >= 3);
   for (const f of out.furniture) {
@@ -205,6 +211,8 @@ export function normalizeProject(p) {
   const layerIds = new Set(out.layers.map((l) => l.id));
   for (const d of out.drawings) if (!layerIds.has(d.layer)) { out.layers.push({ id: d.layer, name: d.layer, color: "#9aa4b5", visible: true }); layerIds.add(d.layer); }
   normalizeElements(out); // slabs, ceilings, beams, railings, ramps, shafts, types, design options
+  out.members = (Array.isArray(out.members) ? out.members : []).map(normalizeMember).filter(memberValid);
+  normalizeStructures(out); // towers and bridges (core/structures.js) whose members are left
   out.view = { ...(out.view || {}) };
   if (!levelIds.has(out.view.level)) out.view.level = first;
   normalizeViews(out); // views, sheets, annotations, templates, revisions (src/views/model.js)

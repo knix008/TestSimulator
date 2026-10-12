@@ -54,7 +54,7 @@ export async function viewProperties(app, id) {
   const cropShow = checkbox(v.cropShow !== false, t("Show the crop region"));
   const resetCrop = checkbox(false, t("Reset the crop region to the content"));
   rows.push(h("div", { class: "field span2 check-col" }, cropOn, cropShow, resetCrop));
-  const r = await modal({ title: `${t("View properties")} — ${kindLabel(v.kind)}`, width: 560, body: h("div", { class: "form-grid" }, ...rows), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "floorplan", title: `${t("View properties")} — ${kindLabel(v.kind)}`, width: 560, body: h("div", { class: "form-grid" }, ...rows), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   app.store.edit(t("View properties"), (pr) => {
     const sv = ensureView(pr, id);
@@ -104,7 +104,7 @@ export async function visibilityDialog(app, id) {
   const body = h("div", { class: "vg-body" }, tplNote,
     model ? h("h4", {}, t("Model categories")) : null, model ? table(modelCategories(p), v0.kind !== "plan") : null,
     h("h4", {}, t("Annotation categories")), table(ANNOTATION_CATEGORIES, false));
-  const r = await modal({ title: `${t("Visibility / graphics")} — ${v0.name}`, width: 520, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "eye", title: `${t("Visibility / graphics")} — ${v0.name}`, width: 520, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   app.store.edit(t("Visibility / graphics"), (pr) => { const sv = ensureView(pr, id); sv.hidden = [...hidden]; sv.overrides = overrides; });
 }
@@ -141,7 +141,7 @@ export async function templatesDialog(app, selectId = null) {
       h("h4", {}, t("For view kinds")), kinds, h("h4", {}, t("Visible categories")), hid, h("h4", {}, t("Apply to views")), vlist);
   };
   draw();
-  const r = await modal({ title: t("View templates"), width: "min(860px, calc(100vw - 40px))", body: h("div", { class: "vt-tpl" }, left, right), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "options", title: t("View templates"), width: "min(860px, calc(100vw - 40px))", body: h("div", { class: "vt-tpl" }, left, right), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   store.edit(t("View templates"), (p) => {
     p.viewTemplates = list;
@@ -175,7 +175,7 @@ export async function sheetProperties(app, id) {
   const body = h("div", {}, h("div", { class: "form-grid" }, field(t("Sheet number"), number), field(t("Sheet name"), name), field(t("Paper size"), paper), field(t("Orientation"), orient), ...fieldEls),
     h("h4", {}, t("Revisions on this sheet")), revBoxes.length ? h("div", { class: "check-col" }, ...revBoxes) : h("p", { class: "field-hint" }, t("No revisions yet: add them in Drawings → Revisions…")),
     h("p", { class: "field-hint" }, t("Project name, client, address and company come from File → Project properties.")));
-  const r = await modal({ title: `${t("Sheet properties")} — ${s.number}`, width: 600, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "sheet", title: `${t("Sheet properties")} — ${s.number}`, width: 600, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   app.store.edit(t("Sheet properties"), (pr) => {
     const sh = sheetById(pr, id);
@@ -207,7 +207,7 @@ export async function revisionsDialog(app) {
       h("p", { class: "field-hint" }, t("A revision shows on a sheet when it is ticked in the sheet's properties or when a revision cloud of it is in one of the sheet's views.")));
   };
   draw();
-  const r = await modal({ title: t("Revisions"), width: "min(900px, calc(100vw - 40px))", body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "annotate", title: t("Revisions"), width: "min(900px, calc(100vw - 40px))", body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   app.store.edit(t("Revisions"), (p) => {
     list.forEach((x, i) => { x.seq = i + 1; });
@@ -233,7 +233,7 @@ export async function publishDialog(app, setId = null) {
   const saveName = input(set ? set.name : "", { placeholder: t("Name of a new publish set") });
   const body = h("div", {}, h("div", { class: "form-grid" }, field(t("Publish set"), setSel), field(t("Save the selection as"), saveName)), h("h4", {}, t("Sheets")), boxes,
     h("p", { class: "field-hint" }, t("Print / PDF opens the print window with these sheets; SVG and DXF write one file per sheet.")));
-  const r = await modal({ title: t("Publish sheets"), width: 620, body, buttons: [
+  const r = await modal({ icon: "export", title: t("Publish sheets"), width: 620, body, buttons: [
     { label: t("Save set"), value: "save", left: true }, { label: t("Cancel"), value: null }, { label: "DXF…", value: "dxf" }, { label: "SVG…", value: "svg" }, { label: t("Print / PDF…"), value: "print", primary: true },
   ] });
   if (!r) return;
@@ -291,7 +291,7 @@ export async function scheduleProperties(app, id) {
       h("div", {}, h("h4", {}, t("Filters")), filt, h("h4", {}, t("Sorting and grouping")), sortRows, field(t("Group by (with subtotals)"), group), totals, h("h4", {}, t("Calculated values")), calc)));
   };
   draw();
-  const r = await modal({ title: `${t("Schedule properties")} — ${s.name}`, width: "min(860px, calc(100vw - 40px))", body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "schedule", title: `${t("Schedule properties")} — ${s.name}`, width: "min(860px, calc(100vw - 40px))", body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   app.store.edit(t("Schedule properties"), (p) => { const sv = ensureView(p, id); Object.assign(sv, { fields: s.fields, filters: s.filters, sort: s.sort, group: s.group, totals: s.totals, calc: s.calc.filter((c) => c.key) }); });
 }
@@ -325,7 +325,7 @@ export async function annotationProperties(app, a0) {
   if (k === "radius") { set.diameter = checkbox(!!a.diameter, t("Diameter")); rows.push(set.diameter); }
   if (["dim", "dimlin", "chain", "arclen"].includes(k)) { set.offset = input(Math.round(a.offset || 0), { type: "number" }); rows.push(field(t("Offset (mm)"), set.offset)); }
   if (!rows.length) rows.push(h("p", { class: "field-hint" }, t("Drag the annotation or its handles to change it.")));
-  const r = await modal({ title: t("Annotation properties"), width: 480, body: h("div", { class: "form-grid" }, ...rows.map((x) => (x.classList && x.classList.contains("check") ? h("div", { class: "field span2" }, x) : x))), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "text", title: t("Annotation properties"), width: 480, body: h("div", { class: "form-grid" }, ...rows.map((x) => (x.classList && x.classList.contains("check") ? h("div", { class: "field span2" }, x) : x))), buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   const chk = (el) => el.querySelector("input").checked;
   app.store.edit(t("Annotation properties"), (pr) => {
@@ -350,7 +350,7 @@ export async function annotationProperties(app, a0) {
 export async function tagAllDialog(app, viewId, run) {
   const cats = [["rooms", "Rooms"], ["openings", "Doors and windows"], ["walls", "Walls"], ["furniture", "Furniture"], ["columns", "Columns"]];
   const boxes = cats.map(([k, l]) => { const c = checkbox(k === "rooms" || k === "openings", t(l)); c.dataset.cat = k; return c; });
-  const r = await modal({ title: t("Tag all not tagged"), width: 420, body: h("div", { class: "check-col" }, h("p", { class: "field-hint" }, t("Adds a tag to every visible element of the ticked categories that has none in this view.")), ...boxes), buttons: [{ label: t("Cancel"), value: null }, { label: t("Tag"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "label", title: t("Tag all not tagged"), width: 420, body: h("div", { class: "check-col" }, h("p", { class: "field-hint" }, t("Adds a tag to every visible element of the ticked categories that has none in this view.")), ...boxes), buttons: [{ label: t("Cancel"), value: null }, { label: t("Tag"), value: "ok", primary: true }] });
   if (r !== "ok") return;
   run(boxes.filter((b) => b.querySelector("input").checked).map((b) => b.dataset.cat));
   void DEFAULT_TAG;
@@ -373,6 +373,6 @@ export async function lineStylesDialog(app) {
     body.append(tb, h("button", { class: "btn small", onclick: () => { list.push({ id: uid("ls"), name: t("New line style"), weight: 0.25, color: "#000000", pattern: "solid" }); draw(); } }, t("Add line style")));
   };
   draw();
-  const r = await modal({ title: t("Line styles"), width: 620, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
+  const r = await modal({ icon: "line", title: t("Line styles"), width: 620, body, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: "ok", primary: true }] });
   if (r === "ok") app.store.edit(t("Line styles"), (p) => { p.lineStyles = list; });
 }

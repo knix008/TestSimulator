@@ -31,6 +31,7 @@ async function closeAll(ctx) {
 
 const walls = (ctx) => ctx.on("walls");
 let undoButtonsStart = 0; // store revision when the undo/redo button practice starts
+let bridgeParamsStart = ""; // the bridge's parameters when "Change the bridge" practice starts
 const wallAtPt = (ctx, x, y) => walls(ctx).find((w) => Math.abs((w.x2 - w.x1) * (y - w.y1) - (w.y2 - w.y1) * (x - w.x1)) / (Math.hypot(w.x2 - w.x1, w.y2 - w.y1) || 1) < 5 && x >= Math.min(w.x1, w.x2) - 5 && x <= Math.max(w.x1, w.x2) + 5 && y >= Math.min(w.y1, w.y2) - 5 && y <= Math.max(w.y1, w.y2) + 5);
 const plusOf = (field) => () => { const st = [...document.querySelectorAll("#right-panel .stepper")].find((s) => s.dataset.field === field); return st ? st.querySelector('[data-step="1"]') : null; };
 const fieldEl = (ctx, key) => () => document.querySelector(`#right-panel [data-field="${ctx.app.t(key)}"]`);
@@ -392,7 +393,7 @@ export const LESSONS = [
       { title: T("표현 스타일", "Render styles"), text: T("사실적, 흰색 모형, 선 그림(입면도 느낌), X-레이 스타일이 있습니다.", "Realistic, white model, line drawing (like an elevation) and x-ray."),
         run: async (ctx) => {
           const pick = async (label) => { await ctx.click('#toolbar [data-style="menu"]'); const it = await ctx.waitFor(() => [...document.querySelectorAll(".ctx-menu .menu-item")].find((m) => m.textContent.includes(label)), 3000); await ctx.click(it); };
-          await pick(T("선 그림", "Line drawing")); ctx.expect(ctx.app.v3d.opts.style === "lines", "style unchanged"); await ctx.wait(400); await pick(T("사실적", "Realistic"));
+          await pick(ctx.L(T("선 그림", "Line drawing"))); ctx.expect(ctx.app.v3d.opts.style === "lines", "style unchanged"); await ctx.wait(400); await pick(ctx.L(T("사실적", "Realistic")));
         },
         practice: { todo: T("도구 모음의 렌더 스타일 ▾ 에서 '선 그림'을 고르세요.", "From Render style ▾ on the toolbar choose Line drawing."), check: (ctx) => ctx.app.v3d.opts.style !== "realistic", targets: () => [{ el: '#toolbar [data-style="menu"]' }] } },
       { title: T("단면", "Section cut"), text: T("단면 버튼(X)은 현재 층 바닥 1.2 m 위를 잘라 3D 평면을 보여 줍니다. 높이는 왼쪽에서 바꿉니다.", "The section button (X) cuts 1.2 m above the current floor for a 3D plan; set the height on the left."),
@@ -642,6 +643,84 @@ export const LESSONS = [
           v.rebuild();
         },
         practice: { todo: T("단면 도구로 면을 클릭하세요.", "Click a face with the Section plane tool."), check: (ctx) => (ctx.app.store.project.sections || []).length >= 1, targets: () => [{ el: '[data-skgroup-split="construct"]' }] } },
+    ],
+  },
+  // ---------------------------------------------------------------- 19
+  {
+    title: T("인테리어, 재질, 철탑과 교량", "Interiors, materials, towers and bridges"), fresh: true,
+    steps: [
+      { title: T("인테리어 예제", "The interior sample"), text: T("예제 '인테리어 디자인 아파트'를 엽니다. 방마다 벽 마감과 걸레받이가 있고, TV 벽처럼 벽 한쪽 면만 다른 마감인 포인트 벽도 있습니다. 평면에서는 벽 면을 따라 마감 색 띠로 보입니다.", "Open the sample Interior design apartment. Every room has its own wall finish and skirting; feature walls (like the TV wall) finish one face only. On the plan the finishes show as coloured bands along the faces."),
+        run: async (ctx) => { await sampleOpen(ctx, "21-interior-design.myarch", ctx.L(T("인테리어", "Interior"))); ctx.expect(ctx.p.rooms.some((r) => r.wallFinish), "sample not opened"); },
+        practice: { todo: T("파일 → 예제 열기… 에서 '인테리어 디자인 아파트'를 여세요.", "Open the Interior design apartment from File → Open sample…."), check: (ctx) => ctx.app.store.fileName === "21-interior-design.myarch" } },
+      { title: T("방의 벽 마감", "A room's wall finish"), text: T("방을 선택하면 오른쪽에 '벽 마감'이 있습니다. 재질 견본 창에서 분류를 고르거나 검색해 바꾸면 그 방을 바라보는 모든 벽 면이 바뀝니다.", "Select a room: Wall finish is on the right. Pick a swatch from the material window (by group or by search) and every wall face looking into the room changes."),
+        run: async (ctx) => {
+          const room = ctx.p.rooms.find((r) => r.name === "Living room");
+          ctx.app.plan.select([room.id]);
+          const btn = await ctx.waitFor(fieldEl(ctx, "Wall finish"), 3000);
+          await ctx.click(btn);
+          const tile = await ctx.waitFor(() => document.querySelector('.mat-pop .mat-tile[data-mat="paint-teal"]'), 3000);
+          await ctx.click(tile);
+          ctx.expect(ctx.p.rooms.find((r) => r.id === room.id).wallFinish === "paint-teal", "wall finish unchanged");
+        },
+        practice: { todo: T("거실을 선택하고 '벽 마감'을 다른 재질로 바꾸세요.", "Select the living room and change its Wall finish."), check: (ctx) => ctx.app.store.project.rooms.some((r) => r.name === "Living room" && r.wallFinish && r.wallFinish !== "paint-greige"), targets: (ctx) => [{ el: fieldEl(ctx, "Wall finish") }] } },
+      { title: T("걸레받이", "Skirting"), text: T("'걸레받이 높이'를 올리면 벽을 따라 걸레받이가 생기고 문에서 끊깁니다. 재질은 바로 아래 칸에서 고릅니다.", "Raise Skirting height: a skirting board runs along the walls and stops at the doors. Its material is just below."),
+        run: async (ctx) => {
+          const plus = await ctx.waitFor(plusOf(ctx.app.t("Skirting height")), 3000);
+          await ctx.click(plus); await ctx.click(plus);
+          ctx.expect(ctx.p.rooms.find((r) => r.name === "Living room").skirting > 80, "skirting unchanged");
+        },
+        practice: { todo: T("거실의 '걸레받이 높이'를 바꾸세요.", "Change the living room's Skirting height."), check: (ctx) => ctx.app.store.project.rooms.some((r) => r.name === "Living room" && r.skirting !== 80), targets: (ctx) => [{ el: plusOf(ctx.app.t("Skirting height")) }] } },
+      { title: T("3D 로 보기", "See it in 3D"), text: T("F3 으로 3D 를 열고 왼쪽 '장면'의 '거실'을 누르면 눈높이에서 마감과 가구를 볼 수 있습니다.", "F3 opens 3D; the scene Living room on the left shows the finishes and furniture at eye level."),
+        run: async (ctx) => {
+          await ctx.key("F3");
+          const v = await ctx.waitFor(() => ctx.app.v3d.viewer, 8000);
+          const sc = ctx.p.scenes.find((s) => s.name === "Living room");
+          if (sc) v.setCamera(sc.camera, 900);
+          await ctx.wait(1500);
+          ctx.expect(ctx.app.tab === "3d", "not in 3D");
+        },
+        practice: { todo: T("F3 을 누르세요.", "Press F3."), check: (ctx) => ctx.app.tab === "3d" } },
+      { title: T("격자 철탑", "A lattice tower"), text: T("빌드 → 격자 철탑… 은 높이, 밑면·윗면 폭, 패널 수, 면 수와 가새 형식으로 철탑을 강재 부재로 만듭니다. 같은 단면의 부재는 한 번에 그려져 수천 개여도 가볍습니다.", "Build → Lattice tower… makes a tower of steel members from its height, base and top widths, panels, sides and bracing. Members of one section are drawn at once, so thousands stay light."),
+        run: async (ctx) => {
+          ctx.app.store.dirty = false;
+          await ctx.command("file.new"); await discard(ctx);
+          await ctx.waitFor(() => ctx.app.tab === "plan" && ctx.p.walls.length === 0, 5000);
+          await ctx.command("build.tower");
+          await ctx.confirm();
+          await ctx.waitFor(() => (ctx.p.structures || []).some((s) => s.kind === "tower"), 5000);
+          ctx.expect(ctx.p.members.length > 50, "no tower");
+        },
+        practice: { todo: T("빌드 → 격자 철탑… 으로 철탑을 만드세요.", "Make a tower with Build → Lattice tower…."), check: (ctx) => (ctx.app.store.project.structures || []).some((s) => s.kind === "tower") } },
+      { title: T("교량", "A bridge"), text: T("빌드 → 교량… 에서 형식(거더, 트러스, 아치, 현수, 사장, 상로 아치, 변단면, 하프형, 엑스트라도즈드, 스트레스 리본)과 길이, 경간, 폭, 높이, 곡선 반지름, 종단 경사를 정합니다.", "Build → Bridge… sets the kind (girder, truss, arch, suspension, cable-stayed, deck arch, haunched, harp, extradosed, stress ribbon), the length, spans, width, height, curve radius and grade."),
+        run: async (ctx) => {
+          await ctx.command("build.bridge");
+          const sel = await ctx.waitFor(() => document.querySelector(".modal .form-grid select"), 3000);
+          await ctx.select(sel, "harp");
+          await ctx.confirm();
+          await ctx.waitFor(() => (ctx.p.structures || []).some((s) => s.kind === "bridge"), 5000);
+          ctx.expect(ctx.p.structures.find((s) => s.kind === "bridge").params.type === "harp", "no harp bridge");
+        },
+        practice: { todo: T("빌드 → 교량… 으로 교량을 만드세요.", "Make a bridge with Build → Bridge…."), check: (ctx) => (ctx.app.store.project.structures || []).some((s) => s.kind === "bridge") } },
+      { title: T("교량 고치기", "Change the bridge"), text: T("교량을 클릭하면 오른쪽에 길이, 부재 수, 강재 중량이 나옵니다. '교량 편집…'에서 형식이나 치수를 바꾸면 부재가 다시 만들어집니다. Alt+클릭은 부재 하나만 고릅니다.", "Click the bridge: the right shows its length, members and steel weight. Edit bridge… changes its kind or sizes and makes the members again. Alt+click picks one member."),
+        run: async (ctx) => {
+          const st = ctx.p.structures.find((s) => s.kind === "bridge");
+          ctx.app.plan.select(ctx.p.members.filter((m) => m.structure === st.id).map((m) => m.id));
+          ctx.app.refreshInspector();
+          const edit = await ctx.waitFor(() => [...document.querySelectorAll("#right-panel .prop-actions .btn")].find((b) => b.textContent === ctx.app.t("Edit bridge…")), 3000);
+          await ctx.click(edit);
+          const sel = await ctx.waitFor(() => document.querySelector(".modal .form-grid select"), 3000);
+          await ctx.select(sel, "extradosed");
+          await ctx.confirm();
+          await ctx.wait(400);
+          ctx.expect(ctx.p.structures.find((s) => s.id === st.id).params.type === "extradosed", "bridge unchanged");
+          await ctx.key("F3");
+          await ctx.waitFor(() => ctx.app.v3d.viewer, 8000);
+          ctx.app.v3d.setView("iso");
+          await ctx.wait(1200);
+        },
+        practice: { setup: (ctx) => { const st = (ctx.app.store.project.structures || []).find((s) => s.kind === "bridge"); bridgeParamsStart = st ? JSON.stringify(st.params) : ""; },
+          todo: T("교량을 선택하고 '교량 편집…'에서 무엇이든 바꾸세요.", "Select the bridge and change anything in Edit bridge…."),
+          check: (ctx) => { const st = (ctx.app.store.project.structures || []).find((s) => s.kind === "bridge"); return !!st && !!bridgeParamsStart && JSON.stringify(st.params) !== bridgeParamsStart; } } },
     ],
   },
 ];

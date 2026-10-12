@@ -589,7 +589,9 @@ try {
     if (xray.some(Boolean)) fail("labels hidden in X-ray");
     return back.every(Boolean) || fail("labels still see-through after leaving X-ray");
   });
-  await step("3D toolbar carries the 3D menu's commands (front elevation, fog)", async () => app(`return !!document.querySelector('#toolbar [data-cmd="v3d.front"]') && [...document.querySelectorAll("#toolbar .icon-btn")].some(b => b.title === "Fog")`));
+  await step("3D toolbar carries the 3D menu's commands (front elevation; fog in the Show menu)", async () => app(`if (!document.querySelector('#toolbar [data-cmd="v3d.front"]')) return false;
+    document.querySelector('#toolbar [data-show-menu="main"]').click(); await new Promise(r => setTimeout(r, 100));
+    const ok = [...document.querySelectorAll(".ctx-menu .mi-label")].some(l => l.textContent === "Fog"); document.querySelectorAll(".ctx-menu").forEach(m => m.remove()); return ok`));
   await step("X/Y/Z axes with a scale: the toolbar button toggles them, wheel zoom is smooth and changes the tick spacing", async () => {
     await app(`app.setTab("3d"); await app.v3d.ensure(); app.v3d.setView("iso"); return 1`); await sleep(1500);
     const btn = `[...document.querySelectorAll("#toolbar .icon-btn")].find(b => b.title === "Axes with scale (X, Y, Z)")`;
@@ -1164,8 +1166,8 @@ try {
     await app(`delete app.settings.print; app.run("file.print"); return 1`);
     await waitFor(`document.querySelector(".print-window .print-stage .page svg")`);
     await waitFor(`document.querySelector(".pw-printer option") && !document.querySelector(".pw-printer").textContent.includes("Loading")`);
-    const r = await app(`const box = document.querySelector(".modal.print-window"); const icon = box.querySelector(".modal-head .modal-appicon"); const left = box.querySelector(".pw-settings").getBoundingClientRect(); const right = box.querySelector(".print-stage").getBoundingClientRect(); const b = box.getBoundingClientRect();
-      return { icon: icon && icon.complete && icon.naturalWidth > 0, title: box.querySelector(".modal-title").textContent.trim(), sections: box.querySelectorAll(".pw-section").length, leftOfPreview: left.right <= right.left + 1, big: b.width > innerWidth * 0.6 && b.height > innerHeight * 0.6, printers: box.querySelectorAll(".pw-printer option").length, inside: b.right <= innerWidth && b.bottom <= innerHeight, buttons: [...box.querySelectorAll(".modal-foot .btn")].map(x => x.textContent.trim()) }`);
+    const r = await app(`const box = document.querySelector(".modal.print-window"); const icon = box.querySelector(".modal-head .modal-icon svg, .modal-head .modal-appicon"); const left = box.querySelector(".pw-settings").getBoundingClientRect(); const right = box.querySelector(".print-stage").getBoundingClientRect(); const b = box.getBoundingClientRect();
+      return { icon: !!icon && (icon.tagName.toLowerCase() === "svg" || (icon.complete && icon.naturalWidth > 0)), title: box.querySelector(".modal-title").textContent.trim(), sections: box.querySelectorAll(".pw-section").length, leftOfPreview: left.right <= right.left + 1, big: b.width > innerWidth * 0.6 && b.height > innerHeight * 0.6, printers: box.querySelectorAll(".pw-printer option").length, inside: b.right <= innerWidth && b.bottom <= innerHeight, buttons: [...box.querySelectorAll(".modal-foot .btn")].map(x => x.textContent.trim()) }`);
     return (r.icon && r.title === "Print" && r.sections >= 5 && r.leftOfPreview && r.big && r.printers >= 1 && r.inside && r.buttons.includes("Print") && !r.buttons.includes("Print…")) || fail(r);
   });
   await step("print window: orientation, paper, margins and sheet options change the preview", async () => {
@@ -1488,7 +1490,7 @@ try {
   sectionStart("Panels and settings");
   // Nothing in the side panels or the toolbar may be clipped, cut off with "…",
   // squashed or pushed out of view — checked in the plan and 3D, at the normal
-  // size and at the window's minimum width (where the toolbar wraps onto two rows).
+  // size and at the window's minimum width (the toolbar still on one row).
   const CLIP_CHECK = `(() => {
     const bad = [];
     const name = (e) => (e.getAttribute("title") || e.textContent || e.className || e.tagName).trim().replace(/\\s+/g, " ").slice(0, 40);

@@ -174,6 +174,7 @@ export function snapPoint(p, level, x, y, { grid = 100, tol = 150, from = null, 
     for (const r of on(p.rooms, level)) if (!exclude.has(r.id)) for (const [px, py] of r.pts) consider(px, py, "vertex");
     for (const k of PTS_KINDS) for (const r of on(p[k] || [], level)) if (!exclude.has(r.id)) for (const [px, py] of r.pts) consider(px, py, "vertex");
     for (const b of on(p.beams || [], level)) if (!exclude.has(b.id)) { consider(b.x1, b.y1, "end"); consider(b.x2, b.y2, "end"); }
+    for (const m of on(p.members || [], level)) if (!exclude.has(m.id)) for (const q of m.pts) consider(q[0], q[1], "end");
     for (const c of on(p.columns, level)) if (!exclude.has(c.id)) consider(c.x, c.y, "centre");
     for (const d of on(p.drawings, level)) if (!exclude.has(d.id)) for (const [px, py] of d.pts || []) consider(px, py, "vertex");
     if (best) return best;
@@ -250,6 +251,8 @@ function transformItems(p, ids, fn, { stretch = true, rotate = 0, mirror = false
     if (mirror) {
       // Keep the wall's left side meaning the same: openings keep their side.
       for (const o of p.openings) if (o.wall === w.id) { o.side = -(o.side || 1); }
+      // …and each face keeps its finish (left and right swap in a mirror).
+      if (w.finishL || w.finishR) { const l = w.finishL; if (w.finishR) w.finishL = w.finishR; else delete w.finishL; if (l) w.finishR = l; else delete w.finishR; }
     }
   }
   if (stretch) {
@@ -369,6 +372,7 @@ export function copyItems(p, ids) {
   const c = selectionCentre(p, ids);
   out.centre = c || [0, 0];
   // Component definitions of copied instances come along (another drawing may not have them).
+  out.structures = (p.structures || []).filter((st) => (out.members || []).some((m) => m.structure === st.id)).map((st) => JSON.parse(JSON.stringify(st)));
   out.components = (p.components || []).filter((d) => out.furniture.some((f) => f.comp === d.id) || out.openings.some((o) => o.comp === d.id)).map((d) => JSON.parse(JSON.stringify(d)));
   return out;
 }
@@ -386,7 +390,7 @@ export function pasteItems(p, clip, level, x, y) {
       it.id = nid(src.id, k[0]);
       it.level = level;
       if (k === "walls") { it.x1 += dx; it.y1 += dy; it.x2 += dx; it.y2 += dy; }
-      else if (it.pts) it.pts = it.pts.map(([a, b]) => [a + dx, b + dy]);
+      else if (it.pts) it.pts = it.pts.map(([a, b, ...rest]) => [a + dx, b + dy, ...rest]); // members keep their z
       if (it.mesh) it.mesh.v = it.mesh.v.map(([a, b, c]) => [a + dx, b + dy, c]);
       if (it.faces) it.faces = it.faces.map((f) => f.map(([a, b, c]) => [a + dx, b + dy, c])); // a roof read as faces (gbXML)
       if (it.label) it.label = [it.label[0] + dx, it.label[1] + dy];
@@ -399,6 +403,22 @@ export function pasteItems(p, clip, level, x, y) {
     }
   }
   if (p.components) for (const d of clip.components || []) if (!p.components.some((x) => x.id === d.id)) p.components.push(JSON.parse(JSON.stringify(d)));
+  // A pasted tower or bridge is a new structure (its own record, moved with it).
+  const structs = new Map();
+  for (const m of p.members || []) {
+    if (!m.structure || !added.includes(m.id)) continue;
+    if (!structs.has(m.structure)) {
+      const src = (clip.structures || []).find((x) => x.id === m.structure) || (p.structures || []).find((x) => x.id === m.structure);
+      if (!src) { delete m.structure; continue; }
+      const st = { ...JSON.parse(JSON.stringify(src)), id: uid(src.kind === "tower" ? "tw" : "br"), level };
+      st.params.x = (st.params.x || 0) + dx; st.params.y = (st.params.y || 0) + dy;
+      if (!Array.isArray(p.structures)) p.structures = [];
+      p.structures.push(st);
+      structs.set(m.structure, st.id);
+    }
+    m.structure = structs.get(m.structure);
+    m.group = m.structure;
+  }
   for (const src of clip.openings || []) {
     const wall = idMap.get(src.wall);
     if (!wall) continue; // an opening copied without its wall stays where it was
@@ -437,7 +457,7 @@ export function scaleItems(p, ids, k) {
 
 // Groups (SketchUp-style): the members are selected and moved together.
 export function groupMembers(p, id) {
-  const KINDS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "beams", ...PTS_KINDS];
+  const KINDS = ["walls", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "dimensions", "texts", "drawings", "beams", "members", ...PTS_KINDS];
   const it = KINDS.flatMap((k) => p[k] || []).find((x) => x.id === id);
   if (!it || !it.group) return [id];
   const out = [];

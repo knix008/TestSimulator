@@ -10,7 +10,7 @@
 
 import { wallOutlines, slicePoly, openingSpans, wallFrame } from "../core/walls.js";
 import { wallLength, wallHeight, levelById, levelAbove } from "../core/project.js";
-import { triangulate, polygonArea, rotPt } from "../core/geom.js";
+import { triangulate, polygonArea, rotPt, pointInPolygon } from "../core/geom.js";
 import { roofModel, roofBase } from "../core/roof.js";
 import { furnitureParts, lightOf } from "../lib/furniture.js";
 import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
@@ -20,6 +20,8 @@ import { setProjectMaterials } from "../lib/materials.js";
 import { buildLevelElements, specialWallBody, roofFacesCut } from "./elements.js";
 import { syncOptions, optionHidden } from "../core/elements/model.js";
 import { roomOnSlab } from "../core/elements/geometry.js";
+import { memberGroup } from "./members.js";
+import { memberPoints } from "../core/members.js";
 
 export const M = 0.001;
 
@@ -50,6 +52,22 @@ class Geo {
   }
   quad(a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); }
   get empty() { return this.pos.length === 0; }
+  // The triangles sorted into one Geo per key: classify(centre [x, y, z],
+  // normal [x, y, z]) → key (world metres).
+  split(classify) {
+    const out = new Map();
+    for (let i = 0; i < this.pos.length; i += 9) {
+      const p = this.pos;
+      const c = [(p[i] + p[i + 3] + p[i + 6]) / 3, (p[i + 1] + p[i + 4] + p[i + 7]) / 3, (p[i + 2] + p[i + 5] + p[i + 8]) / 3];
+      const key = classify(c, [this.nor[i], this.nor[i + 1], this.nor[i + 2]]);
+      let g = out.get(key);
+      if (!g) out.set(key, (g = new Geo()));
+      for (let k = 0; k < 9; k++) { g.pos.push(p[i + k]); g.nor.push(this.nor[i + k]); }
+      const j = (i / 3) * 2;
+      for (let k = 0; k < 6; k++) g.uv.push(this.uv[j + k]);
+    }
+    return out;
+  }
   build(THREE) {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(this.pos, 3));
@@ -62,6 +80,37 @@ class Geo {
 
 // Plan point (mm) + height (mm) → world [x, y, z] (m).
 const W = (x, y, z) => [x * M, z * M, y * M];
+
+// ---------------------------------------------------------------- shared unit primitives
+// Every box, cylinder and ball part (furniture, frames, door leaves, round
+// columns) is one of these unit shapes scaled by its mesh, so a model with
+// thousands of parts holds a handful of geometries and the viewer can draw
+// the repeats as instances (batch.js). userData.sharedGeometry: never dispose.
+const UNITS = new WeakMap();
+export function unitGeometry(THREE, kind) {
+  let u = UNITS.get(THREE);
+  if (!u) {
+    u = {
+      box: new THREE.BoxGeometry(1, 1, 1),
+      cyl: new THREE.CylinderGeometry(1, 1, 1, 28),
+      cyl32: new THREE.CylinderGeometry(1, 1, 1, 32),
+      ball: new THREE.IcosahedronGeometry(1, 2),
+    };
+    UNITS.set(THREE, u);
+  }
+  return u[kind];
+}
+export function unitMesh(THREE, kind, mat) {
+  const mesh = new THREE.Mesh(unitGeometry(THREE, kind), mat);
+  mesh.userData.sharedGeometry = true;
+  return mesh;
+}
+// A unit box scaled to sx × sy × sz metres (never quite flat: 0.1 mm).
+export function boxMesh(THREE, sx, sy, sz, mat) {
+  const mesh = unitMesh(THREE, "box", mat);
+  mesh.scale.set(Math.max(1e-4, sx), Math.max(1e-4, sy), Math.max(1e-4, sz));
+  return mesh;
+}
 
 // Vertical prism of a plan polygon between heights z0 and z1 (mm).
 function prism(geo, pts, z0, z1) {
@@ -181,7 +230,13 @@ export function makeMaterials(THREE, { textures = true } = {}) {
       const op = m && Number.isFinite(+m.opacity) ? Math.max(0.05, Math.min(1, +m.opacity)) : 1;
       return get(`s:${id}:${color}:${m ? `${m.tile || ""}:${op}:${m.src ? m.src.length : ""}` : ""}`, () => {
         if (id === "glass") return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1, transparent: true, opacity: op < 1 ? op : 0.35, side: THREE.DoubleSide, name: "glass" });
-        const mat = new THREE.MeshStandardMaterial({ color: texture(m) ? 0xffffff : color, map: texture(m), roughness: m && m.pattern === "seams" ? 0.45 : 0.85, metalness: m && m.pattern === "seams" ? 0.4 : 0, side: THREE.DoubleSide, name: id || color });
+        // Surface physics from the library (rough, metal); the pattern doubles as a
+        // bump map so joints, planks and pebbles catch the light.
+        const tex = texture(m);
+        const rough = m && Number.isFinite(m.rough) ? m.rough : m && m.pattern === "seams" ? 0.45 : 0.85;
+        const metal = m && Number.isFinite(m.metal) ? m.metal : m && m.pattern === "seams" ? 0.4 : 0;
+        const mat = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : color, map: tex, roughness: rough, metalness: metal, side: THREE.DoubleSide, name: id || color });
+        if (tex && m.bump > 0) { mat.bumpMap = tex; mat.bumpScale = m.bump; }
         // Opacity of an own / edited material (SketchUp's material opacity).
         if (op < 1) { mat.transparent = true; mat.opacity = op; mat.depthWrite = false; }
         return mat;
@@ -223,7 +278,7 @@ export function recolorModel(root, colors) {
 
 // ---------------------------------------------------------------- pieces
 function boxInWall(THREE, w, mat, u, v, z, su, sv, sz) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1e-4, su * M), Math.max(1e-4, sz * M), Math.max(1e-4, sv * M)), mat);
+  const mesh = boxMesh(THREE, su * M, sz * M, sv * M, mat);
   const f = wallFrame(w);
   const x = w.x1 + f.d[0] * u + f.n[0] * v;
   const y = w.y1 + f.d[1] * u + f.n[1] * v;
@@ -289,10 +344,10 @@ function openingMeshes(THREE, mats, w, s, base, opts) {
     const pivot = new THREE.Group();
     pivot.position.set(hx * M, z0 * M, hy * M);
     pivot.rotation.y = -Math.atan2(f.d[1], f.d[0]);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(len * M, leafH * M, leafT * M), leafMat);
+    const m = boxMesh(THREE, len * M, leafH * M, leafT * M, leafMat);
     m.position.set((dir * len * M) / 2, (leafH * M) / 2, 0);
     // Door handle.
-    const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.07), mats.color("#9aa0a6", { rough: 0.3, metal: 0.8 }));
+    const hdl = boxMesh(THREE, 0.12, 0.02, 0.07, mats.color("#9aa0a6", { rough: 0.3, metal: 0.8 }));
     hdl.position.set(dir * (len - 70) * M, 1.0, 0); // 1 m above the threshold
     pivot.add(m, hdl);
     // Local +z is the wall's left normal; a positive turn about y swings +x
@@ -328,14 +383,15 @@ function furnitureGroup(THREE, mats, f) {
     if (light && part.g) mat = glowMaterial(mats, part, light);
     let mesh;
     if (part.t === "box") {
-      mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1e-4, part.w * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.d * M)), mat);
+      mesh = boxMesh(THREE, part.w * M, part.h * M, part.d * M, mat);
       mesh.position.set(part.x * M, (part.z + part.h / 2) * M, part.y * M);
     } else if (part.t === "cyl") {
-      mesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 28), mat);
+      mesh = unitMesh(THREE, "cyl", mat);
       mesh.scale.set(Math.max(1e-4, part.rx * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.ry * M));
       mesh.position.set(part.x * M, (part.z + part.h / 2) * M, part.y * M);
     } else {
-      mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(part.r * M, 2), mat);
+      mesh = unitMesh(THREE, "ball", mat);
+      mesh.scale.setScalar(Math.max(1e-4, part.r * M));
       mesh.position.set(part.x * M, part.z * M, part.y * M);
     }
     mesh.castShadow = !glassy && !part.g;
@@ -370,14 +426,30 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
   root.name = "building";
   const tag = (obj, id, kind, level) => { obj.userData = { ...obj.userData, id, kind, level }; obj.traverse((c) => { if (c.isMesh) { c.userData.id = id; c.userData.kind = kind; c.userData.level = level; } }); return obj; };
   const shadow = (mesh) => { mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
+  // opts.reuse (levelId → {key, group}, the previous build's root.userData.levels):
+  // a level whose inputs did not change keeps its group, so an edit rebuilds
+  // only the level it touched.
+  const keys = opts.reuse ? levelKeys(p, opts) : null;
+  const built = new Map();
+  root.userData.levels = built;
   for (const lv of p.levels) {
+    const key = keys ? keys.get(lv.id) : null;
+    const old = key && opts.reuse.get(lv.id);
+    if (old && old.key && old.key[0] === key[0] && old.key[1] === key[1]) {
+      old.group.visible = !(opts.levels && !opts.levels.has(lv.id));
+      root.add(old.group);
+      built.set(lv.id, old);
+      continue;
+    }
     const lg = new THREE.Group();
+    built.set(lv.id, { key, group: lg });
     lg.name = `level:${lv.name}`;
     lg.userData = { level: lv.id };
     root.add(lg);
     const base = lv.elevation;
     const walls = p.walls.filter((w) => w.level === lv.id && vis(w));
     const outlines = wallOutlines(walls);
+    const finishRooms = p.rooms.filter((r) => r.level === lv.id && r.wallFinish && vis(r));
     // ---- walls (with openings cut out)
     for (const w of walls) {
       const ol = outlines.get(w.id);
@@ -403,9 +475,16 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       const wt = w.type ? (p.wallTypes || []).find((x) => x.id === w.type) : null;
       const mat = w.material || (wt ? wt.layers[0].material : DEFAULT_MATERIAL.wall);
       if (!special) {
-        const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(w, mats.surface(mat, "#ece8e1"))));
-        mesh.name = `wall ${w.id}`;
-        lg.add(tag(mesh, w.id, "walls", lv.id));
+        // Faces with their own finish (the wall's side, or the room it faces):
+        // one mesh per finish, the rest of the wall in its material.
+        const finish = wallFinishes(w, finishRooms);
+        const parts = finish ? geo.split(finish) : new Map([[null, geo]]);
+        for (const [fin, g] of parts) {
+          const mesh = shadow(new THREE.Mesh(g.build(THREE), phaseMat(w, mats.surface(fin || mat, "#ece8e1"))));
+          mesh.name = `wall ${w.id}`;
+          if (fin) mesh.userData.finish = fin;
+          lg.add(tag(mesh, w.id, "walls", lv.id));
+        }
       }
       for (const s of spans) {
         if (!vis(s.o)) continue;
@@ -425,13 +504,19 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
       mesh.receiveShadow = true;
       mesh.name = `floor ${r.name || r.id}`;
       lg.add(tag(mesh, r.id, "rooms", lv.id));
+      const sk = r.skirting > 0 ? skirtingGeo(p, r, walls, base) : null;
+      if (sk && !sk.empty) {
+        const sm = shadow(new THREE.Mesh(sk.build(THREE), mats.surface(r.skirtingMaterial || "paint-white", "#f6f6f4")));
+        sm.name = `skirting ${r.name || r.id}`;
+        lg.add(tag(sm, r.id, "rooms", lv.id));
+      }
     }
     // ---- columns
     for (const c of p.columns.filter((x) => x.level === lv.id && vis(x))) {
       const H = c.height || lv.height;
       let mesh;
       if (c.shape === "round") {
-        mesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32), mats.surface(c.material || "concrete", "#a7a7a2"));
+        mesh = unitMesh(THREE, "cyl32", mats.surface(c.material || "concrete", "#a7a7a2"));
         mesh.scale.set((c.w / 2) * M, H * M, (c.d / 2) * M);
         mesh.position.set(c.x * M, (base + H / 2) * M, c.y * M);
       } else {
@@ -460,12 +545,13 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
     // ---- furniture
     {
       // Component instances are model, not furniture: they stay when furniture is hidden.
+      const compCache = new Map();
       for (const f of p.furniture.filter((x) => x.level === lv.id && vis(x) && (opts.furniture !== false || x.kind === "component"))) {
         let g;
         if (f.kind === "model") {
           g = new THREE.Group();
           const asset = p.models.find((m) => m.id === f.model);
-          const ph = new THREE.Mesh(new THREE.BoxGeometry(f.w * M, f.h * M, f.d * M), mats.color("#8a9bb0", { opacity: 0.4 }));
+          const ph = boxMesh(THREE, f.w * M, f.h * M, f.d * M, mats.color("#8a9bb0", { opacity: 0.4 }));
           ph.position.y = (f.h * M) / 2;
           g.add(ph);
           if (asset && opts.loadModel) {
@@ -475,15 +561,14 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
               if (f.modelColors) recolorModel(inst, f.modelColors);
               const sz = asset.size || [1000, 1000, 1000];
               inst.scale.set((f.mirrored ? -1 : 1) * (f.w / sz[0]), f.h / sz[2], f.d / sz[1]);
-              g.remove(ph);
-              ph.geometry.dispose();
+              g.remove(ph); // its unit box is shared: nothing to dispose
               g.add(inst);
               tag(g, f.id, "furniture", lv.id);
               inst.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
               if (opts.onAsync) opts.onAsync();
             }).catch(() => {});
           }
-        } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f); // a component instance (skbuild.js)
+        } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f, compCache); // a component instance (skbuild.js)
         else g = furnitureGroup(THREE, mats, f);
         const lamp = g.getObjectByName("lamp");
         if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
@@ -495,6 +580,11 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
     }
     // ---- slabs, ceilings, beams, railings, ramps, stairs by type (elements.js)
     buildLevelElements(THREE, p, mats, lg, lv, { vis, phaseMat, tag, shadow, opts });
+    // ---- structural members (one shared geometry per section: batched by the viewer)
+    for (const m of (p.members || []).filter((x) => x.level === lv.id && vis(x))) {
+      const mat = phaseMat(m, mats.surface(m.material || "steel", "#7e858c"));
+      lg.add(tag(memberGroup(THREE, mats, p, m, mat), m.id, "members", lv.id));
+    }
     // ---- mass models (solids)
     if (opts.solids !== false) {
       for (const s of (p.solids || []).filter((x) => x.level === lv.id && vis(x))) {
@@ -534,6 +624,90 @@ export function buildBuilding(THREE, p, mats, opts = {}) {
   return root;
 }
 
+// What a level's 3D depends on, as [global, local] strings: `global` is every
+// project part that can reach across levels (levels, types, materials,
+// components, roofs, slabs, shafts …) and the build options; `local` is the
+// level's own items and the openings in its walls. Parts that never make 3D
+// (sheets, views, annotations, 2D drafting …) are left out.
+const NOT_3D = new Set(["meta", "costs", "scenes", "view", "views", "sheets", "annotations", "revisions", "publishSets", "viewTemplates", "lineStyles",
+  "dimensions", "texts", "drawings", "underlays", "style3d", "guides", "sections", "dims3d", "texts3d", "grids", "layers"]);
+const PER_LEVEL = ["walls", "rooms", "columns", "stairs", "furniture", "solids", "ceilings", "beams", "railings", "ramps", "members"];
+const keyJson = (v) => JSON.stringify(v, (k, x) => (typeof x === "string" && x.length > 256 ? `${x.length}:${x.slice(0, 16)}${x.slice(-48)}` : x));
+export function levelKeys(p, opts = {}) {
+  const global = {};
+  for (const [k, v] of Object.entries(p)) if (!NOT_3D.has(k) && !PER_LEVEL.includes(k) && k !== "openings") global[k] = v;
+  const o = { openDoors: !!opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, phase: opts.phase || "all", solids: opts.solids, hiddenTags: opts.hiddenTags ? [...opts.hiddenTags] : null };
+  const g = keyJson([global, o]);
+  const local = new Map(p.levels.map((lv) => [lv.id, {}]));
+  for (const k of PER_LEVEL) for (const it of p[k] || []) { const l = local.get(it.level); if (l) (l[k] || (l[k] = [])).push(it); }
+  const wallLevel = new Map(p.walls.map((w) => [w.id, w.level]));
+  for (const op of p.openings || []) { const l = local.get(wallLevel.get(op.wall)); if (l) (l.openings || (l.openings = [])).push(op); }
+  return new Map([...local].map(([id, l]) => [id, [g, keyJson(l)]]));
+}
+
+// ---------------------------------------------------------------- interior finishes
+// Which finish a wall face shows: the wall's own for that side (finishR on the
+// side of wallFrame's n — the right hand walking from the start to the end on
+// the plan — finishL on the other), else the wallFinish of the room the face
+// looks into. Returns a classify() for Geo.split, or null when nothing applies.
+export function wallFinishes(w, rooms = []) {
+  if (!w.finishL && !w.finishR && !rooms.length) return null;
+  const f = wallFrame(w);
+  return (c, n) => {
+    // Faces along the wall (world (x, z) = plan (x, y)); ends, top and reveals keep the wall's material.
+    if (Math.abs(n[0] * f.n[0] + n[2] * f.n[1]) < 0.98) return null; // a mitred end at 45° is 0.71
+    // Which side: where the face lies, not its normal (the plan → world map mirrors).
+    const cx = c[0] / M, cy = c[2] / M;
+    const side = Math.sign((cx - w.x1) * f.n[0] + (cy - w.y1) * f.n[1]) || 1;
+    const own = side > 0 ? w.finishR : w.finishL;
+    if (own) return own;
+    const x = cx + f.n[0] * side * 60, y = cy + f.n[1] * side * 60; // just in front of the face
+    const r = rooms.find((q) => pointInPolygon(x, y, q.pts));
+    return r ? r.wallFinish : null;
+  };
+}
+
+// A skirting board round a room: a strip r.skirting high and 15 mm thick
+// along every stretch of room edge that runs along a wall, stopping at doors
+// and openings that reach the floor.
+export function skirtingGeo(p, r, walls, base, thick = 15) {
+  const geo = new Geo();
+  const H = r.skirting;
+  let ring = r.pts;
+  if (polygonArea(ring) < 0) ring = ring.slice().reverse(); // counter-clockwise: the inside is on the left
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (L < 50) continue;
+    const d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+    const inward = [-d[1], d[0]];
+    // Stretches covered by a wall lying along this edge.
+    let cover = [];
+    const holes = [];
+    for (const w of walls) {
+      const f = wallFrame(w);
+      if (Math.abs(f.d[0] * d[1] - f.d[1] * d[0]) > 0.02) continue; // not parallel
+      const off = Math.abs((w.x1 - a[0]) * inward[0] + (w.y1 - a[1]) * inward[1]);
+      if (off > w.thickness / 2 + 30) continue; // not along this edge
+      const s1 = (w.x1 - a[0]) * d[0] + (w.y1 - a[1]) * d[1], s2 = (w.x2 - a[0]) * d[0] + (w.y2 - a[1]) * d[1];
+      const lo = Math.max(0, Math.min(s1, s2)), hi = Math.min(L, Math.max(s1, s2));
+      if (hi - lo > 1) cover.push([lo, hi]);
+      const dir = Math.sign(s2 - s1) || 1;
+      for (const s of openingSpans(p, w)) {
+        if (s.o.sill >= H) continue; // a window above the board: it runs on
+        const u1 = s1 + dir * s.u1, u2 = s1 + dir * s.u2;
+        holes.push([Math.min(u1, u2), Math.max(u1, u2)]);
+      }
+    }
+    for (const [h1, h2] of holes) cover = cover.flatMap(([c1, c2]) => (h2 <= c1 || h1 >= c2 ? [[c1, c2]] : [[c1, h1], [h2, c2]].filter(([x, y]) => y - x > 1)));
+    for (const [c1, c2] of cover) {
+      const p0 = [a[0] + d[0] * c1, a[1] + d[1] * c1], p1 = [a[0] + d[0] * c2, a[1] + d[1] * c2];
+      prism(geo, [p0, p1, [p1[0] + inward[0] * thick, p1[1] + inward[1] * thick], [p0[0] + inward[0] * thick, p0[1] + inward[1] * thick]], base, base + H);
+    }
+  }
+  return geo;
+}
+
 // Size of the whole model in metres (for framing, ground plane, sun).
 export function modelExtent(p) {
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, top = 0;
@@ -556,6 +730,7 @@ export function modelExtent(p) {
   for (const r of p.railings || []) { const lv = levelById(p, r.level); for (const [x, y] of r.pts) add(x, y); top = Math.max(top, (lv ? lv.elevation : 0) + (r.z || 0) + r.height); }
   for (const b of p.beams || []) { const lv = levelById(p, b.level); add(b.x1, b.y1); add(b.x2, b.y2); top = Math.max(top, (lv ? lv.elevation : 0) + Math.max(b.z1 ?? (lv ? lv.height : 0), b.z2 ?? b.z1 ?? (lv ? lv.height : 0))); }
   for (const r of p.ramps || []) for (const [x, y] of r.pts) add(x, y);
+  for (const m of p.members || []) for (const [x, y, z] of memberPoints(p, m)) { add(x, y); top = Math.max(top, z + m.h / 2); }
   if (!Number.isFinite(x1)) return { x1: -5000, y1: -5000, x2: 5000, y2: 5000, top: 3000 };
   return { x1, y1, x2, y2, top };
 }

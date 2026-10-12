@@ -10,6 +10,8 @@ function subscribe(channel, cb) {
 
 contextBridge.exposeInMainWorld('myarch', {
   isElectron: true,
+  // GUI tests (MYARCH_INLINE_DIALOGS=1) keep the dialogs inside the main window.
+  inlineDialogs: process.env.MYARCH_INLINE_DIALOGS === '1',
   platform: process.platform,
   getVersion: () => ipcRenderer.invoke('get-version'),
   loadSettings: () => ipcRenderer.invoke('load-settings'),

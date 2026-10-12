@@ -9,6 +9,7 @@ import { h, modal, toast, quickPick, field, input, select, checkbox, tabs, confi
 import * as platform from "./platform.js";
 import { allFurniture, furnitureDef, normalizeLight } from "../lib/furniture.js";
 import { materialsFor } from "../lib/materials.js";
+import { materialPicker } from "./matpicker.js";
 import { levelById, wallLength, DEFAULTS, openingTags } from "../core/project.js";
 import { roomArea } from "../core/rooms.js";
 import { roomSchedule, openingSchedule, levelSummary, projectTotals, toCSV, wallTypeSchedule, costEstimate } from "../core/schedule.js";
@@ -48,7 +49,7 @@ export function themeGallery(app) {
     body.append(h("div", { class: "theme-sys" }, sys));
   };
   draw();
-  return modal({ title: t("Themes"), width: 760, body, buttons: [{ label: t("Close"), value: null, primary: true }] });
+  return modal({ icon: "palette", title: t("Themes"), width: 760, body, buttons: [{ label: t("Close"), value: null, primary: true }] });
 }
 
 // Theme dropdown under the palette button: dark, light and custom themes.
@@ -128,7 +129,7 @@ export async function customThemeEditor(app, base = null) {
     colorField("text", t("Text")),
     h("p", { class: "field-hint span2" }, t("Changes are previewed on the whole program. The plan canvas follows the theme too.")));
   preview();
-  const ok = await modal({ title: t("Custom theme"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Save theme"), value: true, primary: true }] });
+  const ok = await modal({ icon: "palette", title: t("Custom theme"), width: 520, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Save theme"), value: true, primary: true }] });
   setCustomThemes(app.settings.customThemes || []);
   if (!ok) { app.settings.theme = previous; app.applyTheme(); return null; }
   const theme = { id: `custom-${Date.now().toString(36)}`, name: { ko: draft.name || t("My theme"), en: draft.name || "My theme" }, mode: draft.mode, bg: draft.bg, panel: draft.panel, text: draft.text, accent: draft.accent };
@@ -157,7 +158,6 @@ export function furniturePicker(app) {
 }
 
 // ---------------------------------------------------------------- properties
-const matOpts = (use) => materialsFor(use).map((m) => [m.id, t(m.name)]);
 
 function numField(label, obj, key, { step = 10, min = 0, max = Infinity, unit = "mm" } = {}) {
   return field(label, stepper(+obj[key] || 0, { step, min, max, editable: true, format: (v) => `${Math.round(v * 10) / 10}${unit ? " " + unit : ""}`, onChange: (v) => { obj[key] = v; } }));
@@ -179,7 +179,7 @@ export async function itemProperties(app, kind, obj) {
       numField(t("Thickness"), draft, "thickness", { min: 10 }),
       numField(t("Height"), draft, "heightValue", { step: 50, min: 100 }),
       field(t("Height"), checkbox(draft.levelHeight, t("Same as the level height"), { onChange: (v) => { draft.levelHeight = v; } })),
-      field(t("Material"), select(draft.material || "plaster", matOpts("wall"), { onChange: (v) => { draft.material = v; } })));
+      field(t("Material"), materialPicker(draft.material || "plaster", { uses: ["wall"], onChange: (v) => { draft.material = v; } })));
   } else if (kind === "openings") {
     title = obj.kind === "window" ? t("Window properties") : t("Door properties");
     body = h("div", { class: "form-grid" },
@@ -198,7 +198,7 @@ export async function itemProperties(app, kind, obj) {
     const nameEl = input(draft.name, { onInput: (v) => { draft.name = v; }, list: "room-names" });
     body = h("div", { class: "form-grid" },
       h("div", { class: "span2" }, field(t("Name"), nameEl), h("datalist", { id: "room-names" }, ...names.map((n) => h("option", { value: n })))),
-      field(t("Floor"), select(draft.floor || "oak", matOpts("floor"), { onChange: (v) => { draft.floor = v; } })),
+      field(t("Floor"), materialPicker(draft.floor || "oak", { uses: ["floor"], onChange: (v) => { draft.floor = v; } })),
       field(t("Area"), h("div", { class: "input", style: { display: "flex", alignItems: "center" } }, `${(roomArea(obj) / 1e6).toFixed(2)} m²`)),
       numField(t("Text size"), draft, "textSize", { step: 20, min: 50 }),
       field(t("Options"), checkbox(draft.showArea !== false, t("Show area"), { onChange: (v) => { draft.showArea = v; } })));
@@ -215,13 +215,13 @@ export async function itemProperties(app, kind, obj) {
   } else if (kind === "stairs") {
     title = t("Stair properties");
     body = h("div", { class: "form-grid" }, numField(t("Steps"), draft, "steps", { step: 1, min: 2, unit: "" }), numField(t("Width"), draft, "width", { step: 50, min: 300 }), numField(t("Length"), draft, "length", { step: 50, min: 300 }), numField(t("Rotation"), draft, "rot", { step: 15, min: -360, max: 360, unit: "°" }),
-      field(t("Material"), select(draft.material || "oak", matOpts("floor"), { onChange: (v) => { draft.material = v; } })));
+      field(t("Material"), materialPicker(draft.material || "oak", { uses: ["floor"], onChange: (v) => { draft.material = v; } })));
   } else if (kind === "roofs") {
     title = t("Roof properties");
     body = h("div", { class: "form-grid" },
       field(t("Shape"), select(draft.kind, [["gable", t("Gable")], ["hip", t("Hip")], ["shed", t("Shed")], ["flat", t("Flat")]], { onChange: (v) => { draft.kind = v; } })),
       numField(t("Pitch"), draft, "pitch", { step: 5, max: 75, unit: "°" }), numField(t("Overhang"), draft, "overhang", { step: 50 }), numField(t("Thickness"), draft, "thickness", { min: 20 }),
-      field(t("Material"), select(draft.material || "roof-tiles", matOpts("roof"), { onChange: (v) => { draft.material = v; } })));
+      field(t("Material"), materialPicker(draft.material || "roof-tiles", { uses: ["roof"], onChange: (v) => { draft.material = v; } })));
   } else if (kind === "columns") {
     title = t("Column properties");
     body = h("div", { class: "form-grid" }, field(t("Shape"), select(draft.shape, [["rect", t("Rectangular")], ["round", t("Round")]], { onChange: (v) => { draft.shape = v; } })),
@@ -236,7 +236,7 @@ export async function itemProperties(app, kind, obj) {
     toast(t("Edit it on the right."), "info", 1500);
     return;
   }
-  const ok = await modal({ title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: ({ walls: "wall", openings: obj.kind === "window" ? "window" : "door", rooms: "room", columns: "column", stairs: "stairs", furniture: "sofa", roofs: "roof", texts: "text", dimensions: "dimension", solids: "box3d" })[kind] || "settings", title, width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   app.store.edit(t("Edit properties"), (pr) => {
     if (kind === "walls") {
@@ -262,7 +262,7 @@ export async function levelProperties(app, lv) {
     numField(t("Height"), draft, "height", { step: 50, min: 1000 }),
     numField(t("Floor slab"), draft, "slab", { step: 10 }),
     h("p", { class: "field-hint span2" }, t("Walls without their own height use the level height. Moving a level up or down moves everything on it in 3D.")));
-  const ok = await modal({ title: t("Level properties"), width: 480, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "levels", title: t("Level properties"), width: 480, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   app.store.edit(t("Level properties"), (p) => {
     Object.assign(lv, { name: draft.name.trim() || lv.name, elevation: draft.elevation, height: draft.height, slab: draft.slab });
@@ -282,7 +282,7 @@ export async function projectProperties(app) {
     field(t("Time zone (UTC+)"), stepper(meta.timezone ?? 9, { min: -12, max: 14, step: 0.5, format: (v) => `UTC${v >= 0 ? "+" : ""}${v}`, onChange: (v) => { meta.timezone = v; } })),
     field(t("Classification system"), input(meta.classificationSystem || "Uniclass 2015", { onInput: (v) => { meta.classificationSystem = v; } })),
     h("div", { class: "span2" }, f("comment", t("Comment"))));
-  const ok = await modal({ title: t("Project properties"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "building", title: t("Project properties"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (ok) app.store.edit(t("Project properties"), (p) => { p.meta = meta; });
 }
 
@@ -326,7 +326,7 @@ export async function wallTypesDialog(app) {
       h("div", { class: "prop-actions" }, h("button", { class: "btn small", onclick: () => { wt.layers.push({ material: "plaster", thickness: 15, function: "finish" }); draw(); } }, h("span", { html: icon("plus", 12) }), t("Add layer"))));
   };
   draw();
-  const ok = await modal({ title: t("Wall types"), width: 900, body: h("div", { class: "wt-dialog" }, left, right), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "wall", title: t("Wall types"), width: 900, body: h("div", { class: "wt-dialog" }, left, right), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   app.store.edit(t("Wall types"), (pr) => {
     pr.wallTypes = types;
@@ -360,7 +360,7 @@ export async function bimPropertiesDialog(app) {
   const body = h("div", {},
     h("p", { class: "field-hint" }, items.length > 1 ? t("The properties are written to all {n} selected elements.", { n: items.length }) : t("Exported to IFC as the property set MyArchitecture_Properties.")),
     list, h("div", { class: "prop-actions" }, h("button", { class: "btn small", onclick: () => { rows.push({ k: "", v: "" }); draw(); } }, h("span", { html: icon("plus", 12) }), t("Add property"))));
-  const ok = await modal({ title: t("BIM properties"), width: 620, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "bim", title: t("BIM properties"), width: 620, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   const props = {};
   for (const r of rows) {
@@ -384,9 +384,9 @@ export async function defaultsDialog(app) {
     numField(t("Window sill"), draft, "windowSill", { step: 50 }), numField(t("Text size"), draft, "textSize"),
     field(t("Door type"), select(s.doorType || "single", [["single", t("Single")], ["double", t("Double")], ["sliding", t("Sliding")]], { onChange: (v) => { draft.doorType = v; } })),
     field(t("Window type"), select(s.windowType || "casement", [["casement", t("Casement")], ["fixed", t("Fixed")], ["sliding", t("Sliding")]], { onChange: (v) => { draft.windowType = v; } })),
-    field(t("Wall material"), select(s.wallMaterial || "plaster", matOpts("wall"), { onChange: (v) => { draft.wallMaterial = v; } })),
-    field(t("Floor material"), select(s.floorMaterial || "oak", matOpts("floor"), { onChange: (v) => { draft.floorMaterial = v; } })));
-  const ok = await modal({ title: t("Default sizes"), width: 600, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+    field(t("Wall material"), materialPicker(s.wallMaterial || "plaster", { uses: ["wall"], onChange: (v) => { draft.wallMaterial = v; } })),
+    field(t("Floor material"), materialPicker(s.floorMaterial || "oak", { uses: ["floor"], onChange: (v) => { draft.floorMaterial = v; } })));
+  const ok = await modal({ icon: "ruler", title: t("Default sizes"), width: 600, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   Object.assign(app.settings, draft);
   app.saveSettings();
@@ -409,7 +409,7 @@ export async function layersDialog(app) {
     }
     return tbl;
   });
-  const ok = await modal({ title: t("CAD layers"), width: 560, body: h("div", {}, h("p", { class: "field-hint" }, t("Layers hold imported DXF/SVG drawings and lines drawn with the Line tool.")), body), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
+  const ok = await modal({ icon: "layers", title: t("CAD layers"), width: 560, body: h("div", {}, h("p", { class: "field-hint" }, t("Layers hold imported DXF/SVG drawings and lines drawn with the Line tool.")), body), buttons: [{ label: t("Cancel"), value: false }, { label: t("OK"), value: true, primary: true }] });
   if (!ok) return;
   app.store.edit(t("CAD layers"), (pr) => { pr.layers = draft.filter((l) => !l.deleted).map(({ count, deleted, ...l }) => l); });
 }
@@ -477,7 +477,7 @@ export async function settingsDialog(app) {
   const output = h("div", { class: "form-grid" },
     field(t("Default paper"), sel("defaultPaper", ["A4", "A3", "A2", "A1", "A0", "Letter", "Tabloid"])),
   );
-  const ok = await modal({
+  const ok = await modal({ icon: "settings",
     title: t("Settings"), width: 760, className: "settings-modal",
     body: tabs([
       { id: "g", label: t("General"), body: general }, { id: "a", label: t("Appearance"), body: appearance }, { id: "u", label: t("Units & grid"), body: unitsGrid },
@@ -528,7 +528,7 @@ export async function schedulesDialog(app, opts = {}) {
     costHost.innerHTML = "";
     const est = costEstimate({ ...p, costs });
     const priceField = (k, label) => field(label, stepper(costs[k] || 0, { min: 0, max: 1e9, step: 10000, editable: true, format: money, onChange: (v) => { costs[k] = v; drawCost(); } }));
-    costHost.append(h("div", { class: "form-grid three" }, priceField("wall", t("Wall per m²")), priceField("floor", t("Floor per m²")), priceField("roof", t("Roof per m²")), priceField("door", t("Door each")), priceField("window", t("Window each")), priceField("opening", t("Opening each")), priceField("stair", t("Stair each")), priceField("column", t("Column each"))),
+    costHost.append(h("div", { class: "form-grid three" }, priceField("wall", t("Wall per m²")), priceField("floor", t("Floor per m²")), priceField("roof", t("Roof per m²")), priceField("door", t("Door each")), priceField("window", t("Window each")), priceField("opening", t("Opening each")), priceField("stair", t("Stair each")), priceField("column", t("Column each")), priceField("member", t("Structural members per t"))),
       tbl(costCols, est.lines), h("p", { class: "cost-total" }, t("Estimated total: {v} {c}", { v: money(est.total), c: est.currency })));
   };
   drawCost();
@@ -541,7 +541,7 @@ export async function schedulesDialog(app, opts = {}) {
     { id: "c", label: t("Cost estimate"), body: costHost },
   ]), totalRow);
   if (opts.tab) setTimeout(() => { const b = body.querySelector(`.tab[data-id="${opts.tab}"]`); if (b) b.click(); }, 0);
-  const r = await modal({ title: t("Schedules and quantities"), width: 920, body, buttons: [{ label: t("Rooms CSV…"), value: "r", left: true }, { label: t("Doors & windows CSV…"), value: "o" }, { label: t("Wall types CSV…"), value: "w" }, { label: t("Cost CSV…"), value: "c" }, { label: t("Levels CSV…"), value: "l" }, { label: t("Close"), value: null, primary: true }] });
+  const r = await modal({ icon: "schedule", title: t("Schedules and quantities"), width: 920, body, buttons: [{ label: t("Rooms CSV…"), value: "r", left: true }, { label: t("Doors & windows CSV…"), value: "o" }, { label: t("Wall types CSV…"), value: "w" }, { label: t("Cost CSV…"), value: "c" }, { label: t("Levels CSV…"), value: "l" }, { label: t("Close"), value: null, primary: true }] });
   if (JSON.stringify(costs) !== JSON.stringify(p.costs)) app.store.edit(t("Unit prices"), (pr) => { pr.costs = costs; });
   if (!r) return;
   const base = (p.meta.title || "project").replace(/[\\/:*?"<>|\s]+/g, "_");
@@ -569,14 +569,15 @@ export function findDialog(app) {
 }
 
 export function historyDialog(app) {
+  let close = null;
   const hst = app.store.history();
   const steps = hst.undo.slice().reverse().map((l, i) => ({ l, i }));
   const body = steps.length ? pager(steps, 12, (slice) => h("div", { class: "issue-list" }, ...slice.map(({ l, i }) => {
     const row = h("div", { class: "issue" }, h("span", { html: icon("undo", 14) }), h("div", {}, t(l), h("small", {}, i === 0 ? t("latest") : "")));
-    row.addEventListener("click", () => { for (let k = 0; k <= i; k++) app.store.undo(); document.querySelector(".modal-backdrop")?.remove(); });
+    row.addEventListener("click", () => { for (let k = 0; k <= i; k++) app.store.undo(); if (close) close(null); });
     return row;
   }))) : h("div", { class: "empty-note" }, t("Nothing to undo yet."));
-  modal({ title: t("Undo history"), width: 420, body: h("div", {}, h("p", { class: "field-hint" }, t("Click a step to undo back to before it.")), body) });
+  modal({ icon: "history", title: t("Undo history"), width: 420, body: h("div", {}, h("p", { class: "field-hint" }, t("Click a step to undo back to before it.")), body), onOpen: (_box, c) => { close = c; } });
 }
 
 // ---------------------------------------------------------------- recent / import / export / samples
@@ -596,7 +597,7 @@ export function recentPicker(app) {
     }
   };
   draw();
-  modal({
+  modal({ icon: "folder",
     title: t("Recent files"), width: 720, body,
     buttons: [{ label: t("Clear list"), value: "clear", left: true, danger: true }, { label: t("Close"), value: null, primary: true }],
     onOpen: (_box, c) => { close = c; },
@@ -648,7 +649,7 @@ export function importReport(app, title, lines) {
   const body = h("div", { class: "import-report" });
   body.append(h("p", { class: "muted" }, t("The import finished. Notes:")));
   body.append(pager(lines, 10, (s) => h("div", {}, ...s.map((w) => h("div", { class: "issue-row" }, w)))));
-  modal({ title, body, width: 640 });
+  modal({ icon: "list", title, body, width: 640 });
 }
 
 export function closedFormat(app, ext) {
@@ -657,7 +658,7 @@ export function closedFormat(app, ext) {
     rvt: t("Revit files (.rvt) are a closed format. Export IFC from Revit (File → Export → IFC) and import the IFC file — or export gbXML (File → Export → gbXML) for walls, openings and rooms."),
     pln: t("ArchiCAD files (.pln) are a closed format. Save as IFC in ArchiCAD and import the IFC file — gbXML exported by ArchiCAD can be imported too."),
   }[ext];
-  modal({ title: t("Format not supported"), width: 520, body: h("p", { class: "confirm-text" }, msg || t("This file type is not supported: .{ext}", { ext })), buttons: [{ label: t("Supported file formats…"), value: "f", left: true }, { label: t("OK"), value: null, primary: true }] })
+  modal({ icon: "warning", title: t("Format not supported"), width: 520, body: h("p", { class: "confirm-text" }, msg || t("This file type is not supported: .{ext}", { ext })), buttons: [{ label: t("Supported file formats…"), value: "f", left: true }, { label: t("OK"), value: null, primary: true }] })
     .then((r) => { if (r === "f") formatsDialog(app); });
 }
 
@@ -696,7 +697,7 @@ export const FORMATS = [
 export function formatsDialog() {
   const tbl = h("table", { class: "grid" }, h("tr", {}, ...["Format", "Extension", "Import", "Export", "Use"].map((x) => h("th", {}, t(x)))));
   for (const [name, ext, i, e, use] of FORMATS) tbl.append(h("tr", {}, h("td", {}, t(name)), h("td", {}, ext), h("td", {}, i), h("td", {}, e), h("td", {}, t(use))));
-  modal({ title: t("Supported file formats"), width: 880, body: tbl });
+  modal({ icon: "file", title: t("Supported file formats"), width: 880, body: tbl });
 }
 
 export async function about(app, version) {
@@ -734,7 +735,7 @@ export async function about(app, version) {
           h("li", {}, t("Exchange: DXF, IFC, glTF/GLB, OBJ, STL, Collada, 3MF, PLY, FBX, 3DS, USDZ, SVG, PDF, PNG and CSV schedules.")),
           h("li", {}, t("Runs on the Web, Windows, macOS and Linux; Korean and English, 40 themes."))))),
     h("div", { class: "about-rows" }, ...rows.flatMap(([k, val]) => [h("span", { class: "about-key" }, k), h("span", { class: "about-val" }, val)])));
-  modal({ title: t("About MyArchitecture"), width: 760, body, buttons: [{ label: t("Copy information"), value: "copy", left: true }, { label: t("Close"), value: null, primary: true }] }).then(async (r) => {
+  modal({ icon: "info", title: t("About MyArchitecture"), width: 760, body, buttons: [{ label: t("Copy information"), value: "copy", left: true }, { label: t("Close"), value: null, primary: true }] }).then(async (r) => {
     if (r === "copy") {
       await navigator.clipboard.writeText(rows.map(([k, val]) => `${k}: ${val}`).join("\n")).catch(() => {});
       toast(t("Copied to clipboard"), "ok");
@@ -744,20 +745,70 @@ export async function about(app, version) {
 
 const SHORTCUTS = [
   ["General", [["Ctrl+K", "Command palette — search every command, room and level"], ["Ctrl+N / Ctrl+O / Ctrl+S", "New / open / save"], ["Ctrl+Tab / Ctrl+Shift+Tab", "Next / previous document tab"], ["Ctrl+W", "Close the document tab"],["Ctrl+I", "Import (DXF, IFC, 3D models, images…)"], ["Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z)", "Undo / redo"], ["Ctrl+X / Ctrl+A", "Cut / select all"], ["Ctrl+F", "Find"], ["Ctrl+P", "Print / PDF"], ["Ctrl+,", "Settings"], ["Ctrl+/", "Keyboard shortcuts"], ["F1", "User manual"], ["F2 / F3 (F4)", "Floor plan / 3D view"], ["F5", "Model check"], ["F6", "Views & sheets (sections, elevations, sheets, schedules)"], ["F8 / F9", "Orthogonal drawing / snapping"], ["Home", "Zoom to fit"], ["Ctrl+1 / Ctrl+2", "Toggle side panels"]]],
-  ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["B / U", "Mass box / cylinder"], ["G", "Structural grid line"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["Ctrl+G / Ctrl+Shift+G", "Group / ungroup"], ["R / Shift+R", "Rotate 90° / back 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
+  ["Floor plan", [["W", "Wall (click corners; type a length and Enter)"], ["A", "Room (click inside walls)"], ["D / N", "Door / window"], ["C", "Column"], ["S", "Stair"], ["F", "Furniture"], ["O", "Roof"], ["B / U", "Mass box / cylinder"], ["G", "Structural grid line"], ["P", "Floor slab"], ["J", "Beam"], ["I", "Railing"], ["V", "Curtain wall"], ["K", "Dimension"], ["T", "Text"], ["L", "Line"], ["M", "Measure"], ["Ctrl+G / Ctrl+Shift+G", "Group / ungroup"], ["R / Shift+R", "Rotate 90° / back 15°"], ["X / Y", "Mirror (X also flips a door)"], ["H", "Swap door hinge"], ["E or double-click", "Edit properties"], ["Ctrl+C / Ctrl+V / Ctrl+D", "Copy / paste / duplicate"], ["Del", "Delete"], ["Arrows / Shift+arrows", "Nudge by one / ten grid steps"], ["Backspace", "While drawing: undo the last corner"], ["Shift", "While drawing: any angle"], ["Alt+drag", "Move without stretching joined walls"]]],
   ["Navigation", [["Wheel / Ctrl+wheel", "Zoom"], ["Shift+wheel", "Pan sideways"], ["Drag empty canvas, middle/right-drag, Space+drag", "Move the view (pan)"], ["Shift+drag", "Box selection (right-to-left: crossing)"], ["Esc", "Leave a tool / hand mode"]]],
   ["3D", [["Left-drag", "Orbit"], ["Right-drag", "Pan"], ["Wheel", "Zoom"], ["Double-click", "Zoom in on that point"], ["Arrows / Shift+arrows", "Orbit / pan"], ["1–7", "Iso / top / front / rear / left / right side / bird's eye"], ["P", "Pan mode"], ["V", "Walk through (WASD, Q/E up/down, drag to look)"], ["Q / E, PageDown / PageUp", "While walking: down / up"], ["O", "Orthographic projection"], ["X", "Section cut"], ["G", "Grid"], ["Esc", "Leave the tool or walk mode"]]],
+  ["3D modelling", [["L", "Line"], ["R", "Rectangle"], ["C", "Circle"], ["A", "Arc"], ["M", "Move / copy (Ctrl copies)"], ["Q", "Rotate (Ctrl copies)"], ["S", "Scale"], ["F", "Offset"], ["E", "Eraser"], ["T", "Tape measure"], ["B", "Paint bucket"], ["Enter", "Typed length or count (e.g. 4200, x5)"]]],
 ];
 
+// A key spec as key caps: "Ctrl+Shift+G" → [Ctrl]+[Shift]+[G]; " / ", ", "
+// and " or " separate alternatives, "(…)" adds one more; mouse actions and
+// other words stay text (translated).
+const KEY_NAMES = new Set(["Ctrl", "Shift", "Alt", "Esc", "Del", "Home", "End", "Tab", "Space", "Enter", "Backspace", "PageUp", "PageDown", "Arrows"]);
+const isKey = (tok) => KEY_NAMES.has(tok) || /^F\d{1,2}$/.test(tok) || /^.$/u.test(tok) || /^\d–\d$/.test(tok);
+export function keyCaps(spec) {
+  const out = h("span", { class: "keys" });
+  const note = /^(.*?)\s*\((.+)\)$/.exec(spec);
+  const alts = (note ? note[1] : spec).split(/ \/ |, | or /).concat(note ? [note[2]] : []);
+  alts.forEach((alt, i) => {
+    if (i) out.append(h("span", { class: "keys-or" }, "/"));
+    const toks = alt.length > 1 ? alt.split(/\+(?=.)/) : [alt];
+    toks.forEach((tok, j) => {
+      if (j) out.append(h("span", { class: "keys-plus" }, "+"));
+      out.append(isKey(tok) ? h("kbd", {}, tok === "Arrows" ? t("Arrows") : tok) : h("span", { class: "keys-mouse" }, t(tok)));
+    });
+  });
+  return out;
+}
+
+// Keyboard shortcuts: one tab per area and a search over all of them, in a
+// window of a fixed size (the list pages instead of growing or scrolling).
 export function shortcuts() {
-  const body = h("div", { class: "help-body", style: { columns: "2 360px", columnGap: "28px" } });
-  for (const [group, rows] of SHORTCUTS) {
-    body.append(h("h3", {}, t(group)));
-    const tbl = h("table", {});
-    for (const [k, d] of rows) tbl.append(h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, t(d))));
-    body.append(tbl);
-  }
-  modal({ title: t("Keyboard shortcuts"), width: 900, body });
+  const PER_PAGE = 12; // one row per shortcut: the keys never squeeze the text
+  let tab = 0, page = 0;
+  const search = h("input", { class: "input keys-search", type: "search", placeholder: t("Search shortcuts…"), spellcheck: "false" });
+  const tabsBar = h("div", { class: "keys-tabs", role: "tablist" });
+  const list = h("div", { class: "keys-list" });
+  const pagerBar = h("div", { class: "keys-pager" });
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    tabsBar.innerHTML = "";
+    SHORTCUTS.forEach(([group, rows], i) => {
+      const b = h("button", { class: `keys-tab ${!q && i === tab ? "on" : ""}`, type: "button", role: "tab", "data-group": group }, t(group), h("small", {}, String(rows.length)));
+      b.addEventListener("click", () => { tab = i; page = 0; search.value = ""; draw(); });
+      tabsBar.append(b);
+    });
+    const rows = q
+      ? SHORTCUTS.flatMap(([, rs]) => rs).filter(([k, d]) => k.toLowerCase().includes(q) || d.toLowerCase().includes(q) || t(d).toLowerCase().includes(q))
+      : SHORTCUTS[tab][1];
+    const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+    page = Math.min(page, pages - 1);
+    list.innerHTML = "";
+    for (const [k, d] of rows.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)) list.append(h("div", { class: "keys-row" }, keyCaps(k), h("span", { class: "keys-desc" }, t(d))));
+    if (!rows.length) list.append(h("div", { class: "empty-note" }, t("No match")));
+    pagerBar.innerHTML = "";
+    if (pages > 1) {
+      const go = (d) => () => { page = Math.max(0, Math.min(pages - 1, page + d)); draw(); };
+      pagerBar.append(h("button", { class: "icon-btn", type: "button", title: t("Previous page"), disabled: page === 0, html: icon("chevronLeft", 16), onclick: go(-1) }),
+        h("span", {}, `${page + 1} / ${pages}`),
+        h("button", { class: "icon-btn", type: "button", title: t("Next page"), disabled: page === pages - 1, html: icon("chevronRight", 16), onclick: go(1) }));
+    }
+  };
+  search.addEventListener("input", () => { page = 0; draw(); });
+  search.addEventListener("keydown", (e) => { if (e.key !== "Escape") e.stopPropagation(); });
+  draw();
+  const body = h("div", { class: "keys-dialog" }, h("div", { class: "keys-top" }, tabsBar, search), list, pagerBar);
+  modal({ icon: "keyboard", title: t("Keyboard shortcuts"), width: 880, body, buttons: [{ label: t("Close"), value: null, primary: true }] });
 }
 
 export function manual() {
@@ -776,7 +827,7 @@ export function showWelcome(app) {
   const body = h("div", {},
     h("p", { style: { marginTop: 0, lineHeight: 1.6 } }, t("MyArchitecture turns a floor plan into a 3D building as you draw. Everything is searchable with Ctrl+K, and every tool shows a hint at the bottom of the canvas.")),
     ...steps.map(([ic, title, text]) => h("div", { class: "action-card", style: { cursor: "default", marginBottom: "8px" } }, h("span", { class: "ai", html: icon(ic, 18) }), h("div", {}, h("b", {}, title), h("small", {}, text)))));
-  modal({
+  modal({ icon: "home",
     title: t("Welcome to MyArchitecture 10.0"), width: 640, body,
     buttons: [{ label: t("Open a sample"), value: "sample" }, { label: t("Start a new project"), value: "new" }, { label: t("Got it"), value: "ok", primary: true }],
   }).then((r) => {

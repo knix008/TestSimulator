@@ -15,7 +15,7 @@ import { roofModel, roofBase } from "../core/roof.js";
 import { drawFurniturePlan, drawLightSymbol, furnitureCorners, isLight } from "../lib/furniture.js";
 import { materialColor } from "../lib/materials.js";
 import { fmtLen, fmtArea, rotPt, labelPoint as labelPointOf } from "../core/geom.js";
-import { drawElementsUnder, drawElementsOver, drawShapedStair, highlightElements, elementBoundsPoints, shapedStairOutline } from "./elements.js";
+import { drawElementsUnder, drawElementsOver, drawShapedStair, highlightElements, elementBoundsPoints, shapedStairOutline, drawWallFinishes } from "./elements.js";
 import { isCurtainWall } from "../core/elements/geometry.js";
 import { syncOptions, optionHidden } from "../core/elements/model.js";
 
@@ -496,6 +496,7 @@ export function drawPlan(ctx, p, th, opts) {
 
   // Walls and openings.
   const { outlines } = drawWalls(ctx, p, walls, th, { ...o, lw });
+  if (show.finishes !== false) drawWallFinishes(ctx, p, walls, th, { lw, level: o.level }); // interior finishes along the faces
   const tags = openingTags(p);
   for (const w of walls) for (const s of openingSpans(p, w)) if (openingOk(s.o)) drawOpening(ctx, w, s, th, lw, tags.get(s.o.id), o);
 

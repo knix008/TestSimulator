@@ -328,6 +328,44 @@ async function shots() {
   await shot("menu-bim", T("BIM 메뉴", "The BIM menu"), async () => {
     await tab("plan"); const r = await rect('.menu-root[data-menu="BIM"]'); await a.click(r.x + 14, r.y + 14);
   });
+
+  // ------------------------------------------------------------------ interiors, materials, towers, bridges (feat-)
+  const scene3d = async (file, name) => {
+    await sample(file); await tab("3d");
+    await app(`const sc = app.store.project.scenes.find(s => s.name === ${JSON.stringify(name)}); if (sc) app.v3d.viewer.setCamera(sc.camera, 1); return 1`);
+    await sleep(1200);
+  };
+  await shot("feat-interior-3d", T("인테리어: 방마다 다른 벽 마감, 한쪽 면만 바꾼 포인트 벽(TV 벽), 걸레받이, 커튼과 샹들리에", "Interiors: a wall finish per room, a feature wall finished on one face (the TV wall), skirting, curtains and a chandelier"), async () => {
+    await scene3d("21-interior-design.myarch", "Living room");
+  });
+  await shot("feat-interior-plan", T("평면의 마감 띠: 벽 면을 따라 그 면의 마감 색이 보입니다", "Finishes on the plan: each wall face shows its finish colour as a band"), async () => {
+    await sample("21-interior-design.myarch"); await tab("plan"); await fit({ x1: -1000, y1: -1000, x2: 12000, y2: 9000 });
+    const r = await app(`return app.store.project.rooms.find(x => x.name === "Living room").id`);
+    await app(`app.plan.select([${JSON.stringify(r)}]); return 1`);
+  });
+  await shot("feat-material-picker", T("재질 선택 창: 분류, 검색, 최근 사용, 패턴 견본", "The material picker: groups, search, recently used and pattern swatches"), async () => {
+    await sample("21-interior-design.myarch"); await tab("plan"); await fit({ x1: -1000, y1: -1000, x2: 12000, y2: 9000 });
+    await app(`const r = app.store.project.rooms.find(x => x.name === "Living room"); app.plan.select([r.id]); return 1`); await sleep(400);
+    await app(`[...document.querySelectorAll("#right-panel .mat-pick")][1].click(); return 1`); await waitFor(`document.querySelector(".mat-pop")`);
+  });
+  await shot("feat-tower", T("격자 철탑: 높이·폭·패널·가새 형식으로 만드는 강재 부재 구조물", "Lattice towers: steel members made from the height, widths, panels and bracing"), async () => {
+    await scene3d("22-lattice-towers.myarch", "Overview");
+  });
+  await shot("feat-bridges", T("강 위의 교량들: 거더교, 트러스교, 타이드 아치교, 사장교, 현수교, 곡선 고가교", "Bridges across a river: girder, truss, tied-arch, cable-stayed, suspension and a curved viaduct"), async () => {
+    await scene3d("23-bridges.myarch", "Overview");
+  });
+  for (const [file, name, ko, en] of [
+    ["24-deck-arch-bridge.myarch", "deck-arch", "상로 아치교: 계곡 바닥에서 솟은 두 리브가 기둥으로 상판을 받칩니다", "Deck arch: two ribs rise from the valley floor and carry the deck on columns"],
+    ["25-haunched-girder-bridge.myarch", "haunched", "변단면 거더교: 교각 위에서 깊어지는 연속 박스 거더", "Haunched girder: a continuous box girder deeper over the piers"],
+    ["26-harp-cable-stayed-bridge.myarch", "harp", "단주탑 하프형 사장교: 주탑 하나와 평행한 케이블", "Single-pylon harp bridge: one pylon and parallel stays"],
+    ["27-extradosed-bridge.myarch", "extradosed", "엑스트라도즈드교: 낮은 마스트와 중앙 한 면의 케이블", "Extradosed bridge: short masts and stays in one central plane"],
+    ["28-stress-ribbon-footbridge.myarch", "ribbon", "스트레스 리본 보도교: 지점 사이에 처진 얇은 상판", "Stress-ribbon footbridge: a thin deck hanging between the supports"],
+  ]) await shot(`feat-bridge-${name}`, T(ko, en), async () => { await scene3d(file, "Overview"); });
+  await shot("feat-bridge-dialog", T("교량 대화상자: 형식, 경간, 길이, 폭, 높이, 경사, 곡선, 재료", "The bridge dialog: kind, spans, length, width, height, grade, curve and materials"), async () => {
+    await sample("23-bridges.myarch"); await tab("plan");
+    await app(`const st = app.store.project.structures.find(s => s.params.type === "suspension"); app.plan.select(app.store.project.members.filter(m => m.structure === st.id).map(m => m.id)); setTimeout(() => app.run("build.editStructure"), 0); return 1`);
+    await waitFor(`document.querySelector(".modal")`);
+  });
 }
 
 try {

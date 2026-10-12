@@ -1,0 +1,9395 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Single-pylon harp bridge",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Busan",
+  "rev": "A",
+  "date": "2026-10-12",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lvx4q2v05ywjr",
+   "name": "1F",
+   "elevation": 0,
+   "height": 2800,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000,
+  "member": 4500000
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [],
+ "openings": [],
+ "rooms": [],
+ "columns": [],
+ "stairs": [],
+ "furniture": [],
+ "roofs": [],
+ "dimensions": [],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "slabs": [],
+ "ceilings": [],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
+ "members": [
+  {
+   "role": "deck",
+   "pts": [
+    [
+     0,
+     0,
+     23533.333333333332
+    ],
+    [
+     5000,
+     0,
+     23533.333333333332
+    ],
+    [
+     10000,
+     0,
+     23533.333333333332
+    ],
+    [
+     15000,
+     0,
+     23533.333333333332
+    ],
+    [
+     20000,
+     0,
+     23533.333333333332
+    ],
+    [
+     25000,
+     0,
+     23533.333333333332
+    ],
+    [
+     30000,
+     0,
+     23533.333333333332
+    ],
+    [
+     35000,
+     0,
+     23533.333333333332
+    ],
+    [
+     40000,
+     0,
+     23533.333333333332
+    ],
+    [
+     45000,
+     0,
+     23533.333333333332
+    ],
+    [
+     50000,
+     0,
+     23533.333333333332
+    ],
+    [
+     55000,
+     0,
+     23533.333333333332
+    ],
+    [
+     60000,
+     0,
+     23533.333333333332
+    ],
+    [
+     65000,
+     0,
+     23533.333333333332
+    ],
+    [
+     70000,
+     0,
+     23533.333333333332
+    ],
+    [
+     75000,
+     0,
+     23533.333333333332
+    ],
+    [
+     80000,
+     0,
+     23533.333333333332
+    ],
+    [
+     85000,
+     0,
+     23533.333333333332
+    ],
+    [
+     90000,
+     0,
+     23533.333333333332
+    ],
+    [
+     95000,
+     0,
+     23533.333333333332
+    ],
+    [
+     100000,
+     0,
+     23533.333333333332
+    ],
+    [
+     105000,
+     0,
+     23533.333333333332
+    ],
+    [
+     110000,
+     0,
+     23533.333333333332
+    ],
+    [
+     115000,
+     0,
+     23533.333333333332
+    ],
+    [
+     120000,
+     0,
+     23533.333333333332
+    ],
+    [
+     125000,
+     0,
+     23533.333333333332
+    ],
+    [
+     130000,
+     0,
+     23533.333333333332
+    ],
+    [
+     135000,
+     0,
+     23533.333333333332
+    ],
+    [
+     140000,
+     0,
+     23533.333333333332
+    ],
+    [
+     145000,
+     0,
+     23533.333333333332
+    ],
+    [
+     150000,
+     0,
+     23533.333333333332
+    ],
+    [
+     155000,
+     0,
+     23533.333333333332
+    ],
+    [
+     160000,
+     0,
+     23533.333333333332
+    ],
+    [
+     165000,
+     0,
+     23533.333333333332
+    ],
+    [
+     170000,
+     0,
+     23533.333333333332
+    ],
+    [
+     175000,
+     0,
+     23533.333333333332
+    ],
+    [
+     180000,
+     0,
+     23533.333333333332
+    ],
+    [
+     185000,
+     0,
+     23533.333333333332
+    ],
+    [
+     190000,
+     0,
+     23533.333333333332
+    ],
+    [
+     195000,
+     0,
+     23533.333333333332
+    ],
+    [
+     200000,
+     0,
+     23533.333333333332
+    ],
+    [
+     205000,
+     0,
+     23533.333333333332
+    ],
+    [
+     210000,
+     0,
+     23533.333333333332
+    ],
+    [
+     215000,
+     0,
+     23533.333333333332
+    ],
+    [
+     220000,
+     0,
+     23533.333333333332
+    ],
+    [
+     225000,
+     0,
+     23533.333333333332
+    ],
+    [
+     230000,
+     0,
+     23533.333333333332
+    ],
+    [
+     235000,
+     0,
+     23533.333333333332
+    ],
+    [
+     240000,
+     0,
+     23533.333333333332
+    ],
+    [
+     245000,
+     0,
+     23533.333333333332
+    ],
+    [
+     250000,
+     0,
+     23533.333333333332
+    ],
+    [
+     255000,
+     0,
+     23533.333333333332
+    ],
+    [
+     260000,
+     0,
+     23533.333333333332
+    ],
+    [
+     265000,
+     0,
+     23533.333333333332
+    ],
+    [
+     270000,
+     0,
+     23533.333333333332
+    ],
+    [
+     275000,
+     0,
+     23533.333333333332
+    ],
+    [
+     280000,
+     0,
+     23533.333333333332
+    ]
+   ],
+   "profile": "rect",
+   "w": 22000,
+   "h": 933.3333333333334,
+   "material": "concrete",
+   "name": "Deck",
+   "id": "brx4q2v05yxr7-0",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "t": 65,
+   "roll": 0
+  },
+  {
+   "role": "girder",
+   "pts": [
+    [
+     0,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     5000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     10000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     15000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     20000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     25000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     30000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     35000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     40000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     45000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     50000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     55000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     60000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     65000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     70000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     75000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     80000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     85000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     90000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     95000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     100000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     105000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     110000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     115000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     120000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     125000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     130000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     135000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     140000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     145000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     150000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     155000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     160000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     165000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     170000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     175000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     180000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     185000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     190000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     195000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     200000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     205000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     210000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     215000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     220000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     225000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     230000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     235000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     240000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     245000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     250000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     255000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     260000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     265000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     270000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     275000,
+     -6600,
+     22133.333333333332
+    ],
+    [
+     280000,
+     -6600,
+     22133.333333333332
+    ]
+   ],
+   "profile": "box",
+   "w": 5500,
+   "h": 1866.6666666666667,
+   "t": 400,
+   "material": "concrete",
+   "id": "brx4q2v05yxr7-1",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "girder",
+   "pts": [
+    [
+     0,
+     6600,
+     22133.333333333332
+    ],
+    [
+     5000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     10000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     15000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     20000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     25000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     30000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     35000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     40000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     45000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     50000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     55000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     60000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     65000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     70000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     75000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     80000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     85000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     90000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     95000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     100000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     105000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     110000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     115000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     120000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     125000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     130000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     135000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     140000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     145000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     150000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     155000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     160000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     165000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     170000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     175000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     180000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     185000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     190000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     195000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     200000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     205000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     210000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     215000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     220000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     225000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     230000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     235000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     240000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     245000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     250000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     255000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     260000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     265000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     270000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     275000,
+     6600,
+     22133.333333333332
+    ],
+    [
+     280000,
+     6600,
+     22133.333333333332
+    ]
+   ],
+   "profile": "box",
+   "w": 5500,
+   "h": 1866.6666666666667,
+   "t": 400,
+   "material": "concrete",
+   "id": "brx4q2v05yxr7-2",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     21200
+    ]
+   ],
+   "profile": "rect",
+   "w": 22000,
+   "h": 1500,
+   "material": "concrete",
+   "name": "Abutment",
+   "roll": -90,
+   "id": "brx4q2v05yxr7-3",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "t": 105
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     280000,
+     0,
+     0
+    ],
+    [
+     280000,
+     0,
+     21200
+    ]
+   ],
+   "profile": "rect",
+   "w": 22000,
+   "h": 1500,
+   "material": "concrete",
+   "name": "Abutment",
+   "roll": -90,
+   "id": "brx4q2v05yxr7-4",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "t": 105
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     100800,
+     0,
+     0
+    ],
+    [
+     100800,
+     0,
+     99264
+    ]
+   ],
+   "profile": "box",
+   "w": 3500,
+   "h": 5000,
+   "t": 700,
+   "material": "concrete",
+   "name": "Pylon",
+   "roll": -90,
+   "id": "brx4q2v05yxr7-5",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new"
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     100800,
+     -11000,
+     20400
+    ],
+    [
+     100800,
+     11000,
+     20400
+    ]
+   ],
+   "profile": "rect",
+   "w": 3000,
+   "h": 1600,
+   "material": "concrete",
+   "name": "Pier cap",
+   "id": "brx4q2v05yxr7-6",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "t": 112,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     113619.69230769231,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     42063.36
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-7",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     93666.46153846153,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     42063.36
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-8",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     126439.38461538462,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     46579.2
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-9",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     86532.92307692308,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     46579.2
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-10",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     139259.07692307694,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     51095.03999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-11",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     79399.38461538461,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     51095.03999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-12",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     152078.76923076925,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     55610.880000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-13",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     72265.84615384616,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     55610.880000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-14",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     164898.46153846153,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     60126.72
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-15",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     65132.30769230769,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     60126.72
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-16",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     177718.15384615384,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     64642.560000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-17",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     57998.76923076923,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     64642.560000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-18",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     190537.84615384616,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     69158.4
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-19",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     50865.23076923077,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     69158.4
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-20",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     203357.53846153847,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     73674.24
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-21",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     43731.692307692305,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     73674.24
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-22",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     216177.23076923075,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     78190.07999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-23",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     36598.15384615385,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     78190.07999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-24",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     228996.92307692306,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     82705.92000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-25",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     29464.615384615376,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     82705.92000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-26",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     241816.61538461538,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     87221.76000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-27",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     22331.076923076922,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     87221.76000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-28",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     254636.3076923077,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     91737.6
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-29",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     15197.538461538454,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     91737.6
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-30",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     267456,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     96253.44
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-31",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     8064,
+     -10500,
+     24000
+    ],
+    [
+     100800,
+     -1260,
+     96253.44
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-32",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     113619.69230769231,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     42063.36
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-33",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     93666.46153846153,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     42063.36
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-34",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     126439.38461538462,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     46579.2
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-35",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     86532.92307692308,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     46579.2
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-36",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     139259.07692307694,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     51095.03999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-37",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     79399.38461538461,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     51095.03999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-38",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     152078.76923076925,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     55610.880000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-39",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     72265.84615384616,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     55610.880000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-40",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     164898.46153846153,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     60126.72
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-41",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     65132.30769230769,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     60126.72
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-42",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     177718.15384615384,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     64642.560000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-43",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     57998.76923076923,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     64642.560000000005
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-44",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     190537.84615384616,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     69158.4
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-45",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     50865.23076923077,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     69158.4
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-46",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     203357.53846153847,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     73674.24
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-47",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     43731.692307692305,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     73674.24
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-48",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     216177.23076923075,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     78190.07999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-49",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     36598.15384615385,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     78190.07999999999
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-50",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     228996.92307692306,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     82705.92000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-51",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     29464.615384615376,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     82705.92000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-52",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     241816.61538461538,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     87221.76000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-53",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     22331.076923076922,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     87221.76000000001
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-54",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     254636.3076923077,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     91737.6
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-55",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     15197.538461538454,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     91737.6
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-56",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     267456,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     96253.44
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-57",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "cable",
+   "pts": [
+    [
+     8064,
+     10500,
+     24000
+    ],
+    [
+     100800,
+     1260,
+     96253.44
+    ]
+   ],
+   "profile": "cable",
+   "w": 160,
+   "material": "stainless",
+   "id": "brx4q2v05yxr7-58",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 160,
+   "t": 11,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     0,
+     -10850,
+     25100
+    ],
+    [
+     5000,
+     -10850,
+     25100
+    ],
+    [
+     10000,
+     -10850,
+     25100
+    ],
+    [
+     15000,
+     -10850,
+     25100
+    ],
+    [
+     20000,
+     -10850,
+     25100
+    ],
+    [
+     25000,
+     -10850,
+     25100
+    ],
+    [
+     30000,
+     -10850,
+     25100
+    ],
+    [
+     35000,
+     -10850,
+     25100
+    ],
+    [
+     40000,
+     -10850,
+     25100
+    ],
+    [
+     45000,
+     -10850,
+     25100
+    ],
+    [
+     50000,
+     -10850,
+     25100
+    ],
+    [
+     55000,
+     -10850,
+     25100
+    ],
+    [
+     60000,
+     -10850,
+     25100
+    ],
+    [
+     65000,
+     -10850,
+     25100
+    ],
+    [
+     70000,
+     -10850,
+     25100
+    ],
+    [
+     75000,
+     -10850,
+     25100
+    ],
+    [
+     80000,
+     -10850,
+     25100
+    ],
+    [
+     85000,
+     -10850,
+     25100
+    ],
+    [
+     90000,
+     -10850,
+     25100
+    ],
+    [
+     95000,
+     -10850,
+     25100
+    ],
+    [
+     100000,
+     -10850,
+     25100
+    ],
+    [
+     105000,
+     -10850,
+     25100
+    ],
+    [
+     110000,
+     -10850,
+     25100
+    ],
+    [
+     115000,
+     -10850,
+     25100
+    ],
+    [
+     120000,
+     -10850,
+     25100
+    ],
+    [
+     125000,
+     -10850,
+     25100
+    ],
+    [
+     130000,
+     -10850,
+     25100
+    ],
+    [
+     135000,
+     -10850,
+     25100
+    ],
+    [
+     140000,
+     -10850,
+     25100
+    ],
+    [
+     145000,
+     -10850,
+     25100
+    ],
+    [
+     150000,
+     -10850,
+     25100
+    ],
+    [
+     155000,
+     -10850,
+     25100
+    ],
+    [
+     160000,
+     -10850,
+     25100
+    ],
+    [
+     165000,
+     -10850,
+     25100
+    ],
+    [
+     170000,
+     -10850,
+     25100
+    ],
+    [
+     175000,
+     -10850,
+     25100
+    ],
+    [
+     180000,
+     -10850,
+     25100
+    ],
+    [
+     185000,
+     -10850,
+     25100
+    ],
+    [
+     190000,
+     -10850,
+     25100
+    ],
+    [
+     195000,
+     -10850,
+     25100
+    ],
+    [
+     200000,
+     -10850,
+     25100
+    ],
+    [
+     205000,
+     -10850,
+     25100
+    ],
+    [
+     210000,
+     -10850,
+     25100
+    ],
+    [
+     215000,
+     -10850,
+     25100
+    ],
+    [
+     220000,
+     -10850,
+     25100
+    ],
+    [
+     225000,
+     -10850,
+     25100
+    ],
+    [
+     230000,
+     -10850,
+     25100
+    ],
+    [
+     235000,
+     -10850,
+     25100
+    ],
+    [
+     240000,
+     -10850,
+     25100
+    ],
+    [
+     245000,
+     -10850,
+     25100
+    ],
+    [
+     250000,
+     -10850,
+     25100
+    ],
+    [
+     255000,
+     -10850,
+     25100
+    ],
+    [
+     260000,
+     -10850,
+     25100
+    ],
+    [
+     265000,
+     -10850,
+     25100
+    ],
+    [
+     270000,
+     -10850,
+     25100
+    ],
+    [
+     275000,
+     -10850,
+     25100
+    ],
+    [
+     280000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "tube",
+   "w": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "name": "Handrail",
+   "id": "brx4q2v05yxr7-59",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 60,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     -10850,
+     24000
+    ],
+    [
+     0,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-60",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     2500,
+     -10850,
+     24000
+    ],
+    [
+     2500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-61",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     5000,
+     -10850,
+     24000
+    ],
+    [
+     5000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-62",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     7500,
+     -10850,
+     24000
+    ],
+    [
+     7500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-63",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     10000,
+     -10850,
+     24000
+    ],
+    [
+     10000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-64",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     12500,
+     -10850,
+     24000
+    ],
+    [
+     12500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-65",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     15000,
+     -10850,
+     24000
+    ],
+    [
+     15000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-66",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     17500,
+     -10850,
+     24000
+    ],
+    [
+     17500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-67",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     20000,
+     -10850,
+     24000
+    ],
+    [
+     20000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-68",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     22500,
+     -10850,
+     24000
+    ],
+    [
+     22500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-69",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     25000,
+     -10850,
+     24000
+    ],
+    [
+     25000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-70",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     27500,
+     -10850,
+     24000
+    ],
+    [
+     27500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-71",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     30000,
+     -10850,
+     24000
+    ],
+    [
+     30000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-72",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     32500,
+     -10850,
+     24000
+    ],
+    [
+     32500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-73",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     35000,
+     -10850,
+     24000
+    ],
+    [
+     35000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-74",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     37500,
+     -10850,
+     24000
+    ],
+    [
+     37500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-75",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     40000,
+     -10850,
+     24000
+    ],
+    [
+     40000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-76",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     42500,
+     -10850,
+     24000
+    ],
+    [
+     42500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-77",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     45000,
+     -10850,
+     24000
+    ],
+    [
+     45000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-78",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     47500,
+     -10850,
+     24000
+    ],
+    [
+     47500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-79",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     50000,
+     -10850,
+     24000
+    ],
+    [
+     50000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-80",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     52500,
+     -10850,
+     24000
+    ],
+    [
+     52500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-81",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     55000,
+     -10850,
+     24000
+    ],
+    [
+     55000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-82",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     57500,
+     -10850,
+     24000
+    ],
+    [
+     57500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-83",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     60000,
+     -10850,
+     24000
+    ],
+    [
+     60000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-84",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     62500,
+     -10850,
+     24000
+    ],
+    [
+     62500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-85",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     65000,
+     -10850,
+     24000
+    ],
+    [
+     65000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-86",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     67500,
+     -10850,
+     24000
+    ],
+    [
+     67500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-87",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     70000,
+     -10850,
+     24000
+    ],
+    [
+     70000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-88",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     72500,
+     -10850,
+     24000
+    ],
+    [
+     72500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-89",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     75000,
+     -10850,
+     24000
+    ],
+    [
+     75000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-90",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     77500,
+     -10850,
+     24000
+    ],
+    [
+     77500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-91",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     80000,
+     -10850,
+     24000
+    ],
+    [
+     80000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-92",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     82500,
+     -10850,
+     24000
+    ],
+    [
+     82500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-93",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     85000,
+     -10850,
+     24000
+    ],
+    [
+     85000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-94",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     87500,
+     -10850,
+     24000
+    ],
+    [
+     87500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-95",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     90000,
+     -10850,
+     24000
+    ],
+    [
+     90000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-96",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     92500,
+     -10850,
+     24000
+    ],
+    [
+     92500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-97",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     95000,
+     -10850,
+     24000
+    ],
+    [
+     95000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-98",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     97500,
+     -10850,
+     24000
+    ],
+    [
+     97500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-99",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     100000,
+     -10850,
+     24000
+    ],
+    [
+     100000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-100",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     102500,
+     -10850,
+     24000
+    ],
+    [
+     102500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-101",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     105000,
+     -10850,
+     24000
+    ],
+    [
+     105000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-102",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     107500,
+     -10850,
+     24000
+    ],
+    [
+     107500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-103",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     110000,
+     -10850,
+     24000
+    ],
+    [
+     110000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-104",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     112500,
+     -10850,
+     24000
+    ],
+    [
+     112500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-105",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     115000,
+     -10850,
+     24000
+    ],
+    [
+     115000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-106",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     117500,
+     -10850,
+     24000
+    ],
+    [
+     117500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-107",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     120000,
+     -10850,
+     24000
+    ],
+    [
+     120000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-108",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     122500,
+     -10850,
+     24000
+    ],
+    [
+     122500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-109",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     125000,
+     -10850,
+     24000
+    ],
+    [
+     125000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-110",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     127500,
+     -10850,
+     24000
+    ],
+    [
+     127500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-111",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     130000,
+     -10850,
+     24000
+    ],
+    [
+     130000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-112",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     132500,
+     -10850,
+     24000
+    ],
+    [
+     132500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-113",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     135000,
+     -10850,
+     24000
+    ],
+    [
+     135000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-114",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     137500,
+     -10850,
+     24000
+    ],
+    [
+     137500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-115",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     140000,
+     -10850,
+     24000
+    ],
+    [
+     140000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-116",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     142500,
+     -10850,
+     24000
+    ],
+    [
+     142500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-117",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     145000,
+     -10850,
+     24000
+    ],
+    [
+     145000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-118",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     147500,
+     -10850,
+     24000
+    ],
+    [
+     147500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-119",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     150000,
+     -10850,
+     24000
+    ],
+    [
+     150000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-120",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     152500,
+     -10850,
+     24000
+    ],
+    [
+     152500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-121",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     155000,
+     -10850,
+     24000
+    ],
+    [
+     155000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-122",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     157500,
+     -10850,
+     24000
+    ],
+    [
+     157500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-123",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     160000,
+     -10850,
+     24000
+    ],
+    [
+     160000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-124",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     162500,
+     -10850,
+     24000
+    ],
+    [
+     162500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-125",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     165000,
+     -10850,
+     24000
+    ],
+    [
+     165000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-126",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     167500,
+     -10850,
+     24000
+    ],
+    [
+     167500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-127",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     170000,
+     -10850,
+     24000
+    ],
+    [
+     170000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-128",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     172500,
+     -10850,
+     24000
+    ],
+    [
+     172500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-129",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     175000,
+     -10850,
+     24000
+    ],
+    [
+     175000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-130",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     177500,
+     -10850,
+     24000
+    ],
+    [
+     177500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-131",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     180000,
+     -10850,
+     24000
+    ],
+    [
+     180000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-132",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     182500,
+     -10850,
+     24000
+    ],
+    [
+     182500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-133",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     185000,
+     -10850,
+     24000
+    ],
+    [
+     185000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-134",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     187500,
+     -10850,
+     24000
+    ],
+    [
+     187500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-135",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     190000,
+     -10850,
+     24000
+    ],
+    [
+     190000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-136",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     192500,
+     -10850,
+     24000
+    ],
+    [
+     192500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-137",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     195000,
+     -10850,
+     24000
+    ],
+    [
+     195000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-138",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     197500,
+     -10850,
+     24000
+    ],
+    [
+     197500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-139",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     200000,
+     -10850,
+     24000
+    ],
+    [
+     200000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-140",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     202500,
+     -10850,
+     24000
+    ],
+    [
+     202500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-141",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     205000,
+     -10850,
+     24000
+    ],
+    [
+     205000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-142",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     207500,
+     -10850,
+     24000
+    ],
+    [
+     207500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-143",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     210000,
+     -10850,
+     24000
+    ],
+    [
+     210000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-144",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     212500,
+     -10850,
+     24000
+    ],
+    [
+     212500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-145",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     215000,
+     -10850,
+     24000
+    ],
+    [
+     215000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-146",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     217500,
+     -10850,
+     24000
+    ],
+    [
+     217500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-147",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     220000,
+     -10850,
+     24000
+    ],
+    [
+     220000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-148",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     222500,
+     -10850,
+     24000
+    ],
+    [
+     222500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-149",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     225000,
+     -10850,
+     24000
+    ],
+    [
+     225000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-150",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     227500,
+     -10850,
+     24000
+    ],
+    [
+     227500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-151",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     230000,
+     -10850,
+     24000
+    ],
+    [
+     230000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-152",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     232500,
+     -10850,
+     24000
+    ],
+    [
+     232500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-153",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     235000,
+     -10850,
+     24000
+    ],
+    [
+     235000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-154",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     237500,
+     -10850,
+     24000
+    ],
+    [
+     237500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-155",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     240000,
+     -10850,
+     24000
+    ],
+    [
+     240000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-156",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     242500,
+     -10850,
+     24000
+    ],
+    [
+     242500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-157",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     245000,
+     -10850,
+     24000
+    ],
+    [
+     245000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-158",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     247500,
+     -10850,
+     24000
+    ],
+    [
+     247500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-159",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     250000,
+     -10850,
+     24000
+    ],
+    [
+     250000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-160",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     252500,
+     -10850,
+     24000
+    ],
+    [
+     252500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-161",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     255000,
+     -10850,
+     24000
+    ],
+    [
+     255000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-162",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     257500,
+     -10850,
+     24000
+    ],
+    [
+     257500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-163",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     260000,
+     -10850,
+     24000
+    ],
+    [
+     260000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-164",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     262500,
+     -10850,
+     24000
+    ],
+    [
+     262500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-165",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     265000,
+     -10850,
+     24000
+    ],
+    [
+     265000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-166",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     267500,
+     -10850,
+     24000
+    ],
+    [
+     267500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-167",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     270000,
+     -10850,
+     24000
+    ],
+    [
+     270000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-168",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     272500,
+     -10850,
+     24000
+    ],
+    [
+     272500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-169",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     275000,
+     -10850,
+     24000
+    ],
+    [
+     275000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-170",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     277500,
+     -10850,
+     24000
+    ],
+    [
+     277500,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-171",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     280000,
+     -10850,
+     24000
+    ],
+    [
+     280000,
+     -10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-172",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     0,
+     10850,
+     25100
+    ],
+    [
+     5000,
+     10850,
+     25100
+    ],
+    [
+     10000,
+     10850,
+     25100
+    ],
+    [
+     15000,
+     10850,
+     25100
+    ],
+    [
+     20000,
+     10850,
+     25100
+    ],
+    [
+     25000,
+     10850,
+     25100
+    ],
+    [
+     30000,
+     10850,
+     25100
+    ],
+    [
+     35000,
+     10850,
+     25100
+    ],
+    [
+     40000,
+     10850,
+     25100
+    ],
+    [
+     45000,
+     10850,
+     25100
+    ],
+    [
+     50000,
+     10850,
+     25100
+    ],
+    [
+     55000,
+     10850,
+     25100
+    ],
+    [
+     60000,
+     10850,
+     25100
+    ],
+    [
+     65000,
+     10850,
+     25100
+    ],
+    [
+     70000,
+     10850,
+     25100
+    ],
+    [
+     75000,
+     10850,
+     25100
+    ],
+    [
+     80000,
+     10850,
+     25100
+    ],
+    [
+     85000,
+     10850,
+     25100
+    ],
+    [
+     90000,
+     10850,
+     25100
+    ],
+    [
+     95000,
+     10850,
+     25100
+    ],
+    [
+     100000,
+     10850,
+     25100
+    ],
+    [
+     105000,
+     10850,
+     25100
+    ],
+    [
+     110000,
+     10850,
+     25100
+    ],
+    [
+     115000,
+     10850,
+     25100
+    ],
+    [
+     120000,
+     10850,
+     25100
+    ],
+    [
+     125000,
+     10850,
+     25100
+    ],
+    [
+     130000,
+     10850,
+     25100
+    ],
+    [
+     135000,
+     10850,
+     25100
+    ],
+    [
+     140000,
+     10850,
+     25100
+    ],
+    [
+     145000,
+     10850,
+     25100
+    ],
+    [
+     150000,
+     10850,
+     25100
+    ],
+    [
+     155000,
+     10850,
+     25100
+    ],
+    [
+     160000,
+     10850,
+     25100
+    ],
+    [
+     165000,
+     10850,
+     25100
+    ],
+    [
+     170000,
+     10850,
+     25100
+    ],
+    [
+     175000,
+     10850,
+     25100
+    ],
+    [
+     180000,
+     10850,
+     25100
+    ],
+    [
+     185000,
+     10850,
+     25100
+    ],
+    [
+     190000,
+     10850,
+     25100
+    ],
+    [
+     195000,
+     10850,
+     25100
+    ],
+    [
+     200000,
+     10850,
+     25100
+    ],
+    [
+     205000,
+     10850,
+     25100
+    ],
+    [
+     210000,
+     10850,
+     25100
+    ],
+    [
+     215000,
+     10850,
+     25100
+    ],
+    [
+     220000,
+     10850,
+     25100
+    ],
+    [
+     225000,
+     10850,
+     25100
+    ],
+    [
+     230000,
+     10850,
+     25100
+    ],
+    [
+     235000,
+     10850,
+     25100
+    ],
+    [
+     240000,
+     10850,
+     25100
+    ],
+    [
+     245000,
+     10850,
+     25100
+    ],
+    [
+     250000,
+     10850,
+     25100
+    ],
+    [
+     255000,
+     10850,
+     25100
+    ],
+    [
+     260000,
+     10850,
+     25100
+    ],
+    [
+     265000,
+     10850,
+     25100
+    ],
+    [
+     270000,
+     10850,
+     25100
+    ],
+    [
+     275000,
+     10850,
+     25100
+    ],
+    [
+     280000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "tube",
+   "w": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "name": "Handrail",
+   "id": "brx4q2v05yxr7-173",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "h": 60,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     10850,
+     24000
+    ],
+    [
+     0,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-174",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     2500,
+     10850,
+     24000
+    ],
+    [
+     2500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-175",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     5000,
+     10850,
+     24000
+    ],
+    [
+     5000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-176",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     7500,
+     10850,
+     24000
+    ],
+    [
+     7500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-177",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     10000,
+     10850,
+     24000
+    ],
+    [
+     10000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-178",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     12500,
+     10850,
+     24000
+    ],
+    [
+     12500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-179",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     15000,
+     10850,
+     24000
+    ],
+    [
+     15000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-180",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     17500,
+     10850,
+     24000
+    ],
+    [
+     17500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-181",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     20000,
+     10850,
+     24000
+    ],
+    [
+     20000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-182",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     22500,
+     10850,
+     24000
+    ],
+    [
+     22500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-183",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     25000,
+     10850,
+     24000
+    ],
+    [
+     25000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-184",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     27500,
+     10850,
+     24000
+    ],
+    [
+     27500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-185",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     30000,
+     10850,
+     24000
+    ],
+    [
+     30000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-186",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     32500,
+     10850,
+     24000
+    ],
+    [
+     32500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-187",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     35000,
+     10850,
+     24000
+    ],
+    [
+     35000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-188",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     37500,
+     10850,
+     24000
+    ],
+    [
+     37500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-189",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     40000,
+     10850,
+     24000
+    ],
+    [
+     40000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-190",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     42500,
+     10850,
+     24000
+    ],
+    [
+     42500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-191",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     45000,
+     10850,
+     24000
+    ],
+    [
+     45000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-192",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     47500,
+     10850,
+     24000
+    ],
+    [
+     47500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-193",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     50000,
+     10850,
+     24000
+    ],
+    [
+     50000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-194",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     52500,
+     10850,
+     24000
+    ],
+    [
+     52500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-195",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     55000,
+     10850,
+     24000
+    ],
+    [
+     55000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-196",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     57500,
+     10850,
+     24000
+    ],
+    [
+     57500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-197",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     60000,
+     10850,
+     24000
+    ],
+    [
+     60000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-198",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     62500,
+     10850,
+     24000
+    ],
+    [
+     62500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-199",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     65000,
+     10850,
+     24000
+    ],
+    [
+     65000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-200",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     67500,
+     10850,
+     24000
+    ],
+    [
+     67500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-201",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     70000,
+     10850,
+     24000
+    ],
+    [
+     70000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-202",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     72500,
+     10850,
+     24000
+    ],
+    [
+     72500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-203",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     75000,
+     10850,
+     24000
+    ],
+    [
+     75000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-204",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     77500,
+     10850,
+     24000
+    ],
+    [
+     77500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-205",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     80000,
+     10850,
+     24000
+    ],
+    [
+     80000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-206",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     82500,
+     10850,
+     24000
+    ],
+    [
+     82500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-207",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     85000,
+     10850,
+     24000
+    ],
+    [
+     85000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-208",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     87500,
+     10850,
+     24000
+    ],
+    [
+     87500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-209",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     90000,
+     10850,
+     24000
+    ],
+    [
+     90000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-210",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     92500,
+     10850,
+     24000
+    ],
+    [
+     92500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-211",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     95000,
+     10850,
+     24000
+    ],
+    [
+     95000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-212",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     97500,
+     10850,
+     24000
+    ],
+    [
+     97500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-213",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     100000,
+     10850,
+     24000
+    ],
+    [
+     100000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-214",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     102500,
+     10850,
+     24000
+    ],
+    [
+     102500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-215",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     105000,
+     10850,
+     24000
+    ],
+    [
+     105000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-216",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     107500,
+     10850,
+     24000
+    ],
+    [
+     107500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-217",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     110000,
+     10850,
+     24000
+    ],
+    [
+     110000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-218",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     112500,
+     10850,
+     24000
+    ],
+    [
+     112500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-219",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     115000,
+     10850,
+     24000
+    ],
+    [
+     115000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-220",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     117500,
+     10850,
+     24000
+    ],
+    [
+     117500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-221",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     120000,
+     10850,
+     24000
+    ],
+    [
+     120000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-222",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     122500,
+     10850,
+     24000
+    ],
+    [
+     122500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-223",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     125000,
+     10850,
+     24000
+    ],
+    [
+     125000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-224",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     127500,
+     10850,
+     24000
+    ],
+    [
+     127500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-225",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     130000,
+     10850,
+     24000
+    ],
+    [
+     130000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-226",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     132500,
+     10850,
+     24000
+    ],
+    [
+     132500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-227",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     135000,
+     10850,
+     24000
+    ],
+    [
+     135000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-228",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     137500,
+     10850,
+     24000
+    ],
+    [
+     137500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-229",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     140000,
+     10850,
+     24000
+    ],
+    [
+     140000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-230",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     142500,
+     10850,
+     24000
+    ],
+    [
+     142500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-231",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     145000,
+     10850,
+     24000
+    ],
+    [
+     145000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-232",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     147500,
+     10850,
+     24000
+    ],
+    [
+     147500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-233",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     150000,
+     10850,
+     24000
+    ],
+    [
+     150000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-234",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     152500,
+     10850,
+     24000
+    ],
+    [
+     152500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-235",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     155000,
+     10850,
+     24000
+    ],
+    [
+     155000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-236",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     157500,
+     10850,
+     24000
+    ],
+    [
+     157500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-237",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     160000,
+     10850,
+     24000
+    ],
+    [
+     160000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-238",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     162500,
+     10850,
+     24000
+    ],
+    [
+     162500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-239",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     165000,
+     10850,
+     24000
+    ],
+    [
+     165000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-240",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     167500,
+     10850,
+     24000
+    ],
+    [
+     167500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-241",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     170000,
+     10850,
+     24000
+    ],
+    [
+     170000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-242",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     172500,
+     10850,
+     24000
+    ],
+    [
+     172500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-243",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     175000,
+     10850,
+     24000
+    ],
+    [
+     175000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-244",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     177500,
+     10850,
+     24000
+    ],
+    [
+     177500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-245",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     180000,
+     10850,
+     24000
+    ],
+    [
+     180000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-246",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     182500,
+     10850,
+     24000
+    ],
+    [
+     182500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-247",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     185000,
+     10850,
+     24000
+    ],
+    [
+     185000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-248",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     187500,
+     10850,
+     24000
+    ],
+    [
+     187500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-249",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     190000,
+     10850,
+     24000
+    ],
+    [
+     190000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-250",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     192500,
+     10850,
+     24000
+    ],
+    [
+     192500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-251",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     195000,
+     10850,
+     24000
+    ],
+    [
+     195000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-252",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     197500,
+     10850,
+     24000
+    ],
+    [
+     197500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-253",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     200000,
+     10850,
+     24000
+    ],
+    [
+     200000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-254",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     202500,
+     10850,
+     24000
+    ],
+    [
+     202500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-255",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     205000,
+     10850,
+     24000
+    ],
+    [
+     205000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-256",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     207500,
+     10850,
+     24000
+    ],
+    [
+     207500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-257",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     210000,
+     10850,
+     24000
+    ],
+    [
+     210000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-258",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     212500,
+     10850,
+     24000
+    ],
+    [
+     212500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-259",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     215000,
+     10850,
+     24000
+    ],
+    [
+     215000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-260",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     217500,
+     10850,
+     24000
+    ],
+    [
+     217500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-261",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     220000,
+     10850,
+     24000
+    ],
+    [
+     220000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-262",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     222500,
+     10850,
+     24000
+    ],
+    [
+     222500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-263",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     225000,
+     10850,
+     24000
+    ],
+    [
+     225000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-264",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     227500,
+     10850,
+     24000
+    ],
+    [
+     227500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-265",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     230000,
+     10850,
+     24000
+    ],
+    [
+     230000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-266",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     232500,
+     10850,
+     24000
+    ],
+    [
+     232500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-267",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     235000,
+     10850,
+     24000
+    ],
+    [
+     235000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-268",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     237500,
+     10850,
+     24000
+    ],
+    [
+     237500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-269",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     240000,
+     10850,
+     24000
+    ],
+    [
+     240000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-270",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     242500,
+     10850,
+     24000
+    ],
+    [
+     242500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-271",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     245000,
+     10850,
+     24000
+    ],
+    [
+     245000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-272",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     247500,
+     10850,
+     24000
+    ],
+    [
+     247500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-273",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     250000,
+     10850,
+     24000
+    ],
+    [
+     250000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-274",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     252500,
+     10850,
+     24000
+    ],
+    [
+     252500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-275",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     255000,
+     10850,
+     24000
+    ],
+    [
+     255000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-276",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     257500,
+     10850,
+     24000
+    ],
+    [
+     257500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-277",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     260000,
+     10850,
+     24000
+    ],
+    [
+     260000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-278",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     262500,
+     10850,
+     24000
+    ],
+    [
+     262500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-279",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     265000,
+     10850,
+     24000
+    ],
+    [
+     265000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-280",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     267500,
+     10850,
+     24000
+    ],
+    [
+     267500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-281",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     270000,
+     10850,
+     24000
+    ],
+    [
+     270000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-282",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     272500,
+     10850,
+     24000
+    ],
+    [
+     272500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-283",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     275000,
+     10850,
+     24000
+    ],
+    [
+     275000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-284",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     277500,
+     10850,
+     24000
+    ],
+    [
+     277500,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-285",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     280000,
+     10850,
+     24000
+    ],
+    [
+     280000,
+     10850,
+     25100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "steel-grey",
+   "id": "brx4q2v05yxr7-286",
+   "level": "lvx4q2v05ywjr",
+   "structure": "brx4q2v05yxr7",
+   "group": "brx4q2v05yxr7",
+   "phase": "new",
+   "roll": 0
+  }
+ ],
+ "models": [],
+ "solids": [
+  {
+   "id": "vx4q2v05yyh4",
+   "level": "lvx4q2v05ywjr",
+   "name": "Harbour",
+   "pts": [
+    [
+     -40000,
+     -120000
+    ],
+    [
+     320000,
+     -120000
+    ],
+    [
+     320000,
+     120000
+    ],
+    [
+     -40000,
+     120000
+    ]
+   ],
+   "z0": -200,
+   "height": 260,
+   "taper": 1,
+   "material": "water",
+   "phase": "new"
+  },
+  {
+   "id": "vx4q2v05yzdx",
+   "level": "lvx4q2v05ywjr",
+   "name": "Quay west",
+   "pts": [
+    [
+     -90000,
+     -120000
+    ],
+    [
+     0,
+     -120000
+    ],
+    [
+     0,
+     120000
+    ],
+    [
+     -90000,
+     120000
+    ]
+   ],
+   "z0": -200,
+   "height": 300,
+   "taper": 1,
+   "material": "pavers",
+   "phase": "new"
+  },
+  {
+   "id": "vx4q2v05z06n",
+   "level": "lvx4q2v05ywjr",
+   "name": "Quay east",
+   "pts": [
+    [
+     280000,
+     -120000
+    ],
+    [
+     370000,
+     -120000
+    ],
+    [
+     370000,
+     120000
+    ],
+    [
+     280000,
+     120000
+    ]
+   ],
+   "z0": -200,
+   "height": 300,
+   "taper": 1,
+   "material": "pavers",
+   "phase": "new"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "scx4q2v05z101",
+   "name": "Overview",
+   "camera": {
+    "pos": [
+     473.55493851832983,
+     272.9085860604516,
+     606.4635245787814
+    ],
+    "target": [
+     140,
+     2,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scx4q2v05z2rc",
+   "name": "From the water",
+   "camera": {
+    "pos": [
+     200,
+     5,
+     -110
+    ],
+    "target": [
+     101,
+     60,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lvx4q2v05ywjr"
+ },
+ "structures": [
+  {
+   "id": "brx4q2v05yxr7",
+   "kind": "bridge",
+   "level": "lvx4q2v05ywjr",
+   "name": "Single-pylon harp bridge",
+   "params": {
+    "type": "harp",
+    "x": 0,
+    "y": 0,
+    "angle": 0,
+    "length": 280000,
+    "spans": 2,
+    "width": 22000,
+    "deckZ": 24000,
+    "deckDepth": 2800,
+    "grade": 0,
+    "crest": 0,
+    "radius": 0,
+    "height": 0,
+    "pierShape": "round",
+    "pierWidth": 2000,
+    "material": "concrete",
+    "steel": "steel-grey",
+    "cable": "stainless",
+    "railing": true
+   }
+  }
+ ],
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [],
+ "sheets": [
+  {
+   "id": "shx4q2w05z852",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpx4q2w05z9yj",
+     "view": "pl-lvx4q2v05ywjr",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  }
+ ],
+ "annotations": [],
+ "revisions": [],
+ "publishSets": [],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
+ }
+}
