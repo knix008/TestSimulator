@@ -115,6 +115,22 @@ test('insertCards and duplicateCards give fresh ids', () => {
   assert.equal(board.columns[0].cards[1].id, dups[0].id, 'duplicate goes right after the original');
 });
 
+test('column background: pastel or custom colour, opacity 0–100', () => {
+  const board = sample();
+  const id = board.columns[0].id;
+  assert.equal(B.PASTELS.length, 20);
+  assert.equal(new Set(B.PASTELS.map((p) => p.hex)).size, 20);
+  B.updateColumn(board, id, { background: B.PASTELS[4].hex, bgOpacity: 55 });
+  assert.equal(board.columns[0].background, B.PASTELS[4].hex);
+  assert.equal(board.columns[0].bgOpacity, 55);
+  B.updateColumn(board, id, { background: '#ABCDEF', bgOpacity: 400 });
+  assert.equal(board.columns[0].background, '#abcdef', 'custom colour');
+  assert.equal(board.columns[0].bgOpacity, 100);
+  B.updateColumn(board, id, { background: 'red' });
+  assert.equal(board.columns[0].background, '', 'invalid colour → none');
+  assert.equal(B.createColumn({}).bgOpacity, 100);
+});
+
 test('removeCards removes from every column', () => {
   const board = sample();
   const ids = B.allCards(board).map((c) => c.id).slice(0, 2);

@@ -1,5 +1,6 @@
 // Application settings: defaults, validation, and persistence in localStorage
 // (shared by the main window and the popup windows, which watch it).
+import { normalizeCustom, THEME_IDS } from '../themes.js';
 
 export const STORAGE_KEY = 'mykanban.settings.v1';
 export const RECENT_KEY = 'mykanban.recent.v1';
@@ -16,6 +17,7 @@ export function defaultSettings(language = 'ko') {
   return {
     language,
     theme: 'light',
+    customTheme: normalizeCustom(null),
     fontFamily: '',
     fontSize: 14,
     fontWeight: 400,
@@ -48,7 +50,8 @@ export function normalizeSettings(raw = {}, language) {
   const base = defaultSettings(raw.language === 'en' || raw.language === 'ko' ? raw.language : language);
   const s = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) };
   s.language = s.language === 'en' ? 'en' : 'ko';
-  s.theme = typeof s.theme === 'string' && s.theme ? s.theme : base.theme;
+  s.theme = THEME_IDS.includes(s.theme) ? s.theme : base.theme;
+  s.customTheme = normalizeCustom(s.customTheme);
   s.fontFamily = typeof s.fontFamily === 'string' ? s.fontFamily : '';
   s.fontSize = clamp(s.fontSize, FONT_SIZE.min, FONT_SIZE.max, base.fontSize);
   s.fontWeight = FONT_WEIGHTS.includes(Number(s.fontWeight)) ? Number(s.fontWeight) : base.fontWeight;

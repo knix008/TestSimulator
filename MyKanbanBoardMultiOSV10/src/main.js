@@ -9,7 +9,7 @@ import { applyFont, applyTheme, resolveTheme } from './themes.js';
 const settings = loadSettings(globalThis.localStorage);
 setLanguage(settings.language);
 // Before the first paint, so no window flashes in the wrong colours.
-applyTheme(resolveTheme(settings.theme, globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches));
+applyTheme(resolveTheme(settings.theme, globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches, settings.customTheme));
 applyFont(settings);
 
 const label = window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label

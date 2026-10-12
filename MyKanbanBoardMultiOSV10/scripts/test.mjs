@@ -34,7 +34,7 @@ const CATEGORIES = [
   { id: 'js', title: 'JS 단위 테스트', subtitle: '보드 · 실행 취소 · 형식 · 프로젝트 · 첨부 · 인쇄 · 설정 · 번역 · 테마', tint: c.cyan, run: runJs('unit') },
   { id: 'package', title: '패키징 · 아이콘', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 데이터 삭제 질문 · 재설치', tint: c.purple, run: runJs('static') },
   { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · SQLite 저장소', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
-  { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL · PostgreSQL 서버 (test/db.local.json)', tint: c.teal, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
+  { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL 서버 (test/db.local.json) · 임시 PostgreSQL 서버', tint: c.teal, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
   { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
   { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱 실행 후 메뉴·툴바·팝업·파일·DB 조작 (CDP)', tint: c.yellow, run: runDesktop },
   { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사', tint: c.orange, run: runInstaller, optIn: true },
@@ -153,8 +153,17 @@ function runJs(folder) {
 }
 
 /** Runs cargo test single-threaded and times each test from the streamed output. */
+/** A copy of the debug app left running (crashed test, manual run) keeps the exe locked for cargo. */
+function stopDebugApp() {
+  if (process.platform !== 'win32') return Promise.resolve();
+  return new Promise((resolve) => {
+    const kill = spawn('powershell.exe', ['-NoProfile', '-Command', `Get-Process mykanbanboard -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${path.join(root, 'src-tauri', 'target').replace(/'/g, "''")}*' } | Stop-Process -Force`], { stdio: 'ignore', windowsHide: true });
+    kill.on('close', () => setTimeout(resolve, 300));
+  });
+}
+
 function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
-  return (report) => new Promise((resolve, reject) => {
+  return (report) => stopDebugApp().then(() => new Promise((resolve, reject) => {
     spin('컴파일 중… (첫 실행은 몇 분 걸릴 수 있습니다)');
     const testArgs = ['--test-threads=1', ...(nocapture ? ['--nocapture'] : [])];
     const child = spawn('cargo', [...cargoArgs, '--manifest-path', 'src-tauri/Cargo.toml', '--', ...testArgs], {
@@ -233,7 +242,7 @@ function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
       }
       resolve();
     });
-  });
+  }));
 }
 
 const groupOf = (name) => (name.includes('::') ? name.split('::').slice(0, -1).filter((part) => part !== 'tests').join('::') : 'integration');

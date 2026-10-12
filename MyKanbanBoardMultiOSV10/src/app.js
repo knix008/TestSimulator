@@ -21,7 +21,11 @@ import { formatBytes, getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost } from './platform/popups.js';
-import { applyFont, applyTheme, resolveTheme, THEME_IDS, THEMES } from './themes.js';
+import { applyFont, applyTheme, contrast, mix, nextThemeId, resolveTheme, themeName } from './themes.js';
+import { bindSteppers, stepperHtml } from './stepper.js';
+import { bindDateFields, calendarText, dateFieldHtml } from './calendar.js';
+import { bindRichEditors, richEditorHtml, richText, sanitize } from './richtext.js';
+import { FONT_WEIGHTS } from './domain/settings.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -232,7 +236,8 @@ const commands = {
   zoomReset: { icon: 'zoomReset', label: 'action.zoomReset', key: 'Ctrl+0', run: () => setZoom(100) },
   zoomIn: { icon: 'zoomIn', label: 'action.zoomIn', key: 'Ctrl+=', enabled: () => state.settings.zoom < ZOOM.max, run: () => setZoom(state.settings.zoom + ZOOM.step) },
   print: { icon: 'print', label: 'action.print', key: 'Ctrl+P', enabled: hasDoc, run: () => openPrint() },
-  theme: { icon: 'palette', label: 'action.theme', run: (context) => openThemeMenu(context?.anchor) },
+  theme: { icon: 'palette', label: 'action.themeNext', run: () => updateSettings({ theme: nextThemeId(state.settings.theme) }) },
+  themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (context) => openThemePicker(context?.anchor) },
   language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -241,12 +246,13 @@ const commands = {
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
   find: { icon: 'search', label: 'action.find', key: 'Ctrl+F', run: () => focusSearch() },
-  clearFilter: { icon: 'filter', label: 'action.clearFilter', enabled: () => B.filterActive(state.filter), run: () => { state.filter = { text: '', priority: 'all', color: 'all', tag: 'all', overdue: false }; renderLeft(); renderBoard(); renderStatus(); } },
+  clearFilter: { icon: 'filter', label: 'action.clearFilter', enabled: () => B.filterActive(state.filter), run: () => { state.filter = { text: '', priority: 'all', color: 'all', tag: 'all', overdue: false }; const search = root.querySelector('#toolbar-search'); if (search) search.value = ''; renderLeft(); renderBoard(); renderStatus(); } },
   background: { icon: 'image', label: 'action.background', run: () => chooseBackground() },
   clearBackground: { icon: 'clear', label: 'action.clearBackground', enabled: () => Boolean(state.settings.backgroundImage), run: () => removeBackground() },
   nextTab: { icon: 'chevronRight', label: 'action.nextTab', key: 'Ctrl+Tab', enabled: () => state.docs.length > 1, run: () => cycleTab(1) },
   prevTab: { icon: 'chevronLeft', label: 'action.prevTab', key: 'Ctrl+Shift+Tab', enabled: () => state.docs.length > 1, run: () => cycleTab(-1) },
-  editCard: { icon: 'edit', label: 'action.editCard', key: 'Enter', enabled: () => selectedCards().length === 1, run: () => focusProperty('title') },
+  editCard: { icon: 'edit', label: 'action.editCard', key: 'Enter', enabled: () => selectedCards().length === 1, run: () => openCardEditor(selectedCards()[0]) },
+  columnProps: { icon: 'addColumn', label: 'action.columnProps', enabled: () => state.selection.kind === 'column', run: () => openColumnEditor(state.selection.ids[0]) },
   moveLeft: { icon: 'arrowLeft', label: 'action.moveLeft', key: 'Alt+Left', enabled: hasCards, run: () => shiftSelected(-1) },
   moveRight: { icon: 'arrowRight', label: 'action.moveRight', key: 'Alt+Right', enabled: hasCards, run: () => shiftSelected(1) },
   renameBoard: { icon: 'edit', label: 'action.renameBoard', key: 'F2', enabled: hasDoc, run: () => { select('board', []); focusProperty('title'); } },
@@ -264,6 +270,7 @@ function commandTip(id) {
   if (id === 'undo' && activeDoc()?.history.canUndo) label = t('tip.undoWith', { label: activeDoc().history.undoLabel });
   if (id === 'redo' && activeDoc()?.history.canRedo) label = t('tip.redoWith', { label: activeDoc().history.redoLabel });
   if (id === 'language') label = t('tip.language');
+  if (id === 'theme') label = t('tip.themeNext', { current: themeName(state.settings.theme, getLanguage()), next: themeName(nextThemeId(state.settings.theme), getLanguage()) });
   return command.key ? t('tip.withKey', { label, key: keyLabel(command.key) }) : label;
 }
 
@@ -282,7 +289,7 @@ async function run(id, context) {
 const MENUS = {
   file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', 'find', 'clearFilter'],
-  view: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'leftPanel', 'rightPanel', 'statusBar', '-', 'theme', 'language', '-', 'background', 'clearBackground'],
+  view: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'leftPanel', 'rightPanel', 'statusBar', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
   board: ['addColumn', 'addCard', 'attach', '-', 'editCard', 'moveLeft', 'moveRight', '-', 'renameBoard', 'boardProps', '-', 'nextTab', 'prevTab'],
   project: ['newProject', 'openProject', '-', 'saveProject', 'saveProjectAs', '-', 'projectSettings', 'addToProject', 'removeFromProject', '-', 'closeProject'],
   help: ['shortcuts', 'settings', '-', 'about'],
@@ -290,17 +297,16 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', board: 'board', project: 'project', help: 'info' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'saveAs', 'recent', 'projectMenu'],
+  ['new', 'open', 'save', 'saveAs', 'recent', 'print', 'projectMenu'],
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'delete'],
   ['addColumn', 'addCard'],
-  ['zoomOut', 'zoomReset', 'zoomIn'],
-  ['print'],
+  ['zoom'],
   ['leftPanel', 'rightPanel'],
-  ['theme', 'language'],
+  ['search'],
 ];
-/** Right end of the toolbar. */
-const TOOLBAR_RIGHT = ['settings', 'about'];
+/** Right end of the toolbar: theme (cycle + dropdown), language, settings, about. */
+const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 
 function renderShell() {
   root.innerHTML = `
@@ -316,7 +322,8 @@ function renderShell() {
       </section>
       <aside id="right-panel" class="side-panel"></aside>
     </main>
-    <footer id="statusbar" role="status"></footer>`;
+    <footer id="statusbar" role="status"></footer>
+    ${desktop ? `<div class="resize-grip" data-resize-grip title="${escapeHtml(t('tip.resize'))}" aria-label="${escapeHtml(t('tip.resize'))}" role="separator">${icon('grip')}</div>` : ''}`;
 }
 
 function renderMenubar() {
@@ -327,10 +334,27 @@ function renderMenubar() {
 
 function renderToolbar() {
   const toolbar = root.querySelector('#toolbar');
-  const button = (id) => {
+  const plain = (id) => {
     const command = commands[id];
     const glyph = id === 'language' ? switchFlag(getLanguage()) : icon(command.icon);
     return `<button class="tool-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(command.label))}">${glyph}</button>`;
+  };
+  const button = (id) => {
+    if (id === 'zoom') {
+      // [−] 100% [+] — the value is typed or stepped; double-click resets to 100%.
+      return `<span class="stepper toolbar-zoom" data-stepper="zoom" data-min="${ZOOM.min}" data-max="${ZOOM.max}" data-step="${ZOOM.step}" data-unit="%" title="${escapeHtml(t('tip.zoomValue'))}">
+        <button class="tool-button stepper-button-tool" data-command="zoomOut" title="${escapeHtml(commandTip('zoomOut'))}" aria-label="${escapeHtml(t('action.zoomOut'))}">${icon('minus')}</button>
+        <input class="stepper-value" id="zoom-value" type="text" inputmode="decimal" value="${state.settings.zoom}%" title="${escapeHtml(t('tip.zoomValue'))}" aria-label="${escapeHtml(t('tip.zoomValue'))}" />
+        <button class="tool-button stepper-button-tool" data-command="zoomIn" title="${escapeHtml(commandTip('zoomIn'))}" aria-label="${escapeHtml(t('action.zoomIn'))}">${icon('plus')}</button>
+      </span>`;
+    }
+    if (id === 'search') {
+      return `<label class="toolbar-search" title="${escapeHtml(t('tip.search'))}">${icon('search')}<input id="toolbar-search" type="search" value="${escapeHtml(state.filter.text)}" placeholder="${escapeHtml(t('toolbar.search'))}" aria-label="${escapeHtml(t('tip.search'))}" title="${escapeHtml(t('tip.search'))}" /></label>`;
+    }
+    if (id === 'themeSplit') {
+      return `<span class="split-button">${plain('theme')}<button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(commandTip('themeMenu'))}" aria-label="${escapeHtml(t('action.themeChoose'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>`;
+    }
+    return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
     <div class="toolbar-left">${TOOLBAR.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep" aria-hidden="true"></span>')}</div>
@@ -350,6 +374,8 @@ function renderToolbarState() {
     element.classList.toggle('active', Boolean(checked));
     if (checked !== undefined) element.setAttribute('aria-pressed', String(Boolean(checked)));
   }
+  const zoom = root.querySelector('#zoom-value');
+  if (zoom && document.activeElement !== zoom) zoom.value = `${state.settings.zoom}%`;
 }
 
 /** The window can never be so narrow that toolbar buttons are hidden. */
@@ -445,14 +471,15 @@ function renderLeft() {
   const board = activeBoard();
   if (!state.settings.showLeftPanel) {
     // Collapsed: a narrow rail of icons — the tools still work (click or drag).
+    const rail = (glyph, label, attributes, tip = label) => `<button class="rail-button" ${attributes} title="${escapeHtml(tip)}" aria-label="${escapeHtml(label)}">${icon(glyph)}<span class="rail-label">${escapeHtml(label)}</span></button>`;
     panel.innerHTML = `<div class="panel-rail">
-      <button class="rail-button" data-panel-toggle="left" title="${escapeHtml(t('panel.expandLeft'))}" aria-label="${escapeHtml(t('panel.expandLeft'))}">${icon('chevronRight')}</button>
+      ${rail('chevronRight', t('rail.expand'), 'data-panel-toggle="left"', t('panel.expandLeft'))}
+      <div class="rail-title" title="${escapeHtml(t('panel.leftTitle'))}">${icon('panelLeft')}<span>${escapeHtml(t('panel.leftShort'))}</span></div>
+      ${TOOLS.map((tool) => rail(tool.icon, t(tool.label), `data-tool="${tool.tool}" ${board ? '' : 'disabled'}`, tool.tip ? t(tool.tip) : t('tool.templateTip', { name: t(tool.label) }))).join('')}
       <span class="rail-sep"></span>
-      ${TOOLS.map((tool) => `<button class="rail-button" data-tool="${tool.tool}" title="${escapeHtml(tool.tip ? t(tool.tip) : t('tool.templateTip', { name: t(tool.label) }))}" aria-label="${escapeHtml(t(tool.label))}" ${board ? '' : 'disabled'}>${icon(tool.icon)}</button>`).join('')}
-      <span class="rail-sep"></span>
-      <button class="rail-button ${state.project ? 'active' : ''}" data-panel-section="left:project" title="${escapeHtml(state.project ? `${t('panel.project')}: ${state.project.project.name}` : t('panel.project'))}" aria-label="${escapeHtml(t('panel.project'))}">${icon('project')}</button>
-      <button class="rail-button ${B.filterActive(state.filter) ? 'active' : ''}" data-panel-section="left:filter" title="${escapeHtml(t('panel.filter'))}" aria-label="${escapeHtml(t('panel.filter'))}">${icon('filter')}</button>
-      <button class="rail-button" data-panel-section="left:overview" title="${escapeHtml(t('panel.overview'))}" aria-label="${escapeHtml(t('panel.overview'))}">${icon('list')}</button>
+      ${rail('project', t('panel.project'), `class="rail-button ${state.project ? 'active' : ''}" data-panel-section="left:project"`, state.project ? `${t('panel.project')}: ${state.project.project.name}` : t('panel.project'))}
+      ${rail('filter', t('panel.filter'), `class="rail-button ${B.filterActive(state.filter) ? 'active' : ''}" data-panel-section="left:filter"`)}
+      ${rail('list', t('panel.overview'), 'data-panel-section="left:overview"')}
     </div>`;
     return;
   }
@@ -498,8 +525,7 @@ function renderLeft() {
 }
 
 function focusSearch() {
-  if (!state.settings.showLeftPanel) updateSettings({ showLeftPanel: true });
-  const input = root.querySelector('#filter-text');
+  const input = root.querySelector('#toolbar-search') ?? root.querySelector('#filter-text');
   input?.focus();
   input?.select();
 }
@@ -520,16 +546,25 @@ function cardHtml(card) {
   return `<article class="card color-${card.color} ${hidden ? 'filtered' : ''}" data-card-id="${card.id}" tabindex="0" title="${escapeHtml(t('board.cardTip'))}">
     <div class="card-stripe" style="background:${B.COLOR_HEX[card.color]}"></div>
     <div class="card-title">${escapeHtml(card.title || '—')}</div>
-    ${details && card.description ? `<div class="card-desc">${escapeHtml(card.description)}</div>` : ''}
+    ${details && (card.descriptionHtml || card.description) ? `<div class="card-desc">${card.descriptionHtml ? sanitize(card.descriptionHtml) : escapeHtml(card.description)}</div>` : ''}
     ${details && card.tags.length ? `<div class="card-tags">${card.tags.map((tag) => `<span class="chip">${icon('tag')}${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
     ${cardAttachmentsHtml(card)}
     ${meta ? `<div class="card-meta">${meta}</div>` : ''}
   </article>`;
 }
 
+/** Style of a column with its own background: the colour over the theme's column colour. */
+function columnStyle(column) {
+  if (!column.background) return '';
+  const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme);
+  const fill = mix(theme.colors.column, column.background, column.bgOpacity / 100);
+  const text = contrast(fill, '#1d2433') >= contrast(fill, '#f1f4f9') ? '#1d2433' : '#f1f4f9';
+  return `--column-bg:${fill};--column-fg:${text};--column-muted:${mix(text, fill, 0.35)}`;
+}
+
 function columnHtml(column) {
   const over = column.wip > 0 && column.cards.length > column.wip;
-  return `<section class="column ${over ? 'over-wip' : ''}" data-column-id="${column.id}">
+  return `<section class="column ${over ? 'over-wip' : ''} ${column.background ? 'has-bg' : ''}" data-column-id="${column.id}" style="${columnStyle(column)}">
     <header class="column-head" title="${escapeHtml(t('board.renameHint'))}">
       <i class="column-color" style="background:${B.COLOR_HEX[column.color] === 'transparent' ? 'var(--border)' : B.COLOR_HEX[column.color]}"></i>
       <span class="column-title">${escapeHtml(column.title || '—')}</span>
@@ -597,6 +632,21 @@ function startColumnRename(columnId) {
 const colorPicker = (current, attribute) => `<div class="swatches" role="radiogroup">${B.CARD_COLORS.map((color) => `
   <button class="swatch ${current === color ? 'active' : ''} swatch-${color}" ${attribute}="${color}" role="radio" aria-checked="${current === color}" title="${escapeHtml(t(`color.${color}`))}" style="--swatch:${B.COLOR_HEX[color]}"></button>`).join('')}</div>`;
 
+/** 20 pastel colours, none, and a custom colour for a column background. */
+function backgroundPicker(column) {
+  const language = getLanguage();
+  const custom = column.background && !B.PASTELS.some((pastel) => pastel.hex === column.background);
+  return `<div class="bg-picker">
+    <div class="swatches pastel-swatches" role="radiogroup">
+      <button class="swatch swatch-none ${column.background ? '' : 'active'}" data-column-bg="" role="radio" aria-checked="${!column.background}" title="${escapeHtml(t('color.none'))}"></button>
+      ${B.PASTELS.map((pastel) => `<button class="swatch ${column.background === pastel.hex ? 'active' : ''}" data-column-bg="${pastel.hex}" role="radio" aria-checked="${column.background === pastel.hex}" title="${escapeHtml(pastel[language] ?? pastel.ko)}" style="--swatch:${pastel.hex}"></button>`).join('')}
+    </div>
+    <label class="custom-color ${custom ? 'active' : ''}" title="${escapeHtml(t('field.customColor'))}">${icon('palette')}<span>${t('field.customColor')}</span><input type="color" data-column-bg-custom value="${column.background || '#ffffff'}" aria-label="${escapeHtml(t('field.customColor'))}" /></label>
+  </div>`;
+}
+
+const richTexts = () => richText(t, FONT_WEIGHTS.map((weight) => [String(weight), `${weight} — ${t(`settings.weight.${weight}`)}`]));
+
 function renderRight() {
   const outer = root.querySelector('#right-panel');
   root.querySelector('#workspace').classList.toggle('no-right', !state.settings.showRightPanel);
@@ -606,10 +656,10 @@ function renderRight() {
   if (!state.settings.showRightPanel) {
     // Collapsed: a narrow rail of icons.
     outer.innerHTML = `<div class="panel-rail">
-      <button class="rail-button" data-panel-toggle="right" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}</button>
-      <span class="rail-sep"></span>
-      <button class="rail-button active" data-panel-section="right:props" title="${escapeHtml(t('panel.properties') + ': ' + title)}" aria-label="${escapeHtml(t('panel.properties'))}">${icon(glyph)}</button>
-      <button class="rail-button" data-command="boardProps" title="${escapeHtml(t('action.boardProps'))}" aria-label="${escapeHtml(t('action.boardProps'))}">${icon('info')}</button>
+      <button class="rail-button" data-panel-toggle="right" title="${escapeHtml(t('panel.expandRight'))}" aria-label="${escapeHtml(t('panel.expandRight'))}">${icon('chevronLeft')}<span class="rail-label">${escapeHtml(t('rail.expand'))}</span></button>
+      <div class="rail-title" title="${escapeHtml(t('panel.rightTitle'))}">${icon('panelRight')}<span>${escapeHtml(t('panel.rightShort'))}</span></div>
+      <button class="rail-button active" data-panel-section="right:props" title="${escapeHtml(t('panel.properties') + ': ' + title)}" aria-label="${escapeHtml(t('panel.properties'))}">${icon(glyph)}<span class="rail-label">${escapeHtml(title)}</span></button>
+      <button class="rail-button" data-command="boardProps" title="${escapeHtml(t('action.boardProps'))}" aria-label="${escapeHtml(t('action.boardProps'))}">${icon('info')}<span class="rail-label">${escapeHtml(t('rail.boardProps'))}</span></button>
     </div>`;
     return;
   }
@@ -630,10 +680,10 @@ function renderRightContent(panel) {
     panel.innerHTML = `<section class="panel-section props" data-props="card">
       ${head('addCard', t('props.card'))}
       ${row('edit', t('field.title'), `<input data-card-field="title" value="${escapeHtml(card.title)}" title="${escapeHtml(t('field.title'))}" />`)}
-      <label class="prop-row tall"><span class="prop-label">${icon('list')}${t('field.description')}</span><textarea data-card-field="description" rows="4" title="${escapeHtml(t('field.description'))}">${escapeHtml(card.description)}</textarea></label>
+      <div class="prop-block"><span class="prop-label">${icon('list')}${t('field.description')}</span>${richEditorHtml({ key: 'card:description', html: card.descriptionHtml || escapeHtml(card.description).replace(/\n/g, '<br>'), fonts: state.fonts ?? [], text: richTexts(), compact: true })}</div>
       <div class="prop-row"><span class="prop-label">${icon('palette')}${t('field.color')}</span>${colorPicker(card.color, 'data-card-color')}</div>
       ${row('flag', t('field.priority'), `<select data-card-field="priority" title="${escapeHtml(t('field.priority'))}">${B.PRIORITIES.map((p) => `<option value="${p}" ${card.priority === p ? 'selected' : ''}>${t(`priority.${p}`)}</option>`).join('')}</select>`)}
-      ${row('calendar', t('field.due'), `<input type="date" data-card-field="due" value="${escapeHtml(card.due)}" title="${escapeHtml(t('field.due'))}" />`)}
+      <div class="prop-row"><span class="prop-label">${icon('calendar')}${t('field.due')}</span>${dateFieldHtml({ key: 'card:due', value: card.due, label: t('field.due'), text: calendarText(t, getLanguage()) })}</div>
       ${row('user', t('field.assignee'), `<input data-card-field="assignee" value="${escapeHtml(card.assignee)}" title="${escapeHtml(t('field.assignee'))}" />`)}
       ${row('tag', t('field.tags'), `<input data-card-field="tags" value="${escapeHtml(card.tags.join(', '))}" title="${escapeHtml(t('field.tags'))}" />`)}
       ${row('moveCol', t('field.column'), `<select data-card-column title="${escapeHtml(t('field.column'))}">${board.columns.map((c) => `<option value="${c.id}" ${c.id === column.id ? 'selected' : ''}>${escapeHtml(c.title || '—')}</option>`).join('')}</select>`)}
@@ -672,7 +722,9 @@ function renderRightContent(panel) {
       ${head('addColumn', t('props.column'))}
       ${row('edit', t('field.title'), `<input data-column-field="title" value="${escapeHtml(column.title)}" title="${escapeHtml(t('field.title'))}" />`)}
       <div class="prop-row"><span class="prop-label">${icon('palette')}${t('field.color')}</span>${colorPicker(column.color, 'data-column-color')}</div>
-      ${row('wip', t('field.wip'), `<input type="number" min="0" max="999" data-column-field="wip" value="${column.wip}" title="${escapeHtml(t('field.wip'))}" />`)}
+      <div class="prop-row tall"><span class="prop-label">${icon('image')}${t('field.columnBackground')}</span>${backgroundPicker(column)}</div>
+      <div class="prop-row"><span class="prop-label">${icon('opacity')}${t('field.columnOpacity')}</span>${stepperHtml({ key: 'column:bgOpacity', value: column.bgOpacity, min: 0, max: 100, step: 5, unit: '%', label: t('field.columnOpacity'), decreaseTip: t('stepper.decrease', { label: t('field.columnOpacity') }), increaseTip: t('stepper.increase', { label: t('field.columnOpacity') }), disabled: !column.background })}</div>
+      <div class="prop-row"><span class="prop-label">${icon('wip')}${t('field.wip')}</span>${stepperHtml({ key: 'column:wip', value: column.wip, min: 0, max: 999, step: 1, label: t('field.wip'), decreaseTip: t('stepper.decrease', { label: t('field.wip') }), increaseTip: t('stepper.increase', { label: t('field.wip') }) })}</div>
       <p class="prop-meta">${t('field.cards')}: ${column.cards.length}</p>
       <div class="prop-actions">
         <button class="small-button" data-column-add="${column.id}" title="${escapeHtml(t('board.addCard'))}">${icon('plus')}<span>${t('board.addCard')}</span></button>
@@ -707,7 +759,6 @@ function renderStatus() {
   const doc = activeDoc();
   const board = doc?.board;
   const s = board ? B.stats(board) : null;
-  const theme = resolveTheme(state.settings.theme, prefersDark());
   const notice = state.notice;
   const item = (glyph, text, title = text, extra = '') => `<span class="status-item ${extra}" title="${escapeHtml(title)}">${icon(glyph)}<span>${escapeHtml(text)}</span></span>`;
   bar.innerHTML = `
@@ -719,7 +770,7 @@ function renderStatus() {
     ${B.filterActive(state.filter) ? item('filter', t('status.filter'), t('status.filter'), 'warn') : ''}
     ${item('zoomIn', t('status.zoom', { value: state.settings.zoom }))}
     ${doc ? item('undo', t('status.history', { undo: doc.history.undoStack.length, redo: doc.history.redoStack.length })) : ''}
-    ${item('palette', t('status.theme', { name: t(`theme.${state.settings.theme === 'system' ? 'system' : theme.id}`) }))}
+    ${item('palette', t('status.theme', { name: themeName(state.settings.theme, getLanguage()) }))}
     ${item('globe', t('status.language'))}
     ${item(desktop ? 'board' : 'globe', `${desktop ? t('status.desktop') : t('status.web')} · ${t('status.boards', { count: state.docs.length })}`)}
     <span class="status-notice ${notice?.kind ?? ''}" title="${escapeHtml(notice?.text ?? t('status.ready'))}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(notice?.text ?? t('status.ready'))}</span></span>
@@ -732,6 +783,8 @@ setInterval(() => {
 }, 15000);
 
 function renderAll() {
+  const grip = root.querySelector('.resize-grip');
+  if (grip) grip.title = t('tip.resize');
   renderMenubar();
   renderToolbar();
   renderTabs();
@@ -916,7 +969,7 @@ function updateSettings(patch) {
 /** Applies settings after a change (from this window or from the settings popup). */
 function applySettings(previous = {}) {
   const s = state.settings;
-  const theme = resolveTheme(s.theme, prefersDark());
+  const theme = resolveTheme(s.theme, prefersDark(), s.customTheme);
   applyTheme(theme);
   applyFont(s);
   native.setWindowTheme(theme.dark);
@@ -926,15 +979,16 @@ function applySettings(previous = {}) {
     if (previous.language) notify('info', t('notice.language'));
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
-  if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: t(`theme.${s.theme}`) }));
+  if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   root.classList.toggle('no-status', !s.showStatusBar);
   renderAll();
 }
 
-function openThemeMenu(anchor) {
-  const items = THEME_IDS.map((id) => ({ id: `theme:${id}`, label: t(`theme.${id}`), icon: id === 'system' ? 'sun' : (THEMES.find((theme) => theme.id === id)?.dark ? 'moon' : 'sun'), checked: state.settings.theme === id }));
-  const element = root.querySelector('[data-command="theme"]');
-  showMenu(items, anchor ?? anchorBelow(element), 'theme', { header: { icon: 'palette', title: t('action.theme') } });
+/** Theme dropdown: a popup with the dark and the light themes in two columns. */
+async function openThemePicker(anchor) {
+  const element = root.querySelector('.split-button') ?? root.querySelector('[data-command="themeMenu"]');
+  const result = await popups.open('theme', { current: state.settings.theme }, { anchor: anchor ?? anchorBelow(element) });
+  if (result?.theme) updateSettings({ theme: result.theme });
 }
 
 // ───────────────────────── background image
@@ -1335,6 +1389,7 @@ function contextMenuFor(event) {
       'custom:addLeft': () => addColumn(index),
       'custom:addRight': () => addColumn(index + 1),
       'custom:rename': () => startColumnRename(id),
+      'custom:props': () => openColumnEditor(id),
       'custom:left': () => change('op.moveColumn', (draft) => B.moveColumn(draft, id, index - 1)),
       'custom:right': () => change('op.moveColumn', (draft) => B.moveColumn(draft, id, index + 1)),
       'custom:sortTitle': () => change('op.sort', (draft) => B.sortColumn(draft, id, 'title')),
@@ -1349,6 +1404,7 @@ function contextMenuFor(event) {
       { separator: true },
       { id: 'custom:addLeft', label: t('action.addColumnLeft'), icon: 'addColumn' },
       { id: 'custom:addRight', label: t('action.addColumnRight'), icon: 'addColumn' },
+      { id: 'custom:props', label: t('action.columnProps'), icon: 'gear' },
       { id: 'custom:rename', label: t('action.renameColumn'), icon: 'edit' },
       { id: 'custom:left', label: t('action.columnLeft'), icon: 'arrowLeft', disabled: index <= 0 },
       { id: 'custom:right', label: t('action.columnRight'), icon: 'arrowRight', disabled: index >= board.columns.length - 1 },
@@ -1599,7 +1655,8 @@ function bindEvents() {
     }
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
-      const anchor = ['theme', 'projectMenu'].includes(command.dataset.command) ? anchorBelow(command) : undefined;
+      const anchor = command.dataset.command === 'themeMenu' ? anchorBelow(command.closest('.split-button') ?? command)
+        : command.dataset.command === 'projectMenu' ? anchorBelow(command) : undefined;
       return run(command.dataset.command, { anchor });
     }
     const closeDocButton = target.closest('[data-close-doc]');
@@ -1637,14 +1694,17 @@ function bindEvents() {
       root.querySelector(`.column[data-column-id="${gotoColumn.dataset.gotoColumn}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' });
       return select('column', [gotoColumn.dataset.gotoColumn]);
     }
+    const columnBg = target.closest('[data-column-bg]');
+    if (columnBg) return change('op.editColumn', (board) => B.updateColumn(board, state.selection.ids[0], { background: columnBg.dataset.columnBg }), { right: true });
     const swatch = target.closest('[data-card-color], [data-column-color], [data-multi-color]');
     if (swatch) return onSwatch(swatch);
     const checkRemove = target.closest('[data-check-remove]');
     if (checkRemove) return editChecklist((list) => list.filter((item) => item.id !== checkRemove.dataset.checkRemove));
     const card = target.closest('.card');
     if (card) return select('card', [card.dataset.cardId], { toggle: event.ctrlKey || event.metaKey });
-    const column = target.closest('.column-head');
-    if (column) return select('column', [column.closest('.column').dataset.columnId]);
+    // Clicking a column anywhere outside its cards (header or empty space) selects the column.
+    const column = target.closest('.column');
+    if (column && !target.closest('button')) return select('column', [column.dataset.columnId]);
     if (target.closest('#board-area') && !target.closest('.column')) return select(null, []);
     return undefined;
   });
@@ -1653,7 +1713,7 @@ function bindEvents() {
     const title = event.target.closest('.column-title');
     if (title) return startColumnRename(title.closest('.column').dataset.columnId);
     const card = event.target.closest('.card');
-    if (card) { select('card', [card.dataset.cardId]); return focusProperty('title'); }
+    if (card) { select('card', [card.dataset.cardId]); return openCardEditor(card.dataset.cardId); }
     const tab = event.target.closest('.tab');
     if (tab) return run('renameBoard');
     if (event.target.closest('#tabs') && !tab) return run('new');
@@ -1663,6 +1723,14 @@ function bindEvents() {
   root.addEventListener('auxclick', (event) => {
     const tab = event.target.closest('.tab');
     if (tab && event.button === 1) closeDoc(state.docs.find((doc) => doc.id === tab.dataset.doc));
+  });
+
+  // Bottom-right grip: resizes the window like its OS border.
+  root.addEventListener('pointerdown', (event) => {
+    if (event.button === 0 && desktop && event.target.closest('[data-resize-grip]')) {
+      event.preventDefault();
+      appWindow.startResizeDragging('SouthEast').catch((error) => showError('error.unexpected', error, 'resize'));
+    }
   });
 
   root.addEventListener('pointerdown', (event) => {
@@ -1712,6 +1780,11 @@ function bindEvents() {
       editChecklist((list) => list.map((item) => (item.id === target.dataset.checkToggle ? { ...item, done: target.checked } : item)));
     } else if ('checkText' in target.dataset) {
       editChecklist((list) => list.map((item) => (item.id === target.dataset.checkText ? { ...item, text: target.value } : item)), false);
+    } else if ('columnBgCustom' in target.dataset) {
+      change('op.editColumn', (board) => B.updateColumn(board, state.selection.ids[0], { background: target.value }), { right: true });
+    } else if (target.id === 'zoom-value') {
+      setZoom(parseFloat(target.value) || 100);
+      renderToolbarState();
     } else if (target.dataset.filter) {
       state.filter[target.dataset.filter] = target.type === 'checkbox' ? target.checked : target.value;
       renderBoard();
@@ -1722,8 +1795,10 @@ function bindEvents() {
 
   root.addEventListener('input', (event) => {
     const target = event.target;
-    if (target.id === 'filter-text') {
+    if (target.id === 'filter-text' || target.id === 'toolbar-search') {
       state.filter.text = target.value;
+      // The toolbar field and the tool panel field show the same search.
+      for (const other of root.querySelectorAll('#filter-text, #toolbar-search')) if (other !== target) other.value = target.value;
       renderBoard();
       renderStatus();
       const count = root.querySelector('.filter-foot .muted');
@@ -1733,7 +1808,34 @@ function bindEvents() {
     }
   });
 
+  root.addEventListener('dblclick', (event) => {
+    if (event.target.id === 'zoom-value') setZoom(100);
+  });
+
+  const rightPanel = root.querySelector('#right-panel');
+  const rich = bindRichEditors(rightPanel, (key, { html, plain }) => {
+    const id = state.selection.ids[0];
+    const card = state.selection.kind === 'card' && B.findCard(activeBoard(), id)?.card;
+    if (!card || (card.descriptionHtml === html && card.description === plain)) return;
+    change('op.editCard', (board) => B.updateCard(board, id, { description: plain, descriptionHtml: html }));
+  });
+  bindSteppers(rightPanel, (key, value, element) => {
+    if (key === 'rich-size') return rich.size(element, value);
+    const [scope, field] = key.split(':');
+    if (scope === 'column') change('op.editColumn', (board) => B.updateColumn(board, state.selection.ids[0], { [field]: value }));
+    return undefined;
+  });
+  bindDateFields(rightPanel, () => calendarText(t, getLanguage()), (key, value) => {
+    if (key === 'card:due') change('op.editCard', (board) => B.updateCard(board, state.selection.ids[0], { due: value }));
+  });
+
   root.addEventListener('keydown', (event) => {
+    if (event.target.id === 'zoom-value' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      setZoom(state.settings.zoom + (event.key === 'ArrowUp' ? ZOOM.step : -ZOOM.step));
+      return;
+    }
+    if (event.target.id === 'zoom-value' && event.key === 'Enter') { event.target.blur(); return; }
     if (event.target.matches('[data-check-add]') && event.key === 'Enter' && event.target.value.trim()) {
       const text = event.target.value.trim();
       editChecklist((list) => [...list, { text, done: false }]);
@@ -2218,10 +2320,8 @@ const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-/** Adds files ([{ name, size, type, data: data URL }]) to a card as one undo step. */
-async function attachFiles(cardId, files) {
-  const board = activeBoard();
-  if (!board || !B.findCard(board, cardId) || !files.length) return [];
+/** Stores file contents and returns attachment metadata (with thumbnails for images). */
+async function buildAttachments(files) {
   const added = [];
   for (const file of files) {
     const type = file.type || mimeFor(file.name);
@@ -2230,15 +2330,11 @@ async function attachFiles(cardId, files) {
     if (type.startsWith('image/')) Object.assign(meta, await makeThumb(data));
     added.push(meta);
   }
-  change('op.attach', (draft) => {
-    const card = B.findCard(draft, cardId).card;
-    B.updateCard(draft, cardId, { attachments: [...card.attachments, ...added] });
-  }, { right: true });
-  notify('success', t('notice.attached', { count: added.length }));
   return added;
 }
 
-async function attachPaths(cardId, paths) {
+/** Reads dropped/chosen files (desktop paths) into [{ name, size, type, data }]. */
+async function readPaths(paths) {
   const files = [];
   for (const path of paths) {
     try {
@@ -2248,7 +2344,54 @@ async function attachPaths(cardId, paths) {
       showError('error.attach', error, path);
     }
   }
-  return attachFiles(cardId, files);
+  return files;
+}
+
+/** Adds files ([{ name, size, type, data: data URL }]) to a card as one undo step. */
+async function attachFiles(cardId, files) {
+  const board = activeBoard();
+  if (!board || !B.findCard(board, cardId) || !files.length) return [];
+  const added = await buildAttachments(files);
+  change('op.attach', (draft) => {
+    const card = B.findCard(draft, cardId).card;
+    B.updateCard(draft, cardId, { attachments: [...card.attachments, ...added] });
+  }, { right: true });
+  notify('success', t('notice.attached', { count: added.length }));
+  return added;
+}
+
+async function attachPaths(cardId, paths) {
+  return attachFiles(cardId, await readPaths(paths));
+}
+
+// ───────────────────────── card and column property windows
+
+/** The card's own settings window. Changes apply as one undo step. */
+async function openCardEditor(cardId) {
+  const board = activeBoard();
+  const found = board && B.findCard(board, cardId);
+  if (!found) return;
+  const result = await popups.open('card', {
+    card: found.card, columnId: found.column.id,
+    columns: board.columns.map((column) => ({ id: column.id, title: column.title || '—' })),
+    missing: found.card.attachments.filter((item) => !attachments.has(item.id)).map((item) => item.id),
+  });
+  if (result?.action !== 'apply' || !B.findCard(activeBoard(), cardId)) return;
+  change('op.editCard', (draft) => {
+    B.updateCard(draft, cardId, result.patch);
+    if (result.columnId && result.columnId !== B.findCard(draft, cardId).column.id) B.moveCard(draft, cardId, result.columnId, Infinity);
+  }, { right: true });
+  select('card', [cardId]);
+}
+
+/** The column's own settings window. */
+async function openColumnEditor(columnId) {
+  const column = B.findColumn(activeBoard(), columnId);
+  if (!column) return;
+  const { cards, ...data } = column;
+  const result = await popups.open('column', { column: { ...data, count: cards.length } });
+  if (result?.action !== 'apply' || !B.findColumn(activeBoard(), columnId)) return;
+  change('op.editColumn', (draft) => B.updateColumn(draft, columnId, result.patch), { right: true });
 }
 
 async function attachWebFiles(cardId, list) {
@@ -2348,9 +2491,28 @@ function bindPopupActions() {
   popups.on('open-recent', (data) => openRecent(data.path));
   popups.on('notice', (data) => notify(data.kind ?? 'info', data.text));
   popups.on('printed', () => notify('success', t('notice.printed')));
+  popups.on('open-settings', (data) => popups.open('settings', { tab: data.tab ?? 'general', themeGroup: data.themeGroup }));
   popups.on('attachment-data', (data, kind) => popups.post(kind, { type: 'attachment', id: data.id, data: attachments.get(data.id) }));
   popups.on('attachment-save', (data) => saveAttachment(data.item));
   popups.on('attachment-open', (data) => openAttachment(data.item));
+  // The card window asks for dropped/chosen files to be read and stored; it gets their metadata back.
+  popups.on('attach-request', async (data, kind) => {
+    const files = data.paths ? await readPaths(data.paths) : (data.files ?? []).filter((file) => {
+      if (file.size <= MAX_ATTACHMENT) return true;
+      showError('error.attach', new Error(t('attachment.tooLarge', { name: file.name })), file.name);
+      return false;
+    });
+    const metas = await buildAttachments(files);
+    popups.post(kind, { type: 'attached', metas });
+    if (metas.length) notify('success', t('notice.attached', { count: metas.length }));
+  });
+  popups.on('choose-attachments', async (data, kind) => {
+    if (desktop) {
+      const paths = await native.chooseAnyFiles(state.settings.lastDirectory);
+      if (paths.length) popups.post(kind, { type: 'attached', metas: await buildAttachments(await readPaths(paths)) });
+    }
+  });
+  popups.on('view-images', (data) => popups.open('image', data));
 }
 
 // ───────────────────────── start-up
@@ -2378,6 +2540,8 @@ async function start() {
   bindPopupActions();
   await popups.init();
   state.info = await native.appInfo().catch(() => null);
+  // Fonts for the description editor (the list can take a moment on first use).
+  native.listFonts().then((fonts) => { state.fonts = fonts; if (state.selection.kind === 'card') renderRight(); }).catch(() => {});
   native.setBackendLanguage(state.settings.language);
   applySettings({});
   await loadBackground();
@@ -2401,6 +2565,12 @@ async function start() {
         const point = event.payload.position ? { x: event.payload.position.x / scale, y: event.payload.position.y / scale } : null;
         handleDroppedPaths(event.payload.paths ?? [], point);
       }
+    });
+    native.listen('fatal-error', (fatal) => {
+      const detail = [`${t('error.location')}: ${fatal.location}`, `${t('error.thread')}: ${fatal.thread}`, fatal.log ? `${t('error.log')}: ${fatal.log}` : '', '', fatal.backtrace].filter((line) => line !== null).join('\n');
+      const error = new Error(fatal.message);
+      error.stack = detail;
+      showError('error.fatal', error, fatal.location);
     });
     native.listen('open-files', async (paths) => {
       for (const path of paths) await openPath(path);
@@ -2433,7 +2603,7 @@ window.__mykanban = {
     copyCards, cutCards, pasteCards, setZoom, updateSettings, handleDroppedPaths, handleDroppedFiles, importTextAsCards,
     setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu, contextMenuFor, activeDoc, activeBoard,
     toScreen, docName, scrollTabs, withProgress,
-    newProject, openProject, saveProject, closeProject, addToProject, removeFromProject, applyProjectEdit, projectDirty, projectDocs,
+    openCardEditor, openColumnEditor, newProject, openProject, saveProject, closeProject, addToProject, removeFromProject, applyProjectEdit, projectDirty, projectDocs,
     attachFiles, attachPaths, viewAttachment, saveAttachment, openAttachment, attachmentStore: () => attachments,
   },
   board: B,

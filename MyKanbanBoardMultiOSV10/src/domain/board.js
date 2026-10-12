@@ -1,3 +1,5 @@
+import { sanitize, toPlain } from './markup.js';
+
 // Board model: columns holding cards. Every operation here mutates the board
 // it is given; the document layer (domain/document.js) snapshots the board
 // before each operation, which is what undo/redo restores.
@@ -8,6 +10,22 @@ export const COLOR_HEX = {
   teal: '#12a594', blue: '#3e63dd', purple: '#8e4ec6', pink: '#d6409f', gray: '#8b8d98',
 };
 export const PRIORITIES = ['none', 'low', 'medium', 'high', 'urgent'];
+
+/** Pastel background colours for columns (plus "none" and a custom colour). */
+export const PASTELS = [
+  { hex: '#ffd6d6', ko: '파스텔 빨강', en: 'Pastel red' }, { hex: '#ffe0cc', ko: '살구', en: 'Apricot' },
+  { hex: '#ffeec2', ko: '파스텔 주황', en: 'Pastel orange' }, { hex: '#fff7c2', ko: '레몬', en: 'Lemon' },
+  { hex: '#eef7c8', ko: '연두', en: 'Light lime' }, { hex: '#d7f4d2', ko: '파스텔 초록', en: 'Pastel green' },
+  { hex: '#c9f0e1', ko: '민트', en: 'Mint' }, { hex: '#c8eff2', ko: '아쿠아', en: 'Aqua' },
+  { hex: '#cfe8ff', ko: '하늘', en: 'Sky' }, { hex: '#d6e0ff', ko: '파스텔 파랑', en: 'Pastel blue' },
+  { hex: '#e0d9ff', ko: '라벤더', en: 'Lavender' }, { hex: '#ecdcff', ko: '라일락', en: 'Lilac' },
+  { hex: '#f6d8f2', ko: '오키드', en: 'Orchid' }, { hex: '#ffd9e8', ko: '파스텔 분홍', en: 'Pastel pink' },
+  { hex: '#f6e3d3', ko: '베이지', en: 'Beige' }, { hex: '#ebe4d6', ko: '샌드', en: 'Sand' },
+  { hex: '#e4e7eb', ko: '파스텔 회색', en: 'Pastel grey' }, { hex: '#dbe6ee', ko: '안개', en: 'Mist' },
+  { hex: '#e2f0d0', ko: '세이지', en: 'Sage' }, { hex: '#fde4c8', ko: '피치', en: 'Peach' },
+];
+
+const HEX = /^#[0-9a-f]{6}$/i;
 
 /** Card templates offered in the left tool panel. */
 export const TEMPLATES = {
@@ -30,7 +48,8 @@ export function createCard(data = {}) {
   return {
     id: data.id ?? newId('card'),
     title: String(data.title ?? '').slice(0, 500),
-    description: String(data.description ?? ''),
+    description: String(data.description ?? (data.descriptionHtml ? toPlain(data.descriptionHtml) : '')),
+    descriptionHtml: data.descriptionHtml ? sanitize(data.descriptionHtml) : '',
     color: CARD_COLORS.includes(data.color) ? data.color : 'none',
     priority: PRIORITIES.includes(data.priority) ? data.priority : 'none',
     tags: normalizeTags(data.tags),
@@ -67,6 +86,8 @@ export function createColumn(data = {}) {
     title: String(data.title ?? '').slice(0, 200),
     color: CARD_COLORS.includes(data.color) ? data.color : 'none',
     wip: Number.isInteger(data.wip) && data.wip > 0 ? data.wip : 0,
+    background: HEX.test(data.background ?? '') ? data.background.toLowerCase() : '',
+    bgOpacity: Number.isFinite(Number(data.bgOpacity)) && data.bgOpacity !== null && data.bgOpacity !== '' ? Math.min(100, Math.max(0, Math.round(Number(data.bgOpacity)))) : 100,
     cards: Array.isArray(data.cards) ? data.cards.map(createCard) : [],
   };
 }
@@ -156,6 +177,8 @@ export function updateColumn(board, columnId, patch) {
   if ('title' in patch) column.title = String(patch.title).slice(0, 200);
   if ('color' in patch && CARD_COLORS.includes(patch.color)) column.color = patch.color;
   if ('wip' in patch) column.wip = Math.max(0, Math.floor(Number(patch.wip) || 0));
+  if ('background' in patch) column.background = HEX.test(patch.background ?? '') ? patch.background.toLowerCase() : '';
+  if ('bgOpacity' in patch) column.bgOpacity = Math.min(100, Math.max(0, Math.round(Number(patch.bgOpacity) || 0)));
   touch(board);
   return column;
 }
@@ -191,6 +214,10 @@ export function updateCard(board, cardId, patch) {
   if (!found) throw new Error(`card ${cardId} not found`);
   const { card } = found;
   for (const key of ['title', 'description', 'assignee']) if (key in patch) card[key] = String(patch[key] ?? '');
+  if ('descriptionHtml' in patch) {
+    card.descriptionHtml = patch.descriptionHtml ? sanitize(patch.descriptionHtml) : '';
+    if (!('description' in patch)) card.description = toPlain(card.descriptionHtml);
+  } else if ('description' in patch) card.descriptionHtml = '';
   if ('color' in patch && CARD_COLORS.includes(patch.color)) card.color = patch.color;
   if ('priority' in patch && PRIORITIES.includes(patch.priority)) card.priority = patch.priority;
   if ('tags' in patch) card.tags = normalizeTags(patch.tags);

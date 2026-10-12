@@ -15,7 +15,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: [&str; 10] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "project", "image"];
+const POPUP_KINDS: [&str; 13] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "project", "image", "theme", "card", "column"];
 
 #[derive(Default)]
 struct Shared {
@@ -238,7 +238,7 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
         .position(x, y)
         .inner_size(width, height)
         .additional_browser_args(BROWSER_ARGS);
-    if kind == "menu" || kind == "progress" {
+    if kind == "menu" || kind == "progress" || kind == "theme" {
         builder = builder.always_on_top(true);
     }
     if let Some(main) = app.get_webview_window("main") {
@@ -418,6 +418,58 @@ async fn db_delete(config: db::DbConfig, project_id: String) -> Result<(), Strin
     db::delete(&config, &project_id).await
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FatalError {
+    message: String,
+    location: String,
+    thread: String,
+    backtrace: String,
+    log: Option<PathBuf>,
+}
+
+/// Serious errors (a panic anywhere in the backend) are written to crash.log
+/// and shown to the user in the error popup with every detail, ready to copy.
+fn install_panic_hook(app: &AppHandle) {
+    let handle = app.clone();
+    let log_dir = background_dir(app).ok().and_then(|dir| dir.parent().map(Path::to_path_buf));
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let message = info
+            .payload()
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| info.payload().downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "panic".into());
+        let location = info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())).unwrap_or_default();
+        let thread = std::thread::current().name().unwrap_or("unnamed").to_string();
+        let backtrace = std::backtrace::Backtrace::force_capture().to_string();
+        let log = log_dir.as_ref().map(|dir| dir.join("crash.log"));
+        if let Some(path) = &log {
+            let _ = std::fs::create_dir_all(path.parent().unwrap_or(Path::new(".")));
+            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let entry = format!("[{stamp}] thread '{thread}' panicked at {location}
+{message}
+{backtrace}
+
+");
+            let _ = std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut file| std::io::Write::write_all(&mut file, entry.as_bytes()));
+        }
+        let _ = handle.emit_to("main", "fatal-error", FatalError { message, location, thread, backtrace, log });
+        default(info);
+    }));
+}
+
+/// Test hook for the serious-error popup (only with MYKANBAN_TEST_COMMANDS set).
+#[tauri::command]
+async fn raise_test_panic() -> Result<(), String> {
+    if std::env::var_os("MYKANBAN_TEST_COMMANDS").is_none() {
+        return Err("not available".into());
+    }
+    tauri::async_runtime::spawn(async { panic!("test panic: serious error raised on purpose") });
+    Ok(())
+}
+
 /// Ends the app after the UI has handled unsaved changes.
 #[tauri::command]
 fn quit_app(app: AppHandle) {
@@ -452,6 +504,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
+            install_panic_hook(app.handle());
             lock(&app.state::<AppState>()).startup_files = files::board_files(std::env::args().skip(1));
             if let Ok(dir) = background_dir(app.handle()) {
                 let _ = app.asset_protocol_scope().allow_directory(&dir, true);
@@ -510,7 +563,8 @@ pub fn run() {
             db_load,
             db_list,
             db_delete,
-            quit_app
+            quit_app,
+            raise_test_panic
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyKanbanBoard");

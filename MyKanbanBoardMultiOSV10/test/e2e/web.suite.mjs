@@ -129,9 +129,37 @@ export const cases = [
       assert.equal(await app.frame('settings', `(() => { const b = document.querySelector('.popup-body'); return b.scrollHeight > b.clientHeight + 1; })()`), false, tab);
     }
     await app.frame('settings', `(document.querySelector('[data-action="tab"][data-value="appearance"]').click(), 1)`);
+    await app.frame('settings', `(document.querySelector('[data-theme-group="dark"]').click(), 1)`);
     await app.frame('settings', `(document.querySelector('[data-setting="theme"][data-value="dracula"]').click(), 1)`);
     await app.main.waitFor(`document.documentElement.dataset.theme === 'dracula'`);
     await app.frame('settings', `(document.querySelector('[data-action="close"]').click(), 1)`);
+  } },
+  { group: '테마', name: '테마 버튼(다음 테마)과 드롭다운(다크|라이트 두 줄)', async run(app) {
+    const before = await app.main.eval('document.documentElement.dataset.theme');
+    await app.main.click('[data-command="theme"]');
+    assert.notEqual(await app.main.eval('document.documentElement.dataset.theme'), before);
+    await app.main.click('[data-command="themeMenu"]');
+    await app.waitFrame('theme', `document.querySelectorAll('.picker-column').length === 2`);
+    assert.deepEqual(await app.frame('theme', `[...document.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('[data-pick-theme]').length)`), [20, 20]);
+    await app.frame('theme', `(document.querySelector('[data-pick-theme="nord"]').click(), 1)`);
+    await app.main.waitFor(`document.documentElement.dataset.theme === 'nord'`);
+    await app.main.waitFor(`!document.querySelector('.web-popup-theme')`);
+    await kb(app, `k.actions.updateSettings({ theme: 'light' }) || 1`);
+  } },
+  { group: '카드', name: '카드 설정 창으로 이미지 끌어다 놓기 → 첨부', async run(app) {
+    const cardId = await kb(app, `(() => { const b = k.actions.activeBoard(); return k.actions.addCard(b.columns[0].id, { title: 'web editor' }).id; })()`);
+    kb(app, `k.actions.openCardEditor('${cardId}').then(() => 1)`).catch(() => {});
+    await app.waitFrame('card', `document.querySelector('#card-title')`);
+    await app.frame('card', `(() => {
+      const dt = new DataTransfer();
+      const bytes = Uint8Array.from(atob('${iconB64}'), (c) => c.charCodeAt(0));
+      dt.items.add(new File([bytes], 'dropped.png', { type: 'image/png' }));
+      for (const type of ['dragover', 'drop']) document.body.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+      return 1;
+    })()`);
+    await app.waitFrame('card', `document.querySelectorAll('.attach-tile img').length === 1`);
+    await app.frame('card', `(document.querySelector('[data-action="editor-apply"]').click(), 1)`);
+    await app.main.waitFor(`window.__mykanban.board.findCard(window.__mykanban.actions.activeBoard(), '${cardId}').card.attachments.length === 1`);
   } },
   { group: '팝업', name: '프로그램 정보 (웹 빌드, 제작자)', async run(app) {
     await app.main.click('[data-command="about"]');
@@ -158,6 +186,7 @@ export const cases = [
     await kb(app, `k.actions.closeProject({ force: true }).then(() => 1)`);
   } },
   { group: '설정', name: '언어 전환과 다시 불러온 뒤 설정 유지', async run(app) {
+    await kb(app, `k.actions.updateSettings({ theme: 'dracula' }) || 1`);
     await app.main.click('[data-command="language"]');
     await app.main.waitFor(`document.querySelector('[data-menu="file"]').textContent.includes('File')`);
     await app.reload();

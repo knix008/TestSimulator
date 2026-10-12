@@ -5,8 +5,9 @@
 //!   MYKANBAN_TEST_MYSQL_URL     mysql://user:password@host:port      (MariaDB or MySQL)
 //!   MYKANBAN_TEST_POSTGRES_URL  postgres://user:password@host:port
 //! Each test creates a database of its own (mykanban_test_<random>), uses it
-//! through the app's storage code, and drops it again. Without a URL the test
-//! prints SKIP and passes.
+//! through the app's storage code, and drops it again. Without a PostgreSQL URL
+//! the test starts a temporary PostgreSQL server of its own (postgresql_embedded:
+//! the binaries are downloaded on first use and cached), so it always runs.
 use mykanbanboard_lib::db::{self, BoardRow, DbConfig, ProjectRow};
 use sqlx::any::{install_default_drivers, AnyPoolOptions};
 
@@ -102,8 +103,26 @@ fn mariadb_or_mysql_round_trip() {
 
 #[test]
 fn postgres_round_trip() {
-    match server("MYKANBAN_TEST_POSTGRES_URL", "postgres") {
-        Some(server) => tauri::async_runtime::block_on(exercise(server)),
-        None => println!("SKIP: MYKANBAN_TEST_POSTGRES_URL is not set"),
-    }
+    tauri::async_runtime::block_on(async {
+        if let Some(server) = server("MYKANBAN_TEST_POSTGRES_URL", "postgres") {
+            return exercise(server).await;
+        }
+        // The first initdb on Windows can take far longer than the 5 s default.
+        let settings = postgresql_embedded::Settings { timeout: Some(std::time::Duration::from_secs(180)), ..Default::default() };
+        let mut postgres = postgresql_embedded::PostgreSQL::new(settings);
+        postgres.setup().await.expect("PostgreSQL setup (download on first use)");
+        postgres.start().await.expect("PostgreSQL start");
+        let settings = postgres.settings();
+        println!("temporary PostgreSQL on port {}", settings.port);
+        let server = Server {
+            kind: "postgres",
+            user: settings.username.clone(),
+            password: settings.password.clone(),
+            host: settings.host.clone(),
+            port: settings.port,
+            url: format!("postgres://{}:{}@{}:{}", settings.username, settings.password, settings.host, settings.port),
+        };
+        exercise(server).await;
+        postgres.stop().await.expect("PostgreSQL stop");
+    });
 }

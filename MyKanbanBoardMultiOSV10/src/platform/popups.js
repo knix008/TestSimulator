@@ -13,8 +13,8 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 
 /** Logical size of each popup. Fixed: each fits its content without scrolling. */
 export const POPUPS = {
-  settings: { width: 800, height: 580 },
-  about: { width: 560, height: 520 },
+  settings: { width: 740, height: 600 },
+  about: { width: 720, height: 560 },
   confirm: { width: 520, height: 270 },
   error: { width: 680, height: 480 },
   progress: { width: 470, height: 200 },
@@ -22,6 +22,9 @@ export const POPUPS = {
   print: { width: 1080, height: 700 },
   menu: { width: 300, height: 200 },
   project: { width: 780, height: 560 },
+  theme: { width: 600, height: 640 },
+  card: { width: 760, height: 580 },
+  column: { width: 720, height: 520 },
   image: { width: 960, height: 700 },
 };
 

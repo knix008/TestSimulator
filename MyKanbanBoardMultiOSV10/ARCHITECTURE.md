@@ -12,10 +12,10 @@
                 │ invoke (Tauri IPC)                           │ emit / listen
 ┌───────────────▼───────────────┐            ┌─────────────────▼──────────────┐
 │ src-tauri/src (Rust)          │            │ 팝업 창 (label "popup-<kind>")  │
-│  lib.rs   명령·창 관리         │            │ src/popup.js                   │
+│  lib.rs   명령·창 관리·패닉 훅 │            │ src/popup.js                   │
 │  files.rs 파일·진행률          │            │ settings about confirm error   │
 │  db.rs    SQLite/MySQL/PG      │            │ progress recent print project  │
-│  fonts.rs window_state.rs      │            │ image menu                     │
+│  fonts.rs window_state.rs      │            │ image menu theme card column   │
 └───────────────────────────────┘            └────────────────────────────────┘
 ```
 
@@ -37,7 +37,10 @@
 | `src/platform/popups.js` | 팝업 열기/닫기/메시지 (데스크톱 = OS 창, 웹 = 페이지 안 프레임) |
 | `src/app.js` | 메인 창 UI와 명령 표(`commands`) |
 | `src/popup.js` | 모든 팝업 창 |
-| `src/i18n.js`, `themes.js`, `icons.js` | 한국어/영어 문자열, 테마 12종, SVG 아이콘 |
+| `src/i18n.js`, `themes.js`, `icons.js` | 한국어/영어 문자열, 테마(다크 20·라이트 20·사용자 정의, 일부는 HSL로 생성하고 글자 대비 4.5 이상 보장), SVG 아이콘 |
+| `src/calendar.js` | 날짜 칸 + 달력(직접 입력·검증, 월 이동, 오늘·지우기) |
+| `src/richtext.js`, `src/domain/markup.js` | 카드 설명 서식 편집기(선택 영역에만 글꼴·크기·굵기·기울임)와 HTML 정리(허용 태그·글꼴 스타일만, 스크립트 내용 제거) |
+| `src/stepper.js` | 모든 수치 입력의 `[−] 값 [+]` 컴포넌트 (가운데 정렬, 누르고 있으면 반복, ↑↓) |
 | `src-tauri/` | Rust 백엔드, 설치 설정(`tauri.conf.json`), NSIS 훅, Linux MIME, macOS Info.plist |
 | `scripts/` | `test.mjs`(테스트 러너), `build.mjs`(설치 파일), `render-icons.mjs`, `start.mjs` |
 | `test/` | `unit/`, `static/`, `e2e/`(cdp·harness·suite), `db_integration.rs` |
@@ -51,11 +54,19 @@
 - 각 팝업의 OS 창 제목은 `<팝업 제목> — MyKanbanBoard v<버전>`입니다.
 - WebView2는 같은 프로필의 모든 웹뷰가 같은 `additional_browser_args`를 써야 하므로 `BROWSER_ARGS` 상수 하나를 씁니다. 창을 만드는 명령은 async여야 합니다(동기 명령은 Windows에서 교착).
 
+### 카드·열 설정 창
+
+`card` / `column` 팝업은 받은 데이터의 사본(draft)을 고치고 "적용"할 때 한 번에 돌려줍니다(실행 취소 한 단계). 카드 창에 파일을 끌어다 놓으면(데스크톱: 그 창의 `onDragDropEvent`, 웹: HTML5 drop) 창은 `attach-request` 액션을 보내고, 메인 창이 파일을 읽어 첨부 저장소에 넣은 뒤 메타데이터(썸네일 포함)를 `attached` 메시지로 돌려줍니다.
+
+### 심각한 오류
+
+Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 `crash.log`(데이터 폴더)에 쓰고 `fatal-error` 이벤트로 메인 창에 보내면, 오류 팝업이 전부 표시하고 복사할 수 있게 합니다. 잡히지 않은 JS 오류(`error`, `unhandledrejection`)도 같은 팝업으로 갑니다. E2E는 `MYKANBAN_TEST_COMMANDS=1`일 때만 동작하는 `raise_test_panic`으로 이를 확인합니다.
+
 ## 데이터 모델
 
 ```
 board  { id, title, description, created, updated, columns[] }
-column { id, title, color, wip, cards[] }
+column { id, title, color, wip, background, bgOpacity, cards[] }
 card   { id, title, description, color, priority, tags[], assignee, due, checklist[], attachments[], created, updated }
 attachment (메타데이터) { id, name, size, type, thumb, width, height, added }
 ```

@@ -52,8 +52,22 @@ export class App {
       this.vite = spawn(process.execPath, [vite, '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
       for (let i = 0; i < 150 && !(await portOpen(DEV_PORT)); i++) await sleep(100);
     }
+    await this.warmUp();
     await this.launch();
     return this;
+  }
+
+  /**
+   * Has Vite transform the app (and pre-bundle its dependencies) before the app
+   * loads it. Otherwise, right after a source change, the first page load can be
+   * slow or be reloaded by Vite while the test waits.
+   */
+  async warmUp() {
+    const base = `http://localhost:${DEV_PORT}`;
+    for (const file of ['/', '/src/main.js', '/src/app.js', '/src/popup.js']) {
+      try { await (await fetch(base + file, { signal: AbortSignal.timeout(60000) })).text(); } catch { /* the app load will report problems */ }
+    }
+    await sleep(500);
   }
 
   /** Starts the app process with this run's folders and attaches to the main page. */
@@ -61,6 +75,7 @@ export class App {
     this.port = await freePort();
     this.env = {
       MYKANBAN_NO_OPEN: '1',
+      MYKANBAN_TEST_COMMANDS: '1',
       ...process.env,
       MYKANBAN_MULTI: '1',
       MYKANBAN_CONFIG_DIR: this.config,
@@ -75,7 +90,15 @@ export class App {
     this.exited = new Promise((resolve) => this.process.once('exit', resolve));
     const target = await waitTarget(this.port, (item) => item.type === 'page' && !String(item.title).startsWith('popup-'), 40000);
     this.main = await new Page(target).open();
-    await this.main.waitFor(`Boolean(window.__mykanban && document.querySelector('#toolbar .tool-button') && window.__mykanban.state.docs.length)`, { timeout: 40000 });
+    const ready = `Boolean(window.__mykanban && document.querySelector('#toolbar .tool-button') && window.__mykanban.state.docs.length)`;
+    try {
+      await this.main.waitFor(ready, { timeout: 40000 });
+    } catch {
+      // A page that started loading while Vite was still optimising: load it once more.
+      await this.main.eval('location.reload(); 1').catch(() => {});
+      await sleep(1000);
+      await this.main.waitFor(ready, { timeout: 40000 });
+    }
   }
 
   /** Kills the app (like a crash) and starts it again with the same profile. */
@@ -135,7 +158,7 @@ export class App {
   windowInfo(titlePrefix) {
     const script = `[Console]::OutputEncoding=[Text.Encoding]::UTF8;Add-Type -TypeDefinition 'using System;using System.Text;using System.Runtime.InteropServices;public static class W{public delegate bool P(IntPtr h,IntPtr l);[DllImport("user32.dll")]public static extern bool EnumWindows(P p,IntPtr l);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern int GetWindowText(IntPtr h,StringBuilder s,int n);[DllImport("user32.dll")]public static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);[DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern IntPtr GetWindow(IntPtr h,uint c);[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern bool GetClientRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern bool GetLayeredWindowAttributes(IntPtr h,out uint k,out byte a,out uint f);public struct R{public int L,T,Rt,B;}}';
 $pid0=${this.process.pid};$out=@();[W]::EnumWindows({param($h,$l) $p=0;[void][W]::GetWindowThreadProcessId($h,[ref]$p); if($p -eq $pid0){$sb=New-Object System.Text.StringBuilder 256;[void][W]::GetWindowText($h,$sb,256);$r=New-Object W+R;[void][W]::GetWindowRect($h,[ref]$r);$k=0;$a=[byte]255;$f=0;$ex=[W]::GetWindowLong($h,-20);$st=[W]::GetWindowLong($h,-16);if($ex -band 0x80000){[void][W]::GetLayeredWindowAttributes($h,[ref]$k,[ref]$a,[ref]$f)};$script:out+=[pscustomobject]@{title=$sb.ToString();visible=[W]::IsWindowVisible($h);left=$r.L;top=$r.T;right=$r.Rt;bottom=$r.B;owner=[int64][W]::GetWindow($h,4);handle=[int64]$h;layered=[bool]($ex -band 0x80000);alpha=[int]$a;style=[int64]$st}};$true},[IntPtr]::Zero)|Out-Null;$out|ConvertTo-Json -Compress`;
-    const text = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]).toString('utf8').trim();
+    const text = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true }).toString('utf8').trim();
     const list = text ? [].concat(JSON.parse(text)) : [];
     return titlePrefix ? list.filter((item) => item.title.startsWith(titlePrefix)) : list;
   }

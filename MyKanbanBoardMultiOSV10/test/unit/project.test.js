@@ -3,6 +3,8 @@ import test from 'node:test';
 import { AttachmentStore, attachmentIcon, attachmentIds, mimeFor, splitDataUrl, toDataUrl } from '../../src/domain/attachments.js';
 import * as B from '../../src/domain/board.js';
 import { parseFile, serialize } from '../../src/domain/format.js';
+import { fromPlain, sanitize, toPlain } from '../../src/domain/markup.js';
+import { monthGrid, parseDate } from '../../src/calendar.js';
 import {
   createProject, dbConfig, isProjectFileName, normalizeStorage, parseProject, resolveFile, serializeProject, storageProblems, withProjectExtension,
 } from '../../src/domain/project.js';
@@ -101,4 +103,37 @@ test('attachment helpers', () => {
   assert.equal(card.attachments.length, 1);
   assert.equal(card.attachments[0].thumb, '', 'only image data URLs are kept as thumbnails');
   assert.ok(B.matchesFilter(B.createCard({ title: 't', attachments: [{ id: 'z', name: 'report.pdf' }] }), { text: 'report' }), 'search finds attachment names');
+});
+
+test('formatted descriptions: only font styles survive, scripts are dropped', () => {
+  const dirty = '<p onclick="x()">a<span style="font-size: 18px; color: red; font-weight: 700" class="k">b</span><script>alert(1)</script><img src=x onerror=y><b>c</b></p><a href="javascript:z">d</a>';
+  assert.equal(sanitize(dirty), '<p>a<span style="font-size: 18px; font-weight: 700">b</span><b>c</b></p>d');
+  assert.equal(sanitize('<span style="font-family: expression(alert(1))">x</span>'), '<span>x</span>');
+  assert.equal(sanitize('<b>open'), '<b>open</b>', 'unclosed tags are closed');
+  assert.equal(toPlain('a<br>b<div>c</div>'), 'a\nb\nc');
+  assert.equal(fromPlain('x < y\nz'), 'x &lt; y<br>z');
+});
+
+test('cards keep formatted and plain descriptions in step', () => {
+  const board = B.createBoard({ columns: ['A'] });
+  const card = B.addCard(board, board.columns[0].id, { title: 't', descriptionHtml: '<b>bold</b> text<script>x</script>' });
+  assert.equal(card.descriptionHtml, '<b>bold</b> text');
+  assert.equal(card.description, 'bold text');
+  B.updateCard(board, card.id, { descriptionHtml: '<span style="font-size: 20px">big</span>' });
+  assert.equal(card.description, 'big');
+  B.updateCard(board, card.id, { description: 'plain only' });
+  assert.equal(card.descriptionHtml, '', 'plain edits drop the old formatting');
+  assert.ok(B.matchesFilter(B.createCard({ descriptionHtml: '<i>needle</i>' }), { text: 'needle' }));
+});
+
+test('calendar: date parsing and month grid', () => {
+  assert.equal(parseDate('2026-2-3'), '2026-02-03');
+  assert.equal(parseDate('2026.12.31'), '2026-12-31');
+  assert.equal(parseDate('2026-02-30'), null);
+  assert.equal(parseDate('soon'), null);
+  const grid = monthGrid(2026, 9); // October 2026 starts on a Thursday
+  assert.equal(grid.length, 42);
+  assert.equal(grid[0].iso, '2026-09-28', 'weeks start on Monday');
+  assert.equal(grid.filter((cell) => !cell.outside).length, 31);
+  assert.ok(grid.find((cell) => cell.iso === '2026-10-04').weekend);
 });
