@@ -63,18 +63,89 @@ export function pickVideoFormat(pref) {
   return supported.find((c) => c.id === 'webm-vp9') || supported[0];
 }
 
+const even = (n) => Math.max(2, n - (n % 2));
+
+/**
+ * A video stream of one window, painted from frames the desktop side
+ * photographs. The canvas keeps the size of the first frame; later frames
+ * (after the user resizes the window) are scaled into it.
+ */
+async function windowStream(sourceId, fps, onGone) {
+  const token = await platform.rec.windowStart(sourceId, fps);
+  let first = null;
+  try {
+    for (let i = 0; i < 10 && !first; i += 1) first = await platform.rec.windowFrame(token, 500);
+  } catch (err) {
+    platform.rec.windowStop(token);
+    throw err;
+  }
+  if (!first) {
+    platform.rec.windowStop(token);
+    throw new Error('The selected window could not be captured. It may be minimized.');
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = even(first.width);
+  canvas.height = even(first.height);
+  const ctx = canvas.getContext('2d');
+  // Frame rate 0: a frame is emitted only on requestFrame(), right after each paint.
+  const stream = canvas.captureStream(0);
+  const track = stream.getVideoTracks()[0];
+  const paint = async (f) => {
+    const bmp = await createImageBitmap(new ImageData(f.data, f.width, f.height));
+    const s = Math.min(canvas.width / f.width, canvas.height / f.height);
+    const w = Math.round(f.width * s);
+    const h = Math.round(f.height * s);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bmp, Math.floor((canvas.width - w) / 2), Math.floor((canvas.height - h) / 2), w, h);
+    bmp.close();
+    if (track && track.requestFrame) track.requestFrame();
+  };
+  await paint(first);
+
+  let running = true;
+  (async () => {
+    while (running) {
+      try {
+        const f = await platform.rec.windowFrame(token, 1000);
+        if (running && f) await paint(f);
+      } catch (err) {
+        if (!running) break;
+        running = false;
+        if (String(err && (err.message || err)).includes('window-gone')) onGone();
+        break;
+      }
+    }
+  })();
+
+  return {
+    stream,
+    stop() {
+      running = false;
+      platform.rec.windowStop(token);
+    },
+  };
+}
+
 /**
  * Starts a screen recording. Chunks are delivered to `onChunk` about once per
  * second; `onEnded` fires if the stream is cut from outside (the user stopped
- * sharing from a browser prompt). Returns a controller.
+ * sharing from a browser prompt, or the recorded window closed). Returns a
+ * controller. `windowSourceId` records one window from desktop-side frames.
  */
-export async function startRecording({ sourceId, fps = 30, systemAudio = false, microphone = false, format, bitrateMbps = 8, onChunk, onEnded, onError }) {
+export async function startRecording({ sourceId, windowSourceId, fps = 30, systemAudio = false, microphone = false, format, bitrateMbps = 8, onChunk, onEnded, onError }) {
   if (typeof MediaRecorder === 'undefined') throw new Error('MediaRecorder is not available.');
   const fmt = pickVideoFormat(format);
   if (!fmt) throw new Error('No supported video encoder was found.');
 
   let screen;
-  if (isElectron) {
+  let feed = null;
+  let stopped = false;
+  if (windowSourceId) {
+    feed = await windowStream(windowSourceId, fps, () => { if (!stopped && onEnded) onEnded(); });
+    screen = feed.stream;
+  } else if (isElectron) {
     try {
       screen = await navigator.mediaDevices.getUserMedia(desktopConstraints(sourceId, { fps, systemAudio }));
     } catch (err) {
@@ -116,7 +187,6 @@ export async function startRecording({ sourceId, fps = 30, systemAudio = false, 
     audioBitsPerSecond: 128000,
   });
 
-  let stopped = false;
   const stopPromise = new Promise((resolve) => { recorder.onstop = () => resolve(); });
   recorder.ondataavailable = (e) => { if (e.data && e.data.size && onChunk) onChunk(e.data); };
   recorder.onerror = (e) => { if (onError) onError(e.error || new Error('MediaRecorder error')); };
@@ -141,6 +211,7 @@ export async function startRecording({ sourceId, fps = 30, systemAudio = false, 
       if (stopped) return;
       stopped = true;
       if (recorder.state !== 'inactive') { try { recorder.requestData(); } catch { /* ignore */ } recorder.stop(); await stopPromise; }
+      if (feed) feed.stop();
       stopStream(screen);
       stopStream(mic);
       if (audioCtx) { try { await audioCtx.close(); } catch { /* ignore */ } }

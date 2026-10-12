@@ -18,7 +18,7 @@ export function TitleBar({ version, docName, dirty, isMac }) {
   }, [wc]);
 
   return (
-    <div className={`titlebar${isMac ? ' mac' : ''}`} onDoubleClick={() => wc.available && wc.toggleMaximize()}>
+    <div className={`titlebar${isMac ? ' mac' : ''}`} data-tauri-drag-region onDoubleClick={() => wc.available && wc.toggleMaximize()}>
       <img className="titlebar-icon" src="./icon.svg" alt="" draggable={false} />
       <div className="titlebar-title">
         <span className="titlebar-name">{t('app.name')}</span>

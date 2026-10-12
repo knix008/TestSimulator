@@ -1,6 +1,5 @@
-// .mjs rather than .js: the package has no "type": "module" — electron/*.js and
-// scripts/copy-installer.js are CommonJS — so a bare .js config would be loaded
-// through the deprecated CJS Node API of Vite.
+// .mjs rather than .js: the package has no "type": "module", so a bare .js
+// config would be loaded through the deprecated CJS Node API of Vite.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

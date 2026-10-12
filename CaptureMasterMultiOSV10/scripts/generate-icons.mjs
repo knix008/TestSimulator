@@ -82,6 +82,13 @@ async function main() {
     console.log('[icons] Wrote file.ico / file.icns / file.png (.cmcap document type)');
   }
 
+  const tauriIcons = path.join(root, 'src-tauri', 'icons');
+  fs.mkdirSync(tauriIcons, { recursive: true });
+  fs.copyFileSync(path.join(pngDir, '32x32.png'), path.join(tauriIcons, '32x32.png'));
+  fs.copyFileSync(path.join(pngDir, '128x128.png'), path.join(tauriIcons, '128x128.png'));
+  fs.copyFileSync(path.join(outDir, 'icon.ico'), path.join(tauriIcons, 'icon.ico'));
+  console.log('[icons] Copied 32x32.png, 128x128.png, icon.ico into src-tauri/icons');
+
   // Keep the web/UI copies in sync with the sources. (Also done by
   // `npm run prepare:assets`, so a plain start/dev has them too.)
   console.log(`[icons] Synced public/${syncPublicSvgs().join(', public/')}`);

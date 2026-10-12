@@ -9,7 +9,7 @@ test('nothing stored yields the defaults', () => {
 
 test('invalid values fall back field by field', () => {
   const s = normalizeSettings({
-    language: 'fr', theme: 42, opacity: 500,
+    language: 'fr', theme: 42, opacity: 50,
     font: { size: 'huge', bold: 'yes' },
     annotation: { color: 'red', strokeWidth: -3 },
     video: { fps: 17 },
@@ -17,7 +17,7 @@ test('invalid values fall back field by field', () => {
   });
   assert.equal(s.language, 'ko');
   assert.equal(s.theme, DEFAULT_SETTINGS.theme);
-  assert.equal(s.opacity, 100);
+  assert.equal('opacity' in s, false);
   assert.equal(s.font.size, DEFAULT_SETTINGS.font.size);
   assert.equal(s.font.bold, false);
   assert.equal(s.annotation.color, DEFAULT_SETTINGS.annotation.color);

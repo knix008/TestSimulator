@@ -77,7 +77,7 @@ export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await platform.capture.listSources({ types: ['screen', 'window'], thumbWidth: 360 });
+      const list = await platform.capture.listSources({ types: ['screen', 'window'], thumbWidth: 360, includeSelf: p.includeSelf !== false });
       setSources(list);
     } finally {
       setLoading(false);
@@ -87,11 +87,13 @@ export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
   useEffect(() => { if (!p.sources) refresh(); }, [p.sources, refresh]);
   useEffect(() => { if (p.sources) setSources(p.sources); }, [p.sources]);
 
-  const shown = (sources || []).filter((s) => (kind === 'record' ? s.kind === 'screen' : s.kind === tab));
+  const hasWindows = (sources || []).some((s) => s.kind === 'window');
+  const showTabs = kind !== 'record' || hasWindows;
+  const shown = (sources || []).filter((s) => (showTabs ? s.kind === tab : s.kind === 'screen'));
   useEffect(() => { if (!picked && shown.length) setPicked(shown[0].id); }, [shown, picked]);
 
   const title = kind === 'record' ? t('sources.titleRecord') : kind === 'window' ? t('sources.titleWindow') : t('sources.titleScreen');
-  const go = () => { const src = shown.find((s) => s.id === picked); if (src) onSubmit({ id: src.id, name: src.name, kind: src.kind, displayId: src.displayId }); };
+  const go = () => { const src = shown.find((s) => s.id === picked); if (src) onSubmit({ id: src.id, name: src.name, kind: src.kind, displayId: src.displayId, self: !!src.self }); };
 
   return (
     <DialogFrame title={title} standalone={standalone} onClose={onClose}
@@ -101,7 +103,7 @@ export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
         <button className="btn primary" disabled={!picked} onClick={go}><Icon name={kind === 'record' ? 'record' : 'camera'} />{kind === 'record' ? t('sources.record') : t('sources.capture')}</button>
       </>}
     >
-      {kind !== 'record' ? (
+      {showTabs ? (
         <div className="sources-tabs">
           <button className={tab === 'screen' ? 'active' : ''} onClick={() => { setTab('screen'); setPicked(null); }}>{t('sources.screens')}</button>
           <button className={tab === 'window' ? 'active' : ''} onClick={() => { setTab('window'); setPicked(null); }}>{t('sources.windows')}</button>
@@ -115,7 +117,7 @@ export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
             <div className="source-thumb">{s.thumbnail ? <img src={s.thumbnail} alt="" draggable={false} /> : <Icon name={s.kind === 'screen' ? 'screen' : 'window'} size={40} />}</div>
             <div className="source-name">
               {s.appIcon ? <img src={s.appIcon} alt="" /> : <Icon name={s.kind === 'screen' ? 'screen' : 'window'} size={16} />}
-              <span title={s.name}>{s.name}{s.isPrimary ? ` · ${t('sources.primary')}` : ''}</span>
+              <span title={s.name}>{s.name}{s.self ? ` · ${t('sources.self')}` : ''}{s.isPrimary ? ` · ${t('sources.primary')}` : ''}</span>
             </div>
           </div>
         ))}

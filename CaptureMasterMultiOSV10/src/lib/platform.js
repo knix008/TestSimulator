@@ -6,12 +6,16 @@
 // downloads — so the interface can be developed and tested without Electron.
 
 import { dialogBus } from './dialogBus.js';
+import { isTauri, tauriApi } from './tauriBridge.js';
 
-const api = typeof window !== 'undefined' ? window.electronAPI : null;
-export const isElectron = !!(api && api.isElectron);
+const electronApi = typeof window !== 'undefined' ? window.electronAPI : null;
+export const isElectron = !!(electronApi && electronApi.isElectron);
+export { isTauri };
+export const isDesktop = isElectron || isTauri;
+const api = isElectron ? electronApi : (isTauri ? tauriApi : null);
 
 let progressListeners = [];
-if (isElectron) api.onProgress((p) => { for (const cb of progressListeners) cb(p); });
+if (isDesktop) api.onProgress((p) => { for (const cb of progressListeners) cb(p); });
 
 export function onProgress(cb) {
   progressListeners.push(cb);
@@ -54,55 +58,55 @@ function webDownload(bytes, name, mime) {
 
 // ── The adapter ───────────────────────────────────────────
 export const platform = {
-  isElectron,
+  isDesktop,
 
   async getInfo() {
-    if (isElectron) return api.getInfo();
-    return { isElectron: false, version: '', platform: navigator.platform || 'web', arch: '', electron: '', chrome: navigator.userAgent, node: '', userData: 'localStorage', home: '', pictures: '', videos: '', packaged: false };
+    if (isDesktop) return api.getInfo();
+    return { isElectron: false, isTauri: false, isDesktop: false, version: '', platform: navigator.platform || 'web', arch: '', electron: '', chrome: navigator.userAgent, node: '', userData: 'localStorage', home: '', pictures: '', videos: '', packaged: false };
   },
-  takePendingOpen: () => (isElectron ? api.takePendingOpen() : Promise.resolve(null)),
-  onOpenPath: (cb) => (isElectron ? api.onOpenPath(cb) : () => {}),
-  onCloseRequested: (cb) => (isElectron ? api.onCloseRequested(cb) : () => {}),
-  onMainError: (cb) => (isElectron ? api.onMainError(cb) : () => {}),
-  takeInstallCheck: () => (isElectron ? api.takeInstallCheck() : Promise.resolve(false)),
-  resolveInstallCheck: (wipe) => (isElectron ? api.resolveInstallCheck(wipe) : Promise.resolve(true)),
-  quit: () => (isElectron ? api.quit() : Promise.resolve(window.close())),
+  takePendingOpen: () => (isDesktop ? api.takePendingOpen() : Promise.resolve(null)),
+  onOpenPath: (cb) => (isDesktop ? api.onOpenPath(cb) : () => {}),
+  onCloseRequested: (cb) => (isDesktop ? api.onCloseRequested(cb) : () => {}),
+  onMainError: (cb) => (isDesktop ? api.onMainError(cb) : () => {}),
+  takeInstallCheck: () => (isDesktop ? api.takeInstallCheck() : Promise.resolve(false)),
+  resolveInstallCheck: (wipe) => (isDesktop ? api.resolveInstallCheck(wipe) : Promise.resolve(true)),
+  quit: () => (isDesktop ? api.quit() : Promise.resolve(window.close())),
 
   async loadSettings() {
-    if (isElectron) return api.loadSettings();
+    if (isDesktop) return api.loadSettings();
     try { return JSON.parse(localStorage.getItem(WEB_SETTINGS_KEY) || 'null'); } catch { return null; }
   },
   async saveSettings(data) {
-    if (isElectron) return api.saveSettings(data);
+    if (isDesktop) return api.saveSettings(data);
     localStorage.setItem(WEB_SETTINGS_KEY, JSON.stringify(data));
     return true;
   },
 
   // ── Files ──
   fs: {
-    exists: (p) => (isElectron ? api.fs.exists(p) : Promise.resolve(false)),
-    stat: (p) => (isElectron ? api.fs.stat(p) : Promise.resolve(null)),
+    exists: (p) => (isDesktop ? api.fs.exists(p) : Promise.resolve(false)),
+    stat: (p) => (isDesktop ? api.fs.stat(p) : Promise.resolve(null)),
     readBinary: (filePath, id) => api.fs.readBinary({ filePath, id }),
     readText: (filePath, id) => api.fs.readText({ filePath, id }),
     writeBinary: (filePath, data, id) => api.fs.writeBinary({ filePath, data, id }),
     writeText: (filePath, content, id) => api.fs.writeText({ filePath, content, id }),
     copyFile: (from, to, id) => api.fs.copyFile({ from, to, id }),
     tempPath: (ext) => api.fs.tempPath(ext),
-    remove: (p) => (isElectron ? api.fs.remove(p) : Promise.resolve(false)),
+    remove: (p) => (isDesktop ? api.fs.remove(p) : Promise.resolve(false)),
   },
 
   /** Opens a file. Electron: a path (or paths). Web: File object(s). */
   async openFileDialog({ defaultDir, filters, title, multi, accept } = {}) {
-    if (isElectron) return api.dialog.openFile({ defaultDir, filters, title, multi });
+    if (isDesktop) return api.dialog.openFile({ defaultDir, filters, title, multi });
     return webPickFile(accept, multi);
   },
-  pickDirectory: (opts) => (isElectron ? api.dialog.pickDirectory(opts || {}) : Promise.resolve(null)),
-  pickSavePath: (opts) => (isElectron ? api.dialog.pickSavePath(opts || {}) : Promise.resolve(null)),
+  pickDirectory: (opts) => (isDesktop ? api.dialog.pickDirectory(opts || {}) : Promise.resolve(null)),
+  pickSavePath: (opts) => (isDesktop ? api.dialog.pickSavePath(opts || {}) : Promise.resolve(null)),
   /** Web-only: hands the bytes to the browser as a download. */
   webDownload,
 
   download: (url, id) => {
-    if (isElectron) return api.download({ url, id });
+    if (isDesktop) return api.download({ url, id });
     return fetch(url).then(async (res) => {
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText + ' — ' + url);
       const buf = new Uint8Array(await res.arrayBuffer());
@@ -117,16 +121,16 @@ export const platform = {
   },
 
   clipboard: {
-    writeText: (t) => (isElectron ? api.clipboard.writeText(t) : navigator.clipboard.writeText(t)),
-    readText: () => (isElectron ? api.clipboard.readText() : navigator.clipboard.readText()),
+    writeText: (t) => (isDesktop ? api.clipboard.writeText(t) : navigator.clipboard.writeText(t)),
+    readText: () => (isDesktop ? api.clipboard.readText() : navigator.clipboard.readText()),
     writeImage: async (dataUrl) => {
-      if (isElectron) return api.clipboard.writeImage(dataUrl);
+      if (isDesktop) return api.clipboard.writeImage(dataUrl);
       const blob = await (await fetch(dataUrl)).blob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       return true;
     },
     readImage: async () => {
-      if (isElectron) return api.clipboard.readImage();
+      if (isDesktop) return api.clipboard.readImage();
       if (!navigator.clipboard.read) return null;
       const items = await navigator.clipboard.read();
       for (const item of items) {
@@ -141,63 +145,64 @@ export const platform = {
   },
 
   shell: {
-    openExternal: (url) => (isElectron ? api.shell.openExternal(url) : Promise.resolve(window.open(url, '_blank', 'noopener'))),
-    showItem: (p) => (isElectron ? api.shell.showItem(p) : Promise.resolve(false)),
-    openPath: (p) => (isElectron ? api.shell.openPath(p) : Promise.resolve(false)),
+    openExternal: (url) => (isDesktop ? api.shell.openExternal(url) : Promise.resolve(window.open(url, '_blank', 'noopener'))),
+    showItem: (p) => (isDesktop ? api.shell.showItem(p) : Promise.resolve(false)),
+    openPath: (p) => (isDesktop ? api.shell.openPath(p) : Promise.resolve(false)),
   },
 
   capture: {
-    available: isElectron || !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
-    listSources: (opts) => (isElectron ? api.capture.listSources(opts) : Promise.resolve([])),
+    available: isDesktop || !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+    listSources: (opts) => (isDesktop ? api.capture.listSources(opts) : Promise.resolve([])),
     grabScreen: (sourceId) => api.capture.grabScreen(sourceId),
-    displays: () => (isElectron ? api.capture.displays() : Promise.resolve([{ id: 'web', bounds: { x: 0, y: 0, width: screen.width, height: screen.height }, scaleFactor: devicePixelRatio, isPrimary: true }])),
-    cursorDisplay: () => (isElectron ? api.capture.cursorDisplay() : Promise.resolve('web')),
-    hideApp: () => (isElectron ? api.capture.hideApp() : Promise.resolve(true)),
-    showApp: () => (isElectron ? api.capture.showApp() : Promise.resolve(true)),
-    minimizeApp: () => (isElectron ? api.capture.minimizeApp() : Promise.resolve(true)),
-    restoreApp: () => (isElectron ? api.capture.restoreApp() : Promise.resolve(true)),
+    grabWindow: (sourceId) => (isTauri ? api.capture.grabWindow(sourceId) : Promise.reject(new Error('Window capture uses the desktop stream.'))),
+    displays: () => (isDesktop ? api.capture.displays() : Promise.resolve([{ id: 'web', bounds: { x: 0, y: 0, width: screen.width, height: screen.height }, scaleFactor: devicePixelRatio, isPrimary: true }])),
+    cursorDisplay: () => (isDesktop ? api.capture.cursorDisplay() : Promise.resolve('web')),
+    hideApp: () => (isDesktop ? api.capture.hideApp() : Promise.resolve(true)),
+    showApp: () => (isDesktop ? api.capture.showApp() : Promise.resolve(true)),
+    minimizeApp: () => (isDesktop ? api.capture.minimizeApp() : Promise.resolve(true)),
+    restoreApp: () => (isDesktop ? api.capture.restoreApp() : Promise.resolve(true)),
   },
 
-  rec: isElectron ? api.rec : null,
+  rec: isDesktop ? api.rec : null,
 
   /** Path → URL that <video>/<img> can load inside the app. */
   mediaUrl(p) {
-    if (!isElectron) return p;
-    return 'cm-media://local/' + encodeURIComponent(String(p).replace(/\\/g, '/'));
+    if (isElectron) return 'cm-media://local/' + encodeURIComponent(String(p).replace(/\\/g, '/'));
+    if (isTauri) return tauriApi.mediaUrl(p);
+    return p;
   },
 
   // ── Dialog windows (in-page modals on the web) ──
   dialogs: {
-    windowed: isElectron,
-    open: (name, payload) => (isElectron ? api.dialogs.open(name, payload) : dialogBus.open(name, payload)),
-    getPayload: () => (isElectron ? api.dialogs.getPayload() : Promise.resolve(null)),
-    update: (name, payload) => (isElectron ? api.dialogs.update(name, payload) : dialogBus.update(name, payload)),
-    submit: (name, data, keepOpen) => (isElectron ? api.dialogs.submit(name, data, keepOpen) : dialogBus.submit(name, data, keepOpen)),
-    close: (name) => (isElectron ? api.dialogs.close(name) : dialogBus.close(name)),
-    closeSelf: () => (isElectron ? api.dialogs.closeSelf() : Promise.resolve(true)),
-    ready: () => (isElectron ? api.dialogs.ready() : Promise.resolve(true)),
-    isOpen: (name) => (isElectron ? api.dialogs.isOpen(name) : Promise.resolve(dialogBus.isOpen(name))),
-    broadcastAppearance: (a) => (isElectron ? api.dialogs.broadcastAppearance(a) : Promise.resolve(true)),
-    setSize: (w, h) => (isElectron ? api.dialogs.setSize(w, h) : Promise.resolve(true)),
-    onResult: (cb) => (isElectron ? api.dialogs.onResult(cb) : dialogBus.onResult(cb)),
-    onClosed: (cb) => (isElectron ? api.dialogs.onClosed(cb) : dialogBus.onClosed(cb)),
-    onPayload: (cb) => (isElectron ? api.dialogs.onPayload(cb) : () => {}),
-    onAppearance: (cb) => (isElectron ? api.dialogs.onAppearance(cb) : () => {}),
+    windowed: isDesktop,
+    open: (name, payload) => (isDesktop ? api.dialogs.open(name, payload) : dialogBus.open(name, payload)),
+    getPayload: () => (isDesktop ? api.dialogs.getPayload() : Promise.resolve(null)),
+    update: (name, payload) => (isDesktop ? api.dialogs.update(name, payload) : dialogBus.update(name, payload)),
+    submit: (name, data, keepOpen) => (isDesktop ? api.dialogs.submit(name, data, keepOpen) : dialogBus.submit(name, data, keepOpen)),
+    close: (name) => (isDesktop ? api.dialogs.close(name) : dialogBus.close(name)),
+    closeSelf: () => (isDesktop ? api.dialogs.closeSelf() : Promise.resolve(true)),
+    ready: () => (isDesktop ? api.dialogs.ready() : Promise.resolve(true)),
+    isOpen: (name) => (isDesktop ? api.dialogs.isOpen(name) : Promise.resolve(dialogBus.isOpen(name))),
+    broadcastAppearance: (a) => (isDesktop ? api.dialogs.broadcastAppearance(a) : Promise.resolve(true)),
+    setSize: (w, h) => (isDesktop ? api.dialogs.setSize(w, h) : Promise.resolve(true)),
+    onResult: (cb) => (isDesktop ? api.dialogs.onResult(cb) : dialogBus.onResult(cb)),
+    onClosed: (cb) => (isDesktop ? api.dialogs.onClosed(cb) : dialogBus.onClosed(cb)),
+    onPayload: (cb) => (isDesktop ? api.dialogs.onPayload(cb) : () => {}),
+    onAppearance: (cb) => (isDesktop ? api.dialogs.onAppearance(cb) : () => {}),
   },
 
   windowControls: {
-    available: isElectron,
+    available: isDesktop,
     minimize: () => api.win.minimize(),
     toggleMaximize: () => api.win.toggleMaximize(),
     close: () => api.win.close(),
     isMaximized: () => api.win.isMaximized(),
     onMaximizedChange: (cb) => api.win.onMaximizeChange(cb),
-    setTitle: (t) => { document.title = t; return isElectron ? api.win.setTitle(t) : Promise.resolve(true); },
-    setOpacity: (v) => (isElectron ? api.win.setOpacity(v) : Promise.resolve(false)),
-    setMinWidth: (w) => (isElectron ? api.win.setMinWidth(w) : Promise.resolve(false)),
-    setMinHeight: (h) => (isElectron ? api.win.setMinHeight(h) : Promise.resolve(false)),
-    getSize: () => (isElectron ? api.win.getSize() : Promise.resolve(null)),
-    setSize: (p) => (isElectron ? api.win.setSize(p) : Promise.resolve(false)),
+    setTitle: (t) => { document.title = t; return isDesktop ? api.win.setTitle(t) : Promise.resolve(true); },
+    setMinWidth: (w) => (isDesktop ? api.win.setMinWidth(w) : Promise.resolve(false)),
+    setMinHeight: (h) => (isDesktop ? api.win.setMinHeight(h) : Promise.resolve(false)),
+    getSize: () => (isDesktop ? api.win.getSize() : Promise.resolve(null)),
+    setSize: (p) => (isDesktop ? api.win.setSize(p) : Promise.resolve(false)),
   },
 };
 

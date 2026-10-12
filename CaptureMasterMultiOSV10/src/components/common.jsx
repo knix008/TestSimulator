@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Icon } from './Icons.jsx';
 
 // ── Tooltips ──────────────────────────────────────────────
@@ -156,6 +157,101 @@ export function Dropdown({ anchor, onClose, children, width }) {
     <div ref={ref} className="dropdown" style={{ left: pos ? pos.x : -9999, top: pos ? pos.y : -9999, width, maxHeight: pos ? window.innerHeight - pos.y - 8 : undefined, overflowY: 'auto' }}>
       {children}
     </div>
+  );
+}
+
+// ── Number input with decrease / increase buttons ─────────
+/**
+ * A centred number field between "−" and "+" buttons. Holding a button
+ * repeats; ↑/↓ step too. Typing is free-form: a value inside [min, max] is
+ * applied at once, anything else is clamped when the field loses focus.
+ */
+export function NumberInput({ value, min = -Infinity, max = Infinity, step = 1, onChange, disabled, ariaLabel, width = 52, unit, className = '' }) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(String(value));
+  const [editing, setEditing] = useState(false);
+  const valueRef = useRef(value);
+  const repeat = useRef(null);
+  const onChangeRef = useRef(onChange);
+  valueRef.current = value;
+  onChangeRef.current = onChange;
+
+  useEffect(() => { if (!editing) setText(String(value)); }, [value, editing]);
+  useEffect(() => () => clearTimeout(repeat.current), []);
+
+  const clamp = (n) => Math.min(max, Math.max(min, n));
+  const round = (n) => Math.round(n / step) * step;
+  const bump = (dir) => {
+    const next = clamp(round((Number(valueRef.current) || 0) + dir * step));
+    if (next !== valueRef.current) { valueRef.current = next; onChangeRef.current(next); }
+    setText(String(next));
+    return next;
+  };
+  const startRepeat = (dir) => {
+    if (disabled) return;
+    bump(dir);
+    const tick = (delay) => {
+      repeat.current = setTimeout(() => {
+        const n = bump(dir);
+        if (n > min && n < max) tick(Math.max(40, delay * 0.8));
+      }, delay);
+    };
+    tick(400);
+  };
+  const stopRepeat = () => clearTimeout(repeat.current);
+
+  const commitText = () => {
+    setEditing(false);
+    const n = Number(text);
+    const next = Number.isFinite(n) && text.trim() !== '' ? clamp(round(n)) : value;
+    if (next !== value) onChange(next);
+    setText(String(next));
+  };
+
+  const stepButton = (dir) => (
+    <button
+      type="button"
+      className="num-btn"
+      tabIndex={-1}
+      disabled={disabled || (dir < 0 ? value <= min : value >= max)}
+      aria-label={dir < 0 ? t('common.decrease') : t('common.increase')}
+      data-tip={dir < 0 ? t('common.decrease') : t('common.increase')}
+      onPointerDown={(e) => { if (e.button === 0) { e.preventDefault(); startRepeat(dir); } }}
+      onPointerUp={stopRepeat}
+      onPointerLeave={stopRepeat}
+      onPointerCancel={stopRepeat}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(dir); } }}
+    >
+      <Icon name={dir < 0 ? 'minus' : 'plus'} />
+    </button>
+  );
+
+  return (
+    <span className={`num-input${disabled ? ' disabled' : ''} ${className}`}>
+      {stepButton(-1)}
+      <input
+        type="text"
+        inputMode="numeric"
+        value={text}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        style={{ width }}
+        onFocus={(e) => { setEditing(true); e.target.select(); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          const n = Number(e.target.value);
+          if (e.target.value.trim() !== '' && Number.isFinite(n) && n >= min && n <= max && n !== value) onChange(round(n));
+        }}
+        onBlur={commitText}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commitText(); setEditing(true); }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bump(e.key === 'ArrowUp' ? 1 : -1); }
+          else if (e.key === 'Escape') { setText(String(value)); }
+        }}
+      />
+      {stepButton(1)}
+      {unit ? <span className="num-unit">{unit}</span> : null}
+    </span>
   );
 }
 

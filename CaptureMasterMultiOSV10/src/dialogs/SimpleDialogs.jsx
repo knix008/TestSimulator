@@ -19,7 +19,7 @@ export function AboutDialog({ payload, onClose, standalone }) {
     [t('about.author'), 'SHKWON(knix008@naver.com)'],
     [t('about.license'), info.license || 'MIT'],
     [t('about.platform'), `${info.platform || ''} ${info.arch || ''} ${info.osRelease ? '(' + info.osRelease + ')' : ''}`.trim() || '-'],
-    [t('about.electron'), info.electron || (info.isElectron === false ? t('about.web') : '-')],
+    [info.tauri ? t('about.tauri') : t('about.electron'), info.tauri || info.electron || (info.isElectron === false && !info.isTauri ? t('about.web') : '-')],
     [t('about.chrome'), info.chrome || '-'],
     [t('about.node'), info.node || '-'],
     [t('about.userData'), info.userData || '-'],

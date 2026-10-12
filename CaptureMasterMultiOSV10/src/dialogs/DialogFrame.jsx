@@ -16,7 +16,7 @@ export function DialogFrame({ title, standalone, onClose, children, footer, clas
   return (
     <div className={`dlg${standalone ? ' standalone' : ''} ${className}`}>
       {standalone || title ? (
-        <div className="dlg-titlebar">
+        <div className="dlg-titlebar" data-tauri-drag-region>
           <img src="./icon.svg" alt="" draggable={false} />
           <span className="t">{title}</span>
           <button onClick={onClose} aria-label="close"><Icon name="close" /></button>

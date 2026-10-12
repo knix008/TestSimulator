@@ -1,6 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from './Icons.jsx';
+import { themeById, themeLabel } from '../themes.js';
+import { ThemeSwatch } from './Menus.jsx';
+import { NumberInput } from './common.jsx';
 
 export const TOOLS = ['select', 'pen', 'rect', 'ellipse', 'arrow', 'line', 'text', 'highlight', 'pixelate', 'number', 'crop'];
 
@@ -59,7 +62,7 @@ function FlagKR() {
  * Two toolbar rows. The wider of the two is reported through `onMeasure` so
  * the window can refuse to shrink below it (no button is ever hidden).
  */
-export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
+export function Toolbar({ s, a, recentAnchorRef }) {
   const { t, i18n } = useTranslation();
   const row1 = useRef(null);
   const row2 = useRef(null);
@@ -94,6 +97,13 @@ export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
     document.fonts.ready.then(measure);
   }, [s.fontKey, a]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  const labelOf = (th) => themeLabel(th, i18n.language);
+  const current = themeById(s.themeId, s.customThemes);
+  const currentSwatch = {
+    bg: current.tokens['--bg'], panel: current.tokens['--bg-panel'],
+    border: current.tokens['--border-strong'], accent: current.tokens['--accent'],
+  };
+
   return (
     <div className="toolbar-wrap">
       <div className="toolbar" ref={row1}>
@@ -110,7 +120,7 @@ export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
         <div className="tb-group">
           <TbButton icon="open" label={t('toolbar.open')} tip={t('toolbar.openTip')} onClick={a.open} />
           <TbButton icon="link" label={t('toolbar.openUrl')} tip={t('toolbar.openUrlTip')} onClick={a.openUrl} />
-          <TbButton icon="recent" label={t('toolbar.recent')} tip={t('toolbar.recentTip')} onClick={a.recent} caret refEl={recentAnchorRef} />
+          <TbButton icon="recent" label={t('toolbar.recent')} tip={t('toolbar.recentTip')} onClick={(e) => a.recent(e.currentTarget)} caret refEl={recentAnchorRef} />
           <TbButton icon="save" label={t('toolbar.save')} tip={t('toolbar.saveTip')} onClick={a.save} disabled={!s.isImage} />
           <TbButton icon="saveAs" label={t('toolbar.saveAs')} tip={t('toolbar.saveAsTip')} onClick={a.saveAs} disabled={!s.hasDoc} />
           <TbButton icon="export" label={t('toolbar.export')} tip={t('toolbar.exportTip')} onClick={a.exportImage} disabled={!s.isImage} />
@@ -130,27 +140,22 @@ export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
           <TbButton icon="fit" label={t('toolbar.zoomFit')} tip={t('toolbar.zoomFitTip')} onClick={a.zoomFit} disabled={!s.hasDoc} />
           <TbButton icon="actual" label={t('toolbar.zoom100')} tip={t('toolbar.zoom100Tip')} onClick={a.zoom100} disabled={!s.hasDoc} />
         </div>
-        <div className="tb-sep" />
-        <div className="tb-opacity" data-tip={t('toolbar.opacityTip')}>
-          <Icon name="palette" size={16} />
-          <span className="bound">0</span>
-          <input
-            className="tb-range"
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={s.opacity}
-            onChange={(e) => a.setOpacity(Number(e.target.value))}
-            aria-label={t('toolbar.opacity')}
-          />
-          <span className="bound">100</span>
-          <span className="val">{s.opacity}%</span>
-        </div>
         <div className="tb-spacer" />
         <div className="tb-group">
-          <TbButton icon="palette" label={t('toolbar.theme')} tip={t('toolbar.themeTip')} onClick={a.theme} caret refEl={themeAnchorRef} />
-          <TbButton icon="contrast" label={t('toolbar.nextTheme')} tip={t('toolbar.nextThemeTip', { theme: s.nextThemeLabel })} onClick={a.nextTheme} />
+          <div className="tb-theme">
+            <TbButton icon="palette" label={t('toolbar.theme')} tip={t('toolbar.themeTip', { theme: s.nextThemeLabel })} onClick={a.nextTheme} />
+            <button
+              className={`tb-theme-pick${s.themeMenuOpen ? ' open' : ''}`}
+              aria-label={t('toolbar.themePick')}
+              aria-haspopup="menu"
+              data-tip={t('toolbar.themePickTip')}
+              onClick={(e) => a.openThemeMenu(e.currentTarget)}
+            >
+              <ThemeSwatch th={currentSwatch} size={16} />
+              <span className="name">{labelOf(current)}</span>
+              <Icon name="caret" className="caret" />
+            </button>
+          </div>
           <button className="tb-btn" data-tip={t('toolbar.languageTip')} aria-label={t('toolbar.language')} onClick={a.toggleLanguage}>
             {i18n.language === 'ko' ? <FlagUK /> : <FlagKR />}
           </button>
@@ -181,11 +186,11 @@ export function Toolbar({ s, a, recentAnchorRef, themeAnchorRef }) {
         </div>
         <div className="tb-field" data-tip={t('toolbar.strokeTip')}>
           <Icon name="line" size={16} />
-          <input type="number" min={1} max={40} value={s.strokeWidth} onChange={(e) => a.setStrokeWidth(Number(e.target.value))} disabled={!s.isImage} aria-label={t('toolbar.stroke')} />
+          <NumberInput min={1} max={40} value={s.strokeWidth} onChange={a.setStrokeWidth} disabled={!s.isImage} ariaLabel={t('toolbar.stroke')} width={40} />
         </div>
         <div className="tb-field" data-tip={t('toolbar.fontSizeTip')}>
           <Icon name="font" size={16} />
-          <input type="number" min={8} max={200} value={s.fontSize} onChange={(e) => a.setFontSize(Number(e.target.value))} disabled={!s.isImage} aria-label={t('toolbar.fontSize')} />
+          <NumberInput min={8} max={200} value={s.fontSize} onChange={a.setFontSize} disabled={!s.isImage} ariaLabel={t('toolbar.fontSize')} width={44} />
         </div>
         <TbButton icon="fill" label={t('toolbar.fill')} tip={t('toolbar.fillTip')} onClick={() => a.setFill(!s.fill)} active={s.fill} disabled={!s.isImage} />
         <div className="tb-sep" />

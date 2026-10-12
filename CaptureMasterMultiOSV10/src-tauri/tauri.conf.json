@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CaptureMaster",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.capturemaster",
+  "build": {
+    "beforeDevCommand": "npm run prepare:assets && npx vite --port 5184",
+    "devUrl": "http://localhost:5184",
+    "beforeBuildCommand": "npm run prepare:assets && npx vite build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "CaptureMaster",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 960,
+        "minHeight": 600,
+        "decorations": false,
+        "shadow": true,
+        "resizable": true,
+        "visible": true,
+        "center": true,
+        "dragDropEnabled": true,
+        "backgroundColor": "#12161c"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: asset: http://asset.localhost; media-src 'self' data: blob: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "devCsp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["**"],
+          "requireLiteralLeadingDot": false
+        }
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "SHKWON",
+    "homepage": "https://github.com/knix008/TestSimulator",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "category": "Graphics",
+    "shortDescription": "Screen capture and recording",
+    "longDescription": "Capture the full screen, a window or a region, annotate the shot, and record the screen.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["cmcap"],
+        "name": "CaptureMaster Capture",
+        "description": "CaptureMaster capture with annotations",
+        "mimeType": "application/x-capturemaster-capture",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": true,
+        "languages": ["English", "Korean"],
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  }
+}

@@ -1,8 +1,10 @@
 // Installed fonts for the Settings dialog.
 //
-// queryLocalFonts() lists every font on the system (Electron grants the
-// `local-fonts` permission in main.js). Where it is unavailable or denied a
-// curated list of common families keeps the picker useful.
+// On the desktop the native side enumerates the system fonts; in a browser
+// queryLocalFonts() is used. Where neither works a curated list of common
+// families keeps the picker useful.
+
+import { isTauri, tauriApi } from './tauriBridge.js';
 
 export const FALLBACK_FONTS = [
   'Arial', 'Arial Black', 'Calibri', 'Cambria', 'Comic Sans MS', 'Consolas', 'Courier New', 'Georgia', 'Impact',
@@ -17,7 +19,16 @@ let cache = null;
 /** @returns {Promise<{families: string[], source: 'system'|'fallback'}>} */
 export async function listFonts() {
   if (cache) return cache;
-  if (typeof window !== 'undefined' && typeof window.queryLocalFonts === 'function') {
+  if (isTauri) {
+    // Native list: queryLocalFonts() would raise a WebView2 permission prompt.
+    try {
+      const families = await tauriApi.listFonts();
+      if (families && families.length) {
+        cache = { families: [...families].sort((a, b) => a.localeCompare(b)), source: 'system' };
+        return cache;
+      }
+    } catch { /* use the fallback below */ }
+  } else if (typeof window !== 'undefined' && typeof window.queryLocalFonts === 'function') {
     try {
       const fonts = await window.queryLocalFonts();
       const families = Array.from(new Set(fonts.map((f) => f.family))).sort((a, b) => a.localeCompare(b));

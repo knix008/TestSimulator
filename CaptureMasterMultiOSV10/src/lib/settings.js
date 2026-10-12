@@ -21,10 +21,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   version: SETTINGS_VERSION,
   language: 'ko',
   theme: 'midnight',
-  opacity: 100,
   font: { family: '', size: 13, bold: false, italic: false },
   annotation: { color: '#ff3d3d', strokeWidth: 4, fill: false, fontFamily: '', fontSize: 24, bold: true, italic: false },
-  capture: { delay: 0, hideWindow: true, copyToClipboard: false, showCountdown: true },
+  capture: { delay: 0, hideWindow: true, allowSelf: true, copyToClipboard: false, showCountdown: true },
+  customThemes: [],
   image: { format: 'png', quality: 92 },
   video: { format: 'auto', fps: 30, systemAudio: false, microphone: false, minimizeWhileRecording: true, askPath: false, bitrateMbps: 8 },
   paths: { lastOpenDir: '', lastSaveDir: '', lastExportDir: '', videoDir: '' },
@@ -42,6 +42,39 @@ function bool(v, fallback) { return typeof v === 'boolean' ? v : fallback; }
 function str(v, fallback) { return typeof v === 'string' ? v : fallback; }
 
 function oneOf(v, list, fallback) { return list.includes(v) ? v : fallback; }
+
+function hexColor(v, fallback) {
+  return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
+}
+
+function normalizeCustomThemes(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    let id = typeof item.id === 'string' && /^custom-[a-z0-9_-]+$/i.test(item.id) ? item.id : '';
+    let n = out.length;
+    while (!id || seen.has(id)) {
+      id = `custom-n${n}`;
+      n += 1;
+    }
+    seen.add(id);
+    const label = str(item.label, 'Custom').trim().slice(0, 40) || 'Custom';
+    out.push({
+      id,
+      label,
+      mode: item.mode === 'light' ? 'light' : 'dark',
+      bg: hexColor(item.bg, item.mode === 'light' ? '#f6f7f9' : '#12161c'),
+      panel: hexColor(item.panel, item.mode === 'light' ? '#eef1f5' : '#161b23'),
+      text: hexColor(item.text, item.mode === 'light' ? '#1c2530' : '#e4e9f0'),
+      accent: hexColor(item.accent, item.mode === 'light' ? '#1565c0' : '#4cc9f0'),
+      titlebar: hexColor(item.titlebar, item.mode === 'light' ? '#e9edf2' : '#0e1217'),
+    });
+    if (out.length >= 24) break;
+  }
+  return out;
+}
 
 export function normalizeSettings(raw) {
   const d = DEFAULT_SETTINGS;
@@ -70,7 +103,6 @@ export function normalizeSettings(raw) {
     version: SETTINGS_VERSION,
     language: oneOf(s.language, ['ko', 'en'], d.language),
     theme: str(s.theme, d.theme),
-    opacity: clampNum(s.opacity, 0, 100, d.opacity),
     font: {
       family: str(font.family, d.font.family),
       size: clampNum(font.size, 9, 24, d.font.size),
@@ -89,9 +121,11 @@ export function normalizeSettings(raw) {
     capture: {
       delay: clampNum(cap.delay, 0, 30, d.capture.delay),
       hideWindow: bool(cap.hideWindow, d.capture.hideWindow),
+      allowSelf: bool(cap.allowSelf, d.capture.allowSelf),
       copyToClipboard: bool(cap.copyToClipboard, d.capture.copyToClipboard),
       showCountdown: bool(cap.showCountdown, d.capture.showCountdown),
     },
+    customThemes: normalizeCustomThemes(s.customThemes),
     image: {
       format: oneOf(img.format, IMAGE_FORMATS.map((f) => f.id), d.image.format),
       quality: clampNum(img.quality, 10, 100, d.image.quality),

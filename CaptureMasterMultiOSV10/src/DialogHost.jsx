@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { platform } from './lib/platform.js';
 import { dialogBus } from './lib/dialogBus.js';
-import { applyTheme, applyFont, DEFAULT_THEME } from './themes.js';
+import { applyTheme, applyFont, applyAppearanceBundle, DEFAULT_THEME } from './themes.js';
 import { TooltipLayer } from './components/common.jsx';
 import { SettingsDialog } from './dialogs/SettingsDialog.jsx';
 import { AboutDialog, ErrorDialog, ProgressDialog, ConfirmDialog, PromptDialog } from './dialogs/SimpleDialogs.jsx';
@@ -36,6 +36,7 @@ const MODAL_SIZES = {
 };
 
 export function dialogNameFromLocation() {
+  if (typeof window !== 'undefined' && window.__CM_DIALOG__) return String(window.__CM_DIALOG__);
   const match = /[#&?]dialog=([^&]+)/.exec(window.location.hash + window.location.search);
   return match ? decodeURIComponent(match[1]) : null;
 }
@@ -46,7 +47,8 @@ function useAppearance() {
   const { i18n } = useTranslation();
   return useCallback((appearance) => {
     if (!appearance) return;
-    applyTheme(appearance.theme || DEFAULT_THEME);
+    if (appearance.tokens) applyAppearanceBundle(appearance);
+    else applyTheme(appearance.theme || DEFAULT_THEME, appearance.customThemes);
     if (appearance.font) applyFont(appearance.font);
     if (appearance.language && appearance.language !== i18n.language) i18n.changeLanguage(appearance.language);
   }, [i18n]);
