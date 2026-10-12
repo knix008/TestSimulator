@@ -1,7 +1,7 @@
 // End-to-end cases against the running app. Each case gets the started `App`
 // (see harness.mjs) and throws on failure. Files go to a temporary folder.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,6 +41,10 @@ function checkFile(app, extension) {
   assert.ok(MAGIC[extension](bytes), `${file} is not a ${extension.toUpperCase()} file`);
   return { file, bytes };
 }
+
+const countFiles = (app, extension) => fs.readdirSync(app.output).filter((name) => name.toLowerCase().endsWith(extension)).length;
+const pngFiles = (app) => countFiles(app, '.png');
+const webmFiles = (app) => countFiles(app, '.webm');
 
 const pngSize = (bytes) => [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
 
@@ -514,6 +518,36 @@ export const cases = [
     },
   },
   {
+    name: '좌우 패널 · 최소 폭이 같음 (한국어 · English)',
+    run: async (app) => {
+      const width = (selector) => app.main.eval(`document.querySelector('${selector}').getBoundingClientRect().width`);
+      /** Drags a splitter as far as it goes toward its own panel. */
+      const squeeze = async (side) => {
+        const bar = JSON.parse(await app.main.eval(`JSON.stringify(document.querySelector('[data-split="${side}"]').getBoundingClientRect())`));
+        const x = bar.left + 2;
+        const y = bar.top + bar.height / 2;
+        const to = side === 'left' ? 5 : await app.main.eval('innerWidth - 5');
+        await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        await app.main.mouse('mousePressed', x, y);
+        await app.main.mouse('mouseMoved', (x + to) / 2, y);
+        await app.main.mouse('mouseMoved', to, y);
+        await app.main.mouse('mouseReleased', to, y);
+      };
+      for (const language of ['ko', 'en']) {
+        await app.reset({ mode: 'capture', language, leftWidth: 400, rightWidth: 400 }, { keepGallery: true });
+        await squeeze('left');
+        await squeeze('right');
+        const [left, right] = [await width('#sources'), await width('#history')];
+        assert.ok(Math.abs(left - right) <= 1, `${language}: left ${left}px, right ${right}px`);
+        assert.ok(left >= 200, `${language}: minimum ${left}px`);
+        // Stored too small (hand-edited or from an older version): both come up to the same minimum.
+        await app.reset({ mode: 'capture', language, leftWidth: 120, rightWidth: 120 }, { keepGallery: true });
+        assert.ok(Math.abs((await width('#sources')) - (await width('#history'))) <= 1, `${language}: stored widths below the minimum`);
+      }
+      await app.reset({ mode: 'capture' });
+    },
+  },
+  {
     name: '캡처 기록 · 개별 삭제 → 목록에서만, 파일은 그대로',
     run: async (app) => {
       await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'bmp' });
@@ -819,6 +853,78 @@ export const cases = [
       await sleep(400);
       const restored = await win('inner_size');
       assert.deepEqual([restored.width, restored.height], [target.width, target.height], 'un-maximizing returns to the remembered size');
+    },
+  },
+  {
+    name: '중복 실행 · 이미 실행 중이면 알림 창을 띄우고, 닫으면 종료',
+    run: async (app) => {
+      if (process.platform !== 'win32') return;
+      const second = app.spawnSecond();
+      const exited = new Promise((resolve) => second.once('exit', () => resolve(true)));
+      const title = () => execFileSync('powershell.exe', ['-NoProfile', '-Command', `(Get-Process -Id ${second.pid} -ErrorAction SilentlyContinue).MainWindowTitle`]).toString().trim();
+      try {
+        let shown = '';
+        for (let i = 0; i < 50 && !shown; i++) {
+          await sleep(300);
+          shown = title();
+        }
+        assert.equal(shown, 'MyCapture', 'a message box (not a second app window "MyCapture v1.0")');
+        assert.equal(second.exitCode, null, 'it waits for the user to read the message');
+        // OK on the message box: the second copy ends, the first keeps running.
+        execFileSync('powershell.exe', ['-NoProfile', '-Command', `[void](Get-Process -Id ${second.pid}).CloseMainWindow()`]);
+        assert.ok(await Promise.race([exited, sleep(8000).then(() => false)]), 'the second copy quits after the message');
+        assert.equal(await app.main.eval('1 + 1'), 2, 'the first copy is untouched');
+      } finally {
+        if (second.exitCode == null) spawn('taskkill', ['/PID', String(second.pid), '/T', '/F'], { stdio: 'ignore' });
+      }
+    },
+  },
+  {
+    name: '종료 · 저장하지 않은 캡처가 있으면 저장 여부를 물음 (취소 · 저장)',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await capture(app);
+      const before = pngFiles(app);
+      // As after a cancelled save dialog: the image is still waiting to be saved.
+      await app.main.eval(`window.__mycapture.state.result.path = null; 1`);
+      await app.main.eval(`window.__mycapture.actions['win-close'](); 1`);
+      let ask = await app.popup('confirm');
+      assert.equal(await ask.eval(`document.querySelector('.confirm-text').textContent`), await app.main.eval(`window.__mycapture.t('exit.imageBody')`));
+      assert.equal(await ask.eval(`document.querySelectorAll('.modal-foot button').length`), 3, "cancel · don't save · save");
+      await ask.click('.modal-foot [data-action="close"]');
+      ask.close();
+      await sleep(500);
+      assert.equal(await app.main.eval('1 + 1'), 2, 'cancel keeps the app open');
+      assert.equal(app.process.exitCode, null);
+      await app.main.eval(`window.__mycapture.actions['win-close'](); 1`);
+      ask = await app.popup('confirm');
+      const exited = new Promise((resolve) => app.process.once('exit', () => resolve(true)));
+      await ask.click('[data-action="exit-choice"][data-value="save"]');
+      ask.close();
+      assert.ok(await Promise.race([exited, sleep(10000).then(() => false)]), `save, then quit (${await app.main.eval('JSON.stringify(window.__mycapture?.state.notice)').catch(() => 'window gone')})`);
+      assert.equal(pngFiles(app), before + 1, 'the image was saved before quitting');
+      assert.deepEqual(app.main.errors, [], 'uncaught exceptions in the main window');
+      await app.restart();
+    },
+  },
+  {
+    name: '종료 · 녹화 중이면 저장 여부를 물음 (저장 안 함 → 파일 남기지 않음)',
+    run: async (app) => {
+      await app.reset({ mode: 'record', engine: 'native', target: 'monitor', videoFormat: 'webm', microphone: false });
+      const before = webmFiles(app);
+      await app.main.click('[data-action="record"]');
+      await app.main.waitFor(`window.__mycapture.state.session.phase === 'recording'`, { timeout: 20000 });
+      await sleep(1500);
+      // A whole-screen recording minimizes the window; closing brings it back to ask.
+      await app.main.eval(`window.__mycapture.actions['win-close'](); 1`);
+      const ask = await app.popup('confirm');
+      assert.equal(await ask.eval(`document.querySelector('.confirm-text').textContent`), await app.main.eval(`window.__mycapture.t('exit.recordingBody')`));
+      const exited = new Promise((resolve) => app.process.once('exit', () => resolve(true)));
+      await ask.click('[data-action="exit-choice"][data-value="discard"]');
+      ask.close();
+      assert.ok(await Promise.race([exited, sleep(10000).then(() => false)]), "don't save, then quit");
+      assert.equal(webmFiles(app), before, 'the unfinished recording is removed');
+      await app.restart();
     },
   },
   {

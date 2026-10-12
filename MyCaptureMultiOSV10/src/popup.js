@@ -68,14 +68,23 @@ const SETTINGS_TABS = [
 function render() {
   if (kind === 'theme-menu') return renderThemeMenu();
   if (kind === 'menu') return renderContextMenu();
-  const [glyph, title] = { settings: ['gear', t('settings.title')], about: ['info', t('about.title')], confirm: ['trash', t('gallery.clearTitle')] }[kind];
+  // The confirmation window asks one of two things: clear the history, or save before quitting.
+  const exit = kind === 'confirm' && state.params.type === 'exit';
+  const [glyph, title] = exit ? ['save', t('exit.title')]
+    : { settings: ['gear', t('settings.title')], about: ['info', t('about.title')], confirm: ['trash', t('gallery.clearTitle')] }[kind];
   const body = kind === 'settings' ? settingsBody() : kind === 'about' ? aboutBody() : confirmBody();
   const foot = kind === 'settings'
     ? `<button class="button" data-action="reset-settings" ${recording() ? 'disabled' : ''}>${icon('refresh')}<span>${t('settings.reset')}</span></button>
        <button class="primary small" data-action="close">${t('modal.done')}</button>`
     : kind === 'about'
       ? `<span class="about-copy">© shkwon · MyCapture</span><button class="primary small" data-action="close">${t('modal.done')}</button>`
-      : `<button class="button" data-action="close">${t('modal.cancel')}</button>
+      : exit
+        ? `<button class="button" data-action="close">${t('modal.cancel')}</button>
+           <span class="foot-group">
+             <button class="button danger" data-action="exit-choice" data-value="discard">${icon('trash')}<span>${t('exit.discard')}</span></button>
+             <button class="primary small" data-action="exit-choice" data-value="save">${icon('save')}<span>${t('exit.save')}</span></button>
+           </span>`
+        : `<button class="button" data-action="close">${t('modal.cancel')}</button>
          <button class="primary small danger" data-action="gallery-clear-confirm">${icon('trash')}<span>${t('gallery.clear')}</span></button>`;
   root.innerHTML = `
     <div class="popup popup-${kind}" role="${kind === 'confirm' ? 'alertdialog' : 'dialog'}" aria-labelledby="popup-title">
@@ -90,7 +99,7 @@ function render() {
       <div class="modal-body">${body}</div>
       <footer class="modal-foot">${foot}</footer>
     </div>`;
-  if (kind === 'confirm') root.querySelector('[data-action="gallery-clear-confirm"]').focus();
+  if (kind === 'confirm') root.querySelector(exit ? '[data-value="save"]' : '[data-action="gallery-clear-confirm"]').focus();
   if (kind === 'about') fitHeight();
   ready();
 }
@@ -293,6 +302,7 @@ function aboutBody() {
 }
 
 function confirmBody() {
+  if (state.params.type === 'exit') return `<p class="confirm-text">${t(state.params.what === 'recording' ? 'exit.recordingBody' : 'exit.imageBody')}</p>`;
   const count = loadGallery(globalThis.localStorage).length;
   return `<p class="confirm-text">${t('gallery.clearBody', { count })}</p>`;
 }
@@ -423,6 +433,12 @@ const actions = {
       border: vars['--line'], accent: vars['--accent'], danger: vars['--rec'],
     });
     render();
+  },
+  // Save before quitting: the main window does the saving (or not) and then closes.
+  'exit-choice': async (value) => {
+    // Delivered before this window goes away.
+    await emit('mycapture-exit', { choice: value }).catch(() => {});
+    close();
   },
   'gallery-clear-confirm': () => {
     const count = loadGallery(globalThis.localStorage).length;

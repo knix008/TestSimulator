@@ -206,29 +206,33 @@ function toggleThemeMenu() {
 
 // ───────────────────────── side panels: widths and splitters
 
-const RIGHT_MIN = 200;
+const PANEL_FLOOR = 200;
 const PANEL_MAX = 480;
 
-/** The left panel is never narrower than its tab row with every label on one line. */
-function leftMinWidth() {
+/**
+ * Smallest width of either side panel (both share it): the left panel's tab row
+ * with every label on one line, and never under PANEL_FLOOR. While the left panel
+ * is collapsed its tabs are not on the page, so the last measurement stands.
+ */
+function panelMinWidth() {
   const tabs = root.querySelector('#sources .targets');
-  if (!tabs) return 220;
+  if (!tabs) return state.panelMin ?? 220;
   const style = getComputedStyle(tabs);
   const gap = parseFloat(style.columnGap) || 0;
   const segments = [...tabs.children];
   const content = segments.reduce((sum, segment) => sum + segment.scrollWidth, 0) + gap * (segments.length - 1);
   const frame = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
   const panel = getComputedStyle(root.querySelector('#sources'));
-  return Math.ceil(content + frame + parseFloat(panel.paddingLeft) + parseFloat(panel.paddingRight) + 1);
+  return Math.max(PANEL_FLOOR, Math.ceil(content + frame + parseFloat(panel.paddingLeft) + parseFloat(panel.paddingRight) + 1));
 }
 
 function applyPanelWidths() {
   const body = root.querySelector('#body');
   if (!body) return;
-  const leftMin = leftMinWidth();
-  state.leftMin = leftMin;
-  const left = Math.min(PANEL_MAX, Math.max(leftMin, s().leftWidth ?? 300));
-  const right = Math.min(PANEL_MAX, Math.max(RIGHT_MIN, s().rightWidth ?? 260));
+  const min = panelMinWidth();
+  state.panelMin = min;
+  const left = Math.min(PANEL_MAX, Math.max(min, s().leftWidth ?? 300));
+  const right = Math.min(PANEL_MAX, Math.max(min, s().rightWidth ?? 260));
   body.style.setProperty('--left-width', `${left}px`);
   body.style.setProperty('--right-width', `${right}px`);
 }
@@ -237,7 +241,7 @@ function startSplitDrag(event, side) {
   const body = root.querySelector('#body');
   const startX = event.clientX;
   const startWidth = root.querySelector(side === 'left' ? '#sources' : '#history').getBoundingClientRect().width;
-  const min = side === 'left' ? state.leftMin ?? 220 : RIGHT_MIN;
+  const min = state.panelMin ?? 220;
   let width = startWidth;
   const move = (moveEvent) => {
     const delta = moveEvent.clientX - startX;
@@ -1465,16 +1469,51 @@ async function initialize() {
   await appWindow.onResized(syncMaximized);
   syncMaximized();
   await appWindow.onCloseRequested(async (event) => {
-    if (!recorder) return;
-    // Closing mid-recording would leave an unfinished file: finish it first.
+    const what = unsavedWork();
+    if (!what) return;
+    // Something would be lost: ask first (save / don't save / cancel).
     event.preventDefault();
-    await stopRecording(t('notice.beforeClose'));
-    await appWindow.destroy();
+    await showMain().catch(() => {});
+    openPopup('confirm', { params: { type: 'exit', what } }).catch(reportError);
   });
+  await listen('mycapture-exit', ({ payload }) => quitAfterChoice(payload?.choice));
   await refreshSources();
   checkGalleryFiles();
   // The first H.264 encode in a process starts slowly; get that out of the way now.
   if (state.support.formats.mp4) warmUpEncoder('mp4');
+}
+
+// ───────────────────────── quitting with unsaved work
+
+/** What closing now would lose: a recording in progress, a capture not yet saved, or nothing. */
+function unsavedWork() {
+  if (recorder) return 'recording';
+  if (state.result && !state.result.path) return 'image';
+  return null;
+}
+
+/** The answer from the "save before quitting?" window. Cancel never gets here. */
+async function quitAfterChoice(choice) {
+  const what = unsavedWork();
+  if (what && choice === 'save') {
+    if (what === 'recording') {
+      await stopRecording(t('notice.beforeClose'));
+    } else {
+      await task(t('busy.saving'), () => saveResult());
+    }
+    // A save dialog cancelled, or a save that failed: stay open so nothing is lost.
+    if (unsavedWork()) return;
+  } else if (what === 'recording' && choice === 'discard') {
+    const id = recordingId;
+    recorder?.dispose();
+    recorder = null;
+    recordingId = null;
+    endSelfRecording();
+    if (id != null) await recordingAbort(id).catch(() => {});
+  } else if (choice !== 'discard') {
+    return;
+  }
+  await getCurrentWindow().destroy();
 }
 
 // Test hook for the end-to-end suite (test/e2e): read-only state and a few entry points.

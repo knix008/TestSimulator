@@ -161,9 +161,15 @@ export class App {
         '--auto-select-desktop-capture-source=Entire screen',
       ].join(' '),
     };
+    this.env = env;
     this.process = spawn(exe, [], { cwd: root, env, stdio: 'ignore' });
     this.main = await (await this.page((target) => !this.isOverlay(target), 30000)).open();
     await this.main.waitFor(`document.querySelector('#bar .brand') && window.__mycapture`, { timeout: 30000 });
+  }
+
+  /** Starts a second copy with this run's folders (it should refuse to run next to the first). */
+  spawnSecond() {
+    return spawn(exe, [], { cwd: root, env: { ...this.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '' }, stdio: 'ignore' });
   }
 
   /** Kills the app the hard way (like a crash) and starts it again with the same profile and settings. */

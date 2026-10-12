@@ -1,6 +1,7 @@
 pub mod i18n;
 pub mod capture;
 pub mod files;
+pub mod instance;
 mod permissions;
 pub mod webm;
 pub mod window_state;
@@ -706,13 +707,49 @@ fn hide_recording_panel(app: AppHandle) {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Keeps the single-instance lock (instance.rs) for as long as the app runs.
+struct InstanceLock(#[allow(dead_code)] std::fs::File);
+
+/// Another MyCapture is running: say so in a native message box, then quit
+/// without opening a window. The UI language is not known yet, so both are shown.
+fn refuse_second_instance(app: &AppHandle) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        handle
+            .dialog()
+            .message("MyCapture가 이미 실행 중입니다.
+실행 중인 MyCapture 창을 사용하세요.
+
+MyCapture is already running.
+Please use the MyCapture window that is already open.")
+            .title("MyCapture")
+            .kind(MessageDialogKind::Warning)
+            .blocking_show();
+        handle.exit(0);
+    });
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
-            // Last session's place and size, if that spot is still on a connected monitor.
+            // One MyCapture at a time (the lock lives next to the window-state file).
             let state_path = window_state::state_file(app.handle());
+            if let Some(dir) = state_path.as_deref().and_then(Path::parent) {
+                match instance::acquire(dir) {
+                    Some(instance::Instance::AlreadyRunning) => {
+                        refuse_second_instance(app.handle());
+                        return Ok(());
+                    }
+                    Some(instance::Instance::First(lock)) => {
+                        app.manage(InstanceLock(lock));
+                    }
+                    None => {}
+                }
+            }
+            // Last session's place and size, if that spot is still on a connected monitor.
             let placement = state_path.as_deref().and_then(window_state::saved_placement);
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
