@@ -10,7 +10,7 @@ import { normalizeMember, memberSection, memberArea, memberLength, memberWeight,
 import { buildBuilding, makeMaterials, modelExtent, levelKeys } from "../../src/view3d/build.js";
 import { createBatcher } from "../../src/view3d/batch.js";
 import { wirePoint, WIRE_MAX } from "../../src/view3d/members.js";
-import { pullForward, GROUND_OFFSET } from "../../src/view3d/depth.js";
+import { pullForward, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane, DEPTH_CLASS } from "../../src/view3d/depth.js";
 import { newProject, normalizeProject } from "../../src/core/project.js";
 import { hitElements, transformElements, boxSelectElements } from "../../src/plan/elements.js";
 import { pasteItems, copyItems } from "../../src/plan/ops.js";
@@ -141,6 +141,30 @@ describe("3D", () => {
     m.onBeforeCompile(shader);
     assert.match(shader.vertexShader, /#include <project_vertex>\s*gl_Position\.z -= [\d.e-]+ \* gl_Position\.w;/);
     assert.ok(GROUND_OFFSET.polygonOffset && GROUND_OFFSET.polygonOffsetFactor > 0 && GROUND_OFFSET.polygonOffsetUnits > 0);
+  });
+  test("depth ranks: roofs over walls over slabs over masses over the ground; copies are shared", () => {
+    assert.ok(rankOf("roofs") < rankOf("walls") && rankOf("walls") < rankOf("slabs") && rankOf("slabs") < rankOf("solids"));
+    assert.equal(rankOf("rooms"), rankOf("slabs"));
+    assert.equal(rankOf("something new"), 0, "unknown kinds stand with the walls");
+    const offset = (m) => (m.polygonOffset ? m.polygonOffsetFactor + m.polygonOffsetUnits : 0);
+    const base = new THREE.MeshStandardMaterial({ color: 0x808080 });
+    assert.equal(rankedMaterial(base, 0), base, "rank 0 keeps the material");
+    const ranks = [...new Set(Object.values(DEPTH_CLASS))].sort((a, b) => a - b);
+    const mats = ranks.map((r) => rankedMaterial(base, r));
+    for (let i = 1; i < mats.length; i++) assert.ok(offset(mats[i]) > offset(mats[i - 1]), `rank ${ranks[i]} behind ${ranks[i - 1]}`);
+    assert.ok(GROUND_OFFSET.polygonOffsetFactor + GROUND_OFFSET.polygonOffsetUnits > offset(mats[mats.length - 1]), "the ground behind everything");
+    assert.equal(rankedMaterial(base, 1), rankedMaterial(base, 1), "one copy per material and rank (batching groups them)");
+    assert.equal(rankedMaterial(base, 1).color.getHex(), 0x808080);
+    // An offset already on the material (the line drawing's paper) is kept and added to.
+    const paper = new THREE.MeshBasicMaterial({ polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+    assert.ok(offset(rankedMaterial(paper, 1)) > offset(paper));
+  });
+  test("near plane: half the free space in front of the camera, within its limits", () => {
+    assert.equal(nearPlane({ boxDistance: 40, groundHeight: 30 }), 15);
+    assert.equal(nearPlane({ boxDistance: 10, groundHeight: 30 }), 5);
+    assert.equal(nearPlane({ boxDistance: 0, groundHeight: 1.6 }), 0.03, "inside the model: walking through rooms");
+    assert.equal(nearPlane({ boxDistance: 40, groundHeight: -2 }), 20, "under the ground the ground does not count");
+    assert.equal(nearPlane({ boxDistance: 1e6, groundHeight: 1e6, max: 3 }), 3);
   });
   test("identical members share one geometry and batch into one draw call", () => {
     const list = [];

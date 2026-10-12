@@ -14,6 +14,7 @@ import { levelSummary, projectTotals, roomSchedule, openingSchedule, costEstimat
 import { roomArea, detectRooms } from "../../src/core/rooms.js";
 import { wallOutlines } from "../../src/core/walls.js";
 import { buildBuilding, makeMaterials, modelExtent } from "../../src/view3d/build.js";
+import { DEPTH_CLASS } from "../../src/view3d/depth.js";
 import { planBounds } from "../../src/plan/render.js";
 import { materialById } from "../../src/lib/materials.js";
 import { furnitureDef } from "../../src/lib/furniture.js";
@@ -181,3 +182,18 @@ for (const entry of index) {
     });
   });
 }
+
+// The 3D view settles coplanar faces of different element kinds by a fixed
+// rank (src/view3d/depth.js); a kind missing from that table would flicker.
+describe("3D depth classes", () => {
+  test("every element kind the samples build in 3D has a depth class", () => {
+    const kinds = new Map();
+    for (const s of index) {
+      const root = buildBuilding(THREE, load(s.file), makeMaterials(THREE, { textures: false }), { openDoors: true });
+      root.traverse((o) => { if (o.isMesh && o.userData.kind) kinds.set(o.userData.kind, s.file); });
+    }
+    const missing = [...kinds].filter(([k]) => !(k in DEPTH_CLASS)).map(([k, f]) => `${k} (${f})`);
+    assert.deepEqual(missing, []);
+    assert.ok(kinds.has("walls") && kinds.has("slabs") && kinds.has("rooms"), [...kinds.keys()].join());
+  });
+});

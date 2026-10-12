@@ -12,7 +12,7 @@ import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./bu
 import { createLampRig, collectLamps } from "./lamps.js";
 import { createSketchupLayer } from "./sklayer.js";
 import { createBatcher, HIDDEN_LAYER } from "./batch.js";
-import { pullForward, GROUND_OFFSET } from "./depth.js";
+import { pullForward, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane } from "./depth.js";
 
 const DEG = Math.PI / 180;
 
@@ -181,6 +181,9 @@ export function createViewer(container, options = {}) {
   let dims = null;
   let edges = null;
   let wires = null; // centre lines of slender members (buildWires)
+  // The model's box for the near plane (fitNear); measured again after a change.
+  const modelBox = new THREE.Box3();
+  let modelBoxStale = true;
   let bgTexture = null;
   let dirty = true;
   let anim = null;
@@ -231,6 +234,7 @@ export function createViewer(container, options = {}) {
     });
     disposeObject(old); // only the levels that were built again are still in it
     content.add(building);
+    modelBoxStale = true;
     // Carried-over meshes keep the material they were built with (they may be
     // showing a render style or a highlight right now).
     building.traverse((o) => { if (o.isMesh && !o.userData.baseMaterial) o.userData.baseMaterial = o.material; });
@@ -254,6 +258,8 @@ export function createViewer(container, options = {}) {
       if (style === "realistic") o.material = base;
       else if (base.transparent && style !== "xray") o.material = base; // keep glass
       else o.material = styleMats[style] || base;
+      // Coplanar faces of different kinds: the lower rank always wins (depth.js).
+      o.material = rankedMaterial(o.material, rankOf(o.userData.kind));
     });
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     // Edges: the line drawing, or any style with the style editor's edges on.
@@ -1046,7 +1052,7 @@ export function createViewer(container, options = {}) {
   sk = createSketchupLayer({
     THREE, scene, canvas, renderer, controls, opts,
     get camera() { return camera; }, get building() { return building; }, get project() { return project; },
-    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; invalidateShadows(); }, unbatch: (ids) => unbatch(ids),
+    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; modelBoxStale = true; invalidateShadows(); }, unbatch: (ids) => unbatch(ids),
     getHighlighted: () => highlighted,
     batches: () => batcher.group.children,
     extentSize: () => Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1, extent.top) * M,
@@ -1140,6 +1146,23 @@ export function createViewer(container, options = {}) {
     renderer.clippingPlanes = clip;
   }
 
+  // Depth precision follows the near plane, so it is pushed as far out as the
+  // model allows before every frame (depth.js rule 1): from outside, surfaces
+  // millimetres apart stay apart; inside a room it comes back to 3 cm.
+  function fitNear() {
+    if (camera !== persp) return;
+    if (modelBoxStale) { modelBox.makeEmpty().expandByObject(content); modelBoxStale = false; }
+    const pos = camera.position;
+    const near = nearPlane({ boxDistance: modelBox.isEmpty() ? Infinity : modelBox.distanceToPoint(pos), groundHeight: pos.y + 0.02, max: Math.max(0.03, persp.far / 1000) });
+    if (Math.abs(near - persp.near) > persp.near * 0.02) { persp.near = near; persp.updateProjectionMatrix(); }
+  }
+
+  // Before every picture, on screen or saved.
+  function prepareFrame() {
+    fitNear(); // before the two-point shift, which builds on the projection
+    sk.beforeRender(); // two-point perspective, profiles
+  }
+
   let lastT = performance.now();
   let lastFrame = { calls: 0, triangles: 0 }; // what the last main pass drew
   renderer.setAnimationLoop((now) => {
@@ -1152,7 +1175,7 @@ export function createViewer(container, options = {}) {
     const changed = (opts.navMode !== "walk" && controls.update()) || zoomed;
     if (changed && camera === ortho) syncOrtho();
     if (changed || dirty || anim || walk.keys.size) {
-      sk.beforeRender(); // two-point perspective, profiles
+      prepareFrame();
       fitGrid();
       fitAxes();
       lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null });
@@ -1247,7 +1270,7 @@ export function createViewer(container, options = {}) {
   function onPick(cb) { pickCallbacks.add(cb); return () => pickCallbacks.delete(cb); }
 
   function screenshot() {
-    sk.beforeRender();
+    prepareFrame();
     renderer.render(scene, camera);
     return sk.composite(canvas); // with the style's watermark
   }
@@ -1372,5 +1395,7 @@ export function createViewer(container, options = {}) {
     skKey: (e, isDown) => sk.key(e, isDown), ...sk.api,
     helperInfo: () => ({ grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: axes ? { ...axes.userData } : null, edges: !!edges, ortho: camera === ortho, walk: opts.navMode === "walk", section: renderer.clippingPlanes.length > 0 }),
     get three() { return { THREE, scene, camera, renderer, controls, content, building }; },
+    // Draw one frame now, prepared like the screen's (tests read its pixels).
+    renderNow: () => { prepareFrame(); renderer.render(scene, camera); return { near: persp.near, far: persp.far }; },
   };
 }
