@@ -9,6 +9,8 @@ import * as THREE from "../../src/vendor/three/three.module.js";
 import { normalizeMember, memberSection, memberArea, memberLength, memberWeight, segmentFrame, sectionTriangles, MEMBER_PROFILES } from "../../src/core/members.js";
 import { buildBuilding, makeMaterials, modelExtent, levelKeys } from "../../src/view3d/build.js";
 import { createBatcher } from "../../src/view3d/batch.js";
+import { wirePoint, WIRE_MAX } from "../../src/view3d/members.js";
+import { pullForward, GROUND_OFFSET } from "../../src/view3d/depth.js";
 import { newProject, normalizeProject } from "../../src/core/project.js";
 import { hitElements, transformElements, boxSelectElements } from "../../src/plan/elements.js";
 import { pasteItems, copyItems } from "../../src/plan/ops.js";
@@ -102,6 +104,44 @@ describe("3D", () => {
     for (const c of g.children) { assert.equal(c.userData.id, "arch"); assert.equal(c.userData.kind, "members"); }
   });
 
+  test("slender round members (cables, rods) get a centre-line wire; angles and heavy members do not", () => {
+    const p = project([
+      { id: "c", level: "L", pts: [[0, 0, 0], [9000, 0, 6000]], profile: "cable", w: 80 },
+      { id: "r", level: "L", pts: [[0, 1000, 0], [0, 1000, 3000]], profile: "round", w: 30 },
+      { id: "big", level: "L", pts: [[0, 2000, 0], [0, 2000, 3000]], profile: "tube", w: WIRE_MAX + 100, t: 10 },
+      { id: "ang", level: "L", pts: [[0, 3000, 0], [3000, 3000, 3000]], profile: "L", w: 75, h: 75, t: 8 },
+    ]);
+    const b = buildBuilding(THREE, p, mats());
+    const wire = (id) => b.getObjectByName(`member ${id}`).children[0].userData.wire;
+    assert.deepEqual(wire("c"), [0, 0]);
+    assert.deepEqual(wire("r"), [0, 0]);
+    assert.equal(wire("big"), undefined);
+    assert.equal(wire("ang"), undefined);
+  });
+  test("a wire runs inside the material: in an angle's heel and a channel's web, not the empty middle", () => {
+    const inside = (m) => {
+      const [u, v] = wirePoint(m);
+      const ring = memberSection(m).outer;
+      let c = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j];
+        if ((yi > v) !== (yj > v) && u < ((xj - xi) * (v - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    for (const profile of MEMBER_PROFILES) {
+      if (profile === "tube" || profile === "box") continue; // hollow: the wire runs down the middle
+      const m = normalizeMember({ id: "m", level: "L", pts: [[0, 0, 0], [1000, 0, 0]], profile, w: 100, h: 120, t: 8 });
+      assert.ok(inside(m), `${profile}: wire at ${wirePoint(m)}`);
+    }
+  });
+  test("depth fixes: edge and wire lines move towards the camera; the ground disc gives way", () => {
+    const m = pullForward(new THREE.LineBasicMaterial());
+    const shader = { vertexShader: THREE.ShaderLib.basic.vertexShader }; // LineBasicMaterial's shader
+    m.onBeforeCompile(shader);
+    assert.match(shader.vertexShader, /#include <project_vertex>\s*gl_Position\.z -= [\d.e-]+ \* gl_Position\.w;/);
+    assert.ok(GROUND_OFFSET.polygonOffset && GROUND_OFFSET.polygonOffsetFactor > 0 && GROUND_OFFSET.polygonOffsetUnits > 0);
+  });
   test("identical members share one geometry and batch into one draw call", () => {
     const list = [];
     for (let i = 0; i < 200; i++) list.push({ id: `b${i}`, level: "L", pts: [[i * 500, 0, 0], [i * 500 + 250, 0, 3000]], profile: "L", w: 100, h: 100, t: 8, material: "galvanised" });

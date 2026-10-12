@@ -278,6 +278,11 @@ GPU 비용은 삼각형보다 메시(draw call) 수에 좌우됩니다. `createB
 - 뷰어는 `applyStyle` 끝(재질이 정해진 뒤, 단면 캡 전)에 `build`, 강조·램프 끌기·SketchUp 이동 도구(`ctx.unbatch`)에서 `show`를 부릅니다. 단면 채움(stencil 캡)은 배치마다 인스턴스를 공유하는 캡 두 개로 그립니다.
 - 태양 그림자는 카메라와 무관하므로 `sun.shadow.autoUpdate = false`이고, 모델·재질·단면·태양·조명이 바뀔 때만 `invalidateShadows()`로 다시 그립니다(궤도 회전 중에는 그림자 패스 없음).
 - 선 그리기 스타일의 모서리선은 지오메트리별로 한 번 계산해 월드 좌표로 옮긴 **선 객체 하나**입니다.
+- **움직일 때의 깜빡임 방지** — [depth.js](src/view3d/depth.js):
+  - **지면 원판**: 지면은 y = −0.02 m에 있고, 부지 매스·자갈 마당·하상처럼 0 근처에 깔린 면과 깊이를 다퉜습니다(z-fighting). 그래서 `GROUND_OFFSET`(polygonOffset factor 2, units 8)으로 뒤로 밀어 모델 면이 늘 이기게 합니다.
+  - **모서리선**: 모서리선은 자기 면 위에 놓이므로 셰이더에서 `pullForward`로 정규화 깊이 `EDGE_DEPTH_PULL`(4e-6, 24비트 버퍼의 약 30단계)만큼 카메라 쪽으로 당깁니다. WebGL 선에는 polygonOffset이 없기 때문입니다.
+  - **가는 원형 부재**: 지름이 `WIRE_MAX`(200 mm) 이하인 원형 단면(케이블·행어·봉·관)에는 `buildWires`가 축을 따라 **1 px 선(wire)**을 하나의 선 객체로 그립니다. 이런 부재는 멀리서 1 px보다 가늘어져, 카메라를 조금만 움직여도 끊겼다 이어졌다 합니다. 선은 부재 색보다 조금 어둡습니다. 각형·L형은 자기 모서리가 있고, 선이 옆에 비쳐 보여서 제외합니다. 선의 단면 위치는 `wirePoint`(L은 모서리 안쪽, C는 웨브)입니다.
+  - **확인**: 카메라를 0.04 %씩 당겨 찍은 프레임을 비교해 크게 바뀐 픽셀을 셉니다. 교량 24번 근경은 29,038 → 617, 하프 사장교 근경은 1,961 → 394로 줄었습니다.
 - `stats()`는 `meshes`, `triangles`에 더해 마지막 프레임의 `drawCalls`와 `batches`/`instances`를 돌려줍니다. `npm run bench:3d`(Node: 빌드·편집 시간, 메시·지오메트리·draw call)와 `npm run bench:3d:gui`(실제 앱: GPU까지 끝난 프레임 시간, 궤도 FPS, 편집 반영 시간)로 잽니다.
 
 ### 8.2 뷰어 — [viewer.js](src/view3d/viewer.js)

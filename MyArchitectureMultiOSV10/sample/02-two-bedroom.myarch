@@ -189,7 +189,8 @@
   "beam": 180000,
   "railing": 150000,
   "ramp": 2000000,
-  "curtainWall": 650000
+  "curtainWall": 650000,
+  "member": 4500000
  },
  "layers": [
   {
@@ -891,7 +892,7 @@
    "kind": "armchair",
    "x": 7400,
    "y": 6300,
-   "rot": 90,
+   "rot": 270,
    "w": 850,
    "d": 850,
    "h": 800,
@@ -1121,5 +1122,7 @@
   "watermarkPos": "br",
   "sectionFill": "#3b4250",
   "fogDensity": 1
- }
+ },
+ "members": [],
+ "structures": []
 }

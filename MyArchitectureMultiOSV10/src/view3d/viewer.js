@@ -12,6 +12,7 @@ import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./bu
 import { createLampRig, collectLamps } from "./lamps.js";
 import { createSketchupLayer } from "./sklayer.js";
 import { createBatcher, HIDDEN_LAYER } from "./batch.js";
+import { pullForward, GROUND_OFFSET } from "./depth.js";
 
 const DEG = Math.PI / 180;
 
@@ -179,6 +180,7 @@ export function createViewer(container, options = {}) {
   let axes = null;
   let dims = null;
   let edges = null;
+  let wires = null; // centre lines of slender members (buildWires)
   let bgTexture = null;
   let dirty = true;
   let anim = null;
@@ -220,6 +222,7 @@ export function createViewer(container, options = {}) {
     batcher.release();
     moving.clear();
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
+    if (wires) { helpers.remove(wires); disposeGroup(wires); wires = null; }
     if (!project) { disposeObject(old); building = new THREE.Group(); content.add(building); lampRig.setLamps([]); invalidateShadows(); dirty = true; return; }
     building = buildBuilding(THREE, project, mats, {
       openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids, hiddenTags: opts.hiddenTags,
@@ -255,6 +258,8 @@ export function createViewer(container, options = {}) {
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     // Edges: the line drawing, or any style with the style editor's edges on.
     if (style === "lines" || opts.edges) edges = buildEdges(opts.edgeColor || 0x1d2128);
+    if (wires) { helpers.remove(wires); disposeGroup(wires); wires = null; }
+    wires = buildWires(style === "lines" ? opts.edgeColor || 0x1d2128 : null);
     if (sk) sk.applyStyleExtras(); // colour by tag, profiles, watermark
     batcher.build(building); // before the cut: its filled caps follow the batches
     applyLighting();
@@ -263,6 +268,41 @@ export function createViewer(container, options = {}) {
     applyHighlight();
     invalidateShadows();
     dirty = true;
+  }
+
+  // Slender members (cables, hangers, rods, light braces) seen from afar are
+  // thinner than a pixel: their faces cover a pixel in one frame and miss it
+  // in the next, so they break up and crawl while the view moves. A line down
+  // each one (inside its material) is always at least a pixel wide and keeps
+  // them whole; up close the faces cover it. In
+  // the member's colour, a little darker like its shaded sides; one object.
+  function buildWires(color) {
+    const pos = [], col = [];
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Color();
+    building.updateMatrixWorld(true);
+    building.traverseVisible((o) => {
+      if (!o.isMesh || !o.userData.wire) return;
+      const [u, v] = o.userData.wire; // in the section, mm (members.js wirePoint)
+      a.set(u, v, 0).applyMatrix4(o.matrixWorld);
+      b.set(u, v, 1).applyMatrix4(o.matrixWorld);
+      pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      if (color != null) c.set(color);
+      else c.copy((o.material && o.material.color) || c.set(0x777777)).multiplyScalar(0.7);
+      col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    });
+    if (!pos.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    // Pulled forward a hair (depth.js) like edges: less than a round member's
+    // radius until it is thinner than a pixel, when the line takes over.
+    const ls = new THREE.LineSegments(geo, pullForward(new THREE.LineBasicMaterial({ vertexColors: true })));
+    ls.raycast = () => {};
+    const group = new THREE.Group();
+    group.name = "wires";
+    group.add(ls);
+    helpers.add(group);
+    return group;
   }
 
   // Every visible mesh's feature edges as ONE line object in world space:
@@ -293,7 +333,7 @@ export function createViewer(container, options = {}) {
     for (const c of chunks) { all.set(c, at); at += c.length; }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(all, 3));
-    const ls = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color }));
+    const ls = new THREE.LineSegments(geo, pullForward(new THREE.LineBasicMaterial({ color })));
     ls.raycast = () => {};
     group.add(ls);
     helpers.add(group);
@@ -439,7 +479,7 @@ export function createViewer(container, options = {}) {
     if (opts.ground === false) return;
     const [cx, cz] = centreXZ();
     const size = Math.max(60, Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1) * M * 4);
-    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: opts.groundColor || 0x9aa68a, roughness: 1, name: "ground" }));
+    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: opts.groundColor || 0x9aa68a, roughness: 1, name: "ground", ...GROUND_OFFSET }));
     g.rotation.x = -Math.PI / 2;
     g.position.set(cx, -0.02, cz);
     g.receiveShadow = true;
