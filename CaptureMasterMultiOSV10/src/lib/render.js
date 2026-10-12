@@ -9,9 +9,41 @@
 //   pen                                   : { points: [{x,y}], color, strokeWidth }
 //   text                                  : { x, y, text, color, font: {family,size,bold,italic}, bg }
 //   number                                : { x, y, n, color, size }
+//   image (pasted picture)                : { x, y, w, h, src: PNG data URL }
 
-export const BOX_TYPES = new Set(['rect', 'ellipse', 'highlight', 'pixelate']);
+export const BOX_TYPES = new Set(['rect', 'ellipse', 'highlight', 'pixelate', 'image']);
 export const LINE_TYPES = new Set(['line', 'arrow']);
+
+// Pictures of `image` annotations, decoded once and kept for as long as the
+// app runs (history entries share the same data URL).
+const pictures = new Map();
+const pictureListeners = new Set();
+
+/** Calls `fn` whenever a picture used by an `image` annotation finishes decoding. */
+export function onPictureLoaded(fn) {
+  pictureListeners.add(fn);
+  return () => pictureListeners.delete(fn);
+}
+
+function loadPicture(src) {
+  let entry = pictures.get(src);
+  if (!entry) {
+    const img = new Image();
+    entry = { img, ready: false, promise: null };
+    entry.promise = new Promise((resolve) => {
+      img.onload = () => { entry.ready = true; resolve(); pictureListeners.forEach((fn) => fn()); };
+      img.onerror = () => resolve();
+    });
+    img.src = src;
+    pictures.set(src, entry);
+  }
+  return entry;
+}
+
+/** Resolves once every picture used by `annotations` is decoded (renderToCanvas is synchronous). */
+export function preloadPictures(annotations) {
+  return Promise.all((annotations || []).filter((a) => a.type === 'image' && a.src).map((a) => loadPicture(a.src).promise));
+}
 
 export function normRect(x1, y1, x2, y2) {
   return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
@@ -44,7 +76,7 @@ export function measureText(a) {
 
 export function boundsOf(a) {
   switch (a.type) {
-    case 'rect': case 'ellipse': case 'highlight': case 'pixelate':
+    case 'rect': case 'ellipse': case 'highlight': case 'pixelate': case 'image':
       return { x: a.x, y: a.y, w: a.w, h: a.h };
     case 'line': case 'arrow':
       return normRect(a.x1, a.y1, a.x2, a.y2);
@@ -123,6 +155,11 @@ export function drawAnnotation(ctx, a, baseImg) {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(tmp, 0, 0, sw, sh, a.x, a.y, a.w, a.h);
       ctx.imageSmoothingEnabled = true;
+      break;
+    }
+    case 'image': {
+      const pic = a.src ? loadPicture(a.src) : null;
+      if (pic && pic.ready && a.w >= 1 && a.h >= 1) ctx.drawImage(pic.img, a.x, a.y, a.w, a.h);
       break;
     }
     case 'line':
@@ -269,6 +306,17 @@ export function resizeAnnotation(orig, handle, dx, dy) {
   }
   if (!BOX_TYPES.has(orig.type)) return orig;
   let { x, y, w, h } = orig;
+  if (orig.type === 'image' && handle.length === 2 && orig.w > 0 && orig.h > 0) {
+    // Corner handles keep a picture's proportions; the opposite corner stays put.
+    const sx = handle.includes('w') ? -dx : dx;
+    const sy = handle.includes('n') ? -dy : dy;
+    const s = Math.max(1 / Math.min(orig.w, orig.h), 1 + Math.max(sx / orig.w, sy / orig.h));
+    w = orig.w * s;
+    h = orig.h * s;
+    if (handle.includes('w')) x = orig.x + orig.w - w;
+    if (handle.includes('n')) y = orig.y + orig.h - h;
+    return { ...orig, x, y, w, h };
+  }
   if (handle.includes('w')) { x += dx; w -= dx; }
   if (handle.includes('e')) { w += dx; }
   if (handle.includes('n')) { y += dy; h -= dy; }

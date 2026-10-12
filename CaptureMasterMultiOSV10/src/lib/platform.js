@@ -85,6 +85,7 @@ export const platform = {
   // ── Files ──
   fs: {
     exists: (p) => (isDesktop ? api.fs.exists(p) : Promise.resolve(false)),
+    ensureDir: (p) => (isTauri ? api.fs.ensureDir(p) : Promise.resolve(false)),
     stat: (p) => (isDesktop ? api.fs.stat(p) : Promise.resolve(null)),
     readBinary: (filePath, id) => api.fs.readBinary({ filePath, id }),
     readText: (filePath, id) => api.fs.readText({ filePath, id }),
@@ -118,6 +119,12 @@ export const platform = {
   printImages: (payload) => {
     if (isElectron) return api.printImages(payload);
     return webPrint(payload);
+  },
+  /** Printing from the print dialog's own page (Tauri). `direct` = no system dialog. */
+  printer: {
+    available: isTauri,
+    list: () => (isTauri ? api.printer.list() : Promise.resolve({ printers: [], default: '', direct: false })),
+    printPage: (options) => api.printer.printPage(options),
   },
 
   clipboard: {
@@ -164,6 +171,8 @@ export const platform = {
   },
 
   rec: isDesktop ? api.rec : null,
+  /** Desktop-side image encoding/decoding for formats the webview lacks (Tauri only). */
+  image: isTauri ? api.image : null,
 
   /** Path → URL that <video>/<img> can load inside the app. */
   mediaUrl(p) {

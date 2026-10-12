@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createImageDocument, isDirty, serializeCapture, parseCapture, kindForPath, nameOf, dirOf, stripExt, extOf, CAPTURE_FORMAT,
+  createImageDocument, createVideoDocument, isDirty, present, serializeCapture, parseCapture, kindForPath, nameOf, dirOf, stripExt, extOf, stampName, newId, CAPTURE_FORMAT, IMAGE_EXTS, VIDEO_EXTS,
 } from '../src/lib/document.js';
 import { push } from '../src/lib/history.js';
 
@@ -48,5 +48,22 @@ test('path helpers handle both separators', () => {
   assert.equal(dirOf('C:\\dir\\file.png'), 'C:\\dir');
   assert.equal(dirOf('/tmp/x.png'), '/tmp');
   assert.equal(stripExt('archive.tar.gz'), 'archive.tar');
+  assert.equal(stripExt('noext'), 'noext');
+  assert.equal(extOf('C:/a/photo.JPEG'), 'jpeg');
+  assert.equal(extOf('readme'), '');
+  for (const ext of IMAGE_EXTS) assert.equal(kindForPath(`pic.${ext}`), 'image');
+  for (const ext of VIDEO_EXTS) assert.equal(kindForPath(`clip.${ext}`), 'video');
+});
+
+test('a video document has no edit history and a capture name is stamped', () => {
+  const video = createVideoDocument({ path: 'C:/rec/take.webm', width: 1920, height: 1080, duration: 12.5, source: { kind: 'screen' } });
+  assert.equal(video.kind, 'video');
+  assert.equal(video.name, 'take.webm');
+  assert.equal(video.history, null);
+  assert.equal(present(video), null);
+  assert.equal(isDirty(video), false);
+  assert.equal(present(null), null);
+  assert.match(stampName('Screen'), /^Screen \d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}$/);
+  assert.notEqual(newId('e'), newId('e'));
   assert.equal(extOf('a/B.JPG'), 'jpg');
 });

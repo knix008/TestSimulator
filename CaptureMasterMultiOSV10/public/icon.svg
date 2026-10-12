@@ -26,11 +26,19 @@
       <stop offset="0.55" stop-color="#0c1220"/>
       <stop offset="1"   stop-color="#020408"/>
     </radialGradient>
-    <radialGradient id="iris" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0"   stop-color="#8fe3ff"/>
-      <stop offset="0.5" stop-color="#2aa6e0"/>
-      <stop offset="1"   stop-color="#0d4f8a"/>
+    <linearGradient id="blade" gradientUnits="userSpaceOnUse" x1="340" y1="330" x2="690" y2="700">
+      <stop offset="0"    stop-color="#9fe6ff"/>
+      <stop offset="0.45" stop-color="#2f9ee0"/>
+      <stop offset="1"    stop-color="#0b3f7e"/>
+    </linearGradient>
+    <radialGradient id="hole" cx="0.42" cy="0.4" r="0.7">
+      <stop offset="0"   stop-color="#1f4f80"/>
+      <stop offset="0.6" stop-color="#071528"/>
+      <stop offset="1"   stop-color="#02050b"/>
     </radialGradient>
+    <clipPath id="apertureClip">
+      <circle cx="512" cy="512" r="196"/>
+    </clipPath>
     <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0"   stop-color="#ffffff"/>
       <stop offset="0.5" stop-color="#c7d3e3"/>
@@ -72,16 +80,36 @@
   <circle cx="512" cy="512" r="238" fill="url(#ring)"/>
   <circle cx="512" cy="512" r="238" fill="none" stroke="#04122e" stroke-opacity="0.35" stroke-width="6"/>
   <circle cx="512" cy="512" r="204" fill="url(#lens)"/>
-  <circle cx="512" cy="512" r="120" fill="url(#iris)"/>
-  <!-- Shutter blades -->
-  <g stroke="#04122e" stroke-opacity="0.55" stroke-width="10" fill="none" stroke-linecap="round">
-    <path d="M512 392 L616 452"/>
-    <path d="M616 452 L616 572"/>
-    <path d="M616 572 L512 632"/>
-    <path d="M512 632 L408 572"/>
-    <path d="M408 572 L408 452"/>
-    <path d="M408 452 L512 392"/>
+  <!-- Aperture: six overlapping blades around a hexagonal opening; each blade's
+       straight edge carries one side of the opening out to the rim. -->
+  <g clip-path="url(#apertureClip)" stroke-linejoin="round">
+    <g fill="url(#blade)" stroke="#04122e" stroke-opacity="0.7" stroke-width="5">
+      <path d="M528.0 452.1 L683.3 607.3 A196 196 0 0 0 680.2 411.3 Z"/>
+      <path d="M571.9 496.0 L515.1 708.0 A196 196 0 0 0 683.3 607.3 Z"/>
+      <path d="M555.8 555.8 L343.8 612.7 A196 196 0 0 0 515.1 708.0 Z"/>
+      <path d="M496.0 571.9 L340.7 416.7 A196 196 0 0 0 343.8 612.7 Z"/>
+      <path d="M452.1 528.0 L508.9 316.0 A196 196 0 0 0 340.7 416.7 Z"/>
+      <path d="M468.2 468.2 L680.2 411.3 A196 196 0 0 0 508.9 316.0 Z"/>
+    </g>
+    <!-- Every other blade a shade darker so the blades read apart -->
+    <g fill="#04122e" fill-opacity="0.22">
+      <path d="M571.9 496.0 L515.1 708.0 A196 196 0 0 0 683.3 607.3 Z"/>
+      <path d="M496.0 571.9 L340.7 416.7 A196 196 0 0 0 343.8 612.7 Z"/>
+      <path d="M468.2 468.2 L680.2 411.3 A196 196 0 0 0 508.9 316.0 Z"/>
+    </g>
+    <!-- Lit leading edge of each blade -->
+    <g stroke="#ffffff" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round" fill="none">
+      <path d="M528.0 452.1 L683.3 607.3"/>
+      <path d="M571.9 496.0 L515.1 708.0"/>
+      <path d="M555.8 555.8 L343.8 612.7"/>
+      <path d="M496.0 571.9 L340.7 416.7"/>
+      <path d="M452.1 528.0 L508.9 316.0"/>
+      <path d="M468.2 468.2 L680.2 411.3"/>
+    </g>
+    <!-- The opening -->
+    <polygon points="528.0 452.1 571.9 496.0 555.8 555.8 496.0 571.9 452.1 528.0 468.2 468.2" fill="url(#hole)" stroke="#04122e" stroke-width="5"/>
   </g>
+  <circle cx="512" cy="512" r="196" fill="none" stroke="#04122e" stroke-opacity="0.8" stroke-width="8"/>
   <!-- Lens reflections -->
   <ellipse cx="462" cy="440" rx="56" ry="34" fill="#ffffff" opacity="0.55" transform="rotate(-30 462 440)"/>
   <circle cx="586" cy="590" r="16" fill="#ffffff" opacity="0.35"/>

@@ -22,7 +22,7 @@
     "build": "vite build",
     "prebuild:win": "npm run generate:icons && npm run prepare:assets",
     "build:win": "tauri build --bundles nsis",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-concurrency=1 --test-reporter=./scripts/test-reporter.mjs test/*.test.mjs",
     "free:port": "node scripts/free-port.mjs 5184",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all"

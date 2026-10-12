@@ -40,7 +40,7 @@ export function createImageDocument(image, { name, path = null, source = null, a
     history: createHistory({ image, annotations }),
     savedPresent: null,           // the state last written to disk (null = never saved)
     zoom: 1,
-    fitRequested: true,           // fit to the view on first show
+    autoFit: true,                // zoom follows the view size until zoomed by hand
     selection: null,              // marquee { x, y, w, h } in image pixels
     selectedId: null,
     nextNumber: 1,                // for numbered badges
@@ -62,7 +62,6 @@ export function createVideoDocument({ path, name, width = 0, height = 0, duratio
     history: null,
     savedPresent: null,
     zoom: 1,
-    fitRequested: true,
     selection: null,
     selectedId: null,
   };
@@ -138,7 +137,9 @@ export function parseCapture(text, path) {
   return doc;
 }
 
-export const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+export const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'ico', 'tif', 'tiff', 'tga', 'qoi'];
+/** Image types the webview cannot decode; the desktop side converts them to PNG. */
+export const NATIVE_DECODE_EXTS = ['tif', 'tiff', 'tga', 'qoi'];
 export const VIDEO_EXTS = ['webm', 'mp4', 'mkv', 'ogg'];
 
 export function kindForPath(p) {

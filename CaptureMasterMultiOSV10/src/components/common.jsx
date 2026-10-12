@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Icon } from './Icons.jsx';
 
@@ -57,7 +58,7 @@ export function TooltipLayer() {
 }
 
 // ── Context menu ──────────────────────────────────────────
-/** items: [{ label, icon, shortcut, sub, disabled, danger, onClick } | 'sep'] */
+/** items: [{ label, icon, shortcut, sub, disabled, danger, checked, onClick } | 'sep'] */
 export function ContextMenu({ x, y, items, onClose }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ x, y });
@@ -71,7 +72,8 @@ export function ContextMenu({ x, y, items, onClose }) {
 
   useEffect(() => {
     const down = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    const key = (e) => { if (e.key === 'Escape') onClose(); };
+    // Esc closes only the menu, not the dialog window it sits in.
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); onClose(); } };
     document.addEventListener('mousedown', down, true);
     document.addEventListener('keydown', key, true);
     window.addEventListener('blur', onClose);
@@ -92,10 +94,12 @@ export function ContextMenu({ x, y, items, onClose }) {
         return (
           <div
             key={i}
-            className={`ctx-item${it.disabled ? ' disabled' : ''}${it.danger ? ' danger' : ''}`}
+            className={`ctx-item${it.disabled ? ' disabled' : ''}${it.danger ? ' danger' : ''}${it.checked ? ' checked' : ''}`}
+            role={it.checked ? 'menuitemcheckbox' : 'menuitem'}
+            aria-checked={it.checked || undefined}
             onClick={() => { if (it.disabled) return; onClose(); it.onClick && it.onClick(); }}
           >
-            {it.icon ? <Icon name={it.icon} /> : <span style={{ width: 15 }} />}
+            {it.checked ? <Icon name="check" /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 15 }} />}
             <span>{it.label}</span>
             {it.sub ? <span className="sub">{it.sub}</span> : null}
             {it.shortcut ? <span className="shortcut">{it.shortcut}</span> : null}
@@ -118,16 +122,21 @@ export function useToasts() {
   return [toasts, push];
 }
 
+const TOAST_ICON = { err: 'error', warn: 'warning', ok: 'check' };
+
+/** Success, warning and error notices share this corner of the window. */
 export function ToastHost({ toasts }) {
-  return (
+  if (!toasts.length) return null;
+  return createPortal(
     <div className="toast-host">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast ${t.kind}`}>
-          <Icon name={t.kind === 'err' ? 'error' : t.kind === 'warn' ? 'warning' : 'check'} size={15} />
+        <div key={t.id} className={`toast ${t.kind || 'ok'}`}>
+          <Icon name={TOAST_ICON[t.kind] || 'check'} size={15} />
           <span>{t.text}</span>
         </div>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

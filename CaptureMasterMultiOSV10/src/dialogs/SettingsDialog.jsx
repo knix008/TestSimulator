@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DialogFrame } from './DialogFrame.jsx';
+import { DialogFrame, applyDialogSize } from './DialogFrame.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { Field, Check, NumberInput } from '../components/common.jsx';
 import { THEMES, themeFromCustom } from '../themes.js';
-import { IMAGE_FORMATS, VIDEO_FPS, DEFAULT_SETTINGS, normalizeSettings, removeRecent } from '../lib/settings.js';
+import { imageFormatsFor, VIDEO_FPS, DEFAULT_SETTINGS, AUDIO_GAIN, normalizeSettings, removeRecent } from '../lib/settings.js';
+import { listMicrophones, openMicrophone, systemAudioStream } from '../lib/capture.js';
 import { listFonts } from '../lib/fonts.js';
 import { platform } from '../lib/platform.js';
 import { formatDateTime } from '../lib/format.js';
@@ -12,10 +13,8 @@ import { formatDateTime } from '../lib/format.js';
 const PAGES = [
   { id: 'general', icon: 'general' },
   { id: 'theme', icon: 'palette' },
-  { id: 'appearance', icon: 'font' },
   { id: 'capture', icon: 'camera' },
   { id: 'video', icon: 'video' },
-  { id: 'annotation', icon: 'pen' },
   { id: 'files', icon: 'files' },
 ];
 
@@ -51,51 +50,53 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
   const sub = (key, patch) => update({ [key]: { ...s[key], ...patch } });
 
   const fontOptions = useMemo(() => (fonts ? fonts.families : []), [fonts]);
-  const themeLabel = (th) => (i18n.language === 'ko' ? th.label : th.labelEn);
+  const imageFormats = imageFormatsFor(!!platform.image);
+  const imageFormat = imageFormats.find((f) => f.id === s.image.format) || imageFormats[0];
+  const labelFor = (lang) => (th) => (lang === 'ko' ? th.label : th.labelEn);
 
-  const FontPicker = ({ value, onChange }) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ maxWidth: 320 }}>
-      <option value="">{t('settings.systemDefault')}</option>
+  // Fixed width: the font list arrives after the window has been sized.
+  const fontPicker = (tt, value, onChange) => (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 320 }}>
+      <option value="">{tt('settings.systemDefault')}</option>
       {value && !fontOptions.includes(value) ? <option value={value}>{value}</option> : null}
       {fontOptions.map((f) => <option key={f} value={f}>{f}</option>)}
     </select>
   );
 
-  // Fixed-size window: measure every page at its natural width (the tab row
-  // never wraps), then at the common width find the tallest page, and size
-  // the window/modal to exactly that.
+  // Fixed-size window, sized once when it opens: every page in both languages
+  // is measured at its natural width (the tab row never wraps), then at the
+  // common width the tallest page sets the height. Later choices (language,
+  // font, recent list, ...) never resize it; a page scrolls if it must.
+  const [measuring, setMeasuring] = useState(true);
   const fit = useCallback(() => {
     const root = rootRef.current;
     const measure = measureRef.current;
     const pageEl = pageRef.current;
     if (!root || !measure || !pageEl) return;
     const dlg = root.closest('.dlg');
-    const tabs = root.querySelector('.settings-tabs');
-    const pages = Array.from(measure.children);
-    const last = tabs.lastElementChild;
-    const tabsW = last.offsetLeft + last.offsetWidth + (parseFloat(getComputedStyle(tabs).paddingRight) || 0);
+    const pages = Array.from(measure.querySelectorAll(':scope > .settings-page'));
+    const tabsW = Math.max(...Array.from(measure.querySelectorAll(':scope > .settings-tabs')).map((tabs) => {
+      const last = tabs.lastElementChild;
+      return last.offsetLeft + last.offsetWidth + (parseFloat(getComputedStyle(tabs).paddingRight) || 0);
+    }));
 
     pages.forEach((p) => { p.style.width = 'max-content'; });
     const w = Math.ceil(Math.min(MAX_PAGE_W, Math.max(tabsW, ...pages.map((p) => p.offsetWidth))));
     pages.forEach((p) => { p.style.width = `${w}px`; });
     const h = Math.ceil(Math.max(...pages.map((p) => p.offsetHeight)));
 
-    const width = w + (dlg.offsetWidth - pageEl.clientWidth);
-    const height = h + (dlg.offsetHeight - pageEl.clientHeight);
-    if (standalone) {
-      platform.dialogs.setSize(width, height);
-    } else {
-      const modal = dlg.closest('.modal');
-      if (modal) { modal.style.setProperty('--modal-w', `${width}px`); modal.style.setProperty('--modal-h', `${height}px`); }
-    }
+    applyDialogSize(dlg, w + (dlg.offsetWidth - pageEl.clientWidth), h + (dlg.offsetHeight - pageEl.clientHeight), standalone);
   }, [standalone]);
 
-  useLayoutEffect(fit, [fit, i18n.language, s.font, s.customThemes, s.recent, s.paths, fonts]);
+  useLayoutEffect(fit, [fit]);
   useEffect(() => {
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  }, [fit, s.font]);
+    let alive = true;
+    const done = () => { if (alive) { fit(); setMeasuring(false); } };
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(done); else done();
+    return () => { alive = false; };
+  }, [fit]);
 
-  const pageContent = {
+  const renderPages = (t, lang, live = false) => ({
     general: (
       <>
         <div className="section-title">{t('settings.general')}</div>
@@ -105,17 +106,27 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
             <option value="en">{t('settings.languageEn')}</option>
           </select>
         </Field>
-        <Check label={t('settings.checkerboard')} checked={s.editor.checkerboard} onChange={(v) => sub('editor', { checkerboard: v })} />
-      </>
-    ),
-    theme: (
-      <ThemePage s={s} themeMode={themeMode} setThemeMode={setThemeMode} update={update} themeLabel={themeLabel} t={t} />
-    ),
-    appearance: (
-      <>
-        <div className="section-title">{t('settings.uiFont')}</div>
+        <Field label={t('settings.captureDir')} hint={t('settings.captureDirHint')}>
+          <div className="inline">
+            <input type="text" value={s.paths.captureDir} placeholder={t('common.none')} onChange={(e) => sub('paths', { captureDir: e.target.value })} />
+            <button className="btn small" onClick={async () => { const d = await platform.pickDirectory({ defaultDir: s.paths.captureDir }); if (d) sub('paths', { captureDir: d }); }}>{t('common.browse')}</button>
+            <button className="btn small" disabled={!s.paths.captureDir} onClick={() => sub('paths', { captureDir: '' })}>{t('settings.forget')}</button>
+          </div>
+        </Field>
+        <Field label={t('settings.imageFormat')} hint={t('settings.imageFormatHint')}>
+          <select value={imageFormat.id} onChange={(e) => sub('image', { format: e.target.value })}>
+            {imageFormats.map((f) => <option key={f.id} value={f.id}>{t(`format.${f.id}`)} (.{f.ext})</option>)}
+          </select>
+        </Field>
+        <Field label={t('settings.imageQuality')}>
+          <div className="inline">
+            <input type="range" min={10} max={100} value={s.image.quality} disabled={!imageFormat.quality} onChange={(e) => sub('image', { quality: Number(e.target.value) })} style={{ width: 200 }} />
+            <NumberInput min={10} max={100} value={s.image.quality} disabled={!imageFormat.quality} onChange={(v) => sub('image', { quality: v })} ariaLabel={t('settings.imageQuality')} unit="%" />
+          </div>
+        </Field>
+        <div className="section-title" style={{ marginTop: 18 }}>{t('settings.uiFont')}</div>
         <Field label={t('settings.fontFamily')} hint={fonts ? (fonts.source === 'system' ? t('settings.fontsCount', { n: fonts.families.length }) : t('settings.fontsDenied')) : t('settings.fontsLoading')}>
-          <FontPicker value={s.font.family} onChange={(v) => sub('font', { family: v })} />
+          {fontPicker(t, s.font.family, (v) => sub('font', { family: v }))}
         </Field>
         <Field label={t('settings.fontSize')}>
           <div className="inline">
@@ -127,7 +138,34 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
         <div className="font-preview" style={{ fontFamily: s.font.family ? `"${s.font.family}", sans-serif` : undefined, fontSize: s.font.size, fontWeight: s.font.bold ? 700 : 400, fontStyle: s.font.italic ? 'italic' : 'normal' }}>
           {t('settings.fontPreview')}
         </div>
+        <div className="section-title" style={{ marginTop: 18 }}>{t('settings.annotation')}</div>
+        <Field label={t('settings.annColor')}>
+          <input type="color" value={s.annotation.color} onChange={(e) => sub('annotation', { color: e.target.value })} className="tb-color" />
+        </Field>
+        <Field label={t('settings.annStroke')}>
+          <div className="inline">
+            <input type="range" min={1} max={40} value={s.annotation.strokeWidth} onChange={(e) => sub('annotation', { strokeWidth: Number(e.target.value) })} style={{ width: 200 }} />
+            <NumberInput min={1} max={40} value={s.annotation.strokeWidth} onChange={(v) => sub('annotation', { strokeWidth: v })} ariaLabel={t('settings.annStroke')} unit="px" />
+          </div>
+        </Field>
+        <Check label={t('settings.annFill')} checked={s.annotation.fill} onChange={(v) => sub('annotation', { fill: v })} />
+        <Field label={t('settings.annFont')}>
+          {fontPicker(t, s.annotation.fontFamily, (v) => sub('annotation', { fontFamily: v }))}
+        </Field>
+        <Field label={t('settings.annFontSize')}>
+          <div className="inline">
+            <NumberInput min={8} max={200} value={s.annotation.fontSize} onChange={(v) => sub('annotation', { fontSize: v })} ariaLabel={t('settings.annFontSize')} unit="px" />
+            <Check label={t('settings.fontBold')} checked={s.annotation.bold} onChange={(v) => sub('annotation', { bold: v })} />
+            <Check label={t('settings.fontItalic')} checked={s.annotation.italic} onChange={(v) => sub('annotation', { italic: v })} />
+          </div>
+        </Field>
+        <div className="font-preview" style={{ fontFamily: s.annotation.fontFamily ? `"${s.annotation.fontFamily}", sans-serif` : undefined, fontSize: Math.min(40, s.annotation.fontSize), fontWeight: s.annotation.bold ? 700 : 400, fontStyle: s.annotation.italic ? 'italic' : 'normal', color: s.annotation.color }}>
+          {t('settings.fontPreview')}
+        </div>
       </>
+    ),
+    theme: (
+      <ThemePage s={s} themeMode={themeMode} setThemeMode={setThemeMode} update={update} themeLabel={labelFor(lang)} t={t} />
     ),
     capture: (
       <>
@@ -143,27 +181,15 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
         <Check label={t('settings.allowSelf')} checked={s.capture.allowSelf} onChange={(v) => sub('capture', { allowSelf: v })} /><br />
         <Check label={t('settings.showCountdown')} checked={s.capture.showCountdown} onChange={(v) => sub('capture', { showCountdown: v })} /><br />
         <Check label={t('settings.copyToClipboard')} checked={s.capture.copyToClipboard} onChange={(v) => sub('capture', { copyToClipboard: v })} />
-        <div className="section-title" style={{ marginTop: 18 }}>{t('toolbar.export')}</div>
-        <Field label={t('settings.imageFormat')}>
-          <select value={s.image.format} onChange={(e) => sub('image', { format: e.target.value })}>
-            {IMAGE_FORMATS.map((f) => <option key={f.id} value={f.id}>{t(`format.${f.id}`)}</option>)}
-          </select>
-        </Field>
-        <Field label={t('settings.imageQuality')}>
-          <div className="inline">
-            <input type="range" min={10} max={100} value={s.image.quality} onChange={(e) => sub('image', { quality: Number(e.target.value) })} style={{ width: 200 }} />
-            <NumberInput min={10} max={100} value={s.image.quality} onChange={(v) => sub('image', { quality: v })} ariaLabel={t('settings.imageQuality')} unit="%" />
-          </div>
-        </Field>
       </>
     ),
     video: (
       <>
         <div className="section-title">{t('settings.video')}</div>
-        <Field label={t('settings.videoFormat')}>
+        <Field label={t('settings.videoFormat')} hint={videoFormats.some((f) => f.gif) ? t('settings.videoGifHint') : undefined}>
           <select value={s.video.format} onChange={(e) => sub('video', { format: e.target.value })}>
             <option value="auto">{t('common.auto')}</option>
-            {videoFormats.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            {videoFormats.map((f) => <option key={f.id} value={f.id}>{f.labelKey ? t(f.labelKey) : f.label}</option>)}
           </select>
         </Field>
         <Field label={t('settings.videoFps')}>
@@ -177,8 +203,6 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
             <NumberInput min={1} max={50} value={s.video.bitrateMbps} onChange={(v) => sub('video', { bitrateMbps: v })} ariaLabel={t('settings.videoBitrate')} unit="Mbps" />
           </div>
         </Field>
-        <Check label={t('settings.systemAudio')} checked={s.video.systemAudio} onChange={(v) => sub('video', { systemAudio: v })} /><br />
-        <Check label={t('settings.microphone')} checked={s.video.microphone} onChange={(v) => sub('video', { microphone: v })} /><br />
         <Check label={t('settings.minimizeWhileRecording')} checked={s.video.minimizeWhileRecording} onChange={(v) => sub('video', { minimizeWhileRecording: v })} /><br />
         <Check label={t('settings.askPath')} checked={s.video.askPath} onChange={(v) => sub('video', { askPath: v })} />
         <Field label={t('settings.videoDir')} hint={t('settings.videoDirHint')}>
@@ -187,34 +211,10 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
             <button className="btn small" onClick={async () => { const d = await platform.pickDirectory({ defaultDir: s.paths.videoDir }); if (d) sub('paths', { videoDir: d }); }}>{t('common.browse')}</button>
           </div>
         </Field>
-      </>
-    ),
-    annotation: (
-      <>
-        <div className="section-title">{t('settings.annotation')}</div>
-        <Field label={t('settings.annColor')}>
-          <input type="color" value={s.annotation.color} onChange={(e) => sub('annotation', { color: e.target.value })} className="tb-color" />
-        </Field>
-        <Field label={t('settings.annStroke')}>
-          <div className="inline">
-            <input type="range" min={1} max={40} value={s.annotation.strokeWidth} onChange={(e) => sub('annotation', { strokeWidth: Number(e.target.value) })} style={{ width: 200 }} />
-            <NumberInput min={1} max={40} value={s.annotation.strokeWidth} onChange={(v) => sub('annotation', { strokeWidth: v })} ariaLabel={t('settings.annStroke')} unit="px" />
-          </div>
-        </Field>
-        <Check label={t('settings.annFill')} checked={s.annotation.fill} onChange={(v) => sub('annotation', { fill: v })} />
-        <Field label={t('settings.annFont')}>
-          <FontPicker value={s.annotation.fontFamily} onChange={(v) => sub('annotation', { fontFamily: v })} />
-        </Field>
-        <Field label={t('settings.annFontSize')}>
-          <div className="inline">
-            <NumberInput min={8} max={200} value={s.annotation.fontSize} onChange={(v) => sub('annotation', { fontSize: v })} ariaLabel={t('settings.annFontSize')} unit="px" />
-            <Check label={t('settings.fontBold')} checked={s.annotation.bold} onChange={(v) => sub('annotation', { bold: v })} />
-            <Check label={t('settings.fontItalic')} checked={s.annotation.italic} onChange={(v) => sub('annotation', { italic: v })} />
-          </div>
-        </Field>
-        <div className="font-preview" style={{ fontFamily: s.annotation.fontFamily ? `"${s.annotation.fontFamily}", sans-serif` : undefined, fontSize: Math.min(40, s.annotation.fontSize), fontWeight: s.annotation.bold ? 700 : 400, fontStyle: s.annotation.italic ? 'italic' : 'normal', color: s.annotation.color }}>
-          {t('settings.fontPreview')}
-        </div>
+        <div className="section-title" style={{ marginTop: 18 }}>{t('settings.systemAudioSection')}</div>
+        <SystemAudioSettings s={s} sub={sub} t={t} />
+        <div className="section-title" style={{ marginTop: 18 }}>{t('settings.micSection')}</div>
+        <MicSettings s={s} sub={sub} t={t} live={live} />
       </>
     ),
     files: (
@@ -227,7 +227,7 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
                 <Icon name={r.kind === 'video' ? 'video' : r.kind === 'image' ? 'image' : 'file'} size={16} />
                 <span className="name">{r.name}</span>
                 <span className="path" title={r.path}>{r.path}</span>
-                <span style={{ color: 'var(--text-faint)', fontSize: '0.82em' }}>{formatDateTime(r.openedAt, i18n.language)}</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: '0.82em' }}>{formatDateTime(r.openedAt, lang)}</span>
                 <button className="btn small" onClick={() => update({ recent: removeRecent(s.recent, r.path) })}>{t('settings.recentRemove')}</button>
               </div>
             ))}
@@ -247,7 +247,8 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
         ))}
       </>
     ),
-  };
+  });
+  const pageContent = renderPages(t, i18n.language, true);
 
   return (
     <DialogFrame title={t('settings.title')} standalone={standalone} onClose={onClose} className="settings-dlg"
@@ -265,19 +266,199 @@ export function SettingsDialog({ payload, onSubmit, onClose, standalone }) {
         <div className="settings-page" role="tabpanel" ref={pageRef}>
           {pageContent[page]}
         </div>
-        {/* Off-screen copy of every page: the window is sized to the largest. */}
-        <div className="settings-measure" ref={measureRef} aria-hidden="true" inert="">
-          {PAGES.map((p) => (p.id === 'theme'
-            ? ['builtin', 'custom'].map((mode) => (
-              <div key={mode} className="settings-page">
-                <ThemePage s={s} themeMode={mode} setThemeMode={() => {}} update={() => {}} themeLabel={themeLabel} t={t} />
-              </div>
-            ))
-            : <div key={p.id} className="settings-page">{pageContent[p.id]}</div>))}
-        </div>
+        {/* Off-screen copy of every page in both languages, only until sized. */}
+        {measuring ? (
+          <div className="settings-measure" ref={measureRef} aria-hidden="true" inert="">
+            {['ko', 'en'].map((lang) => {
+              const tt = i18n.getFixedT(lang);
+              const pages = renderPages(tt, lang);
+              return (
+                <React.Fragment key={lang}>
+                  <div className="settings-tabs">
+                    {PAGES.map((p) => <button key={p.id} type="button"><Icon name={p.icon} />{tt(`settings.${p.id}`)}</button>)}
+                  </div>
+                  {PAGES.map((p) => (p.id === 'theme'
+                    ? ['builtin', 'custom'].map((mode) => (
+                      <div key={mode} className="settings-page">
+                        <ThemePage s={s} themeMode={mode} setThemeMode={() => {}} update={() => {}} themeLabel={labelFor(lang)} t={tt} />
+                      </div>
+                    ))
+                    : <div key={p.id} className="settings-page">{pages[p.id]}</div>))}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </DialogFrame>
   );
+}
+
+/**
+ * Microphone choice, level and processing, with a live meter. Devices are
+ * only opened in the visible page (`live`), never in the off-screen copy.
+ */
+function MicSettings({ s, sub, t, live }) {
+  const m = s.mic;
+  const [mics, setMics] = useState({ devices: [], defaultLabel: '' });
+  const supported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  const meter = useLevelMeter(() => openMicrophone(m), m.gain, [m.deviceId, m.echoCancellation, m.noiseSuppression, m.autoGainControl]);
+
+  const refresh = useCallback(() => { listMicrophones().then(setMics).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!live || !supported) return undefined;
+    refresh();
+    navigator.mediaDevices.addEventListener('devicechange', refresh);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', refresh);
+  }, [live, supported, refresh]);
+
+  const known = !m.deviceId || mics.devices.some((d) => d.deviceId === m.deviceId);
+  const mic = (patch) => sub('mic', patch);
+
+  return (
+    <>
+      <Check label={t('settings.microphone')} checked={s.video.microphone} onChange={(v) => sub('video', { microphone: v })} />
+      <Field label={t('settings.micDevice')}>
+        <div className="inline">
+          <select
+            value={m.deviceId}
+            style={{ width: 320 }}
+            disabled={!supported}
+            onChange={(e) => {
+              const d = mics.devices.find((x) => x.deviceId === e.target.value);
+              mic({ deviceId: e.target.value, label: d ? d.label : '' });
+            }}
+          >
+            <option value="">{mics.defaultLabel ? t('settings.micDefaultNamed', { name: mics.defaultLabel }) : t('settings.micDefault')}</option>
+            {!known ? <option value={m.deviceId}>{t('settings.micMissing', { name: m.label || m.deviceId.slice(0, 8) })}</option> : null}
+            {mics.devices.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label || t('settings.micUnnamed', { n: i + 1 })}</option>)}
+          </select>
+          <button className="btn small" type="button" title={t('settings.micRefresh')} aria-label={t('settings.micRefresh')} disabled={!supported} onClick={refresh}><Icon name="refresh" /></button>
+        </div>
+      </Field>
+      <GainField label={t('settings.micGain')} hint={t('settings.micGainHint')} value={m.gain} onChange={(v) => mic({ gain: v })} t={t} />
+      <Check label={t('settings.micEcho')} checked={m.echoCancellation} onChange={(v) => mic({ echoCancellation: v })} /><br />
+      <Check label={t('settings.micNoise')} checked={m.noiseSuppression} onChange={(v) => mic({ noiseSuppression: v })} /><br />
+      <Check label={t('settings.micAgc')} checked={m.autoGainControl} onChange={(v) => mic({ autoGainControl: v })} />
+      <LevelTest label={t('settings.micTest')} hint={t('settings.micTestHint')} icon="mic" meter={meter} disabled={!supported} t={t} />
+    </>
+  );
+}
+
+/** System sound: whether it is recorded, its volume, and a meter of what would be recorded. */
+function SystemAudioSettings({ s, sub, t }) {
+  const v = s.video;
+  const supported = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  const meter = useLevelMeter(systemAudioStream, v.systemAudioGain, []);
+  return (
+    <>
+      <Check label={t('settings.systemAudio')} checked={v.systemAudio} onChange={(x) => sub('video', { systemAudio: x })} />
+      <GainField label={t('settings.systemAudioGain')} hint={t('settings.systemAudioGainHint')} value={v.systemAudioGain} onChange={(x) => sub('video', { systemAudioGain: x })} t={t} />
+      <LevelTest label={t('settings.systemAudioTest')} hint={t('settings.systemAudioTestHint')} icon="volume" meter={meter} disabled={!supported} t={t} />
+    </>
+  );
+}
+
+function GainField({ label, hint, value, onChange, t }) {
+  return (
+    <Field label={label} hint={hint}>
+      <div className="inline">
+        <input type="range" min={AUDIO_GAIN.min} max={AUDIO_GAIN.max} step={5} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: 200 }} aria-label={label} />
+        <NumberInput min={AUDIO_GAIN.min} max={AUDIO_GAIN.max} value={value} onChange={onChange} ariaLabel={label} unit="%" />
+        <button className="btn small" type="button" disabled={value === 100} onClick={() => onChange(100)}>{t('settings.gainReset')}</button>
+      </div>
+    </Field>
+  );
+}
+
+function LevelTest({ label, hint, icon, meter, disabled, t }) {
+  return (
+    <Field label={label} hint={meter.error ? t('settings.audioTestFailed', { msg: meter.error }) : hint}>
+      <div className="inline">
+        <button className={`btn small${meter.testing ? ' primary' : ''}`} type="button" disabled={disabled} onClick={meter.toggle} style={{ minWidth: 96 }}>
+          <Icon name={meter.testing ? 'stop' : icon} />{meter.testing ? t('settings.audioTestStop') : t('settings.audioTestStart')}
+        </button>
+        <div className={`mic-meter${meter.testing ? ' on' : ''}`} aria-hidden="true">
+          <div className="mic-meter-fill" ref={meter.fillRef} />
+          <div className="mic-meter-peak" ref={meter.peakRef} />
+        </div>
+      </div>
+    </Field>
+  );
+}
+
+/**
+ * A level meter over `open()`'s stream, with `gainPct` applied the way the
+ * recording applies it. The stream is reopened when `reopenOn` changes; the
+ * gain is a node of our own and follows without reopening.
+ */
+function useLevelMeter(open, gainPct, reopenOn) {
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState('');
+  const fillRef = useRef(null);
+  const peakRef = useRef(null);
+  const gainRef = useRef(null);
+  const gainPctRef = useRef(gainPct);
+  gainPctRef.current = gainPct;
+
+  useEffect(() => {
+    if (!testing) return undefined;
+    let alive = true;
+    let stream = null;
+    let ctx = null;
+    let raf = 0;
+    setError('');
+    (async () => {
+      try {
+        stream = await open();
+        if (!alive) { stream.getTracks().forEach((x) => x.stop()); return; }
+        ctx = new AudioContext();
+        if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+        const gain = ctx.createGain();
+        gain.gain.value = gainPctRef.current / 100;
+        gainRef.current = gain;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        ctx.createMediaStreamSource(stream).connect(gain).connect(analyser);
+        const buf = new Float32Array(analyser.fftSize);
+        let hold = 0;
+        let holdAt = 0;
+        const tick = () => {
+          analyser.getFloatTimeDomainData(buf);
+          let peak = 0;
+          let sum = 0;
+          for (const v of buf) { const a = Math.abs(v); if (a > peak) peak = a; sum += v * v; }
+          const rms = Math.sqrt(sum / buf.length);
+          // -60 dB … 0 dB across the bar.
+          const pos = (x) => Math.max(0, Math.min(1, (20 * Math.log10(Math.max(x, 1e-6)) + 60) / 60));
+          const now = performance.now();
+          if (pos(peak) >= hold || now - holdAt > 1200) { hold = pos(peak); holdAt = now; }
+          if (fillRef.current) {
+            fillRef.current.style.width = `${pos(rms) * 100}%`;
+            fillRef.current.classList.toggle('clip', peak >= 0.99);
+          }
+          if (peakRef.current) peakRef.current.style.left = `${hold * 100}%`;
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (err) {
+        if (alive) { setError(String((err && err.message) || err)); setTesting(false); }
+      }
+    })();
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      gainRef.current = null;
+      if (stream) stream.getTracks().forEach((x) => x.stop());
+      if (ctx) ctx.close().catch(() => {});
+      if (fillRef.current) fillRef.current.style.width = '0%';
+      if (peakRef.current) peakRef.current.style.left = '0%';
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testing, ...reopenOn]);
+  useEffect(() => { if (gainRef.current) gainRef.current.gain.value = gainPct / 100; }, [gainPct]);
+
+  return { testing, error, fillRef, peakRef, toggle: () => setTesting((x) => !x) };
 }
 
 const COLOR_FIELDS = [

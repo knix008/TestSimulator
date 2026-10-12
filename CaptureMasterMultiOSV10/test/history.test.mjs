@@ -47,3 +47,12 @@ test('pushing the identical present is a no-op', () => {
   const h = createHistory('x');
   assert.equal(push(h, 'x'), h);
 });
+
+test('empty history cannot undo or redo', () => {
+  assert.equal(canUndo(null), false);
+  assert.equal(canRedo(null), false);
+  assert.equal(canUndo(createHistory(1)), false);
+  assert.equal(canRedo(createHistory(1)), false);
+  assert.equal(undo(createHistory(1)).present, 1);
+  assert.equal(redo(createHistory(1)).present, 1);
+});

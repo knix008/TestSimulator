@@ -1,5 +1,7 @@
 // Image helpers: decoding, encoding, cropping, byte/data-URL conversion.
 
+import { isShaped, maskToSelection, traceSelection } from './selection.js';
+
 const imageCache = new Map();   // dataUrl -> HTMLImageElement (decoded)
 const CACHE_LIMIT = 24;
 
@@ -40,6 +42,7 @@ export function mimeForExt(ext) {
   const e = String(ext || '').toLowerCase().replace(/^\./, '');
   return {
     png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+    avif: 'image/avif', ico: 'image/x-icon', tif: 'image/tiff', tiff: 'image/tiff',
     webm: 'video/webm', mp4: 'video/mp4', mkv: 'video/x-matroska', ogg: 'video/ogg',
   }[e] || 'application/octet-stream';
 }
@@ -64,7 +67,27 @@ export async function cropImage(dataUrl, rect) {
   c.width = w;
   c.height = h;
   c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+  maskToSelection(c, rect, { ox: x, oy: y });
   return { dataUrl: c.toDataURL('image/png'), width: w, height: h };
+}
+
+/** The picture with the selection `rect` (any shape) made fully transparent. */
+export async function eraseRect(dataUrl, rect) {
+  const img = await loadImage(dataUrl);
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  if (isShaped(rect)) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    traceSelection(ctx, rect);
+    ctx.fill();
+  } else {
+    ctx.clearRect(Math.round(rect.x), Math.round(rect.y), Math.round(rect.w), Math.round(rect.h));
+  }
+  return { dataUrl: c.toDataURL('image/png'), width: c.width, height: c.height };
 }
 
 /** Encodes a canvas as the given format. BMP is written by hand (browsers do not encode it). */

@@ -2,67 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DialogFrame } from './DialogFrame.jsx';
 import { Icon } from '../components/Icons.jsx';
-import { Check } from '../components/common.jsx';
 import { platform } from '../lib/platform.js';
 import { formatDuration } from '../lib/format.js';
-
-// ── Print ─────────────────────────────────────────────────
-export function PrintDialog({ payload, onSubmit, onClose, standalone }) {
-  const { t } = useTranslation();
-  const p = payload || {};
-  const docs = p.docs || [];
-  const [scope, setScope] = useState(docs.length > 1 ? 'all' : 'current');
-  const [picked, setPicked] = useState(() => new Set(p.currentId ? [p.currentId] : []));
-  const [selectionOnly, setSelectionOnly] = useState(false);
-  const [landscape, setLandscape] = useState(() => {
-    const cur = docs.find((d) => d.id === p.currentId);
-    return !!(cur && cur.width > cur.height);
-  });
-  const [fit, setFit] = useState(true);
-
-  const ids = scope === 'all' ? docs.map((d) => d.id) : scope === 'current' ? (p.currentId ? [p.currentId] : []) : docs.filter((d) => picked.has(d.id)).map((d) => d.id);
-  const toggle = (id) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-
-  return (
-    <DialogFrame title={t('print.title')} standalone={standalone} onClose={onClose}
-      footer={<>
-        <span style={{ marginRight: 'auto', color: 'var(--text-dim)' }}>{ids.length ? t('print.pages', { n: ids.length }) : t('print.none')}</span>
-        <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
-        <button className="btn primary" disabled={!ids.length} onClick={() => onSubmit({ docIds: ids, selectionOnly: scope !== 'all' && selectionOnly && ids.length === 1 && ids[0] === p.currentId, landscape, fit })}><Icon name="print" />{t('print.print')}</button>
-      </>}
-    >
-      <div className="section-title">{t('print.scope')}</div>
-      <label className="check"><input type="radio" checked={scope === 'all'} onChange={() => setScope('all')} /><span>{t('print.all', { n: docs.length })}</span></label><br />
-      <label className="check"><input type="radio" checked={scope === 'current'} disabled={!p.currentId} onChange={() => setScope('current')} /><span>{t('print.current')}</span></label><br />
-      <label className="check"><input type="radio" checked={scope === 'custom'} onChange={() => setScope('custom')} /><span>{t('print.custom')}</span></label>
-      {scope === 'custom' ? (
-        <div style={{ margin: '8px 0 8px 24px' }}>
-          <div style={{ color: 'var(--text-dim)', marginBottom: 4 }}>{t('print.selectDocs')}</div>
-          <div className="doc-list">
-            {docs.map((d) => (
-              <label key={d.id}>
-                <input type="checkbox" checked={picked.has(d.id)} onChange={() => toggle(d.id)} />
-                <Icon name={d.kind === 'video' ? 'video' : 'image'} size={14} />
-                <span>{d.name}</span>
-                <span className="dim">{d.width && d.height ? `${d.width} × ${d.height}` : ''}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {scope !== 'all' ? (
-        <div style={{ marginLeft: 24 }}>
-          <Check label={`${t('print.selectionOnly')} ${p.hasSelection ? '' : t('print.noSelection')}`} checked={selectionOnly} disabled={!p.hasSelection} onChange={setSelectionOnly} />
-        </div>
-      ) : null}
-      <div className="section-title" style={{ marginTop: 16 }}>{t('print.orientation')}</div>
-      <label className="check"><input type="radio" checked={!landscape} onChange={() => setLandscape(false)} /><span>{t('print.portrait')}</span></label>
-      <label className="check" style={{ marginLeft: 16 }}><input type="radio" checked={landscape} onChange={() => setLandscape(true)} /><span>{t('print.landscape')}</span></label>
-      <br />
-      <Check label={t('print.fit')} checked={fit} onChange={setFit} />
-    </DialogFrame>
-  );
-}
 
 // ── Source picker (screens / windows) ─────────────────────
 export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
@@ -127,21 +68,28 @@ export function SourcesDialog({ payload, onSubmit, onClose, standalone }) {
 }
 
 // ── Recording controller (small always-on-top window) ─────
-export function RecorderDialog({ payload, onSubmit }) {
+export function RecorderDialog({ payload, onSubmit, standalone }) {
   const { t } = useTranslation();
   const p = payload || {};
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(id); }, []);
   const elapsed = p.paused ? (p.pausedAt - p.startedAt - (p.pausedMs || 0)) / 1000 : (now - (p.startedAt || now) - (p.pausedMs || 0)) / 1000;
+  // No close button: closing would be ambiguous between Stop and Discard.
   return (
-    <div className="recorder">
-      <span className="rec-dot" style={{ animationPlayState: p.paused ? 'paused' : 'running' }} />
-      <span className="time">{formatDuration(elapsed)}</span>
-      {p.paused ? <span className="paused">{t('recorder.paused')}</span> : null}
-      <span style={{ flex: 1 }} />
-      <button className="btn" data-tip={p.paused ? t('recorder.resume') : t('recorder.pause')} onClick={() => onSubmit({ action: p.paused ? 'resume' : 'pause' }, true)}><Icon name={p.paused ? 'play' : 'pause'} /></button>
-      <button className="btn danger" data-tip={t('recorder.stop')} onClick={() => onSubmit({ action: 'stop' }, true)}><Icon name="stop" />{t('recorder.stop')}</button>
-      <button className="btn" data-tip={t('recorder.discard')} onClick={() => onSubmit({ action: 'discard' }, true)}><Icon name="trash" /></button>
+    <div className={`dlg recorder-dlg${standalone ? ' standalone' : ''}`}>
+      <div className="dlg-titlebar" data-tauri-drag-region>
+        <img src="./icon.svg" alt="" draggable={false} />
+        <span className="t">{p.title || t('recorder.title')}</span>
+      </div>
+      <div className="recorder" data-tauri-drag-region>
+        <span className="rec-dot" style={{ animationPlayState: p.paused ? 'paused' : 'running' }} />
+        <span className="time">{formatDuration(elapsed)}</span>
+        {p.paused ? <span className="paused">{t('recorder.paused')}</span> : null}
+        <span style={{ flex: 1 }} />
+        <button className="btn" data-tip={p.paused ? t('recorder.resume') : t('recorder.pause')} onClick={() => onSubmit({ action: p.paused ? 'resume' : 'pause' }, true)}><Icon name={p.paused ? 'play' : 'pause'} /></button>
+        <button className="btn danger" data-tip={t('recorder.stop')} onClick={() => onSubmit({ action: 'stop' }, true)}><Icon name="stop" />{t('recorder.stop')}</button>
+        <button className="btn" data-tip={t('recorder.discard')} onClick={() => onSubmit({ action: 'discard' }, true)}><Icon name="trash" /></button>
+      </div>
     </div>
   );
 }

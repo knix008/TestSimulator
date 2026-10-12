@@ -11,10 +11,12 @@ import { useTranslation } from 'react-i18next';
 import { platform } from './lib/platform.js';
 import { dialogBus } from './lib/dialogBus.js';
 import { applyTheme, applyFont, applyAppearanceBundle, DEFAULT_THEME } from './themes.js';
-import { TooltipLayer } from './components/common.jsx';
+import { TooltipLayer, ContextMenu } from './components/common.jsx';
+import { installFallbackMenu } from './lib/contextMenu.js';
 import { SettingsDialog } from './dialogs/SettingsDialog.jsx';
 import { AboutDialog, ErrorDialog, ProgressDialog, ConfirmDialog, PromptDialog } from './dialogs/SimpleDialogs.jsx';
-import { PrintDialog, SourcesDialog, RecorderDialog, RegionDialog } from './dialogs/CaptureDialogs.jsx';
+import { SourcesDialog, RecorderDialog, RegionDialog } from './dialogs/CaptureDialogs.jsx';
+import { PrintDialog } from './dialogs/PrintDialog.jsx';
 
 const COMPONENTS = {
   settings: SettingsDialog,
@@ -32,7 +34,7 @@ const COMPONENTS = {
 /** Modal sizes for the in-page fallback (Electron sizes live in electron/dialogs.js). */
 const MODAL_SIZES = {
   settings: [820, 640], about: [600, 540], error: [660, 460], progress: [480, 170], confirm: [520, 210], prompt: [560, 210],
-  print: [640, 560], sources: [900, 640], recorder: [320, 90], region: [0, 0],
+  print: [1000, 680], sources: [900, 640], recorder: [320, 130], region: [0, 0],
 };
 
 export function dialogNameFromLocation() {
@@ -55,10 +57,15 @@ function useAppearance() {
 }
 
 export default function DialogHost({ name }) {
+  const { t } = useTranslation();
   const [payload, setPayload] = useState(null);
   const [ready, setReady] = useState(false);
+  const [menu, setMenu] = useState(null);
   const applyAppearance = useAppearance();
   const dialogs = platform.dialogs;
+
+  useEffect(() => installFallbackMenu({ t, open: (x, y, items) => setMenu({ x, y, items }) }), [t]);
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   useEffect(() => {
     let alive = true;
@@ -102,6 +109,7 @@ export default function DialogHost({ name }) {
   return (
     <>
       <Comp payload={payload} onSubmit={onSubmit} onClose={onClose} standalone />
+      {menu ? <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} /> : null}
       <TooltipLayer />
     </>
   );

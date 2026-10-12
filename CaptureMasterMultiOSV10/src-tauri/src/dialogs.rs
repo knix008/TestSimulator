@@ -22,16 +22,16 @@ fn base_name(name: &str) -> &str {
 
 fn spec_for(name: &str) -> Spec {
     match base_name(name) {
-        // Fixed size; the dialog measures its pages and sets the size itself.
+        // Fixed size; these dialogs measure their content and set the size themselves.
         "settings" => Spec { width: 920.0, height: 700.0, min_w: 320.0, min_h: 240.0, resizable: false, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
-        "about" => Spec { width: 600.0, height: 560.0, min_w: 480.0, min_h: 420.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
+        "about" => Spec { width: 600.0, height: 560.0, min_w: 320.0, min_h: 240.0, resizable: false, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
         "error" => Spec { width: 660.0, height: 460.0, min_w: 420.0, min_h: 300.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
         "progress" => Spec { width: 480.0, height: 190.0, min_w: 480.0, min_h: 190.0, resizable: false, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
         "confirm" => Spec { width: 520.0, height: 230.0, min_w: 520.0, min_h: 230.0, resizable: false, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
         "prompt" => Spec { width: 560.0, height: 230.0, min_w: 560.0, min_h: 230.0, resizable: false, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
-        "print" => Spec { width: 640.0, height: 600.0, min_w: 520.0, min_h: 440.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
+        "print" => Spec { width: 1000.0, height: 700.0, min_w: 860.0, min_h: 600.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
         "sources" => Spec { width: 920.0, height: 660.0, min_w: 600.0, min_h: 420.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
-        "recorder" => Spec { width: 320.0, height: 96.0, min_w: 320.0, min_h: 96.0, resizable: false, always_on_top: true, skip_taskbar: true, detached: true, overlay: false, top_right: true },
+        "recorder" => Spec { width: 320.0, height: 130.0, min_w: 320.0, min_h: 130.0, resizable: false, always_on_top: true, skip_taskbar: true, detached: true, overlay: false, top_right: true },
         "region" => Spec { width: 800.0, height: 600.0, min_w: 200.0, min_h: 200.0, resizable: false, always_on_top: true, skip_taskbar: true, detached: true, overlay: true, top_right: false },
         _ => Spec { width: 640.0, height: 520.0, min_w: 320.0, min_h: 200.0, resizable: true, always_on_top: false, skip_taskbar: false, detached: false, overlay: false, top_right: false },
     }
@@ -116,6 +116,11 @@ pub fn open_dialog(app: &AppHandle, name: String, payload: Value) -> Result<bool
     }
 
     let win = builder.build().map_err(|e| e.to_string())?;
+    // The builder flag alone leaves frameless windows resizable on Windows.
+    if !spec.resizable {
+        let _ = win.set_resizable(false);
+        let _ = win.set_maximizable(false);
+    }
     if spec.overlay || spec.top_right {
         let display_id = payload.get("displayId").and_then(|v| v.as_str());
         if let Some((x, y, w, h)) = capture::monitor_bounds(display_id) {

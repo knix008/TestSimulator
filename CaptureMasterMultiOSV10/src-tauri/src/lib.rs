@@ -1,7 +1,10 @@
 mod capture;
 mod commands;
 mod dialogs;
+mod gif_rec;
+mod media;
 mod popup;
+mod printing;
 mod single_instance;
 mod state;
 mod window_rec;
@@ -9,11 +12,37 @@ mod window_rec;
 use state::AppState;
 use tauri::{Emitter, Manager, WindowEvent};
 
+/// WebView2 would show its own screen-share picker and a microphone prompt on
+/// top of the app's source picker. The app only loads its own pages, so media
+/// requests are granted without that UI: a screen request gets the whole
+/// desktop (with system sound when asked for) and the app crops it to the
+/// monitor the user chose. Set before the first webview is created; every
+/// webview of the process must share the same arguments. The variable replaces
+/// the arguments Tauri passes, so those are repeated here.
+#[cfg(windows)]
+fn media_permissions() {
+    const KEY: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    let existing = std::env::var(KEY).unwrap_or_default();
+    let mut args = vec![
+        "--use-fake-ui-for-media-stream".to_string(),
+        // Mixing system sound with the microphone needs a running AudioContext, which
+        // may otherwise wait for a click that came too long before the recording started.
+        "--autoplay-policy=no-user-gesture-required".to_string(),
+        existing.trim().to_string(),
+    ];
+    if !existing.contains("--disable-features") {
+        args.push("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".into());
+    }
+    std::env::set_var(KEY, args.iter().filter(|a| !a.is_empty()).cloned().collect::<Vec<_>>().join(" "));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if !single_instance::ensure() {
         std::process::exit(0);
     }
+    #[cfg(windows)]
+    media_permissions();
 
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -28,6 +57,7 @@ pub fn run() {
             commands::load_settings,
             commands::save_settings,
             commands::fs_exists,
+            commands::fs_ensure_dir,
             commands::fs_stat,
             commands::fs_read_binary,
             commands::fs_read_text,
@@ -44,6 +74,8 @@ pub fn run() {
             commands::clipboard_read_text,
             commands::clipboard_write_image,
             commands::clipboard_read_image,
+            commands::print_list_printers,
+            commands::print_page,
             commands::shell_open_external,
             commands::shell_show_item,
             commands::shell_open_path,
@@ -63,6 +95,12 @@ pub fn run() {
             commands::rec_window_start,
             commands::rec_window_frame,
             commands::rec_window_stop,
+            commands::rec_gif_start,
+            commands::rec_gif_pause,
+            commands::rec_gif_gone,
+            commands::rec_gif_stop,
+            commands::image_export,
+            commands::image_read_png,
             commands::list_system_fonts,
             commands::dialog_open_window,
             commands::dialog_get_payload,

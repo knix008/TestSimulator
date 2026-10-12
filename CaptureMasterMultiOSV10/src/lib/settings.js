@@ -5,15 +5,30 @@
 // reloaded on the next start. `normalizeSettings` makes any stored shape —
 // an older version, a hand-edited file, nothing at all — safe to use.
 
+import { SELECTION_SHAPES } from './selection.js';
+
 export const SETTINGS_VERSION = 1;
 export const MAX_RECENT = 10;
 
+// `native`: the webview cannot encode it, so the desktop side writes the file
+// (not offered on the web). `quality`: the quality setting applies.
 export const IMAGE_FORMATS = [
   { id: 'png', ext: 'png', mime: 'image/png', lossy: false },
-  { id: 'jpeg', ext: 'jpg', mime: 'image/jpeg', lossy: true },
-  { id: 'webp', ext: 'webp', mime: 'image/webp', lossy: true },
+  { id: 'jpeg', ext: 'jpg', mime: 'image/jpeg', lossy: true, quality: true },
+  { id: 'webp', ext: 'webp', mime: 'image/webp', lossy: true, quality: true },
+  { id: 'avif', ext: 'avif', mime: 'image/avif', lossy: true, quality: true, native: true },
   { id: 'bmp', ext: 'bmp', mime: 'image/bmp', lossy: false },
+  { id: 'gif', ext: 'gif', mime: 'image/gif', lossy: true, native: true },
+  { id: 'tiff', ext: 'tif', mime: 'image/tiff', lossy: false, native: true },
+  { id: 'ico', ext: 'ico', mime: 'image/x-icon', lossy: false, native: true },
+  { id: 'tga', ext: 'tga', mime: 'image/x-tga', lossy: false, native: true },
+  { id: 'qoi', ext: 'qoi', mime: 'image/qoi', lossy: false, native: true },
 ];
+
+/** The formats this build can write. */
+export function imageFormatsFor(nativeEncoding) {
+  return IMAGE_FORMATS.filter((f) => nativeEncoding || !f.native);
+}
 
 export const VIDEO_FPS = [15, 24, 30, 60];
 
@@ -26,11 +41,29 @@ export const DEFAULT_SETTINGS = Object.freeze({
   capture: { delay: 0, hideWindow: true, allowSelf: true, copyToClipboard: false, showCountdown: true },
   customThemes: [],
   image: { format: 'png', quality: 92 },
-  video: { format: 'auto', fps: 30, systemAudio: false, microphone: false, minimizeWhileRecording: true, askPath: false, bitrateMbps: 8 },
-  paths: { lastOpenDir: '', lastSaveDir: '', lastExportDir: '', videoDir: '' },
-  editor: { checkerboard: true, showRulers: false },
+  video: { format: 'auto', fps: 30, systemAudio: false, systemAudioGain: 100, microphone: false, minimizeWhileRecording: true, askPath: false, bitrateMbps: 8 },
+  mic: { deviceId: '', label: '', gain: 100, echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+  paths: { lastOpenDir: '', lastSaveDir: '', lastExportDir: '', videoDir: '', captureDir: '' },
+  editor: { showRulers: false, selectionShape: 'rect' },
+  history: { open: true, width: 260 },
+  toolPanel: { open: true, width: 210 },
   recent: [],
 });
+
+/** Scrollbar gutter the side panels always reserve (`scrollbar-width: thin`). */
+export const SCROLLBAR_W = 10;
+export const HISTORY_WIDTH = { min: 200 + SCROLLBAR_W, max: 480 };
+/** The tool panel on the left shares the capture history's limits. */
+export const TOOL_PANEL_WIDTH = { min: HISTORY_WIDTH.min, max: HISTORY_WIDTH.max };
+/** Recording volume of the microphone and of system sound, in percent. */
+export const AUDIO_GAIN = { min: 0, max: 300 };
+
+/** The microphone part of `startRecording` options, or false when it is off. */
+export function micOptions(s) {
+  if (!s.video.microphone) return false;
+  const m = s.mic;
+  return { deviceId: m.deviceId, gain: m.gain / 100, echoCancellation: m.echoCancellation, noiseSuppression: m.noiseSuppression, autoGainControl: m.autoGainControl };
+}
 
 function clampNum(v, min, max, fallback) {
   const n = Number(v);
@@ -86,6 +119,9 @@ export function normalizeSettings(raw) {
   const vid = s.video || {};
   const paths = s.paths || {};
   const ed = s.editor || {};
+  const hist = s.history || {};
+  const tp = s.toolPanel || {};
+  const mic = s.mic || {};
 
   const recent = Array.isArray(s.recent)
     ? s.recent
@@ -134,18 +170,39 @@ export function normalizeSettings(raw) {
       format: str(vid.format, d.video.format),
       fps: oneOf(Number(vid.fps), VIDEO_FPS, d.video.fps),
       systemAudio: bool(vid.systemAudio, d.video.systemAudio),
+      systemAudioGain: Math.round(clampNum(vid.systemAudioGain, AUDIO_GAIN.min, AUDIO_GAIN.max, d.video.systemAudioGain)),
       microphone: bool(vid.microphone, d.video.microphone),
       minimizeWhileRecording: bool(vid.minimizeWhileRecording, d.video.minimizeWhileRecording),
       askPath: bool(vid.askPath, d.video.askPath),
       bitrateMbps: clampNum(vid.bitrateMbps, 1, 50, d.video.bitrateMbps),
+    },
+    mic: {
+      deviceId: str(mic.deviceId, d.mic.deviceId),
+      label: str(mic.label, d.mic.label),
+      gain: Math.round(clampNum(mic.gain, AUDIO_GAIN.min, AUDIO_GAIN.max, d.mic.gain)),
+      echoCancellation: bool(mic.echoCancellation, d.mic.echoCancellation),
+      noiseSuppression: bool(mic.noiseSuppression, d.mic.noiseSuppression),
+      autoGainControl: bool(mic.autoGainControl, d.mic.autoGainControl),
     },
     paths: {
       lastOpenDir: str(paths.lastOpenDir, ''),
       lastSaveDir: str(paths.lastSaveDir, ''),
       lastExportDir: str(paths.lastExportDir, ''),
       videoDir: str(paths.videoDir, ''),
+      captureDir: str(paths.captureDir, ''),
     },
-    editor: { checkerboard: bool(ed.checkerboard, d.editor.checkerboard), showRulers: bool(ed.showRulers, d.editor.showRulers) },
+    editor: {
+      showRulers: bool(ed.showRulers, d.editor.showRulers),
+      selectionShape: SELECTION_SHAPES.includes(ed.selectionShape) ? ed.selectionShape : d.editor.selectionShape,
+    },
+    history: {
+      open: bool(hist.open, d.history.open),
+      width: Math.round(clampNum(hist.width, HISTORY_WIDTH.min, HISTORY_WIDTH.max, d.history.width)),
+    },
+    toolPanel: {
+      open: bool(tp.open, d.toolPanel.open),
+      width: Math.round(clampNum(tp.width, TOOL_PANEL_WIDTH.min, TOOL_PANEL_WIDTH.max, d.toolPanel.width)),
+    },
     recent,
   };
 }
@@ -166,6 +223,6 @@ export function imageFormatById(id) {
 
 export function imageFormatByExt(ext) {
   const e = String(ext || '').toLowerCase().replace(/^\./, '');
-  if (e === 'jpg' || e === 'jpeg') return IMAGE_FORMATS[1];
-  return IMAGE_FORMATS.find((f) => f.ext === e) || null;
+  const alias = { jpeg: 'jpg', tiff: 'tif' }[e] || e;
+  return IMAGE_FORMATS.find((f) => f.ext === alias) || null;
 }

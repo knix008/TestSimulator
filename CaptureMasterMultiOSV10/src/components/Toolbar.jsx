@@ -3,10 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Icon } from './Icons.jsx';
 import { themeById, themeLabel } from '../themes.js';
 import { ThemeSwatch } from './Menus.jsx';
-import { NumberInput } from './common.jsx';
-
-export const TOOLS = ['select', 'pen', 'rect', 'ellipse', 'arrow', 'line', 'text', 'highlight', 'pixelate', 'number', 'crop'];
-
 function TbButton({ icon, label, tip, onClick, disabled, active, showLabel, className = '', caret, refEl }) {
   return (
     <button
@@ -59,13 +55,12 @@ function FlagKR() {
 }
 
 /**
- * Two toolbar rows. The wider of the two is reported through `onMeasure` so
- * the window can refuse to shrink below it (no button is ever hidden).
+ * The toolbar row. Its width is reported through `onMeasure` so the window
+ * can refuse to shrink below it (no button is ever hidden).
  */
 export function Toolbar({ s, a, recentAnchorRef }) {
   const { t, i18n } = useTranslation();
   const row1 = useRef(null);
-  const row2 = useRef(null);
 
   // The width a row really needs: its children side by side (the flexible
   // spacer that pushes Settings/About to the right counts as nothing).
@@ -83,19 +78,35 @@ export function Toolbar({ s, a, recentAnchorRef }) {
       return kids.reduce((w, el) => w + outer(el), 0) + gap * Math.max(0, kids.length - 1)
         + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     };
-    a.onMeasure(Math.ceil(Math.max(need(row1.current), need(row2.current))) + 2);
+    measureRef.current.onMeasure(Math.ceil(need(row1.current)) + 2);
   };
+  const measureRef = useRef({ onMeasure: a.onMeasure });
+  measureRef.current.onMeasure = a.onMeasure;
 
   useLayoutEffect(() => {
     measure();
-    const id = setTimeout(measure, 350);   // after fonts have loaded
-    return () => clearTimeout(id);
-  }, [i18n.language, s.fontKey, s.recording, s.hasDoc, s.isImage, a]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [i18n.language, s.fontKey, s.themeId, s.recording, s.hasDoc, s.isImage, a]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Item widths change without a re-render too (theme name, late fonts, recording
+  // button swap), so watch the items themselves; the rows track the window width.
   useEffect(() => {
-    if (!document.fonts || !document.fonts.ready) return;
-    document.fonts.ready.then(measure);
-  }, [s.fontKey, a]);   // eslint-disable-line react-hooks/exhaustive-deps
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    let frame = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    });
+    const observeItems = () => {
+      ro.disconnect();
+      const row = row1.current;
+      if (row) for (const el of row.children) if (!el.classList.contains('tb-spacer')) ro.observe(el);
+    };
+    observeItems();
+    const mo = new MutationObserver(observeItems);
+    if (row1.current) mo.observe(row1.current, { childList: true });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); mo.disconnect(); };
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const labelOf = (th) => themeLabel(th, i18n.language);
   const current = themeById(s.themeId, s.customThemes);
@@ -128,14 +139,29 @@ export function Toolbar({ s, a, recentAnchorRef }) {
         </div>
         <div className="tb-sep" />
         <div className="tb-group">
-          <TbButton icon="undo" label={t('toolbar.undo')} tip={t('toolbar.undoTip')} onClick={a.undo} disabled={!s.canUndo} />
-          <TbButton icon="redo" label={t('toolbar.redo')} tip={t('toolbar.redoTip')} onClick={a.redo} disabled={!s.canRedo} />
+          <TbButton icon="undo" label={t('toolbar.undo')} tip={s.undoCount ? t('toolbar.undoTipN', { n: s.undoCount }) : t('toolbar.undoTip')} onClick={a.undo} disabled={!s.canUndo} />
+          <TbButton icon="redo" label={t('toolbar.redo')} tip={s.redoCount ? t('toolbar.redoTipN', { n: s.redoCount }) : t('toolbar.redoTip')} onClick={a.redo} disabled={!s.canRedo} />
+        </div>
+        <div className="tb-sep" />
+        <div className="tb-group">
+          <TbButton icon="cut" label={t('toolbar.cut')} tip={t('toolbar.cutTip')} onClick={a.cut} disabled={!s.isImage || (!s.selectedId && !s.hasSelection)} />
           <TbButton icon="copy" label={t('toolbar.copy')} tip={t('toolbar.copyTip')} onClick={a.copy} disabled={!s.isImage} />
           <TbButton icon="paste" label={t('toolbar.paste')} tip={t('toolbar.pasteTip')} onClick={a.paste} />
         </div>
         <div className="tb-sep" />
         <div className="tb-group">
           <TbButton icon="zoomIn" label={t('toolbar.zoomIn')} tip={t('toolbar.zoomInTip')} onClick={a.zoomIn} disabled={!s.hasDoc} />
+          <button
+            type="button"
+            className="tb-zoom"
+            data-tip={t('zoomBar.presets')}
+            aria-label={t('zoomBar.presets')}
+            aria-haspopup="menu"
+            disabled={!s.hasDoc}
+            onClick={(e) => a.openZoomMenu(e.currentTarget)}
+          >
+            {s.hasDoc ? `${Math.round((s.zoom || 1) * 100)}%` : '–'}
+          </button>
           <TbButton icon="zoomOut" label={t('toolbar.zoomOut')} tip={t('toolbar.zoomOutTip')} onClick={a.zoomOut} disabled={!s.hasDoc} />
           <TbButton icon="fit" label={t('toolbar.zoomFit')} tip={t('toolbar.zoomFitTip')} onClick={a.zoomFit} disabled={!s.hasDoc} />
           <TbButton icon="actual" label={t('toolbar.zoom100')} tip={t('toolbar.zoom100Tip')} onClick={a.zoom100} disabled={!s.hasDoc} />
@@ -162,40 +188,6 @@ export function Toolbar({ s, a, recentAnchorRef }) {
           <TbButton icon="settings" label={t('toolbar.settings')} tip={t('toolbar.settingsTip')} onClick={a.settings} />
           <TbButton icon="info" label={t('toolbar.about')} tip={t('toolbar.aboutTip')} onClick={a.about} />
         </div>
-      </div>
-
-      <div className="toolbar second" ref={row2}>
-        <div className="tb-group">
-          {TOOLS.map((tool) => (
-            <TbButton
-              key={tool}
-              icon={tool}
-              label={t(`tool.${tool}`)}
-              tip={t(`tool.${tool}Tip`)}
-              onClick={() => a.setTool(tool)}
-              active={s.tool === tool}
-              disabled={!s.isImage}
-             
-            />
-          ))}
-        </div>
-        <div className="tb-sep" />
-        <div className="tb-field" data-tip={t('toolbar.colorTip')}>
-          <Icon name="palette" size={16} />
-          <input className="tb-color" type="color" value={s.color} onChange={(e) => a.setColor(e.target.value)} disabled={!s.isImage} aria-label={t('toolbar.color')} />
-        </div>
-        <div className="tb-field" data-tip={t('toolbar.strokeTip')}>
-          <Icon name="line" size={16} />
-          <NumberInput min={1} max={40} value={s.strokeWidth} onChange={a.setStrokeWidth} disabled={!s.isImage} ariaLabel={t('toolbar.stroke')} width={40} />
-        </div>
-        <div className="tb-field" data-tip={t('toolbar.fontSizeTip')}>
-          <Icon name="font" size={16} />
-          <NumberInput min={8} max={200} value={s.fontSize} onChange={a.setFontSize} disabled={!s.isImage} ariaLabel={t('toolbar.fontSize')} width={44} />
-        </div>
-        <TbButton icon="fill" label={t('toolbar.fill')} tip={t('toolbar.fillTip')} onClick={() => a.setFill(!s.fill)} active={s.fill} disabled={!s.isImage} />
-        <div className="tb-sep" />
-        <TbButton icon="trash" label={t('toolbar.deleteAnnotation')} tip={t('toolbar.deleteAnnotationTip')} onClick={a.deleteSelected} disabled={!s.selectedId} className="danger" />
-        <TbButton icon="crop" label={t('toolbar.applyCrop')} tip={t('toolbar.applyCropTip')} onClick={a.applyCrop} disabled={!s.hasSelection} />
       </div>
     </div>
   );

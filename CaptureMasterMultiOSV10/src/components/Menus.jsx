@@ -48,7 +48,7 @@ export function itemsMenuPayload(items) {
   return {
     variant: 'items',
     items: items.filter(Boolean).map((it, i) => (it === 'sep' ? 'sep' : {
-      id: i, label: it.label, icon: it.icon, shortcut: it.shortcut, sub: it.sub, disabled: !!it.disabled, danger: !!it.danger,
+      id: i, label: it.label, icon: it.icon, shortcut: it.shortcut, sub: it.sub, disabled: !!it.disabled, danger: !!it.danger, checked: !!it.checked,
     })),
   };
 }
@@ -129,10 +129,12 @@ function ItemsMenu({ data, onChoose }) {
         return (
           <div
             key={i}
-            className={`ctx-item${it.disabled ? ' disabled' : ''}${it.danger ? ' danger' : ''}`}
+            className={`ctx-item${it.disabled ? ' disabled' : ''}${it.danger ? ' danger' : ''}${it.checked ? ' checked' : ''}`}
+            role={it.checked ? 'menuitemcheckbox' : 'menuitem'}
+            aria-checked={it.checked || undefined}
             onClick={() => { if (!it.disabled) onChoose(it.id); }}
           >
-            {it.icon ? <Icon name={it.icon} /> : <span style={{ width: 15 }} />}
+            {it.checked ? <Icon name="check" /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 15 }} />}
             <span>{it.label}</span>
             {it.sub ? <span className="sub">{it.sub}</span> : null}
             {it.shortcut ? <span className="shortcut">{it.shortcut}</span> : null}

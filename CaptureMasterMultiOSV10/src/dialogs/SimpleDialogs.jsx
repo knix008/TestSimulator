@@ -1,16 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DialogFrame } from './DialogFrame.jsx';
+import { DialogFrame, useFitToContent } from './DialogFrame.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { platform } from '../lib/platform.js';
 import { errorToText } from '../lib/errors.js';
 import { formatBytes, formatDateTime } from '../lib/format.js';
 
 // ── About ─────────────────────────────────────────────────
+// Long values (the user-data path) wrap instead of widening the window past this.
+const ABOUT_MAX_W = 620;
+
 export function AboutDialog({ payload, onClose, standalone }) {
   const { t, i18n } = useTranslation();
   const info = (payload && payload.info) || {};
   const [copied, setCopied] = useState(false);
+  const contentRef = useRef(null);
+  useFitToContent(contentRef, standalone, ABOUT_MAX_W, [i18n.language, info]);
   const rows = [
     [t('about.version'), info.version ? `v${info.version}` : '-'],
     [t('about.buildTime'), info.buildTime ? formatDateTime(info.buildTime, i18n.language) : '-'],
@@ -40,18 +45,20 @@ export function AboutDialog({ payload, onClose, standalone }) {
         <button className="btn primary" onClick={onClose}>{t('common.ok')}</button>
       </>}
     >
-      <div className="about-head">
-        <img src="./icon.svg" alt="" draggable={false} />
-        <div>
-          <h1>CaptureMaster</h1>
-          <div className="v">v{info.version || '-'}{info.packaged === false ? ` (${t('about.dev')})` : ''}</div>
-          <div style={{ marginTop: 6, color: 'var(--text-dim)' }}>{t('about.description')}</div>
+      <div ref={contentRef} className="fit-content">
+        <div className="about-head">
+          <img src="./icon.svg" alt="" draggable={false} />
+          <div>
+            <h1>CaptureMaster</h1>
+            <div className="v">v{info.version || '-'}{info.packaged === false ? ` (${t('about.dev')})` : ''}</div>
+            <div style={{ marginTop: 6, color: 'var(--text-dim)' }}>{t('about.description')}</div>
+          </div>
         </div>
+        <div className="section-title">{t('about.build')}</div>
+        <dl className="kv">
+          {rows.map(([k, v]) => (<React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>))}
+        </dl>
       </div>
-      <div className="section-title">{t('about.build')}</div>
-      <dl className="kv">
-        {rows.map(([k, v]) => (<React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>))}
-      </dl>
     </DialogFrame>
   );
 }

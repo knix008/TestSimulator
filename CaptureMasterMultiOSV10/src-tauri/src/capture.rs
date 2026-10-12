@@ -7,8 +7,12 @@ use serde_json::{json, Value};
 use std::io::Cursor;
 
 fn png_bytes(width: u32, height: u32, raw: &[u8]) -> Result<Vec<u8>, String> {
-    let mut buf = Cursor::new(Vec::new());
-    let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+    let mut buf = Cursor::new(Vec::with_capacity(raw.len() / 4));
+    let encoder = image::codecs::png::PngEncoder::new_with_quality(
+        &mut buf,
+        image::codecs::png::CompressionType::Fast,
+        image::codecs::png::FilterType::Adaptive,
+    );
     encoder
         .write_image(raw, width, height, image::ExtendedColorType::Rgba8)
         .map_err(|e| e.to_string())?;
@@ -23,15 +27,34 @@ fn data_url(width: u32, height: u32, raw: &[u8]) -> Result<String, String> {
     ))
 }
 
-fn thumb(width: u32, height: u32, raw: Vec<u8>, max_w: u32) -> Option<String> {
+fn thumb(img: image::RgbaImage, max_w: u32) -> Option<String> {
+    let (width, height) = img.dimensions();
     if max_w == 0 || width == 0 || height == 0 {
         return None;
     }
-    let img = image::RgbaImage::from_raw(width, height, raw)?;
     let tw = max_w.min(width).max(1);
     let th = ((height as f32) * (tw as f32) / (width as f32)).round().max(1.0) as u32;
-    let small = image::imageops::resize(&img, tw, th, image::imageops::FilterType::Triangle);
+    // Called through DynamicImage so the code instantiated inside `image` (optimized in dev) runs.
+    let small = image::DynamicImage::ImageRgba8(img).thumbnail_exact(tw, th).into_rgba8();
     data_url(small.width(), small.height(), small.as_raw()).ok()
+}
+
+/// Scales and encodes the captured frames on all cores; xcap handles are not
+/// `Send`, so only the grabbing itself stays on the calling thread.
+fn thumbs_parallel(mut frames: Vec<Option<image::RgbaImage>>, max_w: u32) -> Vec<Option<String>> {
+    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 8);
+    let chunk = frames.len().div_ceil(workers).max(1);
+    let mut out: Vec<Option<String>> = vec![None; frames.len()];
+    std::thread::scope(|scope| {
+        for (frames, slots) in frames.chunks_mut(chunk).zip(out.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                for (frame, slot) in frames.iter_mut().zip(slots.iter_mut()) {
+                    *slot = frame.take().and_then(|img| thumb(img, max_w));
+                }
+            });
+        }
+    });
+    out
 }
 
 fn text_result(value: Result<String, xcap::XCapError>) -> String {
@@ -59,6 +82,7 @@ pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> R
     let want_screen = types.iter().any(|t| t == "screen");
     let want_window = types.iter().any(|t| t == "window");
     let mut out = Vec::new();
+    let mut frames = Vec::new();
     let our_pid = std::process::id();
 
     if want_screen || types.is_empty() {
@@ -72,10 +96,7 @@ pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> R
             let height = num_result(mon.height());
             let scale = mon.scale_factor().unwrap_or(1.0) as f64;
             let primary = num_result(mon.is_primary());
-            let thumbnail = mon.capture_image().ok().and_then(|img| {
-                let (w, h) = (img.width(), img.height());
-                thumb(w, h, img.into_raw(), thumb_width)
-            });
+            frames.push(if thumb_width > 0 { mon.capture_image().ok() } else { None });
             let label = if monitors.len() > 1 {
                 format!("{} {}", if name.is_empty() { "Screen".into() } else { name }, i + 1)
             } else if name.is_empty() {
@@ -92,7 +113,7 @@ pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> R
                 "self": false,
                 "bounds": { "x": x, "y": y, "width": width, "height": height },
                 "scaleFactor": scale,
-                "thumbnail": thumbnail,
+                "thumbnail": Value::Null,
                 "appIcon": Value::Null,
             }));
         }
@@ -117,14 +138,7 @@ pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> R
                 continue;
             }
             let id = num_result(win.id());
-            let thumbnail = if thumb_width > 0 {
-                win.capture_image().ok().and_then(|img| {
-                    let (w, h) = (img.width(), img.height());
-                    thumb(w, h, img.into_raw(), thumb_width)
-                })
-            } else {
-                None
-            };
+            frames.push(if thumb_width > 0 { win.capture_image().ok() } else { None });
             out.push(json!({
                 "id": format!("window:{id}"),
                 "name": if title.is_empty() { app.clone() } else { title },
@@ -134,9 +148,14 @@ pub fn list_sources(types: &[String], thumb_width: u32, include_self: bool) -> R
                 "self": is_self,
                 "appName": app,
                 "bounds": Value::Null,
-                "thumbnail": thumbnail,
+                "thumbnail": Value::Null,
                 "appIcon": Value::Null,
             }));
+        }
+    }
+    for (entry, thumbnail) in out.iter_mut().zip(thumbs_parallel(frames, thumb_width)) {
+        if let Some(t) = thumbnail {
+            entry["thumbnail"] = Value::String(t);
         }
     }
     Ok(out)

@@ -50,6 +50,7 @@ export const tauriApi = {
 
   fs: {
     exists: (p) => invoke('fs_exists', { path: p }),
+    ensureDir: (p) => invoke('fs_ensure_dir', { path: p }),
     stat: (p) => invoke('fs_stat', { path: p }),
     readBinary: ({ filePath, id }) => readFile('fs_read_binary', filePath, id),
     readText: ({ filePath, id }) => invoke('fs_read_text', { filePath, id }),
@@ -71,11 +72,25 @@ export const tauriApi = {
     return res;
   }),
 
+  image: {
+    // Raw body: no JSON number array for multi-megabyte images.
+    export: (filePath, data, format, quality) => invoke('image_export', bytesOf(data), {
+      headers: { 'x-path': encodeURIComponent(filePath), 'x-format': format, 'x-quality': String(Math.round(quality)) },
+    }),
+    readPng: async (filePath) => bytesOf(await invoke('image_read_png', { path: filePath })),
+  },
+
   clipboard: {
     writeText: (text) => invoke('clipboard_write_text', { text }),
     readText: () => invoke('clipboard_read_text'),
     writeImage: (dataUrl) => invoke('clipboard_write_image', { dataUrl }),
     readImage: () => invoke('clipboard_read_image'),
+  },
+
+  printer: {
+    list: () => invoke('print_list_printers'),
+    /** Prints the calling window's page; `options.pdfPath` writes a PDF instead. */
+    printPage: (options) => invoke('print_page', { options }),
   },
 
   shell: {
@@ -100,7 +115,11 @@ export const tauriApi = {
     open: (filePath) => invoke('rec_open', { filePath }),
     append: (id, data) => invoke('rec_append', { id, data: Array.from(bytesOf(data)) }),
     close: (id) => invoke('rec_close', { id }),
-    discard: (id) => invoke('rec_discard', { id }),
+    discard: (id, path) => invoke('rec_discard', { id, path: path || null }),
+    gifStart: (sourceId, path, fps, maxWidth) => invoke('rec_gif_start', { sourceId, path, fps, maxWidth }),
+    gifPause: (token, paused) => invoke('rec_gif_pause', { token, paused }),
+    gifGone: (token) => invoke('rec_gif_gone', { token }),
+    gifStop: (token, path) => invoke('rec_gif_stop', { token, path }),
     windowStart: (sourceId, fps) => invoke('rec_window_start', { sourceId, fps }),
     windowFrame: async (token, timeoutMs) => {
       const buf = await invoke('rec_window_frame', { token, timeoutMs });

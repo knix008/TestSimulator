@@ -2,31 +2,40 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 
 import { platform, isDesktop, isTauri, onProgress, newTaskId, emitProgress } from './lib/platform.js';
-import { normalizeSettings, addRecent, removeRecent, imageFormatById, imageFormatByExt, IMAGE_FORMATS } from './lib/settings.js';
+import { normalizeSettings, addRecent, removeRecent, imageFormatByExt, imageFormatsFor, micOptions } from './lib/settings.js';
 import { applyTheme, applyFont, appearanceOf, themeById, nextThemeId, themeLabel } from './themes.js';
 import { push as hPush, undo as hUndo, redo as hRedo, canUndo, canRedo } from './lib/history.js';
 import {
   createImageDocument, createVideoDocument, isDirty, serializeCapture, parseCapture,
-  kindForPath, nameOf, dirOf, stripExt, stampName, extOf, CAPTURE_EXT, IMAGE_EXTS, VIDEO_EXTS, newId,
+  kindForPath, nameOf, dirOf, stripExt, stampName, extOf, CAPTURE_EXT, IMAGE_EXTS, NATIVE_DECODE_EXTS, VIDEO_EXTS, newId,
 } from './lib/document.js';
-import { loadImage, bytesToDataUrl, dataUrlToBytes, normalizeToPng, cropImage, canvasToBlob, mimeForExt } from './lib/image.js';
-import { renderToCanvas, moveAnnotation } from './lib/render.js';
-import { grabSourceFrame, startRecording as startRecorder, supportedVideoFormats } from './lib/capture.js';
+import { loadImage, bytesToDataUrl, dataUrlToBytes, normalizeToPng, cropImage, eraseRect, canvasToBlob, mimeForExt } from './lib/image.js';
+import { renderToCanvas, drawAnnotation, moveAnnotation, boundsOf, measureText, preloadPictures } from './lib/render.js';
+import { grabSourceFrame, startRecording as startRecorder, startGifRecording, supportedVideoFormats, pickVideoFormat } from './lib/capture.js';
 import { describeError } from './lib/errors.js';
-import { formatBytes } from './lib/format.js';
+import { formatBytes, formatDuration } from './lib/format.js';
 
 import { TitleBar, Tabs, StatusBar, Welcome } from './components/chrome.jsx';
 import { Toolbar } from './components/Toolbar.jsx';
 import { Editor, nextZoom, ZOOM_MIN, ZOOM_MAX } from './components/Editor.jsx';
-import { VideoView, videoFrameDataUrl } from './components/VideoView.jsx';
+import { VideoView, videoFrameDataUrl, videoControl, SPEEDS, SKIP } from './components/VideoView.jsx';
 import { TooltipLayer, ContextMenu, Dropdown, ToastHost, useToasts } from './components/common.jsx';
 import { Icon } from './components/Icons.jsx';
 import { InPageDialogs, baseName } from './DialogHost.jsx';
 import { MenuContent, themeMenuPayload, recentMenuPayload, itemsMenuPayload } from './components/Menus.jsx';
 import { nativePopups, showPopup, anchorOf } from './lib/popupMenu.js';
+import { HistoryPanel } from './components/HistoryPanel.jsx';
+import { ToolPanel } from './components/ToolPanel.jsx';
+import { SELECTION_SHAPES, SHAPE_ICON, selectionShape, maskToSelection } from './lib/selection.js';
+import { installFallbackMenu } from './lib/contextMenu.js';
+import { loadHistory, saveHistory, addEntry, removeEntry, thumbnailOf, videoThumbnail } from './lib/captureHistory.js';
 
-const ANNOTATION_CLIP_PREFIX = 'capturemaster-annotation:';
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
+// On Windows hideApp already waits for DWM to recompose without our windows.
+const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform);
+const HIDE_SETTLE_MS = isTauri && isWindows ? 30 : isMac ? 450 : 320;
+/** Narrowest editor area the side panels must leave (CSS px). */
+const EDITOR_MIN_W = 480;
 
 function readFileAsBytes(file) {
   return new Promise((resolve, reject) => {
@@ -55,6 +64,8 @@ function videoPosterFrame(url) {
   });
 }
 
+const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
+
 export default function App() {
   const { t, i18n } = useTranslation();
 
@@ -76,6 +87,11 @@ export default function App() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [toasts, toast] = useToasts();
+  const [history, setHistory] = useState([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [missing, setMissing] = useState(() => new Set());
+  // History entry id → the tab it was opened in (this session only).
+  const entryDocs = useRef(new Map());
 
   const editorRef = useRef(null);
   const mainRef = useRef(null);
@@ -99,6 +115,8 @@ export default function App() {
     fill: settings.annotation.fill,
     font: { family: settings.annotation.fontFamily, size: settings.annotation.fontSize, bold: settings.annotation.bold, italic: settings.annotation.italic },
   }), [settings.annotation]);
+  const toolPropsRef = useRef(toolProps);
+  toolPropsRef.current = toolProps;
 
   // ── Dialog windows: open → promise of the result ──
   const appearance = useCallback(() => appearanceOf(settingsRef.current), []);
@@ -182,9 +200,32 @@ export default function App() {
       setInfo(appInfo || {});
       setSettings(s);
       setSettingsLoaded(true);
+      const list = await loadHistory(appInfo && appInfo.userData);
+      if (!alive) return;
+      setHistory(list);
+      setHistoryLoaded(true);
     })();
     return () => { alive = false; };
   }, []);
+
+  const historySaveTimer = useRef(null);
+  useEffect(() => {
+    if (!historyLoaded) return;
+    clearTimeout(historySaveTimer.current);
+    historySaveTimer.current = setTimeout(() => { saveHistory(info.userData, history).catch((err) => console.warn('[CaptureMaster] history', err)); }, 300);
+  }, [history, historyLoaded, info.userData]);
+
+  // Entries whose file is gone are shown struck through; checked when the list is shown.
+  const checkMissing = useCallback(async (list) => {
+    if (!isDesktop) return;
+    const gone = new Set();
+    await Promise.all(list.filter((e) => e.path).map(async (e) => { if (!(await platform.fs.exists(e.path).catch(() => true))) gone.add(e.id); }));
+    setMissing(gone);
+  }, []);
+  useEffect(() => {
+    if (historyLoaded && settings.history.open) checkMissing(history);
+    // Only when the panel opens or the list is loaded, not on every change.
+  }, [historyLoaded, settings.history.open, checkMissing]);
 
   const updateSettings = useCallback((patch) => {
     setSettings((prev) => normalizeSettings({ ...prev, ...(typeof patch === 'function' ? patch(prev) : patch) }));
@@ -219,7 +260,17 @@ export default function App() {
     platform.windowControls.setTitle(parts.join(' — '));
   }, [active, info.version]);
 
-  const onMeasure = useCallback((w) => { platform.windowControls.setMinWidth(w); }, []);
+  // Minimum window width: the toolbar row, or both side panels around the
+  // narrowest usable editor, whichever is wider.
+  const toolbarNeed = useRef(0);
+  const applyMinWidth = useCallback(() => {
+    const side = ['.tool-panel', '.history'].reduce((w, sel) => {
+      const el = document.querySelector(sel);
+      return w + (el ? el.offsetWidth : 0);
+    }, 0);
+    platform.windowControls.setMinWidth(Math.max(toolbarNeed.current, side + EDITOR_MIN_W));
+  }, []);
+  const onMeasure = useCallback((w) => { toolbarNeed.current = w; applyMinWidth(); }, [applyMinWidth]);
 
   // ── Documents ──
   const updateDoc = useCallback((id, fn) => {
@@ -242,11 +293,76 @@ export default function App() {
     updateSettings((s) => ({ recent: addRecent(s.recent, { path, kind, name: name || nameOf(path) }) }));
   }, [updateSettings]);
 
+  // ── Capture history & automatic saving ──
+  const captureDirectory = useCallback(() => {
+    const dir = settingsRef.current.paths.captureDir;
+    if (dir) return dir;
+    const base = info.pictures || info.home || '';
+    if (!base) return '';
+    return `${base.replace(/[\\/]+$/, '')}${base.includes('\\') ? '\\' : '/'}CaptureMaster`;
+  }, [info.home, info.pictures]);
+
+  const addHistory = useCallback((entry, docId) => {
+    const id = newId('h');
+    setHistory((list) => addEntry(list, { ...entry, id }));
+    if (docId) entryDocs.current.set(id, docId);
+    return id;
+  }, []);
+
+  /** Writes a new capture to the capture folder (desktop) and adds it to the history. */
+  const recordCapture = useCallback(async (doc, img, source) => {
+    const thumb = await thumbnailOf(img.dataUrl).catch(() => '');
+    let path = '';
+    let bytes = 0;
+    if (isDesktop) {
+      try {
+        const dir = captureDirectory();
+        if (!dir) throw new Error('No capture folder is set.');
+        const formats = imageFormatsFor(!!platform.image);
+        const fmt = formats.find((f) => f.id === settingsRef.current.image.format) || formats[0];
+        const quality = settingsRef.current.image.quality;
+        const base = `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${doc.name.replace(/[\\/:*?"<>|]/g, '_')}`;
+        path = `${base}.${fmt.ext}`;
+        for (let n = 2; await platform.fs.exists(path); n++) path = `${base} (${n}).${fmt.ext}`;
+        // PNG is written as captured; native formats are re-encoded from it on the desktop side.
+        let data;
+        if (fmt.id === 'png' || fmt.native) {
+          data = await dataUrlToBytes(img.dataUrl);
+        } else {
+          const el = await loadImage(img.dataUrl);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(el, 0, 0);
+          data = new Uint8Array(await (await canvasToBlob(canvas, fmt.mime, quality / 100)).arrayBuffer());
+        }
+        if (platform.image) bytes = Number(await platform.image.export(path, data, fmt.native ? fmt.id : 'raw', quality)) || data.length;
+        else { await platform.fs.writeBinary(path, data); bytes = data.length; }
+        const saved = doc.history.present;
+        updateDoc(doc.id, (d) => ({ ...d, file: path, savedPresent: d.savedPresent || saved }));
+      } catch (err) {
+        path = '';
+        toast(t('toast.autoSaveFailed', { message: (err && err.message) || String(err) }), 'warn');
+      }
+    }
+    addHistory({ path, name: path ? stripExt(nameOf(path)) : doc.name, kind: 'image', source, width: img.width, height: img.height, bytes, thumb, time: doc.createdAt }, doc.id);
+    return path;
+  }, [addHistory, captureDirectory, t, toast, updateDoc]);
+
+  const recordRecording = useCallback(async (doc, { path, width, height, bytes, gif }) => {
+    const url = platform.mediaUrl(path);
+    const thumb = await (gif ? thumbnailOf(url) : videoThumbnail(url)).catch(() => '');
+    addHistory({ path, name: stripExt(nameOf(path)), kind: gif ? 'image' : 'video', source: 'recording', width, height, bytes, thumb, time: doc.createdAt }, doc.id);
+  }, [addHistory]);
+
   // ── Opening files ──
   const openImageBytes = useCallback(async (bytes, name, path, mime) => {
     const raw = await bytesToDataUrl(bytes, mime || mimeForExt(extOf(name)));
     const img = await normalizeToPng(raw);
-    return addDoc(createImageDocument(img, { name: stripExt(name), path: null, source: { type: 'file', path } }));
+    const doc = createImageDocument(img, { name: stripExt(name), path: null, source: { type: 'file', path } });
+    // Unchanged pictures opened from disk need no saving.
+    if (path) { doc.file = path; doc.savedPresent = doc.history.present; }
+    return addDoc(doc);
   }, [addDoc]);
 
   const openPath = useCallback(async (p) => {
@@ -262,8 +378,9 @@ export default function App() {
       return doc;
     }
     if (kind === 'image') {
-      const res = await withProgress(t('progress.opening'), nameOf(p), (id) => platform.fs.readBinary(p, id));
-      const doc = await openImageBytes(res.data, res.name, p);
+      const doc = NATIVE_DECODE_EXTS.includes(extOf(p)) && platform.image
+        ? await openImageBytes(await withProgress(t('progress.opening'), nameOf(p), () => platform.image.readPng(p)), nameOf(p), p, 'image/png')
+        : await withProgress(t('progress.opening'), nameOf(p), (id) => platform.fs.readBinary(p, id)).then((res) => openImageBytes(res.data, res.name, p));
       rememberRecent(p, 'image', doc.name);
       return doc;
     }
@@ -410,7 +527,7 @@ export default function App() {
       if (!target) {
         target = await platform.pickSavePath({
           defaultName: `${current.name.replace(/[\\/:*?"<>|]/g, '_')}.${CAPTURE_EXT}`,
-          defaultDir: settingsRef.current.paths.lastSaveDir || current.dir || info.pictures,
+          defaultDir: settingsRef.current.paths.captureDir || settingsRef.current.paths.lastSaveDir || current.dir || info.pictures,
           filters: [{ name: t('format.cmcap'), extensions: [CAPTURE_EXT] }],
           title: t('toolbar.save'),
         });
@@ -433,10 +550,12 @@ export default function App() {
   const exportImage = useCallback(async (doc, region) => {
     if (!doc || doc.kind !== 'image') return;
     try {
-      const fmt = imageFormatById(settingsRef.current.image.format);
+      const formats = imageFormatsFor(!!platform.image);
+      const fmt = formats.find((f) => f.id === settingsRef.current.image.format) || formats[0];
       const baseName2 = doc.name.replace(/[\\/:*?"<>|]/g, '_');
       const p = doc.history.present;
       const img = await loadImage(p.image.dataUrl);
+      await preloadPictures(p.annotations);
       if (!isDesktop) {
         const canvas = renderToCanvas(p, img, { region });
         const blob = await canvasToBlob(canvas, fmt.mime, settingsRef.current.image.quality / 100);
@@ -445,17 +564,21 @@ export default function App() {
       }
       const filters = [
         { name: t(`format.${fmt.id}`), extensions: [fmt.ext] },
-        ...IMAGE_FORMATS.filter((f) => f.id !== fmt.id).map((f) => ({ name: t(`format.${f.id}`), extensions: [f.ext] })),
+        ...formats.filter((f) => f.id !== fmt.id).map((f) => ({ name: t(`format.${f.id}`), extensions: [f.ext] })),
       ];
-      const target = await platform.pickSavePath({ defaultName: `${baseName2}.${fmt.ext}`, defaultDir: settingsRef.current.paths.lastExportDir || info.pictures, filters, title: t('toolbar.export') });
+      const target = await platform.pickSavePath({ defaultName: `${baseName2}.${fmt.ext}`, defaultDir: settingsRef.current.paths.captureDir || settingsRef.current.paths.lastExportDir || info.pictures, filters, title: t('toolbar.export') });
       if (!target) return;
-      const chosen = imageFormatByExt(extOf(target)) || fmt;
-      const finalPath = imageFormatByExt(extOf(target)) ? target : `${target}.${fmt.ext}`;
+      const byExt = imageFormatByExt(extOf(target));
+      const chosen = byExt && formats.includes(byExt) ? byExt : fmt;
+      const finalPath = byExt ? target : `${target}.${fmt.ext}`;
+      const quality = settingsRef.current.image.quality;
       await withProgress(t('progress.exporting'), nameOf(finalPath), async (id) => {
         const canvas = renderToCanvas(p, img, { region });
-        const blob = await canvasToBlob(canvas, chosen.mime, settingsRef.current.image.quality / 100);
+        // Native formats are sent as lossless PNG and re-encoded on the desktop side.
+        const blob = await canvasToBlob(canvas, chosen.native ? 'image/png' : chosen.mime, quality / 100);
         const bytes = new Uint8Array(await blob.arrayBuffer());
-        await platform.fs.writeBinary(finalPath, bytes, id);
+        if (platform.image) await platform.image.export(finalPath, bytes, chosen.native ? chosen.id : 'raw', quality);
+        else await platform.fs.writeBinary(finalPath, bytes, id);
       });
       rememberRecent(finalPath, 'image', stripExt(nameOf(finalPath)));
       updateSettings({ paths: { ...settingsRef.current.paths, lastExportDir: dirOf(finalPath) } });
@@ -528,7 +651,7 @@ export default function App() {
         }
         setCountdown(0);
       }
-      if (hide) { await platform.capture.hideApp(); await new Promise((r) => setTimeout(r, isMac ? 450 : 320)); }
+      if (hide) { await platform.capture.hideApp(); await new Promise((r) => setTimeout(r, HIDE_SETTLE_MS)); }
       let result;
       try {
         result = await grab();
@@ -538,8 +661,9 @@ export default function App() {
       if (!result) return null;
       const img = result.width && result.dataUrl.startsWith('data:image/png') ? { dataUrl: result.dataUrl, width: result.width, height: result.height } : await normalizeToPng(result.dataUrl);
       const doc = addDoc(createImageDocument(img, { name: stampName(label || 'Capture'), source: { type: result.kind || 'screen', name: result.name || '' } }));
-      toast(t('toast.captured', { w: img.width, h: img.height }));
       if (s.capture.copyToClipboard) platform.clipboard.writeImage(img.dataUrl).catch(() => {});
+      const file = await recordCapture(doc, img, result.kind === 'window' ? 'window' : 'screen');
+      toast(file ? t('toast.capturedSaved', { name: nameOf(file), w: img.width, h: img.height }) : t('toast.captured', { w: img.width, h: img.height }));
       return doc;
     } catch (err) {
       reportError(err, t('error.capture'));
@@ -548,14 +672,15 @@ export default function App() {
       setCapturing('');
       setCountdown(0);
     }
-  }, [addDoc, reportError, t, toast]);
+  }, [addDoc, recordCapture, reportError, t, toast]);
 
   const pickScreen = useCallback(async (kind) => {
-    const sources = await platform.capture.listSources({ types: ['screen'], thumbWidth: 360 });
-    const screens = sources.filter((x) => x.kind === 'screen');
+    // Thumbnails mean grabbing every monitor, so only fetch them when there is a choice to make.
+    let screens = (await platform.capture.listSources({ types: ['screen'], thumbWidth: 0 })).filter((x) => x.kind === 'screen');
     if (!screens.length) throw new Error(t('error.noScreen'));
     if (screens.length === 1) return screens[0];
-    const r = await ask('sources', { title: kind === 'record' ? t('sources.titleRecord') : t('sources.titleScreen'), kind, sources });
+    screens = (await platform.capture.listSources({ types: ['screen'], thumbWidth: 360 })).filter((x) => x.kind === 'screen');
+    const r = await ask('sources', { title: kind === 'record' ? t('sources.titleRecord') : t('sources.titleScreen'), kind, sources: screens });
     return r ? screens.find((x) => x.id === r.id) || null : null;
   }, [ask, t]);
 
@@ -565,7 +690,10 @@ export default function App() {
     const sources = await platform.capture.listSources({ types: ['screen', 'window'], thumbWidth: 360, includeSelf });
     if (!sources.some((x) => x.kind === 'screen')) throw new Error(t('error.noScreen'));
     const r = await ask('sources', { title: t('sources.titleRecord'), kind: 'record', sources, includeSelf });
-    return r ? sources.find((x) => x.id === r.id) || r : null;
+    if (!r) return null;
+    const src = sources.find((x) => x.id === r.id) || r;
+    const screens = sources.filter((x) => x.kind === 'screen' && x.bounds).map((x) => x.bounds);
+    return src.kind === 'screen' ? { ...src, display: { bounds: src.bounds, screens } } : src;
   }, [ask, pickScreen, t]);
 
   const captureScreen = useCallback(async () => {
@@ -602,7 +730,7 @@ export default function App() {
       let displayId = null;
       if (isDesktop) {
         displayId = await platform.capture.cursorDisplay();
-        const sources = await platform.capture.listSources({ types: ['screen'], thumbWidth: 8 });
+        const sources = await platform.capture.listSources({ types: ['screen'], thumbWidth: 0 });
         const src = sources.find((x) => String(x.displayId) === String(displayId)) || sources[0];
         if (!src) throw new Error(t('error.noScreen'));
         const s = settingsRef.current;
@@ -614,7 +742,7 @@ export default function App() {
         const hide = s.capture.hideWindow;
         if (hide) {
           await platform.capture.hideApp();
-          await new Promise((r) => setTimeout(r, isMac ? 450 : 320));
+          await new Promise((r) => setTimeout(r, HIDE_SETTLE_MS));
         }
         try { shot = await platform.capture.grabScreen(src.id); } finally { setCapturing(''); }
       } else {
@@ -625,8 +753,9 @@ export default function App() {
       if (!rect) return;
       const img = await cropImage(shot.dataUrl, rect);
       const doc = addDoc(createImageDocument(img, { name: stampName('Region'), source: { type: 'region', name: shot.name || '' } }));
-      toast(t('toast.captured', { w: img.width, h: img.height }));
       if (settingsRef.current.capture.copyToClipboard) platform.clipboard.writeImage(img.dataUrl).catch(() => {});
+      const file = await recordCapture(doc, img, 'region');
+      toast(file ? t('toast.capturedSaved', { name: nameOf(file), w: img.width, h: img.height }) : t('toast.captured', { w: img.width, h: img.height }));
       return doc;
     } catch (err) {
       if (isDesktop) platform.capture.showApp();
@@ -636,7 +765,7 @@ export default function App() {
       setCountdown(0);
     }
     return null;
-  }, [addDoc, ask, reportError, t, toast]);
+  }, [addDoc, ask, recordCapture, reportError, t, toast]);
 
   // ── Recording ──
   const finishRecording = useCallback(async (discard) => {
@@ -646,17 +775,22 @@ export default function App() {
     setRecording(null);
     platform.dialogs.close('recorder');
     try {
-      await rec.controller.stop();
+      const gif = !!rec.controller.format.gif;
+      // A GIF is finished by its encoder on stop, which can take a moment.
+      if (gif && !discard) await withProgress(t('progress.finishing'), nameOf(rec.path), () => rec.controller.stop());
+      else await rec.controller.stop();
       await rec.drain();
       if (isDesktop) {
         if (discard) {
-          await platform.rec.discard(rec.sinkId);
+          if (rec.sinkId) await platform.rec.discard(rec.sinkId, rec.path);
+          else await platform.fs.remove(rec.path);
           toast(t('toast.recordingDiscarded'), 'warn');
         } else {
-          const res = await withProgress(t('progress.finishing'), nameOf(rec.path), () => platform.rec.close(rec.sinkId));
+          const res = gif ? rec.controller.result : await withProgress(t('progress.finishing'), nameOf(rec.path), () => platform.rec.close(rec.sinkId));
           const doc = addDoc(createVideoDocument({ path: rec.path, name: stripExt(nameOf(rec.path)), width: rec.controller.width, height: rec.controller.height, source: { type: 'recording' } }));
           rememberRecent(rec.path, 'video', doc.name);
           toast(t('toast.recordingSaved', { name: nameOf(rec.path) }) + ` (${formatBytes(res ? res.bytes : 0)})`);
+          recordRecording(doc, { path: rec.path, width: rec.controller.width, height: rec.controller.height, bytes: res ? res.bytes : 0, gif });
         }
       } else if (!discard) {
         const blob = new Blob(rec.chunks, { type: rec.controller.format.mime });
@@ -669,7 +803,7 @@ export default function App() {
     } finally {
       if (rec.minimized) platform.capture.restoreApp();
     }
-  }, [addDoc, rememberRecent, reportError, t, toast, withProgress]);
+  }, [addDoc, recordRecording, rememberRecent, reportError, t, toast, withProgress]);
 
   const stopRecording = useCallback(() => finishRecording(false), [finishRecording]);
 
@@ -677,59 +811,71 @@ export default function App() {
     if (recordingRef.current) { await stopRecording(); return; }
     const s = settingsRef.current;
     try {
-      if (typeof MediaRecorder === 'undefined') throw new Error(t('error.recorderUnsupported'));
+      const fmt = pickVideoFormat(s.video.format);
+      if (!fmt) throw new Error(t('error.recorderUnsupported'));
       let sourceId = null;
       let windowSourceId = null;
       let recordingSelf = false;
+      let display = null;
       if (isDesktop) {
         const src = await pickRecordSource();
         if (!src) return;
         sourceId = src.id;
+        display = src.display || null;
         if (isTauri && src.kind === 'window') {
           windowSourceId = src.id;
           recordingSelf = !!src.self;
-          if (s.video.systemAudio) toast(t('toast.windowNoSystemAudio'), 'warn');
         }
       }
-      // Where the file goes is settled before the first frame is captured.
+      if (fmt.gif && (s.video.systemAudio || s.video.microphone)) toast(t('toast.gifNoAudio'), 'warn');
+
+      // Where the file goes is settled before the first frame is captured, so
+      // no chunk (the first one carries the file header) arrives without a sink.
       let path = null;
       let sinkId = null;
       const chunks = [];
       let queue = Promise.resolve();
-      const fmtProbe = supportedVideoFormats();
-      if (!fmtProbe.length) throw new Error(t('error.recorderUnsupported'));
-
-      const controller = await startRecorder({
-        sourceId, windowSourceId, fps: s.video.fps, systemAudio: windowSourceId ? false : s.video.systemAudio, microphone: s.video.microphone, format: s.video.format, bitrateMbps: s.video.bitrateMbps,
-        onChunk: (blob) => {
-          if (isDesktop) {
-            queue = queue.then(async () => {
-              if (!sinkId) return;
-              const bytes = new Uint8Array(await blob.arrayBuffer());
-              await platform.rec.append(sinkId, bytes);
-            }).catch((err) => reportError(err, t('error.record')));
-          } else chunks.push(blob);
-        },
-        onEnded: () => {
-          if (windowSourceId) toast(t('toast.windowClosedRecording'), 'warn');
-          finishRecording(false);
-        },
-        onError: (err) => reportError(err, t('error.record')),
-      });
-      if (controller.micWarning) toast(t('error.micDenied'), 'warn');
-
       if (isDesktop) {
-        const ext = controller.format.ext;
         const dir = s.paths.videoDir || info.videos || info.home || '';
-        const defaultName = `${stampName('Recording')}.${ext}`;
+        const defaultName = `${stampName('Recording')}.${fmt.ext}`;
         if (s.video.askPath) {
-          path = await platform.pickSavePath({ defaultName, defaultDir: dir, filters: [{ name: controller.format.label, extensions: [ext] }], title: t('toolbar.record') });
-          if (!path) { await controller.stop(); return; }
+          path = await platform.pickSavePath({ defaultName, defaultDir: dir, filters: [{ name: fmt.labelKey ? t(fmt.labelKey) : fmt.label, extensions: [fmt.ext] }], title: t('toolbar.record') });
+          if (!path) return;
         } else {
           path = `${dir}${dir && !/[\\/]$/.test(dir) ? (info.platform === 'win32' ? '\\' : '/') : ''}${defaultName}`;
         }
-        sinkId = await platform.rec.open(path);
       }
+
+      const onEnded = () => {
+        if (windowSourceId) toast(t('toast.windowClosedRecording'), 'warn');
+        finishRecording(false);
+      };
+      let controller;
+      if (fmt.gif) {
+        controller = await startGifRecording({ sourceId, path, fps: s.video.fps, onEnded });
+      } else {
+        if (isDesktop) sinkId = await platform.rec.open(path);
+        try {
+          controller = await startRecorder({
+            sourceId, windowSourceId, display, fps: s.video.fps, systemAudio: s.video.systemAudio, systemAudioGain: s.video.systemAudioGain / 100, microphone: micOptions(s), format: fmt.id, bitrateMbps: s.video.bitrateMbps,
+            onChunk: (blob) => {
+              if (isDesktop) {
+                queue = queue.then(async () => {
+                  const bytes = new Uint8Array(await blob.arrayBuffer());
+                  await platform.rec.append(sinkId, bytes);
+                }).catch((err) => reportError(err, t('error.record')));
+              } else chunks.push(blob);
+            },
+            onEnded,
+            onError: (err) => reportError(err, t('error.record')),
+          });
+        } catch (err) {
+          if (sinkId) await platform.rec.discard(sinkId, path).catch(() => {});
+          throw err;
+        }
+      }
+      if (controller.micWarning) toast(t('error.micDenied'), 'warn');
+      if (controller.audioWarning) toast(t('error.systemAudioUnavailable'), 'warn');
 
       // Recording this program's own window: minimizing it would leave nothing to record.
       const minimized = s.video.minimizeWhileRecording && !recordingSelf;
@@ -761,9 +907,14 @@ export default function App() {
   };
 
   // ── Editing ──
-  const setZoom = useCallback((z) => { if (activeRef.current) updateDoc(activeRef.current, (d) => ({ ...d, zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) })); }, [updateDoc]);
-  const zoomFit = useCallback(() => { if (activeRef.current) updateDoc(activeRef.current, (d) => ({ ...d, fitRequested: true })); }, [updateDoc]);
-  const zoom100 = useCallback(() => setZoom(1), [setZoom]);
+  const setZoom = useCallback((z, autoFit = false) => {
+    if (!activeRef.current) return;
+    const zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    updateDoc(activeRef.current, (d) => (d.zoom === zoom && d.autoFit === autoFit ? d : { ...d, zoom, autoFit }));
+  }, [updateDoc]);
+  const zoomFit = useCallback(() => { if (activeRef.current) updateDoc(activeRef.current, (d) => ({ ...d, autoFit: true })); }, [updateDoc]);
+  const zoomTo = useCallback((z) => { if (editorRef.current) editorRef.current.zoomTo(z); else setZoom(z); }, [setZoom]);
+  const zoom100 = useCallback(() => zoomTo(1), [zoomTo]);
   const zoomIn = useCallback(() => { if (editorRef.current) editorRef.current.zoomBy(1); else setZoom(nextZoom(active ? active.zoom : 1, 1)); }, [active, setZoom]);
   const zoomOut = useCallback(() => { if (editorRef.current) editorRef.current.zoomBy(-1); else setZoom(nextZoom(active ? active.zoom : 1, -1)); }, [active, setZoom]);
 
@@ -772,6 +923,11 @@ export default function App() {
 
   const selectAnnotation = useCallback((sid) => { const id = activeRef.current; if (id) updateDoc(id, (d) => (d.selectedId === sid ? d : { ...d, selectedId: sid })); }, [updateDoc]);
   const setSelection = useCallback((rect) => { const id = activeRef.current; if (id) updateDoc(id, (d) => ({ ...d, selection: rect })); }, [updateDoc]);
+  const setSelectionShape = useCallback((shape) => {
+    updateSettings((s) => ({ editor: { ...s.editor, selectionShape: shape } }));
+    const id = activeRef.current;
+    if (id) updateDoc(id, (d) => (d.selection ? { ...d, selection: { ...d.selection, shape } } : d));
+  }, [updateDoc, updateSettings]);
 
   const deleteSelected = useCallback(() => {
     const doc = docsRef.current.find((d) => d.id === activeRef.current);
@@ -818,7 +974,7 @@ export default function App() {
       const img = await cropImage(p.image.dataUrl, r);
       const annotations = p.annotations.map((a) => moveAnnotation(a, -r.x, -r.y));
       commit(doc.id, { image: img, annotations });
-      updateDoc(doc.id, (d) => ({ ...d, selection: null, selectedId: null, fitRequested: true }));
+      updateDoc(doc.id, (d) => ({ ...d, selection: null, selectedId: null, autoFit: true }));
       setTool('select');
       toast(t('toast.cropped'));
     } catch (err) { reportError(err, 'crop'); }
@@ -828,8 +984,35 @@ export default function App() {
   const compositeDataUrl = useCallback(async (doc, region) => {
     const p = doc.history.present;
     const img = await loadImage(p.image.dataUrl);
-    return renderToCanvas(p, img, { region }).toDataURL('image/png');
+    await preloadPictures(p.annotations);
+    return maskToSelection(renderToCanvas(p, img, { region }), region).toDataURL('image/png');
   }, []);
+
+  /** Annotations as a standalone picture, so other applications can paste them. */
+  const annotationsDataUrl = useCallback(async (doc, annotations) => {
+    const p = doc.history.present;
+    const img = await loadImage(p.image.dataUrl);
+    await preloadPictures(annotations);
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const a of annotations) {
+      const b = boundsOf(a);
+      const pad = (Number(a.strokeWidth) || 4) * 2;
+      x1 = Math.min(x1, b.x - pad); y1 = Math.min(y1, b.y - pad); x2 = Math.max(x2, b.x + b.w + pad); y2 = Math.max(y2, b.y + b.h + pad);
+    }
+    const region = { x: Math.floor(x1), y: Math.floor(y1), w: Math.max(1, Math.ceil(x2 - x1)), h: Math.max(1, Math.ceil(y2 - y1)) };
+    const c = document.createElement('canvas');
+    c.width = region.w;
+    c.height = region.h;
+    const ctx = c.getContext('2d');
+    ctx.translate(-region.x, -region.y);
+    // The base picture is passed (pixelate samples it) but not drawn.
+    for (const a of annotations) drawAnnotation(ctx, a, img);
+    return c.toDataURL('image/png');
+  }, []);
+
+  // The annotations last copied, with the clipboard picture they were copied
+  // as: pasting that same picture back brings the editable annotations back.
+  const internalClip = useRef(null);
 
   const copy = useCallback(async ({ regionOnly = false, cut = false } = {}) => {
     const doc = docsRef.current.find((d) => d.id === activeRef.current);
@@ -838,49 +1021,147 @@ export default function App() {
       const p = doc.history.present;
       const sel = doc.selectedId ? p.annotations.find((a) => a.id === doc.selectedId) : null;
       if (sel && !regionOnly) {
-        await platform.clipboard.writeText(ANNOTATION_CLIP_PREFIX + JSON.stringify(sel));
+        await platform.clipboard.writeImage(await annotationsDataUrl(doc, [sel]));
+        const back = await platform.clipboard.readImage().catch(() => null);
+        internalClip.current = { annotations: [sel], fingerprint: back ? back.dataUrl : null, pastes: 0 };
         if (cut) deleteSelected();
-        toast(t('toast.copiedAnnotation'));
+        toast(t(cut ? 'toast.cutAnnotation' : 'toast.copiedAnnotation'));
         return;
       }
       const region = regionOnly || doc.selection ? doc.selection : null;
+      if (cut && !region) { toast(t('toast.nothingSelected'), 'warn'); return; }
       await platform.clipboard.writeImage(await compositeDataUrl(doc, region));
+      internalClip.current = null;
+      if (cut) {
+        // Cutting a region leaves it transparent and takes the annotations lying wholly inside it.
+        const inside = (a) => { const b = boundsOf(a); return b.x >= region.x && b.y >= region.y && b.x + b.w <= region.x + region.w && b.y + b.h <= region.y + region.h; };
+        const image = await eraseRect(p.image.dataUrl, region);
+        commit(doc.id, { image, annotations: p.annotations.filter((a) => !inside(a)) });
+        updateDoc(doc.id, (d) => ({ ...d, selection: null, selectedId: null }));
+        toast(t('toast.cutImage'));
+        return;
+      }
       toast(t('toast.copiedImage'));
     } catch (err) { reportError(err, t('error.clipboard')); }
-  }, [compositeDataUrl, deleteSelected, reportError, t, toast]);
+  }, [annotationsDataUrl, commit, compositeDataUrl, deleteSelected, reportError, t, toast, updateDoc]);
 
-  const paste = useCallback(async () => {
+  const eraseSelection = useCallback(async () => {
+    const doc = docsRef.current.find((d) => d.id === activeRef.current);
+    if (!doc || doc.kind !== 'image' || !doc.selection) return;
+    try {
+      const p = doc.history.present;
+      commit(doc.id, { ...p, image: await eraseRect(p.image.dataUrl, doc.selection) });
+      updateDoc(doc.id, (d) => ({ ...d, selection: null }));
+      toast(t('toast.erased'));
+    } catch (err) { reportError(err, 'erase'); }
+  }, [commit, reportError, t, toast, updateDoc]);
+
+  const deleteSelection = useCallback(() => {
+    const doc = docsRef.current.find((d) => d.id === activeRef.current);
+    if (doc && doc.selectedId) deleteSelected();
+    else eraseSelection();
+  }, [deleteSelected, eraseSelection]);
+  const deselect = useCallback(() => { setSelection(null); selectAnnotation(null); }, [selectAnnotation, setSelection]);
+
+  const selectAll = useCallback(() => {
+    const doc = docsRef.current.find((d) => d.id === activeRef.current);
+    if (!doc || doc.kind !== 'image') return;
+    const { width, height } = doc.history.present.image;
+    setTool('select');
+    updateDoc(doc.id, (d) => ({ ...d, selectedId: null, selection: { x: 0, y: 0, w: width, h: height } }));
+  }, [updateDoc]);
+
+  const paste = useCallback(async ({ asNewDocument = false } = {}) => {
     try {
       const doc = docsRef.current.find((d) => d.id === activeRef.current);
-      const text = await platform.clipboard.readText().catch(() => '');
-      if (text && text.startsWith(ANNOTATION_CLIP_PREFIX) && doc && doc.kind === 'image') {
-        const a = JSON.parse(text.slice(ANNOTATION_CLIP_PREFIX.length));
-        const copyA = { ...moveAnnotation(a, 20, 20), id: newId('a') };
-        const p = doc.history.present;
-        commit(doc.id, { ...p, annotations: [...p.annotations, copyA] });
-        selectAnnotation(copyA.id);
+      const img = await platform.clipboard.readImage().catch(() => null);
+      const into = doc && doc.kind === 'image' && !asNewDocument ? doc : null;
+      if (!into) {
+        if (!img) { toast(t('error.clipboardEmpty'), 'warn'); return; }
+        const norm = await normalizeToPng(img.dataUrl);
+        addDoc(createImageDocument(norm, { name: stampName('Pasted'), source: { type: 'clipboard' } }));
         toast(t('toast.pasted'));
         return;
       }
-      const img = await platform.clipboard.readImage();
-      if (!img) { toast(t('error.clipboardEmpty'), 'warn'); return; }
-      const norm = await normalizeToPng(img.dataUrl);
-      addDoc(createImageDocument(norm, { name: stampName('Pasted'), source: { type: 'clipboard' } }));
-      toast(t('toast.pasted'));
+      const p = into.history.present;
+      const W = p.image.width;
+      const H = p.image.height;
+      const add = (list) => {
+        commit(into.id, { ...p, annotations: [...p.annotations, ...list] });
+        setTool('select');
+        updateDoc(into.id, (d) => ({ ...d, selection: null, selectedId: list[list.length - 1].id }));
+      };
+      const clip = internalClip.current;
+      if (img && clip && clip.fingerprint && clip.fingerprint === img.dataUrl) {
+        clip.pastes += 1;
+        add(clip.annotations.map((a) => ({ ...moveAnnotation(a, 20 * clip.pastes, 20 * clip.pastes), id: newId('a') })));
+        toast(t('toast.pasted'));
+        return;
+      }
+      if (img) {
+        const norm = await normalizeToPng(img.dataUrl);
+        // Pasted at full size unless larger than the picture; at the selection if there is one.
+        const s = Math.min(1, W / norm.width, H / norm.height);
+        const w = norm.width * s;
+        const h = norm.height * s;
+        const at = into.selection ? { x: into.selection.x, y: into.selection.y } : { x: (W - w) / 2, y: (H - h) / 2 };
+        add([{ id: newId('a'), type: 'image', x: Math.round(at.x), y: Math.round(at.y), w, h, src: norm.dataUrl }]);
+        toast(t('toast.pasted'));
+        return;
+      }
+      const text = (await platform.clipboard.readText().catch(() => '')).replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+      if (!text) { toast(t('error.clipboardEmpty'), 'warn'); return; }
+      const tp = toolPropsRef.current;
+      const a = { id: newId('a'), type: 'text', x: 0, y: 0, text, color: tp.color, font: { ...tp.font }, bg: false };
+      const m = measureText(a);
+      const at = into.selection ? { x: into.selection.x, y: into.selection.y } : { x: Math.max(0, (W - m.w) / 2), y: Math.max(0, (H - m.h) / 2) };
+      add([{ ...a, x: Math.round(at.x), y: Math.round(at.y) }]);
+      toast(t('toast.pastedText'));
     } catch (err) { reportError(err, t('error.clipboard')); }
-  }, [addDoc, commit, reportError, selectAnnotation, t, toast]);
+  }, [addDoc, commit, reportError, t, toast, updateDoc]);
 
   // ── Printing ──
+  /** Each document as the picture that goes on paper: a temp file (desktop) or a data URL. */
+  const printPicture = useCallback(async (d) => {
+    let dataUrl;
+    if (d.kind === 'image') {
+      const p = d.history.present;
+      const img = await loadImage(p.image.dataUrl);
+      await preloadPictures(p.annotations);
+      dataUrl = renderToCanvas(p, img).toDataURL('image/png');
+    } else {
+      dataUrl = (d.id === activeRef.current && mainRef.current ? videoFrameDataUrl(mainRef.current) : null) || await videoPosterFrame(d.blobUrl || platform.mediaUrl(d.path));
+    }
+    const size = await loadImage(dataUrl).then((im) => ({ width: im.naturalWidth, height: im.naturalHeight }));
+    if (!isTauri) return { src: dataUrl, ...size };
+    const file = await platform.fs.tempPath('png');
+    await platform.fs.writeBinary(file, await dataUrlToBytes(dataUrl));
+    return { src: platform.mediaUrl(file), file, ...size };
+  }, []);
+
   const print = useCallback(async () => {
     const list = docsRef.current;
     if (!list.length) { toast(t('toast.nothingToPrint'), 'warn'); return; }
     const cur = list.find((d) => d.id === activeRef.current);
-    const r = await ask('print', {
-      title: t('print.title'),
-      docs: list.map((d) => ({ id: d.id, name: d.name, kind: d.kind, width: d.kind === 'image' ? d.history.present.image.width : d.width, height: d.kind === 'image' ? d.history.present.image.height : d.height })),
-      currentId: cur ? cur.id : null,
-      hasSelection: !!(cur && cur.selection),
-    });
+    // The dialog lays out and previews the pages; on the desktop it also prints them itself.
+    const files = [];
+    let r;
+    try {
+      const docs = [];
+      for (const d of list) {
+        const pic = await printPicture(d);
+        if (pic.file) files.push(pic.file);
+        docs.push({ id: d.id, name: d.name, kind: d.kind, src: pic.src, width: pic.width, height: pic.height, selection: d.kind === 'image' ? d.selection : null });
+      }
+      r = await ask('print', { title: t('print.title'), docs, currentId: cur ? cur.id : null, hasSelection: !!(cur && cur.selection), direct: platform.printer.available });
+    } catch (err) {
+      reportError(err, t('error.print'));
+      return;
+    } finally {
+      for (const f of files) platform.fs.remove(f).catch(() => {});
+    }
+    if (r && r.pdf) { toast(t('toast.savedPdf', { name: nameOf(r.pdf) })); return; }
+    if (r && r.printed) { toast(t('toast.printed')); return; }
     if (!r || !r.docIds || !r.docIds.length) return;
     try {
       await withProgress(t('progress.printing'), t('print.pages', { n: r.docIds.length }), async (id) => {
@@ -893,6 +1174,7 @@ export default function App() {
           if (d.kind === 'image') {
             const p = d.history.present;
             const img = await loadImage(p.image.dataUrl);
+            await preloadPictures(p.annotations);
             const region = r.selectionOnly && d.selection && d.id === (cur && cur.id) ? d.selection : null;
             dataUrl = renderToCanvas(p, img, { region }).toDataURL('image/jpeg', 0.92);
           } else {
@@ -906,7 +1188,7 @@ export default function App() {
         if (res && res.printed) toast(t('toast.printed'));
       });
     } catch (err) { reportError(err, t('error.print')); }
-  }, [ask, reportError, t, toast, withProgress]);
+  }, [ask, printPicture, reportError, t, toast, withProgress]);
 
   // ── Dialog launchers ──
   const openSettings = useCallback(() => {
@@ -966,7 +1248,39 @@ export default function App() {
     });
   }, [appearance]);
 
+  const openZoomMenu = useCallback((el) => {
+    const doc = docsRef.current.find((d) => d.id === activeRef.current);
+    if (!doc) return;
+    const r = el.getBoundingClientRect();
+    const items = ZOOM_PRESETS.slice().reverse().map((z) => ({
+      label: `${Math.round(z * 100)}%`,
+      icon: z > 1 ? 'zoomIn' : z < 1 ? 'zoomOut' : 'actual',
+      checked: !doc.autoFit && Math.abs(z - doc.zoom) < 1e-6,
+      onClick: () => zoomTo(z),
+    }));
+    openContextMenu(r.left, r.bottom + 2, [...items, 'sep', { label: t('zoomBar.fitShort'), icon: 'fit', checked: !!doc.autoFit, onClick: zoomFit }]);
+  }, [openContextMenu, t, zoomFit, zoomTo]);
+
   // ── Context menus ──
+  /**
+   * Save / export / print / file-location items shared by the document menus;
+   * a tab gets only "save as" and the file location (it may not be the active document).
+   */
+  const fileItems = useCallback((doc, { tab = false } = {}) => {
+    const file = doc.path || doc.file || '';
+    const image = doc.kind === 'image';
+    const isActive = doc.id === activeRef.current;
+    return [
+      image && !tab ? { label: t('menu.save'), icon: 'save', shortcut: 'Ctrl+S', onClick: () => saveDoc(doc, false) } : null,
+      { label: t('menu.saveAs'), icon: 'saveAs', shortcut: image && isActive ? 'Ctrl+Shift+S' : undefined, onClick: () => saveDoc(doc, true) },
+      image && !tab ? { label: t('menu.export'), icon: 'export', shortcut: 'Ctrl+E', onClick: () => exportImage(doc) } : null,
+      tab ? null : { label: t('menu.print'), icon: 'print', shortcut: 'Ctrl+P', onClick: print },
+      'sep',
+      { label: t('tabs.showInFolder'), icon: 'folder', disabled: !isDesktop || !file, onClick: () => platform.shell.showItem(file) },
+      { label: t('history.copyPath'), icon: 'copy', disabled: !file, onClick: () => platform.clipboard.writeText(file).then(() => toast(t('toast.pathCopied'))) },
+    ].filter(Boolean);
+  }, [exportImage, print, saveDoc, t, toast]);
+
   const editorContextMenu = useCallback((e, { annotation }) => {
     const doc = docsRef.current.find((d) => d.id === activeRef.current);
     if (!doc) return;
@@ -974,8 +1288,9 @@ export default function App() {
     if (annotation) {
       if (annotation.type === 'text') items.push({ label: t('menu.editText'), icon: 'text', onClick: () => editorRef.current && editorRef.current.editText(annotation.id) });
       items.push(
-        { label: t('menu.cut'), icon: 'copy', shortcut: 'Ctrl+X', onClick: () => copy({ cut: true }) },
+        { label: t('menu.cut'), icon: 'cut', shortcut: 'Ctrl+X', onClick: () => copy({ cut: true }) },
         { label: t('menu.copy'), icon: 'copy', shortcut: 'Ctrl+C', onClick: () => copy() },
+        { label: t('menu.paste'), icon: 'paste', shortcut: 'Ctrl+V', onClick: () => paste() },
         { label: t('menu.duplicate'), icon: 'duplicate', shortcut: 'Ctrl+D', onClick: duplicateSelected },
         { label: t('menu.delete'), icon: 'trash', shortcut: 'Del', danger: true, onClick: deleteSelected },
         'sep',
@@ -985,11 +1300,18 @@ export default function App() {
       );
     } else {
       items.push(
-        { label: t('menu.paste'), icon: 'paste', shortcut: 'Ctrl+V', onClick: paste },
+        { label: t('menu.cutSelection'), icon: 'cut', shortcut: 'Ctrl+X', disabled: !doc.selection, onClick: () => { selectAnnotation(null); copy({ regionOnly: true, cut: true }); } },
+        { label: t('menu.copySelection'), icon: 'region', shortcut: 'Ctrl+C', disabled: !doc.selection, onClick: () => copy({ regionOnly: true }) },
         { label: t('menu.copyImage'), icon: 'copy', onClick: () => { selectAnnotation(null); copy({ regionOnly: false }); } },
-        { label: t('menu.copySelection'), icon: 'region', disabled: !doc.selection, onClick: () => copy({ regionOnly: true }) },
+        { label: t('menu.paste'), icon: 'paste', shortcut: 'Ctrl+V', onClick: () => paste() },
+        { label: t('menu.pasteAsNew'), icon: 'paste', shortcut: 'Ctrl+Alt+V', onClick: () => paste({ asNewDocument: true }) },
+        'sep',
+        { label: t('menu.selectAll'), icon: 'region', shortcut: 'Ctrl+A', onClick: selectAll },
+        { label: t('menu.eraseSelection'), icon: 'trash', shortcut: 'Del', disabled: !doc.selection, onClick: eraseSelection },
         { label: t('menu.cropToSelection'), icon: 'crop', shortcut: 'Enter', disabled: !doc.selection, onClick: applyCrop },
         { label: t('menu.deselect'), icon: 'close', shortcut: 'Esc', disabled: !doc.selection && !doc.selectedId, onClick: () => { setSelection(null); selectAnnotation(null); } },
+        'sep',
+        ...SELECTION_SHAPES.map((shape) => ({ label: t(`selShape.${shape}`), icon: SHAPE_ICON[shape], checked: selectionShape(doc.selection || { shape: settingsRef.current.editor.selectionShape }) === shape, onClick: () => setSelectionShape(shape) })),
         'sep',
       );
     }
@@ -997,32 +1319,211 @@ export default function App() {
       { label: t('toolbar.undo'), icon: 'undo', shortcut: 'Ctrl+Z', disabled: !canUndo(doc.history), onClick: undo },
       { label: t('toolbar.redo'), icon: 'redo', shortcut: 'Ctrl+Y', disabled: !canRedo(doc.history), onClick: redo },
       'sep',
-      { label: t('menu.zoomFit'), icon: 'fit', shortcut: 'Ctrl+0', onClick: zoomFit },
-      { label: t('menu.zoom100'), icon: 'actual', shortcut: 'Ctrl+1', onClick: zoom100 },
+      { label: t('menu.zoomIn'), icon: 'zoomIn', shortcut: 'Ctrl++', disabled: doc.zoom >= ZOOM_MAX, onClick: zoomIn },
+      { label: t('menu.zoomOut'), icon: 'zoomOut', shortcut: 'Ctrl+-', disabled: doc.zoom <= ZOOM_MIN, onClick: zoomOut },
+      { label: t('menu.zoomFit'), icon: 'fit', shortcut: 'Ctrl+0', checked: !!doc.autoFit, onClick: zoomFit },
+      { label: t('menu.zoom100'), icon: 'actual', shortcut: 'Ctrl+1', checked: !doc.autoFit && Math.abs(doc.zoom - 1) < 1e-6, onClick: zoom100 },
     );
+    if (!annotation) items.push('sep', ...fileItems(doc));
     openContextMenu(e.clientX, e.clientY, items);
-  }, [applyCrop, copy, deleteSelected, duplicateSelected, openContextMenu, paste, redo, reorder, selectAnnotation, setSelection, t, undo, zoom100, zoomFit]);
+  }, [applyCrop, copy, deleteSelected, duplicateSelected, eraseSelection, fileItems, openContextMenu, paste, redo, reorder, selectAll, selectAnnotation, setSelection, setSelectionShape, t, undo, zoom100, zoomFit, zoomIn, zoomOut]);
+
+  const videoFrameToImage = useCallback(async (player, doc, toClipboard) => {
+    try {
+      const png = player && player.framePng();
+      if (!png) { toast(t('error.noFrame'), 'warn'); return; }
+      if (toClipboard) {
+        await platform.clipboard.writeImage(png);
+        toast(t('toast.frameCopied'));
+        return;
+      }
+      const img = await normalizeToPng(png);
+      addDoc(createImageDocument(img, { name: `${doc.name} ${formatDuration(player.time).replace(/:/g, '-')}`, source: { type: 'frame', video: doc.path || '', time: player.time } }));
+      toast(t('toast.frameOpened'));
+    } catch (err) { reportError(err, t('error.clipboard')); }
+  }, [addDoc, reportError, t, toast]);
 
   const videoContextMenu = useCallback((e) => {
     const doc = docsRef.current.find((d) => d.id === activeRef.current);
     if (!doc) return;
-    openContextMenu(e.clientX, e.clientY, [
-      { label: t('toolbar.saveAs'), icon: 'saveAs', onClick: () => saveDoc(doc, true) },
-      { label: t('tabs.showInFolder'), icon: 'folder', disabled: !isDesktop || !doc.path, onClick: () => platform.shell.showItem(doc.path) },
-      { label: t('toolbar.print'), icon: 'print', onClick: print },
-    ]);
-  }, [openContextMenu, print, saveDoc, t]);
+    const p = videoControl(mainRef.current);
+    const items = [];
+    if (p) {
+      const i = SPEEDS.indexOf(p.rate);
+      items.push(
+        { label: p.paused ? t('player.playLabel') : t('player.pauseLabel'), icon: p.paused ? 'play' : 'pause', shortcut: 'Space', onClick: p.togglePlay },
+        { label: t('player.backLabel', { n: SKIP }), icon: 'rewind', shortcut: '←', onClick: () => p.skip(-SKIP) },
+        { label: t('player.forwardLabel', { n: SKIP }), icon: 'forward', shortcut: '→', onClick: () => p.skip(SKIP) },
+        { label: t('player.toStartLabel'), icon: 'skipStart', shortcut: 'Home', onClick: p.toStart },
+        'sep',
+        { label: t('player.faster'), icon: 'plus', sub: `${p.rate}×`, disabled: i === SPEEDS.length - 1, onClick: () => p.setRate(SPEEDS[Math.min(SPEEDS.length - 1, (i < 0 ? SPEEDS.indexOf(1) : i) + 1)]) },
+        { label: t('player.slower'), icon: 'minus', disabled: i === 0, onClick: () => p.setRate(SPEEDS[Math.max(0, (i < 0 ? SPEEDS.indexOf(1) : i) - 1)]) },
+        { label: t('player.normalSpeed'), icon: 'refresh', disabled: p.rate === 1, onClick: () => p.setRate(1) },
+        'sep',
+        { label: t('player.muteLabel'), icon: 'mute', shortcut: 'M', checked: p.muted, onClick: p.toggleMute },
+        { label: t('player.loop'), icon: 'loop', checked: p.loop, onClick: p.toggleLoop },
+        { label: t('player.fullscreenLabel'), icon: 'fullscreen', shortcut: 'F', checked: p.fullscreen, onClick: p.toggleFullscreen },
+        'sep',
+        { label: t('menu.copyFrame'), icon: 'copy', onClick: () => videoFrameToImage(p, doc, true) },
+        { label: t('menu.frameAsImage'), icon: 'image', onClick: () => videoFrameToImage(p, doc, false) },
+        'sep',
+      );
+    }
+    items.push(...fileItems(doc));
+    openContextMenu(e.clientX, e.clientY, items);
+  }, [fileItems, openContextMenu, t, videoFrameToImage]);
 
   const tabContextMenu = useCallback((e, d) => {
+    const others = docsRef.current.filter((x) => x.id !== d.id);
+    const i = docsRef.current.findIndex((x) => x.id === d.id);
     openContextMenu(e.clientX, e.clientY, [
-      { label: t('tabs.close'), icon: 'close', onClick: () => closeDoc(d.id) },
-      { label: t('tabs.closeOthers'), icon: 'close', disabled: docsRef.current.length < 2, onClick: async () => { for (const o of docsRef.current.filter((x) => x.id !== d.id)) if (!(await closeDoc(o.id))) break; } },
+      { label: t('tabs.closeMenu'), icon: 'close', shortcut: d.id === activeRef.current ? 'Ctrl+W' : undefined, onClick: () => closeDoc(d.id) },
+      { label: t('tabs.closeOthers'), icon: 'close', disabled: !others.length, onClick: async () => { for (const o of others) if (!(await closeDoc(o.id))) break; } },
+      { label: t('tabs.closeRight'), icon: 'close', disabled: i === docsRef.current.length - 1, onClick: async () => { for (const o of docsRef.current.slice(i + 1)) if (!(await closeDoc(o.id))) break; } },
       { label: t('tabs.closeAll'), icon: 'close', onClick: async () => { for (const o of [...docsRef.current]) if (!(await closeDoc(o.id))) break; } },
       'sep',
       { label: t('tabs.rename'), icon: 'text', disabled: d.kind !== 'image', onClick: async () => { const r = await ask('prompt#rename', { title: t('prompt.renameTitle'), label: t('prompt.renameLabel'), value: d.name }); if (r && r.value) updateDoc(d.id, (x) => ({ ...x, name: r.value })); } },
-      { label: t('tabs.showInFolder'), icon: 'folder', disabled: !isDesktop || !d.path, onClick: () => platform.shell.showItem(d.path) },
+      'sep',
+      ...fileItems(d, { tab: true }),
     ]);
-  }, [ask, closeDoc, openContextMenu, t, updateDoc]);
+  }, [ask, closeDoc, fileItems, openContextMenu, t, updateDoc]);
+
+  // ── Capture history panel ──
+  const docForPath = (p) => docsRef.current.find((d) => d.file === p || d.path === p || (d.source && d.source.path === p));
+  const toggleHistory = useCallback(() => updateSettings((s) => ({ history: { ...s.history, open: !s.history.open } })), [updateSettings]);
+  // A side panel may grow only into the editor's spare width (never below EDITOR_MIN_W),
+  // so dragging it does not widen the window.
+  const fitPanel = useCallback((width, current) => {
+    if (width <= current || !mainRef.current) return width;
+    return Math.min(width, Math.max(current, current + mainRef.current.offsetWidth - EDITOR_MIN_W));
+  }, []);
+  const resizeHistory = useCallback((width) => updateSettings((s) => ({ history: { ...s.history, width: fitPanel(width, s.history.width) } })), [fitPanel, updateSettings]);
+  const toggleToolPanel = useCallback(() => updateSettings((s) => ({ toolPanel: { ...s.toolPanel, open: !s.toolPanel.open } })), [updateSettings]);
+  const resizeToolPanel = useCallback((width) => updateSettings((s) => ({ toolPanel: { ...s.toolPanel, width: fitPanel(width, s.toolPanel.width) } })), [fitPanel, updateSettings]);
+
+  useEffect(applyMinWidth, [applyMinWidth, settings.toolPanel.open, settings.toolPanel.width, settings.history.open, settings.history.width]);
+
+  // The minimum height lets the tool panel scroll, but the window opens tall
+  // enough to show all of it (within the screen). Measured after the start-up
+  // sizing and font loading have settled.
+  useEffect(() => {
+    const timers = [];
+    const fit = () => {
+      const list = document.querySelector('.tool-list, .tool-strip');
+      const missing = list ? list.scrollHeight - list.clientHeight : 0;
+      if (missing > 0) {
+        platform.windowControls.setSize({ width: window.innerWidth, height: Math.min(window.screen.availHeight, window.innerHeight + missing) });
+      }
+    };
+    timers.push(setTimeout(fit, 600));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => timers.push(setTimeout(fit, 600)));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const markMissing = useCallback((entry, gone) => {
+    setMissing((m) => {
+      if (m.has(entry.id) === gone) return m;
+      const next = new Set(m);
+      if (gone) next.add(entry.id); else next.delete(entry.id);
+      return next;
+    });
+  }, []);
+
+  /** False (with a message) when the entry's file is gone. */
+  const entryExists = useCallback(async (entry) => {
+    if (!entry.path || !isDesktop) return false;
+    const ok = await platform.fs.exists(entry.path).catch(() => false);
+    markMissing(entry, !ok);
+    if (!ok) toast(t('toast.historyMissing', { name: nameOf(entry.path) }), 'warn');
+    return ok;
+  }, [markMissing, t, toast]);
+
+  const openHistoryEntry = useCallback(async (entry) => {
+    const docId = entryDocs.current.get(entry.id);
+    const open = (docId && docsRef.current.find((d) => d.id === docId)) || (entry.path && docForPath(entry.path));
+    if (open) { setActiveId(open.id); return; }
+    if (!(await entryExists(entry))) return;
+    try {
+      const doc = await openPath(entry.path);
+      if (doc) entryDocs.current.set(entry.id, doc.id);
+    } catch (err) { reportError(err, t('error.open')); }
+  }, [entryExists, openPath, reportError, t]);
+
+  const revealHistoryEntry = useCallback(async (entry) => {
+    if (await entryExists(entry)) platform.shell.showItem(entry.path);
+  }, [entryExists]);
+
+  const removeHistoryEntry = useCallback((entry) => {
+    setHistory((list) => removeEntry(list, entry.id));
+    entryDocs.current.delete(entry.id);
+    toast(t('toast.historyRemoved'));
+  }, [t, toast]);
+
+  const clearHistory = useCallback(async () => {
+    const n = history.length;
+    if (!n) return;
+    const r = await confirm({
+      title: t('history.clearTitle'), message: t('history.clearConfirm', { n }), icon: 'warning',
+      buttons: [{ id: 'cancel', label: t('common.cancel') }, { id: 'ok', label: t('history.clearOk'), kind: 'danger' }],
+    });
+    if (!r || r.id !== 'ok') return;
+    setHistory([]);
+    setMissing(new Set());
+    entryDocs.current.clear();
+    toast(t('toast.historyCleared'));
+  }, [confirm, history.length, t, toast]);
+
+  const openCaptureFolder = useCallback(async () => {
+    const dir = captureDirectory();
+    if (!dir) return;
+    try {
+      await platform.fs.ensureDir(dir);
+      await platform.shell.openPath(dir);
+    } catch (err) { reportError(err, dir); }
+  }, [captureDirectory, reportError]);
+
+  const historyContextMenu = useCallback((e, entry) => {
+    openContextMenu(e.clientX, e.clientY, [
+      { label: t('history.open'), icon: 'open', onClick: () => openHistoryEntry(entry) },
+      { label: t('history.reveal'), icon: 'folder', disabled: !isDesktop || !entry.path, onClick: () => revealHistoryEntry(entry) },
+      { label: t('history.copyPath'), icon: 'copy', disabled: !entry.path, onClick: () => platform.clipboard.writeText(entry.path).then(() => toast(t('toast.pathCopied'))) },
+      { label: t('history.openFolder'), icon: 'open', disabled: !isDesktop, onClick: openCaptureFolder },
+      'sep',
+      { label: t('history.remove'), icon: 'close', onClick: () => removeHistoryEntry(entry) },
+      { label: t('history.clear'), icon: 'trash', danger: true, onClick: clearHistory },
+      'sep',
+      { label: t('history.collapseMenu'), icon: 'chevronRight', shortcut: 'Ctrl+H', onClick: toggleHistory },
+    ]);
+  }, [clearHistory, openCaptureFolder, openContextMenu, openHistoryEntry, removeHistoryEntry, revealHistoryEntry, t, toast, toggleHistory]);
+
+  // Right-clicks nothing else handled: text fields get an edit menu, the rest of the window this one.
+  useEffect(() => installFallbackMenu({
+    t,
+    open: openContextMenu,
+    generalItems: () => {
+      const s = settingsRef.current;
+      const canCapture = platform.capture.available;
+      const rec = !!recordingRef.current;
+      return [
+        { label: t('toolbar.captureScreen'), icon: 'screen', shortcut: 'Ctrl+N', disabled: !canCapture || rec, onClick: captureScreen },
+        { label: t('toolbar.captureWindow'), icon: 'window', shortcut: 'Ctrl+Shift+W', disabled: !canCapture || rec, onClick: captureWindow },
+        { label: t('toolbar.captureRegion'), icon: 'region', shortcut: 'Ctrl+Shift+R', disabled: !canCapture || rec, onClick: captureRegion },
+        rec
+          ? { label: t('toolbar.stopRecord'), icon: 'stop', shortcut: 'Ctrl+Shift+V', onClick: stopRecording }
+          : { label: t('toolbar.record'), icon: 'record', shortcut: 'Ctrl+Shift+V', disabled: !canCapture, onClick: startRecording },
+        'sep',
+        { label: t('toolbar.open'), icon: 'open', shortcut: 'Ctrl+O', onClick: openFile },
+        { label: t('toolbar.openUrl'), icon: 'link', shortcut: 'Ctrl+L', onClick: openUrl },
+        { label: t('menu.paste'), icon: 'paste', shortcut: 'Ctrl+V', onClick: () => paste() },
+        'sep',
+        { label: t('toolPanel.title'), icon: 'tools', shortcut: 'Ctrl+B', checked: s.toolPanel.open, onClick: toggleToolPanel },
+        { label: t('history.title'), icon: 'recent', shortcut: 'Ctrl+H', checked: s.history.open, onClick: toggleHistory },
+        'sep',
+        { label: t('toolbar.settings'), icon: 'settings', shortcut: 'Ctrl+,', onClick: openSettings },
+        { label: t('toolbar.about'), icon: 'info', shortcut: 'F1', onClick: openAbout },
+      ];
+    },
+  }), [captureRegion, captureScreen, captureWindow, openAbout, openContextMenu, openFile, openSettings, openUrl, paste, startRecording, stopRecording, t, toggleHistory, toggleToolPanel]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -1041,6 +1542,8 @@ export default function App() {
       if (ctrl && k === 'p') { stop(); print(); return; }
       if (ctrl && k === ',') { stop(); openSettings(); return; }
       if (e.key === 'F1') { stop(); openAbout(); return; }
+      if (ctrl && !e.shiftKey && k === 'h') { stop(); toggleHistory(); return; }
+      if (ctrl && !e.shiftKey && k === 'b') { stop(); toggleToolPanel(); return; }
       if (typing) return;
       const doc = docsRef.current.find((d) => d.id === activeRef.current);
       if (ctrl && k === 's') { stop(); if (doc) saveDoc(doc, e.shiftKey); return; }
@@ -1050,7 +1553,8 @@ export default function App() {
       if (ctrl && (k === 'y' || (k === 'z' && e.shiftKey))) { stop(); redo(); return; }
       if (ctrl && k === 'c') { stop(); copy(); return; }
       if (ctrl && k === 'x') { stop(); copy({ cut: true }); return; }
-      if (ctrl && k === 'v') { stop(); paste(); return; }
+      if (ctrl && k === 'v') { stop(); paste({ asNewDocument: e.altKey }); return; }
+      if (ctrl && k === 'a') { stop(); selectAll(); return; }
       if (ctrl && k === 'd') { stop(); duplicateSelected(); return; }
       if (ctrl && (k === '=' || k === '+')) { stop(); zoomIn(); return; }
       if (ctrl && k === '-') { stop(); zoomOut(); return; }
@@ -1063,8 +1567,8 @@ export default function App() {
         return;
       }
       if (!doc || doc.kind !== 'image') return;
-      if (e.key === 'Delete' || e.key === 'Backspace') { stop(); deleteSelected(); return; }
-      if (e.key === 'Escape') { stop(); setSelection(null); selectAnnotation(null); setTool('select'); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { stop(); deleteSelection(); return; }
+      if (e.key === 'Escape') { stop(); deselect(); setTool('select'); return; }
       if (e.key === 'Enter' && doc.selection) { stop(); applyCrop(); return; }
       if (e.key.startsWith('Arrow') && doc.selectedId) {
         stop();
@@ -1079,7 +1583,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [applyCrop, captureRegion, captureScreen, captureWindow, closeDoc, copy, deleteSelected, duplicateSelected, exportImage, nudge, openAbout, openFile, openSettings, openUrl, paste, print, redo, saveDoc, selectAnnotation, setSelection, startRecording, stopRecording, undo, zoom100, zoomFit, zoomIn, zoomOut]);
+  }, [applyCrop, captureRegion, captureScreen, captureWindow, closeDoc, copy, deleteSelection, deselect, duplicateSelected, exportImage, nudge, openAbout, openFile, openSettings, openUrl, paste, print, redo, saveDoc, selectAll, startRecording, stopRecording, toggleHistory, toggleToolPanel, undo, zoom100, zoomFit, zoomIn, zoomOut]);
 
   // ── Toolbar wiring ──
   const setAnn = useCallback((patch) => updateSettings((s) => ({ annotation: { ...s.annotation, ...patch } })), [updateSettings]);
@@ -1089,27 +1593,34 @@ export default function App() {
     nextTheme: () => updateSettings((s) => ({ theme: nextThemeId(s.theme, s.customThemes) })),
     openThemeMenu,
     save: () => active && saveDoc(active, false), saveAs: () => active && saveDoc(active, true), exportImage: () => active && exportImage(active), print,
-    undo, redo, copy: () => copy(), paste, zoomIn, zoomOut, zoomFit, zoom100,
+    undo, redo, copy: () => copy(), cut: () => copy({ cut: true }), paste: () => paste(), zoomIn, zoomOut, zoomFit, zoom100,
     settings: openSettings, about: openAbout,
     toggleLanguage: () => updateSettings((s) => ({ language: s.language === 'ko' ? 'en' : 'ko' })),
-    setTool, setColor: (v) => setAnn({ color: v }), setStrokeWidth: (v) => setAnn({ strokeWidth: v }), setFill: (v) => setAnn({ fill: v }), setFontSize: (v) => setAnn({ fontSize: v }),
-    deleteSelected, applyCrop, onMeasure,
-  }), [active, applyCrop, captureRegion, captureScreen, captureWindow, copy, deleteSelected, exportImage, onMeasure, openAbout, openFile, openRecentMenu, openSettings, openThemeMenu, openUrl, paste, print, redo, saveDoc, setAnn, startRecording, stopRecording, undo, updateSettings, zoom100, zoomFit, zoomIn, zoomOut]);
+    setTool, onMeasure, openZoomMenu,
+  }), [active, openZoomMenu, captureRegion, captureScreen, captureWindow, copy, exportImage, onMeasure, openAbout, openFile, openRecentMenu, openSettings, openThemeMenu, openUrl, paste, print, redo, saveDoc, startRecording, stopRecording, undo, updateSettings, zoom100, zoomFit, zoomIn, zoomOut]);
+
+  const annotationActions = useMemo(() => ({
+    setColor: (v) => setAnn({ color: v }), setStrokeWidth: (v) => setAnn({ strokeWidth: v }), setFill: (v) => setAnn({ fill: v }), setFontSize: (v) => setAnn({ fontSize: v }),
+  }), [setAnn]);
+
+  const selectionActions = useMemo(() => ({
+    setShape: setSelectionShape, selectAll, crop: applyCrop, remove: deleteSelection, deselect,
+  }), [applyCrop, deleteSelection, deselect, selectAll, setSelectionShape]);
 
   const tbState = useMemo(() => ({
     canCapture: platform.capture.available, recording, hasDoc: !!active, isImage: !!(active && active.kind === 'image'),
     canUndo: !!(active && active.history && canUndo(active.history)), canRedo: !!(active && active.history && canRedo(active.history)),
-    tool, color: toolProps.color, strokeWidth: toolProps.strokeWidth, fill: toolProps.fill, fontSize: toolProps.font.size,
+    zoom: active ? active.zoom : 1,
+    undoCount: active && active.history ? active.history.past.length : 0, redoCount: active && active.history ? active.history.future.length : 0,
     themeId: settings.theme,
     customThemes: settings.customThemes,
     themeMenuOpen: themeMenuOpen || !!(webMenu && webMenu.kind === 'theme'),
     nextThemeLabel: themeLabel(themeById(nextThemeId(settings.theme, settings.customThemes), settings.customThemes), i18n.language),
     selectedId: active ? active.selectedId : null, hasSelection: !!(active && active.selection),
     fontKey: `${settings.font.family}|${settings.font.size}|${settings.font.bold}|${settings.font.italic}`,
-  }), [active, recording, settings, tool, toolProps, i18n.language, themeMenuOpen, webMenu]);
+  }), [active, recording, settings, i18n.language, themeMenuOpen, webMenu]);
 
   const onEditorCommit = useCallback((next, extra) => { if (activeRef.current) commit(activeRef.current, next, extra); }, [commit]);
-  const onFitDone = useCallback(() => { if (activeRef.current) updateDoc(activeRef.current, (d) => (d.fitRequested ? { ...d, fitRequested: false } : d)); }, [updateDoc]);
   const onVideoMeta = useCallback((m) => { if (activeRef.current) updateDoc(activeRef.current, (d) => (d.width === m.width && d.duration === m.duration ? d : { ...d, ...m })); }, [updateDoc]);
 
   const welcomeAction = useCallback((what) => {
@@ -1121,15 +1632,33 @@ export default function App() {
   // Development hook for scripted smoke tests (never in a packaged build).
   useEffect(() => {
     if (info.packaged !== false) return undefined;
-    window.__capturemaster = { openPaths, saveDoc, exportImage, print, closeDoc, get docs() { return docsRef.current; }, get active() { return docsRef.current.find((d) => d.id === activeRef.current); }, reportError, settings: settingsRef, updateSettings };
+    window.__capturemaster = { openPaths, saveDoc, exportImage, print, closeDoc, commit, updateDoc, get docs() { return docsRef.current; }, get active() { return docsRef.current.find((d) => d.id === activeRef.current); }, reportError, settings: settingsRef, updateSettings, history, captureScreen, captureRegion };
     return () => { delete window.__capturemaster; };
-  }, [closeDoc, exportImage, info.packaged, openPaths, print, reportError, saveDoc, updateSettings]);
+  }, [captureRegion, captureScreen, closeDoc, commit, exportImage, history, info.packaged, openPaths, print, reportError, saveDoc, updateDoc, updateSettings]);
 
   return (
-    <div className={`app${platform.windowControls.available ? '' : ' no-frame'}`}>
+    <div className={`app${platform.windowControls.available ? '' : ' no-frame'}`} style={{ '--side-w': `${settings.history.open ? settings.history.width : 30}px` }}>
       <TitleBar version={info.version} docName={active ? active.name : ''} dirty={!!(active && isDirty(active))} isMac={isMac} />
       <Toolbar s={tbState} a={actions} recentAnchorRef={recentAnchorRef} />
       <Tabs docs={docs} activeId={activeId} onSelect={setActiveId} onClose={closeDoc} onContextMenu={tabContextMenu} />
+      <div className="workspace">
+      <ToolPanel
+        open={settings.toolPanel.open}
+        width={settings.toolPanel.width}
+        tool={tool}
+        enabled={!!(active && active.kind === 'image')}
+        selection={{
+          shape: active && active.selection ? selectionShape(active.selection) : settings.editor.selectionShape,
+          hasSelection: !!(active && active.selection),
+          hasAnnotation: !!(active && active.selectedId),
+        }}
+        onSelection={selectionActions}
+        annotation={{ color: toolProps.color, strokeWidth: toolProps.strokeWidth, fill: toolProps.fill, fontSize: toolProps.font.size }}
+        onAnnotation={annotationActions}
+        onSetTool={actions.setTool}
+        onToggle={toggleToolPanel}
+        onResize={resizeToolPanel}
+      />
       <div className="main" ref={mainRef}>
         {!active ? <Welcome onAction={welcomeAction} canCapture={platform.capture.available} /> : null}
         {active && active.kind === 'image' ? (
@@ -1140,20 +1669,36 @@ export default function App() {
             zoom={active.zoom}
             tool={tool}
             toolProps={toolProps}
+            selectionShape={settings.editor.selectionShape}
             selectedId={active.selectedId}
-            checkerboard={settings.editor.checkerboard}
             onZoomChange={setZoom}
             onSelect={selectAnnotation}
             onCommit={onEditorCommit}
             onSelectionChange={setSelection}
             onCursor={setCursor}
             onContextMenu={editorContextMenu}
-            onFitDone={onFitDone}
           />
         ) : null}
         {active && active.kind === 'video' ? <VideoView key={active.id} doc={active} onMeta={onVideoMeta} onContextMenu={videoContextMenu} /> : null}
         {dropping ? <div className="drop-hint">{t('welcome.drop')}</div> : null}
         {countdown ? <div className="countdown"><div>{countdown}</div></div> : null}
+      </div>
+      <HistoryPanel
+        items={history}
+        open={settings.history.open}
+        width={settings.history.width}
+        activePath={active ? active.file || active.path || (active.source && active.source.path) || '' : ''}
+        missing={missing}
+        canReveal={isDesktop}
+        onToggle={toggleHistory}
+        onResize={resizeHistory}
+        onOpen={openHistoryEntry}
+        onReveal={revealHistoryEntry}
+        onRemove={removeHistoryEntry}
+        onClear={clearHistory}
+        onOpenFolder={openCaptureFolder}
+        onContextMenu={historyContextMenu}
+      />
       </div>
       <StatusBar
         doc={active}

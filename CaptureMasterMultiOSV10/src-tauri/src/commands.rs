@@ -224,6 +224,12 @@ pub fn fs_exists(path: String) -> bool {
 }
 
 #[tauri::command]
+pub fn fs_ensure_dir(path: String) -> Result<bool, String> {
+    fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 pub fn fs_stat(path: String) -> Option<Value> {
     let p = Path::new(&path);
     let meta = fs::metadata(p).ok()?;
@@ -390,7 +396,14 @@ fn decode_data_url(data_url: &str) -> Result<Vec<u8>, String> {
 #[tauri::command]
 pub fn clipboard_write_image(data_url: String) -> Result<bool, String> {
     let bytes = decode_data_url(&data_url)?;
-    let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?.to_rgba8();
+    let mut img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?.to_rgba8();
+    // Programs that paste the alpha-less bitmap format show the colour of fully
+    // transparent pixels; white reads as "empty" there, while PNG keeps the alpha.
+    for px in img.as_mut().chunks_exact_mut(4) {
+        if px[3] == 0 {
+            px[..3].fill(255);
+        }
+    }
     let width = img.width() as usize;
     let height = img.height() as usize;
     let mut clip = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -415,6 +428,20 @@ pub fn clipboard_read_image() -> Result<Option<Value>, String> {
     encoder.write_image(&img.bytes, img.width as u32, img.height as u32, image::ExtendedColorType::Rgba8).map_err(|e| e.to_string())?;
     let data_url = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(buf.into_inner()));
     Ok(Some(json!({ "dataUrl": data_url, "width": img.width, "height": img.height })))
+}
+
+#[tauri::command]
+pub async fn print_list_printers() -> Value {
+    crate::printing::list_printers()
+}
+
+/// Prints (or writes as PDF) the page of the webview that calls this.
+#[tauri::command]
+pub async fn print_page(webview: tauri::Webview, options: crate::printing::PrintOptions) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::printing::print(&webview, options))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(true)
 }
 
 #[tauri::command]
@@ -449,20 +476,22 @@ pub struct SourceOpts {
     include_self: Option<bool>,
 }
 
+// Captures are async so the encoding work runs off the main thread and does not
+// stall the window event loop.
 #[tauri::command]
-pub fn capture_list_sources(opts: Option<SourceOpts>) -> Result<Vec<Value>, String> {
+pub async fn capture_list_sources(opts: Option<SourceOpts>) -> Result<Vec<Value>, String> {
     let opts = opts.unwrap_or_default();
     let types = opts.types.unwrap_or_else(|| vec!["screen".into(), "window".into()]);
     capture::list_sources(&types, opts.thumb_width.unwrap_or(360), opts.include_self.unwrap_or(true))
 }
 
 #[tauri::command]
-pub fn capture_grab_screen(source_id: Option<String>) -> Result<Value, String> {
+pub async fn capture_grab_screen(source_id: Option<String>) -> Result<Value, String> {
     capture::grab_screen(source_id.as_deref())
 }
 
 #[tauri::command]
-pub fn capture_grab_window(source_id: String) -> Result<Value, String> {
+pub async fn capture_grab_window(source_id: String) -> Result<Value, String> {
     capture::grab_window(&source_id)
 }
 
@@ -482,14 +511,45 @@ pub fn capture_hide_app(app: AppHandle, state: tauri::State<AppState>) -> bool {
     for (label, win) in app.webview_windows() {
         if win.is_visible().unwrap_or(false) {
             hidden.push(label);
+            disable_transitions(&win);
             let _ = win.hide();
         }
     }
     if let Ok(mut slot) = state.hidden.lock() {
         *slot = hidden;
     }
+    wait_for_compositor();
     true
 }
+
+/// Without this DWM fades hidden windows out, and they would show up in the shot.
+#[cfg(windows)]
+fn disable_transitions(win: &WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
+    if let Ok(hwnd) = win.hwnd() {
+        let on: i32 = 1;
+        unsafe {
+            let _ = DwmSetWindowAttribute(HWND(hwnd.0 as _), DWMWA_TRANSITIONS_FORCEDISABLED, &on as *const i32 as *const _, std::mem::size_of::<i32>() as u32);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn disable_transitions(_win: &WebviewWindow) {}
+
+/// Returns once the desktop has been recomposed without the hidden windows.
+#[cfg(windows)]
+fn wait_for_compositor() {
+    for _ in 0..2 {
+        unsafe {
+            let _ = windows::Win32::Graphics::Dwm::DwmFlush();
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn wait_for_compositor() {}
 
 #[tauri::command]
 pub fn capture_show_app(app: AppHandle, state: tauri::State<AppState>) -> bool {
@@ -578,6 +638,50 @@ pub async fn rec_window_frame(token: String, timeout_ms: u64) -> Result<tauri::i
 pub fn rec_window_stop(token: String) -> bool {
     crate::window_rec::stop(&token);
     true
+}
+
+/// Image bytes come as the raw request body; the target goes in headers
+/// (`x-path` URI-encoded, `x-format`, `x-quality`).
+#[tauri::command]
+pub async fn image_export(request: tauri::ipc::Request<'_>) -> Result<u64, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("Expected image bytes.".into());
+    };
+    let header = |key: &str| {
+        request.headers().get(key).and_then(|v| v.to_str().ok()).map(|v| urlencoding::decode(v).map(|s| s.into_owned()).unwrap_or_default()).unwrap_or_default()
+    };
+    let (path, format) = (header("x-path"), header("x-format"));
+    let quality = header("x-quality").parse::<u8>().unwrap_or(90);
+    let bytes = bytes.clone();
+    tauri::async_runtime::spawn_blocking(move || crate::media::export_image(&bytes, &path, &format, quality))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn image_read_png(path: String) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || crate::media::read_as_png(&path)).await.map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+pub async fn rec_gif_start(source_id: String, path: String, fps: u32, max_width: u32) -> Result<String, String> {
+    crate::gif_rec::start(&source_id, &path, fps, max_width)
+}
+
+#[tauri::command]
+pub fn rec_gif_pause(token: String, paused: bool) -> bool {
+    crate::gif_rec::set_paused(&token, paused)
+}
+
+#[tauri::command]
+pub fn rec_gif_gone(token: String) -> bool {
+    crate::gif_rec::is_gone(&token)
+}
+
+#[tauri::command]
+pub async fn rec_gif_stop(token: String, path: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::gif_rec::stop(&token, &path)).await.map_err(|e| e.to_string())?
 }
 
 /// Installed font families. Used instead of `queryLocalFonts()`, which makes
@@ -722,20 +826,27 @@ pub fn dialog_broadcast_appearance(app: AppHandle, appearance: Value) -> bool {
 }
 
 #[tauri::command]
-pub fn dialog_set_size(window: WebviewWindow, width: f64, height: f64) -> bool {
+/// Sets the dialog's content size (CSS pixels) and re-centres it over the
+/// main window (or over its old centre when there is no main window).
+pub fn dialog_set_size(app: AppHandle, window: WebviewWindow, width: f64, height: f64) -> bool {
     let scale = window.scale_factor().unwrap_or(1.0);
     let new_w = (width.max(200.0) * scale).round();
     let new_h = (height.max(120.0) * scale).round();
-    if let (Ok(pos), Ok(size)) = (window.outer_position(), window.outer_size()) {
+    if let Ok(size) = window.inner_size() {
         if (size.width as f64 - new_w).abs() < 1.0 && (size.height as f64 - new_h).abs() < 1.0 {
             return true;
         }
+    }
+    let anchor = app
+        .get_webview_window("main")
+        .filter(|m| m.label() != window.label())
+        .and_then(|m| Some((m.outer_position().ok()?, m.outer_size().ok()?)))
+        .or_else(|| Some((window.outer_position().ok()?, window.outer_size().ok()?)));
+    let _ = window.set_size(tauri::PhysicalSize::new(new_w as u32, new_h as u32));
+    if let Some((pos, size)) = anchor {
         let cx = pos.x as f64 + size.width as f64 / 2.0;
         let cy = pos.y as f64 + size.height as f64 / 2.0;
-        let _ = window.set_size(tauri::PhysicalSize::new(new_w as u32, new_h as u32));
         let _ = window.set_position(tauri::PhysicalPosition::new((cx - new_w / 2.0).round() as i32, (cy - new_h / 2.0).round() as i32));
-    } else {
-        let _ = window.set_size(tauri::LogicalSize::new(width.max(200.0), height.max(120.0)));
     }
     true
 }

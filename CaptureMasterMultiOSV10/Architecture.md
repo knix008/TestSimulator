@@ -76,7 +76,9 @@ ask('print', payload) ──invoke──▶ dialog:openWindow
 | 창 | renderer `lib/capture.js grabSourceFrame` → `getUserMedia({chromeMediaSourceId})` → `<video>` 첫 프레임 → canvas | desktopCapturer 는 작은 창을 요청 크기로 **늘려** 버리지만, 스트림 프레임은 창의 실제 픽셀 크기로 온다 |
 | 영역 | 화면 스틸 → `region` 오버레이 창 → 좌표(이미지 픽셀) → renderer `cropImage` | |
 
-공통 흐름(App.jsx `performCapture`): 지연 카운트다운 → (설정 시) 메인·다이얼로그 창 숨김 → 300–450 ms 대기(컴포지터) → 그랩 → 창 복원 → PNG 정규화 → 새 문서 탭 → 알림/클립보드.
+공통 흐름(App.jsx `performCapture`): 지연 카운트다운 → (설정 시) 메인·다이얼로그 창 숨김 → 300–450 ms 대기(컴포지터) → 그랩 → 창 복원 → PNG 정규화 → 새 문서 탭 → 클립보드 → 자동 저장·기록(`recordCapture`) → 알림.
+
+**자동 저장과 캡처 기록.** `recordCapture` 는 캡처를 설정의 이미지 형식으로 캡처 폴더(`paths.captureDir`, 비어 있으면 `내 사진/CaptureMaster`)에 `<문서 이름>.<확장자>` 로 쓴다(이름이 겹치면 ` (2)` …). PNG 는 캡처한 바이트를 그대로, 웹뷰가 못 만드는 형식은 데스크톱 쪽(`image_export`)에서 다시 인코딩한다. 저장된 경로는 문서의 `file` 에 두고 `savedPresent` 를 맞춰 손대지 않은 캡처는 "저장됨" 이 된다. 녹화는 이미 파일이므로 `recordRecording` 이 기록만 남긴다. 기록(`lib/captureHistory.js`)은 `{id, path, name, kind, source, width, height, bytes, time, thumb}` 의 목록(최신순, 최대 300개, 240px JPEG 썸네일)이며 설정과 따로 `userData/capture-history.json`(웹은 localStorage)에 저장한다. 기록에서 지우는 것은 목록 항목뿐이고 파일은 건드리지 않는다. 패널이 열릴 때 `fs_exists` 로 파일이 남아 있는지 확인해 없는 항목을 표시한다. 미디어 URL 은 다른 출처라 썸네일용 이미지·동영상은 `crossOrigin='anonymous'` 로 읽는다(그렇지 않으면 캔버스가 오염된다).
 
 Linux Wayland 는 `WebRTCPipeWireCapturer` 를 켜 두어 포털을 통해 같은 API 가 동작한다.
 
@@ -92,18 +94,26 @@ stop ─▶ recorder.stop() ─▶ 큐 drain ─▶ rec:close ─▶ 동영상 �
 - 파일 경로는 첫 프레임 전에 정한다(설정: 저장 위치 묻기 / 녹화 폴더 / 내 비디오).
 - `cm-media://local/<encoded path>` 프로토콜(main.js)이 Range 요청을 지원해 `<video>` 탐색이 된다. MediaRecorder 가 만든 WebM 은 길이 메타데이터가 없어서 `VideoView` 가 첫 로드에서 끝까지 seek 해 길이를 채운다.
 - 형식은 `MediaRecorder.isTypeSupported` 로 탐색한 것 중에서 고른다(자동 = WebM/VP9 우선).
+- **Tauri(WebView2) 의 화면·소리.** 화면 녹화는 `getDisplayMedia({video, audio: systemAudio})`, 창 녹화는 네이티브 창 프레임을 그린 캔버스 스트림에 시스템 소리만 따로(`getDisplayMedia` 의 오디오 트랙, 비디오 트랙은 바로 멈춤) 붙인다. WebView2 는 원래 이 요청마다 자체 화면 선택 창과 마이크 권한 창을 띄우므로, `lib.rs media_permissions()` 가 첫 웹뷰를 만들기 전에 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 에 `--use-fake-ui-for-media-stream`(선택 창 없이 허용: 화면 요청은 데스크톱 전체 + 시스템 소리)과 `--autoplay-policy=no-user-gesture-required`(소리를 섞는 AudioContext 가 사용자 클릭 없이도 돌도록)를 넣는다. 이 변수는 Tauri 가 넘기는 인자를 대신하므로 Tauri 의 기본 `--disable-features=…` 도 함께 넣는다. 앱은 자기 페이지만 열기 때문에 이 허용은 앱 자신의 요청에만 쓰인다. 데스크톱 전체가 여러 모니터에 걸치면 `monitorStream` 이 고른 모니터 영역(`list_sources` 의 물리 좌표 `bounds`)을 캔버스로 잘라 녹화한다. 시스템 소리를 얻지 못하면 소리 없이 다시 요청하고 `audioWarning` 으로 알린다.
+- **시스템 소리 음량.** `video.systemAudioGain`(%) 을 `startRecording({systemAudioGain})` 이 시스템 소리 트랙마다 GainNode 로 적용한다(100% 이고 다른 소리가 없으면 트랙을 그대로 쓴다). 설정 창의 테스트는 `systemAudioStream` 으로 같은 소리를 받아 마이크 테스트와 같은 `useLevelMeter` 로 그린다.
+- **마이크.** 설정의 `mic {deviceId, label, gain(%), echoCancellation, noiseSuppression, autoGainControl}` 을 `micOptions` 가 `startRecording` 의 `microphone` 옵션으로 바꾼다. `openMicrophone` 은 장치를 `deviceId: {ideal}` 로 요청해 빠진 장치는 기본 장치로 대신한다. 음량은 장치 제약이 아니라 AudioContext 의 GainNode 로 적용하므로, 마이크 하나뿐이어도 음량이 100% 가 아니면 믹스 경로를 탄다. 설정 창의 테스트는 같은 `openMicrophone` + GainNode + AnalyserNode 로 막대를 그리며, 장치·처리 옵션이 바뀌면 다시 열고 음량은 노드 값만 바꾼다. 장치 이름은 권한을 한 번 얻어야 보이므로 `listMicrophones` 가 이름이 비어 있으면 잠깐 마이크를 열었다 닫는다.
+- **재생.** `VideoView` 는 브라우저 기본 컨트롤 대신 영상 아래 가운데의 `PlayerControls`(탐색 막대, 처음/−5초/재생/+5초/끝, 음량, 속도, 반복, 전체 화면)와 키보드 단축키를 쓴다. 단축키는 모달이 열려 있거나 입력 칸에 포커스가 있으면 무시한다.
 
 ## 6. 문서 모델과 편집
 
 ```
-doc = { id, kind:'image'|'video', name, path, dir, source,
+doc = { id, kind:'image'|'video', name, path, file, dir, source,
         history: { past:[], present:{ image:{dataUrl,width,height}, annotations:[] }, future:[] },
-        savedPresent, zoom, fitRequested, selection, selectedId, nextNumber }
+        savedPresent, zoom, autoFit, selection, selectedId, nextNumber }
 ```
+
+- `path` 는 `.cmcap` 저장 위치, `file` 은 문서가 나온 그림 파일(자동 저장된 캡처, 디스크에서 연 그림)이다. 디스크에서 연 그림도 손대기 전에는 저장할 것이 없다.
+- **창 맞춤 모드(`autoFit`).** 새 문서와 자르기 직후, `Ctrl+0` 에서 켜지며 켜져 있는 동안 `Editor` 가 ResizeObserver 로 보기 영역 크기에 맞춰 배율을 다시 계산한다(확대·축소 모두). 손으로 배율을 바꾸면(휠, `Ctrl+=`/`-`, `Ctrl+1`, 툴바) 꺼진다. 이미지와 동영상은 항상 보기 영역 가운데에 놓인다. 단추·메뉴로 바꾸는 배율은 `Editor.zoomTo` 가 보기 영역 가운데를, 휠은 커서 아래 점을 고정한다. 가운데 단추 드래그는 스크롤로 이동한다.
 
 - **불변 상태 + 히스토리.** `present` 는 절대 변경하지 않고 새 객체를 `push` 한다. `isDirty = present !== savedPresent`. 이미지 dataURL 은 상태 간에 참조 공유되므로 100단계 히스토리도 가볍다(자르기만 새 이미지를 만든다).
 - **한 제스처 = 한 히스토리 항목.** `Editor.jsx` 는 드래그 중에는 자기 ref 에만 미리보기를 두고 캔버스를 다시 그리며, pointerup 에서 한 번 `onCommit` 한다.
-- **렌더러 하나.** `lib/render.js drawAnnotation / renderToCanvas` 를 편집 캔버스, 클립보드, 내보내기, 인쇄가 모두 쓴다. 모자이크는 원본 이미지에서 샘플링해 그리므로 비파괴적이다.
+- **렌더러 하나.** `lib/render.js drawAnnotation / renderToCanvas` 를 편집 캔버스, 클립보드, 내보내기, 인쇄가 모두 쓴다. 모자이크는 원본 이미지에서 샘플링해 그리므로 비파괴적이다. 붙여 넣은 그림은 `image` 주석(`src` 에 PNG dataURL)이며, `renderToCanvas` 가 동기식이라 내보내기·인쇄·복사 전에 `preloadPictures` 로 디코딩을 기다린다.
+- **클립보드.** 복사·잘라내기는 항상 그림(PNG + 비트맵)으로 시스템 클립보드에 넣어 다른 프로그램이 붙여 넣을 수 있게 한다. 주석을 복사하면 그 그림을 다시 읽은 값을 지문으로 `internalClip` 에 주석과 함께 기억하고, 붙여넣기 때 클립보드 그림이 지문과 같으면 편집 가능한 주석으로 되돌린다. 비트맵 형식은 알파가 없어서 완전 투명 픽셀은 흰색으로 써 둔다(`clipboard_write_image`).
 - 히트 테스트는 선/펜은 거리, 상자형은 경계(채우지 않은 상자는 테두리만)로 한다.
 - 큰 이미지의 고배율 확대는 백킹 스토어를 16k px / 1.2e8 px 로 클램프한다(`backingScale`).
 - `.cmcap` = JSON `{format:'capturemaster-capture', version, image, annotations, …}`. `parseCapture` 가 형식·버전·이미지 유무를 검사하고 사람이 읽을 수 있는 오류를 낸다.
@@ -125,6 +135,12 @@ doc = { id, kind:'image'|'video', name, path, dir, source,
 ## 9. 창 크기와 툴바
 
 툴바(`Toolbar.jsx`)는 두 행의 자식 폭 합(마진 포함, 오른쪽 정렬용 spacer 제외)을 재서 `win:setMinWidth` 로 보내고, 시작 화면(`Welcome`)은 스크롤 없이 다 보이는 데 필요한 높이를 `win:setMinHeight` 로 보낸다. 언어·글꼴이 바뀔 때마다 다시 잰다. main 은 프레임 여백을 더해 최소 크기를 정하고, 창은 항상 최소 크기로 시작한다(생성 후 4초 동안은 측정값을 그대로 따라가고, 그 뒤로는 좁아질 때만 넓힌다). 그래서 어떤 설정에서도 버튼이 가려지지 않는다.
+
+편집 도구 버튼은 툴바가 아니라 왼쪽 도구 모음 패널(`ToolPanel.jsx`, `TOOLS`/`TOOL_KEYS`)에 있다. 펼침 상태와 폭은 설정의 `toolPanel: {open, width}` 에 저장되며, 폭 한계 `TOOL_PANEL_WIDTH` 는 캡처 기록의 `HISTORY_WIDTH`(200–480px)와 같다. 접힌 상태(30px)에서도 아이콘 띠로 도구를 고를 수 있다. `Ctrl+B` 로 접고 펼친다.
+
+선택 영역은 `{x, y, w, h, shape}`(`shape`: `rect` · `round` · `ellipse`, 설정 `editor.selectionShape` 가 새 선택의 기본값)이다. `lib/selection.js` 의 `traceSelection` 이 윤곽을 그리고, `maskToSelection` 이 복사·자르기 결과를 모양 밖으로 투명하게 만들며, `eraseRect` 는 모양을 `destination-out` 으로 지운다. 둥근 사각형의 모서리 반지름은 짧은 변의 1/6 이다.
+
+웹뷰 기본 컨텍스트 메뉴는 쓰지 않는다. `lib/contextMenu.js` 의 `installFallbackMenu` 가 창 단위 `contextmenu` 리스너로, 어떤 컴포넌트도 처리하지 않은(`preventDefault` 하지 않은) 우클릭에 대신 메뉴를 띄운다. 텍스트 입력란이면 편집 메뉴(메뉴가 열릴 때의 선택 범위를 기억했다가 포커스를 되돌린 뒤 `execCommand` 로 실행, 클립보드는 `platform.clipboard`), 선택한 글자면 복사, 메인 창의 나머지 곳은 일반 메뉴다. 메인 창은 네이티브 팝업으로, 대화상자 창은 창 안의 `ContextMenu` 로 띄운다. 자체 메뉴가 없는 컨트롤(확대/축소 막대, 플레이어 단추)은 `preventDefault` 와 `stopPropagation` 을 함께 호출한다.
 
 ## 10. 종료 흐름
 

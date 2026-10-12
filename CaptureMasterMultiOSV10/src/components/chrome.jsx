@@ -90,7 +90,7 @@ export function StatusBar({ doc, zoom, cursor, tool, message, recording, capturi
       {doc && cursor ? <span className="sb-item">{t('status.cursor', { x: cursor.x, y: cursor.y })}</span> : null}
       {doc && doc.kind === 'image' ? <span className="sb-item">{t('status.tool', { tool: t(`tool.${tool}`) })}</span> : null}
       {doc ? <span className="sb-item">{t('status.zoom', { z: Math.round(zoom * 100) })}</span> : null}
-      {doc && doc.kind === 'image' ? <span className={`sb-item ${isDirty(doc) ? 'warn' : 'ok'}`}>{isDirty(doc) ? t('status.modified') : doc.path ? t('status.saved') : t('status.unsaved')}</span> : null}
+      {doc && doc.kind === 'image' ? <span className={`sb-item ${isDirty(doc) ? 'warn' : 'ok'}`}>{isDirty(doc) ? t('status.modified') : doc.path || doc.file ? t('status.saved') : t('status.unsaved')}</span> : null}
       {docsCount ? <span className="sb-item">{t('status.docs', { n: docsCount })}</span> : null}
       <span className="sb-item">{t('status.theme', { theme: themeLabel })}</span>
       <ResizeGrip />

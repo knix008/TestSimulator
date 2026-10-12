@@ -2,9 +2,10 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayo
 import { loadImage, cachedImage } from '../lib/image.js';
 import {
   drawAnnotation, boundsOf, hitTest, handlesOf, moveAnnotation, resizeAnnotation, cursorForHandle,
-  normRect, BOX_TYPES, LINE_TYPES, fontString, measureText,
+  normRect, BOX_TYPES, LINE_TYPES, fontString, measureText, onPictureLoaded,
 } from '../lib/render.js';
 import { newId } from '../lib/document.js';
+import { isShaped, traceSelection } from '../lib/selection.js';
 
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 8;
@@ -34,8 +35,8 @@ function backingScale(zoom, w, h) {
  */
 export const Editor = forwardRef(function Editor(props, ref) {
   const {
-    doc, zoom, tool, toolProps, selectedId, checkerboard,
-    onZoomChange, onSelect, onCommit, onSelectionChange, onCursor, onContextMenu, onFitDone, onStatus,
+    doc, zoom, tool, toolProps, selectedId, selectionShape = 'rect',
+    onZoomChange, onSelect, onCommit, onSelectionChange, onCursor, onContextMenu, onStatus,
   } = props;
   const present = doc.history.present;
 
@@ -50,7 +51,7 @@ export const Editor = forwardRef(function Editor(props, ref) {
   const pendingScroll = useRef(null);
   const raf = useRef(0);
 
-  latest.current = { present, zoom, tool, toolProps, selectedId, selection: doc.selection, img, textEdit };
+  latest.current = { present, zoom, tool, toolProps, selectedId, selection: doc.selection, selectionShape, img, textEdit };
 
   // Decode the base image (cached by data URL, so undo/redo is instant).
   useEffect(() => {
@@ -107,18 +108,26 @@ export const Editor = forwardRef(function Editor(props, ref) {
       }
       ctx.restore();
     }
-    const marquee = d && d.mode === 'marquee' ? d.rect : selection;
+    const marquee = d && d.mode === 'marquee' ? d.rect && { ...d.rect, shape: latest.current.selectionShape } : selection;
     if (marquee && marquee.w > 0 && marquee.h > 0) {
       ctx.save();
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath();
       ctx.rect(0, 0, W, H);
-      ctx.rect(marquee.x, marquee.y, marquee.w, marquee.h);
+      traceSelection(ctx, marquee);
       ctx.fill('evenodd');
-      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = px;
+      if (isShaped(marquee)) {
+        // The bounding box, faintly, so the shape's extent stays visible.
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.setLineDash([2 * px, 3 * px]);
+        ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h);
+      }
+      ctx.strokeStyle = '#ffffff';
       ctx.setLineDash([5 * px, 4 * px]);
-      ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h);
+      ctx.beginPath();
+      traceSelection(ctx, marquee);
+      ctx.stroke();
       ctx.restore();
     }
   }, []);
@@ -129,6 +138,7 @@ export const Editor = forwardRef(function Editor(props, ref) {
   }, [draw]);
 
   useLayoutEffect(() => { draw(); }, [draw, present, zoom, selectedId, doc.selection, img, textEdit]);
+  useEffect(() => onPictureLoaded(scheduleDraw), [scheduleDraw]);
 
   // Keep the point under the cursor fixed while zooming.
   useLayoutEffect(() => {
@@ -140,20 +150,25 @@ export const Editor = forwardRef(function Editor(props, ref) {
     el.scrollTop = ps.iy * zoom + ps.padY - ps.cy;
   }, [zoom]);
 
-  // ── Fit to view ──
+  // ── Fit to view: follows the view size while the document is in fit mode ──
   const fit = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const W = present.image.width;
     const H = present.image.height;
     const avail = { w: el.clientWidth - 48, h: el.clientHeight - 48 };
-    const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min(avail.w / W, avail.h / H, 1)));
-    onZoomChange(Number.isFinite(z) && z > 0 ? z : 1);
+    const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min(avail.w / W, avail.h / H)));
+    onZoomChange(Number.isFinite(z) && z > 0 ? z : 1, true);
   }, [present.image.width, present.image.height, onZoomChange]);
 
-  useEffect(() => {
-    if (doc.fitRequested) { fit(); onFitDone(); }
-  }, [doc.fitRequested, fit, onFitDone]);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!doc.autoFit || !el) return undefined;
+    fit();
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [doc.autoFit, fit]);
 
   // ── Coordinates ──
   const toImage = useCallback((e) => {
@@ -194,15 +209,11 @@ export const Editor = forwardRef(function Editor(props, ref) {
     onSelect(updated.id);
   }, [onCommit, onSelect]);
 
-  useImperativeHandle(ref, () => ({
-    fit,
-    editText(id) {
-      const a = latest.current.present.annotations.find((x) => x.id === id);
-      if (a && a.type === 'text') beginText(a, false);
-    },
-    zoomBy(dir) {
+  useImperativeHandle(ref, () => {
+    // Zooms keeping the middle of the view in place.
+    const zoomTo = (target) => {
       const el = scrollRef.current;
-      const z = nextZoom(latest.current.zoom, dir);
+      const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, target));
       if (el) {
         const cx = el.clientWidth / 2;
         const cy = el.clientHeight / 2;
@@ -212,9 +223,18 @@ export const Editor = forwardRef(function Editor(props, ref) {
         pendingScroll.current = { ix: (el.scrollLeft + cx - padX) / latest.current.zoom, iy: (el.scrollTop + cy - padY) / latest.current.zoom, cx, cy, padX, padY };
       }
       onZoomChange(z);
-    },
-    isEditingText: () => !!latest.current.textEdit,
-  }), [fit, beginText, onZoomChange]);
+    };
+    return {
+      fit,
+      editText(id) {
+        const a = latest.current.present.annotations.find((x) => x.id === id);
+        if (a && a.type === 'text') beginText(a, false);
+      },
+      zoomTo,
+      zoomBy: (dir) => zoomTo(nextZoom(latest.current.zoom, dir)),
+      isEditingText: () => !!latest.current.textEdit,
+    };
+  }, [fit, beginText, onZoomChange]);
 
   // ── Wheel: Ctrl+wheel zooms around the pointer ──
   useEffect(() => {
@@ -239,6 +259,28 @@ export const Editor = forwardRef(function Editor(props, ref) {
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [onZoomChange]);
+
+  // ── Middle-button drag pans a zoomed-in picture ──
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    const onDown = (e) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const start = { x: e.clientX, y: e.clientY, l: el.scrollLeft, t: el.scrollTop };
+      el.classList.add('panning');
+      const move = (ev) => { el.scrollLeft = start.l - (ev.clientX - start.x); el.scrollTop = start.t - (ev.clientY - start.y); };
+      const up = () => { el.classList.remove('panning'); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+    el.addEventListener('pointerdown', onDown, true);
+    // Stops Windows' auto-scroll cursor from appearing on a middle click.
+    const noAuto = (e) => { if (e.button === 1) e.preventDefault(); };
+    el.addEventListener('mousedown', noAuto, true);
+    return () => { el.removeEventListener('pointerdown', onDown, true); el.removeEventListener('mousedown', noAuto, true); };
+  }, []);
 
   // ── Mouse ──
   const onPointerDown = (e) => {
@@ -336,7 +378,12 @@ export const Editor = forwardRef(function Editor(props, ref) {
     } else if (d.mode === 'resize') {
       d.preview = resizeAnnotation(d.orig, d.handle, pt.x - d.start.x, pt.y - d.start.y);
     } else if (d.mode === 'marquee') {
-      d.rect = normRect(d.start.x, d.start.y, cpt.x, cpt.y);
+      let { x, y } = cpt;
+      if (shift) {   // square / circle
+        const side = Math.max(Math.abs(x - d.start.x), Math.abs(y - d.start.y));
+        x = d.start.x + Math.sign(x - d.start.x || 1) * side; y = d.start.y + Math.sign(y - d.start.y || 1) * side;
+      }
+      d.rect = normRect(d.start.x, d.start.y, x, y);
       onStatus && onStatus({ marquee: d.rect });
     }
     scheduleDraw();
@@ -366,7 +413,7 @@ export const Editor = forwardRef(function Editor(props, ref) {
       onCommit({ ...p, annotations: p.annotations.map((a) => (a.id === d.id ? d.preview : a)) });
     } else if (d.mode === 'marquee') {
       const r = d.rect;
-      if (r && r.w >= minSize && r.h >= minSize) onSelectionChange({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) });
+      if (r && r.w >= minSize && r.h >= minSize) onSelectionChange({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), shape: latest.current.selectionShape });
       else onSelectionChange(null);
     }
   };
@@ -398,13 +445,13 @@ export const Editor = forwardRef(function Editor(props, ref) {
       ref={scrollRef}
       className="editor"
       data-cursor={cursorStyle}
-      style={{ cursor: cursorStyle }}
+      style={{ cursor: cursorStyle, overflow: doc.autoFit ? 'hidden' : undefined }}
       onContextMenu={(e) => { if (e.target === e.currentTarget || e.target.classList.contains('editor-inner')) { e.preventDefault(); onContextMenu(e, { annotation: null, point: null }); } }}
     >
       <div className="editor-inner">
         <div
           ref={stageRef}
-          className={`editor-stage${checkerboard ? ' checker' : ''}`}
+          className="editor-stage"
           style={{ width: Math.round(W * zoom), height: Math.round(H * zoom) }}
         >
           <canvas

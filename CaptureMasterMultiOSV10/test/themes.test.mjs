@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { THEMES, themeById, themeFromCustom, nextThemeId, DEFAULT_THEME } from '../src/themes.js';
+import { THEMES, themeById, themeFromCustom, themeCycle, nextThemeId, themeLabel, appearanceOf, DEFAULT_THEME, CUSTOM_COLOR_KEYS } from '../src/themes.js';
 
 test('20 dark and 20 light built-in themes, unique ids', () => {
   assert.equal(THEMES.length, 40);
@@ -21,6 +21,26 @@ test('custom themes join the cycle and keep their colours', () => {
   const afterLastLight = nextThemeId('porcelain', custom);
   assert.equal(afterLastLight, 'custom-a');
   assert.equal(nextThemeId('custom-a', custom), 'midnight');
+});
+
+test('labels follow the language and a bundle carries the live theme', () => {
+  const theme = themeById(DEFAULT_THEME);
+  assert.equal(themeLabel(theme, 'ko'), theme.label);
+  assert.equal(themeLabel(theme, 'en'), theme.labelEn);
+  assert.equal(themeLabel(null, 'en'), '');
+  const broken = themeFromCustom({ id: 'custom-x', mode: 'dark', bg: 'nope', accent: '#00ff00' });
+  assert.equal(broken.tokens['--bg'], '#12161c');
+  assert.equal(broken.tokens['--accent'], '#00ff00');
+  assert.equal(CUSTOM_COLOR_KEYS.length, 5);
+  const cycle = themeCycle([{ id: 'custom-z', label: 'Z', mode: 'dark' }]);
+  assert.equal(cycle.at(-1).id, 'custom-z');
+  assert.equal(nextThemeId('missing', []), THEMES[0].id);
+  const look = appearanceOf({ theme: 'custom-z', language: 'en', font: { size: 14 }, customThemes: [{ id: 'custom-z', label: 'Z', mode: 'dark', bg: '#101010' }] });
+  assert.equal(look.theme, 'custom-z');
+  assert.equal(look.mode, 'dark');
+  assert.equal(look.bg, '#101010');
+  assert.equal(look.language, 'en');
+  assert.equal(look.font.size, 14);
 });
 
 test('every theme defines the same token set with valid colours', () => {

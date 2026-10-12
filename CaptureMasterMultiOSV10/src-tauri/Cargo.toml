@@ -20,7 +20,8 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 xcap = "0.6"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "tiff", "ico", "tga", "qoi", "webp", "avif"] }
+gif = "0.14"
 base64 = "0.22"
 arboard = "3"
 ureq = "2"
@@ -34,11 +35,21 @@ windows = { version = "0.61", features = [
   "Win32_UI_WindowsAndMessaging",
   "Win32_Globalization",
   "Win32_Graphics_Gdi",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Printing",
 ] }
+# Same versions as Tauri's WebView2 binding: printing calls the webview directly.
+webview2-com = "0.39"
+windows-core = "0.62"
 
 [target.'cfg(not(windows))'.dependencies]
 fs2 = "0.4"
 rfd = "0.15"
+
+# Capture encodes multi-megapixel PNGs; unoptimised image/png/xcap make a
+# single screenshot take seconds in `tauri dev`.
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 panic = "abort"
