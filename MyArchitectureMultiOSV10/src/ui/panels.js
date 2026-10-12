@@ -9,7 +9,8 @@ import { icon } from "./icons.js";
 import { h, panelHead, input, select, checkbox, stepper, toast } from "./widgets.js";
 import { allFurniture, furnitureDef, drawFurniturePlan, drawLightSymbol, isLight, lightOf, FURNITURE_CATEGORIES } from "../lib/furniture.js";
 import { switchLamps, temperatureOptions, temperatureOf, lampSummary } from "./lights.js";
-import { materialsFor } from "../lib/materials.js";
+import { materialPicker } from "./matpicker.js";
+import { selectedStructure, structurePanel } from "./structures.js";
 import { levelById, wallLength, wallHeight, openingTags, levelAbove } from "../core/project.js";
 import { roomArea, roomPerimeter } from "../core/rooms.js";
 import { wallFrame } from "../core/walls.js";
@@ -212,18 +213,30 @@ function bindField(app, label, getter, setter, opts = {}) {
     el.dataset.field = label;
     return [h("span", { title: label }, label), el];
   }
-  const el = opts.options ? select(getter(), opts.options, {}) : input(getter(), { type: opts.type || "text" });
+  const el = opts.material ? materialPicker(getter(), { uses: opts.material, none: opts.none || null, title: label })
+    : opts.options ? select(getter(), opts.options, {}) : input(getter(), { type: opts.type || "text" });
   el.dataset.field = label;
   if (opts.type === "color") el.style.padding = "1px 3px";
   el.addEventListener("change", () => app.store.edit(t("Edit {field}", { field: label }), () => setter(el.value)));
   el.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") el.blur(); });
+  if (opts.type === "color" && opts.palette) {
+    // A row of ready colours under the picker (one click, one undo step).
+    const chips = h("div", { class: "color-chips" }, ...opts.palette.map((c) => {
+      const b = h("button", { class: "color-chip", type: "button", title: c, style: { background: c } });
+      b.addEventListener("click", () => { el.value = c; el.dispatchEvent(new Event("change")); });
+      return b;
+    }));
+    return [h("span", { title: label }, label), h("div", { class: "color-field" }, el, chips)];
+  }
   return [h("span", { title: label }, label), el];
 }
+
+// Furniture colours that suit interiors: neutrals, woods, muted and deep accents.
+export const INTERIOR_PALETTE = ["#f3f2ee", "#d9d0bf", "#b8ab97", "#8e8a83", "#45484d", "#25282d", "#d7b98e", "#a9784f", "#6b4a33", "#8a8a5c", "#3f5a48", "#3d7a7d", "#2f3d58", "#c0714f", "#d2a44a", "#b5483e"];
 
 const mm = { type: "number", step: "10", min: 0, format: (v) => String(Math.round(v)) };
 const mmS = (step, min = 0) => ({ type: "number", step: String(step), min, format: (v) => String(Math.round(v)) });
 const deg = { type: "number", step: "15", format: (v) => `${Math.round(v * 10) / 10}°` };
-const matOpts = (use) => materialsFor(use).map((m) => [m.id, t(m.name)]);
 
 // Light settings of a lamp: on/off, brightness, colour temperature or colour,
 // beam angle for spots.
@@ -247,6 +260,9 @@ function inspector(app, body) {
   const items = app.plan.selectedItems();
   const units = app.settings.units || "mm";
   if (!items.length) return levelInspector(app, body);
+  // A whole tower or bridge (its members are one group): the structure's panel.
+  const st = items.length > 1 ? selectedStructure(app) : null;
+  if (st) return structurePanel(app, body, st);
   if (items.length > 1) {
     const counts = {};
     for (const i of items) counts[i.kind] = (counts[i.kind] || 0) + 1;
@@ -261,7 +277,7 @@ function inspector(app, body) {
     if (items.every((i) => i.kind === "walls")) {
       const g = h("div", { class: "prop-grid", style: { marginTop: "10px" } },
         ...bindField(app, t("Thickness"), () => items[0].obj.thickness, (v) => { for (const i of items) i.obj.thickness = Math.max(10, v); }, mmS(10, 10)),
-        ...bindField(app, t("Material"), () => items[0].obj.material || "plaster", (v) => { for (const i of items) i.obj.material = v; }, { options: matOpts("wall") }));
+        ...bindField(app, t("Material"), () => items[0].obj.material || "plaster", (v) => { for (const i of items) i.obj.material = v; }, { material: ["wall"] }));
       body.append(g);
     }
     return;
@@ -282,7 +298,10 @@ function inspector(app, body) {
       ...bindField(app, t("Length"), () => L, (v) => { if (v > 10) { const k = v / (wallLength(obj) || 1); moveEnd(p, obj, obj.x1 + (obj.x2 - obj.x1) * k, obj.y1 + (obj.y2 - obj.y1) * k); } }, mmS(10, 10)),
       ...bindField(app, t("Thickness"), () => obj.thickness, (v) => { obj.thickness = Math.max(10, v); delete obj.type; }, mmS(10, 10)),
       ...bindField(app, t("Height"), () => wallHeight(p, obj), (v) => { obj.height = Math.abs(v - lv.height) < 1 ? null : Math.max(100, v); }, mmS(50, 100)),
-      ...bindField(app, t("Material"), () => obj.material || "plaster", (v) => { obj.material = v; }, { options: matOpts("wall") }));
+      ...bindField(app, t("Material"), () => obj.material || "plaster", (v) => { obj.material = v; }, { material: ["wall"] }),
+      // Each face may have its own finish (right / left looking from the start to the end).
+      ...bindField(app, t("Right face finish"), () => obj.finishR || "", (v) => { if (v) obj.finishR = v; else delete obj.finishR; }, { material: ["wall", "ceiling"], none: t("(wall material)") }),
+      ...bindField(app, t("Left face finish"), () => obj.finishL || "", (v) => { if (v) obj.finishL = v; else delete obj.finishL; }, { material: ["wall", "ceiling"], none: t("(wall material)") }));
     act(t("Add door"), "door", () => { app.plan.setTool("door"); toast(t("Click on the wall where the door goes."), "info"); });
     act(t("Add window"), "window", () => { app.plan.setTool("window"); toast(t("Click on the wall where the window goes."), "info"); });
     act(t("Split in the middle"), "cut", () => app.plan.splitWallAt(obj, (obj.x1 + obj.x2) / 2, (obj.y1 + obj.y2) / 2));
@@ -309,7 +328,11 @@ function inspector(app, body) {
       ...bindField(app, t("Name"), () => obj.name, (v) => { obj.name = v.trim(); }),
       ...bindField(app, t("Number"), () => obj.number || "", (v) => { obj.number = v.trim() || undefined; }),
       ...bindField(app, t("Department"), () => obj.department || "", (v) => { obj.department = v.trim() || undefined; }),
-      ...bindField(app, t("Floor"), () => obj.floor || "oak", (v) => { obj.floor = v; }, { options: matOpts("floor") }),
+      ...bindField(app, t("Floor"), () => obj.floor || "oak", (v) => { obj.floor = v; }, { material: ["floor"] }),
+      // Interior finishes: every wall face looking into the room, and a skirting board.
+      ...bindField(app, t("Wall finish"), () => obj.wallFinish || "", (v) => { if (v) obj.wallFinish = v; else delete obj.wallFinish; }, { material: ["wall", "ceiling"], none: t("(walls' own)") }),
+      ...bindField(app, t("Skirting height"), () => obj.skirting || 0, (v) => { obj.skirting = Math.max(0, Math.min(400, Math.round(v))); }, { type: "number", step: "10", min: 0, max: 400, format: (v) => (v > 0 ? `${Math.round(v)} mm` : t("None")) }),
+      ...bindField(app, t("Skirting"), () => obj.skirtingMaterial || "paint-white", (v) => { obj.skirtingMaterial = v; }, { material: ["wall", "floor", "frame"] }),
       ...bindField(app, t("Text size"), () => obj.textSize || 260, (v) => { obj.textSize = Math.max(50, v); }, mmS(20, 50)));
     grid.append(h("span", {}, ""), checkbox(obj.showArea !== false, t("Show area"), { onChange: (v) => app.store.edit(t("Edit room"), () => { obj.showArea = v; }) }));
     act(t("Properties…"), "settings", () => app.editProperties(kind, obj));
@@ -324,7 +347,7 @@ function inspector(app, body) {
       ...bindField(app, t("Depth"), () => obj.d, (v) => { obj.d = Math.max(10, v); }, mmS(10, 10)),
       ...bindField(app, t("Height"), () => obj.h, (v) => { obj.h = Math.max(1, v); }, mmS(10, 1)),
       ...bindField(app, t("Elevation"), () => obj.elevation || 0, (v) => { obj.elevation = v; }, mmS(10, -1e5)),
-      ...(obj.kind !== "model" ? bindField(app, t("Colour"), () => obj.color || "#8a9bb0", (v) => { obj.color = v; }, { type: "color" }) : []));
+      ...(obj.kind !== "model" ? bindField(app, t("Colour"), () => obj.color || "#8a9bb0", (v) => { obj.color = v; }, { type: "color", palette: INTERIOR_PALETTE }) : []));
     if (isLight(obj)) lightFields(app, obj, grid, act);
     act(t("Show in 3D"), "cube", () => app.crossProbe([obj.id], "3d"));
   } else if (kind === "columns") {
@@ -334,7 +357,7 @@ function inspector(app, body) {
       ...bindField(app, t("Width"), () => obj.w, (v) => { obj.w = Math.max(20, v); }, mmS(10, 20)),
       ...bindField(app, t("Depth"), () => obj.d, (v) => { obj.d = Math.max(20, v); }, mmS(10, 20)),
       ...bindField(app, t("Rotation"), () => obj.rot || 0, (v) => { obj.rot = v; }, deg),
-      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { options: matOpts("wall") }));
+      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { material: ["wall", "structure"] }));
   } else if (kind === "stairs") {
     const lv = levelById(p, obj.level);
     const above = levelAbove(p, obj.level);
@@ -345,7 +368,7 @@ function inspector(app, body) {
       ...bindField(app, t("Width"), () => obj.width, (v) => { obj.width = Math.max(300, v); }, mmS(50, 300)),
       ...bindField(app, t("Length"), () => obj.length, (v) => { obj.length = Math.max(300, v); }, mmS(50, 300)),
       ...bindField(app, t("Rotation"), () => obj.rot || 0, (v) => { obj.rot = ((v % 360) + 360) % 360; }, deg),
-      ...bindField(app, t("Material"), () => obj.material || "oak", (v) => { obj.material = v; }, { options: matOpts("floor") }));
+      ...bindField(app, t("Material"), () => obj.material || "oak", (v) => { obj.material = v; }, { material: ["floor"] }));
     if (rise > 200) body.append(h("div", { class: "empty-note" }, t("Risers over 200 mm are steep: add steps.")));
   } else if (kind === "roofs") {
     title("roof", t("Roof"), `${t(obj.kind === "flat" ? "Flat" : obj.kind === "hip" ? "Hip" : obj.kind === "shed" ? "Shed" : "Gable")} · ${obj.pitch}°`);
@@ -355,7 +378,7 @@ function inspector(app, body) {
       ...bindField(app, t("Overhang"), () => obj.overhang, (v) => { obj.overhang = Math.max(0, v); }, mmS(50, 0)),
       ...bindField(app, t("Thickness"), () => obj.thickness, (v) => { obj.thickness = Math.max(20, v); }, mmS(10, 20)),
       ...bindField(app, t("Ridge direction"), () => String(obj.rot || 0), (v) => { obj.rot = +v; }, { options: [["0", t("Along the long side")], ["90", t("Across")]] }),
-      ...bindField(app, t("Material"), () => obj.material || "roof-tiles", (v) => { obj.material = v; }, { options: matOpts("roof") }));
+      ...bindField(app, t("Material"), () => obj.material || "roof-tiles", (v) => { obj.material = v; }, { material: ["roof"] }));
   } else if (kind === "dimensions") {
     title("dimension", t("Dimension"), fmtLen(dist(obj.x1, obj.y1, obj.x2, obj.y2), units === "ft" ? "ft" : "mm"));
     grid.append(
@@ -384,7 +407,7 @@ function inspector(app, body) {
       ...bindField(app, t("Height"), () => obj.height, (v) => { obj.height = Math.max(1, v); }, mmS(100, 1)),
       ...bindField(app, t("Base height"), () => obj.z0 || 0, (v) => { obj.z0 = v; }, mmS(100, -1e6)),
       ...bindField(app, t("Taper"), () => Math.round((obj.taper ?? 1) * 100), (v) => { obj.taper = Math.max(0, Math.min(1, v / 100)); }, { type: "number", step: "10", min: 0, max: 100, format: (v) => `${v}%` }),
-      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { options: [...matOpts("wall"), ...matOpts("roof")].filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i) }));
+      ...bindField(app, t("Material"), () => obj.material || "concrete", (v) => { obj.material = v; }, { material: ["wall", "roof"] }));
     act(t("Push/Pull in 3D"), "pushpull", () => { app.setTab("3d"); app.v3d.setTool("pushpull"); });
   } else if (kind === "grids") {
     title("gridline", `${t("Grid line")} ${obj.label}`, fmtLen(dist(obj.x1, obj.y1, obj.x2, obj.y2)));
@@ -400,7 +423,7 @@ function inspector(app, body) {
     body.append(h("div", { class: "empty-note" }, t("Tip: measure a known length on the image with M, then set the width so it matches.")));
   }
   // Slabs, ceilings, beams, railings, ramps, shafts; types, profiles and stair shapes (elements.js).
-  elementPanel(app, kind, obj, { title, grid, act, body, bindField, mmS, deg, matOpts });
+  elementPanel(app, kind, obj, { title, grid, act, body, bindField, mmS, deg });
   body.append(grid);
   if (obj.group) {
     body.append(h("div", { class: "empty-note" }, t("Part of a group ({n} items). Alt+click selects a single item.", { n: app.store.project[kind].filter((x) => x.group === obj.group).length })));
@@ -423,7 +446,8 @@ function bimSection(app, body, kind, obj) {
       ...bindField(app, t("Classification"), () => obj.classification || "", (v) => { obj.classification = v.trim() || undefined; }));
   }
   g.append(h("span", {}, t("IFC class")), h("span", { class: "mono-val" }, IFC_CLASS[kind]),
-    h("span", {}, "GlobalId"), h("span", { class: "mono-val", title: t("Click to copy") , onclick: (e) => { navigator.clipboard.writeText(e.target.textContent).catch(() => {}); toast(t("Copied to clipboard"), "ok", 1000); } }, ifcGuid(obj.id)));
+    h("span", {}, "GlobalId"), h("span", { class: "mono-val", title: `${ifcGuid(obj.id)}
+${t("Click to copy")}`, onclick: (e) => { navigator.clipboard.writeText(e.target.textContent).catch(() => {}); toast(t("Copied to clipboard"), "ok", 1000); } }, ifcGuid(obj.id)));
   body.append(g, h("div", { class: "prop-actions" },
     h("button", { class: "btn small", onclick: () => app.run("build.bimProps") }, h("span", { html: icon("bim", 14) }), t("Properties ({n})…", { n })),
     h("button", { class: "btn small", onclick: () => app.plan.selectSimilar() }, h("span", { html: icon("select", 14) }), t("Select similar"))));

@@ -23,7 +23,7 @@ export const CATEGORIES = [
   ["Plan editing", "평면 편집", ["plan", "editor", "store", "docs"]],
   ["Checks & schedules", "검사·집계", ["check", "schedule"]],
   ["Views, sheets & annotation", "뷰·시트·주석", ["views"]],
-  ["3D model", "3D 모델", ["view3d", "lights"]],
+  ["3D model", "3D 모델", ["view3d", "lights", "perf3d", "interior", "members", "structures"]],
   ["SketchUp modelling (meshes, solid tools, components)", "스케치업 모델링 (메시, 솔리드 도구, 컴포넌트)", ["mesh", "sketchup"]],
   ["CAD exchange (DXF, DWG, SVG)", "CAD 교환 (DXF, DWG, SVG)", ["dxf", "dwg", "dwgwrite", "cadextra", "dxfbin", "svgimport"]],
   ["Printing & PDF", "인쇄·PDF", ["pdf"]],

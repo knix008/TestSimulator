@@ -11,6 +11,7 @@ import { OrbitControls } from "../vendor/three/addons/OrbitControls.js";
 import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./build.js";
 import { createLampRig, collectLamps } from "./lamps.js";
 import { createSketchupLayer } from "./sklayer.js";
+import { createBatcher, HIDDEN_LAYER } from "./batch.js";
 
 const DEG = Math.PI / 180;
 
@@ -141,6 +142,10 @@ export function createViewer(container, options = {}) {
   sun.shadow.mapSize.set(4096, 4096);
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.03;
+  // The sun's shadow does not depend on the camera: it is drawn again only when
+  // the model, the materials, the cut or the sun change, not on every orbit frame.
+  sun.shadow.autoUpdate = false;
+  const invalidateShadows = () => { sun.shadow.needsUpdate = true; };
   scene.add(sun, sun.target);
   const headlight = new THREE.DirectionalLight(0xffffff, 0.35);
   headlight.position.set(0, 0, 0);
@@ -158,6 +163,12 @@ export function createViewer(container, options = {}) {
   let building = new THREE.Group();
   content.add(building);
   const mats = makeMaterials(THREE, { textures: true });
+  // Repeated meshes drawn as instances (batch.js); the items in `moving` are
+  // drawn by their own meshes while a tool drags them.
+  const batcher = createBatcher(THREE);
+  scene.add(batcher.group);
+  const moving = new Set();
+  const ownMeshIds = () => new Set([...highlighted, ...moving]);
   const modelCache = new Map(); // asset id → Promise<Object3D>
   let sk = null; // the SketchUp-style tools and helpers (sklayer.js), made below
 
@@ -198,20 +209,28 @@ export function createViewer(container, options = {}) {
 
   // ---------------------------------------------------------------- build
   function disposeObject(obj) {
-    obj.traverse((o) => { if (o.geometry && !o.userData.shared) o.geometry.dispose(); });
+    obj.traverse((o) => { if (o.geometry && !o.userData.shared && !o.userData.sharedGeometry) o.geometry.dispose(); });
   }
 
+  // Levels whose items did not change are carried over from the last build
+  // (build.js levelKeys), so an edit rebuilds only the level it touched.
   function rebuild() {
-    content.remove(building);
-    disposeObject(building);
-    if (edges) { helpers.remove(edges); disposeObject(edges); edges = null; }
-    if (!project) { building = new THREE.Group(); content.add(building); lampRig.setLamps([]); dirty = true; return; }
+    const old = building;
+    content.remove(old);
+    batcher.release();
+    moving.clear();
+    if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
+    if (!project) { disposeObject(old); building = new THREE.Group(); content.add(building); lampRig.setLamps([]); invalidateShadows(); dirty = true; return; }
     building = buildBuilding(THREE, project, mats, {
       openDoors: opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, levels: opts.levels, phase: opts.phase, solids: opts.solids, hiddenTags: opts.hiddenTags,
+      reuse: old.userData.levels || new Map(), // always keyed, so the next build can reuse this one
       loadModel, onAsync: () => { applyStyle(); applyHighlight(); dirty = true; },
     });
+    disposeObject(old); // only the levels that were built again are still in it
     content.add(building);
-    building.traverse((o) => { if (o.isMesh) o.userData.baseMaterial = o.material; });
+    // Carried-over meshes keep the material they were built with (they may be
+    // showing a render style or a highlight right now).
+    building.traverse((o) => { if (o.isMesh && !o.userData.baseMaterial) o.userData.baseMaterial = o.material; });
     lampRig.setLamps(collectLamps(THREE, building));
     lightKey = lampKey(project);
     extent = modelExtent(project);
@@ -233,28 +252,52 @@ export function createViewer(container, options = {}) {
       else if (base.transparent && style !== "xray") o.material = base; // keep glass
       else o.material = styleMats[style] || base;
     });
-    if (edges) { helpers.remove(edges); disposeObject(edges); edges = null; }
+    if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     // Edges: the line drawing, or any style with the style editor's edges on.
-    if (style === "lines" || opts.edges) {
-      edges = new THREE.Group();
-      edges.name = "edges";
-      const mat = new THREE.LineBasicMaterial({ color: opts.edgeColor || 0x1d2128 });
-      building.updateMatrixWorld(true);
-      building.traverseVisible((o) => {
-        if (!o.isMesh) return;
-        const eg = new THREE.EdgesGeometry(o.geometry, 25);
-        const ls = new THREE.LineSegments(eg, mat);
-        o.matrixWorld.decompose(ls.position, ls.quaternion, ls.scale);
-        edges.add(ls);
-      });
-      helpers.add(edges);
-    }
+    if (style === "lines" || opts.edges) edges = buildEdges(opts.edgeColor || 0x1d2128);
     if (sk) sk.applyStyleExtras(); // colour by tag, profiles, watermark
+    batcher.build(building); // before the cut: its filled caps follow the batches
     applyLighting();
     syncLabelDepth();
     applyClipping();
     applyHighlight();
+    invalidateShadows();
     dirty = true;
+  }
+
+  // Every visible mesh's feature edges as ONE line object in world space:
+  // a mesh's edges are worked out once per geometry (shared unit boxes and
+  // component parts reuse them) and moved into place.
+  function buildEdges(color) {
+    const group = new THREE.Group();
+    group.name = "edges";
+    const cache = new Map();
+    const chunks = [];
+    let total = 0;
+    building.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    building.traverseVisible((o) => {
+      if (!o.isMesh) return;
+      let eg = cache.get(o.geometry);
+      if (!eg) cache.set(o.geometry, (eg = new THREE.EdgesGeometry(o.geometry, 25).attributes.position.array));
+      const out = new Float32Array(eg.length);
+      for (let i = 0; i < eg.length; i += 3) {
+        v.set(eg[i], eg[i + 1], eg[i + 2]).applyMatrix4(o.matrixWorld);
+        out[i] = v.x; out[i + 1] = v.y; out[i + 2] = v.z;
+      }
+      chunks.push(out);
+      total += out.length;
+    });
+    const all = new Float32Array(total);
+    let at = 0;
+    for (const c of chunks) { all.set(c, at); at += c.length; }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(all, 3));
+    const ls = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color }));
+    ls.raycast = () => {};
+    group.add(ls);
+    helpers.add(group);
+    return group;
   }
 
   // Day: sun, sky and headlight. Night (interior lighting): the sun is off and
@@ -268,6 +311,7 @@ export function createViewer(container, options = {}) {
     headlight.intensity = night ? 0.02 : 0.35;
     scene.environmentIntensity = night ? 0.025 : 0.6;
     lampRig.invalidate();
+    invalidateShadows();
     dirty = true;
   }
 
@@ -330,6 +374,7 @@ export function createViewer(container, options = {}) {
     // The horizontal cut and the active section plane (sklayer.js).
     renderer.clippingPlanes = on ? [clipPlane] : [];
     if (sk) sk.afterClipping();
+    invalidateShadows();
     dirty = true;
   }
 
@@ -582,6 +627,7 @@ export function createViewer(container, options = {}) {
     sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r;
     sc.near = 0.5; sc.far = r * 6;
     sc.updateProjectionMatrix();
+    invalidateShadows();
     dirty = true;
   }
 
@@ -741,6 +787,7 @@ export function createViewer(container, options = {}) {
 
   // ---------------------------------------------------------------- picking
   const raycaster = new THREE.Raycaster();
+  raycaster.layers.enable(HIDDEN_LAYER); // batched meshes are picked, not drawn
   const ndc = new THREE.Vector2();
   function raycastAt(clientX, clientY) {
     const r = canvas.getBoundingClientRect();
@@ -838,6 +885,7 @@ export function createViewer(container, options = {}) {
     const g = furnitureGroupOf(hit.object, id);
     if (!g || !g.getObjectByName("lamp")) return false;
     lampDrag = { id, group: g, pos0: g.position.clone(), start: hit.point.clone(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -hit.point.y), dx: 0, dy: 0, moved: false };
+    unbatch([id]);
     controls.enabled = false;
     return true;
   }
@@ -854,6 +902,7 @@ export function createViewer(container, options = {}) {
     d.group.updateMatrixWorld(true);
     for (const l of lampRig.lamps) if (l.anchor.parent === d.group) l.pos.setFromMatrixPosition(l.anchor.matrixWorld);
     lampRig.invalidate();
+    invalidateShadows();
     dirty = true;
     emitTool({ type: "lampMove", id: d.id, dx: d.dx, dy: d.dy });
   }
@@ -862,10 +911,21 @@ export function createViewer(container, options = {}) {
   function onPointerDown(e) {
     down = { x: e.clientX, y: e.clientY, button: e.button };
     if (sk && sk.pointerDown(e)) { down.tool = true; return; }
+    // A drag that a tool takes (push/pull, a lamp) keeps the pointer even when
+    // it leaves the canvas, so its release always ends it.
+    const capture = () => {
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic event */ }
+      // …and the window hears it too, wherever the pointer is let go.
+      const win = canvas.ownerDocument.defaultView || window;
+      const move = (ev) => { if (ev.target !== canvas) onPointerMove(ev); };
+      const up = (ev) => { win.removeEventListener("pointermove", move, true); win.removeEventListener("pointerup", up, true); if (ev.target !== canvas) onPointerUp(ev); };
+      win.addEventListener("pointermove", move, true);
+      win.addEventListener("pointerup", up, true);
+    };
     if (e.button === 0 && opts.tool && opts.tool !== "none" && opts.navMode !== "walk") {
-      if (toolDown(e)) { down.tool = true; return; }
+      if (toolDown(e)) { down.tool = true; if (push) capture(); return; }
     }
-    if (e.button === 0 && (!opts.tool || opts.tool === "none") && opts.navMode !== "walk" && lampDown(e)) { down.tool = true; return; }
+    if (e.button === 0 && (!opts.tool || opts.tool === "none") && opts.navMode !== "walk" && lampDown(e)) { down.tool = true; capture(); return; }
     if (opts.navMode === "walk") { walk.drag = { x: e.clientX, y: e.clientY, yaw: walk.yaw, pitch: walk.pitch }; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); }
   }
   function onPointerMove(e) {
@@ -946,8 +1006,9 @@ export function createViewer(container, options = {}) {
   sk = createSketchupLayer({
     THREE, scene, canvas, renderer, controls, opts,
     get camera() { return camera; }, get building() { return building; }, get project() { return project; },
-    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; },
+    raycastAt, rayFrom, emitTool, labelSprite, fmt, addMeasure, markDirty: () => { dirty = true; invalidateShadows(); }, unbatch: (ids) => unbatch(ids),
     getHighlighted: () => highlighted,
+    batches: () => batcher.group.children,
     extentSize: () => Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1, extent.top) * M,
     t: (s) => (opts.translate ? opts.translate(s) : s),
     positionCamera: (pt) => { setNavMode("walk"); camera.position.set(pt.x, pt.y + walk.eye, pt.z); walk.base = pt.y; applyWalkLook(); },
@@ -980,6 +1041,13 @@ export function createViewer(container, options = {}) {
       if (on && !o.userData.hl) { o.userData.hl = o.material; o.material = highlightMaterial(o.material); }
       else if (!on && o.userData.hl) { o.material = o.userData.hl; o.userData.hl = null; }
     });
+    batcher.show(ownMeshIds());
+    dirty = true;
+  }
+  // Items a tool is about to move: drawn by their own meshes until the next rebuild.
+  function unbatch(ids) {
+    for (const id of ids || []) if (id) moving.add(id);
+    batcher.show(ownMeshIds());
     dirty = true;
   }
 
@@ -1033,6 +1101,7 @@ export function createViewer(container, options = {}) {
   }
 
   let lastT = performance.now();
+  let lastFrame = { calls: 0, triangles: 0 }; // what the last main pass drew
   renderer.setAnimationLoop((now) => {
     if (disposed) return;
     const dt = Math.min(0.1, (now - lastT) / 1000);
@@ -1048,6 +1117,7 @@ export function createViewer(container, options = {}) {
       fitAxes();
       lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null });
       renderer.render(scene, camera);
+      lastFrame = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
       renderGizmo();
       dirty = false;
     }
@@ -1096,6 +1166,7 @@ export function createViewer(container, options = {}) {
     if (["sectionCuts", "sectionFill"].some(changed)) applyClipping();
     if (changed("twoPoint") && !opts.twoPoint) { persp.updateProjectionMatrix(); camera.lookAt(controls.target); }
     sk.setOptions(o, changed);
+    invalidateShadows();
     dirty = true;
   }
 
@@ -1123,6 +1194,9 @@ export function createViewer(container, options = {}) {
     f.target = target;
     f.dist = dir.length();
     animateTo(f, duration);
+    // An instant move (duration ≤ 1 ms) is applied now, not on the next frame:
+    // whoever asked may project or pick with the camera straight away.
+    if (duration <= 1) { stepAnim(anim.t0 + anim.duration + 1); camera.updateMatrixWorld(); }
   }
 
   function highlight(ids = []) {
@@ -1182,6 +1256,8 @@ export function createViewer(container, options = {}) {
     throw new Error(`unknown 3D format ${format}`);
   }
 
+  // meshes / triangles: the model; drawCalls: what the GPU was asked to draw
+  // in the last frame (after batching); batches / instances: batch.js.
   function stats() {
     let meshes = 0, triangles = 0;
     building.traverseVisible((o) => {
@@ -1190,7 +1266,7 @@ export function createViewer(container, options = {}) {
       const g = o.geometry;
       triangles += g.index ? g.index.count / 3 : g.attributes.position.count / 3;
     });
-    return { meshes, triangles: Math.round(triangles) };
+    return { meshes, triangles: Math.round(triangles), drawCalls: lastFrame.calls, ...batcher.info() };
   }
 
   function dispose() {
@@ -1204,6 +1280,7 @@ export function createViewer(container, options = {}) {
     canvas.removeEventListener("wheel", onWheel);
     controls.dispose();
     lampRig.dispose();
+    batcher.release();
     disposeObject(building);
     for (const g of [ground, grid, axes, dims, edges]) if (g) disposeGroup(g);
     mats.dispose();

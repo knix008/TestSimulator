@@ -1,0 +1,5789 @@
+{
+ "format": "myarch",
+ "version": 1,
+ "meta": {
+  "title": "Stress-ribbon footbridge",
+  "author": "SHKWON",
+  "company": "MyArchitecture",
+  "client": "Sample",
+  "address": "Seoul",
+  "rev": "A",
+  "date": "2026-10-12",
+  "comment": "",
+  "scale": 100,
+  "north": 0,
+  "latitude": 37.57,
+  "longitude": 126.98,
+  "timezone": 9
+ },
+ "defaults": {
+  "wallThickness": 200,
+  "wallHeight": 2800,
+  "doorWidth": 900,
+  "doorHeight": 2100,
+  "windowWidth": 1200,
+  "windowHeight": 1200,
+  "windowSill": 900,
+  "slab": 200,
+  "columnSize": 400,
+  "stairWidth": 1000,
+  "textSize": 300
+ },
+ "levels": [
+  {
+   "id": "lvx4q2w05zodj",
+   "name": "1F",
+   "elevation": 0,
+   "height": 2800,
+   "slab": 200
+  }
+ ],
+ "wallTypes": [
+  {
+   "id": "ext-brick-300",
+   "name": "Exterior brick cavity 300",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "brick",
+     "thickness": 100,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 80,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 100,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-render-250",
+   "name": "Exterior rendered 250",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 60,
+     "function": "insulation"
+    },
+    {
+     "material": "concrete",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 20,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "ext-wood-200",
+   "name": "Exterior timber frame 200",
+   "exterior": true,
+   "layers": [
+    {
+     "material": "wood-cladding",
+     "thickness": 25,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 150,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 25,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-block-150",
+   "name": "Interior block 150",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    },
+    {
+     "material": "concrete",
+     "thickness": 120,
+     "function": "structure"
+    },
+    {
+     "material": "plaster",
+     "thickness": 15,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "int-drywall-100",
+   "name": "Interior drywall 100",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    },
+    {
+     "material": "insulation",
+     "thickness": 74,
+     "function": "structure"
+    },
+    {
+     "material": "paint-white",
+     "thickness": 13,
+     "function": "finish"
+    }
+   ]
+  },
+  {
+   "id": "concrete-200",
+   "name": "Concrete 200",
+   "exterior": false,
+   "layers": [
+    {
+     "material": "concrete",
+     "thickness": 200,
+     "function": "structure"
+    }
+   ]
+  }
+ ],
+ "grids": [],
+ "costs": {
+  "currency": "KRW",
+  "wall": 120000,
+  "floor": 80000,
+  "roof": 150000,
+  "door": 450000,
+  "window": 380000,
+  "opening": 100000,
+  "stair": 2500000,
+  "column": 300000,
+  "furniture": 0,
+  "slab": 90000,
+  "ceiling": 45000,
+  "beam": 180000,
+  "railing": 150000,
+  "ramp": 2000000,
+  "curtainWall": 650000,
+  "member": 4500000
+ },
+ "layers": [
+  {
+   "id": "0",
+   "name": "0",
+   "color": "#9aa4b5",
+   "visible": true
+  }
+ ],
+ "walls": [],
+ "openings": [],
+ "rooms": [],
+ "columns": [],
+ "stairs": [],
+ "furniture": [],
+ "roofs": [],
+ "dimensions": [],
+ "texts": [],
+ "drawings": [],
+ "underlays": [],
+ "slabs": [],
+ "ceilings": [],
+ "beams": [],
+ "railings": [],
+ "ramps": [],
+ "shafts": [],
+ "members": [
+  {
+   "role": "deck",
+   "pts": [
+    [
+     0,
+     0,
+     8900
+    ],
+    [
+     3750,
+     0,
+     8622.5
+    ],
+    [
+     7500,
+     0,
+     8390
+    ],
+    [
+     11250,
+     0,
+     8202.5
+    ],
+    [
+     15000,
+     0,
+     8060
+    ],
+    [
+     18750,
+     0,
+     7962.5
+    ],
+    [
+     22500,
+     0,
+     7910
+    ],
+    [
+     26250,
+     0,
+     7902.5
+    ],
+    [
+     30000,
+     0,
+     7940
+    ],
+    [
+     33750,
+     0,
+     8022.5
+    ],
+    [
+     37500,
+     0,
+     8150
+    ],
+    [
+     41250,
+     0,
+     8322.5
+    ],
+    [
+     45000,
+     0,
+     8540
+    ],
+    [
+     48750,
+     0,
+     8802.5
+    ],
+    [
+     52500,
+     0,
+     8710
+    ],
+    [
+     56250,
+     0,
+     8462.5
+    ],
+    [
+     60000,
+     0,
+     8260
+    ],
+    [
+     63750,
+     0,
+     8102.5
+    ],
+    [
+     67500,
+     0,
+     7990
+    ],
+    [
+     71250,
+     0,
+     7922.5
+    ],
+    [
+     75000,
+     0,
+     7900
+    ],
+    [
+     78750,
+     0,
+     7922.5
+    ],
+    [
+     82500,
+     0,
+     7990
+    ],
+    [
+     86250,
+     0,
+     8102.5
+    ],
+    [
+     90000,
+     0,
+     8260
+    ],
+    [
+     93750,
+     0,
+     8462.5
+    ],
+    [
+     97500,
+     0,
+     8710
+    ],
+    [
+     101250,
+     0,
+     8802.5
+    ],
+    [
+     105000,
+     0,
+     8540
+    ],
+    [
+     108750,
+     0,
+     8322.5
+    ],
+    [
+     112500,
+     0,
+     8150
+    ],
+    [
+     116250,
+     0,
+     8022.5
+    ],
+    [
+     120000,
+     0,
+     7940
+    ],
+    [
+     123750,
+     0,
+     7902.5
+    ],
+    [
+     127500,
+     0,
+     7910
+    ],
+    [
+     131250,
+     0,
+     7962.5
+    ],
+    [
+     135000,
+     0,
+     8060
+    ],
+    [
+     138750,
+     0,
+     8202.5
+    ],
+    [
+     142500,
+     0,
+     8390
+    ],
+    [
+     146250,
+     0,
+     8622.5
+    ],
+    [
+     150000,
+     0,
+     8900
+    ]
+   ],
+   "profile": "rect",
+   "w": 4000,
+   "h": 200,
+   "material": "concrete-polished",
+   "name": "Deck",
+   "id": "brx4q2w05zprc-0",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 14,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     8400
+    ]
+   ],
+   "profile": "rect",
+   "w": 4000,
+   "h": 1500,
+   "material": "concrete-polished",
+   "name": "Abutment",
+   "roll": -90,
+   "id": "brx4q2w05zprc-1",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 105
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     50000,
+     0,
+     0
+    ],
+    [
+     50000,
+     0,
+     8400
+    ]
+   ],
+   "profile": "rect",
+   "w": 1200,
+   "h": 1920,
+   "material": "concrete-polished",
+   "name": "Pier",
+   "roll": -90,
+   "id": "brx4q2w05zprc-2",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 134
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     50000,
+     -2000,
+     7800
+    ],
+    [
+     50000,
+     2000,
+     7800
+    ]
+   ],
+   "profile": "rect",
+   "w": 1600,
+   "h": 1200,
+   "material": "concrete-polished",
+   "name": "Pier cap",
+   "id": "brx4q2w05zprc-3",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 84,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     100000,
+     0,
+     0
+    ],
+    [
+     100000,
+     0,
+     8400
+    ]
+   ],
+   "profile": "rect",
+   "w": 1200,
+   "h": 1920,
+   "material": "concrete-polished",
+   "name": "Pier",
+   "roll": -90,
+   "id": "brx4q2w05zprc-4",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 134
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     100000,
+     -2000,
+     7800
+    ],
+    [
+     100000,
+     2000,
+     7800
+    ]
+   ],
+   "profile": "rect",
+   "w": 1600,
+   "h": 1200,
+   "material": "concrete-polished",
+   "name": "Pier cap",
+   "id": "brx4q2w05zprc-5",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 84,
+   "roll": 0
+  },
+  {
+   "role": "column",
+   "pts": [
+    [
+     150000,
+     0,
+     0
+    ],
+    [
+     150000,
+     0,
+     8400
+    ]
+   ],
+   "profile": "rect",
+   "w": 4000,
+   "h": 1500,
+   "material": "concrete-polished",
+   "name": "Abutment",
+   "roll": -90,
+   "id": "brx4q2w05zprc-6",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 105
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     0,
+     -2300,
+     8000
+    ],
+    [
+     0,
+     2300,
+     8000
+    ]
+   ],
+   "profile": "rect",
+   "w": 2400,
+   "h": 800,
+   "material": "concrete-polished",
+   "name": "Anchor block",
+   "id": "brx4q2w05zprc-7",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 56,
+   "roll": 0
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     50000,
+     -2300,
+     8000
+    ],
+    [
+     50000,
+     2300,
+     8000
+    ]
+   ],
+   "profile": "rect",
+   "w": 2400,
+   "h": 800,
+   "material": "concrete-polished",
+   "name": "Saddle",
+   "id": "brx4q2w05zprc-8",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 56,
+   "roll": 0
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     100000,
+     -2300,
+     8000
+    ],
+    [
+     100000,
+     2300,
+     8000
+    ]
+   ],
+   "profile": "rect",
+   "w": 2400,
+   "h": 800,
+   "material": "concrete-polished",
+   "name": "Saddle",
+   "id": "brx4q2w05zprc-9",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 56,
+   "roll": 0
+  },
+  {
+   "role": "beam",
+   "pts": [
+    [
+     150000,
+     -2300,
+     8000
+    ],
+    [
+     150000,
+     2300,
+     8000
+    ]
+   ],
+   "profile": "rect",
+   "w": 2400,
+   "h": 800,
+   "material": "concrete-polished",
+   "name": "Anchor block",
+   "id": "brx4q2w05zprc-10",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "t": 56,
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     0,
+     -1850,
+     10100
+    ],
+    [
+     2000,
+     -1850,
+     9946.4
+    ],
+    [
+     4000,
+     -1850,
+     9805.6
+    ],
+    [
+     6000,
+     -1850,
+     9677.6
+    ],
+    [
+     8000,
+     -1850,
+     9562.4
+    ],
+    [
+     10000,
+     -1850,
+     9460
+    ],
+    [
+     12000,
+     -1850,
+     9370.4
+    ],
+    [
+     14000,
+     -1850,
+     9293.6
+    ],
+    [
+     16000,
+     -1850,
+     9229.6
+    ],
+    [
+     18000,
+     -1850,
+     9178.4
+    ],
+    [
+     20000,
+     -1850,
+     9140
+    ],
+    [
+     22000,
+     -1850,
+     9114.4
+    ],
+    [
+     24000,
+     -1850,
+     9101.6
+    ],
+    [
+     26000,
+     -1850,
+     9101.6
+    ],
+    [
+     28000,
+     -1850,
+     9114.4
+    ],
+    [
+     30000,
+     -1850,
+     9140
+    ],
+    [
+     32000,
+     -1850,
+     9178.4
+    ],
+    [
+     34000,
+     -1850,
+     9229.6
+    ],
+    [
+     36000,
+     -1850,
+     9293.6
+    ],
+    [
+     38000,
+     -1850,
+     9370.4
+    ],
+    [
+     40000,
+     -1850,
+     9460
+    ],
+    [
+     42000,
+     -1850,
+     9562.4
+    ],
+    [
+     44000,
+     -1850,
+     9677.6
+    ],
+    [
+     46000,
+     -1850,
+     9805.6
+    ],
+    [
+     48000,
+     -1850,
+     9946.4
+    ],
+    [
+     50000,
+     -1850,
+     10100
+    ],
+    [
+     52000,
+     -1850,
+     9946.4
+    ],
+    [
+     54000,
+     -1850,
+     9805.6
+    ],
+    [
+     56000,
+     -1850,
+     9677.6
+    ],
+    [
+     58000,
+     -1850,
+     9562.4
+    ],
+    [
+     60000,
+     -1850,
+     9460
+    ],
+    [
+     62000,
+     -1850,
+     9370.4
+    ],
+    [
+     64000,
+     -1850,
+     9293.6
+    ],
+    [
+     66000,
+     -1850,
+     9229.6
+    ],
+    [
+     68000,
+     -1850,
+     9178.4
+    ],
+    [
+     70000,
+     -1850,
+     9140
+    ],
+    [
+     72000,
+     -1850,
+     9114.4
+    ],
+    [
+     74000,
+     -1850,
+     9101.6
+    ],
+    [
+     76000,
+     -1850,
+     9101.6
+    ],
+    [
+     78000,
+     -1850,
+     9114.4
+    ],
+    [
+     80000,
+     -1850,
+     9140
+    ],
+    [
+     82000,
+     -1850,
+     9178.4
+    ],
+    [
+     84000,
+     -1850,
+     9229.6
+    ],
+    [
+     86000,
+     -1850,
+     9293.6
+    ],
+    [
+     88000,
+     -1850,
+     9370.4
+    ],
+    [
+     90000,
+     -1850,
+     9460
+    ],
+    [
+     92000,
+     -1850,
+     9562.4
+    ],
+    [
+     94000,
+     -1850,
+     9677.6
+    ],
+    [
+     96000,
+     -1850,
+     9805.6
+    ],
+    [
+     98000,
+     -1850,
+     9946.4
+    ],
+    [
+     100000,
+     -1850,
+     10100
+    ],
+    [
+     102000,
+     -1850,
+     9946.4
+    ],
+    [
+     104000,
+     -1850,
+     9805.6
+    ],
+    [
+     106000,
+     -1850,
+     9677.6
+    ],
+    [
+     108000,
+     -1850,
+     9562.4
+    ],
+    [
+     110000,
+     -1850,
+     9460
+    ],
+    [
+     112000,
+     -1850,
+     9370.4
+    ],
+    [
+     114000,
+     -1850,
+     9293.6
+    ],
+    [
+     116000,
+     -1850,
+     9229.6
+    ],
+    [
+     118000,
+     -1850,
+     9178.4
+    ],
+    [
+     120000,
+     -1850,
+     9140
+    ],
+    [
+     122000,
+     -1850,
+     9114.4
+    ],
+    [
+     124000,
+     -1850,
+     9101.6
+    ],
+    [
+     126000,
+     -1850,
+     9101.6
+    ],
+    [
+     128000,
+     -1850,
+     9114.4
+    ],
+    [
+     130000,
+     -1850,
+     9140
+    ],
+    [
+     132000,
+     -1850,
+     9178.4
+    ],
+    [
+     134000,
+     -1850,
+     9229.6
+    ],
+    [
+     136000,
+     -1850,
+     9293.6
+    ],
+    [
+     138000,
+     -1850,
+     9370.4
+    ],
+    [
+     140000,
+     -1850,
+     9460
+    ],
+    [
+     142000,
+     -1850,
+     9562.4
+    ],
+    [
+     144000,
+     -1850,
+     9677.6
+    ],
+    [
+     146000,
+     -1850,
+     9805.6
+    ],
+    [
+     148000,
+     -1850,
+     9946.4
+    ],
+    [
+     150000,
+     -1850,
+     10100
+    ]
+   ],
+   "profile": "tube",
+   "w": 60,
+   "t": 4,
+   "material": "stainless",
+   "name": "Handrail",
+   "id": "brx4q2w05zprc-11",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "h": 60,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     -1850,
+     9000
+    ],
+    [
+     0,
+     -1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-12",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     2000,
+     -1850,
+     8846.4
+    ],
+    [
+     2000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-13",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     4000,
+     -1850,
+     8705.6
+    ],
+    [
+     4000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-14",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     6000,
+     -1850,
+     8577.6
+    ],
+    [
+     6000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-15",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     8000,
+     -1850,
+     8462.4
+    ],
+    [
+     8000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-16",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     10000,
+     -1850,
+     8360
+    ],
+    [
+     10000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-17",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     12000,
+     -1850,
+     8270.4
+    ],
+    [
+     12000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-18",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     14000,
+     -1850,
+     8193.6
+    ],
+    [
+     14000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-19",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     16000,
+     -1850,
+     8129.6
+    ],
+    [
+     16000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-20",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     18000,
+     -1850,
+     8078.4
+    ],
+    [
+     18000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-21",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     20000,
+     -1850,
+     8040
+    ],
+    [
+     20000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-22",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     22000,
+     -1850,
+     8014.4
+    ],
+    [
+     22000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-23",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     24000,
+     -1850,
+     8001.6
+    ],
+    [
+     24000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-24",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     26000,
+     -1850,
+     8001.6
+    ],
+    [
+     26000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-25",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     28000,
+     -1850,
+     8014.4
+    ],
+    [
+     28000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-26",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     30000,
+     -1850,
+     8040
+    ],
+    [
+     30000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-27",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     32000,
+     -1850,
+     8078.4
+    ],
+    [
+     32000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-28",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     34000,
+     -1850,
+     8129.6
+    ],
+    [
+     34000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-29",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     36000,
+     -1850,
+     8193.6
+    ],
+    [
+     36000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-30",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     38000,
+     -1850,
+     8270.4
+    ],
+    [
+     38000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-31",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     40000,
+     -1850,
+     8360
+    ],
+    [
+     40000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-32",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     42000,
+     -1850,
+     8462.4
+    ],
+    [
+     42000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-33",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     44000,
+     -1850,
+     8577.6
+    ],
+    [
+     44000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-34",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     46000,
+     -1850,
+     8705.6
+    ],
+    [
+     46000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-35",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     48000,
+     -1850,
+     8846.4
+    ],
+    [
+     48000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-36",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     50000,
+     -1850,
+     9000
+    ],
+    [
+     50000,
+     -1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-37",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     52000,
+     -1850,
+     8846.4
+    ],
+    [
+     52000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-38",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     54000,
+     -1850,
+     8705.6
+    ],
+    [
+     54000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-39",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     56000,
+     -1850,
+     8577.6
+    ],
+    [
+     56000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-40",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     58000,
+     -1850,
+     8462.4
+    ],
+    [
+     58000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-41",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     60000,
+     -1850,
+     8360
+    ],
+    [
+     60000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-42",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     62000,
+     -1850,
+     8270.4
+    ],
+    [
+     62000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-43",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     64000,
+     -1850,
+     8193.6
+    ],
+    [
+     64000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-44",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     66000,
+     -1850,
+     8129.6
+    ],
+    [
+     66000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-45",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     68000,
+     -1850,
+     8078.4
+    ],
+    [
+     68000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-46",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     70000,
+     -1850,
+     8040
+    ],
+    [
+     70000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-47",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     72000,
+     -1850,
+     8014.4
+    ],
+    [
+     72000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-48",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     74000,
+     -1850,
+     8001.6
+    ],
+    [
+     74000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-49",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     76000,
+     -1850,
+     8001.6
+    ],
+    [
+     76000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-50",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     78000,
+     -1850,
+     8014.4
+    ],
+    [
+     78000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-51",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     80000,
+     -1850,
+     8040
+    ],
+    [
+     80000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-52",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     82000,
+     -1850,
+     8078.4
+    ],
+    [
+     82000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-53",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     84000,
+     -1850,
+     8129.6
+    ],
+    [
+     84000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-54",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     86000,
+     -1850,
+     8193.6
+    ],
+    [
+     86000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-55",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     88000,
+     -1850,
+     8270.4
+    ],
+    [
+     88000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-56",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     90000,
+     -1850,
+     8360
+    ],
+    [
+     90000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-57",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     92000,
+     -1850,
+     8462.4
+    ],
+    [
+     92000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-58",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     94000,
+     -1850,
+     8577.6
+    ],
+    [
+     94000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-59",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     96000,
+     -1850,
+     8705.6
+    ],
+    [
+     96000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-60",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     98000,
+     -1850,
+     8846.4
+    ],
+    [
+     98000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-61",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     100000,
+     -1850,
+     9000
+    ],
+    [
+     100000,
+     -1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-62",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     102000,
+     -1850,
+     8846.4
+    ],
+    [
+     102000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-63",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     104000,
+     -1850,
+     8705.6
+    ],
+    [
+     104000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-64",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     106000,
+     -1850,
+     8577.6
+    ],
+    [
+     106000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-65",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     108000,
+     -1850,
+     8462.4
+    ],
+    [
+     108000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-66",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     110000,
+     -1850,
+     8360
+    ],
+    [
+     110000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-67",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     112000,
+     -1850,
+     8270.4
+    ],
+    [
+     112000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-68",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     114000,
+     -1850,
+     8193.6
+    ],
+    [
+     114000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-69",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     116000,
+     -1850,
+     8129.6
+    ],
+    [
+     116000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-70",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     118000,
+     -1850,
+     8078.4
+    ],
+    [
+     118000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-71",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     120000,
+     -1850,
+     8040
+    ],
+    [
+     120000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-72",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     122000,
+     -1850,
+     8014.4
+    ],
+    [
+     122000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-73",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     124000,
+     -1850,
+     8001.6
+    ],
+    [
+     124000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-74",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     126000,
+     -1850,
+     8001.6
+    ],
+    [
+     126000,
+     -1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-75",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     128000,
+     -1850,
+     8014.4
+    ],
+    [
+     128000,
+     -1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-76",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     130000,
+     -1850,
+     8040
+    ],
+    [
+     130000,
+     -1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-77",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     132000,
+     -1850,
+     8078.4
+    ],
+    [
+     132000,
+     -1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-78",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     134000,
+     -1850,
+     8129.6
+    ],
+    [
+     134000,
+     -1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-79",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     136000,
+     -1850,
+     8193.6
+    ],
+    [
+     136000,
+     -1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-80",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     138000,
+     -1850,
+     8270.4
+    ],
+    [
+     138000,
+     -1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-81",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     140000,
+     -1850,
+     8360
+    ],
+    [
+     140000,
+     -1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-82",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     142000,
+     -1850,
+     8462.4
+    ],
+    [
+     142000,
+     -1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-83",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     144000,
+     -1850,
+     8577.6
+    ],
+    [
+     144000,
+     -1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-84",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     146000,
+     -1850,
+     8705.6
+    ],
+    [
+     146000,
+     -1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-85",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     148000,
+     -1850,
+     8846.4
+    ],
+    [
+     148000,
+     -1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-86",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     150000,
+     -1850,
+     9000
+    ],
+    [
+     150000,
+     -1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-87",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "chord",
+   "pts": [
+    [
+     0,
+     1850,
+     10100
+    ],
+    [
+     2000,
+     1850,
+     9946.4
+    ],
+    [
+     4000,
+     1850,
+     9805.6
+    ],
+    [
+     6000,
+     1850,
+     9677.6
+    ],
+    [
+     8000,
+     1850,
+     9562.4
+    ],
+    [
+     10000,
+     1850,
+     9460
+    ],
+    [
+     12000,
+     1850,
+     9370.4
+    ],
+    [
+     14000,
+     1850,
+     9293.6
+    ],
+    [
+     16000,
+     1850,
+     9229.6
+    ],
+    [
+     18000,
+     1850,
+     9178.4
+    ],
+    [
+     20000,
+     1850,
+     9140
+    ],
+    [
+     22000,
+     1850,
+     9114.4
+    ],
+    [
+     24000,
+     1850,
+     9101.6
+    ],
+    [
+     26000,
+     1850,
+     9101.6
+    ],
+    [
+     28000,
+     1850,
+     9114.4
+    ],
+    [
+     30000,
+     1850,
+     9140
+    ],
+    [
+     32000,
+     1850,
+     9178.4
+    ],
+    [
+     34000,
+     1850,
+     9229.6
+    ],
+    [
+     36000,
+     1850,
+     9293.6
+    ],
+    [
+     38000,
+     1850,
+     9370.4
+    ],
+    [
+     40000,
+     1850,
+     9460
+    ],
+    [
+     42000,
+     1850,
+     9562.4
+    ],
+    [
+     44000,
+     1850,
+     9677.6
+    ],
+    [
+     46000,
+     1850,
+     9805.6
+    ],
+    [
+     48000,
+     1850,
+     9946.4
+    ],
+    [
+     50000,
+     1850,
+     10100
+    ],
+    [
+     52000,
+     1850,
+     9946.4
+    ],
+    [
+     54000,
+     1850,
+     9805.6
+    ],
+    [
+     56000,
+     1850,
+     9677.6
+    ],
+    [
+     58000,
+     1850,
+     9562.4
+    ],
+    [
+     60000,
+     1850,
+     9460
+    ],
+    [
+     62000,
+     1850,
+     9370.4
+    ],
+    [
+     64000,
+     1850,
+     9293.6
+    ],
+    [
+     66000,
+     1850,
+     9229.6
+    ],
+    [
+     68000,
+     1850,
+     9178.4
+    ],
+    [
+     70000,
+     1850,
+     9140
+    ],
+    [
+     72000,
+     1850,
+     9114.4
+    ],
+    [
+     74000,
+     1850,
+     9101.6
+    ],
+    [
+     76000,
+     1850,
+     9101.6
+    ],
+    [
+     78000,
+     1850,
+     9114.4
+    ],
+    [
+     80000,
+     1850,
+     9140
+    ],
+    [
+     82000,
+     1850,
+     9178.4
+    ],
+    [
+     84000,
+     1850,
+     9229.6
+    ],
+    [
+     86000,
+     1850,
+     9293.6
+    ],
+    [
+     88000,
+     1850,
+     9370.4
+    ],
+    [
+     90000,
+     1850,
+     9460
+    ],
+    [
+     92000,
+     1850,
+     9562.4
+    ],
+    [
+     94000,
+     1850,
+     9677.6
+    ],
+    [
+     96000,
+     1850,
+     9805.6
+    ],
+    [
+     98000,
+     1850,
+     9946.4
+    ],
+    [
+     100000,
+     1850,
+     10100
+    ],
+    [
+     102000,
+     1850,
+     9946.4
+    ],
+    [
+     104000,
+     1850,
+     9805.6
+    ],
+    [
+     106000,
+     1850,
+     9677.6
+    ],
+    [
+     108000,
+     1850,
+     9562.4
+    ],
+    [
+     110000,
+     1850,
+     9460
+    ],
+    [
+     112000,
+     1850,
+     9370.4
+    ],
+    [
+     114000,
+     1850,
+     9293.6
+    ],
+    [
+     116000,
+     1850,
+     9229.6
+    ],
+    [
+     118000,
+     1850,
+     9178.4
+    ],
+    [
+     120000,
+     1850,
+     9140
+    ],
+    [
+     122000,
+     1850,
+     9114.4
+    ],
+    [
+     124000,
+     1850,
+     9101.6
+    ],
+    [
+     126000,
+     1850,
+     9101.6
+    ],
+    [
+     128000,
+     1850,
+     9114.4
+    ],
+    [
+     130000,
+     1850,
+     9140
+    ],
+    [
+     132000,
+     1850,
+     9178.4
+    ],
+    [
+     134000,
+     1850,
+     9229.6
+    ],
+    [
+     136000,
+     1850,
+     9293.6
+    ],
+    [
+     138000,
+     1850,
+     9370.4
+    ],
+    [
+     140000,
+     1850,
+     9460
+    ],
+    [
+     142000,
+     1850,
+     9562.4
+    ],
+    [
+     144000,
+     1850,
+     9677.6
+    ],
+    [
+     146000,
+     1850,
+     9805.6
+    ],
+    [
+     148000,
+     1850,
+     9946.4
+    ],
+    [
+     150000,
+     1850,
+     10100
+    ]
+   ],
+   "profile": "tube",
+   "w": 60,
+   "t": 4,
+   "material": "stainless",
+   "name": "Handrail",
+   "id": "brx4q2w05zprc-88",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "h": 60,
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     0,
+     1850,
+     9000
+    ],
+    [
+     0,
+     1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-89",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     2000,
+     1850,
+     8846.4
+    ],
+    [
+     2000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-90",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     4000,
+     1850,
+     8705.6
+    ],
+    [
+     4000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-91",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     6000,
+     1850,
+     8577.6
+    ],
+    [
+     6000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-92",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     8000,
+     1850,
+     8462.4
+    ],
+    [
+     8000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-93",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     10000,
+     1850,
+     8360
+    ],
+    [
+     10000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-94",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     12000,
+     1850,
+     8270.4
+    ],
+    [
+     12000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-95",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     14000,
+     1850,
+     8193.6
+    ],
+    [
+     14000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-96",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     16000,
+     1850,
+     8129.6
+    ],
+    [
+     16000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-97",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     18000,
+     1850,
+     8078.4
+    ],
+    [
+     18000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-98",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     20000,
+     1850,
+     8040
+    ],
+    [
+     20000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-99",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     22000,
+     1850,
+     8014.4
+    ],
+    [
+     22000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-100",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     24000,
+     1850,
+     8001.6
+    ],
+    [
+     24000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-101",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     26000,
+     1850,
+     8001.6
+    ],
+    [
+     26000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-102",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     28000,
+     1850,
+     8014.4
+    ],
+    [
+     28000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-103",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     30000,
+     1850,
+     8040
+    ],
+    [
+     30000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-104",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     32000,
+     1850,
+     8078.4
+    ],
+    [
+     32000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-105",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     34000,
+     1850,
+     8129.6
+    ],
+    [
+     34000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-106",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     36000,
+     1850,
+     8193.6
+    ],
+    [
+     36000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-107",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     38000,
+     1850,
+     8270.4
+    ],
+    [
+     38000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-108",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     40000,
+     1850,
+     8360
+    ],
+    [
+     40000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-109",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     42000,
+     1850,
+     8462.4
+    ],
+    [
+     42000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-110",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     44000,
+     1850,
+     8577.6
+    ],
+    [
+     44000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-111",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     46000,
+     1850,
+     8705.6
+    ],
+    [
+     46000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-112",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     48000,
+     1850,
+     8846.4
+    ],
+    [
+     48000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-113",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     50000,
+     1850,
+     9000
+    ],
+    [
+     50000,
+     1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-114",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     52000,
+     1850,
+     8846.4
+    ],
+    [
+     52000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-115",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     54000,
+     1850,
+     8705.6
+    ],
+    [
+     54000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-116",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     56000,
+     1850,
+     8577.6
+    ],
+    [
+     56000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-117",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     58000,
+     1850,
+     8462.4
+    ],
+    [
+     58000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-118",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     60000,
+     1850,
+     8360
+    ],
+    [
+     60000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-119",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     62000,
+     1850,
+     8270.4
+    ],
+    [
+     62000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-120",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     64000,
+     1850,
+     8193.6
+    ],
+    [
+     64000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-121",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     66000,
+     1850,
+     8129.6
+    ],
+    [
+     66000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-122",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     68000,
+     1850,
+     8078.4
+    ],
+    [
+     68000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-123",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     70000,
+     1850,
+     8040
+    ],
+    [
+     70000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-124",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     72000,
+     1850,
+     8014.4
+    ],
+    [
+     72000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-125",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     74000,
+     1850,
+     8001.6
+    ],
+    [
+     74000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-126",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     76000,
+     1850,
+     8001.6
+    ],
+    [
+     76000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-127",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     78000,
+     1850,
+     8014.4
+    ],
+    [
+     78000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-128",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     80000,
+     1850,
+     8040
+    ],
+    [
+     80000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-129",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     82000,
+     1850,
+     8078.4
+    ],
+    [
+     82000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-130",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     84000,
+     1850,
+     8129.6
+    ],
+    [
+     84000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-131",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     86000,
+     1850,
+     8193.6
+    ],
+    [
+     86000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-132",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     88000,
+     1850,
+     8270.4
+    ],
+    [
+     88000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-133",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     90000,
+     1850,
+     8360
+    ],
+    [
+     90000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-134",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     92000,
+     1850,
+     8462.4
+    ],
+    [
+     92000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-135",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     94000,
+     1850,
+     8577.6
+    ],
+    [
+     94000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-136",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     96000,
+     1850,
+     8705.6
+    ],
+    [
+     96000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-137",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     98000,
+     1850,
+     8846.4
+    ],
+    [
+     98000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-138",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     100000,
+     1850,
+     9000
+    ],
+    [
+     100000,
+     1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-139",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     102000,
+     1850,
+     8846.4
+    ],
+    [
+     102000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-140",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     104000,
+     1850,
+     8705.6
+    ],
+    [
+     104000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-141",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     106000,
+     1850,
+     8577.6
+    ],
+    [
+     106000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-142",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     108000,
+     1850,
+     8462.4
+    ],
+    [
+     108000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-143",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     110000,
+     1850,
+     8360
+    ],
+    [
+     110000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-144",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     112000,
+     1850,
+     8270.4
+    ],
+    [
+     112000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-145",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     114000,
+     1850,
+     8193.6
+    ],
+    [
+     114000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-146",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     116000,
+     1850,
+     8129.6
+    ],
+    [
+     116000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-147",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     118000,
+     1850,
+     8078.4
+    ],
+    [
+     118000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-148",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     120000,
+     1850,
+     8040
+    ],
+    [
+     120000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-149",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     122000,
+     1850,
+     8014.4
+    ],
+    [
+     122000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-150",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     124000,
+     1850,
+     8001.6
+    ],
+    [
+     124000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-151",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     126000,
+     1850,
+     8001.6
+    ],
+    [
+     126000,
+     1850,
+     9101.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-152",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     128000,
+     1850,
+     8014.4
+    ],
+    [
+     128000,
+     1850,
+     9114.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-153",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     130000,
+     1850,
+     8040
+    ],
+    [
+     130000,
+     1850,
+     9140
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-154",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     132000,
+     1850,
+     8078.4
+    ],
+    [
+     132000,
+     1850,
+     9178.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-155",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     134000,
+     1850,
+     8129.6
+    ],
+    [
+     134000,
+     1850,
+     9229.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-156",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     136000,
+     1850,
+     8193.6
+    ],
+    [
+     136000,
+     1850,
+     9293.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-157",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     138000,
+     1850,
+     8270.4
+    ],
+    [
+     138000,
+     1850,
+     9370.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-158",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     140000,
+     1850,
+     8360
+    ],
+    [
+     140000,
+     1850,
+     9460
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-159",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     142000,
+     1850,
+     8462.4
+    ],
+    [
+     142000,
+     1850,
+     9562.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-160",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     144000,
+     1850,
+     8577.6
+    ],
+    [
+     144000,
+     1850,
+     9677.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-161",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     146000,
+     1850,
+     8705.6
+    ],
+    [
+     146000,
+     1850,
+     9805.6
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-162",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     148000,
+     1850,
+     8846.4
+    ],
+    [
+     148000,
+     1850,
+     9946.4
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-163",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  },
+  {
+   "role": "post",
+   "pts": [
+    [
+     150000,
+     1850,
+     9000
+    ],
+    [
+     150000,
+     1850,
+     10100
+    ]
+   ],
+   "profile": "box",
+   "w": 60,
+   "h": 60,
+   "t": 4,
+   "material": "stainless",
+   "id": "brx4q2w05zprc-164",
+   "level": "lvx4q2w05zodj",
+   "structure": "brx4q2w05zprc",
+   "group": "brx4q2w05zprc",
+   "phase": "new",
+   "roll": 0
+  }
+ ],
+ "models": [],
+ "solids": [
+  {
+   "id": "vx4q2y05zq9i",
+   "level": "lvx4q2w05zodj",
+   "name": "Pond",
+   "pts": [
+    [
+     20000,
+     -40000
+    ],
+    [
+     130000,
+     -40000
+    ],
+    [
+     130000,
+     40000
+    ],
+    [
+     20000,
+     40000
+    ]
+   ],
+   "z0": -200,
+   "height": 260,
+   "taper": 1,
+   "material": "water",
+   "phase": "new"
+  },
+  {
+   "id": "vx4q2y05zr0q",
+   "level": "lvx4q2w05zodj",
+   "name": "Park west",
+   "pts": [
+    [
+     -40000,
+     -40000
+    ],
+    [
+     20000,
+     -40000
+    ],
+    [
+     20000,
+     40000
+    ],
+    [
+     -40000,
+     40000
+    ]
+   ],
+   "z0": -200,
+   "height": 300,
+   "taper": 1,
+   "material": "grass",
+   "phase": "new"
+  },
+  {
+   "id": "vx4q2y05zsiw",
+   "level": "lvx4q2w05zodj",
+   "name": "Park east",
+   "pts": [
+    [
+     130000,
+     -40000
+    ],
+    [
+     190000,
+     -40000
+    ],
+    [
+     190000,
+     40000
+    ],
+    [
+     130000,
+     40000
+    ]
+   ],
+   "z0": -200,
+   "height": 300,
+   "taper": 1,
+   "material": "grass",
+   "phase": "new"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "scx4q2y05zt6i",
+   "name": "Overview",
+   "camera": {
+    "pos": [
+     243.5707753802312,
+     137.9215434929164,
+     306.4923188731476
+    ],
+    "target": [
+     75,
+     2,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  },
+  {
+   "id": "scx4q2y05zuvo",
+   "name": "Walking across",
+   "camera": {
+    "pos": [
+     2,
+     10.6,
+     0
+    ],
+    "target": [
+     75,
+     9,
+     0
+    ],
+    "ortho": false
+   },
+   "style": "realistic",
+   "section": null,
+   "phase": "all"
+  }
+ ],
+ "view": {
+  "level": "lvx4q2w05zodj"
+ },
+ "structures": [
+  {
+   "id": "brx4q2w05zprc",
+   "kind": "bridge",
+   "level": "lvx4q2w05zodj",
+   "name": "Stress-ribbon footbridge",
+   "params": {
+    "type": "ribbon",
+    "x": 0,
+    "y": 0,
+    "angle": 0,
+    "length": 150000,
+    "spans": 3,
+    "width": 4000,
+    "deckZ": 9000,
+    "deckDepth": 600,
+    "grade": 0,
+    "crest": 0,
+    "radius": 0,
+    "height": 0,
+    "pierShape": "rect",
+    "pierWidth": 1200,
+    "material": "concrete-polished",
+    "steel": "stainless",
+    "cable": "cable",
+    "railing": true
+   }
+  }
+ ],
+ "slabTypes": [],
+ "types": [],
+ "designOptions": [],
+ "views": [],
+ "sheets": [
+  {
+   "id": "shx4q2y0600xg",
+   "number": "A101",
+   "name": "Floor plan — 1F",
+   "paper": "A3",
+   "landscape": true,
+   "fields": {
+    "drawnBy": "",
+    "checkedBy": "",
+    "approvedBy": "",
+    "issueDate": "",
+    "status": ""
+   },
+   "viewports": [
+    {
+     "id": "vpx4q2y06011e",
+     "view": "pl-lvx4q2w05zodj",
+     "x": 0,
+     "y": 0,
+     "fit": true
+    }
+   ],
+   "revisions": [],
+   "auto": true
+  }
+ ],
+ "annotations": [],
+ "revisions": [],
+ "publishSets": [],
+ "viewTemplates": [
+  {
+   "id": "vt-plan-100",
+   "name": "Architectural plan 1:100",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "all",
+   "hidden": []
+  },
+  {
+   "id": "vt-furn-50",
+   "name": "Furniture plan 1:50",
+   "kinds": [
+    "plan"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "new",
+   "hidden": [
+    "dimensions"
+   ]
+  },
+  {
+   "id": "vt-section-50",
+   "name": "Construction section 1:50",
+   "kinds": [
+    "section",
+    "detail"
+   ],
+   "scale": 50,
+   "detail": "fine",
+   "phase": "all",
+   "hidden": [
+    "furniture",
+    "lights"
+   ]
+  },
+  {
+   "id": "vt-elev-100",
+   "name": "Presentation elevation 1:100",
+   "kinds": [
+    "elevation"
+   ],
+   "scale": 100,
+   "detail": "medium",
+   "phase": "new",
+   "hidden": [
+    "furniture"
+   ]
+  }
+ ],
+ "lineStyles": [
+  {
+   "id": "thin",
+   "name": "Thin lines",
+   "weight": 0.13,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "medium",
+   "name": "Medium lines",
+   "weight": 0.25,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "wide",
+   "name": "Wide lines",
+   "weight": 0.5,
+   "color": "#000000",
+   "pattern": "solid"
+  },
+  {
+   "id": "hidden",
+   "name": "Hidden lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dash"
+  },
+  {
+   "id": "centre",
+   "name": "Centre lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dashdot"
+  },
+  {
+   "id": "overhead",
+   "name": "Overhead lines",
+   "weight": 0.18,
+   "color": "#000000",
+   "pattern": "dot"
+  },
+  {
+   "id": "demolished",
+   "name": "Demolished",
+   "weight": 0.25,
+   "color": "#c62828",
+   "pattern": "dash"
+  },
+  {
+   "id": "red",
+   "name": "Red lines",
+   "weight": 0.25,
+   "color": "#d32f2f",
+   "pattern": "solid"
+  }
+ ],
+ "components": [],
+ "materials": [],
+ "sections": [],
+ "guides": [],
+ "dims3d": [],
+ "texts3d": [],
+ "style3d": {
+  "edges": false,
+  "edgeColor": "#1d2128",
+  "profiles": false,
+  "profileWidth": 3,
+  "colorByTag": false,
+  "background": "",
+  "sky": "",
+  "horizon": "",
+  "ground": "",
+  "groundOn": true,
+  "watermark": "",
+  "watermarkPos": "br",
+  "sectionFill": "#3b4250",
+  "fogDensity": 1
+ }
+}

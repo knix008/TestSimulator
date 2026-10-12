@@ -298,7 +298,7 @@ export function install(app) {
       if (sheet) add(btn("views.placeView"), split("text", ["note"], btn), split("detail", DETAIL_GROUP, btn));
       add(sep(), btn("views.section"), btn("views.extElevations"), btn("views.ceilingPlan"), btn("views.schedule"), btn("views.sheet"), sep(),
         btn("views.properties"), btn("views.visibility"), btn("views.templates"), btn("views.revisions"), sep(), btn("views.publish"), btn("views.exportDxf"),
-        h("div", { class: "grow" }), btn("view.fit"));
+        sep(), btn("view.fit"));
     },
     // Two split buttons on the floor-plan tool bar: views and annotation.
     // One split button: the last used view or annotation tool, the caret lists them all.

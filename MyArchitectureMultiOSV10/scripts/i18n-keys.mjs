@@ -31,7 +31,8 @@ export async function collectKeys() {
   const app = read("src/ui/app.js");
   for (const m of app.matchAll(/C\("[\w.]+",\s*"((?:[^"\\]|\\.)*)"/g)) keys.add(unq(m[1]));
   const menus = app.slice(app.indexOf("const M = {"), app.indexOf("this.menuMap"));
-  for (const m of menus.matchAll(/^\s{6}"?([\w ]+)"?: \[/gm)) keys.add(m[1]);
+  // [ \t], not \s: \s also eats the line break, which then leaks into the key.
+  for (const m of menus.matchAll(/^[ \t]{6}"?([\w ]+)"?: \[/gm)) keys.add(m[1]);
   const editor = read("src/plan/editor.js");
   const tools = editor.slice(editor.indexOf("PLAN_TOOLS"), editor.indexOf("export function parseLength"));
   for (const m of tools.matchAll(/(?:label|hint): "((?:[^"\\]|\\.)*)"/g)) keys.add(unq(m[1]));
@@ -62,8 +63,9 @@ export async function collectKeys() {
   const { allFurniture, FURNITURE_CATEGORIES } = await import(pathToFileURL(path.join(root, "src/lib/furniture.js")).href);
   for (const f of allFurniture()) keys.add(f.name);
   for (const c of FURNITURE_CATEGORIES) keys.add(c);
-  const { MATERIALS } = await import(pathToFileURL(path.join(root, "src/lib/materials.js")).href);
+  const { MATERIALS, MATERIAL_CATEGORIES } = await import(pathToFileURL(path.join(root, "src/lib/materials.js")).href);
   for (const m of MATERIALS) keys.add(m.name);
+  for (const [, name] of MATERIAL_CATEGORIES) keys.add(name);
   for (const k of ["walls", "openings", "rooms", "columns", "stairs", "furniture", "roofs", "dimensions", "texts", "drawings", "underlays"]) keys.add(k);
   return [...keys].filter(Boolean).sort();
 }

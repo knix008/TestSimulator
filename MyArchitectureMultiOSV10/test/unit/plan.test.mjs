@@ -777,8 +777,9 @@ describe("drawPlan", () => {
             const on = (k) => (p[k] || []).filter((x) => x.level === lv.id).length;
             const items = on("walls") + on("rooms") + on("solids") + on("furniture");
             const many = phase === "existing" ? 0 : Math.min(10, items);
-            assert.ok(ctx.calls.fill >= many, `${lv.name} ${wallStyle}/${phase}: fills`);
-            assert.ok(ctx.calls.stroke >= many, `${lv.name} ${wallStyle}/${phase}: strokes`);
+            // A sample of only terrain and a bridge has nothing in the "existing" phase: no calls at all.
+            assert.ok((ctx.calls.fill || 0) >= many, `${lv.name} ${wallStyle}/${phase}: fills`);
+            assert.ok((ctx.calls.stroke || 0) >= many, `${lv.name} ${wallStyle}/${phase}: strokes`);
             const labelled = on("rooms") + on("solids") + on("dimensions") + on("texts") + p.grids.length;
             if (phase !== "existing" && labelled) assert.ok(ctx.calls.fillText > 0, `${lv.name} ${wallStyle}/${phase}: labels`);
             assert.equal(ctx.calls.save, ctx.calls.restore, "save and restore are balanced");

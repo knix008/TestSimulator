@@ -17,7 +17,7 @@ import { roomAtPoint, buildingOutlines } from "../core/rooms.js";
 import { DEFAULT_CURTAIN_TYPES, typeById, applyType, slabTypeById, slabTypeThickness } from "../core/elements/model.js";
 import { beamOutline, stairRise } from "../core/elements/geometry.js";
 
-export const ELEMENT_TOOLS = new Set(["slab", "ceiling", "shaft", "beam", "railing", "ramp"]);
+export const ELEMENT_TOOLS = new Set(["slab", "ceiling", "shaft", "beam", "railing", "ramp", "member"]);
 export const OPEN_CHAIN_TOOLS = new Set(["railing", "ramp"]);
 const AREA_TOOLS = new Set(["slab", "ceiling"]);
 
@@ -25,7 +25,7 @@ const S = (ed) => ed.app.settings;
 
 export function pointerElement(ed, type, e, x, y) {
   const tool = ed.tool;
-  if (tool === "beam" || tool === "shaft") return twoPoint(ed, type, e, x, y);
+  if (tool === "beam" || tool === "shaft" || tool === "member") return twoPoint(ed, type, e, x, y);
   const c = ed.chain;
   const last = c && c.pts.length ? c.pts[c.pts.length - 1] : null;
   const s = ed.snapAt(x, y, { from: last, ortho: !!last && ed.ortho && !e.shiftKey, onWall: false });
@@ -105,7 +105,8 @@ export function createRamp(ed, pts) {
 // Beam (start, end) and shaft (two corners).
 function twoPoint(ed, type, e, x, y) {
   const m = ed.measure;
-  const s = ed.snapAt(x, y, { from: m && m.stage === 1 ? m.a : null, ortho: !!m && ed.ortho && !e.shiftKey && ed.tool === "beam", onWall: ed.tool === "beam" });
+  const lineTool = ed.tool === "beam" || ed.tool === "member";
+  const s = ed.snapAt(x, y, { from: m && m.stage === 1 ? m.a : null, ortho: !!m && ed.ortho && !e.shiftKey && lineTool, onWall: lineTool });
   ed.cursor = s;
   if (type === "move") { ed.request(); return; }
   if (type !== "down" || e.button !== 0) return;
@@ -113,6 +114,7 @@ function twoPoint(ed, type, e, x, y) {
   const a = m.a, b = [s.x, s.y];
   ed.measure = null;
   if (ed.tool === "beam") createBeam(ed, a, b);
+  else if (ed.tool === "member") createMember(ed, a, b);
   else if (ed.toolOpts && "holeIn" in ed.toolOpts) { createHole(ed, a, b, ed.toolOpts.holeIn); ed.setTool("select"); }
   else createShaft(ed, a, b);
   ed.request();
@@ -126,6 +128,23 @@ export function createBeam(ed, a, b) {
   const bm = { id, level: ed.level, x1: a[0], y1: a[1], x2: b[0], y2: b[1], w: 300, h: 600, profile: "rect", z1: null, z2: null, material: "concrete", phase: set.drawPhase || "new" };
   if (ty) { bm.typeId = ty.id; applyType(ty, bm); }
   ed.store.edit(t("Add beam"), (p) => { p.beams.push(bm); });
+  return id;
+}
+
+// A structural member between two clicks at the top of the storey, or a
+// post from the floor to the top when both clicks fall on the same point.
+// Section, material and role: the last ones used (settings.memberDefaults).
+export const MEMBER_DEFAULTS = { profile: "H", w: 300, h: 300, t: 15, material: "steel-grey", role: "beam" };
+export function createMember(ed, a, b) {
+  const lv = ed.p.levels.find((l) => l.id === ed.level);
+  const H = lv ? lv.height : 3000;
+  const post = dist(...a, ...b) < 50;
+  if (!post && dist(...a, ...b) < 200) return null;
+  const id = uid("mb");
+  const set = S(ed);
+  const def = { ...MEMBER_DEFAULTS, ...(set.memberDefaults || {}) };
+  const m = { id, level: ed.level, pts: post ? [[a[0], a[1], 0], [a[0], a[1], H]] : [[a[0], a[1], H - def.h / 2], [b[0], b[1], H - def.h / 2]], ...def, role: post ? "column" : def.role === "column" ? "beam" : def.role, roll: 0, phase: set.drawPhase || "new" };
+  ed.store.edit(t("Add member"), (p) => { p.members.push(m); });
   return id;
 }
 
@@ -186,7 +205,7 @@ export function renderElementOverlay(ed, ctx, px, th) {
   ctx.lineWidth = 1.5 * px;
   ctx.fillStyle = "rgba(79,157,255,0.18)";
   ctx.beginPath();
-  if (ed.tool === "beam") {
+  if (ed.tool === "beam" || ed.tool === "member") {
     const w = (typeById(ed.p, S(ed).beamType || "beam-concrete-300x600") || { params: { w: 300 } }).params.w || 300;
     if (dist(...m.a, ...b) > 1) beamOutline({ x1: m.a[0], y1: m.a[1], x2: b[0], y2: b[1], w }).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
   } else {

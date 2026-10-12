@@ -12,7 +12,7 @@ import { buildBuilding, makeMaterials, modelExtent, M } from "../../src/view3d/b
 import {
   allFurniture, furnitureDef, makeFurniture, furnitureParts, furnitureCorners, drawFurniturePlan, FURNITURE_CATEGORIES, COLORS,
 } from "../../src/lib/furniture.js";
-import { MATERIALS, materialById, materialsFor, materialColor, paintPattern, DEFAULT_MATERIAL } from "../../src/lib/materials.js";
+import { MATERIALS, MATERIAL_CATEGORIES, PATTERNS, materialById, materialsFor, materialColor, paintPattern, DEFAULT_MATERIAL } from "../../src/lib/materials.js";
 import { newProject, normalizeProject, newLevel, parseProject } from "../../src/core/project.js";
 import { roofModel, roofBase } from "../../src/core/roof.js";
 import { buildingOutlines } from "../../src/core/rooms.js";
@@ -456,7 +456,7 @@ describe("buildBuilding — levels and extent", () => {
       const ms = meshes(g);
       for (const m of ms) {
         assert.ok(m.userData.id, `${m.name} has an id`);
-        assert.ok(["walls", "openings", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "slabs", "ceilings", "beams", "railings", "ramps"].includes(m.userData.kind), m.userData.kind);
+        assert.ok(["walls", "openings", "rooms", "columns", "stairs", "furniture", "roofs", "solids", "slabs", "ceilings", "beams", "railings", "ramps", "members"].includes(m.userData.kind), m.userData.kind);
         assert.ok(p.levels.some((l) => l.id === m.userData.level));
         const pos = m.geometry.getAttribute("position");
         for (let i = 0; i < pos.array.length; i++) assert.ok(Number.isFinite(pos.array[i]), `${m.name}: finite positions`);
@@ -468,6 +468,7 @@ describe("buildBuilding — levels and extent", () => {
       assert.equal(ids("stairs").size, p.stairs.length);
       assert.equal(ids("columns").size, p.columns.length);
       assert.equal(ids("roofs").size, p.roofs.length);
+      assert.equal(ids("members").size, (p.members || []).length);
       const withFrames = p.openings.filter((o) => o.kind !== "opening").length;
       assert.equal(ids("openings").size, withFrames);
       const wallVol = ms.filter((m) => m.userData.kind === "walls").reduce((s, m) => s + volume(m), 0);
@@ -658,7 +659,6 @@ describe("lib/furniture.js", () => {
 
 // ================================================================ materials library
 describe("lib/materials.js", () => {
-  const PATTERNS = [null, "brick", "noise", "stone", "planks", "tiles", "rooftiles", "seams"];
 
   test("material ids are unique and colours are valid", () => {
     assert.equal(new Set(MATERIALS.map((m) => m.id)).size, MATERIALS.length);
@@ -668,7 +668,11 @@ describe("lib/materials.js", () => {
       assert.ok(Array.isArray(m.use) && m.use.length > 0);
       assert.ok(PATTERNS.includes(m.pattern), `${m.id} pattern ${m.pattern}`);
       if (m.pattern) assert.ok(m.tile > 0, `${m.id} has a tile size`);
+      assert.ok(MATERIAL_CATEGORIES.some(([c]) => c === m.cat), `${m.id} is in a library group`);
+      for (const k of ["rough", "metal", "opacity"]) if (k in m) assert.ok(m[k] >= 0 && m[k] <= 1, `${m.id}.${k}`);
     }
+    for (const [c] of MATERIAL_CATEGORIES) assert.ok(MATERIALS.some((m) => m.cat === c), `group ${c} has materials`);
+    for (const p of PATTERNS) if (p) assert.ok(MATERIALS.some((m) => m.pattern === p), `pattern ${p} is used`);
   });
 
   test("materialsFor filters by use", () => {

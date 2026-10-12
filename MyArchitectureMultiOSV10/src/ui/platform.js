@@ -201,6 +201,9 @@ export function openExternal(url) {
   else window.open(url, "_blank", "noopener");
 }
 
+// GUI tests keep dialogs inside the main window (MYARCH_INLINE_DIALOGS, preload.cjs).
+export const inlineDialogs = () => !!(desktop && desktop.inlineDialogs);
+
 export function onOpenPath(fn) {
   if (desktop && desktop.onOpenPath) desktop.onOpenPath(fn);
 }

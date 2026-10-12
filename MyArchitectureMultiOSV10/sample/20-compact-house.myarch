@@ -189,7 +189,8 @@
   "beam": 180000,
   "railing": 150000,
   "ramp": 2000000,
-  "curtainWall": 650000
+  "curtainWall": 650000,
+  "member": 4500000
  },
  "layers": [
   {
@@ -682,7 +683,7 @@
    "kind": "wallSconce",
    "x": 6070,
    "y": 1300,
-   "rot": 90,
+   "rot": 270,
    "w": 300,
    "d": 160,
    "h": 320,
@@ -1559,5 +1560,7 @@
   "watermarkPos": "br",
   "sectionFill": "#3b4250",
   "fogDensity": 1
- }
+ },
+ "members": [],
+ "structures": []
 }

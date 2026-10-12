@@ -3,6 +3,8 @@
 // model builds and the DXF/IFC writers accept it (when those modules exist).
 //
 //   npm run build:samples
+//   npm run build:samples -- --only 21      write only the samples whose file name
+//                                           starts with these (index.json keeps the rest)
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -19,6 +21,7 @@ const { DEFAULT_CURTAIN_TYPES } = await imp("src/core/elements/model.js");
 const { stairLayout } = await imp("src/core/elements/geometry.js");
 const sk = await imp("src/core/skops.js");
 const { terrainGrid } = await imp("src/core/mesh.js");
+const { addStructure } = await imp("src/core/structures.js");
 const zlib = await import("node:zlib");
 
 // A small PNG (RGBA rows from fn(x, y) → [r, g, b]) as a data URL: texture
@@ -1301,7 +1304,7 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   b.furn(L, "roundTable", 4600, 2400, 0, { w: 800, d: 800 }); b.furn(L, "chair", 4600, 1850, 0); b.furn(L, "chair", 4600, 2950, 180);
   b.furn(L, "doubleBed", 7500, 1175, 0, { w: 1400, d: 2000 }); b.furn(L, "shower", 8425, 4225); b.furn(L, "toilet", 6450, 4300, 90); b.furn(L, "washbasin", 7400, 4550, 180);
   for (const [k, x, y] of [["pendantLamp", 4600, 2400], ["ceilingLight", 2000, 3000], ["downlight", 7500, 1300], ["downlight", 7500, 3800]]) b.lamp(L, k, x, y);
-  b.lamp(L, "wallSconce", 6070, 1300, 90);
+  b.lamp(L, "wallSconce", 6070, 1300, 270); // back plate on the wall (x = 6060), light into the bedroom
   b.roof(L, "shed", 12, 600);
   b.furn(L, "bench", 2000, 6200, 0); b.furn(L, "tree", 12000, 2500, 0, { w: 3500, d: 3500, h: 6000 }); b.furn(L, "bikeRack", 7500, 6400, 0, { w: 1200 });
   bimElements(b, { slabType: "floor-timber-220", groundType: "floor-insulated-300", ceilings: null });
@@ -1310,12 +1313,195 @@ function corridorFloor(b, L, { len, dn, cw, ds, north, south, ext = {}, part = {
   add("20-compact-house.myarch", b, { docs: { scale: 50, elevScale: 50 }, title: "Compact house", titleKo: "콤팩트 하우스", description: "A 45 m² single-storey home under one shed roof: living room and kitchen, a bedroom and a shower room, timber cladding and a big sliding window to the garden.", descriptionKo: "외쪽지붕 하나 아래 45 m² 단층 주택: 거실·주방, 침실, 샤워실, 목재 외장과 정원 쪽 큰 미닫이 창.", tags: ["1 level", "modern", "small", "shed roof"] });
 }
 
+// ---------------------------------------------------------------- 21. interior design
+// Interior finishes on show: every room with its own wall finish, feature walls
+// (one face of a wall), skirting boards, the interior furniture and lamps, and
+// eye-level scenes inside the rooms.
+{
+  const b = builder("Interior design apartment", { client: "Sample", address: "Seoul" });
+  const p = b.p;
+  const L = b.level(0);
+  p.levels[0].height = 2700;
+  const [n, e, s] = b.loop(L, [[0, 0], [11000, 0], [11000, 8000], [0, 8000]], 250, { material: "plaster" });
+  const w1 = b.wall(L, [0, 4800], [3200, 4800], 120);
+  const w2 = b.wall(L, [3200, 4800], [6500, 4800], 120);
+  const w3 = b.wall(L, [3200, 4800], [3200, 8000], 120);
+  // The living room's TV wall in walnut panels, the bedroom's bed wall papered.
+  const w4a = b.wall(L, [6500, 0], [6500, 4800], 150, { finishR: "wood-panel", finishL: "wallpaper-green" });
+  const w4b = b.wall(L, [6500, 4800], [6500, 8000], 150);
+  const w5 = b.wall(L, [6500, 4800], [11000, 4800], 120);
+  b.wall(L, [9000, 4800], [9000, 8000], 100);
+  b.door(w1, 1700, 2000, { kind: "opening", type: "none", height: 2200 });
+  b.door(w2, 1650, 1600, { kind: "opening", type: "none", height: 2200 });
+  b.door(w3, 1600, 900, { side: -1 }); // swings into the hall, clear of the island
+  b.door(w4a, 4250, 900, { side: -1 });
+  b.door(w4b, 1000, 800, { side: -1 });
+  b.door(w5, 3500, 800);
+  b.door(s, 6200, 1000, { side: -1 });
+  b.window(n, 2000, 2400, { sill: 300, height: 2000 }); b.window(n, 4800, 1600); b.window(n, 8700, 1800);
+  b.window(e, 2400, 1500); b.window(e, 6400, 1200);
+  b.window(s, 9400, 1400, { sill: 1050, height: 900 }); b.window(s, 3300, 800, { sill: 1500, height: 600 });
+  b.rooms(L, [[3000, 2400, "Living room", "oak-herringbone"], [1600, 6400, "Kitchen", "terrazzo"], [4800, 6400, "Hall", "limestone"],
+    [8700, 2400, "Bedroom", "carpet-wool"], [7700, 6400, "Bathroom", "tile-hex"], [10000, 6400, "Study", "ash"]]);
+  const finish = { "Living room": ["paint-greige", 80, "walnut"], Kitchen: ["tile-subway", 0], Hall: ["paint-cream", 80, "paint-white"],
+    Bedroom: ["paint-sage", 80, "ash"], Bathroom: ["tile-green", 0], Study: ["paint-navy", 100, "paint-white"] };
+  for (const r of p.rooms) { const [wf, sk, sm] = finish[r.name] || []; if (wf) r.wallFinish = wf; if (sk) { r.skirting = sk; r.skirtingMaterial = sm; } }
+  // Living and dining (rot: 0 faces +y, 90 faces −x, 180 faces −y, 270 faces +x)
+  b.furn(L, "sofa3", 2800, 2400, 270); b.furn(L, "coffeeTable", 4100, 2400, 90); b.furn(L, "rug", 4000, 2400, 90, { w: 2600, d: 2000, color: "#b8ab97" });
+  b.furn(L, "armchair", 4800, 800, 0, { color: "#3f5a48" }); b.furn(L, "floorLamp", 1700, 700); b.furn(L, "plant", 600, 600);
+  b.furn(L, "wallTV", 6395, 2400, 90); b.furn(L, "sideboard", 350, 1600, 270, { w: 1600 }); b.furn(L, "wallArt", 150, 1600, 270, { w: 1200, h: 800 });
+  b.furn(L, "curtain", 2000, 185, 0, { w: 3000 }); b.furn(L, "curtain", 8700, 185, 0, { w: 2400 });
+  b.furn(L, "diningTable4", 1500, 3300, 0, { color: "#6b4a33" });
+  for (const [x, y, r] of [[1150, 2650, 0], [1850, 2650, 0], [1150, 3950, 180], [1850, 3950, 180]]) b.furn(L, "chair", x, y, r, { color: "#25282d" });
+  b.lamp(L, "chandelier", 3600, 2400); b.lamp(L, "pendantLamp", 1500, 3300);
+  // Kitchen
+  b.furn(L, "counter", 425, 6300, 270, { w: 2600 }); b.furn(L, "fridge", 2700, 7575, 180); b.furn(L, "island", 1900, 6400, 90, { w: 1600, d: 900 });
+  b.lamp(L, "pendantLamp", 1900, 6000); b.lamp(L, "pendantLamp", 1900, 6800);
+  // Hall
+  b.furn(L, "consoleTable", 6250, 7200, 90); b.furn(L, "mirror", 6410, 7200, 90, { elevation: 1000 }); b.lamp(L, "downlight", 4800, 6400);
+  // Bedroom
+  b.furn(L, "doubleBed", 7625, 2400, 270, { color: "#f3f2ee" }); b.furn(L, "nightstand", 6800, 1300, 270); b.furn(L, "nightstand", 6800, 3480, 270);
+  b.furn(L, "bedBench", 8900, 2400, 270, { color: "#8e8a83" }); b.furn(L, "wardrobe", 10575, 3900, 90); b.furn(L, "curtain", 10815, 2400, 90, { w: 2000 });
+  b.furn(L, "wallArt", 6595, 2400, 270, { w: 1400, h: 600, elevation: 1350 });
+  b.lamp(L, "ceilingLight", 8700, 2400); b.lamp(L, "tableLamp", 6800, 1300, 0, { elevation: 550 });
+  // Bathroom
+  b.furn(L, "bathtub", 7750, 7500, 180); b.furn(L, "toilet", 8600, 5600, 90); b.furn(L, "washbasin", 7300, 5110, 0); b.furn(L, "mirror", 7300, 4880, 0, { elevation: 1100 });
+  b.lamp(L, "downlight", 7700, 6400);
+  // Study
+  b.furn(L, "desk", 10575, 6400, 90); b.furn(L, "officeChair", 9950, 6400, 270); b.furn(L, "bookshelf", 9225, 6400, 270); b.lamp(L, "ceilingLight", 10000, 6400);
+  b.roof(L, "flat", 0, 0);
+  bimElements(b, { ceilings: null });
+  b.dims(L);
+  const eye = (name, pos, target) => ({ id: uid("sc"), name, camera: { pos, target, ortho: false }, style: "realistic", section: null, phase: "all" });
+  p.scenes.push(sceneFor(p, "Overview", [0.6, 1.2, 0.9], { section: 2400 }),
+    eye("Living room", [1.0, 1.6, 4.5], [6.4, 1.2, 2.2]), eye("Kitchen", [3.0, 1.6, 5.3], [0.4, 1.1, 6.6]),
+    eye("Bedroom", [10.5, 1.6, 0.6], [6.6, 1.0, 2.6]), eye("Bathroom", [8.8, 1.6, 5.1], [7.4, 0.8, 7.6]));
+  add("21-interior-design.myarch", b, { docs: { scale: 50, elevScale: 50 }, title: "Interior design apartment", titleKo: "인테리어 디자인 아파트", description: "A furnished apartment that shows off the interior tools: a wall finish per room, feature walls on one face, skirting boards, curtains, wall art, a chandelier and eye-level scenes in every room.", descriptionKo: "인테리어 도구를 보여 주는 가구 완비 아파트: 방마다 다른 벽 마감, 한쪽 면만 바꾼 포인트 벽, 걸레받이, 커튼, 벽 그림, 샹들리에, 방마다 눈높이 장면.", tags: ["1 level", "interior", "finishes", "furniture"] });
+}
+
+// ---------------------------------------------------------------- 22. lattice towers
+// Two parametric lattice towers (src/core/structures.js) on a fenced site with
+// an equipment shelter: select a tower and "Edit tower…" changes its height,
+// taper, panels and bracing; the members are made again.
+{
+  const b = builder("Lattice towers", { client: "Sample", address: "Gangwon" });
+  const p = b.p;
+  const L = b.level(0);
+  p.levels[0].height = 3000;
+  const [, , s] = b.loop(L, [[16000, -3000], [22000, -3000], [22000, 1000], [16000, 1000]], 200, { material: "concrete-block" });
+  b.door(s, 1500, 1000, { side: -1 });
+  b.window(s, 4200, 900, { sill: 1200, height: 600 });
+  b.rooms(L, [[19000, -1000, "Equipment room", "concrete-polished"]]);
+  b.furn(L, "serverRack", 17000, -2350, 0); b.furn(L, "serverRack", 17700, -2350, 0); b.furn(L, "filing", 21500, -2000, 270);
+  b.lamp(L, "ceilingLight", 19000, -1000);
+  b.roof(L, "flat", 0, 300);
+  addStructure(p, "tower", L, { height: 72000, baseWidth: 12000, topWidth: 2500, panels: 14, sides: 4, bracing: "X", mast: 9000, x: 0, y: 0 }, "Main tower");
+  addStructure(p, "tower", L, { height: 36000, baseWidth: 6000, topWidth: 1500, panels: 9, sides: 3, bracing: "K", mast: 4000, platforms: [1], x: 34000, y: 8000, leg: { profile: "tube", w: 250, t: 10 }, brace: { profile: "L", w: 100, h: 100, t: 8 }, strut: { profile: "L", w: 90, h: 90, t: 8 }, material: "steel-red" }, "Relay tower");
+  p.solids.push({ id: uid("v"), level: L, name: "Gravel yard", pts: [[-14000, -14000], [40000, -14000], [40000, 18000], [-14000, 18000]], z0: -60, height: 50, taper: 1, material: "gravel" });
+  p.scenes.push(sceneFor(p, "Overview", [0.8, 0.9, 1]), { id: uid("sc"), name: "Looking up", camera: { pos: [9, 1.7, 9], target: [0, 40, 0], ortho: false }, style: "realistic", section: null, phase: "all" });
+  add("22-lattice-towers.myarch", b, { title: "Lattice towers", titleKo: "격자 철탑", description: "A 72 m four-legged lattice tower with X bracing and walkways, a red 36 m triangular relay tower with K bracing, and an equipment shelter: parametric towers made of steel members.", descriptionKo: "X형 가새와 통로가 있는 72 m 4각 격자 철탑, K형 가새의 붉은 36 m 삼각 중계탑, 장비실: 강재 부재로 된 매개변수 철탑.", tags: ["tower", "members", "parametric", "steel"] });
+}
+
+// ---------------------------------------------------------------- 23. bridges
+// One of each parametric bridge across a river, side by side, with a
+// visitor pavilion on the bank.
+{
+  const b = builder("Bridges across a river", { client: "Sample", address: "Han river" });
+  const p = b.p;
+  const L = b.level(0);
+  const CX = 250000; // the river's centre line (runs along y)
+  const ws = b.loop(L, [[60000, -40000], [72000, -40000], [72000, -32000], [60000, -32000]], 250, { material: "wood-cladding" });
+  b.door(ws[2], 6000, 1800, { kind: "door", type: "double", side: -1 });
+  b.window(ws[0], 6000, 6000, { sill: 300, height: 2200 });
+  b.rooms(L, [[66000, -36000, "Visitor pavilion", "teak-deck"]]);
+  b.furn(L, "bench", 64000, -35000, 0); b.furn(L, "bench", 68000, -35000, 0); b.furn(L, "reception", 66000, -38500, 0);
+  b.roof(L, "flat", 0, 800);
+  const bridges = [
+    { type: "beam", length: 260000, spans: 6, deckZ: 9000, deckDepth: 2200, width: 14000, name: "Girder bridge" },
+    { type: "truss", length: 240000, spans: 3, deckZ: 11000, deckDepth: 1500, width: 10000, name: "Truss bridge" },
+    { type: "arch", length: 230000, spans: 3, deckZ: 10000, deckDepth: 1800, width: 16000, name: "Tied-arch bridge" },
+    { type: "cableStayed", length: 330000, spans: 3, deckZ: 16000, deckDepth: 2600, width: 20000, name: "Cable-stayed bridge" },
+    { type: "suspension", length: 420000, spans: 3, deckZ: 22000, deckDepth: 3000, width: 22000, name: "Suspension bridge" },
+    { type: "beam", length: 250000, spans: 5, deckZ: 8000, deckDepth: 2000, width: 12000, radius: 450000, grade: 0, crest: 2500, name: "Curved viaduct" },
+  ];
+  bridges.forEach((q, i) => addStructure(p, "bridge", L, { ...q, x: CX - q.length / 2, y: i * 90000 - (q.radius ? 30000 : 0) }, q.name));
+  const yMin = -70000, yMax = 520000;
+  p.solids.push({ id: uid("v"), level: L, name: "River", pts: [[CX - 100000, yMin], [CX + 100000, yMin], [CX + 100000, yMax], [CX - 100000, yMax]], z0: -200, height: 260, taper: 1, material: "water" });
+  for (const [x0, x1] of [[CX - 260000, CX - 100000], [CX + 100000, CX + 260000]]) p.solids.push({ id: uid("v"), level: L, name: "Bank", pts: [[x0, yMin], [x1, yMin], [x1, yMax], [x0, yMax]], z0: -200, height: 300, taper: 1, material: "grass" }); // just above the ground plane, like the water
+  p.scenes.push(sceneFor(p, "Overview", [0.5, 0.6, 1]), { id: uid("sc"), name: "Along the river", camera: { pos: [CX / 1000, 30, -120], target: [CX / 1000, 15, 200], ortho: false }, style: "realistic", section: null, phase: "all" });
+  add("23-bridges.myarch", b, { title: "Bridges across a river", titleKo: "강 위의 교량들", description: "One of each parametric bridge across a 200 m river — girder, truss, tied-arch, cable-stayed and suspension — and a curved viaduct with a crest, next to a visitor pavilion. Select one and choose Edit bridge… to change it.", descriptionKo: "200 m 강을 건너는 매개변수 교량 — 거더교, 트러스교, 타이드 아치교, 사장교, 현수교 — 와 볼록 종단의 곡선 고가교, 방문자 파빌리온. 하나를 골라 '교량 편집…'으로 바꿀 수 있습니다.", tags: ["bridge", "members", "parametric", "infrastructure"] });
+}
+
+// ---------------------------------------------------------------- 24–28. one bridge each
+// One parametric bridge per sample, in shapes the river sample (23) does not
+// have, each in its own setting (gorge, river, harbour, valley, park).
+{
+  // land: [name, pts, z0, height, material]
+  const one = (file, title, titleKo, description, descriptionKo, tags, params, land, scenes) => {
+    const b = builder(title, { client: "Sample", address: params.address || "" });
+    const p = b.p;
+    const L = b.level(0);
+    const { address, ...q } = params;
+    void address;
+    addStructure(p, "bridge", L, q, title);
+    for (const [name, pts, z0, height, material] of land) p.solids.push({ id: uid("v"), level: L, name, pts, z0, height, taper: 1, material });
+    p.scenes.push(sceneFor(p, "Overview", [0.55, 0.45, 1]), ...scenes.map(([name, pos, target]) => ({ id: uid("sc"), name, camera: { pos, target, ortho: false }, style: "realistic", section: null, phase: "all" })));
+    add(file, b, { title, titleKo, description, descriptionKo, tags });
+  };
+  const box = (x1, y1, x2, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+
+  one("24-deck-arch-bridge.myarch", "Deck arch bridge", "상로 아치교",
+    "A concrete open-spandrel arch across a 180 m gorge: two ribs spring from the valley floor and carry the deck 45 m up on slender columns.",
+    "180 m 협곡을 건너는 콘크리트 개복식 아치: 두 개의 리브가 계곡 바닥에서 솟아 45 m 높이의 상판을 가는 기둥으로 받칩니다.",
+    ["bridge", "arch", "gorge", "concrete"],
+    { type: "deckArch", length: 180000, spans: 1, width: 14000, deckZ: 45000, deckDepth: 1800, material: "concrete", x: 0, y: 0, address: "Gangwon" },
+    [["Gorge floor", box(-10000, -60000, 190000, 60000), -300, 280, "gravel"], ["Stream", box(70000, -60000, 110000, 60000), -200, 250, "water"],
+      ["West cliff", box(-60000, -60000, 2000, 60000), 0, 43200, "stone"], ["East cliff", box(178000, -60000, 240000, 60000), 0, 43200, "stone"]],
+    [["From the stream", [90, 4, -70], [90, 30, 0]]]);
+
+  one("25-haunched-girder-bridge.myarch", "Haunched girder bridge", "변단면 거더교",
+    "A continuous concrete box girder of three spans over a river, 2.4 times deeper over the two piers than at mid-span.",
+    "강 위 3경간 연속 콘크리트 박스 거더: 두 교각 위에서 경간 중앙보다 2.4배 깊어지는 변단면.",
+    ["bridge", "girder", "haunched", "concrete"],
+    { type: "haunched", length: 240000, spans: 3, width: 16000, deckZ: 22000, deckDepth: 3000, pierShape: "rect", pierWidth: 3500, material: "concrete-precast", x: 0, y: 0, address: "Chungju" },
+    [["River", box(30000, -80000, 210000, 80000), -200, 260, "water"], ["West bank", box(-60000, -80000, 30000, 80000), -200, 300, "grass"], ["East bank", box(210000, -80000, 300000, 80000), -200, 300, "grass"]],
+    [["Under the deck", [120, 6, -45], [80, 18, 0]]]);
+
+  one("26-harp-cable-stayed-bridge.myarch", "Single-pylon harp bridge", "단주탑 하프형 사장교",
+    "A cable-stayed bridge with one tall pylon on the axis and parallel (harp) stays on both sides, across a harbour mouth.",
+    "항구 입구를 건너는 사장교: 중앙에 높은 주탑 하나, 양쪽으로 평행한 하프형 케이블.",
+    ["bridge", "cable-stayed", "harp", "pylon"],
+    { type: "harp", length: 280000, spans: 2, width: 22000, deckZ: 24000, deckDepth: 2800, material: "concrete", cable: "stainless", x: 0, y: 0, address: "Busan" },
+    [["Harbour", box(-40000, -120000, 320000, 120000), -200, 260, "water"], ["Quay west", box(-90000, -120000, 0, 120000), -200, 300, "pavers"], ["Quay east", box(280000, -120000, 370000, 120000), -200, 300, "pavers"]],
+    [["From the water", [200, 5, -110], [101, 60, 0]]]);
+
+  one("27-extradosed-bridge.myarch", "Extradosed bridge", "엑스트라도즈드교",
+    "Three spans with short masts over the piers and stays in one plane on the deck's axis — between a girder and a cable-stayed bridge.",
+    "교각 위 낮은 마스트와 상판 중심 한 면의 케이블을 가진 3경간 교량 — 거더교와 사장교의 중간 형식.",
+    ["bridge", "extradosed", "masts", "concrete"],
+    { type: "extradosed", length: 300000, spans: 3, width: 18000, deckZ: 18000, deckDepth: 3500, pierShape: "rect", pierWidth: 4000, material: "concrete", cable: "galvanised", x: 0, y: 0, address: "Daejeon" },
+    [["River", box(40000, -90000, 260000, 90000), -200, 260, "water"], ["West bank", box(-60000, -90000, 40000, 90000), -200, 300, "grass"], ["East bank", box(260000, -90000, 360000, 90000), -200, 300, "grass"]],
+    [["On the deck", [20, 20, 0], [150, 26, 0]]]);
+
+  one("28-stress-ribbon-footbridge.myarch", "Stress-ribbon footbridge", "스트레스 리본 보도교",
+    "A 4 m wide pedestrian bridge of three spans whose thin concrete ribbon hangs between two saddle piers and the anchor blocks.",
+    "폭 4 m, 3경간 보행교: 얇은 콘크리트 리본이 두 개의 새들 교각과 앵커 블록 사이에 처져 걸립니다.",
+    ["bridge", "footbridge", "stress ribbon", "park"],
+    { type: "ribbon", length: 150000, spans: 3, width: 4000, deckZ: 9000, deckDepth: 600, pierShape: "rect", pierWidth: 1200, material: "concrete-polished", steel: "stainless", x: 0, y: 0, address: "Seoul" },
+    [["Pond", box(20000, -40000, 130000, 40000), -200, 260, "water"], ["Park west", box(-40000, -40000, 20000, 40000), -200, 300, "grass"], ["Park east", box(130000, -40000, 190000, 40000), -200, 300, "grass"]],
+    [["Walking across", [2, 10.6, 0], [75, 9, 0]]]);
+}
+
 // ---------------------------------------------------------------- verify and write
 const out = path.join(root, "sample");
 fs.mkdirSync(out, { recursive: true });
-const index = [];
+const onlyAt = process.argv.indexOf("--only");
+const only = onlyAt > 0 ? process.argv.slice(onlyAt + 1).filter((x) => !x.startsWith("--")) : null;
+const chosen = only ? samples.filter((x) => only.some((o) => x.file.startsWith(o))) : samples;
+// With --only, the other samples' files and index entries are left as they are.
+const index = only && fs.existsSync(path.join(out, "index.json")) ? JSON.parse(fs.readFileSync(path.join(out, "index.json"), "utf8")).filter((e) => !chosen.some((x) => x.file === e.file)) : [];
 let failed = 0;
-for (const s of samples) {
+for (const s of chosen) {
   const issues = runCheck(s.project);
   const errors = issues.filter((i) => i.severity === "error");
   const notes = [];
@@ -1336,6 +1522,7 @@ for (const s of samples) {
   for (const i of issues) console.log(`    · ${i.code}: ${i.message} @ ${Math.round(i.x)},${Math.round(i.y)} ${(s.project.levels.find((l) => l.id === i.level) || {}).name || ""}`);
   console.log(`${errors.length || notes.length ? "✖" : "✔"} ${s.file}: ${project.levels.length} levels, ${project.walls.length} walls, ${project.openings.length} openings, ${project.rooms.length} rooms (${project.rooms.map((r) => r.name).join(", ")}), ${project.furniture.length} furniture${w ? `, ${w} warnings` : ""}${notes.length ? `\n    ${notes.join("\n    ")}` : ""}`);
 }
+index.sort((a, b) => a.file.localeCompare(b.file));
 fs.writeFileSync(path.join(out, "index.json"), `${JSON.stringify(index, null, 2)}\n`);
-console.log(`create-samples: ${samples.length} samples written to sample/${failed ? `, ${failed} problems` : ""}`);
+console.log(`create-samples: ${chosen.length} samples written to sample/${failed ? `, ${failed} problems` : ""}`);
 process.exit(failed ? 1 : 0);

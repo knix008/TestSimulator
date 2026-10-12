@@ -368,7 +368,7 @@ export class SketchupUI {
     if (!ids.length) { toast(t("Select one or more masses to make a component."), "warn"); return; }
     const name = h("input", { class: "input wide", value: t("Component") });
     let cut = false;
-    const ok = await modal({ title: t("Make component"), width: 440, body: h("div", { class: "form-grid" }, field(t("Name"), name), h("span", {}, ""), checkbox(false, t("Cuts an opening (glues into walls, like a window)"), { onChange: (v) => { cut = v; } })),
+    const ok = await modal({ icon: "skComponent", title: t("Make component"), width: 440, body: h("div", { class: "form-grid" }, field(t("Name"), name), h("span", {}, ""), checkbox(false, t("Cuts an opening (glues into walls, like a window)"), { onChange: (v) => { cut = v; } })),
       buttons: [{ label: t("Cancel"), value: false }, { label: t("Make component"), value: true, primary: true }] });
     if (!ok) return;
     let r = null;
@@ -413,7 +413,7 @@ export class SketchupUI {
   async terrainDialog() {
     const v = { w: 40000, d: 30000, cell: 2000 };
     const num = (k, step) => stepper(v[k], { min: step, max: 1e6, step, format: (x) => `${(x / 1000).toFixed(1)} m`, onChange: (x) => { v[k] = x; } });
-    const ok = await modal({ title: t("Terrain from scratch"), width: 420, body: h("div", { class: "form-grid" }, field(t("Width"), num("w", 1000)), field(t("Depth"), num("d", 1000)), field(t("Grid cell"), num("cell", 250))), buttons: [{ label: t("Cancel"), value: false }, { label: t("Create"), value: true, primary: true }] });
+    const ok = await modal({ icon: "skTerrain", title: t("Terrain from scratch"), width: 420, body: h("div", { class: "form-grid" }, field(t("Width"), num("w", 1000)), field(t("Depth"), num("d", 1000)), field(t("Grid cell"), num("cell", 250))), buttons: [{ label: t("Cancel"), value: false }, { label: t("Create"), value: true, primary: true }] });
     if (!ok) return;
     const ex = this.p.walls.length || this.p.solids.length ? null : [0, 0];
     let s = null;
@@ -434,7 +434,7 @@ export class SketchupUI {
   async exportAnimationDialog() {
     if (!this.p.scenes.length) { toast(t("Add scenes first: set up a view and press Add scene."), "warn"); return; }
     const o = { format: "webm", fps: 30, width: 0 };
-    const ok = await modal({ title: t("Export animation"), width: 460, body: h("div", { class: "form-grid" },
+    const ok = await modal({ icon: "skVideo", title: t("Export animation"), width: 460, body: h("div", { class: "form-grid" },
       field(t("Format"), select(o.format, [["webm", t("WebM video")], ["png", t("PNG frames (ZIP)")]], { onChange: (x) => { o.format = x; } })),
       field(t("Frames per second"), stepper(o.fps, { min: 5, max: 60, step: 5, onChange: (x) => { o.fps = x; } })),
       h("p", { class: "field-hint" }, t("The scenes play in order with their transition and delay times."))),
@@ -686,7 +686,7 @@ export class SketchupUI {
       prev.style.background = `center / cover url(${m.src})`;
     } }, t("Texture image…"));
     const clear = h("button", { class: "btn small", onclick: () => { m.src = ""; prev.style.background = m.color; } }, t("No texture"));
-    const ok = await modal({ title: lib ? t("Edit material") : t("New material"), width: 460, body: h("div", { class: "form-grid" },
+    const ok = await modal({ icon: "material", title: lib ? t("Edit material") : t("New material"), width: 460, body: h("div", { class: "form-grid" },
       field(t("Name"), name), field(t("Colour"), color), field(t("Texture"), h("div", { style: { display: "flex", gap: "6px", alignItems: "center" } }, prev, pick, clear)),
       field(t("Texture size"), stepper(m.tile, { min: 50, max: 20000, step: 50, format: (x) => `${x} mm`, onChange: (x) => { m.tile = x; } })),
       field(t("Opacity"), stepper(Math.round(m.opacity * 100), { min: 5, max: 100, step: 5, format: (x) => `${x}%`, onChange: (x) => { m.opacity = x / 100; } }))),

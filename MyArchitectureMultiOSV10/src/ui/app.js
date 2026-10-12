@@ -5,7 +5,7 @@
 import { Store } from "./store.js";
 import { t, setLanguage, getLanguage, onLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
-import { h, modal, confirmDialog, promptDialog, toast, contextMenu, closeMenus, quickPick, anyModalOpen } from "./widgets.js";
+import { h, modal, confirmDialog, promptDialog, toast, contextMenu, closeMenus, quickPick, anyModalOpen, setDialogWindows, openDialogWindows, dialogIconHint } from "./widgets.js";
 import * as platform from "./platform.js";
 import { PlanEditor, PLAN_TOOLS } from "../plan/editor.js";
 import { PLAN_THEMES } from "../plan/render.js";
@@ -34,6 +34,16 @@ const DEFAULT_SETTINGS = {
   theme: "midnight", lang: "ko", systemDark: "midnight", systemLight: "daylight", showWelcome: false,
   recent: [], recentFurniture: [], ...SETTING_DEFAULTS, leftW: 280, rightW: 300, showLeft: true, showRight: true, onboarded: false,
 };
+
+// Side panel content width (px). Below 240 the inspector's number boxes are
+// too narrow to show a value; the panel itself is this plus the scrollbar.
+export const SIDE_MIN_W = 240, SIDE_MAX_W = 520;
+const clampSideWidth = (w) => Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, Math.round(+w) || SIDE_MIN_W));
+// The rest of the workspace row (style/app.css): the scrollbar each open side
+// panel adds (--sb-w), a hidden panel's rail, the two splitters, and the
+// narrowest drawing area (plan, 3D, sheet) that is still worth working in.
+export const SCROLLBAR_W = 10, RAIL_W = 34, SPLITTER_W = 4, CENTER_MIN_W = 400;
+const MIN_WINDOW_H = 700;
 
 // File types the Import command understands (extension → handler group).
 export const IMPORT_TYPES = {
@@ -86,12 +96,17 @@ class App {
     this.store.on("saved", () => this.updateTitle());
     onLanguage(() => this.refreshAll());
 
+    // Dialogs open as windows of their own on the desktop (movable anywhere on
+    // the screen), except while the tutorial shows them in the main window.
+    const tutorialOn = () => !!(this.tutorial && this.tutorial.panel && this.tutorial.panel.style.display !== "none");
+    this.dialogWindows = openDialogWindows; // the open dialog windows (tests)
+    setDialogWindows(() => platform.isDesktop && !platform.inlineDialogs() && !tutorialOn(), () => +this.settings.uiScale || 1);
     platform.onOpenPath((p) => this.openPath(p));
     platform.onRequestClose(async () => platform.confirmClose(await this.docTabs.confirmAll()));
     window.addEventListener("beforeunload", (e) => {
       if (this.docTabs.anyDirty() && !platform.isDesktop) { e.preventDefault(); e.returnValue = ""; }
     });
-    window.addEventListener("resize", () => { this.wrapToolbar(); this.layout(); });
+    window.addEventListener("resize", () => { this.fitPanels(); this.wrapToolbar(); this.layout(); });
 
     this.applyPanels();
     this.initSizeGrip();
@@ -223,15 +238,47 @@ class App {
     const docTab = this.tab !== "start";
     const leftOn = this.settings.showLeft && docTab;
     const rightOn = this.settings.showRight && docTab;
-    document.documentElement.style.setProperty("--left-w", `${this.settings.leftW}px`);
-    document.documentElement.style.setProperty("--right-w", `${this.settings.rightW}px`);
+    this.settings.leftW = clampSideWidth(this.settings.leftW);
+    this.settings.rightW = clampSideWidth(this.settings.rightW);
+    this.fitPanels();
     const was = [ws.classList.contains("left-rail"), ws.classList.contains("right-rail")];
     ws.classList.toggle("no-left", !docTab);
     ws.classList.toggle("no-right", !docTab);
     ws.classList.toggle("left-rail", docTab && !leftOn);
     ws.classList.toggle("right-rail", docTab && !rightOn);
     if (this.plan && (was[0] !== ws.classList.contains("left-rail") || was[1] !== ws.classList.contains("right-rail"))) { this.renderLeft(); this.refreshInspector(); }
+    this.updateMinSize();
     requestAnimationFrame(() => this.layout());
+  }
+
+  // The side panels keep the widths the user gave them, but in a window too
+  // narrow for those and a CENTER_MIN_W drawing area they give way (down to
+  // SIDE_MIN_W each, the larger one first) — the drawing is never squeezed out.
+  sideWidths() {
+    const ws = this.$("workspace");
+    const docTab = this.tab !== "start";
+    const leftOn = this.settings.showLeft && docTab, rightOn = this.settings.showRight && docTab;
+    let L = this.settings.leftW, R = this.settings.rightW;
+    // Never more than the window: panels left wide by a larger window make the
+    // workspace overflow, and its own width would then keep them that wide.
+    const avail = Math.min((ws && ws.clientWidth) || Infinity, document.documentElement.clientWidth || window.innerWidth);
+    const fixed = (leftOn ? SCROLLBAR_W : RAIL_W) + (rightOn ? SCROLLBAR_W : RAIL_W) + 2 * SPLITTER_W + CENTER_MIN_W;
+    let over = (leftOn ? L : 0) + (rightOn ? R : 0) + fixed - avail;
+    if (over > 0) {
+      const slackL = leftOn ? L - SIDE_MIN_W : 0, slackR = rightOn ? R - SIDE_MIN_W : 0;
+      const slack = slackL + slackR;
+      if (slack > 0) {
+        const k = Math.min(1, over / slack);
+        L -= Math.round(slackL * k);
+        R -= Math.round(slackR * k);
+      }
+    }
+    return { L, R, leftOn, rightOn, avail, fixed };
+  }
+  fitPanels() {
+    const { L, R } = this.sideWidths();
+    document.documentElement.style.setProperty("--left-w", `${L}px`);
+    document.documentElement.style.setProperty("--right-w", `${R}px`);
   }
 
   layout() {
@@ -250,7 +297,11 @@ class App {
         const start = side === "left" ? this.settings.leftW : this.settings.rightW;
         const move = (ev) => {
           const d = ev.clientX - startX;
-          const w = Math.max(200, Math.min(520, side === "left" ? start + d : start - d));
+          // Content width; the column adds the scrollbar's width (--sb-w in app.css).
+          // The drawing area between the panels keeps at least CENTER_MIN_W.
+          const s = this.sideWidths();
+          const room = s.avail - s.fixed - (side === "left" ? (s.rightOn ? s.R : 0) : (s.leftOn ? s.L : 0));
+          const w = clampSideWidth(Math.min(room, side === "left" ? start + d : start - d));
           if (side === "left") this.settings.leftW = w; else this.settings.rightW = w;
           this.applyPanels();
         };
@@ -428,7 +479,7 @@ class App {
   // ---------------------------------------------------------------- files
   async confirmDiscard() {
     if (!this.store.dirty) return true;
-    const r = await modal({
+    const r = await modal({ icon: "warning",
       title: t("Unsaved changes"), width: 460,
       body: h("p", { class: "confirm-text" }, t("Save changes to \"{name}\" before closing?", { name: this.store.fileName || t("Untitled") })),
       buttons: [{ label: t("Cancel"), value: "cancel" }, { label: t("Don't save"), value: "discard", danger: true }, { label: t("Save"), value: "save", primary: true }],
@@ -658,6 +709,7 @@ class App {
     if (!c) return;
     if (c.enabled && !c.enabled()) return;
     closeMenus();
+    dialogIconHint(c.icon); // a dialog the command opens shows the command's icon
     try {
       const r = c.run(...args);
       if (r && r.catch) r.catch((e) => { console.error(e); toast(e.message, "error"); });
@@ -883,8 +935,8 @@ class App {
   }
 
   // ---------------------------------------------------------------- toolbar
-  // Every toolbar button stays visible: the window may not become narrower
-  // than the widest toolbar seen so far (same rule as MyCircuit).
+  // Every toolbar button stays visible on ONE row: the window may not become
+  // narrower than the widest tab's toolbar (see minWindowWidth).
   // Undo / redo buttons follow every edit without rebuilding the toolbar; the
   // tooltip names the step that would be undone or redone.
   updateUndoButtons() {
@@ -924,44 +976,79 @@ class App {
     return Math.ceil(need);
   }
 
-  fitToolbar(bar) {
-    requestAnimationFrame(() => {
-      const measure = () => {
-        const cs = getComputedStyle(bar);
-        const kids = [...bar.children];
-        let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * Math.max(0, kids.length - 1) + 12;
-        for (const k of kids) {
-          if (k.classList.contains("grow")) continue;
-          const st = getComputedStyle(k);
-          need += k.getBoundingClientRect().width + parseFloat(st.marginLeft) + parseFloat(st.marginRight);
-        }
-        return Math.ceil(need);
-      };
-      const z = platform.isDesktop ? +this.settings.uiScale || 1 : 1;
-      const screenW = Math.floor(((window.screen && window.screen.availWidth) || 1920) / z) - 16;
-      bar.classList.remove("compact", "wrap");
-      document.documentElement.classList.remove("toolbar-wrap");
-      const need = measure();
-      bar.dataset.need = String(need);
-      this.toolbarNeed = need;
-      this.wrapToolbar();
-      // The window may get narrower than one toolbar row — the toolbar then
-      // wraps onto a second row — but never so narrow that two rows are not
-      // enough. Labels are never dropped and no button is hidden.
-      const tneed = this.titleBarNeed();
-      document.documentElement.classList.toggle("titlebar-wrap", tneed > screenW);
-      const widest = Math.max(0, ...[...bar.children].map((k) => k.getBoundingClientRect().width));
-      const two = Math.ceil(need / 2 + widest + 24);
-      const w = Math.ceil(Math.max(Math.min(screenW, two), Math.min(screenW, tneed)) * z);
-      if (w > (this.toolbarMinWidth || 0)) { this.toolbarMinWidth = w; platform.setMinSize(w, 700); }
-    });
+  // The width the toolbar needs on one row.
+  measureToolbar(bar) {
+    bar.classList.remove("compact", "wrap");
+    const cs = getComputedStyle(bar);
+    const kids = [...bar.children].filter((k) => !k.classList.contains("grow") && !k.classList.contains("tb-break"));
+    let one = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * Math.max(0, kids.length - 1) + 12;
+    for (const k of kids) {
+      const st = getComputedStyle(k);
+      one += k.getBoundingClientRect().width + parseFloat(st.marginLeft) + parseFloat(st.marginRight);
+    }
+    return { one: Math.ceil(one) };
   }
 
-  // One row when it fits the window, otherwise two (re-checked on resize).
+  // Every tab's toolbar, drawn into the real bar one after the other and
+  // measured (all in one task, so nothing is painted), then the current one
+  // again. Run when the commands or the interface size change.
+  measureToolbars() {
+    const bar = this.$("toolbar");
+    if (!bar) return;
+    this.toolbarNeeds = {};
+    document.documentElement.classList.remove("toolbar-wrap");
+    for (const tab of ["start", "plan", "3d", "views"]) {
+      try { this.renderToolbar({ tab, measureOnly: true }); this.toolbarNeeds[tab] = this.measureToolbar(bar).one; } catch { /* that tab is not ready yet */ }
+    }
+  }
+
+  // Measured at once (reading the sizes lays the bar out): a frame callback
+  // would wait while the window is hidden behind another one.
+  fitToolbar(bar) {
+    document.documentElement.classList.remove("toolbar-wrap");
+    const m = this.measureToolbar(bar);
+    bar.dataset.need = String(m.one);
+    this.toolbarNeed = m.one;
+    // The views toolbar changes with what is open: keep its widest.
+    this.toolbarNeeds = this.toolbarNeeds || {};
+    this.toolbarNeeds[this.tab] = Math.max(this.tab === "views" ? this.toolbarNeeds.views || 0 : 0, m.one);
+    this.wrapToolbar();
+    this.updateMinSize();
+  }
+
+  // The narrowest window that still shows everything, worked out again
+  // whenever one of its parts changes (it shrinks as well as grows):
+  //   title bar   every item at its natural width
+  //   toolbar     the widest tab's toolbar on one row (it never wraps and
+  //               never hides a button)
+  //   workspace   each side panel at SIDE_MIN_W + its scrollbar (or its rail
+  //               when hidden), the splitters and a CENTER_MIN_W drawing area
+  // Never more than the screen can show. In window pixels (× interface size).
+  minWindowWidth() {
+    const z = platform.isDesktop ? +this.settings.uiScale || 1 : 1;
+    const screenW = Math.floor(((window.screen && window.screen.availWidth) || 1920) / z) - 16;
+    const title = this.titleBarNeed();
+    document.documentElement.classList.toggle("titlebar-wrap", title > screenW);
+    const toolbar = Math.max(0, ...Object.values(this.toolbarNeeds || {}));
+    const side = (on) => (on ? SIDE_MIN_W + SCROLLBAR_W : RAIL_W);
+    const workspace = side(this.settings.showLeft) + side(this.settings.showRight) + 2 * SPLITTER_W + CENTER_MIN_W;
+    const parts = { title, toolbar, workspace };
+    const w = Math.ceil(Math.min(screenW, Math.max(title, toolbar, workspace)) * z);
+    return { width: w, parts };
+  }
+  updateMinSize() {
+    const { width, parts } = this.minWindowWidth();
+    this.minSize = { width, height: MIN_WINDOW_H, parts };
+    if (width !== this.appliedMinWidth) { this.appliedMinWidth = width; platform.setMinSize(width, MIN_WINDOW_H); }
+  }
+
+  // Always one row: the window's minimum width keeps it so. Only a screen
+  // narrower than the toolbar itself (the minimum is capped by the screen)
+  // falls back to two rows rather than cut buttons off.
   wrapToolbar() {
     const bar = this.$("toolbar");
     if (!bar || !this.toolbarNeed) return;
-    const wrap = this.toolbarNeed > bar.clientWidth + 1;
+    const wrap = this.toolbarNeed > Math.min(bar.clientWidth, document.documentElement.clientWidth || Infinity) + 1;
     if (wrap === bar.classList.contains("wrap") && (!wrap || bar.querySelector(".tb-break"))) return;
     if (!wrap && bar.querySelector(".tb-break")) { this.renderToolbar(); return; } // gets its divider back
     bar.classList.toggle("wrap", wrap);
@@ -978,7 +1065,8 @@ class App {
     requestAnimationFrame(() => this.layout());
   }
 
-  renderToolbar() {
+  // {tab, measureOnly}: draw another tab's toolbar just to measure it (measureToolbars).
+  renderToolbar({ tab = this.tab, measureOnly = false } = {}) {
     const bar = this.$("toolbar");
     bar.innerHTML = "";
     const btn = (id, { label = false } = {}) => {
@@ -991,22 +1079,24 @@ class App {
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
     add(btn("file.new"), btn("file.open"), btn("file.save"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
-    if (this.tab === "start") {
+    if (tab === "start") {
       add(btn("help.tutorial", { label: true }), btn("file.samples", { label: true }), btn("file.import", { label: true }), btn("help.manual", { label: true }));
-    } else if (this.tab === "plan") {
+    } else if (tab === "plan") {
       const split = (g) => elementsUI.splitButton(this, g, btn); // grouped tools: a button + a dropdown
-      add(btn("plan.select"), split("wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), split("column"), split("stair"), split("slab"), btn("plan.furniture"), btn("plan.light"), btn("light.all"), btn("plan.roof"), sep(),
-        btn("plan.massRect"), btn("plan.massCircle"), btn("plan.massPoly"), sep(),
-        btn("plan.grid"), btn("plan.dimension"), btn("plan.text"), btn("plan.line"), btn("plan.measure"), ...this.views.planButtons(btn), sep(),
-        btn("edit.rotate"), btn("edit.mirror"), btn("edit.delete"), sep(),
-        btn("build.detectRooms"), btn("build.wallTypes"), split("types"), btn("build.bimProps"), btn("build.check"), btn("build.schedules"),
-        h("div", { class: "grow" }), btn("view.snap"), btn("view.ortho"), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
-    } else if (this.tab === "3d") {
+      // One row: the less used tools sit behind split buttons (▾ lists them all).
+      add(btn("plan.select"), split("wall"), btn("plan.room"), btn("plan.door"), btn("plan.window"), split("column"), split("stair"), split("slab"), btn("plan.furniture"), split("light"), btn("plan.roof"), split("mass"), sep(),
+        split("annotate"), btn("plan.measure"), ...this.views.planButtons(btn), sep(),
+        split("modify"), btn("edit.delete"), sep(),
+        split("bim"), split("types"), sep(), split("toggles"), split("zoom"));
+    } else if (tab === "3d") {
       this.v3d.renderToolbar(bar, btn, sep);
-    } else if (this.tab === "views") {
+    } else if (tab === "views") {
       this.views.renderToolbar(bar, btn, sep);
     }
-    add(h("div", { class: "grow" }), btn("help.tutorial"), btn("help.keys"), btn("help.about"));
+    // Every group runs on from the left; About is in the title bar (and Help menu).
+    if (bar.lastElementChild && !bar.lastElementChild.classList.contains("sep")) add(sep());
+    add(btn("help.tutorial"), btn("help.keys"));
+    if (measureOnly) return;
     this.updateUndoButtons();
     this.fitToolbar(bar);
   }
@@ -1066,6 +1156,7 @@ class App {
     this.buildMenus();
     this.buildTitleRight();
     this.renderTabs();
+    this.measureToolbars();
     this.renderToolbar();
     this.renderLeft();
     this.refreshInspector();

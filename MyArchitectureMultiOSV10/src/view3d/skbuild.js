@@ -104,7 +104,10 @@ export function buildSolid(THREE, mats, s, base, phaseMat = (_, m) => m) {
 
 // A component instance in local metres, scaled; the caller places it like
 // any furniture group (position, turn).
-export function buildComponent(THREE, mats, p, f) {
+// `cache` (a Map for one level of one build): instances of the same definition
+// and material share their geometries, so the viewer can draw them as
+// instances. Within one build only: the store edits definitions in place.
+export function buildComponent(THREE, mats, p, f, cache = null) {
   const g = new THREE.Group();
   const def = componentById(p, f.comp);
   if (!def) {
@@ -117,7 +120,14 @@ export function buildComponent(THREE, mats, p, f) {
   const inner = new THREE.Group();
   inner.scale.set(sx, sz, sy);
   inner.userData.comp = def.id;
-  for (const m of meshObjects(THREE, mats, def.mesh, { material: f.material || "plaster" })) { m.castShadow = true; m.receiveShadow = true; m.userData.comp = def.id; inner.add(m); }
+  const ck = `${def.id}|${f.material || "plaster"}`;
+  let parts = cache && cache.get(ck);
+  if (parts) parts = parts.map((s) => { const m = new THREE.Mesh(s.geometry, s.material); m.userData = { ...s.userData }; return m; });
+  else {
+    parts = meshObjects(THREE, mats, def.mesh, { material: f.material || "plaster" });
+    if (cache) cache.set(ck, parts.map((m) => ({ geometry: m.geometry, material: m.material, userData: { ...m.userData } })));
+  }
+  for (const m of parts) { m.castShadow = true; m.receiveShadow = true; m.userData.comp = def.id; inner.add(m); }
   g.add(inner);
   g.userData.comp = def.id;
   return g;

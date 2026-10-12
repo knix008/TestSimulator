@@ -19,7 +19,7 @@ export async function exportGbxmlFile(app) {
     field(t("File extension"), select(opts.ext, [["xml", ".xml"], ["gbxml", ".gbxml"]], { onChange: (v) => { opts.ext = v; } })),
     field(t("Building type"), select(opts.buildingType, BUILDING_TYPES.map((b) => [b, b]), { onChange: (v) => { opts.buildingType = v; } })),
     h("p", { class: "field-hint span2" }, t("Rooms become spaces; walls, floors, ceilings and roofs become surfaces with the spaces on either side, doors and windows openings in them, wall types constructions with their layers. Draw rooms (or detect them) first: walls without rooms have no space to bound.")));
-  const ok = await modal({ title: t("Export gbXML (energy analysis)…"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
+  const ok = await modal({ icon: "sun", title: t("Export gbXML (energy analysis)…"), width: 560, body, buttons: [{ label: t("Cancel"), value: false }, { label: t("Export"), value: true, primary: true }] });
   if (!ok) return;
   const { exportGbxml, gbxmlModel } = await import("../io/gbxmlwrite.js");
   const text = exportGbxml(p, { schemaVersion: opts.schemaVersion, buildingType: opts.buildingType, version: app.version || "10" });

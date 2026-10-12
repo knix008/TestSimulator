@@ -323,6 +323,12 @@ export function createSketchupLayer(ctx) {
     // Nested duplicates (a group and its meshes): keep the outermost.
     return out.filter((x) => !out.some((y) => y !== x && isAncestor(y.obj, x.obj)));
   }
+  // Objects a tool is about to move: the viewer draws them by their own meshes
+  // (not as batched instances, batch.js) so the preview follows the pointer.
+  function movingObjects(ids) {
+    if (ctx.unbatch) ctx.unbatch(ids);
+    return itemObjects(ids);
+  }
   function isAncestor(a, b) { for (let o = b.parent; o; o = o.parent) if (o === a) return true; return false; }
   function restore(objs) { for (const x of objs || []) { x.obj.position.copy(x.pos); x.obj.quaternion.copy(x.quat); x.obj.scale.copy(x.scale); x.obj.updateMatrixWorld(true); } dirty(); }
   function previewMove(objs, d) { for (const x of objs) { x.obj.position.copy(x.pos).add(d); x.obj.updateMatrixWorld(true); } dirty(); }
@@ -695,7 +701,7 @@ export function createSketchupLayer(ctx) {
           const under = pickId(e);
           if (under && !ids.includes(under.id)) { ids = [under.id]; emit({ op: "select", ids }); }
           if (!ids.length) { hint(t("Select something first (or click on it), then the point to move it by.")); break; }
-          st = { base: P.clone(), ids, copy: e.ctrlKey, objs: itemObjects(ids) };
+          st = { base: P.clone(), ids, copy: e.ctrlKey, objs: movingObjects(ids) };
           break;
         }
         const d = P.clone().sub(st.base);
@@ -713,7 +719,7 @@ export function createSketchupLayer(ctx) {
           let axis = axisLock ? axisDirs()[axisLock].clone() : q.hit && q.hit.normal && q.kind === "face" ? q.hit.normal.clone() : V(0, 1, 0);
           const ak = axisOf(axis);
           if (ak) axis = axisDirs()[ak].clone().multiplyScalar(Math.sign(axis.dot(axisDirs()[ak])) || 1);
-          st = { c: P.clone(), axis: axis.normalize(), ids, copy: e.ctrlKey, objs: itemObjects(ids) };
+          st = { c: P.clone(), axis: axis.normalize(), ids, copy: e.ctrlKey, objs: movingObjects(ids) };
           st.plane = { n: st.axis, p: st.c };
           break;
         }
@@ -727,7 +733,7 @@ export function createSketchupLayer(ctx) {
           const under = pickId(e);
           if (!ids.length && under) { ids = [under.id]; emit({ op: "select", ids }); }
           if (!ids.length) { hint(t("Select something first, then click the fixed point.")); break; }
-          st = { o: P.clone(), ids, objs: itemObjects(ids), axis: axisLock };
+          st = { o: P.clone(), ids, objs: movingObjects(ids), axis: axisLock };
           break;
         }
         if (!st.ref) { st.ref = P.clone(); if (st.ref.distanceTo(st.o) < 1e-6) st.ref = null; break; }
@@ -1157,6 +1163,7 @@ export function createSketchupLayer(ctx) {
     let n = 0;
     ctx.building.traverseVisible((o) => {
       if (!o.isMesh || n > 4000) return;
+      if (!o.layers.isEnabled(0)) return; // drawn by a batch: capped with it below
       const base = o.userData.baseMaterial || o.material;
       if ((base && base.transparent) || o.userData.open) return; // only closed solids have an inside to fill
       for (const m of [back, front]) {
@@ -1170,6 +1177,18 @@ export function createSketchupLayer(ctx) {
       }
       n++;
     });
+    // Batched repeats (viewer batch.js): one stencil pass per batch, sharing its instances.
+    for (const im of ctx.batches ? ctx.batches() : []) {
+      for (const m of [back, front]) {
+        const s = new THREE.InstancedMesh(im.geometry, m, im.count);
+        s.instanceMatrix = im.instanceMatrix;
+        s.boundingSphere = im.boundingSphere;
+        s.renderOrder = 20;
+        s.userData.shared = true;
+        s.raycast = () => {};
+        group.add(s);
+      }
+    }
     const span = Math.max(50, ctx.extentSize() * 4);
     const capMat = new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.9, side: THREE.DoubleSide, stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp, polygonOffset: true, polygonOffsetFactor: -1 });
     const cap = new THREE.Mesh(new THREE.PlaneGeometry(span, span), capMat);

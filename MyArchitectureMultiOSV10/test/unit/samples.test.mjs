@@ -101,6 +101,13 @@ for (const entry of index) {
         else if (f.kind !== "model") assert.ok(furnitureDef(f.kind), `furniture kind ${f.kind}`);
       }
       assert.ok(levels.has(p.view.level));
+      // Structural members: on a level, a known material, their tower / bridge recorded.
+      const structs = new Set((p.structures || []).map((x) => x.id));
+      for (const m of p.members || []) {
+        assert.ok(levels.has(m.level), `member ${m.id} is on a level`);
+        assert.ok(materialById(m.material), `member material ${m.material}`);
+        if (m.structure) assert.ok(structs.has(m.structure), `member ${m.id}: structure ${m.structure}`);
+      }
     });
 
     test("the model check finds no errors and no warnings", () => {

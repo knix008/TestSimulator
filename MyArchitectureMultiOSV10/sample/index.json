@@ -256,5 +256,109 @@
       "small",
       "shed roof"
     ]
+  },
+  {
+    "file": "21-interior-design.myarch",
+    "title": "Interior design apartment",
+    "titleKo": "인테리어 디자인 아파트",
+    "description": "A furnished apartment that shows off the interior tools: a wall finish per room, feature walls on one face, skirting boards, curtains, wall art, a chandelier and eye-level scenes in every room.",
+    "descriptionKo": "인테리어 도구를 보여 주는 가구 완비 아파트: 방마다 다른 벽 마감, 한쪽 면만 바꾼 포인트 벽, 걸레받이, 커튼, 벽 그림, 샹들리에, 방마다 눈높이 장면.",
+    "tags": [
+      "1 level",
+      "interior",
+      "finishes",
+      "furniture"
+    ]
+  },
+  {
+    "file": "22-lattice-towers.myarch",
+    "title": "Lattice towers",
+    "titleKo": "격자 철탑",
+    "description": "A 72 m four-legged lattice tower with X bracing and walkways, a red 36 m triangular relay tower with K bracing, and an equipment shelter: parametric towers made of steel members.",
+    "descriptionKo": "X형 가새와 통로가 있는 72 m 4각 격자 철탑, K형 가새의 붉은 36 m 삼각 중계탑, 장비실: 강재 부재로 된 매개변수 철탑.",
+    "tags": [
+      "tower",
+      "members",
+      "parametric",
+      "steel"
+    ]
+  },
+  {
+    "file": "23-bridges.myarch",
+    "title": "Bridges across a river",
+    "titleKo": "강 위의 교량들",
+    "description": "One of each parametric bridge across a 200 m river — girder, truss, tied-arch, cable-stayed and suspension — and a curved viaduct with a crest, next to a visitor pavilion. Select one and choose Edit bridge… to change it.",
+    "descriptionKo": "200 m 강을 건너는 매개변수 교량 — 거더교, 트러스교, 타이드 아치교, 사장교, 현수교 — 와 볼록 종단의 곡선 고가교, 방문자 파빌리온. 하나를 골라 '교량 편집…'으로 바꿀 수 있습니다.",
+    "tags": [
+      "bridge",
+      "members",
+      "parametric",
+      "infrastructure"
+    ]
+  },
+  {
+    "file": "24-deck-arch-bridge.myarch",
+    "title": "Deck arch bridge",
+    "titleKo": "상로 아치교",
+    "description": "A concrete open-spandrel arch across a 180 m gorge: two ribs spring from the valley floor and carry the deck 45 m up on slender columns.",
+    "descriptionKo": "180 m 협곡을 건너는 콘크리트 개복식 아치: 두 개의 리브가 계곡 바닥에서 솟아 45 m 높이의 상판을 가는 기둥으로 받칩니다.",
+    "tags": [
+      "bridge",
+      "arch",
+      "gorge",
+      "concrete"
+    ]
+  },
+  {
+    "file": "25-haunched-girder-bridge.myarch",
+    "title": "Haunched girder bridge",
+    "titleKo": "변단면 거더교",
+    "description": "A continuous concrete box girder of three spans over a river, 2.4 times deeper over the two piers than at mid-span.",
+    "descriptionKo": "강 위 3경간 연속 콘크리트 박스 거더: 두 교각 위에서 경간 중앙보다 2.4배 깊어지는 변단면.",
+    "tags": [
+      "bridge",
+      "girder",
+      "haunched",
+      "concrete"
+    ]
+  },
+  {
+    "file": "26-harp-cable-stayed-bridge.myarch",
+    "title": "Single-pylon harp bridge",
+    "titleKo": "단주탑 하프형 사장교",
+    "description": "A cable-stayed bridge with one tall pylon on the axis and parallel (harp) stays on both sides, across a harbour mouth.",
+    "descriptionKo": "항구 입구를 건너는 사장교: 중앙에 높은 주탑 하나, 양쪽으로 평행한 하프형 케이블.",
+    "tags": [
+      "bridge",
+      "cable-stayed",
+      "harp",
+      "pylon"
+    ]
+  },
+  {
+    "file": "27-extradosed-bridge.myarch",
+    "title": "Extradosed bridge",
+    "titleKo": "엑스트라도즈드교",
+    "description": "Three spans with short masts over the piers and stays in one plane on the deck's axis — between a girder and a cable-stayed bridge.",
+    "descriptionKo": "교각 위 낮은 마스트와 상판 중심 한 면의 케이블을 가진 3경간 교량 — 거더교와 사장교의 중간 형식.",
+    "tags": [
+      "bridge",
+      "extradosed",
+      "masts",
+      "concrete"
+    ]
+  },
+  {
+    "file": "28-stress-ribbon-footbridge.myarch",
+    "title": "Stress-ribbon footbridge",
+    "titleKo": "스트레스 리본 보도교",
+    "description": "A 4 m wide pedestrian bridge of three spans whose thin concrete ribbon hangs between two saddle piers and the anchor blocks.",
+    "descriptionKo": "폭 4 m, 3경간 보행교: 얇은 콘크리트 리본이 두 개의 새들 교각과 앵커 블록 사이에 처져 걸립니다.",
+    "tags": [
+      "bridge",
+      "footbridge",
+      "stress ribbon",
+      "park"
+    ]
   }
 ]

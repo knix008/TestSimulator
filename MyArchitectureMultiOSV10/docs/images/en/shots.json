@@ -254,5 +254,49 @@
  "menu-3d": {
   "file": "docs/images/en/menu-3d.webp",
   "caption": "The 3D menu"
+ },
+ "feat-interior-3d": {
+  "file": "docs/images/en/feat-interior-3d.webp",
+  "caption": "Interiors: a wall finish per room, a feature wall finished on one face (the TV wall), skirting, curtains and a chandelier"
+ },
+ "feat-interior-plan": {
+  "file": "docs/images/en/feat-interior-plan.webp",
+  "caption": "Finishes on the plan: each wall face shows its finish colour as a band"
+ },
+ "feat-material-picker": {
+  "file": "docs/images/en/feat-material-picker.webp",
+  "caption": "The material picker: groups, search, recently used and pattern swatches"
+ },
+ "feat-tower": {
+  "file": "docs/images/en/feat-tower.webp",
+  "caption": "Lattice towers: steel members made from the height, widths, panels and bracing"
+ },
+ "feat-bridges": {
+  "file": "docs/images/en/feat-bridges.webp",
+  "caption": "Bridges across a river: girder, truss, tied-arch, cable-stayed, suspension and a curved viaduct"
+ },
+ "feat-bridge-deck-arch": {
+  "file": "docs/images/en/feat-bridge-deck-arch.webp",
+  "caption": "Deck arch: two ribs rise from the valley floor and carry the deck on columns"
+ },
+ "feat-bridge-haunched": {
+  "file": "docs/images/en/feat-bridge-haunched.webp",
+  "caption": "Haunched girder: a continuous box girder deeper over the piers"
+ },
+ "feat-bridge-harp": {
+  "file": "docs/images/en/feat-bridge-harp.webp",
+  "caption": "Single-pylon harp bridge: one pylon and parallel stays"
+ },
+ "feat-bridge-extradosed": {
+  "file": "docs/images/en/feat-bridge-extradosed.webp",
+  "caption": "Extradosed bridge: short masts and stays in one central plane"
+ },
+ "feat-bridge-ribbon": {
+  "file": "docs/images/en/feat-bridge-ribbon.webp",
+  "caption": "Stress-ribbon footbridge: a thin deck hanging between the supports"
+ },
+ "feat-bridge-dialog": {
+  "file": "docs/images/en/feat-bridge-dialog.webp",
+  "caption": "The bridge dialog: kind, spans, length, width, height, grade, curve and materials"
  }
 }

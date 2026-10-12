@@ -426,8 +426,8 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     if (e.key !== "Enter" || !(e.target instanceof Element) || !e.target.closest(".pw-settings")) return;
     if (e.target.matches("input, select")) { e.stopPropagation(); e.preventDefault(); e.target.dispatchEvent(new Event("change", { bubbles: true })); }
   };
-  window.addEventListener("keydown", enterGuard, true);
-  const r = await modal({
+  let guardOn = window;
+  const r = await modal({ icon: pdf ? "export" : "print",
     title: pdf ? t("Export plan as PDF…") : t("Print"), width: "min(1400px, calc(100vw - 40px))", className: "print-window", body,
     buttons: [
       { label: t("Save as PDF…"), value: "pdf", left: true, primary: pdf },
@@ -437,6 +437,8 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     ],
     validate: (v) => (v && !jobPages().length ? (cfg.source === "sheets" ? t("Tick at least one sheet.") : cfg.levels.size ? t("No pages in this range") : t("Tick at least one level")) : null),
     onOpen: (box) => {
+      guardOn = box.ownerDocument.defaultView || window; // the dialog's own window on the desktop
+      guardOn.addEventListener("keydown", enterGuard, true);
       box.querySelector(".modal-foot")?.classList.add("pw-foot");
       ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => { if (zoom === "fit") placePage(); }) : null;
       if (ro) ro.observe(stage);
@@ -445,7 +447,7 @@ export async function printWindow(app, { pdf = false, sheets = null } = {}) {
     },
   });
   if (ro) ro.disconnect();
-  window.removeEventListener("keydown", enterGuard, true);
+  guardOn.removeEventListener("keydown", enterGuard, true);
   remember(app, cfg);
   if (!r) return;
   const pages = renderPages();

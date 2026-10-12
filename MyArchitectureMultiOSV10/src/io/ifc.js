@@ -1,5 +1,6 @@
 // IFC exchange (Industry Foundation Classes, ISO 16739) in the STEP physical
-// file format (ISO 10303-21): export the project as IFC4 or IFC2X3, read IFC
+// file format (ISO 10303-21): export the project as IFC4, IFC4.3 (bridges as
+// IfcBridge) or IFC2X3, read IFC
 // files back into a project.
 //
 // Frames: plan millimetres have y down the screen with north up; IFC is z-up
@@ -241,6 +242,8 @@ class IfcExporter {
   constructor(p, opts) {
     this.p = p;
     this.v4 = opts.schema !== "IFC2X3";
+    this.v43 = opts.schema === "IFC4X3"; // IFC4.3: infrastructure (IfcBridge)
+    this.spatialContained = new Map(); // a spatial element (IfcBridge) → [element refs]
     this.opts = opts;
     this.w = new StepWriter();
     this.seed = p.levels.map((l) => l.id).join("|");
@@ -349,6 +352,12 @@ class IfcExporter {
   // An IfcProduct with the 8 common attributes plus `extra`.
   product(type, key, { name = null, description = null, objectType = null, placement = null, shape = null, tag = null } = {}, extra = []) {
     return this.add(type, [this.guid(key), this.oh, name, description, objectType, placement, shape, tag, ...extra]);
+  }
+
+  // An element in a spatial element other than a storey (a bridge, IFC4.3).
+  containIn(spatial, ref) {
+    if (!this.spatialContained.has(spatial)) this.spatialContained.set(spatial, []);
+    this.spatialContained.get(spatial).push(ref);
   }
 
   contain(levelId, ref) {
@@ -521,13 +530,15 @@ class IfcExporter {
       const list = this.contained.get(lv.id);
       if (list && list.length) this.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", [this.sguid(`contains:${lv.id}`), this.oh, null, null, list, this.storeys.get(lv.id)]);
     }
+    let k = 0;
+    for (const [spatial, list] of this.spatialContained) if (list.length) this.add("IFCRELCONTAINEDINSPATIALSTRUCTURE", [this.sguid(`contains-spatial:${k++}`), this.oh, null, null, list, spatial]);
     const title = p.meta.title || "Untitled";
     const head = [
       "ISO-10303-21;",
       "HEADER;",
       `FILE_DESCRIPTION((${stepString(v4 ? "ViewDefinition [ReferenceView_V1.2]" : "ViewDefinition [CoordinationView_V2.0]")}),'2;1');`,
       `FILE_NAME(${stepString(`${title}.ifc`)},${stepString(time.iso)},(${stepString(opts.author)}),(${stepString(opts.organization)}),${stepString(opts.application)},${stepString(opts.application)},'');`,
-      `FILE_SCHEMA((${stepString(v4 ? "IFC4" : "IFC2X3")}));`,
+      `FILE_SCHEMA((${stepString(this.v43 ? "IFC4X3_ADD2" : v4 ? "IFC4" : "IFC2X3")}));`,
       "ENDSEC;",
       "DATA;",
     ];
@@ -567,7 +578,16 @@ class IfcExporter {
     const buildingPlc = this.local(sitePlc);
     const building = this.add("IFCBUILDING", [this.sguid("building"), this.oh, p.meta.title || "Building", null, null, buildingPlc, null, null, E("ELEMENT"), null, null, null]);
     this.aggregate("project-site", project, [site]);
-    this.aggregate("site-building", site, [building]);
+    // IFC4.3: every bridge is a facility of its own on the site; its members go in it.
+    this.bridges = new Map();
+    if (this.v43) {
+      const KIND = { beam: "GIRDER", truss: "TRUSS", arch: "ARCHED", suspension: "SUSPENSION", cableStayed: "CABLE_STAYED", deckArch: "ARCHED", haunched: "GIRDER", harp: "CABLE_STAYED", extradosed: "CABLE_STAYED", ribbon: "SUSPENSION" };
+      for (const st of (p.structures || []).filter((s) => s.kind === "bridge")) {
+        const ref = this.add("IFCBRIDGE", [this.guid(st.id), this.oh, st.name || "Bridge", null, null, this.local(sitePlc), null, null, E("ELEMENT"), E(KIND[st.params.type] || "NOTDEFINED")]);
+        this.bridges.set(st.id, ref);
+      }
+    }
+    this.aggregate("site-building", site, [building, ...this.bridges.values()]);
     this.storeys = new Map();
     this.storeyPlc = new Map();
     for (const lv of p.levels) {
@@ -844,10 +864,11 @@ class IfcExporter {
   }
 }
 
-// `project` → IFC STEP text. schema: "IFC4" (default) or "IFC2X3".
+// `project` → IFC STEP text. schema: "IFC4" (default), "IFC4X3" or "IFC2X3".
 export function exportIfc(project, { schema = "IFC4", author = "", organization = "", application = "MyArchitecture", timestamp } = {}) {
   const p = activeModel(normalizeProject(structuredClone(project))); // design options: the active ones
-  const s = String(schema).toUpperCase().replace(/\s/g, "") === "IFC2X3" ? "IFC2X3" : "IFC4";
+  const want = String(schema).toUpperCase().replace(/[\s.]/g, "").replace(/_ADD\d$/, "");
+  const s = want === "IFC2X3" ? "IFC2X3" : want === "IFC4X3" || want === "IFC43" ? "IFC4X3" : "IFC4";
   return new IfcExporter(p, { schema: s, author, organization, application, timestamp }).run();
 }
 

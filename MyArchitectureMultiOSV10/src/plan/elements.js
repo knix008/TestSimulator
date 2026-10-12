@@ -5,12 +5,13 @@
 
 import { pointInPolygon, pointSegDist, dist, labelPoint, polygonArea, rotPt, bounds } from "../core/geom.js";
 import { materialColor } from "../lib/materials.js";
-import { wallPoint, wallFrame } from "../core/walls.js";
+import { wallPoint, wallFrame, openingSpans } from "../core/walls.js";
 import { levelById, wallLength } from "../core/project.js";
 import {
   shaftsAt, cutsOf, slabArea, beamOutline, beamFrame, rampModel, stairLayout, stairRise, stairRails, curtainGrid, isCurtainWall, ceilingHeight, offsetPath,
 } from "../core/elements/geometry.js";
 import { optionHidden } from "../core/elements/model.js";
+import { memberFootprints } from "../core/members.js";
 
 // Element collections drawn from a list of points (pts) and with two ends (beams).
 export const PTS_KINDS = ["slabs", "ceilings", "railings", "ramps", "shafts"];
@@ -152,6 +153,22 @@ export function drawElementsOver(ctx, p, th, o, on, walls) {
       ctx.setLineDash([]);
     }
   }
+  // Structural members: the footprint of each segment and the axis
+  // (dash-dot); a vertical one is its section seen from above, crossed.
+  if (o.show.members !== false) {
+    for (const m of on(p.members || [])) {
+      ctx.strokeStyle = th.column;
+      ctx.fillStyle = alpha(materialColor(m.material, "#7e858c"), o.print ? 0.15 : 0.35);
+      ctx.lineWidth = lw * 1.1;
+      for (const f of memberFootprints(m)) { poly(ctx, f); ctx.fill(); ctx.stroke(); }
+      const vertical = m.pts.length === 2 && dist(m.pts[0][0], m.pts[0][1], m.pts[1][0], m.pts[1][1]) < 1;
+      if (vertical) { const [f] = memberFootprints(m); ctx.beginPath(); ctx.moveTo(...f[0]); ctx.lineTo(...f[2]); ctx.moveTo(...f[1]); ctx.lineTo(...f[3]); ctx.stroke(); continue; }
+      ctx.setLineDash([lw * 14, lw * 3, lw * 2, lw * 3]);
+      poly(ctx, m.pts.map((q) => [q[0], q[1]]), false);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
   if (o.show.ramps !== false) {
     for (const r of on(p.ramps || [])) {
       const m = rampModel(p, r);
@@ -198,6 +215,40 @@ export function drawElementsOver(ctx, p, th, o, on, walls) {
   }
 }
 
+// Interior finishes on the plan: a band in the finish's colour along every
+// wall face that has one (the wall's own finishL / finishR, or the wallFinish
+// of the room it faces), broken at the openings.
+export function drawWallFinishes(ctx, p, walls, th, o) {
+  const rooms = (p.rooms || []).filter((r) => r.level === o.level && r.wallFinish);
+  if (!rooms.length && !walls.some((w) => w.finishL || w.finishR)) return;
+  const band = Math.max(18, o.lw * 2.5);
+  for (const w of walls) {
+    if (isCurtainWall(p, w)) continue;
+    const L = wallLength(w), t = w.thickness / 2;
+    const spans = openingSpans(p, w);
+    for (const side of [1, -1]) {
+      let mat = side > 0 ? w.finishR : w.finishL;
+      if (!mat) {
+        const [x, y] = wallPoint(w, L / 2, side * (t + 60));
+        const r = rooms.find((q) => pointInPolygon(x, y, q.pts));
+        mat = r ? r.wallFinish : null;
+      }
+      if (!mat) continue;
+      const v = side * (t - band / 2);
+      ctx.strokeStyle = materialColor(mat, "#999999");
+      ctx.lineWidth = band;
+      ctx.lineCap = "butt";
+      let from = 0;
+      ctx.beginPath();
+      for (const s of [...spans, { u1: L, u2: L }]) {
+        if (s.u1 - from > 1) { ctx.moveTo(...wallPoint(w, from, v)); ctx.lineTo(...wallPoint(w, s.u1, v)); }
+        from = Math.max(from, s.u2);
+      }
+      ctx.stroke();
+    }
+  }
+}
+
 // Stairs by type (L, U, spiral) in plan: outline, treads, landings, walking line.
 export function drawShapedStair(ctx, p, s, th, lw, o) {
   const lay = stairLayout(s, stairRise(p, s));
@@ -233,6 +284,7 @@ export function highlightElements(ctx, p, ids, on, walls) {
     }
   }
   for (const b of on(p.beams || [])) if (ids.has(b.id)) { poly(ctx, beamOutline(b)); ctx.stroke(); }
+  for (const m of on(p.members || [])) if (ids.has(m.id)) for (const f of memberFootprints(m)) { poly(ctx, f); ctx.stroke(); }
   for (const w of walls) {
     if (!ids.has(w.id) || !isCurtainWall(p, w)) continue;
     const t = w.thickness / 2 + 20, L = wallLength(w);
@@ -247,6 +299,7 @@ export function elementBoundsPoints(p, level) {
   const on = (l) => level === null || l === level;
   for (const k of PTS_KINDS) for (const it of p[k] || []) if (on(it.level)) out.push(...it.pts);
   for (const b of p.beams || []) if (on(b.level)) out.push([b.x1, b.y1], [b.x2, b.y2]);
+  for (const m of p.members || []) if (on(m.level)) out.push(...m.pts.map((q) => [q[0], q[1]]));
   for (const s of p.stairs || []) if (s.shape && on(s.level)) out.push(...stairLayout(s, 3000).outline);
   return out;
 }
@@ -271,6 +324,11 @@ export function hitElementHandles(p, level, x, y, tol, selected) {
     if (dist(x, y, b.x1, b.y1) <= tol * 1.5) return { kind: "beams", obj: b, handle: 0 };
     if (dist(x, y, b.x2, b.y2) <= tol * 1.5) return { kind: "beams", obj: b, handle: 1 };
   }
+  for (const m of onLevel(p.members || [], level)) {
+    if (!selected.has(m.id)) continue;
+    const i = m.pts.findIndex(([px, py]) => dist(x, y, px, py) <= tol * 1.5);
+    if (i >= 0) return { kind: "members", obj: m, handle: i };
+  }
   return null;
 }
 
@@ -283,6 +341,7 @@ const nearPath = (x, y, pts, tol, closed) => {
 // Elements above the walls in the pick order: beams, railings, ramps, shafts,
 // then the edges of slabs and ceilings.
 export function hitElements(p, level, x, y, tol) {
+  for (const m of onLevel(p.members || [], level).reverse()) if (memberFootprints(m).some((f) => pointInPolygon(x, y, f)) || nearPath(x, y, m.pts, m.w / 2 + tol, false)) return { kind: "members", obj: m };
   for (const b of onLevel(p.beams || [], level).reverse()) if (pointSegDist(x, y, b.x1, b.y1, b.x2, b.y2) <= b.w / 2 + tol) return { kind: "beams", obj: b };
   for (const r of onLevel(p.railings || [], level).reverse()) if (nearPath(x, y, r.pts, tol * 1.6, false)) return { kind: "railings", obj: r };
   for (const r of onLevel(p.ramps || [], level).reverse()) if (pointInPolygon(x, y, rampModel(p, r).outline)) return { kind: "ramps", obj: r };
@@ -306,6 +365,7 @@ export function boxSelectElements(p, level, test) {
   const ids = [];
   for (const k of PTS_KINDS) for (const it of onLevel(p[k] || [], level)) if (test(it.pts)) ids.push(it.id);
   for (const b of onLevel(p.beams || [], level)) if (test([[b.x1, b.y1], [b.x2, b.y2]])) ids.push(b.id);
+  for (const m of onLevel(p.members || [], level)) if (test(m.pts.map((q) => [q[0], q[1]]))) ids.push(m.id);
   return ids;
 }
 
@@ -320,6 +380,19 @@ export function transformElements(p, set, fn, { mirror = false } = {}) {
     }
   }
   for (const b of p.beams || []) if (set.has(b.id)) { [b.x1, b.y1] = fn(b.x1, b.y1); [b.x2, b.y2] = fn(b.x2, b.y2); }
+  for (const m of p.members || []) if (set.has(m.id)) m.pts = m.pts.map(([x, y, z]) => [...fn(x, y), z]);
+  // A tower or bridge moved with its members keeps its parameters in step,
+  // so editing it later rebuilds it where it now is.
+  for (const st of p.structures || []) {
+    if (!(p.members || []).some((m) => m.structure === st.id && set.has(m.id))) continue;
+    const q = st.params;
+    const key = st.kind === "tower" ? "rot" : "angle";
+    const a = ((q[key] || 0) * Math.PI) / 180;
+    const o = fn(q.x || 0, q.y || 0), d = fn((q.x || 0) + Math.cos(a) * 1000, (q.y || 0) + Math.sin(a) * 1000);
+    q.x = o[0]; q.y = o[1];
+    q[key] = Math.round(((Math.atan2(d[1] - o[1], d[0] - o[0]) * 180) / Math.PI) * 1000) / 1000;
+    if (mirror && q.radius) q.radius = -q.radius;
+  }
   // A sloped slab's direction turns with it.
   for (const s of p.slabs || []) {
     if (!set.has(s.id) || !(s.slope > 0)) continue;
@@ -333,12 +406,14 @@ export function elementCentrePoints(p, set) {
   const pts = [];
   for (const k of PTS_KINDS) for (const it of p[k] || []) if (set.has(it.id)) pts.push(...it.pts);
   for (const b of p.beams || []) if (set.has(b.id)) pts.push([b.x1, b.y1], [b.x2, b.y2]);
+  for (const m of p.members || []) if (set.has(m.id)) pts.push(...m.pts.map((q) => [q[0], q[1]]));
   return pts;
 }
 
 export function scaleElements(p, set, k) {
   for (const b of p.beams || []) if (set.has(b.id)) { b.w *= k; b.h *= k; }
   for (const r of p.ramps || []) if (set.has(r.id)) r.width *= k;
+  for (const m of p.members || []) if (set.has(m.id)) { m.w *= k; m.h *= k; m.t *= k; m.pts = m.pts.map(([x, y, z]) => [x, y, z * k]); }
 }
 
 // Shift pasted copies (pasteItems moves pts and x/y; holes and beams here).
@@ -351,6 +426,7 @@ export function shiftElement(kind, it, dx, dy) {
 export function dragElementHandle(kind, obj, handle, x, y) {
   if (PTS_KINDS.includes(kind)) { obj.pts[handle] = [x, y]; return true; }
   if (kind === "beams") { if (handle) { obj.x2 = x; obj.y2 = y; } else { obj.x1 = x; obj.y1 = y; } return true; }
+  if (kind === "members") { obj.pts[handle] = [x, y, obj.pts[handle][2] || 0]; return true; }
   return false;
 }
 
@@ -358,6 +434,7 @@ export function dragElementHandle(kind, obj, handle, x, y) {
 export function elementHandles(kind, obj) {
   if (PTS_KINDS.includes(kind)) return obj.pts;
   if (kind === "beams") return [[obj.x1, obj.y1], [obj.x2, obj.y2]];
+  if (kind === "members") return obj.pts.map((q) => [q[0], q[1]]);
   return [];
 }
 

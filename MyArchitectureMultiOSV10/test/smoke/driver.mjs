@@ -12,13 +12,16 @@ import { fileURLToPath } from "node:url";
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function launch({ width = 1500, height = 950, args = [], env: extraEnv = {} } = {}) {
+// windowedDialogs: dialogs as their own windows, as users see them; by
+// default the tests keep them inside the page (MYARCH_INLINE_DIALOGS) to
+// read and click them there.
+export async function launch({ width = 1500, height = 950, args = [], env: extraEnv = {}, windowedDialogs = false } = {}) {
   const port = 9581 + Math.floor(Math.random() * 300);
   const exe = process.platform === "win32" ? path.join(root, "node_modules/electron/dist/electron.exe")
     : process.platform === "darwin" ? path.join(root, "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron")
     : path.join(root, "node_modules/electron/dist/electron");
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "myarch-smoke-"));
-  const env = { ...process.env, ...extraEnv };
+  const env = { ...process.env, ...(windowedDialogs ? {} : { MYARCH_INLINE_DIALOGS: "1" }), ...extraEnv };
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(exe, [root, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, ...args], { env, stdio: "ignore" });
   const errors = [];

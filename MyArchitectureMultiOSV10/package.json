@@ -27,6 +27,9 @@
     "build:all": "node scripts/build-info.mjs && npm run build:clean && npm run build:web && npm run build:installer && node scripts/package.mjs -mwl && node scripts/copy-installers.cjs",
     "dist:all": "npm run build:all",
     "smoke": "node test/smoke/gui-smoke.mjs",
+    "smoke:windows": "node test/smoke/windows-smoke.mjs",
+    "bench:3d": "node scripts/bench-3d.mjs",
+    "bench:3d:gui": "node scripts/bench-3d-gui.mjs",
     "record:tutorial": "node scripts/record-tutorial.mjs",
     "i18n:check": "node scripts/i18n-keys.mjs",
     "build:art": "node scripts/render-art.mjs"
@@ -151,5 +154,8 @@
     "png-to-ico": "^2.1.8",
     "pngjs": "^7.0.0",
     "three": "0.186.1"
+  },
+  "allowScripts": {
+    "electron@37.10.3": true
   }
 }

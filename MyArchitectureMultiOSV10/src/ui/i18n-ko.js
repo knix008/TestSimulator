@@ -4,10 +4,12 @@
 import { VIEWS_KO } from "../views/i18n-ko.js";
 
 import { KO_ELEMENTS } from "./i18n-ko-elements.js";
+import { KO_DESIGN } from "./i18n-ko-design.js";
 
 export const KO = {
   "...": "...",
   ...KO_ELEMENTS, // slabs, beams, railings, stairs by type, curtain walls, types, design options
+  ...KO_DESIGN, // material library and picker, interior design
   // document tabs (src/ui/doctabs.js)
   "All open drawings": "열린 도면 모두 보기",
   "Close other tabs": "다른 탭 닫기",
