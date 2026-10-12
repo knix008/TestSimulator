@@ -18,7 +18,8 @@
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "build:mac": "electron-builder --mac",
-    "copy-installer": "node scripts/copy-installer.js"
+    "copy-installer": "node scripts/copy-installer.js",
+    "test": "node test/run.js"
   },
   "build": {
     "appId": "com.kanban.multios",
