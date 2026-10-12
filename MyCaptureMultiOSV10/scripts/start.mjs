@@ -49,5 +49,5 @@ for (const holder of holders) {
   try { process.kill(holder.pid); } catch { /* already gone */ }
 }
 
-const child = spawn('npx', ['tauri', 'dev', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
+const child = spawn(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'dev', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code ?? 0));

@@ -49,6 +49,8 @@ pub enum Source {
     #[serde(rename = "allMonitors")]
     AllMonitors,
     Window { id: u32 },
+    /// MyCapture's own main window, grabbed by lib.rs where the window is known.
+    App,
     #[serde(rename_all = "camelCase")]
     Region {
         monitor_id: u32,
@@ -189,6 +191,42 @@ fn find_window(id: u32) -> Result<Window, String> {
         .ok_or_else(|| tr!("선택한 창이 닫혔습니다. 창 목록을 새로 고치세요.", "The selected window was closed. Refresh the window list."))
 }
 
+/// The part of the virtual-desktop rectangle `rect` (x, y, width, height) that
+/// lies inside `bounds` (left, top, right, bottom), or None when nothing of it does.
+pub fn clip_rect(rect: (i32, i32, u32, u32), bounds: (i32, i32, i32, i32)) -> Option<(i32, i32, u32, u32)> {
+    let (x, y, width, height) = (i64::from(rect.0), i64::from(rect.1), i64::from(rect.2), i64::from(rect.3));
+    let left = x.max(i64::from(bounds.0));
+    let top = y.max(i64::from(bounds.1));
+    let right = (x + width).min(i64::from(bounds.2));
+    let bottom = (y + height).min(i64::from(bounds.3));
+    (right > left && bottom > top).then(|| (left as i32, top as i32, (right - left) as u32, (bottom - top) as u32))
+}
+
+/// What the screen shows inside a virtual-desktop rectangle (physical pixels) —
+/// used for MyCapture's own window. Parts outside every display are cut off.
+pub fn grab_desktop_rect(x: i32, y: i32, width: u32, height: u32) -> Result<RgbaImage, String> {
+    let offscreen = || tr!("MyCapture 창이 화면에 보이지 않습니다. 창을 화면 안으로 옮긴 뒤 다시 시도하세요.", "The MyCapture window is not on screen. Move it onto a display and try again.");
+    let monitors = all_monitors()?;
+    let infos = monitors.iter().map(monitor_info).collect::<Result<Vec<_>, _>>()?;
+    // Usually the window sits on one display: read just that area of it.
+    for (monitor, info) in monitors.iter().zip(&infos) {
+        let bounds = (info.x, info.y, info.x + info.width as i32, info.y + info.height as i32);
+        if clip_rect((x, y, width, height), bounds) == Some((x, y, width, height)) {
+            return monitor
+                .capture_region((x - info.x) as u32, (y - info.y) as u32, width, height)
+                .map_err(|error| tr!("창 캡처 실패: {error}", "Window capture failed: {error}"));
+        }
+    }
+    // Across displays (or partly off screen): the whole desktop, cropped.
+    let parts = grab_each_monitor()?;
+    let left = infos.iter().map(|info| info.x).min().unwrap_or(0);
+    let top = infos.iter().map(|info| info.y).min().unwrap_or(0);
+    let desktop = composite(&parts)?;
+    let bounds = (left, top, left + desktop.width() as i32, top + desktop.height() as i32);
+    let (cx, cy, cw, ch) = clip_rect((x, y, width, height), bounds).ok_or_else(offscreen)?;
+    crop(&desktop, Rect { x: (cx - left) as u32, y: (cy - top) as u32, width: cw, height: ch })
+}
+
 /// Validates that `rect` lies inside a `width` × `height` image and is not empty.
 pub fn validate_rect(rect: Rect, width: u32, height: u32) -> Result<(), String> {
     let fits_x = rect.x.checked_add(rect.width).is_some_and(|right| right <= width);
@@ -259,6 +297,7 @@ pub fn grab(source: &Source) -> Result<RgbaImage, String> {
             }
             Ok(image)
         }
+        Source::App => Err(tr!("MyCapture 창 캡처는 앱 안에서만 할 수 있습니다.", "The MyCapture window can only be captured from inside the app.")),
         Source::Region { monitor_id, x, y, width, height } => {
             let monitor = find_monitor(*monitor_id)?;
             let info = monitor_info(&monitor)?;
@@ -405,6 +444,15 @@ mod tests {
     }
 
     #[test]
+    fn clip_rect_keeps_the_part_on_screen() {
+        let desktop = (-1920, 0, 1920, 1080);
+        assert_eq!(clip_rect((100, 100, 800, 600), desktop), Some((100, 100, 800, 600)));
+        assert_eq!(clip_rect((1800, -50, 400, 300), desktop), Some((1800, 0, 120, 250)));
+        assert_eq!(clip_rect((-2000, 500, 200, 100), desktop), Some((-1920, 500, 120, 100)));
+        assert_eq!(clip_rect((-32000, -32000, 160, 28), desktop), None);
+    }
+
+    #[test]
     fn source_json_matches_the_frontend_contract() {
         let region: Source = serde_json::from_str(
             r#"{"kind":"region","monitorId":7,"x":1,"y":2,"width":3,"height":4}"#,
@@ -413,6 +461,8 @@ mod tests {
         assert_eq!(region, Source::Region { monitor_id: 7, x: 1, y: 2, width: 3, height: 4 });
         let all: Source = serde_json::from_str(r#"{"kind":"allMonitors"}"#).unwrap();
         assert_eq!(all, Source::AllMonitors);
+        let own: Source = serde_json::from_str(r#"{"kind":"app"}"#).unwrap();
+        assert_eq!(own, Source::App);
         assert_eq!(ImageKind::parse("JPEG").unwrap(), ImageKind::Jpg);
         assert_eq!(ImageKind::parse("tif").unwrap(), ImageKind::Tiff);
         assert_eq!(ImageKind::parse("WebP").unwrap().extension(), "webp");

@@ -44,6 +44,29 @@ function checkFile(app, extension) {
 
 const pngSize = (bytes) => [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
 
+/** Windows display affinity of the main window: '17' = left out of captures, '0' = capturable. */
+function displayAffinity(app) {
+  const script = `Add-Type 'using System;using System.Runtime.InteropServices;public static class A{[DllImport("user32.dll")]public static extern bool GetWindowDisplayAffinity(IntPtr h,out uint a);}';$p=Get-Process -Id ${app.process.pid};$a=0;[void][A]::GetWindowDisplayAffinity($p.MainWindowHandle,[ref]$a);$a`;
+  return execFileSync('powershell.exe', ['-NoProfile', '-Command', script]).toString().trim();
+}
+
+/** True when the image (a data-URL expression evaluated in the main window) is not one flat colour. */
+function hasContent(app, dataUrlExpression) {
+  return app.main.eval(`(async () => {
+    const image = new Image();
+    image.src = await ${dataUrlExpression};
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0, 64, 64);
+    const data = context.getImageData(0, 0, 64, 64).data;
+    let min = 255, max = 0;
+    for (let i = 0; i < data.length; i += 4) { const l = (data[i] + data[i + 1] + data[i + 2]) / 3; min = Math.min(min, l); max = Math.max(max, l); }
+    return max - min > 40;
+  })()`);
+}
+
 async function capture(app) {
   await app.clearNotice();
   await app.main.click('[data-action="capture"]');
@@ -125,9 +148,49 @@ export const cases = [
     name: '메인 창은 화면 캡처에서 제외됨 (content protection)',
     run: async (app) => {
       if (process.platform !== 'win32') return;
-      const script = `Add-Type 'using System;using System.Runtime.InteropServices;public static class A{[DllImport("user32.dll")]public static extern bool GetWindowDisplayAffinity(IntPtr h,out uint a);}';$p=Get-Process -Id ${app.process.pid};$a=0;[void][A]::GetWindowDisplayAffinity($p.MainWindowHandle,[ref]$a);$a`;
-      const affinity = execFileSync('powershell.exe', ['-NoProfile', '-Command', script]).toString().trim();
-      assert.equal(affinity, '17', 'WDA_EXCLUDEFROMCAPTURE (0x11) expected');
+      assert.equal(displayAffinity(app), '17', 'WDA_EXCLUDEFROMCAPTURE (0x11) expected');
+    },
+  },
+  {
+    name: '자기 자신 캡처 · MyCapture 창을 이미지로 (버튼 · 창 크기 그대로)',
+    run: async (app) => {
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await app.clearNotice();
+      await app.main.click('[data-action="capture-self"]');
+      const notice = await app.notice();
+      assert.equal(notice.kind, 'success', notice.text);
+      const { bytes } = checkFile(app, 'png');
+      const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|outer_size', { label: 'main' })`);
+      const [width, height] = pngSize(bytes);
+      assert.ok(Math.abs(width - size.width) <= 16 && Math.abs(height - size.height) <= 16, `image ${width}×${height}, window ${size.width}×${size.height}`);
+      assert.ok(await hasContent(app, `window.__mycapture.state.result.thumbnail`), 'the picture shows the window, not a blank frame');
+      if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after capturing itself');
+    },
+  },
+  {
+    name: '자기 자신 녹화 · MyCapture 창을 동영상으로 (선택 창 없이, 창은 그대로)',
+    run: async (app) => {
+      // The picker engine is selected: recording itself still needs no picker.
+      await app.reset({ mode: 'record', engine: 'display', target: 'monitor', videoFormat: 'webm', microphone: false });
+      await app.clearNotice();
+      await app.main.click('[data-action="record-self"]');
+      await app.main.waitFor(`window.__mycapture.state.session.phase === 'recording' || window.__mycapture.state.notice?.kind === 'error'`, { timeout: 20000 });
+      assert.equal(await app.main.eval(`window.__mycapture.state.session.phase`), 'recording', await app.main.eval(`window.__mycapture.state.notice?.text ?? ''`));
+      assert.equal(await app.main.eval(`document.querySelector('#preview-caption b').textContent`), await app.main.eval(`window.__mycapture.t('source.self')`));
+      if (process.platform === 'win32') assert.equal(displayAffinity(app), '0', 'visible to capture while recording itself');
+      await sleep(2500);
+      assert.equal(await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_minimized', { label: 'main' })`), false, 'the window stays up');
+      assert.ok(await hasContent(app, `(() => { const v = document.querySelector('#live'); const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); return c.toDataURL(); })()`), 'recorded frames show the window');
+      await app.main.eval(`window.__mycapture.actions.stop(); 1`);
+      const notice = await app.notice(30000);
+      assert.equal(notice.kind, 'success', notice.text);
+      const { file } = checkFile(app, 'webm');
+      const info = probe(file);
+      if (info) {
+        const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|outer_size', { label: 'main' })`);
+        assert.ok(Math.abs(info.video.width - size.width) <= 16, `video ${info.video.width} wide, window ${size.width}`);
+      }
+      if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after the recording');
     },
   },
   {
@@ -296,8 +359,8 @@ export const cases = [
         for (const tab of SETTINGS_TABS) {
           await settings.click(`[data-action="settings-tab"][data-value="${tab}"]`);
           await sleep(tab === 'mic' ? 500 : 150);
-          const fits = await settings.eval(`(() => { const b = document.querySelector('.modal-body'); return b.scrollHeight <= b.clientHeight && [...b.children].every((child) => child.getBoundingClientRect().bottom <= b.getBoundingClientRect().bottom + 0.5); })()`);
-          assert.ok(fits, `${language}/${tab} overflows`);
+          const overflow = await settings.eval(`(() => { const b = document.querySelector('.modal-body'); const bottom = b.getBoundingClientRect().bottom; return Math.max(b.scrollHeight - b.clientHeight, ...[...b.children].map((child) => child.getBoundingClientRect().bottom - bottom - 0.5)); })()`);
+          assert.ok(overflow <= 0, `${language}/${tab} overflows by ${Math.ceil(overflow)}px`);
           assert.deepEqual(await settings.eval(AUDIT), [], `${language}/${tab}`);
           assert.deepEqual(JSON.parse(await settings.eval(`JSON.stringify([innerWidth, innerHeight])`)), size, 'size never changes');
         }
@@ -600,6 +663,8 @@ export const cases = [
       assert.equal(await settings.eval(`document.querySelectorAll('.theme-chip').length`), 40);
       const bar = JSON.parse(await settings.eval(`JSON.stringify(document.querySelector('.theme-chip .theme-swatch').getBoundingClientRect())`));
       assert.ok(bar.width > bar.height * 4, `colours shown as a long horizontal bar (${bar.width}×${bar.height})`);
+      const hiddenNames = await settings.eval(`[...document.querySelectorAll('.theme-chip')].filter((chip) => { const name = chip.querySelector('.theme-chip-name'); return !name || name.textContent.trim() !== chip.getAttribute('aria-label') || name.getBoundingClientRect().height < 8 || name.scrollWidth > name.clientWidth; }).map((chip) => chip.dataset.value)`);
+      assert.deepEqual(hiddenNames, [], 'every theme shows its whole name');
       await settings.click('.theme-chip[data-value="dark-ice"]');
       await app.main.waitFor(`document.documentElement.dataset.theme === 'dark-ice'`);
       await settings.eval(`(() => { const input = document.querySelector('[data-custom="accent"]'); input.value = '#ff00aa'; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);

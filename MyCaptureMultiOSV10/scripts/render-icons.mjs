@@ -128,7 +128,7 @@ fs.mkdirSync(path.join(root, 'src-tauri', 'windows'), { recursive: true });
 fs.writeFileSync(path.join(root, 'src-tauri', 'windows', 'installerHeader.bmp'), bmp(images.header));
 fs.writeFileSync(path.join(root, 'src-tauri', 'windows', 'installerSidebar.bmp'), bmp(images.sidebar));
 
-const result = spawnSync('npx', ['tauri', 'icon', pngPath], { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
+const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'icon', pngPath], { cwd: root, stdio: 'inherit' });
 if (result.status !== 0) process.exit(result.status ?? 1);
 // Desktop app: the mobile icon sets tauri icon also writes are not needed.
 for (const mobile of ['android', 'ios']) fs.rmSync(path.join(root, 'src-tauri', 'icons', mobile), { recursive: true, force: true });

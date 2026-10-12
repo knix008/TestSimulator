@@ -16,9 +16,9 @@ import { applyTheme, nextTheme, resolveTheme, SYSTEM, themeName } from './themes
 import { openPopup, SESSION_KEY } from './platform/popups.js';
 import { escapeHtml, widgets } from './ui.js';
 import {
-  beginRegionSelect, copyImageFile, copyPending, copyText, defaultDirectories, errorText, grab, isDesktopShell, listSources,
+  APP_SOURCE, beginRegionSelect, copyImageFile, copyPending, copyText, defaultDirectories, errorText, grab, isDesktopShell, listSources,
   monitorInfo, openPath, platformInfo, recordingAbort, recordingFinish, recordingOpen, revealPath,
-  hideRecordingPanel, pathsExist, previewUrl, savePending, setBackendLanguage, showMain, showRecordingPanel, sourceThumbnail,
+  hideRecordingPanel, pathsExist, previewUrl, savePending, setBackendLanguage, setSelfRecording, showMain, showRecordingPanel, sourceThumbnail,
 } from './platform/native.js';
 import { encoderWarm, recordingSupport, ScreenRecorder, warmUpEncoder } from './platform/recorder.js';
 
@@ -46,6 +46,7 @@ const state = {
   viewing: null, // id of the history item shown in the viewer
   gallery: loadGallery(globalThis.localStorage),
   missing: new Set(), // gallery ids whose file is gone
+  selfRecording: false, // the recording in progress is of MyCapture's own window
 };
 
 let recorder = null;
@@ -444,6 +445,9 @@ function renderStage() {
   stage.querySelector('#preview-caption').innerHTML = shown
     ? `<span>${icon('images')}<b>${t('gallery.title')}</b></span>
       <span>${escapeHtml([shown.width ? `${shown.width} × ${shown.height}` : '', shown.durationMs != null ? formatDuration(shown.durationMs) : '', shown.bytes ? formatBytes(shown.bytes) : ''].filter(Boolean).join(' · '))}</span>`
+    : recordingLive && state.selfRecording
+      ? `<span>${icon('self')}<b>${t('source.self')}</b></span>
+      <span>${escapeHtml(baseName(session.outputPath))}</span>`
     : `<span>${icon(settings.target)}<b>${escapeHtml(usesPicker() && settings.target !== 'region' ? t('picker.name') : sourceLabel())}</b></span>
       <span>${recordingLive ? escapeHtml(baseName(session.outputPath)) : state.preview?.caption ?? ''}</span>`;
 
@@ -466,6 +470,12 @@ function shutter(action, glyph, label, variant, disabled) {
   </button>`;
 }
 
+/** Round button that captures (image) or records (video) MyCapture's own window. */
+function selfButton(action, labelKey, format, disabled) {
+  const label = t(labelKey, { format: format.toUpperCase() });
+  return `<button class="round-button self" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled' : ''}>${icon('self')}</button>`;
+}
+
 const busyNote = () => (state.busy ? `<span class="busy"><span class="spinner small"></span>${escapeHtml(state.busy)}</span>` : '');
 
 function captureActions() {
@@ -476,7 +486,8 @@ function captureActions() {
   const again = region && settings.region
     ? `<button class="round-button" data-action="recapture-region" title="${t('action.recaptureRegion')}" aria-label="${t('action.recaptureRegion')}" ${busy ? 'disabled' : ''}>${icon('repeat')}</button>`
     : '';
-  return actionRow('', shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${settings.imageFormat.toUpperCase()})`, 'capture', disabled), again + busyNote());
+  return actionRow('', shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${settings.imageFormat.toUpperCase()})`, 'capture', disabled),
+    again + selfButton('capture-self', 'action.captureSelf', settings.imageFormat, busy) + busyNote());
 }
 
 function unsupportedReason() {
@@ -508,7 +519,10 @@ function recordActions() {
   const selectRegion = settings.target === 'region'
     ? `<button class="round-button" data-action="select-region" title="${t('region.select')}" aria-label="${t('region.select')}" ${state.busy ? 'disabled' : ''}>${icon('region')}</button>`
     : '';
-  return actionRow(selectRegion, shutter('record', 'video', `${t('action.record')} (${settings.videoFormat.toUpperCase()})`, 'record', disabled), busyNote(),
+  const support = state.support;
+  const selfDisabled = !desktop || Boolean(state.busy) || !support.recorder || !support.canvas || !support.formats[settings.videoFormat];
+  return actionRow(selectRegion, shutter('record', 'video', `${t('action.record')} (${settings.videoFormat.toUpperCase()})`, 'record', disabled),
+    selfButton('record-self', 'action.recordSelf', settings.videoFormat, selfDisabled) + busyNote(),
     unsupported ? `<p class="hint warn action-note">${escapeHtml(unsupported)}</p>` : '');
 }
 
@@ -695,17 +709,17 @@ function renderToolbar() {
 
   const groups = settings.mode === 'capture'
     ? [
-      tool(t('tool.format'), ui.imageFormatSelect()),
+      tool(t('tool.format'), ui.imageFormatSelect(), 'fileFormat'),
       settings.imageFormat === 'jpg'
-        ? tool(t('tool.quality'), ui.qualitySlider())
-        : tool('', `<span class="tool-note">${escapeHtml(t(`format.note.${settings.imageFormat}`))}</span>`),
+        ? tool(t('tool.quality'), ui.qualitySlider(), 'quality')
+        : tool('', `<span class="tool-note">${icon('info')}<span>${escapeHtml(t(`format.note.${settings.imageFormat}`))}</span></span>`),
       `<div class="tool-chips">${chip('copyToClipboard', 'copy', t('tool.clipboard'), t('tool.clipboardTip'))}</div>`,
     ]
     : [
       tool(t('tool.engine'), ui.segmented('engine', [['display', t('tool.engineDisplay')], ['native', t('tool.engineNative')]], settings.engine, active,
-        { display: t('tool.engineDisplayTip'), native: t('tool.engineNativeTip') })),
-      tool(t('tool.format'), ui.segmented('videoFormat', [['mp4', `MP4${support.formats.mp4 ? '' : ' ✕'}`], ['webm', `WebM${support.formats.webm ? '' : ' ✕'}`]], settings.videoFormat, active)),
-      tool('FPS', ui.segmented('fps', [[15, '15'], [30, '30'], [60, '60']], settings.fps, active)),
+        { display: t('tool.engineDisplayTip'), native: t('tool.engineNativeTip') }), 'engine'),
+      tool(t('tool.format'), ui.segmented('videoFormat', [['mp4', `MP4${support.formats.mp4 ? '' : ' ✕'}`], ['webm', `WebM${support.formats.webm ? '' : ' ✕'}`]], settings.videoFormat, active), 'fileFormat'),
+      tool('FPS', ui.segmented('fps', [[15, '15'], [30, '30'], [60, '60']], settings.fps, active), 'fps'),
       `<div class="tool-chips">
         ${chip('systemAudio', 'speaker', t('tool.systemAudio'), t(native ? 'tool.systemAudioNativeTip' : 'tool.systemAudioTip'), active || native)}
         <span class="chip-group">
@@ -718,8 +732,9 @@ function renderToolbar() {
   root.querySelector('#toolbar').innerHTML = groups.join('<span class="tool-divider" aria-hidden="true"></span>');
 }
 
-function tool(label, control) {
-  return `<div class="tool">${label ? `<span class="tool-label">${label}</span>` : ''}${control}</div>`;
+/** One toolbar group: icon + label, then its control. */
+function tool(label, control, glyph = null) {
+  return `<div class="tool">${label ? `<span class="tool-label">${glyph ? icon(glyph) : ''}<span>${label}</span></span>` : ''}${control}</div>`;
 }
 
 function chip(key, glyph, label, title, disabled = false) {
@@ -914,6 +929,23 @@ function recaptureRegion() {
   });
 }
 
+/** Captures MyCapture's own window as it is on screen right now (nothing is hidden first). */
+async function captureSelf() {
+  if (state.busy || isActive(state.session) || !desktop) return;
+  // Grab before anything on screen changes (no spinner, no disabled buttons in the picture).
+  state.busy = t('busy.capturing');
+  let grabbed;
+  try {
+    grabbed = await grab(APP_SOURCE);
+  } catch (error) {
+    reportError(error);
+    return;
+  } finally {
+    state.busy = null;
+  }
+  await task(t('busy.saving'), () => deliverImage(grabbed));
+}
+
 async function startRegionSelect(purpose) {
   if (state.busy || !desktop) return;
   closeViewer();
@@ -945,13 +977,21 @@ async function onRegionSelected(payload) {
 
 // ───────────────────────── recording
 
-async function startRecording() {
+/** Lets MyCapture drop out of captures again after recording itself. */
+function endSelfRecording() {
+  if (!state.selfRecording) return;
+  state.selfRecording = false;
+  setSelfRecording(false).catch(() => {});
+}
+
+/** `self`: record MyCapture's own window (always with the in-app engine: the picker cannot offer it). */
+async function startRecording({ self = false } = {}) {
   const settings = s();
   if (recorder || state.session.phase !== 'idle') return;
   closeViewer();
   let crop = null;
-  const native = settings.engine === 'native';
-  const source = native ? recordSource() : null;
+  const native = self || settings.engine === 'native';
+  const source = self ? APP_SOURCE : native ? recordSource() : null;
   if (native && !source) return notify('warn', t('notice.pickTargetFirst'));
   if (!native && settings.target === 'region') {
     if (!settings.region) return notify('warn', t('notice.pickRegionFirst'));
@@ -960,8 +1000,12 @@ async function startRecording() {
   }
 
   dispatch({ type: 'START_REQUEST' });
+  if (self) {
+    state.selfRecording = true;
+    await setSelfRecording(true).catch(() => {});
+  }
   const candidate = new ScreenRecorder({
-    engine: settings.engine,
+    engine: native ? 'native' : settings.engine,
     source,
     crop,
     surface: settings.target === 'window' ? 'window' : 'monitor',
@@ -982,6 +1026,7 @@ async function startRecording() {
     const output = await chooseOutput('video');
     if (!output) {
       candidate.dispose();
+      endSelfRecording();
       dispatch({ type: 'CANCEL' });
       notify('info', t('notice.recordCancelled'));
       return;
@@ -998,16 +1043,17 @@ async function startRecording() {
     // A whole-screen recording gets the small floating controls and the main window
     // steps aside. (The main window is excluded from capture on Windows and macOS
     // anyway; Linux has no such switch, so there it always gets out of the way.)
-    const wholeScreen = native ? source.kind === 'monitor' : !crop && candidate.surface === 'monitor';
+    const wholeScreen = !self && (native ? source.kind === 'monitor' : !crop && candidate.surface === 'monitor');
     if (wholeScreen) {
       recordingPanel = true;
       await showRecordingPanel(native ? source.id : null).catch(() => { recordingPanel = false; });
     }
-    if (recordingPanel || hidesByMinimizing()) getCurrentWindow().minimize().catch(() => {});
+    if (recordingPanel || (hidesByMinimizing() && !self)) getCurrentWindow().minimize().catch(() => {});
   } catch (error) {
     candidate.dispose();
     recorder = null;
     if (opened) recordingAbort(opened.id).catch(() => {});
+    endSelfRecording();
     dispatch({ type: 'FAIL', error: errorText(error) });
     notify('error', errorText(error));
   }
@@ -1062,12 +1108,14 @@ async function stopRecording(reason = null) {
   } finally {
     recorder = null;
     recordingId = null;
+    const self = state.selfRecording;
+    endSelfRecording();
     updateClock();
     if (recordingPanel) {
       recordingPanel = false;
       hideRecordingPanel().catch(() => {});
       showMain().catch(() => {});
-    } else if (hidesByMinimizing()) {
+    } else if (hidesByMinimizing() && !self) {
       showMain().catch(() => {});
     }
   }
@@ -1153,6 +1201,8 @@ const actions = {
   'recapture-region': () => recaptureRegion(),
   'select-region': () => startRegionSelect('define'),
   record: () => startRecording(),
+  'capture-self': () => captureSelf(),
+  'record-self': () => startRecording({ self: true }),
   pause: () => pauseRecording(),
   resume: () => resumeRecording(),
   stop: () => stopRecording(),
@@ -1248,6 +1298,9 @@ function contextItems(target) {
       recordMode
         ? (active ? menuItem('stop', 'stop', 'action.stop', { danger: true }) : menuItem('record', 'video', 'action.record'))
         : menuItem('capture', 'camera', 'action.capture', { disabled: Boolean(state.busy) }),
+      recordMode
+        ? menuItem('record-self', 'self', 'menu.recordSelf', { disabled: locked() })
+        : menuItem('capture-self', 'self', 'menu.captureSelf', { disabled: locked() }),
       menuItem('select-region', 'region', 'region.select', { disabled: locked() }),
       ...(!recordMode && s().region ? [menuItem('recapture-region', 'repeat', 'action.recaptureRegion', { disabled: Boolean(state.busy) })] : []),
       SEP,

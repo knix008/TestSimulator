@@ -45,6 +45,9 @@ export function decodeFrame(buffer) {
 
 export const overlayFrame = async () => decodeFrame(await call('overlay_frame'));
 export const grabFrame = async (source) => decodeFrame(await call('grab_frame', { source }));
+/** MyCapture's own main window as a capture source (normally it is left out of every capture). */
+export const APP_SOURCE = Object.freeze({ kind: 'app' });
+export const setSelfRecording = (on) => call('set_self_recording', { on });
 
 export const recordingOpen = (output, format) => call('recording_open', { output, format });
 export const recordingWrite = (id, bytes) =>

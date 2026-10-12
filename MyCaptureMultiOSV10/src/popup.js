@@ -156,7 +156,7 @@ function themeSettingsBody() {
   const custom = settings.customTheme;
   const language = getLanguage();
   const grid = (mode) => `<div class="theme-grid" role="radiogroup" aria-label="${t(mode === 'dark' ? 'theme.dark' : 'theme.light')}">
-    ${THEMES.filter((theme) => theme.mode === mode).map((theme) => `<button class="theme-chip ${settings.theme === theme.id ? 'current' : ''}" role="radio" aria-checked="${settings.theme === theme.id}" data-action="theme-set" data-value="${theme.id}" title="${escapeHtml(themeName(theme, language))}" aria-label="${escapeHtml(themeName(theme, language))}">${swatch(theme)}</button>`).join('')}
+    ${THEMES.filter((theme) => theme.mode === mode).map((theme) => `<button class="theme-chip ${settings.theme === theme.id ? 'current' : ''}" role="radio" aria-checked="${settings.theme === theme.id}" data-action="theme-set" data-value="${theme.id}" title="${escapeHtml(themeName(theme, language))}" aria-label="${escapeHtml(themeName(theme, language))}">${swatch(theme)}<span class="theme-chip-name">${escapeHtml(themeName(theme, language))}</span></button>`).join('')}
   </div>`;
   const name = settings.theme === SYSTEM ? `${t('theme.system')} · ${themeName(currentTheme(), language)}` : themeName(currentTheme(), language);
   return `

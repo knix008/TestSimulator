@@ -44,10 +44,9 @@ if (process.platform === 'win32') {
 
 const bundles = targets[requested].bundles;
 console.log(`> tauri build --bundles ${bundles.join(',')}`);
-const result = spawnSync('npx', ['tauri', 'build', '--bundles', bundles.join(',')], {
+const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--bundles', bundles.join(',')], {
   cwd: root,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
 });
 if (result.status !== 0) process.exit(result.status ?? 1);
 

@@ -29,6 +29,9 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// Time for the window manager to finish hiding our window before the screen is read.
 const HIDE_SETTLE: Duration = Duration::from_millis(260);
 
+/// Time for the compositor to stop blanking our window once content protection is off.
+const SELF_SETTLE: Duration = Duration::from_millis(150);
+
 struct Frozen {
     label: String,
     info: MonitorInfo,
@@ -51,6 +54,8 @@ struct Shared {
     overlay_round: u32,
     recordings: HashMap<u32, Recording>,
     next_recording: u32,
+    /// MyCapture is recording its own window, so it stays visible to capture.
+    self_recording: bool,
 }
 
 type AppState = Mutex<Shared>;
@@ -156,6 +161,29 @@ fn store_pending(state: &AppState, image: RgbaImage) -> Result<Grabbed, String> 
     Ok(grabbed)
 }
 
+/// The main window is content-protected (left out of every capture). Capturing
+/// MyCapture itself lifts that for as long as the capture or recording lasts.
+fn set_capturable(app: &AppHandle, capturable: bool) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_content_protected(!capturable);
+    }
+}
+
+/// Reads `source`; `Source::App` is the screen area of the main window as it is now.
+fn grab_source(app: &AppHandle, source: Source) -> Result<RgbaImage, String> {
+    if source != Source::App {
+        return capture::grab(&source);
+    }
+    let window = app.get_webview_window("main").ok_or_else(|| tr!("MyCapture 창을 찾을 수 없습니다.", "The MyCapture window was not found."))?;
+    if window.is_minimized().unwrap_or(false) {
+        return Err(tr!("MyCapture 창이 최소화되어 있습니다.", "The MyCapture window is minimized."));
+    }
+    let fail = |error: tauri::Error| tr!("창 위치 조회 실패: {error}", "Could not read the window position: {error}");
+    let position = window.outer_position().map_err(fail)?;
+    let size = window.outer_size().map_err(fail)?;
+    capture::grab_desktop_rect(position.x, position.y, size.width, size.height)
+}
+
 /// Grabs `source` into the pending slot. Saving is a separate step so the
 /// screen is read at the moment of the click, not after a save dialog.
 ///
@@ -163,6 +191,20 @@ fn store_pending(state: &AppState, image: RgbaImage) -> Result<Grabbed, String> 
 /// always hidden while the screen is read and shown again afterwards.
 #[tauri::command]
 async fn grab(app: AppHandle, state: State<'_, AppState>, source: Source) -> Result<Grabbed, String> {
+    if source == Source::App {
+        // Capturing MyCapture itself: it stays where it is and is briefly unprotected.
+        let recording = lock(state.inner()).self_recording;
+        if !recording {
+            set_capturable(&app, true);
+            tokio_sleep(SELF_SETTLE).await;
+        }
+        let handle = app.clone();
+        let result = blocking(move || grab_source(&handle, source)).await;
+        if !recording {
+            set_capturable(&app, false);
+        }
+        return store_pending(state.inner(), result?);
+    }
     set_main_visible(&app, false);
     tokio_sleep(HIDE_SETTLE).await;
     let result = blocking(move || capture::grab(&source)).await;
@@ -424,8 +466,19 @@ fn monitor_info(id: u32) -> Result<MonitorInfo, String> {
 
 /// One raw frame for the in-app recording engine.
 #[tauri::command]
-async fn grab_frame(source: Source) -> Result<Response, String> {
-    blocking(move || Ok(Response::new(capture::raw_frame(&capture::grab(&source)?)))).await
+async fn grab_frame(app: AppHandle, source: Source) -> Result<Response, String> {
+    blocking(move || Ok(Response::new(capture::raw_frame(&grab_source(&app, source)?)))).await
+}
+
+/// Recording MyCapture itself: keeps the main window visible to capture until switched off.
+#[tauri::command]
+async fn set_self_recording(app: AppHandle, state: State<'_, AppState>, on: bool) -> Result<(), String> {
+    lock(state.inner()).self_recording = on;
+    set_capturable(&app, on);
+    if on {
+        tokio_sleep(SELF_SETTLE).await;
+    }
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -712,6 +765,7 @@ pub fn run() {
             finish_region_select,
             monitor_info,
             grab_frame,
+            set_self_recording,
             recording_open,
             recording_write,
             recording_finish,
