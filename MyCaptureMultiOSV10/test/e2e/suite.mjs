@@ -156,17 +156,20 @@ export const cases = [
     },
   },
   {
-    name: '자기 자신 캡처 · MyCapture 창을 이미지로 (버튼 · 창 크기 그대로)',
+    name: '자기 자신 캡처 · 툴바의 MyCapture 창 모드를 켜고 캡처 (창 크기 그대로)',
     run: async (app) => {
-      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png' });
+      await app.reset({ mode: 'capture', target: 'monitor', monitorId: null, imageFormat: 'png', selfMode: false });
       await app.clearNotice();
-      await app.main.click('[data-action="capture-self"]');
+      await app.main.click('[data-action="self-mode"]');
+      assert.equal(await app.main.eval(`document.querySelector('[data-action="self-mode"]').getAttribute('aria-pressed')`), 'true', 'the toolbar toggle is on');
+      await app.main.click('[data-action="capture"]');
       const notice = await app.notice();
       assert.equal(notice.kind, 'success', notice.text);
       const { bytes } = checkFile(app, 'png');
-      const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|outer_size', { label: 'main' })`);
+      // Exactly the content: no invisible resize border, no desktop around the corners.
+      const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|inner_size', { label: 'main' })`);
       const [width, height] = pngSize(bytes);
-      assert.ok(Math.abs(width - size.width) <= 16 && Math.abs(height - size.height) <= 16, `image ${width}×${height}, window ${size.width}×${size.height}`);
+      assert.deepEqual([width, height], [size.width, size.height], 'image size = window content size');
       assert.ok(await hasContent(app, `window.__mycapture.state.result.thumbnail`), 'the picture shows the window, not a blank frame');
       if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after capturing itself');
     },
@@ -175,12 +178,13 @@ export const cases = [
     name: '자기 자신 녹화 · MyCapture 창을 동영상으로 (선택 창 없이, 창은 그대로)',
     run: async (app) => {
       // The picker engine is selected: recording itself still needs no picker.
-      await app.reset({ mode: 'record', engine: 'display', target: 'monitor', videoFormat: 'webm', microphone: false });
+      await app.reset({ mode: 'record', engine: 'display', target: 'monitor', videoFormat: 'webm', microphone: false, selfMode: true });
       await app.clearNotice();
-      await app.main.click('[data-action="record-self"]');
+      await app.main.click('[data-action="record"]');
       await app.main.waitFor(`window.__mycapture.state.session.phase === 'recording' || window.__mycapture.state.notice?.kind === 'error'`, { timeout: 20000 });
       assert.equal(await app.main.eval(`window.__mycapture.state.session.phase`), 'recording', await app.main.eval(`window.__mycapture.state.notice?.text ?? ''`));
       assert.equal(await app.main.eval(`document.querySelector('#preview-caption b').textContent`), await app.main.eval(`window.__mycapture.t('source.self')`));
+      assert.equal(await app.main.eval(`document.querySelector('#live').hidden`), true, 'no live preview: it would record itself recording (a shaking tunnel)');
       if (process.platform === 'win32') assert.equal(displayAffinity(app), '0', 'visible to capture while recording itself');
       await sleep(2500);
       assert.equal(await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|is_minimized', { label: 'main' })`), false, 'the window stays up');
@@ -191,8 +195,8 @@ export const cases = [
       const { file } = checkFile(app, 'webm');
       const info = probe(file);
       if (info) {
-        const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|outer_size', { label: 'main' })`);
-        assert.ok(Math.abs(info.video.width - size.width) <= 16, `video ${info.video.width} wide, window ${size.width}`);
+        const size = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|inner_size', { label: 'main' })`);
+        assert.ok(Math.abs(info.video.width - size.width) <= 1, `video ${info.video.width} wide, window content ${size.width}`);
       }
       if (process.platform === 'win32') assert.equal(displayAffinity(app), '17', 'protected again after the recording');
     },

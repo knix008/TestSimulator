@@ -191,6 +191,20 @@ fn find_window(id: u32) -> Result<Window, String> {
         .ok_or_else(|| tr!("선택한 창이 닫혔습니다. 창 목록을 새로 고치세요.", "The selected window was closed. Refresh the window list."))
 }
 
+/// The pixels of MyCapture's own window (by its native id): what the window itself
+/// draws, so nothing behind it — the desktop around the rounded corners, the
+/// invisible resize border — gets in, and windows in front of it don't either.
+/// The window is looked up once and reused, since recording asks for it every frame.
+pub fn grab_own_window(id: u32) -> Result<RgbaImage, String> {
+    static OWN: std::sync::Mutex<Option<Window>> = std::sync::Mutex::new(None);
+    let mut own = OWN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if own.as_ref().and_then(|window| window.id().ok()) != Some(id) {
+        *own = Some(find_window(id)?);
+    }
+    let window = own.as_ref().expect("looked up above");
+    window.capture_image().map_err(|error| tr!("창 캡처 실패: {error}", "Window capture failed: {error}"))
+}
+
 /// The part of the virtual-desktop rectangle `rect` (x, y, width, height) that
 /// lies inside `bounds` (left, top, right, bottom), or None when nothing of it does.
 pub fn clip_rect(rect: (i32, i32, u32, u32), bounds: (i32, i32, i32, i32)) -> Option<(i32, i32, u32, u32)> {

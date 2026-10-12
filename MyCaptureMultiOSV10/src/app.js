@@ -378,8 +378,9 @@ function renderSources() {
       </div>
     </div>
     ${targetTabs()}
-    ${picker ? `<p class="hint">${t(settings.target === 'window' ? 'picker.hintWindow' : 'picker.hintMonitor')}</p>` : ''}
-    <div class="source-body ${picker ? 'dimmed' : ''}">${body}</div>`;
+    ${settings.selfMode ? `<p class="hint">${t('self.hint')}</p>`
+      : picker ? `<p class="hint">${t(settings.target === 'window' ? 'picker.hintWindow' : 'picker.hintMonitor')}</p>` : ''}
+    <div class="source-body ${picker || settings.selfMode ? 'dimmed' : ''}">${body}</div>`;
   if (settings.target === 'window') loadWindowThumbs();
 }
 
@@ -417,8 +418,11 @@ function renderStage() {
     });
   }
 
+  // Recording itself, the window must not show the recording: each frame would hold
+  // the previous one, a picture-in-picture tunnel that shifts all the time.
+  const mirror = recordingLive && state.selfRecording;
   const live = stage.querySelector('#live');
-  live.hidden = !recordingLive;
+  live.hidden = !recordingLive || mirror;
   if (recordingLive && recorder && !live.srcObject) {
     live.srcObject = recorder.previewStream;
     live.play().catch(() => {});
@@ -427,9 +431,13 @@ function renderStage() {
 
   const viewing = Boolean(viewer?.open) && !recordingLive;
   const still = stage.querySelector('#preview-still');
-  still.hidden = recordingLive || viewing;
-  if (!recordingLive && !viewing) {
-    if (usesPicker() && settings.target !== 'region') {
+  still.hidden = (recordingLive && !mirror) || viewing;
+  if (mirror) {
+    still.innerHTML = placeholder('self', t('self.recording'), '');
+  } else if (!recordingLive && !viewing) {
+    if (settings.selfMode) {
+      still.innerHTML = placeholder('self', t('source.self'), t('self.hint'));
+    } else if (usesPicker() && settings.target !== 'region') {
       still.innerHTML = placeholder('video', t('preview.pickerTitle'), t('preview.pickerDetail'));
     } else if (state.preview?.url) {
       still.innerHTML = `<img src="${state.preview.url}" alt="${t('preview.alt')}" />${state.previewLoading ? '<span class="spinner"></span>' : ''}`;
@@ -449,9 +457,9 @@ function renderStage() {
   stage.querySelector('#preview-caption').innerHTML = shown
     ? `<span>${icon('images')}<b>${t('gallery.title')}</b></span>
       <span>${escapeHtml([shown.width ? `${shown.width} × ${shown.height}` : '', shown.durationMs != null ? formatDuration(shown.durationMs) : '', shown.bytes ? formatBytes(shown.bytes) : ''].filter(Boolean).join(' · '))}</span>`
-    : recordingLive && state.selfRecording
+    : (recordingLive ? state.selfRecording : settings.selfMode)
       ? `<span>${icon('self')}<b>${t('source.self')}</b></span>
-      <span>${escapeHtml(baseName(session.outputPath))}</span>`
+      <span>${recordingLive ? escapeHtml(baseName(session.outputPath)) : ''}</span>`
     : `<span>${icon(settings.target)}<b>${escapeHtml(usesPicker() && settings.target !== 'region' ? t('picker.name') : sourceLabel())}</b></span>
       <span>${recordingLive ? escapeHtml(baseName(session.outputPath)) : state.preview?.caption ?? ''}</span>`;
 
@@ -474,24 +482,22 @@ function shutter(action, glyph, label, variant, disabled) {
   </button>`;
 }
 
-/** Round button that captures (image) or records (video) MyCapture's own window. */
-function selfButton(action, labelKey, format, disabled) {
-  const label = t(labelKey, { format: format.toUpperCase() });
-  return `<button class="round-button self" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${disabled ? 'disabled' : ''}>${icon('self')}</button>`;
-}
-
 const busyNote = () => (state.busy ? `<span class="busy"><span class="spinner small"></span>${escapeHtml(state.busy)}</span>` : '');
 
 function captureActions() {
   const settings = s();
   const busy = Boolean(state.busy) || !desktop;
+  const format = settings.imageFormat.toUpperCase();
+  if (settings.selfMode) {
+    return actionRow('', shutter('capture', 'camera', t('action.captureSelf', { format }), 'capture', busy), busyNote());
+  }
   const region = settings.target === 'region';
   const disabled = busy || (settings.target === 'window' && !selectedWindow());
   const again = region && settings.region
     ? `<button class="round-button" data-action="recapture-region" title="${t('action.recaptureRegion')}" aria-label="${t('action.recaptureRegion')}" ${busy ? 'disabled' : ''}>${icon('repeat')}</button>`
     : '';
-  return actionRow('', shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${settings.imageFormat.toUpperCase()})`, 'capture', disabled),
-    again + selfButton('capture-self', 'action.captureSelf', settings.imageFormat, busy) + busyNote());
+  return actionRow('', shutter('capture', 'camera', `${t(region ? 'action.captureRegion' : 'action.capture')} (${format})`, 'capture', disabled),
+    again + busyNote());
 }
 
 function unsupportedReason() {
@@ -517,16 +523,23 @@ function recordActions() {
   if (phase === 'starting' || phase === 'stopping') {
     return actionRow('', shutter('record', 'video', t(phase === 'starting' ? 'busy.preparing' : 'busy.finishing'), 'record busy', true), '<span class="spinner small"></span>');
   }
+  const format = settings.videoFormat.toUpperCase();
+  if (settings.selfMode) {
+    // Itself is always recorded with the in-app engine, so the picker's support doesn't matter.
+    const support = state.support;
+    const unsupported = !support.recorder ? t('unsupported.recorder') : !support.formats[settings.videoFormat] ? t('unsupported.format', { format }) : '';
+    const disabled = !desktop || Boolean(state.busy) || Boolean(unsupported) || !support.canvas;
+    return actionRow('', shutter('record', 'video', t('action.recordSelf', { format }), 'record', disabled), busyNote(),
+      unsupported ? `<p class="hint warn action-note">${escapeHtml(unsupported)}</p>` : '');
+  }
   const unsupported = unsupportedReason();
   const needsTarget = (settings.engine === 'native' || settings.target === 'region') && !recordSource();
   const disabled = !desktop || Boolean(state.busy) || Boolean(unsupported) || needsTarget;
   const selectRegion = settings.target === 'region'
     ? `<button class="round-button" data-action="select-region" title="${t('region.select')}" aria-label="${t('region.select')}" ${state.busy ? 'disabled' : ''}>${icon('region')}</button>`
     : '';
-  const support = state.support;
-  const selfDisabled = !desktop || Boolean(state.busy) || !support.recorder || !support.canvas || !support.formats[settings.videoFormat];
-  return actionRow(selectRegion, shutter('record', 'video', `${t('action.record')} (${settings.videoFormat.toUpperCase()})`, 'record', disabled),
-    selfButton('record-self', 'action.recordSelf', settings.videoFormat, selfDisabled) + busyNote(),
+  return actionRow(selectRegion, shutter('record', 'video', `${t('action.record')} (${format})`, 'record', disabled),
+    busyNote(),
     unsupported ? `<p class="hint warn action-note">${escapeHtml(unsupported)}</p>` : '');
 }
 
@@ -711,7 +724,7 @@ function renderToolbar() {
   const support = state.support;
   const native = settings.engine === 'native';
 
-  const groups = settings.mode === 'capture'
+  const groups = [selfModeChip(active), ...(settings.mode === 'capture'
     ? [
       tool(t('tool.format'), ui.imageFormatSelect(), 'fileFormat'),
       settings.imageFormat === 'jpg'
@@ -731,9 +744,19 @@ function renderToolbar() {
           <button class="chip chip-tail" data-action="open-mic" title="${t('tool.micSettings')}" aria-label="${t('tool.micSettings')}" ${active || !support.microphone ? 'disabled' : ''}>${icon('sliders')}</button>
         </span>
       </div>`,
-    ];
+    ])];
 
   root.querySelector('#toolbar').innerHTML = groups.join('<span class="tool-divider" aria-hidden="true"></span>');
+}
+
+/**
+ * Toggle for "self mode": while on, the capture/record shutter takes MyCapture's own
+ * window instead of the selected source. Locked (but still showing its state) while recording.
+ */
+function selfModeChip(disabled) {
+  const on = s().selfMode;
+  return `<div class="tool-chips"><button class="chip ${on ? 'on' : ''}" data-action="self-mode" aria-pressed="${on}"
+    title="${escapeHtml(t('tool.selfModeTip'))}" ${disabled ? 'disabled' : ''}>${icon('self')}<span>${t('tool.selfMode')}</span></button></div>`;
 }
 
 /** One toolbar group: icon + label, then its control. */
@@ -913,7 +936,12 @@ async function saveResult(copied = false) {
 
 // ───────────────────────── capture
 
+/** The shutter: MyCapture's own window in self mode, otherwise the selected source. */
 function captureNow() {
+  return s().selfMode ? captureSelf() : captureTarget();
+}
+
+function captureTarget() {
   closeViewer();
   const settings = s();
   if (settings.target === 'region') return startRegionSelect('capture');
@@ -1204,9 +1232,14 @@ const actions = {
   capture: () => captureNow(),
   'recapture-region': () => recaptureRegion(),
   'select-region': () => startRegionSelect('define'),
-  record: () => startRecording(),
-  'capture-self': () => captureSelf(),
-  'record-self': () => startRecording({ self: true }),
+  record: () => startRecording({ self: s().selfMode }),
+  'self-mode': () => {
+    if (isActive(state.session)) return;
+    closeViewer();
+    update({ selfMode: !s().selfMode });
+    render();
+    if (!s().selfMode) refreshPreview();
+  },
   pause: () => pauseRecording(),
   resume: () => resumeRecording(),
   stop: () => stopRecording(),
@@ -1302,9 +1335,7 @@ function contextItems(target) {
       recordMode
         ? (active ? menuItem('stop', 'stop', 'action.stop', { danger: true }) : menuItem('record', 'video', 'action.record'))
         : menuItem('capture', 'camera', 'action.capture', { disabled: Boolean(state.busy) }),
-      recordMode
-        ? menuItem('record-self', 'self', 'menu.recordSelf', { disabled: locked() })
-        : menuItem('capture-self', 'self', 'menu.captureSelf', { disabled: locked() }),
+      menuItem('self-mode', s().selfMode ? 'check' : 'self', 'tool.selfMode', { disabled: active }),
       menuItem('select-region', 'region', 'region.select', { disabled: locked() }),
       ...(!recordMode && s().region ? [menuItem('recapture-region', 'repeat', 'action.recaptureRegion', { disabled: Boolean(state.busy) })] : []),
       SEP,
@@ -1354,7 +1385,7 @@ function runMenuCommand(command) {
     case 'capture-source': {
       const [action, id] = value.split(':');
       actions[action](id);
-      return captureNow();
+      return captureTarget();
     }
     case 'select-source': {
       const [action, id] = value.split(':');

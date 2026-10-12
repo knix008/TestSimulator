@@ -170,7 +170,7 @@ fn set_capturable(app: &AppHandle, capturable: bool) {
     }
 }
 
-/// Reads `source`; `Source::App` is the screen area of the main window as it is now.
+/// Reads `source`; `Source::App` is the main window's own content as it is now.
 fn grab_source(app: &AppHandle, source: Source) -> Result<RgbaImage, String> {
     if source != Source::App {
         return capture::grab(&source);
@@ -179,9 +179,18 @@ fn grab_source(app: &AppHandle, source: Source) -> Result<RgbaImage, String> {
     if window.is_minimized().unwrap_or(false) {
         return Err(tr!("MyCapture 창이 최소화되어 있습니다.", "The MyCapture window is minimized."));
     }
+    // Windows: ask the window for its pixels. The outer rectangle of a frameless window
+    // includes an invisible 8 px resize border, and the rounded corners show the desktop.
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        if let Ok(image) = capture::grab_own_window(hwnd.0 as usize as u32) {
+            return Ok(image);
+        }
+    }
+    // Elsewhere (or if that fails): the screen area of the content, without the frame.
     let fail = |error: tauri::Error| tr!("창 위치 조회 실패: {error}", "Could not read the window position: {error}");
-    let position = window.outer_position().map_err(fail)?;
-    let size = window.outer_size().map_err(fail)?;
+    let position = window.inner_position().map_err(fail)?;
+    let size = window.inner_size().map_err(fail)?;
     capture::grab_desktop_rect(position.x, position.y, size.width, size.height)
 }
 

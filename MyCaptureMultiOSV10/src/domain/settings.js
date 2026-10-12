@@ -29,6 +29,7 @@ export const defaultSettings = Object.freeze({
   videoDirectory: null,
   askPath: false, // false = save straight into the folder; true = ask every time
   copyToClipboard: false,
+  selfMode: false, // true = the capture/record button takes MyCapture's own window
   micDeviceId: null, // null = system default input
   micGain: 100, // percent, 0–200
   sidebarCollapsed: false,
@@ -76,6 +77,7 @@ export function sanitizeSettings(raw) {
     askPath: value.settingsVersion >= 2 ? bool(value.askPath, d.askPath) : d.askPath,
     settingsVersion: SETTINGS_VERSION,
     copyToClipboard: bool(value.copyToClipboard, d.copyToClipboard),
+    selfMode: bool(value.selfMode, d.selfMode),
     micDeviceId: typeof value.micDeviceId === 'string' && value.micDeviceId ? value.micDeviceId : null,
     micGain: Number.isFinite(Number(value.micGain)) ? Math.min(200, Math.max(0, Math.round(Number(value.micGain)))) : d.micGain,
     sidebarCollapsed: bool(value.sidebarCollapsed, d.sidebarCollapsed),
