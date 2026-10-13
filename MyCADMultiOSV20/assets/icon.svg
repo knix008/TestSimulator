@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- MyCAD app icon: a raised 3D blueprint tile with a machined gear, a smaller
+       copy of it meshing beside it, and a dimension line. The border is
+       transparent; the top-left corner glows. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f9bff"/>
+      <stop offset="0.5" stop-color="#1c64d8"/>
+      <stop offset="1" stop-color="#0b2f86"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b2470"/>
+      <stop offset="1" stop-color="#061445"/>
+    </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#030b33" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.2" cy="0.16" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.3" stop-color="#e6f2ff" stop-opacity="0.55"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe59a"/>
+      <stop offset="0.35" stop-color="#ffb43a"/>
+      <stop offset="0.75" stop-color="#d9670f"/>
+      <stop offset="1" stop-color="#8a3604"/>
+    </linearGradient>
+    <linearGradient id="metalEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a3604"/>
+      <stop offset="1" stop-color="#4a1a00"/>
+    </linearGradient>
+    <radialGradient id="hub" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#fff3cf"/>
+      <stop offset="0.6" stop-color="#f3a12f"/>
+      <stop offset="1" stop-color="#9a4206"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="gearShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="10" dy="16" stdDeviation="12" flood-color="#020a2e" flood-opacity="0.55"/>
+    </filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse" x="112" y="96">
+      <path d="M64 0H0V64" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"/>
+    </pattern>
+    <clipPath id="faceClip"><rect x="112" y="96" width="800" height="780" rx="170"/></clipPath>
+  </defs>
+
+  <!-- soft shadow on the ground (stays inside the transparent border) -->
+  <ellipse cx="530" cy="930" rx="380" ry="34" fill="#030a35" opacity="0.45" filter="url(#shadow)"/>
+  <!-- extruded side: gives the tile its thickness -->
+  <rect x="112" y="136" width="800" height="780" rx="170" fill="url(#side)"/>
+  <!-- face: blueprint -->
+  <rect x="112" y="96" width="800" height="780" rx="170" fill="url(#face)"/>
+  <g clip-path="url(#faceClip)">
+    <rect x="112" y="96" width="800" height="780" fill="url(#grid)"/>
+    <!-- centre lines of the two gears -->
+    <path d="M167.8 452H630.8M400.8 207.0V697.0M528.2 579.9H856.2M688.2 409.9V749.9" stroke="#bfe0ff" stroke-opacity="0.75" stroke-width="6" stroke-dasharray="44 14 8 14" fill="none"/>
+    <!-- the large gear and a smaller copy of it, meshing -->
+    <g transform="translate(400.8 452) rotate(0) scale(0.82) translate(-560 -520)">
+      <g filter="url(#gearShadow)">
+        <path transform="translate(0 22)" fill="url(#metalEdge)" fill-rule="evenodd" d="M508.2 326.8L530.8 322.1L537.8 271.0L582.2 271.0L589.2 322.1L611.8 326.8L633.6 334.0L665.3 293.2L703.8 315.5L684.2 363.3L701.4 378.6L716.7 395.8L764.5 376.2L786.8 414.7L746.0 446.4L753.2 468.2L757.9 490.8L809.0 497.8L809.0 542.2L757.9 549.2L753.2 571.8L746.0 593.6L786.8 625.3L764.5 663.8L716.7 644.2L701.4 661.4L684.2 676.7L703.8 724.5L665.3 746.8L633.6 706.0L611.8 713.2L589.2 717.9L582.2 769.0L537.8 769.0L530.8 717.9L508.2 713.2L486.4 706.0L454.7 746.8L416.2 724.5L435.8 676.7L418.6 661.4L403.3 644.2L355.5 663.8L333.2 625.3L374.0 593.6L366.8 571.8L362.1 549.2L311.0 542.2L311.0 497.8L362.1 490.8L366.8 468.2L374.0 446.4L333.2 414.7L355.5 376.2L403.3 395.8L418.6 378.6L435.8 363.3L416.2 315.5L454.7 293.2L486.4 334.0Z M560 455a65 65 0 1 0 0.1 0z"/>
+        <path fill="url(#metal)" fill-rule="evenodd" d="M508.2 326.8L530.8 322.1L537.8 271.0L582.2 271.0L589.2 322.1L611.8 326.8L633.6 334.0L665.3 293.2L703.8 315.5L684.2 363.3L701.4 378.6L716.7 395.8L764.5 376.2L786.8 414.7L746.0 446.4L753.2 468.2L757.9 490.8L809.0 497.8L809.0 542.2L757.9 549.2L753.2 571.8L746.0 593.6L786.8 625.3L764.5 663.8L716.7 644.2L701.4 661.4L684.2 676.7L703.8 724.5L665.3 746.8L633.6 706.0L611.8 713.2L589.2 717.9L582.2 769.0L537.8 769.0L530.8 717.9L508.2 713.2L486.4 706.0L454.7 746.8L416.2 724.5L435.8 676.7L418.6 661.4L403.3 644.2L355.5 663.8L333.2 625.3L374.0 593.6L366.8 571.8L362.1 549.2L311.0 542.2L311.0 497.8L362.1 490.8L366.8 468.2L374.0 446.4L333.2 414.7L355.5 376.2L403.3 395.8L418.6 378.6L435.8 363.3L416.2 315.5L454.7 293.2L486.4 334.0Z M560 455a65 65 0 1 0 0.1 0z"/>
+      </g>
+      <circle cx="560" cy="520" r="112" fill="none" stroke="url(#hub)" stroke-width="30" opacity="0.9"/>
+      <circle cx="560" cy="520" r="65" fill="none" stroke="#6a2a02" stroke-width="8"/>
+      <rect x="545" y="440" width="30" height="26" fill="#123f9c" stroke="#6a2a02" stroke-width="6"/>
+    </g>
+    <g transform="translate(688.2 579.9) rotate(15) scale(0.56) translate(-560 -520)">
+      <g filter="url(#gearShadow)">
+        <path transform="translate(0 22)" fill="url(#metalEdge)" fill-rule="evenodd" d="M508.2 326.8L530.8 322.1L537.8 271.0L582.2 271.0L589.2 322.1L611.8 326.8L633.6 334.0L665.3 293.2L703.8 315.5L684.2 363.3L701.4 378.6L716.7 395.8L764.5 376.2L786.8 414.7L746.0 446.4L753.2 468.2L757.9 490.8L809.0 497.8L809.0 542.2L757.9 549.2L753.2 571.8L746.0 593.6L786.8 625.3L764.5 663.8L716.7 644.2L701.4 661.4L684.2 676.7L703.8 724.5L665.3 746.8L633.6 706.0L611.8 713.2L589.2 717.9L582.2 769.0L537.8 769.0L530.8 717.9L508.2 713.2L486.4 706.0L454.7 746.8L416.2 724.5L435.8 676.7L418.6 661.4L403.3 644.2L355.5 663.8L333.2 625.3L374.0 593.6L366.8 571.8L362.1 549.2L311.0 542.2L311.0 497.8L362.1 490.8L366.8 468.2L374.0 446.4L333.2 414.7L355.5 376.2L403.3 395.8L418.6 378.6L435.8 363.3L416.2 315.5L454.7 293.2L486.4 334.0Z M560 455a65 65 0 1 0 0.1 0z"/>
+        <path fill="url(#metal)" fill-rule="evenodd" d="M508.2 326.8L530.8 322.1L537.8 271.0L582.2 271.0L589.2 322.1L611.8 326.8L633.6 334.0L665.3 293.2L703.8 315.5L684.2 363.3L701.4 378.6L716.7 395.8L764.5 376.2L786.8 414.7L746.0 446.4L753.2 468.2L757.9 490.8L809.0 497.8L809.0 542.2L757.9 549.2L753.2 571.8L746.0 593.6L786.8 625.3L764.5 663.8L716.7 644.2L701.4 661.4L684.2 676.7L703.8 724.5L665.3 746.8L633.6 706.0L611.8 713.2L589.2 717.9L582.2 769.0L537.8 769.0L530.8 717.9L508.2 713.2L486.4 706.0L454.7 746.8L416.2 724.5L435.8 676.7L418.6 661.4L403.3 644.2L355.5 663.8L333.2 625.3L374.0 593.6L366.8 571.8L362.1 549.2L311.0 542.2L311.0 497.8L362.1 490.8L366.8 468.2L374.0 446.4L333.2 414.7L355.5 376.2L403.3 395.8L418.6 378.6L435.8 363.3L416.2 315.5L454.7 293.2L486.4 334.0Z M560 455a65 65 0 1 0 0.1 0z"/>
+      </g>
+      <circle cx="560" cy="520" r="112" fill="none" stroke="url(#hub)" stroke-width="30" opacity="0.9"/>
+      <circle cx="560" cy="520" r="65" fill="none" stroke="#6a2a02" stroke-width="8"/>
+      <rect x="545" y="440" width="30" height="26" fill="#123f9c" stroke="#6a2a02" stroke-width="6"/>
+    </g>
+    <!-- dimension line under both gears -->
+    <g stroke="#ffffff" stroke-width="8" fill="#ffffff" stroke-linecap="round">
+      <path d="M195.8 742V786M828.2 742V786" fill="none" stroke-opacity="0.9"/>
+      <path d="M219.8 768H804.2" fill="none"/>
+      <path d="M195.8 768l40-16v32z" stroke="none"/>
+      <path d="M828.2 768l-40-16v32z" stroke="none"/>
+    </g>
+    <!-- glossy top half and the top-left glow -->
+    <path d="M112 96h800v300C700 330 400 330 112 440z" fill="url(#gloss)" opacity="0.55"/>
+    <rect x="112" y="96" width="800" height="780" fill="url(#glow)"/>
+  </g>
+  <!-- bevel rim: light top-left, dark bottom-right -->
+  <rect x="120" y="104" width="784" height="764" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
+  <!-- sparkle at the top-left corner -->
+  <circle cx="232" cy="200" r="70" fill="url(#spark)" opacity="0.9"/>
+  <path d="M232 128l12 60 60 12-60 12-12 60-12-60-60-12 60-12z" fill="#ffffff"/>
+</svg>

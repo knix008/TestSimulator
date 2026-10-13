@@ -1,0 +1,213 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-13T03:10:45.102Z",
+ "drawing": {
+  "id": "dwg-mv63suz00011g90w",
+  "title": "M10 볼트·너트·와셔",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-13T03:10:44.940Z",
+  "updated": "2026-10-13T03:10:44.940Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "MC-005",
+   "material": "SCM435 (8.8)",
+   "scale": "1:1",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv63suz000128m6k",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "bolt",
+    "x": 0,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "size": 10,
+     "length": 40,
+     "view": "side"
+    }
+   },
+   {
+    "id": "e-mv63suz000132xd9",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "nut",
+    "x": 80,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "size": 10,
+     "type": "regular",
+     "view": "top"
+    }
+   },
+   {
+    "id": "e-mv63suz00014s2co",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "washer",
+    "x": 120,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "size": 10,
+     "type": "plain",
+     "view": "top"
+    }
+   },
+   {
+    "id": "e-mv63suz00015j652",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "socketScrew",
+    "x": 0,
+    "y": -50,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "size": 8,
+     "length": 25,
+     "view": "side"
+    }
+   },
+   {
+    "id": "e-mv63suz00016ig6w",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "hole",
+    "x": 80,
+    "y": -50,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "size": 8,
+     "type": "counterbore",
+     "fit": "medium",
+     "depth": 12,
+     "view": "top"
+    }
+   },
+   {
+    "id": "e-mv63suz00017fumh",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "horizontal",
+    "x1": 0,
+    "y1": 5,
+    "x2": 40,
+    "y2": 5,
+    "ox": 20,
+    "oy": 18,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 1,
+    "text": ""
+   },
+   {
+    "id": "e-mv63suz00018o4um",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": -6,
+    "y": -24,
+    "text": "M10 × 40 · 너트 맞변 16 · 와셔 Ø20",
+    "size": 3.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   }
+  ]
+ }
+}

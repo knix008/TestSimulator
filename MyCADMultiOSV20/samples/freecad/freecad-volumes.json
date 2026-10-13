@@ -1,0 +1,46 @@
+{
+ "freecad-assembly.FCStd": {
+  "volume": 67449.54126460593,
+  "objects": {
+   "BasePlate": 27895.22131576614,
+   "BossWithTip": 2132.0942142362724,
+   "Ball": 1436.755040241732,
+   "Ring": 2131.834550635301,
+   "HexBar": 2338.2685902179865,
+   "Lens": 1308.9969391493216,
+   "AngleBracket": 16137.345175425631,
+   "Pulley": 13069.025438933539,
+   "MeshCube": 1000.0
+  }
+ },
+ "freecad-bracket.step": {
+  "volume": 27895.22131576614
+ },
+ "freecad-bracket.stl": {
+  "volume": 27896.390625
+ },
+ "freecad-bracket.obj": {
+  "volume": 27896.390625
+ },
+ "freecad-bracket.ply": {
+  "volume": 27896.390625
+ },
+ "freecad-bracket.off": {
+  "volume": 27896.390625
+ },
+ "freecad-bracket.amf": {
+  "error": "File format not supported"
+ },
+ "freecad-bracket.3mf": {
+  "volume": 27896.390625
+ },
+ "freecad-pulley.step": {
+  "volume": 13069.025438933539
+ },
+ "freecad-assembly.step": {
+  "volume": 66449.54126460593
+ },
+ "freecad-boss.step": {
+  "volume": 2132.0942142362724
+ }
+}

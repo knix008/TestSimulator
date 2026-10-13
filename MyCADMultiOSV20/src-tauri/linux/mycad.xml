@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mycad-drawing">
+    <comment>MyCAD Drawing</comment>
+    <comment xml:lang="ko">MyCAD 도면</comment>
+    <icon name="application-x-mycad-drawing"/>
+    <glob pattern="*.mcad"/>
+  </mime-type>
+</mime-info>

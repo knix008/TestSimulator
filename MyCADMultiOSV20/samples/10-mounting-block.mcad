@@ -1,0 +1,318 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-13T03:10:45.105Z",
+ "drawing": {
+  "id": "dwg-mv63suz6006atie3",
+  "title": "마운팅 블록 (불리언)",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-13T03:10:44.946Z",
+  "updated": "2026-10-13T03:10:44.946Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "MC-3D-02",
+   "material": "SS400",
+   "scale": "1:1",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv63suz6006b2k0y",
+    "type": "solid",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "boolean",
+    "name": "MountingBlock",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {},
+    "shape": {
+     "op": "cut",
+     "parts": [
+      {
+       "type": "solid",
+       "kind": "boolean",
+       "name": "",
+       "x": 0,
+       "y": 0,
+       "z": 0,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {},
+       "shape": {
+        "op": "union",
+        "parts": [
+         {
+          "type": "solid",
+          "kind": "box",
+          "name": "",
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "rx": 0,
+          "ry": 0,
+          "rz": 0,
+          "scale": 1,
+          "flip": false,
+          "params": {
+           "length": 80,
+           "width": 50,
+           "height": 12
+          },
+          "shape": {}
+         },
+         {
+          "type": "solid",
+          "kind": "cylinder",
+          "name": "",
+          "x": 40,
+          "y": 25,
+          "z": 0,
+          "rx": 0,
+          "ry": 0,
+          "rz": 0,
+          "scale": 1,
+          "flip": false,
+          "params": {
+           "radius": 14,
+           "height": 30,
+           "angle": 360
+          },
+          "shape": {}
+         }
+        ]
+       }
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 40,
+       "y": 25,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 8,
+        "height": 60,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 10,
+       "y": 10,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 3.3,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 70,
+       "y": 10,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 3.3,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 70,
+       "y": 40,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 3.3,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 10,
+       "y": 40,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 3.3,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "box",
+       "name": "",
+       "x": 25,
+       "y": 22,
+       "z": 24,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "length": 30,
+        "width": 6,
+        "height": 20
+       },
+       "shape": {}
+      }
+     ]
+    }
+   },
+   {
+    "id": "e-mv63suz6006cmx1q",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "horizontal",
+    "x1": 0,
+    "y1": 0,
+    "x2": 80,
+    "y2": 0,
+    "ox": 40,
+    "oy": -12,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 0,
+    "text": ""
+   },
+   {
+    "id": "e-mv63suz6006dckw3",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "vertical",
+    "x1": 80,
+    "y1": 0,
+    "x2": 80,
+    "y2": 50,
+    "ox": 92,
+    "oy": 25,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 0,
+    "text": ""
+   }
+  ]
+ }
+}

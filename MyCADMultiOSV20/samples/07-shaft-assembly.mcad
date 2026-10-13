@@ -1,0 +1,242 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-13T03:10:45.103Z",
+ "drawing": {
+  "id": "dwg-mv63suz00020k5ij",
+  "title": "축 조립도",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-13T03:10:44.940Z",
+  "updated": "2026-10-13T03:10:44.940Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "MC-007",
+   "material": "S45C",
+   "scale": "1:1",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv63suz00021v68r",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "shaft",
+    "x": 0,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "segments": "20x25, 25x15, 30x40, 25x15, 20x25",
+     "chamfer": 1
+    }
+   },
+   {
+    "id": "e-mv63suz000223b2n",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "bearing",
+    "x": 32.5,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "series": 6205,
+     "balls": 8,
+     "view": "section"
+    }
+   },
+   {
+    "id": "e-mv63suz00023ee0p",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "bearing",
+    "x": 87.5,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "series": 6205,
+     "balls": 8,
+     "view": "section"
+    }
+   },
+   {
+    "id": "e-mv63suz00024oxu5",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "gear",
+    "x": 60,
+    "y": 80,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "module": 2,
+     "teeth": 30,
+     "pressureAngle": 20,
+     "bore": 30,
+     "keyway": true,
+     "pitchCircle": true
+    }
+   },
+   {
+    "id": "e-mv63suz00025vikt",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "parallelKey",
+    "x": 60,
+    "y": -45,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 8,
+     "length": 32,
+     "view": "top"
+    }
+   },
+   {
+    "id": "e-mv63suz00026quum",
+    "type": "part",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "circlipShaft",
+    "x": 150,
+    "y": 0,
+    "angle": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "diameter": 20
+    }
+   },
+   {
+    "id": "e-mv63suz00027m4gq",
+    "type": "line",
+    "layer": "center",
+    "color": null,
+    "lineType": "center",
+    "lineWidth": null,
+    "x1": -10,
+    "y1": 0,
+    "x2": 130,
+    "y2": 0
+   },
+   {
+    "id": "e-mv63suz00028rwse",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "horizontal",
+    "x1": 0,
+    "y1": 10,
+    "x2": 120,
+    "y2": 10,
+    "ox": 60,
+    "oy": 34,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 0,
+    "text": ""
+   },
+   {
+    "id": "e-mv63suz0002910cr",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": -65,
+    "text": "6205 베어링 2개 · 기어 m2 z30 · 평행 키 · 축용 멈춤링",
+    "size": 3.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   }
+  ]
+ }
+}

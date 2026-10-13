@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyCAD",
+  "mainBinaryName": "MyCAD",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mycad.v2",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1440",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$APPCONFIG/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Mechanical design (2D CAD)",
+    "longDescription": "Draw machine parts precisely: lines, arcs, dimensions, layers, parametric gears, bolts, bearings and shafts, DXF/SVG/PNG export, printing with title blocks, undo/redo and themes.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/drawing.ico": "drawing.ico",
+      "icons/drawing.icns": "drawing.icns",
+      "icons/drawing.png": "drawing.png"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mcad"],
+        "name": "MyCAD.Drawing",
+        "description": "MyCAD Drawing",
+        "mimeType": "application/x-mycad-drawing",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/mycad.xml": "linux/mycad.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mycad-drawing.png": "icons/drawing.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"],
+        "files": {
+          "/usr/share/mime/packages/mycad.xml": "linux/mycad.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mycad-drawing.png": "icons/drawing.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "mycad",
+  "productName": "MyCAD",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Mechanical design (2D CAD) for Web, Windows, macOS and Linux (Tauri)",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4174 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js,rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "test:freecad": "node scripts/test.mjs --only freecad",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:samples": "node scripts/create-samples.mjs",
+    "build:samples:freecad": "node scripts/freecad-samples.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}
