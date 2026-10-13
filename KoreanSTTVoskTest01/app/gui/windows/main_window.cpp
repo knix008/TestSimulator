@@ -183,7 +183,17 @@ void drainPostedMessages(HWND window) {
     }
 }
 
+// 한 줄 입력은 세로 가운데를 맞추려고 여러 줄 스타일을 쓴다. 엔터는 줄을 바꾸지 않는다.
+LRESULT CALLBACK singleLineEditProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam,
+                                    UINT_PTR, DWORD_PTR) {
+    if (message == WM_CHAR && (wParam == L'\r' || wParam == L'\n')) return 0;
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
 }  // namespace
+
+void centerSingleLineEdit(HWND edit);
+void paintCenteredRow(const DRAWITEMSTRUCT* item, HWND control, bool combo);
 
 MainWindow::MainWindow(HINSTANCE instance) : instance_(instance) {
     background_ = GetSysColorBrush(COLOR_BTNFACE);
@@ -486,9 +496,33 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
+        case WM_MEASUREITEM: {
+            auto* measure = reinterpret_cast<MEASUREITEMSTRUCT*>(lParam);
+            if (!measure || (measure->CtlID != kIdKeywordList && measure->CtlID != kIdDevice))
+                break;
+            HDC dc = GetDC(window_);
+            HGDIOBJ previous = font_ ? SelectObject(dc, font_) : nullptr;
+            TEXTMETRICW metrics{};
+            GetTextMetricsW(dc, &metrics);
+            if (previous) SelectObject(dc, previous);
+            ReleaseDC(window_, dc);
+            const int textHeight = static_cast<int>(metrics.tmHeight) + scaled(8);
+            measure->itemHeight = static_cast<UINT>(std::max(textHeight, scaled(22)));
+            return TRUE;
+        }
+
         case WM_DRAWITEM: {
             auto* item = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
-            if (!item || (item->CtlID != kIdStatus && wParam != kIdStatus)) break;
+            if (!item) break;
+            if (item->CtlID == kIdKeywordList) {
+                paintCenteredRow(item, keywordList_, false);
+                return TRUE;
+            }
+            if (item->CtlID == kIdDevice) {
+                paintCenteredRow(item, deviceCombo_, true);
+                return TRUE;
+            }
+            if (item->CtlID != kIdStatus && wParam != kIdStatus) break;
             SetBkMode(item->hDC, TRANSPARENT);
             SetTextColor(item->hDC, statusIsError_ ? RGB(176, 0, 32) : GetSysColor(COLOR_BTNTEXT));
             if (font_) SelectObject(item->hDC, font_);
@@ -541,7 +575,15 @@ void MainWindow::createControls() {
     if (!font_) font_ = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
 
     const auto make = [&](const wchar_t* className, const wchar_t* text, DWORD style, int id) {
-        HWND control = CreateWindowExW(0, className, text, WS_CHILD | WS_VISIBLE | style, 0, 0, 0,
+        DWORD aligned = style;
+        if (wcscmp(className, L"BUTTON") == 0) {
+            const DWORD type = style & BS_TYPEMASK;
+            if (type == BS_PUSHBUTTON || type == BS_DEFPUSHBUTTON)
+                aligned |= BS_CENTER | BS_VCENTER;
+            else if (type == BS_AUTOCHECKBOX)
+                aligned |= BS_VCENTER;
+        }
+        HWND control = CreateWindowExW(0, className, text, WS_CHILD | WS_VISIBLE | aligned, 0, 0, 0,
                                        0, window_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
                                        instance_, nullptr);
         SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
@@ -549,12 +591,14 @@ void MainWindow::createControls() {
     };
 
     labels_.push_back(make(L"STATIC", L"모델", SS_LEFT | SS_CENTERIMAGE, 0));
-    modelEdit_ = make(L"EDIT", L"", WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, kIdModelEdit);
+    modelEdit_ = make(L"EDIT", L"",
+                      WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL | ES_MULTILINE, kIdModelEdit);
     browseButton_ = make(L"BUTTON", L"찾아보기…", WS_TABSTOP | BS_PUSHBUTTON, kIdBrowse);
     loadButton_ = make(L"BUTTON", L"모델 적재", WS_TABSTOP | BS_PUSHBUTTON, kIdLoad);
 
     labels_.push_back(make(L"STATIC", L"받는 말", SS_LEFT | SS_CENTERIMAGE, 0));
-    vocabEdit_ = make(L"EDIT", L"", WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, kIdVocabEdit);
+    vocabEdit_ = make(L"EDIT", L"",
+                      WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL | ES_MULTILINE, kIdVocabEdit);
     SetWindowTextW(vocabEdit_, toWide(formatVocabulary(defaultVocabulary())).c_str());
     labels_.push_back(make(L"STATIC",
                            L"쉼표로 구분. 비우면 들리는 대로 모두 받아씁니다.",
@@ -562,11 +606,16 @@ void MainWindow::createControls() {
 
     keywordLabel_ = make(L"STATIC", L"키워드", SS_LEFT | SS_CENTERIMAGE, 0);
     keywordList_ = make(L"LISTBOX", L"",
-                        WS_TABSTOP | WS_VSCROLL | WS_BORDER | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+                        WS_TABSTOP | WS_VSCROLL | WS_BORDER | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT |
+                            LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
                         kIdKeywordList);
-    keywordEdit_ = make(L"EDIT", L"", WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, kIdKeywordEdit);
+    keywordEdit_ = make(L"EDIT", L"",
+                        WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL | ES_MULTILINE, kIdKeywordEdit);
     SendMessageW(keywordEdit_, EM_SETCUEBANNER, TRUE,
                  reinterpret_cast<LPARAM>(L"추가할 말"));
+    SetWindowSubclass(modelEdit_, singleLineEditProc, 1, 0);
+    SetWindowSubclass(vocabEdit_, singleLineEditProc, 1, 0);
+    SetWindowSubclass(keywordEdit_, singleLineEditProc, 1, 0);
     keywordAdd_ = make(L"BUTTON", L"추가", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordAdd);
     keywordRemove_ = make(L"BUTTON", L"삭제", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRemove);
     keywordUp_ = make(L"BUTTON", L"위로", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordUp);
@@ -582,7 +631,9 @@ void MainWindow::createControls() {
     keywordInfo_ = make(L"STATIC", L"", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
 
     labels_.push_back(make(L"STATIC", L"입력", SS_LEFT | SS_CENTERIMAGE, 0));
-    deviceCombo_ = make(L"COMBOBOX", L"", WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST, kIdDevice);
+    deviceCombo_ = make(L"COMBOBOX", L"",
+                        WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS,
+                        kIdDevice);
     refreshButton_ = make(L"BUTTON", L"새로 고침", WS_TABSTOP | BS_PUSHBUTTON, kIdRefresh);
 
     startButton_ = make(L"BUTTON", L"● 인식 시작", WS_TABSTOP | BS_DEFPUSHBUTTON, kIdStart);
@@ -613,7 +664,7 @@ void MainWindow::createControls() {
                            0);
 
     tallyLabel_ = make(L"STATIC", L"", SS_LEFT | SS_CENTERIMAGE, 0);
-    partialLabel_ = make(L"STATIC", L"", SS_LEFT | SS_PATHELLIPSIS, 0);
+    partialLabel_ = make(L"STATIC", L"", SS_LEFT | SS_CENTERIMAGE | SS_PATHELLIPSIS, 0);
     sizeGrip_ = CreateWindowExW(0, kSizeGripClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0,
                                 0, 0, 0, window_, nullptr, instance_, nullptr);
     setResourceMonitor(true);
@@ -658,6 +709,59 @@ void MainWindow::createControls() {
     });
 }
 
+void centerSingleLineEdit(HWND edit) {
+    if (!edit) return;
+    RECT client{};
+    GetClientRect(edit, &client);
+    const int height = client.bottom - client.top;
+    HDC dc = GetDC(edit);
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(edit, WM_GETFONT, 0, 0));
+    HGDIOBJ previous = font ? SelectObject(dc, font) : nullptr;
+    TEXTMETRICW metrics{};
+    GetTextMetricsW(dc, &metrics);
+    if (previous) SelectObject(dc, previous);
+    ReleaseDC(edit, dc);
+    RECT text{0, 0, client.right, height};
+    const int pad = (height - metrics.tmHeight) / 2;
+    if (pad > 0) {
+        text.top = pad;
+        text.bottom = height - pad;
+    }
+    text.left = 4;
+    SendMessageW(edit, EM_SETRECT, 0, reinterpret_cast<LPARAM>(&text));
+}
+
+void paintCenteredRow(const DRAWITEMSTRUCT* item, HWND control, bool combo) {
+    if (!item) return;
+    wchar_t text[512] = {};
+    if (item->itemID != static_cast<UINT>(-1)) {
+        if (combo)
+            SendMessageW(control, CB_GETLBTEXT, item->itemID, reinterpret_cast<LPARAM>(text));
+        else
+            SendMessageW(control, LB_GETTEXT, item->itemID, reinterpret_cast<LPARAM>(text));
+    }
+
+    const bool inEdit = combo && (item->itemState & ODS_COMBOBOXEDIT) != 0;
+    const bool selected = (item->itemState & ODS_SELECTED) != 0 && !inEdit;
+    const bool disabled = (item->itemState & ODS_DISABLED) != 0;
+    const COLORREF back = GetSysColor(selected ? COLOR_HIGHLIGHT : COLOR_WINDOW);
+    const COLORREF fore =
+        GetSysColor(disabled ? COLOR_GRAYTEXT : (selected ? COLOR_HIGHLIGHTTEXT : COLOR_WINDOWTEXT));
+    HBRUSH brush = CreateSolidBrush(back);
+    FillRect(item->hDC, &item->rcItem, brush);
+    DeleteObject(brush);
+    SetBkMode(item->hDC, TRANSPARENT);
+    SetTextColor(item->hDC, fore);
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(control, WM_GETFONT, 0, 0));
+    HGDIOBJ previous = font ? SelectObject(item->hDC, font) : nullptr;
+    RECT textRect = item->rcItem;
+    textRect.left += 6;
+    DrawTextW(item->hDC, text, -1, &textRect,
+              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+    if (previous) SelectObject(item->hDC, previous);
+    if ((item->itemState & ODS_FOCUS) != 0 && !inEdit) DrawFocusRect(item->hDC, &item->rcItem);
+}
+
 void MainWindow::layout() {
     RECT client;
     GetClientRect(window_, &client);
@@ -681,6 +785,7 @@ void MainWindow::layout() {
     x += labelWidth + gap;
     const int editWidth = right - x - (buttonWidth + gap) * 2;
     place(modelEdit_, x, y, std::max(scaled(80), editWidth), rowHeight);
+    centerSingleLineEdit(modelEdit_);
     x = right - (buttonWidth + gap) - buttonWidth;
     place(browseButton_, x, y, buttonWidth, rowHeight);
     place(loadButton_, right - buttonWidth, y, buttonWidth, rowHeight);
@@ -692,6 +797,7 @@ void MainWindow::layout() {
     x += scaled(56) + gap;
     const int vocabWidth = scaled(220);
     place(vocabEdit_, x, y, vocabWidth, rowHeight);
+    centerSingleLineEdit(vocabEdit_);
     x += vocabWidth + gap;
     place(labels_[2], x, y, std::max(scaled(80), right - x), rowHeight);
     y += rowHeight + gap;
@@ -713,6 +819,7 @@ void MainWindow::layout() {
         const int removeWidth = scaled(64);
         const int editWidth = std::max(scaled(40), right - bx - addWidth - removeWidth - gap * 2);
         place(keywordEdit_, bx, y, editWidth, rowHeight);
+        centerSingleLineEdit(keywordEdit_);
         place(keywordAdd_, bx + editWidth + gap, y, addWidth, rowHeight);
         place(keywordRemove_, right - removeWidth, y, removeWidth, rowHeight);
 

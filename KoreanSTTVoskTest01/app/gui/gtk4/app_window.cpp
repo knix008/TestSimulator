@@ -151,6 +151,8 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     partialLabel_ = gtk_label_new("");
     gtk_widget_add_css_class(partialLabel_, "kstt-partial");
     gtk_label_set_xalign(GTK_LABEL(partialLabel_), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(partialLabel_), 0.5f);
+    gtk_widget_set_valign(partialLabel_, GTK_ALIGN_CENTER);
     gtk_label_set_ellipsize(GTK_LABEL(partialLabel_), PANGO_ELLIPSIZE_START);
     gtk_box_append(GTK_BOX(root), partialLabel_);
 
@@ -158,6 +160,8 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     gtk_widget_add_css_class(statusBar, "kstt-statusbar");
     statusLabel_ = gtk_label_new("준비 중…");
     gtk_label_set_xalign(GTK_LABEL(statusLabel_), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(statusLabel_), 0.5f);
+    gtk_widget_set_valign(statusLabel_, GTK_ALIGN_CENTER);
     gtk_label_set_ellipsize(GTK_LABEL(statusLabel_), PANGO_ELLIPSIZE_END);
     gtk_widget_set_hexpand(statusLabel_, TRUE);
     gtk_box_append(GTK_BOX(statusBar), statusLabel_);
@@ -165,6 +169,8 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
         GtkWidget* label = gtk_label_new(text);
         gtk_widget_add_css_class(label, "kstt-status-pane");
         gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+        gtk_label_set_yalign(GTK_LABEL(label), 0.5f);
+        gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
         gtk_box_append(GTK_BOX(statusBar), label);
         return label;
     };
@@ -294,6 +300,8 @@ GtkWidget* AppWindow::buildSettings() {
 
     GtkWidget* modelLabel = gtk_label_new("모델");
     gtk_label_set_xalign(GTK_LABEL(modelLabel), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(modelLabel), 0.5f);
+    gtk_widget_set_valign(modelLabel, GTK_ALIGN_CENTER);
     gtk_grid_attach(GTK_GRID(grid), modelLabel, 0, 0, 1, 1);
 
     modelEntry_ = gtk_entry_new();
@@ -318,6 +326,8 @@ GtkWidget* AppWindow::buildSettings() {
 
     GtkWidget* vocabLabel = gtk_label_new("받는 말");
     gtk_label_set_xalign(GTK_LABEL(vocabLabel), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(vocabLabel), 0.5f);
+    gtk_widget_set_valign(vocabLabel, GTK_ALIGN_CENTER);
     gtk_grid_attach(GTK_GRID(grid), vocabLabel, 0, 1, 1, 1);
 
     vocabEntry_ = gtk_entry_new();
@@ -332,6 +342,8 @@ GtkWidget* AppWindow::buildSettings() {
 
     GtkWidget* deviceLabel = gtk_label_new("입력");
     gtk_label_set_xalign(GTK_LABEL(deviceLabel), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(deviceLabel), 0.5f);
+    gtk_widget_set_valign(deviceLabel, GTK_ALIGN_CENTER);
     gtk_grid_attach(GTK_GRID(grid), deviceLabel, 0, 2, 1, 1);
 
     deviceDropdown_ = gtk_drop_down_new(nullptr, nullptr);
@@ -456,6 +468,8 @@ GtkWidget* AppWindow::buildKeywords() {
 
     keywordInfo_ = gtk_label_new("녹음은 keyword-workspace 에 쌓입니다");
     gtk_label_set_xalign(GTK_LABEL(keywordInfo_), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(keywordInfo_), 0.5f);
+    gtk_widget_set_valign(keywordInfo_, GTK_ALIGN_CENTER);
     gtk_label_set_ellipsize(GTK_LABEL(keywordInfo_), PANGO_ELLIPSIZE_END);
     gtk_widget_set_hexpand(keywordInfo_, TRUE);
     gtk_grid_attach(GTK_GRID(grid), keywordInfo_, 2, 2, 1, 1);
@@ -510,6 +524,8 @@ GtkWidget* AppWindow::buildControls() {
     gtk_box_append(GTK_BOX(box), partialCheck_);
 
     GtkWidget* levelLabel = gtk_label_new("입력 레벨");
+    gtk_label_set_yalign(GTK_LABEL(levelLabel), 0.5f);
+    gtk_widget_set_valign(levelLabel, GTK_ALIGN_CENTER);
     gtk_widget_set_margin_start(levelLabel, 12);
     gtk_widget_add_css_class(levelLabel, "kstt-status");
     gtk_box_append(GTK_BOX(box), levelLabel);
@@ -537,12 +553,16 @@ GtkWidget* AppWindow::buildTranscript() {
     GtkWidget* title = gtk_label_new("인식 결과");
     gtk_widget_add_css_class(title, "heading");
     gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(title), 0.5f);
+    gtk_widget_set_valign(title, GTK_ALIGN_CENTER);
     gtk_widget_set_hexpand(title, TRUE);
     gtk_box_append(GTK_BOX(bar), title);
 
     tallyLabel_ = gtk_label_new("");
     gtk_widget_add_css_class(tallyLabel_, "kstt-status");
     gtk_label_set_xalign(GTK_LABEL(tallyLabel_), 0.0f);
+    gtk_label_set_yalign(GTK_LABEL(tallyLabel_), 0.5f);
+    gtk_widget_set_valign(tallyLabel_, GTK_ALIGN_CENTER);
     gtk_box_append(GTK_BOX(bar), tallyLabel_);
 
     GtkWidget* report = gtk_button_new_with_label("리포트");
@@ -1552,6 +1572,8 @@ void AppWindow::refreshKeywordList() {
         const std::string line = word + "    음원 " + std::to_string(workspace_.sampleCount(word)) + "개";
         GtkWidget* label = gtk_label_new(line.c_str());
         gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+        gtk_label_set_yalign(GTK_LABEL(label), 0.5f);
+        gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
         gtk_widget_set_margin_start(label, 8);
         gtk_widget_set_margin_end(label, 8);
         gtk_widget_set_margin_top(label, 2);
