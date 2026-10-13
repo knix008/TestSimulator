@@ -412,13 +412,29 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
     Ok(Placement { x: px / scale, y: py / scale })
 }
 
+/// The label of the MyCAD window that has the keyboard focus, if any (a menu
+/// asks before closing on blur: focus moving to the main window is not a click elsewhere).
+#[tauri::command]
+fn focused_window(app: AppHandle) -> Option<String> {
+    app.webview_windows().into_iter().find(|(_, window)| window.is_focused().unwrap_or(false)).map(|(label, _)| label)
+}
+
 /// Hides a popup but keeps it for the next time (menus open instantly that way).
 #[tauri::command]
 fn hide_popup(app: AppHandle, kind: String) {
+    let main = app.get_webview_window("main");
     if let Some(window) = app.get_webview_window(&format!("popup-{kind}")) {
+        // Give the focus back first: hiding the active window makes Windows
+        // activate its owner later, and that late activation could take the
+        // focus from the next menu (which closes on blur) a moment after it opened.
+        if window.is_focused().unwrap_or(false) {
+            if let Some(main) = &main {
+                let _ = main.set_focus();
+            }
+        }
         let _ = window.hide();
     }
-    if let Some(main) = app.get_webview_window("main") {
+    if let Some(main) = main {
         let _ = main.emit_to("main", "popup-hidden", kind);
     }
 }
@@ -620,6 +636,7 @@ pub fn run() {
             popup_ready,
             place_popup,
             hide_popup,
+            focused_window,
             close_popup,
             print_window,
             quit_app,

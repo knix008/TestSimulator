@@ -87,7 +87,7 @@ const fire = (app, expression) => m(app, `(${expression}, 1)`);
 
 async function expectPopupWindow(app, page, kind) {
   assert.equal(await page.eval('document.title'), `popup-${kind}`);
-  const head = await page.eval(`(() => { const h = document.querySelector('.popup-head h2, .menu-head'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim() } : null; })()`);
+  const head = await page.eval(`(() => { const m = document.querySelector('.popup-menu'); if (m) return { icon: !document.querySelector('.menu-head'), text: m.dataset.title }; const h = document.querySelector('.popup-head h2'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim() } : null; })()`);
   assert.ok(head?.icon && head.text, `${kind}: header has an icon and a title (${JSON.stringify(head)})`);
   assert.deepEqual(await page.eval(POPUP_SCROLL_CHECK), [], `${kind}: no scroll bars inside the popup`);
   if (kind !== 'menu') {
@@ -98,14 +98,16 @@ async function expectPopupWindow(app, page, kind) {
   }
   let windows = [];
   let popup;
-  // The OS shows the window a moment after its page is ready (longer while the whole suite runs).
-  for (let i = 0; i < 30 && !popup; i++) {
-    if (i) await sleep(150);
+  // The OS shows the window a moment after its page is ready — seconds for the
+  // first window of a kind while the whole suite runs (WebView2 starts up).
+  for (const until = Date.now() + 10000; !popup && Date.now() < until;) {
+    if (windows.length) await sleep(150);
     windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
     popup = windows.find((w) => w.owner !== 0 && w.title.includes(head.text.slice(0, 4)));
   }
   const main = windows.find((w) => w.owner === 0);
-  assert.ok(main, 'main window found');
+  assert.ok(main, `main window found (${JSON.stringify(app.windowInfo().map((w) => [w.title, w.visible, w.owner]))})`);
+  if (!popup) console.log('TRACE', JSON.stringify(await page.eval('[window.__TRACE, document.title, document.querySelector(".popup-menu")?.dataset.title]')), JSON.stringify(app.windowInfo().map((w) => [w.title, w.visible, w.owner])));
   assert.ok(popup, `${kind}: its own OS window "<title> — ${TITLE}" (${JSON.stringify(windows.map((w) => w.title))})`);
   assert.equal(popup.owner, main.handle, `${kind}: owned by the main window (closes with it)`);
   assert.equal(popup.style & WS_THICKFRAME, 0, `${kind}: fixed size`);
@@ -126,7 +128,7 @@ async function visibleCenter(app, selector) {
 async function openMenu(app, name) {
   await app.main.click(`[data-menu="${name}"]`);
   const menu = await app.popup('menu');
-  await menu.waitFor(`document.querySelector('.menu-item') && document.querySelector('.menu-head')`);
+  await menu.waitFor(`document.querySelector('.menu-item') && document.querySelector('.popup-menu')?.dataset.title`);
   await sleep(200);
   return menu;
 }
@@ -143,7 +145,7 @@ async function contextMenuIds(app, point) {
   await menu.waitFor(`document.querySelector('.menu-item')`);
   await sleep(150);
   const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id)`);
-  const head = await menu.eval(`document.querySelector('.menu-head')?.textContent.trim()`);
+  const head = await menu.eval(`document.querySelector('.popup-menu')?.dataset.title`);
   await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
   await sleep(250);
   return { ids, head };
@@ -332,7 +334,7 @@ export const cases = [
   // ───────────────────────── menus
   ...[['file', '파일'], ['edit', '편집'], ['view', '보기'], ['draw', '그리기'], ['modify', '수정'], ['parts', '부품'], ['solid', '3D 솔리드'], ['help', '도움말']].map(([name, title]) => ({ group: '메뉴', name: `메뉴 "${title}": 독립 창, 한 줄, 아이콘+이름`, async run(app) {
     const menu = await openMenu(app, name);
-    await menu.waitFor(`document.querySelector('.menu-head')?.textContent.trim() === '${title}'`);
+    await menu.waitFor(`document.querySelector('.popup-menu')?.dataset.title === '${title}' && !document.querySelector('.menu-head')`);
     const info = await menu.eval(`(() => {
       const items = [...document.querySelectorAll('.menu-item')];
       return { count: items.length, lefts: new Set(items.map((i) => Math.round(i.getBoundingClientRect().left))).size,

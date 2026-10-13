@@ -596,12 +596,6 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .menu-key { justify-self: end; padding-left: 28px; font-size: 0.82em; opacity: 0.7; }
 .menu-check .icon { width: 15px; height: 15px; }
 .menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
-.menu-head {
-  display: flex; align-items: center; gap: 8px; padding: 4px 10px 6px 8px; margin-bottom: 4px;
-  border-bottom: 1px solid var(--border); font-size: 0.82em; font-weight: 600; color: var(--muted); max-width: 360px;
-}
-.menu-head .icon { width: 15px; height: 15px; color: var(--accent); }
-.menu-head span { overflow: hidden; text-overflow: ellipsis; }
 
 /* ── 3D solids (FreeCAD Part look: a tinted face on line icons) */
 .icon .face { fill: color-mix(in srgb, var(--accent) 32%, transparent); }

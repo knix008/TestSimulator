@@ -1108,7 +1108,7 @@ function paintThumbs() {
       if (state.thumbs.has(file)) continue;
       try {
         const drawing = sampleDrawing(file, await fetchSample(file));
-        state.thumbs.set(file, thumbnailOf(drawing));
+        state.thumbs.set(file, await thumbnailOf(drawing));
       } catch {
         state.thumbs.set(file, '');
       }
@@ -1127,7 +1127,35 @@ function drawThumb(canvas, url) {
 }
 
 /** A 320 × 200 picture of a drawing: solids shaded in isometric view, 2D drawings as drawn. */
-function thumbnailOf(drawing, width = 320, height = 200) {
+let thumbWorker = null;
+let thumbJob = 0;
+const thumbJobs = new Map();
+/** The shaded iso view of solids, computed in a worker (meshing can take seconds); on the main thread if no worker. */
+function shadedInWorker(solids) {
+  try {
+    if (!thumbWorker) {
+      thumbWorker = new Worker(new URL('./view/thumbworker.js', import.meta.url), { type: 'module' });
+      thumbWorker.onmessage = ({ data }) => { thumbJobs.get(data.id)?.(data.shaded); thumbJobs.delete(data.id); };
+      thumbWorker.onerror = () => { for (const done of thumbJobs.values()) done(undefined); thumbJobs.clear(); thumbWorker = false; };
+    }
+    if (thumbWorker === false) throw new Error('no worker');
+    const id = ++thumbJob;
+    return new Promise((resolve) => { thumbJobs.set(id, resolve); thumbWorker.postMessage({ id, solids }); })
+      .then((shaded) => (shaded === undefined ? shadedHere(solids) : shaded));
+  } catch {
+    return Promise.resolve(shadedHere(solids));
+  }
+}
+function shadedHere(solids) {
+  const tris = solids.flatMap((entity) => solidMesh(entity));
+  if (!tris.length || tris.length > 120000) return null;
+  const view = shadedView(tris, 'iso');
+  const out = new Float32Array(view.length * 7);
+  view.forEach((tri, i) => { tri.points.forEach((p, j) => { out[i * 7 + j * 2] = p.x; out[i * 7 + j * 2 + 1] = p.y; }); out[i * 7 + 6] = tri.light; });
+  return out;
+}
+
+async function thumbnailOf(drawing, width = 320, height = 200) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -1135,18 +1163,20 @@ function thumbnailOf(drawing, width = 320, height = 200) {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
   const solids = drawing.entities.filter((entity) => entity.type === 'solid');
-  const tris = solids.length * 4 >= drawing.entities.length ? solids.flatMap((entity) => solidMesh(entity)) : [];
-  if (tris.length && tris.length <= 120000) {
-    const shaded = shadedView(tris, 'iso');
+  // Mostly solids: a shaded isometric picture (x1 y1 x2 y2 x3 y3 light per triangle).
+  const shaded = solids.length && solids.length * 4 >= drawing.entities.length ? await shadedInWorker(solids) : null;
+  if (shaded?.length) {
     let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
-    for (const tri of shaded) for (const p of tri.points) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    for (let i = 0; i < shaded.length; i += 7) {
+      for (let j = 0; j < 6; j += 2) { const x = shaded[i + j]; const y = shaded[i + j + 1]; minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    }
     const k = Math.min((width - 24) / Math.max(maxX - minX, 1e-6), (height - 24) / Math.max(maxY - minY, 1e-6));
     const x0 = (width - (maxX - minX) * k) / 2; const y0 = (height - (maxY - minY) * k) / 2;
-    for (const tri of shaded) {
-      const shade = 0.35 + 0.65 * tri.light;
+    for (let i = 0; i < shaded.length; i += 7) {
+      const shade = 0.35 + 0.65 * shaded[i + 6];
       const color = `rgb(${Math.round(58 * shade + 40)}, ${Math.round(108 * shade + 40)}, ${Math.round(240 * shade)})`;
       ctx.beginPath();
-      tri.points.forEach((p, i) => { const x = x0 + (p.x - minX) * k; const y = y0 + (maxY - p.y) * k; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+      for (let j = 0; j < 6; j += 2) { const x = x0 + (shaded[i + j] - minX) * k; const y = y0 + (maxY - shaded[i + j + 1]) * k; if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
       ctx.closePath();
       ctx.fillStyle = color;
       ctx.strokeStyle = color;

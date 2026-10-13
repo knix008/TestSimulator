@@ -42,13 +42,14 @@ export const cases = [
     assert.equal(await app.main.eval(`[...document.querySelectorAll('button')].filter((b) => !(b.title || '').trim()).length`), 0);
     assert.equal(await app.main.eval(`Boolean(document.querySelector('#transparency-range, .opacity-control'))`), false);
   } },
-  { group: '메뉴', name: '메뉴: 한 줄, 아이콘+이름, 머리글 (프레임)', async run(app) {
+  { group: '메뉴', name: '메뉴: 한 줄, 아이콘+이름, 머리글 없이 항목만 (프레임)', async run(app) {
     await app.main.click('[data-menu="draw"]');
     await app.waitFrame('menu', `document.querySelectorAll('.menu-item').length > 5`);
-    const info = await app.frame('menu', `({ lefts: new Set([...document.querySelectorAll('.menu-item')].map((i) => Math.round(i.getBoundingClientRect().left))).size, icons: [...document.querySelectorAll('.menu-item')].every((i) => i.querySelector('.menu-icon svg')), head: document.querySelector('.menu-head').textContent.trim() })`);
+    const info = await app.frame('menu', `({ lefts: new Set([...document.querySelectorAll('.menu-item')].map((i) => Math.round(i.getBoundingClientRect().left))).size, icons: [...document.querySelectorAll('.menu-item')].every((i) => i.querySelector('.menu-icon svg')), head: document.querySelector('.popup-menu').dataset.title, noHeader: !document.querySelector('.menu-head') })`);
     assert.equal(info.lefts, 1);
     assert.ok(info.icons);
     assert.equal(info.head, '그리기');
+    assert.ok(info.noHeader, 'only the items, no header');
     await app.main.eval(`document.querySelector('.web-popup-shield').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
     await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
   } },

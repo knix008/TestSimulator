@@ -694,9 +694,9 @@ function renderMenu() {
   // Created ahead of time (prewarm) or reopened without a menu: stay hidden.
   if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
   const items = p.items;
+  // Only the items: the menu's name is the OS window title and the accessible name.
   setOsTitle(p.header?.title);
-  const header = p.header ? `<div class="menu-head">${icon(p.header.icon)}<span>${escapeHtml(p.header.title)}</span></div>` : '';
-  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}">${header}${items.map((item, index) => (item.separator
+  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}" data-title="${escapeHtml(p.header?.title ?? '')}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
     : `<button class="menu-item ${item.danger ? 'danger' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
         <span class="menu-icon">${icon(item.icon)}</span>
@@ -1259,9 +1259,17 @@ bindSteppers(root, (key, value) => {
   return undefined;
 });
 
-// Menus close when they lose focus (a click anywhere else).
+// Menus close when the focus leaves MyCAD (a click in another program). A click
+// in the main window closes them there; the focus merely moving to the main
+// window (Windows activating the owner a moment late) must not close a menu that just opened.
 window.addEventListener('blur', () => {
-  if (kind === 'menu' && menuOpen) setTimeout(() => { if (!document.hasFocus()) chooseMenu(null); }, 60);
+  if (kind !== 'menu' || !menuOpen) return;
+  setTimeout(async () => {
+    if (document.hasFocus() || !menuOpen) return;
+    const focused = desktop ? await native.invoke('focused_window').catch(() => null) : null;
+    (window.__TRACE ??= []).push(['blur', focused, Date.now()]);
+    if (focused !== 'main') chooseMenu(null);
+  }, 60);
 });
 
 // Web: drag the frame by its header.
