@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, nativeImage, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, nativeImage, ipcMain, Menu } = require("electron");
 const fs = require("fs");
 const path = require("path");
 
@@ -80,7 +80,7 @@ function createWindow() {
     if (!win.isDestroyed()) win.setFullScreen(false);
   });
 
-  const childWindows = { graph: null, settings: null, info: null, help: null };
+  const childWindows = { graph: null, settings: null, info: null, help: null, memo: null };
   let printWindow = null;
   const openPrint = (owner) => {
     if (printWindow && !printWindow.isDestroyed()) {
@@ -125,8 +125,9 @@ function createWindow() {
     printWindow.loadFile(path.join(__dirname, "..", "index.html"), { query: { pop: "print" } });
   };
   win.on("closed", () => {
-    const graph = childWindows.graph;
-    if (graph && !graph.isDestroyed()) graph.close();
+    for (const child of Object.values(childWindows)) {
+      if (child && !child.isDestroyed()) child.close();
+    }
     if (printWindow && !printWindow.isDestroyed()) printWindow.close();
   });
   const childSpec = {
@@ -134,7 +135,7 @@ function createWindow() {
       width: 1140,
       height: 700,
       // Narrower than this and the toolbar would fold onto a second line.
-      minWidth: 790,
+      minWidth: 870,
       minHeight: 520,
       title: "MyCalc 10.0 Graph",
       backgroundColor: "#100e0c",
@@ -161,6 +162,15 @@ function createWindow() {
       minWidth: 560,
       minHeight: 420,
       title: "그래프 도움말 — MyCalc 10.0",
+      backgroundColor: "#1c1917",
+    },
+    memo: {
+      width: 760,
+      height: 640,
+      // The same floor is MEMO_MIN_WIDTH/MEMO_MIN_HEIGHT in src/memo.js.
+      minWidth: 600,
+      minHeight: 440,
+      title: "메모장 — MyCalc 10.0",
       backgroundColor: "#1c1917",
     },
   };
@@ -229,7 +239,7 @@ function createWindow() {
     child.webContents.setWindowOpenHandler(({ url }) => {
       const next = kindFromUrl(url);
       if (next === "print") openPrint(child);
-      else if (next === "settings" || next === "info" || next === "help") openChild(next);
+      else if (next) openChild(next);
       return { action: "deny" };
     });
     child.loadFile(path.join(__dirname, "..", "index.html"), {
@@ -237,7 +247,7 @@ function createWindow() {
     });
   };
   const kindFromUrl = (url) => {
-    const kinds = ["graph", "settings", "info", "help", "print"];
+    const kinds = ["graph", "settings", "info", "help", "print", "memo"];
     try {
       const parsed = new URL(url);
       const query = parsed.searchParams.get("pop");
@@ -365,6 +375,44 @@ ipcMain.handle("mycalc-print", async (event, options) => {
     }, (success, failureReason) => {
       resolve({ success: !!success, failureReason: failureReason || "" });
     });
+  });
+});
+
+// Electron has no context menu of its own, so a right click on a field or on
+// selected text would do nothing. The labels follow the page's language.
+const EDIT_LABELS = {
+  ko: { undo: "실행 취소", redo: "다시 실행", cut: "잘라내기", copy: "복사", paste: "붙여넣기", selectAll: "모두 선택" },
+  en: { undo: "Undo", redo: "Redo", cut: "Cut", copy: "Copy", paste: "Paste", selectAll: "Select all" },
+};
+
+app.on("web-contents-created", (_event, contents) => {
+  contents.on("context-menu", async (_e, params) => {
+    const editable = params.isEditable;
+    const selected = !!(params.selectionText && params.selectionText.trim());
+    if (!editable && !selected) return;
+    let lang = "ko";
+    try {
+      lang = (await contents.executeJavaScript("document.documentElement.lang", true)) === "en" ? "en" : "ko";
+    } catch {
+      /* Korean stays the default. */
+    }
+    const label = EDIT_LABELS[lang];
+    const flags = params.editFlags || {};
+    const template = editable
+      ? [
+        { role: "undo", label: label.undo, enabled: flags.canUndo !== false },
+        { role: "redo", label: label.redo, enabled: flags.canRedo !== false },
+        { type: "separator" },
+        { role: "cut", label: label.cut, enabled: !!flags.canCut },
+        { role: "copy", label: label.copy, enabled: !!flags.canCopy },
+        { role: "paste", label: label.paste, enabled: !!flags.canPaste },
+        { type: "separator" },
+        { role: "selectAll", label: label.selectAll },
+      ]
+      : [{ role: "copy", label: label.copy }];
+    if (contents.isDestroyed()) return;
+    const win = BrowserWindow.fromWebContents(contents);
+    Menu.buildFromTemplate(template).popup(win ? { window: win } : {});
   });
 });
 

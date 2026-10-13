@@ -22,7 +22,7 @@ const readoutEl = document.getElementById("readout");
 const HISTORY_KEPT = 10;
 
 // The graph window never goes narrower than its toolbar on one line.
-const GRAPH_MIN_WIDTH = 790;
+const GRAPH_MIN_WIDTH = 870;
 const GRAPH_MIN_HEIGHT = 520;
 
 // Digit rows run 7-8-9 first or 1-2-3 first. Zero keeps the middle column
@@ -102,6 +102,7 @@ let graphReady = !graphPopup;
 let rememberedGraph = null;
 let graphRevision = 0;
 let pendingGraphExpr = "";
+let pendingGraphDim = "";
 try {
   graphChannel = new BroadcastChannel("mycalc-graph");
 } catch {
@@ -3095,7 +3096,7 @@ function openChildWindow(kind) {
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
-  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : kind === "help" ? "width=720,height=640" : "width=560,height=420";
+  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : kind === "help" ? "width=720,height=640" : kind === "memo" ? "width=760,height=640" : "width=560,height=420";
   const resizable = kind === "settings" || kind === "info" ? "resizable=no" : "resizable=yes";
   const child = window.open(url.href, `mycalc-${kind}`, `popup=yes,${size},${resizable}`);
   if (child) child.focus();
@@ -3120,14 +3121,16 @@ function copyMainExpr() {
     return;
   }
   pendingGraphExpr = text;
+  pendingGraphDim = "";
   if (graphChannel) graphChannel.postMessage({ type: "expr", id: graphWindowId, text });
   if (graphPopup) useCopiedExpr(text);
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(() => {});
 }
 
-function useCopiedExpr(text) {
+function useCopiedExpr(text, dim) {
   const next = String(text || "").trim();
   if (!next) return;
+  if ((dim === "2d" || dim === "3d") && board.dimension !== dim) board.setDimension(dim);
   graphExprEl.value = next;
   graphExprEl.focus();
   graphExprEl.setSelectionRange(next.length, next.length);
@@ -3149,9 +3152,9 @@ if (graphChannel) {
       // A window that just opened needs the whole picture, new or not.
       lastGraphText = "";
       publishGraph();
-      if (pendingGraphExpr) graphChannel.postMessage({ type: "expr", id: graphWindowId, text: pendingGraphExpr });
+      if (pendingGraphExpr) graphChannel.postMessage({ type: "expr", id: graphWindowId, text: pendingGraphExpr, dim: pendingGraphDim });
     } else if (message.type === "expr" && graphPopup) {
-      useCopiedExpr(message.text);
+      useCopiedExpr(message.text, message.dim);
     } else if (message.type === "state" && pageKind !== "print") {
       if (!Number.isSafeInteger(message.revision) || message.revision <= graphRevision) return;
       graphRevision = message.revision;

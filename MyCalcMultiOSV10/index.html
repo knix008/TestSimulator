@@ -10,7 +10,7 @@
     const bootParams = new URLSearchParams(location.search);
     if (bootParams.get("desktop") === "1") document.documentElement.classList.add("desktop");
     const bootPop = bootParams.get("pop");
-  if (bootPop === "graph" || bootPop === "settings" || bootPop === "info" || bootPop === "help" || bootPop === "print") {
+  if (bootPop === "graph" || bootPop === "settings" || bootPop === "info" || bootPop === "help" || bootPop === "print" || bootPop === "memo") {
     document.documentElement.classList.add(bootPop + "-pop");
   }
     let bootLang = "ko";
@@ -23,6 +23,7 @@
     if (bootPop === "graph") document.title = "MyCalc 10.0 Graph";
     if (bootPop === "help") document.title = (bootLang === "en" ? "Graph help" : "그래프 도움말") + " — MyCalc 10.0";
     if (bootPop === "print") document.title = (bootLang === "en" ? "Print" : "인쇄") + " — MyCalc 10.0";
+    if (bootPop === "memo") document.title = (bootLang === "en" ? "Notepad" : "메모장") + " — MyCalc 10.0";
   </script>
 </head>
 <body>
@@ -40,6 +41,7 @@
           <button type="button" id="langBtn" class="lang-btn" aria-label="English" data-tooltip="English">
             <img id="langFlag" class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />
           </button>
+          <button type="button" id="memoBtn" data-i18n-aria="memoOpen" data-i18n-title="memoOpen" aria-label="메모장 보기" data-tooltip="메모장 보기"><span class="icon icon-memo" aria-hidden="true"></span></button>
           <button type="button" id="settingsBtn" data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
           <button type="button" id="infoBtn" data-i18n-aria="info" data-i18n-title="info" aria-label="정보" data-tooltip="정보"><span class="icon icon-info" aria-hidden="true"></span></button>
           <button type="button" id="winClose" class="win-close" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
@@ -70,6 +72,7 @@
       <div class="expr-row">
         <input id="expr" class="expr" data-i18n-aria="expr" aria-label="계산식" autocomplete="off" spellcheck="false" />
         <button type="button" id="copyExpr" class="expr-copy" data-i18n-aria="copyExpr" data-i18n-title="copyExpr" aria-label="식 복사" data-tooltip="식 복사"><span class="icon icon-copy" aria-hidden="true"></span></button>
+        <button type="button" id="memoAddExpr" class="expr-copy" data-i18n-aria="memoAdd" data-i18n-title="memoAdd" aria-label="메모장에 추가" data-tooltip="메모장에 추가"><span class="icon icon-memo-add" aria-hidden="true"></span></button>
       </div>
       <div id="result" class="result" aria-live="polite">0</div>
       <div id="history" class="history" data-i18n-aria="history" aria-label="계산 기록"></div>
@@ -92,6 +95,7 @@
         <span data-i18n="progExpr">식</span>
         <input id="progExpr" class="prog-input" data-i18n-aria="progInput" aria-label="정수식" autocomplete="off" spellcheck="false" placeholder="0" />
         <button type="button" id="copyProg" class="expr-copy" data-i18n-aria="copyExpr" data-i18n-title="copyExpr" aria-label="식 복사" data-tooltip="식 복사"><span class="icon icon-copy" aria-hidden="true"></span></button>
+        <button type="button" id="memoAddProg" class="expr-copy" data-i18n-aria="memoAdd" data-i18n-title="memoAdd" aria-label="메모장에 추가" data-tooltip="메모장에 추가"><span class="icon icon-memo-add" aria-hidden="true"></span></button>
       </label>
       <div id="progError" class="prog-error"></div>
     </section>
@@ -169,6 +173,8 @@
         </div>
         <input id="graphExpr" class="graph-input" data-i18n-aria="graphExpr" aria-label="그래프 식" placeholder="sin(x)" autocomplete="off" spellcheck="false" />
         <button type="button" id="addFn" class="tool-icon" data-i18n-aria="add" data-i18n-title="add" aria-label="추가" data-tooltip="추가"><span class="icon icon-add" aria-hidden="true"></span></button>
+        <button type="button" id="memoAddGraph" class="tool-icon" data-i18n-aria="memoAddGraph" data-i18n-title="memoAddGraph" aria-label="메모장에 추가" data-tooltip="메모장에 추가"><span class="icon icon-memo-add" aria-hidden="true"></span></button>
+        <button type="button" id="memoGraph" class="tool-icon" data-i18n-aria="memoOpen" data-i18n-title="memoOpen" aria-label="메모장 보기" data-tooltip="메모장 보기"><span class="icon icon-memo" aria-hidden="true"></span></button>
         <button type="button" id="zoomIn" class="tool-icon" data-i18n-aria="zoomIn" data-i18n-title="zoomIn" aria-label="확대" data-tooltip="확대"><span class="icon icon-zoom-in" aria-hidden="true"></span></button>
         <button type="button" id="zoomOut" class="tool-icon" data-i18n-aria="zoomOut" data-i18n-title="zoomOut" aria-label="축소" data-tooltip="축소"><span class="icon icon-zoom-out" aria-hidden="true"></span></button>
         <button type="button" id="resetView" class="tool-icon" data-i18n-aria="reset" data-i18n-title="reset" aria-label="초기화" data-tooltip="초기화"><span class="icon icon-reset" aria-hidden="true"></span></button>
@@ -389,6 +395,48 @@
         </div>
       </div>
     </section>
+    <section class="sheet memo-desk" id="memoSheet" hidden aria-labelledby="memoTitle">
+      <div class="sheet-head memo-head">
+        <div class="pop-title">
+          <span class="icon icon-memo" aria-hidden="true"></span>
+          <h2 id="memoTitle" data-i18n="memoTitle">메모장</h2>
+          <span class="memo-count" id="memoCount"></span>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" id="memoMin" class="win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
+          <button type="button" id="memoMax" class="win-btn" hidden data-i18n-aria="maximize" data-i18n-title="maximize" aria-label="최대화" data-tooltip="최대화"><span class="icon icon-max" aria-hidden="true"></span><span class="icon icon-restore" aria-hidden="true"></span></button>
+          <button type="button" id="memoClose" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
+        </div>
+      </div>
+      <form class="memo-compose" id="memoCompose" autocomplete="off">
+        <div class="memo-compose-row">
+          <select id="memoKind" data-i18n-aria="memoKind" aria-label="종류"></select>
+          <input id="memoNewTitle" class="memo-title-input" maxlength="80" spellcheck="false" data-i18n-placeholder="memoTitleHint" placeholder="제목 (선택)" data-i18n-aria="memoItemTitle" aria-label="제목" />
+        </div>
+        <div class="memo-compose-row">
+          <textarea id="memoNewText" class="memo-text-input" rows="2" spellcheck="false" data-i18n-placeholder="memoTextHint" placeholder="식이나 메모를 입력하세요 (Ctrl+Enter로 추가)" data-i18n-aria="memoItemText" aria-label="내용"></textarea>
+          <div class="memo-compose-actions">
+            <button type="submit" id="memoAddBtn" class="memo-primary" data-i18n-aria="memoAddItem" data-i18n-title="memoAddItem" aria-label="항목 추가" data-tooltip="항목 추가"><span class="icon icon-add" aria-hidden="true"></span><span data-i18n="add">추가</span></button>
+            <button type="button" id="memoPasteNew" data-i18n-aria="memoPaste" data-i18n-title="memoPaste" aria-label="붙여넣기" data-tooltip="붙여넣기"><span class="icon icon-paste" aria-hidden="true"></span><span data-i18n="memoPasteShort">붙여넣기</span></button>
+          </div>
+        </div>
+      </form>
+      <div class="memo-bar">
+        <label class="memo-check-all">
+          <input type="checkbox" id="memoSelectAll" data-i18n-aria="memoSelectAll" aria-label="모두 선택" />
+        </label>
+        <div class="memo-filters" id="memoFilters" role="tablist" data-i18n-aria="memoFilter" aria-label="분류"></div>
+      </div>
+      <div class="memo-bar memo-bulk">
+        <button type="button" id="memoCopySel" class="tool-icon" data-i18n-aria="memoCopySel" data-i18n-title="memoCopySel" aria-label="선택 항목 복사" data-tooltip="선택 항목 복사"><span class="icon icon-copy" aria-hidden="true"></span></button>
+        <button type="button" id="memoPasteItems" class="tool-icon" data-i18n-aria="memoPasteItems" data-i18n-title="memoPasteItems" aria-label="줄마다 항목으로 붙여넣기" data-tooltip="줄마다 항목으로 붙여넣기"><span class="icon icon-paste" aria-hidden="true"></span></button>
+        <button type="button" id="memoDeleteSel" class="tool-icon" data-i18n-aria="memoDeleteSel" data-i18n-title="memoDeleteSel" aria-label="선택 항목 삭제" data-tooltip="선택 항목 삭제"><span class="icon icon-trash" aria-hidden="true"></span></button>
+        <button type="button" id="memoRestore" class="tool-icon" data-i18n-aria="memoRestore" data-i18n-title="memoRestore" aria-label="기본 항목 복원" data-tooltip="기본 항목 복원"><span class="icon icon-reset" aria-hidden="true"></span></button>
+        <span class="memo-status" id="memoStatus" role="status"></span>
+        <input id="memoSearch" class="memo-search" type="search" spellcheck="false" data-i18n-placeholder="memoSearch" placeholder="검색" data-i18n-aria="memoSearch" aria-label="검색" />
+      </div>
+      <ul class="memo-list" id="memoList" data-i18n-aria="memoTitle" aria-label="메모장"></ul>
+    </section>
     <section class="print-desk" id="printSheet">
       <div class="pop-chrome" id="printChrome" hidden>
         <button type="button" id="printMin" class="win-btn" data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
@@ -600,5 +648,6 @@
   <script src="src/rates.js"></script>
   <script src="src/units.js"></script>
   <script src="src/app.js"></script>
+  <script src="src/memo.js"></script>
 </body>
 </html>

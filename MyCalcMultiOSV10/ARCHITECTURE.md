@@ -11,18 +11,21 @@ src/themes.js       테마 40개와 사용자 정의 색
 src/rates.js        환율 표
 src/units.js        단위 표와 변환
 src/app.js          모드, 키패드, 시트
+src/memo.js         메모장 창과 메모장에 추가
 electron/main.js    BrowserWindow
 scripts/            빌드와 테스트
 test/               브라우저 테스트
 ```
 
-스크립트는 ES 모듈이 아닙니다. `index.html` 맨 아래에서 `i18n.js`, `engine.js`, `graph.js`, `image-export.js`, `themes.js`, `rates.js`, `units.js`, `app.js` 순서로 읽습니다. 파일 프로토콜과 HTTP에서 같이 동작합니다.
+스크립트는 ES 모듈이 아닙니다. `index.html` 맨 아래에서 `i18n.js`, `engine.js`, `graph.js`, `image-export.js`, `themes.js`, `rates.js`, `units.js`, `app.js`, `memo.js` 순서로 읽습니다. `memo.js`는 `app.js`의 전역(`board`, `state`, `uiChannel`, `openChildWindow`)을 그대로 씁니다. 파일 프로토콜과 HTTP에서 같이 동작합니다.
 
 ## 화면
 
 모드마다 `.app` 프레임 크기가 정해져 있습니다. 기본과 공학용은 594픽셀 높이이고, 프로그래머는 480x700, 기본과 환율과 단위는 360x594입니다. 같은 값이 `electron/main.js`의 `MODE_CONTENT_SIZE`에도 있어 데스크톱 창이 모드를 따라 크기를 바꿉니다.
 
 그래프는 계산기 창의 모드가 아닙니다. 탭을 누르면 그래프 창만 열리고 계산기 화면은 그대로 있습니다. `#screenGraph`는 계산기 창에도 남아 있지만 `visibility: hidden` 으로 화면 밖에 고정되어, 보이지 않는 채로 그림을 유지합니다. 나중에 연 그래프 창이 `hello` 를 보내면 계산기 창이 그 상태를 그대로 돌려줍니다. 그래프 창은 도구 모음이 한 줄에 들어가는 크기를 최소로 삼습니다. 그 값은 `app.js`의 `GRAPH_MIN_WIDTH`/`GRAPH_MIN_HEIGHT`와 `electron/main.js`의 `childSpec.graph` 양쪽에 있습니다.
+
+메모장은 `?pop=memo` 창입니다. 항목은 `localStorage` 키 `mycalc-memo` 에 `{ v: 1, items: [{ id, kind, text, title, builtin }] }` 로 들어 있고, 처음 읽을 때 `MEMO_BUILTINS`(엔진의 모든 함수 예제, 자주 쓰는 공식, 그래프 프리셋 전부)로 채워집니다. 다른 창은 `memoAppend` 로 목록 앞에 넣기만 하고, 바뀔 때마다 `mycalc-ui` 로 `memo` 를 알려 메모장 창이 다시 그립니다. 메모장에서 항목을 쓰면 계산 항목은 `mycalc-ui` 의 `memo-use` 로 계산기 창에, 그래프 항목은 `mycalc-graph` 의 `memo-plot` 으로 그래프 창에 갑니다. 그래프 창이 아직 없으면 계산기 창이 그 항목을 들고 있다가 새 창의 `hello` 에 답하면서 넘기고, 그래프 창은 같은 `token` 을 한 번만 그린 뒤 `memo-plotted` 로 알려 줍니다. 메모장 창의 최소 크기는 `memo.js`의 `MEMO_MIN_WIDTH`/`MEMO_MIN_HEIGHT`와 `electron/main.js`의 `childSpec.memo` 양쪽에 있습니다. Electron에는 기본 오른쪽 클릭 메뉴가 없어서 `main.js`가 모든 창에 잘라내기·복사·붙여넣기 메뉴를 붙입니다.
 
 프레임 없는 투명 창은 Windows에서 크기 조절 테두리 없이 열리고, `setBounds` 를 부를 때마다 최소 크기가 방금 준 크기로 올라갑니다. 그래서 창은 커지기만 하고 줄지 않았습니다. `electron/main.js`는 창마다 처음 최소 크기를 적어 두고(`windowFloor`), 좌표를 옮길 때마다 그 값을 다시 넣습니다. 설정과 정보는 `.app` 안의 시트로 열리고, 설정 시트는 스크롤바를 쓰지 않습니다. 테마는 CSS 변수로 문서 루트에 적용되고 `localStorage` 키 `mycalc-theme`에 저장됩니다. 어두운 테마 20개, 밝은 테마 20개, 사용자 정의 색이 있습니다.
 
@@ -50,4 +53,4 @@ macOS는 `scripts/build-macos.js`가 만듭니다. macOS에서 실행하면 elec
 
 `src/units.js`는 단위를 담당합니다. 열두 묶음마다 기준 단위가 하나 있고, 각 단위는 기준에 대한 배수를 가집니다. 온도만 더하는 값이 있어 `toBase`와 `fromBase` 함수를 직접 들고 있습니다. 네트워크를 쓰지 않으며 고른 묶음과 단위는 `mycalc-unit` 키에 남습니다.
 
-`npm test`는 `scripts/test.js`입니다. 로컬 HTTP 서버를 띄운 뒤 헤드리스 브라우저로 `test/index.html`을 엽니다. `test/cases.js`가 계산, 프로그래머, 화면, 공학용, 그래프, 환율, 단위, 테마, 키패드 배치를 검사합니다. 함수 표에 있는 이름은 하나씩 모두 불러 보고, 단위는 묶음마다 모든 단위를 기준 단위까지 갔다 오게 해서 확인합니다. 케이스는 화면 밖 iframe의 계산기 페이지에 스크립트를 넣어 실행합니다.
+`npm test`는 `scripts/test.js`입니다. 로컬 HTTP 서버를 띄운 뒤 헤드리스 브라우저로 `test/index.html`을 엽니다. `test/cases.js`가 계산, 프로그래머, 화면, 공학용, 그래프, 환율, 단위, 테마, 키패드 배치, 메모장을 검사합니다. 함수 표에 있는 이름은 하나씩 모두 불러 보고, 단위는 묶음마다 모든 단위를 기준 단위까지 갔다 오게 해서 확인합니다. 케이스는 화면 밖 iframe의 계산기 페이지에 스크립트를 넣어 실행합니다.
