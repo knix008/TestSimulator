@@ -29,6 +29,14 @@ app.use('/api', (req, res, next) => {
   require('./src/api/local-user').attachLocalUser(req, res, next);
 });
 
+app.use('/api', (req, res, next) => {
+  res.on('finish', () => {
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) || res.statusCode >= 400) return;
+    try { require('./src/db/json-store').schedulePersist(); } catch {}
+  });
+  next();
+});
+
 // Routes (loaded lazily so DB is initialized first)
 app.use('/api/auth', (req, res, next) => require('./src/api/auth')(req, res, next));
 app.use('/api/users', (req, res, next) => require('./src/api/users')(req, res, next));
@@ -56,6 +64,7 @@ async function startServer(preferredPort = 3000) {
 
   await loadDbConfig();
   await runMigrations(getDb());
+  await require('./src/db/json-store').hydrateJsonWorkspace();
 
   return new Promise((resolve, reject) => {
     const tryPort = (port) => {
@@ -73,6 +82,12 @@ async function startServer(preferredPort = 3000) {
 }
 
 if (require.main === module) {
+  const flushAndExit = async () => {
+    try { await require('./src/db/json-store').persistJsonWorkspace(); } catch {}
+    process.exit(0);
+  };
+  process.on('SIGINT', flushAndExit);
+  process.on('SIGTERM', flushAndExit);
   startServer(3000).then(port => {
     console.log(`Open http://127.0.0.1:${port} in your browser`);
   }).catch(console.error);

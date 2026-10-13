@@ -15,6 +15,7 @@ const SettingsView = (() => {
       <div class="admin-wrap">
         <div class="page-header"><h1 class="page-title">${I18n.t('settings')}</h1></div>
         ${renderGeneralSection(user)}
+        ${typeof Themes !== 'undefined' ? Themes.settingsSection() : ''}
         ${renderDbSection(dbConfig)}
       </div>`;
 
@@ -23,6 +24,7 @@ const SettingsView = (() => {
   }
 
   function clientToUiType(config) {
+    if (config?.client === 'json') return 'json';
     if (!config?.client) return 'sqlite';
     const m = { 'better-sqlite3': 'sqlite', sqlite3: 'sqlite', mysql2: 'mariadb', pg: 'postgresql', mssql: 'mssql' };
     return m[config.client] || 'sqlite';
@@ -38,6 +40,7 @@ const SettingsView = (() => {
         <div class="settings-section-desc">${I18n.t('dbChangeWarn')}</div>
         <div class="settings-status">${I18n.t('dbCurrent')}: ${escHtml(curDbLabel(config))}</div>
         <div class="db-type-grid">
+          <div class="db-type-btn ${cur==='json'?'selected':''}" data-type="json" onclick="SettingsView.selectDb('json',this)">${I18n.t('dbNone')}<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.t('dbJsonHint')}</small></div>
           <div class="db-type-btn ${cur==='sqlite'?'selected':''}" data-type="sqlite" onclick="SettingsView.selectDb('sqlite',this)">SQLite3<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.t('dbSqliteDefault')}</small></div>
           <div class="db-type-btn ${cur==='mariadb'?'selected':''}" data-type="mariadb" onclick="SettingsView.selectDb('mariadb',this)">MariaDB<br><small style="font-weight:400;color:inherit;opacity:.7">${I18n.t('dbRemoteDefault')}</small></div>
           <div class="db-type-btn ${cur==='mysql'?'selected':''}" data-type="mysql" onclick="SettingsView.selectDb('mysql',this)">MySQL</div>
@@ -54,6 +57,14 @@ const SettingsView = (() => {
           <div class="form-row">
             <div class="form-group"><label>${I18n.t('dbUser')}</label><input id="db-user" class="form-control" value="${escAttr(config?.connection?.user || '')}" placeholder="root"></div>
             <div class="form-group"><label>${I18n.t('dbPass')}</label><input id="db-pass" type="password" class="form-control" placeholder="${I18n.t('pwOptionalHint')}"></div>
+          </div>
+        </div>
+        <div id="db-json-fields"${cur==='json'?'':' class="hidden"'}>
+          <div class="db-fields-title">${I18n.t('jsonStorage')}</div>
+          <p class="settings-section-desc">${I18n.t('jsonStorageHint')}</p>
+          <div class="form-group">
+            <label>${I18n.t('jsonFile')} <span style="color:var(--text-muted);font-weight:400">(${I18n.t('jsonFileHint')})</span></label>
+            <input id="db-json-file" class="form-control" value="${escAttr(cur==='json' ? (config?.connection?.filename || '') : '')}">
           </div>
         </div>
         <div id="db-sqlite-fields"${cur==='sqlite'?'':' class="hidden"'}>
@@ -79,6 +90,7 @@ const SettingsView = (() => {
   }
 
   function curDbLabel(config) {
+    if (config?.client === 'json') return 'JSON';
     if (!config) return 'SQLite3';
     const m = { 'better-sqlite3': 'SQLite3', sqlite3: 'SQLite3', mysql2: 'MySQL/MariaDB', pg: 'PostgreSQL', mssql: 'MS SQL Server' };
     const host = config.connection?.host || config.connection?.server || '';
@@ -96,12 +108,19 @@ const SettingsView = (() => {
     el.classList.add('selected');
     const remote = document.getElementById('db-remote-fields');
     const sqlite = document.getElementById('db-sqlite-fields');
-    if (type === 'sqlite') {
+    const json = document.getElementById('db-json-fields');
+    if (type === 'json') {
+      remote?.classList.remove('visible');
+      sqlite?.classList.add('hidden');
+      json?.classList.remove('hidden');
+    } else if (type === 'sqlite') {
       remote?.classList.remove('visible');
       sqlite?.classList.remove('hidden');
+      json?.classList.add('hidden');
     } else {
       remote?.classList.add('visible');
       sqlite?.classList.add('hidden');
+      json?.classList.add('hidden');
       const portDefaults = { mariadb: 3306, mysql: 3306, postgresql: 5432, mssql: 1433 };
       const portEl = document.getElementById('db-port');
       if (portEl && !portEl.value) portEl.value = portDefaults[type] || '';
@@ -127,7 +146,9 @@ const SettingsView = (() => {
       database: document.getElementById('db-name')?.value.trim(),
       username: document.getElementById('db-user')?.value.trim(),
       password: document.getElementById('db-pass')?.value,
-      filename: document.getElementById('db-file')?.value.trim(),
+      filename: selectedDbType === 'json'
+        ? document.getElementById('db-json-file')?.value.trim()
+        : document.getElementById('db-file')?.value.trim(),
     };
   }
 
@@ -136,7 +157,7 @@ const SettingsView = (() => {
   function validateDbForm() {
     const data = getDbFormData();
     const missing = [];
-    if (data.dbType === 'sqlite') return missing;
+    if (data.dbType === 'sqlite' || data.dbType === 'json') return missing;
     if (!data.host) missing.push({ key: 'host', label: I18n.t('host') });
     if (!data.database) missing.push({ key: 'database', label: I18n.t('dbName') });
     if (!data.username) missing.push({ key: 'username', label: I18n.t('dbUser') });
@@ -242,7 +263,6 @@ const SettingsView = (() => {
   }
 
   function renderGeneralSection(user) {
-    const showAddCol = localStorage.getItem('kanban-show-add-col') !== 'false';
     return `
       <div class="settings-section">
         <div class="settings-section-title">${I18n.t('generalSettings')}</div>
@@ -254,13 +274,6 @@ const SettingsView = (() => {
         <div class="profile-autosave-row">
           <span id="profile-autosave-status" class="autosave-status autosave-saved">${escHtml(I18n.t('autoSaved'))}</span>
         </div>
-        <div class="pref-row">
-          <div class="pref-row-label">${I18n.t('showAddCol')}</div>
-          <label class="toggle">
-            <input type="checkbox" ${showAddCol ? 'checked' : ''} onchange="SettingsView.setPref('kanban-show-add-col', this.checked)">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
       </div>`;
   }
 
@@ -270,7 +283,11 @@ const SettingsView = (() => {
     AutoSave.start(saveKey, {
       indicatorId: 'profile-autosave-status',
       initialPayload: { displayName: user.displayName || '' },
-      collect: () => ({ displayName: document.getElementById('p-name')?.value.trim() || '' }),
+      collect: () => {
+        const el = document.getElementById('p-name');
+        if (!el) return null;
+        return { displayName: el.value.trim() };
+      },
       save: async (payload) => {
         await API.put('/auth/profile', { displayName: payload.displayName, email: user.email || '' });
         App.currentUser.displayName = payload.displayName;

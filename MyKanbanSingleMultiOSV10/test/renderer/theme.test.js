@@ -34,6 +34,14 @@ function luminance(hex) {
 }
 
 describe('Light / Dark theme styles', () => {
+  it('ships twenty light and twenty dark theme presets', () => {
+    const src = fs.readFileSync(path.join(RENDERER, 'js/themes.js'), 'utf8');
+    const light = new Set(src.match(/'light-(?:0[1-9]|1\d|20)'/g) || []);
+    const dark = new Set(src.match(/'dark-(?:0[1-9]|1\d|20)'/g) || []);
+    assert.equal(light.size, 20);
+    assert.equal(dark.size, 20);
+  });
+
   it('defines the light theme variables in :root', () => {
     for (const v of ['--bg', '--bg-card', '--text', '--border', '--primary', '--danger']) {
       assert.ok(light[v], `missing ${v} in :root`);

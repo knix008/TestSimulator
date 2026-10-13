@@ -16,4 +16,14 @@ contextBridge.exposeInMainWorld('electron', {
   onSaveShortcut: (callback) => { ipcRenderer.on('save-shortcut', () => callback()); },
   onUndoShortcut: (callback) => { ipcRenderer.on('undo-shortcut', () => callback()); },
   onRedoShortcut: (callback) => { ipcRenderer.on('redo-shortcut', () => callback()); },
+  minimize: () => ipcRenderer.invoke('window-minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),
+  close: () => ipcRenderer.invoke('window-close'),
+  confirmClose: () => ipcRenderer.invoke('confirm-close'),
+  onRequestClose: (callback) => { ipcRenderer.on('request-close', () => callback()); },
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  resizeBy: (dx, dy) => ipcRenderer.invoke('window-resize-by', dx, dy),
+  onMaximizedChange: (callback) => {
+    ipcRenderer.on('window-maximized', (_event, maximized) => callback(!!maximized));
+  },
 });

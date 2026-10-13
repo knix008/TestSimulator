@@ -12,6 +12,51 @@
     <header id="app-header" class="hidden">
       <div class="header-left">
         <span class="logo" onclick="App.showBoards()">&#9783; MyKanban</span>
+      </div>
+      <nav id="app-menubar" class="hidden">
+      <div class="menubar-item" id="mb-file" onclick="AppMenu.toggle('file', event)" data-i18n-title="titleFileMenu">
+        <span class="menubar-icon">&#128196;</span><span data-i18n="menuFile">파일</span>
+        <div class="menubar-dropdown" id="mb-file-dd">
+          <div class="menubar-opt" onclick="AppMenu.close(); BoardView.showCreateBoard()" data-i18n-title="titleCreateBoard">
+            <span class="menubar-opt-icon">&#10010;</span><span data-i18n="fileNew">새로 만들기</span></div>
+          <div class="menubar-opt" onclick="AppMenu.close(); BoardView.importProjectFromDialog()" data-i18n-title="titleOpenFile">
+            <span class="menubar-opt-icon">&#128194;</span><span data-i18n="fileOpen">열기</span></div>
+          <div class="menubar-opt" onclick="AppMenu.close(); App.save()" data-i18n-title="titleSaveMenu">
+            <span class="menubar-opt-icon">&#128190;</span><span data-i18n="save">저장</span><span class="menubar-shortcut">Ctrl+S</span></div>
+          <div class="menubar-opt" id="mb-save-as" onclick="AppMenu.close(); BoardView.exportCurrentBoard()" data-i18n-title="titleSaveAs">
+            <span class="menubar-opt-icon">&#128228;</span><span data-i18n="fileSaveAs">다른 이름으로 저장</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="AppMenu.close(); App.print()" data-i18n-title="titlePrint">
+            <span class="menubar-opt-icon">&#128424;</span><span data-i18n="filePrint">인쇄</span><span class="menubar-shortcut">Ctrl+P</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-label" data-i18n="recentFiles">최근 파일</div>
+          <div id="recent-files"></div>
+          <div class="menubar-opt" id="recent-clear" onclick="RecentFiles.clearAll(event)">
+            <span class="menubar-opt-icon">&#128465;</span><span data-i18n="recentClear">최근 파일 모두 지우기</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-edit" onclick="AppMenu.toggle('edit', event)" data-i18n-title="titleEditMenu">
+        <span class="menubar-icon">&#9998;</span><span data-i18n="menuEdit">편집</span>
+        <div class="menubar-dropdown" id="mb-edit-dd">
+          <div class="menubar-opt" id="mb-undo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.undo();}" data-i18n-title="titleUndo">
+            <span class="menubar-opt-icon">&#8630;</span><span data-i18n="undo">실행 취소</span><span class="menubar-shortcut">Ctrl+Z</span></div>
+          <div class="menubar-opt" id="mb-redo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.redo();}" data-i18n-title="titleRedo">
+            <span class="menubar-opt-icon">&#8631;</span><span data-i18n="redo">다시 실행</span><span class="menubar-shortcut">Ctrl+Y</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-help" onclick="AppMenu.toggle('help', event)" data-i18n-title="titleHelpMenu">
+        <span class="menubar-icon">&#10067;</span><span data-i18n="menuHelp">도움말</span>
+        <div class="menubar-dropdown" id="mb-help-dd">
+          <div class="menubar-opt" onclick="AppMenu.showHelp()" data-i18n-title="titleHelpUsage">
+            <span class="menubar-opt-icon">?</span><span data-i18n="helpUsage">사용법</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="AppMenu.showAbout()" data-i18n-title="titleProgramInfo">
+            <span class="menubar-opt-icon">&#8505;</span><span data-i18n="programInfo">프로그램 정보</span></div>
+        </div>
+      </div>
+    </nav>
+      <div class="header-path">
+        <span class="header-path-bar" aria-hidden="true"></span>
         <nav class="breadcrumb" id="breadcrumb"></nav>
       </div>
       <div class="header-right">
@@ -26,71 +71,93 @@
             <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.7L21 13"/></svg>
           </button>
         </div>
-        <button class="btn-icon" onclick="App.showSettings()" data-i18n-title="settings">&#9881;</button>
         <button class="btn-icon" id="btn-refresh" onclick="App.refresh()" data-i18n-title="titleRefresh" aria-label="refresh">
           <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
         </button>
-        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" data-i18n-title="themeToggle">&#9728;</button>
-        <button class="btn-icon" id="btn-lang" onclick="App.toggleLang()" data-i18n-title="langBtnTitle" style="font-size:11px;font-weight:700;width:36px">한</button>
-        <span class="user-name" id="header-username"></span>
+        <div class="theme-control" id="theme-control">
+          <button type="button" class="btn-icon btn-palette" id="btn-theme" onclick="Themes.random()" data-i18n-title="themeRandom" aria-label="theme">
+            <svg class="palette-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M12 3.2C7.1 3.2 3.3 6.7 3.3 11.1c0 3.2 2.1 5.4 4.8 6.1.5.1.8.5.8 1 0 1.2.7 2.2 2.1 2.2h.8c.9 0 1.5-.7 1.5-1.5 0-.6.5-1.1 1.1-1.1H16c3.3 0 5.7-2.5 5.7-5.6C21.7 6.9 17.4 3.2 12 3.2z"/>
+              <circle cx="8" cy="9.3" r="1.25" fill="#EF4444"/>
+              <circle cx="11.5" cy="7.2" r="1.25" fill="#F59E0B"/>
+              <circle cx="15.2" cy="8.3" r="1.25" fill="#22C55E"/>
+              <circle class="palette-swatch" cx="16.4" cy="12.1" r="1.25" fill="#3B82F6"/>
+            </svg>
+          </button>
+          <button type="button" class="btn-icon theme-menu-btn" id="btn-theme-menu" onclick="Themes.toggleMenu(event)" data-i18n-title="themeMenu" aria-haspopup="true" aria-label="theme menu">&#9662;</button>
+          <div id="theme-menu" class="theme-menu hidden"></div>
+        </div>
+        <button type="button" class="btn-icon toolbar-btn" id="btn-panel-left" onclick="Panels.toggle('left')" data-i18n-title="showLeftPanel" aria-label="left panel" aria-pressed="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.8" y="4.8" width="5.4" height="14.4" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="btn-icon toolbar-btn" id="btn-panel-right" onclick="Panels.toggle('right')" data-i18n-title="showRightPanel" aria-label="right panel" aria-pressed="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14.8" y="4.8" width="5.4" height="14.4" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="btn-icon btn-flag show-en" id="btn-lang" onclick="App.toggleLang()" aria-label="language">
+          <svg class="flag-ko" viewBox="0 0 22 15" aria-hidden="true">
+            <rect width="22" height="15" fill="#fff"/>
+            <g transform="translate(11 7.5)">
+              <circle r="3.35" fill="#CD2E3A"/>
+              <path d="M0-3.35a3.35 3.35 0 0 0 0 6.7 1.675 1.675 0 0 0 0-3.35 1.675 1.675 0 0 1 0-3.35z" fill="#0047A0"/>
+              <circle cy="-1.67" r="0.72" fill="#0047A0"/>
+              <circle cy="1.67" r="0.72" fill="#CD2E3A"/>
+            </g>
+            <g fill="none" stroke="#191919" stroke-width="0.7" stroke-linecap="square">
+              <path d="M2.4 2.3H5.1M2.4 3.3H5.1M2.4 4.3H5.1"/>
+              <path d="M16.9 2.3H19.6M16.9 3.3H19.6M17.8 4.3H18.7"/>
+              <path d="M2.4 10.7H5.1M3.1 11.7H4.4M2.4 12.7H5.1"/>
+              <path d="M16.9 10.7H19.6M16.9 11.7H19.6M16.9 12.7H19.6"/>
+            </g>
+          </svg>
+          <svg class="flag-en" viewBox="0 0 22 15" aria-hidden="true">
+            <rect width="22" height="15" fill="#012169"/>
+            <path d="M0 0 L22 15 M22 0 L0 15" stroke="#fff" stroke-width="3"/>
+            <path d="M0 0 L22 15 M22 0 L0 15" stroke="#C8102E" stroke-width="1.5"/>
+            <path d="M11 0 V15 M0 7.5 H22" stroke="#fff" stroke-width="5"/>
+            <path d="M11 0 V15 M0 7.5 H22" stroke="#C8102E" stroke-width="2.6"/>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon btn-settings" id="btn-settings" onclick="App.showSettings()" data-i18n-title="settings" aria-label="settings">
+          <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button type="button" class="btn-icon" id="btn-about" onclick="AppMenu.showAbout()" data-i18n-title="titleProgramInfo" aria-label="about">
+          <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5h.01"/></svg>
+        </button>
+        <span class="user-name hidden" id="header-username"></span>
+      </div>
+      <div id="window-controls" class="window-controls hidden">
+        <button type="button" class="win-btn" id="win-min" onclick="WindowControls.minimize()" data-i18n-title="winMinimize" aria-label="minimize">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+        <button type="button" class="win-btn" id="win-max" onclick="WindowControls.toggleMaximize()" data-i18n-title="winMaximize" aria-label="maximize">
+          <svg class="win-icon-max" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <svg class="win-icon-restore" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 4.5V2.5h7v7h-2" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="1.5" y="4.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+        <button type="button" class="win-btn win-close" id="win-close" onclick="WindowControls.close()" data-i18n-title="winClose" aria-label="close">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
       </div>
     </header>
 
-    <!-- Custom menu bar -->
-    <nav id="app-menubar" class="hidden">
-      <div class="menubar-item" id="mb-file" onclick="AppMenu.toggle('file')" data-i18n-title="titleFileMenu">
-        <span class="menubar-icon">&#128196;</span><span data-i18n="menuFile">파일</span>
-        <div class="menubar-dropdown" id="mb-file-dd">
-          <div class="menubar-opt" onclick="AppMenu.close(); App.save()" data-i18n-title="titleSaveMenu">
-            <span class="menubar-opt-icon">&#128190;</span><span data-i18n="save">저장</span><span class="menubar-shortcut">Ctrl+S</span></div>
-        </div>
-      </div>
-      <div class="menubar-item" id="mb-edit" onclick="AppMenu.toggle('edit')" data-i18n-title="titleEditMenu">
-        <span class="menubar-icon">&#9998;</span><span data-i18n="menuEdit">편집</span>
-        <div class="menubar-dropdown" id="mb-edit-dd">
-          <div class="menubar-opt" id="mb-undo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.undo();}" data-i18n-title="titleUndo">
-            <span class="menubar-opt-icon">&#8630;</span><span data-i18n="undo">실행 취소</span><span class="menubar-shortcut">Ctrl+Z</span></div>
-          <div class="menubar-opt" id="mb-redo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.redo();}" data-i18n-title="titleRedo">
-            <span class="menubar-opt-icon">&#8631;</span><span data-i18n="redo">다시 실행</span><span class="menubar-shortcut">Ctrl+Y</span></div>
-        </div>
-      </div>
-      <div class="menubar-item" id="mb-project" onclick="AppMenu.toggle('project')" data-i18n-title="titleProjectMenu">
-        <span class="menubar-icon">&#128194;</span><span data-i18n="menuProject">프로젝트</span>
-        <div class="menubar-dropdown" id="mb-project-dd">
-          <div class="menubar-opt" onclick="BoardView.showCreateBoard()" data-i18n-title="titleCreateBoard">
-            <span class="menubar-opt-icon">&#10010;</span><span data-i18n="newBoard">새 프로젝트</span></div>
-          <div class="menubar-separator"></div>
-          <div class="menubar-opt" onclick="BoardView.importProjectFromDialog()" data-i18n-title="titleImportProject">
-            <span class="menubar-opt-icon">&#128229;</span><span data-i18n="importProject">가져오기 (.kprj)</span></div>
-          <div class="menubar-opt" id="mb-export" onclick="BoardView.exportCurrentBoard()" data-i18n-title="titleExportProject">
-            <span class="menubar-opt-icon">&#128228;</span><span data-i18n="exportProject">보내기 (.kprj)</span></div>
-        </div>
-      </div>
-      <div class="menubar-item" id="mb-view" onclick="AppMenu.toggle('view')" data-i18n-title="titleViewMenu">
-        <span class="menubar-icon">&#127760;</span><span data-i18n="menuView">보기</span>
-        <div class="menubar-dropdown" id="mb-view-dd">
-          <div class="menubar-opt" onclick="AppMenu.close(); App.refresh()" data-i18n-title="titleRefresh">
-            <span class="menubar-opt-icon">&#8635;</span><span data-i18n="refresh">새로 고침</span></div>
-          <div class="menubar-separator"></div>
-          <div class="menubar-opt" onclick="App.toggleTheme()" data-i18n-title="titleThemeToggle">
-            <span class="menubar-opt-icon">&#9728;</span><span data-i18n="themeToggle">테마 전환</span></div>
-          <div class="menubar-opt" onclick="App.toggleLang()" data-i18n-title="titleLangToggle">
-            <span class="menubar-opt-icon">&#127760;</span><span data-i18n="langToggle">언어 전환</span></div>
-          <div class="menubar-separator"></div>
-          <div class="menubar-opt" onclick="AppMenu.close(); App.showBoards()" data-i18n-title="titleBoardList">
-            <span class="menubar-opt-icon">&#9783;</span><span data-i18n="boardList">프로젝트 목록</span></div>
-        </div>
-      </div>
-      <div class="menubar-item" id="mb-help" onclick="AppMenu.toggle('help')" data-i18n-title="titleHelpMenu">
-        <span class="menubar-icon">&#10067;</span><span data-i18n="menuHelp">도움말</span>
-        <div class="menubar-dropdown" id="mb-help-dd">
-          <div class="menubar-opt" onclick="AppMenu.showAbout()" data-i18n-title="titleProgramInfo">
-            <span class="menubar-opt-icon">&#8505;</span><span data-i18n="programInfo">프로그램 정보</span></div>
-        </div>
-      </div>
-    </nav>
 
-    <main id="main-content"></main>
+
+    <div id="workspace" class="workspace">
+      <aside id="left-panel" class="side-panel left-panel">
+        <div class="side-panel-title">
+          <svg class="side-panel-title-icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.8" y="4.8" width="5.4" height="14.4" fill="currentColor"/></svg>
+          <span data-i18n="tools">도구</span>
+        </div>
+        <div id="left-panel-body" class="side-panel-body"></div>
+      </aside>
+      <main id="main-content"></main>
+      <aside id="right-panel" class="side-panel right-panel">
+        <div class="side-panel-title">
+          <svg class="side-panel-title-icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="14.8" y="4.8" width="5.4" height="14.4" fill="currentColor"/></svg>
+          <span data-i18n="properties">속성</span>
+        </div>
+        <div id="right-panel-body" class="side-panel-body"></div>
+      </aside>
+    </div>
 
     <!-- Status bar -->
     <footer id="status-bar" class="hidden">
@@ -101,11 +168,16 @@
       <div class="status-right">
         <span id="status-board"></span>
         <span class="status-sep">|</span>
-        <span id="status-user"></span>
-        <span class="status-sep">|</span>
+        <span id="status-user" class="hidden"></span>
+        <span class="status-sep hidden">|</span>
         <span id="status-db" data-i18n-title="dbInfoTitle" style="cursor:default"></span>
         <span class="status-sep">|</span>
         <span id="status-ver">v1.0.0</span>
+        <div id="window-resize" class="window-resize" data-i18n-title="winResize" title="창 크기 변경" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M14 6.5 6.5 14M14 10 10 14M14 13.5 13.5 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </div>
       </div>
     </footer>
   </div>
@@ -120,11 +192,14 @@
   <div id="ctx-menu" class="ctx-menu hidden"></div>
 
   <script src="js/lang.js"></script>
+  <script src="js/themes.js"></script>
   <script src="js/api.js"></script>
   <script src="js/history.js"></script>
   <script src="js/report.js"></script>
   <script src="js/board.js"></script>
+  <script src="js/recent-files.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/panels.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

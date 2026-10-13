@@ -15,10 +15,18 @@ describe('DB connection configuration', () => {
     assert.ok(fs.existsSync(dir));
   });
 
-  it('defaults to SQLite when no db-config.json exists', () => {
+  it('uses a JSON workspace when no database is configured', () => {
     const cfg = connection.getCurrentConfig();
-    assert.equal(cfg.client, 'sqlite3');
-    assert.equal(cfg.connection.filename, path.join(process.env.KANBAN_DATA_PATH, 'kanban.db'));
+    assert.equal(cfg.client, 'json');
+    assert.equal(cfg.connection.filename, path.join(process.env.KANBAN_DATA_PATH, 'workspace.json'));
+  });
+
+  it('builds a JSON storage config', () => {
+    const cfg = connection.buildKnexConfig({ dbType: 'json' });
+    assert.equal(cfg.client, 'json');
+    assert.equal(cfg.connection.filename, path.join(process.env.KANBAN_DATA_PATH, 'workspace.json'));
+    const custom = connection.buildKnexConfig({ dbType: 'json', filename: 'C:/tmp/board.json' });
+    assert.equal(custom.connection.filename, 'C:/tmp/board.json');
   });
 
   it('builds a SQLite knex config', () => {

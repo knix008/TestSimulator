@@ -92,7 +92,10 @@ function setStatus(msg, type) {
 }
 function setStatusBoard(name) {
   const el = document.getElementById('status-board');
-  if (el) el.textContent = name || '';
+  if (!el) return;
+  el.textContent = name || '';
+  const sep = el.nextElementSibling;
+  if (sep?.classList.contains('status-sep')) sep.classList.toggle('hidden', !name);
 }
 
 function renderBackButton(onclick, labelKey, icons) {
@@ -266,7 +269,10 @@ const BoardView = (() => {
         const res = await fetch(`/api/boards/${boardId}/export`, { credentials: 'include' });
         const json = await res.text();
         const result = await window.electron.saveKprj(boardTitle, json);
-        if (result.ok) showToast(I18n.t('exportSuccess') + ': ' + result.filePath.split(/[\\/]/).pop(), 'success');
+        if (result.ok) {
+          if (typeof RecentFiles !== 'undefined') RecentFiles.remember(result.filePath);
+          showToast(I18n.t('exportSuccess') + ': ' + result.filePath.split(/[\\/]/).pop(), 'success');
+        }
         else if (!result.cancelled) showError(I18n.t('exportProject'), result.error || I18n.t('exportSaveFailed'));
       } catch (err) { showError(I18n.t('exportProject'), err.message); }
     } else {
@@ -301,7 +307,10 @@ const BoardView = (() => {
       if (!result || result.cancelled) return;
       if (!result.ok) { showToast(result.error, 'error'); return; }
       const board = await importProject(result.content);
-      if (board) openBoard(board.id);
+      if (board) {
+        if (typeof RecentFiles !== 'undefined') RecentFiles.remember(result.filePath);
+        openBoard(board.id);
+      }
     } else {
       // Web: browser file picker (can't set directory, but remember choice for UX)
       const input = document.createElement('input');
@@ -336,7 +345,11 @@ const BoardView = (() => {
       const res = await fetch(`/api/boards/import-file?path=${encodeURIComponent(filePath)}`, { credentials: 'include' });
       if (!res.ok) throw new Error(I18n.t('fileReadFailed'));
       const data = await res.json();
-      if (data.id) { showToast(I18n.t('importSuccess'), 'success'); openBoard(data.id); }
+      if (data.id) {
+        if (typeof RecentFiles !== 'undefined') RecentFiles.remember(filePath);
+        showToast(I18n.t('importSuccess'), 'success');
+        openBoard(data.id);
+      }
     } catch (err) { showError(I18n.t('fileOpenFailed'), filePath + '\n\n' + err.message); }
   }
 
@@ -352,7 +365,7 @@ const BoardView = (() => {
     History.setBoard(null);
     const main = document.getElementById('main-content');
     main.innerHTML = `<div class="spinner-wrap"><div class="spinner"></div></div>`;
-    document.getElementById('breadcrumb').innerHTML = '';
+    document.getElementById('breadcrumb').innerHTML = `<span>${I18n.t('myBoards')}</span>`;
 
     try {
       const boards = await API.get('/boards');
@@ -375,20 +388,20 @@ const BoardView = (() => {
             </div>
           </div>`;
       } else {
-        const roleLabel = { owner: I18n.t('roleAdmin'), 'system-admin': I18n.t('admin'), admin: I18n.t('roleAdmin'), editor: I18n.t('roleEditor'), viewer: I18n.t('roleViewer') };
         const cards = boards.map(b => {
           const bgStyle = hexToColBg(b.bg_color) ? `style="background:${hexToColBg(b.bg_color)}"` : '';
           return `
           <div class="board-card" ${bgStyle}
                data-board-id="${b.id}" data-board-title="${escAttr(b.title)}" data-board-desc="${escAttr(b.description||'')}" data-board-bg="${escAttr(b.bg_color||'')}" data-my-role="${b.myRole}"
-               onclick="BoardView.openBoard(${b.id})"
+               data-select-type="board" data-select-id="${b.id}"
+               onclick="BoardView.selectProject(event, ${b.id})"
+               ondblclick="BoardView.openBoard(${b.id})"
                oncontextmenu="BoardView.showBoardCtxMenu(event,this)">
             <div class="board-card-actions">
               ${b.myRole !== 'viewer' ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.editBoard(${b.id},'${escHtml(b.title)}','${escHtml(b.description||'')}','${escHtml(b.bg_color||'')}')" title="${I18n.t('edit')}">&#9998;</button>` : ''}
               <button class="board-card-btn" onclick="event.stopPropagation();BoardView.exportProject(${b.id},'${escHtml(b.title)}')" title="${I18n.t('exportProject')}">&#128229;</button>
             ${['owner','system-admin'].includes(b.myRole) ? `<button class="board-card-btn" onclick="event.stopPropagation();BoardView.deleteBoard(${b.id})" title="${I18n.t('delete')}" style="color:#EF4444">&#128465;</button>` : ''}
             </div>
-            <span class="role-badge role-${b.myRole === 'system-admin' ? 'owner' : b.myRole}">${roleLabel[b.myRole] || b.myRole}</span>
             <div class="board-card-title">${escHtml(b.title)}</div>
             <div class="board-card-desc">${escHtml(b.description || '')}</div>
             <div class="board-card-meta">${I18n.t('owner')}: ${escHtml(b.owner_name || '-')}</div>
@@ -407,6 +420,7 @@ const BoardView = (() => {
             <div class="boards-grid">${cards}</div>
           </div>`;
       }
+      if (typeof Panels !== 'undefined') Panels.reapply();
     } catch (err) {
       main.innerHTML = `<div class="spinner-wrap">${err.message}</div>`;
       setStatus(err.message, 'err');
@@ -568,7 +582,6 @@ const BoardView = (() => {
   }
 
   function renderBoard() {
-    const perm = currentPermissions;
     const breadcrumb = document.getElementById('breadcrumb');
     breadcrumb.innerHTML = `<span onclick="App.showBoards()">${I18n.t('myBoards')}</span><span class="sep">/</span><span>...</span>`;
 
@@ -578,15 +591,12 @@ const BoardView = (() => {
           ${renderBackButton('App.showBoards()', 'backToBoards')}
           <span class="board-toolbar-title" id="board-title-lbl">${I18n.t('myBoards')}</span>
           <div class="board-toolbar-right">
-            ${perm.canEdit && localStorage.getItem('kanban-show-add-col') !== 'false' ? `<button class="btn btn-primary btn-sm" onclick="BoardView.promptAddColumn()" title="${I18n.t('addColumn')}">&#10010; ${I18n.t('addColumn')}</button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="BoardView.showSummary()" title="${I18n.t('summaryTitle')}">${icon('chart', 'toolbar')} ${I18n.t('summary')}</button>
-            ${perm.canManageMembers ? `<button class="btn btn-secondary btn-sm" onclick="BoardView.showMembers()" title="${I18n.t('memberMgmt')}">${icon('users', 'toolbar')} ${I18n.t('members')}</button>` : ''}
             <button class="btn btn-secondary btn-sm" id="btn-export-board" onclick="BoardView.exportCurrentBoard()" title="${I18n.t('exportProject')}">${icon('export', 'toolbar')} ${I18n.t('exportProject')}</button>
           </div>
         </div>
-        <div class="columns-container" id="columns-container" oncontextmenu="BoardView.showBoardAreaCtxMenu(event)" ondragover="BoardView.onContainerDragOver(event)" ondrop="BoardView.onContainerDrop(event)">
+        <div class="columns-container" id="columns-container" onclick="BoardView.onBoardBackgroundClick(event)" oncontextmenu="BoardView.showBoardAreaCtxMenu(event)" ondragover="BoardView.onContainerDragOver(event)" ondrop="BoardView.onContainerDrop(event)">
           ${boardData.map(col => renderColumn(col)).join('')}
-          ${perm.canEdit && localStorage.getItem('kanban-show-add-col') !== 'false' ? `<div class="add-col-btn" onclick="BoardView.promptAddColumn()">${I18n.t('addColumn')}</div>` : ''}
         </div>
       </div>`;
 
@@ -603,6 +613,7 @@ const BoardView = (() => {
     }).catch(() => {});
 
     initDragAndDrop();
+    if (typeof Panels !== 'undefined') Panels.reapply();
   }
 
   function renderColumn(col) {
@@ -615,7 +626,8 @@ const BoardView = (() => {
     const canDrag = perm.canEdit && !isDone;
 
     return `
-      <div class="column${isDone ? ' col-done' : ''}" data-col-id="${col.id}"${bgStyle}
+      <div class="column${isDone ? ' col-done' : ''}" data-col-id="${col.id}" data-select-type="column" data-select-id="${col.id}"${bgStyle}
+           onclick="BoardView.selectColumn(event, ${col.id})"
            ${perm.canEdit ? `oncontextmenu="BoardView.showColumnCtxMenu(event,${col.id})"` : ''}>
         <div class="column-header" ${canDrag ? `draggable="true" ondragstart="BoardView.onColDragStart(event,${col.id})" ondragend="BoardView.onColDragEnd(event)"` : ''}>
           <span class="column-title" id="col-title-${col.id}" ${perm.canEdit ? `ondblclick="BoardView.startEditColTitle(${col.id})"` : ''}>${escHtml(col.title)}</span>
@@ -646,6 +658,33 @@ const BoardView = (() => {
     return null;
   }
 
+  function selectProject(event, boardId) {
+    event.stopPropagation();
+    const board = boardsList.find(b => b.id == boardId);
+    if (!board || typeof Panels === 'undefined') return;
+    Panels.select('board', boardId, board);
+  }
+
+  function selectColumn(event, colId) {
+    if (event.target.closest('button, input, a, .card, .add-card-btn')) return;
+    const col = (boardData || []).find(c => c.id == colId);
+    if (!col || typeof Panels === 'undefined') return;
+    Panels.select('column', colId, col);
+  }
+
+  function selectCard(event, cardId, colId) {
+    event.stopPropagation();
+    const card = findCard(cardId);
+    const col = (boardData || []).find(c => c.id == colId);
+    if (!card || typeof Panels === 'undefined') return;
+    Panels.select('card', cardId, { ...card, columnId: colId, columnTitle: col?.title || '' });
+  }
+
+  function onBoardBackgroundClick(event) {
+    if (event.target.id !== 'columns-container') return;
+    if (typeof Panels !== 'undefined') Panels.clear();
+  }
+
   function assigneeOptionsHtml(selectedId, extraAssignee) {
     const list = [...assignees];
     if (extraAssignee?.id && !list.find(u => String(u.id) === String(extraAssignee.id))) {
@@ -671,7 +710,9 @@ const BoardView = (() => {
 
     return `
       <div class="card" draggable="${currentPermissions.canEdit}" ${colorStyle} data-card-id="${card.id}" data-col-id="${colId}"
-           onclick="BoardView.openCard(${card.id})"
+           data-select-type="card" data-select-id="${card.id}"
+           onclick="BoardView.selectCard(event, ${card.id}, ${colId})"
+           ondblclick="event.stopPropagation(); BoardView.openCard(${card.id})"
            oncontextmenu="BoardView.showCardCtxMenu(event,${card.id},${colId})"
            ondragstart="BoardView.onDragStart(event,${card.id},${colId})"
            ondragend="BoardView.onDragEnd(event)">
@@ -692,21 +733,109 @@ const BoardView = (() => {
       ind.id = 'drop-indicator';
       ind.className = 'drop-indicator';
     }
+    if (drag?.slotHeight) {
+      ind.style.height = `${drag.slotHeight}px`;
+      ind.style.marginBottom = `${drag.slotGap}px`;
+    }
     return ind;
   }
 
-  function removeDropIndicator() {
-    document.getElementById('drop-indicator')?.remove();
+  function slideCards(beforeTops) {
+    const cards = [];
+    beforeTops.forEach((prevTop, card) => {
+      if (!card.isConnected || card.classList.contains('dragging')) return;
+      card.style.transition = 'none';
+      card.style.transform = 'none';
+      cards.push([card, prevTop]);
+    });
+    if (!cards.length) return;
+    cards[0][0].getBoundingClientRect();
+    const moved = [];
+    cards.forEach(([card, prevTop]) => {
+      const dy = prevTop - card.getBoundingClientRect().top;
+      if (Math.abs(dy) < 1) {
+        card.style.transform = '';
+        card.style.transition = '';
+        return;
+      }
+      card.style.transform = `translateY(${dy}px)`;
+      moved.push(card);
+    });
+    if (!moved.length) return;
+    moved[0].getBoundingClientRect();
+    moved.forEach(card => {
+      card.style.transition = 'transform .24s cubic-bezier(.22, .8, .3, 1)';
+      card.style.transform = '';
+    });
+  }
+
+  function cardTops(list) {
+    return new Map([...list.querySelectorAll('.card:not(.dragging)')].map(card => [card, card.getBoundingClientRect().top]));
+  }
+
+  function pointerInList(list, clientY) {
+    return clientY - list.getBoundingClientRect().top + list.scrollTop;
+  }
+
+  function removeDropIndicator(animated = false) {
+    const ind = document.getElementById('drop-indicator');
     document.querySelectorAll('.cards-list.drag-over-col').forEach(el => el.classList.remove('drag-over-col'));
+    if (!ind) return;
+    const list = ind.parentElement;
+    const before = animated && list ? cardTops(list) : null;
+    ind.remove();
+    if (before) slideCards(before);
+  }
+
+  function visualTop(list, el) {
+    return el.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+  }
+
+  function adjacentCard(from, dir) {
+    let node = from;
+    while (node) {
+      node = dir === 'next' ? node.nextElementSibling : node.previousElementSibling;
+      if (!node) return null;
+      if (node.classList.contains('card') && !node.classList.contains('dragging')) return node;
+    }
+    return null;
   }
 
   function getDragInsertBefore(list, clientY) {
-    const cards = [...list.querySelectorAll('.card:not(.dragging)')];
-    for (const card of cards) {
-      const { top, height } = card.getBoundingClientRect();
-      if (clientY < top + height / 2) return card;
+    const y = pointerInList(list, clientY);
+    const ind = document.getElementById('drop-indicator');
+    const step = 22;
+    if (!(ind && ind.parentElement === list)) {
+      const cards = [...list.querySelectorAll('.card:not(.dragging)')];
+      let target = null;
+      for (const card of cards) {
+        if (y < visualTop(list, card) + card.offsetHeight / 2) { target = card; break; }
+      }
+      if (drag) drag.insertAnchor = y;
+      return target;
     }
-    return null;
+    const nextCard = adjacentCard(ind, 'next');
+    const prevCard = adjacentCard(ind, 'prev');
+    let target = ind.nextElementSibling;
+    if (nextCard && y >= visualTop(list, nextCard) + nextCard.offsetHeight * 0.58) {
+      target = adjacentCard(nextCard, 'next');
+    } else if (prevCard && y < visualTop(list, prevCard) + prevCard.offsetHeight * 0.42) {
+      target = prevCard;
+    }
+    if (target !== ind.nextElementSibling) {
+      if (Math.abs(y - (drag?.insertAnchor ?? y)) < step) return ind.nextElementSibling;
+      if (drag) drag.insertAnchor = y;
+    }
+    return target;
+  }
+
+  function placeDropSlot(list, before) {
+    const ind = getDropIndicator();
+    if (ind.parentElement === list && ind.nextElementSibling === before) return;
+    const prev = cardTops(list);
+    if (before) list.insertBefore(ind, before);
+    else list.appendChild(ind);
+    slideCards(prev);
   }
 
   function onListDragOver(e) {
@@ -715,19 +844,16 @@ const BoardView = (() => {
     e.dataTransfer.dropEffect = 'move';
     const list = e.currentTarget;
     list.classList.add('drag-over-col');
-    const ind = getDropIndicator();
-    const before = getDragInsertBefore(list, e.clientY);
-    if (before) list.insertBefore(ind, before);
-    else list.appendChild(ind);
+    placeDropSlot(list, getDragInsertBefore(list, e.clientY));
   }
 
   function onListDragLeave(e) {
-    if (dragCol) return;
+    if (dragCol || drag?.dropped) return;
     const list = e.currentTarget;
-    if (!list.contains(e.relatedTarget)) {
-      list.classList.remove('drag-over-col');
-      document.getElementById('drop-indicator')?.remove();
-    }
+    if (e.relatedTarget && list.contains(e.relatedTarget)) return;
+    const rect = list.getBoundingClientRect();
+    if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) return;
+    removeDropIndicator(true);
   }
 
   function onListDrop(e) {
@@ -738,14 +864,14 @@ const BoardView = (() => {
     const colId = list.id.replace('cards-list-', '');
     const ind = document.getElementById('drop-indicator');
     let position = 0;
-    if (ind) {
+    if (ind && ind.parentElement === list) {
       const children = [...list.children];
       const indIdx = children.indexOf(ind);
-      position = children.slice(0, indIdx).filter(el => el.classList.contains('card')).length;
+      position = children.slice(0, indIdx).filter(el => el.classList.contains('card') && !el.classList.contains('dragging')).length;
     } else {
-      position = list.querySelectorAll('.card').length;
+      position = list.querySelectorAll('.card:not(.dragging)').length;
     }
-    removeDropIndicator();
+    drag.dropped = true;
     moveCard(drag.cardId, colId, position);
   }
 
@@ -758,17 +884,50 @@ const BoardView = (() => {
     });
   }
 
+  function setCardDragImage(e, el) {
+    document.getElementById('card-drag-ghost')?.remove();
+    const rect = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.id = 'card-drag-ghost';
+    ghost.removeAttribute('draggable');
+    ghost.className = 'card drag-ghost';
+    ghost.style.width = `${Math.round(rect.width)}px`;
+    document.body.appendChild(ghost);
+    const ox = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
+    const oy = Math.min(Math.max(0, e.clientY - rect.top), rect.height);
+    e.dataTransfer.setDragImage(ghost, ox, oy);
+  }
+
   function onDragStart(e, cardId, colId) {
     if (!currentPermissions.canEdit) { e.preventDefault(); return; }
-    drag = { cardId, colId };
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(el).marginBottom) || 0;
+    drag = { cardId, colId, slotHeight: Math.round(rect.height), slotGap: gap };
     e.dataTransfer.effectAllowed = 'move';
-    setTimeout(() => e.target.classList.add('dragging'), 0);
+    e.dataTransfer.setData('text/plain', String(cardId));
+    setCardDragImage(e, el);
+    setTimeout(() => {
+      if (!drag || drag.cardId !== cardId || !el.isConnected) return;
+      const list = el.closest('.cards-list');
+      const before = list ? cardTops(list) : new Map();
+      el.classList.add('dragging');
+      slideCards(before);
+    }, 0);
   }
 
   function onDragEnd(e) {
-    e.currentTarget.classList.remove('dragging');
+    document.getElementById('card-drag-ghost')?.remove();
+    const dropped = drag?.dropped;
     drag = null;
-    removeDropIndicator();
+    if (dropped) return;
+    const el = e.currentTarget;
+    const list = el.closest('.cards-list');
+    const before = list ? cardTops(list) : new Map();
+    el.classList.remove('dragging');
+    document.getElementById('drop-indicator')?.remove();
+    document.querySelectorAll('.cards-list.drag-over-col').forEach(node => node.classList.remove('drag-over-col'));
+    slideCards(before);
   }
 
   // ── Column Drag & Drop ────────────────────────────────────────────────────
@@ -792,13 +951,40 @@ const BoardView = (() => {
     document.getElementById('col-drop-ind')?.remove();
   }
 
+  const INSERT_EDGE = 0.75;
+
+  function adjacentColumn(from, dir) {
+    let node = from;
+    while (node) {
+      node = dir === 'next' ? node.nextElementSibling : node.previousElementSibling;
+      if (!node) return null;
+      if (node.classList.contains('column') && !node.classList.contains('col-dragging')) return node;
+    }
+    return null;
+  }
+
   function getColInsertBefore(container, clientX) {
+    const ind = document.getElementById('col-drop-ind');
+    const done = container.querySelector('.column.col-done');
+    if (ind && ind.parentElement === container) {
+      const nextCol = adjacentColumn(ind, 'next');
+      const prevCol = adjacentColumn(ind, 'prev');
+      if (nextCol && !nextCol.classList.contains('col-done')) {
+        const { left, width } = nextCol.getBoundingClientRect();
+        if (clientX >= left + width * INSERT_EDGE) return adjacentColumn(nextCol, 'next') || done;
+      }
+      if (prevCol && !prevCol.classList.contains('col-done')) {
+        const { left, width } = prevCol.getBoundingClientRect();
+        if (clientX < left + width * (1 - INSERT_EDGE)) return prevCol;
+      }
+      return ind.nextElementSibling;
+    }
     const cols = [...container.querySelectorAll('.column:not(.col-dragging):not(.col-done)')];
     for (const col of cols) {
       const { left, width } = col.getBoundingClientRect();
       if (clientX < left + width / 2) return col;
     }
-    return container.querySelector('.column.col-done') || null;
+    return done || null;
   }
 
   function onContainerDragOver(e) {
@@ -813,12 +999,10 @@ const BoardView = (() => {
       ind.className = 'col-drop-ind';
     }
     const before = getColInsertBefore(container, e.clientX);
-    if (before) container.insertBefore(ind, before);
-    else {
-      const addBtn = container.querySelector('.add-col-btn');
-      if (addBtn) container.insertBefore(ind, addBtn);
-      else container.appendChild(ind);
-    }
+    const next = before || container.querySelector('.add-col-btn');
+    if (ind.parentElement === container && ind.nextElementSibling === next) return;
+    if (next) container.insertBefore(ind, next);
+    else container.appendChild(ind);
   }
 
   async function onContainerDrop(e) {
@@ -905,11 +1089,6 @@ const BoardView = (() => {
     const items = [];
     if (perm?.canEdit) {
       items.push({ label: I18n.t('addColumn'), icon: '➕', tooltip: I18n.t('addColumn'), action: () => promptAddColumn() });
-      items.push({ label: I18n.t('addCard'), icon: '📝', tooltip: I18n.t('addCard'), action: () => {
-        const firstCol = boardData?.[0];
-        if (firstCol) showAddCard(firstCol.id);
-        else showToast(I18n.t('addColumnFirst'), 'error');
-      }});
     }
     items.push({ type: 'sep' });
     items.push({ label: I18n.t('exportProject'), icon: '📤', tooltip: I18n.t('exportProject'), action: () => exportCurrentBoard() });
@@ -2370,6 +2549,11 @@ const BoardView = (() => {
 
   return {
     get currentBoardId() { return currentBoardId; },
+    get permissions() { return currentPermissions; },
+    findInBoard: findCard,
+    findColumn(colId) { return (boardData || []).find(c => c.id == colId) || null; },
+    findListedBoard(id) { return boardsList.find(b => b.id == id) || null; },
+    selectProject, selectColumn, selectCard, onBoardBackgroundClick,
     renderBoardList, showCreateBoard, createBoard, editBoard, saveEditBoard, deleteBoard,
     openBoard, loadBoard, reloadAfterHistory,
     showBoardCtxMenu, showListCtxMenu, showBoardAreaCtxMenu, showColumnCtxMenu, showColumnColorPicker, applyColumnColor, showCardCtxMenu,

@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 let db = null;
+let activeConfig = null;
+let jsonMode = false;
 
 function getDataPath() {
   if (process.env.KANBAN_DATA_PATH) return process.env.KANBAN_DATA_PATH;
@@ -28,12 +30,38 @@ function getConfigPath() {
   return path.join(dir, 'db-config.json');
 }
 
-function getDefaultConfig() {
-  const dbFile = path.join(getDataPath(), 'kanban.db');
+function getJsonConfig(filename) {
+  return {
+    client: 'json',
+    connection: { filename: filename || path.join(getDataPath(), 'workspace.json') },
+  };
+}
+
+function getSqliteConfig(filename) {
   return {
     client: 'sqlite3',
-    connection: { filename: dbFile },
-    useNullAsDefault: true
+    connection: { filename: filename || path.join(getDataPath(), 'kanban.db') },
+    useNullAsDefault: true,
+  };
+}
+
+function isJsonConfig(config) {
+  return config?.client === 'json';
+}
+
+function getDefaultConfig() {
+  const sqliteFile = path.join(getDataPath(), 'kanban.db');
+  if (fs.existsSync(sqliteFile) && fs.statSync(sqliteFile).size > 0) {
+    return getSqliteConfig(sqliteFile);
+  }
+  return getJsonConfig();
+}
+
+function jsonRuntimeConfig() {
+  return {
+    client: 'sqlite3',
+    connection: { filename: path.join(getDataPath(), 'json-cache.db') },
+    useNullAsDefault: true,
   };
 }
 
@@ -55,7 +83,13 @@ async function loadDbConfig() {
     try { await db.destroy(); } catch {}
   }
 
-  db = knex(config);
+  activeConfig = config;
+  jsonMode = isJsonConfig(config);
+  const runtime = jsonMode ? jsonRuntimeConfig() : config;
+  if (runtime.client === 'sqlite3') {
+    ensureDir(path.dirname(path.resolve(runtime.connection.filename)));
+  }
+  db = knex(runtime);
   return db;
 }
 
@@ -69,13 +103,21 @@ function getCurrentConfig() {
   if (fs.existsSync(cfgPath)) {
     try { return JSON.parse(fs.readFileSync(cfgPath, 'utf8')); } catch {}
   }
-  return getDefaultConfig();
+  return activeConfig || getDefaultConfig();
+}
+
+function isJsonMode() {
+  return jsonMode;
 }
 
 function getConnectionKey(config) {
   if (!config) return '';
   const client = config.client || 'sqlite3';
   const conn = config.connection || {};
+  if (client === 'json') {
+    const filename = path.resolve(conn.filename || path.join(getDataPath(), 'workspace.json'));
+    return `json:${filename}`;
+  }
   if (client === 'sqlite3' || client === 'better-sqlite3') {
     const filename = path.resolve(conn.filename || path.join(getDataPath(), 'kanban.db'));
     return `sqlite:${filename}`;
@@ -109,9 +151,16 @@ async function updateDbConfig(config) {
 
   if (shouldMigrateData && snapshot?.hasData) {
     const { importDatabaseSnapshot } = require('./migrate-data');
-    const result = await importDatabaseSnapshot(db, snapshot);
+    const result = await importDatabaseSnapshot(db, snapshot, {
+      replace: isJsonConfig(config),
+      keepIds: true,
+    });
     if (result.imported) {
       await seedDefaultAdmin(db);
+      if (isJsonConfig(config)) {
+        const { persistJsonWorkspace } = require('./json-store');
+        await persistJsonWorkspace();
+      }
       return {
         migrated: true,
         users: result.users,
@@ -120,19 +169,20 @@ async function updateDbConfig(config) {
     }
   }
 
+  if (isJsonConfig(config)) {
+    const { persistJsonWorkspace } = require('./json-store');
+    await persistJsonWorkspace();
+  }
+
   return { migrated: false };
 }
 
 function buildKnexConfig(formData) {
   const { dbType, host, port, database, username, password, filename } = formData;
 
-  if (dbType === 'sqlite') {
-    return {
-      client: 'sqlite3',
-      connection: { filename: filename || path.join(getDataPath(), 'kanban.db') },
-      useNullAsDefault: true
-    };
-  }
+  if (dbType === 'json') return getJsonConfig(filename);
+
+  if (dbType === 'sqlite') return getSqliteConfig(filename);
 
   const clientMap = { mysql: 'mysql2', mariadb: 'mysql2', postgresql: 'pg', mssql: 'mssql' };
   const client = clientMap[dbType];
@@ -152,4 +202,7 @@ function buildKnexConfig(formData) {
   return { client, connection };
 }
 
-module.exports = { loadDbConfig, getDb, getCurrentConfig, updateDbConfig, buildKnexConfig, getDataPath, getUploadsPath };
+module.exports = {
+  loadDbConfig, getDb, getCurrentConfig, updateDbConfig, buildKnexConfig,
+  getDataPath, getUploadsPath, isJsonMode, isJsonConfig,
+};

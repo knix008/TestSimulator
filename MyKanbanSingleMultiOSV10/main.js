@@ -53,8 +53,10 @@ async function createWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 340,
-    minHeight: 400,
+    minWidth: 1160,
+    minHeight: 640,
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -78,6 +80,26 @@ async function createWindow(port) {
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
+  let closeConfirmed = false;
+  mainWindow.on('close', (event) => {
+    if (closeConfirmed || mainWindow.webContents.isLoading()) return;
+    event.preventDefault();
+    mainWindow.webContents.send('request-close');
+  });
+  ipcMain.removeHandler('confirm-close');
+  ipcMain.handle('confirm-close', () => {
+    closeConfirmed = true;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+  });
+
+  const sendMaximized = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximized', mainWindow.isMaximized());
+    }
+  };
+  mainWindow.on('maximize', sendMaximized);
+  mainWindow.on('unmaximize', sendMaximized);
+
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
     const key = input.key?.toLowerCase();
@@ -98,6 +120,40 @@ async function createWindow(port) {
     return { action: 'deny' };
   });
 }
+
+function withWindow(fn) {
+  if (mainWindow && !mainWindow.isDestroyed()) fn(mainWindow);
+}
+
+ipcMain.handle('window-minimize', () => {
+  withWindow((win) => win.minimize());
+});
+
+ipcMain.handle('window-toggle-maximize', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return mainWindow.isMaximized();
+});
+
+ipcMain.handle('window-close', () => {
+  withWindow((win) => win.close());
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return !!(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized());
+});
+
+ipcMain.handle('window-resize-by', (_event, dx, dy) => {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMaximized()) return null;
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  const bounds = mainWindow.getBounds();
+  const [minWidth, minHeight] = mainWindow.getMinimumSize();
+  const width = Math.max(minWidth, Math.round(bounds.width + dx));
+  const height = Math.max(minHeight, Math.round(bounds.height + dy));
+  mainWindow.setBounds({ x: bounds.x, y: bounds.y, width, height });
+  return { width, height };
+});
 
 // IPC: renderer asks for the pending .kprj file path
 ipcMain.handle('get-open-file', () => {
@@ -244,6 +300,16 @@ app.whenReady().then(async () => {
     dialog.showErrorBox('MyKanban', `시작 중 오류가 발생했습니다.\n\n${err.message || err}`);
     app.quit();
   }
+});
+
+let jsonFlushed = false;
+app.on('before-quit', (event) => {
+  if (jsonFlushed) return;
+  event.preventDefault();
+  jsonFlushed = true;
+  require('./src/db/json-store').persistJsonWorkspace()
+    .catch(() => {})
+    .finally(() => app.quit());
 });
 
 app.on('window-all-closed', () => {

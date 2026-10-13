@@ -23,6 +23,7 @@ const API = (() => {
       }
       throw new Error(msg);
     }
+    if (method !== 'GET' && typeof ChangeGuard !== 'undefined') ChangeGuard.note(path);
     return data;
   }
 
@@ -136,7 +137,42 @@ const AutoSave = (() => {
     return allOk;
   }
 
-  return { start, stop, schedule, flush, flushAll };
+  function discardAll() {
+    for (const session of sessions.values()) {
+      if (session.timer) clearTimeout(session.timer);
+      session.timer = null;
+    }
+  }
+
+  function hasPending() {
+    for (const session of sessions.values()) {
+      if (session.timer || session.saving) return true;
+      try {
+        const payload = session.collect();
+        if (payload && JSON.stringify(payload) !== session.lastPayload) return true;
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return { start, stop, schedule, flush, flushAll, discardAll, hasPending };
+})();
+
+const ChangeGuard = (() => {
+  let dirty = false;
+  const ignored = ['/settings/workspace/save', '/settings/workspace/revert', '/settings/app'];
+
+  function note(path) {
+    if (ignored.some(item => path === item || path.startsWith('/auth'))) return;
+    dirty = true;
+  }
+
+  function clear() { dirty = false; }
+  function isDirty() { return dirty || AutoSave.hasPending(); }
+
+  return { note, clear, isDirty };
 })();
 
 /* 공통 Modal */
@@ -302,6 +338,29 @@ const Modal = (() => {
     document.body.style.overflow = '';
   }
 
+  function choose({ title, message, icon = '💾', choices }) {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('modal-overlay');
+      const wasOpen = !overlay.classList.contains('hidden');
+      confirmSnapshot = wasOpen ? document.getElementById('modal-box').innerHTML : null;
+      confirmResolve = resolve;
+      const buttons = (choices || []).map(choice => btn({
+        label: choice.label,
+        icon: choice.icon || '',
+        variant: choice.variant || 'secondary',
+        onclick: `Modal.resolveConfirm('${choice.value}')`,
+      })).join('');
+      dialog({
+        title,
+        icon,
+        type: 'confirm',
+        size: 'sm',
+        body: `<p class="modal-message modal-confirm-message">${escHtml(message)}</p>`,
+        footer: buttons,
+      });
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !document.getElementById('modal-overlay').classList.contains('hidden')) {
       if (confirmResolve) resolveConfirm(false);
@@ -309,7 +368,7 @@ const Modal = (() => {
     }
   });
 
-  return { open, close, forceClose, setBeforeClose, clearBeforeClose, closeOnOverlay, dialog, btn, footerCancelPrimary, confirm, resolveConfirm };
+  return { open, close, forceClose, setBeforeClose, clearBeforeClose, closeOnOverlay, dialog, btn, footerCancelPrimary, confirm, choose, resolveConfirm };
 })();
 
 /* 오류 상세 팝업 — 내용 복사 가능, 비반전 표시 */

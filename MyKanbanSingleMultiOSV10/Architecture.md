@@ -149,6 +149,8 @@ attachments
 ### DB Hot-reload
 `POST /api/settings/db` 호출 시 `connection.js`의 `updateDbConfig()`가 기존 Knex 인스턴스를 `destroy()` 후 새 설정으로 재생성하고 `runMigrations()`를 실행합니다. 서버 재시작 없이 DB를 전환할 수 있습니다.
 
+`client: "json"` 이면 데이터베이스를 열지 않습니다. 실행 중 조회는 로컬 캐시 DB에서 처리하고, 프로젝트 데이터는 `workspace.json`에 저장했다가 다음 실행 때 다시 불러옵니다. 테마와 언어는 `app-settings.json`에서 읽습니다.
+
 ### 자동 마이그레이션
 `migrate.js`는 `hasTable` / `hasColumn`으로 기존 스키마를 확인하여 누락된 컬럼을 추가합니다. 예: 기존 DB에 `columns.bg_color`가 없으면 자동으로 추가됩니다.
 

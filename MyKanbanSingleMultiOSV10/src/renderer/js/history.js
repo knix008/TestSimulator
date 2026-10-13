@@ -21,6 +21,8 @@ const History = (() => {
     if (redoEl) redoEl.classList.toggle('disabled', !canR);
     if (undoBtn) undoBtn.classList.toggle('disabled', !canU);
     if (redoBtn) redoBtn.classList.toggle('disabled', !canR);
+    document.getElementById('tool-undo')?.classList.toggle('disabled', !canU);
+    document.getElementById('tool-redo')?.classList.toggle('disabled', !canR);
   }
 
   function clear() {

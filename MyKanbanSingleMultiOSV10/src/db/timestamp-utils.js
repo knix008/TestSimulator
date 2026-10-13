@@ -26,6 +26,8 @@ const TABLE_TIMESTAMP_FIELDS = {
   cards: ['created_at', 'updated_at'],
   columns: ['created_at'],
   attachments: ['created_at'],
+  comments: ['created_at', 'updated_at'],
+  comment_attachments: ['created_at'],
 };
 
 function sanitizeRowTimestamps(table, row) {

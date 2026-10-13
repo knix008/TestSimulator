@@ -6,6 +6,7 @@ const { ensureDatabaseReady } = require('../db/ensure-database');
 const router = express.Router();
 
 const CLIENT_LABELS = {
+  json: 'JSON',
   sqlite3: 'SQLite',
   'better-sqlite3': 'SQLite',
   mysql2: 'MySQL/MariaDB',
@@ -15,7 +16,8 @@ const CLIENT_LABELS = {
 
 function dbConfigSummary(config) {
   const client = config?.client || 'sqlite3';
-  const type = client === 'sqlite3' || client === 'better-sqlite3' ? 'sqlite'
+  const type = client === 'json' ? 'json'
+    : client === 'sqlite3' || client === 'better-sqlite3' ? 'sqlite'
     : client === 'mysql2' ? 'mysql'
     : client === 'pg' ? 'postgresql'
     : client === 'mssql' ? 'mssql'
@@ -57,7 +59,7 @@ router.get('/db', requireAdmin, (req, res) => {
 });
 
 function validateDbInput(body) {
-  if (body.dbType === 'sqlite') return null;
+  if (body.dbType === 'sqlite' || body.dbType === 'json') return null;
   const missing = [];
   if (!body.host?.trim()) missing.push('host');
   if (!body.database?.trim()) missing.push('database');
@@ -96,6 +98,13 @@ router.post('/db/test', requireAdmin, async (req, res) => {
   let testDb;
   const validationError = validateDbInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
+  if (req.body.dbType === 'json') {
+    return res.json({
+      ok: true,
+      message: 'JSON 파일로 저장합니다. 데이터베이스는 사용하지 않습니다.',
+      dbCreated: false,
+    });
+  }
   try {
     const { config, ensureResult } = await prepareDbConnection(req.body);
     testDb = knex(config);
@@ -116,10 +125,12 @@ router.post('/db', requireAdmin, async (req, res) => {
   try {
     const { config, ensureResult } = await prepareDbConnection(req.body);
 
-    testDb = knex(config);
-    await testDb.raw('SELECT 1 as result');
-    await testDb.destroy();
-    testDb = null;
+    if (config.client !== 'json') {
+      testDb = knex(config);
+      await testDb.raw('SELECT 1 as result');
+      await testDb.destroy();
+      testDb = null;
+    }
 
     const migration = await updateDbConfig(config);
     await new Promise((resolve, reject) => {
@@ -127,15 +138,64 @@ router.post('/db', requireAdmin, async (req, res) => {
     });
 
     const createdMsg = ensureResult.created ? ' 데이터베이스를 새로 생성했습니다.' : '';
-    const message = migration.migrated
-      ? `DB 설정이 적용되었습니다. 사용자 ${migration.users}명 및 프로젝트 데이터가 새 DB로 이전되었습니다.${createdMsg}`
-      : `DB 설정이 변경되었습니다.${createdMsg}`;
+    const message = config.client === 'json'
+      ? (migration.migrated
+        ? '데이터베이스 없이 JSON 파일로 저장합니다. 프로젝트 데이터를 옮겼습니다.'
+        : '데이터베이스 없이 JSON 파일로 저장합니다.')
+      : (migration.migrated
+        ? `DB 설정이 적용되었습니다. 사용자 ${migration.users}명 및 프로젝트 데이터가 새 DB로 이전되었습니다.${createdMsg}`
+        : `DB 설정이 변경되었습니다.${createdMsg}`);
 
     res.json({ ok: true, requireRelogin: false, migrated: !!migration.migrated, message });
   } catch (err) {
     if (testDb) try { await testDb.destroy(); } catch {}
     res.status(400).json({ error: `저장 실패: ${err.message}` });
   }
+});
+
+router.post('/workspace/save', requireAuth, async (req, res) => {
+  try {
+    const { persistJsonWorkspace, captureBaseline } = require('../db/json-store');
+    const result = await persistJsonWorkspace();
+    await captureBaseline();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/workspace/revert', requireAuth, async (req, res) => {
+  try {
+    const { revertJsonWorkspace } = require('../db/json-store');
+    res.json(await revertJsonWorkspace());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/app', requireAuth, (req, res) => {
+  const { readAppSettings } = require('../db/app-settings');
+  const stored = readAppSettings();
+  if (!stored) return res.json({ theme: 'light', lang: 'ko', saved: false });
+  res.json({ ...stored, saved: true });
+});
+
+router.put('/app', requireAuth, (req, res) => {
+  const theme = req.body?.theme;
+  const lang = req.body?.lang;
+  if (theme != null && theme !== 'light' && theme !== 'dark') {
+    return res.status(400).json({ error: '지원하지 않는 테마입니다.' });
+  }
+  if (lang != null && lang !== 'ko' && lang !== 'en') {
+    return res.status(400).json({ error: '지원하지 않는 언어입니다.' });
+  }
+  const { writeAppSettings } = require('../db/app-settings');
+  res.json(writeAppSettings({
+    theme,
+    lang,
+    themeId: req.body?.themeId,
+    customThemes: req.body?.customThemes,
+  }));
 });
 
 // SQLite로 초기화
