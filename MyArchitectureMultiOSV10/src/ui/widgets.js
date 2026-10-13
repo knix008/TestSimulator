@@ -469,5 +469,5 @@ export function tabs(defs) {
 
 // Side-panel header: icon, title and optional extra controls.
 export function panelHead(ic, title, ...extra) {
-  return h("div", { class: "panel-head" }, h("span", { class: "ph-ico", html: icon(ic, 14) }), h("span", { class: "ph-title" }, title), ...extra);
+  return h("div", { class: "panel-head", "data-key": ic }, h("span", { class: "ph-ico", html: icon(ic, 14) }), h("span", { class: "ph-title" }, title), ...extra);
 }

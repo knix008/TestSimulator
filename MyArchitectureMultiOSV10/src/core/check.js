@@ -30,7 +30,17 @@ CHECKS.push(...ELEMENT_CHECKS); // slabs, beams, railings, ramps, stairs by type
 
 const SEATS = new Set(["chair", "barStool", "officeChair", "studentChair"]);
 
+function bounds(pts) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const [x, y] of pts) { if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; }
+  return [x1, y1, x2, y2];
+}
+
 function polysOverlap(a, b) {
+  // Most pairs are far apart: boxes that do not meet settle it (a large
+  // project has thousands of furniture × wall pairs per level).
+  const [ax1, ay1, ax2, ay2] = bounds(a), [bx1, by1, bx2, by2] = bounds(b);
+  if (ax2 < bx1 || bx2 < ax1 || ay2 < by1 || by2 < ay1) return false;
   for (const [x, y] of a) if (pointInPolygon(x, y, b)) return true;
   for (const [x, y] of b) if (pointInPolygon(x, y, a)) return true;
   for (let i = 0; i < a.length; i++) {
@@ -178,18 +188,28 @@ export function runCheck(p) {
       }
     }
     // ---- clash detection (BIM coordination)
-    const solidFurn = furn.filter((f) => f.kind !== "rug" && f.h >= 150);
-    for (let i = 0; i < solidFurn.length; i++) {
-      for (let j = i + 1; j < solidFurn.length; j++) {
-        const a = solidFurn[i], b = solidFurn[j];
-        // Seats tucked under tables and desks are intended.
-        if (SEATS.has(a.kind) || SEATS.has(b.kind)) continue;
+    // Seats tucked under tables and desks are intended. Every piece's outline
+    // is worked out once; a sweep along x pairs only pieces whose boxes meet.
+    const solid = furn.filter((f) => f.kind !== "rug" && f.h >= 150 && !SEATS.has(f.kind)).map((f, i) => {
+      const pts = furnitureCorners({ ...f, w: f.w * 0.92, d: f.d * 0.92 });
+      return { f, i, pts, box: bounds(pts) };
+    });
+    const byX = solid.slice().sort((a, b) => a.box[0] - b.box[0]);
+    const clashes = [];
+    for (let s = 0; s < byX.length; s++) {
+      const A = byX[s];
+      for (let t = s + 1; t < byX.length && byX[t].box[0] <= A.box[2]; t++) {
+        const B = byX[t];
+        if (B.box[3] < A.box[1] || A.box[3] < B.box[1]) continue;
+        const [P, Q] = A.i < B.i ? [A, B] : [B, A];
+        const a = P.f, b = Q.f;
         const za = [a.elevation || 0, (a.elevation || 0) + a.h], zb = [b.elevation || 0, (b.elevation || 0) + b.h];
         if (za[1] <= zb[0] || zb[1] <= za[0]) continue;
-        const shrink = (f) => furnitureCorners({ ...f, w: f.w * 0.92, d: f.d * 0.92 });
-        if (polysOverlap(shrink(a), shrink(b))) add("warning", "clash-furniture", "Clash: two pieces of furniture overlap.", {}, (a.x + b.x) / 2, (a.y + b.y) / 2, [a.id, b.id], lv.id);
+        if (polysOverlap(P.pts, Q.pts)) clashes.push([P.i, Q.i, a, b]);
       }
     }
+    clashes.sort((x, y) => x[0] - y[0] || x[1] - y[1]); // reported in project order
+    for (const [, , a, b] of clashes) add("warning", "clash-furniture", "Clash: two pieces of furniture overlap.", {}, (a.x + b.x) / 2, (a.y + b.y) / 2, [a.id, b.id], lv.id);
     for (const s of p.stairs.filter((x) => x.level === lv.id)) {
       const L = s.length * 0.96, W = s.width * 0.96;
       const c = Math.cos(((s.rot || 0) * Math.PI) / 180), sn = Math.sin(((s.rot || 0) * Math.PI) / 180);

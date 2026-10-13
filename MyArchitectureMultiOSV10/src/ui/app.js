@@ -200,7 +200,7 @@ class App {
     if (tab === "3d") this.v3d.activate();
     if (tab === "views" && this.views) this.views.activate();
     if (tab === "start") { this.start.render(); this.setHint(""); }
-    else this.start.stopBackground();
+    else this.start.leave();
     this.applyPanels();
     this.renderTabs();
     this.renderToolbar();
@@ -333,6 +333,7 @@ class App {
     this.plan.request();
     this.plan.renderLevelBar();
     this.v3d.markDirty();
+    if (info && info.load) this.v3d.prebuild();
     if (this.views) this.views.onDocChange(info);
     this.updateTitle();
     this.updateUndoButtons();
@@ -788,6 +789,8 @@ class App {
     C("view.zoomOut", "Zoom out", "zoomOut", "Ctrl+-", () => this.plan.vp.zoomBy(0.8), { enabled: inPlan });
     C("view.fit", "Zoom to fit", "zoomFit", "Home", () => { if (this.tab === "plan") this.plan.zoomFit(); else if (this.tab === "3d") this.v3d.zoomToFit(); else if (this.tab === "views") this.views.tab.zoomFit(); });
     C("view.grid", "Show grid", "grid", "", () => this.setSetting("showGrid", this.settings.showGrid === false), { checked: () => this.settings.showGrid !== false });
+    C("view.scaleBar", "Show scale bar", "scale", "", () => this.setSetting("showScaleBar", this.settings.showScaleBar === false), { checked: () => this.settings.showScaleBar !== false });
+    C("v3d.scaleBar", "Scale bar in 3D", "scale", "", () => { this.setTab("3d"); this.v3d.setOpt("scaleBar", !this.v3d.opts.scaleBar); }, { checked: () => !!this.v3d.opts.scaleBar });
     C("view.rulers", "Show rulers", "ruler", "", () => this.setSetting("showRulers", this.settings.showRulers === false), { checked: () => this.settings.showRulers !== false });
     C("view.snap", "Snap to grid and walls", "snap", "F9", () => this.setSetting("snap", this.settings.snap === false), { checked: () => this.settings.snap !== false });
     C("view.ortho", "Orthogonal drawing (45° steps)", "orthomode", "F8", () => this.setSetting("ortho", this.settings.ortho === false), { checked: () => this.settings.ortho !== false });
@@ -849,6 +852,7 @@ class App {
     C("v3d.addScene", "Add scene", "scenes", "", () => { this.setTab("3d"); this.v3d.ensure().then(() => this.v3d.addScene()); });
     C("v3d.playScenes", "Play scene animation", "play", "", () => { this.setTab("3d"); this.v3d.playScenes(); });
     C("v3d.fog", "Fog", "eye", "", () => { this.setTab("3d"); this.v3d.setOpt("fog", !this.v3d.opts.fog); }, { checked: () => !!this.v3d.opts.fog });
+    C("v3d.labels", "Grid and axis numbers", "eye", "", () => { this.setTab("3d"); this.v3d.setOpt("labels", !this.v3d.opts.labels); }, { checked: () => !!this.v3d.opts.labels });
     // Lighting (src/ui/lights.js): light fixtures, switching, night view.
     C("plan.light", "Light fixture", "bulb", "", () => { this.setTab("plan"); this.plan.setTool("furniture", { kind: this.settings.lastLight || "ceilingLight" }); }, { checked: () => this.plan.tool === "furniture" && !!this.plan.ghost && lights.isLightKind(this.plan.ghost.kind) });
     C("light.toggle", "Switch the selected lights on / off", "bulb", "", () => lights.toggleSelected(this));
@@ -875,7 +879,7 @@ class App {
     const M = {
       File: ["file.new", "file.open", "file.samples", "file.recent", "file.clearRecent", "-", "file.save", "file.saveAs", "file.close", "-", "file.import", "@import", "@export", "-", "file.print", "file.props", "-", "file.exit"],
       Edit: ["edit.undo", "edit.redo", "edit.history", "-", "edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "-", "edit.selectAll", "edit.find", "-", "edit.rotate", "edit.mirror", "edit.mirrorV", "edit.scale", "edit.offset", "-", "edit.group", "edit.ungroup", "edit.properties"],
-      View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
+      View: ["view.start", "view.plan", "view.3d", "-", "view.zoomIn", "view.zoomOut", "view.fit", "view.pan", "-", "view.grid", "view.rulers", "view.scaleBar", "view.snap", "view.ortho", "-", "view.dims", "view.furniture", "view.areas", "view.ghost", "view.underlays", "-", "view.phaseAll", "view.phaseNew", "view.phaseExisting", "-", "view.left", "view.right", "-", "view.themes", "view.themeDark", "view.themeLight", "view.themeSystem", "-", "view.langKo", "view.langEn"],
       Build: ["build.detectRooms", "build.autoRoof", "build.autoDims", "-", "build.addLevel", "build.levelProps", "build.defaults", "build.layers", "-", "build.check", "build.schedules"],
       BIM: ["build.wallTypes", "build.bimProps", "build.selectSimilar", "-", "build.costs", "build.site", "-", "file.exportIfc", "file.exportGbxml", "file.exportSh3d", "file.importIfc", "file.importBim"],
       Drawings: ["views.tab", "views.browser", "-", "views.section", "views.elevation", "views.extElevations", "views.intElevations", "views.ceilingPlan", "views.callout", "views.drafting", "views.legend", "views.schedule", "-", "views.sheet", "views.placeView", "views.sheetList", "views.revisions", "-", "views.properties", "views.visibility", "views.templates", "views.lineStyles", "views.tagAll", "-", "views.publish", "views.exportDxf"],

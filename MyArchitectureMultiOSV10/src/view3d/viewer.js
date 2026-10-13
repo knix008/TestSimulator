@@ -17,7 +17,7 @@ import { pullForward, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane } from ".
 const DEG = Math.PI / 180;
 
 export const DEFAULT_OPTIONS = {
-  background: "gradient", shadows: true, grid: true, axes: false, gizmo: true, dimensions: false, units3d: "m",
+  background: "gradient", shadows: true, grid: true, axes: false, labels: true, gizmo: true, dimensions: false, units3d: "m",
   style: "realistic", section: null, levels: null, openDoors: false, furniture: true, roofs: true, ground: true,
   sunAzimuth: 135, sunAltitude: 45, north: 0, navMode: "orbit", ortho: false, fov: 45, rotateSpeed: 1,
   tool: "none", fog: false, solids: true, night: false,
@@ -54,7 +54,12 @@ function backgroundTexture(top, bottom) {
 }
 
 // Soft sky environment so glass and metal have something to reflect.
-function skyEnvironment(renderer) {
+//
+// Its prefiltering (PMREM) draws with shaders of its own, and compiling them
+// on the spot froze the app for half a second whenever a 3D view was made.
+// They are made first and compiled in the background (as warmShaders does for
+// the model); fromScene then finds the same materials (same size) ready.
+async function skyEnvironment(renderer, alive = () => true) {
   const scene = new THREE.Scene();
   const geo = new THREE.SphereGeometry(10, 32, 16);
   const pos = geo.attributes.position;
@@ -68,6 +73,24 @@ function skyEnvironment(renderer) {
   geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
   const pmrem = new THREE.PMREMGenerator(renderer);
+  try {
+    // three.js r186 internals (vendored, so they hold still): the size
+    // fromScene uses, its blur and GGX materials (drawn on its own planes:
+    // the geometry's attributes are part of a shader's key) and its background box.
+    pmrem._setSize(256);
+    pmrem._allocateTargets().dispose();
+    pmrem._backgroundBox = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ name: "PMREM.Background", side: THREE.BackSide, depthWrite: false, depthTest: false }));
+    const flat = new THREE.OrthographicCamera(0, 1, 0, 1, 0, 1);
+    const was = renderer.getRenderTarget();
+    renderer.setRenderTarget(pmrem._pingPongRenderTarget); // they all draw into render targets
+    const jobs = [pmrem._blurMaterial, pmrem._ggxMaterial].map((m) => renderer.compileAsync(new THREE.Mesh(pmrem._lodMeshes[0].geometry, m), flat));
+    jobs.push(renderer.compileAsync(scene, flat), renderer.compileAsync(pmrem._backgroundBox, flat));
+    renderer.setRenderTarget(was);
+    await Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, 15000))]);
+  } catch (e) {
+    console.warn("sky environment: compiled on first use", e);
+  }
+  if (!alive()) { pmrem.dispose(); geo.dispose(); return null; } // the view went away meanwhile
   const tex = pmrem.fromScene(scene, 0.02).texture;
   pmrem.dispose();
   geo.dispose();
@@ -99,16 +122,31 @@ export function createViewer(container, options = {}) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // PCF, not PCFSoft: three.js r186 dropped PCFSoft and switches to PCF at the
+  // first shadow pass, which would give every shader a new key after the
+  // background compile (warmShaders) and compile them all again, blocking.
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.localClippingEnabled = true; // section planes clip the model only, not the ground (sklayer.js)
+  // The shaders are fixed, so their compile logs are not read: on ANGLE each
+  // read costs ~15 ms on the main thread even for a finished program.
+  renderer.debug.checkShaderErrors = false;
   const canvas = renderer.domElement;
   Object.assign(canvas.style, { display: "block", width: "100%", height: "100%", outline: "none" });
   canvas.tabIndex = 0;
   container.appendChild(canvas);
 
   const scene = new THREE.Scene();
-  scene.environment = skyEnvironment(renderer);
   scene.environmentIntensity = 0.6;
+  // The environment is part of every lit shader, so nothing is drawn before it
+  // is there (or every shader would be compiled twice).
+  const environmentReady = skyEnvironment(renderer, () => !disposed).then((tex) => {
+    if (!tex || disposed) { if (tex) tex.dispose(); return; }
+    scene.environment = tex;
+    shadersStale = true;
+    dirty = true;
+  }, (e) => console.warn("sky environment", e));
+  let hasEnvironment = false;
+  environmentReady.then(() => { hasEnvironment = true; });
 
   const persp = new THREE.PerspectiveCamera(opts.fov, 1, 0.05, 5000);
   persp.position.set(20, 15, 25);
@@ -186,6 +224,8 @@ export function createViewer(container, options = {}) {
   let modelBoxStale = true;
   let bgTexture = null;
   let dirty = true;
+  let shadersStale = true; // new materials or lights: compile before drawing (warmShaders)
+  let warming = null;
   let anim = null;
   let disposed = false;
   let lastView = "iso";
@@ -198,6 +238,14 @@ export function createViewer(container, options = {}) {
     lines: new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, name: "paper" }),
     xray: new THREE.MeshStandardMaterial({ color: 0x9ec5ff, roughness: 0.6, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, name: "xray" }),
   };
+  // X-ray: every face is the same colour at the same faint opacity, and a
+  // colour blended over itself gives the same result in any order (faces
+  // differ only by their shading, a fraction of a percent on screen). So no
+  // sorting and no separate back/front passes are needed, and its meshes are
+  // batched like opaque ones (batch.js orderFree) — sorted and drawn mesh by
+  // mesh, twice, a large model ran at 2 frames per second.
+  styleMats.xray.forceSinglePass = true;
+  styleMats.xray.userData.orderFree = true;
 
   // ---------------------------------------------------------------- imported models
   async function loadModel(asset) {
@@ -245,6 +293,7 @@ export function createViewer(container, options = {}) {
     applyHighlight();
     updateHelpers();
     if (sk) sk.afterRebuild();
+    shadersStale = true;
     dirty = true;
   }
 
@@ -273,6 +322,7 @@ export function createViewer(container, options = {}) {
     applyClipping();
     applyHighlight();
     invalidateShadows();
+    shadersStale = true;
     dirty = true;
   }
 
@@ -358,6 +408,7 @@ export function createViewer(container, options = {}) {
     scene.environmentIntensity = night ? 0.025 : 0.6;
     lampRig.invalidate();
     invalidateShadows();
+    shadersStale = true;
     dirty = true;
   }
 
@@ -421,6 +472,7 @@ export function createViewer(container, options = {}) {
     renderer.clippingPlanes = on ? [clipPlane] : [];
     if (sk) sk.afterClipping();
     invalidateShadows();
+    shadersStale = true;
     dirty = true;
   }
 
@@ -572,7 +624,8 @@ export function createViewer(container, options = {}) {
     grid.add(ribbons(maj, GRID_MAJOR_PX / px, dark ? 0xaeb6c2 : 0x4d5765, dark ? 0.4 : 0.34));
     grid.position.y = 0.002;
     const h0 = major * 0.18;
-    for (let k = -n / 5; k <= n / 5; k += Math.max(1, Math.ceil(n / 5 / 6))) {
+    // The scale numbers (opts.labels: they can be hidden, the lines stay).
+    if (opts.labels !== false) for (let k = -n / 5; k <= n / 5; k += Math.max(1, Math.ceil(n / 5 / 6))) {
       const v = k * major;
       const lx = labelSprite(fmt(ox + v), "#ffb4a8", h0);
       lx.center.set(0.5, 0); // stands on the ground rather than half sunk into it
@@ -607,7 +660,7 @@ export function createViewer(container, options = {}) {
         const v = i * tick, len = i % every === 0 ? major : minor;
         const p = [dir[0] * v, dir[1] * v, dir[2] * v];
         pts.push(p[0] - side[0] * len, p[1] - side[1] * len, p[2] - side[2] * len, p[0] + side[0] * len, p[1] + side[1] * len, p[2] + side[2] * len);
-        if (i % every === 0 && i < n) {
+        if (i % every === 0 && i < n && opts.labels !== false) { // tick numbers (opts.labels)
           const s2 = labelSprite(fmt(v), hex, size);
           s2.position.set(p[0] + side[0] * gap, p[1] + side[1] * gap, p[2] + side[2] * gap);
           axes.add(s2);
@@ -1163,8 +1216,123 @@ export function createViewer(container, options = {}) {
     sk.beforeRender(); // two-point perspective, profiles
   }
 
+  // Shaders. A program compiles in the GPU driver, and the first frame that
+  // draws with it waits for that on the main thread: a few hundred ms per
+  // program on some machines, seconds for a fresh model, with the whole app
+  // frozen. After the model, the style or the lights change, the programs are
+  // compiled in the background first (KHR_parallel_shader_compile); until
+  // they are ready the view keeps its last picture and the app stays live.
+  //
+  // A program depends on the material, the kind of object and the attributes
+  // its geometry has, not on where the object is: one object per combination
+  // stands in for the rest, so a large model is not walked mesh by mesh
+  // (renderer.compile only needs traverse / traverseVisible of what it is given).
+  const attrKeys = new WeakMap(); // geometry → its attribute signature
+  function attrKey(g) {
+    if (!g) return "";
+    let k = attrKeys.get(g);
+    if (k === undefined) {
+      k = Object.keys(g.attributes).sort().join() + (g.attributes.color ? g.attributes.color.itemSize : "") + "|" + Object.keys(g.morphAttributes).join();
+      attrKeys.set(g, k);
+    }
+    return k;
+  }
+  function shaderSamples(root) {
+    const seen = new Set(), out = [];
+    root.traverse((o) => {
+      if (!(o.isMesh || o.isPoints || o.isLine || o.isSprite) || !o.material) return;
+      const kind = `${o.isInstancedMesh ? `i${o.instanceColor ? "c" : ""}${o.morphTexture ? "m" : ""}` : ""}${o.isBatchedMesh ? "b" : ""}${o.isSkinnedMesh ? "s" : ""}${o.isPoints ? "p" : ""}${o.isLine ? "l" : ""}${o.isSprite ? "S" : ""}|${attrKey(o.geometry)}`;
+      let fresh = false;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        const key = `${m.id}|${kind}`;
+        if (!seen.has(key)) { seen.add(key); fresh = true; }
+      }
+      if (fresh) out.push(o);
+    });
+    if (root === scene) { const bg = backgroundStandIn(); if (bg) out.push(bg); }
+    return { traverse: (cb) => out.forEach(cb), traverseVisible: () => {} };
+  }
+  // The gradient background is drawn by three.js's own full-screen plane
+  // (WebGLBackground), not part of the scene: a copy of it stands in.
+  let bgStandIn = null;
+  function backgroundStandIn() {
+    const bg = scene.background;
+    if (!bg || !bg.isTexture || bg.isCubeTexture || bg.mapping !== THREE.UVMapping) return null;
+    if (!bgStandIn) {
+      const mat = new THREE.ShaderMaterial({
+        name: "BackgroundMaterial", uniforms: THREE.UniformsUtils.clone(THREE.ShaderLib.background.uniforms),
+        vertexShader: THREE.ShaderLib.background.vertexShader, fragmentShader: THREE.ShaderLib.background.fragmentShader,
+        side: THREE.FrontSide, depthTest: false, depthWrite: false, fog: false, allowOverride: false,
+      });
+      Object.defineProperty(mat, "map", { get() { return this.uniforms.t2D.value; } });
+      const geo = new THREE.PlaneGeometry(2, 2);
+      geo.deleteAttribute("normal");
+      bgStandIn = new THREE.Mesh(geo, mat);
+    }
+    bgStandIn.material.uniforms.t2D.value = bg;
+    bgStandIn.material.toneMapped = THREE.ColorManagement.getTransfer(bg.colorSpace) !== THREE.SRGBTransfer;
+    return bgStandIn;
+  }
+  // The sun's shadow pass draws every caster with three.js's own depth
+  // material (WebGLShadowMap getDepthMaterial), out of reach here. Programs are
+  // shared by key, so a stand-in with the same settings — the face side the
+  // shadow pass uses, instancing, the caster's alpha and clipping, drawn into a
+  // render target — compiles the very program that pass will look up. The
+  // stand-ins are kept: a program lives as long as a material uses it.
+  const SHADOW_SIDE = { [THREE.FrontSide]: THREE.BackSide, [THREE.BackSide]: THREE.FrontSide, [THREE.DoubleSide]: THREE.DoubleSide };
+  const depthStandIns = new Map(); // signature → stand-in mesh
+  const depthTarget = new THREE.WebGLRenderTarget(1, 1);
+  function shadowSamples() {
+    const out = [];
+    if (!sun.castShadow) return out;
+    scene.traverse((o) => {
+      if (!o.castShadow || !(o.isMesh || o.isLine || o.isPoints) || !o.geometry) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!m || o.customDepthMaterial) continue;
+        const own = (renderer.localClippingEnabled && m.clipShadows && m.clippingPlanes && m.clippingPlanes.length) || (m.displacementMap && m.displacementScale !== 0) || (m.alphaMap && m.alphaTest > 0) || (m.map && m.alphaTest > 0) || m.alphaToCoverage;
+        const side = m.shadowSide !== null ? m.shadowSide : SHADOW_SIDE[m.side];
+        const sig = `${side}|${o.isInstancedMesh ? "i" : o.isLine ? "l" : o.isPoints ? "p" : "m"}|${attrKey(o.geometry)}|${own ? m.uuid : ""}`;
+        if (depthStandIns.has(sig)) continue;
+        const d = new THREE.MeshDepthMaterial();
+        d.side = side;
+        if (own) Object.assign(d, { alphaMap: m.alphaMap, alphaTest: m.alphaToCoverage ? 0.5 : m.alphaTest, map: m.map, clipShadows: m.clipShadows, clippingPlanes: m.clippingPlanes, clipIntersection: m.clipIntersection, displacementMap: m.displacementMap, displacementScale: m.displacementScale });
+        const s = o.isInstancedMesh ? new THREE.InstancedMesh(o.geometry, d, 1) : o.isLine ? new THREE.LineSegments(o.geometry, d) : o.isPoints ? new THREE.Points(o.geometry, d) : new THREE.Mesh(o.geometry, d);
+        depthStandIns.set(sig, s);
+        out.push(s);
+      }
+    });
+    return out;
+  }
+  let gizmoWarm = false;
+  function warmShaders() {
+    shadersStale = false;
+    const jobs = [renderer.compileAsync(shaderSamples(scene), camera, scene)];
+    const casters = shadowSamples();
+    if (casters.length) {
+      const was = renderer.getRenderTarget();
+      renderer.setRenderTarget(depthTarget); // the shadow pass draws into its map
+      jobs.push(renderer.compileAsync({ traverse: (cb) => casters.forEach(cb), traverseVisible: () => {} }, sun.shadow.camera, scene));
+      renderer.setRenderTarget(was);
+    }
+    if (!gizmoWarm) { gizmoWarm = true; jobs.push(renderer.compileAsync(gizmoScene, gizmoCam)); }
+    const done = Promise.all(jobs);
+    const timeout = new Promise((r) => setTimeout(r, 15000)); // a lost context never reports ready
+    const p = (warming = Promise.race([done, timeout]).catch(() => {}).then(() => {
+      if (warming === p) warming = null;
+      dirty = true;
+    }));
+  }
+  // Resolves when the next frame can be drawn without waiting for shaders
+  // (before a screenshot, say).
+  async function ready() {
+    await environmentReady;
+    if (shadersStale) warmShaders();
+    return warming;
+  }
+
   let lastT = performance.now();
   let lastFrame = { calls: 0, triangles: 0 }; // what the last main pass drew
+  const frameCallbacks = new Set(); // after each drawn frame (the scale bar follows the zoom)
   renderer.setAnimationLoop((now) => {
     if (disposed) return;
     const dt = Math.min(0.1, (now - lastT) / 1000);
@@ -1175,6 +1343,9 @@ export function createViewer(container, options = {}) {
     const changed = (opts.navMode !== "walk" && controls.update()) || zoomed;
     if (changed && camera === ortho) syncOrtho();
     if (changed || dirty || anim || walk.keys.size) {
+      if (!hasEnvironment) { dirty = true; return; } // skyEnvironment
+      if (shadersStale) warmShaders();
+      if (warming) { dirty = true; return; } // drawn once the shaders are ready
       prepareFrame();
       fitGrid();
       fitAxes();
@@ -1183,6 +1354,7 @@ export function createViewer(container, options = {}) {
       lastFrame = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
       renderGizmo();
       dirty = false;
+      for (const cb of frameCallbacks) { try { cb(); } catch (err) { console.error(err); } }
     }
   });
 
@@ -1211,8 +1383,8 @@ export function createViewer(container, options = {}) {
     if (["openDoors", "furniture", "roofs", "levels", "phase", "hiddenTags"].some(changed)) rebuild();
     else if (["style", "edges", "edgeColor", "profiles", "profileWidth", "colorByTag"].some(changed)) applyStyle();
     if (changed("section")) applyClipping();
-    if (["grid", "units3d", "ground"].some(changed)) buildGrid();
-    if (changed("axes")) buildAxes();
+    if (["grid", "units3d", "ground", "labels"].some(changed)) buildGrid();
+    if (["axes", "labels"].some(changed)) buildAxes();
     if (["dimensions", "units3d"].some(changed)) buildDims();
     if (changed("ground")) buildGround();
     if (["sunAzimuth", "sunAltitude", "north"].some(changed)) placeSun();
@@ -1230,6 +1402,7 @@ export function createViewer(container, options = {}) {
     if (changed("twoPoint") && !opts.twoPoint) { persp.updateProjectionMatrix(); camera.lookAt(controls.target); }
     sk.setOptions(o, changed);
     invalidateShadows();
+    shadersStale = true;
     dirty = true;
   }
 
@@ -1389,7 +1562,9 @@ export function createViewer(container, options = {}) {
   return {
     setProject, setOptions, setView, zoomToFit, highlight, onPick, screenshot, orbit, pan, setNavMode, walkKey,
     onTool: (cb) => { toolCallbacks.add(cb); return () => toolCallbacks.delete(cb); }, clearMeasures, measureCount: () => measures.children.length / 2, getCamera, setCamera,
-    exportFile, exportRoot, resize, dispose, stats, rebuild,
+    exportFile, exportRoot, resize, dispose, stats, rebuild, ready,
+    // Screen pixels per metre at the orbit target (perspective) or anywhere (orthographic).
+    pxPerMetre: () => gridPxPerUnit(), onFrame: (cb) => { frameCallbacks.add(cb); return () => frameCallbacks.delete(cb); },
     pickAt, onDblPick: (cb) => { dblCallbacks.add(cb); return () => dblCallbacks.delete(cb); }, setLampState: (id, light) => { const ok = setLampState(id, light); refreshMaterials(); return ok; }, updateLamps: (p) => updateLamps(p || project), lampInfo: () => { lampRig.update(camera.position, { clip: renderer.clippingPlanes.length ? clipPlane : null }); return lampRig.info(); },
     getOptions: () => ({ ...opts }),
     skKey: (e, isDown) => sk.key(e, isDown), ...sk.api,

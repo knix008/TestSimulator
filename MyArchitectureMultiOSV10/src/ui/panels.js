@@ -52,6 +52,14 @@ export function furnitureThumb(kind, w = 44, hgt = 36, themeName = "dark") {
 // ---------------------------------------------------------------- left panel
 const libState = { query: "", category: "" };
 
+// Each category of the library is a group with its icon and title that folds
+// (remembered in the settings, libOpen). Only the recently used start open.
+const CATEGORY_ICONS = {
+  recent: "history", models: "model3d", Living: "sofa", Dining: "catDining", Bedroom: "catBed", Kitchen: "catKitchen", Bathroom: "catBath",
+  Office: "monitor", Commercial: "catShop", Restaurant: "catRestaurant", Outdoor: "catOutdoor", Healthcare: "catHealth", School: "catSchool",
+  Fitness: "catFitness", Building: "building", Lighting: "bulb", Other: "dots",
+};
+
 export function renderLeft(app, host) {
   host.innerHTML = "";
   if (app.tab === "start") return undefined;
@@ -60,8 +68,38 @@ export function renderLeft(app, host) {
   if (app.views && (app.tab === "plan" || app.tab === "3d" || app.tab === "views")) app.views.renderLeft(host);
   if (app.tab === "plan") renderLibrary(app, host);
   if (app.tab === "3d") app.v3d.renderPanel(host);
+  foldPanels(app, host);
   addCollapse(app, host, "left");
   return undefined;
+}
+
+// Every section of the left panel folds to its head (icon and title stay),
+// remembered per tab in the settings (panelFold). The SketchUp panels fold
+// on their own (src/ui/skui.js fold).
+function foldPanels(app, host) {
+  const st = app.settings;
+  for (const panel of host.querySelectorAll(".panel")) {
+    const head = panel.querySelector(":scope > .panel-head");
+    if (!head || head.classList.contains("foldable") || !head.dataset.key) continue;
+    const key = `${app.tab}:${panel.dataset.panel || head.dataset.key}`;
+    const caret = h("span", { class: "fold-ico" });
+    const show = () => {
+      const folded = !!(st.panelFold && st.panelFold[key]);
+      panel.classList.toggle("folded", folded);
+      caret.innerHTML = icon(folded ? "chevronRight" : "chevronDown", 12);
+      head.setAttribute("aria-expanded", String(!folded));
+    };
+    head.classList.add("foldable");
+    head.dataset.fold = key;
+    head.prepend(caret);
+    head.addEventListener("click", (e) => {
+      if (e.target.closest("button, input, select, a")) return; // the head's own buttons
+      st.panelFold = { ...(st.panelFold || {}), [key]: !(st.panelFold && st.panelFold[key]) };
+      app.saveSettings();
+      show();
+    });
+    show();
+  }
 }
 
 // The collapsed side panel: icon and vertical title; a click opens it again.
@@ -77,6 +115,37 @@ function addCollapse(app, host, side) {
   const head = host.querySelector(".panel-head");
   if (!head) return;
   head.append(h("button", { class: "icon-btn collapse-btn", title: t("Hide the panel"), "data-collapse": side, html: icon(side === "left" ? "chevronLeft" : "chevronRight", 14), onclick: () => app.run(side === "left" ? "view.left" : "view.right") }));
+}
+
+// A folding group of the library: a head (arrow, icon, title, count) and the
+// box its rows go in. Folding is done in place, so the list keeps its scroll.
+function libGroup(app, list, key, title, count, unfold) {
+  const st = app.settings;
+  const isOpen = () => unfold || (st.libOpen ? st.libOpen.includes(key) : key === "recent");
+  const caret = h("span", { class: "lg-caret" });
+  const box = h("div", { class: "lib-group-items" });
+  const head = h("div", { class: "lib-group", role: "button", tabindex: "0", "data-cat": key },
+    caret, h("span", { class: "lg-ico", html: icon(CATEGORY_ICONS[key] || "furniture", 15) }), h("span", { class: "lg-title" }, title), h("small", {}, String(count)));
+  const show = () => {
+    const open = isOpen();
+    caret.innerHTML = icon(open ? "chevronDown" : "chevronRight", 12);
+    head.classList.toggle("open", open);
+    head.setAttribute("aria-expanded", String(open));
+    box.hidden = !open;
+  };
+  const toggle = () => {
+    if (unfold) return; // a search shows everything it found
+    const open = new Set(st.libOpen || ["recent"]);
+    if (open.has(key)) open.delete(key); else open.add(key);
+    st.libOpen = [...open];
+    app.saveSettings();
+    show();
+  };
+  head.addEventListener("click", toggle);
+  head.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggle(); } });
+  show();
+  list.append(head, box);
+  return box;
 }
 
 function renderLibrary(app, host) {
@@ -104,33 +173,34 @@ function renderLibrary(app, host) {
     const q = libState.query.trim().toLowerCase();
     let defs = allFurniture().filter((d) => !libState.category || d.cat === libState.category);
     if (q) defs = defs.filter((d) => `${d.kind} ${d.name} ${t(d.name)} ${d.cat} ${t(d.cat)}`.toLowerCase().includes(q));
-    const groups = new Map();
+    const groups = new Map(); // category key → {title, items}
     const recent = !q && !libState.category ? (app.settings.recentFurniture || []).map(furnitureDef).filter(Boolean) : [];
-    if (recent.length) groups.set(t("Recently used"), recent);
+    if (recent.length) groups.set("recent", { title: t("Recently used"), items: recent });
     for (const d of defs) {
-      const g = t(d.cat);
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g).push(d);
+      if (!groups.has(d.cat)) groups.set(d.cat, { title: t(d.cat), items: [] });
+      groups.get(d.cat).items.push(d);
     }
-    for (const [g, items] of groups) {
-      list.append(h("div", { class: "lib-group" }, g));
+    // A search or a chosen category shows what it found, unfolded.
+    const unfold = !!q || !!libState.category;
+    for (const [key, { title, items }] of groups) {
+      const box = libGroup(app, list, key, title, items.length, unfold);
       for (const d of items) {
         const row = h("div", { class: "lib-item", draggable: "true", "data-kind": d.kind, title: `${t(d.name)} — ${d.w} × ${d.d} × ${d.h} mm` }, furnitureThumb(d.kind, 44, 36, app.themeName()),
           h("div", {}, h("div", { class: "nm" }, t(d.name)), h("div", { class: "ds" }, `${d.w} × ${d.d} × ${d.h}`)));
         row.addEventListener("click", () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: d.kind }); app.plan.canvas.focus(); });
         row.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/x-myarch-furniture", d.kind); e.dataTransfer.effectAllowed = "copy"; });
-        list.append(row);
+        box.append(row);
       }
     }
     // Imported 3D models (assets in this project).
     const models = p.models.filter((m) => !q || m.name.toLowerCase().includes(q));
     if (models.length && !libState.category) {
-      list.append(h("div", { class: "lib-group" }, t("Imported 3D models")));
+      const box = libGroup(app, list, "models", t("Imported 3D models"), models.length, !!q);
       for (const m of models) {
         const row = h("div", { class: "lib-item", title: `${m.name} — ${m.size.map(Math.round).join(" × ")} mm` }, h("span", { class: "lib-ico", html: icon("model3d", 26) }),
           h("div", {}, h("div", { class: "nm" }, m.name), h("div", { class: "ds" }, `${(m.format || "").toUpperCase()} · ${m.size.map((v) => Math.round(v)).join(" × ")}`)));
         row.addEventListener("click", () => { app.setTab("plan"); app.plan.setTool("furniture", { kind: "model", model: m.id }); });
-        list.append(row);
+        box.append(row);
       }
     }
     if (!list.children.length) list.append(h("div", { class: "empty-note" }, t("Nothing matches. Try another word, or import a 3D model.")));

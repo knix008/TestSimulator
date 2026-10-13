@@ -13,12 +13,14 @@ export const HIDDEN_LAYER = 1;
 
 // Meshes that are worth batching: plain opaque meshes whose geometry is used
 // more than once. Glowing lamp parts change material on a switch, transparent
-// ones need sorting, and skinned / morphing models animate: they stay as they are.
+// ones need sorting (unless their material says the order does not matter:
+// userData.orderFree, the x-ray style), and skinned / morphing models animate:
+// they stay as they are.
 function eligible(o) {
   if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.isBatchedMesh) return false;
   if (o.userData.glow || o.userData.noBatch) return false;
   const m = o.userData.hl || o.material; // the material under a highlight
-  if (!m || Array.isArray(m) || m.transparent) return false;
+  if (!m || Array.isArray(m) || (m.transparent && !m.userData.orderFree)) return false;
   const g = o.geometry;
   if (!g || !g.attributes.position || (g.morphAttributes && Object.keys(g.morphAttributes).length)) return false;
   return true;

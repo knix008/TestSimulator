@@ -14,6 +14,7 @@ import * as ops from "./ops.js";
 import { ELEMENT_TOOLS, OPEN_CHAIN_TOOLS, pointerElement, finishElementChain, renderElementOverlay, stairFromClicks, ensureCurtainType } from "./element-tools.js";
 import { dragElementHandle, elementHandles, PTS_KINDS } from "./elements.js";
 import { elementMenuItems } from "../ui/elements.js";
+import { createScaleBar } from "../ui/scalebar.js";
 
 export const PLAN_TOOLS = {
   select: { icon: "select", label: "Select", key: "Esc", hint: "Click to select, drag to move (joined walls follow), drag a wall end or room corner to reshape. Drag empty space to pan, Shift+drag to box-select. Double-click to edit." },
@@ -90,11 +91,13 @@ export class PlanEditor {
     this.levelId = null;
     this.vp = new Viewport(this.canvas, {
       minScale: 0.002, maxScale: 3,
-      onRender: (ctx, vp) => { this.render(ctx, vp); this.renderRulers(ctx, vp); },
+      onRender: (ctx, vp) => { this.render(ctx, vp); this.renderRulers(ctx, vp); if (this.scaleBar) this.scaleBar.update(); },
       onPointer: (type, e, m) => this.pointer(type, e, m),
       onViewChange: () => this.app.updateStatus(),
     });
     this.fitted = false;
+    // Scale bar over the plan (View → Show scale bar); vp.scale is CSS px per mm.
+    this.scaleBar = createScaleBar(app, host, { view: "plan", pxPerMm: () => this.vp.scale, shown: () => app.settings.showScaleBar !== false, imperial: () => app.settings.units === "ft" });
   }
 
   get p() { return this.store.project; }

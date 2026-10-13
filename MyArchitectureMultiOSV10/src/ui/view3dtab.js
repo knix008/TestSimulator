@@ -13,6 +13,7 @@ import { furnitureDef, isLight } from "../lib/furniture.js";
 import { sunPosition, daylight } from "../core/sun.js";
 import { switchLamps, lampSummary } from "./lights.js";
 import { SketchupUI } from "./skui.js";
+import { createScaleBar } from "./scalebar.js";
 
 const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Rear", "4"], ["left", "Left side", "5"], ["right", "Right side", "6"], ["bird", "Bird's eye", "7"]];
 const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["xray", "X-ray"]];
@@ -27,7 +28,7 @@ export class View3DTab {
     this.highlighted = [];
     this.picked = null;
     this.hiddenLevels = new Set();
-    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: true, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
+    this.opts = { style: "realistic", navMode: "orbit", ortho: false, section: null, openDoors: false, furniture: true, roofs: true, grid: true, axes: true, labels: app.settings.labels3d !== false, scaleBar: app.settings.scaleBar3d !== false, gizmo: true, dimensions: false, ground: true, tool: "none", fog: false, solids: true, night: false };
     this.paintMaterial = "brick";
     // SketchUp-style tools, panels and edits (src/ui/skui.js); tags hidden in 3D.
     this.hiddenTags = new Set();
@@ -164,6 +165,9 @@ export class View3DTab {
         this.opts.ground = st.ground3d !== false;
         this.viewer = createViewer(wrap, { ...this.opts, ...this.settingOpts(), ...this.sk.viewerOpts(), levels: this.levelSet(), translate: t });
         this.viewer.onTool((ev) => this.onTool(ev));
+        // Scale bar at the orbit target's distance (a perspective has no one scale).
+        this.scaleBar = createScaleBar(this.app, this.host, { view: "3d", pxPerMm: () => this.viewer.pxPerMetre() / 1000, shown: () => !!this.opts.scaleBar, imperial: () => this.app.settings.units3d === "ft", note: t("measured at the centre of rotation") });
+        this.viewer.onFrame(() => this.scaleBar.update());
         this.viewer.onPick((info) => {
           this.picked = info;
           // Shift+click adds to the selection (and takes away), as in SketchUp.
@@ -198,7 +202,7 @@ export class View3DTab {
       e.preventDefault();
       if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
       down = null;
-      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "sk.line", "sk.rect", "sk.move", "sk.rotate", "sk.offset", "sk.sectionplane", "-", "sk.union", "sk.subtract", "sk.makeComponent", "sk.makeUnique", "sk.explode", "sk.hide", "sk.unhideAll", "-", "light.all", "v3d.night", "-", "v3d.addScene", "v3d.screenshot"])];
+      const items = [...this.app.undoMenuItems(), "-", ...this.app.menuItems(["v3d.iso", "v3d.top", "v3d.front", "-", "v3d.walk", "v3d.section", "v3d.ortho", "v3d.openDoors", "v3d.labels", "-", "v3d.pushpull", "v3d.paint", "v3d.tape", "sk.line", "sk.rect", "sk.move", "sk.rotate", "sk.offset", "sk.sectionplane", "-", "sk.union", "sk.subtract", "sk.makeComponent", "sk.makeUnique", "sk.explode", "sk.hide", "sk.unhideAll", "-", "light.all", "v3d.night", "-", "v3d.addScene", "v3d.screenshot"])];
       if (this.picked && this.picked.id) items.unshift({ label: t("Show in plan"), icon: "floorplan", action: () => this.app.crossProbe([this.picked.id], "plan") }, "-");
       // Right-click on a lamp: switch it.
       const under = this.viewer ? this.viewer.pickAt(e.clientX, e.clientY) : null;
@@ -280,6 +284,17 @@ export class View3DTab {
     return !!(it && it.kind === "furniture" && isLight(it.obj));
   }
 
+  // After a project is opened its 3D model is built while the app is idle, so
+  // the first switch to the 3D tab shows it at once (shaders compile in the
+  // background, viewer.js warmShaders).
+  prebuild() {
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 300));
+    idle(() => {
+      if (this.app.tab === "3d" || !this.dirty) return;
+      this.ensure().then((v) => { if (v && this.app.tab !== "3d") this.syncModel(); });
+    }, { timeout: 4000 });
+  }
+
   markDirty() {
     this.dirty = true;
     if (this.app.tab === "3d" && this.viewer) {
@@ -312,6 +327,8 @@ export class View3DTab {
 
   setOpt(k, v) {
     this.opts[k] = v;
+    if (k === "labels") { this.app.settings.labels3d = !!v; this.app.saveSettings(); } // kept for the next run
+    if (k === "scaleBar") { this.app.settings.scaleBar3d = !!v; this.app.saveSettings(); if (this.scaleBar) this.scaleBar.refresh(); }
     if (this.viewer) this.viewer.setOptions({ [k]: v });
     this.app.renderToolbar();
     this.app.renderLeft();
@@ -392,7 +409,7 @@ export class View3DTab {
     const lastView = VIEWS.find((v) => v[0] === this.lastView) || VIEWS[0];
     const views = menuSplit("view", "box3d", `${t("Standard views")}: ${t(lastView[1])} (${lastView[2]})`, () => this.setView(lastView[0]),
       () => VIEWS.map(([id, label, key]) => ({ label: t(label), icon: "box3d", shortcut: key, checked: id === lastView[0], action: () => { this.lastView = id; this.setView(id); this.app.renderToolbar(); } })));
-    const STYLE_ICONS = { realistic: "image", white: "box3d", lines: "line", xray: "eyeOff" };
+    const STYLE_ICONS = { realistic: "image", white: "box3d", lines: "line", xray: "xray" };
     const curStyle = STYLES.find(([id]) => id === this.opts.style) || STYLES[0];
     const styleMenu = () => STYLES.map(([id, label]) => ({ label: t(label), icon: STYLE_ICONS[id] || "palette", checked: id === this.opts.style, action: () => this.setOpt("style", id) }));
     const styles = menuSplit("style", STYLE_ICONS[curStyle[0]] || "palette", `${t("Render style")}: ${t(curStyle[1])}`, (e) => {
@@ -401,7 +418,7 @@ export class View3DTab {
     }, styleMenu);
     const tog = (k, ic, label) => h("button", { class: `icon-btn ${this.opts[k] ? "on" : ""}`, title: t(label), onclick: () => this.setOpt(k, !this.opts[k]), html: icon(ic, 18) });
     // Show / hide parts of the model (one menu keeps the toolbar on one row).
-    const SHOW = [["openDoors", "Open doors"], ["furniture", "Furniture"], ["roofs", "Roofs"], ["fog", "Fog"], ["dimensions", "Building dimensions"]];
+    const SHOW = [["openDoors", "Open doors"], ["furniture", "Furniture"], ["roofs", "Roofs"], ["fog", "Fog"], ["dimensions", "Building dimensions"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"]];
     const showItems = () => SHOW.map(([k, label]) => ({ label: t(label), checked: !!this.opts[k], action: () => this.setOpt(k, !this.opts[k]) }));
     const showMenu = h("div", { class: "split-btn", "data-show-split": "1" },
       h("button", { class: "icon-btn", title: `${t("Show")}: ${SHOW.map(([, l]) => t(l)).join(", ")}`, "data-show-menu": "main", html: icon("eye", 18), onclick: (e) => { const r = e.currentTarget.parentElement.getBoundingClientRect(); contextMenu(showItems(), r.left, r.bottom + 2); } }),
@@ -456,7 +473,7 @@ export class View3DTab {
     const vis = h("div", { class: "panel" });
     vis.append(panelHead("eye", t("Show")));
     const vb = h("div", { class: "panel-body" });
-    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
+    for (const [k, label] of [["furniture", "Furniture"], ["roofs", "Roofs"], ["solids", "Mass models"], ["openDoors", "Open doors"], ["ground", "Ground"], ["grid", "Grid"], ["axes", "Axes"], ["labels", "Grid and axis numbers"], ["scaleBar", "Scale bar"], ["dimensions", "Building dimensions"], ["gizmo", "Orientation gizmo"], ["fog", "Fog"], ["night", "Night (interior lighting)"]]) {
       vb.append(h("div", {}, checkbox(!!this.opts[k], t(label), { onChange: (v) => this.setOpt(k, v) })));
     }
     vis.append(vb);
