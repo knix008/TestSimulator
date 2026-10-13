@@ -1122,6 +1122,11 @@ export const cases = [
     assert.ok(info.triangles > 100, 'solid drawn');
     assert.ok(info.wires >= 2, 'lines on the ground');
     assert.ok(info.axes && info.axisInfo.ticks >= 3 && info.tickLabels >= 9, `axes with ticks ${JSON.stringify(info.axisInfo)}`);
+    // The numbers keep their size on screen: never above 13 px (at 100 %), even close up.
+    assert.ok(info.tickPx > 2 && info.tickPx <= 13.5, `axis numbers ${info.tickPx} px`);
+    await m(app, '(k.actions.view3d().zoom(6), 1)');
+    const close = await m(app, 'k.actions.view3d().inspect().tickPx');
+    assert.ok(close <= 13.5, `close up the numbers do not grow: ${close} px`);
     assert.equal(await app.main.eval(`document.querySelector('#cad-canvas').hidden`), true);
     const missing = await app.main.eval(`[...document.querySelectorAll('.view3d-bar button')].filter((b) => !b.title).length`);
     assert.equal(missing, 0, 'every 3D button has a tooltip');

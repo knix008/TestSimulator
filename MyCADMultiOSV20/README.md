@@ -13,7 +13,7 @@ FreeCAD(https://www.freecad.org)의 Part · Part Design · Sketcher · TechDraw 
 | 3D 솔리드 | 상자 · 원기둥 · 구 · 원뿔 · 토러스 · 튜브 · 쐐기 · 각기둥 · 타원체 · 나선, 돌출(Pad) · 회전(Revolve) · 로프트 · 스윕, 불리언(합치기 · 빼기 · 교차, 트리 유지), 단면, 투상도(숨은선 점선), 위치 X·Y·Z + 회전 X·Y·Z |
 | 3D 보기 | 회전 · 확대 · 시점 4종, 좌표축 눈금(도형에 가려짐), 바닥 격자 5×5, 마우스로 옮기는 조명(해) · 켜기/끄기 · 속성, 와이어프레임, 솔리드별 색 · 선택 강조 · 클릭으로 선택 |
 | 파일 | .mcad(자체) · **2D: DXF(R12–2018 · 바이너리 · ANSI 코드 페이지) · SVG · IGES · HP-GL/2 읽기/쓰기, Gerber · Excellon 읽기, DXF 2000 · PNG 쓰기** · **3D: FCStd · STEP · STL/OBJ/PLY/OFF/AMF/3MF 읽기/쓰기** · 인쇄(미리보기 · 쪽 설정 · 범위) |
-| 배우기 | **시작 페이지**(메뉴 줄 맨 왼쪽 집 버튼 · 탭 줄 집 탭, 맞물려 도는 3D 기어 배경, 할 수 있는 일 12가지(건축 도면 포함) ↔ 레슨 · 샘플, 샘플 33개 썸네일, 최근 파일, 오늘의 팁) · **따라 하는 튜토리얼**(16레슨 83단계, 보기/직접 하기) · [doc/Tutorial.md](doc/Tutorial.md)(그림 포함) · 튜토리얼 동영상 `MyCAD-Tutorial.mp4` |
+| 배우기 | **시작 페이지**(메뉴 줄 맨 왼쪽 집 버튼 · 탭 줄 집 탭, 맞물려 도는 3D 기어 배경, 할 수 있는 일 12가지(건축 도면 포함) ↔ 레슨 · 샘플, 샘플 33개 썸네일, 최근 파일, 오늘의 팁) · **따라 하는 튜토리얼**(16레슨 83단계, 보기/직접 하기, 패널은 별도 창) · [doc/Tutorial.md](doc/Tutorial.md)(그림 포함) · 튜토리얼 동영상 `MyCAD-Tutorial.mp4` |
 | 화면 | 메뉴/팝업은 독립 창, 툴바 1줄/2줄(FreeCAD 식 Part 툴바), 왼쪽 패널 묶음 접기, 고정 크기 설정 창, 컨트롤 높이 · 열 정렬 통일, 테마 40종 + 사용자, 한국어/English, 최근 파일, 배경 이미지, 상태 표시줄 |
 
 FreeCAD 와 기능별 대응은 앱의 **도움말 › 기능표** 에서, 읽고 쓰는 파일 형식은 **도움말 › 프로그램 정보 › 지원 파일 형식** 에서 볼 수 있습니다 (지원 / 부분 지원 / 미지원).
@@ -49,7 +49,7 @@ MYCAD_E2E_GROUPS="3D 솔리드" npm test -- --only desktop   # 바뀐 GUI 그룹
 
 | 분류 | 내용 |
 | --- | --- |
-| js | 단위 테스트 120개: 기하, 객체, 부품 36종, 단위 변환, 솔리드 · 불리언 · 단면 · 투상(숨은선), 3D 파일(ZIP · deflate · XML · STEP · FCStd), 2D 파일(DXF 텍스트·바이너리·cp949, SVG, IGES, HP-GL, Gerber, Excellon — FreeCAD · ezdxf 가 만든 파일 포함), 시작 페이지 샘플 목록 · 튜토리얼 레슨 · doc/ 그림 일치, 대응표, 번역, 아이콘 |
+| js | 단위 테스트 129개: 도면 검사(문제 패널), 기하, 객체, 부품 36종, 단위 변환, 솔리드 · 불리언 · 단면 · 투상(숨은선), 3D 파일(ZIP · deflate · XML · STEP · FCStd), 2D 파일(DXF 텍스트·바이너리·cp949, SVG, IGES, HP-GL, Gerber, Excellon — FreeCAD · ezdxf 가 만든 파일 포함), 시작 페이지 샘플 목록 · 튜토리얼 레슨 · doc/ 그림 일치, 대응표, 번역, 아이콘 |
 | freecad | FreeCADCmd 로 MyCAD 가 쓴 FCStd · STEP · STL · OBJ · PLY · OFF · 3MF 와 samples/exports 를 열어 물체별 부피 · 위치 비교, 2D IGES 는 곡선 길이, SVG · DXF 2000 은 FreeCAD 의 Draft 로 열어 비교 (`FREECAD_CMD` 또는 설치된 FreeCAD, 없으면 건너뜀) |
 | package · rust | 아이콘 · 설치 프로그램 설정 · 파일 형식 등록 · Rust 백엔드 |
 | web · desktop | 웹 빌드(헤드리스 Edge)와 실제 앱(WebView2 CDP)을 자동 조작하는 GUI 테스트 — 시작 페이지, 튜토리얼 83단계(보기 · 직접 하기), 단위 · 축척 막대, 2D CAD 형식 열기 포함 |
