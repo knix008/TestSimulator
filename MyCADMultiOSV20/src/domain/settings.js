@@ -46,6 +46,7 @@ export function defaultSettings(language = 'ko') {
     showRulers: true,
     // Scale bar on the 2D canvas: shown, where (px from the bottom-left corner) and how long (px).
     showScaleBar: true,
+    showProblems: true,
     scaleBar: { x: 36, y: 14, width: 120 },
     extrudeHeight: 10,
     // Size of the numbers on the 3D axes (% of the normal size).
@@ -115,7 +116,7 @@ export function normalizeSettings(raw = {}, language) {
     };
   }
   s.collapsedSections = Array.isArray(s.collapsedSections) ? [...new Set(s.collapsedSections.filter((id) => typeof id === 'string' && /^[a-zA-Z]{1,20}$/.test(id)))] : [];
-  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
+  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'showProblems', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   s.snapModes = Object.fromEntries(SNAP_MODES.map((mode) => [mode, typeof s.snapModes?.[mode] === 'boolean' ? s.snapModes[mode] : base.snapModes[mode]]));

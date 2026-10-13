@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.194Z",
+ "saved": "2026-10-13T09:43:02.682Z",
  "drawing": {
-  "id": "dwg-mv6ej8vf015f2v73",
+  "id": "dwg-mv6htcso013aa6re",
   "title": "출력축 상세도 (S 1:1)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:12.171Z",
-  "updated": "2026-10-13T08:11:12.171Z",
+  "created": "2026-10-13T09:43:02.664Z",
+  "updated": "2026-10-13T09:43:02.664Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8vf015g2hk6",
+    "id": "e-mv6htcso013b384u",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -79,11 +79,11 @@
     "lineWidth": 0.5,
     "points": [
      {
-      "x": 1.5,
+      "x": 0,
       "y": 10.5
      },
      {
-      "x": 0,
+      "x": 1.5,
       "y": 12
      },
      {
@@ -93,10 +93,6 @@
      {
       "x": 30,
       "y": 11
-     },
-     {
-      "x": 30,
-      "y": 15
      },
      {
       "x": 30,
@@ -115,20 +111,12 @@
       "y": 20
      },
      {
-      "x": 55,
-      "y": 20
-     },
-     {
       "x": 124,
       "y": 20
      },
      {
       "x": 125,
       "y": 19
-     },
-     {
-      "x": 125,
-      "y": 25
      },
      {
       "x": 125,
@@ -147,20 +135,12 @@
       "y": 20
      },
      {
-      "x": 140,
-      "y": 20
-     },
-     {
       "x": 184,
       "y": 20
      },
      {
       "x": 185,
       "y": 19
-     },
-     {
-      "x": 185,
-      "y": 15
      },
      {
       "x": 185,
@@ -188,18 +168,10 @@
      },
      {
       "x": 185,
-      "y": -15
-     },
-     {
-      "x": 185,
       "y": -19
      },
      {
       "x": 184,
-      "y": -20
-     },
-     {
-      "x": 140,
       "y": -20
      },
      {
@@ -220,18 +192,10 @@
      },
      {
       "x": 125,
-      "y": -25
-     },
-     {
-      "x": 125,
       "y": -19
      },
      {
       "x": 124,
-      "y": -20
-     },
-     {
-      "x": 55,
       "y": -20
      },
      {
@@ -252,10 +216,6 @@
      },
      {
       "x": 30,
-      "y": -15
-     },
-     {
-      "x": 30,
       "y": -11
      },
      {
@@ -263,18 +223,18 @@
       "y": -12
      },
      {
-      "x": 0,
+      "x": 1.5,
       "y": -12
      },
      {
-      "x": 1.5,
+      "x": 0,
       "y": -10.5
      }
     ],
     "closed": true
    },
    {
-    "id": "e-mv6ej8vf015h384j",
+    "id": "e-mv6htcso013c6ek9",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -286,7 +246,7 @@
     "y2": 15
    },
    {
-    "id": "e-mv6ej8vf015iwkj1",
+    "id": "e-mv6htcso013dqe7k",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -298,7 +258,7 @@
     "y2": 20
    },
    {
-    "id": "e-mv6ej8vf015jtj2r",
+    "id": "e-mv6htcso013eg6oy",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -310,7 +270,7 @@
     "y2": 25
    },
    {
-    "id": "e-mv6ej8vf015kvpge",
+    "id": "e-mv6htcso013f4ceo",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -322,7 +282,7 @@
     "y2": 20
    },
    {
-    "id": "e-mv6ej8vf015l4inf",
+    "id": "e-mv6htcso013gw3zu",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -334,7 +294,7 @@
     "y2": 15
    },
    {
-    "id": "e-mv6ej8vf015mk49f",
+    "id": "e-mv6htcso013h8sap",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -346,7 +306,7 @@
     "y2": 10.9
    },
    {
-    "id": "e-mv6ej8vf015nnxyt",
+    "id": "e-mv6htcso013ifq2z",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -358,7 +318,7 @@
     "y2": -10.9
    },
    {
-    "id": "e-mv6ej8vf015o7eaf",
+    "id": "e-mv6htcso013jfksr",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -372,7 +332,7 @@
     "radius": 6
    },
    {
-    "id": "e-mv6ej8vf015p1v8e",
+    "id": "e-mv6htcso013k31pn",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -386,7 +346,7 @@
     "radius": 4
    },
    {
-    "id": "e-mv6ej8vf015q1o0k",
+    "id": "e-mv6htcso013lu4u3",
     "type": "line",
     "layer": "center",
     "color": null,
@@ -398,7 +358,7 @@
     "y2": 0
    },
    {
-    "id": "e-mv6ej8vf015rvb4z",
+    "id": "e-mv6htcso013myukt",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -429,7 +389,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vf015sgxu4",
+    "id": "e-mv6htcso013nilkc",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -708,7 +668,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vf015th0rr",
+    "id": "e-mv6htcso013ofa46",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -991,7 +951,7 @@
     "scale": 1.2
    },
    {
-    "id": "e-mv6ej8vf015uhixz",
+    "id": "e-mv6htcso013pjcyp",
     "type": "line",
     "layer": "center",
     "color": null,
@@ -1003,7 +963,7 @@
     "y2": 0
    },
    {
-    "id": "e-mv6ej8vf015vgu7d",
+    "id": "e-mv6htcso013qgvrt",
     "type": "line",
     "layer": "center",
     "color": null,
@@ -1015,7 +975,7 @@
     "y2": 26
    },
    {
-    "id": "e-mv6ej8vf015wu3ht",
+    "id": "e-mv6htcso013rg0f7",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1032,7 +992,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf015x6r85",
+    "id": "e-mv6htcso013shtvh",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1044,7 +1004,7 @@
     "y2": -24
    },
    {
-    "id": "e-mv6ej8vf015y7tfl",
+    "id": "e-mv6htcso013t8bv1",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1056,7 +1016,7 @@
     "y2": 28
    },
    {
-    "id": "e-mv6ej8vf015zgxte",
+    "id": "e-mv6htcso013u5cqe",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1073,7 +1033,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf01605lg1",
+    "id": "e-mv6htcso013voll9",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1090,7 +1050,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0161gf58",
+    "id": "e-mv6htcso013waehj",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1114,7 +1074,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf01625z64",
+    "id": "e-mv6htcso013x4e64",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1138,7 +1098,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf0163gzb2",
+    "id": "e-mv6htcso013y87or",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1162,7 +1122,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf01649od5",
+    "id": "e-mv6htcso013z4479",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1186,7 +1146,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf0165mh1s",
+    "id": "e-mv6htcso0140mozl",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1210,7 +1170,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf0166p1y7",
+    "id": "e-mv6htcso014192za",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1234,7 +1194,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf0167zgen",
+    "id": "e-mv6htcso01427k3l",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1258,7 +1218,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8vf0168lqzk",
+    "id": "e-mv6htcso0143sszs",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1282,7 +1242,7 @@
     "text": "M24×2-6g"
    },
    {
-    "id": "e-mv6ej8vf0169th38",
+    "id": "e-mv6htcso0144cesv",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1306,7 +1266,7 @@
     "text": "Ø<> k6"
    },
    {
-    "id": "e-mv6ej8vf016a1dp0",
+    "id": "e-mv6htcso01454ipf",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1330,7 +1290,7 @@
     "text": "Ø<> h6"
    },
    {
-    "id": "e-mv6ej8vf016bwn2n",
+    "id": "e-mv6htcso0146nrwg",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1354,7 +1314,7 @@
     "text": "Ø<>"
    },
    {
-    "id": "e-mv6ej8vf016c29f7",
+    "id": "e-mv6htcso0147dqch",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1378,7 +1338,7 @@
     "text": "Ø<> h6"
    },
    {
-    "id": "e-mv6ej8vf016drc35",
+    "id": "e-mv6htcso0148r04e",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1402,7 +1362,7 @@
     "text": "Ø<> k6"
    },
    {
-    "id": "e-mv6ej8vf016e30b6",
+    "id": "e-mv6htcso01493uex",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1426,7 +1386,7 @@
     "text": "<> (키홈 12 P9)"
    },
    {
-    "id": "e-mv6ej8vf016fku4u",
+    "id": "e-mv6htcso014ajbfd",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1450,7 +1410,7 @@
     "text": "12 P9"
    },
    {
-    "id": "e-mv6ej8vf016geudz",
+    "id": "e-mv6htcso014bhvog",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -1474,7 +1434,7 @@
     "text": "35 0/−0.2"
    },
    {
-    "id": "e-mv6ej8vf016ho0sx",
+    "id": "e-mv6htcso014coj52",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1497,7 +1457,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vf016ieiss",
+    "id": "e-mv6htcso014diehk",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1514,7 +1474,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016jzuc8",
+    "id": "e-mv6htcso014ey1f3",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1537,7 +1497,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vf016k2wxl",
+    "id": "e-mv6htcso014flpe5",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1554,7 +1514,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016lkwuz",
+    "id": "e-mv6htcso014grkum",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1577,7 +1537,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vf016miu3v",
+    "id": "e-mv6htcso014hpk8r",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1594,7 +1554,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016nzm9e",
+    "id": "e-mv6htcso014i0noe",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1617,7 +1577,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vf016offr3",
+    "id": "e-mv6htcso014jadgm",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1634,7 +1594,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016pc2ct",
+    "id": "e-mv6htcso014kmgeo",
     "type": "leader",
     "layer": "0",
     "color": null,
@@ -1658,7 +1618,7 @@
     "size": 3
    },
    {
-    "id": "e-mv6ej8vf016q5ujf",
+    "id": "e-mv6htcso014l8ffs",
     "type": "leader",
     "layer": "0",
     "color": null,
@@ -1682,7 +1642,7 @@
     "size": 3
    },
    {
-    "id": "e-mv6ej8vf016r4351",
+    "id": "e-mv6htcso014mf0ef",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1699,7 +1659,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016si525",
+    "id": "e-mv6htcso014n839o",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1716,7 +1676,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016tq82l",
+    "id": "e-mv6htcso014o9dmz",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1733,7 +1693,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016uum8i",
+    "id": "e-mv6htcso014pzv9i",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1750,7 +1710,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016vo8jy",
+    "id": "e-mv6htcso014q1x5i",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1767,7 +1727,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf016wo95t",
+    "id": "e-mv6htcso014r2o57",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1794,7 +1754,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vf016xs0qp",
+    "id": "e-mv6htcso014sz8xa",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1806,7 +1766,7 @@
     "y2": -100
    },
    {
-    "id": "e-mv6ej8vf016ys74y",
+    "id": "e-mv6htcso014tk2m9",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1818,7 +1778,7 @@
     "y2": -90
    },
    {
-    "id": "e-mv6ej8vf016zaeqh",
+    "id": "e-mv6htcso014u1zz3",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1830,7 +1790,7 @@
     "y2": -80
    },
    {
-    "id": "e-mv6ej8vf0170riqv",
+    "id": "e-mv6htcso014vhtpx",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1842,7 +1802,7 @@
     "y2": -70
    },
    {
-    "id": "e-mv6ej8vf01717g35",
+    "id": "e-mv6htcso014w0lji",
     "type": "line",
     "layer": "0",
     "color": null,
@@ -1854,7 +1814,7 @@
     "y2": -70
    },
    {
-    "id": "e-mv6ej8vf0172r2zz",
+    "id": "e-mv6htcso014x2pa1",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1871,7 +1831,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0173vdaq",
+    "id": "e-mv6htcso014yc0yx",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1888,7 +1848,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0174xpye",
+    "id": "e-mv6htcso014zbqsy",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1905,7 +1865,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0175oqlg",
+    "id": "e-mv6htcso01508wne",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1922,7 +1882,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0176tes1",
+    "id": "e-mv6htcso0151pu7a",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1939,7 +1899,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf0177h98f",
+    "id": "e-mv6htcso0152yuox",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1956,7 +1916,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf01782iar",
+    "id": "e-mv6htcso0153ee2g",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1973,7 +1933,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf017936g0",
+    "id": "e-mv6htcso015461ek",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1990,7 +1950,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf017awnkt",
+    "id": "e-mv6htcso0155rx15",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -2007,7 +1967,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf017bcq5r",
+    "id": "e-mv6htcso0156iu3x",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -2024,7 +1984,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vf017chmsd",
+    "id": "e-mv6htcso0157ohw4",
     "type": "text",
     "layer": "text",
     "color": null,

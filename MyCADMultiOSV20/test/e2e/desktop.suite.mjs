@@ -107,7 +107,6 @@ async function expectPopupWindow(app, page, kind) {
   }
   const main = windows.find((w) => w.owner === 0);
   assert.ok(main, `main window found (${JSON.stringify(app.windowInfo().map((w) => [w.title, w.visible, w.owner]))})`);
-  if (!popup) console.log('TRACE', JSON.stringify(await page.eval('[window.__TRACE, document.title, document.querySelector(".popup-menu")?.dataset.title]')), JSON.stringify(app.windowInfo().map((w) => [w.title, w.visible, w.owner])));
   assert.ok(popup, `${kind}: its own OS window "<title> — ${TITLE}" (${JSON.stringify(windows.map((w) => w.title))})`);
   assert.equal(popup.owner, main.handle, `${kind}: owned by the main window (closes with it)`);
   assert.equal(popup.style & WS_THICKFRAME, 0, `${kind}: fixed size`);
@@ -160,7 +159,8 @@ export const cases = [
   { group: '창', name: '처음 실행: 시작 페이지가 보이고, 뒤에 시작하기 도면 (기어·치수·문자)', async run(app) {
     assert.equal(await m(app, 'k.state.home'), true, 'the start page greets you');
     assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false);
-    assert.equal(await app.main.eval(`Boolean(document.querySelector('.tut-panel:not([hidden])'))`), false, 'the tutorial does not start by itself');
+    assert.equal(app.windowInfo().filter((w) => w.visible && /튜토리얼|tutorial/i.test(w.title)).length, 0, 'the tutorial does not start by itself');
+    assert.equal(await m(app, 'Boolean(k.state.tutorial?.visible)'), false);
     const d = await drawing(app);
     assert.ok(d.entities.some((e) => e.type === 'part' && e.kind === 'gear'));
     assert.ok(d.entities.some((e) => e.type === 'dim'));
@@ -222,24 +222,35 @@ export const cases = [
     const bad = report.filter((r) => !r.run || r.check === false);
     assert.deepEqual(bad, [], JSON.stringify(bad));
   } },
-  { group: '튜토리얼', name: '도움말 메뉴에서 열기: 레슨 목록, 보기/직접 하기, 단계 이동, 끌어 옮기기, 닫기', async run(app) {
+  { group: '튜토리얼', name: '도움말 메뉴에서 열기: 별도 창(주 창 소유), 레슨 목록, 보기/직접 하기, 단계 이동, 머리글로 이동, 닫기', async run(app) {
     await fresh(app);
     const help = await openMenu(app, 'help');
     await chooseMenuItem(help, 'tutorial');
-    await app.main.waitFor(`document.querySelector('.tut-panel') && !document.querySelector('.tut-panel').hidden`);
-    assert.equal(await app.main.eval(`document.querySelectorAll('.tut-lesson option').length`), 16);
-    await app.main.click('[data-tut="mode-practice"]');
-    assert.ok(await app.main.eval(`document.querySelector('[data-tut="mode-practice"]').classList.contains('active')`));
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('.tut-todo'))`), 'practice shows what to do');
-    await app.main.click('[data-tut="skip"]');
-    await sleep(300);
-    assert.match(await app.main.eval(`document.querySelector('.tut-step span').textContent`), /2 \//);
-    const before = await app.main.eval(`document.querySelector('.tut-panel').getBoundingClientRect().left`);
-    const head = await app.main.center('.tut-head b');
-    await app.main.drag(head, { x: head.x - 200, y: head.y - 100 }, 6);
-    assert.ok(Math.abs(await app.main.eval(`document.querySelector('.tut-panel').getBoundingClientRect().left`) - (before - 200)) < 3, 'the panel moves with the mouse');
-    await app.main.click('[data-tut="close"]');
-    assert.equal(await app.main.eval(`document.querySelector('.tut-panel').hidden`), true);
+    // The panel is its own OS window (owned by the main window), not a box inside it.
+    const panel = await app.popup('tutorial');
+    await panel.waitFor(`document.querySelectorAll('.tut-lesson option').length === 16`);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.tut-panel'))`), false, 'no panel inside the main window');
+    let windows = [];
+    for (const until = Date.now() + 10000; Date.now() < until; await sleep(150)) {
+      windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
+      if (windows.some((w) => w.owner !== 0 && /튜토리얼/.test(w.title))) break;
+    }
+    const own = windows.find((w) => w.owner !== 0 && /튜토리얼/.test(w.title));
+    assert.ok(own, `its own window "따라 하는 튜토리얼 — ${TITLE}" (${JSON.stringify(windows.map((w) => w.title))})`);
+    assert.equal(own.owner, windows.find((w) => w.owner === 0)?.handle, 'owned by the main window');
+    assert.ok(await panel.eval(`document.querySelector('.tut-head').hasAttribute('data-tauri-drag-region')`), 'moved by its header');
+    await panel.click('[data-tut="mode-practice"]');
+    await panel.waitFor(`document.querySelector('[data-tut="mode-practice"]')?.classList.contains('active')`);
+    assert.ok(await panel.eval(`Boolean(document.querySelector('.tut-todo'))`), 'practice shows what to do');
+    await panel.click('[data-tut="skip"]');
+    await panel.waitFor(`/2 \\//.test(document.querySelector('.tut-step span')?.textContent ?? '')`);
+    // The window is as tall as the panel.
+    const fit = await panel.eval(`({ panel: Math.ceil(document.querySelector('.tut-panel').getBoundingClientRect().height), inner: innerHeight })`);
+    assert.ok(Math.abs(fit.panel - fit.inner) <= 2, `window height follows the panel ${JSON.stringify(fit)}`);
+    await panel.click('[data-tut="close"]');
+    await app.main.waitFor(`!window.__mycad.state.tutorial.visible`);
+    await sleep(400);
+    assert.equal(app.windowInfo().filter((w) => w.visible && /튜토리얼/.test(w.title)).length, 0, 'the window closes');
   } },
   { group: '창', name: '최소 창 폭: 툴바 버튼이 가려지지 않음', async run(app) {
     const min = await m(app, 'k.state.minWidth');
@@ -345,7 +356,14 @@ export const cases = [
     assert.equal(info.lefts, 1, 'one column');
     assert.ok(info.icons && info.labels, 'icon and label on every item');
     assert.ok(info.width <= info.inner + 1, 'the window fits the menu');
-    await expectPopupWindow(app, menu, 'menu');
+    try {
+      await expectPopupWindow(app, menu, 'menu');
+    } catch (error) {
+      // Windows may refuse the foreground to a process started by the test runner:
+      // the menu then loses the focus to another program and closes, as it should. Once more.
+      if (!/its own OS window/.test(error.message)) throw error;
+      await expectPopupWindow(app, await openMenu(app, name), 'menu');
+    }
     await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(250);
   } })),
@@ -1104,6 +1122,11 @@ export const cases = [
     assert.ok(info.triangles > 100, 'solid drawn');
     assert.ok(info.wires >= 2, 'lines on the ground');
     assert.ok(info.axes && info.axisInfo.ticks >= 3 && info.tickLabels >= 9, `axes with ticks ${JSON.stringify(info.axisInfo)}`);
+    // The numbers keep their size on screen: never above 13 px (at 100 %), even close up.
+    assert.ok(info.tickPx > 2 && info.tickPx <= 13.5, `axis numbers ${info.tickPx} px`);
+    await m(app, '(k.actions.view3d().zoom(6), 1)');
+    const close = await m(app, 'k.actions.view3d().inspect().tickPx');
+    assert.ok(close <= 13.5, `close up the numbers do not grow: ${close} px`);
     assert.equal(await app.main.eval(`document.querySelector('#cad-canvas').hidden`), true);
     const missing = await app.main.eval(`[...document.querySelectorAll('.view3d-bar button')].filter((b) => !b.title).length`);
     assert.equal(missing, 0, 'every 3D button has a tooltip');

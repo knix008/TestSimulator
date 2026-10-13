@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.177Z",
+ "saved": "2026-10-13T09:43:02.670Z",
  "drawing": {
-  "id": "dwg-mv6ej8pg002avbcd",
+  "id": "dwg-mv6htcmr002aev1y",
   "title": "부품 라이브러리 전체",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:11.956Z",
-  "updated": "2026-10-13T08:11:11.961Z",
+  "created": "2026-10-13T09:43:02.451Z",
+  "updated": "2026-10-13T09:43:02.456Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8pg002bn3jd",
+    "id": "e-mv6htcmr002b32y7",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -88,7 +88,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002dky50",
+    "id": "e-mv6htcmr002d0phy",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -107,7 +107,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002elqb5",
+    "id": "e-mv6htcms002ejx1q",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -124,7 +124,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002g4g2c",
+    "id": "e-mv6htcms002gmnc5",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -143,7 +143,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002h5kx9",
+    "id": "e-mv6htcms002h1rrq",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -160,7 +160,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002j00ss",
+    "id": "e-mv6htcms002je09j",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -179,7 +179,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002kbc8n",
+    "id": "e-mv6htcms002kr5hj",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -196,7 +196,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002mqur1",
+    "id": "e-mv6htcms002mlowy",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -215,7 +215,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002nvq4o",
+    "id": "e-mv6htcms002n3481",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -232,7 +232,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002ppb9l",
+    "id": "e-mv6htcms002pvbir",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -250,7 +250,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002qpkwu",
+    "id": "e-mv6htcms002qha6n",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -267,7 +267,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002st6aw",
+    "id": "e-mv6htcms002suas6",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -286,7 +286,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002tuvkv",
+    "id": "e-mv6htcms002trayg",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -303,7 +303,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002vgrmm",
+    "id": "e-mv6htcms002vpqpj",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -322,7 +322,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002wr3uj",
+    "id": "e-mv6htcms002wc52h",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -339,7 +339,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph002y5k9o",
+    "id": "e-mv6htcms002yiawi",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -360,7 +360,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ph002zc5i3",
+    "id": "e-mv6htcms002ztjm3",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -377,7 +377,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8ph0030oi0l",
+    "id": "e-mv6htcms0030myts",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -394,7 +394,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi0032rhaw",
+    "id": "e-mv6htcms0032wr2d",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -412,7 +412,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pi0033wv5b",
+    "id": "e-mv6htcms0033ui5y",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -429,7 +429,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi0035mrh3",
+    "id": "e-mv6htcms0035txxc",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -448,7 +448,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pi003644b7",
+    "id": "e-mv6htcms0036bktq",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -465,15 +465,15 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi00385ies",
+    "id": "e-mv6htcms0038yn0s",
     "type": "part",
     "layer": "0",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "kind": "cotterPin",
-    "x": 105.76,
-    "y": -71.88,
+    "x": 103.2,
+    "y": -72.2,
     "angle": 0,
     "scale": 1,
     "flip": false,
@@ -483,14 +483,14 @@
     }
    },
    {
-    "id": "e-mv6ej8pi00396ibm",
+    "id": "e-mv6htcms0039y45r",
     "type": "text",
     "layer": "text",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "x": 100,
-    "y": -82.76,
+    "y": -83.4,
     "text": "cotterPin",
     "size": 3,
     "angle": 0,
@@ -500,14 +500,14 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi003blvh2",
+    "id": "e-mv6htcmt003bvtz9",
     "type": "part",
     "layer": "0",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "kind": "parallelKey",
-    "x": 152.76,
+    "x": 152,
     "y": -75,
     "angle": 0,
     "scale": 1,
@@ -519,13 +519,13 @@
     }
    },
    {
-    "id": "e-mv6ej8pi003cjdii",
+    "id": "e-mv6htcmt003cjmt8",
     "type": "text",
     "layer": "text",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 150.76,
+    "x": 150,
     "y": -89,
     "text": "parallelKey",
     "size": 3,
@@ -536,14 +536,14 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi003esxzk",
+    "id": "e-mv6htcmt003e60dp",
     "type": "part",
     "layer": "0",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "kind": "circlipShaft",
-    "x": 221.51,
+    "x": 220.75,
     "y": -83.75,
     "angle": 0,
     "scale": 1,
@@ -553,13 +553,13 @@
     }
    },
    {
-    "id": "e-mv6ej8pi003fn4fx",
+    "id": "e-mv6htcmt003fbu4d",
     "type": "text",
     "layer": "text",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 206.76,
+    "x": 206,
     "y": -106.5,
     "text": "circlipShaft",
     "size": 3,
@@ -570,14 +570,14 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi003htrjz",
+    "id": "e-mv6htcmt003hym0j",
     "type": "part",
     "layer": "0",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "kind": "circlipBore",
-    "x": 275.65999999999997,
+    "x": 274.9,
     "y": -87.9,
     "angle": 0,
     "scale": 1,
@@ -587,13 +587,13 @@
     }
    },
    {
-    "id": "e-mv6ej8pi003incay",
+    "id": "e-mv6htcmt003i0qj2",
     "type": "text",
     "layer": "text",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 256.76,
+    "x": 256,
     "y": -114.8,
     "text": "circlipBore",
     "size": 3,
@@ -604,14 +604,14 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi003kr5u3",
+    "id": "e-mv6htcmt003kipt1",
     "type": "part",
     "layer": "0",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "kind": "oRing",
-    "x": 329.06,
+    "x": 328.3,
     "y": -83.5,
     "angle": 0,
     "scale": 1,
@@ -623,13 +623,13 @@
     }
    },
    {
-    "id": "e-mv6ej8pi003lrqod",
+    "id": "e-mv6htcmt003lbu2s",
     "type": "text",
     "layer": "text",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 314.56,
+    "x": 313.8,
     "y": -106,
     "text": "oRing",
     "size": 3,
@@ -640,7 +640,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pi003mmcfd",
+    "id": "e-mv6htcmt003mgsth",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -657,7 +657,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pj003oks4m",
+    "id": "e-mv6htcmu003o977o",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -679,7 +679,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pj003pz0sp",
+    "id": "e-mv6htcmu003popej",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -696,7 +696,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk003rvaqq",
+    "id": "e-mv6htcmu003rjmuq",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -717,7 +717,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk003sti79",
+    "id": "e-mv6htcmu003sewha",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -734,7 +734,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk003uqhch",
+    "id": "e-mv6htcmu003ulo1b",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -754,7 +754,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk003vu8tl",
+    "id": "e-mv6htcmu003vrqq3",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -771,7 +771,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk003xcjdr",
+    "id": "e-mv6htcmv003xx271",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -791,7 +791,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk003yheun",
+    "id": "e-mv6htcmv003yur8o",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -808,7 +808,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk0040hihh",
+    "id": "e-mv6htcmv0040054l",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -827,7 +827,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk0041hoaj",
+    "id": "e-mv6htcmv0041l7eg",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -844,7 +844,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk00437g5i",
+    "id": "e-mv6htcmv0043hmyu",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -864,7 +864,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk0044n2nc",
+    "id": "e-mv6htcmv0044z897",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -881,7 +881,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk00461l2g",
+    "id": "e-mv6htcmv0046zp11",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -901,7 +901,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk0047rdb8",
+    "id": "e-mv6htcmv0047woja",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -918,7 +918,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk0048v9fb",
+    "id": "e-mv6htcmv0048v4u9",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -935,7 +935,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk004a4zup",
+    "id": "e-mv6htcmv004a5ad6",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -954,7 +954,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk004bv2z8",
+    "id": "e-mv6htcmv004b0jrc",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -971,7 +971,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pk004d60yq",
+    "id": "e-mv6htcmv004dg8s3",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -992,7 +992,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pk004ezg22",
+    "id": "e-mv6htcmv004ehis8",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1009,7 +1009,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004gb2oh",
+    "id": "e-mv6htcmv004goiu9",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1027,7 +1027,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004h7k5b",
+    "id": "e-mv6htcmv004hj7rt",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1044,7 +1044,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004j8maj",
+    "id": "e-mv6htcmv004jym6x",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1065,7 +1065,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004kvn6n",
+    "id": "e-mv6htcmv004kovwg",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1082,7 +1082,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004lc97t",
+    "id": "e-mv6htcmv004lyf4p",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1099,7 +1099,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004nwawa",
+    "id": "e-mv6htcmv004n2p3u",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1119,7 +1119,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004ondnw",
+    "id": "e-mv6htcmv004oxcoy",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1136,7 +1136,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004q2v0y",
+    "id": "e-mv6htcmv004qlqko",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1155,7 +1155,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004r87z5",
+    "id": "e-mv6htcmv004rf9jr",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1172,7 +1172,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004t16i1",
+    "id": "e-mv6htcmw004tts2a",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1192,7 +1192,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004u7d8a",
+    "id": "e-mv6htcmw004uc2z7",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1209,7 +1209,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004vuch1",
+    "id": "e-mv6htcmw004v1v5o",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1226,7 +1226,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl004xqa38",
+    "id": "e-mv6htcmw004x3wva",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1243,7 +1243,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl004ykiad",
+    "id": "e-mv6htcmw004ymyl0",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1260,7 +1260,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl0050zgub",
+    "id": "e-mv6htcmw00508oea",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1277,7 +1277,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl00512yzl",
+    "id": "e-mv6htcmw0051faoc",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1294,7 +1294,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl0053dtqu",
+    "id": "e-mv6htcmw0053ewk0",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1311,7 +1311,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl0054nvpr",
+    "id": "e-mv6htcmw0054mayl",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1328,7 +1328,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl00565c46",
+    "id": "e-mv6htcmw0056t4vd",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1346,7 +1346,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl00570a9w",
+    "id": "e-mv6htcmw0057onvf",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1363,7 +1363,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl0059xuaa",
+    "id": "e-mv6htcmw0059cl0l",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1382,7 +1382,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl005anv5b",
+    "id": "e-mv6htcmw005acilz",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1399,7 +1399,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl005cskal",
+    "id": "e-mv6htcmw005c99xi",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1417,7 +1417,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl005dnojl",
+    "id": "e-mv6htcmw005desb7",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -1434,7 +1434,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8pl005f9og0",
+    "id": "e-mv6htcmw005fdc18",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -1452,7 +1452,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pl005g4q37",
+    "id": "e-mv6htcmw005gocpb",
     "type": "text",
     "layer": "text",
     "color": null,

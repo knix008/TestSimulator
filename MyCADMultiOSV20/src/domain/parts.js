@@ -436,15 +436,19 @@ export const PARTS = {
     standard: 'ISO 1234',
     params: [select('diameter', 3.2, [1, 1.6, 2, 2.5, 3.2, 4, 5, 6.3, 8]), num('length', 25, 6, 200, 1)],
     generate(p) {
+      // Two half-round legs (each d/2 thick, side by side) bent into an eye of
+      // outer diameter 2d at x ≤ 0; the lower leg is shorter by d.
       const d = p.diameter;
-      const head = d * 1.8;
-      const L = p.length;
+      const t = d / 2;
+      const L = Math.max(p.length, 3 * d);
+      const neck = 1.5 * d;
       return [
-        arc(-head / 2, 0, head / 2, 90, 270),
-        arc(-head / 2, 0, head / 2 - d, 90, 270),
-        line(-head / 2, head / 2, L, head / 2), line(-head / 2, -head / 2, L - d, -head / 2),
-        line(-head / 2, head / 2 - d, L, head / 2 - d), line(-head / 2, -head / 2 + d, L - d, -head / 2 + d),
-        line(0, 0, L - d * 0.5, 0, thin), line(L, head / 2, L, head / 2 - d), line(L - d, -head / 2, L - d, -head / 2 + d),
+        arc(0, 0, d, 90, 270),
+        arc(0, 0, t, 90, 270),
+        line(0, d, neck, t), line(0, -d, neck, -t),
+        line(0, t, neck, 0), line(0, -t, neck, 0),
+        line(neck, t, L, t), line(neck, -t, L - d, -t),
+        line(neck, 0, L, 0, thin), line(L, t, L, 0), line(L - d, -t, L - d, 0),
       ];
     },
   },

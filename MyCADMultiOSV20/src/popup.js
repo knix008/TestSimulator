@@ -153,7 +153,7 @@ function render() {
   try {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress,
-      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage,
+      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage, tutorial: renderTutorial,
     })[kind]?.();
   } catch (error) {
     action('report-error', { message: String(error?.stack ?? error), context: `popup-${kind}` });
@@ -705,20 +705,32 @@ function renderMenu() {
         <span class="menu-check">${item.checked ? icon('check') : ''}</span>
       </button>`)).join('')}</div>`;
   const menu = root.querySelector('.popup-menu');
-  const width = Math.ceil(menu.scrollWidth) + 2;
-  const height = Math.ceil(menu.scrollHeight) + 2;
   const anchor = p.anchor ?? { x: 100, y: 100 };
-  if (desktop) {
-    native.invoke('place_popup', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true })
-      .then(() => window.focus())
-      .catch(() => {});
-  } else {
-    send('place', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
-  }
+  let placed = null;
+  const place = () => {
+    if (!menu.isConnected) return;
+    const width = Math.ceil(menu.scrollWidth) + 2;
+    const height = Math.ceil(menu.scrollHeight) + 2;
+    if (placed && placed.width === width && placed.height === height) return;
+    placed = { width, height };
+    if (desktop) {
+      native.invoke('place_popup', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true })
+        .then(() => window.focus())
+        .catch(() => {});
+    } else {
+      send('place', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
+    }
+  };
+  place();
+  // The first menu can be measured before the interface font has loaded: follow its size until it is replaced.
+  menuResize?.disconnect();
+  menuResize = new ResizeObserver(() => place());
+  menuResize.observe(menu);
   menuOpen = true;
 }
 
 let menuOpen = false;
+let menuResize = null;
 /** The menu window shows a menu only for an open request made after it loaded or the one that created it. */
 const loadedAt = Date.now();
 function shownOnce() {
@@ -1069,6 +1081,32 @@ function renderCoverage() {
   ready();
 }
 
+// ───────────────────────── tutorial panel
+// The player runs in the main window (it works the real interface there); this
+// window shows its panel and sends the buttons back.
+
+function renderTutorial() {
+  const html = state.tutorialHtml ?? state.params.html;
+  if (!html) return;
+  setOsTitle(getLanguage() === 'en' ? 'Interactive tutorial' : '따라 하는 튜토리얼');
+  root.innerHTML = `<section class="tut-panel tut-window" role="dialog">${html}</section>`;
+  for (const el of root.querySelectorAll('.tut-head, .tut-head > b, .tut-head > svg')) el.setAttribute('data-tauri-drag-region', '');
+  const height = Math.ceil(root.querySelector('.tut-panel').getBoundingClientRect().height);
+  if (desktop && Math.abs(height - window.innerHeight) > 1) appWindow.setSize(new LogicalSize(POPUPS.tutorial.width, height)).catch(() => {});
+  ready();
+}
+
+root.addEventListener('click', (event) => {
+  if (kind !== 'tutorial') return;
+  const tut = event.target.closest('[data-tut]')?.dataset.tut;
+  if (tut) action('tutorial', { tut });
+});
+root.addEventListener('change', (event) => {
+  if (kind !== 'tutorial') return;
+  if (event.target.matches('.tut-lesson')) action('tutorial', { lesson: Number(event.target.value) });
+  if (event.target.matches('.tut-speed')) action('tutorial', { speed: Number(event.target.value) });
+});
+
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
@@ -1220,6 +1258,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault();
     if (kind === 'menu') chooseMenu(null);
+    else if (kind === 'tutorial') action('tutorial', { tut: 'close' });
     else if (kind !== 'progress') close(kind === 'confirm' ? { choice: 'cancel' } : null);
   }
   if (kind === 'menu') {
@@ -1267,7 +1306,6 @@ window.addEventListener('blur', () => {
   setTimeout(async () => {
     if (document.hasFocus() || !menuOpen) return;
     const focused = desktop ? await native.invoke('focused_window').catch(() => null) : null;
-    (window.__TRACE ??= []).push(['blur', focused, Date.now()]);
     if (focused !== 'main') chooseMenu(null);
   }, 60);
 });
@@ -1304,6 +1342,9 @@ function onHostMessage(message) {
     render();
   } else if (message?.type === 'refresh') {
     refresh();
+  } else if (message?.type === 'tutorial' && kind === 'tutorial') {
+    state.tutorialHtml = message.html;
+    render();
   }
 }
 
@@ -1320,6 +1361,7 @@ function refresh() {
   if (kind === 'array') state.array = null;
   if (kind === 'stl') state.stl = null;
   if (kind === 'solid') state.solid = null;
+  if (kind === 'tutorial') state.tutorialHtml = null;
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;
   applyLook();
   render();

@@ -14,7 +14,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: [&str; 14] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "part", "array", "stl", "solid", "coverage"];
+const POPUP_KINDS: [&str; 15] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "part", "array", "stl", "solid", "coverage", "tutorial"];
 
 #[derive(Default)]
 struct Shared {
@@ -407,6 +407,9 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
     window.set_position(PhysicalPosition::new(px.round() as i32, py.round() as i32)).map_err(|error| error.to_string())?;
     if show.unwrap_or(true) {
         let _ = window.show();
+        // A borderless window created hidden can come out taller on its first show
+        // (Windows adds the frame it does not have): the size once more, now that it is shown.
+        let _ = window.set_size(PhysicalSize::new(pw.round() as u32, ph.round() as u32));
         let _ = window.set_focus();
     }
     Ok(Placement { x: px / scale, y: py / scale })

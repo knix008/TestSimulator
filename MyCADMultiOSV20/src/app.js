@@ -37,7 +37,8 @@ import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { PopupHost } from './platform/popups.js';
+import { POPUPS, PopupHost } from './platform/popups.js';
+import { checkDrawing, problemCounts, SEVERITIES } from './domain/check.js';
 import { applyFont, applyTheme, drawingFontStack, mix, nextThemeId, resolveTheme, themeName } from './themes.js';
 import { cachedBox, PX_PER_MM, render, RULER, Viewport } from './view/renderer.js';
 import { createTool, DIM_TOOLS, DRAW_TOOLS, MODIFY_TOOLS, NEEDS_SELECTION, readout, TOOL_ICONS, TOOL_KEYS } from './view/tools.js';
@@ -68,6 +69,7 @@ const state = {
   docs: [],
   active: null,
   selection: new Set(),
+  problems: { list: [], doc: null, filter: { error: true, warning: true, info: true } },
   tool: null,
   toolId: 'select',
   toolOptions: { sides: 6, offset: 5, mirrorKeep: true, hatchPattern: 'ansi31', hatchScale: 1, hatchAngle: 0 },
@@ -243,6 +245,7 @@ function change(labelKey, mutate) {
 }
 
 function afterChange() {
+  scheduleProblems();
   scheduleRender();
   schedule3d();
   renderTabs();
@@ -349,6 +352,7 @@ const commands = {
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => updateSettings({ showLeftPanel: !state.settings.showLeftPanel }) },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
+  problems: { icon: 'warning', label: 'action.problems', key: 'Ctrl+Shift+M', checked: () => state.settings.showProblems, run: () => updateSettings({ showProblems: !state.settings.showProblems }) },
   background: { icon: 'image', label: 'action.background', run: () => chooseBackground() },
   clearBackground: { icon: 'clear', label: 'action.clearBackground', enabled: () => Boolean(state.settings.backgroundImage), run: () => removeBackground() },
   nextTab: { icon: 'chevronRight', label: 'action.nextTab', key: 'Ctrl+Tab', enabled: () => state.docs.length > 1, run: () => cycleTab(1) },
@@ -407,7 +411,7 @@ async function run(id, context) {
 const MENUS = {
   file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', 'explode', 'bringFront', 'sendBack', '-', 'properties'],
-  view: ['startPage', '-', 'view3d', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
+  view: ['startPage', '-', 'view3d', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'problems', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
   draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
   modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'explode', 'editPart', '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
@@ -432,7 +436,7 @@ const TOOLBAR_PART = [
   BOOL_OPS.map((op) => `bool:${op}`),
   ['solidSection', 'solidProject', 'editSolid'],
 ];
-const TOOLBAR_PANELS = ['leftPanel', 'rightPanel', 'toolbarRows'];
+const TOOLBAR_PANELS = ['leftPanel', 'rightPanel', 'problems', 'toolbarRows'];
 
 /**
  * Toolbar rows. One row: the standard tools with the 3D solids in a dropdown
@@ -471,6 +475,7 @@ function renderShell() {
           <label class="command-box" title="${escapeHtml(t('tip.command'))}">${icon('coordinate')}<input id="command-input" type="text" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t('command.placeholder'))}" aria-label="${escapeHtml(t('tip.command'))}" title="${escapeHtml(t('tip.command'))}" /></label>
           <span class="command-live" id="command-live"></span>
         </div>
+        <section id="problems-panel" class="problems-panel" aria-label="${escapeHtml(t('problems.title'))}" hidden></section>
       </section>
       <aside id="right-panel" class="side-panel"></aside>
     </main>
@@ -1215,10 +1220,31 @@ async function openTutorialDoc() {
   }
 }
 
+/**
+ * The tutorial panel's own window (desktop): opened at the lower right of the
+ * main window, then moved anywhere by its header. Its buttons come back as
+ * 'tutorial' actions; it calls onClosed when it goes away (its close button, Escape).
+ */
+const tutorialWindow = {
+  show(html, onClosed) {
+    const size = POPUPS.tutorial;
+    const anchor = { x: Math.round(window.screenX + window.outerWidth - size.width - 28), y: Math.round(window.screenY + window.outerHeight - size.height - 48) };
+    popups.open('tutorial', { html }, { anchor }).then(() => onClosed?.());
+  },
+  update(html) {
+    popups.post('tutorial', { type: 'tutorial', html });
+  },
+  hide() {
+    native.invoke('close_popup', { kind: 'tutorial' }).catch(() => {});
+    popups.settle('tutorial', null);
+  },
+};
+
 /** What the tutorial player may use: the real interface, plus a few direct actions for dialogs. */
 function tutorialApi() {
   const canvas = () => root.querySelector('#cad-canvas');
   return {
+    panelWindow: desktop ? tutorialWindow : null,
     language: () => getLanguage(),
     state: () => state,
     settings: () => state.settings,
@@ -2087,6 +2113,100 @@ function onPropertyChange(target) {
   }
 }
 
+// ───────────────────────── problems panel
+// What is wrong in the active drawing (domain/check.js), listed under the
+// canvas; checked again a moment after every change. A row selects the
+// entities and shows them; the severity chips filter the list.
+
+let problemsTimer = 0;
+function scheduleProblems() {
+  clearTimeout(problemsTimer);
+  problemsTimer = setTimeout(checkProblems, 250);
+}
+
+function checkProblems() {
+  const doc = activeDoc();
+  try {
+    state.problems.list = doc ? checkDrawing(doc.drawing) : [];
+  } catch (error) {
+    state.problems.list = [];
+    showError('error.unexpected', error, 'check');
+  }
+  state.problems.doc = doc?.id ?? null;
+  renderProblems();
+  renderStatus();
+}
+
+function problemText(finding) {
+  const params = { ...finding.params };
+  if (typeof params.gap === 'number') params.gap = formatLength(params.gap, undefined, params.gap < 0.1 ? 3 : 2);
+  if (params.type) params.type = t(`entity.${params.type}`);
+  if (finding.code === 'zeroLength' || finding.code === 'degenerateOutline') {
+    const entity = activeDrawing()?.entities.find((e) => e.id === finding.ids[0]);
+    params.type = entity ? t(`entity.${entity.type}`) : '';
+  }
+  return t(`problems.${finding.code}`, params);
+}
+
+function renderProblems() {
+  const panel = root.querySelector('#problems-panel');
+  if (!panel) return;
+  const doc = activeDoc();
+  const show = Boolean(state.settings.showProblems && doc && !state.home);
+  panel.hidden = !show;
+  root.querySelector('#canvas-area')?.classList.toggle('with-problems', show);
+  if (!show) return;
+  const list = state.problems.doc === doc.id ? state.problems.list : [];
+  const counts = problemCounts(list);
+  const filter = state.problems.filter;
+  const glyph = { error: 'error', warning: 'warning', info: 'info' };
+  const chips = SEVERITIES.map((severity) => `<button type="button" class="problems-chip ${severity} ${filter[severity] ? 'on' : ''}" data-problem-filter="${severity}" aria-pressed="${filter[severity]}" title="${escapeHtml(t('problems.filterTip', { name: t(`problems.severity.${severity}`) }))}">${icon(glyph[severity])}<span>${counts[severity]}</span></button>`).join('');
+  const shown = list.map((finding, index) => ({ finding, index })).filter(({ finding }) => filter[finding.severity]);
+  const rows = shown.map(({ finding, index }) => {
+    const entity = doc.drawing.entities.find((e) => e.id === finding.ids[0]);
+    const where = finding.at ? `${formatLength(finding.at.x, undefined, 1)}, ${formatLength(finding.at.y, undefined, 1)}` : '';
+    const text = problemText(finding);
+    return `<button type="button" class="problem-row ${finding.severity}" data-problem="${index}" title="${escapeHtml(`${text} — ${t('problems.rowTip')}`)}">
+      ${icon(glyph[finding.severity])}<span class="problem-text">${escapeHtml(text)}</span>
+      <span class="problem-type">${escapeHtml(entity ? t(`entity.${entity.type}`) : '')}${finding.ids.length > 1 ? ` +${finding.ids.length - 1}` : ''}</span>
+      <span class="problem-where">${escapeHtml(where)}</span></button>`;
+  }).join('');
+  const empty = list.length
+    ? `<p class="problems-empty">${escapeHtml(t('problems.filtered'))}</p>`
+    : `<p class="problems-empty ok">${icon('check')}<span>${escapeHtml(t('problems.none'))}</span></p>`;
+  panel.innerHTML = `
+    <header class="problems-head">
+      ${icon('warning')}<b>${escapeHtml(t('problems.title'))}</b><span class="problems-count">${counts.total}</span>
+      <span class="problems-chips">${chips}</span>
+      <button type="button" class="problems-close" data-command="problems" title="${escapeHtml(commandTip('problems'))}" aria-label="${escapeHtml(t('problems.close'))}">${icon('close')}</button>
+    </header>
+    <div class="problems-list" role="list">${rows || empty}</div>`;
+}
+
+/** Selects what a problem is about and brings it into view (close up for gaps). */
+function showProblem(index) {
+  const finding = state.problems.list[index];
+  const doc = activeDoc();
+  if (!finding || !doc) return;
+  const ids = finding.ids.filter((id) => doc.drawing.entities.some((e) => e.id === id));
+  select(ids);
+  if (state.view3d) return;
+  const vp = ensureViewport(doc);
+  const inset = state.settings.showRulers ? RULER : 0;
+  const near = ['gap', 'nearlyClosed', 'repeatedPoint'].includes(finding.code);
+  if (near && finding.at) {
+    const half = Math.max((finding.params.gap ?? 0) * 25, 8 / vp.zoom, 0.05);
+    vp.fit({ minX: finding.at.x - half, minY: finding.at.y - half, maxX: finding.at.x + half, maxY: finding.at.y + half }, 40, inset);
+  } else {
+    const entities = doc.drawing.entities.filter((e) => ids.includes(e.id) && e.type !== 'solid');
+    const box = entities.length ? boxOfEntities(entities) : null;
+    if (box && Math.max(box.maxX - box.minX, box.maxY - box.minY) > 1e-6) vp.fit(box, 80, inset);
+    else if (finding.at) { vp.cx = finding.at.x; vp.cy = finding.at.y; }
+  }
+  scheduleRender();
+  renderStatus();
+}
+
 // ───────────────────────── status bar
 
 function renderStatus() {
@@ -2106,6 +2226,7 @@ function renderStatus() {
     ${item(TOOL_ICONS[state.toolId] ?? 'select', t(state.toolId === 'place' ? 'tool.place' : `tool.${state.toolId}`), t('status.toolTip'))}
     ${drawing ? item('selectAll', t('status.selection', { selected: state.selection.size, total: drawing.entities.length })) : ''}
     ${layer ? item('layers', layer.name, t('status.layerTip', { name: layer.name })) : ''}
+    ${drawing ? problemsBadge() : ''}
     <span class="status-toggles">${toggle('snap', t('status.snap'))}${toggle('grid', t('status.grid'))}${toggle('snapGrid', t('status.snapGrid'))}${toggle('ortho', t('status.ortho'))}</span>
     ${vp ? item('zoomIn', t('status.zoom', { value: formatNumber(vp.percent, vp.percent < 10 ? 1 : 0) }), t('status.zoomTip'), '', 'status-zoom') : ''}
     ${doc ? item('undo', t('status.history', { undo: doc.history.undoStack.length, redo: doc.history.redoStack.length })) : ''}
@@ -2113,6 +2234,14 @@ function renderStatus() {
     ${item(desktop ? 'drawing' : 'globe', `${desktop ? t('status.desktop') : t('status.web')} · ${state.docs.length}`, `${desktop ? t('status.desktop') : t('status.web')} · ${t('status.drawings', { count: state.docs.length })}`)}
     <span class="status-notice ${notice?.kind ?? ''}" title="${escapeHtml(notice?.text ?? t('status.ready'))}">${icon(notice?.kind === 'error' ? 'error' : notice?.kind === 'success' ? 'check' : 'info')}<span>${escapeHtml(notice?.text ?? t('status.ready'))}</span></span>
     ${state.settings.statusClock ? `<span class="status-item clock" title="${escapeHtml(new Date().toLocaleString())}">${icon('recent')}<span id="status-clock">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></span>` : ''}`;
+}
+
+/** Problem counts in the status bar; a click shows or hides the panel. */
+function problemsBadge() {
+  const list = state.problems.doc === state.active ? state.problems.list : [];
+  const counts = problemCounts(list);
+  const tip = t('problems.badgeTip', { error: counts.error, warning: counts.warning, info: counts.info });
+  return `<button type="button" class="status-problems ${counts.error ? 'has-error' : counts.warning ? 'has-warning' : 'clean'}" data-command="problems" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${icon('error')}<span>${counts.error}</span>${icon('warning')}<span>${counts.warning}</span></button>`;
 }
 
 setInterval(() => {
@@ -2133,6 +2262,8 @@ function renderAll() {
   renderCommandBar();
   applyBackgroundStyle();
   renderStart();
+  renderProblems();
+  if (state.problems.doc !== (activeDoc()?.id ?? null)) checkProblems();
   scheduleRender();
   document.title = `MyCAD ${displayVersion(state.info?.version)}${activeDoc() ? ` — ${docName(activeDoc())}` : ''}`;
 }
@@ -3466,6 +3597,18 @@ function bindEvents() {
     }
   });
 
+  // Problems panel: a row shows its problem, a chip filters by severity.
+  root.addEventListener('click', (event) => {
+    const row = event.target.closest('[data-problem]');
+    if (row) { showProblem(Number(row.dataset.problem)); return; }
+    const chip = event.target.closest('[data-problem-filter]');
+    if (chip) {
+      const severity = chip.dataset.problemFilter;
+      state.problems.filter = { ...state.problems.filter, [severity]: !state.problems.filter[severity] };
+      renderProblems();
+    }
+  });
+
   root.addEventListener('pointerdown', (event) => {
     // A click in the main window closes an open menu (it normally closes itself on losing focus).
     if (state.openMenu && desktop) native.invoke('hide_popup', { kind: 'menu' }).catch(() => {});
@@ -3668,6 +3811,7 @@ function onKeyDown(event) {
 
 function bindPopupActions() {
   popups.on('error', (error) => showError('error.unexpected', error));
+  popups.on('tutorial', (data) => state.tutorial?.handle(data));
   popups.on('report-error', (data) => showError(data.titleKey ?? 'error.unexpected', new Error(data.message), data.context ?? ''));
   popups.on('choose-background', () => chooseBackground());
   popups.on('clear-background', () => removeBackground());

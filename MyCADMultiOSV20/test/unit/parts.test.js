@@ -39,6 +39,23 @@ test('every select option of every part generates geometry', () => {
   }
 });
 
+test('no part ever draws a circle or arc with a negative or broken radius (the canvas refuses it)', () => {
+  for (const kind of PART_KINDS) {
+    const specs = PARTS[kind].params;
+    const variants = [
+      defaultParams(kind),
+      normalizeParams(kind, Object.fromEntries(specs.filter((p) => p.min !== undefined).map((p) => [p.key, p.min]))),
+      normalizeParams(kind, Object.fromEntries(specs.filter((p) => p.max !== undefined).map((p) => [p.key, p.max]))),
+      ...specs.filter((p) => p.type === 'select').flatMap((p) => p.options.map((option) => ({ ...defaultParams(kind), [p.key]: option }))),
+    ];
+    for (const params of variants) {
+      for (const prim of generatePart(kind, params)) {
+        if (prim.kind === 'arc' || prim.kind === 'circle') assert.ok(prim.r > 0 && Number.isFinite(prim.r), `${kind} ${JSON.stringify(params)}: radius ${prim.r}`);
+      }
+    }
+  }
+});
+
 test('parameters are clamped, rounded and defaulted', () => {
   const gear = normalizeParams('gear', { module: 999, teeth: 3.6, keyway: 'yes' });
   assert.equal(gear.module, 20);

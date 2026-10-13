@@ -109,12 +109,15 @@ function tracePrimitive(ctx, prim, vp) {
       break;
     }
     case 'circle': {
+      // A broken radius (an imported file, a bad part) is skipped, not a failed redraw.
+      if (!(prim.r > 0) || !Number.isFinite(prim.r)) break;
       const c = vp.toScreen(prim.c);
       ctx.moveTo(c.x + prim.r * vp.zoom, c.y);
       ctx.arc(c.x, c.y, prim.r * vp.zoom, 0, Math.PI * 2);
       break;
     }
     case 'arc': {
+      if (!(prim.r > 0) || !Number.isFinite(prim.r)) break;
       const c = vp.toScreen(prim.c);
       const start = (-prim.start * Math.PI) / 180;
       const end = start - (sweep(prim.start, prim.end) * Math.PI) / 180;

@@ -37,6 +37,7 @@ function textSprite(text, color, size) {
   sprite.scale.set((size * canvas.width) / canvas.height, size, 1);
   sprite.renderOrder = 10;
   sprite.userData.text = text;
+  sprite.userData.aspect = canvas.width / canvas.height;
   return sprite;
 }
 
@@ -93,6 +94,9 @@ function sunTexture(on) {
 
 /** The sun's size on screen (px): the same at every zoom. */
 const SUN_PX = 44;
+/** Axis numbers and names: their height on screen in pixels at 100 % (Settings › Drawing). */
+const AXIS_NUMBER_PX = 13;
+const AXIS_NAME_PX = 18;
 
 function disposeTree(object) {
   object.traverse((child) => {
@@ -350,6 +354,7 @@ export class View3D {
         number.position.copy(at.clone().addScaledVector(axis.side, -tick * 2.6 - labelSize * 0.6));
         if (axis.name !== 'Z') number.position.add(lift);
         number.name = `tick-${axis.name}`;
+        number.userData.label = { anchor: at.clone().addScaledVector(axis.side, -tick * 2.6), away: axis.side.clone().negate(), lift: axis.name !== 'Z', px: AXIS_NUMBER_PX, max: step * 0.3 };
         this.axes.add(number);
       }
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
@@ -365,6 +370,7 @@ export class View3D {
       const name = textSprite(axis.name, `#${new THREE.Color(axis.color).getHexString()}`, labelSize * 1.5);
       name.position.copy(axis.dir.clone().multiplyScalar(length + tick * 4 + labelSize));
       if (axis.name !== 'Z') name.position.add(lift);
+      name.userData.label = { anchor: axis.dir.clone().multiplyScalar(length + tick * 4), away: axis.dir.clone(), lift: axis.name !== 'Z', px: AXIS_NAME_PX, max: step * 0.45 };
       this.axes.add(line, ticks, head, name);
     }
     this.axes.visible = this.options.axes;
@@ -565,7 +571,29 @@ export class View3D {
 
   render() {
     this.sizeSun();
+    this.sizeLabels();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Axis numbers and names keep their size on screen (AXIS_NUMBER_PX × the
+   * setting) however close the camera is — at most a fraction of a tick step,
+   * so far away they shrink instead of running into each other.
+   */
+  sizeLabels() {
+    if (!this.axes?.visible) return;
+    const height = this.canvas.clientHeight || this.canvas.height || 600;
+    const perPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / height;
+    const scale = this.axisLabelScale ?? 1;
+    for (const sprite of this.axes.children) {
+      const label = sprite.userData.label;
+      if (!label) continue;
+      const distance = Math.max(1e-6, this.camera.position.distanceTo(sprite.position));
+      const size = Math.min(label.px * scale * perPx * distance, label.max * scale);
+      sprite.scale.set(size * sprite.userData.aspect, size, 1);
+      sprite.position.copy(label.anchor).addScaledVector(label.away, size * 0.6);
+      if (label.lift) sprite.position.z += size * 0.75;
+    }
   }
 
   /**
@@ -593,6 +621,12 @@ export class View3D {
       grid: this.gridLines?.userData ?? null,
       axisInfo: this.axisInfo,
       tickLabels: this.axes.children.filter((child) => child.name.startsWith('tick-')).length,
+      // Height on screen (px) of the tallest axis number.
+      tickPx: (() => {
+        this.sizeLabels();
+        const height = this.canvas.clientHeight || 600;
+        return Math.max(0, ...this.axes.children.filter((child) => child.name.startsWith('tick-')).map((sprite) => (sprite.scale.y / (2 * this.camera.position.distanceTo(sprite.position) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))) * height));
+      })(),
       light: { ...this.light, position: this.sun.position.toArray(), visible: this.sun.visible, basicLight: this.headlight.visible, sunShown: this.gizmo.visible, sunPx: (() => { this.sizeSun(); const d = this.camera.position.distanceTo(this.gizmoSun.position); return (this.gizmoSun.scale.y / (2 * d * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))) * (this.canvas.clientHeight || 600); })(), marker: this.gizmoSun.material.map === this.sunIcons.on ? 'sun' : 'sunOff' },
       wireframe: Boolean(solids?.material.wireframe),
       camera: this.camera.position.toArray(),
