@@ -717,6 +717,20 @@ function notifyItem(filePath) {
   }
 }
 
+const FILE_ATTRIBUTE_TEMPORARY = 0x100;
+
+// 탐색기가 감추는 파일인가. 박스도 이것으로 감출지 정한다.
+function fileFlags(filePath) {
+  if (!filePath || String(filePath).startsWith('shell:')) return null;
+  const attr = GetFileAttributesW(String(filePath)) >>> 0;
+  if (attr === INVALID_FILE_ATTRIBUTES) return null;
+  return {
+    hidden: !!(attr & FILE_ATTRIBUTE_HIDDEN),
+    system: !!(attr & FILE_ATTRIBUTE_SYSTEM),
+    temporary: !!(attr & FILE_ATTRIBUTE_TEMPORARY),
+  };
+}
+
 function revealFile(filePath) {
   if (!filePath || String(filePath).startsWith('shell:')) return false;
   const saved = fileAttrs.has(filePath) ? (fileAttrs.get(filePath) >>> 0) : null;
@@ -1994,6 +2008,7 @@ module.exports = {
   gridInfo,
   hidePath,
   displayName,
+  fileFlags,
   revealFile,
   nudge,
   noteHome,

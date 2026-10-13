@@ -15,6 +15,7 @@ const opacityEl = el('opacity');
 const opacityOut = el('opacityOut');
 const collapseEl = el('collapse');
 const shadowEl = el('shadow');
+const showHiddenEl = el('showHidden');
 
 let lang = window.DeskI18n.DEFAULT_LANG;
 let fence = null;
@@ -89,6 +90,7 @@ desk.onBoxSettings((payload) => {
   el('opacityTag').textContent = say('menu.opacity');
   el('collapseTag').textContent = say('settings.collapse');
   el('shadowTag').textContent = say('settings.shadow');
+  el('showHiddenTag').textContent = say('settings.showHidden');
   el('reset').textContent = say('settings.reset');
   el('ok').textContent = say('settings.ok');
   el('close').title = say('settings.ok');
@@ -119,6 +121,7 @@ desk.onBoxSettings((payload) => {
   }
 
   collapseEl.setAttribute('aria-checked', String(!!fence.collapsed));
+  showHiddenEl.setAttribute('aria-checked', String(!!fence.showHidden));
   shadow = !!payload.shadow;
   shadowEl.setAttribute('aria-checked', String(shadow));
   requestAnimationFrame(fit);
@@ -149,6 +152,7 @@ bgEl.addEventListener('input', () => send({ custom: { bg: bgEl.value, bar: barEl
 barEl.addEventListener('input', () => send({ custom: { bg: bgEl.value, bar: barEl.value } }));
 
 collapseEl.addEventListener('click', () => send({ collapsed: !fence.collapsed }));
+showHiddenEl.addEventListener('click', () => send({ showHidden: !fence.showHidden }));
 shadowEl.addEventListener('click', () => send({ shadow: !shadow }));
 el('reset').addEventListener('click', () => desk.boxReset(id));
 el('ok').addEventListener('click', () => desk.boxClose(id));

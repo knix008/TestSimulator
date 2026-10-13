@@ -340,3 +340,40 @@ test('shell items like the Recycle Bin cannot be renamed', () => {
   const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '이름 바꾸기');
   assert.equal(item.enabled, false, 'clickable even though there is no file to rename');
 });
+
+// Hidden and temporary files: the tray switches every box at once, the box menu only that box.
+test('tray quick settings show hidden files in every box', () => {
+  const state = baseState({ fences: [fence(), fence({ id: 'b', x: 600 })] });
+  const { host, installTray, electron } = loadHost(state);
+  host.openAll();
+  installTray();
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '숨김·임시 파일 보이기 (모든 박스)');
+  assert.ok(item, 'the tray has no show-hidden switch');
+  assert.match(item.where, /^빠른 설정 > /, 'the switch is not under Quick settings');
+  assert.equal(item.type, 'checkbox');
+  assert.equal(item.checked, false);
+
+  item.click({ checked: true });
+  assert.equal(state.settings.showHidden, true);
+  assert.deepEqual(state.fences.map((one) => one.showHidden), [true, true]);
+  const after = flatten(electron.menus.at(-1)).find((entry) => entry.label === '숨김·임시 파일 보이기 (모든 박스)');
+  assert.equal(after.checked, true, 'the tray does not show the new value');
+});
+
+test('box menu shows hidden files in that box only', () => {
+  const state = baseState({ fences: [fence(), fence({ id: 'b', x: 600 })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  host.showMenu('a', null);
+  const item = flatten(electron.menus.at(-1)).find((entry) => entry.label === '숨김·임시 파일 보이기');
+  assert.ok(item, 'the box menu has no show-hidden switch');
+  assert.equal(item.type, 'checkbox');
+  assert.equal(item.checked, false);
+
+  item.click({ checked: true });
+  assert.deepEqual(state.fences.map((one) => !!one.showHidden), [true, false], 'other boxes changed too');
+  assert.equal(!!state.settings.showHidden, false, 'the app-wide value changed');
+  host.showMenu('a', null);
+  const again = flatten(electron.menus.at(-1)).find((entry) => entry.label === '숨김·임시 파일 보이기');
+  assert.equal(again.checked, true);
+});

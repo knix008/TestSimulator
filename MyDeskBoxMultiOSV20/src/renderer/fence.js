@@ -106,6 +106,7 @@ function ensureIcon(item) {
   el.classList.toggle('hot', receiver() === item.path);
   el.classList.toggle('picked', showsPicked() && picked.includes(item.path));
   el.classList.toggle('cut', cutPaths.includes(item.path));
+  el.classList.toggle('concealed', !!item.concealed);
   // 운영체제 끌기로 넘기면 투명한 박스 창이 파일을 받지 못한다.
   // 박스 사이는 우리가 옮기고, 다른 프로그램 위에서만 운영체제에 맡긴다.
   el.draggable = false;

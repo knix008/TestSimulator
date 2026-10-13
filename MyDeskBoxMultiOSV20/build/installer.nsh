@@ -319,8 +319,6 @@ FunctionEnd
 ; 박스에 담아 둔 파일은 그 자리에 그대로 있어야 한다.
 !macro customUnInstall
   ${IfNot} ${isUpdated}
-    Delete "$DESKTOP\${PRODUCT_FILENAME}.lnk"
-    Delete "$SMPROGRAMS\${PRODUCT_FILENAME}.lnk"
     ; 프로그램이 스스로 적어 둔 시작프로그램 자리를 치운다.
     ; 남겨 두면 로그인할 때마다 없어진 실행 파일을 부른다.
     ; 이름은 src/main/autostart.js 가 적는 것과 같아야 한다.
@@ -332,6 +330,12 @@ FunctionEnd
     ; 프로그램이 앞서 되돌렸으면 옮길 것도, 지울 값도 없어 아무 일도 하지 않는다.
     Call un.RestoreBoxFiles
     Call un.ShowShellIcons
+    ; 바로 가기는 되돌리기가 모두 끝난 뒤에 지운다. 먼저 지우면 박스에 담겨 있던
+    ; 바로 가기가 그 뒤에 바탕화면으로 돌아와 남는다.
+    Delete "$DESKTOP\${PRODUCT_FILENAME}.lnk"
+    Delete "$SMPROGRAMS\${PRODUCT_FILENAME}.lnk"
+    Push "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    Call un.DropOwnShortcuts
   ${EndIf}
 !macroend
 
@@ -399,6 +403,75 @@ Function un.EmptyToDesktop
   Pop $R5
   Pop $R4
   Pop $R3
+FunctionEnd
+
+; 이 프로그램을 가리키는 바로 가기를 바탕화면에서 모두 지운다.
+;
+; 이름만으로는 다 찾을 수 없다. 박스에 담아 두었던 바로 가기는 꺼낼 때 같은 이름이
+; 이미 있으면 'MyDeskBox (2).lnk' 나 '(1) MyDeskBox.lnk' 로 돌아오고,
+; 사람이 이름을 바꿔 둘 수도 있다. 그래서 바로 가기가 가리키는 파일을 읽어 본다.
+; 다른 프로그램의 바로 가기는 건드리지 않는다.
+; 실행 파일 경로를 넣는다. 이 함수가 읽힐 때는 APP_EXECUTABLE_FILENAME 이 아직 없다.
+Function un.DropOwnShortcuts
+  Exch $3
+  Push $0
+  Push $1
+  Push $2
+  FindFirst $0 $1 "$DESKTOP\*.lnk"
+  ownLoop:
+    StrCmp $1 "" ownClose
+    Push "$DESKTOP\$1"
+    Call un.ShortcutTarget
+    Pop $2
+    ; StrCmp 는 대소문자를 가리지 않는다.
+    StrCmp $2 $3 0 ownNext
+      Delete "$DESKTOP\$1"
+    ownNext:
+      FindNext $0 $1
+      Goto ownLoop
+  ownClose:
+    FindClose $0
+  Pop $2
+  Pop $1
+  Pop $0
+  Pop $3
+FunctionEnd
+
+; 바로 가기(.lnk)가 가리키는 파일 경로를 읽는다. 경로를 넣으면 대상 경로를 돌려준다.
+; 읽지 못하면 빈 문자열이다. 실행 파일은 이미 지워졌어도 적혀 있는 경로는 읽힌다.
+; IShellLinkW 와 IPersistFile 을 직접 부른다. COM 은 NSIS 가 시작할 때 이미 켜 둔다.
+Function un.ShortcutTarget
+  Exch $R0
+  Push $R1
+  Push $R2
+  Push $R3
+  Push $R4
+  StrCpy $R4 ""
+  ; CLSID_ShellLink, IID_IShellLinkW
+  System::Call "ole32::CoCreateInstance(g '{00021401-0000-0000-C000-000000000046}', p 0, i 1, g '{000214F9-0000-0000-C000-000000000046}', *p .R1) i .R2"
+  ${If} $R2 = 0
+    ; IID_IPersistFile
+    System::Call "$R1->0(g '{0000010B-0000-0000-C000-000000000046}', *p .R3) i .R2"
+    ${If} $R2 = 0
+      ; IPersistFile::Load(파일, STGM_READ)
+      System::Call "$R3->5(w R0, i 0) i .R2"
+      ${If} $R2 = 0
+        ; IShellLinkW::GetPath(버퍼, 길이, NULL, 0)
+        System::Call "$R1->3(w .R4, i ${NSIS_MAX_STRLEN}, p 0, i 0) i .R2"
+        ${If} $R2 != 0
+          StrCpy $R4 ""
+        ${EndIf}
+      ${EndIf}
+      System::Call "$R3->2()"
+    ${EndIf}
+    System::Call "$R1->2()"
+  ${EndIf}
+  StrCpy $R0 $R4
+  Pop $R4
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Exch $R0
 FunctionEnd
 
 ; 감춰 둔 셸 아이콘(휴지통, 내 PC 등)을 다시 보이게 한다.

@@ -16,6 +16,7 @@ const props = require('./props');
 const themes = require('./themes');
 const i18n = require('../shared/i18n');
 const deliver = require('../shared/deliver');
+const conceal = require('../shared/conceal');
 const catalog = require('../shared/catalog');
 const clipfiles = require('./clipfiles');
 
@@ -84,6 +85,51 @@ function createHost(state) {
       persist();
     }
     return kept;
+  }
+
+  // 탐색기처럼 감춰 둘 파일인가. 숨김·시스템·임시 속성과 임시 파일 이름을 본다.
+  function concealed(item) {
+    if (!item || !item.path) return false;
+    if (desktop.isShellItem && desktop.isShellItem(item.path)) return false;
+    let flags = null;
+    if (typeof desktop.fileFlags === 'function') {
+      try {
+        flags = desktop.fileFlags(item.path);
+      } catch (_err) {
+        flags = null;
+      }
+    }
+    return conceal.isConcealed(path.basename(item.path), flags);
+  }
+
+  // 박스에 그리는 항목. 감춘 파일은 목록과 폴더에 그대로 두고 그리지만 않는다.
+  function shownItems(fence, list) {
+    const items = list || fence.items;
+    if (fence.showHidden) return items;
+    return items.filter((item) => !concealed(item));
+  }
+
+  // 창이 말하는 자리(그려진 항목 가운데 몇 번째)를 목록의 자리로 바꾼다.
+  // 감춘 항목이 끼어 있으면 둘이 어긋난다. skip 은 옮기려고 먼저 빼낼 항목이다.
+  function slotFor(fence, index, skip) {
+    if (!fence || index == null || !Number.isFinite(Number(index))) return index;
+    if (fence.showHidden) return index;
+    const leave = new Set(skip || []);
+    const rest = fence.items.filter((item) => !leave.has(item.path));
+    const visible = new Set(shownItems(fence, rest));
+    let seen = 0;
+    for (let at = 0; at < rest.length; at += 1) {
+      if (!visible.has(rest[at])) continue;
+      if (seen === Number(index)) return at;
+      seen += 1;
+    }
+    return rest.length;
+  }
+
+  // 창에서 놓은 자리로 담는다. 창이 주는 자리는 그려진 항목 기준이다.
+  function dropAt(id, paths, index, into) {
+    const fence = fenceById(id);
+    return dropFiles(id, paths, slotFor(fence, index, paths), into);
   }
 
   // 담긴 파일은 박스 폴더에 있어 바탕화면 아이콘이 없다. 그림은 우리가 그린다.
@@ -308,7 +354,7 @@ function createHost(state) {
 
   async function payload(fence) {
     const items = [];
-    for (const item of prune(fence)) {
+    for (const item of shownItems(fence, prune(fence))) {
       items.push({
         name: item.name,
         path: item.path,
@@ -317,6 +363,8 @@ function createHost(state) {
         shortcut: deliver.isShortcut(item.path),
         folder: isDirectory(item.path),
         recycle: deliver.isRecycle(item.path),
+        // 숨김·임시 파일. 보여 줄 때도 탐색기처럼 흐리게 그려 보통 파일과 가른다.
+        concealed: fence.showHidden ? concealed(item) : false,
         // 끌어다 놓은 것을 받아 줄 수 있는가. 창은 이것으로 밝혀 보여 준다.
         receives: canReceive(item),
       });
@@ -519,7 +567,7 @@ function createHost(state) {
     const grid = arrange.gridOf(bounds.width, bounds.height, false);
     const localX = screenX - bounds.x;
     const localY = screenY - bounds.y + (scrollTops.get(fence.id) || 0);
-    const shown = fence.items.filter((item) => item.path !== exceptPath);
+    const shown = shownItems(fence).filter((item) => item.path !== exceptPath);
     for (let n = 0; n < shown.length; n += 1) {
       const point = arrange.slotPoint(n, grid);
       if (!deliver.onPicture(localX - point.x, localY - point.y)) continue;
@@ -1003,6 +1051,7 @@ function createHost(state) {
     if (typeof patch.openAtLogin === 'boolean') setLogin(patch.openAtLogin);
     if (typeof patch.openWith === 'string') setOpenWith(patch.openWith);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
+    if (typeof patch.showHidden === 'boolean') setShowHiddenAll(patch.showHidden);
     if (typeof patch.theme === 'string') setDefaultTheme(patch.theme);
     if (patch.corner !== undefined) setDefaultCorner(patch.corner);
     if (typeof patch.opacity === 'number') setDefaultOpacity(patch.opacity);
@@ -1072,10 +1121,20 @@ function createHost(state) {
     if (typeof patch.title === 'string') rename(id, patch.title);
     if (typeof patch.collapsed === 'boolean') setCollapsed(id, patch.collapsed);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
+    if (typeof patch.showHidden === 'boolean') setShowHidden(id, patch.showHidden);
     if (patch.theme || patch.custom || patch.corner !== undefined || typeof patch.opacity === 'number') {
       restyle(id, patch);
     }
     pushSettings(id);
+  }
+
+  // 숨김·임시 파일을 보여 줄지. 파일은 그대로 두고 그리는 것만 바뀐다.
+  function setShowHidden(id, on) {
+    const fence = fenceById(id);
+    if (!fence || fence.showHidden === !!on) return;
+    fence.showHidden = !!on;
+    persist();
+    push(id);
   }
 
   // 이 박스만 처음 모습으로 되돌린다. 안의 아이콘과 자리는 그대로 둔다.
@@ -1087,6 +1146,7 @@ function createHost(state) {
     fence.corner = themes.cornerRadius(state.settings.corner);
     fence.opacity = state.settings.opacity;
     fence.collapsed = false;
+    fence.showHidden = !!state.settings.showHidden;
     persist();
     applyBounds(id, fence, true);
     push(id);
@@ -1123,6 +1183,7 @@ function createHost(state) {
       theme: state.settings.theme,
       opacity: state.settings.opacity,
       corner: state.settings.corner,
+      showHidden: !!state.settings.showHidden,
     });
     // 새 박스도 바탕화면 아이콘과 같은 줄에 서고, 다른 박스를 덮지 않는다.
     snapToGrid(fence);
@@ -1368,10 +1429,11 @@ function createHost(state) {
     if (!bounds) return fence.items.length;
     const grid = arrange.gridOf(bounds.width, bounds.height, fence.collapsed);
     const skip = new Set(Array.isArray(filePath) ? filePath : [filePath].filter(Boolean));
-    const without = fence.items.filter((item) => !skip.has(item.path));
+    const without = shownItems(fence).filter((item) => !skip.has(item.path));
     // 박스 안이 스크롤돼 있으면 커서 아래 칸은 그만큼 내려가 있다.
     const localY = screenY - bounds.y + (scrollTops.get(fence.id) || 0);
-    return arrange.insertIndex(screenX - bounds.x, localY, grid, without.length);
+    const index = arrange.insertIndex(screenX - bounds.x, localY, grid, without.length);
+    return slotFor(fence, index, [...skip]);
   }
 
   async function reorder(id, filePath, index) {
@@ -2857,6 +2919,14 @@ function createHost(state) {
         click: () => setCollapsed(id, !fence.collapsed),
       },
       {
+        // 이 박스만. 모든 박스에 걸려면 트레이 설정 메뉴나 설정 창의 폴더 탭에서 바꾼다.
+        label: say('settings.showHidden'),
+        icon: icons.menu('show'),
+        type: 'checkbox',
+        checked: !!fence.showHidden,
+        click: (item) => setShowHidden(id, item.checked),
+      },
+      {
         label: say('menu.settings'),
         icon: icons.menu('settings'),
         click: () => openSettings(id),
@@ -3034,6 +3104,16 @@ function createHost(state) {
     announce();
   }
 
+  // 설정 창에서 고른 숨김·임시 파일 보이기. 모든 박스에 함께 걸고, 새 박스도 이 값을 따른다.
+  // 박스 하나만 다르게 두려면 그 박스의 설정 창에서 바꾼다.
+  function setShowHiddenAll(on) {
+    state.settings.showHidden = !!on;
+    for (const fence of state.fences) fence.showHidden = !!on;
+    persist();
+    pushAll();
+    announce();
+  }
+
   function setShadow(on) {
     state.settings.shadow = !!on;
     persist();
@@ -3097,6 +3177,7 @@ function createHost(state) {
     applyBounds,
     setCollapsed,
     dropFiles,
+    dropAt,
     acceptDesktopDrop,
     transfer,
     rename,
@@ -3120,6 +3201,8 @@ function createHost(state) {
     setDefaultCorner,
     setDefaultOpacity,
     setShadow,
+    setShowHidden,
+    setShowHiddenAll,
     setOpenWith,
     putBack,
     returnAll,

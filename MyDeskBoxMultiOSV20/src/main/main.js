@@ -118,7 +118,17 @@ function workArea() {
 function planDesktop(state, desktop) {
   const catalog = require('../shared/catalog');
   const i18n = require('../shared/i18n');
-  const files = typeof desktop.listDesktopFiles === 'function' ? desktop.listDesktopFiles() : [];
+  const conceal = require('../shared/conceal');
+  // 숨김·임시 파일은 탐색기에도 보이지 않는다. 나눠 담을 때 끌어오지 않는다.
+  const flagsOf = (at) => {
+    try {
+      return typeof desktop.fileFlags === 'function' ? desktop.fileFlags(at) : null;
+    } catch (_err) {
+      return null;
+    }
+  };
+  const files = (typeof desktop.listDesktopFiles === 'function' ? desktop.listDesktopFiles() : [])
+    .filter((file) => !conceal.isConcealed(file.name, flagsOf(file.path)));
   const shell = typeof desktop.shellItems === 'function' ? desktop.shellItems() : [];
   const lang = state.settings.lang;
   return catalog.planFences(files, shell, workArea(), (kind) => i18n.t(lang, `box.${kind}`));

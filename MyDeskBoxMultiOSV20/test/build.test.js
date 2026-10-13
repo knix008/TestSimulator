@@ -197,7 +197,9 @@ test('restores files and Recycle Bin manually if the app cannot', () => {
   assert.match(nsh, /Function un\.ShowShellIcons/, 'does not unhide the Recycle Bin');
   // The Recycle Bin CLSID must match SHELL_CLSID in windows.js.
   const windows = fs.readFileSync(path.join(ROOT, 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  for (const clsid of nsh.match(/\{[0-9A-Fa-f-]{36}\}/g) || []) {
+  const shellAt = nsh.indexOf('Function un.ShowShellIcons');
+  const shellBody = nsh.slice(shellAt, nsh.indexOf('FunctionEnd', shellAt));
+  for (const clsid of shellBody.match(/\{[0-9A-Fa-f-]{36}\}/g) || []) {
     assert.ok(windows.includes(clsid), `tries to restore an icon not listed in windows.js: ${clsid}`);
   }
   assert.ok(nsh.includes('{645FF040-5081-101B-9F08-00AA002F954E}'), 'does not restore the Recycle Bin');
@@ -212,6 +214,25 @@ test('restores once more after the app has stopped', () => {
   const body = nsh.slice(at, end);
   assert.ok(body.includes('Call un.RestoreBoxFiles'), 'does not restore files at the end');
   assert.ok(body.includes('Call un.ShowShellIcons'), 'does not restore the Recycle Bin at the end');
+});
+
+// A shortcut kept in a box comes back from the restore step, often renamed
+// ('MyDeskBox (2).lnk', '(1) MyDeskBox.lnk'). Deleting the exact name before that leaves it behind.
+test('uninstall removes shortcuts that came back from boxes', () => {
+  const at = nsh.indexOf('!macro customUnInstall');
+  const end = nsh.indexOf('!macroend', at);
+  const body = nsh.slice(at, end);
+  const restore = body.lastIndexOf('Call un.RestoreBoxFiles');
+  const del = body.indexOf('Delete "$DESKTOP');
+  assert.ok(del > restore, 'deletes the shortcut before box files come back');
+  assert.ok(body.indexOf('Call un.DropOwnShortcuts') > restore, 'does not sweep shortcuts after restoring');
+  assert.match(nsh, /Function un\.DropOwnShortcuts/, 'shortcut sweep is missing');
+  assert.match(nsh, /Function un\.ShortcutTarget/, 'does not read the shortcut target');
+  // Matched by target, not by name, so other programs' shortcuts stay.
+  // The define does not exist yet where the function is read, so the macro passes the path in.
+  assert.ok(body.includes('Push "$INSTDIR\\${APP_EXECUTABLE_FILENAME}"'), 'does not compare with the installed executable');
+  const fn = nsh.slice(nsh.indexOf('Function un.DropOwnShortcuts'));
+  assert.ok(!fn.slice(0, fn.indexOf('FunctionEnd')).includes('${APP_EXECUTABLE_FILENAME}'), 'uses a define the uninstaller build does not have');
 });
 
 test('reinstall asks before restoring', () => {

@@ -4085,3 +4085,262 @@ suite("Windows installer", () => {
     assert(!trouble.length, trouble.join(" | "));
   });
 });
+
+suite("Notepad", () => {
+  // Every case starts from an empty notepad and leaves the one it found.
+  const withMemo = async (query, body) => {
+    const saved = localStorage.getItem("mycalc-memo");
+    localStorage.removeItem("mycalc-memo");
+    const loaded = await loadApp(query);
+    try {
+      flush(loaded.win);
+      await body(loaded.win, loaded.win.document);
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-memo");
+      else localStorage.setItem("mycalc-memo", saved);
+    }
+  };
+
+  test("The notepad opens as its own window with the built-in items", async () => {
+    await withMemo("pop=memo", async (win, doc) => {
+      assert(!doc.getElementById("memoSheet").hidden, "the notepad did not open");
+      assert(doc.documentElement.classList.contains("memo-pop"), "the window is not marked as the notepad");
+      const seen = callWin(win, () => ({
+        rows: document.querySelectorAll("#memoList .memo-item").length,
+        builtins: MEMO_BUILTINS.length,
+        stored: JSON.parse(localStorage.getItem("mycalc-memo")).items.length,
+        keys: document.querySelectorAll("#keys .key").length > 0 && getComputedStyle(document.getElementById("keys")).display !== "none",
+      }));
+      assert(seen.rows === seen.builtins, `${seen.rows} rows for ${seen.builtins} built-in items`);
+      assert(seen.stored === seen.builtins, `${seen.stored} items stored`);
+      assert(!seen.keys, "the keypad shows in the notepad window");
+    });
+  });
+
+  test("Every function and every graph preset is a built-in item, and each one works", async () => {
+    await withMemo("pop=memo", async (win) => {
+      const trouble = callWin(win, () => {
+        const wrong = [];
+        const check = new CalcEngine();
+        const texts = MEMO_BUILTINS.map((entry) => entry.text).join(" ");
+        for (const name of Object.keys(FUNCTIONS)) {
+          if (!new RegExp(`\\b${name}\\(`).test(texts)) wrong.push(`no item uses ${name}`);
+        }
+        for (const expr of [...PRESETS["2d"], ...STAT_PRESETS.filter((p) => p.expr).map((p) => p.expr)]) {
+          if (!MEMO_BUILTINS.some((entry) => entry.kind === "graph2d" && entry.text === expr)) wrong.push(`2D preset ${expr} is missing`);
+        }
+        for (const expr of PRESETS["3d"]) {
+          if (!MEMO_BUILTINS.some((entry) => entry.kind === "graph3d" && entry.text === expr)) wrong.push(`3D preset ${expr} is missing`);
+        }
+        for (const entry of MEMO_BUILTINS) {
+          try {
+            const scope = entry.kind === "graph3d" ? { x: 0.7, y: 0.3 } : entry.kind === "graph2d" ? { x: 0.7 } : undefined;
+            const value = check.evaluate(entry.text, scope);
+            if (!Number.isFinite(value)) wrong.push(`${entry.text} is not a number`);
+          } catch (err) {
+            wrong.push(`${entry.text}: ${err.message}`);
+          }
+          if (!entry.ko || !entry.en || entry.ko === entry.en && /[가-힣]/.test(entry.ko)) wrong.push(`${entry.text} has no title in both languages`);
+        }
+        return wrong;
+      });
+      assert(!trouble.length, trouble.slice(0, 6).join(" | "));
+    });
+  });
+
+  test("Typing an item adds it at the top and guesses its kind", async () => {
+    await withMemo("pop=memo", async (win, doc) => {
+      const result = callWin(win, () => {
+        const text = document.getElementById("memoNewText");
+        const out = [];
+        for (const value of ["x^3-2*x", "sin(x)*y", "2+3*4", "mean(1, 2, 3)", "buy milk"]) {
+          text.value = value;
+          text.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+          const first = document.querySelector("#memoList .memo-item");
+          out.push([first.dataset.kind, first.querySelector(".memo-expr").textContent]);
+        }
+        return { out, left: text.value };
+      });
+      const want = [["graph2d", "y = x^3-2*x"], ["graph3d", "z = sin(x)*y"], ["calc", "2+3*4"], ["stats", "mean(1, 2, 3)"], ["note", "buy milk"]];
+      want.forEach(([kind, shown], at) => {
+        assert(result.out[at][0] === kind, `${shown} was taken for ${result.out[at][0]}`);
+        assert(result.out[at][1] === shown, `the row shows ${result.out[at][1]}`);
+      });
+      assert(result.left === "", "the input was not cleared");
+      const stored = JSON.parse(localStorage.getItem("mycalc-memo")).items;
+      assert(stored[0].text === "buy milk" && stored[0].kind === "note", "the new item is not stored first");
+    });
+  });
+
+  test("An item can be edited, moved, filtered, searched and deleted", async () => {
+    await withMemo("pop=memo", async (win) => {
+      const trouble = callWin(win, () => {
+        const wrong = [];
+        const rows = () => [...document.querySelectorAll("#memoList .memo-item")];
+        const first = rows()[0];
+        const firstId = first.dataset.id;
+        // Edit
+        first.querySelector(".memo-act-edit").click();
+        const form = document.querySelector(".memo-edit");
+        form.querySelector("textarea").value = "sin(45)";
+        form.querySelector(".memo-title-input").value = "내 사인";
+        form.requestSubmit();
+        const edited = readMemo().find((item) => item.id === firstId);
+        if (edited.text !== "sin(45)" || edited.title !== "내 사인") wrong.push("the edit was not saved");
+        // Move down, then back up
+        rows()[0].querySelector(".memo-act-down").click();
+        if (rows()[1].dataset.id !== firstId) wrong.push("moving down did not move it");
+        rows()[1].querySelector(".memo-act-up").click();
+        if (rows()[0].dataset.id !== firstId) wrong.push("moving up did not move it");
+        if (!rows()[0].querySelector(".memo-act-up").disabled) wrong.push("the top item can still move up");
+        // Filter
+        document.querySelector('.memo-filter[data-kind="graph3d"]').click();
+        if (!rows().length || rows().some((row) => row.dataset.kind !== "graph3d")) wrong.push("the 3D filter shows other kinds");
+        document.querySelector('.memo-filter[data-kind="all"]').click();
+        // Search
+        const search = document.getElementById("memoSearch");
+        search.value = "ncr";
+        search.dispatchEvent(new Event("input"));
+        if (rows().length !== 1 || !rows()[0].textContent.includes("ncr(5, 2)")) wrong.push(`searching ncr shows ${rows().length} rows`);
+        search.value = "";
+        search.dispatchEvent(new Event("input"));
+        // Delete one, then a selection
+        const before = readMemo().length;
+        rows()[0].querySelector(".memo-act-delete").click();
+        if (readMemo().length !== before - 1 || readMemo().some((item) => item.id === firstId)) wrong.push("delete did not remove the item");
+        const picks = rows().slice(0, 3);
+        for (const row of picks) {
+          const box = row.querySelector(".memo-check");
+          box.checked = true;
+          box.dispatchEvent(new Event("change"));
+        }
+        window.confirm = () => true;
+        document.getElementById("memoDeleteSel").click();
+        if (readMemo().length !== before - 4) wrong.push(`deleting three selected left ${readMemo().length} of ${before - 1}`);
+        // Restore
+        document.getElementById("memoRestore").click();
+        if (readMemo().length !== before) wrong.push(`restoring left ${readMemo().length} of ${before}`);
+        return wrong;
+      });
+      assert(!trouble.length, trouble.join(" | "));
+    });
+  });
+
+  test("Copy and paste go through the clipboard, one line per item", async () => {
+    await withMemo("pop=memo", async (win) => {
+      callWin(win, () => {
+        window.__clip = "";
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText: (text) => { window.__clip = text; return Promise.resolve(); },
+            readText: () => Promise.resolve(window.__clip),
+          },
+        });
+        const boxes = [...document.querySelectorAll("#memoList .memo-check")].slice(0, 2);
+        for (const box of boxes) {
+          box.checked = true;
+          box.dispatchEvent(new Event("change"));
+        }
+        document.getElementById("memoCopySel").click();
+      });
+      await wait(30);
+      const copied = callWin(win, () => window.__clip);
+      const firstTwo = callWin(win, () => readMemo().slice(0, 2).map((item) => item.text).join("\n"));
+      assert(copied === firstTwo, `copied ${JSON.stringify(copied)}`);
+      callWin(win, () => {
+        window.__clip = "x^4\r\n\r\n7*8\ncos(x)+y";
+        document.getElementById("memoPasteItems").click();
+      });
+      await wait(30);
+      const top = callWin(win, () => readMemo().slice(0, 3).map((item) => `${item.kind}:${item.text}`));
+      assert(top.join("|") === "graph2d:x^4|calc:7*8|graph3d:cos(x)+y", top.join("|"));
+      // The same lines again are not doubled.
+      const count = callWin(win, () => readMemo().length);
+      callWin(win, () => document.getElementById("memoPasteItems").click());
+      await wait(30);
+      assert(callWin(win, () => readMemo().length) === count, "pasting again doubled the items");
+      // A single item copies on its own.
+      callWin(win, () => document.querySelector("#memoList .memo-item .memo-act-copy").click());
+      await wait(30);
+      assert(callWin(win, () => window.__clip) === "x^4", "the row copy did not copy its text");
+    });
+  });
+
+  test("The calculator and the graph add their input to the notepad", async () => {
+    await withMemo("desktop=1", async (win, doc) => {
+      assert(doc.getElementById("memoBtn"), "the calculator has no notepad button");
+      const added = callWin(win, () => {
+        setMode("basic");
+        exprEl.value = "12*(3+4)";
+        document.getElementById("memoAddExpr").click();
+        document.getElementById("memoAddExpr").click();
+        setMode("programmer");
+        progExprEl.value = "0xFF & 0x0F";
+        document.getElementById("memoAddProg").click();
+        setMode("basic");
+        return readMemo().filter((item) => !item.builtin).map((item) => `${item.kind}:${item.text}`);
+      });
+      assert(added.join("|") === "prog:0xFF & 0x0F|calc:12*(3+4)", added.join("|"));
+    });
+    await withMemo("pop=graph&desktop=1", async (win, doc) => {
+      assert(!doc.getElementById("memoGraph").hidden && !doc.getElementById("memoAddGraph").hidden, "the graph window has no notepad buttons");
+      const added = callWin(win, () => {
+        board.setDimension("2d");
+        addGraph("x^2");
+        addGraph("sin(x)/x");
+        graphExprEl.value = "";
+        document.getElementById("memoAddGraph").click();
+        graphExprEl.value = "abs(x)";
+        document.getElementById("memoAddGraph").click();
+        return readMemo().filter((item) => !item.builtin).map((item) => `${item.kind}:${item.text}`);
+      });
+      // x^2 is already a built-in curve, so only the new formulas are added.
+      assert(added.join("|") === "graph2d:abs(x)|graph2d:sin(x)/x", added.join("|"));
+    });
+  });
+
+  test("An item sent from the notepad lands in the calculator or on the graph", async () => {
+    await withMemo("desktop=1", async (win) => {
+      const got = callWin(win, () => {
+        useMemoInMain({ type: "memo-use", target: "calc", text: "sqrt(16)+1" });
+        const calc = [state.mode, exprEl.value];
+        useMemoInMain({ type: "memo-use", target: "prog", text: "0b1010 | 1" });
+        const prog = [state.mode, progExprEl.value];
+        setMode("basic");
+        return { calc, prog };
+      });
+      assert(got.calc[1] === "sqrt(16)+1" && ["basic", "scientific"].includes(got.calc[0]), got.calc.join(" "));
+      assert(got.prog[0] === "programmer" && got.prog[1] === "0b1010 | 1", got.prog.join(" "));
+    });
+    await withMemo("pop=graph&desktop=1", async (win) => {
+      const got = callWin(win, () => {
+        board.setDimension("2d");
+        plotFromMemo({ type: "memo-plot", text: "x^2+y^2", dim: "3d", token: "t1" });
+        plotFromMemo({ type: "memo-plot", text: "x^2+y^2", dim: "3d", token: "t1" });
+        return { dim: board.dimension, count: board.functions.filter((fn) => fn.expr === "x^2+y^2").length };
+      });
+      assert(got.dim === "3d", `the graph stayed ${got.dim}`);
+      assert(got.count === 1, `${got.count} copies were drawn`);
+    });
+  });
+
+  test("The notepad speaks Korean and English", async () => {
+    await withMemo("pop=memo", async (win) => {
+      const read = () => callWin(win, () => ({
+        title: document.getElementById("memoTitle").textContent,
+        badge: document.querySelector("#memoList .memo-badge").textContent,
+        name: document.querySelector("#memoList .memo-name").textContent,
+        filter: document.querySelector(".memo-filter").textContent,
+      }));
+      callWin(win, () => applyLanguage("ko"));
+      const ko = read();
+      callWin(win, () => applyLanguage("en"));
+      const en = read();
+      callWin(win, () => applyLanguage("ko"));
+      assert(ko.title === "메모장" && en.title === "Notepad", `${ko.title} / ${en.title}`);
+      for (const key of ["badge", "name", "filter"]) assert(ko[key] !== en[key], `the ${key} reads ${ko[key]} in both languages`);
+    });
+  });
+});
