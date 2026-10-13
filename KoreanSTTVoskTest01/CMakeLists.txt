@@ -153,7 +153,7 @@ if(KSTT_WANT_NATIVE AND WIN32)
         app/gui/windows/app.rc
     )
     target_link_libraries(kstt-gui-native PRIVATE
-        kstt_core kstt_audio comctl32 comdlg32 shell32 ole32 psapi)
+        kstt_core kstt_audio comctl32 comdlg32 shell32 ole32 psapi powrprof)
     # UNICODE: Win32 API 의 W 판을 쓴다 (한글 경로·장치 이름이 깨지지 않게).
     # _WIN32_WINNT 0x0A00: DPI 관련 함수(GetDpiForWindow 등)가 헤더에서 열린다.
     target_compile_definitions(kstt-gui-native PRIVATE
@@ -200,7 +200,7 @@ if(KSTT_WANT_GTK4)
         if(WIN32)
             # 콘솔 창 없이 띄운다 (MinGW 가 WinMain 다리를 놓아 준다)
             target_link_options(kstt-gui-gtk4 PRIVATE -mwindows)
-            target_link_libraries(kstt-gui-gtk4 PRIVATE psapi)
+            target_link_libraries(kstt-gui-gtk4 PRIVATE psapi powrprof)
         endif()
         list(APPEND KSTT_GUI_TARGETS kstt-gui-gtk4)
     else()

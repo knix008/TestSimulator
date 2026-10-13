@@ -60,6 +60,7 @@ private:
     void chooseModelFolder();
     void chooseWavFile();
     void saveTranscript();
+    void writeReport();
     void clearTranscript();
     void maybeRunSmokeFile();
 
@@ -68,6 +69,10 @@ private:
     void setResourceMonitor(bool on);
     bool sampleProcessCpu(double* percent);
     bool sampleProcessMemory(unsigned long long* bytes);
+    bool sampleCpuClock();
+    unsigned logicalCoreCount();
+    unsigned physicalCoreCount();
+    std::string buildReport();
     void updateResourceLabel();
     void appendFinal(const Transcript& result);
     void setPartial(const std::string& text);
@@ -93,8 +98,28 @@ private:
     unsigned cpuTimer_ = 0;
     bool cpuMonitor_ = false;
     bool cpuHaveSample_ = false;
+    bool lastCpuValid_ = false;
     std::uint64_t cpuWallNs_ = 0;
     std::uint64_t cpuProcNs_ = 0;
+    std::uint64_t resourceStartMs_ = 0;
+    unsigned logicalCores_ = 0;
+    unsigned physicalCores_ = 0;
+    bool physicalCoresKnown_ = false;
+    int resourceSamples_ = 0;
+    double cpuSum_ = 0.0;
+    double cpuPeak_ = 0.0;
+    double lastCpuPercent_ = 0.0;
+    double lastCoresUsed_ = 0.0;
+    double coresUsedPeak_ = 0.0;
+    unsigned long long lastWorkingSet_ = 0;
+    unsigned long long lastPeakWorkingSet_ = 0;
+    unsigned long long lastPrivateBytes_ = 0;
+    unsigned long long memorySessionPeak_ = 0;
+    unsigned long long lastCurrentHz_ = 0;
+    unsigned long long lastLowestHz_ = 0;
+    unsigned long long lastMaxHz_ = 0;
+    unsigned long long clockPeakHz_ = 0;
+    std::string pendingReport_;
     GtkWidget* partialLabel_ = nullptr;
     GtkWidget* tallyLabel_ = nullptr;
     GtkWidget* spinner_ = nullptr;

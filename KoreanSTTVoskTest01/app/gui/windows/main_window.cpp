@@ -2,6 +2,7 @@
 
 #include <commctrl.h>
 #include <commdlg.h>
+#include <powrprof.h>
 #include <psapi.h>
 #include <shlobj.h>
 
@@ -43,6 +44,7 @@ enum : int {
     kIdPartial,
     kIdClear,
     kIdSave,
+    kIdReport,
     kIdKeywordList = 1100,
     kIdKeywordEdit,
     kIdKeywordAdd,
@@ -318,6 +320,7 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                 }
                 case kIdClear: clearTranscript(); return 0;
                 case kIdSave: saveTranscript(); return 0;
+                case kIdReport: writeReport(); return 0;
                 case kIdKeywordAdd: addKeyword(); return 0;
                 case kIdKeywordRemove: removeKeyword(); return 0;
                 case kIdKeywordRecord: recordKeyword(); return 0;
@@ -531,9 +534,10 @@ void MainWindow::createControls() {
     SendMessageW(levelBar_, PBM_SETRANGE32, 0, 1000);
 
     statusLabel_ = make(L"STATIC", L"준비 중…", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
-    cpuLabel_ = make(L"STATIC", L"메모리 … · CPU …", SS_RIGHT | SS_CENTERIMAGE, 0);
+    cpuLabel_ = make(L"STATIC", L"메모리 … · CPU … · …코어 · … GHz", SS_RIGHT | SS_CENTERIMAGE, 0);
 
     labels_.push_back(make(L"STATIC", L"인식 결과", SS_LEFT | SS_CENTERIMAGE, 0));
+    reportButton_ = make(L"BUTTON", L"리포트", WS_TABSTOP | BS_PUSHBUTTON, kIdReport);
     clearButton_ = make(L"BUTTON", L"지우기", WS_TABSTOP | BS_PUSHBUTTON, kIdClear);
     saveButton_ = make(L"BUTTON", L"저장…", WS_TABSTOP | BS_PUSHBUTTON, kIdSave);
     transcriptEdit_ = make(L"EDIT", L"",
@@ -689,9 +693,9 @@ void MainWindow::layout() {
     place(levelBar_, x, y + scaled(6), std::max(scaled(40), right - x), rowHeight - scaled(12));
     y += rowHeight + gap;
 
-    // 4행: 상태. 오른쪽은 이 프로세스의 메모리와 CPU 점유율.
+    // 4행: 상태. 오른쪽은 메모리, CPU 점유율, 사용 중인 코어 수.
     const int statusHeight = scaled(20);
-    const int cpuWidth = scaled(248);
+    const int cpuWidth = scaled(490);
     if (cpuLabel_) place(cpuLabel_, right - cpuWidth, y, cpuWidth, statusHeight);
     const int statusWidth = right - margin - cpuWidth - gap;
     place(statusLabel_, margin, y, std::max(scaled(40), statusWidth), statusHeight);
@@ -699,8 +703,11 @@ void MainWindow::layout() {
 
     // 5행: 인식 결과 머리말 + 단추
     const int smallButton = scaled(72);
+    const int buttonsWidth = smallButton * 3 + gap * 2;
     place(labels_[5], margin, y, scaled(80), rowHeight);
-    place(tallyLabel_, margin + scaled(84), y, right - margin - scaled(240), rowHeight);
+    place(tallyLabel_, margin + scaled(84), y,
+          std::max(scaled(40), right - margin - scaled(84) - buttonsWidth - gap), rowHeight);
+    place(reportButton_, right - buttonsWidth, y, smallButton, rowHeight);
     place(clearButton_, right - smallButton * 2 - gap, y, smallButton, rowHeight);
     place(saveButton_, right - smallButton, y, smallButton, rowHeight);
     y += rowHeight + scaled(4);
@@ -885,6 +892,247 @@ void MainWindow::saveTranscript() {
     setStatus(L"저장했습니다: " + std::wstring(path));
 }
 
+std::wstring MainWindow::buildReport() {
+    updateResourceLabel();
+
+    const auto add = [](std::wstring* out, const std::wstring& label, const std::wstring& value) {
+        *out += label;
+        *out += L": ";
+        *out += value;
+        *out += L"\r\n";
+    };
+    const auto num = [](double value, int digits) {
+        wchar_t buffer[32];
+        swprintf(buffer, 32, digits == 0 ? L"%.0f" : (digits == 1 ? L"%.1f" : L"%.2f"), value);
+        return std::wstring(buffer);
+    };
+    const auto mem = [](unsigned long long bytes) {
+        wchar_t buffer[64];
+        if (bytes >= 1024ull * 1024ull * 1024ull) {
+            swprintf(buffer, 64, L"%.2f GB (%llu 바이트)",
+                     static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0), bytes);
+        } else {
+            swprintf(buffer, 64, L"%.1f MB (%llu 바이트)",
+                     static_cast<double>(bytes) / (1024.0 * 1024.0), bytes);
+        }
+        return std::wstring(buffer);
+    };
+    const auto clock = [](unsigned long long hz) {
+        wchar_t buffer[80];
+        if (hz >= 1000000000ull) {
+            swprintf(buffer, 80, L"%llu Hz (%.2f GHz)", hz, static_cast<double>(hz) / 1000000000.0);
+        } else if (hz >= 1000000ull) {
+            swprintf(buffer, 80, L"%llu Hz (%.2f MHz)", hz, static_cast<double>(hz) / 1000000.0);
+        } else {
+            swprintf(buffer, 80, L"%llu Hz", hz);
+        }
+        return std::wstring(buffer);
+    };
+
+    SYSTEMTIME now;
+    GetLocalTime(&now);
+    wchar_t stamp[64];
+    swprintf(stamp, 64, L"%04u-%02u-%02u %02u:%02u:%02u", now.wYear, now.wMonth, now.wDay, now.wHour,
+             now.wMinute, now.wSecond);
+
+    const unsigned cores = logicalCoreCount();
+    const unsigned physical = physicalCoreCount();
+    const ULONGLONG elapsedMs = resourceStartMs_ == 0 ? 0 : GetTickCount64() - resourceStartMs_;
+    const unsigned long long totalSec = elapsedMs / 1000;
+    wchar_t elapsed[64];
+    swprintf(elapsed, 64, L"%llu시간 %llu분 %llu초 (표본 %d회, 0.5초 간격)", totalSec / 3600,
+             (totalSec / 60) % 60, totalSec % 60, resourceSamples_);
+
+    std::wstring text = L"한국어 음성 인식 보고서\r\n";
+    add(&text, L"작성 시각", stamp);
+    add(&text, L"측정 구간", elapsed);
+    text += L"\r\n[시스템]\r\n";
+    add(&text, L"논리 프로세서", std::to_wstring(cores));
+    add(&text, L"물리 코어", physical == 0 ? L"확인하지 못함" : std::to_wstring(physical));
+    if (lastCurrentHz_ > 0)
+        add(&text, L"현재 클록", clock(lastCurrentHz_) + L" (논리 프로세서 중 가장 높음)");
+    if (lastLowestHz_ > 0 && lastLowestHz_ != lastCurrentHz_)
+        add(&text, L"현재 클록 (가장 낮음)", clock(lastLowestHz_));
+    if (lastMaxHz_ > 0) add(&text, L"최대 클록", clock(lastMaxHz_));
+
+    MEMORYSTATUSEX system = {};
+    system.dwLength = sizeof(system);
+    if (GlobalMemoryStatusEx(&system)) {
+        add(&text, L"시스템 메모리", mem(system.ullTotalPhys));
+        add(&text, L"사용 가능 메모리", mem(system.ullAvailPhys));
+        add(&text, L"시스템 메모리 사용률", std::to_wstring(system.dwMemoryLoad) + L" %");
+    }
+
+    text += L"\r\n[이 프로세스 — 현재]\r\n";
+    if (lastWorkingSet_ > 0)
+        add(&text, L"메모리 (작업 집합)", mem(lastWorkingSet_));
+    else
+        add(&text, L"메모리 (작업 집합)", L"확인하지 못함");
+    if (lastPeakWorkingSet_ > 0) add(&text, L"최대 작업 집합", mem(lastPeakWorkingSet_));
+    if (lastPrivateBytes_ > 0) add(&text, L"전용 메모리", mem(lastPrivateBytes_));
+    if (lastCpuValid_) {
+        add(&text, L"CPU 점유율", num(lastCpuPercent_, 1) + L" %");
+        add(&text, L"사용 중인 코어", num(lastCoresUsed_, 1) + L" / " + std::to_wstring(cores));
+        text += L"코어 계산: CPU 점유율 × 논리 프로세서 / 100. 100% 는 논리 프로세서를 모두 쓰는 상태.\r\n";
+    } else {
+        add(&text, L"CPU 점유율", L"아직 측정 전");
+        add(&text, L"사용 중인 코어", L"아직 측정 전");
+    }
+
+    FILETIME creation, exitTime, kernel, user;
+    if (GetProcessTimes(GetCurrentProcess(), &creation, &exitTime, &kernel, &user)) {
+        const auto seconds = [](const FILETIME& fileTime) {
+            ULARGE_INTEGER value;
+            value.LowPart = fileTime.dwLowDateTime;
+            value.HighPart = fileTime.dwHighDateTime;
+            return static_cast<double>(value.QuadPart) / 10000000.0;
+        };
+        add(&text, L"프로세스 CPU 시간 (사용자)", num(seconds(user), 2) + L" 초");
+        add(&text, L"프로세스 CPU 시간 (커널)", num(seconds(kernel), 2) + L" 초");
+    }
+
+    text += L"\r\n[이 프로세스 — 측정 구간]\r\n";
+    if (resourceSamples_ > 0) {
+        const double average = cpuSum_ / static_cast<double>(resourceSamples_);
+        const double averageCores = average / 100.0 * static_cast<double>(cores);
+        add(&text, L"평균 CPU 점유율", num(average, 1) + L" %");
+        add(&text, L"최대 CPU 점유율", num(cpuPeak_, 1) + L" %");
+        add(&text, L"평균 사용 코어", num(averageCores, 1) + L" / " + std::to_wstring(cores));
+        add(&text, L"최대 사용 코어", num(coresUsedPeak_, 1) + L" / " + std::to_wstring(cores));
+    } else {
+        add(&text, L"평균 CPU 점유율", L"아직 측정 전");
+    }
+    if (memorySessionPeak_ > 0) add(&text, L"최대 메모리 (작업 집합)", mem(memorySessionPeak_));
+    if (clockPeakHz_ > 0) add(&text, L"최고 클록", clock(clockPeakHz_));
+
+    text += L"\r\n[인식]\r\n";
+    std::wstring activity = L"대기";
+    if (training_)
+        activity = L"학습 중";
+    else if (recording_)
+        activity = L"키워드 녹음 중";
+    else if (keywordListener_.isRunning())
+        activity = L"인식 중 (키워드 모델)";
+    else if (engine_.isRunning())
+        activity = L"인식 중 (Vosk)";
+    else if (loading_)
+        activity = L"모델 적재 중";
+    else if (engine_.isModelLoaded())
+        activity = L"대기 (모델 준비됨)";
+    add(&text, L"상태", activity);
+    add(&text, L"키워드 모델로 인식", wantKeyword() ? L"켜짐" : L"꺼짐");
+    add(&text, L"창의 모델 경로", editText(modelEdit_));
+    add(&text, L"창의 받는 말", editText(vocabEdit_));
+
+    const int deviceIndex = static_cast<int>(SendMessageW(deviceCombo_, CB_GETCURSEL, 0, 0));
+    std::wstring deviceName = L"(선택 없음)";
+    if (deviceIndex >= 0 && static_cast<size_t>(deviceIndex) < devices_.size())
+        deviceName = toWide(devices_[static_cast<size_t>(deviceIndex)].name) + L" (번호 " +
+                     std::to_wstring(devices_[static_cast<size_t>(deviceIndex)].id) + L")";
+    add(&text, L"입력 장치", deviceName);
+
+    if (engine_.isModelLoaded()) {
+        const EngineConfig& config = engine_.config();
+        add(&text, L"적재된 모델", toWide(config.modelPath));
+        add(&text, L"libvosk", toWide(engine_.voskLibraryPath()));
+        add(&text, L"표본율", std::to_wstring(config.sampleRate) + L" Hz");
+        const std::string words = formatVocabulary(config.vocabulary);
+        add(&text, L"적재된 받는 말", words.empty() ? L"(한정 없음)" : toWide(words));
+        const std::vector<std::string> unknown = engine_.unknownWords();
+        add(&text, L"모델이 모르는 말",
+            unknown.empty() ? L"없음" : toWide(formatVocabulary(unknown)));
+        add(&text, L"무음 거르기", config.gateSilence ? L"켜짐" : L"꺼짐");
+        add(&text, L"유성음 RMS 기준",
+            config.silenceThreshold <= 0.0f ? L"자동" : num(config.silenceThreshold, 2));
+        add(&text, L"최소 발화", std::to_wstring(config.minSpeechMillis) + L" ms");
+        add(&text, L"최소 신뢰도", num(config.minConfidence, 2));
+        add(&text, L"최대 영교차율", num(config.maxZeroCrossingRate, 2));
+        add(&text, L"최소 발화 비율", num(config.minVoicedFraction, 2));
+        add(&text, L"최대 낱말 길이", num(config.maxWordSeconds, 1) + L" 초");
+    } else {
+        add(&text, L"Vosk 모델", L"아직 적재되지 않음");
+    }
+
+    text += L"\r\n[키워드 모델]\r\n";
+    add(&text, L"작업 폴더", toWide(workspace_.root()));
+    add(&text, L"모델 파일", toWide(workspace_.modelPath()));
+    std::error_code sizeError;
+    const auto modelBytes =
+        std::filesystem::file_size(std::filesystem::u8path(workspace_.modelPath()), sizeError);
+    add(&text, L"모델 파일 크기", sizeError ? L"파일 없음" : formatByteSize(modelBytes));
+    add(&text, L"키워드 표본율", std::to_wstring(kKeywordSampleRate) + L" Hz");
+    add(&text, L"특징 차원", std::to_wstring(kKeywordFeatDim));
+    if (keywordReady_) {
+        add(&text, L"학습된 말", toWide(keywordModel_.summary()));
+        for (const KeywordClass& cls : keywordModel_.classes()) {
+            add(&text, toWide(cls.word),
+                L"녹음 " + std::to_wstring(cls.exemplars.size()) + L"개, 작업 폴더 " +
+                    std::to_wstring(workspace_.sampleCount(cls.word)) + L"개, 문턱 " +
+                    num(cls.threshold, 2));
+        }
+    } else {
+        add(&text, L"학습된 모델", L"없음");
+        for (const std::string& word : workspace_.words()) {
+            add(&text, toWide(word), L"작업 폴더 녹음 " + std::to_wstring(workspace_.sampleCount(word)) +
+                                         L"개");
+        }
+    }
+
+    text += L"\r\n[인식 집계]\r\n";
+    if (tally_.empty()) {
+        text += L"아직 없음\r\n";
+    } else {
+        int total = 0;
+        for (const auto& [word, count] : tally_) {
+            add(&text, word, std::to_wstring(count) + L"회");
+            total += count;
+        }
+        add(&text, L"합계", std::to_wstring(total) + L"회");
+    }
+    return text;
+}
+
+void MainWindow::writeReport() {
+    const std::wstring report = buildReport();
+    wchar_t path[MAX_PATH];
+    SYSTEMTIME now;
+    GetLocalTime(&now);
+    swprintf(path, MAX_PATH, L"보고서-%04u%02u%02u-%02u%02u%02u.txt", now.wYear, now.wMonth, now.wDay,
+             now.wHour, now.wMinute, now.wSecond);
+
+    OPENFILENAMEW dialog = {};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = window_;
+    dialog.lpstrFilter = L"텍스트 파일\0*.txt\0모든 파일\0*.*\0";
+    dialog.lpstrFile = path;
+    dialog.nMaxFile = MAX_PATH;
+    dialog.lpstrDefExt = L"txt";
+    dialog.lpstrTitle = L"보고서 저장";
+    dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    if (!GetSaveFileNameW(&dialog)) return;
+
+    const std::string utf8 = toUtf8(report);
+    HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+                              nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        setStatus(L"보고서를 저장할 수 없습니다: " + std::wstring(path), true);
+        return;
+    }
+    const unsigned char bom[3] = {0xEF, 0xBB, 0xBF};
+    DWORD written = 0;
+    WriteFile(file, bom, 3, &written, nullptr);
+    WriteFile(file, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr);
+    CloseHandle(file);
+
+    std::error_code sizeError;
+    const auto bytes = std::filesystem::file_size(std::filesystem::path(path), sizeError);
+    const std::wstring sizeText = sizeError ? L"크기를 확인하지 못했습니다." : formatByteSize(bytes);
+    const std::wstring body = L"보고서를 저장했습니다.\r\n\r\n저장 경로\r\n" + std::wstring(path) +
+                              L"\r\n\r\n파일 크기\r\n" + sizeText + L"\r\n\r\n" + report;
+    setStatus(L"보고서를 저장했습니다: " + std::wstring(path));
+    MessageBoxW(window_, body.c_str(), L"보고서", MB_OK | MB_ICONINFORMATION);
+}
+
 void MainWindow::clearTranscript() {
     SetWindowTextW(transcriptEdit_, L"");
     setPartial(L"");
@@ -923,6 +1171,7 @@ void MainWindow::setResourceMonitor(bool on) {
     cpuMonitor_ = on;
     cpuHaveSample_ = false;
     if (on) {
+        resourceStartMs_ = GetTickCount64();
         double unused = 0.0;
         sampleProcessCpu(&unused);
         updateResourceLabel();
@@ -941,6 +1190,7 @@ void MainWindow::updateResourceLabel() {
     const bool haveCpu = sampleProcessCpu(&percent);
     unsigned long long bytes = 0;
     const bool haveMemory = sampleProcessMemory(&bytes);
+    const unsigned cores = logicalCoreCount();
     wchar_t memory[32];
     if (!haveMemory) {
         swprintf(memory, 32, L"메모리 …");
@@ -950,20 +1200,112 @@ void MainWindow::updateResourceLabel() {
     } else {
         swprintf(memory, 32, L"메모리 %.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
     }
-    wchar_t line[80];
-    if (haveCpu)
-        swprintf(line, 80, L"%s · CPU %.1f%%", memory, percent);
-    else
-        swprintf(line, 80, L"%s · CPU …", memory);
+    const bool haveClock = sampleCpuClock();
+    wchar_t clockText[32];
+    if (haveClock && lastCurrentHz_ >= 1000000000ull) {
+        swprintf(clockText, 32, L"%.2f GHz", static_cast<double>(lastCurrentHz_) / 1000000000.0);
+    } else if (haveClock) {
+        swprintf(clockText, 32, L"%llu Hz", lastCurrentHz_);
+    } else {
+        swprintf(clockText, 32, L"… GHz");
+    }
+    wchar_t line[160];
+    if (haveCpu) {
+        double used = percent / 100.0 * static_cast<double>(cores);
+        if (used > static_cast<double>(cores)) used = static_cast<double>(cores);
+        lastCpuValid_ = true;
+        lastCpuPercent_ = percent;
+        lastCoresUsed_ = used;
+        cpuSum_ += percent;
+        ++resourceSamples_;
+        if (percent > cpuPeak_) cpuPeak_ = percent;
+        if (used > coresUsedPeak_) coresUsedPeak_ = used;
+        swprintf(line, 160, L"%s · CPU %.1f%% · %.1f/%u코어 · %s", memory, percent, used, cores,
+                 clockText);
+    } else {
+        swprintf(line, 160, L"%s · CPU … · …/%u코어 · %s", memory, cores, clockText);
+    }
+    if (haveMemory) {
+        lastWorkingSet_ = bytes;
+        if (bytes > memorySessionPeak_) memorySessionPeak_ = bytes;
+    }
     SetWindowTextW(cpuLabel_, line);
 }
 
 bool MainWindow::sampleProcessMemory(unsigned long long* bytes) {
-    PROCESS_MEMORY_COUNTERS counters = {};
+    PROCESS_MEMORY_COUNTERS_EX counters = {};
     counters.cb = sizeof(counters);
-    if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) return false;
+    if (!GetProcessMemoryInfo(GetCurrentProcess(),
+                              reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters),
+                              sizeof(counters)))
+        return false;
+    lastPeakWorkingSet_ = counters.PeakWorkingSetSize;
+    lastPrivateBytes_ = counters.PrivateUsage;
     if (bytes) *bytes = counters.WorkingSetSize;
     return true;
+}
+
+unsigned MainWindow::logicalCoreCount() {
+    if (logicalCores_ == 0) {
+        const DWORD count = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+        logicalCores_ = count == 0 ? 1u : count;
+    }
+    return logicalCores_;
+}
+
+unsigned MainWindow::physicalCoreCount() {
+    if (physicalCoresKnown_) return physicalCores_;
+    physicalCoresKnown_ = true;
+    DWORD bytes = 0;
+    GetLogicalProcessorInformation(nullptr, &bytes);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || bytes == 0) return 0;
+    std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> info(
+        bytes / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION));
+    if (!GetLogicalProcessorInformation(info.data(), &bytes)) return 0;
+    unsigned count = 0;
+    const std::size_t n = bytes / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+    for (std::size_t i = 0; i < n && i < info.size(); ++i) {
+        if (info[i].Relationship == RelationProcessorCore) ++count;
+    }
+    physicalCores_ = count;
+    return count;
+}
+
+bool MainWindow::sampleCpuClock() {
+    // MinGW 의 powrprof.h 에는 이 구조체가 없다. Windows 와 같은 배치다.
+    struct CpuPowerInfo {
+        ULONG number;
+        ULONG maxMhz;
+        ULONG currentMhz;
+        ULONG mhzLimit;
+        ULONG maxIdleState;
+        ULONG currentIdleState;
+    };
+    const auto read = [this](unsigned count) {
+        if (count == 0) return false;
+        std::vector<CpuPowerInfo> cpus(count);
+        const ULONG bytes = static_cast<ULONG>(cpus.size() * sizeof(CpuPowerInfo));
+        if (CallNtPowerInformation(ProcessorInformation, nullptr, 0, cpus.data(), bytes) != 0)
+            return false;
+        ULONG high = 0;
+        ULONG low = ~0u;
+        ULONG maxMhz = 0;
+        for (const CpuPowerInfo& cpu : cpus) {
+            if (cpu.currentMhz > high) high = cpu.currentMhz;
+            if (cpu.currentMhz > 0 && cpu.currentMhz < low) low = cpu.currentMhz;
+            if (cpu.maxMhz > maxMhz) maxMhz = cpu.maxMhz;
+        }
+        if (high == 0) return false;
+        lastCurrentHz_ = static_cast<unsigned long long>(high) * 1000000ull;
+        lastLowestHz_ = static_cast<unsigned long long>(low) * 1000000ull;
+        lastMaxHz_ = static_cast<unsigned long long>(maxMhz) * 1000000ull;
+        if (lastCurrentHz_ > clockPeakHz_) clockPeakHz_ = lastCurrentHz_;
+        return true;
+    };
+    SYSTEM_INFO info = {};
+    GetSystemInfo(&info);
+    if (read(info.dwNumberOfProcessors)) return true;
+    return read(logicalCoreCount());
 }
 
 bool MainWindow::sampleProcessCpu(double* percent) {
