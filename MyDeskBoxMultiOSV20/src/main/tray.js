@@ -97,6 +97,14 @@ function install(host) {
         checked: !!settings.shadow,
         click: (item) => host.setShadow(item.checked),
       },
+      {
+        // 모든 박스에 한꺼번에 건다. 박스 하나만 바꾸려면 그 박스의 메뉴나 설정 창에서 바꾼다.
+        label: say('tray.showHidden'),
+        icon: icons.menu('show'),
+        type: 'checkbox',
+        checked: !!settings.showHidden,
+        click: (item) => host.setShowHiddenAll(item.checked),
+      },
       { type: 'separator' },
       {
         label: say('tray.putBack'),

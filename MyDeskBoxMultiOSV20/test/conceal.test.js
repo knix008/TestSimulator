@@ -107,6 +107,20 @@ test('the setting is saved with the box', () => {
   assert.equal(store.normalizeFence({ id: 'y', items: [] }).showHidden, false, 'older saves must start hidden');
 });
 
+// When shown, hidden files must still look hidden (dimmed, like Explorer draws them).
+test('shown hidden files are marked so the box draws them dimmed', async () => {
+  const items = ['e.txt', '~$e.txt', 'secret-e.txt'].map(realItem);
+  const { host, electron } = openWith(items, { showHidden: true });
+  await host.push('a');
+  const sent = fenceWindows(electron)[0].messages('fence:state').at(-1).items;
+  const marks = Object.fromEntries(sent.map((item) => [item.name, item.concealed]));
+  assert.deepEqual(marks, { 'e.txt': false, '~$e.txt': true, 'secret-e.txt': true });
+  const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'fence.js'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'fence.css'), 'utf8');
+  assert.match(js, /classList\.toggle\('concealed', !!item\.concealed\)/, 'the box ignores the mark');
+  assert.match(css, /\.icon\.concealed img \{\s*opacity: 0\.5/, 'marked icons are not dimmed');
+});
+
 // The app settings window (Files tab) switches it for every box at once.
 test('app settings show hidden files in every box and in new boxes', async () => {
   const items = ['d.txt', '~$d.txt'].map(realItem);

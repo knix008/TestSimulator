@@ -363,6 +363,8 @@ function createHost(state) {
         shortcut: deliver.isShortcut(item.path),
         folder: isDirectory(item.path),
         recycle: deliver.isRecycle(item.path),
+        // 숨김·임시 파일. 보여 줄 때도 탐색기처럼 흐리게 그려 보통 파일과 가른다.
+        concealed: fence.showHidden ? concealed(item) : false,
         // 끌어다 놓은 것을 받아 줄 수 있는가. 창은 이것으로 밝혀 보여 준다.
         receives: canReceive(item),
       });
@@ -2917,6 +2919,14 @@ function createHost(state) {
         click: () => setCollapsed(id, !fence.collapsed),
       },
       {
+        // 이 박스만. 모든 박스에 걸려면 트레이 설정 메뉴나 설정 창의 폴더 탭에서 바꾼다.
+        label: say('settings.showHidden'),
+        icon: icons.menu('show'),
+        type: 'checkbox',
+        checked: !!fence.showHidden,
+        click: (item) => setShowHidden(id, item.checked),
+      },
+      {
         label: say('menu.settings'),
         icon: icons.menu('settings'),
         click: () => openSettings(id),
@@ -3191,6 +3201,8 @@ function createHost(state) {
     setDefaultCorner,
     setDefaultOpacity,
     setShadow,
+    setShowHidden,
+    setShowHiddenAll,
     setOpenWith,
     putBack,
     returnAll,
