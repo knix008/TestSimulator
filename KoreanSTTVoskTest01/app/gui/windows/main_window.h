@@ -70,6 +70,8 @@ private:
 
     // --- 표시 ---
     void setStatus(const std::wstring& text, bool isError = false);
+    void setCpuMonitor(bool on);
+    bool sampleProcessCpu(double* percent);
     void appendTranscript(const std::wstring& text);
     void setPartial(const std::wstring& text);
     void updateTally();
@@ -89,6 +91,7 @@ private:
     HWND partialCheck_ = nullptr;
     HWND levelBar_ = nullptr;
     HWND statusLabel_ = nullptr;
+    HWND cpuLabel_ = nullptr;
     HWND transcriptEdit_ = nullptr;
     HWND clearButton_ = nullptr;
     HWND saveButton_ = nullptr;
@@ -128,6 +131,10 @@ private:
     std::thread loader_;
     bool loading_ = false;
     bool statusIsError_ = false;
+    bool cpuMonitor_ = false;
+    bool cpuHaveSample_ = false;
+    ULONGLONG cpuWallMs_ = 0;
+    ULONGLONG cpuProc100ns_ = 0;
     bool smokeStarted_ = false;
     std::map<std::wstring, int> tally_;  // 받은 말마다 몇 번
 

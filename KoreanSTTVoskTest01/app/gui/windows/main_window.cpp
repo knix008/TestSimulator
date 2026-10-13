@@ -54,6 +54,7 @@ enum : int {
 };
 
 const wchar_t* kWindowClass = L"KsttMainWindow";
+constexpr UINT_PTR kCpuTimerId = 1;
 const wchar_t* kSizeGripClass = L"KsttSizeGrip";
 
 // 우측 하단의 크기 조절 표시. 창 배경과 구분되는 점으로 그리고, 누르면
@@ -351,13 +352,16 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             switch (state) {
                 case EngineState::Running:
                     setStatus(L"인식 중 — " + *text);
+                    setCpuMonitor(true);
                     break;
                 case EngineState::Ready:
+                    setCpuMonitor(false);
                     setStatus(*text == L"finished" ? L"인식이 끝났습니다." : L"대기 중 (모델 준비됨)");
                     SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                     setPartial(L"");
                     break;
                 case EngineState::Error:
+                    setCpuMonitor(false);
                     setStatus(*text, true);
                     SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                     break;
@@ -423,10 +427,13 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             std::unique_ptr<std::wstring> text(reinterpret_cast<std::wstring*>(lParam));
             if (wParam == 1) {
                 setStatus(L"인식 중 — 키워드 · " + *text);
+                setCpuMonitor(true);
             } else if (wParam == 3) {
+                setCpuMonitor(false);
                 setStatus(*text, true);
                 SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
             } else {
+                setCpuMonitor(false);
                 setStatus(L"인식이 끝났습니다.");
                 SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                 setPartial(L"");
@@ -435,7 +442,20 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
+        case WM_TIMER:
+            if (wParam == kCpuTimerId) {
+                double percent = 0.0;
+                if (sampleProcessCpu(&percent)) {
+                    wchar_t buffer[32];
+                    swprintf(buffer, 32, L"CPU %.1f%%", percent);
+                    SetWindowTextW(cpuLabel_, buffer);
+                }
+                return 0;
+            }
+            break;
+
         case WM_CLOSE:
+            setCpuMonitor(false);
             // 콜백부터 끊고 워커를 합류시킨 뒤, 이미 보내진 메시지를 비운다.
             accepting_ = false;
             recordCancel_.store(true);
@@ -520,7 +540,9 @@ void MainWindow::createControls() {
     levelBar_ = make(PROGRESS_CLASSW, L"", PBS_SMOOTH, 0);
     SendMessageW(levelBar_, PBM_SETRANGE32, 0, 1000);
 
-    statusLabel_ = make(L"STATIC", L"준비 중…", SS_LEFT | SS_ENDELLIPSIS, 0);
+    statusLabel_ = make(L"STATIC", L"준비 중…", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
+    cpuLabel_ = make(L"STATIC", L"", SS_RIGHT | SS_CENTERIMAGE, 0);
+    ShowWindow(cpuLabel_, SW_HIDE);
 
     labels_.push_back(make(L"STATIC", L"인식 결과", SS_LEFT | SS_CENTERIMAGE, 0));
     clearButton_ = make(L"BUTTON", L"지우기", WS_TABSTOP | BS_PUSHBUTTON, kIdClear);
@@ -677,9 +699,13 @@ void MainWindow::layout() {
     place(levelBar_, x, y + scaled(6), std::max(scaled(40), right - x), rowHeight - scaled(12));
     y += rowHeight + gap;
 
-    // 4행: 상태
+    // 4행: 상태. 인식 중에는 오른쪽에 이 프로그램의 CPU 점유율을 둔다.
     const int statusHeight = scaled(20);
-    place(statusLabel_, margin, y, right - margin, statusHeight);
+    const int cpuWidth = cpuMonitor_ ? scaled(96) : 0;
+    if (cpuLabel_ && cpuMonitor_)
+        place(cpuLabel_, right - cpuWidth, y, cpuWidth, statusHeight);
+    const int statusWidth = right - margin - (cpuMonitor_ ? cpuWidth + gap : 0);
+    place(statusLabel_, margin, y, std::max(scaled(40), statusWidth), statusHeight);
     y += statusHeight + gap;
 
     // 5행: 인식 결과 머리말 + 단추
@@ -901,6 +927,53 @@ void MainWindow::setStatus(const std::wstring& text, bool isError) {
     statusIsError_ = isError;
     SetWindowTextW(statusLabel_, text.c_str());
     InvalidateRect(statusLabel_, nullptr, TRUE);
+}
+
+void MainWindow::setCpuMonitor(bool on) {
+    if (cpuMonitor_ == on) return;
+    cpuMonitor_ = on;
+    cpuHaveSample_ = false;
+    if (on) {
+        double unused = 0.0;
+        sampleProcessCpu(&unused);
+        SetTimer(window_, kCpuTimerId, 500, nullptr);
+        SetWindowTextW(cpuLabel_, L"CPU …");
+        ShowWindow(cpuLabel_, SW_SHOW);
+    } else {
+        KillTimer(window_, kCpuTimerId);
+        ShowWindow(cpuLabel_, SW_HIDE);
+        SetWindowTextW(cpuLabel_, L"");
+    }
+    if (window_) layout();
+}
+
+bool MainWindow::sampleProcessCpu(double* percent) {
+    FILETIME creation, exitTime, kernel, user;
+    if (!GetProcessTimes(GetCurrentProcess(), &creation, &exitTime, &kernel, &user)) return false;
+    ULARGE_INTEGER kernelTime;
+    ULARGE_INTEGER userTime;
+    kernelTime.LowPart = kernel.dwLowDateTime;
+    kernelTime.HighPart = kernel.dwHighDateTime;
+    userTime.LowPart = user.dwLowDateTime;
+    userTime.HighPart = user.dwHighDateTime;
+    const ULONGLONG proc = kernelTime.QuadPart + userTime.QuadPart;
+    const ULONGLONG wall = GetTickCount64();
+    bool ready = false;
+    if (cpuHaveSample_ && wall > cpuWallMs_ && proc >= cpuProc100ns_) {
+        const DWORD coreCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+        const double cores = coreCount == 0 ? 1.0 : static_cast<double>(coreCount);
+        const double usedMs = static_cast<double>(proc - cpuProc100ns_) / 10000.0;
+        const double wallMs = static_cast<double>(wall - cpuWallMs_);
+        double value = usedMs / wallMs / cores * 100.0;
+        if (value < 0.0) value = 0.0;
+        if (value > 100.0) value = 100.0;
+        if (percent) *percent = value;
+        ready = true;
+    }
+    cpuHaveSample_ = true;
+    cpuWallMs_ = wall;
+    cpuProc100ns_ = proc;
+    return ready;
 }
 
 void MainWindow::appendTranscript(const std::wstring& text) {

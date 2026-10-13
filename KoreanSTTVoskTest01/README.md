@@ -3,9 +3,14 @@
 Vosk 로 한국어 음성을 받아쓰는 C++ 프로그램입니다. 인식은 전부 내 컴퓨터에서
 이루어지고, 인터넷은 설치할 때만 씁니다.
 
-기본 설정은 **"출근"과 "퇴근"만** 받아쓰고, 그 둘을 각각 따로 세는 출퇴근 기록용
-입니다. 받을 말은 창에서 바꿀 수 있고, 비우면 들리는 대로 모두 받아쓰는 일반
-받아쓰기가 됩니다.
+인식은 두 갈래입니다.
+
+- **Vosk 문법.** 기본으로 **출근, 퇴근, 경비, 해제**만 받아쓰고 각각 따로 셉니다.
+  받을 말은 창에서 바꿀 수 있고, 비우면 들리는 대로 모두 받아쓰는 일반
+  받아쓰기가 됩니다. 모델이 모르는 말은 후보에 넣을 수 없습니다.
+- **키워드 모델.** 창에서 말을 녹음해 학습하면 한 파일(`.kmodel`)이 됩니다.
+  Vosk 음향 모델(약 253MB)을 쓰지 않고, 그 파일만 다른 장치로 복사해 다시
+  씁니다. 목록에 없는 말도 녹음하면 넣을 수 있습니다.
 
 **GUI 와 인식 엔진이 완전히 분리**되어 있고, GUI 는 OS별로 갈라져 있습니다.
 Windows · Linux · macOS 를 같은 소스에서 빌드합니다.
@@ -47,12 +52,13 @@ Windows · Linux · macOS 를 같은 소스에서 빌드합니다.
                     │                   │
             ┌───────▼──────┐    ┌───────▼────────────────────────┐
             │  kstt_audio  │    │          kstt_core             │
-            │ waveIn/ALSA/ │───▶│ 워커 스레드 · 결과 콜백         │
+            │ waveIn/ALSA/ │───▶│ SttEngine (Vosk) · KeywordModel │
             │  CoreAudio   │    │ WAV · JSON · libvosk 동적 적재  │
             └──────────────┘    └───────────────┬────────────────┘
                                         dlopen / LoadLibrary
                                                 │
                                         libvosk (.dll/.so/.dylib)
+                                 (키워드 모델 경로는 libvosk 를 열지 않음)
 ```
 
 분리는 말이 아니라 빌드로 강제됩니다.
@@ -87,10 +93,20 @@ OS별로 갈라지는 것은 두 군데뿐입니다.
 ./clean.sh --dry-run       # 무엇을 지울지 보여만 준다
 ```
 
-Windows 는 `.ps1` 쪽도 같습니다: `.\build.ps1 -Gui all`, `.\clean.ps1 -Deps`
+Windows 는 `.ps1` 쪽도 같습니다.
 
-실행 파일은 **프로젝트 루트**에 놓이고(`kstt-gui`, `kstt-cli`, `kstt-tests` 와
-그 옆의 `libvosk`), 중간 산출물만 `build/` 안에 남습니다.
+```powershell
+.\build.ps1                 # Win32 네이티브 GUI (기본)
+.\build.ps1 -Gui all
+.\build.ps1 -Debug -Clean   # clean.ps1 과 같은 범위를 지우고 다시 빌드
+.\clean.ps1                 # build\ + 루트의 실행 파일·런타임 DLL
+.\clean.ps1 -DryRun         # 지울 항목만 표시
+.\clean.ps1 -Deps           # 위에 더해 third_party\ 와 models\
+```
+
+`clean` 은 녹음이 들어 있는 `keyword-workspace\` 와 `.kmodel` 파일은 지우지
+않습니다. 실행 파일은 **프로젝트 루트**에 놓이고(`kstt-gui`, `kstt-cli`,
+`kstt-tests` 와 그 옆의 `libvosk`), 중간 산출물만 `build/` 안에 남습니다.
 
 ---
 
@@ -122,17 +138,35 @@ if (engine.loadModel(config, &err) &&
 
 ---
 
-## 받을 말 한정
+## 받을 말 한정 (Vosk)
 
 ```bash
-./run.sh cli                              # 기본 — 출근 / 퇴근만
-./run.sh cli --vocab "출근,퇴근,외출,복귀"   # 받을 말을 직접 지정
-./run.sh cli --free                       # 한정 없이 자유 받아쓰기
+./run.sh cli                                 # 기본 — 출근, 퇴근, 경비, 해제
+./run.sh cli --vocab "출근,퇴근,외출,복귀"      # 받을 말을 직접 지정
+./run.sh cli --free                          # 한정 없이 자유 받아쓰기
 ```
 
 왜 한정하는가: 자유 받아쓰기로는 작은 모델이 "출근"을 **"체육 은"** 으로 흘립니다.
-받을 말을 정해 주면 인식기가 그 말들만 후보로 두어 정확히 잡습니다. 자세한 원리와
-주의할 점은 [ARCHITECTURE.md](ARCHITECTURE.md) 8장.
+받을 말을 정해 주면 인식기가 그 말들만 후보로 두어 정확히 잡습니다. 모델 사전에
+없는 말은 이 경로로 넣을 수 없습니다. 자세한 원리와 주의할 점은
+[ARCHITECTURE.md](ARCHITECTURE.md) 8장.
+
+## 키워드 모델
+
+창의 **키워드** 칸에서 말을 추가하고, 말마다 **녹음**한 뒤 **학습**을 누릅니다.
+끝나면 저장 경로와 파일 크기가 적힌 완료 창이 뜹니다. 결과 파일
+`keyword-workspace/model.kmodel` 만 복사해도 되고, **장치에 저장…** 으로 원하는
+곳에 둘 수 있습니다. **키워드 모델로 인식** 을 켠 채 인식하면 Vosk 를 열지
+않습니다.
+
+```bash
+./run.sh cli --keywords keywords.kmodel
+./run.sh cli --keywords keywords.kmodel --wav 녹음.wav
+```
+
+학습용 파이썬이나 별도 설치 스크립트는 없습니다. 설계는
+[ARCHITECTURE.md](ARCHITECTURE.md) 9장, 화면 순서는
+[USERSGUIDE.md](USERSGUIDE.md) 7장.
 
 ---
 
@@ -143,7 +177,8 @@ if (engine.loadModel(config, &err) &&
 ```
 
 JSON 파서(한글 UTF-8·`\uXXXX`), WAV 읽기·쓰기·표본율 변환, `AudioSource` 흐름과
-취소, 엔진 오류 처리를 확인하고, 모델이 있으면 한국어 음원을 실제로 인식합니다.
+취소, 엔진 오류 처리, 키워드 모델의 학습·저장·다시 읽기를 확인하고, Vosk 모델이
+있으면 한국어 음원을 실제로 인식합니다.
 
 ---
 
@@ -156,5 +191,7 @@ JSON 파서(한글 UTF-8·`\uXXXX`), WAV 읽기·쓰기·표본율 변환, `Audi
   [alphacep/vosk-api](https://github.com/alphacep/vosk-api) 와
   [alphacephei.com/vosk/models](https://alphacephei.com/vosk/models) 에서 받아 옵니다.
   Vosk 는 Apache-2.0 입니다.
+- 키워드 학습 화면은 Windows 네이티브 창과 GTK4 창에 있습니다. macOS Cocoa 창에는
+  아직 없고, 콘솔의 `--keywords` 는 코어에 있어 그 빌드에서도 파일을 엽니다.
 - macOS·Linux 코드는 작성되어 있으나, 개발 장비가 Windows 라 그 두 OS 에서의
   빌드·실행은 아직 확인되지 않았습니다.

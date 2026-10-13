@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -64,6 +65,9 @@ private:
 
     // --- 표시 갱신 ---
     void setStatus(const std::string& text, bool isError = false);
+    void setCpuMonitor(bool on);
+    bool sampleProcessCpu(double* percent);
+    void updateCpuLabel();
     void appendFinal(const Transcript& result);
     void setPartial(const std::string& text);
     void updateTally();
@@ -84,6 +88,12 @@ private:
     GtkWidget* reloadButton_ = nullptr;
     GtkWidget* levelBar_ = nullptr;
     GtkWidget* statusLabel_ = nullptr;
+    GtkWidget* cpuLabel_ = nullptr;
+    unsigned cpuTimer_ = 0;
+    bool cpuMonitor_ = false;
+    bool cpuHaveSample_ = false;
+    std::uint64_t cpuWallNs_ = 0;
+    std::uint64_t cpuProcNs_ = 0;
     GtkWidget* partialLabel_ = nullptr;
     GtkWidget* tallyLabel_ = nullptr;
     GtkWidget* spinner_ = nullptr;

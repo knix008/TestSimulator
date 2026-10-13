@@ -9,6 +9,19 @@
 #include <functional>
 #include <utility>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <sys/resource.h>
+#include <unistd.h>
+#endif
+
+#include <chrono>
+
 #include "kstt/platform/audio_input.h"
 #include "kstt/vocabulary.h"
 #include "kstt/wav_file.h"
@@ -109,11 +122,19 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     gtk_box_append(GTK_BOX(root), buildKeywords());
     gtk_box_append(GTK_BOX(root), buildControls());
 
+    GtkWidget* statusRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     statusLabel_ = gtk_label_new("준비 중…");
     gtk_widget_add_css_class(statusLabel_, "kstt-status");
     gtk_label_set_xalign(GTK_LABEL(statusLabel_), 0.0f);
-    gtk_label_set_wrap(GTK_LABEL(statusLabel_), TRUE);
-    gtk_box_append(GTK_BOX(root), statusLabel_);
+    gtk_label_set_ellipsize(GTK_LABEL(statusLabel_), PANGO_ELLIPSIZE_END);
+    gtk_widget_set_hexpand(statusLabel_, TRUE);
+    gtk_box_append(GTK_BOX(statusRow), statusLabel_);
+    cpuLabel_ = gtk_label_new("");
+    gtk_widget_add_css_class(cpuLabel_, "kstt-status");
+    gtk_label_set_xalign(GTK_LABEL(cpuLabel_), 1.0f);
+    gtk_widget_set_visible(cpuLabel_, FALSE);
+    gtk_box_append(GTK_BOX(statusRow), cpuLabel_);
+    gtk_box_append(GTK_BOX(root), statusRow);
 
     GtkWidget* transcript = buildTranscript();
     gtk_widget_set_vexpand(transcript, TRUE);
@@ -128,6 +149,7 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     g_signal_connect(window_, "close-request", G_CALLBACK(+[](GtkWindow* window,
                                                               gpointer self) -> gboolean {
                          auto* app = static_cast<AppWindow*>(self);
+                         app->setCpuMonitor(false);
                          app->alive_->store(false);
                          app->stopRecognition();
                          (void)window;
@@ -154,14 +176,17 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
             switch (state) {
                 case EngineState::Running:
                     setStatus("인식 중 — " + message);
+                    setCpuMonitor(true);
                     break;
                 case EngineState::Ready:
+                    setCpuMonitor(false);
                     setStatus(message == "finished" ? "인식이 끝났습니다."
                                                     : "대기 중 (모델 준비됨)");
                     gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                     setPartial(std::string());
                     break;
                 case EngineState::Error:
+                    setCpuMonitor(false);
                     setStatus(message, true);
                     gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                     break;
@@ -190,10 +215,13 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     keywordListener_.onState([this](bool running, const std::string& message, bool error) {
         postToMain([this, running, message, error] {
             if (error) {
+                setCpuMonitor(false);
                 setStatus(message, true);
             } else if (running) {
                 setStatus("인식 중 — 키워드 · " + message);
+                setCpuMonitor(true);
             } else {
+                setCpuMonitor(false);
                 setStatus("인식이 끝났습니다.");
                 gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                 setPartial(std::string());
@@ -215,6 +243,7 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
 
 AppWindow::~AppWindow() {
     *alive_ = false;
+    setCpuMonitor(false);
     recordCancel_.store(true);
     {
         std::lock_guard<std::mutex> lock(captureMutex_);
@@ -739,6 +768,79 @@ void AppWindow::updateTally() {
         text += word + " " + std::to_string(count) + "회";
     }
     gtk_label_set_text(GTK_LABEL(tallyLabel_), text.c_str());
+}
+
+void AppWindow::setCpuMonitor(bool on) {
+    if (cpuMonitor_ == on) return;
+    cpuMonitor_ = on;
+    cpuHaveSample_ = false;
+    if (on) {
+        double unused = 0.0;
+        sampleProcessCpu(&unused);
+        gtk_label_set_text(GTK_LABEL(cpuLabel_), "CPU …");
+        gtk_widget_set_visible(cpuLabel_, TRUE);
+        cpuTimer_ = g_timeout_add(500, +[](gpointer self) -> gboolean {
+            auto* window = static_cast<AppWindow*>(self);
+            if (!window->alive_->load() || !window->cpuMonitor_) return G_SOURCE_REMOVE;
+            window->updateCpuLabel();
+            return G_SOURCE_CONTINUE;
+        }, this);
+    } else if (cpuTimer_ != 0) {
+        g_source_remove(cpuTimer_);
+        cpuTimer_ = 0;
+        gtk_widget_set_visible(cpuLabel_, FALSE);
+        gtk_label_set_text(GTK_LABEL(cpuLabel_), "");
+    }
+}
+
+void AppWindow::updateCpuLabel() {
+    double percent = 0.0;
+    if (!sampleProcessCpu(&percent)) return;
+    char buffer[32];
+    std::snprintf(buffer, sizeof(buffer), "CPU %.1f%%", percent);
+    gtk_label_set_text(GTK_LABEL(cpuLabel_), buffer);
+}
+
+bool AppWindow::sampleProcessCpu(double* percent) {
+#if defined(_WIN32)
+    FILETIME creation, exitTime, kernel, user;
+    if (!GetProcessTimes(GetCurrentProcess(), &creation, &exitTime, &kernel, &user)) return false;
+    ULARGE_INTEGER kernelTime;
+    ULARGE_INTEGER userTime;
+    kernelTime.LowPart = kernel.dwLowDateTime;
+    kernelTime.HighPart = kernel.dwHighDateTime;
+    userTime.LowPart = user.dwLowDateTime;
+    userTime.HighPart = user.dwHighDateTime;
+    const std::uint64_t proc = kernelTime.QuadPart + userTime.QuadPart;
+    const std::uint64_t wall = GetTickCount64() * 10000ull;
+    const DWORD coreCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    const double cores = coreCount == 0 ? 1.0 : static_cast<double>(coreCount);
+#else
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) != 0) return false;
+    const std::uint64_t proc =
+        (static_cast<std::uint64_t>(usage.ru_utime.tv_sec) + usage.ru_stime.tv_sec) * 10000000ull +
+        (static_cast<std::uint64_t>(usage.ru_utime.tv_usec) + usage.ru_stime.tv_usec) * 10ull;
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    const std::uint64_t wall =
+        static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now).count() /
+                                   100);
+    const double cores = static_cast<double>(std::max(1L, sysconf(_SC_NPROCESSORS_ONLN)));
+#endif
+    bool ready = false;
+    if (cpuHaveSample_ && wall > cpuWallNs_ && proc >= cpuProcNs_) {
+        const double used = static_cast<double>(proc - cpuProcNs_);
+        const double elapsed = static_cast<double>(wall - cpuWallNs_);
+        double value = used / elapsed / cores * 100.0;
+        if (value < 0.0) value = 0.0;
+        if (value > 100.0) value = 100.0;
+        if (percent) *percent = value;
+        ready = true;
+    }
+    cpuHaveSample_ = true;
+    cpuWallNs_ = wall;
+    cpuProcNs_ = proc;
+    return ready;
 }
 
 void AppWindow::setStatus(const std::string& text, bool isError) {

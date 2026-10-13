@@ -1,6 +1,9 @@
 # ── 빌드 산출물 ────────────────────────────────────────────────
 # 실행 파일은 프로젝트 루트에 놓인다 (Windows 는 .exe, 그 밖은 확장자 없음).
-# ./clean.sh (.\clean.ps1) 이 아래 것들을 지운다.
+# .\clean.ps1 / ./clean.sh 는 아래 실행 파일 이름과 build\, 그리고 실행 파일
+# 옆에 복사된 libvosk·런타임 DLL 만 지운다. 와일드카드로 루트를 쓸어내지 않는다.
+# -Deps / --deps 를 주면 third_party\ 와 models\ 까지 지운다.
+# keyword-workspace\ 와 *.kmodel 은 지우지 않는다 (녹음·학습 결과).
 kstt-cli
 kstt-gui
 kstt-gui-native
@@ -42,6 +45,8 @@ models/
 !tests/data/sample-ko.wav
 
 # ── 키워드 학습 (창에서 녹음·학습하면 생긴다) ─────────────────
+# 실행 파일 옆 keyword-workspace\ (words.txt, samples\<말>\*.wav, model.kmodel)
+# 와, 장치에 저장한 *.kmodel. clean 의 기본 범위에 들어 있지 않다.
 keyword-workspace/
 *.kmodel
 
