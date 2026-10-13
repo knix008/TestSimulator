@@ -13,10 +13,11 @@ const SettingsView = (() => {
 
     main.innerHTML = `
       <div class="admin-wrap">
-        <div class="page-header"><h1 class="page-title">${I18n.t('settings')}</h1></div>
+        <div class="page-header"><h1 class="page-title">${I18n.t('settings')}</h1>${saveButton()}</div>
         ${renderGeneralSection(user)}
         ${typeof Themes !== 'undefined' ? Themes.settingsSection() : ''}
         ${renderDbSection(dbConfig)}
+        <div class="settings-save-row">${saveButton()}</div>
       </div>`;
 
     initDbTypeButtons();
@@ -303,9 +304,29 @@ const SettingsView = (() => {
     await AutoSave.flush('profile');
   }
 
+  function saveButton() {
+    return `<button type="button" class="btn btn-primary btn-save-settings" onclick="SettingsView.saveSettings()">&#128190; ${I18n.t('saveSettings')}</button>`;
+  }
+
+  async function saveSettings() {
+    try {
+      if (!(await AutoSave.flush('profile'))) return;
+      const payload = Themes.persistPayload(I18n.getLang());
+      try {
+        localStorage.setItem('kanban-theme', payload.theme);
+        localStorage.setItem('kanban-theme-id', payload.themeId);
+        localStorage.setItem('kanban-custom-themes', JSON.stringify(payload.customThemes));
+      } catch {}
+      await API.put('/settings/app', payload);
+      showToast(I18n.t('settingsSaved'), 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
   function setPref(key, value) {
     localStorage.setItem(key, String(value));
   }
 
-  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, browseSqliteFile, focusDbField, setPref };
+  return { render, selectDb, testDb, saveDb, resetDb, saveProfile, saveSettings, browseSqliteFile, focusDbField, setPref };
 })();

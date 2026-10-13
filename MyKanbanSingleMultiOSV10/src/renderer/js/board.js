@@ -931,60 +931,163 @@ const BoardView = (() => {
   }
 
   // ── Column Drag & Drop ────────────────────────────────────────────────────
+  // The dragged column collapses and a same-sized silhouette slot takes its place;
+  // neighbours slide (FLIP) as the slot moves. Hit-testing uses layout positions
+  // (transforms stripped) so mid-animation offsets never feed back into the target.
+
+  const COL_DEAD_ZONE = 24;
+
+  function colSlideTargets(container) {
+    return [...container.querySelectorAll('.column:not(.col-dragging), #col-drop-ind, .add-col-btn')];
+  }
+
+  function colLefts(container) {
+    return new Map(colSlideTargets(container).map(el => [el, el.getBoundingClientRect().left]));
+  }
+
+  function slideColumns(beforeLefts) {
+    const els = [];
+    beforeLefts.forEach((prevLeft, el) => {
+      if (!el.isConnected || el.classList.contains('col-dragging')) return;
+      el.style.transition = 'none';
+      el.style.transform = 'none';
+      els.push([el, prevLeft]);
+    });
+    if (!els.length) return;
+    els[0][0].getBoundingClientRect();
+    const moved = [];
+    els.forEach(([el, prevLeft]) => {
+      const dx = prevLeft - el.getBoundingClientRect().left;
+      if (Math.abs(dx) < 1) {
+        el.style.transform = '';
+        el.style.transition = '';
+        return;
+      }
+      el.style.transform = `translateX(${dx}px)`;
+      moved.push(el);
+    });
+    if (!moved.length) return;
+    moved[0].getBoundingClientRect();
+    moved.forEach(el => {
+      el.style.transition = 'transform .26s cubic-bezier(.22, .8, .3, 1)';
+      el.style.transform = '';
+    });
+  }
+
+  function clearColSlide(container) {
+    container?.querySelectorAll('.column, .add-col-btn').forEach(el => {
+      el.style.transition = '';
+      el.style.transform = '';
+    });
+  }
+
+  function layoutLeft(el) {
+    const rect = el.getBoundingClientRect();
+    const t = getComputedStyle(el).transform;
+    if (!t || t === 'none') return rect.left;
+    try { return rect.left - new DOMMatrixReadOnly(t).m41; } catch { return rect.left; }
+  }
+
+  function createColSlot(col) {
+    const rect = col.getBoundingClientRect();
+    const slot = document.createElement('div');
+    slot.id = 'col-drop-ind';
+    slot.className = 'col-drop-slot';
+    slot.style.width = `${Math.round(rect.width)}px`;
+    slot.style.minWidth = `${Math.round(rect.width)}px`;
+    slot.style.height = `${Math.round(rect.height)}px`;
+    slot.innerHTML = '<div class="col-drop-slot-head"></div><div class="col-drop-slot-body"></div>';
+    return slot;
+  }
+
+  function setColumnDragImage(e, col) {
+    document.getElementById('col-drag-ghost')?.remove();
+    const rect = col.getBoundingClientRect();
+    const ghost = col.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    ghost.id = 'col-drag-ghost';
+    ghost.classList.remove('selected', 'col-dragging');
+    ghost.classList.add('col-drag-ghost');
+    ghost.style.width = `${Math.round(rect.width)}px`;
+    ghost.style.height = `${Math.round(rect.height)}px`;
+    document.body.appendChild(ghost);
+    const ox = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
+    const oy = Math.min(Math.max(0, e.clientY - rect.top), rect.height);
+    e.dataTransfer.setDragImage(ghost, ox, oy);
+  }
 
   function onColDragStart(e, colId) {
     if (!currentPermissions?.canEdit) { e.preventDefault(); return; }
-    dragCol = { colId };
+    const col = e.currentTarget.closest('.column');
+    if (!col) return;
+    dragCol = { colId, dropped: false };
     drag = null;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', `col:${colId}`);
-    setTimeout(() => document.querySelector(`.column[data-col-id="${colId}"]`)?.classList.add('col-dragging'), 0);
+    setColumnDragImage(e, col);
+    const slot = createColSlot(col);
+    const gap = parseFloat(getComputedStyle(col.parentElement).columnGap) || 0;
+    dragCol.step = parseFloat(slot.style.width) + gap;
+    dragCol.width = parseFloat(slot.style.width);
+    setTimeout(() => {
+      if (!dragCol || dragCol.colId !== colId || !col.isConnected) return;
+      const container = col.parentElement;
+      clearColSlide(container);
+      container.insertBefore(slot, col);
+      col.classList.add('col-dragging');
+    }, 0);
+  }
+
+  function restoreDraggedColumn(colId, animated = true) {
+    const container = document.getElementById('columns-container');
+    const slot = document.getElementById('col-drop-ind');
+    const col = container?.querySelector(`.column[data-col-id="${colId}"]`);
+    const before = animated && container ? colLefts(container) : null;
+    slot?.remove();
+    col?.classList.remove('col-dragging');
+    if (before) slideColumns(before);
   }
 
   function onColDragEnd(e) {
-    e.currentTarget.closest('.column')?.classList.remove('col-dragging');
+    document.getElementById('col-drag-ghost')?.remove();
+    const state = dragCol;
     dragCol = null;
-    removeColDropIndicator();
+    if (!state || state.dropped) return;
+    restoreDraggedColumn(state.colId);
   }
 
   function removeColDropIndicator() {
     document.getElementById('col-drop-ind')?.remove();
   }
 
-  const INSERT_EDGE = 0.75;
-
-  function adjacentColumn(from, dir) {
-    let node = from;
-    while (node) {
-      node = dir === 'next' ? node.nextElementSibling : node.previousElementSibling;
-      if (!node) return null;
-      if (node.classList.contains('column') && !node.classList.contains('col-dragging')) return node;
-    }
-    return null;
+  function normalDropColumns(container) {
+    return [...container.querySelectorAll('.column:not(.col-dragging):not(.col-done)')];
   }
 
-  function getColInsertBefore(container, clientX) {
-    const ind = document.getElementById('col-drop-ind');
-    const done = container.querySelector('.column.col-done');
-    if (ind && ind.parentElement === container) {
-      const nextCol = adjacentColumn(ind, 'next');
-      const prevCol = adjacentColumn(ind, 'prev');
-      if (nextCol && !nextCol.classList.contains('col-done')) {
-        const { left, width } = nextCol.getBoundingClientRect();
-        if (clientX >= left + width * INSERT_EDGE) return adjacentColumn(nextCol, 'next') || done;
-      }
-      if (prevCol && !prevCol.classList.contains('col-done')) {
-        const { left, width } = prevCol.getBoundingClientRect();
-        if (clientX < left + width * (1 - INSERT_EDGE)) return prevCol;
-      }
-      return ind.nextElementSibling;
+  function slotIndex(container, slot) {
+    let index = 0;
+    for (const el of container.children) {
+      if (el === slot) return index;
+      if (el.classList.contains('column') && !el.classList.contains('col-dragging') && !el.classList.contains('col-done')) index++;
     }
-    const cols = [...container.querySelectorAll('.column:not(.col-dragging):not(.col-done)')];
-    for (const col of cols) {
-      const { left, width } = col.getBoundingClientRect();
-      if (clientX < left + width / 2) return col;
+    return index;
+  }
+
+  function targetColIndex(container, slot, clientX) {
+    const cols = normalDropColumns(container);
+    const current = slotIndex(container, slot);
+    const first = [slot, ...cols].reduce((min, el) => Math.min(min, layoutLeft(el)), Infinity);
+    const step = dragCol.step || 1;
+    const width = dragCol.width || step;
+    const rel = clientX - first;
+    let target = Math.floor((rel + (step - width) / 2) / step);
+    target = Math.max(0, Math.min(cols.length, target));
+    if (Math.abs(target - current) === 1) {
+      const inside = rel - target * step;
+      if (inside < COL_DEAD_ZONE || inside > width - COL_DEAD_ZONE) return current;
     }
-    return done || null;
+    return target;
   }
 
   function onContainerDragOver(e) {
@@ -992,47 +1095,44 @@ const BoardView = (() => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const container = e.currentTarget;
-    let ind = document.getElementById('col-drop-ind');
-    if (!ind) {
-      ind = document.createElement('div');
-      ind.id = 'col-drop-ind';
-      ind.className = 'col-drop-ind';
-    }
-    const before = getColInsertBefore(container, e.clientX);
-    const next = before || container.querySelector('.add-col-btn');
-    if (ind.parentElement === container && ind.nextElementSibling === next) return;
-    if (next) container.insertBefore(ind, next);
-    else container.appendChild(ind);
+    const slot = document.getElementById('col-drop-ind');
+    if (!slot || slot.parentElement !== container) return;
+    const current = slotIndex(container, slot);
+    const target = targetColIndex(container, slot, e.clientX);
+    if (target === current) return;
+    const cols = normalDropColumns(container);
+    const next = cols[target] || container.querySelector('.column.col-done') || container.querySelector('.add-col-btn');
+    const before = colLefts(container);
+    if (next) container.insertBefore(slot, next);
+    else container.appendChild(slot);
+    slideColumns(before);
   }
 
   async function onContainerDrop(e) {
     e.preventDefault();
     if (!dragCol) return;
     const container = e.currentTarget;
-    const ind = document.getElementById('col-drop-ind');
-    let position = 0;
-    if (ind) {
-      const children = [...container.children];
-      const indIdx = children.indexOf(ind);
-      position = children.slice(0, indIdx)
-        .filter(el => el.classList.contains('column') && !el.classList.contains('col-done')).length;
-    }
-    const colId = dragCol.colId;
-    dragCol = null;
-    removeColDropIndicator();
-    await moveColumn(colId, position);
+    const slot = document.getElementById('col-drop-ind');
+    const position = slot && slot.parentElement === container ? slotIndex(container, slot) : -1;
+    const state = dragCol;
+    state.dropped = true;
+    const moved = position >= 0 && await moveColumn(state.colId, position);
+    document.getElementById('col-drag-ghost')?.remove();
+    if (!moved) restoreDraggedColumn(state.colId);
+    if (dragCol === state) dragCol = null;
   }
 
   async function moveColumn(colId, position) {
     const normalCols = (boardData || []).filter(c => c.type !== 'done');
     const col = normalCols.find(c => c.id == colId);
     const oldPosition = normalCols.indexOf(col);
-    if (oldPosition < 0 || oldPosition === position) return;
+    if (oldPosition < 0 || oldPosition === position) return false;
     try {
       await API.post(`/boards/${currentBoardId}/columns/${colId}/move`, { position });
       if (!History.isApplying()) History.recordColumnMove(currentBoardId, colId, oldPosition, position);
       await loadBoard();
-    } catch (err) { showToast(err.message, 'error'); }
+      return true;
+    } catch (err) { showToast(err.message, 'error'); return false; }
   }
 
   async function moveCard(cardId, targetColId, position) {
