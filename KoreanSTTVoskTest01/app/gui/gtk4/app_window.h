@@ -65,9 +65,10 @@ private:
 
     // --- 표시 갱신 ---
     void setStatus(const std::string& text, bool isError = false);
-    void setCpuMonitor(bool on);
+    void setResourceMonitor(bool on);
     bool sampleProcessCpu(double* percent);
-    void updateCpuLabel();
+    bool sampleProcessMemory(unsigned long long* bytes);
+    void updateResourceLabel();
     void appendFinal(const Transcript& result);
     void setPartial(const std::string& text);
     void updateTally();

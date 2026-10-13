@@ -70,8 +70,10 @@ private:
 
     // --- 표시 ---
     void setStatus(const std::wstring& text, bool isError = false);
-    void setCpuMonitor(bool on);
+    void setResourceMonitor(bool on);
     bool sampleProcessCpu(double* percent);
+    bool sampleProcessMemory(unsigned long long* bytes);
+    void updateResourceLabel();
     void appendTranscript(const std::wstring& text);
     void setPartial(const std::wstring& text);
     void updateTally();

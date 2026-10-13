@@ -2,6 +2,7 @@
 
 #include <commctrl.h>
 #include <commdlg.h>
+#include <psapi.h>
 #include <shlobj.h>
 
 #include <algorithm>
@@ -352,16 +353,13 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             switch (state) {
                 case EngineState::Running:
                     setStatus(L"인식 중 — " + *text);
-                    setCpuMonitor(true);
                     break;
                 case EngineState::Ready:
-                    setCpuMonitor(false);
                     setStatus(*text == L"finished" ? L"인식이 끝났습니다." : L"대기 중 (모델 준비됨)");
                     SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                     setPartial(L"");
                     break;
                 case EngineState::Error:
-                    setCpuMonitor(false);
                     setStatus(*text, true);
                     SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                     break;
@@ -427,13 +425,10 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             std::unique_ptr<std::wstring> text(reinterpret_cast<std::wstring*>(lParam));
             if (wParam == 1) {
                 setStatus(L"인식 중 — 키워드 · " + *text);
-                setCpuMonitor(true);
             } else if (wParam == 3) {
-                setCpuMonitor(false);
                 setStatus(*text, true);
                 SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
             } else {
-                setCpuMonitor(false);
                 setStatus(L"인식이 끝났습니다.");
                 SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
                 setPartial(L"");
@@ -444,18 +439,13 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 
         case WM_TIMER:
             if (wParam == kCpuTimerId) {
-                double percent = 0.0;
-                if (sampleProcessCpu(&percent)) {
-                    wchar_t buffer[32];
-                    swprintf(buffer, 32, L"CPU %.1f%%", percent);
-                    SetWindowTextW(cpuLabel_, buffer);
-                }
+                updateResourceLabel();
                 return 0;
             }
             break;
 
         case WM_CLOSE:
-            setCpuMonitor(false);
+            setResourceMonitor(false);
             // 콜백부터 끊고 워커를 합류시킨 뒤, 이미 보내진 메시지를 비운다.
             accepting_ = false;
             recordCancel_.store(true);
@@ -541,8 +531,7 @@ void MainWindow::createControls() {
     SendMessageW(levelBar_, PBM_SETRANGE32, 0, 1000);
 
     statusLabel_ = make(L"STATIC", L"준비 중…", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
-    cpuLabel_ = make(L"STATIC", L"", SS_RIGHT | SS_CENTERIMAGE, 0);
-    ShowWindow(cpuLabel_, SW_HIDE);
+    cpuLabel_ = make(L"STATIC", L"메모리 … · CPU …", SS_RIGHT | SS_CENTERIMAGE, 0);
 
     labels_.push_back(make(L"STATIC", L"인식 결과", SS_LEFT | SS_CENTERIMAGE, 0));
     clearButton_ = make(L"BUTTON", L"지우기", WS_TABSTOP | BS_PUSHBUTTON, kIdClear);
@@ -556,6 +545,7 @@ void MainWindow::createControls() {
     partialLabel_ = make(L"STATIC", L"", SS_LEFT | SS_PATHELLIPSIS, 0);
     sizeGrip_ = CreateWindowExW(0, kSizeGripClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0,
                                 0, 0, 0, window_, nullptr, instance_, nullptr);
+    setResourceMonitor(true);
 
     // --- 엔진 콜백: 워커 스레드에서 불린다 → UI 스레드로 넘긴다 ---
     engine_.onPartial([this](const std::string& text) {
@@ -699,12 +689,11 @@ void MainWindow::layout() {
     place(levelBar_, x, y + scaled(6), std::max(scaled(40), right - x), rowHeight - scaled(12));
     y += rowHeight + gap;
 
-    // 4행: 상태. 인식 중에는 오른쪽에 이 프로그램의 CPU 점유율을 둔다.
+    // 4행: 상태. 오른쪽은 이 프로세스의 메모리와 CPU 점유율.
     const int statusHeight = scaled(20);
-    const int cpuWidth = cpuMonitor_ ? scaled(96) : 0;
-    if (cpuLabel_ && cpuMonitor_)
-        place(cpuLabel_, right - cpuWidth, y, cpuWidth, statusHeight);
-    const int statusWidth = right - margin - (cpuMonitor_ ? cpuWidth + gap : 0);
+    const int cpuWidth = scaled(248);
+    if (cpuLabel_) place(cpuLabel_, right - cpuWidth, y, cpuWidth, statusHeight);
+    const int statusWidth = right - margin - cpuWidth - gap;
     place(statusLabel_, margin, y, std::max(scaled(40), statusWidth), statusHeight);
     y += statusHeight + gap;
 
@@ -929,15 +918,15 @@ void MainWindow::setStatus(const std::wstring& text, bool isError) {
     InvalidateRect(statusLabel_, nullptr, TRUE);
 }
 
-void MainWindow::setCpuMonitor(bool on) {
+void MainWindow::setResourceMonitor(bool on) {
     if (cpuMonitor_ == on) return;
     cpuMonitor_ = on;
     cpuHaveSample_ = false;
     if (on) {
         double unused = 0.0;
         sampleProcessCpu(&unused);
+        updateResourceLabel();
         SetTimer(window_, kCpuTimerId, 500, nullptr);
-        SetWindowTextW(cpuLabel_, L"CPU …");
         ShowWindow(cpuLabel_, SW_SHOW);
     } else {
         KillTimer(window_, kCpuTimerId);
@@ -945,6 +934,36 @@ void MainWindow::setCpuMonitor(bool on) {
         SetWindowTextW(cpuLabel_, L"");
     }
     if (window_) layout();
+}
+
+void MainWindow::updateResourceLabel() {
+    double percent = 0.0;
+    const bool haveCpu = sampleProcessCpu(&percent);
+    unsigned long long bytes = 0;
+    const bool haveMemory = sampleProcessMemory(&bytes);
+    wchar_t memory[32];
+    if (!haveMemory) {
+        swprintf(memory, 32, L"메모리 …");
+    } else if (bytes >= 1024ull * 1024ull * 1024ull) {
+        swprintf(memory, 32, L"메모리 %.1f GB",
+                 static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0));
+    } else {
+        swprintf(memory, 32, L"메모리 %.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+    }
+    wchar_t line[80];
+    if (haveCpu)
+        swprintf(line, 80, L"%s · CPU %.1f%%", memory, percent);
+    else
+        swprintf(line, 80, L"%s · CPU …", memory);
+    SetWindowTextW(cpuLabel_, line);
+}
+
+bool MainWindow::sampleProcessMemory(unsigned long long* bytes) {
+    PROCESS_MEMORY_COUNTERS counters = {};
+    counters.cb = sizeof(counters);
+    if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) return false;
+    if (bytes) *bytes = counters.WorkingSetSize;
+    return true;
 }
 
 bool MainWindow::sampleProcessCpu(double* percent) {
