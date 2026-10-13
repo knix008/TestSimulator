@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.959Z",
+ "saved": "2026-10-13T08:11:12.178Z",
  "drawing": {
-  "id": "dwg-mv6bx4go005hn4tg",
+  "id": "dwg-mv6ej8pl005hjs05",
   "title": "3D 솔리드 모음",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.792Z",
-  "updated": "2026-10-13T06:58:00.792Z",
+  "created": "2026-10-13T08:11:11.961Z",
+  "updated": "2026-10-13T08:11:11.962Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4go005izgdl",
+    "id": "e-mv6ej8pl005iu3hb",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -95,7 +95,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005jfkws",
+    "id": "e-mv6ej8pm005jx9t2",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -119,7 +119,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005kxnyb",
+    "id": "e-mv6ej8pm005ki5g1",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -143,7 +143,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005ld2bz",
+    "id": "e-mv6ej8pm005lebt7",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -167,7 +167,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005m2xxf",
+    "id": "e-mv6ej8pm005m99w9",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -191,7 +191,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005nye7k",
+    "id": "e-mv6ej8pm005n1gxu",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -213,7 +213,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005oak2b",
+    "id": "e-mv6ej8pm005og873",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -237,7 +237,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005p5ps9",
+    "id": "e-mv6ej8pm005psrml",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -261,7 +261,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005qlh4y",
+    "id": "e-mv6ej8pm005q4odm",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -284,7 +284,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005rn4z5",
+    "id": "e-mv6ej8pm005rjn7n",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -308,7 +308,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005sf0g4",
+    "id": "e-mv6ej8pm005smf3c",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -333,7 +333,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005ttyss",
+    "id": "e-mv6ej8pm005t2duk",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -358,7 +358,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005u90ot",
+    "id": "e-mv6ej8pm005u3vkf",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -382,7 +382,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005vpypc",
+    "id": "e-mv6ej8pm005vqii0",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -406,7 +406,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005wqure",
+    "id": "e-mv6ej8pm005w6b47",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -431,7 +431,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005xyn46",
+    "id": "e-mv6ej8pm005x4619",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -455,7 +455,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6bx4go005ytcot",
+    "id": "e-mv6ej8pm005y9240",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -890,7 +890,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go005z3754",
+    "id": "e-mv6ej8pm005ziru1",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -944,7 +944,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go0060jhgw",
+    "id": "e-mv6ej8pm00600vks",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -997,7 +997,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go006183r0",
+    "id": "e-mv6ej8pm00617rzn",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1038,7 +1038,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go006206k7",
+    "id": "e-mv6ej8pm00628i53",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1273,7 +1273,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go0063eum4",
+    "id": "e-mv6ej8pm0063mz6n",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1358,7 +1358,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go0064mlph",
+    "id": "e-mv6ej8pm0064b0vz",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1420,7 +1420,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go00650fr7",
+    "id": "e-mv6ej8pm0065c3ls",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1479,7 +1479,7 @@
     }
    },
    {
-    "id": "e-mv6bx4go0066gtp5",
+    "id": "e-mv6ej8pm0066p39e",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -1493,7 +1493,7 @@
     "radius": 0
    },
    {
-    "id": "e-mv6bx4go0067pfld",
+    "id": "e-mv6ej8pm0067ciku",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -1505,7 +1505,7 @@
     "centerMark": false
    },
    {
-    "id": "e-mv6bx4go0068x5ng",
+    "id": "e-mv6ej8pm00682m21",
     "type": "arc",
     "layer": "0",
     "color": null,
@@ -1518,7 +1518,7 @@
     "end": 180
    },
    {
-    "id": "e-mv6bx4go0069gf45",
+    "id": "e-mv6ej8pm00697h25",
     "type": "text",
     "layer": "text",
     "color": null,

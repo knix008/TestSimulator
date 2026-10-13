@@ -351,6 +351,7 @@ function settingsDrawing() {
     toggle('showLineWeights', t('action.lineWeights'), 'line'),
     toggle('crosshair', t('action.crosshair'), 'coordinate'),
     row('cube', t('view3d.thickness'), numberField('extrudeHeight', s().extrudeHeight, 0.1, 1000, 1, 'mm', t('view3d.thickness'))),
+    row('text', t('settings.axisLabelSize'), numberField('axisLabelSize', s().axisLabelSize, 40, 250, 10, '%', t('settings.axisLabelSize'))),
     row('dimension', t('settings.dimPrecision'), `<select data-select="dimPrecision" title="${escapeHtml(t('settings.dimPrecision'))}">${[0, 1, 2, 3, 4].map((p) => `<option value="${p}" ${s().dimPrecision === p ? 'selected' : ''}>${p === 0 ? '0' : `0.${'0'.repeat(p)}`}</option>`).join('')}</select>`),
   ].join('');
 }

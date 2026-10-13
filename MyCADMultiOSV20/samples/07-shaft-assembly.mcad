@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.958Z",
+ "saved": "2026-10-13T08:11:12.177Z",
  "drawing": {
-  "id": "dwg-mv6bx4gi0020cd6q",
+  "id": "dwg-mv6ej8pg0020kax4",
   "title": "축 조립도",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.786Z",
-  "updated": "2026-10-13T06:58:00.786Z",
+  "created": "2026-10-13T08:11:11.956Z",
+  "updated": "2026-10-13T08:11:11.956Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4gi00211soq",
+    "id": "e-mv6ej8pg0021xxsw",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -89,7 +89,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi0022jjkp",
+    "id": "e-mv6ej8pg0022r5pn",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -108,7 +108,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi0023e3b3",
+    "id": "e-mv6ej8pg0023nbuh",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -127,7 +127,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi0024q5tu",
+    "id": "e-mv6ej8pg0024nzy3",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -149,7 +149,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi00257kvy",
+    "id": "e-mv6ej8pg0025kf53",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -168,7 +168,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi0026te6x",
+    "id": "e-mv6ej8pg0026x384",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -185,7 +185,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi0027hsmj",
+    "id": "e-mv6ej8pg002745jr",
     "type": "line",
     "layer": "center",
     "color": null,
@@ -197,7 +197,7 @@
     "y2": 0
    },
    {
-    "id": "e-mv6bx4gi0028aq8z",
+    "id": "e-mv6ej8pg0028828b",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -221,7 +221,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gi0029f7qv",
+    "id": "e-mv6ej8pg0029u6uj",
     "type": "text",
     "layer": "text",
     "color": null,

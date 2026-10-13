@@ -42,11 +42,13 @@ function textSprite(text, color, size) {
 
 /** The sun marker: a glowing disc with twelve rays (on), or a grey disc with short broken rays (off). */
 function sunTexture(on) {
+  // Drawn at 2× (256 px) in 128-unit coordinates, with mipmaps: sharp at its on-screen size.
   const size = 128;
   const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = size * 2;
+  canvas.height = size * 2;
   const c = canvas.getContext('2d');
+  c.scale(2, 2);
   const mid = size / 2;
   if (on) {
     const glow = c.createRadialGradient(mid, mid, 8, mid, mid, mid);
@@ -85,8 +87,12 @@ function sunTexture(on) {
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
   return texture;
 }
+
+/** The sun's size on screen (px): the same at every zoom. */
+const SUN_PX = 44;
 
 function disposeTree(object) {
   object.traverse((child) => {
@@ -124,6 +130,13 @@ export class View3D {
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.bias = -0.0004;
     this.scene.add(this.sun, this.sun.target);
+    // The basic light, used while the sun is off: it rides with the camera (from the upper left of
+    // the view), so the model stays evenly lit from wherever it is seen — no shadows, nothing to drag.
+    this.headlight = new THREE.DirectionalLight(0xffffff, 1.7);
+    this.headlight.position.set(-0.6, 0.8, 0.4);
+    this.headlight.target.position.set(0, 0, -1);
+    this.camera.add(this.headlight, this.headlight.target);
+    this.scene.add(this.camera);
     this.gizmo = new THREE.Group();
     // The light is shown as a sun: a disc with rays (a sprite that always faces the viewer);
     // the invisible ball under it is what the mouse grabs.
@@ -156,8 +169,9 @@ export class View3D {
    * Rebuilds the scene from a drawing. colors: { background, ink, solid, edge, grid, axisText }.
    * Returns { solids, holes, triangles, open }.
    */
-  update(drawing, { thickness = 10, colors = {}, extrude2d = true, selected = new Set() } = {}) {
+  update(drawing, { thickness = 10, colors = {}, extrude2d = true, selected = new Set(), axisLabelScale = 1 } = {}) {
     this.colors = colors;
+    this.axisLabelScale = Math.max(0.2, Math.min(4, axisLabelScale));
     this.gridSize = gridBaseFor(drawing.grid?.size || 10);
     this.thickness = thickness;
     for (const group of [this.model, this.wires, this.axes, this.grid]) {
@@ -311,7 +325,10 @@ export class View3D {
     const step = stepInUnit * factor;
     const length = Math.ceil((reach * 1.15) / step) * step;
     const tick = step * 0.08;
-    const labelSize = step * 0.17;
+    // Numbers: a tenth of a step high at 100% (Settings › Drawing › size of the 3D axis numbers).
+    const labelSize = step * 0.1 * (this.axisLabelScale ?? 1);
+    // Lifted off the ground: the shadow plane just below z = 0 would cut the X and Y numbers in half.
+    const lift = new THREE.Vector3(0, 0, labelSize * 0.75);
     const axes = [
       { name: 'X', dir: new THREE.Vector3(1, 0, 0), side: new THREE.Vector3(0, 1, 0), color: 0xe5484d },
       { name: 'Y', dir: new THREE.Vector3(0, 1, 0), side: new THREE.Vector3(1, 0, 0), color: 0x30a46c },
@@ -330,7 +347,8 @@ export class View3D {
         const halfAt = axis.dir.clone().multiplyScalar((i - 0.5) * step);
         segments.push(halfAt.clone().addScaledVector(axis.side, -tick / 2), halfAt.clone().addScaledVector(axis.side, tick / 2));
         const number = textSprite(String(Math.round(i * stepInUnit * 1e6) / 1e6), this.colors?.axisText ?? '#cfd6e4', labelSize);
-        number.position.copy(at.clone().addScaledVector(axis.side, -tick * 3.2));
+        number.position.copy(at.clone().addScaledVector(axis.side, -tick * 2.6 - labelSize * 0.6));
+        if (axis.name !== 'Z') number.position.add(lift);
         number.name = `tick-${axis.name}`;
         this.axes.add(number);
       }
@@ -344,8 +362,9 @@ export class View3D {
       head.position.copy(axis.dir.clone().multiplyScalar(length + tick * 2));
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.dir);
       head.renderOrder = 9;
-      const name = textSprite(axis.name, `#${new THREE.Color(axis.color).getHexString()}`, labelSize * 1.3);
-      name.position.copy(axis.dir.clone().multiplyScalar(length + tick * 6));
+      const name = textSprite(axis.name, `#${new THREE.Color(axis.color).getHexString()}`, labelSize * 1.5);
+      name.position.copy(axis.dir.clone().multiplyScalar(length + tick * 4 + labelSize));
+      if (axis.name !== 'Z') name.position.add(lift);
       this.axes.add(line, ticks, head, name);
     }
     this.axes.visible = this.options.axes;
@@ -365,16 +384,15 @@ export class View3D {
     this.sun.intensity = 2.4 * this.light.intensity;
     this.sun.color.set(this.light.color);
     this.sun.castShadow = this.light.shadows;
-    this.hemisphere.intensity = this.light.on ? 0.9 : 0.35;
+    this.hemisphere.intensity = 0.9;
+    this.headlight.visible = !this.light.on;
     const camera = this.sun.shadow.camera;
     camera.left = -this.size; camera.right = this.size; camera.top = this.size; camera.bottom = -this.size;
     camera.near = distance * 0.05; camera.far = distance * 4;
     this.sun.shadow.normalBias = this.size * 0.002;
     camera.updateProjectionMatrix();
-    this.gizmoBall.scale.setScalar(this.size * 0.05);
     this.gizmoBall.position.copy(position);
     this.gizmoSun.position.copy(position);
-    this.gizmoSun.scale.setScalar(this.size * 0.16);
     this.gizmoSun.material.map = this.light.on ? this.sunIcons.on : this.sunIcons.off;
     this.gizmoSun.material.needsUpdate = true;
     this.gizmoLine.material.color.set(this.light.on ? 0xffc533 : 0x888888);
@@ -382,7 +400,14 @@ export class View3D {
     this.gizmoLine.material.dashSize = this.size * 0.03;
     this.gizmoLine.material.gapSize = this.size * 0.02;
     this.gizmoLine.computeLineDistances();
+    // Light off: no sun at all (switch it back on with the 3D bar, Ctrl+Shift+G or the light properties).
+    this.gizmo.visible = this.light.on;
     this.onLightChange?.(this.light);
+  }
+
+  /** Is the pointer (already aimed) on the sun? Never while the light is off: the sun is hidden then. */
+  overSun() {
+    return this.gizmo.visible && this.raycaster.intersectObject(this.gizmoBall).length > 0;
   }
 
   setLight({ azimuth = this.light.azimuth, elevation = this.light.elevation, on = this.light.on, intensity = this.light.intensity, color = this.light.color, shadows = this.light.shadows } = {}) {
@@ -407,7 +432,7 @@ export class View3D {
     this.canvas.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
       aim(event);
-      const onSun = this.raycaster.intersectObject(this.gizmoBall).length > 0;
+      const onSun = this.overSun();
       // A second press on the sun soon after the first: light on / off (a double-click).
       if (onSun && lastSun && event.timeStamp - lastSun.time < 450 && Math.hypot(event.clientX - lastSun.x, event.clientY - lastSun.y) < 6) {
         lastSun = null;
@@ -427,7 +452,7 @@ export class View3D {
     this.canvas.addEventListener('pointermove', (event) => {
       aim(event);
       if (!drag) {
-        if (!this.options.lightMode) this.canvas.classList.toggle('over-sun', this.raycaster.intersectObject(this.gizmoBall).length > 0);
+        if (!this.options.lightMode) this.canvas.classList.toggle('over-sun', this.overSun());
         return;
       }
       if (!drag.moved && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 3) return;
@@ -453,7 +478,7 @@ export class View3D {
       if (!press || drag || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4) { press = null; return; }
       press = null;
       aim(event);
-      if (this.raycaster.intersectObject(this.gizmoBall).length) return;
+      if (this.overSun()) return;
       const hit = this.raycaster.intersectObjects(this.model.children.filter((child) => child.isMesh && child.name.startsWith('solid:')), false)[0];
       this.onPick?.(hit ? hit.object.name.slice(6) : null, event);
     });
@@ -539,7 +564,21 @@ export class View3D {
   }
 
   render() {
+    this.sizeSun();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Keeps the sun the same size on screen (SUN_PX) however far the camera is:
+   * its world size follows its distance from the camera. Its pick sphere too.
+   */
+  sizeSun() {
+    if (!this.gizmoSun || !this.gizmo.visible) return;
+    const height = this.canvas.clientHeight || this.canvas.height || 600;
+    const distance = Math.max(1e-6, this.camera.position.distanceTo(this.gizmoSun.position));
+    const worldPerPx = (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / height;
+    this.gizmoSun.scale.setScalar(SUN_PX * worldPerPx);
+    this.gizmoBall.scale.setScalar((SUN_PX / 2) * worldPerPx);
   }
 
   /** What the tests check: the scene in numbers. */
@@ -554,7 +593,7 @@ export class View3D {
       grid: this.gridLines?.userData ?? null,
       axisInfo: this.axisInfo,
       tickLabels: this.axes.children.filter((child) => child.name.startsWith('tick-')).length,
-      light: { ...this.light, position: this.sun.position.toArray(), visible: this.sun.visible, marker: this.gizmoSun.material.map === this.sunIcons.on ? 'sun' : 'sunOff' },
+      light: { ...this.light, position: this.sun.position.toArray(), visible: this.sun.visible, basicLight: this.headlight.visible, sunShown: this.gizmo.visible, sunPx: (() => { this.sizeSun(); const d = this.camera.position.distanceTo(this.gizmoSun.position); return (this.gizmoSun.scale.y / (2 * d * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))) * (this.canvas.clientHeight || 600); })(), marker: this.gizmoSun.material.map === this.sunIcons.on ? 'sun' : 'sunOff' },
       wireframe: Boolean(solids?.material.wireframe),
       camera: this.camera.position.toArray(),
       sunScreen: (() => { const p = this.gizmoBall.position.clone().project(this.camera); const r = this.canvas.getBoundingClientRect(); return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }; })(),

@@ -15,6 +15,13 @@
 //   14-sections.mcad           3D pulley and sleeve with section outlines
 //   15-annotations.mcad        hatch patterns, leaders, splines, elliptical arcs, points, centre lines
 //   16-imperial-plate.mcad     a plate designed in inches (try Settings › General › Length unit = in)
+//   17-house-plan.mcad         architecture: a house floor plan at 1:100 (walls, doors, windows, stairs, grid, dimensions)
+//   18-house-3d.mcad           architecture: the same house in 3D (walls with openings, roof, stairs, porch) and its elevations
+//   19-office-plan.mcad        architecture: an office floor at 1:200 (columns, core, curtain wall, furniture)
+//   20-gear-reducer.mcad       3D: a two-stage gear reducer (housing, lid, shafts, four gears, bearings)
+//   21-shaft-detail.mcad       a production drawing of a shaft: sections, keyways, tolerances, title block notes
+//   22-machine-vise.mcad       3D: a machine vise (body, jaws, screw, handle, workpiece)
+//   23-steel-frame.mcad        3D: a steel portal frame (H columns and beams, bracing, base plates)
 //   index.json                 the start page's sample list (titles, descriptions, tags, task)
 //   04-bracket.dxf             the bracket as DXF R12
 //   exports/                   the 3D samples in FreeCAD's formats: .FCStd .step .stl .3mf (the showcase also .obj .ply .off .amf),
@@ -35,6 +42,7 @@ import { serialize } from '../src/domain/format.js';
 import { exportMesh } from '../src/domain/exchange3d.js';
 import { solidMesh } from '../src/domain/solids.js';
 import { toBinaryStl } from '../src/domain/stl.js';
+import { gearReducer, house3d, housePlan, machineVise, officePlan, shaftDetail, steelFrame } from './models-complex.mjs';
 import { arraysPlate, drawingViewsSample, gearbox3d, mountingBlock, partsCatalog, sectionSample, shaftAssembly, solidsShowcase, springsAndPipes } from './models3d.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -169,6 +177,13 @@ const SAMPLE_INDEX = [
   ['13-drawing-views.mcad', 'views', ['도면 뷰', 'Drawing views'], ['정면·평면·우측면(숨은선)·등각 투상', 'Front, top, right (hidden lines) and isometric views'], ['투영', '숨은선']],
   ['14-sections.mcad', 'views', ['단면', 'Sections'], ['풀리와 슬리브의 단면 윤곽', 'Section outlines of a pulley and a sleeve'], ['단면']],
   ['15-annotations.mcad', 'annotate', ['주석과 해칭', 'Notes and hatching'], ['해칭 무늬 8종, 지시선, 스플라인, 타원 호, 점, 중심선', 'Eight hatch patterns, leaders, splines, elliptical arcs, points, centre lines'], ['해칭', '주석']],
+  ['17-house-plan.mcad', 'arch', ['단독주택 평면도', 'House floor plan'], ['벽·창호·계단·가구·통심선·치수를 갖춘 1:100 평면도', 'A 1:100 floor plan: walls, doors, windows, stairs, furniture, grid and dimensions'], ['건축', '평면도', '레이어']],
+  ['18-house-3d.mcad', 'arch', ['단독주택 3D·입면도', 'House 3D and elevations'], ['개구부를 뚫은 벽, 박공지붕, 계단, 현관 — 3D 모델에서 투영한 입면도', 'Walls with openings, gable roof, stairs, porch — elevations projected from the 3D model'], ['건축', '3D', 'BIM']],
+  ['19-office-plan.mcad', 'arch', ['사무소 기준층', 'Office floor'], ['기둥 격자, 코어(계단·승강기·화장실), 커튼월, 책상 배치 1:200', 'Column grid, core (stairs, lifts, toilets), curtain wall and desks at 1:200'], ['건축', '사무소']],
+  ['20-gear-reducer.mcad', 'features', ['2단 감속기', 'Two-stage gear reducer'], ['하우징·덮개·축 3개·기어 4개·베어링으로 된 감속기', 'Housing, lid, three shafts, four gears and bearings'], ['3D', '기어', '조립']],
+  ['21-shaft-detail.mcad', 'precise', ['축 제작 도면', 'Shaft production drawing'], ['단면, 키홈, 공차, 표면 거칠기, 주기', 'Sections, keyways, tolerances, surface finish and notes'], ['치수', '공차', '도면']],
+  ['22-machine-vise.mcad', 'booleans', ['기계 바이스', 'Machine vise'], ['몸체·조·나사·핸들·공작물을 불리언으로', 'Body, jaws, screw, handle and workpiece made with booleans'], ['3D', '불리언', '조립']],
+  ['23-steel-frame.mcad', 'solids', ['철골 골조', 'Steel frame'], ['H형강 기둥·보, 가새, 베이스 플레이트', 'H-section columns and beams, bracing and base plates'], ['3D', '구조', '철골']],
   ['16-imperial-plate.mcad', 'precise', ['인치 판', 'Imperial plate'], ['인치로 설계한 판 (길이 단위를 in로 바꿔 보세요)', 'A plate designed in inches (switch the length unit to in)'], ['인치', '단위']],
   ['04-bracket.dxf', 'files', ['브래킷 (DXF R12)', 'Bracket (DXF R12)'], ['MyCAD가 쓴 DXF', 'DXF written by MyCAD'], ['DXF']],
   ['dxf/ezdxf-entities-r2018.dxf', 'files', ['ezdxf DXF 2018', 'ezdxf DXF 2018'], ['다른 프로그램(ezdxf)이 쓴 DXF: 해칭·스플라인·치수·블록', 'DXF from another program (ezdxf): hatches, splines, dimensions, blocks'], ['DXF', 'ezdxf']],
@@ -187,6 +202,8 @@ const files = [
   ['06-cover-plate', arraysPlate()], ['07-shaft-assembly', shaftAssembly()], ['08-parts-catalog', partsCatalog()],
   ['09-solids-showcase', solidsShowcase()], ['10-mounting-block', mountingBlock()], ['11-springs-pipes', springsAndPipes()], ['12-gearbox', gearbox3d()],
   ['13-drawing-views', drawingViewsSample()], ['14-sections', sectionSample()], ['15-annotations', annotations()], ['16-imperial-plate', imperialPlate()],
+  ['17-house-plan', housePlan()], ['18-house-3d', house3d()], ['19-office-plan', officePlan()], ['20-gear-reducer', gearReducer()],
+  ['21-shaft-detail', shaftDetail()], ['22-machine-vise', machineVise()], ['23-steel-frame', steelFrame()],
 ];
 for (const [name, drawing] of files) fs.writeFileSync(path.join(out, `${name}.mcad`), serialize(drawing));
 fs.writeFileSync(path.join(out, '04-bracket.dxf'), exportDxf(files[3][1]));

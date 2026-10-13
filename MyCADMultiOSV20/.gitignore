@@ -15,9 +15,24 @@ release/
 /MyCAD-*.rpm
 /MyCAD-*.AppImage
 
-# Test runs (npm test)
+# The tutorial video stays in the repository (npm run record:tutorial)
+!/MyCAD-Tutorial*.mp4
+
+# Test runs (npm test) and logs
 test-results/
 *.log
+
+# Atomic saves in progress (the app writes ".<name>.<pid>.tmp" and renames it)
+.*.tmp
+
+# Python helpers (scripts/freecad, scripts/ezdxf)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local tools for the docs and the video (ffmpeg, FreeCAD portable) — use FFMPEG / FREECAD_CMD instead
+/tools/
 
 # Editors and OS files
 .vscode/*
@@ -27,4 +42,3 @@ test-results/
 .DS_Store
 Thumbs.db
 desktop.ini
-

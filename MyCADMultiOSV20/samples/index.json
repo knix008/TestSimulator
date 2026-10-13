@@ -181,6 +181,96 @@
   ]
  },
  {
+  "file": "17-house-plan.mcad",
+  "task": "arch",
+  "title": "House floor plan",
+  "titleKo": "단독주택 평면도",
+  "description": "A 1:100 floor plan: walls, doors, windows, stairs, furniture, grid and dimensions",
+  "descriptionKo": "벽·창호·계단·가구·통심선·치수를 갖춘 1:100 평면도",
+  "tags": [
+   "건축",
+   "평면도",
+   "레이어"
+  ]
+ },
+ {
+  "file": "18-house-3d.mcad",
+  "task": "arch",
+  "title": "House 3D and elevations",
+  "titleKo": "단독주택 3D·입면도",
+  "description": "Walls with openings, gable roof, stairs, porch — elevations projected from the 3D model",
+  "descriptionKo": "개구부를 뚫은 벽, 박공지붕, 계단, 현관 — 3D 모델에서 투영한 입면도",
+  "tags": [
+   "건축",
+   "3D",
+   "BIM"
+  ]
+ },
+ {
+  "file": "19-office-plan.mcad",
+  "task": "arch",
+  "title": "Office floor",
+  "titleKo": "사무소 기준층",
+  "description": "Column grid, core (stairs, lifts, toilets), curtain wall and desks at 1:200",
+  "descriptionKo": "기둥 격자, 코어(계단·승강기·화장실), 커튼월, 책상 배치 1:200",
+  "tags": [
+   "건축",
+   "사무소"
+  ]
+ },
+ {
+  "file": "20-gear-reducer.mcad",
+  "task": "features",
+  "title": "Two-stage gear reducer",
+  "titleKo": "2단 감속기",
+  "description": "Housing, lid, three shafts, four gears and bearings",
+  "descriptionKo": "하우징·덮개·축 3개·기어 4개·베어링으로 된 감속기",
+  "tags": [
+   "3D",
+   "기어",
+   "조립"
+  ]
+ },
+ {
+  "file": "21-shaft-detail.mcad",
+  "task": "precise",
+  "title": "Shaft production drawing",
+  "titleKo": "축 제작 도면",
+  "description": "Sections, keyways, tolerances, surface finish and notes",
+  "descriptionKo": "단면, 키홈, 공차, 표면 거칠기, 주기",
+  "tags": [
+   "치수",
+   "공차",
+   "도면"
+  ]
+ },
+ {
+  "file": "22-machine-vise.mcad",
+  "task": "booleans",
+  "title": "Machine vise",
+  "titleKo": "기계 바이스",
+  "description": "Body, jaws, screw, handle and workpiece made with booleans",
+  "descriptionKo": "몸체·조·나사·핸들·공작물을 불리언으로",
+  "tags": [
+   "3D",
+   "불리언",
+   "조립"
+  ]
+ },
+ {
+  "file": "23-steel-frame.mcad",
+  "task": "solids",
+  "title": "Steel frame",
+  "titleKo": "철골 골조",
+  "description": "H-section columns and beams, bracing and base plates",
+  "descriptionKo": "H형강 기둥·보, 가새, 베이스 플레이트",
+  "tags": [
+   "3D",
+   "구조",
+   "철골"
+  ]
+ },
+ {
   "file": "16-imperial-plate.mcad",
   "task": "precise",
   "title": "Imperial plate",

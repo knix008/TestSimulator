@@ -16,6 +16,7 @@ export const START_TASKS = [
   { id: 'views', icon: 'solidProject', lesson: 11, sample: '13-drawing-views.mcad' },
   { id: 'files', icon: 'import', lesson: 13, sample: 'drawings/freecad-plate.igs' },
   { id: 'print', icon: 'print', lesson: 14, sample: '02-flange.mcad' },
+  { id: 'arch', icon: 'home', lesson: 6, sample: '17-house-plan.mcad' },
 ];
 
 export const TIP_COUNT = 10;

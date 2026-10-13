@@ -20,6 +20,89 @@ const POPUP_KINDS: [&str; 14] = ["settings", "about", "confirm", "error", "progr
 struct Shared {
     /// Drawing files given on the command line, handed to the UI once.
     startup_files: Vec<PathBuf>,
+    /// The last run did not end normally (crash, kill, power loss): reported once at start-up.
+    previous_run: Option<PreviousRun>,
+}
+
+/// How the previous run ended, when it did not end normally.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PreviousRun {
+    /// Seconds since 1970 when it started.
+    started: u64,
+    /// The crash.log entries written during that run (empty: it ended without a word —
+    /// killed, power lost, or a crash outside Rust).
+    log: String,
+    log_path: Option<PathBuf>,
+}
+
+/// While MyCAD runs, `running.lock` (start time) sits in the data folder; a normal
+/// exit removes it. Found at start-up, it means the last run ended abnormally.
+const RUN_MARKER: &str = "running.lock";
+
+fn data_folder(app: &AppHandle) -> Option<PathBuf> {
+    background_dir(app).ok().and_then(|dir| dir.parent().map(Path::to_path_buf))
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// Reads (and replaces) the run marker: Some(previous run) when the last run did not end normally.
+fn check_previous_run(app: &AppHandle) -> Option<PreviousRun> {
+    let dir = data_folder(app)?;
+    let _ = std::fs::create_dir_all(&dir);
+    let marker = dir.join(RUN_MARKER);
+    let previous = std::fs::read_to_string(&marker).ok().map(|text| {
+        let started = text.trim().parse::<u64>().unwrap_or(0);
+        let log_path = dir.join("crash.log");
+        // crash.log entries start with "[seconds]": keep those written during that run.
+        let log = std::fs::read_to_string(&log_path)
+            .unwrap_or_default()
+            .split("\n\n[")
+            .map(|entry| if entry.starts_with('[') { entry.to_string() } else { format!("[{entry}") })
+            .filter(|entry| entry[1..].split(']').next().and_then(|n| n.parse::<u64>().ok()).is_some_and(|stamp| stamp >= started))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        PreviousRun { started, log: log.trim().to_string(), log_path: log_path.exists().then_some(log_path) }
+    });
+    let _ = std::fs::write(&marker, now_secs().to_string());
+    previous
+}
+
+/// A normal end: the marker goes.
+fn clear_run_marker(app: &AppHandle) {
+    if let Some(dir) = data_folder(app) {
+        let _ = std::fs::remove_file(dir.join(RUN_MARKER));
+    }
+}
+
+/// The previous run, if it ended abnormally (handed to the UI once).
+#[tauri::command]
+fn previous_run(state: tauri::State<'_, AppState>) -> Option<PreviousRun> {
+    lock(&state).previous_run.take()
+}
+
+/// A message box straight from the OS, for a crash the window can no longer show
+/// (the main thread is going down). Its text can be copied with Ctrl+C.
+#[cfg(target_os = "windows")]
+fn native_alert(title: &str, text: &str) {
+    #[link(name = "user32")]
+    extern "system" {
+        fn MessageBoxW(hwnd: *mut std::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
+    }
+    let wide = |value: &str| value.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+    let (text, title) = (wide(text), wide(title));
+    // MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND
+    unsafe {
+        MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), 0x10 | 0x4_0000 | 0x1_0000);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn native_alert(title: &str, text: &str) {
+    // macOS / Linux: on the terminal; the next start shows it in the error popup (crash.log).
+    eprintln!("{title}\n{text}");
 }
 
 type AppState = Mutex<Shared>;
@@ -365,9 +448,11 @@ struct FatalError {
 
 /// Serious errors (a panic anywhere in the backend) are written to crash.log
 /// and shown to the user in the error popup with every detail, ready to copy.
+/// A panic on the main thread ends the program: it is shown in an OS message
+/// box first, and the next start reports it again (running.lock + crash.log).
 fn install_panic_hook(app: &AppHandle) {
     let handle = app.clone();
-    let log_dir = background_dir(app).ok().and_then(|dir| dir.parent().map(Path::to_path_buf));
+    let log_dir = data_folder(app);
     let default = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let message = info
@@ -385,6 +470,17 @@ fn install_panic_hook(app: &AppHandle) {
             let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let entry = format!("[{stamp}] thread '{thread}' panicked at {location}\n{message}\n{backtrace}\n\n");
             let _ = std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut file| std::io::Write::write_all(&mut file, entry.as_bytes()));
+        }
+        if thread == "main" {
+            let head = backtrace.lines().take(40).collect::<Vec<_>>().join("\n");
+            let where_log = log.as_ref().map(|path| path.display().to_string()).unwrap_or_default();
+            native_alert(
+                &tr!("MyCAD — 심각한 오류로 종료합니다", "MyCAD — closing after a serious error"),
+                &tr!(
+                    "{message}\n\n위치: {location}\n스레드: {thread}\n기록: {where_log}\n\n(Ctrl+C 로 이 내용을 복사할 수 있습니다)\n\n{head}",
+                    "{message}\n\nWhere: {location}\nThread: {thread}\nLog: {where_log}\n\n(Ctrl+C copies this text)\n\n{head}"
+                ),
+            );
         }
         let _ = handle.emit_to("main", "fatal-error", FatalError { message, location, thread, backtrace, log });
         default(info);
@@ -439,6 +535,7 @@ fn open_with_system(path: &std::path::Path) -> Result<(), String> {
 /// Ends the app after the UI has handled unsaved changes.
 #[tauri::command]
 fn quit_app(app: AppHandle) {
+    clear_run_marker(&app);
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.destroy();
     }
@@ -471,6 +568,8 @@ pub fn run() {
         .manage(AppState::default())
         .setup(|app| {
             install_panic_hook(app.handle());
+            let previous = check_previous_run(app.handle());
+            lock(&app.state::<AppState>()).previous_run = previous;
             lock(&app.state::<AppState>()).startup_files = files::document_files(std::env::args().skip(1));
             if let Ok(dir) = background_dir(app.handle()) {
                 let _ = app.asset_protocol_scope().allow_directory(&dir, true);
@@ -525,8 +624,15 @@ pub fn run() {
             print_window,
             quit_app,
             open_document,
+            previous_run,
             raise_test_panic
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running MyCAD");
+        .build(tauri::generate_context!())
+        .expect("error while starting MyCAD")
+        .run(|app, event| {
+            // Every normal way out (window closed, quit, OS log-off) removes the run marker.
+            if let tauri::RunEvent::Exit = event {
+                clear_run_marker(app);
+            }
+        });
 }

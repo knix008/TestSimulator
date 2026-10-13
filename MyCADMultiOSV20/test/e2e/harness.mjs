@@ -101,10 +101,15 @@ export class App {
     }
   }
 
-  /** Kills the app (like a crash) and starts it again with the same profile. */
-  async restart(args = [], extraEnv = {}) {
+  /**
+   * Kills the app (like a crash) and starts it again with the same profile.
+   * The kill leaves running.lock behind, so the next start would report an
+   * abnormal end; it is removed unless { reportCrash: true }.
+   */
+  async restart(args = [], extraEnv = {}, { reportCrash = false } = {}) {
     this.main?.close();
     await this.kill();
+    if (!reportCrash) fs.rmSync(path.join(this.data, 'running.lock'), { force: true });
     await this.launch(args, extraEnv);
   }
 

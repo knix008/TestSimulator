@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.955Z",
+ "saved": "2026-10-13T08:11:12.174Z",
  "drawing": {
-  "id": "dwg-mv6bx4gh000e4ysf",
+  "id": "dwg-mv6ej8pf000e5wpx",
   "title": "단붙이 축",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.785Z",
-  "updated": "2026-10-13T06:58:00.786Z",
+  "created": "2026-10-13T08:11:11.955Z",
+  "updated": "2026-10-13T08:11:11.956Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4gi000f1hab",
+    "id": "e-mv6ej8pg000fwxe1",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -89,7 +89,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gi000gf78k",
+    "id": "e-mv6ej8pg000gou1m",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -113,7 +113,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gi000hf18m",
+    "id": "e-mv6ej8pg000hhia5",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -137,7 +137,7 @@
     "text": "Ø<>"
    },
    {
-    "id": "e-mv6bx4gi000itaa0",
+    "id": "e-mv6ej8pg000icsna",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -161,7 +161,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gi000jreaq",
+    "id": "e-mv6ej8pg000jbr63",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -185,7 +185,7 @@
     "text": "Ø<>"
    },
    {
-    "id": "e-mv6bx4gi000kflqa",
+    "id": "e-mv6ej8pg000kdq0r",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -209,7 +209,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gi000l9dnu",
+    "id": "e-mv6ej8pg000lcp6c",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -233,7 +233,7 @@
     "text": "Ø<>"
    },
    {
-    "id": "e-mv6bx4gi000mw72j",
+    "id": "e-mv6ej8pg000msjw8",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -257,7 +257,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gi000n91l6",
+    "id": "e-mv6ej8pg000nfuo4",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -281,7 +281,7 @@
     "text": "Ø<>"
    },
    {
-    "id": "e-mv6bx4gi000o2263",
+    "id": "e-mv6ej8pg000ozlb4",
     "type": "dim",
     "layer": "dim",
     "color": null,

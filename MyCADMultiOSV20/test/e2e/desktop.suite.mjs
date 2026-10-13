@@ -98,7 +98,8 @@ async function expectPopupWindow(app, page, kind) {
   }
   let windows = [];
   let popup;
-  for (let i = 0; i < 12 && !popup; i++) {
+  // The OS shows the window a moment after its page is ready (longer while the whole suite runs).
+  for (let i = 0; i < 30 && !popup; i++) {
     if (i) await sleep(150);
     windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
     popup = windows.find((w) => w.owner !== 0 && w.title.includes(head.text.slice(0, 4)));
@@ -157,6 +158,7 @@ export const cases = [
   { group: '창', name: '처음 실행: 시작 페이지가 보이고, 뒤에 시작하기 도면 (기어·치수·문자)', async run(app) {
     assert.equal(await m(app, 'k.state.home'), true, 'the start page greets you');
     assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.tut-panel:not([hidden])'))`), false, 'the tutorial does not start by itself');
     const d = await drawing(app);
     assert.ok(d.entities.some((e) => e.type === 'part' && e.kind === 'gear'));
     assert.ok(d.entities.some((e) => e.type === 'dim'));
@@ -174,7 +176,7 @@ export const cases = [
       actions: [...document.querySelectorAll('.action-card')].map((c) => c.dataset.command),
       panels: getComputedStyle(document.querySelector('#left-panel')).visibility,
     }))()`);
-    assert.equal(page.tasks, 11);
+    assert.equal(page.tasks, 12);
     assert.ok(page.lessons.every((n) => n >= 0 && n < 16));
     assert.deepEqual(page.samples, index.map((s) => s.file), 'one card per sample in index.json');
     assert.deepEqual(page.actions, ['tutorial', 'new', 'open', 'importDxf', 'import3d', 'tutorialDoc', 'shortcuts']);
@@ -994,6 +996,21 @@ export const cases = [
     assert.match(detail, /crash\.log/);
     await error.click('[data-action="close"]');
   } },
+  { group: '오류', name: '그냥 종료되면(강제 종료·충돌) 다음 실행 때 지난 실행의 오류를 팝업으로 보고', async run(app) {
+    // Killed without a word (like a crash): running.lock stays, and this run's crash.log entry (the test panic above) is in it.
+    await app.restart([], {}, { reportCrash: true });
+    const error = await app.popup('error');
+    await error.waitFor(`document.querySelector('#error-detail')?.value.length > 0`);
+    const report = await error.eval(`({ text: document.body.textContent, detail: document.querySelector('#error-detail').value })`);
+    assert.match(report.text, /지난번 실행이 비정상적으로 끝났습니다|The last run did not end normally/);
+    assert.match(report.detail, /test panic/, 'the crash.log entries of that run are in the details');
+    assert.ok(await error.eval(`Boolean(document.querySelector('[data-action="copy"], [data-action="copy-error"]'))`), 'the details can be copied');
+    await error.click('[data-action="close"]');
+    // A normal start after that: nothing to report.
+    await app.restart();
+    await sleep(1500);
+    assert.equal(app.windowInfo().filter((w) => w.visible && /지난번 실행|last run/.test(w.title)).length, 0, 'no report after a clean start');
+  } },
   { group: '진행', name: '오래 걸리는 열기/저장은 진행 팝업으로 알림', async run(app) {
     // Slow enough (several chunks × 900 ms) that the window stays up while it is checked.
     await app.restart([], { MYCAD_IO_DELAY_MS: '900' });
@@ -1132,8 +1149,22 @@ export const cases = [
     assert.match(await app.main.eval(`document.querySelector('#view3d-light').textContent`), /조명 방위 \d+° · 고도 \d+°/);
     await app.main.click('[data-view3d="light"]');
     assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.visible, false, 'light off');
+    assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.sunShown, false, 'light off: the sun itself is not shown');
+    assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.basicLight, true, 'light off: the model is still lit by the basic light');
     await app.main.click('[data-view3d="light"]');
     assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.visible, true, 'light on');
+    assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.sunShown, true, 'light on: the sun is back');
+    assert.equal((await m(app, 'k.actions.view3d().inspect()')).light.basicLight, false, 'light on: the sun lights it');
+    // The sun keeps its size on screen when zooming (it does not grow blurry or shrink away).
+    const sunCentre = await app.main.center('#view3d .view3d-canvas');
+    const before = (await m(app, 'k.actions.view3d().inspect()')).light.sunPx;
+    for (let i = 0; i < 4; i++) await app.main.wheel(sunCentre.x, sunCentre.y, -240);
+    await sleep(300);
+    const zoomedIn = (await m(app, 'k.actions.view3d().inspect()')).light.sunPx;
+    for (let i = 0; i < 8; i++) await app.main.wheel(sunCentre.x, sunCentre.y, 240);
+    await sleep(300);
+    const zoomedOut = (await m(app, 'k.actions.view3d().inspect()')).light.sunPx;
+    for (const px of [before, zoomedIn, zoomedOut]) assert.ok(Math.abs(px - 44) < 1, `sun ${px.toFixed(1)} px on screen`);
     await app.main.click('[data-view3d="close"]');
     assert.equal(await app.main.eval(`document.querySelector('#cad-canvas').hidden`), false, 'back to 2D');
   } },

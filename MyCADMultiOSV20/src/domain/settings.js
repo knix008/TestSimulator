@@ -48,6 +48,8 @@ export function defaultSettings(language = 'ko') {
     showScaleBar: true,
     scaleBar: { x: 36, y: 14, width: 120 },
     extrudeHeight: 10,
+    // Size of the numbers on the 3D axes (% of the normal size).
+    axisLabelSize: 100,
     // 3D view: closed 2D outlines shown as plates of extrudeHeight (solids are always shown).
     extrude2d: true,
     // Toolbar in one row or two (when the window is narrow).
@@ -96,6 +98,7 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundName = typeof s.backgroundName === 'string' ? s.backgroundName : '';
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
   s.units = LENGTH_UNITS.includes(s.units) ? s.units : 'mm';
+  s.axisLabelSize = clamp(s.axisLabelSize, 40, 250, 100);
   {
     const b = s.scaleBar && typeof s.scaleBar === 'object' ? s.scaleBar : {};
     s.scaleBar = { x: clamp(b.x, 0, 8000, 36), y: clamp(b.y, 0, 8000, 14), width: clamp(b.width, SCALE_BAR.min, SCALE_BAR.max, 120) };

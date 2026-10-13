@@ -127,14 +127,49 @@ function showError(titleKey, error, context = '') {
   console.error(titleKey, error);
   notify('error', `${t(titleKey)}: ${message}`);
   const info = state.info;
-  popups.open('error', {
+  const report = {
     title: t(titleKey),
     message,
     detail: detail ?? '',
     context,
     time: new Date().toLocaleString(),
     app: info ? `${info.name} ${info.version} (${info.web ? 'web' : `${info.os}/${info.arch}`}, ${info.commit})` : 'MyCAD',
-  });
+  };
+  // The popup window could not open (very early, or the popup system itself failed): the same report in this window.
+  try {
+    Promise.resolve(popups.open('error', report)).catch(() => inlineError(report));
+  } catch {
+    inlineError(report);
+  }
+}
+
+/** An error report inside the main window, with every detail and a copy button (when the popup cannot open). */
+function inlineError(report) {
+  const text = [report.title, report.message, report.context, report.time, report.app, '', report.detail].filter((line) => line !== undefined).join('\n');
+  let panel = document.querySelector('.inline-error');
+  if (!panel) {
+    panel = document.createElement('section');
+    panel.className = 'inline-error';
+    panel.setAttribute('role', 'alertdialog');
+    document.body.append(panel);
+  }
+  const escape = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  panel.innerHTML = `<h2>${escape(report.title)}</h2><p>${escape(report.message)}</p>
+    <textarea readonly spellcheck="false">${escape(text)}</textarea>
+    <div><button type="button" data-inline-copy>${escape(t('error.copy'))}</button><button type="button" data-inline-close>${escape(t('error.close'))}</button></div>`;
+  panel.querySelector('[data-inline-copy]').onclick = () => { native.clipboardWrite(text).catch(() => navigator.clipboard?.writeText(text)); };
+  panel.querySelector('[data-inline-close]').onclick = () => panel.remove();
+}
+
+/** The last run ended abnormally (crash, kill, power loss): say so, with what crash.log recorded. */
+async function reportPreviousRun() {
+  if (!desktop) return;
+  const previous = await native.invoke('previous_run').catch(() => null);
+  if (!previous) return;
+  const when = previous.started ? new Date(previous.started * 1000).toLocaleString() : '';
+  const error = new Error(t(previous.log ? 'error.previousRunCrash' : 'error.previousRunUnknown', { when }));
+  error.stack = previous.log || t('error.previousRunNoLog');
+  showError('error.previousRun', error, previous.logPath ?? '');
 }
 
 window.addEventListener('error', (event) => showError('error.unexpected', event.error ?? event.message, event.filename ? `${event.filename}:${event.lineno}` : ''));
@@ -876,7 +911,7 @@ function resize3d() {
 function rebuild3d() {
   const doc = activeDoc();
   if (!state.view3d || !view3d.instance || !doc) return null;
-  view3d.info = view3d.instance.update(doc.drawing, { thickness: state.settings.extrudeHeight, colors: colors3d(), extrude2d: state.settings.extrude2d, selected: state.selection });
+  view3d.info = view3d.instance.update(doc.drawing, { thickness: state.settings.extrudeHeight, colors: colors3d(), extrude2d: state.settings.extrude2d, selected: state.selection, axisLabelScale: state.settings.axisLabelSize / 100 });
   renderView3dBar();
   return view3d.info;
 }
@@ -3633,6 +3668,7 @@ async function start() {
   bindPopupActions();
   resizeCanvas();
   await popups.init();
+  reportPreviousRun();
   state.info = await native.appInfo().catch(() => null);
   native.listFonts().then((fonts) => { state.fonts = fonts; if (selectedEntities()[0]?.type === 'text') renderRight(); }).catch(() => {});
   native.setBackendLanguage(state.settings.language);

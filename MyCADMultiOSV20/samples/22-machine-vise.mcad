@@ -1,0 +1,697 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-13T08:11:12.195Z",
+ "drawing": {
+  "id": "dwg-mv6ej8vf017dabf1",
+  "title": "머신 바이스 (조 폭 125)",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-13T08:11:12.171Z",
+  "updated": "2026-10-13T08:11:12.171Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "MC-3D-12",
+   "material": "FC300 · S45C",
+   "scale": "1:1",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv6ej8vf017ed4bs",
+    "type": "solid",
+    "layer": "0",
+    "color": "#5d7fa3",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "boolean",
+    "name": "Base",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {},
+    "shape": {
+     "op": "cut",
+     "parts": [
+      {
+       "type": "solid",
+       "kind": "boolean",
+       "name": "",
+       "x": 0,
+       "y": 0,
+       "z": 0,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {},
+       "shape": {
+        "op": "union",
+        "parts": [
+         {
+          "type": "solid",
+          "kind": "box",
+          "name": "",
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "rx": 0,
+          "ry": 0,
+          "rz": 0,
+          "scale": 1,
+          "flip": false,
+          "params": {
+           "length": 300,
+           "width": 140,
+           "height": 40
+          },
+          "shape": {}
+         },
+         {
+          "type": "solid",
+          "kind": "box",
+          "name": "",
+          "x": -30,
+          "y": 40,
+          "z": 0,
+          "rx": 0,
+          "ry": 0,
+          "rz": 0,
+          "scale": 1,
+          "flip": false,
+          "params": {
+           "length": 360,
+           "width": 60,
+           "height": 18
+          },
+          "shape": {}
+         }
+        ]
+       }
+      },
+      {
+       "type": "solid",
+       "kind": "box",
+       "name": "",
+       "x": 60,
+       "y": 50,
+       "z": 16,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "length": 220,
+        "width": 40,
+        "height": 30
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": -15,
+       "y": 70,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 8,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": 345,
+       "y": 70,
+       "z": -10,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 8,
+        "height": 40,
+        "angle": 360
+       },
+       "shape": {}
+      }
+     ]
+    }
+   },
+   {
+    "id": "e-mv6ej8vf017fmnt8",
+    "type": "solid",
+    "layer": "0",
+    "color": "#5d7fa3",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "boolean",
+    "name": "FixedJaw",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {},
+    "shape": {
+     "op": "cut",
+     "parts": [
+      {
+       "type": "solid",
+       "kind": "box",
+       "name": "",
+       "x": 0,
+       "y": 0,
+       "z": 40,
+       "rx": 0,
+       "ry": 0,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "length": 60,
+        "width": 140,
+        "height": 80
+       },
+       "shape": {}
+      },
+      {
+       "type": "solid",
+       "kind": "cylinder",
+       "name": "",
+       "x": -10,
+       "y": 70,
+       "z": 70,
+       "rx": 0,
+       "ry": 90,
+       "rz": 0,
+       "scale": 1,
+       "flip": false,
+       "params": {
+        "radius": 11,
+        "height": 80,
+        "angle": 360
+       },
+       "shape": {}
+      }
+     ]
+    }
+   },
+   {
+    "id": "e-mv6ej8vf017g9f9m",
+    "type": "solid",
+    "layer": "0",
+    "color": "#7b9cc1",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "MovingJaw",
+    "x": 170,
+    "y": 0,
+    "z": 40,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 70,
+     "width": 140,
+     "height": 60
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017hgwvx",
+    "type": "solid",
+    "layer": "0",
+    "color": "#d9822b",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "Nut",
+    "x": 185,
+    "y": 52,
+    "z": 18,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 40,
+     "width": 36,
+     "height": 30
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017if9ov",
+    "type": "solid",
+    "layer": "0",
+    "color": "#c9cdd4",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "JawPlateFixed",
+    "x": 60,
+    "y": 7.5,
+    "z": 82,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 10,
+     "width": 125,
+     "height": 36
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017j36dp",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "JawPlateFixedScrew35",
+    "x": 70,
+    "y": 35,
+    "z": 100,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 5,
+     "height": 4,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017kojgq",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "JawPlateFixedScrew105",
+    "x": 70,
+    "y": 105,
+    "z": 100,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 5,
+     "height": 4,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017lvapt",
+    "type": "solid",
+    "layer": "0",
+    "color": "#c9cdd4",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "JawPlateMoving",
+    "x": 160,
+    "y": 7.5,
+    "z": 82,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 10,
+     "width": 125,
+     "height": 36
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017mkd6k",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "JawPlateMovingScrew35",
+    "x": 156,
+    "y": 35,
+    "z": 100,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 5,
+     "height": 4,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017nie9d",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "JawPlateMovingScrew105",
+    "x": 156,
+    "y": 105,
+    "z": 100,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 5,
+     "height": 4,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017ou5km",
+    "type": "solid",
+    "layer": "0",
+    "color": "#c9cdd4",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "LeadScrew",
+    "x": -20,
+    "y": 70,
+    "z": 70,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 10,
+     "height": 300,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017pssx3",
+    "type": "solid",
+    "layer": "0",
+    "color": "#a0a6b0",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "helix",
+    "name": "Thread",
+    "x": 70,
+    "y": 70,
+    "z": 70,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 10.5,
+     "pitch": 6,
+     "turns": 25,
+     "wire": 1.4
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017qwitn",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "Hub",
+    "x": -50,
+    "y": 70,
+    "z": 70,
+    "rx": 0,
+    "ry": 90,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 14,
+     "height": 30,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017rj9bo",
+    "type": "solid",
+    "layer": "0",
+    "color": "#c9cdd4",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "cylinder",
+    "name": "Handle",
+    "x": -40,
+    "y": -40,
+    "z": 70,
+    "rx": -90,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 6,
+     "height": 220,
+     "angle": 360
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017s1ouw",
+    "type": "solid",
+    "layer": "0",
+    "color": "#e5484d",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "sphere",
+    "name": "KnobA",
+    "x": -40,
+    "y": -45,
+    "z": 70,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 11
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017tbpyp",
+    "type": "solid",
+    "layer": "0",
+    "color": "#e5484d",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "sphere",
+    "name": "KnobB",
+    "x": -40,
+    "y": 185,
+    "z": 70,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "radius": 11
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017upb8s",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "ParallelA",
+    "x": 72,
+    "y": 20,
+    "z": 40,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 86,
+     "width": 10,
+     "height": 22
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017vahgc",
+    "type": "solid",
+    "layer": "0",
+    "color": "#40454f",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "ParallelB",
+    "x": 72,
+    "y": 110,
+    "z": 40,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 86,
+     "width": 10,
+     "height": 22
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017wsyzy",
+    "type": "solid",
+    "layer": "0",
+    "color": "#e8a53a",
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "box",
+    "name": "Workpiece",
+    "x": 72,
+    "y": 15,
+    "z": 62,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 86,
+     "width": 110,
+     "height": 45
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv6ej8vf017xh3ld",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": -60,
+    "text": "머신 바이스: 조 폭 125 · 최대 열림 100 · 이송 나사 Tr20×6 (핸들 1회전 6 mm)",
+    "size": 6,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   }
+  ]
+ }
+}

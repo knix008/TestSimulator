@@ -63,11 +63,22 @@ FreeCAD 문서에서 알아낸 규칙 (FreeCAD 1.1 로 확인):
 
 ## 시작 페이지 · 튜토리얼 · 문서
 
-- `src/view/startpage.js`: 시작 페이지 HTML(할 일 `START_TASKS` ↔ 레슨 · 샘플). 샘플 목록은 `samples/index.json`(`create-samples.mjs` 가 씀), 개발 서버는 프로젝트 폴더를, 빌드는 `vite.config.js` 의 복사 단계가 dist/samples 를 줍니다. 썸네일은 실행 중에 만듭니다(솔리드는 음영 등각, 2D 는 렌더러).
+- `src/view/startpage.js`: 시작 페이지 HTML(할 일 `START_TASKS` ↔ 레슨 · 샘플). `#start-page` = 고정된 `.start-bg`(3D 배경) + 위로 스크롤되는 `.start-scroll`(내용). 메뉴 줄의 `.menubar-home` 과 탭 줄의 집 탭이 `startPage` 명령입니다.
+- `src/view/startbg.js`: 배경의 three.js 장면(지연 로드). `app.js` 의 `gearPairMeshes()` 가 기어 부품 윤곽을 돌출해 z24/z16 기어와 축을 만들고, 기어마다 축(pivot)과 각속도(잇수비로 반대 방향)를 줍니다. 시작 페이지가 숨거나 창이 백그라운드면 멈추고, 'reduced motion' 이면 시점 회전만 멈춥니다. 샘플 목록은 `samples/index.json`(`create-samples.mjs` 가 씀), 개발 서버는 프로젝트 폴더를, 빌드는 `vite.config.js` 의 복사 단계가 dist/samples 를 줍니다. 썸네일은 실행 중에 만듭니다(솔리드는 음영 등각, 2D 는 렌더러). 샘플 모델은 `scripts/models3d.mjs`(기본 3D)와 `scripts/models-complex.mjs`(건축 평면도 · 3D 주택 · 사무소, 감속기 · 축 제작도 · 바이스 · 철골)에 있고, 주택은 평면도와 3D 모델이 같은 `HOUSE` 데이터(벽 중심선 · 두께 · 개구부)에서 나옵니다. 건물을 담도록 솔리드 치수 상한은 100 m(반지름 50 m)입니다.
 - `src/tutorial/player.js`: 떠 있는 패널, 보기(가짜 커서 · 강조 고리 · 키 풍선)와 직접 하기(검사 함수를 300 ms 마다 · 클릭할 곳 표시). `app.js` 의 `tutorialApi()` 가 실제 캔버스 포인터 이벤트 · 명령 · 대화상자 대신 동작을 빌려 줍니다. 튜토리얼 동안 설정은 기준값(mm · 5 mm 격자 스냅 …)으로 두었다가 닫으면 돌려놓습니다.
 - `src/tutorial/lessons.js`: 16레슨. 단계 = `{ title, text, run(ctx), practice: { todo, check, targets } }`. `runAll()` · `verifyPractice()` 를 E2E 가 실행합니다.
 - `scripts/docs-shots.mjs` → `doc/images/<언어>/*.webp`(단계마다 실제 앱 화면 + `DOC_DIALOGS` 의 창), `scripts/build-docs.mjs` → `doc/Tutorial(.en).md/.html`(레슨 데이터에서 생성하므로 앱과 문서가 같습니다). Rust `open_document` 가 HTML 을 브라우저로 엽니다(설치본은 리소스 doc/).
 - `scripts/record-tutorial.mjs`: 보기 모드로 전 레슨을 재생하며 ffmpeg(gdigrab/x11grab)로 창 영역을 녹화 → `MyCAD-Tutorial.mp4`.
+
+## 오류 보고
+
+- JS: `window` 의 error · unhandledrejection, 모든 실패 경로가 `showError()` → 오류 팝업(자세한 내용 · 복사). 팝업을 열 수 없으면 `inlineError()` 가 주 창 안에 같은 보고를 그립니다. 팝업 창의 오류는 `report-error` 로 주 창에 모입니다.
+- Rust: `install_panic_hook` 이 모든 패닉을 데이터 폴더의 `crash.log` 에 쓰고 `fatal-error` 이벤트로 팝업에 보냅니다. 주 스레드 패닉(프로세스가 끝남)은 먼저 OS 메시지 상자(`native_alert`, Windows `MessageBoxW`)로 보여 줍니다.
+- 실행 표지: 시작할 때 데이터 폴더에 `running.lock`(시작 시각)을 쓰고, 정상 종료(`quit_app`, `RunEvent::Exit`)에서 지웁니다. 시작할 때 남아 있으면 지난 실행이 비정상 종료 → `previous_run` 명령이 그 실행 동안의 `crash.log` 항목과 함께 넘기고 UI 가 오류 팝업으로 보고합니다. E2E 의 `restart()` 는 표지를 지우고(`{ reportCrash: true }` 면 남김) 다시 실행합니다.
+
+## 버전
+
+`package.json` 의 version(= `src-tauri/Cargo.toml`, `tauri.conf.json` 은 package.json 을 가리킴) 하나만 고칩니다. 화면에는 주.부 번호만 `V1.0` 으로: Rust `app_title()`(모든 창 제목), `app.js`·`popup.js` 의 `displayVersion()`(문서 제목 · 프로그램 정보 · 시작 페이지).
 
 ## 팝업 · 메뉴
 
