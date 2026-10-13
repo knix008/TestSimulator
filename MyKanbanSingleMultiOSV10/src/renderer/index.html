@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyKanban</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="root">
+    <header id="app-header" class="hidden">
+      <div class="header-left">
+        <span class="logo" onclick="App.showBoards()">&#9783; MyKanban</span>
+        <nav class="breadcrumb" id="breadcrumb"></nav>
+      </div>
+      <div class="header-right">
+        <div class="header-toolbar-group" aria-label="edit actions">
+          <button type="button" class="btn-icon" id="btn-save" onclick="App.save()" data-i18n-title="titleSaveMenu" aria-label="save">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          </button>
+          <button type="button" class="btn-icon" id="btn-undo" onclick="if(!this.classList.contains('disabled'))History.undo()" data-i18n-title="titleUndo" aria-label="undo">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.4 2.7L3 13"/></svg>
+          </button>
+          <button type="button" class="btn-icon" id="btn-redo" onclick="if(!this.classList.contains('disabled'))History.redo()" data-i18n-title="titleRedo" aria-label="redo">
+            <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.7L21 13"/></svg>
+          </button>
+        </div>
+        <button class="btn-icon" onclick="App.showSettings()" data-i18n-title="settings">&#9881;</button>
+        <button class="btn-icon" id="btn-refresh" onclick="App.refresh()" data-i18n-title="titleRefresh" aria-label="refresh">
+          <svg class="btn-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-theme" onclick="App.toggleTheme()" data-i18n-title="themeToggle">&#9728;</button>
+        <button class="btn-icon" id="btn-lang" onclick="App.toggleLang()" data-i18n-title="langBtnTitle" style="font-size:11px;font-weight:700;width:36px">한</button>
+        <span class="user-name" id="header-username"></span>
+      </div>
+    </header>
+
+    <!-- Custom menu bar -->
+    <nav id="app-menubar" class="hidden">
+      <div class="menubar-item" id="mb-file" onclick="AppMenu.toggle('file')" data-i18n-title="titleFileMenu">
+        <span class="menubar-icon">&#128196;</span><span data-i18n="menuFile">파일</span>
+        <div class="menubar-dropdown" id="mb-file-dd">
+          <div class="menubar-opt" onclick="AppMenu.close(); App.save()" data-i18n-title="titleSaveMenu">
+            <span class="menubar-opt-icon">&#128190;</span><span data-i18n="save">저장</span><span class="menubar-shortcut">Ctrl+S</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-edit" onclick="AppMenu.toggle('edit')" data-i18n-title="titleEditMenu">
+        <span class="menubar-icon">&#9998;</span><span data-i18n="menuEdit">편집</span>
+        <div class="menubar-dropdown" id="mb-edit-dd">
+          <div class="menubar-opt" id="mb-undo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.undo();}" data-i18n-title="titleUndo">
+            <span class="menubar-opt-icon">&#8630;</span><span data-i18n="undo">실행 취소</span><span class="menubar-shortcut">Ctrl+Z</span></div>
+          <div class="menubar-opt" id="mb-redo" onclick="if(!this.classList.contains('disabled')){AppMenu.close();History.redo();}" data-i18n-title="titleRedo">
+            <span class="menubar-opt-icon">&#8631;</span><span data-i18n="redo">다시 실행</span><span class="menubar-shortcut">Ctrl+Y</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-project" onclick="AppMenu.toggle('project')" data-i18n-title="titleProjectMenu">
+        <span class="menubar-icon">&#128194;</span><span data-i18n="menuProject">프로젝트</span>
+        <div class="menubar-dropdown" id="mb-project-dd">
+          <div class="menubar-opt" onclick="BoardView.showCreateBoard()" data-i18n-title="titleCreateBoard">
+            <span class="menubar-opt-icon">&#10010;</span><span data-i18n="newBoard">새 프로젝트</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="BoardView.importProjectFromDialog()" data-i18n-title="titleImportProject">
+            <span class="menubar-opt-icon">&#128229;</span><span data-i18n="importProject">가져오기 (.kprj)</span></div>
+          <div class="menubar-opt" id="mb-export" onclick="BoardView.exportCurrentBoard()" data-i18n-title="titleExportProject">
+            <span class="menubar-opt-icon">&#128228;</span><span data-i18n="exportProject">보내기 (.kprj)</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-view" onclick="AppMenu.toggle('view')" data-i18n-title="titleViewMenu">
+        <span class="menubar-icon">&#127760;</span><span data-i18n="menuView">보기</span>
+        <div class="menubar-dropdown" id="mb-view-dd">
+          <div class="menubar-opt" onclick="AppMenu.close(); App.refresh()" data-i18n-title="titleRefresh">
+            <span class="menubar-opt-icon">&#8635;</span><span data-i18n="refresh">새로 고침</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="App.toggleTheme()" data-i18n-title="titleThemeToggle">
+            <span class="menubar-opt-icon">&#9728;</span><span data-i18n="themeToggle">테마 전환</span></div>
+          <div class="menubar-opt" onclick="App.toggleLang()" data-i18n-title="titleLangToggle">
+            <span class="menubar-opt-icon">&#127760;</span><span data-i18n="langToggle">언어 전환</span></div>
+          <div class="menubar-separator"></div>
+          <div class="menubar-opt" onclick="AppMenu.close(); App.showBoards()" data-i18n-title="titleBoardList">
+            <span class="menubar-opt-icon">&#9783;</span><span data-i18n="boardList">프로젝트 목록</span></div>
+        </div>
+      </div>
+      <div class="menubar-item" id="mb-help" onclick="AppMenu.toggle('help')" data-i18n-title="titleHelpMenu">
+        <span class="menubar-icon">&#10067;</span><span data-i18n="menuHelp">도움말</span>
+        <div class="menubar-dropdown" id="mb-help-dd">
+          <div class="menubar-opt" onclick="AppMenu.showAbout()" data-i18n-title="titleProgramInfo">
+            <span class="menubar-opt-icon">&#8505;</span><span data-i18n="programInfo">프로그램 정보</span></div>
+        </div>
+      </div>
+    </nav>
+
+    <main id="main-content"></main>
+
+    <!-- Status bar -->
+    <footer id="status-bar" class="hidden">
+      <div class="status-left">
+        <span id="status-indicator" class="status-dot status-ok"></span>
+        <span id="status-msg" data-status-key="ready" data-i18n="ready">준비</span>
+      </div>
+      <div class="status-right">
+        <span id="status-board"></span>
+        <span class="status-sep">|</span>
+        <span id="status-user"></span>
+        <span class="status-sep">|</span>
+        <span id="status-db" data-i18n-title="dbInfoTitle" style="cursor:default"></span>
+        <span class="status-sep">|</span>
+        <span id="status-ver">v1.0.0</span>
+      </div>
+    </footer>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <div id="modal-overlay" class="hidden" onclick="Modal.closeOnOverlay(event)">
+    <div id="modal-box"></div>
+  </div>
+
+  <!-- Context menu (HTML-based, shown on right-click) -->
+  <div id="ctx-menu" class="ctx-menu hidden"></div>
+
+  <script src="js/lang.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

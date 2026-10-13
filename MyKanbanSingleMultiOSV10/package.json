@@ -1,0 +1,119 @@
+{
+  "name": "my-kanban-multi-os",
+  "version": "1.0.0",
+  "buildNumber": "1",
+  "description": "Multi-platform Kanban Board (Electron + Web)",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node server.js",
+    "dev:electron": "SET ELECTRON_RUN_AS_NODE=&& electron .",
+    "start": "SET ELECTRON_RUN_AS_NODE=&& electron .",
+    "start:web": "node server.js",
+    "create-icons": "node scripts/create-icons.js",
+    "create-icons:force": "node scripts/create-icons.js --force",
+    "postinstall": "node scripts/install-native-deps.js",
+    "prebuild:win": "node scripts/create-icons.js",
+    "prebuild:linux": "node scripts/create-icons.js",
+    "prebuild:mac": "node scripts/create-icons.js",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac",
+    "copy-installer": "node scripts/copy-installer.js",
+    "test": "node test/run.js"
+  },
+  "build": {
+    "appId": "com.kanban.multios",
+    "productName": "MyKanban",
+    "copyright": "Copyright © 2026 SHKWON(knix008@naver.com)",
+    "afterAllArtifactBuild": "scripts/copy-installer.js",
+    "afterPack": "scripts/after-pack.js",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "assets/**/*",
+      "sample/**/*",
+      "src/**/*",
+      "!src/renderer/css/*.map",
+      "!**/*.md"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "fileAssociations": [
+        {
+          "ext": "kprj",
+          "name": "MyKanban 프로젝트",
+          "description": "MyKanban Project File",
+          "icon": "assets/kprj.ico",
+          "role": "Editor"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MyKanban",
+      "installerIcon": "assets/installerIcon.ico",
+      "uninstallerIcon": "assets/uninstallerIcon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "language": "1042",
+      "menuCategory": "MyKanban",
+      "artifactName": "MyKanban-Setup-${version}.exe"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets",
+      "category": "ProjectManagement",
+      "mimeTypes": [
+        "application/x-mykanban-project"
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    }
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "docx": "^9.7.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "knex": "^3.1.0",
+    "mssql": "^11.0.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.9.1",
+    "pdfkit": "^0.19.1",
+    "pg": "^8.11.3",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.35.3",
+    "to-ico": "^1.1.5"
+  }
+}
