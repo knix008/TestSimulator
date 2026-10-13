@@ -51,6 +51,8 @@ private:
     void removeKeyword();
     void moveKeyword(int delta);
     void recordKeyword();
+    void importKeywordFiles();
+    void pollSampleCounts();
     void trainKeywords();
     void resetKeywordTraining();
     void exportKeywordModel();
@@ -141,6 +143,7 @@ private:
     GtkWidget* keywordUp_ = nullptr;
     GtkWidget* keywordDown_ = nullptr;
     GtkWidget* keywordRecord_ = nullptr;
+    GtkWidget* keywordImport_ = nullptr;
     GtkWidget* keywordTrain_ = nullptr;
     GtkWidget* keywordReset_ = nullptr;
     GtkWidget* keywordExport_ = nullptr;
@@ -158,6 +161,7 @@ private:
     std::mutex captureMutex_;
     std::atomic<bool> recordCancel_{false};
     bool keywordReady_ = false;
+    std::string sampleWatch_;
     bool suppressKeywordToggle_ = false;
     bool recording_ = false;
     bool training_ = false;

@@ -416,11 +416,16 @@ GtkWidget* AppWindow::buildKeywords() {
     GtkWidget* actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_set_hexpand(actions, TRUE);
     keywordRecord_ = gtk_button_new_with_label("녹음");
+    keywordImport_ = gtk_button_new_with_label("음원 넣기");
     keywordTrain_ = gtk_button_new_with_label("학습");
     keywordExport_ = gtk_button_new_with_label("장치에 저장…");
     keywordOpen_ = gtk_button_new_with_label("모델 열기…");
     g_signal_connect(keywordRecord_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
                          static_cast<AppWindow*>(self)->recordKeyword();
+                     }),
+                     this);
+    g_signal_connect(keywordImport_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->importKeywordFiles();
                      }),
                      this);
     g_signal_connect(keywordTrain_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
@@ -436,6 +441,7 @@ GtkWidget* AppWindow::buildKeywords() {
                      }),
                      this);
     gtk_box_append(GTK_BOX(actions), keywordRecord_);
+    gtk_box_append(GTK_BOX(actions), keywordImport_);
     gtk_box_append(GTK_BOX(actions), keywordTrain_);
     gtk_box_append(GTK_BOX(actions), keywordExport_);
     gtk_box_append(GTK_BOX(actions), keywordOpen_);
@@ -1002,7 +1008,7 @@ std::string AppWindow::buildReport() {
     } else {
         add(&text, "학습된 모델", "없음");
         for (const std::string& word : workspace_.words()) {
-            add(&text, word, "작업 폴더 녹음 " + std::to_string(workspace_.sampleCount(word)) + "개");
+            add(&text, word, "폴더 음원 " + std::to_string(workspace_.sampleCount(word)) + "개");
         }
     }
 
@@ -1202,6 +1208,7 @@ void AppWindow::updateResourceLabel() {
     if (cpuLabel_) gtk_label_set_text(GTK_LABEL(cpuLabel_), cpuText);
     if (statusCoresLabel_) gtk_label_set_text(GTK_LABEL(statusCoresLabel_), coresText);
     if (statusClockLabel_) gtk_label_set_text(GTK_LABEL(statusClockLabel_), clockText);
+    pollSampleCounts();
 }
 
 bool AppWindow::sampleProcessMemory(unsigned long long* bytes) {
@@ -1542,7 +1549,7 @@ void AppWindow::refreshKeywordList() {
 
     const std::vector<std::string> words = workspace_.words();
     for (const std::string& word : words) {
-        const std::string line = word + "   " + std::to_string(workspace_.sampleCount(word)) + "개";
+        const std::string line = word + "    음원 " + std::to_string(workspace_.sampleCount(word)) + "개";
         GtkWidget* label = gtk_label_new(line.c_str());
         gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
         gtk_widget_set_margin_start(label, 8);
@@ -1558,6 +1565,13 @@ void AppWindow::refreshKeywordList() {
             gtk_list_box_select_row(GTK_LIST_BOX(keywordList_), row);
     }
     fitKeywordList();
+    sampleWatch_.clear();
+    for (const std::string& word : words) {
+        sampleWatch_ += word;
+        sampleWatch_.push_back('\t');
+        sampleWatch_ += std::to_string(workspace_.sampleCount(word));
+        sampleWatch_.push_back('\n');
+    }
     const std::string info = keywordReady_ ? "모델 있음 · " + keywordModel_.summary()
                                            : "녹음은 keyword-workspace 에 쌓입니다";
     gtk_label_set_text(GTK_LABEL(keywordInfo_), info.c_str());
@@ -1651,6 +1665,77 @@ void AppWindow::moveKeyword(int delta) {
     syncButtons();
 }
 
+void AppWindow::pollSampleCounts() {
+    if (!keywordList_ || recording_ || training_) return;
+    std::string watch;
+    for (const std::string& word : workspace_.words()) {
+        watch += word;
+        watch.push_back('\t');
+        watch += std::to_string(workspace_.sampleCount(word));
+        watch.push_back('\n');
+    }
+    if (watch == sampleWatch_) return;
+    refreshKeywordList();
+}
+
+void AppWindow::importKeywordFiles() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus("음원을 넣을 말을 고르세요.", true);
+        return;
+    }
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+
+    GtkFileDialog* dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, "학습에 넣을 WAV 음원");
+    gtk_file_dialog_set_modal(dialog, TRUE);
+    GtkFileFilter* filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "WAV 음원");
+    gtk_file_filter_add_pattern(filter, "*.wav");
+    gtk_file_filter_add_pattern(filter, "*.WAV");
+    GListStore* filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    g_list_store_append(filters, filter);
+    gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    g_object_unref(filter);
+    g_object_unref(filters);
+    auto* owned = new std::string(word);
+    gtk_file_dialog_open_multiple(
+        dialog, GTK_WINDOW(window_), nullptr,
+        +[](GObject* source, GAsyncResult* result, gpointer data) {
+            auto* pair = static_cast<std::pair<AppWindow*, std::string*>*>(data);
+            GError* error = nullptr;
+            GListModel* files =
+                gtk_file_dialog_open_multiple_finish(GTK_FILE_DIALOG(source), result, &error);
+            if (files && pair->first->alive_->load()) {
+                int added = 0;
+                std::string err;
+                const guint count = g_list_model_get_n_items(files);
+                for (guint i = 0; i < count; ++i) {
+                    GFile* file = G_FILE(g_list_model_get_item(files, i));
+                    char* path = g_file_get_path(file);
+                    if (path && pair->first->workspace_.importSample(*pair->second, path, &err))
+                        ++added;
+                    g_free(path);
+                    g_object_unref(file);
+                }
+                pair->first->refreshKeywordList();
+                if (added == 0) {
+                    pair->first->setStatus(err.empty() ? "음원을 넣지 못했습니다." : err, true);
+                } else {
+                    pair->first->setStatus("\"" + *pair->second + "\" 에 음원 " +
+                                           std::to_string(added) + "개를 넣었습니다. 학습에 바로 씁니다.");
+                }
+                pair->first->syncButtons();
+                g_object_unref(files);
+            }
+            if (error) g_error_free(error);
+            delete pair->second;
+            delete pair;
+        },
+        new std::pair<AppWindow*, std::string*>(this, owned));
+    g_object_unref(dialog);
+}
+
 void AppWindow::recordKeyword() {
     const std::string word = selectedKeyword();
     if (word.empty()) {
@@ -1735,7 +1820,9 @@ void AppWindow::trainKeywords() {
             message = "저장 경로\n" + savedPath + "\n\n파일 크기\n" + sizeText + "\n\n학습된 말  " +
                       std::to_string(report.words) + "개 · 녹음 " + std::to_string(report.samples) +
                       "개\n" + learned + "\n\n표본율\n" + std::to_string(kKeywordSampleRate) +
-                      " Hz\n\n넣지 못한 말\n" + skipped +
+                      " Hz\n\n넣지 못한 말\n" + skipped + "\n\n쓰지 못한 음원\n" +
+                      (report.unreadableFiles.empty() ? "없음"
+                                                      : formatVocabulary(report.unreadableFiles)) +
                       "\n\n이 프로그램도 이제 이 학습 모델로 인식합니다.\n"
                       "이 파일을 장치에 복사하면 같은 말을 인식합니다.";
         } else if (trainedOk) {
@@ -1962,6 +2049,7 @@ void AppWindow::syncButtons() {
     if (keywordDown_)
         gtk_widget_set_sensitive(keywordDown_, !busy && selected >= 0 && selected + 1 < count);
     gtk_widget_set_sensitive(keywordRecord_, !busy);
+    if (keywordImport_) gtk_widget_set_sensitive(keywordImport_, !busy);
     gtk_widget_set_sensitive(keywordTrain_, !busy);
     gtk_widget_set_sensitive(keywordReset_, !busy);
     gtk_widget_set_sensitive(keywordExport_, keywordReady_ && !busy);

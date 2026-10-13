@@ -57,6 +57,8 @@ private:
     void removeKeyword();
     void moveKeyword(int delta);
     void recordKeyword();
+    void importKeywordFiles();
+    void pollSampleCounts();
     void trainKeywords();
     void resetKeywordTraining();
     void exportKeywordModel();
@@ -118,6 +120,7 @@ private:
     HWND keywordUp_ = nullptr;
     HWND keywordDown_ = nullptr;
     HWND keywordRecord_ = nullptr;
+    HWND keywordImport_ = nullptr;
     HWND keywordTrain_ = nullptr;
     HWND keywordReset_ = nullptr;
     HWND keywordExport_ = nullptr;
@@ -140,6 +143,7 @@ private:
     std::mutex captureMutex_;
     std::atomic<bool> recordCancel_{false};
     bool keywordReady_ = false;
+    std::string sampleWatch_;
     bool recording_ = false;
     bool training_ = false;
     std::vector<AudioDevice> devices_;

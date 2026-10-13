@@ -485,6 +485,46 @@ bool KeywordWorkspace::removeWord(const std::string& word, std::string* err) {
     return writeWords(list, err);
 }
 
+bool KeywordWorkspace::importSample(const std::string& word, const std::string& sourcePath,
+                                     std::string* err) {
+    const std::vector<std::string> list = words();
+    if (std::find(list.begin(), list.end(), word) == list.end()) {
+        if (err) *err = "목록에 없는 말입니다.";
+        return false;
+    }
+    std::string readError;
+    std::vector<std::int16_t> probe;
+    if (!readWav16Mono(sourcePath, &probe, nullptr, nullptr, 0, &readError) || probe.empty()) {
+        if (err) *err = "WAV 음원을 읽지 못했습니다.";
+        return false;
+    }
+    const fs::path source = fsPath(sourcePath);
+    const fs::path dir = fsPath(samplesDir(word));
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    if (ec) {
+        if (err) *err = "말 폴더를 만들 수 없습니다.";
+        return false;
+    }
+    fs::path dest = dir / source.filename();
+    if (fs::exists(dest, ec)) {
+        std::error_code same;
+        if (fs::equivalent(source, dest, same)) return true;
+        const std::string stem = pathUtf8(source.stem());
+        const std::string ext = pathUtf8(source.extension());
+        for (int n = 2; n < 10000; ++n) {
+            dest = dir / fsPath(stem + "-" + std::to_string(n) + ext);
+            if (!fs::exists(dest, ec)) break;
+        }
+    }
+    fs::copy_file(source, dest, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        if (err) *err = "음원 파일을 복사하지 못했습니다.";
+        return false;
+    }
+    return true;
+}
+
 std::string KeywordWorkspace::allocateSamplePath(const std::string& word) const {
     const fs::path dir = fsPath(samplesDir(word));
     for (int i = 1; i < 10000; ++i) {
@@ -525,11 +565,14 @@ bool trainKeywordModel(const KeywordWorkspace& workspace, KeywordModel* model,
         for (const fs::path& file : files) {
             std::vector<std::int16_t> samples;
             std::string readError;
-            if (!readWav16Mono(pathUtf8(file), &samples, nullptr, nullptr, kKeywordSampleRate,
-                               &readError))
-                continue;
+            const std::string filePath = pathUtf8(file);
             std::array<float, kKeywordFeatDim> features{};
-            if (!embedKeyword(samples.data(), samples.size(), features.data())) continue;
+            if (!readWav16Mono(filePath, &samples, nullptr, nullptr, kKeywordSampleRate,
+                               &readError) ||
+                !embedKeyword(samples.data(), samples.size(), features.data())) {
+                local.unreadableFiles.push_back(pathUtf8(file.filename()));
+                continue;
+            }
             cls.exemplars.push_back(features);
         }
         if (cls.exemplars.empty()) {
@@ -544,7 +587,7 @@ bool trainKeywordModel(const KeywordWorkspace& workspace, KeywordModel* model,
     if (report) *report = local;
     if (trained.empty()) {
         if (err)
-            *err = "학습할 녹음이 없습니다. 말마다 한 번 이상 녹음한 뒤 다시 학습하세요.";
+            *err = "학습할 음원이 없습니다. 말 폴더에 WAV 파일을 넣거나 녹음한 뒤 다시 학습하세요.";
         return false;
     }
     *model = std::move(trained);

@@ -70,7 +70,8 @@ bool readWav16Mono(const std::string& path, std::vector<int16_t>* out, int* srcR
     int rate = 0;
     int bits = 0;
     int format = 0;
-    std::vector<int16_t> interleaved;
+    std::vector<unsigned char> fmt;
+    std::vector<int16_t> mono;
     bool haveFmt = false;
     bool haveData = false;
 
@@ -81,7 +82,7 @@ bool readWav16Mono(const std::string& path, std::vector<int16_t>* out, int* srcR
         const uint32_t size = readU32(chunkHeader + 4);
 
         if (std::memcmp(chunkHeader, "fmt ", 4) == 0) {
-            std::vector<unsigned char> fmt(std::max<uint32_t>(size, 16), 0);
+            fmt.assign(std::max<uint32_t>(size, 16), 0);
             file.read(reinterpret_cast<char*>(fmt.data()), size);
             if (!file) return fail("truncated fmt chunk: " + path);
             format = readU16(fmt.data());
@@ -91,17 +92,62 @@ bool readWav16Mono(const std::string& path, std::vector<int16_t>* out, int* srcR
             haveFmt = true;
         } else if (std::memcmp(chunkHeader, "data", 4) == 0) {
             if (!haveFmt) return fail("data chunk before fmt chunk: " + path);
-            if (bits != 16) return fail("only 16-bit PCM WAV is supported (file has " +
-                                        std::to_string(bits) + "-bit): " + path);
-            if (format != 1 && format != 0xFFFE)
-                return fail("only PCM WAV is supported (format " + std::to_string(format) +
-                            "): " + path);
-            interleaved.resize(size / 2);
-            file.read(reinterpret_cast<char*>(interleaved.data()), size);
-            // 꼬리가 잘린 파일도 읽은 만큼 쓴다.
+            int sampleFormat = format;
+            if (format == 0xFFFE) {
+                if (fmt.size() >= 26) sampleFormat = readU16(fmt.data() + 24);
+                else sampleFormat = 1;
+            }
+            const bool pcm = sampleFormat == 1;
+            const bool ieee = sampleFormat == 3;
+            if (!pcm && !ieee)
+                return fail("only PCM or float WAV is supported (format " +
+                            std::to_string(sampleFormat) + "): " + path);
+            if (pcm && bits != 8 && bits != 16 && bits != 24 && bits != 32)
+                return fail("unsupported PCM width " + std::to_string(bits) + "-bit: " + path);
+            if (ieee && bits != 32)
+                return fail("float WAV must be 32-bit: " + path);
+            const int bytesPerSample = bits / 8;
+            if (channels <= 0 || bytesPerSample <= 0)
+                return fail("invalid channel count in " + path);
+            std::vector<unsigned char> raw(size);
+            file.read(reinterpret_cast<char*>(raw.data()), size);
             const std::streamsize got = file.gcount();
-            interleaved.resize(static_cast<size_t>(std::max<std::streamsize>(got, 0) / 2));
+            raw.resize(static_cast<size_t>(std::max<std::streamsize>(got, 0)));
             file.clear();
+            const size_t frameBytes =
+                static_cast<size_t>(bytesPerSample) * static_cast<size_t>(channels);
+            const size_t frames = frameBytes == 0 ? 0 : raw.size() / frameBytes;
+            mono.resize(frames);
+            auto sampleAt = [&](size_t frame, int channel) -> int {
+                const size_t offset = (frame * static_cast<size_t>(channels) +
+                                       static_cast<size_t>(channel)) *
+                                      static_cast<size_t>(bytesPerSample);
+                const unsigned char* p = raw.data() + offset;
+                if (ieee) {
+                    float value = 0.0f;
+                    std::memcpy(&value, p, sizeof(value));
+                    const double scaled = std::max(-1.0, std::min(1.0, static_cast<double>(value)));
+                    return static_cast<int>(std::lround(scaled * 32767.0));
+                }
+                if (bits == 8) return (static_cast<int>(p[0]) - 128) << 8;
+                if (bits == 16) {
+                    const int value = static_cast<int>(readU16(p));
+                    return value >= 32768 ? value - 65536 : value;
+                }
+                if (bits == 24) {
+                    int value = p[0] | (p[1] << 8) | (p[2] << 16);
+                    if (value & 0x800000) value |= ~0xFFFFFF;
+                    return value >> 8;
+                }
+                const int32_t value = static_cast<int32_t>(readU32(p));
+                return value >> 16;
+            };
+            for (size_t frame = 0; frame < frames; ++frame) {
+                int sum = 0;
+                for (int channel = 0; channel < channels; ++channel)
+                    sum += sampleAt(frame, channel);
+                mono[frame] = static_cast<int16_t>(sum / channels);
+            }
             haveData = true;
             break;
         } else {
@@ -111,21 +157,6 @@ bool readWav16Mono(const std::string& path, std::vector<int16_t>* out, int* srcR
 
     if (!haveFmt || !haveData) return fail("no fmt/data chunk found: " + path);
     if (channels <= 0) return fail("invalid channel count in " + path);
-
-    // 모노로 섞는다.
-    std::vector<int16_t> mono;
-    if (channels == 1) {
-        mono = std::move(interleaved);
-    } else {
-        const size_t frames = interleaved.size() / static_cast<size_t>(channels);
-        mono.resize(frames);
-        for (size_t i = 0; i < frames; ++i) {
-            int sum = 0;
-            for (int c = 0; c < channels; ++c)
-                sum += interleaved[i * static_cast<size_t>(channels) + static_cast<size_t>(c)];
-            mono[i] = static_cast<int16_t>(sum / channels);
-        }
-    }
 
     // 필요하면 선형 보간으로 표본율을 맞춘다.
     if (resampleTo > 0 && rate > 0 && rate != resampleTo && !mono.empty()) {

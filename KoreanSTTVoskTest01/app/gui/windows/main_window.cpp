@@ -52,6 +52,7 @@ enum : int {
     kIdKeywordUp,
     kIdKeywordDown,
     kIdKeywordRecord,
+    kIdKeywordImport,
     kIdKeywordTrain,
     kIdKeywordReset,
     kIdKeywordExport,
@@ -355,6 +356,7 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                     if (HIWORD(wParam) == LBN_SELCHANGE) syncButtons();
                     return 0;
                 case kIdKeywordRecord: recordKeyword(); return 0;
+                case kIdKeywordImport: importKeywordFiles(); return 0;
                 case kIdKeywordTrain: trainKeywords(); return 0;
                 case kIdKeywordReset: resetKeywordTraining(); return 0;
                 case kIdKeywordExport: exportKeywordModel(); return 0;
@@ -570,6 +572,7 @@ void MainWindow::createControls() {
     keywordUp_ = make(L"BUTTON", L"위로", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordUp);
     keywordDown_ = make(L"BUTTON", L"아래로", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordDown);
     keywordRecord_ = make(L"BUTTON", L"녹음", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRecord);
+    keywordImport_ = make(L"BUTTON", L"음원 넣기", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordImport);
     keywordTrain_ = make(L"BUTTON", L"학습", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordTrain);
     keywordReset_ = make(L"BUTTON", L"초기화", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordReset);
     keywordExport_ = make(L"BUTTON", L"장치에 저장…", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordExport);
@@ -725,11 +728,14 @@ void MainWindow::layout() {
 
         const int y3 = y2 + rowHeight + gap;
         const int checkWidth = scaled(150);
+        const int importWidth = scaled(88);
         const int resetWidth = scaled(72);
         place(keywordCheck_, bx, y3, checkWidth, rowHeight);
+        place(keywordImport_, bx + checkWidth + gap, y3, importWidth, rowHeight);
         place(keywordReset_, right - resetWidth, y3, resetWidth, rowHeight);
-        place(keywordInfo_, bx + checkWidth + gap, y3,
-              std::max(scaled(40), right - resetWidth - gap - (bx + checkWidth + gap)), rowHeight);
+        const int infoX = bx + checkWidth + gap + importWidth + gap;
+        place(keywordInfo_, infoX, y3,
+              std::max(scaled(40), right - resetWidth - gap - infoX), rowHeight);
         y += band + gap;
     }
 
@@ -1161,7 +1167,7 @@ std::wstring MainWindow::buildReport() {
     } else {
         add(&text, L"학습된 모델", L"없음");
         for (const std::string& word : workspace_.words()) {
-            add(&text, toWide(word), L"작업 폴더 녹음 " + std::to_wstring(workspace_.sampleCount(word)) +
+            add(&text, toWide(word), L"폴더 음원 " + std::to_wstring(workspace_.sampleCount(word)) +
                                          L"개");
         }
     }
@@ -1323,6 +1329,7 @@ void MainWindow::updateResourceLabel() {
     SendMessageW(statusBar_, SB_SETTEXTW, 2, reinterpret_cast<LPARAM>(cpuText));
     SendMessageW(statusBar_, SB_SETTEXTW, 3, reinterpret_cast<LPARAM>(coresText));
     SendMessageW(statusBar_, SB_SETTEXTW, 4, reinterpret_cast<LPARAM>(clockText));
+    pollSampleCounts();
 }
 
 bool MainWindow::sampleProcessMemory(unsigned long long* bytes) {
@@ -1480,7 +1487,7 @@ void MainWindow::refreshKeywordList() {
     SendMessageW(keywordList_, LB_RESETCONTENT, 0, 0);
     const std::vector<std::string> words = workspace_.words();
     for (const std::string& word : words) {
-        const std::wstring line = toWide(word) + L"   " +
+        const std::wstring line = toWide(word) + L"    음원 " +
                                   std::to_wstring(workspace_.sampleCount(word)) + L"개";
         SendMessageW(keywordList_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
     }
@@ -1491,6 +1498,13 @@ void MainWindow::refreshKeywordList() {
     std::wstring info = L"녹음은 keyword-workspace 에 쌓입니다";
     if (keywordReady_) info = L"모델 있음 · " + toWide(keywordModel_.summary());
     SetWindowTextW(keywordInfo_, info.c_str());
+    sampleWatch_.clear();
+    for (const std::string& word : words) {
+        sampleWatch_ += word;
+        sampleWatch_.push_back('\t');
+        sampleWatch_ += std::to_string(workspace_.sampleCount(word));
+        sampleWatch_.push_back('\n');
+    }
     if (window_) layout();
 }
 
@@ -1556,6 +1570,68 @@ void MainWindow::moveKeyword(int delta) {
     if (next >= 0 && static_cast<std::size_t>(next) < words.size()) {
         setStatus(L"\"" + toWide(words[static_cast<std::size_t>(next)]) + L"\" 을 " +
                   (delta < 0 ? L"위로" : L"아래로") + L" 옮겼습니다.");
+    }
+    syncButtons();
+}
+
+void MainWindow::pollSampleCounts() {
+    if (!keywordList_ || recording_ || training_) return;
+    std::string watch;
+    for (const std::string& word : workspace_.words()) {
+        watch += word;
+        watch.push_back('\t');
+        watch += std::to_string(workspace_.sampleCount(word));
+        watch.push_back('\n');
+    }
+    if (watch == sampleWatch_) return;
+    refreshKeywordList();
+}
+
+void MainWindow::importKeywordFiles() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus(L"음원을 넣을 말을 고르세요.", true);
+        return;
+    }
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+
+    std::vector<wchar_t> buffer(65536, L'\0');
+    OPENFILENAMEW dialog = {};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = window_;
+    dialog.lpstrFilter = L"WAV 음원\0*.wav\0모든 파일\0*.*\0";
+    dialog.lpstrFile = buffer.data();
+    dialog.nMaxFile = static_cast<DWORD>(buffer.size());
+    dialog.lpstrTitle = L"학습에 넣을 WAV 음원";
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_ALLOWMULTISELECT | OFN_EXPLORER |
+                   OFN_NOCHANGEDIR;
+    if (!GetOpenFileNameW(&dialog)) return;
+
+    std::vector<std::wstring> paths;
+    const wchar_t* cursor = buffer.data();
+    const std::wstring first = cursor;
+    cursor += first.size() + 1;
+    if (*cursor == L'\0') {
+        paths.push_back(first);
+    } else {
+        while (*cursor != L'\0') {
+            const std::wstring name = cursor;
+            cursor += name.size() + 1;
+            paths.push_back(first + L"\\" + name);
+        }
+    }
+
+    int added = 0;
+    std::string err;
+    for (const std::wstring& path : paths) {
+        if (workspace_.importSample(word, toUtf8(path), &err)) ++added;
+    }
+    refreshKeywordList();
+    if (added == 0) {
+        setStatus(toWide(err.empty() ? std::string("음원을 넣지 못했습니다.") : err), true);
+    } else {
+        setStatus(L"\"" + toWide(word) + L"\" 에 음원 " + std::to_wstring(added) +
+                  L"개를 넣었습니다. 학습에 바로 씁니다.");
     }
     syncButtons();
 }
@@ -1651,6 +1727,11 @@ void MainWindow::trainKeywords() {
                       std::to_wstring(kKeywordSampleRate) + L" Hz\r\n\r\n"
                       L"넣지 못한 말\r\n" +
                       skipped + L"\r\n\r\n"
+                      L"쓰지 못한 음원\r\n" +
+                      (report.unreadableFiles.empty()
+                           ? L"없음"
+                           : toWide(formatVocabulary(report.unreadableFiles))) +
+                      L"\r\n\r\n"
                       L"이 프로그램도 이제 이 학습 모델로 인식합니다.\r\n"
                       L"이 파일을 장치에 복사하면 같은 말을 인식합니다.";
         } else {
@@ -1780,6 +1861,7 @@ void MainWindow::syncButtons() {
     EnableWindow(keywordUp_, !busy && selected > 0);
     EnableWindow(keywordDown_, !busy && selected >= 0 && selected + 1 < count);
     EnableWindow(keywordRecord_, !busy);
+    EnableWindow(keywordImport_, !busy);
     EnableWindow(keywordTrain_, !busy && !recording_);
     EnableWindow(keywordReset_, !busy);
     EnableWindow(keywordExport_, keywordReady_ && !busy);

@@ -89,6 +89,8 @@ public:
 
     // 아직 없는 0001.wav, 0002.wav, … 경로. 파일은 만들지 않는다.
     std::string allocateSamplePath(const std::string& word) const;
+    // 고른 WAV 를 그 말 폴더에 복사한다. 이미 그 폴더에 있으면 그대로 둔다.
+    bool importSample(const std::string& word, const std::string& sourcePath, std::string* err);
 
 private:
     bool writeWords(const std::vector<std::string>& words, std::string* err) const;
@@ -100,6 +102,7 @@ struct KeywordTrainReport {
     int words = 0;
     int samples = 0;
     std::vector<std::string> skippedWords;
+    std::vector<std::string> unreadableFiles;
 };
 
 // samples 아래 녹음으로 모델을 만든다. 녹음이 없거나 너무 짧은 말은 빠진다.

@@ -809,6 +809,48 @@ void testKeywordReorder() {
     endTest();
 }
 
+void testKeywordFileImport() {
+    startTest("키워드: 폴더에 넣은 WAV 도 학습하고 개수를 센다");
+
+    const fs::path root = fs::temp_directory_path() / "kstt-keyword-import" /
+                          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+    const auto rootUtf8 = root.u8string();
+    kstt::KeywordWorkspace workspace(std::string(rootUtf8.begin(), rootUtf8.end()));
+    std::string err;
+    CHECK(workspace.prepare(&err), "학습 폴더 준비 실패: " + err);
+
+    const fs::path outside = root / "outside.wav";
+    std::vector<int16_t> audio;
+    fillChirp(&audio, 0.55, 220, 780);
+    const auto outsideUtf8 = outside.u8string();
+    CHECK(kstt::writeWav16(std::string(outsideUtf8.begin(), outsideUtf8.end()), audio.data(),
+                           audio.size(), kstt::kKeywordSampleRate, &err),
+          "외부 음원 저장 실패: " + err);
+    CHECK(workspace.importSample("출근", std::string(outsideUtf8.begin(), outsideUtf8.end()), &err),
+          "음원 넣기 실패: " + err);
+    CHECK(workspace.sampleCount("출근") == 1, "넣은 음원을 세지 못했다");
+
+    const fs::path dropped = fs::u8path(workspace.samplesDir("퇴근")) / "memo.wav";
+    const auto droppedUtf8 = dropped.u8string();
+    fillChirp(&audio, 0.55, 1400, 420);
+    CHECK(kstt::writeWav16(std::string(droppedUtf8.begin(), droppedUtf8.end()), audio.data(),
+                           audio.size(), kstt::kKeywordSampleRate, &err),
+          "폴더 직접 저장 실패: " + err);
+    CHECK(workspace.sampleCount("퇴근") == 1, "폴더에 넣은 음원을 세지 못했다");
+
+    kstt::KeywordModel trained;
+    kstt::KeywordTrainReport report;
+    CHECK(kstt::trainKeywordModel(workspace, &trained, &report, &err), "파일 학습 실패: " + err);
+    CHECK(report.samples == 2, "학습에 쓴 음원 수: " + std::to_string(report.samples));
+    CHECK(report.unreadableFiles.empty(), "읽을 수 있는 WAV 를 버렸다");
+
+    fs::remove_all(root, ec);
+    endTest();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -857,6 +899,7 @@ int main(int argc, char** argv) {
     testKeywordModelRoundTrip();
     testKeywordTrainingReset();
     testKeywordReorder();
+    testKeywordFileImport();
 
     std::printf("\n[엔진]\n");
     testEngineRejectsBadModel();

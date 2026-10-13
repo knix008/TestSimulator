@@ -48,7 +48,8 @@ private:
 bool writeWav16(const std::string& path, const int16_t* samples, size_t count, int sampleRate,
                 std::string* err);
 
-// 16비트 PCM WAV 를 모노로 읽는다. resampleTo > 0 이면 선형 보간으로 변환한다.
+// PCM(8/16/24/32비트) 또는 32비트 float WAV 를 모노 int16 으로 읽는다.
+// WAVEFORMATEXTENSIBLE 도 받는다. resampleTo > 0 이면 선형 보간으로 변환한다.
 bool readWav16Mono(const std::string& path, std::vector<int16_t>* out, int* srcRate,
                    int* srcChannels, int resampleTo, std::string* err);
 
