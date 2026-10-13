@@ -194,6 +194,7 @@ export const KO = {
   "Axes": "축",
   "Grid and axis numbers": "격자·축 수치",
   "Scale bar": "축척 막대",
+  "Sketch": "스케치",
   "Show scale bar": "축척 막대 표시",
   "Scale bar in 3D": "3D 축척 막대",
   "Drag to move it; double-click puts it back.": "끌어서 옮기고, 두 번 클릭하면 제자리로 돌아갑니다.",

@@ -45,7 +45,8 @@ export function formatLength(mm, imperial = false) {
 // host: the view element the bar floats in (positioned). view: "plan" | "3d".
 // pxPerMm(): screen (CSS) pixels per millimetre now, or 0 when unknown.
 // shown(): whether the bar is on. home: its corner before it is moved.
-export function createScaleBar(app, host, { view, pxPerMm, shown, imperial = () => false, home = { right: 16, bottom: 16 }, note = "" }) {
+// target(): the canvas under the bar, which gets the wheel turned over it.
+export function createScaleBar(app, host, { view, pxPerMm, shown, target = () => null, imperial = () => false, home = { right: 16, bottom: 16 }, note = "" }) {
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
   const el = h("div", { class: "scale-bar", "data-scale-bar": view, title: `${t("Scale bar")}${note ? ` — ${note}` : ""}\n${t("Drag to move it; double-click puts it back.")}` }, svg);
@@ -135,8 +136,14 @@ export function createScaleBar(app, host, { view, pxPerMm, shown, imperial = () 
     app.saveSettings();
     place();
   });
-  // Other pointer events stay with the bar, not the canvas under it.
-  for (const type of ["wheel", "contextmenu", "click"]) el.addEventListener(type, (e) => e.stopPropagation());
+  // The wheel zooms the view under the bar as if the bar were not there.
+  el.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const c = target();
+    if (c) c.dispatchEvent(new WheelEvent("wheel", { deltaX: e.deltaX, deltaY: e.deltaY, deltaZ: e.deltaZ, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey, bubbles: true, cancelable: true }));
+  }, { passive: false });
+  for (const type of ["contextmenu", "click"]) el.addEventListener(type, (e) => { e.preventDefault(); e.stopPropagation(); });
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => { last = ""; update(); }).observe(host);
 
   return { el, update: () => update(), refresh: () => { last = ""; update(); } };

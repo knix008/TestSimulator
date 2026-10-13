@@ -70,7 +70,48 @@ export function renderLeft(app, host) {
   if (app.tab === "3d") app.v3d.renderPanel(host);
   foldPanels(app, host);
   addCollapse(app, host, "left");
+  requestAnimationFrame(() => { if (host.isConnected) app.setLeftMin(leftNeed(host)); });
   return undefined;
+}
+
+// The narrowest the left panel can be without cutting off what it shows: the
+// heads' titles and buttons, the group names with their counts, the check box
+// labels, two columns of category chips and the search hints. Folded sections
+// are measured too (for a moment unfolded), so folding does not move it.
+function leftNeed(host) {
+  const hostL = host.getBoundingClientRect().left;
+  const folded = [...host.querySelectorAll(".panel.folded")], hidden = [...host.querySelectorAll(".lib-group-items[hidden]")];
+  folded.forEach((p) => p.classList.remove("folded"));
+  hidden.forEach((b) => { b.hidden = false; });
+  // The app's own words; names the user gives (views, sheets, imported models) wrap or end in "…".
+  const rows = [...host.querySelectorAll(".panel-head, .vb-group, .lib-group[data-cat], .check")];
+  const saved = rows.map((el) => [el.style.width, el.style.flex]);
+  rows.forEach((el) => { el.style.width = "max-content"; el.style.flex = "none"; }); // one layout for all
+  const GAP = 10; // the panel's right margin
+  let need = 0;
+  for (const el of rows) {
+    const r = el.getBoundingClientRect();
+    if (r.width) need = Math.max(need, r.left - hostL + r.width + (el.classList.contains("check") ? GAP : 0));
+  }
+  rows.forEach((el, i) => { el.style.width = saved[i][0]; el.style.flex = saved[i][1]; });
+  // Category chips: two columns of the widest one.
+  for (const chips of host.querySelectorAll(".chips")) {
+    let w = 0;
+    for (const c of chips.children) w = Math.max(w, c.scrollWidth + 2);
+    if (w) need = Math.max(need, chips.getBoundingClientRect().left - hostL + 2 * w + 4 + 2 * GAP);
+  }
+  // Search boxes: their whole hint.
+  const g = document.createElement("canvas").getContext("2d");
+  for (const box of host.querySelectorAll(".search")) {
+    const input = box.querySelector("input");
+    if (!input || !input.placeholder) continue;
+    g.font = getComputedStyle(input).font;
+    const icon = box.firstElementChild && box.firstElementChild !== input ? box.firstElementChild.getBoundingClientRect().width + 6 : 0;
+    need = Math.max(need, box.getBoundingClientRect().left - hostL + icon + g.measureText(input.placeholder).width + 18 + GAP);
+  }
+  folded.forEach((p) => p.classList.add("folded"));
+  hidden.forEach((b) => { b.hidden = true; });
+  return Math.ceil(need);
 }
 
 // Every section of the left panel folds to its head (icon and title stay),
@@ -125,7 +166,7 @@ function libGroup(app, list, key, title, count, unfold) {
   const caret = h("span", { class: "lg-caret" });
   const box = h("div", { class: "lib-group-items" });
   const head = h("div", { class: "lib-group", role: "button", tabindex: "0", "data-cat": key },
-    caret, h("span", { class: "lg-ico", html: icon(CATEGORY_ICONS[key] || "furniture", 15) }), h("span", { class: "lg-title" }, title), h("small", {}, String(count)));
+    caret, h("span", { class: "lg-ico", html: icon(CATEGORY_ICONS[key] || "furniture", 14) }), h("span", { class: "lg-title" }, title), h("small", {}, String(count)));
   const show = () => {
     const open = isOpen();
     caret.innerHTML = icon(open ? "chevronDown" : "chevronRight", 12);

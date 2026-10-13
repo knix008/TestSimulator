@@ -12,7 +12,7 @@ import { buildBuilding, makeMaterials, modelExtent, glowMaterial, M } from "./bu
 import { createLampRig, collectLamps } from "./lamps.js";
 import { createSketchupLayer } from "./sklayer.js";
 import { createBatcher, HIDDEN_LAYER } from "./batch.js";
-import { pullForward, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane } from "./depth.js";
+import { pullForward, EDGE_DEPTH_PULL, GROUND_OFFSET, rankedMaterial, rankOf, nearPlane } from "./depth.js";
 
 const DEG = Math.PI / 180;
 
@@ -237,7 +237,12 @@ export function createViewer(container, options = {}) {
     white: new THREE.MeshStandardMaterial({ color: 0xf2f0ec, roughness: 0.9, side: THREE.DoubleSide, name: "white" }),
     lines: new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, name: "paper" }),
     xray: new THREE.MeshStandardMaterial({ color: 0x9ec5ff, roughness: 0.6, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, name: "xray" }),
+    // Sketch: drawing paper, shaded softly; the pencil strokes are buildEdges(…, { sketch }).
+    // Pushed back a step like the line drawing's paper, so strokes on a face (an eave on the roof) stay whole.
+    sketch: new THREE.MeshStandardMaterial({ color: 0xf7f2e7, roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, name: "sketch paper" }),
   };
+  const SKETCH_INK = 0x3b352e, SKETCH_PAPER = { top: "#fbf8f1", bottom: "#ece5d6" };
+  const XRAY_EDGE = 0x3a78c2; // x-ray outlines: every edge, seen through the faces
   // X-ray: every face is the same colour at the same faint opacity, and a
   // colour blended over itself gives the same result in any order (faces
   // differ only by their shading, a fraction of a percent on screen). So no
@@ -312,9 +317,12 @@ export function createViewer(container, options = {}) {
     });
     if (edges) { helpers.remove(edges); disposeGroup(edges); edges = null; }
     // Edges: the line drawing, or any style with the style editor's edges on.
-    if (style === "lines" || opts.edges) edges = buildEdges(opts.edgeColor || 0x1d2128);
+    if (style === "sketch") edges = buildEdges(opts.edgeColor || SKETCH_INK, { sketch: true });
+    else if (style === "xray") edges = buildEdges(opts.edgeColor || XRAY_EDGE, { xray: true });
+    else if (style === "lines" || opts.edges) edges = buildEdges(opts.edgeColor || 0x1d2128);
     if (wires) { helpers.remove(wires); disposeGroup(wires); wires = null; }
-    wires = buildWires(style === "lines" ? opts.edgeColor || 0x1d2128 : null);
+    wires = buildWires(style === "lines" ? opts.edgeColor || 0x1d2128 : style === "sketch" ? opts.edgeColor || SKETCH_INK : null);
+    applyBackground(); // the sketch is drawn on paper
     if (sk) sk.applyStyleExtras(); // colour by tag, profiles, watermark
     batcher.build(building); // before the cut: its filled caps follow the batches
     applyLighting();
@@ -364,7 +372,16 @@ export function createViewer(container, options = {}) {
   // Every visible mesh's feature edges as ONE line object in world space:
   // a mesh's edges are worked out once per geometry (shared unit boxes and
   // component parts reuse them) and moved into place.
-  function buildEdges(color) {
+  //
+  // sketch: drawn as by hand — each edge twice, the two strokes a little apart
+  // and running past the corners by a few per cent (at most 30 cm). The wobble
+  // comes from the edge's own coordinates, so it holds still while the view
+  // moves and is the same every time the model is drawn.
+  //
+  // xray: the faces are see-through, so are the edges — drawn over everything,
+  // and faint: they pile up where the model is deep, so the more edges a model
+  // has the lighter each one is (a tower's thousands must not ink it black).
+  function buildEdges(color, { sketch = false, xray = false } = {}) {
     const group = new THREE.Group();
     group.name = "edges";
     const cache = new Map();
@@ -384,16 +401,48 @@ export function createViewer(container, options = {}) {
       chunks.push(out);
       total += out.length;
     });
-    const all = new Float32Array(total);
+    let all = new Float32Array(total);
     let at = 0;
     for (const c of chunks) { all.set(c, at); at += c.length; }
+    if (sketch) all = sketchStrokes(all);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(all, 3));
-    const ls = new THREE.LineSegments(geo, pullForward(new THREE.LineBasicMaterial({ color })));
+    const mat = new THREE.LineBasicMaterial(sketch ? { color, transparent: true, opacity: 0.72, depthWrite: false }
+      : xray ? { color, transparent: true, opacity: Math.max(0.06, Math.min(0.3, 0.3 * Math.sqrt(8000 / Math.max(1, all.length / 6)))), depthWrite: false, depthTest: false } : { color });
+    // A stroke wanders off the face it outlines: pulled further forward, or the
+    // face would cut it into dashes.
+    const ls = new THREE.LineSegments(geo, sketch ? pullForward(mat, EDGE_DEPTH_PULL * 5) : pullForward(mat));
     ls.raycast = () => {};
+    if (xray) ls.renderOrder = 2; // over the see-through faces
     group.add(ls);
     helpers.add(group);
     return group;
+  }
+
+  // Two pencil strokes per segment (see buildEdges): offsets from a hash of
+  // the segment's coordinates, so they are fixed for the edge.
+  function sketchStrokes(seg) {
+    const out = new Float32Array(seg.length * 2);
+    const hash = (x, y, z, k) => { const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719 + k * 4.581) * 43758.5453; return v - Math.floor(v); };
+    let o = 0;
+    for (let i = 0; i < seg.length; i += 6) {
+      const ax = seg[i], ay = seg[i + 1], az = seg[i + 2], bx = seg[i + 3], by = seg[i + 4], bz = seg[i + 5];
+      const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz) || 1e-6;
+      const ux = dx / len, uy = dy / len, uz = dz / len;
+      const run = Math.min(0.3, len * 0.06); // past the corners
+      // Apart from the true edge — a hair only: an edge lying on a face (an eave
+      // line on the roof) would sink into it and break into dashes.
+      const wob = Math.min(0.012, 0.003 + len * 0.0015);
+      for (let k = 0; k < 2; k++) {
+        const r = (n) => hash(ax + bx, ay + by, az + bz, k * 7 + n);
+        const e1 = run * (0.3 + 0.7 * r(1)), e2 = run * (0.3 + 0.7 * r(2));
+        const jx = (r(3) - 0.5) * 2 * wob, jy = (r(4) - 0.5) * 2 * wob, jz = (r(5) - 0.5) * 2 * wob;
+        const kx = (r(6) - 0.5) * 2 * wob, ky = (r(7) - 0.5) * 2 * wob, kz = (r(8) - 0.5) * 2 * wob;
+        out[o++] = ax - ux * e1 + jx; out[o++] = ay - uy * e1 + jy; out[o++] = az - uz * e1 + jz;
+        out[o++] = bx + ux * e2 + kx; out[o++] = by + uy * e2 + ky; out[o++] = bz + uz * e2 + kz;
+      }
+    }
+    return out;
   }
 
   // Day: sun, sky and headlight. Night (interior lighting): the sun is off and
@@ -537,7 +586,7 @@ export function createViewer(container, options = {}) {
     if (opts.ground === false) return;
     const [cx, cz] = centreXZ();
     const size = Math.max(60, Math.max(extent.x2 - extent.x1, extent.y2 - extent.y1) * M * 4);
-    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: opts.groundColor || 0x9aa68a, roughness: 1, name: "ground", ...GROUND_OFFSET }));
+    const g = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64), new THREE.MeshStandardMaterial({ color: opts.style === "sketch" ? 0xebe4d4 : opts.groundColor || 0x9aa68a, roughness: 1, name: "ground", ...GROUND_OFFSET }));
     g.rotation.x = -Math.PI / 2;
     g.position.set(cx, -0.02, cz);
     g.receiveShadow = true;
@@ -740,7 +789,7 @@ export function createViewer(container, options = {}) {
 
   function applyBackground() {
     if (bgTexture) { bgTexture.dispose(); bgTexture = null; }
-    const bg = opts.night ? { top: "#070b16", bottom: "#1b2337" } : opts.background;
+    const bg = opts.night ? { top: "#070b16", bottom: "#1b2337" } : opts.style === "sketch" ? SKETCH_PAPER : opts.background;
     if (bg && typeof bg === "object" && bg.top) { bgTexture = backgroundTexture(bg.top, bg.bottom); scene.background = bgTexture; }
     else if (!bg || bg === "gradient") { bgTexture = backgroundTexture("#8fb6dc", "#e9eef2"); scene.background = bgTexture; }
     else scene.background = new THREE.Color(bg);
@@ -1397,7 +1446,7 @@ export function createViewer(container, options = {}) {
     if (changed("background")) applyBackground();
     if (changed("tool")) { tapeA = null; canvas.style.cursor = opts.tool === "none" ? "" : "crosshair"; }
     if (["fog", "background", "fogDensity"].some(changed)) applyFog();
-    if (changed("groundColor")) buildGround();
+    if (["groundColor", "style"].some(changed)) buildGround(); // the sketch is drawn on paper
     if (["sectionCuts", "sectionFill"].some(changed)) applyClipping();
     if (changed("twoPoint") && !opts.twoPoint) { persp.updateProjectionMatrix(); camera.lookAt(controls.target); }
     sk.setOptions(o, changed);

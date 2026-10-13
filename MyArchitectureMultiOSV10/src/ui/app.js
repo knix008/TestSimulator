@@ -38,7 +38,9 @@ const DEFAULT_SETTINGS = {
 // Side panel content width (px). Below 240 the inspector's number boxes are
 // too narrow to show a value; the panel itself is this plus the scrollbar.
 export const SIDE_MIN_W = 240, SIDE_MAX_W = 520;
-const clampSideWidth = (w) => Math.max(SIDE_MIN_W, Math.min(SIDE_MAX_W, Math.round(+w) || SIDE_MIN_W));
+const clampSideWidth = (w, min = SIDE_MIN_W) => Math.max(min, Math.min(SIDE_MAX_W, Math.round(+w) || min));
+// The left panel's minimum follows what it shows (panels.js leftNeed), within these bounds.
+const LEFT_MIN_FLOOR = 200;
 // The rest of the workspace row (style/app.css): the scrollbar each open side
 // panel adds (--sb-w), a hidden panel's rail, the two splitters, and the
 // narrowest drawing area (plan, 3D, sheet) that is still worth working in.
@@ -238,7 +240,7 @@ class App {
     const docTab = this.tab !== "start";
     const leftOn = this.settings.showLeft && docTab;
     const rightOn = this.settings.showRight && docTab;
-    this.settings.leftW = clampSideWidth(this.settings.leftW);
+    this.settings.leftW = clampSideWidth(this.settings.leftW, this.leftMin());
     this.settings.rightW = clampSideWidth(this.settings.rightW);
     this.fitPanels();
     const was = [ws.classList.contains("left-rail"), ws.classList.contains("right-rail")];
@@ -253,7 +255,8 @@ class App {
 
   // The side panels keep the widths the user gave them, but in a window too
   // narrow for those and a CENTER_MIN_W drawing area they give way (down to
-  // SIDE_MIN_W each, the larger one first) — the drawing is never squeezed out.
+  // their minimums, the larger one first: the left one's is measured on its
+  // content, leftMin) — the drawing is never squeezed out.
   sideWidths() {
     const ws = this.$("workspace");
     const docTab = this.tab !== "start";
@@ -265,7 +268,7 @@ class App {
     const fixed = (leftOn ? SCROLLBAR_W : RAIL_W) + (rightOn ? SCROLLBAR_W : RAIL_W) + 2 * SPLITTER_W + CENTER_MIN_W;
     let over = (leftOn ? L : 0) + (rightOn ? R : 0) + fixed - avail;
     if (over > 0) {
-      const slackL = leftOn ? L - SIDE_MIN_W : 0, slackR = rightOn ? R - SIDE_MIN_W : 0;
+      const slackL = leftOn ? L - this.leftMin() : 0, slackR = rightOn ? R - SIDE_MIN_W : 0;
       const slack = slackL + slackR;
       if (slack > 0) {
         const k = Math.min(1, over / slack);
@@ -275,6 +278,15 @@ class App {
     }
     return { L, R, leftOn, rightOn, avail, fixed };
   }
+  // The left panel's minimum width: measured on its content (src/ui/panels.js
+  // leftNeed) for the tab and language shown, never under LEFT_MIN_FLOOR.
+  leftMin() { return Math.max(LEFT_MIN_FLOOR, Math.min(SIDE_MAX_W, this.leftMinW || SIDE_MIN_W)); }
+  setLeftMin(need) {
+    if (!(need > 0) || need === this.leftMinW) return;
+    this.leftMinW = need;
+    this.applyPanels(); // widens a narrower panel, and the window's minimum follows
+  }
+
   fitPanels() {
     const { L, R } = this.sideWidths();
     document.documentElement.style.setProperty("--left-w", `${L}px`);
@@ -301,7 +313,7 @@ class App {
           // The drawing area between the panels keeps at least CENTER_MIN_W.
           const s = this.sideWidths();
           const room = s.avail - s.fixed - (side === "left" ? (s.rightOn ? s.R : 0) : (s.leftOn ? s.L : 0));
-          const w = clampSideWidth(Math.min(room, side === "left" ? start + d : start - d));
+          const w = clampSideWidth(Math.min(room, side === "left" ? start + d : start - d), side === "left" ? this.leftMin() : SIDE_MIN_W);
           if (side === "left") this.settings.leftW = w; else this.settings.rightW = w;
           this.applyPanels();
         };
@@ -1025,7 +1037,7 @@ class App {
   //   title bar   every item at its natural width
   //   toolbar     the widest tab's toolbar on one row (it never wraps and
   //               never hides a button)
-  //   workspace   each side panel at SIDE_MIN_W + its scrollbar (or its rail
+  //   workspace   each side panel at its minimum + its scrollbar (or its rail
   //               when hidden), the splitters and a CENTER_MIN_W drawing area
   // Never more than the screen can show. In window pixels (× interface size).
   minWindowWidth() {
@@ -1034,8 +1046,8 @@ class App {
     const title = this.titleBarNeed();
     document.documentElement.classList.toggle("titlebar-wrap", title > screenW);
     const toolbar = Math.max(0, ...Object.values(this.toolbarNeeds || {}));
-    const side = (on) => (on ? SIDE_MIN_W + SCROLLBAR_W : RAIL_W);
-    const workspace = side(this.settings.showLeft) + side(this.settings.showRight) + 2 * SPLITTER_W + CENTER_MIN_W;
+    const side = (on, min) => (on ? min + SCROLLBAR_W : RAIL_W);
+    const workspace = side(this.settings.showLeft, this.leftMin()) + side(this.settings.showRight, SIDE_MIN_W) + 2 * SPLITTER_W + CENTER_MIN_W;
     const parts = { title, toolbar, workspace };
     const w = Math.ceil(Math.min(screenW, Math.max(title, toolbar, workspace)) * z);
     return { width: w, parts };

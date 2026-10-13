@@ -41,13 +41,13 @@ table.vt-sched tr.vt-total td { font-weight: 700; border-top: 2px solid var(--li
 /* Project Browser */
 .side.left .vb-panel:not(.grow) { flex: 0 0 auto; }
 .side.left .vb-panel:not(.grow) .vb-tree { max-height: 340px; }
-.vb-panel .search { margin: 0 8px 6px; }
+.vb-panel .search { margin: 0 10px 6px; }
 .vb-tree { overflow: auto; min-height: 0; flex: 1 1 auto; padding: 0 0 6px; font-size: 12.5px; }
-.vb-group { display: flex; align-items: center; gap: 4px; padding: 4px 8px; cursor: pointer; color: var(--text); font-weight: 600; user-select: none; }
+.vb-group { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 3px 10px; cursor: pointer; color: var(--text); font-weight: 600; user-select: none; } /* caret 10 px, name 28 px (app.css, left panel columns) */
 .vb-group:hover { background: var(--hover); }
 .vb-group small { margin-left: auto; color: var(--faint); font-weight: 400; }
 .vb-caret { display: inline-flex; color: var(--faint); }
-.vb-item { display: flex; align-items: flex-start; gap: 6px; padding: 3px 8px; cursor: pointer; color: var(--muted); }
+.vb-item { display: flex; align-items: flex-start; gap: 6px; padding: 3px 10px; cursor: pointer; color: var(--muted); }
 .vb-item:hover { background: var(--hover); color: var(--text); }
 .vb-item.on { background: var(--accent-soft); color: var(--accent); }
 .vb-ico { display: inline-flex; flex: 0 0 auto; margin-top: 1px; }

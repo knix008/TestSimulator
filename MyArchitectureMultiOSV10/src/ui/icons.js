@@ -80,6 +80,8 @@ const P = {
   chevronRight: '<path d="M9 6l6 6-6 6"/>',
   chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
   box3d: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
+  // Sketch style: a pencil and its wavering stroke.
+  sketch: '<path d="M17 3l4 4L10 18l-5 1 1-5z"/><path d="M15 5l4 4"/><path d="M3 21c1.5-1 3 1 4.5 0s3-1 4.5 0"/>',
   // X-ray: a see-through box, its hidden back edges showing through (dashed).
   xray: '<path d="M9 4h11v11H9z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M4 9h11v11H4z" fill="currentColor" fill-opacity=".3"/><path d="M4 9l5-5h11v11l-5 5M15 9l5-5"/><path d="M9 4v11h11M9 15l-5 5" stroke-dasharray="2.2 1.8"/>',
   cylinder: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/>',

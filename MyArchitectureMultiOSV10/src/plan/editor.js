@@ -97,7 +97,7 @@ export class PlanEditor {
     });
     this.fitted = false;
     // Scale bar over the plan (View → Show scale bar); vp.scale is CSS px per mm.
-    this.scaleBar = createScaleBar(app, host, { view: "plan", pxPerMm: () => this.vp.scale, shown: () => app.settings.showScaleBar !== false, imperial: () => app.settings.units === "ft" });
+    this.scaleBar = createScaleBar(app, host, { view: "plan", pxPerMm: () => this.vp.scale, target: () => this.canvas, shown: () => app.settings.showScaleBar !== false, imperial: () => app.settings.units === "ft" });
   }
 
   get p() { return this.store.project; }

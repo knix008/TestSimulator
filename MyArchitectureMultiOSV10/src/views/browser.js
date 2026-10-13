@@ -45,7 +45,7 @@ export function renderBrowser(app, host, { grow = false } = {}) {
     return [head, box];
   };
   const row = (id, ic, label, { sub = "", menu, open, drag = true, depth = 1 } = {}) => {
-    const el = h("div", { class: `vb-item ${id === cur ? "on" : ""}`, role: "treeitem", "data-id": id, draggable: drag ? "true" : "false", style: { paddingLeft: `${8 + depth * 14}px` }, title: label },
+    const el = h("div", { class: `vb-item ${id === cur ? "on" : ""}`, role: "treeitem", "data-id": id, draggable: drag ? "true" : "false", style: { paddingLeft: `${14 + depth * 14}px` }, title: label },
       h("span", { class: "vb-ico", html: icon(ic, 14) }), h("span", { class: "vb-name" }, label), sub ? h("small", {}, sub) : null);
     el.addEventListener("click", () => open());
     el.addEventListener("contextmenu", (e) => { e.preventDefault(); contextMenu(menu(), e.clientX, e.clientY); });

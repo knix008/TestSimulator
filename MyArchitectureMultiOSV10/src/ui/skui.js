@@ -736,7 +736,7 @@ export class SketchupUI {
     wm.addEventListener("keydown", (e) => e.stopPropagation());
     wm.addEventListener("change", () => set("watermark", wm.value));
     const body = h("div", { class: "panel-body" },
-      field(t("Faces"), select(this.v3d.opts.style, [["realistic", t("Realistic")], ["white", t("White model")], ["lines", t("Line drawing")], ["xray", t("X-ray")]], { onChange: (v) => this.v3d.setOpt("style", v) })),
+      field(t("Faces"), select(this.v3d.opts.style, [["realistic", t("Realistic")], ["white", t("White model")], ["lines", t("Line drawing")], ["sketch", t("Sketch")], ["xray", t("X-ray")]], { onChange: (v) => this.v3d.setOpt("style", v) })),
       h("div", {}, checkbox(!!s.edges, t("Edges"), { onChange: (v) => set("edges", v) })),
       h("div", {}, checkbox(!!s.profiles, t("Profiles (thick outlines)"), { onChange: (v) => set("profiles", v) })),
       field(t("Profile width"), stepper(s.profileWidth, { min: 1, max: 12, step: 1, format: (x) => `${x} px`, onChange: (x) => set("profileWidth", x) })),

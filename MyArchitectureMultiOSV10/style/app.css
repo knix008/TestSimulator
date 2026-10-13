@@ -210,6 +210,8 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .panel-head.foldable { cursor: pointer; }
 .panel-head.foldable .fold-ico { display: flex; color: var(--muted); }
 .net-row > .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; } /* the name takes the room; the row buttons sit at the right */
+/* Left panel columns: arrows and check boxes at 10 px, icons at 28 px, names at
+   48 px — the panel heads, the Project Browser and the library line up. */
 .panel-head { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); flex: 0 0 auto; }
 .panel-head .grow { flex: 1; }
 .panel-head .icon-btn { height: 24px; min-width: 24px; }
@@ -228,22 +230,23 @@ html.titlebar-wrap .titlebar > * { height: var(--titlebar-h); }
 .chip:hover { color: var(--text); border-color: var(--line2); }
 .chip.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
-.lib-list { overflow: auto; flex: 1; min-height: 0; padding: 0 6px 6px; }
-.lib-item { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: grab; user-select: none; }
+.lib-list { overflow: auto; flex: 1; min-height: 0; padding: 0 0 6px; }
+.lib-item { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; padding: 4px 10px 4px 28px; cursor: grab; user-select: none; } /* under its category: the icon column */
 .lib-item:hover { background: var(--hover); }
 .lib-item.on { background: var(--accent-soft); }
 .lib-item canvas { width: 44px; height: 36px; border-radius: 4px; background: var(--panel2); }
 .lib-item .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-item .ds { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--faint); padding: 8px 6px 3px; font-weight: 700; }
-/* library categories fold: arrow, icon, title and count (src/ui/panels.js libGroup) */
-.lib-group[data-cat] { display: flex; align-items: center; gap: 6px; margin-top: 2px; padding: 6px; border-radius: 6px; color: var(--muted); cursor: pointer; user-select: none; }
-.lib-group[data-cat]:hover { background: var(--hover); color: var(--text); }
+/* library categories fold: arrow, icon, title and count (src/ui/panels.js libGroup);
+   drawn like the Project Browser's groups */
+.lib-group[data-cat] { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); cursor: pointer; user-select: none; }
+.lib-group[data-cat]:hover { background: var(--hover); }
 .lib-group[data-cat]:focus-visible { outline: 1px solid var(--accent); }
 .lib-group[data-cat] .lg-caret { display: flex; color: var(--faint); }
 .lib-group[data-cat] .lg-ico { display: flex; color: var(--accent); opacity: .9; }
 .lib-group[data-cat] .lg-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lib-group[data-cat] small { color: var(--faint); font-weight: 600; letter-spacing: 0; }
+.lib-group[data-cat] small { color: var(--faint); font-weight: 400; }
 .lib-group-items[hidden] { display: none; }
 .lib-preview { margin: 0 10px 8px; height: 150px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); position: relative; }
 .lib-preview canvas { width: 100%; height: 100%; display: block; }
@@ -326,7 +329,7 @@ select.input { padding-right: 4px; }
 .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
-.check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.check input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field-label { font-size: 12px; color: var(--muted); }
 .field-hint { font-size: 11px; color: var(--faint); }
@@ -680,6 +683,9 @@ html.toolbar-wrap { --toolbar-h: auto; }
 /* Icons on the rows of the side panels (src/ui/itemicons.js). */
 .item-ico { display: inline-flex; flex: 0 0 auto; align-items: center; color: var(--accent); opacity: .8; margin-right: 6px; vertical-align: -2px; }
 .check .item-ico { margin: 0 0 0 1px; }
+/* left panel check rows: the box at 10 px, its icon in the 28 px icon column, the label at 48 px */
+#left-panel .panel-body > div > .check { gap: 3px; }
+#left-panel .panel-body > div > .check .item-ico { margin: 0 3px 0 0; }
 .field-label .item-ico, .prop-grid > span .item-ico { margin-right: 5px; }
 .prop-grid { grid-template-columns: minmax(92px, max-content) 1fr; }
 

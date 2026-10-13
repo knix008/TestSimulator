@@ -16,7 +16,7 @@ import { SketchupUI } from "./skui.js";
 import { createScaleBar } from "./scalebar.js";
 
 const VIEWS = [["iso", "Isometric", "1"], ["top", "Top", "2"], ["front", "Front", "3"], ["back", "Rear", "4"], ["left", "Left side", "5"], ["right", "Right side", "6"], ["bird", "Bird's eye", "7"]];
-const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["xray", "X-ray"]];
+const STYLES = [["realistic", "Realistic"], ["white", "White model"], ["lines", "Line drawing"], ["sketch", "Sketch"], ["xray", "X-ray"]];
 
 export class View3DTab {
   constructor(app, host) {
@@ -166,7 +166,7 @@ export class View3DTab {
         this.viewer = createViewer(wrap, { ...this.opts, ...this.settingOpts(), ...this.sk.viewerOpts(), levels: this.levelSet(), translate: t });
         this.viewer.onTool((ev) => this.onTool(ev));
         // Scale bar at the orbit target's distance (a perspective has no one scale).
-        this.scaleBar = createScaleBar(this.app, this.host, { view: "3d", pxPerMm: () => this.viewer.pxPerMetre() / 1000, shown: () => !!this.opts.scaleBar, imperial: () => this.app.settings.units3d === "ft", note: t("measured at the centre of rotation") });
+        this.scaleBar = createScaleBar(this.app, this.host, { view: "3d", pxPerMm: () => this.viewer.pxPerMetre() / 1000, target: () => this.viewer.three.renderer.domElement, shown: () => !!this.opts.scaleBar, imperial: () => this.app.settings.units3d === "ft", note: t("measured at the centre of rotation") });
         this.viewer.onFrame(() => this.scaleBar.update());
         this.viewer.onPick((info) => {
           this.picked = info;
@@ -409,7 +409,7 @@ export class View3DTab {
     const lastView = VIEWS.find((v) => v[0] === this.lastView) || VIEWS[0];
     const views = menuSplit("view", "box3d", `${t("Standard views")}: ${t(lastView[1])} (${lastView[2]})`, () => this.setView(lastView[0]),
       () => VIEWS.map(([id, label, key]) => ({ label: t(label), icon: "box3d", shortcut: key, checked: id === lastView[0], action: () => { this.lastView = id; this.setView(id); this.app.renderToolbar(); } })));
-    const STYLE_ICONS = { realistic: "image", white: "box3d", lines: "line", xray: "xray" };
+    const STYLE_ICONS = { realistic: "image", white: "box3d", lines: "line", sketch: "sketch", xray: "xray" };
     const curStyle = STYLES.find(([id]) => id === this.opts.style) || STYLES[0];
     const styleMenu = () => STYLES.map(([id, label]) => ({ label: t(label), icon: STYLE_ICONS[id] || "palette", checked: id === this.opts.style, action: () => this.setOpt("style", id) }));
     const styles = menuSplit("style", STYLE_ICONS[curStyle[0]] || "palette", `${t("Render style")}: ${t(curStyle[1])}`, (e) => {

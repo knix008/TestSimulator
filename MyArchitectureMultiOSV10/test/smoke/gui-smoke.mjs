@@ -350,6 +350,8 @@ try {
   });
   await step("drag a furniture item from the library onto the plan", async () => {
     await app(`app.settings.showLeft = true; app.applyPanels(); return 1`); await sleep(200);
+    // Library categories fold; Living starts folded: open it from its head.
+    if (await app(`return !document.querySelector('.lib-group[data-cat="Living"]').classList.contains("open")`)) await clickSel('.lib-group[data-cat="Living"]');
     await clickSel('.lib-item[data-kind="sofa3"]');
     await clickW(7000, 4000);
     return app(`return app.store.project.furniture.some(f => f.kind === "sofa3")`);
