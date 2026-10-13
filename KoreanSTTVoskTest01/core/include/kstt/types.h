@@ -84,7 +84,7 @@ struct EngineConfig {
 
     PartialMode partialMode = PartialMode::Stable;
 
-    // 받아쓸 말을 이 목록으로 한정한다 (예: {"출근", "퇴근"}).
+    // 받아쓸 말을 이 목록으로 한정한다 (예: {"출근", "퇴근", "경비", "해제"}).
     // 비어 있으면 자유 받아쓰기. 자세한 것은 kstt/vocabulary.h 참고.
     std::vector<std::string> vocabulary;
 };

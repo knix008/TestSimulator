@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <utility>
 
@@ -51,6 +54,22 @@ std::string baseName(const std::string& path) {
     return cut == std::string::npos ? path : path.substr(cut + 1);
 }
 
+std::string formatByteSize(std::uintmax_t bytes) {
+    char buffer[80];
+    if (bytes < 1024) {
+        std::snprintf(buffer, sizeof(buffer), "%llu 바이트",
+                      static_cast<unsigned long long>(bytes));
+    } else if (bytes < 1024ull * 1024ull) {
+        std::snprintf(buffer, sizeof(buffer), "%.1f KB (%llu 바이트)",
+                      static_cast<double>(bytes) / 1024.0, static_cast<unsigned long long>(bytes));
+    } else {
+        std::snprintf(buffer, sizeof(buffer), "%.2f MB (%llu 바이트)",
+                      static_cast<double>(bytes) / (1024.0 * 1024.0),
+                      static_cast<unsigned long long>(bytes));
+    }
+    return buffer;
+}
+
 std::string timeStamp() {
     GDateTime* now = g_date_time_new_now_local();
     char* text = g_date_time_format(now, "%H:%M:%S");
@@ -67,7 +86,7 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
 
     window_ = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window_), "한국어 음성 인식 (Vosk)");
-    gtk_window_set_default_size(GTK_WINDOW(window_), 760, 620);
+    gtk_window_set_default_size(GTK_WINDOW(window_), 820, 780);
     // assets/icons/hicolor/... 에 넣어 둔 아이콘 (main.cpp 가 경로를 등록한다)
     gtk_window_set_icon_name(GTK_WINDOW(window_), "korean-stt");
 
@@ -87,6 +106,7 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     gtk_window_set_child(GTK_WINDOW(window_), root);
 
     gtk_box_append(GTK_BOX(root), buildSettings());
+    gtk_box_append(GTK_BOX(root), buildKeywords());
     gtk_box_append(GTK_BOX(root), buildControls());
 
     statusLabel_ = gtk_label_new("준비 중…");
@@ -107,7 +127,9 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
 
     g_signal_connect(window_, "close-request", G_CALLBACK(+[](GtkWindow* window,
                                                               gpointer self) -> gboolean {
-                         static_cast<AppWindow*>(self)->stopRecognition();
+                         auto* app = static_cast<AppWindow*>(self);
+                         app->alive_->store(false);
+                         app->stopRecognition();
                          (void)window;
                          return FALSE;  // 계속 진행해 창을 닫는다
                      }),
@@ -150,6 +172,36 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
         });
     });
 
+    keywordListener_.onResult([this](const std::string& word) {
+        postToMain([this, word] {
+            if (word.empty()) return;
+            Transcript result;
+            result.text = word;
+            result.isFinal = true;
+            appendFinal(result);
+        });
+    });
+    keywordListener_.onLevel([this](float rms) {
+        postToMain([this, rms] {
+            const double shaped = std::min(1.0, std::sqrt(static_cast<double>(rms)) * 1.6);
+            gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), shaped);
+        });
+    });
+    keywordListener_.onState([this](bool running, const std::string& message, bool error) {
+        postToMain([this, running, message, error] {
+            if (error) {
+                setStatus(message, true);
+            } else if (running) {
+                setStatus("인식 중 — 키워드 · " + message);
+            } else {
+                setStatus("인식이 끝났습니다.");
+                gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
+                setPartial(std::string());
+            }
+            syncButtons();
+        });
+    });
+
     refreshDevices();
 
     // 모델 경로 기본값: 자동 탐색 결과
@@ -157,13 +209,22 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     if (!found.empty()) gtk_editable_set_text(GTK_EDITABLE(modelEntry_), found.c_str());
 
     syncButtons();
+    prepareKeywords();
     loadModelAsync();
 }
 
 AppWindow::~AppWindow() {
     *alive_ = false;
+    recordCancel_.store(true);
+    {
+        std::lock_guard<std::mutex> lock(captureMutex_);
+        if (captureSource_) captureSource_->cancel();
+    }
     engine_.stop();
+    keywordListener_.stop();
     if (loader_.joinable()) loader_.join();
+    if (recordThread_.joinable()) recordThread_.join();
+    if (trainThread_.joinable()) trainThread_.join();
 }
 
 void AppWindow::present() { gtk_window_present(GTK_WINDOW(window_)); }
@@ -233,6 +294,91 @@ GtkWidget* AppWindow::buildSettings() {
                      this);
     gtk_widget_set_halign(refresh, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), refresh, 3, 2, 1, 1);
+
+    return frame;
+}
+
+GtkWidget* AppWindow::buildKeywords() {
+    GtkWidget* frame = gtk_frame_new("키워드");
+    GtkWidget* grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+    gtk_widget_set_margin_top(grid, 10);
+    gtk_widget_set_margin_bottom(grid, 10);
+    gtk_widget_set_margin_start(grid, 10);
+    gtk_widget_set_margin_end(grid, 10);
+    gtk_frame_set_child(GTK_FRAME(frame), grid);
+
+    keywordList_ = gtk_list_box_new();
+    gtk_widget_set_size_request(keywordList_, 160, 96);
+    gtk_widget_add_css_class(keywordList_, "boxed-list");
+    GtkWidget* scroller = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroller), keywordList_);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_NEVER,
+                                   GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroller), 96);
+    gtk_widget_set_vexpand(scroller, FALSE);
+    gtk_grid_attach(GTK_GRID(grid), scroller, 0, 0, 1, 3);
+
+    keywordEntry_ = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(keywordEntry_), "추가할 말");
+    gtk_widget_set_hexpand(keywordEntry_, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), keywordEntry_, 1, 0, 1, 1);
+
+    keywordAdd_ = gtk_button_new_with_label("추가");
+    g_signal_connect(keywordAdd_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->addKeyword();
+                     }),
+                     this);
+    gtk_grid_attach(GTK_GRID(grid), keywordAdd_, 2, 0, 1, 1);
+
+    keywordRemove_ = gtk_button_new_with_label("삭제");
+    g_signal_connect(keywordRemove_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->removeKeyword();
+                     }),
+                     this);
+    gtk_grid_attach(GTK_GRID(grid), keywordRemove_, 3, 0, 1, 1);
+
+    GtkWidget* actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_hexpand(actions, TRUE);
+    keywordRecord_ = gtk_button_new_with_label("녹음");
+    keywordTrain_ = gtk_button_new_with_label("학습");
+    keywordExport_ = gtk_button_new_with_label("장치에 저장…");
+    keywordOpen_ = gtk_button_new_with_label("모델 열기…");
+    g_signal_connect(keywordRecord_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->recordKeyword();
+                     }),
+                     this);
+    g_signal_connect(keywordTrain_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->trainKeywords();
+                     }),
+                     this);
+    g_signal_connect(keywordExport_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->exportKeywordModel();
+                     }),
+                     this);
+    g_signal_connect(keywordOpen_, "clicked", G_CALLBACK(+[](GtkButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->openKeywordModel();
+                     }),
+                     this);
+    gtk_box_append(GTK_BOX(actions), keywordRecord_);
+    gtk_box_append(GTK_BOX(actions), keywordTrain_);
+    gtk_box_append(GTK_BOX(actions), keywordExport_);
+    gtk_box_append(GTK_BOX(actions), keywordOpen_);
+    gtk_grid_attach(GTK_GRID(grid), actions, 1, 1, 3, 1);
+
+    keywordCheck_ = gtk_check_button_new_with_label("키워드 모델로 인식");
+    g_signal_connect(keywordCheck_, "toggled", G_CALLBACK(+[](GtkCheckButton*, gpointer self) {
+                         static_cast<AppWindow*>(self)->syncButtons();
+                     }),
+                     this);
+    gtk_grid_attach(GTK_GRID(grid), keywordCheck_, 1, 2, 1, 1);
+
+    keywordInfo_ = gtk_label_new("녹음은 keyword-workspace 에 쌓입니다");
+    gtk_label_set_xalign(GTK_LABEL(keywordInfo_), 0.0f);
+    gtk_label_set_ellipsize(GTK_LABEL(keywordInfo_), PANGO_ELLIPSIZE_END);
+    gtk_widget_set_hexpand(keywordInfo_, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), keywordInfo_, 2, 2, 2, 1);
 
     return frame;
 }
@@ -399,18 +545,17 @@ void AppWindow::loadModelAsync() {
 }
 
 void AppWindow::startMicrophone() {
+    if (wantKeyword()) {
+        startKeywordSource(platform::createMicrophone(selectedDeviceId()));
+        return;
+    }
     if (!engine_.isModelLoaded()) {
         setStatus("먼저 모델을 적재하세요.", true);
         return;
     }
     engine_.setVocabulary(parseVocabulary(gtk_editable_get_text(GTK_EDITABLE(vocabEntry_))));
-    const guint selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(deviceDropdown_));
-    int deviceId = -1;
-    if (selected != GTK_INVALID_LIST_POSITION && static_cast<size_t>(selected) < devices_.size())
-        deviceId = devices_[selected].id;
-
     std::string err;
-    if (!engine_.start(platform::createMicrophone(deviceId), &err)) {
+    if (!engine_.start(platform::createMicrophone(selectedDeviceId()), &err)) {
         setStatus(err, true);
         showError(GTK_WINDOW(window_), "마이크를 열 수 없습니다.\n\n" + err);
         return;
@@ -419,6 +564,14 @@ void AppWindow::startMicrophone() {
 }
 
 void AppWindow::startWavFile(const std::string& path) {
+    if (wantKeyword()) {
+        GtkTextIter end;
+        gtk_text_buffer_get_end_iter(transcriptBuffer_, &end);
+        const std::string header = "── " + path + " ──\n";
+        gtk_text_buffer_insert(transcriptBuffer_, &end, header.c_str(), -1);
+        startKeywordSource(std::make_shared<WavFileSource>(path));
+        return;
+    }
     if (!engine_.isModelLoaded()) {
         setStatus("먼저 모델을 적재하세요.", true);
         return;
@@ -448,9 +601,19 @@ void AppWindow::maybeRunSmokeFile() {
 }
 
 void AppWindow::stopRecognition() {
-    if (!engine_.isRunning()) return;
-    setStatus("중지 중…");
-    engine_.stop();
+    if (recording_) {
+        recordCancel_.store(true);
+        std::lock_guard<std::mutex> lock(captureMutex_);
+        if (captureSource_) captureSource_->cancel();
+    }
+    if (keywordListener_.isRunning()) {
+        setStatus("중지 중…");
+        keywordListener_.stop();
+    }
+    if (engine_.isRunning()) {
+        setStatus("중지 중…");
+        engine_.stop();
+    }
     syncButtons();
 }
 
@@ -606,17 +769,359 @@ void AppWindow::setPartial(const std::string& text) {
     gtk_label_set_text(GTK_LABEL(partialLabel_), text.empty() ? "" : ("… " + text).c_str());
 }
 
-void AppWindow::syncButtons() {
-    const bool running = engine_.isRunning();
-    const bool ready = engine_.isModelLoaded() && !loading_;
+bool AppWindow::wantKeyword() const {
+    return keywordCheck_ && gtk_check_button_get_active(GTK_CHECK_BUTTON(keywordCheck_));
+}
 
-    gtk_widget_set_sensitive(startButton_, ready && !running);
+int AppWindow::selectedDeviceId() const {
+    const guint selected = gtk_drop_down_get_selected(GTK_DROP_DOWN(deviceDropdown_));
+    if (selected != GTK_INVALID_LIST_POSITION && static_cast<size_t>(selected) < devices_.size())
+        return devices_[selected].id;
+    return -1;
+}
+
+std::string AppWindow::selectedKeyword() const {
+    GtkListBoxRow* row = gtk_list_box_get_selected_row(GTK_LIST_BOX(keywordList_));
+    if (!row) return {};
+    const int index = gtk_list_box_row_get_index(row);
+    const std::vector<std::string> words = workspace_.words();
+    if (index < 0 || static_cast<size_t>(index) >= words.size()) return {};
+    return words[static_cast<size_t>(index)];
+}
+
+void AppWindow::prepareKeywords() {
+    std::string err;
+    if (!workspace_.prepare(&err)) {
+        setStatus(err, true);
+        refreshKeywordList();
+        return;
+    }
+    if (keywordModel_.load(workspace_.modelPath(), &err)) {
+        keywordReady_ = true;
+        gtk_check_button_set_active(GTK_CHECK_BUTTON(keywordCheck_), TRUE);
+    }
+    refreshKeywordList();
+}
+
+void AppWindow::refreshKeywordList() {
+    int previous = 0;
+    if (GtkListBoxRow* row = gtk_list_box_get_selected_row(GTK_LIST_BOX(keywordList_)))
+        previous = gtk_list_box_row_get_index(row);
+    while (GtkListBoxRow* row = gtk_list_box_get_row_at_index(GTK_LIST_BOX(keywordList_), 0))
+        gtk_list_box_remove(GTK_LIST_BOX(keywordList_), GTK_WIDGET(row));
+
+    const std::vector<std::string> words = workspace_.words();
+    for (const std::string& word : words) {
+        const std::string line = word + "   " + std::to_string(workspace_.sampleCount(word)) + "개";
+        GtkWidget* label = gtk_label_new(line.c_str());
+        gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+        gtk_widget_set_margin_start(label, 8);
+        gtk_widget_set_margin_end(label, 8);
+        gtk_widget_set_margin_top(label, 2);
+        gtk_widget_set_margin_bottom(label, 2);
+        gtk_list_box_append(GTK_LIST_BOX(keywordList_), label);
+    }
+    if (!words.empty()) {
+        if (previous < 0 || previous >= static_cast<int>(words.size())) previous = 0;
+        if (GtkListBoxRow* row =
+                gtk_list_box_get_row_at_index(GTK_LIST_BOX(keywordList_), previous))
+            gtk_list_box_select_row(GTK_LIST_BOX(keywordList_), row);
+    }
+    const std::string info = keywordReady_ ? "모델 있음 · " + keywordModel_.summary()
+                                           : "녹음은 keyword-workspace 에 쌓입니다";
+    gtk_label_set_text(GTK_LABEL(keywordInfo_), info.c_str());
+}
+
+void AppWindow::addKeyword() {
+    std::string err;
+    if (!workspace_.addWord(gtk_editable_get_text(GTK_EDITABLE(keywordEntry_)), &err)) {
+        setStatus(err, true);
+        return;
+    }
+    gtk_editable_set_text(GTK_EDITABLE(keywordEntry_), "");
+    refreshKeywordList();
+    const int last = static_cast<int>(workspace_.words().size()) - 1;
+    if (last >= 0) {
+        if (GtkListBoxRow* row = gtk_list_box_get_row_at_index(GTK_LIST_BOX(keywordList_), last))
+            gtk_list_box_select_row(GTK_LIST_BOX(keywordList_), row);
+    }
+    setStatus("말을 넣었습니다. 그 말을 여러 번 녹음한 뒤 학습하세요.");
+}
+
+void AppWindow::removeKeyword() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus("지울 말을 고르세요.", true);
+        return;
+    }
+    GtkAlertDialog* dialog = gtk_alert_dialog_new("\"%s\" 와 그 녹음을 지울까요?", word.c_str());
+    const char* buttons[] = {"삭제", "취소", nullptr};
+    gtk_alert_dialog_set_buttons(dialog, buttons);
+    gtk_alert_dialog_set_cancel_button(dialog, 1);
+    gtk_alert_dialog_set_default_button(dialog, 0);
+    auto* owned = new std::string(word);
+    gtk_alert_dialog_choose(
+        dialog, GTK_WINDOW(window_), nullptr,
+        +[](GObject* source, GAsyncResult* result, gpointer data) {
+            auto* pair = static_cast<std::pair<AppWindow*, std::string*>*>(data);
+            GError* error = nullptr;
+            const int choice =
+                gtk_alert_dialog_choose_finish(GTK_ALERT_DIALOG(source), result, &error);
+            if (!error && choice == 0 && pair->first->alive_->load()) {
+                std::string err;
+                if (!pair->first->workspace_.removeWord(*pair->second, &err)) {
+                    pair->first->setStatus(err, true);
+                } else {
+                    pair->first->refreshKeywordList();
+                    pair->first->setStatus("\"" + *pair->second +
+                                           "\" 를 뺐습니다. 장치에 반영하려면 다시 학습하세요.");
+                }
+            }
+            if (error) g_error_free(error);
+            delete pair->second;
+            delete pair;
+        },
+        new std::pair<AppWindow*, std::string*>(this, owned));
+    g_object_unref(dialog);
+}
+
+void AppWindow::recordKeyword() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus("녹음할 말을 고르세요.", true);
+        return;
+    }
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    if (recordThread_.joinable()) recordThread_.join();
+
+    const int deviceId = selectedDeviceId();
+    recordCancel_.store(false);
+    recording_ = true;
+    setStatus("\"" + word + "\" 를 말한 뒤 잠시 멈추세요.");
+    syncButtons();
+
+    recordThread_ = std::thread([this, word, deviceId] {
+        auto source = platform::createMicrophone(deviceId);
+        {
+            std::lock_guard<std::mutex> lock(captureMutex_);
+            captureSource_ = source;
+        }
+        std::vector<std::int16_t> samples;
+        std::string err;
+        const bool captured = captureUtterance(
+            *source, &samples, &err,
+            [this](float rms) {
+                postToMain([this, rms] {
+                    const double shaped = std::min(1.0, std::sqrt(static_cast<double>(rms)) * 1.6);
+                    gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), shaped);
+                });
+            },
+            &recordCancel_);
+        bool ok = captured;
+        if (ok) {
+            const std::string path = workspace_.allocateSamplePath(word);
+            ok = writeWav16(path, samples.data(), samples.size(), kKeywordSampleRate, &err);
+        }
+        const std::string message = ok ? "\"" + word + "\" 녹음을 저장했습니다." : err;
+        postToMain([this, ok, message] {
+            recording_ = false;
+            {
+                std::lock_guard<std::mutex> lock(captureMutex_);
+                captureSource_.reset();
+            }
+            gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
+            refreshKeywordList();
+            setStatus(message, !ok);
+            syncButtons();
+        });
+    });
+}
+
+void AppWindow::trainKeywords() {
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    if (trainThread_.joinable()) trainThread_.join();
+    training_ = true;
+    setStatus("학습합니다…");
+    syncButtons();
+
+    trainThread_ = std::thread([this] {
+        KeywordModel trained;
+        KeywordTrainReport report;
+        std::string err;
+        const bool trainedOk = trainKeywordModel(workspace_, &trained, &report, &err);
+        std::string message = err;
+        bool ok = trainedOk && trained.save(workspace_.modelPath(), &err);
+        if (trainedOk && ok) {
+            const std::string savedPath = workspace_.modelPath();
+            std::error_code sizeError;
+            const auto bytes =
+                std::filesystem::file_size(std::filesystem::u8path(savedPath), sizeError);
+            const std::string sizeText =
+                sizeError ? "크기를 확인하지 못했습니다." : formatByteSize(bytes);
+            std::string learned;
+            for (const KeywordClass& cls : trained.classes_) {
+                if (!learned.empty()) learned += "\n";
+                learned += cls.word + "    녹음 " + std::to_string(cls.exemplars.size()) + "개";
+            }
+            const std::string skipped = report.skippedWords.empty()
+                                            ? "없음"
+                                            : formatVocabulary(report.skippedWords);
+            message = "저장 경로\n" + savedPath + "\n\n파일 크기\n" + sizeText + "\n\n학습된 말  " +
+                      std::to_string(report.words) + "개 · 녹음 " + std::to_string(report.samples) +
+                      "개\n" + learned + "\n\n표본율\n" + std::to_string(kKeywordSampleRate) +
+                      " Hz\n\n넣지 못한 말\n" + skipped +
+                      "\n\n이 파일을 장치에 복사하면 같은 말을 인식합니다.";
+        } else if (trainedOk) {
+            message = err;
+            ok = false;
+        }
+        postToMain([this, ok, message] {
+            training_ = false;
+            if (ok) {
+                std::string loadError;
+                keywordReady_ = keywordModel_.load(workspace_.modelPath(), &loadError);
+                if (keywordReady_)
+                    gtk_check_button_set_active(GTK_CHECK_BUTTON(keywordCheck_), TRUE);
+                std::string detail = message;
+                if (!keywordReady_) detail += "\n\n모델을 다시 읽지 못했습니다.\n" + loadError;
+                setStatus(keywordReady_ ? "학습 완료 · " + baseName(workspace_.modelPath())
+                                        : loadError,
+                          !keywordReady_);
+                GtkAlertDialog* dialog = gtk_alert_dialog_new("%s", "학습이 완료되었습니다.");
+                gtk_alert_dialog_set_detail(dialog, detail.c_str());
+                gtk_alert_dialog_show(dialog, GTK_WINDOW(window_));
+                g_object_unref(dialog);
+            } else {
+                setStatus(message, true);
+                GtkAlertDialog* dialog = gtk_alert_dialog_new("%s", "학습에 실패했습니다.");
+                gtk_alert_dialog_set_detail(dialog, message.c_str());
+                gtk_alert_dialog_show(dialog, GTK_WINDOW(window_));
+                g_object_unref(dialog);
+            }
+            refreshKeywordList();
+            syncButtons();
+        });
+    });
+}
+
+void AppWindow::exportKeywordModel() {
+    if (!keywordReady_) {
+        setStatus("내보낼 모델이 없습니다. 먼저 학습하거나 모델 파일을 여세요.", true);
+        return;
+    }
+    GtkFileDialog* dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, "장치에 넣을 키워드 모델 저장");
+    gtk_file_dialog_set_initial_name(dialog, "keywords.kmodel");
+    GtkFileFilter* filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "키워드 모델");
+    gtk_file_filter_add_pattern(filter, "*.kmodel");
+    GListStore* filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    g_list_store_append(filters, filter);
+    gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    g_object_unref(filter);
+    g_object_unref(filters);
+    gtk_file_dialog_save(
+        dialog, GTK_WINDOW(window_), nullptr,
+        +[](GObject* source, GAsyncResult* result, gpointer self) {
+            GError* error = nullptr;
+            GFile* file = gtk_file_dialog_save_finish(GTK_FILE_DIALOG(source), result, &error);
+            auto* window = static_cast<AppWindow*>(self);
+            if (file && window->alive_->load()) {
+                char* path = g_file_get_path(file);
+                std::string err;
+                if (!path || !window->keywordModel_.save(path, &err))
+                    window->setStatus(err.empty() ? "저장할 수 없습니다." : err, true);
+                else
+                    window->setStatus(std::string("장치에 넣을 파일을 저장했습니다. 이 파일만 "
+                                                  "복사하면 됩니다: ") +
+                                      path);
+                g_free(path);
+                g_object_unref(file);
+            }
+            if (error) g_error_free(error);
+        },
+        this);
+    g_object_unref(dialog);
+}
+
+void AppWindow::openKeywordModel() {
+    GtkFileDialog* dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, "키워드 모델 열기");
+    GtkFileFilter* filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "키워드 모델");
+    gtk_file_filter_add_pattern(filter, "*.kmodel");
+    GListStore* filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    g_list_store_append(filters, filter);
+    gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    g_object_unref(filter);
+    g_object_unref(filters);
+    gtk_file_dialog_open(
+        dialog, GTK_WINDOW(window_), nullptr,
+        +[](GObject* source, GAsyncResult* result, gpointer self) {
+            GError* error = nullptr;
+            GFile* file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(source), result, &error);
+            auto* window = static_cast<AppWindow*>(self);
+            if (file && window->alive_->load()) {
+                char* path = g_file_get_path(file);
+                KeywordModel loaded;
+                std::string err;
+                if (!path || !loaded.load(path, &err)) {
+                    window->setStatus(err.empty() ? "모델을 열 수 없습니다." : err, true);
+                } else {
+                    window->keywordModel_ = std::move(loaded);
+                    window->keywordReady_ = true;
+                    gtk_check_button_set_active(GTK_CHECK_BUTTON(window->keywordCheck_), TRUE);
+                    window->refreshKeywordList();
+                    window->setStatus("키워드 모델을 열었습니다 · " + window->keywordModel_.summary());
+                    window->syncButtons();
+                }
+                g_free(path);
+                g_object_unref(file);
+            }
+            if (error) g_error_free(error);
+        },
+        this);
+    g_object_unref(dialog);
+}
+
+void AppWindow::startKeywordSource(const std::shared_ptr<AudioSource>& source) {
+    if (!keywordReady_) {
+        setStatus("키워드 모델이 없습니다. 학습하거나 모델 파일을 여세요.", true);
+        return;
+    }
+    std::string err;
+    if (!keywordListener_.start(source, keywordModel_, &err)) {
+        setStatus(err, true);
+        showError(GTK_WINDOW(window_), "키워드 인식을 시작하지 못했습니다.\n\n" + err);
+        return;
+    }
+    syncButtons();
+}
+
+void AppWindow::syncButtons() {
+    const bool keywordRunning = keywordListener_.isRunning();
+    const bool running = engine_.isRunning() || keywordRunning || recording_;
+    const bool busy = running || training_ || loading_;
+    const bool ready = wantKeyword() ? (keywordReady_ && !training_ && !recording_)
+                                     : (engine_.isModelLoaded() && !loading_ && !recording_);
+
+    gtk_widget_set_sensitive(startButton_, ready && !running && !training_);
     gtk_widget_set_sensitive(stopButton_, running);
-    gtk_widget_set_sensitive(wavButton_, ready && !running);
-    gtk_widget_set_sensitive(reloadButton_, !loading_ && !running);
-    gtk_widget_set_sensitive(modelEntry_, !loading_ && !running);
-    gtk_widget_set_sensitive(vocabEntry_, !loading_ && !running);
+    gtk_widget_set_sensitive(wavButton_, ready && !running && !training_);
+    gtk_widget_set_sensitive(reloadButton_, !busy);
+    gtk_widget_set_sensitive(modelEntry_, !busy);
+    gtk_widget_set_sensitive(vocabEntry_, !busy);
     gtk_widget_set_sensitive(deviceDropdown_, !running);
+    if (!keywordList_) return;
+    gtk_widget_set_sensitive(keywordList_, !busy);
+    gtk_widget_set_sensitive(keywordEntry_, !busy);
+    gtk_widget_set_sensitive(keywordAdd_, !busy);
+    gtk_widget_set_sensitive(keywordRemove_, !busy);
+    gtk_widget_set_sensitive(keywordRecord_, !busy);
+    gtk_widget_set_sensitive(keywordTrain_, !busy);
+    gtk_widget_set_sensitive(keywordExport_, keywordReady_ && !busy);
+    gtk_widget_set_sensitive(keywordOpen_, !busy);
+    gtk_widget_set_sensitive(keywordCheck_, !running && !recording_);
 }
 
 }  // namespace kstt::gui

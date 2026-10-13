@@ -41,6 +41,10 @@ models/
 # 시험 음원은 작으니 저장소에 둔다 (scripts/make_sample_wav 로 다시 만들 수도 있다)
 !tests/data/sample-ko.wav
 
+# ── 키워드 학습 (창에서 녹음·학습하면 생긴다) ─────────────────
+keyword-workspace/
+*.kmodel
+
 # ── 실행하면서 생기는 것들 ─────────────────────────────────────
 *.log
 인식결과*.txt

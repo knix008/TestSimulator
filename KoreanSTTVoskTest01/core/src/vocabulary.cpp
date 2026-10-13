@@ -39,7 +39,7 @@ std::string quote(const std::string& word) {
 }  // namespace
 
 const std::vector<std::string>& defaultVocabulary() {
-    static const std::vector<std::string> words = {"출근", "퇴근"};
+    static const std::vector<std::string> words = {"출근", "퇴근", "경비", "해제"};
     return words;
 }
 

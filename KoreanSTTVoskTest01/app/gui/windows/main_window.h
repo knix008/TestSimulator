@@ -13,10 +13,14 @@
 #include <atomic>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "kstt/audio_source.h"
+#include "kstt/keyword_listener.h"
+#include "kstt/keyword_model.h"
 #include "kstt/stt_engine.h"
 #include "kstt/types.h"
 
@@ -45,6 +49,18 @@ private:
     void startMicrophone();
     void startWavFile(const std::wstring& path);
     void stopRecognition();
+    void prepareKeywords();
+    void refreshKeywordList();
+    void addKeyword();
+    void removeKeyword();
+    void recordKeyword();
+    void trainKeywords();
+    void exportKeywordModel();
+    void openKeywordModel();
+    void startKeywordSource(const std::shared_ptr<AudioSource>& source);
+    bool wantKeyword() const;
+    int selectedDeviceId() const;
+    std::string selectedKeyword() const;
     void refreshDevices();
     void chooseModelFolder();
     void chooseWavFile();
@@ -77,7 +93,19 @@ private:
     HWND clearButton_ = nullptr;
     HWND saveButton_ = nullptr;
     HWND partialLabel_ = nullptr;
+    HWND sizeGrip_ = nullptr;
     HWND tallyLabel_ = nullptr;
+    HWND keywordLabel_ = nullptr;
+    HWND keywordList_ = nullptr;
+    HWND keywordEdit_ = nullptr;
+    HWND keywordAdd_ = nullptr;
+    HWND keywordRemove_ = nullptr;
+    HWND keywordRecord_ = nullptr;
+    HWND keywordTrain_ = nullptr;
+    HWND keywordExport_ = nullptr;
+    HWND keywordOpen_ = nullptr;
+    HWND keywordCheck_ = nullptr;
+    HWND keywordInfo_ = nullptr;
     std::vector<HWND> labels_;
 
     HFONT font_ = nullptr;
@@ -85,6 +113,17 @@ private:
     UINT dpi_ = 96;
 
     SttEngine engine_;
+    KeywordWorkspace workspace_{KeywordWorkspace::defaultRoot()};
+    KeywordModel keywordModel_;
+    KeywordListener keywordListener_;
+    std::thread recordThread_;
+    std::thread trainThread_;
+    std::shared_ptr<AudioSource> captureSource_;
+    std::mutex captureMutex_;
+    std::atomic<bool> recordCancel_{false};
+    bool keywordReady_ = false;
+    bool recording_ = false;
+    bool training_ = false;
     std::vector<AudioDevice> devices_;
     std::thread loader_;
     bool loading_ = false;

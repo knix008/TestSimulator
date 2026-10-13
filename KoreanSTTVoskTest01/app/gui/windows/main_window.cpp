@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <filesystem>
 
 #include "kstt/platform/audio_input.h"
 #include "kstt/vocabulary.h"
@@ -21,7 +23,10 @@ enum : UINT {
     kMsgState,                 // WPARAM: EngineState, LPARAM: new std::wstring*
     kMsgLevel,                 // WPARAM: 0..1000
     kMsgModelLoaded,           // WPARAM: 성공 여부, LPARAM: new std::wstring* (메시지)
-    kMsgLast = WM_APP + 9,
+    kMsgRecordDone,            // WPARAM: 성공 여부, LPARAM: new std::wstring*
+    kMsgTrainDone,             // WPARAM: 성공 여부, LPARAM: new std::wstring*
+    kMsgKeywordState,          // WPARAM: 1 듣는 중, 2 끝, 3 오류. LPARAM: new std::wstring*
+    kMsgLast = WM_APP + 12,
 };
 
 enum : int {
@@ -37,9 +42,73 @@ enum : int {
     kIdPartial,
     kIdClear,
     kIdSave,
+    kIdKeywordList = 1100,
+    kIdKeywordEdit,
+    kIdKeywordAdd,
+    kIdKeywordRemove,
+    kIdKeywordRecord,
+    kIdKeywordTrain,
+    kIdKeywordExport,
+    kIdKeywordOpen,
+    kIdKeywordUse,
 };
 
 const wchar_t* kWindowClass = L"KsttMainWindow";
+const wchar_t* kSizeGripClass = L"KsttSizeGrip";
+
+// 우측 하단의 크기 조절 표시. 창 배경과 구분되는 점으로 그리고, 누르면
+// 창의 오른쪽 아래 모서리를 끄는 것과 같게 동작한다.
+LRESULT CALLBACK sizeGripProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT paint;
+            HDC dc = BeginPaint(window, &paint);
+            RECT rect;
+            GetClientRect(window, &rect);
+            FillRect(dc, &rect, GetSysColorBrush(COLOR_BTNFACE));
+
+            const int rows = 4;
+            const int span = std::min(rect.right, rect.bottom);
+            const int step = std::max(4, (span - 2) / (rows + 1));
+            const int dot = std::max(2, step * 2 / 3);
+            const COLORREF face = GetSysColor(COLOR_BTNFACE);
+            const int luminance = GetRValue(face) * 3 + GetGValue(face) * 6 + GetBValue(face);
+            const COLORREF shadow = luminance > 380 ? RGB(55, 55, 55) : RGB(240, 240, 240);
+            const COLORREF highlight = luminance > 380 ? RGB(255, 255, 255) : RGB(20, 20, 20);
+            HBRUSH shadowBrush = CreateSolidBrush(shadow);
+            HBRUSH highlightBrush = CreateSolidBrush(highlight);
+            for (int row = 0; row < rows; ++row) {
+                for (int col = 0; col <= row; ++col) {
+                    const int x = rect.right - step * (row - col + 1);
+                    const int y = rect.bottom - step * (col + 1);
+                    RECT light{x + 1, y + 1, x + 1 + dot, y + 1 + dot};
+                    RECT mark{x, y, x + dot, y + dot};
+                    FillRect(dc, &light, highlightBrush);
+                    FillRect(dc, &mark, shadowBrush);
+                }
+            }
+            DeleteObject(highlightBrush);
+            DeleteObject(shadowBrush);
+            EndPaint(window, &paint);
+            return 0;
+        }
+        case WM_SETCURSOR:
+            SetCursor(LoadCursorW(nullptr, IDC_SIZENWSE));
+            return TRUE;
+        case WM_LBUTTONDOWN: {
+            POINT point;
+            GetCursorPos(&point);
+            ReleaseCapture();
+            SendMessageW(GetParent(window), WM_NCLBUTTONDOWN, HTBOTTOMRIGHT,
+                         MAKELPARAM(point.x, point.y));
+            return 0;
+        }
+        default:
+            return DefWindowProcW(window, message, wParam, lParam);
+    }
+}
 
 std::wstring toWide(const std::string& utf8) {
     if (utf8.empty()) return {};
@@ -74,6 +143,21 @@ std::wstring baseName(const std::wstring& path) {
     return cut == std::wstring::npos ? path : path.substr(cut + 1);
 }
 
+std::wstring formatByteSize(std::uintmax_t bytes) {
+    wchar_t buffer[80];
+    if (bytes < 1024) {
+        swprintf(buffer, 80, L"%llu 바이트", static_cast<unsigned long long>(bytes));
+    } else if (bytes < 1024ull * 1024ull) {
+        swprintf(buffer, 80, L"%.1f KB (%llu 바이트)",
+                 static_cast<double>(bytes) / 1024.0, static_cast<unsigned long long>(bytes));
+    } else {
+        swprintf(buffer, 80, L"%.2f MB (%llu 바이트)",
+                 static_cast<double>(bytes) / (1024.0 * 1024.0),
+                 static_cast<unsigned long long>(bytes));
+    }
+    return buffer;
+}
+
 std::wstring timeStamp() {
     SYSTEMTIME now;
     GetLocalTime(&now);
@@ -98,8 +182,12 @@ MainWindow::MainWindow(HINSTANCE instance) : instance_(instance) {
 
 MainWindow::~MainWindow() {
     accepting_ = false;
+    recordCancel_.store(true);
     engine_.stop();
+    keywordListener_.stop();
     if (loader_.joinable()) loader_.join();
+    if (recordThread_.joinable()) recordThread_.join();
+    if (trainThread_.joinable()) trainThread_.join();
     if (font_) DeleteObject(font_);
 }
 
@@ -121,8 +209,16 @@ bool MainWindow::create() {
     if (!windowClass.hIcon) windowClass.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
     if (!RegisterClassExW(&windowClass)) return false;
 
+    WNDCLASSW gripClass = {};
+    gripClass.lpfnWndProc = sizeGripProc;
+    gripClass.hInstance = instance_;
+    gripClass.hCursor = LoadCursorW(nullptr, IDC_SIZENWSE);
+    gripClass.hbrBackground = background_;
+    gripClass.lpszClassName = kSizeGripClass;
+    RegisterClassW(&gripClass);
+
     window_ = CreateWindowExW(0, kWindowClass, L"한국어 음성 인식 (Vosk)",
-                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 760, 620,
+                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 820, 780,
                               nullptr, nullptr, instance_, this);
     return window_ != nullptr;
 }
@@ -158,6 +254,7 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                 if (!found.empty()) SetWindowTextW(modelEdit_, toWide(found).c_str());
             }
             syncButtons();
+            prepareKeywords();
             loadModelAsync();
             return 0;
 
@@ -167,8 +264,8 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 
         case WM_GETMINMAXINFO: {
             auto* info = reinterpret_cast<MINMAXINFO*>(lParam);
-            info->ptMinTrackSize.x = scaled(640);
-            info->ptMinTrackSize.y = scaled(460);
+            info->ptMinTrackSize.x = scaled(720);
+            info->ptMinTrackSize.y = scaled(640);
             return 0;
         }
 
@@ -219,6 +316,13 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                 }
                 case kIdClear: clearTranscript(); return 0;
                 case kIdSave: saveTranscript(); return 0;
+                case kIdKeywordAdd: addKeyword(); return 0;
+                case kIdKeywordRemove: removeKeyword(); return 0;
+                case kIdKeywordRecord: recordKeyword(); return 0;
+                case kIdKeywordTrain: trainKeywords(); return 0;
+                case kIdKeywordExport: exportKeywordModel(); return 0;
+                case kIdKeywordOpen: openKeywordModel(); return 0;
+                case kIdKeywordUse: syncButtons(); return 0;
             }
             return 0;
 
@@ -277,11 +381,73 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
 
+        case kMsgRecordDone: {
+            std::unique_ptr<std::wstring> text(reinterpret_cast<std::wstring*>(lParam));
+            recording_ = false;
+            {
+                std::lock_guard<std::mutex> lock(captureMutex_);
+                captureSource_.reset();
+            }
+            SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
+            refreshKeywordList();
+            setStatus(*text, wParam == 0);
+            syncButtons();
+            return 0;
+        }
+
+        case kMsgTrainDone: {
+            std::unique_ptr<std::wstring> text(reinterpret_cast<std::wstring*>(lParam));
+            training_ = false;
+            if (wParam) {
+                std::string err;
+                keywordReady_ = keywordModel_.load(workspace_.modelPath(), &err);
+                if (keywordReady_) SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
+                if (keywordReady_) {
+                    setStatus(L"학습 완료 · " + baseName(toWide(workspace_.modelPath())));
+                } else {
+                    setStatus(toWide(err), true);
+                }
+                std::wstring body = *text;
+                if (!keywordReady_) body += L"\r\n\r\n모델을 다시 읽지 못했습니다.\r\n" + toWide(err);
+                MessageBoxW(window_, body.c_str(), L"학습 완료", MB_OK | MB_ICONINFORMATION);
+            } else {
+                setStatus(*text, true);
+                MessageBoxW(window_, text->c_str(), L"학습 실패", MB_OK | MB_ICONWARNING);
+            }
+            refreshKeywordList();
+            syncButtons();
+            return 0;
+        }
+
+        case kMsgKeywordState: {
+            std::unique_ptr<std::wstring> text(reinterpret_cast<std::wstring*>(lParam));
+            if (wParam == 1) {
+                setStatus(L"인식 중 — 키워드 · " + *text);
+            } else if (wParam == 3) {
+                setStatus(*text, true);
+                SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
+            } else {
+                setStatus(L"인식이 끝났습니다.");
+                SendMessageW(levelBar_, PBM_SETPOS, 0, 0);
+                setPartial(L"");
+            }
+            syncButtons();
+            return 0;
+        }
+
         case WM_CLOSE:
             // 콜백부터 끊고 워커를 합류시킨 뒤, 이미 보내진 메시지를 비운다.
             accepting_ = false;
+            recordCancel_.store(true);
+            {
+                std::lock_guard<std::mutex> lock(captureMutex_);
+                if (captureSource_) captureSource_->cancel();
+            }
             engine_.stop();
+            keywordListener_.stop();
             if (loader_.joinable()) loader_.join();
+            if (recordThread_.joinable()) recordThread_.join();
+            if (trainThread_.joinable()) trainThread_.join();
             drainPostedMessages(window_);
             DestroyWindow(window_);
             return 0;
@@ -321,6 +487,23 @@ void MainWindow::createControls() {
                            L"쉼표로 구분. 비우면 들리는 대로 모두 받아씁니다.",
                            SS_LEFT | SS_CENTERIMAGE, 0));
 
+    keywordLabel_ = make(L"STATIC", L"키워드", SS_LEFT | SS_CENTERIMAGE, 0);
+    keywordList_ = make(L"LISTBOX", L"",
+                        WS_TABSTOP | WS_VSCROLL | WS_BORDER | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+                        kIdKeywordList);
+    keywordEdit_ = make(L"EDIT", L"", WS_BORDER | WS_TABSTOP | ES_AUTOHSCROLL, kIdKeywordEdit);
+    SendMessageW(keywordEdit_, EM_SETCUEBANNER, TRUE,
+                 reinterpret_cast<LPARAM>(L"추가할 말"));
+    keywordAdd_ = make(L"BUTTON", L"추가", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordAdd);
+    keywordRemove_ = make(L"BUTTON", L"삭제", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRemove);
+    keywordRecord_ = make(L"BUTTON", L"녹음", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRecord);
+    keywordTrain_ = make(L"BUTTON", L"학습", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordTrain);
+    keywordExport_ = make(L"BUTTON", L"장치에 저장…", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordExport);
+    keywordOpen_ = make(L"BUTTON", L"모델 열기…", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordOpen);
+    keywordCheck_ =
+        make(L"BUTTON", L"키워드 모델로 인식", WS_TABSTOP | BS_AUTOCHECKBOX, kIdKeywordUse);
+    keywordInfo_ = make(L"STATIC", L"", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
+
     labels_.push_back(make(L"STATIC", L"입력", SS_LEFT | SS_CENTERIMAGE, 0));
     deviceCombo_ = make(L"COMBOBOX", L"", WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST, kIdDevice);
     refreshButton_ = make(L"BUTTON", L"새로 고침", WS_TABSTOP | BS_PUSHBUTTON, kIdRefresh);
@@ -349,6 +532,8 @@ void MainWindow::createControls() {
 
     tallyLabel_ = make(L"STATIC", L"", SS_LEFT | SS_CENTERIMAGE, 0);
     partialLabel_ = make(L"STATIC", L"", SS_LEFT | SS_PATHELLIPSIS, 0);
+    sizeGrip_ = CreateWindowExW(0, kSizeGripClass, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS, 0,
+                                0, 0, 0, window_, nullptr, instance_, nullptr);
 
     // --- 엔진 콜백: 워커 스레드에서 불린다 → UI 스레드로 넘긴다 ---
     engine_.onPartial([this](const std::string& text) {
@@ -370,6 +555,22 @@ void MainWindow::createControls() {
     engine_.onState([this](EngineState state, const std::string& message) {
         if (!accepting_.load()) return;
         PostMessageW(window_, kMsgState, static_cast<WPARAM>(state),
+                     reinterpret_cast<LPARAM>(new std::wstring(toWide(message))));
+    });
+
+    keywordListener_.onResult([this](const std::string& word) {
+        if (!accepting_.load() || word.empty()) return;
+        PostMessageW(window_, kMsgFinal, 0, reinterpret_cast<LPARAM>(new std::wstring(toWide(word))));
+    });
+    keywordListener_.onLevel([this](float rms) {
+        if (!accepting_.load()) return;
+        const double shaped = std::min(1.0, std::sqrt(static_cast<double>(rms)) * 1.6);
+        PostMessageW(window_, kMsgLevel, static_cast<WPARAM>(shaped * 1000.0), 0);
+    });
+    keywordListener_.onState([this](bool running, const std::string& message, bool error) {
+        if (!accepting_.load()) return;
+        const WPARAM code = error ? 3 : (running ? 1 : 2);
+        PostMessageW(window_, kMsgKeywordState, code,
                      reinterpret_cast<LPARAM>(new std::wstring(toWide(message))));
     });
 }
@@ -411,6 +612,38 @@ void MainWindow::layout() {
     x += vocabWidth + gap;
     place(labels_[2], x, y, std::max(scaled(80), right - x), rowHeight);
     y += rowHeight + gap;
+
+    // 키워드: 말 목록, 녹음, 학습, 장치로 옮길 파일
+    {
+        const int band = rowHeight * 3 + gap * 2;
+        const int listWidth = scaled(168);
+        place(keywordLabel_, margin, y, scaled(52), rowHeight);
+        place(keywordList_, margin + scaled(52) + gap, y, listWidth, band);
+        int bx = margin + scaled(52) + gap + listWidth + gap;
+        const int addWidth = scaled(64);
+        const int removeWidth = scaled(64);
+        const int editWidth = std::max(scaled(40), right - bx - addWidth - removeWidth - gap * 2);
+        place(keywordEdit_, bx, y, editWidth, rowHeight);
+        place(keywordAdd_, bx + editWidth + gap, y, addWidth, rowHeight);
+        place(keywordRemove_, right - removeWidth, y, removeWidth, rowHeight);
+
+        const int y2 = y + rowHeight + gap;
+        const int buttonCount = 4;
+        const int buttonGap = gap;
+        const int buttonsWidth = right - bx;
+        const int each = std::max(scaled(64), (buttonsWidth - buttonGap * (buttonCount - 1)) / buttonCount);
+        place(keywordRecord_, bx, y2, each, rowHeight);
+        place(keywordTrain_, bx + (each + buttonGap), y2, each, rowHeight);
+        place(keywordExport_, bx + (each + buttonGap) * 2, y2, each, rowHeight);
+        place(keywordOpen_, bx + (each + buttonGap) * 3, y2, each, rowHeight);
+
+        const int y3 = y2 + rowHeight + gap;
+        const int checkWidth = scaled(150);
+        place(keywordCheck_, bx, y3, checkWidth, rowHeight);
+        place(keywordInfo_, bx + checkWidth + gap, y3,
+              std::max(scaled(40), right - (bx + checkWidth + gap)), rowHeight);
+        y += band + gap;
+    }
 
     // 3행: 입력 장치
     x = margin;
@@ -457,12 +690,25 @@ void MainWindow::layout() {
     place(saveButton_, right - smallButton, y, smallButton, rowHeight);
     y += rowHeight + scaled(4);
 
-    // 6행: 결과 + 진행 중 한 줄
+    // 6행: 결과 + 진행 중 한 줄. 우측 하단은 크기 조절 표시에 양보한다.
     const int partialHeight = scaled(20);
-    const int editHeight = client.bottom - margin - partialHeight - gap - y;
+    const bool showGrip = sizeGrip_ && !IsZoomed(window_);
+    const int gripSize = scaled(22);
+    const int footer = std::max(margin + partialHeight, showGrip ? gripSize : 0);
+    const int editHeight = client.bottom - footer - gap - y;
     place(transcriptEdit_, margin, y, right - margin, std::max(scaled(60), editHeight));
-    place(partialLabel_, margin, client.bottom - margin - partialHeight, right - margin,
-          partialHeight);
+    const int partialLabelWidth =
+        client.right - margin - (showGrip ? gripSize + gap : margin);
+    place(partialLabel_, margin, client.bottom - footer + (footer - partialHeight) / 2,
+          std::max(scaled(40), partialLabelWidth), partialHeight);
+    if (sizeGrip_) {
+        if (showGrip) {
+            SetWindowPos(sizeGrip_, HWND_TOP, client.right - gripSize, client.bottom - gripSize,
+                         gripSize, gripSize, SWP_SHOWWINDOW);
+        } else {
+            ShowWindow(sizeGrip_, SW_HIDE);
+        }
+    }
 }
 
 void MainWindow::loadModelAsync() {
@@ -497,18 +743,17 @@ void MainWindow::loadModelAsync() {
 }
 
 void MainWindow::startMicrophone() {
+    if (wantKeyword()) {
+        startKeywordSource(platform::createMicrophone(selectedDeviceId()));
+        return;
+    }
     if (!engine_.isModelLoaded()) {
         setStatus(L"먼저 모델을 적재하세요.", true);
         return;
     }
     engine_.setVocabulary(parseVocabulary(toUtf8(editText(vocabEdit_))));
-    const int selected = static_cast<int>(SendMessageW(deviceCombo_, CB_GETCURSEL, 0, 0));
-    int deviceId = -1;
-    if (selected >= 0 && static_cast<size_t>(selected) < devices_.size())
-        deviceId = devices_[static_cast<size_t>(selected)].id;
-
     std::string err;
-    if (!engine_.start(platform::createMicrophone(deviceId), &err)) {
+    if (!engine_.start(platform::createMicrophone(selectedDeviceId()), &err)) {
         const std::wstring message = toWide(err);
         setStatus(message, true);
         MessageBoxW(window_, (L"마이크를 열 수 없습니다.\n\n" + message).c_str(),
@@ -519,6 +764,11 @@ void MainWindow::startMicrophone() {
 }
 
 void MainWindow::startWavFile(const std::wstring& path) {
+    if (wantKeyword()) {
+        appendTranscript(L"── " + path + L" ──\r\n");
+        startKeywordSource(std::make_shared<WavFileSource>(toUtf8(path)));
+        return;
+    }
     if (!engine_.isModelLoaded()) {
         setStatus(L"먼저 모델을 적재하세요.", true);
         return;
@@ -537,9 +787,19 @@ void MainWindow::startWavFile(const std::wstring& path) {
 }
 
 void MainWindow::stopRecognition() {
-    if (!engine_.isRunning()) return;
-    setStatus(L"중지 중…");
-    engine_.stop();
+    if (recording_) {
+        recordCancel_.store(true);
+        std::lock_guard<std::mutex> lock(captureMutex_);
+        if (captureSource_) captureSource_->cancel();
+    }
+    if (keywordListener_.isRunning()) {
+        setStatus(L"중지 중…");
+        keywordListener_.stop();
+    }
+    if (engine_.isRunning()) {
+        setStatus(L"중지 중…");
+        engine_.stop();
+    }
     syncButtons();
 }
 
@@ -655,18 +915,282 @@ void MainWindow::setPartial(const std::wstring& text) {
     SetWindowTextW(partialLabel_, text.empty() ? L"" : (L"… " + text).c_str());
 }
 
-void MainWindow::syncButtons() {
-    const bool running = engine_.isRunning();
-    const bool ready = engine_.isModelLoaded() && !loading_;
+bool MainWindow::wantKeyword() const {
+    return keywordCheck_ &&
+           SendMessageW(keywordCheck_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+}
 
-    EnableWindow(startButton_, ready && !running);
+int MainWindow::selectedDeviceId() const {
+    const int selected = static_cast<int>(SendMessageW(deviceCombo_, CB_GETCURSEL, 0, 0));
+    if (selected >= 0 && static_cast<size_t>(selected) < devices_.size())
+        return devices_[static_cast<size_t>(selected)].id;
+    return -1;
+}
+
+std::string MainWindow::selectedKeyword() const {
+    const int selected = static_cast<int>(SendMessageW(keywordList_, LB_GETCURSEL, 0, 0));
+    const std::vector<std::string> words = workspace_.words();
+    if (selected < 0 || static_cast<size_t>(selected) >= words.size()) return {};
+    return words[static_cast<size_t>(selected)];
+}
+
+void MainWindow::prepareKeywords() {
+    std::string err;
+    if (!workspace_.prepare(&err)) {
+        setStatus(toWide(err), true);
+        refreshKeywordList();
+        return;
+    }
+    if (keywordModel_.load(workspace_.modelPath(), &err)) {
+        keywordReady_ = true;
+        SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
+    }
+    refreshKeywordList();
+}
+
+void MainWindow::refreshKeywordList() {
+    const int previous = static_cast<int>(SendMessageW(keywordList_, LB_GETCURSEL, 0, 0));
+    SendMessageW(keywordList_, LB_RESETCONTENT, 0, 0);
+    const std::vector<std::string> words = workspace_.words();
+    for (const std::string& word : words) {
+        const std::wstring line = toWide(word) + L"   " +
+                                  std::to_wstring(workspace_.sampleCount(word)) + L"개";
+        SendMessageW(keywordList_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(line.c_str()));
+    }
+    if (!words.empty()) {
+        const int next = previous >= 0 && previous < static_cast<int>(words.size()) ? previous : 0;
+        SendMessageW(keywordList_, LB_SETCURSEL, static_cast<WPARAM>(next), 0);
+    }
+    std::wstring info = L"녹음은 keyword-workspace 에 쌓입니다";
+    if (keywordReady_) info = L"모델 있음 · " + toWide(keywordModel_.summary());
+    SetWindowTextW(keywordInfo_, info.c_str());
+}
+
+void MainWindow::addKeyword() {
+    std::string err;
+    if (!workspace_.addWord(toUtf8(editText(keywordEdit_)), &err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    SetWindowTextW(keywordEdit_, L"");
+    refreshKeywordList();
+    const int last = static_cast<int>(workspace_.words().size()) - 1;
+    if (last >= 0) SendMessageW(keywordList_, LB_SETCURSEL, static_cast<WPARAM>(last), 0);
+    setStatus(L"말을 넣었습니다. 그 말을 여러 번 녹음한 뒤 학습하세요.");
+}
+
+void MainWindow::removeKeyword() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus(L"지울 말을 고르세요.", true);
+        return;
+    }
+    const std::wstring wide = toWide(word);
+    if (MessageBoxW(window_,
+                    (L"\"" + wide + L"\" 와 그 녹음을 지울까요?\n다시 인식에서 빼려면 학습도 다시 해야 합니다.")
+                        .c_str(),
+                    L"말 삭제", MB_YESNO | MB_ICONQUESTION) != IDYES)
+        return;
+    std::string err;
+    if (!workspace_.removeWord(word, &err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    refreshKeywordList();
+    setStatus(L"\"" + wide + L"\" 를 뺐습니다. 장치에 반영하려면 다시 학습하세요.");
+}
+
+void MainWindow::recordKeyword() {
+    const std::string word = selectedKeyword();
+    if (word.empty()) {
+        setStatus(L"녹음할 말을 고르세요.", true);
+        return;
+    }
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    if (recordThread_.joinable()) recordThread_.join();
+
+    const int deviceId = selectedDeviceId();
+    recordCancel_.store(false);
+    recording_ = true;
+    setStatus(L"\"" + toWide(word) + L"\" 를 말한 뒤 잠시 멈추세요.");
+    syncButtons();
+
+    recordThread_ = std::thread([this, word, deviceId] {
+        auto source = platform::createMicrophone(deviceId);
+        {
+            std::lock_guard<std::mutex> lock(captureMutex_);
+            captureSource_ = source;
+        }
+        std::vector<std::int16_t> samples;
+        std::string err;
+        const bool captured = captureUtterance(
+            *source, &samples, &err,
+            [this](float rms) {
+                if (!accepting_.load()) return;
+                const double shaped = std::min(1.0, std::sqrt(static_cast<double>(rms)) * 1.6);
+                PostMessageW(window_, kMsgLevel, static_cast<WPARAM>(shaped * 1000.0), 0);
+            },
+            &recordCancel_);
+        bool ok = captured;
+        if (ok) {
+            const std::string path = workspace_.allocateSamplePath(word);
+            ok = writeWav16(path, samples.data(), samples.size(), kKeywordSampleRate, &err);
+        }
+        if (!accepting_.load()) return;
+        std::wstring message = ok ? (L"\"" + toWide(word) + L"\" 녹음을 저장했습니다.") : toWide(err);
+        PostMessageW(window_, kMsgRecordDone, ok ? 1 : 0,
+                     reinterpret_cast<LPARAM>(new std::wstring(std::move(message))));
+    });
+}
+
+void MainWindow::trainKeywords() {
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    if (trainThread_.joinable()) trainThread_.join();
+    training_ = true;
+    setStatus(L"학습합니다…");
+    syncButtons();
+
+    trainThread_ = std::thread([this] {
+        KeywordModel trained;
+        KeywordTrainReport report;
+        std::string err;
+        const bool ok = trainKeywordModel(workspace_, &trained, &report, &err);
+        std::wstring message;
+        if (ok) {
+            if (!trained.save(workspace_.modelPath(), &err)) {
+                message = toWide(err);
+                if (accepting_.load()) {
+                    PostMessageW(window_, kMsgTrainDone, 0,
+                                 reinterpret_cast<LPARAM>(new std::wstring(std::move(message))));
+                }
+                return;
+            }
+            const std::string savedPath = workspace_.modelPath();
+            std::error_code sizeError;
+            const auto bytes = std::filesystem::file_size(std::filesystem::u8path(savedPath), sizeError);
+            const std::wstring sizeText =
+                sizeError ? L"크기를 확인하지 못했습니다." : formatByteSize(bytes);
+            std::wstring learned;
+            for (const KeywordClass& cls : trained.classes_) {
+                if (!learned.empty()) learned += L"\r\n";
+                learned += toWide(cls.word) + L"    녹음 " +
+                           std::to_wstring(cls.exemplars.size()) + L"개";
+            }
+            const std::wstring skipped =
+                report.skippedWords.empty() ? L"없음" : toWide(formatVocabulary(report.skippedWords));
+            message = L"학습이 완료되었습니다.\r\n\r\n"
+                      L"저장 경로\r\n" +
+                      toWide(savedPath) + L"\r\n\r\n"
+                      L"파일 크기\r\n" +
+                      sizeText + L"\r\n\r\n"
+                      L"학습된 말  " +
+                      std::to_wstring(report.words) + L"개 · 녹음 " +
+                      std::to_wstring(report.samples) + L"개\r\n" +
+                      learned + L"\r\n\r\n"
+                      L"표본율\r\n" +
+                      std::to_wstring(kKeywordSampleRate) + L" Hz\r\n\r\n"
+                      L"넣지 못한 말\r\n" +
+                      skipped + L"\r\n\r\n"
+                      L"이 파일을 장치에 복사하면 같은 말을 인식합니다.";
+        } else {
+            message = toWide(err);
+        }
+        if (!accepting_.load()) return;
+        PostMessageW(window_, kMsgTrainDone, ok ? 1 : 0,
+                     reinterpret_cast<LPARAM>(new std::wstring(std::move(message))));
+    });
+}
+
+void MainWindow::exportKeywordModel() {
+    if (!keywordReady_) {
+        setStatus(L"내보낼 모델이 없습니다. 먼저 학습하거나 모델 파일을 여세요.", true);
+        return;
+    }
+    wchar_t path[MAX_PATH] = L"keywords.kmodel";
+    OPENFILENAMEW dialog = {};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = window_;
+    dialog.lpstrFilter = L"키워드 모델\0*.kmodel\0모든 파일\0*.*\0";
+    dialog.lpstrFile = path;
+    dialog.nMaxFile = MAX_PATH;
+    dialog.lpstrDefExt = L"kmodel";
+    dialog.lpstrTitle = L"장치에 넣을 키워드 모델 저장";
+    dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    if (!GetSaveFileNameW(&dialog)) return;
+
+    std::string err;
+    if (!keywordModel_.save(toUtf8(path), &err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    setStatus(L"장치에 넣을 파일을 저장했습니다. 이 파일만 복사하면 됩니다: " + std::wstring(path));
+}
+
+void MainWindow::openKeywordModel() {
+    wchar_t path[MAX_PATH] = {0};
+    OPENFILENAMEW dialog = {};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = window_;
+    dialog.lpstrFilter = L"키워드 모델\0*.kmodel\0모든 파일\0*.*\0";
+    dialog.lpstrFile = path;
+    dialog.nMaxFile = MAX_PATH;
+    dialog.lpstrTitle = L"키워드 모델 열기";
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    if (!GetOpenFileNameW(&dialog)) return;
+
+    KeywordModel loaded;
+    std::string err;
+    if (!loaded.load(toUtf8(path), &err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    keywordModel_ = std::move(loaded);
+    keywordReady_ = true;
+    SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
+    refreshKeywordList();
+    setStatus(L"키워드 모델을 열었습니다 · " + toWide(keywordModel_.summary()));
+    syncButtons();
+}
+
+void MainWindow::startKeywordSource(const std::shared_ptr<AudioSource>& source) {
+    if (!keywordReady_) {
+        setStatus(L"키워드 모델이 없습니다. 학습하거나 모델 파일을 여세요.", true);
+        return;
+    }
+    std::string err;
+    if (!keywordListener_.start(source, keywordModel_, &err)) {
+        setStatus(toWide(err), true);
+        MessageBoxW(window_, (L"키워드 인식을 시작하지 못했습니다.\n\n" + toWide(err)).c_str(),
+                    L"한국어 음성 인식", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    syncButtons();
+}
+
+void MainWindow::syncButtons() {
+    const bool keywordRunning = keywordListener_.isRunning();
+    const bool running = engine_.isRunning() || keywordRunning || recording_;
+    const bool busy = running || training_ || loading_;
+    const bool ready = wantKeyword() ? (keywordReady_ && !training_ && !recording_)
+                                     : (engine_.isModelLoaded() && !loading_ && !recording_);
+
+    EnableWindow(startButton_, ready && !running && !training_);
     EnableWindow(stopButton_, running);
-    EnableWindow(wavButton_, ready && !running);
-    EnableWindow(loadButton_, !loading_ && !running);
-    EnableWindow(browseButton_, !loading_ && !running);
-    EnableWindow(modelEdit_, !loading_ && !running);
-    EnableWindow(vocabEdit_, !loading_ && !running);
+    EnableWindow(wavButton_, ready && !running && !training_);
+    EnableWindow(loadButton_, !busy);
+    EnableWindow(browseButton_, !busy);
+    EnableWindow(modelEdit_, !busy);
+    EnableWindow(vocabEdit_, !busy);
     EnableWindow(deviceCombo_, !running);
+    EnableWindow(keywordList_, !busy);
+    EnableWindow(keywordEdit_, !busy);
+    EnableWindow(keywordAdd_, !busy);
+    EnableWindow(keywordRemove_, !busy);
+    EnableWindow(keywordRecord_, !busy);
+    EnableWindow(keywordTrain_, !busy && !recording_);
+    EnableWindow(keywordExport_, keywordReady_ && !busy);
+    EnableWindow(keywordOpen_, !busy);
+    EnableWindow(keywordCheck_, !running && !recording_);
 }
 
 }  // namespace kstt::gui

@@ -14,6 +14,8 @@
 #include <thread>
 #include <vector>
 
+#include "kstt/keyword_listener.h"
+#include "kstt/keyword_model.h"
 #include "kstt/platform/audio_input.h"
 #include "kstt/stt_engine.h"
 #include "kstt/text_width.h"
@@ -76,8 +78,10 @@ void printUsage(const char* argv0) {
         "  --min-voiced <0..1>  낱말 구간에서 실제 발화가 차지해야 할 비율 (기본 0.6)\n"
         "  --max-word <초>      낱말 하나가 이보다 길면 버린다 (기본 2.0, 0 이면 끔)\n"
         "  --partial <모드>     진행 중 표시: off | stable(기본) | raw\n"
-        "  --vocab \"말1,말2\"    받아쓸 말을 이 목록으로 한정 (기본: 출근, 퇴근)\n"
+        "  --vocab \"말1,말2\"    받아쓸 말을 이 목록으로 한정 (기본: 출근, 퇴근, 경비, 해제)\n"
         "  --free               한정하지 않고 자유 받아쓰기\n"
+        "  --keywords <파일>    키워드 모델(.kmodel)만으로 인식한다. Vosk 는 쓰지 않는다.\n"
+        "                       창에서 '장치에 저장'한 파일을 장치에 복사해 이 옵션으로 연다.\n"
         "  --paths              모델/라이브러리 탐색 경로를 보여준다\n"
         "  -h, --help           이 도움말\n",
         argv0);
@@ -87,6 +91,7 @@ struct Options {
     std::string modelPath;
     std::string libPath;
     std::string wavPath;
+    std::string keywordsPath;
     int device = -1;
     int seconds = 0;
     int rate = 16000;
@@ -132,6 +137,8 @@ bool parseOptions(int argc, char** argv, Options* out, std::string* err) {
             if (!next(&out->libPath)) return false;
         } else if (arg == "--wav") {
             if (!next(&out->wavPath)) return false;
+        } else if (arg == "--keywords") {
+            if (!next(&out->keywordsPath)) return false;
         } else if (arg == "--device") {
             std::string value;
             if (!next(&value)) return false;
@@ -197,6 +204,56 @@ bool parseOptions(int argc, char** argv, Options* out, std::string* err) {
     return true;
 }
 
+int runKeywords(const Options& options) {
+    kstt::KeywordModel model;
+    std::string err;
+    if (!model.load(options.keywordsPath, &err)) {
+        std::fprintf(stderr, "키워드 모델 적재 실패: %s\n", err.c_str());
+        return 1;
+    }
+    std::printf("키워드 모델: %s\n", options.keywordsPath.c_str());
+    std::printf("말        : %s\n", model.summary().c_str());
+    std::printf("이 파일만 복사하면 다른 장치에서도 같은 말을 인식합니다.\n\n");
+
+    std::shared_ptr<kstt::AudioSource> source;
+    if (!options.wavPath.empty())
+        source = std::make_shared<kstt::WavFileSource>(options.wavPath);
+    else
+        source = kstt::platform::createMicrophone(options.device);
+
+    kstt::KeywordListener listener;
+    std::atomic<bool> failed{false};
+    listener.onResult([&](const std::string& word) { std::printf("  > %s\n", word.c_str()); });
+    listener.onState([&](bool running, const std::string& message, bool error) {
+        (void)running;
+        if (!error) return;
+        failed.store(true);
+        std::fprintf(stderr, "오류: %s\n", message.c_str());
+    });
+    if (!listener.start(source, model, &err)) {
+        std::fprintf(stderr, "인식 시작 실패: %s\n", err.c_str());
+        return 1;
+    }
+
+    if (!source->isLive()) {
+        std::printf("파일 인식 중: %s\n", source->name().c_str());
+        while (listener.isRunning()) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } else if (options.seconds > 0) {
+        std::printf("%s 에서 %d초 동안 듣습니다...\n", source->name().c_str(), options.seconds);
+        const auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(options.seconds);
+        while (listener.isRunning() && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    } else {
+        std::printf("%s 에서 듣습니다. 끝내려면 Enter.\n", source->name().c_str());
+        std::string line;
+        std::getline(std::cin, line);
+    }
+    listener.stop();
+    std::printf("\n끝났습니다.\n");
+    return failed.load() ? 1 : 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -246,6 +303,8 @@ int main(int argc, char** argv) {
             std::printf("  %3d  %s\n", device.id, device.name.c_str());
         return 0;
     }
+
+    if (!options.keywordsPath.empty()) return runKeywords(options);
 
     kstt::EngineConfig config;
     config.modelPath = options.modelPath;

@@ -8,13 +8,17 @@
 #include <gtk/gtk.h>
 
 #include <atomic>
-#include <map>
 #include <functional>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "kstt/audio_source.h"
+#include "kstt/keyword_listener.h"
+#include "kstt/keyword_model.h"
 #include "kstt/stt_engine.h"
 #include "kstt/types.h"
 
@@ -30,6 +34,7 @@ public:
 private:
     // --- 위젯 만들기 ---
     GtkWidget* buildSettings();
+    GtkWidget* buildKeywords();
     GtkWidget* buildControls();
     GtkWidget* buildTranscript();
 
@@ -38,6 +43,18 @@ private:
     void startMicrophone();
     void startWavFile(const std::string& path);
     void stopRecognition();
+    void prepareKeywords();
+    void refreshKeywordList();
+    void addKeyword();
+    void removeKeyword();
+    void recordKeyword();
+    void trainKeywords();
+    void exportKeywordModel();
+    void openKeywordModel();
+    void startKeywordSource(const std::shared_ptr<AudioSource>& source);
+    bool wantKeyword() const;
+    int selectedDeviceId() const;
+    std::string selectedKeyword() const;
     void refreshDevices();
     void chooseModelFolder();
     void chooseWavFile();
@@ -72,8 +89,29 @@ private:
     GtkWidget* spinner_ = nullptr;
     GtkTextBuffer* transcriptBuffer_ = nullptr;
     GtkWidget* transcriptView_ = nullptr;
+    GtkWidget* keywordList_ = nullptr;
+    GtkWidget* keywordEntry_ = nullptr;
+    GtkWidget* keywordAdd_ = nullptr;
+    GtkWidget* keywordRemove_ = nullptr;
+    GtkWidget* keywordRecord_ = nullptr;
+    GtkWidget* keywordTrain_ = nullptr;
+    GtkWidget* keywordExport_ = nullptr;
+    GtkWidget* keywordOpen_ = nullptr;
+    GtkWidget* keywordCheck_ = nullptr;
+    GtkWidget* keywordInfo_ = nullptr;
 
     SttEngine engine_;
+    KeywordWorkspace workspace_{KeywordWorkspace::defaultRoot()};
+    KeywordModel keywordModel_;
+    KeywordListener keywordListener_;
+    std::thread recordThread_;
+    std::thread trainThread_;
+    std::shared_ptr<AudioSource> captureSource_;
+    std::mutex captureMutex_;
+    std::atomic<bool> recordCancel_{false};
+    bool keywordReady_ = false;
+    bool recording_ = false;
+    bool training_ = false;
     std::vector<AudioDevice> devices_;
     std::thread loader_;
     bool loading_ = false;

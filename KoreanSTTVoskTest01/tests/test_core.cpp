@@ -16,6 +16,8 @@
 #include <thread>
 #include <vector>
 
+#include "kstt/keyword_listener.h"
+#include "kstt/keyword_model.h"
 #include "kstt/stt_engine.h"
 #include "kstt/text_width.h"
 #include "kstt/wav_file.h"
@@ -368,13 +370,14 @@ void testVocabularyParsing() {
     CHECK(kstt::decoyWords().size() > 100,
           "미끼 낱말이 너무 적다: " + std::to_string(kstt::decoyWords().size()));
     for (const std::string& decoy : kstt::decoyWords()) {
-        CHECK(decoy != "출근" && decoy != "퇴근",
+        CHECK(decoy != "출근" && decoy != "퇴근" && decoy != "경비" && decoy != "해제",
               "받을 말이 미끼에 들어 있다: " + decoy);
     }
 
     const std::vector<std::string>& preset = kstt::defaultVocabulary();
-    CHECK(preset.size() == 2 && preset[0] == "출근" && preset[1] == "퇴근",
-          "기본 목록이 출근·퇴근이 아니다");
+    CHECK(preset.size() == 4 && preset[0] == "출근" && preset[1] == "퇴근" &&
+              preset[2] == "경비" && preset[3] == "해제",
+          "기본 목록이 출근·퇴근·경비·해제가 아니다");
     endTest();
 }
 
@@ -605,6 +608,128 @@ void testEndToEndRecognition(const std::string& wavPath) {
     endTest();
 }
 
+void fillChirp(std::vector<int16_t>* out, double seconds, double f0, double f1) {
+    const int rate = kstt::kKeywordSampleRate;
+    const size_t n = static_cast<size_t>(rate * seconds);
+    out->assign(n, 0);
+    double phase = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        const double p = n > 1 ? static_cast<double>(i) / static_cast<double>(n - 1) : 0.0;
+        const double freq = f0 + (f1 - f0) * p;
+        phase += 2.0 * kPi * freq / rate;
+        const double env = std::sin(kPi * p);
+        (*out)[i] = static_cast<int16_t>(std::sin(phase) * 0.55 * 32767.0 * env);
+    }
+}
+
+void testKeywordModelRoundTrip() {
+    startTest("키워드: 학습 결과를 다른 경로에서 다시 읽는다");
+
+    const fs::path root =
+        fs::temp_directory_path() / "kstt-keyword-test" /
+        std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+
+    const auto rootUtf8 = root.u8string();
+    kstt::KeywordWorkspace workspace(std::string(rootUtf8.begin(), rootUtf8.end()));
+    std::string err;
+    CHECK(workspace.prepare(&err), "학습 폴더 준비 실패: " + err);
+    const std::vector<std::string> preset = workspace.words();
+    CHECK(preset.size() == 4 && preset[2] == "경비", "기본 말이 출근·퇴근·경비·해제가 아니다");
+
+    CHECK(workspace.addWord("순찰", &err), "말 추가 실패: " + err);
+    CHECK(!workspace.addWord("순찰", &err), "같은 말을 두 번 넣었다");
+
+    const auto writeWord = [&](const std::string& word, double f0, double f1, double shift,
+                               std::string* writeError) {
+        std::vector<int16_t> audio;
+        fillChirp(&audio, 0.55, f0, f1);
+        if (!kstt::writeWav16(workspace.allocateSamplePath(word), audio.data(), audio.size(),
+                              kstt::kKeywordSampleRate, writeError))
+            return false;
+        fillChirp(&audio, 0.62, f0 + shift, f1 + shift);
+        return kstt::writeWav16(workspace.allocateSamplePath(word), audio.data(), audio.size(),
+                                kstt::kKeywordSampleRate, writeError);
+    };
+    CHECK(writeWord("출근", 220, 780, 15, &err), "출근 녹음 저장 실패: " + err);
+    CHECK(writeWord("퇴근", 1400, 420, -20, &err), "퇴근 녹음 저장 실패: " + err);
+    CHECK(writeWord("순찰", 1800, 2400, 30, &err), "순찰 녹음 저장 실패: " + err);
+
+    kstt::KeywordModel trained;
+    kstt::KeywordTrainReport report;
+    CHECK(kstt::trainKeywordModel(workspace, &trained, &report, &err), "학습 실패: " + err);
+    CHECK(report.words == 3, "학습된 말 수: " + std::to_string(report.words));
+    CHECK(report.samples == 6, "학습된 녹음 수: " + std::to_string(report.samples));
+    bool skippedGuard = false;
+    for (const std::string& skipped : report.skippedWords) {
+        if (skipped == "경비" || skipped == "해제") skippedGuard = true;
+    }
+    CHECK(skippedGuard, "녹음이 없는 말이 빠지지 않았다");
+
+    const fs::path deviceFile = root / "device" / "keywords.kmodel";
+    const auto deviceUtf8 = deviceFile.u8string();
+    const std::string devicePath(deviceUtf8.begin(), deviceUtf8.end());
+    CHECK(trained.save(devicePath, &err), "장치용 저장 실패: " + err);
+
+    kstt::KeywordModel loaded;
+    CHECK(loaded.load(devicePath, &err), "장치에서 읽기 실패: " + err);
+    CHECK(loaded.summary() == trained.summary(), "옮긴 모델의 말 목록이 다르다");
+
+    std::vector<int16_t> probe;
+    fillChirp(&probe, 0.58, 230, 760);
+    const kstt::KeywordHit chulgeun = loaded.match(probe.data(), probe.size());
+    CHECK(chulgeun.word == "출근",
+          "출근을 \"" + chulgeun.word + "\" 로 봤다 (거리 " + std::to_string(chulgeun.distance) +
+              ")");
+
+    fillChirp(&probe, 0.58, 1350, 450);
+    const kstt::KeywordHit toegeun = loaded.match(probe.data(), probe.size());
+    CHECK(toegeun.word == "퇴근",
+          "퇴근을 \"" + toegeun.word + "\" 로 봤다 (거리 " + std::to_string(toegeun.distance) +
+              ")");
+
+    fillChirp(&probe, 0.58, 1900, 2500);
+    const kstt::KeywordHit patrol = loaded.match(probe.data(), probe.size());
+    CHECK(patrol.word == "순찰",
+          "추가한 말을 \"" + patrol.word + "\" 로 봤다 (거리 " + std::to_string(patrol.distance) +
+              ")");
+
+    std::vector<int16_t> silence(kstt::kKeywordSampleRate, 0);
+    const kstt::KeywordHit quiet = loaded.match(silence.data(), silence.size());
+    CHECK(quiet.word.empty() && !quiet.hasVoice, "무음을 말로 받았다");
+
+    std::vector<int16_t> other;
+    fillChirp(&other, 0.5, 40, 80);
+    const kstt::KeywordHit rejected = loaded.match(other.data(), other.size());
+    CHECK(rejected.word.empty(),
+          "관계없는 소리를 \"" + rejected.word + "\" 로 받았다 (거리 " +
+              std::to_string(rejected.distance) + ")");
+
+    std::vector<int16_t> padded(static_cast<size_t>(0.2 * kstt::kKeywordSampleRate), 0);
+    fillChirp(&probe, 0.55, 210, 800);
+    padded.insert(padded.end(), probe.begin(), probe.end());
+    padded.insert(padded.end(), static_cast<size_t>(0.25 * kstt::kKeywordSampleRate), 0);
+    const std::string wavPath = (root / "probe.wav").string();
+    CHECK(kstt::writeWav16(wavPath, padded.data(), padded.size(), kstt::kKeywordSampleRate, &err),
+          "시험 음원 저장 실패: " + err);
+
+    kstt::KeywordListener listener;
+    std::string heard;
+    listener.onResult([&](const std::string& word) { heard = word; });
+    CHECK(listener.start(std::make_shared<kstt::WavFileSource>(wavPath), loaded, &err),
+          "키워드 듣기 시작 실패: " + err);
+    for (int i = 0; i < 100 && listener.isRunning(); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    listener.stop();
+    CHECK(heard == "출근", "파일 인식을 \"" + heard + "\" 로 받았다");
+
+    fs::remove_all(root, ec);
+    endTest();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -648,6 +773,9 @@ int main(int argc, char** argv) {
 
     testVocabularyParsing();
     testVocabularyFilter();
+
+    std::printf("\n[키워드]\n");
+    testKeywordModelRoundTrip();
 
     std::printf("\n[엔진]\n");
     testEngineRejectsBadModel();

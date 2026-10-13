@@ -62,6 +62,9 @@ add_library(kstt_core STATIC
     core/src/wav_file.cpp
     core/src/vocabulary.cpp
     core/src/word_filter.cpp
+    core/src/keyword_audio.cpp
+    core/src/keyword_model.cpp
+    core/src/keyword_listener.cpp
 )
 target_include_directories(kstt_core PUBLIC core/include)
 target_include_directories(kstt_core PRIVATE core/src)
