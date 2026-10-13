@@ -1,0 +1,24 @@
+{
+  "name": "image2text",
+  "private": true,
+  "version": "2.0.0",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "node --test test/aspect.test.js test/raster.test.js test/sample.test.js"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "jxl-oxide-wasm": "^0.12.6",
+    "libheif-js": "^1.23.5",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^6"
+  }
+}

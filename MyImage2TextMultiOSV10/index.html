@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image2Text</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="titlebar" id="titlebar" data-tauri-drag-region>
+        <img class="titlebar-icon" src="/icon.svg" alt="" draggable="false" />
+        <span class="titlebar-name">Image2Text</span>
+        <span class="titlebar-version">2.0.0</span>
+        <div class="titlebar-controls" id="window-controls">
+          <button id="win-min" type="button" data-i18n-aria="minimize" aria-label="최소화">
+            <svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg>
+          </button>
+          <button id="win-max" type="button" data-i18n-aria="maximize" aria-label="최대화">
+            <svg class="icon-max" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" /></svg>
+            <svg class="icon-restore" viewBox="0 0 12 12"><rect x="3.2" y="1.6" width="7" height="7" /><path d="M1.6 3.4v7h7" /></svg>
+          </button>
+          <button id="win-close" class="close" type="button" data-i18n-aria="close" aria-label="닫기">
+            <svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>
+          </button>
+        </div>
+      </header>
+      <div class="toolbar" id="toolbar">
+        <div class="titlebar-actions">
+          <div class="menu-anchor">
+            <button id="btn-file" class="title-action" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="fileMenu" aria-label="파일">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 3.4h4.2l1.3 1.5h6.1v8.4H2.2z"/></svg>
+              <span data-i18n="file">파일</span>
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+            </button>
+            <div id="file-menu" class="file-menu" hidden role="menu">
+              <button type="button" class="file-command" data-file="open">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 4.2h4l1.2 1.4H14v7.2H2.2z"/></svg>
+                <span data-i18n="fileOpen">파일 열기</span>
+              </button>
+              <button type="button" class="file-command" data-file="save">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.2h7.2L13 5v8.8H3z"/><path d="M5 2.2v3.2h5.2M5 13.8v-3.6h6v3.6"/></svg>
+                <span data-i18n="fileSave">저장하기</span>
+              </button>
+              <div class="file-recent-head">
+                <span data-i18n="recent">최근 사용한 파일</span>
+                <button id="btn-clear-recent" class="text-btn" type="button">
+                  <span data-i18n="clearAll">모두 지우기</span>
+                </button>
+              </div>
+              <p id="recent-empty" class="file-recent-empty" data-i18n="recentEmpty">최근에 사용한 파일이 없습니다.</p>
+              <div id="recent-list"></div>
+            </div>
+          </div>
+          <div class="theme-split">
+            <button id="btn-theme" class="title-action theme-cycle" type="button" title="다음 테마">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 1 0 0 12.8c.7 0 1.2-.5 1.2-1.2 0-.3-.1-.6-.4-.8a1.2 1.2 0 0 1-.4-1c0-.7.6-1.2 1.3-1.2H11A3.4 3.4 0 0 0 14.4 6 6.4 6.4 0 0 0 8 1.6z"/><circle cx="5.2" cy="6.2" r=".8" fill="currentColor" stroke="none"/><circle cx="8" cy="4.6" r=".8" fill="currentColor" stroke="none"/><circle cx="10.8" cy="6.2" r=".8" fill="currentColor" stroke="none"/></svg>
+              <span data-i18n="theme">테마</span>
+            </button>
+            <button id="btn-theme-menu" class="theme-pick" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="themePick" aria-label="테마 고르기">
+              <span id="theme-swatch" class="mini-swatch" aria-hidden="true"><i id="theme-swatch-dot"></i></span>
+              <span id="theme-current">미드나잇</span>
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+            </button>
+            <div id="theme-menu" class="theme-menu" hidden role="menu">
+              <div class="theme-cols">
+                <section>
+                  <div class="theme-col-head"><span data-i18n="themeDark">다크</span> <span class="theme-count">20</span></div>
+                  <div id="theme-menu-dark" class="theme-pair"></div>
+                </section>
+                <section>
+                  <div class="theme-col-head"><span data-i18n="themeLight">라이트</span> <span class="theme-count">20</span></div>
+                  <div id="theme-menu-light" class="theme-pair"></div>
+                </section>
+              </div>
+              <div class="theme-custom-block">
+                <div class="theme-col-head" data-i18n="themeCustom">사용자 테마</div>
+                <div id="theme-menu-custom" class="theme-custom-grid"></div>
+              </div>
+              <button id="btn-theme-manage" class="text-btn theme-manage" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
+                <span data-i18n="themeManage">테마 관리</span>
+              </button>
+            </div>
+          </div>
+          <button id="btn-language" class="title-action" type="button" data-i18n-title="languageSwitch" data-i18n-aria="languageSwitch" title="영어로 바꿉니다" aria-label="영어로 바꿉니다">
+            <svg id="flag-uk" class="flag" viewBox="0 0 60 30" aria-hidden="true">
+              <defs><clipPath id="flag-uk-clip"><rect width="60" height="30"/></clipPath></defs>
+              <g clip-path="url(#flag-uk-clip)">
+                <rect width="60" height="30" fill="#012169"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="6"/>
+                <path d="M0 0 60 30M60 0 0 30" stroke="#C8102E" stroke-width="4"/>
+                <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                <path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>
+              </g>
+            </svg>
+            <svg id="flag-kr" class="flag is-off" viewBox="0 0 72 48" aria-hidden="true">
+              <rect width="72" height="48" fill="#fff"/>
+              <g transform="translate(36 24)">
+                <circle r="8" fill="#cd2e3a"/>
+                <path d="M0-8a8 8 0 0 0 0 16 4 4 0 0 0 0-8 4 4 0 0 1 0-8" fill="#0047a0"/>
+              </g>
+              <g fill="#111">
+                <g transform="translate(15 12) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+                <g transform="translate(57 36) rotate(-56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(57 12) rotate(56)">
+                  <rect x="-5" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-3.4" width="4.1" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="10" height="1.15"/>
+                  <rect x="-5" y="1.3" width="4.1" height="1.15"/>
+                  <rect x=".9" y="1.3" width="4.1" height="1.15"/>
+                </g>
+                <g transform="translate(15 36) rotate(56)">
+                  <rect x="-5" y="-3.4" width="10" height="1.15"/>
+                  <rect x="-5" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x=".9" y="-1.05" width="4.1" height="1.15"/>
+                  <rect x="-5" y="1.3" width="10" height="1.15"/>
+                </g>
+              </g>
+            </svg>
+            <span data-i18n="languageSwitchLabel">English</span>
+          </button>
+          <button id="btn-settings" class="title-action" type="button" data-i18n-title="settingsTip" title="설정 (Ctrl+,)">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1.7h3l.4 1.6 1.3.5 1.3-.9 1.5 1.5-.9 1.3.5 1.3 1.6.4v3l-1.6.4-.5 1.3.9 1.3-1.5 1.5-1.3-.9-1.3.5-.4 1.6h-3l-.4-1.6-1.3-.5-1.3.9-1.5-1.5.9-1.3-.5-1.3L1.8 10.7v-3l1.6-.4.5-1.3-.9-1.3 1.5-1.5 1.3.9 1.3-.5z"/><circle cx="8" cy="8" r="1.7"/></svg>
+            <span data-i18n="settings">설정</span>
+          </button>
+          <button id="btn-about" class="title-action" type="button" data-i18n-title="aboutTip" title="프로그램 정보 (F1)">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 7.2V12M8 4.7h.01"/></svg>
+            <span data-i18n="about">정보</span>
+          </button>
+        </div>
+      </div>
+      <div class="shell">
+        <aside class="rail">
+          <section class="sources">
+            <div class="panel-head" data-tauri-drag-region>
+              <span class="step">1</span>
+              <h2 data-i18n="images">이미지</h2>
+              <span class="panel-spacer"></span>
+              <button id="btn-clear-sources" class="text-btn" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.2 4.5V3h3.6v1.5M4.5 4.5l.6 9h5.8l.6-9"/></svg>
+                <span data-i18n="clearAll">모두 지우기</span>
+              </button>
+            </div>
+            <button id="btn-add" class="add-btn" type="button" title="Ctrl+O">
+              <span class="add-plus" aria-hidden="true">+</span>
+              <span data-i18n="addImages">이미지 추가</span>
+            </button>
+            <p id="source-empty" class="panel-empty" data-i18n="sourceEmpty">파일을 여기에 놓거나 추가하세요. 여러 장을 한 번에 넣을 수 있습니다.</p>
+            <div id="source-list"></div>
+            <input id="file-input" type="file" accept=".png,.jpg,.jpeg,.jpe,.jfif,.gif,.bmp,.webp,.ico,.svg,.avif,.heic,.heif,.hif,.jxl,.tif,.tiff,.qoi,.tga,.hdr,.pic,.pbm,.pgm,.ppm,.pnm,image/png,image/jpeg,image/gif,image/bmp,image/webp,image/svg+xml,image/avif,image/heic,image/heif,image/jxl,image/tiff" multiple hidden />
+          </section>
+
+          <section class="settings" data-i18n-aria="convertSettings" aria-label="변환 설정">
+            <div class="panel-head">
+              <span class="step">2</span>
+              <h2 data-i18n="convertSection">변환</h2>
+            </div>
+
+            <div class="style-grid" id="style-grid">
+              <label class="chip chip-custom"><input id="custom-on" type="checkbox" /><span class="chip-name" data-i18n="custom">사용자</span></label>
+              <input id="custom-chars" type="text" value="@#*+:. " spellcheck="false" maxlength="80" data-i18n-aria="customChars" data-i18n-title="customCharsTitle" aria-label="사용자 문자" title="왼쪽이 어두운 글자, 오른쪽이 밝은 글자입니다. 맨 끝 공백은 가장 밝은 칸입니다." />
+            </div>
+
+            <div class="slider">
+              <label for="cols" data-i18n="cols">열 수</label>
+              <div class="meter">
+                <button type="button" class="nudge" data-nudge="-1" data-i18n-aria="decrease" aria-label="감소" aria-controls="cols">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+                </button>
+                <div class="meter-body">
+                  <input id="cols" type="range" min="24" max="220" value="100" />
+                  <output id="cols-out" for="cols">100</output>
+                </div>
+                <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="cols">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="slider">
+              <label for="contrast" data-i18n="contrast">대비</label>
+              <div class="meter">
+                <button type="button" class="nudge" data-nudge="-1" data-i18n-aria="decrease" aria-label="감소" aria-controls="contrast">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+                </button>
+                <div class="meter-body">
+                  <input id="contrast" type="range" min="0" max="100" value="50" />
+                  <output id="contrast-out" for="contrast">50</output>
+                </div>
+                <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="contrast">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="slider">
+              <label for="brightness" data-i18n="brightness">밝기</label>
+              <div class="meter">
+                <button type="button" class="nudge" data-nudge="-1" data-i18n-aria="decrease" aria-label="감소" aria-controls="brightness">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+                </button>
+                <div class="meter-body">
+                  <input id="brightness" type="range" min="0" max="100" value="50" />
+                  <output id="brightness-out" for="brightness">50</output>
+                </div>
+                <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="brightness">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="toggles">
+              <label class="chip"><input id="invert" type="checkbox" /><span class="chip-name" data-i18n="invert">밝기 반전</span></label>
+              <label class="chip"><input id="edge" type="checkbox" /><span class="chip-name" data-i18n="edge">윤곽선</span></label>
+              <label class="chip"><input id="color" type="checkbox" /><span class="chip-name" data-i18n="color">컬러</span></label>
+            </div>
+
+            <label class="choice"><span data-i18n="font">글꼴</span>
+              <select id="font">
+                <option value='Consolas, "Courier New", monospace'>Consolas</option>
+                <option value='"Cascadia Mono", Consolas, monospace'>Cascadia Mono</option>
+                <option value='"Courier New", Consolas, monospace'>Courier New</option>
+                <option value='"Lucida Console", Consolas, monospace'>Lucida Console</option>
+                <option value='NSimSun, "MS Gothic", monospace'>NSimSun</option>
+                <option value='"MS Gothic", NSimSun, monospace'>MS Gothic</option>
+              </select>
+            </label>
+
+            <button id="btn-reset" class="text-btn reset" type="button">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2"/><path d="M13.2 2.2v3.1H10"/></svg>
+              <span data-i18n="resetConversion">변환 초기화</span>
+            </button>
+          </section>
+          <div class="convert-dock">
+            <button id="btn-convert" class="convert" type="button" title="F5">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.6" width="6" height="5.4" rx="1"/><path d="M8.4 5.2h2.2M9.5 3.9 11.2 5.2 9.5 6.5"/><path d="M1.8 11.2h12.4M1.8 13.4h8"/></svg>
+              <span class="tb-label">한번에 변환</span>
+            </button>
+            <p id="plan"></p>
+          </div>
+        </aside>
+
+        <div class="workspace">
+          <div class="stage-bar">
+            <span class="step">3</span>
+            <h2 data-i18n="chosen">고른 결과</h2>
+            <div class="stage-actions">
+              <button id="btn-edit" class="act" type="button" title="Ctrl+E" aria-pressed="false">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.4 2.6 13.4 6.6 6.2 13.8H2.2v-4z"/></svg>
+                <span class="tb-label">편집</span>
+              </button>
+              <button id="btn-copy" class="act" type="button" title="Ctrl+C">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.2" height="8.2" rx="1.3"/><path d="M3.2 10.8H2.6A1.2 1.2 0 0 1 1.4 9.6V2.8A1.2 1.2 0 0 1 2.6 1.6h6.8a1.2 1.2 0 0 1 1.2 1.2v.6"/></svg>
+                <span data-i18n="copy">복사</span>
+              </button>
+              <button id="btn-txt" class="act" type="button" title="Ctrl+S">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
+                <span data-i18n="textFile">텍스트</span>
+              </button>
+              <button id="btn-html" class="act" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
+                <span data-i18n="html">HTML</span>
+              </button>
+              <button id="btn-png" class="act accent" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.4"/><circle cx="5.4" cy="6" r="1"/><path d="M2.2 11.2 5.6 8.2l2.1 1.8 1.4-1.2 4.5 3.4"/></svg>
+                <span data-i18n="png">PNG</span>
+              </button>
+            </div>
+          </div>
+
+          <section class="stage">
+            <div id="stage-empty" class="welcome">
+              <img src="/icon.svg" alt="" draggable="false" />
+              <h1 data-i18n="welcomeTitle">이미지를 텍스트로</h1>
+              <ol>
+                <li data-i18n="welcome1">왼쪽에 이미지를 추가합니다.</li>
+                <li data-i18n="welcome2">스타일을 고르고 한번에 변환합니다.</li>
+                <li data-i18n="welcome3">아래 카드에서 저장할 결과를 고릅니다.</li>
+              </ol>
+            </div>
+            <div id="compare" class="compare" hidden>
+              <figure>
+                <div class="slot" id="source-slot">
+                  <div class="frame" id="source-frame">
+                    <img id="source-preview" alt="선택한 결과의 원본 이미지" data-i18n-aria="sourceAlt" draggable="false" />
+                  </div>
+                </div>
+                <figcaption id="source-caption"></figcaption>
+              </figure>
+              <figure>
+                <div class="slot" id="text-slot">
+                  <div class="frame" id="text-frame">
+                    <canvas id="text-preview"></canvas>
+                    <textarea id="text-editor" spellcheck="false" aria-label="선택한 텍스트 편집" data-i18n-aria="editorLabel"></textarea>
+                  </div>
+                </div>
+                <figcaption id="text-caption"></figcaption>
+              </figure>
+            </div>
+          </section>
+
+          <section class="gallery" data-i18n-aria="galleryLabel" aria-label="변환 결과">
+            <div class="panel-head">
+              <h2><span data-i18n="results">결과</span> <span id="result-count"></span></h2>
+            </div>
+            <p id="gallery-empty" class="panel-empty" data-i18n="galleryEmpty">변환하면 결과가 여기에 나열됩니다. 카드를 눌러 하나를 고르세요.</p>
+            <div class="gallery-scroller">
+              <button id="gallery-prev" class="gallery-nav" type="button" hidden data-i18n-aria="galleryPrev" aria-label="이전 결과">&lt;</button>
+              <div id="gallery-track"></div>
+              <button id="gallery-next" class="gallery-nav" type="button" hidden data-i18n-aria="galleryNext" aria-label="다음 결과">&gt;</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer class="statusbar" id="status">
+        <span class="sb-item grow" id="status-message" data-i18n="ready">이미지를 추가하세요.</span>
+        <span class="sb-item" id="status-detail"></span>
+        <button id="resize-grip" class="resize-grip" type="button" data-i18n-aria="resize" aria-label="창 크기 변경">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M10 2.5 2.5 10" />
+            <path d="M10 6.2 6.2 10" />
+            <path d="M10 9.6 9.6 10" />
+          </svg>
+        </button>
+      </footer>
+    </div>
+
+    <dialog id="settings-dialog" class="modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-head">
+          <h2 data-i18n="settingsTitle">설정</h2>
+          <span class="panel-spacer"></span>
+          <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+          </button>
+        </header>
+        <div class="settings-tabs" role="tablist">
+          <button class="settings-tab active" type="button" role="tab" data-settings-tab="general" aria-selected="true" data-i18n="tabGeneral">일반</button>
+          <button class="settings-tab" type="button" role="tab" data-settings-tab="appearance" aria-selected="false" data-i18n="tabAppearance">화면</button>
+          <button class="settings-tab" type="button" role="tab" data-settings-tab="theme" aria-selected="false" data-i18n="tabTheme">테마</button>
+        </div>
+        <div class="modal-body">
+          <section class="settings-page" data-settings-page="general">
+            <h3 data-i18n="language">언어</h3>
+            <div class="lang-row">
+              <label class="chip"><input type="radio" name="language" value="ko" checked /><span data-i18n="languageKo">한국어</span></label>
+              <label class="chip"><input type="radio" name="language" value="en" /><span data-i18n="languageEn">English</span></label>
+            </div>
+          </section>
+          <section class="settings-page" data-settings-page="appearance" hidden>
+            <h3 data-i18n="appearance">화면</h3>
+            <div class="slider">
+              <label for="ui-size" data-i18n="uiSize">글자 크기</label>
+              <div class="meter">
+                <button type="button" class="nudge" data-nudge="-1" data-i18n-aria="decrease" aria-label="감소" aria-controls="ui-size">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+                </button>
+                <div class="meter-body">
+                  <input id="ui-size" type="range" min="12" max="18" value="13" />
+                  <output id="ui-size-out" for="ui-size">13</output>
+                </div>
+                <button type="button" class="nudge" data-nudge="1" data-i18n-aria="increase" aria-label="증가" aria-controls="ui-size">
+                  <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="toggles">
+              <label class="chip"><input id="ui-bold" type="checkbox" /><span class="chip-name" data-i18n="uiBold">굵게</span></label>
+              <label class="chip"><input id="ui-italic" type="checkbox" /><span class="chip-name" data-i18n="uiItalic">기울임</span></label>
+            </div>
+          </section>
+          <section class="settings-page" data-settings-page="theme" hidden>
+            <p class="theme-note" data-i18n="themeNote">다크 20개와 라이트 20개는 고른 결과 줄의 테마 목록에서 고릅니다.</p>
+            <div class="custom-actions">
+              <button id="btn-custom-new" class="text-btn" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+                <span data-i18n="customNew">새 테마</span>
+              </button>
+              <button id="btn-custom-delete" class="text-btn" type="button">
+                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.2 4.5V3h3.6v1.5M4.5 4.5l.6 9h5.8l.6-9"/></svg>
+                <span data-i18n="customDelete">삭제</span>
+              </button>
+            </div>
+            <p id="custom-empty" class="panel-empty" data-i18n="customEmpty">사용자 테마가 없습니다. 새 테마로 색을 직접 정합니다.</p>
+            <div id="custom-form">
+              <label class="choice"><span data-i18n="customPick">편집 중</span>
+                <select id="custom-pick"></select>
+              </label>
+              <label class="choice"><span data-i18n="customName">이름</span>
+                <input id="custom-name" type="text" maxlength="40" />
+              </label>
+              <div class="lang-row">
+                <label class="chip"><input type="radio" name="custom-mode" value="dark" checked /><span data-i18n="themeDark">다크</span></label>
+                <label class="chip"><input type="radio" name="custom-mode" value="light" /><span data-i18n="themeLight">라이트</span></label>
+              </div>
+              <div class="color-grid">
+                <label><span data-i18n="colorBg">배경</span><input id="custom-bg" type="color" value="#1a1d27" /></label>
+                <label><span data-i18n="colorPanel">패널</span><input id="custom-panel" type="color" value="#242836" /></label>
+                <label><span data-i18n="colorText">글자</span><input id="custom-text" type="color" value="#e8eaf2" /></label>
+                <label><span data-i18n="colorAccent">강조</span><input id="custom-accent" type="color" value="#7aa2f7" /></label>
+                <label><span data-i18n="colorTitlebar">상태 표시줄</span><input id="custom-titlebar" type="color" value="#13151c" /></label>
+              </div>
+            </div>
+          </section>
+        </div>
+        <footer class="modal-foot">
+          <button id="btn-reset-all" class="text-btn" type="button">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.2"/><path d="M13.2 2.2v3.1H10"/></svg>
+            <span data-i18n="resetAll">모든 설정 초기화</span>
+          </button>
+          <span class="panel-spacer"></span>
+          <button class="act accent" type="submit" value="close">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+            <span data-i18n="close">닫기</span>
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="about-dialog" class="modal about-modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-head">
+          <img class="titlebar-icon" src="/icon.svg" alt="" />
+          <h2 data-i18n="aboutTitle">프로그램 정보</h2>
+          <span class="panel-spacer"></span>
+          <button class="icon-x" type="submit" value="close" data-i18n-aria="close" aria-label="닫기">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+          </button>
+        </header>
+        <div class="modal-body">
+          <p class="about-name">Image2Text <span>v2.0.0</span></p>
+          <p class="about-desc" data-i18n="aboutDescription">이미지를 텍스트로 바꾸고, 원본과 같은 가로세로 비율의 결과를 여러 개 만든 뒤 하나를 고릅니다.</p>
+          <dl class="about-list">
+            <dt data-i18n="aboutVersion">버전</dt>
+            <dd>2.0.0</dd>
+            <dt data-i18n="aboutAuthor">제작자</dt>
+            <dd id="about-author">SHKWON (<a href="mailto:knix008@naver.com">knix008@naver.com</a>)</dd>
+            <dt data-i18n="aboutLicense">라이선스</dt>
+            <dd>MIT</dd>
+            <dt data-i18n="aboutBuild">빌드</dt>
+            <dd id="about-build"></dd>
+            <dt data-i18n="aboutRuntime">실행 환경</dt>
+            <dd id="about-runtime"></dd>
+            <dt data-i18n="aboutPlatform">플랫폼</dt>
+            <dd id="about-platform"></dd>
+            <dt data-i18n="aboutFormats">입력 형식</dt>
+            <dd id="about-formats" class="about-formats"></dd>
+          </dl>
+        </div>
+        <footer class="modal-foot">
+          <button id="btn-copy-about" class="text-btn" type="button">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.2" height="8.2" rx="1.3"/><path d="M3.2 10.8H2.6A1.2 1.2 0 0 1 1.4 9.6V2.8A1.2 1.2 0 0 1 2.6 1.6h6.8a1.2 1.2 0 0 1 1.2 1.2v.6"/></svg>
+            <span data-i18n="copyInfo">정보 복사</span>
+          </button>
+          <span class="panel-spacer"></span>
+          <button class="act accent" type="submit" value="close">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+            <span data-i18n="close">닫기</span>
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="save-dialog" class="modal save-modal">
+      <form method="dialog" class="modal-card">
+        <header class="modal-head">
+          <h2 data-i18n="saveTitle">변경 내용</h2>
+          <span class="panel-spacer"></span>
+          <button class="icon-x" type="button" data-close="cancel" data-i18n-aria="cancel" aria-label="취소">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+          </button>
+        </header>
+        <div class="modal-body">
+          <p id="save-prompt" class="save-prompt"></p>
+        </div>
+        <footer class="modal-foot">
+          <button class="act" type="button" data-close="discard">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4 4 12"/></svg>
+            <span data-i18n="discardChanges">저장 안 함</span>
+          </button>
+          <span class="panel-spacer"></span>
+          <button class="act" type="button" data-close="cancel">
+            <span data-i18n="cancel">취소</span>
+          </button>
+          <button class="act accent" type="submit" value="save">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
+            <span data-i18n="saveChanges">저장</span>
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <div id="result-menu" class="result-menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-save="txt">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
+        <span data-i18n="saveText">텍스트로 저장</span>
+      </button>
+      <button type="button" role="menuitem" data-save="html">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
+        <span data-i18n="saveHtml">HTML로 저장</span>
+      </button>
+      <button type="button" role="menuitem" data-save="png">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.4"/><circle cx="5.4" cy="6" r="1"/><path d="M2.2 11.2 5.6 8.2l2.1 1.8 1.4-1.2 4.5 3.4"/></svg>
+        <span data-i18n="savePng">PNG로 저장</span>
+      </button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
