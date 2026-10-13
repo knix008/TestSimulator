@@ -371,9 +371,13 @@ keyword-workspace/samples/<말>/0001.wav
 `KeywordModel::match` 가 맞춘다. CLI 는 `--keywords <파일>` 이면 Vosk 적재를
 건너뛴다.
 
-GUI(Win32, GTK4)는 추가·삭제·녹음·학습·장치에 저장·모델 열기를 이 API 로만
-한다. 학습이 끝나면 모달 창에 저장 경로, 바이트 크기, 말별 녹음 수, 표본율,
-빠뜨린 말을 보여 준다. macOS Cocoa 창에는 이 화면이 아직 없다.
+GUI(Win32, GTK4)는 추가·삭제·녹음·학습·초기화·장치에 저장·모델 열기를 이 API 로만
+한다. `resetTraining` 은 `words.txt` 를 남기고 녹음과 `model.kmodel` 만 지운다.
+`moveWord` 는 `words.txt` 의 순서를 바꾸고, 학습 모델이 있으면 `orderLike` 로
+그 파일의 말 순서도 맞춘다. 학습이 끝나면 모달 창에 저장 경로, 바이트 크기, 말별 녹음 수, 표본율,
+빠뜨린 말을 보여 주고, 그 모델을 인식에 쓴 뒤 Vosk 모델은 메모리에서 내린다.
+창을 다시 열어도 학습 파일이 있으면 Vosk 를 올리지 않는다. 체크를 끄면 Vosk 를
+다시 적재한다. macOS Cocoa 창에는 이 화면이 아직 없다.
 
 ## 10. 결과 해석
 

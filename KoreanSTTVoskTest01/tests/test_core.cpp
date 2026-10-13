@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <filesystem>
 #include <string>
@@ -730,6 +731,84 @@ void testKeywordModelRoundTrip() {
     endTest();
 }
 
+void testKeywordTrainingReset() {
+    startTest("키워드: 학습 데이터만 지우고 말은 남긴다");
+
+    const fs::path root = fs::temp_directory_path() / "kstt-keyword-reset" /
+                          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+
+    const auto rootUtf8 = root.u8string();
+    kstt::KeywordWorkspace workspace(std::string(rootUtf8.begin(), rootUtf8.end()));
+    std::string err;
+    CHECK(workspace.prepare(&err), "학습 폴더 준비 실패: " + err);
+    CHECK(workspace.addWord("순찰", &err), "말 추가 실패: " + err);
+
+    std::vector<int16_t> audio;
+    fillChirp(&audio, 0.4, 300, 600);
+    CHECK(kstt::writeWav16(workspace.allocateSamplePath("출근"), audio.data(), audio.size(),
+                           kstt::kKeywordSampleRate, &err),
+          "녹음 저장 실패: " + err);
+    CHECK(workspace.sampleCount("출근") == 1, "녹음이 저장되지 않았다");
+
+    const auto modelUtf8 = fs::path(workspace.modelPath()).u8string();
+    {
+        std::ofstream model(fs::u8path(std::string(modelUtf8.begin(), modelUtf8.end())),
+                            std::ios::binary);
+        model << "trained";
+        CHECK(static_cast<bool>(model), "학습 모델 파일을 만들지 못했다");
+    }
+
+    const std::vector<std::string> before = workspace.words();
+    CHECK(workspace.resetTraining(&err), "초기화 실패: " + err);
+    CHECK(workspace.words() == before, "초기화 후 말 목록이 바뀌었다");
+    for (const std::string& word : before)
+        CHECK(workspace.sampleCount(word) == 0, word + " 녹음이 남아 있다");
+    CHECK(!fs::exists(fs::u8path(workspace.modelPath()), ec), "학습 모델 파일이 남아 있다");
+    CHECK(fs::is_directory(fs::u8path(workspace.samplesDir("순찰")), ec), "추가한 말 폴더가 사라졌다");
+
+    fs::remove_all(root, ec);
+    endTest();
+}
+
+void testKeywordReorder() {
+    startTest("키워드: 표시 순서를 바꿀 수 있다");
+
+    const fs::path root = fs::temp_directory_path() / "kstt-keyword-order" /
+                          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+
+    const auto rootUtf8 = root.u8string();
+    kstt::KeywordWorkspace workspace(std::string(rootUtf8.begin(), rootUtf8.end()));
+    std::string err;
+    CHECK(workspace.prepare(&err), "학습 폴더 준비 실패: " + err);
+    CHECK(!workspace.moveWord(0, -1, &err), "맨 위를 더 위로 옮겼다");
+    CHECK(workspace.moveWord(3, -1, &err), "아래로 내리지 못했다: " + err);
+    std::vector<std::string> words = workspace.words();
+    CHECK(words.size() == 4 && words[2] == "해제" && words[3] == "경비", "해제와 경비 순서가 그대로다");
+    CHECK(workspace.moveWord(0, 1, &err), "아래로 내리지 못했다: " + err);
+    words = workspace.words();
+    CHECK(words[0] == "퇴근" && words[1] == "출근", "출근과 퇴근 순서가 그대로다");
+
+    kstt::KeywordModel model;
+    kstt::KeywordClass first;
+    first.word = "출근";
+    kstt::KeywordClass second;
+    second.word = "퇴근";
+    model.classes_ = {first, second};
+    model.orderLike({"퇴근", "출근", "경비"});
+    const std::vector<std::string> ordered = model.words();
+    CHECK(ordered.size() == 2 && ordered[0] == "퇴근" && ordered[1] == "출근",
+          "학습 모델의 말 순서가 목록을 따르지 않는다");
+
+    fs::remove_all(root, ec);
+    endTest();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -776,6 +855,8 @@ int main(int argc, char** argv) {
 
     std::printf("\n[키워드]\n");
     testKeywordModelRoundTrip();
+    testKeywordTrainingReset();
+    testKeywordReorder();
 
     std::printf("\n[엔진]\n");
     testEngineRejectsBadModel();

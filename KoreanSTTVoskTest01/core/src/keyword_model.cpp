@@ -163,6 +163,23 @@ std::vector<std::string> KeywordModel::words() const {
 
 std::string KeywordModel::summary() const { return formatVocabulary(words()); }
 
+void KeywordModel::orderLike(const std::vector<std::string>& words) {
+    std::vector<KeywordClass> next;
+    std::vector<bool> used(classes_.size(), false);
+    for (const std::string& word : words) {
+        for (std::size_t i = 0; i < classes_.size(); ++i) {
+            if (used[i] || classes_[i].word != word) continue;
+            next.push_back(classes_[i]);
+            used[i] = true;
+            break;
+        }
+    }
+    for (std::size_t i = 0; i < classes_.size(); ++i) {
+        if (!used[i]) next.push_back(classes_[i]);
+    }
+    classes_ = std::move(next);
+}
+
 KeywordHit KeywordModel::match(const std::int16_t* samples, std::size_t count) const {
     KeywordHit hit;
     float features[kKeywordFeatDim];
@@ -399,6 +416,59 @@ bool KeywordWorkspace::addWord(const std::string& word, std::string* err) {
         return false;
     }
     list.push_back(trimmed);
+    return writeWords(list, err);
+}
+
+bool KeywordWorkspace::resetTraining(std::string* err) {
+    std::error_code ec;
+    for (const std::string& word : words()) {
+        const fs::path dir = fsPath(samplesDir(word));
+        if (!fs::is_directory(dir, ec)) continue;
+        std::vector<fs::path> files;
+        for (const fs::directory_entry& entry : fs::directory_iterator(dir, ec)) {
+            if (ec || !entry.is_regular_file()) continue;
+            std::string ext = pathUtf8(entry.path().extension());
+            for (char& c : ext) {
+                if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+            }
+            if (ext == ".wav") files.push_back(entry.path());
+        }
+        if (ec) {
+            if (err) *err = "녹음 폴더를 읽지 못했습니다: " + word;
+            return false;
+        }
+        for (const fs::path& file : files) {
+            fs::remove(file, ec);
+            if (ec) {
+                if (err) *err = "녹음을 지우지 못했습니다: " + word;
+                return false;
+            }
+        }
+    }
+    const fs::path model = fsPath(modelPath());
+    if (fs::is_regular_file(model, ec)) {
+        fs::remove(model, ec);
+        if (ec) {
+            if (err) *err = "학습 모델을 지우지 못했습니다.";
+            return false;
+        }
+    }
+    return true;
+}
+
+bool KeywordWorkspace::moveWord(std::size_t index, int delta, std::string* err) {
+    std::vector<std::string> list = words();
+    if (list.empty() || index >= list.size()) {
+        if (err) *err = "순서를 바꿀 말을 고르세요.";
+        return false;
+    }
+    if (delta == 0) return true;
+    const int next = static_cast<int>(index) + delta;
+    if (next < 0 || next >= static_cast<int>(list.size())) {
+        if (err) *err = delta < 0 ? "이미 맨 위입니다." : "이미 맨 아래입니다.";
+        return false;
+    }
+    std::swap(list[index], list[static_cast<std::size_t>(next)]);
     return writeWords(list, err);
 }
 

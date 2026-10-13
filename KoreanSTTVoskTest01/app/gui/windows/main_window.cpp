@@ -49,11 +49,15 @@ enum : int {
     kIdKeywordEdit,
     kIdKeywordAdd,
     kIdKeywordRemove,
+    kIdKeywordUp,
+    kIdKeywordDown,
     kIdKeywordRecord,
     kIdKeywordTrain,
+    kIdKeywordReset,
     kIdKeywordExport,
     kIdKeywordOpen,
     kIdKeywordUse,
+    kIdStatus = 1200,
 };
 
 const wchar_t* kWindowClass = L"KsttMainWindow";
@@ -195,6 +199,28 @@ MainWindow::~MainWindow() {
     if (font_) DeleteObject(font_);
 }
 
+int MainWindow::keywordListPixelHeight() const {
+    const int count = std::max(4, static_cast<int>(workspace_.words().size()));
+    int itemHeight = scaled(22);
+    if (keywordList_) {
+        const int measured =
+            static_cast<int>(SendMessageW(keywordList_, LB_GETITEMHEIGHT, 0, 0));
+        if (measured > 0) itemHeight = measured;
+    }
+    RECT rect{0, 0, 0, itemHeight * count};
+    AdjustWindowRectEx(&rect, WS_BORDER | WS_VSCROLL, FALSE, 0);
+    // 테두리 때문에 마지막 줄이 잘리면 스크롤이 생긴다.
+    return rect.bottom - rect.top + scaled(4);
+}
+
+int MainWindow::keywordBandHeight() const {
+    const int rowHeight = scaled(26);
+    const int gap = scaled(8);
+    const int listBlock = keywordListPixelHeight() + gap + rowHeight;
+    const int controls = rowHeight * 3 + gap * 2;
+    return std::max(listBlock, controls);
+}
+
 int MainWindow::scaled(int value) const {
     return MulDiv(value, static_cast<int>(dpi_), 96);
 }
@@ -259,7 +285,7 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             }
             syncButtons();
             prepareKeywords();
-            loadModelAsync();
+            if (!keywordReady_) loadModelAsync();
             return 0;
 
         case WM_SIZE:
@@ -269,7 +295,9 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         case WM_GETMINMAXINFO: {
             auto* info = reinterpret_cast<MINMAXINFO*>(lParam);
             info->ptMinTrackSize.x = scaled(720);
-            info->ptMinTrackSize.y = scaled(640);
+            const int controls = scaled(26) * 3 + scaled(8) * 2;
+            const int extra = std::max(0, keywordBandHeight() - controls);
+            info->ptMinTrackSize.y = scaled(640) + extra;
             return 0;
         }
 
@@ -294,9 +322,7 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                 return reinterpret_cast<LRESULT>(GetSysColorBrush(COLOR_WINDOW));
             }
             SetBkMode(dc, TRANSPARENT);
-            if (control == statusLabel_ && statusIsError_)
-                SetTextColor(dc, RGB(176, 0, 32));
-            else if (control == partialLabel_)
+            if (control == partialLabel_)
                 SetTextColor(dc, GetSysColor(COLOR_GRAYTEXT));
             else
                 SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
@@ -323,11 +349,30 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
                 case kIdReport: writeReport(); return 0;
                 case kIdKeywordAdd: addKeyword(); return 0;
                 case kIdKeywordRemove: removeKeyword(); return 0;
+                case kIdKeywordUp: moveKeyword(-1); return 0;
+                case kIdKeywordDown: moveKeyword(1); return 0;
+                case kIdKeywordList:
+                    if (HIWORD(wParam) == LBN_SELCHANGE) syncButtons();
+                    return 0;
                 case kIdKeywordRecord: recordKeyword(); return 0;
                 case kIdKeywordTrain: trainKeywords(); return 0;
+                case kIdKeywordReset: resetKeywordTraining(); return 0;
                 case kIdKeywordExport: exportKeywordModel(); return 0;
                 case kIdKeywordOpen: openKeywordModel(); return 0;
-                case kIdKeywordUse: syncButtons(); return 0;
+                case kIdKeywordUse:
+                    if (wantKeyword()) {
+                        if (!keywordReady_) {
+                            SendMessageW(keywordCheck_, BM_SETCHECK, BST_UNCHECKED, 0);
+                            setStatus(L"학습된 모델이 없습니다. 먼저 학습하거나 모델 파일을 여세요.",
+                                      true);
+                        } else {
+                            adoptTrainedModel();
+                        }
+                    } else if (!loading_) {
+                        loadModelAsync();
+                    }
+                    syncButtons();
+                    return 0;
             }
             return 0;
 
@@ -406,9 +451,8 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             if (wParam) {
                 std::string err;
                 keywordReady_ = keywordModel_.load(workspace_.modelPath(), &err);
-                if (keywordReady_) SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
                 if (keywordReady_) {
-                    setStatus(L"학습 완료 · " + baseName(toWide(workspace_.modelPath())));
+                    adoptTrainedModel();
                 } else {
                     setStatus(toWide(err), true);
                 }
@@ -438,6 +482,20 @@ LRESULT MainWindow::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             }
             syncButtons();
             return 0;
+        }
+
+        case WM_DRAWITEM: {
+            auto* item = reinterpret_cast<DRAWITEMSTRUCT*>(lParam);
+            if (!item || (item->CtlID != kIdStatus && wParam != kIdStatus)) break;
+            SetBkMode(item->hDC, TRANSPARENT);
+            SetTextColor(item->hDC, statusIsError_ ? RGB(176, 0, 32) : GetSysColor(COLOR_BTNTEXT));
+            if (font_) SelectObject(item->hDC, font_);
+            RECT textRect = item->rcItem;
+            textRect.left += scaled(6);
+            textRect.right -= scaled(4);
+            DrawTextW(item->hDC, statusText_.c_str(), -1, &textRect,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+            return TRUE;
         }
 
         case WM_TIMER:
@@ -509,8 +567,11 @@ void MainWindow::createControls() {
                  reinterpret_cast<LPARAM>(L"추가할 말"));
     keywordAdd_ = make(L"BUTTON", L"추가", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordAdd);
     keywordRemove_ = make(L"BUTTON", L"삭제", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRemove);
+    keywordUp_ = make(L"BUTTON", L"위로", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordUp);
+    keywordDown_ = make(L"BUTTON", L"아래로", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordDown);
     keywordRecord_ = make(L"BUTTON", L"녹음", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordRecord);
     keywordTrain_ = make(L"BUTTON", L"학습", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordTrain);
+    keywordReset_ = make(L"BUTTON", L"초기화", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordReset);
     keywordExport_ = make(L"BUTTON", L"장치에 저장…", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordExport);
     keywordOpen_ = make(L"BUTTON", L"모델 열기…", WS_TABSTOP | BS_PUSHBUTTON, kIdKeywordOpen);
     keywordCheck_ =
@@ -533,8 +594,11 @@ void MainWindow::createControls() {
     levelBar_ = make(PROGRESS_CLASSW, L"", PBS_SMOOTH, 0);
     SendMessageW(levelBar_, PBM_SETRANGE32, 0, 1000);
 
-    statusLabel_ = make(L"STATIC", L"준비 중…", SS_LEFT | SS_CENTERIMAGE | SS_ENDELLIPSIS, 0);
-    cpuLabel_ = make(L"STATIC", L"메모리 … · CPU … · …코어 · … GHz", SS_RIGHT | SS_CENTERIMAGE, 0);
+    statusBar_ = CreateWindowExW(0, STATUSCLASSNAMEW, L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, window_,
+                                 reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdStatus)), instance_,
+                                 nullptr);
+    SendMessageW(statusBar_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
+    SendMessageW(statusBar_, SB_SETTEXTW, 0 | SBT_OWNERDRAW, reinterpret_cast<LPARAM>(statusText_.c_str()));
 
     labels_.push_back(make(L"STATIC", L"인식 결과", SS_LEFT | SS_CENTERIMAGE, 0));
     reportButton_ = make(L"BUTTON", L"리포트", WS_TABSTOP | BS_PUSHBUTTON, kIdReport);
@@ -631,10 +695,16 @@ void MainWindow::layout() {
 
     // 키워드: 말 목록, 녹음, 학습, 장치로 옮길 파일
     {
-        const int band = rowHeight * 3 + gap * 2;
+        const int band = keywordBandHeight();
         const int listWidth = scaled(168);
+        const int listX = margin + scaled(52) + gap;
+        const int listHeight = keywordListPixelHeight();
         place(keywordLabel_, margin, y, scaled(52), rowHeight);
-        place(keywordList_, margin + scaled(52) + gap, y, listWidth, band);
+        place(keywordList_, listX, y, listWidth, listHeight);
+        const int moveY = y + listHeight + gap;
+        const int half = std::max(scaled(40), (listWidth - gap) / 2);
+        place(keywordUp_, listX, moveY, half, rowHeight);
+        place(keywordDown_, listX + half + gap, moveY, half, rowHeight);
         int bx = margin + scaled(52) + gap + listWidth + gap;
         const int addWidth = scaled(64);
         const int removeWidth = scaled(64);
@@ -655,9 +725,11 @@ void MainWindow::layout() {
 
         const int y3 = y2 + rowHeight + gap;
         const int checkWidth = scaled(150);
+        const int resetWidth = scaled(72);
         place(keywordCheck_, bx, y3, checkWidth, rowHeight);
+        place(keywordReset_, right - resetWidth, y3, resetWidth, rowHeight);
         place(keywordInfo_, bx + checkWidth + gap, y3,
-              std::max(scaled(40), right - (bx + checkWidth + gap)), rowHeight);
+              std::max(scaled(40), right - resetWidth - gap - (bx + checkWidth + gap)), rowHeight);
         y += band + gap;
     }
 
@@ -693,15 +765,34 @@ void MainWindow::layout() {
     place(levelBar_, x, y + scaled(6), std::max(scaled(40), right - x), rowHeight - scaled(12));
     y += rowHeight + gap;
 
-    // 4행: 상태. 오른쪽은 메모리, CPU 점유율, 사용 중인 코어 수.
-    const int statusHeight = scaled(20);
-    const int cpuWidth = scaled(490);
-    if (cpuLabel_) place(cpuLabel_, right - cpuWidth, y, cpuWidth, statusHeight);
-    const int statusWidth = right - margin - cpuWidth - gap;
-    place(statusLabel_, margin, y, std::max(scaled(40), statusWidth), statusHeight);
-    y += statusHeight + gap;
+    // 창 맨 아래 상태바. 공통 컨트롤이 아래쪽에 붙이고, 칸으로 상태를 나눈다.
+    int barHeight = 0;
+    if (statusBar_) {
+        SendMessageW(statusBar_, SB_SETMINHEIGHT, scaled(24), 0);
+        SendMessageW(statusBar_, WM_SIZE, 0, 0);
+        RECT barRect{};
+        GetWindowRect(statusBar_, &barRect);
+        barHeight = barRect.bottom - barRect.top;
+        const bool showGripForParts = sizeGrip_ && !IsZoomed(window_);
+        const int gripReserve = showGripForParts ? scaled(22) : 0;
+        const int edge = std::max(0, static_cast<int>(client.right) - gripReserve);
+        const int clockWidth = scaled(96);
+        const int coresWidth = scaled(118);
+        const int cpuPartWidth = scaled(96);
+        const int memoryWidth = scaled(148);
+        int parts[5];
+        parts[4] = edge;
+        parts[3] = std::max(0, parts[4] - clockWidth);
+        parts[2] = std::max(0, parts[3] - coresWidth);
+        parts[1] = std::max(0, parts[2] - cpuPartWidth);
+        parts[0] = std::max(scaled(80), parts[1] - memoryWidth);
+        SendMessageW(statusBar_, SB_SETPARTS, 5, reinterpret_cast<LPARAM>(parts));
+        SendMessageW(statusBar_, SB_SETTEXTW, 0 | SBT_OWNERDRAW,
+                     reinterpret_cast<LPARAM>(statusText_.c_str()));
+    }
+    const int contentBottom = client.bottom - barHeight;
 
-    // 5행: 인식 결과 머리말 + 단추
+    // 4행: 인식 결과 머리말 + 단추
     const int smallButton = scaled(72);
     const int buttonsWidth = smallButton * 3 + gap * 2;
     place(labels_[5], margin, y, scaled(80), rowHeight);
@@ -712,18 +803,14 @@ void MainWindow::layout() {
     place(saveButton_, right - smallButton, y, smallButton, rowHeight);
     y += rowHeight + scaled(4);
 
-    // 6행: 결과 + 진행 중 한 줄. 우측 하단은 크기 조절 표시에 양보한다.
+    // 5행: 결과. 진행 중 한 줄은 상태바 바로 위에 둔다.
     const int partialHeight = scaled(20);
-    const bool showGrip = sizeGrip_ && !IsZoomed(window_);
-    const int gripSize = scaled(22);
-    const int footer = std::max(margin + partialHeight, showGrip ? gripSize : 0);
-    const int editHeight = client.bottom - footer - gap - y;
+    const int editHeight = contentBottom - partialHeight - gap - y;
     place(transcriptEdit_, margin, y, right - margin, std::max(scaled(60), editHeight));
-    const int partialLabelWidth =
-        client.right - margin - (showGrip ? gripSize + gap : margin);
-    place(partialLabel_, margin, client.bottom - footer + (footer - partialHeight) / 2,
-          std::max(scaled(40), partialLabelWidth), partialHeight);
+    place(partialLabel_, margin, contentBottom - partialHeight, right - margin, partialHeight);
     if (sizeGrip_) {
+        const bool showGrip = !IsZoomed(window_);
+        const int gripSize = scaled(22);
         if (showGrip) {
             SetWindowPos(sizeGrip_, HWND_TOP, client.right - gripSize, client.bottom - gripSize,
                          gripSize, gripSize, SWP_SHOWWINDOW);
@@ -736,6 +823,7 @@ void MainWindow::layout() {
 void MainWindow::loadModelAsync() {
     if (loading_ || engine_.isRunning()) return;
     if (loader_.joinable()) loader_.join();
+    if (wantKeyword()) SendMessageW(keywordCheck_, BM_SETCHECK, BST_UNCHECKED, 0);
 
     EngineConfig config;
     config.modelPath = toUtf8(editText(modelEdit_));
@@ -1162,8 +1250,10 @@ void MainWindow::maybeRunSmokeFile() {
 
 void MainWindow::setStatus(const std::wstring& text, bool isError) {
     statusIsError_ = isError;
-    SetWindowTextW(statusLabel_, text.c_str());
-    InvalidateRect(statusLabel_, nullptr, TRUE);
+    statusText_ = text;
+    if (!statusBar_) return;
+    SendMessageW(statusBar_, SB_SETTEXTW, 0 | SBT_OWNERDRAW, reinterpret_cast<LPARAM>(statusText_.c_str()));
+    InvalidateRect(statusBar_, nullptr, TRUE);
 }
 
 void MainWindow::setResourceMonitor(bool on) {
@@ -1176,11 +1266,8 @@ void MainWindow::setResourceMonitor(bool on) {
         sampleProcessCpu(&unused);
         updateResourceLabel();
         SetTimer(window_, kCpuTimerId, 500, nullptr);
-        ShowWindow(cpuLabel_, SW_SHOW);
     } else {
         KillTimer(window_, kCpuTimerId);
-        ShowWindow(cpuLabel_, SW_HIDE);
-        SetWindowTextW(cpuLabel_, L"");
     }
     if (window_) layout();
 }
@@ -1209,7 +1296,8 @@ void MainWindow::updateResourceLabel() {
     } else {
         swprintf(clockText, 32, L"… GHz");
     }
-    wchar_t line[160];
+    wchar_t cpuText[32];
+    wchar_t coresText[32];
     if (haveCpu) {
         double used = percent / 100.0 * static_cast<double>(cores);
         if (used > static_cast<double>(cores)) used = static_cast<double>(cores);
@@ -1220,16 +1308,21 @@ void MainWindow::updateResourceLabel() {
         ++resourceSamples_;
         if (percent > cpuPeak_) cpuPeak_ = percent;
         if (used > coresUsedPeak_) coresUsedPeak_ = used;
-        swprintf(line, 160, L"%s · CPU %.1f%% · %.1f/%u코어 · %s", memory, percent, used, cores,
-                 clockText);
+        swprintf(cpuText, 32, L"CPU %.1f%%", percent);
+        swprintf(coresText, 32, L"%.1f/%u코어", used, cores);
     } else {
-        swprintf(line, 160, L"%s · CPU … · …/%u코어 · %s", memory, cores, clockText);
+        swprintf(cpuText, 32, L"CPU …");
+        swprintf(coresText, 32, L"…/%u코어", cores);
     }
     if (haveMemory) {
         lastWorkingSet_ = bytes;
         if (bytes > memorySessionPeak_) memorySessionPeak_ = bytes;
     }
-    SetWindowTextW(cpuLabel_, line);
+    if (!statusBar_) return;
+    SendMessageW(statusBar_, SB_SETTEXTW, 1, reinterpret_cast<LPARAM>(memory));
+    SendMessageW(statusBar_, SB_SETTEXTW, 2, reinterpret_cast<LPARAM>(cpuText));
+    SendMessageW(statusBar_, SB_SETTEXTW, 3, reinterpret_cast<LPARAM>(coresText));
+    SendMessageW(statusBar_, SB_SETTEXTW, 4, reinterpret_cast<LPARAM>(clockText));
 }
 
 bool MainWindow::sampleProcessMemory(unsigned long long* bytes) {
@@ -1377,7 +1470,7 @@ void MainWindow::prepareKeywords() {
     }
     if (keywordModel_.load(workspace_.modelPath(), &err)) {
         keywordReady_ = true;
-        SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
+        adoptTrainedModel();
     }
     refreshKeywordList();
 }
@@ -1398,6 +1491,7 @@ void MainWindow::refreshKeywordList() {
     std::wstring info = L"녹음은 keyword-workspace 에 쌓입니다";
     if (keywordReady_) info = L"모델 있음 · " + toWide(keywordModel_.summary());
     SetWindowTextW(keywordInfo_, info.c_str());
+    if (window_) layout();
 }
 
 void MainWindow::addKeyword() {
@@ -1432,6 +1526,38 @@ void MainWindow::removeKeyword() {
     }
     refreshKeywordList();
     setStatus(L"\"" + wide + L"\" 를 뺐습니다. 장치에 반영하려면 다시 학습하세요.");
+}
+
+void MainWindow::moveKeyword(int delta) {
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    const int selected = static_cast<int>(SendMessageW(keywordList_, LB_GETCURSEL, 0, 0));
+    if (selected < 0) {
+        setStatus(L"순서를 바꿀 말을 고르세요.", true);
+        return;
+    }
+    std::string err;
+    if (!workspace_.moveWord(static_cast<std::size_t>(selected), delta, &err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    if (keywordReady_) {
+        keywordModel_.orderLike(workspace_.words());
+        if (!keywordModel_.save(workspace_.modelPath(), &err)) {
+            refreshKeywordList();
+            setStatus(toWide(err), true);
+            syncButtons();
+            return;
+        }
+    }
+    refreshKeywordList();
+    const int next = selected + delta;
+    SendMessageW(keywordList_, LB_SETCURSEL, static_cast<WPARAM>(next), 0);
+    const std::vector<std::string> words = workspace_.words();
+    if (next >= 0 && static_cast<std::size_t>(next) < words.size()) {
+        setStatus(L"\"" + toWide(words[static_cast<std::size_t>(next)]) + L"\" 을 " +
+                  (delta < 0 ? L"위로" : L"아래로") + L" 옮겼습니다.");
+    }
+    syncButtons();
 }
 
 void MainWindow::recordKeyword() {
@@ -1525,6 +1651,7 @@ void MainWindow::trainKeywords() {
                       std::to_wstring(kKeywordSampleRate) + L" Hz\r\n\r\n"
                       L"넣지 못한 말\r\n" +
                       skipped + L"\r\n\r\n"
+                      L"이 프로그램도 이제 이 학습 모델로 인식합니다.\r\n"
                       L"이 파일을 장치에 복사하면 같은 말을 인식합니다.";
         } else {
             message = toWide(err);
@@ -1533,6 +1660,28 @@ void MainWindow::trainKeywords() {
         PostMessageW(window_, kMsgTrainDone, ok ? 1 : 0,
                      reinterpret_cast<LPARAM>(new std::wstring(std::move(message))));
     });
+}
+
+void MainWindow::resetKeywordTraining() {
+    if (recording_ || training_ || engine_.isRunning() || keywordListener_.isRunning()) return;
+    if (MessageBoxW(window_,
+                    L"말 목록은 그대로 둡니다.\n"
+                    L"녹음과 이 폴더의 학습 모델(model.kmodel)을 지울까요?\n"
+                    L"다른 곳에 저장해 둔 파일은 그대로입니다.",
+                    L"학습 데이터 초기화", MB_YESNO | MB_ICONQUESTION) != IDYES)
+        return;
+    std::string err;
+    if (!workspace_.resetTraining(&err)) {
+        setStatus(toWide(err), true);
+        return;
+    }
+    keywordModel_ = KeywordModel{};
+    keywordReady_ = false;
+    if (keywordCheck_) SendMessageW(keywordCheck_, BM_SETCHECK, BST_UNCHECKED, 0);
+    refreshKeywordList();
+    if (!engine_.isModelLoaded() && !loading_) loadModelAsync();
+    setStatus(L"학습 데이터를 지웠습니다. 말은 그대로입니다. 다시 녹음한 뒤 학습하세요.");
+    syncButtons();
 }
 
 void MainWindow::exportKeywordModel() {
@@ -1580,9 +1729,15 @@ void MainWindow::openKeywordModel() {
     }
     keywordModel_ = std::move(loaded);
     keywordReady_ = true;
-    SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
     refreshKeywordList();
-    setStatus(L"키워드 모델을 열었습니다 · " + toWide(keywordModel_.summary()));
+    adoptTrainedModel();
+}
+
+void MainWindow::adoptTrainedModel() {
+    if (keywordCheck_) SendMessageW(keywordCheck_, BM_SETCHECK, BST_CHECKED, 0);
+    engine_.unloadModel();
+    if (keywordReady_)
+        setStatus(L"학습 모델로 인식합니다 · " + toWide(keywordModel_.summary()));
     syncButtons();
 }
 
@@ -1620,8 +1775,13 @@ void MainWindow::syncButtons() {
     EnableWindow(keywordEdit_, !busy);
     EnableWindow(keywordAdd_, !busy);
     EnableWindow(keywordRemove_, !busy);
+    const int selected = static_cast<int>(SendMessageW(keywordList_, LB_GETCURSEL, 0, 0));
+    const int count = static_cast<int>(SendMessageW(keywordList_, LB_GETCOUNT, 0, 0));
+    EnableWindow(keywordUp_, !busy && selected > 0);
+    EnableWindow(keywordDown_, !busy && selected >= 0 && selected + 1 < count);
     EnableWindow(keywordRecord_, !busy);
     EnableWindow(keywordTrain_, !busy && !recording_);
+    EnableWindow(keywordReset_, !busy);
     EnableWindow(keywordExport_, keywordReady_ && !busy);
     EnableWindow(keywordOpen_, !busy);
     EnableWindow(keywordCheck_, !running && !recording_);

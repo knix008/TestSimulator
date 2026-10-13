@@ -13,6 +13,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -46,6 +47,8 @@ public:
     std::vector<std::string> words() const;
     // "출근, 퇴근, 경비, 해제"
     std::string summary() const;
+    // classes_ 를 이 말 순서에 맞춘다. 목록에 없는 말은 뒤에 남긴다.
+    void orderLike(const std::vector<std::string>& words);
 
     // 소리 한 덩어리를 가장 가까운 말로 맞춘다. 기준보다 멀거나 두 말이
     // 비슷하면 빈 말을 돌려준다.
@@ -79,6 +82,10 @@ public:
     int sampleCount(const std::string& word) const;
     bool addWord(const std::string& word, std::string* err);
     bool removeWord(const std::string& word, std::string* err);
+    // 말 목록은 두고, 녹음(wav)과 model.kmodel 만 지운다.
+    bool resetTraining(std::string* err);
+    // delta 가 음수면 위로, 양수면 아래로. 순서는 words.txt 에 저장된다.
+    bool moveWord(std::size_t index, int delta, std::string* err);
 
     // 아직 없는 0001.wav, 0002.wav, … 경로. 파일은 만들지 않는다.
     std::string allocateSamplePath(const std::string& word) const;

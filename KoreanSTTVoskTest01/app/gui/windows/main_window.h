@@ -43,6 +43,8 @@ private:
     void createControls();
     void layout();
     int scaled(int value) const;
+    int keywordListPixelHeight() const;
+    int keywordBandHeight() const;
 
     // --- 동작 ---
     void loadModelAsync();
@@ -53,11 +55,14 @@ private:
     void refreshKeywordList();
     void addKeyword();
     void removeKeyword();
+    void moveKeyword(int delta);
     void recordKeyword();
     void trainKeywords();
+    void resetKeywordTraining();
     void exportKeywordModel();
     void openKeywordModel();
     void startKeywordSource(const std::shared_ptr<AudioSource>& source);
+    void adoptTrainedModel();
     bool wantKeyword() const;
     int selectedDeviceId() const;
     std::string selectedKeyword() const;
@@ -97,8 +102,7 @@ private:
     HWND wavButton_ = nullptr;
     HWND partialCheck_ = nullptr;
     HWND levelBar_ = nullptr;
-    HWND statusLabel_ = nullptr;
-    HWND cpuLabel_ = nullptr;
+    HWND statusBar_ = nullptr;
     HWND transcriptEdit_ = nullptr;
     HWND clearButton_ = nullptr;
     HWND saveButton_ = nullptr;
@@ -111,8 +115,11 @@ private:
     HWND keywordEdit_ = nullptr;
     HWND keywordAdd_ = nullptr;
     HWND keywordRemove_ = nullptr;
+    HWND keywordUp_ = nullptr;
+    HWND keywordDown_ = nullptr;
     HWND keywordRecord_ = nullptr;
     HWND keywordTrain_ = nullptr;
+    HWND keywordReset_ = nullptr;
     HWND keywordExport_ = nullptr;
     HWND keywordOpen_ = nullptr;
     HWND keywordCheck_ = nullptr;
@@ -139,6 +146,7 @@ private:
     std::thread loader_;
     bool loading_ = false;
     bool statusIsError_ = false;
+    std::wstring statusText_ = L"준비 중…";
     bool cpuMonitor_ = false;
     bool cpuHaveSample_ = false;
     bool lastCpuValid_ = false;

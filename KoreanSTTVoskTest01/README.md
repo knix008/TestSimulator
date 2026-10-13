@@ -156,8 +156,9 @@ if (engine.loadModel(config, &err) &&
 창의 **키워드** 칸에서 말을 추가하고, 말마다 **녹음**한 뒤 **학습**을 누릅니다.
 끝나면 저장 경로와 파일 크기가 적힌 완료 창이 뜹니다. 결과 파일
 `keyword-workspace/model.kmodel` 만 복사해도 되고, **장치에 저장…** 으로 원하는
-곳에 둘 수 있습니다. **키워드 모델로 인식** 을 켠 채 인식하면 Vosk 를 열지
-않습니다.
+곳에 둘 수 있습니다. 학습이 끝나면 이 프로그램의 인식도 그 파일을 사용하고,
+Vosk 모델은 메모리에서 내려갑니다. **초기화** 는 말 목록을 남기고 녹음과
+`model.kmodel` 만 지웁니다.
 
 ```bash
 ./run.sh cli --keywords keywords.kmodel
