@@ -75,7 +75,8 @@ function install(host) {
 
   ipcMain.handle('fence:paste', (_event, id) => host.pasteFiles(id));
 
-  ipcMain.handle('fence:drop', (_event, payload) => host.dropFiles(
+  // 창이 주는 자리는 그려진 항목 기준이다. 감춘 항목을 셈에 넣어 목록 자리로 바꾼다.
+  ipcMain.handle('fence:drop', (_event, payload) => (host.dropAt || host.dropFiles)(
     payload.id,
     payload.paths,
     payload.index,

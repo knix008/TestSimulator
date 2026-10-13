@@ -77,6 +77,8 @@ function normalizeFence(raw) {
     corner: themes.cornerRadius(raw.corner),
     custom: normalizeCustom(raw.custom),
     collapsed: !!raw.collapsed,
+    // 숨김·임시 파일도 보여 줄지. 기본은 탐색기처럼 감춘다.
+    showHidden: !!raw.showHidden,
     // 이 박스가 쓰는 폴더 이름. 보관함 폴더 아래에 있다.
     folder: typeof raw.folder === 'string' ? raw.folder : '',
     items: [],
