@@ -148,6 +148,7 @@ desk.onPrefs((payload) => {
   el('folderTag').textContent = say('prefs.open');
   el('whereTag').textContent = say('prefs.where');
   el('backTag').textContent = say('prefs.desktop');
+  el('showHiddenTag').textContent = say('settings.showHidden');
   el('boxRoot').textContent = say('tray.boxRoot');
   el('dataRoot').textContent = say('tray.folder');
   el('putBack').textContent = say('tray.putBack');
@@ -169,6 +170,7 @@ desk.onPrefs((payload) => {
   drawAbout(payload.about);
   el('startup').setAttribute('aria-checked', String(!!settings.openAtLogin));
   el('shadow').setAttribute('aria-checked', String(!!settings.shadow));
+  el('showHidden').setAttribute('aria-checked', String(!!settings.showHidden));
 
   if (!holding) {
     cornerEl.min = String(payload.corner.min);
@@ -205,6 +207,7 @@ for (const button of document.querySelectorAll('.step')) {
 
 el('startup').addEventListener('click', () => send({ openAtLogin: !settings.openAtLogin }));
 el('shadow').addEventListener('click', () => send({ shadow: !settings.shadow }));
+el('showHidden').addEventListener('click', () => send({ showHidden: !settings.showHidden }));
 el('boxRoot').addEventListener('click', () => desk.prefsOpen('boxes'));
 el('dataRoot').addEventListener('click', () => desk.prefsOpen('data'));
 el('putBack').addEventListener('click', () => desk.prefsOpen('putBack'));

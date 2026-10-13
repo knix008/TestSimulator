@@ -1049,6 +1049,7 @@ function createHost(state) {
     if (typeof patch.openAtLogin === 'boolean') setLogin(patch.openAtLogin);
     if (typeof patch.openWith === 'string') setOpenWith(patch.openWith);
     if (typeof patch.shadow === 'boolean') setShadow(patch.shadow);
+    if (typeof patch.showHidden === 'boolean') setShowHiddenAll(patch.showHidden);
     if (typeof patch.theme === 'string') setDefaultTheme(patch.theme);
     if (patch.corner !== undefined) setDefaultCorner(patch.corner);
     if (typeof patch.opacity === 'number') setDefaultOpacity(patch.opacity);
@@ -1143,7 +1144,7 @@ function createHost(state) {
     fence.corner = themes.cornerRadius(state.settings.corner);
     fence.opacity = state.settings.opacity;
     fence.collapsed = false;
-    fence.showHidden = false;
+    fence.showHidden = !!state.settings.showHidden;
     persist();
     applyBounds(id, fence, true);
     push(id);
@@ -1180,6 +1181,7 @@ function createHost(state) {
       theme: state.settings.theme,
       opacity: state.settings.opacity,
       corner: state.settings.corner,
+      showHidden: !!state.settings.showHidden,
     });
     // 새 박스도 바탕화면 아이콘과 같은 줄에 서고, 다른 박스를 덮지 않는다.
     snapToGrid(fence);
@@ -3087,6 +3089,16 @@ function createHost(state) {
     const next = kind === 'single' ? 'single' : 'double';
     if (state.settings.openWith === next) return;
     state.settings.openWith = next;
+    persist();
+    pushAll();
+    announce();
+  }
+
+  // 설정 창에서 고른 숨김·임시 파일 보이기. 모든 박스에 함께 걸고, 새 박스도 이 값을 따른다.
+  // 박스 하나만 다르게 두려면 그 박스의 설정 창에서 바꾼다.
+  function setShowHiddenAll(on) {
+    state.settings.showHidden = !!on;
+    for (const fence of state.fences) fence.showHidden = !!on;
     persist();
     pushAll();
     announce();

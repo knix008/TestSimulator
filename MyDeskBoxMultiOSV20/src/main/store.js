@@ -21,6 +21,8 @@ function defaults() {
       opacity: themes.DEFAULT_OPACITY,
       corner: themes.DEFAULT_CORNER,
       shadow: false,
+      // 숨김·임시 파일을 박스에 보여 줄지. 새 박스는 이 값을 따른다.
+      showHidden: false,
       // 박스 안의 아이콘을 한 번 눌러 열지, 두 번 눌러 열지.
       openWith: 'double',
       // 박스들이 쓰는 보관함 폴더. 비워 두면 사용자 데이터 폴더 아래 'boxes' 를 쓴다.
@@ -54,6 +56,7 @@ function load() {
       data.settings.lang = i18n.langOf(data.settings.lang);
       data.settings.openWith = data.settings.openWith === 'single' ? 'single' : 'double';
       data.settings.openAtLogin = !!data.settings.openAtLogin;
+      data.settings.showHidden = !!data.settings.showHidden;
       data.settings.root = typeof data.settings.root === 'string' ? data.settings.root : '';
       if (Array.isArray(parsed.fences)) data.fences = parsed.fences.map(normalizeFence);
     }

@@ -106,3 +106,33 @@ test('the setting is saved with the box', () => {
   assert.equal(store.normalizeFence(raw).showHidden, true);
   assert.equal(store.normalizeFence({ id: 'y', items: [] }).showHidden, false, 'older saves must start hidden');
 });
+
+// The app settings window (Files tab) switches it for every box at once.
+test('app settings show hidden files in every box and in new boxes', async () => {
+  const items = ['d.txt', '~$d.txt'].map(realItem);
+  const state = baseState({ fences: [fence({ items }), fence({ id: 'b', x: 600, items: [] })] });
+  const { host, electron } = loadHost(state);
+  host.openAll();
+  for (const win of electron.windows) win.ready();
+  assert.deepEqual(await shownNames(host, electron), ['d.txt']);
+
+  host.changePrefs({ showHidden: true });
+  assert.equal(state.settings.showHidden, true);
+  assert.deepEqual(state.fences.map((one) => one.showHidden), [true, true]);
+  assert.deepEqual(await shownNames(host, electron), ['d.txt', '~$d.txt']);
+
+  const made = host.finishDraw({ x: 10, y: 500, w: 300, h: 240 });
+  assert.equal(made.showHidden, true, 'a new box does not follow the app setting');
+
+  host.changePrefs({ showHidden: false });
+  assert.deepEqual(state.fences.map((one) => one.showHidden), [false, false, false]);
+});
+
+test('the app settings window has the switch on the Files tab', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'prefs.html'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'prefs.js'), 'utf8');
+  const files = html.slice(html.indexOf('data-pane="files"'), html.indexOf('data-pane="about"'));
+  assert.match(files, /id="showHidden"/, 'switch is not on the Files tab');
+  assert.match(js, /showHidden: !settings\.showHidden/, 'switch does not toggle the setting');
+  assert.match(js, /aria-checked', String\(!!settings\.showHidden\)/, 'switch does not show the current value');
+});
