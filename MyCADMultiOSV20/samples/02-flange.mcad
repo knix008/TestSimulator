@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.954Z",
+ "saved": "2026-10-13T08:11:12.173Z",
  "drawing": {
-  "id": "dwg-mv6bx4gh0008nr2e",
+  "id": "dwg-mv6ej8pf0008nmx3",
   "title": "플랜지 Ø120",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.785Z",
-  "updated": "2026-10-13T06:58:00.785Z",
+  "created": "2026-10-13T08:11:11.955Z",
+  "updated": "2026-10-13T08:11:11.955Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4gh0009dxub",
+    "id": "e-mv6ej8pf00091fkk",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -92,7 +92,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gh000au9ve",
+    "id": "e-mv6ej8pf000a6hbm",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -116,7 +116,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gh000bluks",
+    "id": "e-mv6ej8pf000bdbtk",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -140,7 +140,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gh000cm940",
+    "id": "e-mv6ej8pf000c5wy7",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -164,7 +164,7 @@
     "text": "PCD <>"
    },
    {
-    "id": "e-mv6bx4gh000div3o",
+    "id": "e-mv6ej8pf000dhbte",
     "type": "text",
     "layer": "text",
     "color": null,

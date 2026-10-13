@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.965Z",
+ "saved": "2026-10-13T08:11:12.186Z",
  "drawing": {
-  "id": "dwg-mv6bx4l500cpjw6d",
+  "id": "dwg-mv6ej8tw00cpp90p",
   "title": "인치 판 (4 × 2.5 in)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.953Z",
-  "updated": "2026-10-13T06:58:00.953Z",
+  "created": "2026-10-13T08:11:12.116Z",
+  "updated": "2026-10-13T08:11:12.116Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4l500cq2o15",
+    "id": "e-mv6ej8tw00cqt5xi",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -85,7 +85,7 @@
     "radius": 6.35
    },
    {
-    "id": "e-mv6bx4l500cr9zg3",
+    "id": "e-mv6ej8tw00crv28w",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -97,7 +97,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6bx4l500cso7cn",
+    "id": "e-mv6ej8tw00cs4svi",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -109,7 +109,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6bx4l500ctfm4h",
+    "id": "e-mv6ej8tw00ctjea1",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -121,7 +121,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6bx4l500cuwr9w",
+    "id": "e-mv6ej8tw00cu3tm7",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -133,7 +133,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6bx4l500cv7znm",
+    "id": "e-mv6ej8tw00cvopun",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -145,7 +145,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6bx4l500cw7us9",
+    "id": "e-mv6ej8tw00cw9372",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -169,7 +169,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4l500cxghfh",
+    "id": "e-mv6ej8tw00cx4jsa",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -193,7 +193,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4l500cyfs1i",
+    "id": "e-mv6ej8tw00cygyv8",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -217,7 +217,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4l500czdxjt",
+    "id": "e-mv6ej8tw00czsu49",
     "type": "text",
     "layer": "text",
     "color": null,

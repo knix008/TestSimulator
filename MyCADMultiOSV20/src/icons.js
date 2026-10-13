@@ -102,7 +102,8 @@ const paths = {
   ruler: '<rect x="2.5" y="7" width="19" height="10" rx="1.5"/><path d="M6 7v3M9.5 7v5M13 7v3M16.5 7v5M20 7v3"/>',
   cube: '<path d="M12 2.5l8.5 4.8v9.4L12 21.5l-8.5-4.8V7.3z"/><path d="M3.5 7.3L12 12l8.5-4.7M12 12v9.5"/>',
   light: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
-  lightOff: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v1.6M2.5 12h1.6M5.3 5.3l1.1 1.1M18.7 5.3l-1.1 1.1" opacity=".6"/><path d="M3 21L21 3"/>',
+  // Light off: a crescent moon (with a small star).
+  lightOff: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"/><path d="M17 3.5v3M15.5 5h3" stroke-width="1.4"/>',
   axes: '<path d="M5 19V4M5 19h15M5 19l-3 3"/><path d="M5 4l-2 3M5 4l2 3M20 19l-3-2M20 19l-3 2M5 9h2M5 14h2M10 19v-2M15 19v-2"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 16l9 5 9-5"/>',
   // ── machine parts

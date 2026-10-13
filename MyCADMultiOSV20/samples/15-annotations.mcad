@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.965Z",
+ "saved": "2026-10-13T08:11:12.184Z",
  "drawing": {
-  "id": "dwg-mv6bx4l400brba47",
+  "id": "dwg-mv6ej8tw00brhwhg",
   "title": "주석과 해칭",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.952Z",
-  "updated": "2026-10-13T06:58:00.953Z",
+  "created": "2026-10-13T08:11:12.116Z",
+  "updated": "2026-10-13T08:11:12.116Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4l400bs6c7m",
+    "id": "e-mv6ej8tw00bs89j1",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -85,7 +85,7 @@
     "radius": 6
    },
    {
-    "id": "e-mv6bx4l500btbapl",
+    "id": "e-mv6ej8tw00btcp76",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -112,7 +112,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500bu3zab",
+    "id": "e-mv6ej8tw00bulr0a",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -143,7 +143,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500bvbvh3",
+    "id": "e-mv6ej8tw00bv7bih",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -160,7 +160,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500bwp926",
+    "id": "e-mv6ej8tw00bwnb6m",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -187,7 +187,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500bxl29i",
+    "id": "e-mv6ej8tw00bxujrn",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -218,7 +218,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500byh6jf",
+    "id": "e-mv6ej8tw00by7d52",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -235,7 +235,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500bzjjdt",
+    "id": "e-mv6ej8tw00bz4v0l",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -262,7 +262,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500c0jakf",
+    "id": "e-mv6ej8tw00c0zefo",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -293,7 +293,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500c1lxj2",
+    "id": "e-mv6ej8tw00c18qxa",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -310,7 +310,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500c2eu24",
+    "id": "e-mv6ej8tw00c2dbs4",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -337,7 +337,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500c3wx9x",
+    "id": "e-mv6ej8tw00c32xep",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -368,7 +368,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500c4d9y1",
+    "id": "e-mv6ej8tw00c4e6lz",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -385,7 +385,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500c55imk",
+    "id": "e-mv6ej8tw00c5ezlh",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -412,7 +412,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500c6jsdj",
+    "id": "e-mv6ej8tw00c6w1td",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -443,7 +443,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500c7c98a",
+    "id": "e-mv6ej8tw00c7q0a0",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -460,7 +460,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500c8udru",
+    "id": "e-mv6ej8tw00c8s2ft",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -487,7 +487,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500c9yvns",
+    "id": "e-mv6ej8tw00c91p26",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -518,7 +518,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500ca5quz",
+    "id": "e-mv6ej8tw00cah94r",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -535,7 +535,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500cbti4v",
+    "id": "e-mv6ej8tw00cbsrnl",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -562,7 +562,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500ccxb6t",
+    "id": "e-mv6ej8tw00ccdr98",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -593,7 +593,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500cdz7vr",
+    "id": "e-mv6ej8tw00cdi4r0",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -610,7 +610,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500cep50f",
+    "id": "e-mv6ej8tw00ceisut",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -637,7 +637,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6bx4l500cfg0at",
+    "id": "e-mv6ej8tw00cffkp5",
     "type": "hatch",
     "layer": "0",
     "color": null,
@@ -668,7 +668,7 @@
     "scale": 1
    },
    {
-    "id": "e-mv6bx4l500cgymfe",
+    "id": "e-mv6ej8tw00cgohhj",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -685,7 +685,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6bx4l500chj07b",
+    "id": "e-mv6ej8tw00chu9ij",
     "type": "spline",
     "layer": "0",
     "color": null,
@@ -719,7 +719,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6bx4l500cirecm",
+    "id": "e-mv6ej8tw00cijiel",
     "type": "ellipse",
     "layer": "0",
     "color": null,
@@ -734,7 +734,7 @@
     "end": 300
    },
    {
-    "id": "e-mv6bx4l500cji28c",
+    "id": "e-mv6ej8tw00cjtdfy",
     "type": "point",
     "layer": "0",
     "color": null,
@@ -745,7 +745,7 @@
     "size": 2
    },
    {
-    "id": "e-mv6bx4l500ck5h05",
+    "id": "e-mv6ej8tw00ck6auv",
     "type": "line",
     "layer": "center",
     "color": null,
@@ -757,7 +757,7 @@
     "y2": 115
    },
    {
-    "id": "e-mv6bx4l500cl77p0",
+    "id": "e-mv6ej8tw00cl4h75",
     "type": "leader",
     "layer": "text",
     "color": null,
@@ -781,7 +781,7 @@
     "size": 3.5
    },
    {
-    "id": "e-mv6bx4l500cmk6yi",
+    "id": "e-mv6ej8tw00cmn3rw",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -805,7 +805,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4l500cncr7n",
+    "id": "e-mv6ej8tw00cnpf4x",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -829,7 +829,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4l500coduuz",
+    "id": "e-mv6ej8tw00coxn6w",
     "type": "text",
     "layer": "text",
     "color": null,

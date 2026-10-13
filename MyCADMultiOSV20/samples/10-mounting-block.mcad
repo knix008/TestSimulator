@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T06:58:00.960Z",
+ "saved": "2026-10-13T08:11:12.179Z",
  "drawing": {
-  "id": "dwg-mv6bx4go006axyvl",
+  "id": "dwg-mv6ej8pm006a4xff",
   "title": "마운팅 블록 (불리언)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T06:58:00.792Z",
-  "updated": "2026-10-13T06:58:00.793Z",
+  "created": "2026-10-13T08:11:11.962Z",
+  "updated": "2026-10-13T08:11:11.962Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6bx4gp006bkwd3",
+    "id": "e-mv6ej8pm006bg5lg",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -266,7 +266,7 @@
     }
    },
    {
-    "id": "e-mv6bx4gp006cl5ca",
+    "id": "e-mv6ej8pm006cqcyx",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -290,7 +290,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6bx4gp006dsgrp",
+    "id": "e-mv6ej8pm006d3f7s",
     "type": "dim",
     "layer": "dim",
     "color": null,
