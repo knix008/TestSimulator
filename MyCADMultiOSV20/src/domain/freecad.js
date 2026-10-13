@@ -98,9 +98,13 @@ export const FREECAD_COVERAGE = [
     items: [
       item('partial', 'FreeCAD 문서 (.FCStd) 읽기·쓰기', 'FreeCAD documents (.FCStd) read & write', ['open', 'export3d:fcstd'], '프리미티브·돌출·회전·로프트·스윕·불리언·메시·스케치', 'Primitives, extrusions, revolutions, lofts, sweeps, booleans, meshes, sketches'),
       item('partial', 'STEP (.step/.stp) 읽기·쓰기', 'STEP (.step/.stp) read & write', ['open', 'export3d:step'], '평면·원통·원뿔·구·토러스 면 읽기, 면 분할 B-rep 쓰기', 'Reads plane/cylinder/cone/sphere/torus faces, writes faceted B-rep'),
-      item('full', 'DXF 읽기·쓰기, SVG·PNG 쓰기', 'DXF read & write, SVG and PNG write', ['open', 'exportDxf', 'exportSvg', 'exportPng']),
+      item('full', 'DXF 읽기·쓰기 (R12–2018, 바이너리, ANSI 코드 페이지)', 'DXF read & write (R12–2018, binary, ANSI code pages)', ['open', 'importDxf', 'exportDxf', 'exportDxf2000']),
+      item('full', 'SVG 읽기·쓰기, PNG 쓰기', 'SVG read & write, PNG write', ['open', 'exportSvg', 'exportPng']),
+      item('partial', 'IGES (.igs) 읽기·쓰기', 'IGES (.igs) read & write', ['open', 'exportIges'], '2D·와이어프레임 곡선과 주석 (곡면은 모서리만)', '2D / wireframe curves and notes (surfaces as their edges)'),
+      item('full', 'HP-GL/2 플로터 파일 (.plt) 읽기·쓰기', 'HP-GL/2 plot files (.plt) read & write', ['open', 'exportHpgl']),
+      item('full', 'PCB: Gerber RS-274X·Excellon 드릴 읽기', 'PCB: Gerber RS-274X and Excellon drill read', ['open']),
       item('full', '3D 프린팅 (STL·3MF·AMF)', '3D printing (STL, 3MF, AMF)', ['exportStl', 'export3d:3mf', 'export3d:amf']),
-      item('none', 'IGES·BREP·IFC·DAE·VRML', 'IGES, BREP, IFC, DAE, VRML'),
+      item('none', 'BREP·IFC·DAE·VRML', 'BREP, IFC, DAE, VRML'),
     ],
   },
   {

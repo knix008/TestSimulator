@@ -1,0 +1,107 @@
+{
+ "ezdxf-entities-r12.dxf": {
+  "version": "AC1009",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "POLYLINE": 2,
+   "INSERT": 1,
+   "3DFACE": 1
+  }
+ },
+ "ezdxf-entities-r2000.dxf": {
+  "version": "AC1015",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "LWPOLYLINE": 1,
+   "ELLIPSE": 2,
+   "SPLINE": 2,
+   "HATCH": 2,
+   "LEADER": 1,
+   "MTEXT": 1,
+   "DIMENSION": 1,
+   "INSERT": 1,
+   "3DFACE": 1,
+   "POLYLINE": 1
+  }
+ },
+ "ezdxf-entities-r2018.dxf": {
+  "version": "AC1032",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "LWPOLYLINE": 1,
+   "ELLIPSE": 2,
+   "SPLINE": 2,
+   "HATCH": 2,
+   "LEADER": 1,
+   "MTEXT": 1,
+   "DIMENSION": 1,
+   "INSERT": 1,
+   "3DFACE": 1,
+   "POLYLINE": 1
+  }
+ },
+ "ezdxf-entities-r12-binary.dxf": {
+  "version": "AC1009",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "POLYLINE": 2,
+   "INSERT": 1,
+   "3DFACE": 1
+  },
+  "format": "bin",
+  "encoding": "utf-8"
+ },
+ "ezdxf-entities-r2000-binary.dxf": {
+  "version": "AC1015",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "LWPOLYLINE": 1,
+   "ELLIPSE": 2,
+   "SPLINE": 2,
+   "HATCH": 2,
+   "LEADER": 1,
+   "MTEXT": 1,
+   "DIMENSION": 1,
+   "INSERT": 1,
+   "3DFACE": 1,
+   "POLYLINE": 1
+  },
+  "format": "bin",
+  "encoding": "utf-8"
+ },
+ "ezdxf-entities-r12-cp949.dxf": {
+  "version": "AC1009",
+  "entities": {
+   "LINE": 2,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "POINT": 1,
+   "TEXT": 1,
+   "POLYLINE": 2,
+   "INSERT": 1,
+   "3DFACE": 1
+  },
+  "format": "asc",
+  "encoding": "cp949"
+ }
+}

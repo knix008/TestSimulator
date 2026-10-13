@@ -1,0 +1,850 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-13T06:58:00.965Z",
+ "drawing": {
+  "id": "dwg-mv6bx4l400brba47",
+  "title": "주석과 해칭",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-13T06:58:00.952Z",
+  "updated": "2026-10-13T06:58:00.953Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "MC-015",
+   "material": "S45C",
+   "scale": "1:1",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv6bx4l400bs6c7m",
+    "type": "rect",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": 0,
+    "width": 160,
+    "height": 90,
+    "angle": 0,
+    "radius": 6
+   },
+   {
+    "id": "e-mv6bx4l500btbapl",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 10,
+      "y": 50
+     },
+     {
+      "x": 40,
+      "y": 50
+     },
+     {
+      "x": 40,
+      "y": 75
+     },
+     {
+      "x": 10,
+      "y": 75
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500bu3zab",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 10,
+       "y": 50
+      },
+      {
+       "x": 40,
+       "y": 50
+      },
+      {
+       "x": 40,
+       "y": 75
+      },
+      {
+       "x": 10,
+       "y": 75
+      }
+     ]
+    ],
+    "pattern": "solid",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500bvbvh3",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 10,
+    "y": 45,
+    "text": "SOLID",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500bwp926",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 47,
+      "y": 50
+     },
+     {
+      "x": 77,
+      "y": 50
+     },
+     {
+      "x": 77,
+      "y": 75
+     },
+     {
+      "x": 47,
+      "y": 75
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500bxl29i",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 47,
+       "y": 50
+      },
+      {
+       "x": 77,
+       "y": 50
+      },
+      {
+       "x": 77,
+       "y": 75
+      },
+      {
+       "x": 47,
+       "y": 75
+      }
+     ]
+    ],
+    "pattern": "ansi31",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500byh6jf",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 47,
+    "y": 45,
+    "text": "ANSI31",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500bzjjdt",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 84,
+      "y": 50
+     },
+     {
+      "x": 114,
+      "y": 50
+     },
+     {
+      "x": 114,
+      "y": 75
+     },
+     {
+      "x": 84,
+      "y": 75
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500c0jakf",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 84,
+       "y": 50
+      },
+      {
+       "x": 114,
+       "y": 50
+      },
+      {
+       "x": 114,
+       "y": 75
+      },
+      {
+       "x": 84,
+       "y": 75
+      }
+     ]
+    ],
+    "pattern": "ansi32",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500c1lxj2",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 84,
+    "y": 45,
+    "text": "ANSI32",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500c2eu24",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 121,
+      "y": 50
+     },
+     {
+      "x": 151,
+      "y": 50
+     },
+     {
+      "x": 151,
+      "y": 75
+     },
+     {
+      "x": 121,
+      "y": 75
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500c3wx9x",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 121,
+       "y": 50
+      },
+      {
+       "x": 151,
+       "y": 50
+      },
+      {
+       "x": 151,
+       "y": 75
+      },
+      {
+       "x": 121,
+       "y": 75
+      }
+     ]
+    ],
+    "pattern": "ansi37",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500c4d9y1",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 121,
+    "y": 45,
+    "text": "ANSI37",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500c55imk",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 10,
+      "y": 15
+     },
+     {
+      "x": 40,
+      "y": 15
+     },
+     {
+      "x": 40,
+      "y": 40
+     },
+     {
+      "x": 10,
+      "y": 40
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500c6jsdj",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 10,
+       "y": 15
+      },
+      {
+       "x": 40,
+       "y": 15
+      },
+      {
+       "x": 40,
+       "y": 40
+      },
+      {
+       "x": 10,
+       "y": 40
+      }
+     ]
+    ],
+    "pattern": "net",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500c7c98a",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 10,
+    "y": 10,
+    "text": "NET",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500c8udru",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 47,
+      "y": 15
+     },
+     {
+      "x": 77,
+      "y": 15
+     },
+     {
+      "x": 77,
+      "y": 40
+     },
+     {
+      "x": 47,
+      "y": 40
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500c9yvns",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 47,
+       "y": 15
+      },
+      {
+       "x": 77,
+       "y": 15
+      },
+      {
+       "x": 77,
+       "y": 40
+      },
+      {
+       "x": 47,
+       "y": 40
+      }
+     ]
+    ],
+    "pattern": "line",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500ca5quz",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 47,
+    "y": 10,
+    "text": "LINE",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500cbti4v",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 84,
+      "y": 15
+     },
+     {
+      "x": 114,
+      "y": 15
+     },
+     {
+      "x": 114,
+      "y": 40
+     },
+     {
+      "x": 84,
+      "y": 40
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500ccxb6t",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 84,
+       "y": 15
+      },
+      {
+       "x": 114,
+       "y": 15
+      },
+      {
+       "x": 114,
+       "y": 40
+      },
+      {
+       "x": 84,
+       "y": 40
+      }
+     ]
+    ],
+    "pattern": "dash",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500cdz7vr",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 84,
+    "y": 10,
+    "text": "DASH",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500cep50f",
+    "type": "polyline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 121,
+      "y": 15
+     },
+     {
+      "x": 151,
+      "y": 15
+     },
+     {
+      "x": 151,
+      "y": 40
+     },
+     {
+      "x": 121,
+      "y": 40
+     }
+    ],
+    "closed": true
+   },
+   {
+    "id": "e-mv6bx4l500cfg0at",
+    "type": "hatch",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "loops": [
+     [
+      {
+       "x": 121,
+       "y": 15
+      },
+      {
+       "x": 151,
+       "y": 15
+      },
+      {
+       "x": 151,
+       "y": 40
+      },
+      {
+       "x": 121,
+       "y": 40
+      }
+     ]
+    ],
+    "pattern": "dots",
+    "angle": 0,
+    "scale": 1
+   },
+   {
+    "id": "e-mv6bx4l500cgymfe",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 121,
+    "y": 10,
+    "text": "DOTS",
+    "size": 2.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv6bx4l500chj07b",
+    "type": "spline",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 0,
+      "y": 110
+     },
+     {
+      "x": 30,
+      "y": 135
+     },
+     {
+      "x": 60,
+      "y": 95
+     },
+     {
+      "x": 90,
+      "y": 130
+     },
+     {
+      "x": 120,
+      "y": 105
+     }
+    ],
+    "degree": 3,
+    "knots": null,
+    "weights": null,
+    "closed": false
+   },
+   {
+    "id": "e-mv6bx4l500cirecm",
+    "type": "ellipse",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "cx": 145,
+    "cy": 115,
+    "rx": 18,
+    "ry": 9,
+    "angle": 15,
+    "start": 30,
+    "end": 300
+   },
+   {
+    "id": "e-mv6bx4l500cji28c",
+    "type": "point",
+    "layer": "0",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 145,
+    "y": 115,
+    "size": 2
+   },
+   {
+    "id": "e-mv6bx4l500ck5h05",
+    "type": "line",
+    "layer": "center",
+    "color": null,
+    "lineType": "center",
+    "lineWidth": null,
+    "x1": 120,
+    "y1": 115,
+    "x2": 170,
+    "y2": 115
+   },
+   {
+    "id": "e-mv6bx4l500cl77p0",
+    "type": "leader",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "points": [
+     {
+      "x": 25,
+      "y": 62
+     },
+     {
+      "x": 45,
+      "y": 100
+     },
+     {
+      "x": 70,
+      "y": 100
+     }
+    ],
+    "text": "전면 채우기 (SOLID)",
+    "size": 3.5
+   },
+   {
+    "id": "e-mv6bx4l500cmk6yi",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "horizontal",
+    "x1": 0,
+    "y1": 0,
+    "x2": 160,
+    "y2": 0,
+    "ox": 80,
+    "oy": -12,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 1,
+    "text": ""
+   },
+   {
+    "id": "e-mv6bx4l500cncr7n",
+    "type": "dim",
+    "layer": "dim",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "vertical",
+    "x1": 160,
+    "y1": 0,
+    "x2": 160,
+    "y2": 90,
+    "ox": 172,
+    "oy": 45,
+    "cx": 0,
+    "cy": 0,
+    "r": 10,
+    "angle": 45,
+    "start": 0,
+    "end": 90,
+    "size": 3.5,
+    "precision": 1,
+    "text": ""
+   },
+   {
+    "id": "e-mv6bx4l500coduuz",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": -28,
+    "text": "해칭 무늬 8종 · 스플라인 · 타원 호 · 점 · 중심선 · 지시선",
+    "size": 3.5,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   }
+  ]
+ }
+}

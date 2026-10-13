@@ -1,9 +1,10 @@
 // Canvas 2D rendering of a drawing: grid, entities (line types and weights),
 // selection, grips, previews of the tool in use, snap markers, crosshair.
 import { AUTO, isVisible, styleOf } from '../domain/drawing.js';
-import { DASHES, entityBox, firstBaseline, grips, LINE_GAP, primitives } from '../domain/entities.js';
+import { DASHES, entityBox, firstBaseline, grips, LINE_GAP, primitives, textCorners } from '../domain/entities.js';
 import { boxesOverlap, sweep } from '../domain/geometry.js';
 import { drawingFontStack } from '../themes.js';
+import { displayUnit, gridBaseFor, unitFactor, unitLabel } from '../domain/units.js';
 
 /** Screen px per mm at 100 % zoom (a millimetre at true size on a 96 dpi screen). */
 export const PX_PER_MM = 96 / 25.4;
@@ -63,9 +64,12 @@ export class Viewport {
 
 // Primitives and boxes are computed once per entity object (entities are
 // replaced, never changed in place, when their geometry changes).
-const primCache = new WeakMap();
+// Dimension texts depend on the display unit: a unit change starts a new cache.
+let primCache = new WeakMap();
+let primUnit = displayUnit();
 const boxCache = new WeakMap();
 export function cachedPrimitives(entity) {
+  if (primUnit !== displayUnit()) { primUnit = displayUnit(); primCache = new WeakMap(); }
   let prims = primCache.get(entity);
   if (!prims) { prims = primitives(entity); primCache.set(entity, prims); }
   return prims;
@@ -94,6 +98,14 @@ function tracePrimitive(ctx, prim, vp) {
         if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y);
       });
       if (prim.closed || prim.kind === 'fill') ctx.closePath();
+      // Holes of a filled region (drawn with the even-odd rule).
+      for (const hole of prim.holes ?? []) {
+        hole.forEach((p, i) => {
+          const s = vp.toScreen(p);
+          if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y);
+        });
+        ctx.closePath();
+      }
       break;
     }
     case 'circle': {
@@ -151,7 +163,7 @@ export function drawPrimitives(ctx, prims, vp, { color, width, dash = [], fonts,
     setDash(prim.lineType ? DASHES[prim.lineType] ?? [] : dash);
     ctx.beginPath();
     tracePrimitive(ctx, prim, vp);
-    if (prim.kind === 'fill') ctx.fill(); else ctx.stroke();
+    if (prim.kind === 'fill') ctx.fill('evenodd'); else ctx.stroke();
   }
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
@@ -175,6 +187,30 @@ export function gridStepFor(size, zoom) {
 
 /** Dash pattern of the cross-hair lines (px). */
 export const CROSSHAIR_DASH = [6, 4];
+
+/** A tinted, outlined box around each text primitive (selection / hover highlight). */
+export function highlightTexts(ctx, prims, vp, color, strong) {
+  const texts = prims.filter((prim) => prim.kind === 'text');
+  if (!texts.length) return 0;
+  ctx.save();
+  for (const prim of texts) {
+    const pad = Math.max(prim.size * 0.25, 2 / vp.zoom);
+    const corners = textCorners(prim, pad).map((p) => vp.toScreen(p));
+    ctx.beginPath();
+    corners.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.globalAlpha = strong ? 0.18 : 0.1;
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.globalAlpha = strong ? 0.95 : 0.6;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = strong ? 1.5 : 1;
+    ctx.setLineDash(strong ? [] : [4, 3]);
+    ctx.stroke();
+  }
+  ctx.restore();
+  return texts.length;
+}
 
 function drawGrid(ctx, vp, colors, size) {
   const step = gridStepFor(size, vp.zoom);
@@ -244,10 +280,13 @@ const label = (value) => {
   return Object.is(rounded, -0) ? '0' : String(rounded);
 };
 
-/** Rulers along the top and left edges: mm ticks and labels, and the cursor position. */
-export function drawRulers(ctx, vp, colors, cursor) {
-  const major = niceStep(70 / vp.zoom);
-  const minor = major / (String(major).startsWith('2') ? 4 : 5);
+/** Rulers along the top and left edges: ticks and labels in the display unit, and the cursor position. */
+export function drawRulers(ctx, vp, colors, cursor, unit = displayUnit()) {
+  // Spacing chosen in the unit, then turned back into mm.
+  const factor = unitFactor(unit);
+  const majorInUnit = niceStep(70 / (vp.zoom * factor));
+  const major = majorInUnit * factor;
+  const minor = major / (String(majorInUnit).startsWith('2') ? 4 : 5);
   const box = vp.worldBox();
   ctx.save();
   ctx.fillStyle = colors.ruler;
@@ -269,7 +308,7 @@ export function drawRulers(ctx, vp, colors, cursor) {
     const isMajor = Math.abs(x / major - Math.round(x / major)) < 1e-6;
     ctx.moveTo(sx, RULER);
     ctx.lineTo(sx, RULER - (isMajor ? 12 : 5));
-    if (isMajor) ctx.fillText(label(Math.round(x / major) * major), sx + 3, 2);
+    if (isMajor) ctx.fillText(label(Math.round(x / major) * majorInUnit), sx + 3, 2);
   }
   for (let y = Math.floor(box.minY / minor) * minor; y <= box.maxY; y += minor) {
     const sy = Math.round(vp.toScreen({ x: 0, y }).y) + 0.5;
@@ -281,7 +320,7 @@ export function drawRulers(ctx, vp, colors, cursor) {
       ctx.save();
       ctx.translate(2, sy - 3);
       ctx.rotate(-Math.PI / 2);
-      ctx.fillText(label(Math.round(y / major) * major), 0, 0);
+      ctx.fillText(label(Math.round(y / major) * majorInUnit), 0, 0);
       ctx.restore();
     }
   }
@@ -295,15 +334,16 @@ export function drawRulers(ctx, vp, colors, cursor) {
     ctx.moveTo(0, Math.round(s.y) + 0.5); ctx.lineTo(RULER, Math.round(s.y) + 0.5);
     ctx.stroke();
   }
-  // The corner shows the unit.
+  // The unit is shown once, small, in the corner (tick labels are plain numbers).
   ctx.fillStyle = colors.ruler;
   ctx.fillRect(0, 0, RULER, RULER);
   ctx.fillStyle = colors.rulerText;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.fillText('mm', RULER / 2, RULER / 2);
+  ctx.font = '9px "Segoe UI", sans-serif';
+  ctx.fillText(unitLabel(unit), RULER / 2, RULER / 2);
   ctx.restore();
-  return { major, minor };
+  return { major, minor, unit, majorInUnit };
 }
 
 function drawUcs(ctx, vp, color, inset = 0) {
@@ -341,7 +381,7 @@ export function render(ctx, state) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   let gridStep = null;
-  if (settings.showGrid) gridStep = drawGrid(ctx, vp, colors, drawing.grid?.size || settings.gridSize || 10);
+  if (settings.showGrid) gridStep = drawGrid(ctx, vp, colors, gridBaseFor(drawing.grid?.size || settings.gridSize || 10));
   const fonts = { stack: drawingFontStack(settings.fontFamily), weight: settings.fontWeight ?? 400, style: settings.fontStyle ?? 'normal' };
   const view = vp.worldBox();
   const margin = 4 / vp.zoom;
@@ -357,7 +397,10 @@ export function render(ctx, state) {
     const hovered = state.hover === entity.id && !selected;
     const color = selected ? colors.select : hovered ? colors.hover : style.color === AUTO ? colors.ink : style.color;
     const width = weightPx(style.lineWidth, settings.showLineWeights) + (selected || hovered ? 1 : 0);
-    drawPrimitives(ctx, cachedPrimitives(entity), vp, { color, width, dash: DASHES[style.lineType] ?? [], fonts });
+    const prims = cachedPrimitives(entity);
+    // Selected (or hovered) texts get a tinted box behind them so the selection is easy to see.
+    if (selected || hovered) highlightTexts(ctx, prims, vp, selected ? colors.select : colors.hover, selected);
+    drawPrimitives(ctx, prims, vp, { color, width, dash: DASHES[style.lineType] ?? [], fonts });
     drawn += 1;
   }
   // Tool previews (rubber band).

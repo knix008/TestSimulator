@@ -62,7 +62,22 @@ for path in job['files']:
             App.closeDocument(doc.Name)
         elif ext in ('.step', '.stp', '.iges', '.igs', '.brep', '.brp'):
             shape = Part.read(path)
-            entry.update(volume=shape.Volume, solids=len(shape.Solids), shells=len(shape.Shells), faces=len(shape.Faces), bbox=bbox_of([shape.BoundBox]), valid=shape.isValid(), shapeType=shape.ShapeType)
+            entry.update(volume=shape.Volume, solids=len(shape.Solids), shells=len(shape.Shells), faces=len(shape.Faces), bbox=bbox_of([shape.BoundBox]), valid=shape.isValid(), shapeType=shape.ShapeType,
+                         edges=len(shape.Edges), length=sum(e.Length for e in shape.Edges))
+        elif ext in ('.svg', '.dxf'):
+            # 2D drawings through FreeCAD's own Draft importers: edges and their total length.
+            doc = App.newDocument('drawing2d')
+            if ext == '.svg':
+                import importSVG
+                importSVG.insert(path, doc.Name)
+            else:
+                import importDXF
+                importDXF.insert(path, doc.Name)
+            doc.recompute()
+            edges = [e for o in doc.Objects if hasattr(o, 'Shape') and not o.Shape.isNull() for e in o.Shape.Edges]
+            boxes = [o.Shape.BoundBox for o in doc.Objects if hasattr(o, 'Shape') and not o.Shape.isNull() and o.Shape.Edges]
+            entry.update(objects=len(doc.Objects), edges=len(edges), length=sum(e.Length for e in edges), bbox=bbox_of(boxes))
+            App.closeDocument(doc.Name)
         else:
             mesh = Mesh.Mesh(path)
             entry.update(volume=mesh.Volume, facets=mesh.CountFacets, points=mesh.CountPoints, bbox=bbox_of([mesh.BoundBox]), solid=mesh.isSolid())

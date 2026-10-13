@@ -13,14 +13,24 @@
 //   12-gearbox.mcad            3D: housing, shafts and gears padded from the gear outlines
 //   13-drawing-views.mcad      3D bracket with front/top/right (hidden lines) and isometric views
 //   14-sections.mcad           3D pulley and sleeve with section outlines
+//   15-annotations.mcad        hatch patterns, leaders, splines, elliptical arcs, points, centre lines
+//   16-imperial-plate.mcad     a plate designed in inches (try Settings › General › Length unit = in)
+//   index.json                 the start page's sample list (titles, descriptions, tags, task)
 //   04-bracket.dxf             the bracket as DXF R12
-//   exports/                   the 3D samples in FreeCAD's formats: .FCStd .step .stl .3mf (the showcase also .obj .ply .off .amf)
+//   exports/                   the 3D samples in FreeCAD's formats: .FCStd .step .stl .3mf (the showcase also .obj .ply .off .amf),
+//                              and 01/02/04 as DXF 2000, SVG, IGES and HP-GL/2
+// samples/drawings/ holds 2D files from other programs and the format specifications
+// (FreeCAD IGES/SVG/DXF, Inkscape-style SVG, HP-GL/2, Gerber, Excellon).
 // samples/freecad/ holds files made by FreeCAD itself (npm run build:samples:freecad).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addEntity, createDrawing } from '../src/domain/drawing.js';
 import { exportDxf } from '../src/domain/dxf.js';
+import { exportDxf2000 } from '../src/domain/dxf2000.js';
+import { exportHpgl } from '../src/domain/formats2d.js';
+import { exportIges } from '../src/domain/iges.js';
+import { exportSvg } from '../src/domain/svg.js';
 import { serialize } from '../src/domain/format.js';
 import { exportMesh } from '../src/domain/exchange3d.js';
 import { solidMesh } from '../src/domain/solids.js';
@@ -101,11 +111,82 @@ function boltAndNut() {
   return d;
 }
 
+
+/** Notes and annotation: text, leaders, every hatch pattern, splines, elliptical arcs, points, centre lines. */
+function annotations() {
+  const d = createDrawing({ title: '주석과 해칭', author: 'SHKWON' });
+  sheet(d, 'MC-015', 'S45C');
+  addEntity(d, 'rect', { x: 0, y: 0, width: 160, height: 90, radius: 6 });
+  const patterns = ['solid', 'ansi31', 'ansi32', 'ansi37', 'net', 'line', 'dash', 'dots'];
+  patterns.forEach((pattern, i) => {
+    const x = 10 + (i % 4) * 37;
+    const y = 50 - Math.floor(i / 4) * 35;
+    const box = [{ x, y }, { x: x + 30, y }, { x: x + 30, y: y + 25 }, { x, y: y + 25 }];
+    addEntity(d, 'polyline', { points: box, closed: true });
+    addEntity(d, 'hatch', { loops: [box], pattern, scale: 1, angle: 0, layer: '0' });
+    text(d, x, y - 5, pattern.toUpperCase(), 2.5);
+  });
+  addEntity(d, 'spline', { degree: 3, points: [{ x: 0, y: 110 }, { x: 30, y: 135 }, { x: 60, y: 95 }, { x: 90, y: 130 }, { x: 120, y: 105 }] });
+  addEntity(d, 'ellipse', { cx: 145, cy: 115, rx: 18, ry: 9, angle: 15, start: 30, end: 300 });
+  addEntity(d, 'point', { x: 145, y: 115, size: 2 });
+  addEntity(d, 'line', { x1: 120, y1: 115, x2: 170, y2: 115, lineType: 'center', layer: 'center' });
+  addEntity(d, 'leader', { points: [{ x: 25, y: 62 }, { x: 45, y: 100 }, { x: 70, y: 100 }], text: '전면 채우기 (SOLID)', size: 3.5, layer: 'text' });
+  dim(d, { kind: 'horizontal', x1: 0, y1: 0, x2: 160, y2: 0, ox: 80, oy: -12 });
+  dim(d, { kind: 'vertical', x1: 160, y1: 0, x2: 160, y2: 90, ox: 172, oy: 45 });
+  text(d, 0, -28, '해칭 무늬 8종 · 스플라인 · 타원 호 · 점 · 중심선 · 지시선', 3.5);
+  return d;
+}
+
+/** A plate drawn in inches (stored in mm): open it with Settings › General › Length unit = in. */
+function imperialPlate() {
+  const d = createDrawing({ title: '인치 판 (4 × 2.5 in)', author: 'SHKWON' });
+  sheet(d, 'MC-016', 'AISI 1018');
+  const inch = 25.4;
+  addEntity(d, 'rect', { x: 0, y: 0, width: 4 * inch, height: 2.5 * inch, radius: 0.25 * inch });
+  for (const [x, y] of [[0.5, 0.5], [3.5, 0.5], [3.5, 2], [0.5, 2]]) addEntity(d, 'circle', { cx: x * inch, cy: y * inch, r: 0.125 * inch, centerMark: true });
+  addEntity(d, 'circle', { cx: 2 * inch, cy: 1.25 * inch, r: 0.5 * inch, centerMark: true });
+  dim(d, { kind: 'horizontal', x1: 0, y1: 0, x2: 4 * inch, y2: 0, ox: 2 * inch, oy: -0.5 * inch, precision: 2 });
+  dim(d, { kind: 'vertical', x1: 4 * inch, y1: 0, x2: 4 * inch, y2: 2.5 * inch, ox: 4.5 * inch, oy: 1.25 * inch, precision: 2 });
+  dim(d, { kind: 'diameter', cx: 2 * inch, cy: 1.25 * inch, r: 0.5 * inch, angle: 45, precision: 2 });
+  text(d, 0, -1 * inch, '설정 › 일반 › 길이 단위를 in로 바꾸면 치수가 인치로 나옵니다 (4.00", 2.50", Ø1.00")', 3);
+  return d;
+}
+
+/** The start page's sample list (titles, descriptions, tags, the task each one shows). */
+const SAMPLE_INDEX = [
+  ['01-gear-pair.mcad', 'parts', ['기어 한 쌍', 'Gear pair'], ['모듈 2 기어 두 개의 맞물림, 중심 거리 치수', 'Two meshing module-2 gears with their centre distance'], ['기어', '부품', '치수']],
+  ['02-flange.mcad', 'print', ['플랜지', 'Flange'], ['볼트 구멍 6개의 플랜지, 인쇄·3D 프린팅용', 'A flange with six bolt holes, for printing and 3D printing'], ['플랜지', '인쇄', 'STL']],
+  ['03-shaft.mcad', 'precise', ['단 붙은 축', 'Stepped shaft'], ['지름과 길이를 치수로 넣은 축', 'A shaft with diameters and lengths dimensioned'], ['축', '치수']],
+  ['04-bracket.mcad', 'draw', ['브래킷', 'Bracket'], ['둥근 사각형, 장공, 구멍으로 만든 판', 'A plate: rounded rectangle, slots, holes'], ['2D', '판']],
+  ['05-bolt-and-nut.mcad', 'parts', ['볼트와 너트', 'Bolt and nut'], ['M10 볼트, 너트, 와셔, 소켓 볼트, 구멍', 'M10 bolt, nut, washer, socket screw and hole'], ['ISO', '체결']],
+  ['06-cover-plate.mcad', 'modify', ['커버 플레이트', 'Cover plate'], ['직사각형·원형 배열로 만든 구멍들', 'Holes made with rectangular and polar arrays'], ['배열', '수정']],
+  ['07-shaft-assembly.mcad', 'parts', ['축 조립', 'Shaft assembly'], ['축, 베어링, 기어, 키, 멈춤링', 'Shaft, bearings, gear, key and circlip'], ['조립', '베어링']],
+  ['08-parts-catalog.mcad', 'parts', ['부품 목록', 'Parts catalog'], ['라이브러리의 부품 36가지', 'All 36 library parts'], ['라이브러리']],
+  ['09-solids-showcase.mcad', 'solids', ['3D 솔리드 모음', '3D solids showcase'], ['모든 프리미티브와 돌출·회전·로프트·스윕·불리언', 'Every primitive, pad, revolve, loft, sweep and boolean'], ['3D', 'FreeCAD']],
+  ['10-mounting-block.mcad', 'booleans', ['장착 블록', 'Mounting block'], ['합치기·빼기로 만든 블록', 'A block made with fuse and cut'], ['3D', '불리언']],
+  ['11-springs-pipes.mcad', 'features', ['스프링과 관', 'Springs and pipes'], ['나선 스프링, 굽은 관(스윕), 호퍼(로프트)', 'Helical spring, bent pipe (sweep), hopper (loft)'], ['3D', '스윕', '로프트']],
+  ['12-gearbox.mcad', 'features', ['기어박스', 'Gearbox'], ['기어 윤곽을 돌출한 하우징·축·기어', 'Housing, shafts and gears padded from gear outlines'], ['3D', '돌출']],
+  ['13-drawing-views.mcad', 'views', ['도면 뷰', 'Drawing views'], ['정면·평면·우측면(숨은선)·등각 투상', 'Front, top, right (hidden lines) and isometric views'], ['투영', '숨은선']],
+  ['14-sections.mcad', 'views', ['단면', 'Sections'], ['풀리와 슬리브의 단면 윤곽', 'Section outlines of a pulley and a sleeve'], ['단면']],
+  ['15-annotations.mcad', 'annotate', ['주석과 해칭', 'Notes and hatching'], ['해칭 무늬 8종, 지시선, 스플라인, 타원 호, 점, 중심선', 'Eight hatch patterns, leaders, splines, elliptical arcs, points, centre lines'], ['해칭', '주석']],
+  ['16-imperial-plate.mcad', 'precise', ['인치 판', 'Imperial plate'], ['인치로 설계한 판 (길이 단위를 in로 바꿔 보세요)', 'A plate designed in inches (switch the length unit to in)'], ['인치', '단위']],
+  ['04-bracket.dxf', 'files', ['브래킷 (DXF R12)', 'Bracket (DXF R12)'], ['MyCAD가 쓴 DXF', 'DXF written by MyCAD'], ['DXF']],
+  ['dxf/ezdxf-entities-r2018.dxf', 'files', ['ezdxf DXF 2018', 'ezdxf DXF 2018'], ['다른 프로그램(ezdxf)이 쓴 DXF: 해칭·스플라인·치수·블록', 'DXF from another program (ezdxf): hatches, splines, dimensions, blocks'], ['DXF', 'ezdxf']],
+  ['dxf/ezdxf-entities-r2000-binary.dxf', 'files', ['바이너리 DXF', 'Binary DXF'], ['바이너리 형식의 DXF 2000', 'DXF 2000 in the binary format'], ['DXF', '바이너리']],
+  ['drawings/freecad-plate.igs', 'files', ['FreeCAD IGES 판', 'FreeCAD IGES plate'], ['FreeCAD가 쓴 IGES: 호·타원·B-스플라인', 'IGES written by FreeCAD: arcs, ellipse, B-spline'], ['IGES', 'FreeCAD']],
+  ['drawings/inkscape-bracket.svg', 'files', ['SVG 브래킷', 'SVG bracket'], ['Inkscape 방식의 SVG: 레이어·변환·호·채우기·문자', 'Inkscape-style SVG: layers, transforms, arcs, fills, text'], ['SVG']],
+  ['drawings/hpgl-plotter-demo.plt', 'files', ['HP-GL/2 플로터', 'HP-GL/2 plot'], ['펜별 레이어, 원·호·선 종류·문자', 'Pens as layers, circles, arcs, line types, labels'], ['HP-GL']],
+  ['drawings/pcb-board-top.gtl', 'files', ['PCB 거버 (윗면 동박)', 'PCB Gerber (top copper)'], ['패드·배선·구리 영역', 'Pads, tracks and a copper pour'], ['Gerber', 'PCB']],
+  ['drawings/pcb-board.drl', 'files', ['PCB 드릴 (Excellon)', 'PCB drill (Excellon)'], ['공구 지름별 구멍과 장공', 'Holes by tool diameter and a slot'], ['Excellon', 'PCB']],
+  ['freecad/freecad-assembly.FCStd', 'files', ['FreeCAD 문서', 'FreeCAD document'], ['FreeCAD가 만든 조립품 (.FCStd)', 'An assembly made by FreeCAD (.FCStd)'], ['FCStd', '3D']],
+  ['freecad/freecad-bracket.step', 'files', ['STEP 브래킷', 'STEP bracket'], ['FreeCAD가 쓴 STEP 솔리드', 'A STEP solid written by FreeCAD'], ['STEP', '3D']],
+];
+
 const files = [
   ['01-gear-pair', gearPair()], ['02-flange', flange()], ['03-shaft', shaft()], ['04-bracket', bracket()], ['05-bolt-and-nut', boltAndNut()],
   ['06-cover-plate', arraysPlate()], ['07-shaft-assembly', shaftAssembly()], ['08-parts-catalog', partsCatalog()],
   ['09-solids-showcase', solidsShowcase()], ['10-mounting-block', mountingBlock()], ['11-springs-pipes', springsAndPipes()], ['12-gearbox', gearbox3d()],
-  ['13-drawing-views', drawingViewsSample()], ['14-sections', sectionSample()],
+  ['13-drawing-views', drawingViewsSample()], ['14-sections', sectionSample()], ['15-annotations', annotations()], ['16-imperial-plate', imperialPlate()],
 ];
 for (const [name, drawing] of files) fs.writeFileSync(path.join(out, `${name}.mcad`), serialize(drawing));
 fs.writeFileSync(path.join(out, '04-bracket.dxf'), exportDxf(files[3][1]));
@@ -126,5 +207,17 @@ for (const [name, drawing] of files) {
     written.push(file);
   }
 }
+// The 2D samples in the open 2D formats MyCAD writes (read back by the tests, and by FreeCAD for IGES).
+const written2d = [];
+for (const [name, drawing] of files.filter(([n]) => ['01-gear-pair', '02-flange', '04-bracket'].includes(n))) {
+  const date = new Date('2026-01-01T00:00:00Z');
+  for (const [ext, text] of [['r2000.dxf', exportDxf2000(drawing)], ['svg', exportSvg(drawing)], ['igs', exportIges(drawing, { file: `${name}.igs`, date })], ['plt', exportHpgl(drawing)]]) {
+    fs.writeFileSync(path.join(exportsDir, `${name}.${ext}`), text);
+    written2d.push(`${name}.${ext}`);
+  }
+}
+console.log(`samples/exports/: ${written2d.join(', ')}`);
+fs.writeFileSync(path.join(out, 'index.json'), `${JSON.stringify(SAMPLE_INDEX.map(([file, task, [titleKo, title], [descriptionKo, description], tags]) => ({ file, task, title, titleKo, description, descriptionKo, tags })), null, 1)}\n`);
+console.log(`samples/index.json: ${SAMPLE_INDEX.length} samples for the start page`);
 console.log(`samples/: ${files.map(([name]) => `${name}.mcad`).join(', ')}, 04-bracket.dxf`);
 console.log(`samples/exports/: ${written.length} files (${FORMATS.join(', ')})`);

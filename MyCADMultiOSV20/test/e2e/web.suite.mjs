@@ -35,7 +35,7 @@ const at = (app, x, y) => m(app, `(() => { const r = document.querySelector('#ca
 
 export const cases = [
   { group: '페이지', name: '제목에 프로그램 이름과 버전, 아이콘', async run(app) {
-    assert.match(await app.main.eval('document.title'), new RegExp(`^MyCAD v${VERSION.replace(/\./g, '\\.')}`));
+    assert.match(await app.main.eval('document.title'), new RegExp(`^MyCAD V${VERSION.split('.').slice(0, 2).join('\\.')}`));
     assert.equal(await app.main.eval(`document.querySelector('link[rel="icon"]').getAttribute('href')`), './icon.png');
   } },
   { group: '툴바', name: '모든 버튼에 툴팁, 투명도 설정 없음', async run(app) {

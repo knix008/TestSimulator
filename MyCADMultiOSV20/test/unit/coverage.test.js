@@ -1,4 +1,4 @@
-// The FreeCAD coverage table (Help → FreeCAD feature coverage) names real MyCAD commands.
+// The FreeCAD coverage table (Help → Feature list) names real MyCAD commands.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';

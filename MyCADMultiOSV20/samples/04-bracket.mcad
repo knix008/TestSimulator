@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T03:10:45.101Z",
+ "saved": "2026-10-13T06:58:00.955Z",
  "drawing": {
-  "id": "dwg-mv63suz0000pb9jw",
+  "id": "dwg-mv6bx4gi000p8n1i",
   "title": "고정 브래킷",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T03:10:44.940Z",
-  "updated": "2026-10-13T03:10:44.940Z",
+  "created": "2026-10-13T06:58:00.786Z",
+  "updated": "2026-10-13T06:58:00.786Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv63suz0000qixrw",
+    "id": "e-mv6bx4gi000q850l",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -85,7 +85,7 @@
     "radius": 8
    },
    {
-    "id": "e-mv63suz0000reujp",
+    "id": "e-mv6bx4gi000riugy",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -103,7 +103,7 @@
     }
    },
    {
-    "id": "e-mv63suz0000sd8yv",
+    "id": "e-mv6bx4gi000stvd0",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -121,7 +121,7 @@
     }
    },
    {
-    "id": "e-mv63suz0000twstn",
+    "id": "e-mv6bx4gi000tmyp7",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -133,7 +133,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv63suz0000u3j69",
+    "id": "e-mv6bx4gi000un6kz",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -145,7 +145,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv63suz0000vx80c",
+    "id": "e-mv6bx4gi000vn4tp",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -157,7 +157,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv63suz0000wlmf0",
+    "id": "e-mv6bx4gi000wt16c",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -181,7 +181,7 @@
     "text": ""
    },
    {
-    "id": "e-mv63suz0000xt799",
+    "id": "e-mv6bx4gi000xk0m1",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -205,7 +205,7 @@
     "text": ""
    },
    {
-    "id": "e-mv63suz0000ygyy0",
+    "id": "e-mv6bx4gi000yl0ae",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -229,7 +229,7 @@
     "text": ""
    },
    {
-    "id": "e-mv63suz0000z6mlm",
+    "id": "e-mv6bx4gi000zyivr",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -253,7 +253,7 @@
     "text": ""
    },
    {
-    "id": "e-mv63suz00010c1pk",
+    "id": "e-mv6bx4gi0010pe2t",
     "type": "text",
     "layer": "text",
     "color": null,

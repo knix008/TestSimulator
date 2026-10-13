@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="163.2mm" height="103.19999999999999mm" viewBox="0 0 163.2 103.19999999999999" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<g id="Plate" transform="translate(1.600000,101.600000) scale(1,-1)">
+<path id="Plate_w0000"  d="M 20.0 70.0 L 40.0 75.0 L 50.0 65.0 L 35.0 60.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0000"  d="M 12.0 0.0 L 148.0 0.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0001"  d="M 148.0 0.0 A 12 12 0 0 1 160 12" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0002"  d="M 160.0 12.0 L 160.0 88.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0003"  d="M 160.0 88.0 A 12 12 0 0 1 148 100" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0004"  d="M 148.0 100.0 L 12.0 100.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0005"  d="M 12.0 100.0 A 12 12 0 0 1 0 88" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0006"  d="M 0.0 88.0 L 0.0 12.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0007"  d="M 0.0 12.000000000000002 A 12 12 0 0 1 12 0" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<circle cx="15.0" cy="15.0" r="5.0" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none"/>
+<circle cx="145.0" cy="15.0" r="5.0" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none"/>
+<circle cx="145.0" cy="85.0" r="5.0" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none"/>
+<circle cx="15.0" cy="85.0" r="5.0" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none"/>
+<path id="Plate_nwe0012"  d="M 60.0 40.0 L 100.0 40.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0013"  d="M 100.0 60.0 L 60.0 60.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0014"  d="M 100.0 40.0 A 10 10 0 0 1 100 60" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0015"  d="M 60.0 60.0 A 10 10 0 0 1 60 40" stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0016"  d="M 144.0 50.0 A 14.0 7.0 -0.0 0 0 116.0 50.0 A 14.0 7.0 -0.0 0 0 144.0 50.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<path id="Plate_nwe0017"  d="M 20.0 30.0 C 23.08043693734554 45.29124442200664 26.54021846867277 47.64562221100333 30.0 45.00000000000001 C 33.45978153132723 42.354377788996686 36.91956306265447 34.70875557799336 40.00000000000001 30.000000000000007 C 44.60086664097036 22.967115737178112 48.35550303382769 22.485703194147696 50.0 55.0 " stroke="#000000" stroke-width="0.35 px" style="stroke-width:0.35;stroke-miterlimit:4;stroke-dasharray:none;stroke-linecap:square;fill:none;fill-opacity:1;fill-rule: evenodd"/>
+<title>b'Plate'</title>
+</g>
+</svg>

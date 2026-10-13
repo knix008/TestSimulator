@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- A bracket drawn the way Inkscape saves files: mm page with a viewBox,
+     layers as groups with transforms, relative path commands with arcs,
+     a rounded rectangle, circles, an ellipse, a dashed centre line, a filled
+     shape and text with tspans. -->
+<svg
+   width="180mm"
+   height="120mm"
+   viewBox="0 0 180 120"
+   version="1.1"
+   id="svg1"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview id="namedview1" pagecolor="#ffffff" bordercolor="#000000" inkscape:document-units="mm" />
+  <defs id="defs1" />
+  <g inkscape:label="Outline" inkscape:groupmode="layer" id="layer1" transform="translate(10,10)">
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.5"
+       d="m 0,20 a 20,20 0 0 1 20,-20 h 120 a 20,20 0 0 1 20,20 v 60 a 20,20 0 0 1 -20,20 H 20 A 20,20 0 0 1 0,80 Z"
+       id="outline" />
+    <rect style="fill:none;stroke:#000000;stroke-width:0.35" id="window" width="50" height="30" x="55" y="35" rx="5" ry="5" />
+    <circle style="fill:none;stroke:#000000;stroke-width:0.35" id="hole1" cx="20" cy="20" r="6" />
+    <circle style="fill:none;stroke:#000000;stroke-width:0.35" id="hole2" cx="140" cy="20" r="6" />
+    <circle style="fill:none;stroke:#000000;stroke-width:0.35" id="hole3" cx="140" cy="80" r="6" />
+    <circle style="fill:none;stroke:#000000;stroke-width:0.35" id="hole4" cx="20" cy="80" r="6" />
+    <ellipse style="fill:none;stroke:#1d4ed8;stroke-width:0.35" id="ellipse1" cx="80" cy="85" rx="15" ry="6" />
+  </g>
+  <g inkscape:label="Centre lines" inkscape:groupmode="layer" id="layer2" transform="translate(10,10)">
+    <path style="fill:none;stroke:#e5484d;stroke-width:0.18;stroke-dasharray:6,1.5,1,1.5" d="M -5,50 H 165" id="cx" />
+    <path style="fill:none;stroke:#e5484d;stroke-width:0.18;stroke-dasharray:6,1.5,1,1.5" d="M 80,-5 V 105" id="cy" />
+  </g>
+  <g inkscape:label="Marks" inkscape:groupmode="layer" id="layer3" transform="translate(10,10)">
+    <path style="fill:#2fa36b;stroke:none" d="m 120,40 c 6,-8 18,-8 24,0 c -6,8 -18,8 -24,0 z" id="leaf" />
+    <path style="fill:none;stroke:#000000;stroke-width:0.25" d="M 15,45 Q 30,30 45,45 T 75,45" id="wave" />
+    <text xml:space="preserve" style="font-size:5px;font-family:Arial;fill:#000000" x="5" y="108" id="title"><tspan x="5" y="108" id="tspan1">BRACKET 160 × 100</tspan><tspan x="5" y="114" id="tspan2" style="font-size:3.5px">Inkscape style SVG · mm</tspan></text>
+  </g>
+</svg>

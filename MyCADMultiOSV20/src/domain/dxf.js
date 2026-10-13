@@ -2,9 +2,11 @@
 // DXF — with layers, line types and colours; parts and dimensions are written
 // as their lines, arcs and texts. Import reads the common 2D entities of any
 // DXF version (blocks are expanded) into a new drawing.
+import { triangulate } from './triangulate.js';
 import { AUTO, createDrawing, isVisible, normalizeLayer } from './drawing.js';
 import { firstBaseline, newId, normalizeEntity, primitives } from './entities.js';
 import { arcPoints, deg, dist, normDeg, rotate } from './geometry.js';
+import { sampleCurve, throughPoints } from './nurbs.js';
 
 const hexToRgbSafe = (hex) => {
   const value = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? '').trim())?.[1] ?? '000000';
@@ -153,6 +155,10 @@ export function exportDxf(drawing, { entities = null } = {}) {
       if (lineType) pair(6, LTYPE_NAMES[lineType] ?? 'CONTINUOUS');
       if (entity.color) pair(62, hexToAci(entity.color));
     };
+    if (entity.type === 'point') {
+      pair(0, 'POINT'); own({}); pair(10, entity.x); pair(20, entity.y); pair(30, 0);
+      continue;
+    }
     for (const prim of primitives(entity)) {
       switch (prim.kind) {
         case 'line':
@@ -170,10 +176,13 @@ export function exportDxf(drawing, { entities = null } = {}) {
           pair(0, 'SEQEND'); pair(8, layer);
           break;
         case 'fill': {
-          const [a, b, c] = prim.points;
-          pair(0, 'SOLID'); own(prim);
-          pair(10, a.x); pair(20, a.y); pair(30, 0); pair(11, b.x); pair(21, b.y); pair(31, 0);
-          pair(12, c.x); pair(22, c.y); pair(32, 0); pair(13, c.x); pair(23, c.y); pair(33, 0);
+          // R12 has no HATCH: a filled region becomes SOLID triangles.
+          const tris = prim.points.length === 3 && !prim.holes?.length ? [prim.points] : triangulate(prim.points, prim.holes ?? []);
+          for (const [a, b, c] of tris) {
+            pair(0, 'SOLID'); own(prim);
+            pair(10, a.x); pair(20, a.y); pair(30, 0); pair(11, b.x); pair(21, b.y); pair(31, 0);
+            pair(12, c.x); pair(22, c.y); pair(32, 0); pair(13, c.x); pair(23, c.y); pair(33, 0);
+          }
           break;
         }
         case 'text': {
@@ -205,7 +214,8 @@ const fmt = (value) => {
 };
 
 /** Layer names DXF accepts. */
-export const dxfName = (name) => String(name || '0').replace(/[<>/\\":;?*|=`]/g, '_').slice(0, 255);
+/** Layer / table names DXF accepts (forbidden characters replaced, non-ASCII as \U+XXXX like AutoCAD). */
+export const dxfName = (name) => encodeDxfText(String(name || '0').replace(/[<>/\\":;?*|=`]/g, '_').slice(0, 255));
 
 // ───────────────────────── import
 
@@ -283,8 +293,9 @@ export function bulgePoints(vertices, closed) {
  * Reads a DXF file into a new drawing.
  * Returns { drawing, imported, skipped: { TYPE: count }, units }.
  */
+/** Reads DXF text, or group pairs already decoded (binary DXF: see import2d.js). */
 export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
-  const pairs = tokenize(text);
+  const pairs = Array.isArray(text) ? text : tokenize(text);
   const sections = new Map();
   for (let i = 0; i < pairs.length; i++) {
     if (pairs[i].code === 0 && pairs[i].value.trim() === 'SECTION' && pairs[i + 1]?.code === 2) {
@@ -311,7 +322,7 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
     const [start, end] = sections.get('TABLES');
     for (const record of records(pairs, start, end)) {
       if (record.type !== 'LAYER') continue;
-      const name = (get(record, 2, '0') ?? '0').trim();
+      const name = decodeDxfText((get(record, 2, '0') ?? '0').trim());
       const color = num(record, 62, 7);
       const flags = num(record, 70, 0);
       layerByName.set(name, normalizeLayer({
@@ -321,7 +332,7 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
     }
   }
   const layerFor = (name) => {
-    const key = String(name ?? '0').trim() || '0';
+    const key = decodeDxfText(String(name ?? '0').trim()) || '0';
     if (!layerByName.has(key)) layerByName.set(key, normalizeLayer({ id: key === '0' ? '0' : newId('layer'), name: key, color: AUTO, lineType: 'continuous', lineWidth: key === '0' ? 0.5 : 0.25 }));
     return layerByName.get(key).id;
   };
@@ -340,6 +351,8 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
 
   const skipped = {};
   const entities = [];
+  const faces = new Map();
+  const addFace = (layer, tri) => { if (!faces.has(layer)) faces.set(layer, []); faces.get(layer).push(...tri.flat()); };
   const skip = (type) => { skipped[type] = (skipped[type] ?? 0) + 1; };
 
   /** Converts records into entities; `xf` maps points (block inserts), `scale` multiplies sizes, `turn` adds rotation. */
@@ -353,6 +366,7 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
       const lineType = lineTypeFromDxf(get(record, 6, ''));
       if (lineType) base.lineType = lineType;
       const P = (xCode, yCode) => xf({ x: num(record, xCode) * unit, y: num(record, yCode) * unit });
+      const P3 = (xCode, yCode, zCode) => { const m = P(xCode, yCode); return [m.x, m.y, num(record, zCode) * unit]; };
       switch (record.type) {
         case 'LINE': {
           const a = P(10, 20); const b = P(11, 21);
@@ -383,6 +397,22 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
         }
         case 'POLYLINE': {
           const closed = Boolean(num(record, 70) & 1);
+          if (num(record, 70) & 64) {
+            // Polyface mesh: vertices, then faces that index them (1-based, negative = invisible edge).
+            const verts = [];
+            while (list[i + 1] && list[i + 1].type === 'VERTEX') {
+              i += 1;
+              const v = list[i];
+              if (num(v, 70) & 64) verts.push([num(v, 10) * unit, num(v, 20) * unit, num(v, 30) * unit].map((c, k) => (k < 2 ? c : c)));
+              else if (num(v, 70) & 128) {
+                const idx = [71, 72, 73, 74].map((c) => Math.abs(num(v, c, 0))).filter(Boolean).map((n) => verts[n - 1]).filter(Boolean);
+                const mapped = idx.map((q) => { const m = xf({ x: q[0], y: q[1] }); return [m.x, m.y, q[2]]; });
+                for (let k = 1; k + 1 < mapped.length; k++) addFace(base.layer, [mapped[0], mapped[k], mapped[k + 1]]);
+              }
+            }
+            if (list[i + 1]?.type === 'SEQEND') i += 1;
+            break;
+          }
           const vertices = [];
           while (list[i + 1] && list[i + 1].type === 'VERTEX') {
             i += 1;
@@ -422,24 +452,53 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
           if (Math.abs(t1 - t0 - Math.PI * 2) < 1e-6 || Math.abs(t1 - t0) < 1e-9) {
             entities.push({ ...base, type: 'ellipse', cx: c.x, cy: c.y, rx, ry: rx * ratio, angle });
           } else {
+            // An elliptical arc: parameter angles in degrees.
             const end = t1 > t0 ? t1 : t1 + Math.PI * 2;
-            const steps = Math.max(8, Math.ceil(((end - t0) / (Math.PI * 2)) * 72));
-            const points = Array.from({ length: steps + 1 }, (_, k) => {
-              const t = t0 + ((end - t0) * k) / steps;
-              return rotate({ x: c.x + rx * Math.cos(t), y: c.y + rx * ratio * Math.sin(t) }, c, angle);
-            });
-            entities.push({ ...base, type: 'polyline', points, closed: false });
+            entities.push({ ...base, type: 'ellipse', cx: c.x, cy: c.y, rx, ry: rx * ratio, angle, start: deg(t0), end: deg(end) });
           }
           break;
         }
-        case 'SPLINE': {
-          const xs = all(record, 11).length ? all(record, 11) : all(record, 10);
-          const ys = all(record, 11).length ? all(record, 21) : all(record, 20);
-          const points = xs.map((x, k) => xf({ x: Number.parseFloat(x) * unit, y: Number.parseFloat(ys[k] ?? 0) * unit }));
-          if (points.length >= 2) entities.push({ ...base, type: 'polyline', points, closed: Boolean(num(record, 70) & 1) });
+        case 'POINT': {
+          const at = P(10, 20);
+          entities.push({ ...base, type: 'point', x: at.x, y: at.y });
           break;
         }
-        case 'SOLID': case 'TRACE': case '3DFACE': {
+        case 'HATCH': {
+          const hatch = readHatch(record, (p) => xf({ x: p.x * unit, y: p.y * unit }));
+          if (hatch) entities.push({ ...base, type: 'hatch', ...hatch, scale: hatch.scale * scale, angle: normDeg(hatch.angle + turn) });
+          else skip(record.type);
+          break;
+        }
+        case 'LEADER': {
+          const xs = all(record, 10);
+          const ys = all(record, 20);
+          const points = xs.map((x, k) => xf({ x: Number.parseFloat(x) * unit, y: Number.parseFloat(ys[k] ?? 0) * unit }));
+          if (points.length >= 2) entities.push({ ...base, type: 'leader', points, text: '', size: 2.5 * unit * scale });
+          break;
+        }
+        case 'SPLINE': {
+          const flags = num(record, 70, 0);
+          const degree = num(record, 71, 3);
+          const knots = all(record, 40).map(Number.parseFloat);
+          const weights = all(record, 41).map(Number.parseFloat);
+          const controls = all(record, 10).map((x, k) => xf({ x: Number.parseFloat(x) * unit, y: Number.parseFloat(all(record, 20)[k] ?? 0) * unit }));
+          const fits = all(record, 11).map((x, k) => xf({ x: Number.parseFloat(x) * unit, y: Number.parseFloat(all(record, 21)[k] ?? 0) * unit }));
+          if (controls.length >= 2) {
+            entities.push({ ...base, type: 'spline', points: controls, degree, knots: knots.length === controls.length + degree + 1 ? knots : null, weights: weights.length === controls.length ? weights : null, closed: Boolean(flags & 1) && !knots.length });
+          } else if (fits.length >= 2) {
+            const curve = throughPoints(fits.map((q) => [q.x, q.y]), Boolean(flags & 1));
+            entities.push({ ...base, type: 'spline', points: curve.points.map(([x, y]) => ({ x, y })), degree: curve.degree, knots: curve.knots });
+          }
+          break;
+        }
+        case '3DFACE': {
+          // 3D faces (meshes from other CAD): gathered into one mesh solid per layer.
+          const v = [P3(10, 20, 30), P3(11, 21, 31), P3(12, 22, 32), P3(13, 23, 33)];
+          addFace(base.layer, [v[0], v[1], v[2]]);
+          if (Math.hypot(v[3][0] - v[2][0], v[3][1] - v[2][1], v[3][2] - v[2][2]) > 1e-12) addFace(base.layer, [v[0], v[2], v[3]]);
+          break;
+        }
+        case 'SOLID': case 'TRACE': {
           const pts = [P(10, 20), P(11, 21), P(13, 23), P(12, 22)];
           entities.push({ ...base, type: 'polyline', points: pts.filter((p, k) => k === 0 || dist(p, pts[k - 1]) > 1e-9), closed: true });
           break;
@@ -470,7 +529,100 @@ export function importDxf(text, { title = 'DXF', language = 'ko' } = {}) {
   drawing.layers = layerByName.size ? [...layerByName.values()] : drawing.layers;
   if (!drawing.layers.some((layer) => layer.id === '0')) drawing.layers.unshift(normalizeLayer({ id: '0', name: '0', color: AUTO, lineType: 'continuous', lineWidth: 0.5 }));
   drawing.activeLayer = drawing.layers[0].id;
+  for (const [layer, tris] of faces) entities.push({ type: 'solid', kind: 'mesh', layer, name: `3DFACE ${layerNameOf(layer)}`, params: {}, shape: { tris } });
   drawing.entities = entities.map(normalizeEntity).filter(Boolean);
   return { drawing, imported: drawing.entities.length, skipped, units };
+
+  function layerNameOf(id) { return [...layerByName.values()].find((layer) => layer.id === id)?.name ?? id; }
 }
 
+
+/**
+ * A HATCH record → { loops, pattern, angle, scale }. Boundary paths are read in
+ * order: polyline paths (with bulges) or edge paths (lines, arcs, elliptic
+ * arcs, splines), each turned into a point loop. `map` converts points.
+ */
+export function readHatch(record, map) {
+  const codes = record.codes;
+  let i = 0;
+  const next = () => codes[i++];
+  const peek = () => codes[i];
+  const val = (pair) => Number.parseFloat(pair?.[1]);
+  const seek = (code) => { while (i < codes.length && codes[i][0] !== code) i++; return i < codes.length; };
+  const name = (codes.find(([c]) => c === 2)?.[1] ?? 'ANSI31').trim().toUpperCase();
+  const solid = codes.find(([c]) => c === 70)?.[1]?.trim() === '1';
+  if (!seek(91)) return null;
+  const pathCount = val(next());
+  const loops = [];
+  for (let k = 0; k < pathCount; k++) {
+    if (!seek(92)) break;
+    const flags = val(next());
+    const loop = [];
+    if (flags & 2) {
+      // Polyline path.
+      let hasBulge = 0;
+      if (peek()?.[0] === 72) hasBulge = val(next());
+      if (peek()?.[0] === 73) next();
+      const count = peek()?.[0] === 93 ? val(next()) : 0;
+      const vertices = [];
+      for (let v = 0; v < count; v++) {
+        const x = val(next()); const y = val(next());
+        let bulge = 0;
+        if (hasBulge && peek()?.[0] === 42) bulge = val(next());
+        vertices.push({ x, y, bulge });
+      }
+      loop.push(...bulgePoints(vertices, true));
+    } else {
+      const edges = peek()?.[0] === 93 ? val(next()) : 0;
+      for (let e = 0; e < edges; e++) {
+        if (peek()?.[0] !== 72) break;
+        const type = val(next());
+        const read = (code) => (peek()?.[0] === code ? val(next()) : 0);
+        if (type === 1) {
+          const a = { x: read(10), y: read(20) }; const b = { x: read(11), y: read(21) };
+          if (!loop.length) loop.push(a);
+          loop.push(b);
+        } else if (type === 2) {
+          const c = { x: read(10), y: read(20) }; const r = read(40); const a0 = read(50); const a1 = read(51); const ccw = read(73);
+          // Clockwise edges store their angles mirrored (360 − angle).
+          const pts = ccw ? arcPoints(c.x, c.y, r, a0, a1, 5) : arcPoints(c.x, c.y, r, -a1, -a0, 5).reverse();
+          loop.push(...(loop.length ? pts.slice(1) : pts));
+        } else if (type === 3) {
+          const c = { x: read(10), y: read(20) }; const m = { x: read(11), y: read(21) }; const ratio = read(40); const a0 = read(50); const a1 = read(51); const ccw = read(73);
+          const rx = Math.hypot(m.x, m.y); const angle = Math.atan2(m.y, m.x);
+          let t0 = (a0 * Math.PI) / 180; let t1 = (a1 * Math.PI) / 180;
+          if (!ccw) [t0, t1] = [-t0, -t1];
+          if (t1 <= t0) t1 += Math.PI * 2;
+          const n = Math.max(4, Math.ceil(((t1 - t0) / (Math.PI * 2)) * 72));
+          for (let q = loop.length ? 1 : 0; q <= n; q++) {
+            const t = t0 + ((t1 - t0) * q) / n;
+            const x = rx * Math.cos(t); const y = rx * ratio * Math.sin(t) * (ccw ? 1 : -1);
+            loop.push({ x: c.x + x * Math.cos(angle) - y * Math.sin(angle), y: c.y + x * Math.sin(angle) + y * Math.cos(angle) });
+          }
+        } else if (type === 4) {
+          const degree = read(94); read(73); read(74);
+          const nk = read(95); const nc = read(96);
+          const knots = []; for (let q = 0; q < nk; q++) knots.push(read(40));
+          const controls = []; const weights = [];
+          for (let q = 0; q < nc; q++) { controls.push([read(10), read(20)]); if (peek()?.[0] === 42) weights.push(val(next())); }
+          if (peek()?.[0] === 97) { const nf = val(next()); for (let q = 0; q < nf; q++) { read(11); read(21); } }
+          if (peek()?.[0] === 12) { read(12); read(22); read(13); read(23); }
+          if (controls.length >= 2) {
+            const pts = sampleCurve({ degree, points: controls, knots: knots.length === controls.length + degree + 1 ? knots : null, weights: weights.length === controls.length ? weights : null }, 48).map(([x, y]) => ({ x, y }));
+            loop.push(...(loop.length ? pts.slice(1) : pts));
+          }
+        } else break;
+      }
+    }
+    // Source boundary objects.
+    if (peek()?.[0] === 97) { const n = val(next()); for (let q = 0; q < n && peek()?.[0] === 330; q++) next(); }
+    const clean = loop.filter((q, idx) => !idx || Math.hypot(q.x - loop[idx - 1].x, q.y - loop[idx - 1].y) > 1e-9);
+    if (clean.length > 2 && Math.hypot(clean[0].x - clean.at(-1).x, clean[0].y - clean.at(-1).y) < 1e-9) clean.pop();
+    if (clean.length >= 3) loops.push(clean.map(map));
+  }
+  if (!loops.length) return null;
+  const angle = Number.parseFloat(codes.find(([c]) => c === 52)?.[1] ?? '0') || 0;
+  const scale = Number.parseFloat(codes.find(([c]) => c === 41)?.[1] ?? '1') || 1;
+  const pattern = solid || name === 'SOLID' ? 'solid' : name === 'ANSI37' ? 'ansi37' : name === 'ANSI32' ? 'ansi32' : name === 'NET' ? 'net' : name === 'LINE' ? 'line' : name === 'DASH' ? 'dash' : name === 'DOTS' ? 'dots' : 'ansi31';
+  return { loops, pattern, angle, scale };
+}

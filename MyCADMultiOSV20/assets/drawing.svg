@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <!-- .mcad drawing icon: a 3D drawing sheet with a folded corner, a gear with
        its dimension, and the title block in the bottom-right corner.
-       Same palette as the app icon; transparent border, glowing top-left. -->
+       Same palette as the app icon; transparent border, a soft sheen at the top-left. -->
   <defs>
     <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
@@ -25,8 +25,8 @@
       <stop offset="1" stop-color="#b8530a"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.18" cy="0.12" r="0.6">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
-      <stop offset="0.3" stop-color="#eef6ff" stop-opacity="0.6"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.3" stop-color="#eef6ff" stop-opacity="0.15"/>
       <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
@@ -76,6 +76,6 @@
   <path fill="url(#fold)" d="M648 88V222Q648 264 690 264H824Z"/>
   <path fill="none" stroke="#7f9bd8" stroke-width="5" d="M648 88V222Q648 264 690 264H824"/>
   <!-- sparkle at the top-left corner -->
-  <circle cx="276" cy="168" r="64" fill="url(#spark)" opacity="0.9"/>
-  <path d="M276 104l11 53 53 11-53 11-11 53-11-53-53-11 53-11z" fill="#ffffff"/>
+  <circle cx="276" cy="168" r="50" fill="url(#spark)" opacity="0.3"/>
+  <path d="M276 132l6 32 32 6-32 6-6 32-6-32-32-6 32-6z" fill="#ffffff" opacity="0.45"/>
 </svg>

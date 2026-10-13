@@ -8,17 +8,19 @@
 import { createEntity, formatNumber, offsetEntity } from '../domain/entities.js';
 import { angleOf, arcFrom3, dist, normDeg, rad } from '../domain/geometry.js';
 import { evaluate } from '../domain/expr.js';
+import { displayUnit, evaluateLength, toUnit, unitLabel } from '../domain/units.js';
 import { parseCoordinate } from '../domain/snap.js';
+import { throughPoints } from '../domain/nurbs.js';
 import { normalizeParams } from '../domain/parts.js';
 import { findEntity, transformEntities } from '../domain/drawing.js';
 
 /** Tool ids in the order of the tool panel. */
-export const DRAW_TOOLS = ['select', 'pan', 'line', 'polyline', 'rect', 'circle', 'arc', 'ellipse', 'polygon', 'text', 'centerline'];
+export const DRAW_TOOLS = ['select', 'pan', 'line', 'polyline', 'rect', 'circle', 'arc', 'ellipse', 'ellipseArc', 'polygon', 'spline', 'point', 'text', 'leader', 'hatch', 'centerline'];
 export const DIM_TOOLS = ['dimLinear', 'dimAligned', 'dimRadius', 'dimDiameter', 'dimAngle', 'measure'];
 export const MODIFY_TOOLS = ['move', 'copy', 'rotate', 'mirror', 'scale', 'offset'];
 export const TOOL_ICONS = {
   select: 'select', pan: 'pan', line: 'line', polyline: 'polyline', rect: 'rect', circle: 'circle', arc: 'arc', ellipse: 'ellipse', polygon: 'polygon',
-  text: 'text', centerline: 'centerline', dimLinear: 'dimHorizontal', dimAligned: 'dimension', dimRadius: 'dimRadius', dimDiameter: 'dimDiameter',
+  text: 'text', centerline: 'centerline', ellipseArc: 'ellipseArc', spline: 'spline', point: 'point', leader: 'leader', hatch: 'hatch', dimLinear: 'dimHorizontal', dimAligned: 'dimension', dimRadius: 'dimRadius', dimDiameter: 'dimDiameter',
   dimAngle: 'dimAngle', measure: 'measure', move: 'move', copy: 'copyEntity', rotate: 'rotate', mirror: 'mirror', scale: 'scale', offset: 'offset', place: 'part',
 };
 export const TOOL_KEYS = { line: 'L', polyline: 'P', rect: 'R', circle: 'C', arc: 'A', ellipse: 'E', polygon: 'G', text: 'T', dimLinear: 'D', move: 'M', rotate: 'O', mirror: 'I', offset: 'F', measure: 'Q', pan: 'H', select: 'S' };
@@ -160,6 +162,21 @@ function buildFor(id) {
       if (!b && !preview) return null;
       return ['ellipse', { cx: c.x, cy: c.y, rx, ry: Math.max(ry, 1e-3), angle }];
     }, 'op.ellipse'];
+    case 'ellipseArc': return [5, ([c, a, b, s0, s1], api, { preview } = {}) => {
+      // Centre, end of the major axis, minor radius, then where the arc starts and ends.
+      const rx = dist(c, a);
+      if (rx < 1e-9 || !b) return null;
+      const angle = angleOf(c, a);
+      const local = (q) => ({ x: (q.x - c.x) * Math.cos(rad(angle)) + (q.y - c.y) * Math.sin(rad(angle)), y: -(q.x - c.x) * Math.sin(rad(angle)) + (q.y - c.y) * Math.cos(rad(angle)) });
+      const ry = Math.max(Math.abs(local(b).y), 1e-3);
+      const param = (q) => { const l = local(q); return normDeg((Math.atan2(l.y / ry, l.x / rx) * 180) / Math.PI); };
+      if (!s0) return preview ? ['ellipse', { cx: c.x, cy: c.y, rx, ry, angle }] : null;
+      const start = param(s0);
+      let end = s1 ? param(s1) : start + 90;
+      if (end <= start) end += 360;
+      return ['ellipse', { cx: c.x, cy: c.y, rx, ry, angle, start, end }];
+    }, 'op.ellipse'];
+    case 'point': return [1, ([q]) => ['point', { x: q.x, y: q.y }], 'op.point'];
     case 'polygon': return [2, ([c, p], api) => (dist(c, p) > 1e-9 ? ['polygon', { cx: c.x, cy: c.y, r: dist(c, p), sides: api.options.sides, angle: angleOf(c, p) }] : null), 'op.polygon'];
     case 'text': return [1, ([p], api) => ['text', { x: p.x, y: p.y, text: api.t('tool.textDefault'), size: api.settings().textHeight, layer: api.layerFor('text') }], 'op.text'];
     case 'dimAligned': return [3, ([a, b, o], api) => (dist(a, b) > 1e-9 ? ['dim', { kind: 'aligned', ...lineData(a, b), ox: (o ?? b).x, oy: (o ?? b).y, ...dimDefaults(api) }] : null), 'op.dim'];
@@ -318,7 +335,7 @@ class OffsetTool extends Tool {
   }
 
   typed(text) {
-    const value = evaluate(text);
+    const value = evaluateLength(text);
     if (!(value > 0)) return false;
     this.api.setOption('offset', value);
     return true;
@@ -355,8 +372,69 @@ class PlaceTool extends Tool {
 }
 
 /** Creates the tool object for an id. */
+/** Spline: click the points it passes through, Enter (or click the first point) to finish. */
+class SplineTool extends PolylineTool {
+  complete(closed) {
+    if (this.points.length >= 2) this.api.add('spline', splineThrough(this.points, closed), 'op.spline');
+    this.points = [];
+  }
+
+  preview(cursor) {
+    if (!this.points.length) return {};
+    return { previews: [createEntity('spline', { ...splineThrough([...this.points, cursor], false), layer: this.api.drawing().activeLayer })], length: dist(this.last, cursor) };
+  }
+
+  prompt() { return `prompt.spline.${this.points.length ? 1 : 0}`; }
+}
+
+const splineThrough = (points, closed) => {
+  const curve = throughPoints(points.map((q) => [q.x, q.y]), closed);
+  return { points: curve.points.map(([x, y]) => ({ x, y })), degree: curve.degree, knots: curve.knots };
+};
+
+/** Leader: the arrow tip first, then bends; Enter finishes and the note text is edited in the properties. */
+class LeaderTool extends PolylineTool {
+  complete() {
+    if (this.points.length >= 2) {
+      const entity = this.api.add('leader', { points: this.points, text: this.api.t('leader.defaultText'), size: this.api.settings().textHeight, layer: this.api.layerFor('text') }, 'op.leader');
+      if (entity) { this.api.select([entity.id]); this.api.focusProperty?.('text'); }
+    }
+    this.points = [];
+  }
+
+  click(p) {
+    if (this.last && dist(this.last, p) < 1e-9) return;
+    this.points.push(p);
+  }
+
+  preview(cursor) {
+    if (!this.points.length) return {};
+    return { previews: [createEntity('leader', { points: [...this.points, cursor], text: '', size: this.api.settings().textHeight, layer: this.api.drawing().activeLayer })], length: dist(this.last, cursor) };
+  }
+
+  prompt() { return `prompt.leader.${this.points.length ? 1 : 0}`; }
+}
+
+/** Hatch: click inside a closed area (outlines around it are found; inner outlines stay holes). */
+class HatchTool extends Tool {
+  click(p) {
+    const loops = this.api.regionAt?.(p);
+    if (!loops?.length) {
+      this.api.notify('info', 'notice.noRegion');
+      return;
+    }
+    const o = this.api.options;
+    this.api.add('hatch', { loops, pattern: o.hatchPattern ?? 'ansi31', scale: o.hatchScale ?? 1, angle: o.hatchAngle ?? 0, layer: this.api.layerFor('hatch') }, 'op.hatch');
+  }
+
+  prompt() { return 'prompt.hatch.0'; }
+}
+
 export function createTool(id, api, extra = {}) {
   if (id === 'line') return new LineTool(id, api);
+  if (id === 'spline') return new SplineTool(id, api);
+  if (id === 'leader') return new LeaderTool(id, api);
+  if (id === 'hatch') return new HatchTool(id, api);
   if (id === 'centerline') return new LineTool(id, api, { center: true });
   if (id === 'polyline') return new PolylineTool(id, api);
   if (id === 'dimRadius' || id === 'dimDiameter') return new RadialDimTool(id, api);
@@ -372,7 +450,7 @@ export function createTool(id, api, extra = {}) {
 /** Live readout for the status bar while a tool is used ("L 25.4  ∠ 30°"). */
 export function readout(info, precision = 2) {
   const parts = [];
-  if (Number.isFinite(info?.length)) parts.push(`L ${formatNumber(info.length, precision)}`);
+  if (Number.isFinite(info?.length)) parts.push(`L ${formatNumber(toUnit(info.length), precision)} ${unitLabel(displayUnit())}`);
   if (Number.isFinite(info?.angle)) parts.push(`∠ ${formatNumber(normDeg(info.angle), 1)}°`);
   return parts.join('  ');
 }

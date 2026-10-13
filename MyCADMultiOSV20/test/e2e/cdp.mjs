@@ -129,8 +129,10 @@ export class Page {
     await this.send('Input.insertText', { text });
   }
 
-  async screenshot(file) {
-    const response = await this.send('Page.captureScreenshot', { format: 'png' });
+  /** PNG, or WebP when the file name ends in .webp (documentation pictures). clip: { x, y, width, height } in CSS px. */
+  async screenshot(file, { quality = 82, clip = null } = {}) {
+    const webp = /\.webp$/i.test(file);
+    const response = await this.send('Page.captureScreenshot', { format: webp ? 'webp' : 'png', ...(webp ? { quality } : {}), ...(clip ? { clip: { ...clip, scale: 1 } } : {}) });
     if (response.error) throw new Error(response.error.message);
     const fs = await import('node:fs');
     fs.writeFileSync(file, Buffer.from(response.result.data, 'base64'));

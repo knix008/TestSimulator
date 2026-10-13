@@ -6,6 +6,8 @@ import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { formatNumber } from './domain/entities.js';
 import { evaluate } from './domain/expr.js';
+import { evaluateLength, formatArea, formatLength, formatVolume, LENGTH_UNITS, lengthValue, setDisplayUnit, unitLabel } from './domain/units.js';
+import { FILE_FORMATS } from './domain/format.js';
 import { CATEGORY_ICONS, categoryOf, generatePart, normalizeParams, optionIsWord, PART_CATEGORIES, PARTS, partInfo } from './domain/parts.js';
 import './view/partIcons.js';
 import { defaultPrintOptions, MARGINS, PAPERS, paginate, pageSvg, SCALES, selectContent } from './domain/print.js';
@@ -40,6 +42,8 @@ document.documentElement.classList.add(`popup-kind-${kind}`);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const prefersDark = () => Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
 const fmt = (value, digits = 3) => formatNumber(value, digits);
+/** "V1.0": how the version is shown. */
+const displayVersion = (version) => (version && version !== '?' ? `V${String(version).split('.').slice(0, 2).join('.')}` : String(version ?? ''));
 
 // ───────────────────────── bridge to the main window
 
@@ -89,6 +93,7 @@ const s = () => state.settings;
 
 function applyLook() {
   setLanguage(s().language);
+  setDisplayUnit(s().units);
   applyTheme(resolveTheme(s().theme, prefersDark(), s().customTheme));
   applyFont(s());
 }
@@ -110,7 +115,7 @@ function setOsTitle(title) {
   if (!desktop || !title || title === osTitle) return;
   osTitle = title;
   const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';
-  appWindow.setTitle(`${title} — MyCAD v${version}`).catch(() => {});
+  appWindow.setTitle(`${title} — MyCAD ${displayVersion(version)}`).catch(() => {});
 }
 
 function frame({ glyph, title, body, foot = '', tabs = '' }) {
@@ -132,8 +137,9 @@ const button = (actionName, label, glyph = '', extra = '', value = '') =>
 const row = (glyph, label, control, title = label) => `<div class="row" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${control}</span></div>`;
 
 /** [−] value [+] for a number setting. */
+// unit 'mm' marks a length: shown and stepped in the display unit (onChange still gets mm).
 const numberField = (key, value, min, max, step, unit, label) => stepperHtml({
-  key, value, min, max, step, unit, label,
+  key, value, min, max, step, unit, label, length: unit === 'mm',
   decreaseTip: t('stepper.decrease', { label }), increaseTip: t('stepper.increase', { label }),
 });
 
@@ -204,8 +210,10 @@ function renderSettings() {
 function settingsGeneral() {
   return [
     row('globe', t('settings.language'), segmented('language', [['ko', '한국어'], ['en', 'English']], s().language)),
+    row('measure', t('settings.units'), `<select data-select="units" id="settings-units" title="${escapeHtml(t('settings.unitsTip'))}">${LENGTH_UNITS.map((unit) => `<option value="${unit}" ${s().units === unit ? 'selected' : ''}>${escapeHtml(t(`units.${unit}`))}</option>`).join('')}</select>`, t('settings.unitsTip')),
     row('user', t('settings.author'), `<input class="wide" data-text="author" value="${escapeHtml(s().author)}" placeholder="${escapeHtml(t('settings.authorHint'))}" title="${escapeHtml(t('settings.author'))}" />`),
     toggle('restoreSession', t('settings.restoreSession'), 'refresh'),
+    toggle('showStartPage', t('settings.showStartPage'), 'home'),
     toggle('confirmDelete', t('settings.confirmDelete'), 'trash'),
     toggle('statusClock', t('settings.statusClock'), 'recent'),
     toggle('showLeftPanel', t('action.leftPanel'), 'panelLeft'),
@@ -335,7 +343,8 @@ function settingsDrawing() {
   return [
     toggle('showGrid', t('action.grid'), 'grid'),
     toggle('showRulers', t('action.rulers'), 'ruler'),
-    row('grid', t('settings.gridSize'), `<select data-select="gridSize" title="${escapeHtml(t('settings.gridSize'))}">${GRID_SIZES.map((size) => `<option value="${size}" ${s().gridSize === size ? 'selected' : ''}>${size} mm</option>`).join('')}</select>`),
+    toggle('showScaleBar', t('action.scaleBar'), 'scaleBar'),
+    row('grid', t('settings.gridSize'), `<select data-select="gridSize" title="${escapeHtml(t('settings.gridSize'))}">${GRID_SIZES.map((size) => `<option value="${size}" ${s().gridSize === size ? 'selected' : ''}>${escapeHtml(formatLength(size))}</option>`).join('')}</select>`),
     toggle('snapGrid', t('action.snapGrid'), 'grid'),
     toggle('snapObject', t('action.snap'), 'snap'),
     toggle('ortho', t('action.ortho'), 'ortho'),
@@ -402,7 +411,7 @@ async function renderAbout() {
   const info = state.info;
   const date = info.buildDate ? new Date(info.buildDate).toLocaleString() : '-';
   const build = [
-    ['info', t('about.version'), `${info.version}`],
+    ['info', t('about.version'), `${displayVersion(info.version)} (${info.version})`],
     ['refresh', t('about.buildDate'), date],
     ['link', t('about.commit'), info.commit ?? '-'],
     ['drawing', t('about.target'), info.target ?? '-'],
@@ -416,23 +425,52 @@ async function renderAbout() {
   ];
   const table = (title, glyph, rows) => `<h3 class="about-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
     <dl class="about-table">${rows.map(([rowGlyph, label, value]) => `<dt title="${escapeHtml(label)}">${icon(rowGlyph)}<span>${escapeHtml(label)}</span></dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd>`).join('')}</dl>`;
+  const tab = state.tab === 'files' ? 'files' : 'info';
+  const tabs = `<nav class="tabs" role="tablist">${[['info', 'info', 'about.tabInfo'], ['files', 'folder', 'about.tabFiles']].map(([id, glyph, key]) => `
+    <button class="tab ${tab === id ? 'active' : ''}" role="tab" aria-selected="${tab === id}" data-action="tab" data-value="${id}" title="${escapeHtml(t(key))}">${icon(glyph)}<span>${escapeHtml(t(key))}</span></button>`).join('')}</nav>`;
+  const foot = `<span class="muted">© SHKWON(knix008@naver.com)</span><span class="grow"></span>${button('copy-about', t('action.copy'), 'copy')}${button('close', t('settings.done'), 'check', 'primary')}`;
+  if (tab === 'files') {
+    root.innerHTML = frame({ glyph: 'info', title: t('about.title'), tabs, body: `<div class="about about-files-page">${fileFormatsHtml()}</div>`, foot });
+    fitHeight();
+    ready();
+    return;
+  }
   root.innerHTML = frame({
-    glyph: 'info', title: t('about.title'),
+    glyph: 'info', title: t('about.title'), tabs,
     body: `<div class="about">
       <div class="about-top">
         <img class="about-icon" src="${appIcon}" alt="" />
         <div class="about-text">
-          <div class="about-name">${escapeHtml(info.name)} <span class="about-version">v${escapeHtml(info.version)}</span></div>
+          <div class="about-name">${escapeHtml(info.name)} <span class="about-version">${escapeHtml(displayVersion(info.version))}</span></div>
           <div class="about-tagline">${escapeHtml(t('about.tagline'))}</div>
           <p class="about-description">${escapeHtml(t('about.description'))}</p>
         </div>
       </div>
       <div class="about-rows" id="about-rows">${table(t('about.buildInfo'), 'gear', build)}${table(t('about.authorInfo'), 'user', author)}</div>
     </div>`,
-    foot: `<span class="muted">© SHKWON(knix008@naver.com)</span><span class="grow"></span>${button('copy-about', t('action.copy'), 'copy')}${button('close', t('settings.done'), 'check', 'primary')}`,
+    foot,
   });
   fitHeight();
   ready();
+}
+
+/** Supported file formats, by group: name, extensions, read / write. */
+function fileFormatsHtml() {
+  const mark = (on, label) => `<span class="format-mark ${on ? 'yes' : 'no'}" title="${escapeHtml(`${label}: ${on ? t('about.yes') : t('about.no')}`)}">${icon(on ? 'check' : 'close')}<span>${escapeHtml(label)}</span></span>`;
+  const groups = [['drawing', 'drawing'], ['model', 'cube'], ['other', 'image']];
+  const sections = groups.map(([group, glyph]) => {
+    const rows = FILE_FORMATS.filter((format) => format.group === group).map((format) => {
+      const name = format.id === 'image' || format.id === 'text' ? t(`about.fileName.${format.id}`) : format.name;
+      const extensions = format.extensions.map((ext) => `.${ext}`).join(' ');
+      const use = format.use ? t(`about.use.${format.use}`) : '';
+      const copy = `${name} (${extensions}): ${[format.read ? t('about.read') : '', format.write ? t('about.write') : ''].filter(Boolean).join(', ')}${use ? ` — ${use}` : ''}`;
+      return `<div class="format-row" data-format="${format.id}" data-copy="${escapeHtml(copy)}" title="${escapeHtml(copy)}">
+        <span class="format-name">${escapeHtml(name)}${use ? `<small>${escapeHtml(use)}</small>` : ''}</span>
+        <span class="format-ext">${escapeHtml(extensions)}</span>${mark(format.read, t('about.read'))}${mark(format.write, t('about.write'))}</div>`;
+    }).join('');
+    return `<h3 class="about-section">${icon(glyph)}<span>${escapeHtml(t(`about.files.${group}`))}</span></h3><div class="format-table">${rows}</div>`;
+  }).join('');
+  return `<div class="about-rows" id="about-rows">${sections}</div><p class="muted about-files-hint">${escapeHtml(t('about.filesHint'))}</p>`;
 }
 
 // ───────────────────────── confirm
@@ -726,7 +764,7 @@ function renderPart() {
     return row('measure', label, numberField(`part:${param.key}`, value, param.min, param.max, param.step, param.unit === '°' ? '°' : '', label));
   }).join('');
   const standard = PARTS[d.kind].standard ? `<span class="info-chip standard" title="${escapeHtml(t('part.standard'))}">${icon('list')} <b>${escapeHtml(PARTS[d.kind].standard)}</b></span>` : '';
-  const info = standard + Object.entries(partInfo(d.kind, d.params)).map(([key, value]) => `<span class="info-chip" title="${escapeHtml(t(`info.${key}`))}">${escapeHtml(t(`info.${key}`))} <b>${escapeHtml(fmt(value))}</b> mm</span>`).join('');
+  const info = standard + Object.entries(partInfo(d.kind, d.params)).map(([key, value]) => `<span class="info-chip" title="${escapeHtml(t(`info.${key}`))}">${escapeHtml(t(`info.${key}`))} <b>${escapeHtml(lengthValue(value))}</b> ${unitLabel()}</span>`).join('');
   const theme = resolveTheme(s().theme, prefersDark(), s().customTheme);
   const svg = previewSvg(generatePart(d.kind, d.params), { width: 330, height: 300, stroke: theme.colors.text });
   root.innerHTML = frame({
@@ -759,7 +797,9 @@ function renderArray() {
   if (!state.array) arrayInit();
   const a = state.array;
   const total = a.mode === 'rect' ? a.rows * a.columns : a.count;
-  const input = (key, label, unit = 'mm') => row('measure', label, `<input class="num" data-array="${key}" value="${escapeHtml(a[key])}" title="${escapeHtml(label)}" /><small>${unit}</small>`);
+  const input = (key, label, unit = 'mm') => (unit === 'mm'
+    ? row('measure', label, `<input class="num" data-array="${key}" data-length="1" value="${escapeHtml(lengthValue(a[key]))}" title="${escapeHtml(`${label} (${unitLabel()})`)}" /><small>${unitLabel()}</small>`)
+    : row('measure', label, `<input class="num" data-array="${key}" value="${escapeHtml(a[key])}" title="${escapeHtml(label)}" /><small>${unit}</small>`));
   const fields = a.mode === 'rect'
     ? [row('list', t('array.rows'), numberField('array:rows', a.rows, 1, 200, 1, '', t('array.rows'))), row('list', t('array.columns'), numberField('array:columns', a.columns, 1, 200, 1, '', t('array.columns'))), input('dx', t('array.dx')), input('dy', t('array.dy'))]
     : [row('list', t('array.count'), numberField('array:count', a.count, 2, 360, 1, '', t('array.count'))), input('angle', t('array.angle'), '°'), input('cx', t('array.cx')), input('cy', t('array.cy')), row('rotate', t('array.rotateItems'), switchControl('data-array-toggle="rotateItems"', a.rotateItems, t('array.rotateItems')))];
@@ -835,7 +875,7 @@ function renderStl() {
   const info = mesh?.size ? [
     row('part', t('stl.solids'), `<b id="stl-solids">${mesh.shapes.length}</b>`),
     row('circle', t('stl.holes'), `<b id="stl-holes">${mesh.holes}</b>`),
-    row('zoomFit', t('stl.size'), `<b id="stl-size">${fmt(mesh.size.x, 2)} × ${fmt(mesh.size.y, 2)} × ${fmt(mesh.size.z, 2)} mm</b>`),
+    row('zoomFit', t('stl.size'), `<b id="stl-size">${lengthValue(mesh.size.x)} × ${lengthValue(mesh.size.y)} × ${lengthValue(mesh.size.z)} ${unitLabel()}</b>`),
     row('measure', t('stl.volume'), `<b>${fmt(mesh.volume / 1000, 2)} cm³</b>`),
     row('polygon', t('stl.triangles'), `<b id="stl-triangles">${mesh.triangles.length}</b>`),
   ] : [];
@@ -949,7 +989,7 @@ function renderSolid() {
     const entity = solidPreviewEntity();
     preview = isoSvg([entity]);
     const props = solidProperties(normalizeEntity(entity));
-    info = `<span class="info-chip">${escapeHtml(t('measure.volume'))} <b>${escapeHtml(fmt(props.volume, 2))}</b> mm³</span><span class="info-chip">${escapeHtml(t('measure.surface'))} <b>${escapeHtml(fmt(props.area, 2))}</b> mm²</span>${props.sizeX !== undefined ? `<span class="info-chip">${escapeHtml(t('measure.size3d'))} <b>${escapeHtml(`${fmt(props.sizeX, 2)} × ${fmt(props.sizeY, 2)} × ${fmt(props.sizeZ, 2)}`)}</b> mm</span>` : ''}`;
+    info = `<span class="info-chip">${escapeHtml(t('measure.volume'))} <b>${escapeHtml(formatVolume(props.volume))}</b></span><span class="info-chip">${escapeHtml(t('measure.surface'))} <b>${escapeHtml(formatArea(props.area))}</b></span>${props.sizeX !== undefined ? `<span class="info-chip">${escapeHtml(t('measure.size3d'))} <b>${escapeHtml(`${lengthValue(props.sizeX)} × ${lengthValue(props.sizeY)} × ${lengthValue(props.sizeZ)}`)}</b> ${unitLabel()}</span>` : ''}`;
     applyLabel = t(d.mode === 'edit' ? 'solid.apply' : 'solid.insert');
   } else if (d.mode === 'feature') {
     title = `${t(`feature.${d.kind}`)} — ${t('feature.fromSelection', { count: p.count ?? 0 })}`;
@@ -960,7 +1000,7 @@ function renderSolid() {
     preview = entity ? isoSvg([entity]) : '';
     if (entity) {
       const props = solidProperties(normalizeEntity(entity));
-      info = `<span class="info-chip">${escapeHtml(t('measure.volume'))} <b>${escapeHtml(fmt(props.volume, 2))}</b> mm³</span><span class="info-chip">${escapeHtml(t('measure.size3d'))} <b>${escapeHtml(`${fmt(props.sizeX, 2)} × ${fmt(props.sizeY, 2)} × ${fmt(props.sizeZ, 2)}`)}</b> mm</span>`;
+      info = `<span class="info-chip">${escapeHtml(t('measure.volume'))} <b>${escapeHtml(formatVolume(props.volume))}</b></span><span class="info-chip">${escapeHtml(t('measure.size3d'))} <b>${escapeHtml(`${lengthValue(props.sizeX)} × ${lengthValue(props.sizeY)} × ${lengthValue(props.sizeZ)}`)}</b> ${unitLabel()}</span>`;
     }
     applyLabel = t(`feature.${d.kind}`);
   } else if (d.mode === 'section') {
@@ -969,7 +1009,7 @@ function renderSolid() {
     left = `<div class="feature-help">${icon('solidSection', 'icon feature-icon')}<p>${escapeHtml(t('section.help'))}</p></div>`;
     const range = p.range ?? [0, 10];
     fields = num('section:level', d.level, { min: -1e6, max: 1e6, step: 1, unit: 'mm' }, t('section.level'))
-      + row('info', t('section.range'), `<b>${escapeHtml(`${fmt(range[0], 2)} … ${fmt(range[1], 2)} mm`)}</b>`);
+      + row('info', t('section.range'), `<b>${escapeHtml(`${lengthValue(range[0])} … ${lengthValue(range[1])} ${unitLabel()}`)}</b>`);
     const solids = p.solids ?? [];
     const cut = solids.flatMap((raw) => { const entity = normalizeEntity(raw); return entity ? sectionAt(solidMesh(entity), d.level) : []; });
     // The cut drawn in the iso view at its height.
@@ -1021,7 +1061,7 @@ function renderCoverage() {
     return `<div class="coverage-row ${cls}" data-status="${entry.status}" title="${escapeHtml(tip)}"><span class="coverage-mark">${icon(glyph)}<span>${escapeHtml(t(`coverage.${entry.status}`))}</span></span><span class="coverage-name">${escapeHtml(ko ? entry.ko : entry.en)}</span><span class="coverage-note">${escapeHtml(note)}</span></div>`;
   }).join('');
   root.innerHTML = frame({
-    glyph: 'freecad', title: t('coverage.title'), tabs,
+    glyph: 'checklist', title: t('coverage.title'), tabs,
     body: `<div class="coverage-view">${rows}</div>`,
     foot: `<span class="info-chip status-full">${icon('check')} ${escapeHtml(t('coverage.full'))} <b>${summary.full}</b></span><span class="info-chip status-partial">${icon('warning')} ${escapeHtml(t('coverage.partial'))} <b>${summary.partial}</b></span><span class="info-chip status-none">${icon('close')} ${escapeHtml(t('coverage.none'))} <b>${summary.none}</b></span><span class="muted">${escapeHtml(t('coverage.hint'))}</span><span class="grow"></span>${button('close', t('error.close'), 'close', 'primary')}`,
   });
@@ -1107,6 +1147,7 @@ root.addEventListener('click', async (event) => {
       }
       return undefined;
     case 'copy-about':
+      if (root.querySelector('#about-rows [data-copy]')) return copyText([...root.querySelectorAll('#about-rows [data-copy]')].map((row) => row.dataset.copy).join('\n'));
       return copyText([...root.querySelectorAll('#about-rows dt')].map((dt) => `${dt.textContent.trim()}: ${dt.nextElementSibling.textContent.trim()}`).join('\n'))
         .then(() => action('notice', { kind: 'success', text: t('error.copied') }));
     case 'page':
@@ -1165,7 +1206,7 @@ root.addEventListener('change', (event) => {
     return render();
   }
   if (target.dataset.array) {
-    const value = evaluate(target.value);
+    const value = target.dataset.length ? evaluateLength(target.value) : evaluate(target.value);
     if (Number.isFinite(value)) state.array[target.dataset.array] = value;
     return render();
   }

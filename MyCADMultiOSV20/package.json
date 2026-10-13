@@ -2,7 +2,7 @@
   "name": "mycad",
   "productName": "MyCAD",
   "private": true,
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Mechanical design (2D CAD) for Web, Windows, macOS and Linux (Tauri)",
   "author": "SHKWON <knix008@naver.com>",
   "type": "module",
@@ -23,7 +23,10 @@
     "build:all": "node scripts/build.mjs all",
     "build:icons": "node scripts/render-icons.mjs",
     "build:samples": "node scripts/create-samples.mjs",
-    "build:samples:freecad": "node scripts/freecad-samples.mjs"
+    "build:samples:freecad": "node scripts/freecad-samples.mjs",
+    "build:docs": "node scripts/docs-shots.mjs",
+    "build:docs:text": "node scripts/build-docs.mjs",
+    "record:tutorial": "node scripts/record-tutorial.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

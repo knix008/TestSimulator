@@ -10,9 +10,12 @@ import {
   polylineLength, rad, rotate, scaleAt, segmentHitsBox, sub, sweep, unionBox,
 } from './geometry.js';
 import { generatePart, normalizeParams, PARTS } from './parts.js';
+import { HATCH_PATTERN_NAMES, hatchArea, hatchPrimitives } from './hatch.js';
+import { sampleCurve } from './nurbs.js';
+import { displayUnit, toUnit } from './units.js';
 import { flattenTriangles, normalizeSolidData, partInParent, solidFootprint, solidMesh, solidProperties } from './solids.js';
 
-export const ENTITY_TYPES = ['line', 'polyline', 'rect', 'circle', 'arc', 'ellipse', 'polygon', 'text', 'dim', 'part', 'solid'];
+export const ENTITY_TYPES = ['line', 'polyline', 'rect', 'circle', 'arc', 'ellipse', 'polygon', 'text', 'dim', 'part', 'solid', 'point', 'spline', 'hatch', 'leader'];
 export const DIM_KINDS = ['aligned', 'horizontal', 'vertical', 'radius', 'diameter', 'angle'];
 export const LINE_TYPES = ['continuous', 'dashed', 'center', 'hidden', 'phantom', 'dotted'];
 export const LINE_WIDTHS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1, 1.4];
@@ -53,8 +56,33 @@ export function normalizeEntity(raw) {
       return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), r: positive(raw.r, 1), centerMark: Boolean(raw.centerMark) };
     case 'arc':
       return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), r: positive(raw.r, 1), start: normDeg(finite(raw.start)), end: normDeg(finite(raw.end, 90)) };
-    case 'ellipse':
-      return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), rx: positive(raw.rx, 1), ry: positive(raw.ry, 1), angle: finite(raw.angle) };
+    case 'ellipse': {
+      // start / end: parameter angles (degrees) of an elliptical arc; 0…360 is the whole ellipse.
+      const start = finite(raw.start, 0);
+      let end = finite(raw.end, 360);
+      if (end <= start) end += 360 * Math.ceil((start - end) / 360 + 1e-12);
+      return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), rx: positive(raw.rx, 1), ry: positive(raw.ry, 1), angle: finite(raw.angle), start, end: Math.min(end, start + 360) };
+    }
+    case 'point':
+      return { ...base, x: finite(raw.x), y: finite(raw.y), size: positive(raw.size, 2) };
+    case 'spline': {
+      const points = Array.isArray(raw.points) ? raw.points.map(point) : [];
+      if (points.length < 2) return null;
+      const degree = Math.max(1, Math.min(5, Math.round(finite(raw.degree, 3)), points.length - 1));
+      const knots = Array.isArray(raw.knots) && raw.knots.length === points.length + degree + 1 && raw.knots.every((k, i, a) => Number.isFinite(Number(k)) && (!i || Number(k) >= Number(a[i - 1]))) ? raw.knots.map(Number) : null;
+      const weights = Array.isArray(raw.weights) && raw.weights.length === points.length && raw.weights.every((w) => Number(w) > 0) ? raw.weights.map(Number) : null;
+      return { ...base, points, degree, knots, weights, closed: Boolean(raw.closed) };
+    }
+    case 'hatch': {
+      const loops = (Array.isArray(raw.loops) ? raw.loops : []).map((loop) => (Array.isArray(loop) ? loop.map(point) : [])).filter((loop) => loop.length >= 3);
+      if (!loops.length) return null;
+      return { ...base, loops, pattern: HATCH_PATTERN_NAMES.includes(raw.pattern) ? raw.pattern : 'ansi31', angle: finite(raw.angle), scale: positive(raw.scale, 1) };
+    }
+    case 'leader': {
+      const points = Array.isArray(raw.points) ? raw.points.map(point) : [];
+      if (points.length < 2) return null;
+      return { ...base, points, text: String(raw.text ?? ''), size: positive(raw.size, 3.5) };
+    }
     case 'polygon':
       return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), r: positive(raw.r, 1), sides: Math.max(3, Math.min(64, Math.round(finite(raw.sides, 6)))), angle: finite(raw.angle, 90) };
     case 'text':
@@ -115,7 +143,7 @@ export function firstBaseline(prim) {
 }
 
 /** Corners of a text primitive's box (rotated), for hit tests and boxes. */
-export function textCorners(prim) {
+export function textCorners(prim, pad = 0) {
   const lines = String(prim.text).split('\n');
   const width = Math.max(prim.size * 0.3, ...lines.map((line) => textWidth(line, prim.size)));
   const baseline = firstBaseline(prim);
@@ -123,7 +151,7 @@ export function textCorners(prim) {
   const bottom = baseline - (lines.length - 1) * LINE_GAP * prim.size - prim.size * 0.25;
   const left = (prim.align === 'center' ? -width / 2 : prim.align === 'right' ? -width : 0) - prim.size * 0.05;
   const right = left + width + prim.size * 0.1;
-  return [{ x: left, y: bottom }, { x: right, y: bottom }, { x: right, y: top }, { x: left, y: top }]
+  return [{ x: left - pad, y: bottom - pad }, { x: right + pad, y: bottom - pad }, { x: right + pad, y: top + pad }, { x: left - pad, y: top + pad }]
     .map((corner) => rotate(add(prim.p, corner), prim.p, prim.angle));
 }
 
@@ -167,8 +195,11 @@ export function dimValue(e) {
   }
 }
 
-export function dimText(e) {
-  const value = formatNumber(dimValue(e), e.precision);
+/** Dimension text; lengths are shown in the display unit (inches and feet with their marks). */
+export function dimText(e, unit = displayUnit()) {
+  const raw = dimValue(e);
+  let value = formatNumber(e.kind === 'angle' ? raw : toUnit(raw, unit), e.precision);
+  if (e.kind !== 'angle') value += unit === 'in' ? '"' : unit === 'ft' ? "'" : '';
   const auto = e.kind === 'radius' ? `R${value}` : e.kind === 'diameter' ? `Ø${value}` : e.kind === 'angle' ? `${value}°` : value;
   if (!e.text) return auto;
   return e.text.includes('<>') ? e.text.replace(/<>/g, auto) : e.text;
@@ -287,6 +318,26 @@ function transformPrimitive(prim, map, angleDelta, flip, factor) {
   }
 }
 
+export const isFullEllipse = (e) => Math.abs((e.end ?? 360) - (e.start ?? 0)) >= 360 - 1e-9;
+
+/** Points along an elliptical arc (parameter angles start…end, degrees). */
+export function ellipseArcPoints(e, step = 3.75) {
+  const c = Math.cos(rad(e.angle));
+  const s = Math.sin(rad(e.angle));
+  const n = Math.max(2, Math.ceil((e.end - e.start) / step));
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const t = rad(e.start + ((e.end - e.start) * i) / n);
+    const x = e.rx * Math.cos(t);
+    const y = e.ry * Math.sin(t);
+    return { x: e.cx + x * c - y * s, y: e.cy + x * s + y * c };
+  });
+}
+
+/** Points along a spline (NURBS through its control points). */
+export function splinePoints(e) {
+  return sampleCurve({ degree: e.degree, points: e.points.map((p) => [p.x, p.y]), knots: e.knots, weights: e.weights }).map(([x, y]) => ({ x, y }));
+}
+
 /** The primitives an entity draws, in drawing coordinates. */
 export function primitives(e) {
   switch (e.type) {
@@ -302,7 +353,29 @@ export function primitives(e) {
       return prims;
     }
     case 'arc': return [{ kind: 'arc', c: { x: e.cx, y: e.cy }, r: e.r, start: e.start, end: e.end }];
-    case 'ellipse': return [{ kind: 'poly', points: ellipsePoints(e.cx, e.cy, e.rx, e.ry, e.angle), closed: true, ellipse: true }];
+    case 'ellipse': {
+      if (isFullEllipse(e)) return [{ kind: 'poly', points: ellipsePoints(e.cx, e.cy, e.rx, e.ry, e.angle), closed: true, ellipse: true }];
+      return [{ kind: 'poly', points: ellipseArcPoints(e), closed: false, ellipse: true }];
+    }
+    case 'point': {
+      const s = e.size / 2;
+      return [
+        { kind: 'line', a: { x: e.x - s, y: e.y }, b: { x: e.x + s, y: e.y }, point: true },
+        { kind: 'line', a: { x: e.x, y: e.y - s }, b: { x: e.x, y: e.y + s }, point: true },
+        { kind: 'circle', c: { x: e.x, y: e.y }, r: s * 0.4, point: true },
+      ];
+    }
+    case 'spline': return [{ kind: 'poly', points: splinePoints(e), closed: e.closed, spline: true }];
+    case 'hatch': return hatchPrimitives(e.loops, e.pattern, e.angle, e.scale);
+    case 'leader': {
+      const pts = e.points;
+      const end = pts[pts.length - 1];
+      const before = pts[pts.length - 2];
+      const right = end.x >= before.x;
+      const prims = [{ kind: 'poly', points: pts, closed: false }, arrow(pts[0], norm(sub(pts[0], pts[1])), e.size)];
+      if (e.text) prims.push({ kind: 'text', p: { x: end.x + (right ? 1 : -1) * e.size * 0.5, y: end.y }, text: e.text, size: e.size, angle: 0, align: right ? 'left' : 'right', valign: 'middle' });
+      return prims;
+    }
     case 'polygon': return [{ kind: 'poly', points: polygonPoints(e), closed: true }];
     case 'text': return [{ kind: 'text', p: { x: e.x, y: e.y }, text: e.text, size: e.size, angle: e.angle, align: e.align, font: e.font, bold: e.bold, italic: e.italic }];
     case 'dim': return dimPrimitives(e);
@@ -469,6 +542,23 @@ export function transformEntity(e, op) {
       out.rx = e.rx * factor;
       out.ry = e.ry * factor;
       out.angle = op.type === 'mirror' ? reflect(e.angle) : normDeg(e.angle + turn);
+      // A mirrored arc runs the other way round its (reflected) axis.
+      if (op.type === 'mirror' && !isFullEllipse(e)) { out.start = -e.end; out.end = -e.start; }
+      break;
+    case 'point':
+      mapXY('x', 'y');
+      break;
+    case 'spline':
+      out.points = e.points.map(map);
+      break;
+    case 'leader':
+      out.points = e.points.map(map);
+      if (op.type === 'scale') out.size = e.size * factor;
+      break;
+    case 'hatch':
+      out.loops = e.loops.map((loop) => loop.map(map));
+      out.scale = e.scale * factor;
+      out.angle = op.type === 'mirror' ? reflect(e.angle) : normDeg(e.angle + turn);
       break;
     case 'polygon':
       mapXY('cx', 'cy');
@@ -550,6 +640,8 @@ export function grips(e) {
       return [g('p1', { x: e.x1, y: e.y1 }), g('p2', { x: e.x2, y: e.y2 }), g('line', { x: e.ox, y: e.oy })];
     case 'part': return [g('insert', { x: e.x, y: e.y })];
     case 'solid': return [g('insert', { x: e.x, y: e.y })];
+    case 'point': return [g('insert', { x: e.x, y: e.y })];
+    case 'spline': case 'leader': return e.points.map((p, i) => g(`v${i}`, p));
     default: return [];
   }
 }
@@ -565,11 +657,12 @@ export function moveGrip(e, id, p) {
       else if (id === 'p2') { out.x2 = p.x; out.y2 = p.y; }
       else return moveBy(mid({ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }));
       return out;
-    case 'polyline': {
+    case 'polyline': case 'spline': case 'leader': {
       const index = Number(id.slice(1));
       if (out.points[index]) out.points[index] = { x: p.x, y: p.y };
       return out;
     }
+    case 'point': out.x = p.x; out.y = p.y; return out;
     case 'rect': {
       if (id === 'center') return moveBy(mid(rectCorners(e)[0], rectCorners(e)[2]));
       const index = Number(id.slice(1));
@@ -702,7 +795,7 @@ export function explode(e) {
     switch (prim.kind) {
       case 'line': return createEntity('line', { ...own, x1: prim.a.x, y1: prim.a.y, x2: prim.b.x, y2: prim.b.y });
       case 'poly': return createEntity('polyline', { ...own, points: prim.points, closed: prim.closed });
-      case 'fill': return createEntity('polyline', { ...own, points: prim.points, closed: true });
+      case 'fill': return createEntity('hatch', { ...own, loops: [prim.points, ...(prim.holes ?? [])], pattern: 'solid' });
       case 'circle': return createEntity('circle', { ...own, cx: prim.c.x, cy: prim.c.y, r: prim.r });
       case 'arc': return createEntity('arc', { ...own, cx: prim.c.x, cy: prim.c.y, r: prim.r, start: prim.start, end: prim.end });
       case 'text': {
@@ -723,11 +816,11 @@ export function explode(e) {
     }
     return out;
   }
-  if (['part', 'dim', 'rect', 'polygon', 'ellipse'].includes(e.type) || (e.type === 'circle' && e.centerMark)) return primitives(e).map(fromPrim).filter(Boolean);
+  if (['part', 'dim', 'rect', 'polygon', 'ellipse', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark)) return primitives(e).map(fromPrim).filter(Boolean);
   return [];
 }
 
-export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && e.kind === 'boolean');
+export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && e.kind === 'boolean');
 
 // ───────────────────────── measurements
 
@@ -749,7 +842,11 @@ export function measure(e) {
       const s = sweep(e.start, e.end);
       return { sweep: s, length: (Math.PI * e.r * s) / 180, chord: dist(polar({ x: e.cx, y: e.cy }, e.r, e.start), polar({ x: e.cx, y: e.cy }, e.r, e.end)) };
     }
-    case 'ellipse': return { area: Math.PI * e.rx * e.ry, perimeter: ellipsePerimeter(e.rx, e.ry) };
+    case 'ellipse': return isFullEllipse(e) ? { area: Math.PI * e.rx * e.ry, perimeter: ellipsePerimeter(e.rx, e.ry) } : { length: polylineLength(ellipseArcPoints(e, 0.5), false) };
+    case 'point': return { x: e.x, y: e.y };
+    case 'spline': return { length: polylineLength(splinePoints(e), e.closed), vertices: e.points.length };
+    case 'leader': return { length: polylineLength(e.points, false) };
+    case 'hatch': return { area: hatchArea(e.loops) };
     case 'polygon': {
       const pts = polygonPoints(e);
       return { side: dist(pts[0], pts[1]), area: Math.abs(polygonArea(pts)), perimeter: polylineLength(pts, true) };

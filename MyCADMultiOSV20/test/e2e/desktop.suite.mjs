@@ -9,7 +9,7 @@ import { sleep } from './cdp.mjs';
 import { root } from './harness.mjs';
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-const TITLE = `MyCAD v${VERSION}`;
+const TITLE = `MyCAD V${VERSION.split('.').slice(0, 2).join('.')}`;
 const POPUP_KINDS = ['settings', 'about', 'confirm', 'error', 'progress', 'recent', 'print', 'theme', 'part', 'array', 'stl', 'solid', 'coverage'];
 const WS_THICKFRAME = 0x40000;
 
@@ -154,10 +154,88 @@ export const cases = [
     const main = app.windowInfo().find((w) => w.owner === 0 && w.visible && w.title.startsWith('MyCAD'));
     assert.equal(main?.title, TITLE);
   } },
-  { group: '창', name: '처음 실행: 시작하기 도면 (기어·치수·문자)', async run(app) {
+  { group: '창', name: '처음 실행: 시작 페이지가 보이고, 뒤에 시작하기 도면 (기어·치수·문자)', async run(app) {
+    assert.equal(await m(app, 'k.state.home'), true, 'the start page greets you');
+    assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false);
     const d = await drawing(app);
     assert.ok(d.entities.some((e) => e.type === 'part' && e.kind === 'gear'));
     assert.ok(d.entities.some((e) => e.type === 'dim'));
+  } },
+  { group: '시작 페이지', name: '할 수 있는 일(레슨·샘플), 샘플 카드 = index.json, 썸네일, 샘플 열기, 집 탭, 최근 파일', async run(app) {
+    await fresh(app);
+    await app.main.click('[data-tab-home]');
+    assert.equal(await m(app, 'k.state.home'), true);
+    await app.main.waitFor(`document.querySelectorAll('.sample-card').length > 0`);
+    const index = JSON.parse(fs.readFileSync(path.join(root, 'samples', 'index.json'), 'utf8'));
+    const page = await app.main.eval(`(() => ({
+      tasks: document.querySelectorAll('.task-card').length,
+      lessons: [...document.querySelectorAll('[data-start-lesson]')].map((b) => Number(b.dataset.startLesson)),
+      samples: [...document.querySelectorAll('.sample-card')].map((c) => c.dataset.sample),
+      actions: [...document.querySelectorAll('.action-card')].map((c) => c.dataset.command),
+      panels: getComputedStyle(document.querySelector('#left-panel')).visibility,
+    }))()`);
+    assert.equal(page.tasks, 11);
+    assert.ok(page.lessons.every((n) => n >= 0 && n < 16));
+    assert.deepEqual(page.samples, index.map((s) => s.file), 'one card per sample in index.json');
+    assert.deepEqual(page.actions, ['tutorial', 'new', 'open', 'importDxf', 'import3d', 'tutorialDoc', 'shortcuts']);
+    assert.equal(page.panels, 'hidden', 'the start page uses the whole width');
+    await app.main.waitFor(`document.querySelectorAll('canvas.sample-thumb.ready').length >= 10`, { timeout: 60000 });
+    // A sample opens in a new tab, as an unsaved copy.
+    const tabs = await m(app, 'k.state.docs.length');
+    await app.main.click('.sample-card[data-sample="02-flange.mcad"]');
+    await app.main.waitFor(`window.__mycad.state.docs.length === ${tabs + 1}`);
+    assert.equal(await m(app, 'k.state.home'), false);
+    assert.ok((await drawing(app)).entities.some((e) => e.type === 'part' && e.kind === 'flange'));
+    assert.equal(await m(app, 'k.actions.activeDoc().path'), null);
+    // An IGES sample from the task card; then back home with the house tab.
+    await app.main.click('[data-tab-home]');
+    await app.main.click('.task-card[data-task="files"] [data-sample-open]');
+    await app.main.waitFor(`window.__mycad.actions.activeDoc().format === 'iges'`);
+    await app.main.click('[data-tab-home]');
+    assert.equal(await m(app, 'k.state.home'), true);
+    // Clicking a drawing tab leaves the start page.
+    await app.main.click('.tab[data-doc]');
+    assert.equal(await m(app, 'k.state.home'), false);
+    // The house button at the left of the menu bar goes back to the start page from anywhere.
+    await app.main.click('#menubar .menubar-home');
+    assert.equal(await m(app, 'k.state.home'), true);
+    assert.ok(await app.main.eval(`document.querySelector('#menubar .menubar-home').classList.contains('active')`));
+    // The background: two gears turning (they keep turning even with reduced motion asked for).
+    await app.main.waitFor(`Boolean(document.querySelector('.start-bg canvas'))`, { timeout: 15000 });
+    await app.main.click('.tab[data-doc]');
+  } },
+  { group: '튜토리얼', name: '보기: 16개 레슨의 모든 단계가 실제 화면에서 실행되고 결과를 확인', async run(app) {
+    await fresh(app);
+    const report = await app.main.eval(`(async () => { const t = await window.__mycad.actions.openTutorial(); const r = await t.runAll(); t.close(); return r; })()`, 600000);
+    const bad = report.filter((r) => !r.ok);
+    assert.ok(report.length >= 80, `${report.length} steps`);
+    assert.deepEqual(bad, [], JSON.stringify(bad));
+    assert.equal(await m(app, 'k.state.settings.units'), 'mm', 'settings restored after the tutorial');
+  } },
+  { group: '튜토리얼', name: '직접 하기: 모든 단계에서 사용자가 한 일을 알아봄', async run(app) {
+    await fresh(app);
+    const report = await app.main.eval(`(async () => { const t = await window.__mycad.actions.openTutorial(); const r = await t.verifyPractice(); t.close(); return r; })()`, 600000);
+    const bad = report.filter((r) => !r.run || r.check === false);
+    assert.deepEqual(bad, [], JSON.stringify(bad));
+  } },
+  { group: '튜토리얼', name: '도움말 메뉴에서 열기: 레슨 목록, 보기/직접 하기, 단계 이동, 끌어 옮기기, 닫기', async run(app) {
+    await fresh(app);
+    const help = await openMenu(app, 'help');
+    await chooseMenuItem(help, 'tutorial');
+    await app.main.waitFor(`document.querySelector('.tut-panel') && !document.querySelector('.tut-panel').hidden`);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.tut-lesson option').length`), 16);
+    await app.main.click('[data-tut="mode-practice"]');
+    assert.ok(await app.main.eval(`document.querySelector('[data-tut="mode-practice"]').classList.contains('active')`));
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.tut-todo'))`), 'practice shows what to do');
+    await app.main.click('[data-tut="skip"]');
+    await sleep(300);
+    assert.match(await app.main.eval(`document.querySelector('.tut-step span').textContent`), /2 \//);
+    const before = await app.main.eval(`document.querySelector('.tut-panel').getBoundingClientRect().left`);
+    const head = await app.main.center('.tut-head b');
+    await app.main.drag(head, { x: head.x - 200, y: head.y - 100 }, 6);
+    assert.ok(Math.abs(await app.main.eval(`document.querySelector('.tut-panel').getBoundingClientRect().left`) - (before - 200)) < 3, 'the panel moves with the mouse');
+    await app.main.click('[data-tut="close"]');
+    assert.equal(await app.main.eval(`document.querySelector('.tut-panel').hidden`), true);
   } },
   { group: '창', name: '최소 창 폭: 툴바 버튼이 가려지지 않음', async run(app) {
     const min = await m(app, 'k.state.minWidth');
@@ -293,8 +371,9 @@ export const cases = [
     const entity = await contextMenuIds(app, await at(app, 40, 0));
     assert.ok(entity.ids.includes('tool:rotate') && entity.ids.some((id) => id.startsWith('custom:layer:')), JSON.stringify(entity.ids));
     assert.equal(entity.head, '원');
+    await app.main.eval(`(document.querySelector('.tab.active').scrollIntoView({ inline: 'nearest' }), 1)`);
     const tab = await contextMenuIds(app, await app.main.center('.tab.active .tab-name'));
-    assert.ok(tab.ids.includes('closeTab') && tab.ids.includes('saveAs'));
+    assert.ok(tab.ids.includes('closeTab') && tab.ids.includes('saveAs'), JSON.stringify(tab));
     const layer = await contextMenuIds(app, await visibleCenter(app, '.layer-row .layer-name'));
     assert.ok(layer.ids.includes('custom:visible') && layer.ids.includes('custom:lock'));
     const input = await contextMenuIds(app, await app.main.center('#command-input'));
@@ -661,9 +740,9 @@ export const cases = [
   { group: '탭', name: '탭이 넘치면 오른쪽 끝에 < > 버튼, 눌러서 이동', async run(app) {
     for (let i = 0; i < 14; i++) await m(app, '(k.actions.newDrawing(), 1)');
     await sleep(200);
-    const nav = await app.main.eval(`(() => { const n = document.querySelector('.tab-nav'); const r = n.getBoundingClientRect(); return { shown: getComputedStyle(n).display !== 'none', right: innerWidth - r.right, scrollbar: document.querySelector('.tab-strip').scrollWidth > document.querySelector('.tab-strip').clientWidth && getComputedStyle(document.querySelector('.tab-strip')).overflowX }; })()`);
+    const nav = await app.main.eval(`(() => { const n = document.querySelector('.tab-nav'); const r = n.getBoundingClientRect(); return { shown: getComputedStyle(n).display !== 'none', right: document.querySelector('#canvas-area').getBoundingClientRect().right - r.right, scrollbar: document.querySelector('.tab-strip').scrollWidth > document.querySelector('.tab-strip').clientWidth && getComputedStyle(document.querySelector('.tab-strip')).overflowX }; })()`);
     assert.ok(nav.shown, 'buttons shown');
-    assert.ok(nav.right < 30, 'at the right end');
+    assert.ok(nav.right >= 0 && nav.right < 30, `at the right end of the tab row (${nav.right})`);
     assert.equal(nav.scrollbar, 'hidden', 'no scroll bar');
     await app.main.eval(`document.querySelector('.tab-strip').scrollLeft = 0; 1`);
     await app.main.click('[data-tab-scroll="1"]');
@@ -742,6 +821,34 @@ export const cases = [
     await sleep(150);
     assert.equal(await recent.eval(`document.querySelectorAll('.recent-row').length`), 0);
     await recent.click('[data-action="close"]');
+  } },
+  { group: '파일', name: '공개 2D CAD 형식 열기: 바이너리·cp949 DXF, SVG, IGES, HP-GL, Gerber, Excellon (열기·끌어 놓기)', async run(app) {
+    await fresh(app);
+    const cases = [
+      ['dxf', 'ezdxf-entities-r2000-binary.dxf', 'dxf', 'samples/dxf'], ['dxf', 'ezdxf-entities-r12-cp949.dxf', 'dxf', 'samples/dxf'],
+      ['svg', 'inkscape-bracket.svg', 'svg'], ['iges', 'freecad-plate.igs', 'iges'], ['hpgl', 'hpgl-plotter-demo.plt', 'hpgl'],
+      ['gerber', 'pcb-board-top.gtl', 'gerber'], ['excellon', 'pcb-board.drl', 'excellon'],
+    ];
+    for (const [format, file, expected, dir = 'samples/drawings'] of cases) {
+      const tabs = await m(app, 'k.state.docs.length');
+      const source = path.join(root, ...dir.split('/'), file);
+      await m(app, `k.actions.openPath(${JSON.stringify(source)}).then(() => 1)`);
+      assert.equal(await m(app, 'k.state.docs.length'), tabs + 1, `${file}: a new tab`);
+      assert.equal(await m(app, 'k.actions.activeDoc().format'), expected, `${file}: read as ${format}`);
+      assert.ok((await drawing(app)).entities.length > 3, `${file}: entities`);
+      assert.equal(await m(app, 'k.actions.activeDoc().path'), null, `${file}: saving asks for a .mcad name`);
+    }
+    assert.ok((await drawing(app)).entities.some((e) => e.type === 'circle'), 'drill holes');
+    const korean = await m(app, `k.state.docs.find((d) => d.name === 'ezdxf-entities-r12-cp949.dxf').drawing.layers.map((l) => l.name)`);
+    assert.ok(korean.includes('외형선'), `cp949 layer name: ${korean}`);
+    // Dropped from the file manager: an SVG opens as a drawing (not as the background).
+    const tabs = await m(app, 'k.state.docs.length');
+    await m(app, `k.actions.handleDroppedPaths(${JSON.stringify([path.join(root, 'samples', 'drawings', 'freecad-plate.svg')])}, null).then(() => 1)`);
+    assert.equal(await m(app, 'k.state.docs.length'), tabs + 1);
+    assert.equal(await m(app, 'k.actions.activeDoc().format'), 'svg');
+    // The export menu offers the open 2D formats.
+    const items = await m(app, `k.actions.contextMenuFor ? Object.keys(k.commands).filter((id) => ['exportDxf2000', 'exportIges', 'exportHpgl'].includes(id)) : []`);
+    assert.deepEqual(items.sort(), ['exportDxf2000', 'exportHpgl', 'exportIges']);
   } },
   { group: '파일', name: '외부에서 끌어다 놓기: 도면은 열기, 이미지는 배경, 글은 문자', async run(app) {
     await fresh(app);
@@ -918,6 +1025,56 @@ export const cases = [
     await app.main.click('#toolbar [data-command="rulers"]');
     assert.ok(info);
   } },
+  { group: '단위', name: '설정 › 일반의 길이 단위: 눈금자·속성·상태 표시줄·치수가 따라 바뀌고, 다른 단위 입력은 자동 변환', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 50.8, y2: 0 }); k.drawingModule.addEntity(d, 'dim', { kind: 'horizontal', x1: 0, y1: 0, x2: 50.8, y2: 0, ox: 0, oy: -10, precision: 1 }); }), 1)`);
+    await m(app, `(k.run('settings'), 1)`);
+    const settings = await app.popup('settings');
+    await settings.click('[data-action="tab"][data-value="general"]');
+    await settings.waitFor(`Boolean(document.querySelector('#settings-units'))`);
+    await settings.eval(`(() => { const s = document.querySelector('#settings-units'); s.value = 'in'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await app.main.waitFor(`window.__mycad.state.settings.units === 'in'`, { timeout: 5000 }).catch(() => {});
+    assert.equal(await m(app, 'k.state.settings.units'), 'in', 'chosen in Settings › General');
+    await settings.eval(`(document.querySelector('[data-action="close"]').click(), 1)`).catch(() => {});
+    await m(app, `(() => { const d = k.actions.activeDrawing(); k.actions.select([d.entities.at(-2).id]); k.actions.drawCanvas(); return 1; })()`);
+    await sleep(200);
+    const shown = await app.main.eval(`(() => { const i = document.querySelector('#right-panel [data-prop="x2"]'); return { value: i.value, unit: i.closest('.prop-input').querySelector('small').textContent, status: document.querySelector('#status-unit').textContent }; })()`);
+    assert.deepEqual(shown, { value: '2', unit: 'in', status: 'in' });
+    assert.equal((await m(app, 'k.canvasState.lastRuler')).unit, 'in', 'the ruler counts in inches');
+    const dim = await m(app, `k.actions.activeDrawing().entities.at(-1)`);
+    assert.equal(await app.main.eval(`import('/src/domain/entities.js').then((e) => e.dimText(${JSON.stringify(dim)}))`), '2"');
+    // Typed with its own unit: converted, stored in mm, shown in inches.
+    await app.main.eval(`(() => { const i = document.querySelector('#right-panel [data-prop="x2"]'); i.value = '76.2mm'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(150);
+    assert.equal((await drawing(app)).entities.at(-2).x2, 76.2);
+    assert.equal(await app.main.eval(`document.querySelector('#right-panel [data-prop="x2"]').value`), '3');
+    await m(app, `(k.actions.updateSettings({ units: 'mm' }), 1)`);
+  } },
+  { group: '단위', name: '축척 막대: 툴바 켜기/끄기, 끌어 옮기기, 끝선을 끌어 길이 바꾸기, 3D에서는 숨김', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.updateSettings({ units: 'mm', showScaleBar: true, scaleBar: { x: 36, y: 14, width: 120 } }), k.actions.setZoomPercent(100), 1)`);
+    await sleep(200);
+    const read = () => app.main.eval(`(() => { const b = document.querySelector('#scale-bar'); const r = b.getBoundingClientRect(); const t = b.querySelector('.scale-track').getBoundingClientRect(); return { hidden: b.hidden, x: r.left, y: r.top, left: t.left, right: t.right, top: t.top, mm: Number(b.dataset.mm), text: b.querySelector('.scale-length').textContent }; })()`);
+    let bar = await read();
+    assert.equal(bar.hidden, false);
+    assert.match(bar.text, / mm$/);
+    const zoom = await m(app, 'k.actions.activeDoc().vp.zoom');
+    assert.ok(Math.abs(bar.mm - 120 / zoom) < 1e-6, 'length = bar px / zoom');
+    await app.main.drag({ x: bar.x + 30, y: bar.y + 8 }, { x: bar.x + 130, y: bar.y + 8 - 60 }, 6);
+    const moved = await read();
+    assert.ok(Math.abs(moved.x - bar.x - 100) < 2 && Math.abs(moved.y - bar.y + 60) < 2, `moved with the mouse ${JSON.stringify({ bar, moved })}`);
+    await app.main.drag({ x: moved.right, y: moved.top + 3 }, { x: moved.right + 60, y: moved.top + 3 }, 6);
+    bar = await read();
+    assert.ok(Math.abs(bar.right - bar.left - 180) < 2, 'end line dragged: longer bar');
+    assert.ok(Math.abs(bar.mm - 180 / zoom) < 1e-6, 'and a longer length');
+    await app.main.click('#toolbar [data-command="scaleBar"]');
+    assert.equal((await read()).hidden, true, 'toolbar button hides it');
+    await app.main.click('#toolbar [data-command="scaleBar"]');
+    await m(app, 'k.actions.toggle3d(true).then(() => 1)');
+    assert.equal((await read()).hidden, true, 'not shown in 3D');
+    await m(app, 'k.actions.toggle3d(false).then(() => 1)');
+    assert.equal((await read()).hidden, false);
+  } },
   { group: '3D', name: '3D 보기: 돌출 솔리드, 좌표축 눈금, 시점 바꾸기, 두께', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.part', (d) => { k.drawingModule.addEntity(d, 'part', { kind: 'flange', x: 0, y: 0 }); k.drawingModule.addEntity(d, 'line', { x1: -80, y1: -80, x2: 80, y2: -80 }); }), 1)`);
@@ -956,11 +1113,14 @@ export const cases = [
     await sleep(200);
     const start = await m(app, 'k.actions.view3d().inspect()');
     const sun = start.sunScreen;
-    await app.main.drag(sun, { x: sun.x + 160, y: sun.y + 40 }, 12);
+    // The sun follows the mouse (a point on a sphere around the model): it ends up under the pointer.
+    const target = { x: sun.x + 120, y: sun.y + 40 };
+    await app.main.drag(sun, target, 12);
     await sleep(200);
     const moved = await m(app, 'k.actions.view3d().inspect()');
     assert.notEqual(moved.light.azimuth, start.light.azimuth, 'dragging the sun turns the light around');
-    assert.ok(moved.light.elevation < start.light.elevation, 'dragging down lowers it');
+    const off = Math.hypot(moved.sunScreen.x - target.x, moved.sunScreen.y - target.y);
+    assert.ok(off < 12, `the sun is under the pointer (${off.toFixed(1)} px away)`);
     assert.deepEqual(moved.camera, start.camera, 'the camera did not orbit while moving the light');
     await app.main.click('[data-view3d="lightMode"]');
     const centre = await app.main.center('#view3d .view3d-canvas');
@@ -999,7 +1159,7 @@ export const cases = [
     await set('solid:height', 20);
     await set('solidPlace:x', 30);
     await sleep(120);
-    assert.match(await solid.eval(`document.querySelector('.part-info').textContent`), /4021\.24|4,021\.24/, 'volume π·8²·20 shown');
+    assert.match(await solid.eval(`document.querySelector('.part-info').textContent`), /4,?021\.2\d* mm³/, 'volume π·8²·20 shown with its unit');
     await solid.click('[data-action="solid-apply"]');
     await sleep(300);
     const added = (await drawing(app)).entities.at(-1);

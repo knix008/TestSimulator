@@ -209,7 +209,7 @@ test('installer hooks: ask about saved data, remove an old install completely', 
 
 test('title bar: program name and version', () => {
   const lib = read('src-tauri/src/lib.rs').toString();
-  assert.match(lib, /format!\("MyCAD v\{\}", info\.version\)/);
+  assert.match(lib, /format!\("MyCAD V\{\}\.\{\}", info\.version\.major, info\.version\.minor\)/);
   assert.equal(conf.version, '../package.json');
   assert.equal(conf.productName, 'MyCAD');
   assert.match(read('src-tauri/Cargo.toml').toString(), new RegExp(`version = "${pkg.version.replace(/\./g, '\\.')}"`), 'Cargo version matches package.json');

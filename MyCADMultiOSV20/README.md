@@ -1,4 +1,4 @@
-# MyCAD v2.0
+# MyCAD V1.0
 
 기계 설계용 2D 도면 + 3D 솔리드 CAD. JavaScript(Vite) + Tauri 2 로 Windows · macOS · Linux 데스크톱 앱과 웹 버전을 함께 만듭니다.
 FreeCAD(https://www.freecad.org)의 Part · Part Design · Sketcher · TechDraw · Draft · Mesh 워크벤치와 Fasteners/Gears 애드온 기능을 참고했고,
@@ -8,14 +8,15 @@ FreeCAD(https://www.freecad.org)의 Part · Part Design · Sketcher · TechDraw 
 
 | 분야 | 기능 |
 | --- | --- |
-| 2D 제도 | 선 · 폴리선 · 사각형 · 원 · 호 · 타원 · 정다각형 · 문자 · 중심선, 치수 5종, 이동/복사/회전/대칭/크기/간격 띄우기, 배열, 분해, 레이어, 스냅 · 격자(확대해도 5×5) · 직교 · 눈금자 · 점선 십자선 |
+| 2D 제도 | 선 · 폴리선 · 사각형 · 원 · 호 · 타원 · 정다각형 · 문자 · 중심선, 치수 5종, 이동/복사/회전/대칭/크기/간격 띄우기, 배열, 분해, 레이어, 스냅 · 격자(확대해도 5×5) · 직교 · 눈금자 · 점선 십자선 · 축척 막대(끌어 옮기기·끝선으로 길이 조절), 길이 단위 mm/cm/m/in/ft (입력 자동 변환) |
 | 부품 라이브러리 | 6분류 36종 (ISO 볼트·나사·너트·와셔·구멍, 핀·키·멈춤링·O-링, 기어·랙·스프로킷·풀리·웜, 베어링·부시·축·플랜지, 스프링 3종, 형강·알루미늄 프로파일·파이프) |
 | 3D 솔리드 | 상자 · 원기둥 · 구 · 원뿔 · 토러스 · 튜브 · 쐐기 · 각기둥 · 타원체 · 나선, 돌출(Pad) · 회전(Revolve) · 로프트 · 스윕, 불리언(합치기 · 빼기 · 교차, 트리 유지), 단면, 투상도(숨은선 점선), 위치 X·Y·Z + 회전 X·Y·Z |
 | 3D 보기 | 회전 · 확대 · 시점 4종, 좌표축 눈금, 마우스로 옮기는 조명 · 켜기/끄기, 와이어프레임, 솔리드별 색 · 선택 강조 |
-| 파일 | .mcad(자체) · DXF 읽기/쓰기 · SVG/PNG · **FCStd · STEP 읽기/쓰기 · STL/OBJ/PLY/OFF/AMF/3MF 읽기/쓰기** · 인쇄(미리보기 · 쪽 설정 · 범위) |
+| 파일 | .mcad(자체) · **2D: DXF(R12–2018 · 바이너리 · ANSI 코드 페이지) · SVG · IGES · HP-GL/2 읽기/쓰기, Gerber · Excellon 읽기, DXF 2000 · PNG 쓰기** · **3D: FCStd · STEP · STL/OBJ/PLY/OFF/AMF/3MF 읽기/쓰기** · 인쇄(미리보기 · 쪽 설정 · 범위) |
+| 배우기 | **시작 페이지**(할 수 있는 일 11가지 ↔ 레슨 · 샘플, 샘플 26개 썸네일, 최근 파일, 오늘의 팁) · **따라 하는 튜토리얼**(16레슨 83단계, 보기/직접 하기) · [doc/Tutorial.md](doc/Tutorial.md)(그림 포함) · 튜토리얼 동영상 `MyCAD-Tutorial.mp4` |
 | 화면 | 메뉴/팝업은 독립 창, 툴바 1줄/2줄(FreeCAD 식 Part 툴바), 테마 40종 + 사용자, 한국어/English, 최근 파일, 배경 이미지, 상태 표시줄 |
 
-FreeCAD 와 기능별 대응은 앱의 **도움말 › FreeCAD 기능 대응표** 에서 볼 수 있습니다 (지원 / 부분 지원 / 미지원).
+FreeCAD 와 기능별 대응은 앱의 **도움말 › 기능표** 에서, 읽고 쓰는 파일 형식은 **도움말 › 프로그램 정보 › 지원 파일 형식** 에서 볼 수 있습니다 (지원 / 부분 지원 / 미지원).
 모깎기 · 모따기 · 구속 조건 풀이 · FEM · CAM · BIM · Python 매크로는 지원하지 않습니다 — 대응표에 그대로 적혀 있습니다.
 
 ## 실행 · 빌드
@@ -29,7 +30,9 @@ npm run build:win         # Windows 설치 파일 (NSIS, 한국어/English)
 npm run build:mac         # macOS .dmg
 npm run build:linux       # .deb / .rpm / .AppImage
 npm run build:samples     # samples/ 다시 만들기 (+ samples/exports/ 3D 형식)
-npm run build:samples:freecad   # samples/freecad/ — FreeCAD 가 직접 만든 파일 (FreeCAD 필요)
+npm run build:samples:freecad   # samples/freecad/ · samples/drawings/ — FreeCAD 가 직접 만든 파일 (FreeCAD 필요)
+npm run build:docs        # doc/ — 실제 앱으로 튜토리얼 단계마다 그림을 찍고 Tutorial.md/.html 생성 (한국어·English)
+npm run record:tutorial   # MyCAD-Tutorial.mp4 — 튜토리얼 전체를 보기 모드로 재생하며 녹화 (ffmpeg 필요, FFMPEG=…)
 ```
 
 ## 테스트
@@ -56,10 +59,13 @@ src/view/     캔버스 렌더러 · 도구 · 3D 보기(three.js)
 src/app.js    주 창,  src/popup.js  팝업 창들
 src-tauri/    Rust 백엔드 (파일 입출력 · 팝업 창 · 글꼴 · 클립보드)
 scripts/      빌드 · 테스트 실행 · 샘플 · FreeCAD 스크립트(scripts/freecad)
-samples/      예제 도면, exports/(3D 형식), freecad/(FreeCAD 가 만든 파일)
+samples/      예제 도면 + index.json(시작 페이지), exports/(2D·3D 형식), freecad/ · drawings/ · dxf/(다른 프로그램이 만든 파일)
+src/tutorial/ 따라 하는 튜토리얼 (player.js 패널 · lessons.js 16레슨)
+doc/          Tutorial.md / Tutorial.en.md (+ .html) 와 그림 images/<언어>/
 test/         unit · freecad · static · e2e
 ```
 
+처음이라면 [doc/Tutorial.md](doc/Tutorial.md)(그림이 들어간 레슨별 설명)나 앱의 **도움말 › 따라 하는 튜토리얼**부터 보세요.
 자세한 구조는 [Architecture.md](Architecture.md), 사용법은 [UsersGuide.md](UsersGuide.md) 를 보세요.
 
 만든 사람: SHKWON (knix008@naver.com)

@@ -54,6 +54,21 @@ FreeCAD 문서에서 알아낸 규칙 (FreeCAD 1.1 로 확인):
 - 점 목록(PropertyVectorList)은 곁 파일: uint32 개수 + float64 x,y,z.
 - FreeCAD 는 AMF 를 읽지 못합니다 (3D 프린터용으로만 씀).
 
+## 2D 파일 형식 (`import2d.js`, `iges.js`, `gerber.js`, `formats2d.js`, `svgparse.js`, `dxf2000.js`)
+
+`importDrawingBytes(name, bytes)` 가 내용(먼저)과 확장자로 형식을 고릅니다. 글은 UTF-8/16 또는 DXF 의 `$DWGCODEPAGE`(ANSI_949 → euc-kr …)로 풀고, 바이너리 DXF(`AutoCAD Binary DXF` 표지, R12 1바이트·R13+ 2바이트 그룹 코드)는 텍스트 DXF 와 같은 그룹 쌍으로 바꿔 `importDxf` 에 넘깁니다. 읽은 레코드는 `normalizeEntity` 로 다듬습니다.
+- IGES: 고정 80열 S/G/D/P/T 구역, Hollerith 문자열, 124 변환 행렬 연쇄, 매개변수 공간 곡선(141/142)과 부분도 정의(308) 제외, 314 색. 쓰기는 110/100/104+124/106/116/126/212 + 314 색 + 레벨=레이어.
+- Gerber: `%…%` 확장 명령과 `*` 워드, FS/MO, 조리개 C·R·O·P, G01/02/03 · G74/75, D01/02/03, G36/37 영역(→ 채움 해칭). Excellon: METRIC/INCH, LZ/TZ, 공구 지름, G85 장공.
+- 다른 프로그램의 파일로 시험합니다: FreeCAD(`scripts/freecad/drawings2d.py`), ezdxf(`scripts/ezdxf/make_samples.py`), 규격 예제(samples/drawings). MyCAD 가 쓴 IGES · SVG · DXF 2000 은 FreeCAD 가 다시 열어 길이를 비교합니다.
+
+## 시작 페이지 · 튜토리얼 · 문서
+
+- `src/view/startpage.js`: 시작 페이지 HTML(할 일 `START_TASKS` ↔ 레슨 · 샘플). 샘플 목록은 `samples/index.json`(`create-samples.mjs` 가 씀), 개발 서버는 프로젝트 폴더를, 빌드는 `vite.config.js` 의 복사 단계가 dist/samples 를 줍니다. 썸네일은 실행 중에 만듭니다(솔리드는 음영 등각, 2D 는 렌더러).
+- `src/tutorial/player.js`: 떠 있는 패널, 보기(가짜 커서 · 강조 고리 · 키 풍선)와 직접 하기(검사 함수를 300 ms 마다 · 클릭할 곳 표시). `app.js` 의 `tutorialApi()` 가 실제 캔버스 포인터 이벤트 · 명령 · 대화상자 대신 동작을 빌려 줍니다. 튜토리얼 동안 설정은 기준값(mm · 5 mm 격자 스냅 …)으로 두었다가 닫으면 돌려놓습니다.
+- `src/tutorial/lessons.js`: 16레슨. 단계 = `{ title, text, run(ctx), practice: { todo, check, targets } }`. `runAll()` · `verifyPractice()` 를 E2E 가 실행합니다.
+- `scripts/docs-shots.mjs` → `doc/images/<언어>/*.webp`(단계마다 실제 앱 화면 + `DOC_DIALOGS` 의 창), `scripts/build-docs.mjs` → `doc/Tutorial(.en).md/.html`(레슨 데이터에서 생성하므로 앱과 문서가 같습니다). Rust `open_document` 가 HTML 을 브라우저로 엽니다(설치본은 리소스 doc/).
+- `scripts/record-tutorial.mjs`: 보기 모드로 전 레슨을 재생하며 ffmpeg(gdigrab/x11grab)로 창 영역을 녹화 → `MyCAD-Tutorial.mp4`.
+
 ## 팝업 · 메뉴
 
 팝업과 메뉴는 Tauri 의 소유(owned) OS 창(`popup-<kind>`, 고정 크기, 주 창과 함께 닫힘), 웹에서는 iframe. 인자는 `localStorage` 의 `mycad.popup.<kind>` 로 넘기고 결과는 이벤트로 돌아옵니다.

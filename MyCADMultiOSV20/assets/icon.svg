@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <!-- MyCAD app icon: a raised 3D blueprint tile with a machined gear, a smaller
        copy of it meshing beside it, and a dimension line. The border is
-       transparent; the top-left corner glows. -->
+       transparent; the top-left corner has a soft, subtle sheen. -->
   <defs>
     <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#3f9bff"/>
@@ -13,13 +13,13 @@
       <stop offset="1" stop-color="#061445"/>
     </linearGradient>
     <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
       <stop offset="1" stop-color="#030b33" stop-opacity="0.6"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.2" cy="0.16" r="0.6">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.3" stop-color="#e6f2ff" stop-opacity="0.55"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0.3" stop-color="#e6f2ff" stop-opacity="0.14"/>
       <stop offset="0.72" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
@@ -96,12 +96,12 @@
       <path d="M828.2 768l-40-16v32z" stroke="none"/>
     </g>
     <!-- glossy top half and the top-left glow -->
-    <path d="M112 96h800v300C700 330 400 330 112 440z" fill="url(#gloss)" opacity="0.55"/>
+    <path d="M112 96h800v300C700 330 400 330 112 440z" fill="url(#gloss)" opacity="0.28"/>
     <rect x="112" y="96" width="800" height="780" fill="url(#glow)"/>
   </g>
   <!-- bevel rim: light top-left, dark bottom-right -->
   <rect x="120" y="104" width="784" height="764" rx="163" fill="none" stroke="url(#bevel)" stroke-width="16"/>
   <!-- sparkle at the top-left corner -->
-  <circle cx="232" cy="200" r="70" fill="url(#spark)" opacity="0.9"/>
-  <path d="M232 128l12 60 60 12-60 12-12 60-12-60-60-12 60-12z" fill="#ffffff"/>
+  <circle cx="232" cy="200" r="54" fill="url(#spark)" opacity="0.3"/>
+  <path d="M232 156l7 37 37 7-37 7-7 37-7-37-37-7 37-7z" fill="#ffffff" opacity="0.45"/>
 </svg>

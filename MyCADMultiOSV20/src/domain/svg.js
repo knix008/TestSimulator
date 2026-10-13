@@ -35,6 +35,11 @@ export function primitivesSvg(prims, { map, k, stroke, width, dash = [], fonts =
         break;
       }
       case 'fill': {
+        if (prim.holes?.length) {
+          const d = [prim.points, ...prim.holes].map((loop) => `M${loop.map(map).map((p) => `${n(p.x)} ${n(p.y)}`).join('L')}Z`).join('');
+          out.push(`<path d="${d}" fill="${stroke}" fill-rule="evenodd" stroke="none"/>`);
+          break;
+        }
         const points = prim.points.map(map).map((p) => `${n(p.x)},${n(p.y)}`).join(' ');
         out.push(`<polygon points="${points}" fill="${stroke}" stroke="none"/>`);
         break;

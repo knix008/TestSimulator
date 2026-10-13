@@ -256,7 +256,7 @@ test('drawing tools build entities from clicks and typed coordinates', () => {
   radius.click({ x: 15, y: 5 });
   radius.click({ x: 30, y: 30 });
   assert.equal(drawing.entities.at(-1).kind, 'radius');
-  assert.equal(readout({ length: 12.5, angle: 450 }), 'L 12.5  ∠ 90°');
+  assert.equal(readout({ length: 12.5, angle: 450 }), 'L 12.5 mm  ∠ 90°');
 });
 
 test('modify tools: move, copy, rotate (typed angle), scale (typed factor), mirror, offset', () => {

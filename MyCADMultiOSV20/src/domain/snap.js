@@ -1,6 +1,7 @@
 // Object snaps (end, middle, centre, quadrant, intersection, nearest), grid
 // snap, ortho mode and typed coordinates.
 import { entityBox, primitives } from './entities.js';
+import { displayUnit, evaluateLength } from './units.js';
 import {
   angleOnArc, closestOnArc, closestOnCircle, closestOnSegment, dist, intersectCircles, intersectLines, intersectSegmentCircle, mid, polar, rad, sweep,
 } from './geometry.js';
@@ -144,6 +145,8 @@ export function applyOrtho(base, p) {
 // ───────────────────────── typed coordinates
 
 const NUMBER = '[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?';
+/** A number with an optional unit of its own (mm, cm, m, in, ft, " and '). */
+const LENGTH = `${NUMBER}(?:mm|cm|m|in|ft|"|'|″|′)?`;
 
 /**
  * Coordinates typed while drawing:
@@ -152,24 +155,26 @@ const NUMBER = '[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?';
  *   "75"       75 along the current cursor direction from the last point
  * Returns a point, or null when the text is not a coordinate.
  */
-export function parseCoordinate(text, last, cursor) {
+export function parseCoordinate(text, last, cursor, unit = displayUnit()) {
   const value = String(text ?? '').trim().replace(/\s+/g, '').replace(/，/g, ',');
   if (!value) return null;
-  let match = new RegExp(`^(@)?(${NUMBER}),(${NUMBER})$`, 'i').exec(value);
+  // Lengths are in the display unit unless they carry their own ("2in,30mm").
+  const length = (s) => evaluateLength(s, unit);
+  let match = new RegExp(`^(@)?(${LENGTH}),(${LENGTH})$`, 'i').exec(value);
   if (match) {
-    const x = Number(match[2]);
-    const y = Number(match[3]);
+    const x = length(match[2]);
+    const y = length(match[3]);
     if (match[1]) return last ? { x: last.x + x, y: last.y + y } : { x, y };
     return { x, y };
   }
-  match = new RegExp(`^@?(${NUMBER})<(${NUMBER})$`, 'i').exec(value);
+  match = new RegExp(`^@?(${LENGTH})<(${NUMBER})$`, 'i').exec(value);
   if (match) {
     const base = last ?? { x: 0, y: 0 };
-    return polar(base, Number(match[1]), Number(match[2]));
+    return polar(base, length(match[1]), Number(match[2]));
   }
-  match = new RegExp(`^(${NUMBER})$`, 'i').exec(value);
+  match = new RegExp(`^(${LENGTH})$`, 'i').exec(value);
   if (match && last) {
-    const distance = Number(match[1]);
+    const distance = length(match[1]);
     const toward = cursor && dist(cursor, last) > 1e-9 ? Math.atan2(cursor.y - last.y, cursor.x - last.x) : 0;
     return { x: last.x + distance * Math.cos(toward), y: last.y + distance * Math.sin(toward) };
   }

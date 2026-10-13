@@ -1,0 +1,312 @@
+[
+ {
+  "file": "01-gear-pair.mcad",
+  "task": "parts",
+  "title": "Gear pair",
+  "titleKo": "기어 한 쌍",
+  "description": "Two meshing module-2 gears with their centre distance",
+  "descriptionKo": "모듈 2 기어 두 개의 맞물림, 중심 거리 치수",
+  "tags": [
+   "기어",
+   "부품",
+   "치수"
+  ]
+ },
+ {
+  "file": "02-flange.mcad",
+  "task": "print",
+  "title": "Flange",
+  "titleKo": "플랜지",
+  "description": "A flange with six bolt holes, for printing and 3D printing",
+  "descriptionKo": "볼트 구멍 6개의 플랜지, 인쇄·3D 프린팅용",
+  "tags": [
+   "플랜지",
+   "인쇄",
+   "STL"
+  ]
+ },
+ {
+  "file": "03-shaft.mcad",
+  "task": "precise",
+  "title": "Stepped shaft",
+  "titleKo": "단 붙은 축",
+  "description": "A shaft with diameters and lengths dimensioned",
+  "descriptionKo": "지름과 길이를 치수로 넣은 축",
+  "tags": [
+   "축",
+   "치수"
+  ]
+ },
+ {
+  "file": "04-bracket.mcad",
+  "task": "draw",
+  "title": "Bracket",
+  "titleKo": "브래킷",
+  "description": "A plate: rounded rectangle, slots, holes",
+  "descriptionKo": "둥근 사각형, 장공, 구멍으로 만든 판",
+  "tags": [
+   "2D",
+   "판"
+  ]
+ },
+ {
+  "file": "05-bolt-and-nut.mcad",
+  "task": "parts",
+  "title": "Bolt and nut",
+  "titleKo": "볼트와 너트",
+  "description": "M10 bolt, nut, washer, socket screw and hole",
+  "descriptionKo": "M10 볼트, 너트, 와셔, 소켓 볼트, 구멍",
+  "tags": [
+   "ISO",
+   "체결"
+  ]
+ },
+ {
+  "file": "06-cover-plate.mcad",
+  "task": "modify",
+  "title": "Cover plate",
+  "titleKo": "커버 플레이트",
+  "description": "Holes made with rectangular and polar arrays",
+  "descriptionKo": "직사각형·원형 배열로 만든 구멍들",
+  "tags": [
+   "배열",
+   "수정"
+  ]
+ },
+ {
+  "file": "07-shaft-assembly.mcad",
+  "task": "parts",
+  "title": "Shaft assembly",
+  "titleKo": "축 조립",
+  "description": "Shaft, bearings, gear, key and circlip",
+  "descriptionKo": "축, 베어링, 기어, 키, 멈춤링",
+  "tags": [
+   "조립",
+   "베어링"
+  ]
+ },
+ {
+  "file": "08-parts-catalog.mcad",
+  "task": "parts",
+  "title": "Parts catalog",
+  "titleKo": "부품 목록",
+  "description": "All 36 library parts",
+  "descriptionKo": "라이브러리의 부품 36가지",
+  "tags": [
+   "라이브러리"
+  ]
+ },
+ {
+  "file": "09-solids-showcase.mcad",
+  "task": "solids",
+  "title": "3D solids showcase",
+  "titleKo": "3D 솔리드 모음",
+  "description": "Every primitive, pad, revolve, loft, sweep and boolean",
+  "descriptionKo": "모든 프리미티브와 돌출·회전·로프트·스윕·불리언",
+  "tags": [
+   "3D",
+   "FreeCAD"
+  ]
+ },
+ {
+  "file": "10-mounting-block.mcad",
+  "task": "booleans",
+  "title": "Mounting block",
+  "titleKo": "장착 블록",
+  "description": "A block made with fuse and cut",
+  "descriptionKo": "합치기·빼기로 만든 블록",
+  "tags": [
+   "3D",
+   "불리언"
+  ]
+ },
+ {
+  "file": "11-springs-pipes.mcad",
+  "task": "features",
+  "title": "Springs and pipes",
+  "titleKo": "스프링과 관",
+  "description": "Helical spring, bent pipe (sweep), hopper (loft)",
+  "descriptionKo": "나선 스프링, 굽은 관(스윕), 호퍼(로프트)",
+  "tags": [
+   "3D",
+   "스윕",
+   "로프트"
+  ]
+ },
+ {
+  "file": "12-gearbox.mcad",
+  "task": "features",
+  "title": "Gearbox",
+  "titleKo": "기어박스",
+  "description": "Housing, shafts and gears padded from gear outlines",
+  "descriptionKo": "기어 윤곽을 돌출한 하우징·축·기어",
+  "tags": [
+   "3D",
+   "돌출"
+  ]
+ },
+ {
+  "file": "13-drawing-views.mcad",
+  "task": "views",
+  "title": "Drawing views",
+  "titleKo": "도면 뷰",
+  "description": "Front, top, right (hidden lines) and isometric views",
+  "descriptionKo": "정면·평면·우측면(숨은선)·등각 투상",
+  "tags": [
+   "투영",
+   "숨은선"
+  ]
+ },
+ {
+  "file": "14-sections.mcad",
+  "task": "views",
+  "title": "Sections",
+  "titleKo": "단면",
+  "description": "Section outlines of a pulley and a sleeve",
+  "descriptionKo": "풀리와 슬리브의 단면 윤곽",
+  "tags": [
+   "단면"
+  ]
+ },
+ {
+  "file": "15-annotations.mcad",
+  "task": "annotate",
+  "title": "Notes and hatching",
+  "titleKo": "주석과 해칭",
+  "description": "Eight hatch patterns, leaders, splines, elliptical arcs, points, centre lines",
+  "descriptionKo": "해칭 무늬 8종, 지시선, 스플라인, 타원 호, 점, 중심선",
+  "tags": [
+   "해칭",
+   "주석"
+  ]
+ },
+ {
+  "file": "16-imperial-plate.mcad",
+  "task": "precise",
+  "title": "Imperial plate",
+  "titleKo": "인치 판",
+  "description": "A plate designed in inches (switch the length unit to in)",
+  "descriptionKo": "인치로 설계한 판 (길이 단위를 in로 바꿔 보세요)",
+  "tags": [
+   "인치",
+   "단위"
+  ]
+ },
+ {
+  "file": "04-bracket.dxf",
+  "task": "files",
+  "title": "Bracket (DXF R12)",
+  "titleKo": "브래킷 (DXF R12)",
+  "description": "DXF written by MyCAD",
+  "descriptionKo": "MyCAD가 쓴 DXF",
+  "tags": [
+   "DXF"
+  ]
+ },
+ {
+  "file": "dxf/ezdxf-entities-r2018.dxf",
+  "task": "files",
+  "title": "ezdxf DXF 2018",
+  "titleKo": "ezdxf DXF 2018",
+  "description": "DXF from another program (ezdxf): hatches, splines, dimensions, blocks",
+  "descriptionKo": "다른 프로그램(ezdxf)이 쓴 DXF: 해칭·스플라인·치수·블록",
+  "tags": [
+   "DXF",
+   "ezdxf"
+  ]
+ },
+ {
+  "file": "dxf/ezdxf-entities-r2000-binary.dxf",
+  "task": "files",
+  "title": "Binary DXF",
+  "titleKo": "바이너리 DXF",
+  "description": "DXF 2000 in the binary format",
+  "descriptionKo": "바이너리 형식의 DXF 2000",
+  "tags": [
+   "DXF",
+   "바이너리"
+  ]
+ },
+ {
+  "file": "drawings/freecad-plate.igs",
+  "task": "files",
+  "title": "FreeCAD IGES plate",
+  "titleKo": "FreeCAD IGES 판",
+  "description": "IGES written by FreeCAD: arcs, ellipse, B-spline",
+  "descriptionKo": "FreeCAD가 쓴 IGES: 호·타원·B-스플라인",
+  "tags": [
+   "IGES",
+   "FreeCAD"
+  ]
+ },
+ {
+  "file": "drawings/inkscape-bracket.svg",
+  "task": "files",
+  "title": "SVG bracket",
+  "titleKo": "SVG 브래킷",
+  "description": "Inkscape-style SVG: layers, transforms, arcs, fills, text",
+  "descriptionKo": "Inkscape 방식의 SVG: 레이어·변환·호·채우기·문자",
+  "tags": [
+   "SVG"
+  ]
+ },
+ {
+  "file": "drawings/hpgl-plotter-demo.plt",
+  "task": "files",
+  "title": "HP-GL/2 plot",
+  "titleKo": "HP-GL/2 플로터",
+  "description": "Pens as layers, circles, arcs, line types, labels",
+  "descriptionKo": "펜별 레이어, 원·호·선 종류·문자",
+  "tags": [
+   "HP-GL"
+  ]
+ },
+ {
+  "file": "drawings/pcb-board-top.gtl",
+  "task": "files",
+  "title": "PCB Gerber (top copper)",
+  "titleKo": "PCB 거버 (윗면 동박)",
+  "description": "Pads, tracks and a copper pour",
+  "descriptionKo": "패드·배선·구리 영역",
+  "tags": [
+   "Gerber",
+   "PCB"
+  ]
+ },
+ {
+  "file": "drawings/pcb-board.drl",
+  "task": "files",
+  "title": "PCB drill (Excellon)",
+  "titleKo": "PCB 드릴 (Excellon)",
+  "description": "Holes by tool diameter and a slot",
+  "descriptionKo": "공구 지름별 구멍과 장공",
+  "tags": [
+   "Excellon",
+   "PCB"
+  ]
+ },
+ {
+  "file": "freecad/freecad-assembly.FCStd",
+  "task": "files",
+  "title": "FreeCAD document",
+  "titleKo": "FreeCAD 문서",
+  "description": "An assembly made by FreeCAD (.FCStd)",
+  "descriptionKo": "FreeCAD가 만든 조립품 (.FCStd)",
+  "tags": [
+   "FCStd",
+   "3D"
+  ]
+ },
+ {
+  "file": "freecad/freecad-bracket.step",
+  "task": "files",
+  "title": "STEP bracket",
+  "titleKo": "STEP 브래킷",
+  "description": "A STEP solid written by FreeCAD",
+  "descriptionKo": "FreeCAD가 쓴 STEP 솔리드",
+  "tags": [
+   "STEP",
+   "3D"
+  ]
+ }
+]

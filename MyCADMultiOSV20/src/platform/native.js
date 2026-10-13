@@ -60,6 +60,8 @@ export async function readBinaryFile(path, op) {
   return bytes;
 }
 
+import { DRAWING_EXTENSIONS } from '../domain/import2d.js';
+
 /** 3D formats MyCAD reads (FreeCAD's exchange formats). */
 export const MODEL_EXTENSIONS = ['fcstd', 'step', 'stp', 'stl', 'obj', 'ply', 'off', 'amf', '3mf'];
 export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
@@ -67,13 +69,17 @@ export const writeBase64File = (path, data, op) => invoke('write_base64_file', {
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
 const OPEN_FILTERS = () => [
-  { name: `${t('file.allDrawings')} (*.mcad, *.dxf, *.FCStd, *.step, *.stl…)`, extensions: ['mcad', 'dxf', 'json', ...MODEL_EXTENSIONS, 'FCStd'] },
+  { name: `${t('file.allDrawings')} (*.mcad, *.dxf, *.svg, *.igs, *.plt, *.gbr, *.FCStd, *.step, *.stl…)`, extensions: ['mcad', 'json', ...DRAWING_EXTENSIONS, ...MODEL_EXTENSIONS, 'FCStd'] },
   { name: 'MyCAD (*.mcad)', extensions: ['mcad'] },
   { name: 'DXF (*.dxf)', extensions: ['dxf'] },
   { name: `${t('file.models3d')} (*.FCStd, *.step, *.stl, *.obj, *.ply, *.off, *.amf, *.3mf)`, extensions: [...MODEL_EXTENSIONS, 'FCStd'] },
+  { name: `${t('file.drawings2d')} (*.dxf, *.svg, *.igs, *.plt, *.gbr, *.drl…)`, extensions: DRAWING_EXTENSIONS },
 ];
 const EXPORT_FILTERS = {
   dxf: [{ name: 'DXF R12 (*.dxf)', extensions: ['dxf'] }],
+  dxf2000: [{ name: 'DXF 2000 (*.dxf)', extensions: ['dxf'] }],
+  plt: [{ name: 'HP-GL/2 (*.plt)', extensions: ['plt', 'hpgl'] }],
+  igs: [{ name: 'IGES 5.3 (*.igs)', extensions: ['igs', 'iges'] }],
   svg: [{ name: 'SVG (*.svg)', extensions: ['svg'] }],
   png: [{ name: 'PNG (*.png)', extensions: ['png'] }],
   stl: [{ name: 'STL — 3D printing (*.stl)', extensions: ['stl'] }],
@@ -88,7 +94,7 @@ const EXPORT_FILTERS = {
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
 
 export async function chooseDrawingToOpen(defaultPath, { dxf = false, models = false } = {}) {
-  const filters = dxf ? [OPEN_FILTERS()[2]] : models ? [OPEN_FILTERS()[3]] : OPEN_FILTERS();
+  const filters = dxf ? [OPEN_FILTERS()[4], OPEN_FILTERS()[2]] : models ? [OPEN_FILTERS()[3]] : OPEN_FILTERS();
   const result = await openDialog({ multiple: true, directory: false, defaultPath: defaultPath ?? undefined, filters });
   if (!result) return [];
   return Array.isArray(result) ? result : [result];
@@ -112,12 +118,14 @@ export async function chooseImage(defaultPath) {
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
 const WEB_MODEL_ACCEPT = { 'application/octet-stream': ['.fcstd', '.step', '.stp', '.stl', '.obj', '.ply', '.off', '.amf', '.3mf'] };
-const WEB_TYPES = [{ description: 'MyCAD', accept: { 'application/json': ['.mcad', '.json'], 'application/dxf': ['.dxf'], ...WEB_MODEL_ACCEPT } }];
+const WEB_CAD_ACCEPT = { 'application/x-cad-drawing': DRAWING_EXTENSIONS.map((ext) => `.${ext}`) };
+const WEB_TYPES = [{ description: 'MyCAD', accept: { 'application/json': ['.mcad', '.json'], ...WEB_CAD_ACCEPT, ...WEB_MODEL_ACCEPT } }];
 const WEB_MODEL_TYPES = [{ description: '3D', accept: WEB_MODEL_ACCEPT }];
 const isModelName = (name) => MODEL_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
-/** A picked web file: text for drawings, bytes for 3D models. */
-const readWebFile = async (file, handle) => ({ name: file.name, handle, size: file.size, ...(isModelName(file.name) ? { bytes: new Uint8Array(await file.arrayBuffer()) } : { text: await file.text() }) });
-const WEB_DXF_TYPES = [{ description: 'DXF', accept: { 'application/dxf': ['.dxf'] } }];
+const isCadName = (name) => DRAWING_EXTENSIONS.includes(String(name).toLowerCase().split('.').pop());
+/** A picked web file: text for .mcad drawings, bytes for 2D CAD files and 3D models. */
+const readWebFile = async (file, handle) => ({ name: file.name, handle, size: file.size, ...(isModelName(file.name) || isCadName(file.name) ? { bytes: new Uint8Array(await file.arrayBuffer()) } : { text: await file.text() }) });
+const WEB_DXF_TYPES = [{ description: '2D CAD', accept: WEB_CAD_ACCEPT }];
 const WEB_SAVE_TYPES = [{ description: 'MyCAD', accept: { 'application/json': ['.mcad'] } }];
 
 /** Web: lets the user pick drawing files; returns [{ name, text, handle, size }]. */
@@ -133,7 +141,8 @@ export async function pickDrawingFilesWeb({ dxf = false, models = false } = {}) 
     return Promise.all(handles.map(async (handle) => readWebFile(await handle.getFile(), handle)));
   }
   const models3d = '.fcstd,.step,.stp,.stl,.obj,.ply,.off,.amf,.3mf';
-  const files = await pickWithInput(dxf ? '.dxf' : models ? models3d : `.mcad,.dxf,.json,${models3d}`, true);
+  const cad = DRAWING_EXTENSIONS.map((ext) => `.${ext}`).join(',');
+  const files = await pickWithInput(dxf ? cad : models ? models3d : `.mcad,.json,${cad},${models3d}`, true);
   return Promise.all(files.map((file) => readWebFile(file, null)));
 }
 

@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('MyCAD faceted solid model'),'2;1');
-FILE_NAME('___ _ __ _ __.step','2026-10-13T03:10:46',('SHKWON'),('MyCAD'),'MyCAD','MyCAD','');
+FILE_NAME('___ _ __ _ __.step','2026-10-13T06:58:02',('SHKWON'),('MyCAD'),'MyCAD','MyCAD','');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));
 ENDSEC;
 DATA;

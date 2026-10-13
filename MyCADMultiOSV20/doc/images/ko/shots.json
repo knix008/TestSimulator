@@ -1,0 +1,390 @@
+{
+ "start-page": {
+  "file": "images/ko/start-page.webp",
+  "caption": "시작 페이지: 할 수 있는 일(레슨·샘플), 빠른 시작, 최근 파일, 오늘의 팁, 샘플"
+ },
+ "tutorial-watch": {
+  "file": "images/ko/tutorial-watch.webp",
+  "caption": "튜토리얼 보기: 커서가 실제 화면을 조작하고, 패널이 단계를 설명합니다"
+ },
+ "tutorial-practice": {
+  "file": "images/ko/tutorial-practice.webp",
+  "caption": "튜토리얼 직접 하기: 할 일과 클릭할 곳(빨간 원)이 표시되고, 해내면 다음 단계로 넘어갑니다"
+ },
+ "l1-s1": {
+  "file": "images/ko/l1-s1.webp",
+  "caption": "둘러보기 · 시작 페이지"
+ },
+ "l1-s2": {
+  "file": "images/ko/l1-s2.webp",
+  "caption": "둘러보기 · 샘플 열기"
+ },
+ "l1-s3": {
+  "file": "images/ko/l1-s3.webp",
+  "caption": "둘러보기 · 전체 보기와 확대"
+ },
+ "l1-s4": {
+  "file": "images/ko/l1-s4.webp",
+  "caption": "둘러보기 · 화면 이동"
+ },
+ "l1-s5": {
+  "file": "images/ko/l1-s5.webp",
+  "caption": "둘러보기 · 패널 접고 펴기"
+ },
+ "l1-s6": {
+  "file": "images/ko/l1-s6.webp",
+  "caption": "둘러보기 · 3D 보기"
+ },
+ "l2-s1": {
+  "file": "images/ko/l2-s1.webp",
+  "caption": "선과 도형 그리기 · 새 도면"
+ },
+ "l2-s2": {
+  "file": "images/ko/l2-s2.webp",
+  "caption": "선과 도형 그리기 · 선 (L)"
+ },
+ "l2-s3": {
+  "file": "images/ko/l2-s3.webp",
+  "caption": "선과 도형 그리기 · 사각형 (R)"
+ },
+ "l2-s4": {
+  "file": "images/ko/l2-s4.webp",
+  "caption": "선과 도형 그리기 · 원 (C)"
+ },
+ "l2-s5": {
+  "file": "images/ko/l2-s5.webp",
+  "caption": "선과 도형 그리기 · 호 (3점)"
+ },
+ "l2-s6": {
+  "file": "images/ko/l2-s6.webp",
+  "caption": "선과 도형 그리기 · 타원"
+ },
+ "l2-s7": {
+  "file": "images/ko/l2-s7.webp",
+  "caption": "선과 도형 그리기 · 정다각형"
+ },
+ "l2-s8": {
+  "file": "images/ko/l2-s8.webp",
+  "caption": "선과 도형 그리기 · 폴리선"
+ },
+ "l2-s9": {
+  "file": "images/ko/l2-s9.webp",
+  "caption": "선과 도형 그리기 · 스플라인"
+ },
+ "l2-s10": {
+  "file": "images/ko/l2-s10.webp",
+  "caption": "선과 도형 그리기 · 점"
+ },
+ "l3-s1": {
+  "file": "images/ko/l3-s1.webp",
+  "caption": "정밀 입력·스냅·단위 · 좌표 입력"
+ },
+ "l3-s2": {
+  "file": "images/ko/l3-s2.webp",
+  "caption": "정밀 입력·스냅·단위 · 극좌표: 거리<각도"
+ },
+ "l3-s3": {
+  "file": "images/ko/l3-s3.webp",
+  "caption": "정밀 입력·스냅·단위 · 객체 스냅 (F3)"
+ },
+ "l3-s4": {
+  "file": "images/ko/l3-s4.webp",
+  "caption": "정밀 입력·스냅·단위 · 직교 모드 (F8)"
+ },
+ "l3-s5": {
+  "file": "images/ko/l3-s5.webp",
+  "caption": "정밀 입력·스냅·단위 · 길이 단위"
+ },
+ "l3-s5-dialog": {
+  "file": "images/ko/l3-s5-dialog.webp",
+  "caption": "길이 단위 — 창"
+ },
+ "l3-s6": {
+  "file": "images/ko/l3-s6.webp",
+  "caption": "정밀 입력·스냅·단위 · 다른 단위로 입력"
+ },
+ "l3-s7": {
+  "file": "images/ko/l3-s7.webp",
+  "caption": "정밀 입력·스냅·단위 · 축척 막대"
+ },
+ "l4-s1": {
+  "file": "images/ko/l4-s1.webp",
+  "caption": "선택과 수정 · 준비: 사각형과 원"
+ },
+ "l4-s2": {
+  "file": "images/ko/l4-s2.webp",
+  "caption": "선택과 수정 · 선택"
+ },
+ "l4-s3": {
+  "file": "images/ko/l4-s3.webp",
+  "caption": "선택과 수정 · 이동 (M)"
+ },
+ "l4-s4": {
+  "file": "images/ko/l4-s4.webp",
+  "caption": "선택과 수정 · 복사"
+ },
+ "l4-s5": {
+  "file": "images/ko/l4-s5.webp",
+  "caption": "선택과 수정 · 회전"
+ },
+ "l4-s6": {
+  "file": "images/ko/l4-s6.webp",
+  "caption": "선택과 수정 · 대칭"
+ },
+ "l4-s7": {
+  "file": "images/ko/l4-s7.webp",
+  "caption": "선택과 수정 · 크기 조정"
+ },
+ "l4-s8": {
+  "file": "images/ko/l4-s8.webp",
+  "caption": "선택과 수정 · 간격 띄우기"
+ },
+ "l4-s9": {
+  "file": "images/ko/l4-s9.webp",
+  "caption": "선택과 수정 · 배열 복사"
+ },
+ "l4-s9-dialog": {
+  "file": "images/ko/l4-s9-dialog.webp",
+  "caption": "배열 복사 — 창"
+ },
+ "l4-s10": {
+  "file": "images/ko/l4-s10.webp",
+  "caption": "선택과 수정 · 분해"
+ },
+ "l4-s11": {
+  "file": "images/ko/l4-s11.webp",
+  "caption": "선택과 수정 · 실행 취소·다시 실행"
+ },
+ "l4-s12": {
+  "file": "images/ko/l4-s12.webp",
+  "caption": "선택과 수정 · 삭제"
+ },
+ "l5-s1": {
+  "file": "images/ko/l5-s1.webp",
+  "caption": "치수와 주석 · 준비: 판과 구멍"
+ },
+ "l5-s2": {
+  "file": "images/ko/l5-s2.webp",
+  "caption": "치수와 주석 · 선형 치수"
+ },
+ "l5-s3": {
+  "file": "images/ko/l5-s3.webp",
+  "caption": "치수와 주석 · 정렬 치수"
+ },
+ "l5-s4": {
+  "file": "images/ko/l5-s4.webp",
+  "caption": "치수와 주석 · 지름·반지름 치수"
+ },
+ "l5-s5": {
+  "file": "images/ko/l5-s5.webp",
+  "caption": "치수와 주석 · 각도 치수"
+ },
+ "l5-s6": {
+  "file": "images/ko/l5-s6.webp",
+  "caption": "치수와 주석 · 문자"
+ },
+ "l5-s7": {
+  "file": "images/ko/l5-s7.webp",
+  "caption": "치수와 주석 · 지시선"
+ },
+ "l5-s8": {
+  "file": "images/ko/l5-s8.webp",
+  "caption": "치수와 주석 · 해칭"
+ },
+ "l5-s9": {
+  "file": "images/ko/l5-s9.webp",
+  "caption": "치수와 주석 · 중심선"
+ },
+ "l5-s10": {
+  "file": "images/ko/l5-s10.webp",
+  "caption": "치수와 주석 · 거리 재기"
+ },
+ "l6-s1": {
+  "file": "images/ko/l6-s1.webp",
+  "caption": "속성과 레이어 · 속성 패널에서 고치기"
+ },
+ "l6-s2": {
+  "file": "images/ko/l6-s2.webp",
+  "caption": "속성과 레이어 · 계산식과 단위"
+ },
+ "l6-s3": {
+  "file": "images/ko/l6-s3.webp",
+  "caption": "속성과 레이어 · 선 종류·굵기·색"
+ },
+ "l6-s4": {
+  "file": "images/ko/l6-s4.webp",
+  "caption": "속성과 레이어 · 레이어"
+ },
+ "l7-s1": {
+  "file": "images/ko/l7-s1.webp",
+  "caption": "부품 라이브러리 · 기어 넣기"
+ },
+ "l7-s1-dialog": {
+  "file": "images/ko/l7-s1-dialog.webp",
+  "caption": "기어 넣기 — 창"
+ },
+ "l7-s2": {
+  "file": "images/ko/l7-s2.webp",
+  "caption": "부품 라이브러리 · 볼트와 너트"
+ },
+ "l7-s3": {
+  "file": "images/ko/l7-s3.webp",
+  "caption": "부품 라이브러리 · 부품 치수 바꾸기"
+ },
+ "l8-s1": {
+  "file": "images/ko/l8-s1.webp",
+  "caption": "3D 솔리드 · 상자 넣기"
+ },
+ "l8-s2": {
+  "file": "images/ko/l8-s2.webp",
+  "caption": "3D 솔리드 · 원기둥"
+ },
+ "l8-s2-dialog": {
+  "file": "images/ko/l8-s2-dialog.webp",
+  "caption": "원기둥 — 창"
+ },
+ "l8-s3": {
+  "file": "images/ko/l8-s3.webp",
+  "caption": "3D 솔리드 · 3D로 보기"
+ },
+ "l8-s4": {
+  "file": "images/ko/l8-s4.webp",
+  "caption": "3D 솔리드 · 시점 바꾸기"
+ },
+ "l8-s5": {
+  "file": "images/ko/l8-s5.webp",
+  "caption": "3D 솔리드 · 위치와 회전"
+ },
+ "l8-s6": {
+  "file": "images/ko/l8-s6.webp",
+  "caption": "3D 솔리드 · 2D로 돌아가기"
+ },
+ "l9-s1": {
+  "file": "images/ko/l9-s1.webp",
+  "caption": "2D에서 3D로: 돌출·회전·로프트·스윕 · 돌출 (Pad)"
+ },
+ "l9-s2": {
+  "file": "images/ko/l9-s2.webp",
+  "caption": "2D에서 3D로: 돌출·회전·로프트·스윕 · 회전 (Revolve)"
+ },
+ "l9-s3": {
+  "file": "images/ko/l9-s3.webp",
+  "caption": "2D에서 3D로: 돌출·회전·로프트·스윕 · 로프트 (Loft)"
+ },
+ "l9-s4": {
+  "file": "images/ko/l9-s4.webp",
+  "caption": "2D에서 3D로: 돌출·회전·로프트·스윕 · 스윕 (Sweep)"
+ },
+ "l10-s1": {
+  "file": "images/ko/l10-s1.webp",
+  "caption": "불리언: 빼기·합치기·교차 · 빼기 (Cut)"
+ },
+ "l10-s2": {
+  "file": "images/ko/l10-s2.webp",
+  "caption": "불리언: 빼기·합치기·교차 · 합치기 (Fuse)"
+ },
+ "l10-s3": {
+  "file": "images/ko/l10-s3.webp",
+  "caption": "불리언: 빼기·합치기·교차 · 분해로 되돌리기"
+ },
+ "l11-s1": {
+  "file": "images/ko/l11-s1.webp",
+  "caption": "도면 뷰와 단면 · 투영 도면 만들기"
+ },
+ "l11-s1-dialog": {
+  "file": "images/ko/l11-s1-dialog.webp",
+  "caption": "투영 도면 만들기 — 창"
+ },
+ "l11-s2": {
+  "file": "images/ko/l11-s2.webp",
+  "caption": "도면 뷰와 단면 · 단면"
+ },
+ "l12-s1": {
+  "file": "images/ko/l12-s1.webp",
+  "caption": "3D 보기 자세히 · 와이어프레임과 좌표축"
+ },
+ "l12-s2": {
+  "file": "images/ko/l12-s2.webp",
+  "caption": "3D 보기 자세히 · 광원 (해)"
+ },
+ "l12-s3": {
+  "file": "images/ko/l12-s3.webp",
+  "caption": "3D 보기 자세히 · 2D로"
+ },
+ "l13-s1": {
+  "file": "images/ko/l13-s1.webp",
+  "caption": "파일: 저장·열기·가져오기·내보내기 · 저장과 열기"
+ },
+ "l13-s2": {
+  "file": "images/ko/l13-s2.webp",
+  "caption": "파일: 저장·열기·가져오기·내보내기 · 다른 CAD 도면 열기"
+ },
+ "l13-s3": {
+  "file": "images/ko/l13-s3.webp",
+  "caption": "파일: 저장·열기·가져오기·내보내기 · PCB 거버"
+ },
+ "l13-s4": {
+  "file": "images/ko/l13-s4.webp",
+  "caption": "파일: 저장·열기·가져오기·내보내기 · 내보내기"
+ },
+ "l13-s4-dialog": {
+  "file": "images/ko/l13-s4-dialog.webp",
+  "caption": "내보내기 — 창"
+ },
+ "l13-s5": {
+  "file": "images/ko/l13-s5.webp",
+  "caption": "파일: 저장·열기·가져오기·내보내기 · 끌어 놓기"
+ },
+ "l14-s1": {
+  "file": "images/ko/l14-s1.webp",
+  "caption": "인쇄와 3D 프린팅 · 인쇄 미리보기"
+ },
+ "l14-s1-dialog": {
+  "file": "images/ko/l14-s1-dialog.webp",
+  "caption": "인쇄 미리보기 — 창"
+ },
+ "l14-s2": {
+  "file": "images/ko/l14-s2.webp",
+  "caption": "인쇄와 3D 프린팅 · 3D 프린팅 (STL)"
+ },
+ "l14-s2-dialog": {
+  "file": "images/ko/l14-s2-dialog.webp",
+  "caption": "3D 프린팅 (STL) — 창"
+ },
+ "l15-s1": {
+  "file": "images/ko/l15-s1.webp",
+  "caption": "설정과 모양 · 설정 창"
+ },
+ "l15-s1-dialog": {
+  "file": "images/ko/l15-s1-dialog.webp",
+  "caption": "설정 창 — 창"
+ },
+ "l15-s2": {
+  "file": "images/ko/l15-s2.webp",
+  "caption": "설정과 모양 · 테마"
+ },
+ "l15-s3": {
+  "file": "images/ko/l15-s3.webp",
+  "caption": "설정과 모양 · 툴바와 패널 묶음"
+ },
+ "l16-s1": {
+  "file": "images/ko/l16-s1.webp",
+  "caption": "도움말 · 기능표"
+ },
+ "l16-s1-dialog": {
+  "file": "images/ko/l16-s1-dialog.webp",
+  "caption": "기능표 — 창"
+ },
+ "l16-s2": {
+  "file": "images/ko/l16-s2.webp",
+  "caption": "도움말 · 프로그램 정보와 지원 형식"
+ },
+ "l16-s2-dialog": {
+  "file": "images/ko/l16-s2-dialog.webp",
+  "caption": "프로그램 정보와 지원 형식 — 창"
+ },
+ "l16-s3": {
+  "file": "images/ko/l16-s3.webp",
+  "caption": "도움말 · 튜토리얼 다시 보기"
+ }
+}

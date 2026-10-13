@@ -1,0 +1,26 @@
+M48
+; Drill file for the 60 x 40 mm sample board (Excellon)
+; FORMAT={-:-/ absolute / metric / decimal}
+METRIC,TZ
+T1C0.800
+T2C1.000
+T3C3.200
+%
+G90
+G05
+T1
+X10.0Y10.0
+X10.0Y30.0
+X50.0Y30.0
+X50.0Y10.0
+T2
+X30.0Y8.0
+X30.0Y32.0
+T3
+X4.0Y4.0
+X56.0Y4.0
+X56.0Y36.0
+X4.0Y36.0
+T2
+X20.0Y20.0G85X26.0Y20.0
+M30

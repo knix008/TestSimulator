@@ -34,9 +34,9 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + 
         .map_err(|error| tr!("작업 실행 실패: {error}", "The task failed: {error}"))?
 }
 
-/// "MyCAD v2.0.0" — shown in the title bar of every window.
+/// "MyCAD V1.0" — shown in the title bar of every window (major.minor of the package version).
 fn app_title(info: &tauri::PackageInfo) -> String {
-    format!("MyCAD v{}", info.version)
+    format!("MyCAD V{}.{}", info.version.major, info.version.minor)
 }
 
 #[derive(Serialize)]
@@ -401,6 +401,41 @@ async fn raise_test_panic() -> Result<(), String> {
     Ok(())
 }
 
+/// Opens a page of the user documentation (doc/<name>, e.g. Tutorial.html) in
+/// the default browser: from the installed resources, or from the project
+/// folder when running a development build.
+#[tauri::command]
+fn open_document(app: AppHandle, name: String) -> Result<(), String> {
+    if name.is_empty() || name.contains("..") || name.contains('/') || name.contains('\\') {
+        return Err(tr!("문서 이름이 올바르지 않습니다: {name}", "Not a document name: {name}"));
+    }
+    let mut candidates = Vec::new();
+    if let Ok(resources) = app.path().resource_dir() {
+        candidates.push(resources.join("doc").join(&name));
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("doc").join(&name));
+    let path = candidates
+        .into_iter()
+        .find(|path| path.exists())
+        .ok_or_else(|| tr!("문서를 찾을 수 없습니다: doc/{name}", "The document was not found: doc/{name}"))?;
+    open_with_system(&path)
+}
+
+fn open_with_system(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("cmd").args(["/C", "start", ""]).arg(path).creation_flags(0x0800_0000).spawn()
+    };
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(path).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(path).spawn();
+    result
+        .map(|_| ())
+        .map_err(|error| tr!("문서를 열 수 없습니다 ({}): {error}", "Could not open the document ({}): {error}", path.display()))
+}
+
 /// Ends the app after the UI has handled unsaved changes.
 #[tauri::command]
 fn quit_app(app: AppHandle) {
@@ -489,6 +524,7 @@ pub fn run() {
             close_popup,
             print_window,
             quit_app,
+            open_document,
             raise_test_panic
         ])
         .run(tauri::generate_context!())

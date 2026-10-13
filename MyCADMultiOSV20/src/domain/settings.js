@@ -1,6 +1,7 @@
 // Application settings: defaults, validation, and persistence in localStorage
 // (shared by the main window and the popup windows, which watch it).
 import { normalizeCustom, THEME_IDS } from '../themes.js';
+import { LENGTH_UNITS } from './units.js';
 
 export const STORAGE_KEY = 'mycad.settings.v1';
 export const RECENT_KEY = 'mycad.recent.v1';
@@ -14,6 +15,8 @@ export const ZOOM = { min: 1, max: 20000 };
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const SNAP_MODES = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest'];
 export const GRID_SIZES = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
+/** Length of the scale bar on screen (px). */
+export const SCALE_BAR = { min: 30, max: 2000 };
 
 export function defaultSettings(language = 'ko') {
   return {
@@ -36,14 +39,25 @@ export function defaultSettings(language = 'ko') {
     lastDirectory: null,
     confirmDelete: true,
     restoreSession: true,
+    // The start page shows when the program starts (not when it opens files).
+    showStartPage: true,
     statusClock: true,
     showGrid: true,
     showRulers: true,
+    // Scale bar on the 2D canvas: shown, where (px from the bottom-left corner) and how long (px).
+    showScaleBar: true,
+    scaleBar: { x: 36, y: 14, width: 120 },
     extrudeHeight: 10,
     // 3D view: closed 2D outlines shown as plates of extrudeHeight (solids are always shown).
     extrude2d: true,
     // Toolbar in one row or two (when the window is narrow).
     toolbarRows: 1,
+    // Left panel sections that are folded.
+    collapsedSections: [],
+    // The 3D view's light (the sun): on/off, direction, strength, colour, shadows.
+    light: { on: true, azimuth: 135, elevation: 55, intensity: 1, color: '#ffffff', shadows: true },
+    // Unit lengths are shown and typed in (drawings always store mm).
+    units: 'mm',
     gridSize: 10,
     snapGrid: false,
     snapObject: true,
@@ -81,10 +95,24 @@ export function normalizeSettings(raw = {}, language) {
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;
   s.backgroundName = typeof s.backgroundName === 'string' ? s.backgroundName : '';
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
+  s.units = LENGTH_UNITS.includes(s.units) ? s.units : 'mm';
+  {
+    const b = s.scaleBar && typeof s.scaleBar === 'object' ? s.scaleBar : {};
+    s.scaleBar = { x: clamp(b.x, 0, 8000, 36), y: clamp(b.y, 0, 8000, 14), width: clamp(b.width, SCALE_BAR.min, SCALE_BAR.max, 120) };
+  }
   s.gridSize = clamp(s.gridSize, 0.1, 1000, base.gridSize, false);
   s.extrudeHeight = clamp(s.extrudeHeight, 0.1, 1000, base.extrudeHeight, false);
   s.toolbarRows = s.toolbarRows === 2 ? 2 : 1;
-  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'statusClock', 'showGrid', 'showRulers', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
+  {
+    const l = s.light && typeof s.light === 'object' ? s.light : {};
+    const n = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
+    s.light = {
+      on: l.on !== false, azimuth: ((n(l.azimuth, 135, -1e6, 1e6) % 360) + 360) % 360, elevation: n(l.elevation, 55, 3, 89),
+      intensity: n(l.intensity, 1, 0, 5), color: /^#[0-9a-f]{6}$/i.test(l.color ?? '') ? l.color.toLowerCase() : '#ffffff', shadows: l.shadows !== false,
+    };
+  }
+  s.collapsedSections = Array.isArray(s.collapsedSections) ? [...new Set(s.collapsedSections.filter((id) => typeof id === 'string' && /^[a-zA-Z]{1,20}$/.test(id)))] : [];
+  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   s.snapModes = Object.fromEntries(SNAP_MODES.map((mode) => [mode, typeof s.snapModes?.[mode] === 'boolean' ? s.snapModes[mode] : base.snapModes[mode]]));

@@ -10,13 +10,20 @@ import {
   boxOfEntities, canExplode, createEntity, DIM_KINDS, normalizeEntity, dimText, entityDistance, explode, formatNumber, grips, inBox, LINE_TYPES, LINE_WIDTHS, measure, moveGrip, totalLength,
 } from './domain/entities.js';
 import { evaluate } from './domain/expr.js';
+import { startPageHtml } from './view/startpage.js';
+import appIconUrl from '../assets/icon-256.png';
+import { importDrawingBytes, isCadDrawingFileName } from './domain/import2d.js';
+import { exportHpgl } from './domain/formats2d.js';
+import { exportIges } from './domain/iges.js';
+import { exportDxf2000 } from './domain/dxf2000.js';
+import { displayUnit, evaluateLength, formatArea, formatLength, formatVolume, gridBaseFor, lengthValue, setDisplayUnit, toUnit, unitFactor, unitLabel, unitStep } from './domain/units.js';
 import {
   baseName, directoryOf, extensionOf, FormatError, isDrawingFileName, isDxfFileName, isImageFileName, isModelFileName, isTextFileName, parseFile, safeFileName, serialize, stripExtension, withExtension,
 } from './domain/format.js';
 import { boxCenter, boxHeight, boxWidth, dist, normalizeBox, polygonArea } from './domain/geometry.js';
 import { booleanOf } from './domain/csg.js';
 import { exportMesh, importMesh, setBooleanImplementation } from './domain/exchange3d.js';
-import { featureFrom, meshBox, normalizeSolidData, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh } from './domain/solids.js';
+import { featureFrom, meshBox, normalizeSolidData, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh } from './domain/solids.js';
 import { drawingViews, sectionOutlines, VIEW_NAMES } from './domain/views.js';
 import { CATEGORY_ICONS, categoryOf, optionIsWord, PART_CATEGORIES, PART_KINDS, PARTS, partInfo } from './domain/parts.js';
 import './view/partIcons.js';
@@ -24,6 +31,7 @@ import { addRecent, loadRecent, storeRecent } from './domain/recent.js';
 import { applyOrtho, findSnap, snapToGrid } from './domain/snap.js';
 import { exportSvg } from './domain/svg.js';
 import { buildShapes, collectLoops, prepareStl, toAsciiStl, toBase64, toBinaryStl } from './domain/stl.js';
+import { HATCH_PATTERN_NAMES } from './domain/hatch.js';
 import { loadSettings, RECENT_KEY, SESSION_KEY, SNAP_MODES, STORAGE_KEY, storeSettings, ZOOM } from './domain/settings.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -46,6 +54,8 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ 
 const isMac = /Mac/i.test(navigator.platform ?? '');
 const keyLabel = (key) => (isMac ? key.replace('Ctrl+', '⌘').replace('Shift+', '⇧').replace('Alt+', '⌥') : key);
 const fmt = (value, digits = 2) => formatNumber(value, digits);
+/** "V1.0": how the version is shown (title bar, About, start page). */
+const displayVersion = (version) => (version ? `V${String(version).split('.').slice(0, 2).join('.')}` : '');
 // 3D solid commands (FreeCAD Part workbench).
 const FEATURE_KINDS = ['pad', 'revolution', 'loft', 'sweep'];
 const BOOL_OPS = ['union', 'cut', 'common'];
@@ -60,7 +70,7 @@ const state = {
   selection: new Set(),
   tool: null,
   toolId: 'select',
-  toolOptions: { sides: 6, offset: 5, mirrorKeep: true },
+  toolOptions: { sides: 6, offset: 5, mirrorKeep: true, hatchPattern: 'ansi31', hatchScale: 1, hatchAngle: 0 },
   partCategory: 'fasteners',
   notice: null,
   info: null,
@@ -77,6 +87,13 @@ const state = {
   hover: null,
   measured: null,
   live: null,
+  // Start page (the house tab): shown instead of the drawing; its sample list and thumbnails.
+  home: false,
+  samples: null,
+  samplesError: null,
+  thumbs: new Map(),
+  loading: null,
+  tutorial: null,
 };
 
 const activeDoc = () => state.docs.find((doc) => doc.id === state.active) ?? null;
@@ -131,6 +148,7 @@ function untitledName() {
 }
 
 function addDocument(doc, { activate = true } = {}) {
+  if (activate) state.home = false;
   state.docs.push(doc);
   if (activate) activate_(doc.id);
   persistSession();
@@ -172,7 +190,8 @@ function activate_(id) {
 }
 
 function activateDoc(id) {
-  if (state.active === id) return;
+  if (state.active === id && !state.home) return;
+  state.home = false;
   activate_(id);
   renderAll();
   scrollActiveTabIntoView();
@@ -214,6 +233,7 @@ function select(ids, { toggle = false, add = false } = {}) {
   } else {
     state.selection = new Set(ids);
   }
+  if (state.selection.size) state.lightSelected = false;
   scheduleRender();
   schedule3d();
   renderLeft();
@@ -240,6 +260,9 @@ const commands = {
   new: { icon: 'newDrawing', label: 'action.new', key: 'Ctrl+N', run: () => newDrawing() },
   open: { icon: 'open', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
   importDxf: { icon: 'import', label: 'action.importDxf', run: () => openWithDialog({ dxf: true }) },
+  exportDxf2000: { icon: 'export', label: 'action.exportDxf2000', enabled: hasDoc, run: () => exportAs('dxf2000') },
+  exportHpgl: { icon: 'print', label: 'action.exportHpgl', enabled: hasDoc, run: () => exportAs('plt') },
+  exportIges: { icon: 'export', label: 'action.exportIges', enabled: hasDoc, run: () => exportAs('igs') },
   save: { icon: 'save', label: 'action.save', key: 'Ctrl+S', enabled: hasDoc, run: () => saveDoc(activeDoc()) },
   saveAs: { icon: 'saveAs', label: 'action.saveAs', key: 'Ctrl+Shift+S', enabled: hasDoc, run: () => saveDoc(activeDoc(), { saveAs: true }) },
   saveAll: { icon: 'save', label: 'action.saveAll', key: 'Ctrl+Alt+S', enabled: () => state.docs.some((doc) => doc.dirty), run: () => saveAll() },
@@ -278,6 +301,7 @@ const commands = {
   snapGrid: { icon: 'grid', label: 'action.snapGrid', key: 'F9', checked: () => state.settings.snapGrid, run: () => updateSettings({ snapGrid: !state.settings.snapGrid }) },
   view3d: { icon: 'cube', label: 'action.view3d', key: 'Ctrl+Shift+3', enabled: hasDoc, checked: () => state.view3d, run: () => toggle3d() },
   rulers: { icon: 'ruler', label: 'action.rulers', key: 'Ctrl+R', checked: () => state.settings.showRulers, run: () => updateSettings({ showRulers: !state.settings.showRulers }) },
+  scaleBar: { icon: 'scaleBar', label: 'action.scaleBar', key: 'Ctrl+Shift+B', checked: () => state.settings.showScaleBar, run: () => updateSettings({ showScaleBar: !state.settings.showScaleBar }) },
   ortho: { icon: 'ortho', label: 'action.ortho', key: 'F8', checked: () => state.settings.ortho, run: () => updateSettings({ ortho: !state.settings.ortho }) },
   lineWeights: { icon: 'line', label: 'action.lineWeights', checked: () => state.settings.showLineWeights, run: () => updateSettings({ showLineWeights: !state.settings.showLineWeights }) },
   crosshair: { icon: 'coordinate', label: 'action.crosshair', checked: () => state.settings.crosshair, run: () => updateSettings({ crosshair: !state.settings.crosshair }) },
@@ -307,7 +331,12 @@ const commands = {
   extrude2d: { icon: 'solidExtrude', label: 'action.extrude2d', checked: () => state.settings.extrude2d, run: () => updateSettings({ extrude2d: !state.settings.extrude2d }) },
   toolbarRows: { icon: 'toolbarRows', label: 'action.toolbarRows', checked: () => state.settings.toolbarRows === 2, run: () => updateSettings({ toolbarRows: state.settings.toolbarRows === 2 ? 1 : 2 }) },
   solidMenu: { icon: 'solidBox', label: 'action.solidMenu', run: (context) => showMenu(menuItems(MENUS.solid), context?.anchor ?? anchorBelow(root.querySelector('[data-command="solidMenu"]')), 'solid', { header: { icon: 'solidBox', title: t('menu.solid') } }) },
-  freecadCoverage: { icon: 'freecad', label: 'action.freecadCoverage', run: () => popups.open('coverage', { tab: 'part' }) },
+  light: { icon: 'light', label: 'action.light', key: 'Ctrl+Shift+G', checked: () => state.settings.light.on, run: () => setLightOptions({ on: !state.settings.light.on }) },
+  lightProperties: { icon: 'light', label: 'action.lightProperties', run: () => selectLight() },
+  startPage: { icon: 'home', label: 'action.startPage', run: () => showHome(true) },
+  tutorial: { icon: 'tutorial', label: 'action.tutorial', run: () => openTutorial() },
+  tutorialDoc: { icon: 'book', label: 'action.tutorialDoc', run: () => openTutorialDoc() },
+  freecadCoverage: { icon: 'checklist', label: 'action.freecadCoverage', run: () => popups.open('coverage', { tab: 'part' }) },
   ...Object.fromEntries([...DRAW_TOOLS, ...DIM_TOOLS, ...MODIFY_TOOLS].map((id) => [`tool:${id}`, toolCommand(id)])),
   ...Object.fromEntries(PART_KINDS.map((kind) => [`part:${kind}`, { icon: PARTS[kind].icon, label: `part.${kind}`, enabled: hasDoc, run: () => openPartDialog({ kind }) }])),
   ...Object.fromEntries(Object.keys(PART_CATEGORIES).map((category) => [`partCategory:${category}`, { icon: CATEGORY_ICONS[category], label: `cat.${category}`, enabled: hasDoc, run: () => openPartDialog({ category }) }])),
@@ -341,14 +370,14 @@ async function run(id, context) {
 // ───────────────────────── layout
 
 const MENUS = {
-  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportSvg', 'exportPng', 'export3dMenu', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
+  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', 'explode', 'bringFront', 'sendBack', '-', 'properties'],
-  view: ['view3d', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
+  view: ['startPage', '-', 'view3d', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
   draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
   modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'explode', 'editPart', '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
   solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
-  help: ['freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
+  help: ['tutorial', 'tutorialDoc', 'startPage', '-', 'freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'line', modify: 'move', parts: 'part', solid: 'solidBox', help: 'info' };
 
@@ -358,7 +387,7 @@ const TOOLBAR_MAIN = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'delete'],
   ['zoom', 'zoomFit'],
-  ['grid', 'rulers', 'snap', 'ortho'],
+  ['grid', 'rulers', 'scaleBar', 'snap', 'ortho'],
 ];
 /** FreeCAD-style Part toolbar: primitives, 2D→3D features, booleans, section/views (second row). */
 const TOOLBAR_PART = [
@@ -386,15 +415,20 @@ function renderShell() {
   root.innerHTML = `
     <nav id="menubar" role="menubar"></nav>
     <div id="toolbar" role="toolbar"></div>
-    <div id="tabs"></div>
     <main id="workspace">
       <aside id="left-panel" class="side-panel"></aside>
       <section id="canvas-area" tabindex="-1">
+        <div id="tabs"></div>
         <div class="canvas-wrap" id="canvas-wrap">
           <div class="canvas-bg" aria-hidden="true"></div>
           <div class="canvas-image" aria-hidden="true"></div>
           <canvas id="cad-canvas" aria-label="${escapeHtml(t('canvas.label'))}"></canvas>
+          <div class="scale-bar" id="scale-bar" hidden>
+            <span class="scale-caption"><b class="scale-length"></b><small class="scale-ratio"></small></span>
+            <span class="scale-track"><span class="scale-handle start" data-scale-handle="start"></span><span class="scale-handle end" data-scale-handle="end"></span></span>
+          </div>
           <div class="view3d" id="view3d" hidden></div>
+          <div class="start-page" id="start-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
         <div class="command-bar">
@@ -411,7 +445,9 @@ function renderShell() {
 
 function renderMenubar() {
   const menubar = root.querySelector('#menubar');
-  menubar.innerHTML = Object.keys(MENUS).map((name) => `
+  // The house: back to the start page from anywhere (lit while it is shown).
+  const home = `<button class="menubar-home ${state.home ? 'active' : ''}" data-command="startPage" title="${escapeHtml(t('action.startPage'))}" aria-label="${escapeHtml(t('action.startPage'))}" aria-pressed="${state.home}">${icon('home')}</button><span class="menubar-sep" aria-hidden="true"></span>`;
+  menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
 }
 
@@ -484,9 +520,10 @@ function renderTabs() {
   const scroll = tabs.querySelector('.tab-strip')?.scrollLeft ?? 0;
   tabs.innerHTML = `
     <div class="tab-strip"><div class="tab-list" role="tablist">
+      <div class="tab tab-home ${state.home ? 'active' : ''}" role="tab" aria-selected="${state.home}" data-tab-home title="${escapeHtml(t('action.startPage'))}">${icon('home')}<span class="tab-name">${escapeHtml(t('tabs.home'))}</span></div>
       ${state.docs.map((doc) => `
-        <div class="tab ${doc.id === state.active ? 'active' : ''} ${doc.dirty ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.active}" data-doc="${doc.id}" title="${escapeHtml(doc.path ?? docName(doc))}">
-          ${icon(doc.format === 'dxf' ? 'import' : 'drawing')}<span class="tab-name">${escapeHtml(docName(doc))}</span>
+        <div class="tab ${doc.id === state.active && !state.home ? 'active' : ''} ${doc.dirty ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.active && !state.home}" data-doc="${doc.id}" title="${escapeHtml(doc.path ?? docName(doc))}">
+          ${icon(doc.format !== 'mcad' ? 'import' : 'drawing')}<span class="tab-name">${escapeHtml(docName(doc))}</span>
           <span class="tab-dirty" title="${escapeHtml(t('status.modified'))}">●</span>
           <button class="tab-close" data-close-doc="${doc.id}" title="${escapeHtml(t('tabs.close'))}" aria-label="${escapeHtml(t('tabs.close'))}">${icon('close')}</button>
         </div>`).join('')}
@@ -549,7 +586,12 @@ function toolOptionsHtml() {
   const o = state.toolOptions;
   const rows = [];
   if (id === 'polygon') rows.push(`<label class="field-row" title="${escapeHtml(t('option.sides'))}"><span>${icon('polygon')}${t('option.sides')}</span><input class="num" data-tool-option="sides" value="${o.sides}" title="${escapeHtml(t('option.sides'))}" /></label>`);
-  if (id === 'offset') rows.push(`<label class="field-row" title="${escapeHtml(t('option.offset'))}"><span>${icon('offset')}${t('option.offset')}</span><input class="num" data-tool-option="offset" value="${o.offset}" title="${escapeHtml(t('option.offset'))}" /></label>`);
+  if (id === 'offset') rows.push(`<label class="field-row" title="${escapeHtml(t('option.offset'))}"><span>${icon('offset')}${t('option.offset')}</span><input class="num" data-tool-option="offset" data-length="1" value="${lengthText(o.offset)}" title="${escapeHtml(lengthTip(t('option.offset')))}" /><small>${unitLabel()}</small></label>`);
+  if (id === 'hatch') {
+    rows.push(`<label class="field-row" title="${escapeHtml(t('option.hatchPattern'))}"><span>${icon('hatch')}${t('option.hatchPattern')}</span><select data-tool-option="hatchPattern" title="${escapeHtml(t('option.hatchPattern'))}">${HATCH_PATTERN_NAMES.map((name) => `<option value="${name}" ${o.hatchPattern === name ? 'selected' : ''}>${escapeHtml(t(`hatch.${name}`))}</option>`).join('')}</select></label>`);
+    rows.push(`<label class="field-row" title="${escapeHtml(t('option.hatchScale'))}"><span>${icon('scale')}${t('option.hatchScale')}</span><input class="num" data-tool-option="hatchScale" value="${o.hatchScale}" title="${escapeHtml(t('option.hatchScale'))}" /></label>`);
+    rows.push(`<label class="field-row" title="${escapeHtml(t('option.hatchAngle'))}"><span>${icon('rotate')}${t('option.hatchAngle')}</span><input class="num" data-tool-option="hatchAngle" value="${o.hatchAngle}" title="${escapeHtml(t('option.hatchAngle'))}" /></label>`);
+  }
   if (id === 'mirror') rows.push(`<label class="check-row" title="${escapeHtml(t('option.mirrorKeep'))}"><input type="checkbox" data-tool-option="mirrorKeep" ${o.mirrorKeep ? 'checked' : ''} /><span>${t('option.mirrorKeep')}</span></label>`);
   if (!rows.length) return '';
   return `<div class="tool-options">${rows.join('')}</div>`;
@@ -585,42 +627,63 @@ function renderLeft() {
   }
   panel.innerHTML = `
     <div class="panel-header">${icon('panelLeft')}<span>${t('panel.leftTitle')}</span>
+      <button class="icon-button" data-sections="expand" title="${escapeHtml(t('panel.expandAll'))}" aria-label="${escapeHtml(t('panel.expandAll'))}">${icon('expandAll')}</button>
+      <button class="icon-button" data-sections="collapse" title="${escapeHtml(t('panel.collapseAll'))}" aria-label="${escapeHtml(t('panel.collapseAll'))}">${icon('collapseAll')}</button>
       <button class="icon-button" data-panel-toggle="left" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
     <div class="panel-scroll">
-      <section class="panel-section" data-section="draw">
-        <h3>${icon('line')}<span>${t('panel.draw')}</span></h3>
-        <div class="tool-grid">${DRAW_TOOLS.map(toolTile).join('')}</div>
-      </section>
-      <section class="panel-section" data-section="dims">
-        <h3>${icon('dimension')}<span>${t('panel.dimensions')}</span></h3>
-        <div class="tool-grid">${DIM_TOOLS.map(toolTile).join('')}</div>
-      </section>
-      <section class="panel-section" data-section="modify">
-        <h3>${icon('move')}<span>${t('panel.modify')}</span></h3>
-        <div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}
-          ${tile('array', 'array', t('action.array'), commandTip('array'), `data-command="array" ${commandEnabled('array') ? '' : 'disabled'}`)}
-          ${tile('explode', 'explode', t('action.explode'), commandTip('explode'), `data-command="explode" ${commandEnabled('explode') ? '' : 'disabled'}`)}
-        </div>
-        ${toolOptionsHtml()}
-      </section>
-      <section class="panel-section" data-section="solids">
-        <h3>${icon('solidBox')}<span>${t('panel.solids')}</span>
-          <button class="icon-button" data-command="freecadCoverage" title="${escapeHtml(t('action.freecadCoverage'))}" aria-label="${escapeHtml(t('action.freecadCoverage'))}">${icon('freecad')}</button></h3>
-        <div class="tool-grid solids-grid">${[...SOLID_KINDS.map((kind) => `solid:${kind}`), ...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), 'solidSection', 'solidProject', 'import3d'].map((id) => tile(id, commands[id].icon, t(commands[id].label), commandTip(id), `data-command="${id}" ${commandEnabled(id) ? '' : 'disabled'}`)).join('')}</div>
-        <p class="panel-hint">${t('solid.panelHint')}</p>
-      </section>
-      <section class="panel-section" data-section="parts">
-        <h3>${icon('part')}<span>${t('panel.parts')}</span></h3>
-        <div class="part-categories" role="tablist">${Object.keys(PART_CATEGORIES).map((category) => `<button class="icon-button ${state.partCategory === category ? 'active' : ''}" role="tab" aria-selected="${state.partCategory === category}" data-part-category="${category}" title="${escapeHtml(t(`cat.${category}`))}" aria-label="${escapeHtml(t(`cat.${category}`))}">${icon(CATEGORY_ICONS[category])}</button>`).join('')}<span class="part-category-name">${escapeHtml(t(`cat.${state.partCategory}`))}</span></div>
-        <div class="tool-grid parts-grid">${PART_CATEGORIES[state.partCategory].map((kind) => tile(`part:${kind}`, PARTS[kind].icon, t(`part.${kind}`), t('part.tileTip', { name: t(`part.${kind}`) }), `data-part="${kind}" ${drawing ? '' : 'disabled'}`)).join('')}</div>
-        <p class="panel-hint">${t('part.hint')}</p>
-      </section>
-      <section class="panel-section" data-section="layers">
-        <h3>${icon('layers')}<span>${t('panel.layers')}</span>
-          <button class="icon-button" data-command="addLayer" title="${escapeHtml(t('action.addLayer'))}" aria-label="${escapeHtml(t('action.addLayer'))}" ${drawing ? '' : 'disabled'}>${icon('plus')}</button></h3>
-        <ul class="layer-list">${drawing ? drawing.layers.map((layer) => layerRowHtml(drawing, layer)).join('') : ''}</ul>
-      </section>
+      ${LEFT_SECTIONS.map((section) => leftSection(section, drawing)).join('')}
     </div>`;
+}
+
+/** The left panel's sections, by kind of work. Each folds and unfolds; the state is remembered. */
+const LEFT_SECTIONS = [
+  { id: 'draw', glyph: 'line', title: 'panel.draw' },
+  { id: 'dims', glyph: 'dimension', title: 'panel.dimensions' },
+  { id: 'modify', glyph: 'move', title: 'panel.modify' },
+  { id: 'solids', glyph: 'solidBox', title: 'panel.solidShapes' },
+  { id: 'solidOps', glyph: 'solidCut', title: 'panel.solidOps' },
+  { id: 'parts', glyph: 'part', title: 'panel.parts' },
+  { id: 'layers', glyph: 'layers', title: 'panel.layers' },
+];
+
+const commandTiles = (ids) => ids.map((id) => tile(id, commands[id].icon, t(commands[id].label), commandTip(id), `data-command="${id}" ${commandEnabled(id) ? '' : 'disabled'}`)).join('');
+
+function leftSectionBody(id, drawing) {
+  switch (id) {
+    case 'draw': return `<div class="tool-grid">${DRAW_TOOLS.map(toolTile).join('')}</div>`;
+    case 'dims': return `<div class="tool-grid">${DIM_TOOLS.map(toolTile).join('')}</div>`;
+    case 'modify': return `<div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}${commandTiles(['array', 'explode'])}</div>${toolOptionsHtml()}`;
+    case 'solids': return `<div class="tool-grid solids-grid">${commandTiles(SOLID_KINDS.map((kind) => `solid:${kind}`))}</div>`;
+    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
+    case 'parts': return `<div class="part-categories" role="tablist">${Object.keys(PART_CATEGORIES).map((category) => `<button class="icon-button ${state.partCategory === category ? 'active' : ''}" role="tab" aria-selected="${state.partCategory === category}" data-part-category="${category}" title="${escapeHtml(t(`cat.${category}`))}" aria-label="${escapeHtml(t(`cat.${category}`))}">${icon(CATEGORY_ICONS[category])}</button>`).join('')}<span class="part-category-name">${escapeHtml(t(`cat.${state.partCategory}`))}</span></div>
+        <div class="tool-grid parts-grid">${PART_CATEGORIES[state.partCategory].map((kind) => tile(`part:${kind}`, PARTS[kind].icon, t(`part.${kind}`), t('part.tileTip', { name: t(`part.${kind}`) }), `data-part="${kind}" ${drawing ? '' : 'disabled'}`)).join('')}</div>
+        <p class="panel-hint">${t('part.hint')}</p>`;
+    case 'layers': return `<ul class="layer-list">${drawing ? drawing.layers.map((layer) => layerRowHtml(drawing, layer)).join('') : ''}</ul>`;
+    default: return '';
+  }
+}
+
+function leftSection({ id, glyph, title }, drawing) {
+  const collapsed = state.settings.collapsedSections.includes(id);
+  const extra = id === 'solids'
+    ? `<button class="icon-button" data-command="freecadCoverage" title="${escapeHtml(t('action.freecadCoverage'))}" aria-label="${escapeHtml(t('action.freecadCoverage'))}">${icon('freecad')}</button>`
+    : id === 'layers' ? `<button class="icon-button" data-command="addLayer" title="${escapeHtml(t('action.addLayer'))}" aria-label="${escapeHtml(t('action.addLayer'))}" ${drawing ? '' : 'disabled'}>${icon('plus')}</button>` : '';
+  const label = t(collapsed ? 'panel.expandSection' : 'panel.collapseSection', { name: t(title) });
+  return `<section class="panel-section ${collapsed ? 'collapsed' : ''}" data-section="${id}">
+      <h3><button class="section-toggle" data-section-toggle="${id}" aria-expanded="${!collapsed}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon(collapsed ? 'chevronRight' : 'chevronDown', 'icon chevron')}${icon(glyph)}<span>${escapeHtml(t(title))}</span></button>${extra}</h3>
+      ${collapsed ? '' : `<div class="section-body">${leftSectionBody(id, drawing)}</div>`}
+    </section>`;
+}
+
+/** Folds or unfolds one section (or all of them). */
+function toggleSection(id, open = null) {
+  const now = new Set(state.settings.collapsedSections);
+  const ids = id === '*' ? LEFT_SECTIONS.map((section) => section.id) : [id];
+  for (const one of ids) {
+    const shouldOpen = open ?? now.has(one);
+    if (shouldOpen) now.delete(one); else now.add(one);
+  }
+  updateSettings({ collapsedSections: LEFT_SECTIONS.map((section) => section.id).filter((one) => now.has(one)) });
 }
 
 // ───────────────────────── tools
@@ -651,8 +714,30 @@ function toolApi() {
     },
     setOption: (key, value) => { state.toolOptions[key] = value; renderLeft(); renderCommandBar(); },
     focusProperty: (field) => setTimeout(() => focusProperty(field), 30),
+    regionAt: (p) => regionAt(p),
     done: () => setTool('select'),
   };
+}
+
+/** The closed area around a point (outer outline and the holes in it), from the visible outlines. */
+function regionAt(p) {
+  const drawing = activeDrawing();
+  if (!drawing) return null;
+  const pool = drawing.entities.filter((entity) => D.isVisible(drawing, entity) && !['hatch', 'solid', 'text', 'dim', 'leader', 'point'].includes(entity.type));
+  const shapes = buildShapes(collectLoops(pool, drawing).loops);
+  const inside = (q, loop) => {
+    let c = false;
+    for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+      const a = loop[i];
+      const b = loop[j];
+      if ((a.y > q.y) !== (b.y > q.y) && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  };
+  const hits = shapes.filter((shape) => inside(p, shape.outer) && !shape.holes.some((hole) => inside(p, hole)));
+  if (!hits.length) return null;
+  const best = hits.sort((a, b) => a.area - b.area)[0];
+  return [best.outer, ...best.holes];
 }
 
 function setTool(id, extra = {}) {
@@ -716,7 +801,7 @@ function view3dBar() {
     ${['iso', 'top', 'front', 'right'].map((preset) => `<button class="small-button ${v?.preset === preset ? 'active' : ''}" data-view3d="view:${preset}" title="${escapeHtml(t(`view3d.${preset}`))}">${icon('cube')}<span>${escapeHtml(t(`view3d.${preset}`))}</span></button>`).join('')}
     ${b('fit', 'zoomFit', t('action.zoomFit'))}
     <span class="tool-sep"></span>
-    <label class="view3d-thickness" title="${escapeHtml(t('view3d.thicknessTip'))}">${icon('measure')}<span>${escapeHtml(t('view3d.thickness'))}</span><input class="num" id="view3d-thickness" value="${state.settings.extrudeHeight}" title="${escapeHtml(t('view3d.thicknessTip'))}" /><small>mm</small></label>
+    <label class="view3d-thickness" title="${escapeHtml(t('view3d.thicknessTip'))}">${icon('measure')}<span>${escapeHtml(t('view3d.thickness'))}</span><input class="num" id="view3d-thickness" value="${lengthText(state.settings.extrudeHeight)}" title="${escapeHtml(lengthTip(t('view3d.thicknessTip')))}" /><small>${unitLabel()}</small></label>
     <span class="tool-sep"></span>
     <button class="tool-button ${state.settings.extrude2d ? 'active' : ''}" data-view3d="extrude2d" title="${escapeHtml(t('action.extrude2d'))}" aria-pressed="${state.settings.extrude2d}">${icon('solidExtrude')}</button>
     <button class="tool-button ${on('wireframe')}" data-view3d="wireframe" title="${escapeHtml(t('view3d.wireframe'))}" aria-pressed="${Boolean(v?.options.wireframe)}">${icon('polygon')}</button>
@@ -745,15 +830,30 @@ async function toggle3d(on = !state.view3d) {
   const canvas = root.querySelector('#cad-canvas');
   container.hidden = !on;
   canvas.hidden = on;
+  updateScaleBar();
   if (on) {
     setTool('select');
     if (!view3d.instance) {
       view3d.loading ??= import('./view/view3d.js');
       const { View3D } = await view3d.loading;
-      view3d.instance = new View3D(container, { onLightChange: (light) => {
-        const text = root.querySelector('#view3d-light span');
-        if (text) text.textContent = t('view3d.lightPosition', { azimuth: Math.round(light.azimuth), elevation: Math.round(light.elevation) });
-      } });
+      let wasOn = state.settings.light.on;
+      view3d.instance = new View3D(container, {
+        onLightChange: (light) => {
+          rememberLight(light);
+          // Switched on/off (e.g. by double-clicking the sun): the buttons follow.
+          if (light.on !== wasOn) { wasOn = light.on; renderView3dBar(); renderToolbarState(); return; }
+          const text = root.querySelector('#view3d-light span');
+          if (text) text.textContent = t('view3d.lightPosition', { azimuth: Math.round(light.azimuth), elevation: Math.round(light.elevation) });
+        },
+        onLightSelect: () => selectLight(),
+        // Clicking a solid in 3D selects it (Shift/Ctrl adds), so its properties show on the right.
+        onPick: (id, event) => {
+          state.lightSelected = false;
+          if (!id) { if (!event.shiftKey && !event.ctrlKey) select([]); else renderRight(); return; }
+          select([id], { toggle: event.shiftKey || event.ctrlKey });
+        },
+      });
+      view3d.instance.setLight(state.settings.light);
     }
     resize3d();
     rebuild3d();
@@ -789,13 +889,340 @@ function schedule3d() {
 function on3dBar(action) {
   const v = view3d.instance;
   if (!v) return;
-  if (action === 'close') { toggle3d(false); return; }
+  if (action === 'close') { state.lightSelected = false; toggle3d(false); renderRight(); return; }
   if (action === 'extrude2d') { updateSettings({ extrude2d: !state.settings.extrude2d }); rebuild3d(); return; }
   if (action === 'fit') v.fit();
   else if (action.startsWith('view:')) v.view(action.slice(5));
-  else if (action === 'light') v.setLight({ on: !v.light.on });
+  else if (action === 'light') { setLightOptions({ on: !v.light.on }); return; }
   else v.setOption(action, !v.options[action]);
   renderView3dBar();
+}
+
+// ───────────────────────── the light (sun) of the 3D view
+
+let lightSaveTimer = 0;
+/** Keeps the light in the settings (saved a moment after the last change, without redrawing everything). */
+function rememberLight(light) {
+  state.settings.light = { on: light.on, azimuth: light.azimuth, elevation: light.elevation, intensity: light.intensity, color: light.color, shadows: light.shadows };
+  clearTimeout(lightSaveTimer);
+  lightSaveTimer = setTimeout(() => storeSettings(globalThis.localStorage, state.settings), 300);
+  if (state.lightSelected && !lightPanelFrame) {
+    lightPanelFrame = requestAnimationFrame(() => {
+      lightPanelFrame = 0;
+      for (const key of ['azimuth', 'elevation', 'intensity']) {
+        const input = root.querySelector(`#right-panel [data-light="${key}"]`);
+        if (input && document.activeElement !== input) input.value = fmt(state.settings.light[key], 4);
+      }
+    });
+  }
+}
+let lightPanelFrame = 0;
+
+function setLightOptions(patch) {
+  const next = { ...state.settings.light, ...patch };
+  if (view3d.instance) view3d.instance.setLight(next);
+  else rememberLight(next);
+  renderToolbarState();
+  renderView3dBar();
+  if (state.lightSelected) renderRight();
+}
+
+/** Selects the light: its properties show in the right panel. */
+function selectLight() {
+  if (!state.view3d) return;
+  state.selection = new Set();
+  state.lightSelected = true;
+  if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true });
+  renderRight();
+  renderStatus();
+  notify('info', t('light.selected'));
+}
+
+// ───────────────────────── start page
+
+/** Shows (or leaves) the start page. */
+function showHome(on = true) {
+  if (on && state.tool) cancelTool();
+  state.home = on;
+  if (on) loadSamples();
+  renderAll();
+}
+
+/** The sample list (samples/index.json), loaded once. */
+function loadSamples() {
+  if (state.samples || state.samplesLoading) return state.samplesLoading;
+  state.samplesLoading = fetch('samples/index.json', { cache: 'no-store' })
+    .then((response) => { if (!response.ok) throw new Error(`index.json: ${response.status}`); return response.json(); })
+    .then((list) => { state.samples = Array.isArray(list) ? list : []; })
+    .catch((error) => { state.samplesError = native.errorText?.(error) ?? String(error); })
+    .finally(() => { state.samplesLoading = null; renderStart(); });
+  return state.samplesLoading;
+}
+
+async function fetchSample(file) {
+  const response = await fetch(`samples/${file.split('/').map(encodeURIComponent).join('/')}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${file}: ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/** A sample as a drawing (for its thumbnail): .mcad, 2D CAD or 3D model. */
+function sampleDrawing(file, bytes) {
+  if (/\.mcad$/i.test(file)) return parseFile(new TextDecoder().decode(bytes), getLanguage());
+  if (isModelFileName(file)) return drawingFromModel(baseName(file), bytes).drawing;
+  return importDrawingBytes(file, bytes, { language: getLanguage() }).drawing;
+}
+
+/** Opens a sample in a new tab (an unsaved copy: Save asks where to keep it). */
+function openSample(file) {
+  state.loading = (async () => {
+    try {
+      const bytes = await withProgress('progress.open', baseName(file), async () => fetchSample(file));
+      let doc;
+      if (/\.mcad$/i.test(file)) {
+        const drawing = parseFile(new TextDecoder().decode(bytes), getLanguage());
+        doc = addDocument(new DrawingDocument(drawing, { name: baseName(file) }));
+      } else if (isModelFileName(file)) doc = openModelBytes(baseName(file), bytes);
+      else doc = openDrawingBytes(file, bytes, { quiet: true });
+      state.home = false;
+      renderAll();
+      notify('success', t('notice.sampleOpened', { name: baseName(file) }));
+      return doc;
+    } catch (error) {
+      showError('error.open', error, file);
+      return null;
+    }
+  })();
+  return state.loading;
+}
+
+function renderStart() {
+  const page = root.querySelector('#start-page');
+  if (!page) return;
+  page.hidden = !state.home;
+  root.classList.toggle('home', state.home);
+  if (!state.home) { startBackground?.hide(); return; }
+  // A moving 3D background behind a scrolling page.
+  let scroll = page.querySelector('.start-scroll');
+  if (!scroll) {
+    page.innerHTML = '<div class="start-bg" aria-hidden="true"></div><div class="start-scroll"></div>';
+    scroll = page.querySelector('.start-scroll');
+  }
+  showStartBackground(page.querySelector('.start-bg'));
+  const key = JSON.stringify([getLanguage(), state.recent.map((item) => `${item.path}|${item.at}`), state.samples?.length ?? null, state.samplesError, state.info?.version]);
+  if (scroll.dataset.key === key) return;
+  scroll.dataset.key = key;
+  scroll.innerHTML = startPageHtml({ t, language: getLanguage(), appIcon: appIconUrl, version: displayVersion(state.info?.version), recent: state.recent, samples: state.samples, error: state.samplesError });
+  paintThumbs();
+}
+
+/**
+ * The start page's background: two meshing spur gears (z 24 and z 16, module 3,
+ * on their shafts) that turn at the right ratio while the view orbits slowly.
+ */
+function gearPairMeshes() {
+  const module = 3;
+  const gear = (teeth, bore, angle) => {
+    const part = normalizeEntity({ type: 'part', kind: 'gear', x: 0, y: 0, angle, params: { module, teeth, bore, keyway: true, pitchCircle: false } });
+    const shapes = buildShapes(collectLoops([part]).loops).map(({ outer, holes }) => ({ outer, holes }));
+    return solidMesh(normalizeEntity({ type: 'solid', ...featureFrom('pad', { shapes }, { height: 14 }) }));
+  };
+  const shaft = (radius) => solidMesh(normalizeEntity({ type: 'solid', kind: 'cylinder', params: { radius, height: 44 }, x: 0, y: 0, z: -15 }));
+  const [z1, z2] = [24, 16];
+  const distance = (module * (z1 + z2)) / 2;
+  const speed = 0.32; // rad/s of the large gear; the small one turns z1/z2 times as fast the other way
+  return [
+    { tris: gear(z1, 16, 0), color: '#e8a53a', pivot: { x: 0, y: 0 }, rate: speed },
+    { tris: shaft(7.6), color: '#9aa4b1', pivot: { x: 0, y: 0 }, rate: speed },
+    // Half a tooth turned: a gap of the small gear faces a tooth of the large one.
+    { tris: gear(z2, 12, 180 / z2), color: '#3a6cf0', pivot: { x: distance, y: 0 }, rate: (-speed * z1) / z2 },
+    { tris: shaft(5.6), color: '#9aa4b1', pivot: { x: distance, y: 0 }, rate: (-speed * z1) / z2 },
+  ];
+}
+
+let startBackground = null;
+let backgroundLoading = null;
+function showStartBackground(host) {
+  const colors = { background: getComputedStyle(root).getPropertyValue('--canvas').trim() || '#f4f6fb' };
+  if (startBackground) {
+    startBackground.setColors(colors);
+    if (startBackground.radius) { startBackground.wanted = true; startBackground.start(); }
+    return;
+  }
+  if (backgroundLoading) return;
+  backgroundLoading = (async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const { StartBackground } = await import('./view/startbg.js');
+    startBackground = new StartBackground(host);
+    await startBackground.show(gearPairMeshes(), colors);
+    if (!state.home) startBackground.hide();
+  })().catch(() => { /* the page works without its background */ });
+}
+
+/** Thumbnails: made one at a time after the page shows, kept for the session. */
+let thumbQueue = null;
+function paintThumbs() {
+  const canvases = [...root.querySelectorAll('#start-page canvas[data-thumb]')];
+  const missing = [];
+  for (const canvas of canvases) {
+    const url = state.thumbs.get(canvas.dataset.thumb);
+    if (url) drawThumb(canvas, url); else missing.push(canvas.dataset.thumb);
+  }
+  if (!missing.length || thumbQueue) return;
+  thumbQueue = (async () => {
+    for (const file of missing) {
+      if (state.thumbs.has(file)) continue;
+      try {
+        const drawing = sampleDrawing(file, await fetchSample(file));
+        state.thumbs.set(file, thumbnailOf(drawing));
+      } catch {
+        state.thumbs.set(file, '');
+      }
+      for (const canvas of root.querySelectorAll(`#start-page canvas[data-thumb="${CSS.escape(file)}"]`)) drawThumb(canvas, state.thumbs.get(file));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    thumbQueue = null;
+  })();
+}
+
+function drawThumb(canvas, url) {
+  if (!url) { canvas.classList.add('empty'); return; }
+  const image = new Image();
+  image.onload = () => { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(image, 0, 0, canvas.width, canvas.height); canvas.classList.add('ready'); };
+  image.src = url;
+}
+
+/** A 320 × 200 picture of a drawing: solids shaded in isometric view, 2D drawings as drawn. */
+function thumbnailOf(drawing, width = 320, height = 200) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  const solids = drawing.entities.filter((entity) => entity.type === 'solid');
+  const tris = solids.length * 4 >= drawing.entities.length ? solids.flatMap((entity) => solidMesh(entity)) : [];
+  if (tris.length && tris.length <= 120000) {
+    const shaded = shadedView(tris, 'iso');
+    let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
+    for (const tri of shaded) for (const p of tri.points) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    const k = Math.min((width - 24) / Math.max(maxX - minX, 1e-6), (height - 24) / Math.max(maxY - minY, 1e-6));
+    const x0 = (width - (maxX - minX) * k) / 2; const y0 = (height - (maxY - minY) * k) / 2;
+    for (const tri of shaded) {
+      const shade = 0.35 + 0.65 * tri.light;
+      const color = `rgb(${Math.round(58 * shade + 40)}, ${Math.round(108 * shade + 40)}, ${Math.round(240 * shade)})`;
+      ctx.beginPath();
+      tri.points.forEach((p, i) => { const x = x0 + (p.x - minX) * k; const y = y0 + (maxY - p.y) * k; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.6;
+      ctx.fill();
+      ctx.stroke();
+    }
+    return canvas.toDataURL('image/png');
+  }
+  const box = D.extents(drawing) ?? { minX: 0, minY: 0, maxX: 100, maxY: 100 };
+  const zoom = Math.min((width - 24) / Math.max(boxWidth(box), 1e-6), (height - 24) / Math.max(boxHeight(box), 1e-6));
+  const vp = new Viewport({ cx: (box.minX + box.maxX) / 2, cy: (box.minY + box.maxY) / 2, zoom, width, height });
+  const colors = { ...canvasColors(), canvas: '#ffffff', ink: '#1d2433', grid: '#ffffff', gridMajor: '#ffffff', ucs: 'rgba(0,0,0,0)' };
+  render(ctx, { drawing, vp, colors, settings: { ...state.settings, showGrid: false, showRulers: false, crosshair: false, showLineWeights: true }, selection: new Set(), dpr: 1 });
+  return canvas.toDataURL('image/png');
+}
+
+// ───────────────────────── tutorial
+
+async function openTutorial(options = {}) {
+  if (!state.tutorial) {
+    const { TutorialPlayer } = await import('./tutorial/player.js');
+    state.tutorial = new TutorialPlayer(tutorialApi());
+  }
+  await state.tutorial.open(options);
+  return state.tutorial;
+}
+
+/** The tutorial document (doc/Tutorial.html with its pictures), in the browser. */
+async function openTutorialDoc() {
+  try {
+    if (desktop) await native.invoke('open_document', { name: getLanguage() === 'en' ? 'Tutorial.en.html' : 'Tutorial.html' });
+    else window.open(`doc/${getLanguage() === 'en' ? 'Tutorial.en.html' : 'Tutorial.html'}`, '_blank', 'noopener');
+  } catch (error) {
+    showError('error.open', error, 'doc/Tutorial.html');
+  }
+}
+
+/** What the tutorial player may use: the real interface, plus a few direct actions for dialogs. */
+function tutorialApi() {
+  const canvas = () => root.querySelector('#cad-canvas');
+  return {
+    language: () => getLanguage(),
+    state: () => state,
+    settings: () => state.settings,
+    updateSettings,
+    drawing: () => activeDrawing(),
+    canvas,
+    run: (id) => run(id),
+    commandLabel: (id) => t(commands[id]?.label ?? id),
+    openSectionFor(toolId) {
+      if (state.home) showHome(false);
+      if (!state.settings.showLeftPanel) updateSettings({ showLeftPanel: true });
+      const section = DRAW_TOOLS.includes(toolId) ? 'draw' : DIM_TOOLS.includes(toolId) ? 'dims' : MODIFY_TOOLS.includes(toolId) ? 'modify' : null;
+      if (section && state.settings.collapsedSections.includes(section)) toggleSection(section, true);
+    },
+    openSection(id) { if (state.settings.collapsedSections.includes(id)) toggleSection(id, true); },
+    worldToClient(p) {
+      const doc = activeDoc();
+      if (!doc) return null;
+      const s = ensureViewport(doc).toScreen(p);
+      const r = canvas().getBoundingClientRect();
+      return { x: r.left + s.x, y: r.top + s.y };
+    },
+    pointer(type, p, { shift = false, buttons } = {}) {
+      canvas().dispatchEvent(new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: buttons ?? (type === 'pointerdown' ? 1 : 0), pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true, shiftKey: shift }));
+    },
+    view(box) {
+      const doc = activeDoc();
+      if (!doc) return;
+      ensureViewport(doc).fit(box, 30, state.settings.showRulers ? RULER : 0);
+      scheduleRender();
+    },
+    zoom: () => activeDoc()?.vp?.zoom ?? 0,
+    centre: () => ({ x: activeDoc()?.vp?.cx ?? 0, y: activeDoc()?.vp?.cy ?? 0 }),
+    zoomFit,
+    closePopup: (kind) => popups.close(kind),
+    closeMenu() {
+      if (desktop) native.invoke('hide_popup', { kind: 'menu' }).catch(() => {});
+      else popups.close('menu');
+      popups.settle('menu', null);
+      state.openMenu = null;
+    },
+    popups,
+    select: (ids) => select(ids),
+    selection: () => selectedIds(),
+    setTool: (id) => setTool(id),
+    newDrawing: async () => { newDrawing(); },
+    openSample,
+    async waitIdle(ms = 0) { await state.loading; if (ms) await new Promise((resolve) => setTimeout(resolve, ms)); },
+    openPartDialog: (options) => openPartDialog(options),
+    placePart: (kind, params) => setTool('place', { part: { kind, params, angle: 0 } }),
+    openSolidDialog: (options) => openSolidDialog(options),
+    insertSolid,
+    applyFeature(kind, params) {
+      const found = featureSource(kind);
+      if (!found) throw new Error(`${kind}: nothing to make it from`);
+      return applyFeature(kind, found, params);
+    },
+    projectSolids: (options) => projectSolids(options),
+    sectionSolids: (level) => sectionSolids(level),
+    arrayRect({ rows, columns, dx, dy }) {
+      const ids = selectedIds();
+      const created = change('op.array', (drawing) => D.rectangularArray(drawing, ids, { rows, columns, dx, dy }));
+      select([...ids, ...created.map((entity) => entity.id)]);
+      return created;
+    },
+    notice: () => state.notice?.text ?? '',
+    activeFormat: () => activeDoc()?.format ?? null,
+    onTutorial(on) { root.classList.toggle('tutorial-on', on); },
+  };
 }
 
 // ───────────────────────── canvas
@@ -870,13 +1297,115 @@ function drawCanvas() {
   canvasState.gridStep = result.gridStep;
   canvasState.lastRuler = result.ruler;
   renderCommandBarLive();
+  updateScaleBar();
+}
+
+// ───────────────────────── scale bar (2D canvas)
+
+/** About three significant digits. */
+const scaleDigits = (value) => Math.max(0, Math.min(6, 2 - Math.floor(Math.log10(Math.max(Math.abs(value), 1e-9)))));
+
+/** The view's scale as a ratio: 100% (actual size) = 1:1, 50% = 1:2, 400% = 4:1. */
+function scaleRatio(percent) {
+  if (!(percent > 0)) return '';
+  return percent >= 100 ? `${formatNumber(percent / 100, 2)}:1` : `1:${formatNumber(100 / percent, 2)}`;
+}
+
+/**
+ * The scale bar: a bar of `width` px with the drawing length it covers at the
+ * current zoom (display unit) and the view's ratio. Stays inside the canvas;
+ * hidden in the 3D view.
+ */
+function updateScaleBar() {
+  const bar = root.querySelector('#scale-bar');
+  if (!bar) return;
+  const vp = activeDoc()?.vp;
+  const show = Boolean(state.settings.showScaleBar && !state.view3d && vp?.zoom > 0);
+  bar.hidden = !show;
+  if (!show) return;
+  const size = canvasState.vpSize ?? { width: 800, height: 600 };
+  const { x, y, width } = state.settings.scaleBar;
+  const w = Math.max(30, Math.min(width, size.width - 24));
+  const left = Math.max(0, Math.min(x, size.width - w - 12));
+  const bottom = Math.max(0, Math.min(y, size.height - 44));
+  bar.style.left = `${left}px`;
+  bar.style.bottom = `${bottom}px`;
+  bar.querySelector('.scale-track').style.width = `${w}px`;
+  const mm = w / vp.zoom;
+  const text = formatLength(mm, displayUnit(), scaleDigits(toUnit(mm)));
+  const ratio = scaleRatio(vp.percent);
+  const length = bar.querySelector('.scale-length');
+  if (length.textContent !== text) length.textContent = text;
+  const ratioText = ratio ? t('scaleBar.ratio', { ratio }) : '';
+  const small = bar.querySelector('.scale-ratio');
+  if (small.textContent !== ratioText) small.textContent = ratioText;
+  const tip = `${t('action.scaleBar')}: ${text}${ratio ? ` · ${ratioText}` : ''}\n${t('scaleBar.tip')}`;
+  if (bar.title !== tip) bar.title = tip;
+  bar.dataset.mm = String(mm);
+}
+
+/** Drag the bar to move it, its start or end line to change its length; double-click: a round length. */
+function bindScaleBar() {
+  const bar = root.querySelector('#scale-bar');
+  if (!bar) return;
+  let drag = null;
+  bar.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const shown = bar.querySelector('.scale-track').getBoundingClientRect().width;
+    drag = { mode: event.target.closest('[data-scale-handle]')?.dataset.scaleHandle ?? 'move', sx: event.clientX, sy: event.clientY, start: { ...state.settings.scaleBar, x: parseFloat(bar.style.left) || 0, y: parseFloat(bar.style.bottom) || 0, width: shown } };
+    bar.setPointerCapture(event.pointerId);
+    bar.classList.add('dragging', `drag-${drag.mode}`);
+  });
+  bar.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.sx;
+    const dy = event.clientY - drag.sy;
+    const s = drag.start;
+    let next;
+    if (drag.mode === 'start') {
+      const width = Math.max(30, s.width - dx);
+      next = { ...s, x: s.x + (s.width - width), width };
+    } else if (drag.mode === 'end') next = { ...s, width: Math.max(30, s.width + dx) };
+    else next = { ...s, x: Math.max(0, s.x + dx), y: Math.max(0, s.y - dy) };
+    state.settings.scaleBar = { x: Math.round(next.x), y: Math.round(next.y), width: Math.round(next.width) };
+    updateScaleBar();
+  });
+  const end = () => {
+    if (!drag) return;
+    drag = null;
+    bar.classList.remove('dragging', 'drag-move', 'drag-start', 'drag-end');
+    storeSettings(globalThis.localStorage, state.settings);
+  };
+  bar.addEventListener('pointerup', end);
+  bar.addEventListener('pointercancel', end);
+  bar.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const vp = activeDoc()?.vp;
+    if (!vp?.zoom) return;
+    // The nearest round length (1, 2, 5 × 10ⁿ in the display unit).
+    const inUnit = toUnit(state.settings.scaleBar.width / vp.zoom);
+    const power = 10 ** Math.floor(Math.log10(inUnit));
+    const round = [1, 2, 5, 10].map((k) => k * power).reduce((best, v) => (Math.abs(v - inUnit) < Math.abs(best - inUnit) ? v : best));
+    state.settings.scaleBar = { ...state.settings.scaleBar, width: Math.max(30, Math.round(round * unitFactor(displayUnit()) * vp.zoom)) };
+    storeSettings(globalThis.localStorage, state.settings);
+    updateScaleBar();
+  });
+  bar.addEventListener('wheel', (event) => onCanvasWheel(event), { passive: false });
+}
+
+/** Cursor position in the display unit. */
+function coordsText() {
+  return state.cursor ? `X ${lengthValue(state.cursor.x)}   Y ${lengthValue(state.cursor.y)}` : 'X —   Y —';
 }
 
 function renderCommandBarLive() {
   const live = root.querySelector('#command-live');
   if (live) live.textContent = state.live ? readout(state.live, Math.max(2, state.settings.dimPrecision)) : '';
   const coords = root.querySelector('#status-coords');
-  if (coords) coords.textContent = state.cursor ? `X ${fmt(state.cursor.x, 3)}   Y ${fmt(state.cursor.y, 3)}` : 'X —   Y —';
+  if (coords) coords.textContent = coordsText();
   const zoom = root.querySelector('#zoom-value');
   const vp = activeDoc()?.vp;
   if (zoom && vp && document.activeElement !== zoom) zoom.value = `${formatNumber(vp.percent, vp.percent < 10 ? 1 : 0)}%`;
@@ -947,7 +1476,7 @@ function snappedPoint(raw, { base = null, exclude = new Set(), useSnap = true } 
   if (useSnap && s.snapObject) snap = findSnap(D.editable(doc.drawing), raw, 10 / doc.vp.zoom, s.snapModes, { exclude });
   let p = snap ? { x: snap.x, y: snap.y } : raw;
   if (!snap && s.snapGrid) {
-    p = snapToGrid(raw, doc.drawing.grid?.size || s.gridSize);
+    p = snapToGrid(raw, gridBaseFor(doc.drawing.grid?.size || s.gridSize));
     snap = { kind: 'grid', ...p };
   }
   if (!snap && base && s.ortho) p = applyOrtho(base, p);
@@ -1177,7 +1706,26 @@ function submitCommand(text) {
 
 // ───────────────────────── right panel (properties)
 
-const numField = (prop, value, label, unit = 'mm', attr = 'data-prop') => `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><span class="prop-input"><input class="num" ${attr}="${prop}" value="${escapeHtml(fmt(value, 4))}" title="${escapeHtml(label)}" /><small>${unit}</small></span></label>`;
+/** Steps of the − / + buttons by unit (lengths: by the display unit). */
+const STEP_BY_UNIT = { '°': 5, '×': 0.1, '': 1 };
+/** A length (mm) as the number shown in a field (display unit). */
+const lengthText = (mm) => (Number.isFinite(mm) ? lengthValue(mm) : '');
+/** Tip of a length field: also says that other units may be typed. */
+const lengthTip = (label) => `${label} (${unitLabel()}) · ${t('units.typeTip')}`;
+/**
+ * A number property: [−] value (centred, editable, formulas allowed) [+], then its unit.
+ * unit 'mm' marks a length: shown in the display unit, typed values converted back to mm.
+ */
+const numField = (prop, value, label, unit = 'mm', attr = 'data-prop', step) => {
+  const length = unit === 'mm';
+  const by = step ?? (length ? unitStep(displayUnit()) : STEP_BY_UNIT[unit] ?? 1);
+  const shown = length ? lengthText(value) : fmt(value, 4);
+  const tip = length ? lengthTip(label) : label;
+  return `<div class="prop-row" title="${escapeHtml(tip)}"><span class="prop-label">${escapeHtml(label)}</span><span class="prop-input"><span class="stepper prop-stepper" data-prop-step="${by}">
+  <button type="button" class="stepper-button" data-prop-step-dir="-1" title="${escapeHtml(`${label} −${by}`)}" aria-label="${escapeHtml(`${label} −${by}`)}">${icon('minus')}</button>
+  <input class="num stepper-value" ${attr}="${prop}" ${length ? 'data-length="1"' : ''} value="${escapeHtml(shown)}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(label)}" />
+  <button type="button" class="stepper-button" data-prop-step-dir="1" title="${escapeHtml(`${label} +${by}`)}" aria-label="${escapeHtml(`${label} +${by}`)}">${icon('plus')}</button></span><small class="unit">${length ? unitLabel() : unit}</small></span></div>`;
+};
 const readField = (label, value, glyph = 'info') => `<div class="prop-row read" title="${escapeHtml(`${label}: ${value}`)}"><span class="prop-label">${icon(glyph)}${escapeHtml(label)}</span><span class="prop-value">${escapeHtml(value)}</span></div>`;
 
 const GEOMETRY_FIELDS = {
@@ -1185,10 +1733,13 @@ const GEOMETRY_FIELDS = {
   rect: [['x', 'prop.x'], ['y', 'prop.y'], ['width', 'prop.width'], ['height', 'prop.height'], ['angle', 'prop.angle', '°'], ['radius', 'prop.cornerRadius']],
   circle: [['cx', 'prop.cx'], ['cy', 'prop.cy'], ['r', 'prop.radius']],
   arc: [['cx', 'prop.cx'], ['cy', 'prop.cy'], ['r', 'prop.radius'], ['start', 'prop.start', '°'], ['end', 'prop.end', '°']],
-  ellipse: [['cx', 'prop.cx'], ['cy', 'prop.cy'], ['rx', 'prop.rx'], ['ry', 'prop.ry'], ['angle', 'prop.angle', '°']],
+  ellipse: [['cx', 'prop.cx'], ['cy', 'prop.cy'], ['rx', 'prop.rx'], ['ry', 'prop.ry'], ['angle', 'prop.angle', '°'], ['start', 'prop.start', '°'], ['end', 'prop.end', '°']],
   polygon: [['cx', 'prop.cx'], ['cy', 'prop.cy'], ['r', 'prop.radius'], ['sides', 'prop.sides', ''], ['angle', 'prop.angle', '°']],
   text: [['x', 'prop.x'], ['y', 'prop.y'], ['size', 'prop.textHeight'], ['angle', 'prop.angle', '°']],
   part: [['x', 'prop.x'], ['y', 'prop.y'], ['angle', 'prop.angle', '°'], ['scale', 'prop.scale', '×']],
+  point: [['x', 'prop.x'], ['y', 'prop.y'], ['size', 'prop.pointSize']],
+  leader: [['size', 'prop.textHeight']],
+  hatch: [['scale', 'prop.hatchScale', '×'], ['angle', 'prop.angle', '°']],
   solid: [['x', 'prop.x'], ['y', 'prop.y'], ['z', 'prop.z'], ['rx', 'prop.rotX', '°'], ['ry', 'prop.rotY', '°'], ['rz', 'prop.rotZ', '°'], ['scale', 'prop.scale', '×']],
 };
 
@@ -1213,8 +1764,8 @@ function styleRows(drawing, entities) {
 function measureRows(entity) {
   const m = measure(entity);
   const rows = [];
-  const unit = (key) => (key === 'area' ? 'mm²' : key === 'volume' ? 'mm³' : ['angle', 'sweep'].includes(key) ? '°' : ['vertices', 'triangles'].includes(key) ? '' : 'mm');
-  for (const [key, value] of Object.entries(m)) rows.push(readField(t(`measure.${key}`), `${fmt(value, 3)} ${unit(key)}`.trim(), 'measure'));
+  const show = (key, value) => (key === 'area' || key === 'surface' ? formatArea(value) : key === 'volume' ? formatVolume(value) : ['angle', 'sweep'].includes(key) ? `${fmt(value, 3)}°` : ['vertices', 'triangles', 'loops', 'count'].includes(key) ? fmt(value, 3) : formatLength(value));
+  for (const [key, value] of Object.entries(m)) rows.push(readField(t(`measure.${key}`), show(key, value), 'measure'));
   return rows.join('');
 }
 
@@ -1228,7 +1779,7 @@ function partRows(entity) {
     if (param.type === 'text') return `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><input data-param="${param.key}" value="${escapeHtml(value)}" title="${escapeHtml(t('param.segmentsTip'))}" /></label>`;
     return numField(param.key, value, label, param.unit, 'data-param');
   }).join('');
-  const info = Object.entries(partInfo(entity.kind, entity.params)).map(([key, value]) => readField(t(`info.${key}`), `${fmt(value, 3)} mm`, 'measure')).join('');
+  const info = Object.entries(partInfo(entity.kind, entity.params)).map(([key, value]) => readField(t(`info.${key}`), formatLength(value), 'measure')).join('');
   return `${rows}${info}`;
 }
 
@@ -1282,13 +1833,32 @@ function renderRightContent(panel, selection) {
   const drawing = activeDrawing();
   if (!drawing) { panel.innerHTML = ''; return; }
   const head = (glyph, title) => `<h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>`;
+  if (state.lightSelected && state.view3d) {
+    const l = state.settings.light;
+    const check = (key, label) => `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><input type="checkbox" data-light-bool="${key}" ${l[key] ? 'checked' : ''} title="${escapeHtml(label)}" /></label>`;
+    panel.innerHTML = `<section class="panel-section props" data-props="light">
+      ${head(l.on ? 'light' : 'lightOff', t('light.title'))}
+      ${check('on', t('light.on'))}
+      ${numField('azimuth', l.azimuth, t('light.azimuth'), '°', 'data-light')}
+      ${numField('elevation', l.elevation, t('light.elevation'), '°', 'data-light')}
+      ${numField('intensity', l.intensity, t('light.intensity'), '×', 'data-light')}
+      <label class="prop-row" title="${escapeHtml(t('light.color'))}"><span class="prop-label">${icon('palette')}${t('light.color')}</span><input type="color" data-light="color" value="${l.color}" title="${escapeHtml(t('light.color'))}" /></label>
+      ${check('shadows', t('light.shadows'))}
+      <p class="panel-hint">${t('light.hint')}</p>
+      <div class="prop-actions"><button class="small-button" data-light-reset title="${escapeHtml(t('light.reset'))}">${icon('undo')}<span>${t('light.reset')}</span></button></div>
+    </section>`;
+    return;
+  }
   if (selection.length === 1) {
     const entity = selection[0];
     const glyph = entity.type === 'part' ? PARTS[entity.kind].icon : entity.type === 'solid' ? SOLID_ICONS[entity.kind] : entity.type === 'dim' ? 'dimension' : TOOL_ICONS[entity.type] ?? 'line';
     const fields = (GEOMETRY_FIELDS[entity.type] ?? []).map(([key, label, unit]) => numField(key, entity[key], t(label), unit ?? 'mm')).join('');
-    const extra = entity.type === 'polyline'
-      ? `<label class="prop-row" title="${escapeHtml(t('prop.closed'))}"><span class="prop-label">${t('prop.closed')}</span><input type="checkbox" data-prop-bool="closed" ${entity.closed ? 'checked' : ''} title="${escapeHtml(t('prop.closed'))}" /></label>
-         <div class="vertex-list">${entity.points.slice(0, 40).map((p, i) => `<div class="vertex-row"><small>${i + 1}</small><input class="num" data-vertex="${i}:x" value="${fmt(p.x, 4)}" title="X${i + 1}" /><input class="num" data-vertex="${i}:y" value="${fmt(p.y, 4)}" title="Y${i + 1}" /></div>`).join('')}</div>`
+    const extra = ['polyline', 'spline', 'leader'].includes(entity.type)
+      ? `${entity.type === 'leader' ? `<label class="prop-block" title="${escapeHtml(t('prop.text'))}"><span class="prop-label">${icon('text')}${t('prop.text')}</span><textarea data-prop="text" rows="2" title="${escapeHtml(t('prop.text'))}">${escapeHtml(entity.text)}</textarea></label>`
+        : `<label class="prop-row" title="${escapeHtml(t('prop.closed'))}"><span class="prop-label">${t('prop.closed')}</span><input type="checkbox" data-prop-bool="closed" ${entity.closed ? 'checked' : ''} title="${escapeHtml(t('prop.closed'))}" /></label>`}
+         ${entity.type === 'spline' ? readField(t('prop.degree'), String(entity.degree), 'spline') : ''}
+         <div class="vertex-list">${entity.points.slice(0, 40).map((p, i) => `<div class="vertex-row"><small>${i + 1}</small><input class="num" data-vertex="${i}:x" data-length="1" value="${lengthText(p.x)}" title="X${i + 1} (${unitLabel()})" /><input class="num" data-vertex="${i}:y" data-length="1" value="${lengthText(p.y)}" title="Y${i + 1} (${unitLabel()})" /></div>`).join('')}</div>`
+      : entity.type === 'hatch' ? `<label class="prop-row" title="${escapeHtml(t('option.hatchPattern'))}"><span class="prop-label">${icon('hatch')}${t('option.hatchPattern')}</span><select data-prop="pattern" title="${escapeHtml(t('option.hatchPattern'))}">${HATCH_PATTERN_NAMES.map((name) => `<option value="${name}" ${entity.pattern === name ? 'selected' : ''}>${escapeHtml(t(`hatch.${name}`))}</option>`).join('')}</select></label>${readField(t('prop.loops'), String(entity.loops.length), 'polygon')}`
       : entity.type === 'circle' ? `<label class="prop-row" title="${escapeHtml(t('prop.centerMark'))}"><span class="prop-label">${t('prop.centerMark')}</span><input type="checkbox" data-prop-bool="centerMark" ${entity.centerMark ? 'checked' : ''} title="${escapeHtml(t('prop.centerMark'))}" /></label>`
         : entity.type === 'text' ? textRows(entity)
           : entity.type === 'dim' ? dimRows(entity)
@@ -1315,8 +1885,8 @@ function renderRightContent(panel, selection) {
     panel.innerHTML = `<section class="panel-section props" data-props="multi">
       ${head('selectAll', t('props.multi', { count: selection.length }))}
       ${styleRows(drawing, selection)}
-      ${readField(t('measure.totalLength'), `${fmt(totalLength(selection), 3)} mm`, 'measure')}
-      ${box ? readField(t('measure.extent'), `${fmt(boxWidth(box), 3)} × ${fmt(boxHeight(box), 3)} mm`, 'zoomFit') : ''}
+      ${readField(t('measure.totalLength'), formatLength(totalLength(selection)), 'measure')}
+      ${box ? readField(t('measure.extent'), `${lengthValue(boxWidth(box))} × ${lengthValue(boxHeight(box))} ${unitLabel()}`, 'zoomFit') : ''}
       <div class="prop-actions">
         <button class="small-button" data-command="array" title="${escapeHtml(t('action.array'))}">${icon('array')}<span>${t('action.array')}</span></button>
         <button class="small-button" data-command="explode" title="${escapeHtml(commandTip('explode'))}" ${commandEnabled('explode') ? '' : 'disabled'}>${icon('explode')}<span>${t('action.explode')}</span></button>
@@ -1341,7 +1911,7 @@ function renderRightContent(panel, selection) {
     <h4>${icon('info')}<span>${t('props.stats')}</span></h4>
     ${readField(t('stats.entities'), String(s.entities), 'list')}
     ${readField(t('stats.layers'), String(s.layers), 'layers')}
-    ${s.box ? readField(t('measure.extent'), `${fmt(boxWidth(s.box), 2)} × ${fmt(boxHeight(s.box), 2)} mm`, 'zoomFit') : ''}
+    ${s.box ? readField(t('measure.extent'), `${lengthValue(boxWidth(s.box))} × ${lengthValue(boxHeight(s.box))} ${unitLabel()}`, 'zoomFit') : ''}
     ${readField(t('prop.created'), new Date(drawing.created).toLocaleString(), 'recent')}
     ${readField(t('prop.updated'), new Date(drawing.updated).toLocaleString(), 'recent')}
     <p class="panel-hint">${t('props.hint')}</p>
@@ -1366,7 +1936,7 @@ function onPropertyChange(target) {
   if (!drawing) return;
   const ids = selectedIds();
   const number = (text) => {
-    const value = evaluate(text);
+    const value = target.dataset.length ? evaluateLength(text) : evaluate(text);
     if (!Number.isFinite(value)) {
       notify('error', t('notice.badNumber', { text }));
       renderRight();
@@ -1418,6 +1988,15 @@ function onPropertyChange(target) {
     change('op.editPart', (d) => D.updateEntity(d, entity.id, { params: { ...entity.params, [param.key]: value } }));
     return;
   }
+  if (target.dataset.light) {
+    const key = target.dataset.light;
+    if (key === 'color') { setLightOptions({ color: target.value }); return; }
+    const value = number(target.value);
+    if (value === null) return;
+    setLightOptions({ [key]: value });
+    return;
+  }
+  if (target.dataset.lightBool) { setLightOptions({ [target.dataset.lightBool]: target.checked }); return; }
   if (target.dataset.solidParam) {
     const entity = D.findEntity(drawing, ids[0]);
     if (!entity || entity.type !== 'solid') return;
@@ -1458,7 +2037,7 @@ function renderStatus() {
   bar.innerHTML = `
     ${doc ? item(doc.dirty ? 'edit' : 'check', doc.dirty ? t('status.modified') : t('status.saved'), doc.dirty ? t('status.modified') : t('status.saved'), doc.dirty ? 'modified' : 'saved') : ''}
     ${doc ? item('file', doc.path ?? t('status.unsavedFile'), doc.path ?? t('status.unsavedFile'), 'path') : ''}
-    <span class="status-item coords" title="${escapeHtml(`${t('status.coordsTip')} · ${t('status.units')}`)}">${icon('coordinate')}<span id="status-coords">${state.cursor ? `X ${fmt(state.cursor.x, 3)}   Y ${fmt(state.cursor.y, 3)}` : 'X —   Y —'}</span><small>mm</small></span>
+    <span class="status-item coords" title="${escapeHtml(`${t('status.coordsTip')} · ${t('status.units')}`)}">${icon('coordinate')}<span id="status-coords">${coordsText()}</span><small id="status-unit">${unitLabel()}</small></span>
     ${item(TOOL_ICONS[state.toolId] ?? 'select', t(state.toolId === 'place' ? 'tool.place' : `tool.${state.toolId}`), t('status.toolTip'))}
     ${drawing ? item('selectAll', t('status.selection', { selected: state.selection.size, total: drawing.entities.length })) : ''}
     ${layer ? item('layers', layer.name, t('status.layerTip', { name: layer.name })) : ''}
@@ -1488,8 +2067,9 @@ function renderAll() {
   renderStatus();
   renderCommandBar();
   applyBackgroundStyle();
+  renderStart();
   scheduleRender();
-  document.title = `MyCAD v${state.info?.version ?? ''}${activeDoc() ? ` — ${docName(activeDoc())}` : ''}`;
+  document.title = `MyCAD ${displayVersion(state.info?.version)}${activeDoc() ? ` — ${docName(activeDoc())}` : ''}`;
 }
 
 // ───────────────────────── editing operations
@@ -1507,7 +2087,7 @@ async function deleteSelection() {
 }
 
 function duplicateSelection() {
-  const grid = activeDrawing().grid?.size || 10;
+  const grid = gridBaseFor(activeDrawing().grid?.size || 10);
   const copies = change('op.duplicate', (drawing) => D.duplicateEntities(drawing, selectedIds(), { x: grid, y: -grid }));
   select(copies.map((entity) => entity.id));
   notify('success', t('notice.duplicated', { count: copies.length }));
@@ -1650,7 +2230,12 @@ function applySettings(previous = {}) {
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   root.classList.toggle('no-status', !s.showStatusBar);
+  if (setDisplayUnit(s.units)) {
+    if (previous.units) notify('info', t('notice.units', { unit: t(`units.${s.units}`) }));
+    if (view3d.instance) rebuild3d();
+  }
   renderAll();
+  updateScaleBar();
 }
 
 async function openThemePicker(anchor) {
@@ -1764,6 +2349,22 @@ function rememberRecent(entry) {
   storeRecent(globalThis.localStorage, state.recent);
 }
 
+/** A drawing from 2D CAD file bytes: DXF (text or binary, any code page), SVG, HP-GL, IGES, Gerber, Excellon. */
+function drawingFromBytes(name, bytes) {
+  const result = importDrawingBytes(name, bytes, { language: getLanguage() });
+  const skipped = Object.entries(result.skipped ?? {}).map(([type, count]) => `${type} ${count}`).join(', ');
+  return { drawing: result.drawing, format: result.format, note: skipped ? t('notice.dxfSkipped', { list: skipped }) : '' };
+}
+
+/** Opens 2D CAD bytes as a new (unsaved) drawing named after the file. */
+function openDrawingBytes(name, bytes, { quiet = false } = {}) {
+  const { drawing, format, note } = drawingFromBytes(name, bytes);
+  const doc = addDocument(new DrawingDocument(drawing, { name: baseName(name), format }));
+  renderAll();
+  if (!quiet) notify(note ? 'info' : 'success', `${t('notice.opened', { name: baseName(name) })}${note ? ` · ${note}` : ''}`);
+  return doc;
+}
+
 /** A drawing from file text: .mcad JSON, or DXF. */
 function drawingFromText(name, text) {
   if (isDxfFileName(name) || looksLikeDxf(text)) {
@@ -1782,6 +2383,13 @@ async function openPath(path, { quiet = false } = {}) {
     return existing;
   }
   try {
+    if (isCadDrawingFileName(path)) {
+      const bytes = await withProgress('progress.open', baseName(path), (op) => native.readBinaryFile(path, op));
+      const doc = openDrawingBytes(path, bytes, { quiet });
+      rememberRecent({ path, title: doc.drawing.title });
+      updateSettings({ lastDirectory: directoryOf(path) || state.settings.lastDirectory });
+      return doc;
+    }
     if (isModelFileName(path)) {
       const bytes = await withProgress('progress.open', baseName(path), (op) => native.readBinaryFile(path, op));
       const doc = openModelBytes(baseName(path), bytes);
@@ -1824,8 +2432,7 @@ async function openWithDialog({ dxf = false } = {}) {
       for (const file of files) {
         try {
           await withProgress('progress.open', file.name, async (op, report) => { report({ done: file.size ?? 0, total: file.size ?? 0 }); });
-          if (file.bytes) openModelBytes(file.name, file.bytes);
-          else openText(file.name, file.text, file.handle);
+          if (file.bytes) { if (isCadDrawingFileName(file.name)) openDrawingBytes(file.name, file.bytes); else openModelBytes(file.name, file.bytes); } else openText(file.name, file.text, file.handle);
         } catch (error) {
           showError('error.open', error, file.name);
         }
@@ -1907,7 +2514,8 @@ async function exportAs(kind) {
   const doc = activeDoc();
   if (!doc) return;
   const drawing = doc.drawing;
-  const name = `${safeFileName(stripExtension(docName(doc)))}.${kind}`;
+  const extension = kind === 'dxf2000' ? 'dxf' : kind;
+  const name = `${safeFileName(stripExtension(docName(doc)))}.${extension}`;
   const fonts = { family: state.settings.fontFamily || '', weight: state.settings.fontWeight, style: state.settings.fontStyle };
   try {
     if (kind === 'png') {
@@ -1925,7 +2533,8 @@ async function exportAs(kind) {
       }
       return;
     }
-    const text = kind === 'dxf' ? exportDxf(drawing) : exportSvg(drawing, { fonts });
+    const text = kind === 'dxf' ? exportDxf(drawing) : kind === 'dxf2000' ? exportDxf2000(drawing) : kind === 'plt' ? exportHpgl(drawing)
+      : kind === 'igs' ? exportIges(drawing, { author: state.settings.author, file: name }) : exportSvg(drawing, { fonts });
     if (desktop) {
       const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, kind);
       if (!path) return;
@@ -1933,7 +2542,7 @@ async function exportAs(kind) {
       updateSettings({ lastDirectory: directoryOf(path) || state.settings.lastDirectory });
       notify('success', t('notice.exported', { name: baseName(path) }));
     } else {
-      native.downloadText(text, name, kind === 'svg' ? 'image/svg+xml' : 'application/dxf');
+      native.downloadText(text, name, { svg: 'image/svg+xml', plt: 'application/vnd.hp-hpgl', igs: 'model/iges' }[kind] ?? 'application/dxf');
       notify('success', t('notice.exported', { name }));
     }
   } catch (error) {
@@ -1943,7 +2552,7 @@ async function exportAs(kind) {
 
 function openExportMenu(anchor) {
   const element = root.querySelector('[data-command="exportMenu"]');
-  showMenu(menuItems(['exportDxf', 'exportSvg', 'exportPng', '-', 'exportStl', ...EXPORT_3D.map((format) => `export3d:${format}`), '-', 'print']), anchor ?? anchorBelow(element), 'export', { header: { icon: 'export', title: t('action.exportMenu') } });
+  showMenu(menuItems(['exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', '-', 'exportStl', ...EXPORT_3D.map((format) => `export3d:${format}`), '-', 'print']), anchor ?? anchorBelow(element), 'export', { header: { icon: 'export', title: t('action.exportMenu') } });
 }
 
 async function closeDoc(doc, { force = false } = {}) {
@@ -2108,7 +2717,7 @@ function viewCenter() {
   const doc = activeDoc();
   const vp = ensureViewport(doc);
   const c = vp ? vp.toWorld(vp.width / 2, vp.height / 2) : { x: 0, y: 0 };
-  const step = doc?.drawing.grid?.size || 10;
+  const step = gridBaseFor(doc?.drawing.grid?.size || 10);
   return { x: Math.round(c.x / step) * step, y: Math.round(c.y / step) * step };
 }
 
@@ -2437,6 +3046,10 @@ function contextMenuFor(event) {
   const editable = target.closest('input, textarea, [contenteditable="true"]');
   const layerRow = target.closest('[data-layer]');
   if (editable && editable.type !== 'range' && editable.type !== 'checkbox' && editable.type !== 'color') return textContextMenu(editable, anchor);
+  if (tab?.dataset.tabHome !== undefined) {
+    showHome(true);
+    return showMenu(menuItems(['tutorial', 'tutorialDoc', '-', 'new', 'open', 'recent']), anchor, 'context', { header: { icon: 'home', title: t('action.startPage') } });
+  }
   if (tab) {
     activateDoc(tab.dataset.doc);
     return showMenu(menuItems(['save', 'saveAs', '-', 'renameDrawing', 'print', 'exportDxf', '-', 'closeTab', 'closeOthers', '-', 'new']), anchor, 'context', { header: { icon: 'drawing', title: docName(activeDoc()) } });
@@ -2581,7 +3194,7 @@ async function handleDroppedPaths(paths, point) {
   for (const path of paths) {
     const name = baseName(path);
     try {
-      if (isDrawingFileName(name) || isDxfFileName(name) || isModelFileName(name)) await openPath(path);
+      if (isDrawingFileName(name) || isCadDrawingFileName(name) || isModelFileName(name)) await openPath(path);
       else if (isImageFileName(name)) await setBackgroundFromPath(path);
       else if (isTextFileName(name)) {
         if (!activeDoc()) newDrawing();
@@ -2599,7 +3212,8 @@ async function handleDroppedFiles(files, text, point) {
   for (const file of files) {
     try {
       if (isModelFileName(file.name)) openModelBytes(file.name, new Uint8Array(await file.arrayBuffer()));
-      else if (isDrawingFileName(file.name) || isDxfFileName(file.name)) openText(file.name, await file.text());
+      else if (isCadDrawingFileName(file.name)) openDrawingBytes(file.name, new Uint8Array(await file.arrayBuffer()));
+      else if (isDrawingFileName(file.name)) openText(file.name, await file.text());
       else if (isImageFileName(file.name) || file.type.startsWith('image/')) await setBackgroundFromFile(file);
       else if (isTextFileName(file.name) || file.type.startsWith('text/')) {
         if (!activeDoc()) newDrawing();
@@ -2687,6 +3301,21 @@ function bindEvents() {
         : command.dataset.command === 'exportMenu' ? anchorBelow(command) : undefined;
       return run(command.dataset.command, { anchor });
     }
+    // Start page: the house tab, recent files, samples, lessons.
+    if (target.closest('[data-tab-home]')) return showHome(true);
+    const recentRemove = target.closest('[data-recent-remove]');
+    if (recentRemove) {
+      state.recent = state.recent.filter((item) => item.path !== recentRemove.dataset.recentRemove);
+      storeRecent(globalThis.localStorage, state.recent);
+      return renderStart();
+    }
+    if (target.closest('[data-recent-clear]')) { state.recent = []; storeRecent(globalThis.localStorage, state.recent); return renderStart(); }
+    const recentItem = target.closest('[data-recent-path]');
+    if (recentItem) return openRecent(recentItem.dataset.recentPath);
+    const sample = target.closest('[data-sample-open], [data-sample]');
+    if (sample) return openSample(sample.dataset.sampleOpen ?? sample.dataset.sample);
+    const lesson = target.closest('[data-start-lesson]');
+    if (lesson) return openTutorial({ lesson: Number(lesson.dataset.startLesson) });
     const closeDocButton = target.closest('[data-close-doc]');
     if (closeDocButton) return closeDoc(state.docs.find((doc) => doc.id === closeDocButton.dataset.closeDoc));
     const tab = target.closest('.tab');
@@ -2695,12 +3324,33 @@ function bindEvents() {
     if (scroll) return scrollTabs(Number(scroll.dataset.tabScroll));
     const panelToggle = target.closest('[data-panel-toggle]');
     if (panelToggle) return run(panelToggle.dataset.panelToggle === 'left' ? 'leftPanel' : 'rightPanel');
+    const sectionToggle = target.closest('[data-section-toggle]');
+    if (sectionToggle) return toggleSection(sectionToggle.dataset.sectionToggle);
+    const sectionsAll = target.closest('[data-sections]');
+    if (sectionsAll) return toggleSection('*', sectionsAll.dataset.sections === 'expand');
     const section = target.closest('[data-panel-section]');
     if (section) {
       const [side, name] = section.dataset.panelSection.split(':');
+      // From the rail: open the panel and that section.
+      if (side === 'left' && state.settings.collapsedSections.includes(name)) toggleSection(name, true);
       updateSettings(side === 'left' ? { showLeftPanel: true } : { showRightPanel: true });
       return root.querySelector(`#${side}-panel [data-section="${name}"]`)?.scrollIntoView({ block: 'start' });
     }
+    const stepButton = target.closest('[data-prop-step-dir]');
+    if (stepButton) {
+      const wrap = stepButton.closest('[data-prop-step]');
+      const input = wrap?.querySelector('input');
+      if (input) {
+        const current = input.dataset.length ? toUnit(evaluateLength(input.value)) : evaluate(input.value);
+        const step = Number(wrap.dataset.propStep) || 1;
+        const value = (Number.isFinite(current) ? current : 0) + Number(stepButton.dataset.propStepDir) * step;
+        input.value = String(Math.round(value * 1e6) / 1e6);
+        onPropertyChange(input);
+      }
+      return undefined;
+    }
+    const lightReset = target.closest('[data-light-reset]');
+    if (lightReset) return setLightOptions({ on: true, azimuth: 135, elevation: 55, intensity: 1, color: '#ffffff', shadows: true });
     const bar3d = target.closest('[data-view3d]');
     if (bar3d) return on3dBar(bar3d.dataset.view3d);
     const toolButton = target.closest('[data-tool]');
@@ -2784,6 +3434,7 @@ function bindEvents() {
   });
   canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
   new ResizeObserver(() => { resizeCanvas(); resize3d(); }).observe(root.querySelector('#canvas-wrap'));
+  bindScaleBar();
 
   root.addEventListener('change', (event) => {
     const target = event.target;
@@ -2792,7 +3443,7 @@ function bindEvents() {
       return;
     }
     if (target.id === 'view3d-thickness') {
-      const value = evaluate(target.value);
+      const value = evaluateLength(target.value);
       if (Number.isFinite(value) && value > 0) updateSettings({ extrudeHeight: Math.min(1000, value) });
       else notify('error', t('notice.badNumber', { text: target.value }));
       rebuild3d();
@@ -2805,8 +3456,13 @@ function bindEvents() {
     if (target.dataset.toolOption) {
       const key = target.dataset.toolOption;
       if (target.type === 'checkbox') state.toolOptions[key] = target.checked;
-      else {
+      else if (target.tagName === 'SELECT') state.toolOptions[key] = target.value;
+      else if (key === 'hatchAngle') {
         const value = evaluate(target.value);
+        if (Number.isFinite(value)) state.toolOptions[key] = value;
+        else notify('error', t('notice.badNumber', { text: target.value }));
+      } else {
+        const value = target.dataset.length ? evaluateLength(target.value) : evaluate(target.value);
         if (Number.isFinite(value) && value > 0) state.toolOptions[key] = key === 'sides' ? Math.max(3, Math.min(64, Math.round(value))) : value;
         else notify('error', t('notice.badNumber', { text: target.value }));
       }
@@ -2892,7 +3548,7 @@ const SHORTCUTS = [
   ['d', false, 'duplicate'], ['a', false, 'selectAll'], ['p', false, 'print'], ['p', true, 'exportStl'], ['e', true, 'explode'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['+', true, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoom100'],
   [',', false, 'settings'], ['l', true, 'language'], ['tab', false, 'nextTab'], ['tab', true, 'prevTab'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
-  ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['#', true, 'view3d'], ['3', true, 'view3d'], ['q', false, 'exit'], ['i', false, 'import3d'],
+  ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['#', true, 'view3d'], ['3', true, 'view3d'], ['q', false, 'exit'], ['i', false, 'import3d'], ['g', true, 'light'], ['b', true, 'scaleBar'],
 ];
 const FUNCTION_KEYS = { f1: 'about', f2: 'renameDrawing', f3: 'snap', f7: 'grid', f8: 'ortho', f9: 'snapGrid', home: 'zoomFit' };
 
@@ -3016,8 +3672,11 @@ async function start() {
   }
 
   await restoreSession();
-  for (const path of await native.startupFiles().catch(() => [])) await openPath(path);
+  const startupFiles = await native.startupFiles().catch(() => []);
+  for (const path of startupFiles) await openPath(path);
   if (!state.docs.length) addDocument(welcomeDrawing());
+  // The start page greets you, unless files were opened with the program.
+  if (!startupFiles.length && state.settings.showStartPage) { state.home = true; loadSamples(); }
   if (!state.active && state.docs.length) activate_(state.docs[0].id);
   renderAll();
   if (desktop) {
@@ -3045,6 +3704,7 @@ window.__mycad = {
     toggle3d, rebuild3d, view3d: () => view3d.instance,
     openSolidDialog, insertSolid, solidFeature, applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
     openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids,
+    showHome, openSample, loadSamples, openTutorial, tutorialApi,
   },
 };
 

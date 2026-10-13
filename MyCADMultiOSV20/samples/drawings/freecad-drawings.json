@@ -1,0 +1,32 @@
+{
+ "freecad-plate.igs": {
+  "edges": 21,
+  "length": 961.703799771477,
+  "bbox": [
+   0,
+   0,
+   160,
+   100
+  ]
+ },
+ "freecad-plate.svg": {
+  "edges": 21,
+  "length": 961.703799771477,
+  "bbox": [
+   0,
+   0,
+   160,
+   100
+  ]
+ },
+ "freecad-plate.dxf": {
+  "edges": 21,
+  "length": 961.703799771477,
+  "bbox": [
+   0,
+   0,
+   160,
+   100
+  ]
+ }
+}

@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T03:10:45.110Z",
+ "saved": "2026-10-13T06:58:00.963Z",
  "drawing": {
-  "id": "dwg-mv63sv3c00bewfyy",
+  "id": "dwg-mv6bx4l100be266p",
   "title": "단면 (Section)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T03:10:45.096Z",
-  "updated": "2026-10-13T03:10:45.099Z",
+  "created": "2026-10-13T06:58:00.949Z",
+  "updated": "2026-10-13T06:58:00.952Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv63sv3c00bfz59k",
+    "id": "e-mv6bx4l100bfiixo",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -124,7 +124,7 @@
     }
    },
    {
-    "id": "e-mv63sv3c00bgczg8",
+    "id": "e-mv6bx4l100bgvcaq",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -148,7 +148,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv63sv3e00bholkc",
+    "id": "e-mv6bx4l400bhled0",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -735,7 +735,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bi8zpf",
+    "id": "e-mv6bx4l400bi6ocl",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1322,7 +1322,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bj04lc",
+    "id": "e-mv6bx4l400bj8bvw",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1909,7 +1909,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bkrvsr",
+    "id": "e-mv6bx4l400bkdlv1",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2496,7 +2496,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bl65ic",
+    "id": "e-mv6bx4l400blalr5",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -2513,7 +2513,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv63sv3f00bmpbhj",
+    "id": "e-mv6bx4l400bmxrza",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -3100,7 +3100,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bnatos",
+    "id": "e-mv6bx4l400bn2o37",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -3687,7 +3687,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bolxuf",
+    "id": "e-mv6bx4l400boyemn",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4274,7 +4274,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bpzt1x",
+    "id": "e-mv6bx4l400bpvzwv",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4861,7 +4861,7 @@
     "closed": true
    },
    {
-    "id": "e-mv63sv3f00bq242a",
+    "id": "e-mv6bx4l400bqtyl4",
     "type": "text",
     "layer": "text",
     "color": null,

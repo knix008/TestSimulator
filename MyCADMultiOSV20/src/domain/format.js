@@ -56,5 +56,30 @@ export const MODEL_EXTENSIONS = ['fcstd', 'step', 'stp', 'stl', 'obj', 'ply', 'o
 export const isModelFileName = (name) => MODEL_EXTENSIONS.includes(extensionOf(name));
 export const isImageFileName = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'].includes(extensionOf(name));
 export const isTextFileName = (name) => ['txt', 'text', 'md', 'csv'].includes(extensionOf(name));
+
+/**
+ * Every file format MyCAD reads or writes (shown in Help → About).
+ * group: drawing (2D) | model (3D) | other; use: what reading it does, when not "open".
+ */
+export const FILE_FORMATS = [
+  { id: 'mcad', name: 'MyCAD', extensions: ['mcad', 'json'], group: 'drawing', read: true, write: true },
+  { id: 'dxf', name: 'AutoCAD DXF (R12 – 2018, text · binary)', extensions: ['dxf'], group: 'drawing', read: true, write: true },
+  { id: 'svg', name: 'SVG', extensions: ['svg'], group: 'drawing', read: true, write: true },
+  { id: 'iges', name: 'IGES 5.3', extensions: ['igs', 'iges'], group: 'drawing', read: true, write: true },
+  { id: 'hpgl', name: 'HP-GL/2', extensions: ['plt', 'hpgl', 'hgl', 'hp2', 'pen'], group: 'drawing', read: true, write: true },
+  { id: 'gerber', name: 'Gerber RS-274X', extensions: ['gbr', 'ger', 'gtl', 'gbl', 'gto', 'gbo', 'gts', 'gbs', 'gtp', 'gbp', 'gko', 'gm1', 'gml', 'art', 'pho'], group: 'drawing', read: true, write: false },
+  { id: 'excellon', name: 'Excellon drill', extensions: ['drl', 'xln', 'exc', 'drd'], group: 'drawing', read: true, write: false },
+  { id: 'png', name: 'PNG', extensions: ['png'], group: 'drawing', read: false, write: true },
+  { id: 'fcstd', name: 'FreeCAD', extensions: ['FCStd'], group: 'model', read: true, write: true },
+  { id: 'step', name: 'STEP AP214', extensions: ['step', 'stp'], group: 'model', read: true, write: true },
+  { id: 'stl', name: 'STL', extensions: ['stl'], group: 'model', read: true, write: true },
+  { id: 'obj', name: 'Wavefront OBJ', extensions: ['obj'], group: 'model', read: true, write: true },
+  { id: 'ply', name: 'Stanford PLY', extensions: ['ply'], group: 'model', read: true, write: true },
+  { id: 'off', name: 'Object File Format', extensions: ['off'], group: 'model', read: true, write: true },
+  { id: 'amf', name: 'Additive Manufacturing (AMF)', extensions: ['amf'], group: 'model', read: true, write: true },
+  { id: '3mf', name: '3D Manufacturing (3MF)', extensions: ['3mf'], group: 'model', read: true, write: true },
+  { id: 'image', name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'], group: 'other', read: true, write: false, use: 'background' },
+  { id: 'text', name: 'Text', extensions: ['txt', 'md', 'csv'], group: 'other', read: true, write: false, use: 'text' },
+];
 /** File name usable on every OS. */
 export const safeFileName = (name, fallback = 'drawing') => String(name ?? '').replace(/[\\/:*?"<>|]/g, '_').trim() || fallback;
