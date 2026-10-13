@@ -15,6 +15,9 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <psapi.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
 #else
 #include <sys/resource.h>
 #include <unistd.h>
@@ -129,10 +132,9 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     gtk_label_set_ellipsize(GTK_LABEL(statusLabel_), PANGO_ELLIPSIZE_END);
     gtk_widget_set_hexpand(statusLabel_, TRUE);
     gtk_box_append(GTK_BOX(statusRow), statusLabel_);
-    cpuLabel_ = gtk_label_new("");
+    cpuLabel_ = gtk_label_new("메모리 … · CPU …");
     gtk_widget_add_css_class(cpuLabel_, "kstt-status");
     gtk_label_set_xalign(GTK_LABEL(cpuLabel_), 1.0f);
-    gtk_widget_set_visible(cpuLabel_, FALSE);
     gtk_box_append(GTK_BOX(statusRow), cpuLabel_);
     gtk_box_append(GTK_BOX(root), statusRow);
 
@@ -149,7 +151,7 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     g_signal_connect(window_, "close-request", G_CALLBACK(+[](GtkWindow* window,
                                                               gpointer self) -> gboolean {
                          auto* app = static_cast<AppWindow*>(self);
-                         app->setCpuMonitor(false);
+                         app->setResourceMonitor(false);
                          app->alive_->store(false);
                          app->stopRecognition();
                          (void)window;
@@ -176,17 +178,14 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
             switch (state) {
                 case EngineState::Running:
                     setStatus("인식 중 — " + message);
-                    setCpuMonitor(true);
                     break;
                 case EngineState::Ready:
-                    setCpuMonitor(false);
                     setStatus(message == "finished" ? "인식이 끝났습니다."
                                                     : "대기 중 (모델 준비됨)");
                     gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                     setPartial(std::string());
                     break;
                 case EngineState::Error:
-                    setCpuMonitor(false);
                     setStatus(message, true);
                     gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                     break;
@@ -215,13 +214,10 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
     keywordListener_.onState([this](bool running, const std::string& message, bool error) {
         postToMain([this, running, message, error] {
             if (error) {
-                setCpuMonitor(false);
                 setStatus(message, true);
             } else if (running) {
                 setStatus("인식 중 — 키워드 · " + message);
-                setCpuMonitor(true);
             } else {
-                setCpuMonitor(false);
                 setStatus("인식이 끝났습니다.");
                 gtk_level_bar_set_value(GTK_LEVEL_BAR(levelBar_), 0.0);
                 setPartial(std::string());
@@ -238,12 +234,13 @@ AppWindow::AppWindow(GtkApplication* app) : app_(app) {
 
     syncButtons();
     prepareKeywords();
+    setResourceMonitor(true);
     loadModelAsync();
 }
 
 AppWindow::~AppWindow() {
     *alive_ = false;
-    setCpuMonitor(false);
+    setResourceMonitor(false);
     recordCancel_.store(true);
     {
         std::lock_guard<std::mutex> lock(captureMutex_);
@@ -770,19 +767,19 @@ void AppWindow::updateTally() {
     gtk_label_set_text(GTK_LABEL(tallyLabel_), text.c_str());
 }
 
-void AppWindow::setCpuMonitor(bool on) {
+void AppWindow::setResourceMonitor(bool on) {
     if (cpuMonitor_ == on) return;
     cpuMonitor_ = on;
     cpuHaveSample_ = false;
     if (on) {
         double unused = 0.0;
         sampleProcessCpu(&unused);
-        gtk_label_set_text(GTK_LABEL(cpuLabel_), "CPU …");
+        updateResourceLabel();
         gtk_widget_set_visible(cpuLabel_, TRUE);
         cpuTimer_ = g_timeout_add(500, +[](gpointer self) -> gboolean {
             auto* window = static_cast<AppWindow*>(self);
             if (!window->alive_->load() || !window->cpuMonitor_) return G_SOURCE_REMOVE;
-            window->updateCpuLabel();
+            window->updateResourceLabel();
             return G_SOURCE_CONTINUE;
         }, this);
     } else if (cpuTimer_ != 0) {
@@ -793,12 +790,60 @@ void AppWindow::setCpuMonitor(bool on) {
     }
 }
 
-void AppWindow::updateCpuLabel() {
+void AppWindow::updateResourceLabel() {
     double percent = 0.0;
-    if (!sampleProcessCpu(&percent)) return;
-    char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "CPU %.1f%%", percent);
-    gtk_label_set_text(GTK_LABEL(cpuLabel_), buffer);
+    const bool haveCpu = sampleProcessCpu(&percent);
+    unsigned long long bytes = 0;
+    const bool haveMemory = sampleProcessMemory(&bytes);
+    char memory[32];
+    if (!haveMemory) {
+        std::snprintf(memory, sizeof(memory), "메모리 …");
+    } else if (bytes >= 1024ull * 1024ull * 1024ull) {
+        std::snprintf(memory, sizeof(memory), "메모리 %.1f GB",
+                      static_cast<double>(bytes) / (1024.0 * 1024.0 * 1024.0));
+    } else {
+        std::snprintf(memory, sizeof(memory), "메모리 %.1f MB",
+                      static_cast<double>(bytes) / (1024.0 * 1024.0));
+    }
+    char line[80];
+    if (haveCpu)
+        std::snprintf(line, sizeof(line), "%s · CPU %.1f%%", memory, percent);
+    else
+        std::snprintf(line, sizeof(line), "%s · CPU …", memory);
+    gtk_label_set_text(GTK_LABEL(cpuLabel_), line);
+}
+
+bool AppWindow::sampleProcessMemory(unsigned long long* bytes) {
+#if defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS counters = {};
+    counters.cb = sizeof(counters);
+    if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) return false;
+    if (bytes) *bytes = counters.WorkingSetSize;
+    return true;
+#elif defined(__APPLE__)
+    mach_task_basic_info info;
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info),
+                  &count) != KERN_SUCCESS)
+        return false;
+    if (bytes) *bytes = info.resident_size;
+    return true;
+#else
+    std::FILE* file = std::fopen("/proc/self/status", "r");
+    if (!file) return false;
+    char line[256];
+    bool found = false;
+    while (std::fgets(line, sizeof(line), file)) {
+        unsigned long kb = 0;
+        if (std::sscanf(line, "VmRSS: %lu", &kb) == 1) {
+            if (bytes) *bytes = static_cast<unsigned long long>(kb) * 1024ull;
+            found = true;
+            break;
+        }
+    }
+    std::fclose(file);
+    return found;
+#endif
 }
 
 bool AppWindow::sampleProcessCpu(double* percent) {
