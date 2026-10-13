@@ -717,6 +717,8 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 /* ───────── the interactive tutorial ───────── */
 .tut-panel { position: fixed; right: 18px; bottom: 44px; z-index: 1300; width: 400px; max-width: calc(100vw - 36px); padding: 0 0 12px; border: 2px solid var(--accent); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.28); font-size: 13px; }
 .tut-panel[hidden] { display: none; }
+/* Desktop: the panel is its own window (the window is as tall as the panel). */
+.tut-panel.tut-window { position: static; width: auto; max-width: none; border-radius: 0; box-shadow: none; box-sizing: border-box; }
 .tut-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: move; user-select: none; }
 .tut-head svg { color: var(--accent); flex: none; }
 .tut-head b { white-space: nowrap; }

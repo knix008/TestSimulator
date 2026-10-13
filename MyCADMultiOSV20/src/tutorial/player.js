@@ -78,23 +78,33 @@ export class TutorialPlayer {
 
   // ───────────────────────── panel
 
+  /**
+   * The cursor, rings and targets are drawn over the main window. The panel is
+   * its own OS window on the desktop (api.panelWindow: { show(html), update(html), hide() }),
+   * so it can sit anywhere on the screen; in the browser it floats in the page.
+   */
+  get remote() { return this.api.panelWindow ?? null; }
+
   build() {
-    if (this.panel) return;
+    if (this.ring) return;
     const body = document.body;
     this.ring = Object.assign(document.createElement('div'), { className: 'tut-ring' });
     this.cursor = Object.assign(document.createElement('div'), { className: 'tut-cursor', innerHTML: ICONS.cursor });
     this.keyBubble = Object.assign(document.createElement('div'), { className: 'tut-key' });
     this.targetLayer = Object.assign(document.createElement('div'), { className: 'tut-targets' });
-    this.panel = Object.assign(document.createElement('section'), { className: 'tut-panel' });
-    this.panel.setAttribute('role', 'dialog');
-    body.append(this.ring, this.targetLayer, this.cursor, this.keyBubble, this.panel);
+    body.append(this.ring, this.targetLayer, this.cursor, this.keyBubble);
     this.ring.hidden = true;
     this.cursor.hidden = true;
     this.keyBubble.hidden = true;
-    this.panel.addEventListener('click', (event) => this.onClick(event));
+    if (this.remote) return;
+    this.panel = Object.assign(document.createElement('section'), { className: 'tut-panel' });
+    this.panel.setAttribute('role', 'dialog');
+    this.panel.hidden = true;
+    body.append(this.panel);
+    this.panel.addEventListener('click', (event) => this.handle({ tut: event.target.closest('[data-tut]')?.dataset.tut }));
     this.panel.addEventListener('change', (event) => {
-      if (event.target.matches('.tut-lesson')) this.goLesson(Number(event.target.value));
-      if (event.target.matches('.tut-speed')) { this.speed = Number(event.target.value) || 1; }
+      if (event.target.matches('.tut-lesson')) this.handle({ lesson: Number(event.target.value) });
+      if (event.target.matches('.tut-speed')) this.handle({ speed: Number(event.target.value) });
     });
     // Drag by the header.
     this.panel.addEventListener('pointerdown', (event) => {
@@ -114,7 +124,14 @@ export class TutorialPlayer {
   }
 
   render() {
-    if (!this.panel) return;
+    if (!this.shown) return;
+    const html = this.panelHtml();
+    if (this.remote) this.remote.update(html);
+    else this.panel.innerHTML = html;
+  }
+
+  /** The panel's contents (the same in its window and in the page). */
+  panelHtml() {
     const lesson = this.lesson;
     const step = this.step;
     const total = lesson.steps.length;
@@ -129,7 +146,7 @@ export class TutorialPlayer {
       ? `${button('prev', ICONS.prev, this.tr('prev'))}${button('show', '', this.tr('showMe'), 'text')}${button('skip', ICONS.next, info || !step.practice?.check ? this.tr('next') : this.tr('skip'), 'text')}`
       : `${button('prev', ICONS.prev, this.tr('prev'))}${button('play', this.playing ? ICONS.pause : ICONS.play, this.playing ? this.tr('pause') : this.tr('play'), 'primary')}${button('next', ICONS.next, this.tr('next'))}
         <label class="tut-speed-label" title="${escapeHtml(this.tr('speed'))}"><span>${escapeHtml(this.tr('speed'))}</span><select class="tut-speed">${[0.5, 1, 1.25, 1.5, 2, 4].map((s) => `<option value="${s}" ${s === this.speed ? 'selected' : ''}>${s}×</option>`).join('')}</select></label>`;
-    this.panel.innerHTML = `
+    return `
       <header class="tut-head" title="${escapeHtml(this.tr('drag'))}">${ICONS.cap}<b>${escapeHtml(this.tr('title'))}</b>
         <select class="tut-lesson" title="${escapeHtml(this.tr('lesson'))}" aria-label="${escapeHtml(this.tr('lesson'))}">${lessonOptions}</select>
         ${button('close', ICONS.close, this.tr('close'))}</header>
@@ -142,11 +159,14 @@ export class TutorialPlayer {
       <p class="tut-text">${escapeHtml(L(step.text, this.language))}</p>
       ${todo}
       <div class="tut-error" ${this.lastError ? '' : 'hidden'}>${escapeHtml(this.tr('failed'))}: ${escapeHtml(this.lastError ?? '')} ${button('retry', '', this.tr('retry'), 'text')}</div>
-      <div class="tut-controls">${controls}</div>`;
+      <div class="tut-controls">${controls}</div>
+      ${this.note ? `<div class="tut-note">${escapeHtml(this.note)}</div>` : ''}`;
   }
 
-  onClick(event) {
-    const action = event.target.closest('[data-tut]')?.dataset.tut;
+  /** What the panel asks for: { tut: button } · { lesson: index } · { speed }. */
+  handle({ tut: action, lesson, speed } = {}) {
+    if (lesson != null) { this.goLesson(Number(lesson)); return; }
+    if (speed != null) { this.speed = Number(speed) || 1; return; }
     if (!action) return;
     if (action === 'close') this.close();
     else if (action === 'play') { if (this.playing) this.pause(); else this.play(); }
@@ -165,8 +185,12 @@ export class TutorialPlayer {
   async open({ lesson = 0, mode = 'watch', autoplay = false } = {}) {
     this.build();
     this.useBaseline();
-    this.panel.hidden = false;
     this.mode = mode;
+    if (!this.shown) {
+      this.shown = true;
+      if (this.remote) this.remote.show(this.panelHtml(), () => { if (this.shown) this.close(); });
+      else this.panel.hidden = false;
+    }
     await this.goLesson(lesson, { autoplay });
     return this;
   }
@@ -175,12 +199,19 @@ export class TutorialPlayer {
     this.pause();
     this.stopPractice();
     this.hideMarks();
-    if (this.panel) this.panel.hidden = true;
+    this.hidePanel();
     this.restoreSettings();
     this.api.onTutorial?.(false);
   }
 
-  get visible() { return Boolean(this.panel && !this.panel.hidden); }
+  get visible() { return Boolean(this.shown); }
+
+  hidePanel() {
+    if (!this.shown) return;
+    this.shown = false;
+    if (this.remote) this.remote.hide();
+    else this.panel.hidden = true;
+  }
 
   useBaseline() {
     if (!this.saved) this.saved = structuredClone(this.api.settings());
@@ -442,12 +473,10 @@ export class TutorialPlayer {
   }
 
   showNote(text, ms = 0) {
-    if (!this.panel) return;
-    let note = this.panel.querySelector('.tut-note');
-    if (!text) { note?.remove(); return; }
-    if (!note) { note = Object.assign(document.createElement('div'), { className: 'tut-note' }); this.panel.append(note); }
-    note.textContent = text;
-    if (ms) setTimeout(() => note.remove(), ms);
+    this.note = text || '';
+    clearTimeout(this.noteTimer);
+    if (text && ms) this.noteTimer = setTimeout(() => { if (this.note === text) { this.note = ''; this.render(); } }, ms);
+    this.render();
   }
 
   hideMarks() {

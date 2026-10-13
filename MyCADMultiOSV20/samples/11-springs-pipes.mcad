@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.179Z",
+ "saved": "2026-10-13T09:43:02.672Z",
  "drawing": {
-  "id": "dwg-mv6ej8pm006e6xty",
+  "id": "dwg-mv6htcmx006ehymu",
   "title": "스프링 · 배관 · 호퍼",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:11.962Z",
-  "updated": "2026-10-13T08:11:11.962Z",
+  "created": "2026-10-13T09:43:02.457Z",
+  "updated": "2026-10-13T09:43:02.457Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8pm006f1rjs",
+    "id": "e-mv6htcmx006fkwu6",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -96,7 +96,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8pm006g6gzy",
+    "id": "e-mv6htcmx006ghq3v",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -181,7 +181,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pm006hh9mh",
+    "id": "e-mv6htcmx006hqkfn",
     "type": "solid",
     "layer": "0",
     "color": null,

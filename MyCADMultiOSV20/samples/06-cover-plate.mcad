@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.176Z",
+ "saved": "2026-10-13T09:43:02.668Z",
  "drawing": {
-  "id": "dwg-mv6ej8pg00195u6m",
+  "id": "dwg-mv6htcmr001981jz",
   "title": "커버 플레이트 (배열)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:11.956Z",
-  "updated": "2026-10-13T08:11:11.956Z",
+  "created": "2026-10-13T09:43:02.451Z",
+  "updated": "2026-10-13T09:43:02.451Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8pg001ae7v5",
+    "id": "e-mv6htcmr001a43sf",
     "type": "rect",
     "layer": "0",
     "color": null,
@@ -85,7 +85,7 @@
     "radius": 6
    },
    {
-    "id": "e-mv6ej8pg001bpftp",
+    "id": "e-mv6htcmr001bqpv1",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -97,7 +97,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001c16l3",
+    "id": "e-mv6htcmr001c537a",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -109,7 +109,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001dh016",
+    "id": "e-mv6htcmr001doh11",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -121,7 +121,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001ewbp3",
+    "id": "e-mv6htcmr001eaf3x",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -133,7 +133,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001fdy95",
+    "id": "e-mv6htcmr001fege9",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -145,7 +145,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001gbs5l",
+    "id": "e-mv6htcmr001gxctb",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -157,7 +157,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001h00js",
+    "id": "e-mv6htcmr001hjtlx",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -169,7 +169,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001inigt",
+    "id": "e-mv6htcmr001i7k15",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -181,7 +181,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001jnqo9",
+    "id": "e-mv6htcmr001joi9i",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -193,7 +193,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001kcgkm",
+    "id": "e-mv6htcmr001km54d",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -205,7 +205,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001ljlkj",
+    "id": "e-mv6htcmr001lr74o",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -217,7 +217,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001mnw3d",
+    "id": "e-mv6htcmr001mmxq6",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -229,7 +229,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001numl6",
+    "id": "e-mv6htcmr001nr4fy",
     "type": "circle",
     "layer": "0",
     "color": null,
@@ -241,7 +241,7 @@
     "centerMark": true
    },
    {
-    "id": "e-mv6ej8pg001ohevb",
+    "id": "e-mv6htcmr001or4oa",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -262,7 +262,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001ppro9",
+    "id": "e-mv6htcmr001pqcpa",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -283,7 +283,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001qqlc7",
+    "id": "e-mv6htcmr001qwlbq",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -304,7 +304,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001rjvkt",
+    "id": "e-mv6htcmr001rauwy",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -325,7 +325,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001sqi6y",
+    "id": "e-mv6htcmr001sb8h8",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -346,7 +346,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001t5kkp",
+    "id": "e-mv6htcmr001trove",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -367,7 +367,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001uiasz",
+    "id": "e-mv6htcmr001uqxex",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -385,7 +385,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001vs767",
+    "id": "e-mv6htcmr001vaaov",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -403,7 +403,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pg001wtn86",
+    "id": "e-mv6htcmr001wlhi6",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -427,7 +427,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pg001x2061",
+    "id": "e-mv6htcmr001xpzq7",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -451,7 +451,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pg001ymfj4",
+    "id": "e-mv6htcmr001yj35j",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -475,7 +475,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pg001zyed0",
+    "id": "e-mv6htcmr001zltw6",
     "type": "text",
     "layer": "text",
     "color": null,

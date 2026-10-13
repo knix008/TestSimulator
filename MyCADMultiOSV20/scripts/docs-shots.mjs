@@ -57,12 +57,12 @@ for (const language of languages) {
     await m.eval(`(async () => {
       const t = await ${k}.actions.openTutorial({ lesson: 0 });
       t.instant = true;
-      t.panel.hidden = true;
+      t.hidePanel();
       window.__doc = {
         async run(li, si) {
           t.li = li; t.si = si;
           await t.lessons[li].steps[si].run(t.ctx());
-          t.hideMarks(); t.panel.hidden = true; t.cursor.hidden = true; t.ring.hidden = true; t.targetLayer.replaceChildren();
+          t.hideMarks(); t.hidePanel(); t.cursor.hidden = true; t.ring.hidden = true; t.targetLayer.replaceChildren();
           return ${k}.state.view3d;
         },
       };

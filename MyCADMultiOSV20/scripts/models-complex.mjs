@@ -350,7 +350,9 @@ export function shaftDetail() {
   const top = [];
   for (let i = 0; i + 1 < steps.length; i++) {
     const [x0, r] = steps[i]; const [x1] = steps[i + 1];
-    top.push({ x: x0 + (i ? 0 : 1.5), y: r - (i ? 0 : 1.5) }, { x: x0 + (i ? 0 : 0), y: r }, { x: x1 - 1, y: r }, { x: x1, y: r - 1 });
+    if (i) top.push({ x: x0, y: r });
+    else top.push({ x: x0, y: r - 1.5 }, { x: x0 + 1.5, y: r });
+    top.push({ x: x1 - 1, y: r }, { x: x1, y: r - 1 });
   }
   const outline = [...top, ...top.slice().reverse().map((p) => ({ x: p.x, y: -p.y }))];
   add(d, 'polyline', { points: outline, closed: true, lineWidth: 0.5 });

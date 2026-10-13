@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.173Z",
+ "saved": "2026-10-13T09:43:02.665Z",
  "drawing": {
-  "id": "dwg-mv6ej8pf0001r8ou",
+  "id": "dwg-mv6htcmq00014kfv",
   "title": "기어 쌍 (m2, z24/z16)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:11.954Z",
-  "updated": "2026-10-13T08:11:11.955Z",
+  "created": "2026-10-13T09:43:02.448Z",
+  "updated": "2026-10-13T09:43:02.450Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8pf0002yi9d",
+    "id": "e-mv6htcmq00028a1l",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -93,7 +93,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pf0003ldbp",
+    "id": "e-mv6htcmq0003q98d",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -115,7 +115,7 @@
     }
    },
    {
-    "id": "e-mv6ej8pf0004uidl",
+    "id": "e-mv6htcmq00041xqr",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -139,7 +139,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pf00058jy1",
+    "id": "e-mv6htcmq0005i5bg",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -163,7 +163,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pf00064skg",
+    "id": "e-mv6htcmq0006k9kg",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -187,7 +187,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6ej8pf0007lp08",
+    "id": "e-mv6htcmq0007rcgu",
     "type": "text",
     "layer": "text",
     "color": null,

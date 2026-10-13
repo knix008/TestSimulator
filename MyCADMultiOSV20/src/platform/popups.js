@@ -27,6 +27,7 @@ export const POPUPS = {
   stl: { width: 820, height: 540 },
   solid: { width: 940, height: 640 },
   coverage: { width: 1180, height: 640 },
+  tutorial: { width: 400, height: 380 },
 };
 
 export const popupKey = (kind) => `mycad.popup.${kind}`;

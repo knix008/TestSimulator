@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T08:11:12.188Z",
+ "saved": "2026-10-13T09:43:02.678Z",
  "drawing": {
-  "id": "dwg-mv6ej8ty00j8843p",
+  "id": "dwg-mv6htcr800h4boj9",
   "title": "단독주택 3D 모델 · 입면도",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T08:11:12.118Z",
-  "updated": "2026-10-13T08:11:12.168Z",
+  "created": "2026-10-13T09:43:02.612Z",
+  "updated": "2026-10-13T09:43:02.660Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6ej8ty00j9bkvz",
+    "id": "e-mv6htcr800h5j3kj",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -95,7 +95,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jatsm5",
+    "id": "e-mv6htcr800h6z2bf",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -195,7 +195,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jbfb4a",
+    "id": "e-mv6htcr800h7cdvl",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -295,7 +295,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jc8bqd",
+    "id": "e-mv6htcr800h8qb50",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -357,7 +357,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jdfexa",
+    "id": "e-mv6htcr800h9n96r",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -438,7 +438,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jevd45",
+    "id": "e-mv6htcr800hargi3",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -500,7 +500,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jfv8lt",
+    "id": "e-mv6htcr800hbz88p",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -581,7 +581,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jgdw5o",
+    "id": "e-mv6htcr800hc9vzg",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -605,7 +605,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jhs4lp",
+    "id": "e-mv6htcr800hddsgx",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -667,7 +667,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jij5ty",
+    "id": "e-mv6htcr800heyndr",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -729,7 +729,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jjmai4",
+    "id": "e-mv6htcr800hffjvl",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -753,7 +753,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jkcet5",
+    "id": "e-mv6htcr800hg00ab",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -777,7 +777,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jlnu3r",
+    "id": "e-mv6htcr800hhv261",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -819,7 +819,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jmk1o4",
+    "id": "e-mv6htcr800hia5b0",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -861,7 +861,7 @@
     }
    },
    {
-    "id": "e-mv6ej8ty00jnuwce",
+    "id": "e-mv6htcr800hj0mb0",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -885,7 +885,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jo36h5",
+    "id": "e-mv6htcr800hk30t5",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -909,7 +909,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jpkka1",
+    "id": "e-mv6htcr800hliimr",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -933,7 +933,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jqe5m4",
+    "id": "e-mv6htcr800hm9r0x",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -957,7 +957,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jrkr6w",
+    "id": "e-mv6htcr800hn9775",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -981,7 +981,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jsfrde",
+    "id": "e-mv6htcr800hob6mi",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1005,7 +1005,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jtfca7",
+    "id": "e-mv6htcr800hpckyz",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1029,7 +1029,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00ju9ai3",
+    "id": "e-mv6htcr800hqiuxw",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1053,7 +1053,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jvujid",
+    "id": "e-mv6htcr800hrt3vc",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1077,7 +1077,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jw94k5",
+    "id": "e-mv6htcr800hsngyi",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1101,7 +1101,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jx2y9o",
+    "id": "e-mv6htcr800htu2s3",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1125,7 +1125,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jy4iih",
+    "id": "e-mv6htcr800huepta",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1149,7 +1149,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00jzjyfx",
+    "id": "e-mv6htcr800hvmgi7",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1173,7 +1173,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00k0pnsl",
+    "id": "e-mv6htcr800hwv5wk",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1197,7 +1197,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00k13ner",
+    "id": "e-mv6htcr800hxc07l",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1221,7 +1221,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00k2v45g",
+    "id": "e-mv6htcr800hygzh2",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1245,7 +1245,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00k3q96v",
+    "id": "e-mv6htcr800hz29nd",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1269,7 +1269,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8ty00k4ndn4",
+    "id": "e-mv6htcr800i02nog",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -1293,7 +1293,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6ej8vb00k534or",
+    "id": "e-mv6htcsk00i1yttc",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1312,7 +1312,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00k6tqtq",
+    "id": "e-mv6htcsk00i2v29x",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1343,7 +1343,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00k7uvuy",
+    "id": "e-mv6htcsk00i3e4yt",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1386,7 +1386,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00k8whyf",
+    "id": "e-mv6htcsk00i4i6vo",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1533,7 +1533,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00k9bv95",
+    "id": "e-mv6htcsk00i5q9wk",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1584,7 +1584,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00ka28px",
+    "id": "e-mv6htcsk00i6gddj",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1679,7 +1679,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kbgxpc",
+    "id": "e-mv6htcsk00i7ebdt",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1702,7 +1702,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kc6kgb",
+    "id": "e-mv6htcsk00i826kp",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1725,7 +1725,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kdy5rw",
+    "id": "e-mv6htcsk00i9eu2l",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1748,7 +1748,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00keghpt",
+    "id": "e-mv6htcsk00ia10oj",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1775,7 +1775,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kf674c",
+    "id": "e-mv6htcsk00iblymr",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1794,7 +1794,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kgps0w",
+    "id": "e-mv6htcsk00icix4t",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1817,7 +1817,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00khdw70",
+    "id": "e-mv6htcsk00id95zw",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1844,7 +1844,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kiz8p8",
+    "id": "e-mv6htcsk00iepqpw",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1863,7 +1863,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kjm8w5",
+    "id": "e-mv6htcsk00ifxsvp",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1890,7 +1890,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kk3eqh",
+    "id": "e-mv6htcsk00ig8vol",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1925,7 +1925,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00klsqk4",
+    "id": "e-mv6htcsk00iha3hj",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1952,7 +1952,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00km79pj",
+    "id": "e-mv6htcsk00iiq7nt",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1975,7 +1975,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kn4g3a",
+    "id": "e-mv6htcsk00ijilrm",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -1994,7 +1994,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ko41x8",
+    "id": "e-mv6htcsk00ikvy9z",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2021,7 +2021,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kp5qoy",
+    "id": "e-mv6htcsk00ill870",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2044,7 +2044,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kqbtgv",
+    "id": "e-mv6htcsk00im7dei",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2063,7 +2063,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00krrq4a",
+    "id": "e-mv6htcsk00in82gz",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2082,7 +2082,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ks2iwf",
+    "id": "e-mv6htcsk00io3y1w",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2101,7 +2101,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ktje9j",
+    "id": "e-mv6htcsk00ipkjp4",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2120,7 +2120,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ku0qp3",
+    "id": "e-mv6htcsk00iq2grr",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2139,7 +2139,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kvh5yn",
+    "id": "e-mv6htcsk00irnmba",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2158,7 +2158,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kwvia9",
+    "id": "e-mv6htcsk00isrkap",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2177,7 +2177,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kx4wr5",
+    "id": "e-mv6htcsk00itzj5i",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2196,7 +2196,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ky37oi",
+    "id": "e-mv6htcsk00iugmfr",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2215,7 +2215,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00kzc9lw",
+    "id": "e-mv6htcsk00iv84r3",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2234,7 +2234,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l0824i",
+    "id": "e-mv6htcsk00iwm5t1",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2253,7 +2253,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l1mfpg",
+    "id": "e-mv6htcsk00ixaef2",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2272,7 +2272,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l24yi6",
+    "id": "e-mv6htcsk00iy237u",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2291,7 +2291,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l3utqa",
+    "id": "e-mv6htcsk00izfgui",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2310,7 +2310,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l43qpw",
+    "id": "e-mv6htcsk00j0by1o",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2329,7 +2329,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l5wrt6",
+    "id": "e-mv6htcsk00j1h9tf",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2348,7 +2348,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l67be4",
+    "id": "e-mv6htcsk00j23y4x",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2367,7 +2367,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l7on9e",
+    "id": "e-mv6htcsk00j3ph31",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2386,7 +2386,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l8m1x6",
+    "id": "e-mv6htcsk00j4jb2k",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2405,7 +2405,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00l9k1c7",
+    "id": "e-mv6htcsk00j5bjbg",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2424,7 +2424,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lawjht",
+    "id": "e-mv6htcsk00j69yha",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2443,7 +2443,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lb3ctz",
+    "id": "e-mv6htcsk00j7lqun",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2462,7 +2462,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lcqw71",
+    "id": "e-mv6htcsk00j83l3b",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2489,7 +2489,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00ldfef0",
+    "id": "e-mv6htcsk00j900pj",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2516,7 +2516,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00lemx6k",
+    "id": "e-mv6htcsk00jar16a",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2539,7 +2539,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lfqk1d",
+    "id": "e-mv6htcsk00jb4u7i",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2562,7 +2562,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lger4m",
+    "id": "e-mv6htcsk00jcsepg",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2585,7 +2585,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lhg99j",
+    "id": "e-mv6htcsk00jdaijz",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2608,7 +2608,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00li97hr",
+    "id": "e-mv6htcsk00je1wf2",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -2631,7 +2631,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ljz3i3",
+    "id": "e-mv6htcsk00jfcmsw",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2666,7 +2666,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lkq22g",
+    "id": "e-mv6htcsk00jged7h",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2685,7 +2685,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ll6crf",
+    "id": "e-mv6htcsk00jhc4u1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2693,15 +2693,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 21900,
-      "y": 2400
-     },
-     {
       "x": 22100,
-      "y": 2400
-     },
-     {
-      "x": 21500,
       "y": 2400
      },
      {
@@ -2709,10 +2701,10 @@
       "y": 2400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lm03zc",
+    "id": "e-mv6htcsk00jircl0",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2735,7 +2727,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lnlm9t",
+    "id": "e-mv6htcsk00jjxfzg",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2754,7 +2746,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00losijr",
+    "id": "e-mv6htcsk00jko05z",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2773,7 +2765,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lpvvhw",
+    "id": "e-mv6htcsk00jlnupb",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2792,26 +2784,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lqkyyo",
-    "type": "polyline",
-    "layer": "hidden",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 22100,
-      "y": 2205.7471264367814
-     },
-     {
-      "x": 22100,
-      "y": 2255.057471264368
-     }
-    ],
-    "closed": false
-   },
-   {
-    "id": "e-mv6ej8vb00lr8rbu",
+    "id": "e-mv6htcsk00jmlbn1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2830,7 +2803,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lsw2iu",
+    "id": "e-mv6htcsk00jnpm8m",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2853,7 +2826,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lt07cz",
+    "id": "e-mv6htcsk00jo0qwm",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2876,7 +2849,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lu58d8",
+    "id": "e-mv6htcsk00jpwtmi",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2899,7 +2872,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lv152p",
+    "id": "e-mv6htcsk00jquopl",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2913,20 +2886,12 @@
      {
       "x": 27100,
       "y": 2400
-     },
-     {
-      "x": 27300,
-      "y": 2400
-     },
-     {
-      "x": 27100,
-      "y": 2400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lw11u9",
+    "id": "e-mv6htcsk00jrqfoc",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2940,20 +2905,12 @@
      {
       "x": 27300,
       "y": 1100
-     },
-     {
-      "x": 27100,
-      "y": 1100
-     },
-     {
-      "x": 27300,
-      "y": 1100
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lx5z4o",
+    "id": "e-mv6htcsk00jsipj3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -2962,113 +2919,17 @@
     "points": [
      {
       "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 2900
-     },
-     {
-      "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 200
-     },
-     {
-      "x": 20360,
-      "y": 927.8801843317972
-     },
-     {
-      "x": 20360,
-      "y": 1643.75
-     },
-     {
-      "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 200
-     },
-     {
-      "x": 20360,
-      "y": 856.25
-     },
-     {
-      "x": 20360,
-      "y": 1207.8341013824884
-     },
-     {
-      "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20240,
-      "y": 2300
-     },
-     {
-      "x": 20240,
       "y": 2900
      },
      {
       "x": 20240,
-      "y": 2300
-     },
-     {
-      "x": 20240,
       "y": 200
-     },
-     {
-      "x": 20240,
-      "y": 2300
-     },
-     {
-      "x": 20240,
-      "y": 1892.1658986175116
-     },
-     {
-      "x": 20240,
-      "y": 1643.75
-     },
-     {
-      "x": 20240,
-      "y": 200
-     },
-     {
-      "x": 20240,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 20240,
-      "y": 2172.119815668203
-     },
-     {
-      "x": 20240,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 200
-     },
-     {
-      "x": 20360,
-      "y": 2300
-     },
-     {
-      "x": 20360,
-      "y": 2900
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lywd2p",
+    "id": "e-mv6htcsk00jt70ik",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3077,181 +2938,17 @@
     "points": [
      {
       "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23360,
-      "y": 2900
-     },
-     {
-      "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23360,
-      "y": 200
-     },
-     {
-      "x": 23360,
-      "y": 772.3502304147465
-     },
-     {
-      "x": 23360,
-      "y": 1643.75
-     },
-     {
-      "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23360,
-      "y": 1643.75
-     },
-     {
-      "x": 23360,
-      "y": 1493.4087417958385
-     },
-     {
-      "x": 23360,
-      "y": 1366.6666666666667
-     },
-     {
-      "x": 23360,
-      "y": 624.2424242424242
-     },
-     {
-      "x": 23360,
-      "y": 200
-     },
-     {
-      "x": 23360,
-      "y": 856.25
-     },
-     {
-      "x": 23360,
-      "y": 1052.3041474654378
-     },
-     {
-      "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23360,
-      "y": 200
-     },
-     {
-      "x": 23360,
-      "y": 524.810606060606
-     },
-     {
-      "x": 23360,
-      "y": 856.25
-     },
-     {
-      "x": 23360,
-      "y": 1585.4166666666667
-     },
-     {
-      "x": 23360,
-      "y": 1682.453567937439
-     },
-     {
-      "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23240,
       "y": 2900
      },
      {
       "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23240,
       "y": 200
-     },
-     {
-      "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23240,
-      "y": 2175.1221896383186
-     },
-     {
-      "x": 23240,
-      "y": 1975.189393939394
-     },
-     {
-      "x": 23240,
-      "y": 1643.75
-     },
-     {
-      "x": 23240,
-      "y": 1260.6060606060605
-     },
-     {
-      "x": 23240,
-      "y": 200
-     },
-     {
-      "x": 23240,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 23240,
-      "y": 200
-     },
-     {
-      "x": 23240,
-      "y": 1643.75
-     },
-     {
-      "x": 23240,
-      "y": 2047.6958525345622
-     },
-     {
-      "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23240,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 23240,
-      "y": 942.4242424242423
-     },
-     {
-      "x": 23240,
-      "y": 1875.7575757575758
-     },
-     {
-      "x": 23240,
-      "y": 2136.894288507192
-     },
-     {
-      "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23360,
-      "y": 2300
-     },
-     {
-      "x": 23240,
-      "y": 2300
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00lzb41v",
+    "id": "e-mv6htcsk00jub3xz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3274,7 +2971,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m0qya7",
+    "id": "e-mv6htcsk00jvyfd7",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3297,7 +2994,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m14zym",
+    "id": "e-mv6htcsk00jwmkid",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3306,25 +3003,17 @@
     "points": [
      {
       "x": 23240,
-      "y": 2300
-     },
-     {
-      "x": 23240,
       "y": 2900
-     },
-     {
-      "x": 23240,
-      "y": 2300
      },
      {
       "x": 23240,
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m2fhmm",
+    "id": "e-mv6htcsk00jxv0bf",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3333,25 +3022,17 @@
     "points": [
      {
       "x": 20240,
-      "y": 2300
-     },
-     {
-      "x": 20240,
       "y": 2900
-     },
-     {
-      "x": 20240,
-      "y": 2300
      },
      {
       "x": 20240,
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m31ke0",
+    "id": "e-mv6htcsk00jy15dj",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3360,25 +3041,17 @@
     "points": [
      {
       "x": 15460,
-      "y": 2300
-     },
-     {
-      "x": 15460,
       "y": 200
-     },
-     {
-      "x": 15460,
-      "y": 2300
      },
      {
       "x": 15460,
       "y": 2900
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m41y90",
+    "id": "e-mv6htcsk00jzaec4",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3397,7 +3070,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m5ofib",
+    "id": "e-mv6htcsk00k0fvrp",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3420,7 +3093,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m6cqxu",
+    "id": "e-mv6htcsk00k1fhjo",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3439,7 +3112,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m7hjhw",
+    "id": "e-mv6htcsk00k2a1t9",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3462,7 +3135,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m8y4pv",
+    "id": "e-mv6htcsk00k3niai",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3485,7 +3158,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00m9zhfk",
+    "id": "e-mv6htcsk00k4w2fa",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3504,7 +3177,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mawn1b",
+    "id": "e-mv6htcsk00k5rusx",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3527,7 +3200,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mbfl7j",
+    "id": "e-mv6htcsk00k6ldkz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3550,7 +3223,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mcs178",
+    "id": "e-mv6htcsk00k7opaz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3569,7 +3242,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mdde61",
+    "id": "e-mv6htcsk00k8p3xz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3592,7 +3265,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00me2qh5",
+    "id": "e-mv6htcsk00k9ou2d",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3623,7 +3296,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mfnczd",
+    "id": "e-mv6htcsk00kai2la",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3642,7 +3315,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mg8lkk",
+    "id": "e-mv6htcsk00kbaaxn",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3661,7 +3334,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mh53l0",
+    "id": "e-mv6htcsk00kcioej",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3684,7 +3357,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mijnsq",
+    "id": "e-mv6htcsk00kdxnls",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3715,7 +3388,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mjnzka",
+    "id": "e-mv6htcsk00ke3ife",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3734,7 +3407,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mkq8t2",
+    "id": "e-mv6htcsk00kfz968",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3753,7 +3426,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ml3l5g",
+    "id": "e-mv6htcsk00kgak5w",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3776,7 +3449,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mmvx39",
+    "id": "e-mv6htcsk00kh7e9e",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3807,7 +3480,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mn3djf",
+    "id": "e-mv6htcsk00kiel3v",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3826,7 +3499,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00monub7",
+    "id": "e-mv6htcsk00kjcl4f",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3845,7 +3518,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mpzlt8",
+    "id": "e-mv6htcsk00kkark0",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3868,7 +3541,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mqu11q",
+    "id": "e-mv6htcsk00kl3d9x",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3899,7 +3572,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mr10e6",
+    "id": "e-mv6htcsk00kmgzku",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3918,7 +3591,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mslz1g",
+    "id": "e-mv6htcsk00kn67f0",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3937,7 +3610,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mtast7",
+    "id": "e-mv6htcsk00koz0kz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3960,7 +3633,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00muqpbh",
+    "id": "e-mv6htcsk00kptgpw",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -3991,7 +3664,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mvew54",
+    "id": "e-mv6htcsk00kqzsxx",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4010,7 +3683,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mwuk0m",
+    "id": "e-mv6htcsk00krjc15",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4029,7 +3702,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mxosok",
+    "id": "e-mv6htcsk00ks3w5u",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4052,7 +3725,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00myr0yv",
+    "id": "e-mv6htcsk00kt3y5a",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4062,56 +3735,16 @@
      {
       "x": 23100,
       "y": 200
-     },
-     {
-      "x": 23100,
-      "y": 2323
-     },
-     {
-      "x": 23100,
-      "y": 200
-     },
-     {
-      "x": 23100,
-      "y": 2516
-     },
-     {
-      "x": 22000,
-      "y": 2516
-     },
-     {
-      "x": 23100,
-      "y": 2516
-     },
-     {
-      "x": 23100,
-      "y": 200
-     },
-     {
-      "x": 23100,
-      "y": 2709
      },
      {
       "x": 22000,
       "y": 2709
-     },
-     {
-      "x": 23100,
-      "y": 2709
-     },
-     {
-      "x": 23100,
-      "y": 200
-     },
-     {
-      "x": 23100,
-      "y": 2902
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00mz2vd8",
+    "id": "e-mv6htcsk00kunm58",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4128,7 +3761,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vb00n062dv",
+    "id": "e-mv6htcsk00kvae27",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4147,7 +3780,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n1rvtv",
+    "id": "e-mv6htcsk00kwp719",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4174,7 +3807,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n2rdfp",
+    "id": "e-mv6htcsk00kxavoy",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4209,7 +3842,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n3iena",
+    "id": "e-mv6htcsk00kyy1fs",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4228,7 +3861,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n4uk4h",
+    "id": "e-mv6htcsk00kzdl1a",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4255,7 +3888,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n50a7l",
+    "id": "e-mv6htcsk00l0wbmp",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4290,7 +3923,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n6occy",
+    "id": "e-mv6htcsk00l1h6b1",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4317,7 +3950,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n7whh6",
+    "id": "e-mv6htcsk00l2yamy",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -4348,7 +3981,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n8y4ji",
+    "id": "e-mv6htcsk00l3wa3q",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4360,38 +3993,14 @@
       "y": 19331.75949471607
      },
      {
-      "x": 15100,
-      "y": 9931.759494716067
-     },
-     {
       "x": 27500,
       "y": 9931.759494716067
-     },
-     {
-      "x": 15100,
-      "y": 9931.759494716067
-     },
-     {
-      "x": 15100,
-      "y": 19331.75949471607
-     },
-     {
-      "x": 27500,
-      "y": 19331.75949471607
-     },
-     {
-      "x": 27500,
-      "y": 9931.759494716067
-     },
-     {
-      "x": 27500,
-      "y": 19331.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00n95kjh",
+    "id": "e-mv6htcsk00l4ih4n",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4502,7 +4111,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nadxc3",
+    "id": "e-mv6htcsk00l540r1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4533,7 +4142,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00nbtses",
+    "id": "e-mv6htcsk00l6ulzk",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4541,15 +4150,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 25700,
-      "y": 10131.759494716067
-     },
-     {
       "x": 26100,
-      "y": 10131.759494716067
-     },
-     {
-      "x": 25700,
       "y": 10131.759494716067
      },
      {
@@ -4557,10 +4158,10 @@
       "y": 10131.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nc0l43",
+    "id": "e-mv6htcsk00l77ujy",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4568,15 +4169,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 18300,
-      "y": 10131.759494716067
-     },
-     {
       "x": 18800,
-      "y": 10131.759494716067
-     },
-     {
-      "x": 18300,
       "y": 10131.759494716067
      },
      {
@@ -4584,10 +4177,10 @@
       "y": 10131.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ndc6ig",
+    "id": "e-mv6htcsk00l8yl42",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4622,7 +4215,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00ne7npt",
+    "id": "e-mv6htcsk00l9swot",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4630,23 +4223,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 26100,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 24900,
-      "y": 10331.759494716067
-     },
-     {
       "x": 24500,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 24900,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 26100,
       "y": 10331.759494716067
      },
      {
@@ -4654,10 +4231,10 @@
       "y": 10131.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nfjfb6",
+    "id": "e-mv6htcsk00lap8m7",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4665,27 +4242,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 18800,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 17522.222222222223,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 17300,
-      "y": 10331.759494716067
-     },
-     {
       "x": 16800,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 17300,
-      "y": 10331.759494716067
-     },
-     {
-      "x": 18800,
       "y": 10331.759494716067
      },
      {
@@ -4693,10 +4250,10 @@
       "y": 10131.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ngty9j",
+    "id": "e-mv6htcsk00lbr790",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4719,7 +4276,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nh506c",
+    "id": "e-mv6htcsk00lcb3k9",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4742,7 +4299,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ni62x1",
+    "id": "e-mv6htcsk00ldqa7z",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4754,58 +4311,14 @@
       "y": 18931.75949471607
      },
      {
-      "x": 25700,
-      "y": 18931.75949471607
-     },
-     {
       "x": 24500,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 25700,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 26100,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 26100,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 24900,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 24500,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 24804,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 24900,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 24966.704871060174,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 25022.69142569495,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 26100,
       "y": 19131.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00njgufm",
+    "id": "e-mv6htcsk00lel2wy",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4813,15 +4326,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 21900,
-      "y": 18931.75949471607
-     },
-     {
       "x": 22100,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 21900,
       "y": 18931.75949471607
      },
      {
@@ -4829,10 +4334,10 @@
       "y": 18931.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nku4nl",
+    "id": "e-mv6htcsk00lfv0te",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4844,85 +4349,33 @@
       "y": 18931.75949471607
      },
      {
-      "x": 18150,
-      "y": 18931.75949471607
-     },
-     {
       "x": 16800,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 18150,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 18600,
-      "y": 18931.75949471607
-     },
-     {
-      "x": 18600,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 17522.222222222223,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 17250,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 16800,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 17250,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 18600,
       "y": 19131.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nlht2i",
+    "id": "e-mv6htcsk00lgzuj5",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "points": [
-     {
-      "x": 22100,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 21500,
-      "y": 19131.75949471607
-     },
      {
       "x": 21300,
       "y": 19131.75949471607
      },
      {
-      "x": 21500,
-      "y": 19131.75949471607
-     },
-     {
-      "x": 22100,
-      "y": 19131.75949471607
-     },
-     {
       "x": 22100,
       "y": 18931.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nm40p0",
+    "id": "e-mv6htcsk00lh5syo",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4949,7 +4402,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nn2mi4",
+    "id": "e-mv6htcsk00li0m27",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4972,7 +4425,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00no5g73",
+    "id": "e-mv6htcsk00ljdta6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -4995,42 +4448,26 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00npgiqw",
+    "id": "e-mv6htcsk00lki650",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "points": [
-     {
-      "x": 15300,
-      "y": 13931.759494716067
-     },
-     {
-      "x": 15300,
-      "y": 13481.759494716067
-     },
      {
       "x": 15300,
       "y": 12131.759494716067
-     },
-     {
-      "x": 15300,
-      "y": 13481.759494716067
-     },
-     {
-      "x": 15300,
-      "y": 13931.759494716067
      },
      {
       "x": 15500,
       "y": 13931.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nqr0dh",
+    "id": "e-mv6htcsk00lledl9",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5053,7 +4490,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nrd0pg",
+    "id": "e-mv6htcsk00lmu2x2",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5108,7 +4545,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ns6sd6",
+    "id": "e-mv6htcsk00lnageg",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5120,46 +4557,14 @@
       "y": 17531.75949471607
      },
      {
-      "x": 27300,
-      "y": 16631.75949471607
-     },
-     {
-      "x": 27300,
-      "y": 16331.759494716067
-     },
-     {
-      "x": 27300,
-      "y": 16631.75949471607
-     },
-     {
-      "x": 27300,
-      "y": 17531.75949471607
-     },
-     {
-      "x": 27100,
-      "y": 17531.75949471607
-     },
-     {
-      "x": 27100,
-      "y": 17231.75949471607
-     },
-     {
       "x": 27100,
       "y": 16331.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 17231.75949471607
-     },
-     {
-      "x": 27100,
-      "y": 17531.75949471607
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nt69r3",
+    "id": "e-mv6htcsk00loons6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5171,50 +4576,14 @@
       "y": 12831.759494716067
      },
      {
-      "x": 27300,
-      "y": 11931.759494716067
-     },
-     {
-      "x": 27300,
-      "y": 11631.759494716067
-     },
-     {
-      "x": 27300,
-      "y": 11931.759494716067
-     },
-     {
-      "x": 27300,
-      "y": 12831.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 12831.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 12531.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 11798.426161382733
-     },
-     {
       "x": 27100,
       "y": 11631.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 12531.759494716067
-     },
-     {
-      "x": 27100,
-      "y": 12831.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nuangj",
+    "id": "e-mv6htcsk00lpx9ui",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5237,7 +4606,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nv07bi",
+    "id": "e-mv6htcsk00lq3f9s",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5260,7 +4629,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00nwc64b",
+    "id": "e-mv6htcsk00lr7226",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5307,7 +4676,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00nxwuad",
+    "id": "e-mv6htcsk00lsm6k9",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5338,7 +4707,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00nyo7do",
+    "id": "e-mv6htcsk00lt5len",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5373,7 +4742,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00nzhygf",
+    "id": "e-mv6htcsk00luv1js",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5420,7 +4789,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o0w8fj",
+    "id": "e-mv6htcsk00lvd2t9",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5459,7 +4828,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o159t2",
+    "id": "e-mv6htcsk00lwzs9t",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5494,7 +4863,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o2dziy",
+    "id": "e-mv6htcsk00lx5otg",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5533,7 +4902,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o3uy2m",
+    "id": "e-mv6htcsk00lyjf7a",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5568,7 +4937,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o4ohpk",
+    "id": "e-mv6htcsk00lzcpf0",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5580,38 +4949,14 @@
       "y": 14691.759494716067
      },
      {
-      "x": 23360,
-      "y": 14571.759494716067
-     },
-     {
       "x": 27140,
       "y": 14571.759494716067
-     },
-     {
-      "x": 23360,
-      "y": 14571.759494716067
-     },
-     {
-      "x": 23360,
-      "y": 14691.759494716067
-     },
-     {
-      "x": 27140,
-      "y": 14691.759494716067
-     },
-     {
-      "x": 27140,
-      "y": 14571.759494716067
-     },
-     {
-      "x": 27140,
-      "y": 14691.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00o550j1",
+    "id": "e-mv6htcsk00m0zl9h",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5658,7 +5003,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o6ewvn",
+    "id": "e-mv6htcsk00m1v53q",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5689,7 +5034,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o7g46v",
+    "id": "e-mv6htcsk00m2akqj",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5724,7 +5069,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o8wj0x",
+    "id": "e-mv6htcsk00m3n982",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5771,7 +5116,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00o9gehl",
+    "id": "e-mv6htcsk00m48wny",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5802,7 +5147,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00oabqbi",
+    "id": "e-mv6htcsk00m5p2ls",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5837,7 +5182,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00ob11av",
+    "id": "e-mv6htcsk00m6ujrt",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5856,7 +5201,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ocx2mf",
+    "id": "e-mv6htcsk00m7imrj",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5875,7 +5220,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00odduk5",
+    "id": "e-mv6htcsk00m8ujge",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5898,7 +5243,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oene16",
+    "id": "e-mv6htcsk00m9osxp",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5917,7 +5262,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ofoy2e",
+    "id": "e-mv6htcsk00maggen",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5940,7 +5285,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ogrmj8",
+    "id": "e-mv6htcsk00mbcw90",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -5959,7 +5304,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ohrjjt",
+    "id": "e-mv6htcsk00mcrn97",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6034,7 +5379,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oicava",
+    "id": "e-mv6htcsk00md70zx",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6069,7 +5414,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oj6fje",
+    "id": "e-mv6htcsk00me6gk7",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6092,7 +5437,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00okzz2o",
+    "id": "e-mv6htcsk00mfpx1v",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6127,7 +5472,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ol2ari",
+    "id": "e-mv6htcsk00mg0l0p",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6150,7 +5495,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00om48pr",
+    "id": "e-mv6htcsk00mhltn3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6185,7 +5530,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00onmff6",
+    "id": "e-mv6htcsk00mindai",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6208,7 +5553,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ooqfmw",
+    "id": "e-mv6htcsk00mjam5a",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6243,7 +5588,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00op2pzu",
+    "id": "e-mv6htcsk00mk8249",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6266,7 +5611,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oqs8e2",
+    "id": "e-mv6htcsk00ml9wpj",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6301,7 +5646,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oriy9y",
+    "id": "e-mv6htcsk00mmwmnm",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6324,7 +5669,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ospxdp",
+    "id": "e-mv6htcsk00mn7s7i",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6359,7 +5704,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00otp14o",
+    "id": "e-mv6htcsk00mos3km",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6382,7 +5727,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ouz47a",
+    "id": "e-mv6htcsk00mpaq4k",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6417,7 +5762,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ovkc6l",
+    "id": "e-mv6htcsk00mq1dpp",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6440,7 +5785,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ow9mv4",
+    "id": "e-mv6htcsk00mrewkp",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6475,7 +5820,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oxo4os",
+    "id": "e-mv6htcsk00msmcpe",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6498,7 +5843,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00oylq83",
+    "id": "e-mv6htcsk00mte38e",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6529,7 +5874,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ozngq3",
+    "id": "e-mv6htcsk00mu8yfo",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6556,7 +5901,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p0py9e",
+    "id": "e-mv6htcsk00mvxf73",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6568,22 +5913,14 @@
       "y": 14381.759494716067
      },
      {
-      "x": 23100,
-      "y": 14631.759494716067
-     },
-     {
       "x": 22000,
-      "y": 14631.759494716067
-     },
-     {
-      "x": 23100,
       "y": 14631.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p1etax",
+    "id": "e-mv6htcsk00mwm3lv",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6614,7 +5951,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p2y7ku",
+    "id": "e-mv6htcsk00mxk3g5",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6641,7 +5978,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p3mnpw",
+    "id": "e-mv6htcsk00mylma2",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6653,22 +5990,14 @@
       "y": 14881.759494716067
      },
      {
-      "x": 23100,
-      "y": 15131.759494716067
-     },
-     {
       "x": 22000,
-      "y": 15131.759494716067
-     },
-     {
-      "x": 23100,
       "y": 15131.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p4sb5o",
+    "id": "e-mv6htcsk00mz83lv",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -6680,38 +6009,14 @@
       "y": 9931.759494716067
      },
      {
-      "x": 20400,
-      "y": 8331.759494716067
-     },
-     {
       "x": 23000,
       "y": 8331.759494716067
-     },
-     {
-      "x": 20400,
-      "y": 8331.759494716067
-     },
-     {
-      "x": 20400,
-      "y": 9931.759494716067
-     },
-     {
-      "x": 23000,
-      "y": 9931.759494716067
-     },
-     {
-      "x": 23000,
-      "y": 8331.759494716067
-     },
-     {
-      "x": 23000,
-      "y": 9931.759494716067
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p52wxp",
+    "id": "e-mv6htcsk00n0f7mb",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -7298,7 +6603,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00p6x4ly",
+    "id": "e-mv6htcsk00n15h8s",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -7885,7 +7190,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00p7q5af",
+    "id": "e-mv6htcsk00n2e8gf",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -7904,7 +7209,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p84cx9",
+    "id": "e-mv6htcsk00n3o451",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -7931,7 +7236,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00p9jnoo",
+    "id": "e-mv6htcsk00n41w7v",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -7948,7 +7253,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vb00pa4xf1",
+    "id": "e-mv6htcsk00n5rzi4",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -7991,7 +7296,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pba1z9",
+    "id": "e-mv6htcsk00n670o3",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8026,7 +7331,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pctps5",
+    "id": "e-mv6htcsk00n7bj95",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8069,7 +7374,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pdx4ky",
+    "id": "e-mv6htcsk00n8j23j",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8092,7 +7397,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00peeop8",
+    "id": "e-mv6htcsk00n9w7js",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8119,7 +7424,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pfj2wo",
+    "id": "e-mv6htcsk00naz92a",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8142,7 +7447,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pgxt19",
+    "id": "e-mv6htcsk00nbuzrs",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8161,7 +7466,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00phu06u",
+    "id": "e-mv6htcsk00ncngcf",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8220,7 +7525,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00pi02h0",
+    "id": "e-mv6htcsk00nd2r3r",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8263,7 +7568,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00pjsbqe",
+    "id": "e-mv6htcsk00nei03x",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8286,7 +7591,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pkg3tz",
+    "id": "e-mv6htcsk00nfd6m9",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8317,7 +7622,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00plwiu0",
+    "id": "e-mv6htcsk00ngvf5m",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8344,7 +7649,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00pm2q60",
+    "id": "e-mv6htcsk00nhqqmh",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8371,7 +7676,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6ej8vb00pnvk48",
+    "id": "e-mv6htcsk00ni81jy",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8390,7 +7695,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pocpvx",
+    "id": "e-mv6htcsk00nje29v",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8409,7 +7714,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pppabp",
+    "id": "e-mv6htcsk00nkkufy",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8428,7 +7733,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pqffgp",
+    "id": "e-mv6htcsk00nlzzga",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8451,7 +7756,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00prpn2k",
+    "id": "e-mv6htcsk00nmiwsr",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8463,22 +7768,14 @@
       "y": 200
      },
      {
-      "x": 30520,
-      "y": 1400
-     },
-     {
       "x": 30519.923797303745,
       "y": 2600
-     },
-     {
-      "x": 30520,
-      "y": 1400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ps2yad",
+    "id": "e-mv6htcsk00nnnq5j",
     "type": "polyline",
     "layer": "0",
     "color": null,
@@ -8490,22 +7787,14 @@
       "y": 200
      },
      {
-      "x": 30280,
-      "y": 1400
-     },
-     {
       "x": 30280.076202696255,
       "y": 2600
-     },
-     {
-      "x": 30280,
-      "y": 1400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00ptoxwa",
+    "id": "e-mv6htcsk00noaf8t",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8519,20 +7808,12 @@
      {
       "x": 32200,
       "y": 2400
-     },
-     {
-      "x": 32000,
-      "y": 2400
-     },
-     {
-      "x": 32200,
-      "y": 2400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pu06kq",
+    "id": "e-mv6htcsk00npy3l8",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8546,20 +7827,12 @@
      {
       "x": 32000,
       "y": 1100
-     },
-     {
-      "x": 32200,
-      "y": 1100
-     },
-     {
-      "x": 32000,
-      "y": 1100
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pv9525",
+    "id": "e-mv6htcsk00nq3erk",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8582,7 +7855,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pwza0x",
+    "id": "e-mv6htcsk00nr9mov",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8596,28 +7869,12 @@
      {
       "x": 41000,
       "y": 2400
-     },
-     {
-      "x": 40800,
-      "y": 2400
-     },
-     {
-      "x": 41000,
-      "y": 2400
-     },
-     {
-      "x": 40800,
-      "y": 2400
-     },
-     {
-      "x": 41000,
-      "y": 2400
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pxzxhx",
+    "id": "e-mv6htcsk00nst5lp",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8631,28 +7888,12 @@
      {
       "x": 40800,
       "y": 1100
-     },
-     {
-      "x": 41000,
-      "y": 1100
-     },
-     {
-      "x": 40800,
-      "y": 1100
-     },
-     {
-      "x": 41000,
-      "y": 1100
-     },
-     {
-      "x": 40800,
-      "y": 1100
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vb00py3615",
+    "id": "e-mv6htcsk00ntvcwz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8687,7 +7928,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vb00pz73ro",
+    "id": "e-mv6htcsk00nuuevj",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8718,7 +7959,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q0eiur",
+    "id": "e-mv6htcsk00nvs8du",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8737,7 +7978,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q1bmix",
+    "id": "e-mv6htcsk00nwy6c1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8756,7 +7997,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q2txyx",
+    "id": "e-mv6htcsk00nx5ny8",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8775,7 +8016,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q3xd75",
+    "id": "e-mv6htcsk00nyla2r",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8798,7 +8039,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q4z9jq",
+    "id": "e-mv6htcsk00nz0vmd",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8807,41 +8048,17 @@
     "points": [
      {
       "x": 32160,
-      "y": 2300
-     },
-     {
-      "x": 32160,
       "y": 2900
-     },
-     {
-      "x": 32160,
-      "y": 2300
-     },
-     {
-      "x": 32160,
-      "y": 200
-     },
-     {
-      "x": 32160,
-      "y": 2300
-     },
-     {
-      "x": 32160,
-      "y": 2900
-     },
-     {
-      "x": 32160,
-      "y": 2300
      },
      {
       "x": 32160,
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q5x04x",
+    "id": "e-mv6htcsk00o0l1n3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8850,41 +8067,17 @@
     "points": [
      {
       "x": 40840,
-      "y": 2300
-     },
-     {
-      "x": 40840,
       "y": 2900
-     },
-     {
-      "x": 40840,
-      "y": 2300
-     },
-     {
-      "x": 40840,
-      "y": 200
-     },
-     {
-      "x": 40840,
-      "y": 2300
-     },
-     {
-      "x": 40840,
-      "y": 2900
-     },
-     {
-      "x": 40840,
-      "y": 2300
      },
      {
       "x": 40840,
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q6cdv9",
+    "id": "e-mv6htcsk00o1e7yb",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8907,7 +8100,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q7y5vd",
+    "id": "e-mv6htcsk00o2l2ky",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8942,7 +8135,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q83la7",
+    "id": "e-mv6htcsk00o36jrz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8961,7 +8154,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00q99ocj",
+    "id": "e-mv6htcsk00o4lm42",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -8980,7 +8173,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qaxotn",
+    "id": "e-mv6htcsk00o5mz13",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9019,7 +8212,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qbyn6c",
+    "id": "e-mv6htcsk00o6ofhq",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9042,7 +8235,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qc54qb",
+    "id": "e-mv6htcsk00o7hep6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9065,7 +8258,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qd9k46",
+    "id": "e-mv6htcsk00o8pe48",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9100,7 +8293,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qe2bpr",
+    "id": "e-mv6htcsk00o9p5kw",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9108,103 +8301,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 37000,
-      "y": 200
-     },
-     {
-      "x": 37000,
-      "y": 624.2424242424242
-     },
-     {
-      "x": 37000,
-      "y": 1366.6666666666667
-     },
-     {
-      "x": 37000,
-      "y": 1493.4087417958385
-     },
-     {
-      "x": 37000,
-      "y": 1643.75
-     },
-     {
-      "x": 37000,
-      "y": 2300
-     },
-     {
-      "x": 37281.25,
-      "y": 2300
-     },
-     {
       "x": 37900,
-      "y": 2300
-     },
-     {
-      "x": 37900,
-      "y": 1682.453567937439
-     },
-     {
-      "x": 37900,
-      "y": 1585.4166666666667
-     },
-     {
-      "x": 37900,
-      "y": 856.25
-     },
-     {
-      "x": 37900,
-      "y": 524.810606060606
-     },
-     {
-      "x": 37900,
-      "y": 200
-     },
-     {
-      "x": 37900,
-      "y": 1260.6060606060605
-     },
-     {
-      "x": 37900,
-      "y": 1643.75
-     },
-     {
-      "x": 37900,
-      "y": 1975.189393939394
-     },
-     {
-      "x": 37900,
-      "y": 2175.1221896383186
-     },
-     {
-      "x": 37900,
-      "y": 2300
-     },
-     {
-      "x": 37618.75,
-      "y": 2300
-     },
-     {
-      "x": 37000,
-      "y": 2300
-     },
-     {
-      "x": 37000,
-      "y": 2136.894288507192
-     },
-     {
-      "x": 37000,
-      "y": 1875.7575757575758
-     },
-     {
-      "x": 37000,
-      "y": 942.4242424242423
-     },
-     {
-      "x": 37000,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 37000,
       "y": 200
      },
      {
@@ -9212,10 +8309,10 @@
       "y": 2902
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qf8zmr",
+    "id": "e-mv6htcsk00oa99g3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9234,7 +8331,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qg3eax",
+    "id": "e-mv6htcsk00obhj2j",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9253,7 +8350,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qhecr6",
+    "id": "e-mv6htcsk00oc84y1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9304,7 +8401,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qi2w5c",
+    "id": "e-mv6htcsk00odvhg6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9323,7 +8420,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qjia5m",
+    "id": "e-mv6htcsk00oe0u1h",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9346,7 +8443,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qkoqmq",
+    "id": "e-mv6htcsk00ofykh7",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9369,7 +8466,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qlxhjh",
+    "id": "e-mv6htcsk00ogw9rm",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9378,97 +8475,17 @@
     "points": [
      {
       "x": 37940,
-      "y": 2300
-     },
-     {
-      "x": 37940,
-      "y": 2900
-     },
-     {
-      "x": 37940,
-      "y": 2300
-     },
-     {
-      "x": 37940,
-      "y": 200
-     },
-     {
-      "x": 37940,
-      "y": 1268.75
-     },
-     {
-      "x": 37940,
-      "y": 1643.75
-     },
-     {
-      "x": 37940,
-      "y": 2300
-     },
-     {
-      "x": 37940,
-      "y": 200
-     },
-     {
-      "x": 37940,
-      "y": 856.25
-     },
-     {
-      "x": 37940,
-      "y": 2018.75
-     },
-     {
-      "x": 37940,
-      "y": 2300
-     },
-     {
-      "x": 38060,
-      "y": 2300
-     },
-     {
-      "x": 38060,
       "y": 2900
      },
      {
       "x": 38060,
-      "y": 2300
-     },
-     {
-      "x": 38060,
       "y": 200
-     },
-     {
-      "x": 38060,
-      "y": 1081.25
-     },
-     {
-      "x": 38060,
-      "y": 1643.75
-     },
-     {
-      "x": 38060,
-      "y": 2300
-     },
-     {
-      "x": 38060,
-      "y": 200
-     },
-     {
-      "x": 38060,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 38060,
-      "y": 1831.25
-     },
-     {
-      "x": 38060,
-      "y": 2300
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qmk8mb",
+    "id": "e-mv6htcsk00oh0wi3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9477,124 +8494,36 @@
     "points": [
      {
       "x": 37440,
-      "y": 2300
-     },
-     {
-      "x": 37440,
-      "y": 2900
-     },
-     {
-      "x": 37440,
-      "y": 2300
-     },
-     {
-      "x": 37440,
-      "y": 200
-     },
-     {
-      "x": 37440,
-      "y": 1239.3305439330543
-     },
-     {
-      "x": 37440,
-      "y": 1643.75
-     },
-     {
-      "x": 37440,
-      "y": 2300
-     },
-     {
-      "x": 37440,
-      "y": 200
-     },
-     {
-      "x": 37440,
-      "y": 856.25
-     },
-     {
-      "x": 37440,
-      "y": 2086.6108786610876
-     },
-     {
-      "x": 37440,
-      "y": 2300
-     },
-     {
-      "x": 37560,
-      "y": 2300
-     },
-     {
-      "x": 37560,
       "y": 2900
      },
      {
       "x": 37560,
-      "y": 2300
-     },
-     {
-      "x": 37560,
       "y": 200
-     },
-     {
-      "x": 37560,
-      "y": 1013.3891213389121
-     },
-     {
-      "x": 37560,
-      "y": 1643.75
-     },
-     {
-      "x": 37560,
-      "y": 2300
-     },
-     {
-      "x": 37560,
-      "y": 200
-     },
-     {
-      "x": 37560,
-      "y": 856.2500000000001
-     },
-     {
-      "x": 37560,
-      "y": 1860.6694560669457
-     },
-     {
-      "x": 37560,
-      "y": 2300
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qncklz",
+    "id": "e-mv6htcsk00oiz642",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
     "lineType": null,
     "lineWidth": null,
     "points": [
-     {
-      "x": 33750,
-      "y": 393
-     },
      {
       "x": 33500,
       "y": 393
      },
      {
       "x": 33750,
-      "y": 393
-     },
-     {
-      "x": 33750,
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qopvze",
+    "id": "e-mv6htcsk00ojvo3w",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9617,7 +8546,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qpfyr1",
+    "id": "e-mv6htcsk00okq9d1",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9640,7 +8569,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qq10v2",
+    "id": "e-mv6htcsk00olrx7d",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9653,21 +8582,13 @@
      },
      {
       "x": 34250,
-      "y": 779
-     },
-     {
-      "x": 34250,
-      "y": 200
-     },
-     {
-      "x": 34250,
       "y": 972
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qry6ul",
+    "id": "e-mv6htcsk00omawba",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9694,7 +8615,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qs5x5b",
+    "id": "e-mv6htcsk00ony1lm",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9713,7 +8634,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qta1oa",
+    "id": "e-mv6htcsk00oohok3",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9721,15 +8642,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 35000,
-      "y": 1358
-     },
-     {
       "x": 34750,
-      "y": 1358
-     },
-     {
-      "x": 35000,
       "y": 1358
      },
      {
@@ -9737,10 +8650,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qupkqv",
+    "id": "e-mv6htcsk00oppbrq",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9763,7 +8676,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qv2d7g",
+    "id": "e-mv6htcsk00oq6h2q",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9771,15 +8684,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 35250,
-      "y": 1551
-     },
-     {
       "x": 35000,
-      "y": 1551
-     },
-     {
-      "x": 35250,
       "y": 1551
      },
      {
@@ -9787,10 +8692,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qwfm9l",
+    "id": "e-mv6htcsk00or5zgu",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9813,7 +8718,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qxdc7y",
+    "id": "e-mv6htcsk00os1jqz",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9821,15 +8726,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 35500,
-      "y": 1744
-     },
-     {
       "x": 35250,
-      "y": 1744
-     },
-     {
-      "x": 35500,
       "y": 1744
      },
      {
@@ -9837,10 +8734,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qyvw77",
+    "id": "e-mv6htcsk00othotn",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9863,7 +8760,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00qzbf4j",
+    "id": "e-mv6htcsk00ouatbt",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9871,15 +8768,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 35750,
-      "y": 1937
-     },
-     {
       "x": 35500,
-      "y": 1937
-     },
-     {
-      "x": 35750,
       "y": 1937
      },
      {
@@ -9887,10 +8776,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r0zfo4",
+    "id": "e-mv6htcsk00ovxiz6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9913,7 +8802,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r1hw3b",
+    "id": "e-mv6htcsk00owqmvm",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9921,15 +8810,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 36000,
-      "y": 2130
-     },
-     {
       "x": 35750,
-      "y": 2130
-     },
-     {
-      "x": 36000,
       "y": 2130
      },
      {
@@ -9937,10 +8818,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r2luyr",
+    "id": "e-mv6htcsk00oxim7t",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9963,7 +8844,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r3ygyr",
+    "id": "e-mv6htcsk00oy9f8i",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -9971,15 +8852,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 36250,
-      "y": 2323
-     },
-     {
       "x": 36000,
-      "y": 2323
-     },
-     {
-      "x": 36250,
       "y": 2323
      },
      {
@@ -9987,10 +8860,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r4tbyp",
+    "id": "e-mv6htcsk00ozfdi6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10013,7 +8886,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r560wk",
+    "id": "e-mv6htcsk00p0op8y",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10021,15 +8894,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 36500,
-      "y": 2516
-     },
-     {
       "x": 36250,
-      "y": 2516
-     },
-     {
-      "x": 36500,
       "y": 2516
      },
      {
@@ -10037,10 +8902,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r6p2ea",
+    "id": "e-mv6htcsk00p1d21j",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10063,7 +8928,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r7kow5",
+    "id": "e-mv6htcsk00p2x0u5",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10071,15 +8936,7 @@
     "lineWidth": null,
     "points": [
      {
-      "x": 36750,
-      "y": 2709
-     },
-     {
       "x": 36500,
-      "y": 2709
-     },
-     {
-      "x": 36750,
       "y": 2709
      },
      {
@@ -10087,10 +8944,10 @@
       "y": 200
      }
     ],
-    "closed": true
+    "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r8bgxk",
+    "id": "e-mv6htcsk00p3bak6",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10113,7 +8970,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00r99u1o",
+    "id": "e-mv6htcsk00p4lw24",
     "type": "polyline",
     "layer": "hidden",
     "color": null,
@@ -10136,7 +8993,7 @@
     "closed": false
    },
    {
-    "id": "e-mv6ej8vc00ras0sk",
+    "id": "e-mv6htcsk00p5r9jo",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -10153,7 +9010,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6ej8vc00rbt41x",
+    "id": "e-mv6htcsk00p6rol0",
     "type": "text",
     "layer": "text",
     "color": null,
