@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   moveWindow: (step) => ipcRenderer.invoke("window-move", step),
   onWindowState: (callback) => ipcRenderer.on("window-state", (_event, state) => callback(state)),
   listFonts: () => ipcRenderer.invoke("list-fonts"),
+  isOnline: () => ipcRenderer.invoke("is-online"),
   fetch: (url, options) => ipcRenderer.invoke("fetch-url", url, options),
   openFile: (opts) => ipcRenderer.invoke("open-file", opts),
   saveFile: (opts) => ipcRenderer.invoke("save-file", opts),

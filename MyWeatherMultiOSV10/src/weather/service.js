@@ -1,3 +1,4 @@
+import { isOfflineError } from "../core/errors.js";
 import { aggregate } from "./aggregate.js";
 import { createProviders } from "./providers.js";
 
@@ -25,7 +26,7 @@ export async function loadWeather(location, options) {
         const json = await response.json();
         return { id: provider.id, ok: true, data: provider.parse(json) };
       } catch (error) {
-        return { id: provider.id, ok: false, error: error?.message || String(error), name: error?.name };
+        return { id: provider.id, ok: false, error: error?.message || String(error), name: error?.name, code: error?.code || "" };
       } finally {
         finished += 1;
         options.onProgress?.(Math.round((finished / providers.length) * 100), provider.id);
@@ -35,6 +36,11 @@ export async function loadWeather(location, options) {
   if (results.every((result) => result.name === "AbortError")) {
     const error = new Error("Aborted");
     error.name = "AbortError";
+    throw error;
+  }
+  if (results.length && results.every((result) => isOfflineError({ code: result.code, name: result.name, message: result.error }))) {
+    const error = new Error("OFFLINE");
+    error.code = "OFFLINE";
     throw error;
   }
   return aggregate(results);

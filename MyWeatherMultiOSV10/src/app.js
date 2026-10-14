@@ -2,7 +2,7 @@ import { WINDOW_TITLE } from "./core/app-info.js";
 import { copyRange, cutText, pasteText } from "./core/clipboard.js";
 import { createDocument, createPlace, createTab, displayCity, displayCountry, parseDocument, serializeDocument, suggestedFileName } from "./core/document.js";
 import { acceptImage, classifyDrop } from "./core/drop.js";
-import { AppError, normalizeError } from "./core/errors.js";
+import { AppError, isOfflineError, normalizeError } from "./core/errors.js";
 import { resolveFontList } from "./core/fonts.js";
 import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
@@ -28,6 +28,7 @@ import {
   buildForecastSpec,
   buildPrintSpec,
   buildProgressSpec,
+  buildOfflineSpec,
   applyPopupLanguage,
   buildSearchSpec,
   buildSettingsSpec,
@@ -438,6 +439,10 @@ class WeatherApp {
     } catch (error) {
       if (error?.name === "AbortError") {
         this.setStatus(this.t("status.cancelled"));
+        return;
+      }
+      if (isOfflineError(error)) {
+        await this.noteOffline(false);
         return;
       }
       this.reportError(error, id);
@@ -1452,6 +1457,12 @@ class WeatherApp {
 
   async refreshWeather({ quiet = false, progress = false, all = false } = {}) {
     if (quiet && this.refreshJob) return;
+    if (!(await this.connected())) {
+      await this.noteOffline(quiet);
+      return;
+    }
+    this.offlineTold = false;
+    this.pendingOffline = false;
     const generation = (this.refreshGeneration || 0) + 1;
     this.refreshGeneration = generation;
     this.weatherAbort?.abort();
@@ -1471,6 +1482,41 @@ class WeatherApp {
     } finally {
       if (this.refreshGeneration === generation) this.refreshJob = null;
     }
+    if (this.refreshGeneration !== generation || this.destroyed || !this.pendingOffline) return;
+    this.pendingOffline = false;
+    if (!this.progressAborted) await this.noteOffline(quiet);
+  }
+
+  /** The machine itself says there is no internet, so a request would only sit and wait. */
+  async connected() {
+    if (typeof this.platform.isOnline !== "function") return true;
+    try {
+      return (await this.platform.isOnline()) !== false;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * One confirmation is enough. Automatic retries stay quiet until the user asks again
+   * or a later attempt finds the connection back.
+   */
+  async noteOffline(quiet) {
+    if (this.destroyed) return;
+    this.setStatus(this.t("status.ready"));
+    const tell = !quiet || !this.offlineTold;
+    this.offlineTold = true;
+    if (tell) await this.showOfflineNotice();
+  }
+
+  showOfflineNotice() {
+    if (this.offlineNotice) return this.offlineNotice;
+    const spec = buildOfflineSpec((key, vars) => this.t(key, vars));
+    const pending = Promise.resolve(this.openPopup(spec)).finally(() => {
+      if (this.offlineNotice === pending) this.offlineNotice = null;
+    });
+    this.offlineNotice = pending;
+    return pending;
   }
 
   async loadTabs(tabs, signal, quiet, report) {
@@ -1495,6 +1541,10 @@ class WeatherApp {
         }
       } catch (error) {
         if (error?.name === "AbortError" || signal.aborted || this.progressAborted) break;
+        if (isOfflineError(error)) {
+          failed = error;
+          break;
+        }
         failed = error;
         if (!quiet) break;
       }
@@ -1502,6 +1552,11 @@ class WeatherApp {
     if (this.destroyed) return;
     if (signal.aborted || this.progressAborted) {
       this.setStatus(this.t("status.cancelled"));
+      return;
+    }
+    if (isOfflineError(failed)) {
+      this.pendingOffline = true;
+      this.setStatus(this.t("status.ready"));
       return;
     }
     this.setStatus(this.t("status.ready"));
@@ -1545,16 +1600,25 @@ class WeatherApp {
   /**
    * Every city in the world is reachable: the built-in ones answer at once and the geocoder is
    * always asked as well, so a name that is not in the list still turns up. A search that cannot
-   * reach the network still shows what is known here.
+   * reach the network still shows what is known here, and only asks the user to confirm when
+   * nothing local is left to show.
    */
   async findCities(query) {
     const typed = String(query || "").trim();
     this.searchQuery = typed;
     if (!typed) return this.cityMatches("");
     const known = this.cityMatches(typed);
+    if (!(await this.connected())) {
+      if (!known.length) await this.noteOffline(false);
+      return known;
+    }
     try {
       await this.searchOnline(typed);
     } catch (error) {
+      if (isOfflineError(error)) {
+        if (!known.length) await this.noteOffline(false);
+        return this.cityMatches(typed);
+      }
       if (!known.length) throw error;
     }
     const results = this.cityMatches(typed);
@@ -1609,6 +1673,11 @@ class WeatherApp {
   }
 
   async searchOnline(query) {
+    if (!(await this.connected())) {
+      const error = new Error("OFFLINE");
+      error.code = "OFFLINE";
+      throw error;
+    }
     const field = this.root.querySelector("#search-input") || document.querySelector('[data-popup="settings"] [data-field="search"]');
     const typed = String(query ?? field?.value ?? this.searchQuery ?? "").trim();
     const q = typed || this.currentTab().place.cityEn;
@@ -1666,6 +1735,10 @@ class WeatherApp {
   }
 
   async openSourceLink() {
+    if (!(await this.connected())) {
+      await this.noteOffline(false);
+      return;
+    }
     const url = sourcePageUrl(this.currentTab().place);
     await this.withProgress("progress.link", async (report) => {
       report(40, url);

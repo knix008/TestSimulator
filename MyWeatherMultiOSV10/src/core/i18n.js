@@ -184,6 +184,8 @@ const ROWS = [
   ["popup.error", "오류", "Error"],
   ["popup.progress", "진행", "Progress"],
   ["popup.unsaved", "저장 확인", "Save changes"],
+  ["popup.offline", "인터넷 연결", "Internet"],
+  ["offline.message", "인터넷에 연결되어 있지 않습니다.", "The internet is not connected."],
   ["popup.print", "인쇄", "Print"],
   ["tab.general", "일반", "General"],
   ["tab.appearance", "모양", "Appearance"],

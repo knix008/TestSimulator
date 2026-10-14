@@ -1248,6 +1248,85 @@ export function registerGui(h) {
       assert.match(platform.clipboardText, /HTTP 500/);
     });
   });
+  h.test("no internet connection shows a confirm popup and does not wait on the network", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.online = false;
+      let called = 0;
+      platform.fetchImpl = async () => {
+        called += 1;
+        return jsonResponse({});
+      };
+      const pending = app.run("refresh");
+      await settle();
+      assert.equal(called, 0, "the request is not started");
+      assert.equal(document.querySelector('[data-popup="progress"]'), null, "no progress window to wait on");
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.match(popup.textContent, /인터넷에 연결되어 있지 않습니다/);
+      assert.equal(popup.querySelector('[data-action="ok"]').textContent.trim(), "확인");
+      assert.equal(popupFits(popup).fits, true);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(document.querySelector('[data-popup="offline"]'), null);
+      assert.equal(document.querySelector('[data-popup="error"]'), null);
+      await app.refreshWeather({ quiet: true });
+      assert.equal(document.querySelector('[data-popup="offline"]'), null, "a later automatic refresh stays quiet");
+      const manual = app.run("refresh");
+      await settle();
+      assert.ok(document.querySelector('[data-popup="offline"]'));
+      document.querySelector('[data-popup="offline"] [data-action="ok"]').click();
+      await manual;
+    });
+  });
+  h.test("a connection that fails immediately asks for confirmation instead of an error report", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.fetchImpl = async () => {
+        const error = new Error("Failed to fetch");
+        throw error;
+      };
+      const pending = app.run("refresh");
+      await settle();
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.equal(document.querySelector('[data-popup="error"]'), null);
+      assert.equal(document.querySelector('[data-popup="progress"]'), null);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.statusMessage, "준비");
+    });
+  });
+  h.test("offline city search keeps known cities and confirms only when nothing local matches", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.online = false;
+      let called = 0;
+      platform.fetchImpl = async () => {
+        called += 1;
+        throw new Error("should not fetch");
+      };
+      const opened = app.run("add-city");
+      await settle();
+      const search = document.querySelector('[data-popup="search"]');
+      search.querySelector('[data-field="query"]').value = "서울";
+      search.querySelector('[data-action="city-search"]').click();
+      await settle();
+      assert.equal(called, 0);
+      assert.deepEqual(
+        [...search.querySelectorAll(".city-name")].map((node) => node.textContent),
+        ["서울"],
+      );
+      assert.equal(document.querySelector('[data-popup="offline"]'), null);
+      search.querySelector('[data-field="query"]').value = "Atlantis";
+      search.querySelector('[data-action="city-search"]').click();
+      await settle();
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.equal(called, 0);
+      popup.querySelector('[data-action="ok"]').click();
+      await settle();
+      search.querySelector('[data-action="close"]').click();
+      await opened;
+    });
+  });
   h.test("online search, download, and source link show progress", async () => {
     await withApp(async ({ app, platform }) => {
       platform.fetchImpl = async (url) => {

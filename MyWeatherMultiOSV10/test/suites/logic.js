@@ -345,6 +345,22 @@ export function registerLogic(h) {
     assert.equal(seen.at(-1)[0], 100);
     assert.equal(weather.sources.find((source) => source.id === "metno").ok, false);
   });
+  h.test("loadWeather reports a dead connection without treating it as a source error", async () => {
+    const error = await loadWeather(
+      { lat: 37.5, lon: 127, cityEn: "Seoul" },
+      {
+        sources: ["ecmwf", "gfs"],
+        fetchImpl: async () => {
+          const failure = new Error("Failed to fetch");
+          throw failure;
+        },
+      },
+    ).then(
+      () => null,
+      (failure) => failure,
+    );
+    assert.equal(error?.code, "OFFLINE");
+  });
   h.test("geocoding results become places", () => {
     const rows = parseGeocoding({ results: [{ name: "Busan", country: "South Korea", country_code: "kr", latitude: 35.1, longitude: 129 }] });
     assert.equal(rows[0].countryCode, "KR");

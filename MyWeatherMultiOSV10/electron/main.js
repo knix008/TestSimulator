@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, Tray, clipboard, dialog, ipcMain, nativeImage, net, screen, shell } from "electron";
+import { isOfflineError } from "../src/core/errors.js";
 import { parseFcList, parseMacFonts, parseWindowsFonts, resolveFontList } from "../src/core/fonts.js";
 import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
@@ -773,9 +774,25 @@ ipcMain.handle("window-move", (event, step = {}) => {
 
 ipcMain.handle("list-fonts", () => listSystemFonts());
 
+const FETCH_WAIT_MS = 8000;
+
+ipcMain.handle("is-online", () => net.online !== false);
+
 ipcMain.handle("fetch-url", async (_event, url, options = {}) => {
-  const response = await net.fetch(url, { headers: options.headers || {} });
-  return { ok: response.ok, status: response.status, text: await response.text() };
+  if (net.online === false) return { ok: false, offline: true, status: 0, text: "" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_WAIT_MS);
+  try {
+    const response = await net.fetch(url, { headers: options.headers || {}, signal: controller.signal });
+    return { ok: response.ok, status: response.status, text: await response.text() };
+  } catch (error) {
+    if (controller.signal.aborted || isOfflineError(error) || isOfflineError(error?.cause)) {
+      return { ok: false, offline: true, status: 0, text: "" };
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 ipcMain.handle("read-settings", () => readJson(settingsFile()));

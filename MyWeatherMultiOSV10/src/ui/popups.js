@@ -176,6 +176,21 @@ export function buildProgressSpec(title, t) {
   };
 }
 
+export function buildOfflineSpec(t) {
+  return {
+    type: "offline",
+    icon: "warning",
+    title: t("popup.offline"),
+    titleKey: "popup.offline",
+    width: 520,
+    height: 180,
+    resizable: false,
+    scroll: "none",
+    rows: [{ kind: "note", id: "message", i18n: "offline.message", label: t("offline.message") }],
+    buttons: [{ id: "ok", action: "ok", icon: "check", label: t("btn.ok"), i18n: "btn.ok" }],
+  };
+}
+
 export function buildUnsavedSpec(fileLabel, t) {
   return {
     type: "unsaved",
@@ -1509,6 +1524,9 @@ function paintWallpaperPreview(el, image, name) {
 
 function renderRow(row) {
   const style = ` style="${ROW}"`;
+  if (row.kind === "note") {
+    return `<p class="popup-note" data-row="${esc(row.id)}" data-fit-height="48"${textKey(row.i18n)} style="margin:8px 4px 0;white-space:normal;line-height:1.5;height:48px;overflow:hidden;flex:0 0 auto">${esc(row.label || "")}</p>`;
+  }
   if (row.kind === "about") {
     return `<div class="about-intro" data-row="${esc(row.id)}"><img class="about-app-icon" src="${esc(row.icon)}" alt="" width="72" height="72"><div class="about-copy"><strong class="about-name">${esc(row.name)}</strong><p class="about-desc">${esc(row.description)}</p></div></div>`;
   }
