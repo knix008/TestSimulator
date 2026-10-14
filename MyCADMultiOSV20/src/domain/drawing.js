@@ -7,6 +7,7 @@ import { normalizeWorkPlane } from './workplane.js';
 import { normalizeConstraints } from './constraints.js';
 import { normalizeFem } from './fem.js';
 import { normalizeSpreadsheet } from './spreadsheet.js';
+import { normalizeJoints } from './assembly.js';
 import { normalizeBim } from './arch.js';
 
 export const LAYER_LINE_TYPES = ['continuous', 'dashed', 'center', 'hidden', 'phantom', 'dotted'];
@@ -91,6 +92,8 @@ export function normalizeDrawing(raw, language = 'ko') {
     ...(normalizeConstraints(raw?.constraints).length ? { constraints: normalizeConstraints(raw.constraints) } : {}),
     ...(raw?.fem ? { fem: normalizeFem(raw.fem) } : {}),
     ...(raw?.spreadsheet ? { spreadsheet: normalizeSpreadsheet(raw.spreadsheet) } : {}),
+    // Assembly joints between solids.
+    ...(normalizeJoints(raw?.joints).length ? { joints: normalizeJoints(raw.joints) } : {}),
   };
 }
 

@@ -95,6 +95,7 @@ const EXPORT_FILTERS = {
   xyz: [{ name: 'Point cloud (*.xyz)', extensions: ['xyz', 'asc'] }],
   nc: [{ name: 'G-code (*.nc, *.gcode, *.ngc, *.tap)', extensions: ['nc', 'gcode', 'ngc', 'tap'] }],
   csv: [{ name: 'CSV (*.csv)', extensions: ['csv'] }],
+  krl: [{ name: 'KUKA KRL (*.src)', extensions: ['src'] }],
   step: [{ name: 'STEP AP214 (*.step)', extensions: ['step', 'stp'] }],
   fcstd: [{ name: 'FreeCAD (*.FCStd)', extensions: ['FCStd'] }],
   ifc: [{ name: 'IFC 4 — BIM (*.ifc)', extensions: ['ifc'] }],

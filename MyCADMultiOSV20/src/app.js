@@ -30,7 +30,8 @@ import { checkSolid, repairMesh } from './domain/meshcheck.js';
 import { nestPanels } from './domain/nesting.js';
 import { normalizeSpreadsheet, sheetCsv, sheetVariables } from './domain/spreadsheet.js';
 import { eulerTo, fitCylinder, fitPlane, fitSphere, meshFromPoints } from './domain/points.js';
-import { convexHull, solidPoints } from './domain/solids.js';
+import { convexHull, placement, solidPoints } from './domain/solids.js';
+import { inverseKinematics, samplePath, toKrl, trajectory } from './domain/robot.js';
 import { setVariables } from './domain/expr.js';
 import { decimateMesh } from './domain/features.js';
 import { camPaths, camSource, toGcode } from './domain/cam.js';
@@ -404,6 +405,9 @@ const commands = {
   'arch:customWindow': { icon: 'archCustomWindow', label: 'arch.customWindow', enabled: hasDoc, run: () => addCustomWindow() },
   bimManager: { icon: 'archBuilding', label: 'action.bimManager', enabled: hasDoc, run: () => openBimManager() },
   scheduleCsv: { icon: 'archSchedule', label: 'action.scheduleCsv', enabled: () => archObjects().length > 0, run: () => exportScheduleCsv() },
+  'robot:add': { icon: 'robot', label: 'robot.add', tip: 'robotTip.add', enabled: hasDoc, run: () => addRobot() },
+  'robot:moveTo': { icon: 'robotMove', label: 'robot.moveTo', tip: 'robotTip.moveTo', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotMoveTo() },
+  'robot:path': { icon: 'robotPath', label: 'robot.path', tip: 'robotTip.path', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotTrajectory() },
   panelNest: { icon: 'archPanel', label: 'action.panelNest', tip: 'tip.panelNest', enabled: () => selectedEntities().length > 0, run: () => nestSelection() },
   archSchedule: { icon: 'archSchedule', label: 'action.archSchedule', enabled: () => archObjects().length > 0, run: () => insertSchedule() },
   archMenu: { icon: 'archRoof', label: 'action.archMenu', run: (context) => showMenu(menuItems(MENUS.arch), context?.anchor ?? anchorBelow(root.querySelector('[data-command="archMenu"]') ?? root.querySelector('[data-menu="arch"]')), 'arch', { header: { icon: 'archRoof', title: t('menu.arch') } }) },
@@ -470,7 +474,7 @@ const MENUS = {
   draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
   modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'clone', 'unlinkClone', 'explode', 'editPart', '-', 'tool:workPlane', 'workPlaneReset', '-', 'construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`), '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
-  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
+  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', 'robot:add', 'robot:moveTo', 'robot:path', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
   arch: ARCH_MENU,
   help: ['tutorial', 'tutorialDoc', 'startPage', '-', 'freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
 };
@@ -488,7 +492,7 @@ const TOOLBAR_MAIN = [
 const TOOLBAR_PART = [
   ['view3d'],
   SOLID_KINDS.map((kind) => `solid:${kind}`),
-  FEATURE_KINDS.map((kind) => `solid:${kind}`),
+  FEATURE_KINDS.filter((kind) => !kind.startsWith('surf')).map((kind) => `solid:${kind}`),
   BOOL_OPS.map((op) => `bool:${op}`),
   DRESSUP_KINDS.map((kind) => `dress:${kind}`),
   ['solidSection', 'editSolid', 'checkGeometry'],
@@ -2781,6 +2785,111 @@ function reverseEngineer(fit) {
     notify('success', error === null ? t('notice.reMesh', { count: added.shape?.tris ? added.shape.tris.length / 9 : 0 }) : t('notice.reFit', { name: t(`re.${fit}`), rms: fmt(error, 4) }));
   }
   return added;
+}
+
+// ───────────────────────── Robot (FreeCAD Robot workbench)
+
+const selectedRobot = () => selectedSolids().find((entity) => entity.kind === 'robot') ?? null;
+
+/** Selected points and curves as world points on the drawing plane (z = 0), in order. */
+function robotTargets() {
+  const drawing = activeDrawing();
+  if (!drawing) return [];
+  const out = [];
+  for (const e of selectedEntities()) {
+    if (e.type === 'point') out.push([e.x, e.y, 0]);
+    else if (!['solid', 'text', 'dim'].includes(e.type)) {
+      const { loops, open } = collectLoops([e], drawing);
+      for (const path of [...open, ...loops.map((l) => [...l, l[0]])]) out.push(...path.map((p) => [p.x, p.y, 0]));
+    }
+  }
+  return out;
+}
+
+/** World → the robot's own coordinates (its placement undone). */
+function robotLocal(robot, p) {
+  const map = placement(robot);
+  const o = map([0, 0, 0]);
+  const cols = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((e) => map(e).map((v, i) => v - o[i]));
+  const [a, b, c] = cols;
+  // Inverse of the 3×3 whose columns are a, b, c.
+  const det = a[0] * (b[1] * c[2] - b[2] * c[1]) - b[0] * (a[1] * c[2] - a[2] * c[1]) + c[0] * (a[1] * b[2] - a[2] * b[1]);
+  const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+  const solve = (col) => { const m = [a, b, c].map((v, i) => (i === col ? d : v)); return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[1][0] * (m[0][1] * m[2][2] - m[0][2] * m[2][1]) + m[2][0] * (m[0][1] * m[1][2] - m[0][2] * m[1][1])) / det; };
+  return [solve(0), solve(1), solve(2)];
+}
+
+const robotJoints = (robot) => ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((k) => robot.params[k]);
+const robotOptions = (robot) => ({ reach: robot.params.reach, tool: robot.params.tool });
+const setRobotJoints = (d, id, joints) => D.updateEntity(d, id, { params: { ...d.entities.find((e) => e.id === id).params, ...Object.fromEntries(joints.map((v, i) => [`a${i + 1}`, Math.round(v * 1000) / 1000])) } });
+
+/** A 6-axis robot at the origin (or at a selected point). */
+function addRobot() {
+  const at = selectedEntities().find((e) => e.type === 'point');
+  const added = change('op.robot', (d) => D.addEntity(d, 'solid', { kind: 'robot', name: t('solid.robot'), x: at?.x ?? 0, y: at?.y ?? 0, z: 0 }));
+  if (added) select([added.id]);
+  return added;
+}
+
+/** Inverse kinematics: the tool tip to the first selected point, pointing down. */
+function robotMoveTo() {
+  const robot = selectedRobot();
+  const [target] = robotTargets();
+  if (!robot || !target) { notify('info', t('notice.robotNone')); return null; }
+  const r = inverseKinematics(robotLocal(robot, target), robotJoints(robot), robotOptions(robot));
+  change('op.robot', (d) => setRobotJoints(d, robot.id, r.joints));
+  notify(r.reached ? 'success' : 'error', r.reached ? t('notice.robotMoved') : t('notice.robotFar', { error: fmt(r.error, 1) }));
+  return r;
+}
+
+/** Plays joint poses in the 3D view (the drawing itself is not changed until the end). */
+async function animateRobot(id, poses, ms = 40) {
+  const doc = activeDoc();
+  if (!doc || !state.view3d || !view3d.instance) return;
+  const original = doc.drawing.entities;
+  try {
+    for (const joints of poses) {
+      doc.drawing.entities = original.map((e) => (e.id === id ? { ...e, params: { ...e.params, ...Object.fromEntries(joints.map((v, i) => [`a${i + 1}`, v])) } } : e));
+      rebuild3d();
+      view3d.instance.render?.();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  } finally {
+    doc.drawing.entities = original;
+  }
+}
+
+/** A trajectory along the selected curves: joint poses every 20 mm, KUKA KRL saved, played in 3D. */
+async function robotTrajectory({ save = true, animate = true, step = 20 } = {}) {
+  const robot = selectedRobot();
+  const targets = robotTargets();
+  if (!robot || !targets.length) { notify('info', t('notice.robotNone')); return null; }
+  const doc = activeDoc();
+  const points = samplePath(targets.map((p) => robotLocal(robot, p)), step);
+  const run = trajectory(points, robotJoints(robot), robotOptions(robot));
+  const text = toKrl(run.steps, { name: robot.name || 'mycad_path' });
+  if (animate) await animateRobot(robot.id, run.steps.map((s) => s.joints));
+  change('op.robot', (d) => setRobotJoints(d, robot.id, run.steps[run.steps.length - 1].joints));
+  const missed = run.steps.filter((s) => s.error >= 0.5).length;
+  notify(missed ? 'error' : 'success', missed ? t('notice.robotPathFar', { count: missed, total: run.steps.length }) : t('notice.robotPath', { count: run.steps.length }));
+  if (save) {
+    const name = `${safeFileName(stripExtension(docName(doc)))}-robot.src`;
+    try {
+      if (desktop) {
+        const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'krl');
+        if (path) {
+          await withProgress('progress.export', baseName(path), (op) => native.writeTextFile(path, text, op));
+          notify('success', t('notice.exported', { name: baseName(path) }));
+        }
+      } else {
+        native.downloadText(text, name, 'text/plain');
+        notify('success', t('notice.exported', { name }));
+      }
+    } catch (error) {
+      showError('error.export', error, name);
+    }
+  }
+  return { ...run, text };
 }
 
 /** Values of the entity bound to spreadsheet expressions: key = expression, each removable. */
@@ -5101,7 +5210,7 @@ window.__mycad = {
     setTool, submitCommand, zoomBy, setZoomPercent, zoomFit, updateSettings, handleDroppedPaths, handleDroppedFiles,
     setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu, contextMenuFor, activeDoc, activeDrawing,
     toScreen, docName, scrollTabs, withProgress, exportAs, renderPng, openStlDialog, exportStl, openPartDialog, openArrayDialog, explodeSelection, deleteSelection,
-    duplicateSelection, setWorkPlane, openCam, openFem, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
+    duplicateSelection, setWorkPlane, openCam, openFem, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
     toggle3d, rebuild3d, view3d: () => view3d.instance,
     openSolidDialog, insertSolid, solidFeature, dressUp, checkGeometry, repairSolids, archFeature, addOpening, insertSchedule, scheduleLines, addRebar, addCustomWindow, openBimManager, applyBim, addLevel, ensureBim, wallWidth, solidProperties, planOf: (entity) => primitives(entity), applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
     openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids, setView3dStyle,

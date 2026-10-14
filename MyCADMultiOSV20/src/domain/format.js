@@ -84,6 +84,7 @@ export const FILE_FORMATS = [
   { id: 'scad', name: 'OpenSCAD (CSG)', extensions: ['scad', 'csg'], group: 'model', read: true, write: true },
   { id: 'xyz', name: 'Point cloud (XYZ, ASC, PTS, PCD)', extensions: ['xyz', 'asc', 'pts', 'pcd'], group: 'model', read: true, write: true },
   { id: 'nc', name: 'G-code (CAM)', extensions: ['nc', 'gcode', 'ngc', 'tap'], group: 'other', read: false, write: true },
+  { id: 'krl', name: 'KUKA KRL (Robot)', extensions: ['src'], group: 'other', read: false, write: true },
   { id: '3mf', name: '3D Manufacturing (3MF)', extensions: ['3mf'], group: 'model', read: true, write: true },
   { id: 'image', name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'], group: 'other', read: true, write: false, use: 'background' },
   { id: 'text', name: 'Text', extensions: ['txt', 'md', 'csv'], group: 'other', read: true, write: false, use: 'text' },

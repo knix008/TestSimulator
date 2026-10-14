@@ -1717,6 +1717,29 @@ export const cases = [
     await m(app, "(k.actions.select([k.actions.activeDrawing().entities[0].id]), k.actions.decimateSolids(k.actions.selectedSolids().map((e) => e.id)), 1)");
     assert.equal((await drawing(app)).entities[0].kind, 'mesh');
   } },
+  { group: '3D 솔리드', name: 'Robot: 로봇 추가 → 점으로 역기구학 → 사각 경로 궤적(3D 재생) + KRL', async run(app) {
+    await fresh(app);
+    await fire(app, "k.run('robot:add')");
+    await sleep(200);
+    let d = await drawing(app);
+    const robot = d.entities.at(-1);
+    assert.equal(robot.kind, 'robot');
+    // A point in front of the robot: the tool tip goes there, pointing down.
+    await m(app, `(() => { const a = k.actions; a.change('op.point', (dd) => { k.drawingModule.addEntity(dd, 'point', { x: 600, y: 200 }); }); a.select([${JSON.stringify(robot.id)}, a.activeDrawing().entities.at(-1).id]); a.robotMoveTo(); return 1; })()`);
+    d = await drawing(app);
+    const moved = d.entities.find((e) => e.id === robot.id);
+    assert.notEqual(moved.params.a1, 0, 'joint 1 turned toward the point');
+    // A square path: joint poses every 20 mm, played in the 3D view, KRL text.
+    await m(app, `(() => { const a = k.actions; a.change('op.polyline', (dd) => { k.drawingModule.addEntity(dd, 'polyline', { points: [{ x: 450, y: -150 }, { x: 650, y: -150 }, { x: 650, y: 150 }, { x: 450, y: 150 }], closed: true }); }); a.select([${JSON.stringify(robot.id)}, a.activeDrawing().entities.at(-1).id]); return 1; })()`);
+    await fire(app, "k.run('view3d')");
+    await sleep(400);
+    const run = await m(app, 'k.actions.robotTrajectory({ save: false }).then((r) => ({ reached: r.reached, steps: r.steps.length, text: r.text }))');
+    assert.ok(run.reached, 'every point within reach');
+    assert.equal(run.steps, 1 + 2 * 10 + 2 * 15);
+    assert.match(run.text, /^DEF /);
+    await fire(app, "k.run('view3d')");
+    await sleep(200);
+  } },
   { group: '3D 솔리드', name: '단면 창과 투상도 창: 윤곽선, 숨은선은 숨은선 레이어', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.insertSolid('cylinder', { radius: 10, height: 20 }, { x: 0, y: 0 }), k.actions.select([]), 1)`);

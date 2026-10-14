@@ -4,6 +4,7 @@ import { newId } from './entities.js';
 import { syncDrawingClones } from './drawing.js';
 import { solveConstraints } from './constraints.js';
 import { applyBindings } from './spreadsheet.js';
+import { solveAssembly } from './assembly.js';
 import { History } from './history.js';
 
 /** id → JSON of every entity a constraint refers to. */
@@ -41,6 +42,13 @@ export class DrawingDocument {
     // Clones follow their sources whatever changed; bound values follow the spreadsheet.
     syncDrawingClones(this.drawing);
     if (this.drawing.entities.some((e) => e.bind)) applyBindings(this.drawing);
+    // Assembly: joints whose parts are gone go too; the rest place their parts.
+    if (this.drawing.joints) {
+      const ids = new Set(this.drawing.entities.map((e) => e.id));
+      this.drawing.joints = this.drawing.joints.filter((j) => ids.has(j.base) && ids.has(j.part));
+      if (this.drawing.joints.length) this.drawing.entities = solveAssembly(this.drawing.entities, this.drawing.joints).entities;
+      else delete this.drawing.joints;
+    }
     if (this.drawing.constraints?.length || watched) {
       const after = constrainedState(this.drawing);
       const moved = new Set([...after].filter(([id, json]) => watched?.get(id) !== json).map(([id]) => id));

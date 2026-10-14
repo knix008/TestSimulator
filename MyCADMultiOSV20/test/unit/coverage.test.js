@@ -23,6 +23,7 @@ function appCommands() {
   for (const category of Object.keys(PART_CATEGORIES)) ids.add(`partCategory:${category}`);
   for (const kind of [...SOLID_KINDS, 'pad', 'revolution', 'loft', 'sweep', 'pocket', 'groove', 'hole', 'surfRuled', 'surfFill', 'surfExtrude']) ids.add(`solid:${kind}`);
   ids.add('meshDecimate');
+  for (const id of ['robot:add', 'robot:moveTo', 'robot:path']) ids.add(id);
   for (const op of ['union', 'cut', 'common']) ids.add(`bool:${op}`);
   for (const kind of ['fillet', 'chamfer', 'thickness', 'offset3d']) ids.add(`dress:${kind}`);
   ids.add('checkGeometry');

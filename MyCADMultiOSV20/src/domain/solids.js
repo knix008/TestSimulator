@@ -13,6 +13,7 @@ import { triangulate } from './triangulate.js';
 import { repairMesh } from './meshcheck.js';
 import { HOLE_TIPS, HOLE_TYPES, holeProfile, holeVolume, loftSectionsMesh, sweepSectionMesh, taperedExtrude } from './features.js';
 import { extrudedCurve, fillSurface, sectionSurface, SURFACE_MODES, thicken } from './surface.js';
+import { JOINT_LIMITS, robotMesh } from './robot.js';
 import { canDressUp, DRESSUP_EDGES, DRESSUP_KINDS, dressupMesh, dressupOutlines } from './dressup.js';
 import { ARCH_ICONS, ARCH_KINDS, ARCH_SOLIDS, archBlocks, archGroups, archMesh, normalizeMaterial, archPlan, archQuantities, hasArchShape, isArchKind, normalizeArchShape } from './arch.js';
 
@@ -22,7 +23,7 @@ const int = (key, def, min, max) => ({ key, type: 'int', def, min, max, step: 1,
 /** Primitive kinds (made in the solid window). */
 export const SOLID_KINDS = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'tube', 'wedge', 'prism', 'ellipsoid', 'helix'];
 /** Kinds made from 2D outlines or other solids. */
-export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh', 'points', 'surface', 'hole', ...DRESSUP_KINDS];
+export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh', 'points', 'surface', 'hole', 'robot', ...DRESSUP_KINDS];
 export const LOFT_MODES = ['ruled', 'smooth'];
 export const THICKNESS_OPEN = ['openTop', 'openBottom', 'openBoth', 'closed'];
 export const POCKET_MODES = ['blind', 'throughAll'];
@@ -52,6 +53,8 @@ export const SOLIDS = {
   mesh: { params: [] },
   // A point cloud (FreeCAD Points): shape.pts = [x, y, z, …].
   points: { params: [] },
+  // FreeCAD Robot: a 6-axis arm, its joint angles (degrees), size and tool length.
+  robot: { params: [...JOINT_LIMITS.map(([lo, hi], i) => num(`a${i + 1}`, [0, -90, 90, 0, 90, 0][i], lo, hi, 5, '°')), num('reach', 1, 0.1, 20, 0.1, ''), num('tool', 100, 0, 5000, 10)] },
   // FreeCAD Surface: open surfaces from curves (shape: curves | outer + holes | paths); a thickness makes a shell solid.
   surface: { params: [{ key: 'mode', type: 'choice', options: SURFACE_MODES, def: 0, min: 0, max: SURFACE_MODES.length - 1, step: 1, unit: '' }, num('height', 50, 0.01, 100000), num('bulge', 0, -100000, 100000), num('thickness', 0, 0, 10000, 0.5), { key: 'smooth', type: 'choice', options: LOFT_MODES, def: 0, min: 0, max: LOFT_MODES.length - 1, step: 1, unit: '' }] },
   surfRuled: { params: [num('height', 50, 0.01, 100000), { key: 'smooth', type: 'choice', options: LOFT_MODES, def: 0, min: 0, max: LOFT_MODES.length - 1, step: 1, unit: '' }, num('thickness', 0, 0, 10000, 0.5)] },
@@ -70,7 +73,7 @@ export const SOLIDS = {
 /** Icon of each solid kind (FreeCAD Part workbench look). */
 export const SOLID_ICONS = {
   box: 'solidBox', cylinder: 'solidCylinder', sphere: 'solidSphere', cone: 'solidCone', torus: 'solidTorus', tube: 'solidTube', wedge: 'solidWedge',
-  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport', points: 'pointCloud', surface: 'surfFill', surfRuled: 'surfRuled', surfFill: 'surfFill', surfExtrude: 'surfExtrude', fillet: 'solidFillet', chamfer: 'solidChamfer', hole: 'solidHole', pocket: 'solidPocket', groove: 'solidGroove', thickness: 'solidThickness', offset3d: 'solidOffset',
+  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport', points: 'pointCloud', robot: 'robot', surface: 'surfFill', surfRuled: 'surfRuled', surfFill: 'surfFill', surfExtrude: 'surfExtrude', fillet: 'solidFillet', chamfer: 'solidChamfer', hole: 'solidHole', pocket: 'solidPocket', groove: 'solidGroove', thickness: 'solidThickness', offset3d: 'solidOffset',
   ...Object.fromEntries(ARCH_KINDS.map((kind) => [kind, ARCH_ICONS[kind]])),
 };
 
@@ -431,6 +434,7 @@ export function localMesh(entity) {
     case 'helix': return sweepMesh(helixPath(p.radius, p.pitch, p.turns, 36), p.wire, 16);
     case 'pad': return (entity.shape?.shapes ?? []).flatMap((shape) => (p.taper ? taperedExtrude(shape, p.height, p.taper) ?? [] : extrudePolygon(shape.outer, 0, p.height, shape.holes)));
     case 'hole': return revolve(holeProfile(p));
+    case 'robot': return robotMesh([p.a1, p.a2, p.a3, p.a4, p.a5, p.a6], { reach: p.reach, tool: p.tool });
     case 'surface': {
       if (!hasShape(entity)) return [];
       const s = entity.shape;

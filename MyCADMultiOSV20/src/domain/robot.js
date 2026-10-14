@@ -53,7 +53,16 @@ const zAxis = (m) => [m[2], m[6], m[10]];
  * pointing down (−Z), starting from `start` (damped least squares). Returns
  * { joints, error (mm), reached }.
  */
-export function inverseKinematics(target, start = [0, -90, 90, 0, 90, 0], { reach = 1, tool = 0, down = true } = {}) {
+export function inverseKinematics(target, start = [0, -90, 90, 0, 90, 0], options = {}) {
+  const first = solveFrom(target, start, options);
+  if (first.reached) return first;
+  // Far round from the start: try again with joint 1 already turned toward the point.
+  const a1 = (Math.atan2(target[1], target[0]) * 180) / Math.PI;
+  const second = solveFrom(target, [a1, -90, 90, 0, 90, 0], options);
+  return second.error < first.error ? second : first;
+}
+
+function solveFrom(target, start, { reach = 1, tool = 0, down = true } = {}) {
   let q = start.slice();
   const residual = (j) => {
     const { tcp } = forwardKinematics(j, { reach, tool });

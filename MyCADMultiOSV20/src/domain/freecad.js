@@ -161,7 +161,10 @@ export const FREECAD_COVERAGE = [
       item('full', 'Points — 점 구름 읽기/쓰기 (.xyz · .asc · .pts · ASCII .pcd), 3D 점 표시', 'Points — point clouds in and out (.xyz, .asc, .pts, ASCII .pcd), shown as dots', ['import3d', 'export3d:xyz']),
       item('full', 'Reverse Engineering — 평면 · 구 · 원기둥 맞추기(최소 제곱, RMS), 점으로 메시', 'Reverse Engineering — fit plane, sphere, cylinder (least squares, RMS), mesh from points', ['re:plane', 're:sphere', 're:cylinder', 're:mesh']),
       item('full', 'Surface — 단면 곡면(직선 · 매끄럽게), 채움(막처럼 부풂), 선 돌출 면, 두께로 껍질 솔리드', 'Surface — through sections (ruled or smooth), filling (membrane bulge), extruded curves, thickness to a shell solid', ['solid:surfRuled', 'solid:surfFill', 'solid:surfExtrude']),
-      item('none', 'Robot', 'Robot'),
+      item('full', 'Robot — 6축 로봇(DH), 관절 편집, 역기구학으로 점 이동, 경로 궤적 3D 재생과 KUKA KRL 내보내기', 'Robot — 6-axis robot (DH), joint editing, inverse kinematics to a point, path trajectory played in 3D and exported as KUKA KRL', ['robot:add', 'robot:moveTo', 'robot:path']),
+      item('none', 'Python 인터프리터 · 애드온 관리자', 'Python interpreter, Addon Manager'),
+      item('none', 'OpenCASCADE 정확한 B-rep 커널 (곡면 위 불리언 · 위상 이름)', 'OpenCASCADE exact B-rep kernel (booleans on curved faces, topological naming)'),
+      item('none', 'CalculiX · 3D 솔리드 요소 FEM', 'CalculiX, FEM with 3D solid elements'),
     ],
   },
 ];
