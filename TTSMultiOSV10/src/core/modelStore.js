@@ -179,14 +179,22 @@ async function readManifest(manifestPath) {
   }
 }
 
+// Hashing hundreds of MB on every cache check is slow; reuse digests of unchanged files.
+const sha256Cache = new Map();
+
 async function sha256File(filePath) {
-  return new Promise((resolve, reject) => {
+  const st = await fs.stat(filePath);
+  const key = `${filePath}|${st.size}|${st.mtimeMs}`;
+  if (sha256Cache.has(key)) return sha256Cache.get(key);
+  const digest = await new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256');
     const stream = createReadStream(filePath);
     stream.on('data', (chunk) => hash.update(chunk));
     stream.on('error', reject);
     stream.on('end', () => resolve(hash.digest('hex')));
   });
+  sha256Cache.set(key, digest);
+  return digest;
 }
 
 /**
@@ -243,8 +251,21 @@ async function isCachedModelCurrent(model, cacheRoot) {
     return false;
   }
 
-  // Prefer stored hashes; then catalog pins; then repo integrity map.
   const modelRoot = getModelRoot(cacheRoot, model);
+
+  // Every downloaded file must still exist with its recorded size; a truncated
+  // file passes hash-less checks and can crash native loaders without an error.
+  const storedSizes = manifest.fileSizes || {};
+  for (const rel of manifest.files || []) {
+    const size = await fileSizeOrZero(path.join(modelRoot, rel));
+    const expectedSize = Number(storedSizes[rel]) || 0;
+    if (size <= 0 || (expectedSize > 0 && size !== expectedSize)) {
+      console.warn(`[Download] 캐시 파일 누락/크기 불일치: ${model.id}/${rel} (${size}/${expectedSize || '?'})`);
+      return false;
+    }
+  }
+
+  // Prefer stored hashes; then catalog pins; then repo integrity map.
   const storedHashes = manifest.fileHashes || {};
   const catalogHashes = model.source?.fileHashes || {};
   const integrity = (Object.keys(storedHashes).length || Object.keys(catalogHashes).length)
@@ -309,9 +330,12 @@ async function listRepoTree(repoId) {
 
     for (const entry of entries) {
       if (entry?.type === 'file' && entry.path) {
+        const oid = String(entry.lfs?.oid || '').toLowerCase();
         files.push({
           path: entry.path,
           size: Number(entry.size || entry.lfs?.size || 0) || 0,
+          // LFS oid is the sha256 of the file content.
+          sha256: /^[a-f0-9]{64}$/.test(oid) ? oid : null,
         });
       }
     }
@@ -585,22 +609,36 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
     return { model, modelPath: modelRoot, downloaded: false };
   }
 
-  // Wrong package/repo only: wipe. Otherwise resume partial downloads.
-  const existingManifest = await readManifest(manifestPath);
-  if (existingManifest) {
-    const wrongRepo = model.source?.repoId && existingManifest.repoId !== model.source.repoId;
-    const wrongPkg = model.source?.packageId
-      && existingManifest.packageId !== model.source.packageId;
-    if (wrongRepo || wrongPkg) {
-      console.log(`[Download] 캐시 갱신: ${model.id} → ${model.source.repoId}`);
-      await fs.rm(modelRoot, { recursive: true, force: true }).catch(() => {});
-    } else {
-      // Incomplete previous run left a stale manifest — remove marker and resume files.
-      await fs.rm(manifestPath, { force: true }).catch(() => {});
-    }
+  // Not a complete, verified install: discard everything and download from scratch.
+  if (await fileExists(modelRoot)) {
+    console.log(`[Download] 불완전한 캐시 삭제 후 처음부터 다시 받기: ${model.id}`);
+    await fs.rm(modelRoot, { recursive: true, force: true });
   }
 
   onProgress?.({ phase: 'start', percent: 0, modelId: model.id, model, downloaded: true });
+
+  try {
+    return await downloadRepoFiles(model, modelRoot, manifestPath, onProgress);
+  } catch (error) {
+    const fileName = error?.downloadFile || '';
+    console.error(`[Download] 실패 → 받던 파일 삭제: ${model.id}`, error);
+    await fs.rm(modelRoot, { recursive: true, force: true }).catch((rmError) => {
+      console.warn(`[Download] 부분 파일 삭제 실패: ${modelRoot} (${rmError?.message || rmError})`);
+    });
+    const wrapped = new Error(
+      `모델 다운로드에 실패했습니다: ${model.label}\n`
+      + (fileName ? `실패한 파일: ${fileName}\n` : '')
+      + `레포지터리: ${model.source?.repoId || '-'}\n\n`
+      + `받던 파일은 모두 삭제했습니다. 「↓ 다운로드」를 누르면 처음부터 다시 받습니다.\n\n`
+      + `상세 내용:\n${error?.message || error}`,
+      { cause: error },
+    );
+    wrapped.code = 'MODEL_DOWNLOAD_FAILED';
+    throw wrapped;
+  }
+}
+
+async function downloadRepoFiles(model, modelRoot, manifestPath, onProgress) {
 
   let tree = [];
   try {
@@ -619,10 +657,12 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
     tree.map((e) => e.path).filter((f) => f && !shouldSkipFile(f)),
   );
   const sizeByPath = new Map(tree.map((e) => [e.path, e.size || 0]));
+  const shaByPath = new Map(tree.map((e) => [e.path, e.sha256 || null]));
   const files = selectedPaths.map((filePath) => ({
     filePath,
     fileUrl: hfResolveUrl(model.source.repoId, filePath),
     size: sizeByPath.get(filePath) || 0,
+    sha256: shaByPath.get(filePath) || null,
   }));
 
   if (!files.length) {
@@ -673,6 +713,7 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
       || model.source?.fileHashes?.[entry.filePath.replace(/\\/g, '/')];
     let expected = integrity.get(entry.filePath.replace(/\\/g, '/'))
       || (catalogHash ? { sha256: String(catalogHash).toLowerCase() } : null)
+      || (entry.sha256 ? { size: entry.size || 0, sha256: entry.sha256 } : null)
       || (entry.size > 0 ? { size: entry.size } : null);
 
     // For ONNX (and other large binaries), prefer HF X-Linked-ETag sha256.
@@ -690,38 +731,29 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
       }
     }
 
-    const existing = await fileSizeOrZero(targetPath);
-    if (existing > 0 && (await verifyFileIntegrity(targetPath, expected))) {
-      console.log(`[Download] 스킵(완료): ${entry.filePath}`);
-      progressState.completedBytes += existing;
-      progressState.completedFiles += 1;
-      progressState.fileReceived = 0;
-      emitProgress(onProgress, progressState);
-      if (expected?.sha256) fileHashesAccum[entry.filePath] = expected.sha256;
-      continue;
-    }
-    if (existing > 0) {
-      console.warn(`[Download] 손상 파일 재다운로드: ${entry.filePath}`);
-      await fs.rm(targetPath, { force: true }).catch(() => {});
-      await fs.rm(`${targetPath}.part`, { force: true }).catch(() => {});
-    }
-
     console.log(`[Download] 받는 중: ${entry.filePath}`);
-    await downloadFile(
-      entry.fileUrl,
-      targetPath,
-      onProgress,
-      progressState,
-      entry.size || expected?.size || 0,
-      expected?.sha256 || null,
-    );
-
-    if (expected && !(await verifyFileIntegrity(targetPath, expected))) {
-      await fs.rm(targetPath, { force: true }).catch(() => {});
-      throw new Error(
-        `다운로드 파일 무결성 검증 실패: ${entry.filePath}\n`
-        + `크기/해시가 HuggingFace 원본과 다릅니다. 네트워크를 확인한 뒤 다시 시도하세요.`,
+    try {
+      await downloadFile(
+        entry.fileUrl,
+        targetPath,
+        onProgress,
+        progressState,
+        entry.size || expected?.size || 0,
+        expected?.sha256 || null,
       );
+
+      const written = await fileSizeOrZero(targetPath);
+      if (written <= 0 || (expected && !(await verifyFileIntegrity(targetPath, expected)))) {
+        throw new Error(
+          `다운로드 파일 무결성 검증 실패: ${entry.filePath}\n`
+          + `받은 크기: ${written} bytes`
+          + (expected?.size ? ` / 원본 크기: ${expected.size} bytes` : '')
+          + `\n크기/해시가 HuggingFace 원본과 다릅니다.`,
+        );
+      }
+    } catch (error) {
+      if (error && typeof error === 'object') error.downloadFile = entry.filePath;
+      throw error;
     }
     if (expected?.sha256) fileHashesAccum[entry.filePath] = expected.sha256;
   }
@@ -733,6 +765,12 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
     if (expected?.sha256) fileHashes[entry.filePath] = expected.sha256;
   }
 
+  const fileSizes = {};
+  for (const entry of files) {
+    fileSizes[entry.filePath] = await fileSizeOrZero(path.join(modelRoot, entry.filePath));
+  }
+
+  // Manifest is the "install complete" marker — written only after every file verified.
   await fs.writeFile(manifestPath, JSON.stringify({
     modelId: model.id,
     repoId: model.source.repoId,
@@ -740,6 +778,7 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
     downloadedAt: new Date().toISOString(),
     files: files.map((f) => f.filePath),
     fileHashes,
+    fileSizes,
     totalBytes: progressState.completedBytes || totalBytes,
   }, null, 2));
 
@@ -747,11 +786,87 @@ async function downloadRepoModel(model, cacheRoot, onProgress) {
   return { model, modelPath: modelRoot, downloaded: true };
 }
 
+// Shared by every store instance: two downloads of one model would interleave writes
+// into the same files and leave same-size but corrupted weights.
+const inFlightDownloads = new Map();
+const remoteVerifiedModels = new Set();
+
+/**
+ * Installs made before hashes were recorded can hold corrupted weights of the right size.
+ * Check them once against the HuggingFace LFS sha256 and record the hashes.
+ * Returns the list of corrupted files (empty when OK or when offline).
+ */
+async function verifyInstallAgainstRemote(model, cacheRoot) {
+  if (remoteVerifiedModels.has(model.id)) return [];
+  const manifestPath = getManifestPath(cacheRoot, model);
+  const manifest = await readManifest(manifestPath);
+  if (!manifest) return [];
+  const hashes = { ...(manifest.fileHashes || {}) };
+  const unhashed = (manifest.files || []).filter((rel) => !hashes[rel]);
+  if (!unhashed.length) {
+    remoteVerifiedModels.add(model.id);
+    return [];
+  }
+
+  let tree;
+  try {
+    tree = await listRepoTree(model.source.repoId);
+  } catch (error) {
+    console.warn(`[Download] 원격 해시 확인 불가(오프라인?): ${model.id} (${error?.message || error})`);
+    return [];
+  }
+  const remote = new Map(tree.map((e) => [e.path, e.sha256]));
+  const modelRoot = getModelRoot(cacheRoot, model);
+  const corrupt = [];
+  for (const rel of unhashed) {
+    const sha = remote.get(rel);
+    if (!sha) continue;
+    const local = await sha256File(path.join(modelRoot, rel)).catch(() => null);
+    if (local === sha) hashes[rel] = sha;
+    else corrupt.push(rel);
+  }
+  if (corrupt.length) {
+    console.warn(`[Download] 손상 파일 감지: ${model.id} → ${corrupt.join(', ')}`);
+    return corrupt;
+  }
+  await fs.writeFile(manifestPath, JSON.stringify({ ...manifest, fileHashes: hashes }, null, 2));
+  remoteVerifiedModels.add(model.id);
+  return [];
+}
+
+function corruptModelError(model, files, modelRoot) {
+  const error = new Error(
+    `${model.label} 모델 파일이 손상되어 있습니다.\n`
+    + `손상된 파일: ${files.join(', ')}\n폴더: ${modelRoot}\n\n`
+    + `손상된 모델을 삭제했습니다. 「↓ 다운로드」를 누르면 처음부터 다시 받습니다.`,
+  );
+  error.code = 'MODEL_CORRUPT';
+  return error;
+}
+
 export function createModelStore() {
   const cacheRoot = resolveCacheRoot();
 
   return {
     cacheRoot,
+
+    /**
+     * Installed + verified model, or null when not installed / still downloading.
+     * Never starts a download.
+     */
+    async getInstalledModel(modelId) {
+      const model = getModelCatalog().find((m) => m.id === modelId);
+      if (!model) throw new Error(`알 수 없는 모델: ${modelId}`);
+      if (inFlightDownloads.has(model.id)) return null;
+      if (!(await isCachedModelCurrent(model, cacheRoot))) return null;
+      const modelRoot = getModelRoot(cacheRoot, model);
+      const corrupt = await verifyInstallAgainstRemote(model, cacheRoot);
+      if (corrupt.length) {
+        await fs.rm(modelRoot, { recursive: true, force: true }).catch(() => {});
+        throw corruptModelError(model, corrupt, modelRoot);
+      }
+      return { model, modelPath: modelRoot, downloaded: false };
+    },
 
     async listCachedModels() {
       const catalog = getModelCatalog();
@@ -767,13 +882,35 @@ export function createModelStore() {
       const model = getModelCatalog().find((m) => m.id === modelId);
       if (!model) throw new Error(`알 수 없는 모델: ${modelId}`);
 
-      await fs.mkdir(cacheRoot, { recursive: true });
-
-      if (model.source?.type === 'repo') {
-        return downloadRepoModel(model, cacheRoot, onProgress);
+      if (model.source?.type !== 'repo') {
+        throw new Error(`지원하지 않는 소스 타입: ${model.source?.type}`);
       }
 
-      throw new Error(`지원하지 않는 소스 타입: ${model.source?.type}`);
+      const running = inFlightDownloads.get(model.id);
+      if (running) {
+        console.log(`[Download] 이미 다운로드 중 → 완료 대기: ${model.id}`);
+        return running;
+      }
+
+      const task = (async () => {
+        await fs.mkdir(cacheRoot, { recursive: true });
+        if (await isCachedModelCurrent(model, cacheRoot)) {
+          const corrupt = await verifyInstallAgainstRemote(model, cacheRoot);
+          if (!corrupt.length) {
+            onProgress?.({ phase: 'done', percent: 100, modelId: model.id, model, downloaded: false });
+            return { model, modelPath: getModelRoot(cacheRoot, model), downloaded: false };
+          }
+          console.warn(`[Download] 손상된 설치 → 처음부터 다시 받기: ${model.id}`);
+          await fs.rm(getManifestPath(cacheRoot, model), { force: true }).catch(() => {});
+        }
+        return downloadRepoModel(model, cacheRoot, onProgress);
+      })();
+      inFlightDownloads.set(model.id, task);
+      try {
+        return await task;
+      } finally {
+        inFlightDownloads.delete(model.id);
+      }
     },
 
     async listModels() {
@@ -783,8 +920,12 @@ export function createModelStore() {
     async deleteModel(modelId) {
       const model = getModelCatalog().find((m) => m.id === modelId);
       if (!model) throw new Error(`알 수 없는 모델: ${modelId}`);
+      if (inFlightDownloads.has(model.id)) {
+        throw new Error(`${model.label} 모델을 다운로드하는 중에는 삭제할 수 없습니다.`);
+      }
       const modelRoot = getModelRoot(cacheRoot, model);
       await fs.rm(modelRoot, { recursive: true, force: true });
+      remoteVerifiedModels.delete(model.id);
       return { modelId, deleted: true };
     },
   };

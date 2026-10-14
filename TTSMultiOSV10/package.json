@@ -60,7 +60,15 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "TTS Multi OS",
-      "deleteAppDataOnUninstall": true
+      "deleteAppDataOnUninstall": false,
+      "include": "installer/installer.nsh",
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "ko_KR",
+        "en_US"
+      ],
+      "language": "1042"
     },
     "mac": {
       "target": [

@@ -982,6 +982,8 @@ async function refreshVoiceList() {
       voices = await bridge.listModelVoices(modelId) || [];
     } catch (err) {
       console.warn('[TTS] 모델 목소리 목록 실패:', err?.message || err);
+      showError(err, `${model.label} 모델을 사용할 수 없습니다.`);
+      refreshModels({ voices: false, warm: false }).catch(() => {});
     }
   }
 
@@ -1064,17 +1066,61 @@ pitchRange?.addEventListener('input', () => {
 });
 
 // ── Error dialog ─────────────────────────────────────────────────────────────
-function showError(error) {
-  if (errorDetails) {
-    errorDetails.textContent = typeof error === 'string'
-      ? error
-      : `${error?.message || 'Unknown error'}\n\n${error?.stack || ''}`;
+const IPC_ERROR_PREFIX = /^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/;
+const ERROR_DETAIL_MARKER = '\n\n[상세 정보]\n';
+
+/** Split an error into a short summary and a full copyable report. */
+function describeUiError(error) {
+  const raw = typeof error === 'string'
+    ? error
+    : (error?.message || String(error ?? '알 수 없는 오류'));
+  const isIpc = IPC_ERROR_PREFIX.test(raw);
+  const message = raw.replace(IPC_ERROR_PREFIX, '');
+  const markerAt = message.indexOf(ERROR_DETAIL_MARKER);
+  if (markerAt >= 0) {
+    return {
+      summary: message.slice(0, markerAt),
+      detail: message.slice(markerAt + ERROR_DETAIL_MARKER.length),
+    };
   }
+  // Renderer stacks of IPC failures only point at ipcRenderer.invoke — not useful.
+  const stack = !isIpc && typeof error === 'object' ? (error?.stack || '') : '';
+  const detail = stack && !stack.includes(message) ? `${message}\n\n${stack}` : (stack || message);
+  return { summary: message, detail };
+}
+
+function showError(error, title = '오류') {
+  const { summary, detail } = describeUiError(error);
+  const errorTitle = document.getElementById('errorTitle');
+  if (errorTitle) errorTitle.textContent = title;
+  if (errorDetails) errorDetails.textContent = detail || summary;
+  const firstLine = (summary || '').split('\n')[0];
+  if (firstLine) showStatus(`오류: ${firstLine}`);
   if (errorDialog) {
     if (errorDialog.open) errorDialog.close();
     errorDialog.showModal();
+  } else {
+    window.alert(`${title}\n\n${detail || summary}`);
   }
 }
+
+function reportUnexpectedError(title, error) {
+  const { detail } = describeUiError(error);
+  bridge.reportRendererError?.({ title, detail }).catch?.(() => {});
+  showError(error, title);
+}
+
+window.addEventListener('error', (event) => {
+  reportUnexpectedError('예기치 않은 오류가 발생했습니다.', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  reportUnexpectedError('처리되지 않은 오류가 발생했습니다.', event.reason);
+});
+
+bridge.onAppError?.(({ title, detail } = {}) => {
+  showError(detail || title || '알 수 없는 오류', title || '오류');
+});
 
 function showConfirm(title, message, { okLabel = '확인' } = {}) {
   return new Promise((resolve) => {
@@ -1147,7 +1193,7 @@ function scheduleLanguageFromText() {
   languageDetectTimer = setTimeout(() => applyLanguageFromText(), 250);
 }
 
-async function refreshModels() {
+async function refreshModels({ voices = true, warm = true } = {}) {
   try {
     const [catalog, cachedModels] = await Promise.all([
       bridge.getModelCatalog(),
@@ -1192,10 +1238,10 @@ async function refreshModels() {
     showStatus(downloadedCount === 0
       ? `설치된 모델이 없습니다. 모델을 선택하고 다운로드 버튼을 누르세요. (${state.models.length}개 항목)`
       : `모델 ${state.models.length}개 중 ${downloadedCount}개가 설치되어 있습니다.`);
-    await refreshVoiceList();
+    if (voices) await refreshVoiceList();
     // Background-preload current model so first Speak is snappy (esp. Kokoro)
     applyLanguageFromText(textInput?.value, { quiet: true });
-    warmSelectedModel();
+    if (warm) warmSelectedModel();
   } catch (error) {
     setPhase('error');
     showError(error);
@@ -1493,8 +1539,9 @@ async function copyTextToClipboard(text) {
 }
 
 function getErrorDialogCopyText() {
+  const title = (document.getElementById('errorTitle')?.textContent || '오류').trim();
   const details = (errorDetails?.innerText || errorDetails?.textContent || '').trim();
-  return details ? `오류\n\n${details}` : '오류';
+  return details ? `${title}\n\n${details}` : title;
 }
 
 copyError?.addEventListener('click', async (event) => {
@@ -1647,7 +1694,24 @@ downloadModelBtn?.addEventListener('click', async () => {
   try {
     await downloadSelectedModel();
   } catch (error) {
-    showError(error);
+    showError(error, '모델 다운로드 실패');
+    await refreshModels().catch(() => {});
+  }
+});
+
+bridge.onRedownloadModel?.(async (modelId) => {
+  try {
+    await refreshModels();
+    if (modelSelect && state.models.some((m) => m.id === modelId)) {
+      modelSelect.value = modelId;
+      updateStatusBarModel(state.models.find((m) => m.id === modelId) || null);
+      updateDownloadButtonState();
+      refreshVoiceList();
+    }
+    await downloadSelectedModel();
+  } catch (error) {
+    showError(error, '모델 다시 받기 실패');
+    await refreshModels().catch(() => {});
   }
 });
 
@@ -1693,6 +1757,8 @@ async function warmSelectedModel() {
     showStatus(`${model.label} 준비 완료. 읽기를 누르세요.`);
   } catch (err) {
     console.warn('[TTS] warm 실패:', err?.message || err);
+    showError(err, `${model.label} 엔진을 준비하지 못했습니다.`);
+    refreshModels({ voices: false, warm: false }).catch(() => {});
   }
 }
 

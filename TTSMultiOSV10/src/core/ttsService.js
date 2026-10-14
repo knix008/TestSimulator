@@ -1,9 +1,11 @@
 import { formatError } from './errorDialog.js';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { ensureOrtNativePath, ensureSherpaNativePath } from './ortNative.js';
+import { beginNativeOp, endNativeOp } from './appLog.js';
 import {
   createChildOrtSession,
   isElectronProcess,
@@ -480,15 +482,38 @@ function getSherpaTts(modelId, modelDir) {
     maxNumSentences: 1,
   };
 
+  // A missing/truncated file makes sherpa abort the whole process with no JS error.
+  const problems = [];
+  for (const file of Object.values(config.model.supertonic)) {
+    let size = 0;
+    try {
+      size = fsSync.statSync(file).size;
+    } catch {
+      problems.push(`없음: ${path.basename(file)}`);
+      continue;
+    }
+    if (size <= 0) problems.push(`빈 파일: ${path.basename(file)}`);
+  }
+  if (problems.length) {
+    throw new Error(
+      `Supertonic 모델 파일이 손상되었거나 누락되었습니다.\n${problems.join('\n')}\n`
+      + `폴더: ${modelDir}\n\n모델을 삭제한 뒤 다시 다운로드하세요.`,
+    );
+  }
+
   console.log(`[TTS] Supertonic 엔진 생성: ${modelDir}`);
-  // Supertonic 3 + sherpa 1.13.x can abort the whole process (uncaught Ort::Exception).
-  // Keep construction isolated from unexpected JS throws; native abort is avoided by catalog model choice.
-  const tts = new sherpa.OfflineTts({
-    ...config,
-    // Electron/Worker: avoid sharing ArrayBuffers across isolates
-    enableExternalBuffer: false,
-  });
-  sherpaCache.set(modelId, { sherpa, tts });
+  beginNativeOp({ op: 'Supertonic 엔진 로드', modelId, modelDir });
+  let tts;
+  try {
+    tts = new sherpa.OfflineTts({
+      ...config,
+      // Electron/Worker: avoid sharing ArrayBuffers across isolates
+      enableExternalBuffer: false,
+    });
+  } finally {
+    endNativeOp();
+  }
+  sherpaCache.set(modelId, { sherpa, tts, modelDir });
   return { sherpa, tts };
 }
 
@@ -510,11 +535,17 @@ async function synthesizeSupertonic(text, modelId, modelDir, opts = {}) {
 
   console.log(`[TTS] Supertonic 추론: sid=${speakerId} lang=${lang}`);
   // enableExternalBuffer must be false under Electron (external buffers blocked)
-  const audio = tts.generate({
-    text: text.trim(),
-    generationConfig,
-    enableExternalBuffer: false,
-  });
+  beginNativeOp({ op: 'Supertonic 음성 합성', modelId, modelDir });
+  let audio;
+  try {
+    audio = tts.generate({
+      text: text.trim(),
+      generationConfig,
+      enableExternalBuffer: false,
+    });
+  } finally {
+    endNativeOp();
+  }
   if (!audio?.samples?.length) throw new Error('Supertonic 오디오 생성 실패');
   const samples = Float32Array.from(audio.samples);
   return toResult(samples, audio.sampleRate || tts.sampleRate || 44100, opts);
@@ -1015,30 +1046,58 @@ async function synthesizeMeloTts(text, modelId, modelDir, opts = {}) {
 }
 
 // ── Voice listing helpers (used by UI via IPC) ───────────────────────────────
+// Supertonic voice.bin keeps speakers in sorted JSON order: sid 0–4 = F1–F5, 5–9 = M1–M5.
+const SUPERTONIC_VOICE_LABELS = [
+  { code: 'F1', label: '차분한 여성' },
+  { code: 'F2', label: '밝은 경쾌한 여성' },
+  { code: 'F3', label: '아나운서형 여성' },
+  { code: 'F4', label: '또렷한 자신감 여성' },
+  { code: 'F5', label: '상냥한 여성' },
+  { code: 'M1', label: '활기찬 남성' },
+  { code: 'M2', label: '차분한 저음 남성' },
+  { code: 'M3', label: '권위 있는 남성' },
+  { code: 'M4', label: '부드러운 청년 남성' },
+  { code: 'M5', label: '따뜻한 내레이션 남성' },
+];
+
+function formatSupertonicVoiceLabel(sid) {
+  const i = Number(sid);
+  const entry = Number.isFinite(i) ? SUPERTONIC_VOICE_LABELS[i] : null;
+  if (!entry) return `화자 ${sid}`;
+  return `${entry.label} (${entry.code})`;
+}
+
+function formatKokoroVoiceLabel(voiceId) {
+  const raw = String(voiceId || '').replace(/\.bin$/i, '').trim();
+  if (!raw) return raw;
+  // Drop locale/gender prefixes like af_, am_, bf_, bm_, ...
+  const base = raw.replace(/^[a-z]{1,3}_/i, '');
+  const name = (base || raw).toLowerCase();
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 export async function listModelVoices(modelId, store) {
   const catalog = await store.listModels();
   const model = catalog.find((m) => m.id === modelId);
   if (!model) return [];
 
+  // Listing voices must never start a download (it would race the user's download).
+  const installed = await store.getInstalledModel(modelId);
+  if (!installed) return [];
+
   try {
-    const available = await store.ensureModelAvailable(modelId, null);
-    const modelDir = available.modelPath;
+    const modelDir = installed.modelPath;
 
     if (model.runtime === 'melotts') {
       return [{ id: '0', label: 'KR' }];
     }
 
     if (model.runtime === 'sherpa-onnx' || modelId === 'ko-supertonic-int8') {
-      try {
-        const { tts } = getSherpaTts(modelId, modelDir);
-        const count = tts.numSpeakers || 10;
-        return Array.from({ length: count }, (_, i) => ({
-          id: String(i),
-          label: `Speaker ${i}`,
-        }));
-      } catch {
-        return Array.from({ length: 10 }, (_, i) => ({ id: String(i), label: `Speaker ${i}` }));
-      }
+      // Speaker count is fixed by voice.bin; avoid loading the native engine just to list names.
+      return SUPERTONIC_VOICE_LABELS.map((_, i) => ({
+        id: String(i),
+        label: formatSupertonicVoiceLabel(i),
+      }));
     }
 
     if (modelId === 'en-kokoro' || model.runtime === 'onnx') {
@@ -1048,9 +1107,9 @@ export async function listModelVoices(modelId, store) {
         .filter((n) => n.endsWith('.bin'))
         .map((n) => n.replace(/\.bin$/i, ''))
         .sort((a, b) => a.localeCompare(b))
-        .map((id) => ({ id, label: id }));
+        .map((id) => ({ id, label: formatKokoroVoiceLabel(id) }));
       if (voices.length) return voices;
-      return [{ id: 'af_heart', label: 'af_heart' }];
+      return [{ id: 'af_heart', label: formatKokoroVoiceLabel('af_heart') }];
     }
 
     return [{ id: 'default', label: model.label }];
@@ -1065,7 +1124,8 @@ export async function listModelVoices(modelId, store) {
  */
 export async function warmModel(modelId, store) {
   if (!modelId) return { warmed: false };
-  const available = await store.ensureModelAvailable(modelId, null);
+  const available = await store.getInstalledModel(modelId);
+  if (!available) return { warmed: false, reason: 'not-installed' };
   const modelDir = available.modelPath;
   const catalog = await store.listModels();
   const model = catalog.find((m) => m.id === modelId);

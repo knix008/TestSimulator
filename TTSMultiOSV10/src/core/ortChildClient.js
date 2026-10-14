@@ -13,6 +13,7 @@ let child = null;
 let nextId = 1;
 const pending = new Map();
 let readyPromise = null;
+let childGeneration = 0;
 
 function normalizeExecCandidate(value) {
   if (!value) return '';
@@ -66,6 +67,7 @@ function ensureChild() {
     delete env.ELECTRON_NO_ASAR;
     delete env.ELECTRON_PRESERVE_SYMLINKS;
 
+    childGeneration += 1;
     child = fork(workerPath, [], {
       execPath,
       execArgv: [],
@@ -104,17 +106,29 @@ function ensureChild() {
       finish(err);
     });
 
-    child.on('exit', (code) => {
-      const err = new Error(`ORT child exited with code ${code}`);
+    let stderrTail = '';
+    const current = child;
+    child.on('exit', (code, signal) => {
+      const err = new Error(
+        `음성 엔진(ONNX Runtime) 프로세스가 비정상 종료되었습니다 `
+        + `(종료 코드 ${code ?? '-'}${signal ? `, 시그널 ${signal}` : ''}).\n`
+        + `모델 파일이 손상되었을 수 있습니다. 모델을 삭제한 뒤 다시 다운로드하세요.`
+        + (stderrTail.trim() ? `\n\n엔진 출력:\n${stderrTail.trim()}` : ''),
+      );
+      console.error('[ORT child]', err.message);
       rejectAll(err);
-      child = null;
-      readyPromise = null;
+      if (child === current) {
+        child = null;
+        readyPromise = null;
+      }
       if (!settled) finish(err);
     });
 
     child.stderr?.on('data', (buf) => {
       const text = buf.toString().trim();
-      if (text) console.warn(`[ORT child] ${text}`);
+      if (!text) return;
+      console.warn(`[ORT child] ${text}`);
+      stderrTail = `${stderrTail}\n${text}`.slice(-4000);
     });
   });
 
@@ -236,7 +250,7 @@ export async function createChildOrtSession(cacheKey, onnxPath, options = {}) {
   const preferDml = Array.isArray(options.executionProviders)
     && options.executionProviders.includes('dml');
 
-  const created = await callChild('sessionCreate', {
+  const createPayload = {
     key: cacheKey,
     modelPath: onnxPath,
     options: {
@@ -250,12 +264,19 @@ export async function createChildOrtSession(cacheKey, onnxPath, options = {}) {
           interOpNumThreads: options.interOpNumThreads ?? 1,
         }),
     },
-  });
+  };
+  const created = await callChild('sessionCreate', createPayload);
+  let sessionGeneration = childGeneration;
 
   const session = {
     inputNames: created.inputNames || [],
     outputNames: created.outputNames || [],
     async run(feeds) {
+      if (sessionGeneration !== childGeneration || !child) {
+        // Child was restarted after a crash: its sessions are gone, recreate this one.
+        await callChild('sessionCreate', createPayload);
+        sessionGeneration = childGeneration;
+      }
       const result = await callChild('sessionRun', {
         key: cacheKey,
         feeds: serializeFeeds(feeds),

@@ -16,9 +16,22 @@ contextBridge.exposeInMainWorld('ttsBridge', {
   deleteModel:              (modelId)   => ipcRenderer.invoke('app:deleteModel', modelId),
   openTextFile:             ()          => ipcRenderer.invoke('app:openTextFile'),
   copyText:                 (text)      => ipcRenderer.invoke('app:copyText', text),
+  reportRendererError:      (payload)   => ipcRenderer.invoke('app:reportRendererError', payload),
   onModelDownloadProgress: (callback) => {
     const channel  = 'app:modelDownloadProgress';
     const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
+  onAppError: (callback) => {
+    const channel  = 'app:error';
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
+  onRedownloadModel: (callback) => {
+    const channel  = 'app:redownloadModel';
+    const listener = (_event, modelId) => callback(modelId);
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
   }
