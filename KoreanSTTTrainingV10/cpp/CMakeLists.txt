@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.16)
+project(korean_command_kws LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(test_logmel test_logmel.cpp)
+target_include_directories(test_logmel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(MSVC)
+  target_compile_options(test_logmel PRIVATE /utf-8 /W3 /EHsc)
+endif()
+
+set(ONNXRUNTIME_ROOT "" CACHE PATH "Directory that contains ONNX Runtime include/ and lib/")
+if(ONNXRUNTIME_ROOT)
+  add_executable(kws_infer main.cpp)
+  target_include_directories(kws_infer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "${ONNXRUNTIME_ROOT}/include")
+  target_link_directories(kws_infer PRIVATE "${ONNXRUNTIME_ROOT}/lib")
+  target_link_libraries(kws_infer onnxruntime)
+  if(MSVC)
+    target_compile_options(kws_infer PRIVATE /utf-8 /W3 /EHsc)
+  endif()
+else()
+  message(STATUS "ONNXRUNTIME_ROOT is not set; building test_logmel only")
+endif()

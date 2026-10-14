@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 빌드와 편집기 부산물
+cpp/build/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+Thumbs.db
+Desktop.ini
+
+# 녹음과 학습 결과. 설명 문서는 저장소에 둔다.
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+!README.md
+!Architecture.md
+!UsersGuide.md
