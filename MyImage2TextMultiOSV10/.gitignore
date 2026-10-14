@@ -12,8 +12,17 @@ src-tauri/target/
 src-tauri/gen/
 
 # 프로젝트 루트로 복사된 설치 파일
+/release/
 /*-setup.exe
+/*-Setup-*.exe
+/*-web.zip
 /*.msi
+/*.dmg
+/*.deb
+/*.rpm
+/*.AppImage
+/*-linux-setup.sh
+/image2text.png
 
 # 이전 WinForms 빌드 결과
 bin/

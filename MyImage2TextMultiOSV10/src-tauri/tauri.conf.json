@@ -32,6 +32,9 @@
     "active": true,
     "publisher": "SHKWON",
     "copyright": "Copyright © 2026 SHKWON <knix008@naver.com>",
+    "category": "Utility",
+    "shortDescription": "이미지를 텍스트로 바꿉니다",
+    "longDescription": "이미지를 원본과 같은 비율의 텍스트로 변환합니다.",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -45,7 +48,27 @@
         "installMode": "currentUser",
         "displayLanguageSelector": true,
         "languages": ["English", "Korean"],
-        "installerHooks": "./windows/hooks.nsh"
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/image2text/install-choices.sh": "linux/install-choices.sh"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/image2text/install-choices.sh": "linux/install-choices.sh"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
       }
     }
   }

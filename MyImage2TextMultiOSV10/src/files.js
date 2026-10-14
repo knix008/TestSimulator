@@ -1,8 +1,8 @@
 import { isTauri } from './save.js';
 
-export async function pickImages(title) {
+export async function pickImages(title, directory) {
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke('pick_images', { title: title || null });
+  return invoke('pick_images', { title: title || null, directory: directory || null });
 }
 
 export async function saveTexts(files) {
@@ -34,6 +34,25 @@ export async function saveTexts(files) {
     URL.revokeObjectURL(link.href);
   }
   return true;
+}
+
+export async function readInstallLanguage() {
+  if (!isTauri()) return '';
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const value = await invoke('install_language');
+    return value === 'en' || value === 'ko' ? value : '';
+  } catch {
+    return '';
+  }
+}
+
+export async function printPage() {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke('print_page');
+  }
+  window.print();
 }
 
 export async function readImage(path) {

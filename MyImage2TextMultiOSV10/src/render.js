@@ -1,3 +1,5 @@
+import { isBlankGlyph } from './plainText.js';
+
 const BACKGROUND = '#121418';
 const INK = '#f3f1ea';
 
@@ -11,7 +13,7 @@ export function layoutAspect(result) {
 
 const MAX_EDGE = 8192;
 
-export function paintAscii(canvas, result, cssWidth, dpr = 1) {
+export function paintAscii(canvas, result, cssWidth, dpr = 1, { background = BACKGROUND, ink = INK } = {}) {
   const aspect = layoutAspect(result);
   const lines = result.text.split('\n');
   const rows = result.edited ? Math.max(1, lines.length) : result.rows;
@@ -49,7 +51,7 @@ export function paintAscii(canvas, result, cssWidth, dpr = 1) {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.fillStyle = BACKGROUND;
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, pixelWidth, pixelHeight);
 
   const fitted = fitFontSize(ctx, result.fontFamily, cellWidth, cellHeight, result);
@@ -60,14 +62,14 @@ export function paintAscii(canvas, result, cssWidth, dpr = 1) {
   if ('textRendering' in ctx) ctx.textRendering = 'geometricPrecision';
   const baseline = Math.round((cellHeight - fitted.ink) / 2 + fitted.ascent);
   const useColor = result.colors && !result.edited;
-  if (!useColor) ctx.fillStyle = INK;
+  if (!useColor) ctx.fillStyle = ink;
 
   for (let y = 0; y < rows; y++) {
     const glyphs = Array.from(lines[y] ?? '');
     const top = y * cellHeight + baseline;
     for (let x = 0; x < cols; x++) {
       const glyph = glyphs[x] ?? ' ';
-      if (glyph === ' ') continue;
+      if (isBlankGlyph(glyph)) continue;
       if (useColor) {
         const colorIndex = (y * result.cols + x) * 3;
         ctx.fillStyle = `rgb(${result.colors[colorIndex]},${result.colors[colorIndex + 1]},${result.colors[colorIndex + 2]})`;
@@ -83,7 +85,7 @@ function fitFontSize(ctx, fontFamily, cellWidth, cellHeight, result) {
   const probe = 100;
   ctx.font = `${probe}px ${fontFamily}`;
   const wanted = cellWidth / cellHeight;
-  const glyphs = [...new Set(Array.from(result.text))].filter((glyph) => glyph !== ' ' && glyph !== '\n');
+  const glyphs = [...new Set(Array.from(result.text))].filter((glyph) => !isBlankGlyph(glyph) && glyph !== '\n');
   if (!glyphs.length) glyphs.push('M');
   let best = null;
   for (const glyph of glyphs) {

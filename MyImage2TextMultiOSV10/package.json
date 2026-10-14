@@ -5,11 +5,18 @@
   "author": "SHKWON <knix008@naver.com>",
   "type": "module",
   "scripts": {
+    "start": "tauri dev",
+    "start:web": "vite --open",
     "dev": "vite",
     "build": "vite build",
+    "build:web": "node scripts/build.mjs web",
+    "build:windows": "node scripts/build.mjs windows",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:macos": "node scripts/build.mjs macos",
+    "build:icons": "node scripts/generate-icons.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "node --test test/aspect.test.js test/raster.test.js test/sample.test.js"
+    "test": "node --test --test-concurrency=1 --test-reporter=./test/reporter.mjs test/aspect.test.js test/raster.test.js test/sample.test.js test/export.test.js test/recent.test.js test/textFile.test.js test/build.test.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

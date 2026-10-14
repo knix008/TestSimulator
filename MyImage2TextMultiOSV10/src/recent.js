@@ -1,5 +1,27 @@
 const KEY = 'image2text.recent.v1';
+const DIRECTORY_KEY = 'image2text.lastDirectory.v1';
 export const RECENT_LIMIT = 10;
+
+export function lastDirectory() {
+  try {
+    return localStorage.getItem(DIRECTORY_KEY) || parentDirectory(loadRecent()[0]?.path ?? '');
+  } catch {
+    return '';
+  }
+}
+
+export function rememberDirectory(path) {
+  const directory = parentDirectory(path);
+  if (directory) localStorage.setItem(DIRECTORY_KEY, directory);
+}
+
+export function parentDirectory(path) {
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (cut < 0) return '';
+  if (cut === 0) return path[0];
+  const directory = path.slice(0, cut);
+  return /^[A-Za-z]:$/.test(directory) ? `${directory}\\` : directory;
+}
 
 export function loadRecent() {
   try {

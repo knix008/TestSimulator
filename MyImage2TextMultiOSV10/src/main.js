@@ -3,13 +3,15 @@ import { STYLE_PRESETS, convertToText } from './converter.js';
 import { measureCell, sampleGlyph } from './measure.js';
 import { exportPixelWidth, layoutAspect, makePreviewUrl, paintAscii } from './render.js';
 import { toHtml } from './export.js';
+import { alignsInEveryEditor, normalizeNewlines, toClipboardText, toTextFile } from './plainText.js';
+import { IMAGE_FORMATS, encodeBmp, encodeTiff, imageFormat, toSvg } from './imageExport.js';
 import { saveAs } from './save.js';
 import { loadBitmap } from './decode.js';
 import { acceptAttribute, formatList } from './formats.js';
 import { buildInfo } from './generated/build-info.js';
-import { fileFromEncoded, isTauri, pathOf, pickImages, readImage, saveTexts } from './files.js';
-import { clearRecent, rememberRecent, removeRecent } from './recent.js';
-import { applyDom, getLanguage, setLanguage, t } from './i18n.js';
+import { fileFromEncoded, isTauri, pathOf, pickImages, printPage, readImage, readInstallLanguage, saveTexts } from './files.js';
+import { clearRecent, lastDirectory, rememberDirectory, rememberRecent, removeRecent } from './recent.js';
+import { applyDom, getLanguage, languageFromInstall, setLanguage, t } from './i18n.js';
 import { DEFAULT_THEME, THEMES, applyFont, applyTheme, nextThemeId, themeById, themeLabel } from './themes.js';
 
 const SETTINGS_KEY = 'image2text.settings.v3';
@@ -79,7 +81,12 @@ const els = {
   copy: document.querySelector('#btn-copy'),
   txt: document.querySelector('#btn-txt'),
   html: document.querySelector('#btn-html'),
-  png: document.querySelector('#btn-png'),
+  print: document.querySelector('#btn-print'),
+  exportButton: document.querySelector('#btn-export'),
+  exportMenu: document.querySelector('#export-menu'),
+  exportFormats: document.querySelector('#export-formats'),
+  resultMenuFormats: document.querySelector('#result-menu-formats'),
+  printImage: document.querySelector('#print-image'),
   reset: document.querySelector('#btn-reset'),
   themeButton: document.querySelector('#btn-theme'),
   themeMenuButton: document.querySelector('#btn-theme-menu'),
@@ -141,16 +148,21 @@ const state = {
   viewZoom: 1,
 };
 
-renderStyleChips();
-applySettings(loadSettings());
-bind();
-void loadFontChoices();
-void setupWindowControls();
-refreshChrome();
-renderSources();
-renderRecent();
-renderStage();
-new ResizeObserver(() => renderStage()).observe(els.compare);
+async function boot() {
+  const installedLanguage = await readInstallLanguage();
+  renderStyleChips();
+  applySettings(loadSettings(installedLanguage));
+  bind();
+  void loadFontChoices();
+  void setupWindowControls();
+  refreshChrome();
+  renderSources();
+  renderRecent();
+  renderStage();
+  new ResizeObserver(() => renderStage()).observe(els.compare);
+}
+
+void boot();
 
 function bind() {
   els.fileInput.accept = acceptAttribute();
@@ -221,7 +233,18 @@ function bind() {
   els.copy.addEventListener('click', () => void copySelected());
   els.txt.addEventListener('click', () => void saveSelected('txt'));
   els.html.addEventListener('click', () => void saveSelected('html'));
-  els.png.addEventListener('click', () => void saveSelected('png'));
+  els.print.addEventListener('click', () => void printResult(selected()));
+  els.exportButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleExportMenu();
+  });
+  els.exportMenu.addEventListener('click', (event) => {
+    const kind = event.target.closest('[data-save]')?.dataset.save;
+    if (!kind) return;
+    closeExportMenu();
+    void saveSelected(kind);
+  });
+  els.exportMenu.addEventListener('contextmenu', (event) => event.preventDefault());
   els.reset.addEventListener('click', resetSettings);
   els.themeButton.addEventListener('click', cycleTheme);
   els.themeMenuButton.addEventListener('click', (event) => {
@@ -245,12 +268,20 @@ function bind() {
     if (!els.fileMenu.hidden && !event.target.closest('#file-menu') && !event.target.closest('#btn-file')) {
       closeFileMenu();
     }
+    if (!els.exportMenu.hidden && !event.target.closest('#export-menu') && !event.target.closest('#btn-export')) {
+      closeExportMenu();
+    }
     if (!els.resultMenu.hidden && !event.target.closest('#result-menu')) closeResultMenu();
   });
   els.resultMenu.addEventListener('click', (event) => {
+    const result = state.results.find((item) => item.id === els.resultMenu.dataset.resultId);
+    if (event.target.closest('[data-print]')) {
+      closeResultMenu();
+      void printResult(result);
+      return;
+    }
     const kind = event.target.closest('[data-save]')?.dataset.save;
     if (!kind) return;
-    const result = state.results.find((item) => item.id === els.resultMenu.dataset.resultId);
     closeResultMenu();
     void saveResult(result, kind);
   });
@@ -271,6 +302,7 @@ function bind() {
   window.addEventListener('resize', () => {
     if (!els.themeMenu.hidden) placeThemeMenu();
     closeFileMenu();
+    closeExportMenu();
     closeResultMenu();
     updateGalleryNav();
   });
@@ -331,7 +363,7 @@ function bind() {
   els.editor.addEventListener('input', () => {
     const result = selected();
     if (!result) return;
-    const text = els.editor.value.replaceAll('\r\n', '\n');
+    const text = normalizeNewlines(els.editor.value);
     if (text !== result.text) {
       result.text = text;
       result.colors = null;
@@ -396,7 +428,7 @@ async function chooseImages(title) {
     return;
   }
   try {
-    const picked = await pickImages(title);
+    const picked = await pickImages(title, lastDirectory());
     if (!picked.files.length && !picked.failed.length) return;
     const added = await addEntries(
       picked.files.map((image) => ({ file: fileFromEncoded(image), path: image.path })),
@@ -442,6 +474,7 @@ async function addEntries(entries) {
     }
   }
   if (remembered.length) {
+    rememberDirectory(remembered[0].path);
     state.recent = rememberRecent(remembered);
     renderRecent();
   }
@@ -859,7 +892,7 @@ async function copySelected() {
     return;
   }
   try {
-    await navigator.clipboard.writeText(result.text);
+    await navigator.clipboard.writeText(toClipboardText(result.text));
     setStatus('copied');
   } catch (error) {
     setStatus('copyFailed', { error: errorText(error) });
@@ -882,14 +915,15 @@ async function saveAllResults() {
     used.set(base, count);
     return {
       name: count === 1 ? base : `${base}-${count}`,
-      text: result.text.replaceAll('\n', '\r\n'),
+      text: toTextFile(result.text),
     };
   });
   try {
     const saved = await saveTexts(files);
     if (saved) {
       for (const result of state.results) result.savedText = result.text;
-      setStatus('savedMany', { n: files.length });
+      const mixedWidth = state.results.some((result) => !alignsInEveryEditor(result.text));
+      setStatus(mixedWidth ? 'savedManyFontNote' : 'savedMany', { n: files.length });
     } else {
       setStatus('saveCancelled');
     }
@@ -908,7 +942,7 @@ async function saveResult(result, kind) {
     let saved = false;
     if (kind === 'txt') {
       saved = await saveAs({
-        text: result.text.replaceAll('\n', '\r\n'),
+        text: toTextFile(result.text),
         defaultName: `${base}.txt`,
         filterName: t('filterText'),
         extensions: ['txt'],
@@ -923,24 +957,77 @@ async function saveResult(result, kind) {
         mime: 'text/html;charset=utf-8',
       });
     } else {
-      const canvas = paintAscii(document.createElement('canvas'), result, exportPixelWidth(result), 1);
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-      const bytes = new Uint8Array(await blob.arrayBuffer());
-      saved = await saveAs({
-        bytes,
-        defaultName: `${base}.png`,
-        filterName: t('filterPng'),
-        extensions: ['png'],
-        mime: 'image/png',
-      });
+      const format = imageFormat(kind);
+      const target = {
+        defaultName: `${base}.${format.extension}`,
+        filterName: t('filterImage', { format: format.label }),
+        extensions: format.extensions ?? [format.extension],
+        mime: format.mime,
+      };
+      if (format.encoder === 'svg') {
+        saved = await saveAs({ ...target, text: toSvg(result) });
+      } else {
+        saved = await saveAs({ ...target, bytes: await encodeImage(result, format) });
+      }
     }
     if (saved) result.savedText = result.text;
-    setStatus(saved ? 'saved' : 'saveCancelled');
+    const fontNote = kind === 'txt' && !alignsInEveryEditor(result.text);
+    setStatus(saved ? (fontNote ? 'savedFontNote' : 'saved') : 'saveCancelled');
     return saved;
   } catch (error) {
     setStatus('saveFailed', { error: errorText(error) });
     return false;
   }
+}
+
+async function encodeImage(result, format) {
+  const canvas = paintAscii(document.createElement('canvas'), result, exportPixelWidth(result), 1);
+  if (format.encoder === 'canvas') {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, format.mime, format.quality));
+    if (!blob || blob.type !== format.mime) throw new Error(t('exportUnsupported', { format: format.label }));
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  const encode = format.encoder === 'bmp' ? encodeBmp : encodeTiff;
+  return encode(data, canvas.width, canvas.height);
+}
+
+async function printResult(result) {
+  if (!result) {
+    setStatus('needPrint');
+    return;
+  }
+  try {
+    const canvas = paintAscii(document.createElement('canvas'), result, exportPixelWidth(result, 2400), 1, {
+      background: '#ffffff',
+      ink: '#000000',
+    });
+    els.printImage.src = canvas.toDataURL('image/png');
+    await els.printImage.decode();
+    setStatus('printOpened');
+    await printPage();
+  } catch (error) {
+    setStatus('printFailed', { error: errorText(error) });
+  }
+}
+
+function formatItem(format) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'format-item';
+  button.dataset.save = format.id;
+  button.setAttribute('role', 'menuitem');
+  const label = document.createElement('strong');
+  label.textContent = format.label;
+  const hint = document.createElement('span');
+  hint.textContent = t(format.hint);
+  button.append(label, hint);
+  return button;
+}
+
+function renderExportMenus() {
+  els.exportFormats.replaceChildren(...IMAGE_FORMATS.map(formatItem));
+  els.resultMenuFormats.replaceChildren(...IMAGE_FORMATS.map(formatItem));
 }
 
 function selectedStyles() {
@@ -994,7 +1081,9 @@ function refreshChrome() {
   els.copy.disabled = !exportOn;
   els.txt.disabled = !exportOn;
   els.html.disabled = !exportOn;
-  els.png.disabled = !exportOn;
+  els.print.disabled = !exportOn;
+  els.exportButton.disabled = !exportOn;
+  if (!exportOn) closeExportMenu();
   syncNudges();
   saveSettings(settings);
 }
@@ -1034,6 +1123,11 @@ function onKeyDown(event) {
     closeResultMenu();
     return;
   }
+  if (event.key === 'Escape' && !els.exportMenu.hidden) {
+    event.preventDefault();
+    closeExportMenu();
+    return;
+  }
   const field = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
   if (event.key === 'F5') {
     event.preventDefault();
@@ -1058,6 +1152,11 @@ function onKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault();
     void saveSelected('txt');
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+    event.preventDefault();
+    void printResult(selected());
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'e') {
@@ -1124,7 +1223,18 @@ function renderStyleChips() {
     const sample = document.createElement('span');
     sample.className = 'chip-sample';
     sample.textContent = Array.from(style.chars).filter((char) => char !== ' ').slice(0, 2).join('');
-    label.append(input, name, sample);
+    label.append(input, name);
+    if (alignsInEveryEditor(style.chars)) {
+      label.classList.add('chip-editor-safe');
+      label.dataset.i18nTitle = 'editorSafeTip';
+      label.title = t('editorSafeTip');
+      const mark = document.createElement('span');
+      mark.className = 'chip-safe';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 3h8M2 6h8M2 9h8"/></svg>';
+      label.append(mark);
+    }
+    label.append(sample);
     grid.insertBefore(label, anchor);
   }
 }
@@ -1241,12 +1351,17 @@ function applySettings(settings) {
   applyAppearance(settings);
 }
 
-function loadSettings() {
+function loadSettings(installedLanguage) {
+  const fresh = () => ({
+    ...DEFAULTS,
+    language: languageFromInstall(installedLanguage),
+    styles: [...DEFAULTS.styles],
+  });
   try {
     const current = localStorage.getItem(SETTINGS_KEY);
     const legacy = localStorage.getItem(LEGACY_SETTINGS_KEY);
     const raw = current ?? legacy;
-    if (!raw) return { ...DEFAULTS, styles: [...DEFAULTS.styles] };
+    if (!raw) return fresh();
     const parsed = JSON.parse(raw);
     const known = new Set(STYLE_PRESETS.map((style) => style.id));
     const styles = Array.isArray(parsed.styles)
@@ -1260,7 +1375,7 @@ function loadSettings() {
       customThemes: sanitizeCustoms(parsed.customThemes),
     };
   } catch {
-    return { ...DEFAULTS, styles: [...DEFAULTS.styles] };
+    return fresh();
   }
 }
 
@@ -1352,6 +1467,7 @@ function applyAppearance(settings) {
   paintThemeButton();
   paintWindowLabels();
   renderCustomEditor();
+  renderExportMenus();
   if (els.aboutDialog.open) fillAbout();
   if (state.statusKey) els.statusMessage.textContent = t(state.statusKey, state.statusVars);
 }
@@ -1437,8 +1553,11 @@ function toggleFileMenu() {
 }
 
 function placeFileMenu() {
-  const anchor = els.fileButton.getBoundingClientRect();
-  const menu = els.fileMenu;
+  placeMenuUnder(els.fileMenu, els.fileButton);
+}
+
+function placeMenuUnder(menu, button) {
+  const anchor = button.getBoundingClientRect();
   const margin = 8;
   const rect = menu.getBoundingClientRect();
   let left = anchor.left;
@@ -1459,8 +1578,31 @@ function closeFileMenu() {
   els.fileButton.setAttribute('aria-expanded', 'false');
 }
 
+function toggleExportMenu() {
+  if (!els.exportMenu.hidden) {
+    closeExportMenu();
+    return;
+  }
+  closeFileMenu();
+  closeThemeMenu();
+  closeResultMenu();
+  els.exportMenu.hidden = false;
+  els.exportButton.classList.add('open');
+  els.exportButton.setAttribute('aria-expanded', 'true');
+  placeMenuUnder(els.exportMenu, els.exportButton);
+}
+
+function closeExportMenu() {
+  els.exportMenu.hidden = true;
+  els.exportButton.classList.remove('open');
+  els.exportButton.setAttribute('aria-expanded', 'false');
+}
+
 function toggleThemeMenu() {
-  if (els.themeMenu.hidden) closeFileMenu();
+  if (els.themeMenu.hidden) {
+    closeFileMenu();
+    closeExportMenu();
+  }
   const open = els.themeMenu.hidden;
   els.themeMenu.hidden = !open;
   els.themeMenuButton.classList.toggle('open', open);
@@ -1476,6 +1618,7 @@ function openResultMenu(id, x, y) {
   if (!result) return;
   closeThemeMenu();
   closeFileMenu();
+  closeExportMenu();
   selectResult(id);
   els.resultMenu.dataset.resultId = id;
   els.resultMenu.hidden = false;

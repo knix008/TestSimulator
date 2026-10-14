@@ -158,14 +158,21 @@ fn unique_text_path(folder: &std::path::Path, name: &str) -> Result<PathBuf, Str
 }
 
 #[tauri::command]
-async fn pick_images(app: tauri::AppHandle, title: Option<String>) -> Result<PickedImages, String> {
+async fn pick_images(
+    app: tauri::AppHandle,
+    title: Option<String>,
+    directory: Option<String>,
+) -> Result<PickedImages, String> {
     let title = title.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| "이미지 추가".into());
-    let chosen = app
+    let mut dialog = app
         .dialog()
         .file()
         .set_title(title)
-        .add_filter("이미지", IMAGE_EXTENSIONS)
-        .blocking_pick_files();
+        .add_filter("이미지", IMAGE_EXTENSIONS);
+    if let Some(folder) = directory.map(PathBuf::from).filter(|folder| folder.is_dir()) {
+        dialog = dialog.set_directory(folder);
+    }
+    let chosen = dialog.blocking_pick_files();
 
     let Some(files) = chosen else {
         return Ok(PickedImages {
@@ -233,6 +240,69 @@ fn read_image_at(path: &std::path::Path) -> Result<ImageFile, String> {
     })
 }
 
+fn normalize_install_language(text: &str) -> Option<String> {
+    let token = text.split_whitespace().next().unwrap_or("");
+    if token.eq_ignore_ascii_case("ko") {
+        Some("ko".into())
+    } else if token.eq_ignore_ascii_case("en") {
+        Some("en".into())
+    } else {
+        None
+    }
+}
+
+fn install_language_candidates() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            paths.push(dir.join("install-language.txt"));
+            paths.push(dir.join("../Resources/install-language.txt"));
+        }
+    }
+    #[cfg(windows)]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        paths.push(PathBuf::from(local).join("com.image2text.app").join("install-language.txt"));
+    }
+    #[cfg(target_os = "macos")]
+    if let Some(home) = std::env::var_os("HOME") {
+        paths.push(PathBuf::from(&home).join("Library/Application Support/com.image2text.app/install-language.txt"));
+        paths.push(PathBuf::from(home).join(".config/image2text/install-language"));
+    }
+    #[cfg(target_os = "linux")]
+    {
+        paths.push(PathBuf::from("/etc/image2text/install-language"));
+        if let Some(home) = std::env::var_os("HOME") {
+            let config = std::env::var_os("XDG_CONFIG_HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&home).join(".config"));
+            paths.push(config.join("image2text/install-language"));
+        }
+    }
+    paths
+}
+
+fn read_install_language() -> String {
+    for path in install_language_candidates() {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        if let Some(language) = normalize_install_language(&text) {
+            return language;
+        }
+    }
+    String::new()
+}
+
+#[tauri::command]
+fn install_language() -> String {
+    read_install_language()
+}
+
+#[tauri::command]
+fn print_page(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|error| error.to_string())
+}
+
 fn ensure_extension(path: &mut PathBuf, extensions: &[String]) {
     let already = path
         .extension()
@@ -252,12 +322,19 @@ fn ensure_extension(path: &mut PathBuf, extensions: &[String]) {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_fonts, safe_file_name};
+    use super::{collect_fonts, normalize_install_language, safe_file_name};
 
     #[test]
     fn installed_fonts_include_the_system_set() {
         let fonts = collect_fonts();
         assert!(fonts.len() > 6, "installed fonts: {}", fonts.len());
+    }
+
+    #[test]
+    fn install_language_accepts_ko_and_en() {
+        assert_eq!(normalize_install_language("ko\r\n"), Some("ko".into()));
+        assert_eq!(normalize_install_language(" EN "), Some("en".into()));
+        assert_eq!(normalize_install_language("fr"), None);
     }
 
     #[test]
@@ -275,11 +352,13 @@ pub fn run() {
             save_texts,
             pick_images,
             read_image,
-            list_fonts
+            list_fonts,
+            install_language,
+            print_page
         ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
-                let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+                let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png"))?;
                 window.set_icon(icon)?;
             }
             Ok(())

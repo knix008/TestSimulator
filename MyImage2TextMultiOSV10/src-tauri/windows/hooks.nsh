@@ -1,8 +1,10 @@
-; Image2Text installer hooks.
+﻿; Image2Text installer hooks.
 ; Language selection is Tauri's displayLanguageSelector (English / Korean).
 ; This page lets the user choose the Desktop and Start Menu shortcuts.
 ; The hooks file is included before the standard pages, so this page is the
 ; first wizard page after the language dialog.
+; Shortcuts point at the installed executable and use its icon, which is the
+; same artwork as the installer icon.
 
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
@@ -68,7 +70,16 @@ Function I2tShortcutLeave
   ${EndIf}
 FunctionEnd
 
+!macro I2tApplyShortcutIcon shortcut
+  ; Icon index 0 of the executable is the program icon embedded from icons/icon.ico.
+  CreateShortcut "${shortcut}" "$INSTDIR\${MAINBINARYNAME}.exe" "" "$INSTDIR\${MAINBINARYNAME}.exe" 0
+  !insertmacro SetLnkAppUserModelId "${shortcut}"
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
+  ; Default is both shortcuts. The page overrides this when it is shown.
+  StrCpy $I2tWantDesktop "1"
+  StrCpy $I2tWantStartMenu "1"
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
@@ -78,16 +89,33 @@ FunctionEnd
     StrCpy $I2tWantStartMenu "0"
   ${EndIf}
 
+  FileOpen $0 "$INSTDIR\install-language.txt" w
+  ${If} $0 != ""
+    ${If} $LANGUAGE == 1042
+      FileWrite $0 "ko$\r$\n"
+    ${Else}
+      FileWrite $0 "en$\r$\n"
+    ${EndIf}
+    FileClose $0
+  ${EndIf}
+
   ; The template always creates the Start Menu shortcut. Remove it when the
-  ; user unchecked that option.
-  ${If} $I2tWantStartMenu != "1"
+  ; user unchecked that option, and pin the program icon when they kept it.
+  ${If} $I2tWantStartMenu == "1"
+    ${If} ${FileExists} "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+      !insertmacro I2tApplyShortcutIcon "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+    ${EndIf}
+    ${If} ${FileExists} "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+      !insertmacro I2tApplyShortcutIcon "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+    ${EndIf}
+  ${Else}
     Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
     Delete "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
     RMDir "$SMPROGRAMS\$AppStartMenuFolder"
   ${EndIf}
 
   ${If} $I2tWantDesktop == "1"
-    CreateShortcut "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    !insertmacro I2tApplyShortcutIcon "$DESKTOP\${PRODUCTNAME}.lnk"
   ${Else}
     Delete "$DESKTOP\${PRODUCTNAME}.lnk"
   ${EndIf}
@@ -99,4 +127,6 @@ FunctionEnd
 !macro NSIS_HOOK_POSTUNINSTALL
   Delete "$DESKTOP\${PRODUCTNAME}.lnk"
   Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+  Delete "$INSTDIR\install-language.txt"
+  RMDir "$INSTDIR"
 !macroend

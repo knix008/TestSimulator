@@ -27,7 +27,7 @@
         </div>
       </header>
       <div class="toolbar" id="toolbar">
-        <div class="titlebar-actions">
+        <div class="titlebar-actions toolbar-main">
           <div class="menu-anchor">
             <button id="btn-file" class="title-action" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="fileMenu" aria-label="파일">
               <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 3.4h4.2l1.3 1.5h6.1v8.4H2.2z"/></svg>
@@ -53,6 +53,40 @@
               <div id="recent-list"></div>
             </div>
           </div>
+          <button id="btn-print" class="title-action" type="button" data-i18n-title="printTip" title="고른 결과 인쇄 (Ctrl+P)">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/><path d="M11.6 7.6h.01"/></svg>
+            <span data-i18n="print">인쇄</span>
+          </button>
+          <span class="toolbar-sep" aria-hidden="true"></span>
+          <button id="btn-edit" class="title-action" type="button" title="Ctrl+E" aria-pressed="false">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.4 2.6 13.4 6.6 6.2 13.8H2.2v-4z"/></svg>
+            <span class="tb-label">편집</span>
+          </button>
+          <button id="btn-copy" class="title-action" type="button" title="Ctrl+C">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.2" height="8.2" rx="1.3"/><path d="M3.2 10.8H2.6A1.2 1.2 0 0 1 1.4 9.6V2.8A1.2 1.2 0 0 1 2.6 1.6h6.8a1.2 1.2 0 0 1 1.2 1.2v.6"/></svg>
+            <span data-i18n="copy">복사</span>
+          </button>
+          <button id="btn-txt" class="title-action" type="button" title="Ctrl+S">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
+            <span data-i18n="textFile">텍스트</span>
+          </button>
+          <button id="btn-html" class="title-action" type="button">
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
+            <span data-i18n="html">HTML</span>
+          </button>
+          <div class="menu-anchor">
+            <button id="btn-export" class="title-action" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-title="exportTip" title="고른 결과를 이미지로 내보내기">
+              <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.4"/><circle cx="5.4" cy="6" r="1"/><path d="M2.2 11.2 5.6 8.2l2.1 1.8 1.4-1.2 4.5 3.4"/></svg>
+              <span data-i18n="exportImage">내보내기</span>
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+            </button>
+            <div id="export-menu" class="file-menu export-menu" hidden role="menu">
+              <div class="menu-head" data-i18n="exportHead">이미지 형식</div>
+              <div id="export-formats"></div>
+            </div>
+          </div>
+        </div>
+        <div class="titlebar-actions toolbar-end">
           <div class="theme-split">
             <button id="btn-theme" class="title-action theme-cycle" type="button" title="다음 테마">
               <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6a6.4 6.4 0 1 0 0 12.8c.7 0 1.2-.5 1.2-1.2 0-.3-.1-.6-.4-.8a1.2 1.2 0 0 1-.4-1c0-.7.6-1.2 1.3-1.2H11A3.4 3.4 0 0 0 14.4 6 6.4 6.4 0 0 0 8 1.6z"/><circle cx="5.2" cy="6.2" r=".8" fill="currentColor" stroke="none"/><circle cx="8" cy="4.6" r=".8" fill="currentColor" stroke="none"/><circle cx="10.8" cy="6.2" r=".8" fill="currentColor" stroke="none"/></svg>
@@ -255,28 +289,6 @@
           <div class="stage-bar">
             <span class="step">3</span>
             <h2 data-i18n="chosen">고른 결과</h2>
-            <div class="stage-actions">
-              <button id="btn-edit" class="act" type="button" title="Ctrl+E" aria-pressed="false">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.4 2.6 13.4 6.6 6.2 13.8H2.2v-4z"/></svg>
-                <span class="tb-label">편집</span>
-              </button>
-              <button id="btn-copy" class="act" type="button" title="Ctrl+C">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.2" height="8.2" rx="1.3"/><path d="M3.2 10.8H2.6A1.2 1.2 0 0 1 1.4 9.6V2.8A1.2 1.2 0 0 1 2.6 1.6h6.8a1.2 1.2 0 0 1 1.2 1.2v.6"/></svg>
-                <span data-i18n="copy">복사</span>
-              </button>
-              <button id="btn-txt" class="act" type="button" title="Ctrl+S">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5.2L13 5.6V14.2H4z"/><path d="M9 1.8V5.8h4M6 9h4.4M6 11.4h2.8"/></svg>
-                <span data-i18n="textFile">텍스트</span>
-              </button>
-              <button id="btn-html" class="act" type="button">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
-                <span data-i18n="html">HTML</span>
-              </button>
-              <button id="btn-png" class="act accent" type="button">
-                <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.4"/><circle cx="5.4" cy="6" r="1"/><path d="M2.2 11.2 5.6 8.2l2.1 1.8 1.4-1.2 4.5 3.4"/></svg>
-                <span data-i18n="png">PNG</span>
-              </button>
-            </div>
           </div>
 
           <section class="stage">
@@ -511,10 +523,17 @@
         <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8 2.2 8 6 12.2M10 3.8 13.8 8 10 12.2"/></svg>
         <span data-i18n="saveHtml">HTML로 저장</span>
       </button>
-      <button type="button" role="menuitem" data-save="png">
-        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.6" width="12.4" height="10.8" rx="1.4"/><circle cx="5.4" cy="6" r="1"/><path d="M2.2 11.2 5.6 8.2l2.1 1.8 1.4-1.2 4.5 3.4"/></svg>
-        <span data-i18n="savePng">PNG로 저장</span>
+      <button type="button" role="menuitem" data-print>
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.4 5.6V1.8h7.2v3.8"/><rect x="1.8" y="5.6" width="12.4" height="5.6" rx="1.2"/><path d="M4.4 9.4h7.2v4.8H4.4z"/></svg>
+        <span data-i18n="print">인쇄</span>
       </button>
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-head" data-i18n="exportHead">이미지 형식</div>
+      <div id="result-menu-formats"></div>
+    </div>
+
+    <div id="print-sheet" class="print-sheet" aria-hidden="true">
+      <img id="print-image" alt="" />
     </div>
 
     <script type="module" src="/src/main.js"></script>

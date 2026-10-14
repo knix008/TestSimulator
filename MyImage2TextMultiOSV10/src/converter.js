@@ -1,4 +1,7 @@
+import { BRAILLE_BLANK } from './plainText.js';
+
 // 각 문자열은 왼쪽이 가장 어두운 칸, 맨 끝 공백이 가장 밝은 칸이다.
+// 점자는 텍스트 편집기에서 다른 점자와 같은 폭이 되도록 빈 점자(U+2800)를 공백으로 쓴다.
 export const STYLE_PRESETS = [
   {
     id: 'Detailed',
@@ -39,7 +42,7 @@ export const STYLE_PRESETS = [
     id: 'Shapes',
     label: '도형',
     labelEn: 'Shapes',
-    chars: '◼◾▪●◆▲■□▢▣▤▥▦▧▨▩◦○◌◇△▽☆·. ',
+    chars: '◼▪●◆▲■□▢▣▤▥▦▧▨▩◦○◌◇△▽☆·. ',
     sample: '■',
   },
   {
@@ -86,7 +89,7 @@ function brailleRamp() {
   for (let index = 0; index < ranked.length && Array.from(ramp).length < count; index += step) {
     ramp += String.fromCodePoint(0x2800 + ranked[index].bits);
   }
-  return `${ramp} `;
+  return `${ramp}${BRAILLE_BLANK}`;
 }
 
 export function convertToText(bitmap, options) {
