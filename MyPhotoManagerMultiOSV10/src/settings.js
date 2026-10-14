@@ -1,0 +1,99 @@
+// User settings: kept in localStorage (read before the first paint) and, in the
+// desktop app, also in settings.json in the app data folder (survives a killed
+// WebView, which can lose its latest localStorage writes).
+import { fs } from './platform/fs.js';
+import { isDesktop } from './platform/native.js';
+
+const KEY = 'myphotomanager.settings';
+
+export const DEFAULTS = Object.freeze({
+  language: 'system',
+  theme: 'system',
+  thumbSize: 168,
+  view: 'thumbs', // thumbs | details | list | filmstrip
+  sort: { key: 'name', desc: false },
+  groupBy: 'none',
+  showHidden: false,
+  showAllFiles: false,
+  showFolders: true,
+  caption: { name: true, size: false, date: false, dims: false, overlay: true },
+  confirmDelete: true,
+  useTrash: true,
+  viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
+  xmpEmbed: false,
+  importer: { pattern: 'YYYY/YYYY-MM-DD', rename: '', deleteAfter: false, skipDuplicates: true, destination: null },
+  keys: {},
+  slideshow: { interval: 4, transition: 'fade', shuffle: false, loop: true, caption: true },
+  jpegQuality: 92,
+  xmpSidecar: false,
+  mapTiles: true,
+  startup: 'last',
+  lastFolder: null,
+  recentFolders: [],
+  favorites: [],
+  panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false },
+  catalogMatch: 'all',
+  renameTemplate: '{date:YYYYMMDD}_###',
+});
+
+const clone = (value) => JSON.parse(JSON.stringify(value));
+
+/** Defaults filled in for anything missing or of the wrong type (nested one level). */
+export function normalize(raw) {
+  const out = clone(DEFAULTS);
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, value] of Object.entries(raw)) {
+    if (!(key in DEFAULTS)) continue;
+    const base = DEFAULTS[key];
+    if (key === 'keys') {
+      // Custom shortcuts: { commandId: 'Ctrl+Shift+K' }.
+      if (value && typeof value === 'object') for (const [id, combo] of Object.entries(value)) if (typeof combo === 'string') out.keys[id] = combo;
+    } else if (base && typeof base === 'object' && !Array.isArray(base)) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const [inner, innerValue] of Object.entries(value)) {
+          if (inner in base && (typeof innerValue === typeof base[inner] || (base[inner] === null && (innerValue === null || typeof innerValue === 'string')))) out[key][inner] = innerValue;
+        }
+      }
+    } else if (Array.isArray(base)) {
+      if (Array.isArray(value)) out[key] = value;
+    } else if (base === null || typeof value === typeof base) {
+      out[key] = value;
+    }
+  }
+  out.thumbSize = Math.max(64, Math.min(400, out.thumbSize));
+  out.jpegQuality = Math.max(10, Math.min(100, out.jpegQuality));
+  return out;
+}
+
+export function loadSettings(storage = globalThis.localStorage) {
+  try {
+    return normalize(JSON.parse(storage?.getItem(KEY) ?? 'null'));
+  } catch {
+    return normalize(null);
+  }
+}
+
+/** Desktop: the settings file wins over localStorage when they differ. */
+export async function loadSettingsFile() {
+  if (!isDesktop()) return null;
+  try {
+    const text = await fs.readData('settings.json');
+    return text ? normalize(JSON.parse(text)) : null;
+  } catch {
+    return null;
+  }
+}
+
+let timer = null;
+export function saveSettings(settings, storage = globalThis.localStorage) {
+  try { storage?.setItem(KEY, JSON.stringify(settings)); } catch { /* storage full or blocked */ }
+  if (!isDesktop()) return;
+  clearTimeout(timer);
+  timer = setTimeout(() => { fs.writeData('settings.json', JSON.stringify(settings, null, 2)).catch(() => {}); }, 400);
+}
+
+/** Puts `folder` first in the recent list (max 12). */
+export function rememberFolder(settings, folder) {
+  settings.lastFolder = folder;
+  settings.recentFolders = [folder, ...settings.recentFolders.filter((f) => f !== folder)].slice(0, 12);
+}

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Categories={{categories}}
+{{#if comment}}
+Comment={{comment}}
+{{/if}}
+Exec={{exec}} %F
+StartupWMClass={{exec}}
+Icon={{icon}}
+Name={{name}}
+GenericName=Photo Manager
+GenericName[ko]=사진 관리자
+Keywords=photo;image;viewer;organizer;exif;raw;
+Terminal=false
+Type=Application
+MimeType=image/jpeg;image/png;image/gif;image/webp;image/avif;image/bmp;image/tiff;image/heic;image/heif;image/vnd.adobe.photoshop;image/x-icon;image/svg+xml;image/x-adobe-dng;image/x-canon-cr2;image/x-canon-cr3;image/x-nikon-nef;image/x-sony-arw;image/x-olympus-orf;image/x-panasonic-rw2;image/x-fuji-raf;image/x-pentax-pef;image/x-samsung-srw;inode/directory;

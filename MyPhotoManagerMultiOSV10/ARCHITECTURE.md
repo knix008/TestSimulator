@@ -1,0 +1,74 @@
+# MyPhotoManager 구조
+
+## 한 코드, 두 실행 환경
+
+UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 차이는 `src/platform/` 에만 있습니다.
+
+| | 데스크톱 (Tauri 2) | 웹 (PWA) |
+|---|---|---|
+| 경로 | 실제 경로 `C:\Photos\a.jpg` | 연 폴더 기준 `@3:Photos/2024/a.jpg` |
+| 폴더 목록·파일 작업 | Rust 명령 (`list_dir`, `copy_paths`, `move_paths`, `rename_path`, `delete_paths`(휴지통), `create_dir`, `set_modified`) | File System Access API (Chrome·Edge, 쓰기 가능·기억) / `input[webkitdirectory]`·끌어 놓기 (읽기 전용 메모리 폴더) |
+| 사진 읽기 | asset 프로토콜 (`convertFileSrc`, 범위 요청, 바뀐 파일은 `?v=` 로 새로 읽음) | `File` → Blob URL |
+| 쓰기 | `write_file` — 요청 본문 그대로(base64 없음), 경로는 퍼센트 인코딩 헤더, 임시 파일 후 이름 바꾸기 | `createWritable()`, 읽기 전용이면 내려받기 |
+| 카탈로그·설정 | 앱 데이터 폴더 `catalog.json` / `settings.json` (+ localStorage) | IndexedDB / localStorage |
+| 원본 백업 | `originals/<경로 해시>.<확장자>` (`backup_original` · `restore_original`) | 없음 |
+| 기타 | 탐색기에서 보기·기본 프로그램·바탕 화면 배경(`wallpaper` 크레이트), 인쇄, 단일 인스턴스(두 번째 실행의 경로를 넘김), 창 위치 기억, OS 파일 끌어 놓기 | 서비스 워커(오프라인), 매니페스트(설치) |
+
+`fs.caps` 가 기능 차이(휴지통·원본·탐색기 …)를 알려 주고 UI 는 그에 맞춰 메뉴를 켜고 끕니다.
+
+## 상태와 흐름 (`src/store.js`)
+
+`app.state` 에 지금 보는 **원천**(folder / filter / search / calendar / basket / paths), 원천에서 읽은 `items`, 정렬·필터·그룹을 거친 `list`/`groups`, 선택·포커스, 모드, 뒤로/앞으로 기록이 있습니다. 동작(폴더 열기, 선택, 정리, 파일 작업)은 모두 store 함수이고 바뀌면 이벤트(`source`, `items`, `selection`, `catalog`, `info`, `mode` …)를 냅니다. 각 창은 필요한 이벤트만 듣고 다시 그립니다.
+
+## 카탈로그 (`src/catalog/`)
+
+- `catalog.js` — 경로를 키로 한 레코드: 사용자가 넣은 것(별점·레이블·태그·키워드·카테고리·제목·설명·작성자·메모·편집됨)과 앱이 알아낸 것(크기·수정 시각·픽셀 크기·EXIF 요약·dHash). 이름 바꾸기·이동·복사 때 레코드가 따라갑니다. 정리하지 않은 레코드만 있는 사라진 파일은 정리됩니다. 자동 카테고리는 EXIF 요약에서 계산합니다.
+- `query.js` — 빠른 검색 문법 파서와 일치 판정, 카탈로그 창의 조합 필터(같은 종류는 OR, 다른 종류는 AND/OR).
+- `listing.js` — 자연 정렬(Intl.Collator numeric), 그룹.
+- `rename.js` — 템플릿, 충돌 검사, 서로 맞바꾸는 이름을 위한 임시 이름 2단계.
+- `dupes.js` — 9×8 회색 축소에서 64비트 dHash, 해밍 거리, 단일 연결 군집.
+
+저장은 1.2초 디바운스. 데스크톱은 문자열 JSON 을 Rust 가 원자적으로 씁니다.
+
+## 형식 (`src/formats/`)
+
+- `decode.js` — 형식별로 바로 세운 캔버스/ImageBitmap 을 돌려줍니다.
+  - 브라우저 형식: JPEG 는 EXIF 방향을 **직접** 읽고 EXIF 를 뗀 뒤 디코딩해 엔진마다 결과가 같게, 큰 JPEG 는 축소 디코딩.
+  - TIFF: UTIF(가장 큰 페이지), HEIC/HEIF: libheif(WebAssembly, 필요할 때만 불러옴, primary 이미지), PSD/PSB: 직접 만든 합성 이미지 리더(비트맵·회색·인덱스·RGB·CMYK·Lab, 1/8/16/32비트, RAW·PackBits·ZIP).
+  - RAW: `raw.js` 가 TIFF IFD 사슬·SubIFD·Panasonic JpgFromRaw 에서 브라우저가 읽을 수 있는(베이스라인/프로그레시브) 가장 큰 JPEG 를, RAF 는 헤더에서, 그 밖(CR3 …)은 파일 안의 완전한 JPEG 스트림을 찾습니다. 방향은 RAW 의 IFD0.
+- `jpeg-meta.js` — 세그먼트 파서. EXIF 방향 읽기/쓰기(태그가 없으면 IFD0 을 EXIF 블록 끝에 다시 만들어 붙임, 다른 데이터는 그 자리) → **무손실 회전**. 재인코딩한 JPEG 에 원본의 EXIF/XMP/ICC/IPTC 를 다시 넣고, IFD1 썸네일을 끊고 픽셀 크기를 고칩니다. EXIF 날짜를 고정 폭이라 제자리에서 바꿉니다.
+- `tiffstruct.js` — IFD 읽기/쓰기, EXIF·GPS 블록 생성(테스트 픽스처도 이것으로 만듦).
+- `exif.js` — exifr 결과를 카탈로그 요약으로(카메라 이름 정리, GPS, 내장 XMP 별점·레이블·키워드), 속성 창용 그룹별 태그.
+- `xmp.js` — 라이트룸 호환 사이드카. 기존 파일은 우리 속성만 바꾸고 나머지(현상 설정 등)는 남김.
+- `encode.js` — 캔버스 인코딩(JPEG/PNG/WebP), BMP·TIFF 직접 쓰기.
+
+## 썸네일 (`src/thumbs/`)
+
+메모리 LRU → IndexedDB(`경로|크기|수정 시각` 키, WebP) → 모듈 워커(최대 4개, OffscreenCanvas). 워커가 디코딩·축소·EXIF 요약·dHash 를 한 번에 하고, 결과가 카탈로그에 들어갑니다. 화면에 보이는 항목이 큐 앞으로 오고 폴더를 떠나면 남은 일은 취소됩니다. SVG·동영상은 페이지에서(동영상은 1초 지점 프레임).
+
+## 편집 (`src/edit/`)
+
+- `adjust.js` — ImageData 에 바로 작용하는 순수 함수: 톤 LUT(노출·밝기·S자 대비·레벨·흰/검정·채널별/마스터 단조 3차 곡선), 화이트 밸런스, 밝은/어두운 영역, 색상환 회전, 채도·생동감, 효과, 3-박스 가우시안, 언샵 마스크, 명료도, 에지 보존 노이즈 감소, 비네팅, 고정 시드 그레인, 컨볼루션, 적목, 자동 원천 선택 힐링, 히스토그램, 자동 레벨.
+- `geometry.js` — 회전·뒤집기·수평 맞추기(같은 비율의 최대 내접 사각형으로 자동 자르기)·자르기·크기 조절을 **하나의 아핀 행렬**로. 같은 행렬로 그리고, 역행렬로 미리 보기의 클릭을 원본 픽셀로 바꿉니다(적목·힐링 점은 원본 좌표로 저장).
+- `pipeline.js` — 보정(원본 좌표) → 색·톤 → 기하 → 디테일·효과 → 테두리·텍스트. 미리 보기는 긴 변 1800px 축소본으로, 저장은 원본 크기로 같은 함수를 부릅니다.
+
+## UI (`src/ui/`, `src/app.js`)
+
+`app.js` 가 메뉴·모드·툴바·창 배치·단축키·시작(명령줄 경로, 마지막 폴더, 웹 폴더 복원)을 맡습니다. 파일 목록(`filelist.js`)은 행 단위 가상화(이진 탐색으로 보이는 행만, 타일은 경로 키로 재사용), 고무줄 선택, 포인터 기반 끌어 놓기(`data-drop` 대상: 폴더 트리·폴더 타일·주소 막대)입니다. 메뉴·대화상자는 페이지 안 요소입니다.
+
+## Rust (`src-tauri/src/`)
+
+- `files.rs` — 폴더 목록(숨김 판정: Windows 속성/점 파일, 하위 폴더 유무 탐색은 최대 4000 항목), 장소 목록, 재귀 탐색, 복사/이동(충돌: 둘 다 유지·덮어쓰기·건너뛰기, 같은 폴더에 복사하면 사본, 드라이브가 다르면 복사 후 삭제), 이름 검사, 휴지통(`trash`), 수정 시각(`filetime`), 원자적 쓰기. 모두 단위 테스트.
+- `lib.rs` — 명령 등록, 원본 백업, 앱 데이터, 단일 인스턴스, 패닉 훅(crash.log + UI 알림), 창 생성(WebView2 인자 통일).
+- `window_state.rs` — 창 위치·크기·최대화 기억(연결된 모니터에 보일 때만 복원).
+
+## 설치 설정
+
+- `tauri.conf.json` — asset 프로토콜 범위 `**`(점으로 시작하는 폴더 포함), NSIS(한국어/영어, 사용자 설치, 훅), deb/rpm(사용자 .desktop 템플릿 + postinst), AppImage, macOS 11+.
+- `windows/hooks.nsh` (UTF-8 BOM) — 이전 데이터 삭제 질문, 이전 설치 완전 제거, "연결 프로그램" 등록(OpenWithProgids·SupportedTypes, 기본 프로그램은 바꾸지 않음)과 제거 시 해제.
+- `Info.plist` — 이미지·폴더 Viewer, LSHandlerRank Alternate.
+- `scripts/build.mjs` — Tauri 번들 → `release/` 이름 정리, 웹 앱 ZIP(자체 ZIP 작성기), `build-linux-docker.mjs` — Docker 로 리눅스 패키지.
+
+## 테스트
+
+`scripts/test.mjs` 가 분류별로 실행하고 결과를 표로 보여 줍니다. E2E 는 WebView2/Edge 의 DevTools 프로토콜을 Node 22 WebSocket 으로 직접 다룹니다(`test/e2e/cdp.mjs`). 데스크톱 E2E 는 앱마다 따로 WebView2 프로필·설정·데이터 폴더(`MYPHOTO_CONFIG_DIR`, `MYPHOTO_DATA_DIR`, `MYPHOTO_MULTI`)와 픽스처 사진 사본을 써서 사용자의 것을 건드리지 않습니다. 앱은 `window.__myphoto` 로 상태와 동작을 노출합니다(`menu(메뉴, 번역 키…)` 는 메뉴 항목을 클릭처럼 실행, `viewer.debug()`·`editor.debug()` 는 내부 상태). 네이티브 폴더·파일·저장 선택 창은 `window.__myphotoPicks` 에 넣어 둔 답을 차례로 씁니다. 백엔드의 `MYPHOTO_FAKE_SHELL`(탐색기·기본 프로그램·메일·바탕 화면·연결 프로그램을 기록만)과 `MYPHOTO_FAKE_SCANNER`(스캐너 대신 파일 복사)는 기능 E2E 가 시스템을 건드리지 않게 합니다. 기능마다 ID 가 있고(`test/features.mjs`), 각 테스트는 확인하는 ID 를 적어 둡니다.

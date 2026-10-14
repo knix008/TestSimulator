@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:webapp / build:all)
+release/
+/MyPhotoManager-*.exe
+/MyPhotoManager-*.msi
+/MyPhotoManager-*.dmg
+/MyPhotoManager-*.deb
+/MyPhotoManager-*.rpm
+/MyPhotoManager-*.AppImage
+/MyPhotoManager-*.zip
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Copied from node_modules by scripts/vendor-assets.mjs
+public/models/

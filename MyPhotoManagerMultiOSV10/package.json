@@ -1,0 +1,47 @@
+{
+  "name": "myphotomanager",
+  "productName": "MyPhotoManager",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Photo manager and viewer for Web, Windows, macOS and Linux (Tauri) — browse, organize, view, edit and batch-process photos",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4174 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js,rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:linux-docker": "node scripts/build-linux-docker.mjs",
+    "build:webapp": "node scripts/build.mjs web",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "predev": "node scripts/vendor-assets.mjs",
+    "prebuild:web": "node scripts/vendor-assets.mjs"
+  },
+  "dependencies": {
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "@jsquash/jxl": "^1.3.0",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@vladmandic/face-api": "^1.7.15",
+    "exifr": "^7.1.3",
+    "libheif-js": "^1.19.8",
+    "libraw-wasm": "^1.6.0",
+    "pako": "^2.1.0",
+    "pdfjs-dist": "^6.4.299",
+    "utif2": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

@@ -1,0 +1,259 @@
+// Editing metadata inside JPEG files:
+//  - EXIF: the whole EXIF block is parsed into its IFDs (image, Exif, GPS,
+//    Interop, thumbnail), the requested tags are changed, and the block is
+//    written again with fresh offsets. Tags we do not touch keep their raw
+//    bytes. (Like other tools, maker notes that store absolute offsets may
+//    lose those inner references when the block moves.)
+//  - XMP: the embedded XMP packet (APP1 "http://ns.adobe.com/xap/1.0/") is
+//    replaced or added — that is how ratings, labels, keywords and IPTC Core
+//    fields are "written to the file".
+import { exifSegment, insertSegments, isExifSegment, isXmpSegment, metadataSegments, segments } from './jpeg-meta.js';
+import { ASCII, BYTE, exifDate, LONG, RATIONAL, readIfd, SHORT, SRATIONAL, tiffHeader, TYPE_SIZE, UNDEFINED } from './tiffstruct.js';
+
+const POINTERS = { exif: 0x8769, gps: 0x8825, interop: 0xa005 };
+const EXIF_ID = [0x45, 0x78, 0x69, 0x66, 0, 0];
+const XMP_ID = 'http://ns.adobe.com/xap/1.0/\0';
+
+/** IFD entries with their raw value bytes: [{ tag, type, count, bytes }]. */
+function rawEntries(view, start, offset, little) {
+  if (!offset) return [];
+  return readIfd(view, start, offset, little).entries.map((e) => {
+    const size = (TYPE_SIZE[e.type] ?? 1) * e.count;
+    const at = Math.min(e.at, view.byteLength);
+    const end = Math.min(at + size, view.byteLength);
+    return { tag: e.tag, type: e.type, count: e.count, bytes: new Uint8Array(view.buffer, view.byteOffset + at, end - at).slice() };
+  });
+}
+
+const number = (entry, little) => {
+  if (!entry || entry.bytes.length < 2) return 0;
+  const view = new DataView(entry.bytes.buffer);
+  return entry.type === SHORT ? view.getUint16(0, little) : entry.bytes.length >= 4 ? view.getUint32(0, little) : 0;
+};
+
+/** Parses a TIFF/EXIF block (the bytes after "Exif\0\0"). */
+export function parseExifBlock(tiff) {
+  const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength);
+  const header = tiffHeader(view, 0);
+  if (!header) throw new Error('not an EXIF block');
+  const { little } = header;
+  const ifd0 = rawEntries(view, 0, header.ifd0, little);
+  const find = (list, tag) => list.find((e) => e.tag === tag);
+  const exif = rawEntries(view, 0, number(find(ifd0, POINTERS.exif), little), little);
+  const gps = rawEntries(view, 0, number(find(ifd0, POINTERS.gps), little), little);
+  const interop = rawEntries(view, 0, number(find(exif, POINTERS.interop), little), little);
+  const next = readIfd(view, 0, header.ifd0, little).next;
+  const ifd1 = next ? rawEntries(view, 0, next, little) : [];
+  let thumbnail = null;
+  const thumbOffset = number(find(ifd1, 0x0201), little);
+  const thumbLength = number(find(ifd1, 0x0202), little);
+  if (thumbOffset && thumbLength && thumbOffset + thumbLength <= tiff.length) thumbnail = tiff.slice(thumbOffset, thumbOffset + thumbLength);
+  const strip = (list, tags) => list.filter((e) => !tags.includes(e.tag));
+  return {
+    little,
+    ifd0: strip(ifd0, [POINTERS.exif, POINTERS.gps]),
+    exif: strip(exif, [POINTERS.interop]),
+    gps,
+    interop,
+    ifd1: strip(ifd1, [0x0201, 0x0202]),
+    thumbnail,
+  };
+}
+
+function u16(value, little) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, value, little); return b; }
+function u32(value, little) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, value, little); return b; }
+
+/** Writes the parsed model back as a TIFF block (fresh offsets). */
+export function serializeExifBlock(model) {
+  const { little } = model;
+  const groups = [];
+  const add = (name, entries) => { const g = { name, entries: entries.map((e) => ({ ...e })) }; groups.push(g); return g; };
+  const g0 = add('ifd0', model.ifd0);
+  const gExif = model.exif.length || model.interop.length ? add('exif', model.exif) : null;
+  const gInterop = model.interop.length && gExif ? add('interop', model.interop) : null;
+  const gGps = model.gps.length ? add('gps', model.gps) : null;
+  const g1 = model.ifd1.length || model.thumbnail ? add('ifd1', model.ifd1) : null;
+  const pointer = (group, tag) => ({ tag, type: LONG, count: 1, bytes: new Uint8Array(4), pointer: true });
+  if (gExif) g0.entries.push(pointer(gExif, POINTERS.exif));
+  if (gGps) g0.entries.push(pointer(gGps, POINTERS.gps));
+  if (gInterop) gExif.entries.push(pointer(gInterop, POINTERS.interop));
+  if (g1 && model.thumbnail) {
+    g1.entries.push({ tag: 0x0201, type: LONG, count: 1, bytes: new Uint8Array(4), thumbOffset: true });
+    g1.entries.push({ tag: 0x0202, type: LONG, count: 1, bytes: u32(model.thumbnail.length, little) });
+  }
+  for (const g of groups) g.entries.sort((a, b) => a.tag - b.tag);
+
+  let offset = 8;
+  for (const g of groups) {
+    g.offset = offset;
+    offset += 2 + g.entries.length * 12 + 4;
+    for (const e of g.entries) {
+      if (e.bytes.length > 4) {
+        e.dataOffset = offset;
+        offset += e.bytes.length + (e.bytes.length % 2);
+      }
+    }
+  }
+  const thumbAt = model.thumbnail && g1 ? offset : 0;
+  if (thumbAt) offset += model.thumbnail.length;
+
+  const out = new Uint8Array(offset);
+  const view = new DataView(out.buffer);
+  view.setUint16(0, little ? 0x4949 : 0x4d4d);
+  view.setUint16(2, 42, little);
+  view.setUint32(4, 8, little);
+  const offsetOf = (name) => groups.find((g) => g.name === name)?.offset ?? 0;
+  for (const g of groups) {
+    let p = g.offset;
+    view.setUint16(p, g.entries.length, little);
+    p += 2;
+    for (const e of g.entries) {
+      let bytes = e.bytes;
+      if (e.pointer) bytes = u32(offsetOf(e.tag === POINTERS.exif ? 'exif' : e.tag === POINTERS.gps ? 'gps' : 'interop'), little);
+      if (e.thumbOffset) bytes = u32(thumbAt, little);
+      view.setUint16(p, e.tag, little);
+      view.setUint16(p + 2, e.type, little);
+      view.setUint32(p + 4, e.count, little);
+      if (bytes.length > 4) {
+        view.setUint32(p + 8, e.dataOffset, little);
+        out.set(bytes, e.dataOffset);
+      } else {
+        out.set(bytes, p + 8);
+      }
+      p += 12;
+    }
+    view.setUint32(p, g.name === 'ifd0' && g1 ? g1.offset : 0, little);
+  }
+  if (thumbAt) out.set(model.thumbnail, thumbAt);
+  return out;
+}
+
+// ───────────────────────── values
+
+function ascii(text) {
+  const bytes = new TextEncoder().encode(`${text}\0`);
+  return { type: ASCII, count: bytes.length, bytes };
+}
+
+function rationals(values, little, signed = false) {
+  const out = new Uint8Array(values.length * 8);
+  const view = new DataView(out.buffer);
+  values.forEach(([n, d], i) => {
+    if (signed) { view.setInt32(i * 8, n, little); view.setInt32(i * 8 + 4, d, little); } else { view.setUint32(i * 8, n, little); view.setUint32(i * 8 + 4, d, little); }
+  });
+  return { type: signed ? SRATIONAL : RATIONAL, count: values.length, bytes: out };
+}
+
+const dms = (value) => {
+  const abs = Math.abs(value);
+  const d = Math.floor(abs);
+  const mFull = (abs - d) * 60;
+  const m = Math.floor(mFull);
+  return [[d, 1], [m, 1], [Math.round((mFull - m) * 60 * 10000), 10000]];
+};
+
+function setTag(list, tag, value) {
+  const index = list.findIndex((e) => e.tag === tag);
+  if (value == null) { if (index >= 0) list.splice(index, 1); return; }
+  const entry = { tag, ...value };
+  if (index >= 0) list[index] = entry; else list.push(entry);
+}
+
+/**
+ * Applies `changes` to a parsed model. Keys (undefined = leave, null/'' = remove):
+ * description, make, model, software, artist, copyright, userComment, dateTaken (Date),
+ * dateModified (Date), orientation (1–8), gps ({ lat, lon, alt } or null).
+ */
+export function applyExifChanges(model, changes) {
+  const { little } = model;
+  const text = (list, tag, key) => {
+    if (!(key in changes)) return;
+    const value = changes[key];
+    setTag(list, tag, value == null || value === '' ? null : ascii(value));
+  };
+  text(model.ifd0, 0x010e, 'description');
+  text(model.ifd0, 0x010f, 'make');
+  text(model.ifd0, 0x0110, 'model');
+  text(model.ifd0, 0x0131, 'software');
+  text(model.ifd0, 0x013b, 'artist');
+  text(model.ifd0, 0x8298, 'copyright');
+  if ('userComment' in changes) {
+    const value = changes.userComment;
+    if (!value) setTag(model.exif, 0x9286, null);
+    else {
+      const body = new TextEncoder().encode(value);
+      const bytes = new Uint8Array(8 + body.length);
+      bytes.set([0x41, 0x53, 0x43, 0x49, 0x49, 0, 0, 0]); // "ASCII\0\0\0" (UTF-8 text is read fine by exifr and others)
+      bytes.set(body, 8);
+      setTag(model.exif, 0x9286, { type: UNDEFINED, count: bytes.length, bytes });
+    }
+  }
+  if ('dateTaken' in changes) {
+    const value = changes.dateTaken ? ascii(exifDate(changes.dateTaken)) : null;
+    setTag(model.exif, 0x9003, value);
+    setTag(model.exif, 0x9004, value);
+  }
+  if ('dateModified' in changes) setTag(model.ifd0, 0x0132, changes.dateModified ? ascii(exifDate(changes.dateModified)) : null);
+  if ('orientation' in changes && changes.orientation) setTag(model.ifd0, 0x0112, { type: SHORT, count: 1, bytes: u16(changes.orientation, little) });
+  if ('gps' in changes) {
+    if (!changes.gps) model.gps = [];
+    else {
+      const { lat, lon, alt } = changes.gps;
+      model.gps = [];
+      setTag(model.gps, 0x0000, { type: BYTE, count: 4, bytes: Uint8Array.of(2, 3, 0, 0) });
+      setTag(model.gps, 0x0001, ascii(lat >= 0 ? 'N' : 'S'));
+      setTag(model.gps, 0x0002, rationals(dms(lat), little));
+      setTag(model.gps, 0x0003, ascii(lon >= 0 ? 'E' : 'W'));
+      setTag(model.gps, 0x0004, rationals(dms(lon), little));
+      if (alt != null && Number.isFinite(alt)) {
+        setTag(model.gps, 0x0005, { type: BYTE, count: 1, bytes: Uint8Array.of(alt < 0 ? 1 : 0) });
+        setTag(model.gps, 0x0006, rationals([[Math.round(Math.abs(alt) * 100), 100]], little));
+      }
+    }
+  }
+  return model;
+}
+
+function exifTiffOf(jpeg) {
+  const segment = segments(jpeg).find((s) => isExifSegment(jpeg, s));
+  return segment ? jpeg.slice(segment.dataStart + EXIF_ID.length, segment.end) : null;
+}
+
+/** Copy of the JPEG with the EXIF changes (an EXIF block is created when there is none). */
+export function editJpegExif(jpeg, changes) {
+  const tiff = exifTiffOf(jpeg);
+  const model = tiff ? parseExifBlock(tiff) : { little: true, ifd0: [], exif: [], gps: [], interop: [], ifd1: [], thumbnail: null };
+  applyExifChanges(model, changes);
+  if (!model.ifd0.some((e) => e.tag === 0x0112)) setTag(model.ifd0, 0x0112, { type: SHORT, count: 1, bytes: u16(1, model.little) });
+  let block = serializeExifBlock(model);
+  if (block.length + 8 > 0xffff && model.thumbnail) {
+    // Too big for one segment: drop the embedded thumbnail first.
+    model.thumbnail = null;
+    model.ifd1 = [];
+    block = serializeExifBlock(model);
+  }
+  const others = metadataSegments(jpeg).filter((seg) => !(seg[1] === 0xe1 && seg[4] === 0x45 && seg[5] === 0x78 && seg[6] === 0x69 && seg[7] === 0x66));
+  return insertSegments(jpeg, [exifSegment(block), ...others]);
+}
+
+/** Copy of the JPEG with `xmp` (packet text) as its embedded XMP (replacing any). */
+export function embedJpegXmp(jpeg, xmp) {
+  const id = new TextEncoder().encode(XMP_ID);
+  const body = new TextEncoder().encode(xmp);
+  const length = 2 + id.length + body.length;
+  if (length > 0xffff) throw new Error('XMP packet too large for one JPEG segment');
+  const segment = new Uint8Array(2 + length);
+  segment[0] = 0xff; segment[1] = 0xe1; segment[2] = length >> 8; segment[3] = length & 0xff;
+  segment.set(id, 4);
+  segment.set(body, 4 + id.length);
+  const kept = [];
+  for (const s of segments(jpeg)) {
+    if (s.marker === 0xda) break;
+    if (s.marker === 0xe1 && isXmpSegment(jpeg, s)) continue;
+    if (s.marker === 0xe1 || s.marker === 0xe2 || s.marker === 0xed) kept.push(jpeg.slice(s.start, s.end));
+  }
+  // EXIF first, then XMP, then ICC / IPTC.
+  const exif = kept.filter((seg) => seg[4] === 0x45 && seg[5] === 0x78);
+  const rest = kept.filter((seg) => !(seg[4] === 0x45 && seg[5] === 0x78));
+  return insertSegments(jpeg, [...exif, segment, ...rest]);
+}

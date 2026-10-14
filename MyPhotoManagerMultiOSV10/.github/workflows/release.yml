@@ -1,0 +1,56 @@
+# Builds every installer on its own OS (Tauri does not cross-compile):
+#   Windows  → MyPhotoManager-Setup-<version>.exe
+#   macOS    → MyPhotoManager-<version>-arm64.dmg and -x64.dmg
+#   Linux    → .deb, .rpm, .AppImage
+#   Web      → MyPhotoManager-<version>-web.zip
+# Run it from the Actions tab ("Run workflow") or by pushing a tag v*.
+# (Copy this folder to the root of its own repository: GitHub only reads
+# .github/workflows at the repository root.)
+name: Build installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-latest
+            target: mac
+          - os: macos-13
+            target: mac
+          - os: ubuntu-22.04
+            target: linux
+          - os: ubuntu-22.04
+            target: webapp
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.target != 'webapp'
+      - uses: Swatinem/rust-cache@v2
+        if: matrix.target != 'webapp'
+        with:
+          workspaces: src-tauri
+      - name: Linux packages for Tauri
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf rpm libssl-dev
+      - run: npm ci
+      - run: npm test -- --quick
+      - run: npm run build:${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyPhotoManager-${{ matrix.target }}-${{ matrix.os }}
+          path: release/*
