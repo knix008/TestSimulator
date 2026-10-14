@@ -1433,27 +1433,44 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   touch-action: none;
 }
 .cp-wheel:focus-visible { outline: 2px solid var(--accent, #6cb6ff); outline-offset: 2px; }
+/* Swatch, colour code and "No tint" share one vertical centre line, and the
+   column sits in the middle of the space beside the wheel */
 .cp-wheel-side {
+  flex: 1 1 auto;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-width: 0;
+  text-align: center;
 }
 .cp-swatch {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 .cp-swatch.is-empty {
   background: repeating-linear-gradient(45deg, transparent 0 5px, var(--border) 5px 6px);
 }
 .cp-hex {
+  /* Fixed line so "—" and "#RRGGBB" do not shift the button */
+  height: 16px;
+  line-height: 16px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: ui-monospace, Consolas, "Courier New", monospace;
   font-size: 12px;
+  letter-spacing: 0.02em;
   color: var(--text-primary);
 }
+.cp-wheel-side .cp-btn { min-width: 76px; }
 .cp-btn {
   height: 24px;
   padding: 0 10px;
