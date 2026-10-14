@@ -185,12 +185,13 @@
   "task": "arch",
   "title": "House floor plan",
   "titleKo": "단독주택 평면도",
-  "description": "A 1:100 floor plan: walls, doors, windows, stairs, furniture, grid and dimensions",
-  "descriptionKo": "벽·창호·계단·가구·통심선·치수를 갖춘 1:100 평면도",
+  "description": "A 1:100 plan cut from the BIM model (walls, doors, windows, stairs, rooms, furniture) — the same house in 3D",
+  "descriptionKo": "BIM 모델(벽·창호·계단·실·가구)의 1 m 단면 평면도 1:100 — 3D 보기로 같은 집",
   "tags": [
    "건축",
+   "BIM",
    "평면도",
-   "레이어"
+   "3D"
   ]
  },
  {
@@ -198,12 +199,13 @@
   "task": "arch",
   "title": "House 3D and elevations",
   "titleKo": "단독주택 3D·입면도",
-  "description": "Walls with openings, gable roof, stairs, porch — elevations projected from the 3D model",
-  "descriptionKo": "개구부를 뚫은 벽, 박공지붕, 계단, 현관 — 3D 모델에서 투영한 입면도",
+  "description": "BIM walls, windows, gable roof, stairs, porch — elevations from the model, IFC",
+  "descriptionKo": "BIM 벽·창호·박공지붕·계단·현관 — 모델에서 투영한 입면도, IFC",
   "tags": [
    "건축",
    "3D",
-   "BIM"
+   "BIM",
+   "IFC"
   ]
  },
  {
@@ -211,10 +213,11 @@
   "task": "arch",
   "title": "Office floor",
   "titleKo": "사무소 기준층",
-  "description": "Column grid, core (stairs, lifts, toilets), curtain wall and desks at 1:200",
-  "descriptionKo": "기둥 격자, 코어(계단·승강기·화장실), 커튼월, 책상 배치 1:200",
+  "description": "BIM columns, grid, curtain wall, core, meeting rooms, desks at 1:200 — in 3D too",
+  "descriptionKo": "BIM 기둥·통심선·커튼월·코어·회의실·책상 1:200 — 3D 보기로 입체",
   "tags": [
    "건축",
+   "BIM",
    "사무소"
   ]
  },
@@ -268,6 +271,21 @@
    "3D",
    "구조",
    "철골"
+  ]
+ },
+ {
+  "file": "24-two-storey-house.mcad",
+  "task": "arch",
+  "title": "Two-storey house (levels, materials, rebar)",
+  "titleKo": "2층 주택 (층·재료·철근)",
+  "description": "Two levels, layered walls, an L roof with per-edge slopes, rebar, a truss carport, a pipe — IFC",
+  "descriptionKo": "1층·2층, 다층 벽, L자 지붕(변별 경사), 철근, 트러스·골판 카포트, 배관 — IFC",
+  "tags": [
+   "건축",
+   "BIM",
+   "층",
+   "재료",
+   "IFC"
   ]
  },
  {

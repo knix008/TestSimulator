@@ -10,6 +10,11 @@
 import { arcPoints, bboxOf, polygonArea } from './geometry.js';
 import { booleanOf } from './csg.js';
 import { triangulate } from './triangulate.js';
+import { repairMesh } from './meshcheck.js';
+import { HOLE_TIPS, HOLE_TYPES, holeProfile, holeVolume, loftSectionsMesh, sweepSectionMesh, taperedExtrude } from './features.js';
+import { extrudedCurve, fillSurface, sectionSurface, SURFACE_MODES, thicken } from './surface.js';
+import { canDressUp, DRESSUP_EDGES, DRESSUP_KINDS, dressupMesh, dressupOutlines } from './dressup.js';
+import { ARCH_ICONS, ARCH_KINDS, ARCH_SOLIDS, archBlocks, archGroups, archMesh, normalizeMaterial, archPlan, archQuantities, hasArchShape, isArchKind, normalizeArchShape } from './arch.js';
 
 const num = (key, def, min, max, step = 1, unit = 'mm') => ({ key, type: 'number', def, min, max, step, unit });
 const int = (key, def, min, max) => ({ key, type: 'int', def, min, max, step: 1, unit: '' });
@@ -17,9 +22,12 @@ const int = (key, def, min, max) => ({ key, type: 'int', def, min, max, step: 1,
 /** Primitive kinds (made in the solid window). */
 export const SOLID_KINDS = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'tube', 'wedge', 'prism', 'ellipsoid', 'helix'];
 /** Kinds made from 2D outlines or other solids. */
-export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh'];
+export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh', 'points', 'surface', 'hole', ...DRESSUP_KINDS];
+export const LOFT_MODES = ['ruled', 'smooth'];
+export const THICKNESS_OPEN = ['openTop', 'openBottom', 'openBoth', 'closed'];
+export const POCKET_MODES = ['blind', 'throughAll'];
 export const BOOLEAN_OPS = ['union', 'cut', 'common'];
-export const ALL_SOLID_KINDS = [...SOLID_KINDS, ...DERIVED_KINDS];
+export const ALL_SOLID_KINDS = [...SOLID_KINDS, ...DERIVED_KINDS, ...ARCH_KINDS];
 export const ROUND_SEGMENTS = 72;
 
 export const SOLIDS = {
@@ -33,18 +41,37 @@ export const SOLIDS = {
   prism: { params: [int('sides', 6, 3, 64), num('radius', 5, 0.01, 50000), num('height', 10, 0.01, 100000)] },
   ellipsoid: { params: [num('radius1', 3, 0.01, 50000), num('radius2', 6, 0.01, 50000), num('radius3', 4, 0.01, 50000)] },
   helix: { params: [num('radius', 10, 0.1, 50000), num('pitch', 5, 0.1, 1000, 0.5), num('turns', 5, 0.25, 200, 0.25, ''), num('wire', 1, 0.05, 500, 0.1)] },
-  pad: { params: [num('height', 10, 0.01, 100000)] },
+  pad: { params: [num('height', 10, 0.01, 100000), num('taper', 0, -60, 60, 1, '°')] },
   revolution: { params: [num('angle', 360, 1, 360, 15, '°')] },
-  loft: { params: [num('height', 20, 0.01, 100000)] },
+  loft: { params: [num('height', 20, 0.01, 100000), { key: 'mode', type: 'choice', options: LOFT_MODES, def: 0, min: 0, max: LOFT_MODES.length - 1, step: 1, unit: '' }] },
   sweep: { params: [num('radius', 2, 0.01, 1000, 0.5)] },
   boolean: { params: [] },
+  // PartDesign Pocket and Groove (parameters only: the result is a Cut tree).
+  pocket: { params: [num('depth', 5, 0.01, 100000), { key: 'through', type: 'choice', options: POCKET_MODES, def: 0, min: 0, max: POCKET_MODES.length - 1, step: 1, unit: '' }] },
+  groove: { params: [num('angle', 360, 1, 360, 15, '°')] },
   mesh: { params: [] },
+  // A point cloud (FreeCAD Points): shape.pts = [x, y, z, …].
+  points: { params: [] },
+  // FreeCAD Surface: open surfaces from curves (shape: curves | outer + holes | paths); a thickness makes a shell solid.
+  surface: { params: [{ key: 'mode', type: 'choice', options: SURFACE_MODES, def: 0, min: 0, max: SURFACE_MODES.length - 1, step: 1, unit: '' }, num('height', 50, 0.01, 100000), num('bulge', 0, -100000, 100000), num('thickness', 0, 0, 10000, 0.5), { key: 'smooth', type: 'choice', options: LOFT_MODES, def: 0, min: 0, max: LOFT_MODES.length - 1, step: 1, unit: '' }] },
+  surfRuled: { params: [num('height', 50, 0.01, 100000), { key: 'smooth', type: 'choice', options: LOFT_MODES, def: 0, min: 0, max: LOFT_MODES.length - 1, step: 1, unit: '' }, num('thickness', 0, 0, 10000, 0.5)] },
+  surfFill: { params: [num('bulge', 20, -100000, 100000), num('thickness', 0, 0, 10000, 0.5)] },
+  surfExtrude: { params: [num('height', 50, 0.01, 100000), num('thickness', 0, 0, 10000, 0.5)] },
+  // Part Fillet / Chamfer / Thickness / Offset on a prism-shaped base (shape.base).
+  fillet: { params: [num('size', 2, 0.01, 100000, 0.5), { key: 'edges', type: 'choice', options: DRESSUP_EDGES, def: 0, min: 0, max: DRESSUP_EDGES.length - 1, step: 1, unit: '' }] },
+  chamfer: { params: [num('size', 2, 0.01, 100000, 0.5), { key: 'edges', type: 'choice', options: DRESSUP_EDGES, def: 0, min: 0, max: DRESSUP_EDGES.length - 1, step: 1, unit: '' }] },
+  thickness: { params: [num('thickness', 2, 0.01, 100000, 0.5), { key: 'open', type: 'choice', options: THICKNESS_OPEN, def: 0, min: 0, max: THICKNESS_OPEN.length - 1, step: 1, unit: '' }] },
+  // PartDesign Hole: mouth at z = 0, drilled down (−z).
+  hole: { params: [num('diameter', 6.6, 0.1, 10000, 0.1), num('depth', 10, 0.1, 100000), { key: 'type', type: 'choice', options: HOLE_TYPES, def: 0, min: 0, max: HOLE_TYPES.length - 1, step: 1, unit: '' }, num('cbDiameter', 11, 0.1, 10000, 0.5), num('cbDepth', 6.4, 0.1, 10000, 0.5), num('csDiameter', 12.4, 0.1, 10000, 0.5), { key: 'tip', type: 'choice', options: HOLE_TIPS, def: 1, min: 0, max: HOLE_TIPS.length - 1, step: 1, unit: '' }] },
+  offset3d: { params: [num('distance', 2, -100000, 100000, 0.5)] },
+  ...ARCH_SOLIDS,
 };
 
 /** Icon of each solid kind (FreeCAD Part workbench look). */
 export const SOLID_ICONS = {
   box: 'solidBox', cylinder: 'solidCylinder', sphere: 'solidSphere', cone: 'solidCone', torus: 'solidTorus', tube: 'solidTube', wedge: 'solidWedge',
-  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport',
+  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport', points: 'pointCloud', surface: 'surfFill', surfRuled: 'surfRuled', surfFill: 'surfFill', surfExtrude: 'surfExtrude', fillet: 'solidFillet', chamfer: 'solidChamfer', hole: 'solidHole', pocket: 'solidPocket', groove: 'solidGroove', thickness: 'solidThickness', offset3d: 'solidOffset',
+  ...Object.fromEntries(ARCH_KINDS.map((kind) => [kind, ARCH_ICONS[kind]])),
 };
 
 /** Axes a 2D outline can be revolved about. */
@@ -61,8 +88,21 @@ export const REVOLVE_AXES = ['yAxis', 'xAxis', 'left', 'bottom'];
 export function featureFrom(kind, source, params = {}, { axis = 'yAxis' } = {}) {
   const base = { type: 'solid', kind, params: normalizeSolidParams(kind, params), x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
   if (kind === 'pad') return { ...base, shape: { shapes: source.shapes } };
-  if (kind === 'loft') return { ...base, shape: { bottom: source.bottom, top: source.top } };
-  if (kind === 'sweep') return { ...base, shape: { path: source.path.map((p) => [p.x, p.y, 0]) } };
+  // Pocket / Groove / Hole: the tool that is cut away (its height is set where it is used).
+  if (kind === 'pocket') return featureFrom('pad', source, { height: base.params.depth });
+  // Surfaces: one kind, three ways of making it.
+  if (kind === 'surfRuled' || kind === 'surfFill' || kind === 'surfExtrude') {
+    const mode = { surfRuled: 0, surfFill: 1, surfExtrude: 2 }[kind];
+    const shape = kind === 'surfRuled' ? { curves: source.curves } : kind === 'surfFill' ? { outer: source.outer, holes: source.holes ?? [] } : { paths: source.paths };
+    return { ...base, kind: 'surface', params: normalizeSolidParams('surface', { ...params, mode }), shape };
+  }
+  if (kind === 'groove') return featureFrom('revolution', source, { angle: base.params.angle }, { axis });
+  if (kind === 'hole') {
+    const c = source.circles?.[0] ?? { x: 0, y: 0 };
+    return { ...base, x: c.x, y: c.y };
+  }
+  if (kind === 'loft') return { ...base, shape: source.sections?.length > 2 || (source.sections && LOFT_MODES[base.params.mode] === 'smooth') ? { sections: source.sections } : { bottom: source.bottom ?? source.sections[0], top: source.top ?? source.sections[1] } };
+  if (kind === 'sweep') return { ...base, shape: { path: source.path.map((p) => [p.x, p.y, 0]), ...(source.section ? { section: source.section } : {}) } };
   if (kind === 'revolution') {
     const loop = source.loop;
     const box = bboxOf(loop);
@@ -89,7 +129,7 @@ export function normalizeSolidParams(kind, raw = {}) {
     let value = Number(raw?.[param.key]);
     if (!Number.isFinite(value)) value = param.def;
     value = Math.min(param.max, Math.max(param.min, value));
-    out[param.key] = param.type === 'int' ? Math.round(value) : value;
+    out[param.key] = param.type === 'number' ? value : Math.round(value);
   }
   if (kind === 'tube') out.inner = Math.min(out.inner, out.outer * 0.98);
   if (kind === 'torus') out.radius2 = Math.min(out.radius2, out.radius1 * 0.98);
@@ -119,16 +159,37 @@ export function normalizeShapeData(kind, raw) {
     }
     case 'revolution':
       return { profile: (Array.isArray(raw?.profile) ? raw.profile : []).map((p) => [Math.max(0, Number(p?.[0]) || 0), Number(p?.[1]) || 0]) };
-    case 'loft':
-      return { bottom: (raw?.bottom ?? []).map(point2), top: (raw?.top ?? []).map(point2) };
-    case 'sweep':
-      return { path: (Array.isArray(raw?.path) ? raw.path : []).map(point3) };
+    case 'loft': {
+      // Several sections (bottom to top), or the older bottom + top.
+      const sections = (Array.isArray(raw?.sections) ? raw.sections : []).map((s) => (Array.isArray(s) ? s.map(point2) : [])).filter((s) => s.length >= 3);
+      return sections.length >= 2 ? { sections } : { bottom: (raw?.bottom ?? []).map(point2), top: (raw?.top ?? []).map(point2) };
+    }
+    case 'sweep': {
+      const section = (Array.isArray(raw?.section) ? raw.section : []).map(point2);
+      return { path: (Array.isArray(raw?.path) ? raw.path : []).map(point3), ...(section.length >= 3 ? { section } : {}) };
+    }
+    case 'surface': {
+      const loop = (l) => (Array.isArray(l) ? l.map(point2) : []);
+      return {
+        ...(Array.isArray(raw?.curves) ? { curves: raw.curves.map(loop).filter((c) => c.length >= 2) } : {}),
+        ...(Array.isArray(raw?.outer) ? { outer: loop(raw.outer), holes: (raw.holes ?? []).map(loop).filter((h) => h.length >= 3) } : {}),
+        ...(Array.isArray(raw?.paths) ? { paths: raw.paths.map(loop).filter((c) => c.length >= 2) } : {}),
+      };
+    }
+    case 'points': {
+      const pts = Array.isArray(raw?.pts) ? raw.pts.map((v) => Number(v) || 0) : [];
+      return { pts: pts.slice(0, pts.length - (pts.length % 3)) };
+    }
     case 'mesh': {
       const tris = Array.isArray(raw?.tris) ? raw.tris.map((v) => Number(v) || 0) : [];
       return { tris: tris.slice(0, tris.length - (tris.length % 9)) };
     }
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': {
+      const base = normalizeSolidData(raw?.base);
+      return base ? { base } : {};
+    }
     default:
-      return {};
+      return isArchKind(kind) ? normalizeArchShape(kind, raw) : {};
   }
 }
 
@@ -138,11 +199,14 @@ export function hasShape(entity) {
   switch (entity.kind) {
     case 'pad': return (s.shapes?.length ?? 0) > 0;
     case 'revolution': return (s.profile?.length ?? 0) >= 3;
-    case 'loft': return (s.bottom?.length ?? 0) >= 3 && (s.top?.length ?? 0) >= 3;
+    case 'loft': return (s.sections?.length ?? 0) >= 2 || ((s.bottom?.length ?? 0) >= 3 && (s.top?.length ?? 0) >= 3);
     case 'sweep': return (s.path?.length ?? 0) >= 2;
     case 'mesh': return (s.tris?.length ?? 0) >= 9;
+    case 'points': return (s.pts?.length ?? 0) >= 3;
+    case 'surface': return (s.curves?.length ?? 0) >= 2 || (s.outer?.length ?? 0) >= 3 || (s.paths?.length ?? 0) >= 1;
     case 'boolean': return (s.parts?.length ?? 0) >= 2;
-    default: return true;
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': return canDressUp(s.base);
+    default: return isArchKind(entity.kind) ? hasArchShape(entity) : true;
   }
 }
 
@@ -158,6 +222,9 @@ export function normalizeSolidData(raw) {
     x: finite(raw.x), y: finite(raw.y), z: finite(raw.z), rx: finite(raw.rx), ry: finite(raw.ry), rz: finite(raw.rz),
     scale: Number.isFinite(scale) && scale > 0 ? scale : 1, flip: Boolean(raw.flip),
     params: normalizeSolidParams(raw.kind, raw.params), shape: normalizeShapeData(raw.kind, raw.shape),
+    // BIM objects: the level they stand on and their material.
+    ...(typeof raw.level === 'string' && raw.level ? { level: raw.level.slice(0, 40) } : {}),
+    ...(isArchKind(raw.kind) && normalizeMaterial(raw.material) ? { material: normalizeMaterial(raw.material) } : {}),
   };
 }
 
@@ -362,15 +429,27 @@ export function localMesh(entity) {
     case 'ellipsoid':
       return revolve(ellipsoidProfile()).map((tri) => tri.map(([x, y, z]) => [x * p.radius2, y * p.radius3, z * p.radius1]));
     case 'helix': return sweepMesh(helixPath(p.radius, p.pitch, p.turns, 36), p.wire, 16);
-    case 'pad': return (entity.shape?.shapes ?? []).flatMap((shape) => extrudePolygon(shape.outer, 0, p.height, shape.holes));
+    case 'pad': return (entity.shape?.shapes ?? []).flatMap((shape) => (p.taper ? taperedExtrude(shape, p.height, p.taper) ?? [] : extrudePolygon(shape.outer, 0, p.height, shape.holes)));
+    case 'hole': return revolve(holeProfile(p));
+    case 'surface': {
+      if (!hasShape(entity)) return [];
+      const s = entity.shape;
+      const mode = SURFACE_MODES[p.mode] ?? 'ruled';
+      const open = mode === 'fill' ? fillSurface(s.outer ?? [], s.holes ?? [], p.bulge) : mode === 'extrude' ? (s.paths ?? []).flatMap((path) => extrudedCurve(path, p.height)) : sectionSurface(s.curves ?? [], p.height, LOFT_MODES[p.smooth] === 'smooth');
+      return p.thickness > 0 ? thicken(open, p.thickness) : open;
+    }
     case 'revolution': {
       const profile = entity.shape?.profile ?? [];
       if (profile.length < 3) return [];
       const ccw = polygonArea(profile.map(([r, z]) => ({ x: r, y: z }))) > 0 ? profile : profile.slice().reverse();
       return revolve(ccw, p.angle);
     }
-    case 'loft': return hasShape(entity) ? loftMesh(entity.shape.bottom, entity.shape.top, p.height) : [];
-    case 'sweep': return hasShape(entity) ? sweepMesh(entity.shape.path, p.radius) : [];
+    case 'loft':
+      if (!hasShape(entity)) return [];
+      return entity.shape.sections ? loftSectionsMesh(entity.shape.sections, p.height, LOFT_MODES[p.mode] === 'smooth') : loftMesh(entity.shape.bottom, entity.shape.top, p.height);
+    case 'sweep':
+      if (!hasShape(entity)) return [];
+      return entity.shape.section ? sweepSectionMesh(entity.shape.path, entity.shape.section) : sweepMesh(entity.shape.path, p.radius);
     case 'mesh': {
       const t = entity.shape?.tris ?? [];
       const out = [];
@@ -378,7 +457,8 @@ export function localMesh(entity) {
       return out;
     }
     case 'boolean': return hasShape(entity) ? booleanMesh(entity.shape) : [];
-    default: return [];
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': return hasShape(entity) ? dressupMesh(entity) : [];
+    default: return isArchKind(entity.kind) && hasShape(entity) ? archMesh(entity) : [];
   }
 }
 
@@ -410,7 +490,8 @@ function booleanMesh(shape) {
     booleanCache.set(key, hit);
     return hit;
   }
-  const tris = booleanOf(shape.op, shape.parts.map((part) => solidMesh(part)));
+  // BSP leaves slivers and hair-thin cracks where planes nearly touch: mend them so exports are watertight.
+  const tris = repairMesh(booleanOf(shape.op, shape.parts.map((part) => solidMesh(part)))).triangles;
   booleanCache.set(key, tris);
   while (booleanCache.size > 24) booleanCache.delete(booleanCache.keys().next().value);
   return tris;
@@ -455,6 +536,37 @@ export function solidMesh(entity) {
   return tris;
 }
 
+const groupCache = new WeakMap();
+
+/**
+ * A solid's triangles in drawing coordinates by material, for the 3D view:
+ * [{ material: 'main' | 'glass' | 'wood' | 'metal' | 'space', tris }]. Arch
+ * objects have several (glass in windows, wooden frames…), other solids one.
+ */
+export function solidMeshGroups(entity) {
+  if (!isArchKind(entity.kind)) return [{ material: 'main', tris: solidMesh(entity) }];
+  const cached = groupCache.get(entity);
+  if (cached) return cached;
+  const map = placement(entity);
+  const groups = hasShape(entity) ? Object.entries(archGroups(entity)).filter(([, tris]) => tris.length).map(([material, tris]) => {
+    let out = tris.map((tri) => tri.map(map));
+    if (entity.flip) out = out.map(([a, b, c]) => [a, c, b]);
+    return { material, tris: out };
+  }) : [];
+  groupCache.set(entity, groups);
+  return groups;
+}
+
+/** The closed blocks of a solid in drawing coordinates (one for most solids; a BIM object's parts). */
+export function solidBlocks(entity) {
+  if (!isArchKind(entity.kind) || !hasShape(entity)) return [solidMesh(entity)];
+  const map = placement(entity);
+  return archBlocks(entity).map((tris) => {
+    const out = tris.map((tri) => tri.map(map));
+    return entity.flip ? out.map(([a, b, c]) => [a, c, b]) : out;
+  });
+}
+
 /** Top view (2D) of a solid: its outline as primitives. */
 export function solidFootprint(entity) {
   const p = entity.params;
@@ -470,6 +582,8 @@ export function solidFootprint(entity) {
   ];
   const loop = (points) => ({ kind: 'poly', points: flat(points), closed: true });
   const ngon = (r, n) => Array.from({ length: n }, (_, i) => ({ x: r * Math.cos((2 * Math.PI * i) / n), y: r * Math.sin((2 * Math.PI * i) / n) }));
+  if (level && isArchKind(entity.kind)) return hasShape(entity) ? placePrimitives(archPlan(entity), entity) : [];
+  if (level && DRESSUP_KINDS.includes(entity.kind)) return hasShape(entity) ? placePrimitives(dressupOutlines(entity).map((points) => ({ kind: 'poly', points, closed: true })), entity) : [];
   if (level) {
     switch (entity.kind) {
       case 'box': return [loop([{ x: 0, y: 0 }, { x: p.length, y: 0 }, { x: p.length, y: p.width }, { x: 0, y: p.width }])];
@@ -490,13 +604,49 @@ export function solidFootprint(entity) {
         return [loop([{ x: 0, y: 0 }, { x: p.length, y: 0 }, { x: p.length, y: p.width }, { x: 0, y: p.width }]), { kind: 'line', a, b }];
       }
       case 'pad': return (entity.shape?.shapes ?? []).flatMap((shape) => [shape.outer, ...shape.holes].map(loop));
-      case 'loft': return hasShape(entity) ? [loop(entity.shape.bottom), loop(entity.shape.top)] : [];
+      case 'loft': return hasShape(entity) ? (entity.shape.sections ?? [entity.shape.bottom, entity.shape.top]).map(loop) : [];
       default: break;
     }
+  }
+  if (entity.kind === 'points') {
+    // Seen from above: the outline round the cloud (dashed) and a dot for every point (at most 3000).
+    const pts = solidPoints(entity);
+    const hull = convexHull(pts.map(([x, y]) => ({ x, y })));
+    const step = Math.max(1, Math.ceil(pts.length / 3000));
+    const box = meshBox([pts.map((p) => [...p])]);
+    const r = Math.max(box.size[0], box.size[1], 1) / 800;
+    const dots = pts.filter((_, i) => i % step === 0).map(([x, y]) => ({ kind: 'circle', c: { x, y }, r }));
+    return [...(hull.length >= 3 ? [{ kind: 'poly', points: hull, closed: true, lineType: 'dashed' }] : []), ...dots];
   }
   // Tilted, revolved, swept and mesh solids: the outline of all their corners seen from above.
   const hull = convexHull(solidMesh(entity).flat().map(([x, y]) => ({ x, y })));
   return hull.length >= 3 ? [{ kind: 'poly', points: hull, closed: true }] : [];
+}
+
+/** The points of a point cloud in the drawing ([[x, y, z]]). */
+export function solidPoints(entity) {
+  const pts = entity.shape?.pts ?? [];
+  const map = placement(entity);
+  const out = [];
+  for (let i = 0; i + 2 < pts.length; i += 3) out.push(map([pts[i], pts[i + 1], pts[i + 2]]));
+  return out;
+}
+
+/** Plan primitives (local) moved into the drawing by a level solid's placement (scale, mirror, turn about z, move). */
+export function placePrimitives(prims, entity) {
+  const map = placement(entity);
+  const at = (p) => { const [x, y] = map([p.x, p.y, 0]); return { x, y }; };
+  const s = entity.scale ?? 1;
+  const turn = (entity.rz ?? 0);
+  return prims.map((prim) => {
+    switch (prim.kind) {
+      case 'line': return { ...prim, a: at(prim.a), b: at(prim.b) };
+      case 'poly': case 'fill': return { ...prim, points: prim.points.map(at), ...(prim.holes ? { holes: prim.holes.map((hole) => hole.map(at)) } : {}) };
+      case 'circle': return { ...prim, c: at(prim.c), r: prim.r * s };
+      case 'text': return { ...prim, p: at(prim.p), size: prim.size * s, angle: (prim.angle ?? 0) + turn };
+      default: return prim;
+    }
+  });
 }
 
 export function convexHull(points) {
@@ -549,9 +699,11 @@ export function exactVolume(entity) {
     wedge: () => ((p.length + p.topLength) / 2) * p.height * p.width,
     prism: () => (p.sides / 2) * p.radius ** 2 * Math.sin((2 * PI) / p.sides) * p.height,
     ellipsoid: () => (4 / 3) * PI * p.radius1 * p.radius2 * p.radius3,
-    pad: () => (entity.shape?.shapes ?? []).reduce((sum, shape) => sum + Math.abs(polygonArea(shape.outer)) - shape.holes.reduce((h, hole) => h + Math.abs(polygonArea(hole)), 0), 0) * p.height,
+    hole: () => holeVolume(p),
+    pad: () => (p.taper ? null : (entity.shape?.shapes ?? []).reduce((sum, shape) => sum + Math.abs(polygonArea(shape.outer)) - shape.holes.reduce((h, hole) => h + Math.abs(polygonArea(hole)), 0), 0) * p.height),
   }[entity.kind];
-  return formula ? formula() * s : null;
+  const v = formula ? formula() : null;
+  return v === null || v === undefined ? null : v * s;
 }
 
 /** What the properties panel shows about a solid. */
@@ -559,6 +711,7 @@ export function solidProperties(entity) {
   const tris = solidMesh(entity);
   const box = meshBox(tris);
   return {
+    ...(isArchKind(entity.kind) ? archQuantities(entity) : {}),
     volume: exactVolume(entity) ?? Math.abs(meshVolume(tris)),
     area: meshArea(tris),
     triangles: tris.length,
@@ -715,12 +868,15 @@ export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidde
     for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) grid[y * N + x].push(t);
   });
   const eps = size * 1e-3;
-  // Facets within about a facet's size of a line never hide it: near a
-  // silhouette the surface is almost edge-on and its own facets would.
-  const reach = (sources) => 1.5 * Math.max(...sources.flatMap((f) => [0, 1, 2].map((i) => Math.hypot(...v3.sub(tris[f][i], tris[f][(i + 1) % 3])))));
-  const near = (t, q, h) => tris[t].some((v) => Math.hypot(...v3.sub(v, q)) < h)
-    || Math.hypot(...v3.sub(v3.mul(v3.add(v3.add(tris[t][0], tris[t][1]), tris[t][2]), 1 / 3), q)) < h;
-  const occluded = (q, h) => {
+  // A line is never hidden by its own faces; a smooth silhouette not by the
+  // two rings of faces round it either (there the surface is almost edge-on
+  // and its own facets would hide it).
+  const ringOf = (sources, rings) => {
+    let set = new Set(sources);
+    for (let k = 0; k < rings; k++) set = new Set([...set].flatMap((f) => faces[f].flatMap((v) => around[v])));
+    return set;
+  };
+  const occluded = (q, skip) => {
     const p = project(q);
     const d = depth(q);
     const [cx, cy] = cellOf(p.x, p.y);
@@ -733,7 +889,7 @@ export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidde
       const l3 = 1 - l1 - l2;
       if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
       const [A, B, C] = tris[t];
-      if (l1 * depth(A) + l2 * depth(B) + l3 * depth(C) > d + eps && !near(t, q, h)) return true;
+      if (l1 * depth(A) + l2 * depth(B) + l3 * depth(C) > d + eps && !skip.has(t)) return true;
     }
     return false;
   };
@@ -741,7 +897,7 @@ export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidde
   const step = size / 120;
   for (const line of lines) {
     const [a, b] = line;
-    const h = line.smooth ? reach(line.faces) : 0;
+    const skip = line.smooth ? ringOf(line.faces, 2) : new Set(line.faces);
     const length = Math.hypot(...v3.sub(b, a));
     const n = Math.max(1, Math.ceil(length / step));
     let start = a;
@@ -749,7 +905,7 @@ export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidde
     for (let i = 0; i < n; i++) {
       const p0 = v3.add(a, v3.mul(v3.sub(b, a), i / n));
       const p1 = v3.add(a, v3.mul(v3.sub(b, a), (i + 1) / n));
-      const now = occluded(v3.mul(v3.add(p0, p1), 0.5), h);
+      const now = occluded(v3.mul(v3.add(p0, p1), 0.5), skip);
       if (state === null) { state = now; start = p0; } else if (now !== state) {
         const seg = [project(start), project(p0)];
         seg.hidden = state;

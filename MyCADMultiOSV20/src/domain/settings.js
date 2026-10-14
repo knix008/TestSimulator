@@ -14,6 +14,8 @@ export const TEXT_HEIGHT = { min: 1, max: 50 };
 export const ZOOM = { min: 1, max: 20000 };
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const SNAP_MODES = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest'];
+/** Widths (px) the cursor's cross-hair can be drawn with. */
+export const CROSSHAIR_WIDTHS = [1, 1.5, 2, 3];
 export const GRID_SIZES = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
 /** Length of the scale bar on screen (px). */
 export const SCALE_BAR = { min: 30, max: 2000 };
@@ -47,12 +49,16 @@ export function defaultSettings(language = 'ko') {
     // Scale bar on the 2D canvas: shown, where (px from the bottom-left corner) and how long (px).
     showScaleBar: true,
     showProblems: true,
+    showConsole: false,
+    macros: [],
     scaleBar: { x: 36, y: 14, width: 120 },
     extrudeHeight: 10,
     // Size of the numbers on the 3D axes (% of the normal size).
     axisLabelSize: 100,
     // 3D view: closed 2D outlines shown as plates of extrudeHeight (solids are always shown).
     extrude2d: true,
+    // Draw style of the 3D view (view3d.js VIEW_STYLES).
+    view3dStyle: 'asis',
     // Toolbar in one row or two (when the window is narrow).
     toolbarRows: 1,
     // Left panel sections that are folded.
@@ -68,6 +74,9 @@ export function defaultSettings(language = 'ko') {
     snapModes: Object.fromEntries(SNAP_MODES.map((mode) => [mode, mode !== 'nearest'])),
     showLineWeights: true,
     crosshair: true,
+    // Cross-hair of the 2D cursor: colour and line width (px).
+    crosshairColor: '#e5484d',
+    crosshairWidth: 1,
     author: '',
   };
 }
@@ -84,6 +93,8 @@ export function normalizeSettings(raw = {}, language) {
   const base = defaultSettings(raw?.language === 'en' || raw?.language === 'ko' ? raw.language : language);
   const s = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) };
   s.language = s.language === 'en' ? 'en' : 'ko';
+  // Saved macros (script console): [{ name, code }].
+  s.macros = Array.isArray(s.macros) ? s.macros.filter((m) => m && typeof m.name === 'string' && typeof m.code === 'string').slice(0, 200).map((m) => ({ name: m.name.slice(0, 80), code: m.code.slice(0, 200000) })) : [];
   s.theme = THEME_IDS.includes(s.theme) ? s.theme : base.theme;
   s.customTheme = normalizeCustom(s.customTheme);
   s.fontFamily = typeof s.fontFamily === 'string' ? s.fontFamily : '';
@@ -107,16 +118,19 @@ export function normalizeSettings(raw = {}, language) {
   s.gridSize = clamp(s.gridSize, 0.1, 1000, base.gridSize, false);
   s.extrudeHeight = clamp(s.extrudeHeight, 0.1, 1000, base.extrudeHeight, false);
   s.toolbarRows = s.toolbarRows === 2 ? 2 : 1;
+  s.crosshairColor = /^#[0-9a-f]{6}$/i.test(s.crosshairColor ?? '') ? s.crosshairColor.toLowerCase() : base.crosshairColor;
+  s.crosshairWidth = CROSSHAIR_WIDTHS.includes(Number(s.crosshairWidth)) ? Number(s.crosshairWidth) : base.crosshairWidth;
+  s.view3dStyle = ['asis', 'shaded', 'flat', 'clay', 'hidden', 'xray', 'sketch', 'wireframe', 'mesh', 'points'].includes(s.view3dStyle) ? s.view3dStyle : 'asis';
   {
     const l = s.light && typeof s.light === 'object' ? s.light : {};
     const n = (v, d, lo, hi) => (Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d);
     s.light = {
-      on: l.on !== false, azimuth: ((n(l.azimuth, 135, -1e6, 1e6) % 360) + 360) % 360, elevation: n(l.elevation, 55, 3, 89),
+      on: l.on !== false, azimuth: ((n(l.azimuth, 135, -1e6, 1e6) % 360) + 360) % 360, elevation: n(l.elevation, 55, -89.9, 89.9), distance: n(l.distance, 0, 0, 1e9),
       intensity: n(l.intensity, 1, 0, 5), color: /^#[0-9a-f]{6}$/i.test(l.color ?? '') ? l.color.toLowerCase() : '#ffffff', shadows: l.shadows !== false,
     };
   }
   s.collapsedSections = Array.isArray(s.collapsedSections) ? [...new Set(s.collapsedSections.filter((id) => typeof id === 'string' && /^[a-zA-Z]{1,20}$/.test(id)))] : [];
-  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'showProblems', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
+  for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'showProblems', 'showConsole', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
   s.snapModes = Object.fromEntries(SNAP_MODES.map((mode) => [mode, typeof s.snapModes?.[mode] === 'boolean' ? s.snapModes[mode] : base.snapModes[mode]]));

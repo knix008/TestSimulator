@@ -66,7 +66,7 @@ export function scaleLabel(k) {
  * Returns [{ drawingIndex, drawing, entities }].
  */
 export function selectContent(drawings, currentIndex, options, selectedIds = []) {
-  const visible = (drawing) => drawing.entities.filter((entity) => isVisible(drawing, entity));
+  const visible = (drawing) => drawing.entities.filter((entity) => isVisible(drawing, entity) && !entity.construction);
   if (options.range === 'all') return drawings.map((drawing, drawingIndex) => ({ drawingIndex, drawing, entities: visible(drawing) }));
   const index = drawings[currentIndex] ? currentIndex : 0;
   const drawing = drawings[index];

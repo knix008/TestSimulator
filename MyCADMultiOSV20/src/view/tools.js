@@ -5,25 +5,27 @@
 //   api.change(opKey, (drawing) => …) → one undo step
 //   api.selection() / api.select(ids) / api.hit(point) / api.options / api.notify(kind, key, params)
 //   api.settings / api.layerFor(kind) / api.done()  (back to the select tool)
-import { createEntity, formatNumber, offsetEntity } from '../domain/entities.js';
+import { createEntity, formatNumber, offsetEntity, primitives } from '../domain/entities.js';
+import { chamferLines, extendEntity, filletLines, filletPolylineVertex, trimEntity } from '../domain/edit2d.js';
 import { angleOf, arcFrom3, dist, normDeg, rad } from '../domain/geometry.js';
 import { evaluate } from '../domain/expr.js';
 import { displayUnit, evaluateLength, toUnit, unitLabel } from '../domain/units.js';
 import { parseCoordinate } from '../domain/snap.js';
 import { throughPoints } from '../domain/nurbs.js';
 import { normalizeParams } from '../domain/parts.js';
-import { findEntity, transformEntities } from '../domain/drawing.js';
+import { addEntity, findEntity, isVisible, removeEntities, transformEntities } from '../domain/drawing.js';
 
 /** Tool ids in the order of the tool panel. */
 export const DRAW_TOOLS = ['select', 'pan', 'line', 'polyline', 'rect', 'circle', 'arc', 'ellipse', 'ellipseArc', 'polygon', 'spline', 'point', 'text', 'leader', 'hatch', 'centerline'];
-export const DIM_TOOLS = ['dimLinear', 'dimAligned', 'dimRadius', 'dimDiameter', 'dimAngle', 'measure'];
-export const MODIFY_TOOLS = ['move', 'copy', 'rotate', 'mirror', 'scale', 'offset'];
+export const VIEW_TOOLS = ['workPlane'];
+export const DIM_TOOLS = ['dimLinear', 'dimAligned', 'dimRadius', 'dimDiameter', 'dimAngle', 'balloon', 'gdt', 'datum', 'measure'];
+export const MODIFY_TOOLS = ['move', 'copy', 'rotate', 'mirror', 'scale', 'offset', 'trim', 'extend', 'fillet', 'chamfer'];
 export const TOOL_ICONS = {
   select: 'select', pan: 'pan', line: 'line', polyline: 'polyline', rect: 'rect', circle: 'circle', arc: 'arc', ellipse: 'ellipse', polygon: 'polygon',
-  text: 'text', centerline: 'centerline', ellipseArc: 'ellipseArc', spline: 'spline', point: 'point', leader: 'leader', hatch: 'hatch', dimLinear: 'dimHorizontal', dimAligned: 'dimension', dimRadius: 'dimRadius', dimDiameter: 'dimDiameter',
-  dimAngle: 'dimAngle', measure: 'measure', move: 'move', copy: 'copyEntity', rotate: 'rotate', mirror: 'mirror', scale: 'scale', offset: 'offset', place: 'part',
+  text: 'text', centerline: 'centerline', ellipseArc: 'ellipseArc', spline: 'spline', point: 'point', leader: 'leader', workPlane: 'workPlane', balloon: 'balloon', gdt: 'gdt', datum: 'datum', hatch: 'hatch', dimLinear: 'dimHorizontal', dimAligned: 'dimension', dimRadius: 'dimRadius', dimDiameter: 'dimDiameter',
+  dimAngle: 'dimAngle', measure: 'measure', move: 'move', copy: 'copyEntity', rotate: 'rotate', mirror: 'mirror', scale: 'scale', offset: 'offset', trim: 'trim', extend: 'extend', fillet: 'fillet2d', chamfer: 'chamfer2d', place: 'part',
 };
-export const TOOL_KEYS = { line: 'L', polyline: 'P', rect: 'R', circle: 'C', arc: 'A', ellipse: 'E', polygon: 'G', text: 'T', dimLinear: 'D', move: 'M', rotate: 'O', mirror: 'I', offset: 'F', measure: 'Q', pan: 'H', select: 'S' };
+export const TOOL_KEYS = { line: 'L', polyline: 'P', rect: 'R', circle: 'C', arc: 'A', ellipse: 'E', polygon: 'G', text: 'T', dimLinear: 'D', move: 'M', rotate: 'O', mirror: 'I', offset: 'F', trim: 'X', extend: 'W', fillet: 'J', chamfer: 'K', measure: 'Q', pan: 'H', select: 'S' };
 /** Tools that work on the current selection. */
 export const NEEDS_SELECTION = new Set(['move', 'copy', 'rotate', 'mirror', 'scale']);
 
@@ -49,7 +51,7 @@ class Tool {
   cancel() { this.points = []; }
   /** A number or coordinate typed in the command box. */
   typed(text, cursor) {
-    const p = parseCoordinate(text, this.base(), cursor);
+    const p = parseCoordinate(text, this.base(), cursor, undefined, this.api.drawing().workPlane ?? null);
     if (!p) return false;
     this.click(p);
     return true;
@@ -351,6 +353,119 @@ class OffsetTool extends Tool {
   cancel() { super.cancel(); this.target = null; }
 }
 
+// ───────────────────────── trim, extend, fillet, chamfer (FreeCAD Draft / Sketcher)
+
+const EDITABLE = ['line', 'polyline', 'rect', 'polygon', 'circle', 'arc'];
+
+/** The edges of every visible entity but the one being edited. */
+function edgesBut(api, id) {
+  const drawing = api.drawing();
+  return drawing.entities.filter((e) => e.id !== id && isVisible(drawing, e) && !['text', 'dim', 'hatch', 'solid', 'point'].includes(e.type)).flatMap((e) => primitives(e)).filter((prim) => prim.kind !== 'text' && prim.kind !== 'fill');
+}
+
+/** Replaces an entity by pieces in one undo step. */
+function replaceBy(api, entity, pieces, op) {
+  api.change(op, (drawing) => {
+    removeEntities(drawing, [entity.id]);
+    for (const piece of pieces) addEntity(drawing, piece.type, piece);
+  });
+}
+
+/** Trim: click the part of a line, arc, circle or outline to cut away between the edges that cross it. */
+class TrimTool extends Tool {
+  click(p) {
+    const hit = this.api.hit(p, (entity) => EDITABLE.includes(entity.type));
+    if (!hit) return this.api.notify('info', 'notice.pickEntity');
+    const pieces = trimEntity(hit, p, edgesBut(this.api, hit.id));
+    if (!pieces) return this.api.notify('info', 'notice.trimNothing');
+    replaceBy(this.api, hit, pieces, 'op.trim');
+    return undefined;
+  }
+
+  preview(cursor) {
+    const hit = this.api.hit(cursor, (entity) => EDITABLE.includes(entity.type));
+    if (!hit) return {};
+    const pieces = trimEntity(hit, cursor, edgesBut(this.api, hit.id));
+    return pieces ? { previews: pieces.map((piece) => createEntity(piece.type, piece)) } : {};
+  }
+
+  prompt() { return 'prompt.trim.0'; }
+}
+
+/** Extend: click near the end of a line, arc or open polyline to run it on to the next edge. */
+class ExtendTool extends Tool {
+  click(p) {
+    const hit = this.api.hit(p, (entity) => ['line', 'polyline', 'arc'].includes(entity.type));
+    if (!hit) return this.api.notify('info', 'notice.pickEntity');
+    const longer = extendEntity(hit, p, edgesBut(this.api, hit.id));
+    if (!longer) return this.api.notify('info', 'notice.extendNothing');
+    replaceBy(this.api, hit, [longer], 'op.extend');
+    return undefined;
+  }
+
+  preview(cursor) {
+    const hit = this.api.hit(cursor, (entity) => ['line', 'polyline', 'arc'].includes(entity.type));
+    const longer = hit ? extendEntity(hit, cursor, edgesBut(this.api, hit.id)) : null;
+    return longer ? { previews: [createEntity(longer.type, longer)] } : {};
+  }
+
+  prompt() { return 'prompt.extend.0'; }
+}
+
+/**
+ * Fillet / chamfer: click two lines (the parts to keep), or one corner of a
+ * polyline. The radius (fillet) or distance (chamfer) is typed in the command box.
+ */
+class CornerTool extends Tool {
+  get size() { return this.api.options[this.id] ?? (this.id === 'fillet' ? 10 : 5); }
+
+  make(first, p1, second, p2) {
+    return this.id === 'fillet' ? filletLines(first, p1, second, p2, this.size) : chamferLines(first, p1, second, p2, this.size);
+  }
+
+  click(p) {
+    const hit = this.api.hit(p, (entity) => ['line', 'polyline', 'rect', 'polygon'].includes(entity.type));
+    if (!hit) return this.api.notify('info', 'notice.pickEntity');
+    if (!this.first && hit.type !== 'line') {
+      // One corner of an outline.
+      const source = hit.type === 'polyline' ? hit : { ...hit, type: 'polyline', points: primitives(hit)[0]?.points ?? [], closed: true };
+      const result = filletPolylineVertex(source, p, this.size, this.id === 'chamfer');
+      if (!result) return this.api.notify('info', 'notice.cornerFailed');
+      replaceBy(this.api, hit, [result], `op.${this.id}`);
+      return undefined;
+    }
+    if (!this.first) { this.first = { entity: hit, p }; return undefined; }
+    if (hit.type !== 'line' || hit.id === this.first.entity.id) return this.api.notify('info', 'notice.pickEntity');
+    const pieces = this.make(this.first.entity, this.first.p, hit, p);
+    if (!pieces) { this.api.notify('info', 'notice.cornerFailed'); this.first = null; return undefined; }
+    const [one, two, ...extra] = pieces;
+    const firstId = this.first.entity.id;
+    this.api.change(`op.${this.id}`, (drawing) => {
+      removeEntities(drawing, [firstId, hit.id]);
+      for (const piece of [one, two, ...extra]) addEntity(drawing, piece.type, piece);
+    });
+    this.first = null;
+    return undefined;
+  }
+
+  typed(text) {
+    const value = evaluateLength(text);
+    if (!(value >= 0)) return false;
+    this.api.setOption(this.id, value);
+    return true;
+  }
+
+  preview(cursor) {
+    if (!this.first) return {};
+    const hit = this.api.hit(cursor, (entity) => entity.type === 'line' && entity.id !== this.first.entity.id);
+    const pieces = hit ? this.make(this.first.entity, this.first.p, hit, cursor) : null;
+    return pieces ? { previews: pieces.map((piece) => createEntity(piece.type, piece)) } : {};
+  }
+
+  prompt() { return `prompt.${this.id}.${this.first ? 1 : 0}`; }
+  cancel() { super.cancel(); this.first = null; }
+}
+
 /** Places a part (from the parts panel or the part window) where the user clicks. */
 class PlaceTool extends Tool {
   constructor(id, api, part) {
@@ -415,6 +530,62 @@ class LeaderTool extends PolylineTool {
   prompt() { return `prompt.leader.${this.points.length ? 1 : 0}`; }
 }
 
+/**
+ * Balloon, GD&T feature control frame, datum symbol (TechDraw): click what it
+ * points at, then where the head goes. Balloons number themselves, datums take the next letter.
+ */
+class AnnotationTool extends Tool {
+  defaults() {
+    const leaders = this.api.drawing().entities.filter((e) => e.type === 'leader' && e.style === this.id);
+    if (this.id === 'balloon') return { text: String(Math.max(0, ...leaders.map((e) => Number.parseInt(e.text, 10)).filter(Number.isFinite)) + 1) };
+    if (this.id === 'datum') {
+      const used = new Set(leaders.map((e) => e.text.trim().toUpperCase()));
+      const letter = [...'ABCDEFGHJKLMNPRSTUVWXYZ'].find((c) => !used.has(c)) ?? 'A';
+      return { text: letter };
+    }
+    return { text: '0.05', symbol: this.api.options.gdtSymbol ?? 'position', datums: '' };
+  }
+
+  entity(points) {
+    return { points, style: this.id, ...this.defaults(), size: this.api.settings().textHeight, layer: this.api.layerFor('text') };
+  }
+
+  click(p) {
+    if (!this.tip) { this.tip = p; return; }
+    if (dist(this.tip, p) < 1e-9) return;
+    const entity = this.api.add('leader', this.entity([this.tip, p]), `op.${this.id}`);
+    this.tip = null;
+    if (entity) { this.api.select([entity.id]); this.api.focusProperty?.('text'); }
+  }
+
+  preview(cursor) {
+    if (!this.tip || dist(this.tip, cursor) < 1e-9) return {};
+    return { previews: [createEntity('leader', this.entity([this.tip, cursor]))], length: dist(this.tip, cursor) };
+  }
+
+  prompt() { return `prompt.${this.id}.${this.tip ? 1 : 0}`; }
+  cancel() { super.cancel(); this.tip = null; }
+}
+
+/** Working plane: click its origin, then a point on its X axis (the elevation Z stays). */
+class WorkPlaneTool extends Tool {
+  click(p) {
+    if (!this.origin) { this.origin = p; return; }
+    if (dist(this.origin, p) < 1e-9) return;
+    const origin = this.origin;
+    this.origin = null;
+    this.api.setWorkPlane?.(origin, p);
+  }
+
+  preview(cursor) {
+    if (!this.origin) return {};
+    return { previews: [createEntity('line', { x1: this.origin.x, y1: this.origin.y, x2: cursor.x, y2: cursor.y, layer: this.api.drawing().activeLayer })], length: dist(this.origin, cursor) };
+  }
+
+  prompt() { return `prompt.workPlane.${this.origin ? 1 : 0}`; }
+  cancel() { super.cancel(); this.origin = null; }
+}
+
 /** Hatch: click inside a closed area (outlines around it are found; inner outlines stay holes). */
 class HatchTool extends Tool {
   click(p) {
@@ -434,6 +605,8 @@ export function createTool(id, api, extra = {}) {
   if (id === 'line') return new LineTool(id, api);
   if (id === 'spline') return new SplineTool(id, api);
   if (id === 'leader') return new LeaderTool(id, api);
+  if (id === 'balloon' || id === 'gdt' || id === 'datum') return new AnnotationTool(id, api);
+  if (id === 'workPlane') return new WorkPlaneTool(id, api);
   if (id === 'hatch') return new HatchTool(id, api);
   if (id === 'centerline') return new LineTool(id, api, { center: true });
   if (id === 'polyline') return new PolylineTool(id, api);
@@ -441,6 +614,9 @@ export function createTool(id, api, extra = {}) {
   if (id === 'measure') return new MeasureTool(id, api);
   if (['move', 'copy', 'rotate', 'mirror', 'scale'].includes(id)) return new ModifyTool(id, api);
   if (id === 'offset') return new OffsetTool(id, api);
+  if (id === 'trim') return new TrimTool(id, api);
+  if (id === 'extend') return new ExtendTool(id, api);
+  if (id === 'fillet' || id === 'chamfer') return new CornerTool(id, api);
   if (id === 'place') return new PlaceTool(id, api, extra.part);
   const spec = buildFor(id);
   if (spec) return new PointsTool(id, api, ...spec);

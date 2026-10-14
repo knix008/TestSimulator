@@ -1,4 +1,5 @@
 // UI text in Korean and English. `t(key, params)` fills {name} placeholders.
+import { ARCH_EN, ARCH_KO } from './i18n-arch.js';
 
 const ko = {
   'app.name': 'MyCAD',
@@ -89,7 +90,7 @@ const ko = {
     'action.toolbarRows': '툴바 2줄로 보기', 'action.solidMenu': '3D 솔리드 메뉴', 'axis.yAxis': 'Y축 (x=0)', 'axis.xAxis': 'X축 (y=0)', 'axis.left': '왼쪽 모서리', 'axis.bottom': '아래 모서리',
     'bool.union': '합치기 (Fuse)', 'bool.cut': '빼기 (Cut)', 'bool.common': '교차 (Common)', 'coverage.title': '기능표', 'coverage.full': '지원',
     'coverage.partial': '부분 지원', 'coverage.none': '미지원', 'coverage.commands': 'MyCAD 명령', 'coverage.hint': '항목에 마우스를 올리면 해당 명령이 보입니다. 3D 파일은 실제 FreeCAD로 왕복 검증합니다.', 'error.import3d': '3D 모델을 가져오지 못했습니다',
-    'export3d.3mf': '3MF (3D 프린팅)', 'export3d.amf': 'AMF (3D 프린팅)', 'export3d.obj': 'OBJ (Wavefront)', 'export3d.ply': 'PLY (Stanford)', 'export3d.off': 'OFF',
+    'export3d.3mf': '3MF (3D 프린팅)', 'export3d.amf': 'AMF (3D 프린팅)', 'export3d.obj': 'OBJ (Wavefront)', 'export3d.ply': 'PLY (Stanford)', 'export3d.off': 'OFF', 'export3d.wrl': 'VRML 2.0 (웹 3D)', 'export3d.dae': 'COLLADA (DAE)', 'export3d.brep': 'BREP (OpenCASCADE · FreeCAD)', 'export3d.scad': 'OpenSCAD (.scad / .csg)', 'export3d.xyz': '점 구름 (.xyz)',
     'export3d.step': 'STEP AP214', 'export3d.fcstd': 'FreeCAD 문서 (FCStd)', 'export3d.noSolids': '내보낼 3D 솔리드가 없습니다. 먼저 솔리드를 만들거나 2D 윤곽을 돌출하세요.', 'feature.pad': '돌출 (Pad)', 'feature.revolution': '회전 (Revolve)',
     'feature.loft': '로프트 (Loft)', 'feature.sweep': '스윕 (Sweep)', 'feature.axis': '회전축', 'feature.fromSelection': '선택한 2D 객체 {count}개로', 'featureTip.pad': '선택한 닫힌 윤곽을 높이만큼 위로 밀어 올립니다. 안쪽 윤곽은 구멍이 됩니다.',
     'featureTip.revolution': '선택한 닫힌 윤곽을 축을 중심으로 돌려 회전체를 만듭니다.', 'featureTip.loft': '먼저 선택한 윤곽(아래)에서 두 번째 윤곽(위)까지 이어지는 솔리드를 만듭니다.', 'featureTip.sweep': '선택한 선·폴리선 경로를 따라 원형 단면의 관을 만듭니다.', 'file.models3d': '3D 모델', 'measure.volume': '부피',
@@ -402,7 +403,7 @@ const en = {
     'action.toolbarRows': 'Toolbar in two rows', 'action.solidMenu': '3D solid menu', 'axis.yAxis': 'Y axis (x=0)', 'axis.xAxis': 'X axis (y=0)', 'axis.left': 'Left edge', 'axis.bottom': 'Bottom edge',
     'bool.union': 'Fuse (union)', 'bool.cut': 'Cut', 'bool.common': 'Common (intersection)', 'coverage.title': 'Feature list', 'coverage.full': 'Supported',
     'coverage.partial': 'Partly', 'coverage.none': 'Not supported', 'coverage.commands': 'MyCAD commands', 'coverage.hint': 'Hover an item to see its commands. 3D files are round-trip checked with real FreeCAD.', 'error.import3d': 'The 3D model could not be imported',
-    'export3d.3mf': '3MF (3D printing)', 'export3d.amf': 'AMF (3D printing)', 'export3d.obj': 'OBJ (Wavefront)', 'export3d.ply': 'PLY (Stanford)', 'export3d.off': 'OFF',
+    'export3d.3mf': '3MF (3D printing)', 'export3d.amf': 'AMF (3D printing)', 'export3d.obj': 'OBJ (Wavefront)', 'export3d.ply': 'PLY (Stanford)', 'export3d.off': 'OFF', 'export3d.wrl': 'VRML 2.0 (web 3D)', 'export3d.dae': 'COLLADA (DAE)', 'export3d.brep': 'BREP (OpenCASCADE · FreeCAD)', 'export3d.scad': 'OpenSCAD (.scad / .csg)', 'export3d.xyz': 'Point cloud (.xyz)',
     'export3d.step': 'STEP AP214', 'export3d.fcstd': 'FreeCAD document (FCStd)', 'export3d.noSolids': 'There are no 3D solids to export. Make a solid or extrude 2D outlines first.', 'feature.pad': 'Extrude (Pad)', 'feature.revolution': 'Revolve',
     'feature.loft': 'Loft', 'feature.sweep': 'Sweep', 'feature.axis': 'Axis', 'feature.fromSelection': 'from {count} selected 2D objects', 'featureTip.pad': 'Pushes the selected closed outlines up by the height. Inner outlines become holes.',
     'featureTip.revolution': 'Turns the selected closed outline about an axis into a solid of revolution.', 'featureTip.loft': 'Joins the first selected outline (bottom) to the second (top) with a solid.', 'featureTip.sweep': 'Makes a round pipe along the selected line or polyline path.', 'file.models3d': '3D models', 'measure.volume': 'Volume',
@@ -626,7 +627,7 @@ const en = {
   'web.desktopOnly': 'This works in the desktop app only', 'web.reopen': 'The browser lost access to the file. Open it again: {name}',
 };
 
-export const DICTIONARIES = { ko, en };
+export const DICTIONARIES = { ko: { ...ko, ...ARCH_KO }, en: { ...en, ...ARCH_EN } };
 let language = 'ko';
 
 export function setLanguage(next) {

@@ -391,7 +391,7 @@ const ascii = (text) => String(text).replace(/[^\x20-\x7e]/g, '?');
  * line fonts). `meta`: { author, organization, file }.
  */
 export function exportIges(drawing, { entities = null, author = '', organization = '', file = 'drawing.igs', date = new Date() } = {}) {
-  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity));
+  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity) && !entity.construction);
   const records = []; // { type, params: [], form, level, color, font, transform, status, label }
   const levels = new Map(drawing.layers.map((layer, i) => [layer.id, i + 1]));
   const colorDe = new Map();

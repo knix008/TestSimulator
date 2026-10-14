@@ -1,6 +1,8 @@
 // Canvas 2D rendering of a drawing: grid, entities (line types and weights),
 // selection, grips, previews of the tool in use, snap markers, crosshair.
-import { AUTO, isVisible, styleOf } from '../domain/drawing.js';
+import { AUTO, dashScaleOf, isVisible, styleOf } from '../domain/drawing.js';
+import { fromPlane, toPlane } from '../domain/workplane.js';
+import { constraintGlyph } from '../domain/constraints.js';
 import { DASHES, entityBox, firstBaseline, grips, LINE_GAP, primitives, textCorners } from '../domain/entities.js';
 import { boxesOverlap, sweep } from '../domain/geometry.js';
 import { drawingFontStack } from '../themes.js';
@@ -148,13 +150,13 @@ function drawText(ctx, prim, vp, color, fonts) {
 }
 
 /** Draws primitives with one style. */
-export function drawPrimitives(ctx, prims, vp, { color, width, dash = [], fonts, alpha = 1 }) {
+export function drawPrimitives(ctx, prims, vp, { color, width, dash = [], fonts, alpha = 1, dashScale = 1 }) {
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   let currentDash = null;
   const setDash = (pattern) => {
-    const px = pattern.map((d) => d * vp.zoom);
+    const px = pattern.map((d) => d * dashScale * vp.zoom);
     // Patterns that would be smaller than a few pixels are drawn solid.
     const scaled = px.length && px.reduce((a, b) => a + b, 0) > 4 ? px.map((d) => Math.max(0.8, d)) : [];
     const key = scaled.join(',');
@@ -215,7 +217,8 @@ export function highlightTexts(ctx, prims, vp, color, strong) {
   return texts.length;
 }
 
-function drawGrid(ctx, vp, colors, size) {
+function drawGrid(ctx, vp, colors, size, wp = null) {
+  if (wp) return drawPlaneGrid(ctx, vp, colors, size, wp);
   const step = gridStepFor(size, vp.zoom);
   const box = vp.worldBox();
   const major = step * 5;
@@ -245,6 +248,50 @@ function drawGrid(ctx, vp, colors, size) {
   ctx.moveTo(0, Math.round(o.y) + 0.5); ctx.lineTo(vp.width, Math.round(o.y) + 0.5);
   ctx.moveTo(Math.round(o.x) + 0.5, 0); ctx.lineTo(Math.round(o.x) + 0.5, vp.height);
   ctx.stroke();
+  return step;
+}
+
+/** The grid of a working plane: lines along its axes, its origin's axes, and a small X/Y marker. */
+function drawPlaneGrid(ctx, vp, colors, size, wp) {
+  const step = gridStepFor(size, vp.zoom);
+  const box = vp.worldBox();
+  const corners = [{ x: box.minX, y: box.minY }, { x: box.maxX, y: box.minY }, { x: box.maxX, y: box.maxY }, { x: box.minX, y: box.maxY }].map((p) => toPlane(p, wp));
+  const lo = { x: Math.min(...corners.map((p) => p.x)), y: Math.min(...corners.map((p) => p.y)) };
+  const hi = { x: Math.max(...corners.map((p) => p.x)), y: Math.max(...corners.map((p) => p.y)) };
+  const segment = (a, b) => {
+    const s = vp.toScreen(fromPlane(a, wp));
+    const e = vp.toScreen(fromPlane(b, wp));
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(e.x, e.y);
+  };
+  const lines = (spacing, color, width) => {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    for (let i = Math.ceil(lo.x / spacing), x = i * spacing; x <= hi.x; i++, x = i * spacing) segment({ x, y: lo.y }, { x, y: hi.y });
+    for (let i = Math.ceil(lo.y / spacing), y = i * spacing; y <= hi.y; i++, y = i * spacing) segment({ x: lo.x, y }, { x: hi.x, y });
+    ctx.stroke();
+  };
+  lines(step, colors.grid, 1);
+  lines(step * 5, colors.gridMajor, 1.4);
+  ctx.beginPath();
+  ctx.strokeStyle = colors.axis;
+  ctx.lineWidth = 1;
+  segment({ x: lo.x, y: 0 }, { x: hi.x, y: 0 });
+  segment({ x: 0, y: lo.y }, { x: 0, y: hi.y });
+  ctx.stroke();
+  // The plane's own X (red) and Y (green) arrows at its origin, 40 px long.
+  const o = vp.toScreen({ x: wp.x, y: wp.y });
+  const len = 40 / vp.zoom;
+  for (const [axis, color] of [[{ x: len, y: 0 }, '#e5484d'], [{ x: 0, y: len }, '#30a46c']]) {
+    const tip = vp.toScreen(fromPlane(axis, wp));
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.stroke();
+  }
   return step;
 }
 
@@ -349,6 +396,36 @@ export function drawRulers(ctx, vp, colors, cursor, unit = displayUnit()) {
   return { major, minor, unit, majorInUnit };
 }
 
+/** Sketch constraints: a small tag at each (geometric in violet, dimensional in red; brighter for the selection). */
+function drawConstraints(ctx, drawing, vp, selection) {
+  ctx.save();
+  ctx.font = '600 10px "Segoe UI", sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  const used = new Map();
+  for (const c of drawing.constraints) {
+    const glyph = constraintGlyph(drawing, c);
+    if (!glyph || !glyph.label) continue;
+    const s = vp.toScreen(glyph.at);
+    const key = `${Math.round(s.x / 6)},${Math.round(s.y / 6)}`;
+    const n = used.get(key) ?? 0;
+    used.set(key, n + 1);
+    const x = s.x + 10 + n * 15;
+    const y = s.y - 10;
+    const w = Math.max(14, ctx.measureText(glyph.label).width + 6);
+    const hot = c.refs.some((r) => selection.has(r.id));
+    ctx.globalAlpha = hot ? 1 : 0.8;
+    ctx.fillStyle = glyph.dimensional ? '#e5484d' : '#9b51e0';
+    ctx.beginPath();
+    ctx.roundRect?.(x - w / 2, y - 7, w, 14, 4);
+    if (!ctx.roundRect) ctx.rect(x - w / 2, y - 7, w, 14);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(glyph.label, x, y + 0.5);
+  }
+  ctx.restore();
+}
+
 function drawUcs(ctx, vp, color, inset = 0) {
   const x = 18 + inset;
   const y = vp.height - 18;
@@ -384,26 +461,29 @@ export function render(ctx, state) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   let gridStep = null;
-  if (settings.showGrid) gridStep = drawGrid(ctx, vp, colors, gridBaseFor(drawing.grid?.size || settings.gridSize || 10));
+  if (settings.showGrid) gridStep = drawGrid(ctx, vp, colors, gridBaseFor(drawing.grid?.size || settings.gridSize || 10), drawing.workPlane ?? null);
   const fonts = { stack: drawingFontStack(settings.fontFamily), weight: settings.fontWeight ?? 400, style: settings.fontStyle ?? 'normal' };
   const view = vp.worldBox();
   const margin = 4 / vp.zoom;
   const visibleBox = { minX: view.minX - margin, minY: view.minY - margin, maxX: view.maxX + margin, maxY: view.maxY + margin };
   const selection = state.selection ?? new Set();
+  const dashScale = dashScaleOf(drawing);
   let drawn = 0;
   for (const entity of drawing.entities) {
     if (!isVisible(drawing, entity)) continue;
+    if (entity.construction && settings.output) continue;
     const box = cachedBox(entity);
     if (!box || !boxesOverlap(box, visibleBox)) continue;
     const style = styleOf(drawing, entity);
     const selected = selection.has(entity.id);
     const hovered = state.hover === entity.id && !selected;
-    const color = selected ? colors.select : hovered ? colors.hover : style.color === AUTO ? colors.ink : style.color;
+    // Construction geometry: blue and dashed (FreeCAD Sketcher).
+    const color = selected ? colors.select : hovered ? colors.hover : entity.construction ? '#3b82f6' : style.color === AUTO ? colors.ink : style.color;
     const width = weightPx(style.lineWidth, settings.showLineWeights) + (selected || hovered ? 1 : 0);
     const prims = cachedPrimitives(entity);
     // Selected (or hovered) texts get a tinted box behind them so the selection is easy to see.
     if (selected || hovered) highlightTexts(ctx, prims, vp, selected ? colors.select : colors.hover, selected);
-    drawPrimitives(ctx, prims, vp, { color, width, dash: DASHES[style.lineType] ?? [], fonts });
+    drawPrimitives(ctx, prims, vp, { color, width: entity.construction ? 1 : width, dash: entity.construction ? DASHES.dashed ?? [4, 2] : DASHES[style.lineType] ?? [], fonts, dashScale });
     drawn += 1;
   }
   // Tool previews (rubber band).
@@ -412,6 +492,7 @@ export function render(ctx, state) {
     drawPrimitives(ctx, primitives(entity), vp, { color: colors.preview, width: weightPx(style.lineWidth, settings.showLineWeights), dash: DASHES[style.lineType] ?? [], fonts, alpha: 0.9 });
   }
   if (state.previewPrims?.length) drawPrimitives(ctx, state.previewPrims, vp, { color: colors.preview, width: 1, dash: [2 / vp.zoom * 3, 2 / vp.zoom * 3], fonts, alpha: 0.85 });
+  if (drawing.constraints?.length && settings.showConstraints !== false) drawConstraints(ctx, drawing, vp, selection);
   // Grips of the selection.
   if (state.showGrips !== false && selection.size && selection.size <= 60) {
     ctx.save();
@@ -446,10 +527,11 @@ export function render(ctx, state) {
   if (state.cursor && settings.crosshair && state.showCrosshair !== false) {
     const s = vp.toScreen(state.cursor);
     ctx.save();
-    ctx.strokeStyle = colors.crosshair;
-    ctx.lineWidth = 1;
+    // Its colour and width come from the settings (red, 1 px by default).
+    ctx.strokeStyle = settings.crosshairColor ?? colors.crosshair;
+    ctx.lineWidth = settings.crosshairWidth ?? 1;
     // Dashed cross-hair lines (the dashes stay put on screen), solid pick box.
-    ctx.setLineDash(CROSSHAIR_DASH);
+    ctx.setLineDash(CROSSHAIR_DASH.map((d) => d * Math.max(1, settings.crosshairWidth ?? 1)));
     ctx.beginPath();
     ctx.moveTo(0, Math.round(s.y) + 0.5); ctx.lineTo(vp.width, Math.round(s.y) + 0.5);
     ctx.moveTo(Math.round(s.x) + 0.5, 0); ctx.lineTo(Math.round(s.x) + 0.5, vp.height);

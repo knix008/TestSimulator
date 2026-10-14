@@ -64,6 +64,25 @@ for path in job['files']:
             shape = Part.read(path)
             entry.update(volume=shape.Volume, solids=len(shape.Solids), shells=len(shape.Shells), faces=len(shape.Faces), bbox=bbox_of([shape.BoundBox]), valid=shape.isValid(), shapeType=shape.ShapeType,
                          edges=len(shape.Edges), length=sum(e.Length for e in shape.Edges))
+        elif ext == '.ifc':
+            # IFC through the BIM workbench (NativeIFC, ifcopenshell): the IFC classes and the
+            # volume of each element's shape, openings subtracted by ifcopenshell.
+            from nativeifc import ifc_import
+            doc = App.newDocument('ifc')
+            ifc_import.insert(path, doc.Name, strategy=2, shapemode=0, switchwb=0, silent=True, singledoc=False)
+            doc.recompute()
+            elements = []
+            for o in doc.Objects:
+                cls = getattr(o, 'Class', None)
+                if not cls:
+                    continue
+                info = {'cls': cls, 'label': o.Label}
+                shape = getattr(o, 'Shape', None)
+                if shape is not None and not shape.isNull() and shape.Volume > 0:
+                    info['volume'] = shape.Volume
+                elements.append(info)
+            entry.update(elements=elements)
+            App.closeDocument(doc.Name)
         elif ext in ('.svg', '.dxf'):
             # 2D drawings through FreeCAD's own Draft importers: edges and their total length.
             doc = App.newDocument('drawing2d')
@@ -77,6 +96,24 @@ for path in job['files']:
             edges = [e for o in doc.Objects if hasattr(o, 'Shape') and not o.Shape.isNull() for e in o.Shape.Edges]
             boxes = [o.Shape.BoundBox for o in doc.Objects if hasattr(o, 'Shape') and not o.Shape.isNull() and o.Shape.Edges]
             entry.update(objects=len(doc.Objects), edges=len(edges), length=sum(e.Length for e in edges), bbox=bbox_of(boxes))
+            App.closeDocument(doc.Name)
+        elif ext == '.csg':
+            # OpenSCAD CSG through FreeCAD's OpenSCAD workbench (no OpenSCAD program needed).
+            import importCSG
+            doc = App.newDocument('csg')
+            importCSG.insert(path, doc.Name)
+            doc.recompute()
+            tops = [o for o in doc.Objects if not o.InList and hasattr(o, 'Shape') and not o.Shape.isNull() and o.Shape.Volume > 1e-9]
+            entry.update(objects=[{'label': o.Label, 'type': o.TypeId, 'volume': o.Shape.Volume, 'valid': o.Shape.isValid()} for o in tops])
+            App.closeDocument(doc.Name)
+        elif ext == '.dae':
+            # COLLADA through the BIM workbench importer (pycollada): one mesh per node.
+            from importers import importDAE
+            doc = App.newDocument('dae')
+            importDAE.insert(path, doc.Name)
+            doc.recompute()
+            meshes = [o.Mesh for o in doc.Objects if hasattr(o, 'Mesh')]
+            entry.update(volume=sum(m.Volume for m in meshes), facets=sum(m.CountFacets for m in meshes), objects=len(meshes), bbox=bbox_of([m.BoundBox for m in meshes]), solid=all(m.isSolid() for m in meshes))
             App.closeDocument(doc.Name)
         else:
             mesh = Mesh.Mesh(path)

@@ -110,7 +110,7 @@ const PLU = 40; // plotter units per mm
  * (CI), arcs (AA) and labels (LB, ASCII). Units: 1/40 mm.
  */
 export function exportHpgl(drawing, { entities = null } = {}) {
-  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity));
+  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity) && !entity.construction);
   const pens = new Map(drawing.layers.map((layer, i) => [layer.id, (i % 8) + 1]));
   const u = (v) => Math.round(v * PLU);
   const out = ['IN;', 'PA;'];

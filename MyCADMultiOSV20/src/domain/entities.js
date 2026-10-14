@@ -11,6 +11,9 @@ import {
 } from './geometry.js';
 import { generatePart, normalizeParams, PARTS } from './parts.js';
 import { HATCH_PATTERN_NAMES, hatchArea, hatchPrimitives } from './hatch.js';
+import { normalizeClone } from './clones.js';
+import { normalizeBind } from './spreadsheet.js';
+import { annotationPrimitives, BALLOON_SHAPES, balloonDot, GDT_MODIFIERS, GDT_SYMBOLS, LEADER_STYLES } from './annotate.js';
 import { sampleCurve } from './nurbs.js';
 import { displayUnit, toUnit } from './units.js';
 import { flattenTriangles, normalizeSolidData, partInParent, solidFootprint, solidMesh, solidProperties } from './solids.js';
@@ -43,6 +46,14 @@ export function normalizeEntity(raw) {
     lineType: LINE_TYPES.includes(raw.lineType) ? raw.lineType : null,
     lineWidth: Number.isFinite(raw.lineWidth) && raw.lineWidth > 0 ? raw.lineWidth : null,
   };
+  // Draft Clone: follows another object (see clones.js).
+  const clone = normalizeClone(raw.clone);
+  if (clone) base.clone = clone;
+  // Sketcher construction geometry: drawn and snapped to, but not part of any output.
+  if (raw.construction) base.construction = true;
+  // Values bound to spreadsheet expressions (FreeCAD expressions).
+  const bind = normalizeBind(raw.bind);
+  if (bind) base.bind = bind;
   switch (raw.type) {
     case 'line':
       return { ...base, x1: finite(raw.x1), y1: finite(raw.y1), x2: finite(raw.x2), y2: finite(raw.y2) };
@@ -81,7 +92,13 @@ export function normalizeEntity(raw) {
     case 'leader': {
       const points = Array.isArray(raw.points) ? raw.points.map(point) : [];
       if (points.length < 2) return null;
-      return { ...base, points, text: String(raw.text ?? ''), size: positive(raw.size, 3.5) };
+      const style = LEADER_STYLES.includes(raw.style) ? raw.style : 'note';
+      const out = { ...base, points, text: String(raw.text ?? ''), size: positive(raw.size, 3.5) };
+      // Balloons, GD&T frames and datum symbols (TechDraw) are leaders with another head.
+      if (style === 'balloon') Object.assign(out, { style, shape: BALLOON_SHAPES.includes(raw.shape) ? raw.shape : 'circle' });
+      if (style === 'gdt') Object.assign(out, { style, symbol: GDT_SYMBOLS.includes(raw.symbol) ? raw.symbol : 'position', diameter: Boolean(raw.diameter), modifier: GDT_MODIFIERS.includes(raw.modifier) ? raw.modifier : 'none', datums: String(raw.datums ?? '') });
+      if (style === 'datum') Object.assign(out, { style });
+      return out;
     }
     case 'polygon':
       return { ...base, cx: finite(raw.cx), cy: finite(raw.cy), r: positive(raw.r, 1), sides: Math.max(3, Math.min(64, Math.round(finite(raw.sides, 6)))), angle: finite(raw.angle, 90) };
@@ -372,6 +389,10 @@ export function primitives(e) {
       const end = pts[pts.length - 1];
       const before = pts[pts.length - 2];
       const right = end.x >= before.x;
+      if (e.style && e.style !== 'note') {
+        const tip = e.style === 'balloon' ? balloonDot(e) : e.style === 'gdt' ? arrow(pts[0], norm(sub(pts[0], pts[1])), e.size) : null;
+        return [{ kind: 'poly', points: pts, closed: false }, ...(tip ? [tip] : []), ...annotationPrimitives(e)];
+      }
       const prims = [{ kind: 'poly', points: pts, closed: false }, arrow(pts[0], norm(sub(pts[0], pts[1])), e.size)];
       if (e.text) prims.push({ kind: 'text', p: { x: end.x + (right ? 1 : -1) * e.size * 0.5, y: end.y }, text: e.text, size: e.size, angle: 0, align: right ? 'left' : 'right', valign: 'middle' });
       return prims;
@@ -619,6 +640,8 @@ export function transformEntity(e, op) {
 /** Handles shown on a selected entity: [{ id, x, y }]. */
 export function grips(e) {
   const g = (id, p) => ({ id, x: p.x, y: p.y });
+  // A clone takes its shape from its source: no handles to reshape it.
+  if (e.clone) return [];
   switch (e.type) {
     case 'line': return [g('p1', { x: e.x1, y: e.y1 }), g('p2', { x: e.x2, y: e.y2 }), g('mid', mid({ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }))];
     case 'polyline': return e.points.map((p, i) => g(`v${i}`, p));
@@ -790,6 +813,8 @@ export function explode(e) {
   const style = { layer: e.layer, color: e.color, lineType: e.lineType, lineWidth: e.lineWidth };
   // A boolean solid gives back the solids it was made of (like deleting the boolean in FreeCAD).
   if (e.type === 'solid' && e.kind === 'boolean') return e.shape.parts.map((part) => createEntity('solid', { ...style, color: part.color ?? e.color, ...partInParent(part, e) }));
+  // A fillet, chamfer, thickness or offset gives back the solid it was made on.
+  if (e.type === 'solid' && ['fillet', 'chamfer', 'thickness', 'offset3d'].includes(e.kind) && e.shape?.base) return [createEntity('solid', { ...style, color: e.shape.base.color ?? e.color, ...partInParent(e.shape.base, e) })];
   const fromPrim = (prim) => {
     const own = { ...style, ...(prim.lineType ? { lineType: prim.lineType } : {}), ...(prim.thin ? { lineWidth: 0.18 } : {}) };
     switch (prim.kind) {
@@ -820,7 +845,7 @@ export function explode(e) {
   return [];
 }
 
-export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && e.kind === 'boolean');
+export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && ['boolean', 'fillet', 'chamfer', 'thickness', 'offset3d'].includes(e.kind));
 
 // ───────────────────────── measurements
 

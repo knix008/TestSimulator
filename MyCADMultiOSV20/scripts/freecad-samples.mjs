@@ -1,5 +1,5 @@
 // npm run build:samples:freecad — has FreeCAD itself make the files in
-// samples/freecad (FCStd, STEP, IGES, BREP, STL, OBJ, PLY, OFF, 3MF) and
+// samples/freecad (FCStd, STEP, IGES, BREP, STL, OBJ, PLY, OFF, 3MF, VRML, DAE) and
 // samples/drawings (2D IGES, SVG, DXF from FreeCAD's own writers), and
 // record the volumes FreeCAD computed (freecad-volumes.json), which the unit
 // tests compare MyCAD's readers against. Needs FreeCAD (FREECAD_CMD or a

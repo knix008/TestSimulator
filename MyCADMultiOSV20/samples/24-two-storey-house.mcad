@@ -1,0 +1,1955 @@
+{
+ "format": "mycad",
+ "version": 1,
+ "app": "MyCAD",
+ "saved": "2026-10-14T05:10:40.100Z",
+ "drawing": {
+  "id": "dwg-mv7nixfz00zjmk85",
+  "title": "2층 주택 — 층 · 재료 · 철근 (BIM)",
+  "description": "",
+  "author": "SHKWON",
+  "units": "mm",
+  "created": "2026-10-14T05:10:40.079Z",
+  "updated": "2026-10-14T05:10:40.079Z",
+  "layers": [
+   {
+    "id": "0",
+    "name": "외형선",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "center",
+    "name": "중심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "hidden",
+    "name": "숨은선",
+    "color": "#3a8fd6",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "dim",
+    "name": "치수",
+    "color": "#2fa36b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "text",
+    "name": "문자",
+    "color": "auto",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "wall",
+    "name": "벽체",
+    "color": "#1d2433",
+    "lineType": "continuous",
+    "lineWidth": 0.5,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "slab",
+    "name": "슬래브",
+    "color": "#7a8394",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "stair",
+    "name": "계단",
+    "color": "#1d2433",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "space",
+    "name": "실",
+    "color": "#2f8f5b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "furniture",
+    "name": "가구",
+    "color": "#7a8394",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "roof",
+    "name": "지붕",
+    "color": "#b5523b",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "structure",
+    "name": "구조",
+    "color": "#8a4b2a",
+    "lineType": "continuous",
+    "lineWidth": 0.25,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "grid",
+    "name": "통심선",
+    "color": "#e5484d",
+    "lineType": "center",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   }
+  ],
+  "activeLayer": "0",
+  "grid": {
+   "size": 10
+  },
+  "sheet": {
+   "number": "A-401",
+   "material": "철근콘크리트 · 벽돌 치장",
+   "scale": "1:100",
+   "company": "MyCAD samples",
+   "checkedBy": ""
+  },
+  "entities": [
+   {
+    "id": "e-mv7nixfz00zkgghg",
+    "type": "solid",
+    "layer": "slab",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "slab",
+    "name": "기초 슬래브",
+    "x": -300,
+    "y": -300,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 250
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 12600,
+       "y": 0
+      },
+      {
+       "x": 12600,
+       "y": 10600
+      },
+      {
+       "x": 0,
+       "y": 10600
+      }
+     ],
+     "holes": []
+    },
+    "level": "L1",
+    "material": {
+     "id": "concrete",
+     "name": "콘크리트",
+     "color": "#c4c7cc",
+     "pattern": "ansi37"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00zlytcv",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "1층 외벽",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 382,
+     "height": 3000,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 10000
+      },
+      {
+       "x": 0,
+       "y": 10000
+      }
+     ],
+     "closed": true,
+     "openings": [
+      {
+       "type": "window",
+       "at": 1200,
+       "width": 2400,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 3,
+       "rows": 1
+      },
+      {
+       "type": "door",
+       "at": 5200,
+       "width": 1000,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
+      },
+      {
+       "type": "window",
+       "at": 8500,
+       "width": 2400,
+       "height": 1800,
+       "sill": 600,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 3,
+       "rows": 2
+      },
+      {
+       "type": "window",
+       "at": 13300,
+       "width": 1500,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "custom",
+       "at": 21000,
+       "width": 1200,
+       "height": 1800,
+       "sill": 700,
+       "swing": 1,
+       "hinge": 1,
+       "profile": {
+        "outer": [
+         {
+          "u": 0,
+          "v": 0
+         },
+         {
+          "u": 1,
+          "v": 0
+         },
+         {
+          "u": 1,
+          "v": 0.6
+         },
+         {
+          "u": 0.9829629131445341,
+          "v": 0.7035276180410083
+         },
+         {
+          "u": 0.9330127018922194,
+          "v": 0.7999999999999999
+         },
+         {
+          "u": 0.8535533905932737,
+          "v": 0.882842712474619
+         },
+         {
+          "u": 0.75,
+          "v": 0.9464101615137754
+         },
+         {
+          "u": 0.6294095225512604,
+          "v": 0.9863703305156273
+         },
+         {
+          "u": 0.5,
+          "v": 1
+         },
+         {
+          "u": 0.3705904774487397,
+          "v": 0.9863703305156273
+         },
+         {
+          "u": 0.2500000000000001,
+          "v": 0.9464101615137754
+         },
+         {
+          "u": 0.14644660940672627,
+          "v": 0.882842712474619
+         },
+         {
+          "u": 0.06698729810778065,
+          "v": 0.7999999999999999
+         },
+         {
+          "u": 0.0170370868554659,
+          "v": 0.7035276180410084
+         },
+         {
+          "u": 0,
+          "v": 0.6
+         }
+        ],
+        "holes": [
+         [
+          {
+           "u": 0.12,
+           "v": 0.08
+          },
+          {
+           "u": 0.88,
+           "v": 0.08
+          },
+          {
+           "u": 0.88,
+           "v": 0.58
+          },
+          {
+           "u": 0.12,
+           "v": 0.58
+          }
+         ],
+         [
+          {
+           "u": 0.12,
+           "v": 0.64
+          },
+          {
+           "u": 0.88,
+           "v": 0.64
+          },
+          {
+           "u": 0.8614014761921583,
+           "v": 0.7265247584249853
+          },
+          {
+           "u": 0.80742645786248,
+           "v": 0.8045798706418925
+          },
+          {
+           "u": 0.7233583958711398,
+           "v": 0.8665247584249853
+          },
+          {
+           "u": 0.6174264578624801,
+           "v": 0.906295824562643
+          },
+          {
+           "u": 0.5,
+           "v": 0.92
+          },
+          {
+           "u": 0.38257354213752004,
+           "v": 0.9062958245626431
+          },
+          {
+           "u": 0.27664160412886024,
+           "v": 0.8665247584249853
+          },
+          {
+           "u": 0.19257354213751998,
+           "v": 0.8045798706418925
+          },
+          {
+           "u": 0.13859852380784166,
+           "v": 0.7265247584249853
+          }
+         ]
+        ]
+       }
+      },
+      {
+       "type": "window",
+       "at": 26000,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 31000,
+       "width": 2000,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      }
+     ],
+     "layers": [
+      {
+       "material": {
+        "id": "brick",
+        "name": "벽돌",
+        "color": "#b5653f",
+        "pattern": "ansi31"
+       },
+       "thickness": 90
+      },
+      {
+       "material": {
+        "id": "insulation",
+        "name": "단열재",
+        "color": "#f2d36b",
+        "pattern": "net"
+       },
+       "thickness": 100
+      },
+      {
+       "material": {
+        "id": "concrete",
+        "name": "콘크리트",
+        "color": "#c4c7cc",
+        "pattern": "ansi37"
+       },
+       "thickness": 180
+      },
+      {
+       "material": {
+        "id": "gypsum",
+        "name": "석고보드",
+        "color": "#efece4",
+        "pattern": "dots"
+       },
+       "thickness": 12
+      }
+     ]
+    },
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zmpmyz",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "1층 내벽 1",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "height": 3000,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 6000,
+       "y": 200
+      },
+      {
+       "x": 6000,
+       "y": 5800
+      }
+     ],
+     "closed": false,
+     "openings": [
+      {
+       "type": "door",
+       "at": 2200,
+       "width": 900,
+       "height": 2100,
+       "sill": 0,
+       "swing": -1,
+       "hinge": 1
+      }
+     ],
+     "layers": []
+    },
+    "level": "L1",
+    "material": {
+     "id": "block",
+     "name": "콘크리트 블록",
+     "color": "#a9adb3",
+     "pattern": "ansi32"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00znfoln",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "1층 내벽 2",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "height": 3000,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 200,
+       "y": 6000
+      },
+      {
+       "x": 5800,
+       "y": 6000
+      }
+     ],
+     "closed": false,
+     "openings": [
+      {
+       "type": "opening",
+       "at": 2000,
+       "width": 1600,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
+      }
+     ],
+     "layers": []
+    },
+    "level": "L1",
+    "material": {
+     "id": "block",
+     "name": "콘크리트 블록",
+     "color": "#a9adb3",
+     "pattern": "ansi32"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00zofa5c",
+    "type": "solid",
+    "layer": "stair",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "stairs",
+    "name": "계단",
+    "x": 4800,
+    "y": 1400,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 4000,
+     "width": 1000,
+     "height": 3000,
+     "steps": 16,
+     "thickness": 160
+    },
+    "shape": {},
+    "level": "L1",
+    "material": {
+     "id": "concrete",
+     "name": "콘크리트",
+     "color": "#c4c7cc",
+     "pattern": "ansi37"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00zpxmay",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "거실",
+    "x": 200,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2700
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 5700
+      },
+      {
+       "x": 0,
+       "y": 5700
+      }
+     ],
+     "holes": []
+    },
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zq9wde",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "주방·식당",
+    "x": 6100,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2700
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 5600
+      },
+      {
+       "x": 0,
+       "y": 5600
+      }
+     ],
+     "holes": []
+    },
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zr5bq5",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "현관·서재",
+    "x": 200,
+    "y": 6100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2700
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 3700
+      },
+      {
+       "x": 0,
+       "y": 3700
+      }
+     ],
+     "holes": []
+    },
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zsv6ho",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "소파",
+    "x": 3200,
+    "y": 1300,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 180,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 1,
+     "length": 2600,
+     "width": 900,
+     "height": 850
+    },
+    "shape": {},
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00ztds1a",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "식탁",
+    "x": 8000,
+    "y": 2400,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 2,
+     "length": 1800,
+     "width": 900,
+     "height": 740
+    },
+    "shape": {},
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zu8629",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "싱크대",
+    "x": 8400,
+    "y": 5100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 9,
+     "length": 3000,
+     "width": 600,
+     "height": 900
+    },
+    "shape": {},
+    "level": "L1"
+   },
+   {
+    "id": "e-mv7nixfz00zv1a5d",
+    "type": "solid",
+    "layer": "slab",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "slab",
+    "name": "2층 바닥 슬래브",
+    "x": 0,
+    "y": 0,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 220
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 10000
+      },
+      {
+       "x": 0,
+       "y": 10000
+      }
+     ],
+     "holes": [
+      [
+       {
+        "x": 3700,
+        "y": 1300
+       },
+       {
+        "x": 4900,
+        "y": 1300
+       },
+       {
+        "x": 4900,
+        "y": 5500
+       },
+       {
+        "x": 3700,
+        "y": 5500
+       }
+      ]
+     ]
+    },
+    "level": "L2",
+    "material": {
+     "id": "concrete",
+     "name": "콘크리트",
+     "color": "#c4c7cc",
+     "pattern": "ansi37"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00zwzd0j",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "2층 외벽",
+    "x": 0,
+    "y": 0,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 382,
+     "height": 2800,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 10000
+      },
+      {
+       "x": 0,
+       "y": 10000
+      }
+     ],
+     "closed": true,
+     "openings": [
+      {
+       "type": "window",
+       "at": 1500,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 5000,
+       "width": 1500,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 8800,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 2
+      },
+      {
+       "type": "window",
+       "at": 14000,
+       "width": 1500,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 21000,
+       "width": 1200,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 1,
+       "rows": 2
+      },
+      {
+       "type": "window",
+       "at": 26000,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 31000,
+       "width": 1600,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      }
+     ],
+     "layers": [
+      {
+       "material": {
+        "id": "brick",
+        "name": "벽돌",
+        "color": "#b5653f",
+        "pattern": "ansi31"
+       },
+       "thickness": 90
+      },
+      {
+       "material": {
+        "id": "insulation",
+        "name": "단열재",
+        "color": "#f2d36b",
+        "pattern": "net"
+       },
+       "thickness": 100
+      },
+      {
+       "material": {
+        "id": "concrete",
+        "name": "콘크리트",
+        "color": "#c4c7cc",
+        "pattern": "ansi37"
+       },
+       "thickness": 180
+      },
+      {
+       "material": {
+        "id": "gypsum",
+        "name": "석고보드",
+        "color": "#efece4",
+        "pattern": "dots"
+       },
+       "thickness": 12
+      }
+     ]
+    },
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz00zx0r0z",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "2층 내벽",
+    "x": 0,
+    "y": 0,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2800,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 6000,
+       "y": 200
+      },
+      {
+       "x": 6000,
+       "y": 5800
+      }
+     ],
+     "closed": false,
+     "openings": [
+      {
+       "type": "door",
+       "at": 2600,
+       "width": 900,
+       "height": 2100,
+       "sill": 0,
+       "swing": -1,
+       "hinge": 1
+      }
+     ],
+     "layers": []
+    },
+    "level": "L2",
+    "material": {
+     "id": "gypsum",
+     "name": "석고보드",
+     "color": "#efece4",
+     "pattern": "dots"
+    }
+   },
+   {
+    "id": "e-mv7nixfz00zy1wse",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "침실 1",
+    "x": 200,
+    "y": 200,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2500
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 5700
+      },
+      {
+       "x": 0,
+       "y": 5700
+      }
+     ],
+     "holes": []
+    },
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz00zzrbz2",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "침실 2",
+    "x": 6100,
+    "y": 200,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2500
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 0
+      },
+      {
+       "x": 5700,
+       "y": 5600
+      },
+      {
+       "x": 0,
+       "y": 5600
+      }
+     ],
+     "holes": []
+    },
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz0100fugq",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "가족실",
+    "x": 200,
+    "y": 6100,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2500
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 3700
+      },
+      {
+       "x": 0,
+       "y": 3700
+      }
+     ],
+     "holes": []
+    },
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz01010njj",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "침대",
+    "x": 2000,
+    "y": 3900,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": -90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 0,
+     "length": 2100,
+     "width": 1600,
+     "height": 900
+    },
+    "shape": {},
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz0102w7e0",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "침대",
+    "x": 8500,
+    "y": 3700,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": -90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 0,
+     "length": 2000,
+     "width": 1400,
+     "height": 900
+    },
+    "shape": {},
+    "level": "L2"
+   },
+   {
+    "id": "e-mv7nixfz0103rkzp",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "rebar",
+    "name": "2층 슬래브 배근",
+    "x": 0,
+    "y": 0,
+    "z": 3000,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "diameter": 13,
+     "spacing": 250,
+     "cover": 30,
+     "bars": 2,
+     "stirrup": 10
+    },
+    "shape": {
+     "host": {
+      "kind": "slab",
+      "params": {
+       "thickness": 220
+      },
+      "outer": [
+       {
+        "x": 0,
+        "y": 0
+       },
+       {
+        "x": 12000,
+        "y": 0
+       },
+       {
+        "x": 12000,
+        "y": 6000
+       },
+       {
+        "x": 6000,
+        "y": 6000
+       },
+       {
+        "x": 6000,
+        "y": 10000
+       },
+       {
+        "x": 0,
+        "y": 10000
+       }
+      ],
+      "holes": [
+       [
+        {
+         "x": 3700,
+         "y": 1300
+        },
+        {
+         "x": 4900,
+         "y": 1300
+        },
+        {
+         "x": 4900,
+         "y": 5500
+        },
+        {
+         "x": 3700,
+         "y": 5500
+        }
+       ]
+      ]
+     }
+    },
+    "level": "L2",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0104eu13",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "roof",
+    "name": "L자 지붕 (박공 끝)",
+    "x": 0,
+    "y": 0,
+    "z": 5800,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "roofType": 1,
+     "slope": 30,
+     "overhang": 500,
+     "thickness": 200
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 0
+      },
+      {
+       "x": 12000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 6000
+      },
+      {
+       "x": 6000,
+       "y": 10000
+      },
+      {
+       "x": 0,
+       "y": 10000
+      }
+     ],
+     "holes": [],
+     "slopes": [
+      null,
+      90,
+      null,
+      null,
+      90,
+      null
+     ]
+    },
+    "level": "L2",
+    "material": {
+     "id": "tile",
+     "name": "타일",
+     "color": "#d9c7a7",
+     "pattern": "net"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0105e5wn",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "카포트 기둥",
+    "x": 12800,
+    "y": 300,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "depth": 150,
+     "height": 2400,
+     "profile": 2
+    },
+    "shape": {},
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0106p4jv",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "카포트 기둥",
+    "x": 17800,
+    "y": 300,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "depth": 150,
+     "height": 2400,
+     "profile": 2
+    },
+    "shape": {},
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0107bjlz",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "카포트 기둥",
+    "x": 12800,
+    "y": 5700,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "depth": 150,
+     "height": 2400,
+     "profile": 2
+    },
+    "shape": {},
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0108zp6r",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "카포트 기둥",
+    "x": 17800,
+    "y": 5700,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 150,
+     "depth": 150,
+     "height": 2400,
+     "profile": 2
+    },
+    "shape": {},
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz0109gew5",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "truss",
+    "name": "카포트 트러스",
+    "x": 12800,
+    "y": 300,
+    "z": 2400,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "trussType": 0,
+     "height": 600,
+     "panels": 6,
+     "chord": 80,
+     "web": 50
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5000,
+       "y": 0
+      }
+     ],
+     "closed": false
+    },
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz010a42xs",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "truss",
+    "name": "카포트 트러스",
+    "x": 12800,
+    "y": 5700,
+    "z": 2400,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "trussType": 0,
+     "height": 600,
+     "panels": 6,
+     "chord": 80,
+     "web": 50
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5000,
+       "y": 0
+      }
+     ],
+     "closed": false
+    },
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz010bgwjl",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "panel",
+    "name": "골판 지붕",
+    "x": 12500,
+    "y": 0,
+    "z": 3030,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 1,
+     "waveLength": 150,
+     "waveHeight": 25
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 0
+      },
+      {
+       "x": 5600,
+       "y": 6000
+      },
+      {
+       "x": 0,
+       "y": 6000
+      }
+     ],
+     "holes": []
+    },
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz010c9spl",
+    "type": "solid",
+    "layer": "structure",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "pipe",
+    "name": "가스관",
+    "x": 300,
+    "y": -350,
+    "z": 400,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "diameter": 60,
+     "wall": 4
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 11500,
+       "y": 0
+      },
+      {
+       "x": 11500,
+       "y": 5000
+      }
+     ],
+     "closed": false
+    },
+    "level": "L1",
+    "material": {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    }
+   },
+   {
+    "id": "e-mv7nixfz010dx3ha",
+    "type": "solid",
+    "layer": "grid",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "axis",
+    "name": "통심선",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "countX": 3,
+     "spacingX": 6000,
+     "countY": 3,
+     "spacingY": 5000,
+     "extension": 1500,
+     "bubble": 400
+    },
+    "shape": {
+     "xs": [
+      0,
+      6000,
+      12000
+     ],
+     "ys": [
+      0,
+      6000,
+      10000
+     ]
+    }
+   },
+   {
+    "id": "e-mv7nixfz010e2js5",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": -3000,
+    "text": "2층 주택 — 층(1층·2층), 다층 벽(벽돌·단열·콘크리트·석고), L자 지붕(변별 경사), 철근, 카포트 트러스·골판, 가스관",
+    "size": 250,
+    "angle": 0,
+    "font": "",
+    "bold": true,
+    "italic": false,
+    "align": "left"
+   },
+   {
+    "id": "e-mv7nixfz010ftg24",
+    "type": "text",
+    "layer": "text",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "x": 0,
+    "y": -3500,
+    "text": "왼쪽 패널의 건물 트리에서 평면도 층을 바꾸고, 3D 보기에서 두 층을 함께 봅니다",
+    "size": 220,
+    "angle": 0,
+    "font": "",
+    "bold": false,
+    "italic": false,
+    "align": "left"
+   }
+  ],
+  "bim": {
+   "site": "대지 (남향)",
+   "building": "2층 주택",
+   "levels": [
+    {
+     "id": "L1",
+     "name": "1층",
+     "elevation": 0,
+     "height": 3000,
+     "visible": true
+    },
+    {
+     "id": "L2",
+     "name": "2층",
+     "elevation": 3000,
+     "height": 3000,
+     "visible": true
+    }
+   ],
+   "activeLevel": "L1",
+   "planLevel": "L1",
+   "materials": [
+    {
+     "id": "concrete",
+     "name": "콘크리트",
+     "color": "#c4c7cc",
+     "pattern": "ansi37"
+    },
+    {
+     "id": "brick",
+     "name": "벽돌",
+     "color": "#b5653f",
+     "pattern": "ansi31"
+    },
+    {
+     "id": "block",
+     "name": "콘크리트 블록",
+     "color": "#a9adb3",
+     "pattern": "ansi32"
+    },
+    {
+     "id": "insulation",
+     "name": "단열재",
+     "color": "#f2d36b",
+     "pattern": "net"
+    },
+    {
+     "id": "gypsum",
+     "name": "석고보드",
+     "color": "#efece4",
+     "pattern": "dots"
+    },
+    {
+     "id": "plaster",
+     "name": "미장",
+     "color": "#e6e1d6",
+     "pattern": "dots"
+    },
+    {
+     "id": "wood",
+     "name": "목재",
+     "color": "#a8763e",
+     "pattern": "line"
+    },
+    {
+     "id": "stone",
+     "name": "석재",
+     "color": "#9c9a92",
+     "pattern": "ansi37"
+    },
+    {
+     "id": "steel",
+     "name": "강재",
+     "color": "#8f98a3",
+     "pattern": "solid"
+    },
+    {
+     "id": "glass",
+     "name": "유리",
+     "color": "#8cc4ec",
+     "pattern": "none"
+    },
+    {
+     "id": "tile",
+     "name": "타일",
+     "color": "#d9c7a7",
+     "pattern": "net"
+    }
+   ]
+  }
+ }
+}

@@ -1,6 +1,7 @@
 // Object snaps (end, middle, centre, quadrant, intersection, nearest), grid
 // snap, ortho mode and typed coordinates.
 import { entityBox, primitives } from './entities.js';
+import { fromPlane, toPlane, vectorFromPlane } from './workplane.js';
 import { displayUnit, evaluateLength } from './units.js';
 import {
   angleOnArc, closestOnArc, closestOnCircle, closestOnSegment, dist, intersectCircles, intersectLines, intersectSegmentCircle, mid, polar, rad, sweep,
@@ -135,11 +136,17 @@ export function findSnap(entities, p, tolerance, modes, { exclude = new Set() } 
   return best;
 }
 
-export const snapToGrid = (p, size) => ({ x: Math.round(p.x / size) * size, y: Math.round(p.y / size) * size });
+/** Nearest grid point (of the working plane `wp`, when there is one). */
+export function snapToGrid(p, size, wp = null) {
+  const q = toPlane(p, wp);
+  return fromPlane({ x: Math.round(q.x / size) * size, y: Math.round(q.y / size) * size }, wp);
+}
 
-/** Ortho: keeps the point on the horizontal or vertical line through `base`. */
-export function applyOrtho(base, p) {
-  return Math.abs(p.x - base.x) >= Math.abs(p.y - base.y) ? { x: p.x, y: base.y } : { x: base.x, y: p.y };
+/** Ortho: keeps the point on the line through `base` along the (working plane's) X or Y axis. */
+export function applyOrtho(base, p, wp = null) {
+  const b = toPlane(base, wp);
+  const q = toPlane(p, wp);
+  return fromPlane(Math.abs(q.x - b.x) >= Math.abs(q.y - b.y) ? { x: q.x, y: b.y } : { x: b.x, y: q.y }, wp);
 }
 
 // ───────────────────────── typed coordinates
@@ -155,7 +162,7 @@ const LENGTH = `${NUMBER}(?:mm|cm|m|in|ft|"|'|″|′)?`;
  *   "75"       75 along the current cursor direction from the last point
  * Returns a point, or null when the text is not a coordinate.
  */
-export function parseCoordinate(text, last, cursor, unit = displayUnit()) {
+export function parseCoordinate(text, last, cursor, unit = displayUnit(), wp = null) {
   const value = String(text ?? '').trim().replace(/\s+/g, '').replace(/，/g, ',');
   if (!value) return null;
   // Lengths are in the display unit unless they carry their own ("2in,30mm").
@@ -164,13 +171,17 @@ export function parseCoordinate(text, last, cursor, unit = displayUnit()) {
   if (match) {
     const x = length(match[2]);
     const y = length(match[3]);
-    if (match[1]) return last ? { x: last.x + x, y: last.y + y } : { x, y };
-    return { x, y };
+    // On a working plane: absolute = its coordinates, relative = along its axes.
+    if (match[1]) {
+      const v = vectorFromPlane({ x, y }, wp);
+      return last ? { x: last.x + v.x, y: last.y + v.y } : fromPlane({ x, y }, wp);
+    }
+    return fromPlane({ x, y }, wp);
   }
   match = new RegExp(`^@?(${LENGTH})<(${NUMBER})$`, 'i').exec(value);
   if (match) {
-    const base = last ?? { x: 0, y: 0 };
-    return polar(base, length(match[1]), Number(match[2]));
+    const base = last ?? fromPlane({ x: 0, y: 0 }, wp);
+    return polar(base, length(match[1]), Number(match[2]) + (wp?.angle ?? 0));
   }
   match = new RegExp(`^(${LENGTH})$`, 'i').exec(value);
   if (match && last) {

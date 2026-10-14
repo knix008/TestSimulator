@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T09:43:02.672Z",
+ "saved": "2026-10-14T05:10:40.086Z",
  "drawing": {
-  "id": "dwg-mv6htcmx006iuh7p",
+  "id": "dwg-mv7nixa6006ihhc9",
   "title": "기어박스 (3D)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T09:43:02.457Z",
-  "updated": "2026-10-13T09:43:02.459Z",
+  "created": "2026-10-14T05:10:39.870Z",
+  "updated": "2026-10-14T05:10:39.872Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6htcmx006jx82s",
+    "id": "e-mv7nixa6006jl0ca",
     "type": "solid",
     "layer": "0",
     "color": "#9aa4b1",
@@ -171,7 +171,7 @@
     }
    },
    {
-    "id": "e-mv6htcmy006lcjt1",
+    "id": "e-mv7nixa7006lvn4h",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -3544,7 +3544,7 @@
     }
    },
    {
-    "id": "e-mv6htcmy006m6jks",
+    "id": "e-mv7nixa7006m0c2i",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -3568,7 +3568,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcmz006oqffs",
+    "id": "e-mv7nixa8006o5jpp",
     "type": "solid",
     "layer": "0",
     "color": null,
@@ -6317,7 +6317,7 @@
     }
    },
    {
-    "id": "e-mv6htcmz006phd7f",
+    "id": "e-mv7nixa8006pe2dr",
     "type": "solid",
     "layer": "0",
     "color": null,

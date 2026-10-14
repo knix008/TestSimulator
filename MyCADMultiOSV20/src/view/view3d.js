@@ -5,15 +5,31 @@
 // switches on and off.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { AUTO, isVisible, styleOf } from '../domain/drawing.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
+import { AUTO, isVisible3d, styleOf } from '../domain/drawing.js';
 import { primitives } from '../domain/entities.js';
 import { arcPoints } from '../domain/geometry.js';
-import { solidMesh } from '../domain/solids.js';
+import { solidMeshGroups, solidPoints } from '../domain/solids.js';
+import { ARCH_COLORS, ARCH_MATERIALS, isArchKind } from '../domain/arch.js';
 import { buildShapes, collectLoops, extrude } from '../domain/stl.js';
 import { gridStepFor, niceStep } from './renderer.js';
-import { displayUnit, gridBaseFor, unitFactor } from '../domain/units.js';
+import { axisUnitFor, displayUnit, gridBaseFor, unitFactor } from '../domain/units.js';
 
 export const PRESETS = ['iso', 'top', 'front', 'right'];
+/**
+ * Draw styles (FreeCAD's Std_DrawStyle and more): as is (shaded with edges),
+ * shaded, flat (no shading), clay, hidden line, X-ray, sketch (pencil on
+ * paper), wireframe (edges), mesh (triangles), points.
+ */
+export const VIEW_STYLES = ['asis', 'shaded', 'flat', 'clay', 'hidden', 'xray', 'sketch', 'wireframe', 'mesh', 'points'];
+const PAPER = '#f5f1e6';
+const PENCIL = '#2b2a28';
+
+/** A repeatable pseudo-random sequence (the sketch strokes stay put while the view turns). */
+function seeded(seed = 1) {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
 /** Colours of solids drawn "by layer" with the automatic colour (one per solid, in turn). */
 export const SOLID_PALETTE = ['#e0b354', '#7fb3e6', '#8fcf8a', '#e48f7a', '#b9a0e8', '#6fd0c8', '#e7a3c9', '#c5c96b'];
 
@@ -107,9 +123,10 @@ function disposeTree(object) {
 }
 
 export class View3D {
-  constructor(container, { onLightChange, onLightSelect, onPick } = {}) {
+  constructor(container, { onLightChange, onLightSelect, onPick, onMove } = {}) {
     this.container = container;
     this.onPick = onPick;
+    this.onMove = onMove;
     this.onLightChange = onLightChange;
     this.onLightSelect = onLightSelect;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -149,8 +166,12 @@ export class View3D {
     this.gizmoSun = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.sunIcons.on, depthTest: false, transparent: true }));
     this.gizmoSun.renderOrder = 11;
     this.gizmoSun.name = 'sun';
-    this.gizmoLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: 0xffc533, dashSize: 1, gapSize: 1 }));
-    this.gizmo.add(this.gizmoBall, this.gizmoSun, this.gizmoLine);
+    // The light's direction: a dashed line from the origin (0, 0, 0) to the sun, hidden where the
+    // model is in front of it, with an arrowhead at the origin pointing where the light goes.
+    this.gizmoLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: 0xffc533, dashSize: 1, gapSize: 1, transparent: true, opacity: 0.75 }));
+    this.gizmoArrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.4, 16).translate(0, -0.7, 0), new THREE.MeshBasicMaterial({ color: 0xffc533, transparent: true, opacity: 0.85 }));
+    this.gizmoArrow.name = 'sun-arrow';
+    this.gizmo.add(this.gizmoBall, this.gizmoSun, this.gizmoLine, this.gizmoArrow);
     this.scene.add(this.gizmo);
 
     this.model = new THREE.Group();
@@ -160,9 +181,13 @@ export class View3D {
     this.scene.add(this.model, this.wires, this.axes, this.grid);
 
     this.light = { azimuth: 135, elevation: 55, on: true, intensity: 1, color: '#ffffff', shadows: true };
-    this.options = { wireframe: false, axes: true, lightMode: false };
+    this.options = { wireframe: false, axes: true, lightMode: false, style: 'asis', handle: 'move' };
+    this.styled = new THREE.Group();
+    this.scene.add(this.styled);
     this.size = 100;
     this.center = new THREE.Vector3();
+    // The sun turns about the drawing origin (0, 0, 0) and shines at it.
+    this.lightOrigin = new THREE.Vector3(0, 0, 0);
     this.raycaster = new THREE.Raycaster();
     this.bindLightDrag();
   }
@@ -183,20 +208,40 @@ export class View3D {
       group.clear();
     }
     this.scene.background = new THREE.Color(colors.background ?? '#20242c');
-    const entities = drawing.entities.filter((entity) => isVisible(drawing, entity));
+    const entities = drawing.entities.filter((entity) => isVisible3d(drawing, entity));
     const { loops, open } = extrude2d ? collectLoops(entities, drawing) : { loops: [], open: [] };
     const shapes = buildShapes(loops);
     const triangles = extrude(shapes, thickness);
     const solids = entities.filter((entity) => entity.type === 'solid');
     let solidTriangles = 0;
     solids.forEach((entity, index) => {
-      const tris = solidMesh(entity);
-      if (!tris.length) return;
-      solidTriangles += tris.length;
       const style = styleOf(drawing, entity);
-      const base = style.color === AUTO ? SOLID_PALETTE[index % SOLID_PALETTE.length] : style.color;
-      const mesh = this.meshOf(tris, selected.has(entity.id) ? colors.selection ?? '#ff9f1c' : base, `solid:${entity.id}`);
-      this.model.add(mesh, this.edgesOf(mesh.geometry, colors));
+      const own = typeof entity.color === 'string' && entity.color !== AUTO ? entity.color : null;
+      const base = isArchKind(entity.kind) ? own ?? entity.material?.color ?? ARCH_COLORS[entity.kind] : style.color === AUTO ? SOLID_PALETTE[index % SOLID_PALETTE.length] : style.color;
+      const chosen = selected.has(entity.id);
+      if (entity.kind === 'points') {
+        // A point cloud: dots, picked like a solid.
+        const pts = solidPoints(entity);
+        const positions = new Float32Array(pts.length * 3);
+        pts.forEach((p, i) => positions.set(p, i * 3));
+        const dots = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(positions, 3)), new THREE.PointsMaterial({ color: chosen ? colors.selection ?? '#ff9f1c' : base, size: 3, sizeAttenuation: false }));
+        dots.name = `solid:${entity.id}`;
+        dots.userData.entity = entity.id;
+        dots.userData.points = true;
+        this.model.add(dots);
+        return;
+      }
+      // Arch objects come in materials (glass, wood, metal, the light volume of a space).
+      for (const { material, tris } of solidMeshGroups(entity)) {
+        if (!tris.length) continue;
+        solidTriangles += tris.length;
+        // Layered walls: a group per material colour ("color:#rrggbb").
+        const look = material.startsWith('color:') ? { color: material.slice(6) } : ARCH_MATERIALS[material];
+        const mesh = this.meshOf(tris, chosen ? colors.selection ?? '#ff9f1c' : look?.color ?? base, `solid:${entity.id}`, look?.opacity, isArchKind(entity.kind) && material !== 'glass' && material !== 'metal');
+        mesh.userData.entity = entity.id;
+        if (look?.edges === false) this.model.add(mesh);
+        else { const edges = this.edgesOf(mesh.geometry, colors); edges.userData.entity = entity.id; this.model.add(mesh, edges); }
+      }
     });
     if (triangles.length) {
       const mesh = this.meshOf(triangles, colors.solid ?? '#9fb4c8', 'solids');
@@ -234,24 +279,170 @@ export class View3D {
     this.camera.near = this.size / 500;
     this.camera.far = this.size * 200;
     this.camera.updateProjectionMatrix();
+    this.applyStyle();
+    // The move / rotate handle on the one selected solid.
+    const only = selected.size === 1 ? solids.find((entity) => selected.has(entity.id)) : null;
+    this.attachHandle(only ?? null, drawing.grid?.size);
     if (!this.framed) { this.view('iso'); this.framed = true; }
     this.render();
     return { solids: shapes.length + solids.length, plates: shapes.length, parts3d: solids.length, holes: shapes.reduce((sum, shape) => sum + shape.holes.length, 0), triangles: triangles.length + solidTriangles, open: open.length };
   }
 
   /** A shaded mesh of triangles (casts and receives shadows). */
-  meshOf(triangles, color, name) {
+  meshOf(triangles, color, name, opacity = 1, matte = false) {
     const positions = new Float32Array(triangles.length * 9);
     triangles.forEach((tri, i) => tri.forEach((p, j) => positions.set(p, i * 9 + j * 3)));
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({ color, metalness: 0.35, roughness: 0.42, wireframe: this.options.wireframe, side: THREE.DoubleSide });
+    const see = opacity < 1;
+    const material = new THREE.MeshStandardMaterial({ color, metalness: see || matte ? 0.05 : 0.35, roughness: matte ? 0.8 : 0.42, wireframe: this.options.wireframe, side: THREE.DoubleSide, transparent: see, opacity, depthWrite: !see });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
+    mesh.castShadow = !see;
     mesh.receiveShadow = true;
     mesh.name = name;
+    // What the draw styles start from.
+    mesh.userData.look = { color, opacity, matte };
     return mesh;
+  }
+
+  /**
+   * Gives every solid the materials of the draw style. The meshes stay in the
+   * scene (also when only their edges or points show) so clicking still picks.
+   */
+  applyStyle() {
+    const style = VIEW_STYLES.includes(this.options.style) ? this.options.style : 'asis';
+    disposeTree(this.styled);
+    this.styled.clear();
+    const paper = style === 'sketch';
+    this.scene.background = new THREE.Color(paper ? PAPER : this.colors?.background ?? '#20242c');
+    this.gizmo.visible = this.light.on && style !== 'flat';
+    this.updateGrid(true);
+    const ground = this.grid.children.find((child) => child.name === 'ground');
+    if (ground) ground.visible = !['sketch', 'hidden', 'flat', 'xray', 'wireframe', 'points'].includes(style);
+    const background = paper ? PAPER : this.colors?.background ?? '#20242c';
+    const random = seeded(7);
+    const size = this.size || 100;
+    for (const child of this.model.children) {
+      if (child.isMesh) {
+        const look = child.userData.look ?? { color: '#9fb4c8', opacity: 1, matte: false };
+        const see = look.opacity < 1;
+        const common = { side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
+        let material;
+        if (style === 'shaded' || style === 'asis') material = new THREE.MeshStandardMaterial({ ...common, color: look.color, metalness: see || look.matte ? 0.05 : 0.35, roughness: look.matte ? 0.8 : 0.42, transparent: see, opacity: look.opacity, depthWrite: !see });
+        else if (style === 'flat') material = new THREE.MeshBasicMaterial({ ...common, color: look.color, transparent: see, opacity: look.opacity, depthWrite: !see });
+        else if (style === 'clay') material = new THREE.MeshStandardMaterial({ ...common, color: see ? look.color : '#d8d4cc', metalness: 0, roughness: 0.95, transparent: see, opacity: look.opacity, depthWrite: !see });
+        else if (style === 'hidden' || style === 'sketch') material = new THREE.MeshBasicMaterial({ ...common, color: background, transparent: see, opacity: see ? 0.35 : 1, depthWrite: !see });
+        else if (style === 'xray') material = new THREE.MeshStandardMaterial({ ...common, color: look.color, metalness: 0, roughness: 0.6, transparent: true, opacity: Math.min(look.opacity, 0.22), depthWrite: false });
+        else if (style === 'mesh') material = new THREE.MeshStandardMaterial({ color: look.color, wireframe: true });
+        else material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+        child.material.dispose();
+        child.material = material;
+        child.castShadow = ['asis', 'shaded', 'clay'].includes(style) && !see;
+        child.receiveShadow = ['asis', 'shaded', 'clay'].includes(style);
+        if (style === 'points') {
+          const dots = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', child.geometry.attributes.position.clone()), new THREE.PointsMaterial({ color: look.color, size: 3, sizeAttenuation: false }));
+          dots.name = 'style-points';
+          this.styled.add(dots);
+        }
+      } else if (child.name === 'edges') {
+        child.visible = ['asis', 'hidden', 'xray', 'wireframe', 'flat', 'clay'].includes(style);
+        child.material.depthTest = style !== 'xray';
+        child.material.transparent = style === 'xray';
+        child.material.opacity = style === 'xray' ? 0.75 : 1;
+        child.renderOrder = style === 'xray' ? 2 : 0;
+        if (style === 'sketch') {
+          // Pencil strokes: each edge drawn twice, a little off and running past its ends.
+          const src = child.geometry.attributes.position.array;
+          const out = [];
+          const wobble = size * 0.0016;
+          for (let i = 0; i + 5 < src.length; i += 6) {
+            const a = [src[i], src[i + 1], src[i + 2]];
+            const b = [src[i + 3], src[i + 4], src[i + 5]];
+            const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+            const len = Math.hypot(...d) || 1;
+            for (let k = 0; k < 2; k++) {
+              const over = Math.min(len * 0.06, size * 0.006) * (0.4 + random());
+              const j = () => (random() - 0.5) * 2 * wobble;
+              const s = [a[0] - (d[0] / len) * over + j(), a[1] - (d[1] / len) * over + j(), a[2] - (d[2] / len) * over + j()];
+              const e = [b[0] + (d[0] / len) * over + j(), b[1] + (d[1] / len) * over + j(), b[2] + (d[2] / len) * over + j()];
+              out.push(...s, ...e);
+            }
+          }
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+          const strokes = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: PENCIL, transparent: true, opacity: 0.8 }));
+          strokes.name = 'style-sketch';
+          this.styled.add(strokes);
+        }
+      }
+    }
+    this.render();
+  }
+
+  /**
+   * The move / rotate handle (FreeCAD's Transform): arrows along X, Y, Z, or a
+   * ring about Z, on the selected solid's own origin. Snaps to the grid and to
+   * 15°; the solid follows while dragging and onMove reports the change once.
+   */
+  attachHandle(entity, gridSize = 10) {
+    if (!this.transform) {
+      this.transform = new TransformControls(this.camera, this.canvas);
+      this.transform.setSize(0.9);
+      this.pivot = new THREE.Object3D();
+      this.scene.add(this.pivot);
+      const helper = this.transform.getHelper ? this.transform.getHelper() : this.transform;
+      helper.name = 'handle';
+      this.scene.add(helper);
+      this.transform.addEventListener('dragging-changed', (event) => {
+        this.controls.enabled = !event.value;
+        if (event.value) { this.handleBusy = true; return; }
+        const e = this.handleEntity;
+        if (!e) return;
+        const start = this.handleStart;
+        const p = this.pivot.position;
+        const dz = THREE.MathUtils.radToDeg(this.pivot.rotation.z);
+        const moved = { dx: p.x - start.x, dy: p.y - start.y, dz: p.z - start.z, drz: dz };
+        if (Math.hypot(moved.dx, moved.dy, moved.dz) > 1e-9 || Math.abs(moved.drz) > 1e-9) this.onMove?.(e.id, moved);
+      });
+      this.transform.addEventListener('objectChange', () => this.followHandle());
+      this.transform.addEventListener('mouseDown', () => { this.handleBusy = true; });
+    }
+    this.handleEntity = entity;
+    if (!entity || !this.options.handle) {
+      this.transform.detach();
+      this.render();
+      return;
+    }
+    this.handleStart = { x: entity.x ?? 0, y: entity.y ?? 0, z: entity.z ?? 0 };
+    this.pivot.position.set(this.handleStart.x, this.handleStart.y, this.handleStart.z);
+    this.pivot.rotation.set(0, 0, 0);
+    this.pivot.updateMatrixWorld();
+    this.transform.setMode(this.options.handle === 'rotate' ? 'rotate' : 'translate');
+    this.transform.showX = this.options.handle !== 'rotate';
+    this.transform.showY = this.options.handle !== 'rotate';
+    this.transform.showZ = true;
+    this.transform.setTranslationSnap(Math.max(0.001, gridSize || 10));
+    this.transform.setRotationSnap(THREE.MathUtils.degToRad(15));
+    this.transform.attach(this.pivot);
+    this.render();
+  }
+
+  /** While dragging: the selected solid's meshes and edges follow the handle. */
+  followHandle() {
+    const e = this.handleEntity;
+    if (!e) return;
+    const s = this.handleStart;
+    const m = new THREE.Matrix4().makeTranslation(this.pivot.position.x, this.pivot.position.y, this.pivot.position.z)
+      .multiply(new THREE.Matrix4().makeRotationZ(this.pivot.rotation.z))
+      .multiply(new THREE.Matrix4().makeTranslation(-s.x, -s.y, -s.z));
+    for (const child of this.model.children) {
+      if (child.userData.entity !== e.id) continue;
+      child.matrixAutoUpdate = false;
+      child.matrix.copy(m);
+      child.matrixWorldNeedsUpdate = true;
+    }
+    this.render();
   }
 
   /** Feature edges (sharper than 25°) drawn over a mesh. */
@@ -314,7 +505,9 @@ export class View3D {
       segments.position.z = -0.01;
       return segments;
     };
-    lines.add(make(minor, this.colors.grid ?? 0x333333, 0.8), make(majors, this.colors.gridMajor ?? 0x555555, 1));
+    // On the sketch style's paper the grid is pencil grey; otherwise the theme's. Always 5 × 5.
+    const paper = this.options.style === 'sketch';
+    lines.add(make(minor, paper ? '#d8d1bf' : this.colors.grid ?? 0x333333, 0.8), make(majors, paper ? '#aaa08a' : this.colors.gridMajor ?? 0x555555, 1));
     lines.userData = { step, major, pxPerCell: step * pxPerMm, minorLines: minor.length / 6, majorLines: majors.length / 6 };
     this.gridLines = lines;
     this.grid.add(lines);
@@ -323,8 +516,9 @@ export class View3D {
   /** X (red), Y (green), Z (blue) from the origin, with ticks and numbers at "nice" steps. */
   buildAxes(box) {
     const reach = Math.max(Math.abs(box.min.x), Math.abs(box.max.x), Math.abs(box.min.y), Math.abs(box.max.y), box.max.z, 10);
-    // Ticks at round values of the display unit.
-    const factor = unitFactor(displayUnit());
+    // Ticks at round values of a unit that keeps the numbers short (m for buildings, mm for parts).
+    const unit = axisUnitFor(reach, displayUnit());
+    const factor = unitFactor(unit);
     const stepInUnit = niceStep(reach / 5 / factor);
     const step = stepInUnit * factor;
     const length = Math.ceil((reach * 1.15) / step) * step;
@@ -338,7 +532,7 @@ export class View3D {
       { name: 'Y', dir: new THREE.Vector3(0, 1, 0), side: new THREE.Vector3(1, 0, 0), color: 0x30a46c },
       { name: 'Z', dir: new THREE.Vector3(0, 0, 1), side: new THREE.Vector3(1, 0, 0), color: 0x3a8fd6 },
     ];
-    this.axisInfo = { step, length, ticks: Math.round(length / step), unit: displayUnit(), stepInUnit };
+    this.axisInfo = { step, length, ticks: Math.round(length / step), unit, stepInUnit };
     for (const axis of axes) {
       // The axes are part of the scene: solids in front of them hide them.
       const material = new THREE.LineBasicMaterial({ color: axis.color, depthTest: true, transparent: true });
@@ -367,7 +561,8 @@ export class View3D {
       head.position.copy(axis.dir.clone().multiplyScalar(length + tick * 2));
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.dir);
       head.renderOrder = 9;
-      const name = textSprite(axis.name, `#${new THREE.Color(axis.color).getHexString()}`, labelSize * 1.5);
+      // The axis name carries the unit of its numbers: "X (m)".
+      const name = textSprite(`${axis.name} (${unit})`, `#${new THREE.Color(axis.color).getHexString()}`, labelSize * 1.5);
       name.position.copy(axis.dir.clone().multiplyScalar(length + tick * 4 + labelSize));
       if (axis.name !== 'Z') name.position.add(lift);
       name.userData.label = { anchor: axis.dir.clone().multiplyScalar(length + tick * 4), away: axis.dir.clone(), lift: axis.name !== 'Z', px: AXIS_NAME_PX, max: step * 0.45 };
@@ -379,13 +574,13 @@ export class View3D {
   // ───────────────────────── light
 
   placeLight() {
-    // Close enough to stay in view, so the sun can be grabbed.
-    const distance = this.lightDistance();
+    // Where it was put (its own distance), else close enough to stay in view so it can be grabbed.
+    const distance = this.light.distance > 0 ? this.light.distance : this.lightDistance();
     const az = THREE.MathUtils.degToRad(this.light.azimuth);
     const el = THREE.MathUtils.degToRad(this.light.elevation);
-    const position = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)).multiplyScalar(distance).add(this.center);
+    const position = new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)).multiplyScalar(distance).add(this.lightOrigin);
     this.sun.position.copy(position);
-    this.sun.target.position.copy(this.center);
+    this.sun.target.position.copy(this.lightOrigin);
     this.sun.visible = this.light.on;
     this.sun.intensity = 2.4 * this.light.intensity;
     this.sun.color.set(this.light.color);
@@ -393,7 +588,9 @@ export class View3D {
     this.hemisphere.intensity = 0.9;
     this.headlight.visible = !this.light.on;
     const camera = this.sun.shadow.camera;
-    camera.left = -this.size; camera.right = this.size; camera.top = this.size; camera.bottom = -this.size;
+    // Shadows cover the whole model seen from the origin.
+    const reach = this.reachFromOrigin();
+    camera.left = -reach; camera.right = reach; camera.top = reach; camera.bottom = -reach;
     camera.near = distance * 0.05; camera.far = distance * 4;
     this.sun.shadow.normalBias = this.size * 0.002;
     camera.updateProjectionMatrix();
@@ -402,12 +599,10 @@ export class View3D {
     this.gizmoSun.material.map = this.light.on ? this.sunIcons.on : this.sunIcons.off;
     this.gizmoSun.material.needsUpdate = true;
     this.gizmoLine.material.color.set(this.light.on ? 0xffc533 : 0x888888);
-    this.gizmoLine.geometry.setFromPoints([position, this.center]);
-    this.gizmoLine.material.dashSize = this.size * 0.03;
-    this.gizmoLine.material.gapSize = this.size * 0.02;
-    this.gizmoLine.computeLineDistances();
-    // Light off: no sun at all (switch it back on with the 3D bar, Ctrl+Shift+G or the light properties).
-    this.gizmo.visible = this.light.on;
+    this.gizmoArrow.material.color.set(this.light.on ? 0xffc533 : 0x888888);
+    this.aimLight(position);
+    // Light off — or the no-shading style, which uses no light: no sun at all.
+    this.gizmo.visible = this.light.on && this.options.style !== 'flat';
     this.onLightChange?.(this.light);
   }
 
@@ -416,9 +611,10 @@ export class View3D {
     return this.gizmo.visible && this.raycaster.intersectObject(this.gizmoBall).length > 0;
   }
 
-  setLight({ azimuth = this.light.azimuth, elevation = this.light.elevation, on = this.light.on, intensity = this.light.intensity, color = this.light.color, shadows = this.light.shadows } = {}) {
+  setLight({ azimuth = this.light.azimuth, elevation = this.light.elevation, on = this.light.on, intensity = this.light.intensity, color = this.light.color, shadows = this.light.shadows, distance = this.light.distance } = {}) {
     this.light = {
-      azimuth: ((azimuth % 360) + 360) % 360, elevation: Math.max(3, Math.min(89, elevation)), on,
+      // Anywhere round the origin: any height (straight overhead and below the ground too) and any distance (0 = automatic).
+      azimuth: ((azimuth % 360) + 360) % 360, elevation: Math.max(-89.9, Math.min(89.9, elevation)), on, distance: Number(distance) > 0 ? Number(distance) : 0,
       intensity: Math.max(0, Math.min(5, Number(intensity) || 0)), color: /^#[0-9a-f]{6}$/i.test(color ?? '') ? color : '#ffffff', shadows: shadows !== false,
     };
     this.placeLight();
@@ -484,7 +680,7 @@ export class View3D {
       if (!press || drag || Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4) { press = null; return; }
       press = null;
       aim(event);
-      if (this.overSun()) return;
+      if (this.overSun() || this.handleBusy) { this.handleBusy = false; return; }
       const hit = this.raycaster.intersectObjects(this.model.children.filter((child) => child.isMesh && child.name.startsWith('solid:')), false)[0];
       this.onPick?.(hit ? hit.object.name.slice(6) : null, event);
     });
@@ -496,8 +692,20 @@ export class View3D {
    * A ray that passes the sphere uses its closest point, pushed onto the sphere.
    */
   lightAnglesAt(ray) {
+    // Free in space: the sun moves on the plane facing the viewer through where it is now.
+    const normal = this.camera.getWorldDirection(new THREE.Vector3());
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, this.gizmoSun.position);
+    const at = ray.intersectPlane(plane, new THREE.Vector3());
+    if (at) {
+      const d = at.clone().sub(this.lightOrigin);
+      const length = d.length();
+      if (length > 1e-6) {
+        d.divideScalar(length);
+        return { azimuth: THREE.MathUtils.radToDeg(Math.atan2(d.y, d.x)), elevation: THREE.MathUtils.radToDeg(Math.asin(Math.max(-1, Math.min(1, d.z)))), distance: length };
+      }
+    }
     const radius = this.lightDistance();
-    const centre = this.center;
+    const centre = this.lightOrigin;
     const oc = ray.origin.clone().sub(centre);
     const b = oc.dot(ray.direction);
     const c = oc.lengthSq() - radius * radius;
@@ -515,14 +723,25 @@ export class View3D {
     return { azimuth: THREE.MathUtils.radToDeg(Math.atan2(d.y, d.x)), elevation: THREE.MathUtils.radToDeg(Math.asin(Math.max(-1, Math.min(1, d.z)))) };
   }
 
-  lightDistance() { return this.size * 0.85; }
+  /** Farthest point of the model from the origin. */
+  reachFromOrigin() {
+    // The 3D model only (2D notes laid on the ground can reach far out).
+    const box = new THREE.Box3().setFromObject(this.model);
+    if (box.isEmpty()) return this.size * 0.5;
+    const { min, max } = box;
+    return Math.max(this.size * 0.5, Math.hypot(Math.max(Math.abs(min.x), Math.abs(max.x)), Math.max(Math.abs(min.y), Math.abs(max.y)), Math.max(Math.abs(min.z), Math.abs(max.z))));
+  }
+
+  /** The sun stands outside the model, round the origin. */
+  lightDistance() { return Math.max(this.size * 0.45, this.reachFromOrigin() * 0.85); }
 
 
   // ───────────────────────── view
 
   view(preset) {
-    // Far enough for the model and the axes.
-    const d = Math.max(this.size, (this.axisInfo?.length ?? 0) * 1.1) * 2.3;
+    // Far enough for the model, the axes and the sun (it turns about the origin, so it can be off to one side).
+    const sunReach = this.light?.on ? this.center.distanceTo(this.sun.position) * 1.1 : 0;
+    const d = Math.max(this.size, (this.axisInfo?.length ?? 0) * 1.1, sunReach) * 2.3;
     const directions = {
       iso: new THREE.Vector3(1, -1.25, 0.95), top: new THREE.Vector3(0, -0.0001, 1), front: new THREE.Vector3(0, -1, 0.0001), right: new THREE.Vector3(1, 0, 0.0001),
     };
@@ -539,12 +758,11 @@ export class View3D {
 
   setOption(key, value) {
     this.options[key] = value;
-    if (key === 'wireframe') {
-      for (const child of this.model.children) {
-        if (child.isMesh) child.material.wireframe = value;
-        if (child.name === 'edges') child.visible = !value;
-      }
-    }
+    // The old wireframe switch is the mesh style.
+    if (key === 'wireframe') this.options.style = value ? 'mesh' : 'asis';
+    if (key === 'style') this.options.wireframe = value === 'mesh';
+    if (key === 'wireframe' || key === 'style') this.applyStyle();
+    if (key === 'handle') this.attachHandle(this.handleEntity ?? null, this.gridSize);
     if (key === 'axes') this.axes.visible = value;
     this.canvas.classList.toggle('light-mode', Boolean(this.options.lightMode));
     this.render();
@@ -596,6 +814,20 @@ export class View3D {
     }
   }
 
+  /** The light's line: from the origin (0, 0, 0) to the sun, with an arrowhead at the origin showing where the light goes. */
+  aimLight(position = this.gizmoSun.position) {
+    const toward = this.lightOrigin.clone().sub(position);
+    const distance = toward.length();
+    if (distance < 1e-9) return;
+    toward.divideScalar(distance);
+    const end = this.lightOrigin.clone();
+    this.gizmoLine.geometry.setFromPoints([end, position]);
+    this.gizmoLine.computeLineDistances();
+    this.gizmoArrow.position.copy(end);
+    this.gizmoArrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), toward);
+    this.sizeSun();
+  }
+
   /**
    * Keeps the sun the same size on screen (SUN_PX) however far the camera is:
    * its world size follows its distance from the camera. Its pick sphere too.
@@ -607,6 +839,12 @@ export class View3D {
     const worldPerPx = (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / height;
     this.gizmoSun.scale.setScalar(SUN_PX * worldPerPx);
     this.gizmoBall.scale.setScalar((SUN_PX / 2) * worldPerPx);
+    // Dashes and arrowhead keep their size on screen too (measured at the arrowhead).
+    const far = Math.max(1e-6, this.camera.position.distanceTo(this.gizmoArrow.position));
+    const perPx = (2 * far * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / height;
+    this.gizmoArrow.scale.setScalar(12 * perPx);
+    this.gizmoLine.material.dashSize = 8 * perPx;
+    this.gizmoLine.material.gapSize = 6 * perPx;
   }
 
   /** What the tests check: the scene in numbers. */
@@ -629,6 +867,10 @@ export class View3D {
       })(),
       light: { ...this.light, position: this.sun.position.toArray(), visible: this.sun.visible, basicLight: this.headlight.visible, sunShown: this.gizmo.visible, sunPx: (() => { this.sizeSun(); const d = this.camera.position.distanceTo(this.gizmoSun.position); return (this.gizmoSun.scale.y / (2 * d * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))) * (this.canvas.clientHeight || 600); })(), marker: this.gizmoSun.material.map === this.sunIcons.on ? 'sun' : 'sunOff' },
       wireframe: Boolean(solids?.material.wireframe),
+      style: this.options.style,
+      handle: this.transform?.object ? { mode: this.transform.mode, entity: this.handleEntity?.id ?? null, at: this.pivot.position.toArray() } : null,
+      styleObjects: this.styled.children.map((child) => child.name),
+      background: `#${this.scene.background.getHexString()}`,
       camera: this.camera.position.toArray(),
       sunScreen: (() => { const p = this.gizmoBall.position.clone().project(this.camera); const r = this.canvas.getBoundingClientRect(); return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }; })(),
     };

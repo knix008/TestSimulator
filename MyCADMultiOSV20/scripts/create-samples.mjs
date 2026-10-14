@@ -42,7 +42,7 @@ import { serialize } from '../src/domain/format.js';
 import { exportMesh } from '../src/domain/exchange3d.js';
 import { solidMesh } from '../src/domain/solids.js';
 import { toBinaryStl } from '../src/domain/stl.js';
-import { gearReducer, house3d, housePlan, machineVise, officePlan, shaftDetail, steelFrame } from './models-complex.mjs';
+import { gearReducer, house3d, housePlan, machineVise, officePlan, shaftDetail, steelFrame, twoStoreyHouse } from './models-complex.mjs';
 import { arraysPlate, drawingViewsSample, gearbox3d, mountingBlock, partsCatalog, sectionSample, shaftAssembly, solidsShowcase, springsAndPipes } from './models3d.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -177,13 +177,14 @@ const SAMPLE_INDEX = [
   ['13-drawing-views.mcad', 'views', ['도면 뷰', 'Drawing views'], ['정면·평면·우측면(숨은선)·등각 투상', 'Front, top, right (hidden lines) and isometric views'], ['투영', '숨은선']],
   ['14-sections.mcad', 'views', ['단면', 'Sections'], ['풀리와 슬리브의 단면 윤곽', 'Section outlines of a pulley and a sleeve'], ['단면']],
   ['15-annotations.mcad', 'annotate', ['주석과 해칭', 'Notes and hatching'], ['해칭 무늬 8종, 지시선, 스플라인, 타원 호, 점, 중심선', 'Eight hatch patterns, leaders, splines, elliptical arcs, points, centre lines'], ['해칭', '주석']],
-  ['17-house-plan.mcad', 'arch', ['단독주택 평면도', 'House floor plan'], ['벽·창호·계단·가구·통심선·치수를 갖춘 1:100 평면도', 'A 1:100 floor plan: walls, doors, windows, stairs, furniture, grid and dimensions'], ['건축', '평면도', '레이어']],
-  ['18-house-3d.mcad', 'arch', ['단독주택 3D·입면도', 'House 3D and elevations'], ['개구부를 뚫은 벽, 박공지붕, 계단, 현관 — 3D 모델에서 투영한 입면도', 'Walls with openings, gable roof, stairs, porch — elevations projected from the 3D model'], ['건축', '3D', 'BIM']],
-  ['19-office-plan.mcad', 'arch', ['사무소 기준층', 'Office floor'], ['기둥 격자, 코어(계단·승강기·화장실), 커튼월, 책상 배치 1:200', 'Column grid, core (stairs, lifts, toilets), curtain wall and desks at 1:200'], ['건축', '사무소']],
+  ['17-house-plan.mcad', 'arch', ['단독주택 평면도', 'House floor plan'], ['BIM 모델(벽·창호·계단·실·가구)의 1 m 단면 평면도 1:100 — 3D 보기로 같은 집', 'A 1:100 plan cut from the BIM model (walls, doors, windows, stairs, rooms, furniture) — the same house in 3D'], ['건축', 'BIM', '평면도', '3D']],
+  ['18-house-3d.mcad', 'arch', ['단독주택 3D·입면도', 'House 3D and elevations'], ['BIM 벽·창호·박공지붕·계단·현관 — 모델에서 투영한 입면도, IFC', 'BIM walls, windows, gable roof, stairs, porch — elevations from the model, IFC'], ['건축', '3D', 'BIM', 'IFC']],
+  ['19-office-plan.mcad', 'arch', ['사무소 기준층', 'Office floor'], ['BIM 기둥·통심선·커튼월·코어·회의실·책상 1:200 — 3D 보기로 입체', 'BIM columns, grid, curtain wall, core, meeting rooms, desks at 1:200 — in 3D too'], ['건축', 'BIM', '사무소']],
   ['20-gear-reducer.mcad', 'features', ['2단 감속기', 'Two-stage gear reducer'], ['하우징·덮개·축 3개·기어 4개·베어링으로 된 감속기', 'Housing, lid, three shafts, four gears and bearings'], ['3D', '기어', '조립']],
   ['21-shaft-detail.mcad', 'precise', ['축 제작 도면', 'Shaft production drawing'], ['단면, 키홈, 공차, 표면 거칠기, 주기', 'Sections, keyways, tolerances, surface finish and notes'], ['치수', '공차', '도면']],
   ['22-machine-vise.mcad', 'booleans', ['기계 바이스', 'Machine vise'], ['몸체·조·나사·핸들·공작물을 불리언으로', 'Body, jaws, screw, handle and workpiece made with booleans'], ['3D', '불리언', '조립']],
   ['23-steel-frame.mcad', 'solids', ['철골 골조', 'Steel frame'], ['H형강 기둥·보, 가새, 베이스 플레이트', 'H-section columns and beams, bracing and base plates'], ['3D', '구조', '철골']],
+  ['24-two-storey-house.mcad', 'arch', ['2층 주택 (층·재료·철근)', 'Two-storey house (levels, materials, rebar)'], ['1층·2층, 다층 벽, L자 지붕(변별 경사), 철근, 트러스·골판 카포트, 배관 — IFC', 'Two levels, layered walls, an L roof with per-edge slopes, rebar, a truss carport, a pipe — IFC'], ['건축', 'BIM', '층', '재료', 'IFC']],
   ['16-imperial-plate.mcad', 'precise', ['인치 판', 'Imperial plate'], ['인치로 설계한 판 (길이 단위를 in로 바꿔 보세요)', 'A plate designed in inches (switch the length unit to in)'], ['인치', '단위']],
   ['04-bracket.dxf', 'files', ['브래킷 (DXF R12)', 'Bracket (DXF R12)'], ['MyCAD가 쓴 DXF', 'DXF written by MyCAD'], ['DXF']],
   ['dxf/ezdxf-entities-r2018.dxf', 'files', ['ezdxf DXF 2018', 'ezdxf DXF 2018'], ['다른 프로그램(ezdxf)이 쓴 DXF: 해칭·스플라인·치수·블록', 'DXF from another program (ezdxf): hatches, splines, dimensions, blocks'], ['DXF', 'ezdxf']],
@@ -203,7 +204,7 @@ const files = [
   ['09-solids-showcase', solidsShowcase()], ['10-mounting-block', mountingBlock()], ['11-springs-pipes', springsAndPipes()], ['12-gearbox', gearbox3d()],
   ['13-drawing-views', drawingViewsSample()], ['14-sections', sectionSample()], ['15-annotations', annotations()], ['16-imperial-plate', imperialPlate()],
   ['17-house-plan', housePlan()], ['18-house-3d', house3d()], ['19-office-plan', officePlan()], ['20-gear-reducer', gearReducer()],
-  ['21-shaft-detail', shaftDetail()], ['22-machine-vise', machineVise()], ['23-steel-frame', steelFrame()],
+  ['21-shaft-detail', shaftDetail()], ['22-machine-vise', machineVise()], ['23-steel-frame', steelFrame()], ['24-two-storey-house', twoStoreyHouse()],
 ];
 for (const [name, drawing] of files) fs.writeFileSync(path.join(out, `${name}.mcad`), serialize(drawing));
 fs.writeFileSync(path.join(out, '04-bracket.dxf'), exportDxf(files[3][1]));
@@ -217,7 +218,9 @@ for (const [name, drawing] of files) {
   const solids = drawing.entities.filter((entity) => entity.type === 'solid');
   if (!solids.length) continue;
   // Every format for the showcase; FreeCAD's main ones for the rest (keeps samples/ small).
-  for (const format of name === '09-solids-showcase' ? FORMATS : ['fcstd', 'step', 'stl', '3mf']) {
+  // BIM samples: IFC (the BIM exchange format) and FreeCAD's own; the plan shares the 3D house's model.
+  const arch = { '17-house-plan': ['ifc'], '18-house-3d': ['ifc', 'fcstd', 'step'], '19-office-plan': ['ifc', 'fcstd', 'step'], '24-two-storey-house': ['ifc', 'fcstd', 'step'] }[name];
+  for (const format of arch ?? (name === '09-solids-showcase' ? FORMATS : ['fcstd', 'step', 'stl', '3mf'])) {
     const file = `${name}.${format === 'fcstd' ? 'FCStd' : format}`;
     const bytes = format === 'stl' ? toBinaryStl(solids.flatMap((entity) => solidMesh(entity)), drawing.title) : exportMesh(format, drawing, drawing.entities);
     fs.writeFileSync(path.join(exportsDir, file), bytes);
@@ -237,4 +240,4 @@ console.log(`samples/exports/: ${written2d.join(', ')}`);
 fs.writeFileSync(path.join(out, 'index.json'), `${JSON.stringify(SAMPLE_INDEX.map(([file, task, [titleKo, title], [descriptionKo, description], tags]) => ({ file, task, title, titleKo, description, descriptionKo, tags })), null, 1)}\n`);
 console.log(`samples/index.json: ${SAMPLE_INDEX.length} samples for the start page`);
 console.log(`samples/: ${files.map(([name]) => `${name}.mcad`).join(', ')}, 04-bracket.dxf`);
-console.log(`samples/exports/: ${written.length} files (${FORMATS.join(', ')})`);
+console.log(`samples/exports/: ${written.length} files (${[...FORMATS, 'ifc'].join(', ')})`);

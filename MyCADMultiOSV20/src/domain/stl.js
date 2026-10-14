@@ -36,7 +36,7 @@ export function collectLoops(entities, drawing = null, { tolerance = 0.01 } = {}
   const loops = [];
   const chains = [];
   for (const entity of entities) {
-    if (entity.type === 'dim' || entity.type === 'text' || entity.type === 'solid') continue;
+    if (entity.type === 'dim' || entity.type === 'text' || entity.type === 'solid' || entity.construction) continue;
     const entityType = drawing ? styleOf(drawing, entity).lineType : entity.lineType ?? 'continuous';
     if (SKIP_LINE_TYPES.has(entityType) && entity.type !== 'part') continue;
     for (const prim of primitives(entity)) {

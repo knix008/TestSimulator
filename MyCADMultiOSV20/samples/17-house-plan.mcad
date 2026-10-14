@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T09:43:02.677Z",
+ "saved": "2026-10-14T05:10:40.091Z",
  "drawing": {
-  "id": "dwg-mv6htcr700awc2bd",
+  "id": "dwg-mv7nixeg00awa3ih",
   "title": "단독주택 1층 평면도 (S 1:100)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T09:43:02.611Z",
-  "updated": "2026-10-13T09:43:02.612Z",
+  "created": "2026-10-14T05:10:40.024Z",
+  "updated": "2026-10-14T05:10:40.025Z",
   "layers": [
    {
     "id": "0",
@@ -67,17 +67,8 @@
     "locked": false
    },
    {
-    "id": "opening",
-    "name": "창호",
-    "color": "#3a6cf0",
-    "lineType": "continuous",
-    "lineWidth": 0.25,
-    "visible": true,
-    "locked": false
-   },
-   {
-    "id": "furniture",
-    "name": "가구",
+    "id": "slab",
+    "name": "슬래브",
     "color": "#7a8394",
     "lineType": "continuous",
     "lineWidth": 0.18,
@@ -91,6 +82,33 @@
     "lineType": "continuous",
     "lineWidth": 0.25,
     "visible": true,
+    "locked": false
+   },
+   {
+    "id": "space",
+    "name": "실",
+    "color": "#2f8f5b",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "furniture",
+    "name": "가구",
+    "color": "#7a8394",
+    "lineType": "continuous",
+    "lineWidth": 0.18,
+    "visible": true,
+    "locked": false
+   },
+   {
+    "id": "roof",
+    "name": "지붕",
+    "color": "#b5523b",
+    "lineType": "hidden",
+    "lineWidth": 0.25,
+    "visible": false,
     "locked": false
    },
    {
@@ -116,3789 +134,1543 @@
   },
   "entities": [
    {
-    "id": "e-mv6htcr700ax2ap6",
-    "type": "polyline",
-    "layer": "wall",
+    "id": "e-mv7nixeg00axbzip",
+    "type": "solid",
+    "layer": "slab",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 0,
-      "y": 0
-     },
-     {
-      "x": 1500,
-      "y": 0
-     },
-     {
-      "x": 1500,
-      "y": 200
-     },
-     {
-      "x": 0,
-      "y": 200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700ayuaya",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+    "kind": "slab",
+    "name": "기초 슬래브",
+    "x": -100,
+    "y": -100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 200
+    },
+    "shape": {
+     "outer": [
       {
        "x": 0,
        "y": 0
       },
       {
-       "x": 1500,
+       "x": 12200,
        "y": 0
       },
       {
-       "x": 1500,
-       "y": 200
+       "x": 12200,
+       "y": 9200
       },
       {
        "x": 0,
-       "y": 200
+       "y": 9200
       }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
+     ],
+     "holes": []
+    }
    },
    {
-    "id": "e-mv6htcr700azgvmm",
-    "type": "polyline",
+    "id": "e-mv7nixeg00aykw7e",
+    "type": "solid",
     "layer": "wall",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 3500,
-      "y": 0
-     },
-     {
-      "x": 6000,
-      "y": 0
-     },
-     {
-      "x": 6000,
-      "y": 200
-     },
-     {
-      "x": 3500,
-      "y": 200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700b06qhr",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 3500,
-       "y": 0
-      },
-      {
-       "x": 6000,
-       "y": 0
-      },
-      {
-       "x": 6000,
-       "y": 200
-      },
-      {
-       "x": 3500,
-       "y": 200
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700b1bthn",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7000,
-      "y": 0
-     },
-     {
-      "x": 9200,
-      "y": 0
-     },
-     {
-      "x": 9200,
-      "y": 200
-     },
-     {
-      "x": 7000,
-      "y": 200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700b26hxp",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 7000,
-       "y": 0
-      },
-      {
-       "x": 9200,
-       "y": 0
-      },
-      {
-       "x": 9200,
-       "y": 200
-      },
-      {
-       "x": 7000,
-       "y": 200
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700b3o818",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 10800,
-      "y": 0
-     },
-     {
-      "x": 12000,
-      "y": 0
-     },
-     {
-      "x": 12000,
-      "y": 200
-     },
-     {
-      "x": 10800,
-      "y": 200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700b4iqnj",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 10800,
-       "y": 0
-      },
-      {
-       "x": 12000,
-       "y": 0
-      },
-      {
-       "x": 12000,
-       "y": 200
-      },
-      {
-       "x": 10800,
-       "y": 200
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700b5n4ql",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 0,
-    "x2": 1500,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700b670nc",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 3500,
-    "y1": 0,
-    "x2": 3500,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700b79vbh",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 0,
-    "x2": 3500,
-    "y2": 0
-   },
-   {
-    "id": "e-mv6htcr700b8gv92",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 75,
-    "x2": 3500,
-    "y2": 75
-   },
-   {
-    "id": "e-mv6htcr700b9d7ux",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 125,
-    "x2": 3500,
-    "y2": 125
-   },
-   {
-    "id": "e-mv6htcr700ba29ao",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 200,
-    "x2": 3500,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700bboahb",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 0,
-    "x2": 6000,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700bce1ps",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7000,
-    "y1": 0,
-    "x2": 7000,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700bdr9di",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 200,
-    "x2": 6000,
-    "y2": 1200
-   },
-   {
-    "id": "e-mv6htcr700bev6qw",
-    "type": "arc",
-    "layer": "opening",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "cx": 6000,
-    "cy": 200,
-    "r": 1000,
-    "start": 0,
-    "end": 90
-   },
-   {
-    "id": "e-mv6htcr700bfkp20",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 0,
-    "x2": 9200,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700bge79w",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 10800,
-    "y1": 0,
-    "x2": 10800,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700bhsaaf",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 0,
-    "x2": 10800,
-    "y2": 0
-   },
-   {
-    "id": "e-mv6htcr700bicn8t",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 75,
-    "x2": 10800,
-    "y2": 75
-   },
-   {
-    "id": "e-mv6htcr700bj1iic",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 125,
-    "x2": 10800,
-    "y2": 125
-   },
-   {
-    "id": "e-mv6htcr700bkkoig",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 200,
-    "x2": 10800,
-    "y2": 200
-   },
-   {
-    "id": "e-mv6htcr700blr34j",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 0,
-      "y": 8800
-     },
-     {
-      "x": 1500,
-      "y": 8800
-     },
-     {
-      "x": 1500,
-      "y": 9000
-     },
-     {
-      "x": 0,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700bms2eq",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 0,
-       "y": 8800
-      },
-      {
-       "x": 1500,
-       "y": 8800
-      },
-      {
-       "x": 1500,
-       "y": 9000
-      },
-      {
-       "x": 0,
-       "y": 9000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700bnv41n",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 3300,
-      "y": 8800
-     },
-     {
-      "x": 6000,
-      "y": 8800
-     },
-     {
-      "x": 6000,
-      "y": 9000
-     },
-     {
-      "x": 3300,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700bowgax",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 3300,
-       "y": 8800
-      },
-      {
-       "x": 6000,
-       "y": 8800
-      },
-      {
-       "x": 6000,
-       "y": 9000
-      },
-      {
-       "x": 3300,
-       "y": 9000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700bpmia3",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 6800,
-      "y": 8800
-     },
-     {
-      "x": 9200,
-      "y": 8800
-     },
-     {
-      "x": 9200,
-      "y": 9000
-     },
-     {
-      "x": 6800,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700bqe5ep",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 6800,
-       "y": 8800
-      },
-      {
-       "x": 9200,
-       "y": 8800
-      },
-      {
-       "x": 9200,
-       "y": 9000
-      },
-      {
-       "x": 6800,
-       "y": 9000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700brv8ml",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 10800,
-      "y": 8800
-     },
-     {
-      "x": 12000,
-      "y": 8800
-     },
-     {
-      "x": 12000,
-      "y": 9000
-     },
-     {
-      "x": 10800,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700bs5xoy",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 10800,
-       "y": 8800
-      },
-      {
-       "x": 12000,
-       "y": 8800
-      },
-      {
-       "x": 12000,
-       "y": 9000
-      },
-      {
-       "x": 10800,
-       "y": 9000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700btdt1s",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 8800,
-    "x2": 1500,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700buibys",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 3300,
-    "y1": 8800,
-    "x2": 3300,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700bv94jl",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 8800,
-    "x2": 3300,
-    "y2": 8800
-   },
-   {
-    "id": "e-mv6htcr700bwyu6i",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 8875,
-    "x2": 3300,
-    "y2": 8875
-   },
-   {
-    "id": "e-mv6htcr700bxbhdb",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 8925,
-    "x2": 3300,
-    "y2": 8925
-   },
-   {
-    "id": "e-mv6htcr700bypnu6",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 1500,
-    "y1": 9000,
-    "x2": 3300,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700bzb0az",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 8800,
-    "x2": 6000,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700c0rpwg",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6800,
-    "y1": 8800,
-    "x2": 6800,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700c16wys",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 8800,
-    "x2": 6800,
-    "y2": 8800
-   },
-   {
-    "id": "e-mv6htcr700c2ba7r",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 8875,
-    "x2": 6800,
-    "y2": 8875
-   },
-   {
-    "id": "e-mv6htcr700c3qhgp",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 8925,
-    "x2": 6800,
-    "y2": 8925
-   },
-   {
-    "id": "e-mv6htcr700c4jvwn",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6000,
-    "y1": 9000,
-    "x2": 6800,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700c55pfk",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 8800,
-    "x2": 9200,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700c6harw",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 10800,
-    "y1": 8800,
-    "x2": 10800,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700c7opgd",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 8800,
-    "x2": 10800,
-    "y2": 8800
-   },
-   {
-    "id": "e-mv6htcr700c8x2tf",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 8875,
-    "x2": 10800,
-    "y2": 8875
-   },
-   {
-    "id": "e-mv6htcr700c92zi2",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 8925,
-    "x2": 10800,
-    "y2": 8925
-   },
-   {
-    "id": "e-mv6htcr700cadpyx",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9200,
-    "y1": 9000,
-    "x2": 10800,
-    "y2": 9000
-   },
-   {
-    "id": "e-mv6htcr700cbw3v7",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 0,
-      "y": 0
-     },
-     {
-      "x": 200,
-      "y": 0
-     },
-     {
-      "x": 200,
-      "y": 2000
-     },
-     {
-      "x": 0,
-      "y": 2000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700cc6pbe",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+    "kind": "wall",
+    "name": "외벽",
+    "x": 100,
+    "y": 100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 200,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
       {
        "x": 0,
        "y": 0
       },
-      {
-       "x": 200,
-       "y": 0
-      },
-      {
-       "x": 200,
-       "y": 2000
-      },
-      {
-       "x": 0,
-       "y": 2000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700cdijr8",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 0,
-      "y": 3800
-     },
-     {
-      "x": 200,
-      "y": 3800
-     },
-     {
-      "x": 200,
-      "y": 9000
-     },
-     {
-      "x": 0,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700cev3hn",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 0,
-       "y": 3800
-      },
-      {
-       "x": 200,
-       "y": 3800
-      },
-      {
-       "x": 200,
-       "y": 9000
-      },
-      {
-       "x": 0,
-       "y": 9000
-      }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700cfq4lj",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 0,
-    "y1": 2000,
-    "x2": 200,
-    "y2": 2000
-   },
-   {
-    "id": "e-mv6htcr700cguapf",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 0,
-    "y1": 3800,
-    "x2": 200,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700chnz4d",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 0,
-    "y1": 2000,
-    "x2": 0,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700ciogto",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 75,
-    "y1": 2000,
-    "x2": 75,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700cj31u0",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 125,
-    "y1": 2000,
-    "x2": 125,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700ckjiik",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 200,
-    "y1": 2000,
-    "x2": 200,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700clkpm1",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 11800,
-      "y": 0
-     },
-     {
-      "x": 12000,
-      "y": 0
-     },
-     {
-      "x": 12000,
-      "y": 1500
-     },
-     {
-      "x": 11800,
-      "y": 1500
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700cmadxg",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
       {
        "x": 11800,
        "y": 0
       },
       {
-       "x": 12000,
+       "x": 11800,
+       "y": 8800
+      },
+      {
+       "x": 0,
+       "y": 8800
+      }
+     ],
+     "closed": true,
+     "openings": [
+      {
+       "type": "window",
+       "at": 1400,
+       "width": 2000,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "door",
+       "at": 5900,
+       "width": 1000,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
+      },
+      {
+       "type": "window",
+       "at": 9100,
+       "width": 1600,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 13200,
+       "width": 1200,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 1,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 17900,
+       "width": 1200,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 1,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 29200,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 25700,
+       "width": 800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 1,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 21700,
+       "width": 1600,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      },
+      {
+       "type": "window",
+       "at": 37500,
+       "width": 1800,
+       "height": 1300,
+       "sill": 900,
+       "swing": 1,
+       "hinge": 1,
+       "cols": 2,
+       "rows": 1
+      }
+     ],
+     "layers": []
+    }
+   },
+   {
+    "id": "e-mv7nixeg00az8fxa",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "wall",
+    "name": "내벽 1",
+    "x": 5000,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
        "y": 0
       },
       {
-       "x": 12000,
-       "y": 1500
-      },
-      {
-       "x": 11800,
-       "y": 1500
+       "x": 0,
+       "y": 8600
       }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700cni7g2",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 11800,
-      "y": 2700
-     },
-     {
-      "x": 12000,
-      "y": 2700
-     },
-     {
-      "x": 12000,
-      "y": 6200
-     },
-     {
-      "x": 11800,
-      "y": 6200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700codsuq",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+     ],
+     "closed": false,
+     "openings": [
       {
-       "x": 11800,
-       "y": 2700
-      },
-      {
-       "x": 12000,
-       "y": 2700
-      },
-      {
-       "x": 12000,
-       "y": 6200
-      },
-      {
-       "x": 11800,
-       "y": 6200
+       "type": "door",
+       "at": 2300,
+       "width": 900,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
       }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
+     ],
+     "layers": []
+    }
    },
    {
-    "id": "e-mv6htcr700cpwky3",
-    "type": "polyline",
+    "id": "e-mv7nixeg00b01ip2",
+    "type": "solid",
     "layer": "wall",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 11800,
-      "y": 7400
-     },
-     {
-      "x": 12000,
-      "y": 7400
-     },
-     {
-      "x": 12000,
-      "y": 9000
-     },
-     {
-      "x": 11800,
-      "y": 9000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700cqhfug",
-    "type": "hatch",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+    "kind": "wall",
+    "name": "내벽 2",
+    "x": 8000,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
       {
-       "x": 11800,
-       "y": 7400
+       "x": 0,
+       "y": 0
       },
       {
-       "x": 12000,
-       "y": 7400
-      },
-      {
-       "x": 12000,
-       "y": 9000
-      },
-      {
-       "x": 11800,
-       "y": 9000
+       "x": 0,
+       "y": 8600
       }
-     ]
-    ],
-    "pattern": "ansi31",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700crlrh7",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 1500,
-    "x2": 12000,
-    "y2": 1500
-   },
-   {
-    "id": "e-mv6htcr700cs9lym",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 2700,
-    "x2": 12000,
-    "y2": 2700
-   },
-   {
-    "id": "e-mv6htcr700cth9fa",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 1500,
-    "x2": 11800,
-    "y2": 2700
-   },
-   {
-    "id": "e-mv6htcr700culi0b",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11875,
-    "y1": 1500,
-    "x2": 11875,
-    "y2": 2700
-   },
-   {
-    "id": "e-mv6htcr700cvw8qo",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11925,
-    "y1": 1500,
-    "x2": 11925,
-    "y2": 2700
-   },
-   {
-    "id": "e-mv6htcr700cwbopx",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 12000,
-    "y1": 1500,
-    "x2": 12000,
-    "y2": 2700
-   },
-   {
-    "id": "e-mv6htcr700cxip9b",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 6200,
-    "x2": 12000,
-    "y2": 6200
-   },
-   {
-    "id": "e-mv6htcr700cyitdo",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 7400,
-    "x2": 12000,
-    "y2": 7400
-   },
-   {
-    "id": "e-mv6htcr700cztxjz",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11800,
-    "y1": 6200,
-    "x2": 11800,
-    "y2": 7400
-   },
-   {
-    "id": "e-mv6htcr700d05wei",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11875,
-    "y1": 6200,
-    "x2": 11875,
-    "y2": 7400
-   },
-   {
-    "id": "e-mv6htcr700d1rn2c",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11925,
-    "y1": 6200,
-    "x2": 11925,
-    "y2": 7400
-   },
-   {
-    "id": "e-mv6htcr700d2swc7",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 12000,
-    "y1": 6200,
-    "x2": 12000,
-    "y2": 7400
-   },
-   {
-    "id": "e-mv6htcr700d3lb6v",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 4940,
-      "y": 40
-     },
-     {
-      "x": 5060,
-      "y": 40
-     },
-     {
-      "x": 5060,
-      "y": 2500
-     },
-     {
-      "x": 4940,
-      "y": 2500
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700d477hi",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+     ],
+     "closed": false,
+     "openings": [
       {
-       "x": 4940,
-       "y": 40
+       "type": "door",
+       "at": 1800,
+       "width": 900,
+       "height": 2100,
+       "sill": 0,
+       "swing": -1,
+       "hinge": 1
       },
       {
-       "x": 5060,
-       "y": 40
-      },
-      {
-       "x": 5060,
-       "y": 2500
-      },
-      {
-       "x": 4940,
-       "y": 2500
+       "type": "door",
+       "at": 4800,
+       "width": 900,
+       "height": 2100,
+       "sill": 0,
+       "swing": -1,
+       "hinge": 1
       }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
+     ],
+     "layers": []
+    }
    },
    {
-    "id": "e-mv6htcr700d5gerx",
-    "type": "polyline",
+    "id": "e-mv7nixeg00b1fg6e",
+    "type": "solid",
     "layer": "wall",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 4940,
-      "y": 3400
-     },
-     {
-      "x": 5060,
-      "y": 3400
-     },
-     {
-      "x": 5060,
-      "y": 8960
-     },
-     {
-      "x": 4940,
-      "y": 8960
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700d634bv",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+    "kind": "wall",
+    "name": "내벽 3",
+    "x": 8060,
+    "y": 4500,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
       {
-       "x": 4940,
-       "y": 3400
+       "x": 0,
+       "y": 0
       },
       {
-       "x": 5060,
-       "y": 3400
-      },
-      {
-       "x": 5060,
-       "y": 8960
-      },
-      {
-       "x": 4940,
-       "y": 8960
+       "x": 3740,
+       "y": 0
       }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
+     ],
+     "closed": false,
+     "openings": [],
+     "layers": []
+    }
    },
    {
-    "id": "e-mv6htcr700d7ztvf",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 4940,
-    "y1": 2500,
-    "x2": 5060,
-    "y2": 2500
-   },
-   {
-    "id": "e-mv6htcr700d8a00h",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 4940,
-    "y1": 3400,
-    "x2": 5060,
-    "y2": 3400
-   },
-   {
-    "id": "e-mv6htcr700d9yx34",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 4940,
-    "y1": 2500,
-    "x2": 4040,
-    "y2": 2500
-   },
-   {
-    "id": "e-mv6htcr700dapu58",
-    "type": "arc",
-    "layer": "opening",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "cx": 4940,
-    "cy": 2500,
-    "r": 900,
-    "start": 90,
-    "end": 180
-   },
-   {
-    "id": "e-mv6htcr700dbl5dt",
-    "type": "polyline",
+    "id": "e-mv7nixeg00b2uthc",
+    "type": "solid",
     "layer": "wall",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 7940,
-      "y": 40
-     },
-     {
-      "x": 8060,
-      "y": 40
-     },
-     {
-      "x": 8060,
-      "y": 2000
-     },
-     {
-      "x": 7940,
-      "y": 2000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dcl1tw",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+    "kind": "wall",
+    "name": "내벽 4",
+    "x": 5060,
+    "y": 6000,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
       {
-       "x": 7940,
-       "y": 40
+       "x": 0,
+       "y": 0
       },
       {
-       "x": 8060,
-       "y": 40
-      },
-      {
-       "x": 8060,
-       "y": 2000
-      },
-      {
-       "x": 7940,
-       "y": 2000
+       "x": 2880,
+       "y": 0
       }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700dd6xe1",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7940,
-      "y": 2900
-     },
-     {
-      "x": 8060,
-      "y": 2900
-     },
-     {
-      "x": 8060,
-      "y": 5000
-     },
-     {
-      "x": 7940,
-      "y": 5000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dezcau",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
+     ],
+     "closed": false,
+     "openings": [
       {
-       "x": 7940,
-       "y": 2900
-      },
-      {
-       "x": 8060,
-       "y": 2900
-      },
-      {
-       "x": 8060,
-       "y": 5000
-      },
-      {
-       "x": 7940,
-       "y": 5000
+       "type": "door",
+       "at": 1140,
+       "width": 800,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
       }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
+     ],
+     "layers": []
+    }
    },
    {
-    "id": "e-mv6htcr700df34nn",
-    "type": "polyline",
+    "id": "e-mv7nixeg00b3w8b6",
+    "type": "solid",
     "layer": "wall",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "points": [
-     {
-      "x": 7940,
-      "y": 5900
-     },
-     {
-      "x": 8060,
-      "y": 5900
-     },
-     {
-      "x": 8060,
-      "y": 8960
-     },
-     {
-      "x": 7940,
-      "y": 8960
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dg9xic",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 7940,
-       "y": 5900
-      },
-      {
-       "x": 8060,
-       "y": 5900
-      },
-      {
-       "x": 8060,
-       "y": 8960
-      },
-      {
-       "x": 7940,
-       "y": 8960
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700dhas5j",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7940,
-    "y1": 2000,
-    "x2": 8060,
-    "y2": 2000
-   },
-   {
-    "id": "e-mv6htcr700dixxsy",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7940,
-    "y1": 2900,
-    "x2": 8060,
-    "y2": 2900
-   },
-   {
-    "id": "e-mv6htcr700dj6x35",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 8060,
-    "y1": 2000,
-    "x2": 8960,
-    "y2": 2000
-   },
-   {
-    "id": "e-mv6htcr700dk4xaf",
-    "type": "arc",
-    "layer": "opening",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "cx": 8060,
-    "cy": 2000,
-    "r": 900,
-    "start": 0,
-    "end": 90
-   },
-   {
-    "id": "e-mv6htcr700dl2zzn",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7940,
-    "y1": 5000,
-    "x2": 8060,
-    "y2": 5000
-   },
-   {
-    "id": "e-mv6htcr700dmcq2j",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7940,
-    "y1": 5900,
-    "x2": 8060,
-    "y2": 5900
-   },
-   {
-    "id": "e-mv6htcr700dnicvo",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 8060,
-    "y1": 5000,
-    "x2": 8960,
-    "y2": 5000
-   },
-   {
-    "id": "e-mv6htcr700doafz8",
-    "type": "arc",
-    "layer": "opening",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "cx": 8060,
-    "cy": 5000,
-    "r": 900,
-    "start": 0,
-    "end": 90
-   },
-   {
-    "id": "e-mv6htcr700dpw3i4",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7940,
-      "y": 4440
-     },
-     {
-      "x": 11960,
-      "y": 4440
-     },
-     {
-      "x": 11960,
-      "y": 4560
-     },
-     {
-      "x": 7940,
-      "y": 4560
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dq5gfs",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 7940,
-       "y": 4440
-      },
-      {
-       "x": 11960,
-       "y": 4440
-      },
-      {
-       "x": 11960,
-       "y": 4560
-      },
-      {
-       "x": 7940,
-       "y": 4560
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700drozo5",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 4940,
-      "y": 5940
-     },
-     {
-      "x": 6200,
-      "y": 5940
-     },
-     {
-      "x": 6200,
-      "y": 6060
-     },
-     {
-      "x": 4940,
-      "y": 6060
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dsgchs",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 4940,
-       "y": 5940
-      },
-      {
-       "x": 6200,
-       "y": 5940
-      },
-      {
-       "x": 6200,
-       "y": 6060
-      },
-      {
-       "x": 4940,
-       "y": 6060
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700dtturn",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7000,
-      "y": 5940
-     },
-     {
-      "x": 8060,
-      "y": 5940
-     },
-     {
-      "x": 8060,
-      "y": 6060
-     },
-     {
-      "x": 7000,
-      "y": 6060
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700dusz4r",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 7000,
-       "y": 5940
-      },
-      {
-       "x": 8060,
-       "y": 5940
-      },
-      {
-       "x": 8060,
-       "y": 6060
-      },
-      {
-       "x": 7000,
-       "y": 6060
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700dvbwtd",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6200,
-    "y1": 5940,
-    "x2": 6200,
-    "y2": 6060
-   },
-   {
-    "id": "e-mv6htcr700dw50el",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 7000,
-    "y1": 5940,
-    "x2": 7000,
-    "y2": 6060
-   },
-   {
-    "id": "e-mv6htcr700dxywns",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6200,
-    "y1": 6060,
-    "x2": 6200,
-    "y2": 6860
-   },
-   {
-    "id": "e-mv6htcr700dyo00h",
-    "type": "arc",
-    "layer": "opening",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "cx": 6200,
-    "cy": 6060,
-    "r": 800,
-    "start": 0,
-    "end": 90
-   },
-   {
-    "id": "e-mv6htcr700dzqb0w",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 40,
-      "y": 5440
-     },
-     {
-      "x": 2000,
-      "y": 5440
-     },
-     {
-      "x": 2000,
-      "y": 5560
-     },
-     {
-      "x": 40,
-      "y": 5560
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700e0e2z4",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 40,
-       "y": 5440
-      },
-      {
-       "x": 2000,
-       "y": 5440
-      },
-      {
-       "x": 2000,
-       "y": 5560
-      },
-      {
-       "x": 40,
-       "y": 5560
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700e1rs3b",
-    "type": "polyline",
-    "layer": "wall",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 3500,
-      "y": 5440
-     },
-     {
-      "x": 5060,
-      "y": 5440
-     },
-     {
-      "x": 5060,
-      "y": 5560
-     },
-     {
-      "x": 3500,
-      "y": 5560
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700e2azyc",
-    "type": "hatch",
-    "layer": "wall",
-    "color": "#9aa4b1",
-    "lineType": null,
-    "lineWidth": null,
-    "loops": [
-     [
-      {
-       "x": 3500,
-       "y": 5440
-      },
-      {
-       "x": 5060,
-       "y": 5440
-      },
-      {
-       "x": 5060,
-       "y": 5560
-      },
-      {
-       "x": 3500,
-       "y": 5560
-      }
-     ]
-    ],
-    "pattern": "solid",
-    "angle": 0,
-    "scale": 16
-   },
-   {
-    "id": "e-mv6htcr700e3fb9u",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 2000,
-    "y1": 5440,
-    "x2": 2000,
-    "y2": 5560
-   },
-   {
-    "id": "e-mv6htcr700e4d5gf",
-    "type": "line",
-    "layer": "opening",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 3500,
-    "y1": 5440,
-    "x2": 3500,
-    "y2": 5560
-   },
-   {
-    "id": "e-mv6htcr700e5biw9",
-    "type": "polyline",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 6700,
-      "y": 1500
-     },
-     {
-      "x": 7800,
-      "y": 1500
-     },
-     {
-      "x": 7800,
-      "y": 5000
-     },
-     {
-      "x": 6700,
-      "y": 5000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700e624hi",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 1750,
-    "x2": 7800,
-    "y2": 1750
-   },
-   {
-    "id": "e-mv6htcr700e7qzjw",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 2000,
-    "x2": 7800,
-    "y2": 2000
-   },
-   {
-    "id": "e-mv6htcr700e83xcd",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 2250,
-    "x2": 7800,
-    "y2": 2250
-   },
-   {
-    "id": "e-mv6htcr700e9sqm4",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 2500,
-    "x2": 7800,
-    "y2": 2500
-   },
-   {
-    "id": "e-mv6htcr700eajyst",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 2750,
-    "x2": 7800,
-    "y2": 2750
-   },
-   {
-    "id": "e-mv6htcr700ebd874",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 3000,
-    "x2": 7800,
-    "y2": 3000
-   },
-   {
-    "id": "e-mv6htcr700ecf0w4",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 3250,
-    "x2": 7800,
-    "y2": 3250
-   },
-   {
-    "id": "e-mv6htcr700ed05lm",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 3500,
-    "x2": 7800,
-    "y2": 3500
-   },
-   {
-    "id": "e-mv6htcr700eefw9b",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 3750,
-    "x2": 7800,
-    "y2": 3750
-   },
-   {
-    "id": "e-mv6htcr700efd0sc",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 4000,
-    "x2": 7800,
-    "y2": 4000
-   },
-   {
-    "id": "e-mv6htcr700egxbfn",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 4250,
-    "x2": 7800,
-    "y2": 4250
-   },
-   {
-    "id": "e-mv6htcr700ehuy1b",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 4500,
-    "x2": 7800,
-    "y2": 4500
-   },
-   {
-    "id": "e-mv6htcr700eivyfn",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 6700,
-    "y1": 4750,
-    "x2": 7800,
-    "y2": 4750
-   },
-   {
-    "id": "e-mv6htcr700ejfwgf",
-    "type": "polyline",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7250,
-      "y": 1650
-     },
-     {
-      "x": 7250,
-      "y": 4700
-     }
-    ],
-    "closed": false
-   },
-   {
-    "id": "e-mv6htcr700ek4z5m",
-    "type": "polyline",
-    "layer": "stair",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7100,
-      "y": 4450
-     },
-     {
-      "x": 7250,
-      "y": 4700
-     },
-     {
-      "x": 7400,
-      "y": 4450
-     }
-    ],
-    "closed": false
-   },
-   {
-    "id": "e-mv6htcr700elt8r1",
-    "type": "line",
-    "layer": "stair",
-    "color": null,
-    "lineType": "dashed",
-    "lineWidth": null,
-    "x1": 6600,
-    "y1": 3800,
-    "x2": 7900,
-    "y2": 4200
-   },
-   {
-    "id": "e-mv6htcr700em3gst",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 7100,
-    "y": 1150,
-    "text": "UP",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700en4d7v",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 600,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 1500
-     },
-     {
-      "x": 600,
-      "y": 1500
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700eocaut",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 600,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 850
-     },
-     {
-      "x": 600,
-      "y": 850
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700epvtix",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 600,
-      "y": 600
-     },
-     {
-      "x": 850,
-      "y": 600
-     },
-     {
-      "x": 850,
-      "y": 1500
-     },
-     {
-      "x": 600,
-      "y": 1500
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700eqb2xn",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 3150,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 600
-     },
-     {
-      "x": 3400,
-      "y": 1500
-     },
-     {
-      "x": 3150,
-      "y": 1500
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700ern6ej",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 1300,
-      "y": 2000
-     },
-     {
-      "x": 2700,
-      "y": 2000
-     },
-     {
-      "x": 2700,
-      "y": 2700
-     },
-     {
-      "x": 1300,
-      "y": 2700
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700espist",
-    "type": "circle",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 4200,
-    "cy": 1200,
-    "r": 350,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700etw51l",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 900,
-      "y": 4950
-     },
-     {
-      "x": 1900,
-      "y": 4950
-     },
-     {
-      "x": 1900,
-      "y": 5350
-     },
-     {
-      "x": 900,
-      "y": 5350
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700eu881w",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 300,
-      "y": 8150
-     },
-     {
-      "x": 4700,
-      "y": 8150
-     },
-     {
-      "x": 4700,
-      "y": 8750
-     },
-     {
-      "x": 300,
-      "y": 8750
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700evoiw0",
-    "type": "ellipse",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 1500,
-    "cy": 8450,
-    "rx": 300,
-    "ry": 200,
-    "angle": 0,
-    "start": 0,
-    "end": 360
-   },
-   {
-    "id": "e-mv6htcr700ewngdr",
-    "type": "circle",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 3300,
-    "cy": 8350,
-    "r": 110,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700exard8",
-    "type": "circle",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 3700,
-    "cy": 8350,
-    "r": 110,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700eyzyha",
-    "type": "circle",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 3300,
-    "cy": 8600,
-    "r": 110,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700eza4u4",
-    "type": "circle",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 3700,
-    "cy": 8600,
-    "r": 110,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700f0gsra",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 1500,
-      "y": 6400
-     },
-     {
-      "x": 3300,
-      "y": 6400
-     },
-     {
-      "x": 3300,
-      "y": 7400
-     },
-     {
-      "x": 1500,
-      "y": 7400
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f18zvf",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 1500,
-      "y": 6000
-     },
-     {
-      "x": 1900,
-      "y": 6000
-     },
-     {
-      "x": 1900,
-      "y": 6350
-     },
-     {
-      "x": 1500,
-      "y": 6350
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f2x802",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 1500,
-      "y": 7450
-     },
-     {
-      "x": 1900,
-      "y": 7450
-     },
-     {
-      "x": 1900,
-      "y": 7800
-     },
-     {
-      "x": 1500,
-      "y": 7800
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f34yuw",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 2200,
-      "y": 6000
-     },
-     {
-      "x": 2600,
-      "y": 6000
-     },
-     {
-      "x": 2600,
-      "y": 6350
-     },
-     {
-      "x": 2200,
-      "y": 6350
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f41ihu",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 2200,
-      "y": 7450
-     },
-     {
-      "x": 2600,
-      "y": 7450
-     },
-     {
-      "x": 2600,
-      "y": 7800
-     },
-     {
-      "x": 2200,
-      "y": 7800
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f5d4wr",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 2800,
-      "y": 6000
-     },
-     {
-      "x": 3200,
-      "y": 6000
-     },
-     {
-      "x": 3200,
-      "y": 6350
-     },
-     {
-      "x": 2800,
-      "y": 6350
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f69tsd",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 2800,
-      "y": 7450
-     },
-     {
-      "x": 3200,
-      "y": 7450
-     },
-     {
-      "x": 3200,
-      "y": 7800
-     },
-     {
-      "x": 2800,
-      "y": 7800
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f7pu7r",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 9000,
-      "y": 1000
-     },
-     {
-      "x": 10600,
-      "y": 1000
-     },
-     {
-      "x": 10600,
-      "y": 3100
-     },
-     {
-      "x": 9000,
-      "y": 3100
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f8o0en",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 9100,
-      "y": 2650
-     },
-     {
-      "x": 9750,
-      "y": 2650
-     },
-     {
-      "x": 9750,
-      "y": 3000
-     },
-     {
-      "x": 9100,
-      "y": 3000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700f9pqlc",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 9850,
-      "y": 2650
-     },
-     {
-      "x": 10500,
-      "y": 2650
-     },
-     {
-      "x": 10500,
-      "y": 3000
-     },
-     {
-      "x": 9850,
-      "y": 3000
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fandl0",
-    "type": "line",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 9000,
-    "y1": 2300,
-    "x2": 10600,
-    "y2": 2300
-   },
-   {
-    "id": "e-mv6htcr700fbabnf",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 8500,
-      "y": 2700
-     },
-     {
-      "x": 8900,
-      "y": 2700
-     },
-     {
-      "x": 8900,
-      "y": 3100
-     },
-     {
-      "x": 8500,
-      "y": 3100
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fcs4m3",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 10700,
-      "y": 2700
-     },
-     {
-      "x": 11100,
-      "y": 2700
-     },
-     {
-      "x": 11100,
-      "y": 3100
-     },
-     {
-      "x": 10700,
-      "y": 3100
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fdtnkx",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 8200,
-      "y": 3800
-     },
-     {
-      "x": 10200,
-      "y": 3800
-     },
-     {
-      "x": 10200,
-      "y": 4400
-     },
-     {
-      "x": 8200,
-      "y": 4400
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700feuetz",
-    "type": "line",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 8200,
-    "y1": 3800,
-    "x2": 10200,
-    "y2": 4400
-   },
-   {
-    "id": "e-mv6htcr700ffmmh1",
-    "type": "line",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 8200,
-    "y1": 4400,
-    "x2": 10200,
-    "y2": 3800
-   },
-   {
-    "id": "e-mv6htcr700fgjsmc",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 9000,
-      "y": 6200
-     },
-     {
-      "x": 10400,
-      "y": 6200
-     },
-     {
-      "x": 10400,
-      "y": 8200
-     },
-     {
-      "x": 9000,
-      "y": 8200
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fhah30",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 9150,
-      "y": 7750
-     },
-     {
-      "x": 10250,
-      "y": 7750
-     },
-     {
-      "x": 10250,
-      "y": 8100
-     },
-     {
-      "x": 9150,
-      "y": 8100
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fihcpj",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 10800,
-      "y": 5000
-     },
-     {
-      "x": 11700,
-      "y": 5000
-     },
-     {
-      "x": 11700,
-      "y": 6400
-     },
-     {
-      "x": 10800,
-      "y": 6400
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fjnfki",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 5200,
-      "y": 8000
-     },
-     {
-      "x": 6900,
-      "y": 8000
-     },
-     {
-      "x": 6900,
-      "y": 8700
-     },
-     {
-      "x": 5200,
-      "y": 8700
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fk8c09",
-    "type": "ellipse",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 6050,
-    "cy": 8350,
-    "rx": 700,
-    "ry": 230,
-    "angle": 0,
-    "start": 0,
-    "end": 360
-   },
-   {
-    "id": "e-mv6htcr700fldrjn",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 7300,
-      "y": 8500
-     },
-     {
-      "x": 7800,
-      "y": 8500
-     },
-     {
-      "x": 7800,
-      "y": 8750
-     },
-     {
-      "x": 7300,
-      "y": 8750
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700fmarpr",
-    "type": "ellipse",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 7550,
-    "cy": 8230,
-    "rx": 200,
-    "ry": 280,
-    "angle": 0,
-    "start": 0,
-    "end": 360
-   },
-   {
-    "id": "e-mv6htcr700fnuckb",
-    "type": "polyline",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "points": [
-     {
-      "x": 5200,
-      "y": 6300
-     },
-     {
-      "x": 5800,
-      "y": 6300
-     },
-     {
-      "x": 5800,
-      "y": 6800
-     },
-     {
-      "x": 5200,
-      "y": 6800
-     }
-    ],
-    "closed": true
-   },
-   {
-    "id": "e-mv6htcr700foe66t",
-    "type": "ellipse",
-    "layer": "furniture",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "cx": 5500,
-    "cy": 6550,
-    "rx": 200,
-    "ry": 150,
-    "angle": 0,
-    "start": 0,
-    "end": 360
-   },
-   {
-    "id": "e-mv6htcr700fpk6ma",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 1200,
-    "y": 4000,
-    "text": "거실",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700fqy8jd",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 1200,
-    "y": 3600,
-    "text": "24.8 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700frypsl",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 3500,
-    "y": 7200,
-    "text": "주방·식당",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700fs236v",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 3500,
-    "y": 6800,
-    "text": "15.4 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700ftjmbv",
-    "type": "text",
-    "layer": "text",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 5250,
+    "kind": "wall",
+    "name": "내벽 5",
+    "x": 200,
     "y": 5500,
-    "text": "현관·복도",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 120,
+     "height": 2700,
+     "align": 0
+    },
+    "shape": {
+     "path": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 4740,
+       "y": 0
+      }
+     ],
+     "closed": false,
+     "openings": [
+      {
+       "type": "opening",
+       "at": 1800,
+       "width": 1500,
+       "height": 2100,
+       "sill": 0,
+       "swing": 1,
+       "hinge": 1
+      }
+     ],
+     "layers": []
+    }
    },
    {
-    "id": "e-mv6htcr700fu3c8l",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b4ff5x",
+    "type": "solid",
+    "layer": "stair",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 5250,
-    "y": 5100,
-    "text": "16.3 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
+    "kind": "stairs",
+    "name": "계단",
+    "x": 7800,
+    "y": 1500,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "length": 3500,
+     "width": 1100,
+     "height": 2700,
+     "steps": 14,
+     "thickness": 150
+    },
+    "shape": {}
    },
    {
-    "id": "e-mv6htcr700fvrwev",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b57qdj",
+    "type": "solid",
+    "layer": "space",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 6300,
-    "y": 7400,
-    "text": "욕실",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
+    "kind": "space",
+    "name": "거실",
+    "x": 200,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 4740,
+       "y": 0
+      },
+      {
+       "x": 4740,
+       "y": 5240
+      },
+      {
+       "x": 0,
+       "y": 5240
+      }
+     ],
+     "holes": []
+    }
    },
    {
-    "id": "e-mv6htcr700fw27pf",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b67v9o",
+    "type": "solid",
+    "layer": "space",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 6300,
-    "y": 7000,
-    "text": "7.8 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
+    "kind": "space",
+    "name": "주방·식당",
+    "x": 200,
+    "y": 5560,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 4740,
+       "y": 0
+      },
+      {
+       "x": 4740,
+       "y": 3240
+      },
+      {
+       "x": 0,
+       "y": 3240
+      }
+     ],
+     "holes": []
+    }
    },
    {
-    "id": "e-mv6htcr700fx0j5d",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b7lemp",
+    "type": "solid",
+    "layer": "space",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 10750,
-    "y": 1600,
-    "text": "침실 1",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
+    "kind": "space",
+    "name": "현관·복도",
+    "x": 5060,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 2880,
+       "y": 0
+      },
+      {
+       "x": 2880,
+       "y": 5740
+      },
+      {
+       "x": 0,
+       "y": 5740
+      }
+     ],
+     "holes": []
+    }
    },
    {
-    "id": "e-mv6htcr700fykle3",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b8ms58",
+    "type": "solid",
+    "layer": "space",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 10750,
-    "y": 1200,
-    "text": "15.9 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
+    "kind": "space",
+    "name": "욕실",
+    "x": 5060,
+    "y": 6060,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 2880,
+       "y": 0
+      },
+      {
+       "x": 2880,
+       "y": 2740
+      },
+      {
+       "x": 0,
+       "y": 2740
+      }
+     ],
+     "holes": []
+    }
    },
    {
-    "id": "e-mv6htcr700fz81fh",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00b9t7qr",
+    "type": "solid",
+    "layer": "space",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 10650,
+    "kind": "space",
+    "name": "침실 1",
+    "x": 8060,
+    "y": 200,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 3740,
+       "y": 0
+      },
+      {
+       "x": 3740,
+       "y": 4240
+      },
+      {
+       "x": 0,
+       "y": 4240
+      }
+     ],
+     "holes": []
+    }
+   },
+   {
+    "id": "e-mv7nixeg00bawcp0",
+    "type": "solid",
+    "layer": "space",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "space",
+    "name": "침실 2",
+    "x": 8060,
+    "y": 4560,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 2400
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 3740,
+       "y": 0
+      },
+      {
+       "x": 3740,
+       "y": 4240
+      },
+      {
+       "x": 0,
+       "y": 4240
+      }
+     ],
+     "holes": []
+    }
+   },
+   {
+    "id": "e-mv7nixeg00bbtj3y",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "소파",
+    "x": 3400,
+    "y": 1500,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 180,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 1,
+     "length": 2800,
+     "width": 900,
+     "height": 850
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bcfknm",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "거실 탁자",
+    "x": 1300,
+    "y": 2000,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 2,
+     "length": 1400,
+     "width": 700,
+     "height": 450
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bd9dqm",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "TV 장",
+    "x": 900,
+    "y": 4950,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 5,
+     "length": 1000,
+     "width": 400,
+     "height": 500
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00beu0hy",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "싱크대",
+    "x": 300,
+    "y": 8150,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 9,
+     "length": 4400,
+     "width": 600,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bfclm4",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "냉장고",
+    "x": 4100,
+    "y": 7300,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 10,
+     "length": 800,
+     "width": 700,
+     "height": 1800
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bgse0c",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "식탁",
+    "x": 1500,
+    "y": 6400,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 2,
+     "length": 1800,
+     "width": 1000,
+     "height": 740
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bh4yns",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 1900,
+    "y": 6350,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 180,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00biswvw",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 1500,
+    "y": 7450,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bj0y7q",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 2600,
+    "y": 6350,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 180,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bkxcwi",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 2200,
+    "y": 7450,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00blxkhx",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 3200,
+    "y": 6350,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 180,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bmyohb",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "의자",
+    "x": 2800,
+    "y": 7450,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 3,
+     "length": 400,
+     "width": 450,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bnw18o",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "침대 (퀸)",
+    "x": 9000,
+    "y": 3100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": -90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 0,
+     "length": 2100,
+     "width": 1600,
+     "height": 900
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bo5coe",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "협탁",
+    "x": 8500,
+    "y": 2700,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 2,
+     "length": 400,
+     "width": 400,
+     "height": 500
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bpylqd",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "협탁",
+    "x": 10700,
+    "y": 2700,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 2,
+     "length": 400,
+     "width": 400,
+     "height": 500
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bq7kkd",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "붙박이장",
+    "x": 8200,
+    "y": 3840,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 5,
+     "length": 2000,
+     "width": 600,
+     "height": 2200
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00brtp9o",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "침대 (더블)",
+    "x": 9000,
     "y": 8200,
-    "text": "침실 2",
-    "size": 350,
-    "angle": 0,
-    "font": "",
-    "bold": true,
-    "italic": false,
-    "align": "left"
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": -90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 0,
+     "length": 2000,
+     "width": 1400,
+     "height": 900
+    },
+    "shape": {}
    },
    {
-    "id": "e-mv6htcr700g0p7t8",
-    "type": "text",
-    "layer": "text",
+    "id": "e-mv7nixeg00bsky4q",
+    "type": "solid",
+    "layer": "furniture",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x": 10650,
-    "y": 7800,
-    "text": "15.9 m²",
-    "size": 250,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
+    "kind": "equipment",
+    "name": "책상",
+    "x": 11800,
+    "y": 5000,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 4,
+     "length": 1400,
+     "width": 700,
+     "height": 740
+    },
+    "shape": {}
    },
    {
-    "id": "e-mv6htcr700g18rvj",
-    "type": "line",
+    "id": "e-mv7nixeg00bta3h6",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "욕조",
+    "x": 5200,
+    "y": 8000,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 8,
+     "length": 1700,
+     "width": 750,
+     "height": 550
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bu2zrh",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "변기",
+    "x": 7300,
+    "y": 8800,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": -90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 6,
+     "length": 700,
+     "width": 400,
+     "height": 800
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeg00bvpxuq",
+    "type": "solid",
+    "layer": "furniture",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "equipment",
+    "name": "세면대",
+    "x": 5510,
+    "y": 6250,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "equipment": 7,
+     "length": 600,
+     "width": 450,
+     "height": 850
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeh00bw3m8g",
+    "type": "solid",
+    "layer": "slab",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "slab",
+    "name": "현관 바닥",
+    "x": 5100,
+    "y": -1800,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 150
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 2600,
+       "y": 0
+      },
+      {
+       "x": 2600,
+       "y": 1600
+      },
+      {
+       "x": 0,
+       "y": 1600
+      }
+     ],
+     "holes": []
+    }
+   },
+   {
+    "id": "e-mv7nixeh00bx5pa0",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "현관 기둥 1",
+    "x": 5300,
+    "y": -1600,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 240,
+     "depth": 240,
+     "height": 2400,
+     "profile": 1
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeh00byc0ha",
+    "type": "solid",
+    "layer": "wall",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "column",
+    "name": "현관 기둥 2",
+    "x": 7500,
+    "y": -1600,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "width": 240,
+     "depth": 240,
+     "height": 2400,
+     "profile": 1
+    },
+    "shape": {}
+   },
+   {
+    "id": "e-mv7nixeh00bzn61q",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "slab",
+    "name": "현관 캐노피",
+    "x": 5000,
+    "y": -1900,
+    "z": 2550,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "thickness": 150
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 2800,
+       "y": 0
+      },
+      {
+       "x": 2800,
+       "y": 1900
+      },
+      {
+       "x": 0,
+       "y": 1900
+      }
+     ],
+     "holes": []
+    }
+   },
+   {
+    "id": "e-mv7nixeh00c0861e",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "roof",
+    "name": "박공지붕",
+    "x": 100,
+    "y": 100,
+    "z": 2700,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "roofType": 0,
+     "slope": 27.5,
+     "overhang": 300,
+     "thickness": 180
+    },
+    "shape": {
+     "outer": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 11800,
+       "y": 0
+      },
+      {
+       "x": 11800,
+       "y": 8800
+      },
+      {
+       "x": 0,
+       "y": 8800
+      }
+     ],
+     "holes": [],
+     "slopes": [
+      null,
+      null,
+      null,
+      null
+     ]
+    }
+   },
+   {
+    "id": "e-mv7nixeh00c1yevh",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "pad",
+    "name": "박공벽 (서)",
+    "x": 0,
+    "y": 100,
+    "z": 2700,
+    "rx": 90,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 200
+    },
+    "shape": {
+     "shapes": [
+      {
+       "outer": [
+        {
+         "x": 0,
+         "y": 0
+        },
+        {
+         "x": 8800,
+         "y": 0
+        },
+        {
+         "x": 4400,
+         "y": 2290.4950224276836
+        }
+       ],
+       "holes": []
+      }
+     ]
+    }
+   },
+   {
+    "id": "e-mv7nixeh00c2cg3f",
+    "type": "solid",
+    "layer": "roof",
+    "color": null,
+    "lineType": null,
+    "lineWidth": null,
+    "kind": "pad",
+    "name": "박공벽 (동)",
+    "x": 11800,
+    "y": 100,
+    "z": 2700,
+    "rx": 90,
+    "ry": 0,
+    "rz": 90,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "height": 200
+    },
+    "shape": {
+     "shapes": [
+      {
+       "outer": [
+        {
+         "x": 0,
+         "y": 0
+        },
+        {
+         "x": 8800,
+         "y": 0
+        },
+        {
+         "x": 4400,
+         "y": 2290.4950224276836
+        }
+       ],
+       "holes": []
+      }
+     ]
+    }
+   },
+   {
+    "id": "e-mv7nixeh00c33jb7",
+    "type": "solid",
     "layer": "grid",
     "color": null,
     "lineType": null,
     "lineWidth": null,
-    "x1": 100,
-    "y1": -1600,
-    "x2": 100,
-    "y2": 10200
+    "kind": "axis",
+    "name": "통심선",
+    "x": 100,
+    "y": 100,
+    "z": 0,
+    "rx": 0,
+    "ry": 0,
+    "rz": 0,
+    "scale": 1,
+    "flip": false,
+    "params": {
+     "countX": 4,
+     "spacingX": 4000,
+     "countY": 3,
+     "spacingY": 4400,
+     "extension": 2000,
+     "bubble": 400
+    },
+    "shape": {
+     "xs": [
+      0,
+      4900,
+      7900,
+      11800
+     ],
+     "ys": [
+      0,
+      4400,
+      8800
+     ]
+    }
    },
    {
-    "id": "e-mv6htcr700g27mgg",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": 100,
-    "cy": -2000,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700g3086f",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 10,
-    "y": -2130,
-    "text": "1",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700g4t8rl",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 5000,
-    "y1": -1600,
-    "x2": 5000,
-    "y2": 10200
-   },
-   {
-    "id": "e-mv6htcr700g5m1za",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": 5000,
-    "cy": -2000,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700g6kehe",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 4910,
-    "y": -2130,
-    "text": "2",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700g7kunu",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 8000,
-    "y1": -1600,
-    "x2": 8000,
-    "y2": 10200
-   },
-   {
-    "id": "e-mv6htcr700g88zek",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": 8000,
-    "cy": -2000,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr700g9kk1s",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 7910,
-    "y": -2130,
-    "text": "3",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr700gag88n",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": 11900,
-    "y1": -1600,
-    "x2": 11900,
-    "y2": 10200
-   },
-   {
-    "id": "e-mv6htcr800gbxeqf",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": 11900,
-    "cy": -2000,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr800gcyj53",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": 11810,
-    "y": -2130,
-    "text": "4",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr800gdx1l2",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": -1600,
-    "y1": 100,
-    "x2": 13200,
-    "y2": 100
-   },
-   {
-    "id": "e-mv6htcr800gei0h9",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": -2000,
-    "cy": 100,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr800gf3mke",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": -2100,
-    "y": -30,
-    "text": "A",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr800gg4ywv",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": -1600,
-    "y1": 4500,
-    "x2": 13200,
-    "y2": 4500
-   },
-   {
-    "id": "e-mv6htcr800gh7a25",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": -2000,
-    "cy": 4500,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr800givvnm",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": -2100,
-    "y": 4370,
-    "text": "B",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr800gjx8mc",
-    "type": "line",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x1": -1600,
-    "y1": 8900,
-    "x2": 13200,
-    "y2": 8900
-   },
-   {
-    "id": "e-mv6htcr800gke2pl",
-    "type": "circle",
-    "layer": "grid",
-    "color": null,
-    "lineType": "continuous",
-    "lineWidth": null,
-    "cx": -2000,
-    "cy": 8900,
-    "r": 400,
-    "centerMark": false
-   },
-   {
-    "id": "e-mv6htcr800gl0m1d",
-    "type": "text",
-    "layer": "grid",
-    "color": null,
-    "lineType": null,
-    "lineWidth": null,
-    "x": -2100,
-    "y": 8770,
-    "text": "C",
-    "size": 300,
-    "angle": 0,
-    "font": "",
-    "bold": false,
-    "italic": false,
-    "align": "left"
-   },
-   {
-    "id": "e-mv6htcr800gmshi3",
+    "id": "e-mv7nixeh00c4q8hs",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -3922,7 +1694,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gnksdd",
+    "id": "e-mv7nixeh00c59et0",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -3946,7 +1718,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800go52z6",
+    "id": "e-mv7nixeh00c64dxc",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -3970,7 +1742,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gp3a5r",
+    "id": "e-mv7nixeh00c7rw8t",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -3994,7 +1766,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gqvtun",
+    "id": "e-mv7nixeh00c813ss",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4018,7 +1790,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gryzsp",
+    "id": "e-mv7nixeh00c9rj0i",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4042,7 +1814,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gsfuzf",
+    "id": "e-mv7nixeh00cabxbp",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4066,7 +1838,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gt0lhh",
+    "id": "e-mv7nixeh00cb7gg6",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4090,7 +1862,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gud6cl",
+    "id": "e-mv7nixeh00cc1jlg",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4114,7 +1886,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gvqtn0",
+    "id": "e-mv7nixeh00cdbd28",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -4138,7 +1910,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcr800gw80mx",
+    "id": "e-mv7nixeh00ce0rch",
     "type": "circle",
     "layer": "text",
     "color": null,
@@ -4150,7 +1922,7 @@
     "centerMark": false
    },
    {
-    "id": "e-mv6htcr800gx4c4h",
+    "id": "e-mv7nixeh00cfsh9i",
     "type": "polyline",
     "layer": "text",
     "color": null,
@@ -4177,7 +1949,7 @@
     "closed": true
    },
    {
-    "id": "e-mv6htcr800gy7p2f",
+    "id": "e-mv7nixeh00cg79ss",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4194,7 +1966,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6htcr800gzwijd",
+    "id": "e-mv7nixeh00ch9xhg",
     "type": "line",
     "layer": "text",
     "color": null,
@@ -4206,7 +1978,7 @@
     "y2": 11200
    },
    {
-    "id": "e-mv6htcr800h0kvr9",
+    "id": "e-mv7nixeh00cisz1w",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4223,7 +1995,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6htcr800h1kssf",
+    "id": "e-mv7nixeh00cjlet9",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4240,7 +2012,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6htcr800h21l24",
+    "id": "e-mv7nixeh00ckgoys",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4257,7 +2029,7 @@
     "align": "left"
    },
    {
-    "id": "e-mv6htcr800h3ptez",
+    "id": "e-mv7nixeh00cl3x3h",
     "type": "text",
     "layer": "text",
     "color": null,
@@ -4265,7 +2037,7 @@
     "lineWidth": null,
     "x": 0,
     "y": -3900,
-    "text": "외벽 200 (빗금) · 내벽 120 (회색) · 창호 파란색 · 통심선 1–4, A–C · 계단 14단 (단높이 ≈ 193)",
+    "text": "BIM 모델(벽·창호·계단·실·가구)을 바닥에서 1 m 높이로 자른 평면 · 3D 보기(Ctrl+Shift+3)로 같은 모델을 입체로 봅니다",
     "size": 250,
     "angle": 0,
     "font": "",

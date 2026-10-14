@@ -135,7 +135,7 @@ test('files made by FreeCAD 1.1 (samples/freecad) are read with the volumes Free
   for (const [file, info] of Object.entries(expected)) {
     if (info.error || !fs.existsSync(path.join(dir, file))) continue;
     const ext = file.split('.').pop().toLowerCase();
-    if (['iges', 'brep'].includes(ext)) continue;
+    if (ext === 'iges') continue;
     const { entities } = importMesh(ext, new Uint8Array(fs.readFileSync(path.join(dir, file))));
     // Curved faces are tessellated by MyCAD (5° steps): within half a percent.
     near(volumeOf(entities), info.volume, 0.005, file);

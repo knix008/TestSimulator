@@ -37,7 +37,8 @@ function bridge(ring, hole) {
     let bestAngle = Infinity;
     for (let i = 0; i < ring.length; i++) {
       const p = ring[i];
-      if (i === best || p.x < m.x) continue;
+      // Copies of the candidate (left by an earlier bridge) are not blockers.
+      if (i === best || p.x < m.x || same(p, candidate)) continue;
       const tri = candidate.y >= m.y ? inTriangle(p, m, hit, candidate) : inTriangle(p, m, candidate, hit);
       if (!tri) continue;
       const angle = Math.abs(Math.atan2(p.y - m.y, p.x - m.x));
@@ -46,6 +47,20 @@ function bridge(ring, hole) {
         best = i;
       }
     }
+  }
+  // A vertex may be in the ring twice (both ends of an earlier bridge): use the copy whose inside faces m.
+  const copies = ring.map((p, i) => i).filter((i) => same(ring[i], ring[best]));
+  if (copies.length > 1) {
+    const angle = (u, w) => { const a = Math.atan2(u.x * w.y - u.y * w.x, u.x * w.x + u.y * w.y); return a < 0 ? a + 2 * Math.PI : a; };
+    const faces = (i) => {
+      const v = ring[i];
+      const prev = ring[(i - 1 + ring.length) % ring.length];
+      const next = ring[(i + 1) % ring.length];
+      const out = { x: next.x - v.x, y: next.y - v.y };
+      const back = { x: prev.x - v.x, y: prev.y - v.y };
+      return angle(out, { x: m.x - v.x, y: m.y - v.y }) <= angle(out, back) + 1e-12;
+    };
+    best = copies.find(faces) ?? best;
   }
   const rotated = [...hole.slice(mIndex), ...hole.slice(0, mIndex)];
   return [...ring.slice(0, best + 1), ...rotated, { ...m }, { ...ring[best] }, ...ring.slice(best + 1)];
