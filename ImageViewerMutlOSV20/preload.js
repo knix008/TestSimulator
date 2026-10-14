@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
   readFileBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
   readFileBytes:  (filePath) => ipcRenderer.invoke('read-file-bytes', filePath),
+  // Per-directory thumbnail cache (userData/ThumbCache)
+  thumbCacheLoad:  (dirPath) => ipcRenderer.invoke('thumb-cache-load', dirPath),
+  thumbCachePut:   (filePath, bytes, meta) => ipcRenderer.invoke('thumb-cache-put', filePath, bytes, meta),
+  thumbCacheStats: () => ipcRenderer.invoke('thumb-cache-stats'),
+  thumbCacheClear: () => ipcRenderer.invoke('thumb-cache-clear'),
   convertToPng: (filePath) => ipcRenderer.invoke('convert-to-png', filePath),
   rembgRemove: (opts) => ipcRenderer.invoke('rembg-remove', opts),
   onRembgProgress: (cb) => {

@@ -17,6 +17,7 @@ window.Editor = (() => {
     hue: 0, blur: 0, grayscale: 0, sepia: 0, invert: 0,
     sharpen: 0, emboss: false, edge: false, vignette: 0, warmth: 0, grain: 0, posterize: 0,
     solarize: 0, tiltShift: 0,
+    tintColor: '', tintAmount: 0,   // colour-wheel tint: '#rrggbb' laid over the photo in "color" blend
     borderWidth: 0, borderColor: '#ffffff', borderShadow: 0,
     borderShadowStyle: 'soft', borderShadowDir: 'br',
     borderCaption: false, borderCaptionPos: 'bl', borderCaptionText: '',
@@ -217,6 +218,7 @@ window.Editor = (() => {
       pc.clearRect(0, 0, w, h);
       pc.drawImage(tmp, 0, 0);
     }
+    if (effects.tintColor && effects.tintAmount > 0) _applyTint(pc, w, h, effects.tintColor, effects.tintAmount);
     if (effects.tiltShift > 0) _applyMiniatureDof(pc, w, h, effects.tiltShift);
     if (effects.vignette > 0) _applyVignetteOverlay(pc, w, h, effects.vignette);
     if (effects.posterize > 1) {
@@ -1043,7 +1045,7 @@ window.Editor = (() => {
       effects.sharpen > 0 || effects.emboss || effects.edge
       || effects.grain > 0 || effects.posterize > 1 || effects.warmth !== 0
       || effects.solarize > 0;
-    const cssHeavy = effects.blur > 0 || effects.tiltShift > 0
+    const cssHeavy = effects.blur > 0 || effects.tiltShift > 0 || effects.tintAmount > 0
       || _buildFilterString() !== 'none' || effects.vignette > 0;
     if (kernel) return px >= 250000;           // ~0.25MP+
     if (cssHeavy) return px >= 800000;         // ~0.8MP+
@@ -1302,6 +1304,26 @@ window.Editor = (() => {
     return new ImageData(data, imgData.width, imgData.height);
   }
 
+  /**
+   * Colour-wheel tint: the chosen colour's hue and saturation over the photo's own
+   * luminance ("color" blend), mixed in by amount. Transparent pixels stay transparent.
+   */
+  function _applyTint(pc, w, h, color, amount) {
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    const tc = tmp.getContext('2d');
+    tc.drawImage(pc.canvas, 0, 0);
+    tc.globalCompositeOperation = 'color';
+    tc.fillStyle = color;
+    tc.fillRect(0, 0, w, h);
+    tc.globalCompositeOperation = 'destination-in';
+    tc.drawImage(pc.canvas, 0, 0);
+    pc.save();
+    pc.globalAlpha = Math.max(0, Math.min(100, amount)) / 100;
+    pc.drawImage(tmp, 0, 0);
+    pc.restore();
+  }
+
   /** Partial solarize: invert channels above a luminance threshold. */
   function _applySolarize(imgData, amount) {
     const data = new Uint8ClampedArray(imgData.data);
@@ -1346,6 +1368,17 @@ window.Editor = (() => {
     _requestEffectRender(true, true);
   }
 
+  /** Several effects as one change: one render, one undo step. */
+  function setEffects(map) {
+    let changed = false;
+    for (const [key, value] of Object.entries(map || {})) {
+      if (!(key in effects) || effects[key] === value) continue;
+      effects[key] = value;
+      changed = true;
+    }
+    if (changed) _requestEffectRender(true, true);
+  }
+
   function getEffects() { return { ...effects }; }
 
   function setCaptionLines(lines) {
@@ -1365,6 +1398,7 @@ window.Editor = (() => {
     effects.emboss = false; effects.edge = false;
     effects.vignette = 0; effects.warmth = 0; effects.grain = 0; effects.posterize = 0;
     effects.solarize = 0; effects.tiltShift = 0;
+    effects.tintColor = ''; effects.tintAmount = 0;
     effects.borderWidth = 0; effects.borderColor = '#ffffff'; effects.borderShadow = 0;
     effects.borderShadowStyle = 'soft';
     effects.borderShadowDir = 'br';
@@ -1385,6 +1419,7 @@ window.Editor = (() => {
       || effects.emboss || effects.edge || effects.vignette !== 0 || effects.warmth !== 0
       || effects.grain !== 0 || effects.posterize !== 0 || effects.solarize !== 0
       || effects.tiltShift !== 0
+      || (!!effects.tintColor && effects.tintAmount !== 0)
       || effects.borderWidth !== 0 || effects.borderShadow !== 0
       || (effects.borderShadowStyle && effects.borderShadowStyle !== 'soft')
       || (effects.borderShadowDir && effects.borderShadowDir !== 'br')
@@ -2709,7 +2744,7 @@ window.Editor = (() => {
 
   return {
     init, setCallbacks, loadImage, replaceSource,
-    setEffect, getEffects, getCaptionFonts, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
+    setEffect, setEffects, getEffects, getCaptionFonts, setCaptionLines, setCaptionValues, resetEffects, applyPreset,
     rotate, flip, resetTransform, resetAll, shouldShowOpProgress,
     setTool, getTool, clearSelection, hasSelection,
     removeBackground, removeBackgroundAuto, listBgAlgorithms, isRembgAlgorithm, applyFromDataUrl,

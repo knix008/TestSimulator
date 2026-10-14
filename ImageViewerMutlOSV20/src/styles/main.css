@@ -967,8 +967,7 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   z-index: 2;
 }
 
-/* `display: flex` above outranks the UA's [hidden] rule — restore it, or the
-   panel toggles (toolbar buttons and the panel headers' × ) do nothing. */
+/* `display: flex` above outranks the UA's [hidden] rule — restore it. */
 #sidebar[hidden],
 #file-tree-panel[hidden],
 #info-panel[hidden],
@@ -1287,7 +1286,7 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   overflow: hidden;
 }
 
-/* ── Right sidebar: the info panel's other dock ── */
+/* ── Right sidebar: histogram, colour wheel, adjustments ── */
 #right-sidebar {
   display: flex;
   flex-direction: column;
@@ -1302,24 +1301,175 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   z-index: 2;
 }
 #right-sidebar[hidden] { display: none; }
-#right-sidebar > #info-panel { flex: 1 1 auto; }
-#right-sidebar-resize-handle {
-  position: absolute;
-  top: 0;
-  left: -4px;
-  width: 8px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 30;
-  background: transparent;
+#right-sidebar > #color-panel { flex: 1 1 auto; }
+
+/* ── Panel title icon ── */
+.panel-header .panel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
-#right-sidebar-resize-handle:hover,
-#right-sidebar-resize-handle.resizing {
-  background: var(--resize-handle);
-  opacity: 0.55;
+.panel-header .panel-icon svg { width: 15px; height: 15px; fill: currentColor; }
+.panel-collapse-btn { margin-left: 4px; }
+
+/* ── Collapsed left / right panel: a slim rail with the collapse button on top,
+   then each panel's icon and its title running down the rail ── */
+#sidebar.collapsed,
+#right-sidebar.collapsed {
+  width: 30px !important;
+  min-width: 30px;
+  max-width: 30px;
+  cursor: pointer;
+}
+#sidebar.collapsed > :not(#file-tree-panel):not(#info-panel),
+#right-sidebar.collapsed > :not(#color-panel),
+#sidebar.collapsed #file-tree-panel > :not(.panel-header),
+#sidebar.collapsed #info-panel > :not(.panel-header),
+#right-sidebar.collapsed #color-panel > :not(.panel-header),
+#sidebar.collapsed .tree-drive-bar,
+#right-sidebar.collapsed .panel-header-spacer { display: none; }
+/* The split's inline heights do not apply to the rail */
+#sidebar.collapsed #file-tree-panel,
+#sidebar.collapsed #info-panel,
+#right-sidebar.collapsed #color-panel {
+  min-height: 0 !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+}
+#sidebar.collapsed #file-tree-panel { flex: 1 1 auto !important; }
+#right-sidebar.collapsed #color-panel { flex: 1 1 auto !important; }
+#sidebar.collapsed .panel-header,
+#right-sidebar.collapsed .panel-header {
+  flex-direction: column;
+  height: auto;
+  flex: 1 1 auto;
+  padding: 5px 0 10px;
+  gap: 8px;
+  border-bottom: none;
+  background: var(--sidebar-bg);
+}
+#sidebar.collapsed #info-panel .panel-header {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+#sidebar.collapsed:hover .panel-header,
+#right-sidebar.collapsed:hover .panel-header { background: var(--btn-hover); }
+#sidebar.collapsed .panel-collapse-btn,
+#right-sidebar.collapsed .panel-collapse-btn { order: -1; margin: 0; }
+#sidebar.collapsed .panel-icon,
+#right-sidebar.collapsed .panel-icon { margin: 0; }
+#sidebar.collapsed .panel-title,
+#right-sidebar.collapsed .panel-title {
+  writing-mode: vertical-rl;
+  margin: 0;
+  white-space: nowrap;
 }
 
-/* Small buttons living in a panel header (dock / close) */
+/* ── Right panel content ── */
+#color-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+#color-content {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 12px 12px;
+}
+#color-content.is-disabled .cp-histogram,
+#color-content.is-disabled .cp-wheel-wrap,
+#color-content.is-disabled #cp-tint-amount-row,
+#color-content.is-disabled #cp-adjust,
+#color-content.is-disabled .cp-actions { opacity: 0.45; }
+#color-content.is-disabled .cp-wheel { cursor: default; }
+.cp-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 0 5px;
+}
+.cp-section:first-child { padding-top: 2px; }
+.cp-histogram {
+  display: block;
+  width: 100%;
+  height: 96px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary, #111);
+}
+.cp-hist-legend {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cp-wheel-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.cp-wheel {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  cursor: crosshair;
+  touch-action: none;
+}
+.cp-wheel:focus-visible { outline: 2px solid var(--accent, #6cb6ff); outline-offset: 2px; }
+.cp-wheel-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.cp-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.cp-swatch.is-empty {
+  background: repeating-linear-gradient(45deg, transparent 0 5px, var(--border) 5px 6px);
+}
+.cp-hex {
+  font-family: ui-monospace, Consolas, "Courier New", monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.cp-btn {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--btn-bg, transparent);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cp-btn:hover:not(:disabled) { background: var(--btn-hover); }
+.cp-btn:disabled { cursor: default; }
+.cp-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
+
+/* Small button living in a panel header (collapse / expand) */
 .panel-header-spacer { flex: 1 1 auto; }
 .panel-hdr-btn {
   display: inline-flex;
@@ -1373,33 +1523,38 @@ body.resizing-row * {
   margin-top: 0;
 }
 
-.info-row {
-  display: flex;
-  gap: 8px;
-  padding: 3px 0;
-  border-bottom: 1px solid var(--border);
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 4px;
   font-size: 12px;
   line-height: 1.4;
-  min-width: 0;
-  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }
-.info-row:last-child { border-bottom: none; }
+.info-row > th,
+.info-row > td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+.info-row:last-child > th,
+.info-row:last-child > td { border-bottom: none; }
+.info-row:nth-child(even) > th,
+.info-row:nth-child(even) > td { background: var(--bg-hover, rgba(127, 127, 127, 0.06)); }
 
 .info-label {
+  width: 40%;
   color: var(--text-secondary);
-  flex-shrink: 0;
-  width: 96px;
   font-size: 11px;
-  padding-top: 1px;
+  font-weight: 500;
+  border-right: 1px solid var(--border);
+  word-break: break-word;
 }
 
-.info-row-full {
-  align-items: flex-start;
-}
 .info-row-full .info-label {
-  width: auto;
-  min-width: 110px;
-  max-width: 58%;
   word-break: break-word;
   font-family: ui-monospace, Consolas, "Courier New", monospace;
   font-size: 10px;
@@ -1410,8 +1565,6 @@ body.resizing-row * {
   color: var(--text-primary);
   word-break: break-word;
   overflow-wrap: anywhere;
-  flex: 1;
-  min-width: 0;
   font-size: 12px;
 }
 
@@ -1533,6 +1686,43 @@ body.resizing-row * {
   overflow: auto;
   padding: 12px;
   outline: none;
+  position: relative;        /* tiles' offsetTop / the marquee are measured from here */
+  user-select: none;         /* a marquee drag must not select text */
+}
+.browse-marquee {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 2px;
+}
+.browse-tile.selected.focused { outline: 1px dashed var(--accent); outline-offset: -3px; }
+.browse-grid.is-dragging .browse-tile.selected { opacity: 0.55; }
+/* Drag image for several tiles: the pressed thumbnail plus a count badge */
+.browse-drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  background: var(--bg-secondary, #333);
+  border: 1px solid var(--accent);
+}
+.browse-drag-ghost img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
+.browse-drag-ghost span {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 12px/22px system-ui, sans-serif;
+  text-align: center;
 }
 .browse-empty { padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
@@ -1716,6 +1906,12 @@ body.resizing-row * {
   z-index: 1;
   overflow: hidden;
   background: var(--viewer-bg);
+}
+
+/* While a file is opening, nothing of the previous one shows (the placeholder and
+   the loading overlay still may) */
+#viewer-container.is-switching > :not(#image-placeholder):not(#loading-overlay) {
+  visibility: hidden !important;
 }
 
 #viewer-container {
@@ -4202,3 +4398,36 @@ body.frameless #ew-win-gutter { display: block; }
 /* Edit window title bar is 32px like the main one: the fixed window buttons match it */
 body.edit-mode #window-controls { height: 32px; }
 body.edit-mode #window-controls button { height: 32px; }
+
+/* ── Details dialog: the file-info tables, roomier ── */
+.details-dialog-box {
+  width: min(680px, calc(100vw - 48px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+}
+.details-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.details-head { margin-bottom: 10px; }
+.details-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+.details-path {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+  user-select: text;
+}
+.details-analysis { margin-bottom: 6px; }
+.details-analysis[hidden] { display: none; }
+.details-hist { height: 120px; }
+.details-content .info-table { margin-bottom: 8px; }
+.details-content .info-label { width: 34%; }
+.details-content .info-value { user-select: text; }

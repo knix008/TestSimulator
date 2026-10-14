@@ -37,14 +37,16 @@
     <!-- ═══ Main Area ═══ -->
     <div id="main-area">
 
-      <!-- ── Sidebar ── -->
+      <!-- ── Left panel: Explorer (collapses to a rail showing its icon + title) ── -->
       <div id="sidebar">
 
         <!-- File Tree Panel -->
         <div id="file-tree-panel">
           <div class="panel-header">
+            <span class="panel-icon" id="tree-panel-icon" aria-hidden="true"></span>
             <span class="panel-title" data-i18n="tree.title">EXPLORER</span>
             <div id="tree-drive-bar" class="tree-drive-bar" role="toolbar" aria-label="Drives"></div>
+            <button type="button" class="panel-hdr-btn panel-collapse-btn" id="tree-collapse-btn"></button>
           </div>
           <div id="tree-path-bar" hidden>
             <button type="button" id="tree-up-btn" class="tree-path-btn" tabindex="-1"></button>
@@ -61,13 +63,11 @@
         <!-- Vertical resize handle -->
         <div id="sidebar-v-resize"></div>
 
-        <!-- Info Panel (dockable: left sidebar or right sidebar) -->
+        <!-- Info Panel (bottom of the left panel) -->
         <div id="info-panel">
           <div class="panel-header">
+            <span class="panel-icon" id="info-panel-icon" aria-hidden="true"></span>
             <span class="panel-title" data-i18n="info.title">FILE INFO</span>
-            <span class="panel-header-spacer"></span>
-            <button type="button" class="panel-hdr-btn" id="info-dock-btn"></button>
-            <button type="button" class="panel-hdr-btn" id="info-close-btn"></button>
           </div>
           <div id="info-content">
             <div class="info-no-file" data-i18n="info.noFile">No file selected</div>
@@ -290,9 +290,41 @@
 
       </div><!-- /viewer-area -->
 
-      <!-- ── Right Sidebar (the file-info panel docks here) ── -->
-      <div id="right-sidebar" hidden>
+      <!-- ── Right panel: colour (histogram, colour wheel) + adjustments
+           (collapses to a rail showing its icon + title; built by app.js) ── -->
+      <div id="right-sidebar">
         <div id="right-sidebar-resize-handle"></div>
+        <div id="color-panel">
+          <div class="panel-header">
+            <span class="panel-icon" id="color-panel-icon" aria-hidden="true"></span>
+            <span class="panel-title" data-i18n="color.title">COLOR &amp; ADJUST</span>
+            <span class="panel-header-spacer"></span>
+            <button type="button" class="panel-hdr-btn panel-collapse-btn" id="color-collapse-btn"></button>
+          </div>
+          <div id="color-content">
+            <div class="cp-section" data-i18n="color.histogram">HISTOGRAM</div>
+            <canvas id="cp-histogram" class="cp-histogram" width="256" height="96" aria-label="Histogram"></canvas>
+            <div class="cp-hist-legend" id="cp-hist-legend"></div>
+
+            <div class="cp-section" data-i18n="color.wheel">COLOR</div>
+            <div class="cp-wheel-wrap">
+              <canvas id="cp-wheel" class="cp-wheel" width="180" height="180" tabindex="0" role="slider"
+                aria-label="Color wheel"></canvas>
+              <div class="cp-wheel-side">
+                <div class="cp-swatch" id="cp-swatch"></div>
+                <div class="cp-hex" id="cp-hex">—</div>
+                <button type="button" class="cp-btn" id="cp-tint-clear" data-i18n="color.clearTint">No tint</button>
+              </div>
+            </div>
+            <div id="cp-tint-amount-row"></div>
+
+            <div class="cp-section" data-i18n="color.adjust">ADJUST</div>
+            <div id="cp-adjust"></div>
+            <div class="cp-actions">
+              <button type="button" class="cp-btn" id="cp-reset" data-i18n="color.reset">Reset colour</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div><!-- /main-area -->
 
@@ -465,6 +497,40 @@ Do you want to save before closing?</p>
   </div>
 
   <!-- ═══ About Dialog ═══ -->
+  <!-- ═══ Details: everything known about one file, as tables (filled by app.js) ═══ -->
+  <div id="details-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box details-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="fileInfo"></span>
+          <span data-i18n="details.title">Details</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body details-body">
+        <div class="details-head">
+          <div class="details-name" id="details-name"></div>
+          <div class="details-path" id="details-path"></div>
+        </div>
+        <div class="details-analysis" id="details-analysis" hidden>
+          <canvas id="details-hist" class="cp-histogram details-hist" width="512" height="120" aria-label="Histogram"></canvas>
+        </div>
+        <div id="details-content" class="details-content"></div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn-icon" id="details-copy">
+          <span class="ew-action-icon" data-icon="copy"></span>
+          <span data-i18n="details.copy">Copy all</span>
+        </button>
+        <button type="button" class="btn-icon primary" data-close-dialog>
+          <span data-i18n="details.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="about-overlay" class="dialog-overlay" style="display:none;">
     <div class="dialog-box" style="min-width:400px;max-width:480px;">
       <div class="dialog-header">
@@ -719,6 +785,13 @@ Do you want to save before closing?</p>
               <span class="settings-hint" id="settings-recent-count"></span>
             </label>
             <button type="button" class="settings-btn" id="settings-clear-recent" data-i18n="toolbar.clearRecentFolders">Clear recent folders</button>
+          </div>
+          <div class="settings-row" id="settings-thumb-cache-row">
+            <label for="settings-clear-thumbs">
+              <span data-i18n="settings.thumbCache">Thumbnail cache</span>
+              <span class="settings-hint" id="settings-thumb-cache-size"></span>
+            </label>
+            <button type="button" class="settings-btn" id="settings-clear-thumbs" data-i18n="settings.clearThumbCache">Clear thumbnail cache</button>
           </div>
           <div class="settings-row settings-row-assoc">
             <label>

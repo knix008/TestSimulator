@@ -644,20 +644,12 @@ function buildMenu(translations) {
       label: t('menu.window'),
       submenu: [
         {
-          label: t('menu.treePanel'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-tree'),
+          label: t('menu.leftPanel'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-left'),
         },
         {
-          label: t('menu.infoPanel'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-info'),
-        },
-        {
-          label: t('toolbar.infoDockLeft'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-dock-left'),
-        },
-        {
-          label: t('toolbar.infoDockRight'),
-          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-dock-right'),
+          label: t('menu.rightPanel'),
+          click: () => mainWindow && mainWindow.webContents.send('menu-action', 'panel-right'),
         },
         { type: 'separator' },
         {
@@ -1445,6 +1437,173 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
   try {
     const data = await fs.promises.readFile(filePath);
     return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+/* ═══════════════════════════════════════════
+   Thumbnail cache — one folder per source directory:
+     <userData>/ThumbCache/<sha1(dir)>/index.json   { v, dir, entries: { name: { size, mtimeMs, w, h, tw, th, file } } }
+     <userData>/ThumbCache/<sha1(dir)>/<sha1(name)>.jpg
+   The renderer generates thumbnails (in a worker) and hands the JPEG bytes over;
+   an entry is served again only while the source's size and mtime still match.
+   Nothing is ever written into the user's own folders.
+═══════════════════════════════════════════ */
+const THUMB_CACHE_VERSION = 1;
+const _thumbIndexes = new Map();   // dirKey → { key, dir, folder, entries, timer }
+
+function _thumbRoot() { return path.join(app.getPath('userData'), 'ThumbCache'); }
+
+function _thumbDirKey(dir) {
+  let norm = path.resolve(String(dir || ''));
+  if (process.platform === 'win32') norm = norm.toLowerCase();
+  return crypto.createHash('sha1').update(norm).digest('hex');
+}
+
+function _thumbFileName(name) {
+  const n = process.platform === 'win32' ? String(name).toLowerCase() : String(name);
+  return `${crypto.createHash('sha1').update(n).digest('hex').slice(0, 24)}.jpg`;
+}
+
+async function _thumbIndex(dir) {
+  const key = _thumbDirKey(dir);
+  let idx = _thumbIndexes.get(key);
+  if (idx) return idx;
+  const folder = path.join(_thumbRoot(), key);
+  let entries = {};
+  try {
+    const saved = JSON.parse(await fs.promises.readFile(path.join(folder, 'index.json'), 'utf8'));
+    if (saved && saved.v === THUMB_CACHE_VERSION && saved.entries && typeof saved.entries === 'object') entries = saved.entries;
+  } catch { /* no cache for this folder yet */ }
+  idx = _thumbIndexes.get(key);   // another call may have loaded it meanwhile
+  if (idx) return idx;
+  idx = { key, dir: path.resolve(dir), folder, entries, timer: null };
+  _thumbIndexes.set(key, idx);
+  return idx;
+}
+
+function _thumbIndexJson(idx) {
+  return JSON.stringify({ v: THUMB_CACHE_VERSION, dir: idx.dir, entries: idx.entries });
+}
+
+/** Index writes are batched: a folder being filled saves once it goes quiet. */
+function _thumbScheduleSave(idx) {
+  clearTimeout(idx.timer);
+  idx.timer = setTimeout(async () => {
+    idx.timer = null;
+    try {
+      await fs.promises.mkdir(idx.folder, { recursive: true });
+      const tmp = path.join(idx.folder, 'index.json.tmp');
+      await fs.promises.writeFile(tmp, _thumbIndexJson(idx));
+      await fs.promises.rename(tmp, path.join(idx.folder, 'index.json'));
+    } catch (err) {
+      console.warn('[thumbs] index save failed:', err.message);
+    }
+  }, 1000);
+}
+
+/** On quit, write whatever is still waiting so the work is not lost. */
+function _thumbFlushAllSync() {
+  for (const idx of _thumbIndexes.values()) {
+    if (!idx.timer) continue;
+    clearTimeout(idx.timer);
+    idx.timer = null;
+    try {
+      fs.mkdirSync(idx.folder, { recursive: true });
+      fs.writeFileSync(path.join(idx.folder, 'index.json'), _thumbIndexJson(idx));
+    } catch { /* best effort */ }
+  }
+}
+app.on('before-quit', _thumbFlushAllSync);
+
+function _thumbUrl(idx, ent) {
+  return `${url.pathToFileURL(path.join(idx.folder, ent.file)).href}?v=${Math.round(ent.mtimeMs)}`;
+}
+
+// Everything still valid for one directory: { name: { url, w, h, tw, th } }
+ipcMain.handle('thumb-cache-load', async (event, dirPath) => {
+  try {
+    const idx = await _thumbIndex(dirPath);
+    const out = {};
+    const stale = [];
+    await Promise.all(Object.entries(idx.entries).map(async ([name, ent]) => {
+      try {
+        const st = await fs.promises.stat(path.join(idx.dir, name));
+        if (st.size === ent.size && Math.abs(st.mtimeMs - ent.mtimeMs) < 1) {
+          out[name] = { url: _thumbUrl(idx, ent), w: ent.w, h: ent.h, tw: ent.tw, th: ent.th };
+          return;
+        }
+      } catch { /* the source is gone */ }
+      stale.push(name);
+    }));
+    if (stale.length) {
+      for (const name of stale) {
+        const file = idx.entries[name]?.file;
+        delete idx.entries[name];
+        if (file) fs.promises.unlink(path.join(idx.folder, file)).catch(() => {});
+      }
+      _thumbScheduleSave(idx);
+    }
+    return out;
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Store one generated thumbnail (JPEG bytes) for filePath
+ipcMain.handle('thumb-cache-put', async (event, filePath, bytes, meta = {}) => {
+  try {
+    if (!bytes || !bytes.length) return { error: 'empty' };
+    const st = await fs.promises.stat(filePath);
+    const idx = await _thumbIndex(path.dirname(filePath));
+    const name = path.basename(filePath);
+    const file = _thumbFileName(name);
+    await fs.promises.mkdir(idx.folder, { recursive: true });
+    await fs.promises.writeFile(path.join(idx.folder, file), Buffer.from(bytes));
+    const ent = {
+      size: st.size, mtimeMs: st.mtimeMs, file,
+      w: meta.w | 0, h: meta.h | 0, tw: meta.tw | 0, th: meta.th | 0,
+    };
+    idx.entries[name] = ent;
+    _thumbScheduleSave(idx);
+    return { url: _thumbUrl(idx, ent), w: ent.w, h: ent.h, tw: ent.tw, th: ent.th };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+async function _thumbCacheBytes() {
+  let bytes = 0, files = 0, folders = 0;
+  let dirs = [];
+  try { dirs = await fs.promises.readdir(_thumbRoot(), { withFileTypes: true }); } catch { return { bytes, files, folders }; }
+  for (const d of dirs) {
+    if (!d.isDirectory()) continue;
+    folders++;
+    const folder = path.join(_thumbRoot(), d.name);
+    let names = [];
+    try { names = await fs.promises.readdir(folder); } catch { continue; }
+    for (const n of names) {
+      try {
+        const st = await fs.promises.stat(path.join(folder, n));
+        bytes += st.size;
+        if (n.endsWith('.jpg')) files++;
+      } catch { /* raced with a delete */ }
+    }
+  }
+  return { bytes, files, folders };
+}
+
+ipcMain.handle('thumb-cache-stats', async () => {
+  try { return await _thumbCacheBytes(); } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('thumb-cache-clear', async () => {
+  try {
+    for (const idx of _thumbIndexes.values()) clearTimeout(idx.timer);
+    _thumbIndexes.clear();
+    await fs.promises.rm(_thumbRoot(), { recursive: true, force: true });
+    return { success: true };
   } catch (err) {
     return { error: err.message };
   }

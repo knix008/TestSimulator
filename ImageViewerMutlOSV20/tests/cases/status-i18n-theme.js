@@ -140,7 +140,7 @@ module.exports = {
 
     test('Panel layout and window geometry come back on the next launch', () => {
       // Panel layout: remembered, and cleared by Reset all like any other setting.
-      assertIncludes(app, "const LAYOUT_KEY = 'panelLayoutV1'", 'layout key');
+      assertIncludes(app, "const LAYOUT_KEY = 'panelLayoutV2'", 'layout key');
       assertIncludes(app, 'function _loadLayout', 'restore');
       assertIncludes(app, 'function _saveLayout', 'persist');
       assertIncludes(app, '_initPanelLayout();', 'applied at startup');

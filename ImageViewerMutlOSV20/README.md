@@ -65,6 +65,9 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - **Size stepper in the toolbar** (smaller · current size · larger); the number resets to the default when clicked, and `Ctrl`+wheel / `Ctrl` `+`/`-` work over the grid. The size also drives the row height in List and Details
   - **Details** mode lists Name · Type · Size · Dimensions · Date modified · Date created under a **sortable column header**
   - Selecting a file fills the **File Info** panel without opening the image
+  - **Multi-select**: `Ctrl`+click toggles, `Shift`+click selects a range, mouse drag draws a selection box (auto-scrolls at the edges), `Ctrl+A` selects all; right-clicking inside the selection applies the context menu (open / copy / move / clipboard / delete) to every selected item
+  - **Drag to the explorer**: drag tiles (the whole selection) onto a folder in the explorer tree to **move** them there; hold `Ctrl` to copy. The sheet stays in its folder and drops the moved tiles; a drag that starts on a tile moves files, a box selection starts from empty space
+  - Thumbnails are made **in the background** (a Web Worker for JPG / PNG / WebP / GIF / BMP / ICO / AVIF; idle time for TIFF / HEIC / DICOM / SVG) and kept in a **per-directory disk cache** under the app's user-data folder, so a folder seen before shows its thumbnails at once — only new or changed files are redone. Settings ▸ General shows the cache size and can clear it
   - The thumbnail toolbar button reflects what is on screen: it turns off when you open an image and brings the sheet back when pressed again
 
 - **File information / 파일 정보**
@@ -72,6 +75,11 @@ A multi-platform image viewer and editor built with **Electron** and vanilla Jav
   - A/V: File / Media / Tags (container, codecs, duration, channels, estimated bitrate, …)
   - DICOM: patient / study / series / equipment / pixel-format summary plus an **All DICOM tags** listing
   - Explorer and info panels share equal height by default (splitter is resizable)
+  - Every section is a **table** (label | value); **Details** (image / explorer context menu, File ▸ Details…, `Ctrl+I`) opens a larger dialog with the same tables plus an **image analysis** (histogram, mean colour, luminance mean ± σ and range, clipping) and **Copy all**
+
+- **Side panels / 좌우 패널**
+  - Left: Explorer over File Info. Right: **Color & Adjust** — RGB + luminance histogram, a circular **colour wheel** that tints the image (luminance kept, strength slider), and brightness / contrast / saturation / hue / warmth sliders; every change is one undo step and marks the file unsaved
+  - Each panel title has an icon; one collapse button per side in the panel header and one per side on the toolbar; a collapsed panel stays as a thin rail showing its icons and vertical titles (click it to expand)
 
 - **DICOM viewer / DICOM 뷰어**
   - Frame navigation + cine playback for multi-frame files (`PgUp` / `PgDn`, `Home` / `End`, `Space`) — speed from Frame Time (Vector) / Cine Rate / Recommended Display Frame Rate, adjustable **fps** box
