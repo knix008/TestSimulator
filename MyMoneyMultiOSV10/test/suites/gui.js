@@ -567,6 +567,91 @@ export function registerGui(h) {
       assert.match(platform.clipboardText, /HTTP 500/);
     });
   });
+  h.test("no internet connection shows a confirm popup and does not wait on the network", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.online = false;
+      let called = 0;
+      platform.fetchImpl = async () => {
+        called += 1;
+        return jsonResponse({});
+      };
+      const pending = app.run("refresh");
+      await settle();
+      assert.equal(called, 0, "the request is not started");
+      assert.equal(document.querySelector('[data-popup="progress"]'), null, "no progress window to wait on");
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.match(popup.textContent, /인터넷에 연결되어 있지 않습니다/);
+      assert.equal(popup.querySelector('[data-action="ok"]').textContent.trim(), "확인");
+      assert.equal(popupFits(popup).fits, true);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(document.querySelector('[data-popup="offline"]'), null);
+      assert.equal(document.querySelector('[data-popup="error"]'), null);
+      await app.refreshMarket({ quiet: true });
+      assert.equal(document.querySelector('[data-popup="offline"]'), null, "a later automatic refresh stays quiet");
+      const manual = app.run("refresh");
+      await settle();
+      assert.ok(document.querySelector('[data-popup="offline"]'));
+      document.querySelector('[data-popup="offline"] [data-action="ok"]').click();
+      await manual;
+    });
+  });
+  h.test("a connection that fails immediately asks for confirmation instead of an error report", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.fetchImpl = async () => {
+        throw new Error("Failed to fetch");
+      };
+      const pending = app.run("refresh");
+      await settle();
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.equal(document.querySelector('[data-popup="error"]'), null);
+      assert.equal(document.querySelector('[data-popup="progress"]'), null);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(app.statusMessage, "준비");
+    });
+  });
+  h.test("offline symbol search keeps known listings and confirms only when nothing local matches", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.online = false;
+      let called = 0;
+      platform.fetchImpl = async () => {
+        called += 1;
+        throw new Error("should not fetch");
+      };
+      const known = app.searchAndPick("삼성전자");
+      await settle();
+      assert.equal(called, 0);
+      assert.equal(document.querySelector('[data-popup="offline"]'), null);
+      const results = document.querySelector('[data-popup="search-results"]');
+      assert.ok(results);
+      assert.ok([...results.querySelectorAll('[data-gui="pick"]')].some((row) => row.dataset.symbol === "005930.KS"));
+      results.querySelector('[data-action="cancel"]').click();
+      await known;
+      const missing = app.searchAndPick("zzzzz-nothing");
+      await settle();
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.equal(document.querySelector('[data-popup="search-results"]'), null);
+      assert.equal(called, 0);
+      popup.querySelector('[data-action="ok"]').click();
+      assert.equal(await missing, null);
+    });
+  });
+  h.test("the source link asks for confirmation when the internet is disconnected", async () => {
+    await withApp(async ({ app, platform }) => {
+      platform.online = false;
+      const pending = app.run("open-link");
+      await settle();
+      const popup = document.querySelector('[data-popup="offline"]');
+      assert.ok(popup);
+      assert.equal(platform.external.length, 0);
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+    });
+  });
   h.test("one dead source still leaves a board on screen", async () => {
     await withApp(async ({ app }) => {
       app.platform.fetchImpl = async (url) => {

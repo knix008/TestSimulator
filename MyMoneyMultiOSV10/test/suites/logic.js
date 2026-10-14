@@ -530,6 +530,19 @@ export function registerLogic(h) {
       /No quote source is enabled/,
     );
   });
+  h.test("loadBoard reports a dead connection without treating it as a source error", async () => {
+    const board = { marketCode: "KR", baseCurrency: "KRW", index: "^KS11", symbols: [{ symbol: "005930.KS" }] };
+    const error = await loadBoard(board, {
+      sources: SOURCE_IDS,
+      fetchImpl: async () => {
+        throw new Error("Failed to fetch");
+      },
+    }).then(
+      () => null,
+      (failure) => failure,
+    );
+    assert.equal(error?.code, "OFFLINE");
+  });
   h.test("the news query names the market and the first watched companies", () => {
     const board = {
       marketKo: "한국거래소",

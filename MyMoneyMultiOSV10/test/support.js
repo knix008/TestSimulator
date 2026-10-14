@@ -145,6 +145,9 @@ export function createMemoryPlatform() {
     onWindowState(callback) {
       this.emitWindowState = callback;
     },
+    async isOnline() {
+      return this.online !== false;
+    },
     async fetch(url, options) {
       return this.fetchImpl(url, options);
     },

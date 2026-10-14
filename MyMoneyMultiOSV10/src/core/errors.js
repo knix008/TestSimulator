@@ -28,6 +28,16 @@ export function normalizeError(err, context = {}) {
   };
 }
 
+const OFFLINE_PATTERN =
+  /^(?:offline)$|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|ERR_NETWORK_IO_SUSPENDED|ERR_ADDRESS_UNREACHABLE|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION_TIMED_OUT|ERR_NETWORK_ACCESS_DENIED|ENOTFOUND|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|ETIMEDOUT|Failed to fetch|NetworkError|network error|Load failed/i;
+
+/** A dead connection, as opposed to a server that answered with an error. */
+export function isOfflineError(error) {
+  if (!error) return false;
+  if (error.code === "OFFLINE" || error.name === "OfflineError") return true;
+  return OFFLINE_PATTERN.test(`${error.code || ""} ${error.message || ""}`);
+}
+
 export function errorCopyText(info, labels = {}) {
   const label = (key, fallback) => labels[key] || fallback;
   const head = [`[${info.code}] ${info.message}`];

@@ -5,8 +5,17 @@ export function createElectronPlatform(api) {
     nativeMenus: true,
     nativeWindow: true,
     readSettingsSync: null,
+    async isOnline() {
+      if (typeof api.isOnline !== "function") return true;
+      return (await api.isOnline()) !== false;
+    },
     async fetch(url, options = {}) {
       const response = await api.fetch(url, { headers: options.headers || {} });
+      if (response?.offline) {
+        const error = new Error("OFFLINE");
+        error.code = "OFFLINE";
+        throw error;
+      }
       return {
         ok: response.ok,
         status: response.status,

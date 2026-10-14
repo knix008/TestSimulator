@@ -13,7 +13,7 @@ import {
   withoutSymbol,
 } from "./core/document.js";
 import { acceptImage, classifyDrop } from "./core/drop.js";
-import { AppError, normalizeError } from "./core/errors.js";
+import { AppError, isOfflineError, normalizeError } from "./core/errors.js";
 import { FONT_FLAGS, applyFontFace, fontFace, fontStyleOf, resolveFontList } from "./core/fonts.js";
 import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
@@ -51,6 +51,7 @@ import {
   buildPanelSpec,
   buildPrintSpec,
   buildProgressSpec,
+  buildOfflineSpec,
   buildSettingsSpec,
   buildUnsavedSpec,
   buildRemoveWindowSpec,
@@ -497,6 +498,10 @@ class MoneyApp {
     } catch (error) {
       if (error?.name === "AbortError") {
         this.setStatus(this.t("status.cancelled"));
+        return;
+      }
+      if (isOfflineError(error)) {
+        await this.noteOffline(false);
         return;
       }
       this.reportError(error, id);
@@ -1572,6 +1577,12 @@ class MoneyApp {
 
   async refreshMarket({ quiet = false, progress = false, all = false, force = false } = {}) {
     if (quiet && this.refreshJob && !force) return;
+    if (!(await this.connected())) {
+      await this.noteOffline(quiet);
+      return;
+    }
+    this.offlineTold = false;
+    this.pendingOffline = false;
     const generation = (this.refreshGeneration || 0) + 1;
     this.refreshGeneration = generation;
     this.marketAbort?.abort();
@@ -1591,6 +1602,41 @@ class MoneyApp {
     } finally {
       if (this.refreshGeneration === generation) this.refreshJob = null;
     }
+    if (this.refreshGeneration !== generation || this.destroyed || !this.pendingOffline) return;
+    this.pendingOffline = false;
+    if (!this.progressAborted) await this.noteOffline(quiet);
+  }
+
+  /** The machine itself says there is no internet, so a request would only sit and wait. */
+  async connected() {
+    if (typeof this.platform.isOnline !== "function") return true;
+    try {
+      return (await this.platform.isOnline()) !== false;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * One confirmation is enough. Automatic retries stay quiet until the user asks again
+   * or a later attempt finds the connection back.
+   */
+  async noteOffline(quiet) {
+    if (this.destroyed) return;
+    this.setStatus(this.t("status.ready"));
+    const tell = !quiet || !this.offlineTold;
+    this.offlineTold = true;
+    if (tell) await this.showOfflineNotice();
+  }
+
+  showOfflineNotice() {
+    if (this.offlineNotice) return this.offlineNotice;
+    const spec = buildOfflineSpec((key, vars) => this.t(key, vars));
+    const pending = Promise.resolve(this.openPopup(spec)).finally(() => {
+      if (this.offlineNotice === pending) this.offlineNotice = null;
+    });
+    this.offlineNotice = pending;
+    return pending;
   }
 
   async loadTabs(tabs, signal, quiet, report) {
@@ -1618,6 +1664,10 @@ class MoneyApp {
         }
       } catch (error) {
         if (error?.name === "AbortError" || signal.aborted || this.progressAborted) break;
+        if (isOfflineError(error)) {
+          failed = error;
+          break;
+        }
         failed = error;
         if (!quiet) break;
       }
@@ -1627,6 +1677,11 @@ class MoneyApp {
       // Only a refresh the reader cancelled is worth saying out loud; one
       // replaced by a newer fetch should leave the last numbers alone.
       if (this.progressAborted) this.setStatus(this.t("status.cancelled"));
+      return;
+    }
+    if (isOfflineError(failed)) {
+      this.pendingOffline = true;
+      this.setStatus(this.t("status.ready"));
       return;
     }
     this.setStatus(this.t("status.ready"));
@@ -1653,41 +1708,49 @@ class MoneyApp {
     this.searchResults = [];
     this.searchedFor = q;
     this.searchTrouble = "";
-    await this.withProgress("progress.search", async (report) => {
-      report(30, q);
-      // The catalogue carries Korean names, so it answers what Yahoo cannot.
-      const local = filterListings(this.listingChoices(), "", q).map((entry) => ({
-        ...entry,
-        marketCode: entry.marketCode || marketCodeOf(entry.symbol),
-      }));
-      const askable = asciiQuery(q) || asciiQuery(local[0]?.nameEn) || local[0]?.code || "";
-      let remote = [];
-      if (askable) {
+    this.searchOffline = false;
+    // The catalogue carries Korean names, so it answers what Yahoo cannot.
+    const local = filterListings(this.listingChoices(), "", q).map((entry) => ({
+      ...entry,
+      marketCode: entry.marketCode || marketCodeOf(entry.symbol),
+    }));
+    const askable = asciiQuery(q) || asciiQuery(local[0]?.nameEn) || local[0]?.code || "";
+    let remote = [];
+    if (askable && !(await this.connected())) {
+      // Nothing to wait on. Local hits are still shown; an empty list asks for confirmation.
+      this.searchOffline = true;
+    } else if (askable) {
+      await this.withProgress("progress.search", async (report) => {
+        report(30, q);
         try {
           const rows = await searchSymbols(askable, { fetchImpl: (url, options) => this.platform.fetch(url, options) });
           remote = rows
             .filter((row) => findMarket(marketCodeOf(row.symbol)))
             .map((row) => ({ ...row, marketCode: marketCodeOf(row.symbol) }));
         } catch (error) {
-          // The window still opens; it says the online part did not answer.
-          this.searchTrouble = error?.message || String(error);
+          if (isOfflineError(error)) this.searchOffline = true;
+          else {
+            // The window still opens; it says the online part did not answer.
+            this.searchTrouble = error?.message || String(error);
+          }
         }
-      }
-      report(100, this.t("progress.done"));
-      const listings = [];
-      const seen = new Set();
-      for (const entry of [...local, ...remote]) {
-        if (!entry?.symbol || seen.has(entry.symbol)) continue;
-        seen.add(entry.symbol);
-        listings.push(entry);
-      }
-      for (const listing of listings) {
-        if (!findListing(this.listingChoices(), listing.symbol)) this.extraListings.push(listing);
-      }
-      this.searchResults = listings;
-      this.listingDraft = listings.length ? { ...listings[0] } : null;
-      this.searchQuery = "";
-    });
+        report(100, this.t("progress.done"));
+      });
+    }
+    const listings = [];
+    const seen = new Set();
+    for (const entry of [...local, ...remote]) {
+      if (!entry?.symbol || seen.has(entry.symbol)) continue;
+      seen.add(entry.symbol);
+      listings.push(entry);
+    }
+    for (const listing of listings) {
+      if (!findListing(this.listingChoices(), listing.symbol)) this.extraListings.push(listing);
+    }
+    this.searchResults = listings;
+    this.listingDraft = listings.length ? { ...listings[0] } : null;
+    this.searchQuery = "";
+    if (this.searchOffline && !listings.length) await this.noteOffline(false);
     return this.searchResults;
   }
   /**
@@ -1697,6 +1760,7 @@ class MoneyApp {
   async searchAndPick(query) {
     await this.searchOnline(query);
     const results = this.searchResults || [];
+    if (this.searchOffline && !results.length) return null;
     const answer = await this.openPopup(
       buildSearchResultsSpec(this.searchedFor || "", this.searchResultRows(results), (key, vars) => this.t(key, vars), this.searchTrouble),
     );
@@ -1735,6 +1799,10 @@ class MoneyApp {
   }
 
   async openSourceLink() {
+    if (!(await this.connected())) {
+      await this.noteOffline(false);
+      return;
+    }
     const tab = this.currentTab();
     const url = sourcePageUrl(tab.selectedSymbol || tab.board.activeSymbol);
     await this.withProgress("progress.link", async (report) => {

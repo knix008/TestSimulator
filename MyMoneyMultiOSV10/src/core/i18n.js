@@ -186,6 +186,8 @@ const ROWS = [
   ["popup.error", "오류", "Error"],
   ["popup.progress", "진행", "Progress"],
   ["popup.unsaved", "저장 확인", "Save changes"],
+  ["popup.offline", "인터넷 연결", "Internet"],
+  ["offline.message", "인터넷에 연결되어 있지 않습니다.", "The internet is not connected."],
   ["popup.wallpaperDrop", "배경 그림 확인", "Background image"],
   ["popup.searchResults", "종목 검색 결과", "Search results"],
   ["popup.print", "인쇄", "Print"],

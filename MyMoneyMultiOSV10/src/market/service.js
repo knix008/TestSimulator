@@ -1,5 +1,5 @@
 import { aggregateQuote, aggregateRates, mergeNews } from "./aggregate.js";
-import { AppError } from "../core/errors.js";
+import { AppError, isOfflineError } from "../core/errors.js";
 import { createProviders, parseSymbolSearch, SOURCE_IDS, yahooSearchUrl } from "./providers.js";
 import { listingName } from "./markets.js";
 
@@ -64,7 +64,7 @@ export async function loadBoard(board, options) {
     } catch (error) {
       if (error?.name === "AbortError") throw error;
       note(provider.id, false, error?.message || String(error));
-      return { id: provider.id, ok: false, error: error?.message || String(error), name: error?.name };
+      return { id: provider.id, ok: false, error: error?.message || String(error), name: error?.name, code: error?.code || "" };
     } finally {
       step(provider.id);
     }
@@ -88,6 +88,11 @@ export async function loadBoard(board, options) {
       : Promise.resolve([]),
   ]);
   throwIfAborted(options.signal);
+  if (everyAttemptOffline(quoteRuns, indexRun, rateRuns, newsRuns)) {
+    const error = new Error("OFFLINE");
+    error.code = "OFFLINE";
+    throw error;
+  }
 
   const quotes = [];
   const failures = [];
@@ -156,6 +161,17 @@ async function readPayload(response) {
       return cachedJson;
     },
   };
+}
+
+/** Every request died on the connection itself, so this is not a source that answered badly. */
+function everyAttemptOffline(quoteRuns, indexRun, rateRuns, newsRuns) {
+  const results = [
+    ...quoteRuns.flatMap((attempt) => attempt.results),
+    ...(indexRun?.results || []),
+    ...rateRuns,
+    ...newsRuns,
+  ];
+  return results.length > 0 && results.every((result) => isOfflineError({ code: result.code, name: result.name, message: result.error }));
 }
 
 function throwIfAborted(signal) {

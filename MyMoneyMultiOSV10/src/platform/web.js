@@ -35,10 +35,31 @@ export function createWebPlatform() {
       }
       return resolveFontList([]);
     },
+    async isOnline() {
+      return typeof navigator === "undefined" || navigator.onLine !== false;
+    },
     async fetch(url, options = {}) {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        const error = new Error("OFFLINE");
+        error.code = "OFFLINE";
+        throw error;
+      }
       const headers = { ...(options.headers || {}) };
       delete headers["User-Agent"];
-      return fetch(url, { headers, signal: options.signal });
+      const timeout = typeof AbortSignal?.timeout === "function" ? AbortSignal.timeout(8000) : null;
+      const signals = [options.signal, timeout].filter(Boolean);
+      const signal = timeout && typeof AbortSignal.any === "function" ? AbortSignal.any(signals) : options.signal || timeout || undefined;
+      try {
+        return await fetch(url, { headers, signal });
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        if (timeout?.aborted || error?.name === "TimeoutError" || (typeof navigator !== "undefined" && navigator.onLine === false)) {
+          const offline = new Error("OFFLINE");
+          offline.code = "OFFLINE";
+          throw offline;
+        }
+        throw error;
+      }
     },
     async openFile({ startDir }) {
       const file = await pickFile(false);

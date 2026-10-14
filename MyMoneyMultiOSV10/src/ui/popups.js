@@ -179,6 +179,20 @@ export function buildProgressSpec(title, t) {
   };
 }
 
+export function buildOfflineSpec(t) {
+  return {
+    type: "offline",
+    icon: "warning",
+    title: t("popup.offline"),
+    width: 520,
+    height: 180,
+    resizable: false,
+    scroll: "none",
+    rows: [{ kind: "note", id: "message", text: t("offline.message"), height: 48 }],
+    buttons: [{ id: "ok", action: "ok", icon: "check", label: t("btn.ok") }],
+  };
+}
+
 export function buildUnsavedSpec(fileLabel, t) {
   return {
     type: "unsaved",
@@ -1533,7 +1547,11 @@ function renderRow(row) {
     return `<div class="picks" data-row="${esc(row.id)}" data-gui="picks" data-fit-height="${height}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${picksBody(row.entries, row.pickTip)}</div>`;
   }
   if (row.kind === "note") {
-    return `<p class="popup-note" data-row="${esc(row.id)}">${esc(row.text || "")}</p>`;
+    const height = Number(row.height) || 0;
+    const sized = height
+      ? ` data-fit-height="${height}" style="margin:8px 4px 0;white-space:normal;line-height:1.5;height:${height}px;overflow:hidden;flex:0 0 auto"`
+      : "";
+    return `<p class="popup-note" data-row="${esc(row.id)}"${sized}>${esc(row.text || "")}</p>`;
   }
   if (row.kind === "watchlist") {
     const height = listBlockHeight((row.entries || []).length, Number(row.height) || WATCHLIST_HEIGHT);
@@ -1832,7 +1850,7 @@ function applyPatch(el, patch, spec) {
 export function panelUsedHeight(el, panel) {
   const tabChrome = el.querySelector(".popup-tabs") ? 36 : 0;
   const rows = panel ? [...panel.children].filter((node) => node.classList.contains("popup-row")).length : 0;
-  const notes = panel ? [...panel.children].filter((node) => node.classList.contains("popup-note")).length : 0;
+  const notes = panel ? [...panel.children].filter((node) => node.classList.contains("popup-note") && !node.dataset.fitHeight).length : 0;
   const blocks = panel ? [...panel.children].filter((node) => node.classList.contains("preview-fit") || node.dataset.fitHeight) : [];
   const extra = blocks.reduce((sum, node) => sum + (parseInt(node.dataset.fitHeight || node.style.height, 10) || 0), 0);
   const settings = el.dataset.popup === "settings";
