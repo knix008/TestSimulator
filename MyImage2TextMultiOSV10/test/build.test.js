@@ -8,6 +8,19 @@ import { languageFromInstall } from '../src/i18n.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
+test('the app and the web start separately', () => {
+  const pkg = JSON.parse(read('package.json'));
+  const config = JSON.parse(read('src-tauri/tauri.conf.json'));
+  assert.equal(pkg.scripts.start, 'tauri dev');
+  assert.equal(pkg.scripts['start:web'], 'vite --open');
+  assert.equal(config.build.devUrl, undefined);
+  assert.equal(config.build.beforeDevCommand.script, 'npm run build');
+  assert.equal(config.build.beforeDevCommand.wait, true);
+  assert.equal(config.build.frontendDist, '../dist');
+  assert.match(read('vite.config.js'), /port:\s*5173/);
+  assert.doesNotMatch(read('vite.config.js'), /1420/);
+});
+
 test('platform build scripts are wired', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.scripts['build:web'], 'node scripts/build.mjs web');

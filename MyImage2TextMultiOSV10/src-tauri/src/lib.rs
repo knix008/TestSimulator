@@ -261,10 +261,12 @@ fn install_language_candidates() -> Vec<PathBuf> {
     }
     #[cfg(windows)]
     if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        paths.push(PathBuf::from(&local).join("com.image2text.desktop").join("install-language.txt"));
         paths.push(PathBuf::from(local).join("com.image2text.app").join("install-language.txt"));
     }
     #[cfg(target_os = "macos")]
     if let Some(home) = std::env::var_os("HOME") {
+        paths.push(PathBuf::from(&home).join("Library/Application Support/com.image2text.desktop/install-language.txt"));
         paths.push(PathBuf::from(&home).join("Library/Application Support/com.image2text.app/install-language.txt"));
         paths.push(PathBuf::from(home).join(".config/image2text/install-language"));
     }

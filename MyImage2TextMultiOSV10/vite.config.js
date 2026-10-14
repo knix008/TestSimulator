@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const host = process.env.TAURI_DEV_HOST;
 
 function packageVersion(relativePath) {
   try {
@@ -57,16 +56,9 @@ export default defineConfig({
   plugins: [buildInfoPlugin()],
   clearScreen: false,
   server: {
-    port: 1420,
+    port: 5173,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: 'ws',
-          host,
-          port: 1421,
-        }
-      : undefined,
+    host: false,
     watch: {
       ignored: ['**/src-tauri/**'],
     },
@@ -79,5 +71,6 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    chunkSizeWarningLimit: 2500,
   },
 });

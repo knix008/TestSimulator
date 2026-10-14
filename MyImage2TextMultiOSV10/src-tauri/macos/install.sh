@@ -68,7 +68,7 @@ rm -rf "$dest"
 cp -R "$app" "$dest"
 xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
 
-support="$HOME/Library/Application Support/com.image2text.app"
+support="$HOME/Library/Application Support/com.image2text.desktop"
 mkdir -p "$support"
 printf '%s\n' "$code" > "$support/install-language.txt"
 mkdir -p "$dest/Contents/Resources"

@@ -2,11 +2,13 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Image2Text",
   "version": "2.0.0",
-  "identifier": "com.image2text.app",
+  "identifier": "com.image2text.desktop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": {
+      "script": "npm run build",
+      "wait": true
+    },
     "beforeBuildCommand": "npm run build"
   },
   "app": {

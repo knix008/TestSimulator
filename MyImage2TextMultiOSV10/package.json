@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:web": "node scripts/build.mjs web",
-    "build:windows": "node scripts/build.mjs windows",
+    "build:win": "node scripts/build.mjs windows",
     "build:linux": "node scripts/build.mjs linux",
     "build:macos": "node scripts/build.mjs macos",
     "build:icons": "node scripts/generate-icons.mjs",

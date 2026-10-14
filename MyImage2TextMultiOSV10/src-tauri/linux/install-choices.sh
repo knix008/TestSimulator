@@ -176,6 +176,7 @@ menu_file() {
   for candidate in \
     /usr/share/applications/image2text.desktop \
     /usr/share/applications/Image2Text.desktop \
+    /usr/share/applications/com.image2text.desktop.desktop \
     /usr/share/applications/com.image2text.app.desktop
   do
     if [ -f "$candidate" ]; then
