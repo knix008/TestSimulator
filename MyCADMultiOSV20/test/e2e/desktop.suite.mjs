@@ -1675,6 +1675,37 @@ export const cases = [
     assert.ok(results.filter((e) => e.type === 'polyline').length >= 6, 'deformed shape and moments');
     assert.match(results.find((e) => e.type === 'text').text, /FEM/);
   } },
+  { group: '3D 솔리드', name: 'FEM 판 응력 창: 구멍 뚫린 판 · 변마다 지지 · 하중 → 폰 미제스 색, 결과를 FEM 레이어에 그리기', async run(app) {
+    await fresh(app);
+    await m(app, "(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 400, height: 200 }); k.drawingModule.addEntity(d, 'circle', { cx: 200, cy: 100, r: 30 }); }), 1)");
+    await gone(app, 'plate');
+    await fire(app, "k.run('femPlate')");
+    const win = await app.popup('plate');
+    await expectPopupWindow(app, win, 'plate');
+    await sleep(150);
+    assert.match(await win.eval("document.querySelector('#plate-error').textContent"), /지지/, 'no supports yet');
+    // Four outer sides and the hole; the two 200 mm ends: one held, the other pulled.
+    const rows = await win.eval("[...document.querySelectorAll('.plate-side-row')].map((r) => r.querySelector('span').textContent)");
+    assert.equal(rows.length, 5);
+    const ends = rows.map((text, i) => (/바깥 · 200/.test(text) ? i : -1)).filter((i) => i >= 0);
+    assert.equal(ends.length, 2);
+    await win.eval(`(() => { const s = document.querySelector('[data-plate-support="${ends[0]}"]'); s.value = 'fixed'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(120);
+    await win.eval(`(() => { const s = document.querySelector('[data-plate-load="${ends[1]}:fx"]'); s.value = '20000'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await win.waitFor("document.querySelector('#plate-svg')?.dataset.ok === 'true'");
+    assert.ok(Number(await win.eval("document.querySelector('#plate-svg').dataset.elements")) > 100);
+    assert.equal(await win.eval("document.querySelector('#plate-svg').dataset.deformed"), '2');
+    assert.match(await win.eval("document.querySelector('#plate-vm').textContent"), /MPa/);
+    assert.deepEqual(await win.eval(LAYOUT_CHECK), [], 'window fits');
+    await win.click('[data-action="plate-draw"]');
+    await app.main.waitFor("window.__mycad.actions.activeDrawing().entities.some((e) => e.layer === 'fem')");
+    const d = await drawing(app);
+    assert.equal(d.plate.supports[ends[0]], 'fixed');
+    assert.equal(d.plate.loads[ends[1]].fx, 20000);
+    const results = d.entities.filter((e) => e.layer === 'fem');
+    assert.equal(results.filter((e) => e.type === 'polyline').length, 2, 'deformed outer outline and hole');
+    assert.ok(results.some((e) => e.type === 'text' && /판 FEM/.test(e.text)));
+  } },
   { group: '3D 솔리드', name: 'PartDesign: 포켓(창) · 구멍(카운터보어) · 3단면 로프트 · 메시 단순화', async run(app) {
     await fresh(app);
     await m(app, "(() => { const a = k.actions; const box = a.insertSolid('box', { length: 100, width: 60, height: 30 }, { x: 0, y: 0 }); a.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 10, y: 10, width: 30, height: 20 }); k.drawingModule.addEntity(d, 'circle', { cx: 70, cy: 30, r: 3.3 }); }); const [r] = a.activeDrawing().entities.filter((e) => e.type === 'rect'); a.select([r.id, box.id]); return 1; })()");
@@ -1739,6 +1770,29 @@ export const cases = [
     assert.match(run.text, /^DEF /);
     await fire(app, "k.run('view3d')");
     await sleep(200);
+  } },
+  { group: '3D 솔리드', name: 'Assembly: 바탕 → 부품 회전 조인트, 속성 패널 각도로 돌리기, 바탕 옮기면 따라옴', async run(app) {
+    await fresh(app);
+    await m(app, "(() => { const a = k.actions; a.change('op.solid', (dd) => { k.drawingModule.addEntity(dd, 'solid', { kind: 'box', name: 'frame', params: { length: 100, width: 100, height: 600 } }); k.drawingModule.addEntity(dd, 'solid', { kind: 'box', name: 'door', params: { length: 500, width: 30, height: 580 }, x: 100, y: 0, z: 10 }); }); const ids = a.activeDrawing().entities.map((e) => e.id); a.select(ids); return 1; })()");
+    await chooseMenuItem(await openMenu(app, 'solid'), 'joint:revolute');
+    await app.main.waitFor('window.__mycad.actions.activeDrawing().joints?.length === 1');
+    let d = await drawing(app);
+    assert.equal(d.joints.length, 1);
+    assert.equal(d.joints[0].type, 'revolute');
+    // The door alone selected: its joint row turns it.
+    const door = d.entities.find((e) => e.name === 'door');
+    await fire(app, `k.actions.select([${JSON.stringify(door.id)}])`);
+    await sleep(200);
+    await app.main.eval(`(() => { const i = document.querySelector('#right-panel [data-joint-value$=":angle"]'); i.value = '90'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await app.main.waitFor("Math.abs((window.__mycad.actions.activeDrawing().entities.find((e) => e.name === 'door')?.rz ?? 0) - 90) < 1e-6");
+    d = await drawing(app);
+    let moved = d.entities.find((e) => e.name === 'door');
+    assert.ok(Math.abs(moved.rz - 90) < 1e-6, 'turned on its hinge');
+    const frame = d.entities.find((e) => e.name === 'frame');
+    await m(app, `(k.actions.change('op.move', (dd) => k.drawingModule.updateEntity(dd, ${JSON.stringify(frame.id)}, { x: 1000 })), 1)`);
+    d = await drawing(app);
+    moved = d.entities.find((e) => e.name === 'door');
+    assert.ok(Math.abs(moved.x - 1100) < 1e-6, 'follows its base');
   } },
   { group: '3D 솔리드', name: '단면 창과 투상도 창: 윤곽선, 숨은선은 숨은선 레이어', async run(app) {
     await fresh(app);

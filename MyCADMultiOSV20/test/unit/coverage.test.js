@@ -23,7 +23,7 @@ function appCommands() {
   for (const category of Object.keys(PART_CATEGORIES)) ids.add(`partCategory:${category}`);
   for (const kind of [...SOLID_KINDS, 'pad', 'revolution', 'loft', 'sweep', 'pocket', 'groove', 'hole', 'surfRuled', 'surfFill', 'surfExtrude']) ids.add(`solid:${kind}`);
   ids.add('meshDecimate');
-  for (const id of ['robot:add', 'robot:moveTo', 'robot:path']) ids.add(id);
+  for (const id of ['robot:add', 'robot:moveTo', 'robot:path', 'joint:fixed', 'joint:revolute', 'joint:slider', 'joint:cylindrical']) ids.add(id);
   for (const op of ['union', 'cut', 'common']) ids.add(`bool:${op}`);
   for (const kind of ['fillet', 'chamfer', 'thickness', 'offset3d']) ids.add(`dress:${kind}`);
   ids.add('checkGeometry');
@@ -35,6 +35,7 @@ function appCommands() {
   ids.add('construction');
   for (const id of ['scheduleCsv', 'panelNest']) ids.add(id);
   ids.add('fem');
+  ids.add('femPlate');
   ids.add('spreadsheet');
   for (const fit of ['plane', 'sphere', 'cylinder', 'mesh']) ids.add(`re:${fit}`);
   for (const type of ['coincident', 'horizontal', 'distance', 'angle']) ids.add(`constrain:${type}`);

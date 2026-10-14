@@ -32,6 +32,7 @@ export const POPUPS = {
   check: { width: 860, height: 560 },
   cam: { width: 1000, height: 600 },
   fem: { width: 1180, height: 680 },
+  plate: { width: 1180, height: 680 },
   spreadsheet: { width: 1000, height: 640 },
 };
 

@@ -32,10 +32,12 @@ import { normalizeSpreadsheet, sheetCsv, sheetVariables } from './domain/spreads
 import { eulerTo, fitCylinder, fitPlane, fitSphere, meshFromPoints } from './domain/points.js';
 import { convexHull, placement, solidPoints } from './domain/solids.js';
 import { inverseKinematics, samplePath, toKrl, trajectory } from './domain/robot.js';
+import { JOINT_TYPES, makeJoint, poseOf } from './domain/assembly.js';
 import { setVariables } from './domain/expr.js';
 import { decimateMesh } from './domain/features.js';
 import { camPaths, camSource, toGcode } from './domain/cam.js';
 import { analyzeFrame, autoScale, deformedShape, frameFrom, momentDiagram, normalizeFem } from './domain/fem.js';
+import { analyzePlate, normalizePlate, plateDeformed, platePeak, plateScale, plateSource } from './domain/plate.js';
 import { addConstraint, canConstrain, CONSTRAINT_TYPES, DIMENSIONAL, entityPoint, nearestPoints, pointsOf } from './domain/constraints.js';
 import { featureFrom, meshBox, normalizeSolidData, normalizeSolidParams, flattenTriangles, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh, solidProperties } from './domain/solids.js';
 import { ARCH_FROM_LINES, ARCH_FROM_OUTLINES, ARCH_INSERT_KINDS, archFrom, archQuantities, createBim, normalizeBim, defaultOpening, isArchKind, MATERIAL_PATTERNS, profileFromLoops, REBAR_HOSTS, wallLength, wallWidth } from './domain/arch.js';
@@ -352,6 +354,7 @@ const commands = {
   clearSelection: { icon: 'close', label: 'action.clearSelection', key: 'Esc', enabled: hasSelection, run: () => select([]) },
   ...Object.fromEntries(CONSTRAINT_TYPES.map((type) => [`constrain:${type}`, { icon: `k${type[0].toUpperCase()}${type.slice(1)}`, label: `constraint.${type}`, tip: `constraintTip.${type}`, enabled: () => Boolean(constraintRefs(type)), run: () => constrainSelection(type) }])),
   fem: { icon: 'fem', label: 'action.fem', tip: 'tip.fem', enabled: hasDoc, run: () => openFem() },
+  femPlate: { icon: 'femPlate', label: 'action.femPlate', tip: 'tip.femPlate', enabled: hasDoc, run: () => openPlate() },
   cam: { icon: 'cam', label: 'action.cam', tip: 'tip.cam', enabled: hasDoc, run: () => openCam() },
   workPlaneReset: { icon: 'workPlane', label: 'action.workPlaneReset', enabled: () => Boolean(activeDrawing()?.workPlane), run: () => setWorkPlane(null) },
   construction: { icon: 'construction', label: 'action.construction', tip: 'tip.construction', enabled: () => selectedEntities().some((e) => e.type !== 'solid'), checked: () => { const list = selectedEntities(); return list.length > 0 && list.every((e) => e.construction); }, run: () => toggleConstruction() },
@@ -405,6 +408,7 @@ const commands = {
   'arch:customWindow': { icon: 'archCustomWindow', label: 'arch.customWindow', enabled: hasDoc, run: () => addCustomWindow() },
   bimManager: { icon: 'archBuilding', label: 'action.bimManager', enabled: hasDoc, run: () => openBimManager() },
   scheduleCsv: { icon: 'archSchedule', label: 'action.scheduleCsv', enabled: () => archObjects().length > 0, run: () => exportScheduleCsv() },
+  ...Object.fromEntries(JOINT_TYPES.map((type) => [`joint:${type}`, { icon: `joint${type[0].toUpperCase()}${type.slice(1)}`, label: `joint.${type}`, tip: `jointTip.${type}`, enabled: () => selectedSolids().length === 2, run: () => addJoint(type) }])),
   'robot:add': { icon: 'robot', label: 'robot.add', tip: 'robotTip.add', enabled: hasDoc, run: () => addRobot() },
   'robot:moveTo': { icon: 'robotMove', label: 'robot.moveTo', tip: 'robotTip.moveTo', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotMoveTo() },
   'robot:path': { icon: 'robotPath', label: 'robot.path', tip: 'robotTip.path', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotTrajectory() },
@@ -474,7 +478,7 @@ const MENUS = {
   draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
   modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'clone', 'unlinkClone', 'explode', 'editPart', '-', 'tool:workPlane', 'workPlaneReset', '-', 'construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`), '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
-  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', 'robot:add', 'robot:moveTo', 'robot:path', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
+  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'femPlate', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', ...JOINT_TYPES.map((type) => `joint:${type}`), '-', 'robot:add', 'robot:moveTo', 'robot:path', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
   arch: ARCH_MENU,
   help: ['tutorial', 'tutorialDoc', 'startPage', '-', 'freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
 };
@@ -762,7 +766,7 @@ function leftSectionBody(id, drawing) {
     case 'modify': return `<div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}${commandTiles(['array', 'clone', 'explode'])}</div>${toolOptionsHtml()}`;
     case 'sketch': return `<div class="tool-grid">${commandTiles(['construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`)])}</div>${constraintStatusHtml()}<p class="panel-hint">${t('constraint.hint')}</p>`;
     case 'solids': return `<div class="tool-grid solids-grid">${commandTiles(SOLID_KINDS.map((kind) => `solid:${kind}`))}</div>`;
-    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
+    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'femPlate', 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
     case 'arch': return `<div class="tool-grid solids-grid">${commandTiles(ARCH_MENU.filter((id) => id !== '-' && !['editSolid', 'solidSection', 'solidProject', 'bimManager'].includes(id)))}</div>`;
     case 'building': return buildingTreeHtml(drawing);
     case 'parts': return `<div class="part-categories" role="tablist">${Object.keys(PART_CATEGORIES).map((category) => `<button class="icon-button ${state.partCategory === category ? 'active' : ''}" role="tab" aria-selected="${state.partCategory === category}" data-part-category="${category}" title="${escapeHtml(t(`cat.${category}`))}" aria-label="${escapeHtml(t(`cat.${category}`))}">${icon(CATEGORY_ICONS[category])}</button>`).join('')}<span class="part-category-name">${escapeHtml(t(`cat.${state.partCategory}`))}</span></div>
@@ -2076,6 +2080,7 @@ function renderRightContent(panel, selection) {
       ${entity.clone ? cloneRows(entity) : `${fields}${extra}`}
       ${entity.type !== 'solid' ? `<label class="prop-row" title="${escapeHtml(t('tip.construction'))}"><span class="prop-label">${icon('construction')}${t('action.construction')}</span><input type="checkbox" data-prop-bool="construction" ${entity.construction ? 'checked' : ''} title="${escapeHtml(t('tip.construction'))}" /></label>` : ''}
       ${bindRows(entity)}
+      ${jointRows(entity)}
       ${constraintRows(entity)}
       ${measureRows(entity)}
       <div class="prop-actions">
@@ -2221,6 +2226,13 @@ function onPropertyChange(target) {
     if (!entity) return;
     const material = drawing.bim?.materials.find((item) => item.id === target.value) ?? null;
     change('op.material', (d) => D.updateEntity(d, entity.id, { material: material ? { ...material } : null }));
+    return;
+  }
+  if (target.dataset.jointValue) {
+    const [id, key] = target.dataset.jointValue.split(':');
+    const value = number(target.value);
+    if (value === null) return;
+    setJoint(id, { [key]: value });
     return;
   }
   if (target.dataset.solidParam) {
@@ -2680,6 +2692,42 @@ async function openFem(resultArg = null) {
 }
 
 /**
+ * Plate FEM (FreeCAD FEM, plane stress): the largest selected (or visible)
+ * closed outline is the plate, the outlines inside it holes. The window sets
+ * supports and loads by side and shows the von Mises stress; "draw" puts the
+ * deformed outline, the peak and a summary on the FEM layer.
+ */
+async function openPlate(resultArg = null) {
+  const doc = activeDoc();
+  if (!doc) return null;
+  const selected = selectedEntities();
+  const entities = selected.length ? selected : doc.drawing.entities.filter((e) => D.isVisible(doc.drawing, e) && e.layer !== 'fem');
+  const source = plateSource(collectLoops(entities, doc.drawing).loops);
+  if (!source) { notify('info', t('plate.noOutline')); return null; }
+  const result = resultArg ?? await popups.open('plate', { source, plate: doc.drawing.plate ?? {}, name: docName(doc) });
+  if (!result || !['apply', 'draw'].includes(result.action)) return null;
+  const plate = normalizePlate(result.plate);
+  const analysis = analyzePlate(source.outer, source.holes, plate);
+  change('op.fem', (d) => {
+    d.plate = plate;
+    if (result.action !== 'draw' || !analysis.ok) return;
+    if (!d.layers.some((l) => l.id === 'fem')) d.layers.push({ id: 'fem', name: 'FEM', color: '#e5484d', lineType: 'continuous', lineWidth: null, visible: true, locked: false });
+    d.entities = d.entities.filter((e) => e.layer !== 'fem');
+    const xs = source.outer.map((p) => p.x);
+    const ys = source.outer.map((p) => p.y);
+    const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+    if (result.view?.deformed !== false) for (const points of plateDeformed(analysis, plateScale(analysis))) D.addEntity(d, 'polyline', { points, closed: true, layer: 'fem', lineType: 'dashed' });
+    const peak = platePeak(analysis);
+    const mark = size / 40;
+    D.addEntity(d, 'circle', { cx: peak.x, cy: peak.y, r: mark, layer: 'fem', color: '#e5484d' });
+    D.addEntity(d, 'text', { x: peak.x + mark * 1.4, y: peak.y + mark * 1.4, size: Math.max(2.5, size / 60), layer: 'fem', color: '#e5484d', text: t('plate.peak', { vm: fmt(peak.vm, 1) }) });
+    D.addEntity(d, 'text', { x: Math.min(...xs), y: Math.max(...ys) + size * 0.08, size: Math.max(2.5, size / 60), layer: 'fem', text: t('plate.summary', { disp: fmt(analysis.max.displacement, 4), vm: fmt(analysis.max.vm, 1), util: fmt(analysis.max.utilisation * 100, 0), elements: analysis.mesh.tris.length }) });
+  });
+  if (result.action === 'draw') notify(analysis.ok ? 'success' : 'error', analysis.ok ? t('fem.drawn') : t(`plate.error.${analysis.error}`));
+  return analysis;
+}
+
+/**
  * CAM (FreeCAD CAM): tool paths from the selected 2D outlines (or all visible
  * ones) → a G-code file. The window previews the paths; the file is written here.
  */
@@ -2785,6 +2833,41 @@ function reverseEngineer(fit) {
     notify('success', error === null ? t('notice.reMesh', { count: added.shape?.tris ? added.shape.tris.length / 9 : 0 }) : t('notice.reFit', { name: t(`re.${fit}`), rms: fmt(error, 4) }));
   }
   return added;
+}
+
+// ───────────────────────── Assembly joints (FreeCAD Assembly)
+
+/**
+ * A joint between the two selected solids: the first picked is the base, the
+ * second the moving part; the joint sits at the part's origin, along its z axis.
+ */
+function addJoint(type) {
+  const [base, part] = pickedEntities().filter((e) => e.type === 'solid');
+  if (!base || !part) { notify('info', t('notice.jointNone')); return null; }
+  const drawing = activeDrawing();
+  if ((drawing.joints ?? []).some((j) => j.part === part.id)) { notify('error', t('notice.jointTwice')); return null; }
+  const pose = poseOf(part);
+  const joint = makeJoint(type, base, part, [pose[3], pose[7], pose[11]], [pose[2], pose[6], pose[10]], newJointId(drawing));
+  change('op.joint', (d) => { d.joints = [...(d.joints ?? []), joint]; });
+  notify('success', t('notice.joint', { type: t(`joint.${type}`), base: base.name || t(`solid.${base.kind}`), part: part.name || t(`solid.${part.kind}`) }));
+  return joint;
+}
+
+const newJointId = (drawing) => { let n = (drawing.joints?.length ?? 0) + 1; while ((drawing.joints ?? []).some((j) => j.id === `j${n}`)) n++; return `j${n}`; };
+
+/** Changes a joint's turn (degrees) or slide (mm). */
+function setJoint(id, values) {
+  return change('op.joint', (d) => { d.joints = (d.joints ?? []).map((j) => (j.id === id ? { ...j, ...values } : j)); });
+}
+
+/** The joints a solid takes part in, with their values. */
+function jointRows(entity) {
+  const list = (activeDrawing()?.joints ?? []).filter((j) => j.base === entity.id || j.part === entity.id);
+  if (!list.length) return '';
+  const drawing = activeDrawing();
+  const nameOf = (id) => { const e = D.findEntity(drawing, id); return e ? e.name || t(`solid.${e.kind}`) : '?'; };
+  const input = (j, key) => `<input class="num" data-joint-value="${j.id}:${key}" value="${fmt(j[key], 4)}" title="${escapeHtml(t(`joint.${key}`))}" aria-label="${escapeHtml(t(`joint.${key}`))}" />`;
+  return `<h4>${icon('jointRevolute')}<span>${t('joint.title')}</span></h4><div class="constraint-list">${list.map((j) => `<div class="constraint-row joint-row" data-joint="${j.id}" title="${escapeHtml(`${nameOf(j.base)} → ${nameOf(j.part)}`)}">${icon(commands[`joint:${j.type}`].icon)}<span class="constraint-name">${escapeHtml(t(`joint.${j.type}`))}</span>${j.type === 'revolute' || j.type === 'cylindrical' ? `${input(j, 'angle')}<small>°</small>` : ''}${j.type === 'slider' || j.type === 'cylindrical' ? `${input(j, 'offset')}<small>mm</small>` : ''}<button class="icon-button" data-joint-remove="${j.id}" title="${escapeHtml(t('joint.remove'))}" aria-label="${escapeHtml(t('joint.remove'))}">${icon('trash')}</button></div>`).join('')}</div>`;
 }
 
 // ───────────────────────── Robot (FreeCAD Robot workbench)
@@ -4848,6 +4931,8 @@ function bindEvents() {
       const id = selectedIds()[0];
       return change('op.unbind', (d) => { const e = D.findEntity(d, id); if (!e?.bind) return; const bind = { ...e.bind }; delete bind[bindRemove.dataset.bindRemove]; D.updateEntity(d, id, { bind }); });
     }
+    const jointRemove = target.closest('[data-joint-remove]');
+    if (jointRemove) return change('op.joint', (d) => { d.joints = (d.joints ?? []).filter((j) => j.id !== jointRemove.dataset.jointRemove); if (!d.joints.length) delete d.joints; });
     const constraintRemove = target.closest('[data-constraint-remove]');
     if (constraintRemove) return change('op.unconstrain', (d) => { d.constraints = (d.constraints ?? []).filter((c) => c.id !== constraintRemove.dataset.constraintRemove); });
     const removeButton = target.closest('[data-layer-remove]');
@@ -5210,7 +5295,7 @@ window.__mycad = {
     setTool, submitCommand, zoomBy, setZoomPercent, zoomFit, updateSettings, handleDroppedPaths, handleDroppedFiles,
     setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu, contextMenuFor, activeDoc, activeDrawing,
     toScreen, docName, scrollTabs, withProgress, exportAs, renderPng, openStlDialog, exportStl, openPartDialog, openArrayDialog, explodeSelection, deleteSelection,
-    duplicateSelection, setWorkPlane, openCam, openFem, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
+    duplicateSelection, setWorkPlane, openCam, openFem, openPlate, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, addJoint, setJoint, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
     toggle3d, rebuild3d, view3d: () => view3d.instance,
     openSolidDialog, insertSolid, solidFeature, dressUp, checkGeometry, repairSolids, archFeature, addOpening, insertSchedule, scheduleLines, addRebar, addCustomWindow, openBimManager, applyBim, addLevel, ensureBim, wallWidth, solidProperties, planOf: (entity) => primitives(entity), applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
     openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids, setView3dStyle,

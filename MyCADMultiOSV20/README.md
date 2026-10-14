@@ -25,7 +25,7 @@ FreeCAD 와 기능별 대응은 앱의 **도움말 › 기능표** 에서, 읽�
 ```bash
 npm install
 npm start                 # 데스크톱 앱 (개발 모드)
-npm run dev               # 웹 버전 (http://localhost:1440)
+npm run dev               # 웹 버전 (http://localhost:1450)
 npm run build:web         # 웹 빌드 → dist/
 npm run build:win         # Windows 설치 파일 (NSIS, 한국어/English)
 npm run build:mac         # macOS .dmg

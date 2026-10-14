@@ -238,7 +238,7 @@ const groupOf = (name) => (name.includes('::') ? name.split('::').slice(0, -1).f
 
 function exec(command, commandArgs, options = {}) {
   return new Promise((resolve) => {
-    const child = spawn(command, commandArgs, { cwd: root, env: { ...process.env, CARGO_TERM_COLOR: 'never' }, shell: options.shell ?? false });
+    const child = spawn(command, commandArgs, { cwd: root, env: { ...process.env, ...options.env, CARGO_TERM_COLOR: 'never' }, shell: options.shell ?? false });
     let output = '';
     child.stdout?.on('data', (chunk) => { output += chunk; options.onOutput?.(chunk.toString()); });
     child.stderr?.on('data', (chunk) => { output += chunk; options.onOutput?.(chunk.toString()); });
@@ -289,17 +289,22 @@ async function runDesktop(report) {
   }
   spin('앱 빌드 확인 중… (cargo build)');
   await exec('powershell.exe', ['-NoProfile', '-Command', `Get-Process mycad -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${path.join(root, 'src-tauri', 'target').replace(/'/g, "''")}*' } | Stop-Process -Force`]);
+  const { App, devPortEnv } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'harness.mjs')).href);
+  const { freeDevPort } = await import(pathToFileURL(path.join(root, 'scripts', 'port.mjs')).href);
+  // Always a port nobody uses: the app is built to load its UI from there.
+  const port = await freeDevPort();
   const start = performance.now();
-  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`앱 빌드 중… ${m[1]}`); } });
+  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { env: devPortEnv(port), onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`앱 빌드 중… ${m[1]}`); } });
   report({ name: '앱 빌드 (cargo build)', group: '빌드', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').filter((l) => /error/.test(l)).slice(0, 10).join('\n') : null });
   if (build.code !== 0) return;
-  const { App } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'harness.mjs')).href);
   const { cases: all } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'desktop.suite.mjs')).href);
   // MYCAD_E2E_GROUPS=3D 솔리드,부품 runs only those groups (to check just what changed).
   const groups = (process.env.MYCAD_E2E_GROUPS ?? '').split(',').map((g) => g.trim()).filter(Boolean);
-  const cases = groups.length ? all.filter((item) => groups.includes(item.group)) : all;
+  // MYCAD_E2E_NAMES=Assembly runs only the cases whose names contain one of the words.
+  const names = (process.env.MYCAD_E2E_NAMES ?? '').split(',').map((g) => g.trim()).filter(Boolean);
+  const cases = all.filter((item) => (!groups.length || groups.includes(item.group)) && (!names.length || names.some((n) => item.name.includes(n))));
   spin('앱 실행 중…');
-  const app = new App();
+  const app = new App({ devPort: port });
   const launched = performance.now();
   try {
     await app.start();

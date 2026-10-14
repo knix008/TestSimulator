@@ -22,6 +22,7 @@ import { coverageSummary, FREECAD_COVERAGE } from './domain/freecad.js';
 import { CAM_OPERATIONS, camPaths, camStats, normalizeCamOptions, PROFILE_SIDES } from './domain/cam.js';
 import { columnName, computeSheet, isCell, normalizeSpreadsheet, SHEET_ROWS } from './domain/spreadsheet.js';
 import { analyzeFrame, autoScale, deformedShape, MATERIALS, momentDiagram, normalizeFem, SECTION_TYPES, SUPPORT_TYPES } from './domain/fem.js';
+import { analyzePlate, normalizePlate, PLATE_SUPPORTS, plateDeformed, platePeak, plateScale, plateSides, stressColor } from './domain/plate.js';
 import {
   ALL_SOLID_KINDS, featureFrom, normalizeSolidParams, projectEdges, REVOLVE_AXES, sectionAt, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh, solidProperties, VIEW_AXES,
 } from './domain/solids.js';
@@ -158,7 +159,7 @@ function render() {
   try {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress,
-      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage, tutorial: renderTutorial, bim: renderBim, check: renderCheck, cam: renderCam, fem: renderFem, spreadsheet: renderSheet,
+      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage, tutorial: renderTutorial, bim: renderBim, check: renderCheck, cam: renderCam, fem: renderFem, plate: renderPlate, spreadsheet: renderSheet,
     })[kind]?.();
   } catch (error) {
     action('report-error', { message: String(error?.stack ?? error), context: `popup-${kind}` });
@@ -1418,6 +1419,100 @@ function femPreview(frame, o, result, view) {
   </svg>`;
 }
 
+// ───────────────────────── Plate FEM (plane stress)
+
+function plateInit() {
+  state.plate = { options: normalizePlate(state.params.plate ?? {}), view: { deformed: true, mesh: false } };
+  state.page = 0;
+}
+
+/** The plate coloured by von Mises stress, with its sides numbered, supports, loads and the deformed outline. */
+function platePreview(source, sides, o, result, view) {
+  const pts = [...source.outer, ...source.holes.flat()];
+  const deformed = result.ok && view.deformed ? plateDeformed(result, plateScale(result)) : [];
+  const all = [...pts, ...deformed.flat()];
+  const size = Math.max(Math.max(...all.map((p) => p.x)) - Math.min(...all.map((p) => p.x)), Math.max(...all.map((p) => p.y)) - Math.min(...all.map((p) => p.y)), 1);
+  const pad = size * 0.1;
+  const minX = Math.min(...all.map((p) => p.x)) - pad; const maxX = Math.max(...all.map((p) => p.x)) + pad;
+  const minY = Math.min(...all.map((p) => p.y)) - pad; const maxY = Math.max(...all.map((p) => p.y)) + pad;
+  const w = 560; const h = 420;
+  const k = Math.min(w / (maxX - minX), h / (maxY - minY));
+  const X = (x) => ((x - minX) * k + (w - (maxX - minX) * k) / 2).toFixed(1);
+  const Y = (y) => (h - (y - minY) * k - (h - (maxY - minY) * k) / 2).toFixed(1);
+  const ring = (list) => `${list.map((p, i) => `${i ? 'L' : 'M'}${X(p.x)} ${Y(p.y)}`).join('')}Z`;
+  let fill = '';
+  if (result.ok) {
+    // Smoothed: each triangle takes the mean of its nodes' (area-averaged) stresses.
+    const top = Math.max(...result.nodalVm) || 1;
+    const { nodes, tris } = result.mesh;
+    const shade = (t) => stressColor((result.nodalVm[t[0]] + result.nodalVm[t[1]] + result.nodalVm[t[2]]) / 3 / top);
+    fill = tris.map((t) => `<path d="M${X(nodes[t[0]][0])} ${Y(nodes[t[0]][1])}L${X(nodes[t[1]][0])} ${Y(nodes[t[1]][1])}L${X(nodes[t[2]][0])} ${Y(nodes[t[2]][1])}Z" fill="${shade(t)}"${view.mesh ? ' class="plate-tri"' : ` stroke="${shade(t)}"`}/>`).join('');
+  }
+  const loops = [source.outer, ...source.holes];
+  const sideMarks = sides.map((side, i) => {
+    const loop = loops[side.loop];
+    const run = Array.from({ length: side.count + 1 }, (_, j) => loop[(side.from + j) % loop.length]);
+    const line = run.map((p, j) => `${j ? 'L' : 'M'}${X(p.x)} ${Y(p.y)}`).join('');
+    const support = o.supports[i] ? `<path d="${line}" class="plate-support"/>` : '';
+    const l = o.loads[i];
+    let arrow = '';
+    if (l) {
+      const len = Math.hypot(l.fx, l.fy);
+      const ux = l.fx / len; const uy = -l.fy / len;
+      const x = Number(X(side.mid.x)); const y = Number(Y(side.mid.y));
+      arrow = `<path d="M${x - ux * 34} ${y - uy * 34}L${x - ux * 4} ${y - uy * 4}" class="fem-load"/><path d="M${x - ux * 4} ${y - uy * 4}l${-ux * 7 - uy * 4} ${-uy * 7 + ux * 4}l${uy * 8} ${-ux * 8}z" class="fem-load fill"/>`;
+    }
+    return `${support}${arrow}<text x="${Number(X(side.mid.x)) + 4}" y="${Number(Y(side.mid.y)) - 4}" class="fem-node plate-side">${i + 1}</text>`;
+  }).join('');
+  return `<svg id="plate-svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" data-ok="${result.ok}" data-elements="${result.ok ? result.mesh.tris.length : 0}" data-deformed="${deformed.length}">
+    ${fill}
+    <path d="${loops.map(ring).join('')}" class="fem-member plate-outline"/>
+    ${deformed.map((list) => `<path d="${ring(list)}" class="fem-deformed"/>`).join('')}
+    ${sideMarks}
+  </svg>`;
+}
+
+function renderPlate() {
+  if (!state.plate) plateInit();
+  const source = state.params.source ?? { outer: [], holes: [] };
+  const o = state.plate.options;
+  const view = state.plate.view;
+  const sides = plateSides([source.outer, ...source.holes]);
+  const result = analyzePlate(source.outer, source.holes, o);
+  const pages = Math.max(1, Math.ceil(sides.length / FEM_PAGE));
+  state.page = Math.min(Math.max(0, state.page), pages - 1);
+  const field = (key, label, glyph, min, max, step, unit) => row(glyph, t(label), numberField(`plate:${key}`, o[key], min, max, step, unit, t(label)));
+  const sideRows = sides.slice(state.page * FEM_PAGE, (state.page + 1) * FEM_PAGE).map((side, j) => {
+    const i = state.page * FEM_PAGE + j;
+    const load = o.loads[i] ?? { fx: 0, fy: 0 };
+    const num = (part) => `<input class="fem-num" data-plate-load="${i}:${part}" value="${fmt(load[part], 4)}" title="${escapeHtml(t(`plate.load.${part}`))}" aria-label="${escapeHtml(t(`plate.load.${part}`))}" />`;
+    return `<div class="fem-node-row plate-side-row"><b>${i + 1}</b><span class="muted">${escapeHtml(`${side.loop ? t('plate.hole') : t('plate.edge')} · ${fmt(side.length, 1)} mm`)}</span><select data-plate-support="${i}" title="${escapeHtml(t('fem.support'))}">${PLATE_SUPPORTS.map((v) => `<option value="${v}" ${(o.supports[i] ?? 'free') === v ? 'selected' : ''}>${escapeHtml(t(`fem.support.${v}`))}</option>`).join('')}</select>${num('fx')}${num('fy')}</div>`;
+  }).join('');
+  const pager = pages > 1 ? `<span class="check-pager"><button class="icon-button" data-action="page" data-value="-1" title="${escapeHtml(t('print.prev'))}" aria-label="${escapeHtml(t('print.prev'))}" ${state.page <= 0 ? 'disabled' : ''}>${icon('chevronLeft')}</button><span>${state.page + 1} / ${pages}</span><button class="icon-button" data-action="page" data-value="1" title="${escapeHtml(t('print.next'))}" aria-label="${escapeHtml(t('print.next'))}" ${state.page >= pages - 1 ? 'disabled' : ''}>${icon('chevronRight')}</button></span>` : '';
+  const util = result.ok ? result.max.utilisation : 0;
+  const chips = result.ok
+    ? `<span class="info-chip">${escapeHtml(t('fem.maxDisp'))} <b id="plate-disp">${fmt(result.max.displacement, 4)} mm</b></span><span class="info-chip">${escapeHtml(t('plate.maxVm'))} <b id="plate-vm">${fmt(result.max.vm, 1)} MPa</b></span><span class="info-chip ${util > 1 ? 'status-none' : util > 0.8 ? 'status-partial' : 'status-full'}">${escapeHtml(t('fem.utilisation'))} <b>${fmt(util * 100, 0)} %</b></span>`
+    : `<span class="info-chip status-none" id="plate-error">${icon('warning')} ${escapeHtml(t(`plate.error.${result.error}`))}</span>`;
+  const legend = result.ok ? `<span class="plate-legend" title="${escapeHtml(t('plate.legend'))}"><span>0</span><i style="background: linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map((v) => stressColor(v)).join(', ')})"></i><span>${fmt(Math.max(...result.nodalVm), 1)} MPa</span></span>` : '';
+  root.innerHTML = frameHtml({
+    glyph: 'femPlate', title: `${t('plate.title')} — ${state.params.name ?? ''}`,
+    body: `<div class="fem-view"><div class="fem-fields">
+      ${row('layers', t('fem.material'), `<select data-plate-material title="${escapeHtml(t('fem.material'))}">${[...Object.keys(MATERIALS), 'custom'].map((m) => `<option value="${m}" ${o.material === m ? 'selected' : ''}>${escapeHtml(t(`fem.material.${m}`))}</option>`).join('')}</select>`)}
+      ${o.material === 'custom' ? field('E', 'fem.E', 'measure', 1, 1e7, 1000, 'MPa') : ''}
+      ${field('nu', 'plate.nu', 'measure', 0, 0.49, 0.01, '')}
+      ${field('thickness', 'plate.thickness', 'measure', 0.001, 1e5, 1, 'mm')}
+      ${field('size', 'plate.size', 'grid', 0, 1e5, 1, 'mm')}
+      <div class="fem-node-head plate-side-head"><span>#</span><span>${escapeHtml(t('plate.side'))}</span><span>${escapeHtml(t('fem.support'))}</span><span>Fx N</span><span>Fy N</span></div>
+      <div class="fem-nodes">${sideRows}</div>${pager}
+    </div>
+    <div class="fem-side"><div class="fem-preview">${platePreview(source, sides, o, result, view)}</div>
+      <div class="fem-toggles"><label>${switchControl('data-plate-view="deformed"', view.deformed, t('fem.deformed'))}<span>${escapeHtml(t('fem.deformed'))}</span></label><label>${switchControl('data-plate-view="mesh"', view.mesh, t('plate.mesh'))}<span>${escapeHtml(t('plate.mesh'))}</span></label>${legend}<span class="muted">${escapeHtml(t('plate.counts', { nodes: result.ok ? result.mesh.nodes.length : 0, elements: result.ok ? result.mesh.tris.length : 0 }))}</span></div>
+    </div></div>`,
+    foot: `${chips}<span class="grow"></span>${button('close', t('confirm.cancel'), 'close')}<button class="button" data-action="plate-apply" title="${escapeHtml(t('fem.applyTip'))}">${icon('save')}<span>${escapeHtml(t('fem.apply'))}</span></button><button class="button primary" data-action="plate-draw" title="${escapeHtml(t('plate.drawTip'))}" ${result.ok ? '' : 'disabled'}>${icon('femPlate')}<span>${escapeHtml(t('fem.draw'))}</span></button>`,
+  });
+  ready();
+}
+
 function renderFem() {
   if (!state.fem) femInit();
   const frame = state.params.frame ?? { nodes: [], members: [] };
@@ -1744,6 +1839,10 @@ root.addEventListener('click', async (event) => {
       return close({ action: 'apply', fem: state.fem.options });
     case 'fem-draw':
       return close({ action: 'draw', fem: state.fem.options, view: state.fem.view });
+    case 'plate-apply':
+      return close({ action: 'apply', plate: state.plate.options });
+    case 'plate-draw':
+      return close({ action: 'draw', plate: state.plate.options, view: state.plate.view });
     case 'check-repair':
       return close({ action: 'repair', ids: [...state.check.marked] });
     default:
@@ -1789,6 +1888,16 @@ root.addEventListener('change', (event) => {
     if (!Number.isFinite(value)) return render();
     const loads = { ...state.fem.options.loads, [key]: { fx: 0, fy: 0, m: 0, ...(state.fem.options.loads[key] ?? {}), [part]: part === 'm' ? value * 1000 : value } };
     state.fem.options = normalizeFem({ ...state.fem.options, loads });
+    return render();
+  }
+  if (target.dataset.plateView) { state.plate.view[target.dataset.plateView] = target.checked; return render(); }
+  if (target.dataset.plateMaterial !== undefined) { state.plate.options = normalizePlate({ ...state.plate.options, material: target.value, E: state.plate.options.E, nu: undefined }); return render(); }
+  if (target.dataset.plateSupport) { state.plate.options = normalizePlate({ ...state.plate.options, supports: { ...state.plate.options.supports, [target.dataset.plateSupport]: target.value } }); return render(); }
+  if (target.dataset.plateLoad) {
+    const [side, part] = target.dataset.plateLoad.split(':');
+    const value = Number(evaluate(target.value));
+    if (!Number.isFinite(value)) return render();
+    state.plate.options = normalizePlate({ ...state.plate.options, loads: { ...state.plate.options.loads, [side]: { fx: 0, fy: 0, ...(state.plate.options.loads[side] ?? {}), [part]: value } } });
     return render();
   }
   if (target.dataset.camToggle) { state.cam[target.dataset.camToggle] = target.checked; return render(); }
@@ -1867,7 +1976,10 @@ bindSteppers(root, (key, value) => {
     d.params = normalizeParams(d.kind, { ...d.params, [field]: value });
     d.cache[d.kind] = d.params;
     render();
-  } else if (scope === 'array') { state.array[field] = value; render(); } else if (scope === 'stl') { state.stl[field] = value; render(); } else if (scope === 'cam') { state.cam = normalizeCamOptions({ ...state.cam, [field]: value }); render(); } else if (scope === 'fem') {
+  } else if (scope === 'array') { state.array[field] = value; render(); } else if (scope === 'stl') { state.stl[field] = value; render(); } else if (scope === 'cam') { state.cam = normalizeCamOptions({ ...state.cam, [field]: value }); render(); } else if (scope === 'plate') {
+    state.plate.options = normalizePlate({ ...state.plate.options, [field]: value });
+    render();
+  } else if (scope === 'fem') {
     const o = state.fem.options;
     state.fem.options = normalizeFem(field.startsWith('section.') ? { ...o, section: { ...o.section, [field.slice(8)]: value } } : { ...o, [field]: value });
     render();
@@ -1963,6 +2075,7 @@ function refresh() {
   if (kind === 'check') { state.check = null; state.page = 0; }
   if (kind === 'cam') state.cam = null;
   if (kind === 'fem') state.fem = null;
+  if (kind === 'plate') state.plate = null;
   if (kind === 'spreadsheet') state.sheetEdit = null;
   if (kind === 'tutorial') state.tutorialHtml = null;
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;

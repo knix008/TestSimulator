@@ -1,7 +1,9 @@
 // Starts the real MyCAD desktop app (debug build) for end-to-end tests
 // and drives it over the Chrome DevTools Protocol (WebView2 on Windows).
 //
-// - Vite serves the UI on :1440 (reused when a dev server already runs there).
+// - Vite is started on a port nobody uses (never an already running server:
+//   another program's page would show). The debug build loads its UI from
+//   1450; scripts/test.mjs builds it for another port through TAURI_CONFIG.
 // - The app runs with its own WebView2 profile, config and data folders, so the
 //   user's settings, recent files and any installed MyCAD are untouched.
 import { execFileSync, spawn } from 'node:child_process';
@@ -11,10 +13,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listTargets, Page, sleep, waitTarget } from './cdp.mjs';
+import { BASE_PORT, freeDevPort, portInUse } from '../../scripts/port.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const exe = path.join(root, 'src-tauri', 'target', 'debug', process.platform === 'win32' ? 'mycad.exe' : 'mycad');
-export const DEV_PORT = 1440;
+export const DEV_PORT = BASE_PORT;
+
+/** The env for cargo build: the debug app loads its UI from that port (1450 is tauri.conf.json's). */
+export const devPortEnv = (port) => (port === BASE_PORT ? {} : { TAURI_CONFIG: JSON.stringify({ build: { devUrl: `http://localhost:${port}` } }) });
 
 export function portOpen(port) {
   return new Promise((resolve) => {
@@ -35,8 +41,10 @@ export async function freePort() {
 }
 
 export class App {
-  constructor({ ioDelay = 0 } = {}) {
+  /** devPort: the port the debug build was made for (scripts/test.mjs picks a free one). */
+  constructor({ ioDelay = 0, devPort = BASE_PORT } = {}) {
     this.ioDelay = ioDelay;
+    this.devPort = devPort;
   }
 
   async start() {
@@ -47,11 +55,13 @@ export class App {
     this.config = path.join(this.work, 'config');
     this.data = path.join(this.work, 'data');
     for (const dir of [this.files, this.profile, this.config, this.data]) fs.mkdirSync(dir, { recursive: true });
-    if (!(await portOpen(DEV_PORT))) {
-      const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
-      this.vite = spawn(process.execPath, [vite, '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
-      for (let i = 0; i < 150 && !(await portOpen(DEV_PORT)); i++) await sleep(100);
+    if (await portInUse(this.devPort)) {
+      const free = await freeDevPort(this.devPort);
+      throw new Error(`포트 ${this.devPort} 을(를) 다른 프로그램이 쓰고 있습니다. npm test 로 실행하거나 앱을 포트 ${free} 용으로 빌드하세요 (TAURI_CONFIG devUrl).`);
     }
+    const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
+    this.vite = spawn(process.execPath, [vite, '--port', String(this.devPort), '--strictPort'], { cwd: root, stdio: 'ignore' });
+    for (let i = 0; i < 150 && !(await portOpen(this.devPort)); i++) await sleep(100);
     await this.warmUp();
     await this.launch();
     return this;
@@ -63,7 +73,7 @@ export class App {
    * slow or be reloaded by Vite while the test waits.
    */
   async warmUp() {
-    const base = `http://localhost:${DEV_PORT}`;
+    const base = `http://localhost:${this.devPort}`;
     for (const file of ['/', '/src/main.js', '/src/app.js', '/src/popup.js']) {
       try { await (await fetch(base + file, { signal: AbortSignal.timeout(60000) })).text(); } catch { /* the app load will report problems */ }
     }

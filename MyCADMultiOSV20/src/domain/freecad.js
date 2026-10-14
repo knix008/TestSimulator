@@ -153,9 +153,9 @@ export const FREECAD_COVERAGE = [
   {
     id: 'other', ko: '기타 워크벤치', en: 'Other workbenches', icon: 'info',
     items: [
-      item('partial', 'Assembly (조립)', 'Assembly', ['editSolid'], '부품 배치만, 조인트 없음', 'Placement only, no joints'),
+      item('full', 'Assembly — 고정 · 회전 · 슬라이더 · 원통 조인트, 바탕을 움직이면 부품이 따라감, 각도 · 거리로 구동', 'Assembly — fixed, revolute, slider and cylindrical joints; parts follow their base; driven by angle and offset', ['joint:fixed', 'joint:revolute', 'joint:slider', 'joint:cylindrical', 'editSolid']),
       item('full', 'OpenSCAD (CSG) — .scad / .csg 읽기/쓰기 (FreeCAD OpenSCAD 워크벤치로 확인)', 'OpenSCAD (CSG) — .scad / .csg read and write (checked with FreeCAD\'s OpenSCAD workbench)', ['export3d:scad', 'import3d', 'bool:union', 'bool:cut', 'bool:common']),
-      item('partial', 'FEM (유한요소 해석)', 'FEM (finite elements)', ['fem'], '2D 골조 보 요소 선형 정적 해석(지지 · 하중 · 단면 · 변위 · 모멘트 · 응력); 3D 솔리드 요소 · CalculiX 없음', '2D frames of beam elements, linear static (supports, loads, sections, displacements, moments, stresses); no 3D solid elements or CalculiX'),
+      item('partial', 'FEM (유한요소 해석)', 'FEM (finite elements)', ['fem', 'femPlate'], '2D 골조 보 요소 + 판 평면 응력(삼각형 요소, 폰 미제스, 구멍) 선형 정적 해석; 3D 솔리드 요소 · CalculiX 없음', '2D frames of beam elements and plane-stress plates (triangle elements, von Mises, holes), linear static; no 3D solid elements or CalculiX'),
       item('partial', 'CAM (G 코드 가공 경로)', 'CAM (G-code tool paths)', ['cam'], '2.5D: 윤곽(안/밖) · 포켓 · 드릴(G83) · 각인, 공구 하나; 3D 표면 가공 · 시뮬레이터 없음', '2.5D: profile (in/out), pocket, drilling (G83), engrave, one tool; no 3D surfacing or simulator'),
       item('full', 'Spreadsheet — 셀 · 수식 · 별칭, 속성 값을 수식으로 묶기, CSV', 'Spreadsheet — cells, formulas, aliases, property values bound to expressions, CSV', ['spreadsheet']),
       item('full', 'Points — 점 구름 읽기/쓰기 (.xyz · .asc · .pts · ASCII .pcd), 3D 점 표시', 'Points — point clouds in and out (.xyz, .asc, .pts, ASCII .pcd), shown as dots', ['import3d', 'export3d:xyz']),

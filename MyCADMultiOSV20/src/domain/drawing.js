@@ -6,6 +6,7 @@ import { composeClone, syncClones } from './clones.js';
 import { normalizeWorkPlane } from './workplane.js';
 import { normalizeConstraints } from './constraints.js';
 import { normalizeFem } from './fem.js';
+import { normalizePlate } from './plate.js';
 import { normalizeSpreadsheet } from './spreadsheet.js';
 import { normalizeJoints } from './assembly.js';
 import { normalizeBim } from './arch.js';
@@ -91,6 +92,7 @@ export function normalizeDrawing(raw, language = 'ko') {
     ...(normalizeWorkPlane(raw?.workPlane) ? { workPlane: normalizeWorkPlane(raw.workPlane) } : {}),
     ...(normalizeConstraints(raw?.constraints).length ? { constraints: normalizeConstraints(raw.constraints) } : {}),
     ...(raw?.fem ? { fem: normalizeFem(raw.fem) } : {}),
+    ...(raw?.plate ? { plate: normalizePlate(raw.plate) } : {}),
     ...(raw?.spreadsheet ? { spreadsheet: normalizeSpreadsheet(raw.spreadsheet) } : {}),
     // Assembly joints between solids.
     ...(normalizeJoints(raw?.joints).length ? { joints: normalizeJoints(raw.joints) } : {}),

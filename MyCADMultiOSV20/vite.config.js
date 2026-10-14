@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
+import { freeDevPort } from './scripts/port.mjs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 const commit = (() => {
@@ -39,7 +40,7 @@ function copyContent() {
 
 // Tauri expects a fixed dev server port (tauri.conf.json → build.devUrl).
 // The web build is relative (base './') so dist/ can be served from any folder.
-export default defineConfig({
+export default defineConfig(async ({ command }) => ({
   base: './',
   clearScreen: false,
   define: {
@@ -48,8 +49,9 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     __BUILD_COMMIT__: JSON.stringify(commit),
   },
-  server: { port: 1440, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**'] } },
+  // A port nobody uses (another program's page must never show); --port overrides it.
+  server: { port: command === 'serve' ? await freeDevPort() : 1450, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**'] } },
   // three.js (the 3D view) is a lazily loaded chunk of its own.
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 700 },
   plugins: [copyContent()],
-});
+}));

@@ -6,7 +6,7 @@
   "identifier": "com.shkwon.mycad.v2",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1440",
+    "devUrl": "http://localhost:1450",
     "beforeBuildCommand": "npm run build:web",
     "frontendDist": "../dist"
   },
