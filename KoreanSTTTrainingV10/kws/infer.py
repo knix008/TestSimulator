@@ -32,6 +32,57 @@ def softmax(logits: np.ndarray) -> np.ndarray:
     return (exp_scores / np.sum(exp_scores)).astype(np.float32)
 
 
+def command_score(probs: np.ndarray, silence_index: int) -> float:
+    values = np.asarray(probs, dtype=np.float32).reshape(-1)
+    if values.size == 0:
+        return 0.0
+    if not 0 <= silence_index < values.size:
+        return float(np.max(values))
+    masked = values.copy()
+    masked[silence_index] = -1.0
+    return float(np.max(masked))
+
+
+def command_probs(classifier, wav: np.ndarray, sample_rate: int = 16000) -> np.ndarray:
+    """1초보다 긴 마이크 입력에서는 명령 확률이 가장 높은 위치에 창을 맞춘다."""
+    wav = np.ascontiguousarray(np.asarray(wav, dtype=np.float32).reshape(-1))
+    window = int(sample_rate)
+    if wav.size <= window:
+        return classifier.predict_proba(wav)
+    silence_index = classifier.bundle.labels.index(classifier.bundle.silence_label)
+    hop = max(1, sample_rate // 10)
+    best = None
+    best_score = -1.0
+    start = 0
+    last = wav.size - window
+    while True:
+        probs = classifier.predict_proba(wav[start : start + window])
+        score = command_score(probs, silence_index)
+        if score > best_score:
+            best_score = score
+            best = probs
+        if start >= last:
+            break
+        start = min(last, start + hop)
+    return best
+
+
+def hold_command(
+    previous: np.ndarray | None,
+    current: np.ndarray,
+    silence_index: int,
+    hold_left: int,
+    hold_frames: int = 3,
+) -> tuple[np.ndarray, int]:
+    """짧은 말이 앞뒤 무음과 평균 내어 임계값 아래로 내려가지 않게 잠깐 유지한다."""
+    current = np.asarray(current, dtype=np.float32).reshape(-1)
+    if previous is None or command_score(current, silence_index) >= command_score(previous, silence_index) - 0.05:
+        return current, hold_frames
+    if hold_left > 0:
+        return np.asarray(previous, dtype=np.float32), hold_left - 1
+    return current, 0
+
+
 def decide(probs: np.ndarray, labels: list[str], silence_label: str, threshold: float) -> Decision:
     values = np.asarray(probs, dtype=np.float32).reshape(-1)
     if values.size != len(labels):
@@ -144,7 +195,7 @@ def main() -> int:
     try:
         bundle = ModelBundle(project.model_dir)
         engine = args.engine if args.engine in bundle.engines() else bundle.engines()[0]
-        probs = bundle.classifier(engine).predict_proba(load_model_wav(args.wav))
+        probs = command_probs(bundle.classifier(engine), load_model_wav(args.wav))
     except Exception as exc:
         print(exc, file=sys.stderr)
         return 1

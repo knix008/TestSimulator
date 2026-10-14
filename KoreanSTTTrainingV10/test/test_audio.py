@@ -5,6 +5,8 @@ import soundfile as sf
 
 from kws.audio import (
     MicrophoneStream,
+    apply_gain,
+    clamp_gain,
     level_message,
     list_input_devices,
     load_audio,
@@ -79,6 +81,19 @@ class LevelTest(unittest.TestCase):
         self.assertIn("잘렸습니다", level_message(0.99))
         self.assertEqual(level_message(0.5), "소리 크기 50%.")
 
+    def test_gain_scales_and_clips(self):
+        wav = np.array([0.2, -0.4], dtype=np.float32)
+        np.testing.assert_allclose(apply_gain(wav, 1.0), wav)
+        np.testing.assert_allclose(apply_gain(wav, 2.0), np.array([0.4, -0.8], dtype=np.float32))
+        self.assertEqual(float(apply_gain(np.array([0.6], dtype=np.float32), 4.0)[0]), 1.0)
+        self.assertEqual(apply_gain(np.zeros(0, dtype=np.float32), 2.0).size, 0)
+
+    def test_gain_is_clamped(self):
+        self.assertEqual(clamp_gain(None), 1.0)
+        self.assertEqual(clamp_gain(float("nan")), 1.0)
+        self.assertEqual(clamp_gain(0.01), 0.25)
+        self.assertEqual(clamp_gain(9), 4.0)
+
 
 class DeviceTest(unittest.TestCase):
     def test_device_list_never_raises(self):
@@ -96,6 +111,17 @@ class DeviceTest(unittest.TestCase):
         self.assertEqual(data.size, 16000)
         self.assertEqual(float(data[-1]), 2.0)
         self.assertEqual(float(data[0]), 1.0)
+        mic.close()
+
+    def test_microphone_read_applies_gain(self):
+        mic = MicrophoneStream(window_sec=1.0, gain=2.0)
+        mic._capacity = 4
+        mic.stream_sr = mic.target_sr
+        mic._chunks = [np.full(4, 0.4, dtype=np.float32)]
+        np.testing.assert_allclose(mic.read(), np.full(4, 0.8, dtype=np.float32))
+        mic.gain = 4.0
+        mic._chunks = [np.full(4, 0.5, dtype=np.float32)]
+        np.testing.assert_allclose(mic.read(), np.ones(4, dtype=np.float32))
         mic.close()
 
 

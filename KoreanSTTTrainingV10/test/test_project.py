@@ -52,23 +52,32 @@ class ProjectTest(unittest.TestCase):
         project.add_command("메뉴")
         project.epochs = 12
         project.threshold = 0.85
+        project.input_gain = 2.5
         project.save()
         again = Project(root)
         self.assertIn("메뉴", again.commands)
         self.assertEqual(again.epochs, 12)
         self.assertAlmostEqual(again.threshold, 0.85)
+        self.assertAlmostEqual(again.input_gain, 2.5)
 
     def test_bad_config_is_sanitized(self):
         root = temp_dir()
         config = root / "data" / "commands.json"
         config.parent.mkdir(parents=True)
-        payload = {"commands": ["무음", "출근", "출근", "a/b"], "epochs": 9999, "threshold": 5, "learning_rate": -1}
+        payload = {
+            "commands": ["무음", "출근", "출근", "a/b"],
+            "epochs": 9999,
+            "threshold": 5,
+            "learning_rate": -1,
+            "input_gain": 99,
+        }
         config.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         project = Project(root)
         self.assertEqual(project.commands, ["출근"])
         self.assertEqual(project.epochs, 200)
         self.assertAlmostEqual(project.threshold, 0.95)
         self.assertAlmostEqual(project.learning_rate, 0.002)
+        self.assertAlmostEqual(project.input_gain, 4.0)
 
     def test_new_wav_paths_and_counts(self):
         project = Project(temp_dir())

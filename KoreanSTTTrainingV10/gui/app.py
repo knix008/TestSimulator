@@ -13,6 +13,9 @@ from tkinter import filedialog, messagebox, ttk
 
 from kws.audio import (
     COMMAND_SECONDS,
+    GAIN_MAX,
+    GAIN_MIN,
+    clamp_gain,
     level_message,
     list_input_devices,
     load_audio,
@@ -24,7 +27,7 @@ from kws.audio import (
     MicrophoneStream,
 )
 from kws.audio import TARGET_SAMPLE_RATE
-from kws.infer import decide
+from kws.infer import command_probs, decide, hold_command
 from kws import paths as kws_paths
 from kws import practice
 from kws.project import (
@@ -42,17 +45,18 @@ from kws.project import (
 HELP_DATA = (
     "기본 학습은 Supertonic 2로 만든 남녀 합성 데이터(data/synth)를 씁니다. 합성 데이터 생성으로 미리 만들 수 있고, "
     "없으면 학습할 때 만듭니다. 여기서 녹음하는 내 목소리는 data/audio에 따로 저장되어 추가 학습에 쓰입니다. "
-    "삐 소리 뒤에 명령 하나만 말하세요. 한 번은 1.2초입니다. "
+    "삐 소리 뒤에 명령 하나만 말하세요. 한 번은 2초입니다. "
     f"추가 학습에는 명령마다 {MIN_CLIPS}개 이상이면 충분하고, 무음은 조용할 때와 생활 소음이 있을 때 모두 녹음하면 좋습니다."
 )
 HELP_TRAIN = (
-    "처음부터 학습: 합성 데이터(필요하면 내 녹음도)로 새 모델을 만듭니다. 기본 저장 이름은 latest입니다.\n"
+    "처음부터 학습: 합성 데이터(필요하면 내 녹음도)로 모델을 만듭니다. 기본 저장 이름은 latest입니다. "
+    "이미 같은 이름의 결과가 있어도 다시 학습할 수 있고, 확인하면 그 결과를 새 학습으로 바꿉니다.\n"
     "추가 학습: 위에서 고른 학습 결과의 가중치에서 이어서, 내 녹음을 합성 데이터와 섞어 짧게 더 학습합니다. "
     "내 녹음은 에폭마다 여러 번 써서 비중을 높이고, 합성 데이터를 함께 써서 기존 실력을 잊지 않게 합니다. 기본 저장 이름은 speaker입니다.\n"
     "끝나면 검증 정확도를 출처별로 보여 주고, 학습에 쓰지 않은 합성 평가 음원과 마이크 시험 음성으로 바로 채점합니다."
 )
 HELP_TEST = (
-    "위에서 고른 학습 결과로 다시 학습하지 않고 인식합니다. "
+    "위에서 고른 학습 결과로 인식합니다. 결과를 새로 만들려면 학습 탭이나 위의 다시 학습을 쓰세요. "
     "임계값보다 낮거나 무음이면 대기로 표시합니다. "
     "여러 번 말해서 점수를 내려면 평가 탭을 쓰세요."
 )
@@ -142,6 +146,19 @@ class App:
         self.device_combo.pack(side="left", fill="x", expand=True, padx=(0, 8))
         ttk.Button(device_row, text="장치 새로고침", command=self.refresh_devices).pack(side="left")
 
+        gain_row = self._row(ready)
+        gain_row.pack(fill="x", pady=(8, 0))
+        self._caption(gain_row, text="감도").pack(side="left", padx=(0, 8))
+        self.input_gain = clamp_gain(self.project.input_gain)
+        self.gain_var = tk.DoubleVar(value=self.input_gain)
+        self.gain_text = self._caption(gain_row, text=self._gain_text(self.input_gain))
+        ttk.Scale(
+            gain_row, from_=GAIN_MIN, to=GAIN_MAX, variable=self.gain_var, command=self.on_gain, length=220
+        ).pack(side="left")
+        self.gain_text.pack(side="left", padx=(8, 16))
+        self.input_level_var = tk.StringVar(value="입력 -")
+        self._caption(gain_row, textvariable=self.input_level_var).pack(side="left")
+
         model_row = self._row(ready)
         model_row.pack(fill="x", pady=(8, 0))
         self._caption(model_row, text="학습 결과").pack(side="left", padx=(0, 8))
@@ -152,6 +169,9 @@ class App:
         self.saved_models: dict[str, Path] = {}
         ttk.Button(model_row, text="결과 새로고침", command=self.refresh_saved_models).pack(side="left")
         ttk.Button(model_row, text="다른 폴더", command=self.browse_model).pack(side="left", padx=(8, 0))
+        ttk.Button(model_row, text="다시 학습", style="Accent.TButton", command=self.retrain_selected).pack(
+            side="left", padx=(8, 0)
+        )
         self.model_info_var = tk.StringVar(value="")
         self._caption(model_row, textvariable=self.model_info_var).pack(side="left", padx=(12, 0))
 
@@ -702,7 +722,7 @@ class App:
                 if not self._wait(0.15):
                     break
                 beep()
-                wav = record_block(COMMAND_SECONDS, device)
+                wav = record_block(COMMAND_SECONDS, device, gain=self.input_gain)
                 path = self.project.new_wav_path(label)
                 save_wav(path, wav, TARGET_SAMPLE_RATE)
                 saved += 1
@@ -757,9 +777,25 @@ class App:
         finally:
             self.queue.put(("record_done", None))
 
+    def retrain_selected(self) -> None:
+        """고른 학습 결과가 있어도 그 이름으로 처음부터 다시 학습한다."""
+        selected = self.model_var.get().strip()
+        if self.train_mode_var.get() != "scratch":
+            self.train_mode_var.set("scratch")
+            self.on_train_mode()
+        if selected:
+            self.out_name_var.set(selected)
+        self.notebook.select(self.train_tab)
+        self.start_train()
+
     def start_train(self) -> None:
-        if self.recording or self.training or self.live:
+        if self.recording or self.evaluating:
+            messagebox.showinfo("안내", "녹음이나 평가가 끝난 뒤에 학습할 수 있습니다.")
             return
+        if self.training:
+            return
+        if self.live:
+            self.stop_test()
         try:
             epochs = int(self.epoch_var.get())
             batch_size = int(self.batch_var.get())
@@ -815,6 +851,14 @@ class App:
                 f"클래스마다 최소 {MIN_CLIPS}개입니다.\n" + "\n".join(short) + "\n\n합성 데이터를 켜거나 데이터 탭에서 녹음하세요.",
             )
             return
+        out_dir = self.project.root / "models" / out_name
+        if kws_paths.is_saved_model(out_dir):
+            if not messagebox.askyesno(
+                "다시 학습",
+                f"이미 '{out_name}' 학습 결과가 있습니다.\n새 학습으로 이 결과를 바꿀까요?",
+            ):
+                return
+        self._release_loaded_model()
         self.capture_settings()
         from kws.train import TrainOptions
 
@@ -826,7 +870,6 @@ class App:
             make_int8=bool(self.int8_var.get()),
             init_from=base_dir,
         )
-        out_dir = self.project.root / "models" / out_name
         commands = list(self.project.commands) if generate else None
         self.training = True
         self.stop_train.clear()
@@ -896,6 +939,13 @@ class App:
             import traceback
 
             self.queue.put(("train_error", f"{exc}\n\n{traceback.format_exc()}"))
+
+    def _release_loaded_model(self) -> None:
+        """인식에 열어 둔 ONNX를 놓아, 같은 폴더를 다시 학습해 저장할 수 있게 한다."""
+        self.classifier = None
+        import gc
+
+        gc.collect()
 
     def _finetune_problem(self, base_dir: Path | None, labels: list[str]) -> str:
         if base_dir is None:
@@ -987,7 +1037,7 @@ class App:
         if not self._load_classifier():
             return
         try:
-            probs = self.classifier.predict_proba(load_model_wav(path))
+            probs = command_probs(self.classifier, load_model_wav(path))
         except Exception as exc:
             messagebox.showerror("인식 오류", str(exc))
             return
@@ -1082,13 +1132,14 @@ class App:
                     break
                 self.queue.put(("exam_prompt", f"({index + 1}/{len(trials)}) {prompt}"))
                 beep()
-                wav = record_block(COMMAND_SECONDS, device)
+                wav = record_block(COMMAND_SECONDS, device, gain=self.input_gain)
+                self.queue.put(("level", peak_level(wav)))
                 path = folder / label / f"{index + 1:04d}.wav"
                 save_wav(path, wav, TARGET_SAMPLE_RATE)
                 from kws.evaluate import EvalItem
 
                 expected = self.eval_silence if label == OTHER_SPEECH else label
-                self.queue.put(("eval_item", EvalItem(path, expected, classifier.predict_proba(wav))))
+                self.queue.put(("eval_item", EvalItem(path, expected, command_probs(classifier, wav))))
                 if not self._wait_eval(0.6):
                     break
             self.queue.put(("eval_done", (0, f"마이크 시험 음성을 {folder}에 저장했습니다. 다른 학습 결과로 다시 평가할 때는 폴더 평가로 이 폴더를 고르세요.")))
@@ -1382,7 +1433,9 @@ class App:
         accuracy = meta.get("val_accuracy")
         accuracy_text = f"검증 {float(accuracy) * 100:.0f}% · " if isinstance(accuracy, (int, float)) else ""
         self.model_info_var.set(f"{accuracy_text}{', '.join(labels)}")
-        self.status_var.set(f"인식은 '{path.name}' 결과로 바로 할 수 있습니다. 학습은 학습 탭에서 따로 진행합니다.")
+        self.status_var.set(
+            f"인식은 '{path.name}' 결과로 바로 할 수 있습니다. 다시 학습은 위의 다시 학습 또는 학습 탭에서 할 수 있습니다."
+        )
 
     def open_selected_model(self) -> None:
         path = self._model_dir() or self.project.model_dir
@@ -1401,7 +1454,7 @@ class App:
             return
         engine = self.engine_var.get()
         try:
-            mic = MicrophoneStream(device=self.current_device_index())
+            mic = MicrophoneStream(device=self.current_device_index(), gain=self.input_gain)
             mic.start()
         except Exception as exc:
             messagebox.showerror("마이크 오류", str(exc))
@@ -1416,20 +1469,23 @@ class App:
         threading.Thread(target=self._test_worker, daemon=True).start()
 
     def _test_worker(self) -> None:
-        smooth = None
+        held = None
+        hold_left = 0
         try:
             while self.live:
                 mic = self.mic
                 if mic is None:
                     break
                 wav = mic.read()
+                self.queue.put(("level", peak_level(wav)))
                 if wav.size < TARGET_SAMPLE_RATE:
                     self.queue.put(("listening", None))
                     time.sleep(0.05)
                     continue
-                probs = self.classifier.predict_proba(wav)
-                smooth = probs if smooth is None else 0.55 * smooth + 0.45 * probs
-                self.queue.put(("probs", smooth.copy()))
+                silence_index = self.classifier.bundle.labels.index(self.classifier.bundle.silence_label)
+                probs = command_probs(self.classifier, wav)
+                held, hold_left = hold_command(held, probs, silence_index, hold_left)
+                self.queue.put(("probs", held.copy()))
                 time.sleep(0.2)
         except Exception as exc:
             self.queue.put(("record_error", str(exc)))
@@ -1442,6 +1498,25 @@ class App:
             self.mic = None
         self.engine_status.configure(text="")
         self._sync_buttons()
+
+    def on_gain(self, _value: str) -> None:
+        gain = clamp_gain(self.gain_var.get())
+        self.input_gain = gain
+        self.gain_text.configure(text=self._gain_text(gain))
+        if self.mic is not None:
+            self.mic.gain = gain
+        self.project.input_gain = gain
+        self.project.save()
+
+    def _gain_text(self, gain: float) -> str:
+        return f"{int(round(gain * 100))}%"
+
+    def _show_input_level(self, peak: float) -> None:
+        shown = int(round(min(max(float(peak), 0.0), 1.0) * 100))
+        text = f"입력 {shown}%"
+        if peak > 0.98:
+            text += " · 잘림"
+        self.input_level_var.set(text)
 
     def on_threshold(self, _value: str) -> None:
         text = f"{float(self.threshold_var.get()):.2f}"
@@ -1523,6 +1598,8 @@ class App:
 
     def capture_settings(self) -> None:
         self.project.input_device = self.device_var.get() or "기본 장치"
+        self.input_gain = clamp_gain(self.gain_var.get())
+        self.project.input_gain = self.input_gain
         try:
             self.project.batch_size = int(self.batch_var.get())
             if self.train_mode_var.get() == "scratch":
@@ -1666,6 +1743,7 @@ class App:
                     label, path, peak = payload
                     self.refresh_lists(keep_label=label)
                     if path:
+                        self._show_input_level(float(peak))
                         self.notify(f"{label} 저장. {level_message(float(peak))}")
                 elif kind == "generated":
                     self.refresh_lists()
@@ -1713,6 +1791,8 @@ class App:
                     self._sync_buttons()
                     self.append_log(str(payload))
                     error_box = ("학습 오류", str(payload).splitlines()[0])
+                elif kind == "level":
+                    self._show_input_level(float(payload))
                 elif kind == "listening":
                     if self.last_probs is None:
                         self.show_decision(None, listening=True)

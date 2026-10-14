@@ -29,6 +29,7 @@ class RecordCliTest(unittest.TestCase):
             code = record.main()
         self.assertEqual(code, 0)
         self.assertEqual(recorder.call_count, 2)
+        self.assertEqual(recorder.call_args.kwargs["gain"], 1.0)
         self.assertEqual(Project(root).count("무음"), 2)
 
     def test_microphone_error_returns_failure(self):

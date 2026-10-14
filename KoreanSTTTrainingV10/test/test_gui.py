@@ -82,6 +82,17 @@ class GuiTestCase(unittest.TestCase):
 
 
 class EmptyProjectTest(GuiTestCase):
+    def test_input_gain_persists(self):
+        from kws.project import Project
+
+        app = self.open()
+        app.gain_var.set(2.0)
+        app.on_gain("2.0")
+        self.assertAlmostEqual(app.input_gain, 2.0)
+        self.assertEqual(app.gain_text.cget("text"), "200%")
+        again = Project()
+        self.assertAlmostEqual(again.input_gain, 2.0)
+
     def test_starts_on_data_tab_without_models(self):
         app = self.open()
         self.assertEqual(self.current_tab(), "데이터")
@@ -208,6 +219,46 @@ class ExistingModelTest(GuiTestCase):
         self.assertEqual(self.current_tab(), "실시간 테스트")
         self.assertEqual(list(app.model_combo["values"]), ["latest", "synth_eval"])
         self.assertIn("출근, 퇴근, 경비, 해제, 무음", app.model_info_var.get())
+
+    def test_can_retrain_over_existing_result(self):
+        app = self.open()
+        app.use_synth_var.set(False)
+        app.epoch_var.set("2")
+        app.int8_var.set(False)
+        app.out_name_var.set("latest")
+        self.assertTrue(app._load_classifier())
+        app.start_train()
+        self.assertIsNone(app.classifier)
+        self.assertTrue(app.training)
+        self.assertTrue(pump(app, lambda: not app.training))
+        prompts = [call.args[1] for call in self.messagebox.askyesno.call_args_list]
+        self.assertTrue(any("바꿀까요" in text for text in prompts))
+        self.assertTrue((self.root / "models" / "latest" / "command_kws.onnx").is_file())
+        self.assertEqual(app.model_var.get(), "latest")
+        self.messagebox.showerror.assert_not_called()
+
+    def test_retrain_can_be_declined(self):
+        app = self.open()
+        app.use_synth_var.set(False)
+        app.out_name_var.set("latest")
+        self.messagebox.askyesno.return_value = False
+        app.start_train()
+        self.assertFalse(app.training)
+
+    def test_retrain_button_uses_selected_result(self):
+        app = self.open()
+        app.use_synth_var.set(False)
+        app.epoch_var.set("2")
+        app.int8_var.set(False)
+        app.model_var.set("synth_eval")
+        app.on_model_picked()
+        app.retrain_selected()
+        self.assertEqual(app.out_name_var.get(), "synth_eval")
+        self.assertTrue(app.training)
+        self.assertTrue(pump(app, lambda: not app.training))
+        self.assertEqual(app.model_var.get(), "synth_eval")
+        self.assertEqual(self.current_tab(), "학습")
+        self.assertTrue((self.root / "models" / "synth_eval" / "command_kws.onnx").is_file())
 
     def test_finetune_with_my_recordings(self):
         app = self.open()

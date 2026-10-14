@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 from kws import paths
+from kws.audio import clamp_gain
 
 SILENCE_LABEL = "무음"
 MAX_COMMANDS = 10
@@ -54,6 +55,7 @@ class Project:
         self.config_path = self.data / "commands.json"
         self.commands: list[str] = list(DEFAULT_COMMANDS)
         self.input_device = "기본 장치"
+        self.input_gain = 1.0
         self.epochs = 40
         self.batch_size = 16
         self.learning_rate = 0.002
@@ -71,6 +73,7 @@ class Project:
                 data = {}
             self.commands = [str(item) for item in data.get("commands", DEFAULT_COMMANDS)]
             self.input_device = str(data.get("input_device", "기본 장치"))
+            self.input_gain = clamp_gain(data.get("input_gain", 1.0))
             self.epochs = _clamp_int(data.get("epochs", 40), 1, 200, 40)
             self.batch_size = _clamp_int(data.get("batch_size", 16), 1, 64, 16)
             try:
@@ -95,6 +98,7 @@ class Project:
         payload = {
             "commands": self.commands,
             "input_device": self.input_device,
+            "input_gain": self.input_gain,
             "epochs": self.epochs,
             "batch_size": self.batch_size,
             "learning_rate": self.learning_rate,

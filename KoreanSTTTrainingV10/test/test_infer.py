@@ -3,7 +3,16 @@ import unittest
 import numpy as np
 
 from kws.audio import load_model_wav
-from kws.infer import REJECT_LABEL, ModelBundle, OnnxClassifier, TorchClassifier, decide, softmax
+from kws.infer import (
+    REJECT_LABEL,
+    ModelBundle,
+    OnnxClassifier,
+    TorchClassifier,
+    command_probs,
+    decide,
+    hold_command,
+    softmax,
+)
 from test.helpers import LABELS, parse_keys, project_with_model, run_module, temp_dir, trained_model
 
 
@@ -37,6 +46,31 @@ class DecideTest(unittest.TestCase):
     def test_label_count_mismatch(self):
         with self.assertRaises(ValueError):
             decide(np.array([0.5, 0.5]), self.labels, "무음", 0.7)
+
+
+class LiveWindowTest(unittest.TestCase):
+    def test_long_input_uses_the_window_that_looks_like_a_command(self):
+        class Fake:
+            bundle = type("Bundle", (), {"labels": ["출근", "무음"], "silence_label": "무음"})()
+
+            def predict_proba(self, wav):
+                level = float(np.max(np.abs(wav)))
+                command = 0.9 if level > 0.5 else 0.05
+                return np.array([command, 1.0 - command], dtype=np.float32)
+
+        wav = np.zeros(32000, dtype=np.float32)
+        wav[-4000:] = 0.8
+        probs = command_probs(Fake(), wav)
+        self.assertGreater(float(probs[0]), 0.8)
+
+    def test_hold_keeps_a_short_command_above_threshold(self):
+        command = np.array([0.85, 0.1, 0.05], dtype=np.float32)
+        silence = np.array([0.05, 0.05, 0.9], dtype=np.float32)
+        held, left = hold_command(None, command, 2, 0)
+        self.assertEqual(left, 3)
+        held, left = hold_command(held, silence, 2, left)
+        self.assertGreater(float(held[0]), 0.7)
+        self.assertEqual(left, 2)
 
 
 class ClassifierTest(unittest.TestCase):

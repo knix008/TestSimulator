@@ -10,7 +10,7 @@ import numpy as np
 
 from kws import paths
 from kws.audio import TARGET_SAMPLE_RATE, load_model_wav, resample, save_wav
-from kws.infer import ModelBundle, decide
+from kws.infer import ModelBundle, command_probs, decide
 from kws.project import SILENCE_LABEL
 from kws.train import TrainOptions, train_project
 
@@ -312,7 +312,7 @@ def _evaluate(model_dir: Path, test_dir: Path) -> str:
 
 
 def _predict(classifier, bundle: ModelBundle, path: Path):
-    probs = classifier.predict_proba(load_model_wav(path))
+    probs = command_probs(classifier, load_model_wav(path))
     return decide(probs, bundle.labels, bundle.silence_label, THRESHOLD)
 
 
