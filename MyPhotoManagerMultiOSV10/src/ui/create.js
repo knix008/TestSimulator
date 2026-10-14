@@ -5,12 +5,13 @@ import { baseName, joinPath, parentOf } from '../catalog/catalog.js';
 import { encodeGif } from '../create/gif.js';
 import { buildPdf } from '../create/pdf.js';
 import { stitch } from '../create/panorama.js';
+import { stitchPerspective } from '../create/homography.js';
 import { alignExposures, fuseExposures } from '../create/hdr.js';
 import { focusStack } from '../create/focus.js';
 import { canvasToBlob, context2d, makeCanvas, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
-import { isMedia, kindOf, mimeOf, stemOf } from '../formats/types.js';
+import { extensionOf, isMedia, kindOf, mimeOf, stemOf } from '../formats/types.js';
 import { readZip, extractZip, writeZip } from '../formats/zip.js';
 import { plural, t } from '../i18n.js';
 import { fs, webFs } from '../platform/fs.js';
@@ -18,6 +19,7 @@ import { chooseSavePath, errorText, isDesktop } from '../platform/native.js';
 import { app, openFolder, reload } from '../store.js';
 import { field, openDialog, progressDialog, selectEl, toast } from './dialog.js';
 import { h } from './dom.js';
+import { musicBytes, musicField } from './slideshow.js';
 
 const images = (items) => items.filter((item) => !item.isDir && kindOf(item.name) && kindOf(item.name) !== 'video');
 
@@ -179,14 +181,22 @@ export async function createPanorama(items) {
   const list = images(items);
   if (list.length < 2) { toast(t('create.needTwo'), 'info'); return; }
   const direction = selectEl([['auto', t('create.auto')], ['horizontal', t('create.horizontal')], ['vertical', t('create.vertical')]], 'auto');
-  const options = await mergeDialog(plural('create.panoramaTitle', list.length), list, [field(t('create.direction'), direction), h('p.hint', t('create.panoramaHint'))]);
+  const projection = selectEl([['auto', t('create.projectionAuto')], ['perspective', t('create.projectionPerspective')], ['shift', t('create.projectionShift')]], 'auto');
+  projection.dataset.key = 'panorama-projection';
+  const options = await mergeDialog(plural('create.panoramaTitle', list.length), list, [field(t('create.projection'), projection), field(t('create.direction'), direction), h('p.hint', t('create.panoramaHint'))]);
   if (!options) return;
   const result = await withProgress(t('create.stitching'), async (progress) => {
     const loaded = [];
     for (const [i, item] of list.entries()) { progress.update(i, list.length + 1, item.name); loaded.push(await pixels(item, options.max)); }
     progress.update(list.length, list.length + 1, t('create.stitching'));
     await new Promise((r) => setTimeout(r, 20));
-    return stitch(loaded, { direction: direction.value });
+    // Perspective first (photos taken by turning the camera); shifting only when that does not match.
+    if (projection.value !== 'shift') {
+      const warped = stitchPerspective(loaded);
+      if (warped) return { ...warped, projection: 'perspective' };
+      if (projection.value === 'perspective') toast(t('create.perspectiveFailed'), 'info', 6000);
+    }
+    return { ...stitch(loaded, { direction: direction.value }), projection: 'shift' };
   });
   if (result) await saveImage(result.image, 'panorama', options.format === 'jpeg' ? 'png' : options.format);
 }
@@ -243,7 +253,7 @@ function scaledTo(image, w, hh) {
  * the encoder delivers data (at most 8 s), once per session.
  */
 let encoderWarm = null;
-function warmVideoEncoder(type, width, height) {
+export function warmVideoEncoder(type, width, height) {
   encoderWarm ??= (async () => {
     const canvas = h('canvas', { width: Math.min(width, 640), height: Math.min(height, 360) });
     const c = canvas.getContext('2d');
@@ -276,14 +286,17 @@ export async function exportSlideshow(items) {
   const size = selectEl([['1280x720', '1280×720'], ['1920x1080', '1920×1080'], ['3840x2160', '3840×2160']], '1920x1080');
   const seconds = h('input.input', { type: 'number', min: 1, max: 60, value: app.settings.slideshow.interval });
   const fade = h('input', { type: 'checkbox', checked: true });
+  const music = musicField(app.settings.slideshow.music ?? '');
   const ok = await openDialog({
-    title: plural('create.slideshowTitle', list.length), width: 480,
-    body: h('div', field(t('create.slideshowKind'), kind), h('div.field-row', field(t('create.size'), size), field(t('slideshow.interval'), seconds)), h('label.check', fade, t('slideshow.fade'))),
+    title: plural('create.slideshowTitle', list.length), width: 520, id: 'export-slideshow-dialog',
+    body: h('div', field(t('create.slideshowKind'), kind), h('div.field-row', field(t('create.size'), size), field(t('slideshow.interval'), seconds)), h('label.check', fade, t('slideshow.fade')), field(t('slideshow.music'), music.el)),
     buttons: [{ label: t('common.cancel'), value: false }, { label: t('create.make'), value: true, primary: true }],
   });
   if (!ok) return;
   const [W, H] = size.value.split('x').map(Number);
   const per = Math.max(1, Number(seconds.value) || 4);
+  let song = null;
+  try { song = await musicBytes(music.value()); } catch (error) { toast(`${t('slideshow.music')}: ${errorText(error)}`, 'error'); }
   if (kind.value === 'html') {
     const bytes = await withProgress(t('create.making'), async (progress) => {
       const slides = [];
@@ -295,7 +308,8 @@ export async function exportSlideshow(items) {
         const b64 = btoa(Array.from(new Uint8Array(await blob.arrayBuffer()), (c) => String.fromCharCode(c)).join(''));
         slides.push({ src: `data:image/jpeg;base64,${b64}`, caption: item.name });
       }
-      return new TextEncoder().encode(slideshowHtml(slides, per, fade.checked));
+      const audio = song ? `data:${audioType(song.name)};base64,${btoa(Array.from(song.bytes, (c) => String.fromCharCode(c)).join(''))}` : null;
+      return new TextEncoder().encode(slideshowHtml(slides, per, fade.checked, audio));
     });
     if (bytes) await saveOutput(bytes, `slideshow-${stamp()}.html`, { filters: [{ name: 'HTML', extensions: ['html'] }] });
     return;
@@ -314,7 +328,27 @@ export async function exportSlideshow(items) {
     // another window (the progress dialog) has the focus.
     const stream = canvas.captureStream(0);
     const track = stream.getVideoTracks()[0];
-    const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+    // Music: decoded, looped for the whole video and faded out at the end, as an Opus track.
+    let audio = null;
+    if (song) {
+      try {
+        const context = new AudioContext();
+        await context.resume().catch(() => {});
+        const buffer = await context.decodeAudioData(song.bytes.slice().buffer);
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        const gain = context.createGain();
+        gain.gain.value = Math.max(0, Math.min(1, (app.settings.slideshow.musicVolume ?? 80) / 100));
+        const destination = context.createMediaStreamDestination();
+        source.connect(gain).connect(destination);
+        audio = { context, source, gain, track: destination.stream.getAudioTracks()[0] };
+        stream.addTrack(audio.track);
+      } catch (error) {
+        toast(`${t('slideshow.music')}: ${errorText(error)}`, 'error');
+      }
+    }
+    const type = (audio ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'] : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']).find((m) => MediaRecorder.isTypeSupported(m));
     progress.update(list.length, list.length * 2, t('create.preparingEncoder'));
     await warmVideoEncoder(type, W, H);
     const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8_000_000 });
@@ -329,6 +363,13 @@ export async function exportSlideshow(items) {
     };
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
     recorder.start();
+    if (audio) {
+      const total = frames.length * per;
+      const now = audio.context.currentTime;
+      audio.source.start();
+      audio.gain.gain.setValueAtTime(audio.gain.gain.value, now + Math.max(0, total - 1.5));
+      audio.gain.gain.linearRampToValueAtTime(0, now + total);
+    }
     const fadeMs = fade.checked ? 700 : 0;
     for (const [i, frame] of frames.entries()) {
       if (progress.cancelled) break;
@@ -344,20 +385,23 @@ export async function exportSlideshow(items) {
     }
     recorder.stop();
     await done;
+    if (audio) { audio.source.stop(); audio.context.close().catch(() => {}); }
     return new Uint8Array(await new Blob(chunks, { type }).arrayBuffer());
   });
   if (bytes) await saveOutput(bytes, `slideshow-${stamp()}.webm`, { filters: [{ name: 'WebM', extensions: ['webm'] }] });
 }
 
-function slideshowHtml(slides, seconds, fade) {
+const audioType = (name) => ({ mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', flac: 'audio/flac', webm: 'audio/webm' })[extensionOf(name)] ?? 'audio/mpeg';
+
+function slideshowHtml(slides, seconds, fade, audio = null) {
   const data = JSON.stringify(slides);
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slideshow</title>
 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity ${fade ? '0.8s' : '0s'}}img.on{opacity:1}
 #c{position:absolute;bottom:18px;width:100%;text-align:center;color:#fff;font:15px system-ui;text-shadow:0 1px 3px #000}</style></head>
-<body><div id="c"></div><script>const s=${data};let i=0;const imgs=s.map(x=>{const m=new Image();m.src=x.src;document.body.appendChild(m);return m});
+<body><div id="c"></div>${audio ? `<audio id="m" src="${audio}" loop autoplay></audio>` : ''}<script>const s=${data};let i=0;const imgs=s.map(x=>{const m=new Image();m.src=x.src;document.body.appendChild(m);return m});
 function show(n){imgs.forEach((m,k)=>m.classList.toggle('on',k===n));document.getElementById('c').textContent=s[n].caption}
 show(0);let t=setInterval(()=>{i=(i+1)%s.length;show(i)},${seconds * 1000});
-addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){i=(i+1)%s.length;show(i)}if(e.key==='ArrowLeft'){i=(i-1+s.length)%s.length;show(i)}});</script></body></html>`;
+${audio ? "addEventListener('click',()=>document.getElementById('m').play());" : ''}addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){i=(i+1)%s.length;show(i)}if(e.key==='ArrowLeft'){i=(i-1+s.length)%s.length;show(i)}});</script></body></html>`;
 }
 
 // ───────────────────────── ZIP

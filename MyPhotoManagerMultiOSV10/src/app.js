@@ -7,7 +7,8 @@ import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './format
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
 import { filesFromDrop, fs, hasFolderAccess, webFs } from './platform/fs.js';
 import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onFileDrop, setWindowTheme, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
-import { loadSettings, loadSettingsFile } from './settings.js';
+import { setColorManagement } from './formats/decode.js';
+import { DEFAULTS as DEFAULT_SETTINGS, loadSettings, loadSettingsFile } from './settings.js';
 import {
   addToBasket, app, catalogFolder, copyToClipboard, deleteItems, focusedItem, goBack, goForward, goUp, invertSelection, loadCatalog, newFolder, openFolder, openSource,
   pasteClipboard, rate, rebuildList, refreshList, reload, renameItem, saveCatalogNow, selectAll, selectedFiles, selectedItems, selectFilesOnly, selectItem, selectNone,
@@ -15,6 +16,10 @@ import {
 } from './store.js';
 import { thumbs } from './thumbs/thumbs.js';
 import { aboutDialog, settingsDialog, shortcutsDialog } from './ui/appdialogs.js';
+import { quickKeyword } from './ui/quickmeta.js';
+import { addToCollectionMenu, newCollection, smartCollectionDialog } from './ui/collections.js';
+import { editors as externalEditors, externalEditorMenu, openInEditor } from './ui/external.js';
+import { gpxGeotagDialog } from './ui/gpxtag.js';
 import { adjustDates, autoRotate, batchAdjust, batchApplyPreset, batchConvert, batchRename, batchResize, batchWatermark, copyMoveTo, fileTimeFromTaken, rotateFiles } from './ui/batch.js';
 import { createFocusStack, createGif, createHdr, createPanorama, createPdf, createZip, exportSlideshow, openArchive } from './ui/create.js';
 import { editClipboard } from './ui/editor.js';
@@ -26,8 +31,8 @@ import { createCalendarPane } from './ui/calendarpane.js';
 import { createCatalogPane } from './ui/catalogpane.js';
 import { openCompare } from './ui/compare.js';
 import { createDashboard } from './ui/dashboard.js';
-import { closeAllDialogs, confirmDialog, dialogDocuments, dialogOpen, openDialog, statusProgress, toast, topDialog } from './ui/dialog.js';
-import { $, button, clear, h, typing } from './ui/dom.js';
+import { closeAllDialogs, confirmDialog, dialogDocuments, dialogOpen, openDialog, promptDialog, statusProgress, toast, topDialog } from './ui/dialog.js';
+import { $, button, clear, debounce, h, typing } from './ui/dom.js';
 import { findDuplicates } from './ui/duplicates.js';
 import { createEditor } from './ui/editor.js';
 import { createFileList } from './ui/filelist.js';
@@ -46,6 +51,8 @@ import { applyTheme, nextTheme } from './themes.js';
 import { history as undoHistory } from './history.js';
 import { FLAG_EN, FLAG_KO } from './ui/flags.js';
 import { watchNumbers } from './ui/steppers.js';
+import { watchMinWidth } from './ui/minwidth.js';
+import * as analysis from './analysis/analyzer.js';
 import { customThemeDialog, EDIT_CUSTOM, themeSelect } from './ui/themepicker.js';
 
 app.settings = loadSettings();
@@ -113,7 +120,7 @@ const fileList = createFileList({
   onDropItems: (paths, dir, { copy, x, y }) => (dir === '__map__' ? mapPane.placeAt(x, y, paths) : dir === '__basket__' ? addToBasket(paths) : transfer(paths, dir, { move: !copy })),
 });
 const welcome = h('div.welcome');
-center.append(welcome, fileList.filmPreview, fileList.el, basketBar);
+center.append(welcome, fileList.filmPreview, fileList.box, basketBar);
 
 const folderPane = createFolderPane({ onOpenWebFolder: openWebFolder, onOpenWebFiles: openWebFiles, folderMenuItems: () => [] });
 const catalogPane = createCatalogPane();
@@ -515,14 +522,58 @@ function editMenu() {
     { label: t('edit.invertSelection'), icon: 'invert', shortcut: 'Ctrl+I', action: invertSelection },
     'separator',
     { label: t('edit.editImage'), icon: 'pencil', shortcut: 'Ctrl+E', disabled: !hasFiles(), action: () => switchMode('edit') },
+    isDesktop() ? { label: t('external.editIn'), icon: 'external', submenu: externalEditorMenu(targetPaths({ filesOnly: true })) } : null,
     { label: t('edit.restoreOriginal'), icon: 'undo', disabled: !hasFiles() || !fs.caps.originals, action: restoreOriginals },
     { label: t('edit.pasteSettings'), icon: 'copy', disabled: !hasFiles() || !editClipboard.preset, action: () => batchApplyPreset(targetPaths({ filesOnly: true }), editClipboard.preset) },
-  ];
+  ].filter(Boolean);
+}
+
+// ───────────────────────── workspaces: named window layouts (panes, tabs, widths, list view)
+
+const WORKSPACE_KEYS = ['panes', 'view', 'thumbSize', 'sort', 'groupBy', 'caption'];
+const currentLayout = () => JSON.parse(JSON.stringify(Object.fromEntries(WORKSPACE_KEYS.map((key) => [key, app.settings[key]]))));
+
+function applyWorkspace(layout) {
+  const s = app.settings;
+  for (const key of WORKSPACE_KEYS) {
+    if (layout[key] === undefined) continue;
+    s[key] = typeof layout[key] === 'object' && layout[key] && !Array.isArray(layout[key]) ? { ...DEFAULT_SETTINGS[key], ...JSON.parse(JSON.stringify(layout[key])) } : layout[key];
+  }
+  // The drive shown in the folder pane is not part of a layout.
+  s.panes.drive = s.panes.drive ?? null;
+  app.saveSettings();
+  if (app.state.mode !== 'manage') setMode('manage');
+  layoutPanes();
+  refreshList({ keepScroll: false });
+  fileList.rebuild();
+  renderToolbar();
+}
+
+async function saveWorkspace() {
+  const name = await promptDialog(t('workspace.name'), '', { title: t('workspace.save'), validate: (v) => (!v.trim() ? t('file.nameEmpty') : null) });
+  if (!name?.trim()) return;
+  app.settings.workspaces = [...app.settings.workspaces.filter((w) => w.name !== name.trim()), { name: name.trim(), layout: currentLayout() }].sort((a, b) => a.name.localeCompare(b.name));
+  app.saveSettings();
+  toast(t('workspace.saved', { name: name.trim() }), 'success');
+}
+
+function workspaceMenu() {
+  const list = app.settings.workspaces;
+  const now = JSON.stringify(currentLayout());
+  return [
+    ...list.map((w, i) => ({ label: w.name, icon: 'panelLeft', shortcut: i < 9 ? `Ctrl+Alt+${i + 1}` : '', checked: JSON.stringify(w.layout) === now, action: () => applyWorkspace(w.layout) })),
+    list.length ? 'separator' : null,
+    { label: t('workspace.save'), icon: 'save', action: saveWorkspace },
+    { label: t('workspace.default'), icon: 'refresh', action: () => applyWorkspace(Object.fromEntries(WORKSPACE_KEYS.map((key) => [key, DEFAULT_SETTINGS[key]]))) },
+    list.length ? { label: t('workspace.delete'), icon: 'trash', submenu: list.map((w) => ({ label: w.name, icon: 'close', danger: true, action: () => { app.settings.workspaces = app.settings.workspaces.filter((x) => x !== w); app.saveSettings(); } })) } : null,
+  ].filter(Boolean);
 }
 
 function viewMenu() {
   const s = app.settings;
   return [
+    { label: t('workspace.title'), icon: 'panelLeft', submenu: workspaceMenu() },
+    'separator',
     ...MODES.map(([id, iconName]) => ({ label: t(`mode.${id}`), icon: iconName, checked: app.state.mode === id, action: () => switchMode(id) })),
     'separator',
     { label: t('menu.viewStyle'), icon: 'grid', submenu: VIEW_STYLES.map(([id, iconName]) => ({ label: t(`viewStyle.${id}`), icon: iconName, checked: s.view === id, action: () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
@@ -554,8 +605,13 @@ function organizeMenu() {
     { label: t('organize.showBasket'), icon: 'basket', action: () => openSource({ type: 'basket' }) },
     { label: t('organize.clearBasket'), icon: 'trash', disabled: !app.catalog.basket.length, action: () => app.catalog.clearBasket() },
     'separator',
+    { label: t('collection.addTo'), icon: 'folderOpen', disabled: none, submenu: addToCollectionMenu(paths) },
+    { label: t('collection.new'), icon: 'plus', action: () => newCollection(paths) },
+    { label: t('collection.newSmart'), icon: 'wand', action: () => smartCollectionDialog() },
+    'separator',
     { label: t('organize.showTagged'), icon: 'checkSquare', action: () => openSource({ type: 'filter', filters: [{ type: 'tagged' }], title: t('catalog.tagged') }) },
     { label: t('catalog.indexFolder'), icon: 'layers', disabled: !inFolder(), action: () => catalogFolder(app.state.source.path) },
+    { label: t('gpx.menu'), icon: 'map', action: () => gpxGeotagDialog(none ? app.state.list.filter((i) => !i.isDir).map((i) => i.path) : paths) },
     'separator',
     { label: t('people.scanList'), icon: 'user', action: () => scanFaces(app.state.list) },
     { label: t('people.nameFaces'), icon: 'user', action: () => nameFacesDialog() },
@@ -575,6 +631,8 @@ function toolsMenu() {
     { label: t('edit.flipH'), icon: 'flipH', disabled: !files, action: () => rotateFiles(paths, 0, 'h') },
     { label: t('edit.flipV'), icon: 'flipV', disabled: !files, action: () => rotateFiles(paths, 0, 'v') },
     'separator',
+    { label: t('actions.menu'), icon: 'play', action: async () => (await import('./ui/actions.js')).actionsDialog(paths) },
+    'separator',
     { label: t('tools.batchRename'), icon: 'rename', disabled: !files || !fs.caps.rename, action: () => batchRename() },
     { label: t('tools.batchResize'), icon: 'fit', disabled: !files, action: () => batchResize() },
     { label: t('tools.convert'), icon: 'images', disabled: !files, action: () => batchConvert() },
@@ -584,6 +642,11 @@ function toolsMenu() {
     { label: t('tools.autoRotate'), icon: 'rotateRight', disabled: !files, action: () => autoRotate() },
     { label: t('tools.watermark'), icon: 'text', disabled: !files, action: () => batchWatermark() },
     { label: t('tools.applyPreset'), icon: 'bookmark', disabled: !files, action: () => batchApplyPreset() },
+    'separator',
+    { label: t('analysis.runFolder'), icon: 'wand', disabled: !files, action: () => analysis.analyze(app.state.list) },
+    { label: t('analysis.rerun'), icon: 'refresh', disabled: !files, action: () => analysis.analyze(selectedFiles().length ? selectedFiles() : app.state.list, { force: true }) },
+    { label: t('analysis.stop'), icon: 'close', disabled: !analysis.state().running, action: () => analysis.stopAnalysis() },
+    { label: t('analysis.toFolders'), icon: 'folderOpen', disabled: !files || !fs.caps.mkdir, action: async () => (await import('./ui/organize.js')).organizeDialog(app.state.list) },
     'separator',
     { label: t('tools.compare'), icon: 'compare', disabled: selectedFiles().length < 2, action: () => openCompare(selectedFiles()) },
     { label: t('tools.duplicates'), icon: 'layers', action: findDuplicates },
@@ -615,7 +678,9 @@ function itemMenu(event, item) {
     files.length && !isPrivatePath(item.path) ? { label: t('private.moveTo'), icon: 'lock', action: () => moveToPrivate(files) } : null,
     files.length && isPrivatePath(item.path) ? { label: t('private.restore'), icon: 'upload', action: () => restoreFromPrivate(files) } : null,
     files.length ? { label: t('metadata.editExif'), icon: 'info', action: () => exifEditor(files) } : null,
+    !item.isDir && kindOf(item.name) === 'video' ? { label: t('trim.menu'), icon: 'scissors', action: async () => (await import('./ui/videotrim.js')).trimVideoDialog(item) } : null,
     !item.isDir && kindOf(item.name) !== 'video' ? { label: t('edit.editImage'), icon: 'pencil', shortcut: 'Ctrl+E', action: () => editPath(item.path) } : null,
+    files.length && isDesktop() ? { label: t('external.editIn'), icon: 'external', submenu: externalEditorMenu(files) } : null,
     fs.caps.open ? { label: t('file.openExternal'), icon: 'external', action: () => fs.openExternal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
     fs.caps.reveal ? { label: t('file.reveal'), icon: 'reveal', action: () => fs.reveal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
     'separator',
@@ -624,6 +689,8 @@ function itemMenu(event, item) {
     files.length ? { label: t('organize.tag'), icon: 'checkSquare', shortcut: '`', action: () => toggleTag(files) } : null,
     files.length ? { label: t('organize.addToBasket'), icon: 'basket', action: () => addToBasket(files) } : null,
     app.state.source.type === 'basket' ? { label: t('organize.removeFromBasket'), icon: 'close', action: () => { app.catalog.removeFromBasket(files); reload(); } } : null,
+    files.length ? { label: t('collection.addTo'), icon: 'folderOpen', submenu: addToCollectionMenu(files.map((f) => f.path ?? f)) } : null,
+    app.state.source.type === 'collection' && !app.catalog.collection(app.state.source.id)?.smart ? { label: t('collection.removeFrom'), icon: 'close', action: () => app.catalog.removeFromCollection(app.state.source.id, files.map((f) => f.path ?? f)) } : null,
     files.length ? { label: t('view.rotateLeft'), icon: 'rotateLeft', action: () => rotateAndRefresh(files, -1) } : null,
     files.length ? { label: t('view.rotateRight'), icon: 'rotateRight', action: () => rotateAndRefresh(files, 1) } : null,
     'separator',
@@ -711,6 +778,9 @@ async function openSettings() {
   await settingsDialog({
     onApply: () => {
       setLanguage(app.settings.language);
+      setColorManagement(app.settings.colorManagement);
+      viewer.forgetDecoded();
+      viewer.dicom.refresh();
       updateTheme();
       reload();
       renderAll();
@@ -922,11 +992,15 @@ app.on('source', () => {
   renderToolbar();
   updateTitle();
 });
-app.on('items', () => { renderStatus(); renderToolbar(); });
+app.on('items', () => { renderStatus(); renderToolbar(); analysis.autoAnalyze(); });
 app.on('selection', renderStatus);
 app.on('resort', () => { refreshList(); renderToolbar(); });
+const reloadCollection = debounce(() => { if (app.state.source.type === 'collection') reload(); }, 150);
 app.on('catalog', (change) => {
   if (['basket'].includes(change?.what) || !change?.what) renderBasket();
+  // A collection on screen changed (or, for a smart one, what its rules look at): list it again.
+  const source = app.state.source;
+  if (source.type === 'collection' && (change?.what === 'collections' || (app.catalog.collection(source.id)?.smart && ['rating', 'label', 'tagged', 'organize', 'fields', 'people', 'keywords', 'categories'].includes(change?.what)))) reloadCollection();
   // Sorting or filtering by what changed: rebuild the order.
   const s = app.settings;
   if ((['rating', 'label', 'tagged'].includes(change?.what) && (['rating', 'label'].includes(s.sort.key) || ['rating', 'label'].includes(s.groupBy) || app.state.listFilter.rating || app.state.listFilter.label || app.state.listFilter.tagged))) {
@@ -953,6 +1027,7 @@ document.addEventListener('keydown', async (event) => {
   if (typing(event)) return;
   if (app.state.mode === 'view') {
     if (ctrl && /^[0-5]$/.test(key)) { event.preventDefault(); rate(Number(key), [viewer.currentPath]); return; }
+    if (event.altKey && event.shiftKey && !ctrl && /^Digit[1-9]$/.test(event.code)) { event.preventDefault(); quickKeyword(Number(event.code.slice(5)), [viewer.currentPath]); return; }
     if (event.altKey && /^[0-5]$/.test(key)) { event.preventDefault(); setLabel(key === '0' ? null : LABELS[Number(key) - 1], [viewer.currentPath]); return; }
     if (key === '`') { event.preventDefault(); toggleTag([viewer.currentPath]); return; }
     if (ctrl && (key === '[' || key === ']')) { event.preventDefault(); rotateAndRefresh([viewer.currentPath], key === ']' ? 1 : -1); return; }
@@ -963,7 +1038,9 @@ document.addEventListener('keydown', async (event) => {
   if (app.state.mode === 'dashboard') { if (key === 'Escape') setMode('manage'); return; }
   // Manage mode.
   const handled = () => event.preventDefault();
+  if (event.altKey && ctrl && /^Digit[1-9]$/.test(event.code) && app.settings.workspaces[Number(event.code.slice(5)) - 1]) { handled(); applyWorkspace(app.settings.workspaces[Number(event.code.slice(5)) - 1].layout); return; }
   if (ctrl && /^[0-5]$/.test(key)) { handled(); rate(Number(key)); return; }
+  if (event.altKey && event.shiftKey && !ctrl && /^Digit[1-9]$/.test(event.code)) { handled(); quickKeyword(Number(event.code.slice(5)), targetPaths()); return; }
   if (event.altKey && /^[0-5]$/.test(key)) { handled(); setLabel(key === '0' ? null : LABELS[Number(key) - 1]); return; }
   if (key === '`' && !ctrl) { handled(); toggleTag(); return; }
   const command = commandFor(event);
@@ -1004,6 +1081,7 @@ registerCommands([
   { id: 'paste', label: 'edit.paste', key: 'Ctrl+V', run: pasteClipboard },
   { id: 'basket', label: 'organize.addToBasket', key: 'Ctrl+B', run: () => addToBasket() },
   { id: 'edit', label: 'edit.editImage', key: 'Ctrl+E', run: () => switchMode('edit') },
+  { id: 'externalEdit', label: 'external.editFirst', key: 'Ctrl+Shift+E', run: () => { const [first] = externalEditors(); if (first) openInEditor(first, targetPaths({ filesOnly: true })); else toast(t('external.none'), 'info'); } },
   { id: 'open', label: 'file.openFolder', key: 'Ctrl+O', run: openFolderDialog },
   { id: 'print', label: 'file.print', key: 'Ctrl+P', run: () => printDialog(selectedFiles().length ? selectedFiles() : app.state.list) },
   { id: 'search', label: 'shortcut.search', key: 'Ctrl+F', run: () => document.querySelector('#quick-search')?.focus() },
@@ -1034,6 +1112,7 @@ window.addEventListener('beforeunload', () => { saveCatalogNow(); });
 // ───────────────────────── start-up
 
 async function start() {
+  setColorManagement(app.settings.colorManagement);
   updateTheme();
   if (isDesktop()) {
     const fileSettings = await loadSettingsFile();
@@ -1100,7 +1179,8 @@ function runMenu(menuId, ...keys) {
 }
 
 // Test hook (E2E): the app's state and actions.
-globalThis.__myphoto = { app, t, actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
+const minWidth = watchMinWidth();
+globalThis.__myphoto = { app, t, minWidth, analysis, organizer: () => import('./ui/organize.js'), actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
 
 start().catch((error) => {
   console.error(error);

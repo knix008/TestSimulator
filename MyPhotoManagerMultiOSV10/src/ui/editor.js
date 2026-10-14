@@ -6,9 +6,10 @@
 // original aside and remembers the settings, so the photo can be re-edited
 // later from the original without losing quality.
 import { joinPath, parentOf } from '../catalog/catalog.js';
-import { autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
+import { applyAdjustments, autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
+import { BUILTIN_LUTS, getLut, importLut, prepareEdit } from '../edit/lut.js';
 import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
 import { context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
@@ -19,18 +20,22 @@ import { fs } from '../platform/fs.js';
 import { chooseFiles, chooseSavePath, errorText, isDesktop } from '../platform/native.js';
 import { app, reload, saveCatalogSoon } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
+import { formatDateTime } from '../util/format.js';
 import { confirmDialog, field, openDialog, promptDialog, selectEl, toast } from './dialog.js';
 import { colorSwatches } from './colorswatch.js';
 import { button, clear, h, rafThrottle } from './dom.js';
 import { drawHistogram } from './histogram.js';
 import { icon } from './icons.js';
+import { commandFor, registerCommands } from './keymap.js';
 
 const PREVIEW_MAX = 1800;
 const ASPECTS = [['free', null], ['original', 'original'], ['1:1', 1], ['4:3', 4 / 3], ['3:2', 3 / 2], ['16:9', 16 / 9], ['5:4', 5 / 4], ['3:4', 3 / 4], ['2:3', 2 / 3], ['9:16', 9 / 16]];
 const ANCHORS = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 /** Tools that work in source-pixel coordinates (the preview is drawn without border/layers/text). */
-const SOURCE_TOOLS = ['redeye', 'heal', 'clone', 'wbpick', 'gradient', 'radial', 'brush'];
+const SOURCE_TOOLS = ['redeye', 'heal', 'clone', 'erase', 'wbpick', 'gradient', 'radial', 'brush', 'lasso', 'wand', 'color'];
+const SELECTION_TOOLS = ['lasso', 'wand', 'color'];
+const hueOf = (r, g, b) => { const max = Math.max(r, g, b); const d = max - Math.min(r, g, b); if (!d) return 0; const h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4); return h < 0 ? h + 360 : h; };
 
 /** Edit settings copied with "Copy settings", shared with the batch "Paste settings". */
 export const editClipboard = { preset: null };
@@ -41,12 +46,14 @@ export function createEditor({ onDone }) {
   const overlay = h('div.editor-overlay');
   const bar = h('div.editor-toolbar');
   const histCanvas = h('canvas.editor-histogram', { width: 256, height: 80 });
+  const wheelsBox = h('div.color-wheels');
   const info = h('div.editor-info');
-  const el = h('div.editor', bar, h('div.editor-body', h('div.editor-side', histCanvas, panel), h('div.editor-stage', canvasHolder, overlay)), info);
+  const el = h('div.editor', bar, h('div.editor-body', h('div.editor-side', histCanvas, wheelsBox, panel), h('div.editor-stage', canvasHolder, overlay)), info);
 
   let item = null;
   let original = null;
   let full = null;
+  let fullHigh = null; // 16-bit source: its precise copy (formats/highbit.js)
   let preview = null;
   let scale = 1;
   let edit = defaultEdit();
@@ -84,6 +91,7 @@ export function createEditor({ onDone }) {
     draw();
     updateBar();
     if (section === 'history') buildPanel();
+    else refreshResets();
   }
 
   function doUndo() {
@@ -115,7 +123,8 @@ export function createEditor({ onDone }) {
 
   const draw = rafThrottle(() => {
     if (!preview) return;
-    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages });
+    if (edit.lut && !getLut(edit.lut.id)) { prepareEdit(edit).then(() => draw()).catch(() => {}); }
+    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages, high: fullHigh });
     let canvas = output;
     if (!(canvas instanceof HTMLCanvasElement)) {
       canvas = document.createElement('canvas');
@@ -133,7 +142,7 @@ export function createEditor({ onDone }) {
     } catch { /* never break the preview */ }
     drawOverlay();
     const out = layout(full.width, full.height, edit.geometry);
-    info.textContent = `${item.name}${rawMode ? ' · RAW (LibRaw)' : ''}${fromOriginal ? ` · ${t('edit.fromOriginal')}` : ''} · ${full.width} × ${full.height} → ${out.width} × ${out.height}${before ? ` · ${t('edit.before')}` : ''}`;
+    info.textContent = `${item.name}${rawMode ? ' · RAW (LibRaw)' : ''}${fromOriginal ? ` · ${t('edit.fromOriginal')}` : ''}${fullHigh ? ` · ${t('edit.highBit')}` : ''} · ${full.width} × ${full.height} → ${out.width} × ${out.height}${before ? ` · ${t('edit.before')}` : ''}`;
   });
 
   function fitCanvas() {
@@ -247,6 +256,99 @@ export function createEditor({ onDone }) {
       if (event.altKey || !cloneSource) { cloneSource = { x: point.x, y: point.y }; drawOverlay(); toast(t('edit.cloneSourceSet'), 'info', 1200); return; }
       const { x: sx, y: sy } = cloneSource;
       change((e) => { e.spots.push({ type: 'clone', x: Math.round(point.x), y: Math.round(point.y), sx: Math.round(sx), sy: Math.round(sy), r: Math.round(radiusFor(point.displayPerSource)), hardness: brush.hardness }); }, t('edit.clone'));
+      return;
+    }
+    if (tool === 'wand' || tool === 'color') {
+      // One click: a magic-wand selection from this point, or the colour range of this pixel.
+      let shape;
+      if (tool === 'wand') shape = { x: Math.round(point.x), y: Math.round(point.y), tolerance: 32, feather: 3 };
+      else {
+        const px = Math.round(point.x * scale);
+        const py = Math.round(point.y * scale);
+        const [r, g, b] = context2d(preview, { willReadFrequently: true }).getImageData(Math.max(0, px), Math.max(0, py), 1, 1).data;
+        shape = { hue: Math.round(hueOf(r, g, b)), range: 25, satMin: 15, lumMin: 0, lumMax: 100, soft: 12 };
+      }
+      change((ed) => { ed.local.push({ kind: tool, shape, adjust: { exposure: 0.5 }, detail: {} }); }, t(`edit.local.${tool}`));
+      selectedLocal = edit.local.length - 1;
+      buildPanel();
+      return;
+    }
+    if (tool === 'lasso') {
+      const points = [[Math.round(point.x), Math.round(point.y)]];
+      const box = overlay.getBoundingClientRect();
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'lasso-path');
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      svg.append(line);
+      overlay.append(svg);
+      const shown = [[event.clientX - box.left, event.clientY - box.top]];
+      const paint = () => line.setAttribute('points', shown.map((p) => p.join(',')).join(' '));
+      try { overlay.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+      const moveLasso = (e) => {
+        const p = sourcePoint(e);
+        const last = points[points.length - 1];
+        if (Math.hypot(p.x - last[0], p.y - last[1]) < 2) return;
+        points.push([Math.round(p.x), Math.round(p.y)]);
+        shown.push([e.clientX - box.left, e.clientY - box.top]);
+        paint();
+      };
+      const upLasso = () => {
+        overlay.removeEventListener('pointermove', moveLasso);
+        overlay.removeEventListener('pointerup', upLasso);
+        svg.remove();
+        if (points.length < 3) return;
+        change((ed) => { ed.local.push({ kind: 'lasso', shape: { points, feather: 8 }, adjust: { exposure: 0.5 }, detail: {} }); }, t('edit.local.lasso'));
+        selectedLocal = edit.local.length - 1;
+        buildPanel();
+      };
+      overlay.addEventListener('pointermove', moveLasso);
+      overlay.addEventListener('pointerup', upLasso);
+      return;
+    }
+    if (tool === 'layermask') {
+      const layer = edit.layers[selectedLayer];
+      if (!layer?.mask || layer.mask.kind !== 'brush') return;
+      commit(t('edit.layerMask'));
+      const r = displayRect();
+      const stroke = { points: [[fx, fy]], radius: brush.size / 2 / Math.min(r.w, r.h), hardness: brush.hardness, erase: brush.erase };
+      layer.mask.strokes.push(stroke);
+      draw();
+      try { overlay.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+      const moveMask = (e) => { const f = fractionAt(e); stroke.points.push([f.fx, f.fy]); draw(); };
+      const upMask = () => { overlay.removeEventListener('pointermove', moveMask); overlay.removeEventListener('pointerup', upMask); updateBar(); };
+      overlay.addEventListener('pointermove', moveMask);
+      overlay.addEventListener('pointerup', upMask);
+      return;
+    }
+    if (tool === 'erase') {
+      // Paint over what should go; on release the area is rebuilt from its surroundings.
+      const stroke = { points: [[Math.round(point.x), Math.round(point.y)]], radius: Math.round(radiusFor(point.displayPerSource)) };
+      const box = overlay.getBoundingClientRect();
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'erase-path');
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      line.setAttribute('stroke-width', String(stroke.radius * 2 * point.displayPerSource));
+      svg.append(line);
+      overlay.append(svg);
+      const shown = [[event.clientX - box.left, event.clientY - box.top]];
+      const paint = () => line.setAttribute('points', shown.map((p) => p.join(',')).join(' '));
+      paint();
+      try { overlay.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+      const moveErase = (e) => {
+        const p = sourcePoint(e);
+        stroke.points.push([Math.round(p.x), Math.round(p.y)]);
+        shown.push([e.clientX - box.left, e.clientY - box.top]);
+        paint();
+      };
+      const upErase = () => {
+        overlay.removeEventListener('pointermove', moveErase);
+        overlay.removeEventListener('pointerup', upErase);
+        svg.remove();
+        change((ed) => { ed.spots.push({ type: 'erase', strokes: [stroke] }); }, t('edit.contentErase'));
+        buildPanel();
+      };
+      overlay.addEventListener('pointermove', moveErase);
+      overlay.addEventListener('pointerup', upErase);
       return;
     }
     // Drags: gradient, radial, brush, straighten line, drawings.
@@ -415,7 +517,7 @@ export function createEditor({ onDone }) {
       output.textContent = String(format(Number(input.value)));
       draw();
     });
-    input.addEventListener('change', () => { committed = false; updateBar(); });
+    input.addEventListener('change', () => { committed = false; updateBar(); refreshResets(); });
     const row = h('div.slider-row', h('div.slider-head', h('span', label), output), input);
     row.addEventListener('dblclick', () => { change(() => set(0), label); buildPanel(); });
     return row;
@@ -432,12 +534,13 @@ export function createEditor({ onDone }) {
    */
   const RESETS = {
     light: (e) => { for (const key of ['exposure', 'brightness', 'contrast', 'highlights', 'shadows', 'whites', 'blacks']) e.adjust[key] = DEFAULT_ADJUST[key]; e.tone.dehaze = 0; },
-    color: (e) => { for (const key of ['temperature', 'tint', 'saturation', 'vibrance', 'hue']) e.adjust[key] = DEFAULT_ADJUST[key]; },
+    color: (e) => { for (const key of ['temperature', 'tint', 'saturation', 'vibrance', 'hue']) e.adjust[key] = DEFAULT_ADJUST[key]; e.tone.colorBalance = null; },
     colorEq: (e) => { e.tone.colorEq = null; },
     lightEq: (e) => { e.tone.lightEq = null; },
     splitTone: (e) => { e.tone.splitTone = null; },
     levels: (e) => { e.adjust.levels = null; },
     curves: (e) => { e.adjust.curves = null; },
+    lut: (e) => { e.lut = null; },
     detail: (e) => { e.detail = { ...DEFAULT_DETAIL }; },
     lens: (e) => { e.lens = { ...DEFAULT_LENS }; },
     geometry: (e) => { e.geometry = { ...defaultEdit().geometry }; e.canvas = { ...DEFAULT_CANVAS }; },
@@ -462,10 +565,21 @@ export function createEditor({ onDone }) {
     buildPanel();
   }
 
+  const resetMark = (id, title) => h('span.edit-section-reset', { role: 'button', title: `${t('edit.resetSection')} — ${title}`, dataset: { reset: id }, html: icon('undo'), onclick: (event) => { event.stopPropagation(); resetSection(id); } });
+  /** Shows or hides the ↺ on every section title after a change (sliders do not rebuild the panel). */
+  function refreshResets() {
+    for (const head of panel.querySelectorAll('.edit-section-head[data-section]')) {
+      const id = head.dataset.section;
+      if (!RESETS[id]) continue;
+      const mark = head.querySelector('.edit-section-reset');
+      const changed = sectionChanged(id);
+      if (changed && !mark) head.querySelector('.arrow').before(resetMark(id, head.children[1].textContent));
+      else if (!changed && mark) mark.remove();
+    }
+  }
+
   function sectionHead(id, title, iconName) {
-    const reset = RESETS[id] && sectionChanged(id)
-      ? h('span.edit-section-reset', { role: 'button', title: `${t('edit.resetSection')} — ${title}`, dataset: { reset: id }, html: icon('undo'), onclick: (event) => { event.stopPropagation(); resetSection(id); } })
-      : null;
+    const reset = RESETS[id] && sectionChanged(id) ? resetMark(id, title) : null;
     const head = h(`button.edit-section-head${section === id ? '.open' : ''}`, { type: 'button', dataset: { section: id } }, h('span', { html: icon(iconName) }), h('span', title), reset, h('span.arrow', { html: icon(section === id ? 'chevronDown' : 'chevronRight') }));
     head.addEventListener('click', () => { section = section === id ? null : id; if (tool) cancelTool(); else buildPanel(); });
     return head;
@@ -473,13 +587,68 @@ export function createEditor({ onDone }) {
 
   const SECTIONS = [
     ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
-    ['curves', 'contrast'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['local', 'sliders'], ['repair', 'bandage'],
+    ['curves', 'contrast'], ['lut', 'cube'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['local', 'sliders'], ['repair', 'bandage'],
     ['effects', 'wand'], ['draw', 'pencil'], ['add', 'text'], ['layers', 'layers'], ['presets', 'bookmark'], ['history', 'clock'],
   ];
 
+  // ───────── colour balance wheels (under the histogram, always visible)
+
+  const WHEEL = 64;
+  function drawWheels() {
+    clear(wheelsBox);
+    for (const key of ['shadows', 'midtones', 'highlights']) {
+      const valueOf = () => edit.tone.colorBalance?.[key] ?? { hue: 0, amount: 0 };
+      const canvas = h('canvas.color-wheel', { width: WHEEL * 2, height: WHEEL * 2, dataset: { wheel: key }, title: `${t(`edit.wheel.${key}`)} — ${t('edit.wheelHint')}` });
+      const label = h('span.color-wheel-value');
+      // Repaints this wheel only (the canvas stays the same element while it is dragged).
+      const paint = () => {
+        const value = valueOf();
+        const g = canvas.getContext('2d');
+        const c = WHEEL;
+        const r = WHEEL - 3;
+        g.clearRect(0, 0, canvas.width, canvas.height);
+        const hue = g.createConicGradient ? g.createConicGradient(0, c, c) : null;
+        if (hue) { for (let k = 0; k <= 12; k++) hue.addColorStop(k / 12, `hsl(${k * 30}, 85%, 55%)`); g.fillStyle = hue; } else g.fillStyle = '#888';
+        g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.fill();
+        const fade = g.createRadialGradient(c, c, 0, c, c, r);
+        fade.addColorStop(0, 'rgba(128,128,128,1)'); fade.addColorStop(1, 'rgba(128,128,128,0)');
+        g.fillStyle = fade; g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.fill();
+        const a = (value.hue * Math.PI) / 180;
+        const d = (value.amount / 100) * r;
+        g.lineWidth = 3; g.strokeStyle = '#fff'; g.beginPath(); g.arc(c + Math.cos(a) * d, c + Math.sin(a) * d, 7, 0, Math.PI * 2); g.stroke();
+        g.lineWidth = 1.5; g.strokeStyle = '#000'; g.stroke();
+        label.textContent = value.amount ? `${value.hue}° · ${value.amount}` : '–';
+      };
+      const set = (event) => {
+        const box = canvas.getBoundingClientRect();
+        const x = ((event.clientX - box.left) / box.width) * 2 - 1;
+        const y = ((event.clientY - box.top) / box.height) * 2 - 1;
+        const amount = Math.round(Math.min(1, Math.hypot(x, y) / ((WHEEL - 3) / WHEEL)) * 100);
+        const angle = Math.round(((Math.atan2(y, x) * 180) / Math.PI + 360) % 360);
+        edit.tone.colorBalance = { ...(edit.tone.colorBalance ?? {}), [key]: { hue: angle, amount } };
+        paint();
+        draw();
+      };
+      canvas.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        commit(t(`edit.wheel.${key}`));
+        try { canvas.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+        set(event);
+        const move = (e) => set(e);
+        const up = () => { canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); updateBar(); refreshResets(); };
+        canvas.addEventListener('pointermove', move);
+        canvas.addEventListener('pointerup', up);
+      });
+      canvas.addEventListener('dblclick', () => { change((e) => { if (e.tone.colorBalance) e.tone.colorBalance = { ...e.tone.colorBalance, [key]: { hue: 0, amount: 0 } }; }, t('edit.wheelReset')); paint(); });
+      paint();
+      wheelsBox.append(h('div.color-wheel-box', canvas, h('div.color-wheel-label', t(`edit.wheel.${key}`), label)));
+    }
+  }
+
   function buildPanel() {
+    drawWheels();
     clear(panel);
-    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
+    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
     for (const [id, iconName] of SECTIONS) {
       panel.append(sectionHead(id, t(`edit.${id}`), iconName));
       if (section === id) panel.append(h('div.edit-section', bodies[id]()));
@@ -677,7 +846,7 @@ export function createEditor({ onDone }) {
 
   function localPanel() {
     const rows = edit.local.map((local, i) => {
-      const row = h(`div.cat-row${i === selectedLocal ? '.active' : ''}`, { role: 'button', dataset: { local: String(i) } }, h('span.cat-icon', { html: icon(local.kind === 'brush' ? 'pencil' : local.kind === 'radial' ? 'circle' : 'contrast') }), h('span.cat-label', `${t(`edit.local.${local.kind}`)} ${i + 1}`),
+      const row = h(`div.cat-row${i === selectedLocal ? '.active' : ''}`, { role: 'button', dataset: { local: String(i) } }, h('span.cat-icon', { html: icon({ brush: 'pencil', radial: 'circle', lasso: 'lasso', wand: 'wand', color: 'palette' }[local.kind] ?? 'contrast') }), h('span.cat-label', `${t(`edit.local.${local.kind}`)} ${i + 1}`),
         h('button.tool.small', { type: 'button', title: t('common.remove'), html: icon('close'), onclick: (e) => { e.stopPropagation(); change((ed) => { ed.local.splice(i, 1); }, t('edit.local')); selectedLocal = -1; buildPanel(); } }));
       row.addEventListener('click', () => { selectedLocal = i; tool = local.kind; buildPanel(); draw(); });
       return row;
@@ -687,7 +856,8 @@ export function createEditor({ onDone }) {
     const detailRow = (key, label, min, max) => sliderRow(label, min, max, 1, () => selected.detail?.[key] ?? 0, (v) => { selected.detail = { ...(selected.detail ?? {}), [key]: v }; }, undefined, `local.${key}`);
     return h('div',
       h('div.row-buttons', toolButton('gradient', t('edit.local.gradient'), 'contrast'), toolButton('radial', t('edit.local.radial'), 'circle'), toolButton('brush', t('edit.local.brush'), 'pencil')),
-      h('div.hint', tool && ['gradient', 'radial', 'brush'].includes(tool) ? t(`edit.local.${tool}Hint`) : t('edit.local.hint')),
+      h('div.row-buttons', toolButton('lasso', t('edit.local.lasso'), 'lasso'), toolButton('wand', t('edit.local.wand'), 'wand'), toolButton('color', t('edit.local.color'), 'palette')),
+      h('div.hint', tool && ['gradient', 'radial', 'brush', ...SELECTION_TOOLS].includes(tool) ? t(`edit.local.${tool}Hint`) : t('edit.local.hint')),
       tool === 'brush' ? h('div',
         sliderRow(t('edit.brushSize'), 4, 300, 1, () => brush.size, (v) => { brush.size = v; }),
         sliderRow(t('edit.hardness'), 0, 100, 1, () => brush.hardness * 100, (v) => { brush.hardness = v / 100; }),
@@ -702,12 +872,27 @@ export function createEditor({ onDone }) {
         adjustRow('temperature', t('edit.temperature'), -100, 100),
         detailRow('sharpen', t('edit.sharpen'), 0, 200),
         detailRow('blur', t('edit.blur'), 0, 50),
-        selected.kind === 'radial' ? h('label.check', h('input', { type: 'checkbox', checked: Boolean(selected.shape.invert), onchange: (e) => change(() => { selected.shape.invert = e.target.checked; }, t('edit.local')) }), t('edit.invertMask')) : '') : '');
+        selectionSettings(selected),
+        h('label.check', h('input', { type: 'checkbox', dataset: { key: 'local-invert' }, checked: Boolean(selected.shape.invert), onchange: (e) => change(() => { selected.shape.invert = e.target.checked; }, t('edit.local')) }), t('edit.invertMask'))) : '');
+  }
+
+  /** Settings of a selection mask: wand tolerance, colour range, lasso feather. */
+  function selectionSettings(local) {
+    const shapeRow = (key, label, min, max, format) => sliderRow(label, min, max, 1, () => local.shape[key] ?? 0, (v) => { local.shape[key] = v; }, format, `shape.${key}`);
+    if (local.kind === 'wand') return h('div', shapeRow('tolerance', t('edit.local.tolerance'), 1, 128), shapeRow('feather', t('edit.local.feather'), 0, 40));
+    if (local.kind === 'lasso') return shapeRow('feather', t('edit.local.feather'), 0, 80);
+    if (local.kind === 'color') {
+      const swatch = h('span.hue-swatch', { style: { background: `hsl(${local.shape.hue ?? 0}, 80%, 50%)` } });
+      return h('div', h('div.field-label', t('edit.local.targetHue'), swatch),
+        shapeRow('hue', t('edit.hue'), 0, 359, (v) => `${v}°`), shapeRow('range', t('edit.local.hueRange'), 2, 180, (v) => `±${v}°`),
+        shapeRow('satMin', t('edit.local.satMin'), 0, 100), shapeRow('lumMin', t('edit.local.lumMin'), 0, 100), shapeRow('lumMax', t('edit.local.lumMax'), 0, 100));
+    }
+    return '';
   }
 
   function repairPanel() {
     return h('div',
-      h('div.row-buttons', toolButton('redeye', t('edit.redeye'), 'redeye'), toolButton('heal', t('edit.heal'), 'bandage'), toolButton('clone', t('edit.clone'), 'copy')),
+      h('div.row-buttons', toolButton('redeye', t('edit.redeye'), 'redeye'), toolButton('heal', t('edit.heal'), 'bandage'), toolButton('clone', t('edit.clone'), 'copy'), toolButton('erase', t('edit.contentErase'), 'eraser')),
       sliderRow(t('edit.brushSize'), 4, 200, 1, () => brush.size, (v) => { brush.size = v; }),
       h('div.hint', tool ? t(`edit.${tool}Hint`) : t('edit.repairHint')),
       edit.spots.length ? h('div.row-buttons',
@@ -828,21 +1013,74 @@ export function createEditor({ onDone }) {
     const rows = edit.layers.map((layer, i) => {
       const row = h(`div.cat-row${i === selectedLayer ? '.active' : ''}`, { role: 'button' },
         h('input', { type: 'checkbox', checked: layer.visible !== false, title: t('edit.visible'), onclick: (e) => e.stopPropagation(), onchange: (e) => change(() => { layer.visible = e.target.checked; }, t('edit.layers')) }),
+        layer.type === 'adjust' ? h('span.cat-icon', { html: icon('sliders') }) : '',
         h('span.cat-label', layer.name),
+        layer.mask ? h('span.layer-mask-badge', { title: t('edit.layerMask') }, '◐') : '',
         h('button.tool.small', { type: 'button', title: t('edit.layerUp'), html: icon('up'), disabled: i === edit.layers.length - 1, onclick: (e) => { e.stopPropagation(); change((ed) => { [ed.layers[i], ed.layers[i + 1]] = [ed.layers[i + 1], ed.layers[i]]; }, t('edit.layers')); selectedLayer = i + 1; buildPanel(); } }),
         h('button.tool.small', { type: 'button', title: t('common.remove'), html: icon('close'), onclick: (e) => { e.stopPropagation(); change((ed) => { ed.layers.splice(i, 1); }, t('edit.layers')); selectedLayer = -1; buildPanel(); } }));
       row.addEventListener('click', () => { selectedLayer = i; tool = 'layer'; buildPanel(); });
       return row;
     });
     const layer = edit.layers[selectedLayer];
+    const adjustRow = (key, label, min, max, stepValue = 1, format) => sliderRow(label, min, max, stepValue, () => layer.adjust?.[key] ?? 0, (v) => { layer.adjust = { ...(layer.adjust ?? {}), [key]: v }; }, format, `layer.${key}`);
     return h('div',
-      h('div.row-buttons', h('button.btn.small', { type: 'button', id: 'add-layer', onclick: addLayer }, h('span', { html: icon('plus') }), t('edit.addLayer')), edit.layers.length ? toolButton('layer', t('edit.moveLayer'), 'move') : ''),
+      h('div.row-buttons', h('button.btn.small', { type: 'button', id: 'add-layer', onclick: addLayer }, h('span', { html: icon('plus') }), t('edit.addLayer')),
+        h('button.btn.small', { type: 'button', id: 'add-adjust-layer', onclick: addAdjustLayer }, h('span', { html: icon('sliders') }), t('edit.addAdjustLayer')),
+        edit.layers.some((l) => l.type !== 'adjust') ? toolButton('layer', t('edit.moveLayer'), 'move') : ''),
       h('div.hint', t('edit.layersHint')),
       ...rows,
       layer ? h('div.local-settings',
-        field(t('edit.blendMode'), selectEl(BLEND_MODES.map((m) => [m, t(`blend.${m}`)]), layer.mode, (v) => change(() => { layer.mode = v; }, t('edit.blendMode')))),
-        sliderRow(t('edit.opacity'), 0, 100, 1, () => layer.opacity, (v) => { layer.opacity = v; }),
-        sliderRow(t('edit.layerSize'), 0.02, 2, 0.01, () => layer.scale, (v) => { layer.scale = v; }, (v) => `${Math.round(v * 100)}%`)) : '');
+        layer.type === 'adjust' ? h('div',
+          adjustRow('exposure', t('edit.exposure'), -3, 3, 0.05, (v) => `${Number(v).toFixed(2)} EV`),
+          adjustRow('contrast', t('edit.contrast'), -100, 100),
+          adjustRow('highlights', t('edit.highlights'), -100, 100),
+          adjustRow('shadows', t('edit.shadows'), -100, 100),
+          adjustRow('saturation', t('edit.saturation'), -100, 100),
+          adjustRow('temperature', t('edit.temperature'), -100, 100))
+          : field(t('edit.blendMode'), selectEl(BLEND_MODES.map((m) => [m, t(`blend.${m}`)]), layer.mode, (v) => change(() => { layer.mode = v; }, t('edit.blendMode')))),
+        sliderRow(t('edit.opacity'), 0, 100, 1, () => layer.opacity, (v) => { layer.opacity = v; }, undefined, 'layer.opacity'),
+        layer.type === 'adjust' ? '' : sliderRow(t('edit.layerSize'), 0.02, 2, 0.01, () => layer.scale, (v) => { layer.scale = v; }, (v) => `${Math.round(v * 100)}%`),
+        layerMaskSettings(layer)) : '');
+  }
+
+  // ───────── layer masks: presets (gradients, ellipse) or painted with the mask brush
+
+  const MASK_PRESETS = {
+    none: () => null,
+    top: () => ({ kind: 'linear', x1: 0.5, y1: 0, x2: 0.5, y2: 0.6 }),
+    bottom: () => ({ kind: 'linear', x1: 0.5, y1: 1, x2: 0.5, y2: 0.4 }),
+    left: () => ({ kind: 'linear', x1: 0, y1: 0.5, x2: 0.6, y2: 0.5 }),
+    right: () => ({ kind: 'linear', x1: 1, y1: 0.5, x2: 0.4, y2: 0.5 }),
+    center: () => ({ kind: 'radial', cx: 0.5, cy: 0.5, rx: 0.35, ry: 0.35, feather: 60 }),
+    brush: () => ({ kind: 'brush', strokes: [], base: 0 }),
+  };
+  const maskPresetOf = (mask) => {
+    if (!mask) return 'none';
+    if (mask.kind === 'brush') return 'brush';
+    return Object.keys(MASK_PRESETS).find((k) => k !== 'none' && k !== 'brush' && JSON.stringify({ ...MASK_PRESETS[k](), invert: mask.invert }) === JSON.stringify({ ...mask, invert: mask.invert })) ?? 'custom';
+  };
+  function layerMaskSettings(layer) {
+    const preset = maskPresetOf(layer.mask);
+    const choose = selectEl([...Object.keys(MASK_PRESETS).map((k) => [k, t(`edit.mask.${k}`)]), ...(preset === 'custom' ? [['custom', t('edit.mask.custom')]] : [])], preset, (v) => {
+      change(() => { const next = MASK_PRESETS[v]?.(); layer.mask = next ? { ...next, invert: Boolean(layer.mask?.invert) } : null; }, t('edit.layerMask'));
+      if (v === 'brush') tool = 'layermask';
+      buildPanel();
+    });
+    choose.dataset.key = 'layer-mask';
+    return h('div.layer-mask', h('div.edit-subhead', t('edit.layerMask')), field(t('edit.layerMaskShape'), choose),
+      layer.mask ? h('label.check', h('input', { type: 'checkbox', dataset: { key: 'layer-mask-invert' }, checked: Boolean(layer.mask.invert), onchange: (e) => change(() => { layer.mask.invert = e.target.checked; }, t('edit.layerMask')) }), t('edit.invertMask')) : '',
+      layer.mask?.kind === 'brush' ? h('div',
+        h('div.row-buttons', toolButton('layermask', t('edit.maskBrush'), 'pencil')),
+        sliderRow(t('edit.brushSize'), 4, 300, 1, () => brush.size, (v) => { brush.size = v; }),
+        h('label.check', h('input', { type: 'checkbox', checked: brush.erase, onchange: (e) => { brush.erase = e.target.checked; } }), t('edit.maskErase')),
+        h('div.hint', t('edit.maskBrushHint'))) : '');
+  }
+
+  function addAdjustLayer() {
+    const n = edit.layers.filter((l) => l.type === 'adjust').length + 1;
+    change((e) => { e.layers.push({ type: 'adjust', name: `${t('edit.adjustLayer')} ${n}`, adjust: { exposure: 0, contrast: 0, highlights: 0, shadows: 0, saturation: 0, temperature: 0 }, opacity: 100, visible: true, mask: null }); }, t('edit.addAdjustLayer'));
+    selectedLayer = edit.layers.length - 1;
+    buildPanel();
   }
 
   function presetsPanel() {
@@ -854,7 +1092,8 @@ export function createEditor({ onDone }) {
           if (name?.trim()) { app.catalog.savePreset(name.trim(), presetOf(edit)); saveCatalogSoon(); buildPanel(); }
         } }, t('edit.savePreset')),
         h('button.btn.small', { type: 'button', onclick: () => { editClipboard.preset = presetOf(edit); toast(t('edit.settingsCopied'), 'info'); buildPanel(); } }, t('edit.copySettings')),
-        h('button.btn.small', { type: 'button', disabled: !editClipboard.preset, onclick: () => { change((e) => Object.assign(e, applyPreset(e, editClipboard.preset)), t('edit.pasteSettings')); buildPanel(); } }, t('edit.pasteSettings'))),
+        h('button.btn.small', { type: 'button', disabled: !editClipboard.preset, onclick: () => { change((e) => Object.assign(e, applyPreset(e, editClipboard.preset)), t('edit.pasteSettings')); buildPanel(); } }, t('edit.pasteSettings')),
+        h('button.btn.small', { type: 'button', id: 'record-action-step', title: t('actions.recordHint'), onclick: async () => { const { recordEditStep } = await import('./actions.js'); await recordEditStep(edit); } }, h('span', { html: icon('play') }), t('actions.record'))),
       list.length ? '' : h('div.cat-empty', t('edit.noPresets')),
       ...list.map((preset) => h('div.cat-row', { role: 'button', dataset: { preset: preset.name }, onclick: () => { change((e) => Object.assign(e, applyPreset(e, preset.edit)), preset.name); buildPanel(); } },
         h('span.cat-icon', { html: icon('bookmark') }), h('span.cat-label', preset.name),
@@ -864,7 +1103,84 @@ export function createEditor({ onDone }) {
   function historyPanel() {
     const rows = [h('div.cat-row', { role: 'button', dataset: { history: '0' }, onclick: () => goToHistory(0) }, h('span.cat-icon', { html: icon('image') }), h('span.cat-label', t('edit.historyOpen')))];
     undo.forEach((entry, i) => rows.push(h(`div.cat-row${i === undo.length - 1 ? '.active' : ''}`, { role: 'button', dataset: { history: String(i + 1) }, onclick: () => goToHistory(i + 1) }, h('span.cat-count', String(i + 1)), h('span.cat-label', entry.label))));
-    return h('div', h('div.hint', t('edit.historyHint')), ...rows);
+    return h('div', h('div.hint', t('edit.historyHint')), ...rows, snapshotsBox());
+  }
+
+  // ───────── snapshots: named states of this photo's edit, kept in the catalog
+
+  const snapshots = () => app.catalog.get(item.path)?.snapshots ?? [];
+  function snapshotsBox() {
+    const list = snapshots();
+    const rows = list.map((snap, i) => h('div.cat-row', { role: 'button', dataset: { snapshot: String(i) }, title: t('edit.snapshotRestore'), onclick: () => restoreSnapshot(i) },
+      h('span.cat-icon', { html: icon('camera') }), h('span.cat-label', snap.name), h('span.cat-count', formatDateTime(snap.time)),
+      h('button.tool.small', { type: 'button', title: t('common.remove'), html: icon('close'), dataset: { deleteSnapshot: String(i) }, onclick: (event) => { event.stopPropagation(); app.catalog.setSnapshots(item.path, list.filter((_, j) => j !== i)); buildPanel(); } })));
+    return h('div.snapshots', h('div.edit-subhead', t('edit.snapshots')),
+      h('div.hint', t('edit.snapshotsHint')),
+      ...rows,
+      h('div.row-buttons', h('button.btn.small', { type: 'button', id: 'take-snapshot', onclick: takeSnapshot }, h('span', { html: icon('camera') }), t('edit.snapshotTake'))));
+  }
+  async function takeSnapshot() {
+    const name = await promptDialog(t('edit.snapshotName'), t('edit.snapshotDefault', { n: snapshots().length + 1 }), { title: t('edit.snapshotTake') });
+    if (!name?.trim()) return;
+    app.catalog.setSnapshots(item.path, [...snapshots(), { name: name.trim(), time: Date.now(), edit: clone(edit) }]);
+    toast(t('edit.snapshotTaken', { name: name.trim() }), 'success');
+    buildPanel();
+  }
+  function restoreSnapshot(i) {
+    const snap = snapshots()[i];
+    if (!snap) return;
+    change((e) => { const next = normalizeEdit(clone(snap.edit)); for (const key of Object.keys(e)) delete e[key]; Object.assign(e, next); }, `${t('edit.snapshotRestore')}: ${snap.name}`);
+    buildPanel();
+  }
+
+  // ───────── LUT: a .cube file or a built-in look, with an amount
+
+  function lutPanel() {
+    const library = app.settings.luts ?? [];
+    const options = [['', t('lut.none')], ...BUILTIN_LUTS.map((id) => [id, t(`lut.${id}`)]), ...library.map((x) => [x.id, x.name])];
+    const choose = selectEl(options, edit.lut?.id ?? '', async (id) => {
+      if (!id) { change((e) => { e.lut = null; }, t('edit.lut')); buildPanel(); return; }
+      const name = options.find((o) => o[0] === id)?.[1] ?? id;
+      const next = { id, name, amount: edit.lut?.amount ?? 100 };
+      try { await prepareEdit({ lut: next }); } catch (error) { toast(errorText(error), 'error'); return; }
+      change((e) => { e.lut = next; }, t('edit.lut'));
+      buildPanel();
+    });
+    choose.dataset.key = 'lut';
+    const amount = edit.lut ? sliderRow(t('lut.amount'), 0, 100, 1, () => edit.lut?.amount ?? 100, (v) => { if (edit.lut) edit.lut.amount = v; }, (v) => `${v}%`, 'lut.amount') : '';
+    return h('div', field(t('lut.choose'), choose), amount,
+      h('div.row-buttons', h('button.btn.small', { type: 'button', id: 'import-lut', onclick: importLutFile }, h('span', { html: icon('download') }), t('lut.import'))),
+      h('div.hint', t('lut.hint')));
+  }
+  async function importLutFile() {
+    let files = [];
+    if (isDesktop()) {
+      const paths = await chooseFiles([{ name: 'LUT (.cube)', extensions: ['cube'] }], parentOf(item.path));
+      for (const path of paths) files.push({ name: path.split(/[\\/]/).pop(), text: new TextDecoder().decode(await fs.read(path)) });
+    } else {
+      files = await new Promise((resolve) => {
+        const input = h('input', { type: 'file', accept: '.cube', multiple: true, style: { display: 'none' } });
+        input.addEventListener('change', async () => { const out = []; for (const f of input.files) out.push({ name: f.name, text: await f.text() }); input.remove(); resolve(out); });
+        document.body.append(input);
+        input.click();
+      });
+    }
+    let last = null;
+    for (const file of files) {
+      try {
+        const name = file.name.replace(/\.cube$/i, '');
+        const entry = await importLut(name, file.text);
+        app.settings.luts = [...(app.settings.luts ?? []).filter((x) => x.id !== entry.id), { id: entry.id, name }];
+        app.saveSettings();
+        last = entry;
+      } catch (error) {
+        toast(`${file.name}: ${errorText(error)}`, 'error', 6000);
+      }
+    }
+    if (!last) return;
+    change((e) => { e.lut = { id: last.id, name: last.name, amount: 100 }; }, t('edit.lut'));
+    toast(t('lut.imported', { name: last.name }), 'success');
+    buildPanel();
   }
 
   function autoFix() {
@@ -927,6 +1243,7 @@ export function createEditor({ onDone }) {
     const ext = extensionOf(item.name);
     let target = item.path;
     let format = outputFormatFor(item.name)?.id ?? 'jpeg';
+    if (fullHigh && (format === 'png' || format === 'tiff')) format = `${format}16`; // a 16-bit file stays 16-bit
     let quality = app.settings.jpegQuality / 100;
     const inPlace = !asNew && canWriteBack(item.name) && fs.caps.write && !fs.isReadOnly?.(item.path);
     if (!inPlace) {
@@ -946,9 +1263,16 @@ export function createEditor({ onDone }) {
     updateBar();
     try {
       await new Promise((resolve) => setTimeout(resolve, 30));
-      const output = render(full, edit, { scale: 1, layerImages });
+      await prepareEdit(edit);
+      const output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
+      // 16-bit output: the precise result when the edit is tone / colour only, else the 8-bit one widened.
+      let precise = null;
+      if (OUTPUT_FORMATS.find((x) => x.id === format)?.deep && fullHigh && isEmptyEdit({ ...edit, adjust: DEFAULT_ADJUST }) && fullHigh.width === output.width && fullHigh.height === output.height) {
+        precise = { width: fullHigh.width, height: fullHigh.height, data: new Float32Array(fullHigh.data) };
+        applyAdjustments(precise, edit.adjust);
+      }
       const sourceIsJpeg = ['jpg', 'jpeg', 'jpe', 'jfif'].includes(ext);
-      const bytes = await encodeCanvas(output, format, { quality, original: sourceIsJpeg ? original : null });
+      const bytes = await encodeCanvas(output, format, { quality, original: sourceIsJpeg ? original : null, high: precise });
       let backedUp = false;
       if (target === item.path && fs.caps.originals) { await fs.backupOriginal(item.path); backedUp = true; }
       const how = await fs.write(target, bytes);
@@ -986,6 +1310,7 @@ export function createEditor({ onDone }) {
   // ───────── open
 
   async function loadSource(bytes, name) {
+    fullHigh = null;
     if (isRaw(name) && rawMode) {
       try {
         const { developRaw } = await import('../formats/rawdevelop.js');
@@ -995,7 +1320,9 @@ export function createEditor({ onDone }) {
         rawMode = null;
       }
     }
-    return (await decodeImage(bytes, name)).source;
+    const decoded = await decodeImage(bytes, name, { high: true });
+    fullHigh = decoded.high ?? null;
+    return decoded.source;
   }
 
   async function redevelop(mode) {
@@ -1032,7 +1359,7 @@ export function createEditor({ onDone }) {
         original = await fs.read(originalPath);
         edit = normalizeEdit(record.editState);
         fromOriginal = true;
-        for (const layer of edit.layers) await loadLayerImage(layer.path).catch(() => {});
+        for (const layer of edit.layers) if (layer.path) await loadLayerImage(layer.path).catch(() => {});
       }
       rawMode = isRaw(item.name) ? 'camera' : null;
       full = await loadSource(original, item.name);
@@ -1047,18 +1374,26 @@ export function createEditor({ onDone }) {
     }
   }
 
+  // The editor's keys, as commands the user can reassign. Esc (cancel) and
+  // Enter (apply the crop) stay fixed.
+  registerCommands([
+    { id: 'edit:save', label: 'keys.edit.save', key: 'Ctrl+S', run: () => save(false) },
+    { id: 'edit:saveAs', label: 'keys.edit.saveAs', key: 'Ctrl+Shift+S', run: () => save(true) },
+    { id: 'edit:undo', label: 'keys.edit.undo', key: 'Ctrl+Z', run: () => doUndo() },
+    { id: 'edit:redo', label: 'keys.edit.redo', key: ['Ctrl+Y', 'Ctrl+Shift+Z'], run: () => doRedo() },
+    { id: 'edit:copySettings', label: 'keys.edit.copySettings', key: 'Ctrl+Shift+C', run: () => { editClipboard.preset = presetOf(edit); toast(t('edit.settingsCopied'), 'info'); } },
+    { id: 'edit:pasteSettings', label: 'keys.edit.pasteSettings', key: 'Ctrl+Shift+V', run: () => { if (editClipboard.preset) { change((e) => Object.assign(e, applyPreset(e, editClipboard.preset)), t('edit.pasteSettings')); buildPanel(); } } },
+    { id: 'edit:before', label: 'keys.edit.before', key: 'B', run: () => { before = !before; updateBar(); draw(); } },
+    { id: 'edit:snapshot', label: 'keys.edit.snapshot', key: 'Ctrl+Shift+N', run: () => takeSnapshot() },
+  ], 'edit');
+
   function onKey(event) {
-    const ctrl = event.ctrlKey || event.metaKey;
-    const key = event.key.toLowerCase();
-    if (ctrl && event.shiftKey && key === 'c') { editClipboard.preset = presetOf(edit); toast(t('edit.settingsCopied'), 'info'); return true; }
-    if (ctrl && event.shiftKey && key === 'v') { if (editClipboard.preset) { change((e) => Object.assign(e, applyPreset(e, editClipboard.preset)), t('edit.pasteSettings')); buildPanel(); } return true; }
-    if (ctrl && key === 'z') { if (event.shiftKey) doRedo(); else doUndo(); return true; }
-    if (ctrl && key === 'y') { doRedo(); return true; }
-    if (ctrl && key === 's') { save(event.shiftKey); return true; }
     if (event.key === 'Escape') { if (tool) cancelTool(); else cancel(); return true; }
     if (event.key === 'Enter' && tool === 'crop') { applyCrop(); return true; }
-    if (!ctrl && key === 'b') { before = !before; updateBar(); draw(); return true; }
-    return false;
+    const command = commandFor(event, 'edit');
+    if (!command) return false;
+    command.run();
+    return true;
   }
 
   new ResizeObserver(() => { fitCanvas(); drawOverlay(); }).observe(canvasHolder);
@@ -1068,7 +1403,7 @@ export function createEditor({ onDone }) {
     get dirty() { return !isEmptyEdit(edit) && undo.length > 0; },
     get path() { return item?.path ?? null; },
     /** Test hooks: state and a few direct actions. */
-    debug: () => ({ edit, scale, rawMode, fromOriginal, tool, history: undo.map((u) => u.label), preview: preview && { w: preview.width, h: preview.height }, full: full && { w: full.width, h: full.height } }),
+    debug: () => ({ edit, scale, rawMode, fromOriginal, tool, highBit: Boolean(fullHigh), history: undo.map((u) => u.label), preview: preview && { w: preview.width, h: preview.height }, full: full && { w: full.width, h: full.height } }),
     testing: {
       change: (fn, label = 'test') => change(fn, label),
       setSection: (id) => { section = id; buildPanel(); },

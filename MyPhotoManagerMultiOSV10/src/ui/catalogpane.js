@@ -1,12 +1,16 @@
 // Catalog pane: browse the catalog by rating, color label, tag, category,
-// keyword, automatic categories (camera, lens, year, ISO …) and saved searches.
+// keyword, image analysis (people, scene, objects — see src/analysis), automatic
+// categories (camera, lens, year, ISO …) and saved searches.
 // Click an entry to list its photos; Ctrl+click combines entries. The boxes in
 // front of categories and keywords assign them to the selected photos.
+import { analyze, onAnalysis, state as analysisState, stopAnalysis } from '../analysis/analyzer.js';
+import { categoryCounts, categoryIds, categoryKey } from '../analysis/taxonomy.js';
 import { AUTO_CATEGORIES, autoCategoryCounts, LABEL_COLORS, LABELS } from '../catalog/catalog.js';
 import { t } from '../i18n.js';
 import { app, openSource, selectedFiles, targetPaths } from '../store.js';
 import { confirmDialog, promptDialog } from './dialog.js';
 import { clear, debounce, h } from './dom.js';
+import { collectionCount, deleteCollection, newCollection, renameCollection, showCollection, smartCollectionDialog } from './collections.js';
 import { icon } from './icons.js';
 import { contextMenu } from './menu.js';
 
@@ -32,6 +36,7 @@ export function createCatalogPane() {
       case 'category': return f.value;
       case 'keyword': return `#${f.value}`;
       case 'auto': return `${t(`auto.${f.key}`)}: ${autoValueLabel(f.key, f.value)}`;
+      case 'analysis': return t(categoryKey(f.value));
       case 'text': return f.value;
       default: return '';
     }
@@ -123,6 +128,50 @@ export function createCatalogPane() {
       entry({ type: 'basket' }, t('catalog.basket'), catalog.basket.length, { iconName: 'basket' }),
       entry({ type: 'tagged' }, t('catalog.tagged'), counts.tagged, { iconName: 'checkSquare' }),
       entry({ type: 'uncategorized' }, t('catalog.uncategorized'), counts.uncategorized, { iconName: 'bookmark' }))));
+
+    // Image analysis: what the pictures show, found in the background.
+    el.append(section('analysis', t('analysis.title'), () => {
+      const box = h('div.analysis-cats');
+      const run = analysisState();
+      if (run.running) {
+        box.append(h('div.analysis-run', h('span.spinner-dot'), h('span', t('analysis.progress', { done: run.done, total: run.total })),
+          h('button.btn.small', { type: 'button', dataset: { key: 'analysis-stop' }, onclick: () => stopAnalysis() }, t('analysis.stop'))));
+      }
+      const counts = categoryCounts([...catalog.files.values()].map((r) => r.analysis).filter(Boolean));
+      const ids = categoryIds().filter((id) => counts[id]);
+      if (!ids.length && !run.running) box.append(h('div.cat-empty', t('analysis.empty')));
+      const TOP_ICONS = { people: 'user', scene: 'images', object: 'layers' };
+      for (const id of ids) {
+        const depth = id.split('/').length - 1;
+        box.append(entry({ type: 'analysis', value: id }, t(categoryKey(id)), counts[id], { indent: depth, iconName: depth ? null : TOP_ICONS[id] }));
+      }
+      return box;
+    }, { actions: [h('button.tool.small', { type: 'button', title: t('analysis.runFolder'), dataset: { key: 'analysis-run' }, html: icon('wand'), onclick: () => analyze(app.state.list) })] }));
+
+
+    // Collections: manual lists and smart (rule) collections.
+    el.append(section('collections', t('collection.title'), () => {
+      const box = h('div.collections');
+      if (!catalog.collections.length) box.append(h('div.cat-empty', t('collection.empty')));
+      for (const c of catalog.collections) {
+        const on = app.state.source.type === 'collection' && app.state.source.id === c.id;
+        const row = h(`div.cat-row${on ? '.active' : ''}`, { role: 'button', tabIndex: 0, dataset: { collection: c.id, smart: String(c.smart) } },
+          h('span.cat-icon', { html: icon(c.smart ? 'wand' : 'folderOpen') }), h('span.cat-label', c.name), h('span.cat-count', String(collectionCount(c))));
+        row.addEventListener('click', () => { active = []; showCollection(c); render(); });
+        row.addEventListener('contextmenu', (event) => contextMenu(event, [
+          !c.smart ? { label: t('collection.addSelected'), icon: 'plus', disabled: !files.length, action: () => catalog.addToCollection(c.id, files) } : null,
+          c.smart ? { label: t('collection.editSmart'), icon: 'wand', action: () => smartCollectionDialog(c) } : null,
+          { label: t('collection.rename'), icon: 'rename', action: () => renameCollection(c) },
+          'separator',
+          { label: t('common.delete'), icon: 'trash', danger: true, action: () => deleteCollection(c) },
+        ].filter(Boolean)));
+        box.append(row);
+      }
+      return box;
+    }, { actions: [
+      h('button.tool.small', { type: 'button', id: 'new-collection', title: t('collection.new'), html: icon('plus'), onclick: () => newCollection(targetPaths({ filesOnly: true })) }),
+      h('button.tool.small', { type: 'button', id: 'new-smart-collection', title: t('collection.newSmart'), html: icon('wand'), onclick: () => smartCollectionDialog() }),
+    ] }));
 
     el.append(section('ratings', t('catalog.ratings'), () => h('div',
       [5, 4, 3, 2, 1].map((n) => entry({ type: 'rating', value: n }, '★'.repeat(n), counts.ratings[n], { iconName: null })),
@@ -278,6 +327,7 @@ export function createCatalogPane() {
 
   const later = debounce(() => { if (el.isConnected) render(); }, 250);
   app.on('catalog', later);
+  onAnalysis(later);
   app.on('selection', later);
   app.on('source', (source) => { if (source.type !== 'filter' && active.length) { active = []; later(); } });
 

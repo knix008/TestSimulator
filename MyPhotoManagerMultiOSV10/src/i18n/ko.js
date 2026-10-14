@@ -157,7 +157,7 @@ export default {
   'settings.resetCatalog': '카탈로그 비우기', 'settings.resetCatalogConfirm': '카탈로그의 별점·레이블·키워드·카테고리를 모두 지울까요? 파일은 건드리지 않습니다.',
   'about.title': 'MyPhotoManager 정보', 'about.tagline': '웹, Windows, macOS, Linux 에서 사진을 탐색·정리·감상·편집·일괄 처리합니다.', 'about.version': '버전', 'about.build': '빌드',
   'about.commit': '커밋', 'about.platform': '플랫폼', 'about.web': '웹 브라우저', 'about.dataFolder': '데이터 폴더', 'about.browserStorage': '브라우저 저장소 (IndexedDB)',
-  'about.credits': 'exifr, UTIF, libheif, pako 를 사용합니다. 지도 데이터 © OpenStreetMap 기여자.',
+  'about.credits': 'exifr, UTIF2, libheif-js, LibRaw (libraw-wasm), pdf.js, dicom-parser, Cornerstone codecs (OpenJPEG, CharLS, libjpeg-turbo), jpeg-lossless-decoder-js, jSquash JPEG XL, face-api.js, pako 를 사용합니다. 지도 데이터 © OpenStreetMap 기여자.',
   'shortcuts.title': '단축키', 'shortcuts.manage': '관리', 'shortcuts.organize': '정리', 'shortcuts.view': '보기', 'shortcuts.edit': '편집',
   'shortcut.view': '사진 보기', 'shortcut.edit': '사진 편집', 'shortcut.rename': '이름 바꾸기', 'shortcut.delete': '삭제', 'shortcut.selectAll': '모두 선택', 'shortcut.clipboard': '파일 복사 / 잘라내기 / 붙여넣기',
   'shortcut.up': '상위 폴더', 'shortcut.history': '뒤로 / 앞으로', 'shortcut.refresh': '새로 고침', 'shortcut.search': '빠른 검색', 'shortcut.newFolder': '새 폴더',

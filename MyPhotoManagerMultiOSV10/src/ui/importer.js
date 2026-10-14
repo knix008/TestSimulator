@@ -7,11 +7,12 @@ import { readMetadata } from '../formats/exif.js';
 import { MEDIA_EXTENSIONS } from '../formats/types.js';
 import { plural, t } from '../i18n.js';
 import { fs, hasFolderAccess, webFs } from '../platform/fs.js';
-import { chooseFolder, errorText, isDesktop } from '../platform/native.js';
+import { chooseFolder, errorText, invoke, isDesktop } from '../platform/native.js';
 import { app, openFolder, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes } from '../util/format.js';
 import { field, openDialog, progressDialog, selectEl, toast } from './dialog.js';
+import { icon } from './icons.js';
 import { h } from './dom.js';
 
 const PATTERNS = ['', 'YYYY', 'YYYY/MM', 'YYYY/YYYY-MM-DD', 'YYYY/MM/DD', 'YYYY-MM-DD'];
@@ -108,11 +109,35 @@ export async function importDialog() {
     for (const card of list) cards.append(h('button.btn.small', { type: 'button', onclick: () => setSource(card.path) }, card.name));
     if (list.length && !source) setSource(list[0].path);
   });
+  // Phones and cameras over USB (MTP): their new photos are copied out first, then imported as usual.
+  const devices = h('div.row-buttons.mtp-devices');
+  const findDevices = async () => {
+    if (!isDesktop()) return;
+    devices.replaceChildren(h('span.hint', t('import.lookingForDevices')));
+    const list = await invoke('mtp_devices').catch(() => []);
+    devices.replaceChildren(...list.map((device) => h('button.btn.small', { type: 'button', dataset: { mtpDevice: device.id }, title: t('import.fromDeviceHint'), onclick: () => fromDevice(device) }, h('span', { html: icon('phone') }), device.name)),
+      list.length ? '' : h('span.hint', t('import.noDevices')),
+      h('button.tool.small', { type: 'button', title: t('import.findDevices'), html: icon('refresh'), dataset: { key: 'mtp-refresh' }, onclick: findDevices }));
+  };
+  const fromDevice = async (device) => {
+    const progress = progressDialog(t('import.copyingFromDevice', { name: device.name }), { cancellable: false });
+    progress.update(0, 0, device.name);
+    try {
+      const staged = await invoke('mtp_stage', { id: device.id, name: device.name });
+      toast(t('import.deviceCopied', { n: staged.copied, skipped: staged.skipped, name: device.name }), 'success');
+      await setSource(staged.folder);
+    } catch (error) {
+      toast(`${device.name}: ${errorText(error)}`, 'error', 8000);
+    } finally {
+      progress.close();
+    }
+  };
+  findDevices();
 
   const ok = await openDialog({
     title: t('import.title'), width: 820, id: 'import-dialog',
     body: h('div.import',
-      h('div.field', h('span.field-label', t('import.from')), cards, h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: pickSource, id: 'import-pick-source' }, t('import.chooseSource')), sourceLabel)),
+      h('div.field', h('span.field-label', t('import.from')), cards, isDesktop() ? h('div.mtp-row', h('span.field-label', t('import.devices')), devices) : '', h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: pickSource, id: 'import-pick-source' }, t('import.chooseSource')), sourceLabel)),
       grid, summary,
       h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: () => { for (const f of files) chosen.add(f.path); grid.querySelectorAll('input').forEach((i) => { i.checked = true; }); updateSummary(); } }, t('edit.selectAll')),
         h('button.btn.small', { type: 'button', onclick: () => { chosen.clear(); grid.querySelectorAll('input').forEach((i) => { i.checked = false; }); updateSummary(); } }, t('edit.selectNone'))),

@@ -2,12 +2,13 @@
 //
 //   node test/e2e/run-cases.mjs features 1,5,9        (1-based case numbers)
 //   node test/e2e/run-cases.mjs features "편집"        (cases whose group/name contains the text)
+//   node test/e2e/run-cases.mjs features "A|B"         (any of several texts)
 import { App } from './harness.mjs';
 
 const [suiteName = 'features', which = ''] = process.argv.slice(2);
 const suite = await import(`./${suiteName}.suite.mjs`);
 const numbers = /^[\d,]+$/.test(which) ? new Set(which.split(',').map(Number)) : null;
-const chosen = suite.cases.filter((c, i) => !which || (numbers ? numbers.has(i + 1) : `${c.group} ${c.name}`.includes(which)));
+const chosen = suite.cases.filter((c, i) => !which || (numbers ? numbers.has(i + 1) : which.split('|').some((text) => `${c.group} ${c.name}`.includes(text))));
 const app = new App({ prepare: suite.prepare, env: suite.env });
 await app.start();
 let failed = 0;

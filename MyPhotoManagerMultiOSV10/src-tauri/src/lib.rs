@@ -1,4 +1,6 @@
+pub mod catalogdb;
 pub mod files;
+pub mod mtp;
 pub mod i18n;
 pub mod printing;
 pub mod thumbstore;
@@ -285,6 +287,33 @@ fn open_path(path: PathBuf) -> Result<(), String> {
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|error| tr!("열 수 없습니다: {error}", "Could not open it: {error}"))
 }
 
+/// Opens files in a program the user registered as an external editor
+/// (Photoshop, GIMP …). On macOS an .app bundle is started with `open -a`.
+#[tauri::command]
+fn open_in_program(program: PathBuf, paths: Vec<PathBuf>) -> Result<(), String> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let listed = paths.iter().map(|p| files::path_text(p)).collect::<Vec<_>>().join("\t");
+    if fake_shell("editor", &format!("{}\t{listed}", files::path_text(&program))) {
+        return Ok(());
+    }
+    if !program.exists() {
+        return Err(tr!("프로그램을 찾을 수 없습니다: {}", "Program not found: {}", files::path_text(&program)));
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = if program.extension().is_some_and(|ext| ext == "app") {
+        let mut c = std::process::Command::new("open");
+        c.arg("-a").arg(&program);
+        c
+    } else {
+        std::process::Command::new(&program)
+    };
+    #[cfg(not(target_os = "macos"))]
+    let mut command = std::process::Command::new(&program);
+    command.args(&paths).spawn().map(|_| ()).map_err(|error| tr!("실행할 수 없습니다: {error}", "Could not start it: {error}"))
+}
+
 /// The system's "Open with" chooser (Windows). Elsewhere: false (the UI then
 /// offers the default program / file manager).
 #[tauri::command]
@@ -485,6 +514,45 @@ async fn data_write(app: AppHandle, name: String, content: String) -> Result<(),
     blocking(move || files::write_atomic(&path, content.as_bytes())).await
 }
 
+// ───────────────────────── catalog database (SQLite)
+
+fn catalog_db(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("catalog.sqlite"))
+}
+
+/// The catalog as JSON, or null before the first save (the page then migrates catalog.json).
+#[tauri::command]
+async fn catalog_db_load(app: AppHandle) -> Result<Option<String>, String> {
+    let path = catalog_db(&app)?;
+    blocking(move || catalogdb::load(&path)).await
+}
+
+/// Writes the records that changed (JSON texts), removes deleted ones, and stores the catalog-wide lists.
+#[tauri::command]
+async fn catalog_db_save(app: AppHandle, upserts: Vec<(String, String)>, removes: Vec<String>, meta: Vec<(String, String)>) -> Result<(), String> {
+    let path = catalog_db(&app)?;
+    blocking(move || catalogdb::save(&path, &upserts, &removes, &meta)).await
+}
+
+/// Phones and cameras connected over USB (MTP).
+#[tauri::command]
+async fn mtp_devices() -> Result<Vec<mtp::Device>, String> {
+    blocking(|| Ok(mtp::devices())).await
+}
+
+/// Copies a device's new photos into <data>/mtp/<device> for the import dialog.
+#[tauri::command]
+async fn mtp_stage(app: AppHandle, id: String, name: String) -> Result<mtp::Staged, String> {
+    let dest = data_dir(&app)?.join("mtp").join(mtp::folder_name(&name));
+    blocking(move || mtp::stage(&id, &dest)).await
+}
+
+#[tauri::command]
+async fn catalog_db_info(app: AppHandle) -> Result<catalogdb::Info, String> {
+    let path = catalog_db(&app)?;
+    blocking(move || catalogdb::info(&path)).await
+}
+
 // ───────────────────────── app
 
 #[derive(Clone, Serialize)]
@@ -628,6 +696,7 @@ pub fn run() {
             discard_original,
             original_path,
             open_with,
+            open_in_program,
             scan_image,
             sync_dirs,
             reveal_path,
@@ -645,6 +714,11 @@ pub fn run() {
             list_printers,
             data_read,
             data_write,
+            catalog_db_load,
+            catalog_db_save,
+            catalog_db_info,
+            mtp_devices,
+            mtp_stage,
             quit_app
         ])
         .run(tauri::generate_context!())

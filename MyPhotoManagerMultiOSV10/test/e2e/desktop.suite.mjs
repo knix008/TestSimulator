@@ -432,8 +432,8 @@ export const cases = [
     run: async (app) => {
       await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
       await app.main.waitFor(`${P}.dq('#settings-dialog .lang-button[data-lang=en]')`);
-      // Language buttons show the flag and the name; the theme choice is on the same (first) tab.
-      assert.ok(await app.main.eval(`${P}.dqa('#settings-dialog .lang-button .flag').length === 2 && Boolean(${P}.dq('#settings-dialog .theme-select'))`));
+      // Language buttons show the flag and the name; themes have their own tab.
+      assert.ok(await app.main.eval(`${P}.dqa('#settings-dialog .lang-button .flag').length === 2 && Boolean(${P}.dq('#settings-dialog .settings-tab[data-tab=theme]'))`));
       await app.main.eval(`${P}.dq('#settings-dialog .lang-button[data-lang=en]').click(); ${P}.dq('#settings-dialog .lang-button[data-lang=en]').classList.contains('on')`);
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.dq('.menubar-title[data-menu=file]').textContent === 'File'`);
@@ -453,7 +453,33 @@ export const cases = [
       const record = await app.main.eval(`${P}.app.catalog.get(${js(trip)})`);
       assert.equal(record.rating, 2);
       assert.deepEqual([...record.keywords].sort(), ['nature', '숲']);
-      assert.ok(fs.existsSync(path.join(app.data, 'catalog.json')));
+      assert.ok(fs.existsSync(path.join(app.data, 'catalog.sqlite')), 'catalog in SQLite');
+      const info = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('catalog_db_info')`);
+      assert.ok(info.files >= 1, `database rows ${JSON.stringify(info)}`);
+    },
+  },
+  {
+    ids: ['APP-SQLITE'], group: '저장', name: 'SQLite 카탈로그: 예전 catalog.json 을 처음 실행 때 옮기고, 바뀐 기록만 저장하며, 다시 실행해도 그대로',
+    run: async (app) => {
+      // An old-style catalog.json, no database: the app must take it over.
+      await app.quit();
+      for (const name of ['catalog.sqlite', 'catalog.sqlite-wal', 'catalog.sqlite-shm']) fs.rmSync(path.join(app.data, name), { force: true });
+      const legacy = path.join(app.photos, 'legacy.jpg');
+      fs.writeFileSync(path.join(app.data, 'catalog.json'), JSON.stringify({ format: 1, files: { [legacy]: { rating: 5, keywords: ['old'] } }, categories: ['Legacy'], keywords: ['old'] }));
+      await app.launch([]);
+      await app.main.waitFor(`${P}.app.catalog?.get(${js(legacy)})?.rating === 5`, { timeout: 20000, message: 'catalog.json read' });
+      await app.main.waitFor(`window.__TAURI_INTERNALS__.invoke('catalog_db_info').then((i) => i.files >= 1)`, { timeout: 10000, message: 'migrated into SQLite' });
+      // A change writes only what changed; a removed record leaves the database.
+      await app.main.eval(`${P}.app.catalog.setRating([${js(legacy)}], 3); 1`);
+      await sleep(1800);
+      await app.main.eval(`${P}.app.catalog.removePaths([${js(legacy)}]); ${P}.app.catalog.addCategory('Kept'); 1`);
+      await sleep(1800);
+      await app.quit();
+      fs.rmSync(path.join(app.data, 'catalog.json'), { force: true }); // proves the database is what is read
+      await app.launch([]);
+      await app.main.waitFor(`Boolean(${P}.app.catalog)`, { timeout: 20000 });
+      await app.main.waitFor(`${P}.app.catalog.categories.includes('Kept')`, { timeout: 10000, message: 'lists from SQLite' });
+      assert.equal(await app.main.eval(`${P}.app.catalog.get(${js(legacy)}) ?? null`), null, 'removed record gone');
     },
   },
 ];

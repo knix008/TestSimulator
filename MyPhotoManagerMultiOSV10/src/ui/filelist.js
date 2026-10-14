@@ -532,5 +532,25 @@ export function createFileList({ onContextMenu, onDropItems }) {
     else selectItem(path);
   });
 
-  return { el: scroller, filmPreview, rebuild, refreshTiles, scrollIntoView, focus: () => scroller.focus({ preventScroll: true }) };
+  // Filmstrip view: ◀ ▶ at both ends of the strip select the previous / next item.
+  const stepFocus = (dir) => {
+    const list = app.state.list;
+    if (!list.length) return;
+    const at = list.findIndex((item) => item.path === app.state.focus);
+    const next = at < 0 ? 0 : Math.max(0, Math.min(list.length - 1, at + dir));
+    selectItem(list[next].path);
+    scroller.focus({ preventScroll: true });
+  };
+  const filmPrev = h('button.film-nav.prev', { type: 'button', title: `${t('view.prev')} (←)`, 'aria-label': t('view.prev'), html: icon('prev'), dataset: { key: 'film-prev' }, onclick: () => stepFocus(-1) });
+  const filmNext = h('button.film-nav.next', { type: 'button', title: `${t('view.next')} (→)`, 'aria-label': t('view.next'), html: icon('next'), dataset: { key: 'film-next' }, onclick: () => stepFocus(1) });
+  const box = h('div.film-box', filmPrev, scroller, filmNext);
+  const syncFilmNav = () => {
+    const list = app.state.list;
+    const at = list.findIndex((item) => item.path === app.state.focus);
+    filmPrev.disabled = !list.length || at === 0;
+    filmNext.disabled = !list.length || at === list.length - 1;
+  };
+  app.on('selection', syncFilmNav);
+  app.on('items', syncFilmNav);
+  return { el: scroller, box, filmPreview, rebuild, refreshTiles, scrollIntoView, focus: () => scroller.focus({ preventScroll: true }) };
 }

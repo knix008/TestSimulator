@@ -91,6 +91,17 @@ function openWindow(box, title) {
   win.document.body.append(box);
   for (const input of box.querySelectorAll('input[type=number]')) wrapNumber(input);
   windows.add(win);
+  // Off-screen measuring can come out a little short (fonts, wrapped inputs): if the
+  // content is taller than the window once it is there, grow the window to fit.
+  const fit = () => {
+    if (win.closed) return;
+    const need = Math.min(Math.max(box.scrollHeight, win.document.documentElement.scrollHeight), screen.availHeight - 80);
+    if (need - win.innerHeight <= 1) return;
+    invoke('plugin:window|set_size', { label, value: { Logical: { width: win.innerWidth, height: need } } }).catch(() => win.resizeTo(win.outerWidth, win.outerHeight + need - win.innerHeight));
+  };
+  // Late layout (fonts, printer lists, images) can still make it taller: keep watching.
+  new win.ResizeObserver(() => fit()).observe(box);
+  win.document.fonts?.ready.then(fit);
   return win;
 }
 
@@ -124,7 +135,8 @@ export function openDialog({ title, body, buttons = [{ label: t('common.ok'), va
       overlay.remove();
       shield?.remove();
       if (win) { windows.delete(win); win.document.removeEventListener('keydown', onKey, true); closeWindow(win); }
-      stack.splice(stack.indexOf(entry), 1);
+      const at = stack.indexOf(entry);
+      if (at >= 0) stack.splice(at, 1); // never splice(-1): that would drop another dialog
       document.removeEventListener('keydown', onKey, true);
       if (previous instanceof HTMLElement) previous.focus?.();
       resolve(value);

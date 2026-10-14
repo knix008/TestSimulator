@@ -70,8 +70,15 @@ export function curveTable(points) {
 }
 
 /** Tone tables for R, G, B: exposure, brightness, contrast, whites/blacks, levels, curves. */
-export function toneTables(adjust) {
+/**
+ * Per-channel tone tables (exposure, brightness, contrast, levels, curves).
+ * `steps` entries over 0…255: 256 for 8-bit pictures (whole values), more for
+ * 16-bit ones (fractional values, read with interpolation).
+ */
+export function toneTables(adjust, steps = 256) {
   const a = { ...DEFAULT_ADJUST, ...adjust };
+  const fine = steps !== 256;
+  const sampleCurve = (table, v) => { const x = Math.max(0, Math.min(255, v)); const i = Math.floor(x); return i >= 255 ? table[255] : table[i] + (table[i + 1] - table[i]) * (x - i); };
   const gain = 2 ** a.exposure;
   const contrast = a.contrast / 100;
   const k = contrast >= 0 ? 1 + contrast * 2 : 1 + contrast; // slope at mid grey
@@ -81,9 +88,9 @@ export function toneTables(adjust) {
   const master = a.curves?.rgb ? curveTable(a.curves.rgb) : null;
   const tables = ['r', 'g', 'b'].map((channel) => {
     const own = a.curves?.[channel] ? curveTable(a.curves[channel]) : null;
-    const table = new Uint8ClampedArray(256);
-    for (let i = 0; i < 256; i++) {
-      let v = i * gain + a.brightness * 1.28;
+    const table = fine ? new Float32Array(steps) : new Uint8ClampedArray(256);
+    for (let i = 0; i < steps; i++) {
+      let v = (i * 255) / (steps - 1) * gain + a.brightness * 1.28;
       // Contrast as an S-curve around mid grey (keeps black and white in place for positive values).
       let x = v / 255;
       if (contrast > 0) {
@@ -95,21 +102,30 @@ export function toneTables(adjust) {
       v = x * 255;
       v = ((v - black) / Math.max(1, white - black)) * 255;
       if (gamma !== 1) v = 255 * Math.pow(Math.min(1, Math.max(0, v / 255)), 1 / gamma);
-      v = clamp(v);
-      if (own) v = clamp(own[Math.round(v)]);
-      if (master) v = clamp(master[Math.round(v)]);
-      table[i] = Math.round(v);
+      v = Math.max(0, Math.min(255, v));
+      if (own) v = fine ? sampleCurve(own, v) : clamp(own[Math.round(v)]);
+      if (master) v = fine ? sampleCurve(master, v) : clamp(master[Math.round(v)]);
+      table[i] = fine ? v : Math.round(v);
     }
     return table;
   });
   return tables;
 }
 
-/** Colour and tone adjustments (everything except spatial filters). */
+const FINE_STEPS = 4096;
+
+/**
+ * Colour and tone adjustments (everything except spatial filters). `image.data`
+ * is 8-bit (Uint8ClampedArray) or a 16-bit picture's precise copy (Float32Array,
+ * 0…255 with fractions — see formats/highbit.js), worked on without rounding.
+ */
 export function applyAdjustments(image, adjust) {
   const a = { ...DEFAULT_ADJUST, ...adjust };
   const { data } = image;
-  const [tr, tg, tb] = toneTables(a);
+  const fine = data instanceof Float32Array;
+  const [tr, tg, tb] = toneTables(a, fine ? FINE_STEPS : 256);
+  const k = (FINE_STEPS - 1) / 255;
+  const look = (table, v) => { const x = (v < 0 ? 0 : v > 255 ? 255 : v) * k; const i = x | 0; return i >= FINE_STEPS - 1 ? table[FINE_STEPS - 1] : table[i] + (table[i + 1] - table[i]) * (x - i); };
   // White balance as channel gains.
   const warm = a.temperature / 100;
   const tint = a.tint / 100;
@@ -148,9 +164,11 @@ export function applyAdjustments(image, adjust) {
       const lift = 1 + shadows * shadowWeight * 1.2 + highlights * highlightWeight * 0.6;
       r *= lift; g *= lift; b *= lift;
     }
-    r = tr[r > 255 ? 255 : r < 0 ? 0 : r | 0];
-    g = tg[g > 255 ? 255 : g < 0 ? 0 : g | 0];
-    b = tb[b > 255 ? 255 : b < 0 ? 0 : b | 0];
+    if (fine) { r = look(tr, r); g = look(tg, g); b = look(tb, b); } else {
+      r = tr[r > 255 ? 255 : r < 0 ? 0 : r | 0];
+      g = tg[g > 255 ? 255 : g < 0 ? 0 : g | 0];
+      b = tb[b > 255 ? 255 : b < 0 ? 0 : b | 0];
+    }
     if (hm) {
       const nr = hm[0] * r + hm[1] * g + hm[2] * b;
       const ng = hm[3] * r + hm[4] * g + hm[5] * b;
@@ -186,9 +204,15 @@ export function applyAdjustments(image, adjust) {
       g += (eg - g) * effectMix;
       b += (eb - b) * effectMix;
     }
-    data[i] = r;
-    data[i + 1] = g;
-    data[i + 2] = b;
+    if (fine) {
+      data[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+      data[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+      data[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    } else {
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
   }
   return image;
 }

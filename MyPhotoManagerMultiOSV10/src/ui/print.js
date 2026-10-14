@@ -16,6 +16,7 @@ import { thumbs } from '../thumbs/thumbs.js';
 import { formatDate } from '../util/format.js';
 import { field, openDialog, progressDialog, selectEl, toast } from './dialog.js';
 import { debounce, h } from './dom.js';
+import { wrapNumber } from './steppers.js';
 
 /** Paper sizes in millimetres (portrait). */
 export const PAPERS = {
@@ -183,26 +184,56 @@ export async function printDialog(items) {
     controls.querySelector('[data-key=rows]').value = r;
     later();
   });
-  const sync = () => { customRow.hidden = o.paper !== 'custom'; };
-  const controls = h('div.print-controls',
-    isDesktop() ? h('fieldset.print-group', h('legend', t('print.printer')), field(t('print.printer'), printerSelect),
-      h('div.field-row', field(t('print.copies'), num('copies', 1, 99)), field(t('print.color'), choose('color', [[true, t('print.colorColor')], [false, t('print.colorGray')]])), field(t('print.duplex'), choose('duplex', [['none', t('print.duplexNone')], ['long', t('print.duplexLong')], ['short', t('print.duplexShort')]])))) : '',
-    h('fieldset.print-group', h('legend', t('print.paper')),
-      h('div.field-row', field(t('print.page'), paper), field(t('print.orientation'), choose('orientation', [['auto', t('create.auto')], ['portrait', t('print.portrait')], ['landscape', t('print.landscape')]]))),
-      customRow),
-    h('fieldset.print-group', h('legend', t('print.layout')),
-      field(t('print.layoutPreset'), layoutPreset),
-      h('div.field-row', field(t('print.columns'), num('columns', 1, 12)), field(t('print.rows'), num('rows', 1, 16)), field(t('print.gap'), num('gap', 0, 30))),
-      h('div.field-row', field(t('print.fitMode'), choose('fit', [['fit', t('print.fitWhole')], ['fill', t('print.fill')]]))),
-      check('autoRotate', t('print.autoRotate')), check('border', t('print.border'))),
-    h('fieldset.print-group', h('legend', t('print.margins')),
-      h('div.field-row', field(t('print.marginTop'), num('marginTop', 0, 60)), field(t('print.marginBottom'), num('marginBottom', 0, 60))),
-      h('div.field-row', field(t('print.marginLeft'), num('marginLeft', 0, 60)), field(t('print.marginRight'), num('marginRight', 0, 60)))),
-    h('fieldset.print-group', h('legend', t('print.captions')),
-      check('name', t('print.captionName')), check('date', t('print.captionDate')), check('rating', t('print.captionRating')),
-      field(t('print.heading'), text('title')), field(t('print.footer'), text('footer')), check('pageNumbers', t('print.pageNumbers'))),
-    h('fieldset.print-group', h('legend', t('print.output')),
-      field(t('print.output'), choose('output', [...(isDesktop() ? [['print', t('print.toPrinter')]] : [['print', t('print.toPrinterBrowser')]]), ['pdf', 'PDF'], ['jpeg', t('print.toJpeg')], ['png', t('print.toPng')]]))));
+  const runLabel = () => (o.output === 'print' ? t('print.printNow') : t('common.save'));
+  const sync = () => {
+    customRow.hidden = o.paper !== 'custom';
+    const run = controls?.closest('.dialog')?.querySelector('.dialog-buttons .btn.primary');
+    if (run) run.textContent = runLabel();
+  };
+  // Settings in three tabs (printer & paper · layout & margins · text) so the
+  // window stays short; where the result goes is always shown below them.
+  const group = (title, ...children) => h('fieldset.print-group', h('legend', title), ...children);
+  const tabs = [
+    ['paper', t('print.tabPaper'), h('div.print-tab',
+      isDesktop() ? group(t('print.printer'), field(t('print.printer'), printerSelect),
+        h('div.field-row', field(t('print.copies'), num('copies', 1, 99)), field(t('print.color'), choose('color', [[true, t('print.colorColor')], [false, t('print.colorGray')]])))
+        , field(t('print.duplex'), choose('duplex', [['none', t('print.duplexNone')], ['long', t('print.duplexLong')], ['short', t('print.duplexShort')]]))) : '',
+      group(t('print.paper'),
+        h('div.field-row', field(t('print.page'), paper), field(t('print.orientation'), choose('orientation', [['auto', t('create.auto')], ['portrait', t('print.portrait')], ['landscape', t('print.landscape')]]))),
+        customRow))],
+    ['layout', t('print.tabLayout'), h('div.print-tab',
+      group(t('print.layout'),
+        h('div.field-row', field(t('print.layoutPreset'), layoutPreset), field(t('print.fitMode'), choose('fit', [['fit', t('print.fitWhole')], ['fill', t('print.fill')]]))),
+        h('div.field-row', field(t('print.columns'), num('columns', 1, 12)), field(t('print.rows'), num('rows', 1, 16)), field(t('print.gap'), num('gap', 0, 30))),
+        h('div.check-row', check('autoRotate', t('print.autoRotate')), check('border', t('print.border')))),
+      group(t('print.margins'),
+        h('div.field-row', field(t('print.marginTop'), num('marginTop', 0, 60)), field(t('print.marginBottom'), num('marginBottom', 0, 60))),
+        h('div.field-row', field(t('print.marginLeft'), num('marginLeft', 0, 60)), field(t('print.marginRight'), num('marginRight', 0, 60)))))],
+    ['text', t('print.tabText'), h('div.print-tab',
+      group(t('print.captions'),
+        h('div.check-row', check('name', t('print.captionName')), check('date', t('print.captionDate')), check('rating', t('print.captionRating')))),
+      group(t('print.pageText'),
+        field(t('print.heading'), text('title')), field(t('print.footer'), text('footer')), check('pageNumbers', t('print.pageNumbers'))))],
+  ];
+  const tabBar = h('div.settings-nav.print-tabs', { role: 'tablist' });
+  const tabBody = h('div.print-tab-body');
+  const showTab = (id) => {
+    for (const b of tabBar.children) b.classList.toggle('on', b.dataset.tab === id);
+    tabBody.replaceChildren(tabs.find((x) => x[0] === id)[2]);
+  };
+  for (const [id, label] of tabs) tabBar.append(h('button.settings-tab', { type: 'button', role: 'tab', dataset: { tab: id }, onclick: () => showTab(id) }, label));
+  const controls = h('div.print-controls', tabBar, tabBody,
+    h('div.print-output', field(t('print.output'), choose('output', [...(isDesktop() ? [['print', t('print.toPrinter')]] : [['print', t('print.toPrinterBrowser')]]), ['pdf', 'PDF'], ['jpeg', t('print.toJpeg')], ['png', t('print.toPng')]]))));
+  // Keep one height for every tab: measure them all off-screen first.
+  const probe = h('div.dialog-measure', h('div.dialog', { style: { width: '1000px' } }, h('div.dialog-body', h('div.print-layout', controls))));
+  document.body.append(probe);
+  for (const [, , body] of tabs) for (const input of body.querySelectorAll('input[type=number]')) wrapNumber(input);
+  let tallest = 0;
+  customRow.hidden = false; // measure with the custom paper size showing
+  for (const [id] of tabs) { showTab(id); tallest = Math.max(tallest, tabBody.scrollHeight); }
+  probe.remove();
+  tabBody.style.minHeight = `${tallest}px`;
+  showTab('paper');
   sync();
 
   // ── preview (right)
@@ -242,7 +273,7 @@ export async function printDialog(items) {
   const ok = await openDialog({
     title: plural('print.title', list.length), width: 1000, id: 'print-dialog',
     body: h('div.print-layout', controls, previewBox),
-    buttons: [{ label: t('common.cancel'), value: false }, { label: t('print.run'), value: true, primary: true }],
+    buttons: [{ label: t('common.cancel'), value: false }, { label: runLabel(), value: true, primary: true }],
   });
   if (!ok) return;
   app.settings.print = { ...o, title: '' };

@@ -3,6 +3,8 @@
 import UTIF from 'utif2';
 import { context2d, makeCanvas, orientedCanvas, scaledCanvas } from './canvas.js';
 import { isJpeg, jpegSize, readOrientation, stripExif } from './jpeg-meta.js';
+import { decodePng16, readTiff16 } from './highbit.js';
+import { parseIcc, psdIcc, toSrgb } from './icc.js';
 import { decodePsd } from './psd.js';
 import { extractRawPreview } from './raw.js';
 import { extensionOf, kindOf, mimeOf } from './types.js';
@@ -17,6 +19,23 @@ async function heif() {
 }
 
 const inWorker = typeof document === 'undefined';
+
+// Colour management: embedded ICC profiles of the pictures we decode ourselves
+// (TIFF, PSD) are converted to sRGB; JPEG/PNG/WebP are converted by the engine.
+let colorManaged = true;
+export function setColorManagement(on) { colorManaged = Boolean(on); }
+
+/** Converts RGBA pixels from an embedded profile to sRGB; returns the profile's name (or ''). */
+function manageColor(iccBytes, data) {
+  if (!iccBytes?.length) return '';
+  try {
+    const profile = parseIcc(iccBytes);
+    if (colorManaged) toSrgb(profile)?.(data);
+    return profile.description || profile.space;
+  } catch {
+    return '';
+  }
+}
 
 /** ImageBitmap of encoded bytes the engine understands, optionally pre-scaled. */
 async function bitmapOf(bytes, mime, resize) {
@@ -34,7 +53,7 @@ async function bitmapOf(bytes, mime, resize) {
 }
 
 /** Picture of a JPEG (or other native format) — EXIF orientation applied by us, the same on every engine. */
-async function decodeNative(bytes, name, maxSize) {
+async function decodeNative(bytes, name, maxSize, wantHigh = false) {
   let orientation = 1;
   let data = bytes;
   let resize = null;
@@ -48,7 +67,8 @@ async function decodeNative(bytes, name, maxSize) {
     }
   }
   const bitmap = await bitmapOf(data, mimeOf(name) === 'application/octet-stream' ? 'image/jpeg' : mimeOf(name), resize);
-  return { source: orientation === 1 ? bitmap : orientedCanvas(bitmap, bitmap.width, bitmap.height, orientation), orientation, original: resize ? jpegSize(bytes) : null };
+  const high = wantHigh && bytes[24] === 16 && /\.png$/i.test(name) ? decodePng16(bytes) : null; // 16-bit PNG: keep the precision (editor only)
+  return { high, source: orientation === 1 ? bitmap : orientedCanvas(bitmap, bitmap.width, bitmap.height, orientation), orientation, original: resize ? jpegSize(bytes) : null };
 }
 
 async function decodeSvg(bytes) {
@@ -69,7 +89,7 @@ async function decodeSvg(bytes) {
   }
 }
 
-function decodeTiff(bytes, pageIndex = null) {
+function decodeTiff(bytes, pageIndex = null, wantHigh = false) {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
   const ifds = UTIF.decode(buffer);
   const pages = ifds.filter((ifd) => ifd.t256 && ifd.t257);
@@ -80,10 +100,14 @@ function decodeTiff(bytes, pageIndex = null) {
   const rgba = UTIF.toRGBA8(page);
   const width = page.width;
   const height = page.height;
+  const pixels = new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, width * height * 4);
+  const profile = manageColor(page.t34675 ? Uint8Array.from(page.t34675) : null, pixels);
   const canvas = makeCanvas(width, height);
-  context2d(canvas).putImageData(new ImageData(new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, width * height * 4), width, height), 0, 0);
+  context2d(canvas).putImageData(new ImageData(pixels, width, height), 0, 0);
   const orientation = page.t274?.[0] ?? 1;
-  return { source: orientation === 1 ? canvas : orientedCanvas(canvas, width, height, orientation), orientation, pages: pages.length };
+  // 16 bits per channel: a precise copy for banding-free editing (upright pictures; the colour profile is applied to the 8-bit view only).
+  const high = wantHigh && orientation === 1 && !profile ? readTiff16(page) : null;
+  return { source: orientation === 1 ? canvas : orientedCanvas(canvas, width, height, orientation), orientation, pages: pages.length, profile, high };
 }
 
 async function decodeHeif(bytes) {
@@ -106,9 +130,10 @@ async function decodeHeif(bytes) {
 
 function decodePsdFile(bytes) {
   const { width, height, data } = decodePsd(bytes);
+  const profile = manageColor(psdIcc(bytes), data);
   const canvas = makeCanvas(width, height);
   context2d(canvas).putImageData(new ImageData(data, width, height), 0, 0);
-  return { source: canvas };
+  return { source: canvas, profile };
 }
 
 async function decodeRaw(bytes, name, maxSize) {
@@ -156,12 +181,13 @@ async function decodePdf(bytes, { page = 1, scale = 2 } = {}) {
  * Upright picture of a file: { source (canvas | ImageBitmap), width, height, kind }.
  * `maxSize` scales large pictures down (long side), e.g. for thumbnails.
  */
-export async function decodeImage(input, name, { maxSize = 0, page = null } = {}) {
+/** `high: true` also returns a 16-bit picture's precise copy (`result.high`, see highbit.js) — the editor asks for it. */
+export async function decodeImage(input, name, { maxSize = 0, page = null, high = false } = {}) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   const kind = kindOf(name) ?? 'native';
   let result;
   switch (kind) {
-    case 'tiff': result = decodeTiff(bytes, page); break;
+    case 'tiff': result = decodeTiff(bytes, page, high); break;
     case 'heif': result = await decodeHeif(bytes); break;
     case 'psd': result = decodePsdFile(bytes); break;
     case 'raw': result = await decodeRaw(bytes, name, maxSize); break;
@@ -176,7 +202,7 @@ export async function decodeImage(input, name, { maxSize = 0, page = null } = {}
       break;
     }
     case 'video': throw new Error('video');
-    default: result = await decodeNative(bytes, name, maxSize);
+    default: result = await decodeNative(bytes, name, maxSize, high);
   }
   let { source } = result;
   const fullWidth = source.width;

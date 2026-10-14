@@ -18,7 +18,7 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 
 ## 상태와 흐름 (`src/store.js`)
 
-`app.state` 에 지금 보는 **원천**(folder / filter / search / calendar / basket / paths), 원천에서 읽은 `items`, 정렬·필터·그룹을 거친 `list`/`groups`, 선택·포커스, 모드, 뒤로/앞으로 기록이 있습니다. 동작(폴더 열기, 선택, 정리, 파일 작업)은 모두 store 함수이고 바뀌면 이벤트(`source`, `items`, `selection`, `catalog`, `info`, `mode` …)를 냅니다. 각 창은 필요한 이벤트만 듣고 다시 그립니다.
+`app.state` 에 지금 보는 **원천**(folder / filter / search / calendar / basket / collection / paths), 원천에서 읽은 `items`, 정렬·필터·그룹을 거친 `list`/`groups`, 선택·포커스, 모드, 뒤로/앞으로 기록이 있습니다. 동작(폴더 열기, 선택, 정리, 파일 작업)은 모두 store 함수이고 바뀌면 이벤트(`source`, `items`, `selection`, `catalog`, `info`, `mode` …)를 냅니다. 각 창은 필요한 이벤트만 듣고 다시 그립니다.
 
 ## 카탈로그 (`src/catalog/`)
 
@@ -27,8 +27,10 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 - `listing.js` — 자연 정렬(Intl.Collator numeric), 그룹.
 - `rename.js` — 템플릿, 충돌 검사, 서로 맞바꾸는 이름을 위한 임시 이름 2단계.
 - `dupes.js` — 9×8 회색 축소에서 64비트 dHash, 해밍 거리, 단일 연결 군집.
+- 컬렉션 — `catalog.collections`(수동: 경로 목록, 이동·삭제를 따라감 / 스마트: `query.js` 의 `RULE_FIELDS` 규칙과 all·any).
+- `gpx.js` — GPX 트랙 지점 읽기, 촬영 시각의 위치(양쪽 지점이 최대 간격 안이면 보간, 아니면 가까운 지점).
 
-저장은 1.2초 디바운스. 데스크톱은 문자열 JSON 을 Rust 가 원자적으로 씁니다.
+저장은 1.2초 디바운스. 데스크톱은 SQLite(`catalog.sqlite`, `catalogdb.rs`): 저장할 때마다 레코드 JSON 을 지난번 쓴 것과 비교해 **바뀐 레코드만** 한 트랜잭션으로 쓰고 사라진 것은 지웁니다(어디서 고친 레코드든 놓치지 않음). 처음 실행 때 예전 `catalog.json` 을 옮깁니다. 웹은 IndexedDB 의 JSON.
 
 ## 형식 (`src/formats/`)
 
@@ -40,27 +42,45 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 - `tiffstruct.js` — IFD 읽기/쓰기, EXIF·GPS 블록 생성(테스트 픽스처도 이것으로 만듦).
 - `exif.js` — exifr 결과를 카탈로그 요약으로(카메라 이름 정리, GPS, 내장 XMP 별점·레이블·키워드), 속성 창용 그룹별 태그.
 - `xmp.js` — 라이트룸 호환 사이드카. 기존 파일은 우리 속성만 바꾸고 나머지(현상 설정 등)는 남김.
-- `encode.js` — 캔버스 인코딩(JPEG/PNG/WebP), BMP·TIFF 직접 쓰기.
+- `encode.js` — 캔버스 인코딩(JPEG/PNG/WebP), BMP·TIFF 직접 쓰기, 16비트 형식은 `highbit.js` 로.
+- `xmpembed.js` — PNG(iTXt)·WebP(XMP 청크, VP8X 플래그)·TIFF(태그 700, IFD 를 파일 끝에 다시 씀) 내장 XMP 읽기/쓰기.
+- `icc.js` — ICC 프로필(행렬/TRC RGB·회색, gamma·para·table 곡선, v2·v4 이름) 읽기와 sRGB 변환(XYZ D50 → sRGB, Bradford). TIFF(태그 34675)·PSD(리소스 1039)에 쓰입니다.
+- `highbit.js` — 16비트 PNG·TIFF 의 정밀 사본(Float32 RGBA), 순서 디더링, 면적 평균 축소, 16비트 TIFF·PNG 쓰기.
 
 ## 썸네일 (`src/thumbs/`)
 
 메모리 LRU → IndexedDB(`경로|크기|수정 시각` 키, WebP) → 모듈 워커(최대 4개, OffscreenCanvas). 워커가 디코딩·축소·EXIF 요약·dHash 를 한 번에 하고, 결과가 카탈로그에 들어갑니다. 화면에 보이는 항목이 큐 앞으로 오고 폴더를 떠나면 남은 일은 취소됩니다. SVG·동영상은 페이지에서(동영상은 1초 지점 프레임).
 
+## 이미지 분석 (`src/analysis/`)
+
+폴더를 열면(`app.on('items')` → `autoAnalyze`, 2.5초 뒤) 그 폴더의 사진이 큐에 들어가고, **모듈 워커**(`worker.js`) 하나가 한 장씩 분석합니다. 페이지는 큐·대기·결과 저장만 하므로 화면이 멈추지 않습니다.
+
+- `worker.js` — face-api 에 든 TensorFlow.js(WebGL, 안 되면 CPU)로 두 그래프 모델을 실행: **MobileNet v2**(ImageNet 1000 가지, 224×224, [-1, 1] 정규화, 1001번째 출력은 배경이라 버림 → softmax 상위 5개)와 **SSDLite MobileNet v2**(COCO 80 가지, 긴 변 384, 상자별 최고 점수 → 비최대 억제). 입력은 썸네일(384px)을 OffscreenCanvas 로 그린 것. 색 통계(96px)도 여기서.
+- `taxonomy.js` — 순수 함수: `colorStats`(밝기·대비·채도·회색/흰/어둠 비율, 위 1/3 의 파랑·따뜻한 빛, 아래 절반의 파랑·모래, 초록, 평평한 영역, 경계) → `scenesFromStats`(문서·스크린샷·흑백·야경·노을·하늘·자연·눈·바다·해변), `imagenetIds`(번호 범위 + 이름 표), `cocoIds`, `classify`(사람 수 = max(사람 상자, 찾은 얼굴), 확률 합으로 장면·객체, 실내면 하늘·노을 같은 색만의 추측을 버림). 분류 id 는 경로(`object/animal/dog`)라 부모로 걸러도 자식이 나옵니다. `labels.json` 은 ImageNet·COCO 이름.
+- `analyzer.js` — 큐(다른 폴더를 열면 교체), 상태 막대 진행(`statusProgress`), 6장마다 `catalog.setAnalysis`, 파일이 같으면(`v`·수정 시각) 다시 하지 않음, 의료 영상·PDF·동영상은 건너뜀. 모델은 `public/models/mobilenet·cocossd` (`scripts/vendor-assets.mjs` 가 처음 한 번 내려받음).
+- 카탈로그 창의 *이미지 분석* 은 `categoryCounts` 로 개수를, 필터 `{ type: 'analysis', value }` 로 목록을 만듭니다(같은 종류끼리는 "또는"). `ui/organize.js` 는 종류별 대표 분류(`primaryCategory`)로 `분류됨/<분류>/` 에 복사·이동(`store.transfer`, 되돌리기 가능).
+
 ## 편집 (`src/edit/`)
 
 - `adjust.js` — ImageData 에 바로 작용하는 순수 함수: 톤 LUT(노출·밝기·S자 대비·레벨·흰/검정·채널별/마스터 단조 3차 곡선), 화이트 밸런스, 밝은/어두운 영역, 색상환 회전, 채도·생동감, 효과, 3-박스 가우시안, 언샵 마스크, 명료도, 에지 보존 노이즈 감소, 비네팅, 고정 시드 그레인, 컨볼루션, 적목, 자동 원천 선택 힐링, 히스토그램, 자동 레벨.
 - `geometry.js` — 회전·뒤집기·수평 맞추기(같은 비율의 최대 내접 사각형으로 자동 자르기)·자르기·크기 조절을 **하나의 아핀 행렬**로. 같은 행렬로 그리고, 역행렬로 미리 보기의 클릭을 원본 픽셀로 바꿉니다(적목·힐링 점은 원본 좌표로 저장).
-- `pipeline.js` — 보정(원본 좌표) → 색·톤 → 기하 → 디테일·효과 → 테두리·텍스트. 미리 보기는 긴 변 1800px 축소본으로, 저장은 원본 크기로 같은 함수를 부릅니다.
+- `pipeline.js` — 보정(원본 좌표: 적목·힐링·복제·**내용 인식 지우기**) → 색·톤(16비트 원본이면 정밀 사본으로 계산해 디더링, 색상 휠, LUT) → 부분 보정(그러데이션·방사형·브러시·올가미·자동 선택·색상 범위 마스크) → 렌즈·원근 → 기하 → 디테일·효과 → 캔버스·테두리·레이어(이미지·조정 레이어, 레이어 마스크)·그리기·텍스트. 미리 보기는 긴 변 1800px 축소본으로, 저장은 원본 크기로 같은 함수를 부릅니다.
+- `inpaint.js` — 내용 인식 채우기: 구멍 주변만 잘라 피라미드, 가장 거친 단계는 확산, 단계마다 PatchMatch 최근접 패치 + 가중 투표(고정 시드라 미리 보기와 저장이 같음).
+- `lut.js` — `.cube`(1D·3D) 파서, 3선형 보간, 내장 룩, 가져온 LUT 는 앱 데이터에 보관하고 렌더 전에 `prepareEdit` 로 불러옴.
+- `create/homography.js` — 원근 파노라마: Harris 코너·정규화 패치 서술자·비율 시험·교차 확인 → RANSAC 호모그래피 → 가운데 사진 평면으로 투영, 노출 이득, 가장자리 가중 혼합. 맞지 않으면 이동 방식(`panorama.js`)으로.
 
 ## UI (`src/ui/`, `src/app.js`)
 
-`app.js` 가 메뉴·모드·툴바·창 배치·단축키·시작(명령줄 경로, 마지막 폴더, 웹 폴더 복원)을 맡습니다. 파일 목록(`filelist.js`)은 행 단위 가상화(이진 탐색으로 보이는 행만, 타일은 경로 키로 재사용), 고무줄 선택, 포인터 기반 끌어 놓기(`data-drop` 대상: 폴더 트리·폴더 타일·주소 막대)입니다. 메뉴·대화상자는 페이지 안 요소입니다.
+`app.js` 가 메뉴·모드·툴바·창 배치·단축키·시작(명령줄 경로, 마지막 폴더, 웹 폴더 복원)을 맡습니다. 파일 목록(`filelist.js`)은 행 단위 가상화(이진 탐색으로 보이는 행만, 타일은 경로 키로 재사용), 고무줄 선택, 포인터 기반 끌어 놓기(`data-drop` 대상: 폴더 트리·폴더 타일·주소 막대)입니다. 대화상자는 데스크톱에서 각각 독립된 창입니다(`dialog.js`). 단축키는 `keymap.js` 에 관리·보기·편집 모드별 명령으로 등록되어 사용자가 바꿉니다. DICOM 도구(`dicomview.js`: 윈도·측정(클릭 또는 끌기, 다음 점은 포인터를 따라감)·각도·Cobb·눈금자·축척 막대·화면 고정 5×5 격자·− 배율 +·시네·모든 형식으로 프레임 내보내기)는 뷰어 위의 SVG 층 두 개입니다(그림 좌표의 측정 층, 화면 좌표의 눈금자·격자·축척 층). 창의 최소 폭은 `minwidth.js` 가 보이는 툴바의 자연 폭으로 맞춥니다(`set_min_size`). 그 밖에 `quickmeta.js`(빠른 키워드·IPTC 템플릿), `collections.js`, `actions.js`(일괄 작업), `external.js`(외부 편집기), `gpxtag.js`, `videotrim.js`, `themepicker.js`(설정의 테마 탭).
 
 ## Rust (`src-tauri/src/`)
 
 - `files.rs` — 폴더 목록(숨김 판정: Windows 속성/점 파일, 하위 폴더 유무 탐색은 최대 4000 항목), 장소 목록, 재귀 탐색, 복사/이동(충돌: 둘 다 유지·덮어쓰기·건너뛰기, 같은 폴더에 복사하면 사본, 드라이브가 다르면 복사 후 삭제), 이름 검사, 휴지통(`trash`), 수정 시각(`filetime`), 원자적 쓰기. 모두 단위 테스트.
 - `lib.rs` — 명령 등록, 원본 백업, 앱 데이터, 단일 인스턴스, 패닉 훅(crash.log + UI 알림), 창 생성(WebView2 인자 통일).
 - `window_state.rs` — 창 위치·크기·최대화 기억(연결된 모니터에 보일 때만 복원).
+- `catalogdb.rs` — SQLite 카탈로그(rusqlite, bundled): files(path, record JSON)·meta 표, 바뀐 것만 쓰는 트랜잭션.
+- `mtp.rs` — 휴대폰·카메라(MTP): Windows 는 셸 이름 공간(PowerShell, ASCII 스크립트), Linux 는 GVFS, DCIM·Pictures 의 새 파일만 앱 데이터의 `mtp/` 로 복사. 테스트는 `MYPHOTO_FAKE_MTP`.
+- `printing.rs`·`thumbstore.rs` — 바로 인쇄(WebView2), 폴더별 썸네일 저장소.
 
 ## 설치 설정
 

@@ -1,10 +1,11 @@
 // Slideshow: full-screen, timed, with fade / slide / zoom (Ken Burns)
-// transitions, shuffle, loop and captions. Space pauses, arrows step, Esc ends.
+// transitions, shuffle, loop, captions and background music. Space pauses,
+// arrows step, Esc ends.
 import { decodeImage } from '../formats/decode.js';
 import { kindOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
-import { setFullscreen } from '../platform/native.js';
+import { chooseFiles, isDesktop, setFullscreen } from '../platform/native.js';
 import { app } from '../store.js';
 import { formatDate } from '../util/format.js';
 import { h } from './dom.js';
@@ -26,6 +27,14 @@ export async function startSlideshow(items, startIndex = 0) {
   let timer = null;
   let showing = null;
 
+  // Background music: loops for the whole show, pauses with it.
+  const music = await musicSource(options.music);
+  const audio = music ? h('audio.slideshow-music', { src: music.url, loop: true, preload: 'auto' }) : null;
+  if (audio) {
+    audio.volume = Math.max(0, Math.min(1, (options.musicVolume ?? 80) / 100));
+    audio.play().catch(() => {});
+  }
+
   const stage = h('div.slideshow-stage');
   const caption = h('div.slideshow-caption');
   const controls = h('div.slideshow-controls',
@@ -34,7 +43,7 @@ export async function startSlideshow(items, startIndex = 0) {
     h('button.tool', { type: 'button', title: t('view.next'), html: icon('next'), onclick: () => step(1) }),
     h('span.slideshow-counter'),
     h('button.tool', { type: 'button', title: t('slideshow.end'), html: icon('close'), onclick: () => end() }));
-  const root = h(`div.slideshow.transition-${options.transition}`, { tabIndex: 0 }, stage, caption, controls);
+  const root = h(`div.slideshow.transition-${options.transition}`, { tabIndex: 0 }, stage, caption, controls, audio);
   document.body.append(root);
   document.body.classList.add('slideshow-on');
   if (fs.kind === 'desktop') setFullscreen(true); else document.documentElement.requestFullscreen?.().catch(() => {});
@@ -107,10 +116,13 @@ export async function startSlideshow(items, startIndex = 0) {
     root.querySelector('.play-toggle').innerHTML = icon(paused ? 'play' : 'pause');
     root.classList.toggle('paused', paused);
     if (paused) clearTimeout(timer); else schedule(showing?.firstChild);
+    if (audio) { if (paused) audio.pause(); else audio.play().catch(() => {}); }
   }
 
   function end() {
     clearTimeout(timer);
+    audio?.pause();
+    if (music?.revoke) URL.revokeObjectURL(music.url);
     root.remove();
     document.body.classList.remove('slideshow-on');
     document.removeEventListener('keydown', keys, true);
@@ -128,7 +140,7 @@ export async function startSlideshow(items, startIndex = 0) {
   document.addEventListener('keydown', keys, true);
   stage.addEventListener('click', () => step(1));
   show(1);
-  return { end };
+  return { end, get music() { return audio ? { src: audio.src, paused: audio.paused, time: audio.currentTime } : null; } };
 }
 
 /** Slideshow options dialog content. */
@@ -138,9 +150,64 @@ export function slideshowSettingsFields(options, { field, selectEl }) {
   const shuffle = h('input', { type: 'checkbox', checked: options.shuffle });
   const loop = h('input', { type: 'checkbox', checked: options.loop });
   const caption = h('input', { type: 'checkbox', checked: options.caption });
+  const music = musicField(options.music ?? '');
+  const volume = h('input.input', { type: 'number', min: 0, max: 100, step: 5, value: options.musicVolume ?? 80, dataset: { key: 'music-volume' } });
   return {
     el: h('div', h('div.field-row', field(t('slideshow.interval'), interval), field(t('slideshow.transition'), transition)),
-      h('label.check', shuffle, t('slideshow.shuffle')), h('label.check', loop, t('slideshow.loop')), h('label.check', caption, t('slideshow.caption'))),
-    read: () => ({ interval: Math.max(1, Number(interval.value) || 4), transition: transition.value, shuffle: shuffle.checked, loop: loop.checked, caption: caption.checked }),
+      h('label.check', shuffle, t('slideshow.shuffle')), h('label.check', loop, t('slideshow.loop')), h('label.check', caption, t('slideshow.caption')),
+      h('div.field-row', field(t('slideshow.music'), music.el), field(t('slideshow.musicVolume'), volume))),
+    read: () => ({ interval: Math.max(1, Number(interval.value) || 4), transition: transition.value, shuffle: shuffle.checked, loop: loop.checked, caption: caption.checked, music: music.value(), musicVolume: Math.max(0, Math.min(100, Number(volume.value) || 0)) }),
   };
+}
+
+// ───────────────────────── background music
+
+export const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'wav', 'flac', 'webm'];
+// In the web app a chosen file has no path: it is kept for this session only.
+const sessionMusic = new Map(); // 'session:<name>' → File
+
+/** Where the music comes from: a URL for <audio> (and whether to revoke it), or null. */
+export async function musicSource(value) {
+  if (!value) return null;
+  if (value.startsWith('session:')) {
+    const file = sessionMusic.get(value);
+    return file ? { url: URL.createObjectURL(file), revoke: true, name: file.name } : null;
+  }
+  try { return { url: await fs.url(value), revoke: false, name: value.split(/[\\/]/).pop() }; } catch { return null; }
+}
+
+/** The music file's bytes (for a video or HTML export), or null. */
+export async function musicBytes(value) {
+  if (!value) return null;
+  if (value.startsWith('session:')) {
+    const file = sessionMusic.get(value);
+    return file ? { bytes: new Uint8Array(await file.arrayBuffer()), name: file.name } : null;
+  }
+  return { bytes: await fs.read(value), name: value.split(/[\\/]/).pop() };
+}
+
+/** A music chooser: the file's name, "Choose…" and "None". `.value()` = path ('' for none). */
+export function musicField(initial = '') {
+  let value = initial;
+  const name = h('span.music-name', { dataset: { key: 'music-name' } });
+  const draw = () => { name.textContent = value ? value.replace(/^session:/, '').split(/[\\/]/).pop() : t('slideshow.noMusic'); clearButton.disabled = !value; };
+  const choose = async () => {
+    if (isDesktop()) {
+      const [path] = await chooseFiles([{ name: t('slideshow.musicFiles'), extensions: AUDIO_EXTENSIONS }]);
+      if (path) value = path;
+    } else {
+      const file = await new Promise((resolve) => {
+        const input = h('input', { type: 'file', accept: 'audio/*', style: { display: 'none' } });
+        input.addEventListener('change', () => { resolve(input.files?.[0] ?? null); input.remove(); });
+        document.body.append(input);
+        input.click();
+      });
+      if (file) { value = `session:${file.name}`; sessionMusic.set(value, file); }
+    }
+    draw();
+  };
+  const chooseButton = h('button.btn.small', { type: 'button', dataset: { key: 'music-choose' }, onclick: choose }, h('span', { html: icon('music') }), t('slideshow.chooseMusic'));
+  const clearButton = h('button.tool.small', { type: 'button', title: t('slideshow.noMusic'), dataset: { key: 'music-clear' }, html: icon('close'), onclick: () => { value = ''; draw(); } });
+  draw();
+  return { el: h('div.music-field', name, chooseButton, clearButton), value: () => value };
 }

@@ -1497,3 +1497,148 @@ export function blendLayer(base, layer, { mode = 'normal', opacity = 1, x = 0, y
   }
   return base;
 }
+
+// ───────────────────────── selections and pixel targeting (Float32Array 0…1, w×h)
+
+/** Softens a mask edge: separable box blur, `radius` pixels, run twice (≈ Gaussian). */
+export function featherMask(mask, width, height, radius) {
+  const r = Math.round(radius);
+  if (r < 1) return mask;
+  const tmp = new Float32Array(mask.length);
+  const pass = (src, dst, horizontal) => {
+    const n = horizontal ? width : height;
+    const lines = horizontal ? height : width;
+    for (let l = 0; l < lines; l++) {
+      let sum = 0;
+      const at = (k) => (horizontal ? l * width + range(k, 0, n - 1) : range(k, 0, n - 1) * width + l);
+      for (let k = -r; k <= r; k++) sum += src[at(k)];
+      for (let k = 0; k < n; k++) {
+        dst[horizontal ? l * width + k : k * width + l] = sum / (2 * r + 1);
+        sum += src[at(k + r + 1)] - src[at(k - r)];
+      }
+    }
+  };
+  for (let i = 0; i < 2; i++) { pass(mask, tmp, true); pass(tmp, mask, false); }
+  return mask;
+}
+
+/** Freehand lasso: inside the polygon (pixels, even–odd rule), feathered by `feather` pixels. */
+export function polygonMask(width, height, points, feather = 0) {
+  const mask = new Float32Array(width * height);
+  if (!points || points.length < 3) return mask;
+  for (let y = 0; y < height; y++) {
+    const cy = y + 0.5;
+    const xs = [];
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const [xi, yi] = points[i];
+      const [xj, yj] = points[j];
+      if ((yi > cy) !== (yj > cy)) xs.push(xi + ((cy - yi) * (xj - xi)) / (yj - yi));
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const from = Math.max(0, Math.ceil(xs[k] - 0.5));
+      const to = Math.min(width - 1, Math.floor(xs[k + 1] - 0.5));
+      for (let x = from; x <= to; x++) mask[y * width + x] = 1;
+    }
+  }
+  return featherMask(mask, width, height, feather);
+}
+
+/**
+ * Magic wand: the connected area around (x, y) whose colour is within
+ * `tolerance` (0…255, distance in RGB) of the clicked pixel; feathered edge.
+ */
+export function wandMask(image, x, y, tolerance = 32, feather = 2) {
+  const { width, height, data } = image;
+  const mask = new Float32Array(width * height);
+  const sx = Math.round(x);
+  const sy = Math.round(y);
+  if (sx < 0 || sy < 0 || sx >= width || sy >= height) return mask;
+  const s = (sy * width + sx) * 4;
+  const r0 = data[s]; const g0 = data[s + 1]; const b0 = data[s + 2];
+  const limit = tolerance * tolerance * 3;
+  const seen = new Uint8Array(width * height);
+  const stack = [sy * width + sx];
+  seen[stack[0]] = 1;
+  while (stack.length) {
+    const i = stack.pop();
+    const j = i * 4;
+    const dr = data[j] - r0; const dg = data[j + 1] - g0; const db = data[j + 2] - b0;
+    if (dr * dr + dg * dg + db * db > limit) continue;
+    mask[i] = 1;
+    const px = i % width;
+    const py = (i / width) | 0;
+    if (px > 0 && !seen[i - 1]) { seen[i - 1] = 1; stack.push(i - 1); }
+    if (px < width - 1 && !seen[i + 1]) { seen[i + 1] = 1; stack.push(i + 1); }
+    if (py > 0 && !seen[i - width]) { seen[i - width] = 1; stack.push(i - width); }
+    if (py < height - 1 && !seen[i + width]) { seen[i + width] = 1; stack.push(i + width); }
+  }
+  return featherMask(mask, width, height, feather);
+}
+
+/**
+ * Pixel targeting: pixels whose hue is within ±range of `hue` (degrees), with
+ * at least `satMin` saturation and lightness between lumMin and lumMax (0…100).
+ * The edges of each range fade over `soft` (degrees / percent) so the result
+ * blends without banding. `hue` null = any hue (a tonal range only).
+ */
+export function colorRangeMask(image, { hue = null, range: hueRange = 30, satMin = 0, lumMin = 0, lumMax = 100, soft = 12 } = {}) {
+  const { width, height, data } = image;
+  const mask = new Float32Array(width * height);
+  const fade = (distance, limit) => (distance <= limit ? 1 : distance >= limit + soft ? 0 : 1 - (distance - limit) / soft);
+  for (let i = 0, j = 0; i < mask.length; i++, j += 4) {
+    const r = data[j] / 255; const g = data[j + 1] / 255; const b = data[j + 2] / 255;
+    const max = Math.max(r, g, b); const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const d = max - min;
+    const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    let m = 1;
+    if (hue != null) {
+      let h = 0;
+      if (d) h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+      if (h < 0) h += 360;
+      const dh = Math.abs(((h - hue + 540) % 360) - 180);
+      m *= d ? fade(dh, hueRange) : 0;
+    }
+    m *= satMin > 0 ? (sat * 100 >= satMin ? 1 : Math.max(0, 1 - (satMin - sat * 100) / soft)) : 1;
+    const L = l * 100;
+    m *= L < lumMin ? Math.max(0, 1 - (lumMin - L) / soft) : L > lumMax ? Math.max(0, 1 - (L - lumMax) / soft) : 1;
+    mask[i] = m;
+  }
+  return mask;
+}
+
+// ───────────────────────── colour balance wheels (shadows / midtones / highlights)
+
+/** RGB unit tint (−1…1 per channel, grey-free) for a hue in degrees. */
+function hueTint(hue) {
+  const h = (((hue % 360) + 360) % 360) / 60;
+  const x = 1 - Math.abs((h % 2) - 1);
+  const [r, g, b] = h < 1 ? [1, x, 0] : h < 2 ? [x, 1, 0] : h < 3 ? [0, 1, x] : h < 4 ? [0, x, 1] : h < 5 ? [x, 0, 1] : [1, 0, x];
+  const mean = (r + g + b) / 3;
+  return [r - mean, g - mean, b - mean];
+}
+
+/**
+ * Colour balance: { shadows, midtones, highlights } each { hue (deg), amount (0…100) }.
+ * Each range pushes its colour into the pixels by luminance weight (shadows
+ * fade out by mid-grey, highlights fade in from it, midtones peak there);
+ * the average of R, G and B of each pixel is kept.
+ */
+export function colorBalance(image, balance) {
+  if (!balance) return image;
+  const ranges = ['shadows', 'midtones', 'highlights'].map((key) => {
+    const r = balance[key];
+    return r && r.amount ? hueTint(r.hue ?? 0).map((v) => v * (r.amount / 100) * 90) : null;
+  });
+  if (!ranges.some(Boolean)) return image;
+  const d = image.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+    const w = [(1 - l) ** 2, 1 - (2 * l - 1) ** 2, l ** 2];
+    let r = 0; let g = 0; let b = 0;
+    for (let k = 0; k < 3; k++) { const t = ranges[k]; if (!t) continue; r += t[0] * w[k]; g += t[1] * w[k]; b += t[2] * w[k]; }
+    d[i] = d[i] + r; d[i + 1] = d[i + 1] + g; d[i + 2] = d[i + 2] + b;
+  }
+  return image;
+}

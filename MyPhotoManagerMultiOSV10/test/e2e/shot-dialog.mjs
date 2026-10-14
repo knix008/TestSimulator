@@ -8,6 +8,7 @@ const app = new App();
 await app.start();
 await app.main.eval(`(() => { ${expression}; return 1; })()`);
 await new Promise((r) => setTimeout(r, 1500));
+if (process.argv[5]) { await app.main.eval(process.argv[5]); await new Promise((r) => setTimeout(r, 600)); }
 const info = await app.main.eval(`(() => { const box = window.__myphoto.topDialog(); return { inWindow: Boolean(box && box.ownerDocument !== document), w: box?.ownerDocument.defaultView.innerWidth, h: box?.ownerDocument.defaultView.innerHeight, scrollH: box?.ownerDocument.documentElement.scrollHeight }; })()`);
 console.log(JSON.stringify(info));
 console.log(await app.main.eval(`(() => { const box = window.__myphoto.topDialog(); const d = box.ownerDocument; return JSON.stringify({ cls: box.className, styles: [...d.querySelectorAll("style, link")].map((s) => s.tagName + ":" + (s.textContent.includes("in-window") ? "has" : "no") + ":" + (s.href ?? "")), body: d.body.className, sheets: d.styleSheets.length }); })()`));

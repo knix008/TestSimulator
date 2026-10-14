@@ -4,12 +4,13 @@ import { fs } from '../platform/fs.js';
 import { invoke, isDesktop } from '../platform/native.js';
 import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
+import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
 import { h } from './dom.js';
 import { FLAG_EN, FLAG_KO } from './flags.js';
 import { icon } from './icons.js';
-import { slideshowSettingsFields } from './slideshow.js';
-import { themeSelect } from './themepicker.js';
+import { AUDIO_EXTENSIONS, slideshowSettingsFields } from './slideshow.js';
+import { previewTheme, themeGrid } from './themepicker.js';
 
 /** Language as a row of buttons — the flag with the language's own name; `.value` is the choice. */
 function languageButtons(value) {
@@ -24,7 +25,7 @@ function languageButtons(value) {
 export async function settingsDialog({ onApply }) {
   const s = app.settings;
   const language = languageButtons(s.language);
-  const theme = themeSelect(s.theme);
+  const theme = themeGrid(s.theme);
   const check = (value, label) => { const input = h('input', { type: 'checkbox', checked: value }); return { input, el: h('label.check', input, label) }; };
   const hidden = check(s.showHidden, t('settings.showHidden'));
   const allFiles = check(s.showAllFiles, t('settings.showAllFiles'));
@@ -39,22 +40,42 @@ export async function settingsDialog({ onApply }) {
   const wheel = selectEl([['navigate', t('settings.wheelNavigate')], ['zoom', t('settings.wheelZoom')]], s.viewer.wheel);
   const enlarge = check(s.viewer.enlarge, t('settings.enlarge'));
   const smooth = check(s.viewer.smooth, t('settings.smooth'));
+  const colorManaged = check(s.colorManagement, t('settings.colorManagement'));
+  const measureUnit = selectEl([['mm', t('settings.unitMm')], ['cm', t('settings.unitCm')], ['inch', t('settings.unitInch')]], s.measureUnit ?? 'mm');
+  measureUnit.dataset.key = 'measure-unit';
+  colorManaged.input.dataset.key = 'color-management';
   const quality = h('input.input', { type: 'number', min: 10, max: 100, value: s.jpegQuality });
   const xmp = check(s.xmpSidecar, t('settings.xmp'));
   const xmpEmbed = check(s.xmpEmbed, t('settings.xmpEmbed'));
   const tiles = check(s.mapTiles, t('settings.mapTiles'));
+  const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
+  autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
   const slideshow = slideshowSettingsFields(s.slideshow, { field, selectEl });
+  const vs = { autoplay: true, loop: false, muted: false, volume: 100, speed: 1, controls: true, fit: 'fit', resume: true, nextAtEnd: false, ...(s.video ?? {}) };
+  const video = {
+    autoplay: check(vs.autoplay, t('video.autoplay')), loop: check(vs.loop, t('video.loop')), muted: check(vs.muted, t('video.startMuted')),
+    controls: check(vs.controls, t('video.controls')), resume: check(vs.resume, t('video.resume')), nextAtEnd: check(vs.nextAtEnd, t('video.nextAtEnd')),
+    volume: h('input.input', { type: 'number', min: 0, max: 100, step: 5, value: vs.volume, dataset: { key: 'video-volume' } }),
+    speed: selectEl([0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((x) => [String(x), `${x}×`]), String(vs.speed)),
+    fit: selectEl([['fit', t('video.fitWindow')], ['actual', t('video.fitActual')], ['fill', t('video.fitFill')]], vs.fit),
+  };
+  video.speed.dataset.key = 'video-speed-setting';
+  video.fit.dataset.key = 'video-fit-setting';
+  for (const [key, box] of Object.entries(video)) if (box.input) box.input.dataset.key = `video-${key}`;
   const cacheInfo = h('span.hint', '…');
   thumbs.cacheCount().then((n) => { cacheInfo.textContent = t('settings.cacheCount', { n }); });
 
   const tabs = [
-    ['general', t('settings.general'), h('div', field(t('settings.language'), language), field(t('settings.theme'), theme), isDesktop() ? field(t('settings.startup'), startup) : null)],
+    ['general', t('settings.general'), h('div', field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null)],
+    ['theme', t('settings.theme'), h('div', h('p.hint', t('theme.tabHint')), theme.el)],
     ['browse', t('settings.browse'), h('div', hidden.el, allFiles.el, folders.el, h('div.field-label', t('settings.captions')), capName.el, capSize.el, capDims.el, capDate.el, overlay.el)],
-    ['view', t('settings.view'), h('div', field(t('settings.wheel'), wheel), enlarge.el, smooth.el)],
+    ['view', t('settings.view'), h('div', field(t('settings.wheel'), wheel), enlarge.el, smooth.el, field(t('settings.measureUnit'), measureUnit), colorManaged.el, h('div.hint', t('settings.colorManagementHint')))],
     ['slideshow', t('settings.slideshow'), slideshow.el],
+    ['video', t('settings.video'), h('div', video.autoplay.el, video.loop.el, video.muted.el, video.controls.el, video.resume.el, video.nextAtEnd.el,
+      h('div.field-row', field(t('video.volume'), video.volume), field(t('video.speed'), video.speed), field(t('video.fit'), video.fit)))],
     ['files', t('settings.files'), h('div', confirmDelete.el, fs.caps.trash ? useTrash.el : null, field(t('settings.jpegQuality'), quality), xmp.el, xmpEmbed.el, h('div.hint', t('settings.xmpHint')))],
-    ['data', t('settings.data'), h('div', tiles.el, h('div.hint', t('settings.mapTilesHint')),
+    ['data', t('settings.data'), h('div', autoAnalysis.el, h('div.hint', t('analysis.autoHint')), tiles.el, h('div.hint', t('settings.mapTilesHint')),
       h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: async () => { await thumbs.clearCache(); cacheInfo.textContent = t('settings.cacheCount', { n: 0 }); toast(t('settings.cacheCleared'), 'success'); } }, t('settings.clearCache')), cacheInfo),
       h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: exportCatalog }, t('settings.exportCatalog')), h('button.btn.small', { type: 'button', onclick: importCatalog }, t('settings.importCatalog'))),
       h('div.row-buttons', h('button.btn.small.danger', { type: 'button', onclick: resetCatalog }, t('settings.resetCatalog'))))],
@@ -78,12 +99,13 @@ export async function settingsDialog({ onApply }) {
   content.style.minHeight = `${tallest}px`;
   show(first); // measuring went through every tab: open on the first one
   const ok = await openDialog({ title: t('settings.title'), width: 640, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
-  if (!ok) return;
+  if (!ok) { previewTheme(s.theme, s.customTheme); return; }
   Object.assign(s, {
     language: language.value, theme: theme.value, showHidden: hidden.input.checked, showAllFiles: allFiles.input.checked, showFolders: folders.input.checked,
     caption: { name: capName.input.checked, size: capSize.input.checked, dims: capDims.input.checked, date: capDate.input.checked, overlay: overlay.input.checked },
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
-    xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, mapTiles: tiles.input.checked, startup: startup.value, slideshow: slideshow.read(),
+    video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
+    xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
@@ -132,6 +154,16 @@ async function resetCatalog() {
   saveCatalogNow();
 }
 
+/** Every format the app reads (by group) and writes, for the About window. */
+export function supportedFormats() {
+  return [
+    ['about.fmtPhotos', NATIVE], ['about.fmtTiff', TIFF], ['about.fmtHeif', HEIF], ['about.fmtPsd', PSD], ['about.fmtRaw', RAW],
+    ['about.fmtVector', SVG], ['about.fmtJp2', [...JP2, ...JXL]], ['about.fmtExtra', EXTRA], ['about.fmtPdf', PDF], ['about.fmtDicom', DICOM],
+    ['about.fmtVideo', VIDEO], ['about.fmtArchive', ARCHIVES], ['about.fmtOther', ['xmp', 'cube', 'gpx', ...AUDIO_EXTENSIONS]],
+    ['about.fmtWrite', [...new Set(OUTPUT_FORMATS.map((f) => f.ext))]],
+  ];
+}
+
 export async function aboutDialog() {
   let info = null;
   if (isDesktop()) info = await invoke('app_info').catch(() => null);
@@ -147,12 +179,14 @@ export async function aboutDialog() {
     [t('about.creditsLabel'), t('about.credits')],
   ];
   await openDialog({
-    title: t('about.title'), width: 560, id: 'about-dialog',
+    title: t('about.title'), width: 640, id: 'about-dialog',
     body: h('div.about',
       h('div.about-top',
         h('img.about-icon', { src: new URL('./icon-192.png', document.baseURI).href, alt: '' }),
         h('div.about-text', h('h2', 'MyPhotoManager'), h('div.about-version', `${t('about.version')} ${version}`), h('p', t('about.tagline')), h('p.about-description', t('about.description')))),
-      h('div.about-rows', rows.filter(([, v]) => v).map(([k, v]) => [h('div.about-key', k), h('div.about-value', { title: v }, v)]))),
+      h('div.about-rows', rows.filter(([, v]) => v).map(([k, v]) => [h('div.about-key', k), h('div.about-value', { title: v }, v)])),
+      h('div.about-formats', h('div.about-formats-title', t('about.formats', { n: supportedFormats().slice(0, -1).reduce((s, [, list]) => s + list.length, 0) })),
+        supportedFormats().map(([key, list]) => h('div.about-format-row', { dataset: { group: key } }, h('div.about-key', t(key)), h('div.about-exts', list.map((ext) => h('span.ext-chip', ext.toUpperCase()))))))),
   });
 }
 

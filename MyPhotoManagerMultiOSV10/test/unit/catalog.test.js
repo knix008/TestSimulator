@@ -203,3 +203,46 @@ test('duplicates: dHash, hamming, grouping', () => {
   assert.deepEqual(groupBy([{ k: 1 }, { k: 2 }, { k: 1 }], (x) => x.k).length, 1);
   assert.equal(bestOf([{ path: 'small', pixels: 10, size: 1 }, { path: 'big', pixels: 100, size: 1 }]).path, 'big');
 });
+
+// ───────── collections
+
+test('collections: manual lists follow moves and deletes, survive JSON', async () => {
+  const catalog = new Catalog();
+  const id = catalog.addCollection('Trip');
+  assert.equal(catalog.addToCollection(id, ['C:\\A\\1.jpg', 'C:\\A\\2.jpg']), 2);
+  assert.equal(catalog.addToCollection(id, ['C:\\A\\1.jpg']), 0, 'no duplicates');
+  catalog.movePath('C:\\A', 'C:\\B');
+  assert.deepEqual(catalog.collection(id).paths, ['C:\\B\\1.jpg', 'C:\\B\\2.jpg']);
+  catalog.removePaths(['C:\\B\\2.jpg']);
+  assert.deepEqual(catalog.collection(id).paths, ['C:\\B\\1.jpg']);
+  catalog.renameCollection(id, 'Holiday');
+  const back = Catalog.fromJSON(JSON.stringify(catalog.toJSON()));
+  assert.equal(back.collection(id).name, 'Holiday');
+  assert.deepEqual(back.collection(id).paths, ['C:\\B\\1.jpg']);
+  back.deleteCollection(id);
+  assert.equal(back.collections.length, 0);
+});
+
+test('smart collection rules', async () => {
+  const { ruleMatches, smartMatches } = await import('../../src/catalog/query.js');
+  const item = { path: 'C:\\Photos\\2024\\beach.jpg', name: 'beach.jpg', modified: new Date(2020, 0, 1).getTime() };
+  const record = { rating: 4, label: 'red', tagged: true, keywords: ['Places|Korea|Busan', 'sea'], categories: ['Travel/Asia'], width: 4000, faces: [{ person: 'Mina' }], meta: { camera: 'Canon EOS R5', lens: 'RF24-105mm', lat: 35.1, lon: 129, taken: new Date(2024, 6, 1).getTime() } };
+  const yes = (field, op, value) => assert.equal(ruleMatches({ field, op, value }, item, record), true, `${field} ${op} ${value}`);
+  const no = (field, op, value) => assert.equal(ruleMatches({ field, op, value }, item, record), false, `${field} ${op} ${value}`);
+  yes('rating', '>=', '4'); no('rating', '>=', '5'); yes('rating', '<=', '4'); yes('rating', '=', 4); no('rating', '=', 3);
+  yes('label', 'is', 'red'); no('label', 'not', 'red'); yes('label', 'not', 'blue');
+  yes('keyword', 'has', 'Places|Korea'); yes('keyword', 'has', 'sea'); no('keyword', 'has', 'mountain'); yes('keyword', 'not', 'mountain');
+  yes('category', 'has', 'Travel'); no('category', 'not', 'Travel/Asia');
+  yes('person', 'has', 'mina'); no('person', 'has', 'Joon');
+  yes('text', 'contains', 'beach'); yes('text', 'not', 'night');
+  yes('camera', 'contains', 'canon'); no('camera', 'contains', 'nikon'); yes('lens', 'contains', '24-105');
+  yes('kind', 'is', 'image'); no('kind', 'is', 'video'); yes('extension', 'is', '.JPG'); no('extension', 'not', 'jpg');
+  yes('folder', 'in', 'C:\\Photos'); yes('folder', 'in', 'c:\\photos\\'); no('folder', 'in', 'C:\\Phot'); yes('folder', 'not', 'D:\\');
+  yes('taken', 'after', '2024-01-01'); no('taken', 'before', '2024-01-01'); yes('taken', 'before', '2024-07-02');
+  yes('width', '>=', '3000'); no('width', '<=', '3000');
+  yes('tagged', 'is', 'yes'); no('tagged', 'is', 'no'); yes('gps', 'is', 'yes');
+  const rules = [{ field: 'rating', op: '>=', value: '5' }, { field: 'keyword', op: 'has', value: 'sea' }];
+  assert.equal(smartMatches(rules, 'all', item, record), false);
+  assert.equal(smartMatches(rules, 'any', item, record), true);
+  assert.equal(smartMatches([], 'all', item, record), false, 'no rules = nothing');
+});

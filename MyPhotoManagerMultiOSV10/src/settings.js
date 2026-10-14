@@ -22,9 +22,15 @@ export const DEFAULTS = Object.freeze({
   useTrash: true,
   viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
   xmpEmbed: false,
+  analysis: { auto: true }, // analyse opened folders in the background (src/analysis)
+  dicom: { rulers: true, scaleBar: true, corners: true, grid: true, scaleBarAt: null, fps: 10 }, // DICOM overlays shown (ui/dicomview.js)
+  measureUnit: 'mm', // lengths of measurements and rulers: mm | cm | inch
+  colorManagement: true, // convert embedded ICC profiles to sRGB (formats/icc.js)
   importer: { pattern: 'YYYY/YYYY-MM-DD', rename: '', deleteAfter: false, skipDuplicates: true, destination: null },
   keys: {},
-  slideshow: { interval: 4, transition: 'fade', shuffle: false, loop: true, caption: true },
+  // Video in the viewer: playback and how it fills the screen (fit | actual | fill).
+  video: { autoplay: true, loop: false, muted: false, volume: 100, speed: 1, controls: true, fit: 'fit', resume: true, nextAtEnd: false },
+  slideshow: { interval: 4, transition: 'fade', shuffle: false, loop: true, caption: true, music: '', musicVolume: 80 },
   jpegQuality: 92,
   xmpSidecar: false,
   mapTiles: true,
@@ -33,6 +39,13 @@ export const DEFAULTS = Object.freeze({
   recentFolders: [],
   recentFiles: [],
   print: {}, // last print settings (ui/print.js DEFAULT_PRINT)
+  keywordSets: [{ name: '', keywords: [] }], // quick keywords (ui/quickmeta.js)
+  keywordSet: 0,
+  actions: [], // batch actions [{ name, steps: [{ kind, … }] }] (ui/actions.js)
+  externalEditors: [], // [{ name, program }] (ui/external.js)
+  workspaces: [], // saved window layouts [{ name, layout }] (app.js workspaceMenu)
+  luts: [], // imported colour LUTs [{ id, name }] (edit/lut.js; tables in the data folder)
+  metadataTemplates: [], // [{ name, fields: { headline, copyright, … }, keywords }]
   favorites: [],
   panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false, leftCollapsed: false, rightCollapsed: false, drive: null },
   catalogMatch: 'all',

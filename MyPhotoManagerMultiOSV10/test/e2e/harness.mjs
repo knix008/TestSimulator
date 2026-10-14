@@ -87,6 +87,8 @@ export class App {
       await sleep(1500);
       await this.main.waitFor(READY, { timeout: 40000 });
     }
+    // Background image analysis stays off unless a test asks for it (it would load the models and change the catalog).
+    if (!this.options.analysis) await this.main.eval('window.__myphoto?.analysis?.suspendAuto(true); 1').catch(() => {});
   }
 
   async restart(args = []) {

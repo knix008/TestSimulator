@@ -10,6 +10,7 @@
 // the same kind are alternatives (any of them); different kinds must all match
 // (or any, when the user picks "match any").
 import { AUTO_CATEGORIES, photoDate } from './catalog.js';
+import { inCategory } from '../analysis/taxonomy.js';
 import { extensionOf, kindOf } from '../formats/types.js';
 
 const FIELDS = new Set(['person', 'rating', 'label', 'kw', 'keyword', 'cat', 'category', 'camera', 'lens', 'ext', 'iso', 'date', 'is', 'has', 'name', 'folder']);
@@ -106,7 +107,7 @@ export function matchSearch(terms, item, record) {
 // ───────────────────────── catalog pane filters
 
 /** Key that groups alternatives: two ratings are "either", rating + label are "both". */
-const groupKey = (filter) => (filter.type === 'auto' ? `auto:${filter.key}` : filter.type);
+const groupKey = (filter) => (filter.type === 'auto' ? `auto:${filter.key}` : filter.type === 'analysis' ? `analysis:${filter.value.split('/')[0]}` : filter.type);
 
 export function filterMatches(filter, item, record) {
   switch (filter.type) {
@@ -123,6 +124,7 @@ export function filterMatches(filter, item, record) {
     case 'person': return (record?.faces ?? []).some((face) => (filter.value ? face.person === filter.value : !face.person));
     case 'all': return true;
     case 'auto': return record ? AUTO_CATEGORIES[filter.key]?.(record) === filter.value : false;
+    case 'analysis': return inCategory(record?.analysis, filter.value);
     case 'date': {
       const when = photoDate(record, item.modified);
       return when >= filter.from && when < filter.to;
@@ -161,4 +163,72 @@ export function passesListFilter(filter, item, record) {
   if (filter.kinds && !filter.kinds.has(kindOf(item.name) ?? 'other')) return false;
   if (filter.text && !matchSearch(parseSearch(filter.text), item, record)) return false;
   return true;
+}
+
+// ───────────────────────── smart collections
+
+/**
+ * Rule fields of a smart collection, with their operators. Values: numbers for
+ * rating/width/height, 'yyyy-mm-dd' for dates, 'yes'/'no' for flags, text otherwise.
+ */
+export const RULE_FIELDS = {
+  rating: ['>=', '=', '<='],
+  label: ['is', 'not'],
+  keyword: ['has', 'not'],
+  category: ['has', 'not'],
+  person: ['has', 'not'],
+  text: ['contains', 'not'],
+  camera: ['contains', 'not'],
+  lens: ['contains', 'not'],
+  kind: ['is', 'not'],
+  extension: ['is', 'not'],
+  folder: ['in', 'not'],
+  taken: ['after', 'before'],
+  width: ['>=', '<='],
+  tagged: ['is'],
+  gps: ['is'],
+};
+
+const dayStart = (text) => { const [y, m, d] = String(text).split('-').map(Number); return new Date(y, (m || 1) - 1, d || 1).getTime(); };
+
+/** Does one rule hold for the photo? */
+export function ruleMatches(rule, item, record) {
+  const r = record ?? {};
+  const v = rule.value;
+  const yes = (on) => (rule.op === 'not' ? !on : on);
+  switch (rule.field) {
+    case 'rating': {
+      const n = r.rating ?? 0;
+      return rule.op === '>=' ? n >= Number(v) : rule.op === '<=' ? n <= Number(v) : n === Number(v);
+    }
+    case 'label': return yes((r.label ?? 'none') === (v || 'none'));
+    case 'keyword': return yes(filterMatches({ type: 'keyword', value: String(v) }, item, r));
+    case 'category': return yes(filterMatches({ type: 'category', value: String(v) }, item, r));
+    case 'person': return yes((r.faces ?? []).some((face) => lower(face.person) === lower(v)));
+    case 'text': return yes(matchSearch(parseSearch(String(v)), item, r));
+    case 'camera': return yes(lower(r.meta?.camera).includes(lower(v)));
+    case 'lens': return yes(lower(r.meta?.lens).includes(lower(v)));
+    case 'kind': return yes(kindOf(item.name) === v || (v === 'image' && !['video', 'raw'].includes(kindOf(item.name)) && Boolean(kindOf(item.name))));
+    case 'extension': return yes(extensionOf(item.name) === lower(v).replace(/^\./, ''));
+    case 'folder': {
+      const folder = lower(v).replace(/[\\/]+$/, '');
+      const path = lower(item.path);
+      return yes(path.startsWith(`${folder}/`) || path.startsWith(`${folder}\\`));
+    }
+    case 'taken': {
+      const when = photoDate(r, item.modified);
+      if (!when) return false;
+      return rule.op === 'before' ? when < dayStart(v) : when >= dayStart(v);
+    }
+    case 'width': return rule.op === '<=' ? (r.width ?? 0) <= Number(v) : (r.width ?? 0) >= Number(v);
+    case 'tagged': return Boolean(r.tagged) === (v !== 'no');
+    case 'gps': return (r.meta?.lat != null) === (v !== 'no');
+    default: return false;
+  }
+}
+
+/** All rules (match 'all') or any rule (match 'any'). No rules = nothing matches. */
+export function smartMatches(rules, match, item, record) {
+  if (!rules?.length) return false;
+  return match === 'any' ? rules.some((rule) => ruleMatches(rule, item, record)) : rules.every((rule) => ruleMatches(rule, item, record));
 }

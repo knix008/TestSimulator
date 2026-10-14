@@ -157,7 +157,7 @@ export default {
   'settings.resetCatalog': 'Empty the catalog', 'settings.resetCatalogConfirm': 'Remove every rating, label, keyword and category from the catalog? Files are not touched.',
   'about.title': 'About MyPhotoManager', 'about.tagline': 'Browse, organize, view, edit and batch-process photos on Web, Windows, macOS and Linux.', 'about.version': 'Version', 'about.build': 'Built',
   'about.commit': 'Commit', 'about.platform': 'Platform', 'about.web': 'Web browser', 'about.dataFolder': 'Data folder', 'about.browserStorage': 'Browser storage (IndexedDB)',
-  'about.credits': 'Uses exifr, UTIF, libheif and pako. Map data © OpenStreetMap contributors.',
+  'about.credits': 'Uses exifr, UTIF2, libheif-js, LibRaw (libraw-wasm), pdf.js, dicom-parser, Cornerstone codecs (OpenJPEG, CharLS, libjpeg-turbo), jpeg-lossless-decoder-js, jSquash JPEG XL, face-api.js, pako. Map data © OpenStreetMap contributors.',
   'shortcuts.title': 'Keyboard shortcuts', 'shortcuts.manage': 'Manage', 'shortcuts.organize': 'Organize', 'shortcuts.view': 'View', 'shortcuts.edit': 'Edit',
   'shortcut.view': 'View the photo', 'shortcut.edit': 'Edit the photo', 'shortcut.rename': 'Rename', 'shortcut.delete': 'Delete', 'shortcut.selectAll': 'Select all', 'shortcut.clipboard': 'Copy / cut / paste files',
   'shortcut.up': 'Up one folder', 'shortcut.history': 'Back / forward', 'shortcut.refresh': 'Refresh', 'shortcut.search': 'Quick search', 'shortcut.newFolder': 'New folder',

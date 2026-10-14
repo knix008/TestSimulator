@@ -5,16 +5,17 @@
 import { baseName, Catalog, joinPath, parentOf, TEXT_FIELDS } from './catalog/catalog.js';
 import { history } from './history.js';
 import { editJpegExif, embedJpegXmp } from './formats/exif-edit.js';
+import { embedXmp, readEmbeddedXmp } from './formats/xmpembed.js';
 import { readXmpPacket } from './formats/jpeg-meta.js';
 import { groupItems, sortItems } from './catalog/listing.js';
-import { matchFilters, matchSearch, parseSearch, passesListFilter } from './catalog/query.js';
+import { matchFilters, matchSearch, parseSearch, passesListFilter, smartMatches } from './catalog/query.js';
 import { isArchive, isMedia, IMAGE_EXTENSIONS, MEDIA_EXTENSIONS, kindOf } from './formats/types.js';
 import { readMetadata } from './formats/exif.js';
 import { quickSize } from './formats/decode.js';
 import { buildXmp, sidecarName, updateXmp } from './formats/xmp.js';
 import { plural, t } from './i18n.js';
 import { fs } from './platform/fs.js';
-import { errorText, isDesktop } from './platform/native.js';
+import { errorText, isDesktop, invoke } from './platform/native.js';
 import { rememberFile, rememberFolder, saveSettings } from './settings.js';
 import { thumbs } from './thumbs/thumbs.js';
 import { confirmDialog, progressDialog, promptDialog, toast } from './ui/dialog.js';
@@ -65,12 +66,29 @@ const recordOf = (path) => app.catalog.get(path);
 
 let catalogTimer = null;
 let catalogSaving = Promise.resolve();
+// Desktop: the catalog lives in SQLite (catalog.sqlite). Each save writes only
+// the records whose JSON changed since the last save, and removes deleted ones.
+let savedRecords = null; // path → JSON last written to the database (null = JSON file storage)
 
 export async function loadCatalog() {
   try {
-    const text = await fs.readData('catalog.json');
-    const data = typeof text === 'string' ? JSON.parse(text) : text;
-    app.catalog = new Catalog(data);
+    let fromDb;
+    if (isDesktop()) fromDb = await invoke('catalog_db_load').catch((error) => { console.warn('catalog database', error); return undefined; });
+    if (typeof fromDb === 'string') {
+      const data = JSON.parse(fromDb);
+      app.catalog = new Catalog(data);
+      savedRecords = new Map(Object.entries(data.files ?? {}).map(([path, record]) => [path, JSON.stringify(record)]));
+    } else {
+      // Web, or the first desktop start: the JSON catalog (migrated into the database by the next save).
+      const text = await fs.readData('catalog.json');
+      const data = typeof text === 'string' ? JSON.parse(text) : text;
+      app.catalog = new Catalog(data);
+      if (fromDb === null) {
+        savedRecords = new Map();
+        app.catalog.dirty = true;
+        saveCatalogSoon(0);
+      }
+    }
   } catch (error) {
     console.error('catalog', error);
     app.catalog = new Catalog();
@@ -95,6 +113,26 @@ export function saveCatalogNow() {
   if (!app.catalog.dirty) return catalogSaving;
   app.catalog.dirty = false;
   const data = app.catalog.toJSON();
+  if (savedRecords) {
+    const upserts = [];
+    const present = new Set();
+    for (const [path, record] of Object.entries(data.files)) {
+      const json = JSON.stringify(record);
+      present.add(path);
+      if (savedRecords.get(path) !== json) upserts.push([path, json]);
+    }
+    const removes = [...savedRecords.keys()].filter((path) => !present.has(path));
+    const meta = Object.entries(data).filter(([key]) => key !== 'files').map(([key, value]) => [key, JSON.stringify(value)]);
+    catalogSaving = catalogSaving.then(async () => {
+      await invoke('catalog_db_save', { upserts, removes, meta });
+      for (const [path, json] of upserts) savedRecords.set(path, json);
+      for (const path of removes) savedRecords.delete(path);
+    }).catch((error) => {
+      app.catalog.dirty = true;
+      console.error('catalog save', error);
+    });
+    return catalogSaving;
+  }
   catalogSaving = catalogSaving.then(() => fs.writeData('catalog.json', isDesktop() ? JSON.stringify(data) : data)).catch((error) => {
     app.catalog.dirty = true;
     console.error('catalog save', error);
@@ -109,11 +147,12 @@ function xmpFields(record) {
 }
 
 const isJpegName = (path) => /\.(jpe?g|jpe|jfif)$/i.test(path);
+const embedsXmp = (path) => /\.(png|webp|tiff?)$/i.test(path);
 
 /**
  * Writes what the catalog knows (rating, label, keywords, categories, IPTC
- * fields) into the files: embedded XMP in JPEGs when `embed`, otherwise an XMP
- * sidecar next to the photo. Returns the number of files written.
+ * fields) into the files: embedded XMP in JPEG, PNG, WebP and TIFF when `embed`,
+ * otherwise an XMP sidecar next to the photo. Returns the number of files written.
  */
 export async function writeMetadataToFiles(paths, { embed = app.settings.xmpEmbed } = {}) {
   if (!fs.caps.write) return 0;
@@ -133,6 +172,13 @@ export async function writeMetadataToFiles(paths, { embed = app.settings.xmpEmbe
         if (record.geotagged && record.meta?.lat != null) exifChanges.gps = { lat: record.meta.lat, lon: record.meta.lon, alt: record.meta.alt };
         if (Object.keys(exifChanges).length) out = editJpegExif(out, exifChanges);
         await fs.write(path, out);
+        thumbs.invalidate(path);
+        const [stat] = await fs.stat([path]).catch(() => [null]);
+        if (stat) { record.size = stat.size; record.modified = stat.modified; }
+      } else if (embed && embedsXmp(path)) {
+        const bytes = await fs.read(path);
+        const existing = readEmbeddedXmp(bytes);
+        await fs.write(path, embedXmp(bytes, existing ? updateXmp(existing, xmpFields(record)) : buildXmp(xmpFields(record))));
         thumbs.invalidate(path);
         const [stat] = await fs.stat([path]).catch(() => [null]);
         if (stat) { record.size = stat.size; record.modified = stat.modified; }
@@ -231,6 +277,18 @@ async function loadItems(source) {
     }
     case 'basket':
       return app.catalog.basket.map((path) => itemFromRecord(path, recordOf(path) ?? {}));
+    case 'collection': {
+      const collection = app.catalog.collection(source.id);
+      if (!collection) return [];
+      if (!collection.smart) return collection.paths.map((path) => itemFromRecord(path, recordOf(path) ?? {}));
+      const out = [];
+      for (const [path, record] of app.catalog.files) {
+        if (!record.indexed) continue;
+        const item = itemFromRecord(path, record);
+        if (smartMatches(collection.rules, collection.match, item, record)) out.push(item);
+      }
+      return out;
+    }
     case 'paths':
       return source.paths.map((path) => itemFromRecord(path, recordOf(path) ?? {}));
     default:

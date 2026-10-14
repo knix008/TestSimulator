@@ -5,6 +5,7 @@ import { planRename, renameSteps } from '../catalog/rename.js';
 import { autoLevels } from '../edit/adjust.js';
 import { fitSize } from '../edit/geometry.js';
 import { applyPreset, defaultEdit, render } from '../edit/pipeline.js';
+import { prepareEdit } from '../edit/lut.js';
 import { context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
@@ -62,6 +63,7 @@ async function reencode(path, editChange, { format = null, quality = null, targe
   const decoded = await decodeImage(bytes, baseName(path));
   const edit = defaultEdit();
   editChange(edit, decoded.source);
+  await prepareEdit(edit);
   const output = render(decoded.source, edit, { scale: 1 });
   const spec = format ?? outputFormatFor(baseName(target))?.id ?? 'jpeg';
   const encoded = await encodeCanvas(output, spec, { quality: quality ?? app.settings.jpegQuality / 100, original: isJpeg(bytes) ? bytes : null });

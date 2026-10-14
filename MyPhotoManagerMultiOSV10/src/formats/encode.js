@@ -43,9 +43,15 @@ export function encodeTiff({ width, height, data }) {
  * file the picture came from) passes its JPEG metadata on, with orientation 1
  * because the pixels are already upright.
  */
-export async function encodeCanvas(canvas, format, { quality = 0.92, original = null } = {}) {
+export async function encodeCanvas(canvas, format, { quality = 0.92, original = null, high = null } = {}) {
   const spec = OUTPUT_FORMATS.find((f) => f.id === format) ?? OUTPUT_FORMATS[0];
   const pixels = () => context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+  if (spec.deep) {
+    // 16 bits per channel: the precise result when there is one, else the 8-bit one widened.
+    const { encodePng16, encodeTiff16 } = await import('./highbit.js');
+    const data = high && high.width === canvas.width && high.height === canvas.height ? high : (() => { const p = pixels(); return { width: p.width, height: p.height, data: Float32Array.from(p.data) }; })();
+    return spec.id === 'png16' ? encodePng16(data) : encodeTiff16(data);
+  }
   if (spec.id === 'bmp') return encodeBmp(pixels());
   if (spec.id === 'tiff') return encodeTiff(pixels());
   if (PIXEL_WRITERS[spec.id]) return PIXEL_WRITERS[spec.id](pixels());

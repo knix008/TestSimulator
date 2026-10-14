@@ -114,3 +114,51 @@ export async function customThemeDialog({ onPreview } = {}) {
   }
   return Boolean(ok);
 }
+
+// ───────────────────────── Settings → Theme tab
+
+const systemThemeId = () => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+/** Shows a theme at once (Settings previews it; Cancel puts the saved one back). */
+export function previewTheme(id, custom = app.settings.customTheme) {
+  return applyTheme(id === 'system' ? systemThemeId() : id, custom);
+}
+
+/** A small picture of the theme: background, a panel strip, a text line and the accent. */
+function themeCard(id, name, theme) {
+  const v = themeVars(theme);
+  return h('button.theme-card', { type: 'button', dataset: { theme: id }, title: name },
+    h('span.theme-mini', { style: { background: v['--bg'] } },
+      h('span.theme-mini-panel', { style: { background: v['--panel'] } }),
+      h('span.theme-mini-text', { style: { background: v['--text'] } }),
+      h('span.theme-mini-accent', { style: { background: v['--accent'] } })),
+    h('span.theme-card-name', name));
+}
+
+/**
+ * Every theme as a card (system, custom, 20 dark, 20 light) with a live
+ * preview; `.value` is the chosen id. "Edit custom theme…" opens the editor.
+ */
+export function themeGrid(value) {
+  let current = value;
+  const el = h('div.theme-grid-box');
+  const draw = () => {
+    const system = h('button.theme-card.system', { type: 'button', dataset: { theme: 'system' }, title: t('settings.system') },
+      h('span.theme-mini.split', ...['dark', 'light'].map((mode) => h('span', { style: { background: themeVars(THEMES.find((x) => x.mode === mode))['--bg'] } }))), h('span.theme-card-name', t('settings.system')));
+    const groups = [
+      [t('theme.special'), [system, themeCard('custom', t('theme.custom'), customTheme(app.settings.customTheme))]],
+      [t('settings.dark'), THEMES.filter((x) => x.mode === 'dark').map((x) => themeCard(x.id, x.name, x))],
+      [t('settings.light'), THEMES.filter((x) => x.mode === 'light').map((x) => themeCard(x.id, x.name, x))],
+    ];
+    el.replaceChildren(...groups.flatMap(([title, cards]) => [h('div.theme-grid-title', title), h('div.theme-grid', cards)]),
+      h('div.row-buttons', h('button.btn.small', { type: 'button', id: 'edit-custom-theme', onclick: async () => {
+        if (await customThemeDialog()) { current = 'custom'; draw(); } else previewTheme(current);
+      } }, t('theme.editCustom'))));
+    for (const card of el.querySelectorAll('.theme-card')) {
+      card.classList.toggle('on', card.dataset.theme === current);
+      card.addEventListener('click', () => { current = card.dataset.theme; previewTheme(current); for (const c of el.querySelectorAll('.theme-card')) c.classList.toggle('on', c === card); });
+    }
+  };
+  draw();
+  return { el, get value() { return current; } };
+}

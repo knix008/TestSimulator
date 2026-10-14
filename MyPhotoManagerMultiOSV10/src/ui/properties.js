@@ -1,6 +1,7 @@
 // Properties pane: organize the selected photos (rating, color label, tag,
 // title, caption, author, notes, keywords, categories), and see the file and
 // its metadata (EXIF, GPS, IPTC, XMP).
+import { categoryKey } from '../analysis/taxonomy.js';
 import { LABEL_COLORS, LABELS } from '../catalog/catalog.js';
 import { formatExposure, readMetadata } from '../formats/exif.js';
 import { badgeOf, kindOf } from '../formats/types.js';
@@ -10,10 +11,11 @@ import { app, selectedFiles, focusedItem } from '../store.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
 import { clear, debounce, h } from './dom.js';
 import { icon } from './icons.js';
+import { quickKeywordsField, templateRow } from './quickmeta.js';
 
 export function createPropertiesPane({ onShowOnMap, onFilter }) {
   const el = h('div.pane-body.properties');
-  const open = { organize: true, file: true, exif: true, all: false, iptc: false };
+  const open = { organize: true, analysis: true, file: true, exif: true, all: false, iptc: false };
   let metaCache = { path: null, groups: null };
 
   function targets() {
@@ -83,8 +85,10 @@ export function createPropertiesPane({ onShowOnMap, onFilter }) {
       tag,
       textField('title'), textField('caption', true), textField('author'), textField('notes', true),
       h('details.prop-iptc', { open: open.iptc, ontoggle: (e) => { open.iptc = e.currentTarget.open; } }, h('summary', t('prop.iptc')),
+        templateRow(paths, () => render()),
         ...['headline', 'copyright', 'credit', 'source', 'event', 'sublocation', 'city', 'state', 'country', 'countryCode', 'usageTerms', 'instructions'].map((key) => textField(key, key === 'instructions' || key === 'usageTerms'))),
       h('div.field', h('span.field-label', t('organize.keywords')), chips, keywordInput, datalist),
+      quickKeywordsField(paths, () => render()),
       h('div.field', h('span.field-label', t('organize.categories')), categories));
   }
 
@@ -101,6 +105,17 @@ export function createPropertiesPane({ onShowOnMap, onFilter }) {
       [t('prop.duration'), formatDuration(record.meta?.duration)],
     ];
     return h('table.prop-table', rows.filter(([, v]) => v).map(([k, v]) => h('tr', h('th', k), h('td', { title: v }, v))));
+  }
+
+  /** What the background analysis found: categories (by kind) and what it recognised. */
+  function analysisInfo(item) {
+    const a = app.catalog.get(item.path)?.analysis;
+    const chips = (kind) => (a.cats ?? []).filter((c) => c.startsWith(`${kind}/`)).map((c) => h('span.chip.analysis-chip', { dataset: { cat: c } }, t(categoryKey(c))));
+    const rows = [['people', t('analysis.people')], ['scene', t('analysis.scene')], ['object', t('analysis.object')]]
+      .map(([kind, label]) => [label, chips(kind)]).filter(([, list]) => list.length);
+    const found = [...(a.labels ?? [])];
+    return h('table.prop-table.analysis-info', rows.map(([k, list]) => h('tr', h('th', k), h('td', h('div.chip-row', list)))),
+      found.length ? h('tr', h('th', t('analysis.found')), h('td', found.join(', '))) : null);
   }
 
   function exifSummary(item) {
@@ -184,6 +199,7 @@ export function createPropertiesPane({ onShowOnMap, onFilter }) {
     el.append(section('organize', t('prop.organize'), () => organize(items)));
     if (items.length === 1) {
       const item = items[0];
+      if (app.catalog.get(item.path)?.analysis) el.append(section('analysis', t('analysis.section'), () => analysisInfo(item)));
       el.append(section('file', t('prop.file'), () => fileInfo(item)));
       if (kindOf(item.name) !== 'video') {
         el.append(section('exif', t('prop.exif'), () => exifSummary(item)));

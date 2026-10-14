@@ -91,6 +91,8 @@ export const OUTPUT_FORMATS = [
   { id: 'dds', ext: 'dds', mime: 'image/vnd-ms.dds', label: 'DDS', quality: false },
   { id: 'hdr', ext: 'hdr', mime: 'image/vnd.radiance', label: 'Radiance HDR', quality: false },
   { id: 'xbm', ext: 'xbm', mime: 'image/x-xbitmap', label: 'XBM (1-bit)', quality: false },
+  { id: 'tiff16', ext: 'tif', mime: 'image/tiff', label: 'TIFF 16-bit', quality: false, deep: true },
+  { id: 'png16', ext: 'png', mime: 'image/png', label: 'PNG 16-bit', quality: false, deep: true },
 ];
 
 export function outputFormatFor(name) {

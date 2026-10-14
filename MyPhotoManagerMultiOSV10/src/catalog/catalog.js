@@ -1,7 +1,8 @@
 // The catalog: what the user adds to photos (rating, color label, tag, keywords,
 // categories, title, caption, notes) and what the app learns about them
 // (size, time stamps, metadata summary). Keyed by path. Persisted as JSON
-// (desktop: catalog.json in the app data folder; web: IndexedDB).
+// (desktop: catalog.sqlite in the app data folder, one row per photo — migrated
+// from the older catalog.json; web: IndexedDB).
 //
 // Pure data and logic — no DOM — so it is unit-tested directly.
 
@@ -37,7 +38,7 @@ export function joinPath(dir, name) {
 export const TEXT_FIELDS = ['title', 'caption', 'notes', 'author', 'copyright', 'headline', 'credit', 'source', 'instructions', 'city', 'state', 'country', 'sublocation', 'countryCode', 'usageTerms', 'event'];
 
 const isOrganized = (record) => Boolean(record.rating || record.label || record.tagged || record.keywords?.length || record.categories?.length
-  || TEXT_FIELDS.some((key) => record[key]) || record.edited || record.faces?.some((face) => face.person) || record.editState);
+  || TEXT_FIELDS.some((key) => record[key]) || record.edited || record.faces?.some((face) => face.person) || record.editState || record.snapshots?.length);
 
 export class Catalog {
   constructor(data = null) {
@@ -48,6 +49,8 @@ export class Catalog {
     this.basket = Array.isArray(data?.basket) ? data.basket : [];
     this.people = sortText(uniq(data?.people ?? []));
     this.presets = Array.isArray(data?.presets) ? data.presets : [];
+    // Collections: { id, name, smart: false, paths: [] } or { id, name, smart: true, rules: [{ field, op, value }], match: 'all' | 'any' }.
+    this.collections = Array.isArray(data?.collections) ? data.collections.filter((c) => c && c.id && typeof c.name === 'string') : [];
     this.listeners = new Set();
     this.dirty = false;
     this.revision = 0;
@@ -63,7 +66,7 @@ export class Catalog {
   toJSON() {
     const files = {};
     for (const [path, record] of this.files) files[path] = record;
-    return { format: FORMAT, files, categories: this.categories, keywords: this.keywordList, savedSearches: this.savedSearches, basket: this.basket, people: this.people, presets: this.presets };
+    return { format: FORMAT, files, categories: this.categories, keywords: this.keywordList, savedSearches: this.savedSearches, basket: this.basket, people: this.people, presets: this.presets, collections: this.collections };
   }
 
   onChange(listener) {
@@ -245,7 +248,9 @@ export class Catalog {
         moved.push(target);
       }
     }
-    this.basket = this.basket.map((path) => (path === from ? to : path.startsWith(`${from}/`) || path.startsWith(`${from}\\`) ? to + path.slice(from.length) : path));
+    const follow = (path) => (path === from ? to : path.startsWith(`${from}/`) || path.startsWith(`${from}\\`) ? to + path.slice(from.length) : path);
+    this.basket = this.basket.map(follow);
+    for (const c of this.collections) if (!c.smart) c.paths = c.paths.map(follow);
     if (moved.length) this.changed(moved, 'move');
   }
 
@@ -264,6 +269,7 @@ export class Catalog {
       if (drop.has(path) || paths.some((p) => path.startsWith(`${p}/`) || path.startsWith(`${p}\\`))) this.files.delete(path);
     }
     this.basket = this.basket.filter((path) => !drop.has(path));
+    for (const c of this.collections) if (!c.smart) c.paths = c.paths.filter((path) => !drop.has(path));
     this.changed(paths, 'remove');
   }
 
@@ -289,6 +295,24 @@ export class Catalog {
     });
     record.facesScanned = true;
     this.changed([path], 'faces');
+  }
+
+  // ───────── image analysis (src/analysis): categories found in the picture
+
+  /** Stores analysis results: [[path, { v, modified, cats, people, labels, top, objects, at }]]. */
+  setAnalysis(entries) {
+    if (!entries.length) return;
+    for (const [path, analysis] of entries) this.ensure(path).analysis = analysis;
+    this.changed(entries.map(([path]) => path), 'analysis');
+  }
+
+  /** Forgets the analysis of these paths (or of every picture) so it runs again. */
+  clearAnalysis(paths = null) {
+    const changed = [];
+    for (const [path, record] of this.files) {
+      if (record.analysis && (!paths || paths.includes(path))) { delete record.analysis; changed.push(path); }
+    }
+    if (changed.length) this.changed(changed, 'analysis');
   }
 
   nameFace(path, index, person) {
@@ -361,6 +385,11 @@ export class Catalog {
     this.changed([], 'presets');
   }
 
+  /** Named snapshots of a photo's edit settings: [{ name, time, edit }]. */
+  setSnapshots(path, list) {
+    this.update(path, (record) => { if (list?.length) record.snapshots = list; else delete record.snapshots; }, 'snapshots');
+  }
+
   /** The edit settings a saved photo was made with (re-opened later on top of the original). */
   setEditState(path, edit) {
     this.update(path, (record) => { if (edit) record.editState = edit; else delete record.editState; }, 'edited');
@@ -383,6 +412,56 @@ export class Catalog {
     const old = this.basket;
     this.basket = [];
     this.changed(old, 'basket');
+  }
+
+  // ───────── collections (manual lists of photos, or smart = saved rules)
+
+  collection(id) { return this.collections.find((c) => c.id === id) ?? null; }
+
+  addCollection(name, { smart = false, rules = [], match = 'all' } = {}) {
+    const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const entry = smart ? { id, name, smart: true, rules, match } : { id, name, smart: false, paths: [] };
+    this.collections = [...this.collections, entry].sort((a, b) => a.name.localeCompare(b.name));
+    this.changed([], 'collections');
+    return id;
+  }
+
+  renameCollection(id, name) {
+    const c = this.collection(id);
+    if (!c || !name.trim()) return;
+    c.name = name.trim();
+    this.collections.sort((a, b) => a.name.localeCompare(b.name));
+    this.changed([], 'collections');
+  }
+
+  setCollectionRules(id, rules, match = 'all') {
+    const c = this.collection(id);
+    if (!c?.smart) return;
+    c.rules = rules;
+    c.match = match;
+    this.changed([], 'collections');
+  }
+
+  deleteCollection(id) {
+    this.collections = this.collections.filter((c) => c.id !== id);
+    this.changed([], 'collections');
+  }
+
+  addToCollection(id, paths) {
+    const c = this.collection(id);
+    if (!c || c.smart) return 0;
+    const before = c.paths.length;
+    c.paths = [...new Set([...c.paths, ...paths])];
+    this.changed(paths, 'collections');
+    return c.paths.length - before;
+  }
+
+  removeFromCollection(id, paths) {
+    const c = this.collection(id);
+    if (!c || c.smart) return;
+    const drop = new Set(paths);
+    c.paths = c.paths.filter((path) => !drop.has(path));
+    this.changed(paths, 'collections');
   }
 
   // ───────── saved searches
