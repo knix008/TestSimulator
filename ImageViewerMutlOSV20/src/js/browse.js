@@ -9,13 +9,19 @@ window.Browse = (() => {
   let _countEl     = null;
   let _dir         = '';
   let _entries     = [];
-  let _selected    = '';
+  let _selected    = '';       // focus: the item last clicked (Enter, info panel)
+  const _sel       = new Set(); // every selected item, by _norm(path)
+  let _anchor      = '';       // where a Shift+click range starts
+  let _suppressClick = false;  // the click that ends a marquee drag is not a click
   let _observer    = null;
   let _onOpenFile  = null;
   let _onOpenDir   = null;
   let _onContextMenu = null;
   let _onSelect     = null;    // callback(filePath|'') — selection, not opening
   let _onVisibility = null;
+  let _canDrag      = false;   // tiles can be dragged onto explorer folders (desktop only)
+  // In-app drag payload: JSON array of paths. The explorer tree accepts it as a move.
+  const DRAG_MIME   = 'application/x-imageviewer-paths';
   let _bound       = false;
 
   const _view = { mode: 'grid', size: 160, sort: 'name', desc: false };
@@ -34,9 +40,8 @@ window.Browse = (() => {
     return (v && v !== key) ? v : (fallback || key);
   };
 
-  const _same = (a, b) =>
-    String(a || '').replace(/[\\/]+$/, '').toLowerCase() ===
-    String(b || '').replace(/[\\/]+$/, '').toLowerCase();
+  const _norm = (p) => String(p || '').replace(/[\\/]+$/, '').toLowerCase();
+  const _same = (a, b) => _norm(a) === _norm(b);
 
   function _loadView() {
     try {
@@ -164,11 +169,51 @@ window.Browse = (() => {
       _render();
     });
 
+    // Explorer-style selection: click = one, Ctrl = toggle, Shift = range from the anchor
     _grid.addEventListener('click', (e) => {
+      if (_suppressClick) { _suppressClick = false; return; }
       const tile = e.target.closest?.('.browse-tile');
-      if (!tile) { _select(''); return; }
-      _select(tile.dataset.path);
+      const add = e.ctrlKey || e.metaKey;
+      if (!tile) { if (!add && !e.shiftKey) _select(''); return; }
+      const p = tile.dataset.path;
+      if (e.shiftKey) {
+        _selectRange(_anchor || p, p, { add });
+      } else if (add) {
+        _toggle(p);
+      } else {
+        _select(p);
+      }
     });
+    _bindMarquee();
+    // Dragging tiles: the whole selection goes (the pressed tile alone when it is
+    // outside the selection). Chromium's own drag, not webContents.startDrag: on Windows
+    // startDrag keeps the main process inside the OS drag loop after a drop on our own
+    // window until the next click, which stalls the move it was meant to start.
+    _grid.addEventListener('dragstart', (e) => {
+      const tile = e.target.closest?.('.browse-tile');
+      if (!tile || !_canDrag) { e.preventDefault(); return; }
+      if (!_sel.has(_norm(tile.dataset.path))) _select(tile.dataset.path);
+      const paths = getSelectedPaths();
+      if (!paths.length) { e.preventDefault(); return; }
+      e.dataTransfer.setData(DRAG_MIME, JSON.stringify(paths));
+      e.dataTransfer.setData('text/plain', paths.join('\n'));
+      e.dataTransfer.effectAllowed = 'copyMove';
+      if (paths.length > 1) {
+        // Ghost: the pressed tile's thumbnail with a count badge
+        const ghost = document.createElement('div');
+        ghost.className = 'browse-drag-ghost';
+        const img = tile.querySelector('.browse-thumb img');
+        if (img) ghost.appendChild(img.cloneNode());
+        const badge = document.createElement('span');
+        badge.textContent = String(paths.length);
+        ghost.appendChild(badge);
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 24, 24);
+        setTimeout(() => ghost.remove(), 0);
+      }
+      _grid.classList.add('is-dragging');
+    });
+    _grid.addEventListener('dragend', () => _grid.classList.remove('is-dragging'));
     _grid.addEventListener('dblclick', (e) => {
       const tile = e.target.closest?.('.browse-tile');
       if (!tile) return;
@@ -178,9 +223,11 @@ window.Browse = (() => {
       e.preventDefault();
       const tile = e.target.closest?.('.browse-tile');
       if (!tile || !_onContextMenu) return;
-      _select(tile.dataset.path);
+      // Right-clicking inside the selection acts on all of it; outside, on that item alone
+      if (!_sel.has(_norm(tile.dataset.path))) _select(tile.dataset.path);
+      else _focusOn(tile.dataset.path);
       const entry = _entries.find((x) => _same(x.path, tile.dataset.path));
-      if (entry) _onContextMenu(entry, e.clientX, e.clientY);
+      if (entry) _onContextMenu(entry, e.clientX, e.clientY, getSelectedPaths());
     });
     _grid.addEventListener('wheel', (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
@@ -196,6 +243,12 @@ window.Browse = (() => {
       if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
         e.preventDefault();
         _stepSize(-1);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        e.stopPropagation();
+        selectAll();
         return;
       }
       if (e.key === 'Enter' && _selected) {
@@ -276,8 +329,9 @@ window.Browse = (() => {
     _applySizeVar();
   }
 
-  function init(container, { onOpenFile, onOpenDir, onContextMenu, onSelect, onVisibility } = {}) {
+  function init(container, { onOpenFile, onOpenDir, onContextMenu, onSelect, onVisibility, canDrag = false } = {}) {
     _root = container;
+    _canDrag = !!canDrag;
     _onOpenFile = onOpenFile || null;
     _onOpenDir = onOpenDir || null;
     _onContextMenu = onContextMenu || null;
@@ -299,15 +353,161 @@ window.Browse = (() => {
     _render();
   }
 
-  /** `notify: false` for redraws — only a real click should move the info panel. */
-  function _select(path, { notify = true } = {}) {
-    _selected = path || '';
+  /** Paint the selection set onto the tiles. */
+  function _paintSelection() {
     _grid?.querySelectorAll('.browse-tile').forEach((el) => {
-      el.classList.toggle('selected', !!path && _same(el.dataset.path, path));
+      const key = _norm(el.dataset.path);
+      el.classList.toggle('selected', _sel.has(key));
+      el.classList.toggle('focused', !!_selected && key === _norm(_selected));
     });
-    if (!notify || !_onSelect) return;
-    const entry = path ? _entries.find((x) => _same(x.path, path)) : null;
+    _syncCount();
+  }
+
+  function _notify() {
+    if (!_onSelect) return;
+    const entry = _selected ? _entries.find((x) => _same(x.path, _selected)) : null;
     _onSelect(entry && !entry.isDirectory ? entry.path : '');
+  }
+
+  /**
+   * Select just `path` (or nothing). `notify: false` for redraws — only a real
+   * click should move the info panel.
+   */
+  function _select(path, { notify = true } = {}) {
+    _sel.clear();
+    if (path) _sel.add(_norm(path));
+    _selected = path || '';
+    _anchor = path || '';
+    _paintSelection();
+    if (notify) _notify();
+  }
+
+  function _focusOn(path) {
+    _selected = path || '';
+    _paintSelection();
+    _notify();
+  }
+
+  function _toggle(path) {
+    const key = _norm(path);
+    if (_sel.has(key)) {
+      _sel.delete(key);
+      if (_same(_selected, path)) _selected = '';
+    } else {
+      _sel.add(key);
+      _selected = path;
+    }
+    _anchor = path;
+    _paintSelection();
+    _notify();
+  }
+
+  /** Paths in the order they are shown — what a Shift range and the marquee walk over. */
+  function _shownPaths() {
+    return [...(_grid?.querySelectorAll('.browse-tile') || [])].map((el) => el.dataset.path);
+  }
+
+  function _selectRange(from, to, { add = false } = {}) {
+    const shown = _shownPaths();
+    let a = shown.findIndex((p) => _same(p, from));
+    const b = shown.findIndex((p) => _same(p, to));
+    if (b < 0) return;
+    if (a < 0) a = b;
+    if (!add) _sel.clear();
+    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) _sel.add(_norm(shown[i]));
+    _selected = to;   // the anchor stays, so the next Shift+click re-ranges from it
+    _paintSelection();
+    _notify();
+  }
+
+  function selectAll() {
+    const shown = _shownPaths();
+    _sel.clear();
+    for (const p of shown) _sel.add(_norm(p));
+    if (!_selected && shown.length) _selected = shown[0];
+    _paintSelection();
+  }
+
+  /** Every selected item, in display order, with its real (not normalised) path. */
+  function getSelectedPaths() {
+    return _entries.filter((e) => _sel.has(_norm(e.path))).map((e) => e.path);
+  }
+
+  /* ── Marquee: drag a box to select what it touches ── */
+  function _bindMarquee() {
+    let drag = null;   // { x0, y0 (content coords), base: Set, add, box, moved, lastEvt, raf }
+    const toContent = (e) => {
+      const r = _grid.getBoundingClientRect();
+      return { x: e.clientX - r.left + _grid.scrollLeft, y: e.clientY - r.top + _grid.scrollTop };
+    };
+    const update = () => {
+      if (!drag || !drag.lastEvt) return;
+      const p = toContent(drag.lastEvt);
+      const x1 = Math.min(drag.x0, p.x), y1 = Math.min(drag.y0, p.y);
+      const x2 = Math.max(drag.x0, p.x), y2 = Math.max(drag.y0, p.y);
+      Object.assign(drag.box.style, { left: `${x1}px`, top: `${y1}px`, width: `${x2 - x1}px`, height: `${y2 - y1}px` });
+      _sel.clear();
+      for (const k of drag.base) _sel.add(k);
+      let last = '';
+      for (const el of _grid.querySelectorAll('.browse-tile')) {
+        const l = el.offsetLeft, t = el.offsetTop, r = l + el.offsetWidth, b = t + el.offsetHeight;
+        if (r < x1 || l > x2 || b < y1 || t > y2) continue;
+        const key = _norm(el.dataset.path);
+        // Ctrl+drag flips what the box touches, like Explorer
+        if (drag.add && drag.base.has(key)) _sel.delete(key);
+        else _sel.add(key);
+        last = el.dataset.path;
+      }
+      if (last) _selected = last;
+      _paintSelection();
+    };
+    // Past the top / bottom edge, keep scrolling while the button is held
+    const autoScroll = () => {
+      if (!drag) return;
+      const r = _grid.getBoundingClientRect();
+      const y = drag.lastEvt?.clientY ?? 0;
+      const step = y < r.top + 16 ? -Math.min(40, r.top + 16 - y) : y > r.bottom - 16 ? Math.min(40, y - (r.bottom - 16)) : 0;
+      if (step) { _grid.scrollTop += step; update(); }
+      drag.raf = requestAnimationFrame(autoScroll);
+    };
+    _grid.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest?.('.browse-head, input, button, select')) return;
+      // Pressing on a draggable tile starts a file drag, not a box (like Explorer)
+      if (e.target.closest?.('.browse-tile[draggable="true"]')) return;
+      const p = toContent(e);
+      const add = e.ctrlKey || e.metaKey;
+      drag = { x0: p.x, y0: p.y, base: add ? new Set(_sel) : new Set(), add, box: null, moved: false, lastEvt: e, raf: 0, id: e.pointerId };
+    });
+    _grid.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.lastEvt = e;
+      if (!drag.moved) {
+        const p = toContent(e);
+        if (Math.hypot(p.x - drag.x0, p.y - drag.y0) < 5) return;   // still a click
+        drag.moved = true;
+        _grid.setPointerCapture?.(e.pointerId);
+        drag.box = document.createElement('div');
+        drag.box.className = 'browse-marquee';
+        _grid.appendChild(drag.box);
+        drag.raf = requestAnimationFrame(autoScroll);
+      }
+      e.preventDefault();
+      update();
+    });
+    const end = (e) => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const d = drag;
+      drag = null;
+      cancelAnimationFrame(d.raf);
+      if (!d.moved) return;
+      d.box?.remove();
+      _suppressClick = true;              // the click that follows mouseup is part of the drag
+      setTimeout(() => { _suppressClick = false; }, 0);
+      _anchor = _selected || _anchor;
+      _notify();
+    };
+    _grid.addEventListener('pointerup', end);
+    _grid.addEventListener('pointercancel', end);
   }
 
   function _activate(path, isDir) {
@@ -377,6 +577,7 @@ window.Browse = (() => {
     tile.dataset.path = entry.path;
     tile.dataset.dir = entry.isDirectory ? '1' : '0';
     tile.title = entry.name;
+    if (_canDrag) tile.draggable = true;
 
     const box = document.createElement('div');
     box.className = 'browse-thumb';
@@ -451,22 +652,35 @@ window.Browse = (() => {
       for (const entry of rows) frag.appendChild(_tile(entry));
       _grid.appendChild(frag);
     }
-    if (_countEl) {
-      const files = rows.filter((e) => !e.isDirectory).length;
-      const dirs = rows.length - files;
-      _countEl.textContent = (_t('browse.count', '{d} folders · {f} files')
-        .replace('{d}', String(dirs))
-        .replace('{f}', String(files)));
-    }
-    _select(_selected, { notify: false });
+    // Keep only what still exists (a refresh after delete / move)
+    const alive = new Set(rows.map((e) => _norm(e.path)));
+    for (const k of [..._sel]) if (!alive.has(k)) _sel.delete(k);
+    if (_selected && !alive.has(_norm(_selected))) _selected = '';
+    _paintSelection();
     _observe();
   }
 
+  function _syncCount() {
+    if (!_countEl) return;
+    const files = _entries.filter((e) => !e.isDirectory).length;
+    const dirs = _entries.length - files;
+    let text = _t('browse.count', '{d} folders · {f} files')
+      .replace('{d}', String(dirs))
+      .replace('{f}', String(files));
+    if (_sel.size > 1) text += `  ·  ${_t('browse.selectedCount', '{n} selected').replace('{n}', String(_sel.size))}`;
+    _countEl.textContent = text;
+  }
+
   /** Show `dirPath` in the grid. Also warms the thumbnail cache for it. */
-  async function open(dirPath) {
+  async function open(dirPath, { keepSelection = false } = {}) {
     if (!dirPath || !_root) return;
+    const sameDir = _same(dirPath, _dir);
     _dir = dirPath;
-    _selected = '';
+    if (!(keepSelection && sameDir)) {
+      _selected = '';
+      _anchor = '';
+      _sel.clear();
+    }
     if (_pathEl) {
       _pathEl.textContent = dirPath;
       _pathEl.title = dirPath;
@@ -483,7 +697,8 @@ window.Browse = (() => {
     Thumbs.prefetchDir(dirPath);
   }
 
-  function refresh() { if (_dir) return open(_dir); }
+  /** Re-read the folder (files deleted / moved / added); the selection survives where it can. */
+  function refresh() { if (_dir) return open(_dir, { keepSelection: true }); }
   function getDir() { return _dir; }
   function isVisible() { return !!_root && !_root.hidden; }
 
@@ -522,6 +737,6 @@ window.Browse = (() => {
 
   return {
     init, open, show, hide, refresh, goUp, setMode, setSize,
-    stepSize: _stepSize, getDir, isVisible, applyI18n,
+    stepSize: _stepSize, getDir, isVisible, applyI18n, getSelectedPaths, selectAll, DRAG_MIME,
   };
 })();

@@ -22,9 +22,8 @@ module.exports = {
       assertIncludes(ew, "labelKey: 'menu.effects'", 'edit window keeps Effects');
       // It holds what applies to the whole app: panels, the sheet, the window.
       const fn = app.slice(app.indexOf('function _windowMenuItems'), app.indexOf('function _helpMenuItems'));
-      assertIncludes(fn, '_toggleTreePanel()', 'explorer panel');
-      assertIncludes(fn, '_toggleInfoPanel()', 'file info panel');
-      assertIncludes(fn, '_toggleInfoDock()', 'dock side');
+      assertIncludes(fn, '_toggleLeftPanel()', 'left panel');
+      assertIncludes(fn, '_toggleRightPanel()', 'right panel');
       assertIncludes(fn, '_toggleBrowseMode()', 'contact sheet');
       assertIncludes(fn, 'toggleFullscreen', 'fullscreen');
       assertIncludes(fn, 'windowMinimize', 'minimise');
@@ -34,19 +33,79 @@ module.exports = {
       assertIncludes(view, '..._dicomContextItems(),', 'DICOM block back in View');
       assertIncludes(main, "label: t('menu.window')", 'native menu too');
       assert(!/label: t\('menu\.effects'\)/.test(main), 'native Effects menu gone');
-      for (const action of ['panel-tree', 'panel-info', 'panel-dock-left', 'panel-dock-right', 'toggle-browse']) {
+      for (const action of ['panel-left', 'panel-right', 'toggle-browse']) {
         assertIncludes(app, `'${action}':`, `${action} handled in the renderer`);
         assertIncludes(main, `'${action}'`, `${action} sent by the native menu`);
       }
     });
 
-    test('File Info dock button shows the side the panel is on', () => {
-      const fn = app.slice(app.indexOf('function _applyPanelLayout'), app.indexOf('function _toggleTreePanel'));
-      assertIncludes(fn, "Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight']", 'icon matches the actual side');
-      assertIncludes(fn, 'dockBtn.innerHTML = dockIcon', 'toolbar button');
-      assertIncludes(fn, 'dockHdrBtn.innerHTML = dockIcon', 'panel header button');
-      // The tooltip still says what a click would do.
-      assertIncludes(app, "function _infoDockTip()  { return I18n.t(_layout.dock === 'left' ? 'toolbar.infoDockRight'", 'tooltip is the action');
+    test('Left and right panels collapse to a rail, one button each, no duplicates', () => {
+      // Left: explorer over file info. Right: histogram, colour wheel, adjustments.
+      const left = html.slice(html.indexOf('<div id="sidebar">'), html.indexOf('<div id="viewer-area">'));
+      const right = html.slice(html.indexOf('<div id="right-sidebar">'), html.indexOf('<!-- /main-area -->'));
+      assert(left.indexOf('id="file-tree-panel"') >= 0 && left.indexOf('id="info-panel"') > left.indexOf('id="file-tree-panel"'),
+        'file info sits under the explorer');
+      assert(!right.includes('id="info-panel"'), 'file info only on the left');
+      for (const id of ['cp-histogram', 'cp-wheel', 'cp-adjust']) assertIncludes(right, `id="${id}"`, id);
+      for (const gone of ['info-dock-btn', 'info-close-btn']) assert(!html.includes(gone), `${gone} removed`);
+      assert(!/_toggleInfoDock|_layout\.dock|btn-panel-(tree|info|dock)/.test(app), 'dock + old toolbar buttons gone');
+      // Every panel title carries an icon; each side has exactly one collapse button.
+      for (const id of ['tree-panel-icon', 'info-panel-icon', 'color-panel-icon']) assertIncludes(html, `id="${id}"`, id);
+      assertIncludes(app, "'tree-panel-icon': 'folderTree', 'info-panel-icon': 'fileInfo', 'color-panel-icon': 'palette'", 'icons');
+      assert(left.split('panel-collapse-btn').length === 2, 'one collapse button on the left');
+      assert(right.split('panel-collapse-btn').length === 2, 'one collapse button on the right');
+      // Toolbar: exactly one button per side.
+      const bar = app.slice(app.indexOf('function _buildToolbar'), app.indexOf('{ spacer: true }'));
+      assert(bar.split("id:'btn-panel-").length === 3, 'two panel buttons on the toolbar');
+      assertIncludes(bar, "id:'btn-panel-left',  icon:'panelLeft'", 'left panel button');
+      assertIncludes(bar, "id:'btn-panel-right', icon:'panelRight'", 'right panel button');
+      // Collapsed = rail with icon + vertical title, not hidden.
+      const fn = app.slice(app.indexOf('function _applyPanelLayout'), app.indexOf('function _toggleLeftPanel'));
+      assertIncludes(fn, "sidebar.classList.toggle('collapsed', !_layout.left)", 'left collapses');
+      assertIncludes(fn, "right.classList.toggle('collapsed', !_layout.right)", 'right collapses');
+      assert(!/\.hidden\s*=/.test(fn), 'collapsing never hides a panel');
+      assertIncludes(css, 'writing-mode: vertical-rl', 'title runs down the rail');
+      assertIncludes(css, '#sidebar.collapsed .tree-drive-bar', 'drive bar off the rail');
+    });
+
+    test('Right panel edits colour through the Editor, one undo step per pick', () => {
+      const { editor } = src;
+      assertIncludes(editor, "tintColor: '', tintAmount: 0", 'tint effect with defaults');
+      assertIncludes(editor, "tc.globalCompositeOperation = 'color';", 'tint keeps the luminance');
+      assertIncludes(editor, 'function setEffects(map)', 'batched setter');
+      assertIncludes(editor, 'setEffect, setEffects, getEffects', 'exported');
+      // Wheel commits on pointer-up only, so a drag is one history entry.
+      const wheel = app.slice(app.indexOf('function _initColorWheel'), app.indexOf('function _syncColorPick'));
+      assertIncludes(wheel, "cv.addEventListener('pointerup', end);", 'commit on release');
+      assert(!/pointermove[\s\S]*?setEffect/.test(wheel.slice(wheel.indexOf("'pointermove'"), wheel.indexOf('const end'))), 'no commit while dragging');
+      // Panel constants sit above the init calls (TDZ).
+      assert(app.indexOf('const CP_SLIDERS') < app.indexOf('_initPanelLayout();'), 'CP_SLIDERS declared before init');
+      assert(app.indexOf('let _cpSyncQueued') < app.indexOf('_initPanelLayout();'), 'sync flag declared before init');
+      // Histogram follows every picture change.
+      assertIncludes(app, '() => { _markDirty(); _queueColorPanelSync(); },', 'render hook');
+      assertIncludes(app, "!state.isVideo && !state.isAudio && !state.editMode && !state.dicom", 'disabled where it cannot apply');
+    });
+
+    test('Context menus open a Details dialog built from tables', () => {
+      assertIncludes(html, 'id="details-overlay" class="dialog-overlay"', 'in-app dialog');
+      const viewer = app.slice(app.indexOf('function _showContextMenu'), app.indexOf('function _imageFileOsMenuItems'));
+      assertIncludes(viewer, "label: t('context.details'), shortcut: 'Ctrl+I', action: () => _showFileInfoDialog() }", 'image context menu');
+      const tree = app.slice(app.indexOf('function _showTreeContextMenu'), app.indexOf('function _showContextMenu'));
+      assertIncludes(tree, "label: t('context.details'), action: () => _showFileInfoDialog(entry.path) }", 'explorer context menu');
+      const fn = app.slice(app.indexOf('async function _showFileInfoDialog'), app.indexOf('function _analysisSection'));
+      assertIncludes(fn, 'content.innerHTML = _renderInfoSections(sections)', 'same tables as the panel');
+      assertIncludes(fn, 'if (saved) Object.assign(state, saved);', "another file's metadata does not clobber the open one");
+      assert(!fn.includes('showMessageBox'), 'no plain-text native box any more');
+      assertIncludes(app, 'function _imageStats(source, maxSide = 512)', 'shared with the histogram');
+    });
+
+    test('File Info renders each section as a table', () => {
+      const fn = app.slice(app.indexOf('function _renderInfoSections'), app.indexOf('function _initInfoTagFilter'));
+      assertIncludes(fn, '<table class="info-table', 'table per section');
+      assertIncludes(fn, '<th class="info-label" scope="row"', 'label column');
+      assertIncludes(fn, '<td class="info-value"', 'value column');
+      assertIncludes(css, '.info-table {', 'table styles');
+      assertIncludes(css, 'table-layout: fixed;', 'stable columns');
     });
 
     test('Print is enabled only while an image is on screen', () => {

@@ -45,10 +45,25 @@
   const _print = { dataUrl: null, imgW: 0, imgH: 0, printers: [], printersCache: null, printersCacheAt: 0, busy: false };
   let _editEffectsMinW = 200;
 
-  // Panel layout (explorer / file info). _buildToolbar() reads it while the module
-  // is still initialising, so it has to be declared before the init calls below.
-  const LAYOUT_KEY = 'panelLayoutV1';
-  const _layout = { tree: true, info: true, dock: 'left' };
+  // Panel layout: the left panel (explorer over file info) and the right panel
+  // (histogram, colour wheel, adjustments), each expanded or collapsed to a rail.
+  // _buildToolbar() and _initPanelLayout() read these while the module is still
+  // initialising, so they have to be declared before the init calls below.
+  const LAYOUT_KEY = 'panelLayoutV2';
+  const _layout = { left: true, right: true };
+  const CP_SLIDERS = [
+    { key:'brightness', label:'effects.brightness', min:0,    max:200, def:100 },
+    { key:'contrast',   label:'effects.contrast',   min:0,    max:200, def:100 },
+    { key:'saturation', label:'effects.saturation', min:0,    max:200, def:100 },
+    { key:'hue',        label:'effects.hue',        min:-180, max:180, def:0 },
+    { key:'warmth',     label:'effects.warmth',     min:-100, max:100, def:0 },
+  ];
+  const CP_TINT_DEFAULT = 35;
+
+  let _cpWheelImage = null;     // the wheel's pixels, drawn once
+  let _cpWheelDrag = null;      // { h, s } while the pointer is down on the wheel
+  let _cpSyncQueued = false;
+  let _detailsSections = null;  // what the Details dialog shows — "Copy all" copies it
 
   // Browse mode (ACDSee-style): the explorer lists folders only and the
   // selected folder is shown as a thumbnail contact sheet.
@@ -202,8 +217,8 @@
   const PREF_KEYS = [
     'theme', 'lang', 'bgRemoveAlgo', 'subtitlesEnabled', 'subtitleLanguage', MEDIA_VOL_KEY, MEDIA_MUTE_KEY,
     'dicomAnnotations', 'sidebarWidth', 'sidebarTreeHeightV2', 'editEffectsPanelWidth', 'editAdjustPanelWidth',
-    // Panel layout is a setting like any other: which panels are up, which side the
-    // file-info panel is docked to, every panel width, and the browse view.
+    // Panel layout is a setting like any other: which panels are expanded, every
+    // panel width, the explorer / file-info split, and the browse view.
     LAYOUT_KEY, BROWSE_KEY, 'browseViewV1', 'rightSidebarWidth',
     'dicomRulerAxes', 'dicomScaleBar', 'dicomScalePos',
     ...Object.keys(PREF_DEFAULTS),
@@ -227,7 +242,7 @@
   /* ─── Editor init ─── */
   Editor.init(displayCanvas, selCanvas);
   Editor.setCallbacks(
-    () => _markDirty(),
+    () => { _markDirty(); _queueColorPanelSync(); },
     (hasSel) => _onSelectionChange(hasSel),
     () => _onHistoryChange()
   );
@@ -254,6 +269,8 @@
     },
     onDriveSelect: async (p) => { _openFolder(await _recentDirOnDrive(p), { instant: true }); },
     onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+    // Thumbnails dragged onto a folder in the explorer (move; Ctrl = copy)
+    onInternalDrop: ({ paths, destDir, mode }) => _transferPathsInto(paths, destDir, mode),
     onImport: (info) => {
       if (!info) return;
       if (info.error === 'noDest') {
@@ -291,6 +308,8 @@
       if (_openingFile || Date.now() < _ignoreWatchUntil) return;
       // Keep prev/next in sync only. Do not rebuild the explorer DOM.
       _ignoreWatchUntil = Date.now() + 2500;
+      // The contact sheet re-reads its folder (keeping the selection that still exists)
+      if (Browse.isVisible?.()) Browse.refresh();
       try {
         if (state.currentFile) {
           const dir = await window.electronAPI.pathDirname(state.currentFile);
@@ -606,12 +625,10 @@
       { zoomDisplay: true },
       { id:'btn-zoom-in',     icon:'zoomIn',     tip:'toolbar.zoomIn',     action: () => _zoom(1.25), disabled: true },
       { separator: true },
-      // Panels: show / hide the explorer and the file info, and move the info panel left ⇄ right
+      // Panels: collapse / expand the left (explorer + file info) and right (colour) panels
       { id:'btn-browse',      icon:'viewGrid',   tip: _browseTip,          action: () => _toggleBrowseMode() },
-      { id:'btn-panel-tree',  icon:'folderOpen', tip: _treePanelTip,       action: () => _toggleTreePanel() },
-      { id:'btn-panel-info',  icon:'fileInfo',   tip: _infoPanelTip,       action: () => _toggleInfoPanel() },
-      { id:'btn-panel-dock',  icon: _layout.dock === 'left' ? 'panelLeft' : 'panelRight',
-                              tip: _infoDockTip,        action: () => _toggleInfoDock() },
+      { id:'btn-panel-left',  icon:'panelLeft',  tip: _leftPanelTip,       action: () => _toggleLeftPanel() },
+      { id:'btn-panel-right', icon:'panelRight', tip: _rightPanelTip,      action: () => _toggleRightPanel() },
       { separator: true },
       { id:'btn-edit',        icon:'edit',       tip:'toolbar.edit',       action: _openEditWindow, disabled: true },
       { spacer: true },
@@ -1020,11 +1037,8 @@
     const t = I18n.t.bind(I18n);
     const web = _isWeb();
     return [
-      { icon: Icons.folderTree, label: t('menu.treePanel'), checked: _layout.tree, action: () => _toggleTreePanel() },
-      { icon: Icons.fileInfo,   label: t('menu.infoPanel'), checked: _layout.info, action: () => _toggleInfoPanel() },
-      { icon: Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight'],
-        label: t(_layout.dock === 'left' ? 'toolbar.infoDockRight' : 'toolbar.infoDockLeft'),
-        action: () => _toggleInfoDock() },
+      { icon: Icons.panelLeft,  label: t('menu.leftPanel'),  checked: _layout.left,  action: () => _toggleLeftPanel() },
+      { icon: Icons.panelRight, label: t('menu.rightPanel'), checked: _layout.right, action: () => _toggleRightPanel() },
       { separator: true },
       { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, action: () => _toggleBrowseMode() },
       { separator: true },
@@ -1656,6 +1670,7 @@
     _updateUndoRedoBtns();
     _syncSlidersFromEffects('eff');
     _syncSlidersFromEffects('ew-eff');
+    _queueColorPanelSync();
     if (_isEditableImage()) _updateStatus({ dims: true });
     if (state.editMode) {
       const { w, h } = Editor.getDimensions();
@@ -1757,6 +1772,8 @@
     }
     _openingFile = filePath;
     const openGen = ++_openGen;
+    // The previous image must not linger (and then get repainted) while this one decodes
+    _beginViewerSwitch();
     const fileName = filePath.split(/[/\\]/).pop();
     let progressShown = false;
     let openSettled = false;
@@ -1886,7 +1903,20 @@
       if (_openingFile === filePath) _openingFile = null;
       _ignoreWatchUntil = Math.max(_ignoreWatchUntil, Date.now() + 2500);
       _showLoading(false);
+      // Only the newest open reveals the viewer — a superseded one leaves it blank
+      if (openGen === _openGen) _endViewerSwitch();
     }
+  }
+
+  /** Blank the viewer for the length of an open: no old frame, no old sound. */
+  function _beginViewerSwitch() {
+    viewerContainer?.classList.add('is-switching');
+    try { if (videoEl && !videoEl.paused) videoEl.pause(); } catch { /* ignore */ }
+    try { if (audioEl && !audioEl.paused) audioEl.pause(); } catch { /* ignore */ }
+  }
+
+  function _endViewerSwitch() {
+    viewerContainer?.classList.remove('is-switching');
   }
 
   function _prefetchConvertedNeighbors() {
@@ -5621,7 +5651,7 @@
   function _bindEffectSliderWheel(slider) {
     if (!slider) return;
     slider.addEventListener('wheel', (e) => {
-      const scroller = slider.closest('#edit-adjust-content, #edit-effects-content, #effects-content');
+      const scroller = slider.closest('#edit-adjust-content, #edit-effects-content, #effects-content, #color-content');
       if (!scroller) return;
       e.preventDefault();
       e.stopPropagation();
@@ -7505,19 +7535,23 @@
             <input type="search" class="info-filter" placeholder="${_escHtml(I18n.t('info.filterTags'))}" aria-label="${_escHtml(I18n.t('info.filterTags'))}" spellcheck="false"></div>`
         : `<div class="info-section">${_escHtml(I18n.t(sec.titleKey))}</div>`;
       const rows = sec.rows.map((r) =>
-        `<div class="info-row${r.full ? ' info-row-full' : ''}${r.item ? ' info-row-item' : ''}"${r.indent ? ` style="padding-left:${r.indent * 14}px"` : ''}${filterable ? ` data-search="${_escHtml(`${r.label} ${r.value}`.toLowerCase())}"` : ''}>
-          <div class="info-label">${_escHtml(r.label)}</div>
-          <div class="info-value" title="${_escHtml(r.value)}">${_escHtml(r.value)}</div>
-        </div>`
+        `<tr class="info-row${r.full ? ' info-row-full' : ''}${r.item ? ' info-row-item' : ''}"${filterable ? ` data-search="${_escHtml(`${r.label} ${r.value}`.toLowerCase())}"` : ''}>
+          <th class="info-label" scope="row"${r.indent ? ` style="padding-left:${6 + r.indent * 14}px"` : ''}>${_escHtml(r.label)}</th>
+          <td class="info-value" title="${_escHtml(r.value)}">${_escHtml(r.value)}</td>
+        </tr>`
       ).join('');
-      return header + (filterable ? `<div class="info-tag-rows">${rows}</div>` : rows);
+      return header + `<table class="info-table${filterable ? ' info-tag-rows' : ''}"><tbody>${rows}</tbody></table>`;
     }).join('');
   }
 
   // Filter box in the "All DICOM tags" section: hides rows that do not contain the text
   function _initInfoTagFilter() {
-    if (!infoContent) return;
-    infoContent.addEventListener('input', (e) => {
+    for (const root of [infoContent, document.getElementById('details-content')]) _bindInfoTagFilter(root);
+  }
+
+  function _bindInfoTagFilter(root) {
+    if (!root) return;
+    root.addEventListener('input', (e) => {
       const input = e.target;
       if (!input.classList || !input.classList.contains('info-filter')) return;
       const q = (input.value || '').trim().toLowerCase();
@@ -7527,7 +7561,7 @@
         row.classList.toggle('is-filtered', !!q && !(row.dataset.search || '').includes(q));
       });
     });
-    infoContent.addEventListener('keydown', (e) => {
+    root.addEventListener('keydown', (e) => {
       if (e.target.classList?.contains('info-filter')) e.stopPropagation();
     });
   }
@@ -7598,6 +7632,7 @@
   }
 
   async function _updateInfoPanel(filePath, dicomMeta) {
+    _queueColorPanelSync();   // a file opened / closed: the right panel follows it
     if (!infoContent) return;
     if (!filePath) {
       state.imageMeta = null;
@@ -7640,30 +7675,71 @@
     });
   }
 
-  async function _showFileInfoDialog() {
-    if (!state.currentFile) return;
-    const filePath = state.currentFile;
-    const stats = await window.electronAPI.getFileStats(filePath);
-    const meta = await _ensureImageMeta(filePath);
-    const sections = _collectInfoSections(filePath, stats, meta, state.dicomMeta);
-    const name = filePath.split(/[/\\]/).pop();
-    const detail = sections
-      .filter((sec) => sec.rows.length)
-      .map((sec) => {
-        const head = I18n.t(sec.titleKey);
-        const body = sec.rows.map((r) => `${r.label}: ${r.value}`).join('\n');
-        return `${head}\n${body}`;
-      })
-      .join('\n\n');
+  /**
+   * Details dialog (context menu "Details", File ▸ File Info, Ctrl+I): every info
+   * section as a table, plus a pixel analysis when the file is the one on screen.
+   */
+  async function _showFileInfoDialog(filePath = state.currentFile) {
+    if (!filePath) return;
+    const overlay = document.getElementById('details-overlay');
+    const content = document.getElementById('details-content');
+    if (!overlay || !content) return;
 
-    await window.electronAPI.showMessageBox({
-      type: 'info',
-      title: I18n.t('info.title'),
-      message: name,
-      detail,
-      buttons: ['OK'],
-    });
+    const isOpenFile = !!state.currentFile &&
+      _normWatchPath(state.currentFile) === _normWatchPath(filePath);
+    // Reading another file's metadata must not clobber the open file's caches
+    const saved = isOpenFile ? null
+      : { metaForFile: state.metaForFile, imageMeta: state.imageMeta, dicomMeta: state.dicomMeta };
+    let sections;
+    try {
+      const stats = await window.electronAPI.getFileStats(filePath);
+      const meta = await _ensureImageMeta(filePath);
+      sections = _collectInfoSections(filePath, stats, meta, isOpenFile ? state.dicomMeta : null);
+    } finally {
+      if (saved) Object.assign(state, saved);
+    }
+
+    const analysis = isOpenFile ? _imageStats(_colorSource(), 1024) : null;
+    if (analysis) sections = [_analysisSection(analysis), ...sections];
+    _detailsSections = sections;
+
+    document.getElementById('details-name').textContent = filePath.split(/[/\\]/).pop();
+    document.getElementById('details-path').textContent = filePath;
+    content.innerHTML = _renderInfoSections(sections)
+      || `<div class="info-no-file">${_escHtml(I18n.t('info.noFile'))}</div>`;
+
+    _fillDataIcons(overlay);
+    _showDialog('details-overlay');
+    const histWrap = document.getElementById('details-analysis');
+    if (histWrap) histWrap.hidden = !analysis;
+    // Paint after the dialog has a size, so the canvas matches its CSS box
+    if (analysis) requestAnimationFrame(() => _paintHistogram(document.getElementById('details-hist'), analysis));
   }
+
+  function _analysisSection(a) {
+    const t = I18n.t.bind(I18n);
+    const pct = (n) => `${(n / a.count * 100).toFixed(2)}%`;
+    const r = Math.round(a.mean[0]), g = Math.round(a.mean[1]), b = Math.round(a.mean[2]);
+    const hex = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const rows = [
+      { label: t('details.meanColor'), value: `R ${r} · G ${g} · B ${b}  (${hex})` },
+      { label: t('details.luminance'), value: `${a.mean[3].toFixed(1)} ± ${a.stdY.toFixed(1)}` },
+      { label: t('details.lumaRange'), value: `${a.minY} – ${a.maxY}` },
+      { label: t('details.clipped'), value: `${pct(a.bins[3][0])} / ${pct(a.bins[3][255])}` },
+      { label: t('details.sample'), value: `${a.sampleW} × ${a.sampleH} px` },
+    ];
+    if (a.transparent) {
+      rows.push({ label: t('details.transparent'), value: `${(a.transparent / (a.count + a.transparent) * 100).toFixed(2)}%` });
+    }
+    return { titleKey: 'details.analysis', rows };
+  }
+
+  document.getElementById('details-copy')?.addEventListener('click', () => {
+    const name = document.getElementById('details-path')?.textContent || '';
+    const text = [name, ...(_detailsSections || []).filter((sec) => sec.rows.length).map((sec) =>
+      `${I18n.t(sec.titleKey)}\n${sec.rows.map((r) => `${r.label}: ${r.value}`).join('\n')}`)].join('\n\n');
+    navigator.clipboard.writeText(text).catch(() => {});
+  });
 
   /* ════════════════════════════════════════════
      Status Bar
@@ -8060,7 +8136,12 @@
         mode: isMove ? 'move' : 'copy',
       });
       dlg?.set(88, I18n.t('progress.applying') || 'Applying result…');
-      await FileTree.refresh({ force: true });
+      // The contact sheet drops what was moved away / shows what arrived. It is what
+      // the user is looking at, so it does not wait for the (slower) tree rebuild.
+      await Promise.all([
+        FileTree.refresh({ force: true }),
+        Browse.isVisible?.() ? Browse.refresh() : null,
+      ]);
       return transfer;
     }, {
       messageKey: isMove ? 'progress.moving' : 'progress.copyingFiles',
@@ -8158,7 +8239,8 @@
     ].filter(Boolean));
   }
 
-  function _showTreeContextMenu(entry, x, y) {
+  /** `paths`: the caller's own selection (the thumbnail view); the explorer's otherwise. */
+  function _showTreeContextMenu(entry, x, y, { paths = null } = {}) {
     const t = I18n.t.bind(I18n);
     const isWeb = window.electronAPI.platform === 'web';
     const isDir  = entry.isDirectory;
@@ -8167,19 +8249,22 @@
     const isSup = FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext);
 
     // Check if multiple items are selected
-    const multiPaths = FileTree.getSelectedPaths();
+    const fromBrowse = Array.isArray(paths);
+    const multiPaths = fromBrowse ? paths : FileTree.getSelectedPaths();
     const isMulti = multiPaths.length > 1 && multiPaths.some((p) => {
       // treat as multi if right-clicked item is part of selection
       return p === entry.path || (entry.path && p.toLowerCase() === entry.path.toLowerCase());
     });
+    // Only files can be opened; folders still go along for copy / move / delete
+    const multiFiles = multiPaths.filter((p) => FormatSupport.isSupportedFile(p));
     const exportPaths = isMulti ? multiPaths : [entry.path];
     const printables = (isMulti ? multiPaths : [entry.path]).filter((p) => FormatSupport.isImage?.(p));
 
-    if (isMulti && isFile) {
+    if (isMulti && (isFile || fromBrowse)) {
       // Multi-selection context menu
       ContextMenu.show(x, y, [
-        { icon: Icons.image, label: `${t('context.openFile')} (${multiPaths.length})`,
-          action: async () => { for (const p of multiPaths) await _openFile(p); } },
+        multiFiles.length && { icon: Icons.image, label: `${t('context.openFile')} (${multiFiles.length})`,
+          action: async () => { for (const p of multiFiles) await _openFile(p); } },
         { separator: true },
         { icon: Icons.copy, label: t('tree.copyPath'),
           action: () => navigator.clipboard.writeText(multiPaths.join('\n')).catch(() => {}) },
@@ -8239,6 +8324,7 @@
       ..._treeClipboardItems(exportPaths, entry),
       !isWeb && { separator: true },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), action: () => window.electronAPI.showItemInFolder(entry.path) },
+      isFile && { icon: Icons.fileInfo, label: t('context.details'), action: () => _showFileInfoDialog(entry.path) },
       !isWeb && { separator: true },
       !isWeb && !entry.isDrive && { icon: Icons.edit, label: t('context.rename'),
         action: () => _renameEntry(entry.path, isDir) },
@@ -8481,6 +8567,7 @@
       { icon: Icons.openFile,   label: t('context.openFile'),   action: () => _pickOpenFile() },
       { icon: Icons.openFolder, label: t('context.openFolder'), action: () => _pickOpenFolder() },
       ..._imageFileOsMenuItems(),
+      state.currentFile && { icon: Icons.fileInfo, label: t('context.details'), shortcut: 'Ctrl+I', action: () => _showFileInfoDialog() },
       { separator: true },
       // Everyday actions stay top-level; transforms, zoom and the rest are grouped in flyouts
       hasImg && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
@@ -8690,6 +8777,13 @@
       await _clearRecentFolderHistory();
       _syncSettingsDialog();
     });
+    document.getElementById('settings-clear-thumbs')?.addEventListener('click', async () => {
+      await Thumbs.clearDiskCache();
+      _refreshThumbCacheSize();
+      // The open folder starts filling again in the background
+      const dir = Browse.getDir?.() || FileTree.getRoot?.();
+      if (dir) Thumbs.prefetchDir(dir);
+    });
     document.getElementById('settings-set-default')?.addEventListener('click', () => _setAsDefaultImageViewer());
     document.getElementById('settings-open-default-apps')?.addEventListener('click', async () => {
       if (window.electronAPI.openDefaultAppsSettings) {
@@ -8813,6 +8907,22 @@
   }
 
   /** Refill the settings controls from the current state (called on open, theme/lang change). */
+  /** Settings ▸ General: how much the per-directory thumbnail cache holds. */
+  async function _refreshThumbCacheSize() {
+    const row = document.getElementById('settings-thumb-cache-row');
+    const out = document.getElementById('settings-thumb-cache-size');
+    if (!row || !out) return;
+    const st = await Thumbs.diskStats();
+    row.hidden = !st;   // web mode keeps thumbnails in memory only
+    if (!st || st.error) return;
+    const mb = st.bytes / (1024 * 1024);
+    out.textContent = (I18n.t('settings.thumbCacheSize') || '{n} thumbnails · {folders} folders · {size}')
+      .replace('{n}', String(st.files))
+      .replace('{folders}', String(st.folders))
+      .replace('{size}', mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.round(st.bytes / 1024)} KB`);
+    document.getElementById('settings-clear-thumbs')?.toggleAttribute('disabled', !st.files);
+  }
+
   function _syncSettingsDialog() {
     if (!_settingsReady) return;
     const t = I18n.t.bind(I18n);
@@ -8858,6 +8968,7 @@
       recentCount.textContent = (t('settings.recentCount') || '{n}').replace('{n}', String(n));
     }
     document.getElementById('settings-clear-recent')?.toggleAttribute('disabled', !_getRecentDirs().length);
+    _refreshThumbCacheSize();
     _refreshAssocStatus();
     // Viewer
     const zoomStep = document.getElementById('settings-zoom-step');
@@ -9185,10 +9296,8 @@
       'lang-en': async () => { state.lang = 'en'; localStorage.setItem('lang','en'); await _refreshLang(); },
       'show-about':    () => _showDialog('about-overlay'),
       'show-shortcuts':() => _showDialog('shortcuts-overlay'),
-      'panel-tree':       () => _toggleTreePanel(),
-      'panel-info':       () => _toggleInfoPanel(),
-      'panel-dock-left':  () => _toggleInfoDock('left'),
-      'panel-dock-right': () => _toggleInfoDock('right'),
+      'panel-left':       () => _toggleLeftPanel(),
+      'panel-right':      () => _toggleRightPanel(),
       'toggle-browse':    () => _toggleBrowseMode(),
     };
     if (action.startsWith('theme:')) { _applyTheme(action.slice(6)); return; }
@@ -9315,9 +9424,8 @@
   function _loadLayout() {
     try {
       const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}');
-      if (typeof saved.tree === 'boolean') _layout.tree = saved.tree;
-      if (typeof saved.info === 'boolean') _layout.info = saved.info;
-      if (saved.dock === 'left' || saved.dock === 'right') _layout.dock = saved.dock;
+      if (typeof saved.left === 'boolean') _layout.left = saved.left;
+      if (typeof saved.right === 'boolean') _layout.right = saved.right;
     } catch { /* defaults */ }
   }
 
@@ -9325,78 +9433,47 @@
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch { /* ignore */ }
   }
 
-  function _treePanelTip() { return I18n.t(_layout.tree ? 'toolbar.hideTree' : 'toolbar.showTree'); }
-  function _infoPanelTip() { return I18n.t(_layout.info ? 'toolbar.hideInfo' : 'toolbar.showInfo'); }
-  function _infoDockTip()  { return I18n.t(_layout.dock === 'left' ? 'toolbar.infoDockRight' : 'toolbar.infoDockLeft'); }
+  function _leftPanelTip()  { return I18n.t(_layout.left ? 'toolbar.collapseLeft' : 'toolbar.expandLeft'); }
+  function _rightPanelTip() { return I18n.t(_layout.right ? 'toolbar.collapseRight' : 'toolbar.expandRight'); }
 
+  /**
+   * Collapsing never hides a panel: it shrinks to a rail that still shows the
+   * panel's icons and titles, with the same header button to expand it again.
+   */
   function _applyPanelLayout() {
-    const tree  = document.getElementById('file-tree-panel');
-    const info  = document.getElementById('info-panel');
-    const vres  = document.getElementById('sidebar-v-resize');
     const right = document.getElementById('right-sidebar');
-    if (!tree || !info || !sidebar || !right) return;
+    if (!sidebar || !right) return;
 
-    const infoLeft  = _layout.info && _layout.dock === 'left';
-    const infoRight = _layout.info && _layout.dock === 'right';
+    sidebar.classList.toggle('collapsed', !_layout.left);
+    right.classList.toggle('collapsed', !_layout.right);
 
-    // Re-parent the panel so it always sits inside the dock it belongs to
-    const wantParent = infoRight ? right : sidebar;
-    if (info.parentElement !== wantParent) {
-      if (infoRight) right.appendChild(info);
-      else sidebar.insertBefore(info, document.getElementById('sidebar-resize-handle'));
+    // The header button's chevron points the way a click moves the panel's edge
+    const leftBtn = document.getElementById('tree-collapse-btn');
+    if (leftBtn) {
+      leftBtn.innerHTML = Icons[_layout.left ? 'chevronLeft' : 'chevronRight'] || '';
+      leftBtn.setAttribute('aria-expanded', String(_layout.left));
+    }
+    const rightBtn = document.getElementById('color-collapse-btn');
+    if (rightBtn) {
+      rightBtn.innerHTML = Icons[_layout.right ? 'chevronRight' : 'chevronLeft'] || '';
+      rightBtn.setAttribute('aria-expanded', String(_layout.right));
     }
 
-    tree.hidden = !_layout.tree;
-    info.hidden = !_layout.info;
-    right.hidden = !infoRight;
-    if (vres) vres.hidden = !(_layout.tree && infoLeft);
-
-    // The left sidebar disappears once neither of its panels is in it
-    sidebar.hidden = !(_layout.tree || infoLeft);
-
-    // A lone panel should fill its dock instead of keeping the split height
-    if (!(_layout.tree && infoLeft)) {
-      tree.style.flex = '';
-      tree.style.height = '';
-      info.style.flex = '';
-      info.style.height = '';
-      info.style.minHeight = '';
-    }
-
-    // The dock buttons show where the File Info panel *is*, not where a click would
-    // send it — the icon reads as the current layout, the tooltip says what it does.
-    const dockIcon = Icons[_layout.dock === 'left' ? 'panelLeft' : 'panelRight'] || '';
-    const dockBtn = document.getElementById('btn-panel-dock');
-    if (dockBtn) {
-      dockBtn.innerHTML = dockIcon;
-      _setChromeBtn(dockBtn, _layout.info);
-    }
-    document.getElementById('btn-panel-tree')?.classList.toggle('active', _layout.tree);
-    document.getElementById('btn-panel-info')?.classList.toggle('active', _layout.info);
-
-    const dockHdrBtn = document.getElementById('info-dock-btn');
-    if (dockHdrBtn) dockHdrBtn.innerHTML = dockIcon;
+    document.getElementById('btn-panel-left')?.classList.toggle('active', _layout.left);
+    document.getElementById('btn-panel-right')?.classList.toggle('active', _layout.right);
   }
 
-  function _toggleTreePanel(force) {
-    _layout.tree = typeof force === 'boolean' ? force : !_layout.tree;
+  function _toggleLeftPanel(force) {
+    _layout.left = typeof force === 'boolean' ? force : !_layout.left;
     _saveLayout();
     _applyPanelLayout();
   }
 
-  function _toggleInfoPanel(force) {
-    _layout.info = typeof force === 'boolean' ? force : !_layout.info;
+  function _toggleRightPanel(force) {
+    _layout.right = typeof force === 'boolean' ? force : !_layout.right;
     _saveLayout();
     _applyPanelLayout();
-  }
-
-  function _toggleInfoDock(side) {
-    _layout.dock = (side === 'left' || side === 'right')
-      ? side
-      : (_layout.dock === 'left' ? 'right' : 'left');
-    if (!_layout.info) _layout.info = true;   // moving it implies showing it
-    _saveLayout();
-    _applyPanelLayout();
+    if (_layout.right) _queueColorPanelSync();   // the histogram is not drawn while collapsed
   }
 
   /** True only while the contact sheet is the thing on screen. */
@@ -9411,7 +9488,7 @@
   function _previewFileInfo(filePath) {
     clearTimeout(_previewInfoTimer);
     _previewInfoTimer = setTimeout(() => {
-      if (!_layout.info) return;             // panel closed — nothing to fill
+      if (!_layout.left) return;             // panel collapsed — nothing to fill
       const target = filePath || state.currentFile || null;
       // Previewing another file would clobber the open file's cached metadata.
       const other = target && state.currentFile &&
@@ -9444,9 +9521,11 @@
     Browse.init(host, {
       onOpenFile: (p) => { Browse.hide(); _openFile(p); },
       onOpenDir: (p) => { _rememberRecentDir(p); _watchDir(p); FileTree.revealPath?.(p); },
-      onContextMenu: (entry, x, y) => _showTreeContextMenu(entry, x, y),
+      onContextMenu: (entry, x, y, paths) => _showTreeContextMenu(entry, x, y, { paths }),
       onSelect: (p) => _previewFileInfo(p),
       onVisibility: () => _syncBrowseChrome(),
+      // Desktop: tiles can be dragged onto a folder in the explorer (move; Ctrl = copy)
+      canDrag: window.electronAPI.platform !== 'web' && typeof window.electronAPI.transferIntoDir === 'function',
     });
     _applyBrowseMode({ initial: true });
   }
@@ -9491,19 +9570,357 @@
 
   function _initPanelLayout() {
     _loadLayout();
-    const closeBtn = document.getElementById('info-close-btn');
-    if (closeBtn) {
-      closeBtn.innerHTML = Icons.close || '';
-      Tooltip.attach(closeBtn, () => I18n.t('toolbar.hideInfo'));
-      closeBtn.addEventListener('click', () => _toggleInfoPanel(false));
+    const icons = { 'tree-panel-icon': 'folderTree', 'info-panel-icon': 'fileInfo', 'color-panel-icon': 'palette' };
+    for (const [id, icon] of Object.entries(icons)) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = Icons[icon] || '';
     }
-    const dockBtn = document.getElementById('info-dock-btn');
-    if (dockBtn) {
-      Tooltip.attach(dockBtn, _infoDockTip);
-      dockBtn.addEventListener('click', () => _toggleInfoDock());
+
+    // One button per side panel: collapse when expanded, expand when collapsed
+    const leftBtn = document.getElementById('tree-collapse-btn');
+    if (leftBtn) {
+      Tooltip.attach(leftBtn, _leftPanelTip);
+      leftBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleLeftPanel(); });
     }
+    const rightBtn = document.getElementById('color-collapse-btn');
+    if (rightBtn) {
+      Tooltip.attach(rightBtn, _rightPanelTip);
+      rightBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleRightPanel(); });
+    }
+    // A collapsed rail is one big target: clicking anywhere on it expands the panel
+    sidebar?.addEventListener('click', () => { if (!_layout.left) _toggleLeftPanel(true); });
+    document.getElementById('right-sidebar')
+      ?.addEventListener('click', () => { if (!_layout.right) _toggleRightPanel(true); });
+
     _applyPanelLayout();
     _initRightSidebarResize();
+    _initColorPanel();
+  }
+
+  /* ════════════════════════════════════════════
+     Right panel — histogram, colour wheel, colour adjustments.
+     Every control goes through Editor.setEffect(s), so undo / redo, the unsaved
+     flag and Save behave exactly like rotate / flip in the viewer.
+  ════════════════════════════════════════════ */
+  /** Colour edits need a still image in the viewer (DICOM has its own window / level). */
+  function _canColorEdit() {
+    return Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode && !state.dicom;
+  }
+
+  function _cpSlider(host, s) {
+    const group = document.createElement('div');
+    group.className = 'effect-group';
+    const lbl = document.createElement('span');
+    lbl.className = 'effect-label';
+    lbl.setAttribute('data-i18n', s.label);
+    lbl.textContent = I18n.t(s.label);
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'effect-slider';
+    slider.id = `cp-${s.key}`;
+    slider.min = s.min; slider.max = s.max; slider.step = 1;
+    slider.value = s.def;
+    slider.setAttribute('aria-label', I18n.t(s.label));
+    const val = document.createElement('span');
+    val.className = 'effect-value';
+    val.id = `cp-val-${s.key}`;
+    val.textContent = s.def;
+    slider.addEventListener('input', () => { val.textContent = slider.value; });
+    slider.addEventListener('change', () => {
+      if (!_canColorEdit()) return;
+      Editor.setEffect(s.key, parseFloat(slider.value), true);
+    });
+    // Double-click a slider to put it back to its default
+    slider.addEventListener('dblclick', () => {
+      if (!_canColorEdit()) return;
+      slider.value = s.def; val.textContent = s.def;
+      Editor.setEffect(s.key, s.def, true);
+    });
+    _bindEffectSliderWheel(slider);
+    group.append(lbl, slider, val);
+    host.appendChild(group);
+  }
+
+  function _initColorPanel() {
+    const adjust = document.getElementById('cp-adjust');
+    if (adjust) for (const s of CP_SLIDERS) _cpSlider(adjust, s);
+    const amountRow = document.getElementById('cp-tint-amount-row');
+    if (amountRow) {
+      _cpSlider(amountRow, { key:'tintAmount', label:'color.tintAmount', min:0, max:100, def:0 });
+      // Strength without a colour does nothing — pick one first
+      document.getElementById('cp-tintAmount')?.addEventListener('change', (e) => {
+        if (!Editor.getEffects().tintColor) e.target.value = 0;
+      });
+    }
+
+    document.getElementById('cp-tint-clear')?.addEventListener('click', () => {
+      if (_canColorEdit()) Editor.setEffects({ tintColor: '', tintAmount: 0 });
+    });
+    document.getElementById('cp-reset')?.addEventListener('click', () => {
+      if (!_canColorEdit()) return;
+      const reset = { tintColor: '', tintAmount: 0 };
+      for (const s of CP_SLIDERS) reset[s.key] = s.def;
+      Editor.setEffects(reset);
+    });
+
+    _initColorWheel();
+    if (window.ResizeObserver) {
+      const host = document.getElementById('color-content');
+      if (host) new ResizeObserver(() => _queueColorPanelSync()).observe(host);
+    }
+    _queueColorPanelSync();
+  }
+
+  /* ── Colour wheel: hue around the rim, saturation out from the centre ── */
+  function _hsvToHex(h, s, v = 1) {
+    const f = (n) => {
+      const k = (n + h / 60) % 6;
+      return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+    };
+    return '#' + [f(5), f(3), f(1)].map((c) => c.toString(16).padStart(2, '0')).join('');
+  }
+
+  function _hexToHs(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+    let h = 0;
+    if (d) {
+      if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * ((b - r) / d + 2);
+      else h = 60 * ((r - g) / d + 4);
+    }
+    return { h: (h + 360) % 360, s: max ? d / max : 0 };
+  }
+
+  function _drawColorWheel() {
+    const cv = document.getElementById('cp-wheel');
+    if (!cv) return;
+    const size = cv.width, r = size / 2;
+    const ctx = cv.getContext('2d');
+    if (!_cpWheelImage) {
+      const img = ctx.createImageData(size, size);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const dx = x + 0.5 - r, dy = y + 0.5 - r;
+          const dist = Math.hypot(dx, dy);
+          if (dist > r) continue;
+          const hex = _hsvToHex((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, Math.min(1, dist / (r - 1)));
+          const n = parseInt(hex.slice(1), 16);
+          const i = (y * size + x) * 4;
+          img.data[i] = n >> 16 & 255; img.data[i + 1] = n >> 8 & 255; img.data[i + 2] = n & 255;
+          img.data[i + 3] = dist > r - 1 ? Math.round(255 * (r - dist)) : 255;   // soft rim
+        }
+      }
+      _cpWheelImage = img;
+    }
+    ctx.putImageData(_cpWheelImage, 0, 0);
+
+    // Marker on the picked colour (or the live drag position)
+    const hs = _cpWheelDrag || _hexToHs(Editor.getEffects?.().tintColor);
+    if (hs) {
+      const a = hs.h * Math.PI / 180, d = hs.s * (r - 1);
+      const x = r + Math.cos(a) * d, y = r + Math.sin(a) * d;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#000';
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
+  function _initColorWheel() {
+    const cv = document.getElementById('cp-wheel');
+    if (!cv) return;
+    const pick = (e) => {
+      const rect = cv.getBoundingClientRect();
+      const r = rect.width / 2;
+      const dx = e.clientX - rect.left - r, dy = e.clientY - rect.top - r;
+      return { h: (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, s: Math.min(1, Math.hypot(dx, dy) / r) };
+    };
+    const commit = (hs) => {
+      const efx = Editor.getEffects();
+      const next = { tintColor: _hsvToHex(hs.h, hs.s) };
+      if (!(efx.tintAmount > 0)) next.tintAmount = CP_TINT_DEFAULT;   // a pick should show at once
+      Editor.setEffects(next);
+    };
+    cv.addEventListener('pointerdown', (e) => {
+      if (!_canColorEdit() || e.button !== 0) return;
+      e.preventDefault();
+      cv.setPointerCapture(e.pointerId);
+      _cpWheelDrag = pick(e);
+      _syncColorPick();
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!_cpWheelDrag) return;
+      _cpWheelDrag = pick(e);
+      _syncColorPick();
+    });
+    const end = () => {
+      if (!_cpWheelDrag) return;
+      const hs = _cpWheelDrag;
+      _cpWheelDrag = null;
+      commit(hs);   // one history step per pick, not one per pointer move
+    };
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', () => { _cpWheelDrag = null; _syncColorPick(); });
+    // Keyboard: ←/→ turn the hue, ↑/↓ change the saturation
+    cv.addEventListener('keydown', (e) => {
+      if (!_canColorEdit()) return;
+      const cur = _hexToHs(Editor.getEffects().tintColor) || { h: 0, s: 0.5 };
+      const step = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 0.05], ArrowDown: [0, -0.05] }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      e.stopPropagation();
+      commit({ h: (cur.h + step[0] + 360) % 360, s: Math.max(0, Math.min(1, cur.s + step[1])) });
+    });
+  }
+
+  /** Swatch, hex code and wheel marker follow the picked tint. */
+  function _syncColorPick() {
+    const hex = _cpWheelDrag ? _hsvToHex(_cpWheelDrag.h, _cpWheelDrag.s) : (Editor.getEffects?.().tintColor || '');
+    const sw = document.getElementById('cp-swatch');
+    if (sw) {
+      sw.style.background = hex || '';
+      sw.classList.toggle('is-empty', !hex);
+    }
+    const hx = document.getElementById('cp-hex');
+    if (hx) hx.textContent = hex ? hex.toUpperCase() : '—';
+    _drawColorWheel();
+  }
+
+  /* ── Histogram: R / G / B areas plus the luminance line, from what is on screen ── */
+
+  /** What the viewer is showing as pixels: the Editor canvas, or the animated image's frame. */
+  function _colorSource() {
+    let src = null;
+    if (Editor.isLoaded() && !state.isVideo && !state.isAudio) src = Editor.getCanvasElement?.();
+    else if (state.isAnimated && animImg?.naturalWidth) src = animImg;   // the frame on screen
+    const w = src?.naturalWidth || src?.width, h = src?.naturalHeight || src?.height;
+    return src && w && h ? { src, w, h } : null;
+  }
+
+  /**
+   * Per-channel histograms and luminance statistics of a downscaled copy (maxSide px
+   * on the long edge) — plenty for 256 bins, and cheap on big photos.
+   */
+  function _imageStats(source, maxSide = 512) {
+    if (!source) return null;
+    const scale = Math.min(1, maxSide / Math.max(source.w, source.h));
+    const w = Math.max(1, Math.round(source.w * scale)), h = Math.max(1, Math.round(source.h * scale));
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    const tc = tmp.getContext('2d', { willReadFrequently: true });
+    tc.drawImage(source.src, 0, 0, w, h);
+    const px = tc.getImageData(0, 0, w, h).data;
+    const bins = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
+    const sum = [0, 0, 0, 0];
+    let count = 0, sumSqY = 0, transparent = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] < 8) { transparent++; continue; }   // ignore transparent pixels
+      const r = px[i], g = px[i + 1], b = px[i + 2];
+      const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+      bins[0][r]++; bins[1][g]++; bins[2][b]++; bins[3][y]++;
+      sum[0] += r; sum[1] += g; sum[2] += b; sum[3] += y;
+      sumSqY += y * y;
+      count++;
+    }
+    if (!count) return null;
+    let minY = 0, maxY = 255;
+    while (minY < 255 && !bins[3][minY]) minY++;
+    while (maxY > 0 && !bins[3][maxY]) maxY--;
+    const meanY = sum[3] / count;
+    return {
+      bins, count, sampleW: w, sampleH: h, transparent,
+      mean: sum.map((v) => v / count),
+      stdY: Math.sqrt(Math.max(0, sumSqY / count - meanY * meanY)),
+      minY, maxY,
+    };
+  }
+
+  function _paintHistogram(cv, stats) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = Math.max(120, Math.round(cv.clientWidth || 256));
+    const cssH = Math.max(60, Math.round(cv.clientHeight || 96));
+    if (cv.width !== Math.round(cssW * dpr)) cv.width = Math.round(cssW * dpr);
+    if (cv.height !== Math.round(cssH * dpr)) cv.height = Math.round(cssH * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    if (!stats) return;
+    const { bins } = stats;
+    // Scale to the tallest bin, ignoring the two clipped ends so they do not flatten the rest
+    let peak = 1;
+    for (const ch of bins) for (let v = 1; v < 255; v++) peak = Math.max(peak, ch[v]);
+    const yOf = (n) => cssH - Math.min(1, n / peak) * (cssH - 2);
+    const xOf = (v) => (v / 255) * cssW;
+
+    ctx.globalCompositeOperation = 'lighter';
+    const colors = ['rgba(255,70,70,0.55)', 'rgba(70,220,90,0.55)', 'rgba(80,140,255,0.6)'];
+    for (let c = 0; c < 3; c++) {
+      ctx.fillStyle = colors[c];
+      ctx.beginPath();
+      ctx.moveTo(0, cssH);
+      for (let v = 0; v < 256; v++) ctx.lineTo(xOf(v), yOf(bins[c][v]));
+      ctx.lineTo(cssW, cssH);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#ddd';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let v = 0; v < 256; v++) {
+      const x = xOf(v), y = yOf(bins[3][v]);
+      if (v) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function _drawHistogram() {
+    const cv = document.getElementById('cp-histogram');
+    if (!cv) return;
+    const stats = _imageStats(_colorSource());
+    _paintHistogram(cv, stats);
+    const legend = document.getElementById('cp-hist-legend');
+    if (!legend) return;
+    if (!stats) { legend.textContent = I18n.t('color.noImage'); return; }
+    const pct = (n) => `${(n / stats.count * 100).toFixed(1)}%`;
+    legend.textContent = `${I18n.t('color.mean')} ${Math.round(stats.mean[3])}  ·  `
+      + `${I18n.t('color.shadows')} ${pct(stats.bins[3][0])}  ·  ${I18n.t('color.highlights')} ${pct(stats.bins[3][255])}`;
+  }
+
+  /** Coalesces every "the picture changed" signal into one redraw per frame. */
+  function _queueColorPanelSync() {
+    if (_cpSyncQueued) return;
+    _cpSyncQueued = true;
+    requestAnimationFrame(() => {
+      _cpSyncQueued = false;
+      _syncColorPanel();
+    });
+  }
+
+  function _syncColorPanel() {
+    const content = document.getElementById('color-content');
+    if (!content) return;
+    const can = _canColorEdit();
+    content.classList.toggle('is-disabled', !can);
+    content.querySelectorAll('input, button, #cp-wheel').forEach((el) => {
+      if (el.id === 'cp-wheel') el.setAttribute('aria-disabled', String(!can));
+      else el.disabled = !can;
+    });
+    if (Editor.isLoaded()) _syncSlidersFromEffects('cp');
+    else {
+      for (const s of CP_SLIDERS) {
+        const sl = document.getElementById(`cp-${s.key}`), v = document.getElementById(`cp-val-${s.key}`);
+        if (sl) sl.value = s.def;
+        if (v) v.textContent = s.def;
+      }
+    }
+    _syncColorPick();
+    if (_layout.right) _drawHistogram();
   }
 
   function _initRightSidebarResize() {

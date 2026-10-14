@@ -14,6 +14,10 @@ window.FileTree = (() => {
   let _onContextMenu = null;
   let _onImport      = null;    // callback({ destDir, mode, count, ... })
   let _dropHoverEl   = null;
+  // Thumbnails dragged from the browse view carry this type (a JSON array of paths).
+  // They move by default (Ctrl = copy); files from outside keep copy (Shift = move).
+  const INTERNAL_MIME = 'application/x-imageviewer-paths';
+  let _onInternalDrop = null;
   let _pathSep       = '/';
   let _ready         = false;
   let _centerOnce    = false;   // center explorer row only on first open
@@ -26,7 +30,7 @@ window.FileTree = (() => {
   const VIDEO_EXTS = FormatSupport.VIDEO_EXTS;
   const AUDIO_EXTS = FormatSupport.AUDIO_EXTS;
 
-  function init(container, { onSelect, onActivate, onDirOpen, onDriveSelect, onContextMenu, onImport }) {
+  function init(container, { onSelect, onActivate, onDirOpen, onDriveSelect, onContextMenu, onImport, onInternalDrop }) {
     _container = container;
     _onSelect  = onSelect;
     _onActivate = onActivate || null;
@@ -34,6 +38,7 @@ window.FileTree = (() => {
     _onDriveSelect = onDriveSelect || null;
     _onContextMenu = onContextMenu || null;
     _onImport = onImport || null;
+    _onInternalDrop = onInternalDrop || null;
     window.electronAPI.getPathSep().then(sep => { _pathSep = sep; });
     _initDropZone();
   }
@@ -92,16 +97,19 @@ window.FileTree = (() => {
     return file.path || '';
   }
 
+  const _isInternalDrag = (e) => [...(e.dataTransfer?.types || [])].includes(INTERNAL_MIME);
+
   function _initDropZone() {
     const panel = _container.closest('#file-tree-panel') || _container;
 
     panel.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // External OS files only — ignore empty payloads
-      if (![...e.dataTransfer.types].some((t) => t === 'Files')) return;
+      // OS files, or thumbnails dragged from the browse view — ignore anything else
+      const internal = _isInternalDrag(e);
+      if (!internal && ![...e.dataTransfer.types].some((t) => t === 'Files')) return;
 
-      const isMove = e.shiftKey;
+      const isMove = internal ? !e.ctrlKey : e.shiftKey;
       e.dataTransfer.dropEffect = isMove ? 'move' : 'copy';
 
       const dir = _resolveDropDir(e.clientX, e.clientY);
@@ -123,6 +131,18 @@ window.FileTree = (() => {
       const isMove = e.shiftKey;
       const destDir = _resolveDropDir(e.clientX, e.clientY);
       _clearDropHover();
+
+      // Thumbnails from the browse view: move by default, Ctrl = copy, and stay where
+      // the user is — no jumping to the destination, no opening the first file.
+      if (_isInternalDrag(e)) {
+        let paths = [];
+        try { paths = JSON.parse(e.dataTransfer.getData(INTERNAL_MIME) || '[]'); } catch { /* bad payload */ }
+        paths = Array.isArray(paths) ? paths.filter((p) => typeof p === 'string' && p) : [];
+        if (!paths.length || !_onInternalDrop) return;
+        if (!destDir) { if (_onImport) _onImport({ error: 'noDest' }); return; }
+        await _onInternalDrop({ paths, destDir, mode: e.ctrlKey ? 'copy' : 'move' });
+        return;
+      }
 
       const files = Array.from(e.dataTransfer.files);
       if (!files.length) return;
@@ -174,6 +194,7 @@ window.FileTree = (() => {
         if (p) sources.push(p);
       }
       if (!sources.length) return;
+
 
       const mode = isMove ? 'move' : 'copy';
       const result = await window.electronAPI.transferIntoDir({

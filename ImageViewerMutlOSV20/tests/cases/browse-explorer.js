@@ -199,12 +199,31 @@ module.exports = {
       assertIncludes(browse, '_onSelect(entry && !entry.isDirectory ? entry.path : \'\')', 'files only');
       assertIncludes(app, 'onSelect: (p) => _previewFileInfo(p)', 'app wires it');
       assertIncludes(app, 'function _previewFileInfo', 'preview helper');
-      assertIncludes(app, 'if (!_layout.info) return;', 'skipped when the panel is closed');
+      assertIncludes(app, 'if (!_layout.left) return;', 'skipped when the panel is collapsed');
     });
 
     test('Redraws do not fire the selection callback', () => {
-      assertIncludes(browse, '_select(_selected, { notify: false })', 'render is silent');
+      const render = browse.slice(browse.indexOf('function _render()'), browse.indexOf('function _syncCount()'));
+      assertIncludes(render, '_paintSelection();', 'render repaints the selection');
+      assert(!/_notify\(\)|_onSelect\(/.test(render), 'render is silent');
       assertIncludes(browse, 'function _select(path, { notify = true } = {})', 'opt-out parameter');
+    });
+
+    test('Thumbnail view selects many: Ctrl / Shift click, marquee drag, Ctrl+A', () => {
+      const click = browse.slice(browse.indexOf("_grid.addEventListener('click'"), browse.indexOf("_grid.addEventListener('dblclick'"));
+      assertIncludes(click, "_selectRange(_anchor || p, p, { add });", 'Shift = range from the anchor');
+      assertIncludes(click, '_toggle(p);', 'Ctrl = toggle');
+      assertIncludes(click, 'if (_suppressClick)', 'the click ending a drag is ignored');
+      assertIncludes(browse, "drag.box.className = 'browse-marquee';", 'marquee box');
+      assertIncludes(browse, 'if (Math.hypot(p.x - drag.x0, p.y - drag.y0) < 5) return;', 'small moves stay clicks');
+      assertIncludes(browse, "if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A'))", 'Ctrl+A');
+      assertIncludes(css, '.browse-marquee {', 'marquee styled');
+      // The context menu acts on the whole selection
+      assertIncludes(browse, "if (!_sel.has(_norm(tile.dataset.path))) _select(tile.dataset.path);", 'right-click inside keeps the selection');
+      assertIncludes(browse, '_onContextMenu(entry, e.clientX, e.clientY, getSelectedPaths());', 'selection handed over');
+      assertIncludes(app, 'onContextMenu: (entry, x, y, paths) => _showTreeContextMenu(entry, x, y, { paths }),', 'app passes it on');
+      assertIncludes(app, 'const multiPaths = fromBrowse ? paths : FileTree.getSelectedPaths();', 'menu uses it');
+      assertIncludes(app, 'if (Browse.isVisible?.()) Browse.refresh();', 'sheet follows disk changes');
     });
 
     test('Previewing another file leaves the open file’s metadata alone', () => {
@@ -215,13 +234,73 @@ module.exports = {
 
     /* ── Toolbar order ── */
 
-    test('Edit sits after the file-info button, behind a separator', () => {
+    test('Edit sits after the right-panel button, behind a separator', () => {
       const bar = app.slice(app.indexOf("id:'btn-browse'"), app.indexOf('{ spacer: true }'));
-      const iInfo = bar.indexOf("id:'btn-panel-info'");
+      const iInfo = bar.indexOf("id:'btn-panel-right'");
       const iSep = bar.indexOf('{ separator: true }', iInfo);
       const iEdit = bar.indexOf("id:'btn-edit'");
       assert(iInfo >= 0 && iSep > iInfo && iEdit > iSep,
         `expected info < separator < edit, got ${iInfo}/${iSep}/${iEdit}`);
+    });
+
+    test('Thumbnails drag onto an explorer folder: move, Ctrl = copy', () => {
+      const tree = src.fileTree;
+      // Source: Chromium's own drag with an app payload — not webContents.startDrag,
+      // which on Windows holds the main process in the OS drag loop after a drop on
+      // our own window until the next click (the move would stall).
+      const ds = browse.slice(browse.indexOf("_grid.addEventListener('dragstart'"), browse.indexOf("_grid.addEventListener('dragend'"));
+      assertIncludes(ds, 'e.dataTransfer.setData(DRAG_MIME, JSON.stringify(paths));', 'paths in the payload');
+      assertIncludes(ds, "e.dataTransfer.effectAllowed = 'copyMove';", 'move allowed');
+      assertIncludes(ds, 'if (!_sel.has(_norm(tile.dataset.path))) _select(tile.dataset.path);', 'unselected tile drags alone');
+      assert(!ds.includes('startDrag'), 'no native startDrag');
+      assertIncludes(browse, "if (e.target.closest?.('.browse-tile[draggable=\"true\"]')) return;", 'a press on a tile is a drag, not a marquee');
+      assertIncludes(browse, "const DRAG_MIME   = 'application/x-imageviewer-paths';", 'browse type');
+      assertIncludes(tree, "const INTERNAL_MIME = 'application/x-imageviewer-paths';", 'same type in the tree');
+      // Target: the tree moves by default (Ctrl = copy) and stays put
+      assertIncludes(tree, 'const isMove = internal ? !e.ctrlKey : e.shiftKey;', 'dragover: move unless Ctrl');
+      assertIncludes(tree, "await _onInternalDrop({ paths, destDir, mode: e.ctrlKey ? 'copy' : 'move' });", 'drop: move unless Ctrl');
+      assertIncludes(app, 'onInternalDrop: ({ paths, destDir, mode }) => _transferPathsInto(paths, destDir, mode),', 'shared transfer path');
+      const xfer = app.slice(app.indexOf('async function _transferPathsInto'), app.indexOf('/* ─── File clipboard'));
+      assertIncludes(xfer, "Browse.isVisible?.() ? Browse.refresh() : null,", 'sheet refreshes alongside the tree');
+    });
+
+    /* ── Thumbnail cache ── */
+
+    test('Thumbnails are cached on disk, one cache per directory', () => {
+      const { thumbs, preload } = src;
+      // Main process: <userData>/ThumbCache/<sha1(dir)>/index.json + one JPEG per image
+      assertIncludes(main, "path.join(app.getPath('userData'), 'ThumbCache')", 'cache root in userData');
+      assertIncludes(main, "const folder = path.join(_thumbRoot(), key);", 'one folder per source directory');
+      assertIncludes(main, 'st.size === ent.size && Math.abs(st.mtimeMs - ent.mtimeMs) < 1', 'stale entries are not served');
+      assertIncludes(main, "app.on('before-quit', _thumbFlushAllSync);", 'pending index writes survive quit');
+      for (const ch of ['thumb-cache-load', 'thumb-cache-put', 'thumb-cache-stats', 'thumb-cache-clear']) {
+        assertIncludes(main, `ipcMain.handle('${ch}'`, `${ch} handled`);
+        assertIncludes(preload, `'${ch}'`, `${ch} exposed`);
+      }
+      // Renderer: the directory's cache is read before anything is generated
+      const req = thumbs.slice(thumbs.indexOf('async function request'), thumbs.indexOf('async function prefetchDir'));
+      assert(req.indexOf('await _ensureDir(_dirOf(path));') < req.indexOf('_pending.set(key'), 'disk first');
+      assertIncludes(thumbs, '_persist(path, jpeg, meta)', 'generated thumbnails are stored');
+    });
+
+    test('Thumbnails are produced in the background', () => {
+      const { thumbs } = src;
+      const worker = require('fs').readFileSync(require('path').join(__dirname, '../../src/js/thumbWorker.js'), 'utf8');
+      assertIncludes(worker, 'createImageBitmap(new Blob([bytes]', 'decode in the worker');
+      assertIncludes(worker, 'new OffscreenCanvas(tw, th)', 'resize in the worker');
+      assertIncludes(worker, "convertToBlob({ type: 'image/jpeg'", 'encode in the worker');
+      assertIncludes(thumbs, "new Worker('./js/thumbWorker.js')", 'worker started from the page');
+      assertIncludes(thumbs, 'worker.postMessage({ id, bytes: buf, type: MIME[ext] || \'\', size: SIZE }, [buf]);', 'bytes transferred, not copied');
+      // Formats that need the app's decoders wait for an idle UI thread
+      const mainPath = thumbs.slice(thumbs.indexOf('async function _generateOnMainThread'), thumbs.indexOf('async function _generate(path)'));
+      assertIncludes(mainPath, 'await _idle();', 'idle-time only');
+    });
+
+    test('Opening a file blanks the viewer instead of showing the previous image', () => {
+      const open = app.slice(app.indexOf('async function _openFile'), app.indexOf('function _prefetchConvertedNeighbors'));
+      assert(open.indexOf('_beginViewerSwitch();') > open.indexOf('const openGen = ++_openGen;'), 'blanked once the open starts');
+      assertIncludes(open, 'if (openGen === _openGen) _endViewerSwitch();', 'only the newest open reveals');
+      assertIncludes(css, '#viewer-container.is-switching > :not(#image-placeholder):not(#loading-overlay)', 'old frame hidden');
     });
 
     /* ── Panel visibility ── */
@@ -231,8 +310,8 @@ module.exports = {
       for (const sel of ['#sidebar[hidden]', '#file-tree-panel[hidden]', '#info-panel[hidden]']) {
         assertIncludes(css, sel, sel);
       }
-      assertIncludes(app, 'closeBtn.addEventListener(\'click\', () => _toggleInfoPanel(false))', 'close button');
-      assertIncludes(app, 'info.hidden = !_layout.info;', 'layout drives it');
+      assertIncludes(app, "leftBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleLeftPanel(); });", 'left collapse button');
+      assertIncludes(app, "rightBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleRightPanel(); });", 'right collapse button');
     });
 
     /* ── Language ── */
