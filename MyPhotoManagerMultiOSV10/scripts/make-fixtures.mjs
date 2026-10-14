@@ -14,7 +14,7 @@ import UTIF from 'utif2';
 import { encodeBmp } from '../src/formats/encode.js';
 import { exifSegment, insertSegments } from '../src/formats/jpeg-meta.js';
 import { encodePsd } from '../src/formats/psd.js';
-import { encodeJp2, encodeJxl, writeExtraFixtures } from './fixture-formats.mjs';
+import { cineDicom, encodeJp2, encodeJxl, writeExtraFixtures } from './fixture-formats.mjs';
 import { ASCII, buildExifTiff, buildTiff, LONG, SHORT } from '../src/formats/tiffstruct.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -163,6 +163,9 @@ else console.warn('clip.webm: MediaRecorder produced no data and no sample video
 fs.writeFileSync(path.join(formatsDir, 'scene.jp2'), await encodeJp2(images.small));
 fs.writeFileSync(path.join(formatsDir, 'scene.jxl'), await encodeJxl(images.small));
 console.log(`${extra.length + 3} files in test/fixtures/formats`);
+// DICOM: pydicom's sample images are kept in test/fixtures/dicom; the multi-frame one is made here.
+fs.mkdirSync(path.join(root, 'test', 'fixtures', 'dicom'), { recursive: true });
+fs.writeFileSync(path.join(root, 'test', 'fixtures', 'dicom', 'cine.dcm'), cineDicom());
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'sub', 'deeper'), { recursive: true });

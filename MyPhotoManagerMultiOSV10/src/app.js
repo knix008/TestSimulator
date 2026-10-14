@@ -6,7 +6,7 @@ import { GROUP_KEYS, SORT_KEYS } from './catalog/listing.js';
 import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
 import { filesFromDrop, fs, hasFolderAccess, webFs } from './platform/fs.js';
-import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onFileDrop, setWindowTheme, setWindowTitle, showWindow } from './platform/native.js';
+import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onFileDrop, setWindowTheme, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
 import { loadSettings, loadSettingsFile } from './settings.js';
 import {
   addToBasket, app, catalogFolder, copyToClipboard, deleteItems, focusedItem, goBack, goForward, goUp, invertSelection, loadCatalog, newFolder, openFolder, openSource,
@@ -26,7 +26,7 @@ import { createCalendarPane } from './ui/calendarpane.js';
 import { createCatalogPane } from './ui/catalogpane.js';
 import { openCompare } from './ui/compare.js';
 import { createDashboard } from './ui/dashboard.js';
-import { closeAllDialogs, confirmDialog, dialogOpen, openDialog, toast } from './ui/dialog.js';
+import { closeAllDialogs, confirmDialog, dialogDocuments, dialogOpen, openDialog, statusProgress, toast, topDialog } from './ui/dialog.js';
 import { $, button, clear, h, typing } from './ui/dom.js';
 import { findDuplicates } from './ui/duplicates.js';
 import { createEditor } from './ui/editor.js';
@@ -42,7 +42,11 @@ import { createSearchPane } from './ui/searchpane.js';
 import { startSlideshow } from './ui/slideshow.js';
 import { createViewer } from './ui/viewer.js';
 import { formatBytes } from './util/format.js';
-import { applyTheme } from './themes.js';
+import { applyTheme, nextTheme } from './themes.js';
+import { history as undoHistory } from './history.js';
+import { FLAG_EN, FLAG_KO } from './ui/flags.js';
+import { watchNumbers } from './ui/steppers.js';
+import { customThemeDialog, EDIT_CUSTOM, themeSelect } from './ui/themepicker.js';
 
 app.settings = loadSettings();
 setLanguage(app.settings.language);
@@ -50,14 +54,43 @@ setLanguage(app.settings.language);
 // ───────────────────────── theme
 
 const darkQuery = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
+/** Theme id in use ('system' follows the OS: the default dark or light theme). */
 function currentTheme() {
   return app.settings.theme === 'system' ? (darkQuery?.matches ? 'dark' : 'light') : app.settings.theme;
 }
+let shownTheme = null;
 function updateTheme() {
-  const theme = currentTheme();
-  applyTheme(theme);
-  setWindowTheme(theme === 'dark');
+  shownTheme = applyTheme(currentTheme(), app.settings.customTheme);
+  setWindowTheme(shownTheme.mode === 'dark');
 }
+function setTheme(id) {
+  app.settings.theme = id;
+  app.saveSettings();
+  updateTheme();
+  renderHeader();
+}
+/** The theme button: a painter's palette with coloured paint. */
+const PALETTE_ICON = '<svg class="icon palette-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6a9.4 9.4 0 0 0 0 18.8c1.2 0 1.7-.9 1.7-1.6 0-1.3-1-1.6-1-2.6s.8-1.6 2.3-1.6h2.1a4.4 4.4 0 0 0 4.4-4.4C21.5 6.4 17.3 2.6 12 2.6z" fill="#d9b382" stroke="#8a6338" stroke-width="1.2"/><circle cx="7.2" cy="11.2" r="1.7" fill="#e53935"/><circle cx="9.6" cy="6.9" r="1.7" fill="#fdd835"/><circle cx="14.6" cy="6.6" r="1.7" fill="#43a047"/><circle cx="17.9" cy="10.1" r="1.7" fill="#1e88e5"/><circle cx="8.4" cy="16.1" r="1.5" fill="#8e24aa"/></svg>';
+
+/** Theme button: the next of the 40 themes. */
+function cycleTheme() {
+  const next = nextTheme(currentTheme());
+  setTheme(next.id);
+  toast(t('theme.changed', { name: next.name }), 'info', 1400);
+}
+async function pickTheme(id) {
+  if (id !== EDIT_CUSTOM) { setTheme(id); return; }
+  const saved = await customThemeDialog();
+  if (!saved) updateTheme(); // back from the preview
+  renderHeader();
+}
+/** Language button: Korean ↔ English (shows the flag of the language it switches to). */
+function toggleLanguage() {
+  app.settings.language = getLanguage() === 'ko' ? 'en' : 'ko';
+  app.saveSettings();
+  setLanguage(app.settings.language);
+}
+watchNumbers(document);
 darkQuery?.addEventListener?.('change', () => { if (app.settings.theme === 'system') updateTheme(); });
 
 // ───────────────────────── layout
@@ -86,7 +119,7 @@ const folderPane = createFolderPane({ onOpenWebFolder: openWebFolder, onOpenWebF
 const catalogPane = createCatalogPane();
 const calendarPane = createCalendarPane();
 const searchPane = createSearchPane();
-const propertiesPane = createPropertiesPane({ onShowOnMap: () => showRightTab('map') });
+const propertiesPane = createPropertiesPane({ onShowOnMap: () => showRightTab('map'), onFilter: (change) => setListFilter(change) });
 const previewPane = createPreviewPane();
 const mapPane = createMapPane();
 const viewer = createViewer({
@@ -103,8 +136,32 @@ const peoplePane = createPeoplePane();
 const LEFT_TABS = [['folders', 'folder', folderPane], ['catalog', 'bookmark', catalogPane], ['people', 'user', peoplePane], ['calendar', 'calendar', calendarPane], ['search', 'search', searchPane]];
 const RIGHT_TABS = [['properties', 'info', propertiesPane], ['preview', 'image', previewPane], ['map', 'map', mapPane]];
 
-function tabs(container, list, current, onPick) {
+/** A side panel: title bar (icon, title, collapse button) and tabs; collapsed it is a strip of icons and the title. */
+function tabs(container, list, current, onPick, side) {
   clear(container);
+  const p = app.settings.panes;
+  const key = side === 'left' ? 'leftCollapsed' : 'rightCollapsed';
+  const collapsed = p[key];
+  const [currentId, currentIcon] = list.find(([id]) => id === current) ?? list[0];
+  const setCollapsed = (value) => { p[key] = value; app.saveSettings(); layoutPanes(); };
+  // "<" folds the left panel towards the left edge, ">" the right one towards the right edge.
+  const fold = side === 'left' ? '<' : '>';
+  const unfold = side === 'left' ? '>' : '<';
+  container.classList.toggle('collapsed', collapsed);
+  if (collapsed) {
+    container.append(
+      h('button.pane-fold', { type: 'button', title: t('pane.expand'), dataset: { fold: side }, onclick: () => setCollapsed(false) }, unfold),
+      h('div.pane-strip-tabs', list.map(([id, iconName]) => h(`button.pane-strip-tab${id === current ? '.on' : ''}`, { type: 'button', title: t(`pane.${id}`), dataset: { tab: id }, html: icon(iconName), onclick: () => { p[key] = false; onPick(id); } }))),
+      h('div.pane-strip-title', { title: t(`pane.${currentId}`) }, h('span', { html: icon(currentIcon) }), h('span.pane-strip-text', t(`pane.${currentId}`))));
+    return;
+  }
+  // A pane may put its own buttons on the title row (the Folders pane: the drives).
+  const headTools = list.find(([id]) => id === current)?.[2].headTools?.() ?? null;
+  container.append(h('div.pane-head',
+    h('span.pane-head-icon', { html: icon(currentIcon) }),
+    h('span.pane-head-title', t(`pane.${currentId}`)),
+    headTools,
+    h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: side }, onclick: () => setCollapsed(true) }, fold)));
   const bar = h('div.pane-tabs', { role: 'tablist' });
   for (const [id, iconName] of list) {
     bar.append(h(`button.pane-tab${id === current ? '.on' : ''}`, { type: 'button', role: 'tab', title: t(`pane.${id}`), dataset: { tab: id }, onclick: () => onPick(id) }, h('span', { html: icon(iconName) }), h('span.pane-tab-label', t(`pane.${id}`))));
@@ -117,6 +174,7 @@ function tabs(container, list, current, onPick) {
 function showLeftTab(id) {
   app.settings.panes.leftTab = id;
   app.settings.panes.left = true;
+  app.settings.panes.leftCollapsed = false;
   app.saveSettings();
   layoutPanes();
 }
@@ -124,6 +182,7 @@ function showLeftTab(id) {
 function showRightTab(id) {
   app.settings.panes.rightTab = id;
   app.settings.panes.right = true;
+  app.settings.panes.rightCollapsed = false;
   app.saveSettings();
   layoutPanes();
 }
@@ -134,10 +193,13 @@ function layoutPanes() {
   rightPane.hidden = !p.right;
   manage.querySelector('[data-side=left]').hidden = !p.left;
   manage.querySelector('[data-side=right]').hidden = !p.right;
-  leftPane.style.width = `${p.leftWidth}px`;
-  rightPane.style.width = `${p.rightWidth}px`;
-  if (p.left) tabs(leftPane, LEFT_TABS, p.leftTab, showLeftTab);
-  if (p.right) tabs(rightPane, RIGHT_TABS, p.rightTab, showRightTab);
+  leftPane.style.width = p.leftCollapsed ? '' : `${p.leftWidth}px`;
+  rightPane.style.width = p.rightCollapsed ? '' : `${p.rightWidth}px`;
+  // A folded panel cannot be resized.
+  if (p.left && p.leftCollapsed) manage.querySelector('[data-side=left]').hidden = true;
+  if (p.right && p.rightCollapsed) manage.querySelector('[data-side=right]').hidden = true;
+  if (p.left) tabs(leftPane, LEFT_TABS, p.leftTab, showLeftTab, 'left');
+  if (p.right) tabs(rightPane, RIGHT_TABS, p.rightTab, showRightTab, 'right');
   basketBar.hidden = !p.basket;
   renderBasket();
   renderToolbar();
@@ -168,32 +230,25 @@ const MODES = [['manage', 'grid'], ['view', 'eye'], ['edit', 'pencil'], ['dashbo
 function renderHeader() {
   clear(header);
   const bar = menuBar([
-    { id: 'file', label: t('menu.file'), items: fileMenu },
-    { id: 'edit', label: t('menu.edit'), items: editMenu },
-    { id: 'view', label: t('menu.view'), items: viewMenu },
-    { id: 'organize', label: t('menu.organize'), items: organizeMenu },
-    { id: 'create', label: t('menu.create'), items: createMenu },
-    { id: 'tools', label: t('menu.tools'), items: toolsMenu },
-    { id: 'help', label: t('menu.help'), items: helpMenu },
+    { id: 'file', icon: 'folder', label: t('menu.file'), items: fileMenu },
+    { id: 'edit', icon: 'pencil', label: t('menu.edit'), items: editMenu },
+    { id: 'view', icon: 'eye', label: t('menu.view'), items: viewMenu },
+    { id: 'organize', icon: 'tag', label: t('menu.organize'), items: organizeMenu },
+    { id: 'create', icon: 'wand', label: t('menu.create'), items: createMenu },
+    { id: 'tools', icon: 'sliders', label: t('menu.tools'), items: toolsMenu },
+    { id: 'help', icon: 'help', label: t('menu.help'), items: helpMenu },
   ]);
   const modes = h('div.mode-switch', { role: 'tablist' }, MODES.map(([id, iconName]) => h(`button.mode-button${app.state.mode === id ? '.on' : ''}`, {
     type: 'button', role: 'tab', dataset: { mode: id }, title: t(`mode.${id}`), onclick: () => switchMode(id),
   }, h('span', { html: icon(iconName) }), h('span.mode-label', t(`mode.${id}`)))));
+  const toEnglish = getLanguage() === 'ko';
   const right = h('div.header-right',
-    h('button.tool', { type: 'button', title: t('menu.theme'), html: icon(currentTheme() === 'dark' ? 'moon' : 'sun'), onclick: (e) => themeMenu(e.currentTarget) }),
-    h('button.tool', { type: 'button', title: t('menu.language'), html: icon('globe'), onclick: (e) => languageMenu(e.currentTarget) }),
-    h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }));
+    h('button.tool', { type: 'button', id: 'theme-next', title: `${t('theme.next')} — ${shownTheme?.name ?? ''}`, html: PALETTE_ICON, onclick: cycleTheme }),
+    themeSelect(app.settings.theme, { withEdit: true, onChange: pickTheme }),
+    h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
+    h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
+    h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
   header.append(h('div.app-logo', { html: icon('images') }), bar, modes, right);
-}
-
-function themeMenu(anchor) {
-  const r = anchor.getBoundingClientRect();
-  showMenu(['system', 'dark', 'light'].map((id) => ({ label: t(`settings.${id}`), radio: true, checked: app.settings.theme === id, action: () => { app.settings.theme = id; app.saveSettings(); updateTheme(); renderHeader(); } })), r.right, r.bottom + 2, { alignRight: true });
-}
-
-function languageMenu(anchor) {
-  const r = anchor.getBoundingClientRect();
-  showMenu([['system', t('settings.system')], ['ko', '한국어'], ['en', 'English']].map(([id, label]) => ({ label, checked: app.settings.language === id, action: () => { app.settings.language = id; app.saveSettings(); setLanguage(id); } })), r.right, r.bottom + 2, { alignRight: true });
 }
 
 function switchMode(mode) {
@@ -254,6 +309,9 @@ function renderToolbar() {
     button('forward', t('nav.forward'), goForward, { title: `${t('nav.forward')} (Alt+→)`, disabled: !history.forward.length }),
     button('up', t('nav.up'), goUp, { title: `${t('nav.up')} (Backspace)`, disabled: source.type !== 'folder' || !parentOf(source.path) }),
     button('refresh', t('nav.refresh'), () => reload(), { title: `${t('nav.refresh')} (F5)` }));
+  const undoRedo = h('div.tool-group',
+    button('undo', t('undo.undo'), undoFileOp, { title: undoHistory.canUndo ? `${t('undo.undo')}: ${undoHistory.undoLabel} (Ctrl+Z)` : `${t('undo.undo')} (Ctrl+Z)`, disabled: !undoHistory.canUndo, id: 'undo-button' }),
+    button('redo', t('undo.redo'), redoFileOp, { title: undoHistory.canRedo ? `${t('undo.redo')}: ${undoHistory.redoLabel} (Ctrl+Y)` : `${t('undo.redo')} (Ctrl+Y)`, disabled: !undoHistory.canRedo, id: 'redo-button' }));
   const address = h('div.address', addressContent());
   const views = h('div.tool-group.segmented', VIEW_STYLES.map(([id, iconName]) => button(iconName, t(`viewStyle.${id}`), () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); }, { className: s.view === id ? 'on' : '' })));
   const size = h('input.thumb-size', { type: 'range', min: 64, max: 400, step: 4, value: s.thumbSize, title: t('toolbar.thumbSize'), disabled: s.view !== 'thumbs' });
@@ -276,7 +334,7 @@ function renderToolbar() {
     button('panelLeft', t('toolbar.leftPane'), () => { s.panes.left = !s.panes.left; app.saveSettings(); layoutPanes(); }, { className: s.panes.left ? 'on' : '' }),
     button('basket', t('toolbar.basket'), () => { s.panes.basket = !s.panes.basket; app.saveSettings(); layoutPanes(); }, { className: s.panes.basket ? 'on' : '' }),
     button('panelRight', t('toolbar.rightPane'), () => { s.panes.right = !s.panes.right; app.saveSettings(); layoutPanes(); }, { className: s.panes.right ? 'on' : '' }));
-  toolbar.append(nav, address, h('div.tool-group', sort, group, filter), views, size, search, panes);
+  toolbar.append(nav, undoRedo, address, h('div.tool-group', sort, group, filter), views, size, search, panes);
   // Long paths: keep the current folder (the end) in view.
   requestAnimationFrame(() => { address.scrollLeft = address.scrollWidth; });
 }
@@ -332,7 +390,7 @@ function filterMenu() {
     ...LABELS.map((l) => ({ label: t(`label.${l}`), swatch: LABEL_COLORS[l], checked: f.label === l, action: () => setListFilter({ label: l }) })),
     'separator',
     { label: t('filter.taggedOnly'), checked: f.tagged, action: () => setListFilter({ tagged: !f.tagged }) },
-    { label: t('filter.kind'), submenu: [
+    { label: t('filter.kind'), icon: 'images', submenu: [
       { label: t('filter.all'), checked: !f.kinds, action: () => setListFilter({ kinds: null }) },
       ...kinds.map(([kind, label]) => ({ label, checked: Boolean(f.kinds?.has(kind)), action: () => setListFilter({ kinds: new Set([kind, ...(kind === 'native' ? ['svg'] : [])]) }) })),
     ] },
@@ -348,11 +406,11 @@ const hasFiles = () => targetPaths({ filesOnly: true }).length > 0;
 const inFolder = () => app.state.source.type === 'folder';
 
 function ratingSubmenu(paths) {
-  return [0, 1, 2, 3, 4, 5].map((n) => ({ label: n ? '★'.repeat(n) : t('organize.noRating'), shortcut: `Ctrl+${n}`, action: () => rate(n, paths) }));
+  return [0, 1, 2, 3, 4, 5].map((n) => ({ label: n ? '★'.repeat(n) : t('organize.noRating'), icon: n ? 'starFill' : 'star', shortcut: `Ctrl+${n}`, action: () => rate(n, paths) }));
 }
 
 function labelSubmenu(paths) {
-  return [...LABELS.map((l, i) => ({ label: t(`label.${l}`), swatch: LABEL_COLORS[l], shortcut: `Alt+${i + 1}`, action: () => setLabel(l, paths) })), { label: t('organize.noLabel'), shortcut: 'Alt+0', action: () => setLabel(null, paths) }];
+  return [...LABELS.map((l, i) => ({ label: t(`label.${l}`), swatch: LABEL_COLORS[l], shortcut: `Alt+${i + 1}`, action: () => setLabel(l, paths) })), { label: t('organize.noLabel'), icon: 'close', shortcut: 'Alt+0', action: () => setLabel(null, paths) }];
 }
 
 const VIEW_STYLES = [['thumbs', 'grid'], ['tiles', 'panelLeft'], ['list', 'list'], ['details', 'table'], ['filmstrip', 'filmstrip']];
@@ -385,12 +443,40 @@ function privateMenu() {
   ];
 }
 
+/** File › Recent: the last 10 folders and 10 files; × forgets one, the last item forgets all. */
+function recentMenu() {
+  const s = app.settings;
+  const forget = (key, path) => { s[key] = s[key].filter((p) => p !== path); app.saveSettings(); };
+  const gone = (key, path) => { forget(key, path); toast(t('file.recentGone', { path }), 'error', 5000); };
+  const folders = s.recentFolders.map((path) => ({
+    label: path.replace(/^@\d+:/, ''), icon: 'folder', removeTitle: t('file.recentForget'), remove: () => forget('recentFolders', path),
+    action: () => openFolder(path).catch(() => gone('recentFolders', path)),
+  }));
+  const files = s.recentFiles.map((path) => ({
+    label: path, icon: kindOf(path) === 'video' ? 'video' : 'image', removeTitle: t('file.recentForget'), remove: () => forget('recentFiles', path),
+    action: async () => {
+      try {
+        await openFolder(parentOf(path), { select: [path] });
+        if (!app.state.list.some((i) => i.path === path)) throw new Error('missing');
+        viewItem(path);
+      } catch { gone('recentFiles', path); }
+    },
+  }));
+  if (!folders.length && !files.length) return [{ label: t('file.noRecent'), icon: 'info', disabled: true }];
+  return [
+    ...(folders.length ? [{ header: t('file.recentFolders') }, ...folders] : []),
+    ...(files.length ? [...(folders.length ? ['separator'] : []), { header: t('file.recentFiles') }, ...files] : []),
+    'separator',
+    { label: t('file.recentClear'), icon: 'trash', action: () => { s.recentFolders = []; s.recentFiles = []; app.saveSettings(); toast(t('file.recentCleared'), 'info', 1600); } },
+  ];
+}
+
 function fileMenu() {
-  const recent = app.settings.recentFolders.map((path) => ({ label: path.replace(/^@\d+:/, ''), action: () => openFolder(path).catch(() => {}) }));
+  const recent = recentMenu();
   return [
     { label: t('file.openFolder'), icon: 'folderOpen', shortcut: 'Ctrl+O', action: openFolderDialog },
     !isDesktop() ? { label: t('web.openFiles'), icon: 'images', action: openWebFiles } : { label: t('file.openFiles'), icon: 'images', action: openFilesDesktop },
-    { label: t('file.recent'), icon: 'clock', submenu: recent.length ? recent : [{ label: t('file.noRecent'), disabled: true }] },
+    { label: t('file.recent'), icon: 'clock', submenu: recent },
     { label: t('import.title'), icon: 'download', shortcut: 'Ctrl+Shift+I', action: importDialog },
     isDesktop() ? { label: t('scan.title'), icon: 'camera', action: scanDialog } : null,
     isDesktop() ? { label: t('sync.title'), icon: 'refresh', action: syncDialog } : null,
@@ -416,14 +502,17 @@ function fileMenu() {
 
 function editMenu() {
   return [
-    { label: t('edit.cut'), shortcut: 'Ctrl+X', disabled: !has() || !fs.caps.move, action: () => copyToClipboard(true) },
-    { label: t('edit.copy'), shortcut: 'Ctrl+C', disabled: !has() || !fs.caps.write, action: () => copyToClipboard(false) },
-    { label: t('edit.paste'), shortcut: 'Ctrl+V', disabled: !app.state.clipboard || !inFolder(), action: pasteClipboard },
+    { label: undoHistory.canUndo ? `${t('undo.undo')}: ${undoHistory.undoLabel}` : t('undo.undo'), icon: 'undo', shortcut: 'Ctrl+Z', disabled: !undoHistory.canUndo, action: undoFileOp },
+    { label: undoHistory.canRedo ? `${t('undo.redo')}: ${undoHistory.redoLabel}` : t('undo.redo'), icon: 'redo', shortcut: 'Ctrl+Y', disabled: !undoHistory.canRedo, action: redoFileOp },
     'separator',
-    { label: t('edit.selectAll'), shortcut: 'Ctrl+A', action: selectAll },
-    { label: t('edit.selectFiles'), action: selectFilesOnly },
-    { label: t('edit.selectNone'), shortcut: 'Ctrl+D', action: selectNone },
-    { label: t('edit.invertSelection'), shortcut: 'Ctrl+I', action: invertSelection },
+    { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: !has() || !fs.caps.move, action: () => copyToClipboard(true) },
+    { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !has() || !fs.caps.write, action: () => copyToClipboard(false) },
+    { label: t('edit.paste'), icon: 'clipboard', shortcut: 'Ctrl+V', disabled: !app.state.clipboard || !inFolder(), action: pasteClipboard },
+    'separator',
+    { label: t('edit.selectAll'), icon: 'checkSquare', shortcut: 'Ctrl+A', action: selectAll },
+    { label: t('edit.selectFiles'), icon: 'images', action: selectFilesOnly },
+    { label: t('edit.selectNone'), icon: 'square', shortcut: 'Ctrl+D', action: selectNone },
+    { label: t('edit.invertSelection'), icon: 'invert', shortcut: 'Ctrl+I', action: invertSelection },
     'separator',
     { label: t('edit.editImage'), icon: 'pencil', shortcut: 'Ctrl+E', disabled: !hasFiles(), action: () => switchMode('edit') },
     { label: t('edit.restoreOriginal'), icon: 'undo', disabled: !hasFiles() || !fs.caps.originals, action: restoreOriginals },
@@ -436,7 +525,7 @@ function viewMenu() {
   return [
     ...MODES.map(([id, iconName]) => ({ label: t(`mode.${id}`), icon: iconName, checked: app.state.mode === id, action: () => switchMode(id) })),
     'separator',
-    { label: t('menu.viewStyle'), submenu: VIEW_STYLES.map(([id]) => ({ label: t(`viewStyle.${id}`), checked: s.view === id, action: () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
+    { label: t('menu.viewStyle'), icon: 'grid', submenu: VIEW_STYLES.map(([id, iconName]) => ({ label: t(`viewStyle.${id}`), icon: iconName, checked: s.view === id, action: () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
     { label: t('toolbar.sort'), icon: 'sort', submenu: sortMenu() },
     { label: t('toolbar.group'), icon: 'layers', submenu: groupMenu() },
     { label: t('toolbar.filter'), icon: 'filter', submenu: filterMenu() },
@@ -463,7 +552,7 @@ function organizeMenu() {
     'separator',
     { label: t('organize.addToBasket'), icon: 'basket', shortcut: 'Ctrl+B', disabled: none, action: () => addToBasket(paths) },
     { label: t('organize.showBasket'), icon: 'basket', action: () => openSource({ type: 'basket' }) },
-    { label: t('organize.clearBasket'), disabled: !app.catalog.basket.length, action: () => app.catalog.clearBasket() },
+    { label: t('organize.clearBasket'), icon: 'trash', disabled: !app.catalog.basket.length, action: () => app.catalog.clearBasket() },
     'separator',
     { label: t('organize.showTagged'), icon: 'checkSquare', action: () => openSource({ type: 'filter', filters: [{ type: 'tagged' }], title: t('catalog.tagged') }) },
     { label: t('catalog.indexFolder'), icon: 'layers', disabled: !inFolder(), action: () => catalogFolder(app.state.source.path) },
@@ -538,8 +627,8 @@ function itemMenu(event, item) {
     files.length ? { label: t('view.rotateLeft'), icon: 'rotateLeft', action: () => rotateAndRefresh(files, -1) } : null,
     files.length ? { label: t('view.rotateRight'), icon: 'rotateRight', action: () => rotateAndRefresh(files, 1) } : null,
     'separator',
-    { label: t('edit.cut'), shortcut: 'Ctrl+X', disabled: !fs.caps.move, action: () => copyToClipboard(true) },
-    { label: t('edit.copy'), shortcut: 'Ctrl+C', disabled: !fs.caps.write, action: () => copyToClipboard(false) },
+    { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: !fs.caps.move, action: () => copyToClipboard(true) },
+    { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !fs.caps.write, action: () => copyToClipboard(false) },
     { label: t('file.copyTo'), icon: 'copy', disabled: !fs.caps.write, action: () => copyMoveTo(false) },
     { label: t('file.moveTo'), icon: 'move', disabled: !fs.caps.move, action: () => copyMoveTo(true) },
     { label: t('file.rename'), icon: 'rename', shortcut: 'F2', disabled: !fs.caps.rename, action: renameSelection },
@@ -547,24 +636,24 @@ function itemMenu(event, item) {
     'separator',
     files.length >= 2 && files.length <= 4 ? { label: t('tools.compare'), icon: 'compare', action: () => openCompare(selectedFiles()) } : null,
     files.length ? { label: t('menu.batch'), icon: 'layers', submenu: [
-      { label: t('tools.batchRename'), action: () => batchRename(files), disabled: !fs.caps.rename },
-      { label: t('tools.batchResize'), action: () => batchResize(files) },
-      { label: t('tools.convert'), action: () => batchConvert(files) },
-      { label: t('tools.autoAdjust'), action: () => batchAdjust(files) },
-      { label: t('tools.dates'), action: () => adjustDates(files) },
+      { label: t('tools.batchRename'), icon: 'rename', action: () => batchRename(files), disabled: !fs.caps.rename },
+      { label: t('tools.batchResize'), icon: 'fit', action: () => batchResize(files) },
+      { label: t('tools.convert'), icon: 'images', action: () => batchConvert(files) },
+      { label: t('tools.autoAdjust'), icon: 'wand', action: () => batchAdjust(files) },
+      { label: t('tools.dates'), icon: 'clock', action: () => adjustDates(files) },
     ] } : null,
     files.length ? { label: t('view.slideshow'), icon: 'play', action: () => startSlideshow(selectedFiles().length > 1 ? selectedFiles() : viewableList(), selectedFiles().length > 1 ? 0 : Math.max(0, viewableList().findIndex((i) => i.path === item.path))) } : null,
     files.length ? { label: t('file.print'), icon: 'print', action: () => printDialog(selectedFiles()) } : null,
     files.length && fs.caps.wallpaper ? { label: t('file.wallpaper'), icon: 'wallpaper', action: setWallpaper } : null,
     item.isDir ? { label: t('catalog.indexFolder'), icon: 'layers', action: () => catalogFolder(item.path) } : null,
   ] : [
-    { label: t('edit.paste'), shortcut: 'Ctrl+V', disabled: !app.state.clipboard || !inFolder(), action: pasteClipboard },
+    { label: t('edit.paste'), icon: 'clipboard', shortcut: 'Ctrl+V', disabled: !app.state.clipboard || !inFolder(), action: pasteClipboard },
     { label: t('file.newFolder'), icon: 'folderPlus', disabled: !inFolder() || !fs.caps.mkdir, action: newFolder },
     'separator',
-    { label: t('edit.selectAll'), shortcut: 'Ctrl+A', action: selectAll },
+    { label: t('edit.selectAll'), icon: 'checkSquare', shortcut: 'Ctrl+A', action: selectAll },
     { label: t('toolbar.sort'), icon: 'sort', submenu: sortMenu() },
     { label: t('toolbar.group'), icon: 'layers', submenu: groupMenu() },
-    { label: t('menu.viewStyle'), submenu: VIEW_STYLES.map(([id]) => ({ label: t(`viewStyle.${id}`), checked: app.settings.view === id, action: () => { app.settings.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
+    { label: t('menu.viewStyle'), icon: 'grid', submenu: VIEW_STYLES.map(([id, iconName]) => ({ label: t(`viewStyle.${id}`), icon: iconName, checked: app.settings.view === id, action: () => { app.settings.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
     { label: t('nav.refresh'), icon: 'refresh', shortcut: 'F5', action: () => reload() },
     inFolder() ? { label: t('catalog.indexFolder'), icon: 'layers', action: () => catalogFolder(app.state.source.path) } : null,
   ];
@@ -632,6 +721,7 @@ async function openSettings() {
 async function quit() {
   if (!(await leaveEditor())) return;
   await saveCatalogNow();
+  await thumbs.flush().catch(() => {});
   invoke('quit_app');
 }
 
@@ -767,16 +857,31 @@ function renderStatus() {
     selection.size ? h('span.status-item', plural('status.selected', selection.size), selectedSize ? ` · ${formatBytes(selectedSize)}` : '') : '',
     app.state.listFilter.rating || app.state.listFilter.label || app.state.listFilter.tagged || app.state.listFilter.kinds ? h('span.status-item.warn', t('status.filtered', { n: app.state.items.length - list.length })) : '',
     h('span.status-spacer'),
-    thumbsRemaining ? h('span.status-item', h('span.spinner-dot'), t('status.thumbnails', { n: thumbsRemaining })) : '',
+    thumbsRemaining ? h('span.status-item.status-progress', { id: 'status-thumbs' }, h('span.spinner-dot'), t('status.thumbnailsOf', { done: thumbsTotal - thumbsRemaining, total: thumbsTotal }), h('span.status-meter', h('span', { style: { width: `${Math.round(((thumbsTotal - thumbsRemaining) / Math.max(1, thumbsTotal)) * 100)}%` } }))) : '',
+    statusTask(),
     app.state.source.type === 'folder' ? h('span.status-item.path', { title: app.state.source.path }, app.state.source.path.replace(/^@\d+:/, '')) : '',
-    fs.kind === 'web' && app.state.source.type === 'folder' && webFs.isReadOnly(app.state.source.path) ? h('span.status-item.warn', t('web.readOnly')) : '');
+    fs.kind === 'web' && app.state.source.type === 'folder' && webFs.isReadOnly(app.state.source.path) ? h('span.status-item.warn', t('web.readOnly')) : '',
+    // Bottom-right corner: drag to resize the window.
+    isDesktop() ? h('span.resize-grip', { title: t('status.resize'), 'aria-hidden': 'true', onpointerdown: (event) => { event.preventDefault(); startWindowResize(); } }) : '');
 }
 
-thumbs.onProgress = (remaining) => {
+let thumbsTotal = 0;
+thumbs.onProgress = (remaining, total = remaining) => {
   const before = thumbsRemaining;
   thumbsRemaining = remaining;
-  if (Boolean(before) !== Boolean(remaining) || remaining % 20 === 0) renderStatus();
+  thumbsTotal = Math.max(total, remaining);
+  if (Boolean(before) !== Boolean(remaining) || remaining % 10 === 0) renderStatus();
 };
+
+/** The running background task (progress dialogs, slow picture loads) in the status bar. */
+function statusTask() {
+  const task = statusProgress.current();
+  if (!task) return '';
+  const percent = task.total ? Math.round((task.done / task.total) * 100) : null;
+  return h('span.status-item.status-progress', { id: 'status-task', title: task.text || task.title }, h('span.spinner-dot'), task.total ? `${task.title} ${task.done}/${task.total}` : task.title,
+    h(`span.status-meter${percent == null ? '.indeterminate' : ''}`, h('span', { style: { width: `${percent ?? 40}%` } })));
+}
+statusProgress.onChange(() => renderStatus());
 
 function renderWelcome() {
   const show = app.state.source.type === 'welcome';
@@ -867,7 +972,30 @@ document.addEventListener('keydown', async (event) => {
 });
 
 // Manage-mode commands with their default keys (users can reassign them: Help → Customize shortcuts).
+async function undoFileOp() {
+  try {
+    const step = await undoHistory.undo();
+    if (step) toast(t('undo.undone', { label: step.label }), 'info', 1600);
+  } catch (error) {
+    toast(errorText(error), 'error', 6000);
+  }
+}
+
+async function redoFileOp() {
+  try {
+    const step = await undoHistory.redo();
+    if (step) toast(t('undo.redone', { label: step.label }), 'info', 1600);
+  } catch (error) {
+    toast(errorText(error), 'error', 6000);
+  }
+}
+
+undoHistory.onChange(() => { if (app.state.mode === 'manage') renderToolbar(); });
+
 registerCommands([
+  { id: 'undo', label: 'undo.undo', key: 'Ctrl+Z', run: undoFileOp },
+  { id: 'redo', label: 'undo.redo', key: 'Ctrl+Y', run: redoFileOp },
+  { id: 'redoAlt', label: 'undo.redo', key: 'Ctrl+Shift+Z', run: redoFileOp },
   { id: 'selectAll', label: 'edit.selectAll', key: 'Ctrl+A', run: selectAll },
   { id: 'selectNone', label: 'edit.selectNone', key: 'Ctrl+D', run: selectNone },
   { id: 'invertSelection', label: 'edit.invertSelection', key: 'Ctrl+I', run: invertSelection },
@@ -972,7 +1100,7 @@ function runMenu(menuId, ...keys) {
 }
 
 // Test hook (E2E): the app's state and actions.
-globalThis.__myphoto = { app, t, actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, editor, thumbs, closeAllDialogs, fileList, mapPane };
+globalThis.__myphoto = { app, t, actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
 
 start().catch((error) => {
   console.error(error);

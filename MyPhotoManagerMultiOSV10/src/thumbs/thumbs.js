@@ -4,6 +4,20 @@
 import { kindOf } from '../formats/types.js';
 import { idbClear, idbCount, idbGet, idbSet } from '../platform/idb.js';
 import { fs } from '../platform/fs.js';
+import { assetUrl, invoke, isDesktop } from '../platform/native.js';
+
+// ───────── thumbnails stored per directory (desktop): <data>/thumbnails/<folder>/
+// index.json + images. A folder's index is read once when it opens; matching
+// thumbnails show at once from disk, the rest are made in the background.
+
+const dirOf = (path) => path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')));
+const usesDirStore = (path) => isDesktop() && !path.startsWith('@');
+function hashName(text) {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 ^ c, 2246822519); }
+  return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+}
 
 export const THUMB_SIZE = 384;
 const MEMORY_LIMIT = 4000;
@@ -51,6 +65,73 @@ class ThumbService {
     this.onInfo = null; // (path, { meta, width, height, hash }) → void
     this.onProgress = null; // (remaining) → void
     this.workerBroken = false;
+    this.dirs = new Map(); // dir → { entries: Map(name → record), loading, timer, dirty }
+    this.done = 0; // finished since the queue was last empty (for done / total in the status bar)
+  }
+
+  /** Index of a directory's stored thumbnails (loaded once). */
+  dirStore(dir) {
+    let store = this.dirs.get(dir);
+    if (!store) {
+      store = { entries: new Map(), timer: null, dirty: false };
+      store.loading = invoke('thumb_index', { dir }).then((text) => {
+        const data = text ? JSON.parse(text) : null;
+        if (data?.v === 1) for (const record of data.entries ?? []) store.entries.set(record.name, record);
+      }).catch(() => {});
+      this.dirs.set(dir, store);
+    }
+    return store;
+  }
+
+  /**
+   * A folder opens: its stored thumbnails go to memory at once (and their
+   * metadata to the catalog); everything else is made in the background.
+   */
+  async useFolder(dir, items) {
+    if (!usesDirStore(dir)) return 0;
+    const store = this.dirStore(dir);
+    await store.loading;
+    let ready = 0;
+    for (const item of items) {
+      if (item.isDir) continue;
+      const record = store.entries.get(item.name);
+      if (!record || record.size !== item.size || Math.abs(record.modified - item.modified) > 2000) continue;
+      const key = keyOf(item);
+      if (!this.memory.has(key)) {
+        this.remember(key, { url: `${assetUrl(record.file)}?v=${Math.round(record.modified)}`, width: record.width, height: record.height, hash: record.hash, meta: record.meta, stored: true });
+        this.onInfo?.(item.path, record, true);
+      }
+      ready += 1;
+    }
+    return ready;
+  }
+
+  /** Writes a new thumbnail into its directory's store. */
+  async storeInDir(item, result) {
+    const dir = dirOf(item.path);
+    const store = this.dirStore(dir);
+    await store.loading;
+    const ext = result.blob.type === 'image/jpeg' ? 'jpg' : result.blob.type === 'image/png' ? 'png' : 'webp';
+    const name = `${hashName(`${item.name}|${item.size}|${Math.round(item.modified)}`)}.${ext}`;
+    const bytes = new Uint8Array(await result.blob.arrayBuffer());
+    const file = await invoke('thumb_put', bytes, { headers: { 'x-dir': encodeURIComponent(dir), 'x-name': encodeURIComponent(name) } });
+    store.entries.set(item.name, { name: item.name, size: item.size, modified: item.modified, width: result.width, height: result.height, hash: result.hash ?? null, meta: result.meta ?? {}, file });
+    store.dirty = true;
+    clearTimeout(store.timer);
+    store.timer = setTimeout(() => this.saveDir(dir), 1500);
+  }
+
+  async saveDir(dir) {
+    const store = this.dirs.get(dir);
+    if (!store?.dirty) return;
+    store.dirty = false;
+    const json = JSON.stringify({ v: 1, dir, entries: [...store.entries.values()] });
+    await invoke('thumb_index_save', { dir, json }).catch(() => { store.dirty = true; });
+  }
+
+  /** Writes every pending index now (before quitting, and in tests). */
+  async flush() {
+    for (const [dir, store] of this.dirs) { clearTimeout(store.timer); if (store.dirty) await this.saveDir(dir); }
   }
 
   peek(item) {
@@ -102,11 +183,13 @@ class ThumbService {
   async clearCache() {
     for (const entry of this.memory.values()) if (entry.url) URL.revokeObjectURL(entry.url);
     this.memory.clear();
+    this.dirs.clear();
     await idbClear('thumbs').catch(() => {});
+    if (isDesktop()) await invoke('thumb_clear').catch(() => {});
   }
 
   cacheCount() {
-    return idbCount('thumbs').catch(() => 0);
+    return isDesktop() ? invoke('thumb_stats').catch(() => 0) : idbCount('thumbs').catch(() => 0);
   }
 
   remember(key, entry) {
@@ -131,8 +214,10 @@ class ThumbService {
       this.run(job).finally(() => {
         this.running -= 1;
         this.pending.delete(job.key);
-        this.onProgress?.(this.queue.length + this.running);
+        this.done += 1;
+        this.onProgress?.(this.queue.length + this.running, this.done + this.queue.length + this.running);
         this.pump();
+        if (!this.queue.length && !this.running) { this.done = 0; this.flush().catch(() => {}); }
       });
     }
     this.onProgress?.(this.queue.length + this.running);
@@ -141,7 +226,12 @@ class ThumbService {
   async run(job) {
     const { item, key } = job;
     try {
-      const stored = await idbGet(key, 'thumbs').catch(() => null);
+      if (usesDirStore(item.path)) {
+        await this.useFolder(dirOf(item.path), [item]);
+        const fromDir = this.memory.get(key);
+        if (fromDir) { job.resolve(fromDir); return; }
+      }
+      const stored = usesDirStore(item.path) ? null : await idbGet(key, 'thumbs').catch(() => null);
       if (stored?.blob) {
         const entry = { url: URL.createObjectURL(stored.blob), width: stored.width, height: stored.height, hash: stored.hash, meta: stored.meta };
         this.remember(key, entry);
@@ -150,7 +240,8 @@ class ThumbService {
         return;
       }
       const result = await this.make(item);
-      await idbSet(key, { blob: result.blob, width: result.width, height: result.height, hash: result.hash, meta: result.meta }, 'thumbs').catch(() => {});
+      if (usesDirStore(item.path)) await this.storeInDir(item, result).catch(() => {});
+      else await idbSet(key, { blob: result.blob, width: result.width, height: result.height, hash: result.hash, meta: result.meta }, 'thumbs').catch(() => {});
       const entry = { url: URL.createObjectURL(result.blob), width: result.width, height: result.height, hash: result.hash, meta: result.meta };
       this.remember(key, entry);
       this.onInfo?.(item.path, result, false);
@@ -166,7 +257,7 @@ class ThumbService {
     const kind = kindOf(item.name);
     if (kind === 'video') return videoThumbnail(await fs.url(item.path), THUMB_SIZE);
     const bytes = await fs.read(item.path);
-    if (kind === 'svg' || kind === 'pdf' || this.workerBroken || typeof Worker === 'undefined') return this.inPage(bytes, item.name);
+    if (kind === 'svg' || kind === 'pdf' || kind === 'dicom' || this.workerBroken || typeof Worker === 'undefined') return this.inPage(bytes, item.name);
     try {
       return await this.inWorker(bytes, item.name);
     } catch (error) {

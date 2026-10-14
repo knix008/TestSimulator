@@ -237,6 +237,38 @@ function scaledTo(image, w, hh) {
 
 // ───────────────────────── slideshow export
 
+/**
+ * Chromium's first video encoder of a session takes seconds to start; a short
+ * recording made before then holds no frames. A throwaway recording runs until
+ * the encoder delivers data (at most 8 s), once per session.
+ */
+let encoderWarm = null;
+function warmVideoEncoder(type, width, height) {
+  encoderWarm ??= (async () => {
+    const canvas = h('canvas', { width: Math.min(width, 640), height: Math.min(height, 360) });
+    const c = canvas.getContext('2d');
+    const stream = canvas.captureStream(0);
+    const track = stream.getVideoTracks()[0];
+    const recorder = new MediaRecorder(stream, { mimeType: type });
+    let encoded = 0;
+    recorder.ondataavailable = (e) => { encoded += e.data.size; };
+    const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
+    recorder.start();
+    const started = performance.now();
+    for (let i = 0; performance.now() - started < 8000 && encoded < 1000; i++) {
+      c.fillStyle = `hsl(${(i * 7) % 360}, 60%, 50%)`;
+      c.fillRect(0, 0, canvas.width, canvas.height);
+      track.requestFrame?.();
+      await new Promise((resolve) => setTimeout(resolve, 33));
+      if (i % 15 === 14) recorder.requestData();
+    }
+    recorder.stop();
+    await stopped;
+  })();
+  encoderWarm.catch(() => { encoderWarm = null; });
+  return encoderWarm;
+}
+
 export async function exportSlideshow(items) {
   const list = images(items);
   if (!list.length) return;
@@ -278,8 +310,13 @@ export async function exportSlideshow(items) {
       const decoded = await decodeImage(await fs.read(item.path), item.name, { maxSize: Math.max(W, H) });
       frames.push(decoded.source);
     }
-    const stream = canvas.captureStream(30);
+    // Frames are pushed explicitly: an automatic capture may record nothing while
+    // another window (the progress dialog) has the focus.
+    const stream = canvas.captureStream(0);
+    const track = stream.getVideoTracks()[0];
     const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+    progress.update(list.length, list.length * 2, t('create.preparingEncoder'));
+    await warmVideoEncoder(type, W, H);
     const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 8_000_000 });
     const chunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
@@ -301,7 +338,8 @@ export async function exportSlideshow(items) {
         const elapsed = performance.now() - start;
         c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
         if (i > 0 && elapsed < fadeMs) { draw(frames[i - 1], 1 - elapsed / fadeMs); draw(frame, elapsed / fadeMs); } else draw(frame);
-        await new Promise((r) => requestAnimationFrame(r));
+        track.requestFrame?.();
+        await new Promise((r) => setTimeout(r, 33)); // ~30 fps, also when the window is in the background
       }
     }
     recorder.stop();

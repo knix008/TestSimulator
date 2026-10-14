@@ -18,6 +18,7 @@ import { app, reload, saveCatalogSoon, selectedFiles, targetPaths, transfer } fr
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatDateTime } from '../util/format.js';
 import { alertDialog, confirmDialog, field, openDialog, progressDialog, selectEl, toast } from './dialog.js';
+import { colorSwatches } from './colorswatch.js';
 import { h } from './dom.js';
 
 const isJpegName = (name) => ['jpg', 'jpeg', 'jpe', 'jfif'].includes(extensionOf(name));
@@ -384,7 +385,7 @@ export async function batchWatermark(paths = targetPaths({ filesOnly: true })) {
   const position = selectEl([['br', t('batch.posBottomRight')], ['bl', t('batch.posBottomLeft')], ['bc', t('batch.posBottom')], ['c', t('batch.posCenter')], ['tr', t('batch.posTopRight')]], 'br');
   const size = h('input.input', { type: 'number', min: 1, max: 30, value: 4 });
   const opacity = h('input.input', { type: 'number', min: 5, max: 100, value: 70 });
-  const color = h('input', { type: 'color', value: '#ffffff' });
+  const color = colorSwatches('#ffffff', { key: 'watermark-color' });
   const output = outputControls({ suffix: '_wm' });
   const ok = await openDialog({
     title: plural('batch.watermarkTitle', list.length), width: 520,

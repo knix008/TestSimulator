@@ -1,5 +1,7 @@
 pub mod files;
 pub mod i18n;
+pub mod printing;
+pub mod thumbstore;
 pub mod window_state;
 
 use files::{Conflict, Entry, Listing, OpResult, Place};
@@ -379,6 +381,27 @@ async fn set_wallpaper(path: PathBuf) -> Result<(), String> {
     .await
 }
 
+/// Closes a dialog window opened by the page (its webview alone closes with window.close()).
+#[tauri::command]
+fn close_dialog_window(app: AppHandle, label: String) {
+    if label.starts_with("dialog-") {
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.destroy();
+        }
+    }
+}
+
+#[tauri::command]
+fn list_printers() -> Vec<printing::Printer> {
+    printing::printers()
+}
+
+/// Prints the page as it is (the prepared sheets) without the print preview.
+#[tauri::command]
+async fn print_direct(window: WebviewWindow, options: printing::PrintOptions) -> Result<(), String> {
+    blocking(move || printing::print_direct(&window, options)).await
+}
+
 #[tauri::command]
 fn print_window(window: WebviewWindow) -> Result<(), String> {
     window.print().map_err(|error| tr!("인쇄를 시작할 수 없습니다: {error}", "Could not start printing: {error}"))
@@ -392,6 +415,49 @@ fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
         return Ok(PathBuf::from(dir));
     }
     app.path().app_data_dir().map_err(|error| error.to_string())
+}
+
+fn thumb_root(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("thumbnails"))
+}
+
+/// The stored thumbnails of a directory (index.json text) or null.
+#[tauri::command]
+async fn thumb_index(app: AppHandle, dir: String) -> Result<Option<String>, String> {
+    let root = thumb_root(&app)?;
+    blocking(move || Ok(thumbstore::read_index(&root, &dir))).await
+}
+
+#[tauri::command]
+async fn thumb_index_save(app: AppHandle, dir: String, json: String) -> Result<(), String> {
+    let root = thumb_root(&app)?;
+    blocking(move || thumbstore::write_index(&root, &dir, &json)).await
+}
+
+/// One thumbnail image (raw body; headers x-dir and x-name, percent-encoded). Returns its path.
+#[tauri::command]
+async fn thumb_put(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
+        return Err("no thumbnail data".into());
+    };
+    let header = |name: &str| request.headers().get(name).and_then(|value| value.to_str().ok()).map(percent_decode);
+    let dir = header("x-dir").ok_or("no directory")?;
+    let name = header("x-name").ok_or("no name")?;
+    let root = thumb_root(&app)?;
+    let data = data.clone();
+    blocking(move || thumbstore::put(&root, &dir, &name, &data).map(|path| files::path_text(&path))).await
+}
+
+#[tauri::command]
+async fn thumb_stats(app: AppHandle) -> Result<usize, String> {
+    let root = thumb_root(&app)?;
+    blocking(move || Ok(thumbstore::count(&root))).await
+}
+
+#[tauri::command]
+async fn thumb_clear(app: AppHandle) -> Result<(), String> {
+    let root = thumb_root(&app)?;
+    blocking(move || thumbstore::clear(&root)).await
 }
 
 fn data_file(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
@@ -489,11 +555,45 @@ pub fn run() {
             lock(&app.state::<AppState>()).startup_paths = existing_paths(std::env::args().skip(1));
             let state_path = window_state::state_file(app.handle());
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
+            // Dialogs open as their own windows (window.open from the page): a real
+            // top-level window owned by the main one, fixed in size, with the app's
+            // icon and the dialog's title. The page fills it (same origin, about:blank).
+            let handle = app.handle().clone();
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
                 .min_inner_size(960.0, 600.0)
                 .visible(false)
-                .additional_browser_args(BROWSER_ARGS);
+                .additional_browser_args(BROWSER_ARGS)
+                .on_new_window(move |url, features| {
+                    // The page names the window in the URL fragment (about:blank#dialog-7) so it
+                    // can close it again by that label (close_dialog_window).
+                    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+                    let label = url
+                        .fragment()
+                        .filter(|f| f.starts_with("dialog-") && f.len() < 64 && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+                        .map(str::to_string)
+                        .unwrap_or_else(|| format!("dialog-{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+                    let mut popup = WebviewWindowBuilder::new(&handle, label, WebviewUrl::External("about:blank".parse().expect("url")))
+                        .window_features(features)
+                        .additional_browser_args(BROWSER_ARGS)
+                        .resizable(false)
+                        .maximizable(false)
+                        .minimizable(false)
+                        .skip_taskbar(true)
+                        .on_document_title_changed(|window, title| {
+                            let _ = window.set_title(&title);
+                        });
+                    if let Some(icon) = handle.default_window_icon() {
+                        popup = popup.icon(icon.clone()).expect("icon");
+                    }
+                    if let Some(main) = handle.get_webview_window("main") {
+                        popup = popup.parent(&main).expect("owner");
+                    }
+                    match popup.build() {
+                        Ok(window) => tauri::webview::NewWindowResponse::Create { window },
+                        Err(_) => tauri::webview::NewWindowResponse::Deny,
+                    }
+                });
             let builder = match placement {
                 Some((state, scale)) => builder
                     .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
@@ -535,6 +635,14 @@ pub fn run() {
             open_url,
             set_wallpaper,
             print_window,
+            print_direct,
+            close_dialog_window,
+            thumb_index,
+            thumb_index_save,
+            thumb_put,
+            thumb_stats,
+            thumb_clear,
+            list_printers,
             data_read,
             data_write,
             quit_app

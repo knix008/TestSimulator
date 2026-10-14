@@ -27,7 +27,8 @@
 
 | ID | 기능 | 테스트 |
 | --- | --- | --- |
-| `BROWSE-TREE` | 폴더 트리·드라이브·하위 폴더 이동 | 데스크톱 E2E |
+| `BROWSE-TREE` | 폴더 트리·하위 폴더 이동 | 데스크톱 E2E |
+| `BROWSE-DRIVES` | 시스템의 모든 드라이브(이름·여유 공간)를 보고 선택 | 기능 E2E |
 | `BROWSE-VIEWS` | 보기 방식: 썸네일·목록·세부 | 데스크톱 E2E |
 | `BROWSE-TILES` | 보기 방식: 타일·필름 스트립 | 기능 E2E |
 | `BROWSE-SORT` | 정렬·그룹·필터 | 단위 · 데스크톱 E2E |
@@ -39,6 +40,7 @@
 | `BROWSE-MAP` | 지도 창 | 데스크톱 E2E · 기능 E2E |
 | `BROWSE-DASHBOARD` | 대시보드 | 데스크톱 E2E |
 | `BROWSE-PREVIEW` | 미리 보기 창·히스토그램 | 기능 E2E |
+| `BROWSE-THUMBS` | 폴더별 썸네일 저장소: 열면 백그라운드로 모두 만들고(상태 표시줄 진행률) 다음에는 저장된 썸네일을 바로 사용 | 기능 E2E |
 | `BROWSE-ZIP` | ZIP 보관함 안의 사진 탐색 | 웹 E2E · 기능 E2E |
 
 ### 관리 · 정리·사람·비공개
@@ -105,6 +107,7 @@
 | `VIEW-VIDEO` | 동영상 재생 | 기능 E2E |
 | `VIEW-FRAME` | 동영상 프레임 저장 | 기능 E2E |
 | `VIEW-SLIDESHOW` | 슬라이드 쇼 | 데스크톱 E2E |
+| `VIEW-DICOM` | DICOM 보기: 윈도/레벨·미리 설정·반전·색상표·VOI·오버레이·프레임·시네·거리·ROI 통계·태그·귀퉁이 정보·방향 표시·값(HU)·프레임 저장 | 단위 · 기능 E2E |
 
 ### 현상·편집
 
@@ -124,6 +127,7 @@
 | `EDIT-CROP` | 자르기·회전·뒤집기·수평 | 단위 · 데스크톱 E2E |
 | `EDIT-LINE` | 선을 그어 수평 맞추기 | 기능 E2E |
 | `EDIT-RESIZE` | 크기 조절 | 단위 · 기능 E2E |
+| `EDIT-SAVEAS` | 다른 형식으로 저장: 읽을 수 있는 모든 형식(JPEG·PNG·WebP·BMP·TIFF·GIF·JPEG 2000·JPEG XL·PSD·PDF·DICOM·ICO·TGA·QOI·PPM·PCX·SGI·RAS·DDS·HDR·XBM) | 단위 · 기능 E2E |
 | `EDIT-CANVAS` | 캔버스 크기 | 단위 · 기능 E2E |
 | `EDIT-REDEYE` | 적목 제거 | 단위 · 데스크톱 E2E |
 | `EDIT-HEAL` | 잡티 제거 | 단위 · 기능 E2E |
@@ -146,7 +150,7 @@
 
 | ID | 기능 | 테스트 |
 | --- | --- | --- |
-| `CREATE-PRINT` | 인쇄·밀착 인화 | 데스크톱 E2E |
+| `CREATE-PRINT` | 인쇄·밀착 인화 | 데스크톱 E2E · 기능 E2E |
 | `CREATE-PDF` | PDF 만들기 | 단위 · 웹 E2E · 기능 E2E |
 | `CREATE-GIF` | 애니메이션 GIF | 단위 · 기능 E2E |
 | `CREATE-PANORAMA` | 파노라마 | 단위 · 기능 E2E |
@@ -161,7 +165,7 @@
 | --- | --- | --- |
 | `BATCH-RENAME` | 일괄 이름 바꾸기 | 단위 · 데스크톱 E2E |
 | `BATCH-RESIZE` | 일괄 크기 조절 | 데스크톱 E2E |
-| `BATCH-CONVERT` | 형식 변환 | 데스크톱 E2E |
+| `BATCH-CONVERT` | 형식 변환 | 단위 · 데스크톱 E2E · 기능 E2E |
 | `BATCH-ADJUST` | 일괄 자동 보정 | 기능 E2E |
 | `BATCH-ROTATE` | 무손실 회전·뒤집기 | 단위 · 데스크톱 E2E |
 | `BATCH-DATES` | 촬영 날짜 바꾸기 | 단위 · 데스크톱 E2E |
@@ -187,6 +191,7 @@
 | `FMT-JP2` | JPEG 2000 | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-JXL` | JPEG XL | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-PDF` | PDF 보기 | 단위 · 웹 E2E · 기능 E2E |
+| `FMT-DICOM` | DICOM(DCM): 모든 전송 구문·압축(JPEG·JPEG-LS·JPEG 2000·RLE)·여러 프레임 | 단위 · 기능 E2E |
 | `FMT-GIF` | 애니메이션 GIF 보기 | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-VIDEO` | 동영상 형식 | 단위 · 웹 E2E · 기능 E2E |
 | `FMT-ZIP` | ZIP 읽기 | 단위 · 기능 E2E |
@@ -195,7 +200,31 @@
 
 | ID | 기능 | 테스트 |
 | --- | --- | --- |
-| `APP-SETTINGS` | 설정·테마 | 단위 · 기능 E2E |
+| `APP-SETTINGS` | 설정 창 | 단위 · 기능 E2E |
+| `APP-THEMES` | 테마 40개(어둡게 20·밝게 20)·테마 버튼·드롭다운·사용자 정의 테마 | 단위 · 기능 E2E |
+| `APP-HEADER` | 머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보 버튼 | 기능 E2E |
+| `APP-PANELS` | 좌우 패널: 제목(아이콘)·< > 로 접기·접었을 때 아이콘과 제목·툴바 보이기 버튼 | 기능 E2E |
+| `APP-MENUS` | 모든 메뉴 항목에 아이콘 | 기능 E2E |
+| `APP-WINDOWS` | 설정·정보와 모든 팝업이 독립된 창(아이콘·제목, 크기 고정, 내용이 잘리지 않음) | 기능 E2E |
+| `APP-INPUTS` | 수치 입력의 − + 버튼과 가운데 정렬, 색 선택은 원형 견본 | 기능 E2E |
+
+### 파일·가져오기·공유
+
+| ID | 기능 | 테스트 |
+| --- | --- | --- |
+| `FILE-RECENT` | 최근 폴더·파일 10개(파일 메뉴), 하나씩·전체 지우기, 시작할 때 마지막 폴더 | 단위 · 기능 E2E |
+
+### 관리 · 탐색
+
+| ID | 기능 | 테스트 |
+| --- | --- | --- |
+| `BROWSE-SUMMARY` | 선택이 없을 때 오른쪽 패널에 목록 요약(형식·날짜·카메라·별점) | 기능 E2E |
+
+### 앱
+
+| ID | 기능 | 테스트 |
+| --- | --- | --- |
+| `APP-UNDO` | 파일 작업(이동·복사·이름·새 폴더) 실행 취소/다시 실행 버튼 | 기능 E2E |
 | `APP-LANG` | 한국어·영어 | 단위 · 웹 E2E · 데스크톱 E2E |
 | `APP-PERSIST` | 종료 후 카탈로그·마지막 폴더 유지 | 웹 E2E · 데스크톱 E2E |
 | `APP-WEB` | 웹 앱(브라우저·PWA) | 정적 · 웹 E2E |

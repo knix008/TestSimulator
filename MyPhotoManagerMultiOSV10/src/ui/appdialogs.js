@@ -6,12 +6,25 @@ import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
 import { h } from './dom.js';
+import { FLAG_EN, FLAG_KO } from './flags.js';
+import { icon } from './icons.js';
 import { slideshowSettingsFields } from './slideshow.js';
+import { themeSelect } from './themepicker.js';
+
+/** Language as a row of buttons — the flag with the language's own name; `.value` is the choice. */
+function languageButtons(value) {
+  const choices = [['system', icon('monitor'), t('settings.system')], ['ko', FLAG_KO, '한국어'], ['en', FLAG_EN, 'English']];
+  const row = h('div.lang-choice', { role: 'radiogroup' });
+  const pick = (id) => { row.value = id; for (const b of row.children) { b.classList.toggle('on', b.dataset.lang === id); b.setAttribute('aria-checked', String(b.dataset.lang === id)); } };
+  for (const [id, mark, name] of choices) row.append(h('button.lang-button', { type: 'button', role: 'radio', dataset: { lang: id }, onclick: () => pick(id) }, h('span.lang-mark', { html: mark }), h('span', name)));
+  pick(choices.some((c) => c[0] === value) ? value : 'system');
+  return row;
+}
 
 export async function settingsDialog({ onApply }) {
   const s = app.settings;
-  const language = selectEl([['system', t('settings.system')], ['ko', '한국어'], ['en', 'English']], s.language);
-  const theme = selectEl([['system', t('settings.system')], ['dark', t('settings.dark')], ['light', t('settings.light')]], s.theme);
+  const language = languageButtons(s.language);
+  const theme = themeSelect(s.theme);
   const check = (value, label) => { const input = h('input', { type: 'checkbox', checked: value }); return { input, el: h('label.check', input, label) }; };
   const hidden = check(s.showHidden, t('settings.showHidden'));
   const allFiles = check(s.showAllFiles, t('settings.showAllFiles'));
@@ -55,7 +68,15 @@ export async function settingsDialog({ onApply }) {
     content.replaceChildren(tabs.find((x) => x[0] === id)[2]);
   };
   for (const [id, label] of tabs) nav.append(h('button.settings-tab', { type: 'button', dataset: { tab: id }, onclick: () => show(id) }, label));
-  show(current);
+  // The window has one fixed size: reserve the height of the tallest tab so no tab is cut off.
+  const probe = h('div.dialog-measure', h('div.dialog', { style: { width: '640px' } }, h('div.dialog-body', h('div.settings', nav, content))));
+  document.body.append(probe);
+  let tallest = 0;
+  const first = current;
+  for (const [id] of tabs) { show(id); tallest = Math.max(tallest, content.scrollHeight); }
+  probe.remove();
+  content.style.minHeight = `${tallest}px`;
+  show(first); // measuring went through every tab: open on the first one
   const ok = await openDialog({ title: t('settings.title'), width: 640, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
   if (!ok) return;
   Object.assign(s, {
@@ -121,12 +142,17 @@ export async function aboutDialog() {
     [t('about.commit'), info?.commit ?? (typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : '')],
     [t('about.platform'), info ? `${info.os} ${info.arch} · Tauri ${info.tauri}` : t('about.web')],
     [t('about.dataFolder'), info?.dataDir ?? t('about.browserStorage')],
+    [t('about.author'), 'SHKWON(knix008@naver.com)'],
+    [t('about.copyright'), `© ${new Date().getFullYear()} SHKWON`],
+    [t('about.creditsLabel'), t('about.credits')],
   ];
   await openDialog({
-    title: t('about.title'), width: 480,
-    body: h('div.about', h('img.about-icon', { src: './icon-192.png', alt: '' }), h('h2', 'MyPhotoManager'), h('p', t('about.tagline')),
-      h('table.prop-table', rows.filter(([, v]) => v).map(([k, v]) => h('tr', h('th', k), h('td', v)))),
-      h('p.hint', 'Copyright © SHKWON (knix008@naver.com)'), h('p.hint', t('about.credits'))),
+    title: t('about.title'), width: 560, id: 'about-dialog',
+    body: h('div.about',
+      h('div.about-top',
+        h('img.about-icon', { src: new URL('./icon-192.png', document.baseURI).href, alt: '' }),
+        h('div.about-text', h('h2', 'MyPhotoManager'), h('div.about-version', `${t('about.version')} ${version}`), h('p', t('about.tagline')), h('p.about-description', t('about.description')))),
+      h('div.about-rows', rows.filter(([, v]) => v).map(([k, v]) => [h('div.about-key', k), h('div.about-value', { title: v }, v)]))),
   });
 }
 

@@ -6,10 +6,10 @@
 // original aside and remembers the settings, so the photo can be re-edited
 // later from the original without losing quality.
 import { joinPath, parentOf } from '../catalog/catalog.js';
-import { autoLevels, curveTable, histogram } from '../edit/adjust.js';
+import { autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
-import { applyPreset, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
+import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
 import { context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
@@ -20,6 +20,7 @@ import { chooseFiles, chooseSavePath, errorText, isDesktop } from '../platform/n
 import { app, reload, saveCatalogSoon } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { confirmDialog, field, openDialog, promptDialog, selectEl, toast } from './dialog.js';
+import { colorSwatches } from './colorswatch.js';
 import { button, clear, h, rafThrottle } from './dom.js';
 import { drawHistogram } from './histogram.js';
 import { icon } from './icons.js';
@@ -424,8 +425,48 @@ export function createEditor({ onDone }) {
   const toolButton = (id, label, iconName) => h(`button.btn.small${tool === id ? '.primary' : ''}`, { type: 'button', id: `tool-${id}`, onclick: () => setTool(id) }, iconName ? h('span', { html: icon(iconName) }) : '', label);
   const resetButton = (label, mutator) => h('button.btn.small', { type: 'button', onclick: () => { change(mutator, label); buildPanel(); } }, t('edit.reset'));
 
+  /**
+   * What "reset" does for each section: its values back to the original
+   * picture's (no change). The ↺ on a section's title is shown while the
+   * section changes something.
+   */
+  const RESETS = {
+    light: (e) => { for (const key of ['exposure', 'brightness', 'contrast', 'highlights', 'shadows', 'whites', 'blacks']) e.adjust[key] = DEFAULT_ADJUST[key]; e.tone.dehaze = 0; },
+    color: (e) => { for (const key of ['temperature', 'tint', 'saturation', 'vibrance', 'hue']) e.adjust[key] = DEFAULT_ADJUST[key]; },
+    colorEq: (e) => { e.tone.colorEq = null; },
+    lightEq: (e) => { e.tone.lightEq = null; },
+    splitTone: (e) => { e.tone.splitTone = null; },
+    levels: (e) => { e.adjust.levels = null; },
+    curves: (e) => { e.adjust.curves = null; },
+    detail: (e) => { e.detail = { ...DEFAULT_DETAIL }; },
+    lens: (e) => { e.lens = { ...DEFAULT_LENS }; },
+    geometry: (e) => { e.geometry = { ...defaultEdit().geometry }; e.canvas = { ...DEFAULT_CANVAS }; },
+    local: (e) => { e.local = []; },
+    repair: (e) => { e.spots = []; e.tone.skin = 0; },
+    effects: (e) => { e.adjust.effect = 'none'; e.adjust.effectAmount = 100; e.fx = { ...DEFAULT_FX }; e.effects = []; e.tilt = null; },
+    draw: (e) => { e.drawings = []; },
+    add: (e) => { e.overlay = { ...DEFAULT_OVERLAY, texts: [] }; },
+    layers: (e) => { e.layers = []; },
+  };
+  /** Does the section change anything now (compared with the original picture)? */
+  function sectionChanged(id) {
+    if (!RESETS[id]) return false;
+    const probe = normalizeEdit(JSON.parse(JSON.stringify(edit)));
+    RESETS[id](probe);
+    return JSON.stringify(probe) !== JSON.stringify(normalizeEdit(edit));
+  }
+  function resetSection(id) {
+    change((e) => RESETS[id](e), `${t('edit.reset')}: ${t(`edit.${id}`)}`);
+    if (id === 'local') selectedLocal = -1;
+    if (id === 'layers') selectedLayer = -1;
+    buildPanel();
+  }
+
   function sectionHead(id, title, iconName) {
-    const head = h(`button.edit-section-head${section === id ? '.open' : ''}`, { type: 'button', dataset: { section: id } }, h('span', { html: icon(iconName) }), h('span', title), h('span.arrow', { html: icon(section === id ? 'chevronDown' : 'chevronRight') }));
+    const reset = RESETS[id] && sectionChanged(id)
+      ? h('span.edit-section-reset', { role: 'button', title: `${t('edit.resetSection')} — ${title}`, dataset: { reset: id }, html: icon('undo'), onclick: (event) => { event.stopPropagation(); resetSection(id); } })
+      : null;
+    const head = h(`button.edit-section-head${section === id ? '.open' : ''}`, { type: 'button', dataset: { section: id } }, h('span', { html: icon(iconName) }), h('span', title), reset, h('span.arrow', { html: icon(section === id ? 'chevronDown' : 'chevronRight') }));
     head.addEventListener('click', () => { section = section === id ? null : id; if (tool) cancelTool(); else buildPanel(); });
     return head;
   }
@@ -601,7 +642,7 @@ export function createEditor({ onDone }) {
     const final = layout(full.width, full.height, g);
     const canvasW = h('input.input', { type: 'number', min: 0, max: 40000, value: edit.canvas.width || final.width, dataset: { key: 'canvas.width' } });
     const canvasH = h('input.input', { type: 'number', min: 0, max: 40000, value: edit.canvas.height || final.height, dataset: { key: 'canvas.height' } });
-    const canvasColor = h('input', { type: 'color', value: edit.canvas.color });
+    const canvasColor = colorSwatches(edit.canvas.color, { key: 'canvas-color' });
     const anchor = selectEl(ANCHORS.map((a) => [a, t(`anchor.${a}`)]), edit.canvas.anchor);
     const cropUi = tool === 'crop'
       ? h('div.crop-tools',
@@ -687,6 +728,7 @@ export function createEditor({ onDone }) {
     add.dataset.key = 'add-effect';
     const stack = edit.effects.map((effect, i) => h('div.effect-card', { dataset: { effect: effect.id } },
       h('div.effect-head', h('span', t(`fx.${effect.id}`)),
+        h('button.tool.small', { type: 'button', title: t('edit.resetEffect'), dataset: { resetEffect: String(i) }, html: icon('undo'), onclick: () => { change((e) => { e.effects[i].params = effectParams(effect.id); }, t(`fx.${effect.id}`)); buildPanel(); } }),
         h('button.tool.small', { type: 'button', title: t('common.remove'), html: icon('close'), onclick: () => { change((e) => { e.effects.splice(i, 1); }, t(`fx.${effect.id}`)); buildPanel(); } })),
       Object.entries(EFFECTS[effect.id]?.params ?? {}).filter(([, spec]) => typeof spec.min === 'number').map(([key, spec]) => sliderRow(t(`fxParam.${key}`), spec.min, spec.max, spec.max - spec.min <= 2 ? 0.01 : 1, () => effect.params?.[key] ?? spec.default, (v) => { effect.params = { ...(effect.params ?? {}), [key]: v }; }))));
     const tilt = edit.tilt;
@@ -709,7 +751,7 @@ export function createEditor({ onDone }) {
 
   function drawPanel() {
     const types = ['line', 'arrow', 'rect', 'ellipse', 'free'];
-    const color = h('input', { type: 'color', value: drawStyle.color });
+    const color = colorSwatches(drawStyle.color, { key: 'draw-color' });
     color.addEventListener('input', () => { drawStyle.color = color.value; });
     return h('div',
       h('div.chip-row', types.map((type) => h(`button.chip${drawStyle.type === type ? '.on' : ''}`, { type: 'button', dataset: { shape: type }, onclick: () => { drawStyle.type = type; tool = 'draw'; buildPanel(); draw(); } }, t(`edit.shape.${type}`)))),
@@ -734,7 +776,7 @@ export function createEditor({ onDone }) {
       textArea.value = current.text;
       let committed = false;
       textArea.addEventListener('input', () => { if (!committed) { commit(t('edit.text')); committed = true; } current.text = textArea.value; draw(); });
-      const color = h('input', { type: 'color', value: current.color });
+      const color = colorSwatches(current.color, { key: 'text-color' });
       color.addEventListener('input', () => { current.color = color.value; draw(); });
       color.addEventListener('change', () => commit(t('edit.text')));
       const font = selectEl([['sans-serif', 'Sans-serif'], ['serif', 'Serif'], ['monospace', 'Monospace'], ['cursive', 'Script']], current.font, (v) => change((e) => { e.overlay.texts[texts.length - 1].font = v; }, t('edit.text')));
@@ -746,7 +788,7 @@ export function createEditor({ onDone }) {
         h('div.hint', t('edit.textHint')));
       tool = 'text';
     }
-    const borderColor = h('input', { type: 'color', value: edit.overlay.borderColor });
+    const borderColor = colorSwatches(edit.overlay.borderColor, { key: 'border-color' });
     borderColor.addEventListener('change', () => change((e) => { e.overlay.borderColor = borderColor.value; }, t('edit.border')));
     box.append(slider('overlay', 'border', t('edit.border'), 0, 20, 0.5, (v) => `${v}%`), field(t('edit.borderColor'), borderColor));
     return box;

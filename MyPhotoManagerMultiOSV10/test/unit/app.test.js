@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { dictionaries } from '../../src/i18n.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS } from '../../src/edit/advanced.js';
-import { DEFAULTS, normalize, rememberFolder } from '../../src/settings.js';
+import { DEFAULTS, normalize, rememberFile, rememberFolder } from '../../src/settings.js';
 
 const { en, ko } = dictionaries;
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'src');
@@ -19,7 +19,7 @@ function sources(dir) {
   });
 }
 
-// features: APP-SETTINGS
+// features: APP-SETTINGS FILE-RECENT
 test('settings: defaults fill in, wrong types are ignored, limits apply', () => {
   const s = normalize({ theme: 'light', thumbSize: 9999, sort: { key: 'size', desc: 'yes' }, viewer: { wheel: 'zoom', bogus: 1 }, unknown: true, recentFolders: 'x' });
   assert.equal(s.theme, 'light');
@@ -32,9 +32,13 @@ test('settings: defaults fill in, wrong types are ignored, limits apply', () => 
   assert.equal(s.lastFolder, null);
   assert.deepEqual(normalize(null), JSON.parse(JSON.stringify(DEFAULTS)));
   for (let i = 0; i < 15; i++) rememberFolder(s, `/f${i % 13}`);
-  assert.equal(s.recentFolders.length, 12);
+  assert.equal(s.recentFolders.length, 10, 'at most 10 recent folders');
   assert.equal(s.recentFolders[0], '/f1');
   assert.equal(s.lastFolder, '/f1');
+  for (let i = 0; i < 12; i++) rememberFile(s, `/p${i}.jpg`);
+  rememberFile(s, '/p5.jpg');
+  assert.equal(s.recentFiles.length, 10, 'at most 10 recent files');
+  assert.deepEqual(s.recentFiles.slice(0, 2), ['/p5.jpg', '/p11.jpg']);
 });
 
 // features: APP-LANG

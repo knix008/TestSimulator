@@ -17,7 +17,9 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": ["**"],
+          "allow": [
+            "**"
+          ],
           "requireLiteralLeadingDot": false
         }
       }
@@ -41,12 +43,16 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Korean", "English"],
+        "languages": [
+          "Korean",
+          "English"
+        ],
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
         "headerImage": "windows/installerHeader.bmp",
         "sidebarImage": "windows/installerSidebar.bmp",
-        "installerHooks": "windows/hooks.nsh"
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyPhotoManager"
       }
     },
     "macOS": {
@@ -54,13 +60,19 @@
     },
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
         "desktopTemplate": "linux/myphotomanager.desktop",
         "postInstallScript": "linux/postinst.sh",
         "postRemoveScript": "linux/postrm.sh"
       },
       "rpm": {
-        "depends": ["webkit2gtk4.1", "gtk3"],
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
         "desktopTemplate": "linux/myphotomanager.desktop",
         "postInstallScript": "linux/postinst.sh",
         "postRemoveScript": "linux/postrm.sh"

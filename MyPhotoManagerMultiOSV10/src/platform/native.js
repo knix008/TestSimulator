@@ -61,6 +61,9 @@ export async function setFullscreen(on) {
   await getCurrentWindow().setFullscreen(on).catch(() => {});
 }
 
+/** Starts resizing the window from its bottom-right corner (the status bar grip). */
+export const startWindowResize = () => (isDesktop() ? getCurrentWindow().startResizeDragging('SouthEast').catch(() => {}) : Promise.resolve());
+
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 export const showWindow = () => (isDesktop() ? getCurrentWindow().show().catch(() => {}) : Promise.resolve());
 export const setWindowTitle = (title) => (isDesktop() ? getCurrentWindow().setTitle(title).catch(() => {}) : Promise.resolve((document.title = title)));

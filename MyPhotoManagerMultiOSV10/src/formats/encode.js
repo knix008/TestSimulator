@@ -4,6 +4,9 @@ import UTIF from 'utif2';
 import { canvasToBlob, context2d } from './canvas.js';
 import { insertSegments, isJpeg, metadataSegments, patchExifAfterEdit, writeOrientation } from './jpeg-meta.js';
 import { OUTPUT_FORMATS } from './types.js';
+import { encodeDds, encodeDicom, encodeHdr, encodeIco, encodePcx, encodePpm, encodeQoi, encodeRas, encodeSgi, encodeTga, encodeXbm } from './writers.js';
+
+const PIXEL_WRITERS = { tga: encodeTga, qoi: encodeQoi, ppm: encodePpm, pcx: encodePcx, sgi: encodeSgi, ras: encodeRas, dds: encodeDds, hdr: encodeHdr, xbm: encodeXbm, dicom: encodeDicom };
 
 /** 24-bit BMP from RGBA pixels (bottom-up rows). */
 export function encodeBmp({ width, height, data }) {
@@ -42,9 +45,29 @@ export function encodeTiff({ width, height, data }) {
  */
 export async function encodeCanvas(canvas, format, { quality = 0.92, original = null } = {}) {
   const spec = OUTPUT_FORMATS.find((f) => f.id === format) ?? OUTPUT_FORMATS[0];
-  if (spec.id === 'bmp' || spec.id === 'tiff') {
-    const pixels = context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
-    return spec.id === 'bmp' ? encodeBmp(pixels) : encodeTiff(pixels);
+  const pixels = () => context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+  if (spec.id === 'bmp') return encodeBmp(pixels());
+  if (spec.id === 'tiff') return encodeTiff(pixels());
+  if (PIXEL_WRITERS[spec.id]) return PIXEL_WRITERS[spec.id](pixels());
+  if (spec.id === 'gif') { const { encodeGif } = await import('../create/gif.js'); return encodeGif([{ image: pixels() }], { loop: null, dither: true }); }
+  if (spec.id === 'psd') { const { encodePsd } = await import('./psd.js'); const p = pixels(); return encodePsd({ width: p.width, height: p.height, data: new Uint8Array(p.data.buffer) }); }
+  if (spec.id === 'jp2') { const { encodeJpeg2000 } = await import('./codecs.js'); return encodeJpeg2000(pixels()); }
+  if (spec.id === 'jxl') { const { encodeJxl } = await import('./codecs.js'); return encodeJxl(pixels(), { quality: Math.round(quality * 100) }); }
+  if (spec.id === 'ico') {
+    // Icons are at most 256 × 256: the picture is scaled to fit, stored as PNG.
+    const k = Math.min(1, 256 / Math.max(canvas.width, canvas.height));
+    const small = document.createElement('canvas');
+    small.width = Math.max(1, Math.round(canvas.width * k));
+    small.height = Math.max(1, Math.round(canvas.height * k));
+    small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
+    const png = new Uint8Array(await (await canvasToBlob(small, 'image/png')).arrayBuffer());
+    return encodeIco(png, small.width, small.height);
+  }
+  if (spec.id === 'pdf') {
+    // One page the size of the picture (72 dpi points), the picture as JPEG.
+    const { buildPdf } = await import('../create/pdf.js');
+    const jpeg = new Uint8Array(await (await canvasToBlob(canvas, 'image/jpeg', quality)).arrayBuffer());
+    return buildPdf([{ jpeg, width: canvas.width, height: canvas.height, pageWidth: canvas.width * 0.75, pageHeight: canvas.height * 0.75, fit: 'fill' }]);
   }
   const blob = await canvasToBlob(canvas, spec.mime, spec.quality ? quality : undefined);
   let bytes = new Uint8Array(await blob.arrayBuffer());

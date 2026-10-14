@@ -12,6 +12,8 @@ import { setFullscreen } from '../platform/native.js';
 import { app, deleteItems, selectItem, setMode, viewableList } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims } from '../util/format.js';
+import { statusProgress } from './dialog.js';
+import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
 import { drawHistogram, histogramOf } from './histogram.js';
 import { icon } from './icons.js';
@@ -34,7 +36,14 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   const status = h('div.viewer-status');
   const strip = h('div.filmstrip');
   const toolbar = h('div.viewer-toolbar');
-  const el = h('div.viewer', toolbar, stage, strip, status);
+  // Medical images get their own toolbar, overlays and tools (dicomview.js).
+  const dicom = createDicomTools({
+    stage,
+    imagePoint: (x, y) => imagePoint(x, y),
+    scaleOf: () => (fit ? fitScale() : zoom),
+    onRendered: () => { pixelSource = null; drawNavigatorImage(); },
+  });
+  const el = h('div.viewer', toolbar, dicom.bar, stage, strip, status);
 
   let list = [];
   let index = 0;
@@ -143,6 +152,17 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
         // Not decodable as-is (e.g. a JPEG the engine rejects): our decoder.
       }
     }
+    if (kind === 'dicom') {
+      const { loadDicom } = await import('../formats/dicom.js');
+      const image = await loadDicom(await fs.read(item.path));
+      const { canvas } = await image.toCanvas({ frame: 0 });
+      const view = document.createElement('canvas');
+      view.width = canvas.width;
+      view.height = canvas.height;
+      view.getContext('2d').drawImage(canvas, 0, 0);
+      view.className = 'viewer-media';
+      return { el: view, width: canvas.width, height: canvas.height, kind, dicom: image };
+    }
     const key = `${item.path}#${page}`;
     let entry = cache.get(key);
     if (!entry) {
@@ -186,13 +206,18 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       if (!kept) { fit = true; offset = { x: 0, y: 0 }; }
       applyTransform();
     }
+    // A slow picture (big RAW, TIFF, PDF page …) shows in the status bar while it loads.
+    let slow = null;
+    const slowTimer = setTimeout(() => { slow = statusProgress.start(t('status.loadingPicture', { name: item.name })); }, 300);
+    const loaded = () => { clearTimeout(slowTimer); slow?.done(); };
     try {
-      const result = await elementFor(item);
+      const result = await elementFor(item).finally(loaded);
       if (mine !== token) return;
       clear(holder);
       holder.append(result.el);
       current = { item, ...result };
       pixelSource = null;
+      if (current.kind === 'dicom') await dicom.attach(current); else dicom.detach();
       if (kept) { fit = false; zoom = kept.zoom; offset = kept.offset; } else { fit = true; offset = { x: 0, y: 0 }; }
       applyTransform();
       renderPageNav();
@@ -264,6 +289,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     faceLayer.style.width = style.width;
     faceLayer.style.height = style.height;
     faceLayer.style.transform = style.transform;
+    if (dicom.active) dicom.layout(style);
     updateNavigator(scale, w, hgt);
     renderStatus();
   }
@@ -345,7 +371,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   stage.addEventListener('pointermove', (event) => {
     const point = imagePoint(event.clientX, event.clientY);
     const px = point ? pixelAt(point.x, point.y) : null;
-    pixelInfo = point && px ? `${point.x}, ${point.y}  RGB(${px[0]}, ${px[1]}, ${px[2]})  #${[px[0], px[1], px[2]].map((v) => v.toString(16).padStart(2, '0')).join('')}` : '';
+    pixelInfo = point && dicom.active ? (dicom.probe(point.x, point.y) ?? '') : point && px ? `${point.x}, ${point.y}  RGB(${px[0]}, ${px[1]}, ${px[2]})  #${[px[0], px[1], px[2]].map((v) => v.toString(16).padStart(2, '0')).join('')}` : '';
     const info = status.querySelector('.pixel-info');
     if (info) info.textContent = pixelInfo;
     if (!loupeOn || !point || !current?.el || current.kind === 'video') { loupe.hidden = true; return; }
@@ -470,6 +496,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
 
   stage.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 || event.target.closest('button, video')) return;
+    if (dicom.pointerDown(event)) return; // DICOM window / measure tools
     stage.focus({ preventScroll: true });
     const start = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
     stage.setPointerCapture(event.pointerId);
@@ -582,6 +609,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
 
   function onKey(event) {
     const k = event.key;
+    if (dicom.onKey(event)) return true;
     if (k === 'Escape') { if (fullscreen) toggleFullscreen(false); else setMode('manage'); return true; }
     // Pages first: Ctrl+PageDown is a page, plain PageDown the next photo.
     if ((event.ctrlKey || event.metaKey) && k === 'PageDown') { goPage(page + 1); return true; }
@@ -627,5 +655,6 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     /** Test hooks. */
     debug: () => ({ zoom, fit, offset: { ...offset }, page, pages: current?.pages ?? 1, kind: current?.kind ?? null, width: current?.width ?? 0, height: current?.height ?? 0, loupeOn, pixelInfo, navigator: !navigator.hidden, faces: faceLayer.querySelectorAll('.face-box').length }),
     testing: { saveVideoFrame, goPage, setZoom: (value) => setZoom(value) },
+    dicom,
   };
 }

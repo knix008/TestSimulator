@@ -16,6 +16,7 @@ export function createCatalogPane() {
   const el = h('div.pane-body.catalog-pane');
   const collapsed = new Set(['auto:lens', 'auto:aperture', 'auto:flash', 'auto:country', 'auto:focal', 'auto:iso', 'auto:orientation', 'auto:gps']);
   let active = [];
+  const keywordOpen = new Set(); // expanded keyword-tree nodes
 
   function activeTitle() {
     return active.map((f) => filterLabel(f)).join(app.settings.catalogMatch === 'any' ? ' | ' : ' + ');
@@ -62,6 +63,22 @@ export function createCatalogPane() {
     row.addEventListener('keydown', (event) => { if (event.key === 'Enter') choose(filter, event); });
     if (menu) row.addEventListener('contextmenu', (event) => contextMenu(event, menu()));
     return row;
+  }
+
+  /** "A|B|C" keywords → [{ name, path, children }] sorted by name (parents made up when missing). */
+  function keywordTree(words) {
+    const root = { children: new Map() };
+    for (const word of words) {
+      let node = root;
+      let path = '';
+      for (const part of word.split('|').map((p) => p.trim()).filter(Boolean)) {
+        path = path ? `${path}|${part}` : part;
+        if (!node.children.has(part.toLowerCase())) node.children.set(part.toLowerCase(), { name: part, path, children: new Map() });
+        node = node.children.get(part.toLowerCase());
+      }
+    }
+    const list = (node) => [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name)).map((child) => ({ name: child.name, path: child.path, children: list(child) }));
+    return list(root);
   }
 
   function section(id, title, body, { actions = [] } = {}) {
@@ -142,20 +159,44 @@ export function createCatalogPane() {
       return box;
     }, { actions: [h('button.tool.small', { type: 'button', title: t('catalog.newCategory'), html: icon('plus'), onclick: () => newCategory(null) })] }));
 
-    // Keywords.
+    // Keywords as a tree: "Places|Korea|Busan" sits under Places › Korea. A
+    // node's count includes the photos of the keywords below it, and choosing
+    // it shows them all.
     el.append(section('keywords', t('catalog.keywords'), () => {
-      const box = h('div');
-      const words = [...new Set([...catalog.keywordList, ...Object.keys(counts.keywords)])].sort((a, b) => a.localeCompare(b));
+      const box = h('div.keyword-tree');
+      const words = [...new Set([...catalog.keywordList, ...Object.keys(counts.keywords)])];
       if (!words.length) box.append(h('div.cat-empty', t('catalog.noKeywords')));
-      for (const word of words) {
-        box.append(entry({ type: 'keyword', value: word }, word, counts.keywords[word], {
-          iconName: 'hash',
-          assign: { state: assignState(files, (r) => r?.keywords?.some((k) => k.toLowerCase() === word.toLowerCase())), title: t('catalog.assignKeyword'), toggle: () => assignKeyword(word, files) },
-          menu: () => [{ label: t('catalog.deleteKeyword'), icon: 'trash', danger: true, action: () => deleteKeyword(word) }],
-        }));
-      }
+      const tree = keywordTree(words);
+      const photosUnder = (path) => {
+        let n = 0;
+        const lower = path.toLowerCase();
+        for (const record of catalog.files.values()) if (record.keywords?.some((k) => k.toLowerCase() === lower || k.toLowerCase().startsWith(`${lower}|`))) n += 1;
+        return n;
+      };
+      const draw = (nodes, depth) => {
+        for (const node of nodes) {
+          const open = keywordOpen.has(node.path);
+          const row = entry({ type: 'keyword', value: node.path }, node.name, photosUnder(node.path), {
+            iconName: node.children.length ? null : 'hash', indent: depth,
+            assign: { state: assignState(files, (r) => r?.keywords?.some((k) => k.toLowerCase() === node.path.toLowerCase())), title: t('catalog.assignKeyword'), toggle: () => assignKeyword(node.path, files) },
+            menu: () => [
+              { label: t('catalog.newSubKeyword'), icon: 'plus', action: () => newKeyword(node.path) },
+              { label: t('catalog.deleteKeyword'), icon: 'trash', danger: true, action: () => deleteKeyword(node.path) },
+            ],
+          });
+          row.dataset.keyword = node.path;
+          if (node.children.length) {
+            const toggle = h('span.tree-toggle', { role: 'button', title: open ? t('catalog.collapse') : t('catalog.expand'), dataset: { keywordToggle: node.path } }, open ? '▾' : '▸');
+            toggle.addEventListener('click', (event) => { event.stopPropagation(); if (open) keywordOpen.delete(node.path); else keywordOpen.add(node.path); render(); });
+            row.prepend(toggle);
+          } else row.prepend(h('span.tree-toggle'));
+          box.append(row);
+          if (open) draw(node.children, depth + 1);
+        }
+      };
+      draw(tree, 0);
       return box;
-    }, { actions: [h('button.tool.small', { type: 'button', title: t('catalog.newKeyword'), html: icon('plus'), onclick: newKeyword })] }));
+    }, { actions: [h('button.tool.small', { type: 'button', title: t('catalog.newKeyword'), html: icon('plus'), onclick: () => newKeyword() })] }));
 
     // Automatic categories.
     for (const key of Object.keys(AUTO_CATEGORIES)) {
@@ -215,19 +256,24 @@ export function createCatalogPane() {
     active = active.filter((f) => !(f.type === 'category' && (f.value === path || f.value.startsWith(`${path}/`))));
   }
 
-  async function newKeyword() {
-    const word = await promptDialog(t('catalog.keywordName'), '', { title: t('catalog.newKeyword'), validate: (v) => (!v.trim() ? t('file.nameEmpty') : null) });
-    if (!word) return;
+  async function newKeyword(parent = null) {
+    const name = await promptDialog(t('catalog.keywordName'), '', { title: parent ? t('catalog.newSubKeyword') : t('catalog.newKeyword'), validate: (v) => (!v.trim() ? t('file.nameEmpty') : null) });
+    if (!name) return;
+    const word = parent ? `${parent}|${name.trim()}` : name;
+    if (parent) keywordOpen.add(parent);
     const files = targetPaths({ filesOnly: true });
     if (files.length) app.catalog.addKeywords(files, [word.trim()]);
     else { app.catalog.keywordList = [...new Set([...app.catalog.keywordList, word.trim()])]; app.catalog.changed([], 'keywords'); }
   }
 
+  /** Deletes a keyword and the keywords below it. */
   async function deleteKeyword(word) {
     if (!(await confirmDialog(t('catalog.deleteKeywordConfirm', { name: word }), { danger: true, ok: t('common.delete') }))) return;
-    const paths = [...app.catalog.files].filter(([, r]) => r.keywords?.includes(word)).map(([p]) => p);
-    app.catalog.keywordList = app.catalog.keywordList.filter((k) => k !== word);
-    if (paths.length) app.catalog.removeKeywords(paths, [word]); else app.catalog.changed([], 'keywords');
+    const gone = (k) => k === word || k.startsWith(`${word}|`);
+    const removed = new Set();
+    const paths = [...app.catalog.files].filter(([, r]) => r.keywords?.some((k) => { if (gone(k)) removed.add(k); return gone(k); })).map(([p]) => p);
+    app.catalog.keywordList = app.catalog.keywordList.filter((k) => !gone(k));
+    if (paths.length) app.catalog.removeKeywords(paths, [...removed]); else app.catalog.changed([], 'keywords');
   }
 
   const later = debounce(() => { if (el.isConnected) render(); }, 250);

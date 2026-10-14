@@ -261,6 +261,65 @@ export function bayerDng({ width, height, data }, { make = 'MyPhotoManager', mod
   return new Uint8Array(Buffer.concat([Buffer.from(tiff), strip]));
 }
 
+/**
+ * A multi-frame DICOM (explicit VR little endian, 12-bit monochrome): a disc
+ * moving across `frames` frames, 100 ms apart, 0.5 mm pixels, a file window.
+ */
+export function cineDicom({ width = 96, height = 64, frames = 8 } = {}) {
+  const parts = [];
+  const even = (bytes) => (bytes.length % 2 ? Buffer.concat([bytes, Buffer.from([0x20])]) : bytes);
+  const element = (group, elem, vr, value) => {
+    let data = Buffer.isBuffer(value) ? value : vr === 'US' ? Buffer.from(new Uint16Array([value]).buffer) : Buffer.from(String(value), 'latin1');
+    if (!Buffer.isBuffer(value)) data = even(data);
+    const head = Buffer.alloc(['OB', 'OW', 'SQ', 'UN', 'UT'].includes(vr) ? 12 : 8);
+    head.writeUInt16LE(group, 0);
+    head.writeUInt16LE(elem, 2);
+    head.write(vr, 4, 'latin1');
+    if (head.length === 12) head.writeUInt32LE(data.length, 8); else head.writeUInt16LE(data.length, 6);
+    parts.push(head, data);
+  };
+  const uid = (s) => { const b = Buffer.from(s, 'latin1'); return b.length % 2 ? Buffer.concat([b, Buffer.from([0])]) : b; };
+  // File meta (group 0002) with its length.
+  const meta = [];
+  const metaElement = (elem, vr, value) => { const data = uid(value); const head = Buffer.alloc(8); head.writeUInt16LE(2, 0); head.writeUInt16LE(elem, 2); head.write(vr, 4, 'latin1'); head.writeUInt16LE(data.length, 6); meta.push(head, data); };
+  metaElement(0x0002, 'UI', '1.2.840.10008.5.1.4.1.1.7.3'); // multi-frame grayscale word secondary capture
+  metaElement(0x0003, 'UI', '1.2.826.0.1.3680043.2.1125.1.42');
+  metaElement(0x0010, 'UI', '1.2.840.10008.1.2.1');
+  const metaBytes = Buffer.concat(meta);
+  const groupLength = Buffer.alloc(12);
+  groupLength.writeUInt16LE(2, 0); groupLength.writeUInt16LE(0, 2); groupLength.write('UL', 4, 'latin1'); groupLength.writeUInt16LE(4, 6); groupLength.writeUInt32LE(metaBytes.length, 8);
+  element(0x0008, 0x0016, 'UI', uid('1.2.840.10008.5.1.4.1.1.7.3'));
+  element(0x0008, 0x0018, 'UI', uid('1.2.826.0.1.3680043.2.1125.1.42'));
+  element(0x0008, 0x0020, 'DA', '20240601');
+  element(0x0008, 0x0060, 'CS', 'OT');
+  element(0x0008, 0x1030, 'LO', 'Cine test');
+  element(0x0010, 0x0010, 'PN', 'Test^Cine');
+  element(0x0010, 0x0020, 'LO', 'CINE001');
+  element(0x0018, 0x1063, 'DS', '100');
+  element(0x0028, 0x0002, 'US', 1);
+  element(0x0028, 0x0004, 'CS', 'MONOCHROME2');
+  element(0x0028, 0x0008, 'IS', String(frames));
+  element(0x0028, 0x0010, 'US', height);
+  element(0x0028, 0x0011, 'US', width);
+  element(0x0028, 0x0030, 'DS', '0.5\\0.5');
+  element(0x0028, 0x0100, 'US', 16);
+  element(0x0028, 0x0101, 'US', 12);
+  element(0x0028, 0x0102, 'US', 11);
+  element(0x0028, 0x0103, 'US', 0);
+  element(0x0028, 0x1050, 'DS', '2048');
+  element(0x0028, 0x1051, 'DS', '4096');
+  const pixels = new Uint16Array(width * height * frames);
+  for (let f = 0; f < frames; f++) {
+    const cx = 12 + (f * (width - 24)) / Math.max(1, frames - 1);
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const inside = Math.hypot(x - cx, y - height / 2) < 10;
+      pixels[f * width * height + y * width + x] = inside ? 3800 : 400 + ((x * 16) % 400);
+    }
+  }
+  element(0x7fe0, 0x0010, 'OW', Buffer.from(pixels.buffer));
+  return new Uint8Array(Buffer.concat([Buffer.alloc(128), Buffer.from('DICM', 'latin1'), groupLength, metaBytes, ...parts]));
+}
+
 export function writeExtraFixtures(out, images, { jpegs }) {
   const files = {
     'scene.tga': tga(images.small),

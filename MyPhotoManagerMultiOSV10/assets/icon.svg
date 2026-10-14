@@ -1,46 +1,183 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2f6fe4"/>
-      <stop offset="1" stop-color="#14256e"/>
+    <!-- tile: lit face, darker extruded side, soft floor shadow, glossy top -->
+    <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#4b8bff"/>
+      <stop offset="0.55" stop-color="#2556d0"/>
+      <stop offset="1" stop-color="#13287a"/>
     </linearGradient>
+    <linearGradient id="bgSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f1f5e"/>
+      <stop offset="1" stop-color="#08123c"/>
+    </linearGradient>
+    <radialGradient id="bgLight" cx="0.3" cy="0.2" r="0.85">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.18"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.25"/>
+    </linearGradient>
+    <radialGradient id="floor" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#000" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- photo cards: paper with light falling from the top left, thick edge -->
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe5f1"/>
+    </linearGradient>
+    <linearGradient id="paperBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef2fa"/>
+      <stop offset="1" stop-color="#c3cbdd"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9c2d6"/>
+      <stop offset="1" stop-color="#8590aa"/>
+    </linearGradient>
+
+    <!-- the picture -->
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7cc8ff"/>
-      <stop offset="1" stop-color="#d9f1ff"/>
+      <stop offset="0" stop-color="#3f9cf0"/>
+      <stop offset="0.6" stop-color="#9fd6ff"/>
+      <stop offset="1" stop-color="#e3f4ff"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.38" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#fff6c4"/>
+      <stop offset="0.55" stop-color="#ffd34d"/>
+      <stop offset="1" stop-color="#f29a14"/>
+    </radialGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff3b0" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#fff3b0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="peakLit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8293b5"/>
+      <stop offset="1" stop-color="#4a587a"/>
+    </linearGradient>
+    <linearGradient id="peakShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a4664"/>
+      <stop offset="1" stop-color="#242d45"/>
     </linearGradient>
     <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3fbf6f"/>
-      <stop offset="1" stop-color="#17804a"/>
+      <stop offset="0" stop-color="#5fd88a"/>
+      <stop offset="0.5" stop-color="#2fa860"/>
+      <stop offset="1" stop-color="#136b3d"/>
     </linearGradient>
-    <linearGradient id="peak" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5a6b8c"/>
-      <stop offset="1" stop-color="#2f3b57"/>
+    <linearGradient id="hillBack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fae6f"/>
+      <stop offset="1" stop-color="#1c6e44"/>
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000" flood-opacity="0.35"/>
+    <linearGradient id="photoGloss" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="0.46" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="inset" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity="0.28"/>
+      <stop offset="0.12" stop-color="#000" stop-opacity="0"/>
+      <stop offset="0.9" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.18"/>
+    </linearGradient>
+
+    <!-- star coin -->
+    <radialGradient id="coin" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#ffe27a"/>
+      <stop offset="0.5" stop-color="#ffb300"/>
+      <stop offset="1" stop-color="#d27600"/>
+    </radialGradient>
+    <linearGradient id="coinSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b35f00"/>
+      <stop offset="1" stop-color="#7a3d00"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7dcea"/>
+    </linearGradient>
+    <linearGradient id="starFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fff1c9"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="10" dy="26" stdDeviation="24" flood-color="#020a2a" flood-opacity="0.5"/>
     </filter>
-    <clipPath id="photo"><rect x="250" y="300" width="560" height="420" rx="18"/></clipPath>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="6" dy="16" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="starShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#8a4500" flood-opacity="0.6"/>
+    </filter>
+    <filter id="blur18"><feGaussianBlur stdDeviation="18"/></filter>
+    <clipPath id="photo"><rect x="250" y="300" width="560" height="420" rx="16"/></clipPath>
+    <clipPath id="tileClip"><rect x="48" y="40" width="928" height="912" rx="200"/></clipPath>
   </defs>
-  <rect x="48" y="48" width="928" height="928" rx="200" fill="url(#bg)"/>
-  <!-- back photos of the stack -->
-  <g filter="url(#shadow)">
-    <rect x="196" y="236" width="600" height="460" rx="26" fill="#f4f6fb" transform="rotate(-9 496 466)"/>
-    <rect x="214" y="262" width="600" height="460" rx="26" fill="#ffffff" transform="rotate(5 514 492)"/>
+
+  <!-- tile with depth -->
+  <ellipse cx="512" cy="990" rx="430" ry="26" fill="url(#floor)"/>
+  <rect x="48" y="72" width="928" height="912" rx="200" fill="url(#bgSide)"/>
+  <rect x="48" y="40" width="928" height="912" rx="200" fill="url(#bg)"/>
+  <rect x="48" y="40" width="928" height="912" rx="200" fill="url(#bgLight)"/>
+  <g clip-path="url(#tileClip)">
+    <path d="M48 40 H976 V380 Q512 470 48 360 Z" fill="url(#gloss)"/>
   </g>
-  <!-- front photo -->
+  <rect x="54" y="46" width="916" height="900" rx="194" fill="none" stroke="url(#rim)" stroke-width="10"/>
+
+  <!-- back photos of the stack: thick cards -->
   <g filter="url(#shadow)">
-    <rect x="226" y="276" width="608" height="468" rx="28" fill="#ffffff"/>
+    <g transform="rotate(-9 496 466)">
+      <rect x="196" y="250" width="600" height="460" rx="26" fill="url(#edge)"/>
+      <rect x="196" y="236" width="600" height="460" rx="26" fill="url(#paperBack)"/>
+    </g>
+    <g transform="rotate(5 514 492)">
+      <rect x="214" y="276" width="600" height="460" rx="26" fill="url(#edge)"/>
+      <rect x="214" y="262" width="600" height="460" rx="26" fill="url(#paper)"/>
+    </g>
   </g>
+
+  <!-- front photo: card with a thick edge, the picture set into it -->
+  <g filter="url(#shadow)">
+    <rect x="226" y="292" width="608" height="468" rx="28" fill="url(#edge)"/>
+    <rect x="226" y="276" width="608" height="468" rx="28" fill="url(#paper)"/>
+  </g>
+  <rect x="229" y="279" width="602" height="462" rx="26" fill="none" stroke="#ffffff" stroke-width="5" stroke-opacity="0.9"/>
   <g clip-path="url(#photo)">
     <rect x="250" y="300" width="560" height="420" fill="url(#sky)"/>
-    <circle cx="690" cy="400" r="54" fill="#ffd34d"/>
-    <path d="M250 640 L420 450 L520 560 L600 480 L810 690 L810 720 L250 720 Z" fill="url(#peak)"/>
-    <path d="M420 450 L462 497 L440 505 L420 488 L398 510 L384 491 Z" fill="#ffffff" opacity="0.9"/>
-    <path d="M250 660 Q420 590 560 650 T810 640 L810 720 L250 720 Z" fill="url(#hill)"/>
+    <circle cx="690" cy="400" r="110" fill="url(#sunGlow)"/>
+    <circle cx="690" cy="400" r="54" fill="url(#sun)"/>
+    <!-- far ridge, then the main peaks with a lit and a shaded side -->
+    <path d="M250 600 Q360 520 470 575 T700 560 T810 585 L810 720 L250 720 Z" fill="#7d8fb3" opacity="0.55" filter="url(#blur18)"/>
+    <path d="M250 640 L420 450 L520 560 L600 480 L810 690 L810 720 L250 720 Z" fill="url(#peakShade)"/>
+    <path d="M250 640 L420 450 L455 640 Z" fill="url(#peakLit)"/>
+    <path d="M520 560 L600 480 L630 700 L540 700 Z" fill="url(#peakLit)" opacity="0.9"/>
+    <path d="M420 450 L462 497 L440 505 L420 488 L398 510 L384 491 Z" fill="#ffffff" opacity="0.95"/>
+    <path d="M600 480 L630 512 L612 517 L600 505 L586 520 L576 507 Z" fill="#ffffff" opacity="0.85"/>
+    <path d="M250 670 Q400 620 540 660 T810 650 L810 720 L250 720 Z" fill="url(#hillBack)"/>
+    <path d="M250 680 Q420 610 560 670 T810 660 L810 720 L250 720 Z" fill="url(#hill)"/>
+    <path d="M250 680 Q420 610 560 670" fill="none" stroke="#a8f0c0" stroke-width="5" stroke-opacity="0.6"/>
+    <!-- recessed into the card, glossy print -->
+    <rect x="250" y="300" width="560" height="420" fill="url(#inset)"/>
+    <rect x="250" y="300" width="560" height="420" fill="url(#photoGloss)"/>
   </g>
-  <!-- rating star badge -->
+
+  <!-- rating star badge: a domed coin with a thick rim -->
   <g transform="translate(742 690)">
-    <circle r="112" fill="#ffb300" stroke="#ffffff" stroke-width="20"/>
-    <path d="M0 -62 L18 -20 L63 -19 L28 9 L40 53 L0 28 L-40 53 L-28 9 L-63 -19 L-18 -20 Z" fill="#ffffff"/>
+    <g filter="url(#softShadow)">
+      <circle cy="16" r="122" fill="url(#coinSide)"/>
+      <circle r="122" fill="url(#ring)"/>
+    </g>
+    <circle cy="10" r="102" fill="url(#coinSide)"/>
+    <circle r="102" fill="url(#coin)"/>
+    <ellipse cx="-22" cy="-48" rx="66" ry="34" fill="#ffffff" opacity="0.35"/>
+    <path d="M0 -62 L18 -20 L63 -19 L28 9 L40 53 L0 28 L-40 53 L-28 9 L-63 -19 L-18 -20 Z" fill="url(#starFace)" filter="url(#starShadow)"/>
+    <path d="M0 -62 L18 -20 L0 0 Z M-63 -19 L-18 -20 L0 0 Z M28 9 L40 53 L0 0 Z" fill="#ffd77a" opacity="0.45"/>
   </g>
 </svg>

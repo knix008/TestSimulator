@@ -1,6 +1,9 @@
 // XMP sidecar files ("photo.xmp" next to "photo.nef"): rating, color label,
-// keywords, categories (as hierarchical keywords), title and caption — in the
-// properties Lightroom, Bridge, darktable and digiKam read too.
+// keywords, categories, title and caption — in the properties Lightroom,
+// Bridge, darktable and digiKam read too. Hierarchical keywords ("Places|Korea")
+// are written the Lightroom way: the full path in lr:hierarchicalSubject and
+// every level in dc:subject. Categories also go to lr:hierarchicalSubject (so
+// other programs see them) and to mpm:categories, which tells them apart again.
 //
 // An existing sidecar keeps everything else it holds (develop settings, …):
 // only the properties above are replaced.
@@ -14,6 +17,7 @@ const NS = {
   photoshop: 'http://ns.adobe.com/photoshop/1.0/',
   Iptc4xmpCore: 'http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/',
   xmpRights: 'http://ns.adobe.com/xap/1.0/rights/',
+  mpm: 'http://ns.myphotomanager.app/1.0/',
 };
 
 /**
@@ -52,10 +56,13 @@ function managedXml(fields) {
   const lines = [];
   const bag = (items) => `<rdf:Bag>${items.map((item) => `<rdf:li>${escape(item)}</rdf:li>`).join('')}</rdf:Bag>`;
   const alt = (value) => `<rdf:Alt><rdf:li xml:lang="x-default">${escape(value)}</rdf:li></rdf:Alt>`;
-  const subjects = [...new Set([...keywords, ...categories.map((path) => path.split('/').pop())])].filter(Boolean);
+  const levels = (keyword) => keyword.split('|').map((part) => part.trim()).filter(Boolean);
+  const subjects = [...new Set([...keywords.flatMap(levels), ...categories.map((path) => path.split('/').pop())])].filter(Boolean);
   if (subjects.length) lines.push(`   <dc:subject>${bag(subjects)}</dc:subject>`);
-  const hierarchy = categories.map((path) => path.split('/').filter(Boolean).join('|')).filter(Boolean);
+  const categoryPaths = categories.map((path) => path.split('/').filter(Boolean).join('|')).filter(Boolean);
+  const hierarchy = [...new Set([...keywords.filter((k) => k.includes('|')).map((k) => levels(k).join('|')), ...categoryPaths])];
   if (hierarchy.length) lines.push(`   <lr:hierarchicalSubject>${bag(hierarchy)}</lr:hierarchicalSubject>`);
+  if (categoryPaths.length) lines.push(`   <mpm:categories>${bag(categoryPaths)}</mpm:categories>`);
   if (title) lines.push(`   <dc:title>${alt(title)}</dc:title>`);
   if (caption) lines.push(`   <dc:description>${alt(caption)}</dc:description>`);
   for (const [key, [name, kind]] of Object.entries(IPTC_FIELDS)) {
@@ -86,7 +93,8 @@ export function buildXmp(fields) {
     xmlns:lr="${NS.lr}"
     xmlns:photoshop="${NS.photoshop}"
     xmlns:Iptc4xmpCore="${NS.Iptc4xmpCore}"
-    xmlns:xmpRights="${NS.xmpRights}"${attrs}>
+    xmlns:xmpRights="${NS.xmpRights}"
+    xmlns:mpm="${NS.mpm}"${attrs}>
 ${managedXml(fields)}
   </rdf:Description>
  </rdf:RDF>
@@ -95,7 +103,7 @@ ${managedXml(fields)}
 `;
 }
 
-const MANAGED_ELEMENTS = ['xmp:Rating', 'xmp:Label', 'dc:subject', 'lr:hierarchicalSubject', 'dc:title', 'dc:description', ...Object.values(IPTC_FIELDS).map(([name]) => name)];
+const MANAGED_ELEMENTS = ['xmp:Rating', 'xmp:Label', 'dc:subject', 'lr:hierarchicalSubject', 'mpm:categories', 'dc:title', 'dc:description', ...Object.values(IPTC_FIELDS).map(([name]) => name)];
 
 /** `existing` sidecar text with our properties replaced by `fields` (or a new packet). */
 export function updateXmp(existing, fields) {
@@ -111,7 +119,7 @@ export function updateXmp(existing, fields) {
   let attrs = open[1].replace(/\s+xmp:(Rating|Label)="[^"]*"/g, '');
   // Simple-text IPTC fields may also be attributes of rdf:Description.
   for (const [name] of Object.values(IPTC_FIELDS)) attrs = attrs.split(new RegExp(`\\s+${name}="[^"]*"`)).join('');
-  for (const [prefix, uri] of [['xmp', NS.xmp], ['dc', NS.dc], ['lr', NS.lr], ['photoshop', NS.photoshop], ['Iptc4xmpCore', NS.Iptc4xmpCore], ['xmpRights', NS.xmpRights]]) {
+  for (const [prefix, uri] of [['xmp', NS.xmp], ['dc', NS.dc], ['lr', NS.lr], ['photoshop', NS.photoshop], ['Iptc4xmpCore', NS.Iptc4xmpCore], ['xmpRights', NS.xmpRights], ['mpm', NS.mpm]]) {
     if (!new RegExp(`xmlns:${prefix}=`).test(attrs)) attrs += `\n    xmlns:${prefix}="${uri}"`;
   }
   attrs += attributes(fields).map((attr) => `\n    ${attr}`).join('');
@@ -142,9 +150,16 @@ export function parseXmp(text) {
   if (rating >= 1 && rating <= 5) out.rating = rating;
   const label = (property(text, 'xmp:Label') ?? '').toLowerCase();
   if (LABEL_NAMES[label]) out.label = label;
-  out.categories = items(text, 'lr:hierarchicalSubject').map((path) => path.split('|').join('/'));
-  const leaves = new Set(out.categories.map((path) => path.split('/').pop()));
-  out.keywords = items(text, 'dc:subject').filter((keyword) => !leaves.has(keyword));
+  const hierarchy = items(text, 'lr:hierarchicalSubject');
+  // Our own files say which paths are categories; older ones (and other
+  // programs' files) are read as before: every hierarchical path a category.
+  const ours = /<mpm:categories\b/.test(text);
+  const categoryPaths = ours ? items(text, 'mpm:categories') : hierarchy;
+  out.categories = categoryPaths.map((path) => path.split('|').join('/'));
+  const hierarchicalKeywords = ours ? hierarchy.filter((path) => !categoryPaths.includes(path)) : [];
+  // Plain keywords: subjects that are not just a level of a hierarchical keyword or a category name.
+  const covered = new Set([...out.categories.map((path) => path.split('/').pop()), ...hierarchicalKeywords.flatMap((path) => path.split('|'))]);
+  out.keywords = [...hierarchicalKeywords, ...items(text, 'dc:subject').filter((keyword) => !covered.has(keyword))];
   out.title = items(text, 'dc:title')[0] ?? '';
   out.caption = items(text, 'dc:description')[0] ?? '';
   for (const [key, [name, kind]] of Object.entries(IPTC_FIELDS)) {

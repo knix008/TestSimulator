@@ -39,6 +39,61 @@ pub struct Place {
     pub path: String,
     /// drive | home | pictures | desktop | documents | downloads | volume | root
     pub kind: String,
+    /// Drives and volumes: the volume label ("" when none).
+    pub label: String,
+    /// Drives: fixed | removable | network | cdrom | ram | "" (unknown).
+    pub media: String,
+    /// Bytes on the volume and free for the user (0 when unknown, e.g. no disc).
+    pub total: u64,
+    pub free: u64,
+}
+
+impl Place {
+    fn at(name: impl Into<String>, path: impl Into<String>, kind: &str) -> Self {
+        Place { name: name.into(), path: path.into(), kind: kind.into(), label: String::new(), media: String::new(), total: 0, free: 0 }
+    }
+}
+
+/// Every drive letter Windows has, even without media (an empty card reader
+/// or DVD drive), with its label, type and space.
+#[cfg(windows)]
+fn windows_drives() -> Vec<Place> {
+    use windows_sys::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives, GetVolumeInformationW};
+    let wide = |text: &str| text.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+    let mask = unsafe { GetLogicalDrives() };
+    let mut out = Vec::new();
+    for index in 0..26u32 {
+        if mask & (1 << index) == 0 {
+            continue;
+        }
+        let letter = (b'A' + index as u8) as char;
+        let root = format!("{letter}:\\");
+        let root_w = wide(&root);
+        let media = match unsafe { GetDriveTypeW(root_w.as_ptr()) } {
+            2 => "removable",
+            3 => "fixed",
+            4 => "network",
+            5 => "cdrom",
+            6 => "ram",
+            _ => "",
+        };
+        let mut place = Place::at(format!("{letter}:"), root.clone(), "drive");
+        place.media = media.into();
+        // Removable and optical drives without media: no label or size (and no slow wait).
+        let mut label = [0u16; 261];
+        let ok = unsafe { GetVolumeInformationW(root_w.as_ptr(), label.as_mut_ptr(), label.len() as u32, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), 0) };
+        if ok != 0 {
+            let end = label.iter().position(|&c| c == 0).unwrap_or(0);
+            place.label = String::from_utf16_lossy(&label[..end]);
+            let (mut free, mut total) = (0u64, 0u64);
+            if unsafe { GetDiskFreeSpaceExW(root_w.as_ptr(), &mut free, &mut total, std::ptr::null_mut()) } != 0 {
+                place.free = free;
+                place.total = total;
+            }
+        }
+        out.push(place);
+    }
+    out
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -169,39 +224,34 @@ pub fn places() -> Vec<Place> {
     let mut out = Vec::new();
     let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
     if let Some(home) = &home {
-        out.push(Place { name: home.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), path: path_text(home), kind: "home".into() });
+        out.push(Place::at(home.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), path_text(home), "home"));
         for (sub, kind) in [("Pictures", "pictures"), ("Desktop", "desktop"), ("Documents", "documents"), ("Downloads", "downloads")] {
             let path = home.join(sub);
             if path.is_dir() {
-                out.push(Place { name: sub.into(), path: path_text(&path), kind: kind.into() });
+                out.push(Place::at(sub, path_text(&path), kind));
             }
         }
     }
     #[cfg(windows)]
-    for letter in b'A'..=b'Z' {
-        let root = format!("{}:\\", letter as char);
-        if Path::new(&root).exists() {
-            out.push(Place { name: format!("{}:", letter as char), path: root, kind: "drive".into() });
-        }
-    }
+    out.extend(windows_drives());
     #[cfg(target_os = "macos")]
     {
-        out.push(Place { name: "/".into(), path: "/".into(), kind: "root".into() });
+        out.push(Place::at("/", "/", "root"));
         if let Ok(read) = fs::read_dir("/Volumes") {
             for item in read.flatten() {
-                out.push(Place { name: item.file_name().to_string_lossy().into_owned(), path: path_text(&item.path()), kind: "volume".into() });
+                out.push(Place::at(item.file_name().to_string_lossy().into_owned(), path_text(&item.path()), "volume"));
             }
         }
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        out.push(Place { name: "/".into(), path: "/".into(), kind: "root".into() });
+        out.push(Place::at("/", "/", "root"));
         let user = std::env::var("USER").unwrap_or_default();
         for base in [format!("/media/{user}"), format!("/run/media/{user}"), "/mnt".into()] {
             if let Ok(read) = fs::read_dir(&base) {
                 for item in read.flatten() {
                     if item.path().is_dir() {
-                        out.push(Place { name: item.file_name().to_string_lossy().into_owned(), path: path_text(&item.path()), kind: "volume".into() });
+                        out.push(Place::at(item.file_name().to_string_lossy().into_owned(), path_text(&item.path()), "volume"));
                     }
                 }
             }

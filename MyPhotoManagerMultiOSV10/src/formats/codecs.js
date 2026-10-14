@@ -133,3 +133,70 @@ export async function decodeJxl(input) {
   const image = await decode(buffer);
   return { width: image.width, height: image.height, data: new Uint8ClampedArray(image.data) }; // copy: may view wasm memory
 }
+
+// ---------------------------------------------------------------- encoders (Save as / convert)
+
+let jxlEncoderReady = null;
+
+async function jxlEncoderWasm() {
+  if (isNode) {
+    const fsName = 'node:fs/promises';
+    const { readFile } = await import(/* @vite-ignore */ fsName);
+    return WebAssembly.compile(await readFile(new URL(import.meta.resolve('@jsquash/jxl/codec/enc/jxl_enc.wasm'))));
+  }
+  const { default: url } = await import('@jsquash/jxl/codec/enc/jxl_enc.wasm?url');
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`cannot load the JPEG XL encoder (${response.status})`);
+  return WebAssembly.compile(await response.arrayBuffer());
+}
+
+/** RGBA → JPEG XL (lossless, or `quality` 1–100 for lossy). */
+export async function encodeJxl({ width, height, data }, { quality = 100 } = {}) {
+  jxlEncoderReady ??= (async () => {
+    const [{ default: encode, init }, wasm] = await Promise.all([import('@jsquash/jxl/encode.js'), jxlEncoderWasm()]);
+    await init(wasm);
+    return encode;
+  })();
+  jxlEncoderReady.catch(() => { jxlEncoderReady = null; });
+  const encode = await jxlEncoderReady;
+  const lossless = quality >= 100;
+  const out = await encode({ data: new Uint8ClampedArray(data), width, height }, lossless ? { lossless: true } : { quality });
+  return new Uint8Array(out);
+}
+
+let openjpegEncoderReady = null;
+
+/** RGB(A) → JPEG 2000 .jp2 file (lossless reversible wavelet; alpha is dropped on white). */
+export async function encodeJpeg2000({ width, height, data }) {
+  openjpegEncoderReady ??= import('@cornerstonejs/codec-openjpeg').then((mod) => {
+    const factory = typeof mod.default === 'function' ? mod.default : mod.default?.default ?? mod;
+    return factory({ print() {}, printErr() {} });
+  });
+  openjpegEncoderReady.catch(() => { openjpegEncoderReady = null; });
+  const openjpeg = await openjpegEncoderReady;
+  const encoder = new openjpeg.J2KEncoder();
+  try {
+    const input = encoder.getDecodedBuffer({ width, height, bitsPerSample: 8, componentCount: 3, isSigned: false });
+    for (let i = 0; i < width * height; i++) {
+      const a = data[i * 4 + 3] / 255;
+      for (let c = 0; c < 3; c++) input[i * 3 + c] = Math.round(data[i * 4 + c] * a + 255 * (1 - a));
+    }
+    encoder.setDecompositions(Math.max(0, Math.min(5, Math.floor(Math.log2(Math.min(width, height))) - 3)));
+    encoder.encode();
+    const j2k = encoder.getEncodedBuffer().slice();
+    // JP2 file: signature, file type and header boxes around the codestream.
+    const u32 = (v) => [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
+    const text = (s) => [...s].map((ch) => ch.charCodeAt(0));
+    const box = (type, payload) => [...u32(8 + payload.length), ...text(type), ...payload];
+    const ihdr = box('ihdr', [...u32(height), ...u32(width), 0, 3, 7, 7, 0, 0]);
+    const colr = box('colr', [1, 0, 0, ...u32(16)]);
+    const head = [...box('jP  ', [0x0d, 0x0a, 0x87, 0x0a]), ...box('ftyp', [...text('jp2 '), ...u32(0), ...text('jp2 ')]), ...box('jp2h', [...ihdr, ...colr])];
+    const out = new Uint8Array(head.length + 8 + j2k.length);
+    out.set(head, 0);
+    out.set([...u32(8 + j2k.length), ...text('jp2c')], head.length);
+    out.set(j2k, head.length + 8);
+    return out;
+  } finally {
+    encoder.delete();
+  }
+}

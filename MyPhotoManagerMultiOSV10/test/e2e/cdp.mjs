@@ -71,7 +71,7 @@ export class Page {
   /** Clicks the element via the DOM. Throws if missing or disabled. */
   async click(selector) {
     const result = await this.eval(`(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
+      const el = (window.__myphoto?.dq ?? ((s) => document.querySelector(s)))(${JSON.stringify(selector)});
       if (!el) return 'missing';
       if (el.disabled) return 'disabled';
       el.click();

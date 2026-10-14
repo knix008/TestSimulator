@@ -7,6 +7,7 @@
 //   raw      the JPEG preview every camera RAW file carries
 //   svg      <img> only (no createImageBitmap in workers)
 //   video    <video> (thumbnail = a frame from the first second)
+//   dicom    medical images (dicomDecoder.js: every transfer syntax, windows, frames)
 
 export const NATIVE = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'avif', 'bmp', 'dib', 'ico', 'cur'];
 export const TIFF = ['tif', 'tiff'];
@@ -20,10 +21,11 @@ export const EXTRA = ['tga', 'icb', 'vda', 'vst', 'pcx', 'pcc', 'pbm', 'pgm', 'p
 export const JP2 = ['jp2', 'j2k', 'j2c', 'jpf', 'jpx', 'jpc'];
 export const JXL = ['jxl'];
 export const PDF = ['pdf'];
+export const DICOM = ['dcm', 'dicom', 'dic'];
 // Archives open as (read-only) folders.
 export const ARCHIVES = ['zip', 'cbz'];
 
-export const IMAGE_EXTENSIONS = [...NATIVE, ...TIFF, ...HEIF, ...PSD, ...RAW, ...SVG, ...EXTRA, ...JP2, ...JXL, ...PDF];
+export const IMAGE_EXTENSIONS = [...NATIVE, ...TIFF, ...HEIF, ...PSD, ...RAW, ...SVG, ...EXTRA, ...JP2, ...JXL, ...PDF, ...DICOM];
 export const MEDIA_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO];
 
 const KIND = new Map();
@@ -38,6 +40,7 @@ for (const ext of EXTRA) KIND.set(ext, 'extra');
 for (const ext of JP2) KIND.set(ext, 'jp2');
 for (const ext of JXL) KIND.set(ext, 'jxl');
 for (const ext of PDF) KIND.set(ext, 'pdf');
+for (const ext of DICOM) KIND.set(ext, 'dicom');
 
 export const isArchive = (name) => ARCHIVES.includes(extensionOf(name));
 
@@ -67,16 +70,32 @@ export const canWriteBack = (name) => WRITABLE.includes(extensionOf(name));
 
 /** Formats offered by "Save as" / batch convert. */
 export const OUTPUT_FORMATS = [
-  { id: 'jpeg', ext: 'jpg', mime: 'image/jpeg', label: 'JPEG', quality: true },
+  { id: 'jpeg', ext: 'jpg', mime: 'image/jpeg', label: 'JPEG', quality: true, aliases: ['jpeg', 'jpe', 'jfif'] },
   { id: 'png', ext: 'png', mime: 'image/png', label: 'PNG', quality: false },
   { id: 'webp', ext: 'webp', mime: 'image/webp', label: 'WebP', quality: true },
-  { id: 'bmp', ext: 'bmp', mime: 'image/bmp', label: 'BMP', quality: false },
-  { id: 'tiff', ext: 'tif', mime: 'image/tiff', label: 'TIFF', quality: false },
+  { id: 'bmp', ext: 'bmp', mime: 'image/bmp', label: 'BMP', quality: false, aliases: ['dib'] },
+  { id: 'tiff', ext: 'tif', mime: 'image/tiff', label: 'TIFF', quality: false, aliases: ['tiff'] },
+  { id: 'gif', ext: 'gif', mime: 'image/gif', label: 'GIF', quality: false },
+  { id: 'jp2', ext: 'jp2', mime: 'image/jp2', label: 'JPEG 2000', quality: false },
+  { id: 'jxl', ext: 'jxl', mime: 'image/jxl', label: 'JPEG XL', quality: true },
+  { id: 'psd', ext: 'psd', mime: 'image/vnd.adobe.photoshop', label: 'Photoshop (PSD)', quality: false },
+  { id: 'pdf', ext: 'pdf', mime: 'application/pdf', label: 'PDF', quality: true },
+  { id: 'dicom', ext: 'dcm', mime: 'application/dicom', label: 'DICOM', quality: false, aliases: ['dicom', 'dic'] },
+  { id: 'ico', ext: 'ico', mime: 'image/x-icon', label: 'ICO', quality: false },
+  { id: 'tga', ext: 'tga', mime: 'image/x-tga', label: 'TGA', quality: false },
+  { id: 'qoi', ext: 'qoi', mime: 'image/qoi', label: 'QOI', quality: false },
+  { id: 'ppm', ext: 'ppm', mime: 'image/x-portable-pixmap', label: 'PPM (Netpbm)', quality: false, aliases: ['pnm'] },
+  { id: 'pcx', ext: 'pcx', mime: 'image/x-pcx', label: 'PCX', quality: false },
+  { id: 'sgi', ext: 'sgi', mime: 'image/sgi', label: 'SGI', quality: false, aliases: ['rgb'] },
+  { id: 'ras', ext: 'ras', mime: 'image/x-sun-raster', label: 'Sun raster', quality: false, aliases: ['sun'] },
+  { id: 'dds', ext: 'dds', mime: 'image/vnd-ms.dds', label: 'DDS', quality: false },
+  { id: 'hdr', ext: 'hdr', mime: 'image/vnd.radiance', label: 'Radiance HDR', quality: false },
+  { id: 'xbm', ext: 'xbm', mime: 'image/x-xbitmap', label: 'XBM (1-bit)', quality: false },
 ];
 
 export function outputFormatFor(name) {
   const ext = extensionOf(name);
-  return OUTPUT_FORMATS.find((format) => format.ext === ext || format.id === ext || (format.id === 'jpeg' && ['jpeg', 'jpe', 'jfif'].includes(ext)) || (format.id === 'tiff' && ext === 'tiff')) ?? null;
+  return OUTPUT_FORMATS.find((format) => format.ext === ext || format.id === ext || format.aliases?.includes(ext)) ?? null;
 }
 
 const MIME = {

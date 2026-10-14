@@ -11,7 +11,7 @@ import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util
 import { clear, debounce, h } from './dom.js';
 import { icon } from './icons.js';
 
-export function createPropertiesPane({ onShowOnMap }) {
+export function createPropertiesPane({ onShowOnMap, onFilter }) {
   const el = h('div.pane-body.properties');
   const open = { organize: true, file: true, exif: true, all: false, iptc: false };
   let metaCache = { path: null, groups: null };
@@ -147,6 +147,25 @@ export function createPropertiesPane({ onShowOnMap }) {
     }
   }
 
+  /** Nothing selected: what is in the list — types, dates, cameras, ratings; a row filters the list. */
+  function folderSummary(list) {
+    const count = (key) => { const m = new Map(); for (const item of list) { const k = key(item); if (k != null && k !== '') m.set(k, (m.get(k) ?? 0) + 1); } return [...m].sort((a, b) => b[1] - a[1]); };
+    const record = (item) => app.catalog.get(item.path) ?? {};
+    const times = list.map((i) => record(i).meta?.taken ?? i.modified).filter(Boolean).sort((a, b) => a - b);
+    const max = list.length;
+    const bars = (rows, onPick) => h('div.summary-bars', rows.slice(0, 8).map(([label, n]) => h('button.summary-row', { type: 'button', onclick: () => onPick?.(label) },
+      h('span.summary-label', String(label)), h('span.summary-bar', h('span', { style: { width: `${Math.max(4, (n / max) * 100)}%` } })), h('span.summary-count', String(n)))));
+    const section = (title, body) => h('div.summary-section', h('div.field-label', title), body);
+    const out = h('div.folder-summary');
+    out.append(section(t('summary.types'), bars(count((i) => badgeOf(i.name)), (badge) => { const name = list.find((i) => badgeOf(i.name) === badge)?.name ?? ''; onFilter?.({ text: `ext:${name.slice(name.lastIndexOf('.') + 1).toLowerCase()}` }); })));
+    if (times.length) out.append(section(t('summary.dates'), h('div.summary-dates', `${formatDateTime(times[0])} — ${formatDateTime(times.at(-1))}`)));
+    const cameras = count((i) => record(i).meta?.camera);
+    if (cameras.length) out.append(section(t('summary.cameras'), bars(cameras)));
+    const ratings = count((i) => record(i).rating ?? 0).sort((a, b) => b[0] - a[0]);
+    out.append(section(t('summary.ratings'), bars(ratings.map(([r, n]) => [r ? '★'.repeat(r) : t('catalog.unrated'), n]), (label) => onFilter?.({ rating: label.startsWith('★') ? label.length : 0 }))));
+    return out;
+  }
+
   function render() {
     const items = targets();
     const active = document.activeElement;
@@ -158,6 +177,7 @@ export function createPropertiesPane({ onShowOnMap }) {
       el.append(h('div.prop-empty', source.type === 'folder' ? t('prop.nothingSelected') : t('prop.nothingSelected')));
       const list = app.state.list.filter((i) => !i.isDir);
       if (list.length) el.append(h('div.prop-summary', plural('status.files', list.length), ' · ', formatBytes(list.reduce((s, i) => s + (i.size ?? 0), 0))));
+      if (list.length) el.append(folderSummary(list));
       return;
     }
     if (items.length > 1) el.append(h('div.prop-summary', plural('status.selectedFiles', items.length), ' · ', formatBytes(items.reduce((s, i) => s + (i.size ?? 0), 0))));

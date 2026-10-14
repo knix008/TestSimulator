@@ -9,6 +9,14 @@ import { toast } from './dialog.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { contextMenu } from './menu.js';
+import { formatBytes } from '../util/format.js';
+
+/** 'System (C:)', or 'Local disk (C:)' when the drive has no label. */
+function driveName(place) {
+  if (place.kind !== 'drive') return place.label || place.name;
+  const label = place.label || t(`drive.${place.media || 'fixed'}`);
+  return `${label} (${place.name})`;
+}
 
 const PLACE_ICONS = { home: 'home', pictures: 'images', desktop: 'monitor', documents: 'file', downloads: 'download', drive: 'drive', volume: 'drive', root: 'drive', webfolder: 'folder', memory: 'folderOpen' };
 
@@ -18,6 +26,31 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
   const actions = h('div.folder-actions');
   el.append(actions, tree);
   const nodes = new Map(); // path → { row, children, loaded, expanded, depth }
+  // The drives are buttons on the pane's title row; the chosen one's folders are shown below.
+  const driveBar = h('div.drive-buttons', { role: 'tablist' });
+  let drives = [];
+  const sameRoot = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+  const driveOf = (path) => drives.filter((d) => path && (sameRoot(path, d.path) || path.toLowerCase().startsWith(d.path.toLowerCase().replace(/[\\/]?$/, (m) => m || '/')))).sort((a, b) => b.path.length - a.path.length)[0] ?? null;
+  const chosenDrive = () => {
+    const saved = drives.find((d) => sameRoot(d.path, app.settings.panes.drive));
+    return saved ?? driveOf(app.state.source.path) ?? drives[0] ?? null;
+  };
+  function chooseDrive(drive, { open = true } = {}) {
+    app.settings.panes.drive = drive.path;
+    app.saveSettings();
+    render();
+    if (open) openFolder(drive.path).catch((error) => toast(errorText(error), 'error'));
+  }
+  function drawDriveBar() {
+    const current = chosenDrive();
+    driveBar.replaceChildren(...drives.map((drive) => {
+      const free = drive.total > 0 ? ` — ${t('folders.free', { free: formatBytes(drive.free), total: formatBytes(drive.total) })}` : '';
+      return h(`button.drive-button${current && sameRoot(current.path, drive.path) ? '.on' : ''}`, {
+        type: 'button', role: 'tab', title: `${driveName(drive)}${free}`, dataset: { drive: drive.path },
+        onclick: () => chooseDrive(drive),
+      }, drive.kind === 'drive' ? drive.name : drive.label || drive.name);
+    }));
+  }
 
   function row(path, name, depth, { iconName = 'folder', hasDirs = true, place = null } = {}) {
     const arrow = h('span.tree-arrow', { html: hasDirs ? icon('chevronRight') : '' });
@@ -109,16 +142,35 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
       else actions.append(h('button.btn.small', { type: 'button', onclick: () => onOpenWebFolder({ input: true }) }, h('span', { html: icon('folderPlus') }), t('web.openFolder')));
       actions.append(h('button.btn.small', { type: 'button', onclick: onOpenWebFiles }, h('span', { html: icon('images') }), t('web.openFiles')));
     }
+    const QUICK = { home: 1, pictures: 1, desktop: 1, documents: 1, downloads: 1 };
+    drives = places.filter((p) => !(p.kind in QUICK) && fs.kind !== 'web');
+    const quick = places.filter((p) => p.kind in QUICK || fs.kind === 'web');
+    drawDriveBar();
+    // The chosen drive's folders, right under the drive buttons.
+    const chosen = chosenDrive();
+    if (chosen) {
+      for (const place of [chosen]) {
+        const node = row(place.path, driveName(place), 0, { iconName: place.media === 'cdrom' ? 'disc' : place.media === 'network' ? 'globe' : place.media === 'removable' ? 'usb' : PLACE_ICONS[place.kind] ?? 'drive', place });
+        if (place.total > 0) {
+          const used = 1 - place.free / place.total;
+          node.querySelector('.tree-row').after(h('div.drive-usage', { style: { marginLeft: '40px' }, title: t('folders.free', { free: formatBytes(place.free), total: formatBytes(place.total) }) },
+            h('div.drive-bar', h('div.drive-fill', { className: used > 0.9 ? 'drive-fill full' : 'drive-fill', style: { width: `${Math.round(used * 100)}%` } })),
+            h('span.drive-free', t('folders.free', { free: formatBytes(place.free), total: formatBytes(place.total) }))));
+        }
+        tree.append(node);
+        toggle(nodes.get(place.path), true);
+      }
+    }
+    tree.append(h('div.tree-section', fs.kind === 'web' ? t('folders.opened') : t('folders.quick')));
+    if (!quick.length && fs.kind === 'web') tree.append(h('div.tree-hint', t('web.noFolders')));
+    for (const place of quick) {
+      const name = place.kind in QUICK ? t(`place.${place.kind}`, { name: place.name }) : place.name;
+      tree.append(row(place.path, name, 0, { iconName: PLACE_ICONS[place.kind] ?? 'folder', place }));
+    }
     const favorites = app.settings.favorites;
     if (favorites.length) {
       tree.append(h('div.tree-section', t('folders.favorites')));
       for (const path of favorites) tree.append(row(path, baseName(path) || path, 0, { iconName: 'starFill' }));
-    }
-    tree.append(h('div.tree-section', fs.kind === 'web' ? t('folders.opened') : t('folders.places')));
-    if (!places.length && fs.kind === 'web') tree.append(h('div.tree-hint', t('web.noFolders')));
-    for (const place of places) {
-      const name = place.kind in { home: 1, pictures: 1, desktop: 1, documents: 1, downloads: 1 } ? t(`place.${place.kind}`, { name: place.name }) : place.name;
-      tree.append(row(place.path, name, 0, { iconName: PLACE_ICONS[place.kind] ?? 'folder', place }));
     }
     highlight();
   }
@@ -147,12 +199,17 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
     }
   }
 
-  app.on('source', () => highlight());
+  app.on('source', () => {
+    // Opening a folder on another drive selects that drive's button.
+    const drive = driveOf(app.state.source.path);
+    if (drive && !sameRoot(drive.path, chosenDrive()?.path) && app.state.source.type === 'folder') { app.settings.panes.drive = drive.path; render(); return; }
+    highlight();
+  });
   app.on('folders-changed', (path) => {
     for (const p of [path, path && parentOf(path)]) if (p && nodes.has(p)) refreshNode(p);
     if (!path && app.state.source.type === 'folder') refreshNode(app.state.source.path);
   });
 
   // Drops of items on folder rows are handled by the file list's drag (data-drop).
-  return { el, render, highlight, toggleFavorite };
+  return { el, render, highlight, toggleFavorite, headTools: () => driveBar, chooseDrive: (path) => { const drive = drives.find((d) => sameRoot(d.path, path)); if (drive) chooseDrive(drive); } };
 }

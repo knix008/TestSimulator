@@ -2,7 +2,8 @@
 // browsed (a folder, a catalog selection, a search, the basket, a date), the
 // listed items, the selection, the mode (Manage / View / Edit / Dashboard),
 // navigation history, file operations and organizing.
-import { Catalog, joinPath, parentOf, TEXT_FIELDS } from './catalog/catalog.js';
+import { baseName, Catalog, joinPath, parentOf, TEXT_FIELDS } from './catalog/catalog.js';
+import { history } from './history.js';
 import { editJpegExif, embedJpegXmp } from './formats/exif-edit.js';
 import { readXmpPacket } from './formats/jpeg-meta.js';
 import { groupItems, sortItems } from './catalog/listing.js';
@@ -14,7 +15,7 @@ import { buildXmp, sidecarName, updateXmp } from './formats/xmp.js';
 import { plural, t } from './i18n.js';
 import { fs } from './platform/fs.js';
 import { errorText, isDesktop } from './platform/native.js';
-import { rememberFolder, saveSettings } from './settings.js';
+import { rememberFile, rememberFolder, saveSettings } from './settings.js';
 import { thumbs } from './thumbs/thumbs.js';
 import { confirmDialog, progressDialog, promptDialog, toast } from './ui/dialog.js';
 
@@ -195,6 +196,8 @@ export async function openSource(source, { history = true, select = null } = {})
   if (source.type === 'folder') {
     rememberFolder(app.settings, source.path);
     app.saveSettings();
+    // Thumbnails stored for this folder show at once (one read of its index).
+    await thumbs.useFolder(source.path, state.items).catch(() => 0);
   }
   rebuildList();
   const keep = select ? new Set([].concat(select)) : new Set();
@@ -352,6 +355,7 @@ export function viewItem(path = app.state.focus) {
   if (!item) return;
   if (item.isDir) { openFolder(item.path); return; }
   if (isArchive(item.name)) { app.emit('open-archive', item.path); return; }
+  if (!path.startsWith('@')) { rememberFile(app.settings, path); app.saveSettings(); }
   setMode('view', { path });
 }
 
@@ -401,6 +405,16 @@ export async function newFolder() {
     await reload();
     setSelection([path], path);
     app.emit('folders-changed', source.path);
+    history.push({
+      label: t('file.newFolder'),
+      undo: async () => {
+        const { dirs, files } = await fs.list(path, { hidden: true, probe: false });
+        if (dirs.length || files.length) throw new Error(t('undo.folderNotEmpty'));
+        await fs.remove([path], false);
+        await afterUndo(parentOf(path));
+      },
+      redo: async () => { await fs.mkdir(parentOf(path), baseName(path)); await afterUndo(parentOf(path), [path]); },
+    });
   } catch (error) {
     toast(errorText(error), 'error', 5000);
   }
@@ -422,6 +436,11 @@ export async function renameItem(path = app.state.focus) {
     await reload();
     setSelection([target], target);
     app.emit('folders-changed', parentOf(path));
+    history.push({
+      label: t('file.rename'),
+      undo: async () => { const back = await fs.rename(target, name); app.catalog.movePath(target, back); thumbs.invalidate(target); await afterUndo(parentOf(back), [back]); },
+      redo: async () => { const again = await fs.rename(path, next.trim()); app.catalog.movePath(path, again); thumbs.invalidate(path); await afterUndo(parentOf(again), [again]); },
+    });
   } catch (error) {
     toast(errorText(error), 'error', 5000);
   }
@@ -462,7 +481,7 @@ async function removeFromList(paths) {
 }
 
 /** Copies or moves items into `dir`; the catalog records follow. */
-export async function transfer(paths, dir, { move = false, conflict = 'rename' } = {}) {
+export async function transfer(paths, dir, { move = false, conflict = 'rename', record = true } = {}) {
   if (!paths.length || !dir) return [];
   const progress = paths.length > 20 ? progressDialog(move ? t('file.moving') : t('file.copying'), { cancellable: false }) : null;
   progress?.update(0, paths.length);
@@ -486,7 +505,57 @@ export async function transfer(paths, dir, { move = false, conflict = 'rename' }
   if (move && app.state.source.type === 'folder') await removeFromList(results.filter((r) => r.target && !r.error && !r.skipped && parentOf(r.source) === app.state.source.path).map((r) => r.source));
   if (app.state.source.type === 'folder' && app.state.source.path === dir) await reload();
   app.emit('folders-changed', dir);
+  const pairs = results.filter((r) => r.target && !r.error && !r.skipped).map((r) => ({ source: r.source, target: r.target }));
+  if (record && pairs.length) history.push(move ? moveStep(pairs, dir) : copyStep(pairs, dir));
   return results;
+}
+
+/** After an undo/redo: show the folder again (selecting `select`) and refresh the trees. */
+async function afterUndo(dir, select = []) {
+  if (app.state.source.type === 'folder') await reload();
+  if (select.length && app.state.source.type === 'folder') setSelection(select.filter((p) => parentOf(p) === app.state.source.path), select[0]);
+  app.emit('folders-changed', dir);
+}
+
+/** Moves items back where they came from, under their old names. */
+function moveStep(pairs, dir) {
+  return {
+    label: plural('undo.move', pairs.length),
+    async undo() {
+      for (const pair of pairs) {
+        const [result] = await fs.move([pair.target], parentOf(pair.source), 'rename');
+        if (!result?.target || result.error) throw new Error(result?.error ?? 'move failed');
+        let back = result.target;
+        if (baseName(back) !== baseName(pair.source)) back = await fs.rename(back, baseName(pair.source));
+        app.catalog.movePath(pair.target, back);
+        thumbs.invalidate(pair.target);
+      }
+      await afterUndo(parentOf(pairs[0].source), pairs.map((p) => p.source));
+    },
+    async redo() {
+      const results = await fs.move(pairs.map((p) => p.source), dir, 'rename');
+      results.forEach((result, i) => { if (result.target && !result.error) { app.catalog.movePath(pairs[i].source, result.target); thumbs.invalidate(pairs[i].source); pairs[i].target = result.target; } });
+      await afterUndo(dir);
+    },
+  };
+}
+
+/** Removes the copies (to the trash when there is one); redo copies again. */
+function copyStep(pairs, dir) {
+  return {
+    label: plural('undo.copy', pairs.length),
+    async undo() {
+      const results = await fs.remove(pairs.map((p) => p.target), fs.caps.trash);
+      app.catalog.removePaths(results.filter((r) => !r.error).map((r) => r.source));
+      for (const pair of pairs) thumbs.invalidate(pair.target);
+      await afterUndo(dir);
+    },
+    async redo() {
+      const results = await fs.copy(pairs.map((p) => p.source), dir, 'rename');
+      results.forEach((result, i) => { if (result.target && !result.error) { app.catalog.copyPath(pairs[i].source, result.target); pairs[i].target = result.target; } });
+      await afterUndo(dir, pairs.map((p) => p.target));
+    },
+  };
 }
 
 export function copyToClipboard(cut = false) {

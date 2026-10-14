@@ -1,5 +1,5 @@
 // Drop-down and context menus (in the page).
-//   item: { label, icon, shortcut, action, disabled, checked, danger, submenu: [items] } | 'separator'
+//   item: { label, icon, shortcut, action, disabled, checked, danger, submenu: [items], remove } | 'separator'
 import { h } from './dom.js';
 import { icon } from './icons.js';
 
@@ -23,12 +23,18 @@ function build(items, level, owner) {
     if (!item) continue;
     if (item === 'separator') { el.append(h('div.menu-separator')); continue; }
     if (item.header) { el.append(h('div.menu-header', item.header)); continue; }
+    // Every row has an icon: a choice without its own icon shows its state there
+    // (radio dot or check box) instead of an empty column.
+    const toggle = 'checked' in item || item.radio;
+    const stateIcon = item.radio ? (item.checked ? 'radioOn' : 'circle') : item.checked ? 'checkSquare' : 'square';
     const row = h(`button.menu-item${item.danger ? '.danger' : ''}`, { type: 'button', role: 'menuitem', disabled: Boolean(item.disabled), dataset: { id: item.id ?? '' } },
-      h('span.menu-check', { html: item.checked ? icon('check') : item.radio ? icon('circle') : '' }),
-      h('span.menu-icon', { html: item.icon ? icon(item.icon) : '' }),
+      h('span.menu-check', { html: item.icon && item.checked ? icon('check') : '' }),
+      h('span.menu-icon', { html: item.icon ? icon(item.icon) : toggle && !item.swatch ? icon(stateIcon) : '' }),
       h('span.menu-label', item.label),
       h('span.menu-shortcut', item.submenu ? '' : item.shortcut ?? ''),
-      item.submenu ? h('span.menu-arrow', { html: icon('chevronRight') }) : null);
+      item.submenu ? h('span.menu-arrow', { html: icon('chevronRight') }) : null,
+      // item.remove: a × at the end of the row (e.g. forget one recent folder); the row goes away.
+      item.remove ? h('span.menu-remove', { role: 'button', title: item.removeTitle ?? '', html: icon('close'), onclick: (event) => { event.stopPropagation(); item.remove(); row.remove(); } }) : null);
     if (item.swatch) row.querySelector('.menu-icon').innerHTML = `<span class="swatch" style="background:${item.swatch}"></span>`;
     if (item.submenu) {
       row.addEventListener('pointerenter', () => openSub(row, item.submenu, level + 1, owner));
@@ -133,7 +139,7 @@ export function menuBar(menus) {
     requestAnimationFrame(() => open?.elements[0]?.querySelector('.menu-item:not(:disabled)')?.focus({ preventScroll: true }));
   };
   for (const menu of menus) {
-    const button = h('button.menubar-title', { type: 'button', role: 'menuitem', dataset: { menu: menu.id } }, menu.label);
+    const button = h('button.menubar-title', { type: 'button', role: 'menuitem', dataset: { menu: menu.id } }, menu.icon ? h('span.menubar-icon', { html: icon(menu.icon) }) : '', h('span.menubar-label', menu.label));
     button.addEventListener('click', () => {
       if (active === button) { closeMenus(); return; }
       closeMenus();
@@ -144,6 +150,6 @@ export function menuBar(menus) {
     });
     bar.append(button);
   }
-  bar.relabel = (labels) => { for (const button of bar.children) button.textContent = labels[button.dataset.menu] ?? button.textContent; };
+  bar.relabel = (labels) => { for (const button of bar.children) { const label = button.querySelector('.menubar-label'); if (label) label.textContent = labels[button.dataset.menu] ?? label.textContent; } };
   return bar;
 }

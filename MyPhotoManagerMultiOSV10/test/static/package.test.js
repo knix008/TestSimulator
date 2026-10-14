@@ -60,6 +60,32 @@ test('Windows installer: Korean/English, own icon, hooks file with BOM; "Open wi
 });
 
 // features: APP-INSTALL
+test('Windows installer choices: language picker, Start menu page (can skip shortcuts), desktop shortcut on the finish page, clean reinstall, data question', () => {
+  const nsis = conf.bundle.windows.nsis;
+  assert.ok(nsis.displayLanguageSelector, 'the user picks the installer language');
+  assert.equal(nsis.startMenuFolder, 'MyPhotoManager', 'the Start menu page is shown (with "Do not create shortcuts")');
+  const text = fs.readFileSync(path.join(root, 'src-tauri', nsis.installerHooks), 'utf8');
+  assert.match(text, /ExecWait '"\$R6\\uninstall\.exe" \/S _\?=\$R6'/, 'a previous installation is uninstalled first');
+  assert.match(text, /RMDir \/r "\$R6"/, 'and its folder removed');
+  assert.match(text, /MessageBox MB_YESNO\|MB_ICONQUESTION \$R8 IDNO myphoto_keep_data/, 'asks before deleting user data');
+  assert.match(text, /RMDir \/r "\$APPDATA\\\$\{BUNDLEID\}"/);
+});
+
+// features: APP-INSTALL
+test('one icon everywhere: app, window/taskbar, installer, shortcuts and web are made from assets/icon.svg', () => {
+  const png = (file) => fs.readFileSync(path.join(root, file));
+  // render-icons.mjs draws assets/icon.png from the SVG and `tauri icon` makes the rest from it.
+  assert.ok(png('assets/icon.png').length > 10000 && png('src-tauri/icons/icon.png').length > 10000);
+  const ico = fs.readFileSync(path.join(root, conf.bundle.windows.nsis.installerIcon.startsWith('icons/') ? `src-tauri/${conf.bundle.windows.nsis.installerIcon}` : conf.bundle.windows.nsis.installerIcon));
+  const count = ico.readUInt16LE(4);
+  const sizes = Array.from({ length: count }, (_, i) => ico[6 + i * 16] || 256);
+  assert.ok(sizes.includes(256) && sizes.includes(32) && sizes.includes(16), `ico sizes ${sizes}`);
+  assert.ok(conf.bundle.icon.includes('icons/icon.ico'), 'exe, shortcuts and taskbar use icons/icon.ico');
+  const svgTime = fs.statSync(path.join(root, 'assets', 'icon.svg')).mtimeMs;
+  for (const file of ['src-tauri/icons/icon.ico', 'src-tauri/icons/icon.png', 'public/icon-192.png', 'src-tauri/windows/installerSidebar.bmp']) assert.ok(fs.statSync(path.join(root, file)).mtimeMs >= svgTime - 1000, `${file} is rendered from the current icon.svg`);
+});
+
+// features: APP-INSTALL
 test('Linux packages: desktop entry offers MyPhotoManager for images; postinst refreshes caches', () => {
   const desktop = read('src-tauri/linux/myphotomanager.desktop');
   assert.match(desktop, /MimeType=image\/jpeg;.*image\/heic;/);

@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" fill="#1e3a5f"/>
+  <circle cx="100" cy="80" r="50" fill="#4a9eff" opacity="0.9"/>
+  <polygon points="60,160 100,90 140,160" fill="#ffd700" opacity="0.85"/>
+  <text x="100" y="190" text-anchor="middle" font-family="Arial" font-size="14" fill="white">SVG Sample</text>
+</svg>

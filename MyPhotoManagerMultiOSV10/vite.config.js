@@ -24,6 +24,6 @@ export default defineConfig({
   server: { port: 1440, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/release/**'] } },
   worker: { format: 'es' },
   // OpenJPEG's decoder is CommonJS: pre-bundled so the browser gets its factory as the default export.
-  optimizeDeps: { exclude: ['libheif-js', 'libraw-wasm', '@jsquash/jxl'], include: ['@cornerstonejs/codec-openjpeg/decode'] },
+  optimizeDeps: { exclude: ['libheif-js', 'libraw-wasm', '@jsquash/jxl'], include: ['@cornerstonejs/codec-openjpeg/decode', '@cornerstonejs/codec-openjpeg'] },
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 4000 },
 });

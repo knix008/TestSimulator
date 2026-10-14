@@ -4,7 +4,8 @@
 // test/static/features.test.js fails when an ID is checked by no test.
 export const FEATURES = [
   // ── Manage: browse
-  ['BROWSE-TREE', '폴더 트리·드라이브·하위 폴더 이동'],
+  ['BROWSE-TREE', '폴더 트리·하위 폴더 이동'],
+  ['BROWSE-DRIVES', '시스템의 모든 드라이브(이름·여유 공간)를 보고 선택'],
   ['BROWSE-VIEWS', '보기 방식: 썸네일·목록·세부'],
   ['BROWSE-TILES', '보기 방식: 타일·필름 스트립'],
   ['BROWSE-SORT', '정렬·그룹·필터'],
@@ -16,6 +17,7 @@ export const FEATURES = [
   ['BROWSE-MAP', '지도 창'],
   ['BROWSE-DASHBOARD', '대시보드'],
   ['BROWSE-PREVIEW', '미리 보기 창·히스토그램'],
+  ['BROWSE-THUMBS', '폴더별 썸네일 저장소: 열면 백그라운드로 모두 만들고(상태 표시줄 진행률) 다음에는 저장된 썸네일을 바로 사용'],
   ['BROWSE-ZIP', 'ZIP 보관함 안의 사진 탐색'],
   // ── Manage: organize
   ['ORG-RATING', '별점'],
@@ -66,6 +68,7 @@ export const FEATURES = [
   ['VIEW-VIDEO', '동영상 재생'],
   ['VIEW-FRAME', '동영상 프레임 저장'],
   ['VIEW-SLIDESHOW', '슬라이드 쇼'],
+  ['VIEW-DICOM', 'DICOM 보기: 윈도/레벨·미리 설정·반전·색상표·VOI·오버레이·프레임·시네·거리·ROI 통계·태그·귀퉁이 정보·방향 표시·값(HU)·프레임 저장'],
   // ── Develop / Edit
   ['EDIT-LIGHT', '노출·대비·밝기·하이라이트·섀도'],
   ['EDIT-COLOR', '채도·생동감·색온도·색조'],
@@ -81,6 +84,7 @@ export const FEATURES = [
   ['EDIT-CROP', '자르기·회전·뒤집기·수평'],
   ['EDIT-LINE', '선을 그어 수평 맞추기'],
   ['EDIT-RESIZE', '크기 조절'],
+  ['EDIT-SAVEAS', '다른 형식으로 저장: 읽을 수 있는 모든 형식(JPEG·PNG·WebP·BMP·TIFF·GIF·JPEG 2000·JPEG XL·PSD·PDF·DICOM·ICO·TGA·QOI·PPM·PCX·SGI·RAS·DDS·HDR·XBM)'],
   ['EDIT-CANVAS', '캔버스 크기'],
   ['EDIT-REDEYE', '적목 제거'],
   ['EDIT-HEAL', '잡티 제거'],
@@ -132,11 +136,21 @@ export const FEATURES = [
   ['FMT-JP2', 'JPEG 2000'],
   ['FMT-JXL', 'JPEG XL'],
   ['FMT-PDF', 'PDF 보기'],
+  ['FMT-DICOM', 'DICOM(DCM): 모든 전송 구문·압축(JPEG·JPEG-LS·JPEG 2000·RLE)·여러 프레임'],
   ['FMT-GIF', '애니메이션 GIF 보기'],
   ['FMT-VIDEO', '동영상 형식'],
   ['FMT-ZIP', 'ZIP 읽기'],
   // ── App
-  ['APP-SETTINGS', '설정·테마'],
+  ['APP-SETTINGS', '설정 창'],
+  ['APP-THEMES', '테마 40개(어둡게 20·밝게 20)·테마 버튼·드롭다운·사용자 정의 테마'],
+  ['APP-HEADER', '머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보 버튼'],
+  ['APP-PANELS', '좌우 패널: 제목(아이콘)·< > 로 접기·접었을 때 아이콘과 제목·툴바 보이기 버튼'],
+  ['APP-MENUS', '모든 메뉴 항목에 아이콘'],
+  ['APP-WINDOWS', '설정·정보와 모든 팝업이 독립된 창(아이콘·제목, 크기 고정, 내용이 잘리지 않음)'],
+  ['APP-INPUTS', '수치 입력의 − + 버튼과 가운데 정렬, 색 선택은 원형 견본'],
+  ['FILE-RECENT', '최근 폴더·파일 10개(파일 메뉴), 하나씩·전체 지우기, 시작할 때 마지막 폴더'],
+  ['BROWSE-SUMMARY', '선택이 없을 때 오른쪽 패널에 목록 요약(형식·날짜·카메라·별점)'],
+  ['APP-UNDO', '파일 작업(이동·복사·이름·새 폴더) 실행 취소/다시 실행 버튼'],
   ['APP-LANG', '한국어·영어'],
   ['APP-PERSIST', '종료 후 카탈로그·마지막 폴더 유지'],
   ['APP-WEB', '웹 앱(브라우저·PWA)'],

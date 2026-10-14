@@ -29,7 +29,7 @@ function barList(title, entries, { onPick, color, limit = 10 } = {}) {
     return row;
   });
   if (rest) rows.push(h('div.bar-row.other', h('span.bar-label', t('dash.other')), h('span.bar-track'), h('span.bar-value', formatNumber(rest))));
-  return h('section.dash-card', h('h3', title), entries.length ? rows : h('div.cat-empty', t('dash.noData')));
+  return h('section.dash-card', h('h3', h('span', title), h('span.bar-more')), h('div.bar-rows', entries.length ? rows : h('div.cat-empty', t('dash.noData'))));
 }
 
 /** Vertical bars over time (years or months), with a hover tooltip. */
@@ -84,11 +84,13 @@ export function createDashboard() {
     }
     const years = [...byYear].sort((a, b) => a[0] - b[0]);
     const pickYear = (y) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(y, 0, 1).getTime(), to: new Date(y + 1, 0, 1).getTime() }], title: String(y) });
-    el.append(timeline(t('dash.byYear'), years.map(([y, n]) => [String(y), n, y]), pickYear));
+    const time = h('div.dash-time');
+    time.append(timeline(t('dash.byYear'), years.map(([y, n]) => [String(y), n, y]), pickYear));
     const lastYear = years.length ? years[years.length - 1][0] : new Date().getFullYear();
     const months = Array.from({ length: 12 }, (_, m) => [new Date(lastYear, m, 1).toLocaleDateString(undefined, { month: 'short' }), byMonth.get(`${lastYear}-${String(m + 1).padStart(2, '0')}`) ?? 0, m]);
-    el.append(timeline(t('dash.byMonth', { year: lastYear }), months, (m) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(lastYear, m, 1).getTime(), to: new Date(lastYear, m + 1, 1).getTime() }], title: `${lastYear}-${m + 1}` })));
+    time.append(timeline(t('dash.byMonth', { year: lastYear }), months, (m) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(lastYear, m, 1).getTime(), to: new Date(lastYear, m + 1, 1).getTime() }], title: `${lastYear}-${m + 1}` })));
 
+    el.append(time);
     const grid = h('div.dash-grid');
     const auto = (key) => {
       const map = new Map();
@@ -113,7 +115,34 @@ export function createDashboard() {
     const keywords = Object.entries(counts.keywords).sort((a, b) => b[1] - a[1]);
     grid.append(barList(t('catalog.keywords'), keywords, { onPick: (k) => openSource({ type: 'filter', filters: [{ type: 'keyword', value: k }], title: `#${k}` }) }));
     el.append(grid);
+    requestAnimationFrame(fit);
   }
+
+  /**
+   * The dashboard always fits the window, without scroll bars: the charts take
+   * the room that is left, a bar list shows as many rows as fit (the title says
+   * how many more there are), and time labels are thinned out when crowded.
+   */
+  function fit() {
+    if (!el.isConnected) return;
+    for (const card of el.querySelectorAll('.dash-grid .dash-card')) {
+      const box = card.querySelector('.bar-rows');
+      const rows = [...box.querySelectorAll('.bar-row')];
+      for (const row of rows) row.hidden = false;
+      let hidden = 0;
+      for (let i = rows.length - 1; i > 0 && box.scrollHeight > box.clientHeight + 1; i--) { rows[i].hidden = true; hidden++; }
+      card.querySelector('.bar-more').textContent = hidden ? t('dash.more', { n: hidden }) : '';
+    }
+    for (const chart of el.querySelectorAll('.timeline')) {
+      const labels = [...chart.querySelectorAll('.time-label')];
+      if (!labels.length) continue;
+      for (const label of labels) label.style.visibility = '';
+      const widest = Math.max(...labels.map((x) => x.offsetWidth)) + 6;
+      const step = Math.max(1, Math.ceil(widest / (chart.clientWidth / labels.length)));
+      labels.forEach((label, i) => { if (i % step) label.style.visibility = 'hidden'; });
+    }
+  }
+  new ResizeObserver(() => fit()).observe(el);
 
   const later = debounce(() => { if (el.isConnected) render(); }, 400);
   app.on('catalog', later);

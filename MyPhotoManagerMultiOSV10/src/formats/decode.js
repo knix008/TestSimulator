@@ -170,6 +170,11 @@ export async function decodeImage(input, name, { maxSize = 0, page = null } = {}
     case 'jp2': result = { source: canvasOf(await (await import('./codecs.js')).decodeJpeg2000(bytes)) }; break;
     case 'jxl': result = { source: canvasOf(await (await import('./codecs.js')).decodeJxl(bytes)) }; break;
     case 'pdf': result = await decodePdf(bytes, { page: (page ?? 0) + 1 }); break;
+    case 'dicom': {
+      if (inWorker) throw new Error('DICOM is decoded in the page');
+      result = await (await import('./dicom.js')).decodeDicom(bytes, page ?? 0);
+      break;
+    }
     case 'video': throw new Error('video');
     default: result = await decodeNative(bytes, name, maxSize);
   }

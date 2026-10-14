@@ -8,7 +8,8 @@ const KEY = 'myphotomanager.settings';
 
 export const DEFAULTS = Object.freeze({
   language: 'system',
-  theme: 'system',
+  theme: 'system', // system | a theme id (src/themes.js) | custom
+  customTheme: { mode: 'dark', bg: '#1b1e26', panel: '', text: '#e8e6e3', accent: '#e0a030' },
   thumbSize: 168,
   view: 'thumbs', // thumbs | details | list | filmstrip
   sort: { key: 'name', desc: false },
@@ -30,8 +31,10 @@ export const DEFAULTS = Object.freeze({
   startup: 'last',
   lastFolder: null,
   recentFolders: [],
+  recentFiles: [],
+  print: {}, // last print settings (ui/print.js DEFAULT_PRINT)
   favorites: [],
-  panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false },
+  panes: { left: true, right: true, leftTab: 'folders', rightTab: 'properties', leftWidth: 260, rightWidth: 300, basket: false, leftCollapsed: false, rightCollapsed: false, drive: null },
   catalogMatch: 'all',
   renameTemplate: '{date:YYYYMMDD}_###',
 });
@@ -45,7 +48,9 @@ export function normalize(raw) {
   for (const [key, value] of Object.entries(raw)) {
     if (!(key in DEFAULTS)) continue;
     const base = DEFAULTS[key];
-    if (key === 'keys') {
+    if (key === 'print') {
+      if (value && typeof value === 'object' && !Array.isArray(value)) out.print = { ...value };
+    } else if (key === 'keys') {
       // Custom shortcuts: { commandId: 'Ctrl+Shift+K' }.
       if (value && typeof value === 'object') for (const [id, combo] of Object.entries(value)) if (typeof combo === 'string') out.keys[id] = combo;
     } else if (base && typeof base === 'object' && !Array.isArray(base)) {
@@ -92,8 +97,15 @@ export function saveSettings(settings, storage = globalThis.localStorage) {
   timer = setTimeout(() => { fs.writeData('settings.json', JSON.stringify(settings, null, 2)).catch(() => {}); }, 400);
 }
 
-/** Puts `folder` first in the recent list (max 12). */
+export const RECENT_MAX = 10;
+
+/** Puts `folder` first in the recent list (max 10). */
 export function rememberFolder(settings, folder) {
   settings.lastFolder = folder;
-  settings.recentFolders = [folder, ...settings.recentFolders.filter((f) => f !== folder)].slice(0, 12);
+  settings.recentFolders = [folder, ...settings.recentFolders.filter((f) => f !== folder)].slice(0, RECENT_MAX);
+}
+
+/** Puts a viewed file first in the recent files (max 10). */
+export function rememberFile(settings, file) {
+  settings.recentFiles = [file, ...settings.recentFiles.filter((f) => f !== file)].slice(0, RECENT_MAX);
 }

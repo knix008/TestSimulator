@@ -5,6 +5,7 @@
 // "Open with") and the scanner are faked by the backend (MYPHOTO_FAKE_SHELL,
 // MYPHOTO_FAKE_SCANNER) so nothing opens on the test machine.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { readMetadata } from '../../src/formats/exif.js';
@@ -15,7 +16,7 @@ import { copyDir, fixtures, root } from './harness.mjs';
 
 const P = 'window.__myphoto';
 const js = (value) => JSON.stringify(value);
-const TOP = `[...document.querySelectorAll('.dialog')].pop()`;
+const TOP = `${P}.topDialog()`;
 
 /** A real face photo for detection — read from its folder at test time only (never copied into the project). */
 export const FACE_PHOTO = path.join(root, '..', 'FaceAlgorithm', 'images', '2025-09-30-111123.jpg');
@@ -24,11 +25,13 @@ export const FACE_PHOTO = path.join(root, '..', 'FaceAlgorithm', 'images', '2025
 
 export function prepare(work) {
   copyDir(path.join(root, 'test', 'fixtures', 'formats'), path.join(work, 'formats'));
+  copyDir(path.join(root, 'test', 'fixtures', 'dicom'), path.join(work, 'dicom'));
   const put = (dir, names, rename = {}) => {
     fs.mkdirSync(path.join(work, dir), { recursive: true });
     for (const name of names) fs.copyFileSync(path.join(fixtures, name), path.join(work, dir, rename[name] ?? name));
   };
   put('studio', ['beach.jpg', 'city.jpg', 'forest.jpg', 'portrait.jpg', 'sunset.png', 'flower.webp']);
+  fs.mkdirSync(path.join(work, 'studio', 'album'));
   put('import-src', ['beach.jpg', 'city.jpg', 'forest.jpg']);
   fs.mkdirSync(path.join(work, 'import-dst'));
   put('sync-src', ['beach.jpg', 'city.jpg', 'sunset.png']);
@@ -42,11 +45,13 @@ export function prepare(work) {
   }
 }
 
-export const env = (work) => ({ MYPHOTO_FAKE_SHELL: path.join(work, 'shell.log'), MYPHOTO_FAKE_SCANNER: path.join(fixtures, 'forest.jpg') });
+export const env = (work) => ({ MYPHOTO_FAKE_SHELL: path.join(work, 'shell.log'), MYPHOTO_FAKE_SCANNER: path.join(fixtures, 'forest.jpg'), MYPHOTO_FAKE_PRINT: path.join(work, 'printed.pdf') });
 
 // ───────────────────────── helpers
 
 const dir = (app, name) => path.join(app.work, name);
+/** The app's visible top-level OS windows (Windows), as 'title | WxH' lines. */
+const osWindows = (pid) => execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'test', 'e2e', 'os-windows.ps1'), '-ProcessId', String(pid)], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
 const shellLog = (app) => (fs.existsSync(dir(app, 'shell.log')) ? fs.readFileSync(dir(app, 'shell.log'), 'utf8').trim().split(/\r?\n/).filter(Boolean).map((line) => line.split('\t')) : []);
 
 async function open(app, folder, min = 1) {
@@ -96,7 +101,7 @@ async function setField(app, labelKey, value, index = 0) {
   const result = await app.main.eval(`(() => {
     const label = ${P}.t(${js(labelKey)});
     const field = [...${TOP}.querySelectorAll('.field')].filter((f) => f.querySelector('.field-label')?.textContent === label)[${index}];
-    const control = field?.querySelector('input, select, textarea');
+    const control = field?.querySelector('input, select, textarea, .theme-select');
     if (!control) return 'missing ' + label;
     control.value = ${js(String(value))};
     control.dispatchEvent(new Event('input', { bubbles: true }));
@@ -136,7 +141,7 @@ const primary = (app) => app.main.eval(`${TOP}.querySelector('.dialog-buttons .b
 const pick = (app, ...answers) => app.main.eval(`(window.__myphotoPicks ||= []).push(...${js(answers)}); 1`);
 
 async function waitToast(app, key) {
-  await app.main.waitFor(`[...document.querySelectorAll('.toast-text')].some((e) => e.textContent.includes(${P}.t(${js(key)}).split('{')[0].trim()))`, { timeout: 30000, message: `toast ${key}` });
+  await app.main.waitFor(`[...${P}.dqa('.toast-text')].some((e) => e.textContent.includes(${P}.t(${js(key)}).split('{')[0].trim()))`, { timeout: 30000, message: `toast ${key}` });
 }
 
 /** Size and mean colour (of a region in fractions) of a picture file, decoded in the page. */
@@ -195,7 +200,7 @@ const settle = (app) => app.main.eval('new Promise((r) => requestAnimationFrame(
 
 async function openEditor(app, file) {
   await app.main.eval(`${P}.closeAllDialogs(); ${P}.actions.editPath(${js(file)}); 1`);
-  await app.main.waitFor(`${P}.editor.path === ${js(file)} && ${P}.editor.debug().preview && Boolean(document.querySelector('.editor-preview'))`, { timeout: 60000, message: 'editor ready' });
+  await app.main.waitFor(`${P}.editor.path === ${js(file)} && ${P}.editor.debug().preview && Boolean(${P}.dq('.editor-preview'))`, { timeout: 60000, message: 'editor ready' });
   await settle(app);
 }
 
@@ -224,7 +229,7 @@ const section = (app, id) => app.main.eval(`${P}.editor.testing.setSection(${js(
 
 async function slider(app, key, value) {
   const result = await app.main.eval(`(() => {
-    const el = document.querySelector(${js(`.editor-panel input.slider[data-key="${key}"]`)});
+    const el = ${P}.dq(${js(`.editor-panel input.slider[data-key="${key}"]`)});
     if (!el) return 'missing';
     el.value = ${js(String(value))}; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
     return 'ok';
@@ -245,7 +250,7 @@ async function moves(app, label, act, min = 1) {
 
 /** Viewport point at fractions of the editor preview. */
 async function at(app, fx, fy) {
-  const r = await app.main.eval(`(() => { const r = document.querySelector('.editor-preview').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
+  const r = await app.main.eval(`(() => { const r = ${P}.dq('.editor-preview').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
   return { x: r.x + fx * r.w, y: r.y + fy * r.h };
 }
 
@@ -283,8 +288,8 @@ export const cases = [
         const file = await pathOf(app, name);
         await app.main.eval(`${P}.actions.viewItem(${js(file)}); 1`);
         try {
-          await app.main.waitFor(`(() => { const d = ${P}.viewer.debug(); return ${P}.viewer.currentPath === ${js(file)} && ((d.kind && d.kind !== 'placeholder' && d.width > 0) || Boolean(document.querySelector('.viewer .viewer-error'))); })()`, { timeout: 60000 });
-          const error = await app.main.eval(`document.querySelector('.viewer .viewer-error')?.textContent ?? null`);
+          await app.main.waitFor(`(() => { const d = ${P}.viewer.debug(); return ${P}.viewer.currentPath === ${js(file)} && ((d.kind && d.kind !== 'placeholder' && d.width > 0) || Boolean(${P}.dq('.viewer .viewer-error'))); })()`, { timeout: 60000 });
+          const error = await app.main.eval(`${P}.dq('.viewer .viewer-error')?.textContent ?? null`);
           if (error) problems.push(`${name}: ${error}`);
         } catch (error) {
           problems.push(`${name}: ${error.message}`);
@@ -306,7 +311,7 @@ export const cases = [
         assert.equal(await app.main.eval(`${P}.viewer.debug().page`), 0);
         await app.main.key('PageDown', 2);
         await app.main.waitFor(`${P}.viewer.debug().page === 1 && ${P}.viewer.currentPath === ${js(file)} && ${P}.viewer.debug().kind !== 'placeholder'`, { message: `${name}: page 2` });
-        assert.match(await app.main.eval(`document.querySelector('.page-label')?.textContent ?? ''`), /2/);
+        assert.match(await app.main.eval(`${P}.dq('.page-label')?.textContent ?? ''`), /2/);
         await app.main.key('PageUp', 2);
         await app.main.waitFor(`${P}.viewer.debug().page === 0`);
       }
@@ -323,8 +328,8 @@ export const cases = [
       await open(app, dir(app, 'formats'), 10);
       const file = await pathOf(app, 'clip.webm');
       await app.main.eval(`${P}.actions.viewItem(${js(file)}); 1`);
-      await app.main.waitFor(`${P}.viewer.debug().kind === 'video' && document.querySelector('.viewer video')?.readyState >= 2`, { timeout: 30000, message: 'video loaded' });
-      const time = await app.main.eval(`(async () => { const v = document.querySelector('.viewer video'); v.muted = true; await v.play(); await new Promise((r) => setTimeout(r, 900)); v.pause(); return v.currentTime; })()`);
+      await app.main.waitFor(`${P}.viewer.debug().kind === 'video' && ${P}.dq('.viewer video')?.readyState >= 2`, { timeout: 30000, message: 'video loaded' });
+      const time = await app.main.eval(`(async () => { const v = ${P}.dq('.viewer video'); v.muted = true; await v.play(); await new Promise((r) => setTimeout(r, 900)); v.pause(); return v.currentTime; })()`);
       assert.ok(time > 0.3, `played ${time}s`);
       const before = fs.readdirSync(dir(app, 'formats'));
       await app.main.eval(`${P}.viewer.testing.saveVideoFrame()`);
@@ -352,7 +357,7 @@ export const cases = [
       const [r, g, b] = meanOf(await signature(app));
       assert.ok(g > r + 5 && g > b + 5, `green forest: RGB ${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}`);
       await section(app, 'light');
-      await app.main.eval(`(() => { const s = [...document.querySelectorAll('.editor-panel select')].find((x) => [...x.options].some((o) => o.value === 'daylight')); s.value = 'auto'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.eval(`(() => { const s = [...${P}.dqa('.editor-panel select')].find((x) => [...x.options].some((o) => o.value === 'daylight')); s.value = 'auto'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
       await app.main.waitFor(`${P}.editor.debug().rawMode === 'auto'`, { timeout: 30000 });
       await leaveEditor(app);
     },
@@ -385,15 +390,15 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       await menu(app, 'view', 'menu.viewStyle', 'viewStyle.tiles');
       await menuDone(app);
-      await app.main.waitFor(`document.querySelectorAll('.filelist[data-view=tiles] .tile').length >= 6`, { message: 'tiles' });
+      await app.main.waitFor(`${P}.dqa('.filelist[data-view=tiles] .tile').length >= 6`, { message: 'tiles' });
       await menu(app, 'view', 'menu.viewStyle', 'viewStyle.filmstrip');
       await menuDone(app);
-      await app.main.waitFor(`Boolean(document.querySelector('.filelist[data-view=filmstrip]'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('.filelist[data-view=filmstrip]'))`);
       const [first] = await select(app, 'beach.jpg');
-      await app.main.waitFor(`!document.querySelector('.film-preview').hidden && document.querySelector('.film-preview .film-caption')?.textContent === 'beach.jpg'`, { message: 'film preview' });
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.waitFor(`!${P}.dq('.film-preview').hidden && ${P}.dq('.film-preview .film-caption')?.textContent === 'beach.jpg'`, { message: 'film preview' });
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('ArrowRight');
-      await app.main.waitFor(`${P}.app.state.focus !== ${js(first)} && document.querySelector('.film-preview .film-caption')?.textContent !== 'beach.jpg'`, { message: 'next in the strip' });
+      await app.main.waitFor(`${P}.app.state.focus !== ${js(first)} && ${P}.dq('.film-preview .film-caption')?.textContent !== 'beach.jpg'`, { message: 'next in the strip' });
       await app.main.eval(`${P}.app.settings.view = 'thumbs'; ${P}.app.emit('resort'); 1`);
     },
   },
@@ -404,20 +409,20 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       await app.main.eval(`${P}.app.catalog.clearBasket?.(); 1`);
       await select(app, 'beach.jpg', 'city.jpg');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('b', 2);
       await app.main.waitFor(`${P}.app.catalog.basket.length === 2`, { message: 'two in the basket' });
       await menu(app, 'organize', 'organize.showBasket');
       await menuDone(app);
       await app.main.waitFor(`${P}.app.state.source.type === 'basket' && ${P}.app.state.list.length === 2`);
       await app.main.eval(`${P}.actions.showLeftTab('catalog'); 1`);
-      await app.main.eval(`[...document.querySelectorAll('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === ${P}.t('catalog.allMedia')).click(); 1`);
+      await app.main.eval(`[...${P}.dqa('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === ${P}.t('catalog.allMedia')).click(); 1`);
       await app.main.waitFor(`${P}.app.state.source.type === 'filter' && ${P}.app.state.list.length >= 6`, { message: 'all media' });
       await open(app, dir(app, 'studio'), 6);
       await app.main.eval(`${P}.actions.showRightTab('preview'); 1`);
       await select(app, 'forest.jpg');
-      await app.main.waitFor(`document.querySelector('.preview-name')?.textContent.includes('forest.jpg') && Boolean(document.querySelector('.preview-frame img, .preview-frame canvas, .preview-frame video'))`, { message: 'preview pane' });
-      assert.ok(await app.main.eval(`Boolean(document.querySelector('canvas.preview-histogram'))`));
+      await app.main.waitFor(`${P}.dq('.preview-name')?.textContent.includes('forest.jpg') && Boolean(${P}.dq('.preview-frame img, .preview-frame canvas, .preview-frame video'))`, { message: 'preview pane' });
+      assert.ok(await app.main.eval(`Boolean(${P}.dq('canvas.preview-histogram'))`));
       await app.main.eval(`${P}.actions.showRightTab('properties'); 1`);
     },
   },
@@ -428,23 +433,23 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       const [beach] = await select(app, 'beach.jpg');
       await app.main.eval(`${P}.actions.showRightTab('properties'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('[data-field=keywords]'))`);
-      await app.main.eval(`(() => { const i = document.querySelector('[data-field=keywords]'); i.value = 'Travel|Korea|Busan'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`Boolean(${P}.dq('[data-field=keywords]'))`);
+      await app.main.eval(`(() => { const i = ${P}.dq('[data-field=keywords]'); i.value = 'Travel|Korea|Busan'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
       await app.main.waitFor(`${P}.app.catalog.get(${js(beach)})?.keywords?.includes('Travel|Korea|Busan')`);
-      await app.main.eval(`(() => { const s = document.querySelector('#quick-search'); s.value = 'keyword:travel'; s.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+      await app.main.eval(`(() => { const s = ${P}.dq('#quick-search'); s.value = 'keyword:travel'; s.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
       await app.main.waitFor(`${P}.app.state.source.type === 'search' && !${P}.app.state.loading && ${P}.app.state.list.some((i) => i.path === ${js(beach)})`, { message: 'parent keyword finds the child' });
       assert.ok(!(await listNames(app)).includes('city.jpg'));
       await app.main.eval(`${P}.actions.showLeftTab('search'); 1`);
-      await app.main.eval(`(() => { const label = ${P}.t('search.keywords'); const f = [...document.querySelectorAll('.side-pane .field')].find((x) => x.querySelector('.field-label')?.textContent === label); const i = f.querySelector('input'); i.value = 'korea'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
-      await clickText(app, 'search.save', `document.querySelector('.side-pane.left')`);
+      await app.main.eval(`(() => { const label = ${P}.t('search.keywords'); const f = [...${P}.dqa('.side-pane .field')].find((x) => x.querySelector('.field-label')?.textContent === label); const i = f.querySelector('input'); i.value = 'korea'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await clickText(app, 'search.save', `${P}.dq('.side-pane.left')`);
       await dialog(app, 'search.saveName');
       await setField(app, 'search.saveName', 'Trips');
       await primary(app);
       await app.main.waitFor(`${P}.app.catalog.savedSearches.some((s) => s.name === 'Trips')`);
       await open(app, dir(app, 'studio'), 6);
       await app.main.eval(`${P}.actions.showLeftTab('catalog'); 1`);
-      await app.main.waitFor(`[...document.querySelectorAll('.cat-row .cat-label')].some((e) => e.textContent === 'Trips')`, { message: 'saved search in the catalog pane' });
-      await app.main.eval(`[...document.querySelectorAll('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === 'Trips').click(); 1`);
+      await app.main.waitFor(`[...${P}.dqa('.cat-row .cat-label')].some((e) => e.textContent === 'Trips')`, { message: 'saved search in the catalog pane' });
+      await app.main.eval(`[...${P}.dqa('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === 'Trips').click(); 1`);
       await app.main.waitFor(`${P}.app.state.source.type === 'search' && ${P}.app.state.source.title === 'Trips' && ${P}.app.state.list.some((i) => i.path === ${js(beach)})`);
       await app.main.eval(`${P}.actions.showLeftTab('folders'); 1`);
     },
@@ -458,21 +463,21 @@ export const cases = [
       fs.copyFileSync(path.join(fixtures, 'flower.webp'), path.join(studio, 'cut-me.webp'));
       await open(app, studio, 6);
       await select(app, 'sunset.png');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('c', 2);
       await app.main.eval(`${P}.actions.openFolder(${js(path.join(studio, 'clip'))}); 1`);
       await app.main.waitFor(`${P}.app.state.source.path === ${js(path.join(studio, 'clip'))} && !${P}.app.state.loading`);
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('v', 2);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'sunset.png')`, { message: 'pasted copy' });
       assert.ok(fs.existsSync(path.join(studio, 'sunset.png')) && fs.existsSync(path.join(studio, 'clip', 'sunset.png')));
       await open(app, studio, 6);
       await select(app, 'cut-me.webp');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('x', 2);
       await app.main.eval(`${P}.actions.openFolder(${js(path.join(studio, 'clip'))}); 1`);
       await app.main.waitFor(`${P}.app.state.source.path === ${js(path.join(studio, 'clip'))} && !${P}.app.state.loading`);
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('v', 2);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'cut-me.webp')`, { message: 'pasted move' });
       for (let i = 0; i < 30 && fs.existsSync(path.join(studio, 'cut-me.webp')); i++) await sleep(100);
@@ -485,17 +490,17 @@ export const cases = [
     run: async (app) => {
       await open(app, dir(app, 'studio'), 6);
       await menu(app, 'help', 'keys.title');
-      await app.main.waitFor(`Boolean(document.querySelector('#keymap-dialog [data-command=basket]'))`);
-      await app.main.eval(`document.querySelector('#keymap-dialog [data-command=basket]').click(); 1`);
-      await app.main.waitFor(`document.querySelector('#keymap-dialog [data-command=basket]').textContent === ${P}.t('keys.press')`);
+      await app.main.waitFor(`Boolean(${P}.dq('#keymap-dialog [data-command=basket]'))`);
+      await app.main.eval(`${P}.dq('#keymap-dialog [data-command=basket]').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#keymap-dialog [data-command=basket]').textContent === ${P}.t('keys.press')`);
       await app.main.key('k', 2);
       await app.main.waitFor(`${P}.app.settings.keys.basket === 'Ctrl+K'`, { message: 'captured Ctrl+K' });
-      assert.equal(await app.main.eval(`document.querySelector('#keymap-dialog [data-command=basket]').textContent`), 'Ctrl+K');
+      assert.equal(await app.main.eval(`${P}.dq('#keymap-dialog [data-command=basket]').textContent`), 'Ctrl+K');
       await primary(app);
       await menuDone(app);
       await app.main.eval(`${P}.app.catalog.clearBasket?.(); 1`);
       const [forest] = await select(app, 'forest.jpg');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('b', 2);
       await sleep(300);
       assert.ok(!(await app.main.eval(`${P}.app.catalog.basket.includes(${js(forest)})`)), 'Ctrl+B no longer adds');
@@ -512,11 +517,11 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       const original = await app.main.eval(`${P}.app.settings.theme`);
       for (const theme of ['light', 'dark']) {
-        await app.main.eval(`document.querySelector('#open-settings').click(); 1`);
-        await app.main.waitFor(`Boolean(document.querySelector('#settings-dialog'))`);
+        await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
+        await app.main.waitFor(`Boolean(${P}.dq('#settings-dialog'))`);
         await setField(app, 'settings.theme', theme);
-        await app.main.eval(`document.querySelector('#settings-dialog [data-tab=files]').click(); 1`);
-        await app.main.waitFor(`[...document.querySelectorAll('#settings-dialog label.check')].some((l) => l.textContent.includes(${P}.t('settings.xmpEmbed')))`, { message: 'files tab' });
+        await app.main.eval(`${P}.dq('#settings-dialog [data-tab=files]').click(); 1`);
+        await app.main.waitFor(`[...${P}.dqa('#settings-dialog label.check')].some((l) => l.textContent.includes(${P}.t('settings.xmpEmbed')))`, { message: 'files tab' });
         await primary(app);
         await app.main.waitFor(`document.documentElement.dataset.theme === ${js(theme)} && ${P}.app.settings.theme === ${js(theme)}`, { message: `theme ${theme}` });
       }
@@ -524,6 +529,498 @@ export const cases = [
       for (let i = 0; i < 30 && !(fs.existsSync(file) && JSON.parse(fs.readFileSync(file, 'utf8')).theme === 'dark'); i++) await sleep(100);
       assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).theme, 'dark', 'settings.json in the data folder');
       await app.main.eval(`${P}.app.settings.theme = ${js(original)}; ${P}.app.saveSettings(); 1`);
+    },
+  },
+
+  {
+    ids: ['APP-MENUS'],
+    group: '화면', name: '모든 메뉴·하위 메뉴·오른쪽 클릭 메뉴의 항목에 아이콘이 있다',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await select(app, 'beach.jpg');
+      const missing = await app.main.eval(`(async () => {
+        const tick = () => new Promise((r) => setTimeout(r, 30));
+        const missing = [];
+        const scan = async (menu, path) => {
+          for (const row of menu.querySelectorAll(':scope > .menu-item')) {
+            const label = path + ' › ' + row.querySelector('.menu-label').textContent;
+            if (!row.querySelector('.menu-icon svg, .menu-icon .swatch')) missing.push(label);
+            if (row.querySelector('.menu-arrow')) {
+              row.dispatchEvent(new PointerEvent('pointerenter'));
+              await tick();
+              const menus = [...${P}.dqa('.menu')];
+              const sub = menus[menus.length - 1];
+              if (sub !== menu) await scan(sub, label);
+            }
+          }
+        };
+        const scanOpen = async (name) => { await tick(); const menu = ${P}.dq('.menu[data-level="0"]'); if (!menu) { missing.push(name + ': no menu'); return; } await scan(menu, name); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); ${P}.closeAllDialogs(); document.body.click(); await tick(); };
+        for (const title of ${P}.dqa('.menubar-title')) { title.click(); await scanOpen(title.textContent); title.click(); await tick(); }
+        const context = async (el, name) => { if (!el) { missing.push(name + ': not found'); return; } const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 10 })); await scanOpen(name); };
+        await context(${P}.dq('.tile[data-path$="beach.jpg"]') ?? [...${P}.dqa('.tile')].find((t) => t.textContent.includes('beach.jpg')), 'context: photo');
+        await context([...${P}.dqa('.tile')].find((t) => t.textContent.includes('album')), 'context: folder');
+        await context(${P}.dq('.tree-row'), 'context: folder tree');
+        await context(${P}.dq('.filelist'), 'context: empty list area');
+        // Catalog pane rows: a category, a keyword, a saved search.
+        ${P}.app.catalog.addCategory('Menu test'); ${P}.app.catalog.addKeywords([${P}.app.state.list.find((i) => !i.isDir).path], ['MenuKw|Child']); ${P}.app.catalog.saveSearch('Menu search', 'beach');
+        ${P}.actions.showLeftTab('catalog'); await tick(); await tick();
+        await context([...${P}.dqa('.cat-row')].find((r) => r.textContent.includes('Menu test')), 'context: category');
+        await context([...${P}.dqa('.cat-row')].find((r) => r.dataset.keyword === 'MenuKw'), 'context: keyword');
+        await context([...${P}.dqa('.cat-row')].find((r) => r.textContent.includes('Menu search')), 'context: saved search');
+        // People pane row.
+        const first = ${P}.app.state.list.find((i) => !i.isDir).path;
+        ${P}.app.catalog.addFace(first, { x: 0.1, y: 0.1, w: 0.2, h: 0.2 }); ${P}.app.catalog.nameFace(first, (${P}.app.catalog.get(first).faces.length - 1), 'Menu Person');
+        ${P}.actions.showLeftTab('people'); await new Promise((r) => setTimeout(r, 450));
+        await context(${P}.dq('.people-pane [data-person="Menu Person"]'), 'context: person');
+        ${P}.actions.showLeftTab('folders');
+        // Map and the viewer.
+        ${P}.actions.showRightTab('map'); await tick(); await tick();
+        await context(${P}.dq('[data-drop="__map__"]'), 'context: map');
+        ${P}.actions.showRightTab('properties');
+        ${P}.actions.viewItem(first); await new Promise((r) => setTimeout(r, 800));
+        await context(${P}.dq('.viewer-stage'), 'context: viewer');
+        ${P}.actions.setMode('manage'); await tick();
+        return missing;
+      })()`, 60000);
+      assert.deepEqual(missing, [], 'menu items without an icon');
+    },
+  },
+
+  {
+    ids: ['APP-UNDO'],
+    group: '파일', name: '여러 장 이동 → 실행 취소(툴바)로 제자리, 다시 실행으로 다시 이동, 이름 바꾸기 취소(Ctrl+Z)',
+    run: async (app) => {
+      const studio = dir(app, 'studio');
+      const album = path.join(studio, 'album');
+      for (const name of ['u1.jpg', 'u2.jpg']) fs.copyFileSync(path.join(fixtures, 'forest.jpg'), path.join(studio, name));
+      await open(app, studio, 6);
+      await reloadList(app);
+      const paths = await select(app, 'u1.jpg', 'u2.jpg');
+      await app.main.eval(`${P}.app.state.clipboard = null; 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
+      await app.main.key('x', 2);
+      await app.main.eval(`${P}.actions.openFolder(${js(album)}); 1`);
+      await app.main.waitFor(`${P}.app.state.source.path === ${js(album)} && !${P}.app.state.loading`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
+      await app.main.key('v', 2);
+      const where = () => ['u1.jpg', 'u2.jpg'].map((n) => (fs.existsSync(path.join(album, n)) ? 'album' : fs.existsSync(path.join(studio, n)) ? 'studio' : 'gone'));
+      for (let i = 0; i < 40 && where().join() !== 'album,album'; i++) await sleep(100);
+      assert.deepEqual(where(), ['album', 'album'], 'moved');
+      await app.main.waitFor(`!${P}.dq('#undo-button').disabled`, { message: 'undo enabled' });
+      await app.main.eval(`${P}.dq('#undo-button').click(); 1`);
+      for (let i = 0; i < 40 && where().join() !== 'studio,studio'; i++) await sleep(100);
+      assert.deepEqual(where(), ['studio', 'studio'], 'undo moved them back');
+      await app.main.waitFor(`!${P}.dq('#redo-button').disabled`);
+      await app.main.eval(`${P}.dq('#redo-button').click(); 1`);
+      for (let i = 0; i < 40 && where().join() !== 'album,album'; i++) await sleep(100);
+      assert.deepEqual(where(), ['album', 'album'], 'redo moved them again');
+      await app.main.eval(`${P}.dq('#undo-button').click(); 1`);
+      for (let i = 0; i < 40 && where().join() !== 'studio,studio'; i++) await sleep(100);
+      assert.deepEqual(where(), ['studio', 'studio']);
+      assert.ok(paths.every((p) => fs.readFileSync(p).equals(fs.readFileSync(path.join(fixtures, 'forest.jpg')))), 'same bytes');
+      // Rename, then Ctrl+Z.
+      await open(app, studio, 6);
+      await select(app, 'u1.jpg');
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
+      await app.main.key('F2');
+      await dialog(app, 'file.renameTo');
+      await app.main.eval(`(() => { const i = ${TOP}.querySelector('input'); i.value = 'renamed.jpg'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await primary(app);
+      for (let i = 0; i < 40 && !fs.existsSync(path.join(studio, 'renamed.jpg')); i++) await sleep(100);
+      assert.ok(fs.existsSync(path.join(studio, 'renamed.jpg')));
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
+      await app.main.key('z', 2);
+      for (let i = 0; i < 40 && !fs.existsSync(path.join(studio, 'u1.jpg')); i++) await sleep(100);
+      assert.ok(fs.existsSync(path.join(studio, 'u1.jpg')) && !fs.existsSync(path.join(studio, 'renamed.jpg')), 'rename undone');
+    },
+  },
+
+  {
+    ids: ['APP-HEADER', 'APP-THEMES'],
+    group: '화면', name: '머리글: 테마 버튼으로 다음 테마, 드롭다운으로 선택, 사용자 정의 테마 편집(미리 보기·저장), 국기 언어 토글, 톱니바퀴 설정, 정보 버튼',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      const order = await app.main.eval(`[...${P}.dq('.header-right').children].map((el) => el.id || el.className)`);
+      assert.deepEqual(order.map((x) => x.includes('theme-next') ? 'theme' : x.includes('theme-select') ? 'select' : x.includes('language') ? 'language' : x.includes('open-settings') ? 'settings' : x.includes('open-about') ? 'about' : x), ['theme', 'select', 'language', 'settings', 'about']);
+      await app.main.eval(`${P}.dq('.header-right .theme-select').click(); 1`);
+      const listed = await app.main.eval(`({ items: ${P}.dqa('.theme-popup .theme-item').length, columns: ${P}.dqa('.theme-popup .theme-column').length, dots: ${P}.dqa('.theme-popup .theme-column .theme-item').every((i) => i.querySelectorAll('.theme-dot').length === 4) })`);
+      assert.deepEqual(listed, { items: 1 + 1 + 1 + 40, columns: 2, dots: true }, 'system, custom, editor and 40 themes in two columns with their colours');
+      await app.main.eval(`${P}.dq('.theme-popup [data-theme=dark]').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.dq('.theme-popup')`), null, 'list closes');
+      assert.ok(await app.main.eval(`Boolean(${P}.dq('#theme-next .palette-icon'))`), 'palette button');
+      await app.main.eval(`${P}.app.settings.theme = 'dark'; ${P}.app.saveSettings(); 1`);
+      await app.main.eval(`${P}.dq('#theme-next').click(); 1`);
+      await app.main.waitFor(`document.documentElement.dataset.themeId === 'midnight' && ${P}.app.settings.theme === 'midnight'`, { message: 'next theme' });
+      await app.main.eval(`(() => { const s = ${P}.dq('.theme-select'); s.value = 'solarized-light'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`document.documentElement.dataset.theme === 'light' && document.documentElement.dataset.themeId === 'solarized-light'`);
+      assert.equal(await app.main.eval(`getComputedStyle(document.body).backgroundColor`), 'rgb(253, 246, 227)');
+      // Custom theme: choose a swatch, the window previews it, Save keeps it.
+      await app.main.eval(`(() => { const s = ${P}.dq('.theme-select'); s.value = '__edit-custom'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`Boolean(${P}.dq('#custom-theme-dialog .swatches[data-key=accent] .swatch-dot'))`);
+      const accent = await app.main.eval(`(() => { const dot = ${P}.dqa('#custom-theme-dialog .swatches[data-key=accent] .swatch-dot[data-color]')[3]; dot.click(); return dot.dataset.color; })()`);
+      await app.main.waitFor(`getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() === ${js(accent)}`, { message: 'live preview' });
+      await primary(app);
+      await app.main.waitFor(`${P}.app.settings.theme === 'custom' && ${P}.app.settings.customTheme.accent === ${js(accent)}`);
+      // Language: shows the other language's flag and toggles.
+      const lang = await app.main.eval(`${P}.app.settings.language`);
+      const flagBefore = await app.main.eval(`${P}.dq('#language-toggle').title`);
+      await app.main.eval(`${P}.dq('#language-toggle').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#language-toggle').title !== ${js(flagBefore)}`, { message: 'flag switched' });
+      const after = await app.main.eval(`(${P}.dq('.menubar-title[data-menu=file]').textContent)`);
+      assert.ok(['File', '파일'].includes(after));
+      await app.main.eval(`${P}.dq('#language-toggle').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#language-toggle').title === ${js(flagBefore)}`);
+      await app.main.eval(`${P}.app.settings.language = ${js(lang)}; ${P}.app.settings.theme = 'dark'; ${P}.app.saveSettings(); 1`);
+      assert.ok(await app.main.eval(`${P}.dq('#open-settings svg path').getAttribute('d').startsWith('M12.22 2h')`), 'gear icon');
+      assert.ok(await app.main.eval(`${P}.dqa('.menubar-title .menubar-icon svg').length === ${P}.dqa('.menubar-title').length`), 'menu bar titles have icons');
+    },
+  },
+  {
+    ids: ['APP-WINDOWS'],
+    group: '화면', name: '설정·정보·확인 창이 독립된 창으로 열린다: 제목, 고정 크기, 모든 탭이 잘리지 않음, 창을 닫으면 취소',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.topDialog()?.id === 'settings-dialog')`);
+      const settings = await app.main.eval(`(() => { const box = ${P}.topDialog(); const doc = box.ownerDocument; const win = doc.defaultView; const tabs = [...box.querySelectorAll('.settings-tab')].map((b) => b.getBoundingClientRect()); const body = box.querySelector('.settings-content').getBoundingClientRect(); const out = { own: doc !== document, title: doc.title, w: win.innerWidth, h: win.innerHeight, cut: [], top: tabs.every((r) => Math.abs(r.top - tabs[0].top) < 1 && r.bottom <= body.top + 1) };
+        for (const tab of box.querySelectorAll('.settings-tab')) { tab.click(); if (doc.documentElement.scrollHeight > win.innerHeight + 1) out.cut.push(tab.textContent); }
+        return out; })()`);
+      assert.equal(settings.own, true, 'its own window');
+      assert.equal(settings.title, await app.main.eval(`${P}.t('settings.title')`));
+      assert.deepEqual(settings.cut, [], 'tabs that would need scrolling');
+      assert.ok(settings.top, `tab buttons in one row above the content: ${JSON.stringify(settings)}`);
+      await app.main.eval(`${P}.topDialog().ownerDocument.defaultView.close(); 1`);
+      await app.main.waitFor(`!${P}.topDialog()`, { message: 'closing the window cancels' });
+      await app.main.eval(`${P}.dq('#open-about').click(); 1`);
+      await app.main.waitFor(`${P}.topDialog()?.id === 'about-dialog'`);
+      const about = await app.main.eval(`(() => { const box = ${P}.topDialog(); return { own: box.ownerDocument !== document, text: box.textContent, icon: Boolean(box.querySelector('.about-top > img.about-icon + .about-text')), rows: box.querySelectorAll('.about-rows .about-key').length }; })()`);
+      assert.ok(about.own && about.icon && about.rows >= 5);
+      assert.ok(about.text.includes('SHKWON(knix008@naver.com)'), 'author');
+      await primary(app);
+      await app.main.waitFor(`!${P}.topDialog()`);
+    },
+  },
+  {
+    ids: ['APP-PANELS', 'BROWSE-DRIVES', 'BROWSE-SUMMARY'],
+    group: '화면', name: '좌우 패널: 제목 아이콘, < > 로 접기·펴기(접으면 아이콘과 세로 제목), 툴바 버튼으로 숨기기, 드라이브 목록, 선택이 없을 때 요약',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await app.main.eval(`${P}.actions.showLeftTab('folders'); ${P}.actions.showRightTab('properties'); ${P}.actions.setSelection([]); 1`);
+      assert.ok(await app.main.eval(`Boolean(${P}.dq('.side-pane.left .pane-head .pane-head-icon svg')) && ${P}.dq('.side-pane.left .pane-head-title').textContent === ${P}.t('pane.folders')`));
+      assert.equal(await app.main.eval(`${P}.dq('[data-fold=left]').textContent + ${P}.dq('[data-fold=right]').textContent`), '<>');
+      // Drives first, each with a name and free space; a click opens it.
+      const drives = await app.main.eval(`${P}.dqa('.folders .tree > .tree-node > .tree-row').filter((r) => /\\([A-Z]:\\)$/.test(r.textContent)).map((r) => r.dataset.path)`);
+      if (process.platform === 'win32') {
+        assert.ok(drives.includes('C:\\'), `drives: ${drives}`);
+        assert.ok(await app.main.eval(`${P}.dqa('.drive-usage').length >= 1`), 'free space shown');
+        await app.main.eval(`${P}.dqa('.folders .tree-row').find((r) => r.dataset.path === 'C:\\\\').click(); 1`);
+        await app.main.waitFor(`${P}.app.state.source.path === 'C:\\\\' && !${P}.app.state.loading`, { message: 'drive opened' });
+        await open(app, dir(app, 'studio'), 6);
+      }
+      // Fold both panels: strips with the tab icons and a vertical title.
+      await app.main.eval(`${P}.dq('[data-fold=left]').click(); ${P}.dq('[data-fold=right]').click(); 1`);
+      await app.main.waitFor(`${P}.dq('.side-pane.left').classList.contains('collapsed') && ${P}.dq('.side-pane.right').classList.contains('collapsed')`);
+      const strip = await app.main.eval(`({ w: ${P}.dq('.side-pane.left').getBoundingClientRect().width, icons: ${P}.dqa('.side-pane.left .pane-strip-tab svg').length, title: ${P}.dq('.side-pane.left .pane-strip-text').textContent, unfold: ${P}.dq('.side-pane.left [data-fold]').textContent })`);
+      assert.ok(strip.w < 50 && strip.icons === 5 && strip.unfold === '>', JSON.stringify(strip));
+      assert.equal(strip.title, await app.main.eval(`${P}.t('pane.folders')`));
+      await app.main.eval(`${P}.dq('.side-pane.left [data-fold]').click(); ${P}.dq('.side-pane.right [data-fold]').click(); 1`);
+      await app.main.waitFor(`!${P}.dq('.side-pane.left').classList.contains('collapsed') && !${P}.dq('.side-pane.right').classList.contains('collapsed')`);
+      // Nothing selected: the right panel summarises the list; a type row filters it.
+      await app.main.waitFor(`Boolean(${P}.dq('.folder-summary .summary-row'))`, { message: 'summary' });
+      await app.main.eval(`${P}.dqa('.folder-summary .summary-row').find((r) => r.textContent.startsWith('JPG')).click(); 1`);
+      await app.main.waitFor(`${P}.app.state.list.filter((i) => !i.isDir).every((i) => /\\.jpe?g$/i.test(i.name))`, { message: 'filtered to JPEG' });
+      await app.main.eval(`${P}.app.state.listFilter.text = ''; ${P}.actions.reload(); 1`);
+      // Toolbar buttons hide and show the panels.
+      await app.main.eval(`${P}.dqa('.app-toolbar .tool').find((b) => b.getAttribute('aria-label') === ${P}.t('toolbar.leftPane')).click(); 1`);
+      await app.main.waitFor(`${P}.dq('.side-pane.left').hidden`);
+      await app.main.eval(`${P}.dqa('.app-toolbar .tool').find((b) => b.getAttribute('aria-label') === ${P}.t('toolbar.leftPane')).click(); 1`);
+      await app.main.waitFor(`!${P}.dq('.side-pane.left').hidden`);
+    },
+  },
+  {
+    ids: ['APP-INPUTS'],
+    group: '화면', name: '수치 입력은 − 값 + (가운데 정렬, 누르면 한 단계), 색은 원형 견본에서 고른다',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await select(app, 'beach.jpg');
+      await menu(app, 'tools', 'tools.watermark');
+      await dialog(app, 'batch.position');
+      const box = await app.main.eval(`(() => { const d = ${P}.topDialog(); const steppers = [...d.querySelectorAll('input[type=number]')].map((i) => ({ wrapped: i.parentElement.classList.contains('stepper'), first: i.previousElementSibling?.textContent, last: i.nextElementSibling?.textContent, align: getComputedStyle(i).textAlign })); return { steppers, swatches: d.querySelectorAll('.swatches .swatch-dot').length, round: getComputedStyle(d.querySelector('.swatch-dot')).borderRadius }; })()`);
+      assert.ok(box.steppers.length >= 2);
+      for (const s of box.steppers) assert.deepEqual(s, { wrapped: true, first: '−', last: '+', align: 'center' });
+      assert.ok(box.swatches >= 10 && box.round === '50%', JSON.stringify(box));
+      const sizeBefore = await app.main.eval(`${P}.topDialog().querySelectorAll('input[type=number]')[0].value`);
+      await app.main.eval(`${P}.topDialog().querySelector('.stepper .stepper-button:last-child').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.topDialog().querySelectorAll('input[type=number]')[0].value`), String(Number(sizeBefore) + 1));
+      await app.main.eval(`${P}.topDialog().querySelector('.swatches .swatch-dot[data-color="#ff3b30"]').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.topDialog().querySelector('.swatches').value`), '#ff3b30');
+      await app.main.eval(`${P}.closeAllDialogs(); 1`);
+      await menuDone(app).catch(() => {});
+    },
+  },
+  {
+    ids: ['FILE-RECENT'],
+    group: '파일', name: '최근 폴더·파일(최대 10개): 파일 메뉴에서 바로 열기, × 로 하나 지우기, 모두 지우기',
+    run: async (app) => {
+      await app.main.eval(`${P}.app.settings.recentFolders = []; ${P}.app.settings.recentFiles = []; 1`);
+      const studio = dir(app, 'studio');
+      await open(app, dir(app, 'formats'), 5);
+      await open(app, studio, 6);
+      const beach = await pathOf(app, 'beach.jpg');
+      await app.main.eval(`${P}.actions.viewItem(${js(beach)}); 1`);
+      await app.main.waitFor(`${P}.app.state.mode === 'view'`);
+      await app.main.eval(`${P}.actions.setMode('manage'); 1`);
+      const recent = await app.main.eval(`({ folders: ${P}.app.settings.recentFolders, files: ${P}.app.settings.recentFiles })`);
+      assert.deepEqual(recent.folders.slice(0, 2), [studio, dir(app, 'formats')]);
+      assert.equal(recent.files[0], beach);
+      for (let i = 0; i < 12; i++) await app.main.eval(`${P}.app.settings.recentFolders = [${js(`C:\\none${i}`)}, ...${P}.app.settings.recentFolders].slice(0, 10); 1`);
+      await open(app, studio, 6);
+      assert.equal(await app.main.eval(`${P}.app.settings.recentFolders.length`), 10, 'at most 10');
+      // The submenu: open the file (folder + viewer), forget one, clear all.
+      await sleep(400);
+      // The menu focuses its first row on the next frame (which closes submenus): hover after that, as a user would.
+      const opened = await app.main.eval(`(async () => { try { ${P}.dq('.menubar-title[data-menu=file]').click(); const first = document.querySelectorAll('.menu').length; await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); [...document.querySelectorAll('.menu .menu-item')].find((r) => r.textContent.includes(${P}.t('file.recent'))).dispatchEvent(new PointerEvent('pointerenter')); return [first, document.querySelectorAll('.menu').length]; } catch (e) { return e.stack; } })()`);
+      assert.deepEqual(opened, [1, 2], 'File › Recent submenu');
+      const rows = await app.main.eval(`[...document.querySelectorAll('.menu')[1].querySelectorAll('.menu-item')].map((r) => ({ label: r.querySelector('.menu-label').textContent, remove: Boolean(r.querySelector('.menu-remove')) }))`);
+      assert.ok(rows.filter((r) => r.remove).length === 11, `10 folders + 1 file with ×: ${rows.length}`);
+      await app.main.eval(`[...document.querySelectorAll('.menu')[1].querySelectorAll('.menu-item')].find((r) => r.textContent.includes('none11')).querySelector('.menu-remove').click(); 1`);
+      assert.ok(!(await app.main.eval(`${P}.app.settings.recentFolders.some((p) => p.endsWith('none11'))`)), 'forgotten');
+      await app.main.eval(`[...document.querySelectorAll('.menu')[1].querySelectorAll('.menu-item')].find((r) => r.querySelector('.menu-label').textContent === ${js(beach)}).click(); 1`);
+      await app.main.waitFor(`${P}.app.state.mode === 'view' && ${P}.viewer.currentPath === ${js(beach)}`, { message: 'recent file opened in the viewer' });
+      await app.main.eval(`${P}.actions.setMode('manage'); 1`);
+      await menu(app, 'file', 'file.recent', 'file.recentClear');
+      await menuDone(app);
+      assert.deepEqual(await app.main.eval(`[${P}.app.settings.recentFolders.length, ${P}.app.settings.recentFiles.length]`), [0, 0]);
+    },
+  },
+
+  {
+    ids: ['CREATE-PRINT'],
+    group: '만들기', name: '인쇄: 용지·배치·여백·글자 설정, 오른쪽 미리 보기가 따라 바뀌고, 인쇄를 누르면 바로 프린터로 (가짜 프린터 → PDF)',
+    run: async (app) => {
+      const pdf = path.join(app.work, 'printed.pdf');
+      fs.rmSync(pdf, { force: true });
+      await open(app, dir(app, 'studio'), 6);
+      await select(app, 'beach.jpg', 'city.jpg', 'forest.jpg');
+      await menu(app, 'file', 'file.print');
+      await app.main.waitFor(`Boolean(${P}.dq('#print-dialog .print-preview-page'))`);
+      const blank = (expr) => `(() => { const c = ${expr}; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let ink = 0; for (let i = 0; i < d.length; i += 16) if (d[i] < 240 || d[i + 1] < 240 || d[i + 2] < 240) ink++; return ink; })()`;
+      await app.main.waitFor(`${blank(`${P}.dq('#print-dialog .print-preview-page')`)} > 50`, { timeout: 20000, message: 'preview shows the photos' });
+      const setKey = (key, value) => app.main.eval(`(() => { const el = ${P}.dq('#print-dialog [data-key=${key}]'); el.value = ${js(String(value))}; el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); return 1; })()`);
+      await setKey('columns', 2);
+      await setKey('rows', 1);
+      await setKey('orientation', 'landscape');
+      await setKey('marginLeft', 25);
+      await app.main.waitFor(`${P}.dq('#print-dialog .print-page-label').textContent.includes('2')`, { message: 'two pages in the preview' });
+      const shape = await app.main.eval(`(() => { const c = ${P}.dq('#print-dialog .print-preview-page'); return [c.width, c.height]; })()`);
+      assert.ok(shape[0] > shape[1], 'landscape preview');
+      await app.main.eval(`${P}.dq('#print-next').click(); 1`);
+      assert.match(await app.main.eval(`${P}.dq('#print-dialog .print-page-label').textContent`), /2/);
+      const cut = await app.main.eval(`(() => { const doc = ${P}.topDialog().ownerDocument; return doc.documentElement.scrollHeight > doc.defaultView.innerHeight + 1; })()`);
+      assert.equal(cut, false, 'the print window shows everything');
+      await primary(app);
+      await menuDone(app, 120000);
+      for (let i = 0; i < 100 && !fs.existsSync(pdf); i++) await sleep(100);
+      assert.ok(fs.existsSync(pdf), 'sent to the (fake) printer');
+      const text = fs.readFileSync(pdf).toString('latin1');
+      const pages = (text.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+      assert.equal(pages, 2, 'two printed pages');
+      assert.equal(await app.main.eval(`${P}.app.settings.print.columns`), 2, 'settings remembered');
+    },
+  },
+
+  {
+    ids: ['BROWSE-THUMBS'],
+    group: '탐색', name: '썸네일은 폴더마다 저장된다: 처음 열면 백그라운드로 전부 만들고, 다시 실행해 열면 저장된 것을 바로 쓴다',
+    run: async (app) => {
+      const folder = path.join(app.work, 'thumbs-test');
+      fs.mkdirSync(folder, { recursive: true });
+      for (const name of ['beach.jpg', 'city.jpg', 'forest.jpg', 'portrait.jpg', 'sunset.png', 'flower.webp', 'scan.tif', 'artwork.psd']) fs.copyFileSync(path.join(fixtures, name), path.join(folder, name));
+      await open(app, folder, 8);
+      await app.main.waitFor(`${P}.app.state.list.every((i) => ${P}.thumbs.peek(i)?.url)`, { timeout: 60000, message: 'all thumbnails made' });
+      await app.main.eval(`${P}.thumbs.flush()`);
+      const root = path.join(app.data, 'thumbnails');
+      const stores = fs.readdirSync(root).map((name) => path.join(root, name)).filter((store) => fs.existsSync(path.join(store, 'index.json')));
+      const store = stores.find((dirPath) => JSON.parse(fs.readFileSync(path.join(dirPath, 'index.json'), 'utf8')).dir === folder);
+      assert.ok(store, 'an index for this folder');
+      const mine = JSON.parse(fs.readFileSync(path.join(store, 'index.json'), 'utf8'));
+      assert.deepEqual(mine.entries.map((e) => e.name).sort(), fs.readdirSync(folder).sort());
+      for (const entry of mine.entries) assert.ok(fs.existsSync(entry.file) && fs.statSync(entry.file).size > 200 && path.dirname(entry.file) === store, entry.name);
+      assert.ok(stores.length >= 2, 'other folders have their own stores');
+      // Restart: the folder's thumbnails come from its store at once (nothing is made again).
+      await app.restart([folder]);
+      await app.main.waitFor(`${P}.app.state.source.path === ${js(folder)} && !${P}.app.state.loading && ${P}.app.state.list.length === 8`);
+      const stored = await app.main.eval(`${P}.app.state.list.map((i) => Boolean(${P}.thumbs.peek(i)?.stored))`);
+      assert.deepEqual(stored, new Array(8).fill(true), 'shown from the folder store');
+      const shownFromDisk = await app.main.eval(`${P}.app.state.list.every((i) => ${P}.thumbs.peek(i).url.includes('thumbnails'))`);
+      assert.ok(shownFromDisk);
+      assert.ok(await app.main.eval(`${P}.app.state.list.every((i) => ${P}.app.catalog.get(i.path)?.width > 0)`), 'catalog filled from the store');
+    },
+  },
+
+  {
+    ids: ['FMT-DICOM', 'VIEW-DICOM'],
+    group: '형식', name: 'DICOM: 썸네일, 귀퉁이 정보·방향 표시, 윈도 미리 설정·값 입력·반전·색상표, 거리(mm)·ROI(HU) 측정, 값 읽기, 태그 창, 여러 프레임 시네, 프레임 저장',
+    run: async (app) => {
+      const folder = dir(app, 'dicom');
+      await open(app, folder, 5);
+      await app.main.waitFor(`${P}.app.state.list.every((i) => { const e = ${P}.thumbs.peek(i); return e && (e.url || e.error); })`, { timeout: 60000, message: 'DICOM thumbnails' });
+      const failed = await app.main.eval(`${P}.app.state.list.filter((i) => !${P}.thumbs.peek(i).url).map((i) => i.name + ': ' + ${P}.thumbs.peek(i).error)`);
+      assert.deepEqual(failed, []);
+      const ct = await pathOf(app, 'CT_small.dcm');
+      await app.main.eval(`${P}.actions.viewItem(${js(ct)}); 1`);
+      await app.main.waitFor(`${P}.viewer.dicom.debug()?.units === 'HU' && !${P}.dq('.dicom-bar').hidden`, { timeout: 30000, message: 'DICOM tools' });
+      const corners = await app.main.eval(`${P}.viewer.dicom.debug().corners`);
+      assert.match(corners, /CompressedSamples CT1/);
+      assert.match(corners, /C -?\d+ \/ W \d+/);
+      assert.deepEqual(await app.main.eval(`${P}.dqa('.dicom-marker').map((m) => m.textContent).sort()`), ['A', 'L', 'P', 'R']);
+      // Window: preset, typed values, invert, colour map.
+      const pick = (key, value) => app.main.eval(`(() => { const s = ${P}.dq('[data-key="${key}"]'); s.value = ${js(value)}; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await pick('dicom-preset', 'preset:lung');
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.wc === -600 && ${P}.viewer.dicom.debug().state.ww === 1500`, { message: 'lung window' });
+      await app.main.eval(`(() => { const c = ${P}.dq('[data-key="dicom-wc"]'); const w = ${P}.dq('[data-key="dicom-ww"]'); c.value = 40; w.value = 400; w.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.wc === 40 && ${P}.viewer.dicom.debug().state.ww === 400`);
+      await app.main.eval(`${P}.dq('[data-dicom=invert]').click(); 1`);
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.invert === true`);
+      await pick('dicom-colormap', 'hotiron');
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.colormap === 'hotiron'`);
+      // Measure: distance in mm, rectangle ROI in HU.
+      const stage = await app.main.eval(`(() => { const r = ${P}.dq('.viewer-media').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
+      const at = (fx, fy) => ({ x: stage.x + fx * stage.w, y: stage.y + fy * stage.h });
+      await app.main.eval(`${P}.dq('[data-dicom-tool=distance]').click(); 1`);
+      await app.main.drag(at(0.2, 0.5), at(0.8, 0.5));
+      await app.main.eval(`${P}.dq('[data-dicom-tool=rect]').click(); 1`);
+      await app.main.drag(at(0.3, 0.3), at(0.7, 0.7));
+      const measures = await app.main.eval(`${P}.viewer.dicom.debug().measures`);
+      assert.equal(measures.length, 2, JSON.stringify(measures));
+      const mm = Number(measures[0].text.match(/([\d.]+) mm/)?.[1]);
+      assert.ok(mm > 40 && mm < 60, `distance ${measures[0].text} (0.6 × 128 px × 0.66 mm ≈ 51 mm)`);
+      assert.match(measures[1].text, /HU/);
+      assert.equal(await app.main.eval(`${P}.dqa('.dicom-layer .dicom-measure').length`), 2, 'drawn on the picture');
+      // Value under the cursor.
+      await app.main.eval(`${P}.dq('[data-dicom-tool=rect]').click(); 1`);
+      const centre = at(0.5, 0.5);
+      await app.main.mouse('mouseMoved', centre.x, centre.y, { button: 'none' });
+      await app.main.waitFor(`/HU/.test(${P}.dq('.pixel-info')?.textContent ?? '')`, { message: 'value in HU' });
+      // Tags window with search.
+      await app.main.eval(`${P}.dq('[data-dicom=tags]').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.dq('#dicom-tags tbody tr'))`);
+      const all = await app.main.eval(`${P}.dqa('#dicom-tags tbody tr').length`);
+      await app.main.eval(`(() => { const s = ${P}.dq('[data-key="dicom-tag-search"]'); s.value = 'patient'; s.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      const found = await app.main.eval(`${P}.dqa('#dicom-tags tbody tr').length`);
+      assert.ok(all > 50 && found > 0 && found < all, `${found} of ${all} tags`);
+      assert.equal(await app.main.eval(`${P}.topDialog().ownerDocument !== document`), true, 'tags in their own window');
+      await primary(app);
+      // Multi-frame: cine plays, frames step, a frame is saved.
+      const cine = await pathOf(app, 'cine.dcm');
+      await app.main.eval(`${P}.actions.viewItem(${js(cine)}); 1`);
+      await app.main.waitFor(`${P}.viewer.dicom.debug()?.frames === 8 && Boolean(${P}.dq('[data-key="dicom-frame"]'))`, { timeout: 20000 });
+      assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().fps`), 10);
+      await app.main.eval(`${P}.dq('[data-dicom=cine]').click(); 1`);
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame >= 3`, { message: 'cine advances' });
+      await app.main.eval(`${P}.dq('[data-dicom=cine]').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().cine`), false);
+      await app.main.key('ArrowDown');
+      const before = fs.readdirSync(folder);
+      await app.main.eval(`${P}.viewer.dicom.testing.saveFrame()`);
+      const added = newFiles(folder, before);
+      assert.equal(added.length, 1);
+      assert.match(added[0], /^cine_frame\d{3}\.png$/);
+      fs.rmSync(path.join(folder, added[0]));
+      await app.main.eval(`${P}.actions.setMode('manage'); 1`);
+    },
+  },
+
+  {
+    ids: ['EDIT-SAVEAS', 'BATCH-CONVERT'],
+    group: '편집', name: '다른 형식으로 저장: 한 사진을 지원하는 모든 쓰기 형식으로 변환하고, 앱이 각각을 다시 읽는다',
+    run: async (app) => {
+      const folder = path.join(app.work, 'convert');
+      fs.mkdirSync(folder, { recursive: true });
+      fs.copyFileSync(path.join(fixtures, 'flower.webp'), path.join(folder, 'source.webp'));
+      await open(app, folder, 1);
+      const formats = await app.main.eval(`(async () => (await import('/src/formats/types.js')).OUTPUT_FORMATS.map((f) => [f.id, f.ext]))()`);
+      assert.ok(formats.length >= 21, `${formats.length} formats`);
+      const made = [];
+      for (const [id, ext] of formats) {
+        if (id === 'webp') continue;
+        await select(app, 'source.webp');
+        await menu(app, 'tools', 'tools.convert');
+        await dialog(app, 'edit.format');
+        await setField(app, 'edit.format', id);
+        await setField(app, 'batch.suffix', `_${id}`).catch(() => {});
+        await primary(app);
+        await menuDone(app, 120000);
+        const file = fs.readdirSync(folder).find((name) => name.toLowerCase().endsWith(`.${ext}`) && name.startsWith('source'));
+        assert.ok(file, `${id}: no .${ext} file`);
+        made.push(file);
+      }
+      await reloadList(app);
+      await app.main.waitFor(`${P}.app.state.list.every((i) => { const e = ${P}.thumbs.peek(i); return e && (e.url || e.error); })`, { timeout: 120000, message: 'thumbnails of every output' });
+      const result = await app.main.eval(`${P}.app.state.list.map((i) => [i.name, ${P}.thumbs.peek(i).url ? ${P}.thumbs.peek(i).width + 'x' + ${P}.thumbs.peek(i).height : 'error: ' + ${P}.thumbs.peek(i).error])`);
+      const bad = result.filter(([name, v]) => v.startsWith('error') || (!/\.(ico|pdf)$/i.test(name) && v !== result.find(([n]) => n === 'source.webp')[1]));
+      assert.deepEqual(bad, [], 'every converted file opens with the same size');
+      assert.equal(made.length, formats.length - 1);
+    },
+  },
+
+  {
+    ids: ['APP-WINDOWS'],
+    group: '화면', name: '모든 대화 상자: 열면 OS 창이 하나 생기고, 확인·저장·취소·Esc·닫기 단추로 닫으면 OS 창이 남지 않는다',
+    run: async (app) => {
+      if (process.platform !== 'win32') return { skipped: 'Windows 창 목록으로 확인' };
+      await open(app, dir(app, 'studio'), 6);
+      const count = () => osWindows(app.process.pid).filter((w) => !w.endsWith('| 16x16')).length;
+      const base = count();
+      const dialogs = [
+        ['settings: save', () => app.main.eval(`${P}.dq('#open-settings').click(); 1`), 'primary'],
+        ['settings: cancel', () => app.main.eval(`${P}.dq('#open-settings').click(); 1`), 'cancel'],
+        ['about', () => app.main.eval(`${P}.dq('#open-about').click(); 1`), 'primary'],
+        ['shortcuts', () => menu(app, 'help', 'shortcuts.title'), 'escape'],
+        ['keymap', () => menu(app, 'help', 'keys.title'), 'primary'],
+        ['import', () => menu(app, 'file', 'import.title'), 'cancel'],
+        ['sync', () => menu(app, 'file', 'sync.title'), 'cancel'],
+        ['new folder (prompt)', () => menu(app, 'file', 'file.newFolder'), 'cancel'],
+        ['rename (prompt)', async () => { await select(app, 'beach.jpg'); await menu(app, 'file', 'file.rename'); }, 'cancel'],
+        ['delete (confirm)', async () => { await select(app, 'beach.jpg'); await menu(app, 'file', 'file.delete'); }, 'cancel'],
+        ['EXIF editor', async () => { await select(app, 'beach.jpg'); await menu(app, 'organize', 'metadata.editExif'); }, 'cancel'],
+        ['write metadata', async () => { await select(app, 'beach.jpg'); await menu(app, 'organize', 'metadata.writeToFiles'); }, 'cancel'],
+        ['PDF', async () => { await select(app, 'beach.jpg'); await menu(app, 'create', 'create.pdf'); }, 'cancel'],
+        ['GIF', async () => { await select(app, 'beach.jpg'); await menu(app, 'create', 'create.gif'); }, 'cancel'],
+        ['slideshow export', async () => { await select(app, 'beach.jpg'); await menu(app, 'create', 'create.slideshow'); }, 'cancel'],
+        ['ZIP', async () => { await select(app, 'beach.jpg'); await menu(app, 'create', 'create.zip'); }, 'cancel'],
+        ['panorama', async () => { await select(app, 'beach.jpg', 'city.jpg'); await menu(app, 'create', 'create.panorama'); }, 'cancel'],
+        ['print', async () => { await select(app, 'beach.jpg'); await menu(app, 'file', 'file.print'); }, 'close'],
+        ['batch rename', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.batchRename'); }, 'cancel'],
+        ['batch resize', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.batchResize'); }, 'cancel'],
+        ['convert', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.convert'); }, 'cancel'],
+        ['auto adjust', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.autoAdjust'); }, 'cancel'],
+        ['dates', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.dates'); }, 'cancel'],
+        ['watermark', async () => { await select(app, 'beach.jpg'); await menu(app, 'tools', 'tools.watermark'); }, 'cancel'],
+        ['duplicates', () => menu(app, 'tools', 'tools.duplicates'), 'cancel'],
+        ['custom theme', () => app.main.eval(`(() => { const s = ${P}.dq('.theme-select'); s.value = '__edit-custom'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`), 'cancel'],
+      ];
+      const problems = [];
+      for (const [name, openIt, how] of dialogs) {
+        await openIt();
+        try {
+          await app.main.waitFor(`Boolean(${P}.topDialog()) && ${P}.topDialog().ownerDocument !== document`, { timeout: 8000 });
+        } catch { problems.push(`${name}: no dialog window`); await app.main.eval(`${P}.closeAllDialogs(); 1`); continue; }
+        await sleep(300);
+        if (count() !== base + 1) problems.push(`${name}: ${count() - base} OS windows while open`);
+        const box = `${P}.topDialog()`;
+        if (how === 'primary') await app.main.eval(`${box}.querySelector('.dialog-buttons .btn.primary').click(); 1`);
+        else if (how === 'cancel') await app.main.eval(`(() => { const b = [...${box}.querySelectorAll('.dialog-buttons .btn')].find((x) => !x.classList.contains('primary')); (b ?? ${box}.querySelector('.dialog-buttons .btn')).click(); return 1; })()`);
+        else if (how === 'escape') await app.main.eval(`${box}.ownerDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+        else await app.main.eval(`${box}.ownerDocument.defaultView.close(); 1`);
+        try {
+          await app.main.waitFor(`!${P}.topDialog()`, { timeout: 8000 });
+        } catch { problems.push(`${name}: still open after ${how}`); await app.main.eval(`${P}.closeAllDialogs(); 1`); }
+        await sleep(400);
+        if (count() !== base) problems.push(`${name}: ${count() - base} OS window(s) left after ${how}`);
+      }
+      await app.main.eval(`${P}.app.settings.theme = 'dark'; ${P}.app.saveSettings(); 1`);
+      assert.deepEqual(problems, []);
     },
   },
 
@@ -535,8 +1032,8 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       const [forest] = await select(app, 'forest.jpg');
       await app.main.eval(`${P}.actions.showRightTab('properties'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('.prop-iptc [data-field=headline]'))`);
-      const fill = async (field, value) => app.main.eval(`(() => { const i = document.querySelector('[data-field=${field}]'); i.value = ${js(value)}; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`Boolean(${P}.dq('.prop-iptc [data-field=headline]'))`);
+      const fill = async (field, value) => app.main.eval(`(() => { const i = ${P}.dq('[data-field=${field}]'); i.value = ${js(value)}; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
       await fill('headline', 'Morning in the forest');
       await fill('city', 'Gangneung');
       await fill('country', 'South Korea');
@@ -544,7 +1041,7 @@ export const cases = [
       await fill('author', 'Test Author');
       await app.main.waitFor(`(() => { const r = ${P}.app.catalog.get(${js(forest)}); return r.headline === 'Morning in the forest' && r.city === 'Gangneung' && r.copyright === '© 2024 Tester'; })()`);
       const paths = await select(app, 'beach.jpg', 'city.jpg', 'forest.jpg');
-      await app.main.waitFor(`Boolean(document.querySelector('[data-field=caption]'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('[data-field=caption]'))`);
       await sleep(200);
       await fill('caption', 'Batch caption');
       await app.main.waitFor(`${js(paths)}.every((p) => ${P}.app.catalog.get(p)?.caption === 'Batch caption')`, { message: 'caption on all three' });
@@ -573,7 +1070,7 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       const [city] = await select(app, 'city.jpg');
       await menu(app, 'organize', 'metadata.editExif');
-      await app.main.waitFor(`Boolean(document.querySelector('#exif-editor'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('#exif-editor'))`);
       await setField(app, 'exif.artist', 'EXIF Tester');
       await setField(app, 'exifEdit.model', 'Edited Model');
       await setField(app, 'exif.taken', '2020-05-06T07:08:09');
@@ -599,7 +1096,7 @@ export const cases = [
       const [portrait] = await select(app, 'portrait.jpg');
       await app.main.eval(`${P}.app.catalog.get(${js(portrait)}).meta.lat = undefined; 1`);
       await app.main.eval(`${P}.actions.showRightTab('map'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('[data-drop="__map__"]'))`, { message: 'map accepts drops' });
+      await app.main.waitFor(`Boolean(${P}.dq('[data-drop="__map__"]'))`, { message: 'map accepts drops' });
       const center = await app.main.center('[data-drop="__map__"]');
       await app.main.eval(`${P}.mapPane.placeAt(${center.x}, ${center.y}, [${js(portrait)}]); 1`);
       const spot = await app.main.eval(`(() => { const r = ${P}.app.catalog.get(${js(portrait)}); return r.geotagged ? { lat: r.meta.lat, lon: r.meta.lon } : null; })()`);
@@ -656,23 +1153,23 @@ export const cases = [
       await menuDone(app);
       await app.main.waitFor(`${P}.app.catalog.people.includes('Alice') && ${P}.app.catalog.get(${js(portrait)}).faces[0].person === 'Alice'`);
       await app.main.eval(`${P}.actions.showLeftTab('people'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('.people-pane [data-person="Alice"]'))`, { message: 'Alice in the people pane' });
-      assert.equal(await app.main.eval(`document.querySelector('.people-pane [data-person="Alice"] .cat-count').textContent`), '1');
-      await app.main.eval(`document.querySelector('.people-pane [data-person="Alice"]').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.dq('.people-pane [data-person="Alice"]'))`, { message: 'Alice in the people pane' });
+      assert.equal(await app.main.eval(`${P}.dq('.people-pane [data-person="Alice"] .cat-count').textContent`), '1');
+      await app.main.eval(`${P}.dq('.people-pane [data-person="Alice"]').click(); 1`);
       await app.main.waitFor(`${P}.app.state.source.type === 'filter' && !${P}.app.state.loading && ${P}.app.state.list.length === 1 && ${P}.app.state.list[0].path === ${js(portrait)}`, { message: 'photos of Alice' });
       await app.main.eval(`${P}.app.catalog.renamePerson('Alice', 'Alicia'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('.people-pane [data-person="Alicia"]')) && ${P}.app.catalog.get(${js(portrait)}).faces[0].person === 'Alicia'`, { message: 'renamed' });
+      await app.main.waitFor(`Boolean(${P}.dq('.people-pane [data-person="Alicia"]')) && ${P}.app.catalog.get(${js(portrait)}).faces[0].person === 'Alicia'`, { message: 'renamed' });
       // Viewer: G shows the boxes; clicking one names the face.
       await app.main.eval(`${P}.app.settings.viewer.faces = false; ${P}.actions.viewItem(${js(portrait)}); 1`);
       await app.main.waitFor(`${P}.viewer.currentPath === ${js(portrait)} && ${P}.viewer.debug().kind !== 'placeholder' && ${P}.viewer.debug().width > 0`);
       await app.main.key('g');
       await app.main.waitFor(`${P}.viewer.debug().faces === 1`, { message: 'face box shown' });
-      assert.equal(await app.main.eval(`document.querySelector('.face-box .face-name').textContent`), 'Alicia');
-      await app.main.eval(`document.querySelector('.face-box').click(); 1`);
+      assert.equal(await app.main.eval(`${P}.dq('.face-box .face-name').textContent`), 'Alicia');
+      await app.main.eval(`${P}.dq('.face-box').click(); 1`);
       await dialog(app, 'people.name');
       await setField(app, 'people.name', 'Bob');
       await primary(app);
-      await app.main.waitFor(`${P}.app.catalog.get(${js(portrait)}).faces[0].person === 'Bob' && document.querySelector('.face-box .face-name')?.textContent === 'Bob'`);
+      await app.main.waitFor(`${P}.app.catalog.get(${js(portrait)}).faces[0].person === 'Bob' && ${P}.dq('.face-box .face-name')?.textContent === 'Bob'`);
       await app.main.key('g');
       await app.main.eval(`${P}.actions.setMode('manage'); ${P}.actions.showLeftTab('folders'); 1`);
     },
@@ -694,9 +1191,9 @@ export const cases = [
       assert.ok(box.w > 0.02 && box.w < 1 && box.x >= 0 && box.x + box.w <= 1.01, `box ${JSON.stringify(box)}`);
       await app.main.eval(`${P}.app.catalog.nameFace(${js(a)}, 0, 'Tester'); 1`);
       await app.main.eval(`${P}.actions.showLeftTab('people'); 1`);
-      await app.main.waitFor(`Boolean(document.querySelector('#people-scan'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('#people-scan'))`);
       // Rescan (forced) suggests the named person for the same face in the other photo.
-      await app.main.eval(`[...document.querySelectorAll('.people-pane button')].find((x) => x.textContent.includes(${P}.t('people.rescan'))).click(); 1`);
+      await app.main.eval(`[...${P}.dqa('.people-pane button')].find((x) => x.textContent.includes(${P}.t('people.rescan'))).click(); 1`);
       await app.main.waitFor(`(${P}.app.catalog.get(${js(b)})?.faces ?? []).some((f) => f.suggested === 'Tester')`, { timeout: 180000, message: 'suggestion' });
       // The naming dialog offers the suggestion; accepting names it.
       await menu(app, 'organize', 'people.nameFaces');
@@ -773,13 +1270,13 @@ export const cases = [
       const dst = dir(app, 'import-dst');
       await open(app, dst, 0);
       await menu(app, 'file', 'import.title');
-      await app.main.waitFor(`Boolean(document.querySelector('#import-dialog'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('#import-dialog'))`);
       await pick(app, src);
-      await app.main.eval(`document.querySelector('#import-pick-source').click(); 1`);
-      await app.main.waitFor(`document.querySelectorAll('#import-dialog .import-cell').length === 3`, { message: 'three photos to import' });
+      await app.main.eval(`${P}.dq('#import-pick-source').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('#import-dialog .import-cell').length === 3`, { message: 'three photos to import' });
       await pick(app, dst);
       await clickText(app, 'import.chooseDestination');
-      await app.main.waitFor(`[...document.querySelectorAll('#import-dialog .folder-label')].some((e) => e.textContent.includes('import-dst'))`);
+      await app.main.waitFor(`[...${P}.dqa('#import-dialog .folder-label')].some((e) => e.textContent.includes('import-dst'))`);
       await setField(app, 'import.subfolders', 'YYYY/MM');
       await setField(app, 'import.rename', 'trip_###');
       await setField(app, 'import.keywords', 'imported, holiday');
@@ -798,10 +1295,10 @@ export const cases = [
       // Same photos again: all skipped.
       for (const name of ['beach.jpg', 'city.jpg', 'forest.jpg']) fs.copyFileSync(path.join(fixtures, name), path.join(src, name));
       await menu(app, 'file', 'import.title');
-      await app.main.waitFor(`Boolean(document.querySelector('#import-dialog'))`);
+      await app.main.waitFor(`Boolean(${P}.dq('#import-dialog'))`);
       await pick(app, src);
-      await app.main.eval(`document.querySelector('#import-pick-source').click(); 1`);
-      await app.main.waitFor(`document.querySelectorAll('#import-dialog .import-cell').length === 3`);
+      await app.main.eval(`${P}.dq('#import-pick-source').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('#import-dialog .import-cell').length === 3`);
       await setCheck(app, 'import.deleteAfter', false);
       await primary(app);
       await menuDone(app);
@@ -899,8 +1396,8 @@ export const cases = [
       const stage = await app.main.center('.viewer-stage, .viewer .stage, .viewer');
       await app.main.mouse('mouseMoved', stage.x, stage.y, { button: 'none' });
       await app.main.mouse('mouseMoved', stage.x + 5, stage.y + 3, { button: 'none' });
-      await app.main.waitFor(`!document.querySelector('canvas.loupe').hidden`, { message: 'loupe follows the pointer' });
-      await app.main.waitFor(`/RGB\\(\\d+, \\d+, \\d+\\)/.test(document.querySelector('.pixel-info')?.textContent ?? '')`, { message: 'pixel info' });
+      await app.main.waitFor(`!${P}.dq('canvas.loupe').hidden`, { message: 'loupe follows the pointer' });
+      await app.main.waitFor(`/RGB\\(\\d+, \\d+, \\d+\\)/.test(${P}.dq('.pixel-info')?.textContent ?? '')`, { message: 'pixel info' });
       await app.main.key('l');
       await app.main.key('f');
       await app.main.waitFor(`document.body.classList.contains('immersive')`, { message: 'fullscreen' });
@@ -928,7 +1425,7 @@ export const cases = [
         ['temperature', viaSlider('color', 'adjust.temperature', 70)],
         ['levels', viaSlider('levels', 'levels.black', 60)],
         ['curves', viaChange(`e.adjust.curves = { rgb: [[0, 0], [100, 170], [255, 255]] };`)],
-        ['colorEq', async () => { await section(app, 'colorEq'); await app.main.eval(`document.querySelector('.editor-panel [data-band=orange]').click(); 1`); await slider(app, 'colorEq.hue', 120); await slider(app, 'colorEq.saturation', 100); }],
+        ['colorEq', async () => { await section(app, 'colorEq'); await app.main.eval(`${P}.dq('.editor-panel [data-band=orange]').click(); 1`); await slider(app, 'colorEq.hue', 120); await slider(app, 'colorEq.saturation', 100); }],
         ['lightEq', viaChange(`e.tone.lightEq = [80, 80, 60, 30, 0, 0, 0, 0, 0];`)],
         ['splitTone', async () => { await section(app, 'splitTone'); await slider(app, 'splitTone.highlightSat', 80); await slider(app, 'splitTone.shadowSat', 80); }],
         ['clarity', viaSlider('detail', 'detail.clarity', 100)],
@@ -955,7 +1452,7 @@ export const cases = [
     run: async (app) => {
       await open(app, dir(app, 'studio'), 6);
       await openEditor(app, await pathOf(app, 'beach.jpg'));
-      const use = async (sectionId, toolId) => { await section(app, sectionId); await app.main.eval(`document.querySelector('#tool-${toolId}').click(); 1`); await settle(app); };
+      const use = async (sectionId, toolId) => { await section(app, sectionId); await app.main.eval(`${P}.dq('#tool-${toolId}').click(); 1`); await settle(app); };
 
       await moves(app, 'white balance picker', async () => {
         await use('color', 'wbpick');
@@ -1000,8 +1497,8 @@ export const cases = [
 
       await moves(app, 'draw', async () => {
         await use('draw', 'draw');
-        await app.main.eval(`document.querySelector('.editor-panel [data-shape=rect]').click(); 1`);
-        await app.main.eval(`(() => { const box = [...document.querySelectorAll('.editor-panel label.check input')].pop(); box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+        await app.main.eval(`${P}.dq('.editor-panel [data-shape=rect]').click(); 1`);
+        await app.main.eval(`(() => { const box = [...${P}.dqa('.editor-panel label.check input')].pop(); box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
         await app.main.drag(await at(app, 0.2, 0.2), await at(app, 0.6, 0.6));
         await app.main.waitFor(`${P}.editor.debug().edit.drawings.length === 1 && ${P}.editor.debug().edit.drawings[0].type === 'rect'`);
       }, 1);
@@ -1015,13 +1512,13 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       await openEditor(app, await pathOf(app, 'forest.jpg'));
       await section(app, 'effects');
-      const ids = await app.main.eval(`[...document.querySelector('.editor-panel select[data-key="add-effect"]').options].map((o) => o.value).filter(Boolean)`);
+      const ids = await app.main.eval(`[...${P}.dq('.editor-panel select[data-key="add-effect"]').options].map((o) => o.value).filter(Boolean)`);
       assert.ok(ids.length >= 20, `${ids.length} effects`);
       const weak = [];
       for (const id of ids) {
         const d = await moves(app, id, async () => {
           await section(app, 'effects');
-          await app.main.eval(`(() => { const s = document.querySelector('.editor-panel select[data-key="add-effect"]'); s.value = ${js(id)}; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+          await app.main.eval(`(() => { const s = ${P}.dq('.editor-panel select[data-key="add-effect"]'); s.value = ${js(id)}; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
           await app.main.waitFor(`${P}.editor.debug().edit.effects.some((e) => e.id === ${js(id)})`, { timeout: 30000 });
         }, 0);
         if (d < 0.2) weak.push(`${id}: ${d.toFixed(2)}`);
@@ -1029,7 +1526,7 @@ export const cases = [
       assert.deepEqual(weak, [], 'effects that barely changed the picture');
       await resetEdit(app);
       await section(app, 'effects');
-      await app.main.eval(`(() => { const s = document.querySelector('.editor-panel select:not([data-key])'); s.value = 'sepia'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.eval(`(() => { const s = ${P}.dq('.editor-panel select:not([data-key])'); s.value = 'sepia'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
       await app.main.waitFor(`${P}.editor.debug().edit.adjust.effect === 'sepia'`);
       await leaveEditor(app);
     },
@@ -1045,19 +1542,19 @@ export const cases = [
       const file = await pathOf(app, 'layered.jpg');
       await openEditor(app, file);
       await section(app, 'geometry');
-      await app.main.eval(`(() => { const set = (k, v) => { const i = document.querySelector('.editor-panel [data-key="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); }; set('resize.width', 800); return 1; })()`);
-      await app.main.eval(`document.querySelector('#resize-apply').click(); 1`);
+      await app.main.eval(`(() => { const set = (k, v) => { const i = ${P}.dq('.editor-panel [data-key="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); }; set('resize.width', 800); return 1; })()`);
+      await app.main.eval(`${P}.dq('#resize-apply').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.geometry.resize?.width === 800`);
       await section(app, 'geometry');
-      await app.main.eval(`(() => { const set = (k, v) => { const i = document.querySelector('.editor-panel [data-key="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); }; set('canvas.width', 1000); set('canvas.height', 700); return 1; })()`);
-      await app.main.eval(`document.querySelector('#canvas-apply').click(); 1`);
+      await app.main.eval(`(() => { const set = (k, v) => { const i = ${P}.dq('.editor-panel [data-key="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); }; set('canvas.width', 1000); set('canvas.height', 700); return 1; })()`);
+      await app.main.eval(`${P}.dq('#canvas-apply').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.canvas.width === 1000`);
       await section(app, 'add');
-      await app.main.eval(`document.querySelector('#add-text').click(); 1`);
+      await app.main.eval(`${P}.dq('#add-text').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.overlay.texts.length === 1`);
       await section(app, 'layers');
       await pick(app, [path.join(studio, 'sunset.png')]);
-      await app.main.eval(`document.querySelector('#add-layer').click(); 1`);
+      await app.main.eval(`${P}.dq('#add-layer').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.layers.length === 1`, { timeout: 20000, message: 'layer added' });
       const normal = await signature(app);
       await app.main.eval(`${P}.editor.testing.change((e) => { e.layers[0].mode = 'multiply'; e.layers[0].opacity = 80; }); 1`);
@@ -1082,11 +1579,11 @@ export const cases = [
       await section(app, 'color');
       await slider(app, 'adjust.saturation', -40);
       await section(app, 'history');
-      await app.main.waitFor(`document.querySelectorAll('.editor-panel [data-history]').length === 3`, { message: 'history rows' });
-      await app.main.eval(`document.querySelector('.editor-panel [data-history="1"]').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('.editor-panel [data-history]').length === 3`, { message: 'history rows' });
+      await app.main.eval(`${P}.dq('.editor-panel [data-history="1"]').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().history.length === 1 && ${P}.editor.debug().edit.adjust.saturation === 0 && ${P}.editor.debug().edit.adjust.exposure === 0.8`, { message: 'back to step 1' });
       await section(app, 'presets');
-      await app.main.eval(`document.querySelector('#preset-save').click(); 1`);
+      await app.main.eval(`${P}.dq('#preset-save').click(); 1`);
       await dialog(app, 'edit.presetName');
       await setField(app, 'edit.presetName', 'Bright test');
       await primary(app);
@@ -1095,8 +1592,8 @@ export const cases = [
       await leaveEditor(app);
       await openEditor(app, await pathOf(app, 'city.jpg'));
       await section(app, 'presets');
-      await app.main.waitFor(`Boolean(document.querySelector('.editor-panel [data-preset="Bright test"]'))`);
-      await app.main.eval(`document.querySelector('.editor-panel [data-preset="Bright test"]').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel [data-preset="Bright test"]'))`);
+      await app.main.eval(`${P}.dq('.editor-panel [data-preset="Bright test"]').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.adjust.exposure === 0.8`, { message: 'preset applied' });
       await resetEdit(app);
       await app.main.key('v', 10);

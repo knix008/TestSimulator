@@ -27,9 +27,9 @@ async function select(app, name) {
 
 /** Clicks the primary button of the topmost dialog (optionally setting its first text input). */
 async function confirmTopDialog(app, text = null) {
-  await app.main.waitFor(`Boolean(document.querySelector('.dialog'))`, { timeout: 8000 });
+  await app.main.waitFor(`Boolean(${P}.dq('.dialog'))`, { timeout: 8000 });
   await app.main.eval(`(() => {
-    const dialogs = document.querySelectorAll('.dialog'); const d = dialogs[dialogs.length - 1];
+    const dialogs = ${P}.dqa('.dialog'); const d = dialogs[dialogs.length - 1];
     ${text != null ? `const input = d.querySelector('input[type=text]'); input.value = ${js(text)}; input.dispatchEvent(new Event('input', { bubbles: true }));` : ''}
     d.querySelector('.dialog-buttons .btn.primary').click(); return 1; })()`);
 }
@@ -57,7 +57,7 @@ export const cases = [
     ids: ['FMT-COMMON', 'FMT-TIFF', 'FMT-PSD', 'FMT-RAW', 'FMT-HEIC'], group: '탐색', name: '모든 형식의 썸네일 (JPEG·PNG·WebP·BMP·TIFF·PSD·DNG·HEIC)',
     run: async (app) => {
       await app.main.waitFor(`${P}.app.state.list.filter((i) => !i.isDir).every((i) => ${P}.thumbs.peek(i)?.url)`, { timeout: 60000, message: 'thumbnails' });
-      const tiles = await app.main.eval(`document.querySelectorAll('.tile .tile-img').length`);
+      const tiles = await app.main.eval(`${P}.dqa('.tile .tile-img').length`);
       assert.ok(tiles >= 13, `${tiles} thumbnails on screen`);
     },
   },
@@ -80,7 +80,7 @@ export const cases = [
       const sub = await pathOf(app, 'sub');
       await app.main.eval(`${P}.actions.openFolder(${js(sub)}); 1`);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'forest-2.jpg')`);
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('Backspace');
       await app.main.waitFor(`${P}.app.state.source.path === ${js(app.photos)} && ${P}.app.state.selection.has(${js(sub)})`, { message: 'came back with the folder selected' });
     },
@@ -89,29 +89,29 @@ export const cases = [
     ids: ['BROWSE-VIEWS', 'BROWSE-SORT'], group: '보기 방식', name: '상세 보기·목록 보기·정렬(크기 역순)·날짜별 그룹',
     run: async (app) => {
       await app.main.eval(`${P}.app.settings.view = 'details'; ${P}.app.emit('items', {}); 1`);
-      await app.main.waitFor(`document.querySelector('.filelist[data-view=details] .details-head .details-cell')`);
-      await app.main.eval(`document.querySelector('.details-head [data-sort=size]').click(); document.querySelector('.details-head [data-sort=size]')?.click(); 1`);
+      await app.main.waitFor(`${P}.dq('.filelist[data-view=details] .details-head .details-cell')`);
+      await app.main.eval(`${P}.dq('.details-head [data-sort=size]').click(); ${P}.dq('.details-head [data-sort=size]')?.click(); 1`);
       await app.main.waitFor(`${P}.app.settings.sort.key === 'size' && ${P}.app.settings.sort.desc`);
       const files = await app.main.eval(`${P}.app.state.list.filter((i) => !i.isDir).map((i) => i.size)`);
       assert.deepEqual(files, [...files].sort((a, b) => b - a));
       await app.main.eval(`${P}.app.settings.view = 'list'; ${P}.app.settings.groupBy = 'year'; ${P}.app.settings.sort = { key: 'name', desc: false }; ${P}.app.emit('resort'); 1`);
-      await app.main.waitFor(`document.querySelectorAll('.group-header').length >= 3`);
+      await app.main.waitFor(`${P}.dqa('.group-header').length >= 3`);
       await app.main.eval(`${P}.app.settings.view = 'thumbs'; ${P}.app.settings.groupBy = 'none'; ${P}.app.emit('resort'); 1`);
-      await app.main.waitFor(`!document.querySelector('.group-header') && document.querySelector('.filelist[data-view=thumbs]')`);
+      await app.main.waitFor(`!${P}.dq('.group-header') && ${P}.dq('.filelist[data-view=thumbs]')`);
     },
   },
   {
     ids: ['ORG-RATING', 'ORG-LABEL', 'ORG-TAG'], group: '정리', name: '단축키: Ctrl+3 별점, Alt+1 빨강 레이블, ` 태그 — 썸네일에 표시',
     run: async (app) => {
       const beach = await select(app, 'beach.jpg');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('3', 2);
       await app.main.key('1', 1);
       await app.main.send('Input.dispatchKeyEvent', { type: 'keyDown', key: '`', code: 'Backquote', text: '`', windowsVirtualKeyCode: 192 });
       await app.main.send('Input.dispatchKeyEvent', { type: 'keyUp', key: '`', code: 'Backquote', windowsVirtualKeyCode: 192 });
       await app.main.waitFor(`(() => { const r = ${P}.app.catalog.get(${js(beach)}); return r.rating === 3 && r.label === 'red' && r.tagged; })()`);
-      await app.main.waitFor(`document.querySelector('.tile[data-path=${js(js(beach)).slice(1, -1)}] .rating-badge')?.textContent === '★★★'`);
-      assert.ok(await app.main.eval(`Boolean(document.querySelector('.tile[data-path=${js(js(beach)).slice(1, -1)}] .label-bar'))`));
+      await app.main.waitFor(`${P}.dq('.tile[data-path=${js(js(beach)).slice(1, -1)}] .rating-badge')?.textContent === '★★★'`);
+      assert.ok(await app.main.eval(`Boolean(${P}.dq('.tile[data-path=${js(js(beach)).slice(1, -1)}] .label-bar'))`));
     },
   },
   {
@@ -120,11 +120,11 @@ export const cases = [
       const forest = await select(app, 'forest.jpg');
       await app.main.eval(`${P}.app.settings.panes.right = true; 1`);
       // The pane follows the selection a moment later: wait until it shows this photo.
-      await app.main.waitFor(`[...document.querySelectorAll('.properties .prop-table td')].some((td) => td.textContent === 'forest.jpg') && document.querySelector('[data-field=keywords]')`);
-      await app.main.eval(`(() => { const k = document.querySelector('[data-field=keywords]'); k.value = '숲, nature'; k.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`[...${P}.dqa('.properties .prop-table td')].some((td) => td.textContent === 'forest.jpg') && ${P}.dq('[data-field=keywords]')`);
+      await app.main.eval(`(() => { const k = ${P}.dq('[data-field=keywords]'); k.value = '숲, nature'; k.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return 1; })()`);
       await app.main.waitFor(`${P}.app.catalog.get(${js(forest)}).keywords?.length === 2`);
-      await app.main.waitFor(`document.querySelector('[data-field=caption]')`);
-      await app.main.eval(`(() => { const c = document.querySelector('[data-field=caption]'); c.value = 'Morning walk'; c.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`${P}.dq('[data-field=caption]')`);
+      await app.main.eval(`(() => { const c = ${P}.dq('[data-field=caption]'); c.value = 'Morning walk'; c.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
       await app.main.eval(`${P}.app.catalog.assignCategory([${js(forest)}], 'Places'); 1`);
       const record = await app.main.eval(`${P}.app.catalog.get(${js(forest)})`);
       assert.deepEqual([...record.keywords].sort(), ['nature', '숲']);
@@ -135,15 +135,15 @@ export const cases = [
   {
     ids: ['ORG-CATALOGPANE'], group: '정리', name: '카탈로그 창: 별점 3 → 해당 사진만, Ctrl+클릭으로 키워드와 조합',
     run: async (app) => {
-      await app.main.eval(`${P}.app.settings.panes.leftTab = 'catalog'; document.querySelector('.pane-tab[data-tab=catalog]').click(); 1`);
-      await app.main.waitFor(`[...document.querySelectorAll('.cat-row')].some((r) => r.textContent.startsWith('★★★') )`);
-      await app.main.eval(`[...document.querySelectorAll('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === '★★★').click(); 1`);
+      await app.main.eval(`${P}.app.settings.panes.leftTab = 'catalog'; ${P}.dq('.pane-tab[data-tab=catalog]').click(); 1`);
+      await app.main.waitFor(`[...${P}.dqa('.cat-row')].some((r) => r.textContent.startsWith('★★★') )`);
+      await app.main.eval(`[...${P}.dqa('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === '★★★').click(); 1`);
       await app.main.waitFor(`${P}.app.state.source.type === 'filter' && !${P}.app.state.loading`);
       assert.deepEqual(await listNames(app), ['beach.jpg']);
-      await app.main.eval(`(() => { const row = [...document.querySelectorAll('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === 'nature'); row.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); return 1; })()`);
+      await app.main.eval(`(() => { const row = [...${P}.dqa('.cat-row')].find((r) => r.querySelector('.cat-label')?.textContent === 'nature'); row.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); return 1; })()`);
       await app.main.waitFor(`${P}.app.state.source.filters?.length === 2`);
       assert.deepEqual(await listNames(app), [], 'rating 3 AND keyword nature: none');
-      await app.main.eval(`document.querySelector('.pane-tab[data-tab=folders]').click(); 1`);
+      await app.main.eval(`${P}.dq('.pane-tab[data-tab=folders]').click(); 1`);
       await backToFolder(app);
     },
   },
@@ -166,15 +166,15 @@ export const cases = [
     ids: ['VIEW-NAV'], group: '보기', name: 'Enter 로 보기 모드, ←/→ 이동, + 확대, / 맞춤, Esc 로 돌아오기',
     run: async (app) => {
       await select(app, 'beach.jpg');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('Enter');
-      await app.main.waitFor(`${P}.app.state.mode === 'view' && document.querySelector('.viewer-holder .viewer-media:not(.placeholder)')`);
+      await app.main.waitFor(`${P}.app.state.mode === 'view' && ${P}.dq('.viewer-holder .viewer-media:not(.placeholder)')`);
       await app.main.key('ArrowRight');
       await app.main.waitFor(`${P}.viewer.currentPath?.endsWith('beach.jpg') === false`);
       await app.main.key('+');
-      await app.main.waitFor(`(() => { const z = document.querySelector('.viewer-status .status-zoom').textContent; return /%$/.test(z) && !z.includes('('); })()`);
+      await app.main.waitFor(`(() => { const z = ${P}.dq('.viewer-status .status-zoom').textContent; return /%$/.test(z) && !z.includes('('); })()`);
       await app.main.key('/');
-      await app.main.waitFor(`document.querySelector('.viewer-status .status-zoom').textContent.includes('(')`);
+      await app.main.waitFor(`${P}.dq('.viewer-status .status-zoom').textContent.includes('(')`);
       await app.main.key('Escape');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
     },
@@ -185,8 +185,8 @@ export const cases = [
       for (const name of ['phone.heic', 'camera.dng', 'artwork.psd', 'scan.tif']) {
         const p = await pathOf(app, name);
         await app.main.eval(`${P}.actions.viewItem(${js(p)}); 1`);
-        await app.main.waitFor(`${P}.viewer.currentPath === ${js(p)} && document.querySelector('.viewer-holder canvas.viewer-media')`, { timeout: 30000, message: name });
-        assert.ok(!(await app.main.eval(`Boolean(document.querySelector('.viewer-error'))`)), `${name} shows`);
+        await app.main.waitFor(`${P}.viewer.currentPath === ${js(p)} && ${P}.dq('.viewer-holder canvas.viewer-media')`, { timeout: 30000, message: name });
+        assert.ok(!(await app.main.eval(`Boolean(${P}.dq('.viewer-error'))`)), `${name} shows`);
       }
       await app.main.eval(`${P}.actions.setMode('manage'); 1`);
     },
@@ -197,7 +197,7 @@ export const cases = [
       const city = await select(app, 'city.jpg');
       const before = fs.readFileSync(path.join(app.photos, 'city.jpg'));
       assert.equal(readOrientation(new Uint8Array(before)), 6);
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key(']', 2, 'BracketRight');
       await app.main.waitFor(`${P}.app.catalog.get(${js(city)}).width === 1600`, { timeout: 10000 });
       const after = new Uint8Array(fs.readFileSync(path.join(app.photos, 'city.jpg')));
@@ -208,13 +208,13 @@ export const cases = [
   {
     ids: ['FILE-OPS'], group: '파일', name: '새 폴더 · 이름 바꾸기(F2) · 복사 · 이동 — 디스크와 카탈로그가 함께',
     run: async (app) => {
-      await app.main.eval(`${P}.closeAllDialogs(); document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.closeAllDialogs(); ${P}.dq('.filelist').focus(); 1`);
       await app.main.key('N', 10);
       await confirmTopDialog(app, 'album');
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'album')`);
       assert.ok(fs.statSync(path.join(app.photos, 'album')).isDirectory());
       const portrait = await select(app, 'portrait.jpg');
-      await app.main.eval(`${P}.app.catalog.setRating([${js(portrait)}], 5); document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.app.catalog.setRating([${js(portrait)}], 5); ${P}.dq('.filelist').focus(); 1`);
       await app.main.key('F2');
       await confirmTopDialog(app, 'face.jpg');
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'face.jpg')`);
@@ -234,7 +234,7 @@ export const cases = [
     ids: ['FILE-OPS'], group: '파일', name: '삭제(Delete) → 확인 → 휴지통, 목록에서 사라짐',
     run: async (app) => {
       await select(app, 'beach-small.jpg');
-      await app.main.eval(`document.querySelector('.filelist').focus(); 1`);
+      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('Delete');
       await confirmTopDialog(app);
       await app.main.waitFor(`!${P}.app.state.list.some((i) => i.name === 'beach-small.jpg')`);
@@ -247,16 +247,16 @@ export const cases = [
       const beach = await pathOf(app, 'beach.jpg');
       const original = fs.readFileSync(path.join(app.photos, 'beach.jpg'));
       await app.main.eval(`${P}.actions.editPath(${js(beach)}); 1`);
-      await app.main.waitFor(`document.querySelector('.editor-preview') && document.querySelector('[data-key="adjust.exposure"]')`, { timeout: 20000 });
-      await app.main.eval(`(() => { const s = document.querySelector('[data-key="adjust.exposure"]'); s.value = '0.7'; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-      await app.main.eval(`document.querySelector('.edit-section-head[data-section=geometry]').click(); 1`);
-      await app.main.waitFor(`document.querySelector('#crop-start')`);
-      await app.main.eval(`document.querySelector('#crop-start').click(); 1`);
-      await app.main.waitFor(`document.querySelector('.crop-box')`);
-      await app.main.eval(`[...document.querySelectorAll('.chip')].find((c) => c.textContent === '1:1').click(); 1`);
-      await app.main.eval(`document.querySelector('#crop-apply').click(); 1`);
-      await app.main.waitFor(`${P}.editor.debug().edit.geometry.crop && !document.querySelector('#edit-save').disabled`);
-      await app.main.eval(`document.querySelector('#edit-save').click(); 1`);
+      await app.main.waitFor(`${P}.dq('.editor-preview') && ${P}.dq('[data-key="adjust.exposure"]')`, { timeout: 20000 });
+      await app.main.eval(`(() => { const s = ${P}.dq('[data-key="adjust.exposure"]'); s.value = '0.7'; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.eval(`${P}.dq('.edit-section-head[data-section=geometry]').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#crop-start')`);
+      await app.main.eval(`${P}.dq('#crop-start').click(); 1`);
+      await app.main.waitFor(`${P}.dq('.crop-box')`);
+      await app.main.eval(`[...${P}.dqa('.chip')].find((c) => c.textContent === '1:1').click(); 1`);
+      await app.main.eval(`${P}.dq('#crop-apply').click(); 1`);
+      await app.main.waitFor(`${P}.editor.debug().edit.geometry.crop && !${P}.dq('#edit-save').disabled`);
+      await app.main.eval(`${P}.dq('#edit-save').click(); 1`);
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 30000 });
       const saved = new Uint8Array(fs.readFileSync(path.join(app.photos, 'beach.jpg')));
       assert.notDeepEqual(Buffer.from(saved), original);
@@ -268,9 +268,9 @@ export const cases = [
       assert.ok(await app.main.eval(`${P}.app.catalog.get(${js(beach)}).edited === true`));
       // Restore the original.
       await select(app, 'beach.jpg');
-      await app.main.eval(`(() => { const items = [...document.querySelectorAll('.menubar-title')]; items.find((b) => b.dataset.menu === 'edit').click(); return 1; })()`);
-      await app.main.waitFor(`document.querySelector('.menu')`);
-      await app.main.eval(`[...document.querySelectorAll('.menu-item')].find((m) => m.textContent.includes('원본 복원') || m.textContent.includes('Restore original')).click(); 1`);
+      await app.main.eval(`(() => { const items = [...${P}.dqa('.menubar-title')]; items.find((b) => b.dataset.menu === 'edit').click(); return 1; })()`);
+      await app.main.waitFor(`${P}.dq('.menu')`);
+      await app.main.eval(`[...${P}.dqa('.menu-item')].find((m) => m.textContent.includes('원본 복원') || m.textContent.includes('Restore original')).click(); 1`);
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.catalog.get(${js(beach)}).edited !== true`, { timeout: 10000 });
       assert.deepEqual(fs.readFileSync(path.join(app.photos, 'beach.jpg')), original);
@@ -281,11 +281,11 @@ export const cases = [
     run: async (app) => {
       const p = await pathOf(app, 'face.jpg').catch(() => null) ?? path.join(app.photos, 'album', 'face (2).jpg');
       await app.main.eval(`${P}.actions.editPath(${js(p)}); 1`);
-      await app.main.waitFor(`document.querySelector('.editor-preview')`, { timeout: 20000 });
-      await app.main.eval(`document.querySelector('.edit-section-head[data-section=repair]').click(); 1`);
-      await app.main.eval(`document.querySelector('#tool-redeye').click(); 1`);
-      await app.main.waitFor(`document.querySelector('.editor-overlay.tool-redeye')`);
-      const box = await app.main.eval(`(() => { const r = document.querySelector('.editor-preview').getBoundingClientRect(); return { x: r.left + r.width * 0.42, y: r.top + r.height * 0.36 }; })()`);
+      await app.main.waitFor(`${P}.dq('.editor-preview')`, { timeout: 20000 });
+      await app.main.eval(`${P}.dq('.edit-section-head[data-section=repair]').click(); 1`);
+      await app.main.eval(`${P}.dq('#tool-redeye').click(); 1`);
+      await app.main.waitFor(`${P}.dq('.editor-overlay.tool-redeye')`);
+      const box = await app.main.eval(`(() => { const r = ${P}.dq('.editor-preview').getBoundingClientRect(); return { x: r.left + r.width * 0.42, y: r.top + r.height * 0.36 }; })()`);
       await app.main.realClick(box.x, box.y);
       await app.main.waitFor(`${P}.editor.debug().edit.spots.length === 1`);
       const spot = await app.main.eval(`${P}.editor.debug().edit.spots[0]`);
@@ -306,8 +306,8 @@ export const cases = [
     run: async (app) => {
       const paths = [await pathOf(app, 'forest.jpg'), await pathOf(app, 'sunset.png')];
       await app.main.eval(`${P}.actions.setSelection(${js(paths)}); (async () => { const m = await import('/src/ui/batch.js'); m.batchResize(); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.dialog input[type=number]')`);
-      await app.main.eval(`(() => { const i = document.querySelector('.dialog input[type=number]'); i.value = '400'; return 1; })()`);
+      await app.main.waitFor(`${P}.dq('.dialog input[type=number]')`);
+      await app.main.eval(`(() => { const i = ${P}.dq('.dialog input[type=number]'); i.value = '400'; return 1; })()`);
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'forest_resized.jpg') && ${P}.app.state.list.some((i) => i.name === 'sunset_resized.png')`, { timeout: 20000 });
       assert.deepEqual(await imageSize(app, path.join(app.photos, 'forest_resized.jpg')), [400, 267]);
@@ -330,9 +330,9 @@ export const cases = [
     run: async (app) => {
       const paths = [await pathOf(app, 'forest.jpg'), await pathOf(app, 'flower.webp')];
       await app.main.eval(`${P}.actions.setSelection(${js(paths)}); (async () => { const m = await import('/src/ui/batch.js'); m.batchRename(); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.dialog [data-key=template]')`);
-      await app.main.eval(`(() => { const i = document.querySelector('.dialog [data-key=template]'); i.value = 'trip_###'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
-      await app.main.waitFor(`document.querySelector('.rename-preview').textContent.includes('trip_002')`);
+      await app.main.waitFor(`${P}.dq('.dialog [data-key=template]')`);
+      await app.main.eval(`(() => { const i = ${P}.dq('.dialog [data-key=template]'); i.value = 'trip_###'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`${P}.dq('.rename-preview').textContent.includes('trip_002')`);
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'trip_001.webp') && ${P}.app.state.list.some((i) => i.name === 'trip_002.jpg')`, { timeout: 15000 });
       assert.ok(fs.existsSync(path.join(app.photos, 'trip_002.jpg')) && !fs.existsSync(path.join(app.photos, 'forest.jpg')));
@@ -344,8 +344,8 @@ export const cases = [
     run: async (app) => {
       const city = await select(app, 'city.jpg');
       await app.main.eval(`(async () => { const m = await import('/src/ui/batch.js'); m.adjustDates(); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.dialog input[type=number]')`);
-      await app.main.eval(`(() => { const i = document.querySelector('.dialog input[type=number]'); i.value = '1'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`${P}.dq('.dialog input[type=number]')`);
+      await app.main.eval(`(() => { const i = ${P}.dq('.dialog input[type=number]'); i.value = '1'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
       await confirmTopDialog(app);
       await app.main.waitFor(`new Date(${P}.app.catalog.get(${js(city)}).meta.taken).getDate() === 3`, { timeout: 10000 });
       const taken = readExifDates(new Uint8Array(fs.readFileSync(path.join(app.photos, 'city.jpg')))).taken;
@@ -357,8 +357,8 @@ export const cases = [
     run: async (app) => {
       await app.main.eval(`(async () => { const m = await import('/src/ui/duplicates.js'); m.findDuplicates(); })(); 1`);
       await confirmTopDialog(app);
-      await app.main.waitFor(`document.querySelector('.dupe-group')`, { timeout: 20000 });
-      const groups = await app.main.eval(`[...document.querySelectorAll('.dupe-group')].map((g) => [...g.querySelectorAll('.dupe-name')].map((n) => n.textContent).sort())`);
+      await app.main.waitFor(`${P}.dq('.dupe-group')`, { timeout: 20000 });
+      const groups = await app.main.eval(`[...${P}.dqa('.dupe-group')].map((g) => [...g.querySelectorAll('.dupe-name')].map((n) => n.textContent).sort())`);
       assert.deepEqual(groups, [['beach-copy.jpg', 'beach.jpg']]);
       await app.main.eval(`${P}.closeAllDialogs(); 1`);
     },
@@ -368,23 +368,23 @@ export const cases = [
     run: async (app) => {
       const paths = [await pathOf(app, 'beach.jpg'), await pathOf(app, 'beach-copy.jpg')];
       await app.main.eval(`${P}.actions.setSelection(${js(paths)}); (async () => { const m = await import('/src/ui/compare.js'); const s = await import('/src/store.js'); m.openCompare(s.selectedFiles()); })(); 1`);
-      await app.main.waitFor(`document.querySelectorAll('.compare-panel canvas, .compare-panel img').length === 2`);
+      await app.main.waitFor(`${P}.dqa('.compare-panel canvas, .compare-panel img').length === 2`);
       await app.main.key('Escape');
-      await app.main.waitFor(`!document.querySelector('.compare')`);
+      await app.main.waitFor(`!${P}.dq('.compare')`);
       await app.main.eval(`(async () => { const m = await import('/src/ui/slideshow.js'); m.startSlideshow(${P}.app.state.list, 0); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.slideshow .slide.active .slide-media')`);
+      await app.main.waitFor(`${P}.dq('.slideshow .slide.active .slide-media')`);
       await app.main.key('ArrowRight');
-      await app.main.waitFor(`document.querySelector('.slideshow-counter').textContent.startsWith('2 /')`);
+      await app.main.waitFor(`${P}.dq('.slideshow-counter').textContent.startsWith('2 /')`);
       await app.main.key('Escape');
-      await app.main.waitFor(`!document.querySelector('.slideshow')`);
+      await app.main.waitFor(`!${P}.dq('.slideshow')`);
     },
   },
   {
     ids: ['CREATE-PRINT'], group: '도구', name: '밀착 인화를 JPEG 로 저장',
     run: async (app) => {
       await app.main.eval(`${P}.actions.setSelection([]); (async () => { const m = await import('/src/ui/print.js'); m.printDialog(${P}.app.state.list); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.dialog select')`);
-      await app.main.eval(`(() => { const selects = [...document.querySelectorAll('.dialog select')]; const out = selects[selects.length - 1]; out.value = 'jpeg'; out.dispatchEvent(new Event('change')); return 1; })()`);
+      await app.main.waitFor(`${P}.dq('.dialog select')`);
+      await app.main.eval(`(() => { const selects = [...${P}.dqa('.dialog select')]; const out = selects[selects.length - 1]; out.value = 'jpeg'; out.dispatchEvent(new Event('change')); return 1; })()`);
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'contact-sheet-01.jpg')`, { timeout: 30000 });
       assert.ok(fs.statSync(path.join(app.photos, 'contact-sheet-01.jpg')).size > 20000);
@@ -394,12 +394,24 @@ export const cases = [
     ids: ['BROWSE-DASHBOARD', 'BROWSE-CALENDAR', 'BROWSE-MAP'], group: '창', name: '대시보드·달력·지도 창이 카탈로그 데이터를 보여준다',
     run: async (app) => {
       await app.main.eval(`${P}.actions.setMode('dashboard'); 1`);
-      await app.main.waitFor(`document.querySelectorAll('.stat-tile').length === 6 && document.querySelectorAll('.time-bar').length >= 2`);
-      await app.main.eval(`${P}.actions.setMode('manage'); document.querySelector('.pane-tab[data-tab=calendar]').click(); 1`);
-      await app.main.waitFor(`document.querySelectorAll('.cal-years .cat-row').length >= 2`);
-      await app.main.eval(`document.querySelector('.pane-tab[data-tab=folders]').click(); document.querySelector('.side-pane.right .pane-tab[data-tab=map]').click(); 1`);
-      await app.main.waitFor(`document.querySelectorAll('.map-marker').length >= 2`);
-      await app.main.eval(`document.querySelector('.side-pane.right .pane-tab[data-tab=properties]').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('.stat-tile').length === 6 && ${P}.dqa('.time-bar').length >= 2`, { timeout: 45000 });
+      // The dashboard fits the window: no scroll bars, the status bar shows — also in a small window.
+      const fits = async () => JSON.parse(await app.main.eval(`(() => { const d = ${P}.dq('.dashboard'); const r = d.getBoundingClientRect(); const bar = document.querySelector('footer.status-bar'); const grid = [...d.querySelectorAll('.dash-card')].map((c) => c.getBoundingClientRect()); return JSON.stringify({ v: d.scrollHeight - d.clientHeight, hz: d.scrollWidth - d.clientWidth, doc: document.documentElement.scrollHeight - innerHeight, docW: document.documentElement.scrollWidth - innerWidth, outside: grid.filter((g) => g.bottom > r.bottom + 1 || g.right > r.right + 1).length, bar: bar ? bar.getBoundingClientRect().height : 0, barBottom: bar ? Math.round(bar.getBoundingClientRect().bottom - innerHeight) : 99 }); })()`));
+      const check = (m, when) => { assert.ok(m.v <= 0 && m.hz <= 0 && m.doc <= 0 && m.docW <= 0 && m.outside === 0, `${when}: ${JSON.stringify(m)}`); assert.ok(m.bar >= 20 && Math.abs(m.barBottom) <= 1, `status bar ${when}: ${JSON.stringify(m)}`); };
+      check(await fits(), 'default size');
+      const setSize = (w, hgt) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: ${w}, height: ${hgt} } } }).then(() => 1)`);
+      const before = JSON.parse(await app.main.eval('JSON.stringify([innerWidth, innerHeight])'));
+      await setSize(960, 600);
+      await app.main.waitFor('innerWidth <= 970');
+      await sleep(400);
+      check(await fits(), '960×600');
+      await setSize(before[0], before[1]);
+      await app.main.waitFor(`innerWidth >= ${before[0] - 2}`);
+      await app.main.eval(`${P}.actions.setMode('manage'); ${P}.dq('.pane-tab[data-tab=calendar]').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('.cal-years .cat-row').length >= 2`);
+      await app.main.eval(`${P}.dq('.pane-tab[data-tab=folders]').click(); ${P}.dq('.side-pane.right .pane-tab[data-tab=map]').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('.map-marker').length >= 2`);
+      await app.main.eval(`${P}.dq('.side-pane.right .pane-tab[data-tab=properties]').click(); 1`);
     },
   },
   {
@@ -418,13 +430,15 @@ export const cases = [
   {
     ids: ['APP-LANG'], group: '설정', name: '언어를 영어로 바꾸면 메뉴가 English, 다시 한국어',
     run: async (app) => {
-      await app.main.eval(`document.querySelector('#open-settings').click(); 1`);
-      await app.main.waitFor(`document.querySelector('#settings-dialog select')`);
-      await app.main.eval(`(() => { const s = document.querySelector('#settings-dialog select'); s.value = 'en'; return 1; })()`);
+      await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#settings-dialog .lang-button[data-lang=en]')`);
+      // Language buttons show the flag and the name; the theme choice is on the same (first) tab.
+      assert.ok(await app.main.eval(`${P}.dqa('#settings-dialog .lang-button .flag').length === 2 && Boolean(${P}.dq('#settings-dialog .theme-select'))`));
+      await app.main.eval(`${P}.dq('#settings-dialog .lang-button[data-lang=en]').click(); ${P}.dq('#settings-dialog .lang-button[data-lang=en]').classList.contains('on')`);
       await confirmTopDialog(app);
-      await app.main.waitFor(`document.querySelector('.menubar-title[data-menu=file]').textContent === 'File'`);
+      await app.main.waitFor(`${P}.dq('.menubar-title[data-menu=file]').textContent === 'File'`);
       await app.main.eval(`(async () => { const { setLanguage } = await import('/src/i18n.js'); ${P}.app.settings.language = 'ko'; ${P}.app.saveSettings(); setLanguage('ko'); })(); 1`);
-      await app.main.waitFor(`document.querySelector('.menubar-title[data-menu=file]').textContent === '파일'`);
+      await app.main.waitFor(`${P}.dq('.menubar-title[data-menu=file]').textContent === '파일'`);
     },
   },
   {

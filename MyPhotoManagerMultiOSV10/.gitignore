@@ -31,3 +31,4 @@ desktop.ini
 
 # Copied from node_modules by scripts/vendor-assets.mjs
 public/models/
+public/vendor/
