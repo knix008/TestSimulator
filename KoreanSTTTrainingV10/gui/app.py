@@ -40,7 +40,7 @@ from kws.project import (
 )
 
 HELP_DATA = (
-    "기본 학습은 Windows 한국어 음성으로 만든 합성 데이터(data/synth)를 씁니다. 합성 데이터 생성으로 미리 만들 수 있고, "
+    "기본 학습은 Supertonic 2로 만든 남녀 합성 데이터(data/synth)를 씁니다. 합성 데이터 생성으로 미리 만들 수 있고, "
     "없으면 학습할 때 만듭니다. 여기서 녹음하는 내 목소리는 data/audio에 따로 저장되어 추가 학습에 쓰입니다. "
     "삐 소리 뒤에 명령 하나만 말하세요. 한 번은 1.2초입니다. "
     f"추가 학습에는 명령마다 {MIN_CLIPS}개 이상이면 충분하고, 무음은 조용할 때와 생활 소음이 있을 때 모두 녹음하면 좋습니다."
@@ -64,6 +64,13 @@ HELP_EVAL = (
     "줄을 고르면 확률을, 두 번 누르면 소리를 들을 수 있습니다."
 )
 OUTCOME_COLORS = {"정답": "#0f7b3a", "놓침": "#b45309", "오인식": "#b91c1c", "오수락": "#b91c1c"}
+PAGE = "#e6edf4"
+CARD = "#ffffff"
+INK = "#1a2332"
+MUTED = "#3d4c5c"
+LINE = "#3e4c5c"
+BLUE = "#1d4ed8"
+BLUE_DARK = "#1e3a8a"
 OTHER_SPEECH = "다른말"
 HELP_EXPORT = (
     "C++ 예제는 cpp 폴더에 있습니다. 기본 파일은 실수형 ONNX입니다. "
@@ -77,9 +84,10 @@ class App:
         if headless:
             self.root.withdraw()
         self.root.title("한국어 명령어 인식 학습")
-        self.root.geometry("1020x760")
-        self.root.minsize(920, 680)
+        self.root.geometry("1120x960")
+        self.root.minsize(1000, 820)
         self.family = configure_fonts(self.root)
+        apply_theme(self.root, self.family)
         self.font = (self.family, 10)
         self.font_small = (self.family, 9)
         self.project = Project()
@@ -124,26 +132,35 @@ class App:
         self._poll_job = self.root.after(100, self.poll)
 
     def _build(self) -> None:
-        top = ttk.Frame(self.root, padding=(8, 8, 8, 0))
-        top.pack(fill="x")
-        ttk.Label(top, text="마이크").pack(side="left")
+        ready = self._panel(self.root, "준비")
+        ready.pack(fill="x", padx=8, pady=(8, 0))
+        device_row = self._row(ready)
+        device_row.pack(fill="x")
+        self._caption(device_row, text="마이크").pack(side="left", padx=(0, 8))
         self.device_var = tk.StringVar()
-        self.device_combo = ttk.Combobox(top, textvariable=self.device_var, state="readonly")
-        self.device_combo.pack(side="left", fill="x", expand=True, padx=6)
-        ttk.Button(top, text="장치 새로고침", command=self.refresh_devices).pack(side="left")
+        self.device_combo = ttk.Combobox(device_row, textvariable=self.device_var, state="readonly")
+        self.device_combo.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        ttk.Button(device_row, text="장치 새로고침", command=self.refresh_devices).pack(side="left")
 
-        model_row = ttk.Frame(self.root, padding=(8, 6, 8, 0))
-        model_row.pack(fill="x")
-        ttk.Label(model_row, text="학습 결과").pack(side="left")
+        model_row = self._row(ready)
+        model_row.pack(fill="x", pady=(8, 0))
+        self._caption(model_row, text="학습 결과").pack(side="left", padx=(0, 8))
         self.model_var = tk.StringVar()
         self.model_combo = ttk.Combobox(model_row, textvariable=self.model_var, state="readonly", width=24)
-        self.model_combo.pack(side="left", padx=6)
+        self.model_combo.pack(side="left", padx=(0, 8))
         self.model_combo.bind("<<ComboboxSelected>>", self.on_model_picked)
         self.saved_models: dict[str, Path] = {}
         ttk.Button(model_row, text="결과 새로고침", command=self.refresh_saved_models).pack(side="left")
-        ttk.Button(model_row, text="다른 폴더", command=self.browse_model).pack(side="left", padx=4)
+        ttk.Button(model_row, text="다른 폴더", command=self.browse_model).pack(side="left", padx=(8, 0))
         self.model_info_var = tk.StringVar(value="")
-        ttk.Label(model_row, textvariable=self.model_info_var).pack(side="left", padx=8)
+        self._caption(model_row, textvariable=self.model_info_var).pack(side="left", padx=(12, 0))
+
+        self.status_var = tk.StringVar(value="명령을 고르고 녹음하세요.")
+        status = tk.Frame(self.root, bg=CARD, highlightthickness=1, highlightbackground=LINE)
+        status.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
+        tk.Label(
+            status, textvariable=self.status_var, bg=CARD, fg=INK, font=self.font, anchor="w", padx=10, pady=6
+        ).pack(fill="x")
 
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
@@ -153,228 +170,297 @@ class App:
         self._build_eval_tab()
         self._build_export_tab()
 
-        self.status_var = tk.StringVar(value="명령을 고르고 녹음하세요.")
-        ttk.Label(self.root, textvariable=self.status_var, padding=(8, 0, 8, 8)).pack(fill="x")
-
-    def _build_data_tab(self) -> None:
+    def _tab(self, title: str) -> ttk.Frame:
         frame = ttk.Frame(self.notebook, padding=8)
-        self.notebook.add(frame, text="데이터")
+        self.notebook.add(frame, text=title)
         frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(2, weight=1)
-        ttk.Label(frame, text=HELP_DATA, wraplength=900, justify="left").grid(row=0, column=0, columnspan=2, sticky="ew")
-        self.count_var = tk.StringVar(value="총 0개")
-        ttk.Label(frame, textvariable=self.count_var).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 4))
+        return frame
 
-        command_frame, self.command_list = self._listbox(frame)
-        command_frame.grid(row=2, column=0, sticky="nsew", padx=(0, 6))
-        file_frame, self.file_list = self._listbox(frame)
-        file_frame.grid(row=2, column=1, sticky="nsew")
-        self.command_list.bind("<<ListboxSelect>>", self.on_command_select)
+    def _panel(self, parent: tk.Misc, title: str) -> ttk.LabelFrame:
+        return ttk.LabelFrame(parent, text=title, padding=(10, 8))
 
-        editor = ttk.Frame(frame)
-        editor.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        self.command_var = tk.StringVar()
-        ttk.Entry(editor, textvariable=self.command_var, width=24).pack(side="left")
-        ttk.Button(editor, text="명령 추가", command=self.add_command).pack(side="left", padx=4)
-        ttk.Button(editor, text="명령 삭제", command=self.delete_command).pack(side="left")
-        ttk.Label(editor, text=f"최대 {MAX_COMMANDS}개").pack(side="left", padx=8)
+    def _row(self, parent: tk.Misc) -> ttk.Frame:
+        return ttk.Frame(parent, style="Card.TFrame")
 
-        actions = ttk.Frame(frame)
-        actions.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        ttk.Label(actions, text="횟수").pack(side="left")
-        self.repeat_var = tk.StringVar(value="5")
-        ttk.Spinbox(actions, from_=1, to=30, textvariable=self.repeat_var, width=5).pack(side="left", padx=(4, 8))
-        self.record_button = ttk.Button(actions, text="명령 녹음", command=self.record_command)
-        self.silence_button = ttk.Button(actions, text="무음 녹음", command=self.record_silence)
-        self.stop_record_button = ttk.Button(actions, text="녹음 중지", command=self.request_stop_record)
-        self.import_button = ttk.Button(actions, text="WAV 가져오기", command=self.import_wavs)
-        for button in (self.record_button, self.silence_button, self.import_button):
-            button.pack(side="left", padx=(0, 4))
-            self.record_buttons.append(button)
-        self.stop_record_button.pack(side="left", padx=(0, 8))
+    def _caption(self, parent: tk.Misc, **kwargs: object) -> ttk.Label:
+        kwargs.setdefault("style", "Inside.TLabel")
+        return ttk.Label(parent, **kwargs)
 
-        files = ttk.Frame(frame)
-        files.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(8, 0))
-        ttk.Button(files, text="듣기", command=self.play_selected).pack(side="left")
-        ttk.Button(files, text="파일 삭제", command=self.delete_file).pack(side="left", padx=4)
-        ttk.Button(files, text="데이터 폴더", command=lambda: open_folder(self.project.audio)).pack(side="left", padx=4)
-        ttk.Button(files, text="기본 명령 복원", command=self.reset_commands).pack(side="left", padx=4)
-        self.practice_button = ttk.Button(files, text="합성 데이터 생성", command=self.load_practice_audio)
-        self.practice_button.pack(side="left", padx=4)
-        self.record_status_var = tk.StringVar(value="")
-        ttk.Label(frame, textvariable=self.record_status_var, wraplength=900).grid(
-            row=6, column=0, columnspan=2, sticky="w", pady=(8, 0)
+    def _help(self, parent: ttk.Frame, text: str, row: int = 0) -> None:
+        box = self._panel(parent, "안내")
+        box.grid(row=row, column=0, columnspan=2, sticky="ew")
+        self._caption(box, text=text, style="Help.TLabel", wraplength=1000, justify="left").pack(fill="x")
+
+    def _text(self, parent: tk.Misc, **kwargs: object) -> tk.Text:
+        options: dict[str, object] = dict(
+            wrap="word",
+            font=self.font,
+            state="disabled",
+            bg=CARD,
+            fg=INK,
+            relief="solid",
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=LINE,
+            highlightcolor=BLUE,
+            padx=8,
+            pady=6,
+        )
+        options.update(kwargs)
+        return tk.Text(parent, **options)
+
+    def _canvas(self, parent: tk.Misc, height: int) -> tk.Canvas:
+        return tk.Canvas(
+            parent, height=height, bg=CARD, highlightthickness=1, highlightbackground=LINE, highlightcolor=BLUE
         )
 
-    def _build_train_tab(self) -> None:
-        frame = ttk.Frame(self.notebook, padding=8)
-        self.train_tab = frame
-        self.notebook.add(frame, text="학습")
-        frame.columnconfigure(0, weight=1)
-        ttk.Label(frame, text=HELP_TRAIN, wraplength=960, justify="left").grid(row=0, column=0, sticky="ew")
+    def _build_data_tab(self) -> None:
+        frame = self._tab("데이터")
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(1, weight=1)
+        self._help(frame, HELP_DATA)
 
-        data_row = ttk.Frame(frame)
-        data_row.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        ttk.Label(data_row, text="학습 데이터").pack(side="left")
+        command_frame, self.command_list, command_foot = self._listbox(frame, "명령")
+        command_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 8), pady=(8, 0))
+        file_frame, self.file_list, _file_foot = self._listbox(frame, "녹음 파일")
+        file_frame.grid(row=1, column=1, sticky="nsew", pady=(8, 0))
+        self.command_list.bind("<<ListboxSelect>>", self.on_command_select)
+        self.count_var = tk.StringVar(value="총 0개")
+        self._caption(command_foot, textvariable=self.count_var, style="Strong.TLabel").pack(anchor="w", pady=(6, 0))
+
+        editor = self._panel(frame, "명령 편집")
+        editor.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        editor_row = self._row(editor)
+        editor_row.pack(fill="x")
+        self.command_var = tk.StringVar()
+        ttk.Entry(editor_row, textvariable=self.command_var, width=24).pack(side="left")
+        ttk.Button(editor_row, text="명령 추가", command=self.add_command).pack(side="left", padx=(8, 0))
+        ttk.Button(editor_row, text="명령 삭제", command=self.delete_command).pack(side="left", padx=(8, 0))
+        self._caption(editor_row, text=f"최대 {MAX_COMMANDS}개").pack(side="left", padx=(12, 0))
+
+        actions = self._panel(frame, "녹음")
+        actions.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        action_row = self._row(actions)
+        action_row.pack(fill="x")
+        self._caption(action_row, text="횟수").pack(side="left")
+        self.repeat_var = tk.StringVar(value="5")
+        ttk.Spinbox(action_row, from_=1, to=30, textvariable=self.repeat_var, width=5).pack(side="left", padx=(6, 12))
+        self.record_button = ttk.Button(action_row, text="명령 녹음", style="Accent.TButton", command=self.record_command)
+        self.silence_button = ttk.Button(action_row, text="무음 녹음", style="Accent.TButton", command=self.record_silence)
+        self.stop_record_button = ttk.Button(action_row, text="녹음 중지", style="Stop.TButton", command=self.request_stop_record)
+        self.import_button = ttk.Button(action_row, text="WAV 가져오기", command=self.import_wavs)
+        for button in (self.record_button, self.silence_button, self.import_button):
+            button.pack(side="left", padx=(0, 8))
+            self.record_buttons.append(button)
+        self.stop_record_button.pack(side="left")
+        self.record_status_var = tk.StringVar(value="")
+        self._caption(actions, textvariable=self.record_status_var, wraplength=980).pack(fill="x", pady=(6, 0))
+
+        files = self._panel(frame, "파일")
+        files.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        file_row = self._row(files)
+        file_row.pack(fill="x")
+        ttk.Button(file_row, text="듣기", command=self.play_selected).pack(side="left")
+        ttk.Button(file_row, text="파일 삭제", command=self.delete_file).pack(side="left", padx=(8, 0))
+        ttk.Button(file_row, text="데이터 폴더", command=lambda: open_folder(self.project.audio)).pack(side="left", padx=(8, 0))
+        ttk.Button(file_row, text="기본 명령 복원", command=self.reset_commands).pack(side="left", padx=(8, 0))
+        self.practice_button = ttk.Button(file_row, text="합성 데이터 생성", style="Accent.TButton", command=self.load_practice_audio)
+        self.practice_button.pack(side="left", padx=(8, 0))
+
+    def _build_train_tab(self) -> None:
+        frame = self._tab("학습")
+        frame.rowconfigure(4, weight=1)
+        self.train_tab = frame
+        self._help(frame, HELP_TRAIN)
+
+        data = self._panel(frame, "학습 데이터")
+        data.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        data_row = self._row(data)
+        data_row.pack(fill="x")
         self.use_synth_var = tk.BooleanVar(value=True)
         self.use_synth_check = ttk.Checkbutton(data_row, text="합성 데이터", variable=self.use_synth_var)
-        self.use_synth_check.pack(side="left", padx=(8, 4))
+        self.use_synth_check.pack(side="left", padx=(0, 12))
         self.use_rec_var = tk.BooleanVar(value=True)
         self.use_rec_check = ttk.Checkbutton(data_row, text="내 녹음", variable=self.use_rec_var)
-        self.use_rec_check.pack(side="left", padx=4)
-        ttk.Label(data_row, text="내 녹음 반복").pack(side="left", padx=(12, 0))
+        self.use_rec_check.pack(side="left", padx=(0, 16))
+        self._caption(data_row, text="내 녹음 반복").pack(side="left")
         self.rec_repeat_var = tk.StringVar(value=str(RECORDING_REPEAT))
-        ttk.Spinbox(data_row, from_=1, to=10, textvariable=self.rec_repeat_var, width=4).pack(side="left", padx=4)
-        ttk.Label(data_row, text="번/에폭").pack(side="left")
+        ttk.Spinbox(data_row, from_=1, to=10, textvariable=self.rec_repeat_var, width=4).pack(side="left", padx=6)
+        self._caption(data_row, text="번/에폭").pack(side="left")
 
-        mode_row = ttk.Frame(frame)
-        mode_row.grid(row=2, column=0, sticky="ew", pady=(6, 0))
-        ttk.Label(mode_row, text="방식").pack(side="left")
+        mode = self._panel(frame, "학습 방식")
+        mode.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        mode_row = self._row(mode)
+        mode_row.pack(fill="x")
         self.train_mode_var = tk.StringVar(value="scratch")
         ttk.Radiobutton(
             mode_row, text="처음부터 학습", variable=self.train_mode_var, value="scratch", command=self.on_train_mode
-        ).pack(side="left", padx=(8, 4))
+        ).pack(side="left", padx=(0, 12))
         ttk.Radiobutton(
             mode_row, text="추가 학습", variable=self.train_mode_var, value="finetune", command=self.on_train_mode
-        ).pack(side="left", padx=4)
+        ).pack(side="left", padx=(0, 12))
         self.base_info_var = tk.StringVar(value="")
-        ttk.Label(mode_row, textvariable=self.base_info_var).pack(side="left", padx=(4, 12))
-        ttk.Label(mode_row, text="저장 이름").pack(side="left")
+        self._caption(mode_row, textvariable=self.base_info_var).pack(side="left", padx=(0, 16))
+        self._caption(mode_row, text="저장 이름").pack(side="left")
         self.out_name_var = tk.StringVar(value="latest")
-        ttk.Entry(mode_row, textvariable=self.out_name_var, width=14).pack(side="left", padx=4)
+        ttk.Entry(mode_row, textvariable=self.out_name_var, width=14).pack(side="left", padx=(6, 0))
 
-        options = ttk.Frame(frame)
+        options = self._panel(frame, "학습 실행")
         options.grid(row=3, column=0, sticky="ew", pady=(8, 0))
-        ttk.Label(options, text="에폭").pack(side="left")
+        option_row = self._row(options)
+        option_row.pack(fill="x")
+        self._caption(option_row, text="에폭").pack(side="left")
         self.epoch_var = tk.StringVar(value=str(self.project.epochs))
-        ttk.Spinbox(options, from_=1, to=200, textvariable=self.epoch_var, width=6).pack(side="left", padx=(4, 8))
-        ttk.Label(options, text="배치").pack(side="left")
+        ttk.Spinbox(option_row, from_=1, to=200, textvariable=self.epoch_var, width=6).pack(side="left", padx=(6, 12))
+        self._caption(option_row, text="배치").pack(side="left")
         self.batch_var = tk.StringVar(value=str(self.project.batch_size))
-        ttk.Spinbox(options, from_=1, to=64, textvariable=self.batch_var, width=6).pack(side="left", padx=(4, 8))
-        ttk.Label(options, text="학습률").pack(side="left")
+        ttk.Spinbox(option_row, from_=1, to=64, textvariable=self.batch_var, width=6).pack(side="left", padx=(6, 12))
+        self._caption(option_row, text="학습률").pack(side="left")
         self.lr_var = tk.StringVar(value=str(self.project.learning_rate))
-        ttk.Entry(options, textvariable=self.lr_var, width=8).pack(side="left", padx=(4, 8))
-        self.train_button = ttk.Button(options, text="학습 시작", command=self.start_train)
-        self.train_button.pack(side="left", padx=(0, 4))
-        self.stop_train_button = ttk.Button(options, text="학습 중지", command=self.request_stop_train)
+        ttk.Entry(option_row, textvariable=self.lr_var, width=8).pack(side="left", padx=(6, 16))
+        self.train_button = ttk.Button(option_row, text="학습 시작", style="Accent.TButton", command=self.start_train)
+        self.train_button.pack(side="left", padx=(0, 8))
+        self.stop_train_button = ttk.Button(option_row, text="학습 중지", style="Stop.TButton", command=self.request_stop_train)
         self.stop_train_button.pack(side="left")
 
+        result = self._panel(frame, "학습 결과")
+        result.grid(row=4, column=0, sticky="nsew", pady=(8, 0))
+        result.columnconfigure(0, weight=1)
+        result.rowconfigure(4, weight=1)
         self.acc_var = tk.StringVar(value="아직 학습하지 않았습니다.")
-        accuracy_box = ttk.Frame(frame)
-        accuracy_box.grid(row=4, column=0, sticky="ew", pady=(8, 4))
-        ttk.Label(accuracy_box, textvariable=self.acc_var, font=(self.family, 11, "bold")).pack(anchor="w")
+        self._caption(result, textvariable=self.acc_var, style="Strong.TLabel").grid(row=0, column=0, sticky="w")
         self.check_var = tk.StringVar(value="")
-        ttk.Label(accuracy_box, textvariable=self.check_var, foreground="#1d4ed8", wraplength=960, justify="left").pack(anchor="w")
-        self.progress = ttk.Progressbar(frame, maximum=100)
-        self.progress.grid(row=5, column=0, sticky="ew")
-        self.chart = tk.Canvas(frame, height=130, bg="white", highlightthickness=1, highlightbackground="#d0d7de")
-        self.chart.grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        self._caption(result, textvariable=self.check_var, foreground=BLUE, wraplength=980, justify="left").grid(
+            row=1, column=0, sticky="ew", pady=(2, 6)
+        )
+        self.progress = ttk.Progressbar(result, maximum=100)
+        self.progress.grid(row=2, column=0, sticky="ew")
+        self.chart = self._canvas(result, 96)
+        self.chart.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         self.chart.bind("<Configure>", lambda _event: self.draw_chart())
-        self.log = tk.Text(frame, height=10, wrap="word", font=self.font, state="disabled")
-        self.log.grid(row=7, column=0, sticky="nsew", pady=(8, 0))
-        frame.rowconfigure(7, weight=1)
+        self.log = self._text(result, height=6)
+        self.log.grid(row=4, column=0, sticky="nsew", pady=(8, 0))
+        result.rowconfigure(4, weight=1)
 
     def _build_test_tab(self) -> None:
-        frame = ttk.Frame(self.notebook, padding=8)
+        frame = self._tab("실시간 테스트")
+        frame.rowconfigure(2, weight=1)
         self.test_tab = frame
-        self.notebook.add(frame, text="실시간 테스트")
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(6, weight=1)
-        frame.rowconfigure(7, weight=1)
-        ttk.Label(frame, text=HELP_TEST, wraplength=900, justify="left").grid(row=0, column=0, sticky="ew")
-        controls = ttk.Frame(frame)
-        controls.grid(row=2, column=0, sticky="ew", pady=(8, 0))
-        self.test_button = ttk.Button(controls, text="마이크 테스트 시작", command=self.toggle_test)
+        self._help(frame, HELP_TEST)
+
+        controls = self._panel(frame, "인식")
+        controls.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        control_row = self._row(controls)
+        control_row.pack(fill="x")
+        self.test_button = ttk.Button(control_row, text="마이크 테스트 시작", style="Accent.TButton", command=self.toggle_test)
         self.test_button.pack(side="left")
         self.engine_var = tk.StringVar(value="onnx")
-        ttk.Radiobutton(controls, text="ONNX", variable=self.engine_var, value="onnx").pack(side="left", padx=(12, 0))
-        ttk.Radiobutton(controls, text="PyTorch", variable=self.engine_var, value="pytorch").pack(side="left", padx=(4, 12))
-        ttk.Label(controls, text="임계값").pack(side="left")
+        ttk.Radiobutton(control_row, text="ONNX", variable=self.engine_var, value="onnx").pack(side="left", padx=(16, 0))
+        ttk.Radiobutton(control_row, text="PyTorch", variable=self.engine_var, value="pytorch").pack(side="left", padx=(8, 16))
+        self._caption(control_row, text="임계값").pack(side="left")
         self.threshold_var = tk.DoubleVar(value=self.project.threshold)
         ttk.Scale(
-            controls,
-            from_=0.40,
-            to=0.95,
-            variable=self.threshold_var,
-            command=self.on_threshold,
-            length=160,
+            control_row, from_=0.40, to=0.95, variable=self.threshold_var, command=self.on_threshold, length=160
         ).pack(side="left", padx=6)
-        self.threshold_text = ttk.Label(controls, text=f"{self.project.threshold:.2f}")
+        self.threshold_text = self._caption(control_row, text=f"{self.project.threshold:.2f}")
         self.threshold_text.pack(side="left")
-        self.engine_status = ttk.Label(controls, text="")
+        self.engine_status = self._caption(control_row, text="")
         self.engine_status.pack(side="left", padx=12)
-
-        file_row = ttk.Frame(frame)
-        file_row.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        file_row = self._row(controls)
+        file_row.pack(fill="x", pady=(8, 0))
         self.file_test_button = ttk.Button(file_row, text="WAV 인식", command=self.recognize_wav_dialog)
         self.file_test_button.pack(side="left")
-        self.live_exam_button = ttk.Button(file_row, text="마이크 정확도 시험", command=lambda: self.start_exam())
-        self.live_exam_button.pack(side="left", padx=4)
+        self.live_exam_button = ttk.Button(
+            file_row, text="마이크 정확도 시험", style="Accent.TButton", command=lambda: self.start_exam()
+        )
+        self.live_exam_button.pack(side="left", padx=(8, 0))
         self.model_source_var = tk.StringVar(value="")
-        ttk.Label(file_row, textvariable=self.model_source_var).pack(side="left", padx=8)
+        self._caption(file_row, textvariable=self.model_source_var).pack(side="left", padx=(12, 0))
 
-        self.result_label = tk.Label(frame, text="대기", font=(self.family, 32, "bold"), fg="#5c6770", bg="white", pady=12)
-        self.result_label.grid(row=4, column=0, sticky="ew", pady=(12, 0))
+        result = self._panel(frame, "인식 결과")
+        result.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        result.columnconfigure(0, weight=1)
+        result.rowconfigure(2, weight=1)
+        result.rowconfigure(3, weight=1)
+        readout = tk.Frame(result, bg=CARD, highlightthickness=2, highlightbackground=LINE)
+        readout.grid(row=0, column=0, sticky="ew")
+        self.result_label = tk.Label(readout, text="대기", font=(self.family, 32, "bold"), fg=MUTED, bg=CARD, pady=12)
+        self.result_label.pack(fill="x")
         self.detail_var = tk.StringVar(value="학습 결과를 고른 뒤 마이크나 WAV로 인식합니다.")
-        ttk.Label(frame, textvariable=self.detail_var).grid(row=5, column=0, sticky="w", pady=(6, 0))
-        self.bar_canvas = tk.Canvas(frame, height=160, bg="white", highlightthickness=1, highlightbackground="#d0d7de")
-        self.bar_canvas.grid(row=6, column=0, sticky="nsew", pady=(8, 0))
+        self._caption(result, textvariable=self.detail_var).grid(row=1, column=0, sticky="w", pady=(8, 0))
+        self.bar_canvas = self._canvas(result, 150)
+        self.bar_canvas.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
         self.bar_canvas.bind("<Configure>", lambda _event: self.draw_bars())
-        self.file_log = tk.Text(frame, height=8, wrap="word", font=self.font, state="disabled")
-        self.file_log.grid(row=7, column=0, sticky="nsew", pady=(8, 0))
+        self.file_log = self._text(result, height=6)
+        self.file_log.grid(row=3, column=0, sticky="nsew", pady=(8, 0))
 
     def _build_eval_tab(self) -> None:
-        frame = ttk.Frame(self.notebook, padding=8)
-        self.eval_tab = frame
-        self.notebook.add(frame, text="평가")
-        frame.columnconfigure(0, weight=1)
+        frame = self._tab("평가")
         frame.rowconfigure(3, weight=1)
-        ttk.Label(frame, text=HELP_EVAL, wraplength=960, justify="left").grid(row=0, column=0, sticky="ew")
+        self.eval_tab = frame
+        self._help(frame, HELP_EVAL)
 
-        actions = ttk.Frame(frame)
+        actions = self._panel(frame, "평가 실행")
         actions.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        self.exam_button = ttk.Button(actions, text="마이크 시험", command=self.start_exam)
+        mic_row = self._row(actions)
+        mic_row.pack(fill="x")
+        self.exam_button = ttk.Button(mic_row, text="마이크 시험", style="Accent.TButton", command=self.start_exam)
         self.exam_button.pack(side="left")
-        ttk.Label(actions, text="명령마다").pack(side="left", padx=(6, 0))
+        self._caption(mic_row, text="명령마다").pack(side="left", padx=(12, 0))
         self.exam_repeat_var = tk.StringVar(value="3")
-        ttk.Spinbox(actions, from_=1, to=10, textvariable=self.exam_repeat_var, width=4).pack(side="left", padx=4)
-        ttk.Label(actions, text="번").pack(side="left", padx=(0, 12))
-        self.folder_eval_button = ttk.Button(actions, text="폴더 평가", command=self.evaluate_folder_dialog)
+        ttk.Spinbox(mic_row, from_=1, to=10, textvariable=self.exam_repeat_var, width=4).pack(side="left", padx=6)
+        self._caption(mic_row, text="번").pack(side="left", padx=(0, 12))
+        self.stop_eval_button = ttk.Button(mic_row, text="중지", style="Stop.TButton", command=self.request_stop_eval)
+        self.stop_eval_button.pack(side="left")
+        file_row = self._row(actions)
+        file_row.pack(fill="x", pady=(8, 0))
+        self.folder_eval_button = ttk.Button(file_row, text="폴더 평가", style="Accent.TButton", command=self.evaluate_folder_dialog)
         self.folder_eval_button.pack(side="left")
-        self.batch_test_button = ttk.Button(actions, text="합성 평가 음원", command=self.evaluate_practice)
-        self.batch_test_button.pack(side="left", padx=4)
-        self.stop_eval_button = ttk.Button(actions, text="중지", command=self.request_stop_eval)
-        self.stop_eval_button.pack(side="left", padx=(0, 12))
-        self.csv_button = ttk.Button(actions, text="CSV 저장", command=self.save_eval_csv)
-        self.csv_button.pack(side="left")
-        ttk.Button(actions, text="평가 폴더", command=lambda: open_folder(self.project.data / "eval")).pack(side="left", padx=4)
-        self.to_train_button = ttk.Button(actions, text="학습 데이터로 저장", command=self.save_eval_as_training)
-        self.to_train_button.pack(side="left", padx=(12, 0))
+        self.batch_test_button = ttk.Button(
+            file_row, text="합성 평가 음원", style="Accent.TButton", command=self.evaluate_practice
+        )
+        self.batch_test_button.pack(side="left", padx=(8, 0))
+        self.csv_button = ttk.Button(file_row, text="CSV 저장", command=self.save_eval_csv)
+        self.csv_button.pack(side="left", padx=(16, 0))
+        ttk.Button(file_row, text="평가 폴더", command=lambda: open_folder(self.project.data / "eval")).pack(side="left", padx=(8, 0))
+        self.to_train_button = ttk.Button(file_row, text="학습 데이터로 저장", command=self.save_eval_as_training)
+        self.to_train_button.pack(side="left", padx=(8, 0))
 
-        view = ttk.Frame(frame)
+        view = self._panel(frame, "점수")
         view.grid(row=2, column=0, sticky="ew", pady=(8, 0))
-        self.exam_prompt = tk.Label(view, text="", font=(self.family, 22, "bold"), fg="#1f2937", bg="white", width=18, anchor="w", padx=10)
+        view_row = self._row(view)
+        view_row.pack(fill="x")
+        self.exam_prompt = tk.Label(
+            view_row, text="", font=(self.family, 20, "bold"), fg=INK, bg="#eef4ff",
+            highlightthickness=1, highlightbackground=LINE, width=20, anchor="w", padx=10, pady=6,
+        )
         self.exam_prompt.pack(side="left")
-        self.eval_score = tk.Label(view, text="정확도 -", font=(self.family, 16, "bold"), fg="#1d4ed8", bg="white", width=17, padx=8)
+        self.eval_score = tk.Label(
+            view_row, text="정확도 -", font=(self.family, 16, "bold"), fg=BLUE, bg="#eef4ff",
+            highlightthickness=1, highlightbackground=BLUE, width=16, padx=8, pady=6,
+        )
         self.eval_score.pack(side="left", padx=(8, 0))
-        ttk.Label(view, text="임계값").pack(side="left", padx=(12, 0))
-        ttk.Scale(view, from_=0.40, to=0.95, variable=self.threshold_var, command=self.on_threshold, length=160).pack(side="left", padx=6)
-        self.eval_threshold_text = ttk.Label(view, text=f"{self.project.threshold:.2f}")
+        self._caption(view_row, text="임계값").pack(side="left", padx=(16, 0))
+        ttk.Scale(view_row, from_=0.40, to=0.95, variable=self.threshold_var, command=self.on_threshold, length=160).pack(
+            side="left", padx=6
+        )
+        self.eval_threshold_text = self._caption(view_row, text=f"{self.project.threshold:.2f}")
         self.eval_threshold_text.pack(side="left")
         self.wrong_only_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(view, text="틀린 것만", variable=self.wrong_only_var, command=self.refresh_eval_view).pack(side="left", padx=12)
+        ttk.Checkbutton(view_row, text="틀린 것만", variable=self.wrong_only_var, command=self.refresh_eval_view).pack(
+            side="left", padx=(16, 0)
+        )
 
         panes = ttk.PanedWindow(frame, orient="horizontal")
         panes.grid(row=3, column=0, sticky="nsew", pady=(8, 0))
-        table = ttk.Frame(panes)
+        table = self._panel(panes, "판정 목록")
         columns = ("outcome", "expected", "recognized", "confidence", "file")
         self.eval_tree = ttk.Treeview(table, columns=columns, show="headings", selectmode="browse")
         for column, title, width in (
-            ("outcome", "결과", 60),
-            ("expected", "정답", 70),
-            ("recognized", "인식", 70),
-            ("confidence", "최대 확률", 70),
+            ("outcome", "결과", 70),
+            ("expected", "정답", 80),
+            ("recognized", "인식", 80),
+            ("confidence", "최대 확률", 80),
             ("file", "파일", 260),
         ):
             self.eval_tree.heading(column, text=title)
@@ -388,41 +474,65 @@ class App:
         self.eval_tree.bind("<<TreeviewSelect>>", self.on_eval_select)
         self.eval_tree.bind("<Double-1>", lambda _event: self.play_eval_selected())
         panes.add(table, weight=3)
-        self.eval_report = tk.Text(panes, width=46, wrap="none", font=("Consolas", 10), state="disabled")
-        panes.add(self.eval_report, weight=2)
+        report = self._panel(panes, "요약")
+        self.eval_report = self._text(report, width=42, wrap="none", font=("Consolas", 10))
+        self.eval_report.pack(fill="both", expand=True)
+        panes.add(report, weight=2)
 
-        bottom = ttk.Frame(frame)
+        bottom = self._panel(frame, "선택 항목")
         bottom.grid(row=4, column=0, sticky="ew", pady=(8, 0))
         bottom.columnconfigure(0, weight=1)
-        self.eval_bars = tk.Canvas(bottom, height=120, bg="white", highlightthickness=1, highlightbackground="#d0d7de")
+        self.eval_bars = self._canvas(bottom, 72)
         self.eval_bars.grid(row=0, column=0, sticky="ew")
         self.eval_bars.bind("<Configure>", lambda _event: self.draw_eval_bars())
         ttk.Button(bottom, text="듣기", command=self.play_eval_selected).grid(row=0, column=1, sticky="n", padx=(8, 0))
 
     def _build_export_tab(self) -> None:
-        frame = ttk.Frame(self.notebook, padding=8)
-        self.notebook.add(frame, text="내보내기")
-        frame.columnconfigure(0, weight=1)
+        frame = self._tab("내보내기")
         frame.rowconfigure(2, weight=1)
-        ttk.Label(frame, text=HELP_EXPORT, wraplength=900, justify="left").grid(row=0, column=0, sticky="ew")
-        actions = ttk.Frame(frame)
+        self._help(frame, HELP_EXPORT)
+        actions = self._panel(frame, "저장")
         actions.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        self.export_button = ttk.Button(actions, text="ONNX 다시 저장", command=self.export_model)
+        action_row = self._row(actions)
+        action_row.pack(fill="x")
+        self.export_button = ttk.Button(action_row, text="ONNX 다시 저장", style="Accent.TButton", command=self.export_model)
         self.export_button.pack(side="left")
         self.int8_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(actions, text="INT8도 저장", variable=self.int8_var).pack(side="left", padx=8)
-        ttk.Button(actions, text="모델 폴더 열기", command=self.open_selected_model).pack(side="left")
-        self.export_text = tk.Text(frame, wrap="word", font=self.font, state="disabled")
-        self.export_text.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        ttk.Checkbutton(action_row, text="INT8도 저장", variable=self.int8_var).pack(side="left", padx=(12, 0))
+        ttk.Button(action_row, text="모델 폴더 열기", command=self.open_selected_model).pack(side="left", padx=(12, 0))
+        log = self._panel(frame, "로그")
+        log.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        log.columnconfigure(0, weight=1)
+        log.rowconfigure(0, weight=1)
+        self.export_text = self._text(log)
+        self.export_text.grid(row=0, column=0, sticky="nsew")
 
-    def _listbox(self, parent: ttk.Frame) -> tuple[ttk.Frame, tk.Listbox]:
-        holder = ttk.Frame(parent)
-        widget = tk.Listbox(holder, font=self.font, activestyle="dotbox", exportselection=False)
-        scroll = ttk.Scrollbar(holder, command=widget.yview)
+    def _listbox(self, parent: tk.Misc, title: str) -> tuple[ttk.LabelFrame, tk.Listbox, ttk.Frame]:
+        holder = self._panel(parent, title)
+        footer = self._row(holder)
+        footer.pack(side="bottom", fill="x")
+        body = self._row(holder)
+        body.pack(side="top", fill="both", expand=True)
+        widget = tk.Listbox(
+            body,
+            font=self.font,
+            activestyle="none",
+            exportselection=False,
+            bg=CARD,
+            fg=INK,
+            selectbackground="#dbeafe",
+            selectforeground=BLUE_DARK,
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=1,
+            highlightbackground=LINE,
+            highlightcolor=BLUE,
+        )
+        scroll = ttk.Scrollbar(body, command=widget.yview)
         widget.configure(yscrollcommand=scroll.set)
         widget.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
-        return holder, widget
+        return holder, widget, footer
 
     def refresh_devices(self) -> None:
         current = self.device_var.get()
@@ -686,14 +796,16 @@ class App:
         if missing:
             question = (
                 f"합성 데이터가 없는 클래스가 있습니다: {', '.join(missing)}\n"
-                "Windows 한국어 음성으로 지금 만든 뒤 이어서 학습할까요? 몇 분 걸릴 수 있습니다."
+                "Supertonic 2로 남녀 목소리를 같은 수만큼 만든 뒤 이어서 학습할까요? 음성 합성이라 꽤 걸립니다."
             )
             if not messagebox.askyesno("합성 데이터", question):
                 return
             generate = True
 
         def available(label: str) -> int:
-            synth = (35 if generate else practice.synth_count(label)) if use_synth else 0
+            from kws.synth_eval import command_train_clips
+
+            synth = (command_train_clips() if generate else practice.synth_count(label)) if use_synth else 0
             return synth + (self.project.count(label) if use_rec else 0)
 
         short = [f"{label} {available(label)}개" for label in labels if available(label) < MIN_CLIPS]
@@ -838,8 +950,8 @@ class App:
             return
         commands = list(self.project.commands)
         question = (
-            f"Windows 한국어 음성으로 {', '.join(commands)}와 무음 합성 데이터를 data/synth에 만듭니다.\n"
-            "말하기 속도, 높이, 소음을 바꾼 음입니다. 내 녹음(data/audio)은 건드리지 않습니다."
+            f"Supertonic 2로 {', '.join(commands)}와 무음 합성 데이터를 data/synth에 만듭니다.\n"
+            "남자 5명, 여자 5명 목소리에 속도, 높이, 소음을 바꿉니다. 내 녹음(data/audio)은 건드리지 않습니다."
         )
         if practice.available():
             question += "\n\n이미 있는 합성 데이터는 지금 명령으로 새로 만듭니다."
@@ -1430,11 +1542,12 @@ class App:
         self.train_button.configure(state="disabled" if locked else "normal")
         self.stop_train_button.configure(state="normal" if self.training else "disabled")
         if self.live:
-            self.test_button.configure(state="normal", text="테스트 중지")
+            self.test_button.configure(state="normal", text="테스트 중지", style="Stop.TButton")
         else:
             self.test_button.configure(
                 state="disabled" if (self.recording or self.training) else "normal",
                 text="마이크 테스트 시작",
+                style="Accent.TButton",
             )
         self.export_button.configure(state="disabled" if self.training else "normal")
         file_state = "disabled" if locked or self.evaluating else "normal"
@@ -1658,6 +1771,185 @@ class App:
         except Exception:
             pass
         self.root.destroy()
+
+
+def apply_theme(root: tk.Tk, family: str) -> None:
+    root.configure(bg=PAGE)
+    style = ttk.Style(root)
+    style.theme_use("clam")
+    style.configure(".", background=PAGE, foreground=INK, font=(family, 10))
+    style.configure("TFrame", background=PAGE)
+    style.configure("Card.TFrame", background=CARD)
+    style.configure("TLabel", background=PAGE, foreground=INK)
+    style.configure("Inside.TLabel", background=CARD, foreground=INK)
+    style.configure("Help.TLabel", background=CARD, foreground=INK, font=(family, 9))
+    style.configure("Strong.TLabel", background=CARD, foreground=INK, font=(family, 11, "bold"))
+    style.configure(
+        "TLabelframe",
+        background=CARD,
+        bordercolor=LINE,
+        lightcolor=LINE,
+        darkcolor=LINE,
+        relief="solid",
+        borderwidth=2,
+    )
+    style.configure(
+        "TLabelframe.Label",
+        background=PAGE,
+        foreground=BLUE_DARK,
+        font=(family, 10, "bold"),
+    )
+    style.configure(
+        "TButton",
+        background=CARD,
+        foreground=INK,
+        bordercolor=LINE,
+        lightcolor=CARD,
+        darkcolor="#c5ced6",
+        padding=(12, 7),
+        relief="solid",
+        borderwidth=2,
+        focusthickness=2,
+        focuscolor=BLUE,
+        font=(family, 10),
+    )
+    style.map(
+        "TButton",
+        background=[("pressed", "#d5e2f2"), ("active", "#eef4fb"), ("disabled", "#e5e7eb")],
+        foreground=[("disabled", "#6b7280")],
+        bordercolor=[("active", BLUE), ("focus", BLUE), ("disabled", "#9aa3ad")],
+    )
+    style.configure(
+        "Accent.TButton",
+        background=BLUE,
+        foreground=CARD,
+        bordercolor=BLUE_DARK,
+        lightcolor="#3b82f6",
+        darkcolor=BLUE_DARK,
+        padding=(14, 7),
+        font=(family, 10, "bold"),
+    )
+    style.map(
+        "Accent.TButton",
+        background=[("pressed", BLUE_DARK), ("active", "#2563eb"), ("disabled", "#bfdbfe")],
+        foreground=[("disabled", "#1e3a8a")],
+        bordercolor=[("disabled", "#93c5fd"), ("active", BLUE_DARK)],
+    )
+    style.configure(
+        "Stop.TButton",
+        background="#fff7ed",
+        foreground="#9a3412",
+        bordercolor="#c2410c",
+        lightcolor="#ffedd5",
+        darkcolor="#fdba74",
+        padding=(12, 7),
+        font=(family, 10, "bold"),
+    )
+    style.map(
+        "Stop.TButton",
+        background=[("pressed", "#ffedd5"), ("active", "#ffedd5"), ("disabled", "#f3f4f6")],
+        foreground=[("disabled", "#9ca3af")],
+        bordercolor=[("disabled", "#9ca3af"), ("active", "#9a3412")],
+    )
+    style.configure("TCheckbutton", background=CARD, foreground=INK, padding=(2, 4))
+    style.map(
+        "TCheckbutton",
+        background=[("active", "#e8f0fe")],
+        indicatorcolor=[("selected", BLUE), ("!selected", CARD)],
+    )
+    style.configure("TRadiobutton", background=CARD, foreground=INK, padding=(2, 4))
+    style.map(
+        "TRadiobutton",
+        background=[("active", "#e8f0fe")],
+        indicatorcolor=[("selected", BLUE), ("!selected", CARD)],
+    )
+    style.configure(
+        "TEntry",
+        fieldbackground=CARD,
+        foreground=INK,
+        bordercolor=LINE,
+        lightcolor=CARD,
+        padding=4,
+    )
+    style.map("TEntry", bordercolor=[("focus", BLUE)])
+    style.configure(
+        "TSpinbox",
+        fieldbackground=CARD,
+        foreground=INK,
+        bordercolor=LINE,
+        arrowcolor=INK,
+        arrowsize=14,
+        padding=4,
+    )
+    style.map("TSpinbox", bordercolor=[("focus", BLUE)])
+    style.configure(
+        "TCombobox",
+        fieldbackground=CARD,
+        background="#e8eef5",
+        foreground=INK,
+        bordercolor=LINE,
+        arrowcolor=INK,
+        arrowsize=14,
+        padding=4,
+    )
+    style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", CARD)],
+        bordercolor=[("focus", BLUE)],
+    )
+    style.configure("TScale", background=CARD, troughcolor="#d5dee8")
+    style.configure(
+        "TProgressbar",
+        background=BLUE,
+        troughcolor="#d5dee8",
+        bordercolor=LINE,
+        thickness=12,
+    )
+    style.configure("TNotebook", background=PAGE, bordercolor=LINE, tabmargins=(2, 6, 2, 0))
+    style.configure(
+        "TNotebook.Tab",
+        background="#c5d0dc",
+        foreground=INK,
+        bordercolor=LINE,
+        padding=(16, 8),
+        font=(family, 10, "bold"),
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", PAGE), ("active", "#f4f7fb")],
+        foreground=[("selected", BLUE)],
+        expand=[("selected", (1, 1, 1, 0))],
+    )
+    style.configure(
+        "Treeview",
+        background=CARD,
+        fieldbackground=CARD,
+        foreground=INK,
+        bordercolor=LINE,
+        rowheight=28,
+        font=(family, 10),
+    )
+    style.configure(
+        "Treeview.Heading",
+        background="#dbe4ef",
+        foreground=INK,
+        bordercolor=LINE,
+        relief="flat",
+        padding=6,
+        font=(family, 10, "bold"),
+    )
+    style.map("Treeview", background=[("selected", "#dbeafe")], foreground=[("selected", BLUE_DARK)])
+    style.configure(
+        "TScrollbar",
+        background="#c5d0dc",
+        troughcolor=PAGE,
+        bordercolor=LINE,
+        arrowcolor=INK,
+        arrowsize=14,
+    )
+    style.map("TScrollbar", background=[("active", "#8ea0b3")])
+    style.configure("TPanedwindow", background=PAGE)
+    style.configure("Sash", sashthickness=8, background=LINE)
 
 
 def configure_fonts(root: tk.Tk) -> str:
