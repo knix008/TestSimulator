@@ -8,7 +8,10 @@ from pathlib import Path
 import numpy as np
 
 TARGET_SAMPLE_RATE = 16000
-COMMAND_SECONDS = 1.2
+COMMAND_SECONDS = 2.0
+GAIN_MIN = 0.25
+GAIN_MAX = 4.0
+GAIN_DEFAULT = 1.0
 
 
 def load_audio(path: Path) -> tuple[np.ndarray, int]:
@@ -53,6 +56,24 @@ def resample(wav: np.ndarray, src_sr: int, dst_sr: int) -> np.ndarray:
     return np.interp(new_t, old_t, wav).astype(np.float32)
 
 
+def clamp_gain(value: object) -> float:
+    try:
+        gain = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return GAIN_DEFAULT
+    if gain != gain:
+        return GAIN_DEFAULT
+    return min(GAIN_MAX, max(GAIN_MIN, gain))
+
+
+def apply_gain(wav: np.ndarray, gain: float) -> np.ndarray:
+    data = np.asarray(wav, dtype=np.float32).reshape(-1)
+    factor = np.float32(clamp_gain(gain))
+    if data.size == 0 or factor == np.float32(1.0):
+        return np.ascontiguousarray(data, dtype=np.float32)
+    return np.clip(data * factor, -1.0, 1.0).astype(np.float32)
+
+
 def peak_level(wav: np.ndarray) -> float:
     if wav.size == 0:
         return 0.0
@@ -89,14 +110,19 @@ def list_input_devices() -> list[tuple[int, str]]:
     return devices
 
 
-def record_block(seconds: float, device: int | None, sample_rate: int = TARGET_SAMPLE_RATE) -> np.ndarray:
+def record_block(
+    seconds: float,
+    device: int | None,
+    sample_rate: int = TARGET_SAMPLE_RATE,
+    gain: float = GAIN_DEFAULT,
+) -> np.ndarray:
     import sounddevice as sd
 
     frames = max(1, int(round(seconds * sample_rate)))
     try:
         audio = sd.rec(frames, samplerate=sample_rate, channels=1, dtype="float32", device=device)
         sd.wait()
-        return np.array(audio, dtype=np.float32, copy=True).reshape(-1)
+        return apply_gain(np.array(audio, dtype=np.float32, copy=True).reshape(-1), gain)
     except Exception as first_error:
         sd.stop()
         info_device = device if device is not None else sd.default.device[0]
@@ -109,16 +135,23 @@ def record_block(seconds: float, device: int | None, sample_rate: int = TARGET_S
         except Exception as exc:
             raise RuntimeError(f"마이크를 열 수 없습니다. {exc}") from first_error
         wav = np.array(audio, dtype=np.float32, copy=True).reshape(-1)
-        return resample(wav, device_sr, sample_rate)
+        return apply_gain(resample(wav, device_sr, sample_rate), gain)
 
 
 class MicrophoneStream:
-    """최근 1.5초를 유지하는 입력 스트림."""
+    """최근 2초를 유지하는 입력 스트림."""
 
-    def __init__(self, device: int | None = None, target_sr: int = TARGET_SAMPLE_RATE, window_sec: float = 1.5) -> None:
+    def __init__(
+        self,
+        device: int | None = None,
+        target_sr: int = TARGET_SAMPLE_RATE,
+        window_sec: float = 2.0,
+        gain: float = GAIN_DEFAULT,
+    ) -> None:
         self.device = device
         self.target_sr = target_sr
         self.window_sec = window_sec
+        self.gain = clamp_gain(gain)
         self.stream_sr = target_sr
         self._chunks: list[np.ndarray] = []
         self._buffer = np.zeros(0, dtype=np.float32)
@@ -174,7 +207,7 @@ class MicrophoneStream:
             return data
         if self.stream_sr != self.target_sr:
             data = resample(data, self.stream_sr, self.target_sr)
-        return np.ascontiguousarray(data, dtype=np.float32)
+        return apply_gain(data, self.gain)
 
     def close(self) -> None:
         stream = self._stream

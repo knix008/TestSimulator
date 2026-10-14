@@ -96,3 +96,13 @@ export function gridBaseFor(sizeMm, unit = current) {
   const nice = [1, 2, 5, 10].map((k) => k * power).reduce((best, v) => (Math.abs(Math.log(v / inUnit)) < Math.abs(Math.log(best / inUnit)) ? v : best));
   return nice * factor;
 }
+
+/**
+ * The unit the 3D axis numbers read in: short numbers in a unit that suits the
+ * size — metres for a building (1 m, not 1000 mm), millimetres for a part;
+ * feet past 6 ft in imperial drawings.
+ */
+export function axisUnitFor(reachMm, unit = current) {
+  if (unit === 'in' || unit === 'ft') return reachMm >= 1828.8 ? 'ft' : 'in';
+  return reachMm >= 1000 ? 'm' : 'mm';
+}

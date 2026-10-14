@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T09:43:02.683Z",
+ "saved": "2026-10-14T05:10:40.098Z",
  "drawing": {
-  "id": "dwg-mv6htcso0158ub2r",
+  "id": "dwg-mv7nixfx00wnuymm",
   "title": "머신 바이스 (조 폭 125)",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T09:43:02.664Z",
-  "updated": "2026-10-13T09:43:02.664Z",
+  "created": "2026-10-14T05:10:40.077Z",
+  "updated": "2026-10-14T05:10:40.077Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6htcso01599a1n",
+    "id": "e-mv7nixfx00woywcl",
     "type": "solid",
     "layer": "0",
     "color": "#5d7fa3",
@@ -209,7 +209,7 @@
     }
    },
    {
-    "id": "e-mv6htcso015a03n2",
+    "id": "e-mv7nixfx00wpiz7g",
     "type": "solid",
     "layer": "0",
     "color": "#5d7fa3",
@@ -271,7 +271,7 @@
     }
    },
    {
-    "id": "e-mv6htcso015bawy6",
+    "id": "e-mv7nixfx00wqe94h",
     "type": "solid",
     "layer": "0",
     "color": "#7b9cc1",
@@ -295,7 +295,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015c4vzd",
+    "id": "e-mv7nixfx00wrj7z3",
     "type": "solid",
     "layer": "0",
     "color": "#d9822b",
@@ -319,7 +319,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015dpj4k",
+    "id": "e-mv7nixfx00wst2ho",
     "type": "solid",
     "layer": "0",
     "color": "#c9cdd4",
@@ -343,7 +343,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015ebmxa",
+    "id": "e-mv7nixfx00wtoh6i",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -367,7 +367,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015f11g3",
+    "id": "e-mv7nixfx00wu6xsr",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -391,7 +391,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015gd6o1",
+    "id": "e-mv7nixfx00wvuk40",
     "type": "solid",
     "layer": "0",
     "color": "#c9cdd4",
@@ -415,7 +415,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015hz73k",
+    "id": "e-mv7nixfx00wwxjbn",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -439,7 +439,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015icpop",
+    "id": "e-mv7nixfx00wxy7fx",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -463,7 +463,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015jqn8j",
+    "id": "e-mv7nixfx00wy3il0",
     "type": "solid",
     "layer": "0",
     "color": "#c9cdd4",
@@ -487,7 +487,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015k2tsw",
+    "id": "e-mv7nixfx00wz9a34",
     "type": "solid",
     "layer": "0",
     "color": "#a0a6b0",
@@ -512,7 +512,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015lnk4y",
+    "id": "e-mv7nixfx00x09upi",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -536,7 +536,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015m770e",
+    "id": "e-mv7nixfx00x1c123",
     "type": "solid",
     "layer": "0",
     "color": "#c9cdd4",
@@ -560,7 +560,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015n5oax",
+    "id": "e-mv7nixfx00x29qwn",
     "type": "solid",
     "layer": "0",
     "color": "#e5484d",
@@ -582,7 +582,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015odzv3",
+    "id": "e-mv7nixfx00x39kue",
     "type": "solid",
     "layer": "0",
     "color": "#e5484d",
@@ -604,7 +604,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015pmovo",
+    "id": "e-mv7nixfx00x4idm0",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -628,7 +628,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015qhmg1",
+    "id": "e-mv7nixfx00x53bh3",
     "type": "solid",
     "layer": "0",
     "color": "#40454f",
@@ -652,7 +652,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015rkito",
+    "id": "e-mv7nixfx00x69m5t",
     "type": "solid",
     "layer": "0",
     "color": "#e8a53a",
@@ -676,7 +676,7 @@
     "shape": {}
    },
    {
-    "id": "e-mv6htcso015s5hce",
+    "id": "e-mv7nixfx00x70ol7",
     "type": "text",
     "layer": "text",
     "color": null,

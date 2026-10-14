@@ -5,7 +5,7 @@ import numpy as np
 from kws import practice, synth_eval
 from kws.audio import save_wav
 from kws.project import SILENCE_LABEL
-from test.helpers import LABELS, korean_voice_available, kws_root, temp_dir, tone, trained_model
+from test.helpers import LABELS, kws_root, temp_dir, tone, trained_model
 
 COMMANDS = LABELS[:-1]
 
@@ -57,13 +57,20 @@ class JobPlanTest(unittest.TestCase):
         self.assertEqual(synth_eval._safe_name("문 열어?"), "문_열어_")
 
     def test_heldout_rates_not_in_training(self):
-        self.assertFalse(set(synth_eval.TRAIN_RATES) & set(synth_eval.TEST_RATES))
+        self.assertFalse(set(synth_eval.TRAIN_SPEEDS) & set(synth_eval.TEST_SPEEDS))
+
+    def test_voices_are_balanced(self):
+        self.assertEqual(len(synth_eval.MALE_VOICES), len(synth_eval.FEMALE_VOICES))
+        self.assertEqual(synth_eval.TTS_MODEL, "supertonic-2")
 
     def test_jobs_cover_commands_and_negatives(self):
         jobs = synth_eval._speech_jobs(temp_dir(), ["출근"])
-        rates = sorted(rate for word, rate, _ in jobs if word == "출근")
-        self.assertEqual(rates, sorted(synth_eval.TRAIN_RATES + synth_eval.TEST_RATES))
-        words = {word for word, _, _ in jobs}
+        speeds = sorted({speed for word, _, speed, _ in jobs if word == "출근"})
+        self.assertEqual(speeds, sorted(synth_eval.TRAIN_SPEEDS + synth_eval.TEST_SPEEDS))
+        voices = [voice for word, voice, _, _ in jobs if word == "출근"]
+        self.assertEqual(voices.count("M1") * len(synth_eval.MALE_VOICES), voices.count("F1") * len(synth_eval.FEMALE_VOICES))
+        self.assertEqual(sum(voice.startswith("M") for voice in voices), sum(voice.startswith("F") for voice in voices))
+        words = {word for word, _, _, _ in jobs}
         self.assertTrue(set(synth_eval.TRAIN_OTHER) <= words)
         self.assertTrue(set(synth_eval.TEST_OTHER) <= words)
 
@@ -72,18 +79,32 @@ class JobPlanTest(unittest.TestCase):
             synth_eval.generate_dataset([], temp_dir())
 
 
-@unittest.skipUnless(korean_voice_available(), "Windows 한국어 음성이 없습니다")
 class GenerateDatasetTest(unittest.TestCase):
     def test_generates_train_and_heldout_audio(self):
         root = temp_dir() / "synth"
         progress = []
-        counts = synth_eval.generate_dataset(["출근", "문열어"], root, on_progress=progress.append)
-        self.assertEqual(counts, {"출근": 35, "문열어": 35, SILENCE_LABEL: 51})
-        self.assertEqual(len(list((root / "test" / "깨끗" / "문열어").glob("*.wav"))), 12)
-        self.assertEqual(len(list((root / "test" / "소음섞인" / "출근").glob("*.wav"))), 12)
-        self.assertEqual(len(list((root / "test" / "다른말").glob("*.wav"))), 16)
+
+        def fake_speak(jobs, on_progress=None):
+            for _text, _voice, _speed, path in jobs:
+                save_wav(path, np.full(8000, 0.2, dtype=np.float32))
+            if on_progress is not None:
+                on_progress("합성")
+
+        with unittest.mock.patch.object(synth_eval, "_synthesize_all", fake_speak):
+            counts = synth_eval.generate_dataset(["출근", "문열어"], root, on_progress=progress.append)
+        per_command = synth_eval.command_train_clips()
+        self.assertEqual(counts, {"출근": per_command, "문열어": per_command, SILENCE_LABEL: 906})
+        self.assertEqual(per_command, 350)
+        train_names = [path.name for path in (root / "train" / "출근").glob("*.wav")]
+        self.assertEqual(
+            sum(1 for name in train_names if "_M" in name),
+            sum(1 for name in train_names if "_F" in name),
+        )
+        self.assertEqual(len(list((root / "test" / "깨끗" / "문열어").glob("*.wav"))), 60)
+        self.assertEqual(len(list((root / "test" / "소음섞인" / "출근").glob("*.wav"))), 60)
+        self.assertEqual(len(list((root / "test" / "다른말").glob("*.wav"))), 80)
         self.assertEqual(len(list((root / "test" / "소음").glob("*.wav"))), 4)
-        self.assertEqual(len(progress), 2)
+        self.assertGreaterEqual(len(progress), 2)
         from kws.audio import load_model_wav
 
         clip = load_model_wav(sorted((root / "train" / "출근").glob("*.wav"))[0])

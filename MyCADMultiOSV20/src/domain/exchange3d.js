@@ -1,22 +1,31 @@
 // 3D file exchange — FreeCAD's formats for solids and meshes (and AMF, for 3D
 // printers; FreeCAD itself does not read AMF):
-//   write  STL (stl.js) · OBJ · PLY · OFF · AMF · 3MF · STEP (faceted B-rep) · FCStd (parametric FreeCAD document)
-//   read   STL · OBJ · PLY · OFF · AMF · 3MF · STEP (faceted and planar/cylindrical/conical/spherical/toroidal faces) · FCStd
+//   write  STL (stl.js) · OBJ · PLY · OFF · AMF · 3MF · VRML · DAE (scene3d.js) · STEP (faceted B-rep) · BREP (brep.js) · FCStd (parametric FreeCAD document)
+//   read   STL · OBJ · PLY · OFF · AMF · 3MF · VRML · DAE · BREP · OpenSCAD (scad.js) · STEP (faceted and planar/cylindrical/conical/spherical/toroidal faces) · FCStd
 // Meshes are triangles [[x, y, z] × 3] in millimetres.
 import { primitives } from './entities.js';
 import { arcPoints, polygonArea } from './geometry.js';
-import { exactVolume, flattenTriangles, hasShape, helixPath, meshBox, normalizeSolidData, partInParent, placement, resampleLoop, solidMesh } from './solids.js';
+import { exactVolume, extrudePolygon, flattenTriangles, hasShape, helixPath, localMesh, meshBox, normalizeSolidData, partInParent, placement, resampleLoop, revolve, solidBlocks, solidMesh } from './solids.js';
+import { isArchKind } from './arch.js';
 import { planarFaces } from './meshtools.js';
 import { triangulate } from './triangulate.js';
 import { child, childrenNamed, escapeXml, findAll, parseXml } from './xml.js';
+import { parseDae, parseVrml, toDae, toVrml } from './scene3d.js';
+import { resampleAligned } from './features.js';
+import { parseBrep, toBrep } from './brep.js';
+import { parseScad, toScad } from './scad.js';
+import { parsePointCloud, POINT_FORMATS, toXyz } from './points.js';
+import { repairMesh } from './meshcheck.js';
 import { isZip, readZip, writeZip, zipText } from './zip.js';
+import { booleanOf } from './csg.js';
+import { parseIfc, toIfc } from './ifc.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const f = (v) => (Math.abs(v) < 1e-12 ? '0' : String(Math.round(v * 1e9) / 1e9));
 
-export const MESH_FORMATS = ['stl', 'obj', 'ply', 'off', 'amf', '3mf', 'step', 'fcstd'];
-export const IMPORT_FORMATS = ['stl', 'obj', 'ply', 'off', 'amf', '3mf', 'step', 'stp', 'fcstd'];
+export const MESH_FORMATS = ['stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl', 'dae', 'step', 'brep', 'scad', 'xyz', 'fcstd', 'ifc'];
+export const IMPORT_FORMATS = ['stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl', 'vrml', 'dae', 'step', 'stp', 'brep', 'brp', 'scad', 'csg', 'xyz', 'asc', 'pts', 'pcd', 'fcstd', 'ifc'];
 
 /** Shared vertices: { vertices: [[x, y, z]], faces: [[i, j, k]] }. */
 export function indexMesh(triangles) {
@@ -33,7 +42,8 @@ export function indexMesh(triangles) {
 
 /** [{ name, triangles }] from solid entities (one object per solid). */
 export function objectsOf(entities) {
-  return entities.filter((e) => e.type === 'solid').map((e, i) => ({ name: e.name || `${e.kind}${i + 1}`, triangles: solidMesh(e), color: e.color }));
+  // BIM objects are made of blocks that touch; B-rep writers (STEP) give each block its own closed shell.
+  return entities.filter((e) => e.type === 'solid').map((e, i) => ({ name: e.name || `${e.kind}${i + 1}`, triangles: solidMesh(e), color: e.color, ...(isArchKind(e.kind) ? { blocks: solidBlocks(e) } : {}) }));
 }
 
 // ───────────────────────── writers
@@ -133,7 +143,7 @@ export function toStep(objects, { title = 'MyCAD', author = '', date = new Date(
   const origin = add("CARTESIAN_POINT('',(0.,0.,0.))");
   const axis = add(`AXIS2_PLACEMENT_3D('',${origin},${add("DIRECTION('',(0.,0.,1.))")},${add("DIRECTION('',(1.,0.,0.))")})`);
   const breps = [];
-  for (const object of objects) {
+  for (const object of objects.flatMap((o) => (o.blocks?.length > 1 ? o.blocks.map((triangles) => ({ name: o.name, triangles })) : [o]))) {
     const { vertices, faces } = indexMesh(object.triangles);
     const points = vertices.map((v) => add(`CARTESIAN_POINT('',(${n(v[0])},${n(v[1])},${n(v[2])}))`));
     // Faces: neighbouring triangles on one plane joined into a polygon (with inner loops for holes),
@@ -332,7 +342,7 @@ function freecadObjectsOf(e, name, label, bms) {
     case 'pad': {
       const items = (e.shape.shapes ?? []).flatMap((shape) => [shape.outer, ...shape.holes].flatMap((loop) => loopItems(loop.map((q) => ({ x: L(q.x), y: L(q.y) })))));
       const sketch = obj('Sketcher::SketchObject', `${name}_sketch`, [geometryXml(items), place()]);
-      obj('Part::Extrusion', main, [P.link('Base', sketch), P.enumeration('DirMode', 2), P.vector('Dir', apply(R, [0, 0, 1])), P.float('LengthFwd', L(p.height), 'App::PropertyDistance'), P.bool('Solid', true)], visibleMain);
+      obj('Part::Extrusion', main, [P.link('Base', sketch), P.enumeration('DirMode', 2), P.vector('Dir', apply(R, [0, 0, 1])), P.float('LengthFwd', L(p.height), 'App::PropertyDistance'), P.bool('Solid', true), ...(p.taper ? [P.float('TaperAngle', -p.taper, 'App::PropertyAngle')] : [])], visibleMain);
       break;
     }
     case 'revolution': {
@@ -342,6 +352,16 @@ function freecadObjectsOf(e, name, label, bms) {
       break;
     }
     case 'loft': {
+      if (e.shape.sections) {
+        // Each section at its height, the points lined up as MyCAD lofts them.
+        const n = Math.max(48, ...e.shape.sections.map((s) => s.length));
+        const names = e.shape.sections.map((section, k) => {
+          const up = apply(R, [0, 0, L((p.height * k) / (e.shape.sections.length - 1))]);
+          return obj('Sketcher::SketchObject', `${name}_section${k + 1}`, [geometryXml(loopItems(resampleAligned(section, n).map((q) => ({ x: L(q.x), y: L(q.y) })))), place(R, [T[0] + up[0], T[1] + up[1], T[2] + up[2]])]);
+        });
+        obj('Part::Loft', main, [P.links('Sections', names), P.bool('Solid', true), P.bool('Ruled', p.mode !== 1)], visibleMain);
+        break;
+      }
       // Both outlines with the same number of points, lined up as MyCAD lofts them, so FreeCAD's ruled loft is the same solid.
       const n = Math.max(e.shape.bottom.length, e.shape.top.length, 48);
       const scaleLoop = (loop) => resampleLoop(loop, n).map((q) => ({ x: L(q.x), y: L(q.y) }));
@@ -352,6 +372,7 @@ function freecadObjectsOf(e, name, label, bms) {
       break;
     }
     case 'sweep': {
+      if (e.shape.section) { obj('Mesh::Feature', main, [P.mesh(bms.add(solidMesh(e)))], true); break; }
       const map = placement(e);
       const path = e.shape.path.map(map);
       const spine = obj('Part::Polygon', `${name}_path`, [P.vectors('Nodes', path, `${name}_path.Nodes.bin`), P.bool('Close', false)]);
@@ -1039,7 +1060,7 @@ export function parseStep(data) {
  * each cell's piece of the region is triangulated and mapped back. A loop that
  * runs once round the axis (a whole circle edge) bounds a band.
  */
-function curvedFace(loops, toParam, fromParam, sameSense, kind) {
+export function curvedFace(loops, toParam, fromParam, sameSense, kind) {
   const TAU = 2 * Math.PI;
   const STEP = TAU / 72;
   const angular = kind === 'sphere' || kind === 'torus';
@@ -1483,10 +1504,23 @@ export function exportMesh(format, drawing, entities, { title = drawing.title ||
     case 'obj': return encoder.encode(toObj(objects, title));
     case 'ply': return encoder.encode(toPly(objects, title));
     case 'off': return encoder.encode(toOff(objects));
+    case 'wrl': return encoder.encode(toVrml(objects, title));
+    case 'dae': return encoder.encode(toDae(objects, { title, author }));
+    case 'xyz': {
+      // Point clouds as they are; other solids as the corners of their meshes.
+      const pts = [];
+      for (const e of entities.filter((x) => x.type === 'solid')) {
+        if (e.kind === 'points') { const m = placement(e); const s = e.shape?.pts ?? []; for (let i = 0; i + 2 < s.length; i += 3) pts.push(...m([s[i], s[i + 1], s[i + 2]])); } else for (const tri of solidMesh(e)) for (const p of tri) pts.push(...p);
+      }
+      return encoder.encode(toXyz(pts));
+    }
+    case 'scad': return encoder.encode(toScad(entities, { placement, localMesh, normalizeSolidData, partInParent }, { title }));
+    case 'brep': return encoder.encode(toBrep(objects.flatMap((o) => (o.blocks ?? [o.triangles]).map((triangles, i) => ({ name: `${o.name}${o.blocks ? ` ${i + 1}` : ''}`, triangles })))));
     case 'amf': return encoder.encode(toAmf(objects, title));
     case '3mf': return to3mf(objects, title);
     case 'step': return encoder.encode(toStep(objects, { title, author }));
     case 'fcstd': return toFcstd(drawing, { title, entities });
+    case 'ifc': return encoder.encode(toIfc(drawing, { title, author, entities }));
     default: throw new Error(`unknown format ${format}${binary ? '' : ''}`);
   }
 }
@@ -1498,12 +1532,22 @@ export function exportMesh(format, drawing, entities, { title = drawing.title ||
 export function importMesh(format, data) {
   const fmt = format.toLowerCase().replace(/^\./, '');
   if (fmt === 'fcstd') return parseFcstd(data);
-  const parse = { stl: parseStl, obj: parseObj, ply: parsePly, off: parseOff, amf: parseAmf, '3mf': parse3mf, step: parseStep, stp: parseStep }[fmt];
+  if (POINT_FORMATS.includes(fmt)) return { entities: [{ type: 'solid', kind: 'points', name: 'Points', params: {}, shape: { pts: parsePointCloud(asText(data)) } }], warnings: [] };
+  if (fmt === 'ifc') return parseIfc(asText(data), { stepEntities: parseStepEntities, cut: (tris, holes) => orient(booleanOf('cut', [tris, ...holes])) });
+  // BREP faces are tessellated one by one: the cracks between them are closed afterwards.
+  const readBrep = (d) => {
+    const objects = parseBrep(asText(d), { curvedFace });
+    const out = objects.map((o) => ({ ...o, triangles: repairMesh(o.triangles).triangles }));
+    out.warnings = objects.warnings;
+    return out;
+  };
+  const readScad = (d) => parseScad(asText(d), { revolve, extrudePolygon });
+  const parse = { scad: readScad, csg: readScad, stl: parseStl, obj: parseObj, ply: parsePly, off: parseOff, amf: parseAmf, '3mf': parse3mf, wrl: parseVrml, vrml: parseVrml, dae: parseDae, step: parseStep, stp: parseStep, brep: readBrep, brp: readBrep }[fmt];
   if (!parse) throw new Error(`unknown format ${format}`);
   if (fmt === '3mf' && !isZip(asBytes(data))) throw new Error('3MF: not a zip package');
   const objects = parse(data);
   return {
-    entities: objects.map((o) => ({ type: 'solid', kind: 'mesh', name: o.name, params: {}, shape: { tris: flattenTriangles(orient(o.triangles)) } })),
+    entities: objects.map((o) => ({ type: 'solid', kind: 'mesh', name: o.name, params: {}, shape: { tris: flattenTriangles(orient(o.triangles)) }, ...(o.color ? { color: o.color } : {}) })),
     warnings: objects.warnings ?? [],
   };
 }

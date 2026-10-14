@@ -885,15 +885,15 @@ Make third-angle projected views (with hidden lines), an isometric view and sect
 
 ### Goal
 
-Use the 3D view: views, wireframe, axes and the light (sun).
+Use the 3D view: views, draw styles, axes and the light (sun).
 
 ### Steps
 
-1. **Wireframe and axes** — The 3D bar switches wireframe and the axes (with ticks). The ground grid keeps 5 × 5 cells while zooming.
+1. **Draw styles and axes** — The style button on the 3D bar picks one of ten looks: as is, shaded, hidden line, X-ray, sketch, wireframe and more. The axes (with ticks) switch on and off. The ground grid keeps 5 × 5 cells while zooming.
 
-   ![The 3D view in depth · Wireframe and axes](images/en/l12-s1.webp)
+   ![The 3D view in depth · Draw styles and axes](images/en/l12-s1.webp)
 
-   *The 3D view in depth · Wireframe and axes*
+   *The 3D view in depth · Draw styles and axes*
 
 2. **The light (sun)** — Drag the sun to move the light; double-click switches it. Clicking the sun shows azimuth, elevation, strength, colour and shadows in the properties.
 
@@ -919,7 +919,7 @@ Use the 3D view: views, wireframe, axes and the light (sun).
 
 ### Check
 
-- [ ] Wireframe and axes
+- [ ] Draw styles and axes
 - [ ] The light (sun)
 - [ ] Back to 2D
 
@@ -1245,7 +1245,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 | Explode gives the parts back | [Lesson 10](#lesson-10-booleans-cut-fuse-common) |
 | Projected views | [Lesson 11](#lesson-11-drawing-views-and-sections) |
 | Sections | [Lesson 11](#lesson-11-drawing-views-and-sections) |
-| Wireframe and axes | [Lesson 12](#lesson-12-the-3d-view-in-depth) |
+| Draw styles and axes | [Lesson 12](#lesson-12-the-3d-view-in-depth) |
 | The light (sun) | [Lesson 12](#lesson-12-the-3d-view-in-depth) |
 | Back to 2D | [Lesson 12](#lesson-12-the-3d-view-in-depth) |
 | Save and open | [Lesson 13](#lesson-13-files-save-open-import-export) |

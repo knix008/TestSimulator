@@ -2,6 +2,13 @@
 // title-block information printed on the sheet.
 import { createEntity, entityBox, newId, normalizeEntity, transformEntity } from './entities.js';
 import { unionBox } from './geometry.js';
+import { composeClone, syncClones } from './clones.js';
+import { normalizeWorkPlane } from './workplane.js';
+import { normalizeConstraints } from './constraints.js';
+import { normalizeFem } from './fem.js';
+import { normalizeSpreadsheet } from './spreadsheet.js';
+import { normalizeJoints } from './assembly.js';
+import { normalizeBim } from './arch.js';
 
 export const LAYER_LINE_TYPES = ['continuous', 'dashed', 'center', 'hidden', 'phantom', 'dotted'];
 /** "auto" = the drawing ink colour: dark on light backgrounds and paper, light on dark backgrounds. */
@@ -79,6 +86,14 @@ export function normalizeDrawing(raw, language = 'ko') {
     grid: { size: Number.isFinite(size) && size > 0 ? Math.min(1000, size) : 10 },
     sheet: { ...base.sheet, ...Object.fromEntries(Object.entries(raw?.sheet ?? {}).filter(([key, value]) => key in base.sheet && typeof value === 'string')) },
     entities,
+    // BIM: site, building, levels and materials (only in drawings that have BIM objects).
+    ...(raw?.bim ? { bim: normalizeBim(raw.bim, language) } : {}),
+    ...(normalizeWorkPlane(raw?.workPlane) ? { workPlane: normalizeWorkPlane(raw.workPlane) } : {}),
+    ...(normalizeConstraints(raw?.constraints).length ? { constraints: normalizeConstraints(raw.constraints) } : {}),
+    ...(raw?.fem ? { fem: normalizeFem(raw.fem) } : {}),
+    ...(raw?.spreadsheet ? { spreadsheet: normalizeSpreadsheet(raw.spreadsheet) } : {}),
+    // Assembly joints between solids.
+    ...(normalizeJoints(raw?.joints).length ? { joints: normalizeJoints(raw.joints) } : {}),
   };
 }
 
@@ -87,7 +102,14 @@ export function normalizeDrawing(raw, language = 'ko') {
 export const findEntity = (drawing, id) => drawing.entities.find((entity) => entity.id === id) ?? null;
 export const findLayer = (drawing, id) => drawing.layers.find((layer) => layer.id === id) ?? null;
 export const layerOf = (drawing, entity) => findLayer(drawing, entity.layer) ?? drawing.layers[0];
-export const isVisible = (drawing, entity) => layerOf(drawing, entity)?.visible !== false;
+/** The level (storey) an entity stands on, if any. */
+export const levelOf = (drawing, entity) => (entity.level ? drawing.bim?.levels?.find((level) => level.id === entity.level) ?? null : null);
+/** Shown in 3D: its layer and its level are visible. */
+export const isVisible3d = (drawing, entity) => layerOf(drawing, entity)?.visible !== false && levelOf(drawing, entity)?.visible !== false;
+/** Shown in the 2D drawing: as in 3D, and on the level the plan shows (when one is chosen). */
+export const isVisible = (drawing, entity) => isVisible3d(drawing, entity) && (!drawing.bim?.planLevel || !entity.level || entity.level === drawing.bim.planLevel);
+/** Part of the result (exports, print, outlines for solids and CAM): visible and not construction geometry. */
+export const isOutput = (drawing, entity) => isVisible(drawing, entity) && !entity.construction;
 export const isLocked = (drawing, entity) => Boolean(layerOf(drawing, entity)?.locked);
 /** Entities the user can pick: on visible, unlocked layers. */
 export const editable = (drawing) => drawing.entities.filter((entity) => isVisible(drawing, entity) && !isLocked(drawing, entity));
@@ -165,7 +187,8 @@ export function transformEntities(drawing, ids, op, { copy = false } = {}) {
   const result = [];
   for (const entity of [...drawing.entities]) {
     if (!set.has(entity.id)) continue;
-    const moved = normalizeEntity(transformEntity(entity, op));
+    // A clone keeps its shape from the source: only its own transform changes.
+    const moved = normalizeEntity(entity.clone ? { ...entity, clone: composeClone(entity.clone, op) } : transformEntity(entity, op));
     if (copy) {
       moved.id = newId();
       drawing.entities.push(moved);
@@ -174,8 +197,53 @@ export function transformEntities(drawing, ids, op, { copy = false } = {}) {
     }
     result.push(moved);
   }
-  if (result.length) touch(drawing);
-  return result;
+  if (result.length) {
+    syncDrawingClones(drawing);
+    touch(drawing);
+  }
+  return result.map((e) => findEntity(drawing, e.id) ?? e);
+}
+
+/** Rebuilds the clones of a drawing from their sources (after any change). */
+export function syncDrawingClones(drawing) {
+  return syncClones(drawing, { transformEntity, normalizeEntity });
+}
+
+/**
+ * Draft Clone: a copy of each entity (moved by offset) that keeps following
+ * its source. A clone of a clone follows the same chain.
+ */
+export function cloneEntities(drawing, ids, offset = { x: 10, y: -10 }) {
+  const made = [];
+  for (const id of ids) {
+    const source = findEntity(drawing, id);
+    if (!source) continue;
+    const box = entityBox(source);
+    const cx = box ? (box.minX + box.maxX) / 2 : 0;
+    const cy = box ? (box.minY + box.maxY) / 2 : 0;
+    const raw = { ...structuredClone(source), id: newId(), clone: { of: source.id, cx, cy, dx: offset.x, dy: offset.y, angle: 0, scale: 1, flip: false } };
+    if (source.name) raw.name = source.name;
+    const entity = normalizeEntity(raw);
+    if (!entity) continue;
+    drawing.entities.push(entity);
+    made.push(entity.id);
+  }
+  syncDrawingClones(drawing);
+  if (made.length) touch(drawing);
+  return made.map((id) => findEntity(drawing, id));
+}
+
+/** Makes clones ordinary objects again (Draft: Make independent). */
+export function unlinkClones(drawing, ids) {
+  let count = 0;
+  for (const id of ids) {
+    const entity = findEntity(drawing, id);
+    if (!entity?.clone) continue;
+    delete entity.clone;
+    count++;
+  }
+  if (count) touch(drawing);
+  return count;
 }
 
 export function duplicateEntities(drawing, ids, offset = { x: 10, y: -10 }) {
@@ -275,4 +343,14 @@ export function stats(drawing) {
   const byType = {};
   for (const entity of drawing.entities) byType[entity.type] = (byType[entity.type] ?? 0) + 1;
   return { entities: drawing.entities.length, layers: drawing.layers.length, byType, box: extents(drawing, { visibleOnly: false }) };
+}
+
+/**
+ * Line type scale of a drawing (like LTSCALE): dashes are lengths on paper, so
+ * a 1:100 drawing gets dashes 100 times as long in model units.
+ */
+export function dashScaleOf(drawing) {
+  const m = /^\s*([\d.]+)\s*:\s*([\d.]+)\s*$/.exec(String(drawing?.sheet?.scale ?? ''));
+  const k = m ? Number(m[2]) / Number(m[1]) : 1;
+  return Number.isFinite(k) && k > 0 ? Math.min(Math.max(k, 0.01), 10000) : 1;
 }

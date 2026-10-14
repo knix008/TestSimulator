@@ -63,16 +63,16 @@ export async function readBinaryFile(path, op) {
 import { DRAWING_EXTENSIONS } from '../domain/import2d.js';
 
 /** 3D formats MyCAD reads (FreeCAD's exchange formats). */
-export const MODEL_EXTENSIONS = ['fcstd', 'step', 'stp', 'stl', 'obj', 'ply', 'off', 'amf', '3mf'];
+export const MODEL_EXTENSIONS = ['fcstd', 'ifc', 'step', 'stp', 'brep', 'brp', 'scad', 'csg', 'xyz', 'asc', 'pts', 'pcd', 'stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl', 'vrml', 'dae'];
 export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
 export const writeBase64File = (path, data, op) => invoke('write_base64_file', { path, data, op });
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
 const OPEN_FILTERS = () => [
-  { name: `${t('file.allDrawings')} (*.mcad, *.dxf, *.svg, *.igs, *.plt, *.gbr, *.FCStd, *.step, *.stl…)`, extensions: ['mcad', 'json', ...DRAWING_EXTENSIONS, ...MODEL_EXTENSIONS, 'FCStd'] },
+  { name: `${t('file.allDrawings')} (*.mcad, *.dxf, *.svg, *.igs, *.plt, *.gbr, *.FCStd, *.ifc, *.step, *.stl…)`, extensions: ['mcad', 'json', ...DRAWING_EXTENSIONS, ...MODEL_EXTENSIONS, 'FCStd'] },
   { name: 'MyCAD (*.mcad)', extensions: ['mcad'] },
   { name: 'DXF (*.dxf)', extensions: ['dxf'] },
-  { name: `${t('file.models3d')} (*.FCStd, *.step, *.stl, *.obj, *.ply, *.off, *.amf, *.3mf)`, extensions: [...MODEL_EXTENSIONS, 'FCStd'] },
+  { name: `${t('file.models3d')} (*.FCStd, *.ifc, *.step, *.stl, *.obj, *.ply, *.off, *.amf, *.3mf, *.wrl, *.dae, *.brep, *.scad, *.xyz, *.pcd)`, extensions: [...MODEL_EXTENSIONS, 'FCStd'] },
   { name: `${t('file.drawings2d')} (*.dxf, *.svg, *.igs, *.plt, *.gbr, *.drl…)`, extensions: DRAWING_EXTENSIONS },
 ];
 const EXPORT_FILTERS = {
@@ -88,8 +88,17 @@ const EXPORT_FILTERS = {
   off: [{ name: 'Object File Format (*.off)', extensions: ['off'] }],
   amf: [{ name: 'Additive Manufacturing (*.amf)', extensions: ['amf'] }],
   '3mf': [{ name: '3D Manufacturing (*.3mf)', extensions: ['3mf'] }],
+  wrl: [{ name: 'VRML 2.0 (*.wrl)', extensions: ['wrl', 'vrml'] }],
+  dae: [{ name: 'COLLADA (*.dae)', extensions: ['dae'] }],
+  brep: [{ name: 'OpenCASCADE BREP (*.brep)', extensions: ['brep', 'brp'] }],
+  scad: [{ name: 'OpenSCAD (*.scad, *.csg)', extensions: ['scad', 'csg'] }],
+  xyz: [{ name: 'Point cloud (*.xyz)', extensions: ['xyz', 'asc'] }],
+  nc: [{ name: 'G-code (*.nc, *.gcode, *.ngc, *.tap)', extensions: ['nc', 'gcode', 'ngc', 'tap'] }],
+  csv: [{ name: 'CSV (*.csv)', extensions: ['csv'] }],
+  krl: [{ name: 'KUKA KRL (*.src)', extensions: ['src'] }],
   step: [{ name: 'STEP AP214 (*.step)', extensions: ['step', 'stp'] }],
   fcstd: [{ name: 'FreeCAD (*.FCStd)', extensions: ['FCStd'] }],
+  ifc: [{ name: 'IFC 4 — BIM (*.ifc)', extensions: ['ifc'] }],
 };
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
 
@@ -117,7 +126,7 @@ export async function chooseImage(defaultPath) {
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_MODEL_ACCEPT = { 'application/octet-stream': ['.fcstd', '.step', '.stp', '.stl', '.obj', '.ply', '.off', '.amf', '.3mf'] };
+const WEB_MODEL_ACCEPT = { 'application/octet-stream': ['.fcstd', '.ifc', '.step', '.stp', '.stl', '.obj', '.ply', '.off', '.amf', '.3mf', '.wrl', '.vrml', '.dae', '.brep', '.brp', '.scad', '.csg', '.xyz', '.asc', '.pts', '.pcd'] };
 const WEB_CAD_ACCEPT = { 'application/x-cad-drawing': DRAWING_EXTENSIONS.map((ext) => `.${ext}`) };
 const WEB_TYPES = [{ description: 'MyCAD', accept: { 'application/json': ['.mcad', '.json'], ...WEB_CAD_ACCEPT, ...WEB_MODEL_ACCEPT } }];
 const WEB_MODEL_TYPES = [{ description: '3D', accept: WEB_MODEL_ACCEPT }];
@@ -140,7 +149,7 @@ export async function pickDrawingFilesWeb({ dxf = false, models = false } = {}) 
     }
     return Promise.all(handles.map(async (handle) => readWebFile(await handle.getFile(), handle)));
   }
-  const models3d = '.fcstd,.step,.stp,.stl,.obj,.ply,.off,.amf,.3mf';
+  const models3d = '.fcstd,.ifc,.step,.stp,.brep,.brp,.scad,.csg,.xyz,.asc,.pts,.pcd,.stl,.obj,.ply,.off,.amf,.3mf,.wrl,.vrml,.dae';
   const cad = DRAWING_EXTENSIONS.map((ext) => `.${ext}`).join(',');
   const files = await pickWithInput(dxf ? cad : models ? models3d : `.mcad,.json,${cad},${models3d}`, true);
   return Promise.all(files.map((file) => readWebFile(file, null)));

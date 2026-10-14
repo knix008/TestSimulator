@@ -3,7 +3,7 @@
 #   FreeCADCmd generate.py <job.json>     job.json: { "dir": output folder, "out": result.json }
 # Writes: freecad-assembly.FCStd (primitives, booleans, extrusion and
 # revolution of sketches, a mesh), freecad-bracket.step/.iges/.brep and the
-# bracket as STL/OBJ/PLY/OFF/AMF/3MF, and reports the volumes FreeCAD computed.
+# bracket as STL/OBJ/PLY/OFF/AMF/3MF/VRML/DAE, and reports the volumes FreeCAD computed.
 import json
 import math
 import os
@@ -92,7 +92,7 @@ Part.export([base], os.path.join(out, 'freecad-bracket.iges'))
 base.Shape.exportBrep(os.path.join(out, 'freecad-bracket.brep'))
 report['freecad-bracket.step'] = {'volume': base.Shape.Volume}
 mesh = MeshPart.meshFromShape(Shape=base.Shape, LinearDeflection=0.05, AngularDeflection=math.radians(10), Relative=False)
-for ext_name in ('stl', 'obj', 'ply', 'off', 'amf', '3mf'):
+for ext_name in ('stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl'):
     path = os.path.join(out, 'freecad-bracket.%s' % ext_name)
     try:
         mesh.write(path)
@@ -103,6 +103,18 @@ for ext_name in ('stl', 'obj', 'ply', 'off', 'amf', '3mf'):
         if os.path.exists(path):
             os.remove(path)
         report['freecad-bracket.%s' % ext_name] = {'error': str(error)}
+# COLLADA through the BIM workbench exporter (pycollada).
+dae_path = os.path.join(out, 'freecad-bracket.dae')
+try:
+    from importers import importDAE
+    feature = doc.addObject('Mesh::Feature', 'BracketMesh')
+    feature.Mesh = mesh
+    importDAE.export([feature], dae_path)
+    report['freecad-bracket.dae'] = {'volume': mesh.Volume}
+except Exception as error:
+    if os.path.exists(dae_path):
+        os.remove(dae_path)
+    report['freecad-bracket.dae'] = {'error': str(error)}
 # The pulley (curved faces) as STEP too.
 Part.export([rev], os.path.join(out, 'freecad-pulley.step'))
 report['freecad-pulley.step'] = {'volume': rev.Shape.Volume}

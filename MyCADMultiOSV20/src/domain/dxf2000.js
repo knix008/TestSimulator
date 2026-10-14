@@ -29,7 +29,7 @@ export function exportDxf2000(drawing, { entities = null } = {}) {
   let handle = 0x20;
   const next = () => (handle++).toString(16).toUpperCase();
   const pair = (code, value) => out.push(String(code), typeof value === 'number' ? fmt(value) : String(value));
-  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity));
+  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity) && !entity.construction);
 
   // Handles decided up front (tables refer to each other).
   const H = {
@@ -167,6 +167,8 @@ export function exportDxf2000(drawing, { entities = null } = {}) {
       }
       case 'hatch': hatch(entity, entity.loops, entity.pattern, entity.angle, entity.scale); break;
       case 'leader':
+        // Balloons, GD&T frames and datums: drawn as plain lines, circles, fills and text.
+        if (entity.style && entity.style !== 'note') { for (const prim of primitives(entity)) primitive(entity, prim); break; }
         head('LEADER', entity); write(100, 'AcDbLeader'); write(3, 'Standard');
         write(71, 1); write(72, 0); write(73, 3); write(74, 0); write(75, 0); write(40, entity.size); write(41, 0);
         write(76, entity.points.length);

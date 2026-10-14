@@ -14,7 +14,7 @@ from typing import Callable
 
 import numpy as np
 
-from kws.infer import REJECT_LABEL, Decision, decide
+from kws.infer import REJECT_LABEL, Decision, command_probs, decide
 
 REJECT_FOLDERS = ("다른말", "소음")
 OUTCOMES = ("정답", "놓침", "오인식", "오수락")
@@ -111,7 +111,7 @@ def evaluate_folder(
     for path, expected in found:
         if should_stop is not None and should_stop():
             break
-        item = EvalItem(path, expected, classifier.predict_proba(load_model_wav(path)))
+        item = EvalItem(path, expected, command_probs(classifier, load_model_wav(path)))
         items.append(item)
         if on_item is not None:
             on_item(item)

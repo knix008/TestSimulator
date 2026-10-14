@@ -640,10 +640,10 @@ const view3d = {
   title: T('3D 보기 자세히', 'The 3D view in depth'),
   steps: [
     {
-      title: T('와이어프레임과 좌표축', 'Wireframe and axes'),
-      text: T('3D 막대에서 와이어프레임과 좌표축(눈금 포함)을 켜고 끕니다. 바닥 격자는 확대해도 5 × 5 칸으로 보입니다.', 'The 3D bar switches wireframe and the axes (with ticks). The ground grid keeps 5 × 5 cells while zooming.'),
-      run: async (ctx) => { await ctx.command('view3d'); await ctx.api.waitIdle(800); await ctx.click('.view3d-bar [data-view3d="wireframe"]'); await ctx.wait(600); await ctx.click('.view3d-bar [data-view3d="wireframe"]'); },
-      practice: { todo: T('3D 막대의 와이어프레임 버튼을 눌러 보세요.', 'Click the wireframe button on the 3D bar.'), targets: () => [{ el: '.view3d-bar [data-view3d="wireframe"]' }] },
+      title: T('보기 스타일과 좌표축', 'Draw styles and axes'),
+      text: T('3D 막대의 스타일 단추로 기본 · 음영 · 숨은선 · X-Ray · 스케치 · 와이어프레임 등 10가지 보기를 고릅니다. 좌표축(눈금 포함)도 켜고 끕니다. 바닥 격자는 확대해도 5 × 5 칸으로 보입니다.', 'The style button on the 3D bar picks one of ten looks: as is, shaded, hidden line, X-ray, sketch, wireframe and more. The axes (with ticks) switch on and off. The ground grid keeps 5 × 5 cells while zooming.'),
+      run: async (ctx) => { await ctx.command('view3d'); await ctx.api.waitIdle(800); for (const style of ['xray', 'sketch', 'asis']) { await ctx.command(`view3dStyle:${style}`); await ctx.wait(600); } },
+      practice: { todo: T('3D 막대의 스타일 단추를 눌러 X-Ray 나 스케치를 골라 보세요.', 'Click the style button on the 3D bar and pick X-ray or sketch.'), setup: (ctx, mem) => { mem.style = ctx.settings().view3dStyle; }, check: (ctx, mem) => ctx.settings().view3dStyle !== mem.style, targets: () => [{ el: '.view3d-bar [data-view3d="styleMenu"]' }] },
     },
     {
       title: T('광원 (해)', 'The light (sun)'),

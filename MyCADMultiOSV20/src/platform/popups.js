@@ -28,6 +28,11 @@ export const POPUPS = {
   solid: { width: 940, height: 640 },
   coverage: { width: 1180, height: 640 },
   tutorial: { width: 400, height: 380 },
+  bim: { width: 780, height: 560 },
+  check: { width: 860, height: 560 },
+  cam: { width: 1000, height: 600 },
+  fem: { width: 1180, height: 680 },
+  spreadsheet: { width: 1000, height: 640 },
 };
 
 export const popupKey = (kind) => `mycad.popup.${kind}`;

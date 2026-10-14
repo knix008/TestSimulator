@@ -33,7 +33,7 @@ def main() -> int:
             print(f"{prompt} ({index + 1}/{args.count})", flush=True)
             time.sleep(0.15)
             _beep()
-            wav = record_block(COMMAND_SECONDS, args.device)
+            wav = record_block(COMMAND_SECONDS, args.device, gain=project.input_gain)
             path = project.new_wav_path(args.label)
             save_wav(path, wav, TARGET_SAMPLE_RATE)
             saved += 1

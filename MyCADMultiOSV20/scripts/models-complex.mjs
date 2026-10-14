@@ -6,6 +6,7 @@
 import { addEntity, createDrawing } from '../src/domain/drawing.js';
 import { normalizeEntity } from '../src/domain/entities.js';
 import { featureFrom } from '../src/domain/solids.js';
+import { presetMaterials } from '../src/domain/arch.js';
 import { buildShapes, collectLoops } from '../src/domain/stl.js';
 import { drawingViews } from '../src/domain/views.js';
 
@@ -29,131 +30,135 @@ function partShapes(kind, params, angle = 0) {
 /** A padded part outline (a gear, a beam) as a raw solid. */
 const padPart = (kind, params, height, place, angle = 0) => ({ type: 'solid', ...featureFrom('pad', { shapes: partShapes(kind, params, angle) }, { height }), ...place });
 
-// ───────────────────────── architecture: a house
+// ───────────────────────── architecture: a house (BIM objects, like FreeCAD's BIM workbench)
 
-/** The house: walls (centre lines, thickness), their openings, rooms. Shared by the plan and the 3D model. */
+/**
+ * The house: wall centre lines, thicknesses and openings, rooms. Walls are BIM
+ * wall objects (3D) and the plan is their cut, as in FreeCAD.
+ *   exterior: one closed wall (200) around 100…11900 × 100…8900
+ *   interior: walls of 120, each stopping at the faces of the walls it meets
+ * Openings: [offset along the wall from its start, width, type, swing side, hinge].
+ */
 const HOUSE = {
-  walls: [
-    // [x1, y1, x2, y2, thickness, openings: [offset from start, width, kind, swing side (+1/−1)]]
-    [100, 100, 11900, 100, 200, [[1400, 2000, 'window'], [5900, 1000, 'door', 1], [9100, 1600, 'window']]],
-    [100, 8900, 11900, 8900, 200, [[1400, 1800, 'window'], [5900, 800, 'window'], [9100, 1600, 'window']]],
-    [100, 100, 100, 8900, 200, [[1900, 1800, 'window']]],
-    [11900, 100, 11900, 8900, 200, [[1400, 1200, 'window'], [6100, 1200, 'window']]],
-    [5000, 100, 5000, 8900, 120, [[2400, 900, 'door', -1]]],
-    [8000, 100, 8000, 8900, 120, [[1900, 900, 'door', 1], [4900, 900, 'door', 1]]],
-    [8000, 4500, 11900, 4500, 120, []],
-    [5000, 6000, 8000, 6000, 120, [[1200, 800, 'door', 1]]],
-    [100, 5500, 5000, 5500, 120, [[1900, 1500, 'opening']]],
+  outer: [[100, 100], [11900, 100], [11900, 8900], [100, 8900]],
+  // Openings of the exterior wall per side, measured from the side's lower x / y end.
+  outerOpenings: {
+    south: [[1400, 2000, 'window'], [5900, 1000, 'door', 1, 1], [9100, 1600, 'window']],
+    east: [[1400, 1200, 'window'], [6100, 1200, 'window']],
+    north: [[1400, 1800, 'window'], [5900, 800, 'window'], [9100, 1600, 'window']],
+    west: [[1900, 1800, 'window']],
+  },
+  inner: [
+    // [x1, y1, x2, y2, openings]
+    [5000, 200, 5000, 8800, [[2300, 900, 'door', 1, 1]]],
+    [8000, 200, 8000, 8800, [[1800, 900, 'door', -1, 1], [4800, 900, 'door', -1, 1]]],
+    [8060, 4500, 11800, 4500, []],
+    [5060, 6000, 7940, 6000, [[1140, 800, 'door', 1, 1]]],
+    [200, 5500, 4940, 5500, [[1800, 1500, 'opening']]],
   ],
   rooms: [
-    { name: ['거실', 'Living'], x0: 100, y0: 100, x1: 5000, y1: 5500, label: [1200, 3900] },
-    { name: ['주방·식당', 'Kitchen / dining'], x0: 100, y0: 5500, x1: 5000, y1: 8900, label: [3500, 7100] },
-    { name: ['현관·복도', 'Hall'], x0: 5000, y0: 100, x1: 8000, y1: 6000, label: [5250, 5400] },
-    { name: ['욕실', 'Bath'], x0: 5000, y0: 6000, x1: 8000, y1: 8900, label: [6300, 7300] },
-    { name: ['침실 1', 'Bedroom 1'], x0: 8000, y0: 100, x1: 11900, y1: 4500, label: [10750, 1500] },
-    { name: ['침실 2', 'Bedroom 2'], x0: 8000, y0: 4500, x1: 11900, y1: 8900, label: [10650, 8100] },
+    { name: ['거실', 'Living'], x0: 100, y0: 100, x1: 5000, y1: 5500 },
+    { name: ['주방·식당', 'Kitchen / dining'], x0: 100, y0: 5500, x1: 5000, y1: 8900 },
+    { name: ['현관·복도', 'Hall'], x0: 5000, y0: 100, x1: 8000, y1: 6000 },
+    { name: ['욕실', 'Bath'], x0: 5000, y0: 6000, x1: 8000, y1: 8900 },
+    { name: ['침실 1', 'Bedroom 1'], x0: 8000, y0: 100, x1: 11900, y1: 4500 },
+    { name: ['침실 2', 'Bedroom 2'], x0: 8000, y0: 4500, x1: 11900, y1: 8900 },
   ],
 };
+const H = 2700;
 
-/** Wall pieces between the openings: [x0, y0, x1, y1] rectangles. */
-function wallPieces([x1, y1, x2, y2, t, openings]) {
-  const horizontal = y1 === y2;
-  const length = horizontal ? x2 - x1 : y2 - y1;
-  // Interior walls stop at the faces of the walls they meet.
-  const pieces = [];
-  let at = 0;
-  for (const [offset, width] of [...openings].sort((a, b) => a[0] - b[0])) {
-    if (offset > at) pieces.push([at, offset]);
-    at = offset + width;
+/** An opening of a wall object. */
+const opening = ([at, width, type, swing = 1, hinge = 1]) => ({
+  type, at, width, swing, hinge,
+  height: type === 'window' ? 1300 : 2100,
+  sill: type === 'window' ? 900 : 0,
+});
+const bim = (d, kind, params, shape, place = {}, extra = {}) => add(d, 'solid', { kind, params, shape, x: 0, y: 0, z: 0, ...place, ...extra });
+const EQ = ['bed', 'sofa', 'table', 'chair', 'desk', 'wardrobe', 'toilet', 'basin', 'bathtub', 'sink', 'fridge', 'car'];
+const furniture = (d, type, [length, width, height], place, name) => bim(d, 'equipment', { equipment: EQ.indexOf(type), length, width, height }, {}, place, { name, layer: 'furniture' });
+
+/** The house as BIM objects: slab, walls with windows and doors, stairs, rooms, furniture, porch, roof. */
+function houseModel(d) {
+  layer(d, 'wall', '벽체', '#1d2433', 'continuous', 0.5);
+  layer(d, 'slab', '슬래브', '#7a8394', 'continuous', 0.18);
+  layer(d, 'stair', '계단', '#1d2433', 'continuous', 0.25);
+  layer(d, 'space', '실', '#2f8f5b', 'continuous', 0.18);
+  layer(d, 'furniture', '가구', '#7a8394', 'continuous', 0.18);
+  layer(d, 'roof', '지붕', '#b5523b', 'hidden', 0.25);
+  layer(d, 'grid', '통심선', '#e5484d', 'center', 0.18);
+  bim(d, 'slab', { thickness: 200 }, { outer: rectPts(-100, -100, 12100, 9100).map(({ x, y }) => ({ x: x + 100, y: y + 100 })) }, { x: -100, y: -100 }, { name: '기초 슬래브', layer: 'slab' });
+  // Exterior wall: one closed wall, counter-clockwise from the south-west corner.
+  const [W, D] = [11800, 8800];
+  const o = HOUSE.outerOpenings;
+  const openings = [
+    ...o.south.map(([at, ...rest]) => [at, ...rest]),
+    ...o.east.map(([at, ...rest]) => [W + at, ...rest]),
+    ...o.north.map(([at, width, ...rest]) => [W + D + (W - at - width), width, ...rest]),
+    ...o.west.map(([at, width, ...rest]) => [2 * W + D + (D - at - width), width, ...rest]),
+  ].map(opening);
+  bim(d, 'wall', { width: 200, height: H, align: 0 }, { path: HOUSE.outer.map(([x, y]) => ({ x: x - 100, y: y - 100 })), closed: true, openings }, { x: 100, y: 100 }, { name: '외벽', layer: 'wall' });
+  HOUSE.inner.forEach(([x1, y1, x2, y2, list], i) => {
+    bim(d, 'wall', { width: 120, height: H, align: 0 }, { path: [{ x: 0, y: 0 }, { x: x2 - x1, y: y2 - y1 }], closed: false, openings: list.map(opening) }, { x: x1, y: y1 }, { name: `내벽 ${i + 1}`, layer: 'wall' });
+  });
+  // Stairs in the hall going up north: 14 risers of ≈193, treads 250.
+  bim(d, 'stairs', { length: 3500, width: 1100, height: H, steps: 14, thickness: 150 }, {}, { x: 7800, y: 1500, rz: 90 }, { name: '계단', layer: 'stair' });
+  // Rooms (between the wall faces).
+  const face = (v, outerValue) => (v === outerValue ? 100 : 60);
+  for (const room of HOUSE.rooms) {
+    const x0 = room.x0 + face(room.x0, 100);
+    const y0 = room.y0 + face(room.y0, 100);
+    const x1 = room.x1 - face(room.x1, 11900);
+    const y1 = room.y1 - face(room.y1, 8900);
+    bim(d, 'space', { height: 2400 }, { outer: rectPts(0, 0, x1 - x0, y1 - y0), holes: [] }, { x: x0, y: y0 }, { name: room.name[0], layer: 'space' });
   }
-  if (at < length) pieces.push([at, length]);
-  return pieces.map(([a, b]) => (horizontal ? [x1 + a - (a === 0 ? t / 2 : 0), y1 - t / 2, x1 + b + (b === length ? t / 2 : 0), y1 + t / 2] : [x1 - t / 2, y1 + a - (a === 0 ? t / 2 : 0), x1 + t / 2, y1 + b + (b === length ? t / 2 : 0)]));
+  // Furniture and fixtures (Arch Equipment).
+  furniture(d, 'sofa', [2800, 900, 850], { x: 3400, y: 1500, rz: 180 }, '소파');
+  furniture(d, 'table', [1400, 700, 450], { x: 1300, y: 2000 }, '거실 탁자');
+  furniture(d, 'wardrobe', [1000, 400, 500], { x: 900, y: 4950 }, 'TV 장');
+  furniture(d, 'sink', [4400, 600, 900], { x: 300, y: 8150 }, '싱크대');
+  furniture(d, 'fridge', [800, 700, 1800], { x: 4100, y: 7300 }, '냉장고');
+  furniture(d, 'table', [1800, 1000, 740], { x: 1500, y: 6400 }, '식탁');
+  for (const x of [1700, 2400, 3000]) {
+    furniture(d, 'chair', [400, 450, 900], { x: x + 200, y: 6350, rz: 180 }, '의자');
+    furniture(d, 'chair', [400, 450, 900], { x: x - 200, y: 7450 }, '의자');
+  }
+  furniture(d, 'bed', [2100, 1600, 900], { x: 9000, y: 3100, rz: -90 }, '침대 (퀸)');
+  furniture(d, 'table', [400, 400, 500], { x: 8500, y: 2700 }, '협탁');
+  furniture(d, 'table', [400, 400, 500], { x: 10700, y: 2700 }, '협탁');
+  furniture(d, 'wardrobe', [2000, 600, 2200], { x: 8200, y: 3840 }, '붙박이장');
+  furniture(d, 'bed', [2000, 1400, 900], { x: 9000, y: 8200, rz: -90 }, '침대 (더블)');
+  furniture(d, 'desk', [1400, 700, 740], { x: 11800, y: 5000, rz: 90 }, '책상');
+  furniture(d, 'bathtub', [1700, 750, 550], { x: 5200, y: 8000 }, '욕조');
+  furniture(d, 'toilet', [700, 400, 800], { x: 7300, y: 8800, rz: -90 }, '변기');
+  furniture(d, 'basin', [600, 450, 850], { x: 5510, y: 6250, rz: 90 }, '세면대');
+  // Porch: slab, two columns, canopy.
+  bim(d, 'slab', { thickness: 150 }, { outer: rectPts(0, 0, 2600, 1600), holes: [] }, { x: 5100, y: -1800 }, { name: '현관 바닥', layer: 'slab' });
+  for (const [x, name] of [[5300, '현관 기둥 1'], [7500, '현관 기둥 2']]) bim(d, 'column', { width: 240, depth: 240, height: 2400, profile: 1 }, {}, { x, y: -1600 }, { name, layer: 'wall' });
+  bim(d, 'slab', { thickness: 150 }, { outer: rectPts(0, 0, 2800, 1900), holes: [] }, { x: 5000, y: -1900, z: 2550 }, { name: '현관 캐노피', layer: 'roof' });
+  // Gable roof (ridge along x) and the two gable walls.
+  bim(d, 'roof', { roofType: 0, slope: 27.5, overhang: 300, thickness: 180 }, { outer: rectPts(0, 0, 11800, 8800), holes: [] }, { x: 100, y: 100, z: H }, { name: '박공지붕', layer: 'roof' });
+  const rise = Math.tan((27.5 * Math.PI) / 180) * 4400;
+  for (const [x, name] of [[0, '박공벽 (서)'], [11800, '박공벽 (동)']]) {
+    add(d, 'solid', { kind: 'pad', name, layer: 'roof', params: { height: 200 }, shape: { shapes: [{ outer: [{ x: 0, y: 0 }, { x: 8800, y: 0 }, { x: 4400, y: rise }], holes: [] }] }, x, y: 100, z: H, rx: 90, rz: 90 });
+  }
+  // Structural grid 1–4 / A–C on the wall centre lines (Arch Axis with distances).
+  bim(d, 'axis', { countX: 4, spacingX: 4000, countY: 3, spacingY: 4400, extension: 2000, bubble: 400 }, { xs: [0, 4900, 7900, 11800], ys: [0, 4400, 8800] }, { x: 100, y: 100 }, { name: '통심선', layer: 'grid' });
 }
 
+/** Floor plan of the house: the BIM model cut at 1 m (FreeCAD: section plane + TechDraw Arch view), dimensions and notes. */
 export function housePlan() {
   const d = createDrawing({ title: '단독주택 1층 평면도 (S 1:100)', author: 'SHKWON' });
   Object.assign(d.sheet, { number: 'A-101', material: '철근콘크리트 · 경량벽', company: 'MyCAD samples', scale: '1:100' });
-  layer(d, 'wall', '벽체', '#1d2433', 'continuous', 0.5);
-  layer(d, 'opening', '창호', '#3a6cf0', 'continuous', 0.25);
-  layer(d, 'furniture', '가구', '#7a8394', 'continuous', 0.18);
-  layer(d, 'stair', '계단', '#1d2433', 'continuous', 0.25);
-  layer(d, 'grid', '통심선', '#e5484d', 'center', 0.18);
-  const T = 250; // text height, mm in the drawing (2.5 mm on paper at 1:100)
-  // Walls: pieces hatched, openings drawn as doors and windows.
-  for (const wall of HOUSE.walls) {
-    const [x1, y1, x2, y2, t, openings] = wall;
-    const horizontal = y1 === y2;
-    for (const [a, b, c, e] of wallPieces(wall)) {
-      const pts = rectPts(a, b, c, e);
-      poly(d, pts, { layer: 'wall' });
-      add(d, 'hatch', { loops: [pts], pattern: t > 150 ? 'ansi31' : 'solid', scale: 16, angle: 0, layer: 'wall', color: t > 150 ? null : '#9aa4b1' });
-    }
-    for (const [offset, width, kind, side = 1] of openings) {
-      const s = horizontal ? { x: x1 + offset, y: y1 } : { x: x1, y: y1 + offset };
-      const along = horizontal ? { x: 1, y: 0 } : { x: 0, y: 1 };
-      const normal = horizontal ? { x: 0, y: 1 } : { x: 1, y: 0 };
-      const at = (u, v) => ({ x: s.x + along.x * u + normal.x * v, y: s.y + along.y * u + normal.y * v });
-      // Jambs.
-      for (const u of [0, width]) { const p = at(u, -t / 2); const q = at(u, t / 2); line(d, p.x, p.y, q.x, q.y, { layer: 'opening' }); }
-      if (kind === 'window') {
-        for (const v of [-t / 2, -t / 8, t / 8, t / 2]) { const p = at(0, v); const q = at(width, v); line(d, p.x, p.y, q.x, q.y, { layer: 'opening' }); }
-      } else if (kind === 'door') {
-        const hinge = at(0, side * t / 2);
-        const tip = at(0, side * (t / 2 + width));
-        line(d, hinge.x, hinge.y, tip.x, tip.y, { layer: 'opening' });
-        const leafAngle = horizontal ? (side > 0 ? 90 : 270) : (side > 0 ? 0 : 180);
-        const closedAngle = horizontal ? 0 : 90;
-        const [start, end] = horizontal ? (side > 0 ? [0, 90] : [270, 360]) : (side > 0 ? [0, 90] : [90, 180]);
-        add(d, 'arc', { cx: hinge.x, cy: hinge.y, r: width, start, end, layer: 'opening', lineType: 'dashed' });
-        void leafAngle; void closedAngle;
-      }
-    }
-  }
-  // Stairs (in the hall, going up towards the bedrooms): 14 treads of 250.
-  const sx0 = 6700; const sx1 = 7800; const sy0 = 1500;
-  poly(d, rectPts(sx0, sy0, sx1, sy0 + 14 * 250), { layer: 'stair' });
-  for (let i = 1; i < 14; i++) line(d, sx0, sy0 + i * 250, sx1, sy0 + i * 250, { layer: 'stair' });
-  add(d, 'polyline', { points: [{ x: (sx0 + sx1) / 2, y: sy0 + 150 }, { x: (sx0 + sx1) / 2, y: sy0 + 14 * 250 - 300 }], closed: false, layer: 'stair' });
-  add(d, 'polyline', { points: [{ x: (sx0 + sx1) / 2 - 150, y: sy0 + 14 * 250 - 550 }, { x: (sx0 + sx1) / 2, y: sy0 + 14 * 250 - 300 }, { x: (sx0 + sx1) / 2 + 150, y: sy0 + 14 * 250 - 550 }], closed: false, layer: 'stair' });
-  line(d, sx0 - 100, sy0 + 2300, sx1 + 100, sy0 + 2700, { layer: 'stair', lineType: 'dashed' });
-  text(d, (sx0 + sx1) / 2 - 150, sy0 - 350, 'UP', T);
-  // Furniture.
-  const f = { layer: 'furniture' };
-  poly(d, rectPts(600, 600, 3400, 1500), f); poly(d, rectPts(600, 600, 3400, 850), f); poly(d, rectPts(600, 600, 850, 1500), f); poly(d, rectPts(3150, 600, 3400, 1500), f);
-  poly(d, rectPts(1300, 2000, 2700, 2700), f);
-  add(d, 'circle', { cx: 4200, cy: 1200, r: 350, ...f });
-  poly(d, rectPts(900, 4950, 1900, 5350), f);
-  poly(d, rectPts(300, 8150, 4700, 8750), f);
-  add(d, 'ellipse', { cx: 1500, cy: 8450, rx: 300, ry: 200, ...f });
-  for (const [x, y] of [[3300, 8350], [3700, 8350], [3300, 8600], [3700, 8600]]) add(d, 'circle', { cx: x, cy: y, r: 110, ...f });
-  poly(d, rectPts(1500, 6400, 3300, 7400), f);
-  for (const x of [1700, 2400, 3000]) { poly(d, rectPts(x - 200, 6000, x + 200, 6350), f); poly(d, rectPts(x - 200, 7450, x + 200, 7800), f); }
-  poly(d, rectPts(9000, 1000, 10600, 3100), f); poly(d, rectPts(9100, 2650, 9750, 3000), f); poly(d, rectPts(9850, 2650, 10500, 3000), f); line(d, 9000, 2300, 10600, 2300, f);
-  poly(d, rectPts(8500, 2700, 8900, 3100), f); poly(d, rectPts(10700, 2700, 11100, 3100), f);
-  poly(d, rectPts(8200, 3800, 10200, 4400), f); line(d, 8200, 3800, 10200, 4400, f); line(d, 8200, 4400, 10200, 3800, f);
-  poly(d, rectPts(9000, 6200, 10400, 8200), f); poly(d, rectPts(9150, 7750, 10250, 8100), f);
-  poly(d, rectPts(10800, 5000, 11700, 6400), f);
-  poly(d, rectPts(5200, 8000, 6900, 8700), f); add(d, 'ellipse', { cx: 6050, cy: 8350, rx: 700, ry: 230, ...f });
-  poly(d, rectPts(7300, 8500, 7800, 8750), f); add(d, 'ellipse', { cx: 7550, cy: 8230, rx: 200, ry: 280, ...f });
-  poly(d, rectPts(5200, 6300, 5800, 6800), f); add(d, 'ellipse', { cx: 5500, cy: 6550, rx: 200, ry: 150, ...f });
-  // Room names and areas (net, between the wall faces).
-  for (const room of HOUSE.rooms) {
-    const area = ((room.x1 - room.x0 - 160) * (room.y1 - room.y0 - 160)) / 1e6;
-    const [lx, ly] = room.label;
-    text(d, lx, ly + 100, room.name[0], T * 1.4, { bold: true });
-    text(d, lx, ly - 300, `${area.toFixed(1)} m²`, T);
-  }
-  // Grid lines with their bubbles: 1–4 along x, A–C along y.
+  houseModel(d);
+  // The roof is above the cut: its layer is off in the plan (the 3D view shows it when switched on).
+  d.layers.find((l) => l.id === 'roof').visible = false;
+  const T = 250;
   const xs = [100, 5000, 8000, 11900]; const ys = [100, 4500, 8900];
-  xs.forEach((x, i) => { line(d, x, -1600, x, 10200, { layer: 'grid' }); add(d, 'circle', { cx: x, cy: -2000, r: 400, layer: 'grid', lineType: 'continuous' }); text(d, x - 90, -2130, String(i + 1), T * 1.2, { layer: 'grid' }); });
-  ys.forEach((y, i) => { line(d, -1600, y, 13200, y, { layer: 'grid' }); add(d, 'circle', { cx: -2000, cy: y, r: 400, layer: 'grid', lineType: 'continuous' }); text(d, -2100, y - 130, 'ABC'[i], T * 1.2, { layer: 'grid' }); });
-  // Dimension chains: grid spacings and overall, outside the walls.
   for (let i = 0; i + 1 < xs.length; i++) dim(d, 'horizontal', xs[i], 9000, xs[i + 1], 9000, (xs[i] + xs[i + 1]) / 2, 9700, T);
   dim(d, 'horizontal', 0, 9000, 12000, 9000, 6000, 10600, T);
   for (let i = 0; i + 1 < ys.length; i++) dim(d, 'vertical', 0, ys[i], 0, ys[i + 1], -700, (ys[i] + ys[i + 1]) / 2, T);
   dim(d, 'vertical', 0, 0, 0, 9000, -1500, 4500, T);
-  // Window and door widths along the front.
-  for (const [offset, width] of HOUSE.walls[0][5]) dim(d, 'horizontal', 100 + offset, 0, 100 + offset + width, 0, 100 + offset + width / 2, -700, T * 0.8);
+  for (const [offset, width] of HOUSE.outerOpenings.south) dim(d, 'horizontal', 100 + offset, 0, 100 + offset + width, 0, 100 + offset + width / 2, -700, T * 0.8);
   // North arrow, section mark, title.
   add(d, 'circle', { cx: 14200, cy: 7600, r: 700, layer: 'text' });
   add(d, 'polyline', { points: [{ x: 14200, y: 8300 }, { x: 13900, y: 7100 }, { x: 14200, y: 7350 }, { x: 14500, y: 7100 }], closed: true, layer: 'text' });
@@ -161,59 +166,22 @@ export function housePlan() {
   line(d, 2600, -1200, 2600, 11200, { lineType: 'phantom', layer: 'text' });
   text(d, 2700, 11000, 'A', T * 1.4, { bold: true }); text(d, 2700, -1500, 'A', T * 1.4, { bold: true });
   text(d, 0, -3300, '단독주택 1층 평면도   S = 1:100   (단위 mm)', T * 1.8, { bold: true });
-  text(d, 0, -3900, '외벽 200 (빗금) · 내벽 120 (회색) · 창호 파란색 · 통심선 1–4, A–C · 계단 14단 (단높이 ≈ 193)', T);
+  text(d, 0, -3900, 'BIM 모델(벽·창호·계단·실·가구)을 바닥에서 1 m 높이로 자른 평면 · 3D 보기(Ctrl+Shift+3)로 같은 모델을 입체로 봅니다', T);
   return d;
 }
 
-/** The same house as a 3D BIM-style model: walls with openings cut, slab, roof, stairs, porch — and its elevations. */
+/** The same house with its roof, and elevations projected from the model (TechDraw-style views). */
 export function house3d() {
   const d = createDrawing({ title: '단독주택 3D 모델 · 입면도', author: 'SHKWON' });
   Object.assign(d.sheet, { number: 'A-201', material: '철근콘크리트', company: 'MyCAD samples', scale: '1:100' });
-  const H = 2700;
-  const solids = [];
-  const push = (data) => { solids.push(data); return data; };
-  push({ ...raw('box', { length: 12400, width: 9400, height: 200 }, { x: -200, y: -200, z: -200 }), name: 'Slab' });
-  HOUSE.walls.forEach(([x1, y1, x2, y2, t, openings], i) => {
-    const horizontal = y1 === y2;
-    const length = horizontal ? x2 - x1 : y2 - y1;
-    const ext = t > 150 ? t / 2 : -t / 2; // exterior walls run past the corners, interior ones stop at the faces
-    const box = horizontal
-      ? raw('box', { length: length + 2 * ext, width: t, height: H }, { x: x1 - ext, y: y1 - t / 2, z: 0 })
-      : raw('box', { length: t, width: length + 2 * ext, height: H }, { x: x1 - t / 2, y: y1 - ext, z: 0 });
-    const cuts = openings.filter(([, , kind]) => kind !== 'opening' || true).map(([offset, width, kind]) => {
-      const z0 = kind === 'window' ? 900 : 0;
-      const h = kind === 'window' ? 1300 : 2100;
-      return horizontal
-        ? raw('box', { length: width, width: t + 200, height: h }, { x: x1 + offset, y: y1 - t / 2 - 100, z: z0 })
-        : raw('box', { length: t + 200, width, height: h }, { x: x1 - t / 2 - 100, y: y1 + offset, z: z0 });
-    });
-    push({ ...(cuts.length ? bool('cut', [box, ...cuts]) : box), name: `Wall${i + 1}` });
-  });
-  // Gable roof: two slabs at 27.5°, ridge along x; gable walls closing the ends.
-  const pitch = 27.5;
-  const run = 4700 + 300;
-  const slope = run / Math.cos((pitch * Math.PI) / 180) + 150;
-  push({ ...raw('box', { length: 12600, width: slope, height: 180 }, { x: -300, y: -300, z: H, rx: pitch }), name: 'RoofSouth' });
-  push({ ...raw('box', { length: 12600, width: slope, height: 180 }, { x: 12300, y: 9300, z: H, rx: pitch, rz: 180 }), name: 'RoofNorth' });
-  const rise = Math.tan((pitch * Math.PI) / 180) * 4500;
-  for (const [x, name] of [[0, 'GableWest'], [11800, 'GableEast']]) {
-    push({ type: 'solid', kind: 'pad', name, params: { height: 200 }, shape: { shapes: [{ outer: [{ x: 0, y: 0 }, { x: 9000, y: 0 }, { x: 4500, y: rise }], holes: [] }] }, x, y: 0, z: H, rx: 90, rz: 90 });
-  }
-  // Stairs: 14 steps.
-  for (let i = 0; i < 14; i++) push({ ...raw('box', { length: 1100, width: 250, height: (i + 1) * 193 }, { x: 6700, y: 1500 + i * 250, z: 0 }), name: `Step${i + 1}` });
-  // Porch: slab, two columns, canopy.
-  push({ ...raw('box', { length: 2600, width: 1600, height: 150 }, { x: 5100, y: -1800, z: -150 }), name: 'PorchSlab' });
-  for (const [x, name] of [[5300, 'ColumnW'], [7500, 'ColumnE']]) push({ ...raw('cylinder', { radius: 120, height: 2400 }, { x, y: -1600, z: 0 }), name });
-  push({ ...raw('box', { length: 2800, width: 1900, height: 150 }, { x: 5000, y: -1900, z: 2400 }), name: 'Canopy' });
-  for (const data of solids) add(d, 'solid', data);
-  // Elevations and plan of the model to the right (TechDraw-style views).
-  const placed = d.entities.filter((e) => e.type === 'solid');
-  for (const view of drawingViews(placed, { x0: 15000, y0: 0, gap: 2500, views: { front: true, right: true, top: true, iso: false }, labels: { front: '남측 입면도', right: '동측 입면도', top: '지붕 평면도' }, textHeight: 300 })) add(d, view.type, view);
-  text(d, 15000, -2000, '입면도: 3D 모델에서 투영 (숨은선 점선)', 300);
+  houseModel(d);
+  const placed = d.entities.filter((e) => e.type === 'solid' && e.layer !== 'furniture');
+  for (const view of drawingViews(placed, { x0: 16000, y0: 0, gap: 2500, views: { front: true, right: true, top: true, iso: false }, labels: { front: '남측 입면도', right: '동측 입면도', top: '지붕 평면도' }, textHeight: 300 })) add(d, view.type, view);
+  text(d, 16000, -2000, '입면도: BIM 모델에서 투영 (숨은선 점선)', 300);
   return d;
 }
 
-// ───────────────────────── architecture: an office floor
+// ───────────────────────── architecture: an office floor (BIM objects)
 
 export function officePlan() {
   const d = createDrawing({ title: '사무소 기준층 평면도 (S 1:200)', author: 'SHKWON' });
@@ -221,63 +189,55 @@ export function officePlan() {
   layer(d, 'wall', '벽체', '#1d2433', 'continuous', 0.5);
   layer(d, 'column', '기둥', '#1d2433', 'continuous', 0.5);
   layer(d, 'glass', '커튼월', '#3a6cf0', 'continuous', 0.18);
+  layer(d, 'slab', '슬래브', '#7a8394', 'continuous', 0.13);
+  layer(d, 'stair', '계단', '#1d2433', 'continuous', 0.25);
+  layer(d, 'space', '실', '#2f8f5b', 'continuous', 0.13);
   layer(d, 'furniture', '가구', '#7a8394', 'continuous', 0.13);
   layer(d, 'grid', '통심선', '#e5484d', 'center', 0.18);
-  layer(d, 'opening', '창호', '#3a6cf0', 'continuous', 0.18);
   const T = 400;
+  const FH = 3600; // floor to slab
   const bay = 8000; const nx = 5; const ny = 3;
   const W = bay * nx; const D = bay * ny;
-  // Curtain wall: inner and outer lines, mullions every 1500.
-  poly(d, rectPts(-150, -150, W + 150, D + 150), { layer: 'glass' });
-  poly(d, rectPts(-50, -50, W + 50, D + 50), { layer: 'glass' });
-  for (let x = 1500; x < W; x += 1500) { line(d, x, -150, x, -50, { layer: 'glass' }); line(d, x, D + 50, x, D + 150, { layer: 'glass' }); }
-  for (let y = 1500; y < D; y += 1500) { line(d, -150, y, -50, y, { layer: 'glass' }); line(d, W + 50, y, W + 150, y, { layer: 'glass' }); }
-  // Columns 700 × 700 on the grid.
-  for (let i = 0; i <= nx; i++) for (let j = 0; j <= ny; j++) {
-    const pts = rectPts(i * bay - 350, j * bay - 350, i * bay + 350, j * bay + 350);
-    poly(d, pts, { layer: 'column' });
-    add(d, 'hatch', { loops: [pts], pattern: 'solid', layer: 'column', color: '#4a5263' });
-  }
-  // Core in the middle bay: two stairs, two lifts, toilets, shaft.
+  bim(d, 'slab', { thickness: 250 }, { outer: rectPts(0, 0, W + 600, D + 600), holes: [] }, { x: -300, y: -300 }, { name: '바닥 슬래브', layer: 'slab' });
+  bim(d, 'curtainwall', { height: FH, spacing: 1500, vspacing: 1200, mullion: 60, depth: 150 }, { path: rectPts(0, 0, W + 200, D + 200), closed: true }, { x: -100, y: -100 }, { name: '커튼월', layer: 'glass' });
+  bim(d, 'axis', { countX: nx + 1, spacingX: bay, countY: ny + 1, spacingY: bay, extension: 3000, bubble: 600 }, {}, {}, { name: '통심선', layer: 'grid' });
+  for (let i = 0; i <= nx; i++) for (let j = 0; j <= ny; j++) bim(d, 'column', { width: 700, depth: 700, height: FH, profile: 0 }, {}, { x: i * bay, y: j * bay }, { name: `기둥 ${i + 1}${'ABCD'[j]}`, layer: 'column' });
+  // Core in the middle bay: concrete walls round two stairs, two lifts and the toilets.
   const cx0 = 2 * bay + 300; const cy0 = bay + 300; const cx1 = 3 * bay - 300; const cy1 = 2 * bay - 300;
-  const coreWall = (pts) => { poly(d, pts, { layer: 'wall' }); add(d, 'hatch', { loops: [pts], pattern: 'ansi31', scale: 30, layer: 'wall' }); };
-  coreWall(rectPts(cx0, cy0, cx1, cy0 + 250)); coreWall(rectPts(cx0, cy1 - 250, cx1, cy1));
-  coreWall(rectPts(cx0, cy0, cx0 + 250, cy1)); coreWall(rectPts(cx1 - 250, cy0, cx1, cy1));
-  coreWall(rectPts(cx0 + 2600, cy0, cx0 + 2800, cy1)); coreWall(rectPts(cx1 - 2800, cy0, cx1 - 2600, cy1));
-  for (const [x0] of [[cx0 + 250], [cx1 - 2600]]) {
-    for (let i = 0; i < 12; i++) line(d, x0 + 100, cy0 + 600 + i * 270, x0 + 1150, cy0 + 600 + i * 270, { layer: 'wall' });
-    for (let i = 0; i < 12; i++) line(d, x0 + 1250, cy0 + 600 + i * 270, x0 + 2300, cy0 + 600 + i * 270, { layer: 'wall' });
-    line(d, x0 + 1200, cy0 + 500, x0 + 1200, cy0 + 600 + 11 * 270, { layer: 'wall' });
-    text(d, x0 + 300, cy1 - 900, '계단', T);
+  bim(d, 'wall', { width: 250, height: FH, align: 0 }, { path: rectPts(0, 0, cx1 - cx0, cy1 - cy0), closed: true, openings: [opening([1400, 1000, 'door', 1, 1]), opening([3400, 900, 'opening']), opening([(cx1 - cx0) - 2400, 1000, 'door', 1, -1])] }, { x: cx0, y: cy0 }, { name: '코어 벽', layer: 'wall' });
+  for (const [x, name] of [[cx0 + 2700, '코어 칸막이 (서)'], [cx1 - 2700, '코어 칸막이 (동)']]) bim(d, 'wall', { width: 200, height: FH, align: 0 }, { path: [{ x: 0, y: 0 }, { x: 0, y: cy1 - cy0 - 250 }], openings: [] }, { x, y: cy0 + 125 }, { name, layer: 'wall' });
+  // Two U-shaped stairs: two flights each, up then back (FH / 2 each).
+  for (const [x0, side] of [[cx0 + 125, 'W'], [cx1 - 2575, 'E']]) {
+    bim(d, 'stairs', { length: 3000, width: 1150, height: FH / 2, steps: 12, thickness: 150 }, {}, { x: x0 + 1150, y: cy0 + 1000, rz: 90 }, { name: `계단 ${side} (1)`, layer: 'stair' });
+    bim(d, 'stairs', { length: 3000, width: 1150, height: FH / 2, steps: 12, thickness: 150 }, {}, { x: x0 + 1300, y: cy0 + 4000, z: FH / 2, rz: -90 }, { name: `계단 ${side} (2)`, layer: 'stair' });
+    bim(d, 'slab', { thickness: 150 }, { outer: rectPts(0, 0, 2450, 1300), holes: [] }, { x: x0, y: cy0 + 4000, z: FH / 2 }, { name: `계단참 ${side}`, layer: 'stair' });
   }
-  // Between the stairs (x: cx0+2800 … cx1-2800): two lifts one above the other, toilets at the top.
+  // Lifts: shafts with doors, one above the other.
   const mx = cx0 + 3000;
   for (let k = 0; k < 2; k++) {
-    const y = cy0 + 500 + k * 2000;
-    const pts = rectPts(mx, y, mx + 1400, y + 1700);
-    poly(d, pts, { layer: 'wall' }); line(d, mx, y, mx + 1400, y + 1700, { layer: 'wall' }); line(d, mx + 1400, y, mx, y + 1700, { layer: 'wall' });
-    text(d, mx + 380, y + 700, `EV${k + 1}`, T);
+    bim(d, 'wall', { width: 150, height: FH, align: 0 }, { path: rectPts(0, 0, 1600, 1900), closed: true, openings: [opening([400, 900, 'sliding'])] }, { x: mx, y: cy0 + 400 + k * 2100 }, { name: `승강기 ${k + 1}`, layer: 'wall' });
   }
-  for (let k = 0; k < 2; k++) {
-    poly(d, rectPts(mx + k * 750, cy1 - 1500, mx + k * 750 + 650, cy1 - 350), { layer: 'furniture' });
-    add(d, 'ellipse', { cx: mx + k * 750 + 325, cy: cy1 - 750, rx: 180, ry: 260, layer: 'furniture' });
-  }
-  text(d, mx, cy1 - 1950, 'WC', T);
-  // Meeting rooms along the north side (bays 1 and 5), with doors.
-  for (const [x0, x1, name] of [[300, bay * 1 + 4000, '회의실 A (16인)'], [bay * 4 - 4000, W - 300, '회의실 B (16인)']]) {
-    const pts = rectPts(x0, D - 5000, x1, D - 300);
-    poly(d, pts, { layer: 'wall' });
-    poly(d, rectPts((x0 + x1) / 2 - 2400, D - 3600, (x0 + x1) / 2 + 2400, D - 1700), { layer: 'furniture' });
-    for (let k = 0; k < 8; k++) { add(d, 'circle', { cx: (x0 + x1) / 2 - 2100 + k * 600, cy: D - 3900, r: 220, layer: 'furniture' }); add(d, 'circle', { cx: (x0 + x1) / 2 - 2100 + k * 600, cy: D - 1400, r: 220, layer: 'furniture' }); }
-    const door = (x0 + x1) / 2 + 2800;
-    add(d, 'arc', { cx: door, cy: D - 5000, r: 900, start: 270, end: 360, layer: 'opening', lineType: 'dashed' });
-    line(d, door, D - 5000, door, D - 5900, { layer: 'opening' });
-    text(d, x0 + 600, D - 900, name, T);
+  for (let k = 0; k < 2; k++) furniture(d, 'toilet', [700, 400, 800], { x: mx + 200 + k * 800, y: cy1 - 300, rz: -90 }, '변기');
+  furniture(d, 'basin', [600, 450, 850], { x: mx + 1600, y: cy1 - 1700, rz: 90 }, '세면대');
+  // Meeting rooms along the north side (bays 1 and 5): partitions with a door, a table and chairs.
+  for (const [x0, x1, name] of [[300, bay + 4000, '회의실 A'], [bay * 4 - 4000, W - 300, '회의실 B']]) {
+    bim(d, 'wall', { width: 120, height: FH, align: 0 }, { path: [{ x: 0, y: 0 }, { x: x1 - x0, y: 0 }], openings: [opening([(x1 - x0) / 2 + 2400, 900, 'door', 1, 1])] }, { x: x0, y: D - 5000 }, { name: `${name} 칸막이`, layer: 'wall' });
+    const side = x0 < W / 2 ? x1 : x0;
+    bim(d, 'wall', { width: 120, height: FH, align: 0 }, { path: [{ x: 0, y: 0 }, { x: 0, y: 4700 }], openings: [] }, { x: side, y: D - 5000 }, { name: `${name} 칸막이 2`, layer: 'wall' });
+    const cx = (x0 + x1) / 2;
+    furniture(d, 'table', [4800, 1900, 740], { x: cx - 2400, y: D - 3600 }, `${name} 회의 탁자`);
+    for (let k = 0; k < 8; k++) {
+      furniture(d, 'chair', [450, 450, 900], { x: cx - 2100 + k * 600 + 225, y: D - 3650, rz: 180 }, '의자');
+      furniture(d, 'chair', [450, 450, 900], { x: cx - 2100 + k * 600 - 225, y: D - 1650 }, '의자');
+    }
+    bim(d, 'space', { height: 2700 }, { outer: rectPts(0, 0, x1 - x0 - 60, 4640), holes: [] }, { x: x0 + (x0 < W / 2 ? 0 : 60), y: D - 4940 }, { name: `${name} (16인)`, layer: 'space' });
   }
   // Open office: clusters of four desks with chairs.
   const cluster = (x, y) => {
-    for (const [dx, dy] of [[0, 0], [1600, 0], [0, 800], [1600, 800]]) poly(d, rectPts(x + dx, y + dy, x + dx + 1600, y + dy + 800), { layer: 'furniture' });
-    for (const [dx, dy] of [[800, -350], [2400, -350], [800, 1950], [2400, 1950]]) add(d, 'circle', { cx: x + dx, cy: y + dy, r: 280, layer: 'furniture' });
+    for (const [dx, dy] of [[0, 0], [1600, 0]]) furniture(d, 'desk', [1600, 800, 740], { x: x + dx, y: y + dy }, '책상');
+    for (const [dx, dy] of [[0, 800], [1600, 800]]) furniture(d, 'desk', [1600, 800, 740], { x: x + dx + 1600, y: y + dy + 800, rz: 180 }, '책상');
+    for (const [dx, dy] of [[800, -350], [2400, -350]]) furniture(d, 'chair', [450, 450, 900], { x: x + dx + 225, y: y + dy + 225, rz: 180 }, '의자');
+    for (const [dx, dy] of [[800, 1950], [2400, 1950]]) furniture(d, 'chair', [450, 450, 900], { x: x + dx - 225, y: y + dy - 225 }, '의자');
   };
   for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) {
     const x = 1200 + i * 7800; const y = 1500 + j * 4200;
@@ -285,14 +245,70 @@ export function officePlan() {
     cluster(x, y);
     cluster(x + 3600, y);
   }
-  // Grid and dimensions.
-  for (let i = 0; i <= nx; i++) { line(d, i * bay, -3000, i * bay, D + 3000, { layer: 'grid' }); add(d, 'circle', { cx: i * bay, cy: -3600, r: 600, layer: 'grid', lineType: 'continuous' }); text(d, i * bay - 150, -3800, String(i + 1), T * 1.2, { layer: 'grid' }); }
-  for (let j = 0; j <= ny; j++) { line(d, -3000, j * bay, W + 3000, j * bay, { layer: 'grid' }); add(d, 'circle', { cx: -3600, cy: j * bay, r: 600, layer: 'grid', lineType: 'continuous' }); text(d, -3780, j * bay - 200, 'ABCD'[j], T * 1.2, { layer: 'grid' }); }
+  bim(d, 'space', { height: 2700 }, { outer: rectPts(0, 0, W - 400, D - 5200), holes: [rectPts(cx0 - 200, cy0 - 200, cx1 - 200, cy1 - 200)] }, { x: 200, y: 200 }, { name: '사무실', layer: 'space' });
+  // Dimensions on the grid.
   for (let i = 0; i < nx; i++) dim(d, 'horizontal', i * bay, D, (i + 1) * bay, D, i * bay + bay / 2, D + 1600, T);
   dim(d, 'horizontal', 0, D, W, D, W / 2, D + 2600, T);
   for (let j = 0; j < ny; j++) dim(d, 'vertical', 0, j * bay, 0, (j + 1) * bay, -1600, j * bay + bay / 2, T);
   dim(d, 'vertical', 0, 0, 0, D, -2600, D / 2, T);
-  text(d, 0, -5600, `사무소 기준층 평면도   S = 1:200   바닥면적 ${(W * D / 1e6).toFixed(0)} m² · 기둥 ${(nx + 1) * (ny + 1)}개 · 책상 ${0} 석`.replace(' · 책상 0 석', ''), T * 1.6, { bold: true });
+  text(d, 0, -6400, `사무소 기준층 평면도   S = 1:200   바닥면적 ${(W * D / 1e6).toFixed(0)} m² · 기둥 ${(nx + 1) * (ny + 1)}개`, T * 1.6, { bold: true });
+  text(d, 0, -7300, 'BIM 모델(커튼월·기둥·코어 벽·계단·승강기·가구)의 1 m 단면 · 3D 보기에서 같은 모델을 입체로', T);
+  return d;
+}
+
+
+// ───────────────────────── architecture: a two-storey house (levels, materials, layered walls, rebar, any-outline roof)
+
+/** A two-storey L-shaped house: levels, layered walls, a hip roof over the L with gable ends, rebar, a carport truss, a pipe. */
+export function twoStoreyHouse() {
+  const d = createDrawing({ title: '2층 주택 — 층 · 재료 · 철근 (BIM)', author: 'SHKWON' });
+  Object.assign(d.sheet, { number: 'A-401', material: '철근콘크리트 · 벽돌 치장', company: 'MyCAD samples', scale: '1:100' });
+  for (const [id, name, color, type, width] of [['wall', '벽체', '#1d2433', 'continuous', 0.5], ['slab', '슬래브', '#7a8394', 'continuous', 0.18], ['stair', '계단', '#1d2433', 'continuous', 0.25], ['space', '실', '#2f8f5b', 'continuous', 0.18], ['furniture', '가구', '#7a8394', 'continuous', 0.18], ['roof', '지붕', '#b5523b', 'hidden', 0.25], ['structure', '구조', '#8a4b2a', 'continuous', 0.25], ['grid', '통심선', '#e5484d', 'center', 0.18]]) layer(d, id, name, color, type, width);
+  const M = Object.fromEntries(presetMaterials('ko').map((m) => [m.id, m]));
+  d.bim = { site: '대지 (남향)', building: '2층 주택', levels: [{ id: 'L1', name: '1층', elevation: 0, height: 3000, visible: true }, { id: 'L2', name: '2층', elevation: 3000, height: 3000, visible: true }], activeLevel: 'L1', planLevel: 'L1', materials: presetMaterials('ko') };
+  const on = (level, extra = {}) => ({ level, ...extra });
+  // The L outline (wall centre line), counter-clockwise.
+  const L = [{ x: 0, y: 0 }, { x: 12000, y: 0 }, { x: 12000, y: 6000 }, { x: 6000, y: 6000 }, { x: 6000, y: 10000 }, { x: 0, y: 10000 }];
+  const layers = [{ material: M.brick, thickness: 90 }, { material: M.insulation, thickness: 100 }, { material: M.concrete, thickness: 180 }, { material: M.gypsum, thickness: 12 }];
+  const win = (at, width, cols = 2, rows = 1, sill = 900, height = 1300) => ({ type: 'window', at, width, height, sill, swing: 1, hinge: 1, cols, rows });
+  const door = (at, width = 1000, swing = 1, hinge = 1) => ({ type: 'door', at, width, height: 2100, sill: 0, swing, hinge });
+  // A round-headed window drawn as a sketch (frame outline and its panes, in 0…1).
+  const arch = Array.from({ length: 13 }, (_, i) => ({ u: 0.5 + 0.5 * Math.cos((Math.PI * i) / 12), v: 0.6 + 0.4 * Math.sin((Math.PI * i) / 12) }));
+  const arched = { outer: [{ u: 0, v: 0 }, { u: 1, v: 0 }, ...arch.slice(0, 13)], holes: [[{ u: 0.12, v: 0.08 }, { u: 0.88, v: 0.08 }, { u: 0.88, v: 0.58 }, { u: 0.12, v: 0.58 }], [{ u: 0.12, v: 0.64 }, { u: 0.88, v: 0.64 }, ...Array.from({ length: 9 }, (_, i) => ({ u: 0.5 + 0.38 * Math.cos((Math.PI * (i + 1)) / 10), v: 0.64 + 0.28 * Math.sin((Math.PI * (i + 1)) / 10) }))]] };
+  // Ground floor.
+  bim(d, 'slab', { thickness: 250 }, { outer: rectPts(-300, -300, 12300, 10300).map(({ x, y }) => ({ x: x + 300, y: y + 300 })), holes: [] }, { x: -300, y: -300 }, on('L1', { name: '기초 슬래브', layer: 'slab', material: M.concrete }));
+  bim(d, 'wall', { width: 382, height: 3000, align: 0 }, { path: L, closed: true, layers, openings: [win(1200, 2400, 3, 1), door(5200, 1000), win(8500, 2400, 3, 2, 600, 1800), win(13300, 1500), { type: 'custom', at: 21000, width: 1200, height: 1800, sill: 700, swing: 1, hinge: 1, profile: arched }, win(26000, 1800), win(31000, 2000)] }, {}, on('L1', { name: '1층 외벽', layer: 'wall' }));
+  bim(d, 'wall', { width: 150, height: 3000, align: 0 }, { path: [{ x: 6000, y: 200 }, { x: 6000, y: 5800 }], openings: [door(2200, 900, -1)] }, {}, on('L1', { name: '1층 내벽 1', layer: 'wall', material: M.block }));
+  bim(d, 'wall', { width: 150, height: 3000, align: 0 }, { path: [{ x: 200, y: 6000 }, { x: 5800, y: 6000 }], openings: [{ type: 'opening', at: 2000, width: 1600, height: 2100, sill: 0, swing: 1, hinge: 1 }] }, {}, on('L1', { name: '1층 내벽 2', layer: 'wall', material: M.block }));
+  bim(d, 'stairs', { length: 4000, width: 1000, height: 3000, steps: 16, thickness: 160 }, {}, { x: 4800, y: 1400, rz: 90 }, on('L1', { name: '계단', layer: 'stair', material: M.concrete }));
+  for (const [name, x0, y0, x1, y1] of [['거실', 200, 200, 5900, 5900], ['주방·식당', 6100, 200, 11800, 5800], ['현관·서재', 200, 6100, 5800, 9800]]) {
+    bim(d, 'space', { height: 2700 }, { outer: rectPts(0, 0, x1 - x0, y1 - y0), holes: [] }, { x: x0, y: y0 }, on('L1', { name, layer: 'space' }));
+  }
+  furniture(d, 'sofa', [2600, 900, 850], { x: 3200, y: 1300, rz: 180 }, '소파'); d.entities.at(-1).level = 'L1';
+  furniture(d, 'table', [1800, 900, 740], { x: 8000, y: 2400 }, '식탁'); d.entities.at(-1).level = 'L1';
+  furniture(d, 'sink', [3000, 600, 900], { x: 8400, y: 5100 }, '싱크대'); d.entities.at(-1).level = 'L1';
+  // Upper floor: its slab (stair well left open), the same layered outline, rooms.
+  const floor = bim(d, 'slab', { thickness: 220 }, { outer: L.map((q) => ({ x: q.x, y: q.y })), holes: [rectPts(3700, 1300, 4900, 5500)] }, {}, on('L2', { name: '2층 바닥 슬래브', layer: 'slab', material: M.concrete, z: 3000 }));
+  bim(d, 'wall', { width: 382, height: 2800, align: 0 }, { path: L, closed: true, layers, openings: [win(1500, 1800), win(5000, 1500), win(8800, 1800, 2, 2), win(14000, 1500), win(21000, 1200, 1, 2), win(26000, 1800), win(31000, 1600)] }, { z: 3000 }, on('L2', { name: '2층 외벽', layer: 'wall' }));
+  bim(d, 'wall', { width: 120, height: 2800, align: 0 }, { path: [{ x: 6000, y: 200 }, { x: 6000, y: 5800 }], openings: [door(2600, 900, -1)] }, { z: 3000 }, on('L2', { name: '2층 내벽', layer: 'wall', material: M.gypsum }));
+  for (const [name, x0, y0, x1, y1] of [['침실 1', 200, 200, 5900, 5900], ['침실 2', 6100, 200, 11800, 5800], ['가족실', 200, 6100, 5800, 9800]]) {
+    bim(d, 'space', { height: 2500 }, { outer: rectPts(0, 0, x1 - x0, y1 - y0), holes: [] }, { x: x0, y: y0, z: 3000 }, on('L2', { name, layer: 'space' }));
+  }
+  furniture(d, 'bed', [2100, 1600, 900], { x: 2000, y: 3900, rz: -90 }, '침대'); Object.assign(d.entities.at(-1), { level: 'L2', z: 3000 });
+  furniture(d, 'bed', [2000, 1400, 900], { x: 8500, y: 3700, rz: -90 }, '침대'); Object.assign(d.entities.at(-1), { level: 'L2', z: 3000 });
+  // Rebar: the upper floor slab's bottom mesh.
+  d.entities.push(normalizeEntity({ type: 'solid', kind: 'rebar', name: '2층 슬래브 배근', layer: 'structure', level: 'L2', params: { diameter: 13, spacing: 250, cover: 30, bars: 2, stirrup: 10 }, x: 0, y: 0, z: 3000, shape: { host: { kind: 'slab', params: { thickness: 220 }, outer: floor.shape.outer, holes: floor.shape.holes } }, material: M.steel }));
+  // Hip roof over the L, the two short ends gabled (FreeCAD: an angle per edge, 90° = gable).
+  bim(d, 'roof', { roofType: 1, slope: 30, overhang: 500, thickness: 200 }, { outer: L.map((q) => ({ x: q.x, y: q.y })), holes: [], slopes: [null, 90, null, null, 90, null] }, { z: 5800 }, on('L2', { name: 'L자 지붕 (박공 끝)', layer: 'roof', material: M.tile }));
+  // Carport east of the house: steel posts, a Pratt truss each side, a corrugated sheet roof.
+  for (const [x, y] of [[12800, 300], [17800, 300], [12800, 5700], [17800, 5700]]) bim(d, 'column', { width: 150, depth: 150, height: 2400, profile: 2 }, {}, { x, y }, on('L1', { name: '카포트 기둥', layer: 'structure', material: M.steel }));
+  for (const y of [300, 5700]) bim(d, 'truss', { trussType: 0, height: 600, panels: 6, chord: 80, web: 50 }, { path: [{ x: 0, y: 0 }, { x: 5000, y: 0 }] }, { x: 12800, y, z: 2400 }, on('L1', { name: '카포트 트러스', layer: 'structure', material: M.steel }));
+  bim(d, 'panel', { thickness: 1, waveLength: 150, waveHeight: 25 }, { outer: rectPts(0, 0, 5600, 6000), holes: [] }, { x: 12500, y: 0, z: 3030 }, on('L1', { name: '골판 지붕', layer: 'roof', material: M.steel }));
+  // A gas pipe along the south and east walls, 400 mm up.
+  bim(d, 'pipe', { diameter: 60, wall: 4 }, { path: [{ x: 0, y: 0 }, { x: 11500, y: 0 }, { x: 11500, y: 5000 }], closed: false }, { x: 300, y: -350, z: 400 }, on('L1', { name: '가스관', layer: 'structure', material: M.steel }));
+  bim(d, 'axis', { countX: 3, spacingX: 6000, countY: 3, spacingY: 5000, extension: 1500, bubble: 400 }, { xs: [0, 6000, 12000], ys: [0, 6000, 10000] }, {}, { name: '통심선', layer: 'grid' });
+  text(d, 0, -3000, '2층 주택 — 층(1층·2층), 다층 벽(벽돌·단열·콘크리트·석고), L자 지붕(변별 경사), 철근, 카포트 트러스·골판, 가스관', 250, { bold: true });
+  text(d, 0, -3500, '왼쪽 패널의 건물 트리에서 평면도 층을 바꾸고, 3D 보기에서 두 층을 함께 봅니다', 220);
   return d;
 }
 

@@ -2,15 +2,15 @@
  "format": "mycad",
  "version": 1,
  "app": "MyCAD",
- "saved": "2026-10-13T09:43:02.668Z",
+ "saved": "2026-10-14T05:10:40.082Z",
  "drawing": {
-  "id": "dwg-mv6htcmr0011vjc2",
+  "id": "dwg-mv7nix9z0011ifpp",
   "title": "M10 볼트·너트·와셔",
   "description": "",
   "author": "SHKWON",
   "units": "mm",
-  "created": "2026-10-13T09:43:02.451Z",
-  "updated": "2026-10-13T09:43:02.451Z",
+  "created": "2026-10-14T05:10:39.863Z",
+  "updated": "2026-10-14T05:10:39.863Z",
   "layers": [
    {
     "id": "0",
@@ -71,7 +71,7 @@
   },
   "entities": [
    {
-    "id": "e-mv6htcmr00126y06",
+    "id": "e-mv7nix9z001207z8",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -90,7 +90,7 @@
     }
    },
    {
-    "id": "e-mv6htcmr00130s7r",
+    "id": "e-mv7nix9z0013sq99",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -109,7 +109,7 @@
     }
    },
    {
-    "id": "e-mv6htcmr0014h1is",
+    "id": "e-mv7nix9z00147et2",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -128,7 +128,7 @@
     }
    },
    {
-    "id": "e-mv6htcmr0015tb1w",
+    "id": "e-mv7nix9z0015v5oo",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -147,7 +147,7 @@
     }
    },
    {
-    "id": "e-mv6htcmr00165cxv",
+    "id": "e-mv7nix9z0016p4e7",
     "type": "part",
     "layer": "0",
     "color": null,
@@ -168,7 +168,7 @@
     }
    },
    {
-    "id": "e-mv6htcmr001728e6",
+    "id": "e-mv7nix9z0017g6fz",
     "type": "dim",
     "layer": "dim",
     "color": null,
@@ -192,7 +192,7 @@
     "text": ""
    },
    {
-    "id": "e-mv6htcmr0018wzne",
+    "id": "e-mv7nix9z0018whxl",
     "type": "text",
     "layer": "text",
     "color": null,

@@ -1,4 +1,4 @@
-"""Windows 한국어 음성으로 만든 합성 학습·평가 음원과 학습 데이터 출처."""
+"""Supertonic 2로 만든 합성 학습·평가 음원과 학습 데이터 출처."""
 
 from __future__ import annotations
 

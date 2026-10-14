@@ -10,7 +10,7 @@ use std::time::Duration;
 pub const CHUNK: usize = 1 << 20;
 
 /// Extensions the app opens: MyCAD drawings and DXF drawings.
-pub const DOCUMENT_EXTENSIONS: [&str; 11] = ["mcad", "dxf", "fcstd", "step", "stp", "stl", "obj", "ply", "off", "amf", "3mf"];
+pub const DOCUMENT_EXTENSIONS: [&str; 23] = ["mcad", "dxf", "fcstd", "ifc", "step", "stp", "stl", "obj", "ply", "off", "amf", "3mf", "wrl", "vrml", "dae", "brep", "brp", "scad", "csg", "xyz", "asc", "pts", "pcd"];
 
 /// Test hook: `MYCAD_IO_DELAY_MS` slows every chunk so the progress window can be checked.
 fn chunk_delay() -> Option<Duration> {

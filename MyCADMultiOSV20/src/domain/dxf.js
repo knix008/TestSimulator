@@ -112,7 +112,7 @@ export function mtextPlain(text) {
 export function exportDxf(drawing, { entities = null } = {}) {
   const out = [];
   const pair = (code, value) => out.push(String(code), typeof value === 'number' ? fmt(value) : String(value));
-  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity));
+  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity) && !entity.construction);
   const box = list.length ? list.reduce((acc, entity) => {
     for (const prim of primitives(entity)) {
       const pts = prim.kind === 'circle' || prim.kind === 'arc' ? [{ x: prim.c.x - prim.r, y: prim.c.y - prim.r }, { x: prim.c.x + prim.r, y: prim.c.y + prim.r }] : prim.kind === 'line' ? [prim.a, prim.b] : prim.kind === 'text' ? [prim.p] : prim.points ?? [];

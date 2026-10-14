@@ -17,7 +17,8 @@ export function drawingViews(solids, { x0 = 0, y0 = 0, gap = 20, views = { front
   const slots = { front: [x0, y0], top: [x0, y0 + sz + gap], right: [x0 + sx + gap, y0], iso: [x0 + sx + gap, y0 + sz + gap] };
   const out = [];
   for (const view of VIEW_NAMES.filter((name) => views[name])) {
-    const segments = projectEdges(tris, view, { hidden: view !== 'iso' });
+    // Hidden lines: dashed in the orthographic views, left out of the isometric one.
+    const segments = projectEdges(tris, view, { hidden: true }).filter((seg) => view !== 'iso' || !seg.hidden);
     if (!segments.length) continue;
     let minX = Infinity;
     let minY = Infinity;

@@ -8,6 +8,15 @@ const FUNCTIONS = {
 };
 const CONSTANTS = { pi: Math.PI, e: Math.E };
 
+// Named values (spreadsheet cells and aliases, lower case) the expressions may use.
+let variables = new Map();
+/** Sets the named values; returns the ones there were. */
+export function setVariables(map) {
+  const before = variables;
+  variables = map instanceof Map ? map : new Map(Object.entries(map ?? {}));
+  return before;
+}
+
 /** Value of the expression, or NaN when it is not valid. */
 export function evaluate(text) {
   const source = String(text ?? '').trim().toLowerCase().replace(/,/g, '.').replace(/×/g, '*').replace(/÷/g, '/');
@@ -19,10 +28,11 @@ export function evaluate(text) {
     skip();
     const match = /^(\d+\.?\d*|\.\d+)(e[-+]?\d+)?/.exec(source.slice(index));
     if (match) { index += match[0].length; return Number(match[0]); }
-    const name = /^[a-z]+/.exec(source.slice(index));
+    const name = /^[a-z_][a-z0-9_]*/.exec(source.slice(index));
     if (name) {
       index += name[0].length;
       if (name[0] in CONSTANTS) return CONSTANTS[name[0]];
+      if (variables.has(name[0])) return variables.get(name[0]);
       if (name[0] in FUNCTIONS) {
         skip();
         if (peek() !== '(') throw new Error('(');

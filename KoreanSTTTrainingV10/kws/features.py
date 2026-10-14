@@ -176,10 +176,28 @@ def add_noise(wav: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     if power < 1e-6:
         level = float(rng.uniform(0.0, 0.003))
         return wav + rng.normal(0.0, level, size=wav.shape).astype(np.float32)
-    snr_db = float(rng.uniform(12.0, 30.0))
+    snr_db = float(rng.uniform(6.0, 24.0))
     noise_power = power / (10.0 ** (snr_db / 10.0))
     noise = rng.normal(0.0, math.sqrt(noise_power), size=wav.shape).astype(np.float32)
-    return wav + noise
+    # 웹캠 마이크의 웅웅거리는 소음에 가깝게 저역을 남긴다.
+    kernel = np.ones(8, dtype=np.float32) / np.float32(8.0)
+    colored = np.convolve(noise, kernel, mode="same").astype(np.float32)
+    return wav + colored
+
+
+def microphone_color(wav: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """깨끗한 합성음에 마이크의 저역 감쇠와 짧은 울림을 섞는다. 학습 중에만 쓴다."""
+    wav = preemphasis(wav, float(rng.uniform(0.3, 0.8)))
+    out = np.array(wav, dtype=np.float32, copy=True)
+    for _ in range(int(rng.integers(1, 3))):
+        delay = int(rng.integers(160, 880))
+        if delay >= out.size:
+            continue
+        gain = np.float32(rng.uniform(0.12, 0.4))
+        echo = np.zeros_like(out)
+        echo[delay:] = out[:-delay] * gain
+        out = out + echo
+    return np.ascontiguousarray(out, dtype=np.float32)
 
 
 def prepare_waveform(
@@ -193,10 +211,12 @@ def prepare_waveform(
     wav = preemphasis(wav, cfg.preemphasis)
     wav = peak_normalize(wav, cfg.peak_target, cfg.peak_min)
     if augment and rng is not None:
-        wav = time_shift(wav, max(1, cfg.sample_rate // 10), rng)
+        wav = time_shift(wav, max(1, cfg.sample_rate // 5), rng)
         peak = float(np.max(np.abs(wav))) if wav.size else 0.0
         if peak >= cfg.peak_min:
-            wav = wav * np.float32(float(rng.uniform(0.75, 1.05)))
+            wav = wav * np.float32(float(rng.uniform(0.45, 1.05)))
+        if float(rng.random()) < 0.85:
+            wav = microphone_color(wav, rng)
         wav = add_noise(wav, rng)
         wav = np.ascontiguousarray(np.clip(wav, np.float32(-1.0), np.float32(1.0)), dtype=np.float32)
     return wav

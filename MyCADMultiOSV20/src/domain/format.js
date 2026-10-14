@@ -52,7 +52,7 @@ export function withExtension(path, extension = EXTENSION) {
 export const isDrawingFileName = (name) => ['mcad', 'json'].includes(extensionOf(name));
 export const isDxfFileName = (name) => extensionOf(name) === 'dxf';
 /** 3D models MyCAD reads (FreeCAD's exchange formats). */
-export const MODEL_EXTENSIONS = ['fcstd', 'step', 'stp', 'stl', 'obj', 'ply', 'off', 'amf', '3mf'];
+export const MODEL_EXTENSIONS = ['fcstd', 'ifc', 'step', 'stp', 'brep', 'brp', 'scad', 'csg', 'xyz', 'asc', 'pts', 'pcd', 'stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl', 'vrml', 'dae'];
 export const isModelFileName = (name) => MODEL_EXTENSIONS.includes(extensionOf(name));
 export const isImageFileName = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'].includes(extensionOf(name));
 export const isTextFileName = (name) => ['txt', 'text', 'md', 'csv'].includes(extensionOf(name));
@@ -71,12 +71,20 @@ export const FILE_FORMATS = [
   { id: 'excellon', name: 'Excellon drill', extensions: ['drl', 'xln', 'exc', 'drd'], group: 'drawing', read: true, write: false },
   { id: 'png', name: 'PNG', extensions: ['png'], group: 'drawing', read: false, write: true },
   { id: 'fcstd', name: 'FreeCAD', extensions: ['FCStd'], group: 'model', read: true, write: true },
+  { id: 'ifc', name: 'IFC 4 (BIM)', extensions: ['ifc'], group: 'model', read: true, write: true },
   { id: 'step', name: 'STEP AP214', extensions: ['step', 'stp'], group: 'model', read: true, write: true },
   { id: 'stl', name: 'STL', extensions: ['stl'], group: 'model', read: true, write: true },
   { id: 'obj', name: 'Wavefront OBJ', extensions: ['obj'], group: 'model', read: true, write: true },
   { id: 'ply', name: 'Stanford PLY', extensions: ['ply'], group: 'model', read: true, write: true },
   { id: 'off', name: 'Object File Format', extensions: ['off'], group: 'model', read: true, write: true },
   { id: 'amf', name: 'Additive Manufacturing (AMF)', extensions: ['amf'], group: 'model', read: true, write: true },
+  { id: 'wrl', name: 'VRML 2.0 (VRML97)', extensions: ['wrl', 'vrml'], group: 'model', read: true, write: true },
+  { id: 'dae', name: 'COLLADA', extensions: ['dae'], group: 'model', read: true, write: true },
+  { id: 'brep', name: 'OpenCASCADE BREP', extensions: ['brep', 'brp'], group: 'model', read: true, write: true },
+  { id: 'scad', name: 'OpenSCAD (CSG)', extensions: ['scad', 'csg'], group: 'model', read: true, write: true },
+  { id: 'xyz', name: 'Point cloud (XYZ, ASC, PTS, PCD)', extensions: ['xyz', 'asc', 'pts', 'pcd'], group: 'model', read: true, write: true },
+  { id: 'nc', name: 'G-code (CAM)', extensions: ['nc', 'gcode', 'ngc', 'tap'], group: 'other', read: false, write: true },
+  { id: 'krl', name: 'KUKA KRL (Robot)', extensions: ['src'], group: 'other', read: false, write: true },
   { id: '3mf', name: '3D Manufacturing (3MF)', extensions: ['3mf'], group: 'model', read: true, write: true },
   { id: 'image', name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'], group: 'other', read: true, write: false, use: 'background' },
   { id: 'text', name: 'Text', extensions: ['txt', 'md', 'csv'], group: 'other', read: true, write: false, use: 'text' },

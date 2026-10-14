@@ -7,7 +7,7 @@ import { DrawingDocument } from './domain/document.js';
 import * as D from './domain/drawing.js';
 import { exportDxf, importDxf, looksLikeDxf } from './domain/dxf.js';
 import {
-  boxOfEntities, canExplode, createEntity, DIM_KINDS, normalizeEntity, dimText, entityDistance, explode, formatNumber, grips, inBox, LINE_TYPES, LINE_WIDTHS, measure, moveGrip, totalLength,
+  boxOfEntities, canExplode, createEntity, DIM_KINDS, normalizeEntity, dimText, entityDistance, explode, formatNumber, grips, inBox, LINE_TYPES, LINE_WIDTHS, measure, moveGrip, primitives, totalLength,
 } from './domain/entities.js';
 import { evaluate } from './domain/expr.js';
 import { startPageHtml } from './view/startpage.js';
@@ -23,7 +23,22 @@ import {
 import { boxCenter, boxHeight, boxWidth, dist, normalizeBox, polygonArea } from './domain/geometry.js';
 import { booleanOf } from './domain/csg.js';
 import { exportMesh, importMesh, setBooleanImplementation } from './domain/exchange3d.js';
-import { featureFrom, meshBox, normalizeSolidData, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh } from './domain/solids.js';
+import { canDressUp, DRESSUP_KINDS } from './domain/dressup.js';
+import { isGlobal, planeFrom, toPlane } from './domain/workplane.js';
+import { BALLOON_SHAPES, GDT_MODIFIERS, GDT_SYMBOLS, LEADER_STYLES } from './domain/annotate.js';
+import { checkSolid, repairMesh } from './domain/meshcheck.js';
+import { nestPanels } from './domain/nesting.js';
+import { normalizeSpreadsheet, sheetCsv, sheetVariables } from './domain/spreadsheet.js';
+import { eulerTo, fitCylinder, fitPlane, fitSphere, meshFromPoints } from './domain/points.js';
+import { convexHull, placement, solidPoints } from './domain/solids.js';
+import { inverseKinematics, samplePath, toKrl, trajectory } from './domain/robot.js';
+import { setVariables } from './domain/expr.js';
+import { decimateMesh } from './domain/features.js';
+import { camPaths, camSource, toGcode } from './domain/cam.js';
+import { analyzeFrame, autoScale, deformedShape, frameFrom, momentDiagram, normalizeFem } from './domain/fem.js';
+import { addConstraint, canConstrain, CONSTRAINT_TYPES, DIMENSIONAL, entityPoint, nearestPoints, pointsOf } from './domain/constraints.js';
+import { featureFrom, meshBox, normalizeSolidData, normalizeSolidParams, flattenTriangles, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh, solidProperties } from './domain/solids.js';
+import { ARCH_FROM_LINES, ARCH_FROM_OUTLINES, ARCH_INSERT_KINDS, archFrom, archQuantities, createBim, normalizeBim, defaultOpening, isArchKind, MATERIAL_PATTERNS, profileFromLoops, REBAR_HOSTS, wallLength, wallWidth } from './domain/arch.js';
 import { drawingViews, sectionOutlines, VIEW_NAMES } from './domain/views.js';
 import { CATEGORY_ICONS, categoryOf, optionIsWord, PART_CATEGORIES, PART_KINDS, PARTS, partInfo } from './domain/parts.js';
 import './view/partIcons.js';
@@ -41,7 +56,7 @@ import { POPUPS, PopupHost } from './platform/popups.js';
 import { checkDrawing, problemCounts, SEVERITIES } from './domain/check.js';
 import { applyFont, applyTheme, drawingFontStack, mix, nextThemeId, resolveTheme, themeName } from './themes.js';
 import { cachedBox, PX_PER_MM, render, RULER, Viewport } from './view/renderer.js';
-import { createTool, DIM_TOOLS, DRAW_TOOLS, MODIFY_TOOLS, NEEDS_SELECTION, readout, TOOL_ICONS, TOOL_KEYS } from './view/tools.js';
+import { createTool, DIM_TOOLS, DRAW_TOOLS, MODIFY_TOOLS, NEEDS_SELECTION, readout, TOOL_ICONS, TOOL_KEYS, VIEW_TOOLS } from './view/tools.js';
 
 // FreeCAD documents may hold booleans; they are computed with MyCAD's CSG.
 setBooleanImplementation(booleanOf);
@@ -58,10 +73,18 @@ const fmt = (value, digits = 2) => formatNumber(value, digits);
 /** "V1.0": how the version is shown (title bar, About, start page). */
 const displayVersion = (version) => (version ? `V${String(version).split('.').slice(0, 2).join('.')}` : '');
 // 3D solid commands (FreeCAD Part workbench).
-const FEATURE_KINDS = ['pad', 'revolution', 'loft', 'sweep'];
+const FEATURE_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'pocket', 'groove', 'hole', 'surfRuled', 'surfFill', 'surfExtrude'];
+/** PartDesign features that cut the one selected solid. */
+const CUT_FEATURES = ['pocket', 'groove', 'hole'];
 const BOOL_OPS = ['union', 'cut', 'common'];
 const BOOL_ICONS = { union: 'solidUnion', cut: 'solidCut', common: 'solidCommon' };
-const EXPORT_3D = ['3mf', 'amf', 'obj', 'ply', 'off', 'step', 'fcstd'];
+const EXPORT_3D = ['3mf', 'amf', 'obj', 'ply', 'off', 'wrl', 'dae', 'step', 'brep', 'scad', 'xyz', 'fcstd', 'ifc'];
+// Draw styles of the 3D view (FreeCAD Std_DrawStyle, X-ray, sketch, clay): the same list as view3d.js VIEW_STYLES.
+const VIEW_STYLE_IDS = ['asis', 'shaded', 'flat', 'clay', 'hidden', 'xray', 'sketch', 'wireframe', 'mesh', 'points'];
+const VIEW_STYLE_ICONS = { asis: 'styleAsIs', shaded: 'styleShaded', flat: 'styleFlat', clay: 'styleClay', hidden: 'styleHidden', xray: 'styleXray', sketch: 'styleSketch', wireframe: 'styleWire', mesh: 'polygon', points: 'stylePoints' };
+// BIM objects (FreeCAD BIM workbench): made from selected lines / outlines, or placed.
+const ARCH_SELECTION_KINDS = [...ARCH_FROM_LINES, ...ARCH_FROM_OUTLINES];
+const ARCH_MENU = ['arch:wall', 'arch:curtainwall', 'arch:window', 'arch:door', 'arch:customWindow', '-', 'arch:column', 'arch:beam', 'arch:slab', 'arch:stairs', 'arch:roof', 'arch:railing', '-', 'arch:rebar', 'arch:truss', 'arch:panel', 'arch:pipe', '-', 'arch:space', 'arch:equipment', 'arch:axis', '-', 'bimManager', 'editSolid', 'solidSection', 'solidProject', 'archSchedule', 'scheduleCsv', 'panelNest'];
 
 const state = {
   settings: loadSettings(globalThis.localStorage),
@@ -72,7 +95,7 @@ const state = {
   problems: { list: [], doc: null, filter: { error: true, warning: true, info: true } },
   tool: null,
   toolId: 'select',
-  toolOptions: { sides: 6, offset: 5, mirrorKeep: true, hatchPattern: 'ansi31', hatchScale: 1, hatchAngle: 0 },
+  toolOptions: { sides: 6, offset: 5, fillet: 10, chamfer: 5, mirrorKeep: true, hatchPattern: 'ansi31', hatchScale: 1, hatchAngle: 0 },
   partCategory: 'fasteners',
   notice: null,
   info: null,
@@ -238,13 +261,17 @@ function activateDoc(id) {
 function change(labelKey, mutate) {
   const doc = activeDoc();
   if (!doc) return undefined;
+  const before = consoleState.recording ? doc.drawing.entities.map((e) => e.id) : null;
   const result = doc.apply(t(labelKey), mutate);
+  if (before) recordAdded(before, doc.drawing.entities);
   pruneSelection();
   afterChange();
   return result;
 }
 
 function afterChange() {
+  // Fields may use the spreadsheet's aliases and cells (=width*2).
+  setVariables(sheetVariables(activeDrawing()?.spreadsheet));
   scheduleProblems();
   scheduleRender();
   schedule3d();
@@ -323,6 +350,14 @@ const commands = {
   duplicate: { icon: 'duplicate', label: 'action.duplicate', key: 'Ctrl+D', enabled: hasSelection, run: () => duplicateSelection() },
   selectAll: { icon: 'selectAll', label: 'action.selectAll', key: 'Ctrl+A', enabled: hasDoc, run: () => select(D.editable(activeDrawing()).map((entity) => entity.id)) },
   clearSelection: { icon: 'close', label: 'action.clearSelection', key: 'Esc', enabled: hasSelection, run: () => select([]) },
+  ...Object.fromEntries(CONSTRAINT_TYPES.map((type) => [`constrain:${type}`, { icon: `k${type[0].toUpperCase()}${type.slice(1)}`, label: `constraint.${type}`, tip: `constraintTip.${type}`, enabled: () => Boolean(constraintRefs(type)), run: () => constrainSelection(type) }])),
+  fem: { icon: 'fem', label: 'action.fem', tip: 'tip.fem', enabled: hasDoc, run: () => openFem() },
+  cam: { icon: 'cam', label: 'action.cam', tip: 'tip.cam', enabled: hasDoc, run: () => openCam() },
+  workPlaneReset: { icon: 'workPlane', label: 'action.workPlaneReset', enabled: () => Boolean(activeDrawing()?.workPlane), run: () => setWorkPlane(null) },
+  construction: { icon: 'construction', label: 'action.construction', tip: 'tip.construction', enabled: () => selectedEntities().some((e) => e.type !== 'solid'), checked: () => { const list = selectedEntities(); return list.length > 0 && list.every((e) => e.construction); }, run: () => toggleConstruction() },
+  clone: { icon: 'clone', label: 'action.clone', tip: 'tip.clone', enabled: hasSelection, run: () => cloneSelection() },
+  unlinkClone: { icon: 'unlink', label: 'action.unlinkClone', tip: 'tip.unlinkClone', enabled: () => selectedEntities().some((e) => e.clone), run: () => unlinkSelection() },
+  cloneSource: { icon: 'select', label: 'action.cloneSource', enabled: () => selectedEntities().some((e) => e.clone), run: () => select([...new Set(selectedEntities().filter((e) => e.clone).map((e) => e.clone.of))].filter((id) => D.findEntity(activeDrawing(), id))) },
   explode: { icon: 'explode', label: 'action.explode', key: 'Ctrl+Shift+E', enabled: () => selectedEntities().some(canExplode), run: () => explodeSelection() },
   bringFront: { icon: 'front', label: 'action.bringFront', enabled: hasSelection, run: () => change('op.order', (drawing) => D.reorder(drawing, selectedIds(), true)) },
   sendBack: { icon: 'back', label: 'action.sendBack', enabled: hasSelection, run: () => change('op.order', (drawing) => D.reorder(drawing, selectedIds(), false)) },
@@ -352,6 +387,9 @@ const commands = {
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => updateSettings({ showLeftPanel: !state.settings.showLeftPanel }) },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
+  ...Object.fromEntries(['plane', 'sphere', 'cylinder', 'mesh'].map((fit) => [`re:${fit}`, { icon: `re${fit[0].toUpperCase()}${fit.slice(1)}`, label: `re.${fit}`, tip: `reTip.${fit}`, enabled: () => cloudSelection().length >= 9, run: () => reverseEngineer(fit) }])),
+  spreadsheet: { icon: 'spreadsheet', label: 'action.spreadsheet', tip: 'tip.spreadsheet', enabled: hasDoc, run: () => openSpreadsheet() },
+  console: { icon: 'console', label: 'action.console', tip: 'tip.console', key: 'Ctrl+Shift+J', checked: () => state.settings.showConsole, run: () => updateSettings({ showConsole: !state.settings.showConsole }) },
   problems: { icon: 'warning', label: 'action.problems', key: 'Ctrl+Shift+M', checked: () => state.settings.showProblems, run: () => updateSettings({ showProblems: !state.settings.showProblems }) },
   background: { icon: 'image', label: 'action.background', run: () => chooseBackground() },
   clearBackground: { icon: 'clear', label: 'action.clearBackground', enabled: () => Boolean(state.settings.backgroundImage), run: () => removeBackground() },
@@ -360,6 +398,23 @@ const commands = {
   renameDrawing: { icon: 'edit', label: 'action.renameDrawing', key: 'F2', enabled: hasDoc, run: () => { select([]); focusProperty('title'); } },
   ...Object.fromEntries(SOLID_KINDS.map((kind) => [`solid:${kind}`, { icon: SOLID_ICONS[kind], label: `solid.${kind}`, enabled: hasDoc, run: () => openSolidDialog({ kind }) }])),
   ...Object.fromEntries(FEATURE_KINDS.map((kind) => [`solid:${kind}`, { icon: SOLID_ICONS[kind], label: `feature.${kind}`, enabled: () => canFeature(kind), run: () => solidFeature(kind) }])),
+  ...Object.fromEntries(ARCH_SELECTION_KINDS.map((kind) => [`arch:${kind}`, { icon: SOLID_ICONS[kind], label: `solid.${kind}`, enabled: hasDoc, run: () => archFeature(kind) }])),
+  ...Object.fromEntries(ARCH_INSERT_KINDS.map((kind) => [`arch:${kind}`, { icon: SOLID_ICONS[kind], label: `solid.${kind}`, enabled: hasDoc, run: () => openSolidDialog({ kind }) }])),
+  ...Object.fromEntries(['window', 'door'].map((type) => [`arch:${type}`, { icon: type === 'window' ? 'archWindow' : 'archDoor', label: `arch.${type}`, enabled: () => Boolean(selectedWall()), run: () => addOpening(type) }])),
+  'arch:rebar': { icon: 'archRebar', label: 'arch.rebar', enabled: () => rebarHosts().length > 0 || selectedEntities().some((e) => e.type === 'line' || e.type === 'polyline'), run: () => addRebar() },
+  'arch:customWindow': { icon: 'archCustomWindow', label: 'arch.customWindow', enabled: hasDoc, run: () => addCustomWindow() },
+  bimManager: { icon: 'archBuilding', label: 'action.bimManager', enabled: hasDoc, run: () => openBimManager() },
+  scheduleCsv: { icon: 'archSchedule', label: 'action.scheduleCsv', enabled: () => archObjects().length > 0, run: () => exportScheduleCsv() },
+  'robot:add': { icon: 'robot', label: 'robot.add', tip: 'robotTip.add', enabled: hasDoc, run: () => addRobot() },
+  'robot:moveTo': { icon: 'robotMove', label: 'robot.moveTo', tip: 'robotTip.moveTo', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotMoveTo() },
+  'robot:path': { icon: 'robotPath', label: 'robot.path', tip: 'robotTip.path', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotTrajectory() },
+  panelNest: { icon: 'archPanel', label: 'action.panelNest', tip: 'tip.panelNest', enabled: () => selectedEntities().length > 0, run: () => nestSelection() },
+  archSchedule: { icon: 'archSchedule', label: 'action.archSchedule', enabled: () => archObjects().length > 0, run: () => insertSchedule() },
+  archMenu: { icon: 'archRoof', label: 'action.archMenu', run: (context) => showMenu(menuItems(MENUS.arch), context?.anchor ?? anchorBelow(root.querySelector('[data-command="archMenu"]') ?? root.querySelector('[data-menu="arch"]')), 'arch', { header: { icon: 'archRoof', title: t('menu.arch') } }) },
+  checkGeometry: { icon: 'checkGeometry', label: 'action.checkGeometry', tip: 'tip.checkGeometry', enabled: () => checkTargets().length > 0, run: () => checkGeometry() },
+  meshDecimate: { icon: 'meshDecimate', label: 'action.meshDecimate', tip: 'tip.meshDecimate', enabled: () => selectedSolids().length > 0, run: () => decimateSolids(selectedSolids().map((e) => e.id)) },
+  meshRepair: { icon: 'meshRepair', label: 'action.meshRepair', tip: 'tip.meshRepair', enabled: () => selectedSolids().length > 0, run: () => repairSolids(selectedSolids().map((e) => e.id)) },
+  ...Object.fromEntries(DRESSUP_KINDS.map((kind) => [`dress:${kind}`, { icon: SOLID_ICONS[kind], label: `dress.${kind}`, tip: `dressTip.${kind}`, enabled: () => Boolean(dressBase()), run: () => dressUp(kind) }])),
   ...Object.fromEntries(BOOL_OPS.map((op) => [`bool:${op}`, { icon: BOOL_ICONS[op], label: `bool.${op}`, enabled: () => selectedSolids().length >= 2, run: () => booleanSelection(op) }])),
   solidSection: { icon: 'solidSection', label: 'action.section', enabled: () => selectedSolids(true).length > 0, run: () => sectionSolids() },
   solidProject: { icon: 'solidProject', label: 'action.project', enabled: () => selectedSolids(true).length > 0, run: () => projectSolids() },
@@ -367,16 +422,18 @@ const commands = {
   import3d: { icon: 'solidImport', label: 'action.import3d', key: 'Ctrl+I', run: () => import3dWithDialog() },
   export3dMenu: { icon: 'solidExport', label: 'action.export3dMenu', enabled: hasDoc, run: (context) => openExport3dMenu(context?.anchor) },
   ...Object.fromEntries(EXPORT_3D.map((format) => [`export3d:${format}`, { icon: format === 'fcstd' ? 'freecad' : 'solidExport', label: `export3d.${format}`, enabled: hasDoc, run: () => export3d(format) }])),
+  ...Object.fromEntries(VIEW_STYLE_IDS.map((style) => [`view3dStyle:${style}`, { icon: VIEW_STYLE_ICONS[style], label: `view3dStyle.${style}`, checked: () => (state.settings.view3dStyle ?? 'asis') === style, run: () => setView3dStyle(style) }])),
+  view3dStyleMenu: { icon: 'drawStyle', label: 'action.view3dStyle', run: (context) => showMenu(menuItems(VIEW_STYLE_IDS.map((style) => `view3dStyle:${style}`)), context?.anchor ?? anchorBelow(root.querySelector('[data-view3d="styleMenu"]') ?? root.querySelector('[data-menu="view"]')), 'view3dStyle', { header: { icon: 'drawStyle', title: t('action.view3dStyle') } }) },
   extrude2d: { icon: 'solidExtrude', label: 'action.extrude2d', checked: () => state.settings.extrude2d, run: () => updateSettings({ extrude2d: !state.settings.extrude2d }) },
   toolbarRows: { icon: 'toolbarRows', label: 'action.toolbarRows', checked: () => state.settings.toolbarRows === 2, run: () => updateSettings({ toolbarRows: state.settings.toolbarRows === 2 ? 1 : 2 }) },
   solidMenu: { icon: 'solidBox', label: 'action.solidMenu', run: (context) => showMenu(menuItems(MENUS.solid), context?.anchor ?? anchorBelow(root.querySelector('[data-command="solidMenu"]')), 'solid', { header: { icon: 'solidBox', title: t('menu.solid') } }) },
-  light: { icon: 'light', label: 'action.light', key: 'Ctrl+Shift+G', checked: () => state.settings.light.on, run: () => setLightOptions({ on: !state.settings.light.on }) },
+  light: { icon: 'light', label: 'action.light', key: 'Ctrl+Shift+G', checked: () => state.settings.light.on && state.settings.view3dStyle !== 'flat', run: () => { if (state.settings.view3dStyle === 'flat') { setView3dStyle('asis'); setLightOptions({ on: true }); return; } setLightOptions({ on: !state.settings.light.on }); } },
   lightProperties: { icon: 'light', label: 'action.lightProperties', run: () => selectLight() },
   startPage: { icon: 'home', label: 'action.startPage', run: () => showHome(true) },
   tutorial: { icon: 'tutorial', label: 'action.tutorial', run: () => openTutorial() },
   tutorialDoc: { icon: 'book', label: 'action.tutorialDoc', run: () => openTutorialDoc() },
   freecadCoverage: { icon: 'checklist', label: 'action.freecadCoverage', run: () => popups.open('coverage', { tab: 'part' }) },
-  ...Object.fromEntries([...DRAW_TOOLS, ...DIM_TOOLS, ...MODIFY_TOOLS].map((id) => [`tool:${id}`, toolCommand(id)])),
+  ...Object.fromEntries([...DRAW_TOOLS, ...DIM_TOOLS, ...MODIFY_TOOLS, ...VIEW_TOOLS].map((id) => [`tool:${id}`, toolCommand(id)])),
   ...Object.fromEntries(PART_KINDS.map((kind) => [`part:${kind}`, { icon: PARTS[kind].icon, label: `part.${kind}`, enabled: hasDoc, run: () => openPartDialog({ kind }) }])),
   ...Object.fromEntries(Object.keys(PART_CATEGORIES).map((category) => [`partCategory:${category}`, { icon: CATEGORY_ICONS[category], label: `cat.${category}`, enabled: hasDoc, run: () => openPartDialog({ category }) }])),
 };
@@ -391,6 +448,7 @@ function commandTip(id) {
   let label = t(command.label).replace(/…$/, '');
   if (id === 'undo' && activeDoc()?.history.canUndo) label = t('tip.undoWith', { label: activeDoc().history.undoLabel });
   if (id === 'redo' && activeDoc()?.history.canRedo) label = t('tip.redoWith', { label: activeDoc().history.redoLabel });
+  if (command.tip) label = `${label} — ${t(command.tip)}`;
   if (id === 'language') label = t('tip.language');
   if (id === 'theme') label = t('tip.themeNext', { current: themeName(state.settings.theme, getLanguage()), next: themeName(nextThemeId(state.settings.theme), getLanguage()) });
   return command.key ? t('tip.withKey', { label, key: keyLabel(command.key) }) : label;
@@ -399,6 +457,7 @@ function commandTip(id) {
 async function run(id, context) {
   const command = commands[id];
   if (!command || !commandEnabled(id)) return;
+  recordCommand(id);
   try {
     await command.run(context);
   } catch (error) {
@@ -409,16 +468,17 @@ async function run(id, context) {
 // ───────────────────────── layout
 
 const MENUS = {
-  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
-  edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'selectAll', 'clearSelection', '-', 'explode', 'bringFront', 'sendBack', '-', 'properties'],
-  view: ['startPage', '-', 'view3d', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'problems', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
+  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu', 'cam', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
+  edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'clone', 'delete', '-', 'selectAll', 'clearSelection', '-', 'explode', 'bringFront', 'sendBack', '-', 'properties', 'spreadsheet'],
+  view: ['startPage', '-', 'view3d', 'view3dStyleMenu', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'problems', 'console', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
   draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
-  modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'explode', 'editPart', '-', 'addLayer', 'renameDrawing'],
+  modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'clone', 'unlinkClone', 'explode', 'editPart', '-', 'tool:workPlane', 'workPlaneReset', '-', 'construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`), '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
-  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
+  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', 'robot:add', 'robot:moveTo', 'robot:path', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
+  arch: ARCH_MENU,
   help: ['tutorial', 'tutorialDoc', 'startPage', '-', 'freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
 };
-const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'line', modify: 'move', parts: 'part', solid: 'solidBox', help: 'info' };
+const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'line', modify: 'move', parts: 'part', solid: 'solidBox', arch: 'archRoof', help: 'info' };
 
 /** The standard toolbar (always in the first row). */
 const TOOLBAR_MAIN = [
@@ -430,11 +490,13 @@ const TOOLBAR_MAIN = [
 ];
 /** FreeCAD-style Part toolbar: primitives, 2D→3D features, booleans, section/views (second row). */
 const TOOLBAR_PART = [
-  ['view3d', 'extrude2d'],
+  ['view3d'],
   SOLID_KINDS.map((kind) => `solid:${kind}`),
-  FEATURE_KINDS.map((kind) => `solid:${kind}`),
+  FEATURE_KINDS.filter((kind) => !kind.startsWith('surf')).map((kind) => `solid:${kind}`),
   BOOL_OPS.map((op) => `bool:${op}`),
-  ['solidSection', 'solidProject', 'editSolid'],
+  DRESSUP_KINDS.map((kind) => `dress:${kind}`),
+  ['solidSection', 'editSolid', 'checkGeometry'],
+  ['archMenu'],
 ];
 const TOOLBAR_PANELS = ['leftPanel', 'rightPanel', 'problems', 'toolbarRows'];
 
@@ -476,6 +538,7 @@ function renderShell() {
           <span class="command-live" id="command-live"></span>
         </div>
         <section id="problems-panel" class="problems-panel" aria-label="${escapeHtml(t('problems.title'))}" hidden></section>
+        <section id="console-panel" class="console-panel" aria-label="${escapeHtml(t('console.title'))}" hidden></section>
       </section>
       <aside id="right-panel" class="side-panel"></aside>
     </main>
@@ -632,6 +695,7 @@ function toolOptionsHtml() {
     rows.push(`<label class="field-row" title="${escapeHtml(t('option.hatchScale'))}"><span>${icon('scale')}${t('option.hatchScale')}</span><input class="num" data-tool-option="hatchScale" value="${o.hatchScale}" title="${escapeHtml(t('option.hatchScale'))}" /></label>`);
     rows.push(`<label class="field-row" title="${escapeHtml(t('option.hatchAngle'))}"><span>${icon('rotate')}${t('option.hatchAngle')}</span><input class="num" data-tool-option="hatchAngle" value="${o.hatchAngle}" title="${escapeHtml(t('option.hatchAngle'))}" /></label>`);
   }
+  if (id === 'fillet' || id === 'chamfer') rows.push(`<label class="field-row" title="${escapeHtml(t(`option.${id}`))}"><span>${icon(id === 'fillet' ? 'fillet2d' : 'chamfer2d')}${t(`option.${id}`)}</span><input class="num" data-tool-option="${id}" data-length="1" value="${lengthText(o[id] ?? (id === 'fillet' ? 10 : 5))}" title="${escapeHtml(lengthTip(t(`option.${id}`)))}" /><small>${unitLabel()}</small></label>`);
   if (id === 'mirror') rows.push(`<label class="check-row" title="${escapeHtml(t('option.mirrorKeep'))}"><input type="checkbox" data-tool-option="mirrorKeep" ${o.mirrorKeep ? 'checked' : ''} /><span>${t('option.mirrorKeep')}</span></label>`);
   if (!rows.length) return '';
   return `<div class="tool-options">${rows.join('')}</div>`;
@@ -671,7 +735,7 @@ function renderLeft() {
       <button class="icon-button" data-sections="collapse" title="${escapeHtml(t('panel.collapseAll'))}" aria-label="${escapeHtml(t('panel.collapseAll'))}">${icon('collapseAll')}</button>
       <button class="icon-button" data-panel-toggle="left" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
     <div class="panel-scroll">
-      ${LEFT_SECTIONS.map((section) => leftSection(section, drawing)).join('')}
+      ${LEFT_SECTIONS.filter((section) => section.id !== 'building' || drawing?.bim).map((section) => leftSection(section, drawing)).join('')}
     </div>`;
 }
 
@@ -680,8 +744,11 @@ const LEFT_SECTIONS = [
   { id: 'draw', glyph: 'line', title: 'panel.draw' },
   { id: 'dims', glyph: 'dimension', title: 'panel.dimensions' },
   { id: 'modify', glyph: 'move', title: 'panel.modify' },
+  { id: 'sketch', glyph: 'kCoincident', title: 'panel.sketch' },
   { id: 'solids', glyph: 'solidBox', title: 'panel.solidShapes' },
   { id: 'solidOps', glyph: 'solidCut', title: 'panel.solidOps' },
+  { id: 'arch', glyph: 'archRoof', title: 'panel.arch' },
+  { id: 'building', glyph: 'archBuilding', title: 'panel.building' },
   { id: 'parts', glyph: 'part', title: 'panel.parts' },
   { id: 'layers', glyph: 'layers', title: 'panel.layers' },
 ];
@@ -692,9 +759,12 @@ function leftSectionBody(id, drawing) {
   switch (id) {
     case 'draw': return `<div class="tool-grid">${DRAW_TOOLS.map(toolTile).join('')}</div>`;
     case 'dims': return `<div class="tool-grid">${DIM_TOOLS.map(toolTile).join('')}</div>`;
-    case 'modify': return `<div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}${commandTiles(['array', 'explode'])}</div>${toolOptionsHtml()}`;
+    case 'modify': return `<div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}${commandTiles(['array', 'clone', 'explode'])}</div>${toolOptionsHtml()}`;
+    case 'sketch': return `<div class="tool-grid">${commandTiles(['construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`)])}</div>${constraintStatusHtml()}<p class="panel-hint">${t('constraint.hint')}</p>`;
     case 'solids': return `<div class="tool-grid solids-grid">${commandTiles(SOLID_KINDS.map((kind) => `solid:${kind}`))}</div>`;
-    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
+    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
+    case 'arch': return `<div class="tool-grid solids-grid">${commandTiles(ARCH_MENU.filter((id) => id !== '-' && !['editSolid', 'solidSection', 'solidProject', 'bimManager'].includes(id)))}</div>`;
+    case 'building': return buildingTreeHtml(drawing);
     case 'parts': return `<div class="part-categories" role="tablist">${Object.keys(PART_CATEGORIES).map((category) => `<button class="icon-button ${state.partCategory === category ? 'active' : ''}" role="tab" aria-selected="${state.partCategory === category}" data-part-category="${category}" title="${escapeHtml(t(`cat.${category}`))}" aria-label="${escapeHtml(t(`cat.${category}`))}">${icon(CATEGORY_ICONS[category])}</button>`).join('')}<span class="part-category-name">${escapeHtml(t(`cat.${state.partCategory}`))}</span></div>
         <div class="tool-grid parts-grid">${PART_CATEGORIES[state.partCategory].map((kind) => tile(`part:${kind}`, PARTS[kind].icon, t(`part.${kind}`), t('part.tileTip', { name: t(`part.${kind}`) }), `data-part="${kind}" ${drawing ? '' : 'disabled'}`)).join('')}</div>
         <p class="panel-hint">${t('part.hint')}</p>`;
@@ -754,6 +824,7 @@ function toolApi() {
     },
     setOption: (key, value) => { state.toolOptions[key] = value; renderLeft(); renderCommandBar(); },
     focusProperty: (field) => setTimeout(() => focusProperty(field), 30),
+    setWorkPlane: (origin, toward) => setWorkPlane(origin, toward),
     regionAt: (p) => regionAt(p),
     done: () => setTool('select'),
   };
@@ -844,9 +915,10 @@ function view3dBar() {
     <label class="view3d-thickness" title="${escapeHtml(t('view3d.thicknessTip'))}">${icon('measure')}<span>${escapeHtml(t('view3d.thickness'))}</span><input class="num" id="view3d-thickness" value="${lengthText(state.settings.extrudeHeight)}" title="${escapeHtml(lengthTip(t('view3d.thicknessTip')))}" /><small>${unitLabel()}</small></label>
     <span class="tool-sep"></span>
     <button class="tool-button ${state.settings.extrude2d ? 'active' : ''}" data-view3d="extrude2d" title="${escapeHtml(t('action.extrude2d'))}" aria-pressed="${state.settings.extrude2d}">${icon('solidExtrude')}</button>
-    <button class="tool-button ${on('wireframe')}" data-view3d="wireframe" title="${escapeHtml(t('view3d.wireframe'))}" aria-pressed="${Boolean(v?.options.wireframe)}">${icon('polygon')}</button>
+    <button class="small-button view3d-style" data-view3d="styleMenu" title="${escapeHtml(`${t('action.view3dStyle')}: ${t(`view3dStyle.${state.settings.view3dStyle ?? 'asis'}`)}`)}" aria-haspopup="menu">${icon(VIEW_STYLE_ICONS[state.settings.view3dStyle ?? 'asis'])}${icon('chevronDown')}</button>
+    <span class="segmented view3d-handle" role="group">${['move', 'rotate', 'off'].map((mode) => `<button class="segment ${(v ? v.options.handle ?? 'off' : 'move') === mode ? 'active' : ''}" data-view3d="handle:${mode}" title="${escapeHtml(t(`view3d.handle.${mode}`))}" aria-label="${escapeHtml(t(`view3d.handle.${mode}`))}">${icon(mode === 'move' ? 'move' : mode === 'rotate' ? 'rotate' : 'select')}</button>`).join('')}</span>
     <button class="tool-button ${on('axes')}" data-view3d="axes" title="${escapeHtml(t('view3d.axes'))}" aria-pressed="${Boolean(v?.options.axes)}">${icon('axes')}</button>
-    <button class="tool-button ${light.on ? 'active' : ''}" data-view3d="light" title="${escapeHtml(t(light.on ? 'view3d.lightOff' : 'view3d.lightOn'))}" aria-pressed="${light.on}">${icon(light.on ? 'light' : 'lightOff')}</button>
+    ${(() => { const lit = light.on && (state.settings.view3dStyle ?? 'asis') !== 'flat'; return `<button class="tool-button ${lit ? 'active' : ''}" data-view3d="light" title="${escapeHtml(t(lit ? 'view3d.lightOff' : 'view3d.lightOn'))}" aria-pressed="${lit}">${icon(lit ? 'light' : 'lightOff')}</button>`; })()}
     <button class="tool-button ${on('lightMode')}" data-view3d="lightMode" title="${escapeHtml(t('view3d.lightMode'))}" aria-pressed="${Boolean(v?.options.lightMode)}">${icon('move')}</button>
     <span class="grow"></span>
     <button class="small-button" data-view3d="close" title="${escapeHtml(t('view3d.close'))}">${icon('drawing')}<span>${escapeHtml(t('view3d.close'))}</span></button>
@@ -886,6 +958,12 @@ async function toggle3d(on = !state.view3d) {
           if (text) text.textContent = t('view3d.lightPosition', { azimuth: Math.round(light.azimuth), elevation: Math.round(light.elevation) });
         },
         onLightSelect: () => selectLight(),
+        // The 3D move / rotate handle: one undoable change when the drag ends.
+        onMove: (id, { dx, dy, dz, drz }) => {
+          const entity = D.findEntity(activeDrawing(), id);
+          if (!entity) return;
+          change('op.move3d', (d) => D.updateEntity(d, id, { x: (entity.x ?? 0) + dx, y: (entity.y ?? 0) + dy, z: (entity.z ?? 0) + dz, rz: (entity.rz ?? 0) + drz }));
+        },
         // Clicking a solid in 3D selects it (Shift/Ctrl adds), so its properties show on the right.
         onPick: (id, event) => {
           state.lightSelected = false;
@@ -894,6 +972,7 @@ async function toggle3d(on = !state.view3d) {
         },
       });
       view3d.instance.setLight(state.settings.light);
+      view3d.instance.options.style = state.settings.view3dStyle ?? 'asis';
     }
     resize3d();
     rebuild3d();
@@ -921,6 +1000,14 @@ function rebuild3d() {
   return view3d.info;
 }
 
+/** Draw style of the 3D view (kept in the settings). */
+function setView3dStyle(style) {
+  if (!VIEW_STYLE_IDS.includes(style)) return;
+  updateSettings({ view3dStyle: style });
+  view3d.instance?.setOption('style', style);
+  renderView3dBar();
+}
+
 function schedule3d() {
   if (!state.view3d || view3d.frame) return;
   view3d.frame = requestAnimationFrame(() => { view3d.frame = 0; rebuild3d(); });
@@ -931,9 +1018,17 @@ function on3dBar(action) {
   if (!v) return;
   if (action === 'close') { state.lightSelected = false; toggle3d(false); renderRight(); return; }
   if (action === 'extrude2d') { updateSettings({ extrude2d: !state.settings.extrude2d }); rebuild3d(); return; }
+  if (action === 'styleMenu') { run('view3dStyleMenu'); return; }
+  if (action.startsWith('handle:')) { const mode = action.slice(7); v.setOption('handle', mode === 'off' ? null : mode); renderView3dBar(); return; }
+  if (action === 'wireframe') { setView3dStyle(v.options.style === 'mesh' ? 'asis' : 'mesh'); return; }
   if (action === 'fit') v.fit();
   else if (action.startsWith('view:')) v.view(action.slice(5));
-  else if (action === 'light') { setLightOptions({ on: !v.light.on }); return; }
+  else if (action === 'light') {
+    // The no-shading style has no light: switching the light on goes back to the usual model.
+    if (v.options.style === 'flat') { setView3dStyle('asis'); setLightOptions({ on: true }); return; }
+    setLightOptions({ on: !v.light.on });
+    return;
+  }
   else v.setOption(action, !v.options[action]);
   renderView3dBar();
 }
@@ -943,7 +1038,7 @@ function on3dBar(action) {
 let lightSaveTimer = 0;
 /** Keeps the light in the settings (saved a moment after the last change, without redrawing everything). */
 function rememberLight(light) {
-  state.settings.light = { on: light.on, azimuth: light.azimuth, elevation: light.elevation, intensity: light.intensity, color: light.color, shadows: light.shadows };
+  state.settings.light = { on: light.on, azimuth: light.azimuth, elevation: light.elevation, intensity: light.intensity, color: light.color, shadows: light.shadows, distance: light.distance ?? 0 };
   clearTimeout(lightSaveTimer);
   lightSaveTimer = setTimeout(() => storeSettings(globalThis.localStorage, state.settings), 300);
   if (state.lightSelected && !lightPanelFrame) {
@@ -1489,7 +1584,10 @@ function bindScaleBar() {
 
 /** Cursor position in the display unit. */
 function coordsText() {
-  return state.cursor ? `X ${lengthValue(state.cursor.x)}   Y ${lengthValue(state.cursor.y)}` : 'X —   Y —';
+  // On a working plane the readout is in its coordinates.
+  const wp = activeDrawing()?.workPlane ?? null;
+  const p = state.cursor ? toPlane(state.cursor, wp) : null;
+  return `${wp ? `${t('wp.short')} ` : ''}${p ? `X ${lengthValue(p.x)}   Y ${lengthValue(p.y)}` : 'X —   Y —'}`;
 }
 
 function renderCommandBarLive() {
@@ -1567,11 +1665,11 @@ function snappedPoint(raw, { base = null, exclude = new Set(), useSnap = true } 
   if (useSnap && s.snapObject) snap = findSnap(D.editable(doc.drawing), raw, 10 / doc.vp.zoom, s.snapModes, { exclude });
   let p = snap ? { x: snap.x, y: snap.y } : raw;
   if (!snap && s.snapGrid) {
-    p = snapToGrid(raw, gridBaseFor(doc.drawing.grid?.size || s.gridSize));
+    p = snapToGrid(raw, gridBaseFor(doc.drawing.grid?.size || s.gridSize), doc.drawing.workPlane ?? null);
     snap = { kind: 'grid', ...p };
   }
-  if (!snap && base && s.ortho) p = applyOrtho(base, p);
-  else if (snap?.kind === 'grid' && base && s.ortho) p = applyOrtho(base, p);
+  if (!snap && base && s.ortho) p = applyOrtho(base, p, doc.drawing.workPlane ?? null);
+  else if (snap?.kind === 'grid' && base && s.ortho) p = applyOrtho(base, p, doc.drawing.workPlane ?? null);
   state.snap = snap;
   return p;
 }
@@ -1834,6 +1932,22 @@ const GEOMETRY_FIELDS = {
   solid: [['x', 'prop.x'], ['y', 'prop.y'], ['z', 'prop.z'], ['rx', 'prop.rotX', '°'], ['ry', 'prop.rotY', '°'], ['rz', 'prop.rotZ', '°'], ['scale', 'prop.scale', '×']],
 };
 
+/** A leader's kind (note, balloon, GD&T frame, datum) and what that kind has. */
+function leaderRows(entity) {
+  const style = entity.style ?? 'note';
+  const select = (key, label, glyph, options, current, prefix) => `<label class="prop-row" title="${escapeHtml(t(label))}"><span class="prop-label">${icon(glyph)}${t(label)}</span><select data-prop="${key}" title="${escapeHtml(t(label))}">${options.map((value) => `<option value="${value}" ${current === value ? 'selected' : ''}>${escapeHtml(t(`${prefix}.${value}`))}</option>`).join('')}</select></label>`;
+  const line = (key, label, glyph, value) => `<label class="prop-row" title="${escapeHtml(t(label))}"><span class="prop-label">${icon(glyph)}${t(label)}</span><input data-prop="${key}" value="${escapeHtml(value)}" title="${escapeHtml(t(label))}" /></label>`;
+  const kind = select('style', 'prop.leaderStyle', 'leader', LEADER_STYLES, style, 'leaderStyle');
+  if (style === 'balloon') return kind + line('text', 'prop.balloonNumber', 'balloon', entity.text) + select('shape', 'prop.balloonShape', 'circle', BALLOON_SHAPES, entity.shape, 'balloonShape');
+  if (style === 'datum') return kind + line('text', 'prop.datumLetter', 'datum', entity.text);
+  if (style === 'gdt') {
+    return kind + select('symbol', 'prop.gdtSymbol', 'gdt', GDT_SYMBOLS, entity.symbol, 'gdt') + line('text', 'prop.gdtTolerance', 'measure', entity.text)
+      + `<label class="prop-row" title="${escapeHtml(t('prop.gdtDiameter'))}"><span class="prop-label">${t('prop.gdtDiameter')}</span><input type="checkbox" data-prop-bool="diameter" ${entity.diameter ? 'checked' : ''} title="${escapeHtml(t('prop.gdtDiameter'))}" /></label>`
+      + select('modifier', 'prop.gdtModifier', 'circle', GDT_MODIFIERS, entity.modifier, 'gdtModifier') + line('datums', 'prop.gdtDatums', 'datum', entity.datums);
+  }
+  return kind + `<label class="prop-block" title="${escapeHtml(t('prop.text'))}"><span class="prop-label">${icon('text')}${t('prop.text')}</span><textarea data-prop="text" rows="2" title="${escapeHtml(t('prop.text'))}">${escapeHtml(entity.text)}</textarea></label>`;
+}
+
 function styleRows(drawing, entities) {
   const first = entities[0];
   const same = (key) => entities.every((entity) => entity[key] === first[key]);
@@ -1855,7 +1969,7 @@ function styleRows(drawing, entities) {
 function measureRows(entity) {
   const m = measure(entity);
   const rows = [];
-  const show = (key, value) => (key === 'area' || key === 'surface' ? formatArea(value) : key === 'volume' ? formatVolume(value) : ['angle', 'sweep'].includes(key) ? `${fmt(value, 3)}°` : ['vertices', 'triangles', 'loops', 'count'].includes(key) ? fmt(value, 3) : formatLength(value));
+  const show = (key, value) => (key === 'area' || key === 'surface' || key.endsWith('Area') ? formatArea(value) : key === 'volume' ? formatVolume(value) : ['angle', 'sweep'].includes(key) ? `${fmt(value, 3)}°` : ['vertices', 'triangles', 'loops', 'count', 'windows', 'doors'].includes(key) ? fmt(value, 3) : formatLength(value));
   for (const [key, value] of Object.entries(m)) rows.push(readField(t(`measure.${key}`), show(key, value), 'measure'));
   return rows.join('');
 }
@@ -1945,7 +2059,7 @@ function renderRightContent(panel, selection) {
     const glyph = entity.type === 'part' ? PARTS[entity.kind].icon : entity.type === 'solid' ? SOLID_ICONS[entity.kind] : entity.type === 'dim' ? 'dimension' : TOOL_ICONS[entity.type] ?? 'line';
     const fields = (GEOMETRY_FIELDS[entity.type] ?? []).map(([key, label, unit]) => numField(key, entity[key], t(label), unit ?? 'mm')).join('');
     const extra = ['polyline', 'spline', 'leader'].includes(entity.type)
-      ? `${entity.type === 'leader' ? `<label class="prop-block" title="${escapeHtml(t('prop.text'))}"><span class="prop-label">${icon('text')}${t('prop.text')}</span><textarea data-prop="text" rows="2" title="${escapeHtml(t('prop.text'))}">${escapeHtml(entity.text)}</textarea></label>`
+      ? `${entity.type === 'leader' ? leaderRows(entity)
         : `<label class="prop-row" title="${escapeHtml(t('prop.closed'))}"><span class="prop-label">${t('prop.closed')}</span><input type="checkbox" data-prop-bool="closed" ${entity.closed ? 'checked' : ''} title="${escapeHtml(t('prop.closed'))}" /></label>`}
          ${entity.type === 'spline' ? readField(t('prop.degree'), String(entity.degree), 'spline') : ''}
          <div class="vertex-list">${entity.points.slice(0, 40).map((p, i) => `<div class="vertex-row"><small>${i + 1}</small><input class="num" data-vertex="${i}:x" data-length="1" value="${lengthText(p.x)}" title="X${i + 1} (${unitLabel()})" /><input class="num" data-vertex="${i}:y" data-length="1" value="${lengthText(p.y)}" title="Y${i + 1} (${unitLabel()})" /></div>`).join('')}</div>`
@@ -1959,7 +2073,10 @@ function renderRightContent(panel, selection) {
       ${head(glyph, t(`entity.${entity.type}`))}
       ${styleRows(drawing, [entity])}
       <h4>${icon('measure')}<span>${t('props.geometry')}</span></h4>
-      ${fields}${extra}
+      ${entity.clone ? cloneRows(entity) : `${fields}${extra}`}
+      ${entity.type !== 'solid' ? `<label class="prop-row" title="${escapeHtml(t('tip.construction'))}"><span class="prop-label">${icon('construction')}${t('action.construction')}</span><input type="checkbox" data-prop-bool="construction" ${entity.construction ? 'checked' : ''} title="${escapeHtml(t('tip.construction'))}" /></label>` : ''}
+      ${bindRows(entity)}
+      ${constraintRows(entity)}
       ${measureRows(entity)}
       <div class="prop-actions">
         ${entity.type === 'part' ? `<button class="small-button" data-command="editPart" title="${escapeHtml(t('action.editPart'))}">${icon('part')}<span>${t('action.editPart')}</span></button>` : ''}
@@ -1994,7 +2111,10 @@ function renderRightContent(panel, selection) {
     ${field('title', t('prop.title'), drawing.title, 'edit')}
     ${field('author', t('prop.author'), drawing.author, 'user')}
     <label class="prop-block" title="${escapeHtml(t('prop.description'))}"><span class="prop-label">${icon('list')}${t('prop.description')}</span><textarea data-drawing="description" rows="3" title="${escapeHtml(t('prop.description'))}">${escapeHtml(drawing.description)}</textarea></label>
-    ${numField('gridSize', drawing.grid.size, t('prop.gridSize'), 'mm', 'data-drawing-num')}
+      ${numField('gridSize', drawing.grid.size, t('prop.gridSize'), 'mm', 'data-drawing-num')}
+      <h4>${icon('workPlane')}<span>${t('wp.title')}</span></h4>
+      ${numField('wp.x', drawing.workPlane?.x ?? 0, t('wp.x'), 'mm', 'data-drawing-wp')}${numField('wp.y', drawing.workPlane?.y ?? 0, t('wp.y'), 'mm', 'data-drawing-wp')}${numField('wp.angle', drawing.workPlane?.angle ?? 0, t('wp.angle'), '°', 'data-drawing-wp')}${numField('wp.z', drawing.workPlane?.z ?? 0, t('wp.z'), 'mm', 'data-drawing-wp')}
+      <div class="prop-actions"><button class="small-button" data-command="tool:workPlane" title="${escapeHtml(t('tool.workPlane'))}">${icon('workPlane')}<span>${t('wp.pick')}</span></button><button class="small-button" data-command="workPlaneReset" title="${escapeHtml(t('action.workPlaneReset'))}" ${drawing.workPlane ? '' : 'disabled'}>${icon('home')}<span>${t('wp.reset')}</span></button></div>
     <h4>${icon('pageSetup')}<span>${t('props.titleBlock')}</span></h4>
     ${field('sheet.number', t('prop.number'), drawing.sheet.number, 'list')}
     ${field('sheet.material', t('prop.material'), drawing.sheet.material, 'part')}
@@ -2088,12 +2208,33 @@ function onPropertyChange(target) {
     return;
   }
   if (target.dataset.lightBool) { setLightOptions({ [target.dataset.lightBool]: target.checked }); return; }
+  if (target.dataset.solidLevel) {
+    const entity = D.findEntity(drawing, ids[0]);
+    if (!entity) return;
+    const from = D.levelOf(drawing, entity)?.elevation ?? 0;
+    const level = drawing.bim?.levels.find((item) => item.id === target.value) ?? null;
+    change('op.level', (d) => D.updateEntity(d, entity.id, { level: level?.id ?? null, z: (entity.z ?? 0) - from + (level?.elevation ?? 0) }));
+    return;
+  }
+  if (target.dataset.solidMaterial) {
+    const entity = D.findEntity(drawing, ids[0]);
+    if (!entity) return;
+    const material = drawing.bim?.materials.find((item) => item.id === target.value) ?? null;
+    change('op.material', (d) => D.updateEntity(d, entity.id, { material: material ? { ...material } : null }));
+    return;
+  }
   if (target.dataset.solidParam) {
     const entity = D.findEntity(drawing, ids[0]);
     if (!entity || entity.type !== 'solid') return;
-    const value = number(target.value);
+    // "=expression" binds the value to the spreadsheet (FreeCAD expression); a plain value unbinds it.
+    const text = target.value.trim();
+    const bound = text.startsWith('=');
+    const value = number(bound ? text.slice(1) : text);
     if (value === null) return;
-    change('op.editSolid', (d) => D.updateEntity(d, entity.id, { params: { ...entity.params, [target.dataset.solidParam]: value } }));
+    const key = `params.${target.dataset.solidParam}`;
+    const bind = { ...(entity.bind ?? {}) };
+    if (bound) bind[key] = text.slice(1); else delete bind[key];
+    change('op.editSolid', (d) => D.updateEntity(d, entity.id, { params: { ...entity.params, [target.dataset.solidParam]: value }, bind }));
     return;
   }
   if (target.dataset.drawing) {
@@ -2104,6 +2245,24 @@ function onPropertyChange(target) {
       d.updated = new Date().toISOString();
     });
     if (key === 'title') renderTabs();
+    return;
+  }
+  if (target.dataset.constraintValue) {
+    const c = activeDrawing()?.constraints?.find((k) => k.id === target.dataset.constraintValue);
+    const value = c?.type === 'angle' ? Number(evaluate(target.value)) : number(target.value);
+    if (!c || !Number.isFinite(value) || value < 0) return;
+    change('op.constrain', (d) => { d.constraints.find((k) => k.id === c.id).value = value; });
+    if (activeDoc()?.constraintStatus?.status === 'conflict') notify('error', t('constraint.conflict'));
+    return;
+  }
+  if (target.dataset.drawingWp) {
+    const value = number(target.value);
+    if (value === null) return;
+    const key = target.dataset.drawingWp.replace('wp.', '');
+    change('op.workPlane', (d) => {
+      const wp = { x: 0, y: 0, angle: 0, z: 0, ...(d.workPlane ?? {}), [key]: value };
+      if (isGlobal(wp)) delete d.workPlane; else d.workPlane = D.normalizeDrawing({ workPlane: wp }).workPlane;
+    });
     return;
   }
   if (target.dataset.drawingNum) {
@@ -2134,6 +2293,7 @@ function checkProblems() {
   }
   state.problems.doc = doc?.id ?? null;
   renderProblems();
+  renderConsole();
   renderStatus();
 }
 
@@ -2146,6 +2306,208 @@ function problemText(finding) {
     params.type = entity ? t(`entity.${entity.type}`) : '';
   }
   return t(`problems.${finding.code}`, params);
+}
+
+// ───────────────────────── script console and macros (FreeCAD Python console / macros)
+
+const consoleState = { log: [], history: [], at: -1, code: '', recording: null, running: false };
+
+/** One line in the console output. */
+function consoleLog(kind, text) {
+  consoleState.log.push({ kind, text: String(text) });
+  if (consoleState.log.length > 400) consoleState.log.splice(0, consoleState.log.length - 400);
+  const out = root.querySelector('#console-output');
+  if (out) {
+    out.insertAdjacentHTML('beforeend', `<div class="console-line ${kind}">${escapeHtml(String(text))}</div>`);
+    out.scrollTop = out.scrollHeight;
+  }
+}
+
+const show = (value) => {
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value, (k, v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)); } catch { return String(value); }
+};
+
+/** The `cad` object scripts and macros use: each change is one undo step. */
+function scriptApi() {
+  const doc = () => {
+    const d = activeDoc();
+    if (!d) throw new Error(t('console.noDrawing'));
+    return d;
+  };
+  const ids = (v) => (Array.isArray(v) ? v : [v]).map((x) => (typeof x === 'object' && x ? x.id : x));
+  const add = (type, data = {}) => {
+    const made = change('op.script', (d) => D.addEntity(d, type, { layer: d.activeLayer, ...data }));
+    if (!made) throw new Error(t('console.badEntity', { type }));
+    return made.id;
+  };
+  const api = {
+    version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '',
+    units: 'mm',
+    print: (...values) => consoleLog('out', values.map(show).join(' ')),
+    entities: (type) => structuredClone(doc().drawing.entities.filter((e) => !type || e.type === type)),
+    get: (id) => structuredClone(D.findEntity(doc().drawing, id) ?? null),
+    add,
+    line: (x1, y1, x2, y2) => add('line', { x1, y1, x2, y2 }),
+    circle: (cx, cy, r) => add('circle', { cx, cy, r }),
+    arc: (cx, cy, r, start, end) => add('arc', { cx, cy, r, start, end }),
+    rect: (x, y, width, height) => add('rect', { x, y, width, height }),
+    polyline: (points, closed = false) => add('polyline', { points: points.map((p) => (Array.isArray(p) ? { x: p[0], y: p[1] } : p)), closed }),
+    point: (x, y) => add('point', { x, y }),
+    text: (x, y, text, size) => add('text', { x, y, text, ...(size ? { size } : {}) }),
+    solid: (kind, params = {}, place = {}) => add('solid', { kind, name: t(`solid.${kind}`), params, ...place }),
+    update: (id, patch) => { change('op.script', (d) => D.updateEntity(d, id, patch)); return id; },
+    remove: (v) => change('op.script', (d) => D.removeEntities(d, ids(v))),
+    move: (v, dx, dy) => change('op.script', (d) => D.transformEntities(d, ids(v), { type: 'move', dx, dy })).map((e) => e.id),
+    copy: (v, dx, dy) => change('op.script', (d) => D.transformEntities(d, ids(v), { type: 'move', dx, dy }, { copy: true })).map((e) => e.id),
+    rotate: (v, cx, cy, angle) => change('op.script', (d) => D.transformEntities(d, ids(v), { type: 'rotate', cx, cy, angle })).map((e) => e.id),
+    scale: (v, cx, cy, factor) => change('op.script', (d) => D.transformEntities(d, ids(v), { type: 'scale', cx, cy, factor })).map((e) => e.id),
+    constrain: (type, refs, value) => change('op.constrain', (d) => addConstraint(d, type, refs, value ?? null))?.id ?? null,
+    status: () => structuredClone(activeDoc()?.constraintStatus ?? null),
+    select: (v) => { select(ids(v ?? [])); return selectedIds(); },
+    selection: () => selectedIds(),
+    measure: (id) => { const e = D.findEntity(doc().drawing, id); return e ? measure(e) : null; },
+    run: (id) => {
+      if (!commands[id]) throw new Error(t('console.noCommand', { id }));
+      return run(id);
+    },
+    commands: () => Object.keys(commands),
+    undo: () => run('undo'),
+    redo: () => run('redo'),
+    zoomFit: () => run('zoomFit'),
+  };
+  return Object.freeze(api);
+}
+
+/** Runs script text with `cad` (and `print`); await works at the top level. */
+async function runScript(code, { echo = true } = {}) {
+  const text = String(code ?? '').trim();
+  if (!text) return undefined;
+  if (echo) consoleLog('in', text);
+  consoleState.running = true;
+  try {
+    const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+    const api = scriptApi();
+    // A lone expression returns its value (as in a REPL); statements run as they are.
+    let fn;
+    try { fn = new AsyncFunction('cad', 'print', `"use strict";\nreturn (${text}\n);`); } catch { fn = new AsyncFunction('cad', 'print', `"use strict";\n${text}`); }
+    const value = await fn(api, api.print);
+    if (value !== undefined) consoleLog('value', show(value));
+    return value;
+  } catch (error) {
+    consoleLog('error', `${error?.name ?? 'Error'}: ${error?.message ?? error}`);
+    return undefined;
+  } finally {
+    consoleState.running = false;
+  }
+}
+
+/** Macro recording: commands run from the UI and objects added are written as `cad.*` lines. */
+function recordCommand(id) {
+  if (!consoleState.recording || consoleState.running || ['console', 'macroRecord'].includes(id)) return;
+  consoleState.recording.push(`await cad.run(${JSON.stringify(id)});`);
+}
+
+function recordAdded(before, after) {
+  if (!consoleState.recording || consoleState.running) return;
+  const had = new Set(before);
+  for (const e of after) {
+    if (had.has(e.id)) continue;
+    const { id, ...data } = e;
+    for (const key of Object.keys(data)) if (data[key] === null) delete data[key];
+    const { type, ...rest } = data;
+    consoleState.recording.push(`cad.add(${JSON.stringify(type)}, ${JSON.stringify(rest)});`);
+  }
+}
+
+function toggleRecording() {
+  if (consoleState.recording) {
+    const lines = consoleState.recording;
+    consoleState.recording = null;
+    consoleState.code = [`// ${t('console.recordedAt', { time: new Date().toLocaleString() })}`, ...lines].join('\n');
+    consoleLog('info', t('console.recorded', { count: lines.length }));
+    const editor = root.querySelector('#console-code');
+    if (editor) editor.value = consoleState.code;
+  } else {
+    consoleState.recording = [];
+    consoleLog('info', t('console.recording'));
+  }
+  renderConsole();
+}
+
+function saveMacro() {
+  const code = root.querySelector('#console-code')?.value ?? consoleState.code;
+  if (!code.trim()) return notify('info', t('console.emptyMacro'));
+  const name = (root.querySelector('#console-macro-name')?.value || '').trim() || t('console.macroName', { n: state.settings.macros.length + 1 });
+  const macros = [...state.settings.macros.filter((m) => m.name !== name), { name, code }];
+  updateSettings({ macros });
+  notify('success', t('console.macroSaved', { name }));
+  renderConsole();
+}
+
+async function runMacro(name) {
+  const macro = state.settings.macros.find((m) => m.name === name);
+  if (!macro) return undefined;
+  consoleLog('info', t('console.runMacro', { name }));
+  return runScript(macro.code, { echo: false });
+}
+
+function renderConsole() {
+  const panel = root.querySelector('#console-panel');
+  if (!panel) return;
+  const show = Boolean(state.settings.showConsole && !state.home);
+  panel.hidden = !show;
+  if (!show) return;
+  const typed = root.querySelector('#console-code')?.value;
+  if (typed !== undefined) consoleState.code = typed;
+  const macros = state.settings.macros;
+  panel.innerHTML = `
+    <header class="problems-head console-head">
+      ${icon('console')}<b>${escapeHtml(t('console.title'))}</b>
+      <button type="button" class="small-button ${consoleState.recording ? 'recording' : ''}" data-console="record" title="${escapeHtml(t(consoleState.recording ? 'console.stopTip' : 'console.recordTip'))}">${icon(consoleState.recording ? 'stop' : 'record')}<span>${escapeHtml(t(consoleState.recording ? 'console.stop' : 'console.record'))}</span></button>
+      <select id="console-macros" title="${escapeHtml(t('console.macros'))}" aria-label="${escapeHtml(t('console.macros'))}"><option value="">${escapeHtml(t('console.macros'))} (${macros.length})</option>${macros.map((m) => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')}</select>
+      <button type="button" class="icon-button" data-console="macro-run" title="${escapeHtml(t('console.macroRun'))}" aria-label="${escapeHtml(t('console.macroRun'))}">${icon('play')}</button>
+      <button type="button" class="icon-button" data-console="macro-load" title="${escapeHtml(t('console.macroLoad'))}" aria-label="${escapeHtml(t('console.macroLoad'))}">${icon('edit')}</button>
+      <button type="button" class="icon-button" data-console="macro-delete" title="${escapeHtml(t('console.macroDelete'))}" aria-label="${escapeHtml(t('console.macroDelete'))}">${icon('trash')}</button>
+      <span class="grow"></span>
+      <button type="button" class="icon-button" data-console="clear" title="${escapeHtml(t('console.clear'))}" aria-label="${escapeHtml(t('console.clear'))}">${icon('clear')}</button>
+      <button type="button" class="problems-close" data-command="console" title="${escapeHtml(commandTip('console'))}" aria-label="${escapeHtml(t('console.close'))}">${icon('close')}</button>
+    </header>
+    <div class="console-body">
+      <div class="console-output" id="console-output" role="log">${consoleState.log.map((l) => `<div class="console-line ${l.kind}">${escapeHtml(l.text)}</div>`).join('') || `<div class="console-line info">${escapeHtml(t('console.welcome'))}</div>`}</div>
+      <div class="console-editor">
+        <textarea id="console-code" spellcheck="false" placeholder="${escapeHtml(t('console.placeholder'))}" title="${escapeHtml(t('console.codeTip'))}">${escapeHtml(consoleState.code)}</textarea>
+        <div class="console-actions">
+          <input id="console-macro-name" placeholder="${escapeHtml(t('console.macroNamePlaceholder'))}" title="${escapeHtml(t('console.macroNamePlaceholder'))}" />
+          <button type="button" class="small-button" data-console="save" title="${escapeHtml(t('console.saveTip'))}">${icon('save')}<span>${escapeHtml(t('console.save'))}</span></button>
+          <button type="button" class="small-button primary" data-console="run" title="${escapeHtml(t('console.runTip'))}">${icon('play')}<span>${escapeHtml(t('console.run'))}</span></button>
+        </div>
+      </div>
+    </div>`;
+  const out = root.querySelector('#console-output');
+  if (out) out.scrollTop = out.scrollHeight;
+}
+
+async function onConsoleAction(action) {
+  const code = root.querySelector('#console-code');
+  const macro = root.querySelector('#console-macros')?.value;
+  switch (action) {
+    case 'run': {
+      const text = code?.value ?? '';
+      if (!text.trim()) return;
+      consoleState.history.push(text);
+      consoleState.at = consoleState.history.length;
+      await runScript(text);
+      return;
+    }
+    case 'record': return toggleRecording();
+    case 'save': return saveMacro();
+    case 'clear': consoleState.log = []; return renderConsole();
+    case 'macro-run': if (macro) await runMacro(macro); return;
+    case 'macro-load': if (macro) { consoleState.code = state.settings.macros.find((m) => m.name === macro)?.code ?? ''; if (code) code.value = consoleState.code; const name = root.querySelector('#console-macro-name'); if (name) name.value = macro; } return;
+    case 'macro-delete': if (macro) { updateSettings({ macros: state.settings.macros.filter((m) => m.name !== macro) }); renderConsole(); } return;
+    default:
+  }
 }
 
 function renderProblems() {
@@ -2263,6 +2625,7 @@ function renderAll() {
   applyBackgroundStyle();
   renderStart();
   renderProblems();
+  renderConsole();
   if (state.problems.doc !== (activeDoc()?.id ?? null)) checkProblems();
   scheduleRender();
   document.title = `MyCAD ${displayVersion(state.info?.version)}${activeDoc() ? ` — ${docName(activeDoc())}` : ''}`;
@@ -2280,6 +2643,391 @@ async function deleteSelection() {
   const removed = change('op.delete', (drawing) => D.removeEntities(drawing, ids));
   select([]);
   notify('success', t('notice.deleted', { count: removed }));
+}
+
+/**
+ * FEM (FreeCAD FEM, beam elements): the selected lines (or all visible lines and
+ * polylines) as a 2D frame. The window sets supports, loads and the section and
+ * shows the results; "draw" puts the deformed shape and the moment diagram on a FEM layer.
+ */
+async function openFem(resultArg = null) {
+  const doc = activeDoc();
+  if (!doc) return null;
+  const selected = selectedEntities().filter((e) => e.type === 'line' || e.type === 'polyline');
+  const entities = selected.length ? selected : doc.drawing.entities.filter((e) => (e.type === 'line' || e.type === 'polyline') && D.isVisible(doc.drawing, e));
+  const frame = frameFrom(entities);
+  if (!frame.members.length) { notify('info', t('fem.noFrame')); return null; }
+  const result = resultArg ?? await popups.open('fem', { frame, fem: doc.drawing.fem ?? {}, name: docName(doc) });
+  if (!result || !['apply', 'draw'].includes(result.action)) return null;
+  const fem = normalizeFem(result.fem);
+  const analysis = analyzeFrame(frame, fem);
+  change('op.fem', (d) => {
+    d.fem = fem;
+    if (result.action !== 'draw' || !analysis.ok) return;
+    if (!d.layers.some((l) => l.id === 'fem')) d.layers.push({ id: 'fem', name: 'FEM', color: '#e5484d', lineType: 'continuous', lineWidth: null, visible: true, locked: false });
+    // The last results are replaced.
+    d.entities = d.entities.filter((e) => e.layer !== 'fem');
+    const xs = frame.nodes.map((n) => n.x);
+    const ys = frame.nodes.map((n) => n.y);
+    const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+    if (result.view?.deformed !== false) for (const points of deformedShape(frame, analysis, autoScale(frame, analysis))) D.addEntity(d, 'polyline', { points, layer: 'fem', lineType: 'dashed' });
+    if (result.view?.moment !== false && analysis.max.moment) for (const points of momentDiagram(frame, analysis, (size * 0.12) / Math.abs(analysis.max.moment))) D.addEntity(d, 'polyline', { points, closed: true, layer: 'fem', color: '#3b82f6' });
+    const top = Math.max(...ys);
+    D.addEntity(d, 'text', { x: Math.min(...xs), y: top + size * 0.08, size: Math.max(2.5, size / 60), layer: 'fem', text: t('fem.summary', { disp: fmt(analysis.max.displacement, 3), moment: fmt(analysis.max.moment / 1e6, 3), stress: fmt(analysis.max.sigma, 1), util: fmt(analysis.max.utilisation * 100, 0) }) });
+  });
+  if (result.action === 'draw') notify(analysis.ok ? 'success' : 'error', analysis.ok ? t('fem.drawn') : t(`fem.error.${analysis.error}`));
+  return analysis;
+}
+
+/**
+ * CAM (FreeCAD CAM): tool paths from the selected 2D outlines (or all visible
+ * ones) → a G-code file. The window previews the paths; the file is written here.
+ */
+async function openCam(optionsArg = null) {
+  const doc = activeDoc();
+  if (!doc) return null;
+  const selected = selectedEntities();
+  const entities = (selected.length ? selected : doc.drawing.entities.filter((e) => D.isVisible(doc.drawing, e)));
+  const source = camSource(entities, doc.drawing);
+  if (!source.loops.length && !source.chains.length && !source.circles.length) { notify('info', t('cam.nothing')); return null; }
+  let options = optionsArg;
+  if (!options) {
+    const result = await popups.open('cam', { source, name: docName(doc) });
+    if (result?.action !== 'export') return null;
+    options = result.options;
+  }
+  const job = camPaths(source, options);
+  const text = toGcode(job, { title: doc.drawing.title || docName(doc) });
+  const name = `${safeFileName(stripExtension(docName(doc)))}.nc`;
+  try {
+    if (desktop && !optionsArg) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'nc');
+      if (!path) return text;
+      await withProgress('progress.export', baseName(path), (op) => native.writeTextFile(path, text, op));
+      updateSettings({ lastDirectory: directoryOf(path) || state.settings.lastDirectory });
+      notify('success', t('notice.exported', { name: baseName(path) }));
+    } else if (!optionsArg) {
+      native.downloadText(text, name, 'text/x-gcode');
+      notify('success', t('notice.exported', { name }));
+    }
+  } catch (error) {
+    showError('error.export', error, name);
+  }
+  return text;
+}
+
+/** Sets the working plane from an origin and a point on its X axis (null = back to the global plane). */
+function setWorkPlane(origin, toward = null) {
+  const done = change('op.workPlane', (d) => {
+    const wp = origin ? planeFrom(origin, toward, d.workPlane?.z ?? 0) : null;
+    if (wp) d.workPlane = wp; else delete d.workPlane;
+    return true;
+  });
+  if (done) notify('success', t(origin ? 'notice.workPlaneSet' : 'notice.workPlaneReset'));
+  setTool?.('select');
+  return activeDrawing()?.workPlane ?? null;
+}
+
+// ───────────────────────── sketch constraints (FreeCAD Sketcher)
+
+/** Points of the selected point clouds and meshes (drawing coordinates, flat [x, y, z, …]). */
+function cloudSelection() {
+  const out = [];
+  for (const e of selectedSolids()) {
+    if (e.kind === 'points') for (const p of solidPoints(e)) out.push(...p);
+    else if (e.kind === 'mesh') {
+      const seen = new Set();
+      for (const tri of solidMesh(e)) for (const p of tri) { const k = p.map((v) => Math.round(v * 1e4)).join(','); if (!seen.has(k)) { seen.add(k); out.push(...p); } }
+    }
+  }
+  return out;
+}
+
+/**
+ * Reverse Engineering: fits a plane, a sphere or a cylinder to the selected
+ * points (least squares), or makes a surface mesh through them.
+ */
+function reverseEngineer(fit) {
+  const pts = cloudSelection();
+  if (pts.length < 9) { notify('info', t('notice.reNone')); return null; }
+  let raw = null;
+  let error = null;
+  if (fit === 'plane') {
+    const plane = fitPlane(pts);
+    const { rx, ry, x, y } = eulerTo(plane.normal);
+    const local = [];
+    for (let i = 0; i + 2 < pts.length; i += 3) { const d = [pts[i] - plane.centroid[0], pts[i + 1] - plane.centroid[1], pts[i + 2] - plane.centroid[2]]; local.push({ x: d[0] * x[0] + d[1] * x[1] + d[2] * x[2], y: d[0] * y[0] + d[1] * y[1] + d[2] * y[2] }); }
+    const outline = convexHull(local);
+    const thick = Math.max(0.1, plane.rms * 2);
+    raw = { kind: 'pad', params: { height: thick }, shape: { shapes: [{ outer: outline, holes: [] }] }, x: plane.centroid[0], y: plane.centroid[1], z: plane.centroid[2], rx, ry, rz: 0 };
+    // The slab is centred on the plane.
+    const nx = plane.normal;
+    raw.x -= nx[0] * thick / 2; raw.y -= nx[1] * thick / 2; raw.z -= nx[2] * thick / 2;
+    error = plane.rms;
+  } else if (fit === 'sphere') {
+    const s = fitSphere(pts);
+    if (!s) return null;
+    raw = { kind: 'sphere', params: { radius: s.radius }, x: s.center[0], y: s.center[1], z: s.center[2] };
+    error = s.rms;
+  } else if (fit === 'cylinder') {
+    const c = fitCylinder(pts);
+    if (!c) return null;
+    const { rx, ry } = eulerTo(c.axis);
+    raw = { kind: 'cylinder', params: { radius: c.radius, height: Math.max(0.01, c.height), angle: 360 }, x: c.base[0], y: c.base[1], z: c.base[2], rx, ry, rz: 0 };
+    error = c.rms;
+  } else {
+    const tris = meshFromPoints(pts);
+    raw = { kind: 'mesh', params: {}, shape: { tris: flattenTriangles(tris) } };
+  }
+  const added = change('op.reverse', (d) => D.addEntity(d, 'solid', { ...raw, name: t(`re.${fit}`) }));
+  if (added) {
+    select([added.id]);
+    notify('success', error === null ? t('notice.reMesh', { count: added.shape?.tris ? added.shape.tris.length / 9 : 0 }) : t('notice.reFit', { name: t(`re.${fit}`), rms: fmt(error, 4) }));
+  }
+  return added;
+}
+
+// ───────────────────────── Robot (FreeCAD Robot workbench)
+
+const selectedRobot = () => selectedSolids().find((entity) => entity.kind === 'robot') ?? null;
+
+/** Selected points and curves as world points on the drawing plane (z = 0), in order. */
+function robotTargets() {
+  const drawing = activeDrawing();
+  if (!drawing) return [];
+  const out = [];
+  for (const e of selectedEntities()) {
+    if (e.type === 'point') out.push([e.x, e.y, 0]);
+    else if (!['solid', 'text', 'dim'].includes(e.type)) {
+      const { loops, open } = collectLoops([e], drawing);
+      for (const path of [...open, ...loops.map((l) => [...l, l[0]])]) out.push(...path.map((p) => [p.x, p.y, 0]));
+    }
+  }
+  return out;
+}
+
+/** World → the robot's own coordinates (its placement undone). */
+function robotLocal(robot, p) {
+  const map = placement(robot);
+  const o = map([0, 0, 0]);
+  const cols = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((e) => map(e).map((v, i) => v - o[i]));
+  const [a, b, c] = cols;
+  // Inverse of the 3×3 whose columns are a, b, c.
+  const det = a[0] * (b[1] * c[2] - b[2] * c[1]) - b[0] * (a[1] * c[2] - a[2] * c[1]) + c[0] * (a[1] * b[2] - a[2] * b[1]);
+  const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+  const solve = (col) => { const m = [a, b, c].map((v, i) => (i === col ? d : v)); return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[1][0] * (m[0][1] * m[2][2] - m[0][2] * m[2][1]) + m[2][0] * (m[0][1] * m[1][2] - m[0][2] * m[1][1])) / det; };
+  return [solve(0), solve(1), solve(2)];
+}
+
+const robotJoints = (robot) => ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((k) => robot.params[k]);
+const robotOptions = (robot) => ({ reach: robot.params.reach, tool: robot.params.tool });
+const setRobotJoints = (d, id, joints) => D.updateEntity(d, id, { params: { ...d.entities.find((e) => e.id === id).params, ...Object.fromEntries(joints.map((v, i) => [`a${i + 1}`, Math.round(v * 1000) / 1000])) } });
+
+/** A 6-axis robot at the origin (or at a selected point). */
+function addRobot() {
+  const at = selectedEntities().find((e) => e.type === 'point');
+  const added = change('op.robot', (d) => D.addEntity(d, 'solid', { kind: 'robot', name: t('solid.robot'), x: at?.x ?? 0, y: at?.y ?? 0, z: 0 }));
+  if (added) select([added.id]);
+  return added;
+}
+
+/** Inverse kinematics: the tool tip to the first selected point, pointing down. */
+function robotMoveTo() {
+  const robot = selectedRobot();
+  const [target] = robotTargets();
+  if (!robot || !target) { notify('info', t('notice.robotNone')); return null; }
+  const r = inverseKinematics(robotLocal(robot, target), robotJoints(robot), robotOptions(robot));
+  change('op.robot', (d) => setRobotJoints(d, robot.id, r.joints));
+  notify(r.reached ? 'success' : 'error', r.reached ? t('notice.robotMoved') : t('notice.robotFar', { error: fmt(r.error, 1) }));
+  return r;
+}
+
+/** Plays joint poses in the 3D view (the drawing itself is not changed until the end). */
+async function animateRobot(id, poses, ms = 40) {
+  const doc = activeDoc();
+  if (!doc || !state.view3d || !view3d.instance) return;
+  const original = doc.drawing.entities;
+  try {
+    for (const joints of poses) {
+      doc.drawing.entities = original.map((e) => (e.id === id ? { ...e, params: { ...e.params, ...Object.fromEntries(joints.map((v, i) => [`a${i + 1}`, v])) } } : e));
+      rebuild3d();
+      view3d.instance.render?.();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+  } finally {
+    doc.drawing.entities = original;
+  }
+}
+
+/** A trajectory along the selected curves: joint poses every 20 mm, KUKA KRL saved, played in 3D. */
+async function robotTrajectory({ save = true, animate = true, step = 20 } = {}) {
+  const robot = selectedRobot();
+  const targets = robotTargets();
+  if (!robot || !targets.length) { notify('info', t('notice.robotNone')); return null; }
+  const doc = activeDoc();
+  const points = samplePath(targets.map((p) => robotLocal(robot, p)), step);
+  const run = trajectory(points, robotJoints(robot), robotOptions(robot));
+  const text = toKrl(run.steps, { name: robot.name || 'mycad_path' });
+  if (animate) await animateRobot(robot.id, run.steps.map((s) => s.joints));
+  change('op.robot', (d) => setRobotJoints(d, robot.id, run.steps[run.steps.length - 1].joints));
+  const missed = run.steps.filter((s) => s.error >= 0.5).length;
+  notify(missed ? 'error' : 'success', missed ? t('notice.robotPathFar', { count: missed, total: run.steps.length }) : t('notice.robotPath', { count: run.steps.length }));
+  if (save) {
+    const name = `${safeFileName(stripExtension(docName(doc)))}-robot.src`;
+    try {
+      if (desktop) {
+        const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'krl');
+        if (path) {
+          await withProgress('progress.export', baseName(path), (op) => native.writeTextFile(path, text, op));
+          notify('success', t('notice.exported', { name: baseName(path) }));
+        }
+      } else {
+        native.downloadText(text, name, 'text/plain');
+        notify('success', t('notice.exported', { name }));
+      }
+    } catch (error) {
+      showError('error.export', error, name);
+    }
+  }
+  return { ...run, text };
+}
+
+/** Values of the entity bound to spreadsheet expressions: key = expression, each removable. */
+function bindRows(entity) {
+  if (!entity.bind) return '';
+  return `<h4>${icon('spreadsheet')}<span>${t('bind.title')}</span></h4>${Object.entries(entity.bind).map(([key, expression]) => `<div class="bind-row" title="${escapeHtml(t('bind.tip'))}"><code>${escapeHtml(`${key.replace(/^params\./, '')} = ${expression}`)}</code><button class="icon-button" data-bind-remove="${escapeHtml(key)}" title="${escapeHtml(t('bind.remove'))}" aria-label="${escapeHtml(t('bind.remove'))}">${icon('unlink')}</button></div>`).join('')}`;
+}
+
+/** The spreadsheet window (FreeCAD Spreadsheet); its aliases feed the expressions. */
+async function openSpreadsheet(resultArg = null) {
+  const doc = activeDoc();
+  if (!doc) return null;
+  const result = resultArg ?? await popups.open('spreadsheet', { sheet: doc.drawing.spreadsheet ?? {} });
+  if (!result || !['apply', 'csv'].includes(result.action)) return null;
+  const sheet = normalizeSpreadsheet(result.sheet);
+  change('op.sheet', (d) => { if (Object.keys(sheet.cells).length) d.spreadsheet = sheet; else delete d.spreadsheet; });
+  setVariables(sheetVariables(sheet));
+  if (result.action === 'csv') {
+    const text = sheetCsv(sheet);
+    const name = `${safeFileName(stripExtension(docName(doc)))}-sheet.csv`;
+    try {
+      if (desktop) {
+        const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'csv');
+        if (path) { await native.writeTextFile(path, `\ufeff${text}`); notify('success', t('notice.exported', { name: baseName(path) })); }
+      } else native.downloadText(`\ufeff${text}`, name, 'text/csv');
+    } catch (error) { showError('error.export', error, name); }
+  }
+  return sheet;
+}
+
+/** Construction geometry on/off for the selection (Sketcher: toggle construction). */
+function toggleConstruction() {
+  const list = selectedEntities().filter((e) => e.type !== 'solid');
+  if (!list.length) return;
+  const on = !list.every((e) => e.construction);
+  change('op.construction', (d) => { for (const e of list) D.updateEntity(d, e.id, { construction: on }); });
+  notify('success', t(on ? 'notice.constructionOn' : 'notice.constructionOff', { count: list.length }));
+}
+
+/** The selection in the order it was picked. */
+const pickedEntities = () => {
+  const drawing = activeDrawing();
+  return drawing ? selectedIds().map((id) => D.findEntity(drawing, id)).filter(Boolean) : [];
+};
+
+/** Which points / entities a constraint of this type would take from the selection (null = it does not fit). */
+function constraintRefs(type) {
+  const ents = pickedEntities();
+  if (!ents.length) return null;
+  let refs;
+  if (type === 'fixed') refs = ents.map((e) => ({ id: e.id }));
+  else if (ents.length === 1) refs = [{ id: ents[0].id }];
+  else if (ents.length !== 2 && type !== 'symmetric') return null;
+  else if (type === 'symmetric') {
+    if (ents.length !== 3 || ents[2].type !== 'line') return null;
+    const l = ents[2];
+    const off = (p) => Math.abs((l.x2 - l.x1) * (p.y - l.y1) - (l.y2 - l.y1) * (p.x - l.x1));
+    const nearest = (e) => pointsOf(e).sort((p, q) => off(entityPoint(e, p)) - off(entityPoint(e, q)))[0];
+    const [pa, pb] = [nearest(ents[0]), nearest(ents[1])];
+    refs = pa && pb ? [{ id: ents[0].id, at: pa }, { id: ents[1].id, at: pb }, { id: l.id }] : null;
+  } else if (['coincident', 'horizontal', 'vertical', 'distance', 'distanceX', 'distanceY'].includes(type)) refs = nearestPoints(ents[0], ents[1]);
+  else if (type === 'pointOnObject') {
+    // The point of the first that lies nearest the second (a line or a circle).
+    const [a, b] = ents;
+    const off = (p) => (b.type === 'line'
+      ? Math.abs((b.x2 - b.x1) * (p.y - b.y1) - (b.y2 - b.y1) * (p.x - b.x1)) / (Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || 1)
+      : Math.abs(Math.hypot(p.x - b.cx, p.y - b.cy) - (b.r ?? 0)));
+    const at = pointsOf(a).sort((p, q) => off(entityPoint(a, p)) - off(entityPoint(a, q)))[0];
+    refs = at ? [{ id: a.id, at }, { id: b.id }] : null;
+  } else refs = ents.map((e) => ({ id: e.id }));
+  if (!refs) return null;
+  return canConstrain(type, refs.map((r) => ents.find((e) => e.id === r.id)), refs) ? refs : null;
+}
+
+/** Adds a constraint on the selection and solves; tells when it conflicts or is redundant. */
+function constrainSelection(type, value = null) {
+  const refs = constraintRefs(type);
+  if (!refs) { notify('info', t('constraint.pick')); return null; }
+  const made = change('op.constrain', (d) => addConstraint(d, type, refs, value));
+  const status = activeDoc()?.constraintStatus;
+  if (status?.status === 'conflict') notify('error', t('constraint.conflict'));
+  else if (status?.status === 'over') notify('info', t('constraint.redundant'));
+  else notify('success', t('constraint.added', { name: t(`constraint.${type}`), status: constraintStatusText(status) }));
+  if (made && DIMENSIONAL.includes(type)) setTimeout(() => focusConstraint(made.id), 40);
+  return made;
+}
+
+function constraintStatusText(status) {
+  if (!status || status.status === 'none') return t('constraint.none');
+  if (status.status === 'full') return t('constraint.full');
+  if (status.status === 'conflict') return t('constraint.conflictShort');
+  if (status.status === 'over') return t('constraint.overShort');
+  return t('constraint.dof', { n: status.dof });
+}
+
+function constraintStatusHtml() {
+  const status = activeDoc()?.constraintStatus;
+  if (!activeDrawing()?.constraints?.length) return '';
+  return `<div class="constraint-status status-${status?.status ?? 'none'}" id="constraint-status">${icon(status?.status === 'conflict' ? 'warning' : status?.status === 'full' ? 'check' : 'kCoincident')}<span>${escapeHtml(constraintStatusText(status))}</span></div>`;
+}
+
+/** The constraints on an entity in its properties: value boxes for dimensions, a remove button each. */
+function constraintRows(entity) {
+  const list = (activeDrawing()?.constraints ?? []).filter((c) => c.refs.some((r) => r.id === entity.id));
+  if (!list.length) return '';
+  return `<h4>${icon('kCoincident')}<span>${t('constraint.title')}</span></h4>${constraintStatusHtml()}<div class="constraint-list">${list.map((c) => `<div class="constraint-row" data-constraint="${c.id}">${icon(commands[`constrain:${c.type}`].icon)}<span class="constraint-name">${escapeHtml(t(`constraint.${c.type}`))}</span>${DIMENSIONAL.includes(c.type) ? `<input class="num" data-constraint-value="${c.id}" ${c.type === 'angle' ? '' : 'data-length="1"'} value="${c.type === 'angle' ? fmt(c.value, 4) : lengthText(c.value)}" title="${escapeHtml(t(`constraint.${c.type}`))}" />` : ''}<button class="icon-button" data-constraint-remove="${c.id}" title="${escapeHtml(t('constraint.remove'))}" aria-label="${escapeHtml(t('constraint.remove'))}">${icon('trash')}</button></div>`).join('')}</div>`;
+}
+
+function focusConstraint(id) {
+  const input = root.querySelector(`#right-panel [data-constraint-value="${id}"]`);
+  if (input) { input.focus(); input.select(); }
+}
+
+/** Draft Clone: copies that keep following their sources. */
+function cloneSelection() {
+  const grid = gridBaseFor(activeDrawing().grid?.size || 10);
+  const made = change('op.clone', (drawing) => D.cloneEntities(drawing, selectedIds(), { x: grid, y: -grid }));
+  if (!made?.length) return;
+  select(made.map((entity) => entity.id));
+  notify('success', t('notice.cloned', { count: made.length }));
+}
+
+/** Make independent: the clones become ordinary objects. */
+function unlinkSelection() {
+  const count = change('op.unlinkClone', (drawing) => D.unlinkClones(drawing, selectedIds()));
+  if (count) notify('success', t('notice.unlinked', { count }));
+}
+
+/** A clone's panel: its source and its own transform (its shape comes from the source). */
+function cloneRows(entity) {
+  const source = D.findEntity(activeDrawing(), entity.clone.of);
+  const c = entity.clone;
+  const name = source ? (source.name || t(source.type === 'solid' ? `solid.${source.kind}` : `entity.${source.type}`)) : '—';
+  return `<div class="clone-note">${icon('clone')}<span>${escapeHtml(t('clone.note', { name }))}</span></div>
+    ${readField(t('clone.offset'), `${lengthValue(c.dx)}, ${lengthValue(c.dy)} ${unitLabel()}`, 'move')}
+    ${readField(t('clone.angle'), `${formatNumber(c.angle)}°`, 'rotate')}
+    ${readField(t('clone.scale'), `× ${formatNumber(c.scale)}${c.flip ? ` · ${t('clone.mirrored')}` : ''}`, 'scale')}
+    <div class="prop-actions"><button class="small-button" data-command="cloneSource" title="${escapeHtml(t('action.cloneSource'))}">${icon('select')}<span>${t('action.cloneSource')}</span></button><button class="small-button" data-command="unlinkClone" title="${escapeHtml(commandTip('unlinkClone'))}">${icon('unlink')}<span>${t('action.unlinkClone')}</span></button></div>`;
 }
 
 function duplicateSelection() {
@@ -2702,7 +3450,7 @@ function renderPng(drawing, { pxPerMm = 8, margin = 10 } = {}) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const vp = new Viewport({ cx: (box.minX + box.maxX) / 2, cy: (box.minY + box.maxY) / 2, zoom: k, width: canvas.width, height: canvas.height });
   const colors = { ...canvasColors(), canvas: '#ffffff', ink: '#000000', grid: '#ffffff', gridMajor: '#ffffff', ucs: 'rgba(0,0,0,0)' };
-  render(ctx, { drawing, vp, colors, settings: { ...state.settings, showGrid: false, crosshair: false, showLineWeights: true }, selection: new Set(), dpr: 1 });
+  render(ctx, { drawing, vp, colors, settings: { ...state.settings, showGrid: false, crosshair: false, showLineWeights: true, output: true, showConstraints: false }, selection: new Set(), dpr: 1 });
   return canvas.toDataURL('image/png');
 }
 
@@ -2748,7 +3496,7 @@ async function exportAs(kind) {
 
 function openExportMenu(anchor) {
   const element = root.querySelector('[data-command="exportMenu"]');
-  showMenu(menuItems(['exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', '-', 'exportStl', ...EXPORT_3D.map((format) => `export3d:${format}`), '-', 'print']), anchor ?? anchorBelow(element), 'export', { header: { icon: 'export', title: t('action.exportMenu') } });
+  showMenu(menuItems(['exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', '-', 'exportStl', ...EXPORT_3D.map((format) => `export3d:${format}`), '-', 'cam', '-', 'print']), anchor ?? anchorBelow(element), 'export', { header: { icon: 'export', title: t('action.exportMenu') } });
 }
 
 async function closeDoc(doc, { force = false } = {}) {
@@ -2902,11 +3650,12 @@ function selectedSolids(orAll = false) {
   const chosen = selectedEntities().filter((entity) => entity.type === 'solid');
   if (chosen.length || !orAll) return chosen;
   const drawing = activeDrawing();
-  return drawing ? drawing.entities.filter((entity) => entity.type === 'solid' && D.isVisible(drawing, entity)) : [];
+  return drawing ? drawing.entities.filter((entity) => entity.type === 'solid' && D.isVisible3d(drawing, entity)) : [];
 }
 
 const outlineSelection = () => selectedEntities().filter((entity) => !['solid', 'text', 'dim'].includes(entity.type));
-const canFeature = (kind) => hasDoc() && outlineSelection().length >= (kind === 'loft' ? 2 : 1);
+const canFeature = (kind) => hasDoc() && outlineSelection().length >= (kind === 'loft' || kind === 'surfRuled' ? 2 : 1) && (!CUT_FEATURES.includes(kind) || selectedSolids().length === 1)
+  && (kind !== 'hole' || outlineSelection().some((e) => e.type === 'circle'));
 
 /** Centre of the canvas in drawing units, on the grid. */
 function viewCenter() {
@@ -2924,23 +3673,41 @@ function featureSource(kind) {
   if (!drawing || !entities.length) return null;
   const ids = entities.map((entity) => entity.id);
   const byArea = (loops) => loops.slice().sort((a, b) => Math.abs(polygonArea(b)) - Math.abs(polygonArea(a)));
-  if (kind === 'pad') {
+  if (kind === 'hole') {
+    const circles = entities.filter((e) => e.type === 'circle').map((e) => ({ x: e.cx, y: e.cy, r: e.r }));
+    return circles.length ? { source: { circles }, ids: entities.filter((e) => e.type === 'circle').map((e) => e.id), count: circles.length } : null;
+  }
+  if (kind === 'pad' || kind === 'pocket') {
     const shapes = buildShapes(collectLoops(entities, drawing).loops).map(({ outer, holes }) => ({ outer, holes }));
     return shapes.length ? { source: { shapes }, ids, count: entities.length } : null;
   }
-  if (kind === 'revolution') {
+  if (kind === 'surfRuled' || kind === 'surfExtrude') {
+    // Open curves, in the order they were picked (lines, polylines, arcs, splines).
+    const picked = pickedEntities().filter((entity) => !['solid', 'text', 'dim'].includes(entity.type));
+    const curves = picked.flatMap((entity) => { const { loops, open } = collectLoops([entity], drawing); return [...open, ...loops.map((l) => [...l, l[0]])]; });
+    if (curves.length < (kind === 'surfRuled' ? 2 : 1)) return null;
+    return { source: kind === 'surfRuled' ? { curves } : { paths: curves }, ids, count: entities.length };
+  }
+  if (kind === 'surfFill') {
+    const [shape] = buildShapes(collectLoops(entities, drawing).loops);
+    return shape ? { source: { outer: shape.outer, holes: shape.holes }, ids, count: entities.length } : null;
+  }
+  if (kind === 'revolution' || kind === 'groove') {
     const [loop] = byArea(collectLoops(entities, drawing).loops);
     return loop ? { source: { loop }, ids, count: entities.length } : null;
   }
   if (kind === 'loft') {
-    // Bottom and top in the order they were selected.
-    const loops = entities.map((entity) => byArea(collectLoops([entity], drawing).loops)[0]).filter(Boolean);
-    return loops.length >= 2 ? { source: { bottom: loops[0], top: loops[1] }, ids, count: entities.length } : null;
+    // Sections bottom to top in the order they were picked.
+    const picked = pickedEntities().filter((entity) => !['solid', 'text', 'dim'].includes(entity.type));
+    const loops = picked.map((entity) => byArea(collectLoops([entity], drawing).loops)[0]).filter(Boolean);
+    return loops.length >= 2 ? { source: { sections: loops, bottom: loops[0], top: loops[1] }, ids, count: entities.length } : null;
   }
   if (kind === 'sweep') {
     const { loops, open } = collectLoops(entities, drawing);
-    const path = open.sort((a, b) => b.length - a.length)[0] ?? (loops[0] ? [...loops[0], loops[0][0]] : null);
-    return path && path.length >= 2 ? { source: { path }, ids, count: entities.length } : null;
+    // An open path; a closed outline picked with it is the section (else a round pipe).
+    const path = open.sort((a, b) => b.length - a.length)[0] ?? (loops[0] && loops.length === 1 ? [...loops[0], loops[0][0]] : null);
+    const section = open.length && loops.length ? byArea(loops)[0] : null;
+    return path && path.length >= 2 ? { source: { path, ...(section ? { section } : {}) }, ids, count: entities.length } : null;
   }
   return null;
 }
@@ -2948,19 +3715,52 @@ function featureSource(kind) {
 async function solidFeature(kind) {
   const found = featureSource(kind);
   if (!found) { notify('info', t(`notice.feature.${kind}`)); return null; }
-  const defaults = { pad: { height: state.settings.extrudeHeight }, loft: { height: state.settings.extrudeHeight * 2 }, revolution: { angle: 360 }, sweep: { radius: 2 } }[kind];
+  const defaults = { pad: { height: state.settings.extrudeHeight }, loft: { height: state.settings.extrudeHeight * 2 }, revolution: { angle: 360 }, sweep: { radius: 2 }, pocket: { depth: 5 }, groove: { angle: 360 }, surfRuled: { height: 50 }, surfFill: { bulge: 20 }, surfExtrude: { height: 50 }, hole: { diameter: Math.round((found.source.circles?.[0]?.r ?? 3.3) * 2 * 100) / 100 } }[kind];
   const result = await popups.open('solid', { mode: 'feature', kind, source: found.source, count: found.count, params: defaults });
   if (result?.action !== 'feature') return null;
   return applyFeature(kind, found, result.params, result.axis);
 }
 
+/**
+ * Pocket / Groove / Hole (PartDesign): the tool made from the outlines is cut
+ * from the selected solid — kept as a Cut tree, as FreeCAD keeps its features.
+ * The tool goes down from the solid's top (Pocket, Hole).
+ */
+function cutFeature(kind, found, params, axis = 'yAxis') {
+  const target = selectedSolids()[0];
+  if (!target) { notify('info', t('notice.featureTarget')); return null; }
+  const box = meshBox(solidMesh(target));
+  const top = box.max[2];
+  const bottom = box.min[2];
+  const p = normalizeSolidParams(kind, params);
+  let tools;
+  if (kind === 'pocket') {
+    const through = p.through === 1;
+    const depth = through ? top - bottom + 2 : p.depth;
+    tools = [{ ...featureFrom('pad', found.source, { height: depth }), z: through ? bottom - 1 : top - depth }];
+  } else if (kind === 'groove') tools = [featureFrom('revolution', found.source, { angle: p.angle }, { axis })];
+  else tools = found.source.circles.map((c) => ({ type: 'solid', kind: 'hole', params: p, x: c.x, y: c.y, z: top, rx: 0, ry: 0, rz: 0 }));
+  const raw = { type: 'solid', kind: 'boolean', name: `${t(`feature.${kind}`)} (${target.name || t(`solid.${target.kind}`)})`, params: {}, shape: { op: 'cut', parts: [normalizeSolidData(target), ...tools.map((tool) => normalizeSolidData(tool))] } };
+  const added = change('op.feature', (drawing) => {
+    D.removeEntities(drawing, [target.id, ...found.ids]);
+    return D.addEntity(drawing, 'solid', { ...raw, layer: target.layer, color: target.color });
+  });
+  if (added) {
+    select([added.id]);
+    notify('success', t('notice.solidAdded', { name: t(`feature.${kind}`) }));
+  }
+  return added;
+}
+
 /** Replaces the outlines by the solid made from them (one undo step). */
 function applyFeature(kind, found, params, axis = 'yAxis') {
+  if (CUT_FEATURES.includes(kind)) return cutFeature(kind, found, params, axis);
   const raw = featureFrom(kind, found.source, params, { axis });
   const added = change('op.feature', (drawing) => {
     const layer = D.findEntity(drawing, found.ids[0])?.layer;
     D.removeEntities(drawing, found.ids);
-    return D.addEntity(drawing, 'solid', { ...raw, name: t(`feature.${kind}`), ...(layer ? { layer } : {}) });
+    // On a working plane the solid stands at its elevation.
+    return D.addEntity(drawing, 'solid', { ...raw, z: (raw.z ?? 0) + (drawing.workPlane?.z ?? 0), name: t(`feature.${kind}`), ...(layer ? { layer } : {}) });
   });
   if (added) {
     select([added.id]);
@@ -2970,17 +3770,17 @@ function applyFeature(kind, found, params, axis = 'yAxis') {
 }
 
 /** Insert a primitive (kind) or edit a solid (entity). */
-async function openSolidDialog({ kind = null, entity = null } = {}) {
+async function openSolidDialog({ kind = null, entity = null, shape = null, focus = null } = {}) {
   if (!activeDoc()) return null;
   const c = viewCenter();
   const heavy = entity?.kind === 'mesh' && (entity.shape?.tris?.length ?? 0) > 200000;
   const result = await popups.open('solid', entity
-    ? { mode: 'edit', kind: entity.kind, params: entity.params, x: entity.x, y: entity.y, z: entity.z, rx: entity.rx, ry: entity.ry, rz: entity.rz, shape: heavy ? null : entity.shape }
-    : { mode: 'insert', kind: kind ?? 'box', x: c.x, y: c.y, z: 0 });
+    ? { mode: 'edit', kind: entity.kind, params: entity.params, x: entity.x, y: entity.y, z: entity.z, rx: entity.rx, ry: entity.ry, rz: entity.rz, shape: heavy ? null : shape ?? entity.shape, focus, materials: activeDrawing()?.bim?.materials ?? null }
+    : { mode: 'insert', kind: kind ?? 'box', x: c.x, y: c.y, z: activeDrawing()?.workPlane?.z ?? 0, rz: activeDrawing()?.workPlane?.angle ?? 0 });
   if (!result) return null;
   const place = { x: result.x, y: result.y, z: result.z, rx: result.rx, ry: result.ry, rz: result.rz };
   if (result.action === 'apply' && entity && D.findEntity(activeDrawing(), entity.id)) {
-    change('op.editSolid', (drawing) => D.updateEntity(drawing, entity.id, { kind: result.kind, params: result.params, ...place }));
+    change('op.editSolid', (drawing) => D.updateEntity(drawing, entity.id, { kind: result.kind, params: result.params, ...place, ...(result.shape && ['wall', 'roof'].includes(entity.kind) ? { shape: result.shape } : {}) }));
     select([entity.id]);
     return D.findEntity(activeDrawing(), entity.id);
   }
@@ -2988,12 +3788,462 @@ async function openSolidDialog({ kind = null, entity = null } = {}) {
   return null;
 }
 
+// ───────────────────────── BIM (FreeCAD BIM workbench)
+
+// Levels (FreeCAD BuildingPart / Level): every BIM object stands on one; its z includes the level's elevation.
+
+/** The drawing's BIM block, made on first use (one level). */
+function ensureBim(drawing) {
+  if (!drawing.bim) drawing.bim = createBim(getLanguage());
+  return drawing.bim;
+}
+
+function activeLevel(drawing) {
+  const bim = ensureBim(drawing);
+  return bim.levels.find((level) => level.id === bim.activeLevel) ?? bim.levels[0];
+}
+
+/** A new BIM object on the level new objects go to (raised by its elevation, unless it already has a level). */
+function onLevel(drawing, raw) {
+  if (raw.level && drawing.bim?.levels.some((level) => level.id === raw.level)) return raw;
+  const level = activeLevel(drawing);
+  return { ...raw, level: level.id, z: (Number(raw.z) || 0) + level.elevation };
+}
+
+/** Structures selected for rebar. */
+const rebarHosts = () => selectedEntities().filter((entity) => entity.type === 'solid' && REBAR_HOSTS.includes(entity.kind));
+
+/** Rebar in the selected columns, beams and slabs (one rebar object each). */
+async function addRebar(paramsArg = null) {
+  const hosts = rebarHosts();
+  // No structure selected: custom bars along the selected lines and polylines.
+  if (!hosts.length) return addCustomRebar(paramsArg);
+  const source = { hosts: hosts.map((host) => normalizeSolidData(host) && { ...host }) };
+  let params = paramsArg;
+  if (!params) {
+    const result = await popups.open('solid', { mode: 'arch', kind: 'rebar', source, count: hosts.length, params: {} });
+    if (result?.action !== 'arch') return null;
+    params = result.params;
+  }
+  const raws = archFrom('rebar', source, params, { normalizeParams: normalizeSolidParams });
+  const added = change('op.rebar', (d) => raws.map((raw, i) => D.addEntity(d, 'solid', { ...raw, name: `${t('solid.rebar')} (${hosts[i].name || t(`solid.${hosts[i].kind}`)})`, layer: hosts[i].layer })));
+  if (added?.length) {
+    select(added.map((entity) => entity.id));
+    notify('success', t('notice.rebarAdded', { count: added.reduce((sum, entity) => sum + (archQuantities(entity).count ?? 0), 0) }));
+  }
+  return added;
+}
+
+/** Custom-shaped bars (FreeCAD Rebar, custom): one rebar object per selected line or polyline. */
+async function addCustomRebar(paramsArg = null) {
+  const drawing = activeDrawing();
+  const lines = selectedEntities().filter((e) => e.type === 'line' || e.type === 'polyline');
+  if (!lines.length) { notify('info', t('notice.rebarHost')); return null; }
+  const paths = lines.map((e) => (e.type === 'line' ? { points: [{ x: e.x1, y: e.y1 }, { x: e.x2, y: e.y2 }], closed: false } : { points: e.points, closed: e.closed }));
+  let params = paramsArg;
+  if (!params) {
+    const result = await popups.open('solid', { mode: 'arch', kind: 'rebar', source: { paths }, count: lines.length, params: { bars: 1 } });
+    if (result?.action !== 'arch') return null;
+    params = result.params;
+  }
+  const raws = archFrom('rebar', { paths }, params, { normalizeParams: normalizeSolidParams });
+  const added = change('op.rebar', (d) => {
+    D.removeEntities(d, lines.map((e) => e.id));
+    return raws.map((raw) => D.addEntity(d, 'solid', onLevel(d, { ...raw, name: t('solid.rebar') })));
+  });
+  if (added?.length) {
+    select(added.map((entity) => entity.id));
+    notify('success', t('notice.rebarAdded', { count: added.reduce((sum, entity) => sum + (archQuantities(entity).count ?? 0), 0) }));
+  }
+  void drawing;
+  return added;
+}
+
+/** The schedule as CSV (one row per BIM object), for a spreadsheet. */
+function scheduleCsv(list = archObjects()) {
+  const drawing = activeDrawing();
+  const q = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const level = (e) => drawing?.bim?.levels?.find((l) => l.id === e.level)?.name ?? '';
+  const header = ['schedule.col.name', 'schedule.col.kind', 'schedule.col.level', 'schedule.col.material', 'schedule.col.count', 'schedule.col.length', 'schedule.col.area', 'schedule.col.volume'].map((key) => t(key));
+  const rows = list.map((e) => {
+    const qty = archQuantities(e);
+    const area = qty.wallArea ?? qty.floorArea ?? qty.roofArea ?? '';
+    return [e.name || t(`solid.${e.kind}`), t(`solid.${e.kind}`), level(e), e.material?.name ?? '', qty.count ?? 1, qty.length !== undefined ? (qty.length / 1000).toFixed(3) : '', area !== '' ? (area / 1e6).toFixed(3) : '', (Math.abs(solidProperties(e).volume ?? 0) / 1e9).toFixed(4)];
+  });
+  return `\ufeff${[header, ...rows].map((r) => r.map(q).join(',')).join('\r\n')}\r\n`;
+}
+
+async function exportScheduleCsv() {
+  const list = archObjects();
+  if (!list.length) { notify('info', t('notice.noArch')); return null; }
+  const text = scheduleCsv(list);
+  const doc = activeDoc();
+  const name = `${safeFileName(stripExtension(docName(doc)))}-schedule.csv`;
+  try {
+    if (desktop) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'csv');
+      if (!path) return text;
+      await withProgress('progress.export', baseName(path), (op) => native.writeTextFile(path, text, op));
+      notify('success', t('notice.exported', { name: baseName(path) }));
+    } else {
+      native.downloadText(text, name, 'text/csv');
+      notify('success', t('notice.exported', { name }));
+    }
+  } catch (error) {
+    showError('error.export', error, name);
+  }
+  return text;
+}
+
+/**
+ * Panel sheets (Arch Panel nesting): the selected panels (or closed outlines)
+ * packed onto stock sheets, drawn right of the drawing on a "nesting" layer.
+ */
+function nestSelection({ width = 2440, height = 1220, gap = 10 } = {}) {
+  const drawing = activeDrawing();
+  const picked = selectedEntities();
+  const items = [];
+  for (const e of picked) {
+    if (e.type === 'solid' && e.kind === 'panel' && e.shape?.outer?.length >= 3) items.push({ id: e.id, name: e.name || t('solid.panel'), outer: e.shape.outer, holes: e.shape.holes ?? [] });
+    else if (e.type !== 'solid') for (const shape of buildShapes(collectLoops([e], drawing).loops)) items.push({ id: e.id, name: t(`entity.${e.type}`), outer: shape.outer, holes: shape.holes });
+  }
+  if (!items.length) { notify('info', t('notice.nestNone')); return null; }
+  const result = nestPanels(items, { width, height, gap });
+  const box = D.extents(drawing) ?? { maxX: 0, minY: 0 };
+  const x0 = box.maxX + Math.max(width, height) * 0.2;
+  const y0 = box.minY;
+  const size = Math.max(height / 40, 20);
+  change('op.nest', (d) => {
+    if (!d.layers.some((l) => l.id === 'nesting')) d.layers.push({ id: 'nesting', name: t('layer.nesting'), color: '#d08a00', lineType: 'continuous', lineWidth: null, visible: true, locked: false });
+    d.entities = d.entities.filter((e) => e.layer !== 'nesting');
+    result.sheets.forEach((sheet, k) => {
+      const ox = x0;
+      const oy = y0 + k * (height + size * 4);
+      const at = (q) => ({ x: ox + q.x, y: oy + q.y });
+      D.addEntity(d, 'rect', { x: ox, y: oy, width, height, layer: 'nesting', lineWidth: 0.5 });
+      D.addEntity(d, 'text', { x: ox, y: oy + height + size * 0.8, size, layer: 'nesting', text: t('nest.sheet', { n: k + 1, used: Math.round(sheet.used * 100), w: width, h: height }) });
+      for (const part of sheet.parts) {
+        D.addEntity(d, 'polyline', { points: part.outer.map(at), closed: true, layer: 'nesting' });
+        for (const hole of part.holes) D.addEntity(d, 'polyline', { points: hole.map(at), closed: true, layer: 'nesting' });
+        const xs = part.outer.map((q) => q.x); const ys = part.outer.map((q) => q.y);
+        D.addEntity(d, 'text', { x: ox + (Math.min(...xs) + Math.max(...xs)) / 2, y: oy + (Math.min(...ys) + Math.max(...ys)) / 2, size: size * 0.7, align: 'center', layer: 'nesting', text: part.name });
+      }
+    });
+  });
+  notify(result.left.length ? 'error' : 'success', result.left.length ? t('notice.nestLeft', { count: result.left.length }) : t('notice.nested', { count: items.length, sheets: result.sheets.length }));
+  return result;
+}
+
+/** A window drawn as a sketch (FreeCAD: a window from a sketch): one selected wall and the closed outlines of the window. */
+async function addCustomWindow() {
+  const drawing = activeDrawing();
+  const chosen = selectedEntities();
+  const walls = chosen.filter((entity) => entity.type === 'solid' && entity.kind === 'wall');
+  const outlines = chosen.filter((entity) => !['solid', 'text', 'dim'].includes(entity.type));
+  const found = walls.length === 1 && outlines.length ? profileFromLoops(collectLoops(outlines, drawing).loops) : null;
+  if (!found) { notify('info', t('notice.customWindow')); return null; }
+  const wall = walls[0];
+  const opening = { type: 'custom', at: freeSpot(wall, found.width), width: Math.round(found.width), height: Math.round(found.height), sill: found.height < 2000 ? 900 : 0, swing: 1, hinge: 1, profile: found.profile };
+  change('op.customWindow', (d) => {
+    D.removeEntities(d, outlines.map((entity) => entity.id));
+    D.updateEntity(d, wall.id, { shape: { ...wall.shape, openings: [...(wall.shape.openings ?? []), opening] } });
+  });
+  const updated = D.findEntity(activeDrawing(), wall.id);
+  select([wall.id]);
+  return openSolidDialog({ entity: updated, focus: updated.shape.openings.length - 1 });
+}
+
+/**
+ * The building window (site, building, levels, materials). Changing a level's
+ * elevation moves its objects; a changed material changes every object and
+ * wall layer that uses it.
+ */
+async function openBimManager(resultArg = null) {
+  const drawing = activeDrawing();
+  if (!drawing) return null;
+  const bim = structuredClone(drawing.bim ?? createBim(getLanguage()));
+  const result = resultArg ?? await popups.open('bim', { bim, counts: Object.fromEntries(bim.levels.map((level) => [level.id, drawing.entities.filter((entity) => entity.level === level.id).length])) });
+  if (!result?.bim) return null;
+  applyBim(result.bim);
+  return activeDrawing().bim;
+}
+
+function applyBim(next) {
+  change('op.bim', (d) => {
+    const before = d.bim ?? createBim(getLanguage());
+    const after = structuredClone(next);
+    for (const level of after.levels) {
+      const old = before.levels.find((item) => item.id === level.id);
+      const delta = old ? level.elevation - old.elevation : 0;
+      if (delta) for (const entity of d.entities) if (entity.level === level.id) entity.z = (entity.z ?? 0) + delta;
+    }
+    // Objects of a removed level stay where they are, on the first level.
+    for (const entity of d.entities) if (entity.level && !after.levels.some((level) => level.id === entity.level)) entity.level = after.levels[0].id;
+    const byId = new Map(after.materials.map((material) => [material.id, material]));
+    for (const entity of d.entities) {
+      if (entity.material && byId.has(entity.material.id)) entity.material = { ...byId.get(entity.material.id) };
+      if (entity.kind === 'wall' && entity.shape?.layers?.length) entity.shape = { ...entity.shape, layers: entity.shape.layers.map((layer) => (byId.has(layer.material.id) ? { ...layer, material: { ...byId.get(layer.material.id) } } : layer)) };
+    }
+    d.bim = after;
+    // Changed objects are new objects: their meshes and plans are built again.
+    d.entities = d.entities.map((entity) => ({ ...entity }));
+  });
+}
+
+/** The building tree in the left panel: site › building › levels (show, plan, new objects here). */
+function buildingTreeHtml(drawing) {
+  if (!drawing?.bim) return `<p class="panel-hint">${escapeHtml(t('building.none'))}</p><div class="tool-grid">${commandTiles(['bimManager'])}</div>`;
+  const bim = drawing.bim;
+  const levels = [...bim.levels].reverse().map((level) => {
+    const count = drawing.entities.filter((entity) => entity.level === level.id).length;
+    const active = bim.activeLevel === level.id;
+    const plan = bim.planLevel === level.id;
+    return `<li class="layer-row level-row ${active ? 'active' : ''}" data-level="${escapeHtml(level.id)}">
+      <button class="icon-button" data-level-visible="${escapeHtml(level.id)}" title="${escapeHtml(t('building.show'))}" aria-label="${escapeHtml(t('building.show'))}">${icon(level.visible ? 'eye' : 'eyeOff')}</button>
+      <button class="icon-button ${plan ? 'active' : ''}" data-level-plan="${escapeHtml(level.id)}" title="${escapeHtml(t('building.plan'))}" aria-label="${escapeHtml(t('building.plan'))}" aria-pressed="${plan}">${icon('drawing')}</button>
+      <button class="layer-name" data-level-active="${escapeHtml(level.id)}" title="${escapeHtml(t('building.active'))}">${active ? icon('check') : icon('archLevel')}<span>${escapeHtml(level.name)}</span><small>${escapeHtml(fmt(level.elevation / 1000, 2))} m · ${count}</small></button>
+    </li>`;
+  }).join('');
+  return `<div class="building-tree">
+      <div class="building-node" title="${escapeHtml(t('bim.site'))}">${icon('globe')}<span>${escapeHtml(bim.site)}</span></div>
+      <div class="building-node child" title="${escapeHtml(t('bim.building'))}">${icon('archBuilding')}<span>${escapeHtml(bim.building)}</span></div>
+      <ul class="layer-list level-list">${levels}</ul>
+      <div class="building-actions"><button class="small-button ${bim.planLevel ? '' : 'active'}" data-level-plan="" title="${escapeHtml(t('building.all'))}">${icon('layers')}<span>${escapeHtml(t('building.all'))}</span></button><button class="small-button" data-level-add="1" title="${escapeHtml(t('bim.addLevel'))}">${icon('plus')}<span>${escapeHtml(t('bim.addLevel'))}</span></button>${commandTiles(['bimManager']).replace('tool-tile', 'tool-tile compact')}</div>
+    </div>`;
+}
+
+/** A new level on top of the highest. */
+function addLevel() {
+  change('op.level', (d) => {
+    const bim = ensureBim(d);
+    const top = bim.levels.reduce((best, level) => (level.elevation > best.elevation ? level : best), bim.levels[0]);
+    const n = bim.levels.length + 1;
+    let id = `L${n}`;
+    while (bim.levels.some((level) => level.id === id)) id = `${id}x`;
+    bim.levels.push({ id, name: getLanguage() === 'en' ? `Level ${n}` : `${n}층`, elevation: top.elevation + top.height, height: top.height, visible: true });
+    bim.activeLevel = id;
+  });
+}
+
+/** The BIM objects of the drawing (visible ones). */
+function archObjects() {
+  const drawing = activeDrawing();
+  return drawing ? drawing.entities.filter((entity) => entity.type === 'solid' && isArchKind(entity.kind) && D.isVisible3d(drawing, entity)) : [];
+}
+
+const selectedWall = () => { const list = selectedEntities(); return list.length === 1 && list[0].type === 'solid' && list[0].kind === 'wall' ? list[0] : null; };
+
+/** Walls, beams, railings, curtain walls (one per selected wire); slabs, roofs, spaces (one per closed outline). */
+async function archFeature(kind, paramsArg = null) {
+  const drawing = activeDrawing();
+  const entities = outlineSelection();
+  const byLines = ARCH_FROM_LINES.includes(kind);
+  const name = t(`solid.${kind}`);
+  const { loops, open } = entities.length ? collectLoops(entities, drawing) : { loops: [], open: [] };
+  const source = byLines
+    ? { paths: [...open.map((points) => ({ points, closed: false })), ...loops.map((points) => ({ points, closed: true }))] }
+    : { shapes: buildShapes(loops).map(({ outer, holes }) => ({ outer, holes })) };
+  if (!(byLines ? source.paths : source.shapes).length) { notify('info', t(byLines ? 'notice.arch.lines' : 'notice.arch.outlines', { name })); return null; }
+  let params = paramsArg;
+  if (!params) {
+    const result = await popups.open('solid', { mode: 'arch', kind, source, count: entities.length, params: {} });
+    if (result?.action !== 'arch') return null;
+    params = result.params;
+  }
+  const raws = archFrom(kind, source, params, { normalizeParams: normalizeSolidParams });
+  const ids = entities.map((entity) => entity.id);
+  const added = change('op.feature', (d) => {
+    const layer = D.findEntity(d, ids[0])?.layer;
+    D.removeEntities(d, ids);
+    return raws.map((raw, i) => D.addEntity(d, 'solid', { ...onLevel(d, raw), name: raws.length > 1 ? `${name} ${i + 1}` : name, ...(layer ? { layer } : {}) }));
+  });
+  if (added?.length) {
+    select(added.map((entity) => entity.id));
+    notify('success', t('notice.archAdded', { name, count: added.length }));
+  }
+  return added;
+}
+
+/** A free place on a wall for an opening of a width: the middle, else the nearest gap. */
+function freeSpot(wall, width) {
+  const total = wallLength(wall);
+  const taken = (wall.shape?.openings ?? []).map((o) => [o.at - 100, o.at + o.width + 100]);
+  const fits = (at) => at >= 0 && at + width <= total && taken.every(([a, b]) => at + width <= a || at >= b);
+  const middle = Math.max(0, (total - width) / 2);
+  for (let step = 0; step <= total; step += 50) {
+    for (const at of [middle + step, middle - step]) if (fits(at)) return Math.round(at);
+  }
+  return Math.round(middle);
+}
+
+/** Window or door in the selected wall (FreeCAD: select the wall, press Window / Door). */
+async function addOpening(type, { at = null, width = null } = {}) {
+  const wall = selectedWall();
+  if (!wall) { notify('info', t('notice.wallFirst')); return null; }
+  const opening = defaultOpening(type);
+  if (width) opening.width = width;
+  opening.at = at ?? freeSpot(wall, opening.width);
+  const openings = [...(wall.shape?.openings ?? []), opening];
+  const updated = await openSolidDialog({ entity: wall, shape: { ...wall.shape, openings }, focus: openings.length - 1 });
+  if (updated) notify('success', t('notice.openingAdded', { name: t(`archOpt.${type}`) }));
+  return updated;
+}
+
+/** The quantities of the BIM objects (FreeCAD Arch Schedule), one line per kind. */
+function scheduleLines(list) {
+  const by = (kind) => list.filter((entity) => entity.kind === kind);
+  const sum = (items, key) => items.reduce((total, entity) => total + (archQuantities(entity)[key] ?? 0), 0);
+  const volume = (items) => items.reduce((total, entity) => total + Math.abs(solidProperties(entity).volume ?? 0), 0);
+  const m = (mm) => fmt(mm / 1000, 2);
+  const m2 = (mm2) => fmt(mm2 / 1e6, 2);
+  const m3 = (mm3) => fmt(mm3 / 1e9, 2);
+  const lines = [t('schedule.title')];
+  const walls = by('wall');
+  if (walls.length) lines.push(t('schedule.walls', { count: walls.length, length: m(sum(walls, 'length')), area: m2(sum(walls, 'wallArea')), volume: m3(volume(walls)) }), t('schedule.openings', { windows: sum(walls, 'windows'), doors: sum(walls, 'doors') }));
+  const curtain = by('curtainwall');
+  if (curtain.length) lines.push(t('schedule.curtain', { count: curtain.length, length: m(sum(curtain, 'length')), area: m2(sum(curtain, 'wallArea')) }));
+  const columns = by('column');
+  if (columns.length) lines.push(t('schedule.columns', { count: columns.length, volume: m3(volume(columns)) }));
+  const beams = by('beam');
+  if (beams.length) lines.push(t('schedule.beams', { count: beams.length, length: m(sum(beams, 'length')), volume: m3(volume(beams)) }));
+  const slabs = by('slab');
+  if (slabs.length) lines.push(t('schedule.slabs', { count: slabs.length, area: m2(sum(slabs, 'floorArea')), volume: m3(volume(slabs)) }));
+  if (by('stairs').length) lines.push(t('schedule.stairs', { count: by('stairs').length }));
+  const roofs = by('roof');
+  if (roofs.length) lines.push(t('schedule.roofs', { count: roofs.length, area: m2(sum(roofs, 'roofArea')) }));
+  const railings = by('railing');
+  if (railings.length) lines.push(t('schedule.railings', { count: railings.length, length: m(sum(railings, 'length')) }));
+  if (by('equipment').length) lines.push(t('schedule.equipment', { count: by('equipment').length }));
+  const rebars = by('rebar');
+  if (rebars.length) lines.push(t('schedule.rebar', { count: sum(rebars, 'count'), length: m(sum(rebars, 'length')), weight: fmt(sum(rebars, 'weight'), 1) }));
+  const trusses = by('truss');
+  if (trusses.length) lines.push(t('schedule.truss', { count: trusses.length, members: sum(trusses, 'count') }));
+  const pipes = by('pipe');
+  if (pipes.length) lines.push(t('schedule.pipes', { count: pipes.length, length: m(sum(pipes, 'length')) }));
+  const panels = by('panel');
+  if (panels.length) lines.push(t('schedule.panels', { count: panels.length, area: m2(sum(panels, 'floorArea')) }));
+  const spaces = by('space');
+  if (spaces.length) {
+    lines.push(t('schedule.spaces', { count: spaces.length, area: m2(sum(spaces, 'floorArea')) }));
+    for (const space of spaces) lines.push(`  · ${space.name || t('solid.space')}  ${m2(archQuantities(space).floorArea)} m²`);
+  }
+  return lines;
+}
+
+/** The schedule as a text block right of the drawing. */
+function insertSchedule() {
+  const list = archObjects();
+  if (!list.length) { notify('info', t('notice.noArch')); return null; }
+  const drawing = activeDrawing();
+  const box = D.extents(drawing) ?? { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  const size = Math.max(state.settings.textHeight ?? 3.5, (box.maxY - box.minY) / 70);
+  // Per level when the building has several.
+  const levels = drawing.bim?.levels ?? [];
+  const text = levels.length > 1
+    ? [t('schedule.title'), ...levels.flatMap((level) => { const own = list.filter((entity) => entity.level === level.id); return own.length ? [t('schedule.level', { name: level.name, elevation: fmt(level.elevation / 1000, 2) }), ...scheduleLines(own).slice(1).map((line) => `  ${line}`)] : []; })].join('\n')
+    : scheduleLines(list).join('\n');
+  const added = change('op.schedule', (d) => D.addEntity(d, 'text', { x: box.maxX + size * 6, y: box.maxY - size, text, size, ...(D.findLayer(d, 'text') ? { layer: 'text' } : {}) }));
+  if (added) { select([added.id]); notify('success', t('notice.scheduleDone')); }
+  return added;
+}
+
 function insertSolid(kind, params, place = {}) {
-  const added = change('op.addSolid', (drawing) => D.addEntity(drawing, 'solid', { kind, name: t(`solid.${kind}`), params, ...place }));
+  const added = change('op.addSolid', (drawing) => D.addEntity(drawing, 'solid', isArchKind(kind) ? onLevel(drawing, { kind, name: t(`solid.${kind}`), params, ...place }) : { kind, name: t(`solid.${kind}`), params, ...place }));
   if (added) {
     select([added.id]);
     notify('success', t('notice.solidAdded', { name: t(`solid.${kind}`) }));
   }
+  return added;
+}
+
+/** The solids Check geometry looks at: the selected ones, or every visible one. */
+function checkTargets() {
+  const selected = selectedSolids();
+  if (selected.length) return selected;
+  const d = activeDrawing();
+  return d ? d.entities.filter((e) => e.type === 'solid' && D.isVisible3d(d, e)) : [];
+}
+
+/** Check geometry (FreeCAD Part / Mesh): a report per solid; the window can send the bad ones to repair. */
+async function checkGeometry() {
+  const targets = checkTargets();
+  if (!targets.length) { notify('info', t('notice.checkNone')); return null; }
+  const rows = targets.map((e) => ({ id: e.id, name: e.name || t(`solid.${e.kind}`), icon: SOLID_ICONS[e.kind], report: checkSolid(e) }));
+  const result = await popups.open('check', { rows });
+  if (result?.action === 'repair') repairSolids(result.ids);
+  return rows;
+}
+
+/** Mesh › Decimation: each solid becomes a mesh solid with about half its triangles. */
+function decimateSolids(ids, ratio = 0.5) {
+  const d = activeDrawing();
+  const list = (ids ?? []).map((id) => D.findEntity(d, id)).filter((e) => e?.type === 'solid');
+  if (!list.length) { notify('info', t('notice.repairNone')); return null; }
+  let before = 0;
+  let after = 0;
+  const made = list.map((e) => {
+    const tris = solidMesh(e);
+    const fewer = decimateMesh(tris, ratio);
+    before += tris.length;
+    after += fewer.length;
+    return { e, fewer };
+  });
+  change('op.meshDecimate', (dd) => {
+    for (const { e, fewer } of made) D.updateEntity(dd, e.id, { kind: 'mesh', params: {}, shape: { tris: flattenTriangles(fewer) }, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1, flip: false });
+  });
+  notify('success', t('notice.decimated', { before, after }));
+  return { before, after };
+}
+
+/** Mesh › Repair: each solid becomes a mended mesh solid (one undo step). */
+function repairSolids(ids) {
+  const d = activeDrawing();
+  const list = (ids ?? []).map((id) => D.findEntity(d, id)).filter((e) => e?.type === 'solid');
+  if (!list.length) { notify('info', t('notice.repairNone')); return null; }
+  const total = { degenerate: 0, duplicates: 0, flipped: 0, cracks: 0, holes: 0, inverted: 0 };
+  const mended = list.map((e) => {
+    const { triangles, fixed } = repairMesh(solidMesh(e));
+    for (const key of Object.keys(total)) total[key] += fixed[key] ?? 0;
+    return { e, triangles };
+  });
+  const details = Object.entries(total).filter(([, n]) => n > 0).map(([key, n]) => t(`repair.${key}`, { n }));
+  if (!details.length) { notify('info', t('notice.repairClean')); return total; }
+  change('op.meshRepair', (dd) => {
+    for (const { e, triangles } of mended) {
+      D.updateEntity(dd, e.id, { kind: 'mesh', params: {}, shape: { tris: flattenTriangles(triangles) }, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1, flip: false });
+    }
+  });
+  notify('success', t('notice.repaired', { count: list.length, details: details.join(', ') }));
+  return total;
+}
+
+/** The one selected solid a fillet, chamfer, thickness or offset can go on. */
+function dressBase() {
+  const list = selectedSolids();
+  return list.length === 1 && canDressUp(list[0]) ? list[0] : null;
+}
+
+/**
+ * Fillet / Chamfer / Thickness / Offset (FreeCAD Part): the selected solid
+ * becomes the base of a dress-up that takes its place (Explode gives it back).
+ */
+async function dressUp(kind, paramsArg = null) {
+  const base = dressBase();
+  if (!base) { notify('info', t('notice.dressBase')); return null; }
+  const data = normalizeSolidData(base);
+  const placed = { x: data.x, y: data.y, z: data.z, rx: data.rx, ry: data.ry, rz: data.rz, scale: data.scale, flip: data.flip };
+  const inside = { ...data, x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, scale: 1, flip: false };
+  let params = paramsArg;
+  if (!params) {
+    const result = await popups.open('solid', { mode: 'dressup', kind, shape: { base: inside }, params: {}, ...placed });
+    if (result?.action !== 'dressup') return null;
+    params = result.params;
+  }
+  const added = change('op.dressup', (d) => {
+    D.removeEntities(d, [base.id]);
+    return D.addEntity(d, 'solid', { kind, name: `${t(`dress.${kind}`)} (${base.name || t(`solid.${base.kind}`)})`, params, shape: { base: inside }, ...placed, layer: base.layer, color: base.color, ...(base.level ? { level: base.level } : {}) });
+  });
+  if (added) { select([added.id]); notify('success', t('notice.solidAdded', { name: t(`dress.${kind}`) })); }
   return added;
 }
 
@@ -3062,9 +4312,11 @@ async function projectSolids(optionsArg = null) {
 
 /** A drawing from a 3D model file (FCStd, STEP, STL, OBJ, PLY, OFF, AMF, 3MF). */
 function drawingFromModel(name, bytes) {
-  const { entities, warnings } = importMesh(extensionOf(name), bytes);
+  const { entities, warnings, bim } = importMesh(extensionOf(name), bytes);
   const drawing = D.createDrawing({ title: stripExtension(baseName(name)) || '3D', language: getLanguage(), author: state.settings.author ?? '' });
   D.insertEntities(drawing, entities);
+  // An IFC brings its storeys (and MyCAD's own building data) as levels.
+  if (bim) drawing.bim = normalizeBim(bim, getLanguage());
   return { drawing, count: entities.length, note: warnings.length ? t('notice.modelSkipped', { list: warnings.join(', ') }) : '' };
 }
 
@@ -3105,14 +4357,14 @@ function importModelBytes(name, bytes) {
   return activeDoc();
 }
 
-const MODEL_MIME = { obj: 'model/obj', ply: 'application/octet-stream', off: 'application/octet-stream', amf: 'application/x-amf', '3mf': 'model/3mf', step: 'model/step', fcstd: 'application/zip' };
+const MODEL_MIME = { obj: 'model/obj', ply: 'application/octet-stream', off: 'application/octet-stream', amf: 'application/x-amf', '3mf': 'model/3mf', step: 'model/step', fcstd: 'application/zip', ifc: 'application/x-step' };
 
 /** Writes the drawing's solids (and, for FCStd, its 2D sketch) in a 3D format. */
 async function export3d(format) {
   const doc = activeDoc();
   if (!doc) return null;
   const drawing = doc.drawing;
-  const entities = drawing.entities.filter((entity) => D.isVisible(drawing, entity));
+  const entities = drawing.entities.filter((entity) => D.isVisible3d(drawing, entity));
   const name = `${safeFileName(stripExtension(docName(doc)))}.${format === 'fcstd' ? 'FCStd' : format}`;
   try {
     if (format !== 'fcstd' && !entities.some((entity) => entity.type === 'solid')) throw new Error(t('export3d.noSolids'));
@@ -3139,12 +4391,33 @@ function openExport3dMenu(anchor) {
   showMenu(menuItems(['exportStl', ...EXPORT_3D.map((format) => `export3d:${format}`)]), anchor ?? anchorBelow(element), 'export3d', { header: { icon: 'solidExport', title: t('action.export3dMenu') } });
 }
 
+/** The level and material of a BIM object (properties panel). */
+function bimRows(entity) {
+  const bim = activeDrawing()?.bim;
+  if (!bim) return '';
+  const level = `<label class="prop-row" title="${escapeHtml(t('prop.level'))}"><span class="prop-label">${icon('archLevel')}${t('prop.level')}</span><select data-solid-level="1" title="${escapeHtml(t('prop.level'))}"><option value="">${escapeHtml(t('prop.levelNone'))}</option>${bim.levels.map((item) => `<option value="${escapeHtml(item.id)}" ${entity.level === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>`;
+  const layered = entity.kind === 'wall' && entity.shape?.layers?.length;
+  const material = layered || ['space', 'axis'].includes(entity.kind) ? '' : `<label class="prop-row" title="${escapeHtml(t('prop.material'))}"><span class="prop-label">${icon('archMaterial')}${t('prop.material')}</span><select data-solid-material="1" title="${escapeHtml(t('prop.material'))}"><option value="">${escapeHtml(t('prop.materialNone'))}</option>${bim.materials.map((item) => `<option value="${escapeHtml(item.id)}" ${entity.material?.id === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>`;
+  return level + material;
+}
+
+/** Label of a solid parameter: per kind when it reads differently (a wall's width is its thickness). */
+function solidParamLabel(kind, key) {
+  const own = `solidParam.${kind}.${key}`;
+  const text = t(own);
+  return text === own ? t(`solidParam.${key}`) : text;
+}
+
 function solidRows(entity) {
   const tree = entity.kind === 'boolean'
     ? `${readField(t('prop.operation'), t(`bool.${entity.shape.op}`), BOOL_ICONS[entity.shape.op])}${readField(t('solid.parts'), entity.shape.parts.map((part) => part.name || t(`solid.${part.kind}`)).join(', '), 'list')}`
     : '';
-  const rows = tree + SOLIDS[entity.kind].params.map((param) => numField(param.key, entity.params[param.key], t(`solidParam.${param.key}`), param.unit === '°' ? '°' : param.unit ? 'mm' : '', 'data-solid-param')).join('');
-  return `<label class="prop-row" title="${escapeHtml(t('prop.name'))}"><span class="prop-label">${icon('edit')}${t('prop.name')}</span><input data-prop="name" value="${escapeHtml(entity.name)}" title="${escapeHtml(t('prop.name'))}" /></label>${rows}`;
+  const rows = tree + SOLIDS[entity.kind].params.map((param) => {
+    const label = solidParamLabel(entity.kind, param.key);
+    if (param.type === 'choice') return `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><select data-solid-param="${param.key}" title="${escapeHtml(label)}">${param.options.map((option, i) => `<option value="${i}" ${entity.params[param.key] === i ? 'selected' : ''}>${escapeHtml(t(`archOpt.${option}`))}</option>`).join('')}</select></label>`;
+    return numField(param.key, entity.params[param.key], label, param.unit === '°' ? '°' : param.unit ? 'mm' : '', 'data-solid-param');
+  }).join('');
+  return `<label class="prop-row" title="${escapeHtml(t('prop.name'))}"><span class="prop-label">${icon('edit')}${t('prop.name')}</span><input data-prop="name" value="${escapeHtml(entity.name)}" title="${escapeHtml(t('prop.name'))}" /></label>${isArchKind(entity.kind) ? bimRows(entity) : ''}${rows}`;
 }
 
 // ───────────────────────── confirmation
@@ -3270,7 +4543,7 @@ function contextMenuFor(event) {
       const handlers = Object.fromEntries(drawing.layers.map((layer) => [`custom:layer:${layer.id}`, () => change('op.style', (d) => D.moveToLayer(d, selectedIds(), layer.id))]));
       const title = state.selection.size > 1 ? t('props.multi', { count: state.selection.size }) : t(`entity.${hit.type}`);
       return showMenu([
-        ...menuItems(['properties', ...(hit.type === 'part' ? ['editPart'] : []), '-', 'cut', 'copy', 'paste', 'duplicate', 'delete', '-', 'tool:move', 'tool:copy', 'tool:rotate', 'tool:mirror', 'tool:scale', 'array', 'explode', '-', 'bringFront', 'sendBack', '-']),
+        ...menuItems(['properties', ...(hit.type === 'part' ? ['editPart'] : []), '-', 'cut', 'copy', 'paste', 'duplicate', 'clone', ...(hit.clone ? ['cloneSource', 'unlinkClone'] : []), 'delete', '-', 'tool:move', 'tool:copy', 'tool:rotate', 'tool:mirror', 'tool:scale', 'array', 'explode', '-', 'bringFront', 'sendBack', '-']),
         ...layers,
       ], anchor, 'context', { handlers, header: { icon: 'edit', title } });
     }
@@ -3555,12 +4828,28 @@ function bindEvents() {
     if (partCategory) { state.partCategory = partCategory.dataset.partCategory; return renderLeft(); }
     const part = target.closest('[data-part]');
     if (part && !part.disabled) return openPartDialog({ kind: part.dataset.part });
+    const levelVisible = target.closest('[data-level-visible]');
+    if (levelVisible) return change('op.level', (d) => { const level = d.bim.levels.find((item) => item.id === levelVisible.dataset.levelVisible); level.visible = !level.visible; });
+    const levelPlan = target.closest('[data-level-plan]');
+    if (levelPlan) return change('op.level', (d) => { ensureBim(d).planLevel = levelPlan.dataset.levelPlan || null; });
+    const levelActive = target.closest('[data-level-active]');
+    if (levelActive) return change('op.level', (d) => { ensureBim(d).activeLevel = levelActive.dataset.levelActive; });
+    if (target.closest('[data-level-add]')) return addLevel();
     const visible = target.closest('[data-layer-visible]');
     if (visible) return toggleLayer(visible.dataset.layerVisible, 'visible');
     const lock = target.closest('[data-layer-lock]');
     if (lock) return toggleLayer(lock.dataset.layerLock, 'locked');
     const activateLayer = target.closest('[data-layer-activate]');
     if (activateLayer) return change('op.layer', (drawing) => { drawing.activeLayer = activateLayer.dataset.layerActivate; });
+    const consoleButton = target.closest('[data-console]');
+    if (consoleButton) return onConsoleAction(consoleButton.dataset.console);
+    const bindRemove = target.closest('[data-bind-remove]');
+    if (bindRemove) {
+      const id = selectedIds()[0];
+      return change('op.unbind', (d) => { const e = D.findEntity(d, id); if (!e?.bind) return; const bind = { ...e.bind }; delete bind[bindRemove.dataset.bindRemove]; D.updateEntity(d, id, { bind }); });
+    }
+    const constraintRemove = target.closest('[data-constraint-remove]');
+    if (constraintRemove) return change('op.unconstrain', (d) => { d.constraints = (d.constraints ?? []).filter((c) => c.id !== constraintRemove.dataset.constraintRemove); });
     const removeButton = target.closest('[data-layer-remove]');
     if (removeButton && !removeButton.disabled) return removeLayer(removeButton.dataset.layerRemove);
     const align = target.closest('[data-text-align]');
@@ -3606,6 +4895,7 @@ function bindEvents() {
       const severity = chip.dataset.problemFilter;
       state.problems.filter = { ...state.problems.filter, [severity]: !state.problems.filter[severity] };
       renderProblems();
+  renderConsole();
     }
   });
 
@@ -3753,7 +5043,7 @@ function bindEvents() {
 const SHORTCUTS = [
   ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['r', true, 'recent'], ['r', false, 'rulers'], ['w', false, 'closeTab'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'],
-  ['d', false, 'duplicate'], ['a', false, 'selectAll'], ['p', false, 'print'], ['p', true, 'exportStl'], ['e', true, 'explode'],
+  ['j', true, 'console'], ['d', false, 'duplicate'], ['a', false, 'selectAll'], ['p', false, 'print'], ['p', true, 'exportStl'], ['e', true, 'explode'],
   ['=', false, 'zoomIn'], ['+', false, 'zoomIn'], ['+', true, 'zoomIn'], ['-', false, 'zoomOut'], ['0', false, 'zoom100'],
   [',', false, 'settings'], ['l', true, 'language'], ['tab', false, 'nextTab'], ['tab', true, 'prevTab'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
   ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['#', true, 'view3d'], ['3', true, 'view3d'], ['q', false, 'exit'], ['i', false, 'import3d'], ['g', true, 'light'], ['b', true, 'scaleBar'],
@@ -3762,6 +5052,16 @@ const FUNCTION_KEYS = { f1: 'about', f2: 'renameDrawing', f3: 'snap', f7: 'grid'
 
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
+  // Script console: Ctrl+Enter runs, Ctrl+↑/↓ walks the history.
+  if (event.target.id === 'console-code' && (event.ctrlKey || event.metaKey)) {
+    if (key === 'enter') { event.preventDefault(); event.stopPropagation(); onConsoleAction('run'); return; }
+    if ((key === 'arrowup' || key === 'arrowdown') && consoleState.history.length) {
+      event.preventDefault();
+      consoleState.at = Math.max(0, Math.min(consoleState.history.length, consoleState.at + (key === 'arrowup' ? -1 : 1)));
+      event.target.value = consoleState.history[consoleState.at] ?? '';
+      return;
+    }
+  }
   const editing = event.target.closest?.('input, textarea, select, [contenteditable="true"]');
   const mod = event.ctrlKey || event.metaKey;
   if (mod && event.altKey && key === 's') { event.preventDefault(); run('saveAll'); return; }
@@ -3910,10 +5210,10 @@ window.__mycad = {
     setTool, submitCommand, zoomBy, setZoomPercent, zoomFit, updateSettings, handleDroppedPaths, handleDroppedFiles,
     setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu, contextMenuFor, activeDoc, activeDrawing,
     toScreen, docName, scrollTabs, withProgress, exportAs, renderPng, openStlDialog, exportStl, openPartDialog, openArrayDialog, explodeSelection, deleteSelection,
-    duplicateSelection, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
+    duplicateSelection, setWorkPlane, openCam, openFem, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
     toggle3d, rebuild3d, view3d: () => view3d.instance,
-    openSolidDialog, insertSolid, solidFeature, applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
-    openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids,
+    openSolidDialog, insertSolid, solidFeature, dressUp, checkGeometry, repairSolids, archFeature, addOpening, insertSchedule, scheduleLines, addRebar, addCustomWindow, openBimManager, applyBim, addLevel, ensureBim, wallWidth, solidProperties, planOf: (entity) => primitives(entity), applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
+    openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids, setView3dStyle,
     showHome, openSample, loadSamples, openTutorial, tutorialApi,
   },
 };

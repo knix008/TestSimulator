@@ -1,7 +1,7 @@
 // Drawing → SVG. Used for SVG export, the print preview pages and the part
 // previews. Drawing coordinates (mm, y up) are mapped onto the SVG (y down)
 // with a scale `k` (SVG units per mm).
-import { AUTO, isVisible, styleOf } from './drawing.js';
+import { AUTO, dashScaleOf, isVisible, styleOf } from './drawing.js';
 import { boxOfEntities, DASHES, firstBaseline, LINE_GAP, primitives } from './entities.js';
 import { boxHeight, boxWidth, polar, sweep } from './geometry.js';
 
@@ -13,14 +13,14 @@ const n = (value) => (Math.round(value * 1000) / 1000).toString();
  * map: drawing point → SVG point; k: SVG units per mm (for sizes);
  * stroke/width/dash: resolved style; fonts: { family, weight, style } for texts without their own font.
  */
-export function primitivesSvg(prims, { map, k, stroke, width, dash = [], fonts = {}, dashScale = k }) {
+export function primitivesSvg(prims, { map, k, stroke, width, dash = [], fonts = {}, dashScale = k, thin = 0.18 }) {
   const out = [];
   const dashFor = (lineType) => {
     const pattern = lineType ? DASHES[lineType] ?? [] : dash;
     return pattern.length ? ` stroke-dasharray="${pattern.map((d) => n(d * dashScale)).join(' ')}"` : '';
   };
   for (const prim of prims) {
-    const strokeWidth = prim.thin ? Math.min(width, 0.18) : width;
+    const strokeWidth = prim.thin ? Math.min(width, thin) : width;
     const common = `fill="none" stroke="${stroke}" stroke-width="${n(strokeWidth)}"${dashFor(prim.lineType)}`;
     switch (prim.kind) {
       case 'line': {
@@ -91,17 +91,18 @@ export function entitiesSvg(drawing, { entities, box, k, x0 = 0, y0 = 0, ink = '
   return entities.map((entity) => {
     const style = styleOf(drawing, entity);
     const stroke = monochrome || style.color === AUTO ? ink : style.color;
-    return primitivesSvg(primitives(entity), { map, k, stroke, width: style.lineWidth * widthScale, dash: DASHES[style.lineType] ?? [], fonts });
+    return primitivesSvg(primitives(entity), { map, k, stroke, width: style.lineWidth * widthScale, dash: DASHES[style.lineType] ?? [], fonts, dashScale: k * dashScaleOf(drawing), thin: 0.18 * widthScale });
   }).join('');
 }
 
 /** A complete SVG document of the drawing at true size (mm). */
 export function exportSvg(drawing, { fonts = {}, ink = '#000000', margin = 10, entities = null, background = null } = {}) {
-  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity));
+  const list = (entities ?? drawing.entities).filter((entity) => isVisible(drawing, entity) && !entity.construction);
   const box = boxOfEntities(list) ?? { minX: 0, minY: 0, maxX: 100, maxY: 100 };
   const width = Math.max(1, boxWidth(box)) + margin * 2;
   const height = Math.max(1, boxHeight(box)) + margin * 2;
-  const body = entitiesSvg(drawing, { entities: list, box, k: 1, x0: margin, y0: margin, ink, fonts });
+  // Line weights are paper sizes: a 1:100 drawing gets them 100 times as wide in model millimetres (like its dashes).
+  const body = entitiesSvg(drawing, { entities: list, box, k: 1, x0: margin, y0: margin, ink, fonts, widthScale: dashScaleOf(drawing) });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${n(width)}mm" height="${n(height)}mm" viewBox="0 0 ${n(width)} ${n(height)}">
 <title>${escapeXml(drawing.title)}</title>
