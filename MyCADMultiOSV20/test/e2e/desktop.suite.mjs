@@ -3535,6 +3535,37 @@ export const cases = [
     await sleep(500);
     assert.equal(app.process.exitCode, null, 'still running');
   } },
+  { group: 'Files', name: 'Save dialog: MyCAD options in the Windows dialog (backup, compact, show in folder); remembered; Ctrl+S keeps a .bak', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.updateSettings({ saveOptions: { backup: false, compact: false, reveal: false } }), 1)`);
+    const dialog = (args) => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'test', 'e2e', 'save-dialog.ps1'), '-ProcessId', String(app.process.pid), ...args], { windowsHide: true }).toString('utf8').trim());
+    const label = (key) => m(app, `k.t(${JSON.stringify(`saveOpt.${key}`)})`);
+    const [backup, compact, reveal] = [await label('backup'), await label('compact'), await label('reveal')];
+    await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 7 })), 1)`);
+    // Save As: the options are in the dialog, all off at first; compact is ticked.
+    const file = path.join(app.files, 'save-options.mcad');
+    await fire(app, `k.actions.saveDoc(k.actions.activeDoc(), { saveAs: true })`);
+    const first = dialog(['-FileName', file, '-Checks', `${compact}=1`]);
+    assert.equal(first.found, true, 'the Save dialog opened');
+    assert.deepEqual(first.checks.filter((c) => [backup, compact, reveal].includes(c.name)), [{ name: backup, on: false }, { name: compact, on: false }, { name: reveal, on: false }]);
+    await app.main.waitFor(`window.__mycad.actions.activeDoc().path === ${JSON.stringify(file)} && !window.__mycad.actions.activeDoc().dirty`, { timeout: 10000 });
+    const text = fs.readFileSync(file, 'utf8');
+    assert.equal(text.trimEnd().split('\n').length, 1, 'written compact');
+    assert.deepEqual(await m(app, 'k.state.settings.saveOptions'), { backup: false, compact: true, reveal: false }, 'the choice is remembered');
+    // The next dialog starts from the remembered choice; backup and reveal ticked, then cancelled: nothing changes.
+    await fire(app, `k.actions.saveDoc(k.actions.activeDoc(), { saveAs: true })`);
+    const second = dialog(['-Checks', `${backup}=1`, '-Cancel']);
+    assert.deepEqual(second.checks.filter((c) => [backup, compact, reveal].includes(c.name)).map((c) => c.on), [false, true, false]);
+    await sleep(500);
+    assert.equal((await m(app, 'k.state.settings.saveOptions')).backup, false, 'a cancelled dialog changes nothing');
+    // Backup chosen: Ctrl+S (no dialog) keeps the replaced file as .bak.
+    await m(app, `(k.actions.updateSettings({ saveOptions: { backup: true, compact: false, reveal: false } }), 1)`);
+    await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 20, cy: 0, r: 3 })), 1)`);
+    assert.equal(await m(app, 'k.actions.saveDoc(k.actions.activeDoc())'), true);
+    assert.equal(fs.readFileSync(`${file}.bak`, 'utf8'), text, 'the previous file kept as .bak');
+    assert.ok(fs.readFileSync(file, 'utf8').split('\n').length > 10, 'not compact any more');
+    await m(app, `(k.actions.updateSettings({ saveOptions: { backup: false, compact: false, reveal: false } }), 1)`);
+  } },
   { group: 'Exit', name: 'Next start: settings, last folder, window position and open drawings are remembered', async run(app) {
     const file = path.join(app.files, 'session.mcad');
     await fresh(app);

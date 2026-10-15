@@ -343,3 +343,17 @@ test('grid: a minor cell is always 10–50 px on screen, major lines every 5 (5 
   }
   assert.ok(CROSSHAIR_DASH.length >= 2 && CROSSHAIR_DASH.every((v) => v > 0));
 });
+
+test('save options: off by default, repaired from bad values; a compact .mcad has no line breaks and reads back the same', async () => {
+  assert.deepEqual(normalizeSettings({}).saveOptions, { backup: false, compact: false, reveal: false });
+  assert.deepEqual(normalizeSettings({ saveOptions: { backup: 1, compact: 'yes', reveal: null, other: true } }).saveOptions, { backup: true, compact: true, reveal: false });
+  const { serialize, parseFile } = await import('../../src/domain/format.js');
+  const { createDrawing, addEntity } = await import('../../src/domain/drawing.js');
+  const d = createDrawing({ title: 'Plan' });
+  addEntity(d, 'line', { x1: 0, y1: 0, x2: 10, y2: 5 });
+  const compact = serialize(d, { compact: true });
+  const normal = serialize(d);
+  assert.equal(compact.trimEnd().split('\n').length, 1);
+  assert.ok(normal.split('\n').length > 10 && compact.length < normal.length);
+  assert.deepEqual(parseFile(compact).entities, parseFile(normal).entities);
+});
