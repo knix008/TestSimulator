@@ -2,7 +2,7 @@
 // information and histogram overlays, rating / label / tag, rotate, delete,
 // full screen. Formats the engine shows natively use <img> (animated GIF/WebP
 // play); TIFF, HEIC, PSD and RAW are decoded to a canvas; videos play.
-import { LABEL_COLORS, parentOf } from '../catalog/catalog.js';
+import { LABEL_COLORS, baseName, parentOf } from '../catalog/catalog.js';
 import { decodeImage } from '../formats/decode.js';
 import { formatExposure } from '../formats/exif.js';
 import { badgeOf, kindOf } from '../formats/types.js';
@@ -58,6 +58,12 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     zoomTo: (value) => setZoom(value),
     zoomStep: (direction) => zoomStep(direction),
     onRendered: () => { pixelSource = null; drawNavigatorImage(); },
+    onHistory: () => {
+      const undo = toolbar.querySelector('#dicom-undo');
+      const redo = toolbar.querySelector('#dicom-redo');
+      if (undo) undo.disabled = !dicom.canUndo;
+      if (redo) redo.disabled = !dicom.canRedo;
+    },
   });
   const el = h('div.viewer', toolbar, dicom.bar, viewerBody, stripBox, status);
 
@@ -94,6 +100,9 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
         button('zoomIn', t('view.zoomIn'), () => zoomStep(1), { title: `${t('view.zoomIn')} (+)`, id: 'viewer-zoom-in' }),
         button('fit', t('view.fit'), () => setFit(), { title: `${t('view.fit')} (/)` }),
         button('actual', t('view.actual'), () => setZoom(1), { title: `${t('view.actual')} (*)` })),
+      current?.kind === 'dicom' ? group(
+        button('undo', t('undo.undo'), () => dicom.undo(), { title: `${t('undo.undo')} (Ctrl+Z)`, showLabel: true, className: 'with-label', id: 'dicom-undo', disabled: !dicom.canUndo }),
+        button('redo', t('undo.redo'), () => dicom.redo(), { title: `${t('undo.redo')} (Ctrl+Y)`, showLabel: true, className: 'with-label', id: 'dicom-redo', disabled: !dicom.canRedo })) : null,
       group(
         button('rotateLeft', t('view.rotateLeft'), () => onRotate?.([current?.item?.path].filter(Boolean), -1), { title: `${t('view.rotateLeft')} (Ctrl+[)` }),
         button('rotateRight', t('view.rotateRight'), () => onRotate?.([current?.item?.path].filter(Boolean), 1), { title: `${t('view.rotateRight')} (Ctrl+])` })),
@@ -720,18 +729,24 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
 
   // ───────── filmstrip, overlays, status
 
+  /** Visible folder name. A parent with no usable name is shown as "..". */
+  function folderLabel(path) {
+    const name = baseName(String(path).replace(/^@\d+:/, ''));
+    return name || '..';
+  }
+
   /** Parent folder and the sub-folders of the folder being viewed, so the strip can move up and down. */
   function stripFolders() {
     if (app.state.source?.type !== 'folder') return [];
     const parent = parentOf(app.state.source.path);
-    const up = parent && parent !== app.state.source.path ? [{ path: parent, name: t('nav.up'), up: true }] : [];
-    const dirs = app.state.list.filter((item) => item.isDir).map((item) => ({ path: item.path, name: item.name, up: false }));
+    const up = parent && parent !== app.state.source.path ? [{ path: parent, name: folderLabel(parent) }] : [];
+    const dirs = app.state.list.filter((item) => item.isDir).map((item) => ({ path: item.path, name: item.name || folderLabel(item.path) }));
     return [...up, ...dirs];
   }
 
   function folderCell(entry) {
-    const cell = h('button.strip-cell.strip-folder', { type: 'button', title: entry.up ? t('nav.up') : entry.name, dataset: { folder: entry.path } });
-    cell.append(h('span.strip-folder-icon', { html: icon(entry.up ? 'up' : 'folder') }), h('span.strip-folder-name', entry.name));
+    const cell = h('button.strip-cell.strip-folder', { type: 'button', title: entry.name, dataset: { folder: entry.path } });
+    cell.append(h('span.strip-folder-icon', { html: icon('folder') }), h('span.strip-folder-name', entry.name));
     cell.addEventListener('click', () => enterFolder(entry.path));
     return cell;
   }

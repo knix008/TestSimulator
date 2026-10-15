@@ -460,8 +460,8 @@ select.input { padding-right: 4px; }
 .strip-cell img { max-width: 100%; max-height: 100%; }
 .strip-cell.current { border-color: var(--accent); }
 .strip-cell.strip-folder { flex-direction: column; gap: 2px; color: var(--text); background: var(--bg-3); }
-.strip-folder-icon { display: flex; color: var(--text-2); }
-.strip-folder-icon .icon { width: 26px; height: 26px; }
+.strip-folder-icon { display: flex; color: #e8b84a; }
+.strip-folder-icon .icon { width: 28px; height: 28px; fill: rgba(232, 184, 74, 0.28); }
 .strip-folder-name { max-width: 100%; padding: 0 3px; font-size: 10px; line-height: 1.2; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .viewer-status { display: flex; gap: 16px; height: 26px; align-items: center; padding: 0 10px; font-size: 12px; color: var(--text-2); background: var(--bg-2); border-top: 1px solid var(--line); flex: none; }
 .status-name { font-weight: 600; color: var(--text); }
@@ -827,6 +827,9 @@ body.dialog-window { overflow: auto; background: var(--bg-2); }
 .dicom-label { color: var(--text-3); font-size: 12px; }
 .dicom-num { width: 70px; height: 26px; text-align: center; }
 .dicom-frame { width: 140px; }
+.dicom-frame-count { display: inline-grid; grid-template-columns: calc(var(--digits) * 1ch) auto calc(var(--digits) * 1ch); column-gap: 0.4em; align-items: center; flex: none; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.dicom-frame-count .n:first-child { text-align: right; }
+.dicom-frame-count .n:last-child { text-align: left; }
 .dicom-layer { position: absolute; left: 50%; top: 50%; overflow: visible; pointer-events: none; display: none; }
 .dicom-measure line, .dicom-measure rect, .dicom-measure ellipse, .dicom-measure polyline, .dicom-measure path { stroke: #ffd400; fill: none; }
 .dicom-measure circle { fill: #ffd400; }

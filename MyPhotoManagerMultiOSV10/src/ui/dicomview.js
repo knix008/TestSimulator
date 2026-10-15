@@ -33,7 +33,7 @@ const SVG = 'http://www.w3.org/2000/svg';
 const svg = (name, attrs = {}) => { const el = document.createElementNS(SVG, name); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
 const fmt = (v, digits = 1) => (Number.isFinite(v) ? (Math.abs(v) >= 100 ? Math.round(v) : Number(v.toFixed(digits))) : '–');
 
-export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep, onRendered }) {
+export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep, onRendered, onHistory }) {
   const bar = h('div.dicom-bar', { hidden: true });
   const layer = svg('svg', { class: 'dicom-layer' });
   const corners = h('div.dicom-corners', { hidden: true });
@@ -223,7 +223,8 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       frames() > 1 ? group(
         h('button.tool', { type: 'button', title: t('view.prevPage'), html: icon('prev'), onclick: () => setFrame(state.frame - 1) }),
         controls.frame = h('input.dicom-frame', { type: 'range', min: 0, max: frames() - 1, value: state.frame, dataset: { key: 'dicom-frame' }, oninput: (e) => setFrame(Number(e.target.value)), onwheel: (e) => { e.preventDefault(); setFrame(state.frame + (e.deltaY > 0 ? 1 : -1)); } }),
-        controls.frameLabel = h('span.dicom-label', ''),
+        controls.frameLabel = h('span.dicom-label.dicom-frame-count', { style: { '--digits': String(Math.max(2, String(frames()).length)) } },
+          controls.frameNow = h('span.n'), h('span.sep', '/'), controls.frameTotal = h('span.n')),
         h('button.tool', { type: 'button', title: t('view.nextPage'), html: icon('next'), onclick: () => setFrame(state.frame + 1) }),
         controls.play = h('button.tool', { type: 'button', title: t('dicom.cine'), dataset: { dicom: 'cine' }, html: icon('play'), onclick: toggleCine }),
         controls.fps = h('input.input.dicom-num', { type: 'number', min: 1, max: 120, value: fps, title: t('dicom.fps'), dataset: { key: 'dicom-fps', noStepper: '' }, onchange: (e) => { fps = Math.max(1, Math.min(120, Number(e.target.value) || 10)); fpsFromFile = false; if (playing) { stopCine(); startCine(); } } }),
@@ -255,10 +256,15 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (!controls.wc) return;
     if (document.activeElement !== controls.wc) controls.wc.value = fmt(state.wc);
     if (document.activeElement !== controls.ww) controls.ww.value = fmt(state.ww);
-    if (controls.frame) { controls.frame.value = state.frame; controls.frameLabel.textContent = `${state.frame + 1} / ${frames()}`; }
+    if (controls.frame) {
+      controls.frame.value = state.frame;
+      controls.frameNow.textContent = String(state.frame + 1);
+      controls.frameTotal.textContent = String(frames());
+    }
     if (controls.play) controls.play.innerHTML = icon(playing ? 'pause' : 'play');
     if (controls.fps && document.activeElement !== controls.fps) controls.fps.value = String(Math.round(fps));
     if (controls.undo) { controls.undo.disabled = !undoStack.length; controls.redo.disabled = !redoStack.length; }
+    onHistory?.();
     for (const button of bar.querySelectorAll('[data-dicom=invert]')) button.classList.toggle('on', Boolean(state.invert));
     syncZoom();
   }
@@ -748,7 +754,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       h('div.dicom-corner.tl', lines(meta.patientName, meta.patientId, [meta.patientSex, meta.patientAge].filter(Boolean).join(' · '))),
       h('div.dicom-corner.tr', lines(meta.institution, [meta.studyDate, meta.studyTime].filter(Boolean).join(' '), meta.studyDescription, meta.seriesDescription, meta.seriesNumber ? `${t('dicom.series')} ${meta.seriesNumber}${meta.instanceNumber ? ` · ${t('dicom.image')} ${meta.instanceNumber}` : ''}` : '')),
       h('div.dicom-corner.bl', lines([meta.modality, meta.manufacturer].filter(Boolean).join(' · '), meta.imageSize, meta.sliceThickness ? `${t('dicom.thickness')} ${meta.sliceThickness}` : '', meta.sliceLocation ? `${t('dicom.location')} ${meta.sliceLocation}` : '')),
-      h('div.dicom-corner.br', lines(`C ${fmt(state.wc)} / W ${fmt(state.ww)}`, frames() > 1 ? `${t('dicom.frame')} ${state.frame + 1} / ${frames()}` : '', scaleText())));
+      h('div.dicom-corner.br', lines(`C ${fmt(state.wc)} / W ${fmt(state.ww)}`, frames() > 1 ? `${t('dicom.frame')} ${String(state.frame + 1).padStart(Math.max(2, String(frames()).length), '\u2007')} / ${frames()}` : '', scaleText())));
     if (markers) {
       for (const side of ['left', 'right', 'top', 'bottom']) if (markers[side]) corners.append(h(`div.dicom-marker.${side}`, markers[side]));
     }
@@ -967,6 +973,10 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   return {
     bar, attach, detach, layout, pointerDown, probe, onKey, render, refresh,
     get active() { return Boolean(image); },
+    get canUndo() { return undoStack.length > 0; },
+    get canRedo() { return redoStack.length > 0; },
+    undo() { undoMeasure(); },
+    redo() { redoMeasure(); },
     /** Test hooks. */
     debug: () => (image ? { grid: rulers.querySelector('.dicom-grid')?.dataset.cell ?? null, state: { ...state }, frames: frames(), tool, measures: measures.map((m) => ({ type: m.type, text: measureText(m), frame: m.frame ?? null })), undo: undoStack.length, redo: redoStack.length, cineMode, direction: cineDirection, pending: pending?.type ?? null, pendingNext: pending?.next ?? null, cine: playing, fps, corners: corners.textContent, units: image.units, spacing: spacing(), scale: scaleText(), rulers: [...rulers.querySelectorAll('.dicom-ruler')].map((r) => ({ axis: r.classList.contains('horizontal') ? 'x' : 'y', major: Number(r.dataset.major), total: Number(r.dataset.total), ticks: Number(r.dataset.ticks), origin: Number(r.dataset.origin), pxPerUnit: Number(r.dataset.pxPerUnit), from: Number(r.dataset.from), to: Number(r.dataset.to) })), scaleBar: (() => { const b = rulers.querySelector('.dicom-scalebar'); if (!b) return null; const r = b.getBoundingClientRect(); return { length: Number(b.dataset.length), pixels: Number(b.dataset.pixels), x: r.left, y: r.top }; })() } : null),
     testing: { setTool, setFrame, startCine, stopCine, tagsDialog, saveFrame, saveCine, actualSize, exportFrames, exportDialog, exportTags, tagsText, undoMeasure, redoMeasure, deleteLastMeasure, frameDelay: (f) => frameDelay(f), setCineMode: (m) => { cineMode = m; cineDirection = 1; } },

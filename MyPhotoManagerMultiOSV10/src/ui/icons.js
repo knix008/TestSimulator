@@ -38,8 +38,9 @@ const P = {
   zoomOut: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3M8 11h6"/>',
   fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   actual: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 10v5M15 10v5M11.5 10.5v.1M11.5 14.5v.1"/>',
-  rotateLeft: '<path d="M4 4v5h5"/><path d="M4.6 9A8 8 0 1 1 6 17.7"/>',
-  rotateRight: '<path d="M20 4v5h-5"/><path d="M19.4 9A8 8 0 1 0 18 17.7"/>',
+  // A right angle with the arc that measures it, so rotation is not another undo arrow.
+  rotateLeft: '<path d="M18 18V6M18 18H6"/><path d="M18 11a7 7 0 0 0-7 7"/><path d="M13.2 15.2 10.6 18.4 13.8 19.6"/>',
+  rotateRight: '<path d="M6 18V6M6 18h12"/><path d="M6 11a7 7 0 0 1 7 7"/><path d="M10.8 15.2 13.4 18.4 10.2 19.6"/>',
   flipH: '<path d="M12 3v18"/><path d="M8 7L3 12l5 5zM16 7l5 5-5 5z"/>',
   flipV: '<path d="M3 12h18"/><path d="M7 8l5-5 5 5zM7 16l5 5 5-5z"/>',
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/>',
