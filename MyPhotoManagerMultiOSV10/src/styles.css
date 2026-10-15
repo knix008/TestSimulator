@@ -130,8 +130,8 @@ select.input { padding-right: 4px; }
 .mode-button:not(.on):hover { background: var(--bg-4); color: var(--text); }
 .mode-button.start-home { padding: 0 12px; justify-content: center; border-radius: 8px; background: var(--bg-3); }
 .mode-button.start-home.on { background: var(--accent); color: var(--accent-text); }
-.classify-button { padding: 0 12px; border-radius: 8px; background: var(--bg-3); }
-.classify-button.on { background: var(--accent); color: var(--accent-text); }
+.mode-switch .classify-button { padding: 0 14px; border-radius: 6px; background: transparent; }
+.mode-switch .classify-button.on { background: var(--accent); color: var(--accent-text); }
 .header-right { display: flex; gap: 2px; }
 .menu { position: fixed; z-index: 1000; min-width: 220px; padding: 4px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: var(--shadow); max-height: calc(100vh - 8px); overflow: auto; }
 .menu-item { display: grid; grid-template-columns: 18px 20px 1fr auto 14px; align-items: center; gap: 4px; width: 100%; height: 28px; padding: 0 8px 0 4px; border: 0; border-radius: 5px; background: transparent; text-align: left; cursor: pointer; white-space: nowrap; }
@@ -830,6 +830,11 @@ body.dialog-window { overflow: auto; background: var(--bg-2); }
 .dicom-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 4px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .dicom-bar[hidden] { display: none; }
 .dicom-group { display: flex; align-items: center; gap: 4px; }
+.dicom-bar [data-dicom=cine] { background: #2f9e44; color: #fff; border-color: transparent; }
+.dicom-bar [data-dicom=cine] .icon { fill: currentColor; }
+.dicom-bar [data-dicom=cine]:hover:not(:disabled) { background: #248a38; color: #fff; }
+.dicom-bar [data-dicom=cine].playing { background: #e03131; color: #fff; }
+.dicom-bar [data-dicom=cine].playing:hover:not(:disabled) { background: #c92a2a; color: #fff; }
 .dicom-group select.input { height: 26px; max-width: 220px; }
 .dicom-label { color: var(--text-3); font-size: 12px; }
 .dicom-num { width: 70px; height: 26px; text-align: center; }
@@ -874,7 +879,7 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
   .mode-label { display: none; }
   .mode-button { padding: 0 8px; gap: 0; }
   .mode-button.start-home { padding: 0 8px; }
-  .classify-button { padding: 0 10px; gap: 6px; }
+  .mode-switch .classify-button { padding: 0 8px; gap: 6px; }
 }
 
 /* keyword tree in the catalog pane */

@@ -261,9 +261,18 @@ function renderHeader() {
   const home = h(`button.mode-button.start-home${app.state.mode === 'start' ? '.on' : ''}`, {
     type: 'button', id: 'start-home', title: t('start.title'), 'aria-label': t('start.title'), 'aria-pressed': app.state.mode === 'start' ? 'true' : 'false', onclick: () => showStart(),
   }, h('span', { html: icon('home') }), h('span.mode-label', t('start.title')));
-  const modes = h('div.mode-switch', { role: 'tablist' }, MODES.map(([id, iconName]) => h(`button.mode-button${app.state.mode === id ? '.on' : ''}`, {
+  const viewingClass = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis');
+  const classify = h(`button.mode-button.classify-button${viewingClass ? '.on' : ''}`, {
+    type: 'button', id: 'classify-browse', title: t('analysis.browse'), 'aria-label': t('analysis.browse'), 'aria-pressed': viewingClass ? 'true' : 'false',
+    onclick: (event) => { const button = event.currentTarget; if (button.classList.contains('open')) { closeMenus(); return; } openClassifyMenu(button); },
+  }, h('span', { html: icon('layers') }), h('span.classify-label', t('analysis.browse')));
+  const modeButton = ([id, iconName]) => h(`button.mode-button${app.state.mode === id ? '.on' : ''}`, {
     type: 'button', role: 'tab', dataset: { mode: id }, title: t(`mode.${id}`), onclick: () => switchMode(id),
-  }, h('span', { html: icon(iconName) }), h('span.mode-label', t(`mode.${id}`)))));
+  }, h('span', { html: icon(iconName) }), h('span.mode-label', t(`mode.${id}`)));
+  const modes = h('div.mode-switch', { role: 'tablist' },
+    ...MODES.filter(([id]) => id !== 'dashboard').map(modeButton),
+    classify,
+    modeButton(MODES.find(([id]) => id === 'dashboard')));
   const modeCluster = h('div.mode-cluster', home, modes);
   const toEnglish = getLanguage() === 'ko';
   const right = h('div.header-right',
@@ -272,12 +281,7 @@ function renderHeader() {
     h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
     h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
     h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
-  const viewingClass = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis');
-  const classify = h(`button.mode-button.classify-button${viewingClass ? '.on' : ''}`, {
-    type: 'button', id: 'classify-browse', title: t('analysis.browse'), 'aria-label': t('analysis.browse'), 'aria-pressed': viewingClass ? 'true' : 'false',
-    onclick: (event) => { const button = event.currentTarget; if (button.classList.contains('open')) { closeMenus(); return; } openClassifyMenu(button); },
-  }, h('span', { html: icon('layers') }), h('span.classify-label', t('analysis.browse')));
-  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right, classify);
+  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right);
 }
 
 /** Categories the catalog already has, then the photos of the one the user picks. */
@@ -333,7 +337,7 @@ function syncModeChrome() {
   const mode = app.state.mode;
   home.classList.toggle('on', mode === 'start');
   home.setAttribute('aria-pressed', mode === 'start' ? 'true' : 'false');
-  for (const button of header.querySelectorAll('.mode-switch .mode-button')) button.classList.toggle('on', button.dataset.mode === mode);
+  for (const button of header.querySelectorAll('.mode-switch .mode-button:not(#classify-browse)')) button.classList.toggle('on', button.dataset.mode === mode);
   markClassifyButton();
 }
 

@@ -24,9 +24,9 @@ The real cine files come from the pydicom project's test data (<https://github.c
 > Older `sample.heic` / `sample.heif` were tiny AVIF files mislabeled as HEIC (not real photos). They were replaced with genuine HEVC HEIC/HEIF images.  
 > Older `sample.tiff` was a 512×512 synthetic test image; replaced with a real photographic TIFF.
 
-Generated local previews such as `samples/_*.png` are gitignored.
+Generated local previews `samples/_*.png` are gitignored.
 
-Large sets are gitignored and live only locally: `image-*.dcm` (single big X-ray files) and `ct-lung-screening-nlst-series/`
+Large sets are gitignored and live only locally: `samples/image-*.dcm` (single big X-ray files) and `samples/ct-lung-screening-nlst-series/`
 (a 150-slice chest CT series from the NLST collection, CC BY 4.0 — see its `CITATION.txt`; open the folder to step through
-the slices with ← / → and use the DICOM window presets, measurements and annotations on it). `images/` holds the older
-test photos that used to be in the project's `images/` folder.
+the slices with ← / → and use the DICOM window presets, measurements and annotations on it). `images/` (Test01–Test08, `sample1.heif`)
+holds the older test photos that used to be in the project's `images/` folder and stays in the repository.

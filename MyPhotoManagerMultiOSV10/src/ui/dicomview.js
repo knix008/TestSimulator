@@ -261,7 +261,10 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       controls.frameNow.textContent = String(state.frame + 1);
       controls.frameTotal.textContent = String(frames());
     }
-    if (controls.play) controls.play.innerHTML = icon(playing ? 'pause' : 'play');
+    if (controls.play) {
+      controls.play.innerHTML = icon(playing ? 'pause' : 'play');
+      controls.play.classList.toggle('playing', playing);
+    }
     if (controls.fps && document.activeElement !== controls.fps) controls.fps.value = String(Math.round(fps));
     if (controls.undo) { controls.undo.disabled = !undoStack.length; controls.redo.disabled = !redoStack.length; }
     onHistory?.();

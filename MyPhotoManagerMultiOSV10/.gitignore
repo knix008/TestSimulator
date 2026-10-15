@@ -32,3 +32,9 @@ desktop.ini
 # Copied from node_modules by scripts/vendor-assets.mjs
 public/models/
 public/vendor/
+
+# Local sample sets and generated previews (see samples/README.md).
+# samples/images/ (Test01–Test08, sample1.heif) stays in the repository.
+samples/_*.png
+samples/image-*.dcm
+samples/ct-lung-screening-nlst-series/

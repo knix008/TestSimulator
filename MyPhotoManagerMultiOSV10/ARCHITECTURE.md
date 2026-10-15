@@ -10,7 +10,7 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 | 폴더 목록·파일 작업 | Rust 명령 (`list_dir`, `copy_paths`, `move_paths`, `rename_path`, `delete_paths`(휴지통), `create_dir`, `set_modified`) | File System Access API (Chrome·Edge, 쓰기 가능·기억) / `input[webkitdirectory]`·끌어 놓기 (읽기 전용 메모리 폴더) |
 | 사진 읽기 | asset 프로토콜 (`convertFileSrc`, 범위 요청, 바뀐 파일은 `?v=` 로 새로 읽음) | `File` → Blob URL |
 | 쓰기 | `write_file` — 요청 본문 그대로(base64 없음), 경로는 퍼센트 인코딩 헤더, 임시 파일 후 이름 바꾸기 | `createWritable()`, 읽기 전용이면 내려받기 |
-| 카탈로그·설정 | 앱 데이터 폴더 `catalog.json` / `settings.json` (+ localStorage) | IndexedDB / localStorage |
+| 카탈로그·설정 | 앱 데이터 폴더 `catalog.sqlite` / `settings.json` (+ localStorage). 예전 `catalog.json` 은 처음 실행 때 옮겨짐 | IndexedDB / localStorage |
 | 원본 백업 | `originals/<경로 해시>.<확장자>` (`backup_original` · `restore_original`) | 없음 |
 | 기타 | 탐색기에서 보기·기본 프로그램·바탕 화면 배경(`wallpaper` 크레이트), 인쇄, 단일 인스턴스(두 번째 실행의 경로를 넘김), 창 위치 기억, OS 파일 끌어 놓기 | 서비스 워커(오프라인), 매니페스트(설치) |
 
@@ -58,7 +58,7 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 - `worker.js` — face-api 에 든 TensorFlow.js(WebGL, 안 되면 CPU)로 두 그래프 모델을 실행: **MobileNet v2**(ImageNet 1000 가지, 224×224, [-1, 1] 정규화, 1001번째 출력은 배경이라 버림 → softmax 상위 5개)와 **SSDLite MobileNet v2**(COCO 80 가지, 긴 변 384, 상자별 최고 점수 → 비최대 억제). 입력은 썸네일(384px)을 OffscreenCanvas 로 그린 것. 색 통계(96px)도 여기서.
 - `taxonomy.js` — 순수 함수: `colorStats`(밝기·대비·채도·회색/흰/어둠 비율, 위 1/3 의 파랑·따뜻한 빛, 아래 절반의 파랑·모래, 초록, 평평한 영역, 경계) → `scenesFromStats`(문서·스크린샷·흑백·야경·노을·하늘·자연·눈·바다·해변), `imagenetIds`(번호 범위 + 이름 표), `cocoIds`, `classify`(사람 수 = max(사람 상자, 찾은 얼굴), 확률 합으로 장면·객체, 실내면 하늘·노을 같은 색만의 추측을 버림). 분류 id 는 경로(`object/animal/dog`)라 부모로 걸러도 자식이 나옵니다. `labels.json` 은 ImageNet·COCO 이름.
 - `analyzer.js` — 큐(다른 폴더를 열면 교체), 상태 막대 진행(`statusProgress`), 6장마다 `catalog.setAnalysis`, 파일이 같으면(`v`·수정 시각) 다시 하지 않음, 의료 영상·PDF·동영상은 건너뜀. 모델은 `public/models/mobilenet·cocossd` (`scripts/vendor-assets.mjs` 가 처음 한 번 내려받음).
-- 카탈로그 창의 *이미지 분석* 은 `categoryCounts` 로 개수를, 필터 `{ type: 'analysis', value }` 로 목록을 만듭니다(같은 종류끼리는 "또는"). `ui/organize.js` 는 종류별 대표 분류(`primaryCategory`)로 `분류됨/<분류>/` 에 복사·이동(`store.transfer`, 되돌리기 가능).
+- 카탈로그 창의 *이미지 분석* 과 대시보드 왼쪽의 **분류** 단추는 `categoryCounts` 로 개수를, 필터 `{ type: 'analysis', value }` 로 목록을 만듭니다(부모를 고르면 자식도 포함, 같은 종류끼리는 "또는"). `ui/organize.js` 는 종류별 대표 분류(`primaryCategory`)로 그 목록만 엽니다. 폴더를 만들거나 파일을 복사·이동하지 않고 `folders: 0` 을 돌려줍니다.
 
 ## 편집 (`src/edit/`)
 
@@ -71,7 +71,7 @@ UI 는 Vite 로 묶은 바닐라 JavaScript 하나입니다. 실행 환경의 �
 
 ## UI (`src/ui/`, `src/app.js`)
 
-`app.js` 가 메뉴·모드·툴바·창 배치·단축키·시작(명령줄 경로, 마지막 폴더, 웹 폴더 복원)을 맡습니다. 파일 목록(`filelist.js`)은 행 단위 가상화(이진 탐색으로 보이는 행만, 타일은 경로 키로 재사용), 고무줄 선택, 포인터 기반 끌어 놓기(`data-drop` 대상: 폴더 트리·폴더 타일·주소 막대)입니다. 대화상자는 데스크톱에서 각각 독립된 창입니다(`dialog.js`). 단축키는 `keymap.js` 에 관리·보기·편집 모드별 명령으로 등록되어 사용자가 바꿉니다. DICOM 도구(`dicomview.js`: 윈도·측정(클릭 또는 끌기, 다음 점은 포인터를 따라감)·각도·Cobb·눈금자·축척 막대·화면 고정 5×5 격자·− 배율 +·시네·모든 형식으로 프레임 내보내기)는 뷰어 위의 SVG 층 두 개입니다(그림 좌표의 측정 층, 화면 좌표의 눈금자·격자·축척 층). 창의 최소 폭은 `minwidth.js` 가 보이는 툴바의 자연 폭으로 맞춥니다(`set_min_size`). 그 밖에 `quickmeta.js`(빠른 키워드·IPTC 템플릿), `collections.js`, `actions.js`(일괄 작업), `external.js`(외부 편집기), `gpxtag.js`, `videotrim.js`, `themepicker.js`(설정의 테마 탭).
+`app.js` 가 메뉴·모드·툴바·창 배치·단축키·시작(명령줄 경로, 마지막 폴더, 웹 폴더 복원)을 맡습니다. 파일 목록(`filelist.js`)은 행 단위 가상화(이진 탐색으로 보이는 행만, 타일은 경로 키로 재사용), 고무줄 선택, 포인터 기반 끌어 놓기(`data-drop` 대상: 폴더 트리·폴더 타일·주소 막대)입니다. 대화상자는 데스크톱에서 각각 독립된 창입니다(`dialog.js`). 단축키는 `keymap.js` 에 관리·보기·편집 모드별 명령으로 등록되어 사용자가 바꿉니다. DICOM 도구(`dicomview.js`: 윈도·측정(클릭 또는 끌기, 다음 점은 포인터를 따라감)·각도·Cobb·눈금자·축척 막대·눈금자와 같은 간격의 격자(칸마다 5×5, 확대·축소를 따라감)·붉은 점선 십자와 + 포인터·− 배율 +·시네·모든 형식으로 프레임 내보내기)는 뷰어 위의 SVG 층입니다(그림 좌표의 측정 층, 화면 좌표의 눈금자·격자·축척·점선 층). 보기 모드에서 언어를 바꾸면 `viewer.relabel()` 만 호출해 그림·배율·프레임을 유지합니다. 필름 스트립은 `app.state.list` 의 폴더와 상위 폴더(아이콘과 실제 이름)를 사진과 함께 보여 주고, 폴더를 열어도 보기 모드에 남습니다. 창의 최소 폭은 `minwidth.js` 가 보이는 툴바의 자연 폭으로 맞춥니다(`set_min_size`). 그 밖에 `quickmeta.js`(빠른 키워드·IPTC 템플릿), `collections.js`, `actions.js`(일괄 작업), `external.js`(외부 편집기), `gpxtag.js`, `videotrim.js`, `themepicker.js`(설정의 테마 탭).
 
 ## Rust (`src-tauri/src/`)
 
