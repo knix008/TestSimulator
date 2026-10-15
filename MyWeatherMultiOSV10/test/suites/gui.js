@@ -264,7 +264,7 @@ export function registerGui(h) {
       const sheet = document.querySelector("head style").textContent;
       const cityRule = /\.scene-city \{[^}]*\}/.exec(sheet)[0];
       const dateRule = /\.scene-date \{[^}]*\}/.exec(sheet)[0];
-      assert.match(cityRule, /font-size: calc\(30px/, cityRule);
+      assert.match(cityRule, /font-size: calc\(44px/, cityRule);
       assert.match(dateRule, /font-size: calc\(16px/, dateRule);
       assert.match(cityRule, /font-weight: 800/, cityRule);
       assert.match(cityRule, /text-overflow: ellipsis/, "a long name tails off instead of being cut");
@@ -873,17 +873,58 @@ export function registerGui(h) {
       { platform },
     );
   });
-  h.test("a new weather window opens on the next city", async () => {
+  h.test("a chosen city moves into a new weather window and leaves this one", async () => {
     await withApp(async ({ app, platform }) => {
-      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo")];
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("FR", "Paris")];
       app.syncTabsToCities();
-      await app.run("new-window");
-      assert.deepEqual(platform.newWindows, [{ cityIndex: 1 }]);
       app.showCity(1);
+      const pending = app.run("new-window");
+      await settle();
+      const popup = document.querySelector('[data-popup="detach"]');
+      assert.ok(popup);
+      assert.equal(popupFits(popup).fits, true);
+      assert.deepEqual(
+        [...popup.querySelectorAll('[data-action="detach-city"] .menu-label')].map((node) => node.textContent),
+        ["서울", "도쿄", "파리"],
+      );
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      assert.equal(platform.newWindows.length, 0);
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Seoul", "Tokyo", "Paris"]);
+      const again = app.run("new-window");
+      await settle();
+      document.querySelector('[data-popup="detach"] [data-index="0"]').click();
+      await again;
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Tokyo", "Paris"]);
+      assert.equal(app.currentTab().place.cityEn, "Tokyo", "the city that was showing stays put");
+      assert.deepEqual(platform.newWindows[0].cities.map((place) => place.cityEn), ["Seoul"]);
+      assert.equal(platform.newWindows[0].sourceKey, "");
+      assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Tokyo", "Paris"]);
+      assert.deepEqual(platform.settings.extraWindows[0].cities.map((place) => place.cityEn), ["Seoul"]);
+      const next = app.run("new-window");
+      await settle();
+      document.querySelector('[data-popup="detach"] [data-index="0"]').click();
+      await next;
+      assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Paris"]);
       await app.run("new-window");
-      assert.deepEqual(platform.newWindows[1], { cityIndex: 0 });
-      assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Seoul", "Tokyo"]);
+      assert.equal(document.querySelector('[data-popup="detach"]'), null);
+      assert.match(app.statusMessage, /마지막 도시/);
     });
+  });
+  h.test("a new window opens on the city it was given and not the shared list", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.settings = { cities: [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("FR", "Paris")] };
+    platform.boot = { primary: false, windowKey: "win-tokyo", cities: [findCity("JP", "Tokyo")] };
+    await withApp(
+      async ({ app }) => {
+        assert.equal(app.ownsCityList, false);
+        assert.equal(app.windowKey, "win-tokyo");
+        assert.deepEqual(app.doc.tabs.map((tab) => tab.place.cityEn), ["Tokyo"]);
+        assert.equal(app.root.querySelector(".scene-city").textContent, "도쿄");
+      },
+      { platform },
+    );
   });
   h.test("a window told to open on a city starts there", async () => {
     const { createMemoryPlatform } = await import("../support.js");

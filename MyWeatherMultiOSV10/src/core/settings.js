@@ -98,6 +98,45 @@ export function samePlace(one, other) {
 }
 
 /** The shown city list always holds at least one place so the window never renders empty. */
+/** Other weather windows, each keeping the cities that were moved out of the first window. */
+export function sanitizeExtraWindows(raw, fallback = DEFAULT_LOCATION) {
+  if (!Array.isArray(raw)) return [];
+  const windows = [];
+  for (const entry of raw) {
+    const list = Array.isArray(entry?.cities) ? entry.cities : [];
+    const cities = list
+      .filter((item) => item && typeof item === "object" && (item.cityEn || item.cityKo))
+      .slice(0, MAX_CITIES)
+      .map((item) => normalizePlace(item, fallback));
+    const key = String(entry?.key || "");
+    if (!key || !cities.length) continue;
+    windows.push({ key, cities });
+    if (windows.length >= MAX_CITIES) break;
+  }
+  return windows;
+}
+
+/**
+ * Remember a city that left one window for a new one. The source window's saved list
+ * loses that city, and the new window is stored under its own key.
+ */
+export function moveCityToWindow(extraWindows, { cities, windowKey, sourceKey, moved } = {}, fallback = DEFAULT_LOCATION) {
+  const extra = sanitizeExtraWindows(extraWindows, fallback);
+  if (sourceKey && moved) {
+    const slot = extra.find((entry) => entry.key === sourceKey);
+    if (slot) slot.cities = slot.cities.filter((place) => !samePlace(place, moved));
+    const empty = extra.findIndex((entry) => entry.key === sourceKey && !entry.cities.length);
+    if (empty >= 0) extra.splice(empty, 1);
+  }
+  const places = (Array.isArray(cities) ? cities : [])
+    .filter((item) => item && typeof item === "object" && (item.cityEn || item.cityKo))
+    .slice(0, MAX_CITIES)
+    .map((item) => normalizePlace(item, fallback));
+  const key = String(windowKey || "");
+  if (key && places.length && !extra.some((entry) => entry.key === key)) extra.push({ key, cities: places });
+  return extra.slice(0, MAX_CITIES);
+}
+
 export function sanitizeCities(raw, fallback = DEFAULT_LOCATION) {
   const list = Array.isArray(raw) ? raw : [];
   const cities = list
@@ -163,6 +202,7 @@ export function sanitizeSettings(raw) {
   settings.windowMaximized = Boolean(settings.windowMaximized);
   settings.defaultLocation = normalizePlace(settings.defaultLocation);
   settings.cities = sanitizeCities(source.cities, settings.defaultLocation);
+  settings.extraWindows = sanitizeExtraWindows(source.extraWindows, settings.defaultLocation);
   settings.extraCities = (Array.isArray(source.extraCities) ? source.extraCities : [])
     .filter((entry) => entry && typeof entry === "object" && entry.countryCode && (entry.cityEn || entry.cityKo))
     .slice(0, MAX_EXTRA_CITIES)

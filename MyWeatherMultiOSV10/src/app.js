@@ -8,7 +8,7 @@ import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
-import { MAX_CITIES, clamp, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeSettings, samePlace } from "./core/settings.js";
+import { MAX_CITIES, clamp, moveCityToWindow, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeSettings, samePlace } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
 import { CITIES, filterCities } from "./weather/cities.js";
@@ -29,6 +29,7 @@ import {
   buildPrintSpec,
   buildProgressSpec,
   buildOfflineSpec,
+  buildDetachSpec,
   applyPopupLanguage,
   buildSearchSpec,
   buildSettingsSpec,
@@ -58,6 +59,7 @@ class WeatherApp {
     this.extraCities = [];
     /** Extra windows keep their own city list, so only the first window stores one. */
     this.ownsCityList = true;
+    this.windowKey = "";
     this.fonts = resolveFontList([]);
     this.settings = sanitizeSettings(this.platform.readSettingsSync?.() || null);
     this.recent.load(this.settings.recentFiles);
@@ -169,7 +171,14 @@ class WeatherApp {
       this.syncTabsToCities();
       const boot = await this.platform.windowBoot?.();
       if (boot?.primary === false) this.ownsCityList = false;
-      if (boot && Number.isFinite(Number(boot.cityIndex))) this.doc.activeIndex = Math.max(0, Math.min(this.doc.tabs.length - 1, Math.round(Number(boot.cityIndex))));
+      if (boot?.windowKey) this.windowKey = String(boot.windowKey);
+      if (Array.isArray(boot?.cities) && boot.cities.length) {
+        this.settings.cities = sanitizeCities(boot.cities, this.settings.defaultLocation);
+        this.syncTabsToCities();
+        this.doc.activeIndex = 0;
+      } else if (boot && Number.isFinite(Number(boot.cityIndex))) {
+        this.doc.activeIndex = Math.max(0, Math.min(this.doc.tabs.length - 1, Math.round(Number(boot.cityIndex))));
+      }
       this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
       if (this.settings.windowPosition) this.shellOffset = { ...this.settings.windowPosition };
       this.applyShellSize();
@@ -814,16 +823,45 @@ class WeatherApp {
     }, 150);
   }
 
-  /** Another window starts on the city after the one this window shows. */
+  /** Pick one city already in this window and give it a window of its own. */
   async openWeatherWindow() {
     if (!this.platform.newWindow) {
       this.setStatus(this.t("msg.oneWindow"));
       return;
     }
-    const count = this.doc.tabs.length;
-    const cityIndex = count > 1 ? (this.doc.activeIndex + 1) % count : this.doc.activeIndex;
-    await this.persist();
-    await this.platform.newWindow({ cityIndex });
+    if (this.doc.tabs.length < 2) {
+      this.setStatus(this.t("msg.keepCity"));
+      return;
+    }
+    const answer = await this.openPopup(buildDetachSpec(this.cities(), this.settings.language, (key, vars) => this.t(key, vars)));
+    if (!answer || answer.action !== "detach") return;
+    await this.detachCity(answer.index);
+  }
+
+  /** The chosen city leaves this window and opens in a new one. */
+  async detachCity(index) {
+    if (!this.platform.newWindow || this.doc.tabs.length < 2) {
+      this.setStatus(this.t("msg.keepCity"));
+      return;
+    }
+    const at = Math.round(Number(index));
+    const tab = this.doc.tabs[at];
+    if (!tab) return;
+    const place = createPlace(tab.place);
+    const windowKey = `win-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    this.settings.extraWindows = moveCityToWindow(
+      this.settings.extraWindows,
+      { cities: [place], windowKey, sourceKey: this.windowKey, moved: place },
+      this.settings.defaultLocation,
+    );
+    this.doc.tabs.splice(at, 1);
+    if (this.doc.activeIndex >= this.doc.tabs.length) this.doc.activeIndex = this.doc.tabs.length - 1;
+    else if (this.doc.activeIndex > at) this.doc.activeIndex -= 1;
+    this.markDirty();
+    this.afterStructure();
+    this.armRotateTimer();
+    if (this.ownsCityList) await this.persist();
+    await this.platform.newWindow({ cities: [place], windowKey, sourceKey: this.windowKey || "", moved: place });
   }
 
   /** A click on the window, the tray, or the rotation timer all land here. */
