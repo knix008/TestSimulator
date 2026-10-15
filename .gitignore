@@ -418,3 +418,12 @@ FodyWeavers.xsd
 *.msp
 
 3DViewerV10/.claude/
+
+# KoreanSTTTrainingV10 가상환경, 녹음, 학습 가중치
+KoreanSTTTrainingV10/.venv/
+KoreanSTTTrainingV10/**/__pycache__/
+KoreanSTTTrainingV10/cpp/build/
+KoreanSTTTrainingV10/data/*
+!KoreanSTTTrainingV10/data/.gitkeep
+KoreanSTTTrainingV10/models/*
+!KoreanSTTTrainingV10/models/.gitkeep
