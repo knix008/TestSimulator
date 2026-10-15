@@ -72,6 +72,16 @@ const FIT_TRIM = 0.01;
 // half-length. The diagonal of the box reaches about 1.41, so this keeps the
 // ends of the axes clear of the drawing without racing away from it.
 const AXIS_OVERHANG = 1.2;
+// How finely a 3D axis is cut to be sorted in among the surface cells, and how
+// light it is drawn.
+const AXIS_PIECES = 64;
+const AXIS_LINE_WIDTH = 1.5;
+const AXIS_LINE_ALPHA = 0.55;
+const AXIS_TEXT_ALPHA = 0.8;
+// An axis lying in a surface ties with it cell by cell and comes out dashed;
+// pulling it toward the eye by this share of the floor's width (about two mesh
+// cells) lets it win the tie, while a sheet clearly in front still covers it.
+const AXIS_DEPTH_BIAS = 0.02;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -1512,7 +1522,7 @@ class GraphBoard {
     const order = this.cellBuffers.order.subarray(0, count);
     for (let index = 0; index < count; index++) order[index] = index;
     order.sort((one, two) => far[two] - far[one]);
-    return { order, owner, cells, kind, count };
+    return { order, owner, cells, kind, far, count };
   }
 
   projectScene() {
@@ -1635,22 +1645,34 @@ class GraphBoard {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     if (this.showGrid && eyeAboveFloor) this.drawFloor(ctx, dpr);
-    this.paintSurfaces(ctx, dpr);
+    const { pieces, letters } = this.axisPieces(dpr);
+    this.paintSurfaces(ctx, dpr, pieces);
     if (this.showGrid && !eyeAboveFloor) this.drawFloor(ctx, dpr);
     if (this.showGrid) this.drawFloor(ctx, dpr, true);
-    this.draw3dAxes(ctx, dpr);
+    this.drawAxisLetters(ctx, dpr, letters);
     this.drawLight(ctx, dpr);
     ctx.restore();
   }
 
-  paintSurfaces(ctx, dpr) {
+  // The axis pieces come sorted far to near and are slipped in between the
+  // cells, each just before the first cell that is nearer than it.
+  paintSurfaces(ctx, dpr, pieces = []) {
+    let next = 0;
+    const drawFartherThan = (away) => {
+      while (next < pieces.length && pieces[next].depth >= away) this.drawAxisPiece(ctx, pieces[next++]);
+    };
     const batch = this.projectSurfaces();
-    if (!batch.length) return;
-    const { order, owner, cells, kind, count } = this.sortedCells(batch);
+    if (!batch.length) {
+      drawFartherThan(-Infinity);
+      return;
+    }
+    const { order, owner, cells, kind, far, count } = this.sortedCells(batch);
     ctx.save();
     ctx.lineWidth = Math.max(1, 0.9 * dpr);
     for (let index = 0; index < count; index++) {
       const slot = order[index];
+      // Each piece saves and restores its own state, so the cell's survives.
+      drawFartherThan(far[slot]);
       const surface = batch[owner[slot]];
       let paint;
       ctx.beginPath();
@@ -1681,6 +1703,8 @@ class GraphBoard {
       ctx.stroke();
     }
     ctx.restore();
+    // Whatever is nearer than every cell goes on last.
+    drawFartherThan(-Infinity);
   }
 
   drawFloor(ctx, dpr, ghost) {
@@ -1906,7 +1930,11 @@ class GraphBoard {
     return { xs: this.multiples(xMin, xMax, step), ys: this.multiples(yMin, yMax, step) };
   }
 
-  draw3dAxes(ctx, dpr) {
+  // The axes are cut into short pieces, each with its own depth, so they can
+  // go into the surface's back-to-front order: a sheet that passes in front of
+  // an axis covers it, and an axis that runs through a bowl disappears inside.
+  // Only the X, Y and Z letters, which sit past the drawing, stay on top.
+  axisPieces(dpr) {
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
     const origin = this.axisAnchor();
     const pad = 0.12;
@@ -1946,23 +1974,30 @@ class GraphBoard {
         visible: this.axes.z.visible,
       },
     ];
-    ctx.save();
-    ctx.lineWidth = 2 * dpr;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    const pieces = [];
+    const letters = [];
     const centre = this.projectLocal(origin);
     const margin = 14 * dpr;
-    const letters = [];
+    const width = AXIS_LINE_WIDTH * dpr;
     for (const axis of axes) {
       if (!axis.visible) continue;
       const a = this.projectLocal(axis.from);
       const b = this.projectLocal(axis.to);
       if (!a || !b) continue;
-      ctx.strokeStyle = axis.color;
-      ctx.beginPath();
-      ctx.moveTo(a.sx, a.sy);
-      ctx.lineTo(b.sx, b.sy);
-      ctx.stroke();
+      const along = (t) =>
+        this.projectLocal({
+          x: axis.from.x + (axis.to.x - axis.from.x) * t,
+          y: axis.from.y + (axis.to.y - axis.from.y) * t,
+          z: axis.from.z + (axis.to.z - axis.from.z) * t,
+        });
+      let previous = a;
+      for (let step = 1; step <= AXIS_PIECES; step++) {
+        const next = step === AXIS_PIECES ? b : along(step / AXIS_PIECES);
+        if (previous && next) {
+          pieces.push({ depth: (previous.depth + next.depth) / 2, line: [previous.sx, previous.sy, next.sx, next.sy], color: axis.color, width });
+        }
+        previous = next;
+      }
       // The letter marks where the drawing ends, one step further out along
       // the axis so no tick number can sit on top of it.
       const mark = this.projectLocal(axis.at) || b;
@@ -1977,7 +2012,41 @@ class GraphBoard {
       });
     }
     // The numbers give way to the letters, never the other way round.
-    if (this.showAxisValues) this.drawAxisValues(ctx, dpr, letters);
+    if (this.showAxisValues) this.axisValuePieces(dpr, letters, pieces);
+    const bias = AXIS_DEPTH_BIAS * (xHigh - xLow + yHigh - yLow) / (2 * AXIS_OVERHANG);
+    for (const piece of pieces) piece.depth -= bias;
+    pieces.sort((one, two) => two.depth - one.depth);
+    return { pieces, letters };
+  }
+
+  // Axis lines and numbers are drawn lighter than the curves: they are the
+  // ruler, not the subject, and a full-strength line reads as part of the shape.
+  drawAxisPiece(ctx, piece) {
+    ctx.save();
+    ctx.globalAlpha = piece.text ? AXIS_TEXT_ALPHA : AXIS_LINE_ALPHA;
+    if (piece.text) {
+      ctx.font = piece.font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = piece.color;
+      ctx.fillText(piece.text, piece.x, piece.y);
+    } else {
+      // Butt ends, so neighbouring pieces of one axis meet without a darker bead.
+      ctx.lineCap = "butt";
+      ctx.lineWidth = piece.width;
+      ctx.strokeStyle = piece.color;
+      ctx.beginPath();
+      ctx.moveTo(piece.line[0], piece.line[1]);
+      ctx.lineTo(piece.line[2], piece.line[3]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawAxisLetters(ctx, dpr, letters) {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     // One size for the letters however far the camera stands.
     ctx.font = `700 ${13 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
     for (const letter of letters) {
@@ -1987,10 +2056,12 @@ class GraphBoard {
     ctx.restore();
   }
 
-  drawAxisValues(ctx, dpr, reserved = []) {
+  axisValuePieces(dpr, reserved, pieces) {
     const placed = reserved.map((spot) => ({ x: spot.x, y: spot.y }));
     const width = this.canvas.width;
     const height = this.canvas.height;
+    const font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
+    const tickWidth = Math.max(1, dpr);
     const label = (text, point, dx, dy, color) => {
       if (!point) return;
       const x = point.sx + dx;
@@ -1998,11 +2069,11 @@ class GraphBoard {
       if (x < 4 || x > width - 4 || y < 4 || y > height - 4) return;
       if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < 18 * dpr)) return;
       placed.push({ x, y });
-      ctx.fillStyle = color;
-      ctx.fillText(text, x, y);
+      pieces.push({ depth: point.depth, text, x, y, color, font });
     };
-    ctx.lineWidth = Math.max(1, dpr);
-    ctx.font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
+    const tick = (point, end, color) => {
+      if (point && end) pieces.push({ depth: (point.depth + end.depth) / 2, line: [point.sx, point.sy, end.sx, end.sy], color, width: tickWidth });
+    };
     const origin = this.axisAnchor();
     const step = this.floorStep();
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
@@ -2010,14 +2081,7 @@ class GraphBoard {
       for (const value of this.multiples(xMin, xMax, step)) {
         const local = { x: this.worldToFloorX(value), y: origin.y, z: origin.z };
         const point = this.projectLocal(local);
-        const tick = this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 });
-        if (point && tick) {
-          ctx.strokeStyle = this.axes.x.color;
-          ctx.beginPath();
-          ctx.moveTo(point.sx, point.sy);
-          ctx.lineTo(tick.sx, tick.sy);
-          ctx.stroke();
-        }
+        tick(point, this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 }), this.axes.x.color);
         label(formatTick(value), point, 0, 14 * dpr, this.axes.x.color);
       }
     }
@@ -2025,14 +2089,7 @@ class GraphBoard {
       for (const value of this.multiples(yMin, yMax, step)) {
         const local = { x: origin.x, y: this.worldToFloorY(value), z: origin.z };
         const point = this.projectLocal(local);
-        const tick = this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 });
-        if (point && tick) {
-          ctx.strokeStyle = this.axes.y.color;
-          ctx.beginPath();
-          ctx.moveTo(point.sx, point.sy);
-          ctx.lineTo(tick.sx, tick.sy);
-          ctx.stroke();
-        }
+        tick(point, this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 }), this.axes.y.color);
         label(formatTick(value), point, 14 * dpr, 0, this.axes.y.color);
       }
     }
@@ -2043,14 +2100,7 @@ class GraphBoard {
     for (const value of this.multiples(zMin, zMax, this.heightStep())) {
       const local = { x: origin.x, y: origin.y, z: (value - middleZ) / this.heightScale() };
       const point = this.projectLocal(local);
-      const tick = this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z });
-      if (point && tick) {
-        ctx.strokeStyle = this.axes.z.color;
-        ctx.beginPath();
-        ctx.moveTo(point.sx, point.sy);
-        ctx.lineTo(tick.sx, tick.sy);
-        ctx.stroke();
-      }
+      tick(point, this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z }), this.axes.z.color);
       label(formatTick(value), point, 12 * dpr, 0, this.axes.z.color);
     }
   }

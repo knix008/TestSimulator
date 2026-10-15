@@ -4989,3 +4989,163 @@ suite("Graph side panels", () => {
     }
   });
 });
+
+// The 3D axes are sorted in among the surface cells, so a surface in front of
+// an axis hides it. Each test draws the same scene with the axes on and off and
+// compares the pixels along an axis: where it is hidden the two pictures match.
+suite("3D axes and surfaces", () => {
+  async function openScene(expr) {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    loaded.frame.style.width = "1200px";
+    loaded.frame.style.height = "720px";
+    for (let i = 0; i < 40 && !callWin(loaded.win, () => graphReady); i++) await wait(25);
+    await wait(50);
+    loaded.win.__scene = expr;
+    callWin(loaded.win, () => {
+      window.__saved = { grid: board.showGrid, values: board.showAxisValues, legend: board.showLegend };
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.showGrid = false;
+      board.showAxisValues = false;
+      board.showLegend = false;
+      board.resetView();
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      if (window.__scene) board.addFunction(window.__scene);
+      board.resize();
+    });
+    flush(loaded.win);
+    return loaded;
+  }
+
+  function closeScene(loaded) {
+    callWin(loaded.win, () => {
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      for (const axis of ["x", "y", "z"]) board.axes[axis].visible = true;
+      board.showGrid = window.__saved.grid;
+      board.showAxisValues = window.__saved.values;
+      board.showLegend = window.__saved.legend;
+      board.zAuto = true;
+      board.resetView();
+      board.setDimension("2d");
+    });
+    loaded.frame.remove();
+  }
+
+  // For each world point on an axis: how far the pixels near it move when the
+  // axes are switched on (0 = hidden), and that change as a share of the axis
+  // colour's full strength (1 = drawn solid).
+  function probe(loaded, points) {
+    loaded.win.__points = points;
+    return callWin(loaded.win, () => {
+      const render = (on) => {
+        for (const axis of ["x", "y", "z"]) board.axes[axis].visible = on;
+        board.draw();
+        return board.ctx.getImageData(0, 0, board.canvas.width, board.canvas.height).data;
+      };
+      const off = render(false);
+      const on = render(true);
+      const width = board.canvas.width;
+      const height = board.canvas.height;
+      return window.__points.map((point) => {
+        const spot = board.projectLocal({ x: board.worldToFloorX(point.x), y: board.worldToFloorY(point.y), z: board.zToLocal(point.z) });
+        const full = hexToRgb(board.axes[point.axis].color);
+        let change = 0;
+        let share = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const px = Math.round(spot.sx) + dx;
+            const py = Math.round(spot.sy) + dy;
+            if (px < 0 || py < 0 || px >= width || py >= height) continue;
+            const at = (py * width + px) * 4;
+            // The canvas is transparent where nothing is drawn; weigh by alpha.
+            const pixel = (data) => [0, 1, 2].map((c) => (data[at + c] * data[at + 3]) / 255);
+            const before = pixel(off);
+            const after = pixel(on);
+            change = Math.max(change, [0, 1, 2].reduce((sum, c) => sum + Math.abs(after[c] - before[c]), 0));
+            const c = [0, 1, 2].reduce((best, k) => (Math.abs(full[k] - before[k]) > Math.abs(full[best] - before[best]) ? k : best), 0);
+            const room = full[c] - before[c];
+            if (Math.abs(room) > 30) share = Math.max(share, (after[c] - before[c]) / room);
+          }
+        }
+        return { change: Math.round(change), share };
+      });
+    });
+  }
+
+  const alongX = (z, xs = [-8, -6, -4, -2, 2, 4, 6, 8]) => xs.map((x) => ({ axis: "x", x, y: 0, z }));
+  const alongY = (z, ys = [-8, -6, -4, -2, 2, 4, 6, 8]) => ys.map((y) => ({ axis: "y", x: 0, y, z }));
+
+  test("The camera looks down on the scene these checks are drawn for", async () => {
+    const loaded = await openScene("");
+    try {
+      assert(callWin(loaded.win, () => Math.sin(board.camera.pitch) < 0), "The default camera is below the floor");
+      assert(Math.abs(callWin(loaded.win, () => board.axisAnchor().z)) < 1e-9, "The axes do not cross at z = 0");
+    } finally {
+      closeScene(loaded);
+    }
+  });
+
+  test("A surface in front of an axis hides it", async () => {
+    const loaded = await openScene("5+0*x");
+    try {
+      const covered = probe(loaded, [...alongX(0), ...alongY(0), { axis: "z", x: 0, y: 0, z: 2 }, { axis: "z", x: 0, y: 0, z: 3.5 }]);
+      const seen = covered.map((spot, index) => [index, spot.change]).filter(([, change]) => change > 20);
+      assert(!seen.length, `axis showing through the sheet at ${seen.map(([index, change]) => `#${index} (${change})`).join(", ")}`);
+      // Above the sheet the same Z axis is in the open again.
+      const above = probe(loaded, [{ axis: "z", x: 0, y: 0, z: 8 }, { axis: "z", x: 0, y: 0, z: 9.5 }]);
+      assert(above.every((spot) => spot.change > 30), `the Z axis above the sheet is hidden: ${above.map((spot) => spot.change).join(", ")}`);
+    } finally {
+      closeScene(loaded);
+    }
+  });
+
+  test("An axis in front of a surface stays in sight", async () => {
+    const loaded = await openScene("-5+0*x");
+    try {
+      const spots = probe(loaded, [...alongX(0), ...alongY(0), { axis: "z", x: 0, y: 0, z: 4 }]);
+      const hidden = spots.filter((spot) => spot.change <= 30).length;
+      assert(hidden === 0, `${hidden} of ${spots.length} points of the axes went under a sheet that lies below them`);
+    } finally {
+      closeScene(loaded);
+    }
+  });
+
+  test("An axis lying in a surface is drawn whole, not dashed", async () => {
+    const loaded = await openScene("0*x");
+    try {
+      const xs = Array.from({ length: 31 }, (_, index) => -7.5 + index * 0.5).filter((value) => Math.abs(value) > 0.6);
+      const spots = probe(loaded, [...alongX(0, xs), ...alongY(0, xs)]);
+      const gaps = spots.filter((spot) => spot.change <= 30).length;
+      assert(gaps === 0, `${gaps} of ${spots.length} points of the axes vanished into the sheet they lie on`);
+    } finally {
+      closeScene(loaded);
+    }
+  });
+
+  test("A bowl hides the axes under it and shows the one rising inside it", async () => {
+    const loaded = await openScene("(x^2+y^2)/10");
+    try {
+      // Under the bowl's sides, near the middle where the bowl is lowest, the
+      // floor axes are hidden; the Z axis inside the bowl, above its bottom, is not.
+      const under = probe(loaded, [...alongX(0, [-6, 6]), ...alongY(0, [-6, 6])]);
+      assert(under.every((spot) => spot.change <= 20), `the axes show through the bowl: ${under.map((spot) => spot.change).join(", ")}`);
+      const inside = probe(loaded, [{ axis: "z", x: 0, y: 0, z: 6 }, { axis: "z", x: 0, y: 0, z: 8 }]);
+      assert(inside.every((spot) => spot.change > 30), `the Z axis inside the bowl is hidden: ${inside.map((spot) => spot.change).join(", ")}`);
+    } finally {
+      closeScene(loaded);
+    }
+  });
+
+  test("The axes are drawn lighter than their full colour", async () => {
+    const loaded = await openScene("");
+    try {
+      const spots = probe(loaded, [...alongX(0, [-6, -3, 3, 6]), ...alongY(0, [-6, -3, 3, 6]), { axis: "z", x: 0, y: 0, z: 5 }]);
+      for (const [index, spot] of spots.entries()) {
+        assert(spot.share > 0.25, `axis point #${index} is barely drawn (${spot.share.toFixed(2)})`);
+        assert(spot.share < 0.75, `axis point #${index} is drawn at ${spot.share.toFixed(2)} of full strength`);
+      }
+    } finally {
+      closeScene(loaded);
+    }
+  });
+});
