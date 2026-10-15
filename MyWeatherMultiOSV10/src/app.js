@@ -8,7 +8,7 @@ import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
-import { MAX_CITIES, clamp, moveCityToWindow, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeSettings, samePlace } from "./core/settings.js";
+import { FONT_PARTS, MAX_CITIES, clamp, fontsForWindow, moveCityToWindow, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeFonts, sanitizeSettings, samePlace } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
 import { CITIES, filterCities } from "./weather/cities.js";
@@ -62,6 +62,7 @@ class WeatherApp {
     this.windowKey = "";
     this.fonts = resolveFontList([]);
     this.settings = sanitizeSettings(this.platform.readSettingsSync?.() || null);
+    this.sceneFonts = fontsForWindow(this.settings);
     this.recent.load(this.settings.recentFiles);
     this.i18n.setLanguage(this.settings.language);
     this.doc = createDocument(this.settings.cities);
@@ -166,7 +167,6 @@ class WeatherApp {
         }
       }
       this.fonts = resolveFontList(await this.platform.listFonts());
-      if (!this.fonts.includes(this.settings.fontFamily)) this.fonts.unshift(this.settings.fontFamily);
       this.extraCities = [...(this.settings.extraCities || [])];
       this.syncTabsToCities();
       const boot = await this.platform.windowBoot?.();
@@ -178,6 +178,11 @@ class WeatherApp {
         this.doc.activeIndex = 0;
       } else if (boot && Number.isFinite(Number(boot.cityIndex))) {
         this.doc.activeIndex = Math.max(0, Math.min(this.doc.tabs.length - 1, Math.round(Number(boot.cityIndex))));
+      }
+      this.sceneFonts = fontsForWindow(this.settings, { primary: this.ownsCityList, windowKey: this.windowKey });
+      for (const part of FONT_PARTS) {
+        const name = this.sceneFonts[part];
+        if (name && !this.fonts.includes(name)) this.fonts.unshift(name);
       }
       this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
       if (this.settings.windowPosition) this.shellOffset = { ...this.settings.windowPosition };
@@ -740,7 +745,6 @@ class WeatherApp {
       customTheme: custom,
       transparency,
       language: this.settings.language,
-      fontFamily: this.settings.fontFamily,
     });
     this.applyWallpaper(this.wallpaperOpacityPreview ?? this.settings.backgroundOpacity);
     this.frame.dataset.theme = theme;
@@ -766,7 +770,16 @@ class WeatherApp {
   }
 
   applyFont() {
-    this.frame.style.fontFamily = `"${this.settings.fontFamily}", sans-serif`;
+    const fonts = this.ownsCityList
+      ? sanitizeFonts(this.settings.fonts, this.settings.fontFamily)
+      : sanitizeFonts(this.sceneFonts, this.settings.fontFamily);
+    this.sceneFonts = fonts;
+    this.frame.style.fontFamily = "";
+    for (const part of FONT_PARTS) {
+      const family = String(fonts[part] || "").replace(/["\\]/g, "");
+      this.content.style.setProperty(`--font-${part}`, family ? `"${family}", sans-serif` : "sans-serif");
+      this.content.style.setProperty(`--size-${part}`, `${fonts.sizes[part]}px`);
+    }
   }
 
   applyZoom() {
@@ -2084,7 +2097,7 @@ class WeatherApp {
         backgroundOpacity: this.settings.backgroundOpacity,
         backgroundName: this.settings.backgroundName,
         backgroundImage: this.settings.backgroundImage,
-        fontFamily: this.settings.fontFamily,
+        fonts: this.sceneFonts,
         enabledSources: this.settings.enabledSources,
         sourceStatus: Object.fromEntries((this.currentTab()?.weather?.sources || []).map((source) => [source.id, source])),
         lastDirectory: this.settings.lastDirectory,
@@ -2131,7 +2144,25 @@ class WeatherApp {
       target.backgroundImage = values.backgroundImage || "";
       target.backgroundName = values.backgroundName || "";
     }
-    if (values.fontFamily) target.fontFamily = values.fontFamily;
+    const fonts = sanitizeFonts(
+      {
+        city: values.fontCity,
+        date: values.fontDate,
+        temp: values.fontTemp,
+        cond: values.fontCond,
+        range: values.fontRange,
+        sizes: {
+          city: values.sizeCity,
+          date: values.sizeDate,
+          temp: values.sizeTemp,
+          cond: values.sizeCond,
+          range: values.sizeRange,
+        },
+      },
+      target.fontFamily,
+    );
+    this.sceneFonts = fonts;
+    if (this.ownsCityList) target.fonts = fonts;
     target.openAtLogin = Boolean(values.openAtLogin);
     if (values.sources) {
       const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
@@ -2166,6 +2197,7 @@ class WeatherApp {
 
   previewSettingsForm(values) {
     const saved = this.settings;
+    const previousFonts = { ...this.sceneFonts };
     const draft = structuredClone(saved);
     const tab = this.currentTab();
     const placeBefore = tab ? createPlace(tab.place) : null;
@@ -2186,6 +2218,7 @@ class WeatherApp {
       };
     } finally {
       this.settings = saved;
+      this.sceneFonts = previousFonts;
       if (tab && placeBefore) tab.place = placeBefore;
     }
   }
@@ -2193,11 +2226,19 @@ class WeatherApp {
   /** The saved city list carries the pickers' choice, so restoring the settings restores the tabs. */
   async applySettingsForm(values) {
     const before = structuredClone(this.settings);
+    const beforeFonts = { ...this.sceneFonts };
     this.writeSettingsValues(this.settings, values);
     const after = structuredClone(this.settings);
+    const afterFonts = { ...this.sceneFonts };
     this.pushUndo({
-      undo: () => this.replaceSettings(before),
-      redo: () => this.replaceSettings(after),
+      undo: () => {
+        this.sceneFonts = beforeFonts;
+        this.replaceSettings(before);
+      },
+      redo: () => {
+        this.sceneFonts = afterFonts;
+        this.replaceSettings(after);
+      },
     });
     this.replaceSettings(after);
     await this.persist();
@@ -2425,7 +2466,6 @@ class WeatherApp {
       ...spec,
       theme: live?.theme || this.settings.theme,
       customTheme: live?.customTheme || this.settings.customTheme,
-      fontFamily: this.settings.fontFamily,
       language: this.settings.language,
       closeLabel: this.t("tip.close"),
     };
@@ -2470,8 +2510,11 @@ class WeatherApp {
     if (this.ownsCityList) this.settings.cities = this.cities();
     this.settings.extraCities = this.extraCities.map((entry) => createPlace(entry));
     const payload = sanitizeSettings(this.settings);
-    // The first window owns settings.cities. Another window sends its own list beside that.
-    if (!this.ownsCityList && this.windowKey) payload.windowCities = sanitizeCities(this.cities(), this.settings.defaultLocation);
+    // The first window owns settings.cities and settings.fonts. Another window sends its own beside those.
+    if (!this.ownsCityList && this.windowKey) {
+      payload.windowCities = sanitizeCities(this.cities(), this.settings.defaultLocation);
+      payload.windowFonts = sanitizeFonts(this.sceneFonts, this.settings.fontFamily);
+    }
     await this.platform.writeSettings(payload);
   }
 }

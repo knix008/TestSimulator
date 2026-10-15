@@ -22,6 +22,43 @@ export const DEFAULT_LOCATION = {
   lon: 126.978,
 };
 
+/** Weather lines that can each carry their own font and base size. The window chrome stays on the default face. */
+export const FONT_PARTS = ["city", "date", "temp", "cond", "range"];
+export const FONT_BASE = { city: 44, date: 16, temp: 68, cond: 16, range: 16 };
+export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 68, 72, 80, 96, 112, 128];
+
+export function sanitizeFontSize(value, part) {
+  const number = Math.round(Number(value));
+  const base = FONT_BASE[part] || 16;
+  if (!Number.isFinite(number)) return base;
+  return Math.min(FONT_SIZES[FONT_SIZES.length - 1], Math.max(FONT_SIZES[0], number));
+}
+
+export function sanitizeFonts(raw, fallback = "Segoe UI") {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const base = String(source.fontFamily || fallback || "Segoe UI").trim() || "Segoe UI";
+  const sizes = source.sizes && typeof source.sizes === "object" ? source.sizes : {};
+  const fonts = { sizes: {} };
+  for (const part of FONT_PARTS) {
+    const value = source[part];
+    const family = value && typeof value === "object" ? value.family || value.fontFamily : value;
+    const size = value && typeof value === "object" ? value.size : sizes[part];
+    fonts[part] = String(family || "").trim() || base;
+    fonts.sizes[part] = sanitizeFontSize(size, part);
+  }
+  return fonts;
+}
+
+/** The first window reads settings.fonts. Another window reads the fonts stored with its own entry. */
+export function fontsForWindow(settings, { primary = true, windowKey = "" } = {}) {
+  const fallback = String(settings?.fontFamily || "Segoe UI");
+  if (primary === false && windowKey) {
+    const slot = (settings?.extraWindows || []).find((entry) => entry.key === windowKey);
+    if (slot?.fonts) return sanitizeFonts(slot.fonts, fallback);
+  }
+  return sanitizeFonts(settings?.fonts || { fontFamily: fallback }, fallback);
+}
+
 export const DEFAULT_SETTINGS = {
   language: "ko",
   theme: DEFAULT_THEME_ID,
@@ -119,7 +156,8 @@ export function sanitizeExtraWindows(raw, fallback = DEFAULT_LOCATION) {
       .map((item) => normalizePlace(item, fallback));
     const key = String(entry?.key || "");
     if (!key || !cities.length) continue;
-    windows.push({ key, cities, ...savedWindowBox(entry) });
+    const fonts = entry?.fonts ? sanitizeFonts(entry.fonts) : null;
+    windows.push({ key, cities, ...savedWindowBox(entry), ...(fonts ? { fonts } : {}) });
     if (windows.length >= MAX_CITIES) break;
   }
   return windows;
@@ -182,6 +220,7 @@ export function sanitizeSettings(raw) {
   settings.transparency = clamp(settings.transparency ?? DEFAULT_SETTINGS.transparency, 0, 100);
   settings.backgroundOpacity = clamp(settings.backgroundOpacity ?? DEFAULT_SETTINGS.backgroundOpacity, 0, 100);
   settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
+  settings.fonts = sanitizeFonts(source.fonts || { fontFamily: settings.fontFamily }, settings.fontFamily);
   settings.zoom = clamp(settings.zoom || 100, 50, 200);
   settings.units = settings.units === "F" ? "F" : "C";
   settings.dateFormat = normalizeDateFormat(settings.dateFormat);

@@ -264,8 +264,8 @@ export function registerGui(h) {
       const sheet = document.querySelector("head style").textContent;
       const cityRule = /\.scene-city \{[^}]*\}/.exec(sheet)[0];
       const dateRule = /\.scene-date \{[^}]*\}/.exec(sheet)[0];
-      assert.match(cityRule, /font-size: calc\(44px/, cityRule);
-      assert.match(dateRule, /font-size: calc\(16px/, dateRule);
+      assert.match(cityRule, /font-size: calc\(var\(--size-city, 44px\)/, cityRule);
+      assert.match(dateRule, /font-size: calc\(var\(--size-date, 16px\)/, dateRule);
       assert.match(cityRule, /font-weight: 800/, cityRule);
       assert.match(cityRule, /text-overflow: ellipsis/, "a long name tails off instead of being cut");
       assert.equal(app.root.querySelector(".tabbar"), null);
@@ -869,6 +869,38 @@ export function registerGui(h) {
         assert.equal(app.doc.tabs.length, 3);
         await app.persist();
         assert.deepEqual(platform.settings.cities.map((place) => place.cityEn), ["Seoul", "Tokyo"], "the stored list is left to the first window");
+      },
+      { platform },
+    );
+  });
+  h.test("another weather window keeps its own item fonts", async () => {
+    const { createMemoryPlatform } = await import("../support.js");
+    const platform = createMemoryPlatform();
+    platform.settings = {
+      fonts: { city: "Georgia", date: "Segoe UI", temp: "Segoe UI", cond: "Segoe UI", range: "Segoe UI" },
+      extraWindows: [{ key: "win-a", cities: [findCity("JP", "Tokyo")], fonts: { city: "Verdana", date: "Segoe UI", temp: "Segoe UI", cond: "Segoe UI", range: "Segoe UI" } }],
+      cities: [findCity("KR", "Seoul")],
+    };
+    platform.boot = { primary: false, windowKey: "win-a", cities: [findCity("JP", "Tokyo")] };
+    await withApp(
+      async ({ app }) => {
+        assert.match(app.content.style.getPropertyValue("--font-city"), /Verdana/);
+        assert.equal(app.frame.style.fontFamily, "");
+        const pending = app.showSettings("font");
+        await settle();
+        const popup = document.querySelector('[data-popup="settings"]');
+        assert.equal(popup.querySelector("[data-font-sample]").textContent, "서울");
+        const city = popup.querySelector('[data-field="fontPick"]');
+        city.value = "Consolas";
+        city.dispatchEvent(new window.Event("change", { bubbles: true }));
+        await settle();
+        assert.match(popup.querySelector("[data-font-sample]").style.fontFamily, /Consolas/);
+        assert.equal(popup.querySelector('[data-field="fontCity"]').value, "Consolas");
+        popup.querySelector('[data-action="ok"]').click();
+        await pending;
+        assert.equal(app.sceneFonts.city, "Consolas");
+        assert.equal(platform.settings.windowFonts.city, "Consolas");
+        assert.equal(platform.settings.fonts.city, "Georgia", "the first window's font stays where it was");
       },
       { platform },
     );
@@ -1537,19 +1569,64 @@ export function registerGui(h) {
         assert.equal(row.style.whiteSpace, "nowrap");
         assert.equal(row.querySelectorAll("br").length, 0);
       }
-      assert.equal(popup.querySelector('[data-field="fontFamily"]').options.length, 50);
-      // The font is a single choice now: no size, no style.
+      const part = popup.querySelector('[data-field="fontPart"]');
+      assert.deepEqual([...part.options].map((option) => option.value), ["city", "date", "temp", "cond", "range"]);
+      assert.equal(popup.querySelector('[data-field="fontPick"]').options.length, 51);
+      assert.equal(popup.querySelector('[data-field="itemSize"]').value, "44");
+      const shown = popup.querySelector("[data-size-label]");
+      const down = popup.querySelector('[data-row="itemSize"] [data-step="-1"]');
+      const up = popup.querySelector('[data-row="itemSize"] [data-step="1"]');
+      assert.equal(down.getAttribute("aria-label"), "감소");
+      assert.equal(up.getAttribute("aria-label"), "증가");
+      assert.equal(shown.textContent, "44px");
+      assert.equal(getComputedStyle(shown).justifyContent, "center");
+      assert.equal(getComputedStyle(shown).alignItems, "center");
+      assert.equal(getComputedStyle(shown).height, "28px");
+      assert.equal(getComputedStyle(down).height, "28px");
+      assert.equal(getComputedStyle(up).height, getComputedStyle(popup.querySelector('[data-field="fontPick"]')).height);
+      up.click();
+      await settle();
+      assert.equal(popup.querySelector('[data-field="itemSize"]').value, "48");
+      assert.equal(shown.textContent, "48px");
+      down.click();
+      await settle();
+      assert.equal(popup.querySelector('[data-field="itemSize"]').value, "44");
+      assert.equal(shown.textContent, "44px");
       assert.equal(popup.querySelector('[data-field="fontSize"]'), null);
       assert.equal(popup.querySelector('[data-field="fontStyle"]'), null);
       assert.equal(popup.querySelector("[data-style]"), null);
       const sample = popup.querySelector("[data-font-sample]");
-      assert.ok(sample && sample.textContent.trim(), "a sample shows the chosen font");
+      assert.equal(popup.querySelectorAll("[data-font-sample]").length, 1);
+      assert.equal(sample.textContent, "서울", "the sample shows only the chosen item");
       assert.equal(getComputedStyle(sample).justifyContent, "center", "and is centred");
-      popup.querySelector('[data-field="fontFamily"]').value = "Family 3";
-      popup.querySelector('[data-field="fontFamily"]').dispatchEvent(new window.Event("change", { bubbles: true }));
+      popup.querySelector('[data-field="fontPick"]').value = "Family 3";
+      popup.querySelector('[data-field="fontPick"]').dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
-      assert.match(sample.style.fontFamily, /Family 3/, "the sample wears it");
+      assert.match(sample.style.fontFamily, /Family 3/, "the city sample wears it");
       assert.equal(popup.style.fontSize, "", "the dialog keeps its own size");
+      part.value = "temp";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "20°C", "the sample follows the chosen item");
+      assert.equal(popup.querySelector('[data-field="itemSize"]').value, "68");
+      assert.doesNotMatch(sample.style.fontFamily, /Family 3/, "the temperature keeps its own face");
+      popup.querySelector('[data-field="itemSize"]').value = "80";
+      popup.querySelector('[data-field="itemSize"]').dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(app.content.style.getPropertyValue("--size-temp"), "80px");
+      assert.equal(app.content.style.getPropertyValue("--size-city"), "44px");
+      part.value = "date";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "10월 15일");
+      part.value = "cond";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "맑음");
+      part.value = "range";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "12° – 24°");
       const korean = popup.querySelector('[data-choice="language"][data-value="ko"]');
       const englishButton = popup.querySelector('[data-choice="language"][data-value="en"]');
       assert.equal(korean.querySelector("span").textContent, "한국어");
@@ -1566,8 +1643,14 @@ export function registerGui(h) {
       popup.querySelector('[data-field="transparency"]').value = "80";
       popup.querySelector('[data-action="ok"]').click();
       await pending;
-      assert.equal(app.settings.fontFamily, "Family 3");
-      assert.match(app.frame.style.fontFamily, /Family 3/, "only the window takes the font");
+      assert.equal(app.settings.fonts.city, "Family 3");
+      assert.equal(app.settings.fonts.temp, "Segoe UI");
+      assert.equal(app.settings.fonts.sizes.temp, 80);
+      assert.equal(app.settings.fonts.sizes.city, 44);
+      assert.match(app.content.style.getPropertyValue("--font-city"), /Family 3/, "only the city line takes that font");
+      assert.match(app.content.style.getPropertyValue("--font-temp"), /Segoe UI/);
+      assert.equal(app.content.style.getPropertyValue("--size-temp"), "80px");
+      assert.equal(app.frame.style.fontFamily, "", "the title bar keeps the window font");
       assert.equal(app.settings.language, "en");
       assert.equal(app.frame.dataset.theme, "dark-forest");
       assert.equal(app.settings.units, "F");
@@ -1579,7 +1662,12 @@ export function registerGui(h) {
       const english = document.querySelector('[data-popup="settings"]');
       assert.deepEqual([...english.querySelectorAll(".popup-tab")].map((button) => button.textContent), ["General", "Cities", "Sources", "Appearance", "Image & font"]);
       assert.equal(english.querySelector('[data-panel="wallpaper"]').hidden, false);
-      assert.ok(english.querySelector('[data-field="fontFamily"]'));
+      assert.equal(english.querySelector('[data-field="fontCity"]').value, "Family 3");
+      assert.equal(english.querySelector("[data-font-sample]").textContent, "Seoul");
+      english.querySelector('[data-field="fontPart"]').value = "cond";
+      english.querySelector('[data-field="fontPart"]').dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(english.querySelector("[data-font-sample]").textContent, "Clear");
       english.querySelector('[data-action="cancel"]').click();
       await again;
       app.undo();
@@ -1806,13 +1894,15 @@ export function registerGui(h) {
       assert.equal(popup.querySelector(".popup-title").textContent, "Settings");
       assert.equal(popup.querySelector('[data-field="units"] option[value="C"]').textContent, "Celsius");
       assert.equal(app.settings.language, "ko");
-      const family = popup.querySelector('[data-field="fontFamily"]');
+      const family = popup.querySelector('[data-field="fontPick"]');
       family.value = "Consolas";
       family.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
-      assert.match(app.frame.style.fontFamily, /Consolas/, "the window shows it at once");
+      assert.match(app.content.style.getPropertyValue("--font-city"), /Consolas/, "the city line shows it at once");
+      assert.match(app.content.style.getPropertyValue("--font-date"), /Segoe UI/, "the date line is left alone");
+      assert.equal(app.frame.style.fontFamily, "", "the title bar is left alone");
       assert.equal(popup.style.fontSize, "", "the dialog is not resized by it");
-      assert.equal(app.settings.fontFamily, "Segoe UI", "and nothing is saved until OK");
+      assert.equal(app.settings.fonts.city, "Segoe UI", "and nothing is saved until OK");
       const units = popup.querySelector('[data-field="units"]');
       units.value = "F";
       units.dispatchEvent(new window.Event("change", { bubbles: true }));
@@ -2670,8 +2760,8 @@ export function registerGui(h) {
       app.applyShellSize();
       const art = Number(app.content.style.getPropertyValue("--art-scale"));
       const text = Number(app.content.style.getPropertyValue("--scene-scale"));
-      assert.equal(text, 1);
-      assert.ok(art > text);
+      assert.ok(text > 1, "the base font size grows with the window");
+      assert.equal(art, text);
       const copy = app.content.querySelector(".scene-copy");
       Object.defineProperty(copy, "scrollWidth", { configurable: true, get: () => 480 });
       app.applySceneScale();

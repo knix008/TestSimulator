@@ -9,7 +9,7 @@ import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
-import { moveCityToWindow, sanitizeSettings } from "../src/core/settings.js";
+import { moveCityToWindow, sanitizeFonts, sanitizeSettings } from "../src/core/settings.js";
 import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
@@ -870,13 +870,18 @@ ipcMain.handle("write-settings", (event, data) => {
   const win = weatherWindowOf(event.sender);
   const boot = windowBoot.get(event.sender.id);
   const windowCities = Array.isArray(incoming.windowCities) ? incoming.windowCities : null;
+  const windowFonts = incoming.windowFonts && typeof incoming.windowFonts === "object" ? incoming.windowFonts : null;
   delete incoming.windowCities;
+  delete incoming.windowFonts;
   const extra = Array.isArray(stored.extraWindows) ? stored.extraWindows.map((entry) => ({ ...entry, cities: entry.cities })) : [];
   if (boot && boot.primary === false && boot.windowKey) {
     if (Array.isArray(stored.cities) && stored.cities.length) incoming.cities = stored.cities;
+    if (stored.fonts) incoming.fonts = stored.fonts;
+    if (stored.fontFamily) incoming.fontFamily = stored.fontFamily;
     const slot = extra.find((entry) => entry.key === boot.windowKey);
     if (slot) {
       if (windowCities && windowCities.length) slot.cities = windowCities;
+      if (windowFonts) slot.fonts = sanitizeFonts(windowFonts, stored.fontFamily);
       if (win && !win.isDestroyed()) {
         const bounds = win.getBounds();
         slot.x = Math.round(bounds.x);
@@ -1100,17 +1105,16 @@ ipcMain.on("broadcast-theme", (event, payload) => {
   if (!payload || typeof payload !== "object") return;
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed() || win.webContents.id === event.sender.id) continue;
-    win.webContents.send("apply-theme", {
+    const message = {
       vars: payload.vars || {},
       mode: payload.mode || "",
       theme: payload.theme || "",
       customTheme: payload.customTheme || null,
       transparency: payload.transparency,
       language: payload.language || "",
-      fontFamily: payload.fontFamily || "",
-      fontSize: payload.fontSize,
-      fontStyle: payload.fontStyle || "",
-    });
+    };
+    if (payload.fontFamily) message.fontFamily = payload.fontFamily;
+    win.webContents.send("apply-theme", message);
   }
 });
 

@@ -77,7 +77,9 @@ Several cities can be listed. Click the weather picture to step to the next one,
 
 테마는 라이트 20개, 다크 20개, 사용자 정의입니다. 각 테마 단추에는 그 테마의 강조색이 아래쪽에 가로 띠로 깔려 있어 한눈에 구분됩니다. 설정에서 테마를 고르면 메인 창과 이미 열려 있는 창이 함께 바뀝니다. 배경 투명도와 그림 투명도는 입력 좌우의 감소, 증가 버튼으로도 바꿀 수 있습니다. 그림 투명도 0은 그림을 숨기고, 100은 그림을 완전히 보여 줍니다. 이것은 창 배경 투명도와 다른 값입니다. 같은 바탕 그림과 그림 투명도는 일간, 주간, 월간 예보 창에도 쓰입니다. 바탕·글꼴 탭의 그림 선택과 그림 제거는 한 줄에 나란히 있습니다.
 
-글꼴은 이름만 고릅니다. 크기와 스타일은 두지 않았습니다. 고른 글꼴은 날씨를 보여 주는 창에만 쓰이고 설정 창 자체는 그대로 둡니다. 글꼴 아래의 미리보기 줄에서 고른 글꼴이 어떻게 보이는지 확인할 수 있습니다.
+글꼴과 글자 크기는 날씨 창마다 따로 고릅니다. 바탕·글꼴 탭에서 항목을 고르면 그 항목의 글꼴을 고르고, 크기는 감소와 증가로 바꿉니다. 가운데에는 지금 크기가 보입니다. 예시는 고른 항목만 보여 줍니다. 글꼴과 크기는 그 항목의 날씨 글자에만 적용되고, 제목 줄과 단추와 설정 창은 바뀌지 않습니다. 다른 날씨 창의 글꼴과 크기도 바뀌지 않습니다. 정해 둔 글꼴과 글자 크기는 기준입니다. 창을 키우거나 줄이면 도시, 날짜, 기온, 날씨, 최저·최고가 그 기준에서 창 크기에 비례해 함께 커지거나 작아집니다.
+
+Each weather window keeps its own fonts and sizes. On the image and font page, choose an item, then set that item's font. Decrease and increase change its size, and the current size sits centred between them. The sample shows only the chosen item. The font and size change that weather text alone. Those sizes are the base: resizing the window scales the city, date, temperature, condition, and low–high together.
 
 Background transparency runs from 0 through 100. At 100 the window background stays visible. Wallpaper opacity is a separate control and may be 0. Both sliders have decrease and increase buttons.
 

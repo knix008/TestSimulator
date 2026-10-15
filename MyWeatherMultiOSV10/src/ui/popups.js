@@ -2,7 +2,7 @@ import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
 import { createI18n, formatMessage } from "../core/i18n.js";
-import { DATE_FORMATS, DEFAULT_SETTINGS, DISPLAY_PRIORITIES, MAX_CITIES, ROTATE_SECONDS, UPDATE_HOURS, clamp, samePlace } from "../core/settings.js";
+import { DATE_FORMATS, DEFAULT_SETTINGS, DISPLAY_PRIORITIES, FONT_BASE, FONT_PARTS, FONT_SIZES, MAX_CITIES, ROTATE_SECONDS, UPDATE_HOURS, clamp, samePlace } from "../core/settings.js";
 import { MARGINS, PAGE_NUMBER_SPOTS, PAPERS, PRINT_RANGES, SCALES, pageHtml, paperSize } from "../core/print-model.js";
 import { PRINT_CSS } from "../core/print-style.js";
 import { SOURCE_IDS } from "../weather/providers.js";
@@ -618,6 +618,7 @@ export function wirePopup(el, spec, handlers = {}) {
   };
   const previewSettings = () => {
     if (spec.type !== "settings") return;
+    rememberFontEditor(el);
     const values = collectValues(el);
     const language = values.language === "en" ? "en" : "ko";
     if (spec.language !== language) {
@@ -836,7 +837,25 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     const step = event.target.closest("[data-step]");
     if (step) {
+      if (step.disabled) return;
       const field = step.dataset.target;
+      if (field === "itemSize") {
+        const input = el.querySelector('[data-field="itemSize"]');
+        const current = Number(input?.value);
+        const direction = Number(step.dataset.step);
+        const exact = FONT_SIZES.indexOf(current);
+        const next = exact >= 0
+          ? FONT_SIZES[exact + direction]
+          : direction < 0
+            ? [...FONT_SIZES].reverse().find((px) => px < current)
+            : FONT_SIZES.find((px) => px > current);
+        if (next == null || !input) return;
+        input.value = String(next);
+        rememberFontEditor(el);
+        showFontEditor(el, spec);
+        previewSettings();
+        return;
+      }
       const input = el.querySelector(`[data-field="${field}"]`);
       const next = Number(input?.value || 0) + Number(step.dataset.step);
       if (input?.type === "number") {
@@ -865,6 +884,7 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     if (action === "reset") {
       resetSettingsForm(el, spec);
+      showFontEditor(el, spec);
       previewTheme();
       void handlers.immediate?.({
         type: "wallpaper-preview",
@@ -917,6 +937,7 @@ export function wirePopup(el, spec, handlers = {}) {
       return;
     }
     if (action === "ok") {
+      rememberFontEditor(el);
       finish({ action: "ok", values: collectValues(el) });
       return;
     }
@@ -960,6 +981,10 @@ export function wirePopup(el, spec, handlers = {}) {
       refillCities(el, spec);
       void handlers.immediate?.({ type: "country-pick", countryCode: event.target.value, popupId: spec.popupId });
     }
+    if (field === "fontPart" || field === "fontPick" || field === "itemSize") {
+      rememberFontEditor(el);
+      showFontEditor(el, spec);
+    }
     if (field === "customMode") customEdited(field);
     if (spec.type === "print") {
       void handlers.immediate?.({ type: "print-setup", popupId: spec.popupId, values: printValues(el) });
@@ -995,6 +1020,7 @@ export function wirePopup(el, spec, handlers = {}) {
   });
   el._update = (patch) => applyPatch(el, patch, spec);
   el._spec = spec;
+  showFontEditor(el, spec);
   return el;
 }
 
@@ -1395,21 +1421,115 @@ function wallpaperRows(model) {
   ];
 }
 
+function fontFieldId(part) {
+  return `font${part.charAt(0).toUpperCase()}${part.slice(1)}`;
+}
+
+function sizeFieldId(part) {
+  return `size${part.charAt(0).toUpperCase()}${part.slice(1)}`;
+}
+
 function fontRows(model) {
   const t = model.t;
   const values = model.values;
-  const fonts = model.fonts?.length ? model.fonts : [values.fontFamily];
+  const chosen = values.fonts && typeof values.fonts === "object" ? values.fonts : {};
+  const sizes = chosen.sizes && typeof chosen.sizes === "object" ? chosen.sizes : {};
+  const known = model.fonts?.length ? [...model.fonts] : [values.fontFamily || DEFAULT_SETTINGS.fontFamily];
+  const family = chosen.city || values.fontFamily || DEFAULT_SETTINGS.fontFamily;
+  const names = known.includes(family) ? known : [family, ...known];
+  const size = Number(sizes.city) || FONT_BASE.city;
+  const hidden = FONT_PARTS.flatMap((part) => [
+    { kind: "hidden", id: fontFieldId(part), value: chosen[part] || values.fontFamily || DEFAULT_SETTINGS.fontFamily },
+    { kind: "hidden", id: sizeFieldId(part), value: String(Number(sizes[part]) || FONT_BASE[part]) },
+  ]);
   return [
+    ...hidden,
     {
       kind: "select",
-      id: "fontFamily",
+      id: "fontPart",
+      i18n: "font.item",
+      label: t("font.item"),
+      value: "city",
+      options: FONT_PARTS.map((part) => ({ value: part, label: t(`font.${part}`), i18n: `font.${part}` })),
+    },
+    {
+      kind: "select",
+      id: "fontPick",
       i18n: "field.fontFamily",
       label: t("field.fontFamily"),
-      value: values.fontFamily,
-      options: fonts.map((name) => ({ value: name, label: name })),
+      value: family,
+      options: names.map((name) => ({ value: name, label: name })),
     },
-    { kind: "fontsample", id: "fontSample", i18n: "field.fontSample", label: t("field.fontSample"), text: t("field.fontSampleText") },
+    {
+      kind: "fontsize",
+      id: "itemSize",
+      i18n: "font.size",
+      label: t("font.size"),
+      value: String(size),
+      decrease: t("tip.decrease"),
+      increase: t("tip.increase"),
+      decreaseKey: "tip.decrease",
+      increaseKey: "tip.increase",
+    },
+    {
+      kind: "fontsample",
+      id: "fontSample",
+      i18n: "font.sample",
+      label: t("font.sample"),
+      part: "city",
+      sampleKey: "font.sample.city",
+      sample: t("font.sample.city"),
+      family,
+    },
   ];
+}
+
+/** The item dropdown edits one line at a time. Hidden fields keep the other lines. */
+function rememberFontEditor(el) {
+  const part = el?.dataset?.fontEditing;
+  if (!part || !FONT_PARTS.includes(part)) return;
+  const family = el.querySelector('[data-field="fontPick"]')?.value;
+  const size = el.querySelector('[data-field="itemSize"]')?.value;
+  const familyField = el.querySelector(`[data-field="${fontFieldId(part)}"]`);
+  const sizeField = el.querySelector(`[data-field="${sizeFieldId(part)}"]`);
+  if (familyField && family) familyField.value = family;
+  if (sizeField && size) sizeField.value = size;
+}
+
+function showFontEditor(el, spec) {
+  const partField = el?.querySelector?.('[data-field="fontPart"]');
+  if (!partField) return;
+  const part = FONT_PARTS.includes(partField.value) ? partField.value : "city";
+  const family = el.querySelector(`[data-field="${fontFieldId(part)}"]`)?.value || "";
+  const size = el.querySelector(`[data-field="${sizeFieldId(part)}"]`)?.value || String(FONT_BASE[part]);
+  const pick = el.querySelector('[data-field="fontPick"]');
+  const sizeInput = el.querySelector('[data-field="itemSize"]');
+  if (pick && family) {
+    if (![...pick.options].some((option) => option.value === family)) {
+      const option = document.createElement("option");
+      option.value = family;
+      option.textContent = family;
+      pick.prepend(option);
+    }
+    pick.value = family;
+  }
+  if (sizeInput && size) sizeInput.value = String(size);
+  const shown = el.querySelector("[data-size-label]");
+  const px = Number(sizeInput?.value || size);
+  if (shown) shown.textContent = `${px}px`;
+  const down = el.querySelector('[data-target="itemSize"][data-step="-1"]');
+  const up = el.querySelector('[data-target="itemSize"][data-step="1"]');
+  if (down) down.disabled = px <= FONT_SIZES[0];
+  if (up) up.disabled = px >= FONT_SIZES[FONT_SIZES.length - 1];
+  el.dataset.fontEditing = part;
+  const sample = el.querySelector("[data-font-sample]");
+  if (!sample) return;
+  sample.dataset.fontSample = part;
+  sample.dataset.i18n = `font.sample.${part}`;
+  const language = spec?.language === "en" ? "en" : "ko";
+  sample.textContent = createI18n(language).t(`font.sample.${part}`);
+  const safe = String(pick?.value || family).replace(/["\\]/g, "");
+  sample.style.fontFamily = safe ? `"${safe}", sans-serif` : "";
 }
 
 function dataRows(model) {
@@ -1490,7 +1610,13 @@ function resetSettingsForm(el, spec) {
   el.querySelectorAll('[data-group="source"]').forEach((box) => {
     box.checked = defaults.enabledSources.includes(box.dataset.source);
   });
-  assign("fontFamily", defaults.fontFamily);
+  for (const part of FONT_PARTS) {
+    assign(fontFieldId(part), defaults.fontFamily);
+    assign(sizeFieldId(part), FONT_BASE[part]);
+  }
+  assign("fontPart", "city");
+  assign("fontPick", defaults.fontFamily);
+  assign("itemSize", FONT_BASE.city);
   assign("customMode", custom.mode);
   assign("customBg", custom.bg);
   assign("customText", custom.text);
@@ -1624,8 +1750,14 @@ function renderRow(row) {
   if (row.kind === "input") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="text" readonly data-field="${esc(row.id)}" title="${esc(row.label)}"></label>`;
   }
+  if (row.kind === "fontsize") {
+    const decrease = row.decrease || "−";
+    const increase = row.increase || "+";
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="font-size-control"><button type="button" class="step-btn" data-step="-1" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(decrease)}" aria-label="${esc(decrease)}"${titleOnly(row.decreaseKey)}>−</button><div class="font-size-value" data-size-label>${esc(row.value)}px</div><button type="button" class="step-btn" data-step="1" data-target="${esc(row.id)}" data-gui="popup-button" title="${esc(increase)}" aria-label="${esc(increase)}"${titleOnly(row.increaseKey)}>+</button><input type="hidden" data-field="${esc(row.id)}" value="${esc(row.value)}"></div></div>`;
+  }
   if (row.kind === "fontsample") {
-    return `<div class="popup-row font-sample-row" data-row="${esc(row.id)}"${style}><span${textKey(row.i18n)}>${esc(row.label)}</span><div class="font-sample" data-font-sample>${esc(row.text)}</div></div>`;
+    const family = String(row.family || "").replace(/["\\]/g, "");
+    return `<div class="popup-row font-sample-row" data-row="${esc(row.id)}"${style}><label${textKey(row.i18n)}>${esc(row.label)}</label><div class="font-sample" data-font-sample="${esc(row.part)}" data-i18n="${esc(row.sampleKey)}" style="font-family:&quot;${esc(family)}&quot;, sans-serif">${esc(row.sample || "")}</div></div>`;
   }
   if (row.kind === "actions") {
     const buttons = (row.buttons || [])
@@ -1802,11 +1934,11 @@ export function applyPopupLanguage(root, spec) {
  * The chosen font is shown on a sample line rather than applied to the whole dialog, which
  * would reshape its own labels and buttons.
  */
-export function applyPopupFont(el, values = {}) {
+export function applyPopupFont(el) {
   if (!el) return;
-  const sample = el?.querySelector("[data-font-sample]");
+  const sample = el.querySelector("[data-font-sample]");
   if (!sample) return;
-  const family = values.fontFamily || "";
+  const family = String(el.querySelector('[data-field="fontPick"]')?.value || "").replace(/["\\]/g, "");
   sample.style.fontFamily = family ? `"${family}", sans-serif` : "";
 }
 

@@ -80,12 +80,10 @@ const SCENE_GAP = 28;
 export const SCENE_TEXT = 172;
 /** Room left above and below the picture so it never touches the window edge. */
 export const SCENE_BREATH = 10;
-/** The picture takes most of the leftover width, not all of it, so the scene keeps a margin. */
-const ART_SHARE = 0.86;
 
 /**
- * Picture and labels share one scale while the window is small.
- * In a taller window the picture grows to the leftover height and the labels stay readable.
+ * The drawn font sizes are the base. Picture and labels share one scale, so a
+ * larger window grows them together and a smaller one shrinks them together.
  */
 export function sceneFit(box, textWidth = 200) {
   const width = Math.max(1, Number(box?.width) || SCENE_NATURAL.width);
@@ -93,10 +91,8 @@ export function sceneFit(box, textWidth = 200) {
   const room = Math.max(1, height - SCENE_BREATH * 2);
   const text = Math.max(1, Number(textWidth) || 200);
   const uniform = Math.min(width / (SCENE_ART + SCENE_GAP + text), room / SCENE_ART);
-  const shared = Math.round(Math.max(SCENE_MIN_SCALE, Math.min(1, uniform)) * 1000) / 1000;
-  if (uniform <= 1) return { text: shared, art: shared };
-  const artPx = Math.min(room, Math.max(SCENE_ART, (width - SCENE_GAP - text) * ART_SHARE));
-  return { text: 1, art: Math.round((artPx / SCENE_ART) * 1000) / 1000 };
+  const scale = Math.round(Math.max(SCENE_MIN_SCALE, uniform) * 1000) / 1000;
+  return { text: scale, art: scale };
 }
 
 /** Prefer the size recorded while resizing. Settings often keep the position and drop the size. */

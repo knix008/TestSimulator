@@ -13,7 +13,7 @@ import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { MARGINS, PAPERS, PRINT_RANGES, SCALES, buildPrintModel, normalizeRanges, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, moveCityToWindow, sanitizeCities, sanitizeExtraWindows, sanitizeSettings, samePlace } from "../../src/core/settings.js";
+import { DEFAULT_LOCATION, FONT_PARTS, MAX_CITIES, ROTATE_SECONDS, fontsForWindow, moveCityToWindow, sanitizeCities, sanitizeExtraWindows, sanitizeFonts, sanitizeSettings, samePlace } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
@@ -133,12 +133,35 @@ export function registerLogic(h) {
     assert.deepEqual(moved[0].cities.map((place) => place.cityEn), ["Busan"]);
     assert.deepEqual(moved[1].cities.map((place) => place.cityEn), ["Paris"]);
     assert.deepEqual(sanitizeSettings({ extraWindows: moved }).extraWindows[1].cities[0].cityEn, "Paris");
-    const placed = sanitizeExtraWindows([{ key: "win-a", cities: [busan], x: 12.4, y: 8, width: 400, height: 220, ignored: 1 }]);
+    const legacy = sanitizeFonts({ fontFamily: "Georgia" });
+    assert.deepEqual(FONT_PARTS.map((part) => legacy[part]), ["Georgia", "Georgia", "Georgia", "Georgia", "Georgia"]);
+    assert.equal(legacy.sizes.city, 44);
+    assert.equal(legacy.sizes.temp, 68);
+    assert.equal(legacy.sizes.date, 16);
+    const mixed = sanitizeFonts({ city: "Consolas", temp: "  Georgia  ", sizes: { temp: 80, city: 3, range: 999 } }, "Segoe UI");
+    assert.equal(mixed.city, "Consolas");
+    assert.equal(mixed.temp, "Georgia");
+    assert.equal(mixed.date, "Segoe UI");
+    assert.equal(mixed.sizes.temp, 80);
+    assert.equal(mixed.sizes.city, 12);
+    assert.equal(mixed.sizes.range, 128);
+    assert.equal(mixed.sizes.date, 16);
+    const owned = fontsForWindow(
+      { fontFamily: "Segoe UI", fonts: { city: "Primary" }, extraWindows: [{ key: "win-a", cities: [busan], fonts: { city: "Extra", date: "Verdana" } }] },
+      { primary: false, windowKey: "win-a" },
+    );
+    assert.equal(owned.city, "Extra");
+    assert.equal(owned.date, "Verdana");
+    assert.equal(owned.temp, "Segoe UI");
+    assert.equal(fontsForWindow({ fontFamily: "Segoe UI", fonts: { city: "Primary" } }).city, "Primary");
+    const placed = sanitizeExtraWindows([{ key: "win-a", cities: [busan], x: 12.4, y: 8, width: 400, height: 220, fonts: { city: "Consolas" }, ignored: 1 }]);
     assert.equal(placed[0].x, 12);
     assert.equal(placed[0].y, 8);
     assert.equal(placed[0].width, 400);
     assert.equal(placed[0].height, 220);
     assert.equal(placed[0].ignored, undefined);
+    assert.equal(placed[0].fonts.city, "Consolas");
+    assert.equal(placed[0].fonts.date, "Segoe UI");
   });
   h.test("a document opens one tab per stored city", () => {
     const one = createDocument(DEFAULT_LOCATION);
@@ -578,7 +601,8 @@ export function registerLogic(h) {
     };
     assert.ok(sceneScale(fitted) >= SCENE_MIN_SCALE);
     const roomy = sceneFit({ width: 726, height: 572 }, 143);
-    assert.equal(roomy.text, 1);
+    assert.ok(roomy.text > 1, "a larger window grows the base font size");
+    assert.equal(roomy.text, roomy.art, "the words and the picture keep one scale");
     const roomyArt = roomy.art * SCENE_ART;
     assert.ok(roomyArt > SCENE_ART, roomyArt);
     assert.ok(roomyArt < 726 - 28 - 143, roomyArt);
