@@ -1,6 +1,7 @@
 pub mod files;
 pub mod fonts;
 pub mod i18n;
+pub mod save_dialog;
 pub mod window_state;
 
 use serde::Serialize;
@@ -606,6 +607,54 @@ fn open_document(app: AppHandle, name: String) -> Result<(), String> {
     open_with_system(&path)
 }
 
+/// The Save dialog with MyCAD's options in the area Windows keeps for file properties.
+#[tauri::command]
+async fn save_dialog(window: WebviewWindow, title: Option<String>, default_path: Option<String>, filters: Vec<save_dialog::Filter>, group: String, controls: Vec<save_dialog::Control>) -> Result<Option<save_dialog::Choice>, String> {
+    #[cfg(target_os = "windows")]
+    let owner = window.hwnd().map(|hwnd| hwnd.0 as isize).unwrap_or(0);
+    #[cfg(not(target_os = "windows"))]
+    let owner = {
+        let _ = &window;
+        0
+    };
+    tauri::async_runtime::spawn_blocking(move || save_dialog::show(owner, title, default_path, filters, group, controls))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+/// Save option "back up the existing file": a copy of it as <name>.bak (nothing when there is no file yet).
+#[tauri::command]
+fn backup_file(path: PathBuf) -> Result<bool, String> {
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let mut backup = path.clone().into_os_string();
+    backup.push(".bak");
+    std::fs::copy(&path, PathBuf::from(backup))
+        .map(|_| true)
+        .map_err(|error| tr!("백업 파일을 만들 수 없습니다: {error}", "Could not make the backup file: {error}"))
+}
+
+/// Save option "show in folder": the file manager opens the file's folder with the file selected.
+#[tauri::command]
+fn reveal_file(path: PathBuf) -> Result<(), String> {
+    if std::env::var_os("MYCAD_NO_OPEN").is_some() {
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        let mut select = std::ffi::OsString::from("/select,");
+        select.push(path.as_os_str());
+        std::process::Command::new("explorer").raw_arg(select).spawn()
+    };
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg("-R").arg(&path).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(path.parent().unwrap_or(&path)).spawn();
+    result.map(|_| ()).map_err(|error| tr!("폴더를 열 수 없습니다: {error}", "Could not open the folder: {error}"))
+}
+
 /// Help links (website, forum, issues): only web addresses, opened by the system browser.
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
@@ -734,6 +783,9 @@ pub fn run() {
             read_base64_file,
             write_text_file,
             write_base64_file,
+            save_dialog,
+            backup_file,
+            reveal_file,
             paths_exist,
             import_background,
             remove_background,

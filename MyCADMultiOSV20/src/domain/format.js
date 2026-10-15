@@ -16,8 +16,9 @@ export class FormatError extends Error {
   }
 }
 
-export function serialize(drawing) {
-  return `${JSON.stringify({ format: FORMAT, version: VERSION, app: 'MyCAD', saved: new Date().toISOString(), drawing }, null, 1)}\n`;
+/** The .mcad text; `compact` (a save option) leaves out the line breaks and indentation. */
+export function serialize(drawing, { compact = false } = {}) {
+  return `${JSON.stringify({ format: FORMAT, version: VERSION, app: 'MyCAD', saved: new Date().toISOString(), drawing }, null, compact ? undefined : 1)}\n`;
 }
 
 export function parseFile(text, language = 'ko') {

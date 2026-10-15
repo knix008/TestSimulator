@@ -64,8 +64,8 @@ import { DRAWING_EXTENSIONS } from '../domain/import2d.js';
 
 /** 3D formats MyCAD reads (FreeCAD's exchange formats). */
 export const MODEL_EXTENSIONS = ['fcstd', 'ifc', 'step', 'stp', 'brep', 'brp', 'scad', 'csg', 'xyz', 'asc', 'pts', 'pcd', 'stl', 'obj', 'ply', 'off', 'amf', '3mf', 'wrl', 'vrml', 'dae'];
-export const writeTextFile = (path, content, op) => invoke('write_text_file', { path, content, op });
-export const writeBase64File = (path, data, op) => invoke('write_base64_file', { path, data, op });
+export const writeTextFile = (path, content, op) => writeChosen(path, () => invoke('write_text_file', { path, content, op }));
+export const writeBase64File = (path, data, op) => writeChosen(path, () => invoke('write_base64_file', { path, data, op }));
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
 const OPEN_FILTERS = () => [
@@ -117,12 +117,69 @@ export async function chooseDrawingToOpen(defaultPath, { dxf = false, models = f
 }
 
 export async function chooseDrawingToSave(defaultPath) {
-  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: [OPEN_FILTERS()[1]] })) ?? null;
+  return chooseSavePath(defaultPath, [OPEN_FILTERS()[1]], { drawing: true });
 }
 
 export async function chooseExportPath(defaultPath, kind) {
-  return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: EXPORT_FILTERS[kind] })) ?? null;
+  return chooseSavePath(defaultPath, EXPORT_FILTERS[kind]);
 }
+
+// ───────────────────────── save options
+//
+// On Windows the Save dialog shows MyCAD's options in the area under "Save as
+// type" (Windows keeps it for file properties MyCAD does not use): back up the
+// file being replaced as .bak, write the drawing compact, show the file in its
+// folder afterwards. The choice is remembered (settings.saveOptions) and applies
+// to the write of the path that was chosen.
+
+export const SAVE_OPTIONS = { backup: false, compact: false, reveal: false };
+let saveOptions = { ...SAVE_OPTIONS };
+let pendingSave = null;
+let onSaveOptions = null;
+const isWindows = () => /Windows/i.test(globalThis.navigator?.userAgent ?? '');
+const samePath = (a, b) => String(a).replace(/\//g, '\\').toLowerCase() === String(b).replace(/\//g, '\\').toLowerCase();
+
+/** The remembered choice (from the settings) and who stores a new one. */
+export function setSaveOptions(options, store = onSaveOptions) {
+  saveOptions = { ...SAVE_OPTIONS, ...(options ?? {}) };
+  onSaveOptions = store;
+}
+export const currentSaveOptions = () => ({ ...saveOptions });
+
+/** The options chosen in the dialog for this path (null when it was not chosen in a dialog just now). */
+export const saveChoiceFor = (path) => (pendingSave && samePath(pendingSave.path, path) ? { ...pendingSave.values } : null);
+
+async function chooseSavePath(defaultPath, filters, { drawing = false } = {}) {
+  if (!isWindows()) {
+    const path = (await saveDialog({ defaultPath: defaultPath ?? undefined, filters })) ?? null;
+    pendingSave = path ? { path, values: { ...saveOptions, reveal: false } } : null;
+    return path;
+  }
+  const controls = [
+    { type: 'check', id: 'backup', label: t('saveOpt.backup'), checked: saveOptions.backup },
+    ...(drawing ? [{ type: 'check', id: 'compact', label: t('saveOpt.compact'), checked: saveOptions.compact }] : []),
+    { type: 'check', id: 'reveal', label: t('saveOpt.reveal'), checked: saveOptions.reveal },
+  ];
+  const choice = await invoke('save_dialog', { title: null, defaultPath: defaultPath ?? null, filters, group: t('saveOpt.group'), controls });
+  if (!choice) { pendingSave = null; return null; }
+  saveOptions = { ...saveOptions, ...choice.values };
+  pendingSave = { path: choice.path, values: { ...saveOptions } };
+  onSaveOptions?.({ ...saveOptions });
+  return choice.path;
+}
+
+/** Writes a file chosen in the Save dialog with its options: the old file kept as .bak first, its folder shown after. */
+async function writeChosen(path, write) {
+  const choice = saveChoiceFor(path);
+  if (choice) pendingSave = null;
+  if (choice?.backup) await invoke('backup_file', { path });
+  const result = await write();
+  if (choice?.reveal) await invoke('reveal_file', { path }).catch(() => {});
+  return result;
+}
+
+/** Ctrl+S on a drawing that already has a file: no dialog, the remembered "back up" option still applies. */
+export const backupFile = (path) => invoke('backup_file', { path });
 
 /** A text file to read (Spreadsheet_Import: CSV). */
 export async function chooseTextFile(defaultPath, extensions) {

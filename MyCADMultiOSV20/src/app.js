@@ -3987,6 +3987,8 @@ function applySettings(previous = {}) {
   applyTheme(theme);
   applyFont(s);
   native.setWindowTheme(theme.dark);
+  // The Save dialog's options start from the remembered choice; a new choice is remembered.
+  native.setSaveOptions(s.saveOptions, (options) => updateSettings({ saveOptions: options }));
   if (s.language !== getLanguage()) {
     setLanguage(s.language);
     native.setBackendLanguage(s.language);
@@ -4211,7 +4213,7 @@ async function openWithDialog({ dxf = false } = {}) {
 
 async function saveDoc(doc, { saveAs = false } = {}) {
   if (!doc) return false;
-  const text = serialize(doc.drawing);
+  let text = serialize(doc.drawing, { compact: Boolean(state.settings.saveOptions?.compact) });
   try {
     if (desktop) {
       let path = doc.path;
@@ -4220,6 +4222,10 @@ async function saveDoc(doc, { saveAs = false } = {}) {
         path = await native.chooseDrawingToSave(suggested);
         if (!path) return false;
         path = withExtension(path);
+        // The options just chosen in the dialog (compact or not).
+        text = serialize(doc.drawing, { compact: Boolean(native.currentSaveOptions().compact) });
+      } else if (state.settings.saveOptions?.backup) {
+        await native.backupFile(path);
       }
       await withProgress('progress.save', baseName(path), (op) => native.writeTextFile(path, text, op));
       doc.markSaved(path);

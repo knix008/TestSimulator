@@ -135,6 +135,8 @@ export function normalizeSettings(raw = {}, language) {
       intensity: n(l.intensity, 1, 0, 5), color: /^#[0-9a-f]{6}$/i.test(l.color ?? '') ? l.color.toLowerCase() : '#ffffff', shadows: l.shadows !== false,
     };
   }
+  // Options of the Save dialog: back up the replaced file (.bak), compact .mcad, show the file in its folder.
+  s.saveOptions = { backup: Boolean(s.saveOptions?.backup), compact: Boolean(s.saveOptions?.compact), reveal: Boolean(s.saveOptions?.reveal) };
   // BIM_Library: pieces saved from drawings [{ name, entities }].
   s.bimLibrary = Array.isArray(s.bimLibrary) ? s.bimLibrary.filter((item) => item && typeof item.name === 'string' && Array.isArray(item.entities)).slice(-50).map((item) => ({ name: item.name.slice(0, 60), entities: item.entities.slice(0, 500) })) : [];
   s.collapsedSections = Array.isArray(s.collapsedSections) ? [...new Set(s.collapsedSections.filter((id) => typeof id === 'string' && /^[a-zA-Z]{1,20}$/.test(id)))] : [];
