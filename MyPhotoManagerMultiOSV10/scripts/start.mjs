@@ -1,53 +1,57 @@
-// npm start — `tauri dev`, after making sure the dev server port is free.
+// npm start — `tauri dev` on a port no other program is listening on.
 //
-// Tauri starts Vite on the fixed port 1430 (tauri.conf.json → devUrl). A Vite
-// left over from an earlier run of this project (a crashed `tauri dev`, a test
-// run) keeps that port and the start fails with "Port 1430 is already in use".
-// Such a leftover is stopped here; anything else on the port is reported.
-import { execFileSync, spawn } from 'node:child_process';
+// The preferred port is 1440 (tauri.conf.json → devUrl). When that port, or the
+// next one, is already taken, the next free port is used and both Vite and
+// Tauri are pointed at it. Nothing already running is stopped.
+import { spawn } from 'node:child_process';
+import net from 'node:net';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const PORT = 1440;
+const PREFERRED = 1440;
+const ATTEMPTS = 100;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-function listeners() {
-  try {
-    if (process.platform === 'win32') {
-      const script = `Get-NetTCPConnection -LocalPort ${PORT} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p = Get-CimInstance Win32_Process -Filter "ProcessId=$($_.OwningProcess)"; "$($p.ProcessId)\`t$($p.CommandLine)" }`;
-      return execFileSync('powershell.exe', ['-NoProfile', '-Command', script]).toString();
-    }
-    return execFileSync('sh', ['-c', `lsof -nP -iTCP:${PORT} -sTCP:LISTEN -t | xargs -r ps -o pid=,args= -p`]).toString();
-  } catch {
-    return '';
-  }
+/** True when nothing is listening on `port` (IPv4 and IPv6, when that family exists). */
+function canBind(port, host) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.once('error', (error) => resolve(error.code !== 'EADDRINUSE'));
+    server.listen({ port, host }, () => server.close(() => resolve(true)));
+  });
 }
 
-const holders = listeners().split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
-  const [pid, ...rest] = line.split(/\s+/);
-  return { pid: Number(pid), command: rest.join(' ') };
-}).filter((holder) => holder.pid);
-
-/** Does the server on the port serve MyPhotoManager's own page? (Works whatever its command line looks like.) */
-async function servesMyPhotoManager() {
-  try {
-    const response = await fetch(`http://localhost:${PORT}/`, { signal: AbortSignal.timeout(2000) });
-    return (await response.text()).includes('<title>MyPhotoManager');
-  } catch {
-    return false;
-  }
+export async function portFree(port) {
+  return (await canBind(port, '127.0.0.1')) && (await canBind(port, '::1'));
 }
 
-const servedByUs = holders.length > 0 && (await servesMyPhotoManager());
-for (const holder of holders) {
-  const ours = /vite/i.test(holder.command) && (servedByUs || holder.command.toLowerCase().includes(root.toLowerCase()));
-  if (!ours) {
-    console.error(`포트 ${PORT} 을(를) 다른 프로그램이 쓰고 있습니다 (PID ${holder.pid}):\n  ${holder.command}\n그 프로그램을 끈 뒤 다시 실행하세요.`);
+/** The first port from `preferred` that is not in use. */
+export async function choosePort(preferred = PREFERRED, attempts = ATTEMPTS) {
+  for (let port = preferred; port < preferred + attempts; port++) {
+    if (await portFree(port)) return port;
+  }
+  return null;
+}
+
+async function main() {
+  const port = await choosePort();
+  if (port == null) {
+    console.error(`포트 ${PREFERRED}–${PREFERRED + ATTEMPTS - 1} 이 모두 사용 중입니다. 다른 프로그램을 끈 뒤 다시 실행하세요.`);
     process.exit(1);
   }
-  console.log(`남아 있던 이 프로젝트의 Vite (PID ${holder.pid}) 를 종료합니다.`);
-  try { process.kill(holder.pid); } catch { /* already gone */ }
+  if (port !== PREFERRED) console.log(`포트 ${PREFERRED} 이 사용 중이라 ${port} 번에서 실행합니다.`);
+  const child = spawn(process.execPath, [
+    path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'),
+    'dev',
+    '--config', JSON.stringify({ build: { devUrl: `http://localhost:${port}` } }),
+    ...process.argv.slice(2),
+  ], {
+    cwd: root,
+    stdio: 'inherit',
+    env: { ...process.env, MYPHOTO_DEV_PORT: String(port) },
+  });
+  child.on('exit', (code) => process.exit(code ?? 0));
 }
 
-const child = spawn(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'dev', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit' });
-child.on('exit', (code) => process.exit(code ?? 0));
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();

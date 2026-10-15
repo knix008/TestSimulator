@@ -40,7 +40,7 @@ export function createCalendarPane() {
     clear(el);
     const head = h('div.cal-head',
       h('button.tool.small', { type: 'button', title: t('calendar.prev'), html: icon('prev'), onclick: () => { month -= 1; if (month < 0) { month = 11; year -= 1; } render(); } }),
-      h('button.cal-title', { type: 'button', onclick: () => open(new Date(year, month, 1), new Date(year, month + 1, 1), formatMonth(year, month), `m${year}-${month}`) }, formatMonth(year, month)),
+      h('button.cal-title', { type: 'button', onclick: () => open(new Date(year, month, 1), new Date(year, month + 1, 1), formatMonth(year, month), `m${year}-${month}`) }, h('span', { html: icon('calendar') }), formatMonth(year, month)),
       h('button.tool.small', { type: 'button', title: t('calendar.next'), html: icon('next'), onclick: () => { month += 1; if (month > 11) { month = 0; year += 1; } render(); } }));
     const grid = h('div.cal-grid');
     for (const name of weekdayNames()) grid.append(h('div.cal-weekday', name));
@@ -74,7 +74,14 @@ export function createCalendarPane() {
     el.append(head, grid, monthRow, years.size ? yearList : h('div.cat-empty', t('calendar.empty')));
   }
 
+  /** Shows a year and month. The dashboard opens the calendar on the year a chart is about. */
+  function show(y, m) {
+    if (Number.isFinite(y)) year = y;
+    if (Number.isFinite(m)) month = m;
+    render();
+  }
+
   const later = debounce(() => { if (el.isConnected) render(); }, 400);
   app.on('catalog', later);
-  return { el, render };
+  return { el, render, show };
 }

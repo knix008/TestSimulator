@@ -115,7 +115,7 @@ export function createPeoplePane() {
     const { counts, unnamed } = app.catalog.peopleCounts();
     el.append(h('div.row-buttons',
       h('button.btn.small', { type: 'button', id: 'people-scan', onclick: () => scanFaces(app.state.list) }, h('span', { html: icon('user') }), t('people.scanList')),
-      h('button.btn.small', { type: 'button', onclick: () => scanFaces(app.state.list, { force: true }) }, t('people.rescan'))));
+      h('button.btn.small', { type: 'button', onclick: () => scanFaces(app.state.list, { force: true }) }, h('span', { html: icon('refresh') }), t('people.rescan'))));
     const unnamedRow = h('div.cat-row', { role: 'button', tabIndex: 0 }, h('span.cat-icon', { html: icon('help') }), h('span.cat-label', t('people.unnamed')), h('span.cat-count', String(unnamed)));
     unnamedRow.addEventListener('click', () => nameFacesDialog());
     el.append(unnamedRow);

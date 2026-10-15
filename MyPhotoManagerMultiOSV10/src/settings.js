@@ -20,10 +20,10 @@ export const DEFAULTS = Object.freeze({
   caption: { name: true, size: false, date: false, dims: false, overlay: true },
   confirmDelete: true,
   useTrash: true,
-  viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
+  viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, infoCollapsed: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
   xmpEmbed: false,
   analysis: { auto: true }, // analyse opened folders in the background (src/analysis)
-  dicom: { rulers: true, scaleBar: true, corners: true, grid: true, scaleBarAt: null, fps: 10 }, // DICOM overlays shown (ui/dicomview.js)
+  dicom: { rulers: true, scaleBar: true, corners: true, grid: true, crosshair: true, scaleBarAt: null, fps: 10 }, // DICOM overlays shown (ui/dicomview.js)
   measureUnit: 'mm', // lengths of measurements and rulers: mm | cm | inch
   colorManagement: true, // convert embedded ICC profiles to sRGB (formats/icc.js)
   importer: { pattern: 'YYYY/YYYY-MM-DD', rename: '', deleteAfter: false, skipDuplicates: true, destination: null },

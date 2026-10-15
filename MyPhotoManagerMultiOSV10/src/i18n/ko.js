@@ -7,6 +7,21 @@ export default {
   'menu.settings': '설정', 'menu.theme': '테마', 'menu.language': '언어', 'menu.viewStyle': '보기 방식', 'menu.batch': '일괄 처리',
   'mode.manage': '관리', 'mode.view': '보기', 'mode.edit': '편집', 'mode.dashboard': '대시보드',
   'mode.nothingToView': '여기에는 볼 사진이 없습니다.', 'mode.nothingToEdit': '편집할 사진을 선택하세요.',
+  'start.title': '시작', 'start.lead': '폴더를 연 다음 사진을 둘러보고, 보고, 편집하고, 정리하세요.',
+  'start.begin': '시작하기', 'start.tasks': '할 수 있는 일', 'start.recent': '최근 폴더', 'start.noRecent': '아직 연 폴더가 없습니다.', 'start.tip': '팁.',
+  'start.openFolderText': '사진이 있는 폴더를 둘러봅니다', 'start.openFilesText': '사진만 골라 엽니다', 'start.importText': '카메라나 카드에서 사진을 가져옵니다',
+  'start.slideshowText': '이 폴더의 사진을 차례로 보여 줍니다', 'start.samplesText': '함께 들어 있는 예시 사진을 봅니다',
+  'start.settingsText': '테마, 언어, 저장 방식을 바꿉니다', 'start.shortcutsText': '둘러보기·보기·편집에 쓰는 키',
+  'start.desc.manage': '썸네일, 별점, 레이블, 폴더', 'start.desc.view': '사진을 크게 봅니다', 'start.desc.edit': '밝기, 색, 자르기',
+  'start.desc.dashboard': '이 폴더의 수와 카메라', 'start.desc.search': '날짜, 카메라, 키워드로 찾습니다', 'start.desc.folders': '위치와 드라이브',
+  'start.desc.calendar': '찍은 날로 모읍니다', 'start.desc.people': '얼굴로 사람을 찾습니다', 'start.desc.map': '장소가 있는 사진',
+  'start.desc.slideshow': '전체 화면으로 넘겨 봅니다', 'start.desc.print': '인쇄하거나 밀착 인화합니다', 'start.desc.compare': '두 사진을 나란히 비교합니다',
+  'start.desc.duplicates': '같은 사진을 찾습니다', 'start.desc.panorama': '겹친 사진을 이어 붙입니다', 'start.desc.gif': '여러 장을 움직이는 그림으로',
+  'start.desc.pdf': '사진을 문서로 묶습니다', 'start.desc.hdr': '노출이 다른 사진을 합칩니다', 'start.desc.batch': '여러 파일의 이름을 한꺼번에 바꿉니다',
+  'start.desc.organize': '사진 내용별로 모아서 봅니다. 파일은 복사하지 않습니다',
+  'start.tip.0': 'Ctrl+O 로 폴더를 엽니다.', 'start.tip.1': '사진을 고르고 Ctrl+E 를 누르면 편집입니다.', 'start.tip.2': 'Ctrl+Shift+S 로 슬라이드 쇼를 시작합니다.',
+  'start.tip.3': '숫자 1–5 는 별점, Alt+1–5 는 색 레이블입니다.', 'start.tip.4': '장소가 있는 사진은 지도에서 볼 수 있습니다.',
+  'start.tip.5': '대시보드는 지금 폴더의 사진 수와 카메라를 모아 보여 줍니다.',
   'pane.folders': '폴더', 'pane.catalog': '카탈로그', 'pane.calendar': '달력', 'pane.search': '검색', 'pane.properties': '속성', 'pane.preview': '미리 보기', 'pane.map': '지도',
   'place.home': '홈 ({name})', 'place.pictures': '사진', 'place.desktop': '바탕 화면', 'place.documents': '문서', 'place.downloads': '다운로드',
 
@@ -88,7 +103,9 @@ export default {
   'map.none': '이 목록에는 GPS 위치가 있는 사진이 없습니다. 지도를 오른쪽 클릭해 선택한 사진의 위치를 지정할 수 있습니다.', 'map.placeHere': '선택한 사진 {n}장을 여기로 지정', 'map.removeLocation': '선택한 사진의 위치 지우기',
 
   'view.prev': '이전', 'view.next': '다음', 'view.first': '처음', 'view.last': '마지막', 'view.zoomIn': '확대', 'view.zoomOut': '축소', 'view.fit': '창에 맞추기', 'view.actual': '실제 크기 (100%)',
-  'view.rotateLeft': '왼쪽으로 회전', 'view.rotateRight': '오른쪽으로 회전', 'view.edit': '편집', 'view.slideshow': '슬라이드 쇼', 'view.info': '정보', 'view.histogram': '히스토그램',
+  'view.rotateLeft': '왼쪽으로 회전', 'view.rotateRight': '오른쪽으로 회전', 'view.edit': '편집', 'view.slideshow': '슬라이드 쇼', 'view.info': '정보', 'view.infoShow': '정보 패널 켜기', 'view.infoHide': '정보 패널 끄기', 'view.histogram': '히스토그램',
+  'view.pages': '페이지', 'view.dicom': 'DICOM', 'view.patient': '환자', 'view.patientId': '환자 ID', 'view.modality': '모달리티', 'view.study': '검사', 'view.series': '시리즈', 'view.bodyPart': '부위', 'view.institution': '기관', 'view.frames': '프레임', 'view.spacing': '픽셀 간격', 'view.thickness': '절편 두께',
+  'dicom.crosshair': '붉은 점선', 'dicom.crosshairShort': '점선',
   'view.filmstrip': '필름 스트립', 'view.fullscreen': '전체 화면', 'view.backToManage': '관리', 'view.cannotOpen': '이 그림은 표시할 수 없습니다.', 'view.fitShort': '맞춤',
 
   'edit.light': '밝기', 'edit.color': '색상', 'edit.levels': '레벨', 'edit.curves': '톤 곡선', 'edit.detail': '디테일', 'edit.geometry': '자르기·기하', 'edit.repair': '보정',
@@ -139,7 +156,7 @@ export default {
   'slideshow.pause': '일시 정지 / 재생 (Space)', 'slideshow.end': '끝내기 (Esc)', 'slideshow.interval': '사진당 초', 'slideshow.transition': '전환 효과', 'slideshow.shuffle': '무작위 순서',
   'slideshow.loop': '반복', 'slideshow.caption': '설명 표시', 'slideshow.fade': '페이드', 'slideshow.slide': '밀어내기', 'slideshow.zoom': '줌 (켄 번스)', 'slideshow.none': '없음',
 
-  'dash.title': '라이브러리 대시보드', 'dash.note': '카탈로그 전체(열어 본 폴더와 카탈로그에 등록한 폴더)의 통계입니다. 막대를 클릭하면 해당 사진을 봅니다.', 'dash.photos': '사진', 'dash.folders': '폴더',
+  'dash.title': '라이브러리 대시보드', 'dash.note': '카탈로그 전체(열어 본 폴더와 카탈로그에 등록한 폴더)의 통계입니다. 섹션을 클릭하면 해당 화면으로, 막대를 클릭하면 해당 사진으로 이동합니다.', 'dash.photos': '사진', 'dash.folders': '폴더',
   'dash.span': '연도 범위', 'dash.rated': '별점 있음', 'dash.geotagged': '위치 있음', 'dash.keywords': '키워드', 'dash.byYear': '연도별 사진', 'dash.byMonth': '{year}년 월별 사진',
   'dash.types': '파일 형식', 'dash.other': '기타', 'dash.noData': '데이터 없음', 'dash.empty': '카탈로그가 비어 있습니다. 폴더를 열거나 "이 폴더 카탈로그에 등록" 을 사용하면 통계가 모입니다.',
 

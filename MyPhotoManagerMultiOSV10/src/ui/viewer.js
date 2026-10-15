@@ -5,13 +5,13 @@
 import { LABEL_COLORS } from '../catalog/catalog.js';
 import { decodeImage } from '../formats/decode.js';
 import { formatExposure } from '../formats/exif.js';
-import { kindOf } from '../formats/types.js';
+import { badgeOf, kindOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { setFullscreen } from '../platform/native.js';
 import { app, deleteItems, selectItem, setMode, viewableList } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
-import { formatBytes, formatDateTime, formatDims } from '../util/format.js';
+import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
 import { statusProgress } from './dialog.js';
 import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
@@ -25,7 +25,6 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   const stage = h('div.viewer-stage', { tabIndex: 0 });
   const holder = h('div.viewer-holder');
   const spinner = h('div.viewer-spinner', t('list.loading'));
-  const overlayInfo = h('div.viewer-info');
   const overlayHist = h('canvas.viewer-histogram', { width: 256, height: 100 });
   const navPrev = h('button.viewer-nav.prev', { type: 'button', title: t('view.prev'), html: icon('prev') });
   const navNext = h('button.viewer-nav.next', { type: 'button', title: t('view.next'), html: icon('next') });
@@ -36,7 +35,12 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   // Video: a big ▶ / ❚❚ that shows for a moment when playback starts or stops, and a "paused" badge while paused.
   const videoFlash = h('div.video-flash', { hidden: true });
   const videoPaused = h('div.video-paused', { hidden: true });
-  stage.append(holder, faceLayer, spinner, overlayInfo, overlayHist, navPrev, navNext, navigator, loupe, pageNav, videoFlash, videoPaused);
+  stage.append(holder, faceLayer, spinner, overlayHist, navPrev, navNext, navigator, loupe, pageNav, videoFlash, videoPaused);
+  // Information for the picture on screen: a panel beside the stage, folded with ">" and switched from the toolbar.
+  const infoBody = h('div.viewer-info');
+  const infoHead = h('div.pane-head');
+  const infoPane = h('aside.viewer-info-pane', infoHead, infoBody);
+  const viewerBody = h('div.viewer-body', stage, infoPane);
   const status = h('div.viewer-status');
   const strip = h('div.filmstrip');
   // ◀ ▶ at both ends of the filmstrip: previous / next picture (the strip follows).
@@ -55,7 +59,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     zoomStep: (direction) => zoomStep(direction),
     onRendered: () => { pixelSource = null; drawNavigatorImage(); },
   });
-  const el = h('div.viewer', toolbar, dicom.bar, stage, stripBox, status);
+  const el = h('div.viewer', toolbar, dicom.bar, viewerBody, stripBox, status);
 
   let list = [];
   let index = 0;
@@ -98,7 +102,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
         button('play', t('view.slideshow'), () => onSlideshow?.(index), { title: `${t('view.slideshow')} (S)` }),
         button('trash', t('file.delete'), () => current && deleteCurrent(), { title: `${t('file.delete')} (Del)` })),
       group(
-        button('info', t('view.info'), () => toggleSetting('info'), { title: `${t('view.info')} (I)`, className: settings().info ? 'on' : '' }),
+        button('info', t('view.info'), () => toggleSetting('info'), { title: `${settings().info ? t('view.infoHide') : t('view.infoShow')} (I)`, className: settings().info ? 'on' : '', id: 'viewer-info-toggle' }),
         button('histogram', t('view.histogram'), () => toggleSetting('histogram'), { title: `${t('view.histogram')} (H)`, className: settings().histogram ? 'on' : '' }),
         button('filmstrip', t('view.filmstrip'), () => toggleSetting('filmstrip'), { title: t('view.filmstrip'), className: settings().filmstrip ? 'on' : '' }),
         button('fullscreen', t('view.fullscreen'), () => toggleFullscreen(), { title: `${t('view.fullscreen')} (F)` })),
@@ -138,12 +142,62 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     applyTransform();
   }
 
+  /** The information panel sits on the right. ">" folds it to a strip; the toolbar button hides it. */
+  function setInfoCollapsed(value) {
+    settings().infoCollapsed = value;
+    app.saveSettings();
+    layoutInfoPane();
+    requestAnimationFrame(() => applyTransform());
+  }
+
+  function layoutInfoPane() {
+    const on = Boolean(settings().info);
+    const collapsed = Boolean(settings().infoCollapsed);
+    infoPane.hidden = !on;
+    infoPane.classList.toggle('collapsed', on && collapsed);
+    const toggle = toolbar.querySelector('#viewer-info-toggle');
+    if (toggle) toggle.setAttribute('aria-pressed', String(on));
+    clear(infoHead);
+    infoHead.className = 'pane-head';
+    if (!on) return;
+    if (collapsed) {
+      infoHead.append(
+        h('button.pane-fold', { type: 'button', title: t('pane.expand'), dataset: { fold: 'info' }, onclick: () => setInfoCollapsed(false) }, '<'),
+        h('div.pane-strip-title', { title: t('view.info') }, h('span', { html: icon('info') }), h('span.pane-strip-text', t('view.info'))));
+      infoBody.hidden = true;
+      return;
+    }
+    infoHead.append(
+      h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: 'info' }, onclick: () => setInfoCollapsed(true) }, '>'),
+      h('span.pane-head-icon', { html: icon('info') }),
+      h('span.pane-head-title', t('view.info')));
+    infoBody.hidden = false;
+  }
+
   // ───────── loading
+
+  /** New language: rewrite the labels and leave the picture, zoom and frame alone. */
+  function relabel() {
+    navPrev.title = t('view.prev');
+    navNext.title = t('view.next');
+    stripPrev.title = `${t('view.prev')} (←)`;
+    stripPrev.setAttribute('aria-label', t('view.prev'));
+    stripNext.title = `${t('view.next')} (→)`;
+    stripNext.setAttribute('aria-label', t('view.next'));
+    spinner.textContent = t('list.loading');
+    buildToolbar();
+    layoutInfoPane();
+    updateOverlays();
+    renderStatus();
+    renderPageNav();
+    if (dicom.active) dicom.refresh();
+  }
 
   function open(path) {
     list = viewableList();
     index = Math.max(0, list.findIndex((item) => item.path === path));
     buildToolbar();
+    layoutInfoPane();
     stripBox.hidden = !settings().filmstrip;
     renderStrip();
     show();
@@ -210,6 +264,8 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     const mine = ++token;
     if (!item) { clear(holder); current = null; renderStatus(); return; }
     selectItem(item.path);
+    app.state.viewPath = item.path;
+    app.state.viewPath = item.path;
     spinner.hidden = false;
     // Zoom lock: the next picture keeps the zoom and position (read before the placeholder resets them).
     const kept = settings().zoomLock && !fit ? { zoom, offset: { ...offset } } : null;
@@ -303,7 +359,18 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     offset.x = Math.max(-maxX, Math.min(maxX, offset.x));
     offset.y = Math.max(-maxY, Math.min(maxY, offset.y));
     const style = current.el.style;
-    if (current.kind === 'video') {
+    // DICOM frames are drawn into the canvas while it stays on screen. A CSS
+    // scale keeps the previous bitmap (the cine looks frozen), so size it like
+    // a video: the element is the displayed size and is only positioned, not scaled.
+    if (current.kind === 'dicom') {
+      style.width = `${w}px`;
+      style.height = `${hgt}px`;
+      style.marginLeft = `${offset.x - w / 2}px`;
+      style.marginTop = `${offset.y - hgt / 2}px`;
+      style.transform = 'none';
+    } else if (current.kind === 'video') {
+      style.marginLeft = '';
+      style.marginTop = '';
       // A video is sized, not scaled: scaling would blow up the player's own controls too.
       style.width = `${w}px`;
       style.height = `${hgt}px`;
@@ -322,6 +389,8 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     } else {
       style.width = `${current.width}px`;
       style.height = `${current.height}px`;
+      style.marginLeft = '';
+      style.marginTop = '';
       style.transform = `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${scale})`;
     }
     style.imageRendering = scale > 2 && !settings().smooth ? 'pixelated' : 'auto';
@@ -330,6 +399,8 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     faceLayer.style.width = style.width;
     faceLayer.style.height = style.height;
     faceLayer.style.transform = style.transform;
+    faceLayer.style.marginLeft = style.marginLeft;
+    faceLayer.style.marginTop = style.marginTop;
     if (dicom.active) dicom.layout(style);
     updateNavigator(scale, w, hgt);
     renderStatus();
@@ -670,23 +741,76 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     strip.children[index]?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
-  function updateOverlays() {
-    overlayInfo.hidden = !settings().info;
-    overlayHist.hidden = !settings().histogram;
-    if (!current?.item) return;
-    if (settings().info) {
-      const record = app.catalog.get(current.item.path) ?? {};
-      const m = record.meta ?? {};
-      clear(overlayInfo);
-      overlayInfo.append(
-        h('div.info-name', current.item.name),
-        h('div', formatDateTime(m.taken ?? current.item.modified)),
-        h('div', [formatDims(current.width, current.height), formatBytes(current.item.size)].filter(Boolean).join(' · ')),
-        m.camera ? h('div', [m.camera, m.lens].filter(Boolean).join(' · ')) : '',
-        m.exposure || m.fNumber || m.iso ? h('div', [m.exposure ? formatExposure(m.exposure) : '', m.fNumber ? `f/${m.fNumber}` : '', m.iso ? `ISO ${m.iso}` : '', m.focal ? `${m.focal} mm` : ''].filter(Boolean).join('  ')) : '',
-        record.keywords?.length ? h('div.info-keywords', record.keywords.join(', ')) : '',
-        record.caption ? h('div.info-caption', record.caption) : '');
+  function infoTable(rows) {
+    const kept = rows.filter(([, value]) => value != null && value !== '');
+    if (!kept.length) return null;
+    return h('table.prop-table', kept.map(([key, value]) => h('tr', h('th', key), h('td', { title: String(value) }, String(value)))));
+  }
+
+  function infoSection(title, body) {
+    return body ? h('section.viewer-info-section', h('div.viewer-info-head', title), body) : null;
+  }
+
+  function fillInfo() {
+    clear(infoBody);
+    const item = current?.item;
+    if (!item) { infoBody.append(h('div.prop-empty', t('prop.nothingSelected'))); return; }
+    const record = app.catalog.get(item.path) ?? {};
+    const m = record.meta ?? {};
+    const folder = item.path.slice(0, Math.max(0, item.path.length - item.name.length - 1));
+    infoBody.append(h('div.info-name', item.name));
+    infoBody.append(infoSection(t('prop.file'), infoTable([
+      [t('prop.type'), badgeOf(item.name)],
+      [t('prop.folder'), folder],
+      [t('prop.size'), formatBytes(item.size)],
+      [t('prop.dimensions'), formatDims(current.width, current.height)],
+      [t('prop.duration'), formatDuration(m.duration)],
+      [t('view.pages'), current.pages > 1 ? `${page + 1} / ${current.pages}` : ''],
+      [t('prop.modified'), formatDateTime(item.modified)],
+      [t('prop.created'), item.created && item.created !== item.modified ? formatDateTime(item.created) : ''],
+      ['ICC', current.profile || ''],
+    ])));
+    const exposure = [m.exposure ? formatExposure(m.exposure) : '', m.fNumber ? `f/${m.fNumber}` : '', m.iso ? `ISO ${m.iso}` : '', m.bias ? `${m.bias > 0 ? '+' : ''}${m.bias} EV` : ''].filter(Boolean).join('   ');
+    infoBody.append(infoSection(t('prop.exif'), infoTable([
+      [t('exif.taken'), formatDateTime(m.taken)],
+      [t('exif.camera'), m.camera],
+      [t('exif.lens'), m.lens],
+      [t('exif.exposure'), exposure],
+      [t('exif.focal'), m.focal ? `${m.focal} mm${m.focal35 ? ` (35mm: ${m.focal35} mm)` : ''}` : ''],
+      [t('exif.flash'), m.flash == null ? '' : m.flash ? t('exif.flashOn') : t('exif.flashOff')],
+      [t('exif.gps'), m.lat != null ? `${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}${m.alt != null ? ` · ${m.alt} m` : ''}` : ''],
+      [t('exif.location'), [m.city, m.country].filter(Boolean).join(', ')],
+      [t('exif.artist'), m.artist],
+      [t('exif.copyright'), m.copyright],
+    ])));
+    const dicomMeta = current.dicom?.meta;
+    if (dicomMeta) {
+      infoBody.append(infoSection(t('view.dicom'), infoTable([
+        [t('view.patient'), dicomMeta.patientName],
+        [t('view.patientId'), dicomMeta.patientId],
+        [t('view.modality'), dicomMeta.modality],
+        [t('view.study'), [dicomMeta.studyDescription, dicomMeta.studyDate].filter(Boolean).join(' · ')],
+        [t('view.series'), [dicomMeta.seriesDescription, dicomMeta.seriesNumber].filter(Boolean).join(' · ')],
+        [t('view.bodyPart'), dicomMeta.bodyPart],
+        [t('view.institution'), dicomMeta.institution],
+        [t('exif.camera'), dicomMeta.manufacturer],
+        [t('view.frames'), dicomMeta.frames],
+        [t('view.spacing'), dicomMeta.pixelSpacing],
+        [t('view.thickness'), dicomMeta.sliceThickness],
+      ])));
     }
+    const notes = [];
+    if (record.title) notes.push([t('organize.title'), record.title]);
+    if (record.caption) notes.push([t('organize.caption'), record.caption]);
+    if (record.keywords?.length) notes.push([t('organize.keywords'), record.keywords.join(', ')]);
+    if (notes.length) infoBody.append(infoSection(t('prop.organize'), infoTable(notes)));
+  }
+
+  function updateOverlays() {
+    layoutInfoPane();
+    overlayHist.hidden = !settings().histogram;
+    if (settings().info) fillInfo();
+    if (!current?.item) return;
     if (settings().histogram && current.el && current.kind !== 'video') drawHistogram(overlayHist, histogramOf(current.el));
   }
 
@@ -785,8 +909,10 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     show();
   }
 
+  layoutInfoPane();
+
   return {
-    el, open, onKey, reloadCurrent, forgetDecoded, exitFullscreen: () => fullscreen && toggleFullscreen(false), get currentPath() { return current?.item?.path ?? null; },
+    el, open, relabel, onKey, reloadCurrent, forgetDecoded, exitFullscreen: () => fullscreen && toggleFullscreen(false), get currentPath() { return current?.item?.path ?? null; },
     /** Test hooks. */
     debug: () => ({ zoom, fit, offset: { ...offset }, page, pages: current?.pages ?? 1, kind: current?.kind ?? null, width: current?.width ?? 0, height: current?.height ?? 0, loupeOn, pixelInfo, navigator: !navigator.hidden, faces: faceLayer.querySelectorAll('.face-box').length }),
     testing: { saveVideoFrame, trimCurrent, saveVideo, videoSettings, goPage, setZoom: (value) => setZoom(value) },

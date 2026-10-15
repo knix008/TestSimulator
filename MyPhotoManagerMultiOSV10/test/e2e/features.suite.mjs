@@ -3053,21 +3053,21 @@ export const cases = [
       // Properties: what the analysis found.
       await app.main.eval(`${P}.actions.selectItem(${P}.app.state.list.find((i) => i.name === 'page.png').path); 1`);
       await app.main.waitFor(`Boolean(${P}.dq('.analysis-chip[data-cat="scene/document"]'))`, { message: 'analysis in the properties panel' });
-      // Sort into folders (copies; the originals stay).
+      // Classification stays in the catalog. No category folders, no copies.
       await open(app, folder, face ? 6 : 5);
-      const result = JSON.parse(await app.main.eval(`${P}.organizer().then((m) => m.organize(${P}.app.state.list, { kind: 'scene', folder: ${js(folder)} })).then((r) => JSON.stringify(r))`));
-      assert.ok(result.folders >= 2 && result.files === (face ? 6 : 5), JSON.stringify(result));
-      const sorted = path.join(folder, await app.main.eval(`${P}.t('analysis.sortedFolder')`));
-      const docFolder = path.join(sorted, docLabel);
-      assert.ok(fs.existsSync(path.join(docFolder, 'page.png')), 'page.png copied into its category folder');
+      const before = fs.readdirSync(folder);
+      const result = JSON.parse(await app.main.eval(`${P}.organizer().then((m) => m.organize(${P}.app.state.list, { kind: 'scene' })).then((r) => JSON.stringify(r))`));
+      assert.ok(result.groups >= 2 && result.files === (face ? 6 : 5) && result.folders === 0, JSON.stringify(result));
+      assert.deepEqual(fs.readdirSync(folder).sort(), before.sort(), 'classification does not create folders or copies');
       assert.ok(fs.existsSync(path.join(folder, 'page.png')), 'the original stays');
+      assert.ok(await app.main.eval(`${P}.app.state.list.some((i) => i.name === 'page.png' && (${P}.app.catalog.get(i.path)?.analysis?.cats ?? []).includes('scene/document'))`), 'the category stays in the catalog');
       // The automatic run follows the setting and stays off for the rest of the suite.
       await app.main.eval(`${P}.analysis.suspendAuto(true); 1`);
     },
   },
   {
     ids: ['VIEW-DICOMCLICK', 'VIEW-DICOMANGLE', 'VIEW-DICOMGRID', 'VIEW-DICOMZOOM', 'VIEW-DICOMEXPORT', 'FMT-DICOM'],
-    group: '형식', name: 'DICOM: 클릭으로 각도·거리 재기(화면에 그려짐), 막대의 − 배율 +, 화면 고정 5×5 격자 켜고 끄기, 프레임을 모든 형식으로 내보내기, 실제 초음파 시네(컬러, 30프레임)',
+    group: '형식', name: 'DICOM: 클릭으로 각도·거리 재기(화면에 그려짐), 막대의 − 배율 +, 눈금자에 맞춘 격자 켜고 끄기, 프레임을 모든 형식으로 내보내기, 실제 초음파 시네(컬러, 30프레임)',
     run: async (app) => {
       const folder = dir(app, 'dicom-ui');
       fs.mkdirSync(folder, { recursive: true });
@@ -3101,16 +3101,27 @@ export const cases = [
       // − zoom + on the DICOM bar, in step with the viewer's own.
       const zoomText = () => app.main.eval(`${P}.dq('[data-dicom=zoom]').textContent + '|' + ${P}.dq('#viewer-zoom').textContent`);
       const [z0] = (await zoomText()).split('|');
-      // Grid: on by default, fixed to the window (same cells at any zoom), off with its button.
+      // Grid: on by default, each line on a ruler tick, so zooming moves it with the picture.
       const grid0 = await app.main.eval(`${P}.viewer.dicom.debug().grid`);
       assert.match(grid0, /^\d+x\d+$/);
       assert.match(await app.main.eval(`${P}.dq('[data-dicom=grid]').textContent`), /ON/);
+      const gridXs = `[...document.querySelectorAll('.dicom-grid line')].filter((l) => l.getAttribute('x1') === l.getAttribute('x2')).map((l) => l.getAttribute('x1'))`;
+      const onTicks = `(() => {
+        const xs = new Set(${gridXs});
+        const ys = new Set([...document.querySelectorAll('.dicom-grid line')].filter((l) => l.getAttribute('y1') === l.getAttribute('y2')).map((l) => l.getAttribute('y1')));
+        const tx = [...document.querySelectorAll('.dicom-ruler.horizontal > line:not(.dicom-ruler-cursor)')];
+        const ty = [...document.querySelectorAll('.dicom-ruler.vertical > line:not(.dicom-ruler-cursor)')];
+        return tx.length > 2 && ty.length > 2 && tx.every((l) => xs.has(l.getAttribute('x1'))) && ty.every((l) => ys.has(l.getAttribute('y1')));
+      })()`;
+      assert.equal(await app.main.eval(onTicks), true, 'grid lines sit on the ruler ticks');
+      const linesBefore = await app.main.eval(`JSON.stringify(${gridXs})`);
       await app.main.eval(`${P}.dq('[data-dicom=zoom-in]').click(); 1`);
       await sleep(300);
       const [z1, v1] = (await zoomText()).split('|');
       assert.ok(parseInt(z1, 10) > parseInt(z0, 10), `zoomed in: ${z0} → ${z1}`);
       assert.equal(z1, v1, 'the DICOM bar and the toolbar show the same zoom');
-      assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().grid`), grid0, 'grid spacing stays when zooming');
+      assert.equal(await app.main.eval(onTicks), true, 'grid stays on the ruler ticks when zoomed');
+      assert.notEqual(await app.main.eval(`JSON.stringify(${gridXs})`), linesBefore, 'grid moves with the zoom');
       await app.main.eval(`${P}.dq('[data-dicom=zoom-out]').click(); 1`);
       await sleep(300);
       assert.equal((await zoomText()).split('|')[0], z0);
@@ -3179,10 +3190,10 @@ export const cases = [
       const widths = JSON.parse(await app.main.eval(`JSON.stringify({ min: ${P}.minWidth.current(), inner: innerWidth, clipped: [...document.querySelectorAll('.app-header, .app-toolbar, .viewer-toolbar')].filter((b) => b.offsetParent).filter((b) => { const last = [...b.children].filter((c) => c.offsetParent).pop(); return last && last.getBoundingClientRect().right > b.getBoundingClientRect().right + 1; }).map((b) => b.className) })`));
       assert.ok(widths.min >= 960 && widths.inner >= widths.min - 1, JSON.stringify(widths));
       assert.deepEqual(widths.clipped, []);
-      // Right panel: the fold button sits at the right end of its title row.
+      // Fold buttons face the middle: "<" at the right of the left title, ">" at the left of the right title.
       await app.main.eval(`${P}.actions.showRightTab?.('properties'); 1`);
-      const gap = await app.main.eval(`(() => { const b = document.querySelector('[data-fold=right]'); const head = b?.closest('.pane-head'); if (!head) return null; return Math.round(head.getBoundingClientRect().right - b.getBoundingClientRect().right); })()`);
-      assert.ok(gap !== null && gap <= 8, `fold button gap ${gap}`);
+      const gap = await app.main.eval(`(() => { const edge = (side, end) => { const b = document.querySelector('[data-fold=' + side + ']'); const head = b?.closest('.pane-head'); if (!head) return null; const hb = head.getBoundingClientRect(); const bb = b.getBoundingClientRect(); return Math.round(end === 'right' ? hb.right - bb.right : bb.left - hb.left); }; return { left: edge('left', 'right'), right: edge('right', 'left') }; })()`);
+      assert.ok(gap && gap.left !== null && gap.left <= 8 && gap.right !== null && gap.right <= 8, `fold button gap ${JSON.stringify(gap)}`);
     },
   },
 ];

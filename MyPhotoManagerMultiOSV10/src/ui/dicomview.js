@@ -38,17 +38,38 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   const layer = svg('svg', { class: 'dicom-layer' });
   const corners = h('div.dicom-corners', { hidden: true });
   const rulers = svg('svg', { class: 'dicom-rulers' });
-  stage.append(layer, corners, rulers);
+  const crosshair = svg('svg', { class: 'dicom-crosshair' });
+  const crossX = svg('line', { x1: 0, y1: 0, x2: 0, y2: 0 });
+  const crossY = svg('line', { x1: 0, y1: 0, x2: 0, y2: 0 });
+  crosshair.append(crossX, crossY);
+  crosshair.style.display = 'none';
+  stage.append(layer, corners, rulers, crosshair);
+  const placeCross = (x, y, box) => {
+    if (!shown('crosshair')) { crosshair.style.display = 'none'; return; }
+    crosshair.style.display = '';
+    crosshair.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    crossX.setAttribute('x1', 0);
+    crossX.setAttribute('x2', box.width);
+    crossX.setAttribute('y1', y);
+    crossX.setAttribute('y2', y);
+    crossY.setAttribute('y1', 0);
+    crossY.setAttribute('y2', box.height);
+    crossY.setAttribute('x1', x);
+    crossY.setAttribute('x2', x);
+  };
   stage.addEventListener('pointermove', (event) => {
     if (!image) return;
     const box = stage.getBoundingClientRect();
     const x = event.clientX - box.left;
     const y = event.clientY - box.top;
+    if (x < 0 || y < 0 || x > box.width || y > box.height) { crosshair.style.display = 'none'; return; }
+    placeCross(x, y, box);
     rulers.querySelector('.dicom-ruler.horizontal .dicom-ruler-cursor')?.setAttribute('x1', x);
     rulers.querySelector('.dicom-ruler.horizontal .dicom-ruler-cursor')?.setAttribute('x2', x);
     rulers.querySelector('.dicom-ruler.vertical .dicom-ruler-cursor')?.setAttribute('y1', y);
     rulers.querySelector('.dicom-ruler.vertical .dicom-ruler-cursor')?.setAttribute('y2', y);
   });
+  stage.addEventListener('pointerleave', () => { crosshair.style.display = 'none'; });
 
   let image = null;
   let item = null;
@@ -66,6 +87,9 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   let redoStack = [];
   let cineMode = 'loop'; // loop | bounce | once
   let cineDirection = 1;
+  let cineGen = 0;
+  let playing = false;
+  let cineWait = null; // resolves the pause between frames when playback stops
   let fpsFromFile = true; // follow the file's frame times until the user sets a rate
   let rendering = null;
 
@@ -86,7 +110,16 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     rendering = token;
     const { canvas: out, state: shown } = await image.toCanvas({ ...state });
     if (rendering !== token || !canvas) return;
-    canvas.getContext('2d').drawImage(out, 0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(out, 0, 0, canvas.width, canvas.height);
+    // WebView keeps the previous bitmap when the canvas is only moved by a CSS
+    // transform, so a cine looks frozen. A size change is not required; dropping
+    // the transform for one frame makes the new pixels show.
+    const transform = canvas.style.transform;
+    if (transform && transform !== 'none') {
+      canvas.style.transform = 'none';
+      requestAnimationFrame(() => { if (canvas) canvas.style.transform = transform; });
+    }
     state = { ...state, ...shown };
     delete state.resetWindow;
     syncBar();
@@ -115,6 +148,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     corners.hidden = !shown('corners');
     buildBar();
     bar.hidden = false;
+    stage.classList.add('dicom-view');
     pending = null;
     drawMeasures();
     drawCorners();
@@ -130,8 +164,9 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     layer.style.display = 'none';
     clear(layer);
     clear(rulers);
+    crosshair.style.display = 'none';
     pending = null;
-    stage.classList.remove('dicom-tool', 'dicom-has-rulers');
+    stage.classList.remove('dicom-tool', 'dicom-has-rulers', 'dicom-view');
   }
 
   /** The measurement layer follows the picture's transform (set by the viewer). */
@@ -139,6 +174,8 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     layer.style.width = style.width;
     layer.style.height = style.height;
     layer.style.transform = style.transform;
+    layer.style.marginLeft = style.marginLeft;
+    layer.style.marginTop = style.marginTop;
     drawCorners();
     drawMeasures();
     requestAnimationFrame(drawRulers);
@@ -189,7 +226,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
         controls.frameLabel = h('span.dicom-label', ''),
         h('button.tool', { type: 'button', title: t('view.nextPage'), html: icon('next'), onclick: () => setFrame(state.frame + 1) }),
         controls.play = h('button.tool', { type: 'button', title: t('dicom.cine'), dataset: { dicom: 'cine' }, html: icon('play'), onclick: toggleCine }),
-        controls.fps = h('input.input.dicom-num', { type: 'number', min: 1, max: 120, value: fps, title: t('dicom.fps'), dataset: { key: 'dicom-fps', noStepper: '' }, onchange: (e) => { fps = Math.max(1, Math.min(120, Number(e.target.value) || 10)); fpsFromFile = false; if (cineTimer) { stopCine(); startCine(); } } }),
+        controls.fps = h('input.input.dicom-num', { type: 'number', min: 1, max: 120, value: fps, title: t('dicom.fps'), dataset: { key: 'dicom-fps', noStepper: '' }, onchange: (e) => { fps = Math.max(1, Math.min(120, Number(e.target.value) || 10)); fpsFromFile = false; if (playing) { stopCine(); startCine(); } } }),
         h('span.dicom-label', 'fps'),
         (() => { const s = selectEl([['loop', t('dicom.cineLoop')], ['bounce', t('dicom.cineBounce')], ['once', t('dicom.cineOnce')]], cineMode, (v) => { cineMode = v; cineDirection = 1; }); s.dataset.key = 'dicom-cine-mode'; s.title = t('dicom.cineMode'); return s; })()) : null,
       group(toolButton('wl', 'contrast', t('dicom.toolWindow')), toolButton('distance', 'straighten', t('dicom.toolDistance')), toolButton('angle', 'angle', t('dicom.toolAngle')), toolButton('cobb', 'cobb', t('dicom.toolCobb')), toolButton('rect', 'square', t('dicom.toolRect')), toolButton('ellipse', 'circle', t('dicom.toolEllipse')),
@@ -200,6 +237,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       group(h(`button.tool${shown('rulers') ? '.on' : ''}`, { type: 'button', title: t('dicom.rulers'), 'aria-pressed': String(shown('rulers')), html: icon('ruler'), dataset: { dicom: 'rulers' }, onclick: () => { toggleShown('rulers'); buildBar(); drawRulers(); } }),
         h(`button.tool.with-label${shown('grid') ? '.on' : ''}`, { type: 'button', title: `${t('dicom.grid')} (D)`, 'aria-pressed': String(shown('grid')), dataset: { dicom: 'grid' }, onclick: () => { toggleShown('grid'); buildBar(); drawRulers(); } }, h('span', { html: icon('gridLines') }), h('span.tool-label', `${t('dicom.gridShort')} ${shown('grid') ? 'ON' : 'OFF'}`)),
         h(`button.tool${shown('scaleBar') ? '.on' : ''}`, { type: 'button', title: t('dicom.scaleBar'), 'aria-pressed': String(shown('scaleBar')), html: icon('scaleBar'), dataset: { dicom: 'scalebar' }, onclick: () => { toggleShown('scaleBar'); buildBar(); drawRulers(); } }),
+        h(`button.tool.with-label${shown('crosshair') ? '.on' : ''}`, { type: 'button', title: `${t('dicom.crosshair')} (X)`, 'aria-pressed': String(shown('crosshair')), dataset: { dicom: 'crosshair' }, onclick: () => { toggleShown('crosshair'); if (!shown('crosshair')) crosshair.style.display = 'none'; buildBar(); } }, h('span', { html: icon('plus') }), h('span.tool-label', `${t('dicom.crosshairShort')} ${shown('crosshair') ? 'ON' : 'OFF'}`)),
         h('button.btn.small', { type: 'button', title: t('dicom.actualSizeHint'), dataset: { dicom: 'actual' }, disabled: !spacing(), onclick: actualSize }, '1:1'),
         h('button.tool', { type: 'button', title: `${t('view.zoomOut')} (-)`, html: icon('zoomOut'), dataset: { dicom: 'zoom-out' }, onclick: () => zoomStep?.(-1) }),
         controls.zoom = h('span.dicom-label.dicom-zoom', { title: t('view.zoomLevel'), dataset: { dicom: 'zoom' } }),
@@ -218,7 +256,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (document.activeElement !== controls.wc) controls.wc.value = fmt(state.wc);
     if (document.activeElement !== controls.ww) controls.ww.value = fmt(state.ww);
     if (controls.frame) { controls.frame.value = state.frame; controls.frameLabel.textContent = `${state.frame + 1} / ${frames()}`; }
-    if (controls.play) controls.play.innerHTML = icon(cineTimer ? 'pause' : 'play');
+    if (controls.play) controls.play.innerHTML = icon(playing ? 'pause' : 'play');
     if (controls.fps && document.activeElement !== controls.fps) controls.fps.value = String(Math.round(fps));
     if (controls.undo) { controls.undo.disabled = !undoStack.length; controls.redo.disabled = !redoStack.length; }
     for (const button of bar.querySelectorAll('[data-dicom=invert]')) button.classList.toggle('on', Boolean(state.invert));
@@ -253,30 +291,49 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     return Math.max(1000 / 120, Number.isFinite(own) && own > 0 ? own : 1000 / Math.max(1, fps));
   };
 
-  /** Cine: loop, bounce (forward then back) or play once. */
+  /** Cine: loop, bounce (forward then back) or play once. The next frame is not started until this one is on screen. */
   function startCine() {
     stopCine();
-    const tick = () => {
-      if (!image || !stage.isConnected) { stopCine(); return; }
-      let next = state.frame + cineDirection;
-      if (next >= frames() || next < 0) {
-        if (cineMode === 'once') { stopCine(); return; }
-        if (cineMode === 'bounce') { cineDirection = -cineDirection; next = state.frame + cineDirection; } else next = cineDirection > 0 ? 0 : frames() - 1;
-      }
-      setFrame(next);
-      cineTimer = setTimeout(tick, frameDelay(next));
-    };
-    cineTimer = setTimeout(tick, frameDelay(state.frame));
+    if (!image || frames() < 2 || !stage.isConnected) return;
+    const gen = ++cineGen;
+    playing = true;
+    cineTimer = true;
     syncBar();
+    const pause = (ms) => new Promise((resolve) => {
+      const finish = () => { if (cineWait === finish) cineWait = null; resolve(); };
+      cineWait = finish;
+      cineTimer = setTimeout(finish, ms);
+    });
+    (async () => {
+      while (cineGen === gen && image && stage.isConnected) {
+        let next = state.frame + cineDirection;
+        if (next >= frames() || next < 0) {
+          if (cineMode === 'once') { stopCine(); return; }
+          if (cineMode === 'bounce') { cineDirection = -cineDirection; next = state.frame + cineDirection; } else next = cineDirection > 0 ? 0 : frames() - 1;
+        }
+        const t0 = performance.now();
+        cineTimer = true;
+        try { await render({ frame: next }); } catch { /* keep the last frame and try the next */ }
+        if (cineGen !== gen) return;
+        const remain = frameDelay(next) - (performance.now() - t0);
+        if (remain > 0) await pause(remain);
+      }
+      if (cineGen === gen) stopCine();
+    })();
   }
 
   function stopCine() {
+    playing = false;
+    cineGen += 1;
     clearTimeout(cineTimer);
     cineTimer = null;
+    const finish = cineWait;
+    cineWait = null;
+    finish?.();
     syncBar();
   }
 
-  function toggleCine() { if (cineTimer) stopCine(); else startCine(); }
+  function toggleCine() { if (playing) stopCine(); else startCine(); }
 
   // ───────── pointer tools (window drag, distance, ROI)
 
@@ -481,6 +538,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     const pic = canvas.getBoundingClientRect();
     if (!box.width || !pic.width) return;
     rulers.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    rulers.setAttribute('preserveAspectRatio', 'none');
     const sp = spacing();
     const unit = sp ? unitLabel() : 'px';
     const unitsPerImagePx = sp ? [fromMm(sp[1]), fromMm(sp[0])] : [1, 1];
@@ -489,20 +547,11 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     // edges, ticks and numbers counted from the picture's top-left corner (0),
     // the picture's extent lit on the bar, a marker following the cursor.
     const BAND = 24;
-    // A light 5 × 5 grid over the viewing area (inside the ruler bars): fixed to
-    // the window, so its spacing stays the same when zooming or panning.
-    if (shown('grid')) {
-      const x0 = shown('rulers') ? BAND : 0;
-      const y0 = x0;
-      const [w, hh] = [box.width - x0, box.height - y0];
-      const g = svg('g', { class: 'dicom-grid' });
-      for (let i = 1; i < 5; i++) {
-        g.append(svg('line', { x1: x0 + (w * i) / 5, y1: y0, x2: x0 + (w * i) / 5, y2: box.height }), svg('line', { x1: x0, y1: y0 + (hh * i) / 5, x2: box.width, y2: y0 + (hh * i) / 5 }));
-      }
-      g.dataset.cell = `${Math.round(w / 5)}x${Math.round(hh / 5)}`;
-      rulers.append(g);
-    }
-    const axis = (horizontal) => {
+    // The same scale as the ruler: 0 at the picture's top-left, one minor tick
+    // apart. Zooming changes that step, and every grid line falls on a ruler mark.
+    // A stronger line closes the ruler's major step (five minor steps, or four
+    // when that keeps the mark a round number).
+    const axisScale = (horizontal) => {
       const c = horizontal ? 0 : 1;
       const pxPerUnit = screenPerImagePx[c] / unitsPerImagePx[c];
       const total = (horizontal ? canvas.width : canvas.height) * unitsPerImagePx[c];
@@ -510,6 +559,34 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       const minor = major / (String(major).startsWith('2') ? 4 : 5);
       const origin = horizontal ? pic.left - box.left : pic.top - box.top;
       const length = horizontal ? box.width : box.height;
+      return { pxPerUnit, total, major, minor, origin, length };
+    };
+    const majorTick = (scale, value) => Math.abs(value / scale.major - Math.round(value / scale.major)) < 1e-6;
+    if (shown('grid')) {
+      const xScale = axisScale(true);
+      const yScale = axisScale(false);
+      const x0 = shown('rulers') ? BAND : 0;
+      const y0 = shown('rulers') ? BAND : 0;
+      const g = svg('g', { class: 'dicom-grid' });
+      const place = (scale, from, to) => {
+        const first = Math.ceil(((from - scale.origin) / scale.pxPerUnit) / scale.minor - 1e-9);
+        const last = Math.floor(((to - scale.origin) / scale.pxPerUnit) / scale.minor + 1e-9);
+        const at = [];
+        for (let k = first; k <= last; k++) {
+          const value = k * scale.minor;
+          const pos = scale.origin + value * scale.pxPerUnit;
+          if (pos < from || pos > to) continue;
+          at.push([pos, majorTick(scale, value)]);
+        }
+        return at;
+      };
+      for (const [x, major] of place(xScale, x0, box.width)) g.append(svg('line', { x1: x, y1: y0, x2: x, y2: box.height, class: major ? 'major' : 'minor' }));
+      for (const [y, major] of place(yScale, y0, box.height)) g.append(svg('line', { x1: x0, y1: y, x2: box.width, y2: y, class: major ? 'major' : 'minor' }));
+      g.dataset.cell = `${Math.round(xScale.minor * xScale.pxPerUnit)}x${Math.round(yScale.minor * yScale.pxPerUnit)}`;
+      rulers.append(g);
+    }
+    const axis = (horizontal) => {
+      const { pxPerUnit, total, major, minor, origin, length } = axisScale(horizontal);
       const g = svg('g', { class: `dicom-ruler ${horizontal ? 'horizontal' : 'vertical'}` });
       g.append(svg('rect', horizontal ? { x: BAND, y: 0, width: length - BAND, height: BAND, class: 'dicom-ruler-band' } : { x: 0, y: BAND, width: BAND, height: length - BAND, class: 'dicom-ruler-band' }));
       const span = [Math.max(BAND, origin), Math.min(length, origin + total * pxPerUnit)];
@@ -844,7 +921,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   /**
    * DICOM keys (before the viewer's): ↑/↓ Home/End frames, Space cine, Ctrl+Z/Y
    * measurement undo/redo, Del delete one, Esc leave the tool; I invert, W reset
-   * window, M next colour map, V overlays, G rulers, B scale bar, O information;
+   * window, M next colour map, V overlays, G rulers, B scale bar, O information, X crosshair;
    * tools R distance, A angle, C Cobb, T rectangle, E ellipse, L window drag.
    */
   function onKey(event) {
@@ -870,19 +947,24 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (lower === 'w') { render({ resetWindow: true, wc: undefined, ww: undefined }); return true; }
     if (lower === 'm') { const maps = image.colormaps ?? ['gray']; render({ colormap: maps[(maps.indexOf(state.colormap ?? 'gray') + 1) % maps.length] }); buildBar(); return true; }
     if (lower === 'v' && image.overlays?.length) { render({ overlays: !state.overlays }); return true; }
-    const overlayKeys = { g: 'rulers', b: 'scaleBar', o: 'corners', d: 'grid' };
-    if (overlayKeys[lower]) { toggleShown(overlayKeys[lower]); corners.hidden = !shown('corners'); buildBar(); drawCorners(); drawMeasures(); return true; }
+    const overlayKeys = { g: 'rulers', b: 'scaleBar', o: 'corners', d: 'grid', x: 'crosshair' };
+    if (overlayKeys[lower]) { toggleShown(overlayKeys[lower]); if (!shown('crosshair')) crosshair.style.display = 'none'; corners.hidden = !shown('corners'); buildBar(); drawCorners(); drawMeasures(); return true; }
     return false;
   }
 
   /** Settings changed (e.g. the length unit): redraw the labels. */
-  function refresh() { if (!image) return; drawMeasures(); drawCorners(); syncBar(); }
+  function refresh() {
+    if (!image) return;
+    buildBar();
+    drawMeasures();
+    drawCorners();
+  }
 
   return {
     bar, attach, detach, layout, pointerDown, probe, onKey, render, refresh,
     get active() { return Boolean(image); },
     /** Test hooks. */
-    debug: () => (image ? { grid: rulers.querySelector('.dicom-grid')?.dataset.cell ?? null, state: { ...state }, frames: frames(), tool, measures: measures.map((m) => ({ type: m.type, text: measureText(m), frame: m.frame ?? null })), undo: undoStack.length, redo: redoStack.length, cineMode, direction: cineDirection, pending: pending?.type ?? null, pendingNext: pending?.next ?? null, cine: Boolean(cineTimer), fps, corners: corners.textContent, units: image.units, spacing: spacing(), scale: scaleText(), rulers: [...rulers.querySelectorAll('.dicom-ruler')].map((r) => ({ axis: r.classList.contains('horizontal') ? 'x' : 'y', major: Number(r.dataset.major), total: Number(r.dataset.total), ticks: Number(r.dataset.ticks), origin: Number(r.dataset.origin), pxPerUnit: Number(r.dataset.pxPerUnit), from: Number(r.dataset.from), to: Number(r.dataset.to) })), scaleBar: (() => { const b = rulers.querySelector('.dicom-scalebar'); if (!b) return null; const r = b.getBoundingClientRect(); return { length: Number(b.dataset.length), pixels: Number(b.dataset.pixels), x: r.left, y: r.top }; })() } : null),
+    debug: () => (image ? { grid: rulers.querySelector('.dicom-grid')?.dataset.cell ?? null, state: { ...state }, frames: frames(), tool, measures: measures.map((m) => ({ type: m.type, text: measureText(m), frame: m.frame ?? null })), undo: undoStack.length, redo: redoStack.length, cineMode, direction: cineDirection, pending: pending?.type ?? null, pendingNext: pending?.next ?? null, cine: playing, fps, corners: corners.textContent, units: image.units, spacing: spacing(), scale: scaleText(), rulers: [...rulers.querySelectorAll('.dicom-ruler')].map((r) => ({ axis: r.classList.contains('horizontal') ? 'x' : 'y', major: Number(r.dataset.major), total: Number(r.dataset.total), ticks: Number(r.dataset.ticks), origin: Number(r.dataset.origin), pxPerUnit: Number(r.dataset.pxPerUnit), from: Number(r.dataset.from), to: Number(r.dataset.to) })), scaleBar: (() => { const b = rulers.querySelector('.dicom-scalebar'); if (!b) return null; const r = b.getBoundingClientRect(); return { length: Number(b.dataset.length), pixels: Number(b.dataset.pixels), x: r.left, y: r.top }; })() } : null),
     testing: { setTool, setFrame, startCine, stopCine, tagsDialog, saveFrame, saveCine, actualSize, exportFrames, exportDialog, exportTags, tagsText, undoMeasure, redoMeasure, deleteLastMeasure, frameDelay: (f) => frameDelay(f), setCineMode: (m) => { cineMode = m; cineDirection = 1; } },
   };
 }

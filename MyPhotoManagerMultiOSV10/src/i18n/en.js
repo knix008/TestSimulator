@@ -7,6 +7,21 @@ export default {
   'menu.settings': 'Settings', 'menu.theme': 'Theme', 'menu.language': 'Language', 'menu.viewStyle': 'View style', 'menu.batch': 'Batch',
   'mode.manage': 'Manage', 'mode.view': 'View', 'mode.edit': 'Edit', 'mode.dashboard': 'Dashboard',
   'mode.nothingToView': 'There is no photo to view here.', 'mode.nothingToEdit': 'Select a photo to edit.',
+  'start.title': 'Home', 'start.lead': 'Open a folder, then browse, view, edit and organize your photos.',
+  'start.begin': 'Get started', 'start.tasks': 'What you can do', 'start.recent': 'Recent folders', 'start.noRecent': 'No folder opened yet.', 'start.tip': 'Tip.',
+  'start.openFolderText': 'Browse a folder of photos', 'start.openFilesText': 'Open photos on their own', 'start.importText': 'Copy photos in from a camera or a card',
+  'start.slideshowText': 'Play the photos in this folder', 'start.samplesText': 'Try the pictures that come with the app',
+  'start.settingsText': 'Theme, language and how photos are saved', 'start.shortcutsText': 'Keys for browsing, viewing and editing',
+  'start.desc.manage': 'Thumbnails, ratings, labels and folders', 'start.desc.view': 'Look at a photo large', 'start.desc.edit': 'Light, colour and crop',
+  'start.desc.dashboard': 'Counts and cameras for this folder', 'start.desc.search': 'Find by date, camera or keyword', 'start.desc.folders': 'Places and drives',
+  'start.desc.calendar': 'Photos by the day they were taken', 'start.desc.people': 'Find people by their faces', 'start.desc.map': 'Photos that have a place',
+  'start.desc.slideshow': 'Full screen, one after another', 'start.desc.print': 'Print, or a contact sheet', 'start.desc.compare': 'Two photos side by side',
+  'start.desc.duplicates': 'Find the same photo twice', 'start.desc.panorama': 'Stitch overlapping photos', 'start.desc.gif': 'Several photos as a moving picture',
+  'start.desc.pdf': 'Photos gathered into a document', 'start.desc.hdr': 'Merge different exposures', 'start.desc.batch': 'Rename many files at once',
+  'start.desc.organize': 'Gather photos by what is in them, without copying files',
+  'start.tip.0': 'Ctrl+O opens a folder.', 'start.tip.1': 'Select a photo and press Ctrl+E to edit it.', 'start.tip.2': 'Ctrl+Shift+S starts a slideshow.',
+  'start.tip.3': 'Keys 1–5 set the rating. Alt+1–5 set the colour label.', 'start.tip.4': 'Photos with a place show on the map.',
+  'start.tip.5': 'The dashboard gathers counts and cameras for the folder you are in.',
   'pane.folders': 'Folders', 'pane.catalog': 'Catalog', 'pane.calendar': 'Calendar', 'pane.search': 'Search', 'pane.properties': 'Properties', 'pane.preview': 'Preview', 'pane.map': 'Map',
   'place.home': 'Home ({name})', 'place.pictures': 'Pictures', 'place.desktop': 'Desktop', 'place.documents': 'Documents', 'place.downloads': 'Downloads',
 
@@ -88,7 +103,9 @@ export default {
   'map.none': 'No photo in this list has a GPS location. Right-click the map to place the selected photos.', 'map.placeHere': 'Place {n} selected photos here', 'map.removeLocation': 'Remove location of the selection',
 
   'view.prev': 'Previous', 'view.next': 'Next', 'view.first': 'First', 'view.last': 'Last', 'view.zoomIn': 'Zoom in', 'view.zoomOut': 'Zoom out', 'view.fit': 'Fit to window', 'view.actual': 'Actual size (100%)',
-  'view.rotateLeft': 'Rotate left', 'view.rotateRight': 'Rotate right', 'view.edit': 'Edit', 'view.slideshow': 'Slideshow', 'view.info': 'Information', 'view.histogram': 'Histogram',
+  'view.rotateLeft': 'Rotate left', 'view.rotateRight': 'Rotate right', 'view.edit': 'Edit', 'view.slideshow': 'Slideshow', 'view.info': 'Information', 'view.infoShow': 'Show the information panel', 'view.infoHide': 'Hide the information panel', 'view.histogram': 'Histogram',
+  'view.pages': 'Pages', 'view.dicom': 'DICOM', 'view.patient': 'Patient', 'view.patientId': 'Patient ID', 'view.modality': 'Modality', 'view.study': 'Study', 'view.series': 'Series', 'view.bodyPart': 'Body part', 'view.institution': 'Institution', 'view.frames': 'Frames', 'view.spacing': 'Pixel spacing', 'view.thickness': 'Slice thickness',
+  'dicom.crosshair': 'Red dotted crosshair', 'dicom.crosshairShort': 'Crosshair',
   'view.filmstrip': 'Filmstrip', 'view.fullscreen': 'Full screen', 'view.backToManage': 'Manage', 'view.cannotOpen': 'This picture cannot be shown.', 'view.fitShort': 'fit',
 
   'edit.light': 'Light', 'edit.color': 'Color', 'edit.levels': 'Levels', 'edit.curves': 'Tone curve', 'edit.detail': 'Detail', 'edit.geometry': 'Crop & geometry', 'edit.repair': 'Repair',
@@ -139,7 +156,7 @@ export default {
   'slideshow.pause': 'Pause / play (Space)', 'slideshow.end': 'End (Esc)', 'slideshow.interval': 'Seconds per photo', 'slideshow.transition': 'Transition', 'slideshow.shuffle': 'Shuffle',
   'slideshow.loop': 'Repeat', 'slideshow.caption': 'Show captions', 'slideshow.fade': 'Fade', 'slideshow.slide': 'Slide', 'slideshow.zoom': 'Zoom (Ken Burns)', 'slideshow.none': 'None',
 
-  'dash.title': 'Library dashboard', 'dash.note': 'Everything in the catalog: folders you opened or cataloged. Click a bar to see its photos.', 'dash.photos': 'Photos', 'dash.folders': 'Folders',
+  'dash.title': 'Library dashboard', 'dash.note': 'Everything in the catalog: folders you opened or cataloged. Click a section to open that screen, or a bar to see its photos.', 'dash.photos': 'Photos', 'dash.folders': 'Folders',
   'dash.span': 'Years', 'dash.rated': 'Rated', 'dash.geotagged': 'With location', 'dash.keywords': 'Keywords', 'dash.byYear': 'Photos per year', 'dash.byMonth': 'Photos per month in {year}',
   'dash.types': 'File types', 'dash.other': 'Other', 'dash.noData': 'No data', 'dash.empty': 'The catalog is empty. Open a folder or use "Catalog this folder" to collect statistics.',
 

@@ -7,7 +7,7 @@ import { analyze, onAnalysis, state as analysisState, stopAnalysis } from '../an
 import { categoryCounts, categoryIds, categoryKey } from '../analysis/taxonomy.js';
 import { AUTO_CATEGORIES, autoCategoryCounts, LABEL_COLORS, LABELS } from '../catalog/catalog.js';
 import { t } from '../i18n.js';
-import { app, openSource, selectedFiles, targetPaths } from '../store.js';
+import { app, openSource, reload, selectedFiles, targetPaths } from '../store.js';
 import { confirmDialog, promptDialog } from './dialog.js';
 import { clear, debounce, h } from './dom.js';
 import { collectionCount, deleteCollection, newCollection, renameCollection, showCollection, smartCollectionDialog } from './collections.js';
@@ -94,7 +94,7 @@ export function createCatalogPane() {
       if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
       render();
     });
-    return h('div.cat-section', head, open ? body() : null);
+    return h('div.cat-section', { dataset: { section: id } }, head, open ? body() : null);
   }
 
   function assignState(paths, has) {
@@ -119,8 +119,8 @@ export function createCatalogPane() {
 
     if (active.length > 1) {
       el.append(h('div.cat-match', t('catalog.match'),
-        h(`button.chip${app.settings.catalogMatch === 'all' ? '.on' : ''}`, { type: 'button', onclick: () => setMatch('all') }, t('catalog.matchAll')),
-        h(`button.chip${app.settings.catalogMatch === 'any' ? '.on' : ''}`, { type: 'button', onclick: () => setMatch('any') }, t('catalog.matchAny'))));
+        h(`button.chip${app.settings.catalogMatch === 'all' ? '.on' : ''}`, { type: 'button', onclick: () => setMatch('all') }, h('span', { html: icon('check') }), t('catalog.matchAll')),
+        h(`button.chip${app.settings.catalogMatch === 'any' ? '.on' : ''}`, { type: 'button', onclick: () => setMatch('any') }, h('span', { html: icon('layers') }), t('catalog.matchAny'))));
     }
 
     el.append(section('special', t('catalog.special'), () => h('div',
@@ -135,7 +135,7 @@ export function createCatalogPane() {
       const run = analysisState();
       if (run.running) {
         box.append(h('div.analysis-run', h('span.spinner-dot'), h('span', t('analysis.progress', { done: run.done, total: run.total })),
-          h('button.btn.small', { type: 'button', dataset: { key: 'analysis-stop' }, onclick: () => stopAnalysis() }, t('analysis.stop'))));
+          h('button.btn.small', { type: 'button', dataset: { key: 'analysis-stop' }, onclick: () => stopAnalysis() }, h('span', { html: icon('stop') }), t('analysis.stop'))));
       }
       const counts = categoryCounts([...catalog.files.values()].map((r) => r.analysis).filter(Boolean));
       const ids = categoryIds().filter((id) => counts[id]);
@@ -143,7 +143,14 @@ export function createCatalogPane() {
       const TOP_ICONS = { people: 'user', scene: 'images', object: 'layers' };
       for (const id of ids) {
         const depth = id.split('/').length - 1;
-        box.append(entry({ type: 'analysis', value: id }, t(categoryKey(id)), counts[id], { indent: depth, iconName: depth ? null : TOP_ICONS[id] }));
+        box.append(entry({ type: 'analysis', value: id }, t(categoryKey(id)), counts[id], {
+          indent: depth,
+          iconName: depth ? null : TOP_ICONS[id],
+          menu: () => [{
+            label: t('analysis.removeFromGroup'), icon: 'close', disabled: !selectedFiles().length,
+            action: () => { app.catalog.dropAnalysis(selectedFiles().map((item) => item.path), id); if (app.state.source.type === 'filter') reload(); },
+          }],
+        }));
       }
       return box;
     }, { actions: [h('button.tool.small', { type: 'button', title: t('analysis.runFolder'), dataset: { key: 'analysis-run' }, html: icon('wand'), onclick: () => analyze(app.state.list) })] }));
@@ -331,5 +338,12 @@ export function createCatalogPane() {
   app.on('selection', later);
   app.on('source', (source) => { if (source.type !== 'filter' && active.length) { active = []; later(); } });
 
-  return { el, render, clear: () => { active = []; render(); } };
+  /** Opens one catalog section (camera, ratings, keywords, …) and scrolls it into view. */
+  function reveal(id) {
+    collapsed.delete(id);
+    render();
+    requestAnimationFrame(() => el.querySelector(`[data-section="${id}"]`)?.scrollIntoView({ block: 'nearest' }));
+  }
+
+  return { el, render, reveal, clear: () => { active = []; render(); } };
 }

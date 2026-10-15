@@ -10,12 +10,23 @@ import { formatBytes, formatNumber } from '../util/format.js';
 import { clear, debounce, h } from './dom.js';
 import { icon } from './icons.js';
 
-function tile(label, value, sub) {
-  return h('div.stat-tile', h('div.stat-label', label), h('div.stat-value', value), sub ? h('div.stat-sub', sub) : null);
+function tile(label, value, sub, onOpen) {
+  return h('button.stat-tile', { type: 'button', onclick: onOpen }, h('div.stat-label', label), h('div.stat-value', value), sub ? h('div.stat-sub', sub) : null);
+}
+
+/** The card opens its screen; a bar inside it still opens just those photos. */
+function openCard(card, onOpen) {
+  if (!onOpen) return card;
+  card.classList.add('dash-link');
+  card.addEventListener('click', (event) => {
+    if (event.target.closest('.bar-row, .time-bar')) return;
+    onOpen();
+  });
+  return card;
 }
 
 /** Horizontal bars with the value printed at the end; rows click through to the photos. */
-function barList(title, entries, { onPick, color, limit = 10 } = {}) {
+function barList(title, entries, { onPick, onOpen, color, limit = 10 } = {}) {
   const top = entries.slice(0, limit);
   const max = Math.max(1, ...top.map(([, n]) => n));
   const rest = entries.slice(limit).reduce((s, [, n]) => s + n, 0);
@@ -29,11 +40,11 @@ function barList(title, entries, { onPick, color, limit = 10 } = {}) {
     return row;
   });
   if (rest) rows.push(h('div.bar-row.other', h('span.bar-label', t('dash.other')), h('span.bar-track'), h('span.bar-value', formatNumber(rest))));
-  return h('section.dash-card', h('h3', h('span', title), h('span.bar-more')), h('div.bar-rows', entries.length ? rows : h('div.cat-empty', t('dash.noData'))));
+  return openCard(h('section.dash-card', h('h3', h('span', title), h('span.bar-more')), h('div.bar-rows', entries.length ? rows : h('div.cat-empty', t('dash.noData')))), onOpen);
 }
 
 /** Vertical bars over time (years or months), with a hover tooltip. */
-function timeline(title, entries, onPick) {
+function timeline(title, entries, onPick, onOpen) {
   const max = Math.max(1, ...entries.map(([, n]) => n));
   const tip = h('div.chart-tip', { hidden: true });
   const chart = h('div.timeline', entries.map(([label, n, key]) => {
@@ -44,10 +55,10 @@ function timeline(title, entries, onPick) {
     bar.addEventListener('click', () => onPick?.(key));
     return bar;
   }), tip);
-  return h('section.dash-card.wide', h('h3', title), entries.length ? chart : h('div.cat-empty', t('dash.noData')));
+  return openCard(h('section.dash-card.wide', h('h3', title), entries.length ? chart : h('div.cat-empty', t('dash.noData'))), onOpen);
 }
 
-export function createDashboard() {
+export function createDashboard({ open } = {}) {
   const el = h('div.dashboard');
 
   function render() {
@@ -60,14 +71,16 @@ export function createDashboard() {
     const withGps = records.filter(([, r]) => r.meta?.lat != null).length;
     const folders = new Set(records.map(([p]) => p.slice(0, Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))))).size;
 
+    const firstYear = dated.length ? new Date(Math.min(...dated)).getFullYear() : null;
+    const go = (target) => open?.(target);
     el.append(h('div.dash-head', h('h2', t('dash.title')), h('p.dash-note', t('dash.note'))));
     el.append(h('div.stat-row',
-      tile(t('dash.photos'), formatNumber(total), formatBytes(bytes)),
-      tile(t('dash.folders'), formatNumber(folders)),
-      tile(t('dash.span'), dated.length ? `${new Date(Math.min(...dated)).getFullYear()} – ${new Date(Math.max(...dated)).getFullYear()}` : '–'),
-      tile(t('dash.rated'), formatNumber(total - counts.ratings[0]), total ? `${Math.round(((total - counts.ratings[0]) / total) * 100)}%` : ''),
-      tile(t('dash.geotagged'), formatNumber(withGps), total ? `${Math.round((withGps / total) * 100)}%` : ''),
-      tile(t('dash.keywords'), formatNumber(Object.keys(counts.keywords).length))));
+      tile(t('dash.photos'), formatNumber(total), formatBytes(bytes), () => go({ source: { type: 'filter', filters: [{ type: 'all' }], title: t('catalog.allMedia') } })),
+      tile(t('dash.folders'), formatNumber(folders), null, () => go({ left: 'folders' })),
+      tile(t('dash.span'), dated.length ? `${firstYear} – ${new Date(Math.max(...dated)).getFullYear()}` : '–', null, () => go({ left: 'calendar', calendar: firstYear == null ? null : { year: firstYear, month: 0 } })),
+      tile(t('dash.rated'), formatNumber(total - counts.ratings[0]), total ? `${Math.round(((total - counts.ratings[0]) / total) * 100)}%` : '', () => go({ left: 'catalog', section: 'ratings', source: { type: 'filter', filters: [{ type: 'rating', op: '>=', value: 1 }], title: t('dash.rated') } })),
+      tile(t('dash.geotagged'), formatNumber(withGps), total ? `${Math.round((withGps / total) * 100)}%` : '', () => go({ right: 'map', source: { type: 'filter', filters: [{ type: 'auto', key: 'gps', value: 'yes' }], title: t('dash.geotagged') } })),
+      tile(t('dash.keywords'), formatNumber(Object.keys(counts.keywords).length), null, () => go({ left: 'catalog', section: 'keywords' }))));
 
     if (!total) {
       el.append(h('div.dash-empty', h('span', { html: icon('chart') }), h('p', t('dash.empty'))));
@@ -84,11 +97,11 @@ export function createDashboard() {
     }
     const years = [...byYear].sort((a, b) => a[0] - b[0]);
     const pickYear = (y) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(y, 0, 1).getTime(), to: new Date(y + 1, 0, 1).getTime() }], title: String(y) });
-    const time = h('div.dash-time');
-    time.append(timeline(t('dash.byYear'), years.map(([y, n]) => [String(y), n, y]), pickYear));
     const lastYear = years.length ? years[years.length - 1][0] : new Date().getFullYear();
+    const time = h('div.dash-time');
+    time.append(timeline(t('dash.byYear'), years.map(([y, n]) => [String(y), n, y]), pickYear, () => go({ left: 'calendar', calendar: { year: lastYear, month: 0 } })));
     const months = Array.from({ length: 12 }, (_, m) => [new Date(lastYear, m, 1).toLocaleDateString(undefined, { month: 'short' }), byMonth.get(`${lastYear}-${String(m + 1).padStart(2, '0')}`) ?? 0, m]);
-    time.append(timeline(t('dash.byMonth', { year: lastYear }), months, (m) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(lastYear, m, 1).getTime(), to: new Date(lastYear, m + 1, 1).getTime() }], title: `${lastYear}-${m + 1}` })));
+    time.append(timeline(t('dash.byMonth', { year: lastYear }), months, (m) => openSource({ type: 'calendar', filters: [{ type: 'date', from: new Date(lastYear, m, 1).getTime(), to: new Date(lastYear, m + 1, 1).getTime() }], title: `${lastYear}-${m + 1}` }), () => go({ left: 'calendar', calendar: { year: lastYear, month: 0 } })));
 
     el.append(time);
     const grid = h('div.dash-grid');
@@ -97,23 +110,27 @@ export function createDashboard() {
       for (const [, r] of records) { const v = AUTO_CATEGORIES[key](r); if (v != null) map.set(v, (map.get(v) ?? 0) + 1); }
       return [...map].sort((a, b) => b[1] - a[1]);
     };
+    const toCatalog = (section) => () => go({ left: 'catalog', section });
     const pickAuto = (key) => (value) => openSource({ type: 'filter', filters: [{ type: 'auto', key, value }], title: `${t(`auto.${key}`)}: ${value}` });
-    grid.append(barList(t('auto.camera'), auto('camera'), { onPick: pickAuto('camera') }));
-    grid.append(barList(t('auto.lens'), auto('lens'), { onPick: pickAuto('lens') }));
+    grid.append(barList(t('auto.camera'), auto('camera'), { onPick: pickAuto('camera'), onOpen: toCatalog('auto:camera') }));
+    grid.append(barList(t('auto.lens'), auto('lens'), { onPick: pickAuto('lens'), onOpen: toCatalog('auto:lens') }));
     const order = (list, keys) => list.sort((a, b) => keys.indexOf(a[0]) - keys.indexOf(b[0]));
-    grid.append(barList(t('auto.iso'), auto('iso').sort((a, b) => Number.parseInt(a[0].replace(/\D/g, ''), 10) - Number.parseInt(b[0].replace(/\D/g, ''), 10)), { onPick: pickAuto('iso'), limit: 12 }));
-    grid.append(barList(t('auto.focal'), auto('focal').sort((a, b) => Number.parseInt(a[0].replace(/\D/g, ''), 10) - Number.parseInt(b[0].replace(/\D/g, ''), 10)), { onPick: pickAuto('focal'), limit: 12 }));
+    grid.append(barList(t('auto.iso'), auto('iso').sort((a, b) => Number.parseInt(a[0].replace(/\D/g, ''), 10) - Number.parseInt(b[0].replace(/\D/g, ''), 10)), { onPick: pickAuto('iso'), onOpen: toCatalog('auto:iso'), limit: 12 }));
+    grid.append(barList(t('auto.focal'), auto('focal').sort((a, b) => Number.parseInt(a[0].replace(/\D/g, ''), 10) - Number.parseInt(b[0].replace(/\D/g, ''), 10)), { onPick: pickAuto('focal'), onOpen: toCatalog('auto:focal'), limit: 12 }));
     const types = new Map();
     for (const [path] of records) { const ext = extensionOf(path).toUpperCase() || '—'; types.set(ext, (types.get(ext) ?? 0) + 1); }
-    grid.append(barList(t('dash.types'), [...types].sort((a, b) => b[1] - a[1])));
+    grid.append(barList(t('dash.types'), [...types].sort((a, b) => b[1] - a[1]), {
+      onOpen: () => go({ source: { type: 'filter', filters: [{ type: 'all' }], title: t('dash.types') } }),
+      onPick: (label) => openSource({ type: 'filter', filters: [{ type: 'ext', value: label === '—' ? '' : label.toLowerCase() }], title: label }),
+    }));
     grid.append(barList(t('catalog.ratings'), [5, 4, 3, 2, 1, 0].map((n) => [n ? '★'.repeat(n) : t('catalog.unrated'), counts.ratings[n]]), {
-      limit: 6, onPick: (label) => { const n = label.startsWith('★') ? label.length : 0; openSource({ type: 'filter', filters: [{ type: 'rating', value: n }], title: label }); },
+      limit: 6, onOpen: toCatalog('ratings'), onPick: (label) => { const n = label.startsWith('★') ? label.length : 0; openSource({ type: 'filter', filters: [{ type: 'rating', value: n }], title: label }); },
     }));
     grid.append(barList(t('catalog.labels'), order(LABELS.map((l) => [t(`label.${l}`), counts.labels[l], LABEL_COLORS[l]]), []), {
-      onPick: (label) => { const l = LABELS.find((x) => t(`label.${x}`) === label); openSource({ type: 'filter', filters: [{ type: 'label', value: l }], title: label }); },
+      onOpen: toCatalog('labels'), onPick: (label) => { const l = LABELS.find((x) => t(`label.${x}`) === label); openSource({ type: 'filter', filters: [{ type: 'label', value: l }], title: label }); },
     }));
     const keywords = Object.entries(counts.keywords).sort((a, b) => b[1] - a[1]);
-    grid.append(barList(t('catalog.keywords'), keywords, { onPick: (k) => openSource({ type: 'filter', filters: [{ type: 'keyword', value: k }], title: `#${k}` }) }));
+    grid.append(barList(t('catalog.keywords'), keywords, { onOpen: toCatalog('keywords'), onPick: (k) => openSource({ type: 'filter', filters: [{ type: 'keyword', value: k }], title: `#${k}` }) }));
     el.append(grid);
     requestAnimationFrame(fit);
   }

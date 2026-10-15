@@ -306,6 +306,21 @@ export class Catalog {
     this.changed(entries.map(([path]) => path), 'analysis');
   }
 
+  /** Drops category `id` (and anything under it) from these photos. The files stay put. */
+  dropAnalysis(paths, id) {
+    const inside = (c) => c === id || c.startsWith(`${id}/`);
+    const touched = [];
+    for (const path of paths) {
+      const record = this.get(path);
+      const cats = record?.analysis?.cats;
+      if (!cats?.some(inside)) continue;
+      record.analysis = { ...record.analysis, cats: cats.filter((c) => !inside(c)) };
+      touched.push(path);
+    }
+    if (touched.length) this.changed(touched, 'analysis');
+    return touched.length;
+  }
+
   /** Forgets the analysis of these paths (or of every picture) so it runs again. */
   clearAnalysis(paths = null) {
     const changed = [];

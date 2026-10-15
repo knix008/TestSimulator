@@ -64,7 +64,7 @@ export function createSearchPane() {
     h('label.check', scope, t('search.inFolder')),
     h('div.search-actions',
       h('button.btn.primary', { type: 'button', onclick: run }, h('span', { html: icon('search') }), t('search.run')),
-      h('button.btn', { type: 'button', onclick: save }, t('search.save'))),
+      h('button.btn', { type: 'button', onclick: save }, h('span', { html: icon('bookmark') }), t('search.save'))),
     h('details.search-help', h('summary', t('search.syntax')), h('pre', t('search.syntaxHelp'))));
   return { el, render: () => {} };
 }

@@ -45,6 +45,7 @@ import { createPreviewPane } from './ui/previewpane.js';
 import { createPropertiesPane } from './ui/properties.js';
 import { createSearchPane } from './ui/searchpane.js';
 import { startSlideshow } from './ui/slideshow.js';
+import { createStartPage } from './ui/startpage.js';
 import { createViewer } from './ui/viewer.js';
 import { formatBytes } from './util/format.js';
 import { applyTheme, nextTheme } from './themes.js';
@@ -137,7 +138,16 @@ const viewer = createViewer({
 });
 let editReturn = 'manage';
 const editor = createEditor({ onDone: () => setMode(editReturn === 'view' ? 'view' : 'manage') });
-const dashboard = createDashboard();
+const dashboard = createDashboard({
+  open: (target) => {
+    setMode('manage');
+    if (target.calendar) calendarPane.show(target.calendar.year, target.calendar.month);
+    if (target.left) showLeftTab(target.left);
+    if (target.right) showRightTab(target.right);
+    if (target.section) catalogPane.reveal(target.section);
+    if (target.source) openSource(target.source);
+  },
+});
 
 const peoplePane = createPeoplePane();
 const LEFT_TABS = [['folders', 'folder', folderPane], ['catalog', 'bookmark', catalogPane], ['people', 'user', peoplePane], ['calendar', 'calendar', calendarPane], ['search', 'search', searchPane]];
@@ -164,11 +174,11 @@ function tabs(container, list, current, onPick, side) {
   }
   // A pane may put its own buttons on the title row (the Folders pane: the drives).
   const headTools = list.find(([id]) => id === current)?.[2].headTools?.() ?? null;
-  container.append(h('div.pane-head',
-    h('span.pane-head-icon', { html: icon(currentIcon) }),
-    h('span.pane-head-title', t(`pane.${currentId}`)),
-    headTools,
-    h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: side }, onclick: () => setCollapsed(true) }, fold)));
+  const headIcon = h('span.pane-head-icon', { html: icon(currentIcon) });
+  const headTitle = h('span.pane-head-title', t(`pane.${currentId}`));
+  const foldButton = h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: side }, onclick: () => setCollapsed(true) }, fold);
+  // Fold buttons face the middle: "<" at the right of the left panel, ">" at the left of the right panel.
+  container.append(h('div.pane-head', side === 'right' ? [foldButton, headIcon, headTitle, headTools] : [headIcon, headTitle, headTools, foldButton]));
   const bar = h('div.pane-tabs', { role: 'tablist' });
   for (const [id, iconName] of list) {
     bar.append(h(`button.pane-tab${id === current ? '.on' : ''}`, { type: 'button', role: 'tab', title: t(`pane.${id}`), dataset: { tab: id }, onclick: () => onPick(id) }, h('span', { html: icon(iconName) }), h('span.pane-tab-label', t(`pane.${id}`))));
@@ -185,6 +195,8 @@ function showLeftTab(id) {
   app.saveSettings();
   layoutPanes();
 }
+
+app.on('show-pane', ({ side, id }) => { if (side === 'left') showLeftTab(id); else showRightTab(id); });
 
 function showRightTab(id) {
   app.settings.panes.rightTab = id;
@@ -245,9 +257,13 @@ function renderHeader() {
     { id: 'tools', icon: 'sliders', label: t('menu.tools'), items: toolsMenu },
     { id: 'help', icon: 'help', label: t('menu.help'), items: helpMenu },
   ]);
+  const home = h(`button.mode-button.start-home${app.state.mode === 'start' ? '.on' : ''}`, {
+    type: 'button', id: 'start-home', title: t('start.title'), 'aria-label': t('start.title'), 'aria-pressed': app.state.mode === 'start' ? 'true' : 'false', onclick: () => showStart(),
+  }, h('span', { html: icon('home') }), h('span.mode-label', t('start.title')));
   const modes = h('div.mode-switch', { role: 'tablist' }, MODES.map(([id, iconName]) => h(`button.mode-button${app.state.mode === id ? '.on' : ''}`, {
     type: 'button', role: 'tab', dataset: { mode: id }, title: t(`mode.${id}`), onclick: () => switchMode(id),
   }, h('span', { html: icon(iconName) }), h('span.mode-label', t(`mode.${id}`)))));
+  const modeCluster = h('div.mode-cluster', home, modes);
   const toEnglish = getLanguage() === 'ko';
   const right = h('div.header-right',
     h('button.tool', { type: 'button', id: 'theme-next', title: `${t('theme.next')} — ${shownTheme?.name ?? ''}`, html: PALETTE_ICON, onclick: cycleTheme }),
@@ -255,7 +271,17 @@ function renderHeader() {
     h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
     h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
     h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
-  header.append(h('div.app-logo', { html: icon('images') }), bar, modes, right);
+  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right);
+}
+
+/** The mode buttons are the only part of the header that changes when the page changes. */
+function syncModeChrome() {
+  const home = header.querySelector('#start-home');
+  if (!home) { renderHeader(); return; }
+  const mode = app.state.mode;
+  home.classList.toggle('on', mode === 'start');
+  home.setAttribute('aria-pressed', mode === 'start' ? 'true' : 'false');
+  for (const button of header.querySelectorAll('.mode-switch .mode-button')) button.classList.toggle('on', button.dataset.mode === mode);
 }
 
 function switchMode(mode) {
@@ -282,12 +308,56 @@ async function leaveEditor() {
   return true;
 }
 
+async function showStart() {
+  if (!(await leaveEditor())) return;
+  setMode('start');
+}
+
+// While the first folder is opened, stay on the start page.
+let keepStart = false;
+const startPage = createStartPage(() => {
+  const files = () => (selectedFiles().length ? selectedFiles() : app.state.list.filter((item) => !item.isDir));
+  return {
+    recent: app.settings.recentFolders ?? [],
+    showSamples: !isDesktop(),
+    actions: {
+      openFolder: () => openFolderDialog(),
+      openFiles: () => (isDesktop() ? openFilesDesktop() : openWebFiles()),
+      import: () => importDialog(),
+      slideshow: () => slideshowFromManage(),
+      settings: () => openSettings(),
+      shortcuts: () => shortcutsDialog(),
+      recent: (path) => openFolder(path).catch((error) => toast(errorText(error), 'error')),
+      manage: () => setMode('manage'),
+      view: () => switchMode('view'),
+      edit: () => switchMode('edit'),
+      dashboard: () => switchMode('dashboard'),
+      search: () => { setMode('manage'); showLeftTab('search'); },
+      folders: () => { setMode('manage'); showLeftTab('folders'); },
+      calendar: () => { setMode('manage'); showLeftTab('calendar'); },
+      people: () => { setMode('manage'); showLeftTab('people'); },
+      map: () => { setMode('manage'); showRightTab('map'); },
+      print: () => { setMode('manage'); printDialog(files()); },
+      compare: () => { setMode('manage'); openCompare(selectedFiles()); },
+      duplicates: () => { setMode('manage'); findDuplicates(); },
+      panorama: () => { setMode('manage'); createPanorama(selectedFiles()); },
+      gif: () => { setMode('manage'); createGif(files()); },
+      pdf: () => { setMode('manage'); createPdf(files()); },
+      hdr: () => { setMode('manage'); createHdr(selectedFiles()); },
+      batch: () => { setMode('manage'); batchRename(); },
+      organize: async () => { setMode('manage'); (await import('./ui/organize.js')).organizeDialog(app.state.list); },
+    },
+  };
+});
+
 app.on('mode', async (mode) => {
   closeMenus();
   if (mode !== 'view') viewer.exitFullscreen();
   clear(modeHost);
   document.body.dataset.mode = mode;
   // Panes skipped their updates while hidden: draw them for the current selection.
+  if (mode === 'start') { modeHost.append(startPage.el); startPage.show(); }
+  else startPage.hide();
   if (mode === 'manage') { modeHost.append(manage); if (app.settings.panes.right) RIGHT_TABS.find(([id]) => id === app.settings.panes.rightTab)?.[2].render(); fileList.rebuild(); if (app.state.focus) fileList.scrollIntoView(app.state.focus); fileList.focus(); }
   if (mode === 'view') { modeHost.append(viewer.el); viewer.open(app.state.viewPath); }
   if (mode === 'edit') {
@@ -296,7 +366,7 @@ app.on('mode', async (mode) => {
     editor.open(item);
   }
   if (mode === 'dashboard') { modeHost.append(dashboard.el); dashboard.render(); }
-  renderHeader();
+  syncModeChrome();
   renderToolbar();
   renderStatus();
 });
@@ -306,9 +376,12 @@ app.on('edited', (path) => { if (editReturn === 'view') { app.state.viewPath = p
 // ───────────────────────── toolbar
 
 function renderToolbar() {
+  if (app.state.mode !== 'manage') {
+    toolbar.hidden = true;
+    return;
+  }
   clear(toolbar);
-  toolbar.hidden = app.state.mode !== 'manage';
-  if (app.state.mode !== 'manage') return;
+  toolbar.hidden = false;
   const { history, source } = app.state;
   const s = app.settings;
   const nav = h('div.tool-group',
@@ -574,6 +647,7 @@ function viewMenu() {
   return [
     { label: t('workspace.title'), icon: 'panelLeft', submenu: workspaceMenu() },
     'separator',
+    { label: t('start.title'), icon: 'home', checked: app.state.mode === 'start', action: () => showStart() },
     ...MODES.map(([id, iconName]) => ({ label: t(`mode.${id}`), icon: iconName, checked: app.state.mode === id, action: () => switchMode(id) })),
     'separator',
     { label: t('menu.viewStyle'), icon: 'grid', submenu: VIEW_STYLES.map(([id, iconName]) => ({ label: t(`viewStyle.${id}`), icon: iconName, checked: s.view === id, action: () => { s.view = id; app.saveSettings(); renderToolbar(); fileList.rebuild(); } })) },
@@ -646,7 +720,7 @@ function toolsMenu() {
     { label: t('analysis.runFolder'), icon: 'wand', disabled: !files, action: () => analysis.analyze(app.state.list) },
     { label: t('analysis.rerun'), icon: 'refresh', disabled: !files, action: () => analysis.analyze(selectedFiles().length ? selectedFiles() : app.state.list, { force: true }) },
     { label: t('analysis.stop'), icon: 'close', disabled: !analysis.state().running, action: () => analysis.stopAnalysis() },
-    { label: t('analysis.toFolders'), icon: 'folderOpen', disabled: !files || !fs.caps.mkdir, action: async () => (await import('./ui/organize.js')).organizeDialog(app.state.list) },
+    { label: t('analysis.toFolders'), icon: 'layers', disabled: !files, action: async () => (await import('./ui/organize.js')).organizeDialog(app.state.list) },
     'separator',
     { label: t('tools.compare'), icon: 'compare', disabled: selectedFiles().length < 2, action: () => openCompare(selectedFiles()) },
     { label: t('tools.duplicates'), icon: 'layers', action: findDuplicates },
@@ -927,7 +1001,8 @@ function renderStatus() {
     selection.size ? h('span.status-item', plural('status.selected', selection.size), selectedSize ? ` · ${formatBytes(selectedSize)}` : '') : '',
     app.state.listFilter.rating || app.state.listFilter.label || app.state.listFilter.tagged || app.state.listFilter.kinds ? h('span.status-item.warn', t('status.filtered', { n: app.state.items.length - list.length })) : '',
     h('span.status-spacer'),
-    thumbsRemaining ? h('span.status-item.status-progress', { id: 'status-thumbs' }, h('span.spinner-dot'), t('status.thumbnailsOf', { done: thumbsTotal - thumbsRemaining, total: thumbsTotal }), h('span.status-meter', h('span', { style: { width: `${Math.round(((thumbsTotal - thumbsRemaining) / Math.max(1, thumbsTotal)) * 100)}%` } }))) : '',
+    thumbsRemaining ? h('span.status-item.status-progress', { id: 'status-thumbs' }, h('span.spinner-dot'), t('status.thumbnailsOf', { done: thumbsTotal - thumbsRemaining, total: thumbsTotal }), h('span.status-percent', `${Math.round(((thumbsTotal - thumbsRemaining) / Math.max(1, thumbsTotal)) * 100)}%`), h('span.status-meter', h('span', { style: { width: `${Math.round(((thumbsTotal - thumbsRemaining) / Math.max(1, thumbsTotal)) * 100)}%` } }))) : '',
+    app.state.loading ? h('span.status-item.status-progress', { id: 'status-loading' }, h('span.spinner-dot'), t('list.loading'), h('span.status-meter.indeterminate', h('span', { style: { width: '40%' } }))) : '',
     statusTask(),
     app.state.source.type === 'folder' ? h('span.status-item.path', { title: app.state.source.path }, app.state.source.path.replace(/^@\d+:/, '')) : '',
     fs.kind === 'web' && app.state.source.type === 'folder' && webFs.isReadOnly(app.state.source.path) ? h('span.status-item.warn', t('web.readOnly')) : '',
@@ -938,9 +1013,11 @@ function renderStatus() {
 let thumbsTotal = 0;
 thumbs.onProgress = (remaining, total = remaining) => {
   const before = thumbsRemaining;
+  const prevPct = thumbsTotal ? Math.round(((thumbsTotal - before) / thumbsTotal) * 100) : -1;
   thumbsRemaining = remaining;
   thumbsTotal = Math.max(total, remaining);
-  if (Boolean(before) !== Boolean(remaining) || remaining % 10 === 0) renderStatus();
+  const pct = thumbsTotal ? Math.round(((thumbsTotal - remaining) / thumbsTotal) * 100) : 0;
+  if (Boolean(before) !== Boolean(remaining) || pct !== prevPct) renderStatus();
 };
 
 /** The running background task (progress dialogs, slow picture loads) in the status bar. */
@@ -948,7 +1025,9 @@ function statusTask() {
   const task = statusProgress.current();
   if (!task) return '';
   const percent = task.total ? Math.round((task.done / task.total) * 100) : null;
-  return h('span.status-item.status-progress', { id: 'status-task', title: task.text || task.title }, h('span.spinner-dot'), task.total ? `${task.title} ${task.done}/${task.total}` : task.title,
+  return h('span.status-item.status-progress', { id: 'status-task', title: task.text || task.title }, h('span.spinner-dot'),
+    task.total ? `${task.title} ${task.done}/${task.total}` : task.title,
+    percent != null ? h('span.status-percent', `${percent}%`) : '',
     h(`span.status-meter${percent == null ? '.indeterminate' : ''}`, h('span', { style: { width: `${percent ?? 40}%` } })));
 }
 statusProgress.onChange(() => renderStatus());
@@ -987,9 +1066,10 @@ function renderAll() {
 }
 
 app.on('source', () => {
-  if (app.state.mode === 'dashboard' || app.state.mode === 'view') setMode('manage');
+  if (!keepStart && (app.state.mode === 'dashboard' || app.state.mode === 'view' || app.state.mode === 'start')) setMode('manage');
   renderWelcome();
   renderToolbar();
+  renderStatus();
   updateTitle();
 });
 app.on('items', () => { renderStatus(); renderToolbar(); analysis.autoAnalyze(); });
@@ -1011,7 +1091,12 @@ app.on('catalog', (change) => {
 app.on('settings', () => {});
 app.on('roots-changed', () => folderPane.render());
 app.on('open-archive', (path) => openArchive(path));
-onLanguageChange(() => { renderAll(); if (app.state.mode !== 'manage') app.emit('mode', app.state.mode); });
+onLanguageChange(() => {
+  renderAll();
+  // Re-opening the viewer would load app.state.viewPath again and replace the picture on screen.
+  if (app.state.mode === 'view') viewer.relabel();
+  else if (app.state.mode !== 'manage') app.emit('mode', app.state.mode);
+});
 
 // ───────────────────────── keyboard
 
@@ -1127,12 +1212,14 @@ async function start() {
   document.body.dataset.mode = 'manage';
   renderAll();
   await folderPane.render();
+  const startup = isDesktop() ? await invoke('startup_paths').catch(() => []) : [];
+  if (!startup.length) setMode('start');
   showWindow();
 
-  // What to show first.
+  // What to show first. A folder opened for the command line replaces the start page.
   let opened = false;
   if (isDesktop()) {
-    const paths = await invoke('startup_paths').catch(() => []);
+    const paths = startup;
     if (paths.length) { await openPaths(paths); opened = true; }
     listen('open-paths', (list) => openPaths(list));
     onFileDrop(async (paths) => {
@@ -1148,18 +1235,27 @@ async function start() {
       const places = await fs.places().catch(() => []);
       const pick = (kind) => places.find((p) => p.kind === kind)?.path;
       const candidates = app.settings.startup === 'last' ? [app.settings.lastFolder, pick('pictures'), pick('home')] : app.settings.startup === 'pictures' ? [pick('pictures'), pick('home')] : [pick('home')];
-      for (const folder of candidates.filter(Boolean)) {
-        try { await openFolder(folder, { history: false }); opened = true; break; } catch { /* try the next */ }
-      }
+      keepStart = true;
+      try {
+        for (const folder of candidates.filter(Boolean)) {
+          try { await openFolder(folder, { history: false }); opened = true; break; } catch { /* try the next */ }
+        }
+      } finally { keepStart = false; }
       if (!opened || app.state.error) { app.state.source = { type: 'welcome' }; renderAll(); }
     }
   } else {
     const places = await fs.places();
     const last = places.find((p) => p.path === app.settings.lastFolder && p.granted) ?? places.find((p) => p.granted);
-    if (last) await openFolder(app.settings.lastFolder && app.settings.lastFolder.startsWith(last.path) ? app.settings.lastFolder : last.path, { history: false }).catch(() => {});
+    keepStart = true;
+    try {
+      if (last) await openFolder(app.settings.lastFolder && app.settings.lastFolder.startsWith(last.path) ? app.settings.lastFolder : last.path, { history: false }).catch(() => {});
+    } finally { keepStart = false; }
     if (app.state.error) { app.state.source = { type: 'welcome' }; renderAll(); }
   }
-  fileList.focus();
+  if (app.state.mode !== 'start') fileList.focus();
+  const warmStart = () => startPage.warm();
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(warmStart, { timeout: 1500 });
+  else setTimeout(warmStart, 400);
   document.body.classList.add('ready');
 }
 

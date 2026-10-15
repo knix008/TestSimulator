@@ -246,3 +246,13 @@ test('smart collection rules', async () => {
   assert.equal(smartMatches(rules, 'any', item, record), true);
   assert.equal(smartMatches([], 'all', item, record), false, 'no rules = nothing');
 });
+
+test('analysis category can be dropped without touching the file', () => {
+  const c = new Catalog();
+  c.setAnalysis([['/beach.jpg', { v: 1, modified: 1, cats: ['scene/beach', 'scene/sea', 'object/animal/dog'] }]]);
+  assert.equal(c.dropAnalysis(['/beach.jpg'], 'scene/sea'), 1);
+  assert.deepEqual(c.get('/beach.jpg').analysis.cats, ['scene/beach', 'object/animal/dog']);
+  assert.equal(c.dropAnalysis(['/beach.jpg'], 'object/animal'), 1);
+  assert.deepEqual(c.get('/beach.jpg').analysis.cats, ['scene/beach']);
+  assert.equal(c.dropAnalysis(['/missing.jpg'], 'scene/beach'), 0);
+});

@@ -48,7 +48,7 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
       return h(`button.drive-button${current && sameRoot(current.path, drive.path) ? '.on' : ''}`, {
         type: 'button', role: 'tab', title: `${driveName(drive)}${free}`, dataset: { drive: drive.path },
         onclick: () => chooseDrive(drive),
-      }, drive.kind === 'drive' ? drive.name : drive.label || drive.name);
+      }, h('span', { html: icon(drive.media === 'cdrom' ? 'disc' : drive.media === 'network' ? 'globe' : drive.media === 'removable' ? 'usb' : PLACE_ICONS[drive.kind] ?? 'drive') }), h('span.drive-name', drive.kind === 'drive' ? drive.name.replace(/\\+$/, '') : (drive.label || drive.name)));
     }));
   }
 

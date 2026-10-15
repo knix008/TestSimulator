@@ -130,6 +130,7 @@ export function filterMatches(filter, item, record) {
       return when >= filter.from && when < filter.to;
     }
     case 'kind': return kindOf(item.name) === filter.value;
+    case 'ext': return extensionOf(item.name) === String(filter.value ?? '').replace(/^\./, '').toLowerCase();
     case 'text': return matchSearch(parseSearch(filter.value), item, record);
     default: return true;
   }

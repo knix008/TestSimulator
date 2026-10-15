@@ -30,7 +30,9 @@ test('app identity, icons and window', () => {
   assert.equal(png.readUInt32BE(16), 1024, 'icon is 1024 px');
   for (const file of ['public/icon.png', 'public/icon-192.png', 'public/icon-512.png', 'src-tauri/windows/installerHeader.bmp', 'src-tauri/windows/installerSidebar.bmp']) assert.ok(fs.existsSync(path.join(root, file)), file);
   assert.equal(conf.build.devUrl, 'http://localhost:1440');
-  assert.match(read('vite.config.js'), /port: 1440/);
+  assert.match(read('vite.config.js'), /MYPHOTO_DEV_PORT/);
+  assert.match(read('vite.config.js'), /1440/);
+  assert.match(read('scripts/start.mjs'), /choosePort/);
 });
 
 test('asset protocol may read any picture the user browses (including dot folders)', () => {
