@@ -14,7 +14,7 @@ import {
 } from "./core/document.js";
 import { acceptImage, classifyDrop } from "./core/drop.js";
 import { AppError, isOfflineError, normalizeError } from "./core/errors.js";
-import { FONT_FLAGS, applyFontFace, fontFace, fontStyleOf, resolveFontList } from "./core/fonts.js";
+import { FONT_FLAGS, FONT_SURFACES, applyFontRoles, fontsFromForm, legacyFontFrom, resolveFontList, surfaceFonts } from "./core/fonts.js";
 import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
@@ -60,7 +60,7 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
+import { BOARD_HEAD, BOARD_ROW, CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, contentBoxFor, fontWindowScale, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
 import { boardRowCount, clampPage, panelFitHeight, panelMaxBody, panelPageCount, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
@@ -493,6 +493,7 @@ class MoneyApp {
         "next-symbol": () => this.cycleSymbol(1),
         "add-symbol": () => this.showSettings("watchlist"),
         "remove-symbol": () => this.removeSymbol(this.currentTab()?.selectedSymbol),
+        "detach-symbol": () => this.openSymbolWindow(this.currentTab()?.selectedSymbol || this.currentTab()?.board.activeSymbol),
       };
       if (actions[id]) await actions[id]();
     } catch (error) {
@@ -738,28 +739,31 @@ class MoneyApp {
   }
 
   /**
-   * The font settings. Family, size, bold and italic set the whole window;
-   * the quote area and the stock panels also take underline and strikethrough,
-   * which would only clutter the toolbar.
+   * Each window keeps the font of each piece it draws. The toolbar and the
+   * settings window stay on the interface face.
    */
   applyFont() {
-    const face = fontFace(this.settings);
-    this.frame.style.fontFamily = face.family;
-    this.frame.style.fontSize = face.size;
-    this.frame.style.fontWeight = face.bold ? "700" : "400";
-    this.frame.style.fontStyle = face.italic ? "italic" : "normal";
-    applyFontFace(this.content, this.settings);
-    document.querySelectorAll('[data-popup="panel"] [data-gui="panel"]').forEach((panel) => applyFontFace(panel, this.settings));
+    const fonts = this.settings.fonts;
+    applyFontRoles(this.content, surfaceFonts(fonts, "scene"));
+    document.querySelectorAll('[data-popup="panel"] [data-gui="panel"]').forEach((panel) => {
+      const kind = FONT_SURFACES.includes(panel.dataset.panelKind) ? panel.dataset.panelKind : "stocks";
+      applyFontRoles(panel, surfaceFonts(fonts, kind));
+    });
     const font = this.fontSettings();
     const key = JSON.stringify(font);
     if (key === this.fontBroadcast) return;
     this.fontBroadcast = key;
-    this.platform.broadcastTheme?.({ font });
+    this.platform.broadcastTheme?.({ font, fonts });
   }
 
   /** The font part of the settings, as the popups and panels take it. */
   fontSettings() {
-    const font = { fontFamily: this.settings.fontFamily, fontSize: this.settings.fontSize, fontStyle: this.settings.fontStyle };
+    const font = {
+      fontFamily: this.settings.fontFamily,
+      fontSize: this.settings.fontSize,
+      fontStyle: this.settings.fontStyle,
+      fonts: this.settings.fonts,
+    };
     for (const flag of FONT_FLAGS) font[flag] = Boolean(this.settings[flag]);
     return font;
   }
@@ -1209,6 +1213,12 @@ class MoneyApp {
         width: this.shellSize.width - CONTENT_PADDING.left - CONTENT_PADDING.right,
         height: this.shellSize.height - 46 - CONTENT_PADDING.top - CONTENT_PADDING.bottom,
       };
+    const rows = Math.max(1, this.boardRows || boardRowCount(this.currentTab()));
+    const reference = this.settings.sceneMode === "all"
+      ? { width: contentBoxFor(WINDOW_DEFAULT).width, height: BOARD_HEAD + rows * BOARD_ROW }
+      : undefined;
+    // Configured sizes are the size at the normal window. Resizing multiplies every piece by this one ratio.
+    this.content.style.setProperty("--font-scale", String(fontWindowScale(available, reference)));
     const fit = sceneFit(available, SCENE_TEXT);
     const boxKey = `${Math.round(available.width)}x${Math.round(available.height)}`;
     if (this.content.dataset.sceneReady === "1" && this._sceneBox === boxKey) return;
@@ -1281,7 +1291,10 @@ class MoneyApp {
     this.renderTabs();
     this.renderMarket();
     this.renderStatus();
-    if (tab.id === this.currentTab()?.id) this.rememberBoard(tab.board);
+    if (tab.id === this.currentTab()?.id) {
+      this.rememberBoard(tab.board);
+      this.refreshOpenPanel("stocks");
+    }
   }
 
   /**
@@ -1367,12 +1380,45 @@ class MoneyApp {
       undo: () => this.setBoard(tab.id, prev),
       redo: () => this.setBoard(tab.id, next),
     });
-    this.setBoard(tab.id, next);
     if (tab.data) tab.data = { ...tab.data, quotes: (tab.data.quotes || []).filter((quote) => quote.symbol !== symbol) };
+    this.setBoard(tab.id, next);
     this.markBoardChanged();
     this.afterStructure();
     this.setStatus(this.t("msg.symbolRemoved", { n: listingName(listing, this.settings.language) }));
     return "removed";
+  }
+
+  /**
+   * The chosen symbol leaves this window and opens in a window of its own.
+   * The new window is remembered with the others, so the next launch opens it too.
+   */
+  async openSymbolWindow(symbol) {
+    const tab = this.currentTab();
+    const listing = tab?.board.symbols.find((entry) => entry.symbol === symbol);
+    if (!listing || tab.board.symbols.length <= 1 || typeof this.platform.newWindow !== "function") return false;
+    const board = createBoard({
+      ...(findMarket(listing.marketCode) || {}),
+      baseCurrency: this.settings.baseCurrency,
+      symbols: [listing],
+      activeSymbol: listing.symbol,
+    });
+    const opened = await this.platform.newWindow(board);
+    if (!opened) {
+      this.showToast(this.t("msg.windowLimit"));
+      return false;
+    }
+    this.removeSymbol(listing.symbol);
+    this.setStatus(this.t("msg.symbolWindow", { n: listingName(listing, this.settings.language) }));
+    return true;
+  }
+
+  /** An open stock list drops a symbol as soon as this window no longer watches it. */
+  refreshOpenPanel(panel) {
+    const markup = this.panelMarkup(panel, this.panelPage[panel] || 0);
+    const el = document.querySelector(`[data-popup="panel"][data-panel-kind="${panel}"]`);
+    if (typeof el?._update === "function") el._update({ markup });
+    const id = this.platform.panelPopups?.[panel];
+    if (id) void this.platform.updatePopup?.(id, { markup });
   }
 
   /** The chosen currencies, plus the board's own so a converted price still works. */
@@ -2256,10 +2302,8 @@ class MoneyApp {
       next.backgroundImage = values.backgroundImage || "";
       next.backgroundName = values.backgroundName || "";
     }
-    if (values.fontFamily) next.fontFamily = values.fontFamily;
-    if (values.fontSize != null && values.fontSize !== "") next.fontSize = clamp(values.fontSize, 8, 72);
-    for (const flag of FONT_FLAGS) if (values[flag] != null) next[flag] = values[flag] === true || values[flag] === "true";
-    next.fontStyle = fontStyleOf(next.fontBold, next.fontItalic);
+    next.fonts = fontsFromForm(values, next);
+    Object.assign(next, legacyFontFrom(next.fonts));
     if (values.startAtLogin != null) next.startAtLogin = Boolean(values.startAtLogin);
     if (values.sources) {
       const nextSources = Object.entries(values.sources).filter(([, on]) => on).map(([id]) => id);
@@ -2492,6 +2536,13 @@ class MoneyApp {
     }
   }
 
+  canDetachSymbol() {
+    const tab = this.currentTab();
+    const symbols = tab?.board.symbols || [];
+    const selected = tab?.selectedSymbol || tab?.board.activeSymbol;
+    return symbols.length > 1 && symbols.some((entry) => entry.symbol === selected) && Boolean(this.platform.newWindow) && this.windowInfo.canAddWindow !== false;
+  }
+
   openMenu(name, anchorEvent, { atPointer = false } = {}) {
     const items = buildMenuItems(name, {
       t: (key, vars) => this.t(key, vars),
@@ -2500,6 +2551,7 @@ class MoneyApp {
       canRedo: this.history.canRedo(),
       canRemoveSymbol: (this.currentTab()?.board.symbols || []).length > 1,
       canCycle: (this.currentTab()?.board.symbols || []).length > 1,
+      canDetachSymbol: this.canDetachSymbol(),
       canAddWindow: Boolean(this.platform.newWindow) && this.windowInfo.canAddWindow !== false,
       canRemoveWindow: Boolean(this.platform.removeWindow) && this.windowInfo.primary === false,
     });

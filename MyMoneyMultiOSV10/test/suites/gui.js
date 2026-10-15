@@ -427,6 +427,7 @@ export function registerGui(h) {
       assert.match(menu.querySelector('[data-cmd="add-symbol"]').innerHTML, /(?:fill|stroke)="#[0-9a-f]{6}"/i);
       assert.match(menu.querySelector('[data-cmd="choose-wallpaper"]').innerHTML, /fill="#2f94ff"/);
       assert.match(menu.querySelector('[data-cmd="clear-wallpaper"]').innerHTML, /fill="#e5484d"/);
+      assert.equal(menu.querySelector('[data-cmd="detach-symbol"] .menu-label').textContent, "새 창으로 옮기기");
       menu.querySelector('[data-cmd="copy"]').click();
       await settle();
       assert.match(platform.clipboardText, /000660\.KS/);
@@ -2237,10 +2238,10 @@ export function registerGui(h) {
       assert.equal(steps[1].title, "증가");
       const size = popup.querySelector('[data-field="fontSize"]');
       steps[1].click();
-      assert.equal(size.value, "15");
+      assert.equal(size.value, "23");
       steps[0].click();
       steps[0].click();
-      assert.equal(size.value, "13");
+      assert.equal(size.value, "21");
       size.value = "8";
       steps[0].click();
       assert.equal(size.value, "8");
@@ -2260,9 +2261,10 @@ export function registerGui(h) {
       popup.querySelector('[data-action="ok"]').click();
       await pending;
       assert.equal(app.settings.fontFamily, "Family 3");
-      assert.equal(app.frame.style.fontWeight, "700");
-      assert.equal(app.frame.style.fontStyle, "italic");
-      assert.equal(app.frame.style.fontSize, "18px");
+      assert.equal(app.settings.fontSize, 18);
+      assert.equal(app.content.style.getPropertyValue("--font-name-weight"), "800");
+      assert.equal(app.content.style.getPropertyValue("--font-name-style"), "italic");
+      assert.equal(app.content.style.getPropertyValue("--font-name-size"), "18px");
       assert.equal(app.settings.language, "en");
       assert.equal(app.frame.dataset.theme, "dark-forest");
       assert.equal(app.settings.transparency, 80);
@@ -2295,18 +2297,25 @@ export function registerGui(h) {
       family.dispatchEvent(new window.Event("change", { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 80));
       await settle();
-      // The sample in Settings, the window's quotes and the open stock panel all follow.
+      // The quote window follows. The stocks window, and the settings window itself, do not.
       const sample = popup.querySelector('[data-gui="font-preview"]');
-      assert.equal(sample.dataset.fontBold, "true");
-      assert.equal(sample.style.getPropertyValue("--font-decoration"), "underline line-through");
-      assert.equal(app.content.dataset.fontScope, "stocks");
-      assert.equal(app.content.dataset.fontBold, "true");
-      assert.equal(app.content.dataset.fontItalic, "true");
-      assert.equal(app.content.style.getPropertyValue("--font-decoration"), "underline line-through");
-      assert.match(app.content.style.fontFamily, /Consolas/);
+      const shown = sample.querySelector("[data-gui='font-sample-text']");
+      assert.equal(shown.dataset.fontRole, "name");
+      assert.equal(shown.textContent, "삼성전자");
+      assert.equal(sample.querySelector('[data-font-role="price"]'), null);
+      assert.equal(sample.style.getPropertyValue("--font-name-weight"), "800");
+      assert.equal(sample.style.getPropertyValue("--font-name-decoration"), "underline line-through");
+      assert.equal(sample.style.getPropertyValue("--font-price-decoration"), "none");
+      assert.equal(app.content.style.getPropertyValue("--font-name-weight"), "800");
+      assert.equal(app.content.style.getPropertyValue("--font-name-style"), "italic");
+      assert.equal(app.content.style.getPropertyValue("--font-name-decoration"), "underline line-through");
+      assert.match(app.content.style.getPropertyValue("--font-name-family"), /Consolas/);
+      assert.equal(app.content.style.getPropertyValue("--font-price-style"), "normal");
+      assert.equal(app.content.style.getPropertyValue("--font-price-decoration"), "none");
       const stockPanel = panel.popup.querySelector('[data-gui="panel"]');
-      assert.equal(stockPanel.dataset.fontBold, "true");
-      assert.equal(stockPanel.style.getPropertyValue("--font-decoration"), "underline line-through");
+      assert.equal(stockPanel.style.getPropertyValue("--font-name-weight"), "700");
+      assert.equal(stockPanel.style.getPropertyValue("--font-name-decoration"), "none");
+      assert.equal(getComputedStyle(popup).fontSize, "14px");
       assert.equal(platform.settings?.fontUnderline || false, false, "nothing is written before OK");
       popup.querySelector('[data-action="ok"]').click();
       await pending;
@@ -2315,11 +2324,68 @@ export function registerGui(h) {
       assert.equal(platform.settings.fontUnderline, true);
       assert.equal(platform.settings.fontStrike, true);
       assert.equal(platform.settings.fontFamily, "Consolas");
-      // The stylesheet draws the lines on the text of the stock display.
-      const rule = [...document.styleSheets[0].cssRules].find((item) => /data-font-scope="stocks"\] \*:not\(:has\(\*\)\)/.test(item.selectorText || ""));
-      assert.ok(rule, "decoration rule");
-      assert.ok(rule.cssText.includes("text-decoration-line: var(--font-decoration, none)"), rule.cssText);
+      // The stylesheet draws each piece with the font chosen for it.
+      const rule = [...document.styleSheets[0].cssRules].find((item) => String(item.cssText || "").includes("--font-name-decoration"));
+      assert.ok(rule, "name font rule");
+      assert.ok(rule.cssText.includes("text-decoration-line: var(--font-name-decoration, none)"), rule.cssText);
       await panel.close();
+    });
+  });
+  h.test("each piece of a quote has its own font, and a change shows at once", async () => {
+    await withApp(async ({ app, platform }) => {
+      await app.refreshMarket();
+      const stocks = await openPanel(app, "stocks");
+      const pending = app.showSettings("wallpaper");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const role = popup.querySelector('[data-field="fontRole"]');
+      assert.deepEqual([...role.options].map((option) => option.value), ["name", "price", "change", "note"]);
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "22");
+      role.value = "price";
+      role.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "44");
+      const size = popup.querySelector('[data-field="fontSize"]');
+      size.value = "30";
+      size.dispatchEvent(new window.Event("input", { bubbles: true }));
+      const family = popup.querySelector('[data-field="fontFamily"]');
+      const priceFamily = family.options[1]?.value || family.value;
+      family.value = priceFamily;
+      family.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await settle();
+      assert.equal(app.content.style.getPropertyValue("--font-price-size"), "30px");
+      assert.equal(app.content.style.getPropertyValue("--font-name-size"), "22px");
+      assert.equal(app.content.style.getPropertyValue("--font-name-weight"), "700");
+      assert.equal(app.root.querySelector(".scene-price").dataset.fontRole, "price");
+      assert.equal(app.root.querySelector(".scene-name").dataset.fontRole, "name");
+      const stockPanel = stocks.popup.querySelector('[data-gui="panel"]');
+      assert.equal(stockPanel.style.getPropertyValue("--font-price-size"), "44px");
+      assert.equal(getComputedStyle(popup).fontSize, "14px");
+      const shown = popup.querySelector("[data-gui='font-sample-text']");
+      assert.equal(shown.dataset.fontRole, "price");
+      assert.equal(shown.textContent, "72,500");
+      const surface = popup.querySelector('[data-field="fontSurface"]');
+      surface.value = "stocks";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "44", "stocks keeps its own price");
+      const stockSize = popup.querySelector('[data-field="fontSize"]');
+      stockSize.value = "28";
+      stockSize.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await settle();
+      assert.equal(stockPanel.style.getPropertyValue("--font-price-size"), "28px");
+      assert.equal(app.content.style.getPropertyValue("--font-price-size"), "30px");
+      assert.equal(getComputedStyle(popup).fontSize, "14px");
+      assert.equal(platform.settings?.fonts?.scene?.price?.fontSize ?? 44, 44, "nothing is written before OK");
+      popup.querySelector('[data-action="ok"]').click();
+      await pending;
+      assert.equal(platform.settings.fonts.scene.price.fontSize, 30);
+      assert.equal(platform.settings.fonts.scene.name.fontSize, 22);
+      assert.equal(platform.settings.fonts.scene.change.fontSize, 16);
+      assert.equal(platform.settings.fonts.stocks.price.fontSize, 28);
+      assert.equal(platform.settings.fontSize, 22);
+      assert.equal(app.content.style.getPropertyValue("--font-price-size"), "30px");
+      assert.equal(app.content.style.getPropertyValue("--font-change-size"), "16px");
     });
   });
   h.test("settings show at once; Cancel, the close button and Escape all put them back", async () => {
@@ -2337,14 +2403,14 @@ export function registerGui(h) {
         await new Promise((resolve) => setTimeout(resolve, 80));
         await settle();
         assert.equal(app.settings.language, "en", `${exit}: shown at once`);
-        assert.equal(app.frame.style.fontSize, "20px", exit);
+        assert.equal(app.content.style.getPropertyValue("--font-name-size"), "20px", exit);
         assert.equal(app.root.querySelector('[data-cmd="refresh"]').title, "Refresh quotes", exit);
         if (exit === "escape") popup.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         else popup.querySelector(`[data-action="${exit}"]`).click();
         await pending;
         await settle();
         assert.equal(app.settings.language, "ko", `${exit}: put back`);
-        assert.equal(app.frame.style.fontSize, "14px", exit);
+        assert.equal(app.content.style.getPropertyValue("--font-name-size"), "22px", exit);
         assert.equal(platform.settings?.language ?? "ko", "ko", exit);
       }
       assert.equal(app.history.canUndo(), false, "a cancelled window leaves nothing to undo");
@@ -2388,6 +2454,51 @@ export function registerGui(h) {
       { platform },
     );
   });
+  h.test("a chosen symbol moves into a new window and leaves the list it came from", async () => {
+    await withApp(async ({ app, platform }) => {
+      const opened = [];
+      platform.newWindow = async (board) => {
+        opened.push(structuredClone(board));
+        return true;
+      };
+      await app.refreshMarket();
+      app.settings.sceneMode = "all";
+      app.renderMarket();
+      const boardRow = app.content.querySelector('[data-symbol="000660.KS"]');
+      boardRow.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 24, clientY: 24 }));
+      await settle();
+      document.querySelector('.menu-popup[data-menu="context"] [data-cmd="detach-symbol"]').click();
+      await settle();
+      assert.deepEqual(opened[0].symbols.map((entry) => entry.symbol), ["000660.KS"]);
+      assert.equal(opened[0].activeSymbol, "000660.KS");
+      assert.equal(app.currentTab().board.symbols.some((entry) => entry.symbol === "000660.KS"), false);
+      assert.equal(app.content.querySelector('[data-symbol="000660.KS"]'), null);
+      assert.equal(app.statusMessage, "SK하이닉스 종목을 새 창으로 옮겼습니다.");
+
+      const stocks = await openPanel(app, "stocks");
+      const row = stocks.popup.querySelector('[data-symbol="035420.KS"]');
+      row.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 40 }));
+      await settle();
+      document.querySelector('.menu-popup[data-menu="context"] [data-cmd="detach-symbol"]').click();
+      await settle();
+      assert.deepEqual(opened[1].symbols.map((entry) => entry.symbol), ["035420.KS"]);
+      assert.equal(stocks.popup.querySelector('[data-symbol="035420.KS"]'), null);
+      assert.equal(app.currentTab().board.symbols.map((entry) => entry.symbol).join(), "005930.KS");
+      document.querySelector('.menu-popup')?.remove();
+      app.openMenu("context", { clientX: 12, clientY: 12 }, { atPointer: true });
+      assert.equal(document.querySelector('.menu-popup[data-menu="context"] [data-cmd="detach-symbol"]').disabled, true);
+      await stocks.close();
+
+      platform.newWindow = async () => false;
+      app.currentTab().board.symbols = [
+        ...app.currentTab().board.symbols,
+        { symbol: "035420.KS", code: "035420", marketCode: "KR", nameKo: "NAVER", nameEn: "NAVER" },
+      ];
+      const stayed = await app.openSymbolWindow("035420.KS");
+      assert.equal(stayed, false);
+      assert.equal(app.currentTab().board.symbols.some((entry) => entry.symbol === "035420.KS"), true);
+    });
+  });
   h.test("a shared setting from another window is taken, but this window keeps its own board", async () => {
     await withApp(async ({ app, platform }) => {
       const before = app.settings.defaultBoard.symbols.map((entry) => entry.symbol);
@@ -2398,7 +2509,8 @@ export function registerGui(h) {
       app.takeSharedSettings(shared);
       assert.equal(app.settings.language, "en");
       assert.equal(app.frame.dataset.theme, "light-sakura");
-      assert.equal(app.content.style.getPropertyValue("--font-decoration"), "underline");
+      assert.equal(app.content.style.getPropertyValue("--font-name-decoration"), "none");
+      assert.equal(app.content.style.getPropertyValue("--font-price-decoration"), "none");
       assert.deepEqual(app.settings.defaultBoard.symbols.map((entry) => entry.symbol), before);
       assert.equal(platform.settings, null, "the other window already wrote it");
     });
@@ -2652,7 +2764,8 @@ export function registerGui(h) {
       app.settings.updateMinutes = 720;
       app.settings.displayPriority = "yahoo";
       app.settings.enabledSources = ["yahoo"];
-      app.settings.fontSize = 22;
+      app.settings.fontSize = 30;
+      app.settings.fonts.scene.name.fontSize = 30;
       app.settings.startAtLogin = true;
       app.settings.units = "base";
       app.settings.baseCurrency = "USD";
@@ -2675,7 +2788,7 @@ export function registerGui(h) {
       assert.equal(popup.querySelector('[data-field="backgroundOpacity"]').value, "40");
       assert.equal(popup.querySelector('[data-field="updateMinutes"]').value, "10");
       assert.equal(popup.querySelector('[data-field="displayPriority"]').value, "average");
-      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "14");
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "22");
       assert.equal(popup.querySelector('[data-field="startAtLogin"]').checked, false);
       assert.equal(popup.querySelector('[data-field="units"]').value, "native");
       assert.equal(popup.querySelector('[data-field="baseCurrency"]').value, "KRW");
@@ -2705,7 +2818,10 @@ export function registerGui(h) {
       assert.equal(app.settings.backgroundOpacity, 40);
       assert.equal(app.settings.updateMinutes, 10);
       assert.equal(app.settings.displayPriority, "average");
-      assert.equal(app.settings.fontSize, 14);
+      assert.equal(app.settings.fontSize, 22);
+      assert.equal(app.settings.fonts.scene.name.fontSize, 22);
+      assert.equal(app.settings.fonts.scene.price.fontSize, 44);
+      assert.equal(app.settings.fonts.stocks.name.fontSize, 22);
       assert.equal(app.settings.startAtLogin, false);
       assert.equal(app.settings.units, "native");
       assert.equal(app.settings.baseCurrency, "KRW");
@@ -3393,6 +3509,8 @@ export function registerGui(h) {
       // Picture and number grow together, so the price never loses room to the chart.
       assert.equal(art, text);
       assert.ok(art > 1);
+      // At the normal window the configured sizes are the sizes on screen.
+      assert.equal(Number(app.content.style.getPropertyValue("--font-scale")), 1);
       await app.refreshMarket();
       app.applySceneScale();
       assert.equal(app.content.style.getPropertyValue("--art-scale"), String(art));
@@ -3403,6 +3521,8 @@ export function registerGui(h) {
       const smallText = Number(app.content.style.getPropertyValue("--scene-scale"));
       assert.equal(smallArt, smallText);
       assert.ok(smallArt >= 0.55 && smallArt <= 1);
+      const smallFont = Number(app.content.style.getPropertyValue("--font-scale"));
+      assert.ok(smallFont < 1 && smallFont >= 0.4);
       const content = getComputedStyle(app.content);
       assert.equal(content.paddingTop, "2px");
       assert.equal(content.paddingBottom, "2px");
@@ -3411,6 +3531,14 @@ export function registerGui(h) {
         const style = getComputedStyle(app.root.querySelector(selector));
         assert.equal(style.overflowX || style.overflow, "hidden", selector);
         assert.equal(style.overflowY || style.overflow, "hidden", selector);
+      }
+      app.shellSize = { width: 1200, height: 900 };
+      app.applyShellSize();
+      const grown = Number(app.content.style.getPropertyValue("--font-scale"));
+      assert.ok(grown > 1 && grown <= 3);
+      const css = [...document.styleSheets[0].cssRules].map((rule) => rule.cssText).join("\n");
+      for (const role of ["name", "price", "change", "note"]) {
+        assert.match(css, new RegExp(`font-size: calc\\(var\\(--font-${role}-size, \\d+px\\) \\* var\\(--font-scale, 1\\)\\)`));
       }
     });
   });

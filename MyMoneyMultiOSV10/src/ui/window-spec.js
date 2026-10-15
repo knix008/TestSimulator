@@ -107,6 +107,35 @@ export function sceneFit(box, textWidth = SCENE_TEXT) {
   return { text: shared, art: shared };
 }
 
+/** Smallest and largest multiple applied to every configured font together. */
+export const FONT_SCALE_MIN = 0.4;
+export const FONT_SCALE_MAX = 3;
+
+/** The content box inside a window of the given outer size. */
+export function contentBoxFor(size = WINDOW_DEFAULT) {
+  const width = Math.round(Number(size?.width) || WINDOW_DEFAULT.width);
+  const height = Math.round(Number(size?.height) || WINDOW_DEFAULT.height);
+  return {
+    width: Math.max(1, width - CONTENT_PADDING.left - CONTENT_PADDING.right),
+    height: Math.max(1, height - TOOLBAR_HEIGHT - CONTENT_PADDING.top - CONTENT_PADDING.bottom),
+  };
+}
+
+/**
+ * One ratio for every configured font. It is 1 in the reference box, so the
+ * sizes chosen in Settings are what the normal window shows, and a larger or
+ * smaller window multiplies them all by the same amount.
+ */
+export function fontWindowScale(box, reference = contentBoxFor(WINDOW_DEFAULT)) {
+  const baseWidth = Math.max(1, Number(reference?.width) || 1);
+  const baseHeight = Math.max(1, Number(reference?.height) || 1);
+  const width = Math.max(1, Number(box?.width) || baseWidth);
+  const height = Math.max(1, Number(box?.height) || baseHeight);
+  const scale = Math.min(width / baseWidth, height / baseHeight);
+  const clamped = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale));
+  return Math.round(clamped * 1000) / 1000;
+}
+
 /** One row of the watchlist board: a 32px row and the 2px gap under it. */
 export const BOARD_ROW = 34;
 export const BOARD_HEAD = 26;

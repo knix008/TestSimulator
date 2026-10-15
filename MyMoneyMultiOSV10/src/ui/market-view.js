@@ -28,12 +28,12 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
   const scene = `<section class="market-scene" data-gui="scene" data-symbol="${esc(quote?.symbol || "")}"${advance}>
       ${sceneArt(trend)}
       <div class="scene-copy">
-        <div class="scene-name" title="${esc(title)}">${esc(title)}</div>
-        <div class="scene-price">${esc(quote ? formatPrice(priced.last, priced.currency, language) : "—")}</div>
-        <div class="scene-move" data-tone="${esc(trendTone(trend))}">${esc(
+        <div class="scene-name" data-font-role="name" title="${esc(title)}">${esc(title)}</div>
+        <div class="scene-price" data-font-role="price">${esc(quote ? formatPrice(priced.last, priced.currency, language) : "—")}</div>
+        <div class="scene-move" data-font-role="change" data-tone="${esc(trendTone(trend))}">${esc(
           quote ? `${formatSigned(priced.change, priced.currency, language)}  ${formatPercent(quote.changePercent)}` : t("market.empty"),
         )}</div>
-        <div class="scene-note" title="${esc(noteText)}">${esc(noteText || " ")}</div>
+        <div class="scene-note" data-font-role="note" title="${esc(noteText)}">${esc(noteText || " ")}</div>
       </div>
     </section>`;
   return `<div class="market">${scene}</div>`;
@@ -247,24 +247,24 @@ function stocksHtml(tab, language, units, baseCurrency, t, page = 0) {
     const exchangeFull = market ? marketName(market, language) : "";
     const title = `${name} ${quote.symbol} ${exchangeFull} ${formatPrice(priced.last, priced.currency, language)} ${priced.currency} ${formatPercent(quote.changePercent)}`;
     return `<button type="button" class="quote-row${selected}${alert}" data-gui="quote" data-symbol="${esc(quote.symbol)}" data-tone="${esc(trendTone(trend))}" title="${esc(title)}">
-        <span class="quote-name"><strong>${esc(name)}</strong><em>${esc(quote.symbol)}</em></span>
-        <span class="quote-exchange" title="${esc(exchangeFull)}">${esc(exchange)}</span>
-        <span class="quote-price">${esc(formatPrice(priced.last, priced.currency, language))}</span>
-        <span class="quote-change">${esc(formatSigned(priced.change, priced.currency, language))}</span>
-        <span class="quote-percent">${esc(formatPercent(quote.changePercent))}</span>
-        <span class="quote-volume">${esc(formatVolume(quote.volumeLast ?? quote.days?.[quote.days.length - 1]?.volume, language))}</span>
+        <span class="quote-name"><strong data-font-role="name">${esc(name)}</strong><em data-font-role="note">${esc(quote.symbol)}</em></span>
+        <span class="quote-exchange" data-font-role="note" title="${esc(exchangeFull)}">${esc(exchange)}</span>
+        <span class="quote-price" data-font-role="price">${esc(formatPrice(priced.last, priced.currency, language))}</span>
+        <span class="quote-change" data-font-role="change">${esc(formatSigned(priced.change, priced.currency, language))}</span>
+        <span class="quote-percent" data-font-role="change">${esc(formatPercent(quote.changePercent))}</span>
+        <span class="quote-volume" data-font-role="note">${esc(formatVolume(quote.volumeLast ?? quote.days?.[quote.days.length - 1]?.volume, language))}</span>
         <span class="row-grip" data-grip="1" title="${esc(dragTip)}" aria-hidden="true">${icon("drag")}</span>
       </button>`;
   });
   const index = tab.data.index;
   const indexRow = index
     ? `<div class="quote-row is-index" data-gui="index" data-tone="${esc(trendTone(trendOf(index.changePercent)))}" title="${esc(`${t("col.index")} ${index.symbol}`)}">
-        <span class="quote-name"><strong>${esc(indexLabel(tab.board, language))}</strong><em>${esc(index.symbol)}</em></span>
-        <span class="quote-exchange">${esc(tab.board?.marketCode || "")}</span>
-        <span class="quote-price">${esc(formatPrice(index.last, "", language))}</span>
-        <span class="quote-change">${esc(formatSigned(index.change, "", language))}</span>
-        <span class="quote-percent">${esc(formatPercent(index.changePercent))}</span>
-        <span class="quote-volume">—</span>
+        <span class="quote-name"><strong data-font-role="name">${esc(indexLabel(tab.board, language))}</strong><em data-font-role="note">${esc(index.symbol)}</em></span>
+        <span class="quote-exchange" data-font-role="note">${esc(tab.board?.marketCode || "")}</span>
+        <span class="quote-price" data-font-role="price">${esc(formatPrice(index.last, "", language))}</span>
+        <span class="quote-change" data-font-role="change">${esc(formatSigned(index.change, "", language))}</span>
+        <span class="quote-percent" data-font-role="change">${esc(formatPercent(index.changePercent))}</span>
+        <span class="quote-volume" data-font-role="note">—</span>
         <span class="row-grip" aria-hidden="true"></span>
       </div>`
     : "";
@@ -278,9 +278,9 @@ function ratesHtml(rates, language, t) {
     const quoted = quotePair(rates.base, row.code, row.rate);
     const name = currencyName(row.code, language);
     return `<div class="rate-row" data-gui="rate" data-code="${esc(row.code)}" data-pair="${esc(quoted.pair)}" title="${esc(`${quoted.pair} ${formatRate(quoted.value, language)} ${name}`)}">
-        <span class="rate-pair">${esc(quoted.pair)}</span>
-        <span class="rate-value">${esc(formatRate(quoted.value, language))}</span>
-        <span class="rate-name">${esc(name)}</span>
+        <span class="rate-pair" data-font-role="name">${esc(quoted.pair)}</span>
+        <span class="rate-value" data-font-role="price">${esc(formatRate(quoted.value, language))}</span>
+        <span class="rate-name" data-font-role="note">${esc(name)}</span>
         <span class="row-grip" data-grip="1" title="${esc(dragTip)}" aria-hidden="true">${icon("drag")}</span>
       </div>`;
   });
@@ -301,8 +301,8 @@ function newsHtml(news, language, t, page = 0) {
     return `<button type="button" class="news-row" data-gui="news" data-link="${esc(item.link || "")}" title="${esc(item.title)}">
         <span class="news-thumb" data-image="${picture ? "yes" : "no"}">${picture}</span>
         <span class="news-copy">
-          <span class="news-title">${esc(item.title)}</span>
-          <span class="news-meta">${esc(meta || t("col.outlet"))}</span>
+          <span class="news-title" data-font-role="name">${esc(item.title)}</span>
+          <span class="news-meta" data-font-role="note">${esc(meta || t("col.outlet"))}</span>
         </span>
       </button>`;
   });

@@ -32,6 +32,7 @@ export function buildMenuItems(name, ctx) {
       item("stocks", "stocks", t("cmd.stocks"), "", true),
       item("add-symbol", "add", t("cmd.addSymbol"), "", true),
       item("remove-symbol", "trash", t("cmd.removeSymbol"), "", ctx.canRemoveSymbol !== false),
+      item("detach-symbol", "window", t("cmd.detachSymbol"), "", ctx.canDetachSymbol === true),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),
       item("refresh", "refresh", t("cmd.refresh"), "", true, true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),

@@ -1,6 +1,6 @@
 import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
-import { FONT_FLAGS, applyFontFace, fontFace } from "../core/fonts.js";
+import { FONT_FLAGS, FONT_ROLES, FONT_SURFACES, applyFontRoles, fontFace, fontRoleStyle, normalizeFonts, surfaceFonts } from "../core/fonts.js";
 import { MARGINS, PAGE_NUMBER_SPOTS, PAPERS, PRINT_SECTIONS, SCALES, pageHtml, paperSize } from "../core/print-model.js";
 import { PRINT_CSS } from "../core/print-style.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
@@ -562,10 +562,11 @@ function paintCustomChip(el) {
 function panelBlock(spec) {
   if (!spec.markup) return "";
   const height = Math.max(0, Number(spec.fitHeight) || 0);
-  // The quotes in a panel are drawn in the font chosen in Settings, like the window's own.
+  // Each piece of this window uses the font chosen for it, not the quote window's font.
+  const roles = surfaceFonts(spec.fonts, spec.panel || "stocks");
   const face = fontFace(spec);
-  const font = `data-font-scope="stocks" data-font-bold="${face.bold}" data-font-italic="${face.italic}"`;
-  const fontStyle = `font-family:${esc(face.family)};--font-decoration:${esc(face.decoration)};`;
+  const fontStyle = roles ? `${esc(fontRoleStyle(roles))};` : `font-family:${esc(face.family)};--font-decoration:${esc(face.decoration)};`;
+  const font = roles ? "" : `data-font-scope="stocks" data-font-bold="${face.bold}" data-font-italic="${face.italic}"`;
   return `<div class="panel-fit" data-gui="panel" data-panel-kind="${esc(spec.panel || "")}" ${font} data-fit-height="${height}" style="${fontStyle}height:${height}px;overflow:hidden;display:flex;flex-direction:column;min-height:0">${spec.markup}</div>`;
 }
 
@@ -654,6 +655,7 @@ export function wirePopup(el, spec, handlers = {}) {
   let settingsPreviewTimer = null;
   const previewSettings = () => {
     if (spec.type !== "settings") return;
+    commitFontRole(el);
     paintFontPreview(el);
     clearTimeout(settingsPreviewTimer);
     settingsPreviewTimer = setTimeout(() => {
@@ -662,7 +664,25 @@ export function wirePopup(el, spec, handlers = {}) {
     }, 40);
   };
   if (spec.type === "settings") {
-    el.addEventListener("change", previewSettings);
+    const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
+    const roleSelect = el.querySelector('[data-field="fontRole"]');
+    if (surfaceSelect) surfaceSelect.dataset.editing = surfaceSelect.value || "scene";
+    if (roleSelect) roleSelect.dataset.editing = roleSelect.value || "name";
+    el.addEventListener("change", (event) => {
+      const field = event.target?.dataset?.field;
+      if (field === "fontSurface" || field === "fontRole") {
+        const surface = el.querySelector('[data-field="fontSurface"]');
+        const role = el.querySelector('[data-field="fontRole"]');
+        const previousSurface = surface?.dataset.editing || "scene";
+        const previousRole = role?.dataset.editing || "name";
+        const fonts = fontDraft(el);
+        if (!fonts[previousSurface] || typeof fonts[previousSurface] !== "object") fonts[previousSurface] = {};
+        fonts[previousSurface][previousRole] = readFontControls(el);
+        storeFontDraft(el, fonts);
+        showFontTarget(el, surface?.value || previousSurface, role?.value || previousRole);
+      }
+      previewSettings();
+    });
     el.addEventListener("input", previewSettings);
     el.addEventListener("click", (event) => {
       if (event.target.closest?.("[data-choice], .swatch, [data-step], [data-action='reset']")) setTimeout(previewSettings, 0);
@@ -1019,8 +1039,10 @@ export function bootPopup(spec, api, container = document.body) {
   applyPopupTheme(spec);
   document.body.style.margin = "0";
   document.body.style.overflow = "hidden";
-  document.body.style.fontFamily = spec.fontFamily ? `"${spec.fontFamily}", sans-serif` : "sans-serif";
-  document.body.style.fontSize = `${spec.fontSize || 14}px`;
+  document.body.style.fontFamily = '"Segoe UI", "Malgun Gothic", sans-serif';
+  document.body.style.fontSize = "14px";
+  document.body.style.fontWeight = "400";
+  document.body.style.fontStyle = "normal";
   const el = buildPopupElement(spec);
   el.style.position = "relative";
   el.style.left = "0";
@@ -1396,23 +1418,48 @@ function wallpaperRows(model) {
   ];
 }
 
+function shownFont(values) {
+  const name = surfaceFonts(values.fonts, "scene").name;
+  if (!name) return values;
+  return {
+    fontFamily: name.fontFamily || values.fontFamily,
+    fontSize: name.fontSize ?? values.fontSize,
+    fontBold: Boolean(name.fontBold),
+    fontItalic: Boolean(name.fontItalic),
+    fontUnderline: Boolean(name.fontUnderline),
+    fontStrike: Boolean(name.fontStrike),
+  };
+}
+
 function fontRows(model) {
   const t = model.t;
   const values = model.values;
-  const fonts = model.fonts?.length ? model.fonts : [values.fontFamily];
+  const face = shownFont(values);
+  const families = model.fonts?.length ? model.fonts : [face.fontFamily];
   return [
+    { kind: "hidden", id: "fonts", value: JSON.stringify(values.fonts || {}) },
+    {
+      kind: "font-pair",
+      id: "fontTarget",
+      surfaceLabel: t("field.fontSurface"),
+      roleLabel: t("field.fontRole"),
+      surface: "scene",
+      role: "name",
+      surfaces: FONT_SURFACES.map((surface) => ({ value: surface, label: t(`font.surface.${surface}`) })),
+      roles: FONT_ROLES.map((role) => ({ value: role, label: t(`font.role.${role}`) })),
+    },
     {
       kind: "select",
       id: "fontFamily",
       label: t("field.fontFamily"),
-      value: values.fontFamily,
-      options: fonts.map((name) => ({ value: name, label: name })),
+      value: face.fontFamily,
+      options: families.map((name) => ({ value: name, label: name })),
     },
     {
       kind: "number",
       id: "fontSize",
       label: t("field.fontSize"),
-      value: values.fontSize,
+      value: face.fontSize,
       min: 8,
       max: 72,
       step: 1,
@@ -1424,33 +1471,101 @@ function fontRows(model) {
       id: "fontEffects",
       label: t("field.fontEffects"),
       options: [
-        { id: "fontBold", glyph: "B", label: t("field.fontBold"), checked: Boolean(values.fontBold) },
-        { id: "fontItalic", glyph: "I", label: t("field.fontItalic"), checked: Boolean(values.fontItalic) },
-        { id: "fontUnderline", glyph: "U", label: t("field.fontUnderline"), checked: Boolean(values.fontUnderline) },
-        { id: "fontStrike", glyph: "S", label: t("field.fontStrike"), checked: Boolean(values.fontStrike) },
+        { id: "fontBold", glyph: "B", label: t("field.fontBold"), checked: Boolean(face.fontBold) },
+        { id: "fontItalic", glyph: "I", label: t("field.fontItalic"), checked: Boolean(face.fontItalic) },
+        { id: "fontUnderline", glyph: "U", label: t("field.fontUnderline"), checked: Boolean(face.fontUnderline) },
+        { id: "fontStrike", glyph: "S", label: t("field.fontStrike"), checked: Boolean(face.fontStrike) },
       ],
     },
-    { kind: "font-preview", id: "fontPreview", label: t("field.fontPreview"), text: t("font.sample"), values },
+    {
+      kind: "font-preview",
+      id: "fontPreview",
+      label: t("field.fontPreview"),
+      samples: Object.fromEntries(FONT_ROLES.map((role) => [role, t(`font.sample.${role}`)])),
+    },
   ];
 }
 
-/** The sample line under the font controls, drawn the way the quotes will be. */
-function paintFontPreview(el) {
-  const sample = el.querySelector('[data-gui="font-preview"]');
-  if (!sample) return;
+function readFontControls(el) {
   const read = (field) => el.querySelector(`[data-field="${field}"]`);
   const settings = {
     fontFamily: read("fontFamily")?.value,
     fontSize: read("fontSize")?.value,
   };
   for (const flag of FONT_FLAGS) settings[flag] = Boolean(read(flag)?.checked);
-  applyFontFace(sample, settings);
-  sample.style.fontSize = `${clampNumber(settings.fontSize, 8, 72, 14)}px`;
+  return settings;
 }
 
-function clampNumber(value, min, max, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+function writeFontControls(el, face) {
+  if (!face) return;
+  const family = el.querySelector('[data-field="fontFamily"]');
+  const size = el.querySelector('[data-field="fontSize"]');
+  if (family && face.fontFamily) family.value = face.fontFamily;
+  if (size && face.fontSize != null) size.value = String(face.fontSize);
+  for (const flag of FONT_FLAGS) {
+    const box = el.querySelector(`[data-field="${flag}"]`);
+    if (box && face[flag] != null) box.checked = Boolean(face[flag]);
+  }
+}
+
+function fontDraft(el) {
+  const hidden = el.querySelector('[data-field="fonts"]');
+  try {
+    const parsed = JSON.parse(hidden?.value || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function storeFontDraft(el, fonts) {
+  const hidden = el.querySelector('[data-field="fonts"]');
+  if (hidden) hidden.value = JSON.stringify(fonts);
+}
+
+/** Write the controls into the window and piece they are currently showing. */
+function commitFontRole(el) {
+  const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
+  const roleSelect = el.querySelector('[data-field="fontRole"]');
+  if (!roleSelect) return;
+  const surface = surfaceSelect?.dataset.editing || surfaceSelect?.value || "scene";
+  const role = roleSelect.dataset.editing || roleSelect.value || "name";
+  const fonts = fontDraft(el);
+  if (!fonts[surface] || typeof fonts[surface] !== "object") fonts[surface] = {};
+  fonts[surface][role] = readFontControls(el);
+  storeFontDraft(el, fonts);
+}
+
+/** Load one piece of one window into the font controls. */
+function showFontTarget(el, surface, role) {
+  const fonts = fontDraft(el);
+  writeFontControls(el, fonts[surface]?.[role] || {});
+  const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
+  const roleSelect = el.querySelector('[data-field="fontRole"]');
+  if (surfaceSelect) {
+    surfaceSelect.value = surface;
+    surfaceSelect.dataset.editing = surface;
+  }
+  if (roleSelect) {
+    roleSelect.value = role;
+    roleSelect.dataset.editing = role;
+  }
+  paintFontPreview(el);
+}
+
+/** The chosen piece of the chosen window, and no other piece. */
+function paintFontPreview(el) {
+  const sample = el.querySelector('[data-gui="font-preview"]');
+  const text = sample?.querySelector("[data-gui='font-sample-text']");
+  if (!sample || !text) return;
+  const fonts = fontDraft(el);
+  const surface = el.querySelector('[data-field="fontSurface"]')?.value || "scene";
+  const role = el.querySelector('[data-field="fontRole"]')?.dataset.editing || el.querySelector('[data-field="fontRole"]')?.value || "name";
+  const map = { ...(fonts[surface] || {}) };
+  map[role] = readFontControls(el);
+  applyFontRoles(sample, map);
+  text.dataset.fontRole = role;
+  text.textContent = sample.dataset[`sample${role[0].toUpperCase()}${role.slice(1)}`] || "";
 }
 
 function dataRows(model) {
@@ -1507,12 +1622,15 @@ function resetSettingsForm(el, spec) {
   el.querySelectorAll('[data-group="source"]').forEach((box) => {
     box.checked = defaults.enabledSources.includes(box.dataset.source);
   });
-  assign("fontFamily", defaults.fontFamily);
-  assign("fontSize", defaults.fontSize);
-  for (const flag of FONT_FLAGS) {
-    const box = el.querySelector(`[data-field="${flag}"]`);
-    if (box) box.checked = Boolean(defaults[flag]);
-  }
+  const fonts = normalizeFonts(null, defaults);
+  assign("fonts", JSON.stringify(fonts));
+  assign("fontSurface", "scene");
+  assign("fontRole", "name");
+  const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
+  const roleSelect = el.querySelector('[data-field="fontRole"]');
+  if (surfaceSelect) surfaceSelect.dataset.editing = "scene";
+  if (roleSelect) roleSelect.dataset.editing = "name";
+  writeFontControls(el, fonts.scene.name);
   paintFontPreview(el);
   assign("customMode", custom.mode);
   assign("customBg", custom.bg);
@@ -1558,6 +1676,11 @@ function renderRow(row) {
     const remove = row.remove || "symbol-remove";
     return `<div class="watchlist" data-row="${esc(row.id)}" data-gui="${esc(row.gui || "watchlist")}" data-fit-height="${height}" data-max-height="${Number(row.height) || WATCHLIST_HEIGHT}" data-remove="${esc(remove)}" data-remove-tip="${esc(row.removeTip || "")}" data-drag-tip="${esc(row.dragTip || "")}" data-empty="${esc(row.empty || "")}" style="height:${height}px;overflow:hidden;flex:0 0 auto">${watchlistBody(row.entries, row.removeTip, row.empty, remove, row.dragTip)}</div>`;
   }
+  if (row.kind === "font-pair") {
+    const options = (list, value) =>
+      (list || []).map((option) => `<option value="${esc(option.value)}"${option.value === value ? " selected" : ""}>${esc(option.label)}</option>`).join("");
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.surfaceLabel)}</label><select data-field="fontSurface" title="${esc(row.surfaceLabel)}">${options(row.surfaces, row.surface)}</select><span class="font-pair-label">${esc(row.roleLabel)}</span><select data-field="fontRole" title="${esc(row.roleLabel)}">${options(row.roles, row.role)}</select></div>`;
+  }
   if (row.kind === "select") {
     const options = (row.options || [])
       .map((option) => `<option value="${esc(option.value)}"${option.value === row.value ? " selected" : ""}>${esc(option.label)}</option>`)
@@ -1580,9 +1703,9 @@ function renderRow(row) {
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="font-toggles" role="group">${boxes}</div></div>`;
   }
   if (row.kind === "font-preview") {
-    const face = fontFace(row.values || {});
-    const flags = `data-font-scope="stocks" data-font-bold="${face.bold}" data-font-italic="${face.italic}"`;
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label)}</label><div class="font-preview" data-gui="font-preview" ${flags} style="font-family:${esc(face.family)};font-size:${esc(face.size)};--font-decoration:${esc(face.decoration)}"><span>${esc(row.text || "")}</span></div></div>`;
+    const samples = row.samples || {};
+    const attrs = FONT_ROLES.map((role) => `data-sample-${role}="${esc(samples[role] || "")}"`).join(" ");
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label || "")}</label><div class="font-preview" data-gui="font-preview" ${attrs}><span class="font-sample-text" data-gui="font-sample-text" data-font-role="name">${esc(samples.name || "")}</span></div></div>`;
   }
   if (row.kind === "radio") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="radio" name="${esc(row.name)}" value="${esc(row.value)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;

@@ -8,7 +8,7 @@ import { copyRange, cutText, pasteText } from "../../src/core/clipboard.js";
 import { createDocument, parseDocument, serializeDocument, withSymbol, withoutSymbol } from "../../src/core/document.js";
 import { acceptImage, classifyDrop } from "../../src/core/drop.js";
 import { AppError, errorCopyText, normalizeError } from "../../src/core/errors.js";
-import { fontFace, fontStyleOf, parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
+import { fontFace, fontStyleOf, listFontScale, parseFcList, parseWindowsFonts, resolveFontList } from "../../src/core/fonts.js";
 import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { MARGINS, PAPERS, PRINT_SECTIONS, SCALES, buildPrintModel, normalizeSections, normalizeSetup, paperSize } from "../../src/core/print-model.js";
@@ -22,7 +22,7 @@ import { layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOption
 import { icon, knownIcons } from "../../src/ui/icons.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
-import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, TITLE_LABEL_WIDTH, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, isUsableSize, showsTitleText, titleTextMinWidth, roomyMinWidth, isCompactWidth, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
+import { BOARD_HEAD, BOARD_MAX_HEIGHT, BOARD_MIN_WIDTH, BOARD_ROW, CONTENT_PADDING, FONT_SCALE_MIN, SCENE_ART, SCENE_GAP, SCENE_MAX_SCALE, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, TITLE_LABEL_WIDTH, WINDOW_DEFAULT, WINDOW_MIN, boardWindowSize, contentBoxFor, fontWindowScale, isUsableSize, showsTitleText, titleTextMinWidth, roomyMinWidth, isCompactWidth, clampWindowSize, placeWindow, recordedWindowPlacement, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { LIST_GAP, LIST_ROW, SETTINGS_MAX_WIDTH, SETTINGS_MIN_WIDTH, listBlockHeight, settingsWidth, tabLabelWidth } from "../../src/ui/popups.js";
 import { aggregateQuote, aggregateRates, mergeNews, newsKey, presentBoard } from "../../src/market/aggregate.js";
@@ -725,6 +725,16 @@ export function registerLogic(h) {
     for (const field of WINDOW_FIELDS) assert.equal(field in shared, false, field);
     assert.match(windowLabel(sanitizeSettings({}).defaultBoard, "ko", 0), /^1\. 한국거래소 · 삼성전자, SK하이닉스 외 1$/);
     assert.match(windowLabel(board, "en", 1), /^2\. /);
+    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
+    assert.match(main, /for \(const slot of readSlots\(\)\) createMainWindow\(slot\.id, slot\)/);
+    assert.match(main, /function openNewWindow\(board\)/);
+    assert.match(main, /board: sanitizeBoard\(board\)/);
+    assert.match(main, /view\.fonts = entry\?\.fonts \|\| stored\.fonts/);
+    assert.match(main, /fonts: incoming\.fonts/);
+    const ownFonts = sanitizeWindowSlots([{ id: "w3", fonts: { stocks: { name: { fontSize: 19 } } } }]);
+    assert.equal(ownFonts[0].fonts.stocks.name.fontSize, 19);
+    assert.equal(ownFonts[0].fonts.scene.name.fontSize, 22);
+    assert.equal("fonts" in sharedSettings({ language: "en", fonts: ownFonts[0].fonts }), false);
   });
   h.test("the font style is four switches, read from the older single choice when missing", () => {
     const old = sanitizeSettings({ fontStyle: "bolditalic" });
@@ -736,9 +746,34 @@ export function registerLogic(h) {
     assert.equal(fresh.fontBold, false, "the switches win over the old choice");
     assert.equal(fresh.fontStyle, "italic");
     assert.equal(fontStyleOf(true, false), "bold");
+    const fitted = listFontScale({
+      name: { fontSize: 22 },
+      price: { fontSize: 44 },
+      change: { fontSize: 16 },
+      note: { fontSize: 16 },
+    });
+    assert.equal(fitted, 0.409);
+    assert.equal(Math.round(22 * fitted), Math.round(44 * fitted / 2));
+    assert.equal(listFontScale({ name: { fontSize: 12 }, price: { fontSize: 12 }, change: { fontSize: 12 }, note: { fontSize: 12 } }), 1);
     const face = fontFace({ fontFamily: "Arial", fontSize: 18, fontBold: true, fontUnderline: true, fontStrike: true });
     assert.deepEqual(face, { family: '"Arial", sans-serif', size: "18px", bold: true, italic: false, decoration: "underline line-through" });
     assert.equal(fontFace({}).decoration, "none");
+    const kept = sanitizeSettings({ fontSize: 18, fontFamily: "Arial", fontItalic: true });
+    assert.equal(kept.fontSize, 18, "the older single size stays on the file");
+    assert.equal(kept.fonts.scene.name.fontSize, 22, "the name keeps the size the quote already uses");
+    assert.equal(kept.fonts.scene.price.fontSize, 44);
+    assert.equal(kept.fonts.stocks.name.fontSize, 22);
+    assert.equal(kept.fonts.scene.name.fontFamily, "Arial");
+    assert.equal(kept.fonts.scene.price.fontItalic, true);
+    assert.equal(kept.fonts.scene.name.fontBold, false);
+    assert.equal(old.fonts.scene.name.fontBold, true, "the older bold switch still applies to every piece");
+    assert.equal(old.fonts.rates.price.fontBold, true);
+    const custom = sanitizeSettings({ fonts: { price: { fontSize: 30, fontBold: true }, note: { fontSize: 9 } } });
+    assert.equal(custom.fonts.scene.price.fontSize, 30);
+    assert.equal(custom.fonts.stocks.price.fontBold, true);
+    assert.equal(custom.fonts.news.note.fontSize, 9);
+    assert.equal(custom.fonts.scene.name.fontSize, 22);
+    assert.equal(custom.fontSize, 14);
   });
 
   h.category("Layout");
@@ -830,6 +865,12 @@ export function registerLogic(h) {
     const huge = sceneFit({ width: 4000, height: 3000 });
     assert.equal(huge.art, SCENE_MAX_SCALE);
     assert.equal(huge.text, SCENE_MAX_SCALE);
+    const normal = contentBoxFor(WINDOW_DEFAULT);
+    assert.equal(fontWindowScale(normal), 1);
+    assert.equal(fontWindowScale({ width: normal.width * 1.5, height: normal.height * 1.5 }), 1.5);
+    assert.equal(fontWindowScale({ width: normal.width * 2, height: normal.height }), 1);
+    assert.equal(fontWindowScale({ width: normal.width * 0.5, height: normal.height * 0.5 }), 0.5);
+    assert.equal(fontWindowScale({ width: 10, height: 10 }), FONT_SCALE_MIN);
     const tight = sceneFit({ width: 300, height: 160 });
     assert.ok(tight.text < 1);
     assert.equal(tight.text, tight.art);

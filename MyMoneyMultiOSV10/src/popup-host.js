@@ -1,14 +1,18 @@
-import { applyFontFace } from "./core/fonts.js";
+import { applyFontFace, applyFontRoles, surfaceFonts } from "./core/fonts.js";
 import { applyThemeVars } from "./core/themes.js";
 import { applyPopupTheme, bootPopup, paintWallpaper } from "./ui/popups.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
 
 window.electronAPI.onApplyTheme?.((payload) => {
   if (!payload) return;
-  if (payload.font) {
-    // A font change in Settings reaches an open stock panel at once.
-    const panel = document.querySelector('[data-popup="panel"] [data-gui="panel"]');
-    if (panel) applyFontFace(panel, payload.font);
+  const popup = document.querySelector("[data-popup]");
+  if (popup?.dataset.popup === "panel" && (payload.fonts || payload.font)) {
+    // A font change reaches this window's own quote panel, not the settings window.
+    const panel = popup.querySelector("[data-gui='panel']");
+    if (panel) {
+      if (payload.fonts) applyFontRoles(panel, surfaceFonts(payload.fonts, panel.dataset.panelKind));
+      else applyFontFace(panel, payload.font);
+    }
     if (!payload.theme && !payload.vars) return;
   }
   const type = document.querySelector("[data-popup]")?.dataset.popup || "";

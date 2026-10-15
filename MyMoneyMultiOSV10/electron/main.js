@@ -371,11 +371,14 @@ function createMainWindow(slot = MAIN_SLOT, slotEntry = null) {
   return win;
 }
 
-/** A new window with its own board, which starts as the starter watchlist. */
-function openNewWindow() {
+/**
+ * A new window with its own board. With no board it starts on the starter
+ * watchlist; a board is the one symbol a reader moved out of another window.
+ */
+function openNewWindow(board) {
   if (readSlots().length >= MAX_EXTRA_WINDOWS) return null;
   const id = newSlotId();
-  const entry = { id, board: sanitizeBoard(null), bounds: null };
+  const entry = { id, board: sanitizeBoard(board), bounds: null };
   editSlots((slots) => [...slots, entry]);
   return createMainWindow(id, entry);
 }
@@ -862,6 +865,7 @@ ipcMain.handle("read-settings", (event) => {
   const entry = readSlots().find((item) => item.id === slot);
   const view = sharedSettings(stored);
   view.defaultBoard = entry?.board || sanitizeBoard(null);
+  view.fonts = entry?.fonts || stored.fonts;
   if (!win.isDestroyed()) {
     const bounds = win.getBounds();
     view.windowSize = { width: bounds.width, height: bounds.height };
@@ -891,7 +895,9 @@ ipcMain.handle("write-settings", (event, data) => {
     // An extra window writes the shared part over the file and its board into its slot.
     const next = { ...stored, ...sharedSettings(incoming) };
     for (const field of WINDOW_FIELDS) if (stored[field] !== undefined) next[field] = stored[field];
-    next[WINDOW_LIST_FIELD] = slots.map((entry) => (entry.id === slot ? { ...entry, board: sanitizeBoard(incoming.defaultBoard) } : entry));
+    next[WINDOW_LIST_FIELD] = slots.map((entry) =>
+      entry.id === slot ? { ...entry, board: sanitizeBoard(incoming.defaultBoard), fonts: incoming.fonts } : entry,
+    );
     writeSettingsFile(next);
     shareSettings(win, next);
     return true;
@@ -1012,7 +1018,7 @@ ipcMain.handle("window-boot", (event) => {
   return { slot: slotOf(win) || MAIN_SLOT, primary: isPrimary(win), canAddWindow: readSlots().length < MAX_EXTRA_WINDOWS };
 });
 
-ipcMain.handle("new-window", () => Boolean(openNewWindow()));
+ipcMain.handle("new-window", (_event, board) => Boolean(openNewWindow(board)));
 
 ipcMain.handle("remove-window", (event) => removeMoneyWindow(moneyWindowOf(event.sender)));
 
@@ -1112,16 +1118,24 @@ ipcMain.handle("end-popup", (_event, id) => hub.finish(id, { action: "close" }))
 
 ipcMain.on("broadcast-theme", (event, payload) => {
   if (!payload || typeof payload !== "object") return;
+  const owner = moneyWindowOf(event.sender);
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed() || win.webContents.id === event.sender.id) continue;
-    win.webContents.send("apply-theme", {
-      vars: payload.vars || {},
+    const owned = Boolean(owner && windowOwners.get(win.webContents.id) === owner);
+    if (!owned && !moneyWindows.has(win)) continue;
+    const message = {
       mode: payload.mode || "",
       theme: payload.theme || "",
       customTheme: payload.customTheme || null,
       transparency: payload.transparency,
-      font: payload.font && typeof payload.font === "object" ? payload.font : null,
-    });
+    };
+    if (payload.vars) message.vars = payload.vars;
+    // Fonts belong to the window that changed them, and to the panels it opened.
+    if (owned) {
+      message.font = payload.font && typeof payload.font === "object" ? payload.font : null;
+      message.fonts = payload.fonts && typeof payload.fonts === "object" ? payload.fonts : null;
+    }
+    win.webContents.send("apply-theme", message);
   }
 });
 

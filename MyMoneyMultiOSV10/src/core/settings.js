@@ -1,4 +1,4 @@
-import { FONT_FLAGS, FONT_STYLES, fontStyleOf } from "./fonts.js";
+import { FONT_FLAGS, FONT_STYLES, fontStyleOf, normalizeFonts } from "./fonts.js";
 import { DEFAULT_CUSTOM_THEME, DEFAULT_THEME_ID, isTheme, sanitizeCustomTheme } from "./themes.js";
 import { CURRENCIES, findMarket } from "../market/markets.js";
 import { SOURCE_IDS } from "../market/providers.js";
@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS = {
   fontItalic: false,
   fontUnderline: false,
   fontStrike: false,
+  fonts: normalizeFonts(null, { fontFamily: "Segoe UI" }),
   backgroundImage: "",
   backgroundName: "",
   backgroundOpacity: 40,
@@ -88,10 +89,10 @@ export const ROTATE_SECONDS = [0, 3, 5, 10, 30, 60];
 export const MAX_SYMBOLS = 20;
 
 /**
- * Each window keeps its own board and its own place on the screen; everything
- * else - language, theme, font, sources - is one setting for every window.
+ * Each window keeps its own board, its own place on the screen, and its own
+ * fonts. Language, theme and sources stay one setting for every window.
  */
-export const WINDOW_FIELDS = ["defaultBoard", "windowSize", "windowPosition", "windowMaximized"];
+export const WINDOW_FIELDS = ["defaultBoard", "windowSize", "windowPosition", "windowMaximized", "fonts"];
 
 /** The main process owns this list, so a window never writes it back. */
 export const WINDOW_LIST_FIELD = "windows";
@@ -130,7 +131,8 @@ export function sanitizeWindowSlots(raw) {
             height: Math.round(Number(bounds.height)),
           }
         : null;
-    slots.push({ id, board: sanitizeBoard(entry.board), bounds: rect });
+    const fonts = entry.fonts && typeof entry.fonts === "object" ? normalizeFonts(entry.fonts, {}) : null;
+    slots.push({ id, board: sanitizeBoard(entry.board), bounds: rect, ...(fonts ? { fonts } : {}) });
     if (slots.length >= MAX_EXTRA_WINDOWS) break;
   }
   return slots;
@@ -270,6 +272,7 @@ export function sanitizeSettings(raw) {
   for (const flag of FONT_FLAGS) settings[flag] = Boolean(settings[flag]);
   settings.fontStyle = fontStyleOf(settings.fontBold, settings.fontItalic);
   settings.fontFamily = String(settings.fontFamily || DEFAULT_SETTINGS.fontFamily);
+  settings.fonts = normalizeFonts(source.fonts, settings);
   settings.zoom = clamp(settings.zoom || 100, 50, 200);
   settings.units = PRICE_UNITS.includes(settings.units) ? settings.units : DEFAULT_SETTINGS.units;
   settings.sceneMode = normalizeSceneMode(settings.sceneMode);

@@ -95,8 +95,9 @@ export function createElectronPlatform(api) {
     async windowBoot() {
       return (await api.windowBoot?.()) || null;
     },
-    async newWindow() {
-      return api.newWindow?.();
+    panelPopups: {},
+    async newWindow(board) {
+      return api.newWindow?.(board);
     },
     async removeWindow() {
       return api.removeWindow?.();
@@ -105,7 +106,12 @@ export function createElectronPlatform(api) {
       const started = await api.beginPopup(spec);
       if (started?.focused) return { action: "focused" };
       const id = started?.id || started;
-      return (await api.waitPopup(id)) || { action: "close" };
+      if (spec?.type === "panel" && spec.panel) this.panelPopups[spec.panel] = id;
+      try {
+        return (await api.waitPopup(id)) || { action: "close" };
+      } finally {
+        if (spec?.panel && this.panelPopups[spec.panel] === id) delete this.panelPopups[spec.panel];
+      }
     },
     async beginProgress(spec) {
       const started = await api.beginPopup(spec);

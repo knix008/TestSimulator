@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onRequestClose: (callback) => ipcRenderer.on("request-close", () => callback()),
   onSettingsChanged: (callback) => ipcRenderer.on("settings-changed", (_event, shared) => callback(shared)),
   windowBoot: () => ipcRenderer.invoke("window-boot"),
-  newWindow: () => ipcRenderer.invoke("new-window"),
+  newWindow: (board) => ipcRenderer.invoke("new-window", board),
   removeWindow: () => ipcRenderer.invoke("remove-window"),
   clipboardWrite: (text) => ipcRenderer.invoke("clipboard-write", text),
   clipboardRead: () => ipcRenderer.invoke("clipboard-read"),
