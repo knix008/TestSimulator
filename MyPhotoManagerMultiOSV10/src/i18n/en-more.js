@@ -68,7 +68,7 @@ export default {
   // EXIF editor, metadata
   'exifEdit.alt': 'Altitude (m)', 'exifEdit.lat': 'Latitude', 'exifEdit.lon': 'Longitude', 'exifEdit.make': 'Camera maker', 'exifEdit.model': 'Camera model',
   'exifEdit.multiHint': 'Only the fields you change are written to every selected photo.', 'exifEdit.onlyJpeg': 'EXIF can be edited in JPEG files.', 'exifEdit.removeGps': 'Remove the GPS location',
-  'exifEdit.saving': 'Writing EXIF', 'exifEdit.title.one': 'Edit EXIF of {n} photo', 'exifEdit.title.other': 'Edit EXIF of {n} photos',
+  'exifEdit.saving': 'Writing EXIF', 'exifEdit.badValue': 'That value cannot be written in this field.', 'exifEdit.readOnly': 'This file is read-only. Metadata can only be viewed.', 'exifEdit.title.one': 'Edit EXIF of {n} photo', 'exifEdit.title.other': 'Edit EXIF of {n} photos',
   'metadata.editExif': 'Edit EXIF…', 'metadata.embedJpeg': 'Embed in the files: JPEG (XMP + EXIF), PNG, WebP and TIFF (XMP); other formats get a sidecar', 'metadata.write': 'Write',
   'metadata.writeHint': 'Rating, label, keywords, categories, title, caption and IPTC fields are written into the files, readable by other programs.',
   'metadata.writeTitle.one': 'Write metadata to {n} file', 'metadata.writeTitle.other': 'Write metadata to {n} files', 'metadata.writeToFiles': 'Write metadata to files…', 'metadata.writing': 'Writing metadata',

@@ -341,14 +341,33 @@ function syncModeChrome() {
   markClassifyButton();
 }
 
+function itemByPath(path) {
+  if (!path) return null;
+  return app.state.list.find((i) => i.path === path) ?? { path, name: String(path).split(/[\\/]/).pop() };
+}
+
+function canEdit(item) {
+  if (!item || item.isDir) return null;
+  const kind = kindOf(item.name);
+  if (!kind || kind === 'video') return null;
+  return item;
+}
+
+/** The picture on screen: the viewer, the editor, or the large filmstrip preview. */
+function imageOnScreen() {
+  if (app.state.mode === 'view') return canEdit(itemByPath(viewer.currentPath)) ?? canEdit(focusedItem());
+  if (app.state.mode === 'edit') return canEdit(itemByPath(editor.path)) ?? canEdit(focusedItem());
+  return canEdit(fileList.displayedFile()) ?? canEdit(focusedItem());
+}
+
 function switchMode(mode) {
   if (mode === 'view') {
     const item = focusedItem() && !focusedItem().isDir ? focusedItem() : viewableList()[0];
     if (!item) { toast(t('mode.nothingToView'), 'info'); return; }
     setMode('view', { path: item.path });
   } else if (mode === 'edit') {
-    const item = focusedItem() && !focusedItem().isDir ? focusedItem() : (app.state.mode === 'view' ? app.state.list.find((i) => i.path === viewer.currentPath) : null);
-    if (!item || kindOf(item.name) === 'video' || !kindOf(item.name)) { toast(t('mode.nothingToEdit'), 'info'); return; }
+    const item = imageOnScreen();
+    if (!item) { toast(t('mode.nothingToEdit'), 'info'); return; }
     editPath(item.path);
   } else {
     setMode(mode);

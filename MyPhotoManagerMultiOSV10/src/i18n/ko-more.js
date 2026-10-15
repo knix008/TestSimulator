@@ -64,7 +64,7 @@ export default {
 
   'exifEdit.alt': '고도 (m)', 'exifEdit.lat': '위도', 'exifEdit.lon': '경도', 'exifEdit.make': '카메라 제조사', 'exifEdit.model': '카메라 모델',
   'exifEdit.multiHint': '바꾼 항목만 선택한 모든 사진에 기록합니다.', 'exifEdit.onlyJpeg': 'EXIF 는 JPEG 파일에서 편집할 수 있습니다.', 'exifEdit.removeGps': 'GPS 위치 지우기',
-  'exifEdit.saving': 'EXIF 기록 중', 'exifEdit.title.one': '사진 {n}장 EXIF 편집', 'exifEdit.title.other': '사진 {n}장 EXIF 편집',
+  'exifEdit.saving': 'EXIF 기록 중', 'exifEdit.badValue': '이 항목에는 그 값을 기록할 수 없습니다.', 'exifEdit.readOnly': '이 파일은 읽기 전용입니다. 메타데이터는 읽기만 가능합니다.', 'exifEdit.title.one': '사진 {n}장 EXIF 편집', 'exifEdit.title.other': '사진 {n}장 EXIF 편집',
   'metadata.editExif': 'EXIF 편집…', 'metadata.embedJpeg': '파일에 직접 넣기: JPEG (XMP + EXIF), PNG·WebP·TIFF (XMP), 다른 형식은 사이드카', 'metadata.write': '기록',
   'metadata.writeHint': '별점, 레이블, 키워드, 카테고리, 제목, 설명, IPTC 항목을 파일에 기록해 다른 프로그램에서도 보이게 합니다.',
   'metadata.writeTitle.one': '파일 {n}개에 메타데이터 기록', 'metadata.writeTitle.other': '파일 {n}개에 메타데이터 기록', 'metadata.writeToFiles': '메타데이터를 파일에 기록…', 'metadata.writing': '메타데이터 기록 중',

@@ -116,13 +116,15 @@ export async function readMetadata(bytes, { groups = false } = {}) {
     const merged = await exifr.parse(bytes, OPTIONS);
     const summary = summarize(merged);
     if (!groups) return { summary };
-    const split = await exifr.parse(bytes, { ...OPTIONS, mergeOutput: false, translateValues: true, reviveValues: true });
+    const split = await exifr.parse(bytes, { ...OPTIONS, mergeOutput: false, translateValues: false, reviveValues: true });
+    const pretty = await exifr.parse(bytes, { ...OPTIONS, mergeOutput: false, translateValues: true, reviveValues: true });
     const out = [];
     for (const [key, value] of Object.entries(split ?? {})) {
       if (!value || typeof value !== 'object') continue;
+      const labels = pretty?.[key] ?? {};
       const tags = Object.entries(value)
         .filter(([, v]) => v != null && !(v instanceof Uint8Array) && !(ArrayBuffer.isView(v) && v.length > 16))
-        .map(([name, v]) => [name, display(v)])
+        .map(([name, v]) => [name, typeof labels[name] === 'string' ? labels[name] : display(v), editText(v)])
         .filter(([, v]) => v !== '' && v.length < 400);
       if (tags.length) out.push({ id: GROUPS[key] ?? key, tags });
     }
@@ -139,6 +141,20 @@ function display(value) {
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(Math.round(value * 10000) / 10000);
   if (typeof value === 'object') return text(value);
   return String(value).replace(/\0+$/, '');
+}
+
+/** Value typed back into the file: dates as "YYYY-MM-DD HH:mm:ss", numbers without grouping. */
+function editText(value) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+  }
+  if (Array.isArray(value)) return value.map((part) => editText(part)).filter(Boolean).join(', ');
+  if (ArrayBuffer.isView(value)) return Array.from(value).join(' ');
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(Math.round(value * 1e6) / 1e6);
+  if (value && typeof value === 'object') return editText(value.value ?? value['x-default'] ?? '');
+  return String(value ?? '').replace(/\0+$/, '').trim();
 }
 
 /** "1/250 s", "2.5 s". */

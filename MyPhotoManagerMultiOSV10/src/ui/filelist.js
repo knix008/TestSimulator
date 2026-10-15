@@ -43,8 +43,10 @@ export function createFileList({ onContextMenu, onDropItems }) {
   // Filmstrip view: the focused photo large above the strip.
   const filmPreview = h('div.film-preview', { hidden: true });
   let filmToken = 0;
+  let filmItem = null;
   async function showFilmPreview() {
     const item = app.state.list.find((i) => i.path === app.state.focus && !i.isDir) ?? app.state.list.find((i) => !i.isDir);
+    filmItem = item ?? null;
     const mine = ++filmToken;
     if (!item) { filmPreview.replaceChildren(); return; }
     const { fs } = await import('../platform/fs.js');
@@ -128,6 +130,7 @@ export function createFileList({ onContextMenu, onDropItems }) {
     canvas.style.width = view() === 'details' ? `${tile.w}px` : film ? `${PAD * 2 + app.state.list.length * tile.w}px` : '';
     filmPreview.hidden = !film;
     if (film) showFilmPreview();
+    else filmItem = null;
     scroller.dataset.view = view();
     head.hidden = view() !== 'details';
     if (view() === 'details') renderHead();
@@ -553,5 +556,9 @@ export function createFileList({ onContextMenu, onDropItems }) {
   };
   app.on('selection', syncFilmNav);
   app.on('items', syncFilmNav);
-  return { el: scroller, box, filmPreview, rebuild, refreshTiles, scrollIntoView, focus: () => scroller.focus({ preventScroll: true }) };
+  return {
+    el: scroller, box, filmPreview, rebuild, refreshTiles, scrollIntoView, focus: () => scroller.focus({ preventScroll: true }),
+    /** The large picture above the filmstrip, including when no file is selected. */
+    displayedFile: () => (view() === 'filmstrip' && !filmPreview.hidden ? filmItem : null),
+  };
 }

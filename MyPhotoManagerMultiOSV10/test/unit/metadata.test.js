@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readMetadata } from '../../src/formats/exif.js';
-import { editJpegExif, embedJpegXmp, parseExifBlock, serializeExifBlock } from '../../src/formats/exif-edit.js';
+import { editJpegExif, editMetadataField, embedJpegXmp, parseExifBlock, serializeExifBlock } from '../../src/formats/exif-edit.js';
 import { jpegSize, readExifDates, readOrientation, readXmpPacket, segments, stripExif } from '../../src/formats/jpeg-meta.js';
 import { buildXmp, parseXmp, updateXmp } from '../../src/formats/xmp.js';
 
@@ -71,6 +71,25 @@ test('XMP embedded in JPEG: added, replaced, read back with IPTC fields', async 
   assert.equal(meta.xmpRating, 3);
   assert.equal(meta.city, 'Busan');
   assert.equal(meta.camera, 'Canon EOS R5', 'EXIF still there');
+});
+
+test('metadata fields: lens, ISO, date and latitude write back without dropping the rest', async () => {
+  const beach = read('beach.jpg');
+  let bytes = editMetadataField(beach, 'exif', 'LensModel', 'Test Lens 50mm');
+  bytes = editMetadataField(bytes, 'exif', 'ISO', '320');
+  bytes = editMetadataField(bytes, 'exif', 'ExposureTime', '1/500');
+  bytes = editMetadataField(bytes, 'exif', 'DateTimeOriginal', '2020-01-02 03:04:05');
+  bytes = editMetadataField(bytes, 'image', 'Artist', '편집자');
+  bytes = editMetadataField(bytes, 'gps', 'latitude', '1.5');
+  const meta = (await readMetadata(bytes)).summary;
+  assert.equal(meta.lens, 'Test Lens 50mm');
+  assert.equal(meta.iso, 320);
+  assert.equal(meta.exposure, 1 / 500);
+  assert.equal(meta.artist, '편집자');
+  assert.equal(meta.taken, new Date(2020, 0, 2, 3, 4, 5).getTime());
+  assert.ok(Math.abs(meta.lat - 1.5) < 1e-4);
+  assert.ok(Math.abs(meta.lon - 129.1604) < 1e-3, 'longitude kept');
+  assert.equal(meta.camera, 'Canon EOS R5');
 });
 
 test('XMP update replaces IPTC fields and keeps foreign ones', () => {

@@ -21,6 +21,7 @@ export const DEFAULTS = Object.freeze({
   confirmDelete: true,
   useTrash: true,
   viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, infoCollapsed: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
+  editor: { panel: true, panelCollapsed: false, info: true, infoCollapsed: false },
   xmpEmbed: false,
   analysis: { auto: true }, // analyse opened folders in the background (src/analysis)
   dicom: { rulers: true, scaleBar: true, corners: true, grid: true, crosshair: true, scaleBarAt: null, fps: 10 }, // DICOM overlays shown (ui/dicomview.js)

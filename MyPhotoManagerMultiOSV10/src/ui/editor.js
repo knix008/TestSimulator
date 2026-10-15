@@ -14,16 +14,19 @@ import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, 
 import { context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
-import { canWriteBack, extensionOf, isRaw, OUTPUT_FORMATS, outputFormatFor, stemOf } from '../formats/types.js';
+import { editMetadataField, metadataFieldEditable } from '../formats/exif-edit.js';
+import { formatExposure, readMetadata } from '../formats/exif.js';
+import { isJpeg } from '../formats/jpeg-meta.js';
+import { badgeOf, canWriteBack, extensionOf, isRaw, OUTPUT_FORMATS, outputFormatFor, stemOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { chooseFiles, chooseSavePath, errorText, isDesktop } from '../platform/native.js';
 import { app, reload, saveCatalogSoon } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
-import { formatDateTime } from '../util/format.js';
+import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
 import { confirmDialog, field, openDialog, promptDialog, selectEl, toast } from './dialog.js';
 import { colorSwatches } from './colorswatch.js';
-import { button, clear, h, rafThrottle } from './dom.js';
+import { button, clear, h, rafThrottle, typing } from './dom.js';
 import { drawHistogram } from './histogram.js';
 import { icon } from './icons.js';
 import { commandFor, registerCommands } from './keymap.js';
@@ -47,13 +50,23 @@ export function createEditor({ onDone }) {
   const bar = h('div.editor-toolbar');
   const histCanvas = h('canvas.editor-histogram', { width: 256, height: 80 });
   const wheelsBox = h('div.color-wheels');
+  const sideHead = h('div.pane-head');
+  const sideBody = h('div.editor-side-body', histCanvas, wheelsBox, panel);
+  const side = h('div.editor-side', sideHead, sideBody);
+  const infoHead = h('div.pane-head');
+  const infoBody = h('div.editor-info-body');
+  const infoPane = h('aside.editor-info-pane', infoHead, infoBody);
   const info = h('div.editor-info');
-  const el = h('div.editor', bar, h('div.editor-body', h('div.editor-side', histCanvas, wheelsBox, panel), h('div.editor-stage', canvasHolder, overlay)), info);
+  const stage = h('div.editor-stage', canvasHolder, overlay);
+  const el = h('div.editor', bar, h('div.editor-body', side, stage, infoPane), info);
 
   let item = null;
   let original = null;
   let full = null;
   let fullHigh = null; // 16-bit source: its precise copy (formats/highbit.js)
+  let colorProfile = '';
+  let infoToken = 0;
+  let infoScroll = 0;
   let preview = null;
   let scale = 1;
   let edit = defaultEdit();
@@ -66,6 +79,13 @@ export function createEditor({ onDone }) {
   let cloneSource = null;
   let before = false;
   let shown = null;
+  // How the preview sits in the stage. `scale` above is preview-vs-original;
+  // this is the on-screen zoom (wheel, +/−, fit).
+  const VIEW_ZOOMS = [0.05, 0.08, 0.1, 0.125, 0.167, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32];
+  let viewFit = true;
+  let viewZoom = 1;
+  let viewOffset = { x: 0, y: 0 };
+  let spaceDown = false;
   let section = 'light';
   let busy = false;
   let rawMode = null; // null | 'camera' | 'auto' | 'daylight' — developing a RAW file
@@ -143,14 +163,110 @@ export function createEditor({ onDone }) {
     drawOverlay();
     const out = layout(full.width, full.height, edit.geometry);
     info.textContent = `${item.name}${rawMode ? ' · RAW (LibRaw)' : ''}${fromOriginal ? ` · ${t('edit.fromOriginal')}` : ''}${fullHigh ? ` · ${t('edit.highBit')}` : ''} · ${full.width} × ${full.height} → ${out.width} × ${out.height}${before ? ` · ${t('edit.before')}` : ''}`;
+    const dimsCell = infoBody.querySelector('[data-info="dims"]');
+    if (dimsCell) {
+      const dims = formatDims(full.width, full.height);
+      const sizeText = out.width !== full.width || out.height !== full.height ? `${dims} → ${formatDims(out.width, out.height)}` : dims;
+      if (dimsCell.textContent !== sizeText) { dimsCell.textContent = sizeText; dimsCell.title = sizeText; }
+    }
   });
+
+  /** Scale that fits the preview in the stage, at most 2× (same as before zoom existed). */
+  function fitFactor() {
+    if (!shown) return 1;
+    const box = canvasHolder.getBoundingClientRect();
+    if (box.width < 8 || box.height < 8) return 1;
+    return Math.min((box.width - 24) / shown.width, (box.height - 24) / shown.height, 2);
+  }
+
+  function zoomText() {
+    const k = !shown || viewFit ? fitFactor() : viewZoom;
+    return `${Math.round(k * 100)}%`;
+  }
+
+  function updateZoomLabel() {
+    const value = bar.querySelector('.zoom-value');
+    if (value) value.textContent = zoomText();
+  }
 
   function fitCanvas() {
     if (!shown) return;
     const box = canvasHolder.getBoundingClientRect();
-    const k = Math.min((box.width - 24) / shown.width, (box.height - 24) / shown.height, 2);
-    shown.style.width = `${Math.max(1, shown.width * k)}px`;
-    shown.style.height = `${Math.max(1, shown.height * k)}px`;
+    const k = viewFit ? fitFactor() : viewZoom;
+    if (viewFit) viewZoom = k;
+    const w = Math.max(1, shown.width * k);
+    const hgt = Math.max(1, shown.height * k);
+    const maxX = Math.max(0, (w - box.width) / 2);
+    const maxY = Math.max(0, (hgt - box.height) / 2);
+    viewOffset.x = Math.max(-maxX, Math.min(maxX, viewOffset.x));
+    viewOffset.y = Math.max(-maxY, Math.min(maxY, viewOffset.y));
+    shown.style.width = `${w}px`;
+    shown.style.height = `${hgt}px`;
+    shown.style.transform = `translate(-50%, -50%) translate(${viewOffset.x}px, ${viewOffset.y}px)`;
+    shown.style.imageRendering = k > 2 ? 'pixelated' : 'auto';
+    canvasHolder.classList.toggle('pannable', w > box.width + 1 || hgt > box.height + 1);
+    updateZoomLabel();
+  }
+
+  function setViewZoom(value, at = null) {
+    if (!shown) return;
+    const beforeK = viewFit ? fitFactor() : viewZoom;
+    const next = Math.max(VIEW_ZOOMS[0], Math.min(VIEW_ZOOMS[VIEW_ZOOMS.length - 1], value));
+    if (at) {
+      const rect = canvasHolder.getBoundingClientRect();
+      const px = at.x - rect.left - rect.width / 2 - viewOffset.x;
+      const py = at.y - rect.top - rect.height / 2 - viewOffset.y;
+      viewOffset.x -= px * (next / beforeK - 1);
+      viewOffset.y -= py * (next / beforeK - 1);
+    } else if (viewFit) viewOffset = { x: 0, y: 0 };
+    viewFit = false;
+    viewZoom = next;
+    fitCanvas();
+    drawOverlay();
+  }
+
+  function zoomStep(direction, at) {
+    const currentZoom = viewFit ? fitFactor() : viewZoom;
+    const next = direction > 0
+      ? VIEW_ZOOMS.find((z) => z > currentZoom + 1e-6)
+      : [...VIEW_ZOOMS].reverse().find((z) => z < currentZoom - 1e-6);
+    if (next) setViewZoom(next, at);
+  }
+
+  function setFit() {
+    viewFit = true;
+    viewOffset = { x: 0, y: 0 };
+    fitCanvas();
+    drawOverlay();
+  }
+
+  function panFrom(event) {
+    if (!shown) return;
+    event.preventDefault();
+    const start = { x: event.clientX, y: event.clientY, ox: viewOffset.x, oy: viewOffset.y };
+    let moved = false;
+    const root = event.currentTarget;
+    root.classList.add('panning');
+    try { root.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+    const move = (e) => {
+      if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 3) return;
+      if (!moved) {
+        moved = true;
+        if (viewFit) viewZoom = fitFactor();
+        viewFit = false;
+      }
+      viewOffset.x = start.ox + e.clientX - start.x;
+      viewOffset.y = start.oy + e.clientY - start.y;
+      fitCanvas();
+      drawOverlay();
+    };
+    const up = () => {
+      root.classList.remove('panning');
+      root.removeEventListener('pointermove', move);
+      root.removeEventListener('pointerup', up);
+    };
+    root.addEventListener('pointermove', move);
+    root.addEventListener('pointerup', up);
   }
 
   function displayRect() {
@@ -219,6 +335,28 @@ export function createEditor({ onDone }) {
   }
 
   // ───────── pointer tools
+
+  // Middle button, or Space held down, moves the picture even while a tool is active.
+  overlay.addEventListener('pointerdown', (event) => {
+    if (event.button === 1 || spaceDown) { event.stopPropagation(); panFrom(event); }
+  }, true);
+
+  canvasHolder.addEventListener('pointerdown', (event) => {
+    if (!shown || (event.button !== 0 && event.button !== 1)) return;
+    if (tool && event.button === 0 && !spaceDown) return;
+    panFrom(event);
+  });
+
+  stage.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    zoomStep(event.deltaY < 0 ? 1 : -1, { x: event.clientX, y: event.clientY });
+  }, { passive: false });
+
+  stage.addEventListener('dblclick', (event) => {
+    if (tool || !shown) return;
+    if (viewFit) setViewZoom(1, { x: event.clientX, y: event.clientY });
+    else setFit();
+  });
 
   overlay.addEventListener('pointerdown', (event) => {
     if (!shown || before || !tool || tool === 'crop') return;
@@ -1201,24 +1339,246 @@ export function createEditor({ onDone }) {
     buildPanel();
   }
 
+  // ───────── left panel: title, icon, and a right-aligned "<" / ">" fold
+
+  function editorPane() {
+    if (!app.settings.editor) app.settings.editor = { panel: true, panelCollapsed: false, info: true, infoCollapsed: false };
+    return app.settings.editor;
+  }
+
+  /** Fold to a strip ("<") or open it (">"). The toolbar button shows the open panel. */
+  function setEditorPane(change) {
+    Object.assign(editorPane(), change);
+    app.saveSettings();
+    layoutSide();
+    layoutInfo();
+    updateBar();
+    requestAnimationFrame(() => { fitCanvas(); drawOverlay(); });
+  }
+
+  function showEditorPane() {
+    setEditorPane({ panel: true, panelCollapsed: false });
+  }
+
+  function layoutSide() {
+    const pane = editorPane();
+    const collapsed = pane.panel && pane.panelCollapsed;
+    side.hidden = !pane.panel;
+    side.classList.toggle('collapsed', collapsed);
+    sideBody.hidden = !pane.panel || collapsed;
+    clear(sideHead);
+    if (!pane.panel) return;
+    const title = t('mode.edit');
+    if (collapsed) {
+      sideHead.append(
+        h('button.pane-fold', { type: 'button', title: t('pane.expand'), dataset: { fold: 'edit' }, onclick: showEditorPane }, '>'),
+        h('div.pane-strip-title', { title }, h('span', { html: icon('sliders') }), h('span.pane-strip-text', title)));
+      return;
+    }
+    sideHead.append(
+      h('span.pane-head-icon', { html: icon('sliders') }),
+      h('span.pane-head-title', title),
+      h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: 'edit' }, onclick: () => setEditorPane({ panelCollapsed: true }) }, '<'));
+  }
+
+  function showInfoPane() {
+    setEditorPane({ info: true, infoCollapsed: false });
+  }
+
+  /** Right panel. The fold button stays on the right: ">" folds, "<" opens. */
+  function layoutInfo() {
+    const pane = editorPane();
+    const collapsed = pane.info && pane.infoCollapsed;
+    infoPane.hidden = !pane.info;
+    infoPane.classList.toggle('collapsed', collapsed);
+    infoBody.hidden = !pane.info || collapsed;
+    clear(infoHead);
+    if (!pane.info) return;
+    const title = t('view.info');
+    if (collapsed) {
+      infoHead.append(
+        h('button.pane-fold', { type: 'button', title: t('pane.expand'), dataset: { fold: 'info' }, onclick: showInfoPane }, '<'),
+        h('div.pane-strip-title', { title }, h('span', { html: icon('info') }), h('span.pane-strip-text', title)));
+      return;
+    }
+    infoHead.append(
+      h('span.pane-head-icon', { html: icon('info') }),
+      h('span.pane-head-title', title),
+      h('button.pane-fold', { type: 'button', title: t('pane.collapse'), dataset: { fold: 'info' }, onclick: () => setEditorPane({ infoCollapsed: true }) }, '>'));
+  }
+
+  function infoTable(rows) {
+    const kept = rows.filter(([, value]) => value != null && value !== '');
+    if (!kept.length) return null;
+    return h('table.prop-table', kept.map(([key, value, id]) => h('tr',
+      h('th', key),
+      value instanceof Node ? h('td', value) : h('td', { title: String(value), ...(id ? { dataset: { info: id } } : {}) }, String(value)))));
+  }
+
+  function infoSection(title, body) {
+    return body ? h('section.viewer-info-section', h('div.viewer-info-head', title), body) : null;
+  }
+
+  function metaWritable() {
+    return Boolean(original && isJpeg(original) && fs.caps.write && !fs.isReadOnly?.(item.path));
+  }
+
+  function stamp(ms) {
+    const date = new Date(ms);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  /** One metadata value. Commits when the field loses focus or Enter is pressed. */
+  function metaInput(group, name, value) {
+    const text = value == null ? '' : String(value);
+    const input = h('input.input.meta-input', { type: 'text', value: text, spellcheck: false, title: name, dataset: { saved: text, group, name } });
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') { event.preventDefault(); input.blur(); }
+      if (event.key === 'Escape') { event.preventDefault(); input.value = input.dataset.saved; input.blur(); }
+    });
+    input.addEventListener('change', () => saveMetaField(input));
+    return input;
+  }
+
+  async function saveMetaField(input) {
+    const next = input.value.trim();
+    if (next === input.dataset.saved) return;
+    infoScroll = infoBody.scrollTop;
+    try {
+      const bytes = editMetadataField(original, input.dataset.group, input.dataset.name, next);
+      await fs.write(item.path, bytes);
+      original = bytes;
+      thumbs.invalidate(item.path);
+      const summary = (await readMetadata(bytes)).summary;
+      const [stat] = await fs.stat([item.path]).catch(() => [null]);
+      app.catalog.setInfo(item.path, { size: stat?.size ?? item.size, modified: stat?.modified ?? item.modified, meta: summary });
+      if (stat?.size) item.size = stat.size;
+      if (stat?.modified) item.modified = stat.modified;
+      saveCatalogSoon();
+      fillInfo();
+      infoBody.scrollTop = infoScroll;
+    } catch (error) {
+      input.value = input.dataset.saved;
+      toast(/^(number|date|gps|readonly)$/.test(error.message) ? t('exifEdit.badValue') : errorText(error), 'error', 5000);
+    }
+  }
+
+  function fillGroups(box, groups) {
+    clear(box);
+    if (!groups?.length) { box.textContent = t('exif.none'); return; }
+    const writable = metaWritable();
+    for (const group of groups) {
+      const name = t(`metaGroup.${group.id}`);
+      box.append(h('div.prop-group', name === `metaGroup.${group.id}` ? String(group.id).toUpperCase() : name),
+        h('table.prop-table.small', group.tags.map(([k, v, raw]) => {
+          const editable = writable && metadataFieldEditable(group.id, k);
+          return h('tr', h('th', { title: k }, k), editable
+            ? h('td', metaInput(group.id, k, raw ?? v))
+            : h('td', { title: String(v) }, String(v)));
+        })));
+    }
+  }
+
+  /** File, shooting data, and every metadata group read from the open picture. */
+  function fillInfo() {
+    const token = ++infoToken;
+    clear(infoBody);
+    if (!item) { infoBody.append(h('div.prop-empty', t('prop.nothingSelected'))); return; }
+    const record = app.catalog.get(item.path) ?? {};
+    const m = record.meta ?? {};
+    const folder = item.path.slice(0, Math.max(0, item.path.length - item.name.length - 1));
+    const out = full ? layout(full.width, full.height, edit.geometry) : null;
+    const dims = full ? formatDims(full.width, full.height) : formatDims(record.width, record.height);
+    const output = out && full && (out.width !== full.width || out.height !== full.height) ? `${dims} → ${formatDims(out.width, out.height)}` : dims;
+    infoBody.append(h('div.info-name', item.name));
+    if (fs.isReadOnly?.(item.path)) infoBody.append(h('div.meta-readonly', t('exifEdit.readOnly')));
+    infoBody.append(infoSection(t('prop.file'), infoTable([
+      [t('prop.type'), fullHigh ? `${badgeOf(item.name)} · ${t('edit.highBit')}` : badgeOf(item.name)],
+      [t('prop.folder'), folder],
+      [t('prop.size'), formatBytes(item.size)],
+      [t('prop.dimensions'), output, 'dims'],
+      [t('prop.duration'), formatDuration(m.duration)],
+      [t('prop.modified'), formatDateTime(item.modified)],
+      [t('prop.created'), item.created && item.created !== item.modified ? formatDateTime(item.created) : ''],
+      ['ICC', colorProfile],
+    ])));
+    const exposure = [m.exposure ? formatExposure(m.exposure) : '', m.fNumber ? `f/${m.fNumber}` : '', m.iso ? `ISO ${m.iso}` : '', m.bias ? `${m.bias > 0 ? '+' : ''}${m.bias} EV` : ''].filter(Boolean).join('   ');
+    const writable = metaWritable();
+    const exposureFields = writable && (m.exposure || m.fNumber || m.iso)
+      ? h('div.meta-fields',
+        m.exposure ? metaInput('exif', 'ExposureTime', m.exposure < 1 ? `1/${Math.round(1 / m.exposure)}` : String(m.exposure)) : null,
+        m.fNumber ? metaInput('exif', 'FNumber', String(m.fNumber)) : null,
+        m.iso ? metaInput('exif', 'ISO', String(m.iso)) : null,
+        m.bias ? metaInput('exif', 'ExposureCompensation', String(m.bias)) : null)
+      : exposure;
+    const cameraFields = writable && (m.make || m.model) ? h('div.meta-fields', metaInput('image', 'Make', m.make ?? ''), metaInput('image', 'Model', m.model ?? '')) : m.camera;
+    const gpsFields = writable && m.lat != null
+      ? h('div.meta-fields', metaInput('gps', 'latitude', String(m.lat)), metaInput('gps', 'longitude', String(m.lon)), m.alt != null ? metaInput('gps', 'GPSAltitude', String(m.alt)) : null)
+      : (m.lat != null ? `${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}${m.alt != null ? ` · ${m.alt} m` : ''}` : '');
+    const shooting = infoTable([
+      [t('exif.taken'), writable && m.taken ? metaInput('exif', 'DateTimeOriginal', stamp(m.taken)) : formatDateTime(m.taken)],
+      [t('exif.camera'), cameraFields],
+      [t('exif.lens'), writable && m.lens ? metaInput('exif', 'LensModel', m.lens) : m.lens],
+      [t('exif.exposure'), exposureFields],
+      [t('exif.focal'), writable && m.focal ? metaInput('exif', 'FocalLength', String(m.focal)) : (m.focal ? `${m.focal} mm${m.focal35 ? ` (35mm: ${m.focal35} mm)` : ''}` : '')],
+      [t('exif.flash'), m.flash == null ? '' : m.flash ? t('exif.flashOn') : t('exif.flashOff')],
+      [t('exif.gps'), gpsFields],
+      [t('exif.location'), [m.city, m.country].filter(Boolean).join(', ')],
+      [t('exif.software'), writable && m.software ? metaInput('image', 'Software', m.software) : m.software],
+      [t('exif.artist'), writable && m.artist ? metaInput('image', 'Artist', m.artist) : m.artist],
+      [t('exif.copyright'), writable && m.copyright ? metaInput('image', 'Copyright', m.copyright) : m.copyright],
+      [t('exif.description'), writable && m.caption ? metaInput('image', 'ImageDescription', m.caption) : m.caption],
+    ]);
+    if (shooting) infoBody.append(infoSection(t('prop.exif'), shooting));
+    const notes = [];
+    if (record.title) notes.push([t('organize.title'), record.title]);
+    if (record.caption) notes.push([t('organize.caption'), record.caption]);
+    if (record.keywords?.length) notes.push([t('organize.keywords'), record.keywords.join(', ')]);
+    if (notes.length) infoBody.append(infoSection(t('prop.organize'), infoTable(notes)));
+    if (!original) return;
+    const metaBox = h('div.prop-all', t('list.loading'));
+    infoBody.append(infoSection(t('prop.allMetadata'), metaBox));
+    const bytes = original;
+    readMetadata(bytes, { groups: true }).then(({ groups }) => {
+      if (token !== infoToken || !metaBox.isConnected) return;
+      fillGroups(metaBox, groups);
+      infoBody.scrollTop = infoScroll;
+    }).catch(() => { if (token === infoToken && metaBox.isConnected) metaBox.textContent = t('exif.none'); });
+  }
+
   // ───────── toolbar
 
   function updateBar() {
     clear(bar);
     const dirty = !isEmptyEdit(edit) || fromOriginal;
+    const paneOpen = editorPane().panel && !editorPane().panelCollapsed;
+    const infoShown = editorPane().info && !editorPane().infoCollapsed;
     bar.append(
-      h('div.tool-group',
-        h('button.btn.primary', { type: 'button', id: 'edit-save', disabled: !dirty || busy, onclick: () => save(false) }, h('span', { html: icon('save') }), t('edit.save')),
-        h('button.btn', { type: 'button', id: 'edit-save-as', disabled: busy, onclick: () => save(true) }, t('edit.saveAs')),
-        h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
-      h('div.tool-group',
-        button('undo', t('edit.undo'), doUndo, { title: `${t('edit.undo')} (Ctrl+Z)`, disabled: !undo.length }),
-        button('redo', t('edit.redo'), doRedo, { title: `${t('edit.redo')} (Ctrl+Y)`, disabled: !redo.length })),
-      h('div.tool-group',
-        h(`button.btn${before ? '.on' : ''}`, { type: 'button', id: 'edit-before', title: `${t('edit.beforeAfter')} (B)`, onclick: () => { before = !before; updateBar(); draw(); } }, t('edit.beforeAfter')),
-        h('button.btn', { type: 'button', disabled: isEmptyEdit(edit), onclick: resetAll }, t('edit.resetAll'))),
-      h('div.tool-spacer'),
-      busy ? h('span.busy', t('edit.saving')) : '');
+      h('div.editor-bar-side',
+        h('div.tool-group',
+          button('panelLeft', t('toolbar.leftPane'), () => (paneOpen ? setEditorPane({ panelCollapsed: true }) : showEditorPane()), { title: paneOpen ? t('pane.collapse') : t('pane.expand'), className: paneOpen ? 'on' : '', id: 'edit-panel-toggle' }),
+          button('panelRight', t('toolbar.rightPane'), () => (infoShown ? setEditorPane({ infoCollapsed: true }) : showInfoPane()), { title: infoShown ? t('pane.collapse') : t('pane.expand'), className: infoShown ? 'on' : '', id: 'edit-info-toggle' })),
+        h('div.tool-group',
+          h('button.btn.primary', { type: 'button', id: 'edit-save', disabled: !dirty || busy, onclick: () => save(false) }, h('span', { html: icon('save') }), t('edit.save')),
+          h('button.btn', { type: 'button', id: 'edit-save-as', disabled: busy, onclick: () => save(true) }, t('edit.saveAs')),
+          h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
+        h('div.tool-group',
+          button('undo', t('edit.undo'), doUndo, { title: `${t('edit.undo')} (Ctrl+Z)`, disabled: !undo.length }),
+          button('redo', t('edit.redo'), doRedo, { title: `${t('edit.redo')} (Ctrl+Y)`, disabled: !redo.length })),
+        h('div.tool-group',
+          h(`button.btn${before ? '.on' : ''}`, { type: 'button', id: 'edit-before', title: `${t('edit.beforeAfter')} (B)`, onclick: () => { before = !before; updateBar(); draw(); } }, t('edit.beforeAfter')),
+          h('button.btn', { type: 'button', disabled: isEmptyEdit(edit), onclick: resetAll }, t('edit.resetAll'))),
+        h('div.tool-group',
+          button('fit', t('view.fit'), () => setFit(), { title: `${t('view.fit')} (/)`, id: 'edit-zoom-fit' })),
+        h('div.editor-zoom',
+          button('zoomOut', t('view.zoomOut'), () => zoomStep(-1), { title: `${t('view.zoomOut')} (-)`, id: 'edit-zoom-out' }),
+          h('span.zoom-value', { id: 'edit-zoom', title: t('view.zoomLevel') }, zoomText()),
+          button('zoomIn', t('view.zoomIn'), () => zoomStep(1), { title: `${t('view.zoomIn')} (+)`, id: 'edit-zoom-in' })),
+        busy ? h('span.busy', t('edit.saving')) : null));
+    layoutSide();
+    layoutInfo();
   }
 
   function resetAll() {
@@ -1260,12 +1620,12 @@ export function createEditor({ onDone }) {
       if (!choice) return;
       ({ format, quality } = choice);
       const spec = OUTPUT_FORMATS.find((f) => f.id === format);
-      const suggested = `${stemOf(item.name)}${asNew ? '_edited' : ''}.${spec.ext}`;
+      const suggested = choice.name;
       if (isDesktop() && !fs.isReadOnly?.(item.path)) {
         target = await chooseSavePath(joinPath(parentOf(item.path), suggested), [{ name: spec.label, extensions: [spec.ext] }]);
         if (!target) return;
       } else {
-        target = joinPath(parentOf(item.path), choice.name || suggested);
+        target = joinPath(parentOf(item.path), suggested);
       }
     }
     busy = true;
@@ -1304,22 +1664,38 @@ export function createEditor({ onDone }) {
   }
 
   async function saveAsDialog(defaultFormat) {
-    const format = selectEl(OUTPUT_FORMATS.map((f) => [f.id, f.label]), defaultFormat);
+    const specOf = (id) => OUTPUT_FORMATS.find((f) => f.id === id) ?? OUTPUT_FORMATS[0];
+    const knownExt = (ext) => OUTPUT_FORMATS.some((f) => f.ext === ext || f.id === ext || f.aliases?.includes(ext));
+    const withExtension = (value, spec) => {
+      const trimmed = String(value ?? '').trim();
+      const ext = extensionOf(trimmed);
+      const stem = knownExt(ext) ? trimmed.slice(0, -(ext.length + 1)) : trimmed;
+      return `${stem || `${stemOf(item.name)}_edited`}.${spec.ext}`;
+    };
+    const name = h('input.input', {
+      type: 'text', id: 'edit-save-name', autofocus: true, spellcheck: 'false', autocomplete: 'off',
+      value: withExtension(`${stemOf(item.name)}_edited`, specOf(defaultFormat)),
+    });
+    const format = selectEl(OUTPUT_FORMATS.map((f) => [f.id, f.label]), defaultFormat, (id) => { name.value = withExtension(name.value, specOf(id)); });
     const quality = h('input.slider', { type: 'range', min: 10, max: 100, value: app.settings.jpegQuality });
     const qualityValue = h('span.slider-value', String(app.settings.jpegQuality));
     quality.addEventListener('input', () => { qualityValue.textContent = quality.value; });
-    const name = h('input.input', { type: 'text', value: `${stemOf(item.name)}_edited` });
-    const body = h('div', field(t('edit.format'), format), h('div.slider-row', h('div.slider-head', h('span', t('edit.quality')), qualityValue), quality), isDesktop() ? '' : field(t('edit.fileName'), name));
-    const ok = await openDialog({ title: t('edit.saveAs'), body, buttons: [{ label: t('common.cancel'), value: false }, { label: t('edit.save'), value: true, primary: true }] });
+    const body = h('div',
+      field(t('edit.fileName'), name),
+      field(t('edit.format'), format),
+      h('div.slider-row', h('div.slider-head', h('span', t('edit.quality')), qualityValue), quality));
+    const ok = await openDialog({ title: t('edit.saveAs'), body, width: 480, buttons: [{ label: t('common.cancel'), value: false }, { label: t('edit.save'), value: true, primary: true }] });
     if (!ok) return null;
-    const spec = OUTPUT_FORMATS.find((f) => f.id === format.value);
-    return { format: format.value, quality: Number(quality.value) / 100, name: `${name.value.trim() || stemOf(item.name)}.${spec.ext}` };
+    const spec = specOf(format.value);
+    const cleaned = name.value.trim().replace(/[\\/:*?"<>|]/g, '');
+    return { format: format.value, quality: Number(quality.value) / 100, name: withExtension(cleaned, spec) };
   }
 
   // ───────── open
 
   async function loadSource(bytes, name) {
     fullHigh = null;
+    colorProfile = '';
     if (isRaw(name) && rawMode) {
       try {
         const { developRaw } = await import('../formats/rawdevelop.js');
@@ -1331,6 +1707,7 @@ export function createEditor({ onDone }) {
     }
     const decoded = await decodeImage(bytes, name, { high: true });
     fullHigh = decoded.high ?? null;
+    colorProfile = decoded.profile || '';
     return decoded.source;
   }
 
@@ -1350,26 +1727,20 @@ export function createEditor({ onDone }) {
     redo = [];
     tool = null;
     before = false;
+    viewFit = true;
+    viewOffset = { x: 0, y: 0 };
     section = 'light';
     selectedLocal = -1;
     selectedLayer = -1;
     fromOriginal = false;
+    colorProfile = '';
     layerImages.clear();
     clear(canvasHolder);
     canvasHolder.append(h('div.viewer-spinner', isRaw(item.name) ? t('edit.developing') : t('list.loading')));
     updateBar();
     clear(panel);
     try {
-      const record = app.catalog.get(item.path);
       original = await fs.read(item.path);
-      // Re-edit from the kept original with the saved settings.
-      const originalPath = record?.editState ? await Promise.resolve(fs.originalPath?.(item.path)).catch(() => null) : null;
-      if (originalPath && (await confirmDialog(t('edit.reopenAsk'), { ok: t('edit.reopenYes'), cancel: t('edit.reopenNo') }))) {
-        original = await fs.read(originalPath);
-        edit = normalizeEdit(record.editState);
-        fromOriginal = true;
-        for (const layer of edit.layers) if (layer.path) await loadLayerImage(layer.path).catch(() => {});
-      }
       rawMode = isRaw(item.name) ? 'camera' : null;
       full = await loadSource(original, item.name);
       preview = scaledCanvas(full, full.width, full.height, PREVIEW_MAX);
@@ -1377,9 +1748,11 @@ export function createEditor({ onDone }) {
       buildPanel();
       updateBar();
       draw();
+      fillInfo();
     } catch (error) {
       clear(canvasHolder);
       canvasHolder.append(h('div.viewer-error', h('span', { html: icon('warning') }), t('edit.cannotOpen', { error: errorText(error) })));
+      fillInfo();
     }
   }
 
@@ -1393,10 +1766,16 @@ export function createEditor({ onDone }) {
     { id: 'edit:copySettings', label: 'keys.edit.copySettings', key: 'Ctrl+Shift+C', run: () => { editClipboard.preset = presetOf(edit); toast(t('edit.settingsCopied'), 'info'); } },
     { id: 'edit:pasteSettings', label: 'keys.edit.pasteSettings', key: 'Ctrl+Shift+V', run: () => { if (editClipboard.preset) { change((e) => Object.assign(e, applyPreset(e, editClipboard.preset)), t('edit.pasteSettings')); buildPanel(); } } },
     { id: 'edit:before', label: 'keys.edit.before', key: 'B', run: () => { before = !before; updateBar(); draw(); } },
+    { id: 'edit:zoomIn', label: 'keys.view.zoomIn', key: ['+', '='], run: () => zoomStep(1) },
+    { id: 'edit:zoomOut', label: 'keys.view.zoomOut', key: '-', run: () => zoomStep(-1) },
+    { id: 'edit:fit', label: 'keys.view.fit', key: '/', run: () => setFit() },
+    { id: 'edit:actual', label: 'keys.view.actual', key: '*', run: () => setViewZoom(1) },
     { id: 'edit:snapshot', label: 'keys.edit.snapshot', key: 'Ctrl+Shift+N', run: () => takeSnapshot() },
   ], 'edit');
 
   function onKey(event) {
+    if (typing(event) && !event.ctrlKey && !event.metaKey && !event.altKey) return false;
+    if (event.code === 'Space' && event.target?.tagName !== 'BUTTON') { spaceDown = true; return true; }
     if (event.key === 'Escape') { if (tool) cancelTool(); else cancel(); return true; }
     if (event.key === 'Enter' && tool === 'crop') { applyCrop(); return true; }
     const command = commandFor(event, 'edit');
@@ -1404,6 +1783,8 @@ export function createEditor({ onDone }) {
     command.run();
     return true;
   }
+
+  document.addEventListener('keyup', (event) => { if (event.code === 'Space') spaceDown = false; });
 
   new ResizeObserver(() => { fitCanvas(); drawOverlay(); }).observe(canvasHolder);
 
