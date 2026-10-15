@@ -652,10 +652,16 @@ pub fn run() {
                             let _ = window.set_title(&title);
                         });
                     if let Some(icon) = handle.default_window_icon() {
-                        popup = popup.icon(icon.clone()).expect("icon");
+                        popup = match popup.icon(icon.clone()) {
+                            Ok(next) => next,
+                            Err(_) => return tauri::webview::NewWindowResponse::Deny,
+                        };
                     }
                     if let Some(main) = handle.get_webview_window("main") {
-                        popup = popup.parent(&main).expect("owner");
+                        popup = match popup.parent(&main) {
+                            Ok(next) => next,
+                            Err(_) => return tauri::webview::NewWindowResponse::Deny,
+                        };
                     }
                     match popup.build() {
                         Ok(window) => tauri::webview::NewWindowResponse::Create { window },

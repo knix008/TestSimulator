@@ -1,4 +1,4 @@
-// Collections (ACDSee "Collections" and "Smart Collections"): named lists of
+// Collections and smart collections: named lists of
 // photos from any folder, and saved rule sets whose photos are found anew
 // each time (rating ≥ 4 and keyword "family", taken after 2023-01-01 …).
 import { LABELS } from '../catalog/catalog.js';

@@ -1,5 +1,5 @@
-// Rewrites the feature table of docs/ACDSee-gap.md from test/features.mjs:
-// every ACDSee feature with its ID and the tests that check it.
+// Rewrites the feature table of docs/feature-gap.md from test/features.mjs:
+// every feature with its ID and the tests that check it.
 //
 //   node scripts/feature-table.mjs
 import fs from 'node:fs';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { FEATURES, ID_PATTERN } from '../test/features.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const doc = path.join(root, 'docs', 'ACDSee-gap.md');
+const doc = path.join(root, 'docs', 'feature-gap.md');
 const START = '<!-- feature-table:start -->';
 const END = '<!-- feature-table:end -->';
 
@@ -43,4 +43,4 @@ const text = fs.readFileSync(doc, 'utf8');
 const block = `${START}\n${table}\n${END}`;
 const next = text.includes(START) ? text.replace(new RegExp(`${START}[\\s\\S]*?${END}`), block) : `${text.trimEnd()}\n\n${block}\n`;
 fs.writeFileSync(doc, next);
-console.log(`${FEATURES.length} features, ${FEATURES.filter((f) => covered.has(f.id)).length} with tests → docs/ACDSee-gap.md`);
+console.log(`${FEATURES.length} features, ${FEATURES.filter((f) => covered.has(f.id)).length} with tests → docs/feature-gap.md`);

@@ -1,4 +1,4 @@
-// External editors (ACDSee "Edit with" / "Configure external editors"): the
+// External editors: the
 // user registers programs such as Photoshop or GIMP and opens the selected
 // photos in one of them; their thumbnails are refreshed when the app gets the
 // focus back. Desktop only.

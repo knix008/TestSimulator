@@ -1,13 +1,13 @@
 # MyPhotoManager
 
-ACDSee 같은 **사진 관리자·뷰어**입니다. 사진을 탐색하고, 별점·색상 레이블·키워드·카테고리로 정리하고, 크게 보고, 편집하고, 일괄 처리합니다.
+**사진 관리자·뷰어**입니다. 사진을 탐색하고, 별점·색상 레이블·키워드·카테고리로 정리하고, 크게 보고, 편집하고, 일괄 처리합니다.
 JavaScript(Vite) UI와 Tauri 2(Rust) 백엔드로 만들었고 **Windows · macOS · Linux 데스크톱 앱**과 **웹 앱(설치 가능한 PWA)** 으로 돌아갑니다.
 
 ![아이콘](assets/icon.png)
 
-## ACDSee 와 비교한 기능
+## 기능
 
-| ACDSee 기능 | MyPhotoManager |
+| 기능 | MyPhotoManager |
 |---|---|
 | **관리 모드** — 폴더 트리, 썸네일/목록/상세 보기, 썸네일 크기 조절 | 폴더·즐겨찾기·드라이브 트리, 썸네일·목록·상세 보기(가상 스크롤로 수만 장도 가볍게), 썸네일 64–400 px, 하위 폴더 표시 |
 | 정렬·그룹·필터 | 이름(자연 정렬)·촬영일·수정일·크기·형식·별점·레이블·픽셀·카메라 정렬, 날짜/월/연도/폴더/별점/레이블/형식/카메라 그룹, 별점·레이블·태그·형식 필터 |
@@ -82,7 +82,7 @@ Windows·macOS 에서 리눅스 설치 파일은 Docker 로 만들 수 있습니
 
 ```bash
 npm test                    # 전부: js · package · rust · web · desktop · features
-npm test -- --only features # ACDSee 기능 전부를 실제 앱에서 (test/features.mjs 의 기능 ID 별)
+npm test -- --only features # 기능 전부를 실제 앱에서 (test/features.mjs 의 기능 ID 별)
 npm test -- --quick         # js · package · rust (창 없이)
 npm test -- --only web      # 웹 빌드를 헤드리스 Edge/Chrome 으로 조작
 npm test -- --installer     # Windows 설치 파일도 만들어 검사
@@ -95,8 +95,8 @@ node test/e2e/run-cases.mjs features "편집"   # 일부 경우만, 오류 전�
 - **웹 E2E**: 예제 사진, 파일 선택 창으로 HEIC/TIFF/PSD/DNG 열기, 정리 내용 유지(새로 고침), 뷰어, 편집, 언어, 서비스 워커
 - **데스크톱 E2E**: 실제 앱을 띄워 폴더·썸네일·EXIF·키보드 정리·카탈로그·검색·뷰어·모든 형식 디코딩·무손실 회전·파일 작업·편집 저장과 원본 복원·적목·일괄 크기/변환/이름/날짜·중복·비교·슬라이드 쇼·밀착 인화·대시보드·XMP·언어·재실행 후 유지
 
-- **기능 E2E**: ACDSee 의 모든 기능(128개, `test/features.mjs`)을 기능 ID 로 묶어 실제 앱에서 조작합니다 — 추가 형식 썸네일·보기·여러 페이지·동영상 프레임, LibRaw RAW 현상, ZIP, 타일·필름 스트립, 바구니·모든 미디어·저장된 검색·계층 키워드, 클립보드, 단축키 바꾸기, 설정, IPTC·EXIF 편집·파일에 넣기·지오태그·주소 찾기, 사람(이름·얼굴 감지·제안), 비공개 폴더(암호화 확인), 가져오기·스캐너·동기화·공유·연결 프로그램, 내비게이터·돋보기·확대 고정·픽셀 정보, 편집 패널 전부와 포인터 도구·효과 22종·레이어·프리셋·기록·비파괴 재편집, PDF·GIF·ZIP·슬라이드 쇼·파노라마·HDR·초점 스태킹, 워터마크·자동 회전·파일 날짜·자동 보정. 파일이 바뀌는 기능은 디스크의 바이트·EXIF·픽셀까지 확인합니다.
-- **기능 점검표**: `test/static/features.test.js` 가 모든 기능 ID 에 테스트가 있는지 확인합니다. 기능과 테스트의 대응은 [docs/ACDSee-gap.md](docs/ACDSee-gap.md) (`node scripts/feature-table.mjs` 로 갱신).
+- **기능 E2E**: 모든 기능(`test/features.mjs`)을 기능 ID 로 묶어 실제 앱에서 조작합니다 — 추가 형식 썸네일·보기·여러 페이지·동영상 프레임, LibRaw RAW 현상, ZIP, 타일·필름 스트립, 바구니·모든 미디어·저장된 검색·계층 키워드, 클립보드, 단축키 바꾸기, 설정, IPTC·EXIF 편집·파일에 넣기·지오태그·주소 찾기, 사람(이름·얼굴 감지·제안), 비공개 폴더(암호화 확인), 가져오기·스캐너·동기화·공유·연결 프로그램, 내비게이터·돋보기·확대 고정·픽셀 정보, 편집 패널 전부와 포인터 도구·효과 22종·레이어·프리셋·기록·비파괴 재편집, PDF·GIF·ZIP·슬라이드 쇼·파노라마·HDR·초점 스태킹, 워터마크·자동 회전·파일 날짜·자동 보정. 파일이 바뀌는 기능은 디스크의 바이트·EXIF·픽셀까지 확인합니다.
+- **기능 점검표**: `test/static/features.test.js` 가 모든 기능 ID 에 테스트가 있는지 확인합니다. 기능과 테스트의 대응은 [docs/feature-gap.md](docs/feature-gap.md) (`node scripts/feature-table.mjs` 로 갱신).
 
 결과는 `test-results/results.json` 에도 남습니다.
 

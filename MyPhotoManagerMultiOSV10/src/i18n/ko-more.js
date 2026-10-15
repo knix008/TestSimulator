@@ -1,4 +1,4 @@
-// 한국어 UI 문구 — ACDSee 기능 전부를 위해 추가한 부분 (i18n.js 가 ko.js 에 합침).
+// 한국어 UI 문구 — 추가 기능 (i18n.js 가 ko.js 에 합침).
 export default {
   'menu.create': '만들기', 'pane.people': '사람', 'viewStyle.tiles': '타일', 'viewStyle.filmstrip': '필름 스트립',
 

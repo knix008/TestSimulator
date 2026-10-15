@@ -1,4 +1,4 @@
-// Real RAW development (ACDSee Develop for RAW files): LibRaw compiled to
+// Real RAW development: LibRaw compiled to
 // WebAssembly demosaics the sensor data with the camera's white balance into
 // an 8-bit sRGB picture. Runs in LibRaw's own worker.
 import { context2d, makeCanvas } from './canvas.js';

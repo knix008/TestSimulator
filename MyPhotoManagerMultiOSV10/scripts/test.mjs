@@ -32,7 +32,7 @@ const CATEGORIES = [
   { id: 'rust', title: 'Rust 단위 테스트', subtitle: '폴더 목록 · 복사/이동/이름/삭제 · 원자적 저장 · 창 위치 · 경로 인자', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
   { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
   { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱에서 폴더·썸네일·RAW/HEIC/TIFF/PSD·뷰어·편집·일괄 처리 조작 (CDP)', tint: c.yellow, run: (report) => runDesktop(report, 'desktop') },
-  { id: 'features', title: 'E2E · ACDSee 기능', subtitle: '모든 기능을 실제 앱에서: 형식·사람·비공개 폴더·가져오기·동기화·메타데이터·보기·편집·만들기·일괄 처리 (test/features.mjs)', tint: c.teal, run: (report) => runDesktop(report, 'features') },
+  { id: 'features', title: 'E2E · 기능', subtitle: '모든 기능을 실제 앱에서: 형식·사람·비공개 폴더·가져오기·동기화·메타데이터·보기·편집·만들기·일괄 처리 (test/features.mjs)', tint: c.teal, run: (report) => runDesktop(report, 'features') },
   { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사', tint: c.orange, run: runInstaller, optIn: true },
 ];
 

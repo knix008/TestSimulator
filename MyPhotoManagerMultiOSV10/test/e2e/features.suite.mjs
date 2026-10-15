@@ -1,4 +1,4 @@
-// Feature E2E: every ACDSee feature of test/features.mjs driven in the real
+// Feature E2E: every feature of test/features.mjs driven in the real
 // desktop app (Tauri, WebView2 over CDP). Each case names the feature IDs it
 // checks (`ids`) and verifies what the user would see and, where files are
 // written, the bytes on disk. Shell actions (file manager, mail, wallpaper,
@@ -798,6 +798,7 @@ export const cases = [
     ids: ['APP-UNDO'],
     group: '파일', name: '여러 장 이동 → 실행 취소(툴바)로 제자리, 다시 실행으로 다시 이동, 이름 바꾸기 취소(Ctrl+Z)',
     run: async (app) => {
+      await app.main.eval(`${P}.history.clear(); 1`);
       const studio = dir(app, 'studio');
       const album = path.join(studio, 'album');
       for (const name of ['u1.jpg', 'u2.jpg']) fs.copyFileSync(path.join(fixtures, 'forest.jpg'), path.join(studio, name));
@@ -816,7 +817,8 @@ export const cases = [
       assert.deepEqual(where(), ['album', 'album'], 'moved');
       await app.main.waitFor(`!${P}.dq('#undo-button').disabled`, { message: 'undo enabled' });
       await app.main.eval(`${P}.dq('#undo-button').click(); 1`);
-      for (let i = 0; i < 40 && where().join() !== 'studio,studio'; i++) await sleep(100);
+      await app.main.waitFor(`!${P}.dq('#redo-button').disabled`, { timeout: 15000, message: 'undo finished' });
+      for (let i = 0; i < 50 && where().join() !== 'studio,studio'; i++) await sleep(100);
       assert.deepEqual(where(), ['studio', 'studio'], 'undo moved them back');
       await app.main.waitFor(`!${P}.dq('#redo-button').disabled`);
       await app.main.eval(`${P}.dq('#redo-button').click(); 1`);
@@ -836,7 +838,8 @@ export const cases = [
       await primary(app);
       for (let i = 0; i < 40 && !fs.existsSync(path.join(studio, 'renamed.jpg')); i++) await sleep(100);
       assert.ok(fs.existsSync(path.join(studio, 'renamed.jpg')));
-      await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
+      await app.main.waitFor(`!${P}.dq('#undo-button').disabled`, { message: 'rename can be undone' });
+      await app.main.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); ${P}.closeAllDialogs(); ${P}.dq('.filelist').focus(); 1`);
       await app.main.key('z', 2);
       for (let i = 0; i < 40 && !fs.existsSync(path.join(studio, 'u1.jpg')); i++) await sleep(100);
       assert.ok(fs.existsSync(path.join(studio, 'u1.jpg')) && !fs.existsSync(path.join(studio, 'renamed.jpg')), 'rename undone');
@@ -1584,12 +1587,17 @@ export const cases = [
           await app.main.waitFor(`Boolean(${P}.topDialog()) && ${P}.topDialog().ownerDocument !== document`, { timeout: 8000 });
         } catch { problems.push(`${name}: no dialog window`); await app.main.eval(`${P}.closeAllDialogs(); 1`); continue; }
         await sleep(300);
+        if (!(await app.main.eval(`Boolean(${P}.topDialog())`))) {
+          problems.push(`${name}: dialog closed before ${how}`);
+          await app.main.eval(`${P}.closeAllDialogs(); 1`);
+          continue;
+        }
         if (count() !== base + 1) problems.push(`${name}: ${count() - base} OS windows while open`);
         const box = `${P}.topDialog()`;
-        if (how === 'primary') await app.main.eval(`${box}.querySelector('.dialog-buttons .btn.primary').click(); 1`);
-        else if (how === 'cancel') await app.main.eval(`(() => { const b = [...${box}.querySelectorAll('.dialog-buttons .btn')].find((x) => !x.classList.contains('primary')); (b ?? ${box}.querySelector('.dialog-buttons .btn')).click(); return 1; })()`);
-        else if (how === 'escape') await app.main.eval(`${box}.ownerDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
-        else await app.main.eval(`${box}.ownerDocument.defaultView.close(); 1`);
+        if (how === 'primary') await app.main.eval(`(() => { const d = ${box}; if (!d) return 0; d.querySelector('.dialog-buttons .btn.primary').click(); return 1; })()`);
+        else if (how === 'cancel') await app.main.eval(`(() => { const d = ${box}; if (!d) return 0; const b = [...d.querySelectorAll('.dialog-buttons .btn')].find((x) => !x.classList.contains('primary')); (b ?? d.querySelector('.dialog-buttons .btn')).click(); return 1; })()`);
+        else if (how === 'escape') await app.main.eval(`(() => { const d = ${box}; if (!d) return 0; d.ownerDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return 1; })()`);
+        else await app.main.eval(`(() => { const d = ${box}; if (!d) return 0; d.ownerDocument.defaultView.close(); return 1; })()`);
         try {
           await app.main.waitFor(`!${P}.topDialog()`, { timeout: 8000 });
         } catch { problems.push(`${name}: still open after ${how}`); await app.main.eval(`${P}.closeAllDialogs(); 1`); }

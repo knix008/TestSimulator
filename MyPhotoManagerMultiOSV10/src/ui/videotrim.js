@@ -1,4 +1,4 @@
-// Video trimming (ACDSee "Trim video"): choose a start and an end on a
+// Video trimming: choose a start and an end on a
 // preview, then the part in between is re-recorded (picture and sound) into a
 // new WebM next to the original. The original is never changed.
 import { joinPath, parentOf } from '../catalog/catalog.js';

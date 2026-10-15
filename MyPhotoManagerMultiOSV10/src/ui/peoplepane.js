@@ -1,4 +1,4 @@
-// People pane (ACDSee People mode): find faces in photos, name them, browse
+// People pane: find faces in photos, name them, browse
 // photos by person. Unnamed faces get a suggestion when they look like a face
 // the user already named.
 import { decodeImage } from '../formats/decode.js';

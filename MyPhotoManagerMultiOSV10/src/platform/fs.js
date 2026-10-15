@@ -18,6 +18,26 @@ export { baseName, joinPath, parentOf };
 
 const versions = new Map();
 
+// WebView2 crashes if it is still decoding a picture while that file is moved,
+// renamed or overwritten. Drop those images first so the load is cancelled.
+function stopShowing(paths) {
+  if (typeof document === 'undefined') return false;
+  const prefixes = [].concat(paths).filter(Boolean).map((path) => assetUrl(path)).filter(Boolean);
+  if (!prefixes.length) return false;
+  let dropped = false;
+  for (const el of document.querySelectorAll('img[src], video[src], source[src]')) {
+    const src = el.src || '';
+    if (prefixes.some((prefix) => src.startsWith(prefix))) { el.removeAttribute('src'); dropped = true; }
+  }
+  return dropped;
+}
+
+/** Lets WebView2 drop the file before we move or overwrite it. */
+async function releaseShown(paths) {
+  if (!stopShowing(paths)) return;
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
 const desktop = {
   kind: 'desktop',
   caps: { write: true, trash: true, reveal: true, wallpaper: true, originals: true, setTime: true, rename: true, move: true, mkdir: true, open: true },
@@ -35,15 +55,16 @@ const desktop = {
     return new Uint8Array(await response.arrayBuffer());
   },
   async write(path, bytes) {
+    await releaseShown(path);
     await invoke('write_file', bytes, { headers: { 'x-path': encodeURIComponent(path) } });
     desktop.releaseUrl(path);
     return 'saved';
   },
   stat: (paths) => invoke('stat_paths', { paths }),
   copy: (paths, dir, conflict = 'rename') => invoke('copy_paths', { sources: paths, dir, conflict }),
-  move: (paths, dir, conflict = 'rename') => invoke('move_paths', { sources: paths, dir, conflict }),
-  rename: (path, name) => invoke('rename_path', { path, name }),
-  remove: (paths, trash = true) => invoke('delete_paths', { paths, trash }),
+  async move(paths, dir, conflict = 'rename') { await releaseShown(paths); return invoke('move_paths', { sources: paths, dir, conflict }); },
+  async rename(path, name) { await releaseShown(path); return invoke('rename_path', { path, name }); },
+  async remove(paths, trash = true) { await releaseShown(paths); return invoke('delete_paths', { paths, trash }); },
   mkdir: (parent, name) => invoke('create_dir', { parent, name }),
   setModified: (path, millis) => invoke('set_modified', { path, millis }),
   walk: (path, extensions, limit = 100000, hidden = false) => invoke('walk_files', { path, hidden, extensions, limit }),

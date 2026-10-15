@@ -1,4 +1,4 @@
-// Batch actions (ACDSee "Actions"): a named list of steps — edit settings
+// Batch actions: a named list of steps — edit settings
 // recorded in the editor, auto levels, watermark, rotate, resize, rating,
 // keywords and the output format — replayed on any number of photos.
 // Each photo is decoded once; the edit steps go through the normal render

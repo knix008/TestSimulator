@@ -1,4 +1,4 @@
-// Edit mode (ACDSee Develop + Edit). The photo is decoded once at full size
+// Edit mode. The photo is decoded once at full size
 // (camera RAW files are developed with LibRaw); a smaller copy drives the live
 // preview through the same pipeline that renders the saved file.
 //

@@ -79,7 +79,8 @@ function openWindow(box, title) {
   // The fragment names the Tauri window, so it can be closed for good (closeWindow).
   const label = `dialog-${Date.now().toString(36)}-${(windowSeq += 1)}`;
   const win = window.open(`about:blank#${label}`, '', `popup=yes,width=${w},height=${hgt},left=${left},top=${top}`);
-  if (!win) return null;
+  // A denied popup can hand back this window. Writing into it, or closing it, would end the app.
+  if (!win || win === window) return null;
   win.__dialogLabel = label;
   try {
     dressWindow(win, title);
@@ -118,7 +119,7 @@ export function dialogDocuments() {
  * `onSubmit(value)` may return false to keep the dialog open (validation).
  * `delay` (ms): show only if still open by then (progress of quick work never flashes).
  */
-export function openDialog({ title, body, buttons = [{ label: t('common.ok'), value: true, primary: true }], width = 460, className = '', onOpen, onSubmit, closable = true, id, delay = 0 }) {
+export function openDialog({ title, body, buttons = [{ label: t('common.ok'), value: true, primary: true }], width = 460, className = '', onOpen, onReady, onSubmit, closable = true, id, delay = 0 }) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
     let win = null;
@@ -126,6 +127,7 @@ export function openDialog({ title, body, buttons = [{ label: t('common.ok'), va
     let closed = false;
     let watch = null;
     let shield = null;
+    let timer = null;
     const close = async (value) => {
       if (closed) return;
       if (value !== null && value !== undefined && onSubmit && (await onSubmit(value)) === false) return;
@@ -159,8 +161,6 @@ export function openDialog({ title, body, buttons = [{ label: t('common.ok'), va
       }
     };
     const entry = { overlay, close, box, get window() { return win; } };
-    stack.push(entry);
-    document.addEventListener('keydown', onKey, true);
 
     const focusFirst = () => {
       const focus = box.querySelector('[autofocus], input:not([type=hidden]):not([disabled]):not(.swatch-native), select, textarea, .btn.primary');
@@ -192,9 +192,18 @@ export function openDialog({ title, body, buttons = [{ label: t('common.ok'), va
       onOpen?.(box, close);
       requestAnimationFrame(focusFirst);
     };
-    const timer = delay ? setTimeout(show, delay) : null;
-    if (!delay) show();
-    else if (!useWindows()) show(); // in the page a progress bar may appear at once
+    // A delayed dialog (progress of long work) stays off the stack until its window
+    // opens, so it is not the top dialog and it does not cover one that is already open.
+    const arm = () => {
+      if (closed || shown) return;
+      if (delay && useWindows() && stack.length) return;
+      stack.push(entry);
+      document.addEventListener('keydown', onKey, true);
+      show();
+    };
+    onReady?.(close);
+    timer = delay && useWindows() ? setTimeout(arm, delay) : null;
+    if (!delay || !useWindows()) arm();
   });
 }
 
@@ -266,6 +275,7 @@ export function progressDialog(title, { cancellable = true } = {}) {
     buttons: cancellable ? [{ label: t('common.cancel'), value: 'cancel' }] : [],
     closable: false,
     delay: 400,
+    onReady: (close) => { closeFn = close; },
     onOpen: (box, close) => { closeFn = close; },
   }).then((value) => { if (value === 'cancel') state.cancelled = true; });
   let closing = false;

@@ -1,5 +1,4 @@
-// Quick keywords and metadata templates (ACDSee "Quick Keywords" and
-// "Metadata Presets"): a few named keyword sets whose keywords are one click
+// Quick keywords and metadata templates: a few named keyword sets whose keywords are one click
 // (or Alt+Shift+1…9) away, and saved IPTC field sets applied in one step.
 import { t } from '../i18n.js';
 import { app } from '../store.js';
@@ -49,7 +48,17 @@ export function quickKeywordsField(paths, onChange) {
   const words = activeKeywords();
   const has = (k) => (paths.length && paths.every((p) => app.catalog.get(p)?.keywords?.includes(k)) ? 'on' : paths.some((p) => app.catalog.get(p)?.keywords?.includes(k)) ? 'partial' : '');
   const buttons = h('div.quick-keywords', words.length
-    ? words.map((k, i) => h(`button.quick-keyword${has(k) ? `.${has(k)}` : ''}`, { type: 'button', dataset: { keyword: k }, title: i < 9 ? `${k} (Alt+Shift+${i + 1})` : k, disabled: !paths.length, onclick: () => toggleKeyword(paths, k) }, i < 9 ? h('span.quick-n', String(i + 1)) : '', k))
+    ? words.map((k, i) => h(`button.quick-keyword${has(k) ? `.${has(k)}` : ''}`, {
+      type: 'button', dataset: { keyword: k }, title: i < 9 ? `${k} (Alt+Shift+${i + 1})` : k, disabled: !paths.length,
+      onclick: (event) => {
+        toggleKeyword(paths, k);
+        const all = paths.length && paths.every((p) => app.catalog.get(p)?.keywords?.includes(k));
+        const some = paths.some((p) => app.catalog.get(p)?.keywords?.includes(k));
+        event.currentTarget.classList.toggle('on', Boolean(all));
+        event.currentTarget.classList.toggle('partial', Boolean(some && !all));
+        onChange?.();
+      },
+    }, i < 9 ? h('span.quick-n', String(i + 1)) : '', k))
     : h('span.hint', t('quick.empty')));
   return h('div.field.quick-field',
     h('div.quick-head', h('span.field-label', t('quick.title')), chooser,

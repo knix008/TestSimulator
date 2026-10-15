@@ -642,7 +642,7 @@ body.dropping .drop-hint { display: flex; }
   .quick-search { width: 150px; }
 }
 
-/* ───────── ACDSee parity additions */
+/* ───────── extra feature styles */
 /* tiles & filmstrip views */
 .filelist[data-view='tiles'] .tile { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
 .filelist[data-view='tiles'] .tile::before { inset: 2px 3px; border-radius: 6px; }
@@ -853,6 +853,13 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 @media (max-width: 1040px) {
   .header-right .theme-select { width: 84px; }
   .header-right .tool { width: 28px; }
+}
+@media (max-width: 1000px) {
+  .app-header { gap: 6px; }
+  .mode-cluster { gap: 4px; }
+  .mode-label { display: none; }
+  .mode-button { padding: 0 8px; gap: 0; }
+  .mode-button.start-home { padding: 0 8px; }
 }
 
 /* keyword tree in the catalog pane */

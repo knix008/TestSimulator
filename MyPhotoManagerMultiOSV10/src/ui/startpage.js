@@ -35,9 +35,10 @@ function folderLabel(path) {
   return parts.at(-1) || clean;
 }
 
-function actionCard(glyph, title, text, run, primary = false) {
+function actionCard(glyph, title, text, run, primary = false, id) {
   return h('button.action-card', {
     type: 'button',
+    id,
     title,
     dataset: primary ? { primary: '' } : {},
     onclick: run,
@@ -63,8 +64,8 @@ export function createStartPage(ctx) {
     stamp = key;
     const tip = Math.floor(Date.now() / 86400000) % TIP_COUNT;
     const begin = [
-      actionCard('folderOpen', t('file.openFolder'), t('start.openFolderText'), actions.openFolder, true),
-      actionCard('images', t(showSamples ? 'web.openFiles' : 'file.openFiles'), t('start.openFilesText'), actions.openFiles),
+      actionCard('folderOpen', t('file.openFolder'), t('start.openFolderText'), actions.openFolder, true, 'start-open-folder'),
+      actionCard('images', t(showSamples ? 'web.openFiles' : 'file.openFiles'), t('start.openFilesText'), actions.openFiles, false, 'start-open-files'),
       actionCard('download', t('import.title'), t('start.importText'), actions.import),
       actionCard('play', t('view.slideshow'), t('start.slideshowText'), actions.slideshow),
       actionCard('gear', t('menu.settings'), t('start.settingsText'), actions.settings),

@@ -1,4 +1,4 @@
-// Every ACDSee feature in test/features.mjs is checked by at least one test,
+// Every feature in test/features.mjs is checked by at least one test,
 // the IDs the tests name all exist, and the gap document lists every ID.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -28,7 +28,7 @@ test('feature catalog: IDs are unique', () => {
   assert.equal(FEATURE_IDS.size, FEATURES.length);
 });
 
-test('every ACDSee feature is checked by a test', () => {
+test('every feature is checked by a test', () => {
   const covered = new Map();
   for (const file of testFiles()) {
     for (const id of idsIn(fs.readFileSync(file, 'utf8'))) {
@@ -43,7 +43,7 @@ test('every ACDSee feature is checked by a test', () => {
 });
 
 test('the gap document lists every feature ID', () => {
-  const doc = idsIn(fs.readFileSync(path.join(root, 'docs', 'ACDSee-gap.md'), 'utf8'));
+  const doc = idsIn(fs.readFileSync(path.join(root, 'docs', 'feature-gap.md'), 'utf8'));
   assert.deepEqual(FEATURES.filter((f) => !doc.has(f.id)).map((f) => f.id), []);
   assert.deepEqual([...doc].filter((id) => !FEATURE_IDS.has(id)), []);
 });

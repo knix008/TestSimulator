@@ -10,9 +10,10 @@ const js = (value) => JSON.stringify(value);
 
 export const cases = [
   {
-    ids: ['APP-WEB'], group: '시작', name: '첫 화면: 폴더 열기·사진 열기·예제 사진 버튼, 서비스 워커·매니페스트',
+    ids: ['APP-WEB'], group: '시작', name: '첫 화면: 폴더 열기·사진 열기, 서비스 워커·매니페스트',
     run: async (app) => {
-      for (const id of ['#welcome-open-folder', '#welcome-open-files', '#welcome-samples']) assert.ok(await app.main.eval(`Boolean(document.querySelector('${id}'))`), id);
+      await app.main.waitFor(`document.body.dataset.mode === 'start'`);
+      for (const id of ['#start-open-folder', '#start-open-files']) assert.ok(await app.main.eval(`Boolean(document.querySelector('${id}'))`), id);
       const manifest = await app.main.eval(`fetch('./manifest.webmanifest').then((r) => r.json())`);
       assert.equal(manifest.name, 'MyPhotoManager');
       assert.ok(manifest.icons.some((i) => i.sizes === '512x512'));
@@ -22,7 +23,7 @@ export const cases = [
   {
     ids: ['APP-WEB', 'META-EXIF'], group: '열기', name: '예제 사진: 6장, 썸네일과 EXIF(카메라·GPS)',
     run: async (app) => {
-      await app.main.click('#welcome-samples');
+      await app.main.eval(`${P}.actions.openSamples(); 1`);
       await app.main.waitFor(`${P}.app.state.list.length === 6`);
       await app.main.waitFor(`document.querySelectorAll('.tile .tile-img').length === 6`, { timeout: 30000 });
       await app.main.waitFor(`[...${P}.app.catalog.files.values()].filter((r) => r.meta?.lat != null).length === 3`, { timeout: 15000 });

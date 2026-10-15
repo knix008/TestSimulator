@@ -1,4 +1,4 @@
-// English UI text — features added for full ACDSee parity (merged into en.js by i18n.js).
+// English UI text — extra feature strings (merged into en.js by i18n.js).
 export default {
   'menu.create': 'Create', 'pane.people': 'People', 'viewStyle.tiles': 'Tiles', 'viewStyle.filmstrip': 'Filmstrip',
 

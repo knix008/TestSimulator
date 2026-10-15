@@ -1,4 +1,4 @@
-// Geotagging from a GPX track (ACDSee "Geotag with GPS track"): photos get the
+// Geotagging from a GPX track: photos get the
 // position the track had when they were taken. A clock offset fixes cameras
 // set to the wrong time or zone; the preview shows each photo's match.
 import { locate, parseGpx } from '../catalog/gpx.js';

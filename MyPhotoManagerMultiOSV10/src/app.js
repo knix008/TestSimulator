@@ -1276,7 +1276,7 @@ function runMenu(menuId, ...keys) {
 
 // Test hook (E2E): the app's state and actions.
 const minWidth = watchMinWidth();
-globalThis.__myphoto = { app, t, minWidth, analysis, organizer: () => import('./ui/organize.js'), actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
+globalThis.__myphoto = { app, t, minWidth, analysis, history: undoHistory, organizer: () => import('./ui/organize.js'), actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
 
 start().catch((error) => {
   console.error(error);

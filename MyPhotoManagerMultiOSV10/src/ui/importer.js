@@ -1,4 +1,4 @@
-// Import (ACDSee "Import from device / disk"): copies photos from a camera's
+// Import from a device or disk: copies photos from a camera's
 // memory card or any folder into the library — sorted into dated sub-folders,
 // optionally renamed, duplicates skipped, metadata added, originals deleted.
 import { baseName, joinPath, parentOf } from '../catalog/catalog.js';

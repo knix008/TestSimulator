@@ -1,4 +1,4 @@
-// Every ACDSee feature MyPhotoManager implements (docs/ACDSee-gap.md), each
+// Every feature MyPhotoManager implements (docs/feature-gap.md), each
 // with an ID. Tests name the IDs they check (E2E cases: `ids: [...]`; unit
 // tests: in the test name or a `// features:` comment), and
 // test/static/features.test.js fails when an ID is checked by no test.

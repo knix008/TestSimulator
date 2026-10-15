@@ -460,9 +460,6 @@ export async function newFolder() {
   if (!name) return;
   try {
     const path = await fs.mkdir(source.path, name.trim());
-    await reload();
-    setSelection([path], path);
-    app.emit('folders-changed', source.path);
     history.push({
       label: t('file.newFolder'),
       undo: async () => {
@@ -473,6 +470,9 @@ export async function newFolder() {
       },
       redo: async () => { await fs.mkdir(parentOf(path), baseName(path)); await afterUndo(parentOf(path), [path]); },
     });
+    await reload();
+    setSelection([path], path);
+    app.emit('folders-changed', source.path);
   } catch (error) {
     toast(errorText(error), 'error', 5000);
   }
@@ -491,14 +491,14 @@ export async function renameItem(path = app.state.focus) {
     const target = await fs.rename(path, next.trim());
     app.catalog.movePath(path, target);
     thumbs.invalidate(path);
-    await reload();
-    setSelection([target], target);
-    app.emit('folders-changed', parentOf(path));
     history.push({
       label: t('file.rename'),
       undo: async () => { const back = await fs.rename(target, name); app.catalog.movePath(target, back); thumbs.invalidate(target); await afterUndo(parentOf(back), [back]); },
       redo: async () => { const again = await fs.rename(path, next.trim()); app.catalog.movePath(path, again); thumbs.invalidate(path); await afterUndo(parentOf(again), [again]); },
     });
+    await reload();
+    setSelection([target], target);
+    app.emit('folders-changed', parentOf(path));
   } catch (error) {
     toast(errorText(error), 'error', 5000);
   }
@@ -560,11 +560,11 @@ export async function transfer(paths, dir, { move = false, conflict = 'rename', 
   const failed = results.filter((r) => r.error);
   if (failed.length) toast(t('file.transferFailed', { n: failed.length, error: failed[0].error }), 'error', 6000);
   else toast(plural(move ? 'file.moved' : 'file.copied', done), 'success', 2200);
+  const pairs = results.filter((r) => r.target && !r.error && !r.skipped).map((r) => ({ source: r.source, target: r.target }));
+  if (record && pairs.length) history.push(move ? moveStep(pairs, dir) : copyStep(pairs, dir));
   if (move && app.state.source.type === 'folder') await removeFromList(results.filter((r) => r.target && !r.error && !r.skipped && parentOf(r.source) === app.state.source.path).map((r) => r.source));
   if (app.state.source.type === 'folder' && app.state.source.path === dir) await reload();
   app.emit('folders-changed', dir);
-  const pairs = results.filter((r) => r.target && !r.error && !r.skipped).map((r) => ({ source: r.source, target: r.target }));
-  if (record && pairs.length) history.push(move ? moveStep(pairs, dir) : copyStep(pairs, dir));
   return results;
 }
 
