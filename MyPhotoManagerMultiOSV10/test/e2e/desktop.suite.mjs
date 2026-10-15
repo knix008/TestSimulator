@@ -244,17 +244,23 @@ export const cases = [
   {
     ids: ['EDIT-LIGHT', 'EDIT-CROP', 'EDIT-RESTORE'], group: '편집', name: '노출 조정 + 자르기 → 저장: 파일이 바뀌고 원본 백업, EXIF 유지, 원본 복원',
     run: async (app) => {
+      const beachFile = path.join(app.photos, 'beach.jpg');
+      const pristine = fs.readFileSync(path.join(app.photos, 'beach-copy.jpg'));
+      if (!fs.readFileSync(beachFile).equals(pristine)) {
+        fs.writeFileSync(beachFile, pristine);
+        await app.main.eval(`${P}.actions.openFolder(${js(app.photos)}); 1`);
+        await app.main.waitFor(`${P}.app.state.source.path === ${js(app.photos)} && !${P}.app.state.loading && ${P}.app.state.list.some((i) => i.name === 'beach.jpg' && i.size === ${pristine.length})`);
+      }
       const beach = await pathOf(app, 'beach.jpg');
-      const original = fs.readFileSync(path.join(app.photos, 'beach.jpg'));
+      const original = fs.readFileSync(beachFile);
       await app.main.eval(`${P}.actions.editPath(${js(beach)}); 1`);
-      await app.main.waitFor(`${P}.dq('.editor-preview') && ${P}.dq('[data-key="adjust.exposure"]')`, { timeout: 20000 });
+      await app.main.waitFor(`${P}.dq('.editor-preview') && ${P}.dq('[data-key="adjust.exposure"]') && ${P}.editor.debug().full?.w === 1600 && ${P}.editor.debug().full?.h === 1067`, { timeout: 20000 });
       await app.main.eval(`(() => { const s = ${P}.dq('[data-key="adjust.exposure"]'); s.value = '0.7'; s.dispatchEvent(new Event('input', { bubbles: true })); s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
       await app.main.eval(`${P}.dq('.edit-section-head[data-section=geometry]').click(); 1`);
       await app.main.waitFor(`${P}.dq('#crop-start')`);
       await app.main.eval(`${P}.dq('#crop-start').click(); 1`);
       await app.main.waitFor(`${P}.dq('.crop-box')`);
-      await app.main.eval(`[...${P}.dqa('.chip')].find((c) => c.textContent === '1:1').click(); 1`);
-      await app.main.eval(`${P}.dq('#crop-apply').click(); 1`);
+      await app.main.eval(`(() => { const chip = [...${P}.dqa('.chip')].find((c) => c.textContent === '1:1'); chip.click(); ${P}.dq('#crop-apply').click(); return 1; })()`);
       await app.main.waitFor(`${P}.editor.debug().edit.geometry.crop && !${P}.dq('#edit-save').disabled`);
       await app.main.eval(`${P}.dq('#edit-save').click(); 1`);
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 30000 });
@@ -336,7 +342,9 @@ export const cases = [
       await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'trip_001.webp') && ${P}.app.state.list.some((i) => i.name === 'trip_002.jpg')`, { timeout: 15000 });
       assert.ok(fs.existsSync(path.join(app.photos, 'trip_002.jpg')) && !fs.existsSync(path.join(app.photos, 'forest.jpg')));
-      assert.deepEqual((await app.main.eval(`${P}.app.catalog.get(${js(path.join(app.photos, 'trip_002.jpg'))}).keywords`)).sort(), ['nature', '숲'], 'keywords followed');
+      const trip = path.join(app.photos, 'trip_002.jpg');
+      await app.main.waitFor(`(${P}.app.catalog.get(${js(trip)})?.keywords ?? []).length === 2`, { timeout: 15000 });
+      assert.deepEqual((await app.main.eval(`${P}.app.catalog.get(${js(trip)}).keywords`)).sort(), ['nature', '숲'], 'keywords followed');
     },
   },
   {

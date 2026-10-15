@@ -54,6 +54,7 @@ import { FLAG_EN, FLAG_KO } from './ui/flags.js';
 import { watchNumbers } from './ui/steppers.js';
 import { watchMinWidth } from './ui/minwidth.js';
 import * as analysis from './analysis/analyzer.js';
+import { categoryCounts, categoryIds, categoryKey } from './analysis/taxonomy.js';
 import { customThemeDialog, EDIT_CUSTOM, themeSelect } from './ui/themepicker.js';
 
 app.settings = loadSettings();
@@ -271,7 +272,58 @@ function renderHeader() {
     h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
     h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
     h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
-  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right);
+  const viewingClass = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis');
+  const classify = h(`button.mode-button.classify-button${viewingClass ? '.on' : ''}`, {
+    type: 'button', id: 'classify-browse', title: t('analysis.browse'), 'aria-label': t('analysis.browse'), 'aria-pressed': viewingClass ? 'true' : 'false',
+    onclick: (event) => { const button = event.currentTarget; if (button.classList.contains('open')) { closeMenus(); return; } openClassifyMenu(button); },
+  }, h('span', { html: icon('layers') }), h('span.classify-label', t('analysis.browse')));
+  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right, classify);
+}
+
+/** Categories the catalog already has, then the photos of the one the user picks. */
+function openClassifyMenu(button) {
+  const counts = categoryCounts([...app.catalog.files.values()].map((record) => record.analysis).filter(Boolean));
+  const known = new Set(categoryIds().filter((id) => counts[id]));
+  const items = [];
+  for (const top of ['people', 'scene', 'object']) {
+    const group = [...known].filter((id) => id === top || id.startsWith(`${top}/`));
+    if (!group.length) continue;
+    if (items.length) items.push('separator');
+    for (const id of group) {
+      const depth = id.split('/').length - 1;
+      const current = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis' && f.value === id);
+      items.push({
+        label: `${'\u00a0\u00a0'.repeat(depth)}${t(categoryKey(id))}`,
+        icon: depth ? undefined : top === 'people' ? 'user' : top === 'scene' ? 'images' : 'layers',
+        shortcut: String(counts[id]),
+        checked: Boolean(current),
+        action: () => showClassification(id),
+      });
+    }
+  }
+  if (!items.length) items.push({ label: t('analysis.empty'), icon: 'info', disabled: true });
+  button.classList.add('open', 'on');
+  button.setAttribute('aria-pressed', 'true');
+  const rect = button.getBoundingClientRect();
+  showMenu(items, rect.right, rect.bottom + 4, {
+    alignRight: true, ignore: button,
+    onClose: () => { button.classList.remove('open'); markClassifyButton(); },
+  });
+}
+
+async function showClassification(id) {
+  if (!(await leaveEditor())) return;
+  if (app.state.mode !== 'manage') setMode('manage');
+  await openSource({ type: 'filter', filters: [{ type: 'analysis', value: id }], title: t(categoryKey(id)) });
+  markClassifyButton();
+}
+
+function markClassifyButton() {
+  const button = header.querySelector('#classify-browse');
+  if (!button || button.classList.contains('open')) return;
+  const viewing = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis');
+  button.classList.toggle('on', Boolean(viewing));
+  button.setAttribute('aria-pressed', viewing ? 'true' : 'false');
 }
 
 /** The mode buttons are the only part of the header that changes when the page changes. */
@@ -282,6 +334,7 @@ function syncModeChrome() {
   home.classList.toggle('on', mode === 'start');
   home.setAttribute('aria-pressed', mode === 'start' ? 'true' : 'false');
   for (const button of header.querySelectorAll('.mode-switch .mode-button')) button.classList.toggle('on', button.dataset.mode === mode);
+  markClassifyButton();
 }
 
 function switchMode(mode) {
@@ -1072,6 +1125,7 @@ app.on('source', () => {
   renderToolbar();
   renderStatus();
   updateTitle();
+  markClassifyButton();
 });
 app.on('items', () => { renderStatus(); renderToolbar(); analysis.autoAnalyze(); });
 app.on('selection', renderStatus);

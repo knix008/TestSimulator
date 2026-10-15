@@ -92,13 +92,17 @@ export async function settingsDialog({ onApply }) {
   // The window has one fixed size: reserve the height of the tallest tab so no tab is cut off.
   const probe = h('div.dialog-measure', h('div.dialog', { style: { width: '640px' } }, h('div.dialog-body', h('div.settings', nav, content))));
   document.body.append(probe);
+  // English labels are longer: grow the window so every tab stays on one row.
+  const tabsWidth = [...nav.children].reduce((w, el) => w + el.offsetWidth, 0) + Math.max(0, nav.children.length - 1) * 2;
+  const dialogWidth = Math.min(Math.max(640, Math.ceil(tabsWidth) + 40), Math.max(640, (screen.availWidth || 1280) - 48));
+  probe.querySelector('.dialog').style.width = `${dialogWidth}px`;
   let tallest = 0;
   const first = current;
   for (const [id] of tabs) { show(id); tallest = Math.max(tallest, content.scrollHeight); }
   probe.remove();
   content.style.minHeight = `${tallest}px`;
   show(first); // measuring went through every tab: open on the first one
-  const ok = await openDialog({ title: t('settings.title'), width: 640, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
+  const ok = await openDialog({ title: t('settings.title'), width: dialogWidth, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
   if (!ok) { previewTheme(s.theme, s.customTheme); return; }
   Object.assign(s, {
     language: language.value, theme: theme.value, showHidden: hidden.input.checked, showAllFiles: allFiles.input.checked, showFolders: folders.input.checked,
@@ -169,24 +173,24 @@ export async function aboutDialog() {
   if (isDesktop()) info = await invoke('app_info').catch(() => null);
   const version = info?.version ?? (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0');
   const rows = [
-    [t('about.version'), version],
-    [t('about.build'), info ? new Date(info.buildTime * 1000).toLocaleString() : (typeof __BUILD_DATE__ === 'string' ? new Date(__BUILD_DATE__).toLocaleString() : '')],
-    [t('about.commit'), info?.commit ?? (typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : '')],
-    [t('about.platform'), info ? `${info.os} ${info.arch} · Tauri ${info.tauri}` : t('about.web')],
-    [t('about.dataFolder'), info?.dataDir ?? t('about.browserStorage')],
-    [t('about.author'), 'SHKWON(knix008@naver.com)'],
-    [t('about.copyright'), `© ${new Date().getFullYear()} SHKWON`],
-    [t('about.creditsLabel'), t('about.credits')],
+    ['about.version', version],
+    ['about.build', info ? new Date(info.buildTime * 1000).toLocaleString() : (typeof __BUILD_DATE__ === 'string' ? new Date(__BUILD_DATE__).toLocaleString() : '')],
+    ['about.commit', info?.commit ?? (typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : '')],
+    ['about.platform', info ? `${info.os} ${info.arch} · Tauri ${info.tauri}` : t('about.web')],
+    ['about.dataFolder', info?.dataDir ?? t('about.browserStorage')],
+    ['about.author', 'SHKWON(knix008@naver.com)'],
+    ['about.copyright', `© ${new Date().getFullYear()} SHKWON`],
+    ['about.creditsLabel', t('about.credits')],
   ];
   await openDialog({
-    title: t('about.title'), width: 640, id: 'about-dialog',
+    title: t('about.title'), width: 960, id: 'about-dialog',
     body: h('div.about',
       h('div.about-top',
         h('img.about-icon', { src: new URL('./icon-192.png', document.baseURI).href, alt: '' }),
         h('div.about-text', h('h2', 'MyPhotoManager'), h('div.about-version', `${t('about.version')} ${version}`), h('p', t('about.tagline')), h('p.about-description', t('about.description')))),
-      h('div.about-rows', rows.filter(([, v]) => v).map(([k, v]) => [h('div.about-key', k), h('div.about-value', { title: v }, v)])),
+      h('div.about-rows', rows.filter(([, v]) => v).map(([key, v]) => [h('div.about-key', t(key)), h(`div.about-value${key === 'about.dataFolder' || key === 'about.creditsLabel' ? '.wide' : ''}`, { title: v }, v)])),
       h('div.about-formats', h('div.about-formats-title', t('about.formats', { n: supportedFormats().slice(0, -1).reduce((s, [, list]) => s + list.length, 0) })),
-        supportedFormats().map(([key, list]) => h('div.about-format-row', { dataset: { group: key } }, h('div.about-key', t(key)), h('div.about-exts', list.map((ext) => h('span.ext-chip', ext.toUpperCase()))))))),
+        supportedFormats().map(([key, list]) => h(`div.about-format-row${list.length > 8 ? '.wide' : ''}`, { dataset: { group: key } }, h('div.about-key', t(key)), h('div.about-exts', list.map((ext) => h('span.ext-chip', ext.toUpperCase()))))))),
   });
 }
 

@@ -107,4 +107,6 @@ export default {
 
   'keys.clear': '단축키 없음', 'keys.hint': '단축키를 클릭한 뒤 새 키 조합을 누르세요 (Esc 는 취소).', 'keys.press': '키를 누르세요…', 'keys.reset': '기본값',
   'keys.resetAll': '모두 기본값으로', 'keys.saved': '단축키를 저장했습니다.', 'keys.title': '단축키 바꾸기…',
+
+  'analysis.browse': '분류',
 };

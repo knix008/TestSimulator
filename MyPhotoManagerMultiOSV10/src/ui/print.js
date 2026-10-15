@@ -43,13 +43,14 @@ async function pictureOf(item, maxSize) {
     await img.decode();
     return img;
   }
-  if (kind === 'native' || kind === 'svg') {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = await fs.url(item.path);
-    await img.decode();
-    return img;
-  }
+    if (kind === 'native' || kind === 'svg') {
+      const url = await fs.objectUrl(item.path);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = url;
+      try { await img.decode(); } finally { URL.revokeObjectURL(url); }
+      return img;
+    }
   return (await decodeImage(await fs.read(item.path), item.name, { maxSize })).source;
 }
 

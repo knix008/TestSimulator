@@ -636,11 +636,7 @@ export async function pasteClipboard() {
 /** First bytes of a file (metadata lives at the start of nearly every format). */
 async function readHead(path, bytes = 512 * 1024) {
   try {
-    if (isDesktop()) {
-      if (path.startsWith('@')) return fs.read(path);
-      const response = await fetch(fs.url(path), { headers: { Range: `bytes=0-${bytes - 1}` } });
-      return new Uint8Array(await response.arrayBuffer());
-    }
+    if (isDesktop() && !path.startsWith('@')) return fs.read(path, { max: bytes });
   } catch { /* fall through */ }
   return fs.read(path);
 }

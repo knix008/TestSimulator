@@ -1,7 +1,8 @@
 // One file API for both builds.
 //
-// Desktop (Tauri): real paths; the Rust backend lists folders and does the file
-// operations; pictures load through the asset protocol.
+// Desktop (Tauri): real paths; the Rust backend lists folders and reads and
+// writes the files. Pictures are shown from memory so WebView2 is not decoding
+// a file while that file is moved.
 //
 // Web: folders the user opened. With the File System Access API (Chrome, Edge)
 // they are writable and remembered between visits ("@3:Photos/2024/a.jpg");
@@ -19,23 +20,58 @@ export { baseName, joinPath, parentOf };
 const versions = new Map();
 
 // WebView2 crashes if it is still decoding a picture while that file is moved,
-// renamed or overwritten. Drop those images first so the load is cancelled.
+// renamed or overwritten. Drop any asset-protocol image and wait for it to stop.
+function shownNeedles(path) {
+  const slash = String(path).replace(/\\/g, '/');
+  const url = assetUrl(path) || '';
+  let decoded = url;
+  try { decoded = decodeURIComponent(url); } catch { /* keep the encoded form */ }
+  return [url.split('?')[0], decoded.split('?')[0], slash].filter(Boolean);
+}
+
+function showsFile(src, path) {
+  if (!src) return false;
+  let decoded = src;
+  try { decoded = decodeURIComponent(src); } catch { /* keep */ }
+  return shownNeedles(path).some((needle) => src.startsWith(needle) || decoded.includes(needle));
+}
+
 function stopShowing(paths) {
-  if (typeof document === 'undefined') return false;
-  const prefixes = [].concat(paths).filter(Boolean).map((path) => assetUrl(path)).filter(Boolean);
-  if (!prefixes.length) return false;
-  let dropped = false;
-  for (const el of document.querySelectorAll('img[src], video[src], source[src]')) {
-    const src = el.src || '';
-    if (prefixes.some((prefix) => src.startsWith(prefix))) { el.removeAttribute('src'); dropped = true; }
+  if (typeof document === 'undefined') return [];
+  const list = [].concat(paths).filter(Boolean);
+  if (!list.length) return [];
+  const dropped = [];
+  for (const el of document.querySelectorAll('img[src], video[src], source[src], audio[src]')) {
+    const src = el.currentSrc || el.src || '';
+    if (!list.some((path) => showsFile(src, path))) continue;
+    el.removeAttribute('src');
+    try { el.src = ''; } catch { /* source elements */ }
+    if (typeof el.load === 'function') el.load();
+    dropped.push(el);
   }
   return dropped;
 }
 
+const IMAGE_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', jxl: 'image/jxl', heic: 'image/heic', heif: 'image/heif' };
+
+function bytesToUrl(path, bytes) {
+  const type = IMAGE_TYPES[extensionOf(path)] ?? '';
+  return URL.createObjectURL(type ? new Blob([bytes], { type }) : new Blob([bytes]));
+}
+
 /** Lets WebView2 drop the file before we move or overwrite it. */
 async function releaseShown(paths) {
-  if (!stopShowing(paths)) return;
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const dropped = stopShowing(paths);
+  if (!dropped.length) return;
+  await new Promise((resolve) => {
+    let left = dropped.length;
+    const done = () => { if (--left <= 0) resolve(); };
+    for (const el of dropped) {
+      el.addEventListener('load', done, { once: true });
+      el.addEventListener('error', done, { once: true });
+    }
+    setTimeout(resolve, 300);
+  });
 }
 
 const desktop = {
@@ -49,10 +85,15 @@ const desktop = {
   // A version query makes the engine reload a file that changed (rotate, edit).
   url: (path) => (versions.has(path) ? `${assetUrl(path)}?v=${versions.get(path)}` : assetUrl(path)),
   releaseUrl: (path) => { versions.set(path, (versions.get(path) ?? 0) + 1); },
-  async read(path) {
-    const response = await fetch(desktop.url(path), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`${baseName(path)}: ${response.status} ${response.statusText}`);
-    return new Uint8Array(await response.arrayBuffer());
+  async read(path, { max } = {}) {
+    const data = await invoke('read_file', { path, max: Number.isFinite(max) ? max : null });
+    if (data instanceof ArrayBuffer) return new Uint8Array(data);
+    if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    if (Array.isArray(data)) return Uint8Array.from(data);
+    throw new Error(`${baseName(path)}: unreadable`);
+  },
+  async objectUrl(path) {
+    return bytesToUrl(path, await desktop.read(path));
   },
   async write(path, bytes) {
     await releaseShown(path);
@@ -61,7 +102,7 @@ const desktop = {
     return 'saved';
   },
   stat: (paths) => invoke('stat_paths', { paths }),
-  copy: (paths, dir, conflict = 'rename') => invoke('copy_paths', { sources: paths, dir, conflict }),
+  async copy(paths, dir, conflict = 'rename') { await releaseShown(paths); return invoke('copy_paths', { sources: paths, dir, conflict }); },
   async move(paths, dir, conflict = 'rename') { await releaseShown(paths); return invoke('move_paths', { sources: paths, dir, conflict }); },
   async rename(path, name) { await releaseShown(path); return invoke('rename_path', { path, name }); },
   async remove(paths, trash = true) { await releaseShown(paths); return invoke('delete_paths', { paths, trash }); },
@@ -392,6 +433,8 @@ const web = {
     return url;
   },
 
+  objectUrl(path) { return web.url(path); },
+
   releaseUrl(path) {
     for (const [key, url] of [...urls]) {
       if (key === path || key.startsWith(`${path}/`)) { URL.revokeObjectURL(url); urls.delete(key); }
@@ -540,8 +583,9 @@ const routed = {
   },
   list: (path, options) => (isVirtual(path) ? web.list(path, options) : desktop.list(path, options)),
   url: (path) => (isVirtual(path) ? web.url(path) : desktop.url(path)),
+  objectUrl: (path) => (isVirtual(path) ? web.objectUrl(path) : desktop.objectUrl(path)),
   releaseUrl: (path) => (isVirtual(path) ? web.releaseUrl(path) : desktop.releaseUrl(path)),
-  read: (path) => (isVirtual(path) ? web.read(path) : desktop.read(path)),
+  read: (path, options) => (isVirtual(path) ? web.read(path, options) : desktop.read(path, options)),
   write: (path, bytes) => (isVirtual(path) ? web.write(path, bytes) : desktop.write(path, bytes)),
   async stat(paths) {
     const { virtual, real } = partition(paths);

@@ -482,6 +482,15 @@ export function createEditor({ onDone }) {
   }
 
   function applyCrop() {
+    // A chosen aspect must win over a full-frame draft left from before the
+    // picture's real size was known. A free crop of the whole picture is still
+    // "no crop".
+    const fullFrame = cropDraft && cropDraft.w > 0.999 && cropDraft.h > 0.999;
+    if (fullFrame && cropAspect && full?.width > 0 && full?.height > 0) {
+      const plan = layout(full.width, full.height, edit.geometry, { skipCrop: true });
+      const a = aspectValue();
+      if (a && plan.width > 0 && plan.height > 0) cropDraft = cropForAspect(plan.width, plan.height, a);
+    }
     const whole = cropDraft && cropDraft.w > 0.999 && cropDraft.h > 0.999;
     change((e) => { e.geometry.crop = whole ? null : { ...cropDraft }; }, t('edit.crop'));
     tool = null;

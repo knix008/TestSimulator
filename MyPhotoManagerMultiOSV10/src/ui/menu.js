@@ -80,10 +80,10 @@ function openSub(row, items, level, owner) {
 }
 
 /** Shows a menu at (x, y). */
-export function showMenu(items, x, y, { onClose, alignRight = false } = {}) {
+export function showMenu(items, x, y, { onClose, alignRight = false, ignore = null } = {}) {
   closeMenus();
   const el = build(items, 0);
-  open = { elements: [el], onClose };
+  open = { elements: [el], onClose, ignore };
   place(el, x, y, { alignRight });
   open.outside = (event) => {
     if (open?.elements.some((menu) => menu.contains(event.target))) return;

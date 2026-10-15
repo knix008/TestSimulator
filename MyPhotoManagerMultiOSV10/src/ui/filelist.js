@@ -49,9 +49,10 @@ export function createFileList({ onContextMenu, onDropItems }) {
     if (!item) { filmPreview.replaceChildren(); return; }
     const { fs } = await import('../platform/fs.js');
     const kind = kindOf(item.name);
-    const src = kind === 'native' || kind === 'svg' ? await fs.url(item.path) : (await thumbs.get(item, 10))?.url;
+    const src = kind === 'native' || kind === 'svg' ? await fs.objectUrl(item.path) : (await thumbs.get(item, 10))?.url;
     if (mine !== filmToken || !src) return;
     const img = h('img', { src, alt: item.name, crossOrigin: kind === 'native' ? 'anonymous' : null });
+    if (kind === 'native' || kind === 'svg') img.addEventListener('load', () => URL.revokeObjectURL(src), { once: true });
     img.addEventListener('dblclick', () => viewItem(item.path));
     filmPreview.replaceChildren(img, h('div.film-caption', item.name));
   }

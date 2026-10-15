@@ -162,6 +162,24 @@ async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     blocking(move || files::write_atomic(Path::new(&path), &data)).await
 }
 
+/// Reads a file in the backend. The webview must not map a file that a later
+/// move or overwrite will change.
+#[tauri::command]
+async fn read_file(path: String, max: Option<usize>) -> Result<Vec<u8>, String> {
+    blocking(move || {
+        if let Some(max) = max {
+            use std::io::Read;
+            let mut file = std::fs::File::open(&path).map_err(|error| error.to_string())?;
+            let mut buf = vec![0_u8; max];
+            let n = file.read(&mut buf).map_err(|error| error.to_string())?;
+            buf.truncate(n);
+            Ok(buf)
+        } else {
+            std::fs::read(&path).map_err(|error| error.to_string())
+        }
+    }).await
+}
+
 // ───────────────────────── file operations
 
 #[tauri::command]
@@ -690,6 +708,7 @@ pub fn run() {
             stat_paths,
             walk_files,
             write_file,
+            read_file,
             copy_paths,
             move_paths,
             rename_path,
