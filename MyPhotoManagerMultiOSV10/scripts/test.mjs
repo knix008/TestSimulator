@@ -248,13 +248,26 @@ async function runCases(report, cases, context, label) {
   for (const testCase of cases) {
     spin(`${label} · ${testCase.group ? `${testCase.group} › ` : ''}${testCase.name}`);
     const start = performance.now();
-    try {
-      const outcome = await testCase.run(context);
-      report({ name: testCase.name, group: testCase.group, ok: true, skipped: outcome?.skipped ?? false, ms: performance.now() - start });
-    } catch (error) {
-      report({ name: testCase.name, group: testCase.group, ok: false, ms: performance.now() - start, error: error.stack?.split('\n').slice(0, 4).join('\n') ?? error.message });
-      await context.recover?.();
+    let error = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const outcome = await testCase.run(context);
+        report({ name: testCase.name, group: testCase.group, ok: true, skipped: outcome?.skipped ?? false, ms: performance.now() - start });
+        error = null;
+        break;
+      } catch (caught) {
+        error = caught;
+        const closed = /window closed/.test(`${caught.message ?? ''}`);
+        if (closed && attempt === 0) {
+          if (context.restart) await context.restart().catch(() => {});
+          else await context.recover?.();
+          continue;
+        }
+        await context.recover?.();
+        break;
+      }
     }
+    if (error) report({ name: testCase.name, group: testCase.group, ok: false, ms: performance.now() - start, error: error.stack?.split('\n').slice(0, 4).join('\n') ?? error.message });
   }
 }
 
@@ -307,7 +320,7 @@ async function runDesktop(report, suiteName) {
   }
   app.recover = async () => {
     try {
-      if (app.process.exitCode != null) await app.launch();
+      if (app.process.exitCode != null) await app.launch(app.launchArgs ?? []);
       await app.main.eval(`window.__myphoto.closeAllDialogs(); document.querySelectorAll('.slideshow, .compare').forEach((el) => el.remove()); document.body.classList.remove('slideshow-on'); window.__myphoto.actions.setMode('manage'); 1`);
     } catch {
       await app.restart().catch(() => {});

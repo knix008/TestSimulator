@@ -65,8 +65,10 @@ export async function openCompare(items) {
     const kind = kindOf(entry.item.name);
     let el;
     if (kind === 'native' || kind === 'svg') {
-      el = h('img.viewer-media', { crossOrigin: 'anonymous', src: await fs.url(entry.item.path), alt: '', draggable: false });
-      await el.decode().catch(() => {});
+      const url = await fs.objectUrl(entry.item.path);
+      el = h('img.viewer-media', { crossOrigin: 'anonymous', src: url, alt: '', draggable: false });
+      try { await el.decode(); } catch { /* the panel stays empty if the file cannot be shown */ }
+      URL.revokeObjectURL(url);
       entry.width = el.naturalWidth; entry.height = el.naturalHeight;
     } else {
       const decoded = await decodeImage(await fs.read(entry.item.path), entry.item.name);

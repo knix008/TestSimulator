@@ -130,6 +130,8 @@ select.input { padding-right: 4px; }
 .mode-button:not(.on):hover { background: var(--bg-4); color: var(--text); }
 .mode-button.start-home { padding: 0 12px; justify-content: center; border-radius: 8px; background: var(--bg-3); }
 .mode-button.start-home.on { background: var(--accent); color: var(--accent-text); }
+.mode-switch .classify-button { padding: 0 14px; border-radius: 6px; background: transparent; }
+.mode-switch .classify-button.on { background: var(--accent); color: var(--accent-text); }
 .header-right { display: flex; gap: 2px; }
 .menu { position: fixed; z-index: 1000; min-width: 220px; padding: 4px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: var(--shadow); max-height: calc(100vh - 8px); overflow: auto; }
 .menu-item { display: grid; grid-template-columns: 18px 20px 1fr auto 14px; align-items: center; gap: 4px; width: 100%; height: 28px; padding: 0 8px 0 4px; border: 0; border-radius: 5px; background: transparent; text-align: left; cursor: pointer; white-space: nowrap; }
@@ -576,12 +578,15 @@ body.immersive .viewer { background: #000; }
 .about-version { color: var(--accent); font-weight: 600; margin-bottom: 6px; }
 .about-text p { margin: 4px 0; }
 .about-description { color: var(--text-2); font-size: 12px; line-height: 1.55; }
-.about-rows { display: grid; grid-template-columns: max-content 1fr; column-gap: 18px; row-gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.about-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); column-gap: 18px; row-gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
 .about-key { color: var(--text-3); text-align: right; white-space: nowrap; }
 .about-value { color: var(--text); word-break: break-all; }
+.about-value.wide { grid-column: 2 / -1; }
 .shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
 .shortcuts h4 { margin: 8px 0 4px; color: var(--accent); }
 .shortcuts .prop-table th { width: 48%; }
+.shortcuts .prop-table th, .shortcuts .prop-table td { overflow: visible; text-overflow: clip; white-space: normal; }
+.shortcuts kbd { white-space: normal; }
 .dupes { max-height: 60vh; overflow: auto; }
 .dupes-summary { margin-bottom: 8px; color: var(--text-2); }
 .dupe-group { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 8px; }
@@ -705,7 +710,9 @@ body.dropping .drop-hint { display: flex; }
 .import-cell span { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prop-iptc summary { cursor: pointer; font-size: 12px; color: var(--text-2); margin: 6px 0; }
 .keymap-scroll { max-height: 55vh; overflow: auto; }
-.keymap .key-button { min-width: 110px; justify-content: center; font-family: ui-monospace, Consolas, monospace; }
+.keymap th, .keymap td { overflow: visible; text-overflow: clip; white-space: normal; }
+.keymap td { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.keymap .key-button { flex: 1 1 160px; height: auto; min-height: 26px; min-width: 110px; justify-content: flex-start; white-space: normal; line-height: 1.35; padding-top: 4px; padding-bottom: 4px; text-align: left; font-family: ui-monospace, Consolas, monospace; }
 .keymap .key-button.on { border-color: var(--accent); color: var(--accent); }
 
 /* header: theme dropdown, language flag */
@@ -823,6 +830,11 @@ body.dialog-window { overflow: auto; background: var(--bg-2); }
 .dicom-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 4px 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .dicom-bar[hidden] { display: none; }
 .dicom-group { display: flex; align-items: center; gap: 4px; }
+.dicom-bar [data-dicom=cine] { background: #2f9e44; color: #fff; border-color: transparent; }
+.dicom-bar [data-dicom=cine] .icon { fill: currentColor; }
+.dicom-bar [data-dicom=cine]:hover:not(:disabled) { background: #248a38; color: #fff; }
+.dicom-bar [data-dicom=cine].playing { background: #e03131; color: #fff; }
+.dicom-bar [data-dicom=cine].playing:hover:not(:disabled) { background: #c92a2a; color: #fff; }
 .dicom-group select.input { height: 26px; max-width: 220px; }
 .dicom-label { color: var(--text-3); font-size: 12px; }
 .dicom-num { width: 70px; height: 26px; text-align: center; }
@@ -867,6 +879,7 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
   .mode-label { display: none; }
   .mode-button { padding: 0 8px; gap: 0; }
   .mode-button.start-home { padding: 0 8px; }
+  .mode-switch .classify-button { padding: 0 8px; gap: 6px; }
 }
 
 /* keyword tree in the catalog pane */
@@ -1047,7 +1060,7 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 .theme-mini-accent { position: absolute; left: 12px; bottom: 5px; width: 11px; height: 4px; border-radius: 2px; }
 .theme-mini.split { display: flex; }
 .theme-mini.split > span { flex: 1; }
-.theme-card-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.theme-card-name { min-width: 0; overflow: visible; white-space: normal; line-height: 1.25; font-size: 12px; }
 
 /* folder tiles: the icon box fills the thumbnail so the folder sits centred above its name */
 .tile-thumb > .tile-icon.folder, .tiles-media > .tile-icon.folder { width: 100%; height: 100%; align-items: center; justify-content: center; }
@@ -1102,9 +1115,10 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 .dicom-tags-top input { flex: 1; }
 
 /* About: supported formats */
-.about-formats { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
-.about-formats-title { font-weight: 700; margin-bottom: 2px; }
-.about-format-row { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: start; }
+.about-formats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; border-top: 1px solid var(--line); padding-top: 10px; }
+.about-formats-title { grid-column: 1 / -1; font-weight: 700; margin-bottom: 2px; }
+.about-format-row { display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px; align-items: center; }
+.about-format-row.wide { grid-column: 1 / -1; }
 .about-format-row .about-key { font-size: 12px; padding-top: 2px; }
 .about-exts { display: flex; flex-wrap: wrap; gap: 3px; }
 .ext-chip { font-size: 10px; line-height: 16px; padding: 0 5px; border-radius: 4px; background: var(--bg-3); color: var(--text-2); font-family: ui-monospace, Consolas, monospace; }

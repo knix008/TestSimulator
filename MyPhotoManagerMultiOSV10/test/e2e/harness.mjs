@@ -69,6 +69,7 @@ export class App {
       try { await (await fetch(`http://localhost:${DEV_PORT}${file}`, { signal: AbortSignal.timeout(60000) })).text(); } catch { /* reported by the load */ }
     }
     await this.launch([this.photos]);
+    this.launchArgs = [this.photos];
     return this;
   }
 
@@ -91,7 +92,7 @@ export class App {
     if (!this.options.analysis) await this.main.eval('window.__myphoto?.analysis?.suspendAuto(true); 1').catch(() => {});
   }
 
-  async restart(args = []) {
+  async restart(args = this.launchArgs ?? []) {
     this.main?.close();
     await this.kill();
     await this.launch(args);

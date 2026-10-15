@@ -223,11 +223,14 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       return { el: video, width: video.videoWidth || 1280, height: video.videoHeight || 720, kind };
     }
     if (kind === 'native' || kind === 'svg') {
-      const img = h('img.viewer-media', { crossOrigin: 'anonymous', src: await fs.url(item.path), alt: item.name, draggable: false, decoding: 'async' });
+      const url = await fs.objectUrl(item.path);
+      const img = h('img.viewer-media', { crossOrigin: 'anonymous', src: url, alt: item.name, draggable: false, decoding: 'async' });
       try {
         await img.decode();
+        URL.revokeObjectURL(url);
         return { el: img, width: img.naturalWidth || 1024, height: img.naturalHeight || 768, kind };
       } catch {
+        URL.revokeObjectURL(url);
         if (kind === 'svg') throw new Error(t('view.cannotOpen'));
         // Not decodable as-is (e.g. a JPEG the engine rejects): our decoder.
       }
@@ -327,8 +330,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       const item = list[index + d];
       if (!item) continue;
       const kind = kindOf(item.name);
-      if (kind === 'native') Promise.resolve(fs.url(item.path)).then((url) => { const img = new Image(); img.crossOrigin = 'anonymous'; img.decoding = 'async'; img.src = url; });
-      else if (kind && kind !== 'video' && kind !== 'svg' && !cache.has(item.path)) {
+      if (kind && kind !== 'video' && kind !== 'svg' && !cache.has(item.path)) {
         fs.read(item.path).then((bytes) => decodeImage(bytes, item.name)).then((decoded) => {
           const c = document.createElement('canvas');
           c.width = decoded.source.width;

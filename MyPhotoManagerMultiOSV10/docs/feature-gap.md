@@ -65,7 +65,7 @@
 | `ORG-PEOPLE-BROWSE` | 사람: 사람별 탐색·이름 바꾸기 | 단위 · 기능 E2E |
 | `ORG-PRIVATE` | 비공개 폴더(암호·암호화) | 기능 E2E |
 | `ORG-ANALYSIS` | 이미지 분석·자동 분류(인물·장면·객체, 백그라운드 워커) | 기능 E2E |
-| `ORG-ANALYSISFOLDERS` | 분류별 폴더로 정리(복사·이동) | 기능 E2E |
+| `ORG-ANALYSISFOLDERS` | 분류별로 모아서 보기(파일은 그대로, 폴더를 만들지 않음) | 기능 E2E |
 
 ### 메타데이터
 
@@ -124,7 +124,7 @@
 | `VIEW-DICOMSCALE` | DICOM 눈금자·축척 비율·실제 크기 | 기능 E2E |
 | `VIEW-DICOMANGLE` | DICOM 각도·Cobb 각 측정 | 기능 E2E |
 | `VIEW-DICOMCLICK` | DICOM 측정을 클릭으로(각도 세 번, 거리·Cobb 두 번) 또는 끌어서 | 기능 E2E |
-| `VIEW-DICOMGRID` | DICOM 5×5 격자(화면에 고정 — 확대·축소해도 같은 간격) 켜기/끄기 | 기능 E2E |
+| `VIEW-DICOMGRID` | DICOM 격자(눈금자와 같은 간격의 정사각형, 칸마다 5×5, 확대·축소를 따라감) 켜기/끄기 | 기능 E2E |
 | `VIEW-DICOMZOOM` | DICOM 막대의 축소·배율·확대와 축척 비율이 함께 바뀜 | 기능 E2E |
 | `VIEW-DICOMEXPORT` | DICOM 프레임(한 장 또는 전부)을 지원하는 모든 형식으로 내보내기 | 기능 E2E |
 | `VIEW-DICOMCINE` | DICOM 시네를 동영상으로 저장 | 기능 E2E |
@@ -240,7 +240,7 @@
 | `APP-THEMES` | 테마 40개(어둡게 20·밝게 20)·테마 버튼·드롭다운·사용자 정의 테마 | 단위 · 기능 E2E |
 | `APP-THEMETAB` | 설정의 테마 탭(미리 보기 카드) | 기능 E2E |
 | `APP-ABOUTFORMATS` | 정보 창: 지원하는 모든 파일 형식 | 기능 E2E |
-| `APP-HEADER` | 머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보 버튼 | 기능 E2E |
+| `APP-HEADER` | 머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보, 대시보드 왼쪽의 분류 버튼 | 기능 E2E |
 | `APP-MINWIDTH` | 창의 최소 폭이 툴바 단추가 모두 보이는 폭(모드마다 따라감) | 기능 E2E |
 | `APP-PANELS` | 좌우 패널: 제목(아이콘)·< > 로 접기·접었을 때 아이콘과 제목·툴바 보이기 버튼 | 기능 E2E |
 | `APP-WORKSPACE` | 작업 공간: 창 배치를 이름으로 저장·전환 | 기능 E2E |

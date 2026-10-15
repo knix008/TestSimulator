@@ -116,4 +116,6 @@ export default {
   // Shortcuts
   'keys.clear': 'No shortcut', 'keys.hint': 'Click a shortcut, then press the new key combination (Esc cancels).', 'keys.press': 'Press keys…', 'keys.reset': 'Default',
   'keys.resetAll': 'Restore all defaults', 'keys.saved': 'Shortcuts saved.', 'keys.title': 'Customize shortcuts…',
+
+  'analysis.browse': 'Categories',
 };

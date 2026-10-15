@@ -60,8 +60,10 @@ export async function startSlideshow(items, startIndex = 0) {
     const kind = kindOf(item.name);
     if (kind === 'video') return h('video.slide-media', { src: await fs.url(item.path), autoplay: true, muted: false, playsInline: true });
     if (kind === 'native' || kind === 'svg') {
-      const img = h('img.slide-media', { src: await fs.url(item.path), alt: '' });
-      await img.decode().catch(() => {});
+      const url = await fs.objectUrl(item.path);
+      const img = h('img.slide-media', { src: url, alt: '' });
+      try { await img.decode(); } catch { /* keep the element; the slide shows what it can */ }
+      URL.revokeObjectURL(url);
       return img;
     }
     const decoded = await decodeImage(await fs.read(item.path), item.name, { maxSize: Math.max(screen.width, screen.height) * (devicePixelRatio || 1) });

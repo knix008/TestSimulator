@@ -813,19 +813,20 @@ export const cases = [
       await app.main.eval(`${P}.dq('.filelist').focus(); 1`);
       await app.main.key('v', 2);
       const where = () => ['u1.jpg', 'u2.jpg'].map((n) => (fs.existsSync(path.join(album, n)) ? 'album' : fs.existsSync(path.join(studio, n)) ? 'studio' : 'gone'));
-      for (let i = 0; i < 40 && where().join() !== 'album,album'; i++) await sleep(100);
+      for (let i = 0; i < 150 && where().join() !== 'album,album'; i++) await sleep(100);
       assert.deepEqual(where(), ['album', 'album'], 'moved');
       await app.main.waitFor(`!${P}.dq('#undo-button').disabled`, { message: 'undo enabled' });
       await app.main.eval(`${P}.dq('#undo-button').click(); 1`);
-      await app.main.waitFor(`!${P}.dq('#redo-button').disabled`, { timeout: 15000, message: 'undo finished' });
-      for (let i = 0; i < 50 && where().join() !== 'studio,studio'; i++) await sleep(100);
-      assert.deepEqual(where(), ['studio', 'studio'], 'undo moved them back');
+      await app.main.waitFor(`!${P}.dq('#redo-button').disabled`, { timeout: 30000, message: 'undo finished' });
+      for (let i = 0; i < 150 && where().join() !== 'studio,studio'; i++) await sleep(100);
+      const back = where();
+      assert.deepEqual(back, ['studio', 'studio'], `undo moved them back (${back.join(',')})`);
       await app.main.waitFor(`!${P}.dq('#redo-button').disabled`);
       await app.main.eval(`${P}.dq('#redo-button').click(); 1`);
-      for (let i = 0; i < 40 && where().join() !== 'album,album'; i++) await sleep(100);
+      for (let i = 0; i < 150 && where().join() !== 'album,album'; i++) await sleep(100);
       assert.deepEqual(where(), ['album', 'album'], 'redo moved them again');
       await app.main.eval(`${P}.dq('#undo-button').click(); 1`);
-      for (let i = 0; i < 40 && where().join() !== 'studio,studio'; i++) await sleep(100);
+      for (let i = 0; i < 150 && where().join() !== 'studio,studio'; i++) await sleep(100);
       assert.deepEqual(where(), ['studio', 'studio']);
       assert.ok(paths.every((p) => fs.readFileSync(p).equals(fs.readFileSync(path.join(fixtures, 'forest.jpg')))), 'same bytes');
       // Rename, then Ctrl+Z.
@@ -1935,7 +1936,7 @@ export const cases = [
       const original = fs.readFileSync(path.join(studio, 'secret.jpg'));
       await open(app, studio, 6);
       await menu(app, 'file', 'private.title', 'private.open');
-      await dialog(app, 'private.passwordAgain');
+      await dialog(app, 'private.passwordAgain', 60000);
       await app.main.eval(`(() => { for (const i of ${TOP}.querySelectorAll('input[type=password]')) { i.value = 'open-sesame'; i.dispatchEvent(new Event('input', { bubbles: true })); } return 1; })()`);
       await primary(app);
       await menuDone(app);

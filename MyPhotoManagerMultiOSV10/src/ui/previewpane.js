@@ -36,12 +36,14 @@ export function createPreviewPane() {
     }
     // Native formats load directly; others use the (larger) cached thumbnail.
     let src = null;
-    if (kind === 'native' || kind === 'svg') src = await fs.url(item.path);
+    let revoke = false;
+    if (kind === 'native' || kind === 'svg') { src = await fs.objectUrl(item.path); revoke = true; }
     else src = (await thumbs.get(item, 10))?.url;
-    if (mine !== token || !src) return;
+    if (mine !== token || !src) { if (revoke && src) URL.revokeObjectURL(src); return; }
     const img = h('img', { crossOrigin: 'anonymous', src, alt: item.name, decoding: 'async' });
     frame.append(img);
-    img.addEventListener('load', () => { if (mine === token) drawHistogram(canvas, histogramOf(img)); }, { once: true });
+    img.addEventListener('load', () => { if (revoke) URL.revokeObjectURL(src); if (mine === token) drawHistogram(canvas, histogramOf(img)); }, { once: true });
+    img.addEventListener('error', () => { if (revoke) URL.revokeObjectURL(src); }, { once: true });
   }
 
   const later = debounce(() => { if (el.isConnected) render(); }, 120);
