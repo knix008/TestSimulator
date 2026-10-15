@@ -31,6 +31,8 @@
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
+    "pyodide": "^314.0.7",
+    "replicad-opencascadejs": "^1.1.0",
     "three": "^0.186.1"
   },
   "devDependencies": {

@@ -7,7 +7,7 @@ import { DrawingDocument } from './domain/document.js';
 import * as D from './domain/drawing.js';
 import { exportDxf, importDxf, looksLikeDxf } from './domain/dxf.js';
 import {
-  boxOfEntities, canExplode, createEntity, DIM_KINDS, normalizeEntity, dimText, entityDistance, explode, formatNumber, grips, inBox, LINE_TYPES, LINE_WIDTHS, measure, moveGrip, primitives, totalLength,
+  boxOfEntities, canExplode, createEntity, DIM_KINDS, normalizeEntity, dimText, entityDistance, explode, formatNumber, grips, inBox, LINE_TYPES, LINE_WIDTHS, measure, moveGrip, primitives, totalLength, transformEntity,
 } from './domain/entities.js';
 import { evaluate } from './domain/expr.js';
 import { startPageHtml } from './view/startpage.js';
@@ -20,25 +20,59 @@ import { displayUnit, evaluateLength, formatArea, formatLength, formatVolume, gr
 import {
   baseName, directoryOf, extensionOf, FormatError, isDrawingFileName, isDxfFileName, isImageFileName, isModelFileName, isTextFileName, parseFile, safeFileName, serialize, stripExtension, withExtension,
 } from './domain/format.js';
-import { boxCenter, boxHeight, boxWidth, dist, normalizeBox, polygonArea } from './domain/geometry.js';
+import { arcPoints, boxCenter, boxHeight, boxWidth, dist, normalizeBox, polygonArea } from './domain/geometry.js';
 import { booleanOf } from './domain/csg.js';
 import { exportMesh, importMesh, setBooleanImplementation } from './domain/exchange3d.js';
-import { canDressUp, DRESSUP_KINDS } from './domain/dressup.js';
-import { isGlobal, planeFrom, toPlane } from './domain/workplane.js';
+import { canDressUp, DRESSUP_EDGES, DRESSUP_KINDS } from './domain/dressup.js';
+import { frameMatrix, frameOnFace, isGlobal, planeFrom, toPlane } from './domain/workplane.js';
 import { BALLOON_SHAPES, GDT_MODIFIERS, GDT_SYMBOLS, LEADER_STYLES } from './domain/annotate.js';
 import { checkSolid, repairMesh } from './domain/meshcheck.js';
 import { nestPanels } from './domain/nesting.js';
-import { normalizeSpreadsheet, sheetCsv, sheetVariables } from './domain/spreadsheet.js';
+import { normalizeSpreadsheet, parseCsv, sheetCsv, sheetVariables } from './domain/spreadsheet.js';
 import { eulerTo, fitCylinder, fitPlane, fitSphere, meshFromPoints } from './domain/points.js';
 import { convexHull, placement, solidPoints } from './domain/solids.js';
 import { inverseKinematics, samplePath, toKrl, trajectory } from './domain/robot.js';
-import { JOINT_TYPES, makeJoint, poseOf } from './domain/assembly.js';
+import { composePose, placementOf as poseFields, ANIMATION_MODES, explodeDeltas, hasDrives, JOINT_TYPES, jointKeys, makeJoint, makeOrientedJoint, normalizeAnimation, ORIENTING, poseDelta, poseOf, solveAnimation } from './domain/assembly.js';
+import { followRobotTools } from './domain/robot.js';
 import { setVariables } from './domain/expr.js';
 import { decimateMesh } from './domain/features.js';
-import { camPaths, camSource, toGcode } from './domain/cam.js';
+import { CAM_3D, camPaths, camSource, toGcode } from './domain/cam.js';
+import { gridFor, heightField, simulate, stockMesh } from './domain/cam3d.js';
 import { analyzeFrame, autoScale, deformedShape, frameFrom, momentDiagram, normalizeFem } from './domain/fem.js';
 import { analyzePlate, normalizePlate, plateDeformed, platePeak, plateScale, plateSource } from './domain/plate.js';
-import { addConstraint, canConstrain, CONSTRAINT_TYPES, DIMENSIONAL, entityPoint, nearestPoints, pointsOf } from './domain/constraints.js';
+import { addConstraint, canConstrain, CONSTRAINT_TYPES, DIMENSIONAL, entityPoint, nearestPoints, pointsOf, UNITLESS, VIRTUAL_ENTITIES } from './domain/constraints.js';
+import { loadOcc, occDressEdges, occReady } from './domain/occ.js';
+import { loadPython, nextStep, pythonReady, runPython, tracePython } from './script/python.js';
+import { analyzeSolid, boundaryQuads, normalizeFem3d, parseCalculixDat, toCalculix } from './domain/fem3d.js';
+import { ADDON_CATALOG } from './script/addons.js';
+import { PYTHON_MODULES } from './script/python.js';
+import { stdCommands } from './commands/std.js';
+import { std2Commands, OVERLAY_SIDES, WORKBENCHES } from './commands/std2.js';
+import { modelTreeHtml } from './view/modeltree.js';
+import { testCommands, TEST_MENU } from './commands/test.js';
+import { partCommands } from './commands/part.js';
+import { partDesignCommands } from './commands/partdesign.js';
+import { sketcherCommands, sketchOverlayPrims, SKETCHER_MENU } from './commands/sketcher.js';
+import { draftCommands, DRAFT_MENU } from './commands/draft.js';
+import { meshCommands, MESH_MENU } from './commands/mesh.js';
+import { sheetCommands, SHEET_MENU } from './commands/sheet.js';
+import { assemblyCommands, ASSEMBLY_MENU } from './commands/assembly.js';
+import { openscadCommands, OPENSCAD_MENU } from './commands/openscad.js';
+import { camJobCommands, CAMJOB_MENU } from './commands/camjob.js';
+import { femxCommands, FEMX_MENU } from './commands/femx.js';
+import { techDrawCommands, TECHDRAW_MENU } from './commands/techdraw.js';
+import { bimCommands, BIM_MENU } from './commands/bim.js';
+import { elementName, matchElement, meshTopology } from './domain/topology.js';
+import { SURFACE_MODES } from './domain/surface.js';
+import { apply as apply3, bestFit as _bestFit, rotationOf, transformPlacement } from './domain/transform3d.js';
+import { massOf } from './domain/materials.js';
+import { buildPdf } from './domain/pdf.js';
+import { defaultPrintOptions, pageSvg, paginate, selectContent } from './domain/print.js';
+import { variableScope } from './domain/docextras.js';
+import { newId } from './domain/entities.js';
+import packageInfo from '../package.json';
+import { REVISION as THREE_REVISION } from 'three';
+import { resetSolidCaches } from './domain/solids.js';
 import { featureFrom, meshBox, normalizeSolidData, normalizeSolidParams, flattenTriangles, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh, solidProperties } from './domain/solids.js';
 import { ARCH_FROM_LINES, ARCH_FROM_OUTLINES, ARCH_INSERT_KINDS, archFrom, archQuantities, createBim, normalizeBim, defaultOpening, isArchKind, MATERIAL_PATTERNS, profileFromLoops, REBAR_HOSTS, wallLength, wallWidth } from './domain/arch.js';
 import { drawingViews, sectionOutlines, VIEW_NAMES } from './domain/views.js';
@@ -49,7 +83,7 @@ import { applyOrtho, findSnap, snapToGrid } from './domain/snap.js';
 import { exportSvg } from './domain/svg.js';
 import { buildShapes, collectLoops, prepareStl, toAsciiStl, toBase64, toBinaryStl } from './domain/stl.js';
 import { HATCH_PATTERN_NAMES } from './domain/hatch.js';
-import { loadSettings, RECENT_KEY, SESSION_KEY, SNAP_MODES, STORAGE_KEY, storeSettings, ZOOM } from './domain/settings.js';
+import { defaultSettings, loadSettings, normalizeSettings, RECENT_KEY, SESSION_KEY, SNAP_MODES, STORAGE_KEY, storeSettings, ZOOM } from './domain/settings.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
@@ -72,6 +106,8 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ 
 const isMac = /Mac/i.test(navigator.platform ?? '');
 const keyLabel = (key) => (isMac ? key.replace('Ctrl+', '⌘').replace('Shift+', '⇧').replace('Alt+', '⌥') : key);
 const fmt = (value, digits = 2) => formatNumber(value, digits);
+/** Assembly animation player: time (s), the joint values of the last frame (the next solve starts there). */
+const anim = { active: false, playing: false, time: 0, joints: null, frame: 0, last: 0, failed: [] };
 /** "V1.0": how the version is shown (title bar, About, start page). */
 const displayVersion = (version) => (version ? `V${String(version).split('.').slice(0, 2).join('.')}` : '');
 // 3D solid commands (FreeCAD Part workbench).
@@ -86,10 +122,19 @@ const VIEW_STYLE_IDS = ['asis', 'shaded', 'flat', 'clay', 'hidden', 'xray', 'ske
 const VIEW_STYLE_ICONS = { asis: 'styleAsIs', shaded: 'styleShaded', flat: 'styleFlat', clay: 'styleClay', hidden: 'styleHidden', xray: 'styleXray', sketch: 'styleSketch', wireframe: 'styleWire', mesh: 'polygon', points: 'stylePoints' };
 // BIM objects (FreeCAD BIM workbench): made from selected lines / outlines, or placed.
 const ARCH_SELECTION_KINDS = [...ARCH_FROM_LINES, ...ARCH_FROM_OUTLINES];
-const ARCH_MENU = ['arch:wall', 'arch:curtainwall', 'arch:window', 'arch:door', 'arch:customWindow', '-', 'arch:column', 'arch:beam', 'arch:slab', 'arch:stairs', 'arch:roof', 'arch:railing', '-', 'arch:rebar', 'arch:truss', 'arch:panel', 'arch:pipe', '-', 'arch:space', 'arch:equipment', 'arch:axis', '-', 'bimManager', 'editSolid', 'solidSection', 'solidProject', 'archSchedule', 'scheduleCsv', 'panelNest'];
+const ARCH_MENU = ['arch:wall', 'arch:curtainwall', group('openings', ['arch:window', 'arch:door', 'arch:customWindow']), '-', group('structure', ['arch:column', 'arch:beam', 'arch:slab', 'arch:stairs', 'arch:roof', 'arch:railing']), group('reinforce', ['arch:rebar', 'arch:truss', 'arch:panel', 'arch:pipe']), '-', 'arch:space', 'arch:equipment', 'arch:axis', '-', 'bimManager', 'editSolid', group('sections', ['solidSection', 'solidProject']), group('reports', ['archSchedule', 'scheduleCsv', 'panelNest']), '-',
+  group('bimTools', [group('bimComponents', BIM_MENU.components), group('bimStructure', BIM_MENU.structure), group('bimIfc', BIM_MENU.ifc), group('bimManage', BIM_MENU.manage), group('bimNudge', BIM_MENU.nudge), group('bimWorkPlane', BIM_MENU.workPlane)])];
+/** A submenu: a named group of commands opened in the same menu window. */
+function group(key, items) { return { group: key, items }; }
+/** Every command of a menu, its groups opened out. */
+function menuIds(items) { return items.flatMap((id) => (id?.group ? menuIds(id.items) : [id])); }
+
+/** Std_RestartInSafeMode: this run uses the default settings (the stored ones stay as they are). */
+const SAFE_MODE = (() => { try { return globalThis.sessionStorage?.getItem('mycad.safeMode') === '1'; } catch { return false; } })();
 
 const state = {
-  settings: loadSettings(globalThis.localStorage),
+  safeMode: SAFE_MODE,
+  settings: SAFE_MODE ? defaultSettings(loadSettings(globalThis.localStorage).language) : loadSettings(globalThis.localStorage),
   recent: loadRecent(globalThis.localStorage),
   docs: [],
   active: null,
@@ -245,6 +290,7 @@ function welcomeDrawing() {
 
 function activate_(id) {
   if (state.active !== id) {
+    if (anim.active) stopAnimation();
     cancelTool();
     state.selection = new Set();
   }
@@ -263,8 +309,27 @@ function activateDoc(id) {
 function change(labelKey, mutate) {
   const doc = activeDoc();
   if (!doc) return undefined;
+  if (anim.active) stopAnimation();
   const before = consoleState.recording ? doc.drawing.entities.map((e) => e.id) : null;
-  const result = doc.apply(t(labelKey), mutate);
+  // PartDesign: new solids join the active body. Sketcher: new 2D geometry joins the sketch being edited.
+  const body = state.activeBody && doc.drawing.groups?.some((g) => g.id === state.activeBody && g.body) ? state.activeBody : null;
+  const sketch = state.editSketch && doc.drawing.groups?.some((g) => g.id === state.editSketch && g.sketch) ? state.editSketch : null;
+  // Assembly_ActivateAssembly: new parts go into the active assembly (a body inside it takes them first).
+  const assembly = !body && state.activeAssembly && doc.drawing.groups?.some((g) => g.id === state.activeAssembly && g.assembly) ? state.activeAssembly : null;
+  // Draft_AutoGroup: everything new goes into the chosen group.
+  const auto = state.autoGroup && doc.drawing.groups?.some((g) => g.id === state.autoGroup) ? state.autoGroup : null;
+  const known = body || sketch || auto || assembly ? new Set(doc.drawing.entities.map((e) => e.id)) : null;
+  const result = doc.apply(t(labelKey), known ? (d) => {
+    const out = mutate(d);
+    for (const e of d.entities) {
+      if (known.has(e.id) || e.group) continue;
+      if (body && e.type === 'solid' && e.kind !== 'datum') e.group = body;
+      else if (assembly && e.type === 'solid' && e.kind !== 'datum') e.group = assembly;
+      else if (sketch && e.type !== 'solid') e.group = sketch;
+      else if (auto) e.group = auto;
+    }
+    return out;
+  } : mutate);
   if (before) recordAdded(before, doc.drawing.entities);
   pruneSelection();
   afterChange();
@@ -272,8 +337,10 @@ function change(labelKey, mutate) {
 }
 
 function afterChange() {
+  // An undocked 3D window (Std_ViewUndock) follows the drawing.
+  syncViewer();
   // Fields may use the spreadsheet's aliases and cells (=width*2).
-  setVariables(sheetVariables(activeDrawing()?.spreadsheet));
+  setExpressionScope();
   scheduleProblems();
   scheduleRender();
   schedule3d();
@@ -301,6 +368,13 @@ function select(ids, { toggle = false, add = false } = {}) {
     state.selection = new Set(ids);
   }
   if (state.selection.size) state.lightSelected = false;
+  // Picked faces, edges and vertices go with their objects.
+  if (state.elements?.length && state.elements.some((el) => !state.selection.has(el.id))) { state.elements = state.elements.filter((el) => state.selection.has(el.id)); view3d.instance?.setElementHighlight(state.elements); }
+  if (state.settings.tree?.recordSelection !== false) recordSelection();
+  // Std_TreeSyncSelection: the tree scrolls to what is selected.
+  if (state.settings.tree?.syncSelection !== false && state.selection.size) {
+    requestAnimationFrame(() => root.querySelector(`[data-tree-entity="${CSS.escape([...state.selection][0])}"]`)?.scrollIntoView({ block: 'nearest' }));
+  }
   scheduleRender();
   schedule3d();
   renderLeft();
@@ -353,9 +427,12 @@ const commands = {
   selectAll: { icon: 'selectAll', label: 'action.selectAll', key: 'Ctrl+A', enabled: hasDoc, run: () => select(D.editable(activeDrawing()).map((entity) => entity.id)) },
   clearSelection: { icon: 'close', label: 'action.clearSelection', key: 'Esc', enabled: hasSelection, run: () => select([]) },
   ...Object.fromEntries(CONSTRAINT_TYPES.map((type) => [`constrain:${type}`, { icon: `k${type[0].toUpperCase()}${type.slice(1)}`, label: `constraint.${type}`, tip: `constraintTip.${type}`, enabled: () => Boolean(constraintRefs(type)), run: () => constrainSelection(type) }])),
+  addons: { icon: 'part', label: 'action.addons', tip: 'tip.addons', enabled: () => true, run: () => openAddons() },
   fem: { icon: 'fem', label: 'action.fem', tip: 'tip.fem', enabled: hasDoc, run: () => openFem() },
+  fem3d: { icon: 'femSolid', label: 'action.fem3d', tip: 'tip.fem3d', enabled: () => selectedSolids().length === 1, run: () => openFem3d() },
   femPlate: { icon: 'femPlate', label: 'action.femPlate', tip: 'tip.femPlate', enabled: hasDoc, run: () => openPlate() },
   cam: { icon: 'cam', label: 'action.cam', tip: 'tip.cam', enabled: hasDoc, run: () => openCam() },
+  workPlaneFace: { icon: 'workPlane', label: 'action.workPlaneFace', tip: 'tip.workPlaneFace', enabled: hasDoc, run: () => pickWorkPlaneFace() },
   workPlaneReset: { icon: 'workPlane', label: 'action.workPlaneReset', enabled: () => Boolean(activeDrawing()?.workPlane), run: () => setWorkPlane(null) },
   construction: { icon: 'construction', label: 'action.construction', tip: 'tip.construction', enabled: () => selectedEntities().some((e) => e.type !== 'solid'), checked: () => { const list = selectedEntities(); return list.length > 0 && list.every((e) => e.construction); }, run: () => toggleConstruction() },
   clone: { icon: 'clone', label: 'action.clone', tip: 'tip.clone', enabled: hasSelection, run: () => cloneSelection() },
@@ -409,6 +486,7 @@ const commands = {
   bimManager: { icon: 'archBuilding', label: 'action.bimManager', enabled: hasDoc, run: () => openBimManager() },
   scheduleCsv: { icon: 'archSchedule', label: 'action.scheduleCsv', enabled: () => archObjects().length > 0, run: () => exportScheduleCsv() },
   ...Object.fromEntries(JOINT_TYPES.map((type) => [`joint:${type}`, { icon: `joint${type[0].toUpperCase()}${type.slice(1)}`, label: `joint.${type}`, tip: `jointTip.${type}`, enabled: () => selectedSolids().length === 2, run: () => addJoint(type) }])),
+  'assembly:animate': { icon: 'play', label: 'anim.play', tip: 'animTip.play', enabled: () => hasDrives(activeDrawing()?.joints), run: () => toggleAnimation() },
   'robot:add': { icon: 'robot', label: 'robot.add', tip: 'robotTip.add', enabled: hasDoc, run: () => addRobot() },
   'robot:moveTo': { icon: 'robotMove', label: 'robot.moveTo', tip: 'robotTip.moveTo', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotMoveTo() },
   'robot:path': { icon: 'robotPath', label: 'robot.path', tip: 'robotTip.path', enabled: () => Boolean(selectedRobot()) && robotTargets().length > 0, run: () => robotTrajectory() },
@@ -441,6 +519,17 @@ const commands = {
   ...Object.fromEntries(PART_KINDS.map((kind) => [`part:${kind}`, { icon: PARTS[kind].icon, label: `part.${kind}`, enabled: hasDoc, run: () => openPartDialog({ kind }) }])),
   ...Object.fromEntries(Object.keys(PART_CATEGORIES).map((category) => [`partCategory:${category}`, { icon: CATEGORY_ICONS[category], label: `cat.${category}`, enabled: hasDoc, run: () => openPartDialog({ category }) }])),
 };
+// The macro debugger (Python): run, stop at breakpoints, step into or over, stop.
+Object.assign(commands, {
+  macroStartDebug: { icon: 'debug', label: 'debug.start', run: () => startDebug() },
+  macroStepInto: { icon: 'stepInto', label: 'debug.stepInto', enabled: () => Boolean(consoleState.debug), run: () => debugMove('into') },
+  macroStepOver: { icon: 'stepOver', label: 'debug.stepOver', enabled: () => Boolean(consoleState.debug), run: () => debugMove('over') },
+  macroStopDebug: { icon: 'stop', label: 'debug.stop', enabled: () => Boolean(consoleState.debug), run: () => stopDebug() },
+  toggleBreakpoint: { icon: 'breakpoint', label: 'debug.breakpoint', run: () => toggleBreakpoint() },
+});
+// FreeCAD's Std commands (src/commands/std.js, std2.js): views, visibility, windows, document tools,
+// help; the model tree, links, transforms, materials, customising, overlays, workbenches.
+Object.assign(commands, stdCommands(stdApp()), std2Commands(stdApp()), testCommands(stdApp()), partCommands(stdApp()), partDesignCommands(stdApp()), sketcherCommands(stdApp()), draftCommands(stdApp()), meshCommands(stdApp()), sheetCommands(stdApp()), assemblyCommands(stdApp()), openscadCommands(stdApp()), camJobCommands(stdApp()), femxCommands(stdApp()), techDrawCommands(stdApp()), bimCommands(stdApp()));
 
 function commandEnabled(id) {
   const command = commands[id];
@@ -472,17 +561,20 @@ async function run(id, context) {
 // ───────────────────────── layout
 
 const MENUS = {
-  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveAll', '-', 'importDxf', 'import3d', '-', 'exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu', 'cam', '-', 'print', '-', 'closeTab', 'closeOthers', '-', 'exit'],
-  edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'clone', 'delete', '-', 'selectAll', 'clearSelection', '-', 'explode', 'bringFront', 'sendBack', '-', 'properties', 'spreadsheet'],
-  view: ['startPage', '-', 'view3d', 'view3dStyleMenu', 'extrude2d', '-', 'zoomIn', 'zoomOut', 'zoom100', 'zoomFit', '-', 'grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair', '-', 'leftPanel', 'rightPanel', 'statusBar', 'problems', 'console', 'toolbarRows', '-', 'theme', 'themeMenu', 'language', '-', 'background', 'clearBackground'],
-  draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', ...DIM_TOOLS.map((id) => `tool:${id}`)],
-  modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'clone', 'unlinkClone', 'explode', 'editPart', '-', 'tool:workPlane', 'workPlaneReset', '-', 'construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`), '-', 'addLayer', 'renameDrawing'],
+  file: ['new', 'open', 'recent', '-', 'save', 'saveAs', 'saveCopy', 'saveAll', 'revert', '-', 'importDxf', 'import3d', 'mergeDocument', group('export', ['exportDxf', 'exportDxf2000', 'exportSvg', 'exportIges', 'exportHpgl', 'exportPng', 'export3dMenu']), group('cam', ['cam', '-', group('camOps', CAMJOB_MENU.ops), group('camJob', CAMJOB_MENU.job), group('camDressups', CAMJOB_MENU.dressups), group('camTools', CAMJOB_MENU.tools)]), '-', 'print', 'printPdf', '-', 'closeTab', 'closeOthers', 'closeAll', '-', 'exit'],
+  edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', 'clone', 'delete', '-', 'selectAll', 'clearSelection', group('selection', ['selectionBack', 'selectionForward', '-', 'selectVisible', 'toggleSelectability']), '-', 'explode', 'bringFront', 'sendBack', '-', group('visibility', ['hideSelection', 'showSelection', 'toggleVisibility', '-', 'hideAll', 'showAll', 'toggleAll']), group('look', ['appearance', 'randomColor', 'toggleTransparency', '-', 'setMaterial', 'materialEditor', 'inspectMaterial', 'inspectAppearance', 'textureMapping']), group('objects', ['newGroup', 'newPart', 'textDocument', 'varSet', 'expressions', '-', 'recompute', 'skipRecompute', 'toggleFreeze']), group('links', ['linkMake', 'linkMakeGroup', 'linkMakeRelative', 'linkReplace', 'linkUnlink', '-', 'linkImport', 'linkImportAll', '-', 'linkSelectLinked', 'linkSelectLinkedFinal', 'linkSelectAllLinks']), group('placement', ['editObject', 'userEditMode', '-', 'transform', 'transformManip', 'alignTo', 'alignToSelection', '-', 'boxElementSelection', 'clarifySelection', 'toggleNavigation']), '-', 'properties', group('spreadsheet', ['spreadsheet', '-', ...SHEET_MENU])],
+  view: ['startPage', '-', 'view3d', 'view3dStyleMenu', 'extrude2d', '-', group('standardViews', ['viewFront', 'viewTop', 'viewRight', 'viewRear', 'viewBottom', 'viewLeft', '-', 'viewIsometric', 'viewDimetric', 'viewTrimetric', 'viewHome', '-', 'viewRotateLeft', 'viewRotateRight']), group('camera', ['cameraOrtho', 'cameraPerspective', '-', 'viewFitSelection', 'viewBoxZoom', '-', 'viewSaveCamera', 'viewRestoreCamera', 'storeWorkingView', 'recallWorkingView', 'freezeViews', 'issueCameraPosition']), group('viewTools', ['axisCross', 'selectionBox', 'clipPlane', 'demoMode', 'sceneInspector', '-', 'stereo:off', 'stereo:anaglyph', 'stereo:rows', 'stereo:columns', 'stereo:sideBySide', '-', 'viewVR']), group('zoom', ['zoomIn', 'zoomOut', 'zoom100', 'zoomFit']), group('show', ['grid', 'rulers', 'scaleBar', 'snap', 'snapGrid', 'ortho', 'lineWeights', 'crosshair']), group('panels', ['leftPanel', 'rightPanel', 'statusBar', 'problems', 'console', 'toolbarRows', '-', 'dockOverlay', 'dockOverlayAll', 'dockOverlayToggle', 'dockOverlay:left', 'dockOverlay:right', 'dockOverlay:top', 'dockOverlay:bottom', 'dockOverlayTransparent', 'dockOverlayTransparentAll', 'dockOverlayMouseTransparent']), group('tree', ['treeCollapse', 'treeExpand', 'treeCollapseDocument', 'treeSelection', 'treeSelectAllInstances', 'treeDrag', '-', 'tree:syncSelection', 'tree:syncView', 'tree:syncPlacement', 'tree:preSelection', 'tree:recordSelection', '-', 'treeSingleDocument', 'treeMultiDocument']), group('windows', ['windows', 'nextTab', 'prevTab', '-', 'newView3d', 'viewUndock', 'viewDock', 'tileWindows', 'cascadeWindows', '-', 'fullscreen', 'focusView']), 'workbench', '-', 'theme', 'themeMenu', 'language', '-', group('background', ['background', 'clearBackground'])],
+  draw: [...DRAW_TOOLS.filter((id) => id !== 'select' && id !== 'pan').map((id) => `tool:${id}`), '-', group('dimensions', DIM_TOOLS.map((id) => `tool:${id}`)), group('techDraw', [group('tdViews', TECHDRAW_MENU.views), group('tdCosmetic', TECHDRAW_MENU.cosmetic), group('tdDims', TECHDRAW_MENU.dims), group('tdPage', TECHDRAW_MENU.page)]), '-', group('sketchObject', SKETCHER_MENU.object), group('sketchCurves', SKETCHER_MENU.curves), group('draftDraw', DRAFT_MENU.draw)],
+  modify: ['tool:select', 'tool:pan', '-', ...MODIFY_TOOLS.map((id) => `tool:${id}`), '-', 'array', 'clone', 'unlinkClone', 'explode', 'editPart', '-', group('workPlane', ['tool:workPlane', 'workPlaneFace', 'workPlaneReset']), group('constraints', ['construction', '-', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`)]), group('sketchTools', [group('sketchConstraints', SKETCHER_MENU.constraints), group('sketchSelect', SKETCHER_MENU.select), group('sketchBspline', SKETCHER_MENU.bspline), group('sketchEdit', SKETCHER_MENU.edit), group('sketchShow', SKETCHER_MENU.show)]), group('draftTools', [group('draftModify', DRAFT_MENU.modify), group('draftArrays', DRAFT_MENU.arrays), group('draftOrganize', DRAFT_MENU.organize), group('draftSnaps', DRAFT_MENU.snaps)]), '-', 'addLayer', 'renameDrawing'],
   parts: Object.keys(PART_CATEGORIES).map((category) => `partCategory:${category}`),
-  solid: [...SOLID_KINDS.map((kind) => `solid:${kind}`), '-', ...FEATURE_KINDS.map((kind) => `solid:${kind}`), '-', ...BOOL_OPS.map((op) => `bool:${op}`), '-', ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), '-', 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'femPlate', '-', 're:plane', 're:sphere', 're:cylinder', 're:mesh', '-', ...JOINT_TYPES.map((type) => `joint:${type}`), '-', 'robot:add', 'robot:moveTo', 'robot:path', '-', 'solidSection', 'solidProject', 'editSolid', '-', 'import3d', 'export3dMenu'],
+  solid: [group('primitives', SOLID_KINDS.map((kind) => `solid:${kind}`)), group('features', FEATURE_KINDS.map((kind) => `solid:${kind}`)), group('body', ['pd:body', 'pd:migrate', 'pd:activeBody', '-', 'pd:moveTip', 'pd:moveFeature', 'pd:moveFeatureInTree']), group('patterns', ['pd:linearPattern', 'pd:polarPattern', 'pd:mirrored', 'pd:multiTransform']), group('subtractive', ['pd:subtractiveHelix', 'pd:subtractiveLoft', 'pd:subtractivePipe']), group('binders', ['pd:newSketch', 'pd:shapeBinder', 'pd:subShapeBinder']), '-', ...BOOL_OPS.map((op) => `bool:${op}`), group('compounds', ['part:compound', 'part:fragments', 'part:slice', 'part:sliceApart', 'part:xor', '-', 'part:joinConnect', 'part:joinEmbed', 'part:joinCutout', '-', 'part:compoundFilter']), group('dressup', DRESSUP_KINDS.map((kind) => `dress:${kind}`)), group('shapeOps', ['part:mirror', 'part:scale', 'part:refine', 'part:reverse', 'part:simpleCopy', 'part:transformedCopy', '-', 'part:shapeFromMesh', 'part:makeSolid', 'part:pointsFromShape', 'part:makeFace', 'part:builder', '-', 'part:elementCopy', 'part:colorPerFace', 'part:projectOnSurface', 'part:importCurveNet', 'part:pickCurveNet', '-', group('openscad', OPENSCAD_MENU)]), '-', group('selectElements', ['selectFilter:face', 'selectFilter:edge', 'selectFilter:vertex', 'selectFilter:off', '-', 'boxSelect3d']), group('datums', ['datum:plane', 'datum:line', 'datum:point', 'datum:csys', '-', 'attachment']), '-', group('analysis', ['checkGeometry', 'part:shapeInfo', 'part:tolerance', 'part:defeaturing', 'meshRepair', 'meshDecimate', '-', group('meshTools', MESH_MENU.mesh), '-', 'fem', 'femPlate', 'fem3d', group('femTools', [group('femConstraints', FEMX_MENU.constraints), group('femPhysics', FEMX_MENU.physics), group('femEquations', FEMX_MENU.equations), group('femMaterials', FEMX_MENU.materials), group('femMesh', FEMX_MENU.mesh), group('femSolve', FEMX_MENU.solve), group('femResults', FEMX_MENU.results)])]), group('reverse', ['re:plane', 're:sphere', 're:cylinder', 're:mesh', '-', group('reverseTools', MESH_MENU.reverse)]), '-', group('assembly', [...JOINT_TYPES.map((type) => `joint:${type}`), '-', 'assembly:animate', '-', group('assemblyTools', ASSEMBLY_MENU.assembly)]), group('robot', ['robot:add', 'robot:moveTo', 'robot:path', '-', ...ASSEMBLY_MENU.robot]), '-', group('sections', ['solidSection', 'solidProject', 'part:sectionCut', 'part:crossSections']), 'editSolid', '-', 'import3d', 'export3dMenu'],
   arch: ARCH_MENU,
-  help: ['tutorial', 'tutorialDoc', 'startPage', '-', 'freecadCoverage', '-', 'shortcuts', 'settings', '-', 'about'],
+  tools: ['unitsCalculator', 'dependencyGraph', 'documentUtility', '-', 'console', 'sendToConsole', 'macroFolder', 'recentMacros', 'addons', group('debugger', ['macroStartDebug', 'macroStepInto', 'macroStepOver', 'macroStopDebug', '-', 'toggleBreakpoint']), '-', 'parameters', 'customize', 'toolbarMenu', 'toggleToolbarLock', '-', 'whatsThis', 'reloadStyleSheet', 'settings', '-', 'restartSafeMode', 'leaveSafeMode'],
+  help: ['tutorial', 'tutorialDoc', 'usersGuide', 'devHandbook', 'pythonHelp', 'startPage', '-', 'freecadCoverage', group('selfTests', ['selfTest', 'selfTest:all', 'selfTest:allText', '-', 'testMenuShow']), '-', 'website', 'forum', 'reportBug', '-', 'shortcuts', 'settings', '-', 'libraries', 'about'],
+  // FreeCAD's Test workbench menu: shown with Help › Self-tests › Show the Test menu.
+  test: TEST_MENU,
 };
-const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'line', modify: 'move', parts: 'part', solid: 'solidBox', arch: 'archRoof', help: 'info' };
+const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', draw: 'line', modify: 'move', parts: 'part', solid: 'solidBox', arch: 'archRoof', tools: 'gear', help: 'info', test: 'checklist' };
 
 /** The standard toolbar (always in the first row). */
 const TOOLBAR_MAIN = [
@@ -500,7 +592,6 @@ const TOOLBAR_PART = [
   BOOL_OPS.map((op) => `bool:${op}`),
   DRESSUP_KINDS.map((kind) => `dress:${kind}`),
   ['solidSection', 'editSolid', 'checkGeometry'],
-  ['archMenu'],
 ];
 const TOOLBAR_PANELS = ['leftPanel', 'rightPanel', 'problems', 'toolbarRows'];
 
@@ -509,9 +600,18 @@ const TOOLBAR_PANELS = ['leftPanel', 'rightPanel', 'problems', 'toolbarRows'];
  * ("3D ▾"), so the window can stay narrow. Two rows (toolbar button): the
  * full Part toolbar gets the second row.
  */
+/** The toolbars that can be hidden (Std_ToolBarMenu) and moved (Std_ToggleToolBarLock), in their order. */
+const TOOLBAR_IDS = ['main', 'edit', 'clipboard', 'zoom', 'toggles', 'view3d', 'panels', 'custom'];
 function toolbarRows(rows = 1) {
-  if (rows === 2) return [[...TOOLBAR_MAIN, TOOLBAR_PANELS], TOOLBAR_PART];
-  return [[...TOOLBAR_MAIN, ['view3d', 'solidSplit'], TOOLBAR_PANELS]];
+  const hidden = new Set(state.settings.hiddenToolbars ?? []);
+  const groups = {
+    main: TOOLBAR_MAIN[0], edit: TOOLBAR_MAIN[1], clipboard: TOOLBAR_MAIN[2], zoom: TOOLBAR_MAIN[3], toggles: TOOLBAR_MAIN[4],
+    view3d: rows === 2 ? ['archMenu'] : ['view3d', 'solidSplit'], panels: TOOLBAR_PANELS,
+    custom: (state.settings.customToolbar ?? []).filter((id) => commands[id]),
+  };
+  const order = [...(state.settings.toolbarOrder ?? []).filter((id) => TOOLBAR_IDS.includes(id)), ...TOOLBAR_IDS.filter((id) => !(state.settings.toolbarOrder ?? []).includes(id))];
+  const first = order.filter((id) => !hidden.has(id) && groups[id].length).map((id) => Object.assign([...groups[id]], { toolbarId: id }));
+  return rows === 2 ? [first, TOOLBAR_PART] : [first];
 }
 /** Right end of the toolbar: theme (cycle + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
@@ -554,7 +654,7 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   // The house: back to the start page from anywhere (lit while it is shown).
   const home = `<button class="menubar-home ${state.home ? 'active' : ''}" data-command="startPage" title="${escapeHtml(t('action.startPage'))}" aria-label="${escapeHtml(t('action.startPage'))}" aria-pressed="${state.home}">${icon('home')}</button><span class="menubar-sep" aria-hidden="true"></span>`;
-  menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
+  menubar.innerHTML = home + Object.keys(MENUS).filter((name) => name !== 'test' || state.settings.testMenu).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
 }
 
@@ -582,7 +682,7 @@ function renderToolbar() {
     return plain(id);
   };
   toolbar.innerHTML = `<div class="toolbar-inner">
-    <div class="toolbar-left rows-${state.settings.toolbarRows}">${toolbarRows(state.settings.toolbarRows).map((row) => `<div class="toolbar-row">${row.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep" aria-hidden="true"></span>')}</div>`).join('')}</div>
+    <div class="toolbar-left rows-${state.settings.toolbarRows} ${state.settings.toolbarLocked === false ? 'unlocked' : ''}">${toolbarRows(state.settings.toolbarRows).map((row) => `<div class="toolbar-row">${row.map((group) => `<div class="tool-group" ${group.toolbarId ? `data-toolbar-id="${group.toolbarId}" ${state.settings.toolbarLocked === false ? 'draggable="true"' : ''}` : ''}>${group.map(button).join('')}</div>`).join('<span class="tool-sep" aria-hidden="true"></span>')}</div>`).join('')}</div>
     <span class="grow"></span>
     <div class="toolbar-right tool-group">${TOOLBAR_RIGHT.map(button).join('')}</div>
   </div>`;
@@ -739,12 +839,13 @@ function renderLeft() {
       <button class="icon-button" data-sections="collapse" title="${escapeHtml(t('panel.collapseAll'))}" aria-label="${escapeHtml(t('panel.collapseAll'))}">${icon('collapseAll')}</button>
       <button class="icon-button" data-panel-toggle="left" title="${escapeHtml(t('panel.collapseLeft'))}" aria-label="${escapeHtml(t('panel.collapseLeft'))}">${icon('chevronLeft')}</button></div>
     <div class="panel-scroll">
-      ${LEFT_SECTIONS.filter((section) => section.id !== 'building' || drawing?.bim).map((section) => leftSection(section, drawing)).join('')}
+      ${LEFT_SECTIONS.filter((section) => (section.id !== 'building' || drawing?.bim) && workbenchShows(section.id)).map((section) => leftSection(section, drawing)).join('')}
     </div>`;
 }
 
 /** The left panel's sections, by kind of work. Each folds and unfolds; the state is remembered. */
 const LEFT_SECTIONS = [
+  { id: 'model', glyph: 'tree', title: 'std.panelModel' },
   { id: 'draw', glyph: 'line', title: 'panel.draw' },
   { id: 'dims', glyph: 'dimension', title: 'panel.dimensions' },
   { id: 'modify', glyph: 'move', title: 'panel.modify' },
@@ -766,9 +867,10 @@ function leftSectionBody(id, drawing) {
     case 'modify': return `<div class="tool-grid">${MODIFY_TOOLS.map(toolTile).join('')}${commandTiles(['array', 'clone', 'explode'])}</div>${toolOptionsHtml()}`;
     case 'sketch': return `<div class="tool-grid">${commandTiles(['construction', ...CONSTRAINT_TYPES.map((type) => `constrain:${type}`)])}</div>${constraintStatusHtml()}<p class="panel-hint">${t('constraint.hint')}</p>`;
     case 'solids': return `<div class="tool-grid solids-grid">${commandTiles(SOLID_KINDS.map((kind) => `solid:${kind}`))}</div>`;
-    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'femPlate', 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
-    case 'arch': return `<div class="tool-grid solids-grid">${commandTiles(ARCH_MENU.filter((id) => id !== '-' && !['editSolid', 'solidSection', 'solidProject', 'bimManager'].includes(id)))}</div>`;
+    case 'solidOps': return `<div class="tool-grid solids-grid">${commandTiles([...FEATURE_KINDS.map((kind) => `solid:${kind}`), ...BOOL_OPS.map((op) => `bool:${op}`), ...DRESSUP_KINDS.map((kind) => `dress:${kind}`), 'checkGeometry', 'meshRepair', 'meshDecimate', 'fem', 'femPlate', 'fem3d', 'solidSection', 'solidProject', 'editSolid', 'import3d'])}</div><p class="panel-hint">${t('solid.panelHint')}</p>`;
+    case 'arch': return `<div class="tool-grid solids-grid">${commandTiles(menuIds(ARCH_MENU).filter((id) => id !== '-' && !id.startsWith('bim:') && !['editSolid', 'solidSection', 'solidProject', 'bimManager'].includes(id)))}</div>`;
     case 'building': return buildingTreeHtml(drawing);
+    case 'model': return modelTreeHtml(treeApi());
     case 'parts': return `<div class="part-categories" role="tablist">${Object.keys(PART_CATEGORIES).map((category) => `<button class="icon-button ${state.partCategory === category ? 'active' : ''}" role="tab" aria-selected="${state.partCategory === category}" data-part-category="${category}" title="${escapeHtml(t(`cat.${category}`))}" aria-label="${escapeHtml(t(`cat.${category}`))}">${icon(CATEGORY_ICONS[category])}</button>`).join('')}<span class="part-category-name">${escapeHtml(t(`cat.${state.partCategory}`))}</span></div>
         <div class="tool-grid parts-grid">${PART_CATEGORIES[state.partCategory].map((kind) => tile(`part:${kind}`, PARTS[kind].icon, t(`part.${kind}`), t('part.tileTip', { name: t(`part.${kind}`) }), `data-part="${kind}" ${drawing ? '' : 'disabled'}`)).join('')}</div>
         <p class="panel-hint">${t('part.hint')}</p>`;
@@ -936,11 +1038,12 @@ function view3dBar() {
 function renderView3dBar() {
   const container = root.querySelector('#view3d');
   if (!container || container.hidden) return;
-  container.querySelectorAll('.view3d-bar, .view3d-status').forEach((element) => element.remove());
-  container.insertAdjacentHTML('beforeend', view3dBar());
+  container.querySelectorAll('.view3d-bar, .view3d-status, .anim-bar').forEach((element) => element.remove());
+  container.insertAdjacentHTML('beforeend', view3dBar() + animationBar());
 }
 
 async function toggle3d(on = !state.view3d) {
+  if (!on && anim.active) stopAnimation();
   state.view3d = on;
   const container = root.querySelector('#view3d');
   const canvas = root.querySelector('#cad-canvas');
@@ -969,8 +1072,19 @@ async function toggle3d(on = !state.view3d) {
           change('op.move3d', (d) => D.updateEntity(d, id, { x: (entity.x ?? 0) + dx, y: (entity.y ?? 0) + dy, z: (entity.z ?? 0) + dz, rz: (entity.rz ?? 0) + drz }));
         },
         // Clicking a solid in 3D selects it (Shift/Ctrl adds), so its properties show on the right.
-        onPick: (id, event) => {
+        onPick: (id, event, hit) => {
           state.lightSelected = false;
+          if (hit) state.lastPick = { point: hit.point, normal: hit.normal, id };
+          // Std_Alignment: clicks on the two solids give the point pairs.
+          if (state.align) {
+            if (!hit || (id !== state.align.movable && id !== state.align.fixed)) { notify('info', t('std.alignClickSolids')); return; }
+            (id === state.align.movable ? state.align.from : state.align.to).push(hit.point);
+            state.align.refresh?.();
+            return;
+          }
+          // Std_ToggleNavigation: clicks only move the view.
+          if (state.navigationOnly) return;
+          if (state.pickFace) { state.pickFace = false; view3d.instance.canvas.classList.remove('edge-pick'); if (hit) setWorkPlaneFace(hit.point, hit.normal); else notify('info', t('wp.faceNone')); return; }
           if (!id) { if (!event.shiftKey && !event.ctrlKey) select([]); else renderRight(); return; }
           select([id], { toggle: event.shiftKey || event.ctrlKey });
         },
@@ -993,14 +1107,28 @@ function resize3d() {
   const wrap = root.querySelector('#canvas-wrap');
   if (!view3d.instance || !wrap) return;
   const rect = wrap.getBoundingClientRect();
-  view3d.instance.resize(rect.width, rect.height);
+  view3d.instance.resize(state.tiled ? Math.floor(rect.width / 2) - 2 : rect.width, rect.height);
 }
 
 function rebuild3d() {
   const doc = activeDoc();
   if (!state.view3d || !view3d.instance || !doc) return null;
-  view3d.info = view3d.instance.update(doc.drawing, { thickness: state.settings.extrudeHeight, colors: colors3d(), extrude2d: state.settings.extrude2d, selected: state.selection, axisLabelScale: state.settings.axisLabelSize / 100 });
+  // Picking edges of a solid that is gone or no longer selected ends it.
+  if (state.edgePick && !(state.selection.has(state.edgePick) && D.findEntity(doc.drawing, state.edgePick))) { state.edgePick = null; view3d.instance.setEdgeOverlay(null); }
+  const frame = doc.drawing.workPlane?.frame;
+  view3d.info = view3d.instance.update(doc.drawing, { thickness: state.settings.extrudeHeight, colors: colors3d(), extrude2d: state.settings.extrude2d, selected: state.selection, axisLabelScale: state.settings.axisLabelSize / 100, plane: frame ? frameMatrix(frame) : null });
+  // The picked elements, found again on the rebuilt meshes.
+  if (state.elements?.length) {
+    state.elements = state.elements.map((el) => { const topology = view3d.instance.topologyOf(el.id); const index = topology ? matchElement(topology, el.kind, el.signature) : -1; return index >= 0 ? { ...el, index } : null; }).filter(Boolean);
+    view3d.instance.setElementHighlight(state.elements);
+  }
+  view3d.instance.setElementMode(state.elementFilter ?? null, onElementPick);
+  // Assembly_CreateView: the parts shown pulled apart (the drawing itself stays).
+  if (doc.drawing.exploded && !anim.active) view3d.instance.setPoses(explodeDeltas(doc.drawing.entities.filter((e) => e.type === 'solid' && e.kind !== 'datum'), doc.drawing.exploded.factor, (e) => { const tris = view3d.instance.entityTris?.get(e.id); if (!tris?.length) return null; const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity]; for (const tri of tris) for (const p of tri) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } return lo.map((v, k) => (v + hi[k]) / 2); }));
+  // Another drawing: framed afresh (a room and a gear are not seen from the same place).
+  if (view3d.docId !== doc.id) { if (view3d.docId) view3d.instance.view('iso'); view3d.docId = doc.id; }
   renderView3dBar();
+  if (state.edgePick) showEdgeOverlay();
   return view3d.info;
 }
 
@@ -1013,7 +1141,8 @@ function setView3dStyle(style) {
 }
 
 function schedule3d() {
-  if (!state.view3d || view3d.frame) return;
+  // Std_ToggleSkipRecompute: the model is not rebuilt until a recompute.
+  if (!state.view3d || view3d.frame || state.skipRecompute) return;
   view3d.frame = requestAnimationFrame(() => { view3d.frame = 0; rebuild3d(); });
 }
 
@@ -1088,6 +1217,26 @@ function showHome(on = true) {
 }
 
 /** The sample list (samples/index.json), loaded once. */
+/**
+ * The OpenCASCADE kernel (exact booleans, fillets, STEP surfaces) loads in the
+ * background; booleans and dress-ups use the mesh kernel until it is there,
+ * then everything is meshed again from the exact shapes.
+ */
+function startKernel() {
+  state.kernel = 'loading';
+  return import('replicad-opencascadejs/wasm?url')
+    .then(({ default: wasm }) => loadOcc({ locateFile: () => wasm }))
+    .then(() => {
+      state.kernel = 'occ';
+      resetSolidCaches();
+      drawCanvas();
+      rebuild3d();
+      renderStatus();
+      return true;
+    })
+    .catch((error) => { state.kernel = 'mesh'; console.warn('OpenCASCADE did not load:', error); return false; });
+}
+
 function loadSamples() {
   if (state.samples || state.samplesLoading) return state.samplesLoading;
   state.samplesLoading = fetch('samples/index.json', { cache: 'no-store' })
@@ -1125,6 +1274,8 @@ function openSample(file) {
       state.home = false;
       renderAll();
       notify('success', t('notice.sampleOpened', { name: baseName(file) }));
+      // A moving sample shows itself moving.
+      if (hasDrives(doc?.drawing?.joints)) await toggleAnimation(true);
       return doc;
     } catch (error) {
       showError('error.open', error, file);
@@ -1412,6 +1563,13 @@ function tutorialApi() {
     notice: () => state.notice?.text ?? '',
     activeFormat: () => activeDoc()?.format ?? null,
     onTutorial(on) { root.classList.toggle('tutorial-on', on); },
+    // The newer lessons (assembly, exact solids, CAM, FEM, Python).
+    toggleAnimation: (on) => toggleAnimation(on), stopAnimation: () => stopAnimation(), animState: () => ({ ...anim }),
+    addJoint: (type) => addJoint(type), setJointDrive: (id, part, value) => setJointDrive(id, part, value),
+    dressUp: (kind, params) => dressUp(kind, params), toggleEdgePick: (on) => toggleEdgePick(on), toggleEdge: (id, edge) => toggleEdge(id, edge),
+    openCam: (options) => openCam(options), openPlate: (result) => openPlate(result), openFem3d: (result) => openFem3d(result),
+    runScript: (code, options) => runScript(code, options), toggle3d: (on) => toggle3d(on), view3d: () => view3d.instance,
+    kernelReady: () => occReady(), addEntity: (type, data) => change(`op.${type}`, (d) => D.addEntity(d, type, data)),
   };
 }
 
@@ -1482,6 +1640,8 @@ function drawCanvas() {
     drawing, vp, colors, settings: state.settings, selection: state.selection, hover: state.hover, previews, previewPrims,
     box: drag?.kind === 'box' && drag.started ? { a: drag.start, b: drag.current, crossing: drag.current.x < drag.start.x } : null,
     snap: state.snap, cursor: state.cursor, dpr: canvasState.dpr, gripHover: state.gripHover, showCrosshair: !canvasState.drag || canvasState.drag.kind !== 'pan',
+    overlayPrims: sketchOverlayPrims(drawing, state.settings, { size: 4 / vp.zoom, refs: state.sketchRefs ?? [], selection: state.settings.subelementHighlight ? selectedEntities() : [] }), pickedConstraints: new Set(state.constraintSelection ?? []),
+    liveLabel: state.settings.snapDimensions && state.live ? readout(state.live, Math.max(2, state.settings.dimPrecision)) : null,
   });
   canvasState.lastDrawn = result.drawn;
   canvasState.gridStep = result.gridStep;
@@ -1610,7 +1770,9 @@ function resizeCanvas() {
   const area = root.querySelector('#canvas-wrap');
   const canvas = root.querySelector('#cad-canvas');
   if (!area || !canvas) return;
-  const rect = area.getBoundingClientRect();
+  const full = area.getBoundingClientRect();
+  // Std_TileWindows: the drawing on the left half, the 3D view on the right.
+  const rect = state.tiled ? { width: Math.floor(full.width / 2) - 2, height: full.height } : full;
   const dpr = window.devicePixelRatio || 1;
   canvasState.dpr = dpr;
   canvasState.vpSize = { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
@@ -1666,10 +1828,11 @@ function snappedPoint(raw, { base = null, exclude = new Set(), useSnap = true } 
   const doc = activeDoc();
   const s = state.settings;
   let snap = null;
-  if (useSnap && s.snapObject) snap = findSnap(D.editable(doc.drawing), raw, 10 / doc.vp.zoom, s.snapModes, { exclude });
+  if (useSnap && s.snapObject) snap = findSnap(D.editable(doc.drawing), raw, 10 / doc.vp.zoom, s.snapModes, { exclude, base: base ?? state.tool?.base?.() ?? null });
   let p = snap ? { x: snap.x, y: snap.y } : raw;
   if (!snap && s.snapGrid) {
-    p = snapToGrid(raw, gridBaseFor(doc.drawing.grid?.size || s.gridSize), doc.drawing.workPlane ?? null);
+    // Draft_Snap_WorkingPlane: the grid of the working plane (on), or of the drawing's own axes (off).
+    p = snapToGrid(raw, gridBaseFor(doc.drawing.grid?.size || s.gridSize), s.snapWorkingPlane === false ? null : doc.drawing.workPlane ?? null);
     snap = { kind: 'grid', ...p };
   }
   if (!snap && base && s.ortho) p = applyOrtho(base, p, doc.drawing.workPlane ?? null);
@@ -2042,6 +2205,15 @@ function renderRightContent(panel, selection) {
   const drawing = activeDrawing();
   if (!drawing) { panel.innerHTML = ''; return; }
   const head = (glyph, title) => `<h3>${icon(glyph)}<span>${escapeHtml(title)}</span></h3>`;
+  renderRightContentInner(panel, selection, drawing, head);
+  // The picked faces, edges and vertices (FreeCAD: Box › Face3).
+  if (state.elements?.length) {
+    panel.insertAdjacentHTML('afterbegin', `<section class="panel-section props elements-list" data-props="elements">${head('selectFace', t('part.elements', { count: state.elements.length }))}
+      <ul class="element-rows">${state.elements.map((el) => `<li>${icon(el.kind === 'face' ? 'selectFace' : el.kind === 'edge' ? 'selectEdge' : 'selectVertex')}<span>${escapeHtml(`${labelOf(D.findEntity(drawing, el.id) ?? { type: 'solid', name: el.id })} › ${elementName(el.kind, el.index)}`)}</span></li>`).join('')}</ul></section>`);
+  }
+}
+
+function renderRightContentInner(panel, selection, drawing, head) {
   if (state.lightSelected && state.view3d) {
     const l = state.settings.light;
     const check = (key, label) => `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><input type="checkbox" data-light-bool="${key}" ${l[key] ? 'checked' : ''} title="${escapeHtml(label)}" /></label>`;
@@ -2118,8 +2290,9 @@ function renderRightContent(panel, selection) {
     <label class="prop-block" title="${escapeHtml(t('prop.description'))}"><span class="prop-label">${icon('list')}${t('prop.description')}</span><textarea data-drawing="description" rows="3" title="${escapeHtml(t('prop.description'))}">${escapeHtml(drawing.description)}</textarea></label>
       ${numField('gridSize', drawing.grid.size, t('prop.gridSize'), 'mm', 'data-drawing-num')}
       <h4>${icon('workPlane')}<span>${t('wp.title')}</span></h4>
+      ${drawing.workPlane?.frame ? `<p class="panel-hint" id="wp-face">${escapeHtml(t('wp.onFace', { x: fmt(drawing.workPlane.frame.origin[0], 1), y: fmt(drawing.workPlane.frame.origin[1], 1), z: fmt(drawing.workPlane.frame.origin[2], 1), n: drawing.workPlane.frame.z.map((v) => fmt(v, 2)).join(', ') }))}</p>` : ''}
       ${numField('wp.x', drawing.workPlane?.x ?? 0, t('wp.x'), 'mm', 'data-drawing-wp')}${numField('wp.y', drawing.workPlane?.y ?? 0, t('wp.y'), 'mm', 'data-drawing-wp')}${numField('wp.angle', drawing.workPlane?.angle ?? 0, t('wp.angle'), '°', 'data-drawing-wp')}${numField('wp.z', drawing.workPlane?.z ?? 0, t('wp.z'), 'mm', 'data-drawing-wp')}
-      <div class="prop-actions"><button class="small-button" data-command="tool:workPlane" title="${escapeHtml(t('tool.workPlane'))}">${icon('workPlane')}<span>${t('wp.pick')}</span></button><button class="small-button" data-command="workPlaneReset" title="${escapeHtml(t('action.workPlaneReset'))}" ${drawing.workPlane ? '' : 'disabled'}>${icon('home')}<span>${t('wp.reset')}</span></button></div>
+      <div class="prop-actions"><button class="small-button" data-command="tool:workPlane" title="${escapeHtml(t('tool.workPlane'))}">${icon('workPlane')}<span>${t('wp.pick')}</span></button><button class="small-button" data-command="workPlaneFace" title="${escapeHtml(t('tip.workPlaneFace'))}">${icon('solidBox')}<span>${t('wp.face')}</span></button><button class="small-button" data-command="workPlaneReset" title="${escapeHtml(t('action.workPlaneReset'))}" ${drawing.workPlane ? '' : 'disabled'}>${icon('home')}<span>${t('wp.reset')}</span></button></div>
     <h4>${icon('pageSetup')}<span>${t('props.titleBlock')}</span></h4>
     ${field('sheet.number', t('prop.number'), drawing.sheet.number, 'list')}
     ${field('sheet.material', t('prop.material'), drawing.sheet.material, 'part')}
@@ -2228,6 +2401,20 @@ function onPropertyChange(target) {
     change('op.material', (d) => D.updateEntity(d, entity.id, { material: material ? { ...material } : null }));
     return;
   }
+  if (target.dataset.jointDrive) {
+    const [id, part] = target.dataset.jointDrive.split(':');
+    const value = number(target.value);
+    if (value === null) return;
+    setJointDrive(id, part, value);
+    return;
+  }
+  if (target.dataset.jointFollow !== undefined) { setJointFollow(target.dataset.jointFollow, target.value || null); return; }
+  if (target.dataset.jointRatio) {
+    const value = number(target.value);
+    if (value === null) return;
+    setJointFollow(target.dataset.jointRatio, undefined, value);
+    return;
+  }
   if (target.dataset.jointValue) {
     const [id, key] = target.dataset.jointValue.split(':');
     const value = number(target.value);
@@ -2261,7 +2448,7 @@ function onPropertyChange(target) {
   }
   if (target.dataset.constraintValue) {
     const c = activeDrawing()?.constraints?.find((k) => k.id === target.dataset.constraintValue);
-    const value = c?.type === 'angle' ? Number(evaluate(target.value)) : number(target.value);
+    const value = UNITLESS.includes(c?.type) ? Number(evaluate(target.value)) : number(target.value);
     if (!c || !Number.isFinite(value) || value < 0) return;
     change('op.constrain', (d) => { d.constraints.find((k) => k.id === c.id).value = value; });
     if (activeDoc()?.constraintStatus?.status === 'conflict') notify('error', t('constraint.conflict'));
@@ -2379,6 +2566,8 @@ function scriptApi() {
     select: (v) => { select(ids(v ?? [])); return selectedIds(); },
     selection: () => selectedIds(),
     measure: (id) => { const e = D.findEntity(doc().drawing, id); return e ? measure(e) : null; },
+    // Volume, area and size of a solid description (exact with the OpenCASCADE kernel).
+    properties: (spec) => solidProperties(normalizeEntity({ type: 'solid', ...spec })),
     run: (id) => {
       if (!commands[id]) throw new Error(t('console.noCommand', { id }));
       return run(id);
@@ -2391,11 +2580,36 @@ function scriptApi() {
   return Object.freeze(api);
 }
 
-/** Runs script text with `cad` (and `print`); await works at the top level. */
-async function runScript(code, { echo = true } = {}) {
+/** Where Python's files are: next to the app (dist/pyodide) or, while developing, in node_modules. */
+const pythonHome = () => (import.meta.env.DEV ? new URL('/node_modules/pyodide/', location.href).href : new URL('./pyodide/', location.href).href);
+
+/** Python (Pyodide) — loaded on first use; the console says so while it loads. */
+async function ensurePython() {
+  if (pythonReady()) return true;
+  consoleLog('info', t('console.pythonLoading'));
+  try { await loadPython(pythonHome()); consoleLog('info', t('console.pythonReady')); return true; } catch (error) { consoleLog('error', t('console.pythonFailed', { error: error?.message ?? error })); return false; }
+}
+
+/** Runs script text — JavaScript with `cad`, or Python with `mycad` and the FreeCAD / Part modules. */
+async function runScript(code, { echo = true, language = state.settings.consoleLanguage } = {}) {
   const text = String(code ?? '').trim();
   if (!text) return undefined;
   if (echo) consoleLog('in', text);
+  if (language === 'python') {
+    if (!(await ensurePython())) return undefined;
+    consoleState.running = true;
+    try {
+      const value = await runPython(text, scriptApi(), (kind, line) => consoleLog(kind, line));
+      if (value !== undefined) consoleLog('value', value);
+      return value;
+    } catch (error) {
+      // The last lines of the Python traceback are the useful ones.
+      consoleLog('error', String(error?.message ?? error).trim().split('\n').slice(-3).join('\n'));
+      return undefined;
+    } finally {
+      consoleState.running = false;
+    }
+  }
   consoleState.running = true;
   try {
     const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
@@ -2414,10 +2628,101 @@ async function runScript(code, { echo = true } = {}) {
   }
 }
 
+// ───────────────────────── macro debugger (Std_MacroStartDebug, StepInto, StepOver, StopDebug, ToggleBreakpoint)
+
+/** The editor line the caret is on (1-based). */
+function caretLine() {
+  const code = root.querySelector('#console-code');
+  if (!code) return 1;
+  return code.value.slice(0, code.selectionStart).split('\n').length;
+}
+
+/** Std_ToggleBreakpoint: a breakpoint on the editor's current line. */
+function toggleBreakpoint() {
+  if (!state.settings.showConsole) updateSettings({ showConsole: true });
+  const line = caretLine();
+  consoleState.breakpoints ??= new Set();
+  if (consoleState.breakpoints.has(line)) consoleState.breakpoints.delete(line); else consoleState.breakpoints.add(line);
+  renderConsole();
+}
+
+/** Std_MacroStartDebug: runs the editor's Python under the tracer, then stops at the first breakpoint (or the first line). A running session continues to the next breakpoint. */
+async function startDebug() {
+  if (consoleState.debug) return debugMove('continue');
+  if (!state.settings.showConsole) updateSettings({ showConsole: true });
+  const code = (root.querySelector('#console-code')?.value ?? consoleState.code ?? '').replace(/\s+$/, '');
+  if (!code.trim()) { notify('info', t('debug.nothing')); return undefined; }
+  if (state.settings.consoleLanguage !== 'python') updateSettings({ consoleLanguage: 'python' });
+  if (!(await ensurePython())) return undefined;
+  consoleLog('info', t('debug.started'));
+  consoleState.running = true;
+  try {
+    const { steps, error } = await tracePython(code, scriptApi(), (kind, line) => consoleLog(kind, line));
+    const lines = steps.filter((s) => s.event === 'line');
+    if (!lines.length) { consoleLog(error ? 'error' : 'info', error ?? t('debug.noLines')); return undefined; }
+    const first = steps.findIndex((s) => s.event === 'line');
+    const stop = nextStep(steps, first - 1, 'continue', consoleState.breakpoints ?? new Set());
+    consoleState.debug = { steps, at: stop >= 0 ? stop : first, code: code.split('\n'), error };
+    if (error) consoleLog('error', error.trim().split('\n').slice(-2).join('\n'));
+    renderConsole();
+    showDebugLine();
+  } finally {
+    consoleState.running = false;
+  }
+  return undefined;
+}
+
+function debugMove(how) {
+  const debug = consoleState.debug;
+  if (!debug) return;
+  const next = nextStep(debug.steps, debug.at, how, consoleState.breakpoints ?? new Set());
+  if (next < 0) { consoleLog('info', t('debug.finished')); stopDebug(); return; }
+  debug.at = next;
+  renderConsole();
+  showDebugLine();
+}
+
+function stopDebug() {
+  if (!consoleState.debug) return;
+  consoleState.debug = null;
+  consoleLog('info', t('debug.stopped'));
+  renderConsole();
+}
+
+/** The current line selected in the editor. */
+function showDebugLine() {
+  const debug = consoleState.debug;
+  const code = root.querySelector('#console-code');
+  if (!debug || !code) return;
+  const line = debug.steps[debug.at].line;
+  const lines = code.value.split('\n');
+  const start = lines.slice(0, line - 1).reduce((sum, l) => sum + l.length + 1, 0);
+  code.focus();
+  code.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
+}
+
+function debugPanelHtml() {
+  const breakpoints = [...(consoleState.breakpoints ?? [])].sort((a, b) => a - b);
+  const debug = consoleState.debug;
+  if (!debug && !breakpoints.length) return '';
+  const step = debug?.steps[debug.at];
+  const locals = step ? Object.entries(step.locals) : [];
+  return `<div class="debug-panel" id="debug-panel">
+    <div class="debug-head">${icon('debug')}<b>${escapeHtml(t('debug.title'))}</b>
+      ${breakpoints.length ? `<span class="muted">${escapeHtml(t('debug.breakpoints', { lines: breakpoints.join(', ') }))}</span>` : ''}
+      ${debug ? `<span class="debug-where">${escapeHtml(t('debug.where', { line: step.line, fn: step.fn === '<module>' ? '—' : step.fn, step: debug.at + 1, total: debug.steps.length }))}</span>` : ''}
+      <span class="grow"></span>
+      ${['macroStartDebug', 'macroStepInto', 'macroStepOver', 'macroStopDebug', 'toggleBreakpoint'].map((id) => `<button type="button" class="icon-button" data-command="${id}" title="${escapeHtml(commandTip(id))}" aria-label="${escapeHtml(t(commands[id].label))}" ${commandEnabled(id) ? '' : 'disabled'}>${icon(commands[id].icon)}</button>`).join('')}
+    </div>
+    ${debug ? `<code class="debug-line">${escapeHtml(debug.code[step.line - 1] ?? '')}</code>
+    <div class="debug-locals">${locals.length ? locals.map(([k, v]) => `<span><b>${escapeHtml(k)}</b> = ${escapeHtml(v)}</span>`).join('') : `<span class="muted">${escapeHtml(t('debug.noLocals'))}</span>`}</div>` : ''}
+  </div>`;
+}
+
 /** Macro recording: commands run from the UI and objects added are written as `cad.*` lines. */
 function recordCommand(id) {
   if (!consoleState.recording || consoleState.running || ['console', 'macroRecord'].includes(id)) return;
-  consoleState.recording.push(`await cad.run(${JSON.stringify(id)});`);
+  consoleState.recording.push(state.settings.consoleLanguage === 'python' ? `mycad.run(${JSON.stringify(id)})` : `await cad.run(${JSON.stringify(id)});`);
 }
 
 function recordAdded(before, after) {
@@ -2428,7 +2733,7 @@ function recordAdded(before, after) {
     const { id, ...data } = e;
     for (const key of Object.keys(data)) if (data[key] === null) delete data[key];
     const { type, ...rest } = data;
-    consoleState.recording.push(`cad.add(${JSON.stringify(type)}, ${JSON.stringify(rest)});`);
+    consoleState.recording.push(state.settings.consoleLanguage === 'python' ? `mycad.add(${JSON.stringify(type)}, mycad.obj(${JSON.stringify(JSON.stringify(rest))}))` : `cad.add(${JSON.stringify(type)}, ${JSON.stringify(rest)});`);
   }
 }
 
@@ -2436,7 +2741,8 @@ function toggleRecording() {
   if (consoleState.recording) {
     const lines = consoleState.recording;
     consoleState.recording = null;
-    consoleState.code = [`// ${t('console.recordedAt', { time: new Date().toLocaleString() })}`, ...lines].join('\n');
+    const python = state.settings.consoleLanguage === 'python';
+    consoleState.code = [`${python ? '#' : '//'} ${t('console.recordedAt', { time: new Date().toLocaleString() })}`, ...(python ? ['import mycad'] : []), ...lines].join('\n');
     consoleLog('info', t('console.recorded', { count: lines.length }));
     const editor = root.querySelector('#console-code');
     if (editor) editor.value = consoleState.code;
@@ -2451,7 +2757,7 @@ function saveMacro() {
   const code = root.querySelector('#console-code')?.value ?? consoleState.code;
   if (!code.trim()) return notify('info', t('console.emptyMacro'));
   const name = (root.querySelector('#console-macro-name')?.value || '').trim() || t('console.macroName', { n: state.settings.macros.length + 1 });
-  const macros = [...state.settings.macros.filter((m) => m.name !== name), { name, code }];
+  const macros = [...state.settings.macros.filter((m) => m.name !== name), { name, code, language: state.settings.consoleLanguage }];
   updateSettings({ macros });
   notify('success', t('console.macroSaved', { name }));
   renderConsole();
@@ -2460,8 +2766,10 @@ function saveMacro() {
 async function runMacro(name) {
   const macro = state.settings.macros.find((m) => m.name === name);
   if (!macro) return undefined;
+  // Std_RecentMacros: the last ten run, newest first.
+  updateSettings({ recentMacros: [name, ...(state.settings.recentMacros ?? []).filter((n) => n !== name)].slice(0, 10) });
   consoleLog('info', t('console.runMacro', { name }));
-  return runScript(macro.code, { echo: false });
+  return runScript(macro.code, { echo: false, language: macro.language });
 }
 
 function renderConsole() {
@@ -2476,19 +2784,22 @@ function renderConsole() {
   panel.innerHTML = `
     <header class="problems-head console-head">
       ${icon('console')}<b>${escapeHtml(t('console.title'))}</b>
+      <span class="segmented console-language" role="group" aria-label="${escapeHtml(t('console.language'))}">${['js', 'python'].map((lang) => `<button type="button" class="segment ${state.settings.consoleLanguage === lang ? 'active' : ''}" data-console="lang:${lang}" title="${escapeHtml(t(`console.lang.${lang}Tip`))}">${escapeHtml(t(`console.lang.${lang}`))}</button>`).join('')}</span>
       <button type="button" class="small-button ${consoleState.recording ? 'recording' : ''}" data-console="record" title="${escapeHtml(t(consoleState.recording ? 'console.stopTip' : 'console.recordTip'))}">${icon(consoleState.recording ? 'stop' : 'record')}<span>${escapeHtml(t(consoleState.recording ? 'console.stop' : 'console.record'))}</span></button>
-      <select id="console-macros" title="${escapeHtml(t('console.macros'))}" aria-label="${escapeHtml(t('console.macros'))}"><option value="">${escapeHtml(t('console.macros'))} (${macros.length})</option>${macros.map((m) => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')}</select>
+      <select id="console-macros" title="${escapeHtml(t('console.macros'))}" aria-label="${escapeHtml(t('console.macros'))}"><option value="">${escapeHtml(t('console.macros'))} (${macros.length})</option>${macros.map((m) => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}${m.language === 'python' ? ' (Python)' : ''}</option>`).join('')}</select>
       <button type="button" class="icon-button" data-console="macro-run" title="${escapeHtml(t('console.macroRun'))}" aria-label="${escapeHtml(t('console.macroRun'))}">${icon('play')}</button>
       <button type="button" class="icon-button" data-console="macro-load" title="${escapeHtml(t('console.macroLoad'))}" aria-label="${escapeHtml(t('console.macroLoad'))}">${icon('edit')}</button>
+      <button type="button" class="icon-button" data-command="addons" title="${escapeHtml(commandTip('addons'))}" aria-label="${escapeHtml(t('action.addons'))}">${icon('part')}</button>
       <button type="button" class="icon-button" data-console="macro-delete" title="${escapeHtml(t('console.macroDelete'))}" aria-label="${escapeHtml(t('console.macroDelete'))}">${icon('trash')}</button>
       <span class="grow"></span>
       <button type="button" class="icon-button" data-console="clear" title="${escapeHtml(t('console.clear'))}" aria-label="${escapeHtml(t('console.clear'))}">${icon('clear')}</button>
       <button type="button" class="problems-close" data-command="console" title="${escapeHtml(commandTip('console'))}" aria-label="${escapeHtml(t('console.close'))}">${icon('close')}</button>
     </header>
     <div class="console-body">
+      ${debugPanelHtml()}
       <div class="console-output" id="console-output" role="log">${consoleState.log.map((l) => `<div class="console-line ${l.kind}">${escapeHtml(l.text)}</div>`).join('') || `<div class="console-line info">${escapeHtml(t('console.welcome'))}</div>`}</div>
       <div class="console-editor">
-        <textarea id="console-code" spellcheck="false" placeholder="${escapeHtml(t('console.placeholder'))}" title="${escapeHtml(t('console.codeTip'))}">${escapeHtml(consoleState.code)}</textarea>
+        <textarea id="console-code" spellcheck="false" placeholder="${escapeHtml(t(state.settings.consoleLanguage === 'python' ? 'console.placeholderPython' : 'console.placeholder'))}" title="${escapeHtml(t('console.codeTip'))}">${escapeHtml(consoleState.code)}</textarea>
         <div class="console-actions">
           <input id="console-macro-name" placeholder="${escapeHtml(t('console.macroNamePlaceholder'))}" title="${escapeHtml(t('console.macroNamePlaceholder'))}" />
           <button type="button" class="small-button" data-console="save" title="${escapeHtml(t('console.saveTip'))}">${icon('save')}<span>${escapeHtml(t('console.save'))}</span></button>
@@ -2513,13 +2824,55 @@ async function onConsoleAction(action) {
       return;
     }
     case 'record': return toggleRecording();
+    case 'lang:js': case 'lang:python': updateSettings({ consoleLanguage: action.slice(5) }); renderConsole(); if (action === 'lang:python') ensurePython(); return;
     case 'save': return saveMacro();
     case 'clear': consoleState.log = []; return renderConsole();
     case 'macro-run': if (macro) await runMacro(macro); return;
-    case 'macro-load': if (macro) { consoleState.code = state.settings.macros.find((m) => m.name === macro)?.code ?? ''; if (code) code.value = consoleState.code; const name = root.querySelector('#console-macro-name'); if (name) name.value = macro; } return;
+    case 'macro-load': if (macro) { const m = state.settings.macros.find((x) => x.name === macro); if (m && m.language !== state.settings.consoleLanguage) updateSettings({ consoleLanguage: m.language }); consoleState.code = m?.code ?? ''; if (code) code.value = consoleState.code; const name = root.querySelector('#console-macro-name'); if (name) name.value = macro; } return;
     case 'macro-delete': if (macro) { updateSettings({ macros: state.settings.macros.filter((m) => m.name !== macro) }); renderConsole(); } return;
     default:
   }
+}
+
+/**
+ * The addon manager (FreeCAD's Addon Manager, for macros): the catalogue that
+ * comes with MyCAD, and macros from a web address or a file — installed into
+ * the macro list, updated from where they came, removed.
+ */
+async function openAddons(resultArg = null) {
+  const result = resultArg ?? await popups.open('addons', { catalog: ADDON_CATALOG, installed: state.settings.macros.map((m) => ({ name: m.name, language: m.language, source: m.source ?? null })) });
+  if (!result) return null;
+  if (result.action === 'install') {
+    const entries = [];
+    for (const item of result.items ?? []) {
+      let code = item.code;
+      const source = item.url ?? null;
+      if (!code && item.url) {
+        try { code = await (await fetch(item.url)).text(); } catch (error) { notify('error', t('addons.fetchFailed', { url: item.url, error: error?.message ?? error })); continue; }
+      }
+      if (!code?.trim()) continue;
+      const language = item.language ?? (/\.(py|fcmacro)$/i.test(item.url ?? item.name ?? '') || /^\s*(import|from)\s/m.test(code) ? 'python' : 'js');
+      entries.push({ name: item.name || (item.url ?? '').split('/').pop() || t('console.macroName', { n: state.settings.macros.length + 1 }), code, language, ...(source ? { source } : {}) });
+    }
+    if (!entries.length) return null;
+    const names = new Set(entries.map((e) => e.name));
+    updateSettings({ macros: [...state.settings.macros.filter((m) => !names.has(m.name)), ...entries] });
+    notify('success', t('addons.installed', { count: entries.length }));
+    renderConsole();
+    return entries;
+  }
+  if (result.action === 'remove') {
+    const names = new Set(result.names ?? []);
+    updateSettings({ macros: state.settings.macros.filter((m) => !names.has(m.name)) });
+    renderConsole();
+    return [...names];
+  }
+  if (result.action === 'run' && result.name) {
+    if (!state.settings.showConsole) updateSettings({ showConsole: true });
+    renderConsole();
+    return runMacro(result.name);
+  }
+  return null;
 }
 
 function renderProblems() {
@@ -2728,6 +3081,59 @@ async function openPlate(resultArg = null) {
 }
 
 /**
+ * FEM of a solid (FreeCAD FEM with CalculiX): the selected solid filled with
+ * brick elements, clamped and loaded on its faces; "draw" puts the deformed
+ * solid in the drawing, ".inp" saves the CalculiX deck, "CalculiX" solves it
+ * with ccx (when installed — FreeCAD ships it) and compares.
+ */
+async function openFem3d(resultArg = null) {
+  const doc = activeDoc();
+  const solid = selectedSolids()[0];
+  if (!doc || !solid) { notify('info', t('fem3d.noSolid')); return null; }
+  const tris = solidMesh(solid);
+  const result = resultArg ?? await popups.open('fem3d', { tris: flattenTriangles(tris), fem3d: doc.drawing.fem3d ?? {}, name: solid.name || t(`solid.${solid.kind}`) });
+  if (!result || !['draw', 'inp', 'ccx'].includes(result.action)) return null;
+  const options = normalizeFem3d(result.fem3d);
+  change('op.fem', (d) => { d.fem3d = options; });
+  const analysis = analyzeSolid(tris, options);
+  if (!analysis.ok) { notify('error', t(`fem3d.error.${analysis.error}`)); return analysis; }
+  const name = solid.name || t(`solid.${solid.kind}`);
+  if (result.action === 'inp') {
+    const text = toCalculix(analysis, name);
+    const file = `${safeFileName(name)}.inp`;
+    try {
+      if (desktop && !resultArg) {
+        const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${file}`, 'inp');
+        if (path) { await native.writeTextFile(path, text); notify('success', t('notice.exported', { name: baseName(path) })); }
+      } else if (!resultArg) native.downloadText(text, file, 'text/plain');
+    } catch (error) { showError('error.export', error, file); }
+    return { ...analysis, inp: text };
+  }
+  if (result.action === 'ccx') {
+    const ccx = await native.ccxLocate(state.settings.ccxPath ?? '');
+    if (!ccx) { notify('error', t('fem3d.noCcx')); return analysis; }
+    try {
+      const dat = await withProgress('progress.ccx', 'CalculiX', () => native.ccxRun(ccx, toCalculix(analysis, name)));
+      const { u } = parseCalculixDat(dat);
+      let theirs = 0;
+      for (const v of u.values()) theirs = Math.max(theirs, Math.hypot(...v));
+      const diff = analysis.max.displacement ? Math.abs(theirs - analysis.max.displacement) / analysis.max.displacement : 0;
+      notify(diff < 0.02 ? 'success' : 'info', t('fem3d.ccxDone', { ccx: fmt(theirs, 4), ours: fmt(analysis.max.displacement, 4), diff: fmt(diff * 100, 2) }));
+      return { ...analysis, ccx: { max: theirs, nodes: u.size } };
+    } catch (error) { showError('error.fem3d', error, 'CalculiX'); return analysis; }
+  }
+  // The deformed solid (outer faces moved, scaled so the largest move is 6 % of the size).
+  const size = Math.max(...[0, 1, 2].map((dd) => Math.max(...analysis.nodes.map((p) => p[dd])) - Math.min(...analysis.nodes.map((p) => p[dd]))), 1);
+  const scale = analysis.max.displacement ? (size * 0.06) / analysis.max.displacement : 1;
+  const P = analysis.nodes.map((p, i) => [p[0] + analysis.u[3 * i] * scale, p[1] + analysis.u[3 * i + 1] * scale, p[2] + analysis.u[3 * i + 2] * scale]);
+  const out = [];
+  for (const [quad] of boundaryQuads(analysis)) { const [a, b, c, dd] = quad.map((i) => P[i]); out.push([a, b, c], [a, c, dd]); }
+  const added = change('op.fem', (d) => D.addEntity(d, 'solid', { kind: 'mesh', params: {}, shape: { tris: flattenTriangles(out) }, name: t('fem3d.resultName', { name, scale: fmt(scale, 0), vm: fmt(analysis.max.vm, 1) }), color: '#e5484d' }));
+  if (added) notify('success', t('fem3d.drawn', { disp: fmt(analysis.max.displacement, 4), vm: fmt(analysis.max.vm, 1) }));
+  return analysis;
+}
+
+/**
  * CAM (FreeCAD CAM): tool paths from the selected 2D outlines (or all visible
  * ones) → a G-code file. The window previews the paths; the file is written here.
  */
@@ -2737,14 +3143,25 @@ async function openCam(optionsArg = null) {
   const selected = selectedEntities();
   const entities = (selected.length ? selected : doc.drawing.entities.filter((e) => D.isVisible(doc.drawing, e)));
   const source = camSource(entities, doc.drawing);
-  if (!source.loops.length && !source.chains.length && !source.circles.length) { notify('info', t('cam.nothing')); return null; }
+  // Solids: their top surface as a height field for 3D machining (FreeCAD 3D Surface).
+  const solids = entities.filter((e) => e.type === 'solid' && D.isVisible3d(doc.drawing, e));
+  if (solids.length) {
+    const tris = solids.flatMap((e) => solidMesh(e));
+    const xs = tris.flatMap((tri) => tri.map((p) => p[0])); const ys = tris.flatMap((tri) => tri.map((p) => p[1]));
+    const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+    source.model = heightField(tris, { pad: Math.max(5, size * 0.06), maxCells: 240 });
+  }
+  if (!source.loops.length && !source.chains.length && !source.circles.length && !source.model) { notify('info', t('cam.nothing')); return null; }
   let options = optionsArg;
+  let action = 'export';
   if (!options) {
     const result = await popups.open('cam', { source, name: docName(doc) });
-    if (result?.action !== 'export') return null;
+    if (!['export', 'stock'].includes(result?.action)) return null;
     options = result.options;
-  }
+    action = result.action;
+  } else if (options.action) action = options.action;
   const job = camPaths(source, options);
+  if (action === 'stock') return addMachinedStock(source, job);
   const text = toGcode(job, { title: doc.drawing.title || docName(doc) });
   const name = `${safeFileName(stripExtension(docName(doc)))}.nc`;
   try {
@@ -2762,6 +3179,47 @@ async function openCam(optionsArg = null) {
     showError('error.export', error, name);
   }
   return text;
+}
+
+/** The CAM simulator's result in the drawing: the stock as cut, a mesh solid (FreeCAD CAM simulator). */
+function addMachinedStock(source, job) {
+  const grid = source.model ?? gridFor(job);
+  if (!grid || !job.paths.length) { notify('info', t('cam.nothing')); return null; }
+  const run = simulate(grid, job, { top: job.options.top });
+  const bottom = CAM_3D.includes(job.options.operation) ? grid.zMin : job.options.top - job.options.depth - Math.max(2, job.options.depth * 0.5);
+  // At most 120 cells a side: the drawing (and every undo step) stays light.
+  const every = Math.max(1, Math.ceil(Math.max(grid.nx, grid.ny) / 120));
+  const nx = Math.ceil(grid.nx / every); const ny = Math.ceil(grid.ny / every);
+  const coarse = { ...grid, nx, ny, cell: grid.cell * every };
+  const stock = [];
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) stock.push(run.stock[Math.min(grid.ny - 1, j * every) * grid.nx + Math.min(grid.nx - 1, i * every)]);
+  const tris = stockMesh(coarse, stock, bottom);
+  const added = change('op.cam', (d) => D.addEntity(d, 'solid', { kind: 'mesh', params: {}, shape: { tris: flattenTriangles(tris) }, name: t('cam.stockName'), color: '#d6aa6e' }));
+  if (added) { select([added.id]); notify('success', t('cam.stockDone', { count: tris.length })); }
+  return added;
+}
+
+/** Waits for a click on a solid's face in the 3D view: the working plane goes onto it. */
+async function pickWorkPlaneFace() {
+  if (!state.view3d) await toggle3d(true);
+  state.pickFace = true;
+  view3d.instance?.canvas.classList.add('edge-pick');
+  notify('info', t('wp.facePick'));
+}
+
+/** The working plane on a face: the canvas becomes that face, solids made from outlines stand on it. */
+function setWorkPlaneFace(point, normal) {
+  const frame = frameOnFace(point, normal);
+  const done = change('op.workPlane', (d) => { d.workPlane = { x: 0, y: 0, angle: 0, z: 0, frame }; });
+  if (done !== undefined) notify('success', t('wp.faceSet', { x: fmt(frame.origin[0], 1), y: fmt(frame.origin[1], 1), z: fmt(frame.origin[2], 1), n: frame.z.map((v) => fmt(v, 2)).join(', ') }));
+  return activeDrawing()?.workPlane ?? null;
+}
+
+/** A solid made on the working plane: on a face, its pose carried onto the face (frame · pose). */
+function onWorkPlane(raw, drawing) {
+  const frame = drawing.workPlane?.frame;
+  if (!frame) return { ...raw, z: (raw.z ?? 0) + (drawing.workPlane?.z ?? 0) };
+  return { ...raw, ...poseFields(composePose(frameMatrix(frame), poseOf(raw))) };
 }
 
 /** Sets the working plane from an origin and a point on its X axis (null = back to the global plane). */
@@ -2841,19 +3299,191 @@ function reverseEngineer(fit) {
  * A joint between the two selected solids: the first picked is the base, the
  * second the moving part; the joint sits at the part's origin, along its z axis.
  */
-function addJoint(type) {
-  const [base, part] = pickedEntities().filter((e) => e.type === 'solid');
+function addJoint(type, value = undefined) {
+  let [base, part] = pickedEntities().filter((e) => e.type === 'solid');
   if (!base || !part) { notify('info', t('notice.jointNone')); return null; }
+  // A grounded part stays: the other one moves.
+  if (part.grounded && !base.grounded) [base, part] = [part, base];
   const drawing = activeDrawing();
   if ((drawing.joints ?? []).some((j) => j.part === part.id)) { notify('error', t('notice.jointTwice')); return null; }
+  // Distance and angle joints ask for their value first.
+  if ((type === 'distance' || type === 'angle') && value === undefined) {
+    return form({ title: t(`joint.${type}`), icon: `joint${type[0].toUpperCase()}${type.slice(1)}`, width: 420, fields: [{ key: 'value', type: 'number', label: t(type === 'distance' ? 'asm.distanceValue' : 'asm.angleValue'), icon: 'move', value: type === 'distance' ? 10 : 45, step: 1, unit: type === 'distance' ? 'mm' : '°' }], actions: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'ok', label: t('confirm.ok'), primary: true }] })
+      .then((answer) => (answer?.action === 'ok' ? addJoint(type, Number(answer.values.value)) : null));
+  }
   const pose = poseOf(part);
-  const joint = makeJoint(type, base, part, [pose[3], pose[7], pose[11]], [pose[2], pose[6], pose[10]], newJointId(drawing));
+  const joint = ORIENTING.includes(type)
+    ? makeOrientedJoint(type, base, part, { distance: value ?? 0, tilt: value ?? 0, id: newJointId(drawing) })
+    : makeJoint(type, base, part, [pose[3], pose[7], pose[11]], [pose[2], pose[6], pose[10]], newJointId(drawing));
   change('op.joint', (d) => { d.joints = [...(d.joints ?? []), joint]; });
   notify('success', t('notice.joint', { type: t(`joint.${type}`), base: base.name || t(`solid.${base.kind}`), part: part.name || t(`solid.${part.kind}`) }));
   return joint;
 }
 
 const newJointId = (drawing) => { let n = (drawing.joints?.length ?? 0) + 1; while ((drawing.joints ?? []).some((j) => j.id === `j${n}`)) n++; return `j${n}`; };
+
+/** A joint's drive (from → to over the animation) and coupling (follows another joint × ratio). */
+function jointMotionRows(j, drawing) {
+  const keys = jointKeys(j.type);
+  if (!keys.length) return '';
+  const unit = keys[0] === 'angle' ? '°' : 'mm';
+  const field = (attr, value, label) => `<input class="num" ${attr} value="${fmt(value, 4)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" />`;
+  const drive = j.drive ?? { from: j[keys[0]], to: j[keys[0]] };
+  const leaders = (drawing.joints ?? []).filter((o) => o.id !== j.id && jointKeys(o.type).length);
+  const screw = j.type === 'cylindrical';
+  const options = [`<option value="">${escapeHtml(t('joint.followNone'))}</option>`, ...leaders.map((o) => `<option value="${o.id}" ${j.follow?.joint === o.id ? 'selected' : ''}>${escapeHtml(`${o.id} · ${t(`joint.${o.type}`)}`)}</option>`), ...(screw ? [`<option value="${j.id}" ${j.follow?.joint === j.id ? 'selected' : ''}>${escapeHtml(t('joint.screw'))}</option>`] : [])].join('');
+  return `<div class="joint-motion" data-joint-motion="${j.id}">
+    <div class="joint-motion-line"><span class="joint-motion-label" title="${escapeHtml(t('joint.driveTip'))}">${icon('play')}${escapeHtml(t('joint.drive'))}</span>${field(`data-joint-drive="${j.id}:from"`, drive.from, t('joint.driveFrom'))}<span>→</span>${field(`data-joint-drive="${j.id}:to"`, drive.to, t('joint.driveTo'))}<small>${unit}</small></div>
+    <div class="joint-motion-line"><span class="joint-motion-label" title="${escapeHtml(t('joint.followTip'))}">${icon('link')}${escapeHtml(t('joint.follow'))}</span><select data-joint-follow="${j.id}" title="${escapeHtml(t('joint.followTip'))}">${options}</select><span>×</span>${field(`data-joint-ratio="${j.id}"`, j.follow?.ratio ?? 1, t('joint.ratio'))}</div>
+  </div>`;
+}
+
+/** Sets a joint's drive: the first value of its type runs from → to (equal = no drive). */
+function setJointDrive(id, part, value) {
+  return change('op.joint', (d) => {
+    d.joints = (d.joints ?? []).map((j) => {
+      if (j.id !== id) return j;
+      const key = jointKeys(j.type)[0];
+      const drive = { key, from: j.drive?.from ?? j[key] ?? 0, to: j.drive?.to ?? j[key] ?? 0, [part]: value };
+      const next = { ...j, drive };
+      if (drive.from === drive.to) delete next.drive;
+      return next;
+    });
+    if (!hasDrives(d.joints)) delete d.animation;
+    else d.animation = normalizeAnimation(d.animation);
+  });
+}
+
+/** Couples a joint to a leader joint (or itself: a screw, offset from angle); '' = none. */
+function setJointFollow(id, leader, ratio = null) {
+  return change('op.joint', (d) => {
+    d.joints = (d.joints ?? []).map((j) => {
+      if (j.id !== id) return j;
+      const next = { ...j };
+      const target = leader === undefined ? j.follow?.joint : leader;
+      if (!target) { delete next.follow; return next; }
+      const lead = d.joints.find((o) => o.id === target);
+      if (!lead) return j;
+      const self = target === j.id;
+      next.follow = { joint: target, key: self ? 'offset' : jointKeys(j.type)[0], from: self ? 'angle' : jointKeys(lead.type)[0], ratio: ratio ?? j.follow?.ratio ?? (self ? 1 / 360 : 1), phase: j.follow?.phase ?? 0 };
+      return next;
+    });
+  });
+}
+
+// ───────────────────────── Assembly animation (FreeCAD Assembly › Animate)
+
+/** Shows the assembly at a time: driven joints set, loops solved, parts moved in the 3D view. */
+function showAnimationAt(time) {
+  const doc = activeDoc();
+  const drawing = doc?.drawing;
+  if (!drawing?.joints || !view3d.instance) return null;
+  // From the last frame (or the start, with the drawing's joint values), in small steps.
+  const run = solveAnimation(drawing.entities, anim.joints ?? drawing.joints, anim.joints ? anim.time : 0, time, drawing.animation);
+  anim.active = true;
+  anim.time = time;
+  anim.joints = run.joints;
+  anim.failed = run.failed;
+  const before = new Map(drawing.entities.map((e) => [e.id, e]));
+  const deltas = new Map();
+  for (const e of run.entities) if (e !== before.get(e.id)) deltas.set(e.id, poseDelta(before.get(e.id), e));
+  view3d.instance.setPoses(deltas);
+  updateAnimationBar();
+  return run;
+}
+
+function animationStep(now) {
+  anim.frame = 0;
+  if (!anim.playing) return;
+  const drawing = activeDrawing();
+  const a = normalizeAnimation(drawing?.animation);
+  const dt = anim.last ? (now - anim.last) / 1000 : 0;
+  anim.last = now;
+  let time = anim.time + dt;
+  if (a.mode === 'once' && time >= a.duration) { time = a.duration; anim.playing = false; }
+  showAnimationAt(time);
+  if (anim.playing) anim.frame = requestAnimationFrame(animationStep);
+  else renderView3dBar();
+}
+
+/** Plays (from where it stopped; from the start after a finished "once") or pauses. */
+async function toggleAnimation(play = !anim.playing) {
+  const drawing = activeDrawing();
+  if (!hasDrives(drawing?.joints)) { notify('info', t('anim.none')); return false; }
+  if (!state.view3d) await toggle3d(true);
+  const a = normalizeAnimation(drawing.animation);
+  anim.playing = play;
+  if (play) {
+    if (a.mode === 'once' && anim.time >= a.duration) anim.time = 0;
+    anim.last = 0;
+    cancelAnimationFrame(anim.frame);
+    anim.frame = requestAnimationFrame(animationStep);
+  } else cancelAnimationFrame(anim.frame);
+  renderView3dBar();
+  return play;
+}
+
+/** Ends the animation: the parts go back to where the drawing has them. */
+function stopAnimation() {
+  cancelAnimationFrame(anim.frame);
+  Object.assign(anim, { active: false, playing: false, time: 0, joints: null, frame: 0, last: 0, failed: [] });
+  view3d.instance?.setPoses(null);
+  if (state.view3d) rebuild3d();
+}
+
+/** Keeps the pose being shown: the joints take their animated values (one undo step). */
+function keepAnimationPose() {
+  if (!anim.active || !anim.joints) return;
+  const joints = anim.joints;
+  stopAnimation();
+  change('op.joint', (d) => { d.joints = joints; });
+}
+
+function setAnimation(values) {
+  const drawing = activeDrawing();
+  if (!drawing) return;
+  const next = normalizeAnimation({ ...drawing.animation, ...values });
+  // Kept in the drawing directly (an undo step would end the animation); the tab shows it unsaved.
+  drawing.animation = next;
+  renderTabs();
+  if (anim.active) showAnimationAt(Math.min(anim.time, next.duration));
+  renderView3dBar();
+}
+
+function animationBar() {
+  const drawing = activeDrawing();
+  if (!hasDrives(drawing?.joints)) return '';
+  const a = normalizeAnimation(drawing.animation);
+  const b = (action, glyph, label, active = false) => `<button class="tool-button ${active ? 'active' : ''}" data-anim="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon(glyph)}</button>`;
+  return `<div class="anim-bar" role="toolbar" aria-label="${escapeHtml(t('anim.title'))}">
+    ${b('play', anim.playing ? 'pause' : 'play', t(anim.playing ? 'anim.pause' : 'anim.play'), anim.playing)}
+    ${b('stop', 'stop', t('anim.stop'))}
+    <input type="range" id="anim-time" min="0" max="${a.duration}" step="0.01" value="${anim.time}" title="${escapeHtml(t('anim.time'))}" aria-label="${escapeHtml(t('anim.time'))}" />
+    <span class="anim-clock" id="anim-clock">${fmt(anim.time, 2)} / ${fmt(a.duration, 2)} s</span>
+    <span class="segmented anim-mode" role="group">${ANIMATION_MODES.map((mode) => `<button class="segment ${a.mode === mode ? 'active' : ''}" data-anim="mode:${mode}" title="${escapeHtml(t(`anim.mode.${mode}`))}">${escapeHtml(t(`anim.modeShort.${mode}`))}</button>`).join('')}</span>
+    <label class="anim-duration" title="${escapeHtml(t('anim.duration'))}">${icon('clock')}<input class="num" id="anim-duration" value="${fmt(a.duration, 2)}" aria-label="${escapeHtml(t('anim.duration'))}" /><small>s</small></label>
+    ${b('keep', 'save', t('anim.keep'))}
+    <span class="anim-warn" id="anim-warn" ${anim.failed.length ? '' : 'hidden'} title="${escapeHtml(t('anim.failedTip'))}">${icon('warning')}</span>
+  </div>`;
+}
+
+/** Only the moving parts of the bar (each frame). */
+function updateAnimationBar() {
+  const slider = root.querySelector('#anim-time');
+  if (slider && document.activeElement !== slider) slider.value = String(anim.time);
+  const clock = root.querySelector('#anim-clock');
+  if (clock) clock.textContent = `${fmt(anim.time, 2)} / ${fmt(normalizeAnimation(activeDrawing()?.animation).duration, 2)} s`;
+  const warn = root.querySelector('#anim-warn');
+  if (warn) warn.hidden = !anim.failed.length;
+}
+
+function onAnimBar(action) {
+  if (action === 'play') return toggleAnimation();
+  if (action === 'stop') return stopAnimation();
+  if (action === 'keep') return keepAnimationPose();
+  if (action.startsWith('mode:')) return setAnimation({ mode: action.slice(5) });
+  return null;
+}
 
 /** Changes a joint's turn (degrees) or slide (mm). */
 function setJoint(id, values) {
@@ -2867,7 +3497,7 @@ function jointRows(entity) {
   const drawing = activeDrawing();
   const nameOf = (id) => { const e = D.findEntity(drawing, id); return e ? e.name || t(`solid.${e.kind}`) : '?'; };
   const input = (j, key) => `<input class="num" data-joint-value="${j.id}:${key}" value="${fmt(j[key], 4)}" title="${escapeHtml(t(`joint.${key}`))}" aria-label="${escapeHtml(t(`joint.${key}`))}" />`;
-  return `<h4>${icon('jointRevolute')}<span>${t('joint.title')}</span></h4><div class="constraint-list">${list.map((j) => `<div class="constraint-row joint-row" data-joint="${j.id}" title="${escapeHtml(`${nameOf(j.base)} → ${nameOf(j.part)}`)}">${icon(commands[`joint:${j.type}`].icon)}<span class="constraint-name">${escapeHtml(t(`joint.${j.type}`))}</span>${j.type === 'revolute' || j.type === 'cylindrical' ? `${input(j, 'angle')}<small>°</small>` : ''}${j.type === 'slider' || j.type === 'cylindrical' ? `${input(j, 'offset')}<small>mm</small>` : ''}<button class="icon-button" data-joint-remove="${j.id}" title="${escapeHtml(t('joint.remove'))}" aria-label="${escapeHtml(t('joint.remove'))}">${icon('trash')}</button></div>`).join('')}</div>`;
+  return `<h4>${icon('jointRevolute')}<span>${t('joint.title')}</span></h4><div class="constraint-list">${list.map((j) => `<div class="constraint-row joint-row" data-joint="${j.id}" title="${escapeHtml(`${nameOf(j.base)} → ${nameOf(j.part)}`)}">${icon(commands[`joint:${j.type}`].icon)}<span class="constraint-name">${escapeHtml(t(`joint.${j.type}`))}</span>${j.type === 'revolute' || j.type === 'cylindrical' ? `${input(j, 'angle')}<small>°</small>` : ''}${j.type === 'slider' || j.type === 'cylindrical' ? `${input(j, 'offset')}<small>mm</small>` : ''}<button class="icon-button" data-joint-remove="${j.id}" title="${escapeHtml(t('joint.remove'))}" aria-label="${escapeHtml(t('joint.remove'))}">${icon('trash')}</button></div>${jointMotionRows(j, drawing)}`).join('')}</div>`;
 }
 
 // ───────────────────────── Robot (FreeCAD Robot workbench)
@@ -2933,6 +3563,8 @@ async function animateRobot(id, poses, ms = 40) {
   try {
     for (const joints of poses) {
       doc.drawing.entities = original.map((e) => (e.id === id ? { ...e, params: { ...e.params, ...Object.fromEntries(joints.map((v, i) => [`a${i + 1}`, v])) } } : e));
+      // The tool shape on the flange moves with the arm.
+      if (doc.drawing.robots) followRobotTools(doc.drawing);
       rebuild3d();
       view3d.instance.render?.();
       await new Promise((resolve) => setTimeout(resolve, ms));
@@ -2943,9 +3575,9 @@ async function animateRobot(id, poses, ms = 40) {
 }
 
 /** A trajectory along the selected curves: joint poses every 20 mm, KUKA KRL saved, played in 3D. */
-async function robotTrajectory({ save = true, animate = true, step = 20 } = {}) {
-  const robot = selectedRobot();
-  const targets = robotTargets();
+async function robotTrajectory({ save = true, animate = true, step = 20, robot: given = null, targets: path = null } = {}) {
+  const robot = given ?? selectedRobot();
+  const targets = path ?? robotTargets();
   if (!robot || !targets.length) { notify('info', t('notice.robotNone')); return null; }
   const doc = activeDoc();
   const points = samplePath(targets.map((p) => robotLocal(robot, p)), step);
@@ -2986,10 +3618,15 @@ async function openSpreadsheet(resultArg = null) {
   const doc = activeDoc();
   if (!doc) return null;
   const result = resultArg ?? await popups.open('spreadsheet', { sheet: doc.drawing.spreadsheet ?? {} });
+  // Spreadsheet_Import from the window: the file's cells over what was being edited, then the window again.
+  if (result?.action === 'import') {
+    await importSheetCsv(result.sheet);
+    return openSpreadsheet();
+  }
   if (!result || !['apply', 'csv'].includes(result.action)) return null;
   const sheet = normalizeSpreadsheet(result.sheet);
   change('op.sheet', (d) => { if (Object.keys(sheet.cells).length) d.spreadsheet = sheet; else delete d.spreadsheet; });
-  setVariables(sheetVariables(sheet));
+  setExpressionScope();
   if (result.action === 'csv') {
     const text = sheetCsv(sheet);
     const name = `${safeFileName(stripExtension(docName(doc)))}-sheet.csv`;
@@ -3000,6 +3637,85 @@ async function openSpreadsheet(resultArg = null) {
       } else native.downloadText(`\ufeff${text}`, name, 'text/csv');
     } catch (error) { showError('error.export', error, name); }
   }
+  return sheet;
+}
+
+/** Bytes (a zip…) saved where the user picks (desktop) or downloaded (web). */
+async function saveBytes(name, bytes, kind) {
+  try {
+    if (desktop) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, kind);
+      if (!path) return null;
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      await withProgress('progress.export', baseName(path), (op) => native.writeBase64File(path, btoa(binary), op));
+      notify('success', t('notice.exported', { name: baseName(path) }));
+      return path;
+    }
+    native.downloadBytes(bytes, name);
+    notify('success', t('notice.exported', { name }));
+    return name;
+  } catch (error) {
+    showError('error.export', error, name);
+    return null;
+  }
+}
+
+/** A text file saved where the user picks (desktop) or downloaded (web); kind names the file filter. */
+async function saveText(name, text, kind) {
+  try {
+    if (desktop) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, kind);
+      if (!path) return null;
+      await withProgress('progress.export', baseName(path), (op) => native.writeTextFile(path, text, op));
+      notify('success', t('notice.exported', { name: baseName(path) }));
+      return path;
+    }
+    native.downloadText(text, name, 'text/plain');
+    notify('success', t('notice.exported', { name }));
+    return name;
+  } catch (error) {
+    showError('error.export', error, name);
+    return null;
+  }
+}
+
+/**
+ * Spreadsheet_Import: a CSV file's values into the drawing's spreadsheet from A1
+ * (aliases and styles stay); an open spreadsheet window shows it. `given`
+ * ({ text, name }) skips the file dialog (macros, tests).
+ */
+/** A text file the user picks (desktop dialog or web file input): { text, name } or null. */
+async function readTextFileDialog(extensions) {
+  let name = '';
+  try {
+    if (desktop) {
+      const path = await native.chooseTextFile(state.settings.lastDirectory, extensions);
+      if (!path) return null;
+      name = baseName(path);
+      return { text: await native.readTextFile(path, 'text'), name };
+    }
+    const [file] = await native.pickWithInput(extensions.map((e) => `.${e}`).join(','));
+    if (!file) return null;
+    return { text: await file.text(), name: file.name };
+  } catch (error) {
+    showError('error.open', error, name);
+    return null;
+  }
+}
+
+async function importSheetCsv(base = null, given = null) {
+  const doc = activeDoc();
+  if (!doc) return null;
+  const file = given ?? await readTextFileDialog(['csv', 'txt']);
+  if (!file) return null;
+  const { text, name } = file;
+  const parsed = parseCsv(text);
+  const sheet = normalizeSpreadsheet({ ...(base ?? doc.drawing.spreadsheet ?? {}), cells: parsed.cells });
+  change('op.sheet', (d) => { d.spreadsheet = sheet; });
+  setExpressionScope();
+  if (popups.isOpen('spreadsheet')) popups.post('spreadsheet', { type: 'sheet:load', sheet });
+  notify('success', t('sheet.imported', { name, count: Object.keys(parsed.cells).length }));
   return sheet;
 }
 
@@ -3015,7 +3731,8 @@ function toggleConstruction() {
 /** The selection in the order it was picked. */
 const pickedEntities = () => {
   const drawing = activeDrawing();
-  return drawing ? selectedIds().map((id) => D.findEntity(drawing, id)).filter(Boolean) : [];
+  // The sketch's origin and axes picked with Sketcher_SelectOrigin / …HorizontalAxis / …VerticalAxis come last.
+  return drawing ? [...selectedIds().map((id) => D.findEntity(drawing, id)).filter(Boolean), ...(state.sketchRefs ?? []).map((id) => VIRTUAL_ENTITIES[id]).filter(Boolean)] : [];
 };
 
 /** Which points / entities a constraint of this type would take from the selection (null = it does not fit). */
@@ -3024,7 +3741,12 @@ function constraintRefs(type) {
   if (!ents.length) return null;
   let refs;
   if (type === 'fixed') refs = ents.map((e) => ({ id: e.id }));
-  else if (ents.length === 1) refs = [{ id: ents[0].id }];
+  else if (type === 'snellsLaw') {
+    // Two rays (their ends that meet) and the boundary they cross.
+    if (ents.length !== 3) return null;
+    const meet = nearestPoints(ents[0], ents[1]);
+    refs = meet ? [...meet, { id: ents[2].id }] : null;
+  } else if (ents.length === 1) refs = [{ id: ents[0].id }];
   else if (ents.length !== 2 && type !== 'symmetric') return null;
   else if (type === 'symmetric') {
     if (ents.length !== 3 || ents[2].type !== 'line') return null;
@@ -3037,11 +3759,22 @@ function constraintRefs(type) {
   else if (type === 'pointOnObject') {
     // The point of the first that lies nearest the second (a line or a circle).
     const [a, b] = ents;
+    const curve = b.type === 'spline' ? primitives(b)[0].points : null;
     const off = (p) => (b.type === 'line'
       ? Math.abs((b.x2 - b.x1) * (p.y - b.y1) - (b.y2 - b.y1) * (p.x - b.x1)) / (Math.hypot(b.x2 - b.x1, b.y2 - b.y1) || 1)
-      : Math.abs(Math.hypot(p.x - b.cx, p.y - b.cy) - (b.r ?? 0)));
+      : curve ? Math.min(...curve.map((q) => Math.hypot(q.x - p.x, q.y - p.y)))
+        : Math.abs(Math.hypot(p.x - b.cx, p.y - b.cy) - (b.r ?? 0)));
     const at = pointsOf(a).sort((p, q) => off(entityPoint(a, p)) - off(entityPoint(a, q)))[0];
     refs = at ? [{ id: a.id, at }, { id: b.id }] : null;
+  } else if (type === 'tangent' && ents.some((e) => e.type === 'spline')) {
+    // A B-spline is tangent at one of its ends: the end nearest the other (a line, or another spline's end).
+    const ends = (e) => (e.type === 'spline' ? ['start', 'end'] : pointsOf(e));
+    let best = null;
+    for (const pa of ends(ents[0])) for (const pb of ends(ents[1])) {
+      const d = Math.hypot(entityPoint(ents[0], pa).x - entityPoint(ents[1], pb).x, entityPoint(ents[0], pa).y - entityPoint(ents[1], pb).y);
+      if (!best || d < best.d) best = { d, refs: [{ id: ents[0].id, ...(ents[0].type === 'spline' ? { at: pa } : {}) }, { id: ents[1].id, ...(ents[1].type === 'spline' ? { at: pb } : {}) }] };
+    }
+    refs = best?.refs ?? null;
   } else refs = ents.map((e) => ({ id: e.id }));
   if (!refs) return null;
   return canConstrain(type, refs.map((r) => ents.find((e) => e.id === r.id)), refs) ? refs : null;
@@ -3052,6 +3785,7 @@ function constrainSelection(type, value = null) {
   const refs = constraintRefs(type);
   if (!refs) { notify('info', t('constraint.pick')); return null; }
   const made = change('op.constrain', (d) => addConstraint(d, type, refs, value));
+  if (made) state.sketchRefs = [];
   const status = activeDoc()?.constraintStatus;
   if (status?.status === 'conflict') notify('error', t('constraint.conflict'));
   else if (status?.status === 'over') notify('info', t('constraint.redundant'));
@@ -3078,7 +3812,10 @@ function constraintStatusHtml() {
 function constraintRows(entity) {
   const list = (activeDrawing()?.constraints ?? []).filter((c) => c.refs.some((r) => r.id === entity.id));
   if (!list.length) return '';
-  return `<h4>${icon('kCoincident')}<span>${t('constraint.title')}</span></h4>${constraintStatusHtml()}<div class="constraint-list">${list.map((c) => `<div class="constraint-row" data-constraint="${c.id}">${icon(commands[`constrain:${c.type}`].icon)}<span class="constraint-name">${escapeHtml(t(`constraint.${c.type}`))}</span>${DIMENSIONAL.includes(c.type) ? `<input class="num" data-constraint-value="${c.id}" ${c.type === 'angle' ? '' : 'data-length="1"'} value="${c.type === 'angle' ? fmt(c.value, 4) : lengthText(c.value)}" title="${escapeHtml(t(`constraint.${c.type}`))}" />` : ''}<button class="icon-button" data-constraint-remove="${c.id}" title="${escapeHtml(t('constraint.remove'))}" aria-label="${escapeHtml(t('constraint.remove'))}">${icon('trash')}</button></div>`).join('')}</div>`;
+  const picked = new Set(state.constraintSelection ?? []);
+  // Picked (Sketcher selection commands), inactive and reference constraints are marked; a click on the name picks one.
+  const marks = (c) => [picked.has(c.id) ? 'picked' : '', c.active === false ? 'inactive' : '', c.driving === false ? 'reference' : '', c.virtual ? 'virtual' : ''].filter(Boolean).join(' ');
+  return `<h4>${icon('kCoincident')}<span>${t('constraint.title')}</span></h4>${constraintStatusHtml()}<div class="constraint-list">${list.map((c) => `<div class="constraint-row ${marks(c)}" data-constraint="${c.id}">${icon(commands[`constrain:${c.type}`].icon)}<span class="constraint-name" data-constraint-pick="${c.id}" title="${escapeHtml(t('sk.pickConstraintTip'))}">${escapeHtml(t(`constraint.${c.type}`))}</span>${DIMENSIONAL.includes(c.type) ? `<input class="num" data-constraint-value="${c.id}" ${UNITLESS.includes(c.type) ? '' : 'data-length="1"'} value="${UNITLESS.includes(c.type) ? fmt(c.value, 4) : lengthText(c.value)}" title="${escapeHtml(t(`constraint.${c.type}`))}" ${c.driving === false ? 'readonly' : ''} />` : ''}<button class="icon-button" data-constraint-remove="${c.id}" title="${escapeHtml(t('constraint.remove'))}" aria-label="${escapeHtml(t('constraint.remove'))}">${icon('trash')}</button></div>`).join('')}</div>`;
 }
 
 function focusConstraint(id) {
@@ -3238,7 +3975,8 @@ function pasteText(text, at = null) {
 function updateSettings(patch) {
   const previous = state.settings;
   state.settings = { ...state.settings, ...patch };
-  storeSettings(globalThis.localStorage, state.settings);
+  // Safe mode (Std_RestartInSafeMode) runs on defaults and leaves the stored settings alone.
+  if (!state.safeMode) storeSettings(globalThis.localStorage, state.settings);
   applySettings(previous);
 }
 
@@ -3842,8 +4580,8 @@ function applyFeature(kind, found, params, axis = 'yAxis') {
   const added = change('op.feature', (drawing) => {
     const layer = D.findEntity(drawing, found.ids[0])?.layer;
     D.removeEntities(drawing, found.ids);
-    // On a working plane the solid stands at its elevation.
-    return D.addEntity(drawing, 'solid', { ...raw, z: (raw.z ?? 0) + (drawing.workPlane?.z ?? 0), name: t(`feature.${kind}`), ...(layer ? { layer } : {}) });
+    // On a working plane the solid stands at its elevation — or on its face.
+    return D.addEntity(drawing, 'solid', { ...onWorkPlane(raw, drawing), name: t(`feature.${kind}`), ...(layer ? { layer } : {}) });
   });
   if (added) {
     select([added.id]);
@@ -4500,7 +5238,48 @@ function solidRows(entity) {
     if (param.type === 'choice') return `<label class="prop-row" title="${escapeHtml(label)}"><span class="prop-label">${escapeHtml(label)}</span><select data-solid-param="${param.key}" title="${escapeHtml(label)}">${param.options.map((option, i) => `<option value="${i}" ${entity.params[param.key] === i ? 'selected' : ''}>${escapeHtml(t(`archOpt.${option}`))}</option>`).join('')}</select></label>`;
     return numField(param.key, entity.params[param.key], label, param.unit === '°' ? '°' : param.unit ? 'mm' : '', 'data-solid-param');
   }).join('');
-  return `<label class="prop-row" title="${escapeHtml(t('prop.name'))}"><span class="prop-label">${icon('edit')}${t('prop.name')}</span><input data-prop="name" value="${escapeHtml(entity.name)}" title="${escapeHtml(t('prop.name'))}" /></label>${isArchKind(entity.kind) ? bimRows(entity) : ''}${rows}`;
+  const picking = state.edgePick === entity.id;
+  const pick = (entity.kind === 'fillet' || entity.kind === 'chamfer') ? `<div class="prop-actions"><button class="small-button ${picking ? 'active' : ''}" data-edge-pick-mode title="${escapeHtml(t(occReady() ? 'edgePick.tip' : 'edgePick.noKernel'))}" ${occReady() ? '' : 'disabled'}>${icon('select')}<span>${escapeHtml(t(picking ? 'edgePick.done' : 'edgePick.start'))}</span></button>${entity.shape?.picks?.length ? `<small class="muted">${escapeHtml(t('edgePick.count', { count: entity.shape.picks.length }))}</small>` : ''}</div>` : '';
+  return `<label class="prop-row" title="${escapeHtml(t('prop.name'))}"><span class="prop-label">${icon('edit')}${t('prop.name')}</span><input data-prop="name" value="${escapeHtml(entity.name)}" title="${escapeHtml(t('prop.name'))}" /></label>${isArchKind(entity.kind) ? bimRows(entity) : ''}${rows}${pick}`;
+}
+
+// ───────────────────────── picking a fillet's / chamfer's edges in 3D (persistent: by geometry)
+
+/** Starts (or ends) picking the selected dress-up's edges in the 3D view. */
+async function toggleEdgePick(on = !state.edgePick) {
+  const entity = selectedSolids()[0];
+  if (!on || !entity || !['fillet', 'chamfer'].includes(entity.kind)) {
+    state.edgePick = null;
+    view3d.instance?.setEdgeOverlay(null);
+    renderRight();
+    return false;
+  }
+  if (!state.view3d) await toggle3d(true);
+  state.edgePick = entity.id;
+  showEdgeOverlay();
+  renderRight();
+  return true;
+}
+
+/** The dress-up's base edges over the 3D view (after every rebuild while picking). */
+function showEdgeOverlay() {
+  const entity = state.edgePick ? D.findEntity(activeDrawing(), state.edgePick) : null;
+  if (!entity || !view3d.instance) return;
+  const edges = occDressEdges(entity);
+  if (!edges) { state.edgePick = null; notify('error', t('edgePick.noKernel')); return; }
+  view3d.instance.setEdgeOverlay(edges, (key) => toggleEdge(entity.id, edges.find((e) => e.key === key)));
+}
+
+/** Adds or removes an edge (kept by its midpoint and direction); the fillet switches to "picked edges". */
+function toggleEdge(id, edge) {
+  const entity = D.findEntity(activeDrawing(), id);
+  if (!entity || !edge) return;
+  const picks = entity.shape?.picks ?? [];
+  const same = (p) => Math.hypot(...p.mid.map((v, i) => v - edge.mid[i])) < 1e-6;
+  // An edge picked through a group: start the list from the group's edges.
+  const current = DRESSUP_EDGES[entity.params.edges] === 'picked' ? picks : occDressEdges(entity).filter((e) => e.picked).map((e) => ({ mid: e.mid, dir: e.dir }));
+  const next = edge.picked ? current.filter((p) => !same(p)) : [...current, { mid: edge.mid, dir: edge.dir }];
+  change('op.edges', (d) => D.updateEntity(d, id, { params: { ...entity.params, edges: DRESSUP_EDGES.indexOf('picked') }, shape: { ...entity.shape, picks: next } }));
 }
 
 // ───────────────────────── confirmation
@@ -4558,7 +5337,13 @@ function anchorBelow(element) {
 }
 
 function menuItems(ids) {
-  return ids.map((id) => (id === '-' ? { separator: true } : {
+  const first = (items) => items.map((id) => (id?.group ? first(id.items) : id)).find((id) => id && id !== '-');
+  return ids.map((id) => (id === '-' ? { separator: true } : id?.group ? {
+    id: `group:${id.group}`,
+    label: t(`menuGroup.${id.group}`),
+    icon: commands[first(id.items)]?.icon,
+    items: menuItems(id.items),
+  } : {
     id,
     label: t(commands[id].label),
     icon: commands[id].icon,
@@ -4837,7 +5622,124 @@ let suppressClick = false;
 
 // ───────────────────────── events
 
+/** The model tree's clicks, double clicks, dragging and hovering (FreeCAD's tree view). */
+function bindTreeEvents() {
+  root.addEventListener('click', (event) => {
+    const target = event.target;
+    const toggle = target.closest('[data-tree-toggle]');
+    if (toggle) {
+      const key = toggle.dataset.treeToggle;
+      const set = key.startsWith('folder:') ? state.tree.expanded : state.tree.collapsed;
+      if (set.has(key)) set.delete(key); else set.add(key);
+      event.stopPropagation();
+      renderLeft();
+      return;
+    }
+    const eye = target.closest('[data-tree-eye]');
+    if (eye) {
+      event.stopPropagation();
+      const id = eye.dataset.treeEye;
+      change('std.op.toggleVisibility', (d) => { const entity = D.findEntity(d, id); if (entity) D.updateEntity(d, id, { hidden: !entity.hidden }); });
+      return;
+    }
+    const groupEye = target.closest('[data-tree-group-eye]');
+    if (groupEye) {
+      event.stopPropagation();
+      const id = groupEye.dataset.treeGroupEye;
+      change('std.op.toggleVisibility', (d) => { d.groups = d.groups.map((g) => (g.id === id ? { ...g, hidden: !g.hidden } : g)); });
+      return;
+    }
+    const doc = target.closest('[data-tree-doc]');
+    if (doc && doc.dataset.treeDoc !== state.active) { activateDoc(doc.dataset.treeDoc); return; }
+    const item = target.closest('[data-tree-entity]');
+    if (item) {
+      const id = item.dataset.treeEntity;
+      if (event.shiftKey || event.ctrlKey || event.metaKey) select([id], { toggle: true });
+      else select([id]);
+      // Std_TreeSyncView: the view goes to what is picked in the tree.
+      if (state.settings.tree?.syncView) run('viewFitSelection');
+      return;
+    }
+    const groupRow = target.closest('[data-tree-group]');
+    if (groupRow) {
+      const drawing = activeDrawing();
+      // The group picked in the tree (the sketch the Sketcher commands are about).
+      state.treeGroup = groupRow.dataset.treeGroup;
+      const ids = new Set([groupRow.dataset.treeGroup]);
+      for (const g of drawing.groups ?? []) if (ids.has(g.parent)) ids.add(g.id);
+      select(drawing.entities.filter((e) => ids.has(e.group)).map((e) => e.id));
+    }
+  });
+  root.addEventListener('dblclick', (event) => {
+    const item = event.target.closest('[data-tree-entity]');
+    if (item) { select([item.dataset.treeEntity]); run('editObject'); return; }
+    const rename = event.target.closest('[data-tree-rename]');
+    if (rename) renameGroup(rename.dataset.treeRename);
+  });
+  root.addEventListener('mouseover', (event) => {
+    // Std_TreePreSelection: what the pointer is on in the tree lights up in the drawing.
+    if (state.settings.tree?.preSelection === false) return;
+    const item = event.target.closest?.('[data-tree-entity]');
+    const id = item?.dataset.treeEntity ?? null;
+    if (!event.target.closest?.('.model-tree') || id === state.hover) return;
+    state.hover = id;
+    scheduleRender();
+  });
+  root.addEventListener('dragstart', (event) => {
+    const item = event.target.closest?.('[data-tree-entity], [data-tree-group]');
+    if (item && event.target.closest('.model-tree')) {
+      const id = item.dataset.treeEntity;
+      const ids = id ? (state.selection.has(id) ? selectedIds() : [id]) : [];
+      event.dataTransfer.setData('application/x-mycad-tree', JSON.stringify({ ids, group: item.dataset.treeGroup ?? null }));
+      event.dataTransfer.effectAllowed = 'move';
+      return;
+    }
+    const tool = event.target.closest?.('.toolbar-left.unlocked [data-toolbar-id]');
+    if (tool) event.dataTransfer.setData('application/x-mycad-toolbar', tool.dataset.toolbarId);
+  });
+  root.addEventListener('dragover', (event) => {
+    if (event.target.closest?.('.model-tree [data-tree-drop]') && [...event.dataTransfer.types].includes('application/x-mycad-tree')) event.preventDefault();
+    if (event.target.closest?.('.toolbar-left.unlocked [data-toolbar-id]') && [...event.dataTransfer.types].includes('application/x-mycad-toolbar')) event.preventDefault();
+  });
+  root.addEventListener('drop', (event) => {
+    const toolbar = event.dataTransfer.getData('application/x-mycad-toolbar');
+    const onTool = event.target.closest?.('[data-toolbar-id]');
+    if (toolbar && onTool) {
+      event.preventDefault();
+      const order = TOOLBAR_IDS.slice();
+      const order2 = [...(state.settings.toolbarOrder ?? []).filter((id) => order.includes(id)), ...order.filter((id) => !(state.settings.toolbarOrder ?? []).includes(id))];
+      order2.splice(order2.indexOf(toolbar), 1);
+      order2.splice(order2.indexOf(onTool.dataset.toolbarId), 0, toolbar);
+      updateSettings({ toolbarOrder: order2 });
+      return;
+    }
+    const target = event.target.closest?.('.model-tree [data-tree-drop]');
+    const raw = event.dataTransfer.getData('application/x-mycad-tree');
+    if (!target || !raw) return;
+    event.preventDefault();
+    const { ids, group } = JSON.parse(raw);
+    const into = target.dataset.treeDrop || null;
+    if (group) {
+      if (group === into) return;
+      change('std.op.moveToGroup', (d) => { d.groups = d.groups.map((g) => (g.id === group ? { ...g, parent: into } : g)); });
+    } else if (ids.length) moveToGroup(ids, into);
+  });
+  window.addEventListener('pointermove', (event) => {
+    const screen = toScreen(event.clientX, event.clientY);
+    state.pointer = { x: screen.x, y: screen.y, clientX: event.clientX, clientY: event.clientY };
+  }, { passive: true });
+}
+
+async function renameGroup(id) {
+  const group = activeDrawing()?.groups?.find((g) => g.id === id);
+  if (!group) return;
+  const answer = await form({ title: t('std.renameGroup'), icon: 'group', width: 440, fields: [{ key: 'name', type: 'text', label: t('std.groupName'), icon: 'edit', value: group.name }], actions: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'ok', label: t('confirm.ok'), primary: true }] });
+  if (answer?.action !== 'ok' || !answer.values.name.trim()) return;
+  change('std.op.group', (d) => { d.groups = d.groups.map((g) => (g.id === id ? { ...g, name: answer.values.name.trim() } : g)); });
+}
+
 function bindEvents() {
+  bindTreeEvents();
   root.addEventListener('click', (event) => {
     if (suppressClick) return undefined;
     const target = event.target;
@@ -4905,6 +5807,9 @@ function bindEvents() {
     if (lightReset) return setLightOptions({ on: true, azimuth: 135, elevation: 55, intensity: 1, color: '#ffffff', shadows: true });
     const bar3d = target.closest('[data-view3d]');
     if (bar3d) return on3dBar(bar3d.dataset.view3d);
+    if (target.closest('[data-edge-pick-mode]')) return toggleEdgePick();
+    const animButton = target.closest('[data-anim]');
+    if (animButton) return onAnimBar(animButton.dataset.anim);
     const toolButton = target.closest('[data-tool]');
     if (toolButton && !toolButton.disabled) return setTool(toolButton.dataset.tool);
     const partCategory = target.closest('[data-part-category]');
@@ -4933,6 +5838,16 @@ function bindEvents() {
     }
     const jointRemove = target.closest('[data-joint-remove]');
     if (jointRemove) return change('op.joint', (d) => { d.joints = (d.joints ?? []).filter((j) => j.id !== jointRemove.dataset.jointRemove); if (!d.joints.length) delete d.joints; });
+    const constraintPick = target.closest('[data-constraint-pick]');
+    if (constraintPick) {
+      const id = constraintPick.dataset.constraintPick;
+      const picked = new Set(state.constraintSelection ?? []);
+      if (picked.has(id)) picked.delete(id); else picked.add(id);
+      state.constraintSelection = [...picked];
+      renderRight();
+      scheduleRender();
+      return undefined;
+    }
     const constraintRemove = target.closest('[data-constraint-remove]');
     if (constraintRemove) return change('op.unconstrain', (d) => { d.constraints = (d.constraints ?? []).filter((c) => c.id !== constraintRemove.dataset.constraintRemove); });
     const removeButton = target.closest('[data-layer-remove]');
@@ -5019,10 +5934,22 @@ function bindEvents() {
   new ResizeObserver(() => { resizeCanvas(); resize3d(); }).observe(root.querySelector('#canvas-wrap'));
   bindScaleBar();
 
+  // The animation's time slider: scrubbing pauses and shows that moment.
+  root.addEventListener('input', (event) => {
+    if (event.target.id !== 'anim-time') return;
+    if (anim.playing) { anim.playing = false; cancelAnimationFrame(anim.frame); renderView3dBar(); }
+    showAnimationAt(Number(event.target.value));
+  });
   root.addEventListener('change', (event) => {
     const target = event.target;
     if (target.id === 'zoom-value') {
       setZoomPercent(parseFloat(target.value) || 100);
+      return;
+    }
+    if (target.id === 'anim-duration') {
+      const value = evaluate(target.value);
+      if (Number.isFinite(value) && value > 0) setAnimation({ duration: value });
+      else { notify('error', t('notice.badNumber', { text: target.value })); renderView3dBar(); }
       return;
     }
     if (target.id === 'view3d-thickness') {
@@ -5133,7 +6060,7 @@ const SHORTCUTS = [
   [',', false, 'settings'], ['l', true, 'language'], ['tab', false, 'nextTab'], ['tab', true, 'prevTab'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'],
   ['@', true, 'rightPanel'], ['2', true, 'rightPanel'], ['#', true, 'view3d'], ['3', true, 'view3d'], ['q', false, 'exit'], ['i', false, 'import3d'], ['g', true, 'light'], ['b', true, 'scaleBar'],
 ];
-const FUNCTION_KEYS = { f1: 'about', f2: 'renameDrawing', f3: 'snap', f7: 'grid', f8: 'ortho', f9: 'snapGrid', home: 'zoomFit' };
+const FUNCTION_KEYS = { f1: 'about', f2: 'renameDrawing', f3: 'snap', f7: 'grid', f8: 'ortho', f9: 'snapGrid', f11: 'fullscreen', home: 'zoomFit' };
 
 function onKeyDown(event) {
   const key = event.key.toLowerCase();
@@ -5153,6 +6080,8 @@ function onKeyDown(event) {
   if (mod && !event.altKey) {
     // Text fields keep their own clipboard and undo.
     if (editing && ['x', 'c', 'v', 'z', 'y', 'a'].includes(key)) return;
+    const custom = customShortcut(event);
+    if (custom) { event.preventDefault(); event.stopPropagation(); run(custom); return; }
     const shortcut = SHORTCUTS.find(([k, shift]) => k === key && shift === event.shiftKey);
     if (shortcut) {
       event.preventDefault();
@@ -5162,12 +6091,14 @@ function onKeyDown(event) {
     return;
   }
   if (FUNCTION_KEYS[key] && !(editing && key === 'home')) { event.preventDefault(); run(FUNCTION_KEYS[key]); return; }
+  if (!editing && !event.altKey && customShortcut(event)) { event.preventDefault(); run(customShortcut(event)); return; }
   if (editing) {
     if (key === 'escape') event.target.blur();
     return;
   }
   if (key === ' ' && !canvasState.spaceDown) { canvasState.spaceDown = true; event.preventDefault(); return; }
   if (key === 'escape') {
+    if (state.focusView) { setFocusView(false); return; }
     if (state.tool) { if (state.tool.points.length || state.tool.target) { state.tool.cancel(); renderCommandBar(); scheduleRender(); } else setTool('select'); return; }
     if (state.toolId !== 'select') { setTool('select'); return; }
     run('clearSelection');
@@ -5232,6 +6163,8 @@ async function start() {
   native.listFonts().then((fonts) => { state.fonts = fonts; if (selectedEntities()[0]?.type === 'text') renderRight(); }).catch(() => {});
   native.setBackendLanguage(state.settings.language);
   applySettings({});
+  applyOverlay();
+  if (state.safeMode) notify('warning', t('std.safeModeOn'));
   await loadBackground();
 
   if (desktop) {
@@ -5279,9 +6212,903 @@ async function start() {
     await appWindow.setFocus();
     setTimeout(() => popups.prewarm('menu'), 300);
   }
+  startKernel();
 }
 
 // Test hook: the E2E suites drive the app through this (no effect on normal use).
+// ───────────────────────── FreeCAD Std commands: what src/commands/std.js uses
+
+/** The app as the Std commands see it (getters: some of it is made further down). */
+function stdApp() {
+  return {
+    get state() { return state; }, get view3d() { return view3d; }, get popups() { return popups; }, get commands() { return commands; }, D, t,
+    get TOOLBAR_IDS() { return TOOLBAR_IDS; }, updateSettings, renderLeft, run, commandEnabled, showTree, showCommandMenu, applyOverlay, moveToGroup, boxOf: (entity) => cachedBox(entity),
+    labelOf, language: () => getLanguage(), readClipboard, transformSelection, massText, chooseTexture, replaceSettings, openViewerWindow, setTiled, startVr,
+    printPdf, extractDocument, createDocumentFromJson, showMacroMenu, reloadStyle: () => applySettings(state.settings), restartSafeMode, leaveSafeMode, boxSelectEdges, clarifySelection,
+    selectedSolids, setElementFilter, clearElements, boxSelect3d, topologyOfEntity, elementTriangles, elementPoints, boxOf3d, datumSize, makeFaceFromWires, projectOnSurface, importCurveNetwork,
+    fmt, newId, selectedEntitiesList: () => selectedEntities(),
+    setTool, constrainSelection, solidMeshOf: (entity) => solidMesh(entity), repaint: () => scheduleRender(), renderRight, openSpreadsheet, importSheetCsv, robotTrajectory, saveText, saveBytes, readTextFileDialog,
+    solidFeature, openSolidDialog, booleanSelection, workPlaneOnFace: (point, normal) => setWorkPlaneFace(point, normal),
+    workPlaneOnDatum: (datum) => setWorkPlaneFace([datum.x ?? 0, datum.y ?? 0, datum.z ?? 0], apply3(rotationOf(datum), [0, 0, 1])),
+    notify, change, select, selectedIds, selectedEntities, activeDoc, activeDrawing, activateDoc, docName, closeDoc, toggle3d, rebuild3d,
+    renderToolbarState, form, copyText, zoomToSelection, startBoxZoom2d, selectionStep, setFullscreen, setFocusView, revertDoc, saveCopy,
+    mergeDocument, recompute, newGroup, dependencyGraph, startWhatsThis, openUrl, openDocument, libraryVersions, pythonModulesText,
+    openMacroFolder, sendToConsole, setExpressionScope, consolePrint: (text) => consoleLog('info', text), consoleLog, insertSolid,
+    ensureBim, newDrawing, chooseImageData,
+  };
+}
+
+/** A small dialog (the generic form popup). Handlers get live changes, list picks and buttons that keep it open. */
+function form(spec, { onChange = null, onPick = null, onButton = null } = {}) {
+  popups.on('form:change', onChange ?? (() => {}));
+  popups.on('form:pick', onPick ?? (() => {}));
+  popups.on('form:button', onButton ?? (() => {}));
+  // reserveRows: room for fields the dialog adds later (form:fields).
+  const rows = spec.fields.reduce((sum, f) => sum + (f.type === 'textarea' ? (f.rows ?? 6) * 19 + 44 : f.type === 'list' ? Math.min(8, Math.max(1, f.options?.length ?? 1)) * 34 + 44 : 40), 0) + (spec.reserveRows ?? 0) * 40;
+  const height = Math.min(Math.round(window.screen.availHeight * 0.9), 116 + (spec.intro ? 48 : 0) + rows);
+  return popups.open('form', spec, { size: { width: spec.width ?? POPUPS.form.width, height } });
+}
+
+/** Expressions see the spreadsheet's aliases and cells and the variables of the variable sets. */
+function setExpressionScope() {
+  const drawing = activeDrawing();
+  // Sheet names come as a Map (lower-case); variable-set names are added to it.
+  const scope = new Map(sheetVariables(drawing?.spreadsheet));
+  for (const [name, value] of Object.entries(variableScope(drawing))) scope.set(name.toLowerCase(), value);
+  setVariables(scope);
+}
+
+async function copyText(text) {
+  try {
+    await native.clipboardWrite(text);
+  } catch {
+    try { await navigator.clipboard?.writeText(text); } catch { /* no clipboard */ }
+  }
+}
+
+/** Std_SelBack / Std_SelForward: the selections made, newest last. */
+function recordSelection() {
+  if (state.selStepping) return;
+  void _bestFit;
+  const history = state.selHistory ??= { list: [[]], at: 0 };
+  const now = [...state.selection];
+  const last = history.list[history.at] ?? [];
+  if (now.length === last.length && now.every((id, i) => id === last[i])) return;
+  history.list = history.list.slice(0, history.at + 1);
+  history.list.push(now);
+  if (history.list.length > 50) history.list.shift();
+  history.at = history.list.length - 1;
+}
+
+function selectionStep(direction) {
+  const history = state.selHistory;
+  if (!history) return;
+  const at = Math.max(0, Math.min(history.list.length - 1, history.at + direction));
+  if (at === history.at) return;
+  history.at = at;
+  const ids = new Set(activeDrawing()?.entities.map((e) => e.id) ?? []);
+  state.selStepping = true;
+  try { select(history.list[at].filter((id) => ids.has(id))); } finally { state.selStepping = false; }
+}
+
+/** Std_ViewFitSelection in 2D: the selected entities fill the view. */
+function zoomToSelection() {
+  const doc = activeDoc();
+  const boxes = selectedEntities().map((entity) => cachedBox(entity)).filter(Boolean);
+  if (!doc || !boxes.length) return;
+  const box = boxes.reduce((a, b) => ({ minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY), maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY) }));
+  ensureViewport(doc).fit(box, 40, state.settings.showRulers ? RULER : 0);
+  scheduleRender();
+}
+
+/** Std_ViewBoxZoom in 2D: the next drag on the drawing draws a box, and the view zooms to it. */
+function startBoxZoom2d() {
+  const canvas = root.querySelector('#cad-canvas');
+  const wrap = root.querySelector('#canvas-wrap');
+  if (!canvas || !wrap) return;
+  notify('info', t('std.boxZoomHint'));
+  const box = document.createElement('div');
+  box.className = 'view3d-zoom-box';
+  wrap.append(box);
+  let start = null;
+  const rect = () => canvas.getBoundingClientRect();
+  const down = (event) => { event.preventDefault(); event.stopPropagation(); const r = rect(); start = { x: event.clientX - r.left, y: event.clientY - r.top }; };
+  const move = (event) => {
+    if (!start) return;
+    const r = rect();
+    const x = event.clientX - r.left;
+    const y = event.clientY - r.top;
+    Object.assign(box.style, { left: `${Math.min(x, start.x)}px`, top: `${Math.min(y, start.y)}px`, width: `${Math.abs(x - start.x)}px`, height: `${Math.abs(y - start.y)}px` });
+  };
+  const up = (event) => {
+    canvas.removeEventListener('pointerdown', down, true);
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up, true);
+    box.remove();
+    const doc = activeDoc();
+    if (!start || !doc) return;
+    event.stopPropagation();
+    const r = rect();
+    const vp = ensureViewport(doc);
+    const a = vp.toWorld({ x: start.x, y: start.y });
+    const b = vp.toWorld({ x: event.clientX - r.left, y: event.clientY - r.top });
+    if (Math.abs(event.clientX - r.left - start.x) < 4 || Math.abs(event.clientY - r.top - start.y) < 4) return;
+    vp.fit({ minX: Math.min(a.x, b.x), minY: Math.min(a.y, b.y), maxX: Math.max(a.x, b.x), maxY: Math.max(a.y, b.y) }, 0, state.settings.showRulers ? RULER : 0);
+    scheduleRender();
+  };
+  canvas.addEventListener('pointerdown', down, true);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up, true);
+}
+
+/** Std_MainFullscreen: the window fills the screen. */
+async function setFullscreen(on) {
+  state.fullscreen = Boolean(on);
+  try {
+    if (desktop) await appWindow.setFullscreen(state.fullscreen);
+    else if (state.fullscreen) await document.documentElement.requestFullscreen?.();
+    else if (document.fullscreenElement) await document.exitFullscreen?.();
+  } catch (error) {
+    state.fullscreen = false;
+    showError('error.unexpected', error, 'fullscreen');
+  }
+  renderToolbarState();
+}
+
+/** Std_ViewFullscreen: only the drawing (or the 3D view) is shown; the same command brings the rest back. */
+function setFocusView(on) {
+  state.focusView = Boolean(on);
+  root.classList.toggle('focus-view', state.focusView);
+  if (state.focusView) notify('info', t('std.focusViewHint'));
+  requestAnimationFrame(() => { window.dispatchEvent(new Event('resize')); resize3d(); scheduleRender(); });
+  renderToolbarState();
+}
+
+/** Std_Revert: the drawing as last saved. */
+async function revertDoc() {
+  const doc = activeDoc();
+  if (!doc?.path) return;
+  if (doc.dirty) {
+    const choice = await ask({ icon: 'revert', title: t('std.revert'), message: t('std.revertMessage', { name: docName(doc) }), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'revert', label: t('std.revert'), icon: 'revert', danger: true, primary: true }] });
+    if (choice !== 'revert') return;
+  }
+  const path = doc.path;
+  await closeDoc(doc, { force: true });
+  await openPath(path);
+}
+
+/** Std_SaveCopy: written elsewhere; the drawing keeps its own file. */
+async function saveCopy() {
+  const doc = activeDoc();
+  if (!doc) return;
+  const text = serialize(doc.drawing);
+  const name = `${safeFileName(stripExtension(docName(doc)))} copy.mcad`;
+  try {
+    if (desktop) {
+      let path = await native.chooseDrawingToSave(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`);
+      if (!path) return;
+      path = withExtension(path);
+      await withProgress('progress.save', baseName(path), (op) => native.writeTextFile(path, text, op));
+      notify('success', t('std.copySaved', { name: baseName(path) }));
+    } else {
+      native.downloadText(text, name, 'application/json');
+    }
+  } catch (error) {
+    showError('error.save', error, name);
+  }
+}
+
+/** Std_MergeProjects: the entities (and their layers) of another drawing come into this one. */
+async function mergeDocument() {
+  const doc = activeDoc();
+  if (!doc) return;
+  let incoming = [];
+  try {
+    if (desktop) {
+      const paths = await native.chooseDrawingToOpen(state.settings.lastDirectory, {});
+      for (const path of paths) {
+        const text = await withProgress('progress.open', baseName(path), (op) => native.readTextFile(path, op));
+        incoming.push(drawingFromText(path, text).drawing);
+      }
+    } else {
+      const files = await native.pickDrawingFilesWeb({});
+      incoming = files.filter((file) => file.text).map((file) => drawingFromText(file.name, file.text).drawing);
+    }
+  } catch (error) {
+    showError('error.open', error);
+    return;
+  }
+  if (!incoming.length) return;
+  let count = 0;
+  change('std.op.merge', (d) => {
+    for (const other of incoming) {
+      for (const layer of other.layers) if (!d.layers.some((l) => l.id === layer.id)) d.layers.push(structuredClone(layer));
+      count += D.insertEntities(d, other.entities).length;
+    }
+  });
+  notify('success', t('std.merged', { count }));
+}
+
+/** Std_Recompute: every derived shape is built again from its parameters. */
+function recompute() {
+  resetSolidCaches();
+  const doc = activeDoc();
+  if (doc) doc.apply(t('std.op.recompute'), () => {});
+  afterChange();
+  if (state.view3d) rebuild3d();
+  notify('success', t('std.recomputed'));
+}
+
+/** Std_Group / Std_Part: a new group; what is selected goes into it. */
+function newGroup({ part = false } = {}) {
+  const ids = selectedIds();
+  const drawing = activeDrawing();
+  if (!drawing) return;
+  const n = (drawing.groups?.filter((g) => Boolean(g.part) === part).length ?? 0) + 1;
+  const group = { id: newId(), name: t(part ? 'std.partN' : 'std.groupN', { n }), parent: null, ...(part ? { part: true, placement: { x: 0, y: 0, z: 0, rz: 0 } } : {}) };
+  change(part ? 'std.op.part' : 'std.op.group', (d) => {
+    d.groups = [...(d.groups ?? []), group];
+    for (const id of ids) { const entity = D.findEntity(d, id); if (entity) D.updateEntity(d, id, { group: group.id }); }
+  });
+  notify('success', t(part ? 'std.partMade' : 'std.groupMade', { name: group.name, count: ids.length }));
+}
+
+/** Std_DependencyGraph: what each object follows (clone sources, joints, constraints, spreadsheet). */
+async function dependencyGraph() {
+  const drawing = activeDrawing();
+  if (!drawing) return;
+  const { dependencyEdges, graphSvg } = await import('./domain/depgraph.js');
+  const graph = dependencyEdges(drawing, (entity) => entity.name || t(`entity.${entity.type}`));
+  const svg = graphSvg(graph);
+  const answer = await form({
+    title: t('std.dependencyGraph'), icon: 'dependencyGraph', width: 900,
+    intro: graph.edges.length ? t('std.dependencyCount', { nodes: graph.nodes.length, edges: graph.edges.length }) : t('std.dependencyNone'),
+    fields: [{ key: 'graph', type: 'textarea', label: t('std.dependencyText'), icon: 'dependencyGraph', value: graph.edges.map((e) => `${graph.nodes[e.from].label} → ${graph.nodes[e.to].label}  (${t(`std.dep.${e.kind}`)})`).join('\n') || '—', rows: 12, readonly: true }],
+    actions: [{ id: 'svg', label: t('std.exportGraph'), icon: 'export' }, { id: 'ok', label: t('error.close'), primary: true }],
+  });
+  if (answer?.action !== 'svg') return;
+  const name = `${safeFileName(stripExtension(docName(activeDoc())))}-dependencies.svg`;
+  try {
+    if (desktop) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'svg');
+      if (path) await native.writeTextFile(path, svg, 'std');
+    } else native.downloadText(svg, name, 'image/svg+xml');
+  } catch (error) {
+    showError('error.save', error, name);
+  }
+}
+
+/** Std_WhatsThis: the next click on a button explains it instead of running it. */
+function startWhatsThis() {
+  notify('info', t('std.whatsThisHint'));
+  root.classList.add('whats-this');
+  const explain = (event) => {
+    const target = event.target.closest('[data-command], [title]');
+    event.preventDefault();
+    event.stopPropagation();
+    document.removeEventListener('click', explain, true);
+    root.classList.remove('whats-this');
+    if (!target) return;
+    const id = target.dataset.command;
+    const command = id ? commands[id] : null;
+    const text = command ? `${t(command.label)}${command.key ? ` (${keyLabel(command.key)})` : ''}${command.tip ? ` — ${t(command.tip)}` : ''}` : target.title;
+    notify('info', text || t('std.whatsThisNothing'));
+  };
+  setTimeout(() => document.addEventListener('click', explain, true), 0);
+}
+
+async function openUrl(url) {
+  try {
+    if (desktop) await native.invoke('open_url', { url });
+    else window.open(url, '_blank', 'noopener');
+  } catch (error) {
+    showError('error.open', error, url);
+  }
+}
+
+async function openDocument(name) {
+  try {
+    if (desktop) await native.invoke('open_document', { name });
+    else window.open(name, '_blank', 'noopener');
+  } catch (error) {
+    showError('error.open', error, name);
+  }
+}
+
+/** Std_AboutQt: the libraries MyCAD is built on, with their versions. */
+async function libraryVersions() {
+  const deps = packageInfo.dependencies ?? {};
+  const info = await native.appInfo().catch(() => ({}));
+  const clean = (v) => String(v ?? '').replace(/^[\^~]/, '');
+  return [
+    ['MyCAD', info.version ?? packageInfo.version, t('std.lib.mycad')],
+    ['Tauri', clean(deps['@tauri-apps/api']), t('std.lib.tauri')],
+    ['three.js', `r${THREE_REVISION}`, t('std.lib.three')],
+    ['OpenCASCADE (replicad-opencascadejs)', clean(deps['replicad-opencascadejs']), t('std.lib.occ')],
+    ['Pyodide', clean(deps.pyodide), t('std.lib.pyodide')],
+  ];
+}
+
+/** Std_PythonHelp: the Python modules scripts can import, with their classes and functions. */
+async function pythonModulesText() {
+  const lines = [t('std.pythonIntro'), ''];
+  for (const [file, source] of Object.entries(PYTHON_MODULES)) {
+    lines.push(`── ${file.replace(/\.py$/, '')}`);
+    for (const line of source.split('\n')) {
+      const m = line.match(/^(\s*)(class|def)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(\([^)]*\))?/);
+      if (m && !m[3].startsWith('_')) lines.push(`${m[1]}${m[2]} ${m[3]}${m[4] ?? ''}`);
+    }
+    lines.push('');
+  }
+  lines.push('── mycad', ...['add(type, data)', 'solid(kind, params, place)', 'get(id)', 'update(id, patch)', 'remove(id)', 'select(ids)', 'run(command)', 'json(value)', 'obj(json)'].map((f) => `def ${f}`));
+  return lines.join('\n');
+}
+
+/** Std_OpenMacrosFolder: the macros as files in the data folder, shown in the file manager. */
+async function openMacroFolder() {
+  const macros = state.settings.macros ?? [];
+  if (!desktop) {
+    native.downloadText(macros.map((m) => `# ${m.name} (${m.language ?? 'js'})\n${m.code ?? m.source ?? ''}`).join('\n\n'), 'macros.txt');
+    return;
+  }
+  try {
+    const dir = await native.invoke('open_data_folder', { name: 'macros' });
+    for (const macro of macros) {
+      const ext = macro.language === 'python' ? 'py' : 'js';
+      await native.writeTextFile(`${dir}/${safeFileName(macro.name || 'macro')}.${ext}`, macro.code ?? macro.source ?? '', 'std');
+    }
+    notify('info', t('std.macroFolderOpened', { count: macros.length }));
+  } catch (error) {
+    showError('error.save', error, 'macros');
+  }
+}
+
+/** Std_SendToPythonConsole: the selected objects as Python variables in the console. */
+function sendToConsole(ids) {
+  if (!state.settings.showConsole) updateSettings({ showConsole: true });
+  updateSettings({ consoleLanguage: 'python' });
+  const code = ['import mycad, json', ...ids.map((id, i) => `obj${ids.length > 1 ? i + 1 : ''} = json.loads(mycad.json(mycad.get(${JSON.stringify(id)})))`)].join('\n');
+  consoleState.code = code;
+  renderConsole();
+  const input = root.querySelector('#console-code');
+  if (input) { input.value = code; input.focus(); }
+}
+
+// ───────────────────────── Part: element selection and its helpers (src/commands/part.js)
+
+/** Part_FaceSelection / EdgeSelection / VertexSelection: clicks in 3D pick that kind of element (null: whole objects). */
+async function setElementFilter(kind) {
+  state.elementFilter = kind ?? null;
+  if (kind && !state.view3d) await toggle3d(true);
+  view3d.instance?.setElementMode(state.elementFilter, onElementPick);
+  if (kind) notify('info', t('part.filterHint', { kind: t(`part.kind.${kind}`) }));
+  renderToolbarState();
+}
+
+function onElementPick(element, event) {
+  if (!element) { if (!event?.shiftKey && !event?.ctrlKey) clearElements(); return; }
+  const same = (el) => el.id === element.id && el.kind === element.kind && el.index === element.index;
+  const add = event?.shiftKey || event?.ctrlKey;
+  const list = state.elements ?? [];
+  state.elements = add ? (list.some(same) ? list.filter((el) => !same(el)) : [...list, element]) : [element];
+  select([...new Set(state.elements.map((el) => el.id))]);
+  view3d.instance?.setElementHighlight(state.elements);
+  renderRight();
+}
+
+function clearElements() {
+  state.elements = [];
+  view3d.instance?.setElementHighlight([]);
+  renderRight();
+}
+
+/** Part_BoxSelection: objects (or, with an element filter, faces / edges / vertices) inside a dragged box. */
+async function boxSelect3d() {
+  if (!state.view3d) await toggle3d(true);
+  notify('info', t('std.boxZoomHint'));
+  view3d.instance.startBoxSelect((rect) => {
+    const found = view3d.instance.elementsInRect(rect, state.elementFilter);
+    if (state.elementFilter) {
+      state.elements = found;
+      select([...new Set(found.map((el) => el.id))]);
+      view3d.instance.setElementHighlight(found);
+    } else select(found.map((el) => el.id));
+    renderRight();
+  });
+}
+
+/** The faces, edges and vertices of a solid (from the 3D view when it is open, else from its mesh). */
+function topologyOfEntity(entity) {
+  return view3d.instance?.topologyOf(entity.id) ?? meshTopology(solidMesh(entity));
+}
+
+function elementTriangles(element) {
+  const entity = D.findEntity(activeDrawing(), element.id);
+  if (!entity || element.kind !== 'face') return [];
+  const tris = view3d.instance?.entityTris?.get(entity.id) ?? solidMesh(entity);
+  const topology = topologyOfEntity(entity);
+  return (topology.faces[element.index]?.triangles ?? []).map((i) => tris[i]);
+}
+
+function elementPoints(element) {
+  const entity = D.findEntity(activeDrawing(), element.id);
+  if (!entity) return [];
+  const topology = topologyOfEntity(entity);
+  if (element.kind === 'edge') return topology.edges[element.index]?.points ?? [];
+  if (element.kind === 'vertex') return topology.vertices[element.index] ? [topology.vertices[element.index].point] : [];
+  return [];
+}
+
+function boxOf3d(entity) {
+  const tris = solidMesh(entity);
+  if (!tris.length) return null;
+  const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+  for (const tri of tris) for (const p of tri) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); }
+  return hi.map((v, i) => v - lo[i]);
+}
+
+/** A sensible datum size: a little over half the model. */
+function datumSize() {
+  if (view3d.instance?.size) return Math.max(10, Math.round(view3d.instance.size * 0.6));
+  const box = D.extents(activeDrawing());
+  return box ? Math.max(10, Math.round(Math.max(box.maxX - box.minX, box.maxY - box.minY) * 0.6)) : 50;
+}
+
+/** Part_MakeFace: the selected closed outlines (with their holes) as flat faces. */
+function makeFaceFromWires() {
+  const drawing = activeDrawing();
+  const { loops } = collectLoops(selectedEntities().filter((e) => e.type !== 'solid'), drawing);
+  const shapes = buildShapes(loops);
+  if (!shapes.length) { notify('info', t('part.noClosedOutline')); return; }
+  const made = change('part.op.makeFace', (d) => shapes.map((shape) => D.addEntity(d, 'solid', { kind: 'surface', name: t('part.name.face'), params: { mode: SURFACE_MODES.indexOf('fill'), bulge: 0, thickness: 0 }, shape: { outer: shape.outer, holes: shape.holes ?? [] } }).id));
+  select(made);
+  notify('success', t('part.facesMade', { count: made.length }));
+}
+
+/** Part_ProjectionOnSurface: the selected 2D lines projected onto the picked face, along its normal, as 3D wires. */
+function projectOnSurface() {
+  const face = state.elements.find((el) => el.kind === 'face');
+  const tris = elementTriangles(face);
+  const n = face.signature.normal;
+  const big = 1e5;
+  const hitTriangle = (o, d) => {
+    let best = Infinity;
+    for (const [a, b, c] of tris) {
+      const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]]; const e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+      const p = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]];
+      const det = e1[0] * p[0] + e1[1] * p[1] + e1[2] * p[2];
+      if (Math.abs(det) < 1e-12) continue;
+      const tv = [o[0] - a[0], o[1] - a[1], o[2] - a[2]];
+      const u = (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / det;
+      if (u < -1e-9 || u > 1 + 1e-9) continue;
+      const q = [tv[1] * e1[2] - tv[2] * e1[1], tv[2] * e1[0] - tv[0] * e1[2], tv[0] * e1[1] - tv[1] * e1[0]];
+      const v = (d[0] * q[0] + d[1] * q[1] + d[2] * q[2]) / det;
+      if (v < -1e-9 || u + v > 1 + 1e-9) continue;
+      const tt = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) / det;
+      if (tt > 0 && tt < best) best = tt;
+    }
+    return best < Infinity ? o.map((x, i) => x + d[i] * best) : null;
+  };
+  const paths = [];
+  for (const entity of selectedEntities().filter((e) => e.type !== 'solid')) {
+    for (const prim of primitives(entity)) {
+      const pts = prim.kind === 'line' ? [prim.a, prim.b] : prim.kind === 'poly' ? (prim.closed ? [...prim.points, prim.points[0]] : prim.points) : prim.kind === 'circle' ? arcPoints(prim.c.x, prim.c.y, prim.r, 0, 360, 4) : prim.kind === 'arc' ? arcPoints(prim.c.x, prim.c.y, prim.r, prim.start, prim.end, 4) : [];
+      // Lines are cut into short steps so they follow the surface.
+      const dense = [];
+      for (let i = 0; i + 1 < pts.length; i++) { const a = pts[i]; const b = pts[i + 1]; const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2)); for (let k = 0; k < steps; k++) dense.push({ x: a.x + ((b.x - a.x) * k) / steps, y: a.y + ((b.y - a.y) * k) / steps }); }
+      if (pts.length) dense.push(pts[pts.length - 1]);
+      let current = [];
+      for (const p of dense) {
+        const hit = hitTriangle([p.x + n[0] * big, p.y + n[1] * big, n[2] * big], n.map((v) => -v));
+        if (hit) current.push(hit);
+        else if (current.length) { if (current.length >= 2) paths.push(current); current = []; }
+      }
+      if (current.length >= 2) paths.push(current);
+    }
+  }
+  if (!paths.length) { notify('info', t('part.projectionMissed')); return; }
+  const id = change('part.op.project', (d) => D.addEntity(d, 'solid', { kind: 'wire3d', name: t('part.projectionName'), params: {}, shape: { paths } }).id);
+  clearElements();
+  select([id]);
+}
+
+/** Part_ImportCurveNet: the curves of a 2D CAD file (DXF, SVG, IGES …) as 3D wires. */
+async function importCurveNetwork() {
+  try {
+    let name = null; let text = null;
+    if (desktop) {
+      const [path] = await native.chooseDrawingToOpen(state.settings.lastDirectory, { dxf: true });
+      if (!path) return;
+      name = baseName(path);
+      text = await native.readTextFile(path, 'std');
+    } else {
+      const [file] = await native.pickDrawingFilesWeb({ dxf: true });
+      if (!file?.text) return;
+      name = file.name; text = file.text;
+    }
+    const { drawing } = drawingFromText(name, text);
+    const paths = [];
+    for (const entity of drawing.entities) {
+      for (const prim of primitives(entity)) {
+        const pts = prim.kind === 'line' ? [prim.a, prim.b] : prim.kind === 'poly' ? (prim.closed ? [...prim.points, prim.points[0]] : prim.points) : prim.kind === 'circle' ? arcPoints(prim.c.x, prim.c.y, prim.r, 0, 360, 4) : prim.kind === 'arc' ? arcPoints(prim.c.x, prim.c.y, prim.r, prim.start, prim.end, 4) : [];
+        if (pts.length >= 2) paths.push(pts.map((p) => [p.x, p.y, 0]));
+      }
+    }
+    if (!paths.length) { notify('info', t('part.curveNetEmpty')); return; }
+    const id = change('part.op.curveNet', (d) => D.addEntity(d, 'solid', { kind: 'wire3d', name: `${t('part.curveNetName')} (${name})`, params: {}, shape: { paths } }).id);
+    select([id]);
+    notify('success', t('part.curveNetMade', { count: paths.length }));
+  } catch (error) {
+    showError('error.open', error);
+  }
+}
+
+// ───────────────────────── FreeCAD Std commands, second part (src/commands/std2.js)
+
+/** A name for an entity: its own, or its kind. */
+function labelOf(entity) {
+  if (entity.name) return entity.name;
+  if (entity.type === 'solid') {
+    const key = `solid.${entity.kind}`;
+    const label = t(key);
+    if (label !== key) return label;
+    return commands[`arch:${entity.kind}`] ? t(commands[`arch:${entity.kind}`].label) : entity.kind;
+  }
+  if (entity.type === 'part') return t(`part.${entity.kind}`);
+  return t(`entity.${entity.type}`);
+}
+
+function iconOf(entity) {
+  if (entity.type === 'solid') return SOLID_ICONS[entity.kind] ?? commands[`arch:${entity.kind}`]?.icon ?? 'solidBox';
+  if (entity.type === 'part') return PARTS[entity.kind]?.icon ?? 'part';
+  return TOOL_ICONS[entity.type] ?? (entity.type === 'dim' ? 'dimension' : 'line');
+}
+
+/** What the model tree needs. */
+function treeApi() {
+  state.tree ??= { collapsed: new Set(), expanded: new Set() };
+  state.tree.options = state.settings.tree ?? {};
+  return { state, t, icon, escapeHtml, labelOf, iconOf, docName };
+}
+
+/** Shows the model tree; `reveal` scrolls to (and unfolds the groups of) those entities. */
+function showTree({ reveal = null } = {}) {
+  treeApi();
+  if (state.settings.collapsedSections.includes('model')) toggleSection('model', true);
+  if (reveal?.length) {
+    const drawing = activeDrawing();
+    for (const id of reveal) {
+      let group = drawing?.entities.find((e) => e.id === id)?.group;
+      for (let guard = 0; group && guard < 32; guard++) { state.tree.collapsed.delete(`group:${group}`); group = drawing.groups?.find((g) => g.id === group)?.parent; }
+      if (!drawing?.entities.find((e) => e.id === id)?.group) state.tree.expanded.add('folder:2d');
+    }
+  }
+  renderLeft();
+  if (reveal?.length) requestAnimationFrame(() => root.querySelector(`[data-tree-entity="${CSS.escape(reveal[0])}"]`)?.scrollIntoView({ block: 'nearest' }));
+}
+
+/** Which left-panel sections the chosen workbench (Std_Workbench) shows. */
+function workbenchShows(id) {
+  const sections = WORKBENCHES[state.settings.workbench ?? 'all'];
+  return !sections || id === 'model' || id === 'layers' || sections.includes(id);
+}
+
+/** A small menu of commands (tree options, edit modes, toolbars…) at the pointer or the button. */
+function showCommandMenu(ids, context, titleKey) {
+  const anchor = context?.anchor ?? (state.pointer ? { x: state.pointer.x, y: state.pointer.y } : anchorBelow(root.querySelector('[data-menu="view"]')));
+  return showMenu(menuItems(ids), anchor, 'context', { header: { icon: 'gear', title: t(titleKey) } });
+}
+
+function showMacroMenu(context) {
+  const names = (state.settings.recentMacros ?? []).filter((name) => state.settings.macros.some((m) => m.name === name));
+  const handlers = Object.fromEntries(names.map((name, i) => [`custom:macro${i}`, () => runMacro(name)]));
+  const items = names.map((name, i) => ({ id: `custom:macro${i}`, label: name, icon: 'play' }));
+  const anchor = context?.anchor ?? (state.pointer ? { x: state.pointer.x, y: state.pointer.y } : anchorBelow(root.querySelector('[data-menu="tools"]')));
+  return showMenu(items, anchor, 'context', { header: { icon: 'recentMacros', title: t('std.recentMacros') }, handlers });
+}
+
+/** Std_DockOverlay*: panels float over the drawing (transparent, letting the mouse through). */
+function applyOverlay() {
+  const o = state.settings.overlay ?? {};
+  for (const side of OVERLAY_SIDES) root.classList.toggle(`overlay-${side}`, Boolean(o[side]) && !o.hidden);
+  root.classList.toggle('overlay-transparent', Boolean(o.transparent));
+  root.classList.toggle('overlay-mouse-through', Boolean(o.mouseTransparent));
+  requestAnimationFrame(() => { resizeCanvas(); resize3d(); });
+}
+
+/** Std_TreeDrag and dropping in the tree: entities into a group (or out of all groups). */
+function moveToGroup(ids, groupId) {
+  const drawing = activeDrawing();
+  const part = groupId ? drawing.groups?.find((g) => g.id === groupId && g.part) : null;
+  const sync = state.settings.tree?.syncPlacement !== false;
+  change('std.op.moveToGroup', (d) => {
+    for (const id of ids) {
+      const entity = D.findEntity(d, id);
+      if (!entity) continue;
+      const patch = { group: groupId ?? null };
+      // Without sync placement an object keeps its own placement, now inside the part's: it moves with the part's offset.
+      if (part && !sync) Object.assign(patch, { x: (entity.x ?? 0) + part.placement.x, y: (entity.y ?? 0) + part.placement.y, ...(entity.type === 'solid' ? { z: (entity.z ?? 0) + part.placement.z, rz: (entity.rz ?? 0) + part.placement.rz } : {}) });
+      D.updateEntity(d, id, patch);
+    }
+  });
+}
+
+async function readClipboard() {
+  try { return await native.clipboardRead(); } catch { /* the web */ }
+  try { return await navigator.clipboard.readText(); } catch { return ''; }
+}
+
+/** Std_Transform: a move and turn of the selection (solids in 3D, other objects in the plane). */
+function transformSelection({ dx = 0, dy = 0, dz = 0, rx = 0, ry = 0, rz = 0, about = 'center' }) {
+  const ids = selectedIds();
+  change('std.op.transform', (d) => {
+    for (const id of ids) {
+      const entity = D.findEntity(d, id);
+      if (!entity) continue;
+      if (entity.type === 'solid') {
+        const R = rotationOf({ rx, ry, rz });
+        const box = cachedBox(entity);
+        const c = about === 'center' && box ? [(box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, entity.z ?? 0] : [0, 0, 0];
+        const rc = [0, 1, 2].map((i) => R[i][0] * c[0] + R[i][1] * c[1] + R[i][2] * c[2]);
+        D.updateEntity(d, id, transformPlacement(entity, R, c.map((v, i) => v - rc[i] + [dx, dy, dz][i])));
+      } else {
+        const box = cachedBox(entity);
+        const cx = about === 'center' && box ? (box.minX + box.maxX) / 2 : 0;
+        const cy = about === 'center' && box ? (box.minY + box.maxY) / 2 : 0;
+        let next = entity;
+        if (rz) next = transformEntity(next, { type: 'rotate', cx, cy, angle: rz });
+        if (dx || dy) next = transformEntity(next, { type: 'move', dx, dy });
+        D.replaceEntity(d, next);
+      }
+    }
+  });
+}
+
+function massText(entity) {
+  const material = entity.physical;
+  if (!material || entity.type !== 'solid') return '—';
+  const volume = solidProperties(entity)?.volume ?? 0;
+  return `${formatNumber(massOf(volume, material), 3)} kg (${formatNumber(volume / 1000, 2)} cm³ × ${material.density} kg/m³)`;
+}
+
+/** Std_TextureMapping: an image file on the selected solids. */
+/** An image file the user picks, as a data URL (null when cancelled or too big). */
+async function chooseImageData() {
+  let data = null;
+  try {
+    if (desktop) {
+      const path = await native.chooseImage(state.settings.lastDirectory);
+      if (!path) return null;
+      const bytes = await native.readBinaryFile(path, 'std');
+      const ext = extensionOf(path).toLowerCase();
+      const type = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/png';
+      data = `data:${type};base64,${toBase64(bytes)}`;
+    } else {
+      const [file] = await native.pickWithInput('image/*');
+      if (!file) return null;
+      data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsDataURL(file); });
+    }
+  } catch (error) {
+    showError('error.open', error);
+    return null;
+  }
+  if (!data || data.length > 6_000_000) { notify('error', t('std.textureTooBig')); return null; }
+  return data;
+}
+
+async function chooseTexture(ids) {
+  const data = await chooseImageData();
+  if (!data) return;
+  const answer = await form({ title: t('std.textureMapping'), icon: 'texture', width: 460, fields: [{ key: 'scale', type: 'number', label: t('std.textureScale'), icon: 'scale', value: 50, min: 1, step: 1, unit: 'mm' }], actions: [{ id: 'remove', label: t('std.textureRemove'), icon: 'trash' }, { id: 'ok', label: t('confirm.ok'), primary: true }] });
+  if (!answer) return;
+  change('std.op.texture', (d) => { for (const id of ids) D.updateEntity(d, id, { texture: answer.action === 'remove' ? null : { data, scale: answer.values.scale } }); });
+  if (!state.view3d) toggle3d(true);
+}
+
+/** Std_DlgParameter: every setting, edited as JSON. */
+function replaceSettings(raw) {
+  const previous = state.settings;
+  state.settings = normalizeSettings({ ...raw }, getLanguage());
+  if (!state.safeMode) storeSettings(globalThis.localStorage, state.settings);
+  applySettings(previous);
+}
+
+/** Std_ViewCreate / Std_ViewUndock: the 3D view of this drawing in a window of its own. */
+function openViewerWindow({ undock = false } = {}) {
+  const doc = activeDoc();
+  if (!doc) return;
+  if (undock && state.view3d) toggle3d(false);
+  popups.open('viewer', { drawing: doc.drawing, name: docName(doc), colors: colors3d(), thickness: state.settings.extrudeHeight, style: state.settings.view3dStyle });
+}
+
+/** Keeps an open viewer window up to date. */
+function syncViewer() {
+  if (!popups.isOpen('viewer')) return;
+  const doc = activeDoc();
+  if (doc) popups.post('viewer', { type: 'viewer:drawing', drawing: doc.drawing, name: docName(doc) });
+}
+
+/** Std_TileWindows / Std_CascadeWindows: the drawing and its 3D view side by side, or one at a time. */
+async function setTiled(on) {
+  state.tiled = Boolean(on);
+  root.classList.toggle('tiled', state.tiled);
+  if (state.tiled) {
+    await toggle3d(true);
+    root.querySelector('#cad-canvas').hidden = false;
+  } else if (state.view3d) {
+    await toggle3d(false);
+  }
+  requestAnimationFrame(() => { resizeCanvas(); resize3d(); });
+  renderToolbarState();
+}
+
+async function startVr() {
+  if (!state.view3d) await toggle3d(true);
+  try {
+    if (!(await view3d.instance.startVr())) notify('info', t('std.vrUnsupported'));
+  } catch (error) {
+    showError('error.unexpected', error, 'VR');
+  }
+}
+
+/** Std_PrintPdf: the printed pages (current drawing, the print settings) as a PDF file. */
+async function printPdf({ path: given = null } = {}) {
+  const doc = activeDoc();
+  if (!doc) return;
+  let stored = {};
+  try { stored = JSON.parse(globalThis.localStorage?.getItem('mycad.print') ?? '{}') ?? {}; } catch { /* defaults */ }
+  const options = { ...defaultPrintOptions(), ...stored, range: 'current', layers: null, selectedOnly: false };
+  const layout = paginate(selectContent([doc.drawing], 0, options, []), options);
+  const labels = { title: t('titleBlock.title'), number: t('titleBlock.number'), scale: t('titleBlock.scale'), material: t('titleBlock.material'), drawnBy: t('titleBlock.drawnBy'), date: t('titleBlock.date'), sheet: t('titleBlock.sheet'), units: t('titleBlock.units'), tile: t('titleBlock.tile') };
+  const dpi = 200;
+  try {
+    const pages = await withProgress('std.progress.pdf', docName(doc), async () => {
+      const out = [];
+      for (const page of layout.pages) {
+        const svg = pageSvg(page, layout, options, { fonts: { family: state.settings.fontFamily || '' }, labels });
+        const w = Math.round((layout.size.width / 25.4) * dpi);
+        const h = Math.round((layout.size.height / 25.4) * dpi);
+        const image = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('page image'));
+          img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.replace(/ width="[^"]*" height="[^"]*"/, ` width="${w}" height="${h}"`))}`;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(image, 0, 0, w, h);
+        const jpeg = atob(canvas.toDataURL('image/jpeg', 0.92).split(',')[1]);
+        const data = new Uint8Array(jpeg.length);
+        for (let i = 0; i < jpeg.length; i++) data[i] = jpeg.charCodeAt(i);
+        out.push({ widthMm: layout.size.width, heightMm: layout.size.height, image: { width: w, height: h, data, filter: 'DCTDecode' } });
+      }
+      return out;
+    });
+    const bytes = buildPdf(pages, { title: doc.drawing.title, author: doc.drawing.author ?? state.settings.author ?? '' });
+    const name = `${safeFileName(stripExtension(docName(doc)))}.pdf`;
+    if (desktop) {
+      const path = given ?? await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${name}`, 'pdf');
+      if (!path) return;
+      await native.writeBase64File(path, toBase64(bytes), 'std');
+      notify('success', t('std.pdfSaved', { name: baseName(path), pages: pages.length }));
+    } else {
+      native.downloadBytes(bytes, name, 'application/pdf');
+    }
+  } catch (error) {
+    showError('error.save', error, 'PDF');
+  }
+}
+
+/** Std_ProjectUtil: a drawing file as readable JSON, and back. */
+async function extractDocument() {
+  try {
+    let text = null; let name = 'drawing.mcad';
+    if (desktop) {
+      const [path] = await native.chooseDrawingToOpen(state.settings.lastDirectory, {});
+      if (!path) return;
+      text = await native.readTextFile(path, 'std');
+      name = baseName(path);
+    } else {
+      const [file] = await native.pickDrawingFilesWeb({});
+      if (!file?.text) return;
+      text = file.text;
+      name = file.name;
+    }
+    const pretty = JSON.stringify(JSON.parse(text), null, 2);
+    const target = `${stripExtension(name)}.json`;
+    if (desktop) {
+      const path = await native.chooseExportPath(`${state.settings.lastDirectory ? `${state.settings.lastDirectory}/` : ''}${target}`, 'json');
+      if (path) await native.writeTextFile(path, pretty, 'std');
+    } else native.downloadText(pretty, target, 'application/json');
+    notify('success', t('std.docExtracted', { name: target }));
+  } catch (error) {
+    showError('error.open', error);
+  }
+}
+
+async function createDocumentFromJson() {
+  try {
+    let text = null; let name = 'drawing.json';
+    if (desktop) {
+      const [path] = await native.chooseDrawingToOpen(state.settings.lastDirectory, { json: true });
+      if (!path) return;
+      text = await native.readTextFile(path, 'std');
+      name = baseName(path);
+    } else {
+      const [file] = await native.pickWithInput('.json,application/json');
+      if (!file) return;
+      text = await file.text();
+      name = file.name;
+    }
+    openText(`${stripExtension(name)}.mcad`, text);
+  } catch (error) {
+    showError('error.open', error);
+  }
+}
+
+/** Std_RestartInSafeMode: the app again with default settings, the stored ones untouched. */
+async function restartSafeMode() {
+  const choice = await ask({ icon: 'safeMode', title: t('std.restartSafeMode'), message: t('std.safeModeMessage'), buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'restart', label: t('std.restartSafeMode'), icon: 'safeMode', primary: true }] });
+  if (choice !== 'restart') return;
+  if (!(await saveAllBeforeRestart())) return;
+  try { globalThis.sessionStorage?.setItem('mycad.safeMode', '1'); } catch { /* none */ }
+  location.reload();
+}
+
+async function saveAllBeforeRestart() {
+  for (const doc of state.docs.filter((d) => d.dirty)) if (!(await closeDoc(doc))) return false;
+  return true;
+}
+
+/** Leaves safe mode: the stored settings again. */
+function leaveSafeMode() {
+  try { globalThis.sessionStorage?.removeItem('mycad.safeMode'); } catch { /* none */ }
+  location.reload();
+}
+
+/** Std_BoxElementSelection: edges of the solid being filleted, inside a dragged box. */
+function boxSelectEdges() {
+  const v = view3d.instance;
+  if (!v || !state.edgePick) return;
+  notify('info', t('std.boxElementHint'));
+  v.startBoxSelect((rect) => {
+    const edges = v.edgesInRect(rect);
+    for (const edge of edges) toggleEdge(state.edgePick, edge.key ?? edge);
+    notify('info', t('std.boxElementDone', { count: edges.length }));
+  });
+}
+
+/** Std_ClarifySelection: everything under the pointer, to pick one of them. */
+function clarifySelection(context) {
+  const drawing = activeDrawing();
+  if (!drawing || !state.pointer) return;
+  let ids = [];
+  if (state.view3d && view3d.instance) {
+    const rect = view3d.instance.canvas.getBoundingClientRect();
+    ids = view3d.instance.entitiesAt(state.pointer.clientX - rect.left, state.pointer.clientY - rect.top);
+  } else if (state.cursor) {
+    const tolerance = pickTolerance() * 2;
+    ids = D.editable(drawing).filter((entity) => entityDistance(entity, state.cursor) <= tolerance).map((e) => e.id).reverse();
+  }
+  if (!ids.length) { notify('info', t('std.clarifyNothing')); return; }
+  const handlers = Object.fromEntries(ids.map((id, i) => [`custom:pick${i}`, () => select([id])]));
+  const items = ids.map((id, i) => { const entity = D.findEntity(drawing, id); return { id: `custom:pick${i}`, label: labelOf(entity), icon: iconOf(entity) }; });
+  showMenu(items, context?.anchor ?? { x: state.pointer.x + 2, y: state.pointer.y + 2 }, 'context', { header: { icon: 'clarify', title: t('std.clarifySelection') }, handlers });
+}
+
+/** User shortcuts of Std_DlgCustomize ("Ctrl+Shift+K = command"). */
+function customShortcut(event) {
+  const keys = state.settings.customKeys;
+  if (!keys) return null;
+  const name = `${event.ctrlKey || event.metaKey ? 'Ctrl+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.altKey ? 'Alt+' : ''}${event.key.length === 1 ? event.key.toUpperCase() : event.key}`;
+  const id = Object.entries(keys).find(([key]) => key.toUpperCase() === name.toUpperCase())?.[1];
+  return id && commands[id] ? id : null;
+}
+
 window.__mycad = {
   state,
   canvasState,
@@ -5295,11 +7122,12 @@ window.__mycad = {
     setTool, submitCommand, zoomBy, setZoomPercent, zoomFit, updateSettings, handleDroppedPaths, handleDroppedFiles,
     setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu, contextMenuFor, activeDoc, activeDrawing,
     toScreen, docName, scrollTabs, withProgress, exportAs, renderPng, openStlDialog, exportStl, openPartDialog, openArrayDialog, explodeSelection, deleteSelection,
-    duplicateSelection, setWorkPlane, openCam, openFem, openPlate, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, addJoint, setJoint, constrainSelection, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
+    duplicateSelection, setWorkPlane, openCam, openFem, openPlate, openAddons, openFem3d, openSpreadsheet, reverseEngineer, decimateSolids, cutFeature, toggleConstruction, addCustomRebar, scheduleCsv, nestSelection, addRobot, robotMoveTo, robotTrajectory, addJoint, setJoint, setWorkPlaneFace, pickWorkPlaneFace, toggleEdgePick, toggleEdge, setJointDrive, setJointFollow, toggleAnimation, stopAnimation, showAnimationAt, keepAnimationPose, setAnimation, animState: () => ({ ...anim }), constrainSelection, importSheetCsv, saveText, runScript, runMacro, toggleRecording, consoleState, addLayer, toggleLayer, removeLayer, hitEntity, ensureViewport, drawCanvas, openPrint, createEntity,
     toggle3d, rebuild3d, view3d: () => view3d.instance,
     openSolidDialog, insertSolid, solidFeature, dressUp, checkGeometry, repairSolids, archFeature, addOpening, insertSchedule, scheduleLines, addRebar, addCustomWindow, openBimManager, applyBim, addLevel, ensureBim, wallWidth, solidProperties, planOf: (entity) => primitives(entity), applyFeature, featureSource, booleanSelection, sectionSolids, projectSolids,
     openModelBytes, importModelBytes, export3d, exportMesh, selectedSolids, setView3dStyle,
-    showHome, openSample, loadSamples, openTutorial, tutorialApi,
+    printPdf, form, setTiled, openViewerWindow, labelOf, activateDoc,
+    showHome, openSample, loadSamples, kernelState: () => ({ state: state.kernel, ready: occReady() }), openTutorial, tutorialApi,
   },
 };
 

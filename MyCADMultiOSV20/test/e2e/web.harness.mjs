@@ -19,7 +19,7 @@ const BROWSERS = [
 export class WebApp {
   async start() {
     const browser = BROWSERS.find((file) => fs.existsSync(file));
-    if (!browser) throw new Error('Edge 또는 Chrome 이 필요합니다');
+    if (!browser) throw new Error('Edge or Chrome is needed');
     this.webPort = await freePort();
     this.server = spawn(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--port', String(this.webPort), '--strictPort', '--host', '127.0.0.1'], { cwd: root, stdio: 'ignore' });
     for (let i = 0; i < 100 && !(await portOpen(this.webPort)); i++) await sleep(100);

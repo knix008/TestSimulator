@@ -7,6 +7,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { sleep } from './cdp.mjs';
 import { root } from './harness.mjs';
+import { freecadCoverage } from '../../src/domain/freecad-map.js';
+import { toIfc } from '../../src/domain/ifc.js';
+import { normalizeSolidData, solidMesh } from '../../src/domain/solids.js';
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const TITLE = `MyCAD V${VERSION.split('.').slice(0, 2).join('.')}`;
@@ -58,6 +61,7 @@ const m = (app, expression) => app.main.eval(`(() => { const k = window.__mycad;
 const drawing = (app) => m(app, 'JSON.parse(JSON.stringify(k.actions.activeDrawing()))');
 const notice = (app) => m(app, 'k.state.notice?.text ?? ""');
 const count = (app) => m(app, 'k.actions.activeDrawing().entities.length');
+const near = (a, b, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol * Math.max(1, Math.abs(b)), `${a} vs ${b}`);
 
 async function closeAllPopups(app) {
   await app.main.eval(`Promise.all(${JSON.stringify(POPUP_KINDS)}.map((kind) => window.__TAURI_INTERNALS__.invoke('close_popup', { kind }))).then(() => window.__TAURI_INTERNALS__.invoke('hide_popup', { kind: 'menu' })).then(() => 1)`);
@@ -100,12 +104,14 @@ async function expectPopupWindow(app, page, kind) {
   let popup;
   // The OS shows the window a moment after its page is ready — seconds for the
   // first window of a kind while the whole suite runs (WebView2 starts up).
-  for (const until = Date.now() + 10000; !popup && Date.now() < until;) {
+  // Both are looked for in the same listing (the main window may show a moment later, after a restart).
+  let main;
+  for (const until = Date.now() + 10000; !(popup && main) && Date.now() < until;) {
     if (windows.length) await sleep(150);
     windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
     popup = windows.find((w) => w.owner !== 0 && w.title.includes(head.text.slice(0, 4)));
+    main = windows.find((w) => w.owner === 0);
   }
-  const main = windows.find((w) => w.owner === 0);
   assert.ok(main, `main window found (${JSON.stringify(app.windowInfo().map((w) => [w.title, w.visible, w.owner]))})`);
   assert.ok(popup, `${kind}: its own OS window "<title> — ${TITLE}" (${JSON.stringify(windows.map((w) => w.title))})`);
   assert.equal(popup.owner, main.handle, `${kind}: owned by the main window (closes with it)`);
@@ -125,14 +131,24 @@ async function visibleCenter(app, selector) {
 }
 
 async function openMenu(app, name) {
-  await app.main.click(`[data-menu="${name}"]`);
-  const menu = await app.popup('menu');
-  await menu.waitFor(`document.querySelector('.menu-item') && document.querySelector('.popup-menu')?.dataset.title`);
-  await sleep(200);
-  return menu;
+  for (let attempt = 1; ; attempt++) {
+    if (app.foreground()) await sleep(300);
+    await app.main.click(`[data-menu="${name}"]`);
+    const menu = await app.popup('menu');
+    await menu.waitFor(`document.querySelector('.menu-item') && document.querySelector('.popup-menu')?.dataset.title`);
+    await sleep(200);
+    // Another program took the foreground meanwhile: the menu closed itself, as it should. Once more.
+    if (attempt >= 3 || await menu.eval('document.hasFocus()')) return menu;
+  }
 }
 
 async function chooseMenuItem(menu, id) {
+  // A command inside a group: open the submenu (in the same window) first.
+  await menu.waitFor(`Boolean(document.querySelector('.menu-item[data-id="${id}"], .menu-item[data-contains~="${id}"]'))`);
+  for (let depth = 0; depth < 3 && !(await menu.eval(`Boolean(document.querySelector('.menu-item[data-id="${id}"]'))`)); depth++) {
+    await menu.click(`.menu-item[data-contains~="${id}"]`);
+    await sleep(150);
+  }
   await menu.waitFor(`document.querySelector('.menu-item[data-id="${id}"]:not([disabled])')`);
   await menu.click(`.menu-item[data-id="${id}"]`);
   await sleep(250);
@@ -152,11 +168,11 @@ async function contextMenuIds(app, point) {
 
 export const cases = [
   // ───────────────────────── window
-  { group: '창', name: '타이틀 바: 프로그램 이름과 버전', async run(app) {
+  { group: 'Window', name: 'Title bar: program name and version', async run(app) {
     const main = app.windowInfo().find((w) => w.owner === 0 && w.visible && w.title.startsWith('MyCAD'));
     assert.equal(main?.title, TITLE);
   } },
-  { group: '창', name: '처음 실행: 시작 페이지가 보이고, 뒤에 시작하기 도면 (기어·치수·문자)', async run(app) {
+  { group: 'Window', name: 'First start: the start page shows, with the Getting Started drawing behind it (gear, dimensions, text)', async run(app) {
     assert.equal(await m(app, 'k.state.home'), true, 'the start page greets you');
     assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), false);
     assert.equal(app.windowInfo().filter((w) => w.visible && /튜토리얼|tutorial/i.test(w.title)).length, 0, 'the tutorial does not start by itself');
@@ -165,7 +181,7 @@ export const cases = [
     assert.ok(d.entities.some((e) => e.type === 'part' && e.kind === 'gear'));
     assert.ok(d.entities.some((e) => e.type === 'dim'));
   } },
-  { group: '시작 페이지', name: '할 수 있는 일(레슨·샘플), 샘플 카드 = index.json, 썸네일, 샘플 열기, 집 탭, 최근 파일', async run(app) {
+  { group: 'Start page', name: 'What you can do (lessons, samples), sample cards = index.json, thumbnails, opening a sample, home tab, recent files', async run(app) {
     await fresh(app);
     await app.main.click('[data-tab-home]');
     assert.equal(await m(app, 'k.state.home'), true);
@@ -179,7 +195,7 @@ export const cases = [
       panels: getComputedStyle(document.querySelector('#left-panel')).visibility,
     }))()`);
     assert.equal(page.tasks, 12);
-    assert.ok(page.lessons.every((n) => n >= 0 && n < 16));
+    assert.ok(page.lessons.every((n) => n >= 0 && n < 21));
     assert.deepEqual(page.samples, index.map((s) => s.file), 'one card per sample in index.json');
     assert.deepEqual(page.actions, ['tutorial', 'new', 'open', 'importDxf', 'import3d', 'tutorialDoc', 'shortcuts']);
     assert.equal(page.panels, 'hidden', 'the start page uses the whole width');
@@ -208,7 +224,7 @@ export const cases = [
     await app.main.waitFor(`Boolean(document.querySelector('.start-bg canvas'))`, { timeout: 15000 });
     await app.main.click('.tab[data-doc]');
   } },
-  { group: '튜토리얼', name: '보기: 16개 레슨의 모든 단계가 실제 화면에서 실행되고 결과를 확인', async run(app) {
+  { group: 'Tutorial', name: 'Watch: every step of the 21 lessons runs in the real window and its result is checked', async run(app) {
     await fresh(app);
     const report = await app.main.eval(`(async () => { const t = await window.__mycad.actions.openTutorial(); const r = await t.runAll(); t.close(); return r; })()`, 600000);
     const bad = report.filter((r) => !r.ok);
@@ -216,19 +232,19 @@ export const cases = [
     assert.deepEqual(bad, [], JSON.stringify(bad));
     assert.equal(await m(app, 'k.state.settings.units'), 'mm', 'settings restored after the tutorial');
   } },
-  { group: '튜토리얼', name: '직접 하기: 모든 단계에서 사용자가 한 일을 알아봄', async run(app) {
+  { group: 'Tutorial', name: 'Practice: every step recognises what the user did', async run(app) {
     await fresh(app);
     const report = await app.main.eval(`(async () => { const t = await window.__mycad.actions.openTutorial(); const r = await t.verifyPractice(); t.close(); return r; })()`, 600000);
     const bad = report.filter((r) => !r.run || r.check === false);
     assert.deepEqual(bad, [], JSON.stringify(bad));
   } },
-  { group: '튜토리얼', name: '도움말 메뉴에서 열기: 별도 창(주 창 소유), 레슨 목록, 보기/직접 하기, 단계 이동, 머리글로 이동, 닫기', async run(app) {
+  { group: 'Tutorial', name: 'Opened from the Help menu: own window (owned by the main window), lesson list, watch/practice, step navigation, moving by the header, close', async run(app) {
     await fresh(app);
     const help = await openMenu(app, 'help');
     await chooseMenuItem(help, 'tutorial');
     // The panel is its own OS window (owned by the main window), not a box inside it.
     const panel = await app.popup('tutorial');
-    await panel.waitFor(`document.querySelectorAll('.tut-lesson option').length === 16`);
+    await panel.waitFor(`document.querySelectorAll('.tut-lesson option').length === 21`);
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.tut-panel'))`), false, 'no panel inside the main window');
     let windows = [];
     for (const until = Date.now() + 10000; Date.now() < until; await sleep(150)) {
@@ -252,7 +268,7 @@ export const cases = [
     await sleep(400);
     assert.equal(app.windowInfo().filter((w) => w.visible && /튜토리얼/.test(w.title)).length, 0, 'the window closes');
   } },
-  { group: '창', name: '최소 창 폭: 툴바 버튼이 가려지지 않음', async run(app) {
+  { group: 'Window', name: 'Minimum window width: no toolbar button is hidden', async run(app) {
     const min = await m(app, 'k.state.minWidth');
     assert.ok(min > 800, `minimum width ${min}`);
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 500, height: 500 } } }).then(() => 1)`);
@@ -268,29 +284,29 @@ export const cases = [
     assert.deepEqual(result.hidden, []);
     assert.ok(result.height < 50, `one toolbar row (${result.height}px)`);
   } },
-  { group: '창', name: '오른쪽 아래 크기 조절 표시', async run(app) {
+  { group: 'Window', name: 'Resize grip at the bottom right', async run(app) {
     const grip = await app.main.eval(`(() => { const g = document.querySelector('[data-resize-grip]'); const r = g.getBoundingClientRect(); return { right: innerWidth - r.right, bottom: innerHeight - r.bottom, cursor: getComputedStyle(g).cursor, title: g.title }; })()`);
     assert.ok(grip.right < 1 && grip.bottom < 1, JSON.stringify(grip));
     assert.equal(grip.cursor, 'nwse-resize');
     assert.ok(grip.title);
   } },
-  { group: '창', name: '창 투명도 설정이 없음 (툴바·설정·상태 표시줄)', async run(app) {
+  { group: 'Window', name: 'No window transparency setting (toolbar, settings, status bar)', async run(app) {
     assert.equal(await app.main.eval(`Boolean(document.querySelector('#transparency, .opacity-control, #transparency-range'))`), false);
     const main = app.windowInfo().find((w) => w.owner === 0 && w.title === TITLE);
     assert.equal(main.layered, false, 'an ordinary, opaque window');
   } },
 
   // ───────────────────────── toolbar
-  { group: '툴바', name: '모든 버튼에 툴팁', async run(app) {
+  { group: 'Toolbar', name: 'Every button has a tooltip', async run(app) {
     const missing = await app.main.eval(`[...document.querySelectorAll('#toolbar button, #tabs button, #left-panel button, #right-panel button, #statusbar button, #menubar button')].filter((b) => !(b.title || '').trim()).map((b) => b.outerHTML.slice(0, 80))`);
     assert.deepEqual(missing, []);
     assert.ok(await app.main.eval(`document.querySelectorAll('#toolbar .tool-button').length`) >= 22);
   } },
-  { group: '툴바', name: '설정·프로그램 정보 버튼은 오른쪽 끝', async run(app) {
+  { group: 'Toolbar', name: 'Settings and About buttons at the right end', async run(app) {
     const r = await app.main.eval(`(() => { const t = document.querySelector('#toolbar').getBoundingClientRect(); const a = document.querySelector('[data-command="about"]').getBoundingClientRect(); const s = document.querySelector('[data-command="settings"]').getBoundingClientRect(); return { gap: t.right - a.right, order: s.left < a.left }; })()`);
     assert.ok(r.gap < 20 && r.order, JSON.stringify(r));
   } },
-  { group: '툴바', name: '토글 버튼: 격자·스냅·직교·패널', async run(app) {
+  { group: 'Toolbar', name: 'Toggle buttons: grid, snap, ortho, panels', async run(app) {
     for (const [command, key] of [['grid', 'showGrid'], ['snap', 'snapObject'], ['ortho', 'ortho'], ['leftPanel', 'showLeftPanel'], ['rightPanel', 'showRightPanel']]) {
       const before = await m(app, `k.state.settings.${key}`);
       await app.main.click(`#toolbar [data-command="${command}"]`);
@@ -304,7 +320,7 @@ export const cases = [
     assert.ok(await app.main.eval(`document.querySelectorAll('#left-panel .rail-button[data-tool]').length >= 5`), 'collapsed panel keeps a rail of tools');
     await m(app, '(k.actions.updateSettings({ showLeftPanel: true }), 1)');
   } },
-  { group: '툴바', name: '확대 입력칸·확대/축소 버튼·전체 보기', async run(app) {
+  { group: 'Toolbar', name: 'Zoom field, zoom in/out buttons, fit all', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 300, cy: 200, r: 50 })), 1)`);
     await app.main.eval(`(() => { const i = document.querySelector('#zoom-value'); i.value = '250'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
@@ -318,7 +334,7 @@ export const cases = [
     const c = await m(app, `(() => { const vp = k.actions.activeDoc().vp; const s = vp.toScreen({ x: 300, y: 200 }); return { dx: s.x - vp.width / 2, dy: s.y - vp.height / 2 }; })()`);
     assert.ok(Math.abs(c.dx - 11) < 1.5 && Math.abs(c.dy - 11) < 1.5, `fit centres the drawing in the area next to the rulers ${JSON.stringify(c)}`);
   } },
-  { group: '툴바', name: '언어 전환 버튼: 한국어 ↔ English', async run(app) {
+  { group: 'Toolbar', name: 'Language button: Korean ↔ English', async run(app) {
     await app.main.click('#toolbar [data-command="language"]');
     await sleep(300);
     assert.equal(await app.main.eval(`document.querySelector('[data-menu="file"]').textContent.trim()`), 'File');
@@ -326,7 +342,7 @@ export const cases = [
     await sleep(300);
     assert.equal(await app.main.eval(`document.querySelector('[data-menu="file"]').textContent.trim()`), '파일');
   } },
-  { group: '툴바', name: '테마 버튼: 다음 테마, ▾ 고르기 창 (다크 | 라이트)', async run(app) {
+  { group: 'Toolbar', name: 'Theme button: next theme, ▾ picker window (dark | light)', async run(app) {
     await m(app, `(k.actions.updateSettings({ theme: 'light' }), 1)`);
     await app.main.click('#toolbar [data-command="theme"]');
     await sleep(200);
@@ -343,7 +359,7 @@ export const cases = [
   } },
 
   // ───────────────────────── menus
-  ...[['file', '파일'], ['edit', '편집'], ['view', '보기'], ['draw', '그리기'], ['modify', '수정'], ['parts', '부품'], ['solid', '3D 솔리드'], ['arch', '건축 (BIM)'], ['help', '도움말']].map(([name, title]) => ({ group: '메뉴', name: `메뉴 "${title}": 독립 창, 한 줄, 아이콘+이름`, async run(app) {
+  ...[['file', '파일'], ['edit', '편집'], ['view', '보기'], ['draw', '그리기'], ['modify', '수정'], ['parts', '부품'], ['solid', '3D 솔리드'], ['arch', '건축 (BIM)'], ['tools', '도구'], ['help', '도움말']].map(([name, title]) => ({ group: 'Menus', name: `Menu "${name}": own window, one row per item, icon + name`, async run(app) {
     const menu = await openMenu(app, name);
     await menu.waitFor(`document.querySelector('.popup-menu')?.dataset.title === '${title}' && !document.querySelector('.menu-head')`);
     const info = await menu.eval(`(() => {
@@ -367,15 +383,34 @@ export const cases = [
     await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(250);
   } })),
-  { group: '메뉴', name: '메뉴 항목 실행 (보기 › 격자) 과 메뉴가 창 밖으로 나감', async run(app) {
+  { group: 'Menus', name: 'Long menus use submenus by category: opened in the same window, back with ◀ or ←', async run(app) {
+    for (const name of ['file', 'view', 'draw', 'modify', 'solid', 'arch']) {
+      const menu = await openMenu(app, name);
+      const rows = await menu.eval(`document.querySelectorAll('.menu-item').length`);
+      assert.ok(rows <= 24, `${name}: ${rows} rows`);
+      await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
+      await sleep(250);
+    }
+    const menu = await openMenu(app, 'solid');
+    const height = await menu.eval('innerHeight');
+    await menu.click('.menu-item[data-contains~="solid:box"]');
+    await menu.waitFor(`document.querySelector('.popup-menu')?.dataset.depth === '1'`);
+    assert.ok(await menu.eval(`Boolean(document.querySelector('.menu-back') && document.querySelector('.menu-item[data-id="solid:helix"]'))`), 'the primitives with a back row');
+    await menu.waitFor(`innerHeight !== ${height}`);
+    await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' })); 1`);
+    await menu.waitFor(`document.querySelector('.popup-menu')?.dataset.depth === '0' && Boolean(document.querySelector('.menu-item[data-contains~="solid:box"]'))`);
+    await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
+    await sleep(250);
+  } },
+  { group: 'Menus', name: 'Running a menu item (View › Grid); menus may extend past the window', async run(app) {
     const before = await m(app, 'k.state.settings.showGrid');
-    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1100, height: 620 } } }).then(() => 1)`);
+    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1100, height: 400 } } }).then(() => 1)`);
     await sleep(500);
     const menu = await openMenu(app, 'file');
     const windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
     const main = windows.find((w) => w.owner === 0);
     const popup = windows.find((w) => w.owner !== 0);
-    assert.ok(popup.bottom > main.bottom - 40 || popup.bottom - popup.top > 500, 'the long File menu is shown whole, even past the small main window');
+    assert.ok(popup.bottom > main.bottom - 40 || popup.bottom - popup.top > 380, 'the long File menu is shown whole, even past the small main window');
     await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(250);
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1440, height: 880 } } }).then(() => 1)`);
@@ -385,7 +420,7 @@ export const cases = [
     assert.equal(await m(app, 'k.state.settings.showGrid'), !before);
     await m(app, `(k.actions.updateSettings({ showGrid: ${before} }), 1)`);
   } },
-  { group: '메뉴', name: '컨텍스트 메뉴: 빈 도면 · 객체 · 탭 · 레이어 · 입력칸이 서로 다름', async run(app) {
+  { group: 'Menus', name: 'Context menus: empty drawing, object, tab, layer and input field each differ', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 40 })), 1)`);
     const empty = await contextMenuIds(app, await at(app, 120, 120));
@@ -404,7 +439,7 @@ export const cases = [
   } },
 
   // ───────────────────────── drawing with the mouse
-  { group: '그리기', name: '선 (연속) · Enter 로 끝내기', async run(app) {
+  { group: 'Drawing', name: 'Line (continuous), finished with Enter', async run(app) {
     await fresh(app);
     await app.main.click('[data-tool="line"]');
     await clickAt(app, 0, 0);
@@ -415,7 +450,7 @@ export const cases = [
     assert.equal(lines.length, 2);
     assert.ok(Math.abs(lines[0].x2 - 50) < 1 && Math.abs(lines[1].y2 - 30) < 1);
   } },
-  { group: '그리기', name: '사각형 · 원 · 호 · 타원 · 정다각형 · 폴리선 · 중심선 · 문자', async run(app) {
+  { group: 'Drawing', name: 'Rectangle, circle, arc, ellipse, regular polygon, polyline, centerline, text', async run(app) {
     await fresh(app);
     const draw = async (tool, points) => {
       await app.main.click(`[data-tool="${tool}"]`);
@@ -443,7 +478,7 @@ export const cases = [
     assert.equal(await m(app, 'k.state.toolId'), 'select', 'text returns to select');
     assert.equal(await app.main.eval(`document.activeElement?.dataset.prop`), 'text', 'the text field is focused');
   } },
-  { group: '그리기', name: '좌표 입력: 명령칸에 x,y · @dx,dy · @거리<각도', async run(app) {
+  { group: 'Drawing', name: 'Coordinate input in the command field: x,y · @dx,dy · @distance<angle', async run(app) {
     await fresh(app);
     await app.main.click('[data-tool="polyline"]');
     await app.main.click('#cad-canvas');
@@ -458,7 +493,7 @@ export const cases = [
     assert.deepEqual(poly.points.map((p) => [Math.round(p.x), Math.round(p.y)]), [[10, 10], [50, 10], [50, 30], [10, 30]]);
     await m(app, `k.actions.submitCommand('zz')`);
   } },
-  { group: '그리기', name: '객체 스냅 (끝점) · 격자 스냅 · 직교', async run(app) {
+  { group: 'Drawing', name: 'Object snap (end point), grid snap, ortho', async run(app) {
     await fresh(app, { snap: true });
     await m(app, `(k.actions.change('op.line', (d) => k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 50, y2: 0 })), 1)`);
     await app.main.click('[data-tool="line"]');
@@ -483,7 +518,7 @@ export const cases = [
     assert.deepEqual([circle.cx, circle.cy, circle.r], [20, 20, 20], 'grid snap');
     await m(app, `(k.actions.updateSettings({ snapGrid: false }), 1)`);
   } },
-  { group: '그리기', name: '치수: 선형 · 정렬 · 반지름 · 지름 · 각도, 거리 재기', async run(app) {
+  { group: 'Drawing', name: 'Dimensions: linear, aligned, radius, diameter, angle; measuring a distance', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 30 })), 1)`);
     const dim = async (tool, points) => {
@@ -509,7 +544,7 @@ export const cases = [
   } },
 
   // ───────────────────────── selecting and editing
-  { group: '그리기', name: '풍선(번호 자동) · 기하 공차 틀 · 데이텀 (TechDraw), 속성에서 종류·기호 바꾸기', async run(app) {
+  { group: 'Drawing', name: 'Balloon (auto number), feature control frame, datum (TechDraw); changing kind and symbol in the properties', async run(app) {
     await fresh(app);
     const place = async (tool, tip, at) => {
       await fire(app, `k.run('tool:${tool}')`);
@@ -538,7 +573,7 @@ export const cases = [
     assert.equal((await drawing(app)).entities[0].style, undefined);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('#right-panel textarea[data-prop="text"]'))`), 'a note has its text box');
   } },
-  { group: '그리기', name: '작업 평면: 두 점으로 정하기 → 좌표 입력·상태 표시줄이 평면 기준, 속성에서 높이 Z · 전체 좌표로', async run(app) {
+  { group: 'Drawing', name: 'Working plane: set by two points → coordinate input and status bar follow the plane; height Z in the properties; back to global', async run(app) {
     await fresh(app);
     await fire(app, "k.run('tool:workPlane')");
     await clickAt(app, 20, 10);
@@ -565,7 +600,22 @@ export const cases = [
     await sleep(100);
     assert.equal((await drawing(app)).workPlane, undefined);
   } },
-  { group: '편집', name: '스케치 구속: 일치 · 직각 · 거리(속성에서 값) → 풀이기가 맞춤, 자유도 표시, 지우기 (Sketcher)', async run(app) {
+  { group: 'Editing', name: 'Sketch constraints (B-spline): coincident and tangent to a line end, from the menu', async run(app) {
+    await fresh(app);
+    await m(app, "(() => { const a = k.actions; a.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: -50, y1: 0, x2: 0, y2: 0 }); k.drawingModule.addEntity(d, 'spline', { points: [{ x: 4, y: 3 }, { x: 20, y: 25 }, { x: 40, y: 10 }, { x: 60, y: 30 }], degree: 3 }); }); a.select(a.activeDrawing().entities.map((e) => e.id)); return 1; })()");
+    await fire(app, "k.run('constrain:coincident')");
+    await fire(app, "k.run('constrain:tangent')");
+    await sleep(200);
+    const d = await drawing(app);
+    assert.deepEqual(d.constraints.map((c) => c.type), ['coincident', 'tangent']);
+    assert.deepEqual(d.constraints[1].refs.map((r) => r.at ?? null), [null, 'start']);
+    const s = d.entities.find((e) => e.type === 'spline');
+    const l = d.entities.find((e) => e.type === 'line');
+    assert.ok(Math.hypot(s.points[0].x - l.x2, s.points[0].y - l.y2) < 1e-6, 'starts on the line end');
+    const u = [l.x2 - l.x1, l.y2 - l.y1]; const v = [s.points[1].x - s.points[0].x, s.points[1].y - s.points[0].y];
+    assert.ok(Math.abs(u[0] * v[1] - u[1] * v[0]) / (Math.hypot(...u) * Math.hypot(...v)) < 1e-6, 'tangent');
+  } },
+  { group: 'Editing', name: 'Sketch constraints: coincident, perpendicular, distance (value in the properties) → the solver fits them, degrees of freedom shown, delete (Sketcher)', async run(app) {
     await fresh(app);
     await m(app, "(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 40, y2: 3 }); k.drawingModule.addEntity(d, 'line', { x1: 41, y1: 2, x2: 50, y2: 30 }); }), 1)");
     const [a, b] = (await drawing(app)).entities.map((e) => e.id);
@@ -598,7 +648,7 @@ export const cases = [
     await sleep(100);
     assert.equal((await drawing(app)).constraints.length, before - 1);
   } },
-  { group: '편집', name: '스크립트 콘솔: cad 객체로 그리기 · 값 출력 · 오류, 매크로 기록 → 저장 → 실행 (FreeCAD 콘솔·매크로)', async run(app) {
+  { group: 'Editing', name: 'Script console: drawing with the cad object, printing values, errors; recording a macro → save → run (FreeCAD console and macros)', async run(app) {
     await fresh(app);
     await app.main.key('j', 2 | 8);
     await sleep(150);
@@ -636,7 +686,37 @@ export const cases = [
     assert.equal(d.entities.filter((e) => e.type === 'rect').length, 2, 'the macro drew the rectangle again');
     await m(app, "(k.actions.updateSettings({ macros: [], showConsole: false }), 1)");
   } },
-  { group: '편집', name: '보조선: 스케치 칸에서 켜기/끄기, 속성 체크, 돌출 · 내보내기에서 빠짐', async run(app) {
+  { group: 'Editing', name: 'Python console: running a FreeCAD-style macro (Part); installing, running and removing a macro with the addon manager', async run(app) {
+    await fresh(app);
+    await m(app, "(k.actions.updateSettings({ showConsole: true, consoleLanguage: 'js', macros: [] }), 1)");
+    await sleep(150);
+    await app.main.click('[data-console="lang:python"]');
+    await app.main.waitFor("[...document.querySelectorAll('#console-output .console-line.info')].some((l) => /Python/.test(l.textContent) && /준비|ready/.test(l.textContent))", { timeout: 60000 });
+    const type = (code) => app.main.eval('(() => { const t = document.querySelector("#console-code"); t.value = ' + JSON.stringify(code) + '; return 1; })()');
+    await type('import FreeCAD as App, Part\nplate = Part.makeBox(100, 60, 10).cut(Part.makeCylinder(10, 10, App.Vector(50, 30, 0)))\nPart.show(plate, "Plate")\nround(plate.Volume)');
+    await app.main.click('[data-console="run"]');
+    await app.main.waitFor("window.__mycad.actions.activeDrawing().entities.some((e) => e.name === 'Plate')", { timeout: 20000 });
+    const value = Number(await app.main.eval("[...document.querySelectorAll('#console-output .console-line.value')].pop().textContent"));
+    assert.ok(Math.abs(value - (60000 - Math.PI * 1000)) < 2, `volume ${value}`);
+    await type('1/0');
+    await app.main.click('[data-console="run"]');
+    await app.main.waitFor("/ZeroDivisionError/.test([...document.querySelectorAll('#console-output .console-line.error')].pop()?.textContent ?? '')");
+    // The addon manager: install a catalogue macro, run it, remove it.
+    await gone(app, 'addons');
+    await fire(app, "k.run('addons')");
+    const win = await app.popup('addons');
+    await expectPopupWindow(app, win, 'addons');
+    // (Clicked from inside: the window closes as it installs.)
+    await win.eval("setTimeout(() => document.querySelector('[data-addon-install=\"box-grid\"]').click(), 0), 1");
+    await app.main.waitFor("window.__mycad.state.settings.macros.some((m) => m.language === 'python')");
+    const name = await m(app, 'k.state.settings.macros[0].name');
+    await m(app, `k.actions.runMacro(${JSON.stringify(name)}).then(() => 1)`);
+    assert.equal((await drawing(app)).entities.filter((e) => /^Box\d\d$/.test(e.name)).length, 9);
+    await m(app, `k.actions.openAddons({ action: 'remove', names: [${JSON.stringify(name)}] }).then(() => 1)`);
+    assert.equal((await m(app, 'k.state.settings.macros')).length, 0);
+    await m(app, "(k.actions.updateSettings({ showConsole: false, consoleLanguage: 'js' }), 1)");
+  } },
+  { group: 'Editing', name: 'Construction geometry: toggled in the sketch section and the properties; left out of extrusions and exports', async run(app) {
     await fresh(app);
     await m(app, "(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 40, height: 20 }); k.drawingModule.addEntity(d, 'circle', { cx: 80, cy: 10, r: 10 }); }), 1)");
     const circle = (await drawing(app)).entities[1].id;
@@ -651,7 +731,7 @@ export const cases = [
     const solid = d.entities.find((e) => e.type === 'solid');
     assert.equal(solid.shape.shapes.length, 1, 'the construction circle is not padded');
   } },
-  { group: '편집', name: '스프레드시트: 셀 · 수식 · 별칭(창), 속성에 =식 → 시트를 따라 바뀜 (FreeCAD Spreadsheet)', async run(app) {
+  { group: 'Editing', name: 'Spreadsheet: cells, formulas, aliases (window); =expressions in the properties follow the sheet (FreeCAD Spreadsheet)', async run(app) {
     await fresh(app);
     await gone(app, 'spreadsheet');
     await fire(app, "k.run('spreadsheet')");
@@ -683,7 +763,7 @@ export const cases = [
     await m(app, "k.actions.openSpreadsheet({ action: 'apply', sheet: { cells: { A1: '25', B1: '=width*3' }, aliases: { width: 'A1' } } }).then(() => 1)");
     assert.equal((await drawing(app)).entities.at(-1).params.length, 50, 'the box follows the sheet');
   } },
-  { group: '편집', name: '클론: 원본을 따라 바뀜, 이동·회전은 클론만, 원본 선택 · 독립시키기 (Draft Clone)', async run(app) {
+  { group: 'Editing', name: 'Clones: follow the original, move and rotate only the clone, select the original, unlink (Draft Clone)', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 40, height: 20 })); a.select([a.activeDrawing().entities[0].id]); return 1; })()`);
     await app.main.click('#left-panel [data-command="clone"]');
@@ -715,7 +795,7 @@ export const cases = [
     assert.equal(d.entities[1].clone, undefined);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('#right-panel [data-prop="width"]'))`), 'an independent object has its own fields again');
   } },
-  { group: '편집', name: '자르기 · 연장 · 모깎기 · 모따기 (FreeCAD Draft/Sketcher)', async run(app) {
+  { group: 'Editing', name: 'Trim, extend, fillet, chamfer (FreeCAD Draft/Sketcher)', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 100, y2: 0 }); k.drawingModule.addEntity(d, 'line', { x1: 50, y1: -30, x2: 50, y2: 30 }); }), 1)`);
     await app.main.click('[data-tool="trim"]');
@@ -750,7 +830,7 @@ export const cases = [
     assert.equal(d.entities[0].points.length, 5, 'one corner cut: five corners');
     await app.main.click('[data-tool="select"]');
   } },
-  { group: '편집', name: '클릭 선택 · Shift 추가 · 영역(윈도/걸침) 선택 · Esc', async run(app) {
+  { group: 'Editing', name: 'Click selection, Shift to add, window/crossing selection, Esc', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 40, y2: 0 }); k.drawingModule.addEntity(d, 'circle', { cx: 100, cy: 0, r: 10 }); }), 1)`);
     await clickAt(app, 20, 0);
@@ -766,7 +846,7 @@ export const cases = [
     assert.equal(await m(app, 'k.state.selection.size'), 2);
     assert.match(await app.main.eval(`document.querySelector('#right-panel h3').textContent`), /2/);
   } },
-  { group: '편집', name: '끌어서 이동 · 핸들로 모양 바꾸기 · 실행 취소/다시 실행', async run(app) {
+  { group: 'Editing', name: 'Drag to move, reshape with handles, undo/redo', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.line', (d) => k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 40, y2: 0 })), 1)`);
     await clickAt(app, 20, 0);
@@ -785,7 +865,7 @@ export const cases = [
     const tips = await app.main.eval(`document.querySelector('#toolbar [data-command="undo"]').title`);
     assert.match(tips, /실행 취소: /);
   } },
-  { group: '편집', name: '수정 도구: 이동 · 복사 · 회전(각도 입력) · 대칭 · 크기(배율 입력) · 간격 띄우기', async run(app) {
+  { group: 'Editing', name: 'Modify tools: move, copy, rotate (typed angle), mirror, scale (typed factor), offset', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 20, height: 10 })), 1)`);
     await clickAt(app, 10, 0);
@@ -824,7 +904,7 @@ export const cases = [
     await app.main.key('Escape');
     assert.equal((await drawing(app)).entities.at(-1).r, 25);
   } },
-  { group: '편집', name: '배열 복사 창 (직사각형·원형) · 분해 · 맨 앞/뒤 · 삭제', async run(app) {
+  { group: 'Editing', name: 'Array window (rectangular, polar), explode, bring to front/send to back, delete', async run(app) {
     await fresh(app);
     await m(app, `(() => { k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 50, cy: 0, r: 5 })); k.actions.select(k.actions.activeDrawing().entities.map((e) => e.id)); return 1; })()`);
     await fire(app, `k.run('array')`);
@@ -850,7 +930,7 @@ export const cases = [
     await sleep(150);
     assert.equal(await count(app), before - 1);
   } },
-  { group: '편집', name: '클립보드: Ctrl+C / Ctrl+V (OS 클립보드), 다른 프로그램의 글 붙여넣기', async run(app) {
+  { group: 'Editing', name: 'Clipboard: Ctrl+C / Ctrl+V (OS clipboard), pasting text from other programs', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 7 })), k.actions.select([k.actions.activeDrawing().entities[0].id]), 1)`);
     await app.main.click('#cad-canvas');
@@ -873,7 +953,7 @@ export const cases = [
     assert.equal(text.type, 'text');
     assert.match(text.text, /외부 프로그램의 글/);
   } },
-  { group: '편집', name: 'Ctrl + 마우스 휠로 확대/축소 (커서 기준), 휠은 화면 이동', async run(app) {
+  { group: 'Editing', name: 'Ctrl + mouse wheel zooms (about the cursor), the wheel alone pans', async run(app) {
     await fresh(app);
     const p = await at(app, 30, 30);
     const before = await m(app, 'k.actions.activeDoc().vp.zoom');
@@ -894,7 +974,7 @@ export const cases = [
   } },
 
   // ───────────────────────── properties, layers, parts
-  { group: '속성', name: '속성 패널: 반지름에 계산식 입력, 선 종류·굵기·색, 도면 속성', async run(app) {
+  { group: 'Properties', name: 'Properties panel: an expression for the radius, line type, weight and colour, drawing properties', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 10 })), k.actions.select([k.actions.activeDrawing().entities[0].id]), 1)`);
     const set = (selector, value) => app.main.eval(`(() => { const i = document.querySelector(${JSON.stringify(selector)}); i.value = ${JSON.stringify(value)}; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
@@ -916,7 +996,7 @@ export const cases = [
     assert.equal(d.title, '축 조립도');
     assert.equal(d.sheet.material, 'SM45C');
   } },
-  { group: '속성', name: '레이어: 추가 · 현재 레이어 · 숨기기 · 잠그기 · 이름 · 색 · 삭제', async run(app) {
+  { group: 'Properties', name: 'Layers: add, current layer, hide, lock, name, colour, delete', async run(app) {
     await fresh(app);
     const layers = () => app.main.eval(`document.querySelectorAll('.layer-row').length`);
     const before = await layers();
@@ -945,7 +1025,7 @@ export const cases = [
     assert.equal((await drawing(app)).entities[0].layer, '0');
     await m(app, '(k.actions.updateSettings({ confirmDelete: true }), 1)');
   } },
-  { group: '부품', name: '부품 창: 6분류 36종 미리보기 · 규격 · 보기 전환, 치수 바꾸기, 배치', async run(app) {
+  { group: 'Parts', name: 'Parts window: 36 parts in 6 categories with preview, standard sizes, view switch, dimensions, placing', async run(app) {
     await fresh(app);
     await gone(app, 'part');
     await app.main.click('#left-panel [data-part-category="gears"]');
@@ -986,7 +1066,7 @@ export const cases = [
     assert.equal(gear.kind, 'gear');
     assert.equal(gear.params.teeth, 30);
   } },
-  { group: '부품', name: '부품 타일을 도면으로 끌어다 놓기, 속성 패널에서 치수 편집', async run(app) {
+  { group: 'Parts', name: 'Dragging a part tile onto the drawing; editing its dimensions in the properties', async run(app) {
     await fresh(app);
     await app.main.click('#left-panel [data-part-category="bearings"]');
     await sleep(150);
@@ -1000,7 +1080,7 @@ export const cases = [
   } },
 
   // ───────────────────────── tabs
-  { group: '탭', name: '탭이 넘치면 오른쪽 끝에 < > 버튼, 눌러서 이동', async run(app) {
+  { group: 'Tabs', name: 'Overflowing tabs get < > buttons at the right end that scroll them', async run(app) {
     for (let i = 0; i < 14; i++) await m(app, '(k.actions.newDrawing(), 1)');
     await sleep(200);
     const nav = await app.main.eval(`(() => { const n = document.querySelector('.tab-nav'); const r = n.getBoundingClientRect(); return { shown: getComputedStyle(n).display !== 'none', right: document.querySelector('#canvas-area').getBoundingClientRect().right - r.right, scrollbar: document.querySelector('.tab-strip').scrollWidth > document.querySelector('.tab-strip').clientWidth && getComputedStyle(document.querySelector('.tab-strip')).overflowX }; })()`);
@@ -1016,7 +1096,7 @@ export const cases = [
   } },
 
   // ───────────────────────── files
-  { group: '파일', name: '저장(.mcad) → 닫기 → 다시 열기, 최근 파일, 마지막 폴더', async run(app) {
+  { group: 'Files', name: 'Save (.mcad) → close → reopen; recent files; last folder', async run(app) {
     await fresh(app);
     const file = path.join(app.files, '축 도면.mcad');
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 1, cy: 2, r: 3 })), k.actions.activeDoc().path = ${JSON.stringify(file)}, 1)`);
@@ -1031,7 +1111,7 @@ export const cases = [
     assert.equal(await m(app, 'k.state.recent[0].path'), file);
     assert.match(await app.main.eval(`document.querySelector('.tab.active').title`), /축 도면\.mcad/);
   } },
-  { group: '파일', name: 'DXF 열기 (가져오기) 와 DXF·SVG·PNG·STL 파일 쓰기', async run(app) {
+  { group: 'Files', name: 'Opening (importing) DXF and writing DXF, SVG, PNG and STL files', async run(app) {
     const dxf = path.join(app.files, 'plate.dxf');
     fs.writeFileSync(dxf, ['0', 'SECTION', '2', 'ENTITIES', '0', 'CIRCLE', '8', '0', '10', '5', '20', '5', '40', '2.5', '0', 'LINE', '8', '0', '10', '0', '20', '0', '11', '10', '21', '0', '0', 'ENDSEC', '0', 'EOF'].join('\n'));
     await m(app, `k.actions.openPath(${JSON.stringify(dxf)}).then(() => 1)`);
@@ -1057,7 +1137,7 @@ export const cases = [
     const stlBytes = fs.readFileSync(path.join(app.files, 'out.stl'));
     assert.equal(stlBytes.length, 84 + stlBytes.readUInt32LE(80) * 50);
   } },
-  { group: '파일', name: '3D 프린팅(STL) 창: 솔리드·구멍·크기, 두께 바꾸기', async run(app) {
+  { group: 'Files', name: '3D printing (STL) window: solids, holes, size; changing the thickness', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.part', (d) => k.drawingModule.addEntity(d, 'part', { kind: 'flange', x: 0, y: 0 })), 1)`);
     await gone(app, 'stl');
@@ -1071,7 +1151,7 @@ export const cases = [
     assert.match(await stl.eval(`document.querySelector('#stl-size').textContent`), /× 12 mm/);
     await stl.click('[data-action="close"]');
   } },
-  { group: '파일', name: 'CAM 창: 윤곽 · 포켓 · 드릴 · 각인 경로 미리보기, 시간 추정, G 코드 (FreeCAD CAM)', async run(app) {
+  { group: 'Files', name: 'CAM window: profile, pocket, drilling and engraving path preview, time estimate, G-code (FreeCAD CAM)', async run(app) {
     await fresh(app);
     await m(app, "(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 100, height: 50 }); k.drawingModule.addEntity(d, 'circle', { cx: 30, cy: 25, r: 8 }); }), 1)");
     await gone(app, 'cam');
@@ -1092,7 +1172,43 @@ export const cases = [
     const gcode = await m(app, "k.actions.openCam({ operation: 'drill', depth: 4, peck: 0 })");
     assert.match(gcode, /G98 G81 X30 Y25 Z-4/);
   } },
-  { group: '파일', name: '최근 파일 창: 열기 · 하나 삭제 · 모두 지우기', async run(app) {
+  { group: 'Files', name: 'CAM 3D: roughing a solid, finishing with a ball end mill, simulating to the end with a gouge check, machined stock solid', async run(app) {
+    await fresh(app);
+    await m(app, "(() => { const s = k.actions.insertSolid('sphere', { radius: 25 }, { x: 0, y: 0 }); k.actions.select([s.id]); return 1; })()");
+    await gone(app, 'cam');
+    await fire(app, "k.run('cam')");
+    const cam = await app.popup('cam');
+    await expectPopupWindow(app, cam, 'cam');
+    await sleep(200);
+    // Only solids: the 3D roughing is chosen and the 2D operations are off.
+    assert.equal(await cam.eval("document.querySelector('[data-cam-op=\"rough3d\"]').classList.contains('active')"), true);
+    assert.equal(await cam.eval("document.querySelector('[data-cam-op=\"profile\"]').disabled"), true);
+    assert.ok(Number(await cam.eval("document.querySelector('#cam-svg').dataset.cuts")) > 10, 'roughing paths');
+    await cam.click('[data-cam-op="finish3d"]');
+    await sleep(150);
+    await cam.click('[data-cam-shape="ball"]');
+    await sleep(150);
+    assert.deepEqual(await cam.eval(LAYOUT_CHECK), [], 'window fits');
+    await cam.click('[data-cam-view="sim"]');
+    await sleep(150);
+    await cam.click('[data-cam-sim="play"]');
+    await cam.waitFor("Number(document.querySelector('#cam-sim').dataset.cut) > 0");
+    await cam.click('[data-cam-sim="end"]');
+    await cam.waitFor("document.querySelector('#cam-gouge')");
+    const gouge = await cam.eval("parseFloat(document.querySelector('#cam-gouge b').textContent)");
+    assert.ok(gouge < 0.1, `gouge ${gouge}`);
+    assert.deepEqual(await cam.eval(LAYOUT_CHECK), [], 'simulation fits');
+    // (Clicked from inside: the window closes before a CDP click would return.)
+    await cam.eval("setTimeout(() => document.querySelector('[data-action=\"cam-stock\"]').click(), 0), 1");
+    await app.main.waitFor("window.__mycad.actions.activeDrawing().entities.some((e) => e.kind === 'mesh')");
+    const stock = (await drawing(app)).entities.find((e) => e.kind === 'mesh');
+    assert.ok(stock.shape.tris.length > 9 * 1000 && stock.shape.tris.length < 9 * 40000, 'a light mesh');
+    // The G-code from the hook: Z on the cutting moves, the safe height over the stock top.
+    const gcode = await m(app, `(k.actions.select([${JSON.stringify((await drawing(app)).entities[0].id)}]), k.actions.openCam({ operation: 'finish3d', toolShape: 'ball', tool: 6, stepOver: 0.3 }))`);
+    assert.match(gcode, /G1 X[-\d.]+ Y[-\d.]+ Z[-\d.]+/);
+    assert.match(gcode, /G0 Z(\d+)/);
+  } },
+  { group: 'Files', name: 'Recent files window: open, remove one, clear all', async run(app) {
     await fire(app, `k.run('recent')`);
     const recent = await app.popup('recent');
     await expectPopupWindow(app, recent, 'recent');
@@ -1106,7 +1222,7 @@ export const cases = [
     assert.equal(await recent.eval(`document.querySelectorAll('.recent-row').length`), 0);
     await recent.click('[data-action="close"]');
   } },
-  { group: '파일', name: '공개 2D CAD 형식 열기: 바이너리·cp949 DXF, SVG, IGES, HP-GL, Gerber, Excellon (열기·끌어 놓기)', async run(app) {
+  { group: 'Files', name: 'Open 2D CAD formats: binary and cp949 DXF, SVG, IGES, HP-GL, Gerber, Excellon (open and drag-and-drop)', async run(app) {
     await fresh(app);
     const cases = [
       ['dxf', 'ezdxf-entities-r2000-binary.dxf', 'dxf', 'samples/dxf'], ['dxf', 'ezdxf-entities-r12-cp949.dxf', 'dxf', 'samples/dxf'],
@@ -1134,7 +1250,7 @@ export const cases = [
     const items = await m(app, `k.actions.contextMenuFor ? Object.keys(k.commands).filter((id) => ['exportDxf2000', 'exportIges', 'exportHpgl'].includes(id)) : []`);
     assert.deepEqual(items.sort(), ['exportDxf2000', 'exportHpgl', 'exportIges']);
   } },
-  { group: '파일', name: '외부에서 끌어다 놓기: 도면은 열기, 이미지는 배경, 글은 문자', async run(app) {
+  { group: 'Files', name: 'Drag and drop from outside: drawings open, images become the background, text becomes a text entity', async run(app) {
     await fresh(app);
     const file = path.join(app.files, 'dropped.mcad');
     fs.writeFileSync(file, JSON.stringify({ format: 'mycad', version: 1, drawing: { title: '끌어온 도면', entities: [{ type: 'circle', cx: 0, cy: 0, r: 9 }] } }));
@@ -1152,7 +1268,7 @@ export const cases = [
     assert.equal(await m(app, 'k.state.settings.backgroundName'), 'bg.png');
     assert.ok(await app.main.eval(`document.querySelector('.canvas-image').classList.contains('has-image')`));
   } },
-  { group: '파일', name: '배경 이미지: 크기 제한 없이 데이터 폴더로 복사, 불투명도, 제거', async run(app) {
+  { group: 'Files', name: 'Background image: copied to the data folder with no size limit, opacity, removal', async run(app) {
     const big = path.join(app.files, 'big.png');
     const png = fs.readFileSync(path.join(root, 'assets', 'icon.png'));
     fs.writeFileSync(big, Buffer.concat([png, Buffer.alloc(30 * 1024 * 1024)]));
@@ -1167,7 +1283,7 @@ export const cases = [
   } },
 
   // ───────────────────────── print
-  { group: '인쇄', name: '인쇄 미리보기: 범위(전체·현재·사용자 지정), 페이지 설정, 바로 인쇄', async run(app) {
+  { group: 'Printing', name: 'Print preview: range (all, current, custom), page setup, direct print', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 600, height: 300 }); k.drawingModule.addEntity(d, 'circle', { cx: 50, cy: 50, r: 10, layer: 'hidden' }); }), 1)`);
     await app.main.click('#toolbar [data-command="print"]');
@@ -1202,7 +1318,7 @@ export const cases = [
   } },
 
   // ───────────────────────── settings and other popups
-  { group: '설정', name: '설정 창: 탭 8개 모두 고정 크기 · 스크롤 없음 · 한 줄 정렬', async run(app) {
+  { group: 'Settings', name: 'Settings window: all 8 tabs at a fixed size, no scrolling, rows aligned', async run(app) {
     await app.main.click('#toolbar [data-command="settings"]');
     const settings = await app.popup('settings');
     for (const tab of ['general', 'appearance', 'font', 'background', 'drawing', 'snaps', 'recent', 'shortcuts']) {
@@ -1212,7 +1328,7 @@ export const cases = [
     }
     await settings.click('[data-action="close"]');
   } },
-  { group: '설정', name: '설정: 2D 십자선 색(기본 빨강)과 굵기', async run(app) {
+  { group: 'Settings', name: 'Settings: 2D cross-hair colour (red by default) and width', async run(app) {
     await gone(app, 'settings');
     assert.deepEqual(await m(app, '[k.state.settings.crosshairColor, k.state.settings.crosshairWidth]'), ['#e5484d', 1], 'red, 1 px by default');
     await fire(app, `k.run('settings')`);
@@ -1227,7 +1343,7 @@ export const cases = [
     await sleep(150);
     await settings.click('[data-action="close"]');
   } },
-  { group: '설정', name: '설정: 언어 · 글꼴(시스템 글꼴 전체) · 문자 크기 · 스타일 · 스냅 · 작성자', async run(app) {
+  { group: 'Settings', name: 'Settings: language, font (all system fonts), text size, style, snaps, author', async run(app) {
     await gone(app, 'settings');
     await fire(app, `k.run('settings')`);
     const settings = await app.popup('settings');
@@ -1259,7 +1375,7 @@ export const cases = [
     await m(app, `(k.actions.updateSettings({ fontFamily: '', fontStyle: 'normal', textHeight: 3.5 }), 1)`);
     await settings.click('[data-action="close"]');
   } },
-  { group: '설정', name: '프로그램 정보: 빌드 정보와 제작자 SHKWON(knix008@naver.com)', async run(app) {
+  { group: 'Settings', name: 'About: build information and author SHKWON (knix008@naver.com)', async run(app) {
     await app.main.click('#toolbar [data-command="about"]');
     const about = await app.popup('about');
     await expectPopupWindow(app, about, 'about');
@@ -1269,7 +1385,7 @@ export const cases = [
     assert.match(text, /x86_64|aarch64/);
     await about.click('[data-action="close"]');
   } },
-  { group: '오류', name: '오류 팝업: 자세한 내용, 내용 복사', async run(app) {
+  { group: 'Errors', expectConsoleErrors: true, name: 'Error popup: details, copy the text', async run(app) {
     await m(app, `(k.actions.updateSettings({ language: 'ko' }), 1)`);
     await gone(app, 'error');
     await fire(app, `k.actions.showError('error.save', new Error('디스크가 가득 찼습니다'), 'C:/x.mcad')`);
@@ -1283,7 +1399,7 @@ export const cases = [
     assert.match(copied, /C:\/x\.mcad/);
     await error.click('[data-action="close"]');
   } },
-  { group: '오류', name: '심각한 오류(백엔드 panic)도 위치·스레드와 함께 팝업', async run(app) {
+  { group: 'Errors', expectConsoleErrors: true, name: 'Serious errors (backend panic) also pop up with their location and thread', async run(app) {
     await closeAllPopups(app);
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('raise_test_panic').then(() => 1)`);
     const error = await app.popup('error');
@@ -1293,7 +1409,7 @@ export const cases = [
     assert.match(detail, /crash\.log/);
     await error.click('[data-action="close"]');
   } },
-  { group: '오류', name: '그냥 종료되면(강제 종료·충돌) 다음 실행 때 지난 실행의 오류를 팝업으로 보고', async run(app) {
+  { group: 'Errors', expectConsoleErrors: true, name: 'After an abrupt exit (killed or crashed) the next start reports the last run in a popup', async run(app) {
     // Killed without a word (like a crash): running.lock stays, and this run's crash.log entry (the test panic above) is in it.
     await app.restart([], {}, { reportCrash: true });
     const error = await app.popup('error');
@@ -1308,7 +1424,7 @@ export const cases = [
     await sleep(1500);
     assert.equal(app.windowInfo().filter((w) => w.visible && /지난번 실행|last run/.test(w.title)).length, 0, 'no report after a clean start');
   } },
-  { group: '진행', name: '오래 걸리는 열기/저장은 진행 팝업으로 알림', async run(app) {
+  { group: 'Progress', name: 'Slow opening/saving shows a progress popup', async run(app) {
     // Slow enough (several chunks × 900 ms) that the window stays up while it is checked.
     await app.restart([], { MYCAD_IO_DELAY_MS: '900' });
     const file = path.join(app.files, 'big.mcad');
@@ -1324,7 +1440,7 @@ export const cases = [
   } },
 
   // ───────────────────────── rulers and 3D
-  { group: '눈금자', name: '툴바의 눈금자 버튼, 캔버스 위·왼쪽 눈금자 (mm, 커서 표시)', async run(app) {
+  { group: 'Rulers', name: 'Ruler button on the toolbar, rulers above and left of the canvas (mm, cursor marker)', async run(app) {
     await fresh(app);
     const pixel = (x, y) => app.main.eval(`(() => { const c = document.querySelector('#cad-canvas'); const d = c.getContext('2d').getImageData(Math.round(${x} * devicePixelRatio), Math.round(${y} * devicePixelRatio), 1, 1).data; return [d[0], d[1], d[2]].join(','); })()`);
     await m(app, 'k.actions.drawCanvas()');
@@ -1339,7 +1455,7 @@ export const cases = [
     await app.main.click('#toolbar [data-command="rulers"]');
     assert.ok(info);
   } },
-  { group: '단위', name: '설정 › 일반의 길이 단위: 눈금자·속성·상태 표시줄·치수가 따라 바뀌고, 다른 단위 입력은 자동 변환', async run(app) {
+  { group: 'Units', name: 'Length unit in Settings › General: rulers, properties, status bar and dimensions follow; other units typed in are converted', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 50.8, y2: 0 }); k.drawingModule.addEntity(d, 'dim', { kind: 'horizontal', x1: 0, y1: 0, x2: 50.8, y2: 0, ox: 0, oy: -10, precision: 1 }); }), 1)`);
     await m(app, `(k.run('settings'), 1)`);
@@ -1351,9 +1467,11 @@ export const cases = [
     assert.equal(await m(app, 'k.state.settings.units'), 'in', 'chosen in Settings › General');
     await settings.eval(`(document.querySelector('[data-action="close"]').click(), 1)`).catch(() => {});
     await m(app, `(() => { const d = k.actions.activeDrawing(); k.actions.select([d.entities.at(-2).id]); k.actions.drawCanvas(); return 1; })()`);
-    await sleep(200);
-    const shown = await app.main.eval(`(() => { const i = document.querySelector('#right-panel [data-prop="x2"]'); return { value: i.value, unit: i.closest('.prop-input').querySelector('small').textContent, status: document.querySelector('#status-unit').textContent }; })()`);
-    assert.deepEqual(shown, { value: '2', unit: 'in', status: 'in' });
+    // The panel and status bar are drawn again a moment after the selection.
+    const read = `(() => { const i = document.querySelector('#right-panel [data-prop="x2"]'); return JSON.stringify(i ? { value: i.value, unit: i.closest('.prop-input').querySelector('small').textContent, status: document.querySelector('#status-unit').textContent } : null); })()`;
+    const want = JSON.stringify({ value: '2', unit: 'in', status: 'in' });
+    await app.main.waitFor(`${read} === ${JSON.stringify(want)}`, { timeout: 5000 }).catch(() => {});
+    assert.equal(await app.main.eval(read), want, 'line end shown in inches, with the unit, and the status bar unit');
     assert.equal((await m(app, 'k.canvasState.lastRuler')).unit, 'in', 'the ruler counts in inches');
     const dim = await m(app, `k.actions.activeDrawing().entities.at(-1)`);
     assert.equal(await app.main.eval(`import('/src/domain/entities.js').then((e) => e.dimText(${JSON.stringify(dim)}))`), '2"');
@@ -1364,7 +1482,7 @@ export const cases = [
     assert.equal(await app.main.eval(`document.querySelector('#right-panel [data-prop="x2"]').value`), '3');
     await m(app, `(k.actions.updateSettings({ units: 'mm' }), 1)`);
   } },
-  { group: '단위', name: '축척 막대: 툴바 켜기/끄기, 끌어 옮기기, 끝선을 끌어 길이 바꾸기, 3D에서는 숨김', async run(app) {
+  { group: 'Units', name: 'Scale bar: toggled on the toolbar, dragged to move, end dragged to change the length, hidden in 3D', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.updateSettings({ units: 'mm', showScaleBar: true, scaleBar: { x: 36, y: 14, width: 120 } }), k.actions.setZoomPercent(100), 1)`);
     await sleep(200);
@@ -1389,7 +1507,7 @@ export const cases = [
     await m(app, 'k.actions.toggle3d(false).then(() => 1)');
     assert.equal((await read()).hidden, false);
   } },
-  { group: '3D', name: '3D 보기: 돌출 솔리드, 좌표축 눈금, 시점 바꾸기, 두께', async run(app) {
+  { group: '3D', name: '3D view: extruded solids, axis ticks, view changes, thickness', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.part', (d) => { k.drawingModule.addEntity(d, 'part', { kind: 'flange', x: 0, y: 0 }); k.drawingModule.addEntity(d, 'line', { x1: -80, y1: -80, x2: 80, y2: -80 }); }), 1)`);
     await app.main.click('#toolbar [data-command="view3d"]');
@@ -1432,7 +1550,7 @@ export const cases = [
     await sleep(200);
     assert.ok((await m(app, 'k.actions.view3d().inspect()')).triangles > triangles);
   } },
-  { group: '3D', name: '3D 조명: 마우스로 해를 끌어 위치 이동, 조명 이동 모드, 켜기/끄기', async run(app) {
+  { group: '3D', name: '3D light: dragging the sun with the mouse, light move mode, on/off', async run(app) {
     await app.main.click('[data-view3d="view:iso"]');
     await sleep(200);
     const start = await m(app, 'k.actions.view3d().inspect()');
@@ -1478,7 +1596,7 @@ export const cases = [
 
 
   // ───────────────────────── 3D solids (FreeCAD Part)
-  { group: '3D 솔리드', name: '솔리드 창: 10종 음영 미리보기 · 치수 · 위치 → 넣기, 속성 패널에 부피', async run(app) {
+  { group: '3D solids', name: 'Solid window: shaded previews of 10 kinds, dimensions, position → insert; volume in the properties', async run(app) {
     await fresh(app);
     await gone(app, 'solid');
     await app.main.click(`#left-panel [data-command="solid:torus"]`);
@@ -1509,7 +1627,7 @@ export const cases = [
     await app.main.eval(`(() => { const i = document.querySelector('#right-panel [data-solid-param="radius"]'); i.value = '10'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     assert.equal((await drawing(app)).entities.at(-1).params.radius, 10);
   } },
-  { group: '3D 솔리드', name: '2D → 3D: 사각형+원 돌출(구멍), 회전, 로프트, 스윕', async run(app) {
+  { group: '3D solids', name: '2D → 3D: rectangle + circle extruded (hole), revolve, loft, sweep', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 40, height: 30 }); k.drawingModule.addEntity(d, 'circle', { cx: 20, cy: 15, r: 5 }); }), 1)`);
     await m(app, `(k.actions.select(k.actions.activeDrawing().entities.map((e) => e.id)), 1)`);
@@ -1538,7 +1656,7 @@ export const cases = [
     await m(app, `(k.actions.change('op.polyline', (d) => k.drawingModule.addEntity(d, 'polyline', { points: [{ x: 0, y: 60 }, { x: 40, y: 60 }, { x: 60, y: 90 }] })), k.actions.select([k.actions.activeDrawing().entities.at(-1).id]), k.actions.applyFeature('sweep', k.actions.featureSource('sweep'), { radius: 3 }), 1)`);
     assert.equal((await drawing(app)).entities.at(-1).kind, 'sweep');
   } },
-  { group: '3D 솔리드', name: '불리언: 빼기·합치기·교차 → 트리로 남고, 분해하면 원래 솔리드', async run(app) {
+  { group: '3D solids', name: 'Booleans: cut, union, intersection stay as a tree; exploding gives back the solids', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; const box = a.insertSolid('box', { length: 20, width: 20, height: 20 }, { x: 0, y: 0 }); const pin = a.insertSolid('cylinder', { radius: 5, height: 40 }, { x: 10, y: 10, z: -10 }); a.select([box.id, pin.id]); return 1; })()`);
     assert.equal(await m(app, `k.commands['bool:cut'].enabled()`), true);
@@ -1560,7 +1678,7 @@ export const cases = [
       await m(app, `(k.actions.select([k.actions.activeDrawing().entities[0].id]), k.actions.explodeSelection(), 1)`);
     }
   } },
-  { group: '3D 솔리드', name: '모깎기·모따기·두께·오프셋 (3D): 창에서 크기 → 원래 솔리드 자리에, 분해하면 원래 솔리드', async run(app) {
+  { group: '3D solids', name: 'Fillet, chamfer, thickness, offset (3D): size in the window → replaces the solid; exploding gives it back', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; const box = a.insertSolid('box', { length: 100, width: 60, height: 40 }, { x: 50, y: 20 }); a.select([box.id]); return 1; })()`);
     assert.equal(await m(app, `k.commands['dress:fillet'].enabled()`), true);
@@ -1595,7 +1713,7 @@ export const cases = [
     await m(app, `(() => { const a = k.actions; const ball = a.insertSolid('sphere', { radius: 5 }, { x: 0, y: 0 }); a.select([ball.id]); return 1; })()`);
     assert.equal(await m(app, `k.commands['dress:fillet'].enabled()`), false);
   } },
-  { group: '3D 솔리드', name: '형상 검사 창: 솔리드별 결과 · 문제 항목, 고른 솔리드 수리 → 메시 솔리드 (FreeCAD Part/Mesh)', async run(app) {
+  { group: '3D solids', name: 'Check geometry window: results per solid, problem items, repairing the chosen solid → mesh solid (FreeCAD Part/Mesh)', async run(app) {
     await fresh(app);
     // A good box and a mesh box with its top taken away and a face turned over.
     await m(app, `(() => {
@@ -1646,7 +1764,7 @@ export const cases = [
     await sleep(150);
     assert.equal((await drawing(app)).entities.find((e) => e.name === 'broken').shape.tris.length, 90);
   } },
-  { group: '3D 솔리드', name: 'FEM 창: 선으로 된 골조 · 지지 · 하중 · 단면 → 변위 · 모멘트 · 응력, 결과를 FEM 레이어에 그리기', async run(app) {
+  { group: '3D solids', name: 'FEM window: frame of lines, supports, loads, sections → displacement, moment, stress; results drawn on the FEM layer', async run(app) {
     await fresh(app);
     await m(app, "(k.actions.change('op.line', (d) => { k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 0, y2: 3000 }); k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 3000, x2: 5000, y2: 3000 }); k.drawingModule.addEntity(d, 'line', { x1: 5000, y1: 3000, x2: 5000, y2: 0 }); }), 1)");
     await gone(app, 'fem');
@@ -1675,7 +1793,7 @@ export const cases = [
     assert.ok(results.filter((e) => e.type === 'polyline').length >= 6, 'deformed shape and moments');
     assert.match(results.find((e) => e.type === 'text').text, /FEM/);
   } },
-  { group: '3D 솔리드', name: 'FEM 판 응력 창: 구멍 뚫린 판 · 변마다 지지 · 하중 → 폰 미제스 색, 결과를 FEM 레이어에 그리기', async run(app) {
+  { group: '3D solids', name: 'FEM plate stress window: plate with a hole, supports and loads per side → von Mises colours; results drawn on the FEM layer', async run(app) {
     await fresh(app);
     await m(app, "(k.actions.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 400, height: 200 }); k.drawingModule.addEntity(d, 'circle', { cx: 200, cy: 100, r: 30 }); }), 1)");
     await gone(app, 'plate');
@@ -1706,7 +1824,39 @@ export const cases = [
     assert.equal(results.filter((e) => e.type === 'polyline').length, 2, 'deformed outer outline and hole');
     assert.ok(results.some((e) => e.type === 'text' && /판 FEM/.test(e.text)));
   } },
-  { group: '3D 솔리드', name: 'PartDesign: 포켓(창) · 구멍(카운터보어) · 3단면 로프트 · 메시 단순화', async run(app) {
+  { group: '3D solids', name: 'FEM solid window: cantilever clamped and loaded → displacement and stress colours, compared with CalculiX, deformed solid drawn', async run(app) {
+    await fresh(app);
+    await m(app, "(() => { const s = k.actions.insertSolid('box', { length: 200, width: 20, height: 20 }, { x: 0, y: 0 }); k.actions.select([s.id]); return 1; })()");
+    await gone(app, 'fem3d');
+    await fire(app, "k.run('fem3d')");
+    const win = await app.popup('fem3d');
+    await expectPopupWindow(app, win, 'fem3d');
+    // Clamp the left end instead of the bottom; push the right end down.
+    await win.click('[data-fem3d-fixed="zmin"]');
+    await sleep(100);
+    await win.click('[data-fem3d-fixed="xmin"]');
+    await sleep(100);
+    await win.eval(`(() => { const s = document.querySelector('[data-fem3d-load-face]'); s.value = 'xmax'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(100);
+    await win.eval(`(() => { const i = document.querySelector('[data-fem3d-load="fz"]'); i.value = '-1000'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await win.waitFor("document.querySelector('#fem3d-disp')");
+    const disp = await win.eval("parseFloat(document.querySelector('#fem3d-disp').textContent)");
+    const beam = (1000 * 200 ** 3) / (3 * 210000 * (20 * 20 ** 3 / 12));
+    assert.ok(Math.abs(disp - beam) / beam < 0.08, `tip ${disp} vs ${beam}`);
+    assert.ok(Number(await win.eval("document.querySelector('#fem3d-canvas').dataset.faces")) > 100);
+    assert.deepEqual(await win.eval(LAYOUT_CHECK), [], 'window fits');
+    await win.click('[data-action="close"]');
+    // CalculiX (FreeCAD's ccx, found from FREECAD_CMD) through the app: the same answer.
+    const options = { fixed: ['xmin'], loads: [{ face: 'xmax', fz: -1000 }], resolution: 24 };
+    const ccx = await m(app, `k.actions.openFem3d({ action: 'ccx', fem3d: ${JSON.stringify(options)} }).then((r) => r.ccx ? { max: r.ccx.max, ours: r.max.displacement } : null)`);
+    if (process.env.FREECAD_CMD) assert.ok(ccx, 'CalculiX ran (FREECAD_CMD is set)');
+    if (ccx) assert.ok(Math.abs(ccx.max - ccx.ours) / ccx.ours < 0.02, `CalculiX ${ccx.max} vs ${ccx.ours}`);
+    else assert.match(await notice(app), /CalculiX/, 'no ccx: says so');
+    await m(app, `k.actions.openFem3d({ action: 'draw', fem3d: ${JSON.stringify(options)} }).then(() => 1)`);
+    const d = await drawing(app);
+    assert.ok(d.entities.some((e) => e.kind === 'mesh' && /FEM/.test(e.name)));
+  } },
+  { group: '3D solids', name: 'PartDesign: pocket (window), hole (counterbore), three-section loft, mesh decimation', async run(app) {
     await fresh(app);
     await m(app, "(() => { const a = k.actions; const box = a.insertSolid('box', { length: 100, width: 60, height: 30 }, { x: 0, y: 0 }); a.change('op.rect', (d) => { k.drawingModule.addEntity(d, 'rect', { x: 10, y: 10, width: 30, height: 20 }); k.drawingModule.addEntity(d, 'circle', { cx: 70, cy: 30, r: 3.3 }); }); const [r] = a.activeDrawing().entities.filter((e) => e.type === 'rect'); a.select([r.id, box.id]); return 1; })()");
     assert.equal(await m(app, "k.commands['solid:pocket'].enabled()"), true);
@@ -1748,7 +1898,7 @@ export const cases = [
     await m(app, "(k.actions.select([k.actions.activeDrawing().entities[0].id]), k.actions.decimateSolids(k.actions.selectedSolids().map((e) => e.id)), 1)");
     assert.equal((await drawing(app)).entities[0].kind, 'mesh');
   } },
-  { group: '3D 솔리드', name: 'Robot: 로봇 추가 → 점으로 역기구학 → 사각 경로 궤적(3D 재생) + KRL', async run(app) {
+  { group: '3D solids', name: 'Robot: add a robot → inverse kinematics to a point → square trajectory (3D playback) + KRL', async run(app) {
     await fresh(app);
     await fire(app, "k.run('robot:add')");
     await sleep(200);
@@ -1771,7 +1921,7 @@ export const cases = [
     await fire(app, "k.run('view3d')");
     await sleep(200);
   } },
-  { group: '3D 솔리드', name: 'Assembly: 바탕 → 부품 회전 조인트, 속성 패널 각도로 돌리기, 바탕 옮기면 따라옴', async run(app) {
+  { group: '3D solids', name: 'Assembly: base → part revolute joint, turned by the angle in the properties, follows when the base moves', async run(app) {
     await fresh(app);
     await m(app, "(() => { const a = k.actions; a.change('op.solid', (dd) => { k.drawingModule.addEntity(dd, 'solid', { kind: 'box', name: 'frame', params: { length: 100, width: 100, height: 600 } }); k.drawingModule.addEntity(dd, 'solid', { kind: 'box', name: 'door', params: { length: 500, width: 30, height: 580 }, x: 100, y: 0, z: 10 }); }); const ids = a.activeDrawing().entities.map((e) => e.id); a.select(ids); return 1; })()");
     await chooseMenuItem(await openMenu(app, 'solid'), 'joint:revolute');
@@ -1794,7 +1944,88 @@ export const cases = [
     moved = d.entities.find((e) => e.name === 'door');
     assert.ok(Math.abs(moved.x - 1100) < 1e-6, 'follows its base');
   } },
-  { group: '3D 솔리드', name: '단면 창과 투상도 창: 윤곽선, 숨은선은 숨은선 레이어', async run(app) {
+  { group: '3D solids', name: 'Assembly animation: a moving sample plays in 3D when opened; the piston moves; slider, pause, keep the pose', async run(app) {
+    await fresh(app);
+    await m(app, "(k.actions.openSample('25-crank-engine.mcad'), 1)");
+    await app.main.waitFor("window.__mycad.actions.animState().playing && document.querySelector('.anim-bar')");
+    // The piston (a mesh moved by a transform from where it was built) goes up and down while the drawing stays put.
+    const pistonZ = `(() => { const v = window.__mycad.actions.view3d(); const e = window.__mycad.actions.activeDrawing().entities.find((x) => x.name === 'Piston'); const o = v.model.children.find((c) => c.userData.entity === e.id && c.isMesh); o.updateMatrixWorld(); return e.z + o.matrixWorld.elements[14]; })()`;
+    const seen = new Set();
+    for (let i = 0; i < 8; i++) { seen.add(Math.round(await app.main.eval(pistonZ))); await sleep(120); }
+    assert.ok(seen.size >= 3, `piston moves: ${[...seen]}`);
+    const before = await drawing(app);
+    assert.equal(before.entities.find((e) => e.name === 'Piston').z, 160, 'the drawing is not changed by playing');
+    // Scrubbing pauses and shows that moment: a quarter turn puts the crank pin level with the shaft.
+    await app.main.eval(`(() => { const s = document.querySelector('#anim-time'); s.value = '0.5'; s.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+    await sleep(150);
+    assert.equal(await m(app, 'k.actions.animState().playing'), false);
+    assert.match(await app.main.eval("document.querySelector('#anim-clock').textContent"), /0\.5/);
+    const expected = Math.sqrt(140 ** 2 - 40 ** 2) - 20;
+    const at90 = await app.main.eval(pistonZ);
+    assert.ok(Math.abs(at90 - expected) < 0.01, `piston at √(L² − r²) at 90°: ${at90} vs ${expected}, ${await m(app, 'JSON.stringify(k.actions.animState().joints.map((j) => [j.id, j.angle, j.offset]))')}`);
+    await app.main.click('[data-anim="mode:bounce"]');
+    assert.equal((await drawing(app)).animation.mode, 'bounce');
+    // Keeping the pose writes the joint values (one undo step) and the parts move in the drawing.
+    await app.main.click('[data-anim="keep"]');
+    await sleep(200);
+    const kept = await drawing(app);
+    assert.ok(Math.abs(kept.entities.find((e) => e.name === 'Piston').z - expected) < 0.01);
+    assert.equal(await m(app, 'k.actions.animState().active'), false);
+    for (const file of ['25-crank-engine', '26-four-bar', '27-gear-train', '28-screw-vise', '29-robot-arm', '30-room-doors']) {
+      await m(app, `(k.actions.openSample('${file}.mcad'), 1)`);
+      await app.main.waitFor("window.__mycad.actions.animState().playing");
+      await sleep(900);
+      assert.deepEqual(await m(app, 'k.actions.animState().failed'), [], `${file} solves`);
+      await m(app, '(k.actions.stopAnimation(), 1)');
+    }
+  } },
+  { group: '3D solids', name: 'Working plane on a face: clicking a box\'s front face in 3D sets the plane; a rectangle drawn on it extrudes from the face', async run(app) {
+    await fresh(app);
+    await m(app, "(k.actions.insertSolid('box', { length: 100, width: 60, height: 40 }, { x: 0, y: 0 }), k.actions.select([]), 1)");
+    await fire(app, 'k.actions.pickWorkPlaneFace()');
+    await app.main.waitFor('Boolean(window.__mycad.actions.view3d())');
+    await sleep(300);
+    // The front face (y = 0, normal −y) at its middle, on the screen.
+    const at = await app.main.eval(`(() => { const v = window.__mycad.actions.view3d(); const p = new (v.camera.position.constructor)(50, 0, 20).project(v.camera); const r = v.canvas.getBoundingClientRect(); return { x: r.left + (p.x + 1) / 2 * r.width, y: r.top + (1 - p.y) / 2 * r.height }; })()`);
+    await app.main.realClick(at.x, at.y);
+    await app.main.waitFor('Boolean(window.__mycad.actions.activeDrawing().workPlane?.frame)');
+    const wp = (await drawing(app)).workPlane;
+    assert.deepEqual(wp.frame.z.map((v) => Math.round(v)), [0, -1, 0], 'the front face');
+    assert.ok(Math.abs(wp.frame.origin[1]) < 1e-6);
+    // A 20 × 10 rectangle at (0, 0) on the plane, padded 15: it stands out of the face.
+    await m(app, "(() => { const a = k.actions; const r = a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 20, height: 10 })); a.select([r.id]); a.applyFeature('pad', a.featureSource('pad'), { height: 15 }); return 1; })()");
+    const d = await drawing(app);
+    const pad = d.entities.find((e) => e.type === 'solid' && e.kind === 'pad');
+    const box = await m(app, `(() => { const e = k.actions.activeDrawing().entities.find((x) => x.kind === 'pad'); const s = k.actions.solidProperties(e); return [s.sizeX, s.sizeY, s.sizeZ]; })()`);
+    assert.deepEqual(box.map((v) => Math.round(v)), [20, 15, 10], 'out of the face along −y');
+    assert.ok(pad.y <= 1e-6, 'in front of the box');
+    await fire(app, "k.run('workPlaneReset')");
+  } },
+  { group: '3D solids', name: 'OpenCASCADE: exact boolean volumes; picking one edge in 3D with the mouse to fillet (topological naming)', async run(app) {
+    await fresh(app);
+    await app.main.waitFor('window.__mycad.actions.kernelState().ready', { timeout: 30000 });
+    // A plate with a hole: the exact volume (not the mesh's).
+    const volume = await m(app, `(() => { const a = k.actions; const e = a.change('op.solid', (d) => k.drawingModule.addEntity(d, 'solid', { kind: 'boolean', name: 'Plate', params: {}, shape: { op: 'cut', parts: [{ kind: 'box', params: { length: 100, width: 60, height: 30 } }, { kind: 'cylinder', params: { radius: 12, height: 40, angle: 360 }, x: 50, y: 30, z: -5 }] } })); return a.solidProperties(e).volume; })()`);
+    assert.ok(Math.abs(volume - (100 * 60 * 30 - Math.PI * 144 * 30)) < 1e-6, `exact ${volume}`);
+    // A fillet whose one edge is picked in the 3D view with the mouse.
+    await m(app, `(() => { const a = k.actions; a.change('op.solid', (d) => { d.entities = []; }); const e = a.change('op.solid', (d) => k.drawingModule.addEntity(d, 'solid', { kind: 'fillet', name: 'Round', params: { size: 5, edges: 0 }, shape: { base: { kind: 'box', params: { length: 40, width: 30, height: 20 } } } })); a.select([e.id]); return 1; })()`);
+    await fire(app, 'k.actions.toggleEdgePick(true)');
+    await app.main.waitFor("window.__mycad.actions.view3d()?.edgePick?.edges.length === 12");
+    // Where the vertical edge at (40, 30) is on the screen.
+    const at = await app.main.eval(`(() => { const v = window.__mycad.actions.view3d(); const e = v.edgePick.edges.find((x) => Math.abs(x.mid[0] - 40) < 1e-6 && Math.abs(x.mid[1] - 30) < 1e-6); const p = new (v.camera.position.constructor)(...e.points[12]).project(v.camera); const r = v.canvas.getBoundingClientRect(); return { x: r.left + (p.x + 1) / 2 * r.width, y: r.top + (1 - p.y) / 2 * r.height }; })()`);
+    await app.main.realClick(at.x, at.y);
+    await app.main.waitFor("window.__mycad.actions.activeDrawing().entities[0].shape.picks?.length === 11");
+    // Clicked on a picked edge (all twelve were in the "all edges" group): it left the list. Keep only that one.
+    await m(app, `(() => { const a = k.actions; const e = a.activeDrawing().entities[0]; const v = a.view3d(); const edge = v.edgePick.edges.find((x) => Math.abs(x.mid[0] - 40) < 1e-6 && Math.abs(x.mid[1] - 30) < 1e-6); a.change('op.edges', (d) => k.drawingModule.updateEntity(d, e.id, { shape: { ...e.shape, picks: [{ mid: edge.mid, dir: edge.dir }] } })); return 1; })()`);
+    const one = await m(app, 'k.actions.solidProperties(k.actions.activeDrawing().entities[0]).volume');
+    assert.ok(Math.abs(one - (40 * 30 * 20 - (25 - Math.PI * 25 / 4) * 20)) < 1e-6, `one edge ${one}`);
+    // The box made longer: the fillet stays on that corner.
+    await m(app, `(() => { const a = k.actions; const e = a.activeDrawing().entities[0]; a.change('op.solid', (d) => k.drawingModule.updateEntity(d, e.id, { shape: { ...e.shape, base: { ...e.shape.base, params: { ...e.shape.base.params, length: 50 } } } })); return 1; })()`);
+    const longer = await m(app, 'k.actions.solidProperties(k.actions.activeDrawing().entities[0]).volume');
+    assert.ok(Math.abs(longer - (50 * 30 * 20 - (25 - Math.PI * 25 / 4) * 20)) < 1e-6, `after the change ${longer}`);
+    await fire(app, 'k.actions.toggleEdgePick(false)');
+  } },
+  { group: '3D solids', name: 'Section and projection windows: outlines; hidden lines on the hidden layer', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.insertSolid('cylinder', { radius: 10, height: 20 }, { x: 0, y: 0 }), k.actions.select([]), 1)`);
     await fire(app, `k.run('solidSection')`);
@@ -1818,7 +2049,7 @@ export const cases = [
     assert.ok(hidden.length > 0, 'hidden lines on the hidden layer');
     assert.equal(d.entities.filter((e) => e.type === 'text').length, 3, 'names of the three views chosen by default (front, top, right)');
   } },
-  { group: '3D 솔리드', name: '3D 보기: 솔리드마다 색, 선택 강조, 2D 판 보기 끄기', async run(app) {
+  { group: '3D solids', name: '3D view: a colour per solid, selection highlight, 2D sheet hidden', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: -60, y: -60, width: 30, height: 30 })); a.insertSolid('box', {}, { x: 0, y: 0 }); a.insertSolid('sphere', { radius: 8 }, { x: 40, y: 0, z: 8 }); a.select([]); return 1; })()`);
     await m(app, `k.actions.toggle3d(true).then(() => 1)`);
@@ -1840,7 +2071,7 @@ export const cases = [
     await app.main.click('[data-view3d="extrude2d"]');
     await m(app, `(k.actions.toggle3d(false), 1)`);
   } },
-  { group: '3D 솔리드', name: 'FreeCAD 파일 열기: .FCStd · .step · .3mf · .stl (FreeCAD 가 만든 파일)', async run(app) {
+  { group: '3D solids', name: 'Opening FreeCAD files: .FCStd, .step, .3mf, .stl (made by FreeCAD)', async run(app) {
     const dir = path.join(root, 'samples', 'freecad').replace(/\\/g, '/');
     const volumes = JSON.parse(fs.readFileSync(path.join(dir, 'freecad-volumes.json'), 'utf8'));
     for (const file of ['freecad-assembly.FCStd', 'freecad-bracket.step', 'freecad-bracket.3mf', 'freecad-bracket.stl']) {
@@ -1855,7 +2086,7 @@ export const cases = [
     assert.ok(assembly.includes('boolean') && assembly.includes('pad') && assembly.includes('revolution') && assembly.includes('mesh'), JSON.stringify(assembly));
     while (await m(app, 'k.state.docs.length') > 3) await m(app, 'k.actions.closeDoc(k.actions.activeDoc(), { force: true })');
   } },
-  { group: '3D 솔리드', name: '내보내기 메뉴의 3D 형식 + FCStd 바이트를 다시 가져오기', async run(app) {
+  { group: '3D solids', name: '3D formats in the export menu + FCStd bytes imported again', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.insertSolid('box', { length: 10, width: 20, height: 30 }, { x: 5 }), 1)`);
     await app.main.click('#toolbar [data-command="exportMenu"]');
@@ -1868,7 +2099,7 @@ export const cases = [
     const back = await m(app, `(() => { const d = k.actions.activeDrawing(); const bytes = k.actions.exportMesh('fcstd', d, d.entities); k.actions.importModelBytes('copy.FCStd', bytes); return k.actions.activeDrawing().entities.filter((e) => e.type === 'solid').map((e) => [e.kind, e.params.height, e.x]); })()`);
     assert.deepEqual(back, [['box', 30, 5], ['box', 30, 5]], 'the FCStd copy is the same parametric box');
   } },
-  { group: '건축 (BIM)', name: '형강 규격 · ㄱ자 계단(창) · 모양 철근 · 물량표 CSV · 패널 재단', async run(app) {
+  { group: 'BIM', name: 'Steel profiles, L-shaped stairs (window), shaped rebar, schedule CSV, panel nesting', async run(app) {
     await fresh(app);
     // A stair from its window: L-shaped.
     await gone(app, 'solid');
@@ -1896,7 +2127,7 @@ export const cases = [
     assert.ok(d.layers.some((l) => l.id === 'nesting'));
     assert.equal(d.entities.filter((e) => e.layer === 'nesting' && e.type === 'polyline').length, 2);
   } },
-  { group: '건축 (BIM)', name: '벽: 폴리선 선택 → 벽 창(미리보기·두께·높이) → 3D 벽, 평면은 해칭된 단면', async run(app) {
+  { group: 'BIM', name: 'Wall: polyline selected → wall window (preview, thickness, height) → 3D wall; the plan shows a hatched cut', async run(app) {
     await fresh(app);
     await gone(app, 'solid');
     await m(app, `(k.actions.change('op.polyline', (d) => k.drawingModule.addEntity(d, 'polyline', { points: [{ x: 0, y: 0 }, { x: 6000, y: 0 }, { x: 6000, y: 4000 }] })), k.actions.select(k.actions.activeDrawing().entities.map((e) => e.id)), 1)`);
@@ -1923,7 +2154,7 @@ export const cases = [
     const hatch = await m(app, `k.actions.planOf(k.actions.activeDrawing().entities[0]).filter((p) => p.thin).length`);
     assert.ok(hatch > 20, `cut wall hatched in plan (${hatch})`);
   } },
-  { group: '건축 (BIM)', name: '창·문: 벽 선택 → 창 넣기 → 개구부 편집(문 추가·양개문·폭) → 벽이 뚫림', async run(app) {
+  { group: 'BIM', name: 'Windows and doors: wall selected → insert window → edit openings (add door, double door, width) → the wall is cut', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; a.change('op.polyline', (d) => k.drawingModule.addEntity(d, 'polyline', { points: [{ x: 0, y: 0 }, { x: 8000, y: 0 }] })); a.select(a.activeDrawing().entities.map((e) => e.id)); return a.archFeature('wall', { width: 200, height: 2700 }).then(() => 1); })()`);
     assert.equal(await m(app, `k.commands['arch:window'].enabled()`), true, 'a wall is selected');
@@ -1954,7 +2185,7 @@ export const cases = [
     assert.deepEqual([props.windows, props.doors], [1, 1]);
     assert.ok(Math.abs(props.wallArea - (8000 * 2700 - 1800 * 1300 - 1600 * 2100)) < 1, `wall area ${props.wallArea}`);
   } },
-  { group: '3D', name: '3D 에서 선택 · 속성 · 이동 핸들(끌기)과 회전 핸들 → 실행 취소 한 번', async run(app) {
+  { group: '3D', name: 'Selection in 3D, properties, move handle (drag) and rotate handle → one undo', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; const box = a.insertSolid('box', { length: 40, width: 30, height: 20 }, {}); a.select([box.id]); return 1; })()`);
     await m(app, 'k.actions.toggle3d(true).then(() => 1)');
@@ -1984,7 +2215,7 @@ export const cases = [
     await app.main.click('[data-view3d="handle:move"]');
     await m(app, `(k.actions.toggle3d(false), 1)`);
   } },
-  { group: '3D', name: '3D 보기 스타일 10종: 스케치·X-Ray·숨은선·점토·점…, 설정에 남음', async run(app) {
+  { group: '3D', name: '10 3D view styles: sketch, X-ray, hidden line, clay, points…; kept in the settings', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.insertSolid('box', { length: 40, width: 30, height: 20 }, {}), k.actions.insertSolid('cylinder', { radius: 8, height: 30 }, { x: 60 }), k.actions.select([]), 1)`);
     await m(app, 'k.actions.toggle3d(true).then(() => 1)');
@@ -2014,7 +2245,7 @@ export const cases = [
     assert.equal((await m(app, 'k.actions.view3d().inspect()')).parts3d.length, 2);
     await m(app, `(k.actions.setView3dStyle('asis'), k.actions.toggle3d(false), 1)`);
   } },
-  { group: '건축 (BIM)', name: '3D 보기: 벽 색·반투명 유리·나무 창틀, 공간은 옅은 부피', async run(app) {
+  { group: 'BIM', name: '3D view: wall colours, translucent glass, wooden frames; spaces as faint volumes', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 6000, height: 4000 })); a.select(a.activeDrawing().entities.map((e) => e.id)); return a.archFeature('wall', { width: 200, height: 2700 }).then(() => 1); })()`);
     await m(app, `(() => { const a = k.actions; const w = a.activeDrawing().entities[0]; a.change('op.editSolid', (d) => k.drawingModule.updateEntity(d, w.id, { shape: { ...w.shape, openings: [{ type: 'window', at: 1000, width: 1500, height: 1300, sill: 900, swing: 1, hinge: 1 }] } })); a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 100, y: 100, width: 5800, height: 3800 })); a.select([a.activeDrawing().entities.at(-1).id]); return a.archFeature('space', { height: 2400 }).then(() => (a.select([]), 1)); })()`);
@@ -2026,7 +2257,7 @@ export const cases = [
     for (const color of ['#e6e1d6', '#8cc4ec', '#a8763e', '#79d29a']) assert.ok(colors.includes(color), `${color} in ${colors.join(', ')}`);
     await m(app, `(k.actions.toggle3d(false), 1)`);
   } },
-  { group: '건축 (BIM)', name: '슬래브·지붕·공간·계단·기둥·가구·통심선 → 물량표, 건축 메뉴와 패널', async run(app) {
+  { group: 'BIM', name: 'Slab, roof, space, stairs, column, furniture, axes → schedule; BIM menu and panel', async run(app) {
     await fresh(app);
     await m(app, `(async () => {
       const a = k.actions;
@@ -2051,13 +2282,13 @@ export const cases = [
     for (const word of ['BIM 물량표', '벽 1개', '슬래브 1개', '지붕 1개', '실 1개', '기둥 1개', '계단 1개', '가구·설비 1개']) assert.ok(table.text.includes(word), word);
     // The BIM menu (menu bar) and the left panel section.
     const menu = await openMenu(app, 'arch');
-    const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id)`);
+    const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].flatMap((i) => [i.dataset.id, ...(i.dataset.contains ?? '').split(' ')])`);
     for (const id of ['arch:wall', 'arch:window', 'arch:door', 'arch:curtainwall', 'arch:column', 'arch:beam', 'arch:slab', 'arch:stairs', 'arch:roof', 'arch:railing', 'arch:space', 'arch:equipment', 'arch:axis', 'archSchedule']) assert.ok(ids.includes(id), id);
     await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(200);
     assert.ok(await app.main.eval(`document.querySelectorAll('#left-panel [data-command^="arch:"]').length`) >= 13, 'BIM tiles in the left panel');
   } },
-  { group: '건축 (BIM)', name: 'IFC: 샘플 IFC 를 열면 BIM 객체 그대로, 3D 내보내기 메뉴에 IFC', async run(app) {
+  { group: 'BIM', name: 'IFC: the sample IFC opens as BIM objects; IFC in the 3D export menu', async run(app) {
     const file = path.join(root, 'samples', 'exports', '18-house-3d.ifc').replace(/\\/g, '/');
     await m(app, `k.actions.openPath(${JSON.stringify(file)}).then(() => 1)`);
     await sleep(300);
@@ -2075,7 +2306,7 @@ export const cases = [
     await menu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(200);
   } },
-  { group: '건축 (BIM)', name: '층: 건물 트리 · 층 추가 · 평면도 층 · 건물 창(층 표고 바꾸면 객체 이동, 재료)', async run(app) {
+  { group: 'BIM', name: 'Levels: building tree, add a level, plan level, building window (changing a level elevation moves its objects; materials)', async run(app) {
     await fresh(app);
     await m(app, `(async () => { const a = k.actions; a.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 6000, height: 4000 })); a.select([a.activeDrawing().entities.at(-1).id]); await a.archFeature('wall', { width: 200, height: 3000 }); return 1; })()`);
     assert.equal(await m(app, `k.actions.activeDrawing().entities[0].level`), 'L1', 'a new BIM object stands on level 1');
@@ -2102,7 +2333,7 @@ export const cases = [
     await sleep(300);
     assert.equal(await m(app, `k.actions.activeDrawing().entities.at(-1).z`), 3200, 'moving level 2 moved its column');
   } },
-  { group: '건축 (BIM)', name: '벽 재료 층 탭 · 지붕 변별 경사 탭 (박공) · 재료 속성', async run(app) {
+  { group: 'BIM', name: 'Wall material layers tab, roof slope per edge tab (gable), material properties', async run(app) {
     await fresh(app);
     await m(app, `(async () => { const a = k.actions; a.change('op.polyline', (d) => k.drawingModule.addEntity(d, 'polyline', { points: [{ x: 0, y: 0 }, { x: 6000, y: 0 }] })); a.select([a.activeDrawing().entities.at(-1).id]); await a.archFeature('wall', { width: 200, height: 2700 }); return 1; })()`);
     await fire(app, `k.run('editSolid')`);
@@ -2138,7 +2369,7 @@ export const cases = [
     await app.main.eval(`(() => { const s = document.querySelector('#right-panel [data-solid-material]'); s.value = 'tile'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     assert.equal((await drawing(app)).entities.at(-1).material.id, 'tile');
   } },
-  { group: '건축 (BIM)', name: '철근 넣기(기둥) · 스케치로 창 만들기 · 트러스 · 배관 · 패널', async run(app) {
+  { group: 'BIM', name: 'Rebar in a column, window from a sketch, truss, pipe, panel', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; const c = a.insertSolid('column', { width: 400, depth: 400, height: 3000 }, {}); a.select([c.id]); return 1; })()`);
     await fire(app, `k.run('arch:rebar')`);
@@ -2162,7 +2393,7 @@ export const cases = [
     const kinds = (await drawing(app)).entities.map((e) => e.kind);
     for (const kind of ['truss', 'pipe', 'panel']) assert.ok(kinds.includes(kind), kind);
   } },
-  { group: '3D 솔리드', name: '툴바 2줄(Part 툴바) 전환 · FreeCAD 대응표 창 · 3D 메뉴', async run(app) {
+  { group: '3D solids', name: 'Two-row toolbar (Part toolbar), FreeCAD coverage window, 3D menu', async run(app) {
     await fresh(app);
     const one = await m(app, 'k.state.minWidth');
     await app.main.click('#toolbar [data-command="toolbarRows"]');
@@ -2176,7 +2407,8 @@ export const cases = [
     assert.equal(await app.main.eval(`document.querySelectorAll('#toolbar .toolbar-row').length`), 1);
     await app.main.click('#toolbar [data-command="solidMenu"]');
     const solidMenu = await app.popup('menu');
-    await solidMenu.waitFor(`document.querySelectorAll('.menu-item').length > 20`);
+    // Every solid command, the grouped ones in its submenus.
+    await solidMenu.waitFor(`[...document.querySelectorAll('.menu-item')].flatMap((i) => [i.dataset.id, ...(i.dataset.contains ?? '').split(' ')]).filter(Boolean).length > 40`);
     await solidMenu.eval(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); 1`);
     await sleep(200);
     await app.main.click('#left-panel [data-command="freecadCoverage"]');
@@ -2191,7 +2423,7 @@ export const cases = [
     }
     await coverage.eval('window.__mycadPopup.close(); 1');
   } },
-  { group: '3D 솔리드', name: '캔버스: 점선 십자선, 확대·축소해도 같은 크기의 5×5 격자', async run(app) {
+  { group: '3D solids', name: 'Canvas: dashed cross-hair, 5×5 grid of the same size at every zoom', async run(app) {
     await fresh(app);
     const p = await at(app, 10, 10);
     await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
@@ -2212,7 +2444,1041 @@ export const cases = [
   } },
 
   // ───────────────────────── status bar
-  { group: '상태 표시줄', name: '좌표 · 도구 · 선택 · 레이어 · 스냅 토글 · 확대 · 저장 상태', async run(app) {
+  { group: 'FreeCAD', name: 'Coverage map: every MyCAD command it names exists in the app', async run(app) {
+    const ids = [...new Set(freecadCoverage().flatMap((c) => c.commands))];
+    const missing = await m(app, `${JSON.stringify(ids)}.filter((id) => !k.commands[id])`);
+    assert.deepEqual(missing, []);
+  } },
+  { group: 'Std', name: 'Standard views and cameras: front/top, orthographic ↔ perspective, saved camera, rotate, stereo, turntable, clipping', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.insertSolid('box', { length: 40, width: 30, height: 20 }, { x: 0, y: 0, z: 0 }), 1)`);
+    await fire(app, `k.run('viewFront')`);
+    await app.main.waitFor(`Boolean(window.__mycad.state.view3d && window.__mycad.actions.view3d())`);
+    await sleep(300);
+    const dir = (camera) => { const d = camera.position.map((v, i) => v - camera.target[i]); const l = Math.hypot(...d); return d.map((v) => v / l); };
+    let camera = await m(app, 'k.actions.view3d().getCamera()');
+    assert.ok(dir(camera)[1] < -0.99, `front looks along +y: ${dir(camera)}`);
+    await fire(app, `k.run('viewTop')`);
+    await sleep(150);
+    camera = await m(app, 'k.actions.view3d().getCamera()');
+    assert.ok(dir(camera)[2] > 0.99, 'top looks down');
+    await fire(app, `k.run('cameraOrtho')`);
+    await sleep(150);
+    assert.equal(await m(app, 'k.actions.view3d().camera.type'), 'OrthographicCamera', 'orthographic camera');
+    await fire(app, `k.run('viewSaveCamera')`);
+    await fire(app, `k.run('viewIsometric')`);
+    await fire(app, `k.run('viewRestoreCamera')`);
+    await sleep(150);
+    const back = await m(app, 'k.actions.view3d().getCamera()');
+    assert.equal(back.projection, 'ortho', 'the saved camera was orthographic');
+    assert.ok(back.position.every((v, i) => Math.abs(v - camera.position[i]) < 1e-3), 'the saved camera comes back');
+    await fire(app, `k.run('cameraPerspective')`);
+    await fire(app, `k.run('viewRotateLeft')`);
+    await sleep(150);
+    assert.equal(await m(app, 'k.actions.view3d().camera.type'), 'PerspectiveCamera', 'perspective again');
+    for (const mode of ['anaglyph', 'rows', 'columns', 'sideBySide', 'off']) {
+      await fire(app, `k.run('stereo:${mode}')`);
+      await sleep(80);
+      assert.equal(await m(app, '(k.actions.view3d().render(), k.actions.view3d().stereo ?? "off")'), mode, `stereo ${mode}`);
+    }
+    assert.equal(await m(app, '(k.actions.view3d().setTurntable(true, 4), Boolean(k.actions.view3d().turntable))'), true);
+    assert.equal(await m(app, '(k.actions.view3d().setTurntable(false), Boolean(k.actions.view3d().turntable))'), false);
+    assert.equal(await m(app, '(k.actions.view3d().setClipping({ x: { on: true, offset: 10 } }), k.actions.view3d().renderer.clippingPlanes.length)'), 1);
+    assert.equal(await m(app, '(k.actions.view3d().setClipping(null), k.actions.view3d().renderer.clippingPlanes.length)'), 0);
+    await fire(app, `k.run('storeWorkingView')`);
+    assert.ok((await drawing(app)).workingView, 'the working view is kept in the drawing');
+    await m(app, '(k.actions.toggle3d(false), 1)');
+  } },
+  { group: 'Std', name: 'Visibility, selection history, groups, transparency, recompute', async run(app) {
+    await fresh(app);
+    const [a, b] = await m(app, `[k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id, k.actions.insertSolid('sphere', { radius: 5 }, { x: 30 }).id]`);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}]), k.actions.select([${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('selectionBack')`);
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [a]);
+    await fire(app, `k.run('selectionForward')`);
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [b]);
+    await fire(app, `k.run('hideSelection')`);
+    let d = await drawing(app);
+    assert.equal(d.entities.find((e) => e.id === b).hidden, true);
+    await fire(app, `k.run('showAll')`);
+    d = await drawing(app);
+    assert.ok(!d.entities.find((e) => e.id === b).hidden);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('toggleTransparency')`);
+    await fire(app, `k.run('newGroup')`);
+    d = await drawing(app);
+    assert.equal(d.groups.length, 1);
+    assert.ok(d.entities.every((e) => e.group === d.groups[0].id && e.transparency === 50));
+    await fire(app, `k.run('recompute')`);
+    assert.match(await notice(app), /recomputed|다시 계산/);
+  } },
+  { group: 'Std', name: 'The form popup: units calculator converts live and changes its units with the kind', async run(app) {
+    await fire(app, `k.run('unitsCalculator')`);
+    const form = await app.popup('form');
+    await form.waitFor(`document.querySelector('[data-form="result"]')?.textContent.includes('25.4')`);
+    await expectPopupWindow(app, form, 'form');
+    assert.deepEqual(await form.eval(POPUP_SCROLL_CHECK), []);
+    await form.eval(`(() => { const k = document.querySelector('[data-form="kind"]'); k.value = 'temperature'; k.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await form.waitFor(`[...document.querySelectorAll('[data-form="from"] option')].some((o) => o.value === 'K')`);
+    await form.eval(`(() => { const set = (key, value) => { const e = document.querySelector('[data-form="' + key + '"]'); e.value = value; e.dispatchEvent(new Event('change', { bubbles: true })); }; set('from', '°C'); set('to', '°F'); set('value', '100'); return 1; })()`);
+    await form.waitFor(`document.querySelector('[data-form="result"]')?.textContent.startsWith('212')`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(250);
+  } },
+  { group: 'Std', name: 'Model tree: objects and the 2D folder, eye toggles, click selects, groups, collapse and expand', async run(app) {
+    await fresh(app);
+    const [a, b] = await m(app, `[k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id, k.actions.insertSolid('cylinder', { radius: 4, height: 9 }, { x: 30 }).id]`);
+    await m(app, `(k.actions.change('op.line', (d) => k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 0, x2: 50, y2: 0 })), k.actions.select([]), 1)`);
+    await m(app, `(k.actions.updateSettings({ collapsedSections: [], workbench: 'all' }), 1)`);
+    await app.main.waitFor(`Boolean(document.querySelector('[data-tree-entity="${a}"]'))`);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('[data-tree-toggle="folder:2d"]'))`), 'the 2D folder');
+    await app.main.click(`[data-tree-entity="${b}"] .tree-label`);
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [b]);
+    await app.main.click(`[data-tree-eye="${a}"]`);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === a).hidden, true);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('newGroup')`);
+    const group = (await drawing(app)).groups[0];
+    await app.main.waitFor(`Boolean(document.querySelector('[data-tree-group="${group.id}"]'))`);
+    await app.main.click(`[data-tree-group-eye="${group.id}"]`);
+    assert.equal((await drawing(app)).groups[0].hidden, true);
+    await fire(app, `k.run('treeCollapse')`);
+    assert.ok(!(await app.main.eval(`Boolean(document.querySelector('[data-tree-entity="${b}"]'))`)), 'folded');
+    await fire(app, `k.run('treeExpand')`);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('[data-tree-entity="${b}"]'))`), 'unfolded');
+  } },
+  { group: 'Std', name: 'Links: make, go to the source, select all links, replace with link, link from another drawing (form list)', async run(app) {
+    await fresh(app);
+    const source = await m(app, `k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(source)}]), 1)`);
+    await fire(app, `k.run('linkMake')`);
+    let d = await drawing(app);
+    const link = d.entities.find((e) => e.clone?.link);
+    assert.equal(link.clone.of, source);
+    await fire(app, `k.run('linkSelectLinked')`);
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [source]);
+    await fire(app, `k.run('linkSelectAllLinks')`);
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [link.id]);
+    // A second drawing with a solid, then a link to it from the first.
+    const first = await m(app, 'k.state.active');
+    await m(app, `(k.actions.newDrawing(), k.actions.insertSolid('sphere', { radius: 6 }, {}), 1)`);
+    await m(app, `(k.actions.activateDoc ? k.actions.activateDoc(${JSON.stringify(first)}) : k.state.docs.find((doc) => doc.id === ${JSON.stringify(first)}) && (k.state.active = ${JSON.stringify(first)}), k.actions.select([]), 1)`);
+    await fire(app, `k.run('linkMake')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form-pick]'))`);
+    // The newest drawing (the one with the sphere) is listed last.
+    await form.eval(`(() => { const all = document.querySelectorAll('[data-form-pick]'); all[all.length - 1].click(); return 1; })()`);
+    await sleep(300);
+    await form.click('[data-form-action="ok"]');
+    await sleep(250);
+    d = await drawing(app);
+    const external = d.entities.find((e) => e.clone?.external);
+    assert.ok(external, 'a link to the other drawing');
+    assert.equal(external.clone.external.cache.kind, 'sphere');
+    await m(app, `(k.actions.select([${JSON.stringify(external.id)}]), 1)`);
+    await fire(app, `k.run('linkImport')`);
+    assert.ok(!(await drawing(app)).entities.find((e) => e.id === external.id).clone, 'imported as an ordinary object');
+  } },
+  { group: 'Std', name: 'Transform window, alignment from point pairs, materials with mass, parameters, custom toolbar, hidden toolbars', async run(app) {
+    await fresh(app);
+    const [a, b] = await m(app, `[k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id, k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 50, y: 20 }).id]`);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}]), 1)`);
+    await fire(app, `k.run('transform')`);
+    let form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="dx"]'))`);
+    await form.eval(`(() => { const e = document.querySelector('[data-form="dx"]'); e.value = '15'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(300);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === a).x, 15);
+    // Align: one pair carries a's corner onto b's.
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('alignTo')`);
+    form = await app.popup('form');
+    await app.main.waitFor('Boolean(window.__mycad.state.align)');
+    await m(app, '(k.state.align.from.push([15, 0, 0]), k.state.align.to.push([50, 20, 0]), k.state.align.refresh(), 1)');
+    await form.waitFor(`Boolean(document.querySelector('.form-list-row'))`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(300);
+    const moved = (await drawing(app)).entities.find((e) => e.id === a);
+    assert.deepEqual([moved.x, moved.y], [50, 20]);
+    // Material and mass.
+    await m(app, `(k.actions.select([${JSON.stringify(a)}]), 1)`);
+    await fire(app, `k.run('setMaterial')`);
+    form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="material"]'))`);
+    await form.eval(`(() => { const e = document.querySelector('[data-form="material"]'); e.value = 'aluminium'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(300);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === a).physical.density, 2700);
+    await fire(app, `k.run('inspectMaterial')`);
+    form = await app.popup('form');
+    await form.waitFor(`[...document.querySelectorAll('.form-info')].some((e) => /2\\.7 ?kg|0\\.0027 kg|kg/.test(e.textContent))`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(250);
+    // Parameters: the settings as JSON, changed and stored.
+    await fire(app, `k.run('parameters')`);
+    form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="json"]'))`);
+    await form.eval(`(() => { const e = document.querySelector('[data-form="json"]'); const s = JSON.parse(e.value); s.customToolbar = ['viewFront', 'nonsense']; s.hiddenToolbars = ['zoom']; e.value = JSON.stringify(s); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(400);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('#toolbar [data-command="viewFront"]'))`), 'the custom toolbar');
+    assert.ok(!(await app.main.eval(`Boolean(document.querySelector('#toolbar [data-command="zoomFit"]'))`)), 'the zoom toolbar is hidden');
+    await m(app, `(k.actions.updateSettings({ customToolbar: [], hiddenToolbars: [] }), 1)`);
+  } },
+  { group: 'Std', name: 'Overlay panels, workbenches, tiled 2D | 3D, the 3D view in its own window, PDF export', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.insertSolid('box', { length: 20, width: 20, height: 20 }, {}), 1)`);
+    await fire(app, `k.run('dockOverlay:left')`);
+    assert.ok(await app.main.eval(`document.documentElement.classList.contains('overlay-left') || document.querySelector('#app')?.classList.contains('overlay-left') || document.body.classList.contains('overlay-left') || Boolean(document.querySelector('.overlay-left'))`));
+    await fire(app, `k.run('dockOverlay:left')`);
+    await fire(app, `k.run('workbench:bim')`);
+    const sections = await app.main.eval(`[...document.querySelectorAll('#left-panel [data-section]')].map((s) => s.dataset.section)`);
+    assert.ok(sections.includes('model') && sections.includes('arch') && !sections.includes('solids'), sections.join());
+    await fire(app, `k.run('workbench:all')`);
+    await fire(app, `k.run('tileWindows')`);
+    await app.main.waitFor(`Boolean(window.__mycad.state.tiled && window.__mycad.actions.view3d())`);
+    await sleep(300);
+    const tiles = await app.main.eval(`(() => { const a = document.querySelector('#cad-canvas').getBoundingClientRect(); const b = document.querySelector('#view3d').getBoundingClientRect(); return [a.width > 50, b.width > 50, a.right <= b.left + 4]; })()`);
+    assert.deepEqual(tiles, [true, true, true], 'side by side');
+    await fire(app, `k.run('cascadeWindows')`);
+    await sleep(200);
+    await fire(app, `k.run('newView3d')`);
+    const viewer = await app.popup('viewer');
+    await viewer.waitFor(`Boolean(document.querySelector('#viewer-host canvas'))`);
+    await expectPopupWindow(app, viewer, 'viewer');
+    await m(app, `(k.actions.insertSolid('sphere', { radius: 5 }, { x: 40 }), 1)`);
+    await sleep(400);
+    await m(app, `(k.popups.close('viewer'), 1)`);
+    await sleep(250);
+    const file = path.join(app.files, 'plan.pdf').replace(/\\/g, '/');
+    await app.main.eval(`window.__mycad.actions.printPdf({ path: ${JSON.stringify(file)} }).then(() => 1)`, 60000);
+    const bytes = fs.readFileSync(file);
+    assert.equal(bytes.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.match(bytes.toString('latin1'), /\/Count 1/);
+  } },
+  { group: 'Std', name: 'Macro debugger: breakpoint on a line, start, step into and over, locals shown, stop; self-tests in the console', async run(app) {
+    await fresh(app);
+    await m(app, `(k.actions.updateSettings({ showConsole: true, consoleLanguage: 'python' }), 1)`);
+    await app.main.waitFor(`Boolean(document.querySelector('#console-code'))`);
+    await app.main.eval(`(() => { const c = document.querySelector('#console-code'); c.value = 'a = 2\\nb = a * 3\\nc = b + 1\\nprint(c)'; c.focus(); c.setSelectionRange(c.value.indexOf('c = b'), c.value.indexOf('c = b')); return 1; })()`);
+    await fire(app, `k.run('toggleBreakpoint')`);
+    await app.main.waitFor(`/3/.test(document.querySelector('#debug-panel')?.textContent ?? '')`);
+    await fire(app, `k.run('macroStartDebug')`);
+    await app.main.waitFor(`Boolean(document.querySelector('.debug-line')) && /c = b \\+ 1/.test(document.querySelector('.debug-line').textContent)`, 60000);
+    assert.match(await app.main.eval(`document.querySelector('.debug-locals').textContent`), /b = 6/);
+    await fire(app, `k.run('macroStepOver')`);
+    await app.main.waitFor(`/print\\(c\\)/.test(document.querySelector('.debug-line')?.textContent ?? '')`);
+    assert.match(await app.main.eval(`document.querySelector('.debug-locals').textContent`), /c = 7/);
+    await fire(app, `k.run('macroStopDebug')`);
+    assert.ok(!(await app.main.eval(`Boolean(document.querySelector('.debug-line'))`)));
+    await fire(app, `k.run('selfTest:allText')`);
+    await app.main.waitFor(`[...document.querySelectorAll('#console-output .console-line')].some((l) => /passed|통과/.test(l.textContent))`);
+    assert.ok(!(await app.main.eval(`[...document.querySelectorAll('#console-output .console-line.error')].some((l) => l.textContent.startsWith('✖'))`)), 'every self-test passes in the app');
+    await m(app, `(k.actions.updateSettings({ showConsole: false, consoleLanguage: 'js' }), 1)`);
+  } },
+  { group: 'Part', name: 'Face selection: a click on the top face picks Face, a datum plane on it, its colour, shape info', async run(app) {
+    await fresh(app);
+    const id = await m(app, `k.actions.insertSolid('box', { length: 40, width: 30, height: 20 }, { x: 0, y: 0, z: 0 }).id`);
+    await fire(app, `k.run('selectFilter:face')`);
+    await app.main.waitFor(`Boolean(window.__mycad.state.view3d && window.__mycad.actions.view3d()?.topologyOf(${JSON.stringify(id)}))`);
+    await fire(app, `k.run('viewIsometric')`);
+    // Where the top face's centre is on the screen, clicked until it is picked (the camera may still be moving when the machine is busy).
+    for (let attempt = 0; ; attempt++) {
+      await sleep(300);
+      const at = await m(app, `(() => { const v = k.actions.view3d(); const face = v.topologyOf(${JSON.stringify(id)}).faces.find((f) => f.normal[2] > 0.99); const p = v.camera.position.clone().set(...face.center).project(v.camera); const r = v.canvas.getBoundingClientRect(); return { x: r.left + (p.x + 1) / 2 * r.width, y: r.top + (1 - p.y) / 2 * r.height }; })()`);
+      await m(app, `(() => { const c = k.actions.view3d().canvas; const o = { clientX: ${at.x}, clientY: ${at.y}, button: 0, bubbles: true, pointerId: 1 }; c.dispatchEvent(new PointerEvent('pointerdown', o)); c.dispatchEvent(new PointerEvent('pointerup', o)); return 1; })()`);
+      try { await app.main.waitFor('(window.__mycad.state.elements ?? []).length === 1', { timeout: 2000 }); break; } catch (error) { if (attempt >= 5) throw error; }
+    }
+    const picked = await m(app, 'k.state.elements[0]');
+    assert.equal(picked.kind, 'face');
+    near(picked.signature.normal[2], 1);
+    assert.match(await app.main.eval(`document.querySelector('.elements-list')?.textContent ?? ''`), /Face/);
+    await fire(app, `k.run('datum:plane')`);
+    const datum = (await drawing(app)).entities.find((e) => e.kind === 'datum');
+    assert.equal(datum.attach.mode, 'flat');
+    near(datum.z, 20);
+    // Colour the same face, then see the topology in the shape info.
+    await m(app, `(k.state.elements = [${JSON.stringify(picked)}], 1)`);
+    await fire(app, `k.run('part:colorPerFace')`);
+    let form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="color"]'))`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(300);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === id).faceColors.length, 1);
+    await fire(app, `k.run('selectFilter:off')`);
+    await m(app, `(k.actions.select([${JSON.stringify(id)}]), 1)`);
+    await fire(app, `k.run('part:shapeInfo')`);
+    form = await app.popup('form');
+    await form.waitFor(`[...document.querySelectorAll('.form-info')].some((e) => /24000/.test(e.textContent.replace(/,/g, '')))`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(250);
+    await m(app, '(k.actions.toggle3d(false), 1)');
+  } },
+  { group: 'Part', name: 'Fragments, slice apart, mirror (window), section cut: volumes and pieces', async run(app) {
+    await fresh(app);
+    const [a, b] = await m(app, `[k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id, k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 5 }).id]`);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('part:fragments')`);
+    let d = await drawing(app);
+    const fragments = d.entities.find((e) => e.kind === 'fragments');
+    assert.ok(fragments && d.entities.length === 1, 'one fragments object');
+    // A box cut through the middle by a thin slab: three pieces.
+    await m(app, `(k.actions.change('op.delete', (dr) => { dr.entities = []; }), 1)`);
+    const [c, s] = await m(app, `[k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, {}).id, k.actions.insertSolid('box', { length: 1, width: 20, height: 20 }, { x: 4.5, y: -5, z: -5 }).id]`);
+    await m(app, `(k.actions.select([${JSON.stringify(c)}, ${JSON.stringify(s)}]), 1)`);
+    await app.main.waitFor('window.__mycad.actions.kernelState().ready', 60000);
+    await fire(app, `k.run('part:sliceApart')`);
+    d = await drawing(app);
+    assert.equal(d.entities.filter((e) => e.kind === 'mesh').length, 3, 'three pieces');
+    // Mirror a box in the YZ plane, keeping it.
+    await m(app, `(k.actions.change('op.delete', (dr) => { dr.entities = []; }), k.actions.select([k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 5 }).id]), 1)`);
+    await fire(app, `k.run('part:mirror')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="plane"]'))`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(300);
+    d = await drawing(app);
+    assert.equal(d.entities.length, 2);
+    assert.ok(d.entities.some((e) => e.kind === 'mirror3d'));
+    // Section cut: every solid cut at x = 10 and the originals hidden.
+    await fire(app, `k.run('part:sectionCut')`);
+    const cut = await app.popup('form');
+    await cut.waitFor(`Boolean(document.querySelector('[data-form="at"]'))`);
+    await cut.eval(`(() => { const e = document.querySelector('[data-form="at"]'); e.value = '10'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await cut.click('[data-form-action="ok"]');
+    await sleep(300);
+    d = await drawing(app);
+    assert.equal(d.entities.filter((e) => e.hidden).length, 2);
+    assert.equal(d.entities.filter((e) => e.kind === 'boolean' && e.shape.op === 'cut').length, 2);
+  } },
+  { group: 'PartDesign', name: 'Body takes new features, polar pattern window, tip hides later features, sketch on a picked face', async run(app) {
+    await fresh(app);
+    const base = await m(app, `k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 20 }).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(base)}]), 1)`);
+    await fire(app, `k.run('pd:body')`);
+    let d = await drawing(app);
+    const body = d.groups.find((g) => g.body);
+    assert.equal(d.entities.find((e) => e.id === base).group, body.id);
+    // A new solid joins the active body.
+    const later = await m(app, `k.actions.insertSolid('sphere', { radius: 3 }, { x: -20 }).id`);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === later).group, body.id);
+    await m(app, `(k.actions.select([${JSON.stringify(base)}]), 1)`);
+    await fire(app, `k.run('pd:polarPattern')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="count2"]'))`);
+    await form.eval(`(() => { const e = document.querySelector('[data-form="count2"]'); e.value = '4'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await sleep(400);
+    d = await drawing(app);
+    const pattern = d.entities.find((e) => e.kind === 'pattern');
+    assert.equal(pattern.params.count2, 4);
+    // The pattern was made last: tip on the sphere hides it.
+    await m(app, `(k.actions.select([${JSON.stringify(later)}]), 1)`);
+    await fire(app, `k.run('pd:moveTip')`);
+    assert.ok(!(await m(app, `k.drawingModule.isVisible3d(k.actions.activeDrawing(), k.actions.activeDrawing().entities.find((e) => e.kind === 'pattern'))`)), 'after the tip');
+    await fire(app, `k.run('pd:moveTip')`);
+    // Sketch on the top face of the sphere's… a box: pick a face element and make it the working plane.
+    const id = await m(app, `k.actions.insertSolid('box', { length: 30, width: 30, height: 5 }, { x: 0, y: 40 }).id`);
+    await m(app, `(k.state.elements = [{ id: ${JSON.stringify(id)}, kind: 'face', index: 0, signature: { center: [15, 55, 5], normal: [0, 0, 1] } }], k.actions.select([${JSON.stringify(id)}]), 1)`);
+    await fire(app, `k.run('pd:newSketch')`);
+    await sleep(300);
+    const plane = (await drawing(app)).workPlane;
+    assert.ok(plane?.frame, 'a working plane on the face');
+    near(plane.frame.origin[2], 5);
+    await fire(app, `k.run('workPlaneReset')`);
+  } },
+  { group: 'Sketcher', name: 'Sketch on the XZ plane: hexagon with constraints, shown upright in 3D; split, B-spline degree, diagnostics, origin, toggles', async run(app) {
+    await fresh(app);
+    await fire(app, `k.run('sk:new')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="plane"]'))`);
+    await form.eval(`(() => { const e = document.querySelector('[data-form="plane"]'); e.value = 'xz'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await app.main.waitFor(`Boolean(window.__mycad.state.editSketch)`);
+    let d = await drawing(app);
+    const sketch = d.groups.find((g) => g.sketch);
+    near(sketch.frame.rx, 90);
+    // Hexagon: six lines and a construction circle, all in the sketch.
+    await m(app, `(k.actions.setTool('skPolygon6'), 1)`);
+    await clickAt(app, 0, 0);
+    await clickAt(app, 20, 0);
+    d = await drawing(app);
+    assert.equal(d.entities.filter((e) => e.group === sketch.id).length, 7);
+    assert.ok(d.entities.some((e) => e.type === 'circle' && e.construction));
+    assert.ok(d.constraints.length >= 17);
+    assert.equal(await m(app, 'k.actions.activeDoc().constraintStatus.status'), 'under');
+    // In 3D it stands up: the sketch's Y is the world's Z.
+    await m(app, `k.actions.toggle3d(true).then(() => 1)`);
+    await app.main.waitFor(`Boolean(window.__mycad.actions.view3d()?.lines3d.children.length)`);
+    const top = await m(app, `Math.max(...k.actions.view3d().lines3d.children.flatMap((o) => [...o.geometry?.attributes?.position?.array ?? []].filter((_, i) => i % 3 === 2)))`);
+    // The construction circle (radius 20) reaches highest.
+    near(top, 20, 1e-3);
+    await m(app, `k.actions.toggle3d(false).then(() => 1)`);
+    // Split a side of the hexagon in the middle.
+    await m(app, `(k.actions.setTool('skSplit'), 1)`);
+    await clickAt(app, 15, 20 * Math.sin(Math.PI / 3) / 2);
+    d = await drawing(app);
+    assert.equal(d.entities.filter((e) => e.type === 'line' && e.group === sketch.id).length, 7);
+    // A B-spline through four points, one degree up.
+    await m(app, `(k.actions.setTool('skBSplineInterp'), 1)`);
+    for (const [x, y] of [[-60, -40], [-50, -20], [-40, -35], [-30, -20]]) await clickAt(app, x, y);
+    await app.main.key('Enter');
+    d = await drawing(app);
+    const spline = d.entities.find((e) => e.type === 'spline');
+    assert.equal(spline.degree, 3);
+    assert.equal(spline.group, sketch.id);
+    await m(app, `(k.actions.setTool('select'), k.actions.select([${JSON.stringify(spline.id)}]), 1)`);
+    await fire(app, `k.run('sk:degreeUp')`);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === spline.id).degree, 4);
+    await fire(app, `k.run('sk:bsplineComb')`);
+    await fire(app, `k.run('sk:bsplinePolygon')`);
+    assert.ok(await m(app, 'k.state.settings.sketchBsplineComb && k.state.settings.sketchBsplinePolygon'));
+    // Block the spline, pick its constraint, turn it off.
+    await fire(app, `k.run('constrain:block')`);
+    await fire(app, `k.run('sk:selectConstraints')`);
+    assert.equal(await m(app, 'k.state.constraintSelection.length'), 1);
+    await fire(app, `k.run('sk:toggleActive')`);
+    assert.equal((await drawing(app)).constraints.find((c) => c.type === 'block').active, false);
+    // Under-constrained geometry: everything but nothing is held.
+    await fire(app, `k.run('sk:selectDofs')`);
+    assert.ok((await m(app, 'k.state.selection.size')) >= 8);
+    // A point put on the sketch origin.
+    await m(app, `(k.actions.setTool('point'), 1)`);
+    await clickAt(app, 30, 30);
+    const point = (await drawing(app)).entities.find((e) => e.type === 'point');
+    await m(app, `(k.actions.setTool('select'), k.actions.select([${JSON.stringify(point.id)}]), 1)`);
+    await fire(app, `k.run('sk:selectOrigin')`);
+    await fire(app, `k.run('constrain:coincident')`);
+    const moved = (await drawing(app)).entities.find((e) => e.id === point.id);
+    near(moved.x, 0); near(moved.y, 0);
+    assert.deepEqual(await m(app, 'k.state.sketchRefs'), []);
+    // Validation finds nothing to fix in a sketch made by the tools.
+    await fire(app, `k.run('sk:validate')`);
+    const check = await app.popup('form');
+    await check.waitFor(`Boolean(document.querySelector('[data-form="missing"]'))`);
+    assert.equal(await check.eval(`document.querySelector('[data-form="degenerate"]').textContent.trim()`), '0');
+    await check.click('[data-form-action="cancel"]');
+    await fire(app, `k.run('sk:leave')`);
+    assert.equal(await m(app, 'k.state.editSketch'), null);
+  } },
+  { group: 'Draft', name: 'Stretch window, upgrade lines to a wire, path array, text outlines, perpendicular snap, auto-group', async run(app) {
+    await fresh(app);
+    // Three lines meeting end to end → one closed wire.
+    const ids = await m(app, `(() => { const a = k.actions; return [[0, 0, 40, 0], [40, 0, 40, 20], [40, 20, 0, 0]].map(([x1, y1, x2, y2]) => a.change('op.line', (d) => k.drawingModule.addEntity(d, 'line', { x1, y1, x2, y2 })).id); })()`);
+    await m(app, `(k.actions.select(${JSON.stringify(ids)}), 1)`);
+    await fire(app, `k.run('draft:upgrade')`);
+    let d = await drawing(app);
+    assert.equal(d.entities.length, 1);
+    assert.equal(d.entities[0].type, 'polyline');
+    assert.equal(d.entities[0].closed, true);
+    // Stretch: a window round the right side moves those corners 10 to the right.
+    await m(app, `(k.actions.select([]), k.actions.setTool('draftStretch'), 1)`);
+    for (const [x, y] of [[35, -5], [45, 25], [40, 0], [50, 0]]) await clickAt(app, x, y);
+    d = await drawing(app);
+    assert.deepEqual(d.entities[0].points.map((p) => Math.round(p.x)), [0, 50, 50]);
+    // A path array: a small circle copied five times along a line.
+    await m(app, `(k.actions.setTool('select'), 1)`);
+    const circle = await m(app, `k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 50, r: 2 })).id`);
+    const path = await m(app, `k.actions.change('op.line', (d) => k.drawingModule.addEntity(d, 'line', { x1: 0, y1: 60, x2: 80, y2: 60 })).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(circle)}, ${JSON.stringify(path)}]), 1)`);
+    await fire(app, `k.run('draft:pathArray')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="count"]'))`);
+    await form.click('[data-form-action="ok"]');
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.filter((e) => e.type === 'circle').length === 6`);
+    const copies = (await drawing(app)).entities.filter((e) => e.type === 'circle').slice(1).map((e) => [e.cx, e.cy]);
+    assert.deepEqual(copies.map(([x, y]) => [Math.round(x), Math.round(y)]), [[0, 60], [20, 60], [40, 60], [60, 60], [80, 60]]);
+    // Text outlines, traced from the app's own font: "O" gives an outer and an inner loop in a new group.
+    await fire(app, `k.run('draft:shapeString')`);
+    const sform = await app.popup('form');
+    await sform.waitFor(`Boolean(document.querySelector('[data-form="text"]'))`);
+    await sform.eval(`(() => { const e = document.querySelector('[data-form="text"]'); e.value = 'O'; e.dispatchEvent(new Event('change', { bubbles: true })); const s = document.querySelector('[data-form="size"]'); s.value = '20'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sform.click('[data-form-action="ok"]');
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().groups ?? []).some((g) => g.name.endsWith('O'))`);
+    d = await drawing(app);
+    const group = d.groups.find((g) => g.name.endsWith('O'));
+    const loops = d.entities.filter((e) => e.group === group.id);
+    assert.equal(loops.length, 2, 'outside and inside of the O');
+    const height = Math.max(...loops[0].points.map((p) => p.y)) - Math.min(...loops[0].points.map((p) => p.y));
+    assert.ok(height > 10 && height < 22, `cap height ${height}`);
+    // Perpendicular snap: from the start of a line, the foot on another line.
+    await m(app, `(k.actions.updateSettings({ snapObject: true, snapModes: { ...k.state.settings.snapModes, endpoint: false, midpoint: false, intersection: false, nearest: false } }), 1)`);
+    await fire(app, `k.run('snapMode:perpendicular')`);
+    assert.equal(await m(app, 'k.state.settings.snapModes.perpendicular'), true);
+    await m(app, `(k.actions.setTool('line'), 1)`);
+    await clickAt(app, 25, 100);
+    await clickAt(app, 25.6, 60.5);
+    await app.main.key('Escape');
+    const drawn = (await drawing(app)).entities.at(-1);
+    near(drawn.x2, 25, 1e-6); near(drawn.y2, 60, 1e-6);
+    await fire(app, `k.run('snapMode:perpendicular')`);
+    // Auto-group: new objects go into the chosen group.
+    await m(app, `(k.state.autoGroup = ${JSON.stringify(group.id)}, 1)`);
+    const later = await m(app, `k.actions.change('op.point', (d) => k.drawingModule.addEntity(d, 'point', { x: 1, y: 1 })).id`);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === later).group, group.id);
+    await m(app, `(k.state.autoGroup = null, k.actions.setTool('select'), 1)`);
+  } },
+  { group: 'Mesh', name: 'Regular sphere mesh, curvature colours, polygon cut on the 3D view, visual inspection against a solid', async run(app) {
+    await fresh(app);
+    const answer = async (values) => {
+      const form = await app.popup('form');
+      await form.waitFor(`Boolean(document.querySelector('[data-form-action="ok"]'))`);
+      await form.eval(`(() => { for (const [k, v] of Object.entries(${JSON.stringify(values)})) { const e = document.querySelector('[data-form="' + k + '"]'); e.value = String(v); e.dispatchEvent(new Event('change', { bubbles: true })); } return 1; })()`);
+      await form.click('[data-form-action="ok"]');
+    };
+    // One dialog: choosing the sphere brings its radius field.
+    await fire(app, `k.run('mesh:regularSolid')`);
+    const solidForm = await app.popup('form');
+    await solidForm.waitFor(`Boolean(document.querySelector('[data-form="kind"]'))`);
+    await solidForm.eval(`(() => { const e = document.querySelector('[data-form="kind"]'); e.value = 'sphere'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await solidForm.waitFor(`Boolean(document.querySelector('[data-form="radius"]'))`);
+    await answer({ radius: 11 });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.some((e) => e.kind === 'mesh')`);
+    let d = await drawing(app);
+    const mesh = d.entities.find((e) => e.kind === 'mesh');
+    const before = mesh.shape.tris.length / 9;
+    // A curvature plot: a copy with a colour per triangle.
+    await m(app, `(k.actions.select([${JSON.stringify(mesh.id)}]), 1)`);
+    await fire(app, `k.run('mesh:curvaturePlot')`);
+    await answer({ which: 'mean' });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.filter((e) => e.kind === 'mesh').length === 2`);
+    d = await drawing(app);
+    const plot = d.entities.filter((e) => e.kind === 'mesh')[1];
+    assert.equal(plot.shape.colors.length, before * 3);
+    await m(app, `(k.actions.change('op.delete', (dd) => { dd.entities = dd.entities.filter((e) => e.id !== ${JSON.stringify(plot.id)}); }), 1)`);
+    // Cut away what is inside a polygon drawn round the middle of the top view.
+    await m(app, `(k.actions.select([${JSON.stringify(mesh.id)}]), 1)`);
+    await m(app, 'k.actions.toggle3d(true).then(() => 1)');
+    await fire(app, `k.run('viewTop')`);
+    await sleep(400);
+    await fire(app, `k.run('mesh:polyCut')`);
+    await sleep(300);
+    await m(app, `(() => { const v = k.actions.view3d(); const c = v.canvas; const r = c.getBoundingClientRect(); const tris = v.entityTris.get(${JSON.stringify(mesh.id)}); let s = [0, 0, 0]; let n = 0; for (const tri of tris) for (const p of tri) { s = s.map((x, i) => x + p[i]); n++; } const [cx, cy] = v.projectToScreen([s.map((x) => x / n)])[0]; const pts = [[-25, -25], [25, -25], [25, 25], [-25, 25]].map(([dx, dy]) => [r.left + cx + dx, r.top + cy + dy]); for (const [x, y] of pts) c.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, button: 0, bubbles: true, pointerId: 1 })); c.dispatchEvent(new MouseEvent('contextmenu', { clientX: pts[0][0], clientY: pts[0][1], bubbles: true })); return 1; })()`);
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.find((e) => e.kind === 'mesh').shape.tris.length / 9 < ${before}`);
+    const after = (await drawing(app)).entities.find((e) => e.kind === 'mesh').shape.tris.length / 9;
+    assert.ok(after > before / 2, `only the middle went (${after} of ${before})`);
+    // Inspection: the 11 mm sphere against a 10 mm solid sphere, moved so their centres agree.
+    const nominal = await m(app, `k.actions.insertSolid('sphere', { radius: 10 }, { x: 0, y: 0, z: 0 }).id`);
+    await app.main.waitFor(`Boolean(window.__mycad.actions.view3d()?.entityTris?.get(${JSON.stringify(nominal)}))`);
+    await m(app, `(() => { const v = k.actions.view3d(); const meshId = ${JSON.stringify(mesh.id)}; const centre = (id) => { const lo = [1e9, 1e9, 1e9]; const hi = [-1e9, -1e9, -1e9]; for (const tri of v.entityTris.get(id)) for (const p of tri) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); } return lo.map((x, i) => (x + hi[i]) / 2); }; const a = centre(${JSON.stringify(nominal)}); const b = centre(meshId); k.actions.change('op.move', (dd) => { const e = dd.entities.find((x) => x.id === meshId); e.x = (e.x ?? 0) + a[0] - b[0]; e.y = (e.y ?? 0) + a[1] - b[1]; e.z = (e.z ?? 0) + a[2] - b[2]; }); return 1; })()`);
+    await m(app, `(k.actions.select([${JSON.stringify(mesh.id)}, ${JSON.stringify(nominal)}]), 1)`);
+    await fire(app, `k.run('inspection:visual')`);
+    const report = await app.popup('form');
+    await report.waitFor(`Boolean(document.querySelector('[data-form="rms"]'))`);
+    const result = (await drawing(app)).entities.find((e) => e.shape?.inspect);
+    near(result.shape.inspect.max, 1, 0.08);
+    assert.ok(result.shape.inspect.min > 0.5, `all outside the nominal (${result.shape.inspect.min})`);
+    await report.click('[data-form-action="ok"]');
+    await m(app, 'k.actions.toggle3d(false).then(() => 1)');
+  } },
+  { group: 'Editing', name: 'Spreadsheet styles: bold from the main window, a Shift+click block merged and centred, CSV import', async run(app) {
+    await fresh(app);
+    await gone(app, 'spreadsheet');
+    await m(app, `k.actions.importSheetCsv(null, { text: 'part,qty\\nbolt,4\\nnut,8\\n', name: 'parts.csv' }).then(() => 1)`);
+    assert.deepEqual((await drawing(app)).spreadsheet.cells, { A1: 'part', B1: 'qty', A2: 'bolt', B2: '4', A3: 'nut', B3: '8' });
+    await fire(app, "k.run('spreadsheet')");
+    const win = await app.popup('spreadsheet');
+    await win.waitFor(`Boolean(document.querySelector('[data-sheet-cmd="bold"]'))`);
+    // Bold from the main window goes to the open spreadsheet window's picked cell.
+    await fire(app, "k.run('sheet:bold')");
+    await win.waitFor(`document.querySelector('[data-sheet-cell="A1"]').classList.contains('sb')`);
+    // A block A2:B3 picked with Shift+click, merged and centred.
+    await win.click('[data-sheet-cell="A2"]');
+    await win.eval(`(() => { document.querySelector('[data-sheet-cell="B3"]').dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); return 1; })()`);
+    await win.click('[data-sheet-cmd="merge"]');
+    await win.click('[data-sheet-cmd="alignCenter"]');
+    await win.waitFor(`document.querySelector('[data-sheet-cell="A2"]').style.gridColumn.includes('span 2')`);
+    assert.equal(await win.eval(`Boolean(document.querySelector('[data-sheet-cell="B3"]'))`), false, 'covered cells are not shown');
+    assert.deepEqual(await win.eval(LAYOUT_CHECK), [], 'window fits');
+    await win.click('[data-action="sheet-apply"]');
+    await sleep(250);
+    const sheet = (await drawing(app)).spreadsheet;
+    assert.deepEqual(sheet.merged, [{ from: 'A2', to: 'B3' }]);
+    assert.deepEqual(sheet.styles.A1, { b: true });
+    assert.equal(sheet.styles.B3.h, 'center');
+  } },
+  { group: 'Assembly', name: 'Perpendicular joint, gears coupling, grounded part, bill of materials; OpenSCAD hull; robot trajectory from edges', async run(app) {
+    await fresh(app);
+    const a = await m(app, `k.actions.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 0, y: 0, z: 0 }).id`);
+    const b = await m(app, `k.actions.insertSolid('cylinder', { radius: 3, height: 20 }, { x: 30, y: 0, z: 0 }).id`);
+    // Perpendicular: the cylinder's axis turns square to the box's.
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(b)}]), 1)`);
+    await fire(app, `k.run('joint:perpendicular')`);
+    let d = await drawing(app);
+    const j1 = d.joints.find((j) => j.type === 'perpendicular');
+    assert.ok(j1, 'joint made');
+    const cyl = d.entities.find((e) => e.id === b);
+    near(Math.abs(Math.cos(cyl.rx * Math.PI / 180) * Math.cos(cyl.ry * Math.PI / 180)), 0, 1e-6);
+    // Two revolute joints on a base, the second follows the first as a gear pair.
+    const c = await m(app, `k.actions.insertSolid('cylinder', { radius: 10, height: 2 }, { x: 0, y: 40, z: 0 }).id`);
+    const e = await m(app, `k.actions.insertSolid('cylinder', { radius: 5, height: 2 }, { x: 15, y: 40, z: 0 }).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(c)}]), k.run('joint:revolute'), k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(e)}]), k.run('joint:revolute'), 1)`);
+    await fire(app, `k.run('joint:gears')`);
+    const form = await app.popup('form');
+    await form.waitFor(`Boolean(document.querySelector('[data-form="r1"]'))`);
+    await form.eval(`(() => { const ids = [...document.querySelector('[data-form="leader"]').options].map((o) => o.value); const set = (k, v) => { const el = document.querySelector('[data-form="' + k + '"]'); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }; set('leader', ids.at(-2)); set('follower', ids.at(-1)); set('r1', '10'); set('r2', '5'); return 1; })()`);
+    await form.click('[data-form-action="ok"]');
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().joints ?? []).some((j) => j.follow)`);
+    d = await drawing(app);
+    const follower = d.joints.find((j) => j.follow);
+    near(follower.follow.ratio, -2);
+    // Grounded, then the bill of materials as a text document.
+    await m(app, `(k.actions.select([${JSON.stringify(a)}]), 1)`);
+    await fire(app, `k.run('asm:grounded')`);
+    assert.equal((await drawing(app)).entities.find((x) => x.id === a).grounded, true);
+    await fire(app, `k.run('asm:bom')`);
+    d = await drawing(app);
+    // One box and three cylinders: a header and two rows.
+    const bomLines = d.textDocs.at(-1).text.split('\n');
+    assert.equal(bomLines.length, 3);
+    assert.match(bomLines[2], /\s3\s/);
+    // OpenSCAD hull of the box and the first cylinder: one closed mesh.
+    await m(app, `(k.actions.select([${JSON.stringify(a)}, ${JSON.stringify(c)}]), 1)`);
+    await fire(app, `k.run('scad:hull')`);
+    d = await drawing(app);
+    const hull = d.entities.at(-1);
+    assert.equal(hull.kind, 'mesh');
+    // A robot and a trajectory from a 2D line.
+    await fire(app, `k.run('robot:add')`);
+    const robot = (await drawing(app)).entities.at(-1).id;
+    const line = await m(app, `k.actions.change('op.line', (dd) => k.drawingModule.addEntity(dd, 'line', { x1: 500, y1: -100, x2: 500, y2: 100 })).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(robot)}, ${JSON.stringify(line)}]), 1)`);
+    await fire(app, `k.run('robot:edge2trac')`);
+    d = await drawing(app);
+    assert.equal(d.robots[robot].trajectories.length, 1);
+    assert.deepEqual(d.robots[robot].trajectories[0].points.map((p) => p.map(Math.round)), [[500, -100, 0], [500, 100, 0]]);
+  } },
+  { group: 'CAM', name: 'CAM job: adaptive operation on a rectangle (dialog), holding tags, comment, G-code inspected, sanity check', async run(app) {
+    await fresh(app);
+    const rect = await m(app, `k.actions.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 60, height: 40 })).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(rect)}]), 1)`);
+    const ok = async () => { const f = await app.popup('form'); await f.waitFor(`Boolean(document.querySelector('[data-form-action="ok"]'))`); await f.click('[data-form-action="ok"]'); return f; };
+    await fire(app, `k.run('camjob:adaptive')`);
+    await ok();
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().camJob?.ops ?? []).length === 1`);
+    let d = await drawing(app);
+    assert.equal(d.camJob.controllers.length, 1, 'a tool controller made with the job');
+    assert.deepEqual(d.camJob.ops[0].source, [rect]);
+    await fire(app, `k.run('camjob:dress:tag')`);
+    await ok();
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().camJob.ops[0].dressups.length === 1`);
+    await fire(app, `k.run('camjob:comment')`);
+    await ok();
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().camJob.ops.length === 2`);
+    await fire(app, `k.run('camjob:inspect')`);
+    const view = await app.popup('form');
+    await view.waitFor(`Boolean(document.querySelector('[data-form="gcode"]'))`);
+    const text = await view.eval(`document.querySelector('[data-form="gcode"]').value`);
+    assert.match(text, /T1 M6/);
+    assert.match(text, /\(Operation: .*adaptive\)|\(Operation: .*적응형/);
+    assert.match(text, /M30/);
+    await view.click('[data-form-action="ok"]');
+    await sleep(250);
+    await fire(app, `k.run('camjob:sanity')`);
+    const check = await app.popup('form');
+    await check.waitFor(`Boolean(document.querySelector('.popup-body'))`);
+    assert.match(await check.eval(`document.querySelector('.popup-body').textContent`), /문제가 없습니다|No problems/);
+    await check.click('[data-form-action="ok"]');
+  } },
+  { group: 'FEM', name: 'FEM analysis: cantilever example solved and coloured, warp filter, pressure load (dialog), histogram chart', async run(app) {
+    await fresh(app);
+    const ok = async (values = {}) => {
+      const f = await app.popup('form');
+      await f.waitFor(`Boolean(document.querySelector('[data-form-action="ok"]'))`);
+      await f.eval(`(() => { for (const [k, v] of Object.entries(${JSON.stringify(values)})) { const e = document.querySelector('[data-form="' + k + '"]'); e.value = String(v); e.dispatchEvent(new Event('change', { bubbles: true })); } return 1; })()`);
+      await f.click('[data-form-action="ok"]');
+    };
+    await fire(app, `k.run('femx:examples')`);
+    await ok({ which: 'cantilever' });
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().entities ?? []).some((e) => e.kind === 'mesh' && e.shape.colors)`, { timeout: 30000 });
+    let d = await drawing(app);
+    assert.equal(d.femAnalysis.constraints.length, 2);
+    const result = d.entities.find((e) => e.kind === 'mesh');
+    assert.equal(result.shape.colors.length * 3, result.shape.tris.length);
+    assert.ok(d.groups.some((g) => g.femResults), 'results in their own group');
+    // Warp by 100: the tip goes down about 100 × 0.2 mm.
+    await fire(app, `k.run('femx:warp')`);
+    await ok({ field: 'displacement', factor: 100 });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.filter((e) => e.kind === 'mesh').length === 2`, { timeout: 30000 });
+    d = await drawing(app);
+    const warped = d.entities.filter((e) => e.kind === 'mesh')[1].shape.tris;
+    let minZ = Infinity; for (let i = 2; i < warped.length; i += 3) minZ = Math.min(minZ, warped[i]);
+    assert.ok(minZ < -10, `bent down: ${minZ}`);
+    // A pressure load on the top (no face picked: the side chosen in the dialog).
+    const solid = d.femAnalysis.solid;
+    await m(app, `(k.actions.select([${JSON.stringify(solid)}]), 1)`);
+    await fire(app, `k.run('femx:c:pressure')`);
+    await ok({ box: 'zmax', pressure: 0.5 });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().femAnalysis.constraints.length === 3`);
+    assert.deepEqual((await drawing(app)).femAnalysis.constraints[2].faces, [{ box: 'zmax' }]);
+    // A histogram of the stresses as a 2D chart (bars in a group).
+    await fire(app, `k.run('femx:histogram')`);
+    await ok({ field: 'vm', bins: 6 });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.filter((e) => e.type === 'rect').length === 6`, { timeout: 30000 });
+  } },
+  { group: 'TechDraw', name: 'TechDraw: active view of a box (dialog), redraw, chain dimensions, cosmetic circle tool, clip group, template fields, hole/shaft fit', async run(app) {
+    await fresh(app);
+    const ok = async (values = {}) => {
+      const f = await app.popup('form');
+      await f.waitFor(`Boolean(document.querySelector('[data-form-action="ok"]'))`);
+      await f.eval(`(() => { for (const [k, v] of Object.entries(${JSON.stringify(values)})) { const e = document.querySelector('[data-form="' + k + '"]'); e.value = String(v); e.dispatchEvent(new Event('change', { bubbles: true })); } return 1; })()`);
+      await f.click('[data-form-action="ok"]');
+    };
+    const box = await m(app, `k.actions.insertSolid('box', { length: 40, width: 20, height: 10 }, { x: 0, y: 0, z: 0 }).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(box)}]), 1)`);
+    await fire(app, `k.run('td:activeView')`);
+    await ok({ dx: 0, dy: -1, dz: 0, scale: 1 });
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().groups ?? []).some((g) => g.view?.kind === 'projection')`);
+    let d = await drawing(app);
+    const view = d.groups.find((g) => g.view?.kind === 'projection');
+    const members = () => k2(d).filter((e) => e.group === view.id);
+    const k2 = (dd) => dd.entities;
+    const xs = members().flatMap((e) => (e.points ?? []).map((p) => p.x));
+    near(Math.max(...xs) - Math.min(...xs), 40, 1e-6);
+    // The solid gets longer; Redraw page follows it.
+    await m(app, `(k.actions.change('op.solid', (dd) => { const e = dd.entities.find((x) => x.id === ${JSON.stringify(box)}); k.drawingModule.updateEntity(dd, e.id, { params: { ...e.params, length: 60 } }); }), 1)`);
+    await fire(app, `k.run('td:redraw')`);
+    d = await drawing(app);
+    const xs2 = d.entities.filter((e) => e.group === view.id).flatMap((e) => (e.points ?? []).map((p) => p.x));
+    near(Math.max(...xs2) - Math.min(...xs2), 60, 1e-6);
+    // Chain dimensions over three points.
+    const pts = await m(app, `[[0, 100], [15, 100], [40, 100]].map(([x, y]) => k.actions.change('op.point', (dd) => k.drawingModule.addEntity(dd, 'point', { x, y })).id)`);
+    await m(app, `(k.actions.select(${JSON.stringify(pts)}), 1)`);
+    await fire(app, `k.run('td:chainH')`);
+    d = await drawing(app);
+    assert.deepEqual(d.entities.filter((e) => e.type === 'dim').map((e) => Math.round(e.x2 - e.x1)), [15, 25]);
+    // A cosmetic circle drawn with two clicks.
+    await m(app, `(k.actions.select([]), 1)`);
+    await fire(app, `k.run('td:cosCircle')`);
+    await clickAt(app, -40, -40);
+    await clickAt(app, -30, -40);
+    d = await drawing(app);
+    const cos = d.entities.find((e) => e.type === 'circle' && e.cosmetic);
+    near(cos.r, 10, 1e-6);
+    await m(app, `(k.actions.setTool('select'), 1)`);
+    // A clip group shows its members only inside its window.
+    await m(app, `(k.actions.select([${JSON.stringify(cos.id)}]), 1)`);
+    await fire(app, `k.run('td:clipGroup')`);
+    await ok({ x: -50, y: -50, w: 10, h: 20 });
+    await app.main.waitFor(`(window.__mycad.actions.activeDrawing().groups ?? []).some((g) => g.clip)`);
+    // A page template and its fields.
+    await m(app, `(k.actions.change('op.title', (dd) => { dd.title = 'Bracket'; }), 1)`);
+    await fire(app, `k.run('td:pageTemplate')`);
+    await ok({ size: 'A4' });
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().entities.some((e) => e.field === 'title')`);
+    await m(app, `(k.actions.change('op.title', (dd) => { dd.title = 'Bracket B'; }), 1)`);
+    await fire(app, `k.run('td:fillFields')`);
+    assert.equal((await drawing(app)).entities.find((e) => e.field === 'title').text, 'Bracket B');
+    // A diameter dimension with an H7/g6 fit.
+    const dia = await m(app, `k.actions.change('op.dim', (dd) => k.drawingModule.addEntity(dd, 'dim', { kind: 'diameter', cx: 0, cy: -100, r: 10, angle: 45 })).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(dia)}]), 1)`);
+    await fire(app, `k.run('td:holeShaftFit')`);
+    await ok({ hole: 'H', holeGrade: '7', shaft: 'g', shaftGrade: '6' });
+    await app.main.waitFor(`/H7\\/g6/.test(window.__mycad.actions.activeDrawing().entities.find((e) => e.id === ${JSON.stringify(dia)}).text)`);
+  } },
+  { group: 'BIM', name: 'BIM: add to / remove from a component, grid, nudge, trash, project levels, working plane, classification, preflight, example building', async run(app) {
+    await fresh(app);
+    const host = await m(app, `k.actions.insertSolid('box', { length: 100, width: 100, height: 100 }, { x: 0, y: 0, z: 0 }).id`);
+    const part = await m(app, `k.actions.insertSolid('box', { length: 50, width: 100, height: 100 }, { x: 100, y: 0, z: 0 }).id`);
+    // Arch_Add: the host is selected last; the part hides and the host's shape takes it in.
+    await m(app, `(k.actions.select([${JSON.stringify(part)}, ${JSON.stringify(host)}]), 1)`);
+    await m(app, `k.run('bim:add').then(() => 1)`);
+    let d = await drawing(app);
+    assert.deepEqual(d.entities.find((e) => e.id === host).components.add, [part]);
+    assert.equal(d.entities.find((e) => e.id === part).hidden, true);
+    near(await m(app, `k.actions.solidProperties(k.actions.activeDrawing().entities.find((e) => e.id === ${JSON.stringify(host)})).volume`), 150 * 100 * 100, 1e-3);
+    // Arch_Remove on the part alone: it leaves the component and shows again.
+    await m(app, `(k.actions.select([${JSON.stringify(part)}]), 1)`);
+    await m(app, `k.run('bim:remove').then(() => 1)`);
+    d = await drawing(app);
+    assert.equal(d.entities.find((e) => e.id === host).components, undefined);
+    assert.equal(d.entities.find((e) => e.id === part).hidden, undefined);
+    // Arch_Grid from spans.
+    await m(app, `(k.actions.select([]), 1)`);
+    await m(app, `k.run('bim:grid', { values: { columns: '3000, 4500', rows: '2000' } }).then(() => 1)`);
+    d = await drawing(app);
+    assert.deepEqual(d.entities.find((e) => e.kind === 'axis').shape, { xs: [0, 3000, 7500], ys: [0, 2000] });
+    // BIM_Nudge_Right moves by the grid size; Nudge_Extend grows a line at both ends.
+    const line = await m(app, `k.actions.change('op.line', (dd) => k.drawingModule.addEntity(dd, 'line', { x1: 0, y1: 0, x2: 20, y2: 0 })).id`);
+    await m(app, `(k.actions.select([${JSON.stringify(line)}]), 1)`);
+    await m(app, `k.run('bim:nudgeRight').then(() => k.run('bim:nudgeExtend')).then(() => 1)`);
+    const moved = (await drawing(app)).entities.find((e) => e.id === line);
+    assert.deepEqual([moved.x1, moved.x2], [0, 40]);
+    // BIM_Trash and BIM_EmptyTrash.
+    await m(app, `k.run('bim:trash').then(() => 1)`);
+    assert.equal((await drawing(app)).entities.find((e) => e.id === line).group, 'bim-trash');
+    await m(app, `k.run('bim:emptyTrash').then(() => 1)`);
+    assert.equal((await drawing(app)).entities.some((e) => e.id === line), false);
+    // BIM_Project: three levels of 3 m.
+    await m(app, `k.run('bim:project', { values: { site: 'Site A', building: 'House', levels: 3, height: 3000, ground: 0 } }).then(() => 1)`);
+    d = await drawing(app);
+    assert.deepEqual(d.bim.levels.map((l) => l.elevation), [0, 3000, 6000]);
+    assert.equal(d.bim.building, 'House');
+    // BIM_SetWPFront: the working plane stands up facing −y.
+    await m(app, `k.run('bim:wpFront').then(() => 1)`);
+    assert.deepEqual((await drawing(app)).workPlane.frame.z.map((v) => Math.round(v) + 0), [0, -1, 0]);
+    await m(app, `k.run('bim:wpTop').then(() => 1)`);
+    assert.equal((await drawing(app)).workPlane, undefined);
+    // BIM_Classification and BIM_Convert on the host.
+    await m(app, `(k.actions.select([${JSON.stringify(host)}]), 1)`);
+    await m(app, `k.run('bim:classification', { values: { system: 'Uniclass 2015', preset: 'EF_25_10', code: '', title: '' } }).then(() => k.run('bim:convert', { values: { type: 'IfcFooting' } })).then(() => 1)`);
+    const bim = (await drawing(app)).entities.find((e) => e.id === host).bim;
+    assert.deepEqual([bim.classification.code, bim.ifcType], ['EF_25_10', 'IfcFooting']);
+    // BIM_Preflight lists its tests in a dialog.
+    await fire(app, `k.run('bim:preflight')`);
+    const pf = await app.popup('form');
+    await pf.waitFor(`document.querySelectorAll('.form-list-row').length === 9`);
+    await closeAllPopups(app);
+    // BIM_Examples: a house in a new drawing.
+    const tabs = await m(app, 'k.state.docs.length');
+    await m(app, `k.run('bim:examples').then(() => 1)`);
+    assert.equal(await m(app, 'k.state.docs.length'), tabs + 1);
+    d = await drawing(app);
+    assert.deepEqual(d.entities.map((e) => e.kind), ['wall', 'wall', 'wall', 'wall', 'slab', 'roof', 'space']);
+    assert.ok(d.entities.filter((e) => e.kind === 'wall').every((e) => e.material?.id === 'brick'));
+  } },
+  { group: 'BIM', name: 'BIM structures and IFC: cut plane, frame, axis + structural system, merged walls, pipe connector, panel cut, IFC data, wires, reference, diff, explorer', async run(app) {
+    await fresh(app);
+    const ids = () => m(app, 'k.actions.activeDrawing().entities.map((e) => e.id)');
+    const byId = async (id) => (await drawing(app)).entities.find((e) => e.id === id);
+    const addRaw = (type, data) => m(app, `k.actions.change('op.add', (dd) => k.drawingModule.addEntity(dd, ${JSON.stringify(type)}, ${JSON.stringify(data)})).id`);
+    const pick = (list) => m(app, `(k.actions.select(${JSON.stringify(list)}), 1)`);
+    const run = (id, ctx) => m(app, `k.run(${JSON.stringify(id)}${ctx ? `, ${JSON.stringify(ctx)}` : ''}).then(() => 1)`);
+    const errors = () => m(app, `k.state.notice?.kind === 'error' ? k.state.notice.text : ''`);
+    // Arch_CutPlane: the top half of a box goes (a removable subtraction).
+    const box = await m(app, `k.actions.insertSolid('box', { length: 100, width: 100, height: 100 }, { x: 0, y: 0, z: 0 }).id`);
+    await pick([box]);
+    await run('bim:cutPlane', { values: { axis: 'z', offset: 40, side: 'above' } });
+    near(await m(app, `k.actions.solidProperties(k.actions.activeDrawing().entities.find((e) => e.id === ${JSON.stringify(box)})).volume`), 100 * 100 * 40, 1e-3);
+    // Arch_Frame: a 20 × 10 profile along a 500 mm line.
+    const prof = await addRaw('rect', { x: -10, y: -5, width: 20, height: 10 });
+    const path1 = await addRaw('line', { x1: 0, y1: 300, x2: 500, y2: 300 });
+    await pick([prof, path1]);
+    await run('bim:frame');
+    const frame = (await drawing(app)).entities.find((e) => e.kind === 'sweep');
+    near(await m(app, `k.actions.solidProperties(k.actions.activeDrawing().entities.find((e) => e.id === ${JSON.stringify(frame.id)})).volume`), 20 * 10 * 500, 1e-2);
+    // Arch_AxisSystem from two axes, then Arch_StructuralSystem: a column at each crossing.
+    await run('bim:grid', { values: { columns: '4000, 4000', rows: '' } });
+    const ax1 = (await ids()).at(-1);
+    await run('bim:grid', { values: { columns: '3000', rows: '' } });
+    const ax2 = (await ids()).at(-1);
+    await pick([ax1, ax2]);
+    await run('bim:axisSystem');
+    const axis = await byId(ax1);
+    assert.deepEqual(axis.shape, { xs: [0, 4000, 8000], ys: [0, 3000] });
+    const col = await m(app, `k.actions.insertSolid('column', { width: 300, depth: 300, height: 3000 }, { x: -2000, y: -2000, z: 0 }).id`);
+    await pick([ax1, col]);
+    await run('bim:structuralSystem');
+    const columns = (await drawing(app)).entities.filter((e) => e.kind === 'column' && e.group);
+    assert.equal(columns.length, 6);
+    // Arch_MergeWalls: two walls end to end become one.
+    await pick([]);
+    await addRaw('line', { x1: 0, y1: 5000, x2: 3000, y2: 5000 });
+    await m(app, `(() => { const a = k.actions; a.select([a.activeDrawing().entities.at(-1).id]); return a.archFeature('wall', { width: 200, height: 2700 }).then(() => 1); })()`);
+    const w1 = (await ids()).at(-1);
+    await addRaw('line', { x1: 3000, y1: 5000, x2: 3000, y2: 8000 });
+    await m(app, `(() => { const a = k.actions; a.select([a.activeDrawing().entities.at(-1).id]); return a.archFeature('wall', { width: 200, height: 2700 }).then(() => 1); })()`);
+    const w2 = (await ids()).at(-1);
+    await pick([w1, w2]);
+    await run('bim:mergeWalls');
+    let d = await drawing(app);
+    assert.equal(d.entities.filter((e) => e.kind === 'wall').length, 1);
+    assert.equal(d.entities.find((e) => e.kind === 'wall').shape.path.length, 3);
+    // Arch_PipeConnector between two pipes; Arch_Panel_Cut of a panel.
+    for (const [x1, y1, x2, y2] of [[0, 10000, 1000, 10000], [1000, 10000, 1000, 11000]]) {
+      await addRaw('line', { x1, y1, x2, y2 });
+      await m(app, `(() => { const a = k.actions; a.select([a.activeDrawing().entities.at(-1).id]); return a.archFeature('pipe', { diameter: 100 }).then(() => 1); })()`);
+    }
+    await pick((await drawing(app)).entities.filter((e) => e.kind === 'pipe').map((e) => e.id));
+    await run('bim:pipeConnector');
+    const ball = (await drawing(app)).entities.find((e) => e.kind === 'sphere');
+    near(ball.x, 1000, 1e-6); near(ball.y, 10000, 1e-6);
+    await addRaw('rect', { x: 0, y: 12000, width: 2000, height: 1000 });
+    await m(app, `(() => { const a = k.actions; a.select([a.activeDrawing().entities.at(-1).id]); return a.archFeature('panel', { thickness: 20 }).then(() => 1); })()`);
+    await pick([(await ids()).at(-1)]);
+    await run('bim:panelCut');
+    const cut = (await drawing(app)).entities.at(-1);
+    assert.equal(cut.type, 'polyline');
+    assert.equal(cut.points.length, 4);
+    // IFC data on the box: quantities, properties, B-rep flag, IFC class by table, material.
+    await pick([box]);
+    // (The property text is the whole set; quantities add to it.)
+    await run('bim:ifcProperties', { values: { props: 'FireRating = REI 60' } });
+    await run('bim:ifcQuantities', { values: { Length: true, Width: true, Height: true, Area: false, Volume: true } });
+    await run('bim:toggleBrep');
+    await run('bim:ifcElements', { values: { [box]: 'IfcFooting' } });
+    await run('bim:material', { values: { material: 'concrete' } });
+    const b = await byId(box);
+    assert.equal(b.bim.props.FireRating, 'REI 60');
+    near(b.bim.props['Qto.Volume'], 0.0004, 1e-6);
+    assert.equal(b.bim.brep, true);
+    assert.equal(b.bim.ifcType, 'IfcFooting');
+    assert.equal(b.color, '#c4c7cc');
+    // BIM_Reextrude: the column template gets a new height.
+    await pick([col]);
+    await run('bim:reextrude', { values: { value: 3500 } });
+    assert.equal((await byId(col)).params.height, 3500);
+    // BIM_Glue and BIM_Rewire.
+    const g1 = await addRaw('line', { x1: 0, y1: -1000, x2: 100, y2: -1000 });
+    const g2 = await addRaw('line', { x1: 105, y1: -1000, x2: 200, y2: -1000 });
+    await pick([g1, g2]);
+    await run('bim:glue');
+    assert.equal((await drawing(app)).entities.at(-1).points.length, 4);
+    const r = [[0, -2000, 100, -2000], [100, -2000, 100, -1900], [100, -1900, 0, -1900], [0, -1900, 0, -2000]];
+    const edges = [];
+    for (const [x1, y1, x2, y2] of r) edges.push(await addRaw('line', { x1, y1, x2, y2 }));
+    await pick(edges);
+    await run('bim:rewire');
+    const loop = (await drawing(app)).entities.at(-1);
+    assert.deepEqual([loop.type, loop.closed, loop.points.length], ['polyline', true, 4]);
+    // IFC_ConvertDocument, then IFC_Diff against this drawing's own IFC (nothing differs) and the explorer.
+    await run('bim:ifcConvertDocument');
+    d = await drawing(app);
+    assert.ok(d.entities.filter((e) => e.type === 'solid').every((e) => e.level));
+    const ifc = toIfc(d, { timestamp: '2026-01-01T00:00:00' });
+    await fire(app, `k.run('bim:ifcExplorer', { file: { name: 'model.ifc', text: ${JSON.stringify(ifc)} } })`);
+    const ex = await app.popup('form');
+    await ex.waitFor(`/IFC4/.test(document.querySelector('[data-form="report"]')?.value ?? '')`);
+    assert.match(await ex.eval(`document.querySelector('[data-form="report"]').value`), /IfcFooting:/);
+    await closeAllPopups(app);
+    await fire(app, `k.run('bim:ifcDiff', { file: { name: 'model.ifc', text: ${JSON.stringify(ifc)} } })`);
+    const df = await app.popup('form');
+    await df.waitFor(`/0/.test(document.querySelector('[data-form="report"]')?.value ?? '')`);
+    const diffText = await df.eval(`document.querySelector('[data-form="report"]').value`);
+    assert.match(diffText, /Added: 0|추가됨: 0/);
+    await closeAllPopups(app);
+    // Arch_Reference: the solids of another open drawing, reloaded on demand.
+    const source = await m(app, 'k.actions.docName(k.actions.activeDoc())');
+    await m(app, `(k.actions.newDrawing(), 1)`);
+    await run('bim:reference', { values: { doc: source } });
+    d = await drawing(app);
+    const refGroup = d.groups.find((g) => g.reference);
+    assert.equal(refGroup.reference.source, source);
+    const refCount = d.entities.filter((e) => e.group === refGroup.id).length;
+    assert.ok(refCount >= 10, `referenced ${refCount}`);
+    await pick([d.entities.find((e) => e.group === refGroup.id).id]);
+    await run('bim:reference');
+    assert.equal((await drawing(app)).entities.filter((e) => e.group === refGroup.id).length, refCount);
+    assert.equal(await errors(), '');
+  } },
+  { group: 'BIM', name: 'BIM tools: survey, IFC sheet, library, image plane, level views, panels, WP view, reorder, ungroup, switch, remove shape, holes, component, compare, expand', async run(app) {
+    await fresh(app);
+    const ids = () => m(app, 'k.actions.activeDrawing().entities.map((e) => e.id)');
+    const byId = async (id) => (await drawing(app)).entities.find((e) => e.id === id);
+    const addRaw = (type, data) => m(app, `k.actions.change('op.add', (dd) => k.drawingModule.addEntity(dd, ${JSON.stringify(type)}, ${JSON.stringify(data)})).id`);
+    const pick = (list) => m(app, `(k.actions.select(${JSON.stringify(list)}), 1)`);
+    const run = (id, ctx) => m(app, `k.run(${JSON.stringify(id)}${ctx ? `, ${JSON.stringify(ctx)}` : ''}).then(() => 1)`);
+    const reportText = async () => { const f = await app.popup('form'); await f.waitFor(`Boolean(document.querySelector('[data-form="report"]'))`); const v = await f.eval(`document.querySelector('[data-form="report"]').value`); await closeAllPopups(app); return v; };
+    // Arch_Survey: a 2 m line and a 1 m³ box, with totals.
+    const line = await addRaw('line', { x1: 0, y1: 0, x2: 2000, y2: 0 });
+    const cube = await m(app, `k.actions.insertSolid('box', { length: 1000, width: 1000, height: 1000 }, { x: 5000, y: 0, z: 0 }).id`);
+    await pick([line, cube]);
+    await fire(app, `k.run('bim:survey')`);
+    const survey = await reportText();
+    // Totals: 2 m, 6 m² (the cube's faces), 1 m³.
+    assert.match(survey, /\t2\t6\t1\s*$/);
+    // BIM_IfcSpreadsheet: a table in the drawing's spreadsheet.
+    await pick([cube]);
+    await fire(app, `k.run('bim:ifcSpreadsheet')`);
+    await app.main.waitFor(`window.__mycad.actions.activeDrawing().spreadsheet?.cells?.B2 === 'IfcBuildingElementProxy'`);
+    await closeAllPopups(app);
+    // BIM_Library: save the cube, insert it back; insert a bed.
+    await run('bim:library', { save: 'Cube' });
+    const before = (await ids()).length;
+    await run('bim:library', { insert: 'u0' });
+    await run('bim:library', { insert: 'e0' });
+    assert.equal((await ids()).length, before + 2);
+    assert.equal((await drawing(app)).entities.at(-1).kind, 'equipment');
+    // BIM_ImagePlane: a 2 × 1 picture on a plate.
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP4z8DwHwyBDAA9JAL+fUW+GwAAAABJRU5ErkJggg==';
+    await run('bim:imagePlane', { data: png });
+    const plate = (await drawing(app)).entities.at(-1);
+    assert.deepEqual([plate.params.length, plate.params.width, Boolean(plate.texture)], [10000, 5000, true]);
+    // BIM_Views: the plan shows one level.
+    await run('bim:project', { values: { site: 'S', building: 'B', levels: 2, height: 3000, ground: 0 } });
+    const level2 = (await drawing(app)).bim.levels[1].id;
+    await run('bim:views', { level: level2 });
+    assert.equal((await drawing(app)).bim.planLevel, level2);
+    await run('bim:views', { level: null });
+    // BIM_TogglePanels twice gives the panels back.
+    const panels = () => m(app, `[k.commands.leftPanel.checked(), k.commands.rightPanel.checked()]`);
+    const was = await panels();
+    await run('bim:togglePanels');
+    assert.notDeepEqual(await panels(), was);
+    await run('bim:togglePanels');
+    assert.deepEqual(await panels(), [true, true]);
+    // BIM_WPView: the camera looks down the working plane's normal (front plane: from −y).
+    await run('bim:wpFront');
+    await run('bim:wpView');
+    const cam = await m(app, 'k.actions.view3d().getCamera()');
+    const dir = cam.position.map((p, i) => p - cam.target[i]);
+    assert.ok(dir[1] < 0 && Math.abs(dir[0]) < 1e-6 && Math.abs(dir[2]) < 1e-6, JSON.stringify(dir));
+    await m(app, '(k.actions.toggle3d(false), 1)');
+    await run('bim:wpTop');
+    // BIM_Reorder: the line goes after the cube.
+    await pick([line, cube]);
+    await run('bim:reorder', { values: { order: '2: cube\n1: line' } });
+    const order = await ids();
+    assert.ok(order.indexOf(cube) < order.indexOf(line));
+    // BIM_Ungroup.
+    await pick([line]);
+    await run('newGroup');
+    await pick([line]);
+    await run('bim:ungroup');
+    assert.equal((await byId(line)).group, undefined, 'ungrouped');
+    // Arch_ToggleSubs and BIM_Nudge_Switch on a component.
+    const tool = await m(app, `k.actions.insertSolid('box', { length: 200, width: 200, height: 200 }, { x: 5400, y: 400, z: 900 }).id`);
+    await pick([tool, cube]);
+    await run('bim:add');
+    await run('bim:toggleSubs');
+    assert.equal((await byId(tool)).hidden, undefined, 'subcomponent shown');
+    await pick([tool]);
+    await run('bim:nudgeSwitch');
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [cube]);
+    // Arch_Component: the plain box becomes an IFC proxy on the active level.
+    await run('bim:component');
+    assert.equal((await byId(cube)).bim.ifcType, 'IfcBuildingElementProxy');
+    // Arch_RemoveShape: a cuboid mesh becomes a parametric box; Arch_CloseHoles fills an open mesh; Arch_SelectNonSolidMeshes finds it first.
+    const tris = [0, 0, 0, 10, 0, 0, 10, 10, 0, 0, 0, 0, 10, 10, 0, 0, 10, 0];
+    const open = await addRaw('solid', { kind: 'mesh', params: {}, shape: { tris } });
+    await run('bim:selectNonSolid');
+    assert.deepEqual(await m(app, '[...k.state.selection]'), [open]);
+    await run('bim:closeHoles');
+    assert.ok((await byId(open)).shape.tris.length > tris.length);
+    const cuboid = solidMesh(normalizeSolidData({ kind: 'box', params: { length: 30, width: 20, height: 10 }, x: 100, y: 200, z: 0 })).flat(2);
+    const meshed = await addRaw('solid', { kind: 'mesh', params: {}, shape: { tris: cuboid } });
+    await pick([meshed]);
+    await run('bim:removeShape');
+    const boxed = (await drawing(app)).entities.at(-1);
+    assert.deepEqual([boxed.kind, boxed.params.length, boxed.params.width, boxed.params.height, boxed.x, boxed.y], ['box', 30, 20, 10, 100, 200]);
+    // Arch_Check: every solid is valid.
+    await pick([]);
+    await run('bim:check');
+    // BIM_ResetCloneColors: a recoloured clone takes its source's colour again.
+    await pick([line]);
+    await m(app, `k.run('clone').then(() => 1)`);
+    const clone = (await drawing(app)).entities.at(-1);
+    await m(app, `(k.actions.change('op.c', (dd) => k.drawingModule.updateEntity(dd, ${JSON.stringify(clone.id)}, { color: '#ff0000' })), 1)`);
+    await run('bim:resetCloneColors');
+    assert.equal((await byId(clone.id)).color, (await byId(line)).color, 'clone colour reset');
+    // IFC_Expand: the members of the selected object's group.
+    await pick([line, cube]);
+    await run('newGroup');
+    await pick([line]);
+    await run('bim:ifcExpand');
+    assert.deepEqual((await m(app, '[...k.state.selection]')).sort(), [line, cube].sort());
+    // BIM_Diff against a copy with one object moved; IFC_UpdateIOS shows the built-in IFC engine.
+    const name = await m(app, 'k.actions.docName(k.actions.activeDoc())');
+    const copy = JSON.stringify(await drawing(app));
+    await m(app, `(k.actions.newDrawing(), k.actions.change('op.copy', (dd) => { const src = ${copy}; dd.entities = src.entities; dd.layers = src.layers; dd.groups = src.groups; const c = dd.entities.find((e) => e.id === ${JSON.stringify(cube)}); c.x += 500; }), 1)`);
+    await fire(app, `k.run('bim:diff', { values: { doc: ${JSON.stringify(name)} } })`);
+    assert.match(await reportText(), /~ /);
+    await fire(app, `k.run('bim:ifcVersion')`);
+    assert.match(await reportText(), /IFC4/);
+    assert.equal(await m(app, `k.state.notice?.kind === 'error' ? k.state.notice.text : ''`), '');
+  } },
+  { group: 'Status bar', name: 'Coordinates, tool, selection, layer, snap toggles, zoom, save state', async run(app) {
     await fresh(app);
     const p = await at(app, 12, 34);
     await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
@@ -2228,7 +3494,7 @@ export const cases = [
   } },
 
   // ───────────────────────── keyboard
-  { group: '키보드', name: '단축키: 도구 글자 · F3/F7/F8 · Ctrl+A · Delete · Ctrl+N', async run(app) {
+  { group: 'Keyboard', name: 'Shortcuts: tool letters, F3/F7/F8, Ctrl+A, Delete, Ctrl+N', async run(app) {
     await fresh(app);
     await app.main.click('#cad-canvas');
     await app.main.key('L');
@@ -2257,7 +3523,7 @@ export const cases = [
   } },
 
   // ───────────────────────── exit and the next start
-  { group: '종료', name: '저장 안 한 도면: 끝낼 때 저장 여부를 묻고, 취소하면 계속 실행', async run(app) {
+  { group: 'Exit', name: 'Unsaved drawing: asks to save on exit; cancel keeps running', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 5 })), 1)`);
     await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|close', { label: 'main' }).catch(() => 1); 1`);
@@ -2269,7 +3535,7 @@ export const cases = [
     await sleep(500);
     assert.equal(app.process.exitCode, null, 'still running');
   } },
-  { group: '종료', name: '다음 실행: 설정·마지막 폴더·창 위치·열어 둔 도면을 기억', async run(app) {
+  { group: 'Exit', name: 'Next start: settings, last folder, window position and open drawings are remembered', async run(app) {
     const file = path.join(app.files, 'session.mcad');
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 4 })), k.actions.activeDoc().path = ${JSON.stringify(file)}, 1)`);
@@ -2290,7 +3556,7 @@ export const cases = [
     assert.ok(Math.abs(again.left - place.left) <= 2 && Math.abs(again.top - place.top) <= 2, `window place ${JSON.stringify([place.left, place.top, again.left, again.top])}`);
     await m(app, `(k.actions.updateSettings({ theme: 'light', gridSize: 10 }), 1)`);
   } },
-  { group: '종료', name: '메인 창을 닫으면 팝업도 함께 닫히고 프로그램이 끝남', async run(app) {
+  { group: 'Exit', name: 'Closing the main window closes the popups and ends the program', async run(app) {
     await fire(app, `k.run('about')`);
     await app.popup('about');
     await m(app, `(k.state.docs.forEach((d) => d.markSaved(d.path)), 1)`);

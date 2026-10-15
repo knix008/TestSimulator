@@ -4,11 +4,17 @@
 //   pocket   — clears the inside of outlines (zigzag + a finishing pass), holes kept
 //   drill    — a peck-drilling cycle at the centre of every circle
 //   engrave  — the tool follows the lines themselves (no offset)
+//   rough3d  — 3D roughing of a solid's surface in Z levels, stock left on (cam3d.js)
+//   finish3d — 3D raster finishing of the surface with a ball or flat end mill
 
 import { collectLoops, buildShapes } from './stl.js';
 import { polygonArea } from './geometry.js';
+import { surfacePaths } from './cam3d.js';
 
-export const CAM_OPERATIONS = ['profile', 'pocket', 'drill', 'engrave'];
+export const CAM_OPERATIONS = ['profile', 'pocket', 'drill', 'engrave', 'rough3d', 'finish3d'];
+export const CAM_3D = ['rough3d', 'finish3d'];
+export const TOOL_SHAPES = ['flat', 'ball'];
+export const RASTER_DIRECTIONS = ['x', 'y'];
 export const PROFILE_SIDES = ['outside', 'inside'];
 
 export function defaultCamOptions() {
@@ -16,6 +22,7 @@ export function defaultCamOptions() {
     operation: 'profile', side: 'outside', climb: true,
     tool: 6, depth: 5, stepDown: 1.5, stepOver: 0.5, top: 0,
     safeZ: 5, feed: 600, plunge: 150, spindle: 12000, peck: 2, finish: true,
+    toolShape: 'flat', leave: 0.3, stockTop: 1, direction: 'x',
   };
 }
 
@@ -32,6 +39,9 @@ export function normalizeCamOptions(raw = {}) {
     safeZ: pos(raw.safeZ, d.safeZ, 0.1), feed: pos(raw.feed, d.feed, 1), plunge: pos(raw.plunge, d.plunge, 1),
     spindle: Math.max(0, finite(raw.spindle, d.spindle)), peck: Math.max(0, finite(raw.peck, d.peck)),
     finish: raw.finish === undefined ? d.finish : Boolean(raw.finish),
+    toolShape: TOOL_SHAPES.includes(raw.toolShape) ? raw.toolShape : d.toolShape,
+    leave: Math.max(0, finite(raw.leave, d.leave)), stockTop: Math.max(0, finite(raw.stockTop, d.stockTop)),
+    direction: RASTER_DIRECTIONS.includes(raw.direction) ? raw.direction : d.direction,
   };
 }
 
@@ -170,6 +180,12 @@ export function camSource(entities, drawing = null) {
  */
 export function camPaths(source, rawOptions) {
   const o = normalizeCamOptions(rawOptions);
+  // 3D: over the solids' height field; the stock top (and the safe height above it) from the model.
+  if (CAM_3D.includes(o.operation)) {
+    if (!source.model) return { paths: [], warnings: ['noModel'], options: o };
+    const options = { ...o, top: source.model.zMax + o.stockTop };
+    return { paths: surfacePaths(source.model, options), warnings: [], options };
+  }
   const r = o.tool / 2;
   const paths = [];
   const warnings = [];
@@ -226,11 +242,13 @@ const n = (v) => {
 /** G-code (mm, absolute) for the paths: rapid to safe Z between cuts, plunge feed down, cut feed along. */
 export function toGcode(job, { title = 'MyCAD', date = new Date() } = {}) {
   const { paths, options: o } = job;
+  // The safe height: above the stock top (0 for 2D jobs).
+  const clear = (o.top ?? 0) + o.safeZ;
   const lines = [
     '%', `(${String(title).replace(/[()]/g, '')} — MyCAD CAM)`, `(${date.toISOString().slice(0, 16).replace('T', ' ')})`,
-    `(Operation: ${o.operation}${o.operation === 'profile' ? ` ${o.side}` : ''}, tool D${n(o.tool)} mm, depth ${n(o.depth)} mm, step down ${n(o.stepDown)} mm)`,
+    `(Operation: ${o.operation}${o.operation === 'profile' ? ` ${o.side}` : ''}, tool D${n(o.tool)} mm${o.toolShape === 'ball' ? ' ball' : ''}, ${CAM_3D.includes(o.operation) ? `stock top ${n(o.top)} mm, leave ${n(o.operation === 'rough3d' ? o.leave : 0)} mm` : `depth ${n(o.depth)} mm`}, step down ${n(o.stepDown)} mm)`,
     'G21 G90 G94 G17 (mm, absolute, feed per minute, XY plane)',
-    `G0 Z${n(o.safeZ)}`,
+    `G0 Z${n(clear)}`,
     `M3 S${Math.round(o.spindle)}`,
   ];
   let at = null;
@@ -239,18 +257,20 @@ export function toGcode(job, { title = 'MyCAD', date = new Date() } = {}) {
     const [first, ...rest] = path.points;
     const same = at && Math.hypot(at.x - first.x, at.y - first.y) < 1e-6;
     if (!same) {
-      lines.push(`G0 Z${n(o.safeZ)}`, `G0 X${n(first.x)} Y${n(first.y)}`);
+      lines.push(`G0 Z${n(clear)}`, `G0 X${n(first.x)} Y${n(first.y)}`);
       lines.push(`G1 Z${n(first.z)} F${n(o.plunge)}`);
     } else if (Math.abs(at.z - first.z) > 1e-9) lines.push(`G1 Z${n(first.z)} F${n(o.plunge)}`);
     let feedSet = false;
+    let z = first.z;
     for (const p of rest) {
-      lines.push(`G1 X${n(p.x)} Y${n(p.y)}${feedSet ? '' : ` F${n(o.feed)}`}`);
+      lines.push(`G1 X${n(p.x)} Y${n(p.y)}${Math.abs(p.z - z) > 1e-9 ? ` Z${n(p.z)}` : ''}${feedSet ? '' : ` F${n(o.feed)}`}`);
+      z = p.z;
       feedSet = true;
     }
     at = rest.length ? rest[rest.length - 1] : first;
   }
   if (drills.length) {
-    lines.push(`G0 Z${n(o.safeZ)}`);
+    lines.push(`G0 Z${n(clear)}`);
     const retract = n(o.top + Math.min(1, o.safeZ));
     const cycle = o.peck > 0 ? `G83 Q${n(o.peck)}` : 'G81';
     drills.forEach((d, i) => {
@@ -259,7 +279,7 @@ export function toGcode(job, { title = 'MyCAD', date = new Date() } = {}) {
     });
     lines.push('G80');
   }
-  lines.push(`G0 Z${n(o.safeZ)}`, 'M5', 'M30', '%', '');
+  lines.push(`G0 Z${n(clear)}`, 'M5', 'M30', '%', '');
   return lines.join('\n');
 }
 
@@ -274,7 +294,7 @@ export function camStats(job) {
     const first = path.points[0];
     rapid += Math.hypot(first.x - at.x, first.y - at.y) + 2 * o.safeZ;
     plunge += o.safeZ + Math.abs(o.top - first.z);
-    for (let i = 1; i < path.points.length; i++) cut += Math.hypot(path.points[i].x - path.points[i - 1].x, path.points[i].y - path.points[i - 1].y);
+    for (let i = 1; i < path.points.length; i++) cut += Math.hypot(path.points[i].x - path.points[i - 1].x, path.points[i].y - path.points[i - 1].y, path.points[i].z - path.points[i - 1].z);
     at = path.points[path.points.length - 1];
   }
   const minutes = cut / o.feed + plunge / o.plunge + rapid / 3000;

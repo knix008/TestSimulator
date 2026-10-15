@@ -309,6 +309,12 @@ function drawSnapMarker(ctx, vp, snap, color) {
     case 'quadrant': ctx.moveTo(s.x, s.y - r); ctx.lineTo(s.x + r, s.y); ctx.lineTo(s.x, s.y + r); ctx.lineTo(s.x - r, s.y); ctx.closePath(); break;
     case 'intersection': ctx.moveTo(s.x - r, s.y - r); ctx.lineTo(s.x + r, s.y + r); ctx.moveTo(s.x + r, s.y - r); ctx.lineTo(s.x - r, s.y + r); break;
     case 'nearest': ctx.moveTo(s.x - r, s.y - r); ctx.lineTo(s.x + r, s.y - r); ctx.lineTo(s.x - r, s.y + r); ctx.lineTo(s.x + r, s.y + r); ctx.closePath(); break;
+    // Draft snaps: a right-angle mark, two parallel strokes, a dashed run-on, a fan, a star.
+    case 'perpendicular': ctx.moveTo(s.x - r, s.y - r); ctx.lineTo(s.x - r, s.y + r); ctx.lineTo(s.x + r, s.y + r); ctx.moveTo(s.x - r, s.y); ctx.lineTo(s.x, s.y); ctx.lineTo(s.x, s.y + r); break;
+    case 'parallel': ctx.moveTo(s.x - r, s.y + r * 0.4); ctx.lineTo(s.x + r * 0.4, s.y - r); ctx.moveTo(s.x - r * 0.4, s.y + r); ctx.lineTo(s.x + r, s.y - r * 0.4); break;
+    case 'extension': ctx.moveTo(s.x - r, s.y); ctx.lineTo(s.x - r * 0.4, s.y); ctx.moveTo(s.x - r * 0.1, s.y); ctx.lineTo(s.x + r * 0.3, s.y); ctx.moveTo(s.x + r * 0.6, s.y); ctx.lineTo(s.x + r, s.y); break;
+    case 'angle': ctx.moveTo(s.x - r, s.y + r); ctx.lineTo(s.x + r, s.y + r); ctx.moveTo(s.x - r, s.y + r); ctx.lineTo(s.x + r * 0.6, s.y - r); ctx.moveTo(s.x + r * 0.3, s.y + r); ctx.arc(s.x - r, s.y + r, r * 1.3, 0, -Math.PI / 4, true); break;
+    case 'special': for (let i = 0; i < 4; i++) { const a = (i * Math.PI) / 4; ctx.moveTo(s.x - r * Math.cos(a), s.y - r * Math.sin(a)); ctx.lineTo(s.x + r * Math.cos(a), s.y + r * Math.sin(a)); } break;
     default: ctx.moveTo(s.x - r, s.y); ctx.lineTo(s.x + r, s.y); ctx.moveTo(s.x, s.y - r); ctx.lineTo(s.x, s.y + r);
   }
   ctx.stroke();
@@ -397,13 +403,15 @@ export function drawRulers(ctx, vp, colors, cursor, unit = displayUnit()) {
 }
 
 /** Sketch constraints: a small tag at each (geometric in violet, dimensional in red; brighter for the selection). */
-function drawConstraints(ctx, drawing, vp, selection) {
+function drawConstraints(ctx, drawing, vp, selection, { virtualSpace = false, picked = null } = {}) {
   ctx.save();
   ctx.font = '600 10px "Segoe UI", sans-serif';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
   const used = new Map();
   for (const c of drawing.constraints) {
+    // Sketcher_SwitchVirtualSpace: only the constraints of the space shown.
+    if (Boolean(c.virtual) !== Boolean(virtualSpace)) continue;
     const glyph = constraintGlyph(drawing, c);
     if (!glyph || !glyph.label) continue;
     const s = vp.toScreen(glyph.at);
@@ -413,9 +421,10 @@ function drawConstraints(ctx, drawing, vp, selection) {
     const x = s.x + 10 + n * 15;
     const y = s.y - 10;
     const w = Math.max(14, ctx.measureText(glyph.label).width + 6);
-    const hot = c.refs.some((r) => selection.has(r.id));
-    ctx.globalAlpha = hot ? 1 : 0.8;
-    ctx.fillStyle = glyph.dimensional ? '#e5484d' : '#9b51e0';
+    const hot = c.refs.some((r) => selection.has(r.id)) || picked?.has(c.id);
+    ctx.globalAlpha = glyph.inactive ? 0.35 : hot ? 1 : 0.8;
+    // Inactive: grey; reference dimensions: blue (as FreeCAD).
+    ctx.fillStyle = glyph.inactive ? '#8a8f98' : glyph.reference ? '#3b82f6' : glyph.dimensional ? '#e5484d' : '#9b51e0';
     ctx.beginPath();
     ctx.roundRect?.(x - w / 2, y - 7, w, 14, 4);
     if (!ctx.roundRect) ctx.rect(x - w / 2, y - 7, w, 14);
@@ -469,22 +478,63 @@ export function render(ctx, state) {
   const selection = state.selection ?? new Set();
   const dashScale = dashScaleOf(drawing);
   let drawn = 0;
-  for (const entity of drawing.entities) {
+  // Sketcher_RenderingOrder: the kind of geometry put on top is drawn last.
+  const order = Array.isArray(settings.sketchRenderOrder) ? settings.sketchRenderOrder : null;
+  const rank = (e) => order.indexOf(e.external ? 'external' : e.construction ? 'construction' : 'normal');
+  const ordered = order ? [...drawing.entities].sort((a, b) => rank(b) - rank(a)) : drawing.entities;
+  // TechDraw_ClipGroup: what is in a clip group shows only inside its window.
+  const clips = new Map((drawing.groups ?? []).filter((g) => g.clip).map((g) => [g.id, g.clip]));
+  for (const entity of ordered) {
     if (!isVisible(drawing, entity)) continue;
     if (entity.construction && settings.output) continue;
+    const clip = entity.group ? clips.get(entity.group) : null;
+    if (clip) {
+      const a = vp.toScreen({ x: clip.minX, y: clip.minY }); const b = vp.toScreen({ x: clip.maxX, y: clip.maxY });
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+      ctx.clip();
+    }
     const box = cachedBox(entity);
     if (!box || !boxesOverlap(box, visibleBox)) continue;
     const style = styleOf(drawing, entity);
     const selected = selection.has(entity.id);
     const hovered = state.hover === entity.id && !selected;
     // Construction geometry: blue and dashed (FreeCAD Sketcher).
-    const color = selected ? colors.select : hovered ? colors.hover : entity.construction ? '#3b82f6' : style.color === AUTO ? colors.ink : style.color;
+    const color = selected ? colors.select : hovered ? colors.hover : entity.external ? '#d946ef' : entity.construction ? '#3b82f6' : style.color === AUTO ? colors.ink : style.color;
     const width = weightPx(style.lineWidth, settings.showLineWeights) + (selected || hovered ? 1 : 0);
     const prims = cachedPrimitives(entity);
     // Selected (or hovered) texts get a tinted box behind them so the selection is easy to see.
     if (selected || hovered) highlightTexts(ctx, prims, vp, selected ? colors.select : colors.hover, selected);
     drawPrimitives(ctx, prims, vp, { color, width: entity.construction ? 1 : width, dash: entity.construction ? DASHES.dashed ?? [4, 2] : DASHES[style.lineType] ?? [], fonts, dashScale });
+    if (clip) ctx.restore();
     drawn += 1;
+  }
+  // TechDraw_ToggleFrame: a dashed frame round each view (and each clip window).
+  if (settings.tdViewFrames && !settings.output) {
+    ctx.save();
+    ctx.strokeStyle = colors.hover;
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1;
+    ctx.font = '600 11px "Segoe UI", sans-serif';
+    ctx.fillStyle = colors.hover;
+    for (const g of drawing.groups ?? []) {
+      if (!g.view && !g.clip) continue;
+      let box = g.clip ?? null;
+      if (!box) {
+        for (const e of drawing.entities) {
+          if (e.group !== g.id) continue;
+          const b = cachedBox(e);
+          if (b) box = box ? { minX: Math.min(box.minX, b.minX), minY: Math.min(box.minY, b.minY), maxX: Math.max(box.maxX, b.maxX), maxY: Math.max(box.maxY, b.maxY) } : { ...b };
+        }
+      }
+      if (!box) continue;
+      const pad = g.clip ? 0 : 4 / vp.zoom * 3;
+      const a = vp.toScreen({ x: box.minX - pad, y: box.maxY + pad }); const b = vp.toScreen({ x: box.maxX + pad, y: box.minY - pad });
+      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.fillText(g.name, a.x + 3, a.y - 4);
+    }
+    ctx.restore();
   }
   // Tool previews (rubber band).
   for (const entity of state.previews ?? []) {
@@ -492,7 +542,9 @@ export function render(ctx, state) {
     drawPrimitives(ctx, primitives(entity), vp, { color: colors.preview, width: weightPx(style.lineWidth, settings.showLineWeights), dash: DASHES[style.lineType] ?? [], fonts, alpha: 0.9 });
   }
   if (state.previewPrims?.length) drawPrimitives(ctx, state.previewPrims, vp, { color: colors.preview, width: 1, dash: [2 / vp.zoom * 3, 2 / vp.zoom * 3], fonts, alpha: 0.85 });
-  if (drawing.constraints?.length && settings.showConstraints !== false) drawConstraints(ctx, drawing, vp, selection);
+  if (drawing.constraints?.length && settings.showConstraints !== false) drawConstraints(ctx, drawing, vp, selection, { virtualSpace: settings.sketchVirtualSpace, picked: state.pickedConstraints });
+  // Sketcher overlays: arc circles, B-spline control polygon, comb, knots, weights, picked axes.
+  if (state.overlayPrims?.length) drawPrimitives(ctx, state.overlayPrims, vp, { color: '#f59e0b', width: 1, dash: [], fonts, alpha: 0.95 });
   // Grips of the selection.
   if (state.showGrips !== false && selection.size && selection.size <= 60) {
     ctx.save();
@@ -524,6 +576,21 @@ export function render(ctx, state) {
     ctx.restore();
   }
   if (state.snap) drawSnapMarker(ctx, vp, state.snap, colors.snap);
+  // Draft_Snap_Dimensions: the length and angle being drawn, next to the cursor.
+  if (state.liveLabel && state.cursor) {
+    const s = vp.toScreen(state.cursor);
+    ctx.save();
+    ctx.font = '600 11px "Segoe UI", sans-serif';
+    const w = ctx.measureText(state.liveLabel).width + 10;
+    ctx.fillStyle = colors.canvas;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(s.x + 14, s.y + 12, w, 18);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = colors.snap;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(state.liveLabel, s.x + 19, s.y + 21);
+    ctx.restore();
+  }
   if (state.cursor && settings.crosshair && state.showCrosshair !== false) {
     const s = vp.toScreen(state.cursor);
     ctx.save();

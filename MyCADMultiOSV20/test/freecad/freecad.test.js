@@ -1,7 +1,7 @@
 // FreeCAD round trip: MyCAD writes every 3D format, real FreeCAD (FreeCADCmd)
 // opens each file and reports volumes and bounding boxes, which must match
 // MyCAD's own. FreeCAD is found through FREECAD_CMD or the usual install
-// folders; without it these tests are skipped (shown as ○).
+// folders; without it the tests fail and say how to set it.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -33,7 +33,8 @@ function featuresModel() {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const freecad = findFreecad();
-const skip = freecad ? false : 'FreeCAD (FreeCADCmd) not found — set FREECAD_CMD';
+if (!freecad) throw new Error('FreeCAD (FreeCADCmd) was not found. Install FreeCAD 1.x or set FREECAD_CMD to FreeCADCmd.');
+const skip = false;
 const FORMATS = ['fcstd', 'step', 'stl', 'obj', 'ply', 'off', '3mf', 'dae', 'brep'];
 let results = null;
 let drawing = null;
@@ -177,13 +178,11 @@ test('every sample in samples/exports opens in FreeCAD with the volume MyCAD giv
   }
 });
 
-test('BIM: the IFC samples open in FreeCAD (BIM NativeIFC) with their classes, and walls of the same volume', { skip }, (t) => {
+test('BIM: the IFC samples open in FreeCAD (BIM NativeIFC) with their classes, and walls of the same volume', { skip }, () => {
   const ifc = results.samples.filter((entry) => entry.file.endsWith('.ifc'));
   assert.ok(ifc.length >= 3, `${ifc.length} IFC samples`);
-  if (ifc.some((entry) => /IfcOpenShell not built|DLL load failed/.test(entry.error ?? ''))) {
-    t.skip('FreeCAD cannot load ifcopenshell here (a FreeCAD installed under a very long path?)');
-    return;
-  }
+  const broken = ifc.find((entry) => /IfcOpenShell not built|DLL load failed/.test(entry.error ?? ''));
+  assert.ok(!broken, 'FreeCAD cannot load ifcopenshell (FreeCAD installed under a very long path?) — install it in a short path such as D:\FreeCAD');
   for (const entry of ifc) {
     assert.ok(entry.ok, `${entry.file}: ${entry.error}`);
     const drawing = parseFile(fs.readFileSync(path.join(root, 'samples', `${entry.file.replace(/\.[^.]+$/, '')}.mcad`), 'utf8'));

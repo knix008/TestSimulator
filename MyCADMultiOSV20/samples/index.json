@@ -289,6 +289,84 @@
   ]
  },
  {
+  "file": "25-crank-engine.mcad",
+  "task": "solids",
+  "title": "Single-cylinder engine (moving)",
+  "titleKo": "단기통 엔진 (움직임)",
+  "description": "Crank, flywheel, connecting rod and piston — a closed loop solved as it turns; press ▶ in 3D",
+  "descriptionKo": "크랭크·플라이휠·커넥팅 로드·피스톤 — 닫힌 고리를 풀며 회전, 3D 에서 ▶",
+  "tags": [
+   "조립",
+   "애니메이션",
+   "크랭크"
+  ]
+ },
+ {
+  "file": "26-four-bar.mcad",
+  "task": "solids",
+  "title": "Four-bar linkage (moving)",
+  "titleKo": "4절 링크 (움직임)",
+  "description": "A crank–rocker four-bar linkage with a coupler tracer",
+  "descriptionKo": "크랭크–로커 4절 링크와 커플러 궤적 점",
+  "tags": [
+   "조립",
+   "애니메이션",
+   "링크"
+  ]
+ },
+ {
+  "file": "27-gear-train.mcad",
+  "task": "solids",
+  "title": "Gear train and rack (moving)",
+  "titleKo": "기어열과 랙 (움직임)",
+  "description": "Three meshing gears and a rack — gear and rack couplings",
+  "descriptionKo": "맞물린 기어 3개와 랙 — 기어 · 랙 연동 조인트",
+  "tags": [
+   "조립",
+   "애니메이션",
+   "기어"
+  ]
+ },
+ {
+  "file": "28-screw-vise.mcad",
+  "task": "solids",
+  "title": "Screw vise (moving)",
+  "titleKo": "나사 바이스 (움직임)",
+  "description": "The handle turns the screw, the screw advances, the jaw follows — screw coupling",
+  "descriptionKo": "핸들이 나사를 돌리고 나사가 전진, 조가 따라옴 — 나사 연동",
+  "tags": [
+   "조립",
+   "애니메이션",
+   "나사"
+  ]
+ },
+ {
+  "file": "29-robot-arm.mcad",
+  "task": "solids",
+  "title": "Robot arm (moving)",
+  "titleKo": "로봇 팔 (움직임)",
+  "description": "Turntable, shoulder, elbow and gripper — four drives together",
+  "descriptionKo": "회전대·어깨·팔꿈치·그리퍼 구동 4개가 함께 왕복",
+  "tags": [
+   "조립",
+   "애니메이션",
+   "로봇"
+  ]
+ },
+ {
+  "file": "30-room-doors.mcad",
+  "task": "arch",
+  "title": "Room doors and window (moving)",
+  "titleKo": "방의 문과 창 (움직임)",
+  "description": "A swinging door, a sliding door and a casement window open and close",
+  "descriptionKo": "여닫이 문 · 미닫이 문 · 여닫이 창이 열고 닫힘",
+  "tags": [
+   "건축",
+   "애니메이션",
+   "문"
+  ]
+ },
+ {
   "file": "16-imperial-plate.mcad",
   "task": "precise",
   "title": "Imperial plate",

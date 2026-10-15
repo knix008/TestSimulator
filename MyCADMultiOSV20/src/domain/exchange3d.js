@@ -19,6 +19,7 @@ import { repairMesh } from './meshcheck.js';
 import { isZip, readZip, writeZip, zipText } from './zip.js';
 import { booleanOf } from './csg.js';
 import { parseIfc, toIfc } from './ifc.js';
+import { OCC_KINDS, occBrep, occBrepAll, occReady, occRead, occStep } from './occ.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -413,6 +414,13 @@ function freecadObjectsOf(e, name, label, bms) {
     }
     case 'mesh':
     default: {
+      const exact = occReady() && (OCC_KINDS.has(e.kind) || typeof e.shape?.brep === 'string') ? occBrep(e) : null;
+      if (exact) {
+        // In the drawing's coordinates, so the placement stays at rest.
+        const file = `${main}.Shape.brp`;
+        obj('Part::Feature', main, [P.placement('Placement', [0, 0, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]]), ['Shape', 'Part::PropertyPartShape', `<Part file="${file}"/>`, undefined, { name: file, data: exact }]], true);
+        break;
+      }
       const file = bms.add(solidMesh(e));
       obj('Mesh::Feature', main, [P.mesh(file)], true);
       break;
@@ -1244,6 +1252,8 @@ export function parseFcstd(data) {
   };
   const consumed = new Set();
   for (const name of types.keys()) for (const key of ['Base', 'Tool', 'Shapes', 'Source', 'Sections', 'Spine', 'Profile']) for (const l of links(name, key)) consumed.add(l);
+  // A PartDesign body stands for its features (its Group); only the body is a solid.
+  for (const [name, type] of types) if (type === 'PartDesign::Body') for (const l of links(name, 'Group')) consumed.add(l);
   const warnings = new Set();
   const sketchGeometry = (name) => {
     const list = findAll(props.get(name)?.Geometry ?? { children: [] }, 'Geometry');
@@ -1456,8 +1466,16 @@ export function parseFcstd(data) {
         out = { type: 'solid', kind: 'mesh', name: label, params: {}, shape: { tris: flattenTriangles(parseBms(files.get(file)).map((tri) => tri.map(map))) } };
         break;
       }
-      default:
-        if (type && !['Sketcher::SketchObject', 'App::Origin', 'App::Line', 'App::Plane', 'App::Part', 'App::DocumentObjectGroup', 'Part::Circle', 'Part::Helix', 'Part::Polygon'].includes(type)) warnings.add(type);
+      default: {
+        // Anything else with a stored shape (Part::Feature, Part::Fillet, PartDesign bodies …): its
+        // .brp read exactly by the OpenCASCADE kernel — FreeCAD stores it in drawing coordinates.
+        const file = findAll(props.get(name)?.Shape ?? { children: [] }, 'Part')[0]?.attrs.file;
+        if (file && files.has(file) && occReady() && !type.startsWith('Sketcher')) {
+          const [shape] = occRead(asText(files.get(file)), 'brep') ?? [];
+          if (shape?.tris.length) { out = { type: 'solid', kind: 'mesh', name: label, params: {}, shape: { tris: flattenTriangles(orient(shape.tris)), brep: shape.brep } }; break; }
+        }
+      }
+        if (type && !['Sketcher::SketchObject', 'App::Origin', 'App::Line', 'App::Plane', 'App::Point', 'App::Part', 'App::DocumentObjectGroup', 'Part::Circle', 'Part::Helix', 'Part::Polygon'].includes(type)) warnings.add(type);
     }
     cache.set(name, out);
     return out;
@@ -1515,10 +1533,14 @@ export function exportMesh(format, drawing, entities, { title = drawing.title ||
       return encoder.encode(toXyz(pts));
     }
     case 'scad': return encoder.encode(toScad(entities, { placement, localMesh, normalizeSolidData, partInParent }, { title }));
-    case 'brep': return encoder.encode(toBrep(objects.flatMap((o) => (o.blocks ?? [o.triangles]).map((triangles, i) => ({ name: `${o.name}${o.blocks ? ` ${i + 1}` : ''}`, triangles })))));
+    case 'brep': if (occReady()) { const exact = occBrepAll(entities.filter((x) => x.type === 'solid')); if (exact) return encoder.encode(exact); } return encoder.encode(toBrep(objects.flatMap((o) => (o.blocks ?? [o.triangles]).map((triangles, i) => ({ name: `${o.name}${o.blocks ? ` ${i + 1}` : ''}`, triangles })))));
     case 'amf': return encoder.encode(toAmf(objects, title));
     case '3mf': return to3mf(objects, title);
-    case 'step': return encoder.encode(toStep(objects, { title, author }));
+    case 'step': {
+      // Exact surfaces from the OpenCASCADE kernel; the faceted writer when it is not loaded.
+      const exact = occReady() ? occStep(entities.filter((x) => x.type === 'solid')) : null;
+      return encoder.encode(exact ?? toStep(objects, { title, author }));
+    }
     case 'fcstd': return toFcstd(drawing, { title, entities });
     case 'ifc': return encoder.encode(toIfc(drawing, { title, author, entities }));
     default: throw new Error(`unknown format ${format}${binary ? '' : ''}`);
@@ -1541,6 +1563,15 @@ export function importMesh(format, data) {
     out.warnings = objects.warnings;
     return out;
   };
+  // STEP and BREP through the kernel: each solid exact (its B-rep kept beside the triangles).
+  if (occReady() && ['step', 'stp', 'brep', 'brp'].includes(fmt)) {
+    const text = asText(data);
+    const shapes = occRead(text, fmt.startsWith('b') ? 'brep' : 'step');
+    if (shapes?.length) {
+      const names = [...text.matchAll(/PRODUCT\('([^']*)'/g)].map((m) => m[1]);
+      return { entities: shapes.map((s, i) => ({ type: 'solid', kind: 'mesh', name: names[i] || `Solid ${i + 1}`, params: {}, shape: { tris: flattenTriangles(orient(s.tris)), brep: s.brep } })), warnings: [] };
+    }
+  }
   const readScad = (d) => parseScad(asText(d), { revolve, extrudePolygon });
   const parse = { scad: readScad, csg: readScad, stl: parseStl, obj: parseObj, ply: parsePly, off: parseOff, amf: parseAmf, '3mf': parse3mf, wrl: parseVrml, vrml: parseVrml, dae: parseDae, step: parseStep, stp: parseStep, brep: readBrep, brp: readBrep }[fmt];
   if (!parse) throw new Error(`unknown format ${format}`);

@@ -49,11 +49,36 @@ export const RAILING_INFILL = ['rails', 'balusters', 'glass'];
 export const AXIS_TYPES = ['grid', 'radial'];
 export const PIPE_SERVICES = ['pipe', 'cable', 'duct'];
 export const ROOF_TYPES = ['gable', 'hip', 'shed', 'flat'];
-export const EQUIPMENT_TYPES = ['bed', 'sofa', 'table', 'chair', 'desk', 'wardrobe', 'toilet', 'basin', 'bathtub', 'sink', 'fridge', 'car'];
+// (New types go at the end: drawings store the index.)
+export const EQUIPMENT_TYPES = ['bed', 'sofa', 'table', 'chair', 'desk', 'wardrobe', 'toilet', 'basin', 'bathtub', 'sink', 'fridge', 'car', 'armchair', 'coffeeTable', 'nightstand', 'bookshelf', 'tvStand', 'bunkBed', 'officeChair', 'meetingTable', 'cabinet', 'shower', 'urinal', 'washer', 'dishwasher', 'stove', 'upperCabinet', 'piano', 'boiler', 'airConditioner', 'radiator', 'panelBoard', 'serverRack', 'tree', 'bicycle', 'truck'];
 /** Typical sizes [length, width, height] of each equipment type. */
 export const EQUIPMENT_SIZES = {
   bed: [2100, 1600, 900], sofa: [2200, 900, 850], table: [1600, 900, 740], chair: [450, 500, 900], desk: [1400, 700, 740], wardrobe: [1800, 600, 2200],
   toilet: [700, 400, 800], basin: [600, 450, 850], bathtub: [1700, 750, 550], sink: [2400, 600, 900], fridge: [900, 750, 1800], car: [4700, 1850, 1450],
+  armchair: [850, 850, 850],
+  coffeeTable: [1100, 600, 420],
+  nightstand: [450, 400, 550],
+  bookshelf: [900, 320, 2000],
+  tvStand: [1800, 450, 500],
+  bunkBed: [2050, 1000, 1700],
+  officeChair: [650, 650, 1050],
+  meetingTable: [2400, 1200, 740],
+  cabinet: [450, 620, 1320],
+  shower: [900, 900, 2000],
+  urinal: [380, 350, 650],
+  washer: [600, 600, 850],
+  dishwasher: [600, 600, 850],
+  stove: [600, 600, 900],
+  upperCabinet: [1800, 350, 700],
+  piano: [1500, 600, 1250],
+  boiler: [450, 350, 700],
+  airConditioner: [500, 400, 1850],
+  radiator: [1200, 100, 600],
+  panelBoard: [600, 250, 900],
+  serverRack: [600, 1000, 2000],
+  tree: [3000, 3000, 6000],
+  bicycle: [1750, 600, 1050],
+  truck: [7500, 2400, 3200],
 };
 /** Height of the plan cut above an object's base (mm). */
 export const PLAN_CUT = 1000;
@@ -1016,9 +1041,12 @@ function equipmentGroups(entity) {
   const { length: L, width: W, height: H } = entity.params;
   const type = EQUIPMENT_TYPES[entity.params.equipment] ?? 'bed';
   const box = (x0, y0, z0, x1, y1, z1) => prism(rect(x0, y0, x1, y1), z0, z1);
+  const cyl = (cx, cy, r, z0, z1, ry = r) => prism(ngon(cx, cy, r, ry, 24), z0, z1);
   const legs = (top) => [[0, 0], [L - 60, 0], [L - 60, W - 60], [0, W - 60]].flatMap(([x, y]) => box(x, y, 0, x + 60, y + 60, top));
   const main = [];
   const wood = [];
+  const metal = [];
+  const glass = [];
   switch (type) {
     case 'bed': main.push(...box(0, 0, 0, L, W, H * 0.55), ...box(L * 0.05, W * 0.12, H * 0.55, L * 0.22, W * 0.88, H * 0.65)); wood.push(...box(-60, 0, 0, 0, W, H)); break;
     case 'sofa': main.push(...box(0, 0, 0, L, W, H * 0.5), ...box(0, W - 200, H * 0.5, L, W, H), ...box(0, 0, H * 0.5, 180, W - 200, H * 0.75), ...box(L - 180, 0, H * 0.5, L, W - 200, H * 0.75)); break;
@@ -1034,9 +1062,43 @@ function equipmentGroups(entity) {
     case 'sink': wood.push(...box(0, 0, 0, L, W, H - 40)); main.push(...prism(rect(0, 0, L, W), H - 40, H, [rect(L * 0.3, W * 0.15, L * 0.55, W * 0.8)])); break;
     case 'fridge': main.push(...box(0, 0, 0, L, W, H)); break;
     case 'car': main.push(...box(0, 0, 350, L, W, H * 0.5), ...box(L * 0.28, 80, H * 0.5, L * 0.78, W - 80, H)); wood.push(...[[L * 0.15, 0], [L * 0.8, 0], [L * 0.15, W - 220], [L * 0.8, W - 220]].flatMap(([x, y]) => box(x - 330, y, 0, x + 330, y + 220, 350))); break;
+    case 'armchair': main.push(...box(0, 0, 0, L, W, H * 0.48), ...box(0, W - 180, H * 0.48, L, W, H), ...box(0, 0, H * 0.48, 160, W - 180, H * 0.72), ...box(L - 160, 0, H * 0.48, L, W - 180, H * 0.72)); break;
+    case 'coffeeTable': glass.push(...box(0, 0, H - 20, L, W, H)); metal.push(...legs(H - 20)); break;
+    case 'nightstand': wood.push(...box(0, 0, 80, L, W, H), ...legs(80)); break;
+    case 'bookshelf': {
+      wood.push(...box(0, 0, 0, 20, W, H), ...box(L - 20, 0, 0, L, W, H), ...box(0, W - 10, 0, L, W, H));
+      for (let k = 0; k <= 5; k++) wood.push(...box(20, 0, (k * (H - 20)) / 5, L - 20, W - 10, (k * (H - 20)) / 5 + 20));
+      break;
+    }
+    case 'tvStand': wood.push(...box(0, 0, 60, L, W, H)); metal.push(...box(L * 0.2, W * 0.4, H, L * 0.8, W * 0.5, H + 700)); break;
+    case 'bunkBed':
+      for (const z of [250, H - 450]) main.push(...box(0, 0, z, L, W, z + 200));
+      wood.push(...[[0, 0], [L - 60, 0], [L - 60, W - 60], [0, W - 60]].flatMap(([x, y]) => box(x, y, 0, x + 60, y + 60, H)), ...box(L - 60, 0, 0, L, 60, H));
+      break;
+    case 'officeChair':
+      metal.push(...cyl(L / 2, W / 2, 30, 80, H * 0.42), ...[0, 1, 2, 3, 4].flatMap((k) => { const a = (2 * Math.PI * k) / 5; return box(L / 2 + Math.cos(a) * (L / 2 - 40) - 25, W / 2 + Math.sin(a) * (W / 2 - 40) - 25, 0, L / 2 + Math.cos(a) * (L / 2 - 40) + 25, W / 2 + Math.sin(a) * (W / 2 - 40) + 25, 80); }));
+      main.push(...cyl(L / 2, W / 2, L * 0.36, H * 0.42, H * 0.5), ...box(L * 0.18, W - 90, H * 0.5, L * 0.82, W - 40, H));
+      break;
+    case 'meetingTable': wood.push(...prism(ngon(L / 2, W / 2, L / 2, W / 2, 48), H - 40, H), ...cyl(L * 0.25, W / 2, 80, 0, H - 40), ...cyl(L * 0.75, W / 2, 80, 0, H - 40)); break;
+    case 'cabinet': metal.push(...box(0, 0, 0, L, W, H)); main.push(...[1, 2, 3].map((k) => box(L * 0.35, -15, (k * H) / 4 - 30, L * 0.65, 0, (k * H) / 4 - 10)).flat()); break;
+    case 'shower': main.push(...box(0, 0, 0, L, W, 80)); glass.push(...box(0, 0, 80, L, 10, H), ...box(L - 10, 0, 80, L, W, H)); metal.push(...cyl(L * 0.15, W * 0.85, 60, H - 250, H - 230)); break;
+    case 'urinal': main.push(...prism(ngon(L / 2, W / 2, L / 2, W / 2, 32), H * 0.35, H)); break;
+    case 'washer': case 'dishwasher': main.push(...box(0, 0, 0, L, W, H)); glass.push(...(type === 'washer' ? cyl(L / 2, -10, L * 0.3, H * 0.25, H * 0.25 + 1, 10) : [])); break;
+    case 'stove': main.push(...box(0, 0, 0, L, W, H - 20)); metal.push(...box(0, 0, H - 20, L, W, H), ...[[0.28, 0.28], [0.72, 0.28], [0.28, 0.72], [0.72, 0.72]].flatMap(([u, v]) => cyl(L * u, W * v, 90, H, H + 15))); break;
+    case 'upperCabinet': wood.push(...box(0, 0, 1450, L, W, 1450 + H)); break;
+    case 'piano': wood.push(...box(0, W * 0.4, 0, L, W, H), ...box(0, 0, 700, L, W * 0.4, 760), ...box(0, 0, 0, 60, W * 0.4, 700), ...box(L - 60, 0, 0, L, W * 0.4, 700)); break;
+    case 'boiler': main.push(...box(0, 0, 1000, L, W, 1000 + H)); metal.push(...[0.25, 0.5, 0.75].flatMap((u) => cyl(L * u, W / 2, 12, 700, 1000))); break;
+    case 'airConditioner': main.push(...box(0, 0, 0, L, W, H)); metal.push(...box(L * 0.1, -10, H * 0.6, L * 0.9, 0, H * 0.9)); break;
+    case 'radiator': for (let k = 0; k * 60 < L; k++) metal.push(...box(k * 60, 0, 150, k * 60 + 40, W, 150 + H)); break;
+    case 'panelBoard': metal.push(...box(0, 0, 1000, L, W, 1000 + H)); break;
+    case 'serverRack': metal.push(...box(0, 0, 0, L, W, H)); glass.push(...box(20, -10, 20, L - 20, 0, H - 20)); break;
+    case 'tree': wood.push(...cyl(L / 2, W / 2, L * 0.05, 0, H * 0.45)); main.push(...prism(ngon(L / 2, W / 2, L / 2, W / 2, 24), H * 0.3, H * 0.75), ...prism(ngon(L / 2, W / 2, L * 0.35, W * 0.35, 24), H * 0.75, H)); break;
+    case 'bicycle': // Wheels: discs built in x–y, stood up (y ↔ z swapped — a mirror, so the winding is turned back).
+      metal.push(...[L * 0.17, L * 0.83].flatMap((x) => prism(ngon(x, 330, 330, 330, 32), W / 2 - 15, W / 2 + 15, [ngon(x, 330, 300, 300, 32)]).map((tri) => tri.map(([px, py, pz]) => [px, pz, py]).reverse())), ...box(L * 0.17, W / 2 - 15, 330, L * 0.83, W / 2 + 15, 360), ...box(L * 0.45, W / 2 - 15, 330, L * 0.5, W / 2 + 15, H * 0.85), ...box(L * 0.75, 0, H - 40, L * 0.8, W, H)); break;
+    case 'truck': main.push(...box(0, 0, 500, L * 0.25, W, H * 0.85), ...box(L * 0.27, 0, 700, L, W, H)); metal.push(...[[L * 0.12, 0], [L * 0.6, 0], [L * 0.85, 0], [L * 0.12, W - 300], [L * 0.6, W - 300], [L * 0.85, W - 300]].flatMap(([x, y]) => box(x - 500, y, 0, x + 500, y + 300, 500))); glass.push(...box(L * 0.02, -5, H * 0.55, L * 0.23, 0, H * 0.8)); break;
     default: main.push(...box(0, 0, 0, L, W, H));
   }
-  return { main, wood };
+  return { main, wood, metal, glass };
 }
 
 /** The triangles of an arch object in its own coordinates, by material: { main, glass, wood, metal, space }. */
@@ -1551,6 +1613,26 @@ function equipmentPlan(p) {
     case 'sink': prims.push(poly(rect(L * 0.3, W * 0.15, L * 0.55, W * 0.8), true, thin), { kind: 'circle', c: { x: L * 0.425, y: W * 0.9 }, r: 30, thin: true }, poly(ngon(L * 0.8, W / 2, W * 0.15, W * 0.15), true, thin), poly(ngon(L * 0.8, W / 2, W * 0.07, W * 0.07), true, thin)); break;
     case 'fridge': prims.push(line({ x: 0, y: 0 }, { x: L, y: W }, thin), line({ x: 0, y: W }, { x: L, y: 0 }, thin)); break;
     case 'car': prims.push(poly(rect(L * 0.28, 80, L * 0.78, W - 80), true, thin), line({ x: L * 0.72, y: 80 }, { x: L * 0.72, y: W - 80 }, thin)); break;
+    case 'armchair': prims.push(line({ x: 0, y: W - 180 }, { x: L, y: W - 180 }, thin), line({ x: 160, y: 0 }, { x: 160, y: W - 180 }, thin), line({ x: L - 160, y: 0 }, { x: L - 160, y: W - 180 }, thin)); break;
+    case 'coffeeTable': prims.push(poly(rect(40, 40, L - 40, W - 40), true, thin)); break;
+    case 'nightstand': case 'cabinet': case 'panelBoard': prims.push(line({ x: 0, y: 0 }, { x: L, y: W }, thin)); break;
+    case 'bookshelf': for (let k = 1; k < 4; k++) prims.push(line({ x: (k * L) / 4, y: 0 }, { x: (k * L) / 4, y: W }, thin)); break;
+    case 'tvStand': prims.push(poly(rect(L * 0.2, W * 0.4, L * 0.8, W * 0.5), true, thin)); break;
+    case 'bunkBed': prims.push(line({ x: 0, y: 0 }, { x: L, y: W }, thin), line({ x: 0, y: W }, { x: L, y: 0 }, thin)); break;
+    case 'officeChair': prims.length = 0; prims.push(poly(ngon(L / 2, W / 2, L / 2, W / 2)), poly(rect(L * 0.18, W - 90, L * 0.82, W - 40), true, thin)); break;
+    case 'meetingTable': prims.length = 0; prims.push(poly(ngon(L / 2, W / 2, L / 2, W / 2))); break;
+    case 'shower': prims.push(line({ x: 0, y: 0 }, { x: L, y: W }, thin), line({ x: 0, y: W }, { x: L, y: 0 }, thin), { kind: 'circle', c: { x: L / 2, y: W / 2 }, r: 40, thin: true }); break;
+    case 'urinal': prims.length = 0; prims.push(poly(ngon(L / 2, W / 2, L / 2, W / 2))); break;
+    case 'washer': case 'dishwasher': prims.push({ kind: 'circle', c: { x: L / 2, y: W / 2 }, r: Math.min(L, W) * 0.32, thin: true }); break;
+    case 'stove': for (const [u, v] of [[0.28, 0.28], [0.72, 0.28], [0.28, 0.72], [0.72, 0.72]]) prims.push({ kind: 'circle', c: { x: L * u, y: W * v }, r: Math.min(L, W) * 0.15, thin: true }); break;
+    case 'upperCabinet': prims[0] = poly(rect(0, 0, L, W), true, { lineType: 'hidden' }); break;
+    case 'piano': prims.push(line({ x: 0, y: W * 0.4 }, { x: L, y: W * 0.4 }, thin)); break;
+    case 'boiler': case 'airConditioner': prims.push(poly(rect(L * 0.15, W * 0.15, L * 0.85, W * 0.85), true, thin)); break;
+    case 'radiator': for (let k = 1; k * 60 < L; k++) prims.push(line({ x: k * 60, y: 0 }, { x: k * 60, y: W }, thin)); break;
+    case 'serverRack': prims.push(line({ x: 0, y: W * 0.1 }, { x: L, y: W * 0.1 }, thin)); break;
+    case 'tree': prims.length = 0; prims.push(poly(ngon(L / 2, W / 2, L / 2, W / 2, 24)), { kind: 'circle', c: { x: L / 2, y: W / 2 }, r: L * 0.05 }); break;
+    case 'bicycle': prims.length = 0; prims.push(line({ x: 0, y: W / 2 }, { x: L, y: W / 2 }), line({ x: L * 0.78, y: 0 }, { x: L * 0.78, y: W })); break;
+    case 'truck': prims.push(line({ x: L * 0.26, y: 0 }, { x: L * 0.26, y: W })); break;
     default: break;
   }
   return prims;

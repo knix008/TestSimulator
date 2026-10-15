@@ -35,10 +35,22 @@ export function normalizeFem(raw = {}) {
       tw: pos(s.tw, d.section.tw), tf: pos(s.tf, d.section.tf), A: pos(s.A, d.section.A), I: pos(s.I, d.section.I),
     },
     q: finite(raw.q, 0), selfWeight: Boolean(raw.selfWeight),
+    // FEM_ElementRotation1D: the section turned about the beam's axis (degrees).
+    rotation: finite(raw.rotation, 0),
     supports: Object.fromEntries(Object.entries(raw.supports ?? {}).filter(([, v]) => SUPPORT_TYPES.includes(v) && v !== 'free')),
     loads: Object.fromEntries(Object.entries(raw.loads ?? {}).map(([k, v]) => [k, { fx: finite(v?.fx, 0), fy: finite(v?.fy, 0), m: finite(v?.m, 0) }]).filter(([, v]) => v.fx || v.fy || v.m)),
     scale: Math.max(0, finite(raw.scale, 0)),
   };
+}
+
+/** The second moment about the section's other (weak) axis. */
+export function weakInertia(s) {
+  switch (s.type) {
+    case 'circle': case 'tube': return sectionProps(s).I;
+    case 'ibeam': { const web = Math.max(0, s.h - 2 * s.tf); return (2 * s.tf * s.b ** 3 + web * s.tw ** 3) / 12; }
+    case 'custom': return s.I;
+    default: return (s.h * s.b ** 3) / 12;
+  }
 }
 
 /** Area, second moment and half depth of a section (bending about the axis normal to the frame plane). */
@@ -122,7 +134,10 @@ const RESTRAINT = { free: [0, 0, 0], pinned: [1, 1, 0], fixed: [1, 1, 1], roller
  */
 export function analyzeFrame(frame, rawOptions) {
   const o = normalizeFem(rawOptions);
-  const { A, I, c } = sectionProps(o.section);
+  const { A, I: strong, c } = sectionProps(o.section);
+  // A section turned by θ about the beam axis bends with I cos²θ + I_weak sin²θ.
+  const th = (o.rotation * Math.PI) / 180;
+  const I = strong * Math.cos(th) ** 2 + weakInertia(o.section) * Math.sin(th) ** 2;
   const E = o.E;
   const n = frame.nodes.length;
   if (!frame.members.length) return { ok: false, error: 'noMembers' };

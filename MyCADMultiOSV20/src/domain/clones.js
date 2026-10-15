@@ -18,6 +18,12 @@ export function normalizeClone(raw) {
   return {
     of: raw.of, cx: finite(raw.cx), cy: finite(raw.cy), dx: finite(raw.dx), dy: finite(raw.dy),
     angle: finite(raw.angle), scale: scale > 0 ? scale : 1, flip: Boolean(raw.flip),
+    // Std_LinkMake: a link (FreeCAD App::Link) rather than a Draft clone — the same in MyCAD, named so.
+    ...(raw.link ? { link: true } : {}),
+    // A link into another drawing: its file and a copy of the object, used when that drawing is not here.
+    ...(raw.external && typeof raw.external === 'object' && raw.external.cache && typeof raw.external.cache === 'object'
+      ? { external: { file: typeof raw.external.file === 'string' ? raw.external.file.slice(0, 1000) : '', title: typeof raw.external.title === 'string' ? raw.external.title.slice(0, 200) : '', cache: raw.external.cache } }
+      : {}),
   };
 }
 
@@ -72,7 +78,7 @@ export function cloneOps(clone) {
 }
 
 /** Fields a clone keeps as its own; everything else comes from the source. */
-const OWN = ['id', 'layer', 'color', 'lineType', 'lineWidth', 'clone', 'name', 'level'];
+const OWN = ['id', 'layer', 'color', 'lineType', 'lineWidth', 'clone', 'name', 'level', 'hidden', 'unselectable', 'transparency', 'group', 'frozen', 'pointSize', 'physical', 'texture', 'tolerance', 'attach', 'faceColors', 'external', 'internal', 'wireframe', 'grounded', 'cosmetic', 'field'];
 
 /**
  * Rebuilds every clone from its source (sources first, so a clone of a clone
@@ -88,7 +94,9 @@ export function syncClones(drawing, { transformEntity, normalizeEntity }) {
   const visit = (entity, path = new Set()) => {
     if (!entity.clone || done.has(entity.id)) return byId.get(entity.id);
     done.add(entity.id);
-    const source = byId.get(entity.clone.of);
+    // Std_ToggleFreeze: a frozen clone keeps its shape until it is thawed.
+    if (entity.frozen) return entity;
+    const source = byId.get(entity.clone.of) ?? (entity.clone.external ? { ...entity.clone.external.cache, id: entity.clone.of } : null);
     const index = drawing.entities.findIndex((e) => e.id === entity.id);
     // No source (deleted) or a loop: the clone stays as it is, on its own.
     if (!source || path.has(source.id) || source.id === entity.id) {

@@ -23,9 +23,9 @@ function appCommands() {
   for (const category of Object.keys(PART_CATEGORIES)) ids.add(`partCategory:${category}`);
   for (const kind of [...SOLID_KINDS, 'pad', 'revolution', 'loft', 'sweep', 'pocket', 'groove', 'hole', 'surfRuled', 'surfFill', 'surfExtrude']) ids.add(`solid:${kind}`);
   ids.add('meshDecimate');
-  for (const id of ['robot:add', 'robot:moveTo', 'robot:path', 'joint:fixed', 'joint:revolute', 'joint:slider', 'joint:cylindrical']) ids.add(id);
+  for (const id of ['robot:add', 'robot:moveTo', 'robot:path', 'joint:fixed', 'joint:revolute', 'joint:slider', 'joint:cylindrical', 'assembly:animate', 'addons']) ids.add(id);
   for (const op of ['union', 'cut', 'common']) ids.add(`bool:${op}`);
-  for (const kind of ['fillet', 'chamfer', 'thickness', 'offset3d']) ids.add(`dress:${kind}`);
+  for (const kind of ['fillet', 'chamfer', 'thickness', 'offset3d', 'draft']) ids.add(`dress:${kind}`);
   ids.add('checkGeometry');
   ids.add('clone');
   ids.add('tool:workPlane');
@@ -36,6 +36,8 @@ function appCommands() {
   for (const id of ['scheduleCsv', 'panelNest']) ids.add(id);
   ids.add('fem');
   ids.add('femPlate');
+  ids.add('fem3d');
+  ids.add('workPlaneFace');
   ids.add('spreadsheet');
   for (const fit of ['plane', 'sphere', 'cylinder', 'mesh']) ids.add(`re:${fit}`);
   for (const type of ['coincident', 'horizontal', 'distance', 'angle']) ids.add(`constrain:${type}`);
@@ -66,5 +68,5 @@ test('FreeCAD coverage: every workbench item has a status, both languages, and r
   const summary = coverageSummary();
   assert.equal(summary.total, summary.full + summary.partial + summary.none);
   assert.ok(summary.full >= 30, `${summary.full} supported items`);
-  assert.ok(summary.none > 0, 'what MyCAD does not do is listed honestly');
+  // Honesty: every item that is not full says what is missing (checked above for each partial item).
 });

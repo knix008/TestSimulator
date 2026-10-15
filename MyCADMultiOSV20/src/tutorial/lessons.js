@@ -766,7 +766,208 @@ const help = {
   ],
 };
 
-export const LESSONS = [tour, drawing, precise, modify, annotate, props, parts, solids, features, booleans, views, view3d, files, printing, settings, help];
+// ───────────────────────── 17. assembly and motion
+const waitFor = async (ctx, test, ms = 15000) => { for (const until = Date.now() + ms; !test() && Date.now() < until;) await new Promise((resolve) => setTimeout(resolve, 100)); };
+const assembly = {
+  title: T('조립과 움직임', 'Assembly and motion'),
+  fresh: true,
+  steps: [
+    {
+      title: T('움직이는 샘플', 'A moving sample'),
+      text: T('샘플 "단기통 엔진 (움직임)"을 열면 3D 보기에서 바로 움직입니다. 크랭크 · 커넥팅 로드 · 피스톤이 조인트로 이어져 닫힌 고리를 이루고, MyCAD 가 매 순간 고리를 풀어 피스톤 자리를 구합니다 (FreeCAD Assembly).', 'Open the sample "Single-cylinder engine (moving)": it moves in the 3D view at once. Crank, connecting rod and piston are joined into a closed loop, which MyCAD solves at every moment to place the piston (FreeCAD Assembly).'),
+      run: async (ctx) => {
+        await ctx.api.openSample('25-crank-engine.mcad');
+        await ctx.api.waitIdle();
+        await waitFor(ctx, () => ctx.api.animState().active);
+        ctx.expect(ctx.api.animState().active, 'the engine should be playing');
+        await ctx.wait(2500);
+      },
+      practice: { todo: T('시작 페이지에서 "단기통 엔진 (움직임)" 샘플을 여세요.', 'Open the sample "Single-cylinder engine (moving)" from the start page.'), check: (ctx) => ctx.api.animState().active, targets: () => [{ el: '.sample-card[data-sample="25-crank-engine.mcad"]' }] },
+    },
+    {
+      title: T('재생 막대', 'The play bar'),
+      text: T('3D 보기 아래의 재생 막대: 재생 · 일시 정지, 처음으로, 시간 슬라이더(끌면 그 순간), 반복 · 왕복 · 한 번, 한 바퀴 시간. 저장 단추는 지금 자세를 도면에 남깁니다.', 'The play bar under the 3D view: play and pause, back to the start, the time slider (drag to a moment), loop, back and forth or once, and the time for one run. The save button keeps the pose in the drawing.'),
+      run: async (ctx) => { await ctx.api.toggleAnimation(false); await ctx.wait(900); await ctx.api.toggleAnimation(true); await ctx.wait(1500); },
+      practice: { todo: T('재생 막대의 일시 정지 단추를 누르세요.', 'Click the pause button on the play bar.'), check: (ctx) => !ctx.api.animState().playing, targets: () => [{ el: '.anim-bar [data-anim="play"]' }] },
+    },
+    {
+      title: T('조인트와 구동', 'Joints and drives'),
+      text: T('솔리드 두 개를 차례로 고르고(먼저 고른 것이 바탕) 3D 솔리드 메뉴의 회전 조인트를 누르면 경첩이 생깁니다. 속성 패널에서 구동 시작 → 끝 값을 정하면 재생할 때 그만큼 돕니다. 기어 · 벨트 · 랙 · 나사는 연동 비율로 잇습니다.', 'Pick two solids in turn (the first is the base) and click Revolute joint in the 3D solid menu: a hinge. Give the drive a start and end in the properties and it turns that far when played. Gears, belts, racks and screws are linked by a coupling ratio.'),
+      run: async (ctx) => {
+        ctx.api.stopAnimation();
+        await ctx.fresh();
+        const frame = ctx.api.insertSolid('box', { length: 100, width: 100, height: 600 }, { x: 0, y: 0, z: 0 });
+        const door = ctx.api.insertSolid('box', { length: 500, width: 30, height: 580 }, { x: 100, y: 0, z: 10 });
+        ctx.select([frame.id, door.id]);
+        ctx.api.addJoint('revolute');
+        const joint = ctx.api.drawing().joints?.[0];
+        ctx.expect(joint, 'a joint expected');
+        ctx.api.setJointDrive(joint.id, 'to', 100);
+        await ctx.api.toggleAnimation(true);
+        await ctx.wait(3000);
+        ctx.api.stopAnimation();
+        await ctx.api.toggle3d(false);
+      },
+      practice: { todo: T('솔리드 두 개를 차례로 고르고 회전 조인트를 넣으세요.', 'Pick two solids in turn and add a revolute joint.'), check: (ctx) => (ctx.api.drawing().joints ?? []).length > 0, targets: () => [cmd('joint:revolute')] },
+    },
+  ],
+};
+
+// ───────────────────────── 18. exact solids (OpenCASCADE)
+const exact = {
+  title: T('정확한 솔리드 (OpenCASCADE)', 'Exact solids (OpenCASCADE)'),
+  fresh: true,
+  steps: [
+    {
+      title: T('곡면 위 불리언', 'Booleans on curved faces'),
+      text: T('FreeCAD 와 같은 OpenCASCADE 커널로 불리언 · 모깎기 · 구배가 곡면 그대로 계산되고 부피도 정확합니다. STEP · IGES · FCStd 로 내보내도 원통 · 구 같은 곡면이 그대로 갑니다.', 'With OpenCASCADE, the kernel FreeCAD uses, booleans, fillets and drafts keep their curved faces and exact volumes. STEP, IGES and FCStd exports keep the cylinders and spheres too.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await waitFor(ctx, () => ctx.api.kernelReady(), 30000);
+        const plate = ctx.api.insertSolid('box', { length: 80, width: 50, height: 10 }, { x: 0, y: 0, z: 0 });
+        const drill = ctx.api.insertSolid('cylinder', { radius: 10, height: 30 }, { x: 40, y: 25, z: -10 });
+        ctx.select([plate.id, drill.id]);
+        await ctx.command('bool:cut');
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'boolean'), 'cut expected');
+      },
+      practice: { todo: T('두 솔리드를 고르고 빼기를 누르세요.', 'Select two solids and click Cut.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'boolean'), targets: () => [{ el: '#left-panel [data-command="bool:cut"]' }] },
+    },
+    {
+      title: T('모깎기와 구배', 'Fillet and draft'),
+      text: T('솔리드를 고르고 3D 솔리드 › 모깎기로 모서리를 둥글게, 구배(Draft)로 옆면을 기울입니다 — 주조 · 사출의 빼기 구배.', 'Select a solid: Fillet rounds its edges, Draft leans its sides — the draft for casting and moulding.'),
+      run: async (ctx) => {
+        const block = ctx.api.insertSolid('box', { length: 40, width: 30, height: 20 }, { x: 0, y: 70, z: 0 });
+        ctx.select([block.id]);
+        await ctx.api.dressUp('fillet', { size: 4, edges: 0 });
+        const tower = ctx.api.insertSolid('box', { length: 30, width: 30, height: 40 }, { x: 60, y: 70, z: 0 });
+        ctx.select([tower.id]);
+        await ctx.api.dressUp('draft', { angle: 8 });
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'fillet') && ctx.entities('solid').some((e) => e.kind === 'draft'), 'fillet and draft expected');
+        await ctx.api.toggle3d(true);
+        await ctx.wait(1800);
+      },
+      practice: { todo: T('솔리드를 고르고 모깎기나 구배를 넣으세요.', 'Select a solid and add a fillet or a draft.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'fillet' || e.kind === 'draft'), targets: () => [{ el: '#left-panel [data-command="dress:fillet"]' }, { el: '#left-panel [data-command="dress:draft"]' }] },
+    },
+    {
+      title: T('3D 에서 모서리 고르기', 'Picking edges in 3D'),
+      text: T('모깎기를 선택하고 속성 패널의 "3D 에서 모서리 고르기"를 누르면 모서리가 파랗게 보입니다. 누르는 모서리만 둥글게 됩니다(주황). 고른 모서리는 위치 · 방향으로 기억해 상자 크기가 바뀌어도 다시 찾습니다 (위상 이름).', 'Select the fillet and click "Pick edges in 3D": the edges show blue. Only the ones you click are rounded (orange). Picked edges are kept by place and direction, so they are found again when the box changes size (topological naming).'),
+      run: async (ctx) => {
+        const fillet = ctx.entities('solid').find((e) => e.kind === 'fillet');
+        ctx.select([fillet.id]);
+        await ctx.api.toggleEdgePick(true);
+        await waitFor(ctx, () => ctx.api.view3d()?.edgePick?.edges.length);
+        const edges = ctx.api.view3d().edgePick.edges;
+        await ctx.wait(800);
+        // Keep the vertical edges only: click the others away.
+        for (const edge of edges.filter((e) => Math.abs(e.dir[2]) < 0.5).slice(0, 8)) { ctx.api.toggleEdge(fillet.id, edge); await ctx.wait(120); }
+        await ctx.wait(1200);
+        await ctx.api.toggleEdgePick(false);
+        ctx.expect(ctx.entities('solid').find((e) => e.kind === 'fillet').shape.picks?.length >= 1, 'picked edges expected');
+        await ctx.api.toggle3d(true);
+      },
+      practice: { todo: T('모깎기를 고르고 "3D 에서 모서리 고르기"를 눌러 모서리 하나를 누르세요.', 'Select the fillet, click "Pick edges in 3D" and click an edge.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'fillet' && e.shape?.picks?.length), targets: () => [{ el: '#right-panel [data-edge-pick-mode]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 19. CAM in 3D
+const cam3d = {
+  title: T('CAM 3D 가공과 시뮬레이션', 'CAM in 3D and simulation'),
+  fresh: true,
+  steps: [
+    {
+      title: T('3D 황삭 · 정삭', '3D roughing and finishing'),
+      text: T('솔리드를 고르고 CAM 을 열면 3D 가공이 골라집니다. 황삭은 층마다 남길 두께를 두고 깎고, 정삭은 볼 엔드밀이 표면을 따라갑니다(드롭 커터: 공구가 모델을 파고들지 않음).', 'Select a solid and open CAM: the 3D operations are chosen. Roughing clears level by level, leaving stock on; finishing runs a ball end mill over the surface (drop-cutter: the tool never cuts into the model).'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.api.toggle3d(false);
+        const dome = ctx.api.insertSolid('sphere', { radius: 25 }, { x: 0, y: 0, z: 0 });
+        ctx.select([dome.id]);
+        await ctx.dialog('cam', () => ctx.api.run('cam'), null, 2600);
+      },
+      practice: { todo: T('솔리드를 고르고 CAM 을 여세요.', 'Select a solid and open CAM.'), targets: () => [cmd('cam'), { el: '#left-panel [data-command="cam"]' }] },
+    },
+    {
+      title: T('시뮬레이션과 가공 결과', 'Simulation and the machined stock'),
+      text: T('CAM 창의 시뮬레이션 탭에서 재생하면 소재가 깎이는 모습을 보고 과절삭 · 남은 살을 검사합니다. "가공 결과 솔리드"는 깎인 소재를 도면에 솔리드로 넣습니다.', 'In the CAM window\'s Simulation tab, play to watch the stock being cut and check gouges and the material left. "Machined stock solid" puts the cut stock in the drawing.'),
+      run: async (ctx) => {
+        await ctx.api.openCam({ operation: 'finish3d', toolShape: 'ball', tool: 6, stepOver: 0.3, action: 'stock' });
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'mesh'), 'machined stock expected');
+        await ctx.api.toggle3d(true);
+        await ctx.wait(2200);
+      },
+      practice: { todo: T('CAM 창의 시뮬레이션 탭에서 재생해 보세요.', 'Play the simulation in the CAM window.'), targets: () => [cmd('cam')] },
+    },
+  ],
+};
+
+// ───────────────────────── 20. FEM
+const femLesson = {
+  title: T('FEM 해석: 판과 솔리드', 'FEM: plates and solids'),
+  fresh: true,
+  steps: [
+    {
+      title: T('판 응력 (평면 응력)', 'Plate stress (plane stress)'),
+      text: T('닫힌 윤곽(구멍 포함)을 고르고 FEM 판 응력 해석을 엽니다. 변마다 고정과 하중을 주면 폰 미제스 응력 색과 변형 모양이 나오고, 구멍 둘레의 응력 집중(약 3배)도 보입니다.', 'Select a closed outline (holes too) and open FEM plate stress. Supports and loads go on its sides; you get the von Mises colours and the deformed shape — the stress about three times higher round the hole.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.api.toggle3d(false);
+        ctx.api.addEntity('rect', { x: 0, y: 0, width: 120, height: 60 });
+        ctx.api.addEntity('circle', { cx: 60, cy: 30, r: 12 });
+        await ctx.dialog('plate', () => ctx.api.run('femPlate'), () => ctx.api.openPlate({ action: 'draw', plate: { supports: { 3: 'fixed' }, loads: { 1: { fx: 20000, fy: 0 } } } }), 2600);
+        ctx.expect(ctx.entities().some((e) => e.layer === 'fem'), 'results on the FEM layer expected');
+      },
+      practice: { todo: T('윤곽을 고르고 FEM 판 응력 해석을 여세요.', 'Select an outline and open FEM plate stress.'), targets: () => [{ el: '#left-panel [data-command="femPlate"]' }] },
+    },
+    {
+      title: T('솔리드 (3D) 와 CalculiX', 'Solids (3D) and CalculiX'),
+      text: T('솔리드를 고르고 FEM 솔리드 해석을 엽니다. 육면체 요소로 채워 고정 면 · 하중 면 · 자중을 주고 풉니다. .inp 로 저장하면 CalculiX · FreeCAD FEM 에서 열리고, CalculiX 가 설치돼 있으면 같은 모델을 풀어 비교합니다(차이 1 % 안).', 'Select a solid and open FEM solid analysis: it is filled with brick elements, clamped, loaded (and its own weight) and solved. Save .inp for CalculiX and FreeCAD FEM, or, with CalculiX installed, solve the same model there and compare (within 1 %).'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        const beam = ctx.api.insertSolid('box', { length: 200, width: 20, height: 20 }, { x: 0, y: 0, z: 0 });
+        ctx.select([beam.id]);
+        await ctx.dialog('fem3d', () => ctx.api.run('fem3d'), () => ctx.api.openFem3d({ action: 'draw', fem3d: { fixed: ['xmin'], loads: [{ face: 'xmax', fz: -1000 }] } }), 2600);
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'mesh'), 'deformed solid expected');
+        await ctx.api.toggle3d(true);
+        await ctx.wait(2000);
+      },
+      practice: { todo: T('솔리드를 고르고 FEM 솔리드 해석을 여세요.', 'Select a solid and open FEM solid analysis.'), targets: () => [{ el: '#left-panel [data-command="fem3d"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 21. Python and macros
+const python = {
+  title: T('Python 콘솔과 매크로', 'The Python console and macros'),
+  fresh: true,
+  steps: [
+    {
+      title: T('Python 으로 모델 만들기', 'Making a model in Python'),
+      text: T('스크립트 콘솔(Ctrl+Shift+J)에서 Python 을 고르면 FreeCAD 매크로처럼 씁니다: import Part, Part.makeBox(…).cut(…), Part.show(…). mycad 모듈로 도면 전체를 다룹니다.', 'Choose Python in the script console (Ctrl+Shift+J) and write as in FreeCAD macros: import Part, Part.makeBox(…).cut(…), Part.show(…). The mycad module reaches the whole drawing.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.api.updateSettings({ showConsole: true, consoleLanguage: 'python' });
+        await ctx.api.runScript('import FreeCAD as App, Part\nplate = Part.makeBox(120, 80, 10)\nfor x, y in [(15, 15), (105, 15), (105, 65), (15, 65)]:\n    plate = plate.cut(Part.makeCylinder(5, 10, App.Vector(x, y, 0)))\nPart.show(plate, "Plate")\nround(plate.Volume)', { language: 'python' });
+        ctx.expect(ctx.entities('solid').some((e) => e.name === 'Plate'), 'the plate expected');
+        await ctx.api.toggle3d(true);
+        await ctx.wait(1500);
+      },
+      practice: { todo: T('콘솔에서 Python 을 고르고 Part.show(Part.makeBox(10, 20, 30)) 를 실행하세요.', 'Choose Python in the console and run Part.show(Part.makeBox(10, 20, 30)).'), check: (ctx) => ctx.entities('solid').length > 0, targets: () => [{ el: '[data-console="lang:python"]' }, { el: '[data-console="run"]' }] },
+    },
+    {
+      title: T('애드온 관리자', 'The addon manager'),
+      text: T('애드온 관리자는 MyCAD 와 함께 오는 매크로 목록에서, 또는 웹 주소 · 파일에서 매크로(Python · JavaScript)를 설치 · 업데이트 · 제거하고 실행합니다.', 'The addon manager installs, updates, removes and runs macros (Python, JavaScript) from the catalogue that comes with MyCAD, a web address or a file.'),
+      run: async (ctx) => {
+        await ctx.dialog('addons', () => ctx.api.run('addons'), null, 2600);
+        ctx.api.updateSettings({ showConsole: false, consoleLanguage: 'js' });
+        await ctx.api.toggle3d(false);
+      },
+      practice: { todo: T('콘솔 머리의 애드온 관리자 단추를 눌러 보세요.', 'Click the addon manager button in the console header.'), targets: () => [{ el: '[data-command="addons"]' }] },
+    },
+  ],
+};
+
+export const LESSONS = [tour, drawing, precise, modify, annotate, props, parts, solids, features, booleans, views, view3d, files, printing, settings, help, assembly, exact, cam3d, femLesson, python];
 
 /**
  * Pictures of dialog windows for the documentation (scripts/docs-shots.mjs):
@@ -784,4 +985,7 @@ export const DOC_DIALOGS = {
   '15-1': { popup: 'settings', open: (api) => api.popups.open('settings', { tab: 'drawing' }) },
   '16-1': { popup: 'coverage', open: (api) => api.run('freecadCoverage') },
   '16-2': { popup: 'about', open: (api) => api.run('about'), tab: 'files' },
+  '19-1': { popup: 'cam', open: (api) => api.run('cam') },
+  '20-2': { popup: 'fem3d', open: (api) => api.run('fem3d') },
+  '21-2': { popup: 'addons', open: (api) => api.run('addons') },
 };

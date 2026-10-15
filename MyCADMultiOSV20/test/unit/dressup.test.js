@@ -46,7 +46,8 @@ test('chamfer and thickness and offset have the exact volumes of a box', () => {
 });
 
 test('a filleted box is closed and smaller than the box but bigger than its chamfer', () => {
-  for (const edges of DRESSUP_EDGES) {
+  // (Picked edges need the OpenCASCADE kernel and a pick list: see occ.test.js.)
+  for (const edges of DRESSUP_EDGES.filter((group) => group !== 'picked')) {
     const fillet = solidMesh(dress('fillet', { size: 8, edges: edgeOf(edges) }));
     const chamfer = solidMesh(dress('chamfer', { size: 8, edges: edgeOf(edges) }));
     assert.equal(openEdges(fillet), 0, `fillet ${edges} closed`);

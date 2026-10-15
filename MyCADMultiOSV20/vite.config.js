@@ -33,6 +33,9 @@ function copyContent() {
           cpSync(path.join(root, 'samples', file), target);
         }
       }
+      // Python (Pyodide) for the script console: its runtime next to the app.
+      mkdirSync(path.join(out, 'pyodide'), { recursive: true });
+      for (const file of ['pyodide.asm.mjs', 'pyodide.asm.wasm', 'python_stdlib.zip', 'pyodide-lock.json', 'pyodide.mjs']) cpSync(path.join(root, 'node_modules', 'pyodide', file), path.join(out, 'pyodide', file));
       if (existsSync(path.join(root, 'doc'))) cpSync(path.join(root, 'doc'), path.join(out, 'doc'), { recursive: true, filter: (source) => !/\.md$/i.test(source) });
     },
   };
@@ -52,6 +55,9 @@ export default defineConfig(async ({ command }) => ({
   // A port nobody uses (another program's page must never show); --port overrides it.
   server: { port: command === 'serve' ? await freeDevPort() : 1450, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**'] } },
   // three.js (the 3D view) is a lazily loaded chunk of its own.
-  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 700 },
+  // three.js is one 750 kB module that cannot be split; every chunk of our own stays far below this.
+  build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800 },
   plugins: [copyContent()],
+  // Pyodide finds its own files (indexURL): not pre-bundled by the dev server.
+  optimizeDeps: { exclude: ['pyodide'] },
 }));

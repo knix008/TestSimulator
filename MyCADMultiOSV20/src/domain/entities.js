@@ -13,6 +13,8 @@ import { generatePart, normalizeParams, PARTS } from './parts.js';
 import { HATCH_PATTERN_NAMES, hatchArea, hatchPrimitives } from './hatch.js';
 import { normalizeClone } from './clones.js';
 import { normalizeBind } from './spreadsheet.js';
+import { normalizeMaterial } from './materials.js';
+import { normalizeAttach } from './partops.js';
 import { annotationPrimitives, BALLOON_SHAPES, balloonDot, GDT_MODIFIERS, GDT_SYMBOLS, LEADER_STYLES } from './annotate.js';
 import { sampleCurve } from './nurbs.js';
 import { displayUnit, toUnit } from './units.js';
@@ -51,6 +53,38 @@ export function normalizeEntity(raw) {
   if (clone) base.clone = clone;
   // Sketcher construction geometry: drawn and snapped to, but not part of any output.
   if (raw.construction) base.construction = true;
+  // Sketcher: external geometry (projected / intersected from solids) and internal alignment geometry (of an ellipse or B-spline).
+  if (raw.external) base.external = true;
+  if (typeof raw.internal === 'string' && raw.internal) base.internal = raw.internal;
+  // TechDraw: cosmetic geometry (added on the page, not from a view); a template text's field name (FillTemplateFields).
+  if (raw.cosmetic) base.cosmetic = true;
+  if (raw.type === 'text' && typeof raw.field === 'string' && raw.field) base.field = raw.field.slice(0, 40);
+  // Draft_ToggleDisplayMode: a solid shown as wireframe. Assembly_ToggleGrounded: a part joints never move.
+  if (raw.type === 'solid' && raw.wireframe) base.wireframe = true;
+  if (raw.type === 'solid' && raw.grounded) base.grounded = true;
+  // Std_HideSelection, Std_ToggleSelectability, Std_ToggleTransparency / appearance, Std_Group, Std_ToggleFreeze.
+  if (raw.hidden) base.hidden = true;
+  if (raw.unselectable) base.unselectable = true;
+  if (raw.frozen) base.frozen = true;
+  if (Number.isFinite(raw.transparency) && raw.transparency > 0) base.transparency = Math.min(100, Math.max(0, Math.round(raw.transparency)));
+  if (typeof raw.group === 'string' && raw.group) base.group = raw.group;
+  if (Number.isFinite(raw.pointSize) && raw.pointSize > 0) base.pointSize = raw.pointSize;
+  // Part_ToleranceSet: the healing / sewing tolerance of a solid (mm).
+  if (raw.type === 'solid' && Number.isFinite(raw.tolerance) && raw.tolerance > 0) base.tolerance = Math.min(10, raw.tolerance);
+  // Part_EditAttachment: placed from faces, edges or vertices of other solids (and kept there).
+  const attach = raw.type === 'solid' ? normalizeAttach(raw.attach) : null;
+  if (attach) base.attach = attach;
+  // Per-face colours (Part_ColorPerFace): [{ signature, color }].
+  if (raw.type === 'solid' && Array.isArray(raw.faceColors)) {
+    const faceColors = raw.faceColors.filter((f) => f?.signature && typeof f.color === 'string' && /^#[0-9a-f]{6}$/i.test(f.color)).slice(0, 500);
+    if (faceColors.length) base.faceColors = faceColors;
+  }
+  // Std_SetMaterial: the physical material (density, modulus …); Std_TextureMapping: an image on a solid.
+  const physical = raw.physical ? normalizeMaterial(raw.physical) : null;
+  if (physical) base.physical = physical;
+  if (raw.texture && typeof raw.texture.data === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,/.test(raw.texture.data) && raw.texture.data.length < 6_000_000) {
+    base.texture = { data: raw.texture.data, scale: Number.isFinite(raw.texture.scale) && raw.texture.scale > 0 ? raw.texture.scale : 50 };
+  }
   // Values bound to spreadsheet expressions (FreeCAD expressions).
   const bind = normalizeBind(raw.bind);
   if (bind) base.bind = bind;
@@ -814,7 +848,10 @@ export function explode(e) {
   // A boolean solid gives back the solids it was made of (like deleting the boolean in FreeCAD).
   if (e.type === 'solid' && e.kind === 'boolean') return e.shape.parts.map((part) => createEntity('solid', { ...style, color: part.color ?? e.color, ...partInParent(part, e) }));
   // A fillet, chamfer, thickness or offset gives back the solid it was made on.
-  if (e.type === 'solid' && ['fillet', 'chamfer', 'thickness', 'offset3d'].includes(e.kind) && e.shape?.base) return [createEntity('solid', { ...style, color: e.shape.base.color ?? e.color, ...partInParent(e.shape.base, e) })];
+  if (e.type === 'solid' && ['fillet', 'chamfer', 'thickness', 'offset3d', 'draft'].includes(e.kind) && e.shape?.base) return [createEntity('solid', { ...style, color: e.shape.base.color ?? e.color, ...partInParent(e.shape.base, e) })];
+  // Part shape operations give back what they were made of: the parts of a compound or fragments, the base (and tools) of the rest.
+  if (e.type === 'solid' && ['compound', 'fragments'].includes(e.kind)) return (e.shape.parts ?? []).map((part) => createEntity('solid', { ...style, color: part.color ?? e.color, ...partInParent(part, e) }));
+  if (e.type === 'solid' && ['slice', 'compoundFilter', 'mirror3d', 'scale3d', 'refine', 'reverse', 'pattern'].includes(e.kind) && e.shape?.base) return [e.shape.base, ...(e.shape.tools ?? [])].map((part) => createEntity('solid', { ...style, color: part.color ?? e.color, ...partInParent(part, e) }));
   const fromPrim = (prim) => {
     const own = { ...style, ...(prim.lineType ? { lineType: prim.lineType } : {}), ...(prim.thin ? { lineWidth: 0.18 } : {}) };
     switch (prim.kind) {
@@ -845,7 +882,7 @@ export function explode(e) {
   return [];
 }
 
-export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && ['boolean', 'fillet', 'chamfer', 'thickness', 'offset3d'].includes(e.kind));
+export const canExplode = (e) => ['part', 'dim', 'rect', 'polygon', 'ellipse', 'polyline', 'spline', 'leader', 'hatch'].includes(e.type) || (e.type === 'circle' && e.centerMark) || (e.type === 'solid' && ['boolean', 'fillet', 'chamfer', 'thickness', 'offset3d', 'draft', 'compound', 'fragments', 'slice', 'compoundFilter', 'mirror3d', 'scale3d', 'refine', 'reverse', 'pattern'].includes(e.kind));
 
 // ───────────────────────── measurements
 

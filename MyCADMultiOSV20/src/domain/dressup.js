@@ -6,10 +6,11 @@
 // coordinates, and Explode gives it back.
 import { arcPoints, polygonArea } from './geometry.js';
 import { triangulate } from './triangulate.js';
+import { taperedExtrude } from './features.js';
 
-export const DRESSUP_KINDS = ['fillet', 'chamfer', 'thickness', 'offset3d'];
+export const DRESSUP_KINDS = ['fillet', 'chamfer', 'thickness', 'offset3d', 'draft'];
 /** Which edges a fillet / chamfer takes. */
-export const DRESSUP_EDGES = ['all', 'top', 'vertical', 'topVertical', 'bottom'];
+export const DRESSUP_EDGES = ['all', 'top', 'vertical', 'topVertical', 'bottom', 'picked'];
 /** Solids a dress-up can be put on. */
 export const DRESSUP_BASES = ['box', 'pad', 'prism', 'cylinder', 'tube'];
 
@@ -145,6 +146,11 @@ export function dressupMesh(entity) {
       const outer = vertical && !prof.round ? roundCorners(shape.outer, r, chamfer) : shape.outer;
       tris.push(...stack({ outer, holes: shape.holes }, levels(h, r, chamfer, top, bottom, vertical && !prof.round ? r * 0.97 : r)));
     }
+    return tris;
+  }
+  if (entity.kind === 'draft') {
+    // Draft (PartDesign Draft): the side faces lean in by the angle from the bottom (the neutral plane) up.
+    for (const shape of prof.shapes) tris.push(...(taperedExtrude(shape, h, p.angle) ?? []));
     return tris;
   }
   if (entity.kind === 'thickness') {

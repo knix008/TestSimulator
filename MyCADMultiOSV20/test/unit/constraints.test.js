@@ -113,3 +113,40 @@ test('in a document, dragging a corner moves the rest and keeps the dragged poin
   doc.undo();
   assert.ok(Math.abs(findEntity(doc.drawing, ids[3]).y1 - 70) > 1);
 });
+
+test('B-splines: ends coincide with a line, leave it tangent, control points dimensioned, a point on the curve, G1 into another spline', async () => {
+  const { addEntity, createDrawing } = await import('../../src/domain/drawing.js');
+  const { addConstraint, solveConstraints, entityPoint, pointsOf } = await import('../../src/domain/constraints.js');
+  const { sampleCurve } = await import('../../src/domain/nurbs.js');
+  const d = createDrawing();
+  const line = addEntity(d, 'line', { x1: -50, y1: 0, x2: 0, y2: 0 });
+  const s = addEntity(d, 'spline', { points: [{ x: 3, y: 4 }, { x: 20, y: 25 }, { x: 40, y: 10 }, { x: 60, y: 30 }], degree: 3 });
+  assert.deepEqual(pointsOf(s).slice(0, 3), ['start', 'end', 'cp0']);
+  addConstraint(d, 'fixed', [{ id: line.id }]);
+  addConstraint(d, 'coincident', [{ id: line.id, at: 'p2' }, { id: s.id, at: 'start' }]);
+  addConstraint(d, 'tangent', [{ id: s.id, at: 'start' }, { id: line.id }]);
+  addConstraint(d, 'distanceX', [{ id: s.id, at: 'start' }, { id: s.id, at: 'end' }], 80);
+  const status = solveConstraints(d);
+  assert.ok(status.ok, JSON.stringify(status));
+  const spline = d.entities.find((e) => e.id === s.id);
+  const p0 = entityPoint(spline, 'start'); const p1 = entityPoint(spline, 'cp1');
+  assert.ok(Math.hypot(p0.x, p0.y) < 1e-6, 'starts at the line end');
+  assert.ok(Math.abs(p1.y - p0.y) < 1e-6, 'leaves along the line');
+  assert.ok(Math.abs(entityPoint(spline, 'end').x - p0.x - 80) < 1e-6);
+  // A point held on the curve.
+  const pt = addEntity(d, 'point', { x: 30, y: 40 });
+  addConstraint(d, 'pointOnObject', [{ id: pt.id, at: 'p' }, { id: s.id }]);
+  assert.ok(solveConstraints(d, { moved: new Set([s.id]) }).ok);
+  const p = d.entities.find((e) => e.id === pt.id);
+  const held = d.entities.find((e) => e.id === s.id);
+  const curve = sampleCurve({ degree: held.degree, points: held.points.map((q) => [q.x, q.y]), knots: held.knots }, 4000);
+  assert.ok(Math.min(...curve.map(([x, y]) => Math.hypot(x - p.x, y - p.y))) < 0.02, 'on the curve');
+  // Another spline carries on smoothly (G1) from the first one's end.
+  const t = addEntity(d, 'spline', { points: [{ x: 90, y: 30 }, { x: 110, y: 0 }, { x: 130, y: 20 }], degree: 2 });
+  addConstraint(d, 'coincident', [{ id: s.id, at: 'end' }, { id: t.id, at: 'start' }]);
+  addConstraint(d, 'tangent', [{ id: s.id, at: 'end' }, { id: t.id, at: 'start' }]);
+  assert.ok(solveConstraints(d, { moved: new Set([s.id]) }).ok);
+  const A = d.entities.find((e) => e.id === s.id); const B = d.entities.find((e) => e.id === t.id);
+  const u = [A.points[3].x - A.points[2].x, A.points[3].y - A.points[2].y]; const v = [B.points[1].x - B.points[0].x, B.points[1].y - B.points[0].y];
+  assert.ok(Math.abs(u[0] * v[1] - u[1] * v[0]) / (Math.hypot(...u) * Math.hypot(...v)) < 1e-6, 'G1');
+});

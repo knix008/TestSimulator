@@ -22,6 +22,8 @@
 //   21-shaft-detail.mcad       a production drawing of a shaft: sections, keyways, tolerances, title block notes
 //   22-machine-vise.mcad       3D: a machine vise (body, jaws, screw, handle, workpiece)
 //   23-steel-frame.mcad        3D: a steel portal frame (H columns and beams, bracing, base plates)
+//   25–30 *.mcad               moving assemblies (joints, drives, couplings; play them in the 3D view):
+//                              engine, four-bar linkage, gear train and rack, screw vise, robot arm, room doors
 //   index.json                 the start page's sample list (titles, descriptions, tags, task)
 //   04-bracket.dxf             the bracket as DXF R12
 //   exports/                   the 3D samples in FreeCAD's formats: .FCStd .step .stl .3mf (the showcase also .obj .ply .off .amf),
@@ -43,6 +45,7 @@ import { exportMesh } from '../src/domain/exchange3d.js';
 import { solidMesh } from '../src/domain/solids.js';
 import { toBinaryStl } from '../src/domain/stl.js';
 import { gearReducer, house3d, housePlan, machineVise, officePlan, shaftDetail, steelFrame, twoStoreyHouse } from './models-complex.mjs';
+import { crankEngine, fourBar, gearTrain, houseDoors, robotArm, screwVise } from './models-motion.mjs';
 import { arraysPlate, drawingViewsSample, gearbox3d, mountingBlock, partsCatalog, sectionSample, shaftAssembly, solidsShowcase, springsAndPipes } from './models3d.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -185,6 +188,12 @@ const SAMPLE_INDEX = [
   ['22-machine-vise.mcad', 'booleans', ['기계 바이스', 'Machine vise'], ['몸체·조·나사·핸들·공작물을 불리언으로', 'Body, jaws, screw, handle and workpiece made with booleans'], ['3D', '불리언', '조립']],
   ['23-steel-frame.mcad', 'solids', ['철골 골조', 'Steel frame'], ['H형강 기둥·보, 가새, 베이스 플레이트', 'H-section columns and beams, bracing and base plates'], ['3D', '구조', '철골']],
   ['24-two-storey-house.mcad', 'arch', ['2층 주택 (층·재료·철근)', 'Two-storey house (levels, materials, rebar)'], ['1층·2층, 다층 벽, L자 지붕(변별 경사), 철근, 트러스·골판 카포트, 배관 — IFC', 'Two levels, layered walls, an L roof with per-edge slopes, rebar, a truss carport, a pipe — IFC'], ['건축', 'BIM', '층', '재료', 'IFC']],
+  ['25-crank-engine.mcad', 'solids', ['단기통 엔진 (움직임)', 'Single-cylinder engine (moving)'], ['크랭크·플라이휠·커넥팅 로드·피스톤 — 닫힌 고리를 풀며 회전, 3D 에서 ▶', 'Crank, flywheel, connecting rod and piston — a closed loop solved as it turns; press ▶ in 3D'], ['조립', '애니메이션', '크랭크']],
+  ['26-four-bar.mcad', 'solids', ['4절 링크 (움직임)', 'Four-bar linkage (moving)'], ['크랭크–로커 4절 링크와 커플러 궤적 점', 'A crank–rocker four-bar linkage with a coupler tracer'], ['조립', '애니메이션', '링크']],
+  ['27-gear-train.mcad', 'solids', ['기어열과 랙 (움직임)', 'Gear train and rack (moving)'], ['맞물린 기어 3개와 랙 — 기어 · 랙 연동 조인트', 'Three meshing gears and a rack — gear and rack couplings'], ['조립', '애니메이션', '기어']],
+  ['28-screw-vise.mcad', 'solids', ['나사 바이스 (움직임)', 'Screw vise (moving)'], ['핸들이 나사를 돌리고 나사가 전진, 조가 따라옴 — 나사 연동', 'The handle turns the screw, the screw advances, the jaw follows — screw coupling'], ['조립', '애니메이션', '나사']],
+  ['29-robot-arm.mcad', 'solids', ['로봇 팔 (움직임)', 'Robot arm (moving)'], ['회전대·어깨·팔꿈치·그리퍼 구동 4개가 함께 왕복', 'Turntable, shoulder, elbow and gripper — four drives together'], ['조립', '애니메이션', '로봇']],
+  ['30-room-doors.mcad', 'arch', ['방의 문과 창 (움직임)', 'Room doors and window (moving)'], ['여닫이 문 · 미닫이 문 · 여닫이 창이 열고 닫힘', 'A swinging door, a sliding door and a casement window open and close'], ['건축', '애니메이션', '문']],
   ['16-imperial-plate.mcad', 'precise', ['인치 판', 'Imperial plate'], ['인치로 설계한 판 (길이 단위를 in로 바꿔 보세요)', 'A plate designed in inches (switch the length unit to in)'], ['인치', '단위']],
   ['04-bracket.dxf', 'files', ['브래킷 (DXF R12)', 'Bracket (DXF R12)'], ['MyCAD가 쓴 DXF', 'DXF written by MyCAD'], ['DXF']],
   ['dxf/ezdxf-entities-r2018.dxf', 'files', ['ezdxf DXF 2018', 'ezdxf DXF 2018'], ['다른 프로그램(ezdxf)이 쓴 DXF: 해칭·스플라인·치수·블록', 'DXF from another program (ezdxf): hatches, splines, dimensions, blocks'], ['DXF', 'ezdxf']],
@@ -205,6 +214,7 @@ const files = [
   ['13-drawing-views', drawingViewsSample()], ['14-sections', sectionSample()], ['15-annotations', annotations()], ['16-imperial-plate', imperialPlate()],
   ['17-house-plan', housePlan()], ['18-house-3d', house3d()], ['19-office-plan', officePlan()], ['20-gear-reducer', gearReducer()],
   ['21-shaft-detail', shaftDetail()], ['22-machine-vise', machineVise()], ['23-steel-frame', steelFrame()], ['24-two-storey-house', twoStoreyHouse()],
+  ['25-crank-engine', crankEngine()], ['26-four-bar', fourBar()], ['27-gear-train', gearTrain()], ['28-screw-vise', screwVise()], ['29-robot-arm', robotArm()], ['30-room-doors', houseDoors()],
 ];
 for (const [name, drawing] of files) fs.writeFileSync(path.join(out, `${name}.mcad`), serialize(drawing));
 fs.writeFileSync(path.join(out, '04-bracket.dxf'), exportDxf(files[3][1]));

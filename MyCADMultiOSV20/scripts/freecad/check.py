@@ -63,7 +63,8 @@ for path in job['files']:
         elif ext in ('.step', '.stp', '.iges', '.igs', '.brep', '.brp'):
             shape = Part.read(path)
             entry.update(volume=shape.Volume, solids=len(shape.Solids), shells=len(shape.Shells), faces=len(shape.Faces), bbox=bbox_of([shape.BoundBox]), valid=shape.isValid(), shapeType=shape.ShapeType,
-                         edges=len(shape.Edges), length=sum(e.Length for e in shape.Edges))
+                         edges=len(shape.Edges), length=sum(e.Length for e in shape.Edges),
+                         surfaces=sorted({type(f.Surface).__name__ for f in shape.Faces}), solidVolumes=[sl.Volume for sl in shape.Solids])
         elif ext == '.ifc':
             # IFC through the BIM workbench (NativeIFC, ifcopenshell): the IFC classes and the
             # volume of each element's shape, openings subtracted by ifcopenshell.

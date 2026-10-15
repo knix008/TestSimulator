@@ -32,7 +32,7 @@ export const NEEDS_SELECTION = new Set(['move', 'copy', 'rotate', 'mirror', 'sca
 const lineData = (a, b) => ({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
 
 /** Base class: points, preview, typed input, finishing. */
-class Tool {
+export class Tool {
   constructor(id, api) {
     this.id = id;
     this.api = api;
@@ -82,7 +82,7 @@ class LineTool extends Tool {
   finish() { if (!this.points.length) return false; this.points = []; return true; }
 }
 
-class PolylineTool extends Tool {
+export class PolylineTool extends Tool {
   click(p, { tolerance = 0 } = {}) {
     if (this.points.length >= 3 && dist(p, this.points[0]) <= tolerance) return this.complete(true);
     if (this.last && dist(this.last, p) < 1e-9) return undefined;
@@ -601,7 +601,12 @@ class HatchTool extends Tool {
   prompt() { return 'prompt.hatch.0'; }
 }
 
+/** Tools added by command modules (the Sketcher's): id → (api, extra) => tool. */
+const REGISTERED = new Map();
+export function registerTool(id, factory) { REGISTERED.set(id, factory); }
+
 export function createTool(id, api, extra = {}) {
+  if (REGISTERED.has(id)) return REGISTERED.get(id)(api, extra);
   if (id === 'line') return new LineTool(id, api);
   if (id === 'spline') return new SplineTool(id, api);
   if (id === 'leader') return new LeaderTool(id, api);

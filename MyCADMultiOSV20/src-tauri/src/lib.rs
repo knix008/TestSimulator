@@ -14,7 +14,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: [&str; 21] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "part", "array", "stl", "solid", "coverage", "tutorial", "bim", "check", "cam", "fem", "plate", "spreadsheet"];
+const POPUP_KINDS: [&str; 25] = ["settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "part", "array", "stl", "solid", "coverage", "tutorial", "bim", "check", "cam", "fem", "plate", "fem3d", "addons", "spreadsheet", "form", "viewer"];
 
 #[derive(Default)]
 struct Shared {
@@ -269,6 +269,76 @@ fn remove_background(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn allow_background(app: AppHandle, path: PathBuf) -> bool {
     path.is_file() && app.asset_protocol_scope().allow_file(&path).is_ok()
+}
+
+// ───────────────────────── CalculiX (FEM of solids)
+
+/// Where CalculiX (ccx) is: a path given, the CCX variable, next to FreeCADCmd
+/// (FREECAD_CMD), the usual FreeCAD installs (FreeCAD ships ccx), or the PATH.
+#[tauri::command]
+fn ccx_locate(hint: Option<String>) -> Option<String> {
+    let exe = if cfg!(windows) { "ccx.exe" } else { "ccx" };
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(h) = hint.filter(|h| !h.is_empty()) {
+        candidates.push(PathBuf::from(h));
+    }
+    if let Ok(v) = std::env::var("CCX") {
+        candidates.push(PathBuf::from(v));
+    }
+    if let Ok(v) = std::env::var("FREECAD_CMD") {
+        if let Some(dir) = PathBuf::from(v).parent() {
+            candidates.push(dir.join(exe));
+        }
+    }
+    if cfg!(windows) {
+        for root in ["C:/Program Files", "C:/Program Files (x86)", "D:/"] {
+            if let Ok(entries) = std::fs::read_dir(root) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_lowercase();
+                    if name.starts_with("freecad") || name.starts_with("fc") {
+                        candidates.push(entry.path().join("bin").join(exe));
+                    }
+                }
+            }
+        }
+    } else {
+        for p in ["/usr/bin/ccx", "/usr/local/bin/ccx", "/opt/homebrew/bin/ccx", "/Applications/FreeCAD.app/Contents/Resources/bin/ccx"] {
+            candidates.push(PathBuf::from(p));
+        }
+    }
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            candidates.push(dir.join(exe));
+        }
+    }
+    candidates.into_iter().find(|p| p.is_file()).map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Runs CalculiX on an input deck in a fresh temporary folder; returns the .dat results.
+#[tauri::command]
+async fn ccx_run(ccx: String, inp: String) -> Result<String, String> {
+    blocking(move || {
+        let dir = std::env::temp_dir().join(format!("mycad-ccx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join("job.inp"), inp).map_err(|e| e.to_string())?;
+        let mut command = std::process::Command::new(&ccx);
+        command.arg("job").current_dir(&dir).env("OMP_NUM_THREADS", "1");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x0800_0000); // no console window
+        }
+        let output = command.output().map_err(|e| tr!("CalculiX 를 실행하지 못했습니다: {e}", "Could not run CalculiX: {e}"))?;
+        let dat = std::fs::read_to_string(dir.join("job.dat")).map_err(|_| {
+            let log = String::from_utf8_lossy(&output.stdout);
+            let tail: String = log.chars().rev().take(600).collect::<Vec<_>>().into_iter().rev().collect();
+            tr!("CalculiX 결과가 없습니다: {tail}", "CalculiX gave no results: {tail}")
+        })?;
+        let _ = std::fs::remove_dir_all(&dir);
+        Ok(dat)
+    })
+    .await
 }
 
 static FONTS: OnceLock<Vec<String>> = OnceLock::new();
@@ -536,6 +606,42 @@ fn open_document(app: AppHandle, name: String) -> Result<(), String> {
     open_with_system(&path)
 }
 
+/// Help links (website, forum, issues): only web addresses, opened by the system browser.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") || url.chars().any(|c| c.is_whitespace() || c == '"') {
+        return Err(tr!("웹 주소가 올바르지 않습니다: {url}", "Not a web address: {url}"));
+    }
+    #[cfg(target_os = "windows")]
+    let result = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("rundll32").args(["url.dll,FileProtocolHandler", &url]).creation_flags(0x0800_0000).spawn()
+    };
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(&url).spawn();
+    result.map(|_| ()).map_err(|error| tr!("웹 페이지를 열 수 없습니다: {error}", "Could not open the web page: {error}"))
+}
+
+/// A folder of the app's data (macros …), made if needed and shown in the file manager.
+#[tauri::command]
+fn open_data_folder(app: AppHandle, name: String) -> Result<String, String> {
+    if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return Err(tr!("폴더 이름이 올바르지 않습니다: {name}", "Not a folder name: {name}"));
+    }
+    let base = match std::env::var_os("MYCAD_DATA_DIR") {
+        Some(dir) => PathBuf::from(dir),
+        None => app.path().app_data_dir().map_err(|error| tr!("데이터 폴더를 찾을 수 없습니다: {error}", "The data folder was not found: {error}"))?,
+    };
+    let dir = base.join(&name);
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    if std::env::var_os("MYCAD_NO_OPEN").is_none() {
+        open_with_system(&dir)?;
+    }
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 fn open_with_system(path: &std::path::Path) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let result = {
@@ -633,6 +739,8 @@ pub fn run() {
             remove_background,
             allow_background,
             list_fonts,
+            ccx_locate,
+            ccx_run,
             clipboard_write,
             clipboard_read,
             open_popup,
@@ -644,6 +752,8 @@ pub fn run() {
             print_window,
             quit_app,
             open_document,
+            open_url,
+            open_data_folder,
             previous_run,
             raise_test_panic
         ])

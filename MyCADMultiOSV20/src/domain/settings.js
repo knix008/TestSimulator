@@ -13,7 +13,7 @@ export const FONT_STYLES = ['normal', 'italic'];
 export const TEXT_HEIGHT = { min: 1, max: 50 };
 export const ZOOM = { min: 1, max: 20000 };
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
-export const SNAP_MODES = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest'];
+export const SNAP_MODES = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest', 'perpendicular', 'parallel', 'extension', 'angle', 'special'];
 /** Widths (px) the cursor's cross-hair can be drawn with. */
 export const CROSSHAIR_WIDTHS = [1, 1.5, 2, 3];
 export const GRID_SIZES = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
@@ -51,6 +51,7 @@ export function defaultSettings(language = 'ko') {
     showProblems: true,
     showConsole: false,
     macros: [],
+    consoleLanguage: 'js',
     scaleBar: { x: 36, y: 14, width: 120 },
     extrudeHeight: 10,
     // Size of the numbers on the 3D axes (% of the normal size).
@@ -69,9 +70,13 @@ export function defaultSettings(language = 'ko') {
     units: 'mm',
     gridSize: 10,
     snapGrid: false,
+    // Draft_Snap_WorkingPlane (grid on the working plane) and Draft_Snap_Dimensions (live sizes at the cursor).
+    snapWorkingPlane: true,
+    snapDimensions: false,
     snapObject: true,
     ortho: false,
-    snapModes: Object.fromEntries(SNAP_MODES.map((mode) => [mode, mode !== 'nearest'])),
+    // The Draft snaps that follow lines away from objects start off (as FreeCAD's snap toolbar).
+    snapModes: Object.fromEntries(SNAP_MODES.map((mode) => [mode, !['nearest', 'perpendicular', 'parallel', 'extension', 'angle', 'special'].includes(mode)])),
     showLineWeights: true,
     crosshair: true,
     // Cross-hair of the 2D cursor: colour and line width (px).
@@ -93,8 +98,9 @@ export function normalizeSettings(raw = {}, language) {
   const base = defaultSettings(raw?.language === 'en' || raw?.language === 'ko' ? raw.language : language);
   const s = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) };
   s.language = s.language === 'en' ? 'en' : 'ko';
-  // Saved macros (script console): [{ name, code }].
-  s.macros = Array.isArray(s.macros) ? s.macros.filter((m) => m && typeof m.name === 'string' && typeof m.code === 'string').slice(0, 200).map((m) => ({ name: m.name.slice(0, 80), code: m.code.slice(0, 200000) })) : [];
+  // Saved macros (script console): [{ name, code, language: 'js' | 'python', source? (where an addon came from) }].
+  s.macros = Array.isArray(s.macros) ? s.macros.filter((m) => m && typeof m.name === 'string' && typeof m.code === 'string').slice(0, 200).map((m) => ({ name: m.name.slice(0, 80), code: m.code.slice(0, 200000), language: m.language === 'python' ? 'python' : 'js', ...(typeof m.source === 'string' ? { source: m.source.slice(0, 500) } : {}) })) : [];
+  s.consoleLanguage = s.consoleLanguage === 'python' ? 'python' : 'js';
   s.theme = THEME_IDS.includes(s.theme) ? s.theme : base.theme;
   s.customTheme = normalizeCustom(s.customTheme);
   s.fontFamily = typeof s.fontFamily === 'string' ? s.fontFamily : '';
@@ -129,6 +135,8 @@ export function normalizeSettings(raw = {}, language) {
       intensity: n(l.intensity, 1, 0, 5), color: /^#[0-9a-f]{6}$/i.test(l.color ?? '') ? l.color.toLowerCase() : '#ffffff', shadows: l.shadows !== false,
     };
   }
+  // BIM_Library: pieces saved from drawings [{ name, entities }].
+  s.bimLibrary = Array.isArray(s.bimLibrary) ? s.bimLibrary.filter((item) => item && typeof item.name === 'string' && Array.isArray(item.entities)).slice(-50).map((item) => ({ name: item.name.slice(0, 60), entities: item.entities.slice(0, 500) })) : [];
   s.collapsedSections = Array.isArray(s.collapsedSections) ? [...new Set(s.collapsedSections.filter((id) => typeof id === 'string' && /^[a-zA-Z]{1,20}$/.test(id)))] : [];
   for (const key of ['showLeftPanel', 'showRightPanel', 'showStatusBar', 'confirmDelete', 'restoreSession', 'showStartPage', 'statusClock', 'showGrid', 'showRulers', 'showScaleBar', 'showProblems', 'showConsole', 'snapGrid', 'snapObject', 'ortho', 'showLineWeights', 'crosshair', 'extrude2d']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];

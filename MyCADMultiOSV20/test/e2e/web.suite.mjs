@@ -34,15 +34,15 @@ const fresh = async (app) => {
 const at = (app, x, y) => m(app, `(() => { const r = document.querySelector('#cad-canvas').getBoundingClientRect(); const s = k.actions.activeDoc().vp.toScreen({ x: ${x}, y: ${y} }); return { x: r.left + s.x, y: r.top + s.y }; })()`);
 
 export const cases = [
-  { group: '페이지', name: '제목에 프로그램 이름과 버전, 아이콘', async run(app) {
+  { group: 'Page', name: 'Title with program name and version, icon', async run(app) {
     assert.match(await app.main.eval('document.title'), new RegExp(`^MyCAD V${VERSION.split('.').slice(0, 2).join('\\.')}`));
     assert.equal(await app.main.eval(`document.querySelector('link[rel="icon"]').getAttribute('href')`), './icon.png');
   } },
-  { group: '툴바', name: '모든 버튼에 툴팁, 투명도 설정 없음', async run(app) {
+  { group: 'Toolbar', name: 'Every button has a tooltip; no transparency setting', async run(app) {
     assert.equal(await app.main.eval(`[...document.querySelectorAll('button')].filter((b) => !(b.title || '').trim()).length`), 0);
     assert.equal(await app.main.eval(`Boolean(document.querySelector('#transparency-range, .opacity-control'))`), false);
   } },
-  { group: '메뉴', name: '메뉴: 한 줄, 아이콘+이름, 머리글 없이 항목만 (프레임)', async run(app) {
+  { group: 'Menus', name: 'Menus: one row per item, icon + name, items only without a header (frame)', async run(app) {
     await app.main.click('[data-menu="draw"]');
     await app.waitFrame('menu', `document.querySelectorAll('.menu-item').length > 5`);
     const info = await app.frame('menu', `({ lefts: new Set([...document.querySelectorAll('.menu-item')].map((i) => Math.round(i.getBoundingClientRect().left))).size, icons: [...document.querySelectorAll('.menu-item')].every((i) => i.querySelector('.menu-icon svg')), head: document.querySelector('.popup-menu').dataset.title, noHeader: !document.querySelector('.menu-head') })`);
@@ -53,7 +53,7 @@ export const cases = [
     await app.main.eval(`document.querySelector('.web-popup-shield').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
     await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
   } },
-  { group: '그리기', name: '마우스로 선과 원 그리기, 실행 취소', async run(app) {
+  { group: 'Drawing', name: 'Drawing a line and a circle with the mouse, undo', async run(app) {
     await fresh(app);
     await app.main.click('[data-tool="line"]');
     for (const [x, y] of [[0, 0], [60, 0]]) { const p = await at(app, x, y); await app.main.realClick(p.x, p.y); }
@@ -65,7 +65,7 @@ export const cases = [
     await app.main.click('#toolbar [data-command="undo"]');
     assert.equal(await m(app, 'k.actions.activeDrawing().entities.length'), 1);
   } },
-  { group: '파일', name: '끌어다 놓기: .mcad 열기, .dxf 가져오기, 이미지 배경, 글 → 문자', async run(app) {
+  { group: 'Files', name: 'Drag and drop: .mcad opens, .dxf imports, image → background, text → text entity', async run(app) {
     await fresh(app);
     const tabs = await m(app, 'k.state.docs.length');
     await drop(app, [{ name: 'web.mcad', text: JSON.stringify({ format: 'mycad', version: 1, drawing: { title: '웹 도면', entities: [{ type: 'circle', cx: 0, cy: 0, r: 4 }] } }) }]);
@@ -79,7 +79,7 @@ export const cases = [
     assert.equal(await m(app, 'k.actions.activeDrawing().entities.at(-1).text'), '웹에서 끌어온 글');
     await m(app, 'k.actions.removeBackground().then(() => 1)');
   } },
-  { group: '편집', name: '클립보드 복사/붙여넣기 (Ctrl+C / Ctrl+V)', async run(app) {
+  { group: 'Editing', name: 'Clipboard copy/paste (Ctrl+C / Ctrl+V)', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 5 })), k.actions.select([k.actions.activeDrawing().entities[0].id]), 1)`);
     await app.main.click('#cad-canvas');
@@ -90,7 +90,7 @@ export const cases = [
     await sleep(300);
     assert.equal(await m(app, 'k.actions.activeDrawing().entities.length'), 2);
   } },
-  { group: '팝업', name: '설정 · 정보 · 부품 · 배열 · STL · 인쇄 프레임: 스크롤 없음, 한 줄 정렬', async run(app) {
+  { group: 'Popups', name: 'Settings, About, Parts, Array, STL and Print frames: no scrolling, rows aligned', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.part', (d) => k.drawingModule.addEntity(d, 'part', { kind: 'flange', x: 0, y: 0 })), k.actions.select([k.actions.activeDrawing().entities[0].id]), 1)`);
     const check = async (kind, opener) => {
@@ -114,7 +114,7 @@ export const cases = [
     await check('solid', `window.__mycad.actions.openSolidDialog({ kind: 'cone' })`);
     await check('coverage', `window.__mycad.run('freecadCoverage')`);
   } },
-  { group: '3D 솔리드', name: '솔리드 넣기 · 불리언 · 3D 보기 (WebGL) · FreeCAD .FCStd/.step 끌어다 놓기', async run(app) {
+  { group: '3D solids', name: 'Inserting solids, booleans, 3D view (WebGL), dropping FreeCAD .FCStd/.step', async run(app) {
     await fresh(app);
     await m(app, `(() => { const a = k.actions; const b = a.insertSolid('box', { length: 20, width: 20, height: 20 }, {}); const c = a.insertSolid('sphere', { radius: 12 }, { x: 20, y: 20, z: 20 }); a.select([b.id, c.id]); a.booleanSelection('common'); return 1; })()`);
     const solid = await m(app, `k.actions.activeDrawing().entities[0]`);
@@ -131,7 +131,7 @@ export const cases = [
     assert.ok(kinds.includes('boolean') && kinds.includes('revolution'), JSON.stringify(kinds));
     assert.ok(await m(app, `k.state.docs.at(-1).drawing.entities.some((e) => e.type === 'solid')`), 'the STEP pulley');
   } },
-  { group: '인쇄', name: '인쇄 미리보기 프레임: 축척 바꾸면 쪽수, 바로 인쇄', async run(app) {
+  { group: 'Printing', name: 'Print preview frame: the page count follows the scale; direct print', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 600, height: 300 })), 1)`);
     await app.main.eval(`(window.__mycad.run('print'), 1)`);
@@ -144,7 +144,7 @@ export const cases = [
     await app.frame('print', `(() => { const s = document.querySelector('[data-print="scale"]'); s.value = 'fit'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     await closeFrames(app);
   } },
-  { group: '3D', name: '3D 보기 (WebGL): 솔리드와 좌표축 눈금, 조명 끄기/켜기', async run(app) {
+  { group: '3D', name: '3D view (WebGL): solids and axis ticks, light off/on', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.rect', (d) => k.drawingModule.addEntity(d, 'rect', { x: 0, y: 0, width: 40, height: 20 })), 1)`);
     await app.main.click('#toolbar [data-command="view3d"]');
@@ -157,13 +157,13 @@ export const cases = [
     await app.main.click('[data-view3d="light"]');
     await app.main.click('[data-view3d="close"]');
   } },
-  { group: '언어', name: '언어 전환: 한국어 ↔ English', async run(app) {
+  { group: 'Language', name: 'Language switch: Korean ↔ English', async run(app) {
     await app.main.click('#toolbar [data-command="language"]');
     assert.equal(await app.main.eval(`document.querySelector('[data-menu="draw"]').textContent.trim()`), 'Draw');
     await app.main.click('#toolbar [data-command="language"]');
     assert.equal(await app.main.eval(`document.querySelector('[data-menu="draw"]').textContent.trim()`), '그리기');
   } },
-  { group: '페이지', name: '저장 안 한 도면이 있으면 떠나기 전에 물어봄', async run(app) {
+  { group: 'Page', name: 'Asks before leaving when a drawing is unsaved', async run(app) {
     await fresh(app);
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 5 })), 1)`);
     app.dialogs.length = 0;

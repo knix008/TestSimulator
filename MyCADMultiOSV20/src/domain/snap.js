@@ -7,9 +7,33 @@ import {
   angleOnArc, closestOnArc, closestOnCircle, closestOnSegment, dist, intersectCircles, intersectLines, intersectSegmentCircle, mid, polar, rad, sweep,
 } from './geometry.js';
 
-export const SNAP_KINDS = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest'];
+export const SNAP_KINDS = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest', 'perpendicular', 'parallel', 'extension', 'angle', 'special'];
 /** Lower = preferred when two snaps are about as close. */
-const PRIORITY = { endpoint: 0, intersection: 1, center: 2, midpoint: 3, quadrant: 4, nearest: 6, grid: 7 };
+const PRIORITY = { endpoint: 0, intersection: 1, special: 1.5, center: 2, perpendicular: 2.5, midpoint: 3, angle: 3.5, quadrant: 4, extension: 5, parallel: 5, nearest: 6, grid: 7 };
+/** Entities whose insertion point is their "special" point (Draft_Snap_Special). */
+const SPECIAL = ['text', 'dim', 'part', 'leader', 'point', 'hatch'];
+
+/**
+ * Draft_Snap_Extension / Draft_Snap_Parallel: the lines the pointer passed
+ * over lately (FreeCAD remembers them so a point can be put on their extension
+ * or parallel to them away from them).
+ */
+const recentLines = [];
+function remember(a, b) {
+  const same = (l) => dist(l[0], a) < 1e-9 && dist(l[1], b) < 1e-9;
+  if (recentLines.some(same)) return;
+  recentLines.unshift([a, b]);
+  recentLines.length = Math.min(recentLines.length, 4);
+}
+export const forgetSnapLines = () => { recentLines.length = 0; };
+
+/** The foot of the perpendicular from p onto the infinite line ab, with its parameter (0 at a, 1 at b). */
+function foot(p, a, b) {
+  const dx = b.x - a.x; const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy || 1e-24;
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2;
+  return { x: a.x + dx * t, y: a.y + dy * t, t };
+}
 
 const segmentsOf = (prim) => {
   if (prim.kind === 'line') return [[prim.a, prim.b]];
@@ -82,7 +106,7 @@ function intersections(p1, p2) {
  * The best snap near `p` within `tolerance` (drawing units), or null.
  * `modes` = { endpoint, midpoint, center, quadrant, intersection, nearest } booleans.
  */
-export function findSnap(entities, p, tolerance, modes, { exclude = new Set() } = {}) {
+export function findSnap(entities, p, tolerance, modes, { exclude = new Set(), base = null } = {}) {
   const near = [];
   for (const entity of entities) {
     if (exclude.has(entity.id) || entity.type === 'dim') continue;
@@ -97,11 +121,65 @@ export function findSnap(entities, p, tolerance, modes, { exclude = new Set() } 
     }
     if ((entity.type === 'polygon') && modes.center) near.push({ entity, extra: [{ kind: 'center', x: entity.cx, y: entity.cy }] });
     if (entity.type === 'part' && modes.center) near.push({ entity, extra: [{ kind: 'center', x: entity.x, y: entity.y }] });
+    if (modes.special && SPECIAL.includes(entity.type)) {
+      const at = entity.type === 'leader' ? entity.points?.[0] : entity.type === 'hatch' ? null : entity.type === 'dim' ? { x: entity.ox ?? entity.cx, y: entity.oy ?? entity.cy } : { x: entity.x, y: entity.y };
+      if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) near.push({ entity, extra: [{ kind: 'special', x: at.x, y: at.y }] });
+    }
   }
   const candidates = [];
   for (const item of near) {
     if (item.extra) { candidates.push(...item.extra); continue; }
     for (const prim of item.prims) candidates.push(...primitivePoints(prim, modes));
+  }
+  // Lines under the pointer are remembered for the extension and parallel snaps.
+  for (const item of near) {
+    for (const prim of item.prims ?? []) {
+      for (const [a, b] of segmentsOf(prim)) if (dist(closestOnSegment(p, a, b).point, p) <= tolerance) remember(a, b);
+    }
+  }
+  if (modes.angle) {
+    // Draft_Snap_Angle: points of circles and arcs at every 15°.
+    for (const item of near) {
+      for (const prim of item.prims ?? []) {
+        if (prim.kind !== 'circle' && prim.kind !== 'arc') continue;
+        for (let a = 0; a < 360; a += 15) if (prim.kind === 'circle' || angleOnArc(a, prim.start, prim.end)) candidates.push({ kind: 'angle', ...polar(prim.c, prim.r, a) });
+      }
+    }
+  }
+  if (modes.perpendicular && base) {
+    // Draft_Snap_Perpendicular: where a line from the last point meets an edge square.
+    for (const item of near) {
+      for (const prim of item.prims ?? []) {
+        if (prim.kind === 'circle' || prim.kind === 'arc') {
+          const d = dist(base, prim.c);
+          if (d > 1e-9) {
+            for (const sign of [1, -1]) {
+              const q = { x: prim.c.x + (sign * prim.r * (base.x - prim.c.x)) / d, y: prim.c.y + (sign * prim.r * (base.y - prim.c.y)) / d };
+              if (prim.kind === 'circle' || angleOnArc(Math.atan2(q.y - prim.c.y, q.x - prim.c.x) * (180 / Math.PI), prim.start, prim.end)) candidates.push({ kind: 'perpendicular', x: q.x, y: q.y });
+            }
+          }
+          continue;
+        }
+        for (const [a, b] of segmentsOf(prim)) {
+          const f = foot(base, a, b);
+          if (f.t >= -1e-9 && f.t <= 1 + 1e-9) candidates.push({ kind: 'perpendicular', x: f.x, y: f.y });
+        }
+      }
+    }
+  }
+  if (modes.extension) {
+    // Draft_Snap_Extension: on a remembered line, beyond its ends.
+    for (const [a, b] of recentLines) {
+      const f = foot(p, a, b);
+      if (f.t < -1e-6 || f.t > 1 + 1e-6) candidates.push({ kind: 'extension', x: f.x, y: f.y });
+    }
+  }
+  if (modes.parallel && base) {
+    // Draft_Snap_Parallel: from the last point, along a remembered line's direction.
+    for (const [a, b] of recentLines) {
+      const f = foot(p, base, { x: base.x + b.x - a.x, y: base.y + b.y - a.y });
+      if (dist(f, base) > 1e-9) candidates.push({ kind: 'parallel', x: f.x, y: f.y });
+    }
   }
   if (modes.intersection) {
     const prims = near.filter((item) => item.prims).flatMap((item) => item.prims.filter((prim) => prim.kind !== 'text').map((prim) => ({ prim, id: item.entity.id })));

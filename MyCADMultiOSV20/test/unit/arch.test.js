@@ -281,7 +281,10 @@ END-ISO-10303-21;`;
   const tris = solidMesh(normalizeEntity(entities[0]));
   near(Math.abs(meshVolume(tris)), 4000 * 200 * 3000, 1, 'metres → mm');
   near(Math.min(...tris.flat().map((p) => p[0])), 8000, 1e-6, 'placement chain');
-  assert.match(entities[0].name, /^W1 \(IFCWALLSTANDARDCASE\)$/);
+  // An extruded wall comes in as a wall (its parameters), named as in the file.
+  assert.equal(entities[0].kind, 'wall');
+  assert.equal(entities[0].name, 'W1');
+  near(entities[0].params.width, 200, 1e-6, 'width');
 });
 
 // ───────────────────────── levels, materials, layered walls, rebar, truss, panel, pipe, any-outline roofs, sketch windows

@@ -283,6 +283,7 @@ input.num { text-align: right; font-variant-numeric: tabular-nums; }
 .view3d-canvas { position: absolute; inset: 0; display: block; cursor: grab; outline: none; }
 .view3d-canvas.over-sun, .view3d-canvas.light-mode { cursor: pointer; }
 .view3d-canvas.moving-light { cursor: grabbing; }
+.view3d-canvas.edge-pick { cursor: crosshair; }
 .view3d-bar {
   position: absolute; left: 8px; right: 8px; top: 8px; display: flex; align-items: center; gap: 4px; padding: 4px 6px; flex-wrap: nowrap; overflow: hidden;
   border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 90%, transparent); box-shadow: 0 2px 10px var(--shadow); font-size: 0.86em; white-space: nowrap;
@@ -415,6 +416,7 @@ html.is-popup, html.is-popup body { background: var(--surface); overflow: hidden
 .theme-head .segment { display: inline-flex; align-items: center; gap: 5px; }
 .theme-head .segment .icon { width: 14px; height: 14px; }
 .settings-page { --control-width: 380px; }
+.snap-list .row { min-height: 30px; padding: 0; }
 .settings-appearance .theme-row { height: 34px; }
 .theme-row.compact { height: 30px; border: 1px solid var(--border); flex: none; }
 .custom-actions { gap: 8px; }
@@ -641,7 +643,33 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .constraint-row > .icon { width: 15px; height: 15px; color: #9b51e0; }
 .constraint-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9em; }
 .constraint-row input { width: 76px; }
+/* Sketcher: a picked constraint, an inactive one (greyed) and a reference dimension (blue). */
+.constraint-name[data-constraint-pick] { cursor: pointer; }
+.constraint-row.picked { background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 4px; }
+.constraint-row.inactive { opacity: 0.5; }
+.constraint-row.reference > .icon, .constraint-row.reference input { color: #3b82f6; }
 .joint-row { display: flex; }
+.joint-motion { display: flex; flex-direction: column; gap: 3px; margin: 0 0 6px 20px; font-size: 0.86em; color: var(--muted); }
+.joint-motion-line { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.joint-motion-label { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 48px; white-space: nowrap; }
+.joint-motion-label .icon { width: 12px; height: 12px; }
+.props .joint-motion input.num { flex: 1 1 0; width: auto; min-width: 0; height: 24px; }
+.joint-motion select { flex: 2 1 0; min-width: 0; height: 24px; }
+.joint-motion small, .joint-motion-line > span:not(.joint-motion-label) { flex: none; }
+.anim-bar {
+  position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 4px 8px; max-width: calc(100% - 16px); box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 2px 10px var(--shadow); font-size: 0.86em; white-space: nowrap;
+}
+.anim-bar .tool-button { width: 30px; height: 30px; flex: none; }
+.anim-bar input[type="range"] { width: 220px; min-width: 60px; flex: 1 1 220px; accent-color: var(--accent); }
+.anim-clock { min-width: 92px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.anim-mode { flex: none; }
+.anim-mode .segment { padding: 0 8px; }
+.anim-duration { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.anim-duration .icon { width: 15px; height: 15px; color: var(--muted); }
+.anim-duration input { width: 48px; }
+.anim-warn { display: inline-flex; color: #e5484d; }
+.anim-warn[hidden] { display: none; }
 .joint-row .constraint-name { flex: 1 1 0; min-width: 0; }
 .joint-row small { flex: none; color: var(--muted); }
 .props .joint-row input.num[data-joint-value] { width: 64px; flex: none; }
@@ -686,6 +714,23 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .sheet-cell.num { justify-content: flex-end; font-variant-numeric: tabular-nums; }
 .sheet-cell.err { color: var(--danger, #d64545); }
 .sheet-cell.active { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
+/* Spreadsheet styles: bold, italic, underline, alignment; a picked block; merged cells. */
+.sheet-cell > span { overflow: hidden; text-overflow: ellipsis; }
+.sheet-cell.sb { font-weight: 700; }
+.sheet-cell.si { font-style: italic; }
+.sheet-cell.su > span { text-decoration: underline; }
+.sheet-cell.ah-left { justify-content: flex-start; }
+.sheet-cell.ah-center { justify-content: center; }
+.sheet-cell.ah-right { justify-content: flex-end; }
+.sheet-cell.av-top { align-items: flex-start; padding-top: 3px; }
+.sheet-cell.av-middle { align-items: center; }
+.sheet-cell.av-bottom { align-items: flex-end; padding-bottom: 3px; }
+.sheet-cell.in-range { background: color-mix(in srgb, var(--accent) 16%, var(--canvas, var(--bg))); }
+.sheet-cell.merged { background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%); }
+.sheet-tools { display: flex; align-items: center; gap: 2px; min-height: 32px; }
+.sheet-tools .icon-button.on { background: var(--hover); color: var(--accent); }
+.sheet-tools-gap { width: 10px; }
+.sheet-range { font-family: ui-monospace, Consolas, monospace; margin-right: 8px; }
 .sheet-alias-dot { position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: #9b51e0; }
 .bind-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: 0.88em; padding: 2px 0; }
 .bind-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9b51e0; }
@@ -694,6 +739,29 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .cam-fields .segmented .segment { padding: 0 8px; }
 .cam-preview { display: flex; align-items: center; justify-content: center; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--canvas, var(--bg)); overflow: hidden; }
 .cam-preview svg { max-width: 100%; max-height: 100%; }
+.fem3d-faces .segment { padding: 0 6px; }
+.fem3d-load-head, .fem3d-load-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fem3d-counts { margin: 8px 0 0; font-size: 0.86em; }
+.addons-view { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0; }
+.addons-view section { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.addons-view h3 { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 0.95em; }
+.addons-view h3 .icon { width: 15px; height: 15px; color: var(--accent); }
+.addon-list { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.addon-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; min-width: 0; }
+.addon-text { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.addon-text small { flex-basis: 100%; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.addon-lang { font-size: 0.75em; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, #f5a524 22%, transparent); }
+.addon-lang.python { background: color-mix(in srgb, #3b82f6 22%, transparent); }
+.addon-url { display: flex; gap: 6px; }
+.addon-url input { flex: 1 1 auto; min-width: 0; }
+.addon-file { align-self: flex-start; cursor: pointer; }
+.cam-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.cam-side .cam-preview { flex: 1; min-height: 0; }
+.cam-tabs { align-self: flex-start; }
+.cam-sim-view canvas { max-width: 100%; max-height: 100%; }
+.cam-sim-bar { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cam-sim-bar input[type="range"] { flex: 1 1 auto; min-width: 60px; accent-color: var(--accent); }
+.cam-sim-bar #cam-sim-check { display: inline-flex; gap: 6px; }
 .clone-note { display: flex; gap: 8px; align-items: flex-start; margin: 2px 0 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: 8px; color: var(--muted); font-size: 0.9em; line-height: 1.45; }
 .clone-note .icon { width: 16px; height: 16px; flex: none; color: var(--accent); margin-top: 1px; }
 .check-view { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 14px; height: 100%; }
@@ -974,3 +1042,78 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .view3d-bar .view3d-handle .segment { display: inline-flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
 .view3d-bar .view3d-handle .segment.active { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .view3d-bar .view3d-handle .icon { width: 16px; height: 16px; }
+
+/* ── Std commands: box zoom, drawing only, help mode */
+.view3d-zoom-box { position: absolute; z-index: 30; pointer-events: none; border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* Mesh_PolyCut and friends: the polygon being drawn on the 3D view. */
+.view3d-lasso { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; }
+.view3d-lasso polyline { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; }
+.focus-view #menubar, .focus-view #toolbar, .focus-view #left-panel, .focus-view #right-panel, .focus-view #tabs, .focus-view #statusbar, .focus-view #command-bar, .focus-view .problems-panel { display: none !important; }
+.whats-this, .whats-this * { cursor: help !important; }
+
+/* ── the form popup (dialogs of small commands) */
+.form { display: flex; flex-direction: column; gap: 2px; }
+.form-intro { margin: 0 0 8px; color: var(--muted); line-height: 1.45; }
+.form-block { display: flex; flex-direction: column; gap: 6px; padding: 6px 0; }
+.form-text { width: 100%; box-sizing: border-box; resize: none; font-family: var(--mono, ui-monospace, Consolas, monospace); font-size: 12px; line-height: 1.5; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--input, var(--surface)); color: var(--text); }
+.form-range { flex: 1; min-width: 0; }
+.form-out { min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.form-unit { color: var(--muted); flex: none; }
+.form-color { width: 48px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+.form-info { font-variant-numeric: tabular-nums; }
+.form-list { display: flex; flex-direction: column; gap: 4px; max-height: 272px; overflow: hidden; }
+.form-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.form-list-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.button.small { height: 24px; padding: 0 10px; font-size: 12px; }
+
+/* ── model tree (FreeCAD tree view) */
+.model-tree { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.tree-tools { display: flex; align-items: center; gap: 2px; }
+.tree-tools .icon-button { width: 24px; height: 24px; }
+.tree-list, .tree-list ul { list-style: none; margin: 0; padding: 0; }
+.tree-list ul { padding-left: 14px; }
+.tree-row { display: flex; align-items: center; gap: 4px; min-height: 24px; padding: 0 4px; border-radius: 5px; cursor: default; white-space: nowrap; }
+.tree-row:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.tree-row.selected { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.tree-row.hidden-item .tree-label { opacity: 0.45; }
+.tree-row .icon { width: 15px; height: 15px; flex: none; }
+.tree-row .icon-button { width: 20px; height: 20px; flex: none; }
+.tree-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.tree-row small { color: var(--muted); flex: none; }
+.tree-doc { font-weight: 600; }
+.tree-doc.active .tree-label { color: var(--accent); }
+.tree-flags { display: inline-flex; gap: 2px; color: var(--muted); }
+.tree-flags .icon { width: 12px; height: 12px; }
+.tree-note { font-style: italic; }
+
+/* ── Std_DockOverlay*: panels float over the drawing */
+.overlay-left #workspace { grid-template-columns: 0 minmax(0, 1fr) 300px; }
+.overlay-right #workspace { grid-template-columns: 248px minmax(0, 1fr) 0; }
+.overlay-left.overlay-right #workspace { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.overlay-left #left-panel { position: absolute; z-index: 25; left: 8px; top: 96px; bottom: 40px; width: 248px; border-radius: 10px; box-shadow: 0 8px 28px rgb(0 0 0 / 25%); }
+.overlay-right #right-panel { position: absolute; z-index: 25; right: 8px; top: 96px; bottom: 40px; width: 300px; border-radius: 10px; box-shadow: 0 8px 28px rgb(0 0 0 / 25%); }
+.overlay-top #toolbar { position: absolute; z-index: 26; left: 0; right: 0; top: 34px; }
+.overlay-bottom #statusbar { position: absolute; z-index: 26; left: 0; right: 0; bottom: 0; }
+.overlay-transparent.overlay-left #left-panel, .overlay-transparent.overlay-right #right-panel, .overlay-transparent.overlay-top #toolbar, .overlay-transparent.overlay-bottom #statusbar { background: color-mix(in srgb, var(--surface) 62%, transparent); backdrop-filter: blur(3px); }
+.overlay-mouse-through.overlay-left #left-panel, .overlay-mouse-through.overlay-right #right-panel { pointer-events: none; }
+
+/* ── Std_TileWindows: the drawing and its 3D view side by side */
+.tiled #cad-canvas, .tiled #cad-canvas[hidden] { display: block; right: auto; }
+.tiled #view3d, .tiled #view3d[hidden] { display: block; left: calc(50% + 2px); }
+
+/* ── Std_ToggleToolBarLock: unlocked toolbars can be dragged into another order */
+.toolbar-left.unlocked .tool-group[data-toolbar-id] { outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 6px; cursor: grab; }
+
+/* ── the 3D view in its own window (Std_ViewCreate / Std_ViewUndock) */
+.popup-viewer .popup-body { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.viewer-bar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.viewer-host { position: relative; flex: 1; min-height: 0; border-radius: 8px; overflow: hidden; }
+.viewer-host canvas { position: absolute; inset: 0; }
+
+/* ── macro debugger (in the script console) */
+.debug-panel { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.debug-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.debug-head .icon-button { width: 24px; height: 24px; }
+.debug-where { font-variant-numeric: tabular-nums; }
+.debug-line { display: block; padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, #f5a524 22%, transparent); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.debug-locals { display: flex; flex-wrap: wrap; gap: 4px 14px; font-family: var(--mono, ui-monospace, Consolas, monospace); font-size: 12px; max-height: 64px; overflow: hidden; }

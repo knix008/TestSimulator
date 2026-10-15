@@ -30,10 +30,16 @@ export const POPUPS = {
   tutorial: { width: 400, height: 380 },
   bim: { width: 780, height: 560 },
   check: { width: 860, height: 560 },
-  cam: { width: 1000, height: 600 },
+  cam: { width: 1000, height: 680 },
   fem: { width: 1180, height: 680 },
   plate: { width: 1180, height: 680 },
+  fem3d: { width: 1180, height: 680 },
+  addons: { width: 1000, height: 640 },
   spreadsheet: { width: 1000, height: 640 },
+  // The dialogs of small commands: the width is chosen when opened, the height follows the fields.
+  form: { width: 560, height: 360 },
+  // Std_ViewCreate / Std_ViewUndock: the 3D view of a drawing in its own window.
+  viewer: { width: 960, height: 680 },
 };
 
 export const popupKey = (kind) => `mycad.popup.${kind}`;
@@ -91,8 +97,8 @@ export class PopupHost {
    * nothing to centre it over the main window. Resolves with the popup's result
    * (null when it closes without one).
    */
-  open(kind, params = {}, { anchor = null } = {}) {
-    const size = POPUPS[kind];
+  open(kind, params = {}, { anchor = null, size: wanted = null } = {}) {
+    const size = wanted ?? POPUPS[kind];
     try {
       globalThis.localStorage?.setItem(popupKey(kind), JSON.stringify({ ...params, anchor, at: Date.now() }));
     } catch { /* the popup falls back to its defaults */ }
@@ -104,7 +110,7 @@ export class PopupHost {
       invoke('open_popup', { kind, x: Math.round(x), y: Math.round(y), width: size.width, height: size.height, show: true })
         .catch((error) => { this.settle(kind, null); this.actions.get('error')?.(error); });
     } else {
-      this.openFrame(kind, anchor);
+      this.openFrame(kind, anchor, size);
     }
     return result;
   }
@@ -137,8 +143,7 @@ export class PopupHost {
 
   // ───────────────────────── web frames
 
-  openFrame(kind, anchor) {
-    const size = POPUPS[kind];
+  openFrame(kind, anchor, size = POPUPS[kind]) {
     let frame = this.frames.get(kind);
     if (!frame) {
       frame = document.createElement('div');

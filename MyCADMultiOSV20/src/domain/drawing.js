@@ -1,14 +1,21 @@
 // A drawing (one tab, one .mcad file): layers, entities, grid and the
 // title-block information printed on the sheet.
+import { normalizeCamera, normalizeGroups, normalizeTextDocs, normalizeVarSets, normalizeViews } from './docextras.js';
+import { normalizeAnnotationStyles, normalizeWpProxies } from './draft.js';
+import { normalizeRobotData } from './robot.js';
+import { normalizeCamJob } from './camjob.js';
+import { normalizeAnalysis } from './femx.js';
 import { createEntity, entityBox, newId, normalizeEntity, transformEntity } from './entities.js';
 import { unionBox } from './geometry.js';
 import { composeClone, syncClones } from './clones.js';
+import { syncComponents } from './bimtools.js';
+import { normalizeSolidData } from './solids.js';
 import { normalizeWorkPlane } from './workplane.js';
 import { normalizeConstraints } from './constraints.js';
 import { normalizeFem } from './fem.js';
 import { normalizePlate } from './plate.js';
 import { normalizeSpreadsheet } from './spreadsheet.js';
-import { normalizeJoints } from './assembly.js';
+import { normalizeAnimation, normalizeJoints } from './assembly.js';
 import { normalizeBim } from './arch.js';
 
 export const LAYER_LINE_TYPES = ['continuous', 'dashed', 'center', 'hidden', 'phantom', 'dotted'];
@@ -96,6 +103,22 @@ export function normalizeDrawing(raw, language = 'ko') {
     ...(raw?.spreadsheet ? { spreadsheet: normalizeSpreadsheet(raw.spreadsheet) } : {}),
     // Assembly joints between solids.
     ...(normalizeJoints(raw?.joints).length ? { joints: normalizeJoints(raw.joints) } : {}),
+    ...(raw?.animation && normalizeJoints(raw?.joints).length ? { animation: normalizeAnimation(raw.animation) } : {}),
+    // Std: groups, saved views, variable sets, text documents.
+    ...(normalizeGroups(raw?.groups).length ? { groups: normalizeGroups(raw.groups) } : {}),
+    ...(normalizeViews(raw?.views).length ? { views: normalizeViews(raw.views) } : {}),
+    ...(normalizeCamera(raw?.workingView) ? { workingView: normalizeCamera(raw.workingView) } : {}),
+    ...(normalizeVarSets(raw?.varSets).length ? { varSets: normalizeVarSets(raw.varSets) } : {}),
+    ...(normalizeTextDocs(raw?.textDocs).length ? { textDocs: normalizeTextDocs(raw.textDocs) } : {}),
+    // Draft: annotation styles and working-plane proxies.
+    ...(normalizeAnnotationStyles(raw?.annotationStyles).length ? { annotationStyles: normalizeAnnotationStyles(raw.annotationStyles) } : {}),
+    ...(normalizeWpProxies(raw?.wpProxies).length ? { wpProxies: normalizeWpProxies(raw.wpProxies) } : {}),
+    // Robot: home poses, defaults, tool shapes, trajectories. Assembly: the exploded view.
+    ...(Object.keys(normalizeRobotData(raw?.robots)).length ? { robots: normalizeRobotData(raw.robots) } : {}),
+    ...(Number.isFinite(Number(raw?.exploded?.factor)) && Number(raw.exploded.factor) > 0 ? { exploded: { factor: Math.min(10, Number(raw.exploded.factor)) } } : {}),
+    // CAM: the job (tools, controllers, operations). FEM: the analysis.
+    ...(normalizeCamJob(raw?.camJob) ? { camJob: normalizeCamJob(raw.camJob) } : {}),
+    ...(normalizeAnalysis(raw?.femAnalysis) ? { femAnalysis: normalizeAnalysis(raw.femAnalysis) } : {}),
   };
 }
 
@@ -107,12 +130,30 @@ export const layerOf = (drawing, entity) => findLayer(drawing, entity.layer) ?? 
 /** The level (storey) an entity stands on, if any. */
 export const levelOf = (drawing, entity) => (entity.level ? drawing.bim?.levels?.find((level) => level.id === entity.level) ?? null : null);
 /** Shown in 3D: its layer and its level are visible. */
-export const isVisible3d = (drawing, entity) => layerOf(drawing, entity)?.visible !== false && levelOf(drawing, entity)?.visible !== false;
+export const isVisible3d = (drawing, entity) => !entity.hidden && layerOf(drawing, entity)?.visible !== false && levelOf(drawing, entity)?.visible !== false && groupVisible(drawing, entity);
+/** Std_Group: a hidden group hides what is in it (and in its sub-groups). */
+function groupVisible(drawing, entity) {
+  // PartDesign_MoveTip: in a body, what comes after its tip is not shown.
+  const body = entity.group ? drawing.groups?.find((g) => g.id === entity.group && g.body && g.tip) : null;
+  if (body && body.tip !== entity.id) {
+    const members = drawing.entities.filter((e) => e.group === body.id);
+    const tip = members.findIndex((e) => e.id === body.tip);
+    if (tip >= 0 && members.indexOf(entity) > tip) return false;
+  }
+  let id = entity.group;
+  for (let guard = 0; id && guard < 64; guard++) {
+    const group = drawing.groups?.find((g) => g.id === id);
+    if (!group) return true;
+    if (group.hidden) return false;
+    id = group.parent;
+  }
+  return true;
+}
 /** Shown in the 2D drawing: as in 3D, and on the level the plan shows (when one is chosen). */
 export const isVisible = (drawing, entity) => isVisible3d(drawing, entity) && (!drawing.bim?.planLevel || !entity.level || entity.level === drawing.bim.planLevel);
 /** Part of the result (exports, print, outlines for solids and CAM): visible and not construction geometry. */
 export const isOutput = (drawing, entity) => isVisible(drawing, entity) && !entity.construction;
-export const isLocked = (drawing, entity) => Boolean(layerOf(drawing, entity)?.locked);
+export const isLocked = (drawing, entity) => Boolean(layerOf(drawing, entity)?.locked) || Boolean(entity.unselectable);
 /** Entities the user can pick: on visible, unlocked layers. */
 export const editable = (drawing) => drawing.entities.filter((entity) => isVisible(drawing, entity) && !isLocked(drawing, entity));
 
@@ -208,7 +249,9 @@ export function transformEntities(drawing, ids, op, { copy = false } = {}) {
 
 /** Rebuilds the clones of a drawing from their sources (after any change). */
 export function syncDrawingClones(drawing) {
-  return syncClones(drawing, { transformEntity, normalizeEntity });
+  const count = syncClones(drawing, { transformEntity, normalizeEntity });
+  // Arch components follow their additions and subtractions the same way.
+  return count + syncComponents(drawing, normalizeSolidData);
 }
 
 /**

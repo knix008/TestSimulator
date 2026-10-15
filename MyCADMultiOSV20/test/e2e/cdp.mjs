@@ -3,6 +3,9 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export { sleep };
 
+/** Console warnings, console errors and uncaught exceptions of every page: a test run must have none. */
+export const consoleProblems = [];
+
 /** CDP session on one page target. */
 export class Page {
   constructor(target) {
@@ -27,7 +30,11 @@ export class Page {
         this.pending.get(data.id)(data);
         this.pending.delete(data.id);
       } else if (data.method === 'Runtime.exceptionThrown') {
-        this.errors.push(data.params.exceptionDetails.exception?.description ?? data.params.exceptionDetails.text);
+        const text = data.params.exceptionDetails.exception?.description ?? data.params.exceptionDetails.text;
+        this.errors.push(text);
+        consoleProblems.push(`exception: ${String(text).split('\n')[0]}`);
+      } else if (data.method === 'Runtime.consoleAPICalled' && (data.params.type === 'warning' || data.params.type === 'error')) {
+        consoleProblems.push(`console.${data.params.type === 'warning' ? 'warn' : 'error'}: ${data.params.args.map((arg) => arg.value ?? arg.description ?? '').join(' ').slice(0, 300)}`);
       } else if (data.method) {
         for (const listener of this.listeners.get(data.method) ?? []) listener(data.params);
       }

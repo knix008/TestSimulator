@@ -12,13 +12,107 @@ export const isCell = (name) => CELL.test(name) && Number(CELL.exec(name)[2]) <=
 export const columnName = (i) => String.fromCharCode(65 + i);
 const ALIAS = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** A spreadsheet read from a file: { cells: { A1: text }, aliases: { name: 'A1' } }. */
+export const H_ALIGN = ['left', 'center', 'right'];
+export const V_ALIGN = ['top', 'middle', 'bottom'];
+
+/** A cell's look: bold, italic, underline, horizontal and vertical alignment (only what is set). */
+function normalizeStyle(raw) {
+  const s = {};
+  if (raw?.b) s.b = true;
+  if (raw?.i) s.i = true;
+  if (raw?.u) s.u = true;
+  if (H_ALIGN.includes(raw?.h)) s.h = raw.h;
+  if (V_ALIGN.includes(raw?.v)) s.v = raw.v;
+  return s;
+}
+
+/** Column index and row number of a cell name. */
+export const cellPos = (cell) => { const m = CELL.exec(cell); return m ? { col: m[1].charCodeAt(0) - 65, row: Number(m[2]) } : null; };
+const nameAt = (col, row) => `${columnName(col)}${row}`;
+
+/** The cells of the rectangle between two cells (row by row). */
+export function rangeCells(a, b = a) {
+  const p = cellPos(a); const q = cellPos(b);
+  if (!p || !q) return [];
+  const out = [];
+  for (let row = Math.min(p.row, q.row); row <= Math.max(p.row, q.row); row++) for (let col = Math.min(p.col, q.col); col <= Math.max(p.col, q.col); col++) out.push(nameAt(col, row));
+  return out;
+}
+
+/** The merged block a cell is in, or null. */
+export const mergeOf = (sheet, cell) => (sheet.merged ?? []).find((m) => rangeCells(m.from, m.to).includes(cell)) ?? null;
+
+/**
+ * A spreadsheet read from a file: { cells: { A1: text }, aliases: { name: 'A1' },
+ * styles: { A1: { b, i, u, h, v } }, merged: [{ from, to }] }.
+ */
 export function normalizeSpreadsheet(raw) {
   const cells = {};
   for (const [k, v] of Object.entries(raw?.cells ?? {})) if (isCell(k) && typeof v === 'string' && v.trim() !== '') cells[k] = v.slice(0, 1000);
   const aliases = {};
   for (const [k, v] of Object.entries(raw?.aliases ?? {})) if (ALIAS.test(k) && !isCell(k.toUpperCase()) && isCell(v)) aliases[k] = v;
-  return { cells, aliases };
+  const styles = {};
+  for (const [k, v] of Object.entries(raw?.styles ?? {})) { const s = normalizeStyle(v); if (isCell(k) && Object.keys(s).length) styles[k] = s; }
+  // Merged blocks: top-left to bottom-right, more than one cell, not overlapping an earlier one.
+  const merged = [];
+  for (const m of Array.isArray(raw?.merged) ? raw.merged : []) {
+    const p = cellPos(m?.from); const q = cellPos(m?.to);
+    if (!p || !q) continue;
+    const block = { from: nameAt(Math.min(p.col, q.col), Math.min(p.row, q.row)), to: nameAt(Math.max(p.col, q.col), Math.max(p.row, q.row)) };
+    const list = rangeCells(block.from, block.to);
+    if (list.length < 2 || merged.some((x) => rangeCells(x.from, x.to).some((c) => list.includes(c)))) continue;
+    merged.push(block);
+  }
+  return { cells, aliases, ...(Object.keys(styles).length ? { styles } : {}), ...(merged.length ? { merged } : {}) };
+}
+
+/** Spreadsheet_StyleBold / …Italic / …Underline / Spreadsheet_Align*: a style set on cells (null clears that key). */
+export function styleCells(sheet, cells, patch) {
+  const styles = { ...(sheet.styles ?? {}) };
+  for (const cell of cells) {
+    const next = { ...(styles[cell] ?? {}) };
+    for (const [k, v] of Object.entries(patch)) { if (v === null || v === false) delete next[k]; else next[k] = v; }
+    if (Object.keys(next).length) styles[cell] = next; else delete styles[cell];
+  }
+  return { ...sheet, styles };
+}
+
+/** Spreadsheet_MergeCells: the rectangle becomes one block (blocks it touches are split first). */
+export function mergeCells(sheet, a, b) {
+  const list = rangeCells(a, b);
+  if (list.length < 2) return sheet;
+  const kept = (sheet.merged ?? []).filter((m) => !rangeCells(m.from, m.to).some((c) => list.includes(c)));
+  return { ...sheet, merged: [...kept, { from: list[0], to: list[list.length - 1] }] };
+}
+
+/** Spreadsheet_SplitCell: the block a cell is in, split back into cells. */
+export function splitCell(sheet, cell) {
+  const block = mergeOf(sheet, cell);
+  return block ? { ...sheet, merged: sheet.merged.filter((m) => m !== block) } : sheet;
+}
+
+/** Spreadsheet_Import: CSV (comma, semicolon or tab separated; quotes) into cells from A1. */
+export function parseCsv(text) {
+  const src = String(text ?? '').replace(/^﻿/, '');
+  const firstLine = src.split(/\r?\n/, 1)[0] ?? '';
+  const sep = [',', ';', '\t'].sort((x, y) => firstLine.split(y).length - firstLine.split(x).length)[0];
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"' && src[i + 1] === '"') { field += '"'; i++; } else if (ch === '"') quoted = false; else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === sep) { row.push(field); field = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && src[i + 1] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; }
+    else field += ch;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  const cells = {};
+  rows.slice(0, SHEET_ROWS).forEach((r, ri) => r.slice(0, SHEET_COLUMNS).forEach((v, ci) => { if (v.trim() !== '') cells[nameAt(ci, ri + 1)] = v.trim().slice(0, 1000); }));
+  return { cells, aliases: {} };
 }
 
 /**

@@ -6,7 +6,7 @@
 // project › site › building › storey tree; other solids become
 // IfcBuildingElementProxy. Geometry is written as tessellated bodies
 // (IfcTriangulatedFaceSet) in millimetres, with base quantities (Qto_*).
-import { archQuantities, axisLetter, axisLines, wallWidth, EQUIPMENT_TYPES, isArchKind, prism, ROOF_TYPES, wallParts } from './arch.js';
+import { archQuantities, axisLetter, axisLines, COLUMN_SHAPES, wallWidth, EQUIPMENT_TYPES, isArchKind, prism, ROOF_TYPES, WALL_ALIGN, wallParts } from './arch.js';
 import { polygonArea } from './geometry.js';
 import { triangulate } from './triangulate.js';
 import { placement, solidMesh, solidMeshGroups } from './solids.js';
@@ -72,7 +72,16 @@ function ifcClassOf(entity) {
       const type = EQUIPMENT_TYPES[p.equipment];
       const sanitary = { toilet: '.WCSEAT.', basin: '.WASHHANDBASIN.', bathtub: '.BATH.', sink: '.SINK.' }[type];
       if (sanitary) return ['IFCSANITARYTERMINAL', sanitary];
-      if (type === 'car' || type === 'fridge') return ['IFCBUILDINGELEMENTPROXY', '.ELEMENT.'];
+      if (type === 'shower') return ['IFCSANITARYTERMINAL', '.SHOWER.'];
+      if (type === 'urinal') return ['IFCSANITARYTERMINAL', '.URINAL.'];
+      if (type === 'boiler') return ['IFCBOILER', '.WATER.'];
+      if (type === 'airConditioner') return ['IFCUNITARYEQUIPMENT', '.SPLITSYSTEM.'];
+      if (type === 'radiator') return ['IFCSPACEHEATER', '.RADIATOR.'];
+      if (type === 'panelBoard') return ['IFCELECTRICDISTRIBUTIONBOARD', '.DISTRIBUTIONBOARD.'];
+      if (type === 'serverRack') return ['IFCCOMMUNICATIONSAPPLIANCE', '.COMPUTER.'];
+      if (type === 'washer' || type === 'dishwasher' || type === 'stove') return ['IFCELECTRICAPPLIANCE', type === 'washer' ? '.WASHINGMACHINE.' : type === 'dishwasher' ? '.DISHWASHER.' : '.ELECTRICCOOKER.'];
+      if (type === 'tree') return ['IFCGEOGRAPHICELEMENT', '.USERDEFINED.'];
+      if (['car', 'fridge', 'bicycle', 'truck', 'piano'].includes(type)) return ['IFCBUILDINGELEMENTPROXY', '.ELEMENT.'];
       return ['IFCFURNITURE', type === 'chair' ? '.CHAIR.' : type === 'table' || type === 'desk' ? '.TABLE.' : type === 'bed' ? '.BED.' : type === 'sofa' ? '.SOFA.' : '.NOTDEFINED.'];
     }
     case 'truss': return ['IFCMEMBER', '.MEMBER.'];
@@ -167,6 +176,76 @@ export function toIfc(drawing, { title = drawing?.title || 'MyCAD', author = dra
     const rep = add(`IFCSHAPEREPRESENTATION(${body},'Body','Tessellation',(${set}))`);
     return add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${rep}))`);
   };
+  /**
+   * A swept body (IfcExtrudedAreaSolid, as BIM programs write walls, slabs,
+   * columns and beams): a profile placed at `at` (storey-relative) with its own
+   * z axis `zDir` and x axis `xDir`, extruded `depth` along that z.
+   */
+  const sweptOf = (profileDef, at, zDir, xDir, depth) => {
+    const position = add(`IFCAXIS2PLACEMENT3D(${add(`IFCCARTESIANPOINT((${at.map(real).join(',')}))`)},${add(`IFCDIRECTION((${zDir.map(real).join(',')}))`)},${add(`IFCDIRECTION((${xDir.map(real).join(',')}))`)})`);
+    const solid = add(`IFCEXTRUDEDAREASOLID(${profileDef},${position},${zAxis},${real(depth)})`);
+    const rep = add(`IFCSHAPEREPRESENTATION(${body},'Body','SweptSolid',(${solid}))`);
+    return add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${rep}))`);
+  };
+  const point2 = (x, y) => add(`IFCCARTESIANPOINT((${real(x)},${real(y)}))`);
+  const at2 = (x, y) => add(`IFCAXIS2PLACEMENT2D(${point2(x, y)},$)`);
+  const polyline = (loop) => add(`IFCPOLYLINE((${[...loop, loop[0]].map((p) => point2(p.x, p.y)).join(',')}))`);
+  /** The profile of a column or beam section (rectangle, circle, I), or null (other sections are tessellated). */
+  const sectionProfile = (p) => {
+    const shape = COLUMN_SHAPES[p.profile] ?? 'rect';
+    if ((p.preset ?? 0) !== 0) return null;
+    if (shape === 'rect') return add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${at2(0, 0)},${real(p.width)},${real(p.depth ?? p.height)})`);
+    if (shape === 'round') return add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${at2(0, 0)},${real(p.width / 2)})`);
+    if (shape === 'hsection' && p.tw > 0 && p.tf > 0) return add(`IFCISHAPEPROFILEDEF(.AREA.,$,${at2(0, 0)},${real(p.width)},${real(p.depth ?? p.height)},${real(p.tw)},${real(p.tf)},$,$,$)`);
+    return null;
+  };
+  /** Swept bodies where the object is a plain extrusion; null → tessellate. */
+  const sweptBody = (entity, dz) => {
+    // Arch_ToggleIfcBrepFlag: written as a faceted body; a component with additions or subtractions has no plain profile.
+    if (entity.bim?.brep || entity.components) return null;
+    if ((entity.rx ?? 0) % 360 || (entity.ry ?? 0) % 360 || (entity.scale ?? 1) !== 1 || entity.flip) return null;
+    const p = entity.params;
+    const map = placement(entity);
+    const w = (q, z = 0) => map([q.x, q.y, z]);
+    if (entity.kind === 'wall') {
+      const path = entity.shape?.path ?? [];
+      if (path.length !== 2 || entity.shape.closed) return null;
+      const [a, b] = path.map((q) => w(q));
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 1e-6) return null;
+      const dir = [(b[0] - a[0]) / len, (b[1] - a[1]) / len, 0];
+      const width = wallWidth(entity);
+      // Centre line, left or right (the side the wall grows to from its line).
+      const offset = (WALL_ALIGN[p.align] ?? 'center') === 'left' ? width / 2 : (WALL_ALIGN[p.align] ?? 'center') === 'right' ? -width / 2 : 0;
+      return sweptOf(add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${at2(len / 2, offset)},${real(len)},${real(width)})`), [a[0], a[1], a[2] - dz], [0, 0, 1], dir, p.height);
+    }
+    if (entity.kind === 'slab') {
+      const outer = (entity.shape?.outer ?? []).map((q) => { const [x, y] = w(q); return { x, y }; });
+      if (outer.length < 3) return null;
+      const holes = (entity.shape?.holes ?? []).map((h) => h.map((q) => { const [x, y] = w(q); return { x, y }; }));
+      const def = holes.length ? add(`IFCARBITRARYPROFILEDEFWITHVOIDS(.AREA.,$,${polyline(outer)},(${holes.map(polyline).join(',')}))`) : add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${polyline(outer)})`);
+      return sweptOf(def, [0, 0, (entity.z ?? 0) - p.thickness - dz], [0, 0, 1], [1, 0, 0], p.thickness);
+    }
+    if (entity.kind === 'column') {
+      const def = sectionProfile(p);
+      if (!def) return null;
+      const a = (entity.rz ?? 0) * Math.PI / 180;
+      return sweptOf(def, [entity.x ?? 0, entity.y ?? 0, (entity.z ?? 0) - dz], [0, 0, 1], [Math.cos(a), Math.sin(a), 0], p.height);
+    }
+    if (entity.kind === 'beam') {
+      const path = entity.shape?.path ?? [];
+      if (path.length !== 2 || entity.shape.closed) return null;
+      const def = sectionProfile({ ...p, depth: p.height });
+      if (!def) return null;
+      const [a, b] = path.map((q) => w(q));
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 1e-6) return null;
+      const dir = [(b[0] - a[0]) / len, (b[1] - a[1]) / len, 0];
+      // Along the beam; the profile's y up (x across).
+      return sweptOf(def, [a[0], a[1], a[2] + p.height / 2 - dz], dir, [-dir[1], dir[0], 0], len);
+    }
+    return null;
+  };
   const quantities = (element, name, list, key) => {
     const items = list.filter(([, v]) => Number.isFinite(v) && v > 0).map(([q, v, kind]) => (kind === 'area'
       ? add(`IFCQUANTITYAREA(${s(q)},$,$,${real(v / 1e6)},$)`)
@@ -184,6 +263,23 @@ export function toIfc(drawing, { title = drawing?.title || 'MyCAD', author = dra
     add(`IFCRELDEFINESBYPROPERTIES(${guid(`${key}-mycad-rel`)},${history},$,$,(${element}),${set})`);
   };
   const dataOf = ({ id, layer, ...rest }) => rest;
+  // BIM_IfcProperties: the object's own property set; BIM_Classification: its classification reference.
+  const valueOf = (v) => (typeof v === 'boolean' ? `IFCBOOLEAN(${v ? '.T.' : '.F.'})` : typeof v === 'number' ? `IFCREAL(${real(v)})` : `IFCLABEL(${s(String(v))})`);
+  const classifications = new Map();
+  const bimExtras = (element, entity, key) => {
+    const props = entity.bim?.props;
+    if (props) {
+      const values = Object.entries(props).map(([k, v]) => add(`IFCPROPERTYSINGLEVALUE(${s(k)},$,${valueOf(v)},$)`));
+      const set = add(`IFCPROPERTYSET(${guid(`${key}-pset`)},${history},'Pset_MyCAD_Properties',$,(${values.join(',')}))`);
+      add(`IFCRELDEFINESBYPROPERTIES(${guid(`${key}-pset-rel`)},${history},$,$,(${element}),${set})`);
+    }
+    const c = entity.bim?.classification;
+    if (c) {
+      if (!classifications.has(c.system)) classifications.set(c.system, add(`IFCCLASSIFICATION($,$,$,${s(c.system)},$,$,$)`));
+      const ref = add(`IFCCLASSIFICATIONREFERENCE($,${s(c.code)},${s(c.title || c.code)},${classifications.get(c.system)},$,$)`);
+      add(`IFCRELASSOCIATESCLASSIFICATION(${guid(`${key}-class`)},${history},$,$,(${element}),${ref})`);
+    }
+  };
 
   let counter = 0;
   for (const entity of solids) {
@@ -221,9 +317,10 @@ export function toIfc(drawing, { title = drawing?.title || 'MyCAD', author = dra
       // IFC walls are whole; their openings (IfcOpeningElement) are subtracted by the reader.
       // One solid the full width (a layered wall's layers are its IfcMaterialLayerSet), so readers can cut the openings.
       const whole = wallParts({ ...entity, params: { ...entity.params, width: wallWidth(entity) }, shape: { ...entity.shape, openings: [], layers: [] } }).main;
-      const wall = add(`IFCWALL(${guid(key)},${history},${s(name)},$,$,${place},${shapeOf(world(whole), st.z)},$,.STANDARD.)`);
+      const wall = add(`IFCWALL(${guid(key)},${history},${s(name)},$,$,${place},${sweptBody(entity, st.z) ?? shapeOf(world(whole), st.z)},$,.STANDARD.)`);
       st.elements.push(wall);
       mycad(wall, dataOf(entity), key);
+      bimExtras(wall, entity, key);
       const layers = entity.shape?.layers ?? [];
       if (layers.length) {
         const items = layers.map((layer) => add(`IFCMATERIALLAYER(${materialOf(layer.material)},${real(layer.thickness)},$,${s(layer.material.name)},$,$,$)`));
@@ -257,11 +354,13 @@ export function toIfc(drawing, { title = drawing?.title || 'MyCAD', author = dra
       if (entity.material) associate(bar, materialOf(entity.material), key);
       continue;
     }
-    const [cls, type] = ifcClassOf(entity);
+    // BIM_IfcElements / BIM_Convert: a class given to the object wins over the one its kind implies.
+    const [cls, type] = entity.bim?.ifcType ? [entity.bim.ifcType.toUpperCase(), '.NOTDEFINED.'] : ifcClassOf(entity);
     const tris = solidMesh(entity);
-    const id = add(`${cls}(${guid(key)},${history},${s(name)},$,${isArchKind(entity.kind) ? '$' : s(entity.kind)},${place},${shapeOf(tris, st.z)},$,${type})`);
+    const id = add(`${cls}(${guid(key)},${history},${s(name)},$,${isArchKind(entity.kind) ? '$' : s(entity.kind)},${place},${sweptBody(entity, st.z) ?? shapeOf(tris, st.z)},$,${type})`);
     st.elements.push(id);
     if (entity.kind !== 'mesh') mycad(id, dataOf(entity), key);
+    bimExtras(id, entity, key);
     if (entity.material) associate(id, materialOf(entity.material), key);
     const q = isArchKind(entity.kind) ? archQuantities(entity) : {};
     if (entity.kind === 'slab') quantities(id, 'Qto_SlabBaseQuantities', [['Width', entity.params.thickness], ['NetArea', q.floorArea, 'area'], ['NetVolume', volumeOf(tris), 'volume']], key);
@@ -368,6 +467,7 @@ const IFC_COLORS = {
 const NOT_ELEMENTS = new Set(['IFCPROJECT', 'IFCSITE', 'IFCBUILDING', 'IFCBUILDINGSTOREY', 'IFCOPENINGELEMENT', 'IFCGRID', 'IFCANNOTATION', 'IFCVIRTUALELEMENT']);
 
 const vec = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
   sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
   cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
   dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
@@ -386,9 +486,11 @@ const rotate = (m, v) => applyMap({ r: m.r, t: [0, 0, 0] }, v);
 const compose = (a, b) => ({ r: b.r.map((col) => rotate(a, col)), t: applyMap(a, b.t) });
 
 /**
- * Reads an IFC (2x3 or 4) file. BIM elements become mesh solids named after
- * the element and its class (walls with their openings cut); objects written by
- * MyCAD come back as the parametric objects they were. Returns { entities, warnings }.
+ * Reads an IFC (2x3 or 4) file. Objects written by MyCAD come back as the
+ * parametric objects they were; other programs' walls, slabs, columns and beams
+ * whose bodies are extrusions become those BIM objects (walls with their door,
+ * window and opening voids as openings); anything else becomes a mesh solid named
+ * after the element and its class (openings cut). Returns { entities, warnings, bim }.
  */
 export function parseIfc(data, { stepEntities, cut = null } = {}) {
   const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
@@ -659,10 +761,139 @@ export function parseIfc(data, { stepEntities, cut = null } = {}) {
     }
   }
 
+  // ── Other programs' elements as BIM objects (FreeCAD reads IFC this way): a wall, slab,
+  // column or beam whose body is one extrusion becomes that object with its parameters;
+  // a wall's openings (filled by doors and windows) become its openings. The rest: meshes.
+  const fills = new Map(); // opening → the door / window in it
+  for (const e of E.values()) if (e.type === 'IFCRELFILLSELEMENT') fills.set(e.args[4]?.ref, e.args[5]?.ref);
+  const dirOf = (m, v) => vec.sub(applyMap(m, v), applyMap(m, [0, 0, 0]));
+  /** A product whose body is a single extruded area: the profile, profile → world map, world direction and depth. */
+  const extrusionOf = (e) => {
+    const shape = get(e.args[6]);
+    const reps = (shape?.args[2] ?? []).map(get).filter(Boolean);
+    const body = reps.find((rep) => /^Body$/i.test(rep.args[1] ?? '')) ?? (reps.length === 1 ? reps[0] : null);
+    const items = body?.args[3] ?? [];
+    if (items.length !== 1) return null;
+    const item = get(items[0]);
+    if (item?.type !== 'IFCEXTRUDEDAREASOLID') return null;
+    const prof = profile(item.args[0]);
+    if (!prof) return null;
+    const W = compose(localPlacement(e.args[5]), axisPlacement(item.args[1]));
+    const dir = vec.unit(dirOf(W, direction(item.args[2], [0, 0, 1])));
+    return { prof, profEntity: get(item.args[0]), W, dir, depth: (Number(item.args[3]) || 0) * unit };
+  };
+  const xy = (p) => ({ x: p[0], y: p[1] });
+  const hostedFills = new Set();
+  const doneWalls = new Set();
+  const parametric = new Map();
+  /** A wall: an upright extrusion of a rectangle → its centre line, width, height, openings. */
+  const wallFrom = (id, e) => {
+    const x = extrusionOf(e);
+    if (!x || Math.abs(x.dir[2]) < 0.999 || x.prof.holes.length || x.prof.outer.length !== 4) return null;
+    const c = x.prof.outer.map((p) => applyMap(x.W, [p[0], p[1], 0]));
+    const len = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const [e01, e12] = [len(c[0], c[1]), len(c[1], c[2])];
+    if (Math.abs(len(c[0], c[2]) - Math.hypot(e01, e12)) > 1e-3 * (e01 + e12)) return null; // not a rectangle
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const [start, end, width] = e01 >= e12 ? [mid(c[0], c[3]), mid(c[1], c[2]), e12] : [mid(c[0], c[1]), mid(c[3], c[2]), e01];
+    const height = x.depth * Math.abs(x.dir[2]);
+    const base = Math.min(c[0][2], c[0][2] + x.dir[2] * x.depth);
+    const length = Math.hypot(end[0] - start[0], end[1] - start[1]);
+    const t = [(end[0] - start[0]) / length, (end[1] - start[1]) / length];
+    const openings = [];
+    for (const ref of voids.get(id) ?? []) {
+      const opening = E.get(ref);
+      const tris = opening ? productTris(opening) : [];
+      if (!tris.length) continue;
+      const pts = tris.flat();
+      const along = pts.map((p) => (p[0] - start[0]) * t[0] + (p[1] - start[1]) * t[1]);
+      const zs = pts.map((p) => p[2]);
+      // The door or window in it: related (IfcRelFillsElement), or one standing inside the opening (FreeCAD writes no relation).
+      let fillerId = fills.get(ref);
+      if (!fillerId) {
+        const lo = [0, 1, 2].map((k) => Math.min(...pts.map((p) => p[k]))); const hi = [0, 1, 2].map((k) => Math.max(...pts.map((p) => p[k])));
+        fillerId = [...E.entries()].find(([fid, fe]) => (fe.type === 'IFCDOOR' || fe.type === 'IFCWINDOW') && !hostedFills.has(fid) && (() => { const ft = productTris(fe).flat(); if (!ft.length) return false; const c = [0, 1, 2].map((k) => (Math.min(...ft.map((p) => p[k])) + Math.max(...ft.map((p) => p[k]))) / 2); return c.every((v, k) => v >= lo[k] - 1 && v <= hi[k] + 1); })())?.[0];
+      }
+      const filler = E.get(fillerId);
+      if (filler) hostedFills.add(fillerId);
+      const type = filler?.type === 'IFCDOOR' ? 'door' : filler?.type === 'IFCWINDOW' ? 'window' : 'opening';
+      const at = Math.max(0, Math.min(...along));
+      openings.push({ type, at, width: Math.min(length, Math.max(...along)) - at, height: Math.max(...zs) - Math.min(...zs), sill: Math.max(0, Math.min(...zs) - base) });
+    }
+    openings.sort((a, b) => a.at - b.at);
+    return { type: 'solid', kind: 'wall', name: decodeIfcString(e.args[2]) || 'Wall', params: { width, height, align: 0 }, shape: { path: [xy(start), xy(end)], openings }, z: base };
+  };
+  for (const [id, e] of E.entries()) {
+    if ((e.type !== 'IFCWALL' && e.type !== 'IFCWALLSTANDARDCASE') || mycadData.has(id)) continue;
+    const wall = wallFrom(id, e);
+    if (wall) { parametric.set(id, wall); doneWalls.add(id); }
+  }
+  /** A slab: an upright extrusion of any outline → that outline and its thickness (hanging below its top). */
+  const slabFrom = (e) => {
+    const x = extrusionOf(e);
+    if (!x || Math.abs(x.dir[2]) < 0.999) return null;
+    const loop = (pts) => pts.map((p) => xy(applyMap(x.W, [p[0], p[1], 0])));
+    const z0 = applyMap(x.W, [0, 0, 0])[2];
+    return { type: 'solid', kind: 'slab', name: decodeIfcString(e.args[2]) || 'Slab', params: { thickness: x.depth * Math.abs(x.dir[2]) }, shape: { outer: loop(x.prof.outer), holes: x.prof.holes.map(loop) }, z: Math.max(z0, z0 + x.dir[2] * x.depth) };
+  };
+  /** A column (upright) or a beam (level): a rectangle, circle or I section along the extrusion. */
+  const sectionParams = (p, prof = null) => {
+    const L = (v) => (Number(v) || 0) * unit;
+    // A plain outline that is a rectangle square to its axes (FreeCAD writes sections so).
+    if (prof && (p?.type === 'IFCARBITRARYCLOSEDPROFILEDEF') && prof.outer.length === 4 && !prof.holes.length) {
+      const xs = prof.outer.map((q) => q[0]); const ys = prof.outer.map((q) => q[1]);
+      const w = Math.max(...xs) - Math.min(...xs); const d = Math.max(...ys) - Math.min(...ys);
+      if (prof.outer.every((q) => (Math.abs(q[0] - Math.min(...xs)) < 1e-6 || Math.abs(q[0] - Math.max(...xs)) < 1e-6) && (Math.abs(q[1] - Math.min(...ys)) < 1e-6 || Math.abs(q[1] - Math.max(...ys)) < 1e-6))) return { profile: 0, width: w, depth: d };
+    }
+    if (p?.type === 'IFCRECTANGLEPROFILEDEF') return { profile: 0, width: L(p.args[3]), depth: L(p.args[4]) };
+    if (p?.type === 'IFCCIRCLEPROFILEDEF') return { profile: 1, width: 2 * L(p.args[3]), depth: 2 * L(p.args[3]) };
+    if (p?.type === 'IFCISHAPEPROFILEDEF') return { profile: 2, width: L(p.args[3]), depth: L(p.args[4]), tw: L(p.args[5]), tf: L(p.args[6]) };
+    return null;
+  };
+  const columnFrom = (e) => {
+    const x = extrusionOf(e);
+    const sec = sectionParams(x?.profEntity, x?.prof);
+    if (!x || !sec || Math.abs(x.dir[2]) < 0.999) return null;
+    const xs = x.prof.outer.map((p) => p[0]); const ys = x.prof.outer.map((p) => p[1]);
+    const centre = applyMap(x.W, [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 0]);
+    const ax = dirOf(x.W, [1, 0, 0]);
+    const base = Math.min(centre[2], centre[2] + x.dir[2] * x.depth);
+    return { type: 'solid', kind: 'column', name: decodeIfcString(e.args[2]) || 'Column', params: { width: sec.width, depth: sec.depth, height: x.depth, profile: sec.profile, preset: 0, tw: sec.tw ?? 0, tf: sec.tf ?? 0 }, x: centre[0], y: centre[1], z: base, rz: (Math.atan2(ax[1], ax[0]) * 180) / Math.PI };
+  };
+  const beamFrom = (e) => {
+    const x = extrusionOf(e);
+    // A beam drawn as a box extruded up by its height (FreeCAD without a base line): along the box's long side.
+    if (x && Math.abs(x.dir[2]) > 0.999 && x.prof.outer.length === 4 && !x.prof.holes.length) {
+      const c = x.prof.outer.map((p) => applyMap(x.W, [p[0], p[1], 0]));
+      const len = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]);
+      const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      const [e01, e12] = [len(c[0], c[1]), len(c[1], c[2])];
+      const [start, end, width] = e01 >= e12 ? [mid(c[0], c[3]), mid(c[1], c[2]), e12] : [mid(c[0], c[1]), mid(c[3], c[2]), e01];
+      const height = x.depth;
+      return { type: 'solid', kind: 'beam', name: decodeIfcString(e.args[2]) || 'Beam', params: { width, height, profile: 0, preset: 0, tw: 0, tf: 0 }, shape: { path: [xy(start), xy(end)] }, z: Math.min(c[0][2], c[0][2] + x.dir[2] * height) };
+    }
+    const sec = sectionParams(x?.profEntity, x?.prof);
+    if (!x || !sec || Math.abs(x.dir[2]) > 1e-3) return null;
+    const xs = x.prof.outer.map((p) => p[0]); const ys = x.prof.outer.map((p) => p[1]);
+    const start = applyMap(x.W, [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 0]);
+    const end = vec.add(start, vec.mul(x.dir, x.depth));
+    // Which profile axis stands up: its size is the beam's height.
+    const upY = Math.abs(dirOf(x.W, [0, 1, 0])[2]) >= Math.abs(dirOf(x.W, [1, 0, 0])[2]);
+    const [width, height] = upY ? [sec.width, sec.depth] : [sec.depth, sec.width];
+    return { type: 'solid', kind: 'beam', name: decodeIfcString(e.args[2]) || 'Beam', params: { width, height, profile: sec.profile, preset: 0, tw: sec.tw ?? 0, tf: sec.tf ?? 0 }, shape: { path: [xy(start), xy(end)] }, z: start[2] - height / 2 };
+  };
+  const PARAMETRIC = { IFCSLAB: slabFrom, IFCCOLUMN: columnFrom, IFCBEAM: beamFrom };
+
   const entities = [];
   for (const [id, e] of E.entries()) {
     const own = mycadData.get(id);
     if (own?.hosted) continue;
+    if (!own && hostedFills.has(id)) continue; // a door or window: an opening of its wall now
+    if (!own && parametric.has(id)) { entities.push({ ...parametric.get(id), storeyRef: storeyOfElement.get(id) }); continue; }
+    if (!own && PARAMETRIC[e.type] && get(e.args[5])?.type === 'IFCLOCALPLACEMENT' && !(voids.get(id)?.length)) {
+      const made = PARAMETRIC[e.type](e);
+      if (made) { entities.push({ ...made, storeyRef: storeyOfElement.get(id) }); continue; }
+    }
     if (own && own.type === 'solid') { entities.push(own); continue; }
     if (!e.type.startsWith('IFC') || NOT_ELEMENTS.has(e.type)) continue;
     // Products: an object placement and a shape (arguments 5 and 6).

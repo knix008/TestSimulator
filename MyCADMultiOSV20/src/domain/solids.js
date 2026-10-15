@@ -15,6 +15,9 @@ import { HOLE_TIPS, HOLE_TYPES, holeProfile, holeVolume, loftSectionsMesh, sweep
 import { extrudedCurve, fillSurface, sectionSurface, SURFACE_MODES, thicken } from './surface.js';
 import { JOINT_LIMITS, robotMesh } from './robot.js';
 import { canDressUp, DRESSUP_EDGES, DRESSUP_KINDS, dressupMesh, dressupOutlines } from './dressup.js';
+import { OCC_KINDS, occLocalMesh, occProperties } from './occ.js';
+import { hasPartopShape, normalizePartopShape, PARTOP_KINDS, PARTOP_PARAMS, partopLocalMesh } from './partops.js';
+import { normalizeBimInfo, normalizeComponents } from './bimtools.js';
 import { ARCH_ICONS, ARCH_KINDS, ARCH_SOLIDS, archBlocks, archGroups, archMesh, normalizeMaterial, archPlan, archQuantities, hasArchShape, isArchKind, normalizeArchShape } from './arch.js';
 
 const num = (key, def, min, max, step = 1, unit = 'mm') => ({ key, type: 'number', def, min, max, step, unit });
@@ -23,7 +26,7 @@ const int = (key, def, min, max) => ({ key, type: 'int', def, min, max, step: 1,
 /** Primitive kinds (made in the solid window). */
 export const SOLID_KINDS = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'tube', 'wedge', 'prism', 'ellipsoid', 'helix'];
 /** Kinds made from 2D outlines or other solids. */
-export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh', 'points', 'surface', 'hole', 'robot', ...DRESSUP_KINDS];
+export const DERIVED_KINDS = ['pad', 'revolution', 'loft', 'sweep', 'boolean', 'mesh', 'points', 'surface', 'hole', 'robot', ...DRESSUP_KINDS, ...PARTOP_KINDS];
 export const LOFT_MODES = ['ruled', 'smooth'];
 export const THICKNESS_OPEN = ['openTop', 'openBottom', 'openBoth', 'closed'];
 export const POCKET_MODES = ['blind', 'throughAll'];
@@ -67,14 +70,19 @@ export const SOLIDS = {
   // PartDesign Hole: mouth at z = 0, drilled down (−z).
   hole: { params: [num('diameter', 6.6, 0.1, 10000, 0.1), num('depth', 10, 0.1, 100000), { key: 'type', type: 'choice', options: HOLE_TYPES, def: 0, min: 0, max: HOLE_TYPES.length - 1, step: 1, unit: '' }, num('cbDiameter', 11, 0.1, 10000, 0.5), num('cbDepth', 6.4, 0.1, 10000, 0.5), num('csDiameter', 12.4, 0.1, 10000, 0.5), { key: 'tip', type: 'choice', options: HOLE_TIPS, def: 1, min: 0, max: HOLE_TIPS.length - 1, step: 1, unit: '' }] },
   offset3d: { params: [num('distance', 2, -100000, 100000, 0.5)] },
+  draft: { params: [num('angle', 5, -45, 45, 1, '°')] },
   ...ARCH_SOLIDS,
+  // Part / PartDesign shape operations (partops.js).
+  ...Object.fromEntries(PARTOP_KINDS.map((kind) => [kind, { params: PARTOP_PARAMS[kind] }])),
 };
 
 /** Icon of each solid kind (FreeCAD Part workbench look). */
 export const SOLID_ICONS = {
   box: 'solidBox', cylinder: 'solidCylinder', sphere: 'solidSphere', cone: 'solidCone', torus: 'solidTorus', tube: 'solidTube', wedge: 'solidWedge',
-  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport', points: 'pointCloud', robot: 'robot', surface: 'surfFill', surfRuled: 'surfRuled', surfFill: 'surfFill', surfExtrude: 'surfExtrude', fillet: 'solidFillet', chamfer: 'solidChamfer', hole: 'solidHole', pocket: 'solidPocket', groove: 'solidGroove', thickness: 'solidThickness', offset3d: 'solidOffset',
+  prism: 'solidPrism', ellipsoid: 'solidEllipsoid', helix: 'solidHelix', pad: 'solidExtrude', revolution: 'solidRevolve', loft: 'solidLoft', sweep: 'solidSweep', boolean: 'solidCut', mesh: 'solidImport', points: 'pointCloud', robot: 'robot', surface: 'surfFill', surfRuled: 'surfRuled', surfFill: 'surfFill', surfExtrude: 'surfExtrude', fillet: 'solidFillet', chamfer: 'solidChamfer', hole: 'solidHole', pocket: 'solidPocket', groove: 'solidGroove', thickness: 'solidThickness', offset3d: 'solidOffset', draft: 'solidDraft',
   ...Object.fromEntries(ARCH_KINDS.map((kind) => [kind, ARCH_ICONS[kind]])),
+  compound: 'partCompound', fragments: 'partFragments', slice: 'partSlice', compoundFilter: 'partCompoundFilter', mirror3d: 'partMirror', scale3d: 'partScale',
+  refine: 'partRefine', reverse: 'partReverse', pattern: 'array', wire3d: 'partWire3d', datum: 'datumPlane',
 };
 
 /** Axes a 2D outline can be revolved about. */
@@ -181,17 +189,23 @@ export function normalizeShapeData(kind, raw) {
     }
     case 'points': {
       const pts = Array.isArray(raw?.pts) ? raw.pts.map((v) => Number(v) || 0) : [];
-      return { pts: pts.slice(0, pts.length - (pts.length % 3)) };
+      const kept = pts.slice(0, pts.length - (pts.length % 3));
+      return { pts: kept, ...colorsFor(raw?.colors, kept.length / 3), ...inspectOf(raw?.inspect) };
     }
     case 'mesh': {
       const tris = Array.isArray(raw?.tris) ? raw.tris.map((v) => Number(v) || 0) : [];
-      return { tris: tris.slice(0, tris.length - (tris.length % 9)) };
+      const kept = tris.slice(0, tris.length - (tris.length % 9));
+      return { tris: kept, ...colorsFor(raw?.colors, kept.length / 9), ...inspectOf(raw?.inspect), ...(typeof raw?.brep === 'string' && raw.brep.startsWith('DBRep_DrawableShape') || typeof raw?.brep === 'string' && raw.brep.includes('CASCADE Topology') ? { brep: raw.brep } : {}) };
     }
-    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': {
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': case 'draft': {
       const base = normalizeSolidData(raw?.base);
-      return base ? { base } : {};
+      // Edges picked one by one: kept by what they look like (midpoint, direction), not by number.
+      const vec = (v) => (Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) ? v.map(Number) : null);
+      const picks = Array.isArray(raw?.picks) ? raw.picks.map((p) => ({ mid: vec(p?.mid), dir: vec(p?.dir) })).filter((p) => p.mid && p.dir) : [];
+      return base ? { base, ...(picks.length ? { picks } : {}) } : {};
     }
     default:
+      if (PARTOP_KINDS.includes(kind)) return normalizePartopShape(kind, raw, normalizeSolidData);
       return isArchKind(kind) ? normalizeArchShape(kind, raw) : {};
   }
 }
@@ -208,14 +222,33 @@ export function hasShape(entity) {
     case 'points': return (s.pts?.length ?? 0) >= 3;
     case 'surface': return (s.curves?.length ?? 0) >= 2 || (s.outer?.length ?? 0) >= 3 || (s.paths?.length ?? 0) >= 1;
     case 'boolean': return (s.parts?.length ?? 0) >= 2;
-    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': return canDressUp(s.base);
-    default: return isArchKind(entity.kind) ? hasArchShape(entity) : true;
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': case 'draft': return canDressUp(s.base);
+    default:
+      if (PARTOP_KINDS.includes(entity.kind)) return hasPartopShape(entity.kind, s);
+      return isArchKind(entity.kind) ? hasArchShape(entity) : true;
   }
 }
 
 const finite = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
 
 /** The solid fields of an entity (kind, name, parameters, shape, placement), repaired; null when unusable. */
+/**
+ * Mesh_VertexCurvature, Inspection_VisualInspection: a colour (r, g, b in
+ * 0…1) for each triangle of a mesh or each point of a cloud — kept only when
+ * there is one for every one.
+ */
+function colorsFor(raw, count) {
+  if (!Array.isArray(raw) || raw.length !== count * 3 || !count) return {};
+  return { colors: raw.map((v) => Math.max(0, Math.min(1, Number(v) || 0))) };
+}
+
+/** Inspection_VisualInspection: what a result was compared with, and the distances found. */
+function inspectOf(raw) {
+  if (!raw || typeof raw.nominal !== 'string') return {};
+  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return { inspect: { nominal: raw.nominal, min: n(raw.min), max: n(raw.max), rms: n(raw.rms) } };
+}
+
 export function normalizeSolidData(raw) {
   if (!raw || typeof raw !== 'object' || !ALL_SOLID_KINDS.includes(raw.kind)) return null;
   const scale = Number(raw.scale);
@@ -228,6 +261,9 @@ export function normalizeSolidData(raw) {
     // BIM objects: the level they stand on and their material.
     ...(typeof raw.level === 'string' && raw.level ? { level: raw.level.slice(0, 40) } : {}),
     ...(isArchKind(raw.kind) && normalizeMaterial(raw.material) ? { material: normalizeMaterial(raw.material) } : {}),
+    // BIM: IFC class, classification, property sets, B-rep flag; a component's additions and subtractions (Arch_Add / Arch_Remove).
+    ...(normalizeBimInfo(raw.bim) ? { bim: normalizeBimInfo(raw.bim) } : {}),
+    ...(normalizeComponents(raw.components, normalizeSolidData) ? { components: normalizeComponents(raw.components, normalizeSolidData) } : {}),
   };
 }
 
@@ -409,6 +445,8 @@ const ellipsoidProfile = () => {
   return [[0, -1], ...profile.slice(1, -1), [0, 1]];
 };
 
+const exactMesh = (entity) => { const tris = OCC_KINDS.has(entity.kind) ? occLocalMesh(entity) : null; return tris?.length ? tris : null; };
+
 /** The solid's triangles in its own coordinates (before placement). */
 export function localMesh(entity) {
   const p = entity.params;
@@ -460,9 +498,12 @@ export function localMesh(entity) {
       for (let i = 0; i + 8 < t.length; i += 9) out.push([[t[i], t[i + 1], t[i + 2]], [t[i + 3], t[i + 4], t[i + 5]], [t[i + 6], t[i + 7], t[i + 8]]]);
       return out;
     }
-    case 'boolean': return hasShape(entity) ? booleanMesh(entity.shape) : [];
-    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': return hasShape(entity) ? dressupMesh(entity) : [];
-    default: return isArchKind(entity.kind) && hasShape(entity) ? archMesh(entity) : [];
+    // Booleans and dress-ups: exact from the OpenCASCADE kernel when it is loaded, else the mesh kernel.
+    case 'boolean': return hasShape(entity) ? exactMesh(entity) ?? booleanMesh(entity.shape) : [];
+    case 'fillet': case 'chamfer': case 'thickness': case 'offset3d': case 'draft': return hasShape(entity) ? exactMesh(entity) ?? dressupMesh(entity) : [];
+    default:
+      if (PARTOP_KINDS.includes(entity.kind)) return hasShape(entity) ? exactMesh(entity) ?? partopLocalMesh(entity, { solidMesh, booleanMesh, meshVolume }) : [];
+      return isArchKind(entity.kind) && hasShape(entity) ? archMesh(entity) : [];
   }
 }
 
@@ -526,7 +567,10 @@ export function placement(entity) {
   };
 }
 
-const meshCache = new WeakMap();
+let meshCache = new WeakMap();
+
+/** Forgets every cached mesh (the OpenCASCADE kernel has come: booleans and dress-ups become exact). */
+export function resetSolidCaches() { meshCache = new WeakMap(); groupCache = new WeakMap(); }
 
 /** Triangles of a solid entity in drawing coordinates (outward facing). Cached per entity object. */
 export function solidMesh(entity) {
@@ -536,11 +580,28 @@ export function solidMesh(entity) {
   let tris = localMesh(entity).map((tri) => tri.map(map));
   // A mirrored solid turns inside out: restore the winding.
   if (entity.flip) tris = tris.map(([a, b, c]) => [a, c, b]);
+  if (entity.components) tris = componentMesh(tris, entity.components.parts);
   meshCache.set(entity, tris);
   return tris;
 }
 
-const groupCache = new WeakMap();
+/** Arch_Add / Arch_Remove: a component's own shape fused with its additions, its subtractions cut away (drawing coordinates). */
+function componentMesh(own, parts) {
+  const add = parts.add.map((p) => solidMesh(p)).filter((m) => m.length);
+  const sub = parts.sub.map((p) => solidMesh(p)).filter((m) => m.length);
+  if (!add.length && !sub.length) return own;
+  const key = JSON.stringify(parts) + own.length + JSON.stringify(own[0] ?? null);
+  const hit = booleanCache.get(key);
+  if (hit) return hit;
+  let tris = add.length ? booleanOf('union', [own, ...add]) : own;
+  if (sub.length) tris = booleanOf('cut', [tris, ...sub]);
+  tris = repairMesh(tris).triangles;
+  booleanCache.set(key, tris);
+  while (booleanCache.size > 24) booleanCache.delete(booleanCache.keys().next().value);
+  return tris;
+}
+
+let groupCache = new WeakMap();
 
 /**
  * A solid's triangles in drawing coordinates by material, for the 3D view:
@@ -548,7 +609,7 @@ const groupCache = new WeakMap();
  * objects have several (glass in windows, wooden frames…), other solids one.
  */
 export function solidMeshGroups(entity) {
-  if (!isArchKind(entity.kind)) return [{ material: 'main', tris: solidMesh(entity) }];
+  if (!isArchKind(entity.kind) || entity.components) return [{ material: 'main', tris: solidMesh(entity) }];
   const cached = groupCache.get(entity);
   if (cached) return cached;
   const map = placement(entity);
@@ -716,8 +777,7 @@ export function solidProperties(entity) {
   const box = meshBox(tris);
   return {
     ...(isArchKind(entity.kind) ? archQuantities(entity) : {}),
-    volume: exactVolume(entity) ?? Math.abs(meshVolume(tris)),
-    area: meshArea(tris),
+    ...(() => { const exact = OCC_KINDS.has(entity.kind) ? occProperties(entity) : null; return { volume: (entity.components ? null : exactVolume(entity)) ?? exact?.volume ?? Math.abs(meshVolume(tris)), area: exact?.area ?? meshArea(tris) }; })(),
     triangles: tris.length,
     ...(box ? { sizeX: box.size[0], sizeY: box.size[1], sizeZ: box.size[2] } : {}),
   };
@@ -811,8 +871,9 @@ function weld(triangles) {
  * front of it. Returns [[a, b]] 2D segments.
  */
 export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidden = false } = {}) {
-  const project = VIEW_AXES[view];
-  const dir = VIEW_DIRS[view];
+  // A named view, or any direction (TechDraw_ActiveView): { dir (towards the viewer), u, v (the drawing's x and y) }.
+  const project = typeof view === 'string' ? VIEW_AXES[view] : (p) => ({ x: v3.dot(p, view.u), y: v3.dot(p, view.v) });
+  const dir = typeof view === 'string' ? VIEW_DIRS[view] : view.dir;
   const { points, faces, normals, around } = weld(triangles);
   const unit = normals.map((n) => v3.unit(n));
   const cos = Math.cos(rad(sharpAngle));
@@ -874,10 +935,11 @@ export function projectEdges(triangles, view = 'front', { sharpAngle = 30, hidde
   const eps = size * 1e-3;
   // A line is never hidden by its own faces; a smooth silhouette not by the
   // two rings of faces round it either (there the surface is almost edge-on
-  // and its own facets would hide it).
+  // and its own facets would hide it). The rings stay on that smooth surface:
+  // a coarse exact mesh's big planar faces touch it too and must still hide.
   const ringOf = (sources, rings) => {
     let set = new Set(sources);
-    for (let k = 0; k < rings; k++) set = new Set([...set].flatMap((f) => faces[f].flatMap((v) => around[v])));
+    for (let k = 0; k < rings; k++) set = new Set([...set].flatMap((f) => faces[f].flatMap((v) => around[v].filter((g) => v3.dot(unit[g], unit[f]) >= cos))));
     return set;
   };
   const occluded = (q, skip) => {

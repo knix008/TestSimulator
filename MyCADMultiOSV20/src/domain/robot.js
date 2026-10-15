@@ -2,6 +2,8 @@
 // forward and inverse kinematics, a trajectory along a drawn path, and the
 // KUKA KRL program for it. No DOM.
 
+import { placementOf, poseOf } from './assembly.js';
+
 /** DH table of a 6-axis arm (mm, degrees): [d, a, alpha, theta offset], scaled by `reach`. */
 export function dhTable(reach = 1) {
   const s = reach;
@@ -216,4 +218,74 @@ export function robotMesh(joints, options = {}) {
   // A round base under joint 1.
   prismAlong([0, 0, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0], 180 * (options.reach ?? 1), 60 * (options.reach ?? 1), 28);
   return tris;
+}
+
+// ───────────────────────── home, defaults, tool shape, stored trajectories
+
+const finiteList = (v, n) => (Array.isArray(v) && v.length === n && v.every((x) => Number.isFinite(Number(x))) ? v.map(Number) : null);
+
+/**
+ * What the Robot workbench keeps per robot (drawing.robots[id]): its home
+ * pose (Robot_SetHomePos), the default tool orientation and move values for
+ * waypoints (Robot_SetDefaultOrientation / …Values), the solid carried on its
+ * flange (Robot_AddToolShape) and its trajectories (Robot_Edge2Trac,
+ * …TrajectoryCompound, …TrajectoryDressUp).
+ */
+export function normalizeRobotData(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  for (const [id, r] of Object.entries(raw)) {
+    if (!r || typeof r !== 'object') continue;
+    const home = finiteList(r.home, 6);
+    const orientation = finiteList(r.orientation, 3);
+    const d = r.defaults ?? {};
+    const defaults = { speed: Math.max(1, Math.min(100, Number(d.speed) || 50)), accel: Math.max(1, Math.min(100, Number(d.accel) || 50)), cont: Boolean(d.cont) };
+    const tool = typeof r.tool?.id === 'string' && finiteList(r.tool.rel, 12) ? { id: r.tool.id, rel: r.tool.rel.map(Number) } : null;
+    const trajectories = (Array.isArray(r.trajectories) ? r.trajectories : []).filter((t) => t && Array.isArray(t.points) && t.points.length).slice(0, 100).map((t, i) => ({
+      id: typeof t.id === 'string' ? t.id : `t${i + 1}`,
+      name: typeof t.name === 'string' && t.name ? t.name.slice(0, 80) : `Trajectory ${i + 1}`,
+      points: t.points.map((p) => finiteList(p, 3)).filter(Boolean),
+      speed: Math.max(1, Math.min(100, Number(t.speed) || defaults.speed)),
+      accel: Math.max(1, Math.min(100, Number(t.accel) || defaults.accel)),
+      cont: t.cont === undefined ? defaults.cont : Boolean(t.cont),
+      ...(finiteList(t.orientation, 3) ? { orientation: t.orientation.map(Number) } : {}),
+    })).filter((t) => t.points.length);
+    out[id] = { ...(home ? { home } : {}), ...(orientation ? { orientation } : {}), defaults, ...(tool ? { tool } : {}), ...(trajectories.length ? { trajectories } : {}) };
+  }
+  return out;
+}
+
+/** Joint angles of a robot solid. */
+export const robotJointValues = (robot) => JOINTS.map((k, i) => Number(robot.params?.[k] ?? [0, -90, 90, 0, 90, 0][i]));
+
+/** The robot's flange in the world: its placement (pose) times the arm's last frame. */
+export function flangePose(robotPose, joints, reach = 1) {
+  return mul(robotPose, forwardKinematics(joints, { reach }).frames[6]);
+}
+
+/** Robot_AddToolShape: each robot's tool solid moved to where its flange is. */
+export function followRobotTools(drawing) {
+  for (const [id, data] of Object.entries(drawing.robots ?? {})) {
+    if (!data.tool) continue;
+    const robot = drawing.entities.find((e) => e.id === id && e.kind === 'robot');
+    const tool = drawing.entities.find((e) => e.id === data.tool.id);
+    if (!robot || !tool) continue;
+    const p = placementOf(mul(flangePose(poseOf(robot), robotJointValues(robot), robot.params?.reach ?? 1), data.tool.rel));
+    if (['x', 'y', 'z', 'rx', 'ry', 'rz'].some((k) => Math.abs((tool[k] ?? 0) - p[k]) > 1e-7)) drawing.entities = drawing.entities.map((e) => (e.id === tool.id ? { ...e, ...p } : e));
+  }
+}
+
+/** Robot_TrajectoryCompound: trajectories one after the other. */
+export function compoundTrajectory(list, name) {
+  return { id: `t${Date.now().toString(36)}`, name, points: list.flatMap((t) => t.points), speed: list[0]?.speed ?? 50, accel: list[0]?.accel ?? 50, cont: list.every((t) => t.cont) };
+}
+
+/** Robot_TrajectoryDressUp: a trajectory moved by an offset, with other speed, acceleration, continuity or orientation. */
+export function dressUpTrajectory(t, { offset = [0, 0, 0], speed = null, accel = null, cont = null, orientation = null } = {}, name = `${t.name} (dressed)`) {
+  return {
+    id: `t${Date.now().toString(36)}`, name,
+    points: t.points.map((p) => p.map((v, k) => v + (offset[k] ?? 0))),
+    speed: speed ?? t.speed, accel: accel ?? t.accel, cont: cont ?? t.cont,
+    ...((orientation ?? t.orientation) ? { orientation: orientation ?? t.orientation } : {}),
+  };
 }

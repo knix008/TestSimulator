@@ -14,5 +14,437 @@
  "l1-s1": {
   "file": "images/en/l1-s1.webp",
   "caption": "Finding your way around · The start page"
+ },
+ "l1-s2": {
+  "file": "images/en/l1-s2.webp",
+  "caption": "Finding your way around · Opening a sample"
+ },
+ "l1-s3": {
+  "file": "images/en/l1-s3.webp",
+  "caption": "Finding your way around · Zoom to fit and zoom"
+ },
+ "l1-s4": {
+  "file": "images/en/l1-s4.webp",
+  "caption": "Finding your way around · Panning"
+ },
+ "l1-s5": {
+  "file": "images/en/l1-s5.webp",
+  "caption": "Finding your way around · Panels"
+ },
+ "l1-s6": {
+  "file": "images/en/l1-s6.webp",
+  "caption": "Finding your way around · The 3D view"
+ },
+ "l2-s1": {
+  "file": "images/en/l2-s1.webp",
+  "caption": "Drawing lines and shapes · A new drawing"
+ },
+ "l2-s2": {
+  "file": "images/en/l2-s2.webp",
+  "caption": "Drawing lines and shapes · Lines (L)"
+ },
+ "l2-s3": {
+  "file": "images/en/l2-s3.webp",
+  "caption": "Drawing lines and shapes · Rectangles (R)"
+ },
+ "l2-s4": {
+  "file": "images/en/l2-s4.webp",
+  "caption": "Drawing lines and shapes · Circles (C)"
+ },
+ "l2-s5": {
+  "file": "images/en/l2-s5.webp",
+  "caption": "Drawing lines and shapes · Arcs (3 points)"
+ },
+ "l2-s6": {
+  "file": "images/en/l2-s6.webp",
+  "caption": "Drawing lines and shapes · Ellipses"
+ },
+ "l2-s7": {
+  "file": "images/en/l2-s7.webp",
+  "caption": "Drawing lines and shapes · Polygons"
+ },
+ "l2-s8": {
+  "file": "images/en/l2-s8.webp",
+  "caption": "Drawing lines and shapes · Polylines"
+ },
+ "l2-s9": {
+  "file": "images/en/l2-s9.webp",
+  "caption": "Drawing lines and shapes · Splines"
+ },
+ "l2-s10": {
+  "file": "images/en/l2-s10.webp",
+  "caption": "Drawing lines and shapes · Points"
+ },
+ "l3-s1": {
+  "file": "images/en/l3-s1.webp",
+  "caption": "Precise input, snaps and units · Typing coordinates"
+ },
+ "l3-s2": {
+  "file": "images/en/l3-s2.webp",
+  "caption": "Precise input, snaps and units · Polar: distance<angle"
+ },
+ "l3-s3": {
+  "file": "images/en/l3-s3.webp",
+  "caption": "Precise input, snaps and units · Object snap (F3)"
+ },
+ "l3-s4": {
+  "file": "images/en/l3-s4.webp",
+  "caption": "Precise input, snaps and units · Ortho mode (F8)"
+ },
+ "l3-s5": {
+  "file": "images/en/l3-s5.webp",
+  "caption": "Precise input, snaps and units · Length units"
+ },
+ "l3-s5-dialog": {
+  "file": "images/en/l3-s5-dialog.webp",
+  "caption": "Length units — window"
+ },
+ "l3-s6": {
+  "file": "images/en/l3-s6.webp",
+  "caption": "Precise input, snaps and units · Typing other units"
+ },
+ "l3-s7": {
+  "file": "images/en/l3-s7.webp",
+  "caption": "Precise input, snaps and units · The scale bar"
+ },
+ "l4-s1": {
+  "file": "images/en/l4-s1.webp",
+  "caption": "Selecting and modifying · Set-up: a rectangle and a circle"
+ },
+ "l4-s2": {
+  "file": "images/en/l4-s2.webp",
+  "caption": "Selecting and modifying · Selecting"
+ },
+ "l4-s3": {
+  "file": "images/en/l4-s3.webp",
+  "caption": "Selecting and modifying · Move (M)"
+ },
+ "l4-s4": {
+  "file": "images/en/l4-s4.webp",
+  "caption": "Selecting and modifying · Copy"
+ },
+ "l4-s5": {
+  "file": "images/en/l4-s5.webp",
+  "caption": "Selecting and modifying · Rotate"
+ },
+ "l4-s6": {
+  "file": "images/en/l4-s6.webp",
+  "caption": "Selecting and modifying · Mirror"
+ },
+ "l4-s7": {
+  "file": "images/en/l4-s7.webp",
+  "caption": "Selecting and modifying · Scale"
+ },
+ "l4-s8": {
+  "file": "images/en/l4-s8.webp",
+  "caption": "Selecting and modifying · Offset"
+ },
+ "l4-s9": {
+  "file": "images/en/l4-s9.webp",
+  "caption": "Selecting and modifying · Arrays"
+ },
+ "l4-s9-dialog": {
+  "file": "images/en/l4-s9-dialog.webp",
+  "caption": "Arrays — window"
+ },
+ "l4-s10": {
+  "file": "images/en/l4-s10.webp",
+  "caption": "Selecting and modifying · Explode"
+ },
+ "l4-s11": {
+  "file": "images/en/l4-s11.webp",
+  "caption": "Selecting and modifying · Undo and redo"
+ },
+ "l4-s12": {
+  "file": "images/en/l4-s12.webp",
+  "caption": "Selecting and modifying · Delete"
+ },
+ "l5-s1": {
+  "file": "images/en/l5-s1.webp",
+  "caption": "Dimensions and notes · Set-up: a plate and a hole"
+ },
+ "l5-s2": {
+  "file": "images/en/l5-s2.webp",
+  "caption": "Dimensions and notes · Linear dimensions"
+ },
+ "l5-s3": {
+  "file": "images/en/l5-s3.webp",
+  "caption": "Dimensions and notes · Aligned dimensions"
+ },
+ "l5-s4": {
+  "file": "images/en/l5-s4.webp",
+  "caption": "Dimensions and notes · Diameter and radius"
+ },
+ "l5-s5": {
+  "file": "images/en/l5-s5.webp",
+  "caption": "Dimensions and notes · Angle dimensions"
+ },
+ "l5-s6": {
+  "file": "images/en/l5-s6.webp",
+  "caption": "Dimensions and notes · Text"
+ },
+ "l5-s7": {
+  "file": "images/en/l5-s7.webp",
+  "caption": "Dimensions and notes · Leaders"
+ },
+ "l5-s8": {
+  "file": "images/en/l5-s8.webp",
+  "caption": "Dimensions and notes · Hatching"
+ },
+ "l5-s9": {
+  "file": "images/en/l5-s9.webp",
+  "caption": "Dimensions and notes · Centre lines"
+ },
+ "l5-s10": {
+  "file": "images/en/l5-s10.webp",
+  "caption": "Dimensions and notes · Measuring"
+ },
+ "l6-s1": {
+  "file": "images/en/l6-s1.webp",
+  "caption": "Properties and layers · Editing in the properties"
+ },
+ "l6-s2": {
+  "file": "images/en/l6-s2.webp",
+  "caption": "Properties and layers · Formulas and units"
+ },
+ "l6-s3": {
+  "file": "images/en/l6-s3.webp",
+  "caption": "Properties and layers · Line type, width and colour"
+ },
+ "l6-s4": {
+  "file": "images/en/l6-s4.webp",
+  "caption": "Properties and layers · Layers"
+ },
+ "l7-s1": {
+  "file": "images/en/l7-s1.webp",
+  "caption": "The parts library · Placing a gear"
+ },
+ "l7-s1-dialog": {
+  "file": "images/en/l7-s1-dialog.webp",
+  "caption": "Placing a gear — window"
+ },
+ "l7-s2": {
+  "file": "images/en/l7-s2.webp",
+  "caption": "The parts library · Bolts and nuts"
+ },
+ "l7-s3": {
+  "file": "images/en/l7-s3.webp",
+  "caption": "The parts library · Changing a part"
+ },
+ "l8-s1": {
+  "file": "images/en/l8-s1.webp",
+  "caption": "3D solids · A box"
+ },
+ "l8-s2": {
+  "file": "images/en/l8-s2.webp",
+  "caption": "3D solids · A cylinder"
+ },
+ "l8-s2-dialog": {
+  "file": "images/en/l8-s2-dialog.webp",
+  "caption": "A cylinder — window"
+ },
+ "l8-s3": {
+  "file": "images/en/l8-s3.webp",
+  "caption": "3D solids · Seeing it in 3D"
+ },
+ "l8-s4": {
+  "file": "images/en/l8-s4.webp",
+  "caption": "3D solids · Views"
+ },
+ "l8-s5": {
+  "file": "images/en/l8-s5.webp",
+  "caption": "3D solids · Position and rotation"
+ },
+ "l8-s6": {
+  "file": "images/en/l8-s6.webp",
+  "caption": "3D solids · Back to 2D"
+ },
+ "l9-s1": {
+  "file": "images/en/l9-s1.webp",
+  "caption": "2D to 3D: pad, revolve, loft, sweep · Pad (extrude)"
+ },
+ "l9-s2": {
+  "file": "images/en/l9-s2.webp",
+  "caption": "2D to 3D: pad, revolve, loft, sweep · Revolve"
+ },
+ "l9-s3": {
+  "file": "images/en/l9-s3.webp",
+  "caption": "2D to 3D: pad, revolve, loft, sweep · Loft"
+ },
+ "l9-s4": {
+  "file": "images/en/l9-s4.webp",
+  "caption": "2D to 3D: pad, revolve, loft, sweep · Sweep"
+ },
+ "l10-s1": {
+  "file": "images/en/l10-s1.webp",
+  "caption": "Booleans: cut, fuse, common · Cut"
+ },
+ "l10-s2": {
+  "file": "images/en/l10-s2.webp",
+  "caption": "Booleans: cut, fuse, common · Fuse"
+ },
+ "l10-s3": {
+  "file": "images/en/l10-s3.webp",
+  "caption": "Booleans: cut, fuse, common · Explode gives the parts back"
+ },
+ "l11-s1": {
+  "file": "images/en/l11-s1.webp",
+  "caption": "Drawing views and sections · Projected views"
+ },
+ "l11-s1-dialog": {
+  "file": "images/en/l11-s1-dialog.webp",
+  "caption": "Projected views — window"
+ },
+ "l11-s2": {
+  "file": "images/en/l11-s2.webp",
+  "caption": "Drawing views and sections · Sections"
+ },
+ "l12-s1": {
+  "file": "images/en/l12-s1.webp",
+  "caption": "The 3D view in depth · Draw styles and axes"
+ },
+ "l12-s2": {
+  "file": "images/en/l12-s2.webp",
+  "caption": "The 3D view in depth · The light (sun)"
+ },
+ "l12-s3": {
+  "file": "images/en/l12-s3.webp",
+  "caption": "The 3D view in depth · Back to 2D"
+ },
+ "l13-s1": {
+  "file": "images/en/l13-s1.webp",
+  "caption": "Files: save, open, import, export · Save and open"
+ },
+ "l13-s2": {
+  "file": "images/en/l13-s2.webp",
+  "caption": "Files: save, open, import, export · Opening other CAD drawings"
+ },
+ "l13-s3": {
+  "file": "images/en/l13-s3.webp",
+  "caption": "Files: save, open, import, export · PCB Gerber"
+ },
+ "l13-s4": {
+  "file": "images/en/l13-s4.webp",
+  "caption": "Files: save, open, import, export · Exporting"
+ },
+ "l13-s4-dialog": {
+  "file": "images/en/l13-s4-dialog.webp",
+  "caption": "Exporting — window"
+ },
+ "l13-s5": {
+  "file": "images/en/l13-s5.webp",
+  "caption": "Files: save, open, import, export · Drag and drop"
+ },
+ "l14-s1": {
+  "file": "images/en/l14-s1.webp",
+  "caption": "Printing and 3D printing · Print preview"
+ },
+ "l14-s1-dialog": {
+  "file": "images/en/l14-s1-dialog.webp",
+  "caption": "Print preview — window"
+ },
+ "l14-s2": {
+  "file": "images/en/l14-s2.webp",
+  "caption": "Printing and 3D printing · 3D printing (STL)"
+ },
+ "l14-s2-dialog": {
+  "file": "images/en/l14-s2-dialog.webp",
+  "caption": "3D printing (STL) — window"
+ },
+ "l15-s1": {
+  "file": "images/en/l15-s1.webp",
+  "caption": "Settings and appearance · The settings window"
+ },
+ "l15-s1-dialog": {
+  "file": "images/en/l15-s1-dialog.webp",
+  "caption": "The settings window — window"
+ },
+ "l15-s2": {
+  "file": "images/en/l15-s2.webp",
+  "caption": "Settings and appearance · Themes"
+ },
+ "l15-s3": {
+  "file": "images/en/l15-s3.webp",
+  "caption": "Settings and appearance · Toolbar and panel groups"
+ },
+ "l16-s1": {
+  "file": "images/en/l16-s1.webp",
+  "caption": "Help · Feature list"
+ },
+ "l16-s1-dialog": {
+  "file": "images/en/l16-s1-dialog.webp",
+  "caption": "Feature list — window"
+ },
+ "l16-s2": {
+  "file": "images/en/l16-s2.webp",
+  "caption": "Help · About and file formats"
+ },
+ "l16-s2-dialog": {
+  "file": "images/en/l16-s2-dialog.webp",
+  "caption": "About and file formats — window"
+ },
+ "l16-s3": {
+  "file": "images/en/l16-s3.webp",
+  "caption": "Help · The tutorial again"
+ },
+ "l17-s1": {
+  "file": "images/en/l17-s1.webp",
+  "caption": "Assembly and motion · A moving sample"
+ },
+ "l17-s2": {
+  "file": "images/en/l17-s2.webp",
+  "caption": "Assembly and motion · The play bar"
+ },
+ "l17-s3": {
+  "file": "images/en/l17-s3.webp",
+  "caption": "Assembly and motion · Joints and drives"
+ },
+ "l18-s1": {
+  "file": "images/en/l18-s1.webp",
+  "caption": "Exact solids (OpenCASCADE) · Booleans on curved faces"
+ },
+ "l18-s2": {
+  "file": "images/en/l18-s2.webp",
+  "caption": "Exact solids (OpenCASCADE) · Fillet and draft"
+ },
+ "l18-s3": {
+  "file": "images/en/l18-s3.webp",
+  "caption": "Exact solids (OpenCASCADE) · Picking edges in 3D"
+ },
+ "l19-s1": {
+  "file": "images/en/l19-s1.webp",
+  "caption": "CAM in 3D and simulation · 3D roughing and finishing"
+ },
+ "l19-s1-dialog": {
+  "file": "images/en/l19-s1-dialog.webp",
+  "caption": "3D roughing and finishing — window"
+ },
+ "l19-s2": {
+  "file": "images/en/l19-s2.webp",
+  "caption": "CAM in 3D and simulation · Simulation and the machined stock"
+ },
+ "l20-s1": {
+  "file": "images/en/l20-s1.webp",
+  "caption": "FEM: plates and solids · Plate stress (plane stress)"
+ },
+ "l20-s2": {
+  "file": "images/en/l20-s2.webp",
+  "caption": "FEM: plates and solids · Solids (3D) and CalculiX"
+ },
+ "l20-s2-dialog": {
+  "file": "images/en/l20-s2-dialog.webp",
+  "caption": "Solids (3D) and CalculiX — window"
+ },
+ "l21-s1": {
+  "file": "images/en/l21-s1.webp",
+  "caption": "The Python console and macros · Making a model in Python"
+ },
+ "l21-s2": {
+  "file": "images/en/l21-s2.webp",
+  "caption": "The Python console and macros · The addon manager"
+ },
+ "l21-s2-dialog": {
+  "file": "images/en/l21-s2-dialog.webp",
+  "caption": "The addon manager — window"
  }
 }

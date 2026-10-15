@@ -1,6 +1,8 @@
 // 3D solids: primitives, features from 2D, placement, booleans, sections, drawing views.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+// The icons of the Part operations come with their commands.
+import '../../src/commands/part.js';
 import { booleanOf, conform } from '../../src/domain/csg.js';
 import { createEntity, measure, normalizeEntity, primitives, transformEntity } from '../../src/domain/entities.js';
 import {

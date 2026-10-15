@@ -91,6 +91,8 @@ for (const language of languages) {
   } finally {
     fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 1)}\n`);
     await Promise.race([app.kill(), sleep(8000)]);
+    app.vite?.kill();
+    await sleep(500);
   }
 }
 

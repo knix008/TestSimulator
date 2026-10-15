@@ -17,6 +17,11 @@ import { CATEGORY_ICONS, PART_KINDS, PARTS } from '../../src/domain/parts.js';
 import { ALL_SOLID_KINDS, REVOLVE_AXES, SOLID_KINDS, SOLIDS, solidProperties } from '../../src/domain/solids.js';
 import { normalizeEntity } from '../../src/domain/entities.js';
 import '../../src/view/partIcons.js';
+// The workbench command modules register their own icons.
+import '../../src/commands/std.js';
+import '../../src/commands/std2.js';
+import '../../src/commands/part.js';
+import '../../src/commands/partdesign.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const memory = () => { const data = new Map(); return { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => data.set(k, String(v)), data }; };

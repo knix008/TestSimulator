@@ -1,5 +1,16 @@
 // UI text in Korean and English. `t(key, params)` fills {name} placeholders.
 import { ARCH_EN, ARCH_KO } from './i18n-arch.js';
+import { STD_EN, STD_KO } from './i18n-std.js';
+import { STD2_EN, STD2_KO } from './i18n-std2.js';
+import { PART_EN, PART_KO } from './i18n-part.js';
+import { SKETCH_EN, SKETCH_KO } from './i18n-sketch.js';
+import { DRAFT_EN, DRAFT_KO } from './i18n-draft.js';
+import { MESH_EN, MESH_KO } from './i18n-mesh.js';
+import { WB_EN, WB_KO } from './i18n-wb.js';
+import { CAM_EN, CAM_KO } from './i18n-cam.js';
+import { FEM_EN, FEM_KO } from './i18n-fem.js';
+import { TD_EN, TD_KO } from './i18n-td.js';
+import { BIM_EN, BIM_KO } from './i18n-bim.js';
 
 const ko = {
   'app.name': 'MyCAD',
@@ -627,7 +638,7 @@ const en = {
   'web.desktopOnly': 'This works in the desktop app only', 'web.reopen': 'The browser lost access to the file. Open it again: {name}',
 };
 
-export const DICTIONARIES = { ko: { ...ko, ...ARCH_KO }, en: { ...en, ...ARCH_EN } };
+export const DICTIONARIES = { ko: { ...ko, ...ARCH_KO, ...STD_KO, ...STD2_KO, ...PART_KO, ...SKETCH_KO, ...DRAFT_KO, ...MESH_KO, ...WB_KO, ...CAM_KO, ...FEM_KO, ...TD_KO, ...BIM_KO }, en: { ...en, ...ARCH_EN, ...STD_EN, ...STD2_EN, ...PART_EN, ...SKETCH_EN, ...DRAFT_EN, ...MESH_EN, ...WB_EN, ...CAM_EN, ...FEM_EN, ...TD_EN, ...BIM_EN } };
 let language = 'ko';
 
 export function setLanguage(next) {

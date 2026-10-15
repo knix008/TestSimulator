@@ -19,9 +19,12 @@ import { previewSvg } from './domain/svg.js';
 import { prepareStl } from './domain/stl.js';
 import { normalizeEntity } from './domain/entities.js';
 import { coverageSummary, FREECAD_COVERAGE } from './domain/freecad.js';
-import { CAM_OPERATIONS, camPaths, camStats, normalizeCamOptions, PROFILE_SIDES } from './domain/cam.js';
-import { columnName, computeSheet, isCell, normalizeSpreadsheet, SHEET_ROWS } from './domain/spreadsheet.js';
+import { CAM_3D, CAM_OPERATIONS, camPaths, camStats, normalizeCamOptions, PROFILE_SIDES, RASTER_DIRECTIONS, TOOL_SHAPES } from './domain/cam.js';
+import { gridFor, simulate, stockCheck } from './domain/cam3d.js';
+import { cellPos, columnName, computeSheet, isCell, mergeCells, mergeOf, normalizeSpreadsheet, rangeCells, SHEET_ROWS, splitCell, styleCells } from './domain/spreadsheet.js';
+import { SHEET_TOOLS } from './commands/sheet.js';
 import { analyzeFrame, autoScale, deformedShape, MATERIALS, momentDiagram, normalizeFem, SECTION_TYPES, SUPPORT_TYPES } from './domain/fem.js';
+import { analyzeSolid, boundaryQuads, FEM3D_FACES, normalizeFem3d } from './domain/fem3d.js';
 import { analyzePlate, normalizePlate, PLATE_SUPPORTS, plateDeformed, platePeak, plateScale, plateSides, stressColor } from './domain/plate.js';
 import {
   ALL_SOLID_KINDS, featureFrom, normalizeSolidParams, projectEdges, REVOLVE_AXES, sectionAt, shadedView, SOLID_ICONS, SOLID_KINDS, SOLIDS, solidMesh, solidProperties, VIEW_AXES,
@@ -32,6 +35,20 @@ import { formatBytes, getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { POPUPS, popupParams } from './platform/popups.js';
+// The icons of the workbench command modules (dialog titles and fields use them).
+import './commands/std-icons.js';
+import './commands/std2-icons.js';
+import './commands/part-icons.js';
+import './commands/partdesign-icons.js';
+import './commands/sketcher-icons.js';
+import './commands/draft-icons.js';
+import './commands/mesh-icons.js';
+import './commands/assembly-icons.js';
+import './commands/openscad-icons.js';
+import './commands/camjob-icons.js';
+import './commands/femx-icons.js';
+import './commands/techdraw-icons.js';
+import './commands/bim-icons.js';
 import { bindSteppers, stepperHtml } from './stepper.js';
 import {
   applyFont, applyTheme, CUSTOM, CUSTOM_KEYS, customFrom, DARK_THEMES, drawingFontStack, LIGHT_THEMES, resolveTheme, SYSTEM, themeName,
@@ -159,7 +176,7 @@ function render() {
   try {
     ({
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress,
-      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage, tutorial: renderTutorial, bim: renderBim, check: renderCheck, cam: renderCam, fem: renderFem, plate: renderPlate, spreadsheet: renderSheet,
+      recent: renderRecent, print: renderPrint, menu: renderMenu, theme: renderThemePicker, form: renderForm, viewer: renderViewer, part: renderPart, array: renderArray, stl: renderStl, solid: renderSolid, coverage: renderCoverage, tutorial: renderTutorial, bim: renderBim, check: renderCheck, cam: renderCam, fem: renderFem, plate: renderPlate, fem3d: renderFem3d, addons: renderAddons, spreadsheet: renderSheet,
     })[kind]?.();
   } catch (error) {
     action('report-error', { message: String(error?.stack ?? error), context: `popup-${kind}` });
@@ -176,7 +193,7 @@ function fitHeight() {
   const target = Math.min(height, window.screen.availHeight - 40);
   if (Math.abs(target - window.innerHeight) <= 1) return;
   if (desktop) appWindow.setSize(new LogicalSize(window.innerWidth, target)).catch(() => {});
-  else send('place', { ...frameAnchor(), width: POPUPS[kind].width, height: target });
+  else send('place', { ...frameAnchor(), width: window.innerWidth || POPUPS[kind].width, height: target });
 }
 
 function frameAnchor() {
@@ -366,7 +383,12 @@ function settingsDrawing() {
 function settingsSnaps() {
   return [
     `<div class="row notice-row">${icon('snap')}<span>${escapeHtml(t('settings.snapHint'))}</span></div>`,
-    ...SNAP_MODES.map((mode) => row(`snap`, t(`snap.${mode}`), switchControl(`data-snap-mode="${mode}"`, s().snapModes[mode], t(`snap.${mode}`)))),
+    // Every snap of the Draft snap toolbar, then snapping onto the working plane and the live dimensions (compact rows).
+    `<div class="snap-list">${[
+      ...SNAP_MODES.map((mode) => row(`snap`, t(`snap.${mode}`), switchControl(`data-snap-mode="${mode}"`, s().snapModes[mode], t(`snap.${mode}`)))),
+      toggle('snapWorkingPlane', t('snap.workingPlane'), 'workPlane'),
+      toggle('snapDimensions', t('snap.dimensions'), 'dimension'),
+    ].join('')}</div>`,
   ].join('');
 }
 
@@ -700,12 +722,29 @@ function renderMenu() {
   const p = state.params;
   // Created ahead of time (prewarm) or reopened without a menu: stay hidden.
   if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
-  const items = p.items;
+  // Submenus open in the same window: the path of open groups, reset for each new menu.
+  if (menuPath.params !== p) { menuPath.params = p; menuPath.list = []; }
+  let items = p.items;
+  let parent = null;
+  for (const index of menuPath.list) if (items[index]?.items) { parent = items[index]; items = parent.items; }
   // Only the items: the menu's name is the OS window title and the accessible name.
   setOsTitle(p.header?.title);
-  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}" data-title="${escapeHtml(p.header?.title ?? '')}">${items.map((item, index) => (item.separator
+  const contains = (item) => (item.items ?? []).flatMap((sub) => (sub.items ? contains(sub) : sub.id ? [sub.id] : [])).join(' ');
+  const back = parent ? `<button class="menu-item menu-back" role="menuitem" data-menu-back title="${escapeHtml(parent.label)}">
+        <span class="menu-icon">${icon('chevronLeft')}</span>
+        <span class="menu-label">${escapeHtml(parent.label)}</span>
+        <span class="menu-key"></span><span class="menu-check"></span>
+      </button><div class="menu-sep" role="separator"></div>` : '';
+  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}" data-title="${escapeHtml(p.header?.title ?? '')}" data-depth="${menuPath.list.length}">${back}${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+    : item.items
+      ? `<button class="menu-item has-sub" role="menuitem" aria-haspopup="menu" data-sub="${index}" data-contains="${escapeHtml(contains(item))}" title="${escapeHtml(item.label)}">
+        <span class="menu-icon">${icon(item.icon)}</span>
+        <span class="menu-label">${escapeHtml(item.label)}</span>
+        <span class="menu-key"></span>
+        <span class="menu-check">${icon('chevronRight')}</span>
+      </button>`
+      : `<button class="menu-item ${item.danger ? 'danger' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
         <span class="menu-icon">${icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
@@ -738,6 +777,14 @@ function renderMenu() {
 
 let menuOpen = false;
 let menuResize = null;
+const menuPath = { params: null, list: [] };
+/** Opens a group of the menu in place (index in the shown list), or goes back one level (null). */
+function openSubmenu(index) {
+  if (index === null) menuPath.list.pop();
+  else menuPath.list.push(index);
+  renderMenu();
+  root.querySelector('.menu-item:not([disabled])')?.focus();
+}
 /** The menu window shows a menu only for an open request made after it loaded or the one that created it. */
 const loadedAt = Date.now();
 function shownOnce() {
@@ -1256,22 +1303,53 @@ root.addEventListener('change', (event) => {
 // ───────────────────────── spreadsheet window (FreeCAD Spreadsheet)
 
 const SHEET_COLS_SHOWN = 8;
-const SHEET_ROWS_SHOWN = 14;
+const SHEET_ROWS_SHOWN = 13;
+
+/** Spreadsheet_Style* / Align* / MergeCells / SplitCell on the picked cells (Shift+click picks a block). */
+function sheetCommand(id) {
+  const sh = state.sheetEdit;
+  if (!sh) return;
+  const cells = rangeCells(sh.sel, sh.sel2 ?? sh.sel);
+  const keep = { sel: sh.sel, sel2: sh.sel2, row0: sh.row0, col0: sh.col0, error: '' };
+  const all = (k, v = true) => cells.every((c) => sh.styles?.[c]?.[k] === v);
+  let next = sh;
+  if (id === 'bold' || id === 'italic' || id === 'underline') { const k = id[0]; next = styleCells(sh, cells, { [k]: all(k) ? null : true }); }
+  else if (['alignLeft', 'alignCenter', 'alignRight'].includes(id)) { const h = { alignLeft: 'left', alignCenter: 'center', alignRight: 'right' }[id]; next = styleCells(sh, cells, { h: all('h', h) ? null : h }); }
+  else if (['alignTop', 'alignVCenter', 'alignBottom'].includes(id)) { const v = { alignTop: 'top', alignVCenter: 'middle', alignBottom: 'bottom' }[id]; next = styleCells(sh, cells, { v: all('v', v) ? null : v }); }
+  else if (id === 'merge') next = mergeCells(sh, sh.sel, sh.sel2 ?? sh.sel);
+  else if (id === 'split') next = splitCell(sh, sh.sel);
+  state.sheetEdit = { ...next, ...keep };
+  render();
+}
 
 function renderSheet() {
-  state.sheetEdit ??= { ...normalizeSpreadsheet(state.params.sheet ?? {}), sel: 'A1', row0: 0, col0: 0, error: '' };
+  state.sheetEdit ??= { ...normalizeSpreadsheet(state.params.sheet ?? {}), sel: 'A1', sel2: null, row0: 0, col0: 0, error: '' };
   const sh = state.sheetEdit;
   const values = computeSheet(sh);
   const aliasOf = (cell) => Object.entries(sh.aliases).find(([, c]) => c === cell)?.[0] ?? '';
   const show = (v) => (v === undefined ? '' : typeof v === 'object' ? `#${t(`sheet.err.${v.error}`)}` : typeof v === 'number' ? fmt(v, 6) : v);
   const cols = Array.from({ length: SHEET_COLS_SHOWN }, (_, i) => sh.col0 + i).filter((c) => c < 26);
   const rows = Array.from({ length: SHEET_ROWS_SHOWN }, (_, i) => sh.row0 + i + 1).filter((r) => r <= SHEET_ROWS);
-  const grid = `<div class="sheet-grid" style="grid-template-columns: 38px repeat(${cols.length}, minmax(0, 1fr))"><span class="sheet-corner"></span>${cols.map((c) => `<span class="sheet-head">${columnName(c)}</span>`).join('')}${rows.map((r) => `<span class="sheet-head">${r}</span>${cols.map((c) => {
+  const picked = new Set(rangeCells(sh.sel, sh.sel2 ?? sh.sel));
+  const visible = (cell) => { const p = cellPos(cell); return cols.includes(p.col) && rows.includes(p.row); };
+  const styleClass = (s = {}) => [s.b ? 'sb' : '', s.i ? 'si' : '', s.u ? 'su' : '', s.h ? `ah-${s.h}` : '', s.v ? `av-${s.v}` : ''].join(' ');
+  const grid = `<div class="sheet-grid" style="grid-template-columns: 38px repeat(${cols.length}, minmax(0, 1fr)); grid-template-rows: repeat(${rows.length + 1}, 28px)"><span class="sheet-corner"></span>${cols.map((c) => `<span class="sheet-head">${columnName(c)}</span>`).join('')}${rows.map((r) => `<span class="sheet-head">${r}</span>${cols.map((c) => {
     const cell = `${columnName(c)}${r}`;
+    // Spreadsheet_MergeCells: a block shows as its top-left cell spanning the rest.
+    const block = mergeOf(sh, cell);
+    if (block && block.from !== cell && visible(block.from)) return '';
+    let span = '';
+    if (block && block.from === cell) {
+      const end = cellPos(block.to);
+      const spanCols = Math.min(end.col, cols[cols.length - 1]) - c + 1;
+      const spanRows = Math.min(end.row, rows[rows.length - 1]) - r + 1;
+      span = ` style="grid-column: span ${spanCols}; grid-row: span ${spanRows}"`;
+    }
     const v = values[cell];
     const alias = aliasOf(cell);
-    return `<button class="sheet-cell ${cell === sh.sel ? 'active' : ''} ${typeof v === 'number' ? 'num' : ''} ${v && typeof v === 'object' ? 'err' : ''}" data-sheet-cell="${cell}" title="${escapeHtml([cell, alias && `(${alias})`, sh.cells[cell] ?? ''].filter(Boolean).join(' '))}">${alias ? '<i class="sheet-alias-dot"></i>' : ''}${escapeHtml(show(v))}</button>`;
+    return `<button class="sheet-cell ${cell === sh.sel ? 'active' : ''} ${picked.size > 1 && picked.has(cell) ? 'in-range' : ''} ${block ? 'merged' : ''} ${typeof v === 'number' ? 'num' : ''} ${v && typeof v === 'object' ? 'err' : ''} ${styleClass(sh.styles?.[cell])}" data-sheet-cell="${cell}"${span} title="${escapeHtml([cell, alias && `(${alias})`, sh.cells[cell] ?? ''].filter(Boolean).join(' '))}">${alias ? '<i class="sheet-alias-dot"></i>' : ''}<span>${escapeHtml(show(v))}</span></button>`;
   }).join('')}`).join('')}</div>`;
+  const tools = `<div class="sheet-tools">${SHEET_TOOLS.map((tool) => (tool === '-' ? '<span class="sheet-tools-gap"></span>' : `<button class="icon-button ${tool.on?.(sh, [...picked]) ? 'on' : ''}" data-sheet-cmd="${tool.id}" title="${escapeHtml(t(tool.label))}" aria-label="${escapeHtml(t(tool.label))}">${icon(tool.icon)}</button>`)).join('')}<span class="grow"></span><span class="muted sheet-range">${escapeHtml(picked.size > 1 ? `${sh.sel}:${sh.sel2}` : '')}</span>${button('sheet-import', t('sheet.importCsv'), 'import')}</div>`;
   const pager = (axis, label, glyph, step) => `<button class="icon-button" data-sheet-page="${axis}:${step}" title="${escapeHtml(t(label))}" aria-label="${escapeHtml(t(label))}">${icon(glyph)}</button>`;
   root.innerHTML = frame({
     glyph: 'spreadsheet', title: t('sheet.title'),
@@ -1282,6 +1360,7 @@ function renderSheet() {
         <input id="sheet-alias" data-sheet-alias value="${escapeHtml(aliasOf(sh.sel))}" placeholder="${escapeHtml(t('sheet.alias'))}" title="${escapeHtml(t('sheet.aliasHint'))}" spellcheck="false" />
         <span class="sheet-pager">${pager('col', 'sheet.left', 'chevronLeft', -SHEET_COLS_SHOWN)}${pager('col', 'sheet.right', 'chevronRight', SHEET_COLS_SHOWN)}${pager('row', 'sheet.up', 'chevronUp', -SHEET_ROWS_SHOWN)}${pager('row', 'sheet.down', 'chevronDown', SHEET_ROWS_SHOWN)}</span>
       </div>
+      ${tools}
       ${sh.error ? `<div class="row notice-row warn-row">${icon('warning')}<span>${escapeHtml(sh.error)}</span></div>` : ''}
       ${grid}
       <p class="muted hint">${escapeHtml(t('sheet.hint'))}</p>
@@ -1291,7 +1370,7 @@ function renderSheet() {
   ready();
 }
 
-const sheetResult = () => normalizeSpreadsheet({ cells: state.sheetEdit.cells, aliases: state.sheetEdit.aliases });
+const sheetResult = () => normalizeSpreadsheet({ cells: state.sheetEdit.cells, aliases: state.sheetEdit.aliases, styles: state.sheetEdit.styles, merged: state.sheetEdit.merged });
 
 // ───────────────────────── CAM window (FreeCAD CAM: profile, pocket, drilling, engrave → G-code)
 
@@ -1301,6 +1380,117 @@ function camInit() {
   let saved = {};
   try { saved = JSON.parse(globalThis.localStorage?.getItem(CAM_KEY) ?? '{}') ?? {}; } catch { /* ignore */ }
   state.cam = normalizeCamOptions({ ...saved, ...(state.params.options ?? {}) });
+  // The operation follows what there is to machine: solids → 3D, outlines → 2D.
+  const source = state.params.source ?? {};
+  const has2d = Boolean(source.loops?.length || source.chains?.length || source.circles?.length);
+  if (source.model && !has2d && !CAM_3D.includes(state.cam.operation)) state.cam.operation = 'rough3d';
+  if (!source.model && CAM_3D.includes(state.cam.operation)) state.cam.operation = 'profile';
+  state.camView = 'paths';
+  state.camSim = null;
+}
+
+/** The job for the window's options, kept while they do not change (the simulator reuses it). */
+function camJob(source) {
+  const key = JSON.stringify(state.cam);
+  if (state.camJob?.key !== key) state.camJob = { key, job: camPaths(source, state.cam) };
+  return state.camJob.job;
+}
+
+/** The simulator: the stock grid (the model's, or one over the paths) cut up to `cut` path points. */
+function camSimState(source, job) {
+  const key = state.camJob.key;
+  if (state.camSim?.key === key) return state.camSim;
+  const grid = source.model ?? gridFor(job);
+  state.camSim = { key, grid, top: job.options.top, run: grid ? { stock: new Array(grid.nx * grid.ny).fill(job.options.top), cut: 0, total: job.paths.reduce((n, p) => n + p.points.length, 0) } : null, playing: false };
+  return state.camSim;
+}
+
+/** Shows the stock cut up to point `count` (forward from where it is, or again from the start). */
+function camSimTo(count) {
+  const sim = state.camSim;
+  const job = state.camJob?.job;
+  if (!sim?.grid || !job) return;
+  const target = Math.max(0, Math.min(sim.run.total, Math.round(count)));
+  sim.run = target >= sim.run.cut
+    ? simulate(sim.grid, job, { count: target, top: sim.top, from: sim.run })
+    : simulate(sim.grid, job, { count: target, top: sim.top });
+  drawCamSim();
+}
+
+/** Hill-shaded stock, coloured by height, with the tool path done so far. */
+function drawCamSim() {
+  const sim = state.camSim;
+  const canvas = root.querySelector('#cam-sim');
+  if (!sim?.grid || !canvas) return;
+  const { grid, run } = sim;
+  const { nx, ny, cell } = grid;
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(nx, ny);
+  const lo = grid.zMin; const hi = Math.max(sim.top, lo + 1e-6);
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      const h = run.stock[k];
+      const dx = (run.stock[j * nx + Math.min(nx - 1, i + 1)] - run.stock[j * nx + Math.max(0, i - 1)]) / (2 * cell);
+      const dy = (run.stock[Math.min(ny - 1, j + 1) * nx + i] - run.stock[Math.max(0, j - 1) * nx + i]) / (2 * cell);
+      const shade = Math.max(0.25, Math.min(1, (-dx * -0.5 + -dy * 0.5 + 1) / Math.sqrt(dx * dx + dy * dy + 1) / 1.2247 + 0.2));
+      const t = (h - lo) / (hi - lo);
+      // Cut faces: steel blue → aluminium; the untouched top: warm stock colour.
+      const base = Math.abs(h - sim.top) < 1e-6 ? [214, 170, 110] : [90 + 120 * t, 120 + 110 * t, 160 + 80 * t];
+      // Rows from the top (y up in the drawing).
+      const p = ((ny - 1 - j) * nx + i) * 4;
+      image.data[p] = base[0] * shade; image.data[p + 1] = base[1] * shade; image.data[p + 2] = base[2] * shade; image.data[p + 3] = 255;
+    }
+  }
+  const off = new OffscreenCanvas(nx, ny);
+  off.getContext('2d').putImageData(image, 0, 0);
+  const k = Math.min(canvas.width / nx, canvas.height / ny);
+  const w = nx * k; const h = ny * k;
+  const ox = (canvas.width - w) / 2; const oy = (canvas.height - h) / 2;
+  ctx.fillStyle = getComputedStyle(root).getPropertyValue('--canvas') || '#20242c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, ox, oy, w, h);
+  // The path done so far, and the tool where it is.
+  const X = (x) => ox + ((x - grid.x0) / cell + 0.5) * k;
+  const Y = (y) => oy + h - ((y - grid.y0) / cell + 0.5) * k;
+  ctx.strokeStyle = 'rgba(229, 72, 77, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  let index = 0; let last = null;
+  for (const path of state.camJob.job.paths) {
+    for (let q = 0; q < path.points.length && index < run.cut; q++, index++) {
+      const pt = path.points[q];
+      if (q === 0) ctx.moveTo(X(pt.x), Y(pt.y)); else ctx.lineTo(X(pt.x), Y(pt.y));
+      last = pt;
+    }
+    if (index >= run.cut) break;
+  }
+  ctx.stroke();
+  if (last) {
+    ctx.strokeStyle = '#e5484d'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(last.x), Y(last.y), Math.max(3, (state.cam.tool / 2 / cell) * k), 0, Math.PI * 2); ctx.stroke();
+  }
+  const slider = root.querySelector('#cam-sim-pos');
+  if (slider && document.activeElement !== slider) slider.value = String(run.cut);
+  const pct = root.querySelector('#cam-sim-pct');
+  if (pct) pct.textContent = `${Math.round((run.cut / Math.max(1, run.total)) * 100)} %`;
+  const check = root.querySelector('#cam-sim-check');
+  if (check && state.params.source?.model && run.cut >= run.total) {
+    const c = stockCheck(grid, run.stock);
+    check.innerHTML = `<span class="info-chip ${c.gouge > cell / 4 ? 'status-none' : 'status-full'}" id="cam-gouge">${escapeHtml(t('cam.gouge'))} <b>${fmt(c.gouge, 3)} mm</b></span><span class="info-chip" id="cam-left">${escapeHtml(t('cam.left'))} <b>${fmt(c.left, 3)} mm</b></span>`;
+  } else if (check) check.innerHTML = '';
+  canvas.dataset.cut = String(run.cut);
+  canvas.dataset.total = String(run.total);
+}
+
+function camSimStep() {
+  const sim = state.camSim;
+  if (!sim?.playing) return;
+  // About ten seconds for a whole job.
+  camSimTo(sim.run.cut + Math.max(1, Math.ceil(sim.run.total / 600)));
+  if (sim.run.cut >= sim.run.total) { sim.playing = false; render(); return; }
+  sim.frame = requestAnimationFrame(camSimStep);
 }
 
 /** Top view of the outlines and the tool paths. */
@@ -1332,19 +1522,25 @@ function renderCam() {
   if (!state.cam) camInit();
   const o = state.cam;
   const source = state.params.source ?? { loops: [], chains: [], circles: [] };
-  const job = camPaths(source, o);
+  const job = camJob(source);
   const stats = camStats(job);
+  const has2d = Boolean(source.loops?.length || source.chains?.length || source.circles?.length);
+  const is3d = CAM_3D.includes(o.operation);
   const seg = (attr, value, active, label) => `<button class="segment ${active ? 'active' : ''}" ${attr}="${value}" title="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
   const field = (key, label, glyph, min, max, step, unit) => row(glyph, t(label), numberField(`cam:${key}`, o[key], min, max, step, unit, t(label)));
   const toggleRow = (key, label) => row('check', t(label), switchControl(`data-cam-toggle="${key}"`, o[key], t(label)));
   const op = o.operation;
   const fields = [
-    row('cam', t('cam.operation'), `<span class="segmented">${CAM_OPERATIONS.map((id) => seg('data-cam-op', id, op === id, t(`cam.op.${id}`))).join('')}</span>`),
+    row('cam', t('cam.operation'), `<span class="segmented">${CAM_OPERATIONS.filter((id) => !CAM_3D.includes(id)).map((id) => seg('data-cam-op', id, op === id, t(`cam.op.${id}`)).replace('<button', has2d ? '<button' : '<button disabled')).join('')}</span>`),
+    row('solidBox', t('cam.operation3d'), `<span class="segmented">${CAM_3D.map((id) => seg('data-cam-op', id, op === id, t(`cam.op.${id}`)).replace('<button', source.model ? '<button' : '<button disabled')).join('')}</span>`),
+    is3d ? row('circle', t('cam.toolShape'), `<span class="segmented">${TOOL_SHAPES.map((id) => seg('data-cam-shape', id, o.toolShape === id, t(`cam.shape.${id}`))).join('')}</span>`) : '',
     op === 'profile' ? row('offset', t('cam.side'), `<span class="segmented">${PROFILE_SIDES.map((id) => seg('data-cam-side', id, o.side === id, t(`cam.side.${id}`))).join('')}</span>`) : '',
     field('tool', 'cam.tool', 'circle', 0.1, 100, 0.5, 'mm'),
-    field('depth', 'cam.depth', 'measure', 0.01, 500, 0.5, 'mm'),
-    op === 'drill' ? field('peck', 'cam.peck', 'chevronDown', 0, 100, 0.5, 'mm') : field('stepDown', 'cam.stepDown', 'chevronDown', 0.01, 100, 0.25, 'mm'),
-    op === 'pocket' ? field('stepOver', 'cam.stepOver', 'array', 0.05, 1, 0.05, '×') : '',
+    is3d ? field('stockTop', 'cam.stockTop', 'chevronUp', 0, 500, 0.5, 'mm') : field('depth', 'cam.depth', 'measure', 0.01, 500, 0.5, 'mm'),
+    op === 'drill' ? field('peck', 'cam.peck', 'chevronDown', 0, 100, 0.5, 'mm') : op === 'finish3d' ? '' : field('stepDown', 'cam.stepDown', 'chevronDown', 0.01, 100, 0.25, 'mm'),
+    op === 'pocket' || is3d ? field('stepOver', 'cam.stepOver', 'array', 0.05, 1, 0.05, '×') : '',
+    op === 'rough3d' ? field('leave', 'cam.leave', 'offset', 0, 50, 0.1, 'mm') : '',
+    is3d ? row('array', t('cam.direction'), `<span class="segmented">${RASTER_DIRECTIONS.map((id) => seg('data-cam-direction', id, o.direction === id, t(`cam.direction.${id}`))).join('')}</span>`) : '',
     field('feed', 'cam.feed', 'move', 1, 20000, 50, 'mm/min'),
     field('plunge', 'cam.plunge', 'chevronDown', 1, 5000, 10, 'mm/min'),
     field('spindle', 'cam.spindle', 'rotate', 0, 60000, 500, 'rpm'),
@@ -1355,10 +1551,35 @@ function renderCam() {
   const warn = job.warnings.map((w) => `<div class="row notice-row warn-row">${icon('warning')}<span>${escapeHtml(t(`cam.warn.${w}`))}</span></div>`).join('');
   root.innerHTML = frame({
     glyph: 'cam', title: `${t('cam.title')} — ${state.params.name ?? ''}`,
-    body: `<div class="cam-view"><div class="cam-fields">${fields}${warn}</div><div class="cam-preview" id="cam-preview">${camPreview(source, job)}</div></div>`,
-    foot: `<span class="info-chip">${escapeHtml(t('cam.paths'))} <b id="cam-paths">${stats.paths}</b></span><span class="info-chip">${escapeHtml(t('cam.cut'))} <b>${escapeHtml(formatLength(stats.cut))}</b></span><span class="info-chip">${escapeHtml(t('cam.time'))} <b id="cam-time">${fmt(stats.minutes, 1)} ${escapeHtml(t('cam.minutes'))}</b></span><span class="grow"></span>${button('close', t('confirm.cancel'), 'close')}<button class="button primary" data-action="cam-export" title="${escapeHtml(t('cam.export'))}" ${job.paths.length ? '' : 'disabled'}>${icon('export')}<span>${escapeHtml(t('cam.export'))}</span></button>`,
+    body: `<div class="cam-view"><div class="cam-fields">${fields}${warn}</div><div class="cam-side"><span class="segmented cam-tabs" role="tablist">${['paths', 'sim'].map((id) => seg('data-cam-view', id, state.camView === id, t(`cam.view.${id}`))).join('')}</span>${state.camView === 'sim' ? camSimHtml(source, job) : `<div class="cam-preview" id="cam-preview">${is3d ? camPreview3d(source, job) : camPreview(source, job)}</div>`}</div></div>`,
+    foot: `<span class="info-chip">${escapeHtml(t('cam.paths'))} <b id="cam-paths">${stats.paths}</b></span><span class="info-chip">${escapeHtml(t('cam.cut'))} <b>${escapeHtml(formatLength(stats.cut))}</b></span><span class="info-chip">${escapeHtml(t('cam.time'))} <b id="cam-time">${fmt(stats.minutes, 1)} ${escapeHtml(t('cam.minutes'))}</b></span><span class="grow"></span>${button('close', t('confirm.cancel'), 'close')}<button class="button" data-action="cam-stock" title="${escapeHtml(t('cam.stockTip'))}" ${job.paths.length ? '' : 'disabled'}>${icon('solidBox')}<span>${escapeHtml(t('cam.stock'))}</span></button><button class="button primary" data-action="cam-export" title="${escapeHtml(t('cam.export'))}" ${job.paths.length ? '' : 'disabled'}>${icon('export')}<span>${escapeHtml(t('cam.export'))}</span></button>`,
   });
   ready();
+  if (state.camView === 'sim') drawCamSim();
+}
+
+/** The simulator tab: the stock, play / pause, the position along the job, the checks. */
+function camSimHtml(source, job) {
+  const sim = camSimState(source, job);
+  if (!sim.grid) return `<p class="muted">${escapeHtml(t('cam.nothing'))}</p>`;
+  return `<div class="cam-preview cam-sim-view"><canvas id="cam-sim" width="540" height="380"></canvas></div>
+    <div class="cam-sim-bar"><button class="icon-button" data-cam-sim="play" title="${escapeHtml(t(sim.playing ? 'anim.pause' : 'cam.simPlay'))}" aria-label="${escapeHtml(t(sim.playing ? 'anim.pause' : 'cam.simPlay'))}">${icon(sim.playing ? 'pause' : 'play')}</button><button class="icon-button" data-cam-sim="end" title="${escapeHtml(t('cam.simEnd'))}" aria-label="${escapeHtml(t('cam.simEnd'))}">${icon('chevronRight')}</button><input type="range" id="cam-sim-pos" min="0" max="${sim.run.total}" step="1" value="${sim.run.cut}" title="${escapeHtml(t('cam.simPos'))}" aria-label="${escapeHtml(t('cam.simPos'))}" /><span id="cam-sim-pct" class="muted"></span><span id="cam-sim-check"></span></div>`;
+}
+
+/** 3D jobs from above: the model's height as shading and the tool paths. */
+function camPreview3d(source, job) {
+  const m = source.model;
+  if (!m) return `<p class="muted">${escapeHtml(t('cam.warn.noModel'))}</p>`;
+  const w = 520; const h = 400; const pad = 14;
+  const k = Math.min((w - 2 * pad) / (m.nx * m.cell), (h - 2 * pad) / (m.ny * m.cell));
+  const ox = (w - m.nx * m.cell * k) / 2; const oy = (h - m.ny * m.cell * k) / 2;
+  const X = (x) => (ox + (x - m.x0) * k).toFixed(1);
+  const Y = (y) => (h - oy - (y - m.y0) * k).toFixed(1);
+  const shown = job.paths.length > 400 ? job.paths.filter((_, i) => i % Math.ceil(job.paths.length / 400) === 0) : job.paths;
+  return `<svg id="cam-svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" data-cuts="${job.paths.length}" data-drills="0">
+    <rect x="${X(m.x0)}" y="${Y(m.y0 + (m.ny - 1) * m.cell)}" width="${((m.nx - 1) * m.cell * k).toFixed(1)}" height="${((m.ny - 1) * m.cell * k).toFixed(1)}" fill="none" stroke="var(--muted)" stroke-dasharray="4 3"/>
+    <path d="${shown.map((p) => p.points.map((q, i) => `${i ? 'L' : 'M'}${X(q.x)} ${Y(q.y)}`).join('')).join('')}" fill="none" stroke="var(--accent)" stroke-width="0.8"/>
+  </svg>`;
 }
 
 function applyCam() {
@@ -1513,6 +1734,123 @@ function renderPlate() {
   ready();
 }
 
+// ───────────────────────── FEM of solids (voxel bricks, CalculiX)
+
+function fem3dTris() {
+  const t = state.params.tris ?? [];
+  const out = [];
+  for (let i = 0; i + 8 < t.length; i += 9) out.push([[t[i], t[i + 1], t[i + 2]], [t[i + 3], t[i + 4], t[i + 5]], [t[i + 6], t[i + 7], t[i + 8]]]);
+  return out;
+}
+
+/** Iso view of the bricks' outer faces, moved by the displacements (scaled) and coloured by von Mises stress. */
+function drawFem3d(result) {
+  const canvas = root.querySelector('#fem3d-canvas');
+  if (!canvas || !result?.ok) return;
+  const ctx = canvas.getContext('2d');
+  const quads = boundaryQuads(result);
+  const size = Math.max(...[0, 1, 2].map((d) => Math.max(...result.nodes.map((p) => p[d])) - Math.min(...result.nodes.map((p) => p[d]))), 1);
+  const scale = state.fem3d.view.deformed && result.max.displacement ? (size * 0.06) / result.max.displacement : 0;
+  const P = result.nodes.map((p, i) => [p[0] + result.u[3 * i] * scale, p[1] + result.u[3 * i + 1] * scale, p[2] + result.u[3 * i + 2] * scale]);
+  // Iso: x to the right-down, y to the right-up, z up.
+  const iso = ([x, y, z]) => [(x - y) * 0.866, (x + y) * 0.5 - z];
+  const depth = ([x, y, z]) => x + y + z;
+  const pts = P.map(iso);
+  const xs = pts.map((q) => q[0]); const ys = pts.map((q) => q[1]);
+  const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+  const k = Math.min((canvas.width - 40) / (maxX - minX || 1), (canvas.height - 40) / (maxY - minY || 1));
+  const ox = (canvas.width - (maxX - minX) * k) / 2; const oy = (canvas.height - (maxY - minY) * k) / 2;
+  const S = (q) => [ox + (q[0] - minX) * k, oy + (q[1] - minY) * k];
+  ctx.fillStyle = getComputedStyle(root).getPropertyValue('--canvas') || '#20242c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const top = result.max.vm || 1;
+  // Painter's order: far faces first; faces pointing away from the viewer left out.
+  const faces = quads.map(([quad, e]) => ({ quad, e, d: quad.reduce((s, i) => s + depth(P[i]), 0) })).sort((a, b) => a.d - b.d);
+  for (const { quad, e } of faces) {
+    const q = quad.map((i) => S(pts[i]));
+    const area = q.reduce((s, p, i) => { const n = q[(i + 1) % 4]; return s + p[0] * n[1] - n[0] * p[1]; }, 0);
+    if (area > 0) continue;
+    ctx.beginPath();
+    q.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fillStyle = stressColor(result.vm[e] / top);
+    ctx.fill();
+    if (state.fem3d.view.mesh) { ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke(); }
+  }
+  canvas.dataset.faces = String(faces.length);
+}
+
+function renderFem3d() {
+  if (!state.fem3d) { const options = normalizeFem3d(state.params.fem3d ?? {}); state.fem3d = { options, view: { deformed: true, mesh: true }, loadFace: options.loads[0]?.face ?? 'zmax' }; }
+  const o = state.fem3d.options;
+  const key = JSON.stringify(o);
+  if (state.fem3d.key !== key) { state.fem3d.key = key; state.fem3d.result = analyzeSolid(fem3dTris(), o); }
+  const result = state.fem3d.result;
+  const field = (k, label, glyph, min, max, step, unit) => row(glyph, t(label), numberField(`fem3d:${k}`, o[k], min, max, step, unit, t(label)));
+  // The chosen face stays chosen while its force is still zero (a zero load is no load).
+  const load = o.loads[0] ?? { face: state.fem3d.loadFace, fx: 0, fy: 0, fz: 0 };
+  const num = (part) => `<input class="fem-num" data-fem3d-load="${part}" value="${fmt(load[part], 4)}" title="${escapeHtml(t(`fem3d.load.${part}`))}" aria-label="${escapeHtml(t(`fem3d.load.${part}`))}" />`;
+  const util = result.ok ? result.max.utilisation : 0;
+  const chips = result.ok
+    ? `<span class="info-chip">${escapeHtml(t('fem.maxDisp'))} <b id="fem3d-disp">${fmt(result.max.displacement, 4)} mm</b></span><span class="info-chip">${escapeHtml(t('plate.maxVm'))} <b id="fem3d-vm">${fmt(result.max.vm, 1)} MPa</b></span><span class="info-chip ${util > 1 ? 'status-none' : util > 0.8 ? 'status-partial' : 'status-full'}">${escapeHtml(t('fem.utilisation'))} <b>${fmt(util * 100, 0)} %</b></span>`
+    : `<span class="info-chip status-none" id="fem3d-error">${icon('warning')} ${escapeHtml(t(`fem3d.error.${result.error}`))}</span>`;
+  root.innerHTML = frame({
+    glyph: 'femSolid', title: `${t('fem3d.title')} — ${state.params.name ?? ''}`,
+    body: `<div class="fem-view"><div class="fem-fields">
+      ${row('layers', t('fem.material'), `<select data-fem3d-material title="${escapeHtml(t('fem.material'))}">${[...Object.keys(MATERIALS), 'custom'].map((m) => `<option value="${m}" ${o.material === m ? 'selected' : ''}>${escapeHtml(t(`fem.material.${m}`))}</option>`).join('')}</select>`)}
+      ${o.material === 'custom' ? field('E', 'fem.E', 'measure', 1, 1e7, 1000, 'MPa') : ''}
+      ${field('nu', 'plate.nu', 'measure', 0, 0.49, 0.01, '')}
+      ${field('resolution', 'fem3d.resolution', 'grid', 4, 80, 2, '')}
+      ${row('lock', t('fem3d.fixed'), `<span class="segmented fem3d-faces">${FEM3D_FACES.map((f) => `<button class="segment ${o.fixed.includes(f) ? 'active' : ''}" data-fem3d-fixed="${f}" title="${escapeHtml(t(`fem3d.face.${f}`))}">${escapeHtml(t(`fem3d.faceShort.${f}`))}</button>`).join('')}</span>`)}
+      ${row('chevronDown', t('fem3d.loadFace'), `<select data-fem3d-load-face title="${escapeHtml(t('fem3d.loadFace'))}">${FEM3D_FACES.map((f) => `<option value="${f}" ${load.face === f ? 'selected' : ''}>${escapeHtml(t(`fem3d.face.${f}`))}</option>`).join('')}</select>`)}
+      <div class="fem-node-head fem3d-load-head"><span>Fx N</span><span>Fy N</span><span>Fz N</span></div>
+      <div class="fem-node-row fem3d-load-row">${num('fx')}${num('fy')}${num('fz')}</div>
+      ${row('check', t('fem.selfWeight'), switchControl('data-fem3d-toggle="gravity"', o.gravity, t('fem.selfWeight')))}
+      <p class="muted fem3d-counts">${escapeHtml(result.ok ? t('fem3d.counts', { elements: result.elements.length, nodes: result.nodes.length, h: fmt(result.grid.h, 2) }) : '')}</p>
+    </div>
+    <div class="fem-side"><div class="fem-preview"><canvas id="fem3d-canvas" width="560" height="420"></canvas></div>
+      <div class="fem-toggles"><label>${switchControl('data-fem3d-view="deformed"', state.fem3d.view.deformed, t('fem.deformed'))}<span>${escapeHtml(t('fem.deformed'))}</span></label><label>${switchControl('data-fem3d-view="mesh"', state.fem3d.view.mesh, t('plate.mesh'))}<span>${escapeHtml(t('plate.mesh'))}</span></label></div>
+    </div></div>`,
+    foot: `${chips}<span class="grow"></span>${button('close', t('confirm.cancel'), 'close')}<button class="button" data-action="fem3d-inp" title="${escapeHtml(t('fem3d.inpTip'))}" ${result.ok ? '' : 'disabled'}>${icon('export')}<span>.inp</span></button><button class="button" data-action="fem3d-ccx" title="${escapeHtml(t('fem3d.ccxTip'))}" ${result.ok ? '' : 'disabled'}>${icon('fem')}<span>CalculiX</span></button><button class="button primary" data-action="fem3d-draw" title="${escapeHtml(t('fem3d.drawTip'))}" ${result.ok ? '' : 'disabled'}>${icon('femSolid')}<span>${escapeHtml(t('fem.draw'))}</span></button>`,
+  });
+  ready();
+  drawFem3d(result);
+}
+
+// ───────────────────────── addon manager (FreeCAD Addon Manager, for macros)
+
+function renderAddons() {
+  const ko = getLanguage() === 'ko';
+  const catalog = state.params.catalog ?? [];
+  const installed = state.params.installed ?? [];
+  state.addons ??= { url: '', checked: new Set() };
+  const has = (name) => installed.some((m) => m.name === name);
+  const lang = (l) => `<span class="addon-lang ${l}">${l === 'python' ? 'Python' : 'JS'}</span>`;
+  const rows = catalog.map((a) => {
+    const name = ko ? a.name.ko : a.name.en;
+    const done = has(name);
+    return `<div class="addon-row" data-addon="${escapeHtml(a.id)}"><div class="addon-text"><b>${escapeHtml(name)}</b> ${lang(a.language)}<small>${escapeHtml(ko ? a.description.ko : a.description.en)}</small></div>
+      ${done ? `<span class="info-chip status-full">${escapeHtml(t('addons.isInstalled'))}</span><button class="small-button" data-addon-run="${escapeHtml(name)}" title="${escapeHtml(t('addons.run'))}">${icon('play')}<span>${escapeHtml(t('addons.run'))}</span></button>`
+        : `<button class="small-button primary" data-addon-install="${escapeHtml(a.id)}" title="${escapeHtml(t('addons.install'))}">${icon('import')}<span>${escapeHtml(t('addons.install'))}</span></button>`}</div>`;
+  }).join('');
+  const mine = installed.map((m) => `<div class="addon-row installed"><div class="addon-text"><b>${escapeHtml(m.name)}</b> ${lang(m.language)}<small>${escapeHtml(m.source ?? t('addons.local'))}</small></div>
+    ${m.source ? `<button class="icon-button" data-addon-update="${escapeHtml(m.name)}" title="${escapeHtml(t('addons.update'))}" aria-label="${escapeHtml(t('addons.update'))}">${icon('undo')}</button>` : ''}
+    <button class="icon-button" data-addon-run="${escapeHtml(m.name)}" title="${escapeHtml(t('addons.run'))}" aria-label="${escapeHtml(t('addons.run'))}">${icon('play')}</button>
+    <button class="icon-button" data-addon-remove="${escapeHtml(m.name)}" title="${escapeHtml(t('addons.remove'))}" aria-label="${escapeHtml(t('addons.remove'))}">${icon('trash')}</button></div>`).join('') || `<p class="muted">${escapeHtml(t('addons.none'))}</p>`;
+  root.innerHTML = frame({
+    glyph: 'part', title: t('addons.title'),
+    body: `<div class="addons-view">
+      <section><h3>${icon('list')}<span>${escapeHtml(t('addons.catalog'))}</span></h3><div class="addon-list" id="addon-catalog">${rows}</div></section>
+      <section><h3>${icon('check')}<span>${escapeHtml(t('addons.installedTitle', { count: installed.length }))}</span></h3><div class="addon-list" id="addon-installed">${mine}</div>
+        <h3>${icon('link')}<span>${escapeHtml(t('addons.fromUrl'))}</span></h3>
+        <div class="addon-url"><input id="addon-url" placeholder="https://…/macro.FCMacro" value="${escapeHtml(state.addons.url)}" title="${escapeHtml(t('addons.urlTip'))}" aria-label="${escapeHtml(t('addons.fromUrl'))}" /><button class="small-button" data-addon-url title="${escapeHtml(t('addons.urlTip'))}">${icon('import')}<span>${escapeHtml(t('addons.install'))}</span></button></div>
+        <label class="small-button addon-file" title="${escapeHtml(t('addons.fileTip'))}">${icon('open')}<span>${escapeHtml(t('addons.fromFile'))}</span><input type="file" id="addon-file" accept=".py,.FCMacro,.fcmacro,.js,.txt" hidden /></label>
+      </section></div>`,
+    foot: `<span class="muted">${escapeHtml(t('addons.hint'))}</span><span class="grow"></span>${button('close', t('error.close'), 'close')}`,
+  });
+  ready();
+}
+
 function renderFem() {
   if (!state.fem) femInit();
   const frame = state.params.frame ?? { nodes: [], members: [] };
@@ -1640,6 +1978,115 @@ function renderTutorial() {
   ready();
 }
 
+// ───────────────────────── viewer (Std_ViewCreate / Std_ViewUndock: the 3D view in its own window)
+
+async function renderViewer() {
+  const p = state.params;
+  if (!p.drawing) return;
+  if (!state.viewer) {
+    root.innerHTML = frame({
+      glyph: 'cube', title: `${t('std.viewerTitle')} — ${p.name ?? ''}`,
+      body: `<div class="viewer-bar">${['iso', 'top', 'front', 'right', 'rear', 'left', 'bottom'].map((view) => `<button class="small-button" data-viewer-view="${view}" title="${escapeHtml(t(`std.view${view === 'iso' ? 'Isometric' : view[0].toUpperCase() + view.slice(1)}`))}">${escapeHtml(t(`std.view${view === 'iso' ? 'Isometric' : view[0].toUpperCase() + view.slice(1)}`))}</button>`).join('')}<span class="grow"></span><button class="small-button" data-viewer-view="fit">${icon('zoomFit')}<span>${escapeHtml(t('action.zoomFit'))}</span></button></div><div class="viewer-host" id="viewer-host"></div>`,
+    });
+    ready();
+    const { View3D } = await import('./view/view3d.js');
+    const host = root.querySelector('#viewer-host');
+    state.viewer = new View3D(host, {});
+    state.viewer.options.style = p.style ?? 'asis';
+    new ResizeObserver(() => { const r = host.getBoundingClientRect(); state.viewer.resize(r.width, r.height); }).observe(host);
+  }
+  const r = root.querySelector('#viewer-host').getBoundingClientRect();
+  state.viewer.resize(r.width, r.height);
+  state.viewer.update(p.drawing, { thickness: p.thickness ?? 10, colors: p.colors ?? {} });
+  if (!state.viewerFramed) { state.viewer.view('iso'); state.viewerFramed = true; }
+}
+
+root.addEventListener('click', (event) => {
+  if (kind !== 'viewer') return;
+  const view = event.target.closest('[data-viewer-view]')?.dataset.viewerView;
+  if (!view || !state.viewer) return;
+  if (view === 'fit') state.viewer.fit();
+  else state.viewer.view(view);
+});
+
+// ───────────────────────── form (the dialogs of many small commands)
+//
+// params: { title, icon, intro, fields: [{ key, label, icon, type, value, min, max, step, unit,
+// options: [[value, label]], rows, readonly }], actions: [{ id, label, icon, primary, keep }], live }
+// Field types: number, text, textarea, select, check, color, range, info (read-only text),
+// list (a list of rows with a button each: options = [[id, label, button]]).
+// Answers { action, values }; with `live`, every change is also sent as the action 'form:change'.
+
+function formValues() {
+  const values = { ...(state.form ?? {}) };
+  for (const input of root.querySelectorAll('[data-form]')) {
+    const key = input.dataset.form;
+    if (input.type === 'checkbox') values[key] = input.checked;
+    else if (input.type === 'number' || input.type === 'range') values[key] = Number(input.value);
+    else values[key] = input.value;
+  }
+  return values;
+}
+
+function formControl(field) {
+  const attr = `data-form="${escapeHtml(field.key)}" aria-label="${escapeHtml(field.label ?? field.key)}" ${field.readonly ? 'readonly' : ''}`;
+  const value = field.value ?? '';
+  switch (field.type) {
+    case 'number': return `<input class="num form-num" type="number" ${attr} value="${escapeHtml(value)}" ${field.min != null ? `min="${field.min}"` : ''} ${field.max != null ? `max="${field.max}"` : ''} step="${field.step ?? 'any'}" />${field.unit ? `<span class="form-unit">${escapeHtml(field.unit)}</span>` : ''}`;
+    case 'range': return `<input class="form-range" type="range" ${attr} value="${escapeHtml(value)}" min="${field.min ?? 0}" max="${field.max ?? 100}" step="${field.step ?? 1}" /><output class="form-out">${escapeHtml(value)}${field.unit ? ` ${escapeHtml(field.unit)}` : ''}</output>`;
+    case 'select': return `<select class="choice-select" ${attr}>${(field.options ?? []).map(([v, label]) => `<option value="${escapeHtml(v)}" ${String(v) === String(value) ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`;
+    case 'check': return switchControl(attr, Boolean(value), field.label ?? '');
+    case 'color': return `<input class="form-color" type="color" ${attr} value="${escapeHtml(value || '#000000')}" />`;
+    case 'textarea': return `<textarea class="form-text" ${attr} rows="${field.rows ?? 6}" spellcheck="false">${escapeHtml(value)}</textarea>`;
+    case 'info': return `<span class="form-info" ${attr}>${escapeHtml(value)}</span>`;
+    case 'list': return `<div class="form-list" data-form-list="${escapeHtml(field.key)}">${(field.options ?? []).map(([id, label, buttonLabel]) => `<div class="form-list-row"><span>${escapeHtml(label)}</span>${buttonLabel ? `<button class="button small" data-form-pick="${escapeHtml(field.key)}" data-value="${escapeHtml(id)}">${escapeHtml(buttonLabel)}</button>` : ''}</div>`).join('') || `<span class="muted">${escapeHtml(field.empty ?? '—')}</span>`}</div>`;
+    default: return `<input class="wide form-text-input" type="text" ${attr} value="${escapeHtml(value)}" />`;
+  }
+}
+
+function renderForm() {
+  const p = state.params;
+  if (!Array.isArray(p.fields)) return;
+  const wide = (field) => field.type === 'textarea' || field.type === 'list';
+  const rows = p.fields.map((field) => (wide(field)
+    ? `<div class="form-block"><span class="row-label">${icon(field.icon ?? 'info')}<span>${escapeHtml(field.label ?? '')}</span></span>${formControl(field)}</div>`
+    : row(field.icon ?? 'info', field.label ?? field.key, formControl(field), field.tip ?? field.label ?? field.key))).join('');
+  root.innerHTML = frame({
+    glyph: p.icon ?? 'settings',
+    // A dialog's title is the command's name without the menu's "…".
+    title: (p.title ?? '').replace(/…$/, ''),
+    body: `<div class="form">${p.intro ? `<p class="form-intro">${escapeHtml(p.intro)}</p>` : ''}${rows}</div>`,
+    foot: `<span class="grow"></span>${(p.actions ?? [{ id: 'ok', label: t('confirm.ok'), primary: true }]).map((b) => `<button class="button ${b.primary ? 'primary' : ''} ${b.danger ? 'danger' : ''}" data-form-action="${escapeHtml(b.id)}" ${b.keep ? 'data-keep="1"' : ''} title="${escapeHtml(b.label)}">${b.icon ? icon(b.icon) : ''}<span>${escapeHtml(b.label)}</span></button>`).join('')}`,
+  });
+  fitHeight();
+  (root.querySelector('[data-form]:not([readonly])') ?? root.querySelector('.button.primary'))?.focus();
+  ready();
+}
+
+root.addEventListener('click', (event) => {
+  if (kind !== 'form') return;
+  const pick = event.target.closest('[data-form-pick]');
+  if (pick) { action('form:pick', { key: pick.dataset.formPick, value: pick.dataset.value, values: formValues() }); return; }
+  const button = event.target.closest('[data-form-action]');
+  if (!button) return;
+  const answer = { action: button.dataset.formAction, values: formValues() };
+  if (button.dataset.keep) action('form:button', answer);
+  else close(answer);
+});
+const formChanged = (event) => {
+  if (kind !== 'form' || !event.target.matches('[data-form]')) return;
+  const out = event.target.parentElement?.querySelector('.form-out');
+  if (out) out.textContent = `${event.target.value}${state.params.fields?.find((f) => f.key === event.target.dataset.form)?.unit ? ` ${state.params.fields.find((f) => f.key === event.target.dataset.form).unit}` : ''}`;
+  if (state.params.live) action('form:change', { values: formValues() });
+};
+root.addEventListener('input', formChanged);
+root.addEventListener('change', formChanged);
+root.addEventListener('keydown', (event) => {
+  if (kind !== 'form' || event.key !== 'Enter' || event.target.matches('textarea')) return;
+  const primary = root.querySelector('[data-form-action].primary');
+  if (primary) { event.preventDefault(); primary.click(); }
+});
+
 root.addEventListener('click', (event) => {
   if (kind !== 'tutorial') return;
   const tut = event.target.closest('[data-tut]')?.dataset.tut;
@@ -1654,9 +2101,13 @@ root.addEventListener('change', (event) => {
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
-  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-print-orientation], [data-theme-group], [data-pick-theme], [data-part-kind], [data-part-category], [data-part-view], [data-array-mode], [data-stl-scope], [data-stl-ascii], [data-solid-kind], [data-solid-axis], [data-coverage-filter], [data-solid-choice], [data-opening-choice], [data-opening-add], [data-opening-remove], [data-opening-pick], [data-solid-tab], [data-layer-add], [data-layer-move], [data-layer-remove], [data-edge-pick], [data-edge-mode], [data-bim-action], [data-check-focus], [data-cam-op], [data-cam-side], [data-fem-section], [data-sheet-cell], [data-sheet-page]');
+  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-print-orientation], [data-theme-group], [data-pick-theme], [data-part-kind], [data-part-category], [data-part-view], [data-array-mode], [data-stl-scope], [data-stl-ascii], [data-solid-kind], [data-solid-axis], [data-coverage-filter], [data-solid-choice], [data-opening-choice], [data-opening-add], [data-opening-remove], [data-opening-pick], [data-solid-tab], [data-layer-add], [data-layer-move], [data-layer-remove], [data-edge-pick], [data-edge-mode], [data-bim-action], [data-check-focus], [data-cam-op], [data-cam-side], [data-fem3d-fixed], [data-addon-install], [data-addon-run], [data-addon-remove], [data-addon-update], [data-addon-url], [data-cam-shape], [data-cam-direction], [data-cam-view], [data-cam-sim], [data-fem-section], [data-sheet-cell], [data-sheet-page], [data-sheet-cmd]');
   if (!target || target.disabled) return undefined;
-  if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id);
+  if (target.classList.contains('menu-item')) {
+    if (target.dataset.sub !== undefined) return openSubmenu(Number(target.dataset.sub));
+    if (target.dataset.menuBack !== undefined) return openSubmenu(null);
+    return chooseMenu(target.dataset.id);
+  }
   if (target.dataset.setting) {
     const key = target.dataset.setting;
     const raw = target.dataset.value;
@@ -1751,7 +2202,16 @@ root.addEventListener('click', async (event) => {
     state.solid.focus = null;
     return render();
   }
-  if (target.dataset.sheetCell) { state.sheetEdit.sel = target.dataset.sheetCell; state.sheetEdit.error = ''; render(); root.querySelector('#sheet-formula')?.focus(); return undefined; }
+  if (target.dataset.sheetCell) {
+    // Shift+click: a block from the picked cell to this one.
+    if (event.shiftKey) state.sheetEdit.sel2 = target.dataset.sheetCell;
+    else { state.sheetEdit.sel = target.dataset.sheetCell; state.sheetEdit.sel2 = null; }
+    state.sheetEdit.error = '';
+    render();
+    root.querySelector('#sheet-formula')?.focus();
+    return undefined;
+  }
+  if (target.dataset.sheetCmd) return sheetCommand(target.dataset.sheetCmd);
   if (target.dataset.sheetPage) {
     const [axis, step] = target.dataset.sheetPage.split(':');
     const sh = state.sheetEdit;
@@ -1760,6 +2220,33 @@ root.addEventListener('click', async (event) => {
   }
   if (target.dataset.femSection) { state.fem.options = normalizeFem({ ...state.fem.options, section: { ...state.fem.options.section, type: target.dataset.femSection } }); return render(); }
   if (target.dataset.camOp) { state.cam.operation = target.dataset.camOp; return render(); }
+  if (target.dataset.addonInstall) {
+    const a = (state.params.catalog ?? []).find((x) => x.id === target.dataset.addonInstall);
+    if (a) return close({ action: 'install', items: [{ name: getLanguage() === 'ko' ? a.name.ko : a.name.en, code: a.code, language: a.language }] });
+  }
+  if (target.dataset.addonRun) return close({ action: 'run', name: target.dataset.addonRun });
+  if (target.dataset.addonRemove) return close({ action: 'remove', names: [target.dataset.addonRemove] });
+  if (target.dataset.addonUpdate) {
+    const m = (state.params.installed ?? []).find((x) => x.name === target.dataset.addonUpdate);
+    if (m?.source) return close({ action: 'install', items: [{ name: m.name, url: m.source, language: m.language }] });
+  }
+  if (target.dataset.addonUrl !== undefined) {
+    const url = root.querySelector('#addon-url')?.value.trim();
+    if (url) return close({ action: 'install', items: [{ url, name: decodeURIComponent(url.split('/').pop() || '').replace(/\.(py|fcmacro|js)$/i, '') }] });
+    return undefined;
+  }
+  if (target.dataset.fem3dFixed) { const f = target.dataset.fem3dFixed; const fixed = state.fem3d.options.fixed.includes(f) ? state.fem3d.options.fixed.filter((x) => x !== f) : [...state.fem3d.options.fixed, f]; state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, fixed }); return render(); }
+  if (target.dataset.camShape) { state.cam.toolShape = target.dataset.camShape; return render(); }
+  if (target.dataset.camDirection) { state.cam.direction = target.dataset.camDirection; return render(); }
+  if (target.dataset.camView) { if (state.camSim) { state.camSim.playing = false; cancelAnimationFrame(state.camSim.frame); } state.camView = target.dataset.camView; return render(); }
+  if (target.dataset.camSim) {
+    const sim = state.camSim;
+    if (!sim?.grid) return undefined;
+    if (target.dataset.camSim === 'end') { sim.playing = false; camSimTo(sim.run.total); return render(); }
+    sim.playing = !sim.playing;
+    if (sim.playing) { if (sim.run.cut >= sim.run.total) camSimTo(0); sim.frame = requestAnimationFrame(camSimStep); } else cancelAnimationFrame(sim.frame);
+    return render();
+  }
   if (target.dataset.camSide) { state.cam.side = target.dataset.camSide; return render(); }
   if (target.dataset.checkFocus !== undefined && !target.closest('input')) { state.check.focus = Number(target.dataset.checkFocus); return render(); }
   if (target.dataset.coverageFilter) { state.coverageFilter = target.dataset.coverageFilter; return render(); }
@@ -1831,14 +2318,21 @@ root.addEventListener('click', async (event) => {
       return applySolid();
     case 'cam-export':
       return applyCam();
+    case 'cam-stock':
+      try { globalThis.localStorage?.setItem(CAM_KEY, JSON.stringify(state.cam)); } catch { /* ignore */ }
+      return close({ action: 'stock', options: state.cam });
     case 'sheet-apply':
       return close({ action: 'apply', sheet: sheetResult() });
     case 'sheet-csv':
       return close({ action: 'csv', sheet: sheetResult() });
+    case 'sheet-import':
+      return close({ action: 'import', sheet: sheetResult() });
     case 'fem-apply':
       return close({ action: 'apply', fem: state.fem.options });
     case 'fem-draw':
       return close({ action: 'draw', fem: state.fem.options, view: state.fem.view });
+    case 'fem3d-draw': case 'fem3d-inp': case 'fem3d-ccx':
+      return close({ action: action.slice(6), fem3d: state.fem3d.options });
     case 'plate-apply':
       return close({ action: 'apply', plate: state.plate.options });
     case 'plate-draw':
@@ -1848,6 +2342,22 @@ root.addEventListener('click', async (event) => {
     default:
       return undefined;
   }
+});
+
+// The addon manager's file input: the macro text is installed.
+root.addEventListener('change', async (event) => {
+  if (event.target.id !== 'addon-file') return;
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const code = await file.text();
+  close({ action: 'install', items: [{ name: file.name.replace(/\.(py|fcmacro|js|txt)$/i, ''), code, language: /\.js$/i.test(file.name) ? 'js' : 'python' }] });
+});
+
+// The CAM simulator's position: dragging pauses and shows the stock at that point.
+root.addEventListener('input', (event) => {
+  if (event.target.id !== 'cam-sim-pos' || !state.camSim) return;
+  if (state.camSim.playing) { state.camSim.playing = false; cancelAnimationFrame(state.camSim.frame); }
+  camSimTo(Number(event.target.value));
 });
 
 root.addEventListener('change', (event) => {
@@ -1888,6 +2398,17 @@ root.addEventListener('change', (event) => {
     if (!Number.isFinite(value)) return render();
     const loads = { ...state.fem.options.loads, [key]: { fx: 0, fy: 0, m: 0, ...(state.fem.options.loads[key] ?? {}), [part]: part === 'm' ? value * 1000 : value } };
     state.fem.options = normalizeFem({ ...state.fem.options, loads });
+    return render();
+  }
+  if (target.dataset.fem3dView) { state.fem3d.view[target.dataset.fem3dView] = target.checked; drawFem3d(state.fem3d.result); return undefined; }
+  if (target.dataset.fem3dToggle) { state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, [target.dataset.fem3dToggle]: target.checked }); return render(); }
+  if (target.dataset.fem3dMaterial !== undefined) { state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, material: target.value, nu: undefined, density: undefined }); return render(); }
+  if (target.dataset.fem3dLoadFace !== undefined) { state.fem3d.loadFace = target.value; const l = state.fem3d.options.loads[0] ?? { fx: 0, fy: 0, fz: 0 }; state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, loads: [{ ...l, face: target.value }] }); return render(); }
+  if (target.dataset.fem3dLoad) {
+    const value = Number(evaluate(target.value));
+    if (!Number.isFinite(value)) return render();
+    const l = state.fem3d.options.loads[0] ?? { face: state.fem3d.loadFace, fx: 0, fy: 0, fz: 0 };
+    state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, loads: [{ face: state.fem3d.loadFace, fx: l.fx, fy: l.fy, fz: l.fz, [target.dataset.fem3dLoad]: value }] });
     return render();
   }
   if (target.dataset.plateView) { state.plate.view[target.dataset.plateView] = target.checked; return render(); }
@@ -1951,7 +2472,10 @@ document.addEventListener('keydown', (event) => {
   if (kind === 'menu') {
     if (event.key === 'ArrowDown') { event.preventDefault(); moveMenuFocus(1); }
     if (event.key === 'ArrowUp') { event.preventDefault(); moveMenuFocus(-1); }
-    if (event.key === 'Enter' && document.activeElement?.classList.contains('menu-item')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
+    const focused = document.activeElement?.classList.contains('menu-item') ? document.activeElement : null;
+    if ((event.key === 'Enter' || event.key === 'ArrowRight') && focused?.dataset.sub !== undefined) { event.preventDefault(); openSubmenu(Number(focused.dataset.sub)); return; }
+    if ((event.key === 'ArrowLeft' || event.key === 'Backspace' || (event.key === 'Enter' && focused?.dataset.menuBack !== undefined)) && menuPath.list.length) { event.preventDefault(); openSubmenu(null); return; }
+    if (event.key === 'Enter' && focused) { event.preventDefault(); chooseMenu(focused.dataset.id); }
   }
   if (kind === 'print' && event.key === 'PageDown') { state.page += 1; render(); }
   if (kind === 'print' && event.key === 'PageUp') { state.page -= 1; render(); }
@@ -1976,7 +2500,10 @@ bindSteppers(root, (key, value) => {
     d.params = normalizeParams(d.kind, { ...d.params, [field]: value });
     d.cache[d.kind] = d.params;
     render();
-  } else if (scope === 'array') { state.array[field] = value; render(); } else if (scope === 'stl') { state.stl[field] = value; render(); } else if (scope === 'cam') { state.cam = normalizeCamOptions({ ...state.cam, [field]: value }); render(); } else if (scope === 'plate') {
+  } else if (scope === 'array') { state.array[field] = value; render(); } else if (scope === 'stl') { state.stl[field] = value; render(); } else if (scope === 'cam') { state.cam = normalizeCamOptions({ ...state.cam, [field]: value }); render(); } else if (scope === 'fem3d') {
+    state.fem3d.options = normalizeFem3d({ ...state.fem3d.options, [field]: value });
+    render();
+  } else if (scope === 'plate') {
     state.plate.options = normalizePlate({ ...state.plate.options, [field]: value });
     render();
   } else if (scope === 'fem') {
@@ -2056,6 +2583,23 @@ function onHostMessage(message) {
   } else if (message?.type === 'tutorial' && kind === 'tutorial') {
     state.tutorialHtml = message.html;
     render();
+  } else if (message?.type === 'viewer:drawing' && kind === 'viewer') {
+    state.params = { ...state.params, drawing: message.drawing, name: message.name };
+    renderViewer();
+  } else if (message?.type === 'sheet:command' && kind === 'spreadsheet') {
+    sheetCommand(message.id);
+  } else if (message?.type === 'sheet:load' && kind === 'spreadsheet') {
+    // Spreadsheet_Import from the main window: the imported sheet replaces what is shown.
+    state.sheetEdit = { ...normalizeSpreadsheet(message.sheet ?? {}), sel: 'A1', sel2: null, row0: 0, col0: 0, error: '' };
+    render();
+  } else if (message?.type === 'form:fields' && kind === 'form') {
+    // The host changed the fields (e.g. another kind of unit): drawn again with them.
+    state.params = { ...state.params, fields: message.fields };
+    render();
+  } else if (message?.type === 'form:set' && kind === 'form') {
+    const target = root.querySelector(`[data-form="${CSS.escape(message.key)}"]`);
+    if (target && 'value' in target && target.tagName !== 'SPAN') target.value = message.value;
+    else if (target) target.textContent = message.value;
   }
 }
 
@@ -2073,9 +2617,11 @@ function refresh() {
   if (kind === 'stl') state.stl = null;
   if (kind === 'solid') state.solid = null;
   if (kind === 'check') { state.check = null; state.page = 0; }
-  if (kind === 'cam') state.cam = null;
+  if (kind === 'cam') { state.cam = null; state.camJob = null; if (state.camSim) cancelAnimationFrame(state.camSim.frame); state.camSim = null; }
   if (kind === 'fem') state.fem = null;
   if (kind === 'plate') state.plate = null;
+  if (kind === 'fem3d') state.fem3d = null;
+  if (kind === 'addons') state.addons = null;
   if (kind === 'spreadsheet') state.sheetEdit = null;
   if (kind === 'tutorial') state.tutorialHtml = null;
   if (kind === 'settings' && state.params.themeGroup) state.themeGroup = state.params.themeGroup;

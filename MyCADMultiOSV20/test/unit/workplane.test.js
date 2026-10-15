@@ -35,3 +35,23 @@ test('grid snap and ortho follow the plane', () => {
   assert.ok(Math.abs(q.x - q.y) < 1e-9);
   near(snapToGrid({ x: 7.2, y: 6.9 }, 10), { x: 10, y: 10 });
 });
+
+test('a working plane on a face: the frame, solids padded on it stand on the face', async () => {
+  const { frameOnFace, frameMatrix, normalizeWorkPlane } = await import('../../src/domain/workplane.js');
+  const { composePose, placementOf, poseOf } = await import('../../src/domain/assembly.js');
+  const { solidMesh } = await import('../../src/domain/solids.js');
+  // The front face (normal −y) of a box at y = 0: x runs along the face, y up.
+  const f = frameOnFace([10, 0, 5], [0, -1, 0]);
+  assert.deepEqual(f.x, [1, 0, 0]); assert.deepEqual(f.y, [0, 0, 1]); assert.deepEqual(f.z, [0, -1, 0]);
+  assert.deepEqual(normalizeWorkPlane({ frame: f }).frame, f);
+  // A 20 × 10 pad 5 high drawn at (0, 0) on that plane: it grows out of the face (−y), its outline on the face.
+  const pad = { type: 'solid', kind: 'box', params: { length: 20, width: 10, height: 5 } };
+  const placed = { ...pad, ...placementOf(composePose(frameMatrix(f), poseOf(pad))) };
+  const pts = solidMesh(placed).flat();
+  const span = (k) => [Math.min(...pts.map((p) => p[k])), Math.max(...pts.map((p) => p[k]))];
+  assert.deepEqual(span(0).map((v) => Math.round(v * 1e6) / 1e6), [10, 30]);
+  assert.deepEqual(span(1).map((v) => Math.round(v * 1e6) / 1e6), [-5, 0]);
+  assert.deepEqual(span(2).map((v) => Math.round(v * 1e6) / 1e6), [5, 15]);
+  // A level face keeps the world's x.
+  assert.deepEqual(frameOnFace([0, 0, 30], [0, 0, 1]).x, [1, 0, 0]);
+});

@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>MyCAD 1.0 튜토리얼</title>
+<style>
+:root { --text: #1d2433; --muted: #5c667a; --accent: #3a6cf0; --bg: #ffffff; --panel: #f4f6fb; --border: #dde2ec; }
+@media (prefers-color-scheme: dark) { :root { --text: #e3e8f2; --muted: #9aa6bd; --accent: #7aa2ff; --bg: #171b23; --panel: #1f2530; --border: #323a48; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.65 "Segoe UI", "Malgun Gothic", system-ui, sans-serif; color: var(--text); background: var(--bg); }
+nav { position: fixed; top: 0; bottom: 0; left: 0; width: 280px; overflow: auto; padding: 18px 14px; border-right: 1px solid var(--border); background: var(--panel); font-size: 13.5px; }
+nav a { display: block; padding: 4px 8px; border-radius: 6px; color: var(--text); text-decoration: none; }
+nav a:hover { background: var(--border); }
+nav b { display: block; margin: 0 8px 10px; font-size: 15px; }
+main { max-width: 980px; margin: 0 0 0 280px; padding: 24px 40px 80px; }
+h1 { font-size: 2em; margin-top: 0; } h2 { margin-top: 2.2em; padding-bottom: 6px; border-bottom: 2px solid var(--accent); } h3 { margin-top: 1.6em; color: var(--accent); }
+img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); cursor: zoom-in; }
+figure { margin: 10px 0 2px; } figcaption { color: var(--muted); font-size: 0.88em; margin-bottom: 14px; }
+code { padding: 1px 5px; border-radius: 5px; background: var(--panel); border: 1px solid var(--border); font-size: 0.92em; }
+blockquote { margin: 0; padding: 10px 16px; border-left: 4px solid var(--accent); background: var(--panel); border-radius: 0 8px 8px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.94em; } th, td { padding: 6px 10px; border: 1px solid var(--border); text-align: left; } th { background: var(--panel); }
+ul.check { list-style: none; padding-left: 4px; } a { color: var(--accent); }
+.zoom { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: rgba(0, 0, 0, 0.75); cursor: zoom-out; } .zoom img { max-width: 96vw; max-height: 94vh; }
+@media (max-width: 900px) { nav { display: none; } main { margin: 0; padding: 16px; } }
+@media print { nav { display: none; } main { margin: 0; } img { break-inside: avoid; } }
+</style></head>
+<body><nav><b>MyCAD 1.0 튜토리얼</b><a href="#목차">목차</a><a href="#레슨-0-설치와-시작-페이지">레슨 0. 설치와 시작 페이지</a><a href="#레슨-1-둘러보기">레슨 1. 둘러보기</a><a href="#레슨-2-선과-도형-그리기">레슨 2. 선과 도형 그리기</a><a href="#레슨-3-정밀-입력스냅단위">레슨 3. 정밀 입력·스냅·단위</a><a href="#레슨-4-선택과-수정">레슨 4. 선택과 수정</a><a href="#레슨-5-치수와-주석">레슨 5. 치수와 주석</a><a href="#레슨-6-속성과-레이어">레슨 6. 속성과 레이어</a><a href="#레슨-7-부품-라이브러리">레슨 7. 부품 라이브러리</a><a href="#레슨-8-3d-솔리드">레슨 8. 3D 솔리드</a><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9. 2D에서 3D로: 돌출·회전·로프트·스윕</a><a href="#레슨-10-불리언-빼기합치기교차">레슨 10. 불리언: 빼기·합치기·교차</a><a href="#레슨-11-도면-뷰와-단면">레슨 11. 도면 뷰와 단면</a><a href="#레슨-12-3d-보기-자세히">레슨 12. 3D 보기 자세히</a><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13. 파일: 저장·열기·가져오기·내보내기</a><a href="#레슨-14-인쇄와-3d-프린팅">레슨 14. 인쇄와 3D 프린팅</a><a href="#레슨-15-설정과-모양">레슨 15. 설정과 모양</a><a href="#레슨-16-도움말">레슨 16. 도움말</a><a href="#레슨-17-조립과-움직임">레슨 17. 조립과 움직임</a><a href="#레슨-18-정확한-솔리드-opencascade">레슨 18. 정확한 솔리드 (OpenCASCADE)</a><a href="#레슨-19-cam-3d-가공과-시뮬레이션">레슨 19. CAM 3D 가공과 시뮬레이션</a><a href="#레슨-20-fem-해석-판과-솔리드">레슨 20. FEM 해석: 판과 솔리드</a><a href="#레슨-21-python-콘솔과-매크로">레슨 21. Python 콘솔과 매크로</a><a href="#부록-a-단축키">부록 A. 단축키</a><a href="#부록-b-지원-파일-형식">부록 B. 지원 파일 형식</a><a href="#부록-c-기능-찾아보기">부록 C. 기능 찾아보기</a></nav><main><h1 id="mycad-10-튜토리얼">MyCAD 1.0 튜토리얼</h1>
+<blockquote>레슨 21개, 단계 95개. 앱의 <strong>도움말 › 따라 하는 튜토리얼</strong>(시작 페이지의 첫 카드)과 같은 순서·같은 좌표입니다. 앱에서는 <strong>보기</strong>(자동으로 보여 줌)와 <strong>직접 하기</strong>(해 보면 다음으로 넘어감)를 고를 수 있고, 같은 내용의 동영상이 프로젝트 폴더의 <code>MyCAD-Tutorial.mp4</code>에 있습니다.</blockquote>
+<h2 id="목차">목차</h2>
+<table><thead><tr><th>레슨</th><th></th><th>단계</th><th>앱에서</th></tr></thead><tbody>
+<tr><td>0</td><td><a href="#레슨-0-설치와-시작-페이지">설치와 시작 페이지</a></td><td></td><td></td></tr>
+<tr><td>1</td><td><a href="#레슨-1-둘러보기">둘러보기</a></td><td>6</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 1</td></tr>
+<tr><td>2</td><td><a href="#레슨-2-선과-도형-그리기">선과 도형 그리기</a></td><td>10</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 2</td></tr>
+<tr><td>3</td><td><a href="#레슨-3-정밀-입력스냅단위">정밀 입력·스냅·단위</a></td><td>7</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 3</td></tr>
+<tr><td>4</td><td><a href="#레슨-4-선택과-수정">선택과 수정</a></td><td>12</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 4</td></tr>
+<tr><td>5</td><td><a href="#레슨-5-치수와-주석">치수와 주석</a></td><td>10</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 5</td></tr>
+<tr><td>6</td><td><a href="#레슨-6-속성과-레이어">속성과 레이어</a></td><td>4</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 6</td></tr>
+<tr><td>7</td><td><a href="#레슨-7-부품-라이브러리">부품 라이브러리</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 7</td></tr>
+<tr><td>8</td><td><a href="#레슨-8-3d-솔리드">3D 솔리드</a></td><td>6</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 8</td></tr>
+<tr><td>9</td><td><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">2D에서 3D로: 돌출·회전·로프트·스윕</a></td><td>4</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 9</td></tr>
+<tr><td>10</td><td><a href="#레슨-10-불리언-빼기합치기교차">불리언: 빼기·합치기·교차</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 10</td></tr>
+<tr><td>11</td><td><a href="#레슨-11-도면-뷰와-단면">도면 뷰와 단면</a></td><td>2</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 11</td></tr>
+<tr><td>12</td><td><a href="#레슨-12-3d-보기-자세히">3D 보기 자세히</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 12</td></tr>
+<tr><td>13</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">파일: 저장·열기·가져오기·내보내기</a></td><td>5</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 13</td></tr>
+<tr><td>14</td><td><a href="#레슨-14-인쇄와-3d-프린팅">인쇄와 3D 프린팅</a></td><td>2</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 14</td></tr>
+<tr><td>15</td><td><a href="#레슨-15-설정과-모양">설정과 모양</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 15</td></tr>
+<tr><td>16</td><td><a href="#레슨-16-도움말">도움말</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 16</td></tr>
+<tr><td>17</td><td><a href="#레슨-17-조립과-움직임">조립과 움직임</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 17</td></tr>
+<tr><td>18</td><td><a href="#레슨-18-정확한-솔리드-opencascade">정확한 솔리드 (OpenCASCADE)</a></td><td>3</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 18</td></tr>
+<tr><td>19</td><td><a href="#레슨-19-cam-3d-가공과-시뮬레이션">CAM 3D 가공과 시뮬레이션</a></td><td>2</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 19</td></tr>
+<tr><td>20</td><td><a href="#레슨-20-fem-해석-판과-솔리드">FEM 해석: 판과 솔리드</a></td><td>2</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 20</td></tr>
+<tr><td>21</td><td><a href="#레슨-21-python-콘솔과-매크로">Python 콘솔과 매크로</a></td><td>2</td><td>도움말 › 따라 하는 튜토리얼 › 레슨 21</td></tr>
+<tr><td></td><td><a href="#부록-a-단축키">부록 A. 단축키</a> · <a href="#부록-b-지원-파일-형식">B. 지원 파일 형식</a> · <a href="#부록-c-기능-찾아보기">C. 기능 찾아보기</a></td><td></td><td></td></tr>
+</tbody></table>
+<h3 id="이-문서를-읽는-법">이 문서를 읽는 법</h3>
+<ul>
+<li><strong>굵은 글씨</strong>는 화면에 보이는 이름(버튼·메뉴·탭)입니다.</li>
+<li><code>L</code>, <code>Ctrl+Z</code> 처럼 코드 글꼴은 누르는 키나 입력하는 글자입니다.</li>
+<li>좌표는 mm, (x, y) 입니다. 튜토리얼은 5 mm 격자 스냅을 켜고 시작합니다.</li>
+<li>각 단계의 그림은 그 단계를 마친 화면입니다(앱이 실제로 실행해서 찍었습니다).</li>
+</ul>
+<hr />
+<h2 id="레슨-0-설치와-시작-페이지">레슨 0. 설치와 시작 페이지</h2>
+<ol>
+<li value="1"><strong>Windows</strong>: <code>MyCAD_1.0.0_x64-setup.exe</code>(또는 <code>.msi</code>)를 실행합니다. <strong>macOS</strong>: <code>.dmg</code>, <strong>Linux</strong>: <code>.deb</code>·<code>.AppImage</code>. 웹 버전은 <code>dist/</code>를 웹 서버에 올리면 됩니다.
+<li value="2">처음 실행하면 <strong>시작 페이지</strong>가 열립니다. 탭 줄 맨 왼쪽의 <strong>집 탭</strong>으로 언제든 돌아옵니다(<strong>보기 › 시작 페이지</strong>). 설정 › 일반에서 시작할 때 보일지 고릅니다.
+<li value="3">시작 페이지의 <strong>할 수 있는 일</strong> 카드마다 그 일을 배우는 <strong>레슨</strong>과 <strong>샘플</strong>이 있습니다. 아래 <strong>샘플</strong>은 모두 클릭 한 번에 새 탭으로 열립니다(저장하면 새 이름을 묻습니다).
+<figure><img src="doc/images/ko/start-page.webp" alt="시작 페이지: 할 수 있는 일(레슨·샘플), 빠른 시작, 최근 파일, 오늘의 팁, 샘플" loading="lazy" /></figure>
+<figcaption>시작 페이지: 할 수 있는 일(레슨·샘플), 빠른 시작, 최근 파일, 오늘의 팁, 샘플</figcaption>
+</ol>
+<h3 id="튜토리얼-화면">튜토리얼 화면</h3>
+<ul>
+<li>튜토리얼 패널은 끌어서 옮길 수 있습니다. 위쪽 목록에서 레슨을 고르고, <strong>보기</strong>는 재생·일시 정지·이전·다음과 속도(0.5×–4×)를, <strong>직접 하기</strong>는 <strong>보여 주기</strong>·<strong>건너뛰기</strong>를 씁니다.</li>
+<li>중간 레슨부터 시작하면 앞 레슨의 결과를 자동으로 준비합니다.</li>
+<figure><img src="doc/images/ko/tutorial-watch.webp" alt="튜토리얼 보기: 커서가 실제 화면을 조작하고, 패널이 단계를 설명합니다" loading="lazy" /></figure>
+<figcaption>튜토리얼 보기: 커서가 실제 화면을 조작하고, 패널이 단계를 설명합니다</figcaption>
+<figure><img src="doc/images/ko/tutorial-practice.webp" alt="튜토리얼 직접 하기: 할 일과 클릭할 곳(빨간 원)이 표시되고, 해내면 다음 단계로 넘어갑니다" loading="lazy" /></figure>
+<figcaption>튜토리얼 직접 하기: 할 일과 클릭할 곳(빨간 원)이 표시되고, 해내면 다음 단계로 넘어갑니다</figcaption>
+</ul>
+<hr />
+<h2 id="레슨-1-둘러보기">레슨 1. 둘러보기</h2>
+<h3 id="목표">목표</h3>
+<p>화면 구성(메뉴·툴바·탭·도구 패널·캔버스·속성 패널·상태 표시줄)을 익히고, 시작 페이지에서 샘플을 열어 확대·이동·3D 보기를 해 봅니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>시작 페이지</strong> — 시작 페이지에서 할 수 있는 일, 튜토리얼, 샘플, 최근 파일을 고릅니다. 메뉴 줄 맨 왼쪽의 집 버튼(또는 탭 줄의 집 탭)으로 언제든 돌아옵니다.
+<figure><img src="doc/images/ko/l1-s1.webp" alt="둘러보기 · 시작 페이지" loading="lazy" /></figure>
+<figcaption>둘러보기 · 시작 페이지</figcaption>
+<li value="2"><strong>샘플 열기</strong> — 샘플 카드를 누르면 그 도면이 새 탭으로 열립니다. 플랜지 샘플을 엽니다.
+<figure><img src="doc/images/ko/l1-s2.webp" alt="둘러보기 · 샘플 열기" loading="lazy" /></figure>
+<figcaption>둘러보기 · 샘플 열기</figcaption>
+<li value="3"><strong>전체 보기와 확대</strong> — 전체 보기(Home)는 도면 전체를 화면에 맞춥니다. Ctrl+휠이나 + / − 버튼으로 확대·축소합니다.
+<figure><img src="doc/images/ko/l1-s3.webp" alt="둘러보기 · 전체 보기와 확대" loading="lazy" /></figure>
+<figcaption>둘러보기 · 전체 보기와 확대</figcaption>
+<li value="4"><strong>화면 이동</strong> — 화면 이동 도구(또는 가운데 버튼·스페이스+끌기)로 도면을 옮겨 봅니다.
+<figure><img src="doc/images/ko/l1-s4.webp" alt="둘러보기 · 화면 이동" loading="lazy" /></figure>
+<figcaption>둘러보기 · 화면 이동</figcaption>
+<li value="5"><strong>패널 접고 펴기</strong> — 왼쪽 도구 패널과 오른쪽 속성 패널은 툴바 버튼(Ctrl+1, Ctrl+2)으로 접고 폅니다. 왼쪽 패널의 각 묶음 머리글을 누르면 그 묶음만 접힙니다.
+<figure><img src="doc/images/ko/l1-s5.webp" alt="둘러보기 · 패널 접고 펴기" loading="lazy" /></figure>
+<figcaption>둘러보기 · 패널 접고 펴기</figcaption>
+<li value="6"><strong>3D 보기</strong> — 3D 보기(Ctrl+Shift+3)는 닫힌 윤곽을 두께가 있는 판으로, 솔리드를 그대로 보여 줍니다. 다시 누르면 2D로 돌아갑니다.
+<figure><img src="doc/images/ko/l1-s6.webp" alt="둘러보기 · 3D 보기" loading="lazy" /></figure>
+<figcaption>둘러보기 · 3D 보기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>메뉴 줄 맨 왼쪽의 집 버튼을 누르세요.</li>
+<li>샘플에서 &quot;플랜지&quot;를 누르세요.</li>
+<li>툴바의 확대(+) 버튼과 전체 보기 버튼을 눌러 보세요.</li>
+<li>화면 이동 도구를 고르고 캔버스를 끌어 보세요.</li>
+<li>툴바의 3D 보기 버튼을 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>Home 키는 전체 보기, Ctrl+휠은 커서 위치를 중심으로 확대합니다.</li>
+<li>가운데 버튼을 누른 채 끌거나 스페이스를 누른 채 끌면 어떤 도구에서도 화면을 옮길 수 있습니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>샘플을 고쳐 저장하면 새 이름을 묻습니다 — 샘플 원본은 바뀌지 않습니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 시작 페이지</label></li>
+<li><label><input type="checkbox" /> 샘플 열기</label></li>
+<li><label><input type="checkbox" /> 전체 보기와 확대</label></li>
+<li><label><input type="checkbox" /> 화면 이동</label></li>
+<li><label><input type="checkbox" /> 패널 접고 펴기</label></li>
+<li><label><input type="checkbox" /> 3D 보기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-2-선과-도형-그리기">레슨 2. 선과 도형 그리기</h2>
+<h3 id="목표">목표</h3>
+<p>2D 그리기 도구 10가지(선·사각형·원·호·타원·정다각형·폴리선·스플라인·점)를 격자에 맞춰 써 봅니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>새 도면</strong> — 새 도면(Ctrl+N)을 만듭니다. 격자 스냅이 켜져 있어 클릭이 5 mm 격자에 맞습니다.
+<figure><img src="doc/images/ko/l2-s1.webp" alt="선과 도형 그리기 · 새 도면" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 새 도면</figcaption>
+<li value="2"><strong>선 (L)</strong> — 선 도구로 (0,0) → (60,0) → (60,40)을 클릭합니다. 클릭할 때마다 선이 이어지고 Esc로 끝냅니다.
+<figure><img src="doc/images/ko/l2-s2.webp" alt="선과 도형 그리기 · 선 (L)" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 선 (L)</figcaption>
+<li value="3"><strong>사각형 (R)</strong> — 사각형은 두 모서리를 클릭합니다: (80,0)과 (140,40).
+<figure><img src="doc/images/ko/l2-s3.webp" alt="선과 도형 그리기 · 사각형 (R)" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 사각형 (R)</figcaption>
+<li value="4"><strong>원 (C)</strong> — 원은 중심 (20,70)을 클릭하고, 반지름 15가 되도록 (35,70)을 클릭합니다.
+<figure><img src="doc/images/ko/l2-s4.webp" alt="선과 도형 그리기 · 원 (C)" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 원 (C)</figcaption>
+<li value="5"><strong>호 (3점)</strong> — 호는 시작점, 지나는 점, 끝점의 세 점으로 그립니다: (45,60), (60,75), (75,60).
+<figure><img src="doc/images/ko/l2-s5.webp" alt="선과 도형 그리기 · 호 (3점)" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 호 (3점)</figcaption>
+<li value="6"><strong>타원</strong> — 타원은 중심 (100,70), 긴 축의 끝 (120,70), 짧은 축 반지름 (100,80)을 클릭합니다.
+<figure><img src="doc/images/ko/l2-s6.webp" alt="선과 도형 그리기 · 타원" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 타원</figcaption>
+<li value="7"><strong>정다각형</strong> — 정다각형은 중심 (145,70)과 꼭짓점 (155,70)을 클릭합니다. 변의 수는 도구 옵션에서 바꿉니다.
+<figure><img src="doc/images/ko/l2-s7.webp" alt="선과 도형 그리기 · 정다각형" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 정다각형</figcaption>
+<li value="8"><strong>폴리선</strong> — 폴리선은 여러 점을 이어 한 객체로 만듭니다. (0,95), (30,100), (50,90), (70,100)을 클릭하고 Enter.
+<figure><img src="doc/images/ko/l2-s8.webp" alt="선과 도형 그리기 · 폴리선" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 폴리선</figcaption>
+<li value="9"><strong>스플라인</strong> — 스플라인은 클릭한 점을 부드럽게 지나는 곡선(NURBS)입니다. (85,95), (100,105), (115,90), (130,100)을 클릭하고 Enter.
+<figure><img src="doc/images/ko/l2-s9.webp" alt="선과 도형 그리기 · 스플라인" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 스플라인</figcaption>
+<li value="10"><strong>점</strong> — 점 도구는 기준점을 찍습니다: (150,95).
+<figure><img src="doc/images/ko/l2-s10.webp" alt="선과 도형 그리기 · 점" loading="lazy" /></figure>
+<figcaption>선과 도형 그리기 · 점</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>툴바의 새 도면 버튼을 누르세요.</li>
+<li>선 도구로 표시된 세 점을 차례로 클릭하고 Esc를 누르세요.</li>
+<li>사각형 도구로 두 모서리를 클릭하세요.</li>
+<li>원 도구로 중심과 반지름 점을 클릭하세요.</li>
+<li>호 도구로 세 점을 클릭하세요.</li>
+<li>타원 도구로 세 점을 클릭하세요.</li>
+<li>정다각형 도구로 중심과 꼭짓점을 클릭하세요.</li>
+<li>폴리선 도구로 네 점을 클릭하고 Enter를 누르세요.</li>
+<li>스플라인 도구로 네 점을 클릭하고 Enter를 누르세요.</li>
+<li>점 도구로 표시된 곳을 클릭하세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>그리는 중에 오른쪽 클릭은 Enter와 같습니다(끝내기).</li>
+<li>폴리선·스플라인은 첫 점을 다시 클릭하면 닫힙니다.</li>
+<li>도구 단축키: L 선, R 사각형, C 원, A 호 등 — 툴팁에 나옵니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>Esc를 한 번 누르면 그리던 것이 취소되고, 한 번 더 누르면 선택 도구로 돌아갑니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 새 도면</label></li>
+<li><label><input type="checkbox" /> 선 (L)</label></li>
+<li><label><input type="checkbox" /> 사각형 (R)</label></li>
+<li><label><input type="checkbox" /> 원 (C)</label></li>
+<li><label><input type="checkbox" /> 호 (3점)</label></li>
+<li><label><input type="checkbox" /> 타원</label></li>
+<li><label><input type="checkbox" /> 정다각형</label></li>
+<li><label><input type="checkbox" /> 폴리선</label></li>
+<li><label><input type="checkbox" /> 스플라인</label></li>
+<li><label><input type="checkbox" /> 점</label></li>
+</ul>
+<hr />
+<h2 id="레슨-3-정밀-입력스냅단위">레슨 3. 정밀 입력·스냅·단위</h2>
+<h3 id="목표">목표</h3>
+<p>좌표·상대 좌표·극좌표를 입력해 정확한 크기로 그리고, 객체 스냅·직교·길이 단위와 축척 막대를 다룹니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>좌표 입력</strong> — 그리는 중에 숫자를 치면 명령 칸에 들어갑니다. 선 도구에서 0,0 → @80,0 → @0,50 → @-80,0을 입력하면 정확한 크기의 선이 됩니다.
+<figure><img src="doc/images/ko/l3-s1.webp" alt="정밀 입력·스냅·단위 · 좌표 입력" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 좌표 입력</figcaption>
+<li value="2"><strong>극좌표: 거리&lt;각도</strong> — @40&lt;60은 마지막 점에서 40 mm, 60° 방향입니다. 100,0에서 시작해 @40&lt;60을 입력합니다.
+<figure><img src="doc/images/ko/l3-s2.webp" alt="정밀 입력·스냅·단위 · 극좌표: 거리&lt;각도" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 극좌표: 거리&lt;각도</figcaption>
+<li value="3"><strong>객체 스냅 (F3)</strong> — 객체 스냅을 켜면 커서가 끝점·중간점·중심 등에 달라붙습니다. 끝점 (80,50) 근처를 클릭해 원의 중심을 정확히 맞춥니다.
+<figure><img src="doc/images/ko/l3-s3.webp" alt="정밀 입력·스냅·단위 · 객체 스냅 (F3)" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 객체 스냅 (F3)</figcaption>
+<li value="4"><strong>직교 모드 (F8)</strong> — 직교 모드에서는 선이 수평·수직으로만 그려집니다.
+<figure><img src="doc/images/ko/l3-s4.webp" alt="정밀 입력·스냅·단위 · 직교 모드 (F8)" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 직교 모드 (F8)</figcaption>
+<li value="5"><strong>길이 단위</strong> — 설정 › 일반 › 길이 단위에서 mm·cm·m·in·ft를 고릅니다. 도면은 mm로 저장되고 보이는 값만 바뀝니다. 인치로 바꿉니다.
+<figure><img src="doc/images/ko/l3-s5.webp" alt="정밀 입력·스냅·단위 · 길이 단위" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 길이 단위</figcaption>
+<figure><img src="doc/images/ko/l3-s5-dialog.webp" alt="길이 단위 — 창" loading="lazy" /></figure>
+<figcaption>길이 단위 — 창</figcaption>
+<li value="6"><strong>다른 단위로 입력</strong> — 숫자 뒤에 단위를 붙이면 자동으로 바뀝니다. 원의 반지름을 25.4mm로 입력하면 1 in가 됩니다.
+<figure><img src="doc/images/ko/l3-s6.webp" alt="정밀 입력·스냅·단위 · 다른 단위로 입력" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 다른 단위로 입력</figcaption>
+<li value="7"><strong>축척 막대</strong> — 캔버스 왼쪽 아래 축척 막대는 막대 길이가 실제 몇 mm인지와 화면 축척을 보여 줍니다. 끌어서 옮기고, 끝선을 끌어 길이를 바꾸며, 툴바 버튼으로 켜고 끕니다.
+<figure><img src="doc/images/ko/l3-s7.webp" alt="정밀 입력·스냅·단위 · 축척 막대" loading="lazy" /></figure>
+<figcaption>정밀 입력·스냅·단위 · 축척 막대</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>선 도구를 고르고 명령 칸에 0,0 · @80,0 · @0,50 · @-80,0을 차례로 입력하세요.</li>
+<li>선 도구로 100,0을 입력한 뒤 @40&lt;60을 입력하세요.</li>
+<li>툴바의 스냅을 켜고, 원 도구로 끝점 근처를 클릭하세요.</li>
+<li>직교를 켜고 비스듬히 선을 그어 보세요.</li>
+<li>설정(톱니바퀴) › 일반에서 길이 단위를 인치로 바꾸세요.</li>
+<li>원 도구에서 120mm,40mm 와 @25.4mm&lt;0을 입력하세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>좌표에도 단위를 붙일 수 있습니다: 2in,30mm.</li>
+<li>스냅 종류(끝점·중간점·중심·사분점·교차점·근처점)는 설정 › 스냅에서 고릅니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>명령 칸에 입력한 뒤 Enter를 눌러야 점이 찍힙니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 좌표 입력</label></li>
+<li><label><input type="checkbox" /> 극좌표: 거리&lt;각도</label></li>
+<li><label><input type="checkbox" /> 객체 스냅 (F3)</label></li>
+<li><label><input type="checkbox" /> 직교 모드 (F8)</label></li>
+<li><label><input type="checkbox" /> 길이 단위</label></li>
+<li><label><input type="checkbox" /> 다른 단위로 입력</label></li>
+<li><label><input type="checkbox" /> 축척 막대</label></li>
+</ul>
+<hr />
+<h2 id="레슨-4-선택과-수정">레슨 4. 선택과 수정</h2>
+<h3 id="목표">목표</h3>
+<p>객체를 선택하고 이동·복사·회전·대칭·크기 조정·간격 띄우기·배열·분해·삭제를 하고, 실행 취소로 되돌립니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>준비: 사각형과 원</strong> — 수정할 도형을 그립니다: 사각형 (0,0)–(40,30)과 원 중심 (100,20), 반지름 10.
+<figure><img src="doc/images/ko/l4-s1.webp" alt="선택과 수정 · 준비: 사각형과 원" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 준비: 사각형과 원</figcaption>
+<li value="2"><strong>선택</strong> — 선택 도구로 객체를 클릭하면 선택되고 속성 패널에 속성이 나옵니다. 왼쪽→오른쪽으로 끌면 완전히 들어간 것만, 오른쪽→왼쪽은 걸친 것까지 선택합니다.
+<figure><img src="doc/images/ko/l4-s2.webp" alt="선택과 수정 · 선택" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 선택</figcaption>
+<li value="3"><strong>이동 (M)</strong> — 선택한 사각형을 이동 도구로 기준점 (0,0)에서 (10,10)으로 옮깁니다.
+<figure><img src="doc/images/ko/l4-s3.webp" alt="선택과 수정 · 이동 (M)" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 이동 (M)</figcaption>
+<li value="4"><strong>복사</strong> — 복사 도구는 기준점에서 여러 번 복사합니다. (10,10)에서 (60,10)으로 복사하고 Esc.
+<figure><img src="doc/images/ko/l4-s4.webp" alt="선택과 수정 · 복사" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 복사</figcaption>
+<li value="5"><strong>회전</strong> — 복사한 사각형을 기준점 (60,10)에 대해 30° 돌립니다. 기준점을 클릭한 뒤 각도 30을 입력합니다.
+<figure><img src="doc/images/ko/l4-s5.webp" alt="선택과 수정 · 회전" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 회전</figcaption>
+<li value="6"><strong>대칭</strong> — 원을 x = 130 축에 대칭 복사합니다: 축의 두 점 (130,0), (130,40).
+<figure><img src="doc/images/ko/l4-s6.webp" alt="선택과 수정 · 대칭" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 대칭</figcaption>
+<li value="7"><strong>크기 조정</strong> — 첫 번째 원을 중심 (100,20)에 대해 2배로 키웁니다: 기준점을 클릭하고 2 입력.
+<figure><img src="doc/images/ko/l4-s7.webp" alt="선택과 수정 · 크기 조정" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 크기 조정</figcaption>
+<li value="8"><strong>간격 띄우기</strong> — 간격 띄우기는 같은 모양을 일정 거리만큼 띄워 그립니다. 간격 5로 원의 바깥쪽을 클릭합니다.
+<figure><img src="doc/images/ko/l4-s8.webp" alt="선택과 수정 · 간격 띄우기" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 간격 띄우기</figcaption>
+<li value="9"><strong>배열 복사</strong> — 배열 창에서 행·열과 간격(직사각형) 또는 개수와 각도(원형)를 정해 한 번에 복사합니다. 점을 3열 × 2행으로 복사합니다.
+<figure><img src="doc/images/ko/l4-s9.webp" alt="선택과 수정 · 배열 복사" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 배열 복사</figcaption>
+<figure><img src="doc/images/ko/l4-s9-dialog.webp" alt="배열 복사 — 창" loading="lazy" /></figure>
+<figcaption>배열 복사 — 창</figcaption>
+<li value="10"><strong>분해</strong> — 분해는 사각형을 폴리선으로, 폴리선·다각형·부품을 선과 호로 풉니다. 사각형을 두 번 분해하면 선 네 개가 됩니다.
+<figure><img src="doc/images/ko/l4-s10.webp" alt="선택과 수정 · 분해" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 분해</figcaption>
+<li value="11"><strong>실행 취소·다시 실행</strong> — Ctrl+Z로 되돌리고 Ctrl+Y로 다시 합니다. 툴바의 화살표 버튼도 같습니다.
+<figure><img src="doc/images/ko/l4-s11.webp" alt="선택과 수정 · 실행 취소·다시 실행" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 실행 취소·다시 실행</figcaption>
+<li value="12"><strong>삭제</strong> — 선택한 객체는 Delete 키로 지웁니다.
+<figure><img src="doc/images/ko/l4-s12.webp" alt="선택과 수정 · 삭제" loading="lazy" /></figure>
+<figcaption>선택과 수정 · 삭제</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>사각형과 원을 그리세요.</li>
+<li>사각형의 변을 클릭하세요.</li>
+<li>사각형을 선택하고 이동 도구로 두 점을 클릭하세요.</li>
+<li>사각형을 선택하고 복사 도구로 기준점과 새 위치를 클릭하세요.</li>
+<li>사각형을 선택하고 회전 도구로 기준점을 클릭한 뒤 30을 입력하세요.</li>
+<li>원을 선택하고 대칭 도구로 축의 두 점을 클릭하세요.</li>
+<li>원을 선택하고 크기 조정 도구로 중심을 클릭한 뒤 2를 입력하세요.</li>
+<li>간격 띄우기 도구로 원을 클릭하고 바깥쪽을 클릭하세요.</li>
+<li>객체를 선택하고 수정 묶음의 &quot;배열 복사…&quot;를 누르세요.</li>
+<li>사각형을 선택하고 분해를 누르세요.</li>
+<li>점들을 선택하고 Delete를 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>Shift(또는 Ctrl)+클릭은 선택에 더하거나 뺍니다.</li>
+<li>선택한 객체의 손잡이(작은 사각형)를 끌면 모양을 바로 바꿉니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>수정 도구는 먼저 선택해야 켜집니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 준비: 사각형과 원</label></li>
+<li><label><input type="checkbox" /> 선택</label></li>
+<li><label><input type="checkbox" /> 이동 (M)</label></li>
+<li><label><input type="checkbox" /> 복사</label></li>
+<li><label><input type="checkbox" /> 회전</label></li>
+<li><label><input type="checkbox" /> 대칭</label></li>
+<li><label><input type="checkbox" /> 크기 조정</label></li>
+<li><label><input type="checkbox" /> 간격 띄우기</label></li>
+<li><label><input type="checkbox" /> 배열 복사</label></li>
+<li><label><input type="checkbox" /> 분해</label></li>
+<li><label><input type="checkbox" /> 실행 취소·다시 실행</label></li>
+<li><label><input type="checkbox" /> 삭제</label></li>
+</ul>
+<hr />
+<h2 id="레슨-5-치수와-주석">레슨 5. 치수와 주석</h2>
+<h3 id="목표">목표</h3>
+<p>선형·정렬·지름·반지름·각도 치수, 문자, 지시선, 해칭, 중심선, 거리 재기를 넣습니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>준비: 판과 구멍</strong> — 치수를 넣을 판 (0,0)–(100,60)과 구멍 (50,30) 반지름 20을 그립니다.
+<figure><img src="doc/images/ko/l5-s1.webp" alt="치수와 주석 · 준비: 판과 구멍" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 준비: 판과 구멍</figcaption>
+<li value="2"><strong>선형 치수</strong> — 선형 치수: 두 점 (0,0), (100,0)을 클릭하고 치수선 위치 (50,-12)를 클릭합니다.
+<figure><img src="doc/images/ko/l5-s2.webp" alt="치수와 주석 · 선형 치수" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 선형 치수</figcaption>
+<li value="3"><strong>정렬 치수</strong> — 정렬 치수는 두 점을 잇는 방향으로 잽니다: (100,0), (100,60), 위치 (112,30).
+<figure><img src="doc/images/ko/l5-s3.webp" alt="치수와 주석 · 정렬 치수" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 정렬 치수</figcaption>
+<li value="4"><strong>지름·반지름 치수</strong> — 지름 치수: 원을 클릭하고 지시선 방향 (80,50)을 클릭합니다.
+<figure><img src="doc/images/ko/l5-s4.webp" alt="치수와 주석 · 지름·반지름 치수" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 지름·반지름 치수</figcaption>
+<li value="5"><strong>각도 치수</strong> — 각도 치수: 꼭짓점 (0,0), 첫 방향 (40,0), 둘째 방향 (0,40)을 클릭합니다.
+<figure><img src="doc/images/ko/l5-s5.webp" alt="치수와 주석 · 각도 치수" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 각도 치수</figcaption>
+<li value="6"><strong>문자</strong> — 문자 도구로 (0,75)를 클릭하고, 속성 패널의 내용 칸에 &quot;커버 플레이트&quot;를 씁니다.
+<figure><img src="doc/images/ko/l5-s6.webp" alt="치수와 주석 · 문자" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 문자</figcaption>
+<li value="7"><strong>지시선</strong> — 지시선: 화살표 끝 (62,38), 꺾임 (85,80), (100,80)을 클릭하고 Enter. 메모는 속성 패널에서 고칩니다.
+<figure><img src="doc/images/ko/l5-s7.webp" alt="치수와 주석 · 지시선" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 지시선</figcaption>
+<li value="8"><strong>해칭</strong> — 해칭 도구로 닫힌 영역 안 (10,10)을 클릭합니다. 안쪽 원은 구멍으로 남습니다. 무늬·배율·각도는 도구 옵션입니다.
+<figure><img src="doc/images/ko/l5-s8.webp" alt="치수와 주석 · 해칭" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 해칭</figcaption>
+<li value="9"><strong>중심선</strong> — 중심선은 일점쇄선으로 중심선 레이어에 그려집니다: (30,30) → (70,30).
+<figure><img src="doc/images/ko/l5-s9.webp" alt="치수와 주석 · 중심선" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 중심선</figcaption>
+<li value="10"><strong>거리 재기</strong> — 거리 재기는 두 점 사이의 거리·각도·Δx·Δy를 알려 줍니다: (0,0) → (100,60).
+<figure><img src="doc/images/ko/l5-s10.webp" alt="치수와 주석 · 거리 재기" loading="lazy" /></figure>
+<figcaption>치수와 주석 · 거리 재기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>사각형과 원을 그리세요.</li>
+<li>선형 치수 도구로 세 점을 클릭하세요.</li>
+<li>정렬 치수 도구로 세 점을 클릭하세요.</li>
+<li>지름 치수 도구로 원과 방향을 클릭하세요.</li>
+<li>각도 치수 도구로 세 점을 클릭하세요.</li>
+<li>문자 도구로 클릭한 뒤 속성 패널에서 내용을 바꾸세요.</li>
+<li>지시선 도구로 세 점을 클릭하고 Enter를 누르세요.</li>
+<li>해칭 도구로 사각형 안(원 바깥)을 클릭하세요.</li>
+<li>중심선 도구로 두 점을 클릭하세요.</li>
+<li>거리 재기 도구로 두 점을 클릭하세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>치수 문자는 속성 패널에서 바꿉니다. &lt;&gt; 는 잰 값을 뜻합니다: &quot;&lt;&gt; H7&quot;.</li>
+<li>치수 소수 자리와 문자 높이는 설정 › 도면·글꼴에서 정합니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>해칭은 닫힌 영역 안을 클릭해야 합니다 — 열린 선만 있으면 &quot;닫힌 윤곽이 없습니다&quot;라고 나옵니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 준비: 판과 구멍</label></li>
+<li><label><input type="checkbox" /> 선형 치수</label></li>
+<li><label><input type="checkbox" /> 정렬 치수</label></li>
+<li><label><input type="checkbox" /> 지름·반지름 치수</label></li>
+<li><label><input type="checkbox" /> 각도 치수</label></li>
+<li><label><input type="checkbox" /> 문자</label></li>
+<li><label><input type="checkbox" /> 지시선</label></li>
+<li><label><input type="checkbox" /> 해칭</label></li>
+<li><label><input type="checkbox" /> 중심선</label></li>
+<li><label><input type="checkbox" /> 거리 재기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-6-속성과-레이어">레슨 6. 속성과 레이어</h2>
+<h3 id="목표">목표</h3>
+<p>속성 패널에서 크기·위치·스타일을 정확히 고치고(계산식·단위 포함), 레이어로 도면을 정리합니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>속성 패널에서 고치기</strong> — 원을 선택하고 반지름 칸에 25를 입력합니다. − / + 버튼으로 한 단계씩 바꿀 수도 있습니다.
+<figure><img src="doc/images/ko/l6-s1.webp" alt="속성과 레이어 · 속성 패널에서 고치기" loading="lazy" /></figure>
+<figcaption>속성과 레이어 · 속성 패널에서 고치기</figcaption>
+<li value="2"><strong>계산식과 단위</strong> — 숫자 칸에는 계산식(10*2+2)과 다른 단위(1in)를 쓸 수 있습니다. 반지름에 1in를 입력하면 25.4 mm가 됩니다.
+<figure><img src="doc/images/ko/l6-s2.webp" alt="속성과 레이어 · 계산식과 단위" loading="lazy" /></figure>
+<figcaption>속성과 레이어 · 계산식과 단위</figcaption>
+<li value="3"><strong>선 종류·굵기·색</strong> — 선 종류를 파선으로, 굵기를 0.5 mm로 바꿉니다. 비워 두면 레이어를 따릅니다.
+<figure><img src="doc/images/ko/l6-s3.webp" alt="속성과 레이어 · 선 종류·굵기·색" loading="lazy" /></figure>
+<figcaption>속성과 레이어 · 선 종류·굵기·색</figcaption>
+<li value="4"><strong>레이어</strong> — 레이어 묶음에서 새 레이어를 만들고, 눈 아이콘으로 숨기고, 자물쇠로 잠급니다. 이름을 누르면 현재 레이어가 됩니다.
+<figure><img src="doc/images/ko/l6-s4.webp" alt="속성과 레이어 · 레이어" loading="lazy" /></figure>
+<figcaption>속성과 레이어 · 레이어</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>원을 선택하고 속성 패널의 반지름을 바꾸세요.</li>
+<li>반지름 칸에 1in를 입력하세요.</li>
+<li>속성 패널에서 선 종류를 바꾸세요.</li>
+<li>레이어 묶음의 &quot;레이어 추가&quot;를 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>− / + 버튼은 길이 단위에 맞는 간격(mm 1, in 0.125…)으로 바꿉니다.</li>
+<li>잠근 레이어의 객체는 선택되지 않습니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>여러 객체를 선택하면 공통 속성(레이어·색·선)만 나옵니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 속성 패널에서 고치기</label></li>
+<li><label><input type="checkbox" /> 계산식과 단위</label></li>
+<li><label><input type="checkbox" /> 선 종류·굵기·색</label></li>
+<li><label><input type="checkbox" /> 레이어</label></li>
+</ul>
+<hr />
+<h2 id="레슨-7-부품-라이브러리">레슨 7. 부품 라이브러리</h2>
+<h3 id="목표">목표</h3>
+<p>부품 라이브러리에서 기어·볼트 등 표준 부품을 넣고 치수를 바꿉니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>기어 넣기</strong> — 부품 묶음에서 기어를 고르면 부품 창이 열립니다. 모듈·잇수를 정하고 넣기를 누른 뒤 도면에 클릭해 놓습니다.
+<figure><img src="doc/images/ko/l7-s1.webp" alt="부품 라이브러리 · 기어 넣기" loading="lazy" /></figure>
+<figcaption>부품 라이브러리 · 기어 넣기</figcaption>
+<figure><img src="doc/images/ko/l7-s1-dialog.webp" alt="기어 넣기 — 창" loading="lazy" /></figure>
+<figcaption>기어 넣기 — 창</figcaption>
+<li value="2"><strong>볼트와 너트</strong> — ISO 볼트·너트·와셔·베어링 등 36가지 부품이 있습니다. M10 볼트를 놓습니다.
+<figure><img src="doc/images/ko/l7-s2.webp" alt="부품 라이브러리 · 볼트와 너트" loading="lazy" /></figure>
+<figcaption>부품 라이브러리 · 볼트와 너트</figcaption>
+<li value="3"><strong>부품 치수 바꾸기</strong> — 부품을 선택하면 속성 패널에서 치수를 바로 바꿉니다. 기어 잇수를 30으로 바꿉니다.
+<figure><img src="doc/images/ko/l7-s3.webp" alt="부품 라이브러리 · 부품 치수 바꾸기" loading="lazy" /></figure>
+<figcaption>부품 라이브러리 · 부품 치수 바꾸기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>부품 묶음에서 기어를 넣으세요.</li>
+<li>부품 묶음에서 볼트를 넣으세요.</li>
+<li>기어를 선택하고 잇수를 바꾸세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>부품을 분해하면 일반 선과 호가 되어 자유롭게 고칠 수 있습니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>부품 창에서 넣기를 누른 뒤 도면을 클릭해야 놓입니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 기어 넣기</label></li>
+<li><label><input type="checkbox" /> 볼트와 너트</label></li>
+<li><label><input type="checkbox" /> 부품 치수 바꾸기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-8-3d-솔리드">레슨 8. 3D 솔리드</h2>
+<h3 id="목표">목표</h3>
+<p>FreeCAD Part 방식의 3D 솔리드를 넣고 3D 보기에서 돌려 보며 위치를 바꿉니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>상자 넣기</strong> — 3D 도형 묶음의 상자를 누르면 솔리드 창에서 크기와 위치를 정합니다. 60 × 40 × 20 상자를 넣습니다.
+<figure><img src="doc/images/ko/l8-s1.webp" alt="3D 솔리드 · 상자 넣기" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 상자 넣기</figcaption>
+<li value="2"><strong>원기둥</strong> — 원기둥(반지름 10, 높이 40)을 상자 위 (30,20)에 넣습니다. 원뿔·구·토러스·튜브·쐐기·각기둥·타원체·나선도 같습니다.
+<figure><img src="doc/images/ko/l8-s2.webp" alt="3D 솔리드 · 원기둥" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 원기둥</figcaption>
+<figure><img src="doc/images/ko/l8-s2-dialog.webp" alt="원기둥 — 창" loading="lazy" /></figure>
+<figcaption>원기둥 — 창</figcaption>
+<li value="3"><strong>3D로 보기</strong> — 3D 보기로 바꿉니다. 왼쪽 끌기로 돌리고, 휠로 확대하며, 오른쪽 끌기로 옮깁니다.
+<figure><img src="doc/images/ko/l8-s3.webp" alt="3D 솔리드 · 3D로 보기" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 3D로 보기</figcaption>
+<li value="4"><strong>시점 바꾸기</strong> — 3D 막대에서 위·정면·오른쪽·등각 시점을 고릅니다.
+<figure><img src="doc/images/ko/l8-s4.webp" alt="3D 솔리드 · 시점 바꾸기" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 시점 바꾸기</figcaption>
+<li value="5"><strong>위치와 회전</strong> — 솔리드를 선택하면 속성 패널에서 X·Y·Z 위치와 회전을 바꿉니다. 원기둥을 z = 20으로 올립니다.
+<figure><img src="doc/images/ko/l8-s5.webp" alt="3D 솔리드 · 위치와 회전" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 위치와 회전</figcaption>
+<li value="6"><strong>2D로 돌아가기</strong> — 3D 보기 버튼을 다시 누르면 2D로 돌아갑니다. 솔리드는 2D에서 윤곽으로 보입니다.
+<figure><img src="doc/images/ko/l8-s6.webp" alt="3D 솔리드 · 2D로 돌아가기" loading="lazy" /></figure>
+<figcaption>3D 솔리드 · 2D로 돌아가기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>3D 도형 묶음에서 상자를 넣으세요.</li>
+<li>원기둥을 넣으세요.</li>
+<li>3D 보기 버튼을 누르세요.</li>
+<li>원기둥을 선택하고 Z를 바꾸세요.</li>
+<li>3D 보기 버튼을 다시 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>3D 보기에서 솔리드를 클릭하면 선택되고 속성이 나옵니다.</li>
+<li>솔리드 창의 미리보기는 음영 등각 투상입니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>2D에서는 솔리드가 바닥 윤곽으로만 보입니다 — 3D 보기로 확인하세요.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 상자 넣기</label></li>
+<li><label><input type="checkbox" /> 원기둥</label></li>
+<li><label><input type="checkbox" /> 3D로 보기</label></li>
+<li><label><input type="checkbox" /> 시점 바꾸기</label></li>
+<li><label><input type="checkbox" /> 위치와 회전</label></li>
+<li><label><input type="checkbox" /> 2D로 돌아가기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9. 2D에서 3D로: 돌출·회전·로프트·스윕</h2>
+<h3 id="목표">목표</h3>
+<p>2D 윤곽에서 돌출·회전·로프트·스윕으로 3D 솔리드를 만듭니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>돌출 (Pad)</strong> — 닫힌 윤곽(사각형 + 안쪽 원)을 선택하고 돌출하면 구멍 뚫린 판이 됩니다. 높이 15.
+<figure><img src="doc/images/ko/l9-s1.webp" alt="2D에서 3D로: 돌출·회전·로프트·스윕 · 돌출 (Pad)" loading="lazy" /></figure>
+<figcaption>2D에서 3D로: 돌출·회전·로프트·스윕 · 돌출 (Pad)</figcaption>
+<li value="2"><strong>회전 (Revolve)</strong> — 단면 윤곽을 축 둘레로 돌립니다. (80,0)–(95,0)–(95,30)–(85,30)–(80,0) 폴리선을 그려 Y축 둘레로 360° 돌립니다.
+<figure><img src="doc/images/ko/l9-s2.webp" alt="2D에서 3D로: 돌출·회전·로프트·스윕 · 회전 (Revolve)" loading="lazy" /></figure>
+<figcaption>2D에서 3D로: 돌출·회전·로프트·스윕 · 회전 (Revolve)</figcaption>
+<li value="3"><strong>로프트 (Loft)</strong> — 두 윤곽 사이를 부드럽게 잇습니다. 사각형과 원을 선택해 높이 30으로 로프트합니다.
+<figure><img src="doc/images/ko/l9-s3.webp" alt="2D에서 3D로: 돌출·회전·로프트·스윕 · 로프트 (Loft)" loading="lazy" /></figure>
+<figcaption>2D에서 3D로: 돌출·회전·로프트·스윕 · 로프트 (Loft)</figcaption>
+<li value="4"><strong>스윕 (Sweep)</strong> — 경로를 따라 원형 단면을 쓸어 관을 만듭니다. 폴리선 경로를 그려 반지름 3으로 스윕합니다.
+<figure><img src="doc/images/ko/l9-s4.webp" alt="2D에서 3D로: 돌출·회전·로프트·스윕 · 스윕 (Sweep)" loading="lazy" /></figure>
+<figcaption>2D에서 3D로: 돌출·회전·로프트·스윕 · 스윕 (Sweep)</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>사각형과 원을 그려 선택하고 &quot;돌출&quot;을 누르세요.</li>
+<li>닫힌 폴리선을 선택하고 &quot;회전&quot;을 누르세요.</li>
+<li>두 윤곽을 선택하고 &quot;로프트&quot;를 누르세요.</li>
+<li>열린 폴리선을 선택하고 &quot;스윕&quot;을 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>돌출은 바깥 윤곽 안의 윤곽을 구멍으로 만듭니다.</li>
+<li>로프트는 선택한 순서대로 아래·위가 됩니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>회전 윤곽은 축을 가로지르면 안 됩니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 돌출 (Pad)</label></li>
+<li><label><input type="checkbox" /> 회전 (Revolve)</label></li>
+<li><label><input type="checkbox" /> 로프트 (Loft)</label></li>
+<li><label><input type="checkbox" /> 스윕 (Sweep)</label></li>
+</ul>
+<hr />
+<h2 id="레슨-10-불리언-빼기합치기교차">레슨 10. 불리언: 빼기·합치기·교차</h2>
+<h3 id="목표">목표</h3>
+<p>불리언(빼기·합치기·교차)으로 솔리드를 결합하고, 분해로 되돌립니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>빼기 (Cut)</strong> — 판(상자)에서 원기둥을 빼 구멍을 뚫습니다. 판을 먼저, 원기둥을 다음에 선택하고 빼기를 누릅니다.
+<figure><img src="doc/images/ko/l10-s1.webp" alt="불리언: 빼기·합치기·교차 · 빼기 (Cut)" loading="lazy" /></figure>
+<figcaption>불리언: 빼기·합치기·교차 · 빼기 (Cut)</figcaption>
+<li value="2"><strong>합치기 (Fuse)</strong> — 두 솔리드를 하나로 합칩니다. 구멍 뚫린 판과 새 상자를 합칩니다.
+<figure><img src="doc/images/ko/l10-s2.webp" alt="불리언: 빼기·합치기·교차 · 합치기 (Fuse)" loading="lazy" /></figure>
+<figcaption>불리언: 빼기·합치기·교차 · 합치기 (Fuse)</figcaption>
+<li value="3"><strong>분해로 되돌리기</strong> — 불리언은 FreeCAD처럼 트리로 남습니다. 분해하면 원래 솔리드로 돌아갑니다.
+<figure><img src="doc/images/ko/l10-s3.webp" alt="불리언: 빼기·합치기·교차 · 분해로 되돌리기" loading="lazy" /></figure>
+<figcaption>불리언: 빼기·합치기·교차 · 분해로 되돌리기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>두 솔리드를 선택하고 &quot;빼기&quot;를 누르세요.</li>
+<li>두 솔리드를 선택하고 &quot;합치기&quot;를 누르세요.</li>
+<li>불리언 솔리드를 선택하고 분해를 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>빼기는 처음 선택한 솔리드에서 나머지를 뺍니다.</li>
+<li>불리언 결과는 FreeCAD의 Part::Cut/MultiFuse로 저장됩니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>솔리드를 두 개 이상 선택해야 불리언이 켜집니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 빼기 (Cut)</label></li>
+<li><label><input type="checkbox" /> 합치기 (Fuse)</label></li>
+<li><label><input type="checkbox" /> 분해로 되돌리기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-11-도면-뷰와-단면">레슨 11. 도면 뷰와 단면</h2>
+<h3 id="목표">목표</h3>
+<p>솔리드에서 3각법 투영 도면(숨은선 포함)과 등각 투상, 단면 윤곽을 만듭니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>투영 도면 만들기</strong> — 솔리드에서 정면·평면·우측면(숨은선 포함)과 등각 투상도를 자동으로 그립니다.
+<figure><img src="doc/images/ko/l11-s1.webp" alt="도면 뷰와 단면 · 투영 도면 만들기" loading="lazy" /></figure>
+<figcaption>도면 뷰와 단면 · 투영 도면 만들기</figcaption>
+<figure><img src="doc/images/ko/l11-s1-dialog.webp" alt="투영 도면 만들기 — 창" loading="lazy" /></figure>
+<figcaption>투영 도면 만들기 — 창</figcaption>
+<li value="2"><strong>단면</strong> — 높이 z = 5에서 자른 단면 윤곽을 그립니다.
+<figure><img src="doc/images/ko/l11-s2.webp" alt="도면 뷰와 단면 · 단면" loading="lazy" /></figure>
+<figcaption>도면 뷰와 단면 · 단면</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>솔리드를 선택하고 &quot;도면 뷰 만들기&quot;를 누르세요.</li>
+<li>솔리드를 선택하고 &quot;단면 만들기&quot;를 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>숨은선은 숨은선 레이어에 들어갑니다 — 레이어로 숨길 수 있습니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 투영 도면 만들기</label></li>
+<li><label><input type="checkbox" /> 단면</label></li>
+</ul>
+<hr />
+<h2 id="레슨-12-3d-보기-자세히">레슨 12. 3D 보기 자세히</h2>
+<h3 id="목표">목표</h3>
+<p>3D 보기의 시점·와이어프레임·좌표축과 광원(해)을 다룹니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>보기 스타일과 좌표축</strong> — 3D 막대의 스타일 단추로 기본 · 음영 · 숨은선 · X-Ray · 스케치 · 와이어프레임 등 10가지 보기를 고릅니다. 좌표축(눈금 포함)도 켜고 끕니다. 바닥 격자는 확대해도 5 × 5 칸으로 보입니다.
+<figure><img src="doc/images/ko/l12-s1.webp" alt="3D 보기 자세히 · 보기 스타일과 좌표축" loading="lazy" /></figure>
+<figcaption>3D 보기 자세히 · 보기 스타일과 좌표축</figcaption>
+<li value="2"><strong>광원 (해)</strong> — 해 아이콘을 끌어 빛의 방향을 바꾸고, 두 번 누르면 켜고 끕니다. 해를 클릭하면 방위·고도·세기·색·그림자가 속성 패널에 나옵니다.
+<figure><img src="doc/images/ko/l12-s2.webp" alt="3D 보기 자세히 · 광원 (해)" loading="lazy" /></figure>
+<figcaption>3D 보기 자세히 · 광원 (해)</figcaption>
+<li value="3"><strong>2D로</strong> — 3D 보기를 닫습니다.
+<figure><img src="doc/images/ko/l12-s3.webp" alt="3D 보기 자세히 · 2D로" loading="lazy" /></figure>
+<figcaption>3D 보기 자세히 · 2D로</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>3D 막대의 스타일 단추를 눌러 X-Ray 나 스케치를 골라 보세요.</li>
+<li>해를 끌거나 클릭해 속성 패널에서 방위를 바꾸세요.</li>
+<li>3D 보기 버튼을 누르세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>Ctrl+Shift+G로 광원을 켜고 끕니다.</li>
+<li>3D 바닥 격자도 2D처럼 확대해도 5×5 칸이 유지됩니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 보기 스타일과 좌표축</label></li>
+<li><label><input type="checkbox" /> 광원 (해)</label></li>
+<li><label><input type="checkbox" /> 2D로</label></li>
+</ul>
+<hr />
+<h2 id="레슨-13-파일-저장열기가져오기내보내기">레슨 13. 파일: 저장·열기·가져오기·내보내기</h2>
+<h3 id="목표">목표</h3>
+<p>도면을 저장·열고, 다른 CAD 형식(DXF·SVG·IGES·HP-GL·Gerber·Excellon·FreeCAD·STEP)을 가져오고 내보냅니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>저장과 열기</strong> — Ctrl+S로 .mcad 파일로 저장하고 Ctrl+O로 엽니다. 최근 파일 목록과 마지막 폴더를 기억하며, 시작할 때 지난 도면을 다시 엽니다.
+<figure><img src="doc/images/ko/l13-s1.webp" alt="파일: 저장·열기·가져오기·내보내기 · 저장과 열기" loading="lazy" /></figure>
+<figcaption>파일: 저장·열기·가져오기·내보내기 · 저장과 열기</figcaption>
+<li value="2"><strong>다른 CAD 도면 열기</strong> — DXF(텍스트·바이너리, R12–2018), SVG, IGES, HP-GL, Gerber, Excellon을 엽니다. FreeCAD가 만든 IGES를 엽니다.
+<figure><img src="doc/images/ko/l13-s2.webp" alt="파일: 저장·열기·가져오기·내보내기 · 다른 CAD 도면 열기" loading="lazy" /></figure>
+<figcaption>파일: 저장·열기·가져오기·내보내기 · 다른 CAD 도면 열기</figcaption>
+<li value="3"><strong>PCB 거버</strong> — Gerber는 PCB 동박·실크 레이어의 표준 형식입니다. 패드·배선(선 굵기 유지)·구리 영역이 그대로 열립니다.
+<figure><img src="doc/images/ko/l13-s3.webp" alt="파일: 저장·열기·가져오기·내보내기 · PCB 거버" loading="lazy" /></figure>
+<figcaption>파일: 저장·열기·가져오기·내보내기 · PCB 거버</figcaption>
+<li value="4"><strong>내보내기</strong> — 내보내기 메뉴: DXF R12·2000, SVG, IGES, HP-GL/2, PNG, 3D 프린팅(STL), 그리고 FreeCAD·STEP·3MF 등 3D 형식.
+<figure><img src="doc/images/ko/l13-s4.webp" alt="파일: 저장·열기·가져오기·내보내기 · 내보내기" loading="lazy" /></figure>
+<figcaption>파일: 저장·열기·가져오기·내보내기 · 내보내기</figcaption>
+<figure><img src="doc/images/ko/l13-s4-dialog.webp" alt="내보내기 — 창" loading="lazy" /></figure>
+<figcaption>내보내기 — 창</figcaption>
+<li value="5"><strong>끌어 놓기</strong> — 탐색기에서 도면·3D 모델 파일을 끌어다 놓으면 열리고, 그림은 배경이 되며, 글은 문자로 붙습니다.
+<figure><img src="doc/images/ko/l13-s5.webp" alt="파일: 저장·열기·가져오기·내보내기 · 끌어 놓기" loading="lazy" /></figure>
+<figcaption>파일: 저장·열기·가져오기·내보내기 · 끌어 놓기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>시작 페이지의 &quot;파일 교환&quot; 샘플이나 열기(Ctrl+O)로 DXF·IGES·SVG 파일을 여세요.</li>
+<li>Gerber 샘플을 열어 보세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>바이너리 DXF와 옛 ANSI(cp949 등) DXF도 열립니다.</li>
+<li>지원 형식 전체는 도움말 › 프로그램 정보 › 지원 파일 형식에 있습니다.</li>
+</ul>
+<h3 id="자주-하는-실수">자주 하는 실수</h3>
+<ul>
+<li>가져온 도면은 저장할 때 .mcad 이름을 묻습니다(원본 형식은 그대로).</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 저장과 열기</label></li>
+<li><label><input type="checkbox" /> 다른 CAD 도면 열기</label></li>
+<li><label><input type="checkbox" /> PCB 거버</label></li>
+<li><label><input type="checkbox" /> 내보내기</label></li>
+<li><label><input type="checkbox" /> 끌어 놓기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-14-인쇄와-3d-프린팅">레슨 14. 인쇄와 3D 프린팅</h2>
+<h3 id="목표">목표</h3>
+<p>인쇄 미리보기로 용지에 맞춰 인쇄·PDF로 저장하고, STL로 3D 프린팅 파일을 만듭니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>인쇄 미리보기</strong> — 인쇄(Ctrl+P) 창에서 용지·방향·여백·축척·표제란·흑백과 인쇄할 범위(도면·레이어·선택)를 정합니다. PDF로도 저장됩니다.
+<figure><img src="doc/images/ko/l14-s1.webp" alt="인쇄와 3D 프린팅 · 인쇄 미리보기" loading="lazy" /></figure>
+<figcaption>인쇄와 3D 프린팅 · 인쇄 미리보기</figcaption>
+<figure><img src="doc/images/ko/l14-s1-dialog.webp" alt="인쇄 미리보기 — 창" loading="lazy" /></figure>
+<figcaption>인쇄 미리보기 — 창</figcaption>
+<li value="2"><strong>3D 프린팅 (STL)</strong> — STL 창은 닫힌 윤곽을 두께가 있는 판으로 만들어 미리 보여 줍니다(구멍 포함). 솔리드도 같이 들어갑니다.
+<figure><img src="doc/images/ko/l14-s2.webp" alt="인쇄와 3D 프린팅 · 3D 프린팅 (STL)" loading="lazy" /></figure>
+<figcaption>인쇄와 3D 프린팅 · 3D 프린팅 (STL)</figcaption>
+<figure><img src="doc/images/ko/l14-s2-dialog.webp" alt="3D 프린팅 (STL) — 창" loading="lazy" /></figure>
+<figcaption>3D 프린팅 (STL) — 창</figcaption>
+</ol>
+<h3 id="팁">팁</h3>
+<ul>
+<li>흑백 인쇄를 켜면 색 선도 검게 나옵니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 인쇄 미리보기</label></li>
+<li><label><input type="checkbox" /> 3D 프린팅 (STL)</label></li>
+</ul>
+<hr />
+<h2 id="레슨-15-설정과-모양">레슨 15. 설정과 모양</h2>
+<h3 id="목표">목표</h3>
+<p>설정 창의 각 탭과 테마·툴바·패널 모양을 바꿉니다.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>설정 창</strong> — 설정(Ctrl+,)에는 일반·모양·글꼴·배경·도면·스냅·최근 파일·단축키 탭이 있습니다.
+<figure><img src="doc/images/ko/l15-s1.webp" alt="설정과 모양 · 설정 창" loading="lazy" /></figure>
+<figcaption>설정과 모양 · 설정 창</figcaption>
+<figure><img src="doc/images/ko/l15-s1-dialog.webp" alt="설정 창 — 창" loading="lazy" /></figure>
+<figcaption>설정 창 — 창</figcaption>
+<li value="2"><strong>테마</strong> — 테마 버튼은 다음 테마로, ▾는 다크·라이트 40가지 테마를 고르는 창을 엽니다. 사용자 정의 테마도 만들 수 있습니다.
+<figure><img src="doc/images/ko/l15-s2.webp" alt="설정과 모양 · 테마" loading="lazy" /></figure>
+<figcaption>설정과 모양 · 테마</figcaption>
+<li value="3"><strong>툴바와 패널 묶음</strong> — 창이 좁으면 툴바를 두 줄로 바꿉니다. 왼쪽 패널의 묶음 머리글을 눌러 접고, 위쪽 버튼으로 모두 접거나 폅니다.
+<figure><img src="doc/images/ko/l15-s3.webp" alt="설정과 모양 · 툴바와 패널 묶음" loading="lazy" /></figure>
+<figcaption>설정과 모양 · 툴바와 패널 묶음</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>테마 버튼을 눌러 보세요.</li>
+</ul>
+<h3 id="팁">팁</h3>
+<ul>
+<li>사용자 정의 테마는 모양 탭에서 색을 하나씩 고릅니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 설정 창</label></li>
+<li><label><input type="checkbox" /> 테마</label></li>
+<li><label><input type="checkbox" /> 툴바와 패널 묶음</label></li>
+</ul>
+<hr />
+<h2 id="레슨-16-도움말">레슨 16. 도움말</h2>
+<h3 id="목표">목표</h3>
+<p>도움말: 기능표, 프로그램 정보(지원 형식), 튜토리얼과 이 문서.</p>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>기능표</strong> — 도움말 › 기능표는 FreeCAD의 기능과 하나씩 맞대어 지원·부분 지원·미지원을 보여 줍니다.
+<figure><img src="doc/images/ko/l16-s1.webp" alt="도움말 · 기능표" loading="lazy" /></figure>
+<figcaption>도움말 · 기능표</figcaption>
+<figure><img src="doc/images/ko/l16-s1-dialog.webp" alt="기능표 — 창" loading="lazy" /></figure>
+<figcaption>기능표 — 창</figcaption>
+<li value="2"><strong>프로그램 정보와 지원 형식</strong> — 프로그램 정보(F1)에는 빌드 정보와 &quot;지원 파일 형식&quot; 탭이 있습니다.
+<figure><img src="doc/images/ko/l16-s2.webp" alt="도움말 · 프로그램 정보와 지원 형식" loading="lazy" /></figure>
+<figcaption>도움말 · 프로그램 정보와 지원 형식</figcaption>
+<figure><img src="doc/images/ko/l16-s2-dialog.webp" alt="프로그램 정보와 지원 형식 — 창" loading="lazy" /></figure>
+<figcaption>프로그램 정보와 지원 형식 — 창</figcaption>
+<li value="3"><strong>튜토리얼 다시 보기</strong> — 튜토리얼은 도움말 메뉴와 시작 페이지에서 언제든 다시 엽니다. doc/Tutorial.md에 그림과 함께 같은 내용이 있습니다.
+<figure><img src="doc/images/ko/l16-s3.webp" alt="도움말 · 튜토리얼 다시 보기" loading="lazy" /></figure>
+<figcaption>도움말 · 튜토리얼 다시 보기</figcaption>
+</ol>
+<h3 id="팁">팁</h3>
+<ul>
+<li>튜토리얼 동영상은 프로젝트 폴더의 MyCAD-Tutorial.mp4입니다.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 기능표</label></li>
+<li><label><input type="checkbox" /> 프로그램 정보와 지원 형식</label></li>
+<li><label><input type="checkbox" /> 튜토리얼 다시 보기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-17-조립과-움직임">레슨 17. 조립과 움직임</h2>
+<h3 id="목표">목표</h3>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>움직이는 샘플</strong> — 샘플 &quot;단기통 엔진 (움직임)&quot;을 열면 3D 보기에서 바로 움직입니다. 크랭크 · 커넥팅 로드 · 피스톤이 조인트로 이어져 닫힌 고리를 이루고, MyCAD 가 매 순간 고리를 풀어 피스톤 자리를 구합니다 (FreeCAD Assembly).
+<figure><img src="doc/images/ko/l17-s1.webp" alt="조립과 움직임 · 움직이는 샘플" loading="lazy" /></figure>
+<figcaption>조립과 움직임 · 움직이는 샘플</figcaption>
+<li value="2"><strong>재생 막대</strong> — 3D 보기 아래의 재생 막대: 재생 · 일시 정지, 처음으로, 시간 슬라이더(끌면 그 순간), 반복 · 왕복 · 한 번, 한 바퀴 시간. 저장 단추는 지금 자세를 도면에 남깁니다.
+<figure><img src="doc/images/ko/l17-s2.webp" alt="조립과 움직임 · 재생 막대" loading="lazy" /></figure>
+<figcaption>조립과 움직임 · 재생 막대</figcaption>
+<li value="3"><strong>조인트와 구동</strong> — 솔리드 두 개를 차례로 고르고(먼저 고른 것이 바탕) 3D 솔리드 메뉴의 회전 조인트를 누르면 경첩이 생깁니다. 속성 패널에서 구동 시작 → 끝 값을 정하면 재생할 때 그만큼 돕니다. 기어 · 벨트 · 랙 · 나사는 연동 비율로 잇습니다.
+<figure><img src="doc/images/ko/l17-s3.webp" alt="조립과 움직임 · 조인트와 구동" loading="lazy" /></figure>
+<figcaption>조립과 움직임 · 조인트와 구동</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>시작 페이지에서 &quot;단기통 엔진 (움직임)&quot; 샘플을 여세요.</li>
+<li>재생 막대의 일시 정지 단추를 누르세요.</li>
+<li>솔리드 두 개를 차례로 고르고 회전 조인트를 넣으세요.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 움직이는 샘플</label></li>
+<li><label><input type="checkbox" /> 재생 막대</label></li>
+<li><label><input type="checkbox" /> 조인트와 구동</label></li>
+</ul>
+<hr />
+<h2 id="레슨-18-정확한-솔리드-opencascade">레슨 18. 정확한 솔리드 (OpenCASCADE)</h2>
+<h3 id="목표">목표</h3>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>곡면 위 불리언</strong> — FreeCAD 와 같은 OpenCASCADE 커널로 불리언 · 모깎기 · 구배가 곡면 그대로 계산되고 부피도 정확합니다. STEP · IGES · FCStd 로 내보내도 원통 · 구 같은 곡면이 그대로 갑니다.
+<figure><img src="doc/images/ko/l18-s1.webp" alt="정확한 솔리드 (OpenCASCADE) · 곡면 위 불리언" loading="lazy" /></figure>
+<figcaption>정확한 솔리드 (OpenCASCADE) · 곡면 위 불리언</figcaption>
+<li value="2"><strong>모깎기와 구배</strong> — 솔리드를 고르고 3D 솔리드 › 모깎기로 모서리를 둥글게, 구배(Draft)로 옆면을 기울입니다 — 주조 · 사출의 빼기 구배.
+<figure><img src="doc/images/ko/l18-s2.webp" alt="정확한 솔리드 (OpenCASCADE) · 모깎기와 구배" loading="lazy" /></figure>
+<figcaption>정확한 솔리드 (OpenCASCADE) · 모깎기와 구배</figcaption>
+<li value="3"><strong>3D 에서 모서리 고르기</strong> — 모깎기를 선택하고 속성 패널의 &quot;3D 에서 모서리 고르기&quot;를 누르면 모서리가 파랗게 보입니다. 누르는 모서리만 둥글게 됩니다(주황). 고른 모서리는 위치 · 방향으로 기억해 상자 크기가 바뀌어도 다시 찾습니다 (위상 이름).
+<figure><img src="doc/images/ko/l18-s3.webp" alt="정확한 솔리드 (OpenCASCADE) · 3D 에서 모서리 고르기" loading="lazy" /></figure>
+<figcaption>정확한 솔리드 (OpenCASCADE) · 3D 에서 모서리 고르기</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>두 솔리드를 고르고 빼기를 누르세요.</li>
+<li>솔리드를 고르고 모깎기나 구배를 넣으세요.</li>
+<li>모깎기를 고르고 &quot;3D 에서 모서리 고르기&quot;를 눌러 모서리 하나를 누르세요.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 곡면 위 불리언</label></li>
+<li><label><input type="checkbox" /> 모깎기와 구배</label></li>
+<li><label><input type="checkbox" /> 3D 에서 모서리 고르기</label></li>
+</ul>
+<hr />
+<h2 id="레슨-19-cam-3d-가공과-시뮬레이션">레슨 19. CAM 3D 가공과 시뮬레이션</h2>
+<h3 id="목표">목표</h3>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>3D 황삭 · 정삭</strong> — 솔리드를 고르고 CAM 을 열면 3D 가공이 골라집니다. 황삭은 층마다 남길 두께를 두고 깎고, 정삭은 볼 엔드밀이 표면을 따라갑니다(드롭 커터: 공구가 모델을 파고들지 않음).
+<figure><img src="doc/images/ko/l19-s1.webp" alt="CAM 3D 가공과 시뮬레이션 · 3D 황삭 · 정삭" loading="lazy" /></figure>
+<figcaption>CAM 3D 가공과 시뮬레이션 · 3D 황삭 · 정삭</figcaption>
+<figure><img src="doc/images/ko/l19-s1-dialog.webp" alt="3D 황삭 · 정삭 — 창" loading="lazy" /></figure>
+<figcaption>3D 황삭 · 정삭 — 창</figcaption>
+<li value="2"><strong>시뮬레이션과 가공 결과</strong> — CAM 창의 시뮬레이션 탭에서 재생하면 소재가 깎이는 모습을 보고 과절삭 · 남은 살을 검사합니다. &quot;가공 결과 솔리드&quot;는 깎인 소재를 도면에 솔리드로 넣습니다.
+<figure><img src="doc/images/ko/l19-s2.webp" alt="CAM 3D 가공과 시뮬레이션 · 시뮬레이션과 가공 결과" loading="lazy" /></figure>
+<figcaption>CAM 3D 가공과 시뮬레이션 · 시뮬레이션과 가공 결과</figcaption>
+</ol>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 3D 황삭 · 정삭</label></li>
+<li><label><input type="checkbox" /> 시뮬레이션과 가공 결과</label></li>
+</ul>
+<hr />
+<h2 id="레슨-20-fem-해석-판과-솔리드">레슨 20. FEM 해석: 판과 솔리드</h2>
+<h3 id="목표">목표</h3>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>판 응력 (평면 응력)</strong> — 닫힌 윤곽(구멍 포함)을 고르고 FEM 판 응력 해석을 엽니다. 변마다 고정과 하중을 주면 폰 미제스 응력 색과 변형 모양이 나오고, 구멍 둘레의 응력 집중(약 3배)도 보입니다.
+<figure><img src="doc/images/ko/l20-s1.webp" alt="FEM 해석: 판과 솔리드 · 판 응력 (평면 응력)" loading="lazy" /></figure>
+<figcaption>FEM 해석: 판과 솔리드 · 판 응력 (평면 응력)</figcaption>
+<li value="2"><strong>솔리드 (3D) 와 CalculiX</strong> — 솔리드를 고르고 FEM 솔리드 해석을 엽니다. 육면체 요소로 채워 고정 면 · 하중 면 · 자중을 주고 풉니다. .inp 로 저장하면 CalculiX · FreeCAD FEM 에서 열리고, CalculiX 가 설치돼 있으면 같은 모델을 풀어 비교합니다(차이 1 % 안).
+<figure><img src="doc/images/ko/l20-s2.webp" alt="FEM 해석: 판과 솔리드 · 솔리드 (3D) 와 CalculiX" loading="lazy" /></figure>
+<figcaption>FEM 해석: 판과 솔리드 · 솔리드 (3D) 와 CalculiX</figcaption>
+<figure><img src="doc/images/ko/l20-s2-dialog.webp" alt="솔리드 (3D) 와 CalculiX — 창" loading="lazy" /></figure>
+<figcaption>솔리드 (3D) 와 CalculiX — 창</figcaption>
+</ol>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> 판 응력 (평면 응력)</label></li>
+<li><label><input type="checkbox" /> 솔리드 (3D) 와 CalculiX</label></li>
+</ul>
+<hr />
+<h2 id="레슨-21-python-콘솔과-매크로">레슨 21. Python 콘솔과 매크로</h2>
+<h3 id="목표">목표</h3>
+<h3 id="따라-하기">따라 하기</h3>
+<ol>
+<li value="1"><strong>Python 으로 모델 만들기</strong> — 스크립트 콘솔(Ctrl+Shift+J)에서 Python 을 고르면 FreeCAD 매크로처럼 씁니다: import Part, Part.makeBox(…).cut(…), Part.show(…). mycad 모듈로 도면 전체를 다룹니다.
+<figure><img src="doc/images/ko/l21-s1.webp" alt="Python 콘솔과 매크로 · Python 으로 모델 만들기" loading="lazy" /></figure>
+<figcaption>Python 콘솔과 매크로 · Python 으로 모델 만들기</figcaption>
+<li value="2"><strong>애드온 관리자</strong> — 애드온 관리자는 MyCAD 와 함께 오는 매크로 목록에서, 또는 웹 주소 · 파일에서 매크로(Python · JavaScript)를 설치 · 업데이트 · 제거하고 실행합니다.
+<figure><img src="doc/images/ko/l21-s2.webp" alt="Python 콘솔과 매크로 · 애드온 관리자" loading="lazy" /></figure>
+<figcaption>Python 콘솔과 매크로 · 애드온 관리자</figcaption>
+<figure><img src="doc/images/ko/l21-s2-dialog.webp" alt="애드온 관리자 — 창" loading="lazy" /></figure>
+<figcaption>애드온 관리자 — 창</figcaption>
+</ol>
+<h3 id="직접-해-보기">직접 해 보기</h3>
+<ul>
+<li>콘솔에서 Python 을 고르고 Part.show(Part.makeBox(10, 20, 30)) 를 실행하세요.</li>
+</ul>
+<h3 id="확인">확인</h3>
+<ul class="check">
+<li><label><input type="checkbox" /> Python 으로 모델 만들기</label></li>
+<li><label><input type="checkbox" /> 애드온 관리자</label></li>
+</ul>
+<hr />
+<h2 id="부록-a-단축키">부록 A. 단축키</h2>
+<table><thead><tr><th>키</th><th>기능</th></tr></thead><tbody>
+<tr><td><code>Ctrl+N</code></td><td>새 도면</td></tr>
+<tr><td><code>Ctrl+O</code></td><td>열기</td></tr>
+<tr><td><code>Ctrl+S / Ctrl+Shift+S</code></td><td>저장 / 다른 이름으로</td></tr>
+<tr><td><code>Ctrl+P</code></td><td>인쇄</td></tr>
+<tr><td><code>Ctrl+Z / Ctrl+Y</code></td><td>실행 취소 / 다시 실행</td></tr>
+<tr><td><code>Ctrl+X / C / V</code></td><td>잘라내기 / 복사 / 붙여넣기</td></tr>
+<tr><td><code>Ctrl+D</code></td><td>복제</td></tr>
+<tr><td><code>Delete</code></td><td>삭제</td></tr>
+<tr><td><code>Ctrl+Shift+E</code></td><td>분해</td></tr>
+<tr><td><code>Ctrl+R</code></td><td>눈금자</td></tr>
+<tr><td><code>Ctrl+Shift+B</code></td><td>축척 막대</td></tr>
+<tr><td><code>Ctrl+Shift+3</code></td><td>3D 보기</td></tr>
+<tr><td><code>Ctrl+Shift+G</code></td><td>광원 켜기/끄기</td></tr>
+<tr><td><code>Ctrl+I</code></td><td>3D 모델 가져오기</td></tr>
+<tr><td><code>Ctrl+Shift+P</code></td><td>3D 프린팅 (STL)</td></tr>
+<tr><td><code>Ctrl+,</code></td><td>설정</td></tr>
+<tr><td><code>Ctrl+1 / Ctrl+2</code></td><td>도구 패널 / 속성 패널</td></tr>
+<tr><td><code>Ctrl+Tab</code></td><td>다음 탭</td></tr>
+<tr><td><code>Home</code></td><td>전체 보기</td></tr>
+<tr><td><code>F1</code></td><td>프로그램 정보</td></tr>
+<tr><td><code>F3 / F7 / F8 / F9</code></td><td>객체 스냅 / 격자 / 직교 / 격자 스냅</td></tr>
+<tr><td><code>Esc</code></td><td>그리기 취소 · 선택 도구로</td></tr>
+<tr><td><code>Enter</code></td><td>그리기 끝내기</td></tr>
+<tr><td><code>L R C A</code></td><td>선 · 사각형 · 원 · 호 (그 밖의 도구 키는 툴팁)</td></tr>
+</tbody></table>
+<h2 id="부록-b-지원-파일-형식">부록 B. 지원 파일 형식</h2>
+<table><thead><tr><th>형식</th><th>확장자</th><th>읽기</th><th>쓰기</th></tr></thead><tbody>
+<tr><td>MyCAD</td><td><code>.mcad</code> <code>.json</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>AutoCAD DXF (R12 – 2018, text · binary)</td><td><code>.dxf</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>SVG</td><td><code>.svg</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>IGES 5.3</td><td><code>.igs</code> <code>.iges</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>HP-GL/2</td><td><code>.plt</code> <code>.hpgl</code> <code>.hgl</code> <code>.hp2</code> <code>.pen</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Gerber RS-274X</td><td><code>.gbr</code> <code>.ger</code> <code>.gtl</code> <code>.gbl</code> <code>.gto</code> <code>.gbo</code> <code>.gts</code> <code>.gbs</code> <code>.gtp</code> <code>.gbp</code> <code>.gko</code> <code>.gm1</code> <code>.gml</code> <code>.art</code> <code>.pho</code></td><td>✓</td><td></td></tr>
+<tr><td>Excellon drill</td><td><code>.drl</code> <code>.xln</code> <code>.exc</code> <code>.drd</code></td><td>✓</td><td></td></tr>
+<tr><td>PNG</td><td><code>.png</code></td><td></td><td>✓</td></tr>
+<tr><td>FreeCAD</td><td><code>.FCStd</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>IFC 4 (BIM)</td><td><code>.ifc</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>STEP AP214</td><td><code>.step</code> <code>.stp</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>STL</td><td><code>.stl</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Wavefront OBJ</td><td><code>.obj</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Stanford PLY</td><td><code>.ply</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Object File Format</td><td><code>.off</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Additive Manufacturing (AMF)</td><td><code>.amf</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>VRML 2.0 (VRML97)</td><td><code>.wrl</code> <code>.vrml</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>COLLADA</td><td><code>.dae</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>OpenCASCADE BREP</td><td><code>.brep</code> <code>.brp</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>OpenSCAD (CSG)</td><td><code>.scad</code> <code>.csg</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Point cloud (XYZ, ASC, PTS, PCD)</td><td><code>.xyz</code> <code>.asc</code> <code>.pts</code> <code>.pcd</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>G-code (CAM)</td><td><code>.nc</code> <code>.gcode</code> <code>.ngc</code> <code>.tap</code></td><td></td><td>✓</td></tr>
+<tr><td>KUKA KRL (Robot)</td><td><code>.src</code></td><td></td><td>✓</td></tr>
+<tr><td>3D Manufacturing (3MF)</td><td><code>.3mf</code></td><td>✓</td><td>✓</td></tr>
+<tr><td>Images</td><td><code>.png</code> <code>.jpg</code> <code>.jpeg</code> <code>.gif</code> <code>.webp</code> <code>.bmp</code> <code>.svg</code> <code>.avif</code> <code>.ico</code></td><td>✓</td><td></td></tr>
+<tr><td>Text</td><td><code>.txt</code> <code>.md</code> <code>.csv</code></td><td>✓</td><td></td></tr>
+</tbody></table>
+<h2 id="부록-c-기능-찾아보기">부록 C. 기능 찾아보기</h2>
+<table><thead><tr><th>기능</th><th>레슨</th></tr></thead><tbody>
+<tr><td>시작 페이지</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>샘플 열기</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>전체 보기와 확대</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>화면 이동</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>패널 접고 펴기</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>3D 보기</td><td><a href="#레슨-1-둘러보기">레슨 1</a></td></tr>
+<tr><td>새 도면</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>선 (L)</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>사각형 (R)</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>원 (C)</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>호 (3점)</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>타원</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>정다각형</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>폴리선</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>스플라인</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>점</td><td><a href="#레슨-2-선과-도형-그리기">레슨 2</a></td></tr>
+<tr><td>좌표 입력</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>극좌표: 거리&lt;각도</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>객체 스냅 (F3)</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>직교 모드 (F8)</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>길이 단위</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>다른 단위로 입력</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>축척 막대</td><td><a href="#레슨-3-정밀-입력스냅단위">레슨 3</a></td></tr>
+<tr><td>준비: 사각형과 원</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>선택</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>이동 (M)</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>복사</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>회전</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>대칭</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>크기 조정</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>간격 띄우기</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>배열 복사</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>분해</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>실행 취소·다시 실행</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>삭제</td><td><a href="#레슨-4-선택과-수정">레슨 4</a></td></tr>
+<tr><td>준비: 판과 구멍</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>선형 치수</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>정렬 치수</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>지름·반지름 치수</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>각도 치수</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>문자</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>지시선</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>해칭</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>중심선</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>거리 재기</td><td><a href="#레슨-5-치수와-주석">레슨 5</a></td></tr>
+<tr><td>속성 패널에서 고치기</td><td><a href="#레슨-6-속성과-레이어">레슨 6</a></td></tr>
+<tr><td>계산식과 단위</td><td><a href="#레슨-6-속성과-레이어">레슨 6</a></td></tr>
+<tr><td>선 종류·굵기·색</td><td><a href="#레슨-6-속성과-레이어">레슨 6</a></td></tr>
+<tr><td>레이어</td><td><a href="#레슨-6-속성과-레이어">레슨 6</a></td></tr>
+<tr><td>기어 넣기</td><td><a href="#레슨-7-부품-라이브러리">레슨 7</a></td></tr>
+<tr><td>볼트와 너트</td><td><a href="#레슨-7-부품-라이브러리">레슨 7</a></td></tr>
+<tr><td>부품 치수 바꾸기</td><td><a href="#레슨-7-부품-라이브러리">레슨 7</a></td></tr>
+<tr><td>상자 넣기</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>원기둥</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>3D로 보기</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>시점 바꾸기</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>위치와 회전</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>2D로 돌아가기</td><td><a href="#레슨-8-3d-솔리드">레슨 8</a></td></tr>
+<tr><td>돌출 (Pad)</td><td><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9</a></td></tr>
+<tr><td>회전 (Revolve)</td><td><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9</a></td></tr>
+<tr><td>로프트 (Loft)</td><td><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9</a></td></tr>
+<tr><td>스윕 (Sweep)</td><td><a href="#레슨-9-2d에서-3d로-돌출회전로프트스윕">레슨 9</a></td></tr>
+<tr><td>빼기 (Cut)</td><td><a href="#레슨-10-불리언-빼기합치기교차">레슨 10</a></td></tr>
+<tr><td>합치기 (Fuse)</td><td><a href="#레슨-10-불리언-빼기합치기교차">레슨 10</a></td></tr>
+<tr><td>분해로 되돌리기</td><td><a href="#레슨-10-불리언-빼기합치기교차">레슨 10</a></td></tr>
+<tr><td>투영 도면 만들기</td><td><a href="#레슨-11-도면-뷰와-단면">레슨 11</a></td></tr>
+<tr><td>단면</td><td><a href="#레슨-11-도면-뷰와-단면">레슨 11</a></td></tr>
+<tr><td>보기 스타일과 좌표축</td><td><a href="#레슨-12-3d-보기-자세히">레슨 12</a></td></tr>
+<tr><td>광원 (해)</td><td><a href="#레슨-12-3d-보기-자세히">레슨 12</a></td></tr>
+<tr><td>2D로</td><td><a href="#레슨-12-3d-보기-자세히">레슨 12</a></td></tr>
+<tr><td>저장과 열기</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13</a></td></tr>
+<tr><td>다른 CAD 도면 열기</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13</a></td></tr>
+<tr><td>PCB 거버</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13</a></td></tr>
+<tr><td>내보내기</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13</a></td></tr>
+<tr><td>끌어 놓기</td><td><a href="#레슨-13-파일-저장열기가져오기내보내기">레슨 13</a></td></tr>
+<tr><td>인쇄 미리보기</td><td><a href="#레슨-14-인쇄와-3d-프린팅">레슨 14</a></td></tr>
+<tr><td>3D 프린팅 (STL)</td><td><a href="#레슨-14-인쇄와-3d-프린팅">레슨 14</a></td></tr>
+<tr><td>설정 창</td><td><a href="#레슨-15-설정과-모양">레슨 15</a></td></tr>
+<tr><td>테마</td><td><a href="#레슨-15-설정과-모양">레슨 15</a></td></tr>
+<tr><td>툴바와 패널 묶음</td><td><a href="#레슨-15-설정과-모양">레슨 15</a></td></tr>
+<tr><td>기능표</td><td><a href="#레슨-16-도움말">레슨 16</a></td></tr>
+<tr><td>프로그램 정보와 지원 형식</td><td><a href="#레슨-16-도움말">레슨 16</a></td></tr>
+<tr><td>튜토리얼 다시 보기</td><td><a href="#레슨-16-도움말">레슨 16</a></td></tr>
+<tr><td>움직이는 샘플</td><td><a href="#레슨-17-조립과-움직임">레슨 17</a></td></tr>
+<tr><td>재생 막대</td><td><a href="#레슨-17-조립과-움직임">레슨 17</a></td></tr>
+<tr><td>조인트와 구동</td><td><a href="#레슨-17-조립과-움직임">레슨 17</a></td></tr>
+<tr><td>곡면 위 불리언</td><td><a href="#레슨-18-정확한-솔리드-opencascade">레슨 18</a></td></tr>
+<tr><td>모깎기와 구배</td><td><a href="#레슨-18-정확한-솔리드-opencascade">레슨 18</a></td></tr>
+<tr><td>3D 에서 모서리 고르기</td><td><a href="#레슨-18-정확한-솔리드-opencascade">레슨 18</a></td></tr>
+<tr><td>3D 황삭 · 정삭</td><td><a href="#레슨-19-cam-3d-가공과-시뮬레이션">레슨 19</a></td></tr>
+<tr><td>시뮬레이션과 가공 결과</td><td><a href="#레슨-19-cam-3d-가공과-시뮬레이션">레슨 19</a></td></tr>
+<tr><td>판 응력 (평면 응력)</td><td><a href="#레슨-20-fem-해석-판과-솔리드">레슨 20</a></td></tr>
+<tr><td>솔리드 (3D) 와 CalculiX</td><td><a href="#레슨-20-fem-해석-판과-솔리드">레슨 20</a></td></tr>
+<tr><td>Python 으로 모델 만들기</td><td><a href="#레슨-21-python-콘솔과-매크로">레슨 21</a></td></tr>
+<tr><td>애드온 관리자</td><td><a href="#레슨-21-python-콘솔과-매크로">레슨 21</a></td></tr>
+</tbody></table></main>
+<script>document.addEventListener('click', (e) => { const img = e.target.closest('main img'); const zoom = document.querySelector('.zoom'); if (zoom) { zoom.remove(); return; } if (img) { const z = document.createElement('div'); z.className = 'zoom'; z.innerHTML = '<img src="' + img.src + '" alt="" />'; document.body.append(z); } });</script>
+</body></html>

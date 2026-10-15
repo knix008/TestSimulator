@@ -7,8 +7,8 @@
 //   npm test -- --installer           also build the Windows installer and check it
 //
 // Categories: js · freecad · package · rust · web · desktop · installer
-// (freecad needs FreeCAD: FREECAD_CMD or a normal install; skipped otherwise)
-// MYCAD_E2E_GROUPS="3D 솔리드,부품" runs only those desktop groups.
+// (freecad needs FreeCAD: FREECAD_CMD, a normal install or a portable copy at a drive root; the tests fail without it)
+// MYCAD_E2E_GROUPS="3D solids,Parts" runs only those desktop groups.
 // While running, each test is printed as it finishes (✔ ✖ ○ + time, coloured).
 // At the end every category is listed with its tests aligned in columns
 // (failures first, then slowest first) and a summary table follows. The full
@@ -30,13 +30,13 @@ const c = {
 };
 
 const CATEGORIES = [
-  { id: 'js', title: 'JS 단위 테스트', subtitle: '기하 · 객체 · 부품 · 3D 솔리드 · 불리언 · 투상 · 3D 파일(FCStd/STEP/STL…) · 스냅 · DXF/SVG · 인쇄 · 설정 · 번역', tint: c.cyan, run: runJs('unit') },
-  { id: 'freecad', title: 'FreeCAD 왕복 검증', subtitle: '실제 FreeCAD(FreeCADCmd)가 MyCAD 의 FCStd·STEP·STL·OBJ·PLY·OFF·3MF 와 샘플을 열어 부피·위치 비교 (FREECAD_CMD)', tint: c.teal, run: runJs('freecad') },
-  { id: 'package', title: '패키징 · 아이콘', subtitle: '3D 아이콘(가운데 정렬) · 파일 형식 등록 · 설치 언어 · 데이터 삭제 질문 · 재설치', tint: c.purple, run: runJs('static') },
-  { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
-  { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
-  { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱 실행 후 메뉴·툴바·팝업·그리기·파일·인쇄 조작 (CDP)', tint: c.yellow, run: runDesktop },
-  { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사', tint: c.orange, run: runInstaller, optIn: true },
+  { id: 'js', title: 'JS unit tests', subtitle: 'geometry · entities · parts · 3D solids · booleans · projections · 3D files (FCStd/STEP/STL…) · snaps · DXF/SVG · printing · settings · translations', tint: c.cyan, run: runJs('unit') },
+  { id: 'freecad', title: 'FreeCAD round trips', subtitle: 'real FreeCAD (FreeCADCmd) opens MyCAD\'s FCStd · STEP · STL · OBJ · PLY · OFF · 3MF and samples and compares volumes and positions', tint: c.teal, run: runJs('freecad') },
+  { id: 'package', title: 'Packaging · icons', subtitle: '3D icon (centred) · file associations · installer languages · data removal question · reinstall', tint: c.purple, run: runJs('static') },
+  { id: 'rust', title: 'Rust unit tests', subtitle: 'file I/O and progress · fonts · window placement', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
+  { id: 'web', title: 'E2E · web', subtitle: 'the web build driven in headless Edge/Chrome (CDP)', tint: c.blue, run: runWeb },
+  { id: 'desktop', title: 'E2E · desktop GUI', subtitle: 'the real app: menus, toolbars, popups, drawing, files, printing (CDP)', tint: c.yellow, run: runDesktop },
+  { id: 'installer', title: 'Installer', subtitle: 'npm run build:win → checks of the NSIS installer', tint: c.orange, run: runInstaller, optIn: true },
 ];
 
 // ───────────────────────── arguments
@@ -114,17 +114,25 @@ function makeReporter(category, results, categoryStart) {
     if (!result.ok && result.error) {
       for (const errorLine of String(result.error).split('\n').slice(0, 10)) line(`        ${c.red(errorLine)}`);
     }
-    spin(`${category.title} 실행 중… (${count}개 완료)`);
+    spin(`${category.title} running… (${count} done)`);
   };
 }
 
 // ───────────────────────── runners
 
+/** Warnings are failures too: one row per category lists them. */
+function reportWarnings(report, group, warnings) {
+  const unique = [...new Set(warnings.map((w) => w.trim()).filter(Boolean))];
+  report({ name: 'No warnings', group, ok: unique.length === 0, ms: 0, error: unique.length ? unique.slice(0, 12).join('\n') : null });
+}
+
 function runJs(folder) {
   return async (report) => {
     const files = fs.readdirSync(path.join(root, 'test', folder)).filter((name) => name.endsWith('.test.js')).map((name) => path.join(root, 'test', folder, name));
     const stream = run({ files, concurrency: 1 });
+    const warnings = [];
     for await (const event of stream) {
+      if (event.type === 'test:stderr') warnings.push(`${path.basename(event.data.file ?? '')}: ${event.data.message}`);
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
       const data = event.data;
       if (data.details?.type === 'suite' || data.nesting > 0) continue;
@@ -138,6 +146,7 @@ function runJs(folder) {
         error: error ? String(error.cause?.message ?? error.message ?? error) : null,
       });
     }
+    reportWarnings(report, 'stderr', warnings);
   };
 }
 
@@ -153,7 +162,7 @@ function stopDebugApp() {
 
 function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
   return (report) => stopDebugApp().then(() => new Promise((resolve, reject) => {
-    spin('컴파일 중… (첫 실행은 몇 분 걸릴 수 있습니다)');
+    spin('Compiling… (the first run can take a few minutes)');
     const testArgs = ['--test-threads=1', ...(nocapture ? ['--nocapture'] : [])];
     const child = spawn('cargo', [...cargoArgs, '--manifest-path', 'src-tauri/Cargo.toml', '--', ...testArgs], {
       cwd: root,
@@ -214,8 +223,8 @@ function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
       const text = chunk.toString();
       stderr += text;
       const compiling = text.match(/Compiling (\S+)/);
-      if (compiling) spin(`컴파일 중… ${compiling[1]}`);
-      else if (/Running /.test(text)) spin('테스트 실행 중…');
+      if (compiling) spin(`Compiling… ${compiling[1]}`);
+      else if (/Running /.test(text)) spin('Running tests…');
       for (const textLine of text.replace(/\r/g, '').split('\n')) if (open && /panicked at/.test(textLine)) open.note += ` ${textLine}`;
     });
     child.on('error', reject);
@@ -225,9 +234,10 @@ function runCargo(cargoArgs, { nocapture = false, env = {} } = {}) {
         const text = (failureText.get(entry.key) ?? []).join('\n') || stderr.split('\n').filter((l) => /panicked|assert|Err/.test(l)).slice(0, 6).join('\n') || 'FAILED';
         report({ name: entry.name, group: entry.group, ok: false, ms: entry.ms, error: text });
       }
+      reportWarnings(report, 'cargo', stderr.replace(/\r/g, '').split('\n').filter((l) => /^warning\b/.test(l) && !/generated \d+ warnings?/.test(l)));
       if (code !== 0 && !failed.length) {
         const message = stderr.split('\n').filter((textLine) => /^error/.test(textLine)).slice(0, 12).join('\n') || `cargo exited with ${code}`;
-        report({ name: '컴파일', group: 'cargo', ok: false, ms: 0, error: message });
+        report({ name: 'Compile', group: 'cargo', ok: false, ms: 0, error: message });
       }
       resolve();
     });
@@ -247,6 +257,8 @@ function exec(command, commandArgs, options = {}) {
 }
 
 async function runCases(report, cases, context, label) {
+  const { consoleProblems } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'cdp.mjs')).href);
+  const problems = consoleProblems.splice(0).map((text) => `start-up: ${text}`);
   for (const testCase of cases) {
     spin(`${label} · ${testCase.group ? `${testCase.group} › ` : ''}${testCase.name}`);
     const start = performance.now();
@@ -257,60 +269,68 @@ async function runCases(report, cases, context, label) {
       report({ name: testCase.name, group: testCase.group, ok: false, ms: performance.now() - start, error: error.stack?.split('\n').slice(0, 4).join('\n') ?? error.message });
       await context.recover?.();
     }
+    // Errors a case raises on purpose (the error popups) are not problems.
+    const raised = consoleProblems.splice(0).filter((text) => !(testCase.expectConsoleErrors && /^console\.error/.test(text)));
+    problems.push(...raised.map((text) => `${testCase.name.slice(0, 40)}: ${text}`));
   }
+  consoleProblems.push(...problems);
 }
 
 async function runWeb(report) {
-  spin('웹 빌드 중… (vite build)');
+  spin('Building the web app… (vite build)');
   const start = performance.now();
   const build = await exec(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), 'build']);
-  report({ name: '웹 빌드 (vite build → dist/)', group: '빌드', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-12).join('\n') : null });
+  report({ name: 'Web build (vite build → dist/)', group: 'Build', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-12).join('\n') : null });
   if (build.code !== 0) return;
+  reportWarnings(report, 'Build', build.output.split('\n').filter((l) => /\(!\)|\bwarn(ing)?\b/i.test(l)));
   const { WebApp } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'web.harness.mjs')).href);
   const { cases } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'web.suite.mjs')).href);
   const app = new WebApp();
   const launched = performance.now();
   try {
     await app.start();
-    report({ name: '브라우저 실행 · 페이지 열기', group: '실행', ok: true, ms: performance.now() - launched });
+    report({ name: 'Start the browser · open the page', group: 'Start', ok: true, ms: performance.now() - launched });
   } catch (error) {
-    report({ name: '브라우저 실행 · 페이지 열기', group: '실행', ok: false, ms: performance.now() - launched, error: error.message });
+    report({ name: 'Start the browser · open the page', group: 'Start', ok: false, ms: performance.now() - launched, error: error.message });
     await app.stop();
     return;
   }
-  await runCases(report, cases, app, 'E2E · 웹');
+  await runCases(report, cases, app, 'E2E · web');
+  const { consoleProblems } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'cdp.mjs')).href);
+  reportWarnings(report, 'Console', consoleProblems.splice(0));
   await app.stop();
 }
 
 async function runDesktop(report) {
   if (process.platform !== 'win32') {
-    report({ name: '데스크톱 E2E 는 Windows(WebView2 CDP)에서 실행됩니다', ok: true, skipped: 'Windows 전용', ms: 0 });
+    report({ name: 'Desktop E2E runs on Windows (WebView2 CDP)', ok: true, skipped: 'Windows only', ms: 0 });
     return;
   }
-  spin('앱 빌드 확인 중… (cargo build)');
+  spin('Checking the app build… (cargo build)');
   await exec('powershell.exe', ['-NoProfile', '-Command', `Get-Process mycad -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${path.join(root, 'src-tauri', 'target').replace(/'/g, "''")}*' } | Stop-Process -Force`]);
   const { App, devPortEnv } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'harness.mjs')).href);
   const { freeDevPort } = await import(pathToFileURL(path.join(root, 'scripts', 'port.mjs')).href);
   // Always a port nobody uses: the app is built to load its UI from there.
   const port = await freeDevPort();
   const start = performance.now();
-  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { env: devPortEnv(port), onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`앱 빌드 중… ${m[1]}`); } });
-  report({ name: '앱 빌드 (cargo build)', group: '빌드', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').filter((l) => /error/.test(l)).slice(0, 10).join('\n') : null });
+  const build = await exec('cargo', ['build', '--manifest-path', 'src-tauri/Cargo.toml'], { env: devPortEnv(port), onOutput: (text) => { const m = text.match(/Compiling (\S+)/); if (m) spin(`Building the app… ${m[1]}`); } });
+  report({ name: 'App build (cargo build)', group: 'Build', ok: build.code === 0, ms: performance.now() - start, error: build.code ? build.output.split('\n').filter((l) => /error/.test(l)).slice(0, 10).join('\n') : null });
   if (build.code !== 0) return;
+  reportWarnings(report, 'Build', build.output.replace(/\r/g, '').split('\n').filter((l) => /^warning\b/.test(l) && !/generated \d+ warnings?/.test(l)));
   const { cases: all } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'desktop.suite.mjs')).href);
-  // MYCAD_E2E_GROUPS=3D 솔리드,부품 runs only those groups (to check just what changed).
+  // MYCAD_E2E_GROUPS=3D solids,Parts runs only those groups (to check just what changed).
   const groups = (process.env.MYCAD_E2E_GROUPS ?? '').split(',').map((g) => g.trim()).filter(Boolean);
   // MYCAD_E2E_NAMES=Assembly runs only the cases whose names contain one of the words.
   const names = (process.env.MYCAD_E2E_NAMES ?? '').split(',').map((g) => g.trim()).filter(Boolean);
   const cases = all.filter((item) => (!groups.length || groups.includes(item.group)) && (!names.length || names.some((n) => item.name.includes(n))));
-  spin('앱 실행 중…');
+  spin('Starting the app…');
   const app = new App({ devPort: port });
   const launched = performance.now();
   try {
     await app.start();
-    report({ name: '앱 실행 · DevTools 연결', group: '실행', ok: true, ms: performance.now() - launched });
+    report({ name: 'Start the app · connect DevTools', group: 'Start', ok: true, ms: performance.now() - launched });
   } catch (error) {
-    report({ name: '앱 실행 · DevTools 연결', group: '실행', ok: false, ms: performance.now() - launched, error: error.message });
+    report({ name: 'Start the app · connect DevTools', group: 'Start', ok: false, ms: performance.now() - launched, error: error.message });
     await app.stop();
     return;
   }
@@ -322,42 +342,44 @@ async function runDesktop(report) {
       await app.restart().catch(() => {});
     }
   };
-  await runCases(report, cases, app, 'E2E · 데스크톱');
+  await runCases(report, cases, app, 'E2E · desktop');
+  const { consoleProblems } = await import(pathToFileURL(path.join(root, 'test', 'e2e', 'cdp.mjs')).href);
+  reportWarnings(report, 'Console', consoleProblems.splice(0));
   await app.stop();
 }
 
 async function runInstaller(report) {
   if (process.platform !== 'win32') {
-    report({ name: 'Windows 설치 파일은 Windows 에서 만듭니다', ok: true, skipped: 'Windows 전용', ms: 0 });
+    report({ name: 'The Windows installer is built on Windows', ok: true, skipped: 'Windows only', ms: 0 });
     return;
   }
   const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  spin('설치 파일 빌드 중… (npm run build:win, 몇 분 걸립니다)');
+  spin('Building the installer… (npm run build:win, takes a few minutes)');
   const start = performance.now();
-  const build = await exec(process.execPath, [path.join(root, 'scripts', 'build.mjs'), 'win'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)|Running makensis|Finished/); if (m) spin(`설치 파일 빌드 중… ${m[0]}`); } });
+  const build = await exec(process.execPath, [path.join(root, 'scripts', 'build.mjs'), 'win'], { onOutput: (text) => { const m = text.match(/Compiling (\S+)|Running makensis|Finished/); if (m) spin(`Building the installer… ${m[0]}`); } });
   const exe = path.join(root, 'release', `MyCAD-Setup-${version}.exe`);
-  report({ name: 'npm run build:win → NSIS 설치 파일', group: '빌드', ok: build.code === 0 && fs.existsSync(exe), ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-15).join('\n') : null });
+  report({ name: 'npm run build:win → NSIS installer', group: 'Build', ok: build.code === 0 && fs.existsSync(exe), ms: performance.now() - start, error: build.code ? build.output.split('\n').slice(-15).join('\n') : null });
   if (!fs.existsSync(exe)) return;
   const check = (name, test) => {
     const t0 = performance.now();
-    try { test(); report({ name, group: '설치 파일', ok: true, ms: performance.now() - t0 }); } catch (error) { report({ name, group: '설치 파일', ok: false, ms: performance.now() - t0, error: error.message }); }
+    try { test(); report({ name, group: 'Installer', ok: true, ms: performance.now() - t0 }); } catch (error) { report({ name, group: 'Installer', ok: false, ms: performance.now() - t0, error: error.message }); }
   };
   const nsi = fs.readFileSync(path.join(root, 'src-tauri', 'target', 'release', 'nsis', 'x64', 'installer.nsi'), 'utf8');
-  check('설치 파일 크기·서명 헤더 (MZ)', () => {
+  check('Installer size and signature header (MZ)', () => {
     const bytes = fs.readFileSync(exe);
     if (bytes.subarray(0, 2).toString() !== 'MZ' || bytes.length < 1_000_000) throw new Error(`size ${bytes.length}`);
   });
-  check('설치 언어: 한국어·영어 선택 화면', () => {
+  check('Installer languages: Korean and English choice', () => {
     for (const part of ['Korean.nsh', 'English.nsh', 'MUI_LANGDLL_DISPLAY']) if (!nsi.includes(part) && !fs.existsSync(path.join(root, 'src-tauri', 'target', 'release', 'nsis', 'x64', part))) throw new Error(part);
   });
-  check('설치 아이콘 = 프로그램 아이콘', () => {
+  check('Installer icon = program icon', () => {
     if (!/!define INSTALLERICON ".*[\\/]icons[\\/]icon\.ico"/.test(nsi) || !nsi.includes('!define MUI_ICON "${INSTALLERICON}"')) throw new Error('INSTALLERICON');
   });
-  check('파일 형식 등록: .mcad', () => {
+  check('File association: .mcad', () => {
     if (!nsi.includes('APP_ASSOCIATE "mcad" "MyCAD.Drawing"')) throw new Error('APP_ASSOCIATE mcad');
   });
-  check('문서 아이콘 파일 설치 (drawing.ico)', () => { if (!nsi.includes('drawing.ico')) throw new Error('drawing.ico'); });
-  check('설치 훅: 데이터 삭제 질문 · 이전 설치 완전 제거 · 문서 아이콘', () => {
+  check('Document icon installed (drawing.ico)', () => { if (!nsi.includes('drawing.ico')) throw new Error('drawing.ico'); });
+  check('Installer hooks: data removal question · old install removed · document icon', () => {
     if (!/!include ".*hooks\.nsh"/.test(nsi)) throw new Error('hooks.nsh not included');
     for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL']) if (!nsi.includes(part)) throw new Error(part);
     if (!nsi.includes('"/oname=drawing.ico"')) throw new Error('the document icon is not installed next to the program ($INSTDIR)');
@@ -369,8 +391,8 @@ async function runInstaller(report) {
 const totalStart = performance.now();
 const summary = [];
 line();
-line(`${c.inverseBlue(c.bold(' MyCAD 테스트 '))} ${c.gray(new Date().toLocaleString())}`);
-line(c.gray(`  분류: ${selected.join(', ')}   (npm test -- --only js,rust · --skip desktop · --quick · --installer)`));
+line(`${c.inverseBlue(c.bold(' MyCAD tests '))} ${c.gray(new Date().toLocaleString())}`);
+line(c.gray(`  Categories: ${selected.join(', ')}   (npm test -- --only js,rust · --skip desktop · --quick · --installer)`));
 
 for (const category of CATEGORIES.filter((item) => selected.includes(item.id))) {
   line();
@@ -380,14 +402,14 @@ for (const category of CATEGORIES.filter((item) => selected.includes(item.id))) 
   try {
     await category.run(makeReporter(category, results, start));
   } catch (error) {
-    results.push({ name: '실행기 오류', ok: false, ms: 0, error: error.stack ?? error.message });
-    line(`  ${c.red('✖ 실행기 오류')} ${c.red(error.message)}`);
+    results.push({ name: 'Runner error', ok: false, ms: 0, error: error.stack ?? error.message });
+    line(`  ${c.red('✖ Runner error')} ${c.red(error.message)}`);
   }
   stopSpin();
   const ms = performance.now() - start;
   const passed = results.filter((r) => r.ok && !r.skipped).length;
   const failedCount = results.filter((r) => !r.ok).length;
-  line(`  ${c.gray('└')} ${failedCount ? c.red(`✖ ${failedCount} 실패`) : c.green(`✔ ${passed} 통과`)}${results.some((r) => r.skipped) ? c.yellow(` · ○ ${results.filter((r) => r.skipped).length} 건너뜀`) : ''} ${c.gray(`(${formatMs(ms)})`)}`);
+  line(`  ${c.gray('└')} ${failedCount ? c.red(`✖ ${failedCount} failed`) : c.green(`✔ ${passed} passed`)}${results.some((r) => r.skipped) ? c.yellow(` · ○ ${results.filter((r) => r.skipped).length} skipped`) : ''} ${c.gray(`(${formatMs(ms)})`)}`);
   summary.push({ category, results, ms });
 }
 stopSpin();
@@ -399,19 +421,19 @@ const rule = (text) => {
   return c.bold(`${'━'.repeat(4)} ${text} ${'━'.repeat(pad)}`);
 };
 line();
-line(rule('결과 (분류별 · 실패 우선 · 느린 순)'));
+line(rule('Results (by category · failures first · slowest first)'));
 for (const { category, results, ms } of summary) {
   const failed = results.filter((result) => !result.ok);
   const status = failed.length ? c.inverseRed(' FAIL ') : c.inverseGreen(' PASS ');
   line();
-  line(`${status} ${c.bold(category.tint(category.title))} ${c.gray(`(${results.length}개 · ${formatMs(ms)})`)}`);
-  line(c.gray(`   ${'상태'.padEnd(7)}  ${fit('분류 › 테스트', width)}  ${'시간'.padStart(9)}  막대`));
+  line(`${status} ${c.bold(category.tint(category.title))} ${c.gray(`(${results.length} · ${formatMs(ms)})`)}`);
+  line(c.gray(`   ${'Status'.padEnd(7)}  ${fit('Group › test', width)}  ${'Time'.padStart(9)}  Bar`));
   const sorted = [...results].sort((a, b) => Number(a.ok) - Number(b.ok) || Number(Boolean(a.skipped)) - Number(Boolean(b.skipped)) || b.ms - a.ms);
   const slowest = Math.max(1, ...sorted.map((r) => r.ms));
   for (const result of sorted) {
     const label = `${result.group ? `${result.group} › ` : ''}${result.name}`;
     const padded = fit(label, width);
-    const mark = result.skipped ? c.yellow('○ 건너뜀') : result.ok ? c.green('✔ 통과  ') : c.red('✖ 실패  ');
+    const mark = result.skipped ? c.yellow('○ skip  ') : result.ok ? c.green('✔ pass  ') : c.red('✖ FAIL  ');
     const bar = '█'.repeat(Math.max(1, Math.round((result.ms / slowest) * 16)));
     const text = result.skipped ? c.yellow(padded) : result.ok ? padded : c.red(padded);
     line(`   ${mark}  ${text}  ${timeColor(result.ms)(formatMs(result.ms).padStart(9))}  ${timeColor(result.ms)(bar)}`);
@@ -420,7 +442,7 @@ for (const { category, results, ms } of summary) {
 
 line();
 line(c.bold('┌──────────────────────────────┬────────┬────────┬────────┬────────┬────────────┐'));
-line(c.bold('│ 분류                         │  통과  │  실패  │ 건너뜀 │  전체  │    시간    │'));
+line(c.bold('│ Category                     │ Passed │ Failed │Skipped │ Total  │    Time    │'));
 line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
 let passed = 0;
 let failedTotal = 0;
@@ -437,12 +459,12 @@ for (const { category, results, ms } of summary) {
   line(`│ ${category.tint(fit(category.title, 28))} │ ${c.green(String(ok).padStart(6))} │ ${(bad ? c.red : c.gray)(String(bad).padStart(6))} │ ${(skippedCount ? c.yellow : c.gray)(String(skippedCount).padStart(6))} │ ${String(results.length).padStart(6)} │ ${formatMs(ms).padStart(10)} │`);
 }
 line(c.bold('├──────────────────────────────┼────────┼────────┼────────┼────────┼────────────┤'));
-line(`│ ${c.bold(fit('합계', 28))} │ ${c.green(c.bold(String(passed).padStart(6)))} │ ${(failedTotal ? c.red : c.gray)(c.bold(String(failedTotal).padStart(6)))} │ ${(skippedTotal ? c.yellow : c.gray)(c.bold(String(skippedTotal).padStart(6)))} │ ${c.bold(String(total).padStart(6))} │ ${c.bold(formatMs(performance.now() - totalStart).padStart(10))} │`);
+line(`│ ${c.bold(fit('Total', 28))} │ ${c.green(c.bold(String(passed).padStart(6)))} │ ${(failedTotal ? c.red : c.gray)(c.bold(String(failedTotal).padStart(6)))} │ ${(skippedTotal ? c.yellow : c.gray)(c.bold(String(skippedTotal).padStart(6)))} │ ${c.bold(String(total).padStart(6))} │ ${c.bold(formatMs(performance.now() - totalStart).padStart(10))} │`);
 line(c.bold('└──────────────────────────────┴────────┴────────┴────────┴────────┴────────────┘'));
 line();
 line(failedTotal
-  ? `${c.inverseRed(c.bold(` ✖ ${failedTotal}개 실패 `))} ${c.red('위 목록의 빨간 항목을 확인하세요.')}`
-  : `${c.inverseGreen(c.bold(` ✔ 모든 테스트 통과 (${passed}개${skippedTotal ? `, 건너뜀 ${skippedTotal}개` : ''}) `))}`);
+  ? `${c.inverseRed(c.bold(` ✖ ${failedTotal} failed `))} ${c.red('See the red entries above.')}`
+  : `${c.inverseGreen(c.bold(` ✔ All tests passed (${passed}${skippedTotal ? `, ${skippedTotal} skipped` : ''}) `))}`);
 
 const reportDir = path.join(root, 'test-results');
 fs.mkdirSync(reportDir, { recursive: true });
@@ -453,5 +475,5 @@ fs.writeFileSync(path.join(reportDir, 'results.json'), JSON.stringify({
   skipped: skippedTotal,
   categories: summary.map(({ category, results, ms }) => ({ id: category.id, title: category.title, ms: Math.round(ms), results })),
 }, null, 2));
-line(c.gray('  자세한 결과: test-results/results.json'));
+line(c.gray('  Details: test-results/results.json'));
 process.exit(failedTotal ? 1 : 0);

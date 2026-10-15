@@ -2,7 +2,7 @@
 // project folder): the app plays every lesson of the in-app tutorial in
 // Watch mode, and ffmpeg records the app window from the screen (so the
 // dialog windows the lessons open are in the video too).
-//   node scripts/record-tutorial.mjs [--lang ko|en] [--speed 1.25] [--lessons 1-16] [--out file.mp4]
+//   node scripts/record-tutorial.mjs [--lang ko|en] [--speed 1.25] [--lessons 1-21] [--out file.mp4]
 // Needs ffmpeg (on PATH or FFMPEG=…\ffmpeg.exe); Windows (gdigrab) or Linux (x11grab).
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,7 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argument = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const language = argument('lang', 'ko');
 const speed = Number(argument('speed', '1.25'));
-const [first, last] = argument('lessons', '1-16').split('-').map(Number);
+const { LESSONS } = await import('../src/tutorial/lessons.js');
+const [first, last] = argument('lessons', `1-${LESSONS.length}`).split('-').map(Number);
 const out = path.resolve(argument('out', path.join(root, language === 'ko' ? 'MyCAD-Tutorial.mp4' : `MyCAD-Tutorial-${language}.mp4`)));
 const ffmpeg = process.env.FFMPEG || 'ffmpeg';
 if (spawnSync(ffmpeg, ['-version'], { stdio: 'ignore' }).status !== 0) {
@@ -68,6 +69,7 @@ try {
     await new Promise((resolve) => recorder.on('exit', resolve));
   }
   await Promise.race([app.kill(), sleep(8000)]);
+  app.vite?.kill();
 }
 if (fs.existsSync(out)) {
   const seconds = Math.round((Date.now() - started) / 1000);

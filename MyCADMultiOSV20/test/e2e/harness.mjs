@@ -48,16 +48,18 @@ export class App {
   }
 
   async start() {
-    if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} 가 없습니다. cargo build 를 먼저 실행하세요.`);
+    if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} is missing. Run cargo build first.`);
     this.work = fs.mkdtempSync(path.join(os.tmpdir(), 'mycad-e2e-'));
     this.files = path.join(this.work, 'files');
     this.profile = path.join(this.work, 'profile');
     this.config = path.join(this.work, 'config');
     this.data = path.join(this.work, 'data');
     for (const dir of [this.files, this.profile, this.config, this.data]) fs.mkdirSync(dir, { recursive: true });
+    // A run started right after another one: its dev server may still be letting the port go.
+    for (let i = 0; i < 50 && await portInUse(this.devPort); i++) await sleep(100);
     if (await portInUse(this.devPort)) {
       const free = await freeDevPort(this.devPort);
-      throw new Error(`포트 ${this.devPort} 을(를) 다른 프로그램이 쓰고 있습니다. npm test 로 실행하거나 앱을 포트 ${free} 용으로 빌드하세요 (TAURI_CONFIG devUrl).`);
+      throw new Error(`Port ${this.devPort} is used by another program. Run through npm test, or build the app for port ${free} (TAURI_CONFIG devUrl).`);
     }
     const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
     this.vite = spawn(process.execPath, [vite, '--port', String(this.devPort), '--strictPort'], { cwd: root, stdio: 'ignore' });
@@ -167,6 +169,21 @@ export class App {
 
   async hasPopup(kind) {
     return (await this.targets()).some((item) => item.title === `popup-${kind}`);
+  }
+
+  /**
+   * Makes the app the foreground program when another one has taken it (the
+   * tests run on a desktop someone may be using). Windows hands the foreground
+   * to another program only after a key event, hence the Alt tap first. Returns
+   * whether it had to.
+   */
+  foreground() {
+    if (process.platform !== 'win32') return false;
+    const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class G{public delegate bool P(IntPtr h,IntPtr l);[DllImport("user32.dll")]public static extern bool EnumWindows(P p,IntPtr l);[DllImport("user32.dll")]public static extern IntPtr GetForegroundWindow();[DllImport("user32.dll")]public static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);[DllImport("user32.dll")]public static extern IntPtr GetWindow(IntPtr h,uint c);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);}';
+$pid0=${this.process.pid};$p=0;[void][G]::GetWindowThreadProcessId([G]::GetForegroundWindow(),[ref]$p);if($p -eq $pid0){'no';exit}
+$main=[IntPtr]::Zero;[G]::EnumWindows({param($h,$l) $q=0;[void][G]::GetWindowThreadProcessId($h,[ref]$q);if($q -eq $pid0 -and [G]::IsWindowVisible($h) -and [G]::GetWindow($h,4) -eq [IntPtr]::Zero){$script:main=$h};$true},[IntPtr]::Zero)|Out-Null
+if($main -eq [IntPtr]::Zero){'none';exit};[G]::keybd_event(0x12,0,0,[UIntPtr]::Zero);[G]::keybd_event(0x12,0,2,[UIntPtr]::Zero);[void][G]::SetForegroundWindow($main);'yes'`;
+    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true }).toString('utf8').trim() === 'yes';
   }
 
   /** Window rectangle and visibility of a window of this process, by title (Windows). */

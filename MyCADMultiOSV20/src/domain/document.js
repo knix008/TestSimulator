@@ -3,8 +3,11 @@
 import { newId } from './entities.js';
 import { syncDrawingClones } from './drawing.js';
 import { solveConstraints } from './constraints.js';
+import { followRobotTools } from './robot.js';
 import { applyBindings } from './spreadsheet.js';
 import { solveAssembly } from './assembly.js';
+import { resolveAttachments } from './datums.js';
+import { solidMesh } from './solids.js';
 import { History } from './history.js';
 
 /** id → JSON of every entity a constraint refers to. */
@@ -46,9 +49,19 @@ export class DrawingDocument {
     if (this.drawing.joints) {
       const ids = new Set(this.drawing.entities.map((e) => e.id));
       this.drawing.joints = this.drawing.joints.filter((j) => ids.has(j.base) && ids.has(j.part));
-      if (this.drawing.joints.length) this.drawing.entities = solveAssembly(this.drawing.entities, this.drawing.joints).entities;
-      else delete this.drawing.joints;
+      if (this.drawing.joints.length) {
+        // Loops solve the free joint values: they are kept (the next solve starts there).
+        const run = solveAssembly(this.drawing.entities, this.drawing.joints);
+        this.drawing.entities = run.entities;
+        this.drawing.joints = run.joints;
+        this.assemblyStatus = { failed: run.failed, error: run.error };
+      }
+      else { delete this.drawing.joints; delete this.drawing.animation; }
     }
+    // Robot_AddToolShape: a robot's tool follows its flange.
+    if (this.drawing.robots) followRobotTools(this.drawing);
+    // Part_EditAttachment: attached datums and solids follow what they are attached to.
+    if (this.drawing.entities.some((e) => e.attach)) resolveAttachments(this.drawing, solidMesh);
     if (this.drawing.constraints?.length || watched) {
       const after = constrainedState(this.drawing);
       const moved = new Set([...after].filter(([id, json]) => watched?.get(id) !== json).map(([id]) => id));

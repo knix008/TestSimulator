@@ -99,6 +99,13 @@ const EXPORT_FILTERS = {
   step: [{ name: 'STEP AP214 (*.step)', extensions: ['step', 'stp'] }],
   fcstd: [{ name: 'FreeCAD (*.FCStd)', extensions: ['FCStd'] }],
   ifc: [{ name: 'IFC 4 — BIM (*.ifc)', extensions: ['ifc'] }],
+  inp: [{ name: 'CalculiX / Abaqus (*.inp)', extensions: ['inp'] }],
+  pdf: [{ name: 'PDF (*.pdf)', extensions: ['pdf'] }],
+  json: [{ name: 'JSON (*.json)', extensions: ['json'] }],
+  asmt: [{ name: 'Ondsel ASMT (*.asmt)', extensions: ['asmt'] }],
+  fctb: [{ name: 'FreeCAD tool bit (*.fctb)', extensions: ['fctb'] }],
+  bdf: [{ name: 'Nastran / MYSTRAN (*.bdf)', extensions: ['bdf'] }],
+  zip: [{ name: 'ZIP (*.zip)', extensions: ['zip'] }],
 };
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'];
 
@@ -115,6 +122,12 @@ export async function chooseDrawingToSave(defaultPath) {
 
 export async function chooseExportPath(defaultPath, kind) {
   return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: EXPORT_FILTERS[kind] })) ?? null;
+}
+
+/** A text file to read (Spreadsheet_Import: CSV). */
+export async function chooseTextFile(defaultPath, extensions) {
+  const result = await openDialog({ multiple: false, directory: false, defaultPath: defaultPath ?? undefined, filters: [{ name: extensions.map((e) => e.toUpperCase()).join(', '), extensions }] });
+  return Array.isArray(result) ? result[0] ?? null : result ?? null;
 }
 
 export async function chooseImage(defaultPath) {
@@ -258,6 +271,15 @@ const WEB_FONT_CANDIDATES = ['Arial', 'Arial Black', 'Bahnschrift', 'Calibri', '
   'Courier New', 'Georgia', 'Helvetica', 'Helvetica Neue', 'Impact', 'ISOCPEUR', 'Lucida Console', 'Malgun Gothic', '맑은 고딕', 'Gulim', '굴림', 'Dotum', '돋움', 'Batang', '바탕',
   'Gungsuh', 'Nanum Gothic', '나눔고딕', 'Noto Sans KR', 'Noto Serif KR', 'Apple SD Gothic Neo', 'AppleGothic', 'Menlo', 'Monaco', 'Palatino Linotype', 'Segoe UI',
   'Segoe Print', 'Segoe Script', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Ubuntu', 'DejaVu Sans', 'Liberation Sans', 'Cantarell', 'Roboto', 'Inter'];
+
+/** CalculiX (ccx): where it is (desktop only), and a run of an input deck → the .dat text. */
+export async function ccxLocate(hint = '') {
+  return isDesktop() ? invoke('ccx_locate', { hint }) : null;
+}
+
+export async function ccxRun(ccx, inp) {
+  return invoke('ccx_run', { ccx, inp });
+}
 
 export async function listFonts() {
   if (isDesktop()) return invoke('list_fonts');

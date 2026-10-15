@@ -301,7 +301,7 @@
  },
  "l12-s1": {
   "file": "images/ko/l12-s1.webp",
-  "caption": "3D 보기 자세히 · 와이어프레임과 좌표축"
+  "caption": "3D 보기 자세히 · 보기 스타일과 좌표축"
  },
  "l12-s2": {
   "file": "images/ko/l12-s2.webp",
@@ -386,5 +386,65 @@
  "l16-s3": {
   "file": "images/ko/l16-s3.webp",
   "caption": "도움말 · 튜토리얼 다시 보기"
+ },
+ "l17-s1": {
+  "file": "images/ko/l17-s1.webp",
+  "caption": "조립과 움직임 · 움직이는 샘플"
+ },
+ "l17-s2": {
+  "file": "images/ko/l17-s2.webp",
+  "caption": "조립과 움직임 · 재생 막대"
+ },
+ "l17-s3": {
+  "file": "images/ko/l17-s3.webp",
+  "caption": "조립과 움직임 · 조인트와 구동"
+ },
+ "l18-s1": {
+  "file": "images/ko/l18-s1.webp",
+  "caption": "정확한 솔리드 (OpenCASCADE) · 곡면 위 불리언"
+ },
+ "l18-s2": {
+  "file": "images/ko/l18-s2.webp",
+  "caption": "정확한 솔리드 (OpenCASCADE) · 모깎기와 구배"
+ },
+ "l18-s3": {
+  "file": "images/ko/l18-s3.webp",
+  "caption": "정확한 솔리드 (OpenCASCADE) · 3D 에서 모서리 고르기"
+ },
+ "l19-s1": {
+  "file": "images/ko/l19-s1.webp",
+  "caption": "CAM 3D 가공과 시뮬레이션 · 3D 황삭 · 정삭"
+ },
+ "l19-s1-dialog": {
+  "file": "images/ko/l19-s1-dialog.webp",
+  "caption": "3D 황삭 · 정삭 — 창"
+ },
+ "l19-s2": {
+  "file": "images/ko/l19-s2.webp",
+  "caption": "CAM 3D 가공과 시뮬레이션 · 시뮬레이션과 가공 결과"
+ },
+ "l20-s1": {
+  "file": "images/ko/l20-s1.webp",
+  "caption": "FEM 해석: 판과 솔리드 · 판 응력 (평면 응력)"
+ },
+ "l20-s2": {
+  "file": "images/ko/l20-s2.webp",
+  "caption": "FEM 해석: 판과 솔리드 · 솔리드 (3D) 와 CalculiX"
+ },
+ "l20-s2-dialog": {
+  "file": "images/ko/l20-s2-dialog.webp",
+  "caption": "솔리드 (3D) 와 CalculiX — 창"
+ },
+ "l21-s1": {
+  "file": "images/ko/l21-s1.webp",
+  "caption": "Python 콘솔과 매크로 · Python 으로 모델 만들기"
+ },
+ "l21-s2": {
+  "file": "images/ko/l21-s2.webp",
+  "caption": "Python 콘솔과 매크로 · 애드온 관리자"
+ },
+ "l21-s2-dialog": {
+  "file": "images/ko/l21-s2-dialog.webp",
+  "caption": "애드온 관리자 — 창"
  }
 }

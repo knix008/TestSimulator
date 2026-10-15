@@ -6,10 +6,18 @@
 //          Parameter-space curves (of 141/142 surface boundaries) are left out;
 //          3D curves are projected on XY.
 //   Write: lines, arcs, circles, polylines, ellipses (104 + 124), splines
-//          (126), points and notes — everything else through its primitives.
+//          (126), points and notes — everything else through its primitives;
+//          3D solids (with the OpenCASCADE kernel) as manifold solid B-reps
+//          (186 → 514 shell → 510 faces → 508 loops → 504 edges, 502 vertices) on
+//          planes (190), cylinders (192), spheres (196) and B-spline surfaces (128).
+//   Read:  3D solids too — 186 B-reps and 144 trimmed surfaces (108/190–198 planes and
+//          quadrics, 120 revolutions, 122 tabulated cylinders, 128 B-splines), tessellated.
 import { AUTO, createDrawing, isVisible, styleOf } from './drawing.js';
 import { primitives } from './entities.js';
-import { clampedKnots, sampleCurve } from './nurbs.js';
+import { clampedKnots, curvePoint, sampleCurve } from './nurbs.js';
+import { occReady, occTopology } from './occ.js';
+import { faceTriangles, makeSurface } from './igesbrep.js';
+import { repairMesh } from './meshcheck.js';
 
 /** Units flag (global parameter 14) → mm. */
 const UNIT_MM = { 1: 25.4, 2: 1, 4: 304.8, 5: 1609344, 6: 1000, 7: 1e6, 8: 0.0254, 9: 0.001, 10: 10, 11: 0.0000254 };
@@ -138,7 +146,12 @@ export function importIges(text, { title = 'IGES', language = 'ko' } = {}) {
   };
   for (const entry of directory.values()) {
     const p = P(entry.de);
-    if (entry.type === 142) excludeTree(Number(p[2]));
+    if (entry.type === 142) { excludeTree(Number(p[2])); excludeTree(Number(p[3])); }
+    if (entry.type === 504) for (let i = 0; i < (Number(p[0]) || 0); i++) excludeTree(Number(p[1 + i * 5]));
+    if (entry.type === 120) { excludeTree(Number(p[0])); excludeTree(Number(p[1])); }
+    // The points and directions that place planes, cylinders, cones, spheres and tori.
+    if ([190, 192, 194, 196, 198].includes(entry.type)) for (const ref of p) if (Number.isInteger(Number(ref)) && [116, 123].includes(directory.get(Number(ref))?.type)) excluded.add(Number(ref));
+    if (entry.type === 122) excludeTree(Number(p[0]));
     if (entry.type === 141) {
       const n = Number(p[3]) || 0;
       let k = 4;
@@ -365,12 +378,165 @@ export function importIges(text, { title = 'IGES', language = 'ko' } = {}) {
       default: skip(String(entry.type));
     }
   };
-  const NON_GEOMETRY = new Set([0, 124, 142, 141, 144, 143, 308, 314, 402, 404, 406, 410, 108, 118, 120, 122, 128, 140, 190, 192, 194, 196, 198, 186, 502, 504, 508, 510, 514, 202, 206, 210, 216, 218, 220, 222, 228, 230, 302, 304, 306, 310, 312, 316, 320, 322, 412, 414, 416, 418, 420, 422, 430]);
+  const NON_GEOMETRY = new Set([0, 123, 124, 142, 141, 144, 143, 308, 314, 402, 404, 406, 410, 108, 118, 120, 122, 128, 140, 190, 192, 194, 196, 198, 186, 502, 504, 508, 510, 514, 202, 206, 210, 216, 218, 220, 222, 228, 230, 302, 304, 306, 310, 312, 316, 320, 322, 412, 414, 416, 418, 420, 422, 430]);
   for (const entry of directory.values()) {
     if (excluded.has(entry.de) || entry.status.slice(0, 2) === '01' || entry.status.slice(4, 6) === '05') continue;
-    if (NON_GEOMETRY.has(entry.type)) { if (![0, 124, 142, 141, 308, 314, 402, 406, 202, 206, 210, 216, 218, 220, 222, 228, 230].includes(entry.type)) skip(String(entry.type)); continue; }
+    // (B-rep and surface entities are read below as solids.)
+    if (NON_GEOMETRY.has(entry.type)) { if (![0, 124, 142, 141, 308, 314, 402, 406, 202, 206, 210, 216, 218, 220, 222, 228, 230, 108, 120, 122, 123, 128, 144, 186, 190, 192, 194, 196, 198, 502, 504, 508, 510, 514].includes(entry.type)) skip(String(entry.type)); continue; }
     try { convert(entry); } catch { skip(`${entry.type} (damaged)`); }
   }
+  // ── 3D solids: B-rep objects (186) and trimmed surfaces (144), as mesh solids.
+  const DE = (k) => directory.get(Number(k));
+  const mmPoint = (m, x, y, z) => { const q = apply(m, x, y, z); return [q.x * scale, q.y * scale, q.z * scale]; };
+  const dirOf = (m, d) => { const a = apply(m, d[0], d[1], d[2]); const o = apply(m, 0, 0, 0); return [a.x - o.x, a.y - o.y, a.z - o.z]; };
+  /** Points along a curve (mm, model space), in its own direction. */
+  const curve3d = (entry, outer = IDENTITY, depth = 0) => {
+    if (!entry || depth > 20) return [];
+    const m = compose(outer, matrixOf(entry.transform));
+    const p = P(entry.de).map((v) => (v === null || v === undefined ? 0 : v));
+    const N = (k, d = 0) => (Number.isFinite(Number(p[k])) ? Number(p[k]) : d);
+    switch (entry.type) {
+      case 110: return [mmPoint(m, N(0), N(1), N(2)), mmPoint(m, N(3), N(4), N(5))];
+      case 100: {
+        const zt = N(0); const c = [N(1), N(2)]; const a = [N(3), N(4)]; const b = [N(5), N(6)];
+        const r = Math.hypot(a[0] - c[0], a[1] - c[1]);
+        const a0 = Math.atan2(a[1] - c[1], a[0] - c[0]);
+        let a1 = Math.atan2(b[1] - c[1], b[0] - c[0]);
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9 * Math.max(1, r)) a1 = a0 + Math.PI * 2; else if (a1 <= a0) a1 += Math.PI * 2;
+        const n = Math.max(4, Math.ceil(((a1 - a0) / (Math.PI * 2)) * 96));
+        return Array.from({ length: n + 1 }, (_, i) => { const t = a0 + ((a1 - a0) * i) / n; return mmPoint(m, c[0] + r * Math.cos(t), c[1] + r * Math.sin(t), zt); });
+      }
+      case 102: {
+        const out = [];
+        for (const member of p.slice(1, 1 + N(0))) { const pts = curve3d(DE(member), m, depth + 1); if (out.length && pts.length && Math.hypot(...pts[0].map((v, i) => v - out[out.length - 1][i])) < 1e-9) pts.shift(); out.push(...pts); }
+        return out;
+      }
+      case 104: {
+        const [A, , C, , , F, zt, x1, y1, x2, y2] = Array.from({ length: 11 }, (_, k) => N(k));
+        const a = Math.sqrt(Math.abs(F / A)); const b = Math.sqrt(Math.abs(F / C));
+        const t0 = Math.atan2(y1 / b, x1 / a); let t1 = Math.atan2(y2 / b, x2 / a);
+        if (Math.hypot(x1 - x2, y1 - y2) < 1e-9 * Math.max(1, a)) t1 = t0 + Math.PI * 2; else if (t1 <= t0) t1 += Math.PI * 2;
+        const n = 96;
+        return Array.from({ length: n + 1 }, (_, i) => { const t = t0 + ((t1 - t0) * i) / n; return mmPoint(m, a * Math.cos(t), b * Math.sin(t), zt); });
+      }
+      case 106: {
+        const ip = N(0, 1); const n = N(1); const out = [];
+        if (ip === 1) { for (let i = 0; i < n; i++) out.push(mmPoint(m, N(3 + i * 2), N(4 + i * 2), N(2))); } else { const step = ip === 3 ? 6 : 3; for (let i = 0; i < n; i++) out.push(mmPoint(m, N(2 + i * step), N(3 + i * step), N(4 + i * step))); }
+        return out;
+      }
+      case 126: {
+        const K = N(0); const M = N(1);
+        const knots = Array.from({ length: K + M + 2 }, (_, i) => N(6 + i));
+        const wStart = 6 + K + M + 2;
+        const weights = Array.from({ length: K + 1 }, (_, i) => N(wStart + i, 1));
+        const cStart = wStart + K + 1;
+        const ctrl = Array.from({ length: K + 1 }, (_, i) => mmPoint(m, N(cStart + i * 3), N(cStart + i * 3 + 1), N(cStart + i * 3 + 2)));
+        const v0 = N(cStart + (K + 1) * 3, knots[M]); const v1 = N(cStart + (K + 1) * 3 + 1, knots[K + 1]);
+        const H = ctrl.map((q, i) => [q[0] * weights[i], q[1] * weights[i], q[2] * weights[i], weights[i]]);
+        const n = M === 1 ? K : Math.max(24, K * 8);
+        return Array.from({ length: n + 1 }, (_, i) => { const u = v0 + ((v1 - v0) * i) / n; const h = curvePoint({ degree: M, points: H, knots }, Math.min(Math.max(u, knots[M]), knots[K + 1])); return [h[0] / h[3], h[1] / h[3], h[2] / h[3]]; });
+      }
+      default: skip(`${entry.type} (curve of a surface)`); return [];
+    }
+  };
+  const vec3 = (m, k) => { const e = DE(k); if (!e) return null; const q = P(e.de).map(Number); return e.type === 116 ? mmPoint(compose(m, matrixOf(e.transform)), q[0], q[1], q[2]) : dirOf(compose(m, matrixOf(e.transform)), q); };
+  /** The surface of a face as a spec for makeSurface (model space, mm). */
+  const surfaceOf = (entry) => {
+    if (!entry) return null;
+    const m = matrixOf(entry.transform);
+    const p = P(entry.de);
+    const N = (k, d = 0) => (Number.isFinite(Number(p[k])) ? Number(p[k]) : d);
+    switch (entry.type) {
+      case 108: { const n = [N(0), N(1), N(2)]; const l2 = n[0] ** 2 + n[1] ** 2 + n[2] ** 2 || 1; const o = n.map((v) => (v * N(3)) / l2); return { kind: 'plane', origin: mmPoint(m, ...o), normal: dirOf(m, n) }; }
+      case 190: return { kind: 'plane', origin: vec3(m, p[0]), normal: vec3(m, p[1]), ref: entry.form === 1 ? vec3(m, p[2]) : null };
+      case 192: return { kind: 'cylinder', origin: vec3(m, p[0]), axis: vec3(m, p[1]), radius: N(2) * scale, ref: entry.form === 1 ? vec3(m, p[3]) : null };
+      case 194: return { kind: 'cone', origin: vec3(m, p[0]), axis: vec3(m, p[1]), radius: N(2) * scale, angle: (N(3) * Math.PI) / 180, ref: entry.form === 1 ? vec3(m, p[4]) : null };
+      case 196: return { kind: 'sphere', center: vec3(m, p[0]), radius: N(1) * scale, axis: entry.form === 1 ? vec3(m, p[2]) : [0, 0, 1], ref: entry.form === 1 ? vec3(m, p[3]) : null };
+      case 198: return { kind: 'torus', center: vec3(m, p[0]), axis: vec3(m, p[1]), major: N(2) * scale, minor: N(3) * scale, ref: entry.form === 1 ? vec3(m, p[4]) : null };
+      case 120: {
+        const axis = curve3d(DE(p[0])); const gen = curve3d(DE(p[1]), m);
+        if (axis.length < 2 || gen.length < 2) return null;
+        const a = axis.map((q) => apply(m, q[0] / scale, q[1] / scale, q[2] / scale)).map((q) => [q.x * scale, q.y * scale, q.z * scale]);
+        return { kind: 'revolution', axisPoint: a[0], axisDir: a[1].map((v, i) => v - a[0][i]), generatrix: gen, start: N(2), end: N(3, Math.PI * 2) };
+      }
+      case 122: { const dir = curve3d(DE(p[0]), m); return dir.length >= 2 ? { kind: 'tabulated', directrix: dir, end: mmPoint(m, N(1), N(2), N(3)) } : null; }
+      case 128: {
+        const [K1, K2, M1, M2] = [N(0), N(1), N(2), N(3)];
+        let k = 9;
+        const uKnots = Array.from({ length: K1 + M1 + 2 }, () => N(k++));
+        const vKnots = Array.from({ length: K2 + M2 + 2 }, () => N(k++));
+        const count = (K1 + 1) * (K2 + 1);
+        const weights = Array.from({ length: count }, () => N(k++, 1));
+        const poles = Array.from({ length: count }, () => { const q = mmPoint(m, N(k), N(k + 1), N(k + 2)); k += 3; return q; });
+        return { kind: 'bspline', nu: K1 + 1, nv: K2 + 1, uDegree: M1, vDegree: M2, uKnots, vKnots, weights, poles, uRange: [N(k, uKnots[M1]), N(k + 1, uKnots[K1 + 1])], vRange: [N(k + 2, vKnots[M2]), N(k + 3, vKnots[K2 + 1])] };
+      }
+      default: skip(`${entry.type} (surface)`); return null;
+    }
+  };
+  const closeLoop = (pts) => { const out = pts.filter((q, i) => i === 0 || Math.hypot(...q.map((v, d) => v - pts[i - 1][d])) > 1e-9); if (out.length > 2 && Math.hypot(...out[0].map((v, d) => v - out[out.length - 1][d])) < 1e-6) out.pop(); return out; };
+  const tessellate = (surfaceEntry, loops) => {
+    const spec = surfaceOf(surfaceEntry);
+    const surface = spec ? makeSurface(spec) : null;
+    if (!surface) return [];
+    try { return faceTriangles(surface, loops.map(closeLoop)); } catch { skip(`${surfaceEntry.type} (face)`); return []; }
+  };
+  const solids = [];
+  const finish = (tris, name, entry) => {
+    if (!tris.length) return;
+    let mesh = repairMesh(tris).triangles;
+    let v = 0;
+    for (const [a, b, c] of mesh) v += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+    if (v < 0) mesh = mesh.map(([a, b, c]) => [a, c, b]);
+    solids.push({ type: 'solid', kind: 'mesh', name, params: {}, shape: { tris: mesh.flat(2) }, layer: layerOf(entry.level), ...(colorOf(entry) ? { color: colorOf(entry) } : {}) });
+  };
+  // Manifold solid B-reps.
+  for (const entry of directory.values()) {
+    if (entry.type !== 186) continue;
+    const shell = DE(P(entry.de)[0]);
+    if (shell?.type !== 514) continue;
+    const sp = P(shell.de);
+    const tris = [];
+    for (let i = 0; i < (Number(sp[0]) || 0); i++) {
+      const face = DE(sp[1 + i * 2]);
+      if (face?.type !== 510) continue;
+      const fp = P(face.de);
+      const loops = [];
+      for (let l = 0; l < (Number(fp[1]) || 0); l++) {
+        const loop = DE(fp[3 + l]);
+        if (loop?.type !== 508) continue;
+        const lp = P(loop.de);
+        const pts = [];
+        let k = 1;
+        for (let e = 0; e < (Number(lp[0]) || 0); e++) {
+          const [type, list, index, forward, pcurves] = [Number(lp[k]), DE(lp[k + 1]), Number(lp[k + 2]), Number(lp[k + 3]), Number(lp[k + 4]) || 0];
+          k += 5 + pcurves * 2;
+          if (type !== 0 || list?.type !== 504) continue;
+          const el = P(list.de);
+          const curve = curve3d(DE(el[1 + (index - 1) * 5]));
+          const run = forward ? curve : curve.slice().reverse();
+          if (pts.length && run.length && Math.hypot(...run[0].map((v, d) => v - pts[pts.length - 1][d])) < 1e-6) run.shift();
+          pts.push(...run);
+        }
+        loops.push(pts);
+      }
+      tris.push(...tessellate(DE(fp[0]), loops));
+    }
+    finish(tris, `IGES solid ${solids.length + 1}`, entry);
+  }
+  // Trimmed surfaces (as FreeCAD and most CAD write faces): all of them as one solid.
+  const trimmed = [];
+  for (const entry of directory.values()) {
+    if (entry.type !== 144) continue;
+    const p = P(entry.de);
+    const boundary = (k) => { const c = DE(k); return c?.type === 142 ? curve3d(DE(P(c.de)[3])) : c ? curve3d(c) : []; };
+    const outer = Number(p[3]) ? boundary(p[3]) : [];
+    const inner = Array.from({ length: Number(p[2]) || 0 }, (_, i) => boundary(p[4 + i]));
+    if (outer.length < 2) { skip('144 (untrimmed)'); continue; }
+    trimmed.push(...tessellate(DE(p[0]), [outer, ...inner]));
+  }
+  if (trimmed.length) finish(trimmed, 'IGES surfaces', { level: 1, color: 0 });
+  entities.push(...solids);
+
   drawing.entities = entities;
   return { drawing, imported: entities.length, skipped, units: scale };
 }
@@ -429,7 +595,51 @@ export function exportIges(drawing, { entities = null, author = '', organization
     const a = ((prim.angle ?? 0) * Math.PI) / 180;
     add(entity, 212, [1, text.length, prim.size * 0.6 * text.length, prim.size, 1, Math.PI / 2, a, 0, 0, prim.p.x, prim.p.y, 0, hollerith(text)]);
   };
+  // Solids: their exact B-rep (manifold solid B-rep object) when the kernel is there.
+  const dependent = '00010000';
+  const geo = (type, params, form = 0, extra = {}) => { records.push({ type, params, form, level: 1, color: 0, font: 1, status: dependent, ...extra }); return { ref: records.length }; };
+  const point = (p) => geo(116, [p[0], p[1], p[2], 0]);
+  const dir = (d) => geo(123, [d[0], d[1], d[2]]);
+  const curveRecord = (c) => {
+    if (c.type === 'line') return geo(110, [...c.a, ...c.b]);
+    if (c.type === 'circle') {
+      // In the circle's own plane (centre at the origin), placed by a 124.
+      const y = [c.axis[1] * c.xdir[2] - c.axis[2] * c.xdir[1], c.axis[2] * c.xdir[0] - c.axis[0] * c.xdir[2], c.axis[0] * c.xdir[1] - c.axis[1] * c.xdir[0]];
+      const t = geo(124, [c.xdir[0], y[0], c.axis[0], c.center[0], c.xdir[1], y[1], c.axis[1], c.center[1], c.xdir[2], y[2], c.axis[2], c.center[2]], 0, { status: '00010200' });
+      const full = Math.abs(c.t1 - c.t0 - 2 * Math.PI) < 1e-9;
+      const end = full ? c.t0 : c.t1;
+      return geo(100, [0, 0, 0, c.radius * Math.cos(c.t0), c.radius * Math.sin(c.t0), c.radius * Math.cos(end), c.radius * Math.sin(end)], 0, { transform: t.ref });
+    }
+    const spline = c.type === 'bspline' ? c : { degree: 1, poles: c.points, weights: c.points.map(() => 1), knots: [0, ...c.points.map((_, i) => i / (c.points.length - 1)), 1], t0: 0, t1: 1 };
+    const n = spline.poles.length;
+    const rational = spline.weights.some((w) => Math.abs(w - 1) > 1e-12);
+    return geo(126, [n - 1, spline.degree, 0, 0, rational ? 0 : 1, 0, ...spline.knots, ...spline.weights, ...spline.poles.flat(), spline.t0, spline.t1, 0, 0, 0]);
+  };
+  const surfaceRecord = (sf) => {
+    if (sf.type === 'plane') return geo(190, [point(sf.origin), dir(sf.normal), dir(sf.xdir)], 1);
+    if (sf.type === 'cylinder') return geo(192, [point(sf.origin), dir(sf.axis), sf.radius, dir(sf.xdir)], 1);
+    if (sf.type === 'sphere') return geo(196, [point(sf.center), sf.radius, dir(sf.axis), dir(sf.xdir)], 1);
+    const rational = sf.weights.some((w) => Math.abs(w - 1) > 1e-12);
+    return geo(128, [sf.nu - 1, sf.nv - 1, sf.uDegree, sf.vDegree, 0, 0, rational ? 0 : 1, 0, 0, ...sf.uKnots, ...sf.vKnots, ...sf.weights, ...sf.poles.flat(), sf.uKnots[sf.uDegree], sf.uKnots[sf.nu], sf.vKnots[sf.vDegree], sf.vKnots[sf.nv]]);
+  };
+  const solidRecords = (entity, topo) => {
+    const vertexList = geo(502, [topo.vertices.length, ...topo.vertices.flat()], 1);
+    const curves = topo.edges.map((e) => curveRecord(e.curve));
+    const edgeList = geo(504, [topo.edges.length, ...topo.edges.flatMap((e, i) => [curves[i], vertexList, e.v0 + 1, vertexList, e.v1 + 1])], 1);
+    const faces = topo.faces.map((face) => {
+      const surface = surfaceRecord(face.surface);
+      const loops = face.loops.map((loop) => geo(508, [loop.length, ...loop.flatMap((u) => [0, edgeList, u.edge + 1, u.forward ? 1 : 0, 0])], 1));
+      return { ref: geo(510, [surface, loops.length, 1, ...loops], 1), forward: !face.reversed };
+    });
+    const shell = geo(514, [faces.length, ...faces.flatMap((fc) => [fc.ref, fc.forward ? 1 : 0])], 1);
+    const style = styleOf(drawing, entity);
+    records.push({ type: 186, params: [shell, 1, 0], form: 0, level: levels.get(entity.layer) ?? 1, color: colorFor(style.color), font: 1, status: '00000000', label: 'SOLID' });
+  };
   for (const entity of list) {
+    if (entity.type === 'solid' && occReady()) {
+      const topo = occTopology(entity);
+      if (topo?.faces.length) { solidRecords(entity, topo); continue; }
+    }
     switch (entity.type) {
       case 'line': add(entity, 110, [entity.x1, entity.y1, 0, entity.x2, entity.y2, 0]); continue;
       case 'arc': arc(entity, { x: entity.cx, y: entity.cy }, entity.r, entity.start, entity.end); continue;
@@ -474,7 +684,7 @@ export function exportIges(drawing, { entities = null, author = '', organization
   const stamp = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}${String(d.getSeconds()).padStart(2, '0')}`;
   const start = [`MyCAD IGES 5.3: ${ascii(drawing.title ?? '')}`.slice(0, 72)];
   let maxCoord = 1;
-  for (const r of records) for (const v of r.params) if (typeof v === 'number') maxCoord = Math.max(maxCoord, Math.abs(v));
+  for (const r of records) if (r.type !== 502 && r.type !== 504) for (const v of r.params) if (typeof v === 'number') maxCoord = Math.max(maxCoord, Math.abs(v));
   const globalParams = [hollerith(','), hollerith(';'), hollerith(ascii(drawing.title || 'MyCAD')), hollerith(ascii(file)), hollerith('MyCAD'), hollerith('MyCAD 1.0'), 32, 38, 6, 308, 15, hollerith(ascii(drawing.title || 'MyCAD')), real(1), 2, hollerith('MM'), 1, real(1), hollerith(stamp(date)), real(1e-6), real(maxCoord), hollerith(ascii(author || 'MyCAD')), hollerith(ascii(organization || 'MyCAD')), 11, 0, hollerith(stamp(date))];
   const wrap = (tokens, width) => {
     const out = [];
@@ -488,7 +698,7 @@ export function exportIges(drawing, { entities = null, author = '', organization
     if (line) out.push(line);
     return out;
   };
-  const value = (v) => (typeof v === 'number' ? (Number.isInteger(v) && Math.abs(v) < 1e9 && !Object.is(v, -0) ? String(v) : real(v)) : String(v));
+  const value = (v) => (v && typeof v === 'object' && 'ref' in v ? String(deOf(v.ref)) : typeof v === 'number' ? (Number.isInteger(v) && Math.abs(v) < 1e9 && !Object.is(v, -0) ? String(v) : real(v)) : String(v));
   const globalTokens = globalParams.map((v, i) => `${value(v)}${i === globalParams.length - 1 ? ';' : ','}`);
   const G = wrap(globalTokens, 72);
   const D = [];

@@ -1,6 +1,6 @@
 # MyCAD 1.0 Tutorial
 
-> 16 lessons, 83 steps — the same order and coordinates as **Help › Interactive tutorial** in the app (the first card of the start page). In the app you can **Watch** (it shows you) or **Practice** (it moves on when you have done the step). A video of the same lessons is `MyCAD-Tutorial.mp4` in the project folder.
+> 21 lessons, 95 steps — the same order and coordinates as **Help › Interactive tutorial** in the app (the first card of the start page). In the app you can **Watch** (it shows you) or **Practice** (it moves on when you have done the step). A video of the same lessons is `MyCAD-Tutorial.mp4` in the project folder.
 
 ## Contents
 
@@ -23,6 +23,11 @@
 | 14 | [Printing and 3D printing](#lesson-14-printing-and-3d-printing) | 2 | Help › Interactive tutorial › lesson 14 |
 | 15 | [Settings and appearance](#lesson-15-settings-and-appearance) | 3 | Help › Interactive tutorial › lesson 15 |
 | 16 | [Help](#lesson-16-help) | 3 | Help › Interactive tutorial › lesson 16 |
+| 17 | [Assembly and motion](#lesson-17-assembly-and-motion) | 3 | Help › Interactive tutorial › lesson 17 |
+| 18 | [Exact solids (OpenCASCADE)](#lesson-18-exact-solids-opencascade) | 3 | Help › Interactive tutorial › lesson 18 |
+| 19 | [CAM in 3D and simulation](#lesson-19-cam-in-3d-and-simulation) | 2 | Help › Interactive tutorial › lesson 19 |
+| 20 | [FEM: plates and solids](#lesson-20-fem-plates-and-solids) | 2 | Help › Interactive tutorial › lesson 20 |
+| 21 | [The Python console and macros](#lesson-21-the-python-console-and-macros) | 2 | Help › Interactive tutorial › lesson 21 |
 | | [Appendix A. Keyboard shortcuts](#appendix-a-keyboard-shortcuts) · [B. File formats](#appendix-b-file-formats) · [C. Feature index](#appendix-c-feature-index) | | |
 
 ### How to read this document
@@ -885,7 +890,7 @@ Make third-angle projected views (with hidden lines), an isometric view and sect
 
 ### Goal
 
-Use the 3D view: views, draw styles, axes and the light (sun).
+Use the 3D view: views, wireframe, axes and the light (sun).
 
 ### Steps
 
@@ -909,6 +914,7 @@ Use the 3D view: views, draw styles, axes and the light (sun).
 
 ### Your turn
 
+- Click the style button on the 3D bar and pick X-ray or sketch.
 - Drag or click the sun and change its azimuth.
 - Click the 3D view button.
 
@@ -1122,6 +1128,183 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ---
 
+## Lesson 17. Assembly and motion
+
+### Goal
+
+
+
+### Steps
+
+1. **A moving sample** — Open the sample "Single-cylinder engine (moving)": it moves in the 3D view at once. Crank, connecting rod and piston are joined into a closed loop, which MyCAD solves at every moment to place the piston (FreeCAD Assembly).
+
+   ![Assembly and motion · A moving sample](images/en/l17-s1.webp)
+
+   *Assembly and motion · A moving sample*
+
+2. **The play bar** — The play bar under the 3D view: play and pause, back to the start, the time slider (drag to a moment), loop, back and forth or once, and the time for one run. The save button keeps the pose in the drawing.
+
+   ![Assembly and motion · The play bar](images/en/l17-s2.webp)
+
+   *Assembly and motion · The play bar*
+
+3. **Joints and drives** — Pick two solids in turn (the first is the base) and click Revolute joint in the 3D solid menu: a hinge. Give the drive a start and end in the properties and it turns that far when played. Gears, belts, racks and screws are linked by a coupling ratio.
+
+   ![Assembly and motion · Joints and drives](images/en/l17-s3.webp)
+
+   *Assembly and motion · Joints and drives*
+
+### Your turn
+
+- Open the sample "Single-cylinder engine (moving)" from the start page.
+- Click the pause button on the play bar.
+- Pick two solids in turn and add a revolute joint.
+
+### Check
+
+- [ ] A moving sample
+- [ ] The play bar
+- [ ] Joints and drives
+
+---
+
+## Lesson 18. Exact solids (OpenCASCADE)
+
+### Goal
+
+
+
+### Steps
+
+1. **Booleans on curved faces** — With OpenCASCADE, the kernel FreeCAD uses, booleans, fillets and drafts keep their curved faces and exact volumes. STEP, IGES and FCStd exports keep the cylinders and spheres too.
+
+   ![Exact solids (OpenCASCADE) · Booleans on curved faces](images/en/l18-s1.webp)
+
+   *Exact solids (OpenCASCADE) · Booleans on curved faces*
+
+2. **Fillet and draft** — Select a solid: Fillet rounds its edges, Draft leans its sides — the draft for casting and moulding.
+
+   ![Exact solids (OpenCASCADE) · Fillet and draft](images/en/l18-s2.webp)
+
+   *Exact solids (OpenCASCADE) · Fillet and draft*
+
+3. **Picking edges in 3D** — Select the fillet and click "Pick edges in 3D": the edges show blue. Only the ones you click are rounded (orange). Picked edges are kept by place and direction, so they are found again when the box changes size (topological naming).
+
+   ![Exact solids (OpenCASCADE) · Picking edges in 3D](images/en/l18-s3.webp)
+
+   *Exact solids (OpenCASCADE) · Picking edges in 3D*
+
+### Your turn
+
+- Select two solids and click Cut.
+- Select a solid and add a fillet or a draft.
+- Select the fillet, click "Pick edges in 3D" and click an edge.
+
+### Check
+
+- [ ] Booleans on curved faces
+- [ ] Fillet and draft
+- [ ] Picking edges in 3D
+
+---
+
+## Lesson 19. CAM in 3D and simulation
+
+### Goal
+
+
+
+### Steps
+
+1. **3D roughing and finishing** — Select a solid and open CAM: the 3D operations are chosen. Roughing clears level by level, leaving stock on; finishing runs a ball end mill over the surface (drop-cutter: the tool never cuts into the model).
+
+   ![CAM in 3D and simulation · 3D roughing and finishing](images/en/l19-s1.webp)
+
+   *CAM in 3D and simulation · 3D roughing and finishing*
+
+   ![3D roughing and finishing — window](images/en/l19-s1-dialog.webp)
+
+   *3D roughing and finishing — window*
+
+2. **Simulation and the machined stock** — In the CAM window's Simulation tab, play to watch the stock being cut and check gouges and the material left. "Machined stock solid" puts the cut stock in the drawing.
+
+   ![CAM in 3D and simulation · Simulation and the machined stock](images/en/l19-s2.webp)
+
+   *CAM in 3D and simulation · Simulation and the machined stock*
+
+### Check
+
+- [ ] 3D roughing and finishing
+- [ ] Simulation and the machined stock
+
+---
+
+## Lesson 20. FEM: plates and solids
+
+### Goal
+
+
+
+### Steps
+
+1. **Plate stress (plane stress)** — Select a closed outline (holes too) and open FEM plate stress. Supports and loads go on its sides; you get the von Mises colours and the deformed shape — the stress about three times higher round the hole.
+
+   ![FEM: plates and solids · Plate stress (plane stress)](images/en/l20-s1.webp)
+
+   *FEM: plates and solids · Plate stress (plane stress)*
+
+2. **Solids (3D) and CalculiX** — Select a solid and open FEM solid analysis: it is filled with brick elements, clamped, loaded (and its own weight) and solved. Save .inp for CalculiX and FreeCAD FEM, or, with CalculiX installed, solve the same model there and compare (within 1 %).
+
+   ![FEM: plates and solids · Solids (3D) and CalculiX](images/en/l20-s2.webp)
+
+   *FEM: plates and solids · Solids (3D) and CalculiX*
+
+   ![Solids (3D) and CalculiX — window](images/en/l20-s2-dialog.webp)
+
+   *Solids (3D) and CalculiX — window*
+
+### Check
+
+- [ ] Plate stress (plane stress)
+- [ ] Solids (3D) and CalculiX
+
+---
+
+## Lesson 21. The Python console and macros
+
+### Goal
+
+
+
+### Steps
+
+1. **Making a model in Python** — Choose Python in the script console (Ctrl+Shift+J) and write as in FreeCAD macros: import Part, Part.makeBox(…).cut(…), Part.show(…). The mycad module reaches the whole drawing.
+
+   ![The Python console and macros · Making a model in Python](images/en/l21-s1.webp)
+
+   *The Python console and macros · Making a model in Python*
+
+2. **The addon manager** — The addon manager installs, updates, removes and runs macros (Python, JavaScript) from the catalogue that comes with MyCAD, a web address or a file.
+
+   ![The Python console and macros · The addon manager](images/en/l21-s2.webp)
+
+   *The Python console and macros · The addon manager*
+
+   ![The addon manager — window](images/en/l21-s2-dialog.webp)
+
+   *The addon manager — window*
+
+### Your turn
+
+- Choose Python in the console and run Part.show(Part.makeBox(10, 20, 30)).
+
+### Check
+
+- [ ] Making a model in Python
+- [ ] The addon manager
+
+---
+
 ## Appendix A. Keyboard shortcuts
 
 | Key | Action |
@@ -1164,12 +1347,20 @@ Help: the feature list, About (file formats), the tutorial and this document.
 | Excellon drill | `.drl` `.xln` `.exc` `.drd` | ✓ |  |
 | PNG | `.png` |  | ✓ |
 | FreeCAD | `.FCStd` | ✓ | ✓ |
+| IFC 4 (BIM) | `.ifc` | ✓ | ✓ |
 | STEP AP214 | `.step` `.stp` | ✓ | ✓ |
 | STL | `.stl` | ✓ | ✓ |
 | Wavefront OBJ | `.obj` | ✓ | ✓ |
 | Stanford PLY | `.ply` | ✓ | ✓ |
 | Object File Format | `.off` | ✓ | ✓ |
 | Additive Manufacturing (AMF) | `.amf` | ✓ | ✓ |
+| VRML 2.0 (VRML97) | `.wrl` `.vrml` | ✓ | ✓ |
+| COLLADA | `.dae` | ✓ | ✓ |
+| OpenCASCADE BREP | `.brep` `.brp` | ✓ | ✓ |
+| OpenSCAD (CSG) | `.scad` `.csg` | ✓ | ✓ |
+| Point cloud (XYZ, ASC, PTS, PCD) | `.xyz` `.asc` `.pts` `.pcd` | ✓ | ✓ |
+| G-code (CAM) | `.nc` `.gcode` `.ngc` `.tap` |  | ✓ |
+| KUKA KRL (Robot) | `.src` |  | ✓ |
 | 3D Manufacturing (3MF) | `.3mf` | ✓ | ✓ |
 | Images | `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp` `.svg` `.avif` `.ico` | ✓ |  |
 | Text | `.txt` `.md` `.csv` | ✓ |  |
@@ -1261,3 +1452,15 @@ Help: the feature list, About (file formats), the tutorial and this document.
 | Feature list | [Lesson 16](#lesson-16-help) |
 | About and file formats | [Lesson 16](#lesson-16-help) |
 | The tutorial again | [Lesson 16](#lesson-16-help) |
+| A moving sample | [Lesson 17](#lesson-17-assembly-and-motion) |
+| The play bar | [Lesson 17](#lesson-17-assembly-and-motion) |
+| Joints and drives | [Lesson 17](#lesson-17-assembly-and-motion) |
+| Booleans on curved faces | [Lesson 18](#lesson-18-exact-solids-opencascade) |
+| Fillet and draft | [Lesson 18](#lesson-18-exact-solids-opencascade) |
+| Picking edges in 3D | [Lesson 18](#lesson-18-exact-solids-opencascade) |
+| 3D roughing and finishing | [Lesson 19](#lesson-19-cam-in-3d-and-simulation) |
+| Simulation and the machined stock | [Lesson 19](#lesson-19-cam-in-3d-and-simulation) |
+| Plate stress (plane stress) | [Lesson 20](#lesson-20-fem-plates-and-solids) |
+| Solids (3D) and CalculiX | [Lesson 20](#lesson-20-fem-plates-and-solids) |
+| Making a model in Python | [Lesson 21](#lesson-21-the-python-console-and-macros) |
+| The addon manager | [Lesson 21](#lesson-21-the-python-console-and-macros) |
