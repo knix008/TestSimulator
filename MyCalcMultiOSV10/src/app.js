@@ -101,6 +101,10 @@ let applyingGraph = false;
 let graphReady = !graphPopup;
 let rememberedGraph = null;
 let graphRevision = 0;
+// Whether the graph's settings panel is wanted in 3D; null until the graph
+// window sets it up. 2D never shows it, whatever this says. Declared up here
+// because syncGraphChrome reads it during start-up.
+let sidePanelOpen = null;
 let pendingGraphExpr = "";
 let pendingGraphDim = "";
 try {
@@ -1247,12 +1251,12 @@ function syncGraphChrome() {
   const lightToggle = document.getElementById("lightToggle");
   lightToggle.hidden = !is3d;
   lightToggle.setAttribute("aria-pressed", String(board.light.on));
-  // A 2D plot has nothing for a lamp to fall on, so the light panel goes quiet
-  // rather than offering settings that change nothing.
-  const lightGroup = document.getElementById("sideLightGroup");
-  if (lightGroup) {
-    lightGroup.classList.toggle("side-group-off", !is3d);
-    for (const field of lightGroup.querySelectorAll("input")) field.disabled = !is3d;
+  // The settings panel only holds the light, so it and its button come and go
+  // with 3D. Relaid only on a real change: the layout resizes the plot.
+  if (graphPopup && sidePanelOpen !== null) {
+    const side = document.getElementById("graphSide");
+    const button = document.getElementById("panelRight");
+    if (side.hidden === (sidePanelOpen && is3d) || button.hidden === is3d) layoutGraphPanels();
   }
   gridToggle.setAttribute("aria-pressed", String(board.showGrid));
   axisToggle.setAttribute("aria-pressed", String(board.showAxisValues));
@@ -2414,7 +2418,7 @@ function bindGraphPanel() {
       /* Synthetic pointers cannot be captured. */
     }
     const startX = ev.clientX;
-    const startWidth = document.getElementById("fnList").getBoundingClientRect().width;
+    const startWidth = document.getElementById("fnPanel").getBoundingClientRect().width;
     const move = (event) => {
       if (event.pointerId !== ev.pointerId) return;
       setPanel(startWidth + (event.clientX - startX));
@@ -2433,11 +2437,16 @@ function bindGraphPanel() {
 function layoutGraphPanels() {
   const body = document.querySelector("#screenGraph .graph-body");
   if (!body || !graphPopup) return;
-  const list = document.getElementById("fnList");
+  // The whole left column goes, header and all: hiding only the list leaves
+  // the header as a grid item that shoves the plot into the wrong column.
+  const fnPanel = document.getElementById("fnPanel");
   const split = document.getElementById("graphSplit");
   const side = document.getElementById("graphSide");
-  const left = !list.hidden;
-  const right = !side.hidden;
+  const is3d = board.dimension === "3d";
+  const left = !fnPanel.hidden;
+  const right = Boolean(sidePanelOpen) && is3d;
+  side.hidden = !right;
+  document.getElementById("panelRight").hidden = !is3d;
   const columns = [];
   if (left) columns.push("var(--panel, 210px)", "10px");
   columns.push("minmax(0, 1fr)");
@@ -2451,10 +2460,17 @@ function layoutGraphPanels() {
 }
 
 function toggleGraphPanel(which) {
-  const panel = document.getElementById(which === "left" ? "fnList" : "graphSide");
-  panel.hidden = !panel.hidden;
+  let open;
+  if (which === "left") {
+    const panel = document.getElementById("fnPanel");
+    panel.hidden = !panel.hidden;
+    open = !panel.hidden;
+  } else {
+    sidePanelOpen = !sidePanelOpen;
+    open = sidePanelOpen;
+  }
   try {
-    localStorage.setItem(`mycalc-panel-${which}`, panel.hidden ? "off" : "on");
+    localStorage.setItem(`mycalc-panel-${which}`, open ? "on" : "off");
   } catch {
     /* The choice simply starts over next time. */
   }
@@ -2493,6 +2509,9 @@ function bindSidePanel() {
     });
     syncGraphChrome();
     syncSidePanel();
+    // The status bar names the light too; the toolbar button reaches it through
+    // onChange, which setLight does not call.
+    syncGraphStatus();
     publishGraph();
   };
   for (const input of [turn, rise, far]) input.addEventListener("input", apply);
@@ -3459,7 +3478,6 @@ if (graphPopup) {
   const panelLeftBtn = document.getElementById("panelLeft");
   const panelRightBtn = document.getElementById("panelRight");
   panelLeftBtn.hidden = false;
-  panelRightBtn.hidden = false;
   const remembered = (which, fallback) => {
     try {
       const saved = localStorage.getItem(`mycalc-panel-${which}`);
@@ -3470,11 +3488,15 @@ if (graphPopup) {
     }
     return fallback;
   };
-  document.getElementById("fnList").hidden = remembered("left", false);
-  document.getElementById("graphSide").hidden = remembered("right", true);
+  document.getElementById("fnPanel").hidden = remembered("left", false);
+  // The light settings are what 3D is for, so the panel starts open there.
+  sidePanelOpen = !remembered("right", false);
   panelLeftBtn.addEventListener("click", () => toggleGraphPanel("left"));
   panelRightBtn.addEventListener("click", () => toggleGraphPanel("right"));
   layoutGraphPanels();
+  // The calculator's state message usually syncs the chrome, but a window
+  // opened on its own must not wait for one to show the right controls.
+  syncGraphChrome();
   bindGraphResize(graphResize, "se");
   bindGraphResize(document.getElementById("graphEdgeN"), "n");
   bindGraphResize(document.getElementById("graphEdgeS"), "s");

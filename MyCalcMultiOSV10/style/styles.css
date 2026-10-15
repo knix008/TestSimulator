@@ -2138,6 +2138,15 @@ html.desktop .export-sheet {
   -webkit-app-region: no-drag;
 }
 
+/* The graph's side panels are clicked all over — list rows select, label text
+   ticks its box — so none of it may pick up the window instead. */
+html.desktop .app .fn-panel,
+html.desktop .app .fn-panel *,
+html.desktop .app .graph-side,
+html.desktop .app .graph-side * {
+  -webkit-app-region: no-drag;
+}
+
 html.graph-pop,
 html.graph-pop body {
   height: 100%;
@@ -2222,12 +2231,6 @@ html.graph-pop #screenGraph .graph-side {
   color: var(--muted);
 }
 
-/* Dimmed rather than removed: the panel keeps its shape when the plot is 2D, so
-   switching to 3D does not shuffle everything under the pointer. */
-.side-group-off {
-  opacity: 0.4;
-  pointer-events: none;
-}
 
 .side-check {
   display: flex;

@@ -2081,22 +2081,30 @@ suite("Product features", () => {
       loaded.frame.style.width = "1200px";
       flush(loaded.win);
       const doc = loaded.win.document;
-      const list = doc.getElementById("fnList");
+      const list = doc.getElementById("fnPanel");
       const side = doc.getElementById("graphSide");
       const left = doc.getElementById("panelLeft");
       const right = doc.getElementById("panelRight");
-      assert(!left.hidden && !right.hidden, "The panel buttons are missing");
-      assert(!list.hidden, "The expression panel starts closed");
-      assert(side.hidden, "The settings panel starts open");
-      right.click();
+      doc.getElementById("dim2d").click();
       flush(loaded.win);
-      assert(!side.hidden, "The settings panel did not open");
+      assert(!left.hidden, "The list button is missing");
+      assert(!list.hidden, "The expression panel starts closed");
+      assert(right.hidden && side.hidden, "2D shows the settings panel or its button");
+      doc.getElementById("dim3d").click();
+      flush(loaded.win);
+      assert(!right.hidden, "3D has no settings button");
+      assert(!side.hidden, "The settings panel does not start open in 3D");
       assert(right.getAttribute("aria-pressed") === "true", "The button does not show its state");
       const columns = getComputedStyle(doc.querySelector(".graph-body")).gridTemplateColumns.split(" ");
       assert(columns.length === 4, columns.join(" "));
+      right.click();
+      flush(loaded.win);
+      assert(side.hidden && right.getAttribute("aria-pressed") === "false", "The settings panel did not close");
+      right.click();
       left.click();
       flush(loaded.win);
       assert(list.hidden, "The expression panel did not close");
+      assert(!side.hidden, "The settings panel did not open again");
       assert(doc.getElementById("graphSplit").hidden, "The splitter stayed behind");
       const turn = doc.getElementById("sideLightTurn");
       turn.value = "90";
@@ -2112,12 +2120,230 @@ suite("Product features", () => {
       lit.dispatchEvent(new Event("change", { bubbles: true }));
       assert(callWin(loaded.win, () => board.light.on) === false, "The light stayed on");
       left.click();
-      right.click();
+      doc.getElementById("dim2d").click();
       flush(loaded.win);
-      assert(!list.hidden && side.hidden, "The panels did not go back");
+      assert(!list.hidden && side.hidden && right.hidden, "The panels did not go back");
+    } finally {
+      callWin(loaded.win, () => board.setLight({ on: true, azimuth: (-54 * Math.PI) / 180, elevation: (52 * Math.PI) / 180, reach: 1.3 }));
+      loaded.frame.remove();
+      localStorage.removeItem("mycalc-panel-left");
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  // Every on/off mix of the two panels: the plot takes whatever the closed
+  // panels leave, the open ones sit beside it on one row, nothing is left over.
+  test("The graph panels lay out in every open/closed mix", async () => {
+    localStorage.removeItem("mycalc-panel-left");
+    localStorage.removeItem("mycalc-panel-right");
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      loaded.frame.style.width = "1200px";
+      flush(loaded.win);
+      const doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      const body = doc.querySelector("#screenGraph .graph-body");
+      const fnPanel = doc.getElementById("fnPanel");
+      const side = doc.getElementById("graphSide");
+      const plot = doc.querySelector("#screenGraph .canvas-wrap");
+      const leftBtn = doc.getElementById("panelLeft");
+      const rightBtn = doc.getElementById("panelRight");
+      const shown = (el) => getComputedStyle(el).display !== "none";
+      for (const [wantLeft, wantRight] of [[true, false], [false, false], [false, true], [true, true]]) {
+        if (!fnPanel.hidden !== wantLeft) leftBtn.click();
+        if (!side.hidden !== wantRight) rightBtn.click();
+        flush(loaded.win);
+        const name = `left ${wantLeft ? "on" : "off"}, right ${wantRight ? "on" : "off"}`;
+        assert(shown(fnPanel) === wantLeft, `${name}: the expression panel is ${shown(fnPanel) ? "showing" : "gone"}`);
+        assert(shown(side) === wantRight, `${name}: the settings panel is ${shown(side) ? "showing" : "gone"}`);
+        assert(leftBtn.getAttribute("aria-pressed") === String(wantLeft), `${name}: the left button state`);
+        assert(rightBtn.getAttribute("aria-pressed") === String(wantRight), `${name}: the right button state`);
+        const area = body.getBoundingClientRect();
+        const box = plot.getBoundingClientRect();
+        const items = [...body.children].filter(shown);
+        const tops = new Set(items.map((item) => Math.round(item.getBoundingClientRect().top)));
+        assert(tops.size === 1, `${name}: the panels wrapped onto ${tops.size} rows`);
+        assert(Math.round(box.height) >= Math.round(area.height) - 1, `${name}: the plot is ${Math.round(box.height)} of ${Math.round(area.height)} high`);
+        if (!wantLeft) assert(Math.abs(box.left - area.left) < 1, `${name}: the plot starts ${Math.round(box.left - area.left)}px in`);
+        if (!wantRight) assert(Math.abs(box.right - area.right) < 1, `${name}: the plot stops ${Math.round(area.right - box.right)}px short`);
+        if (wantRight) {
+          const sideBox = side.getBoundingClientRect();
+          assert(Math.abs(sideBox.right - area.right) < 1, `${name}: the settings panel is not at the right edge`);
+          assert(Math.abs(sideBox.width - 240) < 1, `${name}: the settings panel is ${Math.round(sideBox.width)}px wide`);
+          assert(box.right <= sideBox.left, `${name}: the plot runs under the settings panel`);
+        }
+        if (wantLeft) assert(fnPanel.getBoundingClientRect().right <= box.left, `${name}: the plot runs under the list`);
+        if (!wantLeft && !wantRight) assert(box.width > area.width - 1, `${name}: the plot does not fill the window`);
+      }
+      // 2D gives the settings column back to the plot even when it is wanted in 3D.
+      doc.getElementById("dim2d").click();
+      flush(loaded.win);
+      assert(!shown(side), "2D kept the settings panel");
+      assert(Math.abs(plot.getBoundingClientRect().right - body.getBoundingClientRect().right) < 1, "2D left the settings column empty");
     } finally {
       loaded.frame.remove();
       localStorage.removeItem("mycalc-panel-left");
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  test("Both panel choices are kept for the next start", async () => {
+    localStorage.setItem("mycalc-panel-left", "off");
+    localStorage.setItem("mycalc-panel-right", "off");
+    let loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      let doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      assert(doc.getElementById("fnPanel").hidden, "The expression panel came back");
+      assert(doc.querySelector(".fn-head").getClientRects().length === 0, "The list header was left behind");
+      assert(doc.getElementById("graphSplit").hidden, "The splitter came back without its panel");
+      assert(doc.getElementById("graphSide").hidden, "The settings panel came back in 3D");
+      doc.getElementById("panelLeft").click();
+      doc.getElementById("panelRight").click();
+      assert(localStorage.getItem("mycalc-panel-left") === "on", "Reopening the list was not remembered");
+      assert(localStorage.getItem("mycalc-panel-right") === "on", "Reopening the settings was not remembered");
+      loaded.frame.remove();
+      loaded = await loadApp("pop=graph&desktop=1");
+      doc = loaded.win.document;
+      doc.getElementById("dim3d").click();
+      assert(!doc.getElementById("fnPanel").hidden && !doc.getElementById("graphSide").hidden, "The reopened panels were not kept");
+    } finally {
+      loaded.frame.remove();
+      localStorage.removeItem("mycalc-panel-left");
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  // What the pointer lands on is what counts: a control can be enabled in the DOM
+  // and still sit under the plot.
+  test("The settings panel takes input in 3D with or without the list", async () => {
+    localStorage.removeItem("mycalc-panel-left");
+    localStorage.removeItem("mycalc-panel-right");
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      loaded.frame.style.width = "1200px";
+      // elementFromPoint passes over hidden content, so the frame has to show.
+      loaded.frame.style.visibility = "visible";
+      const win = loaded.win;
+      const doc = win.document;
+      doc.getElementById("dim3d").click();
+      for (const list of ["open", "closed"]) {
+        if (list === "closed") doc.getElementById("panelLeft").click();
+        flush(win);
+        for (const id of ["sideLightOn", "sideLightTurn", "sideLightRise", "sideLightFar"]) {
+          const input = doc.getElementById(id);
+          assert(!input.disabled, `list ${list}: ${id} is disabled`);
+          const box = input.getBoundingClientRect();
+          assert(box.width > 0 && box.height > 0, `list ${list}: ${id} has no size`);
+          const hit = doc.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+          assert(hit === input, `list ${list}: ${id} is covered by ${hit ? hit.id || hit.className || hit.tagName : "nothing"}`);
+          assert(getComputedStyle(input).pointerEvents !== "none", `list ${list}: ${id} ignores the pointer`);
+        }
+        const turn = doc.getElementById("sideLightTurn");
+        const value = list === "open" ? "45" : "-120";
+        turn.value = value;
+        turn.dispatchEvent(new Event("input", { bubbles: true }));
+        const azimuth = callWin(win, () => Math.round((board.light.azimuth * 180) / Math.PI));
+        assert(String(azimuth) === value, `list ${list}: the turn slider gave ${azimuth}`);
+        assert(doc.getElementById("sideLightTurnOut").textContent === `${value}°`, `list ${list}: the readout did not follow`);
+      }
+    } finally {
+      callWin(loaded.win, () => board.setLight({ on: true, azimuth: (-54 * Math.PI) / 180, elevation: (52 * Math.PI) / 180, reach: 1.3 }));
+      loaded.frame.remove();
+      localStorage.removeItem("mycalc-panel-left");
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  test("The settings panel and its button follow the dimension", async () => {
+    localStorage.removeItem("mycalc-panel-right");
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const win = loaded.win;
+      const doc = win.document;
+      const side = doc.getElementById("graphSide");
+      const button = doc.getElementById("panelRight");
+      const check = (dim, panel, name) => {
+        flush(win);
+        assert(button.hidden === (dim === "2d"), `${name}: the button is ${button.hidden ? "hidden" : "shown"}`);
+        assert(side.hidden === !panel, `${name}: the panel is ${side.hidden ? "hidden" : "shown"}`);
+        assert((getComputedStyle(button).display === "none") === (dim === "2d"), `${name}: the button displays as ${getComputedStyle(button).display}`);
+      };
+      doc.getElementById("dim2d").click();
+      check("2d", false, "2D");
+      doc.getElementById("dim3d").click();
+      check("3d", true, "3D");
+      button.click();
+      check("3d", false, "3D closed");
+      doc.getElementById("dim2d").click();
+      check("2d", false, "back to 2D");
+      doc.getElementById("dim3d").click();
+      check("3d", false, "3D again keeps it closed");
+      button.click();
+      check("3d", true, "3D reopened");
+      // A dimension change that arrives from the calculator window does the same.
+      callWin(win, () => {
+        const state = snapshotGraph();
+        state.dimension = "2d";
+        applyGraphState(state);
+      });
+      check("2d", false, "2D from the other window");
+      callWin(win, () => {
+        const state = snapshotGraph();
+        state.dimension = "3d";
+        applyGraphState(state);
+      });
+      check("3d", true, "3D from the other window");
+    } finally {
+      loaded.frame.remove();
+      localStorage.removeItem("mycalc-panel-right");
+    }
+  });
+
+  // In the desktop window everything is a drag handle unless marked otherwise,
+  // and a click on a drag handle moves the window instead of reaching the page.
+  test("Nothing in the graph side panels drags the window", async () => {
+    localStorage.removeItem("mycalc-panel-right");
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const win = loaded.win;
+      const doc = win.document;
+      doc.documentElement.classList.add("desktop");
+      doc.getElementById("dim3d").click();
+      callWin(win, () => {
+        board.addFunction("x^2+y^2");
+        renderFunctions();
+      });
+      flush(win);
+      const region = (el) => {
+        const style = getComputedStyle(el);
+        return style.getPropertyValue("-webkit-app-region") || style.getPropertyValue("app-region") || style.webkitAppRegion || "";
+      };
+      // The probe itself must see drag regions, or every check below passes blind.
+      assert(region(doc.getElementById("graphTitle")) === "drag", `The title bar reads "${region(doc.getElementById("graphTitle"))}"`);
+      assert(!doc.getElementById("graphSide").hidden, "The settings panel is not open in 3D");
+      const row = doc.querySelector("#fnList li");
+      assert(row && !row.classList.contains("empty-note"), "No expression row to check");
+      const parts = [
+        ["the list panel", doc.getElementById("fnPanel")],
+        ["the list header", doc.querySelector(".fn-head")],
+        ["the expression count", doc.getElementById("fnCount")],
+        ["a list row", row],
+        ["the row's text", row.querySelector(".fn-expr")],
+        ["the settings panel", doc.getElementById("graphSide")],
+        ["the light heading", doc.querySelector("#sideLightGroup h3")],
+        ["the light-on label", doc.querySelector(".side-check span")],
+        ["a slider label", doc.querySelector(".side-slide span")],
+        ["a slider readout", doc.getElementById("sideLightTurnOut")],
+        ["the turn slider", doc.getElementById("sideLightTurn")],
+      ];
+      for (const [name, el] of parts) assert(region(el) !== "drag", `${name} drags the window`);
+    } finally {
+      callWin(loaded.win, () => {
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+        board.setDimension("2d");
+      });
+      loaded.frame.remove();
       localStorage.removeItem("mycalc-panel-right");
     }
   });
@@ -4342,5 +4568,424 @@ suite("Notepad", () => {
       assert(ko.title === "메모장" && en.title === "Notepad", `${ko.title} / ${en.title}`);
       for (const key of ["badge", "name", "filter"]) assert(ko[key] !== en[key], `the ${key} reads ${ko[key]} in both languages`);
     });
+  });
+});
+
+// Everything the two graph panels do, one feature per test. Each test opens its
+// own graph window with both panels in their first-run state and puts back what
+// it stored, so the order of the tests does not matter.
+suite("Graph side panels", () => {
+  const PANEL_KEYS = ["mycalc-panel-left", "mycalc-panel-right", "mycalc-graph-panel"];
+  // The light every graph window starts with.
+  const resetLight = (win) =>
+    callWin(win, () => {
+      board.setLight({ on: true, azimuth: (-54 * Math.PI) / 180, elevation: (52 * Math.PI) / 180, reach: 1.3 });
+      syncSidePanel();
+    });
+
+  // The settings panel only exists in 3D, so asking for it opens the window in 3D;
+  // otherwise the window is left in 2D, where the panel is never shown.
+  async function openGraph({ left = true, right = false } = {}) {
+    for (const key of PANEL_KEYS) localStorage.removeItem(key);
+    const loaded = await loadApp("pop=graph&desktop=1");
+    loaded.frame.style.width = "1200px";
+    const doc = loaded.win.document;
+    if (doc.getElementById("fnPanel").hidden === left) doc.getElementById("panelLeft").click();
+    // The calculator answers a new window with its whole graph; let that land
+    // first so it cannot swap the dimension or the curves mid-test. The window
+    // marks itself ready when that answer comes, or gives up waiting after 500 ms.
+    for (let i = 0; i < 40 && !callWin(loaded.win, () => graphReady); i++) await wait(25);
+    await wait(50);
+    // 2D and 3D keep separate lists, so both are emptied.
+    callWin(loaded.win, () => {
+      for (const dim of ["3d", "2d"]) {
+        board.setDimension(dim);
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+      }
+      board.selectedId = null;
+    });
+    // A test that failed half-way may have shared a changed light.
+    resetLight(loaded.win);
+    if (right) {
+      doc.getElementById("dim3d").click();
+      if (doc.getElementById("graphSide").hidden) doc.getElementById("panelRight").click();
+    }
+    flush(loaded.win);
+    return { ...loaded, doc };
+  }
+
+  function closeGraph(loaded) {
+    loaded.frame.remove();
+    for (const key of PANEL_KEYS) localStorage.removeItem(key);
+  }
+
+  const rows = (doc) => [...doc.querySelectorAll("#fnList li:not(.empty-note)")];
+  const exprs = (doc) => rows(doc).map((row) => row.querySelector(".fn-expr").textContent);
+  const degrees = (rad) => Math.round((rad * 180) / Math.PI);
+  const slide = (input, value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const lightOf = (win) =>
+    callWin(win, () => ({
+      on: board.light.on,
+      turn: Math.round((board.light.azimuth * 180) / Math.PI),
+      rise: Math.round((board.light.elevation * 180) / Math.PI),
+      far: Math.round(board.lightReach() * 100),
+    }));
+  const statusValue = (doc, label) => {
+    const cell = [...doc.querySelectorAll("#graphStatus .status-cell")].find((item) => item.querySelector(".status-label").textContent === label);
+    return cell ? cell.querySelector(".status-value").textContent : null;
+  };
+
+  test("The list counts its curves and says what to add when empty", async () => {
+    const g = await openGraph();
+    try {
+      const t = (key) => g.win.t(key);
+      for (const dim of ["2d", "3d"]) {
+        g.doc.getElementById(dim === "3d" ? "dim3d" : "dim2d").click();
+        callWin(g.win, () => renderFunctions());
+        const note = g.doc.querySelector("#fnList .empty-note");
+        assert(note, `${dim}: the empty list has no note but ${callWin(g.win, () => board.functions.map((fn) => fn.expr).join(", "))}`);
+        assert(note.textContent === t(dim === "3d" ? "empty3d" : "empty2d"), `${dim}: ${note.textContent}`);
+        assert(g.doc.getElementById("fnCount").textContent === "", `${dim}: an empty list counts "${g.doc.getElementById("fnCount").textContent}"`);
+      }
+      g.doc.getElementById("dim2d").click();
+      callWin(g.win, () => {
+        board.addFunction("x");
+        board.addFunction("x^2");
+        renderFunctions();
+      });
+      assert(!g.doc.querySelector("#fnList .empty-note"), "The empty note stayed with curves in the list");
+      assert(rows(g.doc).length === 2, `${rows(g.doc).length} rows`);
+      assert(exprs(g.doc).every((text) => text.startsWith("y = ")), exprs(g.doc).join(", "));
+      assert(g.doc.getElementById("fnCount").textContent === "2 / 2", g.doc.getElementById("fnCount").textContent);
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("A row's eye hides and shows its curve", async () => {
+    const g = await openGraph();
+    try {
+      callWin(g.win, () => {
+        board.addFunction("x");
+        board.addFunction("x+1");
+        renderFunctions();
+      });
+      const eye = () => rows(g.doc)[0].querySelector(".fn-actions .icon-btn");
+      eye().click();
+      assert(callWin(g.win, () => board.functions[0].visible) === false, "The curve is still drawn");
+      assert(g.doc.getElementById("fnCount").textContent === "1 / 2", g.doc.getElementById("fnCount").textContent);
+      assert(rows(g.doc)[0].querySelector(".fn-expr").style.opacity === "0.4", "The hidden row is not dimmed");
+      assert(eye().getAttribute("aria-label") === g.win.t("show"), eye().getAttribute("aria-label"));
+      assert(callWin(g.win, () => board.functions[1].visible) === true, "The other curve went too");
+      eye().click();
+      assert(callWin(g.win, () => board.functions[0].visible) === true, "The curve did not come back");
+      assert(g.doc.getElementById("fnCount").textContent === "2 / 2", g.doc.getElementById("fnCount").textContent);
+      assert(eye().getAttribute("aria-label") === g.win.t("hide"), eye().getAttribute("aria-label"));
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("A row's bin deletes that curve and no other", async () => {
+    const g = await openGraph();
+    try {
+      callWin(g.win, () => {
+        board.addFunction("x");
+        board.addFunction("x+1");
+        board.addFunction("x+2");
+        renderFunctions();
+      });
+      rows(g.doc)[1].click();
+      assert(callWin(g.win, () => board.selectedId) === callWin(g.win, () => board.functions[1].id), "The row was not selected first");
+      rows(g.doc)[1].querySelectorAll(".fn-actions .icon-btn")[1].click();
+      assert(exprs(g.doc).join(",") === "y = x,y = x+2", exprs(g.doc).join(","));
+      assert(callWin(g.win, () => board.functions.map((fn) => fn.expr).join(",")) === "x,x+2", "The board kept the deleted curve");
+      assert(callWin(g.win, () => board.selectedId) === null, "The selection points at a deleted curve");
+      assert(g.doc.getElementById("fnCount").textContent === "2 / 2", g.doc.getElementById("fnCount").textContent);
+      for (const row of rows(g.doc)) row.querySelectorAll(".fn-actions .icon-btn")[1].click();
+      for (const row of rows(g.doc)) row.querySelectorAll(".fn-actions .icon-btn")[1].click();
+      assert(g.doc.querySelector("#fnList .empty-note"), "Deleting the last curve left no note");
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("A click on a row selects it, but not on its colour box or buttons", async () => {
+    const g = await openGraph();
+    try {
+      callWin(g.win, () => {
+        board.addFunction("x");
+        board.addFunction("x+1");
+        renderFunctions();
+      });
+      const selected = () => callWin(g.win, () => board.selectedId);
+      const ids = callWin(g.win, () => board.functions.map((fn) => fn.id));
+      rows(g.doc)[0].querySelector(".fn-color").click();
+      assert(selected() === null, "The colour box selected the row");
+      rows(g.doc)[0].querySelector(".fn-actions .icon-btn").click();
+      assert(selected() === null, "The eye selected the row");
+      rows(g.doc)[1].querySelector(".fn-expr").click();
+      assert(selected() === ids[1], "The row text did not select the row");
+      assert(rows(g.doc)[1].classList.contains("is-selected") && !rows(g.doc)[0].classList.contains("is-selected"), "The highlight is on the wrong row");
+      rows(g.doc)[0].click();
+      assert(selected() === ids[0], "A second row did not take the selection");
+      const swatch = rows(g.doc)[1].querySelector(".fn-color");
+      swatch.value = "#123456";
+      swatch.dispatchEvent(new Event("input", { bubbles: true }));
+      assert(callWin(g.win, () => board.functions[1].color) === "#123456", "The colour box did not recolour the curve");
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("The sort key orders the list one way, then the other", async () => {
+    const g = await openGraph();
+    try {
+      const sort = g.doc.getElementById("fnSort");
+      callWin(g.win, () => {
+        board.addFunction("x+10");
+        renderFunctions();
+      });
+      assert(sort.disabled, "One curve can be sorted");
+      callWin(g.win, () => {
+        board.addFunction("x+2");
+        board.addFunction("x");
+        renderFunctions();
+      });
+      assert(!sort.disabled, "Three curves cannot be sorted");
+      assert(sort.getAttribute("aria-label") === g.win.t("fnSortUp"), sort.getAttribute("aria-label"));
+      sort.click();
+      assert(exprs(g.doc).join(",") === "y = x,y = x+2,y = x+10", exprs(g.doc).join(","));
+      assert(callWin(g.win, () => board.functions.map((fn) => fn.expr).join(",")) === "x,x+2,x+10", "The drawing order did not follow");
+      assert(sort.getAttribute("aria-label") === g.win.t("fnSortDown"), sort.getAttribute("aria-label"));
+      assert(sort.querySelector(".icon").classList.contains("flip"), "The key does not show the next direction");
+      sort.click();
+      assert(exprs(g.doc).join(",") === "y = x+10,y = x+2,y = x", exprs(g.doc).join(","));
+      assert(sort.getAttribute("aria-label") === g.win.t("fnSortUp"), sort.getAttribute("aria-label"));
+      assert(!sort.querySelector(".icon").classList.contains("flip"), "The key stayed turned over");
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("The splitter keeps the list within limits and remembers its width", async () => {
+    let g = await openGraph();
+    try {
+      const drag = (doc, dx) => {
+        const split = doc.getElementById("graphSplit");
+        const box = split.getBoundingClientRect();
+        const x = box.left + 5;
+        const fire = (type, at) => split.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 9, clientX: at, clientY: box.top + 20 }));
+        fire("pointerdown", x);
+        fire("pointermove", x + dx);
+        fire("pointerup", x + dx);
+        flush(doc.defaultView);
+        return Math.round(doc.getElementById("fnPanel").getBoundingClientRect().width);
+      };
+      const most = Math.round(g.win.innerWidth * 0.6);
+      assert(drag(g.doc, -2000) === 150, `The list shrank to ${Math.round(g.doc.getElementById("fnPanel").getBoundingClientRect().width)}px`);
+      assert(drag(g.doc, 3000) === most, `The list grew to ${Math.round(g.doc.getElementById("fnPanel").getBoundingClientRect().width)}px, not ${most}`);
+      const width = drag(g.doc, 300 - most);
+      assert(width === 300, `The list is ${width}px`);
+      assert(localStorage.getItem("mycalc-graph-panel") === "300", localStorage.getItem("mycalc-graph-panel"));
+      g.doc.getElementById("panelLeft").click();
+      flush(g.win);
+      assert(g.doc.getElementById("graphSplit").hidden, "The splitter outlived its panel");
+      g.doc.getElementById("panelLeft").click();
+      flush(g.win);
+      assert(Math.round(g.doc.getElementById("fnPanel").getBoundingClientRect().width) === 300, "Reopening lost the width");
+      g.frame.remove();
+      g = await loadApp("pop=graph&desktop=1");
+      g.frame.style.width = "1200px";
+      flush(g.win);
+      const again = Math.round(g.win.document.getElementById("fnPanel").getBoundingClientRect().width);
+      assert(again === 300, `The next window starts the list at ${again}px`);
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("Each slider moves the light and writes its own readout", async () => {
+    const g = await openGraph({ right: true });
+    try {
+      g.doc.getElementById("dim3d").click();
+      const out = (id) => g.doc.getElementById(`${id}Out`).textContent;
+      slide(g.doc.getElementById("sideLightTurn"), 120);
+      assert(lightOf(g.win).turn === 120 && out("sideLightTurn") === "120°", `turn ${lightOf(g.win).turn}, ${out("sideLightTurn")}`);
+      slide(g.doc.getElementById("sideLightTurn"), -180);
+      assert(lightOf(g.win).turn === -180 && out("sideLightTurn") === "-180°", `turn ${lightOf(g.win).turn}, ${out("sideLightTurn")}`);
+      slide(g.doc.getElementById("sideLightRise"), -30);
+      assert(lightOf(g.win).rise === -30 && out("sideLightRise") === "-30°", `rise ${lightOf(g.win).rise}, ${out("sideLightRise")}`);
+      slide(g.doc.getElementById("sideLightRise"), 88);
+      assert(lightOf(g.win).rise === 88 && out("sideLightRise") === "88°", `rise ${lightOf(g.win).rise}, ${out("sideLightRise")}`);
+      slide(g.doc.getElementById("sideLightFar"), 250);
+      assert(lightOf(g.win).far === 250 && out("sideLightFar") === "2.50", `far ${lightOf(g.win).far}, ${out("sideLightFar")}`);
+      slide(g.doc.getElementById("sideLightFar"), 30);
+      assert(lightOf(g.win).far === 30 && out("sideLightFar") === "0.30", `far ${lightOf(g.win).far}, ${out("sideLightFar")}`);
+      for (const [id, low, high] of [["sideLightTurn", "-180", "180"], ["sideLightRise", "-88", "88"], ["sideLightFar", "30", "600"]]) {
+        const input = g.doc.getElementById(id);
+        assert(input.min === low && input.max === high, `${id} runs ${input.min}..${input.max}`);
+      }
+    } finally {
+      resetLight(g.win);
+      closeGraph(g);
+    }
+  });
+
+  test("The light box turns the light off and on everywhere it shows", async () => {
+    const g = await openGraph({ right: true });
+    try {
+      g.doc.getElementById("dim3d").click();
+      const lit = g.doc.getElementById("sideLightOn");
+      const label = g.win.t("light");
+      assert(statusValue(g.doc, label) === g.win.t("statusOn"), `status reads ${statusValue(g.doc, label)}`);
+      lit.checked = false;
+      lit.dispatchEvent(new Event("change", { bubbles: true }));
+      assert(lightOf(g.win).on === false, "The light stayed on");
+      assert(g.doc.getElementById("lightToggle").getAttribute("aria-pressed") === "false", "The toolbar still shows the light on");
+      assert(statusValue(g.doc, label) === g.win.t("statusOff"), `status reads ${statusValue(g.doc, label)}`);
+      g.doc.querySelector(".side-check span").click();
+      assert(lit.checked && lightOf(g.win).on === true, "A click on the label did not turn the light back on");
+      assert(statusValue(g.doc, label) === g.win.t("statusOn"), `status reads ${statusValue(g.doc, label)}`);
+    } finally {
+      resetLight(g.win);
+      closeGraph(g);
+    }
+  });
+
+  test("The panel follows the light when it is changed somewhere else", async () => {
+    const g = await openGraph({ right: true });
+    try {
+      g.doc.getElementById("dim3d").click();
+      const lit = g.doc.getElementById("sideLightOn");
+      g.doc.getElementById("lightToggle").click();
+      assert(!lit.checked, "The toolbar turned the light off but the box stayed ticked");
+      g.doc.getElementById("lightToggle").click();
+      assert(lit.checked, "The toolbar turned the light on but the box stayed clear");
+      // Placing the lamp by its numbers, as the axis row does.
+      callWin(g.win, () => board.setLightPlace({ x: 0, y: 6, z: 4 }));
+      const light = lightOf(g.win);
+      const read = (id) => Number(g.doc.getElementById(id).value);
+      assert(read("sideLightTurn") === light.turn, `turn slider ${read("sideLightTurn")} vs ${light.turn}`);
+      assert(read("sideLightRise") === light.rise, `rise slider ${read("sideLightRise")} vs ${light.rise}`);
+      assert(Math.abs(read("sideLightFar") - light.far) <= 5, `far slider ${read("sideLightFar")} vs ${light.far}`);
+      assert(g.doc.getElementById("sideLightTurnOut").textContent === `${light.turn}°`, g.doc.getElementById("sideLightTurnOut").textContent);
+      // Changes made while the panel is shut show up when it opens again.
+      g.doc.getElementById("panelRight").click();
+      g.doc.getElementById("lightToggle").click();
+      callWin(g.win, () => board.setLight({ azimuth: (33 * Math.PI) / 180 }));
+      g.doc.getElementById("panelRight").click();
+      assert(!lit.checked, "The reopened panel shows the light on");
+      assert(read("sideLightTurn") === 33 && g.doc.getElementById("sideLightTurnOut").textContent === "33°", `turn ${read("sideLightTurn")}`);
+    } finally {
+      resetLight(g.win);
+      closeGraph(g);
+    }
+  });
+
+  test("A light set in one graph window reaches the other", async () => {
+    const a = await openGraph({ right: true });
+    const b = await loadApp("pop=graph&desktop=1");
+    try {
+      b.frame.style.width = "1200px";
+      // Windows only speak once their greeting has settled.
+      await wait(700);
+      a.doc.getElementById("dim3d").click();
+      await wait(150);
+      slide(a.doc.getElementById("sideLightTurn"), 100);
+      slide(a.doc.getElementById("sideLightRise"), 25);
+      await wait(200);
+      const there = lightOf(b.win);
+      assert(there.turn === 100 && there.rise === 25, `the other window has turn ${there.turn}, rise ${there.rise}`);
+      const side = b.win.document.getElementById("graphSide");
+      assert(!side.hidden, "The other window did not open its settings panel too");
+      assert(b.win.document.getElementById("sideLightTurn").value === "100", `its slider reads ${b.win.document.getElementById("sideLightTurn").value}`);
+    } finally {
+      callWin(a.win, () => {
+        board.setLight({ on: true, azimuth: (-54 * Math.PI) / 180, elevation: (52 * Math.PI) / 180, reach: 1.3 });
+        board.setDimension("2d");
+        publishGraph();
+      });
+      await wait(150);
+      b.frame.remove();
+      closeGraph(a);
+    }
+  });
+
+  test("The panel buttons and the settings panel speak both languages", async () => {
+    const saved = localStorage.getItem("mycalc-lang");
+    const g = await openGraph({ right: true });
+    try {
+      const left = g.doc.getElementById("panelLeft");
+      const right = g.doc.getElementById("panelRight");
+      g.win.applyLanguage("en");
+      const label = (id) => g.doc.querySelector(`#${id}`).closest("label").querySelector("span").textContent;
+      assert(label("sideLightOn") === "Light on" && label("sideLightTurn") === "Turn" && label("sideLightRise") === "Height" && label("sideLightFar") === "Distance", "The slider labels stayed Korean");
+      assert(left.dataset.tooltip === "Expression panel" && left.getAttribute("aria-label") === "Expression panel", left.dataset.tooltip);
+      assert(right.dataset.tooltip === "Settings panel" && right.getAttribute("aria-label") === "Settings panel", right.dataset.tooltip);
+      assert(g.doc.querySelector("#sideLightGroup h3").textContent === "Light", g.doc.querySelector("#sideLightGroup h3").textContent);
+      g.win.applyLanguage("ko");
+      assert(g.doc.querySelector("#sideLightGroup h3").textContent === "광원", g.doc.querySelector("#sideLightGroup h3").textContent);
+      assert(left.dataset.tooltip === "식 패널" && right.dataset.tooltip === "설정 패널", `${left.dataset.tooltip} / ${right.dataset.tooltip}`);
+    } finally {
+      g.win.applyLanguage("ko");
+      if (saved == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", saved);
+      closeGraph(g);
+    }
+  });
+
+  test("The plot is redrawn to fit when a panel opens or closes", async () => {
+    const g = await openGraph();
+    try {
+      const plot = g.doc.getElementById("plot");
+      const frame = () => new Promise((resolve) => g.win.requestAnimationFrame(() => g.win.requestAnimationFrame(resolve)));
+      await frame();
+      const before = plot.width;
+      g.doc.getElementById("panelLeft").click();
+      await frame();
+      assert(plot.width > before, `closing the list left the plot ${before} -> ${plot.width}`);
+      // 3D brings the settings panel, which takes its column from the plot.
+      const wide = plot.width;
+      g.doc.getElementById("dim3d").click();
+      await frame();
+      assert(plot.width < wide, `opening the settings left the plot ${wide} -> ${plot.width}`);
+      const narrow = plot.width;
+      g.doc.getElementById("panelRight").click();
+      await frame();
+      assert(plot.width === wide, `closing the settings left the plot ${narrow} -> ${plot.width}, not ${wide}`);
+      g.doc.getElementById("panelRight").click();
+      g.doc.getElementById("dim2d").click();
+      await frame();
+      assert(plot.width === wide, `going back to 2D left the plot ${plot.width}, not ${wide}`);
+      const box = plot.getBoundingClientRect();
+      const ratio = plot.width / box.width;
+      assert(Math.abs(ratio - g.win.devicePixelRatio) < 0.05, `the plot is drawn at ${ratio.toFixed(2)}x its box`);
+    } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("The panel buttons work from the keyboard", async () => {
+    const g = await openGraph({ right: true });
+    try {
+      for (const id of ["panelLeft", "panelRight"]) {
+        const button = g.doc.getElementById(id);
+        assert(button.tagName === "BUTTON" && button.type === "button", `${id} is not a button`);
+        assert(button.tabIndex === 0, `${id} cannot be reached with Tab`);
+        button.focus();
+        assert(g.doc.activeElement === button, `${id} takes no focus`);
+      }
+      for (const id of ["sideLightOn", "sideLightTurn", "sideLightRise", "sideLightFar"]) {
+        const input = g.doc.getElementById(id);
+        assert(input.tabIndex === 0 && !input.disabled, `${id} cannot be reached with Tab`);
+        assert(input.closest("label"), `${id} has no label`);
+      }
+    } finally {
+      closeGraph(g);
+    }
   });
 });

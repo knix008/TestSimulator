@@ -260,7 +260,7 @@
       <div class="presets" id="presets"></div>
       <div class="presets stat-presets" id="statPresets" role="group" data-i18n-aria="statPresets" aria-label="통계 그래프"></div>
       <div class="graph-body">
-        <div class="fn-panel">
+        <div class="fn-panel" id="fnPanel">
           <div class="fn-head">
             <span class="fn-count" id="fnCount"></span>
             <button type="button" id="fnSort" class="tool-icon" data-i18n-aria="fnSortUp" data-i18n-title="fnSortUp" aria-label="식 오름차순 정렬" data-tooltip="식 오름차순 정렬"><span class="icon icon-sort" aria-hidden="true"></span></button>
@@ -280,8 +280,7 @@
             <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>
             <label class="side-slide"><span data-i18n="lightTurn">방위</span><input type="range" id="sideLightTurn" min="-180" max="180" step="1" value="-54" /><output id="sideLightTurnOut">-54°</output></label>
             <label class="side-slide"><span data-i18n="lightRise">고도</span><input type="range" id="sideLightRise" min="-88" max="88" step="1" value="52" /><output id="sideLightRiseOut">52°</output></label>
-            <label class="side-slide"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>
-          </section>
+            <label class="side-slide"><span data-i18n="lightFar">거리</span><input type="range" id="sideLightFar" min="30" max="600" step="5" value="130" /><output id="sideLightFarOut">1.30</output></label>          </section>
         </aside>
       </div>
       <div class="graph-status" id="graphStatus" role="status" data-i18n-aria="graphStatus" aria-label="그래프 상태"></div>

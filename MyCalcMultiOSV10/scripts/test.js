@@ -183,7 +183,9 @@ async function pageSocket(debugPort) {
       const response = await fetch(`http://127.0.0.1:${debugPort}/json/list`);
       if (response.ok) {
         const pages = await response.json();
-        const page = pages.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
+        // Edge can open its own pages (a sync prompt) in the test profile; the
+        // first page is not always ours, and waiting on the wrong one never ends.
+        const page = pages.find((item) => item.type === "page" && item.webSocketDebuggerUrl && item.url.includes("/test/"));
         if (page) return page.webSocketDebuggerUrl;
       }
     } catch {
@@ -214,6 +216,12 @@ async function main() {
     "--disable-gpu",
     "--no-first-run",
     "--disable-extensions",
+    // Without these a background test page is throttled, and a sync prompt
+    // can push the test page into the background mid-run.
+    "--disable-sync",
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-backgrounding-occluded-windows",
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profile}`,
     "--window-size=1280,900",
