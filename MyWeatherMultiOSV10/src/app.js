@@ -2469,7 +2469,10 @@ class WeatherApp {
     this.settings.recentFiles = this.recent.toJSON();
     if (this.ownsCityList) this.settings.cities = this.cities();
     this.settings.extraCities = this.extraCities.map((entry) => createPlace(entry));
-    await this.platform.writeSettings(sanitizeSettings(this.settings));
+    const payload = sanitizeSettings(this.settings);
+    // The first window owns settings.cities. Another window sends its own list beside that.
+    if (!this.ownsCityList && this.windowKey) payload.windowCities = sanitizeCities(this.cities(), this.settings.defaultLocation);
+    await this.platform.writeSettings(payload);
   }
 }
 

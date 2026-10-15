@@ -99,6 +99,15 @@ export function samePlace(one, other) {
 
 /** The shown city list always holds at least one place so the window never renders empty. */
 /** Other weather windows, each keeping the cities that were moved out of the first window. */
+function savedWindowBox(entry) {
+  const box = {};
+  for (const key of ["x", "y", "width", "height"]) {
+    const value = Number(entry?.[key]);
+    if (Number.isFinite(value)) box[key] = Math.round(value);
+  }
+  return box;
+}
+
 export function sanitizeExtraWindows(raw, fallback = DEFAULT_LOCATION) {
   if (!Array.isArray(raw)) return [];
   const windows = [];
@@ -110,7 +119,7 @@ export function sanitizeExtraWindows(raw, fallback = DEFAULT_LOCATION) {
       .map((item) => normalizePlace(item, fallback));
     const key = String(entry?.key || "");
     if (!key || !cities.length) continue;
-    windows.push({ key, cities });
+    windows.push({ key, cities, ...savedWindowBox(entry) });
     if (windows.length >= MAX_CITIES) break;
   }
   return windows;

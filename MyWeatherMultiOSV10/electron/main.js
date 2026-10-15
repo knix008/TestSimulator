@@ -168,6 +168,20 @@ function savedWindowPlacement() {
   return { ...placed, maximized: Boolean(recorded.maximized) && onScreen };
 }
 
+/** A saved extra window keeps the spot it last occupied when that spot is still on a display. */
+function extraWindowPlacement(boot) {
+  const x = Number(boot?.x);
+  const y = Number(boot?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return cascadedPlacement();
+  const base = savedWindowPlacement();
+  const width = Number(boot?.width) >= WINDOW_MIN.width ? Number(boot.width) : base.width;
+  const height = Number(boot?.height) >= WINDOW_MIN.height ? Number(boot.height) : base.height;
+  const saved = { x: Math.round(x), y: Math.round(y), width, height };
+  const areas = screen.getAllDisplays().map((display) => display.workArea);
+  if (!windowIsVisible(saved, areas)) return cascadedPlacement();
+  return { ...saved, maximized: false };
+}
+
 /** Extra windows step down and right from the saved spot instead of covering it. */
 function cascadedPlacement() {
   const base = savedWindowPlacement();
@@ -217,7 +231,7 @@ function holdSavedBounds(win, placement) {
 
 function createMainWindow(boot = {}) {
   const first = weatherWindows.size === 0;
-  const placement = first ? savedWindowPlacement() : cascadedPlacement();
+  const placement = first ? savedWindowPlacement() : extraWindowPlacement(boot);
   if (first) liveBounds = {
     x: placement.x,
     y: placement.y,
@@ -259,14 +273,19 @@ function createMainWindow(boot = {}) {
     cities: Array.isArray(boot.cities) ? boot.cities : null,
     windowKey: boot.windowKey ? String(boot.windowKey) : "",
   });
-  win.loadFile(path.join(__dirname, "../src/index.html"));
   if (first) holdSavedBounds(win, placement);
   const keepOffTaskbar = () => hideFromTaskbar(win);
-  win.once("ready-to-show", () => {
+  // Listen before loadFile. A second transparent window can finish from cache
+  // before a listener registered afterwards ever runs, and then it stays hidden.
+  let revealed = false;
+  const reveal = () => {
+    if (revealed || win.isDestroyed()) return;
+    revealed = true;
     if (first) holdSavedBounds(win, placement);
     if (first && placement.maximized) win.maximize();
     keepOffTaskbar();
     win.show();
+    if (first) win.focus();
     win.setIgnoreMouseEvents(false);
     keepOffTaskbar();
     refreshTrayIcon();
@@ -276,7 +295,11 @@ function createMainWindow(boot = {}) {
       recordPlacement = true;
       if (savedPlacementToken === 0) rememberCurrent();
     }, 200);
-  });
+  };
+  win.once("ready-to-show", reveal);
+  win.webContents.once("did-finish-load", reveal);
+  win.loadFile(path.join(__dirname, "../src/index.html"));
+  setTimeout(reveal, 400);
   for (const name of ["show", "restore", "minimize"]) win.on(name, keepOffTaskbar);
   win.on("focus", () => setTimeout(keepOffTaskbar, 250));
   const restoreAfterTray = () => {
@@ -418,11 +441,28 @@ function writeSettingsFile(settings) {
   fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2));
 }
 
+function rememberOpenExtraWindows(settings) {
+  const extra = Array.isArray(settings.extraWindows) ? settings.extraWindows : [];
+  for (const win of weatherWindows) {
+    if (!win || win.isDestroyed() || isPrimary(win)) continue;
+    const boot = windowBoot.get(win.webContents.id);
+    if (!boot?.windowKey) continue;
+    const slot = extra.find((entry) => entry.key === boot.windowKey);
+    if (!slot) continue;
+    const bounds = win.getBounds();
+    slot.x = Math.round(bounds.x);
+    slot.y = Math.round(bounds.y);
+    slot.width = Math.round(bounds.width);
+    slot.height = Math.round(bounds.height);
+  }
+}
+
 function saveWindowPlacement() {
   const placement = currentPlacement();
   if (!placement) return;
   const settings = stampWindowPlacement(sanitizeSettings(readJson(settingsFile())), placement);
   if (!settings.windowSize) return;
+  rememberOpenExtraWindows(settings);
   writeSettingsFile(settings);
 }
 
@@ -454,6 +494,13 @@ function revealMainWindow() {
 
 function revealMainWindowFromTray() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  for (const win of weatherWindows) {
+    if (!win || win.isDestroyed() || win === mainWindow) continue;
+    if (win.isMinimized()) win.restore();
+    hideFromTaskbar(win);
+    win.show();
+    hideFromTaskbar(win);
+  }
   if (mainWindow.isMinimized()) mainWindow.restore();
   trayRevealUntil = Date.now() + 700;
   mainWindow.setAlwaysOnTop(true);
@@ -679,14 +726,26 @@ app.whenReady().then(() => {
   }
   applyOpenAtLogin(sanitizeSettings(readJson(settingsFile())).openAtLogin);
   createTray();
-  createMainWindow();
-  for (const entry of sanitizeSettings(readJson(settingsFile()) || {}).extraWindows) {
-    createMainWindow({ cities: entry.cities, windowKey: entry.key });
-  }
+  openConfiguredWindows();
   app.on("activate", () => {
-    if (weatherWindows.size === 0) createMainWindow();
+    if (weatherWindows.size === 0) openConfiguredWindows();
   });
 });
+
+/** The first window, then every weather window saved from a moved city. */
+function openConfiguredWindows() {
+  createMainWindow();
+  for (const entry of sanitizeSettings(readJson(settingsFile()) || {}).extraWindows) {
+    createMainWindow({
+      cities: entry.cities,
+      windowKey: entry.key,
+      x: entry.x,
+      y: entry.y,
+      width: entry.width,
+      height: entry.height,
+    });
+  }
+}
 
 app.on("before-quit", () => {
   if (!quitting) saveWindowPlacement();
@@ -808,11 +867,29 @@ ipcMain.handle("read-settings", () => readJson(settingsFile()));
 ipcMain.handle("write-settings", (event, data) => {
   const incoming = data && typeof data === "object" ? data : {};
   const stored = readJson(settingsFile()) || {};
-  if (!isPrimary(weatherWindowOf(event.sender)) && Array.isArray(stored.cities) && stored.cities.length) {
-    incoming.cities = stored.cities;
+  const win = weatherWindowOf(event.sender);
+  const boot = windowBoot.get(event.sender.id);
+  const windowCities = Array.isArray(incoming.windowCities) ? incoming.windowCities : null;
+  delete incoming.windowCities;
+  const extra = Array.isArray(stored.extraWindows) ? stored.extraWindows.map((entry) => ({ ...entry, cities: entry.cities })) : [];
+  if (boot && boot.primary === false && boot.windowKey) {
+    if (Array.isArray(stored.cities) && stored.cities.length) incoming.cities = stored.cities;
+    const slot = extra.find((entry) => entry.key === boot.windowKey);
+    if (slot) {
+      if (windowCities && windowCities.length) slot.cities = windowCities;
+      if (win && !win.isDestroyed()) {
+        const bounds = win.getBounds();
+        slot.x = Math.round(bounds.x);
+        slot.y = Math.round(bounds.y);
+        slot.width = Math.round(bounds.width);
+        slot.height = Math.round(bounds.height);
+      }
+    }
+    incoming.extraWindows = extra;
+  } else if (Array.isArray(stored.extraWindows)) {
+    // Moved cities are recorded by new-window, so a later save cannot drop those windows.
+    incoming.extraWindows = stored.extraWindows;
   }
-  // Moved cities are recorded by new-window, so a later save cannot drop those windows.
-  if (Array.isArray(stored.extraWindows)) incoming.extraWindows = stored.extraWindows;
   const placement = currentPlacement();
   if (placement) {
     writeSettingsFile(stampWindowPlacement(incoming, placement));

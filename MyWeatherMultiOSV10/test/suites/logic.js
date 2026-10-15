@@ -13,7 +13,7 @@ import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { MARGINS, PAPERS, PRINT_RANGES, SCALES, buildPrintModel, normalizeRanges, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, moveCityToWindow, sanitizeCities, sanitizeSettings, samePlace } from "../../src/core/settings.js";
+import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, moveCityToWindow, sanitizeCities, sanitizeExtraWindows, sanitizeSettings, samePlace } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
@@ -133,6 +133,12 @@ export function registerLogic(h) {
     assert.deepEqual(moved[0].cities.map((place) => place.cityEn), ["Busan"]);
     assert.deepEqual(moved[1].cities.map((place) => place.cityEn), ["Paris"]);
     assert.deepEqual(sanitizeSettings({ extraWindows: moved }).extraWindows[1].cities[0].cityEn, "Paris");
+    const placed = sanitizeExtraWindows([{ key: "win-a", cities: [busan], x: 12.4, y: 8, width: 400, height: 220, ignored: 1 }]);
+    assert.equal(placed[0].x, 12);
+    assert.equal(placed[0].y, 8);
+    assert.equal(placed[0].width, 400);
+    assert.equal(placed[0].height, 220);
+    assert.equal(placed[0].ignored, undefined);
   });
   h.test("a document opens one tab per stored city", () => {
     const one = createDocument(DEFAULT_LOCATION);
@@ -947,6 +953,12 @@ export function registerLogic(h) {
     assert.match(main, /ipcMain\.handle\("new-window"/);
     assert.match(main, /moveCityToWindow/);
     assert.match(main, /extraWindows/);
+    assert.match(main, /function openConfiguredWindows\(\)/);
+    assert.match(main, /openConfiguredWindows\(\)/);
+    const created = main.slice(main.indexOf("function createMainWindow"));
+    const beforeLoad = created.slice(0, created.indexOf("win.loadFile"));
+    assert.match(beforeLoad, /ready-to-show/);
+    assert.match(beforeLoad, /did-finish-load/);
     assert.match(main, /windowBoot\.set\([\s\S]{0,80}primary: first/);
     // A destroyed window cannot be asked for its webContents, so closed handlers use a saved id.
     const closedHandlers = main.split('on("closed"').slice(1).map((part) => part.slice(0, part.indexOf("});")));

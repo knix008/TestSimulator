@@ -53,9 +53,9 @@ The window stays off the taskbar and the close button only hides it; Exit in the
 
 설정의 일반 탭에 있는 도시 자동 전환 주기를 고르면 그 간격마다 다음 도시로 저절로 넘어갑니다. 3초마다, 5초마다, 10초마다, 30초마다, 1분마다, 5분마다, 10분마다 중에서 고르고, 끔을 고르면 보고 있는 도시가 그대로 유지됩니다. 도시를 직접 바꾸면 그 시점부터 다시 셉니다.
 
-새 날씨 창을 고르면 이 창에 있는 도시가 나옵니다. 그 중 하나를 고르면 그 도시만 담은 창이 새로 열리고, 원래 창에서는 그 도시가 빠집니다. 도시가 하나뿐이면 그 도시는 이 창에 남습니다. 옮겨 둔 도시는 다음에 실행해도 자기 창으로 다시 열립니다. 새로 연 창의 닫기 단추는 그 창만 닫습니다.
+새 날씨 창을 고르면 이 창에 있는 도시가 나옵니다. 그 중 하나를 고르면 그 도시만 담은 창이 새로 열리고, 원래 창에서는 그 도시가 빠집니다. 도시가 하나뿐이면 그 도시는 이 창에 남습니다. 프로그램을 다시 실행하면 저장해 둔 날씨 창이 모두 다시 열립니다. 새로 연 창의 닫기 단추는 그 창만 닫습니다.
 
-Several cities can be listed. Click the weather picture to step to the next one, pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own.
+Several cities can be listed. Click the weather picture to step to the next one, pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own. Restarting opens every saved weather window.
 
 ## 도시 고르기
 
