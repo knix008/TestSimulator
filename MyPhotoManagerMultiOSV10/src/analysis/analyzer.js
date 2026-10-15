@@ -9,7 +9,7 @@ import { kindOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { app } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
-import { statusProgress } from '../ui/dialog.js';
+import { statusProgress, toast } from '../ui/dialog.js';
 
 export const ANALYSIS_VERSION = 1;
 const SKIP_KINDS = new Set(['dicom', 'pdf', 'video']); // medical pictures, documents and videos are not sorted this way
@@ -108,7 +108,6 @@ async function loop() {
   } catch (error) {
     console.warn('analysis', error);
     queue = [];
-    const { toast } = await import('../ui/dialog.js');
     toast(t('analysis.noModels', { error: String(error?.message ?? error) }), 'error', 6000);
     return;
   }

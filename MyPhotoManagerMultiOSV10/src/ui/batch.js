@@ -19,6 +19,7 @@ import { app, reload, saveCatalogSoon, selectedFiles, targetPaths, transfer } fr
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatDateTime } from '../util/format.js';
 import { alertDialog, confirmDialog, field, openDialog, progressDialog, selectEl, toast } from './dialog.js';
+import { editClipboard } from './editor.js';
 import { colorSwatches } from './colorswatch.js';
 import { h } from './dom.js';
 
@@ -353,7 +354,6 @@ export async function batchAdjust(paths = targetPaths({ filesOnly: true })) {
 export async function batchApplyPreset(paths = targetPaths({ filesOnly: true }), preset = null) {
   const list = paths.filter((p) => isImage(baseName(p)));
   if (!list.length) return;
-  const { editClipboard } = await import('./editor.js');
   let chosen = preset;
   const output = outputControls({ suffix: '_edited' });
   if (!chosen) {

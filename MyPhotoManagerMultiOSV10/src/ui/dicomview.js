@@ -25,7 +25,7 @@ import { warmVideoEncoder } from './create.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { app, reload } from '../store.js';
-import { openDialog, selectEl, toast } from './dialog.js';
+import { openDialog, progressDialog, selectEl, toast } from './dialog.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 
@@ -824,7 +824,6 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     stopCine();
     const folderName = `${stemOf(item.name)}_frames`;
     const folder = joinPath(parentOf(item.path), folderName);
-    const { progressDialog } = await import('./dialog.js');
     const progress = progressDialog(t('dicom.exportingFrames'));
     try {
       await Promise.resolve(fs.mkdir?.(parentOf(item.path), folderName)).catch(() => {}); // already there is fine
@@ -892,7 +891,6 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   async function saveCine({ fps: rate = fps } = {}) {
     if (!image || !item || frames() < 2 || typeof MediaRecorder === 'undefined') return null;
     stopCine();
-    const { progressDialog } = await import('./dialog.js');
     const progress = progressDialog(t('dicom.savingCine'));
     try {
       const first = await image.toCanvas({ ...state, frame: 0 });

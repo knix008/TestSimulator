@@ -1,3 +1,6 @@
+// link.exe prints "Creating library …" when it builds the cdylib import library.
+#![allow(unknown_lints, linker_messages)]
+
 pub mod catalogdb;
 pub mod files;
 pub mod mtp;

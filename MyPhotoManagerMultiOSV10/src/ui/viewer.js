@@ -12,7 +12,7 @@ import { setFullscreen } from '../platform/native.js';
 import { app, deleteItems, openFolder, selectItem, setMode, viewableList } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
-import { statusProgress } from './dialog.js';
+import { promptDialog, statusProgress, toast } from './dialog.js';
 import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
 import { drawHistogram, histogramOf } from './histogram.js';
@@ -552,7 +552,6 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   }
 
   async function nameFace(index, face) {
-    const { promptDialog } = await import('./dialog.js');
     const name = await promptDialog(t('people.name'), face.person ?? face.suggested ?? '', { title: t('people.whoIsThis') });
     if (name == null) return;
     app.catalog.nameFace(current.item.path, index, name);
@@ -643,7 +642,6 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     const dir = current.item.path.slice(0, current.item.path.length - current.item.name.length - 1);
     const target = `${dir}${current.item.path.includes('\\') && !current.item.path.includes('/') ? '\\' : '/'}${name}`;
     const how = await fs.write(target, new Uint8Array(await blob.arrayBuffer()));
-    const { toast } = await import('./dialog.js');
     toast(how === 'downloaded' ? t('edit.downloaded') : t('view.frameSaved', { name }), 'success');
   }
 
