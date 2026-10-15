@@ -723,6 +723,21 @@ body.dropping .drop-hint { display: flex; }
 .radial-ring { position: absolute; transform: translate(-50%, -50%); border: 2px dashed #fff; border-radius: 50%; pointer-events: none; }
 .editor-overlay.tool-wbpick, .editor-overlay.tool-clone, .editor-overlay.tool-gradient, .editor-overlay.tool-radial, .editor-overlay.tool-brush, .editor-overlay.tool-line, .editor-overlay.tool-draw, .editor-overlay.tool-layer, .editor-overlay.tool-erase, .editor-overlay.tool-lasso, .editor-overlay.tool-wand, .editor-overlay.tool-color, .editor-overlay.tool-layermask { pointer-events: auto; cursor: crosshair; }
 .effect-card { border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; margin: 6px 0; }
+/* editor: effect presets (looks) */
+.look-search { width: 100%; margin: 6px 0; }
+.look-cat { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 6px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.look-cat:hover { background: var(--bg-3); }
+.look-cat .arrow { display: inline-flex; width: 14px; }
+.look-cat .look-count { margin-left: auto; font-weight: 400; color: var(--text-3); font-size: 11px; }
+.look-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; padding: 4px 2px 10px; }
+.look-tile { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-2); color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.look-tile:hover { border-color: var(--accent); }
+.look-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.look-thumb { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; background: var(--bg-3); }
+.look-name { font-size: 11px; line-height: 1.2; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.look-tune { border: 1px solid var(--accent); border-radius: 6px; padding: 6px 8px; margin: 6px 0 8px; }
+.look-tune-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.look-current { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .effect-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 12px; }
 .local-settings { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
 
@@ -872,9 +887,14 @@ body.dialog-window { overflow: auto; background: var(--bg-2); }
 .dicom-frame-count .n:first-child { text-align: right; }
 .dicom-frame-count .n:last-child { text-align: left; }
 .dicom-layer { position: absolute; left: 50%; top: 50%; overflow: visible; pointer-events: none; display: none; }
+/* Measurements, rulers, grid, corners and crosshair always sit above the picture, also while a cine repaints it. */
+.viewer-stage.dicom-view .viewer-holder { z-index: 0; }
+.viewer-stage.dicom-view .dicom-layer, .viewer-stage.dicom-view .dicom-corners, .viewer-stage.dicom-view .dicom-rulers, .viewer-stage.dicom-view .dicom-crosshair { z-index: 1; }
 .dicom-measure line, .dicom-measure rect, .dicom-measure ellipse, .dicom-measure polyline, .dicom-measure path { stroke: #ffd400; fill: none; }
 .dicom-measure circle { fill: #ffd400; }
 .dicom-measure text { fill: #ffd400; stroke: #000; paint-order: stroke; font-family: system-ui, sans-serif; }
+.dicom-measure.selected line, .dicom-measure.selected rect, .dicom-measure.selected ellipse, .dicom-measure.selected polyline, .dicom-measure.selected path { stroke: #3fd0ff; filter: drop-shadow(0 0 2px #3fd0ff); }
+.dicom-measure.selected circle, .dicom-measure.selected text { fill: #3fd0ff; }
 .stage.dicom-tool, .viewer-stage.dicom-tool { cursor: crosshair; }
 .dicom-corners { position: absolute; inset: 0; pointer-events: none; color: #e8e8e8; font: 12px/1.35 ui-monospace, Consolas, monospace; text-shadow: 0 0 3px #000, 0 0 2px #000; }
 .dicom-corner { position: absolute; max-width: 40%; }
@@ -930,8 +950,8 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 .side-pane.right .pane-head .pane-head-title { flex: 1; }
 
 /* theme chooser: a button with colour dots, a two-column list of themes */
-.theme-select { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--input); color: var(--text); cursor: pointer; font-size: 12px; width: auto; max-width: 190px; }
-.theme-select-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-select { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: var(--radius); background: var(--input); color: var(--text); cursor: pointer; font-size: 12px; width: 150px; flex: none; } /* fixed: a longer theme name must not move the header */
+.theme-select-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-select-arrow { color: var(--text-3); font-size: 10px; }
 .theme-dots { display: inline-flex; flex: none; }
 .theme-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(127, 127, 127, 0.55); margin-left: -3px; box-shadow: 0 0 0 1px var(--bg-2); }
@@ -947,7 +967,6 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 .theme-item.on { background: var(--select); }
 .theme-item .theme-dot { width: 14px; height: 14px; }
 .palette-icon { width: 20px; height: 20px; }
-@media (max-width: 1180px) { .header-right .theme-select { max-width: 120px; } }
 @media (max-width: 1040px) { .header-right .theme-select-name { display: none; } }
 .dialog .theme-select { width: auto; max-width: none; min-width: 200px; height: 32px; }
 
@@ -1155,6 +1174,8 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 /* viewer: video tools */
 .video-tools { align-items: center; gap: 4px; }
 .video-tools select { height: 28px; font-size: 12px; padding: 0 4px; }
+.media-tools { align-items: center; gap: 2px; }
+.media-position { min-width: 64px; padding: 0 6px; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-2, inherit); }
 
 /* editor: colour balance wheels under the histogram */
 .color-wheels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
@@ -1177,8 +1198,8 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 
 /* DICOM: faint grid on the ruler ticks. A stronger line on each major tick. */
 .dicom-grid line { stroke-width: 1px; fill: none; vector-effect: non-scaling-stroke; }
-.dicom-grid line.minor { stroke: rgba(255, 255, 255, 0.14); }
-.dicom-grid line.major { stroke: rgba(255, 255, 255, 0.32); }
+.dicom-grid line.minor { stroke: rgba(255, 255, 255, 0.06); }
+.dicom-grid line.major { stroke: rgba(255, 255, 255, 0.16); }
 .dicom-bar .tool.with-label { width: auto; padding: 0 8px; gap: 5px; display: inline-flex; align-items: center; }
 .dicom-bar .tool.with-label .tool-label { font-size: 12px; font-weight: 600; }
 
@@ -1196,3 +1217,23 @@ td.mono { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
 .cat-empty { padding: 4px 10px; font-size: 12px; color: var(--text-3); }
 .analysis-info .chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .analysis-chip { font-size: 11px; padding: 1px 7px; cursor: default; }
+
+/* tutorial: the step card (bottom right) and the outline around what the step is about */
+.tutorial-card { position: fixed; right: 18px; bottom: 44px; z-index: 1450; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-2); color: var(--text); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45); font-size: 13px; }
+.tutorial-card[hidden] { display: none; }
+.tutorial-top { display: flex; align-items: center; gap: 8px; }
+.tutorial-badge { display: inline-flex; color: var(--accent); }
+.tutorial-chapter { flex: 1; min-width: 0; height: 28px; font-size: 12px; }
+.tutorial-count { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tutorial-progress { height: 3px; margin: 8px 0 6px; border-radius: 2px; background: var(--bg-4); overflow: hidden; }
+.tutorial-progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s; }
+.tutorial-title { margin: 6px 0 4px; font-size: 15px; }
+.tutorial-text { margin: 0 0 6px; line-height: 1.5; color: var(--text-2, var(--text)); }
+.tutorial-sub { color: var(--text-3); font-size: 11px; margin-bottom: 8px; }
+.tutorial-buttons { display: flex; gap: 6px; justify-content: flex-end; }
+.tutorial-buttons .btn { display: inline-flex; align-items: center; gap: 4px; }
+.tutorial-busy { margin-top: 6px; color: var(--accent); font-size: 11px; }
+.tutorial-spot { position: fixed; z-index: 1440; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; animation: tutorial-pulse 1.6s ease-in-out infinite; }
+.tutorial-spot[hidden] { display: none; }
+@keyframes tutorial-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 70%, transparent); } }
+body.tutorial-on .toasts { bottom: 300px; } /* above the tutorial card */

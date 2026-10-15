@@ -1,7 +1,8 @@
 // View mode: one photo at a time — zoom and pan, previous / next, filmstrip,
 // information and histogram overlays, rating / label / tag, rotate, delete,
-// full screen. Formats the engine shows natively use <img> (animated GIF/WebP
-// play); TIFF, HEIC, PSD and RAW are decoded to a canvas; videos play.
+// full screen. Formats the engine shows natively use <img>; animated GIF / APNG /
+// WebP / AVIF play frame by frame in a canvas with play / pause / stop like a
+// video (animplayer.js); TIFF, HEIC, PSD and RAW are decoded to a canvas; videos play.
 import { LABEL_COLORS, baseName, parentOf } from '../catalog/catalog.js';
 import { decodeImage } from '../formats/decode.js';
 import { formatExposure } from '../formats/exif.js';
@@ -13,6 +14,7 @@ import { app, deleteItems, openFolder, selectItem, setMode, viewableList } from 
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
 import { promptDialog, statusProgress, toast } from './dialog.js';
+import { ANIMATABLE, createAnimPlayer, loadAnimation } from './animplayer.js';
 import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
 import { drawHistogram, histogramOf } from './histogram.js';
@@ -122,6 +124,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
         button('user', t('view.faces'), () => toggleSetting('faces'), { title: `${t('view.faces')} (G)`, className: settings().faces ? 'on' : '' }),
         current?.kind === 'video' ? button('camera', t('view.saveFrame'), () => saveVideoFrame(), { title: t('view.saveFrame') }) : null,
         current?.kind === 'video' ? button('scissors', t('trim.menu'), () => trimCurrent(), { title: t('trim.menu'), id: 'viewer-trim' }) : null),
+      current?.kind === 'video' || current?.anim ? mediaControls() : null,
       current?.kind === 'video' ? videoControls() : null,
       h('div.tool-spacer'),
       h('div.viewer-rating')].filter(Boolean));
@@ -222,6 +225,19 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       applyVideoSettings(video, item.path);
       return { el: video, width: video.videoWidth || 1280, height: video.videoHeight || 720, kind };
     }
+    const ext = item.name.split('.').pop().toLowerCase();
+    if (kind === 'native' && ANIMATABLE.has(ext)) {
+      // Animated: our own frames in a canvas, so it can be paused, stopped and stepped.
+      const source = await loadAnimation(await fs.read(item.path), ext).catch(() => null);
+      if (source) {
+        const canvas = document.createElement('canvas');
+        canvas.width = source.width;
+        canvas.height = source.height;
+        canvas.className = 'viewer-media';
+        await source.draw(0, canvas.getContext('2d'));
+        return { el: canvas, width: source.width, height: source.height, kind, animSource: source };
+      }
+    }
     if (kind === 'native' || kind === 'svg') {
       const url = await fs.objectUrl(item.path);
       const img = h('img.viewer-media', { crossOrigin: 'anonymous', src: url, alt: item.name, draggable: false, decoding: 'async' });
@@ -274,6 +290,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   async function show() {
     const item = list[index];
     const mine = ++token;
+    dropAnim();
     if (!item) { clear(holder); current = null; renderStatus(); return; }
     selectItem(item.path);
     app.state.viewPath = item.path;
@@ -297,10 +314,15 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     const loaded = () => { clearTimeout(slowTimer); slow?.done(); };
     try {
       const result = await elementFor(item).finally(loaded);
-      if (mine !== token) return;
+      if (mine !== token) { result.animSource?.close(); return; }
+      dropAnim();
       clear(holder);
       holder.append(result.el);
       current = { item, ...result };
+      if (result.animSource) {
+        current.anim = createAnimPlayer(result.el, result.animSource, { onChange: syncMedia });
+        current.anim.play();
+      }
       pixelSource = null;
       if (current.kind === 'dicom') await dicom.attach(current); else dicom.detach();
       if (current.kind !== 'video') { videoFlash.hidden = true; videoPaused.hidden = true; }
@@ -373,7 +395,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     // DICOM frames are drawn into the canvas while it stays on screen. A CSS
     // scale keeps the previous bitmap (the cine looks frozen), so size it like
     // a video: the element is the displayed size and is only positioned, not scaled.
-    if (current.kind === 'dicom') {
+    if (current.kind === 'dicom' || current.anim) {
       style.width = `${w}px`;
       style.height = `${hgt}px`;
       style.marginLeft = `${offset.x - w / 2}px`;
@@ -579,7 +601,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     video.playbackRate = v.speed;
     video.defaultPlaybackRate = v.speed;
     if (!keepTime && v.resume && videoPositions.get(path) > 0 && videoPositions.get(path) < (video.duration || Infinity) - 1) video.currentTime = videoPositions.get(path);
-    video.ontimeupdate = () => { videoPositions.set(path, video.currentTime); };
+    video.ontimeupdate = () => { videoPositions.set(path, video.currentTime); if (current?.el === video) syncMedia(); };
     const showState = (flash) => {
       if (current?.el !== video) return;
       videoPaused.hidden = !video.paused || video.ended;
@@ -593,9 +615,9 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       clearTimeout(videoFlash.timer);
       videoFlash.timer = setTimeout(() => { videoFlash.hidden = true; }, 900);
     };
-    video.onplay = () => showState(true);
-    video.onpause = () => showState(true);
-    video.onloadeddata = () => showState(false);
+    video.onplay = () => { showState(true); syncMedia(); };
+    video.onpause = () => { showState(true); syncMedia(); };
+    video.onloadeddata = () => { showState(false); syncMedia(); };
     // A click on the picture (not on the player's controls) plays / pauses.
     video.onclick = (event) => {
       const box = video.getBoundingClientRect();
@@ -606,6 +628,67 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     showState(false);
     video.onended = () => { videoPositions.delete(path); if (videoSettings().nextAtEnd && !videoSettings().loop && current?.el === video) step(1); };
   }
+  // ───────── play / pause / stop for everything that moves (videos, animated GIF / APNG / WebP / AVIF)
+
+  const VIDEO_STEP = 1 / 30;
+  const media = {};
+  /** Play / pause, stop (back to the start) and one frame back / forward, then where it is. */
+  function mediaControls() {
+    media.play = button('play', t('media.play'), () => togglePlay(), { title: `${t('media.play')} (Space)`, id: 'media-play' });
+    media.label = h('span.media-position', { id: 'media-position' });
+    const group = h('div.tool-group.media-tools',
+      media.play,
+      button('stop', t('media.stop'), () => stopPlay(), { title: t('media.stop'), id: 'media-stop' }),
+      button('prev', t('media.prevFrame'), () => stepFrame(-1), { title: t('media.prevFrame'), id: 'media-prev-frame' }),
+      button('next', t('media.nextFrame'), () => stepFrame(1), { title: t('media.nextFrame'), id: 'media-next-frame' }),
+      media.label);
+    media.state = null;
+    syncMedia();
+    return group;
+  }
+  function togglePlay() {
+    if (current?.anim) { current.anim.toggle(); return; }
+    const video = current?.el;
+    if (!(video instanceof HTMLVideoElement)) return;
+    if (video.paused) video.play().catch(() => {}); else video.pause();
+  }
+  function stopPlay() {
+    if (current?.anim) { current.anim.stop(); return; }
+    const video = current?.el;
+    if (!(video instanceof HTMLVideoElement)) return;
+    video.pause();
+    video.currentTime = 0;
+    syncMedia();
+  }
+  function stepFrame(direction) {
+    if (current?.anim) { current.anim.step(direction); return; }
+    const video = current?.el;
+    if (!(video instanceof HTMLVideoElement)) return;
+    video.pause();
+    video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + direction * VIDEO_STEP));
+    syncMedia();
+  }
+  /** The play button's icon (only when it changes, so a click on it is not lost) and the frame / time. */
+  function syncMedia() {
+    if (!media.play || !current) return;
+    const video = current.el instanceof HTMLVideoElement ? current.el : null;
+    const playing = current.anim ? current.anim.playing : Boolean(video && !video.paused && !video.ended);
+    if (media.state !== playing) {
+      media.state = playing;
+      media.play.innerHTML = icon(playing ? 'pause' : 'play');
+      media.play.classList.toggle('on', playing);
+      media.play.setAttribute('aria-pressed', String(playing));
+    }
+    media.label.textContent = current.anim
+      ? `${current.anim.frame + 1} / ${current.anim.count}`
+      : video ? `${formatDuration(video.currentTime) || '0:00'} / ${formatDuration(video.duration) || '0:00'}` : '';
+  }
+  /** The animation being played goes away (another picture, an empty folder). */
+  function dropAnim() {
+    current?.anim?.destroy();
+    if (current) current.anim = null;
+  }
+
   /** Speed, loop, sound and how the video fills the screen. */
   function videoControls() {
     const v = videoSettings();
@@ -698,7 +781,10 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     stage.addEventListener('pointerup', up);
   });
 
-  stage.addEventListener('contextmenu', (event) => { if (current) onContextMenu?.(event, current.item); });
+  stage.addEventListener('contextmenu', (event) => {
+    if (dicom.measureMenu(event)) return; // right-click on a DICOM measurement: delete it
+    if (current) onContextMenu?.(event, current.item);
+  });
   navPrev.addEventListener('click', () => step(-1));
   navNext.addEventListener('click', () => step(1));
   new ResizeObserver(() => applyTransform()).observe(stage);
@@ -769,6 +855,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   function showEmptyFolder() {
     token += 1;
     dicom.detach();
+    dropAnim();
     clear(holder);
     current = null;
     spinner.hidden = true;
@@ -798,7 +885,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   }
 
   function infoSection(title, body) {
-    return body ? h('section.viewer-info-section', h('div.viewer-info-head', title), body) : null;
+    return body ? h('section.viewer-info-section', h('div.viewer-info-head', title), body) : ''; // '' — append(null) would print "null"
   }
 
   function fillInfo() {
@@ -933,9 +1020,8 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
 
   function onKey(event) {
     if (dicom.onKey(event)) return true;
-    if (current?.el instanceof HTMLVideoElement && (event.key === ' ' || event.key === 'k' || event.key === 'K') && !event.ctrlKey && !event.altKey) {
-      const video = current.el;
-      if (video.paused) video.play().catch(() => {}); else video.pause();
+    if ((current?.el instanceof HTMLVideoElement || current?.anim) && (event.key === ' ' || event.key === 'k' || event.key === 'K') && !event.ctrlKey && !event.altKey) {
+      togglePlay();
       return true;
     }
     if (event.key === 'Escape') { if (fullscreen) toggleFullscreen(false); else setMode('manage'); return true; }
@@ -978,7 +1064,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   return {
     el, open, relabel, onKey, reloadCurrent, forgetDecoded, exitFullscreen: () => fullscreen && toggleFullscreen(false), get currentPath() { return current?.item?.path ?? null; },
     /** Test hooks. */
-    debug: () => ({ zoom, fit, offset: { ...offset }, page, pages: current?.pages ?? 1, kind: current?.kind ?? null, width: current?.width ?? 0, height: current?.height ?? 0, loupeOn, pixelInfo, navigator: !navigator.hidden, faces: faceLayer.querySelectorAll('.face-box').length }),
+    debug: () => ({ zoom, fit, offset: { ...offset }, page, pages: current?.pages ?? 1, kind: current?.kind ?? null, width: current?.width ?? 0, height: current?.height ?? 0, loupeOn, pixelInfo, navigator: !navigator.hidden, faces: faceLayer.querySelectorAll('.face-box').length, anim: current?.anim ? { frame: current.anim.frame, count: current.anim.count, playing: current.anim.playing } : null }),
     testing: { saveVideoFrame, trimCurrent, saveVideo, videoSettings, goPage, setZoom: (value) => setZoom(value) },
     dicom,
   };

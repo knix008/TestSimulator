@@ -118,6 +118,7 @@
 | `VIEW-FRAME` | 동영상 프레임 저장 | 기능 E2E |
 | `VIEW-VIDEOTRIM` | 동영상 자르기(시작·끝 → 새 WebM) | 기능 E2E |
 | `VIEW-VIDEOOPTS` | 동영상 재생·화면 옵션 | 기능 E2E |
+| `VIEW-ANIMPLAY` | 움직이는 그림(GIF·APNG·WebP)·동영상 재생·일시정지·정지·프레임 이동 | 기능 E2E |
 | `VIEW-FILMSTRIPNAV` | 필름 스트립 양쪽의 ◀ ▶ 이동 단추(보기 모드·관리의 필름 스트립 보기) | 기능 E2E |
 | `VIEW-SLIDESHOW` | 슬라이드 쇼 | 데스크톱 E2E |
 | `VIEW-DICOM` | DICOM 보기: 윈도/레벨·미리 설정·반전·색상표·VOI·오버레이·프레임·시네·거리·ROI 통계·태그·귀퉁이 정보·방향 표시·값(HU)·프레임 저장 | 단위 · 기능 E2E |
@@ -173,6 +174,7 @@
 | `EDIT-LAYERMASK` | 레이어 마스크(그러데이션·타원·브러시·반전) | 기능 E2E |
 | `EDIT-HISTORY` | 기록 창·실행 취소/다시 실행 | 웹 E2E · 데스크톱 E2E · 기능 E2E |
 | `EDIT-PRESETS` | 프리셋 저장·적용 | 단위 · 기능 E2E |
+| `EDIT-LOOKS` | 효과 프리셋(룩) 189종: 프리셋 버튼, 미리 보기, 강도·세밀 조정 | 기능 E2E |
 | `EDIT-COPYPASTE` | 편집 설정 복사·붙여넣기 | 단위 · 기능 E2E |
 | `EDIT-NONDESTRUCTIVE` | 비파괴 재편집(원본+설정) | 단위 · 기능 E2E |
 | `EDIT-RESTORE` | 원본으로 복원 | 데스크톱 E2E · 기능 E2E |
@@ -242,6 +244,7 @@
 | `APP-ABOUTFORMATS` | 정보 창: 지원하는 모든 파일 형식 | 기능 E2E |
 | `APP-HEADER` | 머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보, 대시보드 왼쪽의 분류 버튼 | 기능 E2E |
 | `APP-MINWIDTH` | 창의 최소 폭이 툴바 단추가 모두 보이는 폭(모드마다 따라감) | 기능 E2E |
+| `APP-TUTORIAL` | 튜토리얼: 시작 화면에서 실행, 장·단계별 진행, 자동 재생, 끝내면 설정 복원(사용자 파일 그대로) | 기능 E2E |
 | `APP-PANELS` | 좌우 패널: 제목(아이콘)·< > 로 접기·접었을 때 아이콘과 제목·툴바 보이기 버튼 | 기능 E2E |
 | `APP-WORKSPACE` | 작업 공간: 창 배치를 이름으로 저장·전환 | 기능 E2E |
 | `APP-ZOOMBAR` | 사진 보기: 축소·현재 배율·확대 | 기능 E2E |

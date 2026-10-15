@@ -5,8 +5,10 @@ import enBase from './i18n/en.js';
 import enMore from './i18n/en-more.js';
 import koBase from './i18n/ko.js';
 import koMore from './i18n/ko-more.js';
+import enTutorial from './i18n/tutorial-en.js';
+import koTutorial from './i18n/tutorial-ko.js';
 
-const DICTIONARIES = { ko: { ...koBase, ...koMore }, en: { ...enBase, ...enMore } };
+const DICTIONARIES = { ko: { ...koBase, ...koMore, ...koTutorial }, en: { ...enBase, ...enMore, ...enTutorial } };
 let language = 'ko';
 const listeners = new Set();
 

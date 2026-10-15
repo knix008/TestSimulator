@@ -1,7 +1,7 @@
 // The application shell: menu bar, mode switcher, toolbar, panes, file list,
 // status bar, the View / Edit / Dashboard modes, keyboard shortcuts, opening
 // folders (desktop dialogs, web folder access, drag and drop) and start-up.
-import { LABEL_COLORS, LABELS, parentOf } from './catalog/catalog.js';
+import { joinPath, LABEL_COLORS, LABELS, parentOf } from './catalog/catalog.js';
 import { GROUP_KEYS, SORT_KEYS } from './catalog/listing.js';
 import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
@@ -16,6 +16,7 @@ import {
 } from './store.js';
 import { thumbs } from './thumbs/thumbs.js';
 import { aboutDialog, settingsDialog, shortcutsDialog } from './ui/appdialogs.js';
+import { createTutorial } from './ui/tutorial.js';
 import { quickKeyword } from './ui/quickmeta.js';
 import { addToCollectionMenu, newCollection, smartCollectionDialog } from './ui/collections.js';
 import { editors as externalEditors, externalEditorMenu, openInEditor } from './ui/external.js';
@@ -400,6 +401,7 @@ const startPage = createStartPage(() => {
       openFolder: () => openFolderDialog(),
       openFiles: () => (isDesktop() ? openFilesDesktop() : openWebFiles()),
       import: () => importDialog(),
+      tutorial: () => tutorial.start(),
       slideshow: () => slideshowFromManage(),
       settings: () => openSettings(),
       shortcuts: () => shortcutsDialog(),
@@ -811,6 +813,7 @@ function helpMenu() {
   return [
     { label: t('shortcuts.title'), icon: 'keyboard', shortcut: 'F1', action: shortcutsDialog },
     { label: t('keys.title'), icon: 'keyboard', action: keymapDialog },
+    { label: t('tut.menu'), icon: 'play', action: () => tutorial.start() },
     { label: t('help.guide'), icon: 'help', action: () => fs.openUrl('https://github.com/knix008').catch(() => {}) },
     'separator',
     { label: t('about.title'), icon: 'info', action: aboutDialog },
@@ -1354,7 +1357,15 @@ function runMenu(menuId, ...keys) {
 
 // Test hook (E2E): the app's state and actions.
 const minWidth = watchMinWidth();
-globalThis.__myphoto = { app, t, minWidth, analysis, history: undoHistory, organizer: () => import('./ui/organize.js'), actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
+// The guided tour (start page › Tutorial, Help › Tutorial).
+const tutorial = createTutorial({
+  app, menu: runMenu, viewer, editor, fs, joinPath, closeAllDialogs, shortcuts: shortcutsDialog,
+  actions: { openFolder, setSelection, setMode, viewItem, rate, setLabel, toggleTag, editPath, switchMode, showLeftTab, showRightTab },
+  showStart: () => setMode('start'), openSettings: () => openSettings(), pickTheme: (id) => pickTheme(id), openSamples: () => openSamples(),
+  refreshManage: () => { renderToolbar(); fileList.rebuild(); },
+});
+
+globalThis.__myphoto = { app, t, tutorial, minWidth, analysis, history: undoHistory, organizer: () => import('./ui/organize.js'), actions: { openFolder, openSource, openPaths, selectItem, setSelection, setMode, viewItem, rate, setLabel, toggleTag, reload, openSamples, editPath, switchMode, showLeftTab, showRightTab }, menu: runMenu, fs, viewer, topDialog, dq: (selector) => { for (const doc of dialogDocuments().reverse()) { const el = doc.querySelector(selector); if (el) return el; } return null; }, dqa: (selector) => dialogDocuments().flatMap((doc) => [...doc.querySelectorAll(selector)]), editor, thumbs, closeAllDialogs, fileList, mapPane };
 
 start().catch((error) => {
   console.error(error);

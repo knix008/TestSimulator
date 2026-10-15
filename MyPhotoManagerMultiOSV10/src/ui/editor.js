@@ -9,6 +9,7 @@ import { joinPath, parentOf } from '../catalog/catalog.js';
 import { applyAdjustments, autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
+import { applyLook, clearLook, lookCategories, lookTouches } from '../edit/looks.js';
 import { BUILTIN_LUTS, getLut, importLut, prepareEdit } from '../edit/lut.js';
 import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
 import { context2d, scaledCanvas } from '../formats/canvas.js';
@@ -87,6 +88,11 @@ export function createEditor({ onDone }) {
   let viewOffset = { x: 0, y: 0 };
   let spaceDown = false;
   let section = 'light';
+  let sectionBeforeLooks = 'light'; // the toolbar's Presets button goes back to it
+  let look = null; // { id, amount } — the effect preset applied last (its strength and fine-tuning show under the looks)
+  let lookOpen = 'catBasic'; // the looks category shown
+  let lookQuery = '';
+  const lookThumbs = { source: null, done: new Map(), queue: [], timer: null }; // small previews of each look on this photo
   let busy = false;
   let rawMode = null; // null | 'camera' | 'auto' | 'daylight' — developing a RAW file
   let fromOriginal = false;
@@ -693,6 +699,7 @@ export function createEditor({ onDone }) {
     geometry: (e) => { e.geometry = { ...defaultEdit().geometry }; e.canvas = { ...DEFAULT_CANVAS }; },
     local: (e) => { e.local = []; },
     repair: (e) => { e.spots = []; e.tone.skin = 0; },
+    looks: (e) => { Object.assign(e, clearLook(e, look?.id)); },
     effects: (e) => { e.adjust.effect = 'none'; e.adjust.effectAmount = 100; e.fx = { ...DEFAULT_FX }; e.effects = []; e.tilt = null; },
     draw: (e) => { e.drawings = []; },
     add: (e) => { e.overlay = { ...DEFAULT_OVERLAY, texts: [] }; },
@@ -733,7 +740,7 @@ export function createEditor({ onDone }) {
   }
 
   const SECTIONS = [
-    ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
+    ['looks', 'star'], ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
     ['curves', 'contrast'], ['lut', 'cube'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['local', 'sliders'], ['repair', 'bandage'],
     ['effects', 'wand'], ['draw', 'pencil'], ['add', 'text'], ['layers', 'layers'], ['presets', 'bookmark'], ['history', 'clock'],
   ];
@@ -795,7 +802,7 @@ export function createEditor({ onDone }) {
   function buildPanel() {
     drawWheels();
     clear(panel);
-    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
+    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, looks: looksPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
     for (const [id, iconName] of SECTIONS) {
       panel.append(sectionHead(id, t(`edit.${id}`), iconName));
       if (section === id) panel.append(h('div.edit-section', bodies[id]()));
@@ -850,14 +857,18 @@ export function createEditor({ onDone }) {
   }
 
   function splitTonePanel() {
+    return h('div', ...splitToneRows());
+  }
+  /** Split-toning sliders (the split tone section, and a look's fine-tuning). */
+  function splitToneRows() {
     const get = (key, d = 0) => edit.tone.splitTone?.[key] ?? d;
     const set = (key) => (v) => { edit.tone.splitTone = { highlightHue: 45, highlightSat: 0, shadowHue: 220, shadowSat: 0, balance: 0, ...(edit.tone.splitTone ?? {}), [key]: v }; };
-    return h('div',
+    return [
       sliderRow(t('edit.stHighlightHue'), 0, 360, 1, () => get('highlightHue', 45), set('highlightHue'), (v) => `${v}°`, 'splitTone.highlightHue'),
       sliderRow(t('edit.stHighlightSat'), 0, 100, 1, () => get('highlightSat'), set('highlightSat'), undefined, 'splitTone.highlightSat'),
       sliderRow(t('edit.stShadowHue'), 0, 360, 1, () => get('shadowHue', 220), set('shadowHue'), (v) => `${v}°`, 'splitTone.shadowHue'),
       sliderRow(t('edit.stShadowSat'), 0, 100, 1, () => get('shadowSat'), set('shadowSat'), undefined, 'splitTone.shadowSat'),
-      sliderRow(t('edit.stBalance'), -100, 100, 1, () => get('balance'), set('balance'), undefined, 'splitTone.balance'));
+      sliderRow(t('edit.stBalance'), -100, 100, 1, () => get('balance'), set('balance'), undefined, 'splitTone.balance')];
   }
 
   function levelsPanel() {
@@ -1230,6 +1241,135 @@ export function createEditor({ onDone }) {
     buildPanel();
   }
 
+  // ───────── effect presets (looks): one click for a whole style, then fine-tune
+
+  /** The toolbar's Presets button: opens the looks section (again: back to the section before). */
+  function toggleLooks() {
+    if (section === 'looks') section = sectionBeforeLooks || 'light';
+    else { sectionBeforeLooks = section ?? 'light'; section = 'looks'; }
+    if (tool) cancelTool();
+    if (!editorPane().panel || editorPane().panelCollapsed) showEditorPane();
+    buildPanel();
+    updateBar();
+    if (section === 'looks') requestAnimationFrame(() => panel.querySelector('.edit-section-head[data-section=looks]')?.scrollIntoView({ block: 'start' }));
+  }
+
+  function chooseLook(id) {
+    const previous = look?.id ?? null;
+    change((e) => Object.assign(e, applyLook(e, id, 100, previous)), t(`look.${id}`));
+    look = { id, amount: 100 };
+    buildPanel();
+  }
+
+  /** Strength, the sliders of everything the look set, and the looks by category with a preview of each. */
+  function looksPanel() {
+    const tune = look ? lookTunePanel() : '';
+    const search = h('input.input.look-search', { type: 'search', placeholder: t('edit.lookSearch'), value: lookQuery, dataset: { key: 'look-search' } });
+    search.addEventListener('input', () => { lookQuery = search.value; fillLooks(); });
+    const list = h('div.look-list');
+    const fillLooks = () => {
+      clear(list);
+      const q = lookQuery.trim().toLowerCase();
+      for (const category of lookCategories()) {
+        const ids = q ? category.ids.filter((id) => `${id} ${t(`look.${id}`)}`.toLowerCase().includes(q)) : category.ids;
+        if (!ids.length) continue;
+        const open = Boolean(q) || lookOpen === category.key;
+        list.append(h(`button.look-cat${open ? '.open' : ''}`, { type: 'button', dataset: { lookCat: category.key }, onclick: () => { lookOpen = lookOpen === category.key ? null : category.key; fillLooks(); } },
+          h('span.arrow', { html: icon(open ? 'chevronDown' : 'chevronRight') }), h('span', t(`lookCat.${category.key}`)), h('span.look-count', String(ids.length))));
+        if (open) list.append(h('div.look-grid', ids.map((id) => lookTile(id))));
+      }
+      queueLookThumbs();
+    };
+    fillLooks();
+    return h('div', h('div.hint', t('edit.looksHint')), tune, search, list);
+  }
+
+  function lookTile(id) {
+    const thumb = h('canvas.look-thumb', { width: 1, height: 1 });
+    const tile = h(`button.look-tile${look?.id === id ? '.on' : ''}`, { type: 'button', title: t(`look.${id}`), dataset: { look: id }, onclick: () => chooseLook(id) }, thumb, h('span.look-name', t(`look.${id}`)));
+    paintLookThumb(id, thumb);
+    return tile;
+  }
+
+  /** Strength 0…150 % (re-applies the look) and fine-tuning sliders for every value the look set. */
+  function lookTunePanel() {
+    const { id } = look;
+    const amount = sliderRow(t('edit.lookAmount'), 0, 150, 1, () => look.amount, (v) => { look.amount = v; Object.assign(edit, applyLook(edit, id, v, id)); }, (v) => `${v}%`, 'look.amount');
+    amount.title = t('edit.lookAmountHint');
+    amount.addEventListener('change', () => buildPanel()); // the fine-tuning sliders show the new values
+    const SPECS = {
+      'adjust.brightness': () => slider('adjust', 'brightness', t('edit.brightness'), -100, 100),
+      'adjust.contrast': () => slider('adjust', 'contrast', t('edit.contrast'), -100, 100),
+      'adjust.saturation': () => slider('adjust', 'saturation', t('edit.saturation'), -100, 100),
+      'adjust.hue': () => slider('adjust', 'hue', t('edit.hue'), -180, 180, 1, (v) => `${v}°`),
+      'adjust.temperature': () => slider('adjust', 'temperature', t('edit.temperature'), -100, 100),
+      'adjust.effectAmount': () => slider('adjust', 'effectAmount', `${t(`effect.${edit.adjust.effect}`)} — ${t('edit.effectAmount')}`, 0, 100),
+      'detail.blur': () => slider('detail', 'blur', t('edit.blur'), 0, 50),
+      'detail.sharpen': () => slider('detail', 'sharpen', t('edit.sharpen'), 0, 200),
+      'fx.vignette': () => slider('fx', 'vignette', t('edit.vignette'), -100, 100),
+      'fx.grain': () => slider('fx', 'grain', t('edit.grain'), 0, 100),
+      'fx.emboss': () => h('label.check', h('input', { type: 'checkbox', checked: Boolean(edit.fx.emboss), onchange: (ev) => change((e) => { e.fx.emboss = ev.target.checked; }, t('edit.emboss')) }), t('edit.emboss')),
+      'adjust.highlights': () => slider('adjust', 'highlights', t('edit.highlights'), -100, 100),
+      'adjust.shadows': () => slider('adjust', 'shadows', t('edit.shadows'), -100, 100),
+      'adjust.whites': () => slider('adjust', 'whites', t('edit.whites'), -100, 100),
+      'adjust.blacks': () => slider('adjust', 'blacks', t('edit.blacks'), -100, 100),
+      'adjust.tint': () => slider('adjust', 'tint', t('edit.tint'), -100, 100),
+      'adjust.vibrance': () => slider('adjust', 'vibrance', t('edit.vibrance'), -100, 100),
+      'detail.clarity': () => slider('detail', 'clarity', t('edit.clarity'), 0, 100),
+      'tone.dehaze': () => slider('tone', 'dehaze', t('edit.dehaze'), -100, 100),
+      'tone.splitTone': () => h('div', ...splitToneRows()),
+      'lut': () => sliderRow(`${t(`lut.${edit.lut?.id}`)} — ${t('lut.amount')}`, 0, 100, 1, () => edit.lut?.amount ?? 0, (v) => { if (edit.lut) edit.lut.amount = v; }, undefined, 'lut.amount'),
+      'fx.edges': () => h('label.check', h('input', { type: 'checkbox', checked: Boolean(edit.fx.edges), onchange: (ev) => change((e) => { e.fx.edges = ev.target.checked; }, t('edit.edges')) }), t('edit.edges')),
+    };
+    const rows = lookTouches(id).map((key) => SPECS[key]?.()).filter(Boolean);
+    // The look's special effects and miniature blur, with their own parameters.
+    for (const effect of edit.effects) {
+      for (const [key, spec] of Object.entries(EFFECTS[effect.id]?.params ?? {})) {
+        if (typeof spec.min !== 'number' || key === 'seed') continue;
+        rows.push(sliderRow(`${t(`fx.${effect.id}`)} — ${t(`fxParam.${key}`)}`, spec.min, spec.max, spec.max - spec.min <= 2 ? 0.01 : 1, () => effect.params?.[key] ?? spec.default, (v) => { effect.params = { ...(effect.params ?? {}), [key]: v }; }, undefined, `look.fx.${effect.id}.${key}`));
+      }
+    }
+    if (edit.tilt) rows.push(sliderRow(t('edit.tiltShift'), 0, 100, 1, () => edit.tilt.blur, (v) => { edit.tilt.blur = v; }, undefined, 'look.tilt'));
+    return h('div.look-tune', { dataset: { lookActive: id } },
+      h('div.look-tune-head', h('span.look-current', t('edit.lookCurrent', { name: t(`look.${id}`) })),
+        h('button.btn.small', { type: 'button', id: 'look-clear', onclick: () => { change((e) => Object.assign(e, clearLook(e, id)), t('edit.lookClear')); look = null; buildPanel(); } }, t('edit.lookClear'))),
+      amount,
+      h('div.field-label', t('edit.lookFineTune')),
+      ...rows);
+  }
+
+  /** A small copy of the photo with look `id`, drawn into `canvas` (rendered in the background, a few at a time). */
+  function paintLookThumb(id, canvas) {
+    if (lookThumbs.source !== preview) { lookThumbs.source = preview; lookThumbs.done.clear(); lookThumbs.queue = []; }
+    const done = lookThumbs.done.get(id);
+    if (done) { canvas.width = done.width; canvas.height = done.height; context2d(canvas).drawImage(done, 0, 0); return; }
+    lookThumbs.queue.push([id, canvas]);
+  }
+  function queueLookThumbs() {
+    if (lookThumbs.timer || !lookThumbs.queue.length) return;
+    const step = () => {
+      lookThumbs.timer = null;
+      if (!preview) { lookThumbs.queue = []; return; }
+      const small = lookThumbs.small?.from === preview ? lookThumbs.small.canvas : scaledCanvas(preview, preview.width, preview.height, 112);
+      lookThumbs.small = { from: preview, canvas: small };
+      const until = performance.now() + 24;
+      while (lookThumbs.queue.length && performance.now() < until) {
+        const [id, canvas] = lookThumbs.queue.shift();
+        if (!canvas.isConnected) continue;
+        let done = lookThumbs.done.get(id);
+        if (!done) {
+          try { done = render(small, applyLook(defaultEdit(), id, 100), { scale: scale * (small.width / preview.width), skipOverlay: true }); } catch { continue; }
+          lookThumbs.done.set(id, done);
+        }
+        canvas.width = done.width;
+        canvas.height = done.height;
+        context2d(canvas).drawImage(done, 0, 0);
+      }
+      if (lookThumbs.queue.length) lookThumbs.timer = setTimeout(step, 0);
+    };
+    lookThumbs.timer = setTimeout(step, 0);
+  }
+
   function presetsPanel() {
     const list = app.catalog.presets;
     return h('div',
@@ -1565,6 +1705,8 @@ export function createEditor({ onDone }) {
           h('button.btn', { type: 'button', id: 'edit-save-as', disabled: busy, onclick: () => save(true) }, t('edit.saveAs')),
           h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
         h('div.tool-group',
+          button('star', t('edit.looksButton'), toggleLooks, { title: t('edit.looks'), showLabel: true, className: section === 'looks' ? 'with-label on' : 'with-label', id: 'edit-looks' })),
+        h('div.tool-group',
           button('undo', t('edit.undo'), doUndo, { title: `${t('edit.undo')} (Ctrl+Z)`, disabled: !undo.length }),
           button('redo', t('edit.redo'), doRedo, { title: `${t('edit.redo')} (Ctrl+Y)`, disabled: !redo.length })),
         h('div.tool-group',
@@ -1584,6 +1726,7 @@ export function createEditor({ onDone }) {
   function resetAll() {
     commit(t('edit.resetAll'));
     edit = defaultEdit();
+    look = null;
     tool = null;
     buildPanel();
     draw();
@@ -1723,6 +1866,7 @@ export function createEditor({ onDone }) {
   async function open(target) {
     item = target;
     edit = defaultEdit();
+    look = null;
     undo = [];
     redo = [];
     tool = null;

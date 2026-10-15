@@ -14,6 +14,7 @@ import { readZip, extractZip } from '../../src/formats/zip.js';
 import { readEmbeddedXmp } from '../../src/formats/xmpembed.js';
 import { ADOBE, buildIcc } from '../helpers/icc-build.mjs';
 import { decodePng16, encodePng16 } from '../../src/formats/highbit.js';
+import { encodeGif } from '../../src/create/gif.js';
 import { sleep } from './cdp.mjs';
 import { copyDir, fixtures, root } from './harness.mjs';
 
@@ -446,6 +447,75 @@ export const cases = [
       assert.equal(v.controls, false, 'no controls');
       assert.ok(Math.abs(v.volume - 0.4) < 0.01, 'volume 40 %');
       assert.ok(Math.abs(v.time - 1) < 0.3, `resumed at ${v.time}`);
+      await app.main.eval(`${P}.app.settings.video = {}; ${P}.app.saveSettings(); 1`);
+      await app.main.key('Escape');
+      await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
+    },
+  },
+  {
+    ids: ['VIEW-ANIMPLAY'],
+    group: '보기', name: '움직이는 GIF·동영상: 도구 모음의 재생/일시정지·정지(처음으로)·이전/다음 프레임, Space, 화면에 보이는 프레임이 맞다',
+    run: async (app) => {
+      const folder = dir(app, 'anim');
+      fs.mkdirSync(folder, { recursive: true });
+      // Four solid frames: red, green, blue, yellow.
+      const colours = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]];
+      const solid = ([r, g, b]) => { const data = new Uint8ClampedArray(64 * 48 * 4); for (let i = 0; i < data.length; i += 4) data.set([r, g, b, 255], i); return { width: 64, height: 48, data }; };
+      fs.writeFileSync(path.join(folder, 'anim.gif'), encodeGif(colours.map((c) => ({ image: solid(c) })), { delay: 120 }));
+      fs.copyFileSync(path.join(fixtures, 'flower.webp'), path.join(folder, 'still.webp'));
+      fs.copyFileSync(path.join(fixtures, '..', 'formats', 'clip.webm'), path.join(folder, 'clip-media.webm'));
+      await open(app, folder, 3);
+      await app.main.eval(`${P}.actions.viewItem(${js(await pathOf(app, 'anim.gif'))}); 1`);
+      await app.main.waitFor(`${P}.viewer.debug().anim?.count === 4 && Boolean(document.querySelector('#media-play'))`, { timeout: 20000, message: 'animated GIF with play controls' });
+      const anim = () => app.main.eval(`${P}.viewer.debug().anim`);
+      assert.equal((await anim()).playing, true, 'plays when opened');
+      const start = (await anim()).frame;
+      await app.main.waitFor(`${P}.viewer.debug().anim.frame !== ${start}`, { message: 'frames advance' });
+      // What is on screen is the frame it says.
+      const shown = () => app.main.eval(`(() => { const c = document.querySelector('canvas.viewer-media'); const p = c.getContext('2d').getImageData(32, 24, 1, 1).data; return { rgb: [p[0], p[1], p[2]], frame: ${P}.viewer.debug().anim.frame, label: document.querySelector('#media-position').textContent }; })()`);
+      // Pause with a real press and release while frames keep coming.
+      const at = await app.main.eval(`(() => { const r = document.querySelector('#media-play').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+      await app.main.mouse('mouseMoved', at.x, at.y, { button: 'none' });
+      await app.main.mouse('mousePressed', at.x, at.y);
+      await sleep(200);
+      await app.main.mouse('mouseReleased', at.x, at.y);
+      await app.main.waitFor(`${P}.viewer.debug().anim.playing === false`, { timeout: 3000, message: 'pause' });
+      const paused = await shown();
+      await sleep(500);
+      assert.deepEqual(await shown(), paused, 'stays on the paused frame');
+      assert.deepEqual(paused.rgb, colours[paused.frame], 'the paused frame is on screen');
+      assert.equal(paused.label, `${paused.frame + 1} / 4`);
+      // Step forward and back.
+      await app.main.eval(`document.querySelector('#media-next-frame').click(); 1`);
+      await app.main.waitFor(`${P}.viewer.debug().anim.frame === ${(paused.frame + 1) % 4}`, { message: 'next frame' });
+      assert.deepEqual((await shown()).rgb, colours[(paused.frame + 1) % 4]);
+      await app.main.eval(`document.querySelector('#media-prev-frame').click(); document.querySelector('#media-prev-frame').click(); 1`);
+      await app.main.waitFor(`${P}.viewer.debug().anim.frame === ${(paused.frame + 3) % 4}`, { message: 'previous frame twice' });
+      // Space plays, the stop button goes back to the first frame.
+      await app.main.key(' ');
+      await app.main.waitFor(`${P}.viewer.debug().anim.playing`, { message: 'Space plays' });
+      await app.main.eval(`document.querySelector('#media-stop').click(); 1`);
+      await app.main.waitFor(`!${P}.viewer.debug().anim.playing && ${P}.viewer.debug().anim.frame === 0`, { message: 'stop' });
+      assert.deepEqual((await shown()).rgb, colours[0], 'stop shows the first frame');
+      // A still picture has no play controls.
+      await app.main.eval(`${P}.actions.viewItem(${js(await pathOf(app, 'still.webp'))}); 1`);
+      await app.main.waitFor(`${P}.viewer.debug().kind === 'native' && document.querySelector('.viewer-status .status-name')?.textContent.includes('still')`, { timeout: 20000, message: 'still picture' });
+      assert.equal(await app.main.eval(`Boolean(document.querySelector('#media-play')) || ${P}.viewer.debug().anim !== null`), false, 'no play controls on a still picture');
+      // A video gets the same buttons.
+      await app.main.eval(`${P}.app.settings.video = { ...(${P}.app.settings.video ?? {}), autoplay: false, muted: true }; ${P}.actions.viewItem(${js(await pathOf(app, 'clip-media.webm'))}); 1`);
+      await app.main.waitFor(`${P}.viewer.debug().kind === 'video' && Boolean(document.querySelector('#media-play')) && document.querySelector('video.viewer-media')?.readyState >= 2`, { timeout: 20000, message: 'video with play controls' });
+      const vid = () => app.main.eval(`(() => { const v = document.querySelector('video.viewer-media'); return { paused: v.paused, time: v.currentTime, label: document.querySelector('#media-position').textContent, pressed: document.querySelector('#media-play').getAttribute('aria-pressed') }; })()`);
+      await app.main.eval(`document.querySelector('#media-play').click(); 1`);
+      await app.main.waitFor(`document.querySelector('video.viewer-media').currentTime > 0.4`, { message: 'video plays' });
+      assert.equal((await vid()).pressed, 'true');
+      await app.main.eval(`document.querySelector('#media-play').click(); 1`);
+      await app.main.waitFor(`document.querySelector('video.viewer-media').paused`, { message: 'video pauses' });
+      const t1 = (await vid()).time;
+      await app.main.eval(`document.querySelector('#media-next-frame').click(); 1`);
+      await app.main.waitFor(`document.querySelector('video.viewer-media').currentTime > ${t1}`, { message: 'video next frame' });
+      await app.main.eval(`document.querySelector('#media-stop').click(); 1`);
+      await app.main.waitFor(`document.querySelector('video.viewer-media').paused && document.querySelector('video.viewer-media').currentTime === 0`, { message: 'video stop' });
+      assert.match((await vid()).label, /^0:00 \/ \d+:\d\d$/);
       await app.main.eval(`${P}.app.settings.video = {}; ${P}.app.saveSettings(); 1`);
       await app.main.key('Escape');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
@@ -1241,8 +1311,21 @@ export const cases = [
       assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().fps`), 10);
       await app.main.eval(`${P}.dq('[data-dicom=cine]').click(); 1`);
       await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame >= 3`, { message: 'cine advances' });
+      // A real press and release on pause while frames keep coming (the icon used to be replaced every frame and ate the click).
+      const pauseAt = await app.main.eval(`(() => { const r = ${P}.dq('[data-dicom=cine]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+      await app.main.mouse('mouseMoved', pauseAt.x, pauseAt.y, { button: 'none' });
+      await app.main.mouse('mousePressed', pauseAt.x, pauseAt.y);
+      await new Promise((r) => setTimeout(r, 250));
+      await app.main.mouse('mouseReleased', pauseAt.x, pauseAt.y);
+      await app.main.waitFor(`${P}.viewer.dicom.debug().cine === false`, { timeout: 3000, message: 'pause stops the cine' });
+      const paused = await app.main.eval(`${P}.viewer.dicom.debug().state.frame`);
+      await new Promise((r) => setTimeout(r, 400));
+      assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().state.frame`), paused, 'stays on the paused frame');
+      // Stop: playback ends and goes back to the first frame.
       await app.main.eval(`${P}.dq('[data-dicom=cine]').click(); 1`);
-      assert.equal(await app.main.eval(`${P}.viewer.dicom.debug().cine`), false);
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame !== ${paused}`, { message: 'plays again' });
+      await app.main.eval(`${P}.dq('[data-dicom=cine-stop]').click(); 1`);
+      await app.main.waitFor(`!${P}.viewer.dicom.debug().cine && ${P}.viewer.dicom.debug().state.frame === 0`, { message: 'stop rewinds' });
       await app.main.key('ArrowDown');
       const before = fs.readdirSync(folder);
       await app.main.eval(`${P}.viewer.dicom.testing.saveFrame()`);
@@ -1351,7 +1434,7 @@ export const cases = [
   },
   {
     ids: ['VIEW-DICOMTOOLS'],
-    group: '형식', name: 'DICOM 편의 기능: 자동 윈도, Ctrl·가운데 끌기 윈도, 측정 실행 취소·다시·Del, 프레임별 측정, 시네 반복·왕복·한 번, 프레임 슬라이더 휠, 단축키, 모든 프레임 PNG·태그 JSON/CSV/TXT 저장',
+    group: '형식', name: 'DICOM 편의 기능: 자동 윈도, Ctrl·가운데 끌기 윈도, 측정 실행 취소·다시·Del, 측정 선택·Del·우클릭 삭제, 재생 중에도 보이는 측정, 시네 반복·왕복·한 번, 프레임 슬라이더 휠, 단축키, 모든 프레임 PNG·태그 JSON/CSV/TXT 저장',
     run: async (app) => {
       const folder = dir(app, 'dicom');
       await open(app, folder, 5);
@@ -1386,6 +1469,32 @@ export const cases = [
       assert.equal((await dbg()).measures.length, 2, 'Ctrl+Y');
       await app.main.key('Delete');
       assert.equal((await dbg()).measures.length, 1, 'Del');
+      // Select a drawn measurement by clicking it: Del removes that one, not the newest.
+      await app.main.drag(pt(0.1, 0.4), pt(0.6, 0.4));
+      await app.main.drag(pt(0.1, 0.6), pt(0.6, 0.6));
+      const ys = async () => (await dbg()).measures.map((m) => m.y);
+      const [y02, y04, y06] = await ys();
+      await app.main.realClick(pt(0.35, 0.2).x, pt(0.35, 0.2).y);
+      assert.equal((await dbg()).selected, 0, 'click selects the line under it');
+      assert.equal((await dbg()).measures.length, 3, 'selecting does not draw');
+      assert.equal(await app.main.eval(`${P}.dqa('.dicom-layer .dicom-measure.selected').length`), 1, 'selection is highlighted');
+      await app.main.key('Delete');
+      assert.deepEqual(await ys(), [y04, y06], 'Del deletes the selected one');
+      assert.ok(y02 < y04);
+      // Right-click on a measurement: its context menu deletes it.
+      const rc = pt(0.35, 0.6);
+      await app.main.mouse('mouseMoved', rc.x, rc.y, { button: 'none' });
+      await app.main.mouse('mousePressed', rc.x, rc.y, { button: 'right' });
+      await app.main.mouse('mouseReleased', rc.x, rc.y, { button: 'right' });
+      await app.main.waitFor(`Boolean(document.querySelector('.menu [data-id="dicom-delete-measure"]'))`, { message: 'measurement context menu' });
+      assert.equal((await dbg()).selected, 1, 'right-click selects it');
+      await app.main.eval(`document.querySelector('.menu [data-id="dicom-delete-measure"]').click(); 1`);
+      assert.deepEqual(await ys(), [y04], 'context menu deletes it');
+      // Esc drops the selection (the tool stays).
+      await app.main.realClick(pt(0.35, 0.4).x, pt(0.35, 0.4).y);
+      assert.equal((await dbg()).selected, 0);
+      await app.main.key('Escape');
+      assert.equal((await dbg()).selected, -1, 'Esc drops the selection');
       await app.main.eval(`${P}.viewer.dicom.testing.setTool('angle'); 1`);
       await app.main.drag(pt(0.2, 0.7), pt(0.5, 0.7));
       const c = pt(0.5, 0.5);
@@ -1422,7 +1531,7 @@ export const cases = [
         fs.rmSync(target);
       }
 
-      // Multi-frame: measurements belong to their frame; cine modes; slider wheel; all frames as PNGs.
+      // Multi-frame: measurements stay on every frame (also during a cine); cine modes; slider wheel; all frames as PNGs.
       await app.main.eval(`${P}.actions.viewItem(${js(await pathOf(app, 'cine.dcm'))}); 1`);
       await app.main.waitFor(`${P}.viewer.dicom.debug()?.frames === 8`, { timeout: 20000 });
       const box2 = await app.main.eval(`(() => { const r = ${P}.dq('.viewer-media').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
@@ -1431,9 +1540,14 @@ export const cases = [
       assert.equal((await dbg()).measures[0].frame, 0);
       await app.main.eval(`${P}.viewer.dicom.testing.setFrame(3); 1`);
       await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame === 3`);
-      assert.equal(await app.main.eval(`${P}.dqa('.dicom-layer .dicom-measure').length`), 0, 'not shown on another frame');
+      assert.equal(await app.main.eval(`${P}.dqa('.dicom-layer .dicom-measure').length`), 1, 'still shown on another frame');
+      // …and through a whole cine: sampled on every frame it shows.
+      await app.main.eval(`(() => { window.__measureSeen = new Set(); window.__measureMissing = 0; ${P}.viewer.dicom.testing.startCine(); const tick = () => { const d = ${P}.viewer.dicom.debug(); if (!d?.cine) return; if (${P}.dqa('.dicom-layer .dicom-measure').length === 1) window.__measureSeen.add(d.state.frame); else window.__measureMissing += 1; requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()`);
+      await app.main.waitFor(`window.__measureSeen.size >= 6`, { timeout: 5000, message: 'measurement seen across the cine' });
+      await app.main.eval(`${P}.viewer.dicom.testing.stopCine(); 1`);
+      assert.equal(await app.main.eval(`window.__measureMissing`), 0, 'never missing while playing');
       await app.main.eval(`${P}.viewer.dicom.testing.setFrame(0); 1`);
-      await app.main.waitFor(`${P}.dqa('.dicom-layer .dicom-measure').length === 1`, { message: 'back on its frame' });
+      await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame === 0 && ${P}.dqa('.dicom-layer .dicom-measure').length === 1`, { message: 'back on frame 0' });
       assert.equal(await app.main.eval(`${P}.viewer.dicom.testing.frameDelay(0)`), 100, 'the file\'s frame time');
       await app.main.eval(`${P}.dq('[data-key="dicom-frame"]').dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true })); 1`);
       await app.main.waitFor(`${P}.viewer.dicom.debug().state.frame === 1`, { message: 'wheel steps a frame' });
@@ -2613,6 +2727,71 @@ export const cases = [
     },
   },
   {
+    ids: ['EDIT-LOOKS'],
+    group: '편집', name: '효과 프리셋(룩): 도구 모음 "프리셋" 버튼으로 열고 닫기, 분류·검색·미리 보기, 적용 후 강도·세밀 조정, 해제, 기존 패널·노출은 그대로, 저장',
+    run: async (app) => {
+      const studio = dir(app, 'studio');
+      fs.copyFileSync(path.join(fixtures, 'forest.jpg'), path.join(studio, 'looks.jpg'));
+      await open(app, studio, 6);
+      await reloadList(app);
+      const file = await pathOf(app, 'looks.jpg');
+      await openEditor(app, file);
+      const ed = () => app.main.eval(`${P}.editor.debug().edit`);
+      // The usual way still works: an exposure correction first.
+      await section(app, 'light');
+      await slider(app, 'adjust.exposure', 0.5);
+      const plain = await signature(app);
+      // The toolbar's Presets button opens the looks.
+      await app.main.eval(`document.querySelector('#edit-looks').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=looks]')) && ${P}.dqa('.editor-panel .look-cat').length === 17 && document.querySelector('#edit-looks').classList.contains('on')`, { message: 'looks section with 17 categories' });
+      await app.main.eval(`${P}.dq('.editor-panel [data-look-cat=catBW]').click(); 1`);
+      await app.main.waitFor(`${P}.dqa('.editor-panel .look-grid [data-look]').length === 14`, { message: 'black & white looks' });
+      await app.main.waitFor(`[...${P}.dqa('.editor-panel .look-thumb')].every((c) => c.width > 1)`, { timeout: 20000, message: 'every look has its preview' });
+      // The previews differ from each other (the looks are drawn on this photo).
+      const thumbs = await app.main.eval(`[...${P}.dqa('.editor-panel .look-thumb')].slice(0, 3).map((c) => c.toDataURL().length)`);
+      assert.equal(new Set(thumbs).size, 3, `different previews ${thumbs}`);
+      // Search across categories.
+      await app.main.eval(`(() => { const s = ${P}.dq('[data-key=look-search]'); s.value = 'noir'; s.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel [data-look=noir]'))`, { message: 'search finds noir' });
+      // Apply: black & white, dark corners — the exposure correction stays.
+      await app.main.eval(`${P}.dq('.editor-panel [data-look=noir]').click(); 1`);
+      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === -100 && Boolean(${P}.dq('.editor-panel .look-tune[data-look-active=noir]'))`, { message: 'noir applied' });
+      let e = await ed();
+      assert.ok(e.fx.vignette < 0, 'vignette');
+      assert.equal(e.adjust.exposure, 0.5, 'the exposure correction is kept');
+      assert.notDeepEqual((await signature(app)).px, plain.px, 'the preview changed');
+      // Strength: half the look.
+      await slider(app, 'look.amount', 50);
+      e = await ed();
+      assert.equal(e.adjust.saturation, -50, 'half strength');
+      assert.ok(e.fx.vignette > -62 && e.fx.vignette < 0, `vignette at half ${e.fx.vignette}`);
+      await slider(app, 'look.amount', 100);
+      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === -100 && Boolean(${P}.dq('.editor-panel input.slider[data-key="adjust.contrast"]'))`, { message: 'full strength, fine-tuning sliders' });
+      // Fine-tune one value of the look.
+      await slider(app, 'adjust.contrast', 60);
+      assert.equal((await ed()).adjust.contrast, 60, 'fine-tuned contrast');
+      // Remove the look: only its values go back.
+      await app.main.eval(`${P}.dq('#look-clear').click(); 1`);
+      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === 0 && !${P}.dq('.editor-panel .look-tune')`, { message: 'look removed' });
+      e = await ed();
+      assert.equal(e.adjust.exposure, 0.5);
+      assert.equal(e.fx.vignette, 0);
+      // Apply again; the Presets button goes back to the section that was open.
+      await app.main.eval(`${P}.dq('.editor-panel [data-look=noir]').click(); 1`);
+      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === -100`);
+      await app.main.eval(`document.querySelector('#edit-looks').click(); 1`);
+      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=light]')) && Boolean(${P}.dq('.editor-panel input.slider[data-key="adjust.exposure"]'))`, { message: 'back to the light section' });
+      // The look's values are in the ordinary sections too.
+      await section(app, 'color');
+      assert.equal(await app.main.eval(`Number(${P}.dq('.editor-panel input.slider[data-key="adjust.saturation"]').value)`), -100);
+      // Saved: a grey picture.
+      await app.main.key('s', 2);
+      await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
+      const saved = await imageInfo(app, file);
+      assert.ok(Math.abs(saved.mean[0] - saved.mean[1]) < 3 && Math.abs(saved.mean[1] - saved.mean[2]) < 3, `grey: ${saved.mean.map((v) => v.toFixed(0))}`);
+    },
+  },
+  {
     ids: ['EDIT-LUT', 'EDIT-SNAPSHOT'],
     group: '편집', name: 'LUT: 내장 룩과 .cube 가져오기(저장한 사진에 적용), 스냅숏: 이름 붙여 저장하고 눌러서 되돌리기',
     run: async (app) => {
@@ -3203,6 +3382,54 @@ export const cases = [
       await app.main.eval(`${P}.actions.showRightTab?.('properties'); 1`);
       const gap = await app.main.eval(`(() => { const edge = (side, end) => { const b = document.querySelector('[data-fold=' + side + ']'); const head = b?.closest('.pane-head'); if (!head) return null; const hb = head.getBoundingClientRect(); const bb = b.getBoundingClientRect(); return Math.round(end === 'right' ? hb.right - bb.right : bb.left - hb.left); }; return { left: edge('left', 'right'), right: edge('right', 'left') }; })()`);
       assert.ok(gap && gap.left !== null && gap.left <= 8 && gap.right !== null && gap.right <= 8, `fold button gap ${JSON.stringify(gap)}`);
+    },
+  },
+  {
+    ids: ['APP-TUTORIAL'],
+    group: '앱', name: '튜토리얼: 시작 화면 버튼으로 실행, 모든 단계가 차례로 실제 기능을 보여 주고, 장 이동·이전·자동 재생, 끝내면 테마·언어·보기 설정이 돌아오고 사용자 폴더는 그대로',
+    run: async (app) => {
+      await open(app, app.photos, 5);
+      const userFiles = () => fs.readdirSync(app.photos).map((n) => `${n}:${fs.statSync(path.join(app.photos, n)).mtimeMs}`).sort();
+      const settingsNow = () => app.main.eval(`JSON.stringify({ theme: ${P}.app.settings.theme ?? 'system', view: ${P}.app.settings.view, lang: document.documentElement.lang })`);
+      const before = { files: userFiles(), settings: await settingsNow() };
+      await app.main.eval(`${P}.actions.setMode('start'); 1`);
+      await app.main.waitFor(`Boolean(document.querySelector('#start-tutorial'))`, { message: 'tutorial on the start page' });
+      await app.main.eval(`document.querySelector('#start-tutorial').click(); 1`);
+      await app.main.waitFor(`${P}.tutorial.state().running && !${P}.tutorial.state().busy && Boolean(document.querySelector('.tutorial-card:not([hidden])'))`, { message: 'tutorial card' });
+      const total = await app.main.eval(`${P}.tutorial.state().total`);
+      assert.ok(total >= 50, `${total} steps`);
+      // Every step, in order, with the Next button; each shows its own feature.
+      const seen = [];
+      for (let i = 0; i < total; i++) {
+        if (i > 0) await app.main.eval(`document.querySelector('.tutorial-card [data-tutorial=next]').click(); 1`);
+        await app.main.waitFor(`${P}.tutorial.state().index === ${i} && !${P}.tutorial.state().busy`, { timeout: 60000, message: `step ${i + 1}` });
+        const s = await app.main.eval(`${P}.tutorial.state().id`);
+        seen.push(s);
+        const card = await app.main.eval(`({ title: document.querySelector('.tutorial-title')?.textContent ?? '', count: document.querySelector('[data-key=tutorial-count]')?.textContent ?? '' })`);
+        assert.ok(card.title && !card.title.startsWith('tut.'), `step ${i + 1} has a title: ${card.title}`);
+        assert.equal(card.count, `${i + 1} / ${total}`);
+        if (s === 'folder') assert.ok(await app.main.eval(`/tutorial-photos$/.test(${P}.app.state.source.path) && ${P}.app.state.list.length >= 12`), 'the tutorial folder is open');
+        if (s === 'gif') assert.ok(await app.main.eval(`Boolean(document.querySelector('#media-play')) && ${P}.viewer.debug().anim?.count === 4`), 'GIF with play controls');
+        if (s === 'dicom') assert.ok(await app.main.eval(`${P}.viewer.dicom.active`), 'DICOM tools');
+        if (s === 'looks') assert.ok(await app.main.eval(`Boolean(document.querySelector('.look-tune[data-look-active=portra]'))`), 'a preset applied');
+        if (s === 'createGif') assert.ok(await app.main.eval(`Boolean(document.querySelector('.dialog'))`), 'the GIF dialog inside the window');
+        if (['welcome', 'folder', 'viewer', 'dicom', 'looks'].includes(s)) assert.equal(await app.main.eval(`!document.querySelector('.tutorial-spot').hidden`), true, `${s}: outlined`);
+      }
+      assert.equal(new Set(seen).size, total, 'each step once');
+      // Back one step, jump to a chapter, auto play goes on by itself.
+      await app.main.eval(`document.querySelector('.tutorial-card [data-tutorial=prev]').click(); 1`);
+      await app.main.waitFor(`${P}.tutorial.state().index === ${total - 2} && !${P}.tutorial.state().busy`, { timeout: 30000, message: 'previous' });
+      await app.main.eval(`(() => { const s = document.querySelector('[data-key=tutorial-chapter]'); s.value = 'view'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await app.main.waitFor(`${P}.tutorial.state().id === 'viewer' && !${P}.tutorial.state().busy`, { timeout: 30000, message: 'chapter jump' });
+      await app.main.eval(`document.querySelector('.tutorial-card [data-tutorial=auto]').click(); 1`);
+      await app.main.waitFor(`${P}.tutorial.state().id === 'zoom'`, { timeout: 20000, message: 'auto play goes on' });
+      // Exit: settings back, the user's folder untouched, the tutorial worked in its own folder.
+      await app.main.eval(`document.querySelector('.tutorial-card [data-tutorial=exit]').click(); 1`);
+      await app.main.waitFor(`!${P}.tutorial.state().running && !document.querySelector('.tutorial-card') && ${P}.app.state.mode === 'start'`, { timeout: 20000, message: 'tutorial ended' });
+      await sleep(500);
+      assert.equal(await settingsNow(), before.settings, 'settings restored');
+      assert.deepEqual(userFiles(), before.files, 'the user\'s photos were not touched');
+      assert.ok(fs.existsSync(path.join(app.work, 'data', 'tutorial-photos', 'forest.jpg')), 'the tutorial used its own folder');
     },
   },
 ];

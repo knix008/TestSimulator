@@ -3,6 +3,8 @@
 // The loop pauses while the page is hidden or the window is in the background.
 
 const HORIZON = [0.97, 0.74, 0.5];
+/** How fast the scene moves (clouds, water, sun, camera); 1 was the first speed (too quick), then 0.5 (still too quick). */
+const MOTION_SPEED = 0.2;
 
 function cssChannels(value) {
   const text = String(value ?? '').trim();
@@ -535,7 +537,7 @@ export class StartBackground {
   draw(now) {
     const gl = this.gl;
     if (!gl || !this.aspect) return;
-    const t = now / 1000 + (this.phase || 0);
+    const t = (now / 1000) * MOTION_SPEED + (this.phase || 0);
     // The sun walks the sky so slopes all across the valley change light.
     const spin = t * 0.45;
     const sx = Math.cos(spin) * 0.8;
@@ -619,7 +621,7 @@ export class StartBackground {
       if (!this.running) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      this.angle += dt * (calm ? 0.12 : 0.28);
+      this.angle += dt * (calm ? 0.12 : 0.28) * MOTION_SPEED;
       this.applySize(now);
       this.frame = requestAnimationFrame(tick);
     };

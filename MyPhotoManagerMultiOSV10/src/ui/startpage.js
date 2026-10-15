@@ -64,6 +64,7 @@ export function createStartPage(ctx) {
     stamp = key;
     const tip = Math.floor(Date.now() / 86400000) % TIP_COUNT;
     const begin = [
+      actionCard('help', t('tut.menu'), t('tut.startText'), actions.tutorial, false, 'start-tutorial'),
       actionCard('folderOpen', t('file.openFolder'), t('start.openFolderText'), actions.openFolder, true, 'start-open-folder'),
       actionCard('images', t(showSamples ? 'web.openFiles' : 'file.openFiles'), t('start.openFilesText'), actions.openFiles, false, 'start-open-files'),
       actionCard('download', t('import.title'), t('start.importText'), actions.import),

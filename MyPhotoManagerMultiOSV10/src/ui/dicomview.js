@@ -26,6 +26,7 @@ import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { app, reload } from '../store.js';
 import { openDialog, progressDialog, selectEl, toast } from './dialog.js';
+import { contextMenu } from './menu.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 
@@ -83,6 +84,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   const shown = (key) => app.settings.dicom?.[key] !== false;
   const toggleShown = (key) => { app.settings.dicom = { ...(app.settings.dicom ?? {}), [key]: !shown(key) }; app.saveSettings(); };
   let pending = null; // an angle / Cobb measurement waiting for its next point
+  let selected = null; // the measurement picked by a click (Del / context menu delete it)
   let undoStack = []; // measurement history (Ctrl+Z / Ctrl+Y)
   let redoStack = [];
   let cineMode = 'loop'; // loop | bounce | once
@@ -227,6 +229,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
           controls.frameNow = h('span.n'), h('span.sep', '/'), controls.frameTotal = h('span.n')),
         h('button.tool', { type: 'button', title: t('view.nextPage'), html: icon('next'), onclick: () => setFrame(state.frame + 1) }),
         controls.play = h('button.tool', { type: 'button', title: t('dicom.cine'), dataset: { dicom: 'cine' }, html: icon('play'), onclick: toggleCine }),
+        h('button.tool', { type: 'button', title: t('dicom.cineStop'), dataset: { dicom: 'cine-stop' }, html: icon('stop'), onclick: stopAndRewind }),
         controls.fps = h('input.input.dicom-num', { type: 'number', min: 1, max: 120, value: fps, title: t('dicom.fps'), dataset: { key: 'dicom-fps', noStepper: '' }, onchange: (e) => { fps = Math.max(1, Math.min(120, Number(e.target.value) || 10)); fpsFromFile = false; if (playing) { stopCine(); startCine(); } } }),
         h('span.dicom-label', 'fps'),
         (() => { const s = selectEl([['loop', t('dicom.cineLoop')], ['bounce', t('dicom.cineBounce')], ['once', t('dicom.cineOnce')]], cineMode, (v) => { cineMode = v; cineDirection = 1; }); s.dataset.key = 'dicom-cine-mode'; s.title = t('dicom.cineMode'); return s; })()) : null,
@@ -261,8 +264,10 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
       controls.frameNow.textContent = String(state.frame + 1);
       controls.frameTotal.textContent = String(frames());
     }
-    if (controls.play) {
-      controls.play.innerHTML = icon(playing ? 'pause' : 'play');
+    // Only when it changes: replacing the icon on every cine frame swallows the click on it.
+    if (controls.play && controls.play.dataset.state !== (playing ? 'pause' : 'play')) {
+      controls.play.dataset.state = playing ? 'pause' : 'play';
+      controls.play.innerHTML = icon(controls.play.dataset.state);
       controls.play.classList.toggle('playing', playing);
     }
     if (controls.fps && document.activeElement !== controls.fps) controls.fps.value = String(Math.round(fps));
@@ -347,6 +352,8 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   }
 
   function toggleCine() { if (playing) stopCine(); else startCine(); }
+  /** Stop: playback ends and the first frame is shown. */
+  function stopAndRewind() { stopCine(); cineDirection = 1; setFrame(0); }
 
   // ───────── pointer tools (window drag, distance, ROI)
 
@@ -355,6 +362,18 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (!image) return false;
     // Ctrl+drag or the middle button: window / level with any tool.
     const windowDrag = event.button === 1 || (event.button === 0 && (event.ctrlKey || event.metaKey));
+    // A click on a drawn measurement selects it (Del or the context menu deletes it); elsewhere drops the selection.
+    if (!windowDrag && event.button === 0 && !pending) {
+      const hit = measureAt(event.clientX, event.clientY);
+      if (hit) {
+        event.preventDefault();
+        stage.focus({ preventScroll: true });
+        selected = hit;
+        drawMeasures();
+        return true;
+      }
+      if (selected) { selected = null; drawMeasures(); }
+    }
     if (!windowDrag && (tool === 'pan' || event.button !== 0)) return false;
     const start = imagePoint(event.clientX, event.clientY, true);
     if (!start) return false;
@@ -483,15 +502,60 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     drawMeasures();
     syncBar();
   }
-  /** Deletes the newest measurement on this frame. */
+  /** Deletes the selected measurement, or the newest one when none is selected. */
   function deleteLastMeasure() {
+    const at = selected ? measures.indexOf(selected) : -1;
+    selected = null;
+    if (at >= 0) { commitMeasures(); measures.splice(at, 1); pending = null; drawMeasures(); syncBar(); return true; }
     for (let i = measures.length - 1; i >= 0; i--) {
       if (onFrame(measures[i])) { commitMeasures(); measures.splice(i, 1); pending = null; drawMeasures(); syncBar(); return true; }
     }
     return false;
   }
-  /** A measurement belongs to the frame it was made on (single-frame images: always). */
-  const onFrame = (m) => frames() < 2 || m.frame == null || m.frame === state.frame;
+  /** Measurements stay on every frame, so they are still there while a cine plays. */
+  const onFrame = () => true;
+
+  /** The drawn measurement under the pointer (the newest first), or null. Lines and outlines are hit within a few screen pixels. */
+  function measureAt(clientX, clientY) {
+    const p = imagePoint(clientX, clientY);
+    if (!p) return null;
+    const x = p.x + 0.5;
+    const y = p.y + 0.5;
+    const tol = Math.max(1.5, 6 / (scaleOf() || 1));
+    const toSegment = (x1, y1, x2, y2) => {
+      const dx = x2 - x1; const dy = y2 - y1;
+      const len = dx * dx + dy * dy;
+      const u = len ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len)) : 0;
+      return Math.hypot(x - (x1 + u * dx), y - (y1 + u * dy));
+    };
+    const distanceTo = (m) => {
+      if (m.type === 'distance') return toSegment(m.x1, m.y1, m.x2, m.y2);
+      if (m.type === 'angle') return Math.min(toSegment(m.x1, m.y1, m.x2, m.y2), m.x3 == null ? Infinity : toSegment(m.x2, m.y2, m.x3, m.y3));
+      if (m.type === 'cobb') return Math.min(toSegment(m.x1, m.y1, m.x2, m.y2), m.x3 == null ? Infinity : toSegment(m.x3, m.y3, m.x4, m.y4));
+      if (m.type === 'rect') {
+        const right = m.x + m.w; const bottom = m.y + m.h;
+        return Math.min(toSegment(m.x, m.y, right, m.y), toSegment(right, m.y, right, bottom), toSegment(right, bottom, m.x, bottom), toSegment(m.x, bottom, m.x, m.y));
+      }
+      const rx = m.w / 2; const ry = m.h / 2;
+      if (rx <= 0 || ry <= 0) return Infinity;
+      return Math.abs(Math.hypot((x - m.x - rx) / rx, (y - m.y - ry) / ry) - 1) * Math.min(rx, ry);
+    };
+    for (let i = measures.length - 1; i >= 0; i--) {
+      if (measures[i] !== pending && onFrame(measures[i]) && distanceTo(measures[i]) <= tol) return measures[i];
+    }
+    return null;
+  }
+
+  /** Right-click on a measurement: select it and offer to delete it; true = handled. */
+  function measureMenu(event) {
+    if (!image) return false;
+    const hit = measureAt(event.clientX, event.clientY);
+    if (!hit) return false;
+    selected = hit;
+    drawMeasures();
+    contextMenu(event, [{ id: 'dicom-delete-measure', label: t('dicom.deleteMeasure'), icon: 'trash', shortcut: 'Del', danger: true, action: () => { if (measures.includes(hit)) { selected = hit; deleteLastMeasure(); } } }]);
+    return true;
+  }
 
   /** Angle in degrees at (bx, by) between the arms to a and c. */
   const angleAt = (ax, ay, bx, by, cx, cy) => {
@@ -701,11 +765,12 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   }
 
   function drawMeasures() {
+    if (selected && !measures.includes(selected)) selected = null; // undo / redo / clear / another file
     clear(layer);
     const k = 1 / (scaleOf() || 1);
     for (const [i, m] of measures.entries()) {
       if (!onFrame(m)) continue;
-      const g = svg('g', { class: 'dicom-measure', 'data-index': i });
+      const g = svg('g', { class: m === selected ? 'dicom-measure selected' : 'dicom-measure', 'data-index': i });
       const textAt = (x, y, text) => {
         const label = svg('text', { x, y, 'font-size': 13 * k, 'stroke-width': 3 * k });
         label.textContent = text;
@@ -943,6 +1008,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (ctrl && k.toLowerCase() === 'y') { redoMeasure(); return true; }
     if (ctrl || event.altKey) return false;
     if (k === 'Delete' && measures.some(onFrame)) return deleteLastMeasure();
+    if (k === 'Escape' && selected) { selected = null; drawMeasures(); return true; }
     if (k === 'Escape' && (tool !== 'pan' || pending)) { setTool('pan'); return true; }
     if (frames() > 1) {
       if (k === 'ArrowUp') { setFrame(state.frame - 1); return true; }
@@ -972,14 +1038,14 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
   }
 
   return {
-    bar, attach, detach, layout, pointerDown, probe, onKey, render, refresh,
+    bar, attach, detach, layout, pointerDown, measureMenu, probe, onKey, render, refresh,
     get active() { return Boolean(image); },
     get canUndo() { return undoStack.length > 0; },
     get canRedo() { return redoStack.length > 0; },
     undo() { undoMeasure(); },
     redo() { redoMeasure(); },
     /** Test hooks. */
-    debug: () => (image ? { grid: rulers.querySelector('.dicom-grid')?.dataset.cell ?? null, state: { ...state }, frames: frames(), tool, measures: measures.map((m) => ({ type: m.type, text: measureText(m), frame: m.frame ?? null })), undo: undoStack.length, redo: redoStack.length, cineMode, direction: cineDirection, pending: pending?.type ?? null, pendingNext: pending?.next ?? null, cine: playing, fps, corners: corners.textContent, units: image.units, spacing: spacing(), scale: scaleText(), rulers: [...rulers.querySelectorAll('.dicom-ruler')].map((r) => ({ axis: r.classList.contains('horizontal') ? 'x' : 'y', major: Number(r.dataset.major), total: Number(r.dataset.total), ticks: Number(r.dataset.ticks), origin: Number(r.dataset.origin), pxPerUnit: Number(r.dataset.pxPerUnit), from: Number(r.dataset.from), to: Number(r.dataset.to) })), scaleBar: (() => { const b = rulers.querySelector('.dicom-scalebar'); if (!b) return null; const r = b.getBoundingClientRect(); return { length: Number(b.dataset.length), pixels: Number(b.dataset.pixels), x: r.left, y: r.top }; })() } : null),
+    debug: () => (image ? { grid: rulers.querySelector('.dicom-grid')?.dataset.cell ?? null, state: { ...state }, frames: frames(), tool, selected: measures.indexOf(selected), measures: measures.map((m) => ({ type: m.type, text: measureText(m), frame: m.frame ?? null, y: m.y1 ?? m.y })), undo: undoStack.length, redo: redoStack.length, cineMode, direction: cineDirection, pending: pending?.type ?? null, pendingNext: pending?.next ?? null, cine: playing, fps, corners: corners.textContent, units: image.units, spacing: spacing(), scale: scaleText(), rulers: [...rulers.querySelectorAll('.dicom-ruler')].map((r) => ({ axis: r.classList.contains('horizontal') ? 'x' : 'y', major: Number(r.dataset.major), total: Number(r.dataset.total), ticks: Number(r.dataset.ticks), origin: Number(r.dataset.origin), pxPerUnit: Number(r.dataset.pxPerUnit), from: Number(r.dataset.from), to: Number(r.dataset.to) })), scaleBar: (() => { const b = rulers.querySelector('.dicom-scalebar'); if (!b) return null; const r = b.getBoundingClientRect(); return { length: Number(b.dataset.length), pixels: Number(b.dataset.pixels), x: r.left, y: r.top }; })() } : null),
     testing: { setTool, setFrame, startCine, stopCine, tagsDialog, saveFrame, saveCine, actualSize, exportFrames, exportDialog, exportTags, tagsText, undoMeasure, redoMeasure, deleteLastMeasure, frameDelay: (f) => frameDelay(f), setCineMode: (m) => { cineMode = m; cineDirection = 1; } },
   };
 }
