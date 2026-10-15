@@ -291,7 +291,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   min-width: 0;
   overflow: hidden;
 }
-.scene-city { min-height: calc(30px * 1.2 * var(--scene-scale)); font-size: calc(30px * var(--scene-scale)); font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.5px; }
+.scene-city { min-height: calc(44px * 1.2 * var(--scene-scale)); font-size: calc(44px * var(--scene-scale)); font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.5px; }
 .scene-date { min-height: calc(16px * 1.2 * var(--scene-scale)); font-size: calc(16px * var(--scene-scale)); color: var(--muted); font-weight: 650; line-height: 1.2; white-space: nowrap; }
 .scene-temp { min-height: calc(68px * var(--scene-scale)); font-size: calc(68px * var(--scene-scale)); font-weight: 720; line-height: 1; letter-spacing: -1px; white-space: nowrap; }
 .scene-cond, .scene-range { min-height: calc(16px * 1.2 * var(--scene-scale)); font-size: calc(16px * var(--scene-scale)); color: var(--muted); line-height: 1.2; white-space: nowrap; }

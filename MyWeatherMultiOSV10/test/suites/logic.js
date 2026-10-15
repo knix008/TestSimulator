@@ -13,7 +13,7 @@ import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { MARGINS, PAPERS, PRINT_RANGES, SCALES, buildPrintModel, normalizeRanges, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, sanitizeCities, sanitizeSettings, samePlace } from "../../src/core/settings.js";
+import { DEFAULT_LOCATION, MAX_CITIES, ROTATE_SECONDS, moveCityToWindow, sanitizeCities, sanitizeSettings, samePlace } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
 import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
@@ -123,6 +123,16 @@ export function registerLogic(h) {
     assert.equal(samePlace(busan, paris), false);
     const searched = sanitizeSettings({ extraCities: [{ countryCode: "ZZ", cityEn: "Nowhere", lat: 1, lon: 2 }, { cityEn: "" }] });
     assert.deepEqual(searched.extraCities.map((place) => place.cityEn), ["Nowhere"]);
+    const moved = moveCityToWindow([{ key: "win-a", cities: [busan, paris] }], {
+      cities: [paris],
+      windowKey: "win-b",
+      sourceKey: "win-a",
+      moved: paris,
+    });
+    assert.deepEqual(moved.map((entry) => entry.key), ["win-a", "win-b"]);
+    assert.deepEqual(moved[0].cities.map((place) => place.cityEn), ["Busan"]);
+    assert.deepEqual(moved[1].cities.map((place) => place.cityEn), ["Paris"]);
+    assert.deepEqual(sanitizeSettings({ extraWindows: moved }).extraWindows[1].cities[0].cityEn, "Paris");
   });
   h.test("a document opens one tab per stored city", () => {
     const one = createDocument(DEFAULT_LOCATION);
@@ -935,6 +945,8 @@ export function registerLogic(h) {
     assert.match(main, /function hideMainWindow\(\)[\s\S]*?mainWindow\.hide\(\)/);
     assert.match(main, /if \(!isPrimary\(win\)\)[\s\S]*?event\.preventDefault\(\);\n    hideMainWindow\(\);/);
     assert.match(main, /ipcMain\.handle\("new-window"/);
+    assert.match(main, /moveCityToWindow/);
+    assert.match(main, /extraWindows/);
     assert.match(main, /windowBoot\.set\([\s\S]{0,80}primary: first/);
     // A destroyed window cannot be asked for its webContents, so closed handlers use a saved id.
     const closedHandlers = main.split('on("closed"').slice(1).map((part) => part.slice(0, part.indexOf("});")));

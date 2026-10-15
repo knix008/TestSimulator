@@ -176,6 +176,36 @@ export function buildProgressSpec(title, t) {
   };
 }
 
+export function buildDetachSpec(cities, language, t) {
+  const list = Array.isArray(cities) ? cities : [];
+  const rows = [
+    { kind: "note", id: "hint", i18n: "detach.hint", label: t("detach.hint") },
+    ...list.map((place, index) => ({
+      kind: "action",
+      id: `detach-${index}`,
+      action: "detach-city",
+      index,
+      wide: true,
+      icon: "window",
+      label: cityName(place, language),
+      title: t("tip.detachCity"),
+      titleKey: "tip.detachCity",
+    })),
+  ];
+  return {
+    type: "detach",
+    icon: "window",
+    title: t("popup.detach"),
+    titleKey: "popup.detach",
+    width: 420,
+    height: 44 + 16 + 48 + list.length * 32 + 48,
+    resizable: false,
+    scroll: "none",
+    rows,
+    buttons: [{ id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel"), i18n: "btn.cancel" }],
+  };
+}
+
 export function buildOfflineSpec(t) {
   return {
     type: "offline",
@@ -890,6 +920,10 @@ export function wirePopup(el, spec, handlers = {}) {
       finish({ action: "ok", values: collectValues(el) });
       return;
     }
+    if (action === "detach-city") {
+      finish({ action: "detach", index: Number(event.target.closest("[data-index]")?.dataset.index) });
+      return;
+    }
     if (action === "cancel" && spec.type === "progress") {
       void handlers.immediate?.({ type: "progress-cancel", popupId: spec.popupId });
     }
@@ -1601,6 +1635,9 @@ function renderRow(row) {
       )
       .join("");
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><div class="row-actions">${buttons}</div></div>`;
+  }
+  if (row.kind === "action" && row.wide) {
+    return `<div class="popup-row" data-row="${esc(row.id)}" style="${ROW};padding:0"><button type="button" data-action="${esc(row.action)}" data-index="${Number(row.index)}" data-gui="popup-button" title="${esc(row.title || row.label)}"${titleOnly(row.titleKey)} style="display:flex;align-items:center;gap:8px;width:100%;height:32px;white-space:nowrap">${icon(row.icon || "window")}<span class="menu-label">${esc(row.label)}</span></button></div>`;
   }
   if (row.kind === "action") {
     return `<div class="popup-row" data-row="${esc(row.id)}"${style}><span></span><button type="button" data-action="${esc(row.action)}" data-gui="popup-button" title="${esc(row.label)}"${titleOnly(row.i18n)} style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap">${icon(row.icon || "dot")}<span class="menu-label"${textOnly(row.i18n)}>${esc(row.label)}</span></button></div>`;

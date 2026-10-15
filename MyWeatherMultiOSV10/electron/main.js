@@ -9,7 +9,7 @@ import { createI18n } from "../src/core/i18n.js";
 import { menuWindowOptions, popupWindowOptions } from "../src/ui/menu-layout.js";
 import { themeColors, themeVars, DEFAULT_THEME_ID } from "../src/core/themes.js";
 import { buildTrayMenu, placeTrayMenu, trayIconFile, trayMenuSize } from "../src/ui/tray-menu.js";
-import { sanitizeSettings } from "../src/core/settings.js";
+import { moveCityToWindow, sanitizeSettings } from "../src/core/settings.js";
 import { WINDOW_DEFAULT, WINDOW_MIN, placeWindow, recordedWindowPlacement, stampWindowPlacement, windowIsVisible } from "../src/ui/window-spec.js";
 import { PopupHub } from "./popup-hub.js";
 
@@ -253,7 +253,12 @@ function createMainWindow(boot = {}) {
   weatherWindows.add(win);
   if (first) mainWindow = win;
   const contentsId = win.webContents.id;
-  windowBoot.set(contentsId, { cityIndex: Number(boot.cityIndex) || 0, primary: first });
+  windowBoot.set(contentsId, {
+    cityIndex: Number(boot.cityIndex) || 0,
+    primary: first,
+    cities: Array.isArray(boot.cities) ? boot.cities : null,
+    windowKey: boot.windowKey ? String(boot.windowKey) : "",
+  });
   win.loadFile(path.join(__dirname, "../src/index.html"));
   if (first) holdSavedBounds(win, placement);
   const keepOffTaskbar = () => hideFromTaskbar(win);
@@ -675,6 +680,9 @@ app.whenReady().then(() => {
   applyOpenAtLogin(sanitizeSettings(readJson(settingsFile())).openAtLogin);
   createTray();
   createMainWindow();
+  for (const entry of sanitizeSettings(readJson(settingsFile()) || {}).extraWindows) {
+    createMainWindow({ cities: entry.cities, windowKey: entry.key });
+  }
   app.on("activate", () => {
     if (weatherWindows.size === 0) createMainWindow();
   });
@@ -803,6 +811,8 @@ ipcMain.handle("write-settings", (event, data) => {
   if (!isPrimary(weatherWindowOf(event.sender)) && Array.isArray(stored.cities) && stored.cities.length) {
     incoming.cities = stored.cities;
   }
+  // Moved cities are recorded by new-window, so a later save cannot drop those windows.
+  if (Array.isArray(stored.extraWindows)) incoming.extraWindows = stored.extraWindows;
   const placement = currentPlacement();
   if (placement) {
     writeSettingsFile(stampWindowPlacement(incoming, placement));
@@ -911,10 +921,24 @@ ipcMain.handle("window-control", (event, action) => {
   sendWindowState(win);
 });
 
-/** A second weather window opens on the next city in the list. */
+/** A chosen city leaves its window and opens alone in a new one. */
 ipcMain.handle("new-window", (_event, options = {}) => {
-  const win = createMainWindow({ cityIndex: Number(options.cityIndex) || 0 });
-  return Boolean(win);
+  const cities = Array.isArray(options.cities) ? options.cities : [];
+  if (!cities.length) {
+    createMainWindow({ cityIndex: Number(options.cityIndex) || 0 });
+    return true;
+  }
+  const windowKey = String(options.windowKey || `win-${Date.now().toString(36)}`);
+  const stored = readJson(settingsFile()) || {};
+  stored.extraWindows = moveCityToWindow(stored.extraWindows, {
+    cities,
+    windowKey,
+    sourceKey: options.sourceKey || "",
+    moved: options.moved || null,
+  });
+  writeSettingsFile(stored);
+  createMainWindow({ cities, windowKey });
+  return true;
 });
 
 ipcMain.handle("window-boot", (event) => windowBoot.get(event.sender.id) || null);
