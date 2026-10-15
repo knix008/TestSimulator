@@ -493,7 +493,7 @@ function extraClockBounds(config) {
   });
 }
 
-function openExtraClock(config) {
+function openExtraClock(config, opts = {}) {
   const existing = extraClockWins.get(config.id);
   if (existing && !existing.isDestroyed()) {
     if (isFullscreenClockOpen()) {
@@ -503,8 +503,9 @@ function openExtraClock(config) {
       }
       return existing;
     }
-    existing.show();
-    existing.focus();
+    if (existing.isMinimized()) existing.restore();
+    if (!existing.isVisible()) existing.show();
+    if (opts.focus) existing.focus();
     return existing;
   }
 
@@ -565,28 +566,41 @@ function openExtraClock(config) {
   return win;
 }
 
+/** 아직 파일에 쓰지 않은 추가 시계 위치. 종료 직전에 남김없이 저장한다. */
+/** @type {Map<string, Electron.Rectangle>} */ const extraClockPendingBounds = new Map();
+
 /** 창을 끌어 옮기는 동안 설정 파일을 매번 쓰지 않도록 몰아서 저장한다. */
 function scheduleExtraClockSave(id, bounds) {
+  extraClockPendingBounds.set(id, bounds);
   const pending = extraClockSaveTimers.get(id);
   if (pending) clearTimeout(pending);
   extraClockSaveTimers.set(
     id,
     setTimeout(() => {
       extraClockSaveTimers.delete(id);
-      const list = extraClocks().map((clock) =>
-        clock.id === id
-          ? {
-              ...clock,
-              windowLeft: bounds.x,
-              windowTop: bounds.y,
-              windowWidth: bounds.width,
-              windowHeight: bounds.height
-            }
-          : clock
-      );
-      store.saveSettings({ extraClocks: list });
+      flushExtraClockSaves();
     }, 400)
   );
+}
+
+function flushExtraClockSaves() {
+  for (const timer of extraClockSaveTimers.values()) clearTimeout(timer);
+  extraClockSaveTimers.clear();
+  if (!extraClockPendingBounds.size) return;
+  const pending = new Map(extraClockPendingBounds);
+  extraClockPendingBounds.clear();
+  const list = extraClocks().map((clock) => {
+    const bounds = pending.get(clock.id);
+    if (!bounds) return clock;
+    return {
+      ...clock,
+      windowLeft: bounds.x,
+      windowTop: bounds.y,
+      windowWidth: bounds.width,
+      windowHeight: bounds.height
+    };
+  });
+  store.saveSettings({ extraClocks: list });
 }
 
 /** 세계 시간 목록에서 고른 도시로 시계를 하나 더 만든다. */
@@ -612,7 +626,7 @@ function addExtraClock(city) {
   if (!config) return null;
 
   saveExtraClocks([...settings.extraClocks, config]);
-  openExtraClock(config);
+  openExtraClock(config, { focus: true });
   return config;
 }
 
@@ -646,6 +660,7 @@ function removeExtraClock(id) {
     clearTimeout(pending);
     extraClockSaveTimers.delete(id);
   }
+  extraClockPendingBounds.delete(id);
   saveExtraClocks(extraClocks().filter((clock) => clock.id !== id));
 }
 
@@ -711,8 +726,24 @@ function closeClockSettings(id) {
   clockSettingsWins.delete(id);
 }
 
+/**
+ * 저장해 둔 추가 시계를 모두 연다.
+ * 다시 시작하면 닫아 두지 않은 시계가 하나도 빠지지 않아야 한다.
+ * 시계 하나를 열다 실패해도 나머지는 계속 연다.
+ */
+function presentSavedExtraClocks() {
+  if (isQuitting || isFullscreenClockOpen()) return;
+  for (const config of extraClocks()) {
+    try {
+      openExtraClock(config);
+    } catch (err) {
+      console.error(`[${APP_NAME}] 추가 시계를 열지 못했습니다: ${config.city || config.zone}`, err);
+    }
+  }
+}
+
 function openSavedExtraClocks() {
-  for (const config of extraClocks()) openExtraClock(config);
+  presentSavedExtraClocks();
 }
 
 // ── 분리한 탭 창 ────────────────────────────────────────────────────────
@@ -1184,6 +1215,7 @@ function showClocksAfterFullscreen() {
   const ids = new Set(clocksHiddenForFullscreen);
   clocksHiddenForFullscreen.clear();
   if (hiddenByUser) return;
+  presentSavedExtraClocks();
   for (const win of [clockWin, ...extraClockWins.values()]) {
     if (!win || win.isDestroyed() || !ids.has(win.id)) continue;
     if (win.isMinimized()) win.restore();
@@ -1740,6 +1772,7 @@ function refreshLayeredWindow(win, hard) {
 /** 사용자가 숨기지 않은 시계를 작업 영역 안으로 끌어와 보이게 한다. */
 function ensureClocksShown() {
   if (hiddenByUser || isFullscreenClockOpen() || !hasUsableDisplays()) return;
+  presentSavedExtraClocks();
   if (!clockWin || clockWin.isDestroyed()) return;
   if (pageReady(clockWin)) {
     if (clockWin.isMinimized()) clockWin.restore();
@@ -1779,8 +1812,16 @@ function refreshVisibleClockSurfaces(hard) {
     return;
   }
   if (!hiddenByUser) ensureClocksShown();
+  const reopen = [];
   for (const win of [clockWin, ...extraClockWins.values()]) {
+    if (win && !win.isDestroyed() && win.isVisible() && !win.isMinimized()) reopen.push(win);
     refreshLayeredWindow(win, hard);
+  }
+  // 표면을 다시 붙이다가 숨기기만 하고 끝나지 않게, 보이던 시계는 다시 연다.
+  for (const win of reopen) {
+    if (!win || win.isDestroyed() || win.isVisible()) continue;
+    if (win.isMinimized()) win.restore();
+    win.show();
   }
 }
 
@@ -2201,8 +2242,15 @@ function registerIpc() {
   });
   /** 시계 창이 "나는 어느 시계인가"를 물어본다. */
   ipcMain.handle('clock:self', (e) => {
-    const win = senderWindow(e);
-    const id = win ? clockIdByWindow.get(win.id) : null;
+    const win = BrowserWindow.fromWebContents(e.sender);
+    let id = win ? clockIdByWindow.get(win.id) : null;
+    if (!id) {
+      try {
+        id = new URL(e.sender.getURL()).searchParams.get('id');
+      } catch {
+        id = null;
+      }
+    }
     return id ? extraClockConfig(id) : null;
   });
   /** 시계 창의 ⚙ — 그 시계만의 설정 창을 연다. */
@@ -2266,6 +2314,7 @@ app.on('before-quit', () => {
   if (recoverTimer) clearTimeout(recoverTimer);
   if (recoverSettleTimer) clearTimeout(recoverSettleTimer);
   clearSurfaceTimers();
+  flushExtraClockSaves();
   if (persistPlacementTimer) {
     clearTimeout(persistPlacementTimer);
     persistPlacementTimer = null;

@@ -579,6 +579,20 @@ test('끌기는 놓쳐도 저절로 끝난다 (창이 커서에 붙어 다니지
   }
 });
 
+test('다시 시작하면 저장해 둔 추가 시계를 모두 연다', () => {
+  const main = readSource('electron/main.js');
+  assert.match(main, /function presentSavedExtraClocks/);
+  assert.match(main, /function openSavedExtraClocks\(\) \{\s*presentSavedExtraClocks\(\);/);
+  assert.match(main, /openSavedExtraClocks\(\);/);
+  // 화면이 돌아와도 목록에 있는 시계가 빠지지 않는다.
+  assert.match(main, /function ensureClocksShown\(\) \{[\s\S]{0,240}presentSavedExtraClocks\(\)/);
+  // 위치를 옮기다 끝내도 시계 목록이 지워지지 않게 종료 전에 저장한다.
+  assert.match(main, /function flushExtraClockSaves/);
+  assert.match(main, /before-quit[\s\S]{0,400}flushExtraClockSaves\(\)/);
+  // 창이 자기 id 를 못 찾아도 주소의 id 로 어느 시계인지 안다.
+  assert.match(main, /searchParams\.get\('id'\)/);
+});
+
 test('시계는 부팅·화면 전환·프레젠테이션 뒤에도 다시 그려진다', () => {
   const main = readSource('electron/main.js');
   const preload = readSource('electron/preload.js');
