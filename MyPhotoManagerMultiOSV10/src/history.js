@@ -33,7 +33,9 @@ async function run(from, to, how) {
   if (busy || !from.length) return null;
   const step = from.pop();
   busy = true;
-  notify();
+  // Rebuilding the toolbar now would remove the button whose click is still
+  // running, which can crash the webview. Update it after this event.
+  setTimeout(notify, 0);
   try {
     await step[how]();
     to.push(step);

@@ -2,14 +2,14 @@
 // information and histogram overlays, rating / label / tag, rotate, delete,
 // full screen. Formats the engine shows natively use <img> (animated GIF/WebP
 // play); TIFF, HEIC, PSD and RAW are decoded to a canvas; videos play.
-import { LABEL_COLORS } from '../catalog/catalog.js';
+import { LABEL_COLORS, parentOf } from '../catalog/catalog.js';
 import { decodeImage } from '../formats/decode.js';
 import { formatExposure } from '../formats/exif.js';
 import { badgeOf, kindOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { setFullscreen } from '../platform/native.js';
-import { app, deleteItems, selectItem, setMode, viewableList } from '../store.js';
+import { app, deleteItems, openFolder, selectItem, setMode, viewableList } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
 import { statusProgress } from './dialog.js';
@@ -720,9 +720,26 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
 
   // ───────── filmstrip, overlays, status
 
+  /** Parent folder and the sub-folders of the folder being viewed, so the strip can move up and down. */
+  function stripFolders() {
+    if (app.state.source?.type !== 'folder') return [];
+    const parent = parentOf(app.state.source.path);
+    const up = parent && parent !== app.state.source.path ? [{ path: parent, name: t('nav.up'), up: true }] : [];
+    const dirs = app.state.list.filter((item) => item.isDir).map((item) => ({ path: item.path, name: item.name, up: false }));
+    return [...up, ...dirs];
+  }
+
+  function folderCell(entry) {
+    const cell = h('button.strip-cell.strip-folder', { type: 'button', title: entry.up ? t('nav.up') : entry.name, dataset: { folder: entry.path } });
+    cell.append(h('span.strip-folder-icon', { html: icon(entry.up ? 'up' : 'folder') }), h('span.strip-folder-name', entry.name));
+    cell.addEventListener('click', () => enterFolder(entry.path));
+    return cell;
+  }
+
   function renderStrip() {
     clear(strip);
     if (!settings().filmstrip) return;
+    for (const entry of stripFolders()) strip.append(folderCell(entry));
     list.forEach((item, i) => {
       const cell = h('button.strip-cell', { type: 'button', title: item.name, dataset: { index: String(i) } });
       const thumb = thumbs.peek(item);
@@ -734,11 +751,29 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     markStrip();
   }
 
+  function showEmptyFolder() {
+    token += 1;
+    dicom.detach();
+    clear(holder);
+    current = null;
+    spinner.hidden = true;
+    const name = app.state.source?.path?.split(/[\\/]/).filter(Boolean).pop() ?? '';
+    holder.append(h('div.viewer-error', h('span', { html: icon('folder') }), h('div', name), h('div', t('list.empty'))));
+    renderStrip();
+    renderStatus();
+    renderRating();
+  }
+
+  /** Opens a folder from the strip. The picture and the strip follow once that folder is listed. */
+  function enterFolder(path) {
+    openFolder(path);
+  }
+
   function markStrip() {
-    for (const cell of strip.children) cell.classList.toggle('current', Number(cell.dataset.index) === index);
-    stripPrev.disabled = index <= 0;
-    stripNext.disabled = index >= list.length - 1;
-    strip.children[index]?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    for (const cell of strip.children) cell.classList.toggle('current', cell.dataset.index != null && Number(cell.dataset.index) === index);
+    stripPrev.disabled = !list.length || index <= 0;
+    stripNext.disabled = !list.length || index >= list.length - 1;
+    strip.querySelector(`.strip-cell[data-index="${index}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
   function infoTable(rows) {
@@ -824,7 +859,10 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     const value = toolbar.querySelector('.zoom-value');
     if (value) value.textContent = zoomText();
     clear(status);
-    if (!current?.item) return;
+    if (!current?.item) {
+      if (app.state.source?.type === 'folder') status.append(h('span.status-name', app.state.source.path.split(/[\\/]/).filter(Boolean).pop() ?? ''), h('span', t('list.empty')));
+      return;
+    }
     const scale = fit ? fitScale() : zoom;
     status.append(
       h('span', `${index + 1} / ${list.length}`),
@@ -892,6 +930,17 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     return true;
   }
 
+  app.on('items', () => {
+    if (app.state.mode !== 'view' || !stage.isConnected) return;
+    const images = viewableList();
+    const keep = current?.item ? images.findIndex((item) => item.path === current.item.path) : -1;
+    list = images;
+    if (keep >= 0) { index = keep; renderStrip(); return; }
+    index = 0;
+    page = 0;
+    if (images.length) { renderStrip(); show(); }
+    else showEmptyFolder();
+  });
   app.on('catalog', (change) => { if (app.state.mode === 'view' && current && (!change?.paths || change.paths.includes(current.item.path))) { renderRating(); updateOverlays(); renderFaces(); } });
 
   /** Called after the current file changed on disk (rotate, edit). */

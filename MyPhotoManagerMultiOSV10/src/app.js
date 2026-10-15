@@ -1066,7 +1066,8 @@ function renderAll() {
 }
 
 app.on('source', () => {
-  if (!keepStart && (app.state.mode === 'dashboard' || app.state.mode === 'view' || app.state.mode === 'start')) setMode('manage');
+  // Stay in the viewer when the filmstrip opens another folder. Dashboard and the start page still return to the file list.
+  if (!keepStart && (app.state.mode === 'dashboard' || app.state.mode === 'start')) setMode('manage');
   renderWelcome();
   renderToolbar();
   renderStatus();

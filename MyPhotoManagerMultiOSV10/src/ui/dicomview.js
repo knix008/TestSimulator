@@ -166,7 +166,7 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     clear(rulers);
     crosshair.style.display = 'none';
     pending = null;
-    stage.classList.remove('dicom-tool', 'dicom-has-rulers', 'dicom-view');
+    stage.classList.remove('dicom-tool', 'dicom-draw', 'dicom-has-rulers', 'dicom-view');
   }
 
   /** The measurement layer follows the picture's transform (set by the viewer). */
@@ -269,11 +269,15 @@ export function createDicomTools({ stage, imagePoint, scaleOf, zoomTo, zoomStep,
     if (controls.scale) controls.scale.textContent = scaleText();
   }
 
+  const DRAW_TOOLS = new Set(['distance', 'angle', 'cobb', 'rect', 'ellipse']);
+
   function setTool(next) {
     tool = next;
     cancelPending();
     drawMeasures();
     stage.classList.toggle('dicom-tool', tool !== 'pan');
+    // Length, angle and the other drawing tools use a plus pointer on the picture itself.
+    stage.classList.toggle('dicom-draw', DRAW_TOOLS.has(tool));
     for (const button of bar.querySelectorAll('[data-dicom-tool]')) button.classList.toggle('on', button.dataset.dicomTool === tool);
   }
 
