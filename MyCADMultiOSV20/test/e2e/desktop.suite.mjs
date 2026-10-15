@@ -3541,9 +3541,14 @@ export const cases = [
     await m(app, `(k.actions.change('op.circle', (d) => k.drawingModule.addEntity(d, 'circle', { cx: 0, cy: 0, r: 4 })), k.actions.activeDoc().path = ${JSON.stringify(file)}, 1)`);
     await m(app, 'k.actions.saveDoc(k.actions.activeDoc())');
     await m(app, `(k.actions.updateSettings({ theme: 'nord', gridSize: 5 }), 1)`);
-    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_position', { label: 'main', value: { Logical: { x: 120, y: 90 } } }).then(() => 1)`);
+    // Out of the minimized state first (something else on the desktop may have minimized it: Windows then reports -32000).
+    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|unminimize', { label: 'main' }).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_position', { label: 'main', value: { Logical: { x: 120, y: 90 } } })).then(() => 1)`);
     await sleep(900);
-    const place = app.windowInfo().find((w) => w.owner === 0 && w.title === TITLE);
+    let place = null;
+    for (let i = 0; i < 20 && !(place && place.left > -30000); i++) {
+      if (place) await sleep(150);
+      place = app.windowInfo().find((w) => w.owner === 0 && w.title === TITLE);
+    }
     await app.quit();
     await app.launch();
     const s = await m(app, 'k.state.settings');
