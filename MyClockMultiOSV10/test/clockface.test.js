@@ -161,6 +161,20 @@ test('도트 매트릭스 — 글자 폭과 점 찍기', () => {
   }
 });
 
+test('캔버스 컨텍스트가 없어도 그리기가 예외로 멈추지 않는다', () => {
+  const restore = installDom();
+  try {
+    const canvas = fakeCanvas(300, 300);
+    canvas.getContext = () => null;
+    assert.doesNotThrow(() => drawAnalogClock(canvas, AT, 'Classic', COLORS));
+    assert.doesNotThrow(() => drawMiniAnalogClock(canvas, AT, COLORS));
+    assert.doesNotThrow(() => drawSevenSegment(canvas, '10:08:42', '#58A6FF'));
+    assert.doesNotThrow(() => drawDotMatrix(canvas, '10:08:42', '#A6E3A1'));
+  } finally {
+    restore();
+  }
+});
+
 test('디지털 스타일 10가지 — 캔버스로 그릴 것과 글꼴로 그릴 것이 갈린다', () => {
   assert.equal(DIGITAL_STYLES.length, 10);
   assert.equal(usesCanvasDigital('SevenSegment'), true);

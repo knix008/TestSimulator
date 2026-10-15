@@ -81,7 +81,11 @@ async function openZoneClockWindow(options = {}) {
       gestureEnd: () => {},
       closeSelf: () => {
         log.closed += 1;
-      }
+      },
+      onSurfaceRefresh: (fn) => {
+        handlers.surface = fn;
+      },
+      requestSurfaceRefresh: () => {}
     },
     tools: {
       open: (tab) => log.toolsOpened.push(tab)

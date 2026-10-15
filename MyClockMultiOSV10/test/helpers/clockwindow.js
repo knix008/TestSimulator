@@ -255,6 +255,12 @@ async function openClockWindow(options = {}) {
       gestureEnd: () => {},
       onBounds: (fn) => {
         handlers.bounds = fn;
+      },
+      onSurfaceRefresh: (fn) => {
+        handlers.surface = fn;
+      },
+      requestSurfaceRefresh: () => {
+        log.surfaceRequests = (log.surfaceRequests || 0) + 1;
       }
     },
     tray: {

@@ -222,7 +222,7 @@ test('패널이 어느 탭으로 열릴지 메인 프로세스가 적어 둔다'
 
 test('렌더러가 쓰는 preload API 가 모두 열려 있다', () => {
   const preload = readSource('electron/preload.js');
-  for (const file of ['src/js/clock.js', 'src/js/panel.js', 'src/js/menu.js', 'src/js/fullscreen.js', 'src/js/alarm.js']) {
+  for (const file of ['src/js/clock.js', 'src/js/panel.js', 'src/js/menu.js', 'src/js/fullscreen.js', 'src/js/alarm.js', 'src/js/surface.js']) {
     const text = readSource(file);
     const used = new Set([...text.matchAll(/\bapi\.([a-zA-Z]+)\.([a-zA-Z]+)\(/g)].map((m) => `${m[1]}.${m[2]}`));
     for (const call of used) {
@@ -576,6 +576,31 @@ test('끌기는 놓쳐도 저절로 끝난다 (창이 커서에 붙어 다니지
     assert.match(source, /if \(event\.buttons === 0\) endGesture\(\)/, `${file}: 버튼을 뗀 이동을 보지 않는다`);
     assert.match(source, /window\.addEventListener\('mouseup', endGesture\)/, `${file}: mouseup 안전장치가 없다`);
     assert.match(source, /window\.addEventListener\('blur', endGesture\)/, `${file}: blur 안전장치가 없다`);
+  }
+});
+
+test('시계는 부팅·화면 전환·프레젠테이션 뒤에도 다시 그려진다', () => {
+  const main = readSource('electron/main.js');
+  const preload = readSource('electron/preload.js');
+
+  assert.match(main, /CalculateNativeWinOcclusion/, '가려진 시계가 프레임을 버리지 않아야 한다');
+  assert.match(main, /function refreshLayeredWindow/);
+  assert.match(main, /function refreshVisibleClockSurfaces/);
+  assert.match(main, /function ensureClocksShown/);
+  assert.match(main, /function armBootSurfaceRefresh/);
+  assert.match(main, /display-metrics-changed'[\s\S]{0,80}remount:\s*true/);
+  assert.match(main, /display-removed'[\s\S]{0,80}remount:\s*true/);
+  assert.match(main, /user-did-become-active/);
+  assert.match(main, /details\.type !== 'GPU'/);
+  assert.match(main, /function showClocksAfterFullscreen[\s\S]{0,700}refreshLayeredWindow/);
+  assert.match(main, /ipcMain\.on\('surface:request-refresh'/);
+  assert.match(main, /\.send\('surface:refresh'/);
+  assert.match(preload, /onSurfaceRefresh:/);
+  assert.match(preload, /requestSurfaceRefresh:/);
+  assert.match(readSource('src/js/surface.js'), /contextlost/);
+  assert.match(readSource('src/js/surface.js'), /visibilitychange/);
+  for (const html of ['src/index.html', 'src/zoneclock.html', 'src/fullscreen.html']) {
+    assert.ok(readSource(html).includes('src="js/surface.js"'), `${html} 가 표면 복구를 읽지 않는다`);
   }
 });
 

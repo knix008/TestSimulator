@@ -122,6 +122,7 @@ api.settings.load().then((loaded) => {
   applySettings(loaded);
   tick();
   window.setInterval(tick, 200);
+  watchClockSurface(tick);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFit);
   else scheduleFit();
 });

@@ -146,6 +146,18 @@ function dotMatrixWidth(text) {
 
 // ── 공용 진입점 ─────────────────────────────────────────────────────────
 
+/** GPU 가 컨텍스트를 잃으면 한 번 비워 다시 받는다. 못 받으면 이번 프레임은 건너뛴다. */
+function liveContext(canvas) {
+  let ctx = canvas.getContext('2d');
+  if (ctx && typeof ctx.isContextLost === 'function' && ctx.isContextLost()) {
+    const width = canvas.width;
+    canvas.width = width > 0 ? width : 1;
+    ctx = canvas.getContext('2d');
+  }
+  if (!ctx || (typeof ctx.isContextLost === 'function' && ctx.isContextLost())) return null;
+  return ctx;
+}
+
 /** 캔버스를 실제 픽셀 해상도에 맞추고 디자인 좌표계를 중앙 정렬로 세운다. */
 function prepareCanvas(canvas, designW, designH) {
   const dpr = window.devicePixelRatio || 1;
@@ -158,7 +170,8 @@ function prepareCanvas(canvas, designW, designH) {
   if (canvas.width !== pixelW) canvas.width = pixelW;
   if (canvas.height !== pixelH) canvas.height = pixelH;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = liveContext(canvas);
+  if (!ctx) return null;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 

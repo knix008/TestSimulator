@@ -34,7 +34,11 @@ const api = {
     setMinSize: (size) => ipcRenderer.send('window:set-min-size', size),
     setSize: (size) => ipcRenderer.send('window:set-size', size),
     closeSelf: () => ipcRenderer.send('window:close-self'),
-    onBounds: (fn) => ipcRenderer.on('clock:bounds', (_e, bounds) => fn(bounds))
+    onBounds: (fn) => ipcRenderer.on('clock:bounds', (_e, bounds) => fn(bounds)),
+    /** 투명 층이 다시 붙었을 때 시계를 다시 그린다. */
+    onSurfaceRefresh: (fn) => ipcRenderer.on('surface:refresh', () => fn()),
+    /** 창이 다시 보이면 메인 프로세스에 표면을 다시 붙여 달라고 한다. */
+    requestSurfaceRefresh: () => ipcRenderer.send('surface:request-refresh')
   },
 
   panel: {

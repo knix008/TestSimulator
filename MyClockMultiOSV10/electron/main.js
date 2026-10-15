@@ -54,6 +54,12 @@ const ANALOG_MIN_HEIGHT = 150;
 app.setName(APP_NAME);
 if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
+// 다른 창에 가려졌다고 프레임을 버리면, 프레젠테이션·전체 화면 앱 뒤에서
+// 투명 시계가 흰 사각형으로 돌아온다. 시계는 작으니 가려져도 계속 그린다.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
+
 // WPF 판(MyClockWinV10)이 쓰는 폴더와 겹치지 않도록 별도 폴더를 쓴다.
 // 겹쳐 쓰면 두 앱이 서로의 settings.json 을 덮어쓴다.
 app.setPath('userData', path.join(app.getPath('appData'), 'MyClockMultiOS'));
@@ -116,7 +122,14 @@ let lastDisplayChangeAt = 0;
 let displayRecovering = false;
 /** @type {NodeJS.Timeout | null} */ let recoverTimer = null;
 /** @type {NodeJS.Timeout | null} */ let recoverSettleTimer = null;
-let pendingRecover = { remount: false, forceShow: false };
+/** @type {NodeJS.Timeout | null} */ let surfaceTimer = null;
+/** @type {NodeJS.Timeout[]} */ let surfaceTimers = [];
+let pendingRecover = { remount: false, forceShow: false, repaint: false };
+let surfaceHard = false;
+let refreshingSurface = false;
+let bootSurfaceArmed = false;
+let lastHardRefreshAt = 0;
+let lastResignAt = 0;
 
 /** @type {{ displayId: number, rx: number, ry: number, width: number, height: number } | null} */
 let clockPlacement = null;
@@ -386,6 +399,7 @@ function createClockWindow() {
     hiddenByUser = false;
     clockWin.show();
     raiseHighestClocks();
+    armBootSurfaceRefresh();
   });
 
   clockWin.on('move', onClockGeometryChanged);
@@ -406,12 +420,14 @@ function createClockWindow() {
     setTimeout(() => {
       if (!clockWin || clockWin.isDestroyed() || isQuitting) return;
       if (displayRecovering || Date.now() - lastDisplayChangeAt < 2500) {
-        recoverClockOnScreen();
+        recoverClockOnScreen({ remount: true });
         return;
       }
       hideToTray();
     }, 200);
   });
+
+  bindRendererRecovery(clockWin);
 
   clockWin.on('close', (event) => {
     if (isQuitting) return;
@@ -422,14 +438,10 @@ function createClockWindow() {
   clockWin.on('closed', () => {
     clockWin = null;
   });
-
-  clockWin.webContents.on('render-process-gone', (_e, details) => {
-    if (isQuitting || !details || details.reason === 'clean-exit') return;
-    clockWin.webContents.reload();
-  });
 }
 
 function onClockGeometryChanged() {
+  if (refreshingSurface) return;
   if (!clockWin || clockWin.isDestroyed()) return;
   rememberClockPlacement();
   positionPanel();
@@ -531,10 +543,14 @@ function openExtraClock(config) {
     }
     win.show();
     raiseHighestClocks();
+    // 막 만든 투명 창도 첫 프레임이 하얄 수 있어 한 번 더 붙인다.
+    later(400, () => refreshLayeredWindow(win, true));
   });
   win.on('show', () => win.setSkipTaskbar(true));
+  bindRendererRecovery(win);
 
   const remember = () => {
+    if (refreshingSurface || applyingPlacement) return;
     if (win.isDestroyed() || win.isMinimized() || !win.isVisible()) return;
     scheduleExtraClockSave(config.id, win.getBounds());
   };
@@ -1170,7 +1186,10 @@ function showClocksAfterFullscreen() {
   if (hiddenByUser) return;
   for (const win of [clockWin, ...extraClockWins.values()]) {
     if (!win || win.isDestroyed() || !ids.has(win.id)) continue;
+    if (win.isMinimized()) win.restore();
     win.show();
+    // 숨겼다 다시 보이는 투명 창은 하얗게 남는 경우가 있다.
+    later(200, () => refreshLayeredWindow(win, true));
   }
   if (clockWin && !clockWin.isDestroyed() && ids.has(clockWin.id) && clockWin.isVisible()) {
     clockWin.focus();
@@ -1309,7 +1328,9 @@ function openFullscreenClock() {
     refreshTrayMenu();
     // 창을 보인 직후 OS 가 크기를 되돌리는 경우가 있어 한 번 더 맞춘다.
     setTimeout(() => pinFullscreen(true), 200);
+    later(400, () => refreshLayeredWindow(fullWin, true));
   });
+  bindRendererRecovery(fullWin);
   fullWin.loadFile(path.join(__dirname, '..', 'src', 'fullscreen.html'));
   fullWin.on('closed', () => {
     fullWin = null;
@@ -1587,56 +1608,213 @@ function reapplyAlwaysOnTop() {
   pinFullscreen(false);
 }
 
+function pageReady(win) {
+  try {
+    return !!win && !win.isDestroyed() && !win.webContents.isLoading();
+  } catch {
+    return false;
+  }
+}
+
+function later(ms, fn) {
+  const timer = setTimeout(() => {
+    const index = surfaceTimers.indexOf(timer);
+    if (index >= 0) surfaceTimers.splice(index, 1);
+    if (isQuitting) return;
+    fn();
+  }, ms);
+  surfaceTimers.push(timer);
+  return timer;
+}
+
+function clearSurfaceTimers() {
+  if (surfaceTimer) {
+    clearTimeout(surfaceTimer);
+    surfaceTimer = null;
+  }
+  for (const timer of surfaceTimers) clearTimeout(timer);
+  surfaceTimers = [];
+  surfaceHard = false;
+}
+
+/** 렌더러가 죽으면 다시 읽고, 읽힌 뒤에 표면을 한 번 더 붙인다. */
+function bindRendererRecovery(win) {
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (isQuitting || !details || details.reason === 'clean-exit') return;
+    if (win.isDestroyed()) return;
+    win.webContents.reload();
+    later(400, () => refreshLayeredWindow(win, true));
+  });
+}
+
 /**
- * 절전 복귀 뒤 투명 창이 isVisible 인데도 안 그려지는 경우를 위해
- * HWND 를 한 번 다시 붙인다.
+ * 로그인 직후 DWM 이 늦으면 첫 프레임이 흰 채로 굳는다.
+ * 창을 보인 뒤 몇 번에 걸쳐 표면을 다시 만든다.
  */
-function remountClockSurface() {
-  if (!clockWin || clockWin.isDestroyed()) return;
-  if (clockWin.webContents.isCrashed()) {
-    clockWin.webContents.reload();
+function armBootSurfaceRefresh() {
+  if (bootSurfaceArmed || hiddenByUser) return;
+  bootSurfaceArmed = true;
+  const delays = process.platform === 'win32' ? [600, 1800, 5000] : [600];
+  for (const delay of delays) later(delay, () => refreshVisibleClockSurfaces(true));
+}
+
+/** 설정 패널은 시계의 자식이다. 시계를 숨기기 전에 풀어 두지 않으면 같이 사라진다. */
+function detachClockChildren(win) {
+  if (win !== clockWin || !panelWin || panelWin.isDestroyed() || !panelWin.isVisible()) return [];
+  const parent = typeof panelWin.getParentWindow === 'function' ? panelWin.getParentWindow() : null;
+  if (parent !== clockWin) return [];
+  panelWin.setParentWindow(null);
+  return [panelWin];
+}
+
+function reattachClockChildren(win, children) {
+  for (const child of children) {
+    if (!child || child.isDestroyed() || !win || win.isDestroyed()) continue;
+    child.setParentWindow(win);
+    if (!child.isVisible()) child.showInactive();
   }
-  const bounds = clockWin.getBounds();
-  applyingPlacement = true;
+}
+
+/**
+ * Windows 투명 창은 부팅·절전·해상도 변경·프레젠테이션 뒤에
+ * 레이어가 흰색으로 굳는다. hard 이면 창을 떼었다 다시 붙여 표면을 만든다.
+ */
+function refreshLayeredWindow(win, hard) {
+  if (!win || win.isDestroyed() || isQuitting) return;
   try {
-    clockWin.setBounds({ ...bounds, x: bounds.x + 1, y: bounds.y });
-    clockWin.setBounds(bounds);
+    if (win.webContents.isCrashed()) {
+      win.webContents.reload();
+      return;
+    }
+  } catch {
+    return;
+  }
+  if (!pageReady(win) || !win.isVisible() || win.isMinimized()) return;
+
+  const rebuild = hard && process.platform === 'win32';
+  const children = rebuild ? detachClockChildren(win) : [];
+  refreshingSurface = true;
+  try {
+    if (rebuild) {
+      try {
+        win.setBackgroundColor('#01000000');
+      } catch {
+        /* ignore */
+      }
+      const bounds = win.getBounds();
+      applyingPlacement = true;
+      try {
+        win.setBounds({ ...bounds, x: bounds.x + 1 });
+        win.setBounds(bounds);
+      } finally {
+        applyingPlacement = false;
+      }
+      try {
+        win.setBackgroundColor('#00000000');
+      } catch {
+        /* ignore */
+      }
+      lastHardRefreshAt = Date.now();
+      win.hide();
+      if (typeof win.showInactive === 'function') win.showInactive();
+      else win.show();
+      if (!win.isVisible()) win.show();
+    }
   } finally {
-    applyingPlacement = false;
+    reattachClockChildren(win, children);
+    refreshingSurface = false;
   }
-  if (clockWin.isVisible()) clockWin.hide();
-  clockWin.show();
+
   try {
-    clockWin.webContents.invalidate();
+    win.webContents.invalidate();
   } catch {
     /* ignore */
   }
-  clockWin.webContents.send('clock:bounds', clockWin.getBounds());
+  if (!win.webContents.isDestroyed()) {
+    win.webContents.send('surface:refresh');
+    if (win === clockWin) win.webContents.send('clock:bounds', win.getBounds());
+  }
+  if (win === fullWin) pinFullscreen(true);
+}
+
+/** 사용자가 숨기지 않은 시계를 작업 영역 안으로 끌어와 보이게 한다. */
+function ensureClocksShown() {
+  if (hiddenByUser || isFullscreenClockOpen() || !hasUsableDisplays()) return;
+  if (!clockWin || clockWin.isDestroyed()) return;
+  if (pageReady(clockWin)) {
+    if (clockWin.isMinimized()) clockWin.restore();
+    if (!clockWin.isVisible()) clockWin.show();
+    ensureClockOnScreen();
+  }
+
+  for (const [id, win] of extraClockWins) {
+    if (!win || win.isDestroyed() || !pageReady(win)) continue;
+    if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
+    const next = clampToWorkArea(win.getBounds());
+    const current = win.getBounds();
+    if (
+      next.x === current.x &&
+      next.y === current.y &&
+      next.width === current.width &&
+      next.height === current.height
+    ) {
+      continue;
+    }
+    applyingPlacement = true;
+    try {
+      win.setBounds(next);
+    } finally {
+      applyingPlacement = false;
+    }
+    scheduleExtraClockSave(id, next);
+  }
+}
+
+/** 지금 화면에 있어야 하는 시계만 다시 그린다. 트레이로 숨긴 시계는 꺼내지 않는다. */
+function refreshVisibleClockSurfaces(hard) {
+  if (isQuitting || !hasUsableDisplays()) return;
+  if (isFullscreenClockOpen()) {
+    refreshLayeredWindow(fullWin, hard);
+    return;
+  }
+  if (!hiddenByUser) ensureClocksShown();
+  for (const win of [clockWin, ...extraClockWins.values()]) {
+    refreshLayeredWindow(win, hard);
+  }
+}
+
+function scheduleSurfaceRefresh(hard) {
+  if (hard) surfaceHard = true;
+  if (surfaceTimer) return;
+  surfaceTimer = setTimeout(() => {
+    surfaceTimer = null;
+    const useHard = surfaceHard;
+    surfaceHard = false;
+    if (isQuitting) return;
+    refreshVisibleClockSurfaces(useHard);
+  }, 250);
 }
 
 function recoverClockOnScreen(opts = {}) {
-  if (!clockWin || clockWin.isDestroyed() || !hasUsableDisplays()) return;
-
-  ensureClockOnScreen();
+  if (!clockWin || clockWin.isDestroyed() || isQuitting || !hasUsableDisplays()) return;
 
   if (isFullscreenClockOpen()) {
     hideClocksForFullscreen();
     pinFullscreen(true);
+    if (opts.remount) refreshLayeredWindow(fullWin, true);
+    else if (opts.repaint) refreshLayeredWindow(fullWin, false);
     return;
   }
 
-  if (hiddenByUser && !opts.forceShow) {
-    pinFullscreen(true);
-    return;
-  }
+  if (hiddenByUser && !opts.forceShow) return;
+  if (opts.forceShow) hiddenByUser = false;
 
-  if (clockWin.isMinimized()) clockWin.restore();
-
-  if (opts.remount) remountClockSurface();
-  else if (!clockWin.isVisible()) clockWin.show();
+  if (opts.remount) refreshVisibleClockSurfaces(true);
+  else if (opts.repaint) refreshVisibleClockSurfaces(false);
+  else ensureClocksShown();
 
   reapplyAlwaysOnTop();
-  pinFullscreen(true);
 }
 
 function markDisplayChange() {
@@ -1647,13 +1825,14 @@ function markDisplayChange() {
 function scheduleClockRecover(opts = {}) {
   if (opts.remount) pendingRecover.remount = true;
   if (opts.forceShow) pendingRecover.forceShow = true;
+  if (opts.repaint) pendingRecover.repaint = true;
   markDisplayChange();
   if (recoverTimer) clearTimeout(recoverTimer);
   if (recoverSettleTimer) clearTimeout(recoverSettleTimer);
   recoverTimer = setTimeout(() => {
     recoverTimer = null;
     const run = pendingRecover;
-    pendingRecover = { remount: false, forceShow: false };
+    pendingRecover = { remount: false, forceShow: false, repaint: false };
     recoverClockOnScreen(run);
     recoverSettleTimer = setTimeout(() => {
       recoverSettleTimer = null;
@@ -1672,12 +1851,26 @@ function onSystemSuspend() {
 }
 
 function registerDisplayRecovery() {
+  // 모니터를 꽂거나 빼거나, 해상도·배율이 바뀌면 옛 좌표와 흰 표면을 같이 고친다.
   screen.on('display-added', () => scheduleClockRecover({ remount: true }));
-  screen.on('display-removed', () => scheduleClockRecover());
-  screen.on('display-metrics-changed', () => scheduleClockRecover());
+  screen.on('display-removed', () => scheduleClockRecover({ remount: true }));
+  screen.on('display-metrics-changed', () => scheduleClockRecover({ remount: true }));
   powerMonitor.on('suspend', onSystemSuspend);
   powerMonitor.on('resume', () => scheduleClockRecover({ remount: true }));
   powerMonitor.on('unlock-screen', () => scheduleClockRecover({ remount: true }));
+  // 프레젠테이션·전체 화면 앱이 화면을 잡다 놓으면 시계만 하얗게 남는다.
+  powerMonitor.on('user-did-resign-active', () => {
+    lastResignAt = Date.now();
+  });
+  powerMonitor.on('user-did-become-active', () => {
+    if (!lastResignAt) return;
+    const away = Date.now() - lastResignAt;
+    scheduleSurfaceRefresh(away >= 1200);
+  });
+  app.on('child-process-gone', (_event, details) => {
+    if (isQuitting || !details || details.type !== 'GPU') return;
+    scheduleClockRecover({ remount: true });
+  });
 }
 
 function quitApp() {
@@ -1868,6 +2061,12 @@ function registerIpc() {
   ipcMain.handle('startup:set', (_e, enable) => setStartup(enable === true));
 
   ipcMain.handle('clock:get-bounds', () => (clockWin && !clockWin.isDestroyed() ? clockWin.getBounds() : null));
+
+  ipcMain.on('surface:request-refresh', () => {
+    // 방금 표면을 다시 붙이며 생긴 visibility 변화로 또 붙이지 않는다.
+    if (Date.now() - lastHardRefreshAt < 1000) return;
+    scheduleSurfaceRefresh(true);
+  });
 
   ipcMain.on('window:drag-start', (e) => startDrag(senderWindow(e)));
   ipcMain.on('window:resize-start', (e) => startResize(senderWindow(e)));
@@ -2066,6 +2265,7 @@ app.on('before-quit', () => {
   stopGesture();
   if (recoverTimer) clearTimeout(recoverTimer);
   if (recoverSettleTimer) clearTimeout(recoverSettleTimer);
+  clearSurfaceTimers();
   if (persistPlacementTimer) {
     clearTimeout(persistPlacementTimer);
     persistPlacementTimer = null;

@@ -405,6 +405,18 @@ function drawAmPmAndDate(g, date, color, label) {
  * @param {object} colors analogColorsFrom() 결과
  * @param {string} [label] 문자판 안에 적을 도시 이름 (추가 시계)
  */
+/** GPU 가 컨텍스트를 잃으면 한 번 비워 다시 받는다. 못 받으면 이번 프레임은 건너뛴다. */
+function liveContext(canvas) {
+  let ctx = canvas.getContext('2d');
+  if (ctx && typeof ctx.isContextLost === 'function' && ctx.isContextLost()) {
+    const width = canvas.width;
+    canvas.width = width > 0 ? width : 1;
+    ctx = canvas.getContext('2d');
+  }
+  if (!ctx || (typeof ctx.isContextLost === 'function' && ctx.isContextLost())) return null;
+  return ctx;
+}
+
 function drawAnalogClock(canvas, date, style, colors, label) {
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth;
@@ -416,7 +428,8 @@ function drawAnalogClock(canvas, date, style, colors, label) {
   if (canvas.width !== pixelW) canvas.width = pixelW;
   if (canvas.height !== pixelH) canvas.height = pixelH;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = liveContext(canvas);
+  if (!ctx) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, pixelW, pixelH);
 
@@ -474,7 +487,8 @@ function drawMiniAnalogClock(canvas, date, colors) {
   if (canvas.width !== pixelW) canvas.width = pixelW;
   if (canvas.height !== pixelH) canvas.height = pixelH;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = liveContext(canvas);
+  if (!ctx) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, pixelW, pixelH);
 

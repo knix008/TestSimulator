@@ -926,6 +926,9 @@ async function init() {
   redrawNow();
   window.setInterval(tick, 100);
   tick();
+  watchClockSurface(() => {
+    if (settings) redrawNow();
+  });
 }
 
 init();

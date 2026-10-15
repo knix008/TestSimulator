@@ -316,6 +316,7 @@ async function init() {
   wireEvents();
   applyConfig(self);
   window.setInterval(draw, 200);
+  watchClockSurface(draw);
 }
 
 init();
