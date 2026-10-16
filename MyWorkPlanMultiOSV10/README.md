@@ -113,7 +113,7 @@ Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에�
 
 - 설치 시작 시 **한국어/영어**를 고릅니다.
 - 이전 설치가 있으면 **완전히 제거한 뒤** 새로 설치합니다(이전 제거 프로그램을 조용히 실행하고 폴더를 지움).
-- 이전 설치가 남긴 **데이터(설정·최근 파일·폴더·배경 이미지)** 가 있으면 지울지 묻습니다.
+- 이전 설치의 **설정은 기본값으로 되돌리고, 사용자 데이터(최근 파일·폴더, 열린 계획 목록, DB 연결, 배경 이미지)는 그대로 둡니다** (설치 후 첫 실행 때 한 번).
 - `.mwp`(프로젝트)와 `.mwpt`(템플릿)를 **각자의 문서 아이콘**으로 등록합니다. 파일을 두 번 클릭하면 MyWorkPlan에서 열립니다.
 - 사용 설명서와 튜토리얼 문서를 설치 폴더의 `docs`에 넣고, 시작 메뉴 `MyWorkPlan` 폴더에 **MyWorkPlan User's Guide** 바로 가기를 만듭니다.
 - 현재 사용자용 설치(관리자 권한 불필요). macOS는 .dmg, Linux deb/rpm은 MIME 형식과 문서 아이콘을 등록합니다.
@@ -186,7 +186,7 @@ npm run build:web      # web build → dist/
 npm test               # all tests (npm test -- --quick, --only js,rust, --installer)
 ```
 
-The Windows installer asks for Korean or English, removes a previous installation completely, asks whether to delete saved data, registers `.mwp` / `.mwpt` with their own icons and installs the user's guide with a Start-menu shortcut.
+The Windows installer asks for Korean or English, removes a previous installation completely, resets the previous settings while keeping the user's data (recent files, database connection, background image), registers `.mwp` / `.mwpt` with their own icons and installs the user's guide with a Start-menu shortcut.
 
 User's guide: [UsersGuide.en.md](UsersGuide.en.md) · Architecture (Korean): [ARCHITECTURE.md](ARCHITECTURE.md)
 

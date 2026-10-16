@@ -511,12 +511,18 @@ pub fn run() {
                 let _ = app.asset_protocol_scope().allow_directory(&dir, true);
             }
             let state_path = window_state::state_file(app.handle());
+            // First start after the installer: forget the window place, and have the page reset its preferences.
+            let install_reset = state_path.as_deref().and_then(window_state::take_install_reset);
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
                 .min_inner_size(1000.0, 600.0)
                 .visible(false)
                 .additional_browser_args(BROWSER_ARGS);
+            let builder = match install_reset {
+                Some(token) => builder.initialization_script(format!("window.__MYWORKPLAN_INSTALL_RESET__ = {};", serde_json::to_string(&token).unwrap_or_default())),
+                None => builder,
+            };
             let builder = match placement {
                 Some((state, scale)) => builder
                     .position(f64::from(state.x) / scale, f64::from(state.y) / scale)

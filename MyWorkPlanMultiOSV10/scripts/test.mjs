@@ -33,7 +33,7 @@ const c = {
 
 const CATEGORIES = [
   { id: 'js', title: 'JS 단위 테스트', subtitle: '일정 계산 · 달력 · 모델 · 필드 · 필터 · 추적 · 형식 · XML/CSV · 템플릿 · 인쇄 · 번역 · 아이콘 · 테마', tint: c.cyan, run: runJs('unit') },
-  { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 데이터 삭제 질문 · 재설치 · 문서 포함', tint: c.purple, run: runJs('static') },
+  { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 설정 초기화(사용자 데이터 유지) · 재설치 · 문서 포함', tint: c.purple, run: runJs('static') },
   { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · 단일 실행 잠금', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
   { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL 서버 (test/db.local.json) · 임시 PostgreSQL 서버 · 계획 저장/읽기/목록/삭제', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
   { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
@@ -364,7 +364,7 @@ async function runInstaller(report) {
     for (const part of ['APP_ASSOCIATE "mwp" "MyWorkPlan.Plan"', 'APP_ASSOCIATE "mwpt" "MyWorkPlan.Template"']) if (!nsi.includes(part)) throw new Error(part);
   });
   check('문서 아이콘 파일 설치 (plan.ico, template.ico)', () => { for (const part of ['"/oname=plan.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
-  check('설치 훅: 데이터 삭제 질문 · 이전 설치 완전 제거 · 문서 아이콘 · 설명서 바로 가기', () => {
+  check('설치 훅: 설정 초기화(사용자 데이터 유지) · 이전 설치 완전 제거 · 문서 아이콘 · 설명서 바로 가기', () => {
     if (!/!include ".*hooks\.nsh"/.test(nsi)) throw new Error('hooks.nsh not included');
     for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL']) if (!nsi.includes(part)) throw new Error(part);
   });

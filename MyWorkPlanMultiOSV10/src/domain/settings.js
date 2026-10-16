@@ -217,3 +217,36 @@ export function timescaleStep(value, direction) {
   if (direction > 0) return steps.find((step) => step > value) ?? steps[steps.length - 1];
   return [...steps].reverse().find((step) => step < value) ?? steps[0];
 }
+
+// ───────────────────────── a new installation
+
+/** Remembers which installation's reset was done (the installer leaves a new token each time). */
+export const INSTALL_RESET_KEY = 'myworkplan.installReset';
+/** Stored lists that are the user's own data, kept by a new installation. */
+const KEEP_KEYS = [RECENT_KEY, RECENT_DIRS_KEY, SESSION_KEY];
+/** Settings that are the user's data rather than preferences: database connection, background image, tutorial history. */
+const KEEP_SETTINGS = ['dbKind', 'dbHost', 'dbPort', 'dbName', 'dbUser', 'dbFile', 'dbSavePassword', 'dbPassword', 'backgroundImage', 'backgroundName', 'lastDirectory', 'tutorialOffered', 'tutorialDone'];
+
+/**
+ * After the installer ran (it hands over `token`): every preference goes back to its default —
+ * theme, fonts, zoom, panels, view options, popup places, column widths, print choices — while
+ * recent files and folders, the open-plan session, the database connection and the background
+ * image stay. Done once per token. Returns whether anything was reset.
+ */
+export function resetForNewInstall(storage, token) {
+  if (!storage || !token) return false;
+  try {
+    if (storage.getItem(INSTALL_RESET_KEY) === String(token)) return false;
+    let saved = {};
+    try { saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}') ?? {}; } catch { /* unreadable: nothing to keep */ }
+    const keys = [];
+    for (let i = 0; i < storage.length; i++) keys.push(storage.key(i));
+    for (const key of keys) if (key?.startsWith('myworkplan.') && !KEEP_KEYS.includes(key)) storage.removeItem(key);
+    const kept = Object.fromEntries(KEEP_SETTINGS.filter((key) => key in saved).map((key) => [key, saved[key]]));
+    if (Object.keys(kept).length) storage.setItem(STORAGE_KEY, JSON.stringify(kept));
+    storage.setItem(INSTALL_RESET_KEY, String(token));
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -139,7 +139,8 @@ html.is-popup #app { min-width: 0; display: block; }
 #app.no-left #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 5px var(--right-width); }
 #app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 68px; }
 #app.no-left.no-right #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 0 68px; }
-#app.on-start #workspace { grid-template-columns: minmax(0, 1fr); }
+/* The start page fills the window whatever the panels are set to (the no-left.no-right rule above is more specific). */
+#app.on-start #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
 #app.on-start .side-panel, #app.on-start .panel-split { display: none; }
 .side-panel { background: color-mix(in srgb, var(--panel) 100%, transparent); overflow: auto; min-height: 0; scrollbar-width: thin; }
 #left-panel { border-right: 1px solid var(--border); }

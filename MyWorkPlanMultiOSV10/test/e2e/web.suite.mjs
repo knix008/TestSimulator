@@ -204,6 +204,18 @@ export const cases = [
     assert.ok(rows.chart.some((r) => r[0]) && rows.chart.some((r) => !r[0]), 'rows alternate');
     assert.ok(rows.chart.some((r) => r[1]), 'the selected row is highlighted in the chart too');
   } },
+  { group: '창', name: '홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀', async run(app) {
+    await app.main.eval(`window.__myworkplan.popups.closeAll().then(() => 1)`);
+    const widths = [];
+    for (const [left, right] of [[true, true], [false, true], [true, false], [false, false]]) {
+      widths.push(await app.main.eval(`(async () => { const w = window.__myworkplan; w.actions.updateSettings({ showLeftPanel: ${left}, showRightPanel: ${right} }); w.actions.showStartPage(true); await new Promise((r) => setTimeout(r, 250)); const c = document.querySelector('#center').getBoundingClientRect(); return [Math.round(c.left), Math.round(c.width), document.documentElement.clientWidth]; })()`));
+    }
+    await W(app, `(a.updateSettings({ showLeftPanel: true, showRightPanel: true }), a.showStartPage(false), 1)`);
+    for (const [left, width, page] of widths) {
+      assert.equal(left, 0);
+      assert.ok(width >= page - 2, `home screen ${width}px of ${page}px`);
+    }
+  } },
   { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: true })`);

@@ -183,17 +183,16 @@ test('installer languages: Korean and English, user selectable', () => {
   assert.equal(nsis.displayLanguageSelector, true);
 });
 
-test('installer hooks: ask about saved data, remove an old install completely', () => {
+test('installer hooks: preferences reset at the next start (user data kept), an old install removed completely', () => {
   const buffer = read('src-tauri/windows/hooks.nsh');
   assert.deepEqual([...buffer.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'UTF-8 BOM (NSIS reads Korean correctly)');
   const hooks = buffer.toString();
   assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
-  assert.match(hooks, /MessageBox MB_YESNO/);
-  assert.match(hooks, /\$LANGUAGE == 1042/, 'Korean question for the Korean installer');
-  assert.match(hooks, /삭제하시겠습니까/);
-  assert.match(hooks, /Do you want to delete it\?/);
-  assert.match(hooks, /RMDir \/r "\$APPDATA\\\$\{BUNDLEID\}"/);
-  assert.match(hooks, /RMDir \/r "\$LOCALAPPDATA\\\$\{BUNDLEID\}"/);
+  assert.doesNotMatch(hooks, /MessageBox/, 'no question about saved data any more');
+  assert.doesNotMatch(hooks, /RMDir \/r "\$(LOCAL)?APPDATA/, 'the saved data folders are never deleted as a whole');
+  assert.match(hooks, /Delete "\$APPDATA\\\$\{BUNDLEID\}\\window-state\.json"/, 'the window place is forgotten');
+  assert.match(hooks, /FileOpen \$R9 "\$APPDATA\\\$\{BUNDLEID\}\\install-reset" w/, 'marker for the app: reset the preferences');
+  assert.ok(hooks.indexOf('install-reset" w') > hooks.indexOf('NSIS_HOOK_POSTINSTALL'), 'written after the old uninstaller ran');
   assert.match(hooks, /uninstall\.exe" \/S _\?=/, 'old uninstaller runs silently');
   assert.match(hooks, /RMDir \/r "\$R6"/, 'old folder deleted');
 });
