@@ -3,7 +3,8 @@
 /**
  * `npm run clean` — 빌드 산출물을 지운다.
  *
- * 지우는 것: dist/release/out 폴더, 프로젝트 루트로 복사된 설치 파일,
+ * 지우는 것: src-tauri/target(Rust 빌드 결과)·src-tauri/gen, 옛 dist/release/out 폴더,
+ * 프로젝트 루트로 복사된 설치 파일,
  * `npm run icons` 가 만드는 아이콘들(원본은 asset/icon.svg 하나뿐이다).
  * 지우지 않는 것: node_modules, 소스, 설정 파일. 되살릴 수 없는 것은 건드리지 않는다.
  *
@@ -28,13 +29,17 @@ const cyan = paint('36');
 const yellow = paint('33');
 const bold = paint('1');
 
-/** 지울 폴더 — 전부 빌드가 다시 만들어 주는 것들. */
-const DIRS = ['dist', 'release', 'out', 'asset/icons'];
+/**
+ * 지울 폴더 — 전부 빌드가 다시 만들어 주는 것들.
+ * src-tauri/target 은 Rust 빌드 결과(수 GB), src-tauri/gen 은 Tauri 가 만드는 스키마.
+ * dist·release·out 은 Electron 판이 남겼을 수 있는 옛 산출물이다.
+ */
+const DIRS = ['src-tauri/target', 'src-tauri/gen', 'dist', 'release', 'out', 'asset/icons'];
 
 /** 지울 파일 — 생성된 아이콘과 루트로 복사된 설치 파일. */
 const FILES = [
-  'build/icon.ico',
   'asset/icon.ico',
+  'asset/icon.icns',
   'asset/icon.png',
   'asset/icon-256.png',
   'asset/icon-1024.png',

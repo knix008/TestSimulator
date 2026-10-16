@@ -27,7 +27,22 @@ api.alarm.onShow((payload) => {
   timeEl.textContent = payload.time || '';
   labelEl.textContent = payload.label || '';
   player.play(payload.soundId, payload.volume, true);
+  window.requestAnimationFrame(fitToContent);
 });
+
+/**
+ * 내용이 창보다 크면 (긴 메모, 큰 글꼴 배율) 창을 그만큼 늘린다 — 확인 단추가 잘리지 않게.
+ * 카드는 창 높이를 채우므로, 잠깐 높이를 풀어 내용만의 높이를 잰다.
+ */
+function fitToContent() {
+  const card = document.querySelector('.alarm-card');
+  if (!card) return;
+  const saved = card.style.height;
+  card.style.height = 'auto';
+  const needed = Math.ceil(card.getBoundingClientRect().height + 4);
+  card.style.height = saved;
+  if (needed > window.innerHeight) api.window.setSize({ width: window.innerWidth, height: needed });
+}
 
 function dismiss() {
   player.stop();

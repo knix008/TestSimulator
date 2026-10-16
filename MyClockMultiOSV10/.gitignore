@@ -1,12 +1,19 @@
 # ── 의존성 · 빌드 산출물 ────────────────────────────────────────
 node_modules/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Tauri: Rust 빌드 결과(수 GB)와 Tauri 가 만드는 스키마 — npm run build:*, npm start
+# (src-tauri/Cargo.lock 은 의존성을 고정하므로 올린다)
+src-tauri/target/
+src-tauri/gen/
+
+# Electron 판이 남겼을 수 있는 옛 산출물 (npm run clean 이 지운다)
 dist/
 release/
 out/
 *.asar
-*.log
-npm-debug.log*
-yarn-error.log*
 
 # 빌드 후 프로젝트 루트로 복사되는 설치 파일 (scripts/copy-installer-to-root.js)
 MyClock-Setup-*.exe
@@ -19,11 +26,11 @@ MyClock-*-win.zip
 # ── 생성되는 아이콘 (원본은 asset/icon.svg 하나, `npm run icons` 로 재생성) ──
 asset/icons/
 asset/icon.ico
+asset/icon.icns
 asset/icon.png
 asset/icon-256.png
 asset/icon-1024.png
 asset/icon-master.png
-build/icon.ico
 src/favicon.png
 
 # ── OS · 편집기 ─────────────────────────────────────────────────
@@ -54,12 +61,12 @@ coverage/
 *.temp
 .cache/
 
-# 디버깅용으로 앱을 띄울 때 만드는 Electron 프로필·프로파일 결과
+# 디버깅용으로 앱을 띄울 때 쓰는 설정·WebView2 프로필 폴더 (MYCLOCK_CONFIG_DIR)
 userdata/
 user-data-dir/
 *.heapsnapshot
 *.cpuprofile
 
-# ── Electron 크래시 덤프 ────────────────────────────────────────
+# ── 크래시 덤프 ─────────────────────────────────────────────────
 *.dmp
 crashpad/

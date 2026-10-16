@@ -22,7 +22,8 @@ body {
 .alarm-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* 바깥 여백(2px×2)까지 창 안에 들어가야 아래 테두리가 잘리지 않는다. */
+  height: calc(100% - 4px);
   margin: 2px;
   padding: 16px 20px;
   border: 2px solid var(--accent, #89b4fa);

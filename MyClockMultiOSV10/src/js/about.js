@@ -26,16 +26,15 @@ function render(info) {
   $('aboutName').textContent = info.name;
   $('aboutVersion').textContent = `버전 ${info.version}`;
 
-  // 아이콘은 앱이 쓰는 그림 그대로 (asset/icon.svg) — 메인 프로세스가 읽어 보내 준다.
+  // 아이콘은 앱이 쓰는 그림 그대로 (asset/icon.svg) — Tauri 셸이 실행 파일에 넣어 두었다가 보내 준다.
   if (info.iconSvg) $('aboutIcon').innerHTML = info.iconSvg;
 
   const build = $('aboutBuild');
   build.innerHTML = '';
   row(build, '빌드', info.packaged ? '설치본' : '개발 실행');
   row(build, '빌드 시각', formatBuildDate(info.buildDate));
-  row(build, 'Electron', info.electron);
-  row(build, 'Chromium', info.chrome);
-  row(build, 'Node.js', info.node);
+  row(build, 'Tauri', info.tauri);
+  row(build, 'WebView', info.webview);
   row(build, '플랫폼', info.platform);
 
   $('aboutAuthor').textContent = info.author;

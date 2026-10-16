@@ -58,13 +58,13 @@ test('패널 탭 — 탭 단추와 탭 내용이 짝을 이룬다', () => {
 
 test('설정 패널은 설정만 맡고, 나머지는 저마다 창이다', () => {
   const panel = readSource('src/js/panel.js');
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
   const clock = readSource('src/js/clock.js');
 
   // 패널은 only=settings 로 뜬다.
-  assert.match(main, /panel\.html'\), \{ query: \{ only: 'settings' \} \}/);
+  assert.match(lib, /page: "panel\.html\?only=settings"\.into\(\)/);
   // 분리한 기능 창은 tool=1 로 구분한다 (닫기 동작이 다르다).
-  assert.match(main, /query: \{ only: tab, tool: '1' \}/);
+  assert.match(lib, /format!\("panel\.html\?only=\{tab\}&tool=1"\)/);
   assert.match(panel, /const isToolWindow = params\.get\('tool'\) === '1'/);
   assert.match(panel, /selectTab\(onlyTab\)/, '창 하나가 한 가지만 보여 준다');
 
@@ -73,9 +73,8 @@ test('설정 패널은 설정만 맡고, 나머지는 저마다 창이다', () =
     assert.ok(clock.includes(`api.tools.open('${tab}')`), `메뉴에 ${tab} 창을 여는 길이 없다`);
   }
   // 트레이 메뉴에도 같은 길이 있다.
-  for (const tab of ['world', 'alarm', 'timer', 'stopwatch', 'calendar']) {
-    assert.ok(main.includes(`openToolWindow('${tab}')`), `트레이 메뉴에 ${tab} 가 없다`);
-  }
+  assert.match(lib, /\["world", "alarm", "timer", "stopwatch", "calendar"\]/, '트레이 메뉴의 기능 창 목록');
+  assert.match(lib, /strip_prefix\("tool:"\)[\s\S]{0,40}open_tool_window\(app, tab\)/);
 });
 
 test('설정 단추와 컨텍스트 메뉴가 설정 패널을 연다', () => {
@@ -188,51 +187,87 @@ test('창 문서가 필요한 스크립트를 모두 읽어 들인다', () => {
   }
 });
 
-test('preload 가 여는 통로마다 메인 프로세스에 받는 쪽이 있다', () => {
-  const preload = readSource('electron/preload.js');
-  const main = readSource('electron/main.js');
+test('bridge 가 부르는 명령마다 Rust 쪽에 받는 명령이 있다', () => {
+  const bridge = readSource('src/js/bridge.js');
+  const lib = readSource('src-tauri/src/lib.rs');
 
-  const invokes = [...preload.matchAll(/ipcRenderer\.invoke\('([^']+)'/g)].map((m) => m[1]);
-  const sends = [...preload.matchAll(/ipcRenderer\.send\('([^']+)'/g)].map((m) => m[1]);
-  const handles = [...main.matchAll(/ipcMain\.handle\('([^']+)'/g)].map((m) => m[1]);
-  const listens = [...main.matchAll(/ipcMain\.on\('([^']+)'/g)].map((m) => m[1]);
+  const called = new Set([...bridge.matchAll(/\b(?:invoke|send)\('([a-z_]+)'/g)].map((m) => m[1]));
+  const commands = new Set([...lib.matchAll(/#\[tauri::command\]\s*\n(?:async )?fn ([a-z_]+)/g)].map((m) => m[1]));
+  const handlerBlock = /generate_handler!\[([\s\S]*?)\]/.exec(lib);
+  assert.ok(handlerBlock, 'generate_handler! 가 없다');
+  const handled = new Set(handlerBlock[1].split(',').map((s) => s.trim()).filter(Boolean));
 
-  assert.ok(invokes.length >= 10 && sends.length >= 10, '통로가 너무 적다');
-  for (const channel of invokes) assert.ok(handles.includes(channel), `ipcMain.handle('${channel}') 이 없다`);
-  for (const channel of sends) assert.ok(listens.includes(channel), `ipcMain.on('${channel}') 이 없다`);
+  assert.ok(called.size >= 40, `통로가 너무 적다: ${called.size}`);
+  for (const name of called) {
+    assert.ok(commands.has(name), `#[tauri::command] fn ${name} 이 없다`);
+    assert.ok(handled.has(name), `generate_handler! 에 ${name} 이 없다`);
+  }
+  // 등록만 하고 아무도 부르지 않는 명령도 없다.
+  for (const name of commands) assert.ok(called.has(name), `${name} 은 bridge 에서 부르지 않는다`);
 
-  // 반대 방향 — 메인이 보내 주는 알림을 preload 가 받아 둔다.
-  const received = [...preload.matchAll(/ipcRenderer\.on\('([^']+)'/g)].map((m) => m[1]);
-  const pushed = [...main.matchAll(/\.send\('([^']+)'/g)].map((m) => m[1]);
-  for (const channel of received) {
-    assert.ok(pushed.includes(channel), `메인이 '${channel}' 을 보내지 않는다`);
+  // 반대 방향 — 메인이 보내는 알림(post)을 bridge 가 받아 둔다.
+  const received = [...bridge.matchAll(/\bon\('([^']+)'\)/g)].map((m) => m[1]);
+  assert.ok(received.length >= 12, `알림이 너무 적다: ${received.length}`);
+  for (const event of received) {
+    assert.ok(lib.includes(`"${event}"`), `메인이 '${event}' 을 보내지 않는다`);
   }
 });
 
-test('패널이 어느 탭으로 열릴지 메인 프로세스가 적어 둔다', () => {
-  const main = readSource('electron/main.js');
-  const preload = readSource('electron/preload.js');
-  assert.match(main, /panelPendingTab = tab \|\| null/, '열어 달라고 한 탭을 적어 두지 않는다');
-  assert.match(main, /ipcMain\.handle\('panel:pending-tab'/);
-  assert.match(main, /panelPendingTab = null;\s*\n\s*return tab;/, '한 번 읽으면 지워야 한다');
-  assert.match(preload, /pendingTab: \(\) => ipcRenderer\.invoke\('panel:pending-tab'\)/);
-  // 트레이 메뉴의 "설정..." 도 설정 탭을 지정해 연다.
-  assert.match(main, /togglePanel\('settings'\)/);
+test('모든 창 문서가 bridge 를 먼저 읽고, IPC 를 막지 않는다', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const htmls = fs.readdirSync(path.join(__dirname, '..', 'src')).filter((name) => name.endsWith('.html'));
+  assert.ok(htmls.length >= 7);
+  for (const html of htmls) {
+    const text = readSource(`src/${html}`);
+    const first = /<script src="([^"]+)"/.exec(text);
+    assert.equal(first && first[1], 'js/bridge.js', `${html}: bridge.js 가 맨 먼저 읽히지 않는다`);
+    assert.match(text, /connect-src ipc: http:\/\/ipc\.localhost/, `${html}: CSP 가 IPC 를 막는다`);
+  }
 });
 
-test('렌더러가 쓰는 preload API 가 모두 열려 있다', () => {
-  const preload = readSource('electron/preload.js');
-  for (const file of ['src/js/clock.js', 'src/js/panel.js', 'src/js/menu.js', 'src/js/fullscreen.js', 'src/js/alarm.js', 'src/js/surface.js']) {
+test('창 이름마다 이벤트를 들을 권한이 있다', () => {
+  const lib = readSource('src-tauri/src/lib.rs');
+  const capability = JSON.parse(readSource('src-tauri/capabilities/default.json'));
+  const prefixes = new Set([...lib.matchAll(/next_label\(app, "([a-z]+)"\)/g)].map((m) => m[1]));
+  prefixes.delete('t'); // 미룬 일의 이름표 — 창이 아니다.
+  assert.ok(prefixes.size >= 8, `창 종류: ${[...prefixes]}`);
+  assert.ok(capability.windows.includes('clock'));
+  for (const prefix of prefixes) {
+    assert.ok(capability.windows.includes(`${prefix}-*`), `capabilities 에 ${prefix}-* 가 없다`);
+  }
+  assert.ok(capability.permissions.includes('core:event:default'));
+});
+
+test('패널이 어느 탭으로 열릴지 메인 프로세스가 적어 둔다', () => {
+  const lib = readSource('src-tauri/src/lib.rs');
+  const bridge = readSource('src/js/bridge.js');
+  assert.match(lib, /s\.panel_pending_tab = tab;/, '열어 달라고 한 탭을 적어 두지 않는다');
+  assert.match(lib, /fn panel_pending_tab\(app: AppHandle\) -> Option<String> \{\s*st\(&app\)\.panel_pending_tab\.take\(\)/, '한 번 읽으면 지워야 한다');
+  assert.match(bridge, /pendingTab: \(\) => invoke\('panel_pending_tab'\)/);
+  // 트레이 메뉴의 "설정..." 도 설정 탭을 지정해 연다.
+  assert.match(lib, /toggle_panel\(app, Some\("settings"\.into\(\)\)\)/);
+});
+
+test('렌더러가 쓰는 bridge API 가 모두 열려 있다', () => {
+  const bridge = readSource('src/js/bridge.js');
+  for (const file of [
+    'src/js/clock.js',
+    'src/js/zoneclock.js',
+    'src/js/panel.js',
+    'src/js/menu.js',
+    'src/js/fullscreen.js',
+    'src/js/alarm.js',
+    'src/js/about.js',
+    'src/js/surface.js'
+  ]) {
     const text = readSource(file);
     const used = new Set([...text.matchAll(/\bapi\.([a-zA-Z]+)\.([a-zA-Z]+)\(/g)].map((m) => `${m[1]}.${m[2]}`));
     for (const call of used) {
       const [group, method] = call.split('.');
-      const block = new RegExp(`${group}:\\s*\\{[\\s\\S]*?\\n\\s{2}\\}`, 'm').exec(preload);
-      assert.ok(block, `preload 에 ${group} 묶음이 없다 (${file})`);
-      assert.ok(
-        new RegExp(`\\b${method}:`).test(block[0]),
-        `preload ${group} 에 ${method} 가 없다 (${file} 에서 부른다)`
-      );
+      const block = new RegExp(`\\n {4}${group}:\\s*\\{[\\s\\S]*?\\n {4}\\}`, 'm').exec(bridge);
+      assert.ok(block, `bridge 에 ${group} 묶음이 없다 (${file})`);
+      assert.ok(new RegExp(`\\b${method}:`).test(block[0]), `bridge ${group} 에 ${method} 가 없다 (${file} 에서 부른다)`);
     }
   }
 });
@@ -282,29 +317,29 @@ test('패널의 시계별 설정과 공용 설정이 갈라져 있다', () => {
 });
 
 test('분리한 탭 창 통로가 열려 있다', () => {
-  const preload = readSource('electron/preload.js');
-  const main = readSource('electron/main.js');
-  assert.match(preload, /tools: \{[\s\S]*?open: \(tab\) => ipcRenderer\.send\('tools:open', tab\)/);
-  assert.match(main, /ipcMain\.on\('tools:open'/);
-  assert.match(main, /only: tab/, '분리한 창은 panel.html?only=<탭> 으로 연다');
+  const bridge = readSource('src/js/bridge.js');
+  const lib = readSource('src-tauri/src/lib.rs');
+  assert.match(bridge, /open: \(tab\) => send\('tools_open', \{ tab: String\(tab\) \}\)/);
+  assert.match(lib, /async fn tools_open\(app: AppHandle, tab: String\)/);
+  assert.match(lib, /only=\{tab\}/, '분리한 창은 panel.html?only=<탭> 으로 연다');
   // 분리한 창도 같은 상태 스냅샷을 받아야 한다.
-  assert.match(main, /for \(const win of \[\.\.\.toolWins\.values\(\), \.\.\.clockSettingsWins\.values\(\)\]\)[\s\S]{0,160}from-clock/);
+  assert.match(lib, /fn relay_to_panel[\s\S]{0,500}s\.tools\.values\(\)[\s\S]{0,80}s\.clock_settings\.values\(\)[\s\S]{0,200}"from-clock"/);
 });
 
 test('창마다 자기 창을 움직인다 (시계가 여럿이므로)', () => {
-  const main = readSource('electron/main.js');
-  assert.match(main, /function senderWindow/, '보낸 쪽 창을 찾는 코드가 없다');
-  for (const channel of ['window:drag-start', 'window:resize-start', 'window:set-size', 'window:set-min-size']) {
-    const handler = new RegExp(`ipcMain\\.on\\('${channel}'[\\s\\S]{0,200}senderWindow`);
-    assert.match(main, handler, `${channel} 가 보낸 쪽 창을 쓰지 않는다`);
+  const lib = readSource('src-tauri/src/lib.rs');
+  for (const command of ['window_drag_start', 'window_resize_start', 'window_set_size', 'window_set_min_size']) {
+    assert.match(lib, new RegExp(`fn ${command}\\(app: AppHandle, window: WebviewWindow`), `${command} 가 보낸 쪽 창을 쓰지 않는다`);
   }
   // 컨텍스트 메뉴 결과도 연 창으로 돌아가야 한다.
-  assert.match(main, /menuOpener = e\.sender/);
+  assert.match(lib, /open_menu_window\(&app, window\.label\(\), payload\)/);
+  assert.match(lib, /s\.menu_opener = Some\(opener\.to_string\(\)\)/);
+  assert.match(lib, /fn menu_choose[\s\S]{0,300}"menu:action"/);
 });
 
 test('메뉴에서 시계를 추가할 수 있다', () => {
   const clock = readSource('src/js/clock.js');
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
 
   // 시계 창 메뉴: "시계 추가..." → 도시 목록 메뉴 → 고른 도시로 시계 열기
   assert.match(clock, /id: 'newclock'[\s\S]{0,60}시계 추가/);
@@ -315,39 +350,36 @@ test('메뉴에서 시계를 추가할 수 있다', () => {
   assert.match(clock, /label: '다른 도시 찾기\.\.\.'/);
 
   // 트레이 메뉴에도 "시계 추가" 하위 메뉴가 있다.
-  assert.match(main, /label: '시계 추가', submenu: addSubmenu/);
-  assert.match(main, /click: \(\) => addExtraClock\(city\)/);
+  assert.match(lib, /submenu\(app, "add", "시계 추가", "add"/);
+  assert.match(lib, /strip_prefix\("add-city:"\)[\s\S]{0,200}add_extra_clock\(app, &city\)/);
   // 열어 둔 시계가 있으면 닫는 메뉴도 함께 보여 준다.
-  assert.match(main, /label: '시계 닫기'/);
-  // 메뉴는 열 때마다 다시 만든다 (도시·시계 목록이 바뀌므로).
-  assert.match(main, /tray\.on\('right-click', \(\) => tray\.popUpContextMenu\(buildTrayMenu\(\)\)\)/);
+  assert.match(lib, /submenu\(app, "close", "시계 닫기", "close"/);
+  // 도시·시계 목록이 바뀌면 메뉴를 다시 만든다.
+  assert.match(lib, /fn save_extra_clocks[\s\S]{0,300}refresh_tray_menu\(app\)/);
+  assert.match(lib, /\["worldCities", "alwaysOnTop", "extraClocks", "startWithSystem"\][\s\S]{0,120}refresh_tray_menu/);
 });
 
 test('전체 화면 시계도 배경이 투명하다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
   const css = readSource('src/styles/fullscreen.css');
 
   // 창 자체가 투명해야 바탕화면이 비친다.
-  const block = /fullWin = new BrowserWindow\(\{([\s\S]*?)\}\);/.exec(main);
+  const block = /fn open_fullscreen_clock[\s\S]*?page: "fullscreen\.html"\.into\(\),([\s\S]*?)\}/.exec(lib);
   assert.ok(block, '전체 화면 창을 만드는 곳을 찾지 못했다');
   assert.match(block[1], /transparent: true/, '전체 화면 창이 투명하지 않다');
-  assert.match(block[1], /backgroundColor: '#00000000'/, '배경색이 칠해져 있다');
+  assert.match(lib, /if !spec\.transparent \{\s*builder = builder\.background_color/, '투명 창에 배경색을 칠한다');
 
   // 문서도 바탕을 칠하지 않는다.
   const body = /html,\s*body \{([\s\S]*?)\}/.exec(css);
   assert.ok(body, 'fullscreen.css 의 body 규칙을 찾지 못했다');
-  assert.ok(
-    !/background:\s*var\(--window-background/.test(body[1]),
-    '전체 화면 문서가 테마 바탕색으로 칠해져 있다'
-  );
+  assert.ok(!/background:\s*var\(--window-background/.test(body[1]), '전체 화면 문서가 테마 바탕색으로 칠해져 있다');
   // 투명 위에서도 읽히도록 글자에 그림자를 넣는다.
   assert.match(css, /\.full-stage \{[\s\S]*?text-shadow/);
 
-  // 투명 창을 fullscreen 모드로 열면 Windows 가 잠깐 보여 주고 바로 푼다.
-  assert.match(block[1], /fullscreen:\s*false/);
-  assert.ok(!/fullscreen:\s*true/.test(block[1]), '투명 창을 fullscreen 모드로 열면 바로 풀린다');
-  assert.match(main, /setAlwaysOnTop\(true, 'screen-saver'\)/);
-  assert.match(main, /function fullscreenDisplayBounds/);
+  // 투명 창을 OS 의 전체 화면 모드로 열면 바로 풀린다 — 작업 영역만 한 창을 맨 위에 둔다.
+  assert.ok(!/set_fullscreen\(true\)|\.fullscreen\(true\)/.test(lib), '투명 창을 fullscreen 모드로 열면 바로 풀린다');
+  assert.match(lib, /fn pin_fullscreen[\s\S]{0,400}set_always_on_top\(true\)/);
+  assert.match(lib, /fn fullscreen_display_area/);
 
   // 마우스로는 닫지 않는다. ESC 와 설정 메뉴로만 원래 시계로 돌아온다.
   const page = readSource('src/js/fullscreen.js');
@@ -356,68 +388,60 @@ test('전체 화면 시계도 배경이 투명하다', () => {
   assert.match(page, /api\.fullscreen\.close\(\)/);
   assert.match(page, /api\.fullscreen\.fit\(/);
 
-  assert.match(main, /function detachOwnedOverlays/);
-  assert.match(main, /function hideClocksForFullscreen/);
-  assert.match(main, /function showClocksAfterFullscreen/);
-  assert.match(main, /function fullscreenClockBounds/);
-  assert.match(main, /globalShortcut\.register\('Escape'/);
-  assert.match(main, /setIgnoreMouseEvents\(true,\s*\{\s*forward:\s*true\s*\}\)/);
-  assert.match(main, /ipcMain\.on\('fullscreen:fit'/);
-  assert.match(readSource('electron/preload.js'), /fit: \(box\) => ipcRenderer\.send\('fullscreen:fit', box\)/);
+  assert.match(lib, /fn hide_clocks_for_fullscreen/);
+  assert.match(lib, /fn show_clocks_after_fullscreen/);
+  assert.match(lib, /fn restore_overlays_after_fullscreen/);
+  assert.match(lib, /fn fullscreen_clock_bounds/);
+  assert.match(lib, /on_shortcut\("Escape"/);
+  assert.match(lib, /set_ignore_cursor_events\(true\)/);
+  assert.match(lib, /fn fullscreen_fit\(app: AppHandle, window: WebviewWindow, rect: Value\)/);
+  assert.match(readSource('src/js/bridge.js'), /fit: \(rect\) => send\('fullscreen_fit', \{ rect: rect \|\| \{\} \}\)/);
   assert.match(readSource('src/fullscreen.html'), /class="full-clock"/);
   assert.ok(!/background:\s*rgba\(0,\s*0,\s*0/.test(css), '전체 화면 바탕이 마우스를 받는 색으로 칠해져 있다');
 });
 
 test('트레이 메뉴 항목마다 아이콘이 있고, 설정에서 원래 크기로 돌아간다', () => {
-  const main = readSource('electron/main.js');
-  const { ICON_NAMES, renderIconPng, SIZE } = require('../electron/menu-icons');
+  const lib = readSource('src-tauri/src/lib.rs');
+  const icons = readSource('src-tauri/src/menu_icons.rs');
+  const names = /pub const ICON_NAMES: \[&str; \d+\] = \[([\s\S]*?)\];/.exec(icons);
+  assert.ok(names, 'ICON_NAMES 가 없다');
+  const iconNames = [...names[1].matchAll(/"([a-z]+)"/g)].map((m) => m[1]);
 
   for (const name of [
-    'open',
-    'settings',
-    'add',
-    'clock',
-    'world',
-    'close',
-    'system',
-    'pin',
-    'startup',
-    'restore',
-    'reset',
-    'alarm',
-    'timer',
-    'stopwatch',
-    'calendar',
-    'info',
-    'quit'
+    'open', 'settings', 'add', 'clock', 'world', 'close', 'system',
+    'restore', 'reset', 'alarm', 'timer', 'stopwatch', 'calendar', 'info', 'quit'
   ]) {
-    assert.ok(ICON_NAMES.includes(name), `아이콘이 없다: ${name}`);
-    assert.match(main, new RegExp(`menuIcon\\('${name}'\\)`), `트레이에서 ${name} 아이콘을 쓰지 않는다`);
-    const png = renderIconPng(name);
-    assert.equal(png[0], 0x89, `${name} 아이콘이 PNG 가 아니다`);
-    assert.equal(png.readUInt32BE(16), SIZE, `${name} 아이콘 폭`);
-    assert.equal(png.readUInt32BE(20), SIZE, `${name} 아이콘 높이`);
+    assert.ok(iconNames.includes(name), `아이콘이 없다: ${name}`);
+    assert.ok(icons.includes(`"${name}" =>`), `${name} 을 그리는 코드가 없다`);
+    assert.ok(lib.includes(`"${name}"`), `트레이에서 ${name} 아이콘을 쓰지 않는다`);
   }
+  // 켜고 끄는 항목(항상 위·자동 실행)은 아이콘 대신 운영체제의 체크 표시를 쓴다.
+  assert.match(lib, /CheckMenuItem::with_id\(app, "toggle-top"/);
+  assert.match(lib, /CheckMenuItem::with_id\(app, "toggle-startup"/);
+  // 16px 그림, 고해상도 화면에서는 두 배로.
+  assert.match(icons, /pub const SIZE: usize = 16;/);
+  assert.match(lib, /if scale >= 1\.5 \{[\s\S]{0,200}menu_icons::scale\(&rgba, 2\)/);
 
-  assert.match(main, /label: '원래 크기로 돌아가기'/);
-  assert.match(main, /click: \(\) => closeFullscreenClock\(\)/);
+  assert.match(lib, /"restore-size", "원래 크기로 돌아가기", "restore", is_fullscreen_open\(app\)/);
+  assert.match(lib, /"restore-size" => close_fullscreen_clock\(app\)/);
   assert.match(readSource('src/panel.html'), /id="restoreSizeBtn"/);
   assert.match(readSource('src/js/panel.js'), /\$\('restoreSizeBtn'\)[\s\S]{0,80}fullscreen\.close/);
   assert.match(readSource('src/fullscreen.html'), /원래 크기로 돌아가기/);
 });
 
 test('정보 창이 열리는 길이 메뉴와 트레이에 있다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
   const clock = readSource('src/js/clock.js');
-  const preload = readSource('electron/preload.js');
+  const bridge = readSource('src/js/bridge.js');
 
-  assert.match(main, /function openAboutWindow/);
-  assert.match(main, /ipcMain\.handle\('app:info'/);
-  assert.match(main, /ipcMain\.on\('about:open'/);
-  assert.match(main, /label: '프로그램 정보\.\.\.', click: \(\) => openAboutWindow\(\)/, '트레이 메뉴에 없다');
+  assert.match(lib, /fn open_about_window/);
+  assert.match(lib, /fn app_info\(app: AppHandle\) -> Value/);
+  assert.match(lib, /async fn about_open/);
+  assert.match(lib, /item\(app, "about", "프로그램 정보\.\.\.", "info", true\)/, '트레이 메뉴에 없다');
+  assert.match(lib, /"about" => open_about_window\(app\)/);
   assert.match(clock, /id: 'about'/, '시계 메뉴에 없다');
   assert.match(clock, /about: \(\) => api\.app\.about\(\)/);
-  assert.match(preload, /info: \(\) => ipcRenderer\.invoke\('app:info'\)/);
+  assert.match(bridge, /info: \(\) => invoke\('app_info'\)/);
 });
 
 test('정보 창이 찾는 요소가 문서에 모두 있다', () => {
@@ -448,20 +472,21 @@ test('아날로그에서는 12/24시간 선택을 끈다', () => {
 });
 
 test('설정 창은 내용에 맞춰 크기를 잡고, 화면 밖으로 나가지 않는다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
+  const geometry = readSource('src-tauri/src/geometry.rs');
   const panel = readSource('src/js/panel.js');
   const css = readSource('src/styles/panel.css');
 
   // 기본 크기는 넉넉히 잡되, 내용이 더 크면 패널이 재서 알려 준다.
-  const width = /const PANEL_WIDTH = (\d+);/.exec(main);
+  const width = /const PANEL_WIDTH: f64 = (\d+)/.exec(lib);
   assert.ok(width && Number(width[1]) >= 360, `설정 창 폭: ${width && width[1]}`);
   assert.match(panel, /function fitSettingsWindow/);
   assert.match(panel, /api\.panel\.fit\(wanted\)/);
-  assert.match(main, /ipcMain\.on\('panel:fit'/);
-  assert.match(main, /Math\.max\(PANEL_WIDTH, panelFit\?\.width \|\| 0\)/);
+  assert.match(lib, /fn panel_fit\(app: AppHandle, size: Value\)/);
+  assert.match(geometry, /let width = base\.0\.max\(fit_w\)/);
 
   // 패널 자리를 작업 영역 안으로 당긴다.
-  assert.match(main, /function panelBoundsFor[\s\S]{0,700}return clampToWorkArea/);
+  assert.match(geometry, /pub fn panel_bounds_for[\s\S]{0,900}clamp_to_work_area\(displays/);
 
   // 테마 칸 너비는 가장 긴 이름에 맞춰 잡는다 — 글자가 잘리지 않도록.
   assert.match(panel, /function fitThemeTiles/);
@@ -472,20 +497,20 @@ test('설정 창은 내용에 맞춰 크기를 잡고, 화면 밖으로 나가�
 });
 
 test('설정 창은 시계마다 하나씩, 나머지 창은 하나씩만 뜬다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
   const panel = readSource('src/js/panel.js');
 
   // 시계 설정 창은 시계 id 로 구분해 하나씩만 연다.
-  assert.match(main, /const clockSettingsWins = new Map\(\)/);
-  assert.match(main, /function openClockSettings\(id\)[\s\S]{0,400}existing\.focus\(\)/);
-  assert.match(main, /query: \{ only: 'settings', tool: '1', clock: id \}/);
+  assert.match(lib, /clock_settings: HashMap<String, String>/);
+  assert.match(lib, /fn open_clock_settings\(app: &AppHandle, id: &str\) \{[\s\S]{0,300}show\(&w, true\);\s*return;/);
+  assert.match(lib, /panel\.html\?only=settings&tool=1&clock=/);
   // 시계를 닫으면 그 설정 창도 닫는다.
-  assert.match(main, /function removeExtraClock\(id\) \{\s*closeClockSettings\(id\)/);
+  assert.match(lib, /fn remove_extra_clock\(app: &AppHandle, id: &str\) \{\s*close_clock_settings\(app, id\)/);
 
   // 기능 창(알람·타이머·…)은 탭마다 하나뿐이다.
-  assert.match(main, /function openToolWindow\(tab\)[\s\S]{0,300}existing\.focus\(\)/);
+  assert.match(lib, /fn open_tool_window\(app: &AppHandle, tab: &str\) \{[\s\S]{0,300}show\(&w, true\);\s*return;/);
   // 정보 창도 하나뿐이다.
-  assert.match(main, /function openAboutWindow\(\)[\s\S]{0,200}aboutWin\.focus\(\)/);
+  assert.match(lib, /fn open_about_window\(app: &AppHandle\) \{[\s\S]{0,200}show\(&w, true\);\s*return;/);
 
   // 설정 창 안에는 시계 고르개가 없다 — 창이 곧 그 시계의 것이다.
   assert.ok(!panel.includes("getElementById('clockTarget')"), '시계 고르개가 남아 있다');
@@ -493,7 +518,8 @@ test('설정 창은 시계마다 하나씩, 나머지 창은 하나씩만 뜬다
 });
 
 test('시스템 설정은 트레이에서 다룬다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
+  const store = readSource('src-tauri/src/store.rs');
   const html = readSource('src/panel.html');
 
   // 설정 창에서는 빠졌다.
@@ -503,36 +529,36 @@ test('시스템 설정은 트레이에서 다룬다', () => {
   assert.ok(!html.includes('data-sub="system"'), '시스템 갈래가 남아 있다');
 
   // 트레이에 있다 — 켜고 끄는 항목으로.
-  assert.match(main, /label: '시스템 설정', submenu: systemItems/);
-  assert.match(main, /label: '항상 위에 표시',\s*type: 'checkbox'/);
-  assert.match(main, /label: '시작 시 자동 실행',\s*type: 'checkbox'/);
-  assert.match(main, /label: '기본값으로 초기화\.\.\.'/);
+  assert.match(lib, /submenu\(app, "system", "시스템 설정", "system"/);
+  assert.match(lib, /CheckMenuItem::with_id\(app, "toggle-top", "항상 위에 표시"/);
+  assert.match(lib, /CheckMenuItem::with_id\(app, "toggle-startup", "시작 시 자동 실행"/);
+  assert.match(lib, /"기본값으로 초기화\.\.\."/);
   // 되돌릴 수 없으니 한 번 묻는다.
-  assert.match(main, /function confirmReset[\s\S]{0,400}dialog\.showMessageBox/);
+  assert.match(lib, /fn confirm_reset[\s\S]{0,700}OkCancelCustom\("초기화"/);
   // 초기화해도 추가한 시계는 남긴다.
-  assert.match(main, /fresh\.extraClocks = current\.extraClocks/);
+  assert.match(store, /fresh\["extraClocks"\] = current\["extraClocks"\]\.clone\(\)/);
 });
 
 test('표시 우선순위는 시계마다 따로 걸린다', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
   const clock = readSource('src/js/clock.js');
 
   // 트레이 스위치와 시계 창의 저장 모두 같은 길로 창마다 다시 건다.
-  assert.match(main, /function setAlwaysOnTop[\s\S]{0,200}applyDisplayPriority\(\)/);
-  assert.match(main, /ipcMain\.on\('window:set-always-on-top', \(\) => applyDisplayPriority\(\)\)/);
-  assert.match(main, /'displayPriority' in patch\) applyDisplayPriority\(\)/, '추가 시계의 우선순위가 바로 걸리지 않는다');
+  assert.match(lib, /fn set_always_on_top\(app: &AppHandle, on_top: bool\) \{[\s\S]{0,200}apply_display_priority\(app\)/);
+  assert.match(lib, /fn window_set_always_on_top\(app: AppHandle\) \{\s*bg\(&app, apply_display_priority\)/);
+  assert.match(lib, /patch\.get\("displayPriority"\)\.is_some\(\) \{\s*apply_display_priority\(app\)/, '추가 시계의 우선순위가 바로 걸리지 않는다');
   assert.match(clock, /'displayPriority' in patch/, '메인 시계의 우선순위가 바로 걸리지 않는다');
   // 시계 창은 처음부터 자기 우선순위로 뜬다.
-  assert.match(main, /alwaysOnTop: priorityOnTop\(settings\.displayPriority/);
-  assert.match(main, /alwaysOnTop: priorityOnTop\(config\.displayPriority/);
+  assert.match(lib, /let on_top = priority_on_top\(s_str\(&settings, "displayPriority"\)/);
+  assert.match(lib, /on_top: priority_on_top\(&priority, global_top\)/);
 });
 
 test('메인 시계도 도시를 가질 수 있다', () => {
   const clock = readSource('src/js/clock.js');
-  const store = readSource('electron/store.js');
+  const store = readSource('src-tauri/src/store.rs');
   const html = readSource('src/index.html');
 
-  assert.match(store, /zone: typeof src\.zone === 'string' && src\.zone \? src\.zone : null/);
+  assert.match(store, /"zone": nonempty\(src\.get\("zone"\)\)\.map\(Value::String\)\.unwrap_or\(Value::Null\)/);
   assert.match(clock, /function clockNow/, '도시 시각을 쓰는 코드가 없다');
   assert.match(clock, /settings\.zone \? zonedDate\(now, settings\.zone\) : now/);
   assert.match(clock, /function cityLabel/);
@@ -562,13 +588,13 @@ test('NodeList 를 배열처럼 쓰지 않는다 (브라우저에서만 터지�
 });
 
 test('끌기는 놓쳐도 저절로 끝난다 (창이 커서에 붙어 다니지 않도록)', () => {
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
 
-  // 메인 프로세스 쪽 안전장치: 커서가 멈추면 끝, 오래 끌면 끝, 창이 포커스를 잃으면 끝.
-  assert.match(main, /const GESTURE_IDLE_MS = \d+/);
-  assert.match(main, /function watchGestureIdle/);
-  assert.match(main, /if \(watchGestureIdle\(p\)\) return;/);
-  assert.match(main, /win\.once\('blur', stopGesture\)/);
+  // 셸 쪽 안전장치: 버튼을 떼면 끝, 커서가 멈추면 끝, 오래 끌면 끝, 창이 포커스를 잃으면 끝.
+  assert.match(lib, /const GESTURE_IDLE: Duration = /);
+  assert.match(lib, /last_move\.elapsed\(\) >= GESTURE_IDLE/);
+  assert.match(lib, /began\.elapsed\(\) > GESTURE_MAX \|\| !primary_button_down\(\)/);
+  assert.match(lib, /WindowEvent::Focused\(false\) => \{[\s\S]{0,200}stop_gesture\(app\)/);
 
   // 렌더러 쪽 안전장치 — 시계 창과 추가 시계 창 모두.
   for (const file of ['src/js/clock.js', 'src/js/zoneclock.js']) {
@@ -580,42 +606,74 @@ test('끌기는 놓쳐도 저절로 끝난다 (창이 커서에 붙어 다니지
 });
 
 test('다시 시작하면 저장해 둔 추가 시계를 모두 연다', () => {
-  const main = readSource('electron/main.js');
-  assert.match(main, /function presentSavedExtraClocks/);
-  assert.match(main, /function openSavedExtraClocks\(\) \{\s*presentSavedExtraClocks\(\);/);
-  assert.match(main, /openSavedExtraClocks\(\);/);
+  const lib = readSource('src-tauri/src/lib.rs');
+  assert.match(lib, /fn present_saved_extra_clocks/);
+  assert.match(lib, /create_clock_window\(&handle\)\?;\s*present_saved_extra_clocks\(&handle\);/);
   // 화면이 돌아와도 목록에 있는 시계가 빠지지 않는다.
-  assert.match(main, /function ensureClocksShown\(\) \{[\s\S]{0,240}presentSavedExtraClocks\(\)/);
+  assert.match(lib, /fn ensure_clocks_shown\(app: &AppHandle\) \{[\s\S]{0,500}present_saved_extra_clocks\(app\)/);
   // 위치를 옮기다 끝내도 시계 목록이 지워지지 않게 종료 전에 저장한다.
-  assert.match(main, /function flushExtraClockSaves/);
-  assert.match(main, /before-quit[\s\S]{0,400}flushExtraClockSaves\(\)/);
-  // 창이 자기 id 를 못 찾아도 주소의 id 로 어느 시계인지 안다.
-  assert.match(main, /searchParams\.get\('id'\)/);
+  assert.match(lib, /fn flush_extra_clock_saves/);
+  assert.match(lib, /fn before_exit\(app: &AppHandle\) \{[\s\S]{0,200}flush_extra_clock_saves\(app\)/);
+  // 시계 창은 창 이름으로 자기가 어느 시계인지 안다.
+  assert.match(lib, /fn clock_self[\s\S]{0,200}clock_of_zone\.get\(window\.label\(\)\)/);
 });
 
-test('시계는 부팅·화면 전환·프레젠테이션 뒤에도 다시 그려진다', () => {
-  const main = readSource('electron/main.js');
-  const preload = readSource('electron/preload.js');
+test('시계는 부팅·화면 전환·잠자기 뒤에도 다시 그려진다', () => {
+  const lib = readSource('src-tauri/src/lib.rs');
+  const bridge = readSource('src/js/bridge.js');
 
-  assert.match(main, /CalculateNativeWinOcclusion/, '가려진 시계가 프레임을 버리지 않아야 한다');
-  assert.match(main, /function refreshLayeredWindow/);
-  assert.match(main, /function refreshVisibleClockSurfaces/);
-  assert.match(main, /function ensureClocksShown/);
-  assert.match(main, /function armBootSurfaceRefresh/);
-  assert.match(main, /display-metrics-changed'[\s\S]{0,80}remount:\s*true/);
-  assert.match(main, /display-removed'[\s\S]{0,80}remount:\s*true/);
-  assert.match(main, /user-did-become-active/);
-  assert.match(main, /details\.type !== 'GPU'/);
-  assert.match(main, /function showClocksAfterFullscreen[\s\S]{0,700}refreshLayeredWindow/);
-  assert.match(main, /ipcMain\.on\('surface:request-refresh'/);
-  assert.match(main, /\.send\('surface:refresh'/);
-  assert.match(preload, /onSurfaceRefresh:/);
-  assert.match(preload, /requestSurfaceRefresh:/);
+  assert.match(lib, /CalculateNativeWinOcclusion/, '가려진 시계가 프레임을 버리지 않아야 한다');
+  // 트레이로 숨긴 동안에도 알람·타이머가 늦지 않게 타이머를 늦추지 않는다.
+  assert.match(lib, /IntensiveWakeUpThrottling/);
+  assert.match(lib, /--disable-background-timer-throttling/);
+  assert.match(lib, /fn refresh_visible_clock_surfaces/);
+  assert.match(lib, /fn ensure_clocks_shown/);
+  assert.match(lib, /fn arm_boot_surface_refresh/);
+  // 화면 구성이 바뀌거나 잠자기에서 깨어나면 다시 자리를 잡는다.
+  assert.match(lib, /fn monitor_signature/);
+  assert.match(lib, /next != signature[\s\S]{0,120}schedule_clock_recover\(&app, Recover \{ remount: true/);
+  assert.match(lib, /gap > Duration::from_secs\(10\)[\s\S]{0,700}schedule_clock_recover/);
+  assert.match(lib, /fn show_clocks_after_fullscreen[\s\S]{0,900}"surface:refresh"/);
+  assert.match(lib, /fn surface_request_refresh/);
+  assert.match(bridge, /onSurfaceRefresh: on\('surface:refresh'\)/);
+  assert.match(bridge, /requestSurfaceRefresh: \(\) => send\('surface_request_refresh'\)/);
   assert.match(readSource('src/js/surface.js'), /contextlost/);
   assert.match(readSource('src/js/surface.js'), /visibilitychange/);
   for (const html of ['src/index.html', 'src/zoneclock.html', 'src/fullscreen.html']) {
     assert.ok(readSource(html).includes('src="js/surface.js"'), `${html} 가 표면 복구를 읽지 않는다`);
   }
+});
+
+test('프로그램은 언제나 하나만 실행된다 (시계 창은 여러 개)', () => {
+  const lib = readSource('src-tauri/src/lib.rs');
+  // 단일 실행 플러그인을 조건 없이 맨 먼저 건다 — 개발 실행에도 예외가 없다.
+  assert.match(lib, /tauri::Builder::default\(\)\s*\.plugin\(tauri_plugin_single_instance::init\(/);
+  assert.ok(!/allow_multiple|MYCLOCK_MULTI|"--multi"/.test(lib), '여러 개를 띄우는 예외 길이 남아 있다');
+  // 두 번째 실행은 이미 떠 있는 시계를 트레이에서 꺼낸다.
+  assert.match(lib, /single_instance::init\(\|app, _args, _cwd\| bg\(app, restore_from_tray\)\)/);
+});
+
+test('상태 잠금을 한 식 안에서 두 번 잡지 않는다 (교착)', () => {
+  const lib = readSource('src-tauri/src/lib.rs');
+  // `st(app).a || f(app)` 처럼 잠금 임시값이 살아 있는 채 다른 함수를 부르면 같은 스레드에서 멈춘다.
+  for (const [index, line] of lib.split('\n').entries()) {
+    if (/^\s*\/\//.test(line)) continue;
+    assert.ok(!/st\(&?\w+\)\.[^;]*(\|\||&&)[^;]*\(&?(app|handle)\b/.test(line), `lib.rs:${index + 1}: ${line.trim()}`);
+    assert.ok(!/(if let|while let|match) .*= st\(&?\w+\)\.[^;]*\{$/.test(line) || /fake_startup|webview_dir/.test(line), `lib.rs:${index + 1}: if let 의 잠금이 본문 끝까지 산다`);
+  }
+  // 개발 빌드는 다시 잡으면 곧바로 알린다.
+  assert.match(lib, /static HOLDING/);
+  assert.match(lib, /debug_assert!\(false, "MyClock: State 잠금을 같은 스레드에서 다시 잡았다/);
+});
+
+test('알람 창은 내용에 맞춰 늘어나 아래가 잘리지 않는다', () => {
+  const alarm = readSource('src/js/alarm.js');
+  const css = readSource('src/styles/alarm.css');
+  assert.match(alarm, /function fitToContent/);
+  assert.match(alarm, /requestAnimationFrame\(fitToContent\)/);
+  assert.match(alarm, /if \(needed > window\.innerHeight\) api\.window\.setSize/);
+  // 바깥 여백까지 창 안에 들어간다.
+  assert.match(css, /\.alarm-card \{[\s\S]*?height: calc\(100% - 4px\);[\s\S]*?margin: 2px;/);
 });
 
 test('쓰고 있는 칸은 다시 그리지 않는다', () => {
@@ -626,4 +684,3 @@ test('쓰고 있는 칸은 다시 그리지 않는다', () => {
   // 창 크기 맞추기도 미룬다.
   assert.match(panel, /function fitSettingsWindow[\s\S]{0,260}document\.activeElement !== document\.body\) return/);
 });
-

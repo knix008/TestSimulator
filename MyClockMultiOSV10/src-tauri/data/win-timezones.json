@@ -1,10 +1,4 @@
-'use strict';
-
-/**
- * Windows 시간대 ID → IANA 시간대 매핑.
- * WPF 판(MyClockWinV10)의 설정을 가져올 때만 쓰인다.
- */
-const WIN_TO_IANA = {
+{
   "AUS Central Standard Time": "Australia/Darwin",
   "AUS Eastern Standard Time": "Australia/Sydney",
   "Afghanistan Standard Time": "Asia/Kabul",
@@ -89,6 +83,4 @@ const WIN_TO_IANA = {
   "W. Europe Standard Time": "Europe/Berlin",
   "West Asia Standard Time": "Asia/Tashkent",
   "West Pacific Standard Time": "Pacific/Port_Moresby"
-};
-
-module.exports = { WIN_TO_IANA };
+}

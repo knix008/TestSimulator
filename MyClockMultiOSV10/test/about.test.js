@@ -18,10 +18,9 @@ const INFO = {
   author: 'SHKWON',
   email: 'knix008@naver.com',
   license: 'MIT',
-  electron: '33.4.11',
-  chrome: '130.0.6723.191',
-  node: '20.18.3',
-  platform: 'win32 x64',
+  tauri: '2.12.4',
+  webview: '141.0.3537.71',
+  platform: 'windows x86_64',
   packaged: false,
   buildDate: '2026-10-03T05:16:00.000Z',
   iconSvg: '<svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="240" /></svg>'
@@ -93,11 +92,12 @@ test('정보 창에 빌드 정보가 나온다', async () => {
   const names = about.$('aboutBuild').querySelectorAll('dt').map((n) => n.textContent);
   const values = about.$('aboutBuild').querySelectorAll('dd').map((n) => n.textContent);
 
-  assert.deepEqual(names, ['빌드', '빌드 시각', 'Electron', 'Chromium', 'Node.js', '플랫폼']);
+  assert.deepEqual(names, ['빌드', '빌드 시각', 'Tauri', 'WebView', '플랫폼']);
   assert.equal(values[0], '개발 실행');
   assert.match(values[1], /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/, `빌드 시각: ${values[1]}`);
-  assert.equal(values[2], '33.4.11');
-  assert.equal(values[5], 'win32 x64');
+  assert.equal(values[2], '2.12.4');
+  assert.equal(values[3], '141.0.3537.71');
+  assert.equal(values[4], 'windows x86_64');
 });
 
 test('설치본이면 "설치본"으로 적는다', async () => {
@@ -135,13 +135,15 @@ test('정보 창도 테마를 따른다', async () => {
 
 test('제작자 정보는 package.json 과 같다', () => {
   const pkg = require('../package.json');
-  const main = readSource('electron/main.js');
+  const lib = readSource('src-tauri/src/lib.rs');
+  const cargo = readSource('src-tauri/Cargo.toml');
 
   assert.equal(pkg.author.name, 'SHKWON');
   assert.equal(pkg.author.email, 'knix008@naver.com');
-  assert.ok(main.includes(`author: '${pkg.author.name}'`), '메인 프로세스의 제작자 이름이 다르다');
-  assert.ok(main.includes(`email: '${pkg.author.email}'`), '메인 프로세스의 메일이 다르다');
-  assert.ok(main.includes(`license: '${pkg.license}'`));
-  // 아이콘 원본이 포장 목록에 들어 있어야 설치본에서도 그림이 보인다.
-  assert.ok(pkg.build.files.includes('asset/icon.svg'), '아이콘 원본이 포장되지 않는다');
+  assert.ok(lib.includes(`"author": "${pkg.author.name}"`), 'Tauri 셸의 제작자 이름이 다르다');
+  assert.ok(lib.includes(`"email": "${pkg.author.email}"`), 'Tauri 셸의 메일이 다르다');
+  assert.ok(lib.includes(`"license": "${pkg.license}"`));
+  assert.ok(cargo.includes(`authors = ["${pkg.author.name} <${pkg.author.email}>"]`), 'Cargo.toml 의 제작자가 다르다');
+  // 아이콘 원본을 실행 파일 안에 넣어 두어야 설치본에서도 그림이 보인다.
+  assert.match(lib, /"iconSvg": include_str!\("\.\.\/\.\.\/asset\/icon\.svg"\)/, '아이콘 원본이 들어가지 않는다');
 });

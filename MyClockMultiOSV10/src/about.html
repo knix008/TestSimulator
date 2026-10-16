@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+      content="default-src 'none'; script-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
     />
     <title>MyClock 정보</title>
     <link rel="stylesheet" href="styles/about.css" />
@@ -16,7 +16,7 @@
     </header>
 
     <main class="about-main">
-      <!-- 앱 아이콘 — 메인 프로세스가 asset/icon.svg 를 읽어 넣어 준다 -->
+      <!-- 앱 아이콘 — Tauri 셸이 asset/icon.svg 를 실행 파일에 넣어 두었다가 보내 준다 -->
       <div id="aboutIcon" class="about-icon"></div>
 
       <div id="aboutName" class="about-name"></div>
@@ -41,6 +41,7 @@
       <div id="aboutCopyright" class="about-copyright"></div>
     </main>
 
+    <script src="js/bridge.js"></script>
     <script src="js/data/themes.js"></script>
     <script src="js/about.js"></script>
   </body>

@@ -1,0 +1,39 @@
+[package]
+name = "myclock"
+version = "1.0.0"
+description = "Cross-platform desk clock for Windows, Linux, and macOS"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "myclock_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+open = "5"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: settings.json 의 항목 순서를 Electron 판과 같게 둔다 (사람이 읽기 쉽게).
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

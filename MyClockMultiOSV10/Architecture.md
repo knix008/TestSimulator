@@ -1,16 +1,24 @@
 # MyClock 설계 문서
 
-WPF/.NET 8 판을 Electron 으로 옮기면서 무엇이 어디로 갔고, 왜 그렇게 했는지 적은 문서입니다.
+WPF/.NET 8 판을 JavaScript 로 옮기면서 무엇이 어디로 갔고, 왜 그렇게 했는지 적은 문서입니다.
 코드를 처음 읽는 사람을 위한 안내서입니다.
 
-## 1. 프로세스와 창
+처음에는 Electron 으로 옮겼고, 그 뒤 **데스크톱 셸만 Tauri 2(Rust)로 바꿨습니다.** 화면(`src/`)은
+그대로이며, Electron 메인 프로세스가 하던 일을 `src-tauri/src/` 의 Rust 코드가 같은 규칙으로
+합니다. 기능과 설정 파일 형식·위치는 바뀌지 않았습니다. 바꾸며 달라진 자리는
+[11-1절](#11-1-electron-에서-tauri-로)에 있습니다.
 
-Electron 은 메인 프로세스 하나와 창마다 하나씩의 렌더러 프로세스로 나뉩니다.
+## 1. 셸과 창
+
+Tauri 앱은 Rust 로 된 셸 프로세스 하나와, 창마다 하나씩의 웹뷰(Windows 는 WebView2,
+macOS 는 WKWebView, Linux 는 WebKitGTK)로 나뉩니다.
 WPF 판의 창들과는 다음과 같이 1:1로 대응합니다.
 
-| Electron | WPF 원본 | 역할 |
+| 이 판 | WPF 원본 | 역할 |
 |----------|----------|------|
-| `electron/main.js` | `App.xaml.cs` | 창 생성, 트레이, 자동 실행, 창 이동/크기 조절 |
+| `src-tauri/src/lib.rs` | `App.xaml.cs` | 창 생성, 트레이, 자동 실행, 창 이동/크기 조절, 단일 실행 |
+| `src-tauri/src/store.rs` | `SettingsManager.cs` | 설정·일정 저장, WPF 판 설정 가져오기 |
+| `src-tauri/src/geometry.rs` | (창 배치 코드) | 화면 비율로 위치 기억, 작업 영역 안으로 당기기, 패널·메뉴 자리 |
 | `src/index.html` + `js/clock.js` | `MainWindow` | 테두리 없는 투명 탁상시계 (앱 상태의 주인) |
 | `src/zoneclock.html` + `js/zoneclock.js` | (없음) | 추가 시계 — 시간대·테마를 저마다 따로 갖는 시계 창 |
 | `src/panel.html` + `js/panel.js` | `SidePanelWindow` | 설정 패널(`?only=settings`) 과 분리한 기능 창(`?only=<탭>&tool=1`) |
@@ -19,18 +27,26 @@ WPF 판의 창들과는 다음과 같이 1:1로 대응합니다.
 | `src/fullscreen.html` | `ScreensaverWindow` | 전체 화면 시계 |
 | `src/menu.html` + `js/menu.js` | `MainWindow` 의 `ContextMenu` | 우클릭 메뉴 |
 
-렌더러에는 Node 접근 권한이 없습니다(`contextIsolation: true`, `nodeIntegration: false`).
-파일 접근·창 제어는 모두 `electron/preload.js` 가 `window.myclock` 으로 노출한
-함수만 거칩니다.
+렌더러는 파일·창에 직접 손대지 못합니다. 모든 일은 `src/js/bridge.js` 가 만든
+`window.myclock` 을 거칩니다 — 모양은 Electron 판의 preload API 와 똑같아서 렌더러 코드는
+바뀌지 않았습니다. `bridge.js` 는 각 호출을 Rust 의 `#[tauri::command]` 로 보내고(`invoke`),
+셸이 보내는 알림은 **그 창으로 온 것만** 듣습니다(`getCurrentWebviewWindow().listen`).
+권한(`src-tauri/capabilities/default.json`)은 이벤트 수신만 열어 두고, 창 조작·파일·트레이는
+모두 MyClock 자체 명령으로만 합니다. 각 HTML 의 CSP 는 IPC 주소(`ipc:` · `http://ipc.localhost`)만
+더 열어 둡니다.
+
+창 이름(label)은 종류별 접두어에 번호를 붙입니다: `clock`(메인 시계), `zone-N`(추가 시계),
+`panel-N`, `clockset-N`(추가 시계의 설정 창), `tool-N`, `alarm-N`, `menu-N`, `about-N`,
+`full-N`. 같은 창을 닫고 곧바로 다시 열어도 이름이 겹치지 않게 하려고 매번 새 번호를 씁니다.
 
 ## 1-1. 창 하나가 한 가지만 맡는다
 
 설정 패널은 **설정만** 맡습니다. 세계 시간·알람·타이머·스톱워치·캘린더는 저마다
-독립한 창(`openToolWindow`)으로 열리며, 내용은 같은 `panel.html` 을 `?only=<탭>` 으로
+독립한 창(`open_tool_window`)으로 열리며, 내용은 같은 `panel.html` 을 `?only=<탭>` 으로
 띄운 것입니다. 창 하나가 한 가지만 보여 주므로 탭 줄 대신 제목만 남습니다
 (`.tool-window` 클래스).
 
-설정 창은 **시계마다 하나씩**입니다 (`clockSettingsWins`, `panel.html?only=settings&tool=1&clock=<id>`).
+설정 창은 **시계마다 하나씩**입니다 (`State.clock_settings`, `panel.html?only=settings&tool=1&clock=<id>`).
 창이 곧 그 시계의 것이므로 창 안에서 시계를 고르지 않습니다. 메인 시계의 설정은 시계 옆에
 붙는 패널이고, 추가 시계의 설정은 그 시계 옆에 뜨며 시계를 닫으면 함께 닫힙니다.
 그 밖의 창(세계 시간·알람·타이머·스톱워치·캘린더·정보)은 **언제나 하나뿐**이며,
@@ -38,8 +54,9 @@ WPF 판의 창들과는 다음과 같이 1:1로 대응합니다.
 
 설정 창 자체도 갈래 탭(`.sub-tab` / `.sub-page`)으로 나눠 **한 번에 한 갈래만** 보여
 줍니다. 스크롤 막대를 두지 않으므로 창이 작으면 아래가 잘린다 — 그래서 패널이 모든 갈래의
-**높이**를 재서 가장 큰 것에 맞는 크기를 메인 프로세스에 알려 주고(`panel:fit` → `panelFit`),
-메인은 기본값(`PANEL_WIDTH`/`PANEL_HEIGHT`)과 그 값 중 큰 쪽으로 창을 잡습니다.
+**높이**를 재서 가장 큰 것에 맞는 크기를 셸에 알려 주고(`panel_fit` → `State.panel_fit`),
+셸은 기본값(`PANEL_WIDTH`/`PANEL_HEIGHT`)과 그 값 중 큰 쪽으로 창을 잡습니다
+(`geometry::panel_bounds_for`).
 
 > **폭은 재지 않는다.** 내용은 창 폭을 그대로 채우므로 `scrollWidth` 로 재면 잴수록
 > 창이 넓어진다(실제로 한 번 그렇게 늘어났다). 폭은 가장 넓은 것 — 테마 네 칸
@@ -53,51 +70,84 @@ WPF 판의 창들과는 다음과 같이 1:1로 대응합니다.
 |---|------|-------------|
 | 도시(시간대)·테마·디지털/아날로그·스타일·시간 형식·밝기·색·표시 우선순위 | **시계마다 따로** | `settings.extraClocks[]` (메인 시계는 설정 본체의 `zone`/`city`/`theme`…) |
 | 알람·타이머·스톱워치·일정·세계 도시 목록·알람음 | **앱 전체가 하나** | 설정 본체 (메인 시계 창이 들고 있다) |
-| 항상 위에 표시·자동 실행·초기화 | **앱 전체가 하나** | 트레이 메뉴에서 다룬다 (`buildTrayMenu`) — 설정 창은 시계 모양만 맡는다 |
+| 항상 위에 표시·자동 실행·초기화 | **앱 전체가 하나** | 트레이 메뉴에서 다룬다 (`build_tray_menu`) — 설정 창은 시계 모양만 맡는다 |
 
-표시 우선순위(`displayPriority`: low·normal·high·highest)는 메인 프로세스의
-`applyDisplayPriority()` 가 창마다 겁니다. 트레이의 항상 위에 표시는 `normal` 시계와
-기능 창에만 걸립니다. Windows 는 맨 위 창끼리 단계가 없으므로 `highest` 는 다른 시계가
-앞으로 올 때마다 `raiseHighestClocks()` 가 `moveTop()` 으로 다시 올립니다.
+표시 우선순위(`displayPriority`: low·normal·high·highest)는 셸의
+`apply_display_priority()` 가 창마다 겁니다. 트레이의 항상 위에 표시는 `normal` 시계와
+기능 창에만 걸립니다. 맨 위 창끼리는 단계가 없으므로 `highest` 는 다른 시계가
+앞으로 올 때마다 `raise_highest_clocks()` 가 다시 올립니다 (`raise()` — Windows 는
+포커스를 빼앗지 않는 `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE)`, 다른 OS 는 항상 위를
+껐다 켜서 맨 앞으로).
 
 추가 시계 창은 앱 상태를 갖지 않습니다. 자기 설정 한 벌만 받아 그 지역 시각을 그리고,
-설정을 고칠 때는 `clocks:update` 로 메인 프로세스에 알립니다. 그래서 `zoneclock.js` 에는
+설정을 고칠 때는 `clocks.update` 로 셸에 알립니다. 그래서 `zoneclock.js` 에는
 알람·타이머 코드가 없습니다 (검사가 이를 확인합니다).
 
 ## 2. 상태는 시계 창이 소유한다
 
 WPF 판에서는 `MainWindow` 가 알람·타이머·스톱워치 객체를 들고 있고
 `SidePanelWindow` 에 같은 객체 참조를 넘겨 함께 다뤘습니다.
-프로세스가 나뉜 Electron 에서는 참조를 공유할 수 없으므로 이렇게 나눴습니다.
+창마다 웹뷰가 따로인 이 판에서는 참조를 공유할 수 없으므로 이렇게 나눴습니다.
 
 ```
-설정 패널  --(명령)-->  메인 프로세스(중계)  --> 시계 창
-시계 창    --(상태 스냅샷)-->  메인 프로세스(중계)  --> 설정 패널
+설정 패널  --(명령)-->  셸(중계)  --> 시계 창
+시계 창    --(상태 스냅샷)-->  셸(중계)  --> 설정 패널
 ```
 
 - **시계 창**이 유일한 상태 소유자입니다. 알람이 울리고, 타이머가 돌고,
   설정이 저장되는 곳은 모두 여기입니다.
 - **설정 패널**은 보기 전용입니다. 버튼을 누르면 `{type: 'timer:command', …}`
   같은 메시지를 보내고, 돌아온 스냅샷(`{type:'state', …}`)으로 화면을 다시 그립니다.
-- 중계는 `relay:to-clock` / `relay:to-panel` 두 개의 IPC 채널이 전부입니다.
+- 중계는 `relay_to_clock` / `relay_to_panel` 두 명령(알림 이름 `from-panel` / `from-clock`)이 전부입니다.
   분리한 기능 창들도 같은 `from-clock` 스냅샷을 함께 받습니다 — 알람·타이머는
   앱이 하나로 들고 있으므로 어느 창에서 보든 같은 값이어야 합니다.
-- 시계가 여러 개이므로 창 조작(끌기·크기·최소 크기)은 **보낸 쪽 창**(`senderWindow`)에
-  적용합니다. 컨텍스트 메뉴도 연 창(`menuOpener`)으로 결과를 돌려줍니다.
+- 시계가 여러 개이므로 창 조작(끌기·크기·최소 크기)은 **보낸 쪽 창**(명령의 `window: WebviewWindow`
+  인자)에 적용합니다. 컨텍스트 메뉴도 연 창(`State.menu_opener`)으로 결과를 돌려줍니다.
 - 메뉴 창은 한 겹이므로 "시계 추가..."는 첫 메뉴를 닫고 **도시 목록 메뉴를 다시 띄웁니다**
   (`openAddClockMenu`, 항목 id `addclock:<번호>`). 트레이는 네이티브 메뉴라 하위 메뉴를
-  쓰며, 도시·시계 목록이 바뀌므로 열 때마다 다시 만듭니다(`buildTrayMenu`).
-- 패널이 **어느 탭으로 열릴지**는 메인 프로세스가 `panelPendingTab` 에 적어 두고
-  패널이 뜬 뒤 `panel:pending-tab` 으로 가져갑니다. 창이 뜨자마자 `panel:tab` 을
-  보내면 아직 듣는 쪽이 없어 메시지를 흘릴 수 있기 때문입니다. 적어 둔 것이 없으면
+  쓰며, 도시·시계 목록·항상 위 같은 값이 바뀔 때마다 다시 만듭니다(`refresh_tray_menu`).
+- 패널이 **어느 탭으로 열릴지**는 셸이 `panel_pending_tab` 에 적어 두고
+  패널이 뜬 뒤 `panel_pending_tab` 명령으로 가져갑니다 (한 번 읽으면 지운다). 적어 둔 것이 없으면
   **설정 탭**이 기본입니다 (패널을 여는 길은 대부분 ⚙ 버튼·우클릭 *설정...* 입니다).
 
 ### 실행 중인 타이머를 매끄럽게 보여주기
 
-스냅샷을 초당 열 번씩 보내면 IPC 가 낭비됩니다. 대신 스냅샷에 **종료 시각**
+스냅샷을 초당 열 번씩 보내면 창 사이 통신이 낭비됩니다. 대신 스냅샷에 **종료 시각**
 (`endAt`)과 스톱워치의 **시작 시각**(`startedAt`)을 함께 담아 보냅니다.
 패널은 그 값으로 남은 시간을 직접 계산하므로, 상태가 실제로 바뀔 때만
 메시지가 오갑니다.
+
+## 2-1. 셸 → 창 알림은 창이 들을 때까지 기다린다
+
+Electron 은 `ready-to-show` 뒤에 메시지를 보내면 페이지가 이미 듣고 있었습니다. Tauri 에서는
+창을 만든 직후 보낸 알림(메뉴 항목 `menu:items`, 알람 내용 `alarm:show`, 패널 방향 `panel:side` …)을
+페이지가 아직 듣지 않아 흘릴 수 있습니다. 그래서 셸의 `post(label, event, payload)` 는
+
+- 그 창이 그 알림을 **이미 듣고 있으면** 곧바로 보내고 (`emit_to`),
+- 아니면 창·알림별 대기열(`State.queued`, 64개까지)에 쌓아 둡니다.
+
+`bridge.js` 의 `on(event)` 는 리스너를 단 **뒤에** `bridge_listen(event)` 를 불러 "이제 듣는다"고
+알리고, 쌓여 있던 것을 한꺼번에 받습니다. 두 쪽이 같은 잠금 아래에서 판단하므로 하나도
+두 번 오거나 빠지지 않습니다. 페이지를 다시 읽으면(`PageLoadEvent::Started`) 듣는 목록을 비워
+처음부터 다시 듣습니다. 창은 숨긴 채 만들고 페이지를 다 읽은 뒤(`PageLoadEvent::Finished` →
+`on_loaded`) 보이므로 흰 화면이 번쩍이지 않습니다.
+
+### 잠금 규칙
+
+셸의 공유 상태(`State`)는 `Mutex` 하나입니다. 두 가지를 지킵니다.
+
+- **잠금을 쥔 채 창을 만들거나 보이거나 옮기지 않는다.** 그런 호출은 같은 잠금을 잡는 창 이벤트를
+  곧바로 부를 수 있습니다. 필요한 값만 꺼내고 놓은 뒤에 창을 다룹니다.
+- **한 식 안에서 두 번 잡지 않는다.** `if st(app).a || f(app)` 처럼 쓰면 앞의 잠금 임시값이 식이
+  끝날 때까지 살아 있어, `f` 가 다시 잡는 순간 같은 스레드에서 멈춥니다 (`if let x = st(app)…` 은
+  본문 끝까지 산다). 실제로 이 실수로 시작 직후 앱이 "응답 없음"이 된 적이 있습니다. 개발
+  빌드에서는 `st()` 가 같은 스레드의 재진입을 잡아 곧바로 알리고(`HOLDING`), 검사도 이 꼴을 찾습니다.
+
+창을 만드는 명령은 `async` 입니다 — 동기 명령은 메인 스레드에서 돌아, 거기서 창을 만들면
+Windows 에서 멈춥니다. 트레이 메뉴·창 이벤트처럼 메인 스레드에서 불리는 곳은 `bg()` 로
+다른 스레드에 넘겨 창을 만듭니다. 미뤄 두는 일(몰아서 저장, 400ms 뒤 복구 …)은
+`schedule(key, delay, work)` 로 걸고, 셸의 틱 스레드(`start_ticker`)가 때가 되면 실행합니다.
+같은 이름으로 다시 걸면 앞의 것은 버려지므로 그대로 "몰아서 하기"가 됩니다.
 
 ## 3. 그리기
 
@@ -198,20 +248,21 @@ IANA 시간대(`"Asia/Seoul"`)로 변환했습니다(`scripts/convert-cities.js`
 현지 시각 계산은 `Intl.DateTimeFormat` 에 `timeZone` 을 넘기는 방식이라
 별도 라이브러리가 필요 없고, OS 의 시간대 데이터를 그대로 따릅니다.
 
-`electron/win-timezones.js` 의 매핑표는 WPF 판 설정을 가져올 때만 쓰입니다.
+`src-tauri/data/win-timezones.json` 의 매핑표는 WPF 판 설정을 가져올 때만 쓰입니다
+(`store.rs` 가 `include_str!` 로 실행 파일에 넣는다).
 
 ## 7. 창 이동과 크기 조절
 
 투명 창에서는 `-webkit-app-region: drag` 가 우클릭·버튼 조작을 함께 삼켜버려
 쓰기 어렵습니다. 그래서 직접 구현했습니다.
 
-1. 렌더러가 `pointerdown` 에서 포인터 캡처를 잡고 `window:drag-start` 를 보냅니다.
-2. 메인 프로세스가 12ms 간격으로 커서 위치를 읽어 창을 따라 옮깁니다.
-3. `pointerup`(또는 캡처 상실·포커스 상실)에서 `window:gesture-end` 로 멈춥니다.
+1. 렌더러가 `pointerdown` 에서 포인터 캡처를 잡고 `window_drag_start` 를 보냅니다.
+2. 셸이 12ms 간격으로 커서 위치를 읽어 창을 따라 옮깁니다 (`start_gesture`, 물리 픽셀로).
+3. `pointerup`(또는 캡처 상실·포커스 상실)에서 `window_gesture_end` 로 멈춥니다.
 
 포인터 캡처를 쓰는 이유는 창이 커서를 따라 움직이는 동안에도 `pointerup` 이
 반드시 이 창에 전달되도록 하기 위해서입니다. 그래도 놓칠 경우를 대비해
-메인 프로세스에 30초 안전장치를, 렌더러에 "버튼을 뗀 채로 들어온 이동" 감지를
+셸에 여러 겹의 안전장치(13절)를, 렌더러에 "버튼을 뗀 채로 들어온 이동" 감지를
 각각 두었습니다. 이 장치가 없으면 창이 커서에 붙어 따라다니게 됩니다.
 
 오른쪽 아래 그립을 끌 때도 같은 구조로 크기를 조절합니다.
@@ -226,8 +277,8 @@ IANA 시간대(`"Asia/Seoul"`)로 변환했습니다(`scripts/convert-cities.js`
 HWND 팝업이라 창 밖으로 넘칠 수 있었지만, HTML 요소는 그럴 수 없습니다.
 
 그래서 메뉴는 테두리 없는 투명 창(`menu.html`)으로 띄웁니다.
-내용을 그린 뒤 렌더러가 실제 크기를 재서 `menu:ready` 로 알려주면,
-메인 프로세스가 커서 옆(화면 밖으로 나가면 반대쪽)에 놓고 창을 보여줍니다.
+내용을 그린 뒤 렌더러가 실제 크기를 재서 `menu_ready` 로 알려주면,
+셸이 커서 옆(화면 밖으로 나가면 반대쪽)에 놓고 창을 보여줍니다.
 테마 CSS 를 그대로 쓰므로 네이티브 메뉴와 달리 앱의 색을 따릅니다.
 
 ## 8. 화면 보호기 대신 전체 화면 시계
@@ -235,78 +286,80 @@ HWND 팝업이라 창 밖으로 넘칠 수 있었지만, HTML 요소는 그럴 �
 WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screensaver/`).
 `.scr` 는 Windows 고유 형식이라 이식할 수 없으므로,
 어느 OS 에서나 동작하는 **전체 화면 시계**로 대체했습니다.
-설정 탭의 버튼이나 우클릭 메뉴로 열고, 아무 키나 누르거나 클릭하면 닫힙니다.
+설정 탭의 버튼이나 우클릭 메뉴로 열고, Esc(전역 단축키로 걸어 둔다) · 설정의 "원래 크기로
+돌아가기" · 트레이의 같은 항목으로 닫습니다.
+
+투명 창을 OS 의 전체 화면 모드로 열면 곧바로 풀리므로, 커서가 있는 화면의 **작업 영역만 한
+투명 창**을 맨 위에 띄웁니다. 시계 상자를 재기 전에는 클릭이 바탕으로 지나가게
+(`set_ignore_cursor_events(true)`) 두었다가, 렌더러가 잰 상자(`fullscreen_fit`)로 창을 줄이고
+나서 클릭을 받습니다. 작업 표시줄은 창 밖이라 트레이를 누를 수 있습니다. 여는 동안 탁상시계들은
+숨기고, 닫으면 숨겼던 것만 다시 보입니다. 설정·기능 창은 전체 화면 위로 올려 둡니다.
 
 ## 9. 설정 저장
 
-`electron/store.js` 가 `app.getPath('userData')` 아래에 JSON 두 개를 둡니다.
-쓰기는 임시 파일에 쓴 뒤 `rename` 하는 방식이라 중간에 끊겨도 파일이 깨지지 않습니다.
+`src-tauri/src/store.rs` 가 설정 폴더(`%AppData%\MyClockMultiOS` 등 — Electron 판의 `userData` 와
+같은 곳) 아래에 JSON 두 개를 둡니다. 쓰기는 임시 파일에 쓴 뒤 `rename` 하는 방식이라 중간에
+끊겨도 파일이 깨지지 않고, 읽고-합치고-쓰는 동안 다른 저장이 끼어들지 않게 `STORE_LOCK` 으로
+한 줄로 세웁니다. 항목 순서도 Electron 판과 같게 씁니다(`serde_json` 의 `preserve_order`).
 
-읽을 때는 항상 `normalizeSettings()` 를 거칩니다. 손상된 값이나 예전 형식이
+읽을 때는 항상 `normalize_settings()` 를 거칩니다 (Electron 판 `normalizeSettings()` 와 같은 규칙). 손상된 값이나 예전 형식이
 들어와도 기본값으로 메워지므로, 설정 파일 때문에 앱이 뜨지 않는 일은 없습니다.
 
 저장 폴더는 `MyClockMultiOS` 로, WPF 판의 `MyClock` 과 일부러 분리했습니다.
 같은 폴더를 쓰면 두 앱이 서로의 설정 파일을 덮어씁니다.
 대신 처음 실행할 때 WPF 판 설정을 **읽기만 해서** 한 번 가져옵니다
-(`migrateFromWpfIfNeeded`).
+(`migrate_from_wpf_if_needed`).
+
+> Electron 판은 저장된 `null` 위치를 다시 읽을 때 `Number(null) = 0` 으로 바꿔, 한 번도 옮기지 않은
+> 추가 시계가 다음 실행에 화면 왼쪽 위로 가는 일이 있었습니다. 이 판은 `null` 을 그대로 둡니다.
 
 ## 10. 아이콘과 Windows 설치 관리자
 
-아이콘은 `asset/icon.svg` 한 장에서 파생됩니다(`npm run icons` → PNG 9종 + `icon.ico`).
+아이콘은 `asset/icon.svg` 한 장에서 파생됩니다(`npm run icons` → PNG 9종 + `icon.ico` + `icon.icns`).
+빌드할 때 `beforeBuildCommand` 가 다시 만들고, `npm start` 는 없을 때만 만듭니다(`--if-missing`).
+`.icns` 는 PNG 를 그대로 담는 형식(ic07~ic10)이라 `generate-icons.js` 가 직접 묶습니다.
 입체감은 SVG 필터 없이 그라디언트만으로 만듭니다 — 래스터라이저(resvg)가 필터를
 전부 지원하지는 않기 때문입니다. 본체의 대각선 그라디언트, 좌측 상단 반사광,
 테두리 림 라이트, 문자판 아래 그림자, 유리 반사가 겹쳐 3D 처럼 보입니다.
 
-같은 아이콘이 네 곳에 쓰입니다.
-
 | 어디 | 어떻게 |
 |------|--------|
-| 설치 파일 | `nsis.installerIcon` (asset/icon.ico) |
-| 설치된 exe | electron-builder 가 rcedit 로 exe 에 박는다 |
+| 설치 파일 | `bundle.windows.nsis.installerIcon` (asset/icon.ico) |
+| 설치된 exe·창·트레이 | `bundle.icon` 목록 — Tauri 가 exe 리소스와 기본 창 아이콘으로 넣는다 |
 | 바로가기 | exe 의 0번 아이콘을 가리킨다 |
-| Alt+Tab 목록 | 창 아이콘 (`BrowserWindow`의 `icon`) + exe 아이콘 (작업 표시줄에는 표시하지 않음) |
+| 트레이 메뉴 항목 | `menu_icons.rs` 가 16px 그림을 직접 그린다 (고해상도 화면은 두 배) |
+| 정보 창 | `include_str!("../../asset/icon.svg")` — 실행 파일 안에 원본 svg 를 넣어 둔다 |
 
-> **주의:** `win.signAndEditExecutable: false` 를 켜면 rcedit 가 실행되지 않아
-> exe 가 Electron 기본 아이콘(원자 모양) 그대로 남습니다. 그러면 바로가기와
-> 작업 표시줄까지 전부 기본 아이콘이 됩니다. 서명만 건너뛰려면 이 옵션 대신
-> `signtoolOptions.sign` 에 빈 훅(`scripts/skip-win-sign.js`)을 물리세요.
+설치 관리자는 Tauri 의 NSIS 템플릿에 `src-tauri/windows/hooks.nsh` 를 더한 것입니다. 사용자별
+설치(`installMode: currentUser`)이고, 처음에 한국어/English 를 고릅니다.
+훅 파일은 Tauri 페이지보다 **먼저** 읽히므로, 사용자 정의 페이지 두 개는 환영 페이지 앞에 옵니다.
 
-> **주의:** `BrowserWindow` 의 `icon` 옵션은 asar **안**의 경로를 읽지 못합니다.
-> `fs.existsSync` 는 true 를 돌려주므로 조용히 기본 아이콘이 남습니다.
-> `appIconPath()` 가 패키징본에서 `extraResources` 로 풀린 실제 파일을
-> 먼저 찾는 이유입니다.
-
-설치 관리자는 `build/installer.nsh` 로 확장했습니다. 두 개의 사용자 정의 페이지가 있습니다.
-
-**바로가기 선택.** electron-builder 의 `createDesktopShortcut` /
-`createStartMenuShortcut` 은 켜고 끄는 값일 뿐 사용자가 고를 수는 없어서,
-두 옵션을 끄고 nsDialogs 체크박스 페이지를 직접 만든 뒤 `customInstall` 에서
-고른 것만 만듭니다.
-
-**재설치 방식 선택.** `customInit` 에서 등록된 설치 위치(`InstallLocation`)나
-설정 파일(`%AppData%\MyClockMultiOS\settings.json`)이 있는지 보고, 있을 때만 이
-페이지를 보여줍니다(없으면 페이지 생성 함수에서 `Abort` 로 건너뜁니다).
-두 선택지의 의미는 이렇습니다.
+**재설치 방식 선택.** 등록된 설치(Tauri 판 `Uninstall\MyClock`, Electron 판
+`Uninstall\7b9e1599-…`)나 설정 파일(`%AppData%\MyClockMultiOS\settings.json`)이 있을 때만 보입니다.
 
 | 선택 | 하는 일 |
 |------|---------|
-| 기존 설정 유지 (기본) | electron-builder 기본 동작 — 옛 제거 프로그램을 `/KEEP_APP_DATA --updated` 로 돌려 프로그램 파일만 바꾼다 |
-| 완전히 삭제 | 위에 더해 `customInstall` 에서 설정·데이터 폴더, 옛 설치 폴더(새 `$INSTDIR` 과 다를 때만), 기존 바로가기를 지운다 |
+| 기존 설정 유지 (기본) | 프로그램 파일만 바꾼다. Electron 판이 있으면 그 제거 프로그램을 `/S /currentuser --updated` 로 돌려 (데이터는 남긴다) 지운다 |
+| 완전히 삭제 | 위에 더해 설정·데이터 폴더, WebView2 캐시(`%LOCALAPPDATA%\com.shkwon.myclock`), 옛 설치 폴더(새 `$INSTDIR` 과 다를 때만), 기존 바로가기, 자동 실행 항목을 지운다 |
 
-> **주의:** `customInstall` 은 새 파일을 복사한 **뒤에** 실행됩니다. 그래서 완전 삭제에서도
-> `$INSTDIR` 자체는 절대 지우지 않습니다 — 지우면 방금 설치한 파일이 사라집니다.
+**바로가기 선택.** 바탕화면/시작 메뉴 체크박스. 고른 것만 `NSIS_HOOK_POSTINSTALL` 에서 만들고,
+Tauri 자체의 시작 메뉴 바로가기는 `$NoShortcutMode` 로 끕니다.
 
-> **주의:** 이전 설치가 있으면 electron-builder 가 설치 옵션·설치 위치 페이지를
-> 건너뜁니다(등록된 값을 그대로 씀). 그래서 재설치 때 페이지 순서는
-> 사용권 → 재설치 방식 → 바로가기 → 설치 로 짧아집니다.
+**Electron 판에서 옮겨 오기.** Electron 판이 켜 둔 자동 실행 값(`Run\com.shkwon.myclock`)은 지우고,
+켜져 있었으면 Tauri 판 이름(`Run\MyClock`, tauri-plugin-autostart 와 같은 값)으로 새 exe 를 걸어 둡니다.
+Electron 판이 설정 폴더 옆에 두던 Chromium 캐시도 지웁니다 (`settings.json`·`calendar_events.json` 은 남긴다).
+
+**제거.** Tauri 제거 프로그램의 "앱 데이터 삭제"를 체크하면 `NSIS_HOOK_POSTUNINSTALL` 이 설정 폴더도
+지웁니다 (Tauri 는 `%AppData%\<identifier>` 만 안다). 업데이트 중의 제거(`/UPDATE`)에서는 지우지 않습니다.
+
+> **주의:** 훅의 **함수** 안에서는 Tauri 의 `$UpdateMode`·`$PassiveMode` 를 쓸 수 없습니다 — 이 파일보다
+> 뒤에 선언되어 NSIS 컴파일이 실패합니다. 함수는 명령줄을 직접 읽고(`MC_AbortIfUnattended`),
+> 매크로(`NSIS_HOOK_*`)는 섹션 안에서 펼쳐지므로 써도 됩니다.
+
+> **주의:** `hooks.nsh` 는 UTF-8 **BOM** 으로 둡니다. BOM 이 없으면 NSIS 가 한글을 ANSI 로 읽어 깨집니다.
 
 사용자 정의 페이지는 앞 페이지의 머리말을 물려받으므로, `MC_SetHeader` 매크로가
 머리말 컨트롤(1037/1038)에 직접 문구를 써 넣습니다.
-
-제거할 때는 electron-builder 의 `deleteAppDataOnUninstall` 이 productName 폴더만
-알기 때문에, `customUnInstall` 에서 같은 조건(`$isDeleteAppData`)으로
-`MyClockMultiOS` 폴더를 함께 지웁니다. 업데이트 중 실행되는 제거에서는 이 값이 0 이라
-설정이 남습니다.
 
 ## 11. 이식하면서 달라진 점
 
@@ -334,14 +387,42 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 | 호버 배경 | 창 전체에 불투명 배경 | 디지털만 옅게(0.38), 아날로그는 깔지 않음 | 둥근 문자판 뒤에 사각형이 보이지 않도록 |
 | 재설치 | 항상 덮어쓰기 | 설정 유지 / 완전 삭제 선택 | 처음 상태로 돌릴 수단 제공 |
 
+## 11-1. Electron 에서 Tauri 로
+
+셸만 바꿨으므로 기능·설정 파일·화면은 그대로입니다. 같은 일을 하는 자리만 표로 둡니다.
+
+| Electron 판 | Tauri 판 | 메모 |
+|-------------|----------|------|
+| 메인 프로세스 (`main.js`) | `src-tauri/src/lib.rs` (+ `geometry.rs`, `menu_icons.rs`) | 함수 이름은 snake_case 로 같은 뜻 (`openToolWindow` → `open_tool_window`) |
+| preload (`contextBridge`) | `src/js/bridge.js` (`__TAURI_INTERNALS__.invoke`) | `window.myclock` 의 모양은 같다 |
+| `ipcMain.handle/on('x:y')` | `#[tauri::command] fn x_y` | 채널 이름의 `:`·`-` 를 `_` 로 |
+| `webContents.send` | `post()` + 대기열 (2-1절) | 창이 듣기 전 알림을 흘리지 않는다 |
+| 설정 저장소 (`store.js`) | `src-tauri/src/store.rs` | 같은 규칙, 같은 폴더·파일. 검사는 `cargo test` |
+| `requestSingleInstanceLock` | `tauri-plugin-single-instance` | **예외 없이** 언제나 하나 (개발용 `--multi` 도 없앴다) |
+| `setLoginItemSettings` / `.desktop` | `tauri-plugin-autostart` | Windows Run 값 이름이 `com.shkwon.myclock` → `MyClock` (설치 프로그램이 옮긴다) |
+| `Menu` / `Tray` / `nativeImage` | `tauri::menu` / `TrayIconBuilder` / `Image` | 켜고 끄는 항목은 아이콘 대신 OS 체크 표시 |
+| `dialog.showMessageBox` | `tauri-plugin-dialog` | 초기화 확인 |
+| `globalShortcut('Escape')` | `tauri-plugin-global-shortcut` | 전체 화면 시계 닫기 |
+| `screen` 이벤트 · `powerMonitor` | 2초마다 화면 구성 비교 + 시계 건너뜀(잠자기) 감지 (`start_ticker`) | 모니터 연결·해상도·배율 변화, 절전에서 깨어남 |
+| `setAlwaysOnTop(level)` · `moveTop()` | `set_always_on_top` + `raise()` (Windows `SetWindowPos`) | 맨 위 창끼리의 단계(screen-saver 등)는 없다 — 순서로 가른다 |
+| `setParentWindow` (패널 ↔ 시계) | 쓰지 않음 | 패널은 시계 옆에 붙어 따라다니기만 한다. 시계를 숨길 때 떼었다 붙이는 코드가 필요 없다 |
+| 투명 창 표면 재생성(`refreshLayeredWindow`) | 다시 그리기 알림만(`surface:refresh`) | WebView2 투명 창은 Electron 처럼 하얗게 굳지 않는다 |
+| `backgroundThrottling: false` | WebView2 인자 `--disable-background-timer-throttling` 등 | 트레이로 숨긴 동안에도 알람·타이머가 늦지 않게 |
+| 렌더러 충돌 시 다시 읽기 | 없음 | WebView2 가 스스로 처리 |
+| 정보 창의 Electron/Chromium/Node 버전 | Tauri / WebView 버전 | |
+| `MyClock-Setup-x.y.z.exe` | 같은 이름으로 루트에 복사 (`copy-installer-to-root.js`) | Tauri 의 원래 이름은 `MyClock_x.y.z_x64-setup.exe` |
+
 ## 12. 검사 (npm test)
 
-창을 띄우지 않고 **진짜 렌더러 코드**를 돌려 봅니다. `test/helpers/` 가
-브라우저와 Electron 자리를 대신합니다.
+`npm test` 는 두 묶음입니다 — `npm run test:js`(node:test) 와 `npm run test:rust`(cargo test).
+
+JS 쪽은 창을 띄우지 않고 **진짜 렌더러 코드**를 돌려 봅니다. `test/helpers/` 가
+브라우저 자리를 대신합니다. 렌더러는 `window.myclock` 만 보므로 가짜 API 를 끼우면 됩니다
+(`bridge.js` 는 Tauri 가 없으면 아무것도 하지 않는다).
 
 | 하네스 | 하는 일 |
 |--------|---------|
-| `helpers/fakes.js` | 캔버스·DOM 전역, `electron` 모듈을 바꿔 끼운 `store.js` 읽기 |
+| `helpers/fakes.js` | 캔버스·DOM 전역 |
 | `helpers/minidom.js` | 아주 작은 DOM — `panel.html` 을 트리로 세우고 선택자·이벤트를 흉내 냄 |
 | `helpers/clockwindow.js` | `index.html` 의 스크립트를 한 샌드박스에 넣어 `clock.js` 를 돌림 |
 | `helpers/panelwindow.js` | 같은 방식으로 `panel.js` 를 돌림 (설정 패널·기능 창 둘 다) |
@@ -353,17 +434,26 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 - 샌드박스에서 돌아온 배열은 realm 이 달라 `deepStrictEqual` 이 실패합니다.
   비교할 때는 `[...arr]` 로 옮겨 담으세요.
 - 창을 쓰지 않는 검사(`wiring.test.js`)는 소스끼리 맞춰 봅니다 — 코드가 찾는
-  요소 id 가 문서에 있는지, preload 가 연 채널마다 메인에 받는 쪽이 있는지.
+  요소 id 가 문서에 있는지, `bridge.js` 가 부르는 명령마다 `#[tauri::command]` 와
+  `generate_handler!` 등록이 있는지, 듣는 알림을 셸이 보내는지, 창 이름마다 권한이 있는지,
+  잠금을 한 식 안에서 두 번 잡지 않는지.
+- Rust 쪽(`cargo test`)은 `store.rs`(Electron 판 `store.test.js` 를 그대로 옮긴 검사),
+  `geometry.rs`(해상도가 바뀌어도 오른쪽 끝에 남기, 사라진 화면, 메뉴 뒤집기),
+  `menu_icons.rs`, 우선순위·최소 크기 규칙을 봅니다.
 - 보고서 형식은 `scripts/test-reporter.js` 입니다. 기호는 ASCII 만 씁니다
   (한글 콘솔에서 유니코드 체크 표시가 "?" 로 깨집니다).
 
-빌드 산출물은 `npm run clean` 으로 지웁니다 (`scripts/clean.js` — `dist/`,
-생성된 아이콘, 루트의 설치 파일. `--all` 은 `node_modules` 까지, `-n` 은 목록만).
+빌드 산출물은 `npm run clean` 으로 지웁니다 (`scripts/clean.js` — `src-tauri/target`·`src-tauri/gen`,
+옛 `dist/`, 생성된 아이콘, 루트의 설치 파일. `--all` 은 `node_modules` 까지, `-n` 은 목록만).
+
+실제 창을 확인할 때는 `MYCLOCK_CONFIG_DIR=<임시 폴더>` 로 쓰는 사람의 설정을 피하고,
+`MYCLOCK_DEBUG_PORT=<포트>` 로 WebView2 의 DevTools 프로토콜을 열어 각 창(`http://tauri.localhost/…`)을
+조작합니다. 투명 창의 실제 모습은 CDP 스크린샷(투명이 흰색으로 나온다)이 아니라 화면 캡처로 봅니다.
 
 ## 13. 창을 끄는 제스처 — 놓쳐도 끝나야 한다
 
 테두리 없는 투명 창이라 끌기는 직접 구현한다: 렌더러가 `pointerdown` 에서
-`window:drag-start` 를 보내면 메인이 12ms 마다 커서를 따라 창을 옮긴다.
+`window_drag_start` 를 보내면 셸이 12ms 마다 커서를 따라 창을 옮긴다.
 문제는 **떼는 것을 놓쳤을 때**다. 포인터 캡처가 풀리거나 창이 포커스를 잃으면
 `pointerup` 이 오지 않고, 창이 커서에 붙은 채 남아 "손대지 않았는데 창이 저 혼자
 움직인다"로 보인다 (설정 패널은 시계를 따라다니므로 함께 움직인다).
@@ -373,7 +463,7 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 | 어디 | 무엇으로 |
 |------|----------|
 | 렌더러 | `pointerup`/`pointercancel`/`lostpointercapture`, 버튼 없이 들어온 `pointermove`(`buttons === 0`), `mouseup`, `blur`, `visibilitychange` |
-| 메인 | 커서가 `GESTURE_IDLE_MS` 동안 멈춰 있으면 종료, `GESTURE_MAX_MS` 가 지나면 무조건 종료, 끌던 창이 `blur` 되면 종료 |
+| 셸 | 마우스 주 단추가 떼어졌으면 종료 (Windows `GetAsyncKeyState`, 왼손잡이 설정도 본다), 커서가 `GESTURE_IDLE` 동안 멈춰 있으면 종료, `GESTURE_MAX` 가 지나면 무조건 종료, 끌던 창이 포커스를 잃으면 종료 |
 
 ## 14. 설정 창을 다시 그릴 때
 
@@ -387,11 +477,14 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
 - **`hidden` 속성으로 숨깁니다.** `display: flex` 같은 규칙이 `hidden` 을
   덮어쓰지 않도록 각 스타일시트 맨 위에 `[hidden] { display: none !important }`
   가 있습니다. 이 규칙을 지우면 숨긴 시계가 배경에 비칩니다.
-- **창 기하는 `rememberGeometry()` 를 거칩니다.** 최소화 중에는 창 크기가
+- **창 기하는 `remember_clock_placement()` 를 거칩니다.** 최소화·숨김 중에는 창 크기가
   0에 가깝게 보고될 수 있는데, 그 값을 저장하면 다음 실행에서 창이 사라집니다.
+  셸이 직접 옮긴 움직임(`set_bounds`)은 300ms 동안 사용자의 배치로 적지 않습니다(`quiet_until`).
+- **창 좌표는 논리 픽셀(DIP)입니다.** `bounds()`/`set_bounds()` 가 화면마다 배율을 보고
+  물리 픽셀과 바꿉니다. Electron 판과 같은 단위라 저장된 위치를 그대로 이어 씁니다.
 - **노트북 덮개·절전 뒤에는 창을 화면 안으로 되돌립니다.** Windows 가 창을
   최소화하거나 사라진 모니터 좌표에 남겨 두면 트레이만 남고 시계가 안 보입니다.
-  `hiddenByUser` 가 아닌 숨김은 `registerDisplayRecovery()` 가 복구하므로,
+  `hidden_by_user` 가 아닌 숨김은 `start_ticker()` 의 화면 변화 감지가 복구하므로,
   최소화 = 트레이 숨김 경로를 덮개 닫힘과 섞지 마세요.
 - **트레이 복원·해상도 변경은 상대 좌표를 씁니다.** 절대 픽셀이 아니라
   작업 영역에서 창이 움직일 수 있는 여유 공간의 비율(`windowRelX`/`windowRelY`)로
@@ -407,10 +500,12 @@ WPF 판에는 Windows 전용 `.scr` 화면 보호기가 있었습니다(`Screens
   글자에 그림자를 넣어 바탕화면 위에서도 읽히게 합니다.
 - **꺼진 세그먼트는 그리지 않는 것이 의도입니다.** `digital-display.js` 에 다시
   흐린 색을 넣으면 투명 창에서 색 덩어리가 되살아납니다.
-- **`build/installer.nsh` 는 문자열 이스케이프에 민감합니다.** 줄바꿈은 `$\r$\n`,
+- **`src-tauri/windows/hooks.nsh` 는 문자열 이스케이프에 민감합니다.** 줄바꿈은 `$\r$\n`,
   경로 구분자는 `\` 하나입니다. 셸 heredoc 을 거쳐 쓰면 역슬래시가 줄어들기 쉬우니
   파일을 직접 편집하세요.
 - **메뉴 항목을 늘리면 창 크기는 자동으로 맞춰집니다.** `menu.js` 가 내용을 잰 뒤
-  메인 프로세스에 알리므로, 크기를 코드에 적어 둘 필요가 없습니다.
+  셸에 알리므로, 크기를 코드에 적어 둘 필요가 없습니다. 알람 팝업도 같은 방식으로
+  내용이 길면 창을 늘립니다(`alarm.js` 의 `fitToContent`).
+- **셸 쪽 상태 잠금을 고칠 때는 2-1절의 잠금 규칙을 지키세요.**
 - **패널에서 설정을 바꿀 때는 `patchSettings()` 하나만 씁니다.** 이 함수가
   지역 상태 갱신과 시계 창 통보를 함께 처리합니다.

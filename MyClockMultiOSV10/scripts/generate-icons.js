@@ -1,6 +1,6 @@
 /**
  * Rasterize asset/icon.svg into the MyClock app / installer icon set.
- * Usage: node scripts/generate-icons.js
+ * Usage: node scripts/generate-icons.js [--if-missing]
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,9 +24,47 @@ function renderPng(svg, size) {
   return Buffer.from(resvg.render().asPng());
 }
 
+/**
+ * macOS 아이콘(.icns) — PNG 를 그대로 담는 형식(ic07~ic10)이라 따로 변환기가 필요 없다.
+ * 각 항목은 4바이트 종류 + 4바이트 길이(머리 포함, big-endian) + PNG.
+ */
+function buildIcns(bySize) {
+  const entries = [
+    ['ic07', 128],
+    ['ic08', 256],
+    ['ic09', 512],
+    ['ic10', 1024]
+  ].map(([type, size]) => {
+    const png = bySize.get(size);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii');
+    head.writeUInt32BE(png.length + 8, 4);
+    return Buffer.concat([head, png]);
+  });
+  const body = Buffer.concat(entries);
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 'ascii');
+  head.writeUInt32BE(body.length + 8, 4);
+  return Buffer.concat([head, body]);
+}
+
+/** Tauri 가 읽는 아이콘 — 하나라도 없으면 다시 만든다 (`--if-missing`). */
+const REQUIRED = [
+  'asset/icon.ico',
+  'asset/icon.icns',
+  'asset/icons/32x32.png',
+  'asset/icons/128x128.png',
+  'asset/icons/256x256.png',
+  'src/favicon.png'
+];
+
 async function main() {
   if (!fs.existsSync(svgPath)) {
     throw new Error(`Missing ${svgPath}`);
+  }
+  if (process.argv.includes('--if-missing') && REQUIRED.every((rel) => fs.existsSync(path.join(root, rel)))) {
+    console.log('icons are up to date');
+    return;
   }
   const svg = fs.readFileSync(svgPath);
   fs.mkdirSync(iconsDir, { recursive: true });
@@ -55,10 +93,9 @@ async function main() {
   fs.writeFileSync(icoPath, ico);
   console.log(`wrote asset/icon.ico (${ico.length} bytes)`);
 
-  const buildDir = path.join(root, 'build');
-  fs.mkdirSync(buildDir, { recursive: true });
-  fs.copyFileSync(icoPath, path.join(buildDir, 'icon.ico'));
-  console.log('wrote build/icon.ico');
+  const icns = buildIcns(bySize);
+  fs.writeFileSync(path.join(assetDir, 'icon.icns'), icns);
+  console.log(`wrote asset/icon.icns (${icns.length} bytes)`);
 }
 
 main().catch((err) => {

@@ -2,7 +2,10 @@
 
 가로형 탁상시계 스타일의 데스크톱 시계 애플리케이션 — **Windows · Linux · macOS** 공통.
 
-WPF/.NET 8 판([MyClockWinV10](../MyClockWinV10))을 JavaScript + Electron 으로 옮긴 것입니다.
+WPF/.NET 8 판([MyClockWinV10](../MyClockWinV10))을 JavaScript 로 옮긴 것이며, 데스크톱 셸은
+**Tauri 2 (Rust)** 입니다. 화면(src/)은 HTML·CSS·JavaScript 그대로이고, 창·트레이·설정 파일·
+자동 실행은 `src-tauri/` 의 Rust 코드가 맡습니다. (예전 Electron 판에서 기능은 그대로 두고 셸만
+바꿨습니다 — 설정 폴더도 같아서 옮겨 와도 설정이 이어집니다.)
 원본 WPF 소스는 이웃 폴더 [`../MyClockWinV10`](../MyClockWinV10)에 그대로 있습니다.
 
 ## 기능
@@ -10,6 +13,7 @@ WPF/.NET 8 판([MyClockWinV10](../MyClockWinV10))을 JavaScript + Electron 으�
 | 기능 | 설명 |
 |------|------|
 | 시계 여러 개 | 도시(시간대)마다 시계 창을 따로 띄울 수 있고, **시계마다 자기 설정 창**에서 테마·모양·시간 형식·밝기를 따로 정합니다. 창에 도시 이름이 함께 보입니다 (메인 시계도 도시를 고를 수 있습니다) |
+| 한 번에 하나만 실행 | 프로그램은 언제나 하나만 뜹니다. 다시 실행하면 새로 뜨지 않고 이미 떠 있는 시계가 트레이에서 나옵니다 (시계 창은 그 안에서 여러 개) |
 | 시스템 설정 | 항상 위에 표시 · 시작 시 자동 실행 · 기본값으로 초기화는 **트레이 아이콘**에서 (설정 창은 시계 모양만 맡습니다) |
 | 기능 창 분리 | 세계 시간 · 알람 · 타이머 · 스톱워치 · 캘린더는 저마다 독립한 창으로 열립니다 (앱 전체가 함께 쓰는 하나의 상태). 설정 패널은 설정만 맡습니다 |
 | 디지털 / 아날로그 전환 | 시계 위 토글 버튼, 설정 패널, 우클릭 메뉴 어디서나 전환 — 창 위치는 그대로, 크기만 모드별로 기억 |
@@ -21,18 +25,18 @@ WPF/.NET 8 판([MyClockWinV10](../MyClockWinV10))을 JavaScript + Electron 으�
 | 사용자 정의 테마 | 색 하나를 고르면 그 색으로 테마 한 벌(바탕·강조·바늘·버튼)을 만들어 적용. 어두운/밝은 바탕은 테마와 같은 단추를 씀 |
 | 밝기 / 색상 | 디지털 표시 밝기 (슬라이더 + 시계 위 마우스 휠), 숫자 색상·오전/오후 색상 선택기 |
 | 세계 시간 | 286개 도시 자동완성, 미니 아날로그 시계, 드래그로 순서 변경 |
-| 알람 | 복수 알람, 요일별 반복, 팝업 + 알람음 |
+| 알람 | 복수 알람, 요일별 반복, 팝업 + 알람음. 팝업은 메모가 길면 그만큼 늘어나 확인 단추가 잘리지 않음 |
 | 타이머 | 복수 타이머, 시·분·초 설정, 완료 시 팝업 |
 | 스톱워치 | 랩 기록 |
 | 캘린더 | 월간 보기, 일정 추가·편집, 반복 일정, 미리 알림 |
 | 알람음 32종 | 실행 시 합성 (Web Audio) — 음원 파일 없음 |
 | 전체 화면 시계 | Windows 전용 화면 보호기(.scr)를 대신하는 크로스플랫폼 모드 — **배경은 투명**해서 바탕화면 위에 시계만 뜹니다 |
-| 프로그램 정보 | 앱 아이콘 · 버전 · 빌드 정보(Electron/Chromium/Node·빌드 시각) · 제작자 |
+| 프로그램 정보 | 앱 아이콘 · 버전 · 빌드 정보(Tauri/WebView·빌드 시각) · 제작자 |
 | 시스템 트레이 | 매초 갱신되는 미니 아날로그 시계 아이콘 |
 | 작업 표시줄 | 표시하지 않음 (트레이 전용). 실행 중에는 시스템 트레이 아이콘만 보이고, macOS 에서는 Dock 아이콘도 감춤 |
 | 투명 창 | 평소에는 시계만 보이고, 마우스를 올리면 날짜·조작 버튼이 나타남. 디지털은 옅은 배경이 함께 깔리고, 아날로그는 둥근 문자판만 보이도록 배경을 깔지 않음 |
 | 한 줄 머리글 | 디지털은 숫자 **바로 위 한 줄**에 "도시 · 오전/오후 · 날짜", 아날로그는 도시·오전/오후·날짜를 모두 **문자판 안**에 그림 (바깥 글자 없음) |
-| 자동 실행 | Windows/macOS 로그인 항목, Linux `~/.config/autostart` |
+| 자동 실행 | Windows 레지스트리 Run, macOS LaunchAgent, Linux `~/.config/autostart` |
 
 ## 실행
 
@@ -41,7 +45,19 @@ npm install
 npm start
 ```
 
-**요구사항:** Node.js 18 이상
+**요구사항**
+
+- Node.js 18 이상
+- Rust (stable, `rustup` 으로 설치) — 처음 `npm start` 는 Rust 의존성을 받아 빌드하느라 몇 분 걸립니다
+- Windows: WebView2 런타임 (Windows 10/11 에는 기본 설치). Linux: `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev` 등
+  [Tauri 준비물](https://v2.tauri.app/start/prerequisites/). macOS: Xcode Command Line Tools
+
+`npm start` 는 비어 있는 포트를 골라 `tauri dev` 를 띄웁니다. 프로그램은 한 번에 하나만 실행되므로,
+설치본 MyClock(Tauri 판)이 떠 있으면 개발 실행은 곧바로 끝나고 설치본이 앞으로 나옵니다 — 먼저
+트레이에서 종료하세요. (예전 Electron 판 설치본과는 겹치지 않습니다.)
+
+설정 폴더를 따로 쓰려면 `MYCLOCK_CONFIG_DIR=<폴더>` 를, 창을 DevTools 프로토콜로 몰려면
+`MYCLOCK_DEBUG_PORT=<포트>` 를 주고 실행합니다 (Windows).
 
 ### 검사 (테스트)
 
@@ -49,59 +65,65 @@ npm start
 npm test
 ```
 
-`test/` 의 검사를 모두 돌리고, 지나가는 검사와 걸린 시간을 색으로 보여 준 뒤
-마지막에 통과/실패 요약을 냅니다. 창을 띄우지 않고 실제 `clock.js`·`panel.js` 를
-가짜 DOM·IPC 위에서 돌려 기능을 확인합니다.
+두 묶음을 차례로 돌립니다.
+
+- `npm run test:js` — `test/` 의 검사. 지나가는 검사와 걸린 시간을 색으로 보여 준 뒤 마지막에
+  통과/실패 요약을 냅니다. 창을 띄우지 않고 실제 `clock.js`·`panel.js` 를 가짜 DOM 위에서 돌려
+  기능을 확인하고, `bridge.js` 와 Rust 명령·알림 이름이 서로 맞는지도 봅니다.
+- `npm run test:rust` — `cargo test`. 설정 저장소(기본값·값 다듬기·WPF 판 가져오기), 창 위치 계산,
+  트레이 메뉴 아이콘을 검사합니다.
 
 ```bash
-npm run test:tap       # 가공하지 않은 TAP 출력
+npm run test:tap       # JS 검사를 가공하지 않은 TAP 출력으로
 ```
 
 ### 빌드 산출물 정리
 
 ```bash
-npm run clean          # dist/ · 생성된 아이콘 · 루트의 설치 파일 삭제
+npm run clean          # src-tauri/target · 생성된 아이콘 · 루트의 설치 파일 삭제
 npm run clean -- -n    # 지우지 않고 목록만 보기 (--dry-run)
 npm run clean:all      # node_modules 까지 삭제 (다시 npm install 필요)
 ```
 
 소스와 `asset/icon.svg` 같은 원본은 건드리지 않습니다.
 
-> 이 저장소를 VS Code 안의 터미널에서 열었다면 `ELECTRON_RUN_AS_NODE=1` 이 물려받아져
-> Electron 이 그냥 Node 로 실행되며 죽습니다. 그럴 때는
-> `env -u ELECTRON_RUN_AS_NODE npm start` (Bash) 또는
-> `Remove-Item Env:\ELECTRON_RUN_AS_NODE` 뒤 `npm start` (PowerShell) 로 실행하세요.
-
 ## 설치 패키지 만들기
 
 ```bash
-npm run build          # 현재 OS용
+npm run build          # 현재 OS용 전부
 npm run build:win      # Windows — NSIS 설치 파일 (.exe)
 npm run build:linux    # Linux — AppImage, deb
-npm run build:mac      # macOS — dmg, zip
+npm run build:mac      # macOS — dmg
 ```
 
-결과물은 `dist/` 에 생성되고, 설치 파일은 **프로젝트 루트로 복사**됩니다
-(`MyClock-Setup-1.0.0.exe` 등 — `.gitignore` 로 제외되므로 커밋되지는 않습니다).
+결과물은 `src-tauri/target/release/bundle/` 에 생기고, 설치 파일은 **프로젝트 루트로 복사**됩니다
+(`MyClock-Setup-1.0.0.exe`, `MyClock-1.0.0.dmg`, `MyClock-1.0.0.AppImage`, `MyClock_1.0.0_amd64.deb`
+— `.gitignore` 로 제외되므로 커밋되지는 않습니다). 각 OS 의 설치 파일은 그 OS 에서 만듭니다.
 
 ### Windows 설치 관리자
 
-[`build/installer.nsh`](build/installer.nsh) 로 확장한 NSIS 설치 관리자입니다.
-한국어 Windows 에서는 한국어로, 그 밖에서는 영어로 표시됩니다.
+Tauri 의 NSIS 설치 관리자를 [`src-tauri/windows/hooks.nsh`](src-tauri/windows/hooks.nsh) 로 확장했습니다.
+처음에 한국어 / English 를 고릅니다. 사용자별 설치(관리자 권한 불필요)이며 기본 위치는
+`%LOCALAPPDATA%\MyClock` 입니다.
 
 | 페이지 | 내용 |
 |--------|------|
-| 사용권 계약 | MIT |
-| 설치 옵션 · 설치 위치 | 처음 설치할 때만 표시 (재설치 시 이전 설정을 그대로 씀) |
-| **재설치 방식 선택** | 이미 설치된 MyClock 이 있을 때만 표시 — *기존 설정을 유지하고 덮어쓰기* 또는 *완전히 삭제한 뒤 새로 설치* |
+| **재설치 방식 선택** | 이미 설치된 MyClock(Electron 판·Tauri 판)이나 설정이 있을 때만 표시 — *기존 설정을 유지하고 덮어쓰기* 또는 *완전히 삭제한 뒤 새로 설치* |
 | **바로가기 선택** | 바탕화면 / 시작 메뉴 바로가기를 각각 만들지 선택 |
+| 사용권 계약 | MIT |
+| 설치 위치 | 바꿀 수 있음 |
 
-- 아이콘은 설치 파일, 설치된 exe, 바로가기, Alt+Tab 전환 목록에 모두 같은 것이 쓰입니다.
-- 체크한 바로가기만 만들어지고, 프로그램을 제거하면 함께 지워집니다.
+- **Electron 판에서 옮겨 오기**: 예전 Electron 판이 설치되어 있으면 설정은 남긴 채 조용히 지우고,
+  그 판에서 켜 둔 "시작 시 자동 실행"은 새 실행 파일로 다시 걸어 둡니다. 설정 폴더가 같으므로
+  테마·알람·타이머·세계 도시·일정·추가 시계가 그대로 이어집니다.
+- 체크한 바로가기만 만들어지고, 프로그램을 제거하면 함께 지워집니다. (마지막 페이지의 "바탕화면
+  바로가기 만들기" 칸은 Tauri 기본 항목이라, 앞의 바로가기 페이지에서 고른 것이 우선합니다.)
 - 완전 삭제를 고르면 프로그램 파일과 함께 설정·데이터 폴더(`%AppData%\MyClockMultiOS`),
   기존 바로가기까지 지운 뒤 처음 상태로 설치합니다.
+- 제거할 때 "앱 데이터 삭제"를 체크하면 설정 폴더도 함께 지웁니다 (체크하지 않으면 남겨 두어
+  다시 설치했을 때 이어 씁니다).
 
-앱 아이콘은 `asset/icon.svg` 한 장에서 파생됩니다. 아이콘을 바꿨다면:
+앱 아이콘은 `asset/icon.svg` 한 장에서 파생됩니다 (빌드할 때 자동으로 만듭니다). 아이콘을 바꿨다면:
 
 ```bash
 npm run icons
@@ -115,7 +137,8 @@ npm run icons
 | Linux | `~/.config/MyClockMultiOS/` |
 | macOS | `~/Library/Application Support/MyClockMultiOS/` |
 
-`settings.json`(설정·알람·타이머·세계 도시)과 `calendar_events.json`(일정)이 저장됩니다.
+`settings.json`(설정·알람·타이머·세계 도시·추가 시계)과 `calendar_events.json`(일정)이 저장됩니다.
+Electron 판과 같은 폴더입니다. WebView2 의 캐시는 `%LOCALAPPDATA%\com.shkwon.myclock\` 에 따로 생깁니다.
 
 WPF 판을 쓰던 컴퓨터에서 처음 실행하면 `%AppData%\MyClock\` 의 설정과 일정을
 자동으로 한 번 가져옵니다. 원본은 수정하지 않으므로 WPF 판도 계속 쓸 수 있습니다.
@@ -124,21 +147,31 @@ WPF 판을 쓰던 컴퓨터에서 처음 실행하면 `%AppData%\MyClock\` 의 �
 
 ```
 MyClockMultiOSV10/
-├── electron/
-│   ├── main.js            — 창·트레이·IPC·자동 실행·컨텍스트 메뉴 창
-│   ├── preload.js         — 렌더러에 노출되는 API (contextBridge)
-│   ├── store.js           — 설정/일정 저장 및 WPF 판 가져오기
-│   └── win-timezones.js   — Windows 시간대 ID → IANA (가져오기 전용)
-├── src/
-│   ├── index.html         — 메인 시계 창
-│   ├── zoneclock.html     — 추가 시계 창 (시간대·테마를 저마다 따로)
-│   ├── panel.html         — 설정 패널 / 분리한 기능 창 (?only=<탭>)
-│   ├── about.html         — 프로그램 정보 (아이콘·버전·빌드·제작자)
-│   ├── alarm.html         — 알람/타이머 팝업
-│   ├── menu.html          — 우클릭 메뉴 (창 밖으로 넘칠 수 있도록 별도 창)
-│   ├── fullscreen.html    — 전체 화면 시계
-│   ├── styles/            — 창별 스타일시트
+├── src-tauri/                — 데스크톱 셸 (Rust · Tauri 2)
+│   ├── src/
+│   │   ├── lib.rs            — 창·트레이·명령(렌더러 → 셸)·알림(셸 → 창)·자동 실행·단일 실행
+│   │   ├── store.rs          — 설정/일정 저장 및 WPF 판 가져오기 (+ 검사)
+│   │   ├── geometry.rs       — 창 위치 계산: 화면 비율 기억·작업 영역·패널/메뉴 자리 (+ 검사)
+│   │   ├── menu_icons.rs     — 트레이 메뉴 아이콘 (16px 그림)
+│   │   └── main.rs
+│   ├── data/win-timezones.json — Windows 시간대 ID → IANA (가져오기 전용)
+│   ├── capabilities/         — 창마다 열어 둔 권한 (이벤트 수신만)
+│   ├── windows/
+│   │   ├── hooks.nsh         — Windows 설치 관리자 확장 (재설치 방식 · 바로가기 · Electron 판 정리)
+│   │   └── license.txt       — 설치 관리자에 표시되는 라이선스
+│   ├── tauri.conf.json       — 앱 정보·포장 설정 (frontendDist = ../src)
+│   └── Cargo.toml
+├── src/                      — 화면 (그대로 실행 파일 안에 들어간다)
+│   ├── index.html            — 메인 시계 창
+│   ├── zoneclock.html        — 추가 시계 창 (시간대·테마를 저마다 따로)
+│   ├── panel.html            — 설정 패널 / 분리한 기능 창 (?only=<탭>)
+│   ├── about.html            — 프로그램 정보 (아이콘·버전·빌드·제작자)
+│   ├── alarm.html            — 알람/타이머 팝업
+│   ├── menu.html             — 우클릭 메뉴 (창 밖으로 넘칠 수 있도록 별도 창)
+│   ├── fullscreen.html       — 전체 화면 시계
+│   ├── styles/               — 창별 스타일시트
 │   └── js/
+│       ├── bridge.js         — window.myclock: 렌더러가 셸과 말하는 유일한 창구 (Tauri 명령·알림)
 │       ├── clock.js          — 메인 시계 창 컨트롤러 (앱 상태의 주인)
 │       ├── zoneclock.js      — 추가 시계 창 컨트롤러 (자기 설정만 갖는다)
 │       ├── zone-time.js      — 시간대 변환 (세계 시간·추가 시계 공용)
@@ -151,12 +184,9 @@ MyClockMultiOSV10/
 │       ├── timers.js         — 타이머 · 스톱워치
 │       ├── korean.js         — 한글 시각 표기
 │       └── data/             — 테마 29색×2판 + 사용자 색, 도시 286개, 스타일 카탈로그
-├── asset/icon.svg         — 앱 아이콘 원본 (나머지 아이콘 파일은 여기서 생성)
-├── build/
-│   ├── installer.nsh      — Windows 설치 관리자 확장 (재설치 방식 · 바로가기 선택)
-│   └── license.txt        — 설치 관리자에 표시되는 라이선스
-├── scripts/               — 아이콘 생성, 설치 파일 복사, 데이터 변환, 검사 보고서(test-reporter.js), clean.js
-└── test/                   — npm test (node:test). helpers/ 가 창·DOM·Electron 을 대신한다
+├── asset/icon.svg            — 앱 아이콘 원본 (나머지 아이콘 파일은 여기서 생성)
+├── scripts/                  — dev.js(npm start), 아이콘 생성, 설치 파일 복사, 데이터 변환, 검사 보고서, clean.js
+└── test/                     — npm run test:js (node:test). helpers/ 가 창·DOM 을 대신한다
 ```
 
 자세한 설계는 [Architecture.md](Architecture.md), 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyClock",
+  "mainBinaryName": "MyClock",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myclock",
+  "build": {
+    "frontendDist": "../src",
+    "beforeDevCommand": "node scripts/generate-icons.js --if-missing",
+    "beforeBuildCommand": "node scripts/generate-icons.js"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON",
+    "license": "MIT",
+    "licenseFile": "windows/license.txt",
+    "category": "Utility",
+    "shortDescription": "MyClock",
+    "longDescription": "Desk clock with world time, alarms, timers, and calendar",
+    "icon": [
+      "../asset/icons/32x32.png",
+      "../asset/icons/128x128.png",
+      "../asset/icons/256x256.png",
+      "../asset/icon.icns",
+      "../asset/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../asset/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

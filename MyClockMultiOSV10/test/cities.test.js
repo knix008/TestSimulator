@@ -5,7 +5,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { CITIES, searchCities } = require('../src/js/data/cities');
-const { WIN_TO_IANA } = require('../electron/win-timezones');
+// WPF 판 설정을 가져올 때 Tauri 셸(store.rs)이 include_str! 로 읽는 표
+const WIN_TO_IANA = require('../src-tauri/data/win-timezones.json');
 
 test('도시 목록이 넉넉하고 항목마다 시간대가 있다', () => {
   assert.ok(CITIES.length >= 200, `도시 수: ${CITIES.length}`);
