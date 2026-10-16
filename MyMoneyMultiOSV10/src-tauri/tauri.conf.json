@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyMoney",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.mymoney",
+  "build": {
+    "frontendDist": "../web-dist",
+    "beforeDevCommand": "node scripts/stage-web.js",
+    "beforeBuildCommand": "node scripts/stage-web.js"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "SHKWON <knix008@naver.com>",
+    "category": "Finance",
+    "shortDescription": "MyMoney",
+    "longDescription": "Stock quotes for a chosen market, exchange rates, and today's business news.",
+    "icon": ["../assets/icon.ico", "../assets/icon.png", "../assets/icon.icns"],
+    "resources": {
+      "../assets/icon.ico": "icon.ico",
+      "../assets/file.ico": "file.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mymoney"],
+        "name": "MyMoney Document",
+        "description": "MyMoney market document",
+        "mimeType": "application/x-mymoney",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["English", "Korean"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  }
+}

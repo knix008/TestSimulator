@@ -1,7 +1,8 @@
-import { createElectronPlatform } from "./electron.js";
+import { createDesktopPlatform } from "./desktop.js";
+import { createTauriApi, hasTauri } from "./tauri-bridge.js";
 import { createWebPlatform } from "./web.js";
 
 export function createHostPlatform() {
-  if (globalThis.electronAPI?.isElectron) return createElectronPlatform(globalThis.electronAPI);
+  if (hasTauri()) return createDesktopPlatform(createTauriApi());
   return createWebPlatform();
 }

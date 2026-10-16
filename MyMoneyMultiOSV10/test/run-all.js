@@ -7,6 +7,8 @@ const dom = new JSDOM("<!doctype html><html><head></head><body></body></html>", 
   pretendToBeVisual: true,
 });
 const { window } = dom;
+// Node's WebSocket (used by the desktop suite) needs Node's own Event, not jsdom's.
+globalThis.__nodeEvent = globalThis.Event;
 globalThis.window = window;
 globalThis.document = window.document;
 globalThis.HTMLElement = window.HTMLElement;
@@ -93,6 +95,9 @@ function createHarness() {
 const harness = createHarness();
 const { registerLogic } = await import("./suites/logic.js");
 const { registerGui } = await import("./suites/gui.js");
+const { registerDesktop, registerRust } = await import("./suites/desktop.js");
 registerLogic(harness);
 registerGui(harness);
+registerRust(harness);
+registerDesktop(harness);
 await harness.run();

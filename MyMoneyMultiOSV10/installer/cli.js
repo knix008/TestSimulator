@@ -49,9 +49,17 @@ function shortcutPaths() {
   return [desktop, start];
 }
 
+/** The release binary from `npm run build` (src-tauri/target/release). */
+export function builtBinary(platform = process.platform) {
+  return path.join(root, "src-tauri", "target", "release", platform === "win32" ? "mymoney.exe" : "mymoney");
+}
+
 function writeDesktopShortcut(file, dest, icon) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const desktop = fs.readFileSync(path.join(root, "installer/linux/mymoney.desktop"), "utf8").replace("Icon=mymoney", `Icon=${icon}`);
+  const desktop = fs
+    .readFileSync(path.join(root, "installer/linux/mymoney.desktop"), "utf8")
+    .replace("Icon=mymoney", `Icon=${icon}`)
+    .replace("Exec=mymoney", `Exec=${path.join(dest, "mymoney")}`);
   fs.writeFileSync(file, desktop);
 }
 
@@ -77,10 +85,12 @@ export function createFsEnv(dest) {
         for (const link of step.shortcuts || []) fs.rmSync(link, { force: true });
       }
       if (step.action === "install") {
+        const binary = builtBinary();
+        if (!fs.existsSync(binary)) throw new Error(`Build MyMoney first (npm run build): ${binary} is missing.`);
         fs.mkdirSync(dest, { recursive: true });
-        for (const name of ["package.json", "src", "electron", "assets", "installer"]) {
-          fs.cpSync(path.join(root, name), path.join(dest, name), { recursive: true });
-        }
+        fs.copyFileSync(binary, path.join(dest, path.basename(binary)));
+        fs.chmodSync(path.join(dest, path.basename(binary)), 0o755);
+        fs.cpSync(path.join(root, "assets"), path.join(dest, "assets"), { recursive: true });
         const icon = path.join(dest, step.icon || programIconFor(process.platform));
         fs.writeFileSync(
           path.join(dest, "file-association.txt"),

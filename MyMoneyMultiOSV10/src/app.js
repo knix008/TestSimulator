@@ -170,6 +170,7 @@ class MoneyApp {
     this.applyAll();
     this.platform.onMenuCommand?.((id) => this.run(id));
     this.platform.onRequestClose?.(() => this.requestClose());
+    this.platform.onSecondInstance?.(() => this.tellAlreadyRunning());
     this.platform.onSettingsChanged?.((shared) => this.takeSharedSettings(shared));
     this.platform.onWindowState?.((state) => this.applyWindowState(state));
     this.platform.onPopupImmediate?.(async (msg) => {
@@ -1981,6 +1982,16 @@ class MoneyApp {
     if (answer.action === "discard") return true;
     if (answer.action === "save") return Boolean(await this.save());
     return false;
+  }
+
+  /** A second launch leaves at once; this copy says so, since its windows may be hidden in the tray. */
+  async tellAlreadyRunning() {
+    await this.platform.messageBox?.({
+      title: WINDOW_TITLE,
+      message: this.t("msg.alreadyRunning"),
+      detail: this.t("msg.alreadyRunningHint"),
+      ok: this.t("btn.ok"),
+    });
   }
 
   async requestClose() {

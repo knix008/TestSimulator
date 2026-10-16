@@ -3,18 +3,23 @@ node_modules/
 dist/
 release/
 out/
-*.asar
 *.log
 npm-debug.log*
 yarn-error.log*
 
+# Tauri: pages staged by scripts/stage-web.js, Rust build output, generated schemas
+web-dist/
+src-tauri/target/
+src-tauri/gen/
+
 # Installers copied to the project root by scripts/copy-installer.js
-MyMoney-Setup-*.exe
-MyMoney-*.dmg
-MyMoney-*.AppImage
+MyMoney_*-setup.exe
+MyMoney_*.msi
+MyMoney_*.dmg
+MyMoney_*.AppImage
 MyMoney_*.deb
-MyMoney-*-mac.zip
-MyMoney-*-win.zip
+# The Electron build's installer, if an old copy is still lying around
+MyMoney-Setup-*.exe
 
 # OS and editors
 .DS_Store
@@ -39,11 +44,9 @@ coverage/
 .cache/
 __pycache__/
 *.pyc
+test/.last-settings.json
 
-# Electron debug profiles and crash dumps
-userdata/
-user-data-dir/
+# WebView2 debug profiles and crash dumps
 *.heapsnapshot
 *.cpuprofile
 *.dmp
-crashpad/
