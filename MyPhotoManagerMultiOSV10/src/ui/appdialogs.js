@@ -6,6 +6,7 @@ import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
+import { START_LAYOUT_IDS, START_MOTION_IDS, START_SCENE_IDS, startGroupLayouts, startLayoutId, startMotionId, startSceneId } from './startscenes.js';
 import { h } from './dom.js';
 import { FLAG_EN, FLAG_KO } from './flags.js';
 import { icon } from './icons.js';
@@ -51,6 +52,19 @@ export async function settingsDialog({ onApply }) {
   const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
   autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
+  const startGroups = startGroupLayouts(s.startScreen);
+  const startLayout = (id) => {
+    const input = selectEl(START_LAYOUT_IDS.map((value) => [value, t(`start.layout.${value}`)]), startGroups[id]);
+    input.dataset.key = `start-layout-${id}`;
+    return input;
+  };
+  const startBegin = startLayout('begin');
+  const startRecent = startLayout('recent');
+  const startTasks = startLayout('tasks');
+  const startScene = selectEl(START_SCENE_IDS.map((id) => [id, t(`start.scene.${id}`)]), startSceneId(s.startScreen?.scene));
+  const startMotion = selectEl(START_MOTION_IDS.map((id) => [id, t(`start.motion.${id}`)]), startMotionId(s.startScreen?.motion));
+  startScene.dataset.key = 'start-scene';
+  startMotion.dataset.key = 'start-motion';
   const slideshow = slideshowSettingsFields(s.slideshow, { field, selectEl });
   const vs = { autoplay: true, loop: false, muted: false, volume: 100, speed: 1, controls: true, fit: 'fit', resume: true, nextAtEnd: false, ...(s.video ?? {}) };
   const video = {
@@ -66,19 +80,31 @@ export async function settingsDialog({ onApply }) {
   const cacheInfo = h('span.hint', '…');
   thumbs.cacheCount().then((n) => { cacheInfo.textContent = t('settings.cacheCount', { n }); });
 
+  const group = (title, ...nodes) => h('section.settings-group', h('h3.settings-group-title', title), ...nodes);
   const tabs = [
-    ['general', t('settings.general'), h('div', field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null)],
-    ['theme', t('settings.theme'), h('div', h('p.hint', t('theme.tabHint')), theme.el)],
-    ['browse', t('settings.browse'), h('div', hidden.el, allFiles.el, folders.el, h('div.field-label', t('settings.captions')), capName.el, capSize.el, capDims.el, capDate.el, overlay.el)],
-    ['view', t('settings.view'), h('div', field(t('settings.wheel'), wheel), enlarge.el, smooth.el, field(t('settings.measureUnit'), measureUnit), colorManaged.el, h('div.hint', t('settings.colorManagementHint')))],
-    ['slideshow', t('settings.slideshow'), slideshow.el],
-    ['video', t('settings.video'), h('div', video.autoplay.el, video.loop.el, video.muted.el, video.controls.el, video.resume.el, video.nextAtEnd.el,
-      h('div.field-row', field(t('video.volume'), video.volume), field(t('video.speed'), video.speed), field(t('video.fit'), video.fit)))],
-    ['files', t('settings.files'), h('div', confirmDelete.el, fs.caps.trash ? useTrash.el : null, field(t('settings.jpegQuality'), quality), xmp.el, xmpEmbed.el, h('div.hint', t('settings.xmpHint')))],
-    ['data', t('settings.data'), h('div', autoAnalysis.el, h('div.hint', t('analysis.autoHint')), tiles.el, h('div.hint', t('settings.mapTilesHint')),
-      h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: async () => { await thumbs.clearCache(); cacheInfo.textContent = t('settings.cacheCount', { n: 0 }); toast(t('settings.cacheCleared'), 'success'); } }, t('settings.clearCache')), cacheInfo),
-      h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: exportCatalog }, t('settings.exportCatalog')), h('button.btn.small', { type: 'button', onclick: importCatalog }, t('settings.importCatalog'))),
-      h('div.row-buttons', h('button.btn.small.danger', { type: 'button', onclick: resetCatalog }, t('settings.resetCatalog'))))],
+    ['general', 'gear', t('settings.general'), h('div.settings-groups',
+      group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null))],
+    ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
+      group(t('settings.startScreen'),
+        field(t('start.begin'), startBegin), field(t('start.recent'), startRecent), field(t('start.tasks'), startTasks),
+        h('div.hint', t('settings.startLayoutHint')),
+        field(t('settings.startScene'), startScene), field(t('settings.startMotion'), startMotion)))],
+    ['view', 'eye', t('settings.view'), h('div.settings-groups',
+      group(t('settings.view'), field(t('settings.wheel'), wheel), enlarge.el, smooth.el, field(t('settings.measureUnit'), measureUnit), colorManaged.el, h('div.hint', t('settings.colorManagementHint'))))],
+    ['browse', 'folder', t('settings.browse'), h('div.settings-groups',
+      group(t('settings.browse'), hidden.el, allFiles.el, folders.el, h('div.field-label', t('settings.captions')), capName.el, capSize.el, capDims.el, capDate.el, overlay.el))],
+    ['theme', 'palette', t('settings.theme'), h('div', h('p.hint', t('theme.tabHint')), theme.el)],
+    ['playback', 'play', t('settings.playback'), h('div.settings-groups',
+      group(t('settings.slideshow'), slideshow.el),
+      group(t('settings.video'), video.autoplay.el, video.loop.el, video.muted.el, video.controls.el, video.resume.el, video.nextAtEnd.el,
+        h('div.field-row', field(t('video.volume'), video.volume), field(t('video.speed'), video.speed), field(t('video.fit'), video.fit))))],
+    ['files', 'file', t('settings.files'), h('div.settings-groups',
+      group(t('settings.files'), confirmDelete.el, fs.caps.trash ? useTrash.el : null, field(t('settings.jpegQuality'), quality), xmp.el, xmpEmbed.el, h('div.hint', t('settings.xmpHint'))),
+      group(t('settings.data'), autoAnalysis.el, h('div.hint', t('analysis.autoHint')), tiles.el, h('div.hint', t('settings.mapTilesHint')),
+        h('div.settings-actions',
+          h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: async () => { await thumbs.clearCache(); cacheInfo.textContent = t('settings.cacheCount', { n: 0 }); toast(t('settings.cacheCleared'), 'success'); } }, t('settings.clearCache')), cacheInfo),
+          h('div.row-buttons', h('button.btn.small', { type: 'button', onclick: exportCatalog }, t('settings.exportCatalog')), h('button.btn.small', { type: 'button', onclick: importCatalog }, t('settings.importCatalog'))),
+          h('div.row-buttons', h('button.btn.small.danger', { type: 'button', onclick: resetCatalog }, t('settings.resetCatalog'))))))],
   ];
   let current = 'general';
   const nav = h('div.settings-nav');
@@ -86,15 +112,16 @@ export async function settingsDialog({ onApply }) {
   const show = (id) => {
     current = id;
     for (const b of nav.children) b.classList.toggle('on', b.dataset.tab === id);
-    content.replaceChildren(tabs.find((x) => x[0] === id)[2]);
+    content.replaceChildren(tabs.find((x) => x[0] === id)[3]);
   };
-  for (const [id, label] of tabs) nav.append(h('button.settings-tab', { type: 'button', dataset: { tab: id }, onclick: () => show(id) }, label));
+  for (const [id, glyph, label] of tabs) nav.append(h('button.settings-tab', { type: 'button', dataset: { tab: id }, onclick: () => show(id) }, h('span.settings-tab-icon', { html: icon(glyph) }), h('span', label)));
   // The window has one fixed size: reserve the height of the tallest tab so no tab is cut off.
-  const probe = h('div.dialog-measure', h('div.dialog', { style: { width: '640px' } }, h('div.dialog-body', h('div.settings', nav, content))));
+  const probe = h('div.dialog-measure', h('div.dialog', { style: { width: '800px' }, id: 'settings-dialog' }, h('div.dialog-body', h('div.settings', nav, content))));
   document.body.append(probe);
-  // English labels are longer: grow the window so every tab stays on one row.
-  const tabsWidth = [...nav.children].reduce((w, el) => w + el.offsetWidth, 0) + Math.max(0, nav.children.length - 1) * 2;
-  const dialogWidth = Math.min(Math.max(640, Math.ceil(tabsWidth) + 40), Math.max(640, (screen.availWidth || 1280) - 48));
+  // One column of equal tab buttons. The window is wide enough for that column and the theme grid.
+  const tabWidth = Math.max(...[...nav.children].map((el) => el.offsetWidth));
+  for (const el of nav.children) el.style.width = `${tabWidth}px`;
+  const dialogWidth = Math.min(Math.max(800, Math.ceil(tabWidth) + 640), Math.max(800, (screen.availWidth || 1280) - 48));
   probe.querySelector('.dialog').style.width = `${dialogWidth}px`;
   let tallest = 0;
   const first = current;
@@ -110,6 +137,7 @@ export async function settingsDialog({ onApply }) {
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
+    startScreen: { scene: startSceneId(startScene.value), motion: startMotionId(startMotion.value), groups: { begin: startLayoutId(startBegin.value), recent: startLayoutId(startRecent.value), tasks: startLayoutId(startTasks.value) } },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
@@ -172,25 +200,36 @@ export async function aboutDialog() {
   let info = null;
   if (isDesktop()) info = await invoke('app_info').catch(() => null);
   const version = info?.version ?? (typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0');
-  const rows = [
-    ['about.version', version],
-    ['about.build', info ? new Date(info.buildTime * 1000).toLocaleString() : (typeof __BUILD_DATE__ === 'string' ? new Date(__BUILD_DATE__).toLocaleString() : '')],
-    ['about.commit', info?.commit ?? (typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : '')],
+  const blank = '—';
+  const program = [
+    ['about.build', info ? new Date(info.buildTime * 1000).toLocaleString() : (typeof __BUILD_DATE__ === 'string' ? new Date(__BUILD_DATE__).toLocaleString() : blank)],
+    ['about.commit', info?.commit || (typeof __BUILD_COMMIT__ === 'string' ? __BUILD_COMMIT__ : '') || blank],
     ['about.platform', info ? `${info.os} ${info.arch} · Tauri ${info.tauri}` : t('about.web')],
+  ];
+  const place = [
     ['about.dataFolder', info?.dataDir ?? t('about.browserStorage')],
     ['about.author', 'SHKWON(knix008@naver.com)'],
-    ['about.copyright', `© ${new Date().getFullYear()} SHKWON`],
-    ['about.creditsLabel', t('about.credits')],
   ];
+  const fact = ([key, value]) => h('div.about-fact', h('div.about-key', t(key)), h('div.about-value', { title: value }, value));
+  const formats = supportedFormats();
+  const formatRow = ([key, list]) => h('div.about-format-row', { dataset: { group: key } }, h('div.about-key', t(key)), h('div.about-exts', list.map((ext) => h('span.ext-chip', ext.toUpperCase()))));
+  const formatMid = Math.ceil(formats.length / 2);
+  const group = (title, ...nodes) => h('section.about-group', h('h3.about-group-title', title), ...nodes);
   await openDialog({
     title: t('about.title'), width: 960, id: 'about-dialog',
     body: h('div.about',
       h('div.about-top',
         h('img.about-icon', { src: new URL('./icon-192.png', document.baseURI).href, alt: '' }),
         h('div.about-text', h('h2', 'MyPhotoManager'), h('div.about-version', `${t('about.version')} ${version}`), h('p', t('about.tagline')), h('p.about-description', t('about.description')))),
-      h('div.about-rows', rows.filter(([, v]) => v).map(([key, v]) => [h('div.about-key', t(key)), h(`div.about-value${key === 'about.dataFolder' || key === 'about.creditsLabel' ? '.wide' : ''}`, { title: v }, v)])),
-      h('div.about-formats', h('div.about-formats-title', t('about.formats', { n: supportedFormats().slice(0, -1).reduce((s, [, list]) => s + list.length, 0) })),
-        supportedFormats().map(([key, list]) => h(`div.about-format-row${list.length > 8 ? '.wide' : ''}`, { dataset: { group: key } }, h('div.about-key', t(key)), h('div.about-exts', list.map((ext) => h('span.ext-chip', ext.toUpperCase()))))))),
+      h('div.about-rows',
+        h('div.about-groups',
+          group(t('about.groupApp'), h('div.about-facts', program.map(fact))),
+          group(t('about.groupInfo'), h('div.about-facts', place.map(fact)))),
+        group(t('about.creditsLabel'), h('p.about-credits', t('about.credits'))),
+        group(t('about.formats', { n: formats.slice(0, -1).reduce((sum, [, list]) => sum + list.length, 0) }),
+          h('div.about-format-grid',
+            h('div.about-format-col', formats.slice(0, formatMid).map(formatRow)),
+            h('div.about-format-col', formats.slice(formatMid).map(formatRow)))))),
   });
 }
 

@@ -18,8 +18,8 @@ import { thumbs } from './thumbs/thumbs.js';
 import { aboutDialog, settingsDialog, shortcutsDialog } from './ui/appdialogs.js';
 import { createTutorial } from './ui/tutorial.js';
 import { quickKeyword } from './ui/quickmeta.js';
-import { addToCollectionMenu, newCollection, smartCollectionDialog } from './ui/collections.js';
-import { editors as externalEditors, externalEditorMenu, openInEditor } from './ui/external.js';
+import { addTo, addToCollectionMenu, newCollection, smartCollectionDialog } from './ui/collections.js';
+import { editors as externalEditors, externalEditorMenu, externalEditorsDialog, openInEditor } from './ui/external.js';
 import { gpxGeotagDialog } from './ui/gpxtag.js';
 import { adjustDates, autoRotate, batchAdjust, batchApplyPreset, batchConvert, batchRename, batchResize, batchWatermark, copyMoveTo, fileTimeFromTaken, rotateFiles } from './ui/batch.js';
 import { createFocusStack, createGif, createHdr, createPanorama, createPdf, createZip, exportSlideshow, openArchive } from './ui/create.js';
@@ -37,6 +37,7 @@ import { $, button, clear, debounce, h, typing } from './ui/dom.js';
 import { findDuplicates } from './ui/duplicates.js';
 import { createEditor } from './ui/editor.js';
 import { createFileList } from './ui/filelist.js';
+import { setItemDropSink } from './ui/itemdrag.js';
 import { createFolderPane } from './ui/folders.js';
 import { icon } from './ui/icons.js';
 import { createMapPane } from './ui/mappane.js';
@@ -118,14 +119,16 @@ const modeHost = h('div.mode-host');
 const dropHint = h('div.drop-hint', h('div', { html: icon('upload') }), h('div', t('web.dropHere')));
 root.append(header, toolbar, modeHost, statusBar, dropHint);
 
+const dropItems = (paths, dir, { copy, x, y }) => (dir === '__map__' ? mapPane.placeAt(x, y, paths) : dir === '__basket__' ? addToBasket(paths) : transfer(paths, dir, { move: !copy }));
+setItemDropSink(dropItems);
 const fileList = createFileList({
   onContextMenu: itemMenu,
-  onDropItems: (paths, dir, { copy, x, y }) => (dir === '__map__' ? mapPane.placeAt(x, y, paths) : dir === '__basket__' ? addToBasket(paths) : transfer(paths, dir, { move: !copy })),
+  onDropItems: dropItems,
 });
 const welcome = h('div.welcome');
 center.append(welcome, fileList.filmPreview, fileList.box, basketBar);
 
-const folderPane = createFolderPane({ onOpenWebFolder: openWebFolder, onOpenWebFiles: openWebFiles, folderMenuItems: () => [] });
+const folderPane = createFolderPane({ onOpenWebFolder: openWebFolder, onOpenWebFiles: openWebFiles, folderMenuItems: () => [], folderMenu: (node) => folderContextMenu(node) });
 const catalogPane = createCatalogPane();
 const calendarPane = createCalendarPane();
 const searchPane = createSearchPane();
@@ -282,7 +285,7 @@ function renderHeader() {
     h('button.tool.lang-toggle', { type: 'button', id: 'language-toggle', title: toEnglish ? 'English' : '한국어', html: toEnglish ? FLAG_EN : FLAG_KO, onclick: toggleLanguage }),
     h('button.tool', { type: 'button', title: t('menu.settings'), html: icon('gear'), onclick: openSettings, id: 'open-settings' }),
     h('button.tool', { type: 'button', title: t('about.title'), html: icon('info'), onclick: aboutDialog, id: 'open-about' }));
-  header.append(h('div.app-logo', { html: icon('images') }), bar, modeCluster, right);
+  header.append(h('div.app-brand', h('span.app-logo', { html: icon('images') }), h('span.app-name', t('app.name')), h('span.app-version', appVersion())), bar, modeCluster, right);
 }
 
 /** Categories the catalog already has, then the photos of the one the user picks. */
@@ -299,7 +302,7 @@ function openClassifyMenu(button) {
       const current = app.state.source.type === 'filter' && app.state.source.filters?.some((f) => f.type === 'analysis' && f.value === id);
       items.push({
         label: `${'\u00a0\u00a0'.repeat(depth)}${t(categoryKey(id))}`,
-        icon: depth ? undefined : top === 'people' ? 'user' : top === 'scene' ? 'images' : 'layers',
+        icon: top === 'people' ? 'user' : top === 'scene' ? 'images' : 'layers',
         shortcut: String(counts[id]),
         checked: Boolean(current),
         action: () => showClassification(id),
@@ -515,18 +518,21 @@ function addressContent() {
   return [h('span.crumb-icon', { html: icon(iconName) }), h('span.crumb.static', title)];
 }
 
+const SORT_ICONS = { name: 'rename', taken: 'calendar', modified: 'clock', created: 'plus', size: 'chart', type: 'layers', rating: 'star', label: 'tag', dimensions: 'fit', camera: 'camera' };
+const GROUP_ICONS = { none: 'close', day: 'calendar', month: 'calendar', year: 'calendar', folder: 'folder', rating: 'star', label: 'tag', type: 'layers', camera: 'camera' };
+
 function sortMenu() {
   const s = app.settings;
   return [
-    ...SORT_KEYS.map((key) => ({ label: t(`sort.${key}`), checked: s.sort.key === key, action: () => { s.sort = { ...s.sort, key }; app.saveSettings(); refreshList(); renderToolbar(); } })),
+    ...SORT_KEYS.map((key) => ({ label: t(`sort.${key}`), icon: SORT_ICONS[key] ?? 'sort', checked: s.sort.key === key, action: () => { s.sort = { ...s.sort, key }; app.saveSettings(); refreshList(); renderToolbar(); } })),
     'separator',
-    { label: t('sort.ascending'), checked: !s.sort.desc, action: () => { s.sort = { ...s.sort, desc: false }; app.saveSettings(); refreshList(); } },
-    { label: t('sort.descending'), checked: s.sort.desc, action: () => { s.sort = { ...s.sort, desc: true }; app.saveSettings(); refreshList(); } },
+    { label: t('sort.ascending'), icon: 'up', checked: !s.sort.desc, action: () => { s.sort = { ...s.sort, desc: false }; app.saveSettings(); refreshList(); } },
+    { label: t('sort.descending'), icon: 'down', checked: s.sort.desc, action: () => { s.sort = { ...s.sort, desc: true }; app.saveSettings(); refreshList(); } },
   ];
 }
 
 function groupMenu() {
-  return GROUP_KEYS.map((key) => ({ label: t(`group.by.${key}`), checked: app.settings.groupBy === key, action: () => { app.settings.groupBy = key; app.saveSettings(); refreshList(); renderToolbar(); } }));
+  return GROUP_KEYS.map((key) => ({ label: t(`group.by.${key}`), icon: GROUP_ICONS[key] ?? 'layers', checked: app.settings.groupBy === key, action: () => { app.settings.groupBy = key; app.saveSettings(); refreshList(); renderToolbar(); } }));
 }
 
 function setListFilter(change) {
@@ -538,19 +544,19 @@ function setListFilter(change) {
 
 function filterMenu() {
   const f = app.state.listFilter;
-  const kinds = [['native', t('kind.image')], ['raw', 'RAW'], ['heif', 'HEIC'], ['tiff', 'TIFF'], ['psd', 'PSD'], ['video', t('kind.video')]];
+  const kinds = [['native', t('kind.image'), 'image'], ['raw', 'RAW', 'camera'], ['heif', 'HEIC', 'image'], ['tiff', 'TIFF', 'layers'], ['psd', 'PSD', 'layers'], ['video', t('kind.video'), 'video']];
   return [
     { header: t('filter.rating') },
-    ...[0, 1, 2, 3, 4, 5].map((n) => ({ label: n ? `≥ ${'★'.repeat(n)}` : t('filter.all'), checked: f.rating === n, action: () => setListFilter({ rating: n }) })),
+    ...[0, 1, 2, 3, 4, 5].map((n) => ({ label: n ? `≥ ${'★'.repeat(n)}` : t('filter.all'), icon: n ? 'starFill' : 'star', checked: f.rating === n, action: () => setListFilter({ rating: n }) })),
     'separator',
     { header: t('filter.label') },
-    { label: t('filter.all'), checked: !f.label, action: () => setListFilter({ label: null }) },
-    ...LABELS.map((l) => ({ label: t(`label.${l}`), swatch: LABEL_COLORS[l], checked: f.label === l, action: () => setListFilter({ label: l }) })),
+    { label: t('filter.all'), icon: 'tag', checked: !f.label, action: () => setListFilter({ label: null }) },
+    ...LABELS.map((l) => ({ label: t(`label.${l}`), icon: 'tag', swatch: LABEL_COLORS[l], checked: f.label === l, action: () => setListFilter({ label: l }) })),
     'separator',
-    { label: t('filter.taggedOnly'), checked: f.tagged, action: () => setListFilter({ tagged: !f.tagged }) },
+    { label: t('filter.taggedOnly'), icon: 'checkSquare', checked: f.tagged, action: () => setListFilter({ tagged: !f.tagged }) },
     { label: t('filter.kind'), icon: 'images', submenu: [
-      { label: t('filter.all'), checked: !f.kinds, action: () => setListFilter({ kinds: null }) },
-      ...kinds.map(([kind, label]) => ({ label, checked: Boolean(f.kinds?.has(kind)), action: () => setListFilter({ kinds: new Set([kind, ...(kind === 'native' ? ['svg'] : [])]) }) })),
+      { label: t('filter.all'), icon: 'images', checked: !f.kinds, action: () => setListFilter({ kinds: null }) },
+      ...kinds.map(([kind, label, iconName]) => ({ label, icon: iconName, checked: Boolean(f.kinds?.has(kind)), action: () => setListFilter({ kinds: new Set([kind, ...(kind === 'native' ? ['svg'] : [])]) }) })),
     ] },
     'separator',
     { label: t('filter.clear'), icon: 'close', action: () => setListFilter({ rating: 0, label: null, tagged: false, kinds: null }) },
@@ -568,7 +574,7 @@ function ratingSubmenu(paths) {
 }
 
 function labelSubmenu(paths) {
-  return [...LABELS.map((l, i) => ({ label: t(`label.${l}`), swatch: LABEL_COLORS[l], shortcut: `Alt+${i + 1}`, action: () => setLabel(l, paths) })), { label: t('organize.noLabel'), icon: 'close', shortcut: 'Alt+0', action: () => setLabel(null, paths) }];
+  return [...LABELS.map((l, i) => ({ label: t(`label.${l}`), icon: 'tag', swatch: LABEL_COLORS[l], shortcut: `Alt+${i + 1}`, action: () => setLabel(l, paths) })), { label: t('organize.noLabel'), icon: 'close', shortcut: 'Alt+0', action: () => setLabel(null, paths) }];
 }
 
 const VIEW_STYLES = [['thumbs', 'grid'], ['tiles', 'panelLeft'], ['list', 'list'], ['details', 'table'], ['filmstrip', 'filmstrip']];
@@ -733,9 +739,9 @@ function viewMenu() {
     { label: t('toolbar.group'), icon: 'layers', submenu: groupMenu() },
     { label: t('toolbar.filter'), icon: 'filter', submenu: filterMenu() },
     'separator',
-    { label: t('toolbar.leftPane'), checked: s.panes.left, action: () => { s.panes.left = !s.panes.left; app.saveSettings(); layoutPanes(); } },
-    { label: t('toolbar.rightPane'), checked: s.panes.right, action: () => { s.panes.right = !s.panes.right; app.saveSettings(); layoutPanes(); } },
-    { label: t('toolbar.basket'), checked: s.panes.basket, action: () => { s.panes.basket = !s.panes.basket; app.saveSettings(); layoutPanes(); } },
+    { label: t('toolbar.leftPane'), icon: 'panelLeft', checked: s.panes.left, action: () => { s.panes.left = !s.panes.left; app.saveSettings(); layoutPanes(); } },
+    { label: t('toolbar.rightPane'), icon: 'panelRight', checked: s.panes.right, action: () => { s.panes.right = !s.panes.right; app.saveSettings(); layoutPanes(); } },
+    { label: t('toolbar.basket'), icon: 'basket', checked: s.panes.basket, action: () => { s.panes.basket = !s.panes.basket; app.saveSettings(); layoutPanes(); } },
     ...LEFT_TABS.map(([id, iconName]) => ({ label: t(`pane.${id}`), icon: iconName, action: () => showLeftTab(id) })),
     ...RIGHT_TABS.map(([id, iconName]) => ({ label: t(`pane.${id}`), icon: iconName, action: () => showRightTab(id) })),
     'separator',
@@ -820,53 +826,294 @@ function helpMenu() {
   ];
 }
 
-function itemMenu(event, item) {
+/** Right-click on a photo or video: the things you do to that picture, grouped. */
+function imageMenu(item) {
   const paths = targetPaths();
-  const files = targetPaths({ filesOnly: true });
-  const items = item ? [
-    item.isDir ? { label: t('folders.open'), icon: 'folderOpen', action: () => openFolder(item.path) } : isArchive(item.name) ? { label: t('create.openZip'), icon: 'folderOpen', action: () => openArchive(item.path) } : { label: t('mode.view'), icon: 'eye', shortcut: 'Enter', action: () => viewItem(item.path) },
-    !item.isDir && fs.caps.open ? { label: t('file.openWith'), icon: 'external', action: () => openWith(item.path) } : null,
-    files.length ? { label: t('share.copyImage'), icon: 'copy', action: () => copyImageToClipboard(files[0]) } : null,
-    files.length ? { label: t('share.share'), icon: 'upload', action: () => shareFiles(files) } : null,
-    files.length && !isPrivatePath(item.path) ? { label: t('private.moveTo'), icon: 'lock', action: () => moveToPrivate(files) } : null,
-    files.length && isPrivatePath(item.path) ? { label: t('private.restore'), icon: 'upload', action: () => restoreFromPrivate(files) } : null,
-    files.length ? { label: t('metadata.editExif'), icon: 'info', action: () => exifEditor(files) } : null,
-    !item.isDir && kindOf(item.name) === 'video' ? { label: t('trim.menu'), icon: 'scissors', action: async () => (await import('./ui/videotrim.js')).trimVideoDialog(item) } : null,
-    !item.isDir && kindOf(item.name) !== 'video' ? { label: t('edit.editImage'), icon: 'pencil', shortcut: 'Ctrl+E', action: () => editPath(item.path) } : null,
-    files.length && isDesktop() ? { label: t('external.editIn'), icon: 'external', submenu: externalEditorMenu(files) } : null,
-    fs.caps.open ? { label: t('file.openExternal'), icon: 'external', action: () => fs.openExternal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
-    fs.caps.reveal ? { label: t('file.reveal'), icon: 'reveal', action: () => fs.reveal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
+  const files = paths.length ? targetPaths({ filesOnly: true }) : [item.path];
+  const shots = selectedFiles().some((entry) => entry.path === item.path) ? selectedFiles() : [item];
+  const video = kindOf(item.name) === 'video';
+  const play = () => startSlideshow(shots.length > 1 ? shots : viewableList(), shots.length > 1 ? 0 : Math.max(0, viewableList().findIndex((entry) => entry.path === item.path)));
+  return [
+    isArchive(item.name) ? { label: t('create.openZip'), icon: 'folderOpen', action: () => openArchive(item.path) } : { label: t('mode.view'), icon: 'eye', shortcut: 'Enter', action: () => viewItem(item.path) },
+    !video && !isArchive(item.name) ? { label: t('edit.editImage'), icon: 'pencil', shortcut: 'Ctrl+E', action: () => editPath(item.path) } : null,
+    video ? { label: t('trim.menu'), icon: 'scissors', action: async () => (await import('./ui/videotrim.js')).trimVideoDialog(item) } : null,
+    !isArchive(item.name) ? { label: t('view.slideshow'), icon: 'play', action: play } : null,
+    fs.caps.open ? { label: t('file.openWith'), icon: 'external', action: () => openWith(item.path) } : null,
+    isDesktop() ? { label: t('external.editIn'), icon: 'external', submenu: externalEditorMenu(files) } : null,
     'separator',
-    files.length ? { label: t('organize.setRating'), icon: 'star', submenu: ratingSubmenu(files) } : null,
-    files.length ? { label: t('organize.setLabel'), icon: 'tag', submenu: labelSubmenu(files) } : null,
-    files.length ? { label: t('organize.tag'), icon: 'checkSquare', shortcut: '`', action: () => toggleTag(files) } : null,
-    files.length ? { label: t('organize.addToBasket'), icon: 'basket', action: () => addToBasket(files) } : null,
+    { label: t('organize.setRating'), icon: 'star', submenu: ratingSubmenu(files) },
+    { label: t('organize.setLabel'), icon: 'tag', submenu: labelSubmenu(files) },
+    { label: t('organize.tag'), icon: 'checkSquare', shortcut: '`', action: () => toggleTag(files) },
+    { label: t('organize.addToBasket'), icon: 'basket', shortcut: 'Ctrl+B', action: () => addToBasket(files) },
     app.state.source.type === 'basket' ? { label: t('organize.removeFromBasket'), icon: 'close', action: () => { app.catalog.removeFromBasket(files); reload(); } } : null,
-    files.length ? { label: t('collection.addTo'), icon: 'folderOpen', submenu: addToCollectionMenu(files.map((f) => f.path ?? f)) } : null,
-    app.state.source.type === 'collection' && !app.catalog.collection(app.state.source.id)?.smart ? { label: t('collection.removeFrom'), icon: 'close', action: () => app.catalog.removeFromCollection(app.state.source.id, files.map((f) => f.path ?? f)) } : null,
-    files.length ? { label: t('view.rotateLeft'), icon: 'rotateLeft', action: () => rotateAndRefresh(files, -1) } : null,
-    files.length ? { label: t('view.rotateRight'), icon: 'rotateRight', action: () => rotateAndRefresh(files, 1) } : null,
+    { label: t('collection.addTo'), icon: 'folderOpen', submenu: addToCollectionMenu(files) },
+    app.state.source.type === 'collection' && !app.catalog.collection(app.state.source.id)?.smart ? { label: t('collection.removeFrom'), icon: 'close', action: () => app.catalog.removeFromCollection(app.state.source.id, files) } : null,
     'separator',
-    { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: !fs.caps.move, action: () => copyToClipboard(true) },
-    { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !fs.caps.write, action: () => copyToClipboard(false) },
-    { label: t('file.copyTo'), icon: 'copy', disabled: !fs.caps.write, action: () => copyMoveTo(false) },
-    { label: t('file.moveTo'), icon: 'move', disabled: !fs.caps.move, action: () => copyMoveTo(true) },
-    { label: t('file.rename'), icon: 'rename', shortcut: 'F2', disabled: !fs.caps.rename, action: renameSelection },
-    { label: t('file.delete'), icon: 'trash', shortcut: 'Del', danger: true, action: () => deleteItems(paths) },
-    'separator',
-    files.length >= 2 && files.length <= 4 ? { label: t('tools.compare'), icon: 'compare', action: () => openCompare(selectedFiles()) } : null,
-    files.length ? { label: t('menu.batch'), icon: 'layers', submenu: [
-      { label: t('tools.batchRename'), icon: 'rename', action: () => batchRename(files), disabled: !fs.caps.rename },
+    { label: t('menu.adjust'), icon: 'rotateRight', submenu: [
+      { label: t('view.rotateLeft'), icon: 'rotateLeft', shortcut: 'Ctrl+[', action: () => rotateAndRefresh(files, -1) },
+      { label: t('view.rotateRight'), icon: 'rotateRight', shortcut: 'Ctrl+]', action: () => rotateAndRefresh(files, 1) },
+      { label: t('edit.flipH'), icon: 'flipH', action: () => rotateFiles(files, 0, 'h') },
+      { label: t('edit.flipV'), icon: 'flipV', action: () => rotateFiles(files, 0, 'v') },
+      { label: t('tools.autoRotate'), icon: 'rotateRight', action: () => autoRotate(files) },
+      { label: t('edit.restoreOriginal'), icon: 'undo', disabled: !fs.caps.originals, action: restoreOriginals },
+    ] },
+    { label: t('menu.batch'), icon: 'layers', submenu: [
+      { label: t('tools.batchRename'), icon: 'rename', disabled: !fs.caps.rename, action: () => batchRename(files) },
       { label: t('tools.batchResize'), icon: 'fit', action: () => batchResize(files) },
       { label: t('tools.convert'), icon: 'images', action: () => batchConvert(files) },
       { label: t('tools.autoAdjust'), icon: 'wand', action: () => batchAdjust(files) },
       { label: t('tools.dates'), icon: 'clock', action: () => adjustDates(files) },
-    ] } : null,
-    files.length ? { label: t('view.slideshow'), icon: 'play', action: () => startSlideshow(selectedFiles().length > 1 ? selectedFiles() : viewableList(), selectedFiles().length > 1 ? 0 : Math.max(0, viewableList().findIndex((i) => i.path === item.path))) } : null,
-    files.length ? { label: t('file.print'), icon: 'print', action: () => printDialog(selectedFiles()) } : null,
-    files.length && fs.caps.wallpaper ? { label: t('file.wallpaper'), icon: 'wallpaper', action: setWallpaper } : null,
-    item.isDir ? { label: t('catalog.indexFolder'), icon: 'layers', action: () => catalogFolder(item.path) } : null,
-  ] : [
+      { label: t('tools.fileTime'), icon: 'clock', disabled: !fs.caps.setTime, action: () => fileTimeFromTaken(files) },
+      { label: t('tools.watermark'), icon: 'text', action: () => batchWatermark(files) },
+      { label: t('tools.applyPreset'), icon: 'bookmark', action: () => batchApplyPreset(files) },
+      { label: t('edit.pasteSettings'), icon: 'copy', disabled: !editClipboard.preset, action: () => batchApplyPreset(files, editClipboard.preset) },
+    ] },
+    { label: t('menu.create'), icon: 'wand', submenu: [
+      { label: t('create.pdf'), icon: 'file', action: () => createPdf(shots) },
+      { label: t('create.gif'), icon: 'play', action: () => createGif(shots) },
+      { label: t('create.slideshow'), icon: 'video', action: () => exportSlideshow(shots) },
+      { label: t('create.panorama'), icon: 'images', disabled: shots.length < 2, action: () => createPanorama(shots) },
+      { label: t('create.hdr'), icon: 'sun', disabled: shots.length < 2, action: () => createHdr(shots) },
+      { label: t('create.focus'), icon: 'zoomIn', disabled: shots.length < 2, action: () => createFocusStack(shots) },
+      { label: t('create.zip'), icon: 'download', action: () => createZip(shots) },
+      { label: t('file.print'), icon: 'print', shortcut: 'Ctrl+P', action: () => printDialog(shots) },
+      { label: t('file.wallpaper'), icon: 'wallpaper', disabled: !fs.caps.wallpaper, action: setWallpaper },
+    ] },
+    { label: t('menu.metadata'), icon: 'info', submenu: [
+      { label: t('pane.properties'), icon: 'info', action: () => showRightTab('properties') },
+      { label: t('metadata.editExif'), icon: 'pencil', action: () => exifEditor(files) },
+      { label: t('metadata.writeToFiles'), icon: 'save', action: () => writeMetadataCommand(files) },
+      { label: t('organize.keywords'), icon: 'hash', action: () => { showRightTab('properties'); setTimeout(() => $('[data-field=keywords]')?.focus(), 50); } },
+      { label: t('places.lookUp'), icon: 'mapPin', action: () => lookUpPlaces(files) },
+      { label: t('gpx.menu'), icon: 'map', action: () => gpxGeotagDialog(files) },
+      { label: t('pane.map'), icon: 'map', action: () => showRightTab('map') },
+      { label: t('people.scanList'), icon: 'user', action: () => scanFaces(shots) },
+      { label: t('people.nameFaces'), icon: 'user', action: () => nameFacesDialog() },
+      { label: t('analysis.runFolder'), icon: 'wand', action: () => analysis.analyze(shots) },
+      { label: t('analysis.rerun'), icon: 'refresh', action: () => analysis.analyze(shots, { force: true }) },
+      { label: t('analysis.toFolders'), icon: 'layers', action: async () => (await import('./ui/organize.js')).organizeDialog(shots) },
+    ] },
+    'separator',
+    { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: !fs.caps.move, action: () => copyToClipboard(true) },
+    { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !fs.caps.write, action: () => copyToClipboard(false) },
+    { label: t('share.copyImage'), icon: 'copy', shortcut: 'Ctrl+Shift+C', action: () => copyImageToClipboard(files[0]) },
+    { label: t('file.copyTo'), icon: 'copy', disabled: !fs.caps.write, action: () => copyMoveTo(false) },
+    { label: t('file.moveTo'), icon: 'move', disabled: !fs.caps.move, action: () => copyMoveTo(true) },
+    { label: t('file.rename'), icon: 'rename', shortcut: 'F2', disabled: !fs.caps.rename, action: renameSelection },
+    { label: t('file.delete'), icon: 'trash', shortcut: 'Del', danger: true, action: () => deleteItems(paths.length ? paths : files) },
+    'separator',
+    { label: t('menu.send'), icon: 'upload', submenu: [
+      { label: t('share.share'), icon: 'upload', action: () => shareFiles(files) },
+      !isPrivatePath(item.path) ? { label: t('private.moveTo'), icon: 'lock', action: () => moveToPrivate(files) } : { label: t('private.restore'), icon: 'upload', action: () => restoreFromPrivate(files) },
+      fs.caps.reveal ? { label: t('file.reveal'), icon: 'reveal', action: () => fs.reveal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
+      fs.caps.open ? { label: t('file.openExternal'), icon: 'external', action: () => fs.openExternal(item.path).catch((e) => toast(errorText(e), 'error')) } : null,
+    ].filter(Boolean) },
+    shots.length >= 2 && shots.length <= 4 ? { label: t('tools.compare'), icon: 'compare', action: () => openCompare(shots) } : null,
+    { label: t('tools.duplicates'), icon: 'layers', action: findDuplicates },
+  ];
+}
+
+const samePath = (a, b) => String(a ?? '').replace(/[\\/]+$/, '').toLowerCase() === String(b ?? '').replace(/[\\/]+$/, '').toLowerCase();
+
+/** Drive roots and a browser folder you opened cannot be renamed or thrown away from here. */
+function isProtectedRoot(path) {
+  const bare = String(path ?? '').replace(/[\\/]+$/, '');
+  if (!bare || bare === '/' || /^[A-Za-z]:$/.test(bare)) return true;
+  return fs.kind === 'web' && /^@\d+:[^/]*$/.test(path);
+}
+
+/** Photos and videos sitting directly in these folders. */
+async function mediaIn(dirs) {
+  const items = [];
+  const seen = new Set();
+  let failed = false;
+  for (const dir of dirs) {
+    try {
+      const listing = await fs.list(dir, { hidden: app.settings.showHidden, probe: false });
+      for (const file of listing.files ?? []) {
+        if (!file?.name || !kindOf(file.name) || seen.has(file.path)) continue;
+        seen.add(file.path);
+        items.push(file);
+      }
+    } catch (error) {
+      failed = true;
+      toast(errorText(error), 'error');
+    }
+  }
+  if (!items.length && !failed) toast(t('folder.noPhotos'), 'info');
+  return items;
+}
+
+async function viewFirstIn(dir) {
+  try {
+    if (!(app.state.source.type === 'folder' && samePath(app.state.source.path, dir))) await openFolder(dir);
+  } catch (error) { toast(errorText(error), 'error'); return; }
+  const first = viewableList()[0];
+  if (!first) { toast(t('folder.noPhotos'), 'info'); return; }
+  viewItem(first.path);
+}
+
+async function slideshowOf(dirs) {
+  if (dirs.length === 1) {
+    try {
+      if (!(app.state.source.type === 'folder' && samePath(app.state.source.path, dirs[0]))) await openFolder(dirs[0]);
+    } catch (error) { toast(errorText(error), 'error'); return; }
+    const list = viewableList();
+    if (!list.length) { toast(t('folder.noPhotos'), 'info'); return; }
+    startSlideshow(list);
+    return;
+  }
+  const items = await mediaIn(dirs);
+  if (items.length) startSlideshow(items);
+}
+
+function toggleFavorites(paths, on) {
+  const set = new Set(app.settings.favorites);
+  for (const entry of paths) { if (on) set.add(entry); else set.delete(entry); }
+  app.settings.favorites = [...set];
+  app.saveSettings();
+  folderPane.render();
+}
+
+async function pasteInto(dir) {
+  const clip = app.state.clipboard;
+  if (!clip || fs.isReadOnly?.(dir)) return;
+  await transfer(clip.paths, dir, { move: clip.cut });
+  if (clip.cut) app.state.clipboard = null;
+}
+
+function refreshFolder(path) {
+  app.emit('folders-changed', path);
+  if (app.state.source.type === 'folder' && (samePath(app.state.source.path, path) || samePath(parentOf(app.state.source.path), path))) reload();
+}
+
+/** What you can do to the pictures inside the folders, gathered when the command runs. */
+function folderPhotoMenu(dirs, readOnly) {
+  const run = (fn) => async () => {
+    const items = await mediaIn(dirs);
+    if (!items.length) return;
+    return fn(items, items.map((file) => file.path));
+  };
+  const pathsOf = (fn) => run((_items, paths) => fn(paths));
+  const manual = app.catalog.collections.filter((c) => !c.smart);
+  return [
+    { label: t('organize.setRating'), icon: 'star', submenu: [0, 1, 2, 3, 4, 5].map((n) => ({ label: n ? '★'.repeat(n) : t('organize.noRating'), icon: n ? 'starFill' : 'star', action: pathsOf((paths) => rate(n, paths)) })) },
+    { label: t('organize.setLabel'), icon: 'tag', submenu: [...LABELS.map((l) => ({ label: t(`label.${l}`), icon: 'tag', swatch: LABEL_COLORS[l], action: pathsOf((paths) => setLabel(l, paths)) })), { label: t('organize.noLabel'), icon: 'close', action: pathsOf((paths) => setLabel(null, paths)) }] },
+    { label: t('organize.tag'), icon: 'checkSquare', action: pathsOf((paths) => toggleTag(paths)) },
+    { label: t('organize.addToBasket'), icon: 'basket', action: pathsOf((paths) => addToBasket(paths)) },
+    { label: t('collection.addTo'), icon: 'folderOpen', submenu: [
+      ...manual.map((c) => ({ label: c.name, icon: 'folderOpen', action: pathsOf((paths) => addTo(c.id, paths)) })),
+      manual.length ? 'separator' : null,
+      { label: t('collection.newWith'), icon: 'plus', action: pathsOf((paths) => newCollection(paths)) },
+    ].filter(Boolean) },
+    isDesktop() ? { label: t('external.editIn'), icon: 'external', submenu: [
+      ...externalEditors().map((editor, i) => ({ label: editor.name, icon: 'external', shortcut: i === 0 ? 'Ctrl+Shift+E' : '', action: pathsOf((paths) => openInEditor(editor, paths)) })),
+      externalEditors().length ? 'separator' : null,
+      { label: t('external.configure'), icon: 'gear', action: externalEditorsDialog },
+    ].filter(Boolean) } : null,
+    'separator',
+    { label: t('menu.adjust'), icon: 'rotateRight', submenu: [
+      { label: t('view.rotateLeft'), icon: 'rotateLeft', disabled: readOnly, action: pathsOf((paths) => rotateAndRefresh(paths, -1)) },
+      { label: t('view.rotateRight'), icon: 'rotateRight', disabled: readOnly, action: pathsOf((paths) => rotateAndRefresh(paths, 1)) },
+      { label: t('edit.flipH'), icon: 'flipH', disabled: readOnly, action: pathsOf((paths) => rotateFiles(paths, 0, 'h')) },
+      { label: t('edit.flipV'), icon: 'flipV', disabled: readOnly, action: pathsOf((paths) => rotateFiles(paths, 0, 'v')) },
+      { label: t('tools.autoRotate'), icon: 'rotateRight', disabled: readOnly, action: pathsOf((paths) => autoRotate(paths)) },
+      { label: t('edit.restoreOriginal'), icon: 'undo', disabled: readOnly || !fs.caps.originals, action: pathsOf((paths) => restoreOriginals(paths)) },
+    ] },
+    { label: t('menu.batch'), icon: 'layers', submenu: [
+      { label: t('tools.batchRename'), icon: 'rename', disabled: readOnly || !fs.caps.rename, action: pathsOf((paths) => batchRename(paths)) },
+      { label: t('tools.batchResize'), icon: 'fit', disabled: readOnly, action: pathsOf((paths) => batchResize(paths)) },
+      { label: t('tools.convert'), icon: 'images', disabled: readOnly, action: pathsOf((paths) => batchConvert(paths)) },
+      { label: t('tools.autoAdjust'), icon: 'wand', disabled: readOnly, action: pathsOf((paths) => batchAdjust(paths)) },
+      { label: t('tools.dates'), icon: 'clock', disabled: readOnly, action: pathsOf((paths) => adjustDates(paths)) },
+      { label: t('tools.fileTime'), icon: 'clock', disabled: readOnly || !fs.caps.setTime, action: pathsOf((paths) => fileTimeFromTaken(paths)) },
+      { label: t('tools.watermark'), icon: 'text', disabled: readOnly, action: pathsOf((paths) => batchWatermark(paths)) },
+      { label: t('tools.applyPreset'), icon: 'bookmark', disabled: readOnly, action: pathsOf((paths) => batchApplyPreset(paths)) },
+      { label: t('edit.pasteSettings'), icon: 'copy', disabled: readOnly || !editClipboard.preset, action: pathsOf((paths) => batchApplyPreset(paths, editClipboard.preset)) },
+    ] },
+    { label: t('menu.create'), icon: 'wand', submenu: [
+      { label: t('create.pdf'), icon: 'file', action: run((items) => createPdf(items)) },
+      { label: t('create.gif'), icon: 'play', action: run((items) => createGif(items)) },
+      { label: t('create.slideshow'), icon: 'video', action: run((items) => exportSlideshow(items)) },
+      { label: t('create.panorama'), icon: 'images', action: run((items) => createPanorama(items)) },
+      { label: t('create.hdr'), icon: 'sun', action: run((items) => createHdr(items)) },
+      { label: t('create.focus'), icon: 'zoomIn', action: run((items) => createFocusStack(items)) },
+      { label: t('create.zip'), icon: 'download', action: run((items) => createZip(items)) },
+      { label: t('file.print'), icon: 'print', action: run((items) => printDialog(items)) },
+      { label: t('file.wallpaper'), icon: 'wallpaper', disabled: !fs.caps.wallpaper, action: run((items) => setWallpaper(items[0]?.path)) },
+    ] },
+    { label: t('menu.metadata'), icon: 'info', submenu: [
+      { label: t('pane.properties'), icon: 'info', action: () => showRightTab('properties') },
+      { label: t('metadata.editExif'), icon: 'pencil', action: pathsOf((paths) => exifEditor(paths)) },
+      { label: t('metadata.writeToFiles'), icon: 'save', disabled: readOnly, action: pathsOf((paths) => writeMetadataCommand(paths)) },
+      { label: t('organize.keywords'), icon: 'hash', action: () => { showRightTab('properties'); setTimeout(() => $('[data-field=keywords]')?.focus(), 50); } },
+      { label: t('places.lookUp'), icon: 'mapPin', action: pathsOf((paths) => lookUpPlaces(paths)) },
+      { label: t('gpx.menu'), icon: 'map', disabled: readOnly, action: pathsOf((paths) => gpxGeotagDialog(paths)) },
+      { label: t('pane.map'), icon: 'map', action: () => showRightTab('map') },
+      { label: t('people.scanList'), icon: 'user', action: run((items) => scanFaces(items)) },
+      { label: t('people.nameFaces'), icon: 'user', action: () => nameFacesDialog() },
+      { label: t('analysis.runFolder'), icon: 'wand', action: run((items) => analysis.analyze(items)) },
+      { label: t('analysis.rerun'), icon: 'refresh', action: run((items) => analysis.analyze(items, { force: true })) },
+      { label: t('analysis.toFolders'), icon: 'layers', action: run(async (items) => (await import('./ui/organize.js')).organizeDialog(items)) },
+    ] },
+    'separator',
+    { label: t('menu.send'), icon: 'upload', submenu: [
+      { label: t('share.share'), icon: 'upload', action: pathsOf((paths) => shareFiles(paths)) },
+      isPrivatePath(dirs[0])
+        ? { label: t('private.restore'), icon: 'upload', action: pathsOf((paths) => restoreFromPrivate(paths)) }
+        : { label: t('private.moveTo'), icon: 'lock', disabled: readOnly, action: pathsOf((paths) => moveToPrivate(paths)) },
+    ] },
+    { label: t('tools.duplicates'), icon: 'layers', action: async () => { if (!(app.state.source.type === 'folder' && samePath(app.state.source.path, dirs[0]))) await openFolder(dirs[0]); findDuplicates(); } },
+  ].filter(Boolean);
+}
+
+/** Right-click on a folder: open it, and work on the photos inside it. */
+function folderContextMenu(item) {
+  const path = item.path;
+  const selected = targetPaths();
+  const clickedSelected = selected.some((entry) => samePath(entry, path));
+  const acted = clickedSelected ? selected : [path];
+  const dirs = clickedSelected ? selected.filter((entry) => {
+    const found = app.state.list.find((row) => samePath(row.path, entry));
+    return found ? found.isDir : samePath(entry, path);
+  }) : [path];
+  const targetReadOnly = Boolean(fs.isReadOnly?.(path) || item.place?.readOnly);
+  const readOnly = dirs.some((entry) => fs.isReadOnly?.(entry)) || Boolean(item.place?.readOnly);
+  const locked = acted.some(isProtectedRoot);
+  const favored = dirs.every((entry) => app.settings.favorites.includes(entry));
+  const parent = parentOf(path);
+  const canUp = parent && !samePath(parent, path);
+  const webRoot = fs.kind === 'web' && /^@\d+:[^/]*$/.test(path);
+  return cleanSeparators([
+    { label: t('folders.open'), icon: 'folderOpen', action: () => openFolder(path) },
+    canUp ? { label: t('nav.up'), icon: 'up', action: () => openFolder(parent) } : null,
+    { label: t('folder.viewFirst'), icon: 'eye', action: () => viewFirstIn(path) },
+    { label: t('view.slideshow'), icon: 'play', action: () => slideshowOf(dirs) },
+    fs.caps.open ? { label: t('file.openWith'), icon: 'external', action: () => openWith(path) } : null,
+    fs.caps.open ? { label: t('file.openExternal'), icon: 'external', action: () => fs.openExternal(path).catch((e) => toast(errorText(e), 'error')) } : null,
+    fs.caps.reveal ? { label: t('file.reveal'), icon: 'reveal', action: () => fs.reveal(path).catch((e) => toast(errorText(e), 'error')) } : null,
+    'separator',
+    { label: favored ? t('folders.unfavorite') : t('folders.favorite'), icon: favored ? 'starFill' : 'star', action: () => toggleFavorites(dirs, !favored) },
+    { label: t('file.newFolder'), icon: 'folderPlus', disabled: targetReadOnly || !fs.caps.mkdir, action: () => newFolder(path) },
+    { label: t('file.paste'), icon: 'clipboard', shortcut: 'Ctrl+V', disabled: !app.state.clipboard || targetReadOnly || !fs.caps.write, action: () => pasteInto(path) },
+    { label: t('catalog.indexFolder'), icon: 'layers', action: async () => { for (const dir of dirs) await catalogFolder(dir); } },
+    { label: t('folders.refresh'), icon: 'refresh', action: () => refreshFolder(path) },
+    { label: t('pane.properties'), icon: 'info', action: () => { if (app.state.list.some((row) => samePath(row.path, path))) setSelection([path], path); showRightTab('properties'); } },
+    webRoot ? { label: t('folders.close'), icon: 'close', action: async () => { await webFs.closeRoot(path); folderPane.render(); } } : null,
+    'separator',
+    { label: t('menu.inside'), icon: 'images', submenu: folderPhotoMenu(dirs, readOnly) },
+    'separator',
+    { label: t('edit.cut'), icon: 'scissors', shortcut: 'Ctrl+X', disabled: locked || targetReadOnly || !fs.caps.move, action: () => copyToClipboard(true, acted) },
+    { label: t('edit.copy'), icon: 'copy', shortcut: 'Ctrl+C', disabled: locked || !fs.caps.write, action: () => copyToClipboard(false, acted) },
+    { label: t('file.copyTo'), icon: 'copy', disabled: locked || !fs.caps.write, action: () => copyMoveTo(false, acted) },
+    { label: t('file.moveTo'), icon: 'move', disabled: locked || targetReadOnly || !fs.caps.move, action: () => copyMoveTo(true, acted) },
+    { label: t('file.rename'), icon: 'rename', shortcut: 'F2', disabled: acted.length !== 1 || locked || targetReadOnly || !fs.caps.rename, action: () => renameItem(acted[0]) },
+    { label: t('file.delete'), icon: 'trash', shortcut: 'Del', danger: true, disabled: locked || targetReadOnly, action: () => deleteItems(acted) },
+  ].filter(Boolean));
+}
+
+function itemMenu(event, item) {
+  const items = item?.isDir === false ? imageMenu(item) : item ? folderContextMenu(item) : [
     { label: t('edit.paste'), icon: 'clipboard', shortcut: 'Ctrl+V', disabled: !app.state.clipboard || !inFolder(), action: pasteClipboard },
     { label: t('file.newFolder'), icon: 'folderPlus', disabled: !inFolder() || !fs.caps.mkdir, action: newFolder },
     'separator',
@@ -903,13 +1150,12 @@ async function rotateAndRefresh(paths, turns) {
   if (app.state.mode === 'view') viewer.reloadCurrent();
 }
 
-async function setWallpaper() {
-  const path = targetPaths({ filesOnly: true })[0];
+async function setWallpaper(path = targetPaths({ filesOnly: true })[0]) {
+  if (!path) return;
   try { await fs.setWallpaper(path); toast(t('file.wallpaperSet'), 'success'); } catch (error) { toast(errorText(error), 'error', 6000); }
 }
 
-async function restoreOriginals() {
-  const paths = targetPaths({ filesOnly: true });
+async function restoreOriginals(paths = targetPaths({ filesOnly: true })) {
   const flags = await fs.hasOriginals(paths);
   const restorable = paths.filter((_, i) => flags[i]);
   if (!restorable.length) { toast(t('edit.noOriginal'), 'info'); return; }
@@ -1028,22 +1274,130 @@ async function openPaths(paths) {
   if (isMedia(first)) viewItem(first);
 }
 
+/** Element under a drop, in CSS pixels: a folder, the basket, the map, the viewer, or the current folder. */
+function targetAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const stripFolder = el.closest('.strip-folder');
+  if (stripFolder?.dataset.folder && !fs.isReadOnly(stripFolder.dataset.folder)) return { kind: 'path', path: stripFolder.dataset.folder, el: stripFolder };
+  const marked = el.closest('[data-drop]');
+  if (marked?.dataset.drop) {
+    const id = marked.dataset.drop;
+    if (id === '__basket__') return { kind: 'basket', el: marked };
+    if (id === '__map__') return { kind: 'map', el: marked, x, y };
+    if (!fs.isReadOnly(id)) return { kind: 'path', path: id, el: marked };
+  }
+  const viewerEl = el.closest('.viewer');
+  if (viewerEl) return { kind: 'view', el: viewerEl };
+  const list = el.closest('.filelist');
+  if (list && app.state.source.type === 'folder' && !fs.isReadOnly(app.state.source.path)) return { kind: 'path', path: app.state.source.path, el: list };
+  return null;
+}
+
+let dropMark = null;
+function markDropTarget(x, y) {
+  const next = Number.isFinite(x) ? targetAt(x, y)?.el ?? null : null;
+  if (dropMark === next) return;
+  dropMark?.classList.remove('drop-target');
+  dropMark = next;
+  dropMark?.classList.add('drop-target');
+  document.body.classList.toggle('dropping', !dropMark && Number.isFinite(x));
+}
+function clearDropTarget() {
+  dropMark?.classList.remove('drop-target');
+  dropMark = null;
+  document.body.classList.remove('dropping');
+}
+
+/** Physical pixels from the desktop drag event, as CSS pixels. */
+function dropPoint(position) {
+  if (!position) return null;
+  const scale = window.devicePixelRatio || 1;
+  return { x: position.x / scale, y: position.y / scale };
+}
+
+/** Opens dropped files in the viewer, or a dropped folder on its first picture. */
+async function openDroppedInViewer(paths) {
+  const stats = await fs.stat(paths);
+  const file = paths.find((path, i) => stats[i] && !stats[i].isDir && isMedia(path));
+  if (file) {
+    await openFolder(parentOf(file), { select: paths.filter((path, i) => stats[i] && !stats[i].isDir) });
+    viewItem(file);
+    return;
+  }
+  const dir = paths.find((path, i) => stats[i]?.isDir);
+  if (!dir) { await openPaths(paths); return; }
+  await openFolder(dir);
+  const first = viewableList()[0];
+  if (first) viewItem(first.path);
+}
+
+/** Files or folders dropped from outside the app, aimed at whatever is under the cursor. */
+async function receiveExternalDrop(paths, target) {
+  if (!paths?.length) return;
+  if (target?.kind === 'path') { await transfer(paths, target.path, { move: false }); return; }
+  if (target?.kind === 'basket') { addToBasket(paths); return; }
+  if (target?.kind === 'map') { mapPane.placeAt(target.x, target.y, paths); return; }
+  if (target?.kind === 'view') { await openDroppedInViewer(paths); return; }
+  await openPaths(paths);
+}
+
+/** Browser drop: copy onto a writable folder, or open in the viewer / a new folder. */
+async function receiveWebDrop(data, target) {
+  const handles = data.handles ?? [];
+  const files = data.files ?? [];
+  const writable = target?.kind === 'path';
+  if (writable && handles.length) {
+    const count = await webFs.importDropped(target.path, handles);
+    toast(plural('file.copied', count), 'success', 2200);
+    if (app.state.source.type === 'folder' && app.state.source.path === target.path) await reload();
+    else app.emit('folders-changed', target.path);
+    return;
+  }
+  if (writable && (files.length || data.folders?.length)) {
+    const paths = [];
+    for (const folder of data.folders ?? []) {
+      const listing = await fs.list(folder);
+      paths.push(...listing.dirs.map((entry) => entry.path), ...listing.files.map((entry) => entry.path));
+    }
+    if (files.length) {
+      const folder = webFs.addMemoryFolder(t('web.droppedFiles'), files);
+      paths.push(...files.map(({ file }) => joinPath(folder, file.name)));
+    }
+    if (paths.length) { await transfer(paths, target.path, { move: false }); return; }
+  }
+  let folder = data.folders?.[0] ?? null;
+  const dirHandle = handles.find((handle) => handle.kind === 'directory');
+  if (!folder && dirHandle) folder = await webFs.addHandleFolder(dirHandle);
+  if (files.length && !dirHandle) folder = webFs.addMemoryFolder(t('web.droppedFiles'), files.filter(({ file }) => isMedia(file.name)));
+  await folderPane.render();
+  if (!folder) return;
+  await openFolder(folder);
+  if (target?.kind === 'view' || target?.kind === 'basket') {
+    const first = viewableList()[0];
+    if (target.kind === 'basket' && first) addToBasket(viewableList().map((item) => item.path));
+    if (target.kind === 'view' && first) viewItem(first.path);
+  }
+}
+
 // Web: drag and drop of folders / files from the OS.
 if (!isDesktop()) {
   let depth = 0;
-  window.addEventListener('dragenter', (event) => { if (event.dataTransfer?.types?.includes('Files')) { depth++; document.body.classList.add('dropping'); } });
-  window.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) document.body.classList.remove('dropping'); });
-  window.addEventListener('dragover', (event) => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); });
+  const isFileDrag = (event) => event.dataTransfer?.types?.includes('Files');
+  window.addEventListener('dragenter', (event) => { if (isFileDrag(event)) { depth++; markDropTarget(event.clientX, event.clientY); } });
+  window.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) clearDropTarget(); });
+  window.addEventListener('dragover', (event) => { if (isFileDrag(event)) { event.preventDefault(); markDropTarget(event.clientX, event.clientY); } });
   window.addEventListener('drop', async (event) => {
-    if (!event.dataTransfer?.types?.includes('Files')) return;
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     depth = 0;
-    document.body.classList.remove('dropping');
-    const { folders, files } = await filesFromDrop(event.dataTransfer);
-    let target = folders[0];
-    if (files.length) target = webFs.addMemoryFolder(t('web.droppedFiles'), files.filter(({ file }) => isMedia(file.name)));
-    await folderPane.render();
-    if (target) openFolder(target);
+    const target = targetAt(event.clientX, event.clientY);
+    clearDropTarget();
+    try {
+      await receiveWebDrop(await filesFromDrop(event.dataTransfer), target);
+    } catch (error) {
+      toast(errorText(error), 'error');
+    }
   });
 }
 
@@ -1130,10 +1484,16 @@ function renderWelcome() {
       h('p.hint', t('welcome.drop'))));
 }
 
+function appVersion() {
+  return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
+}
+
+/** Window title: program name, then version, then whatever is open. */
 function updateTitle() {
   const { source } = app.state;
   const where = source.type === 'folder' ? source.path.replace(/^@\d+:/, '') : source.title ?? (source.type === 'basket' ? t('catalog.basket') : '');
-  setWindowTitle(where ? `${where} - MyPhotoManager` : 'MyPhotoManager');
+  const name = `${t('app.name')} ${appVersion()}`;
+  setWindowTitle(where ? `${name} — ${where}` : name);
 }
 
 function renderAll() {
@@ -1142,6 +1502,7 @@ function renderAll() {
   renderWelcome();
   renderStatus();
   fileList.rebuild();
+  updateTitle();
 }
 
 app.on('source', () => {
@@ -1303,14 +1664,19 @@ async function start() {
     const paths = startup;
     if (paths.length) { await openPaths(paths); opened = true; }
     listen('open-paths', (list) => openPaths(list));
-    onFileDrop(async (paths) => {
-      const stats = await fs.stat(paths);
-      if (app.state.source.type === 'folder' && !stats.some((s) => s?.isDir) && (await confirmDialog(plural('drop.copyHere', paths.length), { ok: t('drop.copy') }))) {
-        await transfer(paths, app.state.source.path, { move: false });
-      } else {
-        openPaths(paths);
+    onFileDrop(async (payload) => {
+      if (!payload || payload.type === 'leave') { clearDropTarget(); return; }
+      const point = dropPoint(payload.position);
+      if (payload.type === 'enter' || payload.type === 'over') { markDropTarget(point?.x, point?.y); return; }
+      if (payload.type !== 'drop' || !payload.paths?.length) { clearDropTarget(); return; }
+      const target = point ? targetAt(point.x, point.y) : null;
+      clearDropTarget();
+      try {
+        await receiveExternalDrop(payload.paths, target);
+      } catch (error) {
+        toast(errorText(error), 'error');
       }
-    }, (hover) => document.body.classList.toggle('dropping', hover));
+    });
     listen('fatal-error', (error) => toast(`${error.message} (${error.location})`, 'error', 15000));
     if (!opened) {
       const places = await fs.places().catch(() => []);

@@ -19,6 +19,7 @@ import { createDicomTools } from './dicomview.js';
 import { button, clear, h } from './dom.js';
 import { drawHistogram, histogramOf } from './histogram.js';
 import { icon } from './icons.js';
+import { pressDrag } from './itemdrag.js';
 import { commandFor, registerCommands } from './keymap.js';
 
 const ZOOMS = [0.05, 0.08, 0.1, 0.125, 0.167, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32];
@@ -49,8 +50,23 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
   const stripPrev = h('button.strip-nav.prev', { type: 'button', title: `${t('view.prev')} (←)`, 'aria-label': t('view.prev'), html: icon('prev'), dataset: { key: 'strip-prev' }, onclick: () => step(-1) });
   const stripNext = h('button.strip-nav.next', { type: 'button', title: `${t('view.next')} (→)`, 'aria-label': t('view.next'), html: icon('next'), dataset: { key: 'strip-next' }, onclick: () => step(1) });
   const stripBox = h('div.filmstrip-box', stripPrev, strip, stripNext);
-  // The wheel scrolls the strip sideways.
-  strip.addEventListener('wheel', (event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) { event.preventDefault(); strip.scrollLeft += event.deltaY; } }, { passive: false });
+  // The wheel scrolls along the strip: sideways at the bottom, up and down on a side.
+  strip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    const cell = event.target.closest('.strip-cell');
+    if (!cell) return;
+    pressDrag(event, () => {
+      if (cell.dataset.folder) return [cell.dataset.folder];
+      const item = list[Number(cell.dataset.index)];
+      return item ? [item.path] : [];
+    });
+  });
+  strip.addEventListener('wheel', (event) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    event.preventDefault();
+    if (el.dataset.strip === 'left' || el.dataset.strip === 'right') strip.scrollTop += event.deltaY;
+    else strip.scrollLeft += event.deltaY;
+  }, { passive: false });
   const toolbar = h('div.viewer-toolbar');
   // Medical images get their own toolbar, overlays and tools (dicomview.js).
   const dicom = createDicomTools({
@@ -67,7 +83,8 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
       if (redo) redo.disabled = !dicom.canRedo;
     },
   });
-  const el = h('div.viewer', toolbar, dicom.bar, viewerBody, stripBox, status);
+  const viewerMain = h('div.viewer-main', viewerBody, stripBox);
+  const el = h('div.viewer', toolbar, dicom.bar, viewerMain, status);
 
   let list = [];
   let index = 0;
@@ -116,6 +133,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
         button('info', t('view.info'), () => toggleSetting('info'), { title: `${settings().info ? t('view.infoHide') : t('view.infoShow')} (I)`, className: settings().info ? 'on' : '', id: 'viewer-info-toggle' }),
         button('histogram', t('view.histogram'), () => toggleSetting('histogram'), { title: `${t('view.histogram')} (H)`, className: settings().histogram ? 'on' : '' }),
         button('filmstrip', t('view.filmstrip'), () => toggleSetting('filmstrip'), { title: t('view.filmstrip'), className: settings().filmstrip ? 'on' : '' }),
+        button(STRIP_ICON[stripSide()], t('view.stripAt', { side: t(`view.strip.${stripSide()}`) }), () => cycleStripSide(), { title: t('view.stripAt', { side: t(`view.strip.${stripSide()}`) }), id: 'viewer-strip-side', dataset: { side: stripSide() } }),
         button('fullscreen', t('view.fullscreen'), () => toggleFullscreen(), { title: `${t('view.fullscreen')} (F)` })),
       group(
         button('search', t('view.loupe'), () => toggleLoupe(), { title: `${t('view.loupe')} (L)`, className: loupeOn ? 'on' : '' }),
@@ -150,8 +168,33 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     buildToolbar();
     updateOverlays();
     renderFaces();
-    stripBox.hidden = !settings().filmstrip;
+    layoutStrip();
     applyTransform();
+  }
+
+  const STRIP_SIDES = ['bottom', 'left', 'right'];
+  const STRIP_ICON = { bottom: 'stripBottom', left: 'stripLeft', right: 'stripRight' };
+  function stripSide() {
+    return STRIP_SIDES.includes(settings().stripSide) ? settings().stripSide : 'bottom';
+  }
+
+  /** Bottom, then the left side, then the right: one button walks through them. */
+  function cycleStripSide() {
+    settings().stripSide = STRIP_SIDES[(STRIP_SIDES.indexOf(stripSide()) + 1) % STRIP_SIDES.length];
+    app.saveSettings();
+    buildToolbar();
+    layoutStrip();
+    requestAnimationFrame(() => applyTransform());
+  }
+
+  function layoutStrip() {
+    const side = stripSide();
+    el.dataset.strip = side;
+    stripBox.hidden = !settings().filmstrip;
+    const vertical = side !== 'bottom';
+    stripPrev.title = `${t('view.prev')} (${vertical ? '↑' : '←'})`;
+    stripNext.title = `${t('view.next')} (${vertical ? '↓' : '→'})`;
+    markStrip();
   }
 
   /** The information panel sits on the right. ">" folds it to a strip; the toolbar button hides it. */
@@ -199,6 +242,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     spinner.textContent = t('list.loading');
     buildToolbar();
     layoutInfoPane();
+    layoutStrip();
     updateOverlays();
     renderStatus();
     renderPageNav();
@@ -210,7 +254,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     index = Math.max(0, list.findIndex((item) => item.path === path));
     buildToolbar();
     layoutInfoPane();
-    stripBox.hidden = !settings().filmstrip;
+    layoutStrip();
     renderStrip();
     show();
     stage.focus({ preventScroll: true });
@@ -834,6 +878,7 @@ export function createViewer({ onEdit, onSlideshow, onRotate, onContextMenu }) {
     const cell = h('button.strip-cell.strip-folder', { type: 'button', title: entry.name, dataset: { folder: entry.path } });
     cell.append(h('span.strip-folder-icon', { html: icon('folder') }), h('span.strip-folder-name', entry.name));
     cell.addEventListener('click', () => enterFolder(entry.path));
+    cell.addEventListener('contextmenu', (event) => onContextMenu?.(event, { isDir: true, path: entry.path, name: entry.name }));
     return cell;
   }
 

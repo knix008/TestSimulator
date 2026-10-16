@@ -436,7 +436,7 @@ export const cases = [
       // Settings → Video: no autoplay, no controls, volume 40.
       await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
       await app.main.waitFor(`${TOP}?.id === 'settings-dialog'`);
-      await app.main.eval(`${TOP}.querySelector('.settings-tab[data-tab=video]').click(); 1`);
+      await app.main.eval(`${TOP}.querySelector('.settings-tab[data-tab=playback]').click(); 1`);
       await app.main.eval(`(() => { const box = ${TOP}; for (const key of ['autoplay', 'controls']) { const c = box.querySelector(\`[data-key=video-\${key}]\`); c.checked = false; } box.querySelector('[data-key=video-volume]').value = '40'; return 1; })()`);
       await primary(app);
       await app.main.waitFor(`!${TOP} && ${P}.app.settings.video.autoplay === false`);
@@ -822,7 +822,7 @@ export const cases = [
         const scan = async (menu, path) => {
           for (const row of menu.querySelectorAll(':scope > .menu-item')) {
             const label = path + ' › ' + row.querySelector('.menu-label').textContent;
-            if (!row.querySelector('.menu-icon svg, .menu-icon .swatch')) missing.push(label);
+            if (!row.querySelector('.menu-icon svg')) missing.push(label);
             if (row.querySelector('.menu-arrow')) {
               row.dispatchEvent(new PointerEvent('pointerenter'));
               await tick();
@@ -1003,13 +1003,13 @@ export const cases = [
       await open(app, dir(app, 'studio'), 6);
       await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
       await app.main.waitFor(`Boolean(${P}.topDialog()?.id === 'settings-dialog')`);
-      const settings = await app.main.eval(`(() => { const box = ${P}.topDialog(); const doc = box.ownerDocument; const win = doc.defaultView; const tabs = [...box.querySelectorAll('.settings-tab')].map((b) => b.getBoundingClientRect()); const body = box.querySelector('.settings-content').getBoundingClientRect(); const out = { own: doc !== document, title: doc.title, w: win.innerWidth, h: win.innerHeight, cut: [], top: tabs.every((r) => Math.abs(r.top - tabs[0].top) < 1 && r.bottom <= body.top + 1) };
+      const settings = await app.main.eval(`(() => { const box = ${P}.topDialog(); const doc = box.ownerDocument; const win = doc.defaultView; const tabs = [...box.querySelectorAll('.settings-tab')].map((b) => b.getBoundingClientRect()); const body = box.querySelector('.settings-content').getBoundingClientRect(); const out = { own: doc !== document, title: doc.title, w: win.innerWidth, h: win.innerHeight, cut: [], column: tabs.length > 1 && tabs.every((r, i) => Math.abs(r.left - tabs[0].left) < 1 && Math.abs(r.width - tabs[0].width) < 1 && Math.abs(r.height - tabs[0].height) < 1 && (i === 0 || r.top > tabs[i - 1].top + 8)), beside: body.left + 1 >= tabs[0].right };
         for (const tab of box.querySelectorAll('.settings-tab')) { tab.click(); if (doc.documentElement.scrollHeight > win.innerHeight + 1) out.cut.push(tab.textContent); }
         return out; })()`);
       assert.equal(settings.own, true, 'its own window');
       assert.equal(settings.title, await app.main.eval(`${P}.t('settings.title')`));
       assert.deepEqual(settings.cut, [], 'tabs that would need scrolling');
-      assert.ok(settings.top, `tab buttons in one row above the content: ${JSON.stringify(settings)}`);
+      assert.ok(settings.column && settings.beside, `tab buttons in one equal column beside the content: ${JSON.stringify(settings)}`);
       await app.main.eval(`${P}.topDialog().ownerDocument.defaultView.close(); 1`);
       await app.main.waitFor(`!${P}.topDialog()`, { message: 'closing the window cancels' });
       await app.main.eval(`${P}.dq('#open-about').click(); 1`);
@@ -2728,7 +2728,7 @@ export const cases = [
   },
   {
     ids: ['EDIT-LOOKS'],
-    group: '편집', name: '효과 프리셋(룩): 도구 모음 "프리셋" 버튼으로 열고 닫기, 분류·검색·미리 보기, 적용 후 강도·세밀 조정, 해제, 기존 패널·노출은 그대로, 저장',
+    group: '편집', name: '효과 프리셋(룩): 왼쪽 패널에 항상 표시, 분류·검색·미리 보기, 적용 후 강도·세밀 조정, 실행 취소로 되돌리기, 기존 패널·노출은 그대로, 저장',
     run: async (app) => {
       const studio = dir(app, 'studio');
       fs.copyFileSync(path.join(fixtures, 'forest.jpg'), path.join(studio, 'looks.jpg'));
@@ -2741,9 +2741,8 @@ export const cases = [
       await section(app, 'light');
       await slider(app, 'adjust.exposure', 0.5);
       const plain = await signature(app);
-      // The toolbar's Presets button opens the looks.
-      await app.main.eval(`document.querySelector('#edit-looks').click(); 1`);
-      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=looks]')) && ${P}.dqa('.editor-panel .look-cat').length === 17 && document.querySelector('#edit-looks').classList.contains('on')`, { message: 'looks section with 17 categories' });
+      // Looks stay at the top of the left panel. There is no toolbar Presets button.
+      await app.main.waitFor(`${P}.dqa('.editor-panel .look-cat').length === 17 && !document.querySelector('#edit-looks')`, { message: 'looks pinned in the left panel' });
       await app.main.eval(`${P}.dq('.editor-panel [data-look-cat=catBW]').click(); 1`);
       await app.main.waitFor(`${P}.dqa('.editor-panel .look-grid [data-look]').length === 14`, { message: 'black & white looks' });
       await app.main.waitFor(`[...${P}.dqa('.editor-panel .look-thumb')].every((c) => c.width > 1)`, { timeout: 20000, message: 'every look has its preview' });
@@ -2770,17 +2769,17 @@ export const cases = [
       // Fine-tune one value of the look.
       await slider(app, 'adjust.contrast', 60);
       assert.equal((await ed()).adjust.contrast, 60, 'fine-tuned contrast');
-      // Remove the look: only its values go back.
-      await app.main.eval(`${P}.dq('#look-clear').click(); 1`);
-      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === 0 && !${P}.dq('.editor-panel .look-tune')`, { message: 'look removed' });
+      // Undo steps back past the look. The exposure correction stays. Ctrl+Z / Ctrl+Y do the same.
+      await app.main.eval(`${P}.editor.testing.goToHistory(1); 1`);
+      await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === 0 && !${P}.dq('.editor-panel .look-tune') && !${P}.dq('#look-clear')`, { message: 'look undone' });
       e = await ed();
       assert.equal(e.adjust.exposure, 0.5);
       assert.equal(e.fx.vignette, 0);
-      // Apply again; the Presets button goes back to the section that was open.
+      // Apply again. The light section stays available under the pinned looks.
       await app.main.eval(`${P}.dq('.editor-panel [data-look=noir]').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === -100`);
-      await app.main.eval(`document.querySelector('#edit-looks').click(); 1`);
-      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=light]')) && Boolean(${P}.dq('.editor-panel input.slider[data-key="adjust.exposure"]'))`, { message: 'back to the light section' });
+      await section(app, 'light');
+      await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=light]')) && Boolean(${P}.dq('.editor-panel input.slider[data-key="adjust.exposure"]')) && ${P}.dqa('.editor-panel .look-cat').length === 17`, { message: 'light section under the pinned looks' });
       // The look's values are in the ordinary sections too.
       await section(app, 'color');
       assert.equal(await app.main.eval(`Number(${P}.dq('.editor-panel input.slider[data-key="adjust.saturation"]').value)`), -100);
@@ -2976,7 +2975,7 @@ export const cases = [
       await pick(app, [tone]);
       await app.main.eval(`${P}.dq('#open-settings').click(); 1`);
       await app.main.waitFor(`${TOP}?.id === 'settings-dialog'`);
-      await app.main.eval(`${TOP}.querySelector('[data-tab=slideshow]').click(); 1`);
+      await app.main.eval(`${TOP}.querySelector('[data-tab=playback]').click(); 1`);
       await app.main.waitFor(`Boolean(${TOP}.querySelector('[data-key=music-choose]'))`);
       await app.main.eval(`${TOP}.querySelector('[data-key=music-choose]').click(); 1`);
       await app.main.waitFor(`${TOP}.querySelector('[data-key=music-name]').textContent === 'tone.wav'`, { message: 'music chosen' });

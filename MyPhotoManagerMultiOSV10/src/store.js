@@ -453,13 +453,13 @@ export function addToBasket(paths = targetPaths({ filesOnly: true })) {
 
 // ───────────────────────── file operations
 
-export async function newFolder() {
-  const { source } = app.state;
-  if (source.type !== 'folder' || !fs.caps.mkdir) return;
+export async function newFolder(dir) {
+  const parent = dir || (app.state.source.type === 'folder' ? app.state.source.path : '');
+  if (!parent || !fs.caps.mkdir || fs.isReadOnly?.(parent)) return;
   const name = await promptDialog(t('file.newFolderName'), t('file.newFolderDefault'), { title: t('file.newFolder') });
   if (!name) return;
   try {
-    const path = await fs.mkdir(source.path, name.trim());
+    const path = await fs.mkdir(parent, name.trim());
     history.push({
       label: t('file.newFolder'),
       undo: async () => {
@@ -470,9 +470,9 @@ export async function newFolder() {
       },
       redo: async () => { await fs.mkdir(parentOf(path), baseName(path)); await afterUndo(parentOf(path), [path]); },
     });
-    await reload();
-    setSelection([path], path);
-    app.emit('folders-changed', source.path);
+    const showing = app.state.source.type === 'folder' && app.state.source.path.replace(/[\\/]+$/, '').toLowerCase() === parent.replace(/[\\/]+$/, '').toLowerCase();
+    app.emit('folders-changed', parent);
+    if (showing) { await reload(); setSelection([path], path); }
   } catch (error) {
     toast(errorText(error), 'error', 5000);
   }
@@ -616,8 +616,7 @@ function copyStep(pairs, dir) {
   };
 }
 
-export function copyToClipboard(cut = false) {
-  const paths = targetPaths();
+export function copyToClipboard(cut = false, paths = targetPaths()) {
   if (!paths.length) return;
   app.state.clipboard = { paths, cut };
   toast(plural(cut ? 'file.cutToClipboard' : 'file.copiedToClipboard', paths.length), 'info', 1600);

@@ -38,7 +38,7 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + 
 }
 
 fn app_title(info: &tauri::PackageInfo) -> String {
-    format!("MyPhotoManager v{}", info.version)
+    format!("MyPhotoManager {}", info.version)
 }
 
 #[derive(Serialize)]
@@ -747,15 +747,157 @@ pub fn run() {
             catalog_db_info,
             mtp_devices,
             mtp_stage,
-            quit_app
+            quit_app,
+            start_file_drag
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyPhotoManager");
 }
 
+/// Drag selected files and folders out of the window into Explorer or another app.
+/// Runs on the UI thread: the OS drag loop has to start while the mouse button is down.
+#[tauri::command]
+fn start_file_drag(window: WebviewWindow, paths: Vec<String>) -> Result<(), String> {
+    let files: Vec<PathBuf> = paths
+        .into_iter()
+        .map(PathBuf::from)
+        .filter(|path| path.exists())
+        .collect();
+    if files.is_empty() {
+        return Err(tr!(
+            "끌어낼 파일이나 폴더가 없습니다.",
+            "There is nothing to drag out."
+        ));
+    }
+    let icon = drag_icon_path()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let host = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                drag_out(&host, files, icon)
+            }));
+            let outcome = match result {
+                Ok(value) => value,
+                Err(_) => Err(tr!(
+                    "파일을 바깥으로 끌어내지 못했습니다.",
+                    "Could not drag the files out."
+                )),
+            };
+            let _ = tx.send(outcome);
+        })
+        .map_err(|error| error.to_string())?;
+    rx.recv().map_err(|error| error.to_string())?
+}
+
+fn drag_icon_path() -> Result<PathBuf, String> {
+    let path = std::env::temp_dir().join("myphotomanager-drag.png");
+    if !path.is_file() {
+        std::fs::write(&path, drag_png()).map_err(|error| error.to_string())?;
+    }
+    Ok(path)
+}
+
+#[cfg(target_os = "linux")]
+fn drag_out(window: &WebviewWindow, files: Vec<PathBuf>, icon: PathBuf) -> Result<(), String> {
+    let gtk_window = window.gtk_window().map_err(|error| error.to_string())?;
+    drag::start_drag(
+        &gtk_window,
+        drag::DragItem::Files(files),
+        drag::Image::File(icon),
+        |_, _| {},
+        drag::Options { skip_animatation_on_cancel_or_failure: false, mode: drag::DragMode::Copy },
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn drag_out(window: &WebviewWindow, files: Vec<PathBuf>, icon: PathBuf) -> Result<(), String> {
+    drag::start_drag(
+        window,
+        drag::DragItem::Files(files),
+        drag::Image::File(icon),
+        |_, _| {},
+        drag::Options { skip_animatation_on_cancel_or_failure: false, mode: drag::DragMode::Copy },
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn drag_png() -> Vec<u8> {
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &byte in data {
+            crc ^= u32::from(byte);
+            for _ in 0..8 {
+                let mask = (crc & 1).wrapping_neg();
+                crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+            }
+        }
+        !crc
+    }
+    fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut out = (data.len() as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(kind);
+        out.extend_from_slice(data);
+        let mut hashed = kind.to_vec();
+        hashed.extend_from_slice(data);
+        out.extend_from_slice(&crc32(&hashed).to_be_bytes());
+        out
+    }
+    fn adler32(data: &[u8]) -> u32 {
+        let mut a = 1u32;
+        let mut b = 0u32;
+        for &byte in data {
+            a = (a + u32::from(byte)) % 65521;
+            b = (b + a) % 65521;
+        }
+        (b << 16) | a
+    }
+
+    let (width, height) = (32u32, 32u32);
+    let mut raw = Vec::with_capacity(((1 + width * 4) * height) as usize);
+    for y in 0..height {
+        raw.push(0);
+        for x in 0..width {
+            let edge = x < 2 || y < 2 || x + 2 >= width || y + 2 >= height;
+            let rgba: [u8; 4] = if edge { [30, 90, 180, 255] } else { [232, 242, 252, 255] };
+            raw.extend_from_slice(&rgba);
+        }
+    }
+    let mut zlib = vec![0x78, 0x01];
+    let mut offset = 0;
+    while offset < raw.len() {
+        let size = (raw.len() - offset).min(65535);
+        let last = offset + size == raw.len();
+        zlib.push(if last { 1 } else { 0 });
+        zlib.extend_from_slice(&(size as u16).to_le_bytes());
+        zlib.extend_from_slice(&(!(size as u16)).to_le_bytes());
+        zlib.extend_from_slice(&raw[offset..offset + size]);
+        offset += size;
+    }
+    zlib.extend_from_slice(&adler32(&raw).to_be_bytes());
+
+    let mut ihdr = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&width.to_be_bytes());
+    ihdr.extend_from_slice(&height.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    let mut png = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    png.extend(chunk(b"IHDR", &ihdr));
+    png.extend(chunk(b"IDAT", &zlib));
+    png.extend(chunk(b"IEND", &[]));
+    png
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drag_preview_is_a_png() {
+        let png = super::drag_png();
+        assert!(png.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]));
+        assert!(png.windows(4).any(|bytes| bytes == b"IEND"));
+    }
 
     #[test]
     fn decodes_percent_encoded_paths() {

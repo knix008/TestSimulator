@@ -19,16 +19,17 @@ export async function listen(event, handler) {
   return tauriListen(event, (message) => handler(message.payload));
 }
 
-/** OS files dropped on the window: handler(paths). */
-export async function onFileDrop(handler, onHover) {
+/** OS files dragged over or dropped on the window. The handler receives the Tauri payload (type, paths, position). */
+export async function onFileDrop(handler) {
   if (!isDesktop()) return () => {};
   const { getCurrentWebview } = await import('@tauri-apps/api/webview');
-  return getCurrentWebview().onDragDropEvent((event) => {
-    const { type, paths } = event.payload;
-    if (type === 'drop') { onHover?.(false); if (paths?.length) handler(paths); }
-    else if (type === 'enter' || type === 'over') onHover?.(true);
-    else onHover?.(false);
-  });
+  return getCurrentWebview().onDragDropEvent((event) => handler(event.payload));
+}
+
+/** Starts an OS file drag of real paths. Resolves when the user drops or cancels. Desktop only. */
+export function startFileDrag(paths) {
+  if (!isDesktop() || !paths?.length) return Promise.resolve(false);
+  return invoke('start_file_drag', { paths }).then(() => true);
 }
 
 // E2E tests answer the native pickers by pushing to window.__myphotoPicks
@@ -66,4 +67,7 @@ export const startWindowResize = () => (isDesktop() ? getCurrentWindow().startRe
 
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 export const showWindow = () => (isDesktop() ? getCurrentWindow().show().catch(() => {}) : Promise.resolve());
-export const setWindowTitle = (title) => (isDesktop() ? getCurrentWindow().setTitle(title).catch(() => {}) : Promise.resolve((document.title = title)));
+export const setWindowTitle = (title) => {
+  document.title = title;
+  return isDesktop() ? getCurrentWindow().setTitle(title).catch(() => {}) : Promise.resolve();
+};

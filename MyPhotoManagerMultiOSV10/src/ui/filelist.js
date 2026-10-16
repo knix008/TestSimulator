@@ -3,12 +3,13 @@
 // keyboard navigation, rubber-band selection and dragging items onto folders.
 import { LABEL_COLORS } from '../catalog/catalog.js';
 import { badgeOf, kindOf } from '../formats/types.js';
-import { plural, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { app, openFolder, selectItem, setSelection, viewItem } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDate, formatDateTime, formatDuration } from '../util/format.js';
 import { h, rafThrottle } from './dom.js';
 import { icon } from './icons.js';
+import { beginPointerDrag } from './itemdrag.js';
 
 const PAD = 10;
 const HEADER_H = 34;
@@ -408,7 +409,13 @@ export function createFileList({ onContextMenu, onDropItems }) {
     const move = (e) => {
       if (!dragging && Math.hypot(e.clientX - startX, e.clientY - startY) > 6 && !item.isDir || (!dragging && item.isDir && Math.hypot(e.clientX - startX, e.clientY - startY) > 10)) {
         if (!app.state.selection.has(item.path)) selectItem(item.path);
-        dragging = startDrag([...app.state.selection]);
+        dragging = beginPointerDrag([...app.state.selection], {
+          onDrop: onDropItems,
+          onExternal() {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+          },
+        });
       }
       dragging?.move(e);
     };
@@ -421,41 +428,6 @@ export function createFileList({ onContextMenu, onDropItems }) {
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-  }
-
-  function startDrag(paths) {
-    const ghost = h('div.drag-ghost', h('span', { html: icon('images') }), h('span', plural('drag.items', paths.length)));
-    document.body.append(ghost);
-    let target = null;
-    let auto = null;
-    const setTarget = (el) => {
-      if (target === el) return;
-      target?.classList.remove('drop-target');
-      target = el;
-      target?.classList.add('drop-target');
-    };
-    const autoscroll = (e) => {
-      cancelAnimationFrame(auto);
-      const rect = scroller.getBoundingClientRect();
-      const edge = e.clientY < rect.top + 30 ? -12 : e.clientY > rect.bottom - 30 && e.clientY < rect.bottom + 10 ? 12 : 0;
-      if (edge) { const step = () => { scroller.scrollTop += edge; auto = requestAnimationFrame(step); }; auto = requestAnimationFrame(step); }
-    };
-    return {
-      move(e) {
-        ghost.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 10}px)`;
-        ghost.classList.toggle('copy', e.ctrlKey || e.altKey);
-        const under = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-drop]');
-        setTarget(under && !paths.includes(under.dataset.drop) ? under : null);
-        autoscroll(e);
-      },
-      drop(e) {
-        cancelAnimationFrame(auto);
-        ghost.remove();
-        const el = target;
-        setTarget(null);
-        if (el) onDropItems?.(paths, el.dataset.drop, { copy: e.ctrlKey || e.altKey, x: e.clientX, y: e.clientY });
-      },
-    };
   }
 
   function startBand(event) {

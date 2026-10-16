@@ -9,7 +9,7 @@ import { joinPath, parentOf } from '../catalog/catalog.js';
 import { applyAdjustments, autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
-import { applyLook, clearLook, lookCategories, lookTouches } from '../edit/looks.js';
+import { applyLook, lookCategories, lookTouches } from '../edit/looks.js';
 import { BUILTIN_LUTS, getLut, importLut, prepareEdit } from '../edit/lut.js';
 import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
 import { context2d, scaledCanvas } from '../formats/canvas.js';
@@ -88,9 +88,9 @@ export function createEditor({ onDone }) {
   let viewOffset = { x: 0, y: 0 };
   let spaceDown = false;
   let section = 'light';
-  let sectionBeforeLooks = 'light'; // the toolbar's Presets button goes back to it
   let look = null; // { id, amount } — the effect preset applied last (its strength and fine-tuning show under the looks)
   let lookOpen = 'catBasic'; // the looks category shown
+  let lookFineOpen = false; // the look's fine-tuning stays folded until the user opens it
   let lookQuery = '';
   const lookThumbs = { source: null, done: new Map(), queue: [], timer: null }; // small previews of each look on this photo
   let busy = false;
@@ -104,8 +104,17 @@ export function createEditor({ onDone }) {
 
   // ───────── state
 
+  function lookSnap() {
+    return look ? { id: look.id, amount: look.amount } : null;
+  }
+
+  function applySnap(entry) {
+    edit = normalizeEdit(entry.edit);
+    look = entry.look ? { id: entry.look.id, amount: entry.look.amount } : null;
+  }
+
   function commit(label = t(`edit.${section ?? 'light'}`)) {
-    undo.push({ edit: clone(edit), label });
+    undo.push({ edit: clone(edit), label, look: lookSnap() });
     if (undo.length > 150) undo.shift();
     redo = [];
     updateBar();
@@ -123,8 +132,8 @@ export function createEditor({ onDone }) {
   function doUndo() {
     if (!undo.length) return;
     const entry = undo.pop();
-    redo.push({ edit: clone(edit), label: entry.label });
-    edit = normalizeEdit(entry.edit);
+    redo.push({ edit: clone(edit), label: entry.label, look: lookSnap() });
+    applySnap(entry);
     buildPanel();
     draw();
     updateBar();
@@ -133,8 +142,8 @@ export function createEditor({ onDone }) {
   function doRedo() {
     if (!redo.length) return;
     const entry = redo.pop();
-    undo.push({ edit: clone(edit), label: entry.label });
-    edit = normalizeEdit(entry.edit);
+    undo.push({ edit: clone(edit), label: entry.label, look: lookSnap() });
+    applySnap(entry);
     buildPanel();
     draw();
     updateBar();
@@ -699,7 +708,6 @@ export function createEditor({ onDone }) {
     geometry: (e) => { e.geometry = { ...defaultEdit().geometry }; e.canvas = { ...DEFAULT_CANVAS }; },
     local: (e) => { e.local = []; },
     repair: (e) => { e.spots = []; e.tone.skin = 0; },
-    looks: (e) => { Object.assign(e, clearLook(e, look?.id)); },
     effects: (e) => { e.adjust.effect = 'none'; e.adjust.effectAmount = 100; e.fx = { ...DEFAULT_FX }; e.effects = []; e.tilt = null; },
     draw: (e) => { e.drawings = []; },
     add: (e) => { e.overlay = { ...DEFAULT_OVERLAY, texts: [] }; },
@@ -735,12 +743,17 @@ export function createEditor({ onDone }) {
   function sectionHead(id, title, iconName) {
     const reset = RESETS[id] && sectionChanged(id) ? resetMark(id, title) : null;
     const head = h(`button.edit-section-head${section === id ? '.open' : ''}`, { type: 'button', dataset: { section: id } }, h('span', { html: icon(iconName) }), h('span', title), reset, h('span.arrow', { html: icon(section === id ? 'chevronDown' : 'chevronRight') }));
-    head.addEventListener('click', () => { section = section === id ? null : id; if (tool) cancelTool(); else buildPanel(); });
+    head.addEventListener('click', () => {
+      const open = section !== id;
+      section = open ? id : null;
+      panelReveal = open ? id : null;
+      if (tool) cancelTool(); else buildPanel();
+    });
     return head;
   }
 
   const SECTIONS = [
-    ['looks', 'star'], ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
+    ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
     ['curves', 'contrast'], ['lut', 'cube'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['local', 'sliders'], ['repair', 'bandage'],
     ['effects', 'wand'], ['draw', 'pencil'], ['add', 'text'], ['layers', 'layers'], ['presets', 'bookmark'], ['history', 'clock'],
   ];
@@ -799,7 +812,26 @@ export function createEditor({ onDone }) {
     }
   }
 
+  let panelReveal = null;
+
+  /** Keeps the opened section on screen. Rebuilding the panel would otherwise jump back to the top. */
+  function showOpened(id) {
+    const head = panel.querySelector(`.edit-section-head[data-section="${id}"]`);
+    if (!head) return;
+    const body = head.nextElementSibling?.classList?.contains('edit-section') ? head.nextElementSibling : null;
+    const panelTop = panel.getBoundingClientRect().top;
+    const headTop = head.getBoundingClientRect().top - panelTop + panel.scrollTop;
+    const bottom = (body ?? head).getBoundingClientRect().bottom - panelTop + panel.scrollTop;
+    const view = panel.clientHeight;
+    if (bottom - headTop > view - 8) panel.scrollTop = Math.max(0, headTop - 4);
+    else if (headTop < panel.scrollTop) panel.scrollTop = Math.max(0, headTop - 4);
+    else if (bottom > panel.scrollTop + view) panel.scrollTop = bottom - view + 4;
+  }
+
   function buildPanel() {
+    const reveal = panelReveal;
+    panelReveal = null;
+    const kept = panel.scrollTop;
     drawWheels();
     clear(panel);
     const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, looks: looksPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
@@ -807,6 +839,11 @@ export function createEditor({ onDone }) {
       panel.append(sectionHead(id, t(`edit.${id}`), iconName));
       if (section === id) panel.append(h('div.edit-section', bodies[id]()));
     }
+    panel.append(h('div.edit-looks-pin',
+      h('div.edit-section-head.pin', { dataset: { section: 'looks' } }, h('span', { html: icon('star') }), h('span', t('edit.looks'))),
+      h('div.edit-section', looksPanel())));
+    if (reveal) showOpened(reveal);
+    else panel.scrollTop = kept;
   }
 
   // ───────── panels
@@ -964,8 +1001,36 @@ export function createEditor({ onDone }) {
     const resizeW = h('input.input', { type: 'number', min: 1, max: 30000, value: g.resize?.width ?? out.width, dataset: { key: 'resize.width' } });
     const resizeH = h('input.input', { type: 'number', min: 1, max: 30000, value: g.resize?.height ?? out.height, dataset: { key: 'resize.height' } });
     const lock = h('input', { type: 'checkbox', checked: true });
-    resizeW.addEventListener('input', () => { if (lock.checked) resizeH.value = Math.max(1, Math.round((Number(resizeW.value) * out.height) / out.width)); });
-    resizeH.addEventListener('input', () => { if (lock.checked) resizeW.value = Math.max(1, Math.round((Number(resizeH.value) * out.width) / out.height)); });
+    resizeW.addEventListener('input', () => { if (lock.checked && !resizeW.disabled) resizeH.value = Math.max(1, Math.round((Number(resizeW.value) * out.height) / out.width)); });
+    resizeH.addEventListener('input', () => { if (lock.checked && !resizeH.disabled) resizeW.value = Math.max(1, Math.round((Number(resizeH.value) * out.width) / out.height)); });
+    const RATIOS = [25, 50, 75, 100, 150, 200];
+    const resizeMode = selectEl([['px', t('resize.pixels')], ['percent', t('resize.percent')]], 'px');
+    resizeMode.dataset.key = 'resize.mode';
+    const percent = h('input.input', { type: 'number', min: 1, max: 1000, step: 1, value: 100, dataset: { key: 'resize.percent' } });
+    const ratioRow = h('div.chip-row.resize-ratios');
+    const percentBox = h('div', { hidden: true }, ratioRow, field(t('resize.percentValue'), percent));
+    const markRatios = () => { for (const chip of ratioRow.children) chip.classList.toggle('on', Number(chip.dataset.ratio) === Number(percent.value)); };
+    const fromPercent = () => {
+      const n = Math.min(1000, Math.max(1, Math.round(Number(percent.value) || 100)));
+      percent.value = String(n);
+      resizeW.value = Math.max(1, Math.round((out.width * n) / 100));
+      resizeH.value = Math.max(1, Math.round((out.height * n) / 100));
+      markRatios();
+    };
+    for (const n of RATIOS) ratioRow.append(h('button.chip', { type: 'button', dataset: { ratio: String(n) }, onclick: () => { percent.value = String(n); fromPercent(); } }, `${n}%`));
+    percent.addEventListener('input', fromPercent);
+    const syncResizeMode = () => {
+      const byRatio = resizeMode.value === 'percent';
+      percentBox.hidden = !byRatio;
+      resizeW.disabled = byRatio;
+      resizeH.disabled = byRatio;
+      lock.disabled = byRatio;
+      if (byRatio) {
+        percent.value = String(out.width ? Math.max(1, Math.round((Number(resizeW.value) / out.width) * 100)) : 100);
+        fromPercent();
+      }
+    };
+    resizeMode.addEventListener('change', syncResizeMode);
     const final = layout(full.width, full.height, g);
     const canvasW = h('input.input', { type: 'number', min: 0, max: 40000, value: edit.canvas.width || final.width, dataset: { key: 'canvas.width' } });
     const canvasH = h('input.input', { type: 'number', min: 0, max: 40000, value: edit.canvas.height || final.height, dataset: { key: 'canvas.height' } });
@@ -989,6 +1054,8 @@ export function createEditor({ onDone }) {
       tool === 'line' ? h('div.hint', t('edit.straightenLineHint')) : '',
       cropUi,
       h('div.field-label', t('edit.resize')),
+      field(t('resize.how'), resizeMode),
+      percentBox,
       h('div.field-row', field(t('edit.width'), resizeW), field(t('edit.height'), resizeH)),
       h('label.check', lock, t('edit.keepRatio')),
       h('div.row-buttons',
@@ -1243,17 +1310,6 @@ export function createEditor({ onDone }) {
 
   // ───────── effect presets (looks): one click for a whole style, then fine-tune
 
-  /** The toolbar's Presets button: opens the looks section (again: back to the section before). */
-  function toggleLooks() {
-    if (section === 'looks') section = sectionBeforeLooks || 'light';
-    else { sectionBeforeLooks = section ?? 'light'; section = 'looks'; }
-    if (tool) cancelTool();
-    if (!editorPane().panel || editorPane().panelCollapsed) showEditorPane();
-    buildPanel();
-    updateBar();
-    if (section === 'looks') requestAnimationFrame(() => panel.querySelector('.edit-section-head[data-section=looks]')?.scrollIntoView({ block: 'start' }));
-  }
-
   function chooseLook(id) {
     const previous = look?.id ?? null;
     change((e) => Object.assign(e, applyLook(e, id, 100, previous)), t(`look.${id}`));
@@ -1330,12 +1386,16 @@ export function createEditor({ onDone }) {
       }
     }
     if (edit.tilt) rows.push(sliderRow(t('edit.tiltShift'), 0, 100, 1, () => edit.tilt.blur, (v) => { edit.tilt.blur = v; }, undefined, 'look.tilt'));
-    return h('div.look-tune', { dataset: { lookActive: id } },
-      h('div.look-tune-head', h('span.look-current', t('edit.lookCurrent', { name: t(`look.${id}`) })),
-        h('button.btn.small', { type: 'button', id: 'look-clear', onclick: () => { change((e) => Object.assign(e, clearLook(e, id)), t('edit.lookClear')); look = null; buildPanel(); } }, t('edit.lookClear'))),
-      amount,
-      h('div.field-label', t('edit.lookFineTune')),
-      ...rows);
+    const fine = h('div.look-fine', { hidden: !lookFineOpen }, amount, ...rows);
+    const toggle = h('button.look-fine-toggle', {
+      type: 'button', id: 'look-fine-toggle', title: t(lookFineOpen ? 'catalog.collapse' : 'catalog.expand'),
+      'aria-expanded': lookFineOpen ? 'true' : 'false',
+      onclick: () => { lookFineOpen = !lookFineOpen; buildPanel(); },
+    }, h('span.arrow', { html: icon(lookFineOpen ? 'chevronDown' : 'chevronRight') }), t('edit.lookFineTune'));
+    return h(`div.look-tune${lookFineOpen ? '.open' : ''}`, { dataset: { lookActive: id } },
+      h('div.look-tune-head', h('span.look-current', t('edit.lookCurrent', { name: t(`look.${id}`) }))),
+      toggle,
+      fine);
   }
 
   /** A small copy of the photo with look `id`, drawn into `canvas` (rendered in the background, a few at a time). */
@@ -1705,8 +1765,6 @@ export function createEditor({ onDone }) {
           h('button.btn', { type: 'button', id: 'edit-save-as', disabled: busy, onclick: () => save(true) }, t('edit.saveAs')),
           h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
         h('div.tool-group',
-          button('star', t('edit.looksButton'), toggleLooks, { title: t('edit.looks'), showLabel: true, className: section === 'looks' ? 'with-label on' : 'with-label', id: 'edit-looks' })),
-        h('div.tool-group',
           button('undo', t('edit.undo'), doUndo, { title: `${t('edit.undo')} (Ctrl+Z)`, disabled: !undo.length }),
           button('redo', t('edit.redo'), doRedo, { title: `${t('edit.redo')} (Ctrl+Y)`, disabled: !redo.length })),
         h('div.tool-group',
@@ -1867,6 +1925,7 @@ export function createEditor({ onDone }) {
     item = target;
     edit = defaultEdit();
     look = null;
+    lookFineOpen = false;
     undo = [];
     redo = [];
     tool = null;

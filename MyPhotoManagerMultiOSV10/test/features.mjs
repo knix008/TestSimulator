@@ -131,7 +131,7 @@ export const FEATURES = [
   ['EDIT-LAYERMASK', '레이어 마스크(그러데이션·타원·브러시·반전)'],
   ['EDIT-HISTORY', '기록 창·실행 취소/다시 실행'],
   ['EDIT-PRESETS', '프리셋 저장·적용'],
-  ['EDIT-LOOKS', '효과 프리셋(룩) 189종: 프리셋 버튼, 미리 보기, 강도·세밀 조정'],
+  ['EDIT-LOOKS', '효과 프리셋(룩) 189종: 왼쪽 패널에 항상 표시, 미리 보기, 강도·세밀 조정'],
   ['EDIT-COPYPASTE', '편집 설정 복사·붙여넣기'],
   ['EDIT-NONDESTRUCTIVE', '비파괴 재편집(원본+설정)'],
   ['EDIT-RESTORE', '원본으로 복원'],
