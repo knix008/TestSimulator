@@ -673,6 +673,19 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     }
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
+  { group: '보기', name: '간트 차트 줄: 작업 표와 같은 교차 색·선택 표시, 같은 높이에 정렬', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.selectTask(api.project().tasks[4].id), 1)`);
+    await sleep(200);
+    const rows = await app.main.eval(`JSON.stringify((() => {
+      const look = (e) => [e.classList.contains('odd'), e.classList.contains('selected'), Math.round(e.getBoundingClientRect().top), getComputedStyle(e).backgroundColor];
+      return { grid: [...document.querySelectorAll('.grid-row[data-id]')].slice(0, 8).map(look), chart: [...document.querySelectorAll('.chart-row')].slice(0, 8).map(look) };
+    })())`).then(JSON.parse);
+    assert.equal(rows.chart.length, 8, 'a band per row behind the bars');
+    assert.deepEqual(rows.chart, rows.grid, 'same stripes, selection, colour and position as the table rows');
+    assert.ok(rows.chart.some((r) => r[0]) && rows.chart.some((r) => !r[0]), 'rows alternate');
+    assert.ok(rows.chart.some((r) => r[1]), 'the selected row is highlighted in the chart too');
+  } },
   { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: true })`);

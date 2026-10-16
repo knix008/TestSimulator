@@ -278,12 +278,12 @@ input.invalid { border-color: var(--danger) !important; }
 .grid-spacer { position: relative; }
 .grid-rows { position: absolute; left: 0; top: 0; }
 .grid-row { position: absolute; left: 0; display: flex; align-items: stretch; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
-.grid-row.odd { background: color-mix(in srgb, var(--grid-alt) 45%, transparent); }
-.grid-row.selected { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
-.grid-row.match { background: color-mix(in srgb, var(--warning) 28%, var(--surface)); }
+.grid-row.odd, .chart-row.odd { background: color-mix(in srgb, var(--grid-alt) 45%, transparent); }
+.grid-row.selected, .chart-row.selected { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.grid-row.match, .chart-row.match { background: color-mix(in srgb, var(--warning) 28%, var(--surface)); }
 .grid-row.summary-row { font-weight: 700; }
 .grid-row.inactive-row { color: var(--muted); text-decoration: line-through; }
-.grid-row.group-row { background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); font-weight: 600; }
+.grid-row.group-row, .chart-row.group-row { background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); font-weight: 600; }
 .grid-row.new-row { color: var(--muted); }
 .grid-row.overallocated-row .over-name, .over-name { color: var(--danger); font-weight: 600; }
 .grid-cell {
@@ -322,7 +322,8 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .gantt-table .grid, .usage-table .grid, .sheet-table .grid { flex: 1; }
 .splitter.vertical { width: 5px; flex: none; border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--panel); }
 .gantt-chart, .usage-time { flex: 1; min-width: 160px; display: flex; flex-direction: column; position: relative; background: color-mix(in srgb, var(--chart) 88%, transparent); }
-.chart-head { position: relative; height: calc(var(--row-height) * 2); flex: none; overflow: hidden; background: var(--toolbar); border-bottom: 1px solid var(--border); font-size: calc(0.86em * var(--zoom, 1)); }
+/* Two rows plus the border, like the table header beside it, so chart rows line up with table rows. */
+.chart-head { position: relative; height: calc(var(--row-height) * 2 + 1px); flex: none; overflow: hidden; background: var(--toolbar); border-bottom: 1px solid var(--border); font-size: calc(0.86em * var(--zoom, 1)); }
 .tier { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; }
 .tier.top { top: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-weight: 600; }
 .tier.bottom { bottom: 0; color: var(--muted); }
@@ -331,7 +332,9 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .chart-body { position: relative; flex: 1; overflow: auto; outline: none; cursor: default; }
 .chart-body.panning { cursor: grabbing; }
 .chart-canvas { position: relative; }
-.chart-bg, .chart-bars, .chart-lines { position: absolute; inset: 0; }
+.chart-rows, .chart-bg, .chart-bars, .chart-lines { position: absolute; inset: 0; }
+/* One band per visible row behind the bars: the same stripes and highlights as the task table rows. */
+.chart-row { position: absolute; left: 0; right: 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .chart-lines { pointer-events: none; }
 .chart-links { position: absolute; left: 0; top: 0; overflow: visible; }
 .nonworking { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--muted) 12%, transparent); }
@@ -956,9 +959,10 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--a
 
 /* Grid: hairline rows, quiet header, selection with an accent edge. */
 .grid-hcell { color: var(--muted); font-weight: 600; font-size: 0.92em; border-color: var(--hairline); }
-.grid-row { border-bottom-color: color-mix(in srgb, var(--border) 34%, transparent); }
-.grid-row.odd { background: color-mix(in srgb, var(--grid-alt) 32%, transparent); }
+.grid-row, .chart-row { border-bottom-color: color-mix(in srgb, var(--border) 34%, transparent); }
+.grid-row.odd, .chart-row.odd { background: color-mix(in srgb, var(--grid-alt) 32%, transparent); }
 .grid-row.selected { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: inset 3px 0 0 var(--accent); }
+.chart-row.selected { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
 .grid-cell { border-color: color-mix(in srgb, var(--border) 34%, transparent); }
 
 /* Gantt: rounded bars, progress fills the bar from the left, light non-working shading. */
@@ -1053,6 +1057,7 @@ html.is-web body { overflow-x: auto; }
 #app.critical-focus .chart-links .link:not(.critical) { opacity: 0.15; }
 #app.critical-focus .chart-links .link.critical { stroke-width: 2.4px; }
 #app.critical-focus .bar.task.critical { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bar-critical) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--bar-critical) 40%, transparent); }
+#app.critical-focus .chart-row.critical-row { background: color-mix(in srgb, var(--bar-critical) 11%, var(--surface)); }
 #app.critical-focus .grid-row.critical-row { background: color-mix(in srgb, var(--bar-critical) 11%, var(--surface)); box-shadow: inset 3px 0 0 var(--bar-critical); }
 #app.critical-focus .net-box:not(.critical), #app.critical-focus .tl-item:not(.critical), #app.critical-focus .cal-bar-item:not(.critical), #app.critical-focus .team-block:not(.critical) { opacity: 0.3; }
 .status-item.critical-status { color: color-mix(in srgb, var(--bar-critical) 70%, var(--text)); font-weight: 600; cursor: pointer; }

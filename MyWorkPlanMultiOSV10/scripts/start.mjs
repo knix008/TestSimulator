@@ -1,9 +1,13 @@
 // npm start — `tauri dev`, after making sure the dev server port is free.
 //
-// Tauri starts Vite on the fixed port 1430 (tauri.conf.json → devUrl). A Vite
+// Tauri starts Vite on the fixed port 1450 (tauri.conf.json → devUrl). A Vite
 // left over from an earlier run of this project (a crashed `tauri dev`, a test
-// run) keeps that port and the start fails with "Port 1430 is already in use".
+// run) keeps that port and the start fails with "Port 1450 is already in use".
 // Such a leftover is stopped here; anything else on the port is reported.
+//
+// The app allows one copy at a time; the development build runs next to an
+// installed MyWorkPlan that is open (MYWORKPLAN_MULTI=1, as the tests do) instead
+// of saying "already running" and ending.
 import { execFileSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,5 +53,5 @@ for (const holder of holders) {
   try { process.kill(holder.pid); } catch { /* already gone */ }
 }
 
-const child = spawn(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'dev', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit' });
+const child = spawn(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'dev', ...process.argv.slice(2)], { cwd: root, stdio: 'inherit', env: { ...process.env, MYWORKPLAN_MULTI: '1' } });
 child.on('exit', (code) => process.exit(code ?? 0));
