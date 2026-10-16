@@ -61,6 +61,13 @@ export function startRates(screen = {}) {
   return out;
 }
 
+/** How see-through the background is, 0 (fully shown) through 100 (only the theme colour). */
+export function startTransparency(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
 /** True when nothing in the scene would move: no need to keep drawing frames. */
 export function startIsStill(rates) {
   return START_SPEED_CHANNELS.every((channel) => !(rates[channel.id] > 0));

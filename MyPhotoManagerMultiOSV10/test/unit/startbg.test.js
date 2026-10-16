@@ -6,7 +6,7 @@ import { normalize } from '../../src/settings.js';
 import { gridArrays, MeshBuilder, pine, rand, seeds, solid, SOLID_KINDS, STRIDE, stripArrays } from '../../src/ui/start3d/meshes.js';
 import { SCENE_IDS, sceneOf } from '../../src/ui/start3d/scenes.js';
 import { groundUnder, hash12, TERRAIN, terrainHeight } from '../../src/ui/start3d/terrain.js';
-import { CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startIsStill, startRates, startSpeedPercent } from '../../src/ui/startscenes.js';
+import { CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startIsStill, startRates, startSpeedPercent, startTransparency } from '../../src/ui/startscenes.js';
 
 const finite = (value, where) => {
   const list = typeof value === 'number' ? [value] : Array.from(value ?? []);
@@ -101,9 +101,12 @@ test('APP-STARTBG: overall and per-clock speeds', () => {
 
 test('APP-STARTBG: settings keep every speed in range', () => {
   const fresh = normalize(null).startScreen;
-  assert.deepEqual(fresh, { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 });
+  assert.deepEqual(fresh, { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 });
   const old = normalize({ startScreen: { scene: 'ocean', motion: 'medium' } }).startScreen;
-  assert.deepEqual(old, { scene: 'ocean', motion: 55, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 }, 'settings from before the clocks');
+  assert.deepEqual(old, { scene: 'ocean', motion: 55, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 }, 'settings from before the clocks');
+  assert.equal(normalize({ startScreen: { transparency: 140 } }).startScreen.transparency, 100);
+  assert.equal(normalize({ startScreen: { transparency: -1 } }).startScreen.transparency, 0);
+  assert.equal(startTransparency('35.4'), 35);
   const wild = normalize({ startScreen: { motion: 400, cameraSpeed: 1000, objectSpeed: -3, skySpeed: 42.4 } }).startScreen;
   assert.deepEqual([wild.motion, wild.cameraSpeed, wild.objectSpeed, wild.skySpeed], [100, CHANNEL_MAX, 0, 42]);
 });

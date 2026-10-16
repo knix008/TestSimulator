@@ -5,7 +5,7 @@ import { app } from '../store.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
-import { CHANNEL_DEFAULT, CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startSceneId, startSpeedPercent } from './startscenes.js';
+import { CHANNEL_DEFAULT, CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startSceneId, startSpeedPercent, startTransparency } from './startscenes.js';
 
 const TIP_COUNT = 6;
 
@@ -121,9 +121,9 @@ function speedRow({ key, label, value, max, step, onPick }) {
   return el;
 }
 
-/** The speeds of a `startScreen` setting, each in range. */
+/** The transparency and speeds of a `startScreen` setting, each in range. */
 export function startSpeedValues(screen = {}) {
-  const out = { motion: startSpeedPercent(screen.motion) };
+  const out = { transparency: startTransparency(screen.transparency), motion: startSpeedPercent(screen.motion) };
   for (const channel of START_SPEED_CHANNELS) out[channel.key] = channelPercent(screen[channel.key]);
   return out;
 }
@@ -136,12 +136,13 @@ export function defaultStartSpeeds() {
 }
 
 /**
- * The overall speed, then one row per clock (camera, objects, sky), and a reset button.
- * `onPick(values)` receives every speed after any change. `el.sync(screen)` repaints from settings.
+ * The background transparency, the overall speed, one row per clock (camera, objects, sky), and a
+ * button that resets the speeds. `onPick(values)` receives every value after any change. `el.sync(screen)` repaints from settings.
  */
 export function createStartSpeed(screen, onPick) {
   let values = startSpeedValues(screen);
   const rows = [
+    speedRow({ key: 'transparency', label: t('start.transparency'), value: values.transparency, max: 100, step: 5, onPick: (n) => { values = { ...values, transparency: n }; onPick(values); } }),
     speedRow({ key: 'motion', label: t('settings.startMotion'), value: values.motion, max: 100, step: 5, onPick: (n) => { values = { ...values, motion: n }; onPick(values); } }),
     ...START_SPEED_CHANNELS.map((channel) => speedRow({
       key: channel.key, label: t(channel.label), value: values[channel.key], max: CHANNEL_MAX, step: 10,
@@ -155,7 +156,7 @@ export function createStartSpeed(screen, onPick) {
   const reset = h('button.start-speed-reset', {
     type: 'button',
     onclick: () => {
-      sync(defaultStartSpeeds());
+      sync({ ...values, ...defaultStartSpeeds() });
       onPick(values);
     },
   }, t('start.speedReset'));

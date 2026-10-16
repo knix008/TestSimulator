@@ -419,7 +419,7 @@ select.input { padding-right: 4px; }
 .start-speed-track { position: relative; height: 24px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent); background: color-mix(in srgb, var(--bg-2) 62%, transparent); cursor: pointer; touch-action: none; }
 .start-speed-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: color-mix(in srgb, var(--accent) 45%, transparent); pointer-events: none; }
 .start-speed-thumb { position: absolute; top: 50%; left: 0; width: 8px; height: 18px; transform: translate(-50%, -50%); border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); pointer-events: none; z-index: 1; }
-.start-speed-value { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 600; pointer-events: none; }
+.start-speed-value { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; font-size: 11px; font-weight: 600; pointer-events: none; text-shadow: 0 0 3px var(--bg), 0 0 2px var(--bg), 0 0 1px var(--bg); }
 @media (max-width: 860px) { .start { padding: 16px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .task-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .welcome { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: auto; }

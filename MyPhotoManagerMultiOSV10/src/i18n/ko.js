@@ -168,7 +168,7 @@ export default {
   'settings.language': '언어', 'settings.theme': '테마', 'settings.system': '시스템 설정 따름', 'settings.dark': '어둡게', 'settings.light': '밝게', 'settings.startup': '시작할 때 열 폴더',
   'settings.startLast': '마지막 폴더', 'settings.startPictures': '사진 폴더', 'settings.startHome': '홈 폴더',
   'settings.startScreen': '시작 화면', 'settings.startScene': '배경', 'settings.startMotion': '전체 속도 (%)',
-  'start.speedDown': '느리게', 'start.speedUp': '빠르게', 'start.speedReset': '속도 초기화',
+  'start.speedDown': '느리게', 'start.speedUp': '빠르게', 'start.speedReset': '속도 초기화', 'start.transparency': '배경 투명도 (%)',
   'start.speed.camera': '카메라 이동 (%)', 'start.speed.objects': '물체 움직임 (%)', 'start.speed.sky': '하늘·빛 (%)',
   'start.scene.valley': '계곡', 'start.scene.ocean': '바다', 'start.scene.aurora': '오로라', 'start.scene.stars': '별',
   'start.scene.rain': '비', 'start.scene.snow': '눈', 'start.scene.dusk': '노을', 'start.scene.forest': '숲',

@@ -168,7 +168,7 @@ export default {
   'settings.language': 'Language', 'settings.theme': 'Theme', 'settings.system': 'Follow the system', 'settings.dark': 'Dark', 'settings.light': 'Light', 'settings.startup': 'At start-up open',
   'settings.startLast': 'The last folder', 'settings.startPictures': 'Pictures', 'settings.startHome': 'Home folder',
   'settings.startScreen': 'Start screen', 'settings.startScene': 'Background', 'settings.startMotion': 'Overall speed (%)',
-  'start.speedDown': 'Slower', 'start.speedUp': 'Faster', 'start.speedReset': 'Reset speeds',
+  'start.speedDown': 'Slower', 'start.speedUp': 'Faster', 'start.speedReset': 'Reset speeds', 'start.transparency': 'Background transparency (%)',
   'start.speed.camera': 'Camera (%)', 'start.speed.objects': 'Objects (%)', 'start.speed.sky': 'Sky & light (%)',
   'start.scene.valley': 'Valley', 'start.scene.ocean': 'Ocean', 'start.scene.aurora': 'Aurora', 'start.scene.stars': 'Stars',
   'start.scene.rain': 'Rain', 'start.scene.snow': 'Snow', 'start.scene.dusk': 'Dusk', 'start.scene.forest': 'Forest',

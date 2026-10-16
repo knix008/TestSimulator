@@ -6,7 +6,7 @@ import { app } from '../store.js';
 import { Kit } from './start3d/gl.js';
 import { rand } from './start3d/meshes.js';
 import { releaseScene, sceneOf } from './start3d/scenes.js';
-import { START_SPEED_CHANNELS, startIsStill, startRates, startSceneId } from './startscenes.js';
+import { START_SPEED_CHANNELS, startIsStill, startRates, startSceneId, startTransparency } from './startscenes.js';
 
 function cssChannels(value) {
   const text = String(value ?? '').trim();
@@ -71,7 +71,9 @@ export class StartBackground {
   choice() {
     const saved = app.settings.startScreen ?? {};
     const rates = startRates(saved);
-    return { scene: startSceneId(saved.scene), rates, still: startIsStill(rates) };
+    const transparency = startTransparency(saved.transparency);
+    // A fully transparent picture is not drawn at all.
+    return { scene: startSceneId(saved.scene), rates, transparency, still: startIsStill(rates) || transparency >= 100 };
   }
 
   /** Compile the shaders once, off the click that opens the page. */
@@ -157,6 +159,7 @@ export class StartBackground {
       app.on('settings', () => {
         if (!this.wanted) return;
         const { scene, still } = this.choice();
+        this.fade();
         if (scene !== this.kind) {
           this.kind = scene;
           this.snap?.remove();
@@ -171,12 +174,19 @@ export class StartBackground {
       });
     }
     this.wanted = true;
+    this.fade();
     this.ensureGl();
     this.kind = this.choice().scene;
     // Draw one frame now, then keep moving. A hidden window may not run animation frames.
     this.resize();
     this.applySize();
     this.start();
+  }
+
+  /** See-through picture: the start page's theme background shows behind it. */
+  fade() {
+    const { transparency } = this.choice();
+    this.host.style.opacity = transparency ? String(1 - transparency / 100) : '';
   }
 
   syncTheme(redraw = true) {
