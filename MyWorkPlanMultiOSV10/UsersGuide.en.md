@@ -22,7 +22,7 @@ Only one MyWorkPlan runs at a time. Starting it again while it is running shows 
 
 ### Start page
 
-The start page shows when no project is open (and from the house-shaped **Start page** toolbar button, `Ctrl+Shift+H`). Its background keeps moving.
+The start page shows when no project is open (and from the **Home** button at the start of the menu bar, `Ctrl+Shift+H`). Its background keeps moving.
 
 ![Start page](docs/tutorial/images/01-welcome.jpg)
 
@@ -48,12 +48,14 @@ Open "Website Redesign" under **Sample projects**: the task table is on the left
 
 ### Tutorial
 
-Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or **Start the tutorial** on the start page. It opens a sample project and shows the features one by one in 58 steps.
+Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or **Start the tutorial** on the start page. It opens a sample project and shows the features one by one in 64 steps.
 
 - Move with **Next** · **Previous step**, or press **Auto play** (▶).
 - **Choose a chapter** jumps to Start page · Building a plan · Scheduling · Resources and costs · Tracking · Views · Reports · Files and printing · Customizing · Help.
 - The tour box can be dragged. **Esc** or ✕ ends the tutorial.
 - Your files are not changed, and the settings the tutorial changes (theme, language, background…) are put back at the end.
+
+**Tutorial document** — a document with every tutorial step and its screen can be read inside the program. Open it from **Help › Tutorial document** on the home screen or in the **Help** menu: it fills the middle of the window, and the bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. **Home** takes you back.
 
 ## The window
 
@@ -83,7 +85,7 @@ Every menu item shows an icon and its shortcut, and menus may extend outside the
 | Where | Buttons |
 |---|---|
 | Left | New project · Open · Save · Print │ Undo · Redo │ Copy · Paste │ Insert task · Insert milestone · Indent · Outdent · Link tasks · Information │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` │ Zoom out / in timescale │ Tool panel · Properties panel |
-| Right | Start page · Tutorial (graduation cap) · Theme (random) + ▾ · Language (flag) · Settings · About (ⓘ) |
+| Right | Tutorial (graduation cap) · Theme (random) + ▾ · Language (flag) · Settings · About (ⓘ) |
 
 Every button has a tooltip. The Undo and Redo tooltips say what will be undone (for example "Undo: Change duration").
 
@@ -116,13 +118,13 @@ Shows the properties of the selection and lets you change them in place. Change 
 
 ### Status bar
 
-![Status bar](docs/tutorial/images/59-statusBar.jpg)
+![Status bar](docs/tutorial/images/60-statusBar.jpg)
 
 From the left: the result of the last command (e.g. "Marked 3 tasks 50% complete."), **New tasks: auto scheduled / manually scheduled** (click to change), Saved / Modified, task count, selection count, project finish date, % complete, conflicts, Filter on, theme name, language, timescale slider, zoom and a clock. **View › Status bar** hides or shows it.
 
 ### Right-click menus
 
-![Right-click menus](docs/tutorial/images/44-contextMenu.jpg)
+![Right-click menus](docs/tutorial/images/45-contextMenu.jpg)
 
 Each place has its own menu.
 
@@ -202,7 +204,7 @@ A task with a duration of 0 is a milestone (a diamond). Use **Task › Insert mi
 - The **Predecessors** column can be typed: task IDs with an optional link type and lag, separated by commas — `3`, `5SS+2d`, `7FF-1d`, `4FS+50%`.
 - Double-click a link line for the **Task dependency** window; right-click it for a menu that changes the type at once.
 
-![Link types and lag](docs/tutorial/images/20-linkInfo.jpg)
+![Link types and lag](docs/tutorial/images/21-linkInfo.jpg)
 
 | Link type | Meaning |
 |---|---|
@@ -257,7 +259,7 @@ Double-click a task or use **Task › Information…** (`Shift+F2`). With severa
 
 ### Recurring tasks
 
-![Recurring tasks](docs/tutorial/images/22-recurring.jpg)
+![Recurring tasks](docs/tutorial/images/23-recurring.jpg)
 
 **Task › Recurring task…** creates repeating tasks such as a weekly meeting at once.
 
@@ -313,7 +315,7 @@ A **Deadline** does not move the task, but it limits the late dates, and a task 
 
 ### Calendars and working time
 
-![Change working time](docs/tutorial/images/21-calendar.jpg)
+![Change working time](docs/tutorial/images/22-calendar.jpg)
 
 Edit calendars with **Project › Change working time…**.
 
@@ -332,9 +334,11 @@ Edit calendars with **Project › Change working time…**.
 - **Total Slack**, **Free Slack** and **Early / Late Start / Finish** are in the **Schedule** table.
 - **Project information › Critical when slack is at most (days)** widens the critical path (default 0 days).
 
+**Find critical path button** — the Find critical path toolbar button (`Ctrl+Shift+P`, also in the **Project** menu) is a toggle. Pressing it recalculates the schedule front to back (earliest start and finish) and back to front (latest start and finish), then traces the tasks without slack into start-to-finish chains. Critical tasks and links turn red, everything else fades, and the chart scrolls to where the path begins. The status bar shows how many tasks are critical, and the message gives the chain (for example `12. Design system → … → 34. Project close`) and the finish date. Press it again, or the critical item in the status bar, to turn it off.
+
 ### Schedule from and project information
 
-![Project information](docs/tutorial/images/23-projectInfo.jpg)
+![Project information](docs/tutorial/images/24-projectInfo.jpg)
 
 **Project › Project information…**
 
@@ -355,7 +359,7 @@ The schedule is recalculated after every edit. **Project › Calculate now** (`F
 
 ### Resource Sheet
 
-![Resource Sheet](docs/tutorial/images/24-resourceSheet.jpg)
+![Resource Sheet](docs/tutorial/images/25-resourceSheet.jpg)
 
 Enter resources in the **Resource › Resource Sheet** view: type a name into the empty bottom row or press **Add resource** (`Ctrl+Shift+R`).
 
@@ -369,7 +373,7 @@ Double-click a resource for the **Resource information** window (General · Cost
 
 ### Assigning resources
 
-![Assigning resources](docs/tutorial/images/25-assign.jpg)
+![Assigning resources](docs/tutorial/images/26-assign.jpg)
 
 Select tasks and open **Resource › Assign resources…** (`Alt+F10`). Tick resources and set their units (work resources in %, 50% = half time); work and cost are calculated. Type a new resource name at the bottom and press **Add and assign** to create and assign it at once.
 
@@ -395,7 +399,7 @@ With **Effort driven (more resources shorten the task)** on, adding work resourc
 
 ### Overallocation
 
-![Resource Usage](docs/tutorial/images/26-resourceUsage.jpg)
+![Resource Usage](docs/tutorial/images/27-resourceUsage.jpg)
 
 A resource is overallocated when more work overlaps on a day than it can do (max. units × that day's working time).
 
@@ -404,11 +408,11 @@ A resource is overallocated when more work overlaps on a day than it can do (max
 - The **Resource Graph** view shows one resource's work per day as columns against its availability as a line (per day / per week).
 - **Resource › Next overallocation** jumps to the next overallocated task.
 
-![Resource Graph](docs/tutorial/images/27-resourceGraph.jpg)
+![Resource Graph](docs/tutorial/images/28-resourceGraph.jpg)
 
 ### Resource leveling
 
-![Resource leveling](docs/tutorial/images/28-leveling.jpg)
+![Resource leveling](docs/tutorial/images/29-leveling.jpg)
 
 **Resource › Level all** delays lower-priority tasks until no resource is overallocated. The delay goes into the **Leveling Delay** field; **Clear leveling** puts the tasks back (only the selected ones when tasks are selected).
 
@@ -426,7 +430,7 @@ Tasks with priority 1000, manually scheduled tasks, tasks already started and "M
 
 ### Team Planner
 
-![Team Planner](docs/tutorial/images/29-teamPlanner.jpg)
+![Team Planner](docs/tutorial/images/30-teamPlanner.jpg)
 
 **Resource › Team Planner** shows one lane per person with their task blocks. Drag a block to another person's lane to reassign it, or from the **Unassigned tasks** lane at the bottom to assign it. Overallocated lanes are marked red.
 
@@ -434,7 +438,7 @@ Tasks with priority 1000, manually scheduled tasks, tasks already started and "M
 
 ### Baselines
 
-![Set baseline](docs/tutorial/images/30-baseline.jpg)
+![Set baseline](docs/tutorial/images/31-baseline.jpg)
 
 When the plan is agreed, **Project › Set baseline…** saves the current schedule (start · finish · duration · work · cost).
 
@@ -446,7 +450,7 @@ When the plan is agreed, **Project › Set baseline…** saves the current sched
 
 ### % complete
 
-![Entering progress](docs/tutorial/images/31-progress.jpg)
+![Entering progress](docs/tutorial/images/32-progress.jpg)
 
 Select tasks and press **0% complete** · **25% complete** · **50% complete** · **75% complete** · **100% complete** (Task menu, Progress section of the Tools panel). Actual start and finish are recorded automatically and the dark part inside the bar shows the progress. The bar's progress handle and the slider in the properties panel change it too.
 
@@ -458,7 +462,7 @@ Select tasks and press **0% complete** · **25% complete** · **50% complete** �
 
 ### Update project
 
-![Update project](docs/tutorial/images/32-updateProject.jpg)
+![Update project](docs/tutorial/images/33-updateProject.jpg)
 
 **Project › Update project…**
 
@@ -475,13 +479,13 @@ The status date is the day progress is judged against (late tasks, progress line
 
 ### Tracking Gantt and progress line
 
-![Tracking Gantt](docs/tutorial/images/33-trackingGantt.jpg)
+![Tracking Gantt](docs/tutorial/images/34-trackingGantt.jpg)
 
 The **Tracking Gantt** view draws the current schedule on top and the baseline as a gray bar below. **View › Show progress line** connects how far each task got at the status date; a line bending to the left marks a late task. In the Gantt Chart, **Show baseline bars** shows the baseline too.
 
 ## Views
 
-![Switching views](docs/tutorial/images/34-viewMenu.jpg)
+![Switching views](docs/tutorial/images/35-viewMenu.jpg)
 
 Switch between the 12 views with the toolbar view button (current view name ▾), the Tools panel or the **View** menu. Each tab remembers its view; the first view of new projects is set in **Settings › General › Default view of new projects**.
 
@@ -499,25 +503,25 @@ The table alone, full width — handy for wide tables (Cost, Tracking, Variance�
 
 ### Task Usage
 
-![Task Usage](docs/tutorial/images/39-taskUsage.jpg)
+![Task Usage](docs/tutorial/images/40-taskUsage.jpg)
 
 Each task with its resources below it and the hours per day on the right. Zooming the timescale switches between days, weeks and months.
 
 ### Network Diagram
 
-![Network Diagram](docs/tutorial/images/36-network.jpg)
+![Network Diagram](docs/tutorial/images/37-network.jpg)
 
 Tasks as boxes (ID, name, dates, duration, resources), links as arrows. Red boxes are critical, X marks a finished task, a slash one in progress. Drag to move around, `Ctrl+wheel` to zoom, double-click a box for Task information.
 
 ### Calendar
 
-![Calendar](docs/tutorial/images/37-calendarView.jpg)
+![Calendar](docs/tutorial/images/38-calendarView.jpg)
 
 A month calendar with bars over the days each task runs. **Previous month** · **Next month** · **This month** · **Project start month** or the mouse wheel turn the months. Weeks with too many tasks show "+N".
 
 ### Timeline
 
-![Timeline](docs/tutorial/images/38-timeline.jpg)
+![Timeline](docs/tutorial/images/39-timeline.jpg)
 
 The whole project on one line: top-level summary tasks (phases) as bars, milestones as diamonds and tasks added with **Add to timeline** as call-outs — good for reporting.
 
@@ -545,7 +549,7 @@ Dashboards built from the schedule. See [Reports](#reports-1).
 
 ### Tables (column sets)
 
-![Tables](docs/tutorial/images/40-tables.jpg)
+![Tables](docs/tutorial/images/41-tables.jpg)
 
 Switch the column set with **View › Table (column set)** or the **Table** list in the Tools panel.
 
@@ -571,7 +575,7 @@ The Resource Sheet has Entry · Cost · Work · Summary tables.
 
 ### Filters and highlighting
 
-![Filter, group and sort](docs/tutorial/images/41-filter.jpg)
+![Filter, group and sort](docs/tutorial/images/42-filter.jpg)
 
 **View › Filter** or the **Filter** list in the Tools panel:
 
@@ -589,7 +593,7 @@ All tasks · Active tasks · Completed tasks · Incomplete tasks · Critical tas
 
 ### Find, replace, go to
 
-![Find](docs/tutorial/images/42-find.jpg)
+![Find](docs/tutorial/images/43-find.jpg)
 
 The **Find** window has four tabs.
 
@@ -604,7 +608,7 @@ The window can stay open while you keep searching.
 
 ## Reports
 
-![Reports](docs/tutorial/images/45-reports.jpg)
+![Reports](docs/tutorial/images/46-reports.jpg)
 
 Pick a report from the **Report** menu or the list in the Reports view. Reports are judged at the status date.
 
@@ -620,7 +624,7 @@ Pick a report from the **Report** menu or the list in the Reports view. Reports 
 | **Milestone report** | All milestones and their variance against the baseline |
 | **Resource overview** | Work, cost, peak and overallocation per resource |
 
-![Cost report](docs/tutorial/images/46-reportCost.jpg)
+![Cost report](docs/tutorial/images/47-reportCost.jpg)
 
 **Copy report** puts the report on the clipboard as text, ready to paste into a spreadsheet or document. **Print…** on the report screen opens the [print preview](#printing-and-preview) (it prints the task table and Gantt chart).
 
@@ -635,11 +639,11 @@ Pick a report from the **Report** menu or the list in the Reports view. Reports 
 
 The suggested file name is "project title - report name", and the progress popup appears when building the file takes a while.
 
-![Burndown](docs/tutorial/images/48-reportBurndown.jpg)
+![Burndown](docs/tutorial/images/49-reportBurndown.jpg)
 
 ## Files
 
-![The File menu](docs/tutorial/images/49-fileMenu.jpg)
+![The File menu](docs/tutorial/images/50-fileMenu.jpg)
 
 ### Saving
 
@@ -665,7 +669,7 @@ The suggested file name is "project title - report name", and the progress popup
 
 ### Recent files and folders
 
-![Managing recent files](docs/tutorial/images/53-recentFiles.jpg)
+![Managing recent files](docs/tutorial/images/54-recentFiles.jpg)
 
 - **File › Recent files…** (`Ctrl+R`) opens a window with **Recent files** and **Recent folders** tabs, up to 10 of each.
 - Each entry has **Open** (folders: **Open from this folder**) and **Remove from the list**; **Clear all** · **Clear all folders** remove them all.
@@ -675,7 +679,7 @@ The suggested file name is "project title - report name", and the progress popup
 
 ### Drag and drop
 
-![Drag and drop](docs/tutorial/images/54-dragDrop.jpg)
+![Drag and drop](docs/tutorial/images/55-dragDrop.jpg)
 
 Drag files from the file manager onto the window:
 
@@ -718,7 +722,7 @@ Choose in **Settings › Database**.
 
 ## Printing and preview
 
-![Print preview](docs/tutorial/images/50-print.jpg)
+![Print preview](docs/tutorial/images/51-print.jpg)
 
 **File › Print…** (`Ctrl+P`) opens the **Print preview** window. The preview on the right follows every change; the arrows at the bottom turn the pages.
 
@@ -734,7 +738,7 @@ Choose in **Settings › Database**.
 
 ### Themes
 
-![Themes](docs/tutorial/images/55-theme.jpg)
+![Themes](docs/tutorial/images/56-theme.jpg)
 
 - The **Random theme** toolbar button picks a different theme at random on every press; its tooltip names the current theme.
 - The ▾ next to it (**Choose theme**) opens a window with **Dark (20)** and **Light (20)** in two columns, plus **System setting** (follows the OS) and **Custom** at the top.
@@ -742,13 +746,13 @@ Choose in **Settings › Database**.
 
 ### Language
 
-![Language](docs/tutorial/images/56-language.jpg)
+![Language](docs/tutorial/images/57-language.jpg)
 
 The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English (press it to switch to that language). **Settings › General › Language** works too. Menus, popups, reports, error messages and backend messages all switch.
 
 ### Font
 
-![Settings — Font](docs/tutorial/images/58-settings.jpg)
+![Settings — Font](docs/tutorial/images/59-settings.jpg)
 
 **Settings › Font** picks any font installed on the system and sets **Size**, **Weight** (Light … Extra bold), **Style** (Normal / Italic), **Row height** and **Zoom**. The font applies to the tables and charts and the sample below shows it at once.
 
@@ -770,7 +774,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 
 ### Panels
 
-![Collapsing panels](docs/tutorial/images/57-panels.jpg)
+![Collapsing panels](docs/tutorial/images/58-panels.jpg)
 
 - Collapse and expand the Tools and Properties panels with the arrow in their header, **View › Show/hide tool panel** (`Ctrl+Shift+1`) · **Show/hide properties panel** (`Ctrl+Shift+2`) or the toolbar buttons.
 - Collapsed, a panel leaves a narrow rail with icons and a title; the **Expand** button is at the top. The rail still switches views and runs the main commands.
@@ -778,7 +782,7 @@ The flag button on the toolbar (**Switch language**, `Ctrl+Shift+L`) switches be
 
 ### Zoom and timescale
 
-![Zoom and timescale](docs/tutorial/images/43-zoom.jpg)
+![Zoom and timescale](docs/tutorial/images/44-zoom.jpg)
 
 - **Zoom** (50–200%): `Ctrl+mouse wheel`, `Ctrl+=` · `Ctrl+-` · `Ctrl+0`, or the toolbar `[−] 100% [+]` (the value can be typed).
 - **Timescale**: `Ctrl+mouse wheel` over the chart, `Ctrl+Shift+=` · `Ctrl+Shift+-`, the toolbar buttons or the status bar slider; it moves between days, weeks, months and quarters.
@@ -806,7 +810,7 @@ Hide or show it with **View › Status bar** or in **Settings › General**. **S
 
 ## Keyboard shortcuts
 
-![Keyboard shortcuts](docs/tutorial/images/60-shortcuts.jpg)
+![Keyboard shortcuts](docs/tutorial/images/61-shortcuts.jpg)
 
 The same list is in **Settings › Shortcuts** (or **Help › Keyboard shortcuts…**), and the menus show the shortcuts next to each command. On macOS use `Cmd` instead of `Ctrl`.
 

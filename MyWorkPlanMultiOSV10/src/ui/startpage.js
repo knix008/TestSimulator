@@ -78,6 +78,7 @@ export function startPageHtml(app) {
             </div>
             <h2>${icon('userGuide')}<span>${escapeHtml(t('start.help'))}</span></h2>
             <div class="start-list">
+              <button class="start-link compact" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span class="name">${escapeHtml(t('action.tutorialDoc'))}</span></button>
               <button class="start-link compact" data-start="guide" title="${escapeHtml(t('action.userGuide'))}">${icon('userGuide')}<span class="name">${escapeHtml(t('action.userGuide'))}</span></button>
               <button class="start-link compact" data-start="shortcuts" title="${escapeHtml(t('action.shortcuts'))}">${icon('keyboard')}<span class="name">${escapeHtml(t('action.shortcuts'))}</span></button>
             </div>

@@ -121,7 +121,13 @@ export const STEPS = [
     a.popup(() => a.app.openTaskInfo(task.id, 'advanced'), 'task');
   } },
   { id: 'critical', chapter: 'schedule', target: '.gantt-chart', async run(a) { await a.sample(); a.app.updateSettings({ showCritical: true, showSlack: true }); } },
+  { id: 'criticalPath', chapter: 'schedule', target: '#toolbar [data-command="criticalPath"]', dwell: 7000, async run(a) {
+    await a.sample('gantt');
+    a.app.updateSettings({ showCritical: false, showSlack: false });
+    a.app.setCriticalMode(true);
+  } },
   { id: 'linkInfo', chapter: 'schedule', target: '.web-popup-link', async run(a) {
+    a.app.setCriticalMode(false);
     await a.sample();
     const task = a.app.project().tasks.find((x) => x.predecessors.length);
     a.popup(() => a.app.openLinkInfo(task.predecessors[0].taskId, task.id), 'link');
@@ -246,6 +252,7 @@ export const STEPS = [
   // ── help
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { await a.sample('gantt'); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample('gantt'); a.popup(() => a.app.run('about'), 'about'); } },
+  { id: 'tutorialDoc', chapter: 'help', target: '#reader-page', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openReader('tutorial'); } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample('gantt') },
 ];
 
@@ -347,6 +354,8 @@ export class Tutorial {
     const doc = this.app.state.docs.find((item) => item.id === this.docId);
     if (doc) await this.app.closeDoc(doc, { force: true });
     this.docId = null;
+    this.app.setCriticalMode?.(false);
+    this.app.closeReader?.();
     const restore = { ...this.saved, tutorialDone: true, tutorialOffered: true };
     this.app.updateSettings(restore);
     const back = this.app.state.docs.find((item) => item.id === this.savedActive);

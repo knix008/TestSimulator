@@ -146,3 +146,13 @@ test('the shortcut table of each guide lists every shortcut of Settings › Shor
     assert.deepEqual(missing, [], `${file}: shortcut rows missing`);
   }
 });
+
+test('the guides give the tutorial its real number of steps', () => {
+  const src = read('src/ui/tutorial.js');
+  const steps = [...src.slice(src.indexOf('export const STEPS')).matchAll(/^\s*\{\s*id:\s*'[A-Za-z0-9_]+'/gm)].length;
+  for (const [file, pattern] of [['UsersGuide.md', /(\d+)단계/g], ['UsersGuide.en.md', /(\d+) steps/g]]) {
+    const counts = [...read(file).matchAll(pattern)].map((m) => Number(m[1])).filter((n) => n > 20);
+    assert.ok(counts.length, `${file} says how many steps`);
+    assert.deepEqual([...new Set(counts)], [steps], `${file}: the tutorial has ${steps} steps`);
+  }
+});

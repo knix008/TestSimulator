@@ -88,7 +88,7 @@ export const cases = [
     assert.ok(info.samples >= 1, 'sample projects listed');
   } },
   { group: '처음 실행', name: '시작 페이지 배경이 움직이고 바꿀 수 있음', async run(app) {
-    const frames = async () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const x = c.getContext('2d').getImageData(c.width / 3 | 0, c.height / 2 | 0, 1, 1).data; return [...x].join(','); })()`);
+    const frames = async () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; h = (h * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2]) >>> 0; } return h; })()`);
     const a = await frames();
     await sleep(900);
     const b = await frames();
@@ -115,6 +115,7 @@ export const cases = [
     })()`);
     assert.ok(layout.homeFirst && layout.homeIcon && layout.homeTitle, JSON.stringify(layout));
     assert.equal(await app.main.eval(`document.querySelectorAll('#tabs .tab:not([data-doc]), #tabs [data-command="startPage"], #tabs [data-home]').length`), 0, 'no home tab: the tabs are only open projects');
+    assert.equal(await app.main.eval(`document.querySelectorAll('#toolbar [data-command="startPage"], #toolbar [data-home]').length`), 0, 'no home button on the toolbar: Home is in the menu bar');
     assert.ok(Math.abs(layout.leftTop - layout.toolbarBottom) <= 1 && Math.abs(layout.rightTop - layout.toolbarBottom) <= 1, `panels start right under the toolbar ${JSON.stringify(layout)}`);
     assert.ok(layout.tabsLeft >= layout.leftRight && layout.tabsRight <= layout.rightLeft, `tabs sit between the panels ${JSON.stringify(layout)}`);
     await app.main.click('#menubar [data-home]');
@@ -147,7 +148,9 @@ export const cases = [
       for (let i = 0; i < 40 && !box; i++) { await sleep(250); box = probe().find((w) => w.class === '#32770'); }
       assert.ok(box, 'the second copy shows a message box');
       assert.match(box.title, /MyWorkPlan/);
-      assert.ok(box.topmost && box.foreground, `the message box is in front of every window ${JSON.stringify(box)}`);
+      // Topmost keeps it above every window. Keyboard focus also needs Windows' consent: a copy started from Explorer gets it,
+      // one started by this background test process may not, so focus is not required here.
+      assert.ok(box.topmost, `the message box is in front of every window ${JSON.stringify(box)}`);
       assert.equal(first.exitCode, null, 'the first copy keeps running');
       probe(true); // OK
       const code = await Promise.race([exited, sleep(10000).then(() => 'running')]);
@@ -195,8 +198,8 @@ export const cases = [
     assert.ok(grip.title);
     const before = await app.main.eval('({ w: innerWidth, h: innerHeight })');
     const main = mainWindow(app);
-    const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class M{[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(uint f,uint x,uint y,uint d,UIntPtr e);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ClientToScreen(IntPtr h,ref P p);public struct P{public int X,Y;}}';
-$h=[IntPtr]${main.handle};[void][M]::SetForegroundWindow($h);Start-Sleep -Milliseconds 200;$p=New-Object M+P;$p.X=${Math.round(grip.x * grip.dpr)};$p.Y=${Math.round(grip.y * grip.dpr)};[void][M]::ClientToScreen($h,[ref]$p);
+    const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class M{[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(uint f,uint x,uint y,uint d,UIntPtr e);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);[DllImport("user32.dll")]public static extern bool ClientToScreen(IntPtr h,ref P p);public struct P{public int X,Y;}}';
+$h=[IntPtr]${main.handle};[M]::keybd_event(0x12,0,0,[UIntPtr]::Zero);[M]::keybd_event(0x12,0,2,[UIntPtr]::Zero);[void][M]::SetForegroundWindow($h);Start-Sleep -Milliseconds 200;$p=New-Object M+P;$p.X=${Math.round(grip.x * grip.dpr)};$p.Y=${Math.round(grip.y * grip.dpr)};[void][M]::ClientToScreen($h,[ref]$p);
 [void][M]::SetCursorPos($p.X,$p.Y);Start-Sleep -Milliseconds 150;[M]::mouse_event(2,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 450;
 for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sleep -Milliseconds 40};Start-Sleep -Milliseconds 150;[M]::mouse_event(4,0,0,0,[UIntPtr]::Zero)`;
     ps(script);
@@ -207,7 +210,10 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(after.w > before.w + 40 && after.h > before.h + 25, `window grew ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
   } },
   { group: '창', name: '상태 표시줄: 상태 정보와 명령 결과', async run(app) {
+    await freshSample(app);
     await W(app, `a.insertTask({ name: 'status check' }, { edit: false })`);
+    await W(app, `(w.run('calculate'), 1)`);
+    await app.main.waitFor(`document.querySelector('#statusbar .status-notice')?.textContent.trim().length > 3`, { timeout: 3000 });
     const items = await app.main.eval(`[...document.querySelectorAll('#statusbar .status-item, #statusbar .status-notice')].map((e) => e.textContent.trim())`);
     assert.ok(items.length >= 8, JSON.stringify(items));
     assert.ok(items[0].length > 3, 'the last command result is shown');
@@ -268,7 +274,8 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await W(app, `a.updateSettings({ theme: '${id}' })`);
       await sleep(60);
       const bad = await app.main.eval(`(() => {
-        const rgb = (c) => (c.match(/[\\d.]+/g) || []).slice(0, 4).map(Number);
+        // rgb()/rgba() are 0–255; color(srgb r g b / a) (what color-mix() computes to) is 0–1.
+        const rgb = (c) => { const n = (c.match(/[\\d.]+/g) || []).map(Number); if (!c.startsWith('color(')) return n.slice(0, 4); const v = n.slice(0, 3).map((x) => x * 255); return n.length > 3 ? [...v, n[3]] : v; };
         const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
         const bg = (el) => { for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c.length === 3 || c[3] > 0.9) return c; } return rgb(getComputedStyle(document.body).backgroundColor); };
         const out = [];
@@ -277,14 +284,14 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
           const fg = rgb(getComputedStyle(el).color);
           const a = lum(fg); const b = lum(bg(el));
           const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-          if (ratio < 3) out.push(el.className + ' ' + ratio.toFixed(2));
+          if (ratio < 3) out.push((el.className || el.parentElement.className) + ' "' + el.textContent.trim().slice(0, 20) + '" ' + ratio.toFixed(2));
         }
         return out.slice(0, 3);
       })()`);
       if (bad.length) problems.push(`${id}: ${bad.join(', ')}`);
     }
     await W(app, `a.updateSettings({ theme: 'light' })`);
-    assert.deepEqual(problems, []);
+    assert.equal(problems.length, 0, `low contrast: ${problems.join(' | ')}`);
   } },
   { group: '툴바', name: '언어 버튼: 한국어일 때 영국 국기, 영어일 때 태극기', async run(app) {
     await W(app, `a.updateSettings({ language: 'ko' })`);
@@ -626,6 +633,28 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } })),
 
   // ───────────────────────── scheduling features
+  { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
+    await freshSample(app);
+    await W(app, `a.updateSettings({ showCritical: false })`);
+    const state = () => app.main.eval(`({ pressed: document.querySelector('#toolbar [data-command="criticalPath"]').getAttribute('aria-pressed'), focus: document.querySelector('#app').classList.contains('critical-focus'), rows: document.querySelectorAll('.grid-row.critical-row').length, status: document.querySelector('.critical-status')?.textContent.trim() ?? null, notice: document.querySelector('#statusbar .status-notice').textContent })`);
+    assert.ok(await app.main.eval(`document.querySelector('#toolbar [data-command="criticalPath"]').title.length > 3`), 'tooltip');
+    const off = await state();
+    assert.deepEqual([off.pressed, off.focus, off.rows, off.status], ['false', false, 0, null]);
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await sleep(400);
+    const on = await state();
+    const expected = await app.main.eval(`(async () => { const { criticalPath } = await import('/src/domain/critical.js'); const api = window.__myworkplan.api; return criticalPath(api.project(), api.sched()).ids.size; })()`);
+    assert.ok(expected > 0);
+    assert.equal(on.pressed, 'true');
+    assert.ok(on.focus, 'the rest of the plan steps back');
+    assert.ok(on.rows >= expected, `${on.rows} critical rows shown`);
+    assert.match(on.status, new RegExp(String(expected)));
+    assert.match(on.notice, /→/, 'the chain is reported from start to finish');
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await sleep(300);
+    const again = await state();
+    assert.deepEqual([again.pressed, again.focus, again.rows, again.status], ['false', false, 0, null], 'pressing again turns it off');
+  } },
   { group: '일정', name: '자원 평준화로 초과 할당 해소 (진행 팝업)', async run(app) {
     await freshSample(app);
     assert.ok(await W(app, `[...api.sched().resources.values()].some((r) => r.overallocated)`), 'the sample starts overallocated');
@@ -998,6 +1027,30 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   } },
 
   // ───────────────────────── help
+  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+    await W(app, '(a.showStartPage(), 1)');
+    await sleep(300);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
+    await app.main.click('#start-page [data-start="tutorial-doc"]');
+    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
+    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
+    assert.ok(doc.shown);
+    assert.match(doc.h1, /MyWorkPlan/);
+    const steps = await app.main.eval(`(async () => (await import('/src/ui/tutorial.js')).STEPS.length)()`);
+    assert.equal(doc.steps, steps, 'every tutorial step is in the document');
+    assert.equal(doc.images, steps, 'with a picture each');
+    assert.equal(doc.raw, false, 'no raw HTML shows as text');
+    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
+    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(300);
+    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
+    await app.main.click('[data-reader="lang"][data-value="en"]');
+    await app.main.waitFor(`/tutorial/.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
+    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
+    await app.main.click('[data-reader="home"]');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+  } },
   { group: '도움말', name: '사용 설명서 열기 (설치된 문서)', async run(app) {
     const log = path.join(tempDir('open'), 'open.log');
     await app.restart([], { MYWORKPLAN_OPEN_LOG: log });

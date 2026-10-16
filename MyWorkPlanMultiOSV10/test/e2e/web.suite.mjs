@@ -72,7 +72,7 @@ export const cases = [
     await sleep(300);
     const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('[data-start="tutorial"]')) })`);
     assert.deepEqual(info, { shown: true, templates: 8, tutorial: true });
-    const pixel = () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); return [...c.getContext('2d').getImageData(c.width / 3 | 0, c.height / 2 | 0, 1, 1).data].join(); })()`);
+    const pixel = () => app.main.eval(`(() => { const c = document.querySelector('.start-bg'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let y = 0; y < c.height; y += 7) for (let x = 0; x < c.width; x += 7) { const i = (y * c.width + x) * 4; h = (h * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2]) >>> 0; } return h; })()`);
     const a = await pixel();
     await sleep(900);
     assert.notEqual(await pixel(), a, 'animated');
@@ -104,6 +104,7 @@ export const cases = [
     })()`);
     assert.ok(layout.homeFirst && layout.homeIcon && layout.homeTitle, JSON.stringify(layout));
     assert.equal(await app.main.eval(`document.querySelectorAll('#tabs .tab:not([data-doc]), #tabs [data-command="startPage"], #tabs [data-home]').length`), 0, 'no home tab: the tabs are only open projects');
+    assert.equal(await app.main.eval(`document.querySelectorAll('#toolbar [data-command="startPage"], #toolbar [data-home]').length`), 0, 'no home button on the toolbar: Home is in the menu bar');
     assert.ok(Math.abs(layout.leftTop - layout.toolbarBottom) <= 1 && Math.abs(layout.rightTop - layout.toolbarBottom) <= 1, `panels start right under the toolbar ${JSON.stringify(layout)}`);
     assert.ok(layout.tabsLeft >= layout.leftRight && layout.tabsRight <= layout.rightLeft, `tabs sit between the panels ${JSON.stringify(layout)}`);
     await app.main.click('#menubar [data-home]');
@@ -174,6 +175,28 @@ export const cases = [
     await app.frame('theme', `(document.querySelector('[data-pick-theme="monokai"]').click(), 1)`);
     await sleep(300);
     assert.equal(await W(app, 'w.state.settings.theme'), 'monokai');
+  } },
+  { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
+    await freshSample(app);
+    await W(app, `a.updateSettings({ showCritical: false })`);
+    const state = () => app.main.eval(`({ pressed: document.querySelector('#toolbar [data-command="criticalPath"]').getAttribute('aria-pressed'), focus: document.querySelector('#app').classList.contains('critical-focus'), rows: document.querySelectorAll('.grid-row.critical-row').length, status: document.querySelector('.critical-status')?.textContent.trim() ?? null, notice: document.querySelector('#statusbar .status-notice').textContent })`);
+    assert.ok(await app.main.eval(`document.querySelector('#toolbar [data-command="criticalPath"]').title.length > 3`), 'tooltip');
+    const off = await state();
+    assert.deepEqual([off.pressed, off.focus, off.rows, off.status], ['false', false, 0, null]);
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await sleep(400);
+    const on = await state();
+    const expected = await app.main.eval(`(async () => { const { criticalPath } = await import('/src/domain/critical.js'); const api = window.__myworkplan.api; return criticalPath(api.project(), api.sched()).ids.size; })()`);
+    assert.ok(expected > 0);
+    assert.equal(on.pressed, 'true');
+    assert.ok(on.focus, 'the rest of the plan steps back');
+    assert.ok(on.rows >= expected, `${on.rows} critical rows shown`);
+    assert.match(on.status, new RegExp(String(expected)));
+    assert.match(on.notice, /→/, 'the chain is reported from start to finish');
+    await app.main.click('#toolbar [data-command="criticalPath"]');
+    await sleep(300);
+    const again = await state();
+    assert.deepEqual([again.pressed, again.focus, again.rows, again.status], ['false', false, 0, null], 'pressing again turns it off');
   } },
   { group: '편집', name: '작업 추가 → 실행 취소 → 다시 실행 (Ctrl+Z/Y)', async run(app) {
     await freshSample(app);
@@ -270,6 +293,30 @@ export const cases = [
     assert.deepEqual(await app.main.eval(CLIP_CHECK), [], 'nothing cut off');
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.web-popup-error'))`), false);
   } })),
+  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)', async run(app) {
+    await W(app, '(a.showStartPage(), 1)');
+    await sleep(300);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('#start-page [data-start="tutorial-doc"]'))`), 'the start page lists the tutorial document');
+    await app.main.click('#start-page [data-start="tutorial-doc"]');
+    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
+    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
+    assert.ok(doc.shown);
+    assert.match(doc.h1, /MyWorkPlan/);
+    const steps = await app.main.eval(`(async () => (await import('/src/ui/tutorial.js')).STEPS.length)()`);
+    assert.equal(doc.steps, steps, 'every tutorial step is in the document');
+    assert.equal(doc.images, steps, 'with a picture each');
+    assert.equal(doc.raw, false, 'no raw HTML shows as text');
+    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
+    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(300);
+    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
+    await app.main.click('[data-reader="lang"][data-value="en"]');
+    await app.main.waitFor(`/tutorial/.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
+    assert.deepEqual(await app.main.eval(CLIP_CHECK), []);
+    await app.main.click('[data-reader="home"]');
+    await sleep(300);
+    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+  } },
   { group: '인쇄', name: '인쇄 미리 보기 → 브라우저 인쇄', async run(app) {
     await freshSample(app);
     await W(app, `(w.run('print'), 1)`);

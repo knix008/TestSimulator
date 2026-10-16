@@ -44,6 +44,7 @@ import { REPORTS, ReportsView, reportModel } from './views/reports.js';
 import { bytesToBase64, reportFileName, reportToDocx, reportToHtml, reportToMarkdown } from './export/report-export.js';
 import { chartPngs, reportToPdf } from './export/report-pdf.js';
 import { CONTENTS, renderPrintSvg } from './print/render.js';
+import { criticalPath } from './domain/critical.js';
 import { encodeBmp, encodeTiff, imageFormat, rasterSize } from './export/image-encode.js';
 
 const root = document.querySelector('#app');
@@ -162,6 +163,7 @@ function activate(id) {
   state.active = id;
   state.selection = { kind: null, ids: [], link: null, anchor: null };
   state.showStart = false;
+  state.reader = null;
   mountView();
   renderAll();
 }
@@ -648,6 +650,7 @@ function switchView(id) {
   if (!doc) return;
   if (!VIEWS.includes(id)) return;
   state.showStart = false;
+  state.reader = null;
   doc.view.id = id;
   doc.view.scrollTop = 0;
   if (['resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner'].includes(id) && state.selection.kind === 'task') state.selection = { kind: null, ids: [], link: null, anchor: null };
@@ -698,10 +701,18 @@ function renderView() {
   invalidateRows();
   const host = root.querySelector('#view-host');
   const start = root.querySelector('#start-page');
-  const showStart = state.showStart || !activeDoc();
-  root.classList.toggle('on-start', showStart);
+  const reader = root.querySelector('#reader-page');
+  const reading = Boolean(state.reader);
+  const showStart = !reading && (state.showStart || !activeDoc());
+  root.classList.toggle('on-start', showStart || reading);
+  root.classList.toggle('on-reader', reading);
   start.hidden = !showStart;
-  host.hidden = showStart;
+  reader.hidden = !reading;
+  host.hidden = showStart || reading;
+  if (reading) {
+    renderReader();
+    return;
+  }
   if (showStart) {
     renderStartPage();
     return;
@@ -807,7 +818,7 @@ function taskGridOptions(extra = {}) {
       const glyph = info?.summary ? icon('summaryBar', 'icon tiny name-glyph') : task.milestone ? icon('milestone', 'icon tiny name-glyph') : '';
       return `<span class="outline" style="padding-left:${pad}px">${toggle}${glyph}<span class="${info?.summary ? 'summary-name' : ''} ${task.active === false ? 'inactive-name' : ''}">${escapeHtml(text)}</span></span>`;
     },
-    rowClass: (row) => [row.info?.summary ? 'summary-row' : '', row.info?.critical && state.settings.showCritical ? 'critical-row' : '', row.task?.active === false ? 'inactive-row' : '', row.task?.manual ? 'manual-row' : ''].join(' '),
+    rowClass: (row) => [row.info?.summary ? 'summary-row' : '', row.info?.critical && viewSettings().showCritical ? 'critical-row' : '', row.task?.active === false ? 'inactive-row' : '', row.task?.manual ? 'manual-row' : ''].join(' '),
     newRow: !doc()?.view.group || doc().view.group === 'none',
     ...extra,
   };
@@ -971,6 +982,7 @@ const commands = {
   leftPanel: { icon: 'panelLeft', label: 'action.leftPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => updateSettings({ showLeftPanel: !state.settings.showLeftPanel }) },
   rightPanel: { icon: 'panelRight', label: 'action.rightPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => updateSettings({ showRightPanel: !state.settings.showRightPanel }) },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
+  criticalPath: { icon: 'criticalPath', label: 'action.criticalPath', key: 'Ctrl+Shift+P', enabled: hasDoc, checked: () => criticalMode, run: () => toggleCriticalPath() },
   showCritical: { icon: 'critical', label: 'action.showCritical', checked: () => state.settings.showCritical, run: () => updateSettings({ showCritical: !state.settings.showCritical }) },
   showSlack: { icon: 'slack', label: 'action.showSlack', checked: () => state.settings.showSlack, run: () => updateSettings({ showSlack: !state.settings.showSlack }) },
   showBaseline: { icon: 'baselineShow', label: 'action.showBaseline', checked: () => state.settings.showBaseline, run: () => updateSettings({ showBaseline: !state.settings.showBaseline }) },
@@ -1034,6 +1046,7 @@ const commands = {
   // help
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
   userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openUserGuide() },
+  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', checked: () => state.reader?.doc === 'tutorial', run: () => openReader('tutorial') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -1105,9 +1118,9 @@ const MENUS = {
   view: [sub('views'), 'viewMenu', '-', sub('tableData'), sub('zoom'), sub('show'), '-', sub('appearance')],
   task: ['insertTask', 'insertSummary', 'insertMilestone', 'insertRecurring', '-', 'indent', 'outdent', 'moveUp', 'moveDown', '-', 'link', 'unlink', '-', 'taskInfo', 'notes', 'addToTimeline', '-', sub('progress'), '-', 'manualMode', 'autoMode', 'inactivate'],
   resource: ['addResource', 'resourceInfo', 'assign', '-', 'levelAll', 'clearLeveling', 'levelingOptions', 'nextOverallocation', '-', 'view:resourceSheet', 'view:resourceUsage', 'view:resourceGraph', 'view:teamPlanner'],
-  project: ['projectInfo', 'calendar', 'statistics', '-', 'setBaseline', 'clearBaseline', 'updateProject', 'statusDate', '-', 'calculate', 'insertProject'],
+  project: ['projectInfo', 'calendar', 'statistics', '-', 'setBaseline', 'clearBaseline', 'updateProject', 'statusDate', '-', 'calculate', 'criticalPath', 'insertProject'],
   report: [...REPORTS.map(([id]) => `report:${id}`), '-', sub('reportExport'), 'copyReport', 'print'],
-  help: ['tutorial', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  help: ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', task: 'bar', resource: 'user', project: 'project', report: 'statistics', help: 'question' };
 
@@ -1117,12 +1130,13 @@ const TOOLBAR = [
   ['copy', 'paste'],
   ['insertTask', 'insertMilestone', 'indent', 'outdent', 'link', 'taskInfo'],
   ['viewSplit'],
+  ['criticalPath'],
   ['zoom'],
   ['timescaleOut', 'timescaleIn'],
   ['leftPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: start page, tutorial, theme (random + dropdown), language, settings, about. */
-const TOOLBAR_RIGHT = ['startPage', 'tutorial', 'themeSplit', 'language', 'settings', 'about'];
+const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
 
 function renderShell() {
   root.innerHTML = `
@@ -1137,6 +1151,7 @@ function renderShell() {
         <div id="center-body">
           <div id="view-host" class="view-host"></div>
           <div id="start-page" hidden></div>
+          <div id="reader-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
       </section>
@@ -1527,6 +1542,10 @@ function renderStatus() {
     items.push(`<span class="status-item ${doc.dirty ? 'modified' : 'saved'}" title="${escapeHtml(doc.path ?? t('status.unsavedFile'))}">${icon(doc.dirty ? 'edit' : 'save')}<span>${escapeHtml(doc.dirty ? t('status.modified') : t('status.saved'))}</span></span>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('status.tasksTip'))}">${icon('list')}<span>${escapeHtml(t('status.tasks', { count: doc.project.tasks.length }))}</span></span>`);
     if (selected) items.push(`<span class="status-item" title="${escapeHtml(t('status.selectedTip'))}">${icon('selectAll')}<span>${escapeHtml(t('status.selected', { count: selected }))}</span></span>`);
+    if (criticalMode) {
+      const cp = criticalPath(doc.project, sched);
+      items.push(`<button class="status-item critical-status" data-command="criticalPath" title="${escapeHtml(t('status.criticalTip'))}">${icon('criticalPath')}<span>${escapeHtml(t('status.critical', { count: cp.ids.size }))}</span></button>`);
+    }
     items.push(`<span class="status-item" title="${escapeHtml(t('field.finish'))}">${icon('flag')}<span>${escapeHtml(formatDay(sched.finish, s.dateFormat))}</span></span>`);
     items.push(`<span class="status-item" title="${escapeHtml(t('field.percentComplete'))}">${icon('percent')}<span>${sched.percentComplete}%</span></span>`);
     if (sched.conflicts.length) items.push(`<span class="status-item warn" title="${escapeHtml(t('status.conflictsTip'))}">${icon('warning')}<span>${escapeHtml(t('status.conflicts', { count: sched.conflicts.length }))}</span></span>`);
@@ -1541,6 +1560,7 @@ function renderStatus() {
 }
 
 function renderAll() {
+  root.classList.toggle('critical-focus', criticalMode && Boolean(activeDoc()));
   root.classList.toggle('no-status', !state.settings.showStatusBar);
   root.classList.toggle('no-left', !state.settings.showLeftPanel);
   root.classList.toggle('no-right', !state.settings.showRightPanel);
@@ -1575,6 +1595,7 @@ function renderStartPage() {
 
 function showStartPage(show = true) {
   state.showStart = show;
+  state.reader = null;
   if (show) {
     state.view?.destroy?.();
     state.view = null;
@@ -1598,6 +1619,7 @@ async function onStartAction(target) {
     case 'builtin-sample': return openSampleBuiltin();
     case 'tutorial': return startTutorial();
     case 'guide': return openUserGuide();
+    case 'tutorial-doc': return openReader('tutorial');
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -1670,6 +1692,38 @@ function tickStartBackground() {
   // The clock runs only while the start page is on screen.
   if (!showing) { startBackgroundChangedAt = Date.now(); return; }
   if (Date.now() - startBackgroundChangedAt >= s.animationInterval * 1000) rotateStartBackground();
+}
+
+// ───────────────────────── critical path (toolbar toggle)
+
+/** On: the critical path is found and highlighted (critical bars, links and rows stand out; the rest dims). */
+let criticalMode = false;
+
+/** Settings as the views see them: the critical-path mode always shows critical tasks. */
+const viewSettings = () => (criticalMode ? { ...state.settings, showCritical: true } : state.settings);
+
+function toggleCriticalPath() {
+  criticalMode = !criticalMode;
+  const doc = activeDoc();
+  let showFirst = null;
+  if (criticalMode && doc) {
+    // Forward pass (earliest dates, top → bottom) and backward pass (latest dates, bottom → top),
+    // then the critical tasks are traced into start-to-finish chains both ways.
+    doc.recalculate();
+    const cp = criticalPath(doc.project, doc.sched);
+    const name = (id) => `${doc.sched.info(id).row}. ${P.findTask(doc.project, id)?.name ?? ''}`;
+    if (cp.ids.size) {
+      notify('success', t('notice.criticalPath', { count: cp.ids.size, chains: cp.chains.length, from: name(cp.chains[0][0]), to: name(cp.chains[0].at(-1)), finish: formatDay(cp.finish, state.settings.dateFormat) }));
+      showFirst = cp.chains[0][0];
+    } else {
+      notify('info', t('notice.criticalNone'));
+    }
+  } else {
+    notify('info', t('notice.criticalOff'));
+  }
+  renderAll();
+  // After the redraw: bring the start of the critical path into view (Gantt views).
+  if (showFirst) requestAnimationFrame(() => state.view?.scrollToTask?.(showFirst));
 }
 
 function shuffleBackground() {
@@ -2716,6 +2770,69 @@ function goToTask({ row, date }) {
   return undefined;
 }
 
+// ───────────────────────── document reader (the tutorial document inside the program)
+
+const READER_DOCS = { tutorial: { file: 'Tutorial', title: 'action.tutorialDoc', glyph: 'tutorialDoc' } };
+
+/** Shows a document from docs/ in the centre of the window (instead of a browser). */
+function openReader(doc = 'tutorial', lang = getLanguage()) {
+  popups.hideMenu();
+  state.reader = { doc, lang: lang === 'en' ? 'en' : 'ko' };
+  state.view?.destroy?.();
+  state.view = null;
+  renderAll();
+}
+
+function readerUrl() {
+  const info = READER_DOCS[state.reader.doc];
+  return `docs/${info.file}${state.reader.lang === 'en' ? '.en' : ''}.html`;
+}
+
+function renderReader() {
+  const host = root.querySelector('#reader-page');
+  const info = READER_DOCS[state.reader.doc];
+  const url = readerUrl();
+  const frame = host.querySelector('.reader-frame');
+  if (frame && frame.dataset.url === url && host.dataset.uiLang === getLanguage()) return; // stays where it was scrolled
+  host.dataset.uiLang = getLanguage();
+  const lang = state.reader.lang;
+  host.innerHTML = `
+    <div class="reader-bar">
+      <button class="button" data-reader="home" title="${escapeHtml(t('tip.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button>
+      <h2 class="reader-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h2>
+      <select class="reader-chapters" data-reader-chapter title="${escapeHtml(t('reader.chapters'))}" aria-label="${escapeHtml(t('reader.chapters'))}"><option value="">${escapeHtml(t('reader.chapters'))}</option></select>
+      <span class="grow"></span>
+      <span class="segmented" role="radiogroup" title="${escapeHtml(t('reader.language'))}">
+        <button class="segment ${lang === 'ko' ? 'active' : ''}" data-reader="lang" data-value="ko" role="radio" aria-checked="${lang === 'ko'}" title="한국어">한국어</button>
+        <button class="segment ${lang === 'en' ? 'active' : ''}" data-reader="lang" data-value="en" role="radio" aria-checked="${lang === 'en'}" title="English">English</button>
+      </span>
+      <button class="button primary" data-reader="tutorial" title="${escapeHtml(commandTip('tutorial'))}">${icon('tutorial')}<span>${escapeHtml(t('reader.startTutorial'))}</span></button>
+      <button class="button" data-reader="external" title="${escapeHtml(t('reader.externalTip'))}">${icon('readerExternal')}<span>${escapeHtml(t('reader.external'))}</span></button>
+    </div>
+    <iframe class="reader-frame" data-url="${escapeHtml(url)}" src="${escapeHtml(url)}" title="${escapeHtml(t(info.title))}"></iframe>`;
+  const iframe = host.querySelector('.reader-frame');
+  iframe.addEventListener('load', () => {
+    // The chapter list comes from the document's own headings (same origin).
+    const select = host.querySelector('[data-reader-chapter]');
+    const headings = [...(iframe.contentDocument?.querySelectorAll('h2[id]') ?? [])];
+    select.innerHTML = `<option value="">${escapeHtml(t('reader.chapters'))}</option>${headings.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.textContent.replace(/#\s*$/, '').trim())}</option>`).join('')}`;
+  });
+}
+
+async function onReaderAction(target) {
+  switch (target.dataset.reader) {
+    case 'home': return showStartPage(true);
+    case 'lang': state.reader.lang = target.dataset.value; return renderAll();
+    case 'tutorial': return startTutorial();
+    case 'external': {
+      if (!desktop) return window.open(readerUrl(), '_blank');
+      try { await native.openDocument(readerUrl().slice('docs/'.length)); } catch (error) { showError('error.guide', error); }
+      return undefined;
+    }
+    default: return undefined;
+  }
+}
+
 async function openUserGuide() {
   try {
     const name = getLanguage() === 'en' ? 'UsersGuide.en.html' : 'UsersGuide.html';
@@ -2999,6 +3116,8 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-home]')) return showStartPage(true);
+    const reader = target.closest('[data-reader]');
+    if (reader) return onReaderAction(reader);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const command = target.closest('[data-command]');
@@ -3078,6 +3197,10 @@ function bindEvents() {
     if ('propPercent' in target.dataset) return setProgress(selectedTasks(), Number(target.value));
     if (target.id === 'timescale-slider') return setTimescale(TIMESCALE.steps[Number(target.value)]);
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
+    if ('readerChapter' in target.dataset && target.value) {
+      root.querySelector('.reader-frame')?.contentDocument?.getElementById(target.value)?.scrollIntoView({ block: 'start' });
+      return undefined;
+    }
     if ('startRandom' in target.dataset) return updateSettings({ animationRandom: target.checked }, { quiet: true });
     if ('startInterval' in target.dataset) {
       startBackgroundChangedAt = Date.now();
@@ -3304,10 +3427,10 @@ function bindPopupActions() {
 
 let tutorial = null;
 
-async function startTutorial() {
+async function startTutorial(options = {}) {
   tutorial ??= new Tutorial(appApi, root.querySelector('#tutorial-layer'));
   updateSettings({ tutorialOffered: true }, { quiet: true });
-  await tutorial.start();
+  await tutorial.start(options);
 }
 
 // ───────────────────────── start-up
@@ -3326,7 +3449,11 @@ const appApi = {
   state,
   t,
   version: () => (state.info?.version ?? VERSION),
-  settings: () => state.settings,
+  settings: () => viewSettings(),
+  criticalMode: () => criticalMode,
+  openReader: (doc, lang) => openReader(doc, lang),
+  closeReader: () => { if (state.reader) { state.reader = null; if (activeDoc()) mountView(); renderAll(); } },
+  setCriticalMode: (on) => { if (Boolean(on) !== criticalMode) toggleCriticalPath(); },
   doc: () => activeDoc(),
   project: () => activeDoc()?.project,
   sched: () => activeDoc()?.sched,

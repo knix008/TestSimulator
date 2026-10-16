@@ -133,6 +133,7 @@ export function schedule(project, { delays = null, today = null } = {}) {
   const rowOf = (id) => rows.get(id) ?? 0;
   const byId = new Map(project.tasks.map((task) => [task.id, task]));
   const graph = buildGraph(project, structure);
+  s.graph = graph; // leaf-to-leaf links (critical path tracing)
   const { order, looped } = topoOrder(graph.leaves, graph.incoming, rowOf);
   for (const id of looped) s.conflicts.push({ taskId: id, kind: 'circular' });
   s.order = order;

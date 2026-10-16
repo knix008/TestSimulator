@@ -15,6 +15,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { sleep } from '../test/e2e/cdp.mjs';
 import { App, root } from '../test/e2e/harness.mjs';
+import { slugify } from './build-docs.mjs';
 
 const mode = process.argv[2] ?? 'docs';
 const P = 'window.__myworkplan';
@@ -35,7 +36,9 @@ await sleep(800);
 const steps = await evalJs(`(async () => (await import('/src/ui/tutorial.js')).STEPS.map((s) => ({ id: s.id, chapter: s.chapter })))()`);
 const chapters = await evalJs(`(async () => (await import('/src/ui/tutorial.js')).CHAPTERS)()`);
 const tour = `${P}.tutorial()`;
-const waitStep = (index, timeout = 60000) => page.waitFor(`${tour}.state().index === ${index} && !${tour}.state().busy`, { timeout, message: `tutorial step ${index + 1}` });
+// Null-safe and "active": the tutorial object exists only after the first start, and before it starts its state reads "step 0, not busy".
+const ready = (index) => `Boolean(${tour}?.state().active && ${tour}.state().index === ${index} && !${tour}.state().busy)`;
+const waitStep = (index, timeout = 60000) => page.waitFor(ready(index), { timeout, message: `tutorial step ${index + 1}` });
 const errors = [];
 page.on('Runtime.exceptionThrown', (p) => errors.push(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text));
 
@@ -43,7 +46,7 @@ try {
   if (mode === 'docs' || mode === 'check') {
     const outDir = path.join(root, 'docs', 'tutorial', 'images');
     if (mode === 'docs') { fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true }); }
-    await evalJs(`${tour}.start().then(() => 1)`);
+    await evalJs(`(${P}.actions.startTutorial(), 1)`);
     for (let i = 0; i < steps.length; i++) {
       if (i > 0) await evalJs(`${tour}.next(); 1`);
       await waitStep(i);
@@ -71,8 +74,8 @@ try {
     });
     await page.send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: WIDTH, maxHeight: HEIGHT, everyNthFrame: 1 });
     await sleep(500);
-    await evalJs(`${tour}.start({ autoplay: true }).then(() => 1)`);
-    await page.waitFor(`${tour}.state().index === ${steps.length - 1} && !${tour}.state().busy`, { timeout: 30 * 60000, message: 'auto play reaches the last step' });
+    await evalJs(`(${P}.actions.startTutorial({ autoplay: true }), 1)`);
+    await page.waitFor(ready(steps.length - 1), { timeout: 30 * 60000, message: 'auto play reaches the last step' });
     await sleep(6000);
     await page.send('Page.stopScreencast');
     await evalJs(`${tour}.stop().then(() => 1)`);
@@ -127,10 +130,11 @@ async function writeDocs(list, chapterIds) {
   for (const lang of ['ko', 'en']) {
     const d = dicts[lang];
     const lines = [...intro[lang], lang === 'ko' ? '## 차례' : '## Contents', ''];
-    chapterIds.forEach((c, i) => lines.push(`${i + 1}. [${d[`tutorial.chapter.${c}`]}](#ch-${c})`));
+    // Links to the heading anchors build-docs makes (no raw HTML: the page builder prints it as text).
+    chapterIds.forEach((c, i) => lines.push(`${i + 1}. [${d[`tutorial.chapter.${c}`]}](#${slugify(`${i + 1}. ${d[`tutorial.chapter.${c}`]}`)})`));
     lines.push('');
     chapterIds.forEach((c, ci) => {
-      lines.push(`<a id="ch-${c}"></a>`, '', `## ${ci + 1}. ${d[`tutorial.chapter.${c}`]}`, '');
+      lines.push(`## ${ci + 1}. ${d[`tutorial.chapter.${c}`]}`, '');
       for (const step of list.filter((s) => s.chapter === c)) {
         const n = list.indexOf(step) + 1;
         const image = `images/${String(n).padStart(2, '0')}-${step.id}.jpg`;

@@ -918,7 +918,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 #menubar { border-bottom: 0; padding: 4px 8px 1px; }
 .menubar-item { border-radius: 7px; transition: background-color 0.12s; }
 .menubar-item:hover, .menubar-item.open { background: var(--soft-accent); }
-.menubar-item.open, .menubar-item.open .icon { color: var(--accent); }
+.menubar-item.open .icon { color: var(--accent); } /* text keeps the text colour: accent on the toolbar is too faint in light themes */
 #toolbar { padding: 3px 8px 6px; border-bottom: 1px solid var(--hairline); box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow) 35%, transparent); }
 .tool-button { border-radius: 8px; border-color: transparent; transition: background-color 0.12s, color 0.12s; }
 .tool-button:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
@@ -1038,5 +1038,27 @@ html.is-web body { overflow-x: auto; }
 /* Home: first in the menu bar, set apart from the menus. */
 .menubar-home { font-weight: 600; }
 .menubar-home .icon { color: var(--accent); }
-.menubar-home.current { background: var(--soft-accent); color: var(--accent); }
+.menubar-home.current { background: var(--soft-accent); box-shadow: inset 0 -2px 0 var(--accent); }
 .menubar-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--hairline); flex: none; }
+
+/* Status colours on the status bar are mixed toward the text colour: pure green/amber is too faint on light themes. */
+.status-item.saved { color: color-mix(in srgb, var(--success) 60%, var(--text)); }
+.status-item.modified, .status-item.warn { color: color-mix(in srgb, var(--warning) 55%, var(--text)); }
+
+/* Critical path mode (toolbar toggle): the critical tasks and links stand out, everything else steps back. */
+#app.critical-focus .bar.task:not(.critical):not(.summary), #app.critical-focus .bar.milestone:not(.critical) { opacity: 0.25; }
+#app.critical-focus .bar-label { opacity: 0.45; }
+#app.critical-focus .chart-links .link:not(.critical) { opacity: 0.15; }
+#app.critical-focus .chart-links .link.critical { stroke-width: 2.4px; }
+#app.critical-focus .bar.task.critical { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bar-critical) 45%, transparent), 0 2px 6px color-mix(in srgb, var(--bar-critical) 40%, transparent); }
+#app.critical-focus .grid-row.critical-row { background: color-mix(in srgb, var(--bar-critical) 11%, var(--surface)); box-shadow: inset 3px 0 0 var(--bar-critical); }
+#app.critical-focus .net-box:not(.critical), #app.critical-focus .tl-item:not(.critical), #app.critical-focus .cal-bar-item:not(.critical), #app.critical-focus .team-block:not(.critical) { opacity: 0.3; }
+.status-item.critical-status { color: color-mix(in srgb, var(--bar-critical) 70%, var(--text)); font-weight: 600; cursor: pointer; }
+
+/* Document reader: the tutorial document in the centre of the window. */
+#reader-page { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.reader-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hairline); background: var(--toolbar); flex: none; }
+.reader-title { display: flex; align-items: center; gap: 8px; margin: 0 6px; font-size: 1em; white-space: nowrap; }
+.reader-title .icon { color: var(--accent); }
+.reader-chapters { max-width: 260px; }
+.reader-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #fff; }

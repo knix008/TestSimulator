@@ -405,8 +405,9 @@ async function runTutorial(report) {
       app.main.errors.length = 0;
       try {
         if (i > 0) await app.main.eval(`${P}.tutorial().next(); 1`);
-        await app.main.waitFor(`${P}.tutorial().state().index === ${i} && !${P}.tutorial().state().busy`, { timeout: 30000 });
-        const target = await app.main.eval(`Boolean(document.querySelector('.tour-outline'))`);
+        // active too: before the tour has started, its state already reads "step 0, not busy".
+        await app.main.waitFor(`${P}.tutorial().state().active && ${P}.tutorial().state().index === ${i} && !${P}.tutorial().state().busy`, { timeout: 30000 });
+        const target = await app.main.waitFor(`Boolean(document.querySelector('.tour-outline'))`, { timeout: 3000 }).then(() => true, () => false);
         const popupError = await app.main.eval(`(() => { const f = document.querySelector('.web-popup-error iframe'); return f?.contentDocument?.querySelector('#error-detail')?.value ?? ''; })()`);
         if (app.main.errors.length) throw new Error(app.main.errors.join('\n'));
         if (popupError) throw new Error(popupError);
