@@ -1,6 +1,10 @@
 import { AppError } from "../core/errors.js";
 
-export function aggregate(sourceResults) {
+/**
+ * Averages the sources day by day. `extended` (the long-range fill-in) only adds days no
+ * source covers, marked `extended: true`, so the first 16 days never change because of it.
+ */
+export function aggregate(sourceResults, extended = null) {
   const ok = sourceResults.filter((source) => source.ok && source.data);
   if (!ok.length) {
     const details = sourceResults.map((source) => `${source.id}: ${source.error || "failed"}`).join("\n");
@@ -25,6 +29,24 @@ export function aggregate(sourceResults) {
       code: mode(rows.map((row) => row.code)),
       bySource: Object.fromEntries(rows.map((row) => [row.source, row])),
     }));
+  if (extended?.ok) {
+    const covered = new Set(daily.map((day) => day.date));
+    for (const row of extended.data?.daily || []) {
+      if (covered.has(row.date)) continue;
+      daily.push({
+        date: row.date,
+        tempMin: round1(row.tempMin),
+        tempMax: round1(row.tempMax),
+        precip: round1(row.precip),
+        wind: round1(row.wind),
+        humidity: null,
+        code: row.code,
+        extended: true,
+        bySource: { extended: row },
+      });
+    }
+    daily.sort((a, b) => a.date.localeCompare(b.date));
+  }
   return {
     daily,
     hourly: mergeHourly(ok),

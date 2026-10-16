@@ -1,6 +1,7 @@
 import { esc } from "./html.js";
 import { presentWeather } from "../weather/aggregate.js";
 import { formatTemp, isoDate } from "../weather/format.js";
+import { MONTH_SPAN } from "../weather/providers.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
 
 export function renderWeatherHtml({ tab, language, units, today, t, priority = "average", dateFormat = "long", cityCount = 1 }) {
@@ -44,7 +45,7 @@ export function forecastFitHeight(range, hasWeather) {
 export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {
   const shown = preferTab(tab, priority);
   if (range === "weekly") return weekTitle(weekStart(dateOf(anchor, today)), language, dateFormat, t);
-  if (range === "monthly") return monthTitle(today, language, dateFormat);
+  if (range === "monthly") return monthTitle(today, language, dateFormat, t);
   return formatDay(anchor || currentReading(shown, today)?.day?.date || isoDate(today), language, dateFormat, t);
 }
 
@@ -148,20 +149,25 @@ function weekHtml(days, tab, language, units, today, t, dateFormat, anchor) {
   return `<div class="range-title">${esc(weekTitle(start, language, dateFormat, t))}</div><div class="week-row" data-gui="week">${cells}</div>`;
 }
 
+/** Today and the 29 days after it, on a Sunday-first grid. Days around the span are blank. */
+export function monthSpan(today) {
+  const first = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return { first, last: addDays(first, MONTH_SPAN - 1) };
+}
+
 function monthHtml(days, tab, language, units, today, t, dateFormat) {
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const first = new Date(year, month, 1);
+  const { first, last } = monthSpan(today);
   const cursor = addDays(first, -first.getDay());
-  const last = new Date(year, month + 1, 0);
+  const end = addDays(last, 6 - last.getDay());
   const byDate = new Map(days.map((day) => [day.date, day]));
   const heads = WEEKDAYS.map((id) => `<div class="month-head">${esc(t(`weekday.${id}`))}</div>`).join("");
   const cells = [];
-  while (cursor <= last || cursor.getDay() !== 0) {
+  while (cursor <= end) {
     const key = isoDate(cursor);
-    const outside = cursor.getMonth() !== month;
-    if (outside) cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span></div>`);
+    if (cursor < first || cursor > last) cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span></div>`);
     else {
+      // The span crosses a month, so the first day and each 1st also say which month.
+      const label = cursor.getTime() === first.getTime() || cursor.getDate() === 1 ? `${cursor.getMonth() + 1}/${cursor.getDate()}` : String(cursor.getDate());
       cells.push(
         dayCell({
           dateKey: key,
@@ -172,16 +178,16 @@ function monthHtml(days, tab, language, units, today, t, dateFormat) {
           today,
           name: "",
           iconSize: 20,
+          label,
         }),
       );
     }
     cursor.setDate(cursor.getDate() + 1);
-    if (cells.length > 42) break;
   }
-  return `<div class="range-title">${esc(monthTitle(today, language, dateFormat))}</div><div class="month-cal" data-gui="month">${heads}${cells.join("")}</div>`;
+  return `<div class="range-title">${esc(monthTitle(today, language, dateFormat, t))}</div><div class="month-cal" data-gui="month">${heads}${cells.join("")}</div>`;
 }
 
-function dayCell({ dateKey, day, tab, language, units, today, name, iconSize }) {
+function dayCell({ dateKey, day, tab, language, units, today, name, iconSize, label = String(Number(dateKey.slice(8))) }) {
   const selected = dateKey === tab.selectedDate ? " is-selected" : "";
   const alert = day && isAlert(day, tab) ? " is-alert" : "";
   const todayMark = dateKey === isoDate(today) ? " is-today" : "";
@@ -194,7 +200,7 @@ function dayCell({ dateKey, day, tab, language, units, today, name, iconSize }) 
   const range = day ? `${formatTemp(day.tempMin, units)} – ${formatTemp(day.tempMax, units)}` : "";
   const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}`.trim();
   const head = name ? `<span class="weekday">${esc(name)}</span>` : "";
-  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${Number(dateKey.slice(8))}</span>${art}${temps}</button>`;
+  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${esc(label)}</span>${art}${temps}</button>`;
 }
 
 function missingTemp(units) {
@@ -241,22 +247,20 @@ function formatDay(iso, language, format = "long", t) {
 }
 
 function weekTitle(start, language, format = "long", t) {
-  const end = addDays(start, 6);
+  return spanTitle(start, addDays(start, 6), language, format, t);
+}
+
+function monthTitle(today, language, format = "long", t) {
+  const { first, last } = monthSpan(today);
+  return spanTitle(first, last, language, format, t);
+}
+
+function spanTitle(start, end, language, format = "long", t) {
   if (format === "iso" || format === "dot" || format === "slash" || format === "weekday") {
     return `${formatDay(isoDate(start), language, format, t)} – ${formatDay(isoDate(end), language, format, t)}`;
   }
   if (language === "ko") return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
   return `${MONTH_EN[start.getMonth()].slice(0, 3)} ${start.getDate()} – ${MONTH_EN[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
-}
-
-function monthTitle(today, language, format = "long") {
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-  if (format === "iso") return `${year}-${String(month).padStart(2, "0")}`;
-  if (format === "dot") return `${year}. ${month}.`;
-  if (format === "slash") return `${year}/${String(month).padStart(2, "0")}`;
-  if (language === "ko") return `${year}년 ${month}월`;
-  return `${MONTH_EN[today.getMonth()]} ${year}`;
 }
 
 function sceneArt(name, size = 240) {

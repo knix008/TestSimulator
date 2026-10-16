@@ -27,8 +27,9 @@ import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURA
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
-import { geocodeUrl, mergeGeocoding, metNoUrl, openMeteoUrl, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
+import { MONTH_SPAN, extendedUrl, geocodeUrl, mergeGeocoding, metNoUrl, openMeteoUrl, parseExtended, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
 import { loadWeather } from "../../src/weather/service.js";
+import { monthSpan } from "../../src/ui/weather-view.js";
 import { conditionText } from "../../src/weather/wmo.js";
 import { CITIES, countries, filterCities, findCity } from "../../src/weather/cities.js";
 import { jsonResponse, openMeteoBody, SAMPLE_DATES } from "../support.js";
@@ -306,6 +307,56 @@ export function registerLogic(h) {
   });
 
   h.category("Weather");
+  h.test("the monthly forecast is today and the 29 days after it", () => {
+    assert.equal(MONTH_SPAN, 30);
+    const { first, last } = monthSpan(new Date(2026, 9, 16, 18, 30));
+    assert.equal(formatIso(first), "2026-10-16");
+    assert.equal(formatIso(last), "2026-11-14");
+    const leap = monthSpan(new Date(2028, 1, 15));
+    assert.equal(formatIso(leap.last), "2028-03-15");
+  });
+  h.test("the long-range run asks for 35 days and reads only the control member", () => {
+    const url = extendedUrl({ lat: 37.5665, lon: 126.978 });
+    assert.match(url, /^https:\/\/ensemble-api\.open-meteo\.com\/v1\/ensemble\?/);
+    assert.match(url, /forecast_days=35/);
+    assert.match(url, /models=gfs05/);
+    const parsed = parseExtended({
+      daily: {
+        time: ["2026-11-01", "2026-11-02"],
+        temperature_2m_min: [3, null],
+        temperature_2m_max: [12, null],
+        temperature_2m_max_member01: [40, 40],
+        precipitation_sum: [0.2, null],
+        wind_speed_10m_max: [9, null],
+        weather_code: [61, null],
+      },
+    });
+    assert.deepEqual(parsed.daily.map((day) => [day.date, day.tempMax, day.code, day.source]), [["2026-11-01", 12, 61, "extended"]]);
+  });
+  h.test("the long-range run only fills days no other source has", () => {
+    const short = { id: "ecmwf", ok: true, data: parseOpenMeteo(openMeteoBody(["2026-10-07", "2026-10-08"], 20), "ecmwf") };
+    const long = { id: "extended", ok: true, data: parseExtended(openMeteoBody(["2026-10-08", "2026-10-09", "2026-10-10"], 5)) };
+    const merged = aggregate([short], long);
+    assert.deepEqual(merged.daily.map((day) => day.date), ["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10"]);
+    assert.equal(merged.daily[1].tempMax, 21, "a covered day keeps the short-range value");
+    assert.equal(merged.daily[1].extended, undefined);
+    assert.equal(merged.daily[2].extended, true);
+    assert.equal(merged.daily[2].tempMax, 6);
+    assert.deepEqual(merged.sources.map((source) => source.id), ["ecmwf"], "it is not listed as a source");
+    assert.throws(() => aggregate([{ id: "ecmwf", ok: false, error: "down" }], long), /All weather sources failed/);
+  });
+  h.test("switching GFS off also switches the long-range fill-in off", async () => {
+    const asked = [];
+    const fetchImpl = async (url) => {
+      asked.push(String(url));
+      return jsonResponse(openMeteoBody(SAMPLE_DATES, 20));
+    };
+    await loadWeather({ lat: 1, lon: 2, cityEn: "X" }, { fetchImpl, sources: ["ecmwf"] });
+    assert.equal(asked.some((url) => url.includes("ensemble-api")), false);
+    asked.length = 0;
+    await loadWeather({ lat: 1, lon: 2, cityEn: "X" }, { fetchImpl, sources: ["ecmwf", "gfs"] });
+    assert.equal(asked.filter((url) => url.includes("ensemble-api")).length, 1);
+  });
   h.test("provider urls carry coordinates and model names", () => {
     const location = { lat: 37.5665, lon: 126.978, cityEn: "Seoul" };
     assert.match(openMeteoUrl(location, "ecmwf_ifs025"), /models=ecmwf_ifs025/);
@@ -934,6 +985,11 @@ export function registerLogic(h) {
     assert.match(lib, /fn fit_tray_menu/);
     assert.match(lib, /fn fit_menu/);
     assert.match(lib, /fn promote_tray_icon/);
+    // A double click on the tray icon shows the window the same way Show window does.
+    assert.match(lib, /TrayIconEvent::DoubleClick \{ button: MouseButton::Left, \.\. \} => show_window_from_tray/);
+    assert.match(lib, /fn show_window_from_tray[\s\S]*?tray_command = "show-window"\.into\(\);\s*close_tray_menu\(app\);/);
+    // The click that ends the pair must not open the menu again.
+    assert.match(lib, /tray_closed_at\.is_some_and\(\|at\| at\.elapsed\(\) < Duration::from_millis\(500\)\)/);
     // A move writes window.json once it settles, not on every step.
     assert.match(lib, /FLUSH_DELAY/);
     // Resource budget: one renderer for every page, drawn without the GPU.
@@ -1097,4 +1153,8 @@ function tab(city, dates) {
       daily: dates.map((date) => ({ date, tempMin: 10, tempMax: 20, precip: 1, wind: 5 })),
     },
   };
+}
+
+function formatIso(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

@@ -7,6 +7,7 @@ import { buildAboutSpec, bootPopup, fitPopupToViewport, popupFits } from "../../
 import { SCENE_MIN_SCALE, WINDOW_MIN } from "../../src/ui/window-spec.js";
 import { jsonResponse, openMeteoBody, SAMPLE_DATES, settle, withApp } from "../support.js";
 import { findCity } from "../../src/weather/cities.js";
+import { isoDate } from "../../src/weather/format.js";
 import { pageWindow, parseCityList } from "../../src/ui/popups.js";
 void pageWindow;
 
@@ -293,7 +294,7 @@ export function registerGui(h) {
       const monthly = await openForecast(app, "monthly");
       assert.equal(monthly.popup.querySelector(".popup-title").textContent, "월간 예보");
       assert.ok(monthly.popup.querySelector(".popup-icon .ico-color"));
-      assert.equal(monthly.popup.querySelector(".popup-when").textContent, "2026년 10월");
+      assert.equal(monthly.popup.querySelector(".popup-when").textContent, "10월 7일 – 11월 5일");
       assert.ok(monthly.popup.querySelector('[data-gui="month"]'));
       assert.equal(getComputedStyle(monthly.popup).backgroundImage, getComputedStyle(app.shell).backgroundImage);
       await monthly.close();
@@ -1151,6 +1152,28 @@ export function registerGui(h) {
       await monthly.close();
     });
   });
+  h.test("the monthly forecast fills all 30 days from the long-range run", async () => {
+    await withApp(async ({ app }) => {
+      const span = Array.from({ length: 35 }, (_, i) => isoDate(new Date(2026, 9, 7 + i)));
+      const original = app.platform.fetchImpl;
+      const asked = [];
+      app.platform.fetchImpl = async (url, options) => {
+        asked.push(String(url));
+        if (String(url).includes("ensemble-api")) return jsonResponse(openMeteoBody(span, 5));
+        return original(url, options);
+      };
+      await app.run("refresh");
+      assert.ok(asked.some((url) => url.includes("forecast_days=35")));
+      const monthly = await openForecast(app, "monthly");
+      const dated = [...monthly.popup.querySelectorAll('[data-gui="month"] [data-date]')];
+      assert.equal(dated.length, 30);
+      assert.equal(monthly.popup.querySelectorAll('[data-gui="month"] .hour-gap').length, 0, "no day is left empty");
+      // Days the short-range sources cover keep their values; the long-range run only fills the rest.
+      assert.match(monthly.popup.querySelector('[data-date="2026-10-07"]').title, /21/);
+      assert.match(monthly.popup.querySelector('[data-date="2026-11-05"]').title, /34/);
+      await monthly.close();
+    });
+  });
   h.test("double-clicking a week or month day shows that day's hourly forecast", async () => {
     await withApp(async ({ app }) => {
       await app.refreshWeather();
@@ -1275,21 +1298,31 @@ export function registerGui(h) {
         [...month.querySelectorAll(".month-head")].map((head) => head.textContent),
         ["일", "월", "화", "수", "목", "금", "토"],
       );
+      // Today (Wednesday 7 October) and the 29 days after it, on a Sunday-first grid.
       const cells = [...month.children].filter((node) => node.classList.contains("day"));
       assert.equal(cells[0].dataset.date, undefined);
-      assert.equal(cells[0].textContent, "27");
+      assert.equal(cells[0].textContent, "4");
       assert.equal(cells[0].classList.contains("is-outside"), true);
-      const inside = month.querySelector('[data-date="2026-10-01"]');
+      const dated = cells.filter((cell) => cell.dataset.date);
+      assert.equal(dated.length, 30);
+      assert.equal(dated[0].dataset.date, "2026-10-07");
+      assert.equal(dated.at(-1).dataset.date, "2026-11-05");
+      assert.equal(cells.length % 7, 0);
+      assert.equal(cells.at(-1).classList.contains("is-outside"), true);
+      assert.equal(month.querySelector('[data-date="2026-10-01"]'), null, "past days are not shown");
+      assert.equal(month.querySelector('[data-date="2026-10-07"] .day-num').textContent, "10/7");
+      assert.equal(month.querySelector('[data-date="2026-11-01"] .day-num').textContent, "11/1");
+      assert.equal(month.querySelector('[data-date="2026-10-08"] .day-num').textContent, "8");
+      const inside = month.querySelector('[data-date="2026-10-08"]');
       assert.equal(getComputedStyle(cells[0]).alignContent, "start");
       assert.equal(getComputedStyle(inside).alignContent, "start");
       assert.equal(getComputedStyle(cells[0]).gridTemplateRows, getComputedStyle(inside).gridTemplateRows);
       assert.equal(getComputedStyle(cells[0]).borderTopWidth, "0px");
-      assert.equal(month.querySelector('[data-date="2026-10-01"]').classList.contains("is-outside"), false);
       const uncovered = month.querySelector('[data-date="2026-10-31"]');
       assert.equal(uncovered.querySelector(".hour-gap").textContent, "--");
       assert.equal(uncovered.querySelector(".temps").textContent, "--°C");
       assert.equal(month.querySelector('[data-date="2026-10-07"]').classList.contains("is-today"), true);
-      assert.match(monthly.popup.textContent, /2026년 10월/);
+      assert.match(monthly.popup.textContent, /10월 7일 – 11월 5일/);
       await monthly.close();
 
       await app.setLanguage("en");
@@ -1302,8 +1335,7 @@ export function registerGui(h) {
       assert.equal(weeklyEn.popup.querySelector(".popup-when").textContent, "Oct 4 – Oct 10");
       await weeklyEn.close();
       const monthlyEn = await openForecast(app, "monthly");
-      assert.match(monthlyEn.popup.textContent, /October 2026/);
-      assert.equal(monthlyEn.popup.querySelector(".popup-when").textContent, "October 2026");
+      assert.equal(monthlyEn.popup.querySelector(".popup-when").textContent, "Oct 7 – Nov 5");
       await monthlyEn.close();
     });
   });

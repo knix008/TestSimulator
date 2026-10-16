@@ -24,6 +24,33 @@ export function openMeteoUrl(location, model) {
   return url.toString();
 }
 
+/** How far the monthly forecast reaches: today and the 29 days after it. */
+export const MONTH_SPAN = 30;
+
+/**
+ * The short-range models stop after 16 days. The GFS ensemble's control run reaches 35, so it
+ * fills the later days of the monthly forecast. It never replaces a day another source has.
+ */
+export function extendedUrl(location) {
+  const url = new URL("https://ensemble-api.open-meteo.com/v1/ensemble");
+  url.searchParams.set("latitude", String(location.lat));
+  url.searchParams.set("longitude", String(location.lon));
+  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("forecast_days", "35");
+  url.searchParams.set("models", "gfs05");
+  url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max");
+  return url.toString();
+}
+
+/** Only the control run (the fields without a _memberNN suffix) is read. */
+export function parseExtended(json) {
+  const { daily } = parseOpenMeteo({ daily: json?.daily, reason: json?.reason }, "extended");
+  return { daily: daily.filter((day) => day.tempMin != null || day.tempMax != null), hourly: [] };
+}
+
+/** The fill-in source rides on GFS: switching GFS off in Settings switches it off too. */
+export const EXTENDED_SOURCE = { id: "extended", follows: "gfs", headers: {}, url: extendedUrl, parse: parseExtended };
+
 export function metNoUrl(location) {
   const url = new URL("https://api.met.no/weatherapi/locationforecast/2.0/compact");
   url.searchParams.set("lat", Number(location.lat).toFixed(4));
