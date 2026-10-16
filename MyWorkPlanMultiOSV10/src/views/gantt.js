@@ -31,6 +31,7 @@ export class GanttView {
         <div class="chart-head"><div class="tier top"></div><div class="tier bottom"></div></div>
         <div class="chart-body" tabindex="-1">
           <div class="chart-canvas">
+            <div class="chart-rows"></div>
             <div class="chart-bg"></div>
             <svg class="chart-links" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="chart-bars"></div>
@@ -43,6 +44,7 @@ export class GanttView {
     this.chart = host.querySelector('.gantt-chart');
     this.chartBody = host.querySelector('.chart-body');
     this.canvas = host.querySelector('.chart-canvas');
+    this.rowBands = host.querySelector('.chart-rows');
     this.bg = host.querySelector('.chart-bg');
     this.links = host.querySelector('.chart-links');
     this.bars = host.querySelector('.chart-bars');
@@ -164,11 +166,17 @@ export class GanttView {
     const first = Math.max(0, Math.floor(this.chartBody.scrollTop / h) - 6);
     const last = Math.min(rows.length, first + Math.ceil((this.chartBody.clientHeight || 600) / h) + 12);
     const html = [];
+    // Row bands behind the bars, striped and highlighted like the rows of the table beside the chart.
+    const bands = [];
     const showBaseline = this.tracking || settings.showBaseline;
     const critical = settings.showCritical || this.tracking;
     const language = getLanguage();
     for (let index = first; index < last; index++) {
       const row = rows[index];
+      if (row) {
+        const band = ['chart-row', index % 2 ? 'odd' : '', row.group ? 'group-row' : '', row.task && app.isSelected(row.task.id) ? 'selected' : '', row.match ? 'match' : '', row.info?.critical && settings.showCritical ? 'critical-row' : ''].join(' ');
+        bands.push(`<div class="${band}" style="top:${index * h}px;height:${h}px"></div>`);
+      }
       if (!row || row.group) {
         if (row?.group && row.group.start != null && Number.isFinite(row.group.start)) {
           const x = this.scale.x(row.group.start);
@@ -221,6 +229,7 @@ export class GanttView {
       const labelText = settings.barText === 'name' && info.resourceNames?.length && !info.summary ? `${label} · ${info.resourceNames.join(', ')}` : label;
       if (labelText) html.push(`<div class="bar-label" style="left:${(info.milestone ? x + h * 0.4 : x + w) + 6}px;top:${y}px;height:${h}px">${escapeHtml(info.milestone ? `${labelText}  ${formatDay(info.start, settings.dateFormat)}` : labelText)}</div>`);
     }
+    this.rowBands.innerHTML = bands.join('');
     this.bars.innerHTML = html.join('');
     this.drawLinks(first, last);
     this.drawLines();
