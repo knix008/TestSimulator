@@ -2,9 +2,10 @@
 // availability; the part over the limit is red. Pick the resource on the left.
 import { escapeHtml } from '../ui/dom.js';
 import { icon } from '../icons.js';
-import { t } from '../i18n.js';
+import { getLanguage, t } from '../i18n.js';
 import { resourceLoad } from '../domain/schedule.js';
 import { dayOf, dayStart, formatDay, parts, weekStartDay } from '../domain/time.js';
+import { labelIndexes, plainNumber, valueAxis } from '../ui/axes.js';
 
 export class ResourceGraphView {
   constructor(app, host) {
@@ -60,24 +61,50 @@ export class ResourceGraphView {
         for (let i = d; i < d + (weekly ? 7 : 1) && i <= to; i++) { work += load[i - from] ?? 0; capacity += cal.dayMinutes(i) * (resource.maxUnits ?? 1); }
         buckets.push({ day: d, work, capacity });
       }
-      const peak = Math.max(1, ...buckets.map((b) => Math.max(b.work, b.capacity)));
-      const bw = width / buckets.length;
-      const H = 300;
-      const bars = buckets.map((b, i) => {
-        const okH = (Math.min(b.work, b.capacity) / peak) * H;
-        const overH = (Math.max(0, b.work - b.capacity) / peak) * H;
-        const capY = H - (b.capacity / peak) * H;
+      // Axes: hours on the left (round ticks, gridlines, numbers on the ruler), dates below.
+      const language = getLanguage();
+      const peak = Math.max(60, ...buckets.map((b) => Math.max(b.work, b.capacity)));
+      const axis = valueAxis(peak, 'hours', { language });
+      const M = { left: 64, right: 12, top: 14, bottom: 44 };
+      const H = Math.max(240, Math.min(480, this.host.clientHeight - 150));
+      const plotW = width - M.left - M.right;
+      const bw = plotW / buckets.length;
+      const y = (minutes) => M.top + H - (minutes / axis.top) * H;
+      const grid = axis.ticks.map((tick) => `<line class="g-grid" x1="${M.left}" x2="${M.left + plotW}" y1="${y(tick.value)}" y2="${y(tick.value)}"/>
+          <line class="g-tick" x1="${M.left - 5}" x2="${M.left}" y1="${y(tick.value)}" y2="${y(tick.value)}"/>
+          <text class="g-ylabel" x="${M.left - 8}" y="${y(tick.value) + 4}">${escapeHtml(tick.text)}</text>`).join('');
+      const labelled = new Set(labelIndexes(buckets.length, plotW, 58));
+      const xticks = buckets.map((b, i) => {
+        const x = M.left + i * bw;
         const p = parts(dayStart(b.day));
-        return `<g><rect class="g-ok" x="${i * bw + 1}" y="${H - okH}" width="${Math.max(1, bw - 2)}" height="${okH}"><title>${escapeHtml(`${formatDay(dayStart(b.day), settings.dateFormat)}: ${(b.work / 60).toFixed(1)}h / ${(b.capacity / 60).toFixed(1)}h`)}</title></rect>
-          ${overH ? `<rect class="g-over" x="${i * bw + 1}" y="${H - okH - overH}" width="${Math.max(1, bw - 2)}" height="${overH}"/>` : ''}
-          <line class="g-cap" x1="${i * bw}" x2="${(i + 1) * bw}" y1="${capY}" y2="${capY}"/>
-          ${i % Math.max(1, Math.round(60 / bw)) === 0 ? `<text x="${i * bw + 2}" y="${H + 16}">${p.month + 1}/${p.day}</text>` : ''}</g>`;
+        return labelled.has(i) ? `<line class="g-vgrid" x1="${x}" x2="${x}" y1="${M.top}" y2="${M.top + H}"/><line class="g-tick" x1="${x}" x2="${x}" y1="${M.top + H}" y2="${M.top + H + 5}"/><text class="g-xlabel" x="${x}" y="${M.top + H + 18}">${p.month + 1}/${p.day}</text>` : `<line class="g-tick minor" x1="${x}" x2="${x}" y1="${M.top + H}" y2="${M.top + H + 3}"/>`;
       }).join('');
+      const showValues = bw >= 30;
+      const bars = buckets.map((b, i) => {
+        const x = M.left + i * bw + 1;
+        const ok = Math.min(b.work, b.capacity);
+        const over = Math.max(0, b.work - b.capacity);
+        const tip = `${formatDay(dayStart(b.day), settings.dateFormat)}: ${t('graph.tipWork', { work: plainNumber(b.work / 60, language), capacity: plainNumber(b.capacity / 60, language) })}`;
+        return `<g><title>${escapeHtml(tip)}</title>
+          <rect class="g-ok" x="${x}" y="${y(ok)}" width="${Math.max(1, bw - 2)}" height="${y(0) - y(ok)}"/>
+          ${over ? `<rect class="g-over" x="${x}" y="${y(b.work)}" width="${Math.max(1, bw - 2)}" height="${y(ok) - y(b.work)}"/>` : ''}
+          ${showValues && b.work ? `<text class="g-value ${over ? 'over' : ''}" x="${x + (bw - 2) / 2}" y="${y(b.work) - 4}">${escapeHtml(plainNumber(b.work / 60, language))}</text>` : ''}</g>`;
+      }).join('');
+      // Availability: one stepped line across the buckets.
+      const cap = buckets.map((b, i) => `${i ? 'L' : 'M'}${M.left + i * bw} ${y(b.capacity)} L${M.left + (i + 1) * bw} ${y(b.capacity)}`).join(' ');
+      const svgH = M.top + H + M.bottom;
+      const svg = `<svg class="graph-svg" width="${width}" height="${svgH}" viewBox="0 0 ${width} ${svgH}" role="img" aria-label="${escapeHtml(t('graph.axisWork'))}">
+          ${grid}${xticks}${bars}<path class="g-cap" d="${cap}"/>
+          <line class="g-axis" x1="${M.left}" x2="${M.left}" y1="${M.top}" y2="${M.top + H}"/>
+          <line class="g-axis" x1="${M.left}" x2="${M.left + plotW}" y1="${M.top + H}" y2="${M.top + H}"/>
+          <text class="g-title" transform="translate(14 ${M.top + H / 2}) rotate(-90)">${escapeHtml(t('graph.axisWork'))}</text>
+          <text class="g-title" x="${M.left + plotW / 2}" y="${svgH - 6}">${escapeHtml(t(weekly ? 'graph.axisWeek' : 'graph.axisDay'))}</text>
+        </svg>`;
       const info = sched.resources.get(resource.id);
       chart = `<div class="graph-title">${icon('viewResourceGraph')}<b>${escapeHtml(resource.name)}</b>
           <span class="muted">${escapeHtml(t('graph.summary', { max: Math.round((resource.maxUnits ?? 1) * 100), peak: Math.round((info?.peak ?? 0) * 100), work: Math.round((info?.work ?? 0) / 60) }))}</span>
           ${info?.overallocated ? `<span class="badge danger">${escapeHtml(t('graph.over'))}</span>` : ''}</div>
-        <svg class="graph-svg" width="${width}" height="${H + 24}" viewBox="0 0 ${width} ${H + 24}"><line class="g-axis" x1="0" x2="${width}" y1="${H}" y2="${H}"/>${bars}</svg>
+        ${svg}
         <div class="graph-legend"><i class="g-ok"></i>${escapeHtml(t('graph.allocated'))}<i class="g-over"></i>${escapeHtml(t('graph.overallocated'))}<i class="g-cap"></i>${escapeHtml(t('graph.available'))}<span class="muted">${escapeHtml(t(weekly ? 'graph.weekly' : 'graph.daily'))}</span></div>`;
     } else if (resource) {
       chart = `<div class="tl-empty">${icon('info')}<span>${escapeHtml(t('graph.workOnly'))}</span></div>`;

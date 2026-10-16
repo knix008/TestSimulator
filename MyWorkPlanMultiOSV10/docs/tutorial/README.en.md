@@ -11,18 +11,16 @@ This document follows the in-app **Tutorial** step by step, with a screenshot of
 
 ## Contents
 
-1. [Start page](#ch-start)
-2. [Building a plan](#ch-build)
-3. [Scheduling](#ch-schedule)
-4. [Resources and costs](#ch-resources)
-5. [Tracking](#ch-tracking)
-6. [Views](#ch-views)
-7. [Reports](#ch-reports)
-8. [Files and printing](#ch-files)
-9. [Customizing](#ch-customize)
-10. [Help](#ch-help)
-
-<a id="ch-start"></a>
+1. [Start page](#1-start-page)
+2. [Building a plan](#2-building-a-plan)
+3. [Scheduling](#3-scheduling)
+4. [Resources and costs](#4-resources-and-costs)
+5. [Tracking](#5-tracking)
+6. [Views](#6-views)
+7. [Reports](#7-reports)
+8. [Files and printing](#8-files-and-printing)
+9. [Customizing](#9-customizing)
+10. [Help](#10-help)
 
 ## 1. Start page
 
@@ -55,8 +53,6 @@ The last 10 files and 10 folders are remembered. ✕ removes one entry, "Clear a
 The start page background keeps moving. Pick one of 8 animations (aurora, waves, constellation, Gantt bars…), shuffle with "Change moving background", and set the speed. Every start picks a different background at random, and while the start page is open it changes by itself after a set time (30 s by default). An image can be the background too.
 
 ![Moving background](images/05-background.jpg)
-
-<a id="ch-build"></a>
 
 ## 2. Building a plan
 
@@ -126,8 +122,6 @@ Ctrl+C, Ctrl+X and Ctrl+V copy and move tasks. Lists copied from Excel or a text
 
 ![Copy and paste](images/16-clipboard.jpg)
 
-<a id="ch-schedule"></a>
-
 ## 3. Scheduling
 
 ### 17. Task information
@@ -148,289 +142,287 @@ Red bars are critical tasks: they have no slack, so any delay delays the whole p
 
 ![Critical path and slack](images/19-critical.jpg)
 
-### 20. Link types and lag
+### 20. Find critical path (toggle)
+
+The Find critical path toolbar button (Ctrl+Shift+P, also in the Project menu) calculates the schedule front to back (earliest dates) and back to front (latest dates), finds the tasks without slack and shows the critical path from start to finish. Critical tasks and links turn red, the rest fades, and the status bar gives the count and the chain. Press it again to turn it off.
+
+![Find critical path (toggle)](images/20-criticalPath.jpg)
+
+### 21. Link types and lag
 
 Double-click a link line to change its type (FS, SS, FF, SF) and lag: 2d for a lag, -1d for a lead, 50% for a share of the predecessor. Right-click a link for a quick menu.
 
-![Link types and lag](images/20-linkInfo.jpg)
+![Link types and lag](images/21-linkInfo.jpg)
 
-### 21. Change working time
+### 22. Change working time
 
 Set the working days and hours of the project calendar and exceptions such as holidays or extra working days. There are Standard, 24 Hours and Night Shift calendars, and new calendars can be made for tasks and resources.
 
-![Change working time](images/21-calendar.jpg)
+![Change working time](images/22-calendar.jpg)
 
-### 22. Recurring tasks
+### 23. Recurring tasks
 
 Create repeating tasks such as weekly meetings at once: daily, weekly, monthly or yearly, a number of times or up to a date.
 
-![Recurring tasks](images/22-recurring.jpg)
+![Recurring tasks](images/23-recurring.jpg)
 
-### 23. Project information
+### 24. Project information
 
 The start date (or scheduling from the finish date), project calendar, currency, status date, statistics (current, baseline, actual, remaining) and properties.
 
-![Project information](images/23-projectInfo.jpg)
-
-<a id="ch-resources"></a>
+![Project information](images/24-projectInfo.jpg)
 
 ## 4. Resources and costs
 
-### 24. Resource Sheet
+### 25. Resource Sheet
 
 Enter people and equipment (work resources), materials and cost resources with their max. units, rates, cost per use and calendar. Overallocated resources show in red.
 
-![Resource Sheet](images/24-resourceSheet.jpg)
+![Resource Sheet](images/25-resourceSheet.jpg)
 
-### 25. Assigning resources
+### 26. Assigning resources
 
 Select tasks and open Assign Resources (Alt+F10). Tick resources and set their units (50% = half time); work and cost are calculated. New resources can be added right there.
 
-![Assigning resources](images/25-assign.jpg)
+![Assigning resources](images/26-assign.jpg)
 
-### 26. Resource Usage
+### 27. Resource Usage
 
 Each resource with its assignments and its hours per day. Periods with more work than the resource can do are red.
 
-![Resource Usage](images/26-resourceUsage.jpg)
+![Resource Usage](images/27-resourceUsage.jpg)
 
-### 27. Resource Graph
+### 28. Resource Graph
 
 One resource's work per day as columns against its availability as a line; red above the line is overallocation.
 
-![Resource Graph](images/27-resourceGraph.jpg)
+![Resource Graph](images/28-resourceGraph.jpg)
 
-### 28. Resource leveling
+### 29. Resource leveling
 
 Leveling removes overallocations by delaying lower-priority tasks until nothing overlaps. Clear leveling puts them back.
 
-![Resource leveling](images/28-leveling.jpg)
+![Resource leveling](images/29-leveling.jpg)
 
-### 29. Team Planner
+### 30. Team Planner
 
 One lane per person with their tasks. Drag a task block to someone else's lane to reassign it. The bottom lane holds unassigned tasks.
 
-![Team Planner](images/29-teamPlanner.jpg)
-
-<a id="ch-tracking"></a>
+![Team Planner](images/30-teamPlanner.jpg)
 
 ## 5. Tracking
 
-### 30. Baselines
+### 31. Baselines
 
 When the plan is agreed, save a baseline (up to 11). Later compare the real schedule with it to see the variances.
 
-![Baselines](images/30-baseline.jpg)
+![Baselines](images/31-baseline.jpg)
 
-### 31. Entering progress
+### 32. Entering progress
 
 Pick tasks and press 0%, 25%, 50%, 75% or 100%; actual start and finish are recorded automatically. The dark part inside a bar is the progress.
 
-![Entering progress](images/31-progress.jpg)
+![Entering progress](images/32-progress.jpg)
 
-### 32. Update project
+### 33. Update project
 
 Mark everything complete as scheduled up to the status date, or move the remaining work of late tasks after it.
 
-![Update project](images/32-updateProject.jpg)
+![Update project](images/33-updateProject.jpg)
 
-### 33. Tracking Gantt
+### 34. Tracking Gantt
 
 The upper bar is the current schedule, the gray bar below the baseline. The progress line connects how far each task got at the status date.
 
-![Tracking Gantt](images/33-trackingGantt.jpg)
-
-<a id="ch-views"></a>
+![Tracking Gantt](images/34-trackingGantt.jpg)
 
 ## 6. Views
 
-### 34. Switching views
+### 35. Switching views
 
 The view button on the toolbar and the tool panel switch between 12 views: Gantt, Tracking Gantt, Task Sheet, Task Usage, Network Diagram, Calendar, Timeline, Resource Sheet / Usage / Graph, Team Planner and Reports.
 
-![Switching views](images/34-viewMenu.jpg)
+![Switching views](images/35-viewMenu.jpg)
 
-### 35. Long menus are grouped
+### 36. Long menus are grouped
 
 Menus with many items are grouped into submenus by topic. Click an item with › on the right, or press →, and its submenu opens next to it (for example View › Switch view › Network diagram).
 
-![Long menus are grouped](images/35-submenus.jpg)
+![Long menus are grouped](images/36-submenus.jpg)
 
-### 36. Network Diagram
+### 37. Network Diagram
 
 Tasks as boxes, links as arrows. Drag to move around, Ctrl+wheel to zoom. Red boxes are critical.
 
-![Network Diagram](images/36-network.jpg)
+![Network Diagram](images/37-network.jpg)
 
-### 37. Calendar
+### 38. Calendar
 
 A month calendar with bars over the days each task runs. Arrows or the mouse wheel turn the months.
 
-![Calendar](images/37-calendarView.jpg)
+![Calendar](images/38-calendarView.jpg)
 
-### 38. Timeline
+### 39. Timeline
 
 The whole project on one line: phases, milestones and tasks added to the timeline — good for reporting.
 
-![Timeline](images/38-timeline.jpg)
+![Timeline](images/39-timeline.jpg)
 
-### 39. Task Usage
+### 40. Task Usage
 
 Each task with its resources and hours per day. Zooming the timescale switches between days, weeks and months.
 
-![Task Usage](images/39-taskUsage.jpg)
+![Task Usage](images/40-taskUsage.jpg)
 
-### 40. Tables
+### 41. Tables
 
 Switch the column set: Entry, Schedule, Cost, Work, Tracking, Variance, Baseline, Summary, Constraint dates. Right-click a column header to hide or add columns; drag its border to resize it.
 
-![Tables](images/40-tables.jpg)
+![Tables](images/41-tables.jpg)
 
-### 41. Filter, group and sort
+### 42. Filter, group and sort
 
 Filters such as critical, late or milestones; groups by resource or status; sorting. With "Highlight" on, all tasks stay visible and the matches are colored.
 
-![Filter, group and sort](images/41-filter.jpg)
+![Filter, group and sort](images/42-filter.jpg)
 
-### 42. Find, replace, go to
+### 43. Find, replace, go to
 
 Ctrl+F finds, Ctrl+H replaces and Ctrl+G goes to a task ID or a date. The date range filter is here too.
 
-![Find, replace, go to](images/42-find.jpg)
+![Find, replace, go to](images/43-find.jpg)
 
-### 43. Zoom and timescale
+### 44. Zoom and timescale
 
 Ctrl+mouse wheel zooms; over the chart it changes the timescale (days, weeks, months, quarters). Drag (or Ctrl+drag) the chart to move it. The status bar slider changes the timescale too.
 
-![Zoom and timescale](images/43-zoom.jpg)
+![Zoom and timescale](images/44-zoom.jpg)
 
-### 44. Right-click menus
+### 45. Right-click menus
 
 Task rows, bars, links, resources, column headers, empty chart areas, tabs and text fields each have their own menu. Menus can extend outside the window and every item has an icon.
 
-![Right-click menus](images/44-contextMenu.jpg)
-
-<a id="ch-reports"></a>
+![Right-click menus](images/45-contextMenu.jpg)
 
 ## 7. Reports
 
-### 45. Reports
+### 46. Reports
 
 Project overview (% complete, progress by phase, upcoming milestones) plus cost, work, burndown, critical, late, upcoming, milestone and resource reports.
 
-![Reports](images/45-reports.jpg)
+![Reports](images/46-reports.jpg)
 
-### 46. Cost report
+### 47. Cost report
 
 Cumulative cost of the baseline, the current schedule and the actuals, and cost by phase and resource. "Copy report" pastes it into other programs.
 
-![Cost report](images/46-reportCost.jpg)
+![Cost report](images/47-reportCost.jpg)
 
-### 47. Exporting a report
+### 48. Exporting a report
 
 The Export report button in the report header (or the Report menu) saves the current report as HTML, Markdown, Word (.docx) or PDF. Charts go in as pictures and the numbers as tables.
 
-![Exporting a report](images/47-reportExport.jpg)
+![Exporting a report](images/48-reportExport.jpg)
 
-### 48. Burndown
+### 49. Burndown
 
 How the remaining work goes down, as scheduled and actually.
 
-![Burndown](images/48-reportBurndown.jpg)
-
-<a id="ch-files"></a>
+![Burndown](images/49-reportBurndown.jpg)
 
 ## 8. Files and printing
 
-### 49. The File menu
+### 50. The File menu
 
 Save (.mwp), save as template (.mwpt), import and export MS Project XML and CSV, export the Gantt chart as a picture (PNG), manage recent files and folders, print.
 
-![The File menu](images/49-fileMenu.jpg)
+![The File menu](images/50-fileMenu.jpg)
 
-### 50. Printing and preview
+### 51. Printing and preview
 
 Print the entire project, the current view, or a custom part (ID range, date range, selected tasks). Change paper, orientation, margins, scale, header and footer while previewing, then print right away.
 
-![Printing and preview](images/50-print.jpg)
+![Printing and preview](images/51-print.jpg)
 
-### 51. The Gantt chart as an image
+### 52. The Gantt chart as an image
 
 File › Import and export › Export as image: pick PNG, JPEG, WebP, BMP, TIFF or SVG, choose a transparent or white background, the table, the chart or both, and the scale and quality. A transparent image sits straight on top of documents and slides.
 
-![The Gantt chart as an image](images/51-imageExport.jpg)
+![The Gantt chart as an image](images/52-imageExport.jpg)
 
-### 52. Keeping plans in a database
+### 53. Keeping plans in a database
 
 In Settings › Database pick SQLite3, MariaDB, MySQL or PostgreSQL, enter the file or the server, port, database name and user, and press Test connection. From then on Save (Ctrl+S) writes both the file and the database, and File › Open from database brings plans back. The password is kept only if you turn on saving it.
 
-![Keeping plans in a database](images/52-database.jpg)
+![Keeping plans in a database](images/53-database.jpg)
 
-### 53. Managing recent files
+### 54. Managing recent files
 
 Recent files and recent folders on two tabs: open one, remove one, or clear them all. Files that no longer exist are marked "Missing".
 
-![Managing recent files](images/53-recentFiles.jpg)
+![Managing recent files](images/54-recentFiles.jpg)
 
-### 54. Drag and drop
+### 55. Drag and drop
 
 Drag .mwp, .mwpt, XML or CSV files from the file manager onto the window to open them; an image becomes the background and text becomes a task list.
 
-![Drag and drop](images/54-dragDrop.jpg)
-
-<a id="ch-customize"></a>
+![Drag and drop](images/55-dragDrop.jpg)
 
 ## 9. Customizing
 
-### 55. Themes
+### 56. Themes
 
 The theme button picks a different theme at random on every press. The ▾ next to it lists 20 dark and 20 light themes in two columns; the custom theme is edited color by color in Settings › Theme.
 
-![Themes](images/55-theme.jpg)
+![Themes](images/56-theme.jpg)
 
-### 56. Language
+### 57. Language
 
 The flag button switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English.
 
-![Language](images/56-language.jpg)
+![Language](images/57-language.jpg)
 
-### 57. Collapsing panels
+### 58. Collapsing panels
 
 Collapsed, the tool and properties panels leave a narrow rail with icons and a title; the expand button is at the top. Drag the separators to change their width.
 
-![Collapsing panels](images/57-panels.jpg)
+![Collapsing panels](images/58-panels.jpg)
 
-### 58. Settings
+### 59. Settings
 
 General, Theme, Font (every font installed on the system, size, weight, italic), Background, Schedule, Gantt chart, Recent and Shortcuts tabs. Settings are kept for the next start.
 
-![Settings](images/58-settings.jpg)
+![Settings](images/59-settings.jpg)
 
-### 59. Status bar
+### 60. Status bar
 
 Command results, the mode of new tasks, save state, task count, selection, finish date, % complete, conflicts, theme, language, timescale, zoom and a clock. Drag the bottom-right corner to resize the window.
 
-![Status bar](images/59-statusBar.jpg)
-
-<a id="ch-help"></a>
+![Status bar](images/60-statusBar.jpg)
 
 ## 10. Help
 
-### 60. Keyboard shortcuts
+### 61. Keyboard shortcuts
 
 Settings › Shortcuts lists them all; the menus show them next to each command.
 
-![Keyboard shortcuts](images/60-shortcuts.jpg)
+![Keyboard shortcuts](images/61-shortcuts.jpg)
 
-### 61. About
+### 62. About
 
 The ⓘ toolbar button shows the version, build information and the author (SHKWON, knix008@naver.com). Errors open a popup with every detail, ready to copy.
 
-![About](images/61-about.jpg)
+![About](images/62-about.jpg)
 
-### 62. That's the tour
+### 63. Reading the tutorial document
+
+A document with every step of this tutorial and its screen can be read inside the program: open it from Help › Tutorial document on the home screen or in the Help menu. The bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. Home takes you back.
+
+![Reading the tutorial document](images/63-tutorialDoc.jpg)
+
+### 64. That's the tour
 
 Watch it again any time with Help › Tutorial or the graduation-cap toolbar button (F11). See Help › User's guide for the details.
 
-![That's the tour](images/62-finish.jpg)
+![That's the tour](images/64-finish.jpg)
 

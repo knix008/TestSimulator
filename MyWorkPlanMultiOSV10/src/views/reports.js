@@ -8,6 +8,7 @@ import { t, getLanguage } from '../i18n.js';
 import { formatDuration, formatMoney } from '../domain/duration.js';
 import { dayOf, dayStart, formatDay, nowMin } from '../domain/time.js';
 import { assignmentLoad } from '../domain/schedule.js';
+import { labelIndexes, valueAxis } from '../ui/axes.js';
 
 export const REPORTS = [
   ['overview', 'reportOverview'], ['cost', 'reportCost'], ['work', 'reportWork'], ['burndown', 'burndown'], ['critical', 'reportCritical'],
@@ -85,14 +86,19 @@ export function reportModel(app, id = 'overview') {
     })]),
     empty: t('report.none'),
   });
+  // Which value axis a chart gets, from the formatter it uses.
+  const kindOf = (format) => (format === money ? 'money' : format === hours ? 'hours' : String(format(1)).endsWith('%') ? 'percent' : 'count');
+  const axisFor = (max, format, maxIntervals = 8) => valueAxis(Math.max(1, max), kindOf(format), { currency: options.currency, language: getLanguage() }, 4, maxIntervals);
   const line = (title, points, keys, format, note) => ({
     type: 'line', title, note,
     ticks: ((max) => [0, 0.5, 1].map((f) => format(max * f)))(Math.max(1, ...points.flatMap((p) => keys.map(([key]) => p[key] ?? 0)))),
+    axis: axisFor(Math.max(...points.flatMap((p) => keys.map(([key]) => p[key] ?? 0))), format),
     series: keys.map(([key, tone]) => ({ key, tone, label: t(`report.series.${key}`) })),
     points: points.map((p) => ({ label: date(dayStart(p.day)), values: Object.fromEntries(keys.map(([key]) => [key, p[key] ?? null])), texts: Object.fromEntries(keys.map(([key]) => [key, p[key] == null ? '' : format(p[key])])) })),
   });
   const bars = (title, items, format, legend) => ({
     type: 'bars', title, legend, empty: t('report.none'),
+    axis: axisFor(Math.max(0, ...items.map((item) => Math.max(item.value ?? 0, item.second ?? 0))), format, 5),
     items: items.map((item) => ({ label: String(item.label ?? ''), value: item.value ?? 0, second: item.second ?? null, tone: item.cls || null, text: format(item.value ?? 0), secondText: item.second != null ? format(item.second) : '' })),
   });
   const blocks = [];
@@ -154,11 +160,35 @@ export function reportModel(app, id = 'overview') {
   };
 }
 
+/**
+ * Ruler labels that would touch their neighbour at the current width are hidden
+ * (their tick mark stays); the first and the last value always show.
+ */
+export function fitRulers(host) {
+  for (const scale of host.querySelectorAll('.hbar-scale')) {
+    const labels = [...scale.querySelectorAll('b')];
+    for (const label of labels) label.style.visibility = '';
+    if (labels.length < 3) continue;
+    const box = (label) => label.getBoundingClientRect();
+    const gap = 6;
+    const last = box(labels.at(-1));
+    let previous = box(labels[0]);
+    for (const label of labels.slice(1, -1)) {
+      const r = box(label);
+      if (r.left < previous.right + gap || r.right > last.left - gap) label.style.visibility = 'hidden';
+      else previous = r;
+    }
+  }
+}
+
 export class ReportsView {
   constructor(app, host) {
     this.app = app;
     this.host = host;
     host.classList.add('reports-view');
+    // Ruler labels are thinned for the width they get: again when it changes.
+    this.resize = new ResizeObserver(() => fitRulers(host));
+    this.resize.observe(host);
     host.addEventListener('click', (event) => {
       const tab = event.target.closest('[data-report]');
       if (tab) { app.doc().view.report = tab.dataset.report; this.render(); return; }
@@ -200,6 +230,7 @@ export class ReportsView {
           <button class="small-button" data-report-action="print" title="${escapeHtml(t('action.print'))}">${icon('print')}<span>${escapeHtml(t('action.print'))}</span></button></div>
         ${body}
       </div>`;
+    fitRulers(this.host);
   }
 
   money(value) { return formatMoney(value, this.app.project().options.currency); }
@@ -217,26 +248,45 @@ export class ReportsView {
     return `<svg class="donut" viewBox="0 0 140 140" width="150" height="150"><circle class="donut-bg" cx="70" cy="70" r="${r}"/><circle class="donut-fg" cx="70" cy="70" r="${r}" stroke-dasharray="${(c * percent) / 100} ${c}" transform="rotate(-90 70 70)"/><text x="70" y="68" class="donut-value">${percent}%</text><text x="70" y="90" class="donut-label">${escapeHtml(label)}</text></svg>`;
   }
 
-  barChart(items, format) {
+  /** Horizontal bars on one scale, with gridlines and a ruler of round values underneath. */
+  barChart(items, format, kind = 'count') {
+    if (!items.length) return `<div class="hbars"><div class="muted">${escapeHtml(t('report.none'))}</div></div>`;
     const max = Math.max(1, ...items.map((item) => Math.max(item.value, item.second ?? 0)));
-    return `<div class="hbars">${items.map((item) => `<div class="hbar-row" title="${escapeHtml(`${item.label}: ${format(item.value)}`)}"><span class="hbar-label">${escapeHtml(item.label)}</span>
-      <span class="hbar-track"><i class="hbar ${item.cls ?? ''}" style="width:${(item.value / max) * 100}%"></i>${item.second != null ? `<i class="hbar second" style="width:${(item.second / max) * 100}%"></i>` : ''}</span>
-      <span class="hbar-value">${escapeHtml(format(item.value))}</span></div>`).join('') || `<div class="muted">${escapeHtml(t('report.none'))}</div>`}</div>`;
+    // At most 5 intervals: bar charts can sit in half-width cards, and the ruler numbers must not touch.
+    const axis = valueAxis(max, kind, { currency: this.app.project().options.currency, language: getLanguage() }, 4, 5);
+    const pct = (value) => `${Math.max(0, (value / axis.top) * 100)}%`;
+    const grid = axis.ticks.slice(1).map((tick) => `<i class="hbar-grid" style="left:${tick.at * 100}%"></i>`).join('');
+    const rows = items.map((item) => `<div class="hbar-row" title="${escapeHtml(`${item.label}: ${format(item.value)}`)}"><span class="hbar-label">${escapeHtml(item.label)}</span>
+      <span class="hbar-track">${grid}<i class="hbar ${item.cls ?? ''}" style="width:${pct(item.value)}"></i>${item.second != null ? `<i class="hbar second" style="width:${pct(item.second)}"></i>` : ''}</span>
+      <span class="hbar-value">${escapeHtml(format(item.value))}</span></div>`).join('');
+    const ruler = `<div class="hbar-row hbar-axis" aria-hidden="true"><span></span><span class="hbar-scale">${axis.ticks.map((tick, i) => `<i class="${i === 0 ? 'first' : i === axis.ticks.length - 1 ? 'last' : ''}" style="left:${tick.at * 100}%"><b>${escapeHtml(tick.text)}</b></i>`).join('')}</span><span></span></div>`;
+    return `<div class="hbars">${rows}${ruler}</div>`;
   }
 
-  lineChart(points, keys, format) {
-    const W = 640;
-    const H = 220;
+  /** Lines over time: a value ruler with round ticks and gridlines on the left, dated ticks below. */
+  lineChart(points, keys, format, kind = 'count') {
+    const W = 760;
+    const H = 260;
+    const M = { left: 76, right: 18, top: 12, bottom: 34 };
+    const plotW = W - M.left - M.right;
+    const plotH = H - M.top - M.bottom;
+    const language = getLanguage();
     const max = Math.max(1, ...points.flatMap((p) => keys.map(([key]) => p[key] ?? 0)));
-    const x = (i) => 40 + (i / Math.max(1, points.length - 1)) * (W - 60);
-    const y = (v) => H - 24 - (v / max) * (H - 44);
+    const axis = valueAxis(max, kind, { currency: this.app.project().options.currency, language });
+    const x = (i) => M.left + (i / Math.max(1, points.length - 1)) * plotW;
+    const y = (v) => M.top + plotH - (v / axis.top) * plotH;
     const lines = keys.map(([key, cls]) => {
-      const pts = points.map((p, i) => (p[key] == null ? null : `${x(i)},${y(p[key])}`)).filter(Boolean);
+      const pts = points.map((p, i) => (p[key] == null ? null : `${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`)).filter(Boolean);
       return pts.length ? `<polyline class="line ${cls}" points="${pts.join(' ')}"/>` : '';
     }).join('');
-    const ticks = [0, 0.5, 1].map((f) => `<text x="4" y="${y(max * f) + 4}" class="axis-text">${escapeHtml(format(max * f))}</text><line class="axis" x1="40" x2="${W - 20}" y1="${y(max * f)}" y2="${y(max * f)}"/>`).join('');
-    const dates = [0, Math.floor(points.length / 2), points.length - 1].map((i) => points[i] ? `<text x="${x(i)}" y="${H - 6}" class="axis-text middle">${escapeHtml(this.date(dayStart(points[i].day)))}</text>` : '').join('');
-    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${ticks}${lines}${dates}</svg>
+    const yAxis = axis.ticks.map((tick) => `<line class="grid-line" x1="${M.left}" x2="${M.left + plotW}" y1="${y(tick.value)}" y2="${y(tick.value)}"/>
+      <line class="tick" x1="${M.left - 5}" x2="${M.left}" y1="${y(tick.value)}" y2="${y(tick.value)}"/>
+      <text x="${M.left - 8}" y="${y(tick.value) + 4}" class="axis-text end">${escapeHtml(tick.text)}</text>`).join('');
+    const xAxis = labelIndexes(points.length, plotW, 96).map((i) => `<line class="grid-line" x1="${x(i)}" x2="${x(i)}" y1="${M.top}" y2="${M.top + plotH}"/>
+      <line class="tick" x1="${x(i)}" x2="${x(i)}" y1="${M.top + plotH}" y2="${M.top + plotH + 5}"/>
+      <text x="${x(i)}" y="${M.top + plotH + 18}" class="axis-text middle">${escapeHtml(this.date(dayStart(points[i].day)))}</text>`).join('');
+    const frame = `<line class="axis" x1="${M.left}" x2="${M.left}" y1="${M.top}" y2="${M.top + plotH}"/><line class="axis" x1="${M.left}" x2="${M.left + plotW}" y1="${M.top + plotH}" y2="${M.top + plotH}"/>`;
+    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img">${yAxis}${xAxis}${frame}${lines}</svg>
       <div class="chart-legend">${keys.map(([key, cls]) => `<span><i class="${cls}"></i>${escapeHtml(t(`report.series.${key}`))}</span>`).join('')}</div>`;
   }
 
@@ -258,7 +308,7 @@ export class ReportsView {
       </div>
       <div class="report-cards">
         <section class="card"><h3>${icon('percent')}${escapeHtml(t('report.complete'))}</h3>${this.donut(sched.percentComplete ?? 0, t('field.percentComplete'))}</section>
-        <section class="card wide"><h3>${icon('summaryBar')}${escapeHtml(t('report.phases'))}</h3>${this.barChart(phases, (v) => `${v}%`)}</section>
+        <section class="card wide"><h3>${icon('summaryBar')}${escapeHtml(t('report.phases'))}</h3>${this.barChart(phases, (v) => `${v}%`, 'percent')}</section>
         <section class="card wide"><h3>${icon('reportMilestones')}${escapeHtml(t('report.nextMilestones'))}</h3>${this.rowsTable(milestones, ['name', 'finish', 'finishVariance'])}</section>
       </div>`;
   }
@@ -270,9 +320,9 @@ export class ReportsView {
     const byResource = project.resources.map((r) => ({ label: r.name, value: sched.resources.get(r.id)?.cost ?? 0 })).sort((a, b) => b.value - a.value);
     return `<div class="kpis">${this.kpi('money', t('field.cost'), this.money(sched.cost))}${this.kpi('reportCost', t('field.actualCost'), this.money(sched.actualCost))}${this.kpi('flag', t('field.remainingCost'), this.money(sched.cost - sched.actualCost))}</div>
       <div class="report-cards">
-        <section class="card wide"><h3>${icon('burndown')}${escapeHtml(t('report.cumulativeCost'))}</h3>${this.lineChart(series(project, sched, 'cost'), [['planned', 'planned'], ['scheduled', 'scheduled'], ['actual', 'actual']], (v) => this.money(v))}</section>
-        <section class="card"><h3>${icon('summaryBar')}${escapeHtml(t('report.costByPhase'))}</h3>${this.barChart(byPhase, (v) => this.money(v))}</section>
-        <section class="card"><h3>${icon('reportResources')}${escapeHtml(t('report.costByResource'))}</h3>${this.barChart(byResource, (v) => this.money(v))}</section>
+        <section class="card wide"><h3>${icon('burndown')}${escapeHtml(t('report.cumulativeCost'))}</h3>${this.lineChart(series(project, sched, 'cost'), [['planned', 'planned'], ['scheduled', 'scheduled'], ['actual', 'actual']], (v) => this.money(v), 'money')}</section>
+        <section class="card"><h3>${icon('summaryBar')}${escapeHtml(t('report.costByPhase'))}</h3>${this.barChart(byPhase, (v) => this.money(v), 'money')}</section>
+        <section class="card"><h3>${icon('reportResources')}${escapeHtml(t('report.costByResource'))}</h3>${this.barChart(byResource, (v) => this.money(v), 'money')}</section>
       </div>`;
   }
 
@@ -294,8 +344,8 @@ export class ReportsView {
     }
     return `<div class="kpis">${this.kpi('reportWork', t('field.work'), this.hours(sched.work))}${this.kpi('check', t('field.actualWork'), this.hours(sched.actualWork))}${this.kpi('hourglass', t('field.remainingWork'), this.hours(sched.work - sched.actualWork))}</div>
       <div class="report-cards">
-        <section class="card wide"><h3>${icon('reportResources')}${escapeHtml(t('report.workByResource'))}</h3>${this.barChart(byResource, (v) => this.hours(v))}<div class="chart-legend"><span><i class="scheduled"></i>${escapeHtml(t('field.work'))}</span><span><i class="actual"></i>${escapeHtml(t('field.actualWork'))}</span></div></section>
-        <section class="card wide"><h3>${icon('viewResourceGraph')}${escapeHtml(t('report.workByWeek'))}</h3>${this.barChart(weeks.map((w) => ({ label: this.date(dayStart(w.day)), value: w.work })), (v) => this.hours(v))}</section>
+        <section class="card wide"><h3>${icon('reportResources')}${escapeHtml(t('report.workByResource'))}</h3>${this.barChart(byResource, (v) => this.hours(v), 'hours')}<div class="chart-legend"><span><i class="scheduled"></i>${escapeHtml(t('field.work'))}</span><span><i class="actual"></i>${escapeHtml(t('field.actualWork'))}</span></div></section>
+        <section class="card wide"><h3>${icon('viewResourceGraph')}${escapeHtml(t('report.workByWeek'))}</h3>${this.barChart(weeks.map((w) => ({ label: this.date(dayStart(w.day)), value: w.work })), (v) => this.hours(v), 'hours')}</section>
       </div>`;
   }
 
@@ -303,7 +353,7 @@ export class ReportsView {
     const project = this.app.project();
     const sched = this.app.sched();
     const points = series(project, sched, 'work').map((p) => ({ ...p, remaining: p.actual == null ? null : p.remaining, remainingPlan: (sched.work - p.scheduled) }));
-    return `<div class="report-cards"><section class="card wide"><h3>${icon('burndown')}${escapeHtml(t('report.burndownTitle'))}</h3>${this.lineChart(points, [['remainingPlan', 'scheduled'], ['remaining', 'actual']], (v) => this.hours(v))}<p class="muted">${escapeHtml(t('report.burndownHint'))}</p></section></div>`;
+    return `<div class="report-cards"><section class="card wide"><h3>${icon('burndown')}${escapeHtml(t('report.burndownTitle'))}</h3>${this.lineChart(points, [['remainingPlan', 'scheduled'], ['remaining', 'actual']], (v) => this.hours(v), 'hours')}<p class="muted">${escapeHtml(t('report.burndownHint'))}</p></section></div>`;
   }
 
   rowsTable(rows, fields) {
@@ -348,5 +398,5 @@ export class ReportsView {
   update() { this.render(); }
   selectionChanged() { for (const el of this.host.querySelectorAll('tr[data-task]')) el.classList.toggle('selected', this.app.isSelected(el.dataset.task)); }
   scrollToTask() {}
-  destroy() { this.host.innerHTML = ''; this.host.className = 'view-host'; }
+  destroy() { this.resize.disconnect(); this.host.innerHTML = ''; this.host.className = 'view-host'; }
 }

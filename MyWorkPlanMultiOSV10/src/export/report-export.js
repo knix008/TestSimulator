@@ -38,8 +38,10 @@ function barsSvg(block) {
   const valueW = 120;
   const trackW = W - labelW - valueW - 20;
   const legend = block.legend?.length ? 28 : 0;
-  const H = Math.max(1, items.length) * rowH + 12 + legend;
-  const max = Math.max(1, ...items.map((item) => Math.max(item.value ?? 0, item.second ?? 0)));
+  const ruler = block.axis && items.length ? 30 : 0;
+  const rowsH = Math.max(1, items.length) * rowH + 12;
+  const H = rowsH + ruler + legend;
+  const max = block.axis?.top ?? Math.max(1, ...items.map((item) => Math.max(item.value ?? 0, item.second ?? 0)));
   const secondTone = TONES[block.legend?.[1]?.tone] ?? TONES.planned;
   const rows = items.map((item, i) => {
     const y = 6 + i * rowH;
@@ -48,12 +50,20 @@ function barsSvg(block) {
     const barH = hasSecond ? 12 : 14;
     const second = item.second != null ? `<rect x="${labelW}" y="${y + 5 + barH + 2}" width="${Math.max(0, (item.second / max) * trackW).toFixed(1)}" height="8" rx="2" fill="${secondTone}"/>` : '';
     return `<text x="${labelW - 8}" y="${y + 5 + barH - 2}" font-size="12" text-anchor="end" fill="#374151">${escapeXml(fit(item.label, 12, labelW - 12))}</text>`
-      + `<rect x="${labelW}" y="${y + 5}" width="${trackW}" height="${barH}" rx="3" fill="#eef1f5"/><rect x="${labelW}" y="${y + 5}" width="${w.toFixed(1)}" height="${barH}" rx="3" fill="${color}"/>${second}`
+      + `<rect x="${labelW}" y="${y + 5}" width="${trackW}" height="${barH}" rx="3" fill="#eef1f5" fill-opacity="0.55"/><rect x="${labelW}" y="${y + 5}" width="${w.toFixed(1)}" height="${barH}" rx="3" fill="${color}"/>${second}`
       + `<text x="${labelW + trackW + 8}" y="${y + 5 + barH - 2}" font-size="12" fill="#111827">${escapeXml(item.text)}</text>`;
   }).join('');
   const empty = items.length ? '' : `<text x="${W / 2}" y="24" font-size="12" text-anchor="middle" fill="#6b7280">${escapeXml(block.empty ?? '')}</text>`;
+  // Gridlines at every tick behind the bars, and a ruler with the tick values under them.
+  const ticks = ruler ? block.axis.ticks : [];
+  const gridSvg = ticks.map((tick) => `<line x1="${(labelW + tick.at * trackW).toFixed(1)}" x2="${(labelW + tick.at * trackW).toFixed(1)}" y1="4" y2="${rowsH}" stroke="#e5e7eb"/>`).join('');
+  const rulerSvg = ruler ? `<line x1="${labelW}" x2="${labelW + trackW}" y1="${rowsH}" y2="${rowsH}" stroke="#9ca3af"/>` + ticks.map((tick, i) => {
+    const x = labelW + tick.at * trackW;
+    const anchor = i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle';
+    return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${rowsH}" y2="${rowsH + 5}" stroke="#9ca3af"/><text x="${x.toFixed(1)}" y="${rowsH + 18}" font-size="11" text-anchor="${anchor}" fill="#6b7280">${escapeXml(tick.text)}</text>`;
+  }).join('') : '';
   const legendSvg = legend ? legendRow(block.legend, H - 10, W) : '';
-  return { svg: svgWrap(W, H, rows + empty + legendSvg), width: W, height: H };
+  return { svg: svgWrap(W, H, gridSvg + rows + empty + rulerSvg + legendSvg), width: W, height: H };
 }
 
 function legendRow(entries, y, W) {
@@ -74,7 +84,7 @@ function lineSvg(block) {
   const top = 12;
   const bottom = 64;
   const points = block.points;
-  const max = Math.max(1, ...points.flatMap((p) => block.series.map((s) => p.values[s.key] ?? 0)));
+  const max = block.axis?.top ?? Math.max(1, ...points.flatMap((p) => block.series.map((s) => p.values[s.key] ?? 0)));
   const x = (i) => left + (i / Math.max(1, points.length - 1)) * (W - left - right);
   const y = (v) => top + (1 - v / max) * (H - top - bottom);
   const fmtTick = (f) => {
@@ -85,13 +95,18 @@ function lineSvg(block) {
     for (const p of points) for (const s of block.series) if (p.values[s.key] != null && (best == null || Math.abs(p.values[s.key] - max * f) < Math.abs(best.v - max * f))) best = { v: p.values[s.key], text: p.texts[s.key] };
     return f === 0 ? '0' : best && Math.abs(best.v - max * f) < max * 0.02 ? best.text : String(Math.round(max * f).toLocaleString('en-US'));
   };
-  const grid = [0, 0.5, 1].map((f) => `<line x1="${left}" x2="${W - right}" y1="${y(max * f).toFixed(1)}" y2="${y(max * f).toFixed(1)}" stroke="#e5e7eb"/><text x="${left - 8}" y="${(y(max * f) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="#6b7280">${escapeXml(fit(fmtTick(f), 11, left - 12))}</text>`).join('');
+  const yTicks = block.axis ? block.axis.ticks.map((tick) => ({ v: tick.value, text: tick.text })) : [0, 0.5, 1].map((f) => ({ v: max * f, text: fmtTick(f) }));
+  const grid = yTicks.map((tick) => `<line x1="${left}" x2="${W - right}" y1="${y(tick.v).toFixed(1)}" y2="${y(tick.v).toFixed(1)}" stroke="#e5e7eb"/><line x1="${left - 5}" x2="${left}" y1="${y(tick.v).toFixed(1)}" y2="${y(tick.v).toFixed(1)}" stroke="#9ca3af"/><text x="${left - 8}" y="${(y(tick.v) + 4).toFixed(1)}" font-size="11" text-anchor="end" fill="#6b7280">${escapeXml(fit(tick.text, 11, left - 12))}</text>`).join('')
+    + `<line x1="${left}" x2="${left}" y1="${top}" y2="${H - bottom}" stroke="#9ca3af"/><line x1="${left}" x2="${W - right}" y1="${H - bottom}" y2="${H - bottom}" stroke="#9ca3af"/>`;
   const lines = block.series.map((s) => {
     const pts = points.map((p, i) => (p.values[s.key] == null ? null : `${x(i).toFixed(1)},${y(p.values[s.key]).toFixed(1)}`)).filter(Boolean);
     return pts.length ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${TONES[s.tone] ?? TONES.scheduled}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"${s.tone === 'planned' ? ' stroke-dasharray="6 4"' : ''}/>` : '';
   }).join('');
-  const dates = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])].filter((i) => points[i])
-    .map((i) => `<text x="${x(i).toFixed(1)}" y="${H - bottom + 18}" font-size="11" text-anchor="${i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}" fill="#6b7280">${escapeXml(points[i].label)}</text>`).join('');
+  // About one dated tick per 100 px, each with a light vertical gridline.
+  const every = Math.max(1, Math.ceil((points.length * 100) / (W - left - right)));
+  const dateIdx = [];
+  for (let i = 0; i < points.length; i += every) dateIdx.push(i);
+  const dates = dateIdx.map((i) => `<line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${top}" y2="${H - bottom}" stroke="#f0f1f4"/><line x1="${x(i).toFixed(1)}" x2="${x(i).toFixed(1)}" y1="${H - bottom}" y2="${H - bottom + 5}" stroke="#9ca3af"/><text x="${x(i).toFixed(1)}" y="${H - bottom + 18}" font-size="11" text-anchor="${i === 0 ? 'start' : 'middle'}" fill="#6b7280">${escapeXml(points[i].label)}</text>`).join('');
   return { svg: svgWrap(W, H, grid + lines + dates + legendRow(block.series, H - 12, W)), width: W, height: H };
 }
 

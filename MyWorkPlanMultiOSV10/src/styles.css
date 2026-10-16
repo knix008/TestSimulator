@@ -526,7 +526,7 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .kpi.good .icon { color: var(--success); }
 .report-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 .card { padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); min-width: 0; }
-.card.wide { grid-column: span 2; }
+.card.wide { grid-column: 1 / -1; } /* the full row, however many columns fit (span 2 forced a second column into narrow windows) */
 .card h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 0.95em; }
 .card h3 .icon, .card > .icon { width: 16px; height: 16px; color: var(--accent); }
 .donut { display: block; margin: 0 auto; }
@@ -1062,3 +1062,41 @@ html.is-web body { overflow-x: auto; }
 .reader-title .icon { color: var(--accent); }
 .reader-chapters { max-width: 260px; }
 .reader-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #fff; }
+
+/* ───────────────────────── chart axes: rulers with tick marks and numbers, gridlines */
+.graph-svg .g-grid, .graph-svg .g-vgrid { stroke: color-mix(in srgb, var(--border) 70%, transparent); stroke-width: 1; }
+.graph-svg .g-vgrid { stroke-dasharray: 2 3; }
+.graph-svg .g-axis { stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.2; }
+.graph-svg .g-tick { stroke: color-mix(in srgb, var(--text) 55%, transparent); }
+.graph-svg .g-tick.minor { stroke: color-mix(in srgb, var(--text) 30%, transparent); }
+.graph-svg .g-ylabel { text-anchor: end; font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.graph-svg .g-xlabel { text-anchor: middle; font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.graph-svg .g-title { text-anchor: middle; font-size: 11px; font-weight: 600; fill: var(--muted); }
+.graph-svg .g-value { text-anchor: middle; font-size: 10px; fill: var(--text); font-variant-numeric: tabular-nums; }
+.graph-svg .g-value.over { fill: var(--danger); font-weight: 600; }
+.graph-svg .g-cap { fill: none; stroke: var(--success); stroke-width: 2.5; }
+.line-chart .grid-line { stroke: color-mix(in srgb, var(--border) 70%, transparent); stroke-width: 1; }
+.line-chart .tick, .line-chart .axis { stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.2; }
+.line-chart .axis-text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.line-chart .axis-text.end { text-anchor: end; }
+.line-chart .axis-text.middle { text-anchor: middle; }
+.hbar-row { grid-template-columns: minmax(80px, 160px) 1fr 112px; }
+.hbar-value { text-align: right; }
+.hbar-track { overflow: visible; }
+.hbar-grid { position: absolute; top: -3px; bottom: -3px; width: 1px; background: color-mix(in srgb, var(--border) 80%, transparent); pointer-events: none; }
+.hbar { z-index: 1; }
+.hbar-axis { margin-top: 2px; }
+.hbar-scale { position: relative; height: 24px; border-top: 1.2px solid color-mix(in srgb, var(--text) 55%, transparent); }
+.hbar-scale i { font-style: normal; position: absolute; top: 0; width: 1px; height: 5px; background: color-mix(in srgb, var(--text) 55%, transparent); }
+.hbar-scale b { position: absolute; top: 7px; transform: translateX(-50%); font-weight: 400; font-style: normal; font-size: 0.86em; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hbar-scale i.first b { transform: none; }
+.hbar-scale i.last b { transform: translateX(-100%); }
+
+/* Bar lists: every row shares one set of columns (labels and values sized to their content), so all bars and
+   the ruler use the same track, which never gets narrower than 140 px. Cards sit side by side only when each
+   gets 420 px. */
+.hbars { display: grid; grid-template-columns: minmax(48px, max-content) minmax(140px, 1fr) max-content; column-gap: 10px; row-gap: 5px; }
+.hbars > .muted { grid-column: 1 / -1; }
+.hbar-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
+.hbar-label { max-width: 180px; }
+.report-cards { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }

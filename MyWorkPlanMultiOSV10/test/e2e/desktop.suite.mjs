@@ -10,6 +10,7 @@ import { sleep } from './cdp.mjs';
 import { root } from './harness.mjs';
 import { ALIGN_CHECK } from './align-check.mjs';
 import { CLIP_CHECK } from './clip-check.mjs';
+import { CHART_CHECK } from './chart-check.mjs';
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const TITLE = `MyWorkPlan v${VERSION}`;
@@ -328,7 +329,12 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(info.noIcon, 0, 'every item has an icon');
     assert.equal(info.noLabel, 0, 'every item has a label');
     assert.ok(info.fits, 'menu window shows every item');
-    await expectPopupWindow(app, menu, 'menu');
+    // A menu closes when it loses focus (as menus do): if something took the focus meanwhile, open it once more.
+    await expectPopupWindow(app, menu, 'menu').catch(async () => {
+      await app.main.click(`[data-menu="${name}"]`);
+      await sleep(500);
+      await expectPopupWindow(app, menu, 'menu');
+    });
     await menu.key('Escape');
     await sleep(250);
     menu.close();
@@ -632,6 +638,26 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await app.hasPopup('error'), false, 'no error popup');
   } })),
 
+  { group: '보기', name: '그래프·보고서 차트: 축 눈금과 눈금자 수치, 격자선, 겹치지 않는 눈금 글자', async run(app) {
+    await freshSample(app);
+    const views = [['resourceGraph', null], ...['overview', 'cost', 'work', 'burndown', 'critical', 'late', 'upcoming', 'milestones', 'resources'].map((id) => ['reports', id])];
+    let seen = 0;
+    for (const [view, report] of views) {
+      await W(app, `(${report ? `api.doc().view.report = '${report}', ` : ''}a.switchView('${view}'), 1)`);
+      await sleep(500);
+      for (const chart of await app.main.eval(CHART_CHECK)) {
+        seen += 1;
+        const where = `${report ?? view} ${chart.kind}`;
+        assert.ok(chart.yLabels.length >= 3, `${where}: a ruler with numbers ${JSON.stringify(chart.yLabels)}`);
+        if (chart.kind !== 'bars') assert.ok(chart.xLabels >= 2, `${where}: dated ticks`);
+        assert.ok(chart.grid >= 2, `${where}: gridlines`);
+        assert.deepEqual(chart.overlaps, [], `${where}: tick labels do not touch`);
+        assert.match(chart.yLabels[0], /^[^\d]*0/, `${where}: the ruler starts at 0`);
+      }
+    }
+    assert.ok(seen >= 6, `${seen} charts checked`);
+    await W(app, `(a.switchView('gantt'), 1)`);
+  } },
   // ───────────────────────── scheduling features
   { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
     await freshSample(app);
@@ -643,7 +669,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.main.click('#toolbar [data-command="criticalPath"]');
     await sleep(400);
     const on = await state();
-    const expected = await app.main.eval(`(async () => { const { criticalPath } = await import('/src/domain/critical.js'); const api = window.__myworkplan.api; return criticalPath(api.project(), api.sched()).ids.size; })()`);
+    const expected = await app.main.eval(`(() => { const w = window.__myworkplan; return w.domain.criticalPath(w.api.project(), w.api.sched()).ids.size; })()`);
     assert.ok(expected > 0);
     assert.equal(on.pressed, 'true');
     assert.ok(on.focus, 'the rest of the plan steps back');
@@ -1036,7 +1062,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
     assert.ok(doc.shown);
     assert.match(doc.h1, /MyWorkPlan/);
-    const steps = await app.main.eval(`(async () => (await import('/src/ui/tutorial.js')).STEPS.length)()`);
+    const steps = await app.main.eval(`window.__myworkplan.domain.tutorialSteps()`);
     assert.equal(doc.steps, steps, 'every tutorial step is in the document');
     assert.equal(doc.images, steps, 'with a picture each');
     assert.equal(doc.raw, false, 'no raw HTML shows as text');

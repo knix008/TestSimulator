@@ -31,7 +31,7 @@ import { applyFont, applyTheme, randomThemeId, resolveTheme, themeName } from '.
 import { escapeHtml, frameThrottle, isMac, keyLabel, pointerDrag } from './ui/dom.js';
 import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
-import { Tutorial } from './ui/tutorial.js';
+import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { GanttView } from './views/gantt.js';
 import { TaskSheetView, ResourceSheetView } from './views/sheet.js';
 import { UsageView } from './views/usage.js';
@@ -3594,7 +3594,7 @@ window.__myworkplan = {
     taskRows, fieldCtx, setViewOptions, toggleCollapse, setTimescale, stepTimescale, fitProject, startTutorial, rememberDirectory, reassignTask, addResource, indentSelected,
     linkSelected, editTaskField, setOutlineLevel, applyTaskPatch,
   },
-  domain: { P, TEMPLATES, buildTemplate, buildSample, compactDuration },
+  domain: { P, TEMPLATES, buildTemplate, buildSample, compactDuration, criticalPath, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,
 };
 

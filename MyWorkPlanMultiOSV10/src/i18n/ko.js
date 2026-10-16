@@ -356,6 +356,7 @@ export default {
   'tutorial.criticalPath.title': '주 공정 찾기 (토글)', 'tutorial.criticalPath.text': '툴바의 주 공정 찾기 버튼(Ctrl+Shift+P, 프로젝트 메뉴에도 있음)을 누르면 일정을 앞에서 뒤로(가장 빠른 날짜) 그리고 뒤에서 앞으로(가장 늦은 날짜) 계산해 여유 시간이 없는 작업을 찾고, 시작부터 끝까지 이어지는 주 공정 경로를 표시합니다. 주 공정 작업과 연결선은 빨갛게 강조되고 나머지는 흐려지며, 상태 표시줄에 작업 수와 경로가 나옵니다. 한 번 더 누르면 꺼집니다.',
   'action.tutorialDoc': '튜토리얼 문서', 'tip.tutorialDoc': '튜토리얼 문서를 프로그램 안에서 읽습니다 (단계별 설명과 화면)', 'reader.chapters': '장으로 이동', 'reader.language': '문서 언어', 'reader.startTutorial': '튜토리얼 시작', 'reader.external': '브라우저로 열기', 'reader.externalTip': '이 문서를 기본 웹 브라우저로 엽니다',
   'tutorial.tutorialDoc.title': '튜토리얼 문서 읽기', 'tutorial.tutorialDoc.text': '이 튜토리얼의 모든 단계를 화면과 함께 정리한 문서를 프로그램 안에서 읽을 수 있습니다. 홈 화면의 도움말 › 튜토리얼 문서나 도움말 메뉴에서 엽니다. 위쪽 막대에서 장으로 이동하고, 한국어/English를 바꾸고, 튜토리얼을 바로 시작하거나 브라우저로 열 수 있습니다. 홈 버튼으로 돌아갑니다.',
+  'graph.axisWork': '작업량 (시간)', 'graph.axisDay': '날짜 (일 단위)', 'graph.axisWeek': '날짜 (주 단위 · 주 시작일)', 'graph.tipWork': '작업 {work}시간 / 사용 가능 {capacity}시간',
   'tutorial.title': '튜토리얼', 'tutorial.drag': '끌어서 옮기기', 'tutorial.stop': '튜토리얼 끝내기 (Esc)', 'tutorial.prev': '이전 단계', 'tutorial.next': '다음', 'tutorial.done': '마치기',
   'tutorial.play': '자동 재생', 'tutorial.pause': '자동 재생 멈춤', 'tutorial.chapters': '장 고르기', 'tutorial.ended': '튜토리얼을 마쳤습니다. 설정은 원래대로 돌려 놓았습니다.', 'tutorial.demoTask': '디자인 검토 회의',
   'tutorial.chapter.start': '시작 페이지', 'tutorial.chapter.build': '계획 만들기', 'tutorial.chapter.schedule': '일정 잡기', 'tutorial.chapter.resources': '자원과 비용', 'tutorial.chapter.tracking': '진행 추적',
