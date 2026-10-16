@@ -121,10 +121,108 @@ fn toggle_main(app: &tauri::AppHandle) {
     if window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false) {
         let _ = window.hide();
     } else {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+        show_main(app);
     }
+}
+
+fn show_main(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window("main") else { return };
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+}
+
+/// Set by the calendar page once it has rendered. The window stays hidden until then, so a webview that is slow to
+/// start (right after sign-in, before the desktop and the network are up) never shows a half-drawn frame.
+static MAIN_READY: AtomicBool = AtomicBool::new(false);
+const AUTOSTART_ARG: &str = "--autostart";
+const MAIN_BUILD_ATTEMPTS: u32 = 30;
+const MAIN_READY_WAIT: std::time::Duration = std::time::Duration::from_secs(12);
+
+fn launched_by_autostart() -> bool {
+    std::env::args().any(|arg| arg == AUTOSTART_ARG)
+}
+
+fn build_main(app: &tauri::AppHandle) -> Result<(), String> {
+    if app.get_webview_window("main").is_some() {
+        return Ok(());
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+        .ok_or("missing main window config")?;
+    WebviewWindowBuilder::from_config(app, &config)
+        .map_err(|error| error.to_string())?
+        .build()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn wait_main_ready(timeout: std::time::Duration) -> bool {
+    let start = std::time::Instant::now();
+    while start.elapsed() < timeout {
+        if MAIN_READY.load(Ordering::SeqCst) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    MAIN_READY.load(Ordering::SeqCst)
+}
+
+/// Builds the calendar window off the main thread. At sign-in the webview runtime can fail to start or stall
+/// before the first paint, so a failed build is retried and a page that never reports in is reloaded once.
+fn start_main(app: tauri::AppHandle) {
+    let mut attempt = 0;
+    loop {
+        match build_main(&app) {
+            Ok(()) => break,
+            Err(error) => {
+                attempt += 1;
+                eprintln!("My Calendar: main window failed to start ({error}), attempt {attempt}");
+                if attempt >= MAIN_BUILD_ATTEMPTS {
+                    app.exit(1);
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        }
+    }
+    if wait_main_ready(MAIN_READY_WAIT) {
+        return;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.reload();
+    }
+    if !wait_main_ready(MAIN_READY_WAIT) {
+        // Still silent: show what there is, so the calendar is never running without a window.
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || show_main(&handle));
+    }
+}
+
+/// Called by the calendar page after its first render. Only the first call shows the window, so a later reload
+/// does not bring back a calendar the user hid.
+#[tauri::command]
+async fn main_ready(app: tauri::AppHandle) -> Result<(), String> {
+    if MAIN_READY.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    let window = app.get_webview_window("main").ok_or("missing main window")?;
+    window.show().map_err(|error| error.to_string())?;
+    if launched_by_autostart() {
+        // Right after sign-in the compositor can miss the first frame of a transparent window; a 1px size change
+        // makes the webview draw again.
+        let size = window.inner_size().map_err(|error| error.to_string())?;
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        let _ = window.set_size(tauri::PhysicalSize::new(size.width + 1, size.height));
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = window.set_size(size);
+    }
+    Ok(())
 }
 
 fn events_label(language: &str) -> &'static str {
@@ -223,7 +321,11 @@ fn update_tray_labels(
     state.about.set_text(about).map_err(|error| error.to_string())?;
     state.quit.set_text(quit).map_err(|error| error.to_string())?;
     if let Some(tray) = app.tray_by_id("main-tray") {
-        tray.set_tooltip(Some(tooltip)).map_err(|error| error.to_string())?;
+        // Right after sign-in the taskbar may not exist yet, so the tooltip cannot be changed. The icon is added
+        // once the taskbar appears, and that is no reason to fail the labels or the settings that follow.
+        if let Err(error) = tray.set_tooltip(Some(tooltip)) {
+            eprintln!("My Calendar: tray tooltip not updated ({error})");
+        }
     }
     Ok(())
 }
@@ -827,10 +929,16 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Starting the app again always brings the calendar forward; toggling would hide one that is already up.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            toggle_main(app);
+            show_main(app);
         }))
-        .plugin(tauri_plugin_autostart::Builder::new().app_name("My Calendar").build())
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("My Calendar")
+                .args([AUTOSTART_ARG])
+                .build(),
+        )
         .on_window_event(|window, event| {
             if window.label() != "main" {
                 return;
@@ -862,10 +970,13 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             setup_tray(app)?;
+            let handle = app.handle().clone();
+            std::thread::spawn(move || start_main(handle));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             install_language,
+            main_ready,
             update_tray_labels,
             set_main_always_on_top,
             hide_main,

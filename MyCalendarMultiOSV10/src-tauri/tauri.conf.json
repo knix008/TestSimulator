@@ -14,12 +14,13 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "My Calendar",
         "url": "index.html",
         "width": 520,
         "height": 680,
-        "minWidth": 366,
-        "minHeight": 378,
+        "minWidth": 400,
+        "minHeight": 403,
         "x": 96,
         "y": 72,
         "transparent": true,
@@ -28,7 +29,7 @@
         "skipTaskbar": true,
         "alwaysOnTop": false,
         "resizable": true,
-        "visible": true,
+        "visible": false,
         "backgroundColor": "#00000000",
         "zoomHotkeysEnabled": false
       }

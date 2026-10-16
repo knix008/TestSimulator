@@ -10,6 +10,7 @@ import {
   onTrayAbout,
   openAux,
   peekWindowLabel,
+  reportMainReady,
   setWindowTitle,
 } from "../platform/desktop";
 import { ReminderPopup, useReminderScheduler } from "./ReminderPopup";
@@ -47,8 +48,22 @@ class AppBoundary extends Component<{ children: ReactNode }, { message: string |
   }
 }
 
-function Gate({ children, followTray = false }: { children: (ctx: ReadyContext) => ReactNode; followTray?: boolean }) {
+function Gate({
+  children,
+  followTray = false,
+  reportReady = false,
+}: {
+  children: (ctx: ReadyContext) => ReactNode;
+  followTray?: boolean;
+  reportReady?: boolean;
+}) {
   const model = useSettings({ followTray });
+  // The calendar window starts hidden; it is shown once there is a page to see, the calendar or the language choice.
+  useEffect(() => {
+    if (!reportReady || !model.ready) return;
+    const timer = window.setTimeout(() => void reportMainReady().catch(() => undefined), 0);
+    return () => window.clearTimeout(timer);
+  }, [reportReady, model.ready]);
   if (!model.ready) {
     return (
       <div className="app-frame">
@@ -198,7 +213,7 @@ function MainWindow() {
   }, []);
 
   return (
-    <Gate followTray>
+    <Gate followTray reportReady>
       {(ctx) => (
         <div className="app-frame">
           <CalendarScreen ctx={ctx} onOpenSettings={openSettings} onOpenEvents={openEvents} onOpenPrint={openPrint} />

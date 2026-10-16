@@ -197,7 +197,7 @@ describe("Desktop", () => {
     const collapsed = 46 + 25 + ((main.minWidth - 2) * 5) / 7 + 45 + 2;
     expect(main.minWidth).toBe(desktop.MIN_WINDOW_WIDTH);
     // The minimum leaves the app's name out; it follows the toolbar measured for the language and format.
-    expect(desktop.MIN_WINDOW_WIDTH).toBe(366);
+    expect(desktop.MIN_WINDOW_WIDTH).toBe(400);
     const screenSource = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
     expect(screenSource).toContain("toolbarWidth(toolbarRef.current, panel)");
     expect(screenSource).toContain("[settings.language, titleFormat]");
@@ -389,6 +389,29 @@ describe("Desktop", () => {
     expect(cargo).toContain("tray-icon");
     expect(capabilities).toContain("autostart:allow-enable");
     expect(capabilities).toContain("core:window:allow-start-dragging");
+  });
+
+  it("starts even when sign-in leaves the webview, the taskbar, or the network not ready yet", () => {
+    const config = JSON.parse(readFileSync(resolve("src-tauri/tauri.conf.json"), "utf8"));
+    const main = config.app.windows.find((window: { label: string }) => window.label === "main");
+    const rust = readFileSync(resolve("src-tauri/src/lib.rs"), "utf8");
+    const app = readFileSync(resolve("src/ui/App.tsx"), "utf8");
+    const screen = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
+    // The window is built by code, retried when the webview fails, and stays hidden until the page reports in.
+    expect(main.create).toBe(false);
+    expect(main.visible).toBe(false);
+    expect(rust).toContain("std::thread::spawn(move || start_main(handle));");
+    expect(rust).toContain("MAIN_BUILD_ATTEMPTS");
+    expect(rust).toContain("window.reload()");
+    expect(rust).toMatch(/main_ready,/);
+    expect(app).toContain("<Gate followTray reportReady>");
+    // Autostart passes a flag of its own; a second launch shows the calendar instead of toggling it away.
+    expect(rust).toContain(".args([AUTOSTART_ARG])");
+    expect(rust).toMatch(/single_instance::init\(\|app, _args, _cwd\| \{\s*show_main\(app\);/);
+    // Without a taskbar the tooltip cannot change, which must not fail the labels.
+    expect(rust).not.toContain("tray.set_tooltip(Some(tooltip)).map_err");
+    // Holidays come back once the network does.
+    expect(screen).toContain('window.addEventListener("online", refresh);');
   });
 
   it("shows an icon on every tray menu item", () => {
