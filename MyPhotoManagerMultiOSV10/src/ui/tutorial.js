@@ -144,9 +144,8 @@ export const STEPS = [
     await sleep(300);
     slide('.editor-panel input.slider[data-key="adjust.vibrance"]', 35);
   } },
-  { id: 'looks', chapter: 'edit', target: '#edit-looks', dwell: 6000, async run(a) {
+  { id: 'looks', chapter: 'edit', target: '.edit-looks-pin', dwell: 6000, async run(a) {
     await a.edit('forest.jpg');
-    if (!q('.editor-panel .edit-section-head.open[data-section=looks]')) click('#edit-looks');
     await until(() => q('.editor-panel [data-look-cat=catFilmColor]'));
     if (!q('.editor-panel [data-look=portra]')) click('.editor-panel [data-look-cat=catFilmColor]');
     await until(() => q('.editor-panel [data-look=portra]'));
@@ -155,7 +154,12 @@ export const STEPS = [
   } },
   { id: 'lookTune', chapter: 'edit', target: '.look-tune', async run(a) {
     await a.edit('forest.jpg');
-    if (!q('.look-tune')) { click('#edit-looks'); await until(() => q('.editor-panel [data-look=portra]')); click('.editor-panel [data-look=portra]'); }
+    if (!q('.look-tune')) {
+      await until(() => q('.editor-panel [data-look-cat=catFilmColor]'));
+      if (!q('.editor-panel [data-look=portra]')) click('.editor-panel [data-look-cat=catFilmColor]');
+      await until(() => q('.editor-panel [data-look=portra]'));
+      click('.editor-panel [data-look=portra]');
+    }
     await until(() => q('.look-tune'));
     slide('.editor-panel input.slider[data-key="look.amount"]', 130);
     await sleep(400);

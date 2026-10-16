@@ -20,6 +20,12 @@ export async function readInstallLanguage(): Promise<"ko" | "en" | null> {
   }
 }
 
+/** Tells the desktop shell the calendar has rendered, so it shows the window that was kept hidden until now. */
+export async function reportMainReady(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("main_ready");
+}
+
 export async function syncShell(settings: Settings, copy: Messages): Promise<void> {
   if (!isTauri()) return;
   await invoke("update_tray_labels", {
@@ -164,7 +170,7 @@ export async function setWindowSize(width: number, height: number): Promise<void
  * Matches `minWidth` in tauri.conf.json, the width the default Korean toolbar needs. The calendar measures its
  * toolbar after layout and raises or lowers the minimum for the language and year-month format on screen.
  */
-export const MIN_WINDOW_WIDTH = 366;
+export const MIN_WINDOW_WIDTH = 400;
 
 /** Ignored while maximized, where the minimum measured from the screen-wide grid would outlast the full screen. */
 export async function setWindowMinSize(width: number, height: number): Promise<void> {

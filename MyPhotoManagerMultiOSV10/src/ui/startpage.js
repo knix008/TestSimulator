@@ -1,6 +1,7 @@
 // Start page: a moving 3D landscape, with buttons for the things the app can do.
 // Laid out like MyCAD's start page — a column of ways to begin, then a grid of tasks.
 import { getLanguage, onLanguageChange, t } from '../i18n.js';
+import { app } from '../store.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
@@ -56,6 +57,7 @@ export function createStartPage(ctx) {
   let stopLang = null;
 
   let stamp = '';
+  let shown = false;
 
   function render() {
     const { recent, showSamples, actions } = ctx();
@@ -82,31 +84,36 @@ export function createStartPage(ctx) {
       title: t(label),
       onclick: () => actions[id]?.(),
     }, h('span.task-icon', { html: icon(glyph) }), h('span.task-text', h('b', t(label)), h('small', t(`start.desc.${id}`)))));
+    const group = (id, glyph, title, ...nodes) => h('section.start-group', { dataset: { group: id } },
+      h('h2', h('span', { html: icon(glyph) }), h('span', title)), ...nodes);
+    const board = h('div.start-board',
+      h('div.start-side',
+        group('begin', 'play', t('start.begin'), h('div.start-actions', begin)),
+        group('recent', 'clock', t('start.recent'),
+          recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
+          h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`))))),
+      group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)));
     clear(scroll);
     scroll.append(h('div.start',
       h('header.start-head',
         h('span.start-logo', { html: icon('images') }),
         h('div', h('h1', 'MyPhotoManager'), h('p', t('start.lead')))),
-      h('div.start-grid',
-        h('aside.start-side',
-          h('h2', h('span', { html: icon('play') }), h('span', t('start.begin'))),
-          h('div.start-actions', begin),
-          h('h2', h('span', { html: icon('clock') }), h('span', t('start.recent'))),
-          recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
-          h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`)))),
-        h('section.start-main',
-          h('h2', h('span', { html: icon('grid') }), h('span', t('start.tasks'))),
-          h('div.task-grid', tasks)))));
+      board));
     scroll.lang = getLanguage();
   }
 
   return {
     el,
     show() {
+      shown = true;
       render();
       bg.show();
       stopLang?.();
       stopLang = onLanguageChange(render);
+      if (!this.settingsWatch) {
+        this.settingsWatch = true;
+        app.on('settings', () => { if (shown) render(); });
+      }
     },
     /** Build the buttons and compile the landscape before the user asks for the page. */
     warm() {
@@ -114,6 +121,7 @@ export function createStartPage(ctx) {
       bg.prewarm();
     },
     hide() {
+      shown = false;
       bg.hide();
       stopLang?.();
       stopLang = null;

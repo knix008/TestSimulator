@@ -161,7 +161,10 @@ function useHolidayMap(country: string, years: number[]) {
       if (document.visibilityState === "visible") refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
+    // Started before the network was up, the calendar shows saved or built-in holidays; it checks again once online.
+    window.addEventListener("online", refresh);
     return () => {
+      window.removeEventListener("online", refresh);
       window.removeEventListener("mycalendar-refresh-holidays", refresh);
       window.removeEventListener("storage", onStorage);
       window.clearInterval(timer);
@@ -239,8 +242,8 @@ export function CalendarScreen({
   const drag = usePanelDrag();
   const store = useEvents();
   const editor = useEventEditor();
-  /** A day's menu when `date` is set, otherwise the calendar's own menu from the title bar or the panel. */
-  const [menu, setMenu] = useState<{ x: number; y: number; date?: Date } | null>(null);
+  /** The open context menu on the web: a day's, an event's, or the calendar's own from the title bar or the panel. */
+  const [menu, setMenu] = useState<{ x: number; y: number; label: string; items: DayMenuItem[] } | null>(null);
   const closeMenu = useCallback(() => {
     setMenu(null);
     panelRef.current?.focus({ preventScroll: true });
@@ -612,26 +615,59 @@ export function CalendarScreen({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const dayMenuItems = (date: Date): DayMenuItem[] => [
+  const deleteFromMenu = (event: CalendarEvent, iso: string, onlyThisDay: boolean) => {
+    if (onlyThisDay) store.skip(event.id, iso);
+    else store.remove(event.id);
+    setConfirmingDelete(null);
+  };
+
+  /** Deleting from a menu is the confirmation; a repeating event offers the one day or the whole series. */
+  const eventDeleteItems = (event: CalendarEvent, iso: string, withTitle: boolean): DayMenuItem[] => {
+    const named = (label: string) => (withTitle ? `${label}: ${event.title}` : label);
+    const item = (id: string, label: string, onlyThisDay: boolean): DayMenuItem => ({
+      id: `${id}-${event.id}`,
+      label: named(label),
+      icon: "trash",
+      color: event.color,
+      onSelect: () => deleteFromMenu(event, iso, onlyThisDay),
+    });
+    return event.repeat !== "none"
+      ? [item("delete-day", t.deleteOccurrence, true), item("delete-all", t.deleteSeries, false)]
+      : [item("delete", t.deleteEvent, false)];
+  };
+
+  const eventMenuItems = (event: CalendarEvent, iso: string): DayMenuItem[] => [
+    { id: `event-${event.id}`, label: t.editEvent, icon: "pencil", color: event.color, onSelect: () => editor.open(event, iso) },
+    ...eventDeleteItems(event, iso, false).map((item, index) => ({ ...item, separated: index === 0 })),
+  ];
+
+  const dayMenuItems = (date: Date): DayMenuItem[] => {
+    const iso = formatISODate(date);
+    const dayEvents = (eventsByDay.get(iso) ?? []).slice(0, 6);
+    return [
     {
       id: "add",
       label: t.addEventOn,
       icon: "plus",
       onSelect: () => editor.open(blankEvent(date, settings.defaultReminder)),
     },
-    ...(eventsByDay.get(formatISODate(date)) ?? []).slice(0, 6).map((event, index) => ({
+    ...dayEvents.map((event, index) => ({
       id: `event-${event.id}`,
       label: `${t.editEvent}: ${event.title}`,
       icon: "pencil" as const,
       color: event.color,
       separated: index === 0,
-      onSelect: () => editor.open(event, formatISODate(date)),
+      onSelect: () => editor.open(event, iso),
     })),
+    ...dayEvents
+      .flatMap((event) => eventDeleteItems(event, iso, true))
+      .map((item, index) => ({ ...item, separated: index === 0 })),
     { id: "today", label: t.goToday, icon: "today" as const, separated: true, onSelect: () => selectDate(new Date()) },
     { id: "events", label: t.manageEvents, icon: "list" as const, onSelect: () => onOpenEvents() },
     { id: "print", label: t.print, icon: "print" as const, onSelect: printView },
     { id: "settings", label: t.settings, icon: "gear" as const, onSelect: () => onOpenSettings() },
-  ];
+    ];
+  };
 
   const windowMenuItems = (): DayMenuItem[] => [
     { id: "prev", label: t.prevMonth, icon: "chevron-left", onSelect: () => shiftMonth(-1) },
@@ -678,19 +714,28 @@ export function CalendarScreen({
     checked: item.checked ?? null,
   });
 
-  const openContextMenu = (x: number, y: number, date?: Date) => {
-    const items = date ? dayMenuItems(date) : windowMenuItems();
+  const showMenu = (x: number, y: number, label: string, items: DayMenuItem[]) => {
     if (desktop) {
       menuActions.current = new Map(items.map((item) => [item.id, item.onSelect]));
-      void openMenuWindow(
-        x,
-        y,
-        date ? formatFull(date, settings.language, t.months, t.weekdays) : t.windowMenu,
-        items.map(menuEntry),
-      ).catch(() => undefined);
+      void openMenuWindow(x, y, label, items.map(menuEntry)).catch(() => undefined);
       return;
     }
-    setMenu({ x, y, date });
+    setMenu({ x, y, label, items });
+  };
+
+  const openContextMenu = (x: number, y: number, date?: Date) =>
+    showMenu(
+      x,
+      y,
+      date ? formatFull(date, settings.language, t.months, t.weekdays) : t.windowMenu,
+      date ? dayMenuItems(date) : windowMenuItems(),
+    );
+
+  /** Right-clicking an event in a list opens its own menu, to edit or delete it at once. */
+  const onEventMenu = (mouse: MouseEvent, event: CalendarEvent, iso: string) => {
+    mouse.preventDefault();
+    mouse.stopPropagation();
+    showMenu(mouse.clientX, mouse.clientY, event.title, eventMenuItems(event, iso));
   };
 
   const onPanelMenu = (event: MouseEvent) => {
@@ -760,6 +805,15 @@ export function CalendarScreen({
           </button>
         </div>
         <div className="toolbar-group toolbar-end">
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={t.refreshHolidays}
+            title={t.refreshHolidays}
+            onClick={() => requestHolidayRefresh()}
+          >
+            <RefreshIcon />
+          </button>
           <button type="button" className="icon-btn" aria-label={t.settings} onClick={() => onOpenSettings()}>
             <GearIcon />
           </button>
@@ -873,17 +927,8 @@ export function CalendarScreen({
           <span>{countryLabel}</span>
           <span aria-live="polite">{statusText}</span>
           {status.fetchedAt ? <span>{formatMessage(t.checkedAt, { time: formatWhen(status.fetchedAt, settings.language) })}</span> : null}
-          {/* The same right-hand column as the events head below, so the four buttons line up. */}
+          {/* The same right-hand column as the events head below, so the toggle lines up with its buttons. */}
           <span className="footer-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label={t.refreshHolidays}
-              title={t.refreshHolidays}
-              onClick={() => requestHolidayRefresh()}
-            >
-              <RefreshIcon />
-            </button>
             <button
               type="button"
               className="icon-btn footer-toggle"
@@ -975,6 +1020,7 @@ export function CalendarScreen({
                       className="day-event"
                       aria-label={`${t.editEvent}: ${event.title}`}
                       onClick={() => editor.open(event, selectedKey)}
+                      onContextMenu={(mouse) => onEventMenu(mouse, event, selectedKey)}
                       onKeyDown={(key) => {
                         if (key.key !== "Delete") return;
                         key.preventDefault();
@@ -1025,7 +1071,7 @@ export function CalendarScreen({
                       <span className="agenda">
                         {row.holidays.length > 0 && <em>{row.holidays.join(", ")}</em>}
                         {row.events.map((event) => (
-                          <span key={event.id} className="agenda-event">
+                          <span key={event.id} className="agenda-event" onContextMenu={(mouse) => onEventMenu(mouse, event, row.iso)}>
                             <i className="event-dot" style={{ background: event.color }} />
                             {event.title}
                           </span>
@@ -1055,9 +1101,9 @@ export function CalendarScreen({
         <DayMenu
           x={menu.x}
           y={menu.y}
-          label={menu.date ? formatFull(menu.date, settings.language, t.months, t.weekdays) : t.windowMenu}
+          label={menu.label}
           onClose={closeMenu}
-          items={menu.date ? dayMenuItems(menu.date) : windowMenuItems()}
+          items={menu.items}
         />
       )}
       {editor.editing && (

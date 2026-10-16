@@ -174,7 +174,7 @@
 | `EDIT-LAYERMASK` | 레이어 마스크(그러데이션·타원·브러시·반전) | 기능 E2E |
 | `EDIT-HISTORY` | 기록 창·실행 취소/다시 실행 | 웹 E2E · 데스크톱 E2E · 기능 E2E |
 | `EDIT-PRESETS` | 프리셋 저장·적용 | 단위 · 기능 E2E |
-| `EDIT-LOOKS` | 효과 프리셋(룩) 189종: 프리셋 버튼, 미리 보기, 강도·세밀 조정 | 기능 E2E |
+| `EDIT-LOOKS` | 효과 프리셋(룩) 189종: 왼쪽 패널에 항상 표시, 미리 보기, 강도·세밀 조정 | 기능 E2E |
 | `EDIT-COPYPASTE` | 편집 설정 복사·붙여넣기 | 단위 · 기능 E2E |
 | `EDIT-NONDESTRUCTIVE` | 비파괴 재편집(원본+설정) | 단위 · 기능 E2E |
 | `EDIT-RESTORE` | 원본으로 복원 | 데스크톱 E2E · 기능 E2E |

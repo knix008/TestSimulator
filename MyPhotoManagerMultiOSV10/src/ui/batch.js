@@ -239,11 +239,37 @@ export async function batchResize(paths = targetPaths({ filesOnly: true })) {
   const enlarge = h('input', { type: 'checkbox' });
   const output = outputControls({ suffix: '_resized' });
   const formats = formatControls();
-  const update = () => { b.closest('.field').hidden = how.value !== 'box'; a.closest('.field').querySelector('.field-label').textContent = how.value === 'percent' ? t('resize.percentValue') : how.value === 'long' ? t('resize.pixels') : t('edit.width'); };
+  const RATIOS = [25, 50, 75, 100, 150, 200];
+  let pixelA = 1920;
+  let pixelB = 1080;
+  let ratio = 100;
+  const presets = h('div.chip-row.resize-ratios', { hidden: true });
+  const paintPresets = () => {
+    presets.replaceChildren(...RATIOS.map((n) => h(`button.chip${Number(a.value) === n ? '.on' : ''}`, {
+      type: 'button', dataset: { ratio: String(n) },
+      onclick: () => { a.value = String(n); ratio = n; paintPresets(); },
+    }, `${n}%`)));
+  };
+  const update = () => {
+    const percent = how.value === 'percent';
+    b.closest('.field').hidden = how.value !== 'box';
+    presets.hidden = !percent;
+    enlarge.closest('label').hidden = percent;
+    if (percent) {
+      if (a.dataset.kind !== 'percent') { pixelA = Number(a.value) || pixelA; pixelB = Number(b.value) || pixelB; a.value = String(ratio); a.dataset.kind = 'percent'; }
+      a.closest('.field').querySelector('.field-label').textContent = t('resize.percentValue');
+      paintPresets();
+    } else {
+      if (a.dataset.kind === 'percent') { ratio = Number(a.value) || ratio; a.value = String(pixelA); b.value = String(pixelB); }
+      a.dataset.kind = how.value;
+      a.closest('.field').querySelector('.field-label').textContent = how.value === 'long' ? t('resize.pixels') : t('edit.width');
+    }
+  };
   how.addEventListener('change', update);
+  a.addEventListener('input', () => { if (how.value === 'percent') { ratio = Number(a.value) || ratio; paintPresets(); } });
   const ok = await openDialog({
     title: plural('resize.title', list.length), width: 520,
-    body: h('div', field(t('resize.how'), how), h('div.field-row', field(t('resize.pixels'), a), field(t('edit.height'), b)), h('label.check', enlarge, t('resize.enlarge')), formats.el, output.el),
+    body: h('div', field(t('resize.how'), how), presets, h('div.field-row', field(t('resize.pixels'), a), field(t('edit.height'), b)), h('label.check', enlarge, t('resize.enlarge')), formats.el, output.el),
     onOpen: update,
     buttons: [{ label: t('common.cancel'), value: false }, { label: t('resize.run'), value: true, primary: true }],
   });

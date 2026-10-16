@@ -1,10 +1,8 @@
-// Moving landscape behind the start page. Each visit builds a new valley;
-// the sky, the hills, and the lake keep moving, and the colours follow the theme.
+// Moving picture behind the start page. The valley is a WebGL landscape; the
+// other kinds are painted scenes. Settings choose the kind and how fast it moves.
 // The loop pauses while the page is hidden or the window is in the background.
-
-const HORIZON = [0.97, 0.74, 0.5];
-/** How fast the scene moves (clouds, water, sun, camera); 1 was the first speed (too quick), then 0.5 (still too quick). */
-const MOTION_SPEED = 0.2;
+import { app } from '../store.js';
+import { motionScale, paintStartScene, startMotionId, startSceneId } from './startscenes.js';
 
 function cssChannels(value) {
   const text = String(value ?? '').trim();
@@ -409,6 +407,12 @@ export class StartBackground {
     this.phase = r() * 40;
   }
 
+  /** The kind and speed from Settings. `slow` is the original valley pace. */
+  choice() {
+    const saved = app.settings.startScreen ?? {};
+    return { scene: startSceneId(saved.scene), speed: motionScale(startMotionId(saved.motion)) };
+  }
+
   /** Compile the landscape once, off the click that opens the page. */
   prewarm() {
     this.ensureGl();
@@ -454,6 +458,34 @@ export class StartBackground {
     });
   }
 
+  /** A second canvas for the painted scenes. The valley keeps the WebGL canvas. */
+  ensureFlat() {
+    if (this.flat) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'start-bg-canvas';
+    canvas.hidden = true;
+    this.host.append(canvas);
+    this.flat = canvas;
+  }
+
+  /** Shows the canvas for the chosen kind. A failed WebGL valley stays a gradient. */
+  activate(scene) {
+    this.kind = scene;
+    if (scene === 'valley') {
+      this.ensureGl();
+      if (this.flat) this.flat.hidden = true;
+      if (this.gl) {
+        this.canvas.hidden = false;
+        this.host.classList.remove('start-bg-fallback');
+      } else this.host.classList.add('start-bg-fallback');
+      return;
+    }
+    this.ensureFlat();
+    if (this.canvas) this.canvas.hidden = true;
+    this.flat.hidden = false;
+    this.host.classList.remove('start-bg-fallback');
+  }
+
   show() {
     if (!this.wanted) this.roll();
     this.syncTheme();
@@ -461,11 +493,22 @@ export class StartBackground {
       this.themeWatch = new MutationObserver(() => this.syncTheme());
       this.themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-theme-id', 'style'] });
     }
-    this.ensureGl();
+    if (!this.settingsWatch) {
+      this.settingsWatch = true;
+      app.on('settings', () => {
+        if (!this.wanted) return;
+        this.stop();
+        this.activate(this.choice().scene);
+        this.resize();
+        this.applySize(performance.now());
+        this.start();
+      });
+    }
     this.wanted = true;
-    if (!this.gl) return;
-    // The themed gradient shows at once. The new valley is drawn on the next frame.
+    this.activate(this.choice().scene);
+    // Draw one frame now, then keep moving. A hidden window may not run animation frames.
     this.resize();
+    this.applySize(performance.now());
     this.start();
   }
 
@@ -488,13 +531,26 @@ export class StartBackground {
     this.wantW = w;
     this.wantH = h;
     // The animation frame applies the size together with the redraw, so opening
-    // the page does not stop to draw the valley on the click itself.
-    if (this.running && (this.canvas.width !== w || this.canvas.height !== h)) this.cover();
+    // the page does not stop to draw the picture on the click itself.
+    const live = this.kind === 'valley' ? this.canvas : this.flat;
+    if (this.running && live && (live.width !== w || live.height !== h)) this.cover();
+    else if (this.wanted && !this.running && this.choice().speed === 0) this.applySize(this.still || performance.now());
   }
 
   applySize(now) {
+    if (!this.wantW || !this.wantH) return;
+    if (this.kind !== 'valley') {
+      const canvas = this.flat;
+      if (!canvas) return;
+      if (canvas.width !== this.wantW || canvas.height !== this.wantH) {
+        canvas.width = this.wantW;
+        canvas.height = this.wantH;
+      }
+      this.drawFlat(now);
+      return;
+    }
     const gl = this.gl;
-    if (!gl || !this.wantW || !this.wantH) return;
+    if (!gl) return;
     const realloc = this.canvas.width !== this.wantW || this.canvas.height !== this.wantH;
     if (realloc) {
       if (this.running) this.cover();
@@ -516,7 +572,7 @@ export class StartBackground {
 
   // Paint the current frame over the canvas so the clear from a resize stays hidden.
   cover() {
-    const src = this.canvas;
+    const src = this.kind === 'valley' ? this.canvas : this.flat;
     if (!src?.width || !src.height || this.snap?.isConnected) return;
     let snap = this.snap;
     if (!snap) {
@@ -534,10 +590,20 @@ export class StartBackground {
     this.host.append(snap);
   }
 
+  drawFlat(now) {
+    const canvas = this.flat;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    const speed = this.choice().speed;
+    const t = speed === 0 ? (this.phase || 0) : (now / 1000) * speed + (this.phase || 0);
+    paintStartScene(this.kind, ctx, canvas.width, canvas.height, t, this.palette ?? themePalette());
+  }
+
   draw(now) {
     const gl = this.gl;
     if (!gl || !this.aspect) return;
-    const t = (now / 1000) * MOTION_SPEED + (this.phase || 0);
+    const speed = this.choice().speed;
+    const t = speed === 0 ? (this.phase || 0) : (now / 1000) * speed + (this.phase || 0);
     // The sun walks the sky so slopes all across the valley change light.
     const spin = t * 0.45;
     const sx = Math.cos(spin) * 0.8;
@@ -613,15 +679,25 @@ export class StartBackground {
   }
 
   start() {
-    if (this.running || !this.gl) return;
+    if (this.running) return;
+    const { speed } = this.choice();
+    if (this.kind === 'valley' && !this.gl) return;
+    if (this.kind !== 'valley' && !this.flat) return;
+    if (speed === 0) {
+      this.still = this.still || performance.now();
+      this.applySize(this.still);
+      return;
+    }
     const calm = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.running = true;
     let last = performance.now();
     const tick = (now) => {
       if (!this.running) return;
+      const pace = this.choice().speed;
+      if (pace === 0) { this.running = false; this.applySize(this.still || now); return; }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      this.angle += dt * (calm ? 0.12 : 0.28) * MOTION_SPEED;
+      this.angle += dt * (calm ? 0.12 : 0.28) * pace;
       this.applySize(now);
       this.frame = requestAnimationFrame(tick);
     };

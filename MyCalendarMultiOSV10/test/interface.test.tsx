@@ -737,7 +737,7 @@ describe("Interface", () => {
     expect(events().style.height).toBe("160px");
     expect(panel.style.transform).toBe("translate(30px, 0px)");
     await pointer("pointermove", 100, 0);
-    expect(panel.style.width).toBe("366px");
+    expect(panel.style.width).toBe("400px");
     expect(grid()).toBe("");
     expect(events().style.height).toBe(`${MIN_EVENTS_HEIGHT}px`);
     await pointer("pointermove", 520, 700);
@@ -1036,15 +1036,20 @@ describe("Interface", () => {
     const head = () => view.host.querySelector(".events-head");
     const labels = (row: Element | null) =>
       [...(row?.querySelectorAll(".footer-actions .icon-btn") ?? [])].map((button) => button.getAttribute("aria-label"));
-    expect(labels(status())).toEqual([messages.ko.refreshHolidays, messages.ko.collapseEvents]);
+    expect(labels(status())).toEqual([messages.ko.collapseEvents]);
     expect(labels(head())).toEqual([messages.ko.addEvent, messages.ko.manageEvents]);
-    // Both rows end with the same right-aligned group, so the four buttons share one column.
+    // The holiday refresh sits in the title bar, just left of the settings button.
+    const end = [...(view.host.querySelector(".toolbar-end")?.querySelectorAll(".icon-btn") ?? [])].map((button) =>
+      button.getAttribute("aria-label"),
+    );
+    expect(end).toEqual([messages.ko.refreshHolidays, messages.ko.settings]);
+    // Both rows end with the same right-aligned group, so the buttons share one column.
     expect(status()?.lastElementChild?.className).toBe("footer-actions");
     expect(head()?.lastElementChild?.className).toBe("footer-actions");
 
     click(view.host.querySelector(".footer-toggle")!);
     expect(head()).toBeNull();
-    expect(labels(status())).toEqual([messages.ko.refreshHolidays, messages.ko.expandEvents]);
+    expect(labels(status())).toEqual([messages.ko.expandEvents]);
     expect(status()?.lastElementChild?.className).toBe("footer-actions");
     await view.unmount();
   });
@@ -1098,7 +1103,9 @@ describe("Interface", () => {
     rightClick();
     const edit = [...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === `${messages.ko.editEvent}: 치과`);
     expect(edit?.querySelector(".day-menu-icon svg.icon")).not.toBeNull();
-    expect(menu()!.querySelectorAll('[role="separator"]')).toHaveLength(2);
+    const remove = [...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === `${messages.ko.deleteEvent}: 치과`);
+    expect(remove?.querySelector(".day-menu-icon svg.icon")).not.toBeNull();
+    expect(menu()!.querySelectorAll('[role="separator"]')).toHaveLength(3);
     click(edit!);
     expect(view.host.querySelector(".sheet h2")?.textContent).toBe(messages.ko.editEvent);
     act(() => {
@@ -1111,6 +1118,36 @@ describe("Interface", () => {
     click([...menu()!.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === messages.ko.settings)!);
     expect(openedEvents).toBe(1);
     expect(openedSettings).toBe(1);
+    await view.unmount();
+  });
+
+  it("deletes an event right away from the menu of its row", async () => {
+    localStorage.clear();
+    const view = await render(<CalendarHarness />);
+    await view.settle();
+    const rows = () => [...view.host.querySelectorAll<HTMLButtonElement>(".day-items .day-event")];
+    const add = (title: string) => {
+      click(view.host.querySelector(`.events-head [aria-label="${messages.ko.addEvent}"]`)!);
+      const editor = view.host.querySelector(".sheet") as HTMLFormElement;
+      setControlValue(editor.querySelector('input[name="title"]') as HTMLInputElement, title);
+      act(() => {
+        editor.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+    };
+    add("치과");
+    expect(rows().map((row) => row.querySelector(".event-title")?.textContent)).toEqual(["치과"]);
+    const menu = () => document.querySelector('.day-menu[role="menu"]');
+    const items = () => [...menu()!.querySelectorAll('[role="menuitem"]')];
+    act(() => {
+      rows()[0].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 300 }));
+    });
+    expect(menu()?.getAttribute("aria-label")).toBe("치과");
+    expect(items().map((item) => item.textContent)).toEqual([messages.ko.editEvent, messages.ko.deleteEvent]);
+    expect(items().every((item) => item.querySelector(".day-menu-icon svg.icon"))).toBe(true);
+    click(items()[1]);
+    expect(menu()).toBeNull();
+    expect(rows()).toHaveLength(0);
+    expect(view.host.querySelector(".day-confirm")).toBeNull();
     await view.unmount();
   });
 

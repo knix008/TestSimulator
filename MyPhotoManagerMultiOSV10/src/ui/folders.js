@@ -8,6 +8,7 @@ import { app, catalogFolder, openFolder, transfer } from '../store.js';
 import { toast } from './dialog.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
+import { pressDrag } from './itemdrag.js';
 import { contextMenu } from './menu.js';
 import { formatBytes } from '../util/format.js';
 
@@ -20,7 +21,7 @@ function driveName(place) {
 
 const PLACE_ICONS = { home: 'home', pictures: 'images', desktop: 'monitor', documents: 'file', downloads: 'download', drive: 'drive', volume: 'drive', root: 'drive', webfolder: 'folder', memory: 'folderOpen' };
 
-export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuItems }) {
+export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuItems, folderMenu }) {
   const el = h('div.pane-body.folders');
   const tree = h('div.tree', { role: 'tree' });
   const actions = h('div.folder-actions');
@@ -64,6 +65,10 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
     const node = { row: r, children, loaded: false, expanded: false, depth, path, arrow, hasDirs, place };
     nodes.set(path, node);
     arrow.addEventListener('click', (event) => { event.stopPropagation(); toggle(node); });
+    r.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || event.target.closest('.tree-arrow')) return;
+      pressDrag(event, () => [path], { threshold: 10 });
+    });
     r.addEventListener('click', async () => {
       if (place?.granted === false) {
         try { await webFs.reconnect(path); place.granted = true; r.classList.remove('needs-permission'); r.querySelector('.tree-badge')?.remove(); } catch { return; }
@@ -71,7 +76,7 @@ export function createFolderPane({ onOpenWebFolder, onOpenWebFiles, folderMenuIt
       openFolder(path);
     });
     r.addEventListener('dblclick', () => toggle(node));
-    r.addEventListener('contextmenu', (event) => contextMenu(event, menuFor(node)));
+    r.addEventListener('contextmenu', (event) => contextMenu(event, folderMenu ? folderMenu(node) : menuFor(node)));
     return h('div.tree-node', r, children);
   }
 

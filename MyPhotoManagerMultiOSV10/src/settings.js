@@ -20,7 +20,7 @@ export const DEFAULTS = Object.freeze({
   caption: { name: true, size: false, date: false, dims: false, overlay: true },
   confirmDelete: true,
   useTrash: true,
-  viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, infoCollapsed: false, histogram: false, filmstrip: true, smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
+  viewer: { wheel: 'navigate', enlarge: false, background: 'theme', info: false, infoCollapsed: false, histogram: false, filmstrip: true, stripSide: 'bottom', smooth: true, navigator: true, zoomLock: false, faces: false, loupe: 3 },
   editor: { panel: true, panelCollapsed: false, info: true, infoCollapsed: false },
   xmpEmbed: false,
   analysis: { auto: true }, // analyse opened folders in the background (src/analysis)
@@ -36,6 +36,8 @@ export const DEFAULTS = Object.freeze({
   xmpSidecar: false,
   mapTiles: true,
   startup: 'last',
+  // Start page picture: one of START_SCENE_IDS, and how fast it moves (off | slow | medium | fast).
+  startScreen: { scene: 'valley', motion: 'slow' },
   lastFolder: null,
   recentFolders: [],
   recentFiles: [],

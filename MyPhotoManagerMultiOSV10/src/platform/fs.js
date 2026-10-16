@@ -374,6 +374,29 @@ const web = {
     return rootPath(root);
   },
 
+  /** Copies dropped file and folder handles into a writable folder. Returns how many were written. */
+  async importDropped(dir, handles) {
+    const { root } = split(dir);
+    if (root.type !== 'handle') throw new Error('read-only folder');
+    await ensurePermission(root, true);
+    const target = await dirHandle(dir);
+    let count = 0;
+    for (const handle of handles) {
+      let name = handle.name;
+      if (await exists(target, name)) name = await uniqueName(target, name);
+      if (handle.kind === 'directory') await copyHandleInto(handle, target, name);
+      else {
+        const file = await handle.getFile();
+        const created = await target.getFileHandle(name, { create: true });
+        const writable = await created.createWritable();
+        await writable.write(file);
+        await writable.close();
+      }
+      count += 1;
+    }
+    return count;
+  },
+
   /** Adds a folder handle from drag and drop (Chrome: DataTransferItem.getAsFileSystemHandle). */
   async addHandleFolder(handle) {
     for (const root of roots.values()) if (root.type === 'handle' && (await root.handle.isSameEntry?.(handle))) return rootPath(root);
@@ -638,18 +661,20 @@ web.sync = async () => { throw new Error('not available in the browser'); };
 export const fs = isDesktop() ? routed : web;
 export const webFs = web;
 
-/** Media files of a dropped DataTransfer (web): folders become read-only memory folders. */
+/** Media files of a dropped DataTransfer (web). Chrome handles stay unregistered so the caller can copy them. */
 export async function filesFromDrop(dataTransfer) {
   const items = [...(dataTransfer.items ?? [])].filter((item) => item.kind === 'file');
-  const out = { folders: [], files: [] };
-  // Chrome: real handles → writable folders.
+  const out = { folders: [], files: [], handles: [] };
+  // Chrome: real handles → the caller copies them or opens them.
   if (items.length && typeof items[0].getAsFileSystemHandle === 'function') {
     const handlesList = await Promise.all(items.map((item) => item.getAsFileSystemHandle().catch(() => null)));
-    for (const handle of handlesList) {
-      if (handle?.kind === 'directory') out.folders.push(await web.addHandleFolder(handle));
-      else if (handle?.kind === 'file') out.files.push({ file: await handle.getFile(), relativePath: handle.name });
+    out.handles = handlesList.filter(Boolean);
+    for (const handle of out.handles) {
+      if (handle.kind === 'file') out.files.push({ file: await handle.getFile(), relativePath: handle.name });
     }
-  } else {
+    if (out.handles.length) return out;
+  }
+  {
     const entries = items.map((item) => item.webkitGetAsEntry?.()).filter(Boolean);
     for (const entry of entries) {
       if (entry.isDirectory) {

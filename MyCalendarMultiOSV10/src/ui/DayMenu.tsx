@@ -25,6 +25,7 @@ import {
   PrintIcon,
   RestoreIcon,
   TodayIcon,
+  TrashIcon,
 } from "./icons";
 import { holdMenuHost, menuHostActive, releaseMenuHost } from "./menuHost";
 import { currentWorkArea, menuNeedsRoom, placeMenu, type MenuPlace } from "./menuPlace";
@@ -43,6 +44,7 @@ const MENU_ICON_NAMES = [
   "maximize",
   "restore",
   "hide",
+  "trash",
 ] as const;
 
 export type MenuIconName = (typeof MENU_ICON_NAMES)[number];
@@ -79,6 +81,8 @@ function MenuGlyph({ name }: { name: MenuIconName }) {
       return <RestoreIcon />;
     case "hide":
       return <HideIcon />;
+    case "trash":
+      return <TrashIcon />;
   }
 }
 
