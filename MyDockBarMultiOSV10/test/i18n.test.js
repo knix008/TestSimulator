@@ -90,11 +90,12 @@ describe('interface coverage', () => {
     assert.deepStrictEqual(missing, [], `settings.html uses undefined keys: ${missing.join(', ')}`);
   });
 
-  it('defines every key the main process asks for', () => {
-    const sources = ['src/main/tray.js', 'src/main/ipc.js']
-      .map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'))
+  it('defines every key the native menus ask for', () => {
+    // The Rust side reads this same table (src-tauri/src/i18n.rs).
+    const sources = ['menus.rs', 'lib.rs', 'error_report.rs']
+      .map((rel) => fs.readFileSync(path.join(ROOT, 'src-tauri', 'src', rel), 'utf8'))
       .join('\n');
-    const used = [...sources.matchAll(/\bt\((['`])([a-z]+\.[A-Za-z]+)\1/g)].map((m) => m[2]);
+    const used = [...sources.matchAll(/\b(?:t|tr)\((?:app, )?"([a-z]+\.[A-Za-z]+)"/g)].map((m) => m[1]);
     assert.ok(used.length > 10, 'expected the menus to be translated');
 
     const missing = [...new Set(used)].filter((key) => !(key in i18n.STRINGS.en));

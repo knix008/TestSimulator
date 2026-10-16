@@ -966,12 +966,47 @@
         return;
       }
 
-      const paths = Array.from(event.dataTransfer.files || [])
-        .map((file) => api.pathForFile(file))
-        .filter(Boolean);
+      const paths = (await api.pathsForFiles(event.dataTransfer.files)).filter(Boolean);
       if (!paths.length) return;
 
       state.items = await api.items.insertPaths(paths, index);
+      render();
+    });
+
+    // macOS and Linux hand file drops from the file manager to the window
+    // itself rather than to the page, already as paths; macOS does the same
+    // with a drag inside the page, whose dragover and drop never reach it.
+    // Both go through the same gap as the page's own events above.
+    let nativeFiles = false;
+    api.dock.onNativeDrag(async (drag) => {
+      const internal = state.dragIndex >= 0;
+      if (drag.type === 'enter') nativeFiles = drag.paths.length > 0;
+      if (drag.type === 'leave') { nativeFiles = false; clearDropIndex(); return; }
+      if (!internal && !nativeFiles) return;
+
+      const axis = isHorizontal() ? drag.position.x : drag.position.y;
+      if (drag.type !== 'drop') {
+        if (!state.cfg.dock.lockItems) setDropIndex(dropIndexFor(axis));
+        return;
+      }
+
+      droppedOnDock = true;
+      nativeFiles = false;
+      const index = state.dropIndex === null ? dropIndexFor(axis) : state.dropIndex;
+      clearDropIndex();
+      if (state.cfg.dock.lockItems) return;
+
+      if (internal) {
+        const from = state.dragIndex;
+        state.dragIndex = -1;
+        if (index !== from) {
+          state.items = await api.items.move(from, index > from ? index - 1 : index);
+          render();
+        }
+        return;
+      }
+      if (!drag.paths.length) return;
+      state.items = await api.items.insertPaths(drag.paths, index);
       render();
     });
 
@@ -990,7 +1025,11 @@
       event.dataTransfer.setData('text/plain', String(state.dragIndex));
     });
 
-    el.items.addEventListener('dragend', async (event) => {
+    el.items.addEventListener('dragend', async () => {
+      // On macOS the drop is reported by the window, and that report can land
+      // just after this; give it the moment it needs before deciding the icon
+      // was dragged away.
+      if (api.platform === 'darwin') await new Promise((resolve) => { setTimeout(resolve, 150); });
       const from = state.dragIndex;
       state.dragIndex = -1;
       clearDropIndex();

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Every MyDockBar window. All real work goes through MyDockBar's own commands (src-tauri/src/lib.rs); this only lets the pages hear the events those commands send and the file drops macOS and Linux report.",
+  "windows": ["dock", "settings", "error-*"],
+  "permissions": ["core:event:default"]
+}

@@ -1,6 +1,7 @@
 # MyDockBar
 
-A themeable application dock for **Windows, macOS and Linux**, built with Electron.
+A themeable application dock for **Windows, macOS and Linux**, built with Tauri 2
+(Rust, and the system webview).
 It takes its cues from RocketDock: a translucent bar pinned to a screen edge, icons
 that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortcuts.
 
@@ -54,7 +55,7 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 - Separators, folders, URLs and built-in actions (Home, Show Desktop, Trash,
   Settings). The built-in ones cannot be deleted.
 - **Lock items** freezes the dock: no adding, removing or reordering, enforced
-  in the main process rather than only in the UI
+  in the Rust side rather than only in the UI
 - The window is click-through everywhere except the dock plate itself, so it
   never swallows clicks meant for the desktop
 
@@ -120,27 +121,41 @@ that magnify under the pointer, reflections, auto-hide, and drag-and-drop shortc
 
 ## Running from source
 
+You need Node.js 22 and a Rust toolchain (`rustup`, stable). On Linux, also the
+WebKitGTK and AppIndicator development packages — on Debian/Ubuntu:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+Windows 10/11 already have the WebView2 runtime; macOS uses its own WebKit.
+
 ```bash
 npm install
 npm start
 ```
 
-That is the whole of it. The artwork under `build/` is generated rather than
-committed, and `prestart` builds it on the first run — see
+`npm start` runs `tauri dev` through [`scripts/dev.js`](scripts/dev.js), which
+picks a free port for the page server first (other projects on the same machine
+use Tauri's default). The first run compiles the Rust side, which takes a few
+minutes; later runs only rebuild what changed. The artwork under `build/` is
+generated rather than committed, and is built on the first run — see
 [Generated files](#generated-files).
 
-> On Windows, if the app exits immediately with no window, check that
-> `ELECTRON_RUN_AS_NODE` is not set in your shell — it makes the Electron binary
-> behave as a plain Node runtime.
+To try the dock without touching your own settings, point it at a throwaway
+folder: `MYDOCKBAR_CONFIG_DIR=/tmp/dock npm start`. Settings, icon caches and the
+webview profile all go there, and "start at login" is only pretended.
 
 Run the tests with:
 
 ```bash
-npm test          # grouped, colourised summary
-npm run test:tap  # plain TAP, for CI log scraping
+npm test           # both suites: test:js, then test:rust
+npm run test:js    # the Node suite, grouped and colourised
+npm run test:rust  # cargo test
+npm run test:tap   # the Node suite as plain TAP, for CI log scraping
 ```
 
-`npm test` uses the reporter in
+`npm run test:js` uses the reporter in
 [`scripts/test-reporter.js`](scripts/test-reporter.js): results are grouped
 under the `describe()` block they belong to, timings are shown per test, and a
 summary line closes with the totals. Colour is dropped automatically when the
@@ -155,15 +170,21 @@ output is not a terminal, or when `NO_COLOR` is set.
     ✔ keeps the hovered icon under the pointer                 0.3ms
 
   ──────────────────────────────────────────────────────────────
-  groups 23  |  tests 100  |  passed 100  |  failed 0
+  groups 35  |  tests 157  |  passed 157  |  failed 0
 ```
 
-The suite covers the magnification maths (including that the row holds one
+The Node suite covers the magnification maths (including that the row holds one
 length, that the end icons never move, that nothing more than three icons from
 the pointer shifts, and that no gap balloons), settings merging, the
 translation table (every string translated, every `data-i18n` key defined), the
-theme generator and its colour separation, PE icon extraction, `.desktop`
-parsing, the first-run seed, running-process filtering, and menu icon coverage.
+theme generator and its colour separation, the build configuration and
+installer hooks, and that every command and event is spelt the same on both
+sides of the bridge. The Rust suite (69 tests) covers PE icon extraction,
+`.desktop` parsing, the first-run seed, running-process filtering, the trash
+probes, the auto-hide geometry, atomic settings writes, and menu icon coverage.
+
+`npm run clean` deletes the Rust build (`src-tauri/target`, several GB) and
+copied installers; `--dry-run` lists what it would remove.
 
 ---
 
@@ -173,17 +194,15 @@ Two parts of the tree are produced by scripts rather than written by hand.
 
 | Path | Produced by | In git? |
 | --- | --- | --- |
-| `build/` (except `installer.nsh`) | `npm run icons` | no — ~2MB of binaries that would churn on every tweak to the drawing code |
-| `MyDockBar-*.exe` etc. in the root | a build | no — copies of the `dist/` artifacts |
+| `build/` | `npm run icons` | no — ~2MB of binaries that would churn on every tweak to the drawing code |
+| `MyDockBar-*.exe` etc. in the root | a build | no — copies of the bundles in `src-tauri/target/release/bundle/` |
 | `themes/` | `npm run themes` | yes — small JSON, shipped with the app, and the worked example the theme format is documented against |
 
-`build/installer.nsh` is hand-written and is tracked.
-
-`prestart`, `predev` and `pretest` run
-[`scripts/ensure-icons.js`](scripts/ensure-icons.js), which regenerates the
-artwork when it is missing or older than the scripts that draw it. A fresh
-clone therefore needs nothing beyond `npm install`. `npm run icons` rebuilds
-unconditionally.
+`tauri dev` and `tauri build` (through `beforeDevCommand`/`beforeBuildCommand`)
+and `pretest` run [`scripts/ensure-icons.js`](scripts/ensure-icons.js), which
+regenerates the artwork when it is missing or older than the scripts that draw
+it. A fresh clone therefore needs nothing beyond `npm install`. `npm run icons`
+rebuilds unconditionally.
 
 ---
 
@@ -191,26 +210,27 @@ unconditionally.
 
 ```bash
 npm run build:win     # NSIS installer (.exe)
-npm run build:mac     # DMG + zip
-npm run build:linux   # AppImage + deb + rpm
+npm run build:mac     # DMG
+npm run build:linux   # AppImage + deb
 npm run build         # every target this host can produce
-npm run pack          # unpacked app tree only, for a quick look
+npm run pack          # the release executable only, no installer
 ```
 
-Output lands in `dist/`, and **the** finished installer is copied to the
-project root by [`scripts/copy-installer.js`](scripts/copy-installer.js) — the
+Tauri writes the bundles to `src-tauri/target/release/bundle/`, and each build
+command ends with [`scripts/copy-installer.js`](scripts/copy-installer.js),
+which copies them to the project root under the names the documents use — the
 file you would hand to someone ends up next to the README rather than buried in
-`dist/`. It runs from electron-builder's `afterAllArtifactBuild` hook, so it
-applies however the build was started.
+`target/`:
 
-A multi-architecture build produces the same installer more than once
-(`…-Setup.exe` alongside `…-Setup-x64.exe` and `…-Setup-arm64.exe`); the one
-copied is the combined build that runs anywhere, and copies left by an earlier
-build are cleared. Different *formats* are not duplicates, so a Linux build
-keeps one AppImage, one `.deb` and one `.rpm`. Update metadata, blockmaps and
-intermediate archives are never copied, and every artifact remains in `dist/`.
+| Bundle | Copied as |
+| --- | --- |
+| `nsis/MyDockBar_1.0.0_x64-setup.exe` | `MyDockBar-1.0.0-Setup-x64.exe` |
+| `dmg/MyDockBar_1.0.0_aarch64.dmg` | `MyDockBar-1.0.0-aarch64.dmg` |
+| `appimage/MyDockBar_1.0.0_amd64.AppImage` | `MyDockBar-1.0.0-amd64.AppImage` |
+| `deb/MyDockBar_1.0.0_amd64.deb` | `MyDockBar-1.0.0-amd64.deb` |
 
-Each of these regenerates the artwork first, so there is no separate step to
+An older installer of the same kind in the root is removed, leaving only the new
+one. Each command regenerates the artwork first, so there is no separate step to
 remember.
 
 **Each platform must be built on that platform.** A Windows host cannot produce a
@@ -220,24 +240,30 @@ run it with a `v*` tag or via *workflow_dispatch*.
 
 ### The Windows installer
 
-`build/installer.nsh` customises electron-builder's NSIS installer:
+[`src-tauri/windows/hooks.nsh`](src-tauri/windows/hooks.nsh) adds to Tauri's
+NSIS installer:
 
-- **Existing-installation prompt.** Before installing, the installer reads the
-  uninstall registry key (per-user, then per-machine). If a previous MyDockBar
-  is found it asks once, in English or Korean depending on the installer
-  language: **Yes** removes the installed version and installs this one, **No**
-  ends the installer leaving the existing version untouched. A silent `/S`
-  install answers Yes automatically.
+- **Existing installation.** Before the welcome page, a page says that the
+  MyDockBar already installed — this build or the earlier Electron one — will be
+  removed and this version installed in its place.
+- **User data.** If dock items and settings from an earlier MyDockBar are
+  found in `%APPDATA%\MyDockBar`, the same page asks whether to **keep** them or
+  **delete** them and start fresh. Neither is pre-selected: the wizard will not
+  move on until one is picked, and deleting asks for confirmation. The old copy
+  is removed as the page is left, so Tauri's own "keep it / remove it" page
+  never appears.
+- A silent `/S` install removes the old copy too, and keeps the data.
+- The Electron build's "start at login" entry and its Chromium caches are
+  cleared on the way; the new dock registers its own login entry from the kept
+  settings when it starts.
+- The uninstaller closes a running dock first, and its "delete app data" box
+  removes `%APPDATA%\MyDockBar` — the folder the dock actually uses, which is not
+  the one Tauri would assume.
 
-  The removal itself is left to electron-builder, whose install section already
-  runs `uninstallOldVersion`. Doing it in `customInit` as well would uninstall
-  twice, and clearing the registry that early would make the licence and
-  destination-folder pages — which are meant to be skipped on an upgrade —
-  appear again.
-- **Shortcuts.** A desktop shortcut and a Start Menu shortcut are created and
-  removed with the app, and Explorer is notified so they appear immediately.
-- The installer lets the user choose the install directory, and offers an
-  English / Korean language selector.
+The installer is per-user (no administrator prompt), offers an English / Korean
+language selector, and creates a Start Menu shortcut; a desktop shortcut is a
+checkbox on its last page (a silent install makes one). If the WebView2 runtime
+is missing it downloads it.
 
 ---
 
@@ -305,55 +331,73 @@ All artwork is generated from code by `npm run icons`
 
 ## How it is put together
 
+[Architecture.md](Architecture.md) has the full picture; this is the map.
+
 ```
-src/shared/        i18n table, loaded by both the main process and the renderer
-src/main/          Electron main process
-  main.js            lifecycle, single-instance lock, first-run seeding
-  config.js          JSON settings with atomic writes and defaults merging
-  dock-window.js     the transparent, always-on-top dock window and its placement
-  pointer-watch.js   cursor polling -> click-through toggling and auto-hide
-  ipc.js             every IPC handler; the renderer talks only through these
-  themes.js          theme discovery and url() rewriting
-  icons.js           icon extraction and on-disk caching
-  app-scanner.js     per-platform installed-application discovery
-  launcher.js        launching items, per platform
-  running.js         process-table polling: running indicator + open applications
-  trash.js           recycle bin state and emptying, per platform
-  app-windows.js     listing and raising an application's open windows
-  pe-icons.js        PE resource parser - every icon inside an .exe/.dll
-  tray.js            tray icon and its menu
-  menu-icons.js      NativeImage loader for menu glyphs
-src/preload/       the contextBridge API surface
-src/renderer/      dock UI (index.html) and settings UI (settings.html)
-  js/magnify.js      the magnification maths, kept DOM-free
-themes/            built-in themes
+src-tauri/          the native side, in Rust (Tauri 2)
+  tauri.conf.json     windows, bundles, installer settings
+  windows/hooks.nsh   additions to the NSIS installer
+  data/defaults.json  every setting's default
+  src/
+    lib.rs            lifecycle, single instance, first-run seeding, every command
+    bridge.rs         notifications to the pages, held until a page is listening
+    config.rs         JSON settings with atomic writes and defaults merging
+    dock.rs           the transparent, always-on-top dock window and its driver thread
+    geometry.rs       placement and the auto-hide slide, free of any window
+    pointer.rs        what the page is told about the pointer once it is click-through
+    menus.rs          tray icon, tray menu and the dock's popup menus
+    i18n.rs           reads src/shared/i18n.js for the native menus
+    themes.rs         theme discovery and url() rewriting
+    protocol.rs       the dock: protocol that serves icons and theme images
+    icons.rs          icon extraction and on-disk caching
+    pe_icons.rs       PE resource parser - every icon inside an .exe/.dll
+    app_scanner.rs    per-platform installed-application discovery
+    app_windows.rs    listing and raising an application's open windows
+    launcher.rs       launching items, per platform
+    running.rs        running indicator + open applications
+    trash.rs          recycle bin state, emptying and watching, per platform
+    win.rs            Win32 calls made directly, instead of child processes
+    dropped_files.rs  paths of files dropped on a page (Windows)
+    error_report.rs   the copyable error window
+    seed.rs           what the dock holds the first time it runs
+src/
+  bridge.js         window.dockApi - the only way the pages reach Rust
+  shared/           i18n table, read by the pages and compiled into Rust
+  renderer/         dock UI (index.html), settings UI (settings.html), error window
+    js/magnify.js     the magnification maths, kept DOM-free
+themes/             built-in themes
 scripts/
+  dev.js             npm start: tauri dev on a free port
   make-icons.js      the application icon, tray, installer art and menu glyphs
   menu-glyphs.js     the glyph drawings themselves
   make-themes.js     the palette/shape table that generates themes/
   ensure-icons.js    regenerates the artwork when it is missing or stale
   copy-installer.js  copies finished installers to the project root
+  clean.js           deletes build output
   test-reporter.js   the grouped, colourised test output
-test/              tests that run on plain Node
+test/               Node tests (the Rust tests sit beside their code)
 ```
 
 ### npm scripts
 
 | Script | Does |
 | --- | --- |
-| `start`, `dev` | run the app (`dev` adds `--dev`) |
-| `test`, `test:tap` | run the suite, grouped or as plain TAP |
+| `start`, `dev` | run the app from source (`tauri dev`) |
+| `test`, `test:js`, `test:rust`, `test:tap` | both suites; the Node suite; `cargo test`; the Node suite as plain TAP |
 | `icons` | rebuild all artwork unconditionally |
 | `themes` | regenerate `themes/` from the palette table |
-| `pack` | unpacked app tree, no installer |
+| `pack` | release executable, no installer |
 | `build`, `build:win`, `build:mac`, `build:linux` | installers |
+| `clean` | delete the Rust build and copied installers |
 
 Two details worth knowing:
 
 - **Click-through.** The dock window is a rectangle far larger than the visible
-  bar. `pointer-watch.js` polls the cursor and calls `setIgnoreMouseEvents` so
-  the window only captures clicks over the plate. Polling is used rather than
-  `forward: true` because event forwarding is not supported on Linux.
+  bar. `dock.rs` polls the cursor and calls `set_ignore_cursor_events` so the
+  window only captures clicks over the plate. Polling is used rather than event
+  forwarding because forwarding is not available on every platform — and once
+  the window is click-through it no longer hears the pointer leave, so
+  `pointer.rs` tells the page itself.
 - **Magnification anchoring.** `magnify.js` maps a distance along the resting
   layout onto the magnified one, which keeps the icon under the pointer from
   sliding away as its neighbours grow. The plate resizes with the row so
@@ -401,15 +445,15 @@ Two details worth knowing:
   `test/magnify.test.js` pins all of this down: the row keeps one length, the
   first and last icons never move, and nothing more than three icons from the
   pointer shifts on a pointer step.
-- **Icon extraction.** `app.getFileIcon` returns only the one icon the shell
-  picks. `pe-icons.js` walks the PE resource tree itself and rebuilds each
+- **Icon extraction.** The shell hands back only the one icon it picks.
+  `pe_icons.rs` walks the PE resource tree itself and rebuilds each
   `RT_GROUP_ICON` into a standalone `.ico`, which is what lets the picker offer
   all 300-odd icons a program like Notepad++ actually ships.
 
 - **Raising someone else's window.** Windows only lets the process that
   currently owns the foreground hand it to another, and the dock deliberately
-  never takes focus — so `WScript.Shell`'s `AppActivate` returns `False` and
-  nothing happens. `app-windows.js` brackets `SetForegroundWindow` with
+  never takes focus — so a plain `SetForegroundWindow` does nothing. `win.rs`
+  brackets `SetForegroundWindow` with
   `AttachThreadInput` against the foreground thread, which is the documented way
   round it, and un-minimises the window first so restoring it afterwards cannot
   put it back behind something else.

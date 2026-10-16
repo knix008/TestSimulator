@@ -8,32 +8,28 @@
     "email": "suho.kwon@gmail.com"
   },
   "license": "MIT",
-  "main": "src/main/main.js",
+  "private": true,
   "scripts": {
-    "prestart": "node scripts/ensure-icons.js",
-    "start": "electron .",
-    "predev": "node scripts/ensure-icons.js",
-    "dev": "electron . --dev",
+    "start": "node scripts/dev.js",
+    "dev": "node scripts/dev.js",
     "pretest": "node scripts/ensure-icons.js",
-    "test": "node --test --test-concurrency=1 --test-reporter=./scripts/test-reporter.js \"test/*.test.js\"",
+    "test": "npm run test:js && npm run test:rust",
+    "test:js": "node --test --test-concurrency=1 --test-reporter=./scripts/test-reporter.js \"test/*.test.js\"",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:tap": "node --test \"test/*.test.js\"",
     "icons": "node scripts/make-icons.js",
     "themes": "node scripts/make-themes.js",
-    "pack": "node scripts/ensure-icons.js && electron-builder --dir",
-    "build": "node scripts/ensure-icons.js && electron-builder",
-    "build:win": "node scripts/ensure-icons.js && electron-builder --win",
-    "build:mac": "node scripts/ensure-icons.js && electron-builder --mac",
-    "build:linux": "node scripts/ensure-icons.js && electron-builder --linux",
-    "build:fast": "node scripts/ensure-icons.js && electron-builder -c.compression=store",
-    "release:win": "node scripts/ensure-icons.js && electron-builder --win --x64 --arm64",
-    "release:mac": "node scripts/ensure-icons.js && electron-builder --mac --x64 --arm64",
-    "release:linux": "node scripts/ensure-icons.js && electron-builder --linux --x64 --arm64"
+    "clean": "node scripts/clean.js",
+    "tauri": "tauri",
+    "pack": "node scripts/ensure-icons.js && tauri build --no-bundle",
+    "build": "node scripts/ensure-icons.js && tauri build && node scripts/copy-installer.js",
+    "build:win": "node scripts/ensure-icons.js && tauri build --bundles nsis && node scripts/copy-installer.js",
+    "build:mac": "node scripts/ensure-icons.js && tauri build --bundles dmg && node scripts/copy-installer.js",
+    "build:linux": "node scripts/ensure-icons.js && tauri build --bundles appimage,deb && node scripts/copy-installer.js"
   },
   "devDependencies": {
-    "electron": "^44.4.4",
-    "electron-builder": "^26.15.3",
+    "@tauri-apps/cli": "^2.8.0",
     "png-to-ico": "^3.0.2",
     "sharp": "^0.35.4"
-  },
-  "desktopName": "mydockbar.desktop"
+  }
 }

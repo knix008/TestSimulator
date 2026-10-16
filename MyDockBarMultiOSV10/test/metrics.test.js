@@ -3,7 +3,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { loadRenderer } = require('./helpers/renderer');
-const { defaults } = require('../src/main/config');
+// The one declaration of every setting, which the Rust side compiles in.
+const defaults = () => JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'src-tauri', 'data', 'defaults.json'), 'utf8'));
 
 const { DockMetrics } = loadRenderer(['src/renderer/js/metrics.js']);
 const { crossMetrics, MIN_INSET } = DockMetrics;

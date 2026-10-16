@@ -6,105 +6,107 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-// Normalised: git may well have checked these out with CRLF, and every
-// pattern below is written against plain newlines.
+// Normalised: git may well have checked these out with CRLF.
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 
-const YML = read('electron-builder.yml');
-const SCRIPTS = JSON.parse(read('package.json')).scripts;
+const CONF = JSON.parse(read('src-tauri/tauri.conf.json'));
+const PKG = JSON.parse(read('package.json'));
+const CARGO = read('src-tauri/Cargo.toml');
+const HOOKS = read('src-tauri/windows/hooks.nsh');
+const SCRIPTS = PKG.scripts;
 
-/** The `target:` block for one platform, as written in the YAML. */
-function targetBlock(platform) {
-  const open = YML.indexOf(`\n${platform}:\n`);
-  assert.ok(open >= 0, `electron-builder.yml has no ${platform} section`);
-
-  const section = YML.slice(open + 1);
-  const end = /\n[a-z]+:\n/.exec(section.slice(1));
-  const body = end ? section.slice(0, end.index + 1) : section;
-
-  const targets = body.indexOf('  target:');
-  assert.ok(targets >= 0, `${platform} names no targets`);
-  const rest = body.slice(targets);
-  const stop = /\n  [a-zA-Z]/.exec(rest.slice(10));
-  return stop ? rest.slice(0, stop.index + 10) : rest;
-}
-
-describe('how long a build takes', () => {
-  // Naming two architectures for one target is the single most expensive thing
-  // this file can do. The config wins over the command line, so it is not just
-  // that every build becomes both - electron-builder also emits a third,
-  // combined installer holding the two, and compressing the payload is by far
-  // the slowest step in the build. Three passes of it instead of one turned a
-  // two-minute build into a six-minute one.
-  for (const platform of ['win', 'mac', 'linux']) {
-    it(`leaves ${platform} architectures to the command line`, () => {
-      const block = targetBlock(platform);
-      assert.ok(!/\barch:/.test(block),
-        `${platform} pins an architecture in the config, which overrides the CLI:\n${block}`);
-    });
-  }
-
-  it('has a draft build that skips compression', () => {
-    assert.ok(SCRIPTS['build:fast'], 'no build:fast script');
-    assert.ok(SCRIPTS['build:fast'].includes('compression=store'),
-      'build:fast does not actually turn compression off');
+describe('one product, one name', () => {
+  it('keeps the same version everywhere', () => {
+    const cargo = /^version = "([^"]+)"/m.exec(CARGO)[1];
+    assert.strictEqual(CONF.version, PKG.version);
+    assert.strictEqual(cargo, PKG.version);
   });
 
-  it('has a pack-only build, for when no installer is needed at all', () => {
-    assert.ok(SCRIPTS.pack && SCRIPTS.pack.includes('--dir'), 'no pack script');
+  it('keeps the identifier and folder the Electron build used', () => {
+    // Settings, chosen icons and user themes live under this name; a new one
+    // would leave every existing dock behind.
+    assert.strictEqual(CONF.identifier, 'com.suhokwon.mydockbar');
+    assert.strictEqual(CONF.productName, 'MyDockBar');
+    assert.ok(read('src-tauri/src/lib.rs').includes('.join("MyDockBar")'), 'the data folder moved');
   });
 
-  it('asks for both architectures only when shipping', () => {
-    for (const platform of ['win', 'mac', 'linux']) {
-      const release = SCRIPTS[`release:${platform}`];
-      assert.ok(release, `no release:${platform} script`);
-      assert.ok(release.includes('--x64') && release.includes('--arm64'),
-        `release:${platform} does not build both architectures`);
-
-      const build = SCRIPTS[`build:${platform}`];
-      assert.ok(!build.includes('--arm64'),
-        `build:${platform} builds a second architecture nobody asked for`);
-    }
-  });
-
-  it('only regenerates the artwork when it is stale', () => {
-    // `npm run icons` rebuilds unconditionally; a build only needs it present.
-    for (const name of ['pack', 'build', 'build:win', 'build:mac', 'build:linux',
-      'release:win', 'release:mac', 'release:linux']) {
-      assert.ok(SCRIPTS[name].includes('ensure-icons'), `${name} does not ensure the artwork`);
-      assert.ok(!/\bnpm run icons\b/.test(SCRIPTS[name]),
-        `${name} rebuilds all the artwork every time`);
-    }
-  });
-
-  it('ships only what the app loads at runtime', () => {
-    const files = YML.slice(YML.indexOf('files:'), YML.indexOf('asar:'));
-    assert.ok(!/- \*\*\/\*/.test(files), 'the whole tree is being packaged');
-    assert.ok(files.includes('src/**/*'), 'the sources are not packaged');
-  });
-
-  it('carries only the languages the app is translated into', () => {
-    // Every extra locale is another set of Electron resources in the payload.
-    const after = YML.slice(YML.indexOf('electronLanguages:'));
-    const listed = [];
-    for (const line of after.split('\n').slice(1)) {
-      const item = /^ {2}- ([\w-]+)\s*$/.exec(line);
-      if (!item) break;
-      listed.push(item[1]);
-    }
-    assert.deepStrictEqual(listed, ['en-US', 'ko']);
+  it('spells the names in the installer hooks the way the config does', () => {
+    assert.ok(HOOKS.includes(`!define MDB_IDENTIFIER "${CONF.identifier}"`));
+    assert.ok(HOOKS.includes(`!define MDB_EXE "${CONF.mainBinaryName}.exe"`));
+    assert.ok(HOOKS.includes(`Uninstall\\${CONF.productName}"`));
   });
 });
 
-describe('what lands in the project root', () => {
-  it('is never a draft build', () => {
-    // A store-compressed installer is three times the size and is only ever
-    // meant for a quick check; it must not replace the one you hand out.
-    const source = read('scripts/copy-installer.js');
-    assert.ok(/compression === 'store'/.test(source),
-      'copy-installer does not recognise a draft build');
-    const guard = source.slice(source.indexOf("compression === 'store'"));
-    assert.ok(guard.indexOf('return []') < guard.indexOf('copyFileSync'),
-      'copy-installer copies before it checks whether the build was a draft');
+describe('the installer', () => {
+  it('is per-user, Korean and English, with the hooks wired in', () => {
+    const nsis = CONF.bundle.windows.nsis;
+    assert.strictEqual(nsis.installMode, 'currentUser');
+    assert.deepStrictEqual([...nsis.languages].sort(), ['English', 'Korean']);
+    assert.strictEqual(nsis.installerHooks, 'windows/hooks.nsh');
+  });
+
+  it('is saved with a BOM, or NSIS reads the Korean as ANSI', () => {
+    const bytes = fs.readFileSync(path.join(ROOT, 'src-tauri/windows/hooks.nsh'));
+    assert.deepStrictEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+  });
+
+  it('removes an installed copy, Electron or Tauri, before installing', () => {
+    assert.ok(/MDB_ELECTRON_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\8f4897b2-/.test(HOOKS));
+    const removal = HOOKS.slice(HOOKS.indexOf('Function MDB_RemovePrevious'), HOOKS.indexOf('FunctionEnd', HOOKS.indexOf('Function MDB_RemovePrevious')));
+    assert.ok(/taskkill/.test(removal), 'a running dock would hold its files open');
+    assert.ok(removal.includes('${MDB_ELECTRON_KEY}') && removal.includes('${MDB_UNINSTKEY}'), 'one of the two builds is not removed');
+    assert.ok(/NSIS_HOOK_PREINSTALL[\s\S]*Call MDB_RemovePrevious/.test(HOOKS), 'a silent install keeps the old copy');
+  });
+
+  it('always asks about the user data, with no answer chosen for the user', () => {
+    const page = HOOKS.slice(HOOKS.indexOf('Function MDB_PagePrevious'), HOOKS.indexOf('Function MDB_LeavePrevious'));
+    assert.ok(page.includes('MDB_KeepRadio') && page.includes('MDB_DeleteRadio'));
+    assert.ok(!/NSD_Check/.test(page), 'one of the answers is pre-selected');
+    const leave = HOOKS.slice(HOOKS.indexOf('Function MDB_LeavePrevious'), HOOKS.indexOf('Function MDB_Unquote'));
+    assert.ok(/\$0 != \$\{BST_CHECKED\}[\s\S]{0,80}\$1 != \$\{BST_CHECKED\}[\s\S]{0,400}Abort/.test(leave),
+      'the wizard moves on without an answer');
+    const removal = HOOKS.slice(HOOKS.indexOf('Function MDB_RemovePrevious'));
+    assert.ok(/\$\{If\} \$MDB_DeleteData == 1[\s\S]{0,80}RMDir \/r "\$APPDATA\\\$\{MDB_DATA_DIR\}"/.test(removal),
+      'the user data is not removed when asked to be');
+    assert.ok(/--updated/.test(removal), 'the Electron uninstaller would decide about the data itself');
+  });
+
+  it('never uses a Tauri define inside a Function', () => {
+    // The hooks are read before Tauri defines them; inside a Function they are
+    // still undefined and the uninstaller build fails.
+    const functions = HOOKS.match(/^Function [\s\S]*?^FunctionEnd/gm) || [];
+    for (const body of functions) {
+      assert.ok(!/\$\{(PRODUCTNAME|MAINBINARYNAME|BUNDLEID|UNINSTKEY|MANUPRODUCTKEY)\}/.test(body), body.split('\n')[0]);
+      assert.ok(!/\$(UpdateMode|PassiveMode|DeleteAppDataCheckboxState)\b/.test(body), `${body.split('\n')[0]} reads a Tauri variable`);
+    }
+  });
+});
+
+describe('the build commands', () => {
+  it('has one per platform, each copying the installer to the root', () => {
+    for (const [name, bundle] of [['build:win', 'nsis'], ['build:mac', 'dmg'], ['build:linux', 'appimage']]) {
+      assert.ok(SCRIPTS[name], `no ${name} script`);
+      assert.ok(SCRIPTS[name].includes(`--bundles ${bundle}`), `${name} builds the wrong bundle`);
+      assert.ok(SCRIPTS[name].includes('copy-installer'), `${name} leaves the installer in target/`);
+      assert.ok(SCRIPTS[name].includes('ensure-icons'), `${name} does not ensure the artwork`);
+    }
+    assert.ok(SCRIPTS.pack.includes('--no-bundle'), 'no pack-only build');
+  });
+
+  it('bundles the built-in themes and nothing it does not load', () => {
+    assert.deepStrictEqual(CONF.bundle.resources, { '../themes': 'themes' });
+    assert.strictEqual(CONF.build.frontendDist, '../src');
+  });
+
+  it('carries no Electron any more', () => {
+    assert.ok(!PKG.devDependencies.electron, 'electron is still a dependency');
+    assert.ok(!PKG.devDependencies['electron-builder'], 'electron-builder is still a dependency');
+    assert.ok(!fs.existsSync(path.join(ROOT, 'src', 'main')), 'the Electron main process is still there');
+    assert.ok(!fs.existsSync(path.join(ROOT, 'src', 'preload')), 'the Electron preload is still there');
+  });
+
+  it('lets transparent windows work on macOS', () => {
+    assert.strictEqual(CONF.app.macOSPrivateApi, true);
+    assert.ok(/macos-private-api/.test(CARGO));
   });
 });

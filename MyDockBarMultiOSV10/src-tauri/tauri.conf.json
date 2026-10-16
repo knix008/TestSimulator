@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyDockBar",
+  "mainBinaryName": "MyDockBar",
+  "version": "1.0.0",
+  "identifier": "com.suhokwon.mydockbar",
+  "build": {
+    "frontendDist": "../src",
+    "beforeDevCommand": "node scripts/ensure-icons.js",
+    "beforeBuildCommand": "node scripts/ensure-icons.js"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob: dock: http://dock.localhost https://dock.localhost",
+        "font-src": "'self' data:",
+        "connect-src": "ipc: http://ipc.localhost"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "Suho Kwon",
+    "copyright": "Copyright © 2026 Suho Kwon",
+    "license": "MIT",
+    "licenseFile": "../LICENSE.txt",
+    "category": "Utility",
+    "shortDescription": "Themeable application dock",
+    "longDescription": "MyDockBar is a themeable application dock for Windows, macOS and Linux, with magnifying icons, auto-hide, multi-monitor support and drag-and-drop shortcuts.",
+    "icon": [
+      "../build/icons/32x32.png",
+      "../build/icons/128x128.png",
+      "../build/icons/256x256.png",
+      "../build/icon.png",
+      "../build/icon.ico"
+    ],
+    "resources": {
+      "../themes": "themes"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["English", "Korean"],
+        "installMode": "currentUser",
+        "installerIcon": "../build/installerIcon.ico",
+        "headerImage": "../build/installerHeader.bmp",
+        "sidebarImage": "../build/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-0", "xdg-utils"]
+      }
+    }
+  }
+}

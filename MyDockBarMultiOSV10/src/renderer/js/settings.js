@@ -34,7 +34,7 @@
       if (!glyph || tab.querySelector('img')) continue;
 
       const img = document.createElement('img');
-      img.src = `../../build/menu/${glyph}.png`;
+      img.src = api.icons.glyphUrl(glyph);
       img.alt = '';
       // A missing glyph must not leave a broken-image box in the tab strip.
       img.addEventListener('error', () => img.remove(), { once: true });
@@ -532,15 +532,27 @@
 
       if (locked()) { toast(t('m.locked')); return; }
 
-      const paths = Array.from(event.dataTransfer.files || [])
-        .map((file) => api.pathForFile(file))
-        .filter(Boolean);
+      const paths = (await api.pathsForFiles(event.dataTransfer.files)).filter(Boolean);
       if (!paths.length) return;
+      addDropped(paths);
+    });
 
+    // macOS and Linux report file drops to the window, already as paths.
+    api.dock.onNativeDrag((drag) => {
+      if (!panel.classList.contains('active')) return;
+      if (drag.type === 'enter' && drag.paths.length && !locked()) panel.classList.add('dropping');
+      if (drag.type === 'leave') panel.classList.remove('dropping');
+      if (drag.type !== 'drop' || !drag.paths.length) return;
+      panel.classList.remove('dropping');
+      if (locked()) { toast(t('m.locked')); return; }
+      addDropped(drag.paths);
+    });
+
+    async function addDropped(paths) {
       state.items = await api.items.addPaths(paths);
       state.itemPage = Math.floor(Math.max(0, state.items.length - 1) / ITEMS_PER_PAGE);
       renderItems();
-    });
+    }
   }
 
   function setupItemDrag() {
@@ -569,7 +581,10 @@
 
     list.addEventListener('drop', async (event) => {
       event.preventDefault();
-      const row = event.target.closest('li');
+      dropOn(event.target.closest('li'));
+    });
+
+    async function dropOn(row) {
       for (const other of list.children) other.classList.remove('drag-over');
       if (!row || from < 0 || !row.dataset.index) return;
       const to = Number(row.dataset.index);
@@ -577,7 +592,23 @@
       state.items = await api.items.move(from, to);
       from = -1;
       renderItems();
-    });
+    }
+
+    // macOS: a drag inside the page is reported to the window, not the page.
+    if (api.platform === 'darwin') {
+      api.dock.onNativeDrag((drag) => {
+        if (from < 0) return;
+        const at = document.elementFromPoint(drag.position.x, drag.position.y);
+        const row = at && at.closest ? at.closest('#item-list li') : null;
+        if (drag.type === 'over' || drag.type === 'enter') {
+          for (const other of list.children) other.classList.toggle('drag-over', other === row);
+        } else if (drag.type === 'drop') {
+          dropOn(row);
+        } else {
+          for (const other of list.children) other.classList.remove('drag-over');
+        }
+      });
+    }
   }
 
   /* ------------------------------ editor ------------------------------- */

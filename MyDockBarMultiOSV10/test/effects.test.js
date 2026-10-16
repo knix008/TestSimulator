@@ -5,7 +5,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const { defaults } = require('../src/main/config');
+// The one declaration of every setting, which the Rust side compiles in.
+const defaults = () => JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'src-tauri', 'data', 'defaults.json'), 'utf8'));
 const i18n = require('../src/shared/i18n');
 
 const ROOT = path.join(__dirname, '..');
@@ -125,15 +126,16 @@ describe('the taskbar setting', () => {
   });
 
   it('is what the dock window actually asks the OS for', () => {
-    const source = read('src/main/dock-window.js');
-    assert.ok(/skipTaskbar: !this\.wantsTaskbar\(dock\)/.test(source),
-      'the window is still created with a hard-coded skipTaskbar');
-    assert.ok(/setSkipTaskbar\(!this\.wantsTaskbar\(dock\)\)/.test(source),
+    const lib = read('src-tauri/src/lib.rs');
+    const dock = read('src-tauri/src/dock.rs');
+    assert.ok(/\.skip_taskbar\(!dock::wants_taskbar\(/.test(lib),
+      'the window is still created with a hard-coded skip_taskbar');
+    assert.ok(/set_skip_taskbar\(!wants_taskbar\(/.test(dock),
       'changing the setting never reaches the live window');
-    assert.ok(/startWithOS\) return false/.test(source),
+    assert.ok(/!start_with_os && truthy\(&dock\["showInTaskbar"\]\)/.test(dock),
       'a login launch can still take a taskbar button');
-    assert.ok(/applyConfig\(\)[\s\S]{0,400}applyTaskbar\(/.test(source),
-      'applyConfig does not reapply the taskbar setting');
+    assert.ok(/pub fn apply_config[\s\S]{0,600}Op::Level/.test(dock),
+      'apply_config does not reapply the taskbar setting');
   });
 
   it('is named in both languages', () => {
@@ -232,15 +234,18 @@ describe('the trash-emptying effects', () => {
   it('plays on a real emptying, not on the bin merely becoming empty', () => {
     // Dragging the last file back out of the bin also leaves it empty, and
     // that is not something to play an emptying over.
-    const IPC = read('src/main/ipc.js');
-    const body = bodyOf(IPC, 'async function emptyTrash()');
-    assert.ok(/if \(!result\.ok\)[\s\S]{0,200}return result;/.test(body),
-      'a cancelled or failed emptying is announced all the same');
-    assert.ok(body.indexOf("broadcast('dock:trash-emptied'") > body.indexOf('if (!result.ok)'),
-      'the announcement goes out before the emptying is known to have worked');
-    assert.ok(!/trash\.empty\(dockHwnd/.test(IPC.replace(body, '')),
-      'something still empties the bin without announcing it');
-    assert.ok(read('src/preload/preload.js').includes("on('dock:trash-emptied'"),
+    const LIB = read('src-tauri/src/lib.rs');
+    const open = LIB.indexOf('pub fn empty_trash(');
+    const body = LIB.slice(open, LIB.indexOf('\n}\n', open));
+    const ok = body.indexOf('Ok(()) =>');
+    const failed = body.indexOf('Err(error) =>');
+    assert.ok(ok >= 0 && failed > ok, 'empty_trash does not tell success from failure');
+    const announce = body.indexOf('"dock:trash-emptied"');
+    assert.ok(announce > ok && announce < failed,
+      'the announcement goes out on a cancelled or failed emptying too');
+    const elsewhere = ['lib.rs', 'menus.rs'].map((f) => read(`src-tauri/src/${f}`)).join('\n').replace(body, '');
+    assert.ok(!/trash::empty\(/.test(elsewhere), 'something still empties the bin without announcing it');
+    assert.ok(read('src/bridge.js').includes("on('dock:trash-emptied'"),
       'the dock window is never told about an emptying');
     assert.ok(DOCK_JS.includes('api.trash.onEmptied('), 'dock.js never listens for one');
   });

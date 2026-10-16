@@ -2,8 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; img-src file: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self';" />
   <title>MyDockBar</title>
   <link rel="stylesheet" href="css/dock.css" />
   <link rel="stylesheet" href="css/effects.css" />
@@ -15,6 +13,7 @@
     <div id="items" class="items"></div>
     <div id="tooltip" class="tooltip" role="tooltip" aria-hidden="true"></div>
   </div>
+  <script src="../bridge.js"></script>
   <script src="../shared/placement.js"></script>
   <script src="js/glyphs.js"></script>
   <script src="js/magnify.js"></script>

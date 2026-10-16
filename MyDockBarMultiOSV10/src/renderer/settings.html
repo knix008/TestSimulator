@@ -2,8 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; img-src file: data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
   <title>MyDockBar Settings</title>
   <link rel="stylesheet" href="css/settings.css" />
   <link rel="stylesheet" href="css/effects.css" />
@@ -341,6 +339,7 @@
   <div id="icon-picker" class="modal hidden" role="dialog" aria-modal="true"></div>
   <div id="toast" class="toast"></div>
 
+  <script src="../bridge.js"></script>
   <script src="../shared/i18n.js"></script>
   <script src="../shared/placement.js"></script>
   <script src="js/glyphs.js"></script>

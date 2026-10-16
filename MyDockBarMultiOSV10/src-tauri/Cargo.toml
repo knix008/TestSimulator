@@ -1,0 +1,71 @@
+[package]
+name = "mydockbar"
+version = "1.0.0"
+description = "A cross-platform, theme-able application dock for Windows, macOS and Linux."
+authors = ["Suho Kwon <suho.kwon@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "mydockbar_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "ico", "bmp", "jpeg", "gif", "webp"] }
+notify = { version = "8", default-features = false }
+percent-encoding = "2"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: config.json keeps the key order the Electron build wrote, so
+# a file a person has read before still reads the same way.
+serde_json = { version = "1", features = ["preserve_order"] }
+sha1_smol = "1"
+sys-locale = "0.3"
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+  "Win32_Devices_Display",
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Ole",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Threading",
+  "Win32_System_Variant",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_WindowsAndMessaging",
+] }
+windows-core = "0.62"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSGraphics", "NSWindow", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSData", "NSDictionary", "NSArray", "NSGeometry"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+
+[dev-dependencies]
+tempfile = "3"
+
+# No `panic = "abort"`: a panic in one command must reach the error window
+# (error_report.rs) and leave the dock running, the way an uncaught exception
+# in the Electron main process did.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -3,45 +3,13 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
-// config.js only touches electron's `app` inside the Config constructor, so
-// the module itself loads fine on plain Node and its pure helpers can be
-// exercised directly.
 const fs = require('fs');
 const path = require('path');
 
-const { merge, defaults } = require('../src/main/config');
-
+// The merge rules themselves are tested in Rust (src-tauri/src/config.rs);
+// these check that the one declaration of the defaults fits the settings window.
 const ROOT = path.join(__dirname, '..');
-
-describe('settings merge', () => {
-  it('keeps keys the patch does not mention', () => {
-    const result = merge({ a: 1, b: 2 }, { b: 3 });
-    assert.deepStrictEqual(result, { a: 1, b: 3 });
-  });
-
-  it('descends into nested objects rather than replacing them', () => {
-    const base = { dock: { iconSize: 48, spacing: 10, position: 'bottom' } };
-    const result = merge(base, { dock: { spacing: 4 } });
-    assert.deepStrictEqual(result.dock, { iconSize: 48, spacing: 4, position: 'bottom' });
-  });
-
-  it('replaces arrays wholesale instead of merging them element-wise', () => {
-    const result = merge({ items: [1, 2, 3] }, { items: [9] });
-    assert.deepStrictEqual(result.items, [9]);
-  });
-
-  it('does not mutate the object it was given', () => {
-    const base = { dock: { spacing: 10 } };
-    merge(base, { dock: { spacing: 99 } });
-    assert.strictEqual(base.dock.spacing, 10);
-  });
-
-  it('accepts false and 0 as real values rather than treating them as missing', () => {
-    const result = merge({ dock: { autoHide: true, opacity: 1 } }, { dock: { autoHide: false, opacity: 0 } });
-    assert.strictEqual(result.dock.autoHide, false);
-    assert.strictEqual(result.dock.opacity, 0);
-  });
-});
+const defaults = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'src-tauri', 'data', 'defaults.json'), 'utf8'));
 
 describe('default settings', () => {
   it('defines every key the settings window binds to', () => {
