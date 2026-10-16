@@ -5,7 +5,6 @@ import { app } from '../store.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
-import { startGroupLayouts } from './startscenes.js';
 
 const TIP_COUNT = 6;
 
@@ -62,8 +61,7 @@ export function createStartPage(ctx) {
 
   function render() {
     const { recent, showSamples, actions } = ctx();
-    const layouts = startGroupLayouts(app.settings.startScreen);
-    const key = `${getLanguage()}|${layouts.begin}|${layouts.recent}|${layouts.tasks}|${showSamples ? 1 : 0}|${recent.slice(0, 8).join('\n')}`;
+    const key = `${getLanguage()}|${showSamples ? 1 : 0}|${recent.slice(0, 8).join('\n')}`;
     if (key === stamp && scroll.childElementCount) return;
     stamp = key;
     const tip = Math.floor(Date.now() / 86400000) % TIP_COUNT;
@@ -86,32 +84,21 @@ export function createStartPage(ctx) {
       title: t(label),
       onclick: () => actions[id]?.(),
     }, h('span.task-icon', { html: icon(glyph) }), h('span.task-text', h('b', t(label)), h('small', t(`start.desc.${id}`)))));
-    const group = (id, glyph, title, ...nodes) => h('section.start-group', { dataset: { group: id, layout: layouts[id] } },
+    const group = (id, glyph, title, ...nodes) => h('section.start-group', { dataset: { group: id } },
       h('h2', h('span', { html: icon(glyph) }), h('span', title)), ...nodes);
-    const blocks = [
-      group('begin', 'play', t('start.begin'), h('div.start-actions', begin)),
-      group('recent', 'clock', t('start.recent'),
-        recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
-        h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`)))),
-      group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)),
-    ];
-    const flow = h('div.start-flow');
-    let row = null;
-    for (const block of blocks) {
-      if (block.dataset.layout === 'horizontal') {
-        if (!row) { row = h('div.start-row'); flow.append(row); }
-        row.append(block);
-      } else {
-        row = null;
-        flow.append(block);
-      }
-    }
+    const board = h('div.start-board',
+      h('div.start-side',
+        group('begin', 'play', t('start.begin'), h('div.start-actions', begin)),
+        group('recent', 'clock', t('start.recent'),
+          recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
+          h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`))))),
+      group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)));
     clear(scroll);
     scroll.append(h('div.start',
       h('header.start-head',
         h('span.start-logo', { html: icon('images') }),
         h('div', h('h1', 'MyPhotoManager'), h('p', t('start.lead')))),
-      flow));
+      board));
     scroll.lang = getLanguage();
   }
 

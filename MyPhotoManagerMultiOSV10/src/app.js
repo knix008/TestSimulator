@@ -1174,14 +1174,21 @@ function slideshowFromManage() {
 }
 
 async function openSettings() {
+  const stayOnStart = app.state.mode === 'start';
   await settingsDialog({
-    onApply: () => {
+    onApply: async () => {
       setLanguage(app.settings.language);
       setColorManagement(app.settings.colorManagement);
       viewer.forgetDecoded();
       viewer.dicom.refresh();
       updateTheme();
-      reload();
+      // Reloading the folder emits "source", which would leave the start page for the file list.
+      if (stayOnStart) keepStart = true;
+      try {
+        await reload();
+      } finally {
+        if (stayOnStart) keepStart = false;
+      }
       renderAll();
     },
   });

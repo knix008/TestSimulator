@@ -37,7 +37,7 @@ export const DEFAULTS = Object.freeze({
   mapTiles: true,
   startup: 'last',
   // Start page picture: one of START_SCENE_IDS, and how fast it moves (off | slow | medium | fast).
-  startScreen: { scene: 'valley', motion: 'slow', groups: { begin: 'vertical', recent: 'vertical', tasks: 'vertical' } },
+  startScreen: { scene: 'valley', motion: 'slow' },
   lastFolder: null,
   recentFolders: [],
   recentFiles: [],

@@ -365,7 +365,7 @@ select.input { padding-right: 4px; }
 .start-bg-snap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .start-bg-fallback { background: linear-gradient(180deg, var(--start-zenith, #3a6eae) 0%, var(--start-horizon, #f0b56a) 46%, var(--start-grass, #2f6a3a) 100%); }
 .start-scroll { position: absolute; inset: 0; overflow: auto; }
-.start { max-width: 1180px; margin: 0 auto; padding: 22px 28px 40px; }
+.start { max-width: 1280px; margin: 0 auto; padding: 22px 28px 40px; }
 .start-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .start-logo { display: grid; place-items: center; width: 58px; height: 58px; flex: none; border-radius: 14px; background: color-mix(in srgb, var(--bg-2) 55%, transparent); color: var(--accent); }
 .start-logo .icon { width: 32px; height: 32px; }
@@ -373,10 +373,11 @@ select.input { padding-right: 4px; }
 .start-head p { margin: 4px 0 0; color: var(--text); max-width: 640px; }
 .start h2 { display: flex; align-items: center; gap: 8px; height: 22px; margin: 16px 0 10px; font-size: 14px; }
 .start h2 .icon { width: 16px; height: 16px; color: var(--accent); }
-.start-flow { display: flex; flex-direction: column; gap: 18px; }
-.start-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px; align-items: start; }
+.start-board { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 28px; align-items: start; }
+.start-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .start-group > h2:first-child { margin-top: 0; }
-.start-actions, .task-grid { display: flex; flex-direction: column; gap: 8px; }
+.start-actions { display: flex; flex-direction: column; gap: 8px; }
+.task-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
 .action-card, .task-card { box-sizing: border-box; height: 64px; border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent); background: color-mix(in srgb, var(--bg-2) 62%, transparent); color: var(--text); cursor: pointer; }
 .action-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; border-radius: 10px; }
 .action-card:hover, .task-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--bg-2) 90%, transparent); }
@@ -395,7 +396,7 @@ select.input { padding-right: 4px; }
 .start-tip { display: flex; gap: 8px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--bg-2) 62%, transparent); border: 1px solid var(--line); line-height: 1.4; }
 .start-tip .icon { width: 16px; height: 16px; color: var(--star); flex: none; margin-top: 1px; }
 .task-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; border-radius: 10px; }
-@media (max-width: 860px) { .start { padding: 16px; } .start-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px) { .start { padding: 16px; } .start-board { grid-template-columns: minmax(0, 1fr); } .task-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .welcome { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: auto; }
 .welcome-card { max-width: 560px; text-align: center; }

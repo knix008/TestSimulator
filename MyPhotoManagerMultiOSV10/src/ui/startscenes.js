@@ -10,7 +10,6 @@ export const START_SCENE_IDS = [
 const MOTION = { off: 0, slow: 0.2, medium: 0.55, fast: 1 };
 
 export const START_MOTION_IDS = Object.keys(MOTION);
-export const START_LAYOUT_IDS = ['vertical', 'horizontal'];
 
 export function startSceneId(id) {
   return START_SCENE_IDS.includes(id) ? id : 'valley';
@@ -18,20 +17,6 @@ export function startSceneId(id) {
 
 export function startMotionId(id) {
   return id in MOTION ? id : 'slow';
-}
-
-export function startLayoutId(id) {
-  return START_LAYOUT_IDS.includes(id) ? id : 'vertical';
-}
-
-/** Each start-page group is placed on its own: horizontal groups sit side by side, vertical groups stack. */
-export function startGroupLayouts(saved) {
-  const groups = saved?.groups;
-  return {
-    begin: startLayoutId(groups?.begin),
-    recent: startLayoutId(groups?.recent),
-    tasks: startLayoutId(groups?.tasks),
-  };
 }
 
 /** 0 holds the picture still. `slow` matches the original valley speed. */

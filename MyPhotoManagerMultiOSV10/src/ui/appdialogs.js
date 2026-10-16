@@ -6,7 +6,7 @@ import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
-import { START_LAYOUT_IDS, START_MOTION_IDS, START_SCENE_IDS, startGroupLayouts, startLayoutId, startMotionId, startSceneId } from './startscenes.js';
+import { START_MOTION_IDS, START_SCENE_IDS, startMotionId, startSceneId } from './startscenes.js';
 import { h } from './dom.js';
 import { FLAG_EN, FLAG_KO } from './flags.js';
 import { icon } from './icons.js';
@@ -52,15 +52,6 @@ export async function settingsDialog({ onApply }) {
   const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
   autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
-  const startGroups = startGroupLayouts(s.startScreen);
-  const startLayout = (id) => {
-    const input = selectEl(START_LAYOUT_IDS.map((value) => [value, t(`start.layout.${value}`)]), startGroups[id]);
-    input.dataset.key = `start-layout-${id}`;
-    return input;
-  };
-  const startBegin = startLayout('begin');
-  const startRecent = startLayout('recent');
-  const startTasks = startLayout('tasks');
   const startScene = selectEl(START_SCENE_IDS.map((id) => [id, t(`start.scene.${id}`)]), startSceneId(s.startScreen?.scene));
   const startMotion = selectEl(START_MOTION_IDS.map((id) => [id, t(`start.motion.${id}`)]), startMotionId(s.startScreen?.motion));
   startScene.dataset.key = 'start-scene';
@@ -86,8 +77,6 @@ export async function settingsDialog({ onApply }) {
       group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null))],
     ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
       group(t('settings.startScreen'),
-        field(t('start.begin'), startBegin), field(t('start.recent'), startRecent), field(t('start.tasks'), startTasks),
-        h('div.hint', t('settings.startLayoutHint')),
         field(t('settings.startScene'), startScene), field(t('settings.startMotion'), startMotion)))],
     ['view', 'eye', t('settings.view'), h('div.settings-groups',
       group(t('settings.view'), field(t('settings.wheel'), wheel), enlarge.el, smooth.el, field(t('settings.measureUnit'), measureUnit), colorManaged.el, h('div.hint', t('settings.colorManagementHint'))))],
@@ -137,7 +126,7 @@ export async function settingsDialog({ onApply }) {
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
-    startScreen: { scene: startSceneId(startScene.value), motion: startMotionId(startMotion.value), groups: { begin: startLayoutId(startBegin.value), recent: startLayoutId(startRecent.value), tasks: startLayoutId(startTasks.value) } },
+    startScreen: { scene: startSceneId(startScene.value), motion: startMotionId(startMotion.value) },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
