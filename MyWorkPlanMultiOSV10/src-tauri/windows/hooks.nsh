@@ -1,11 +1,14 @@
 ﻿; MyWorkPlan installer hooks (included by Tauri's NSIS template).
 ;
 ; Before installing:
-;  1. Saved data from a previous installation (settings, recent files and
-;     folders, window place, background image) — the user is asked whether to
-;     delete it.
-;     %APPDATA%\${BUNDLEID}       window state, background image, crash log
-;     %LOCALAPPDATA%\${BUNDLEID}  WebView2 profile (settings, recent files)
+;  1. Preferences from a previous installation are reset; the user's data is
+;     kept. Both live in the WebView2 profile (%LOCALAPPDATA%\${BUNDLEID}),
+;     which an installer cannot edit, so after installing a marker is left in
+;     %APPDATA%\${BUNDLEID}\install-reset and the window place is deleted. The
+;     next start resets theme, fonts, zoom, panels, view options, popup places,
+;     column widths and print choices, and keeps recent files and folders, the
+;     open-plan session, the database connection, the background image and the
+;     tutorial history (window_state.rs, resetForNewInstall in settings.js).
 ;  2. A previous installation is always removed completely (its uninstaller
 ;     runs silently, then its folder is deleted) before the new files go in,
 ;     even when the "already installed" page was left at "reinstall".
@@ -16,22 +19,6 @@
 ; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
 
 !macro NSIS_HOOK_PREINSTALL
-  ; 1. Saved data
-  ${If} ${FileExists} "$APPDATA\${BUNDLEID}\*.*"
-  ${OrIf} ${FileExists} "$LOCALAPPDATA\${BUNDLEID}\*.*"
-    ${If} $PassiveMode <> 1
-    ${AndIfNot} ${Silent}
-      StrCpy $R8 "Saved data from a previous MyWorkPlan installation was found (settings, recent files and folders, background image). Do you want to delete it?"
-      ${If} $LANGUAGE == 1042
-        StrCpy $R8 "이전에 설치한 MyWorkPlan 이 저장한 데이터(설정, 최근 파일·폴더, 배경 이미지)가 있습니다. 삭제하시겠습니까?"
-      ${EndIf}
-      MessageBox MB_YESNO|MB_ICONQUESTION $R8 IDNO myworkplan_keep_data
-        RMDir /r "$APPDATA\${BUNDLEID}"
-        RMDir /r "$LOCALAPPDATA\${BUNDLEID}"
-      myworkplan_keep_data:
-    ${EndIf}
-  ${EndIf}
-
   ; 2. Previous installation
   ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""
   ${If} $R6 != ""
@@ -49,6 +36,13 @@
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; 1. Preferences: reset at the next start. Written after the old uninstaller ran (it may clear the folder).
+  CreateDirectory "$APPDATA\${BUNDLEID}"
+  Delete "$APPDATA\${BUNDLEID}\window-state.json"
+  System::Call 'kernel32::GetTickCount() i .r9'
+  FileOpen $R9 "$APPDATA\${BUNDLEID}\install-reset" w
+  FileWrite $R9 "$9"
+  FileClose $R9
   ; 3. Document icons (Tauri registers the types with the app icon).
   WriteRegStr SHCTX "Software\Classes\MyWorkPlan.Plan\DefaultIcon" "" "$INSTDIR\plan.ico"
   WriteRegStr SHCTX "Software\Classes\MyWorkPlan.Template\DefaultIcon" "" "$INSTDIR\template.ico"

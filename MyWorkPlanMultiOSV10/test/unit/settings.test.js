@@ -248,3 +248,46 @@ test('start page background: random at start (default on) and an automatic chang
   assert.equal(S.normalizeSettings({ animationInterval: 7 }).animationInterval, 30, 'not one of the choices: the default');
   assert.ok(S.ANIMATION_INTERVALS.includes(0), 'can be turned off');
 });
+
+/** A Storage like localStorage (length, key, removeItem), for the reset after a new installation. */
+function fullStorage(initial = {}) {
+  const data = new Map(Object.entries(initial));
+  return {
+    data,
+    get length() { return data.size; },
+    key: (i) => [...data.keys()][i] ?? null,
+    getItem: (key) => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => { data.set(key, String(value)); },
+    removeItem: (key) => { data.delete(key); },
+  };
+}
+
+test('a new installation resets the preferences once and keeps the user data', () => {
+  const saved = { ...S.defaultSettings(), theme: 'monokai', zoom: 150, showLeftPanel: false, showRightPanel: false, fontSize: 18,
+    dbKind: 'postgres', dbHost: 'db.local', dbUser: 'kim', backgroundImage: 'bg.png', backgroundName: '산.png', lastDirectory: 'D:\Plans', tutorialOffered: true, tutorialDone: true };
+  const storage = fullStorage({
+    [S.STORAGE_KEY]: JSON.stringify(saved),
+    [S.RECENT_KEY]: '[{"path":"D:\\a.mwp"}]',
+    [S.RECENT_DIRS_KEY]: '["D:\\Plans"]',
+    [S.SESSION_KEY]: '{"files":["D:\\a.mwp"]}',
+    'myworkplan.columns.v1': '{"task:entry":{"name":400}}',
+    'myworkplan.popup.settings': '{"x":10}',
+    [S.PRINT_KEY]: '{"orientation":"portrait"}',
+    'other.app': 'untouched',
+  });
+  assert.equal(S.resetForNewInstall(storage, undefined), false, 'no installer token: nothing happens');
+  assert.equal(S.resetForNewInstall(storage, '777'), true);
+  const now = S.loadSettings(storage);
+  const base = S.defaultSettings();
+  assert.deepEqual([now.theme, now.zoom, now.showLeftPanel, now.showRightPanel, now.fontSize], [base.theme, base.zoom, base.showLeftPanel, base.showRightPanel, base.fontSize], 'preferences are the defaults again');
+  assert.deepEqual([now.dbKind, now.dbHost, now.dbUser, now.backgroundImage, now.backgroundName, now.lastDirectory, now.tutorialOffered, now.tutorialDone],
+    ['postgres', 'db.local', 'kim', 'bg.png', '산.png', 'D:\Plans', true, true], 'database, background image, last folder and tutorial history stay');
+  for (const key of [S.RECENT_KEY, S.RECENT_DIRS_KEY, S.SESSION_KEY]) assert.ok(storage.data.has(key), `${key} stays`);
+  for (const key of ['myworkplan.columns.v1', 'myworkplan.popup.settings', S.PRINT_KEY]) assert.equal(storage.data.has(key), false, `${key} is reset`);
+  assert.equal(storage.data.get('other.app'), 'untouched', 'only MyWorkPlan keys');
+  S.storeSettings(storage, { ...now, theme: 'onedark' });
+  assert.equal(S.resetForNewInstall(storage, '777'), false, 'the same installation: once only');
+  assert.equal(S.loadSettings(storage).theme, 'onedark', 'a choice made after the reset stays');
+  assert.equal(S.resetForNewInstall(storage, '888'), true, 'the next installation resets again');
+  assert.equal(S.resetForNewInstall(brokenStorage, '1'), false, 'blocked storage: no crash');
+});

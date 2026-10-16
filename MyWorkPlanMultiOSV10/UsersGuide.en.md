@@ -917,7 +917,7 @@ Only one MyWorkPlan runs per user. Starting it again shows **MyWorkPlan — Star
 Run `MyWorkPlan-Setup-1.0.0.exe`.
 
 1. Choose the installer language (한국어 / English).
-2. If a previous installation left saved data (settings, recent files and folders, background image), you are asked whether to delete it. **No** keeps it.
+2. **Settings from a previous installation go back to their defaults; your data stays.** At the first start after installing, theme, fonts, zoom, panels, view options, window and popup places, column widths and print choices start fresh, while recent files and folders, the list of open plans, the database connection, the background image and the tutorial history are kept. Plan files (.mwp) are never touched.
 3. A previous installation is removed completely before the new one goes in.
 4. `.mwp` (project) and `.mwpt` (template) files are registered with their own document icons and open with a double-click.
 5. The **MyWorkPlan** Start-menu folder gets the program and a **MyWorkPlan User's Guide** shortcut (this guide). The guides, the tutorial document and the sample projects are in the `docs` and `samples` folders of the installation.

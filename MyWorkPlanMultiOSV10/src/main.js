@@ -2,10 +2,13 @@
 // ("popup-settings", "popup-menu", …) — OS windows on the desktop, frames
 // (index.html?popup=<kind>) in the web build and while the tutorial runs.
 import './styles.css';
-import { loadSettings } from './domain/settings.js';
+import { loadSettings, resetForNewInstall } from './domain/settings.js';
 import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
 
+// First start after the installer ran: preferences go back to their defaults, the user's data stays
+// (the desktop app hands the installer's token to the main window only).
+resetForNewInstall(globalThis.localStorage, globalThis.__MYWORKPLAN_INSTALL_RESET__);
 const settings = loadSettings(globalThis.localStorage);
 setLanguage(settings.language);
 // Before the first paint, so no window flashes in the wrong colours.

@@ -15,6 +15,8 @@ use std::time::Duration;
 use tauri::{Manager, WebviewWindow, WindowEvent};
 
 const FILE_NAME: &str = "window-state.json";
+/// Left next to it by the installer: the next start resets the preferences (see take_install_reset).
+const INSTALL_MARKER: &str = "install-reset";
 const SAVE_DELAY: Duration = Duration::from_millis(500);
 /// How much of the window must lie on a monitor (px) for the saved place to be used.
 const MIN_VISIBLE: i64 = 120;
@@ -47,6 +49,18 @@ pub fn state_file(app: &tauri::AppHandle) -> Option<PathBuf> {
 pub fn load(path: &Path) -> Option<WindowState> {
     let state: WindowState = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
     (state.width >= 200 && state.height >= 150 && state.width <= 20_000 && state.height <= 20_000).then_some(state)
+}
+
+/// A new installation: the installer leaves `install-reset` (holding a token) beside the window
+/// state. Returns that token once, and removes the marker and the saved window place, so the window
+/// opens centred at its default size. The page then resets the preferences it keeps (once per token).
+pub fn take_install_reset(state_path: &Path) -> Option<String> {
+    let marker = state_path.with_file_name(INSTALL_MARKER);
+    let token = std::fs::read_to_string(&marker).ok()?;
+    let _ = std::fs::remove_file(&marker);
+    let _ = std::fs::remove_file(state_path);
+    let token = token.trim();
+    Some(if token.is_empty() { "installed".to_string() } else { token.to_string() })
 }
 
 pub fn save(path: &Path, state: &WindowState) -> std::io::Result<()> {
@@ -188,6 +202,19 @@ mod tests {
         assert_eq!(load(&path), None, "a damaged file is ignored");
         std::fs::write(&path, br#"{"x":0,"y":0,"width":10,"height":10,"maximized":false}"#).unwrap();
         assert_eq!(load(&path), None, "absurd sizes are ignored");
+    }
+
+    #[test]
+    fn a_new_installation_resets_the_window_place_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(FILE_NAME);
+        assert_eq!(take_install_reset(&path), None, "no installer marker");
+        save(&path, &window(10, 10)).unwrap();
+        std::fs::write(directory.path().join(INSTALL_MARKER), "12345
+").unwrap();
+        assert_eq!(take_install_reset(&path).as_deref(), Some("12345"));
+        assert_eq!(load(&path), None, "the window place is forgotten");
+        assert_eq!(take_install_reset(&path), None, "only once");
     }
 
     #[test]

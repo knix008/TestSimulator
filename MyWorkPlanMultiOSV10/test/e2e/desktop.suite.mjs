@@ -686,6 +686,47 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(rows.chart.some((r) => r[0]) && rows.chart.some((r) => !r[0]), 'rows alternate');
     assert.ok(rows.chart.some((r) => r[1]), 'the selected row is highlighted in the chart too');
   } },
+  { group: '창', name: '홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀', async run(app) {
+    await app.main.eval(`window.__myworkplan.popups.closeAll().then(() => 1)`);
+    const widths = [];
+    for (const [left, right] of [[true, true], [false, true], [true, false], [false, false]]) {
+      widths.push(await app.main.eval(`(async () => { const w = window.__myworkplan; w.actions.updateSettings({ showLeftPanel: ${left}, showRightPanel: ${right} }); w.actions.showStartPage(true); await new Promise((r) => setTimeout(r, 250)); const c = document.querySelector('#center').getBoundingClientRect(); return [Math.round(c.left), Math.round(c.width), document.documentElement.clientWidth]; })()`));
+    }
+    await W(app, `(a.updateSettings({ showLeftPanel: true, showRightPanel: true }), a.showStartPage(false), 1)`);
+    for (const [left, width, page] of widths) {
+      assert.equal(left, 0);
+      assert.ok(width >= page - 2, `home screen ${width}px of ${page}px`);
+    }
+  } },
+  { group: '설치', name: '새로 설치한 뒤 첫 실행: 설정은 기본값으로, 최근 파일·DB 연결·배경 이미지는 그대로 (한 번만)', async run(app) {
+    const marker = path.join(app.config, 'install-reset');
+    const recent = JSON.stringify([{ path: 'D:\\plans\\kept.mwp', title: 'kept' }]);
+    await app.main.eval(`(localStorage.setItem('myworkplan.recent.v1', ${JSON.stringify(recent)}), 1)`);
+    await W(app, `(a.updateSettings({ theme: 'monokai', zoom: 140, showLeftPanel: false, dbKind: 'postgres', dbHost: 'db.example', backgroundName: 'kept.png' }), 1)`);
+    const settings = async () => JSON.parse(await W(app, 'JSON.stringify(w.state.settings)'));
+    // Quit the way a user does (File › Exit): taskkill would lose localStorage that has not reached the disk yet.
+    const quitAndStart = async () => {
+      await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); w.run('exit'); return 1; })()`).catch(() => {});
+      await Promise.race([app.exited, sleep(15000)]);
+      app.main?.close();
+      await app.kill();
+      await app.launch();
+    };
+    await quitAndStart();
+    const kept = await settings();
+    assert.deepEqual([kept.theme, kept.zoom], ['monokai', 140], 'a normal restart keeps the settings');
+    fs.writeFileSync(marker, '4242');
+    await quitAndStart();
+    const after = await settings();
+    assert.deepEqual([after.theme, after.zoom, after.showLeftPanel], ['light', 100, true], 'preferences are back to the defaults');
+    assert.deepEqual([after.dbKind, after.dbHost, after.backgroundName], ['postgres', 'db.example', 'kept.png'], 'database connection and background image stay');
+    assert.equal(await app.main.eval(`localStorage.getItem('myworkplan.recent.v1')`), recent, 'recent files stay');
+    assert.equal(fs.existsSync(marker), false, 'the marker is used up');
+    await W(app, `(a.updateSettings({ zoom: 120 }), 1)`);
+    await quitAndStart();
+    assert.equal((await settings()).zoom, 120, 'once only: later starts keep what the user sets');
+    await W(app, `(a.updateSettings({ zoom: 100, dbKind: 'none', dbHost: 'localhost', backgroundName: '' }), 1)`);
+  } },
   { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: true })`);
