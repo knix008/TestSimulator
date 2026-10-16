@@ -19,12 +19,14 @@ export function layoutNetwork(project, sched, { summaries = false, filter = () =
     return info && (summaries || !info.summary) && filter(task, info);
   });
   const ids = new Set(tasks.map((task) => task.id));
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const scheduled = new Set(sched.order);
   const level = new Map();
   // Depth: longest chain of predecessors (rows in schedule order are already topological).
-  const order = [...sched.order.filter((id) => ids.has(id)), ...tasks.map((task) => task.id).filter((id) => !sched.order.includes(id))];
+  const order = [...sched.order.filter((id) => ids.has(id)), ...tasks.map((task) => task.id).filter((id) => !scheduled.has(id))];
   const preds = (task) => (task.predecessors ?? []).map((link) => link.taskId).filter((id) => ids.has(id));
   for (const id of order) {
-    const task = project.tasks.find((item) => item.id === id);
+    const task = byId.get(id);
     level.set(id, Math.max(0, ...preds(task).map((p) => (level.get(p) ?? 0) + 1)));
   }
   const columns = [];
@@ -73,8 +75,9 @@ export class NetworkView {
     this.svg.setAttribute('width', width);
     this.svg.setAttribute('height', height);
     const html = [];
+    const byId = new Map(project.tasks.map((task) => [task.id, task]));
     for (const box of boxes.values()) {
-      const task = project.tasks.find((item) => item.id === box.id);
+      const task = byId.get(box.id);
       const info = sched.info(box.id);
       const pct = info.percentComplete ?? 0;
       const classes = ['net-box', info.critical && settings.showCritical ? 'critical' : '', info.milestone ? 'milestone' : '', info.summary ? 'summary' : '', pct >= 100 ? 'done' : pct > 0 ? 'started' : '', app.isSelected(box.id) ? 'selected' : '', task.manual ? 'manual' : ''].join(' ');

@@ -44,11 +44,14 @@ export class TeamPlannerView {
     this.canvas.style.width = `${this.scale.width}px`;
     this.canvas.style.height = `${lanes.length * LANE}px`;
     const leaves = project.tasks.filter((task) => !sched.info(task.id)?.summary && task.active !== false);
+    const leafById = new Map(leaves.map((task) => [task.id, task]));
+    const workIds = new Set(project.resources.filter((r) => r.type === 'work').map((r) => r.id));
+    const withWork = new Set(project.assignments.filter((a) => workIds.has(a.resourceId)).map((a) => a.taskId));
     const blocks = [];
     lanes.forEach((lane, index) => {
       const tasks = lane.id
-        ? project.assignments.filter((a) => a.resourceId === lane.id).map((a) => leaves.find((task) => task.id === a.taskId)).filter(Boolean)
-        : leaves.filter((task) => !project.assignments.some((a) => a.taskId === task.id && project.resources.find((r) => r.id === a.resourceId)?.type === 'work'));
+        ? project.assignments.filter((a) => a.resourceId === lane.id).map((a) => leafById.get(a.taskId)).filter(Boolean)
+        : leaves.filter((task) => !withWork.has(task.id));
       // Stack overlapping tasks in two rows of the lane.
       const ends = [-Infinity, -Infinity];
       for (const task of tasks.sort((a, b) => sched.info(a.id).start - sched.info(b.id).start)) {

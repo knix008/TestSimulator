@@ -61,6 +61,12 @@ export function startPageHtml(app) {
             <div class="start-list">${recentHtml}</div>
             <h2>${icon('recentFolder')}<span>${escapeHtml(t('start.recentFolders'))}</span><span class="grow"></span>${dirs.length ? `<button class="small-button danger" data-start="clear-folders" title="${escapeHtml(t('recent.clearFolders'))}">${icon('trash')}<span>${escapeHtml(t('recent.clearFolders'))}</span></button>` : ''}</h2>
             <div class="start-list">${dirsHtml}</div>
+            <h2>${icon('userGuide')}<span>${escapeHtml(t('start.help'))}</span></h2>
+            <div class="start-list">
+              <button class="start-link compact" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span class="name">${escapeHtml(t('action.tutorialDoc'))}</span></button>
+              <button class="start-link compact" data-start="guide" title="${escapeHtml(t('action.userGuide'))}">${icon('userGuide')}<span class="name">${escapeHtml(t('action.userGuide'))}</span></button>
+              <button class="start-link compact" data-start="shortcuts" title="${escapeHtml(t('action.shortcuts'))}">${icon('keyboard')}<span class="name">${escapeHtml(t('action.shortcuts'))}</span></button>
+            </div>
           </section>
           <section class="start-card side">
             <h2>${icon('samples')}<span>${escapeHtml(t('start.samples'))}</span></h2>
@@ -75,12 +81,6 @@ export function startPageHtml(app) {
             <div class="start-auto">
               <label class="start-check" title="${escapeHtml(t('tip.bgRandom'))}"><input type="checkbox" data-start-random ${settings.animationRandom ? 'checked' : ''} /><span>${escapeHtml(t('start.bgRandom'))}</span></label>
               <label class="start-interval" title="${escapeHtml(t('tip.bgInterval'))}">${icon('clock')}<span>${escapeHtml(t('start.bgInterval'))}</span><select data-start-interval aria-label="${escapeHtml(t('start.bgInterval'))}">${ANIMATION_INTERVALS.map((n) => `<option value="${n}" ${settings.animationInterval === n ? 'selected' : ''}>${escapeHtml(intervalLabel(n))}</option>`).join('')}</select></label>
-            </div>
-            <h2>${icon('userGuide')}<span>${escapeHtml(t('start.help'))}</span></h2>
-            <div class="start-list">
-              <button class="start-link compact" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span class="name">${escapeHtml(t('action.tutorialDoc'))}</span></button>
-              <button class="start-link compact" data-start="guide" title="${escapeHtml(t('action.userGuide'))}">${icon('userGuide')}<span class="name">${escapeHtml(t('action.userGuide'))}</span></button>
-              <button class="start-link compact" data-start="shortcuts" title="${escapeHtml(t('action.shortcuts'))}">${icon('keyboard')}<span class="name">${escapeHtml(t('action.shortcuts'))}</span></button>
             </div>
           </section>
         </div>

@@ -461,6 +461,7 @@ function toggleCollapse(id, collapsed = null) {
   if (!task || !doc.sched.info(id)?.summary) return;
   // Collapsing is a view change: not an undo step and not a modification worth asking about.
   task.collapsed = collapsed ?? !task.collapsed;
+  doc.touch();
   invalidateRows();
   updateView();
 }
@@ -468,6 +469,7 @@ function toggleCollapse(id, collapsed = null) {
 function setOutlineLevel(level) {
   const doc = activeDoc();
   for (const task of doc.project.tasks) if (doc.sched.info(task.id)?.summary) task.collapsed = level != null && task.outlineLevel >= level;
+  doc.touch();
   invalidateRows();
   updateView();
 }
@@ -1171,8 +1173,12 @@ function renderMenubar() {
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
 }
 
+/** Language the toolbar was built in (renderAll rebuilds it only when that changes). */
+let toolbarLanguage = null;
+
 function renderToolbar() {
   const toolbar = root.querySelector('#toolbar');
+  toolbarLanguage = getLanguage();
   const plain = (id, extra = '') => {
     const command = commands[id];
     const glyph = id === 'language' ? switchFlag(getLanguage()) : icon(command.icon);
@@ -1191,7 +1197,7 @@ function renderToolbar() {
     }
     if (id === 'viewSplit') {
       const current = activeDoc()?.view.id ?? 'gantt';
-      return `<span class="split-button view-split"><button class="tool-button wide" data-command="viewMenu" title="${escapeHtml(commandTip('viewMenu'))}" aria-label="${escapeHtml(t('action.viewMenu'))}" aria-haspopup="true">${icon(VIEW_ICONS[current])}<span class="view-name">${Object.keys(VIEW_ICONS).map((id) => `<span data-view-name="${id}" class="${id === current ? '' : 'off'}" aria-hidden="${id !== current}">${escapeHtml(t(`view.${id}`))}</span>`).join('')}</span>${icon('chevronDown', 'icon tiny')}</button></span>`;
+      return `<span class="split-button view-split"><button class="tool-button wide" data-command="viewMenu" title="${escapeHtml(commandTip('viewMenu'))}" aria-label="${escapeHtml(t('action.viewMenu'))}" aria-haspopup="true" data-view-icon="${current}">${icon(VIEW_ICONS[current])}<span class="view-name">${Object.keys(VIEW_ICONS).map((id) => `<span data-view-name="${id}" class="${id === current ? '' : 'off'}" aria-hidden="${id !== current}">${escapeHtml(t(`view.${id}`))}</span>`).join('')}</span>${icon('chevronDown', 'icon tiny')}</button></span>`;
     }
     return plain(id);
   };
@@ -1217,6 +1223,11 @@ function renderToolbarState() {
   if (zoom && document.activeElement !== zoom) zoom.value = `${state.settings.zoom}%`;
   // Every view name sits in the same cell (only the current one shows), so the button keeps the width of the longest one.
   const current = activeDoc()?.view.id ?? 'gantt';
+  const viewButton = root.querySelector('.view-split [data-view-icon]');
+  if (viewButton && viewButton.dataset.viewIcon !== current) {
+    viewButton.querySelector('svg').outerHTML = icon(VIEW_ICONS[current]);
+    viewButton.dataset.viewIcon = current;
+  }
   for (const name of root.querySelectorAll('.view-split [data-view-name]')) { const off = name.dataset.viewName !== current; name.classList.toggle('off', off); name.setAttribute('aria-hidden', String(off)); }
 }
 
@@ -1569,7 +1580,8 @@ function renderAll() {
   root.style.setProperty('--zoom', String(state.settings.zoom / 100));
   root.style.setProperty('--row-height', `${rowHeight()}px`);
   renderMenubar();
-  renderToolbar();
+  // The toolbar markup only depends on the language; otherwise only its state changes.
+  if (toolbarLanguage !== getLanguage()) renderToolbar(); else renderToolbarState();
   renderTabs();
   renderLeft();
   renderView();
@@ -1811,12 +1823,14 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   for (const doc of state.docs) {
     for (const key of ['hoursPerDay', 'hoursPerWeek', 'daysPerMonth']) {
-      if (previous[key] != null && s[key] !== previous[key]) { doc.project.options[key] = s[key]; doc.recalculate(); }
+      if (previous[key] != null && s[key] !== previous[key]) { doc.project.options[key] = s[key]; doc.touch(); doc.recalculate(); }
     }
   }
   const needsRemount = ['zoom', 'rowHeight', 'timescale', 'language', 'dateFormat', 'showTime'].some((key) => s[key] !== previous[key]);
   if (needsRemount && !state.showStart) mountView();
   renderAll();
+  // Font and size settings change how wide the toolbar is.
+  updateMinimumWidth();
 }
 
 /** Theme dropdown: a popup with the dark and the light themes in two columns. */
@@ -2759,6 +2773,7 @@ function goToTask({ row, date }) {
     if (!task) return notify('error', t('notice.noRow', { row }));
     const ancestors = P.ancestors(doc.project, task.id);
     for (const id of ancestors) P.findTask(doc.project, id).collapsed = false;
+    doc.touch();
     invalidateRows();
     updateView();
     select('task', [task.id]);

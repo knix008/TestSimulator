@@ -33,3 +33,9 @@ postgresql_embedded = { version = "0.21", features = ["tokio"] }
 [[test]]
 name = "db_integration"
 path = "../test/db_integration.rs"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

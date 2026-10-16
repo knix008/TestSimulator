@@ -407,7 +407,7 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .network-links { position: absolute; left: 0; top: 0; }
 .net-link { fill: none; stroke: color-mix(in srgb, var(--text) 60%, transparent); stroke-width: 1.4; }
 .net-link.critical { stroke: var(--bar-critical); stroke-width: 2; }
-.net-box { position: absolute; display: flex; flex-direction: column; padding: 5px 8px; border: 2px solid var(--accent); border-radius: 8px; background: var(--surface); box-shadow: 0 2px 6px var(--shadow); cursor: pointer; overflow: hidden; font-size: 0.84em; }
+.net-box { content-visibility: auto; contain-intrinsic-size: auto 190px auto 92px; position: absolute; display: flex; flex-direction: column; padding: 5px 8px; border: 2px solid var(--accent); border-radius: 8px; background: var(--surface); box-shadow: 0 2px 6px var(--shadow); cursor: pointer; overflow: hidden; font-size: 0.84em; }
 .net-box.critical { border-color: var(--bar-critical); }
 .net-box.milestone { border-style: double; border-width: 4px; }
 .net-box.summary { border-radius: 2px; background: var(--surface2); }

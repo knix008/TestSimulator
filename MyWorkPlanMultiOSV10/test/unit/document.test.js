@@ -130,3 +130,48 @@ test('a document from a template, and recalculate', () => {
   assert.equal(doc.recalculate(), doc.sched);
   assert.ok(doc.sched.info(project.tasks[0].id));
 });
+
+test('the unsaved flag is kept between changes but follows every change, undo, redo and save', () => {
+  const { doc, a } = open();
+  assert.equal(doc.dirty, false);
+  assert.equal(doc.dirty, false, 'asked again: same answer');
+  doc.apply('op', (project) => P.updateTask(project, a, { name: 'Changed' }));
+  assert.equal(doc.dirty, true);
+  doc.undo();
+  assert.equal(doc.dirty, false);
+  doc.redo();
+  assert.equal(doc.dirty, true);
+  doc.markSaved();
+  assert.equal(doc.dirty, false);
+  doc.saved = '';
+  assert.equal(doc.dirty, true, 'an imported plan is unsaved');
+  doc.markSaved();
+  P.findTask(doc.project, a).name = 'In place';
+  doc.touch();
+  assert.equal(doc.dirty, true, 'an in-place change counts after touch()');
+});
+
+test('collapsing in place (touch) is kept by the next undo step', () => {
+  const project = P.createProject({ start: '2026-10-19T08:00' });
+  const sum = P.insertTask(project, 0, { name: 'S' });
+  P.insertTask(project, 1, { name: 'K', outlineLevel: 2 });
+  const doc = new PlanDocument(project);
+  doc.apply('op.rename', (p) => { P.findTask(p, sum.id).name = 'Phase'; });
+  P.findTask(doc.project, sum.id).collapsed = true;
+  doc.touch();
+  doc.apply('op.rename', (p) => { P.findTask(p, sum.id).name = 'Phase 1'; });
+  doc.undo();
+  assert.equal(P.findTask(doc.project, sum.id).name, 'Phase');
+  assert.equal(P.findTask(doc.project, sum.id).collapsed, true, 'undo goes back to the collapsed state, not before it');
+  doc.redo();
+  assert.equal(P.findTask(doc.project, sum.id).name, 'Phase 1');
+  doc.apply('op.noop', () => {});
+  assert.equal(doc.history.undoLabel, 'op.rename', 'a change that changes nothing is not recorded');
+});
+
+test('a change that fails halfway still counts as changed', () => {
+  const { doc, a } = open();
+  assert.equal(doc.dirty, false);
+  assert.throws(() => doc.apply('op', (project) => { P.findTask(project, a).name = 'Half'; throw new Error('boom'); }), /boom/);
+  assert.equal(doc.dirty, true);
+});

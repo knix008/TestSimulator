@@ -17,6 +17,9 @@ function hexToRgb(hex) {
   if (!m) return [128, 128, 128];
   return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
 }
+/** The backgrounds drift slowly: 30 frames a second look the same as the screen's 60–144 and cost a fraction. */
+const FRAME_MS = 1000 / 30;
+
 const rgba = (hex, a) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
 
 export class AnimatedBackground {
@@ -95,11 +98,13 @@ export class AnimatedBackground {
 
   loop(now) {
     if (!this.running) return;
+    requestAnimationFrame(this.loop);
+    // A little slack, so a 60 Hz screen draws every other frame instead of drifting between 1 and 3.
+    if (now - this.last < FRAME_MS - 4) return;
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.time += dt * this.speed();
     this.draw();
-    requestAnimationFrame(this.loop);
   }
 
   draw() {

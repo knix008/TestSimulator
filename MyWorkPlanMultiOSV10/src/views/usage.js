@@ -82,26 +82,32 @@ export class UsageView {
     const project = app.project();
     const sched = app.sched();
     const out = [];
+    // Assignments by task / by resource, in plan order (one pass instead of a search per row).
+    const byKey = (key) => { const map = new Map(); for (const a of project.assignments) { if (!map.has(a[key])) map.set(a[key], []); map.get(a[key]).push(a); } return map; };
     if (this.kind === 'task') {
+      const byTask = byKey('taskId');
+      const resources = new Map(project.resources.map((r) => [r.id, r]));
       for (const item of app.taskRows()) {
         if (item.group) { out.push(item); continue; }
-        const assignments = project.assignments.filter((a) => a.taskId === item.task.id);
+        const assignments = byTask.get(item.task.id) ?? [];
         out.push({ ...item, hasAssignments: assignments.length > 0 });
         if (this.collapsed.has(item.id)) continue;
         for (const a of assignments) {
-          const resource = project.resources.find((r) => r.id === a.resourceId);
+          const resource = resources.get(a.resourceId);
           const result = sched.assignments.get(a.id);
           out.push({ id: `${item.id}:${a.id}`, assignment: a, label: resource?.name ?? '?', level: item.task.outlineLevel, number: '', cells: { name: resource?.name ?? '', work: formatDuration(result?.work ?? 0, 'h', project.options, getLanguage()) } });
         }
       }
     } else {
+      const byResource = byKey('resourceId');
+      const tasks = new Map(project.tasks.map((task) => [task.id, task]));
       project.resources.forEach((resource, index) => {
         const info = sched.resources.get(resource.id);
-        const assignments = project.assignments.filter((a) => a.resourceId === resource.id);
+        const assignments = byResource.get(resource.id) ?? [];
         out.push({ id: resource.id, item: resource, info: null, number: index + 1, hasAssignments: assignments.length > 0, over: info?.overallocated });
         if (this.collapsed.has(resource.id)) return;
         for (const a of assignments) {
-          const task = project.tasks.find((x) => x.id === a.taskId);
+          const task = tasks.get(a.taskId);
           const result = sched.assignments.get(a.id);
           out.push({ id: `${resource.id}:${a.id}`, assignment: a, label: task?.name ?? '?', level: 1, number: '', cells: { name: task?.name ?? '', work: formatDuration(result?.work ?? 0, 'h', project.options, getLanguage()) } });
         }
