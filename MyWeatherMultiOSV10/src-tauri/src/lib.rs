@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
 use store::{merge_settings, remember_extra_windows, Boot};
-use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Monitor, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
@@ -642,12 +642,14 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     builder = builder.icon(icon.clone());
   }
   builder
-    .on_tray_icon_event(|tray, event| {
-      if let TrayIconEvent::Click { rect, button_state: MouseButtonState::Up, .. } = event {
+    .on_tray_icon_event(|tray, event| match event {
+      TrayIconEvent::Click { rect, button_state: MouseButtonState::Up, .. } => {
         let app = tray.app_handle();
         let icon = tray_icon_rect(app, &rect);
         show_tray_menu(app, icon);
       }
+      TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => show_window_from_tray(tray.app_handle()),
+      _ => {}
     })
     .build(app)?;
   Ok(())
@@ -688,6 +690,14 @@ fn promote_tray_icon(app: &AppHandle) {
       std::thread::sleep(Duration::from_millis(800));
     }
   });
+}
+
+/// A double click brings the window back, as Show window in the tray menu does. The first
+/// click of the pair has already opened the menu, so it closes again; the click that ends
+/// the pair arrives within the 500 ms in which a just-closed menu is not reopened.
+fn show_window_from_tray(app: &AppHandle) {
+  st(app).tray_command = "show-window".into();
+  close_tray_menu(app);
 }
 
 fn show_tray_menu(app: &AppHandle, icon: Rect) {

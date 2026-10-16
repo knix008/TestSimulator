@@ -1,6 +1,6 @@
 import { isOfflineError } from "../core/errors.js";
 import { aggregate } from "./aggregate.js";
-import { createProviders } from "./providers.js";
+import { EXTENDED_SOURCE, createProviders } from "./providers.js";
 
 export async function loadWeather(location, options) {
   const fetchImpl = options.fetchImpl;
@@ -9,6 +9,7 @@ export async function loadWeather(location, options) {
   if (!providers.length) {
     return aggregate([{ id: "none", ok: false, error: "No sources enabled" }]);
   }
+  const fill = enabled.has(EXTENDED_SOURCE.follows) ? fetchExtended(location, options) : Promise.resolve(null);
   let finished = 0;
   const results = await Promise.all(
     providers.map(async (provider) => {
@@ -43,5 +44,16 @@ export async function loadWeather(location, options) {
     error.code = "OFFLINE";
     throw error;
   }
-  return aggregate(results);
+  return aggregate(results, await fill);
+}
+
+/** The monthly fill-in. It is quiet: a failure only leaves the later days empty. */
+async function fetchExtended(location, options) {
+  try {
+    const response = await options.fetchImpl(EXTENDED_SOURCE.url(location), { headers: EXTENDED_SOURCE.headers, signal: options.signal });
+    if (!response.ok) return null;
+    return { id: EXTENDED_SOURCE.id, ok: true, data: EXTENDED_SOURCE.parse(await response.json()) };
+  } catch {
+    return null;
+  }
 }

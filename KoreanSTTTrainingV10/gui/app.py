@@ -27,13 +27,13 @@ from kws.audio import (
     MicrophoneStream,
 )
 from kws.audio import TARGET_SAMPLE_RATE
+from kws.archs import ARCHS, DEFAULT_OUT_NAMES, arch_info, arch_title, default_learning_rate, default_out_name
 from kws.infer import command_probs, decide, hold_command
 from kws import paths as kws_paths
 from kws import practice
 from kws.project import (
     DEFAULT_COMMANDS,
     FINETUNE_EPOCHS,
-    FINETUNE_LR,
     MAX_COMMANDS,
     MIN_CLIPS,
     RECORDING_REPEAT,
@@ -49,11 +49,10 @@ HELP_DATA = (
     f"추가 학습에는 명령마다 {MIN_CLIPS}개 이상이면 충분하고, 무음은 조용할 때와 생활 소음이 있을 때 모두 녹음하면 좋습니다."
 )
 HELP_TRAIN = (
-    "처음부터 학습: 합성 데이터(필요하면 내 녹음도)로 모델을 만듭니다. 기본 저장 이름은 latest입니다. "
-    "이미 같은 이름의 결과가 있어도 다시 학습할 수 있고, 확인하면 그 결과를 새 학습으로 바꿉니다.\n"
-    "추가 학습: 위에서 고른 학습 결과의 가중치에서 이어서, 내 녹음을 합성 데이터와 섞어 짧게 더 학습합니다. "
-    "내 녹음은 에폭마다 여러 번 써서 비중을 높이고, 합성 데이터를 함께 써서 기존 실력을 잊지 않게 합니다. 기본 저장 이름은 speaker입니다.\n"
-    "끝나면 검증 정확도를 출처별로 보여 주고, 학습에 쓰지 않은 합성 평가 음원과 마이크 시험 음성으로 바로 채점합니다."
+    "처음부터 학습은 고른 구조로 새 모델을 만듭니다(DS-CNN v2는 latest, BC-ResNet-1은 bcresnet1에 저장). "
+    "같은 이름의 결과가 있으면 확인한 뒤 바꿉니다. "
+    "추가 학습은 위에서 고른 결과의 가중치와 구조를 그대로 이어서, 내 녹음을 합성 데이터와 섞어 짧게 더 학습합니다(speaker, bcresnet1_speaker). "
+    "끝나면 출처별 검증 정확도와, 학습에 쓰지 않은 합성 평가 음원·마이크 시험 음성의 점수를 보여 줍니다."
 )
 HELP_TEST = (
     "위에서 고른 학습 결과로 인식합니다. 결과를 새로 만들려면 학습 탭이나 위의 다시 학습을 쓰세요. "
@@ -67,15 +66,38 @@ HELP_EVAL = (
     "놓침은 명령을 대기로, 오인식은 다른 명령으로, 오수락은 명령이 아닌 소리를 명령으로 받은 경우입니다. "
     "줄을 고르면 확률을, 두 번 누르면 소리를 들을 수 있습니다."
 )
-OUTCOME_COLORS = {"정답": "#0f7b3a", "놓침": "#b45309", "오인식": "#b91c1c", "오수락": "#b91c1c"}
-PAGE = "#e6edf4"
+OUTCOME_COLORS = {"정답": "#047857", "놓침": "#b45309", "오인식": "#b91c1c", "오수락": "#b91c1c"}
+PAGE = "#f3f5f9"
 CARD = "#ffffff"
-INK = "#1a2332"
-MUTED = "#3d4c5c"
-LINE = "#3e4c5c"
-BLUE = "#1d4ed8"
-BLUE_DARK = "#1e3a8a"
+INK = "#0f172a"
+MUTED = "#5b6678"
+LINE = "#dfe4ec"
+LINE_STRONG = "#c3cbd8"
+BLUE = "#4f46e5"
+BLUE_DARK = "#3730a3"
+BLUE_SOFT = "#eef2ff"
+TRACK = "#e8ecf3"
+SUCCESS = "#047857"
+SUCCESS_SOFT = "#ecfdf5"
+WARN = "#b45309"
+WARN_SOFT = "#fffbeb"
+DANGER = "#b91c1c"
+DANGER_SOFT = "#fef2f2"
+LOSS = "#ea580c"
+SIDEBAR = "#111827"
+SIDEBAR_HOVER = "#1f2937"
+SIDEBAR_ACTIVE = "#272f45"
+SIDEBAR_TEXT = "#d1d5db"
+SIDEBAR_MUTED = "#8b95a7"
 OTHER_SPEECH = "다른말"
+# (탭 이름, Segoe 아이콘 글꼴 코드, 머리말 설명)
+PAGES = (
+    ("데이터", "", "명령을 정하고 내 목소리와 무음을 녹음합니다."),
+    ("학습", "", "모델 구조를 고르고 처음부터 또는 이어서 학습합니다."),
+    ("실시간 테스트", "", "마이크나 WAV로 고른 학습 결과를 바로 확인합니다."),
+    ("평가", "", "정답을 아는 음성을 한꺼번에 판정해 점수를 냅니다."),
+    ("내보내기", "", "저장된 결과를 비교하고 ONNX를 다시 저장합니다."),
+)
 HELP_EXPORT = (
     "C++ 예제는 cpp 폴더에 있습니다. 기본 파일은 실수형 ONNX입니다. "
     "INT8 파일은 더 작지만, 로그의 일치율을 확인한 뒤에 쓰세요."
@@ -87,10 +109,11 @@ class App:
         self.root = tk.Tk()
         if headless:
             self.root.withdraw()
-        self.root.title("한국어 명령어 인식 학습")
-        self.root.geometry("1120x960")
-        self.root.minsize(1000, 820)
+        self.root.title("KWS Studio · 한국어 명령어 인식 학습")
+        self.root.geometry("1320x940")
+        self.root.minsize(1180, 800)
         self.family = configure_fonts(self.root)
+        self.icon_family = icon_font_family(self.root)
         apply_theme(self.root, self.family)
         self.font = (self.family, 10)
         self.font_small = (self.family, 9)
@@ -136,103 +159,234 @@ class App:
         self._poll_job = self.root.after(100, self.poll)
 
     def _build(self) -> None:
-        ready = self._panel(self.root, "준비")
-        ready.pack(fill="x", padx=8, pady=(8, 0))
-        device_row = self._row(ready)
-        device_row.pack(fill="x")
-        self._caption(device_row, text="마이크").pack(side="left", padx=(0, 8))
-        self.device_var = tk.StringVar()
-        self.device_combo = ttk.Combobox(device_row, textvariable=self.device_var, state="readonly")
-        self.device_combo.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ttk.Button(device_row, text="장치 새로고침", command=self.refresh_devices).pack(side="left")
+        self._build_sidebar()
+        main = tk.Frame(self.root, bg=PAGE)
+        main.pack(side="left", fill="both", expand=True)
 
-        gain_row = self._row(ready)
-        gain_row.pack(fill="x", pady=(8, 0))
-        self._caption(gain_row, text="감도").pack(side="left", padx=(0, 8))
+        self.status_var = tk.StringVar(value="명령을 고르고 녹음하세요.")
+        status = tk.Frame(main, bg=CARD, highlightthickness=1, highlightbackground=LINE)
+        status.pack(side="bottom", fill="x")
+        self.busy = ttk.Progressbar(status, mode="indeterminate", length=120, style="Busy.Horizontal.TProgressbar")
+        self.busy_shown = False
+        tk.Label(
+            status, textvariable=self.status_var, bg=CARD, fg=INK, font=self.font, anchor="w", padx=14, pady=7
+        ).pack(side="left", fill="x", expand=True)
+        self.status_bar = status
+
+        ready = ttk.Frame(main, style="Card.TFrame", padding=(14, 10))
+        ready.pack(fill="x", padx=16, pady=(14, 0))
+        mic_row = self._row(ready)
+        mic_row.pack(fill="x")
+        self._caption(mic_row, text="마이크", style="Field.TLabel", width=9).pack(side="left")
+        self.device_var = tk.StringVar()
+        self.device_combo = ttk.Combobox(mic_row, textvariable=self.device_var, state="readonly", width=34)
+        self.device_combo.pack(side="left", padx=(0, 8))
+        ttk.Button(mic_row, text="새로고침", command=self.refresh_devices).pack(side="left")
+        ttk.Separator(mic_row, orient="vertical").pack(side="left", fill="y", padx=18, pady=2)
+        self._caption(mic_row, text="감도", style="Field.TLabel").pack(side="left", padx=(0, 8))
         self.input_gain = clamp_gain(self.project.input_gain)
         self.gain_var = tk.DoubleVar(value=self.input_gain)
-        self.gain_text = self._caption(gain_row, text=self._gain_text(self.input_gain))
         ttk.Scale(
-            gain_row, from_=GAIN_MIN, to=GAIN_MAX, variable=self.gain_var, command=self.on_gain, length=220
+            mic_row, from_=GAIN_MIN, to=GAIN_MAX, variable=self.gain_var, command=self.on_gain, length=150
         ).pack(side="left")
-        self.gain_text.pack(side="left", padx=(8, 16))
+        self.gain_text = self._caption(mic_row, text=self._gain_text(self.input_gain), width=5)
+        self.gain_text.pack(side="left", padx=(8, 12))
+        self.level_meter = tk.Canvas(mic_row, width=110, height=8, bg=CARD, highlightthickness=0)
+        self.level_meter.pack(side="left")
         self.input_level_var = tk.StringVar(value="입력 -")
-        self._caption(gain_row, textvariable=self.input_level_var).pack(side="left")
+        self._caption(mic_row, textvariable=self.input_level_var, style="Muted.TLabel", width=12).pack(
+            side="left", padx=(8, 0)
+        )
 
         model_row = self._row(ready)
         model_row.pack(fill="x", pady=(8, 0))
-        self._caption(model_row, text="학습 결과").pack(side="left", padx=(0, 8))
+        self._caption(model_row, text="학습 결과", style="Field.TLabel", width=9).pack(side="left")
         self.model_var = tk.StringVar()
-        self.model_combo = ttk.Combobox(model_row, textvariable=self.model_var, state="readonly", width=24)
+        self.model_combo = ttk.Combobox(model_row, textvariable=self.model_var, state="readonly", width=34)
         self.model_combo.pack(side="left", padx=(0, 8))
         self.model_combo.bind("<<ComboboxSelected>>", self.on_model_picked)
         self.saved_models: dict[str, Path] = {}
-        ttk.Button(model_row, text="결과 새로고침", command=self.refresh_saved_models).pack(side="left")
+        ttk.Button(model_row, text="새로고침", command=self.refresh_saved_models).pack(side="left")
         ttk.Button(model_row, text="다른 폴더", command=self.browse_model).pack(side="left", padx=(8, 0))
         ttk.Button(model_row, text="다시 학습", style="Accent.TButton", command=self.retrain_selected).pack(
             side="left", padx=(8, 0)
         )
+        self.model_arch_badge = tk.Label(
+            model_row, text="", bg=BLUE_SOFT, fg=BLUE_DARK, font=(self.family, 9, "bold"), padx=8, pady=2
+        )
+        self.model_arch_badge.pack(side="left", padx=(14, 0))
         self.model_info_var = tk.StringVar(value="")
-        self._caption(model_row, textvariable=self.model_info_var).pack(side="left", padx=(12, 0))
+        self._caption(model_row, textvariable=self.model_info_var, style="Muted.TLabel").pack(side="left", padx=(8, 0))
 
-        self.status_var = tk.StringVar(value="명령을 고르고 녹음하세요.")
-        status = tk.Frame(self.root, bg=CARD, highlightthickness=1, highlightbackground=LINE)
-        status.pack(side="bottom", fill="x", padx=8, pady=(0, 8))
-        tk.Label(
-            status, textvariable=self.status_var, bg=CARD, fg=INK, font=self.font, anchor="w", padx=10, pady=6
-        ).pack(fill="x")
-
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
+        self.notebook = ttk.Notebook(main, style="Pages.TNotebook")
+        self.notebook.pack(fill="both", expand=True, padx=16, pady=(6, 10))
         self._build_data_tab()
         self._build_train_tab()
         self._build_test_tab()
         self._build_eval_tab()
         self._build_export_tab()
+        self.notebook.bind("<<NotebookTabChanged>>", lambda _event: self._sync_nav())
+        for index in range(len(PAGES)):
+            self.root.bind(f"<Control-Key-{index + 1}>", lambda _event, page=index: self.show_page(page))
+        self._sync_nav()
+
+    def _build_sidebar(self) -> None:
+        bar = tk.Frame(self.root, bg=SIDEBAR, width=216)
+        bar.pack(side="left", fill="y")
+        bar.pack_propagate(False)
+        brand = tk.Frame(bar, bg=SIDEBAR)
+        brand.pack(fill="x", padx=20, pady=(22, 20))
+        mark = tk.Canvas(brand, width=34, height=34, bg=SIDEBAR, highlightthickness=0)
+        mark.create_oval(1, 1, 33, 33, fill=BLUE, outline="")
+        for x_pos, half in ((10, 4), (14, 8), (18, 11), (22, 7), (26, 3)):
+            mark.create_line(x_pos, 17 - half, x_pos, 17 + half, fill="#ffffff", width=2, capstyle="round")
+        mark.pack(side="left")
+        names = tk.Frame(brand, bg=SIDEBAR)
+        names.pack(side="left", padx=(10, 0))
+        tk.Label(names, text="KWS Studio", font=(self.family, 14, "bold"), fg="#ffffff", bg=SIDEBAR).pack(anchor="w")
+        tk.Label(names, text="한국어 명령어 인식", font=(self.family, 9), fg=SIDEBAR_MUTED, bg=SIDEBAR).pack(anchor="w")
+
+        tk.Label(bar, text="작업", font=(self.family, 8, "bold"), fg=SIDEBAR_MUTED, bg=SIDEBAR).pack(
+            anchor="w", padx=22, pady=(4, 6)
+        )
+        self.nav_items: list[dict[str, tk.Widget]] = []
+        icon_font = (self.icon_family, 12) if self.icon_family else None
+        for index, (title, icon, _subtitle) in enumerate(PAGES):
+            row = tk.Frame(bar, bg=SIDEBAR, cursor="hand2")
+            row.pack(fill="x", padx=10, pady=1)
+            marker = tk.Frame(row, bg=SIDEBAR, width=3)
+            marker.pack(side="left", fill="y")
+            glyph = tk.Label(row, text=icon if icon_font else "•", font=icon_font or (self.family, 12), fg=SIDEBAR_MUTED, bg=SIDEBAR, width=3)
+            glyph.pack(side="left", padx=(8, 0), pady=9)
+            label = tk.Label(row, text=title, font=(self.family, 10), fg=SIDEBAR_TEXT, bg=SIDEBAR, anchor="w")
+            label.pack(side="left", fill="x", expand=True)
+            hint = tk.Label(row, text=f"Ctrl+{index + 1}", font=(self.family, 8), fg="#5f6b7f", bg=SIDEBAR)
+            hint.pack(side="right", padx=(0, 10))
+            item = {"row": row, "marker": marker, "glyph": glyph, "label": label, "hint": hint}
+            self.nav_items.append(item)
+            for widget in item.values():
+                widget.bind("<Button-1>", lambda _event, page=index: self.show_page(page))
+                widget.bind("<Enter>", lambda _event, page=index: self._hover_nav(page, True))
+                widget.bind("<Leave>", lambda _event, page=index: self._hover_nav(page, False))
+
+        foot = tk.Frame(bar, bg=SIDEBAR_HOVER)
+        foot.pack(side="bottom", fill="x", padx=12, pady=14)
+        tk.Label(foot, text="인식에 쓰는 결과", font=(self.family, 8, "bold"), fg=SIDEBAR_MUTED, bg=SIDEBAR_HOVER).pack(
+            anchor="w", padx=12, pady=(10, 2)
+        )
+        self.side_model_var = tk.StringVar(value="없음")
+        tk.Label(
+            foot, textvariable=self.side_model_var, font=(self.family, 11, "bold"), fg="#ffffff", bg=SIDEBAR_HOVER, anchor="w"
+        ).pack(fill="x", padx=12)
+        self.side_detail_var = tk.StringVar(value="학습하거나 결과 폴더를 고르세요.")
+        tk.Label(
+            foot,
+            textvariable=self.side_detail_var,
+            font=(self.family, 9),
+            fg=SIDEBAR_TEXT,
+            bg=SIDEBAR_HOVER,
+            anchor="w",
+            justify="left",
+            wraplength=170,
+        ).pack(fill="x", padx=12, pady=(2, 10))
+
+    def show_page(self, index: int) -> None:
+        self.notebook.select(index)
+
+    def _sync_nav(self) -> None:
+        try:
+            current = self.notebook.index(self.notebook.select())
+        except tk.TclError:
+            current = -1
+        for index, item in enumerate(self.nav_items):
+            active = index == current
+            background = SIDEBAR_ACTIVE if active else SIDEBAR
+            for widget in item.values():
+                widget.configure(bg=background)
+            item["marker"].configure(bg=BLUE if active else background)
+            item["glyph"].configure(fg="#a5b4fc" if active else SIDEBAR_MUTED)
+            item["label"].configure(fg="#ffffff" if active else SIDEBAR_TEXT, font=(self.family, 10, "bold" if active else "normal"))
+
+    def _hover_nav(self, index: int, inside: bool) -> None:
+        try:
+            current = self.notebook.index(self.notebook.select())
+        except tk.TclError:
+            current = -1
+        if index == current:
+            return
+        background = SIDEBAR_HOVER if inside else SIDEBAR
+        item = self.nav_items[index]
+        for widget in item.values():
+            widget.configure(bg=background)
 
     def _tab(self, title: str) -> ttk.Frame:
-        frame = ttk.Frame(self.notebook, padding=8)
+        frame = ttk.Frame(self.notebook, padding=(0, 6, 0, 0))
         self.notebook.add(frame, text=title)
         frame.columnconfigure(0, weight=1)
         return frame
 
     def _panel(self, parent: tk.Misc, title: str) -> ttk.LabelFrame:
-        return ttk.LabelFrame(parent, text=title, padding=(10, 8))
+        # 제목은 카드 바깥 위에 두고, 카드는 흰 바탕과 얇은 테두리만 쓴다.
+        return ttk.LabelFrame(parent, text=title, padding=(14, 10))
 
     def _row(self, parent: tk.Misc) -> ttk.Frame:
-        return ttk.Frame(parent, style="Card.TFrame")
+        return ttk.Frame(parent, style="Inner.TFrame")
 
     def _caption(self, parent: tk.Misc, **kwargs: object) -> ttk.Label:
         kwargs.setdefault("style", "Inside.TLabel")
         return ttk.Label(parent, **kwargs)
 
     def _help(self, parent: ttk.Frame, text: str, row: int = 0) -> None:
-        box = self._panel(parent, "안내")
-        box.grid(row=row, column=0, columnspan=2, sticky="ew")
-        self._caption(box, text=text, style="Help.TLabel", wraplength=1000, justify="left").pack(fill="x")
+        """페이지 머리말. 제목과 한 줄 설명, 그 아래 자세한 안내."""
+        title = self.notebook.tab(parent, "text")
+        subtitle = next((item[2] for item in PAGES if item[0] == title), "")
+        head = ttk.Frame(parent)
+        head.grid(row=row, column=0, columnspan=2, sticky="ew")
+        head.columnconfigure(0, weight=1)
+        ttk.Label(head, text=title, style="PageTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(head, text=subtitle, style="PageSub.TLabel").grid(row=1, column=0, sticky="w", pady=(0, 6))
+        note = tk.Frame(head, bg=BLUE_SOFT)
+        note.grid(row=2, column=0, sticky="ew")
+        tk.Frame(note, bg=BLUE, width=3).pack(side="left", fill="y")
+        label = tk.Label(
+            note, text=text, bg=BLUE_SOFT, fg="#312e81", font=self.font_small, justify="left", anchor="w", padx=12, pady=7
+        )
+        label.pack(side="left", fill="x", expand=True)
+        label.bind("<Configure>", lambda event: event.widget.configure(wraplength=max(200, event.width - 24)))
 
     def _text(self, parent: tk.Misc, **kwargs: object) -> tk.Text:
         options: dict[str, object] = dict(
             wrap="word",
             font=self.font,
             state="disabled",
-            bg=CARD,
+            bg="#fbfcfe",
             fg=INK,
-            relief="solid",
-            borderwidth=1,
+            relief="flat",
+            borderwidth=0,
             highlightthickness=1,
             highlightbackground=LINE,
             highlightcolor=BLUE,
-            padx=8,
-            pady=6,
+            padx=10,
+            pady=8,
+            spacing1=1,
+            spacing3=1,
         )
         options.update(kwargs)
         return tk.Text(parent, **options)
 
     def _canvas(self, parent: tk.Misc, height: int) -> tk.Canvas:
-        return tk.Canvas(
-            parent, height=height, bg=CARD, highlightthickness=1, highlightbackground=LINE, highlightcolor=BLUE
+        return tk.Canvas(parent, height=height, bg=CARD, highlightthickness=0)
+
+    def _kpi(self, parent: tk.Misc, column: int, title: str, value: str = "-") -> tk.StringVar:
+        tile = tk.Frame(parent, bg="#f8fafc", highlightthickness=1, highlightbackground=LINE)
+        tile.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 10, 0))
+        parent.columnconfigure(column, weight=1, uniform="kpi")
+        tk.Label(tile, text=title, bg="#f8fafc", fg=MUTED, font=self.font_small).pack(anchor="w", padx=12, pady=(8, 0))
+        var = tk.StringVar(value=value)
+        tk.Label(tile, textvariable=var, bg="#f8fafc", fg=INK, font=(self.family, 16, "bold")).pack(
+            anchor="w", padx=12, pady=(0, 8)
         )
+        return var
 
     def _build_data_tab(self) -> None:
         frame = self._tab("데이터")
@@ -253,10 +407,12 @@ class App:
         editor_row = self._row(editor)
         editor_row.pack(fill="x")
         self.command_var = tk.StringVar()
-        ttk.Entry(editor_row, textvariable=self.command_var, width=24).pack(side="left")
+        command_entry = ttk.Entry(editor_row, textvariable=self.command_var, width=24)
+        command_entry.pack(side="left")
+        command_entry.bind("<Return>", lambda _event: self.add_command())
         ttk.Button(editor_row, text="명령 추가", command=self.add_command).pack(side="left", padx=(8, 0))
         ttk.Button(editor_row, text="명령 삭제", command=self.delete_command).pack(side="left", padx=(8, 0))
-        self._caption(editor_row, text=f"최대 {MAX_COMMANDS}개").pack(side="left", padx=(12, 0))
+        self._caption(editor_row, text=f"최대 {MAX_COMMANDS}개 · 무음은 자동으로 들어갑니다.", style="Muted.TLabel").pack(side="left", padx=(12, 0))
 
         actions = self._panel(frame, "녹음")
         actions.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(8, 0))
@@ -274,7 +430,7 @@ class App:
             self.record_buttons.append(button)
         self.stop_record_button.pack(side="left")
         self.record_status_var = tk.StringVar(value="")
-        self._caption(actions, textvariable=self.record_status_var, wraplength=980).pack(fill="x", pady=(6, 0))
+        self._caption(actions, textvariable=self.record_status_var, style="Muted.TLabel", wraplength=980).pack(fill="x", pady=(6, 0))
 
         files = self._panel(frame, "파일")
         files.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 0))
@@ -289,12 +445,52 @@ class App:
 
     def _build_train_tab(self) -> None:
         frame = self._tab("학습")
-        frame.rowconfigure(4, weight=1)
+        frame.columnconfigure(0, weight=5, uniform="train")
+        frame.columnconfigure(1, weight=6, uniform="train")
+        frame.rowconfigure(1, weight=1)
         self.train_tab = frame
         self._help(frame, HELP_TRAIN)
+        left = ttk.Frame(frame)
+        left.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
+        left.columnconfigure(0, weight=1)
 
-        data = self._panel(frame, "학습 데이터")
-        data.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        arch = self._panel(left, "모델 구조")
+        arch.grid(row=0, column=0, sticky="ew", pady=(10, 0))
+        arch_row = self._row(arch)
+        arch_row.pack(fill="x")
+        initial_arch = self.project.arch if self.project.arch in ARCHS else next(iter(ARCHS))
+        self.arch_var = tk.StringVar(value=initial_arch)
+        self.arch_cards: dict[str, dict[str, tk.Widget]] = {}
+        for column, info in enumerate(ARCHS.values()):
+            card = tk.Frame(arch_row, bg=CARD, highlightthickness=2, highlightbackground=LINE, cursor="hand2")
+            card.grid(row=column, column=0, sticky="ew", pady=(0 if column == 0 else 8, 0))
+            arch_row.columnconfigure(0, weight=1)
+            top = tk.Frame(card, bg=CARD)
+            top.pack(fill="x", padx=12, pady=(8, 0))
+            radio = ttk.Radiobutton(
+                top, text=info.title, variable=self.arch_var, value=info.name, command=self.on_arch, style="Arch.TRadiobutton"
+            )
+            radio.pack(side="left")
+            params = tk.Label(top, text="", bg=BLUE_SOFT, fg=BLUE_DARK, font=(self.family, 9, "bold"), padx=8, pady=1)
+            params.pack(side="right")
+            summary = tk.Label(
+                card, text=info.summary, bg=CARD, fg=MUTED, font=self.font_small, justify="left", anchor="w", wraplength=380
+            )
+            summary.pack(fill="x", padx=14, pady=(2, 0))
+            facts = tk.Label(card, text="", bg=CARD, fg=INK, font=self.font_small, anchor="w")
+            facts.pack(fill="x", padx=14, pady=(2, 8))
+            summary.bind("<Configure>", lambda event: event.widget.configure(wraplength=max(200, event.width - 4)))
+            parts = {"card": card, "top": top, "radio": radio, "params": params, "summary": summary, "facts": facts}
+            self.arch_cards[info.name] = parts
+            for widget in (card, top, summary, facts, params):
+                widget.bind("<Button-1>", lambda _event, name=info.name: self.pick_arch(name))
+        self.arch_note_var = tk.StringVar(value="")
+        note = self._caption(arch, textvariable=self.arch_note_var, foreground=BLUE_DARK, justify="left")
+        self.arch_note = note
+        note.bind("<Configure>", lambda event: event.widget.configure(wraplength=max(200, event.width - 4)))
+
+        data = self._panel(left, "데이터와 방식")
+        data.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         data_row = self._row(data)
         data_row.pack(fill="x")
         self.use_synth_var = tk.BooleanVar(value=True)
@@ -302,14 +498,14 @@ class App:
         self.use_synth_check.pack(side="left", padx=(0, 12))
         self.use_rec_var = tk.BooleanVar(value=True)
         self.use_rec_check = ttk.Checkbutton(data_row, text="내 녹음", variable=self.use_rec_var)
-        self.use_rec_check.pack(side="left", padx=(0, 16))
-        self._caption(data_row, text="내 녹음 반복").pack(side="left")
+        self.use_rec_check.pack(side="left")
+        self._caption(data_row, text="반복", style="Muted.TLabel").pack(side="left", padx=(14, 0))
         self.rec_repeat_var = tk.StringVar(value=str(RECORDING_REPEAT))
-        ttk.Spinbox(data_row, from_=1, to=10, textvariable=self.rec_repeat_var, width=4).pack(side="left", padx=6)
-        self._caption(data_row, text="번/에폭").pack(side="left")
+        ttk.Spinbox(data_row, from_=1, to=10, textvariable=self.rec_repeat_var, width=3).pack(side="left", padx=4)
+        self._caption(data_row, text="번/에폭", style="Muted.TLabel").pack(side="left")
 
-        mode = self._panel(frame, "학습 방식")
-        mode.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        mode = data
+        ttk.Separator(mode, orient="horizontal").pack(fill="x", pady=8)
         mode_row = self._row(mode)
         mode_row.pack(fill="x")
         self.train_mode_var = tk.StringVar(value="scratch")
@@ -320,47 +516,61 @@ class App:
             mode_row, text="추가 학습", variable=self.train_mode_var, value="finetune", command=self.on_train_mode
         ).pack(side="left", padx=(0, 12))
         self.base_info_var = tk.StringVar(value="")
-        self._caption(mode_row, textvariable=self.base_info_var).pack(side="left", padx=(0, 16))
-        self._caption(mode_row, text="저장 이름").pack(side="left")
-        self.out_name_var = tk.StringVar(value="latest")
-        ttk.Entry(mode_row, textvariable=self.out_name_var, width=14).pack(side="left", padx=(6, 0))
+        self._caption(mode_row, textvariable=self.base_info_var, style="Muted.TLabel").pack(side="left")
+        name_row = self._row(mode)
+        name_row.pack(fill="x", pady=(6, 0))
+        self._caption(name_row, text="저장 이름").pack(side="left")
+        self.out_name_var = tk.StringVar(value=default_out_name(initial_arch))
+        ttk.Entry(name_row, textvariable=self.out_name_var, width=20).pack(side="left", padx=(6, 0))
+        self._caption(name_row, text="models 아래", style="Muted.TLabel").pack(side="left", padx=(8, 0))
 
-        options = self._panel(frame, "학습 실행")
-        options.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        options = self._panel(left, "학습 실행")
+        options.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         option_row = self._row(options)
         option_row.pack(fill="x")
         self._caption(option_row, text="에폭").pack(side="left")
         self.epoch_var = tk.StringVar(value=str(self.project.epochs))
-        ttk.Spinbox(option_row, from_=1, to=200, textvariable=self.epoch_var, width=6).pack(side="left", padx=(6, 12))
+        ttk.Spinbox(option_row, from_=1, to=200, textvariable=self.epoch_var, width=6).pack(side="left", padx=(6, 14))
         self._caption(option_row, text="배치").pack(side="left")
         self.batch_var = tk.StringVar(value=str(self.project.batch_size))
-        ttk.Spinbox(option_row, from_=1, to=64, textvariable=self.batch_var, width=6).pack(side="left", padx=(6, 12))
+        ttk.Spinbox(option_row, from_=1, to=64, textvariable=self.batch_var, width=6).pack(side="left", padx=(6, 14))
         self._caption(option_row, text="학습률").pack(side="left")
-        self.lr_var = tk.StringVar(value=str(self.project.learning_rate))
-        ttk.Entry(option_row, textvariable=self.lr_var, width=8).pack(side="left", padx=(6, 16))
-        self.train_button = ttk.Button(option_row, text="학습 시작", style="Accent.TButton", command=self.start_train)
-        self.train_button.pack(side="left", padx=(0, 8))
-        self.stop_train_button = ttk.Button(option_row, text="학습 중지", style="Stop.TButton", command=self.request_stop_train)
+        learning_rate = self.project.learning_rate if initial_arch == self.project.arch else default_learning_rate(initial_arch)
+        self.lr_var = tk.StringVar(value=str(learning_rate))
+        ttk.Entry(option_row, textvariable=self.lr_var, width=9).pack(side="left", padx=(6, 14))
+        run_row = self._row(options)
+        run_row.pack(fill="x", pady=(8, 0))
+        self.train_button = ttk.Button(run_row, text="학습 시작", style="Accent.TButton", command=self.start_train)
+        self.train_button.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.stop_train_button = ttk.Button(run_row, text="학습 중지", style="Stop.TButton", command=self.request_stop_train)
         self.stop_train_button.pack(side="left")
 
         result = self._panel(frame, "학습 결과")
-        result.grid(row=4, column=0, sticky="nsew", pady=(8, 0))
+        result.grid(row=1, column=1, sticky="nsew", pady=(10, 0), padx=(8, 0))
         result.columnconfigure(0, weight=1)
-        result.rowconfigure(4, weight=1)
+        result.rowconfigure(4, weight=3)
+        result.rowconfigure(5, weight=2)
+        tiles = self._row(result)
+        tiles.grid(row=0, column=0, sticky="ew")
+        self.kpi_accuracy = self._kpi(tiles, 0, "검증 정확도")
+        self.kpi_epoch = self._kpi(tiles, 1, "에폭")
+        self.kpi_params = self._kpi(tiles, 2, "파라미터")
+        self.kpi_elapsed = self._kpi(tiles, 3, "걸린 시간")
         self.acc_var = tk.StringVar(value="아직 학습하지 않았습니다.")
-        self._caption(result, textvariable=self.acc_var, style="Strong.TLabel").grid(row=0, column=0, sticky="w")
+        self._caption(result, textvariable=self.acc_var, style="Strong.TLabel").grid(row=1, column=0, sticky="w", pady=(10, 0))
         self.check_var = tk.StringVar(value="")
-        self._caption(result, textvariable=self.check_var, foreground=BLUE, wraplength=980, justify="left").grid(
-            row=1, column=0, sticky="ew", pady=(2, 6)
-        )
+        check = self._caption(result, textvariable=self.check_var, foreground=BLUE_DARK, justify="left")
+        check.grid(row=2, column=0, sticky="ew", pady=(2, 6))
+        check.bind("<Configure>", lambda event: event.widget.configure(wraplength=max(200, event.width - 4)))
         self.progress = ttk.Progressbar(result, maximum=100)
-        self.progress.grid(row=2, column=0, sticky="ew")
-        self.chart = self._canvas(result, 96)
-        self.chart.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        self.progress.grid(row=3, column=0, sticky="ew")
+        self.chart = self._canvas(result, 150)
+        self.chart.grid(row=4, column=0, sticky="nsew", pady=(10, 0))
         self.chart.bind("<Configure>", lambda _event: self.draw_chart())
-        self.log = self._text(result, height=6)
-        self.log.grid(row=4, column=0, sticky="nsew", pady=(8, 0))
-        result.rowconfigure(4, weight=1)
+        self.log = self._text(result, height=6, font=("Consolas", 9))
+        self.log.grid(row=5, column=0, sticky="nsew", pady=(10, 0))
+        self.train_started = 0.0
+        self._sync_arch_cards()
 
     def _build_test_tab(self) -> None:
         frame = self._tab("실시간 테스트")
@@ -369,50 +579,56 @@ class App:
         self._help(frame, HELP_TEST)
 
         controls = self._panel(frame, "인식")
-        controls.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        controls.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         control_row = self._row(controls)
         control_row.pack(fill="x")
         self.test_button = ttk.Button(control_row, text="마이크 테스트 시작", style="Accent.TButton", command=self.toggle_test)
         self.test_button.pack(side="left")
+        self.file_test_button = ttk.Button(control_row, text="WAV 인식", command=self.recognize_wav_dialog)
+        self.file_test_button.pack(side="left", padx=(8, 0))
+        self.live_exam_button = ttk.Button(control_row, text="마이크 정확도 시험", command=lambda: self.start_exam())
+        self.live_exam_button.pack(side="left", padx=(8, 0))
+        self._caption(control_row, text="엔진", style="Field.TLabel").pack(side="left", padx=(22, 4))
         self.engine_var = tk.StringVar(value="onnx")
-        ttk.Radiobutton(control_row, text="ONNX", variable=self.engine_var, value="onnx").pack(side="left", padx=(16, 0))
-        ttk.Radiobutton(control_row, text="PyTorch", variable=self.engine_var, value="pytorch").pack(side="left", padx=(8, 16))
-        self._caption(control_row, text="임계값").pack(side="left")
+        ttk.Radiobutton(control_row, text="ONNX", variable=self.engine_var, value="onnx").pack(side="left", padx=(4, 0))
+        ttk.Radiobutton(control_row, text="PyTorch", variable=self.engine_var, value="pytorch").pack(side="left", padx=(8, 0))
+        self._caption(control_row, text="임계값", style="Field.TLabel").pack(side="left", padx=(22, 4))
         self.threshold_var = tk.DoubleVar(value=self.project.threshold)
         ttk.Scale(
-            control_row, from_=0.40, to=0.95, variable=self.threshold_var, command=self.on_threshold, length=160
+            control_row, from_=0.40, to=0.95, variable=self.threshold_var, command=self.on_threshold, length=150
         ).pack(side="left", padx=6)
         self.threshold_text = self._caption(control_row, text=f"{self.project.threshold:.2f}")
         self.threshold_text.pack(side="left")
-        self.engine_status = self._caption(control_row, text="")
-        self.engine_status.pack(side="left", padx=12)
         file_row = self._row(controls)
         file_row.pack(fill="x", pady=(8, 0))
-        self.file_test_button = ttk.Button(file_row, text="WAV 인식", command=self.recognize_wav_dialog)
-        self.file_test_button.pack(side="left")
-        self.live_exam_button = ttk.Button(
-            file_row, text="마이크 정확도 시험", style="Accent.TButton", command=lambda: self.start_exam()
-        )
-        self.live_exam_button.pack(side="left", padx=(8, 0))
+        self.engine_status = self._caption(file_row, text="", style="Muted.TLabel")
+        self.engine_status.pack(side="left")
         self.model_source_var = tk.StringVar(value="")
-        self._caption(file_row, textvariable=self.model_source_var).pack(side="left", padx=(12, 0))
+        self._caption(file_row, textvariable=self.model_source_var, style="Muted.TLabel").pack(side="left", padx=(12, 0))
 
         result = self._panel(frame, "인식 결과")
-        result.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
-        result.columnconfigure(0, weight=1)
-        result.rowconfigure(2, weight=1)
-        result.rowconfigure(3, weight=1)
-        readout = tk.Frame(result, bg=CARD, highlightthickness=2, highlightbackground=LINE)
-        readout.grid(row=0, column=0, sticky="ew")
-        self.result_label = tk.Label(readout, text="대기", font=(self.family, 32, "bold"), fg=MUTED, bg=CARD, pady=12)
-        self.result_label.pack(fill="x")
+        result.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        result.columnconfigure(0, weight=2, uniform="result")
+        result.columnconfigure(1, weight=3, uniform="result")
+        result.rowconfigure(0, weight=1)
+        self.readout = tk.Frame(result, bg="#f1f5f9", highlightthickness=0)
+        self.readout.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        self.readout_badge = tk.Label(
+            self.readout, text="대기 중", bg="#f1f5f9", fg=MUTED, font=(self.family, 9, "bold"), pady=2
+        )
+        self.readout_badge.pack(pady=(18, 0))
+        self.result_label = tk.Label(self.readout, text="대기", font=(self.family, 40, "bold"), fg=MUTED, bg="#f1f5f9")
+        self.result_label.pack(fill="both", expand=True)
         self.detail_var = tk.StringVar(value="학습 결과를 고른 뒤 마이크나 WAV로 인식합니다.")
-        self._caption(result, textvariable=self.detail_var).grid(row=1, column=0, sticky="w", pady=(8, 0))
-        self.bar_canvas = self._canvas(result, 150)
-        self.bar_canvas.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        self.detail_label = tk.Label(
+            self.readout, textvariable=self.detail_var, bg="#f1f5f9", fg=MUTED, font=self.font, wraplength=320, justify="center"
+        )
+        self.detail_label.pack(fill="x", padx=12, pady=(0, 18))
+        self.bar_canvas = self._canvas(result, 170)
+        self.bar_canvas.grid(row=0, column=1, sticky="nsew")
         self.bar_canvas.bind("<Configure>", lambda _event: self.draw_bars())
-        self.file_log = self._text(result, height=6)
-        self.file_log.grid(row=3, column=0, sticky="nsew", pady=(8, 0))
+        self.file_log = self._text(result, height=4)
+        self.file_log.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(12, 0))
 
     def _build_eval_tab(self) -> None:
         frame = self._tab("평가")
@@ -451,13 +667,13 @@ class App:
         view_row = self._row(view)
         view_row.pack(fill="x")
         self.exam_prompt = tk.Label(
-            view_row, text="", font=(self.family, 20, "bold"), fg=INK, bg="#eef4ff",
-            highlightthickness=1, highlightbackground=LINE, width=20, anchor="w", padx=10, pady=6,
+            view_row, text="", font=(self.family, 18, "bold"), fg=INK, bg="#f8fafc",
+            highlightthickness=1, highlightbackground=LINE, width=22, anchor="w", padx=12, pady=8,
         )
         self.exam_prompt.pack(side="left")
         self.eval_score = tk.Label(
-            view_row, text="정확도 -", font=(self.family, 16, "bold"), fg=BLUE, bg="#eef4ff",
-            highlightthickness=1, highlightbackground=BLUE, width=16, padx=8, pady=6,
+            view_row, text="정확도 -", font=(self.family, 15, "bold"), fg=BLUE_DARK, bg=BLUE_SOFT,
+            highlightthickness=0, width=17, padx=10, pady=10,
         )
         self.eval_score.pack(side="left", padx=(8, 0))
         self._caption(view_row, text="임계값").pack(side="left", padx=(16, 0))
@@ -487,6 +703,7 @@ class App:
             self.eval_tree.column(column, width=width, stretch=column == "file", anchor="w" if column == "file" else "center")
         for name, color in OUTCOME_COLORS.items():
             self.eval_tree.tag_configure(name, foreground=color)
+        self.eval_tree.tag_configure("odd", background="#f8fafc")
         tree_scroll = ttk.Scrollbar(table, command=self.eval_tree.yview)
         self.eval_tree.configure(yscrollcommand=tree_scroll.set)
         self.eval_tree.pack(side="left", fill="both", expand=True)
@@ -495,24 +712,49 @@ class App:
         self.eval_tree.bind("<Double-1>", lambda _event: self.play_eval_selected())
         panes.add(table, weight=3)
         report = self._panel(panes, "요약")
-        self.eval_report = self._text(report, width=42, wrap="none", font=("Consolas", 10))
+        self.eval_report = self._text(report, width=42, wrap="none", font=("Consolas", 9))
         self.eval_report.pack(fill="both", expand=True)
         panes.add(report, weight=2)
 
         bottom = self._panel(frame, "선택 항목")
         bottom.grid(row=4, column=0, sticky="ew", pady=(8, 0))
         bottom.columnconfigure(0, weight=1)
-        self.eval_bars = self._canvas(bottom, 72)
+        self.eval_bars = self._canvas(bottom, 128)
         self.eval_bars.grid(row=0, column=0, sticky="ew")
         self.eval_bars.bind("<Configure>", lambda _event: self.draw_eval_bars())
         ttk.Button(bottom, text="듣기", command=self.play_eval_selected).grid(row=0, column=1, sticky="n", padx=(8, 0))
 
     def _build_export_tab(self) -> None:
         frame = self._tab("내보내기")
-        frame.rowconfigure(2, weight=1)
+        frame.rowconfigure(1, weight=1)
+        frame.rowconfigure(3, weight=1)
         self._help(frame, HELP_EXPORT)
+
+        compare = self._panel(frame, "저장된 학습 결과")
+        compare.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        columns = ("name", "arch", "params", "accuracy", "onnx", "created")
+        self.results_tree = ttk.Treeview(compare, columns=columns, show="headings", selectmode="browse", height=5)
+        for column, title, width, anchor in (
+            ("name", "이름", 150, "w"),
+            ("arch", "구조", 120, "center"),
+            ("params", "파라미터", 90, "e"),
+            ("accuracy", "검증 정확도", 100, "e"),
+            ("onnx", "ONNX", 90, "e"),
+            ("created", "만든 시각", 170, "center"),
+        ):
+            self.results_tree.heading(column, text=title)
+            self.results_tree.column(column, width=width, anchor=anchor, stretch=column in ("name", "created"))
+        self.results_tree.tag_configure("odd", background="#f8fafc")
+        self.results_tree.tag_configure("current", foreground=BLUE_DARK, font=(self.family, 10, "bold"))
+        self.results_tree.pack(fill="both", expand=True)
+        self.results_tree.bind("<Double-1>", lambda _event: self.use_result_row())
+        compare_row = self._row(compare)
+        compare_row.pack(fill="x", pady=(8, 0))
+        ttk.Button(compare_row, text="이 결과로 인식", command=self.use_result_row).pack(side="left")
+        self._caption(compare_row, text="두 번 눌러도 고를 수 있습니다.", style="Muted.TLabel").pack(side="left", padx=(10, 0))
+
         actions = self._panel(frame, "저장")
-        actions.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        actions.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         action_row = self._row(actions)
         action_row.pack(fill="x")
         self.export_button = ttk.Button(action_row, text="ONNX 다시 저장", style="Accent.TButton", command=self.export_model)
@@ -521,10 +763,10 @@ class App:
         ttk.Checkbutton(action_row, text="INT8도 저장", variable=self.int8_var).pack(side="left", padx=(12, 0))
         ttk.Button(action_row, text="모델 폴더 열기", command=self.open_selected_model).pack(side="left", padx=(12, 0))
         log = self._panel(frame, "로그")
-        log.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        log.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
         log.columnconfigure(0, weight=1)
         log.rowconfigure(0, weight=1)
-        self.export_text = self._text(log)
+        self.export_text = self._text(log, font=("Consolas", 9))
         self.export_text.grid(row=0, column=0, sticky="nsew")
 
     def _listbox(self, parent: tk.Misc, title: str) -> tuple[ttk.LabelFrame, tk.Listbox, ttk.Frame]:
@@ -783,6 +1025,13 @@ class App:
         if self.train_mode_var.get() != "scratch":
             self.train_mode_var.set("scratch")
             self.on_train_mode()
+        model_dir = self._model_dir()
+        if model_dir is not None:
+            from kws.train import saved_arch
+
+            arch = saved_arch(model_dir)
+            if arch is not None and arch != self.arch_var.get():
+                self.pick_arch(arch)
         if selected:
             self.out_name_var.set(selected)
         self.notebook.select(self.train_tab)
@@ -869,6 +1118,7 @@ class App:
             patience=15,
             make_int8=bool(self.int8_var.get()),
             init_from=base_dir,
+            arch=self.arch_var.get(),
         )
         commands = list(self.project.commands) if generate else None
         self.training = True
@@ -877,8 +1127,14 @@ class App:
         self.acc_history = []
         self.progress["value"] = 0
         self._set_text(self.log, "")
-        self.acc_var.set("학습 중입니다.")
+        self.acc_var.set(f"{arch_title(self.arch_var.get())} 학습 중입니다.")
         self.check_var.set("")
+        self.train_started = time.time()
+        self.kpi_accuracy.set("-")
+        self.kpi_epoch.set(f"0 / {epochs}")
+        self.kpi_params.set(f"{arch_info(self.arch_var.get()).parameter_count(len(labels)):,}")
+        self.kpi_elapsed.set("0초")
+        self.draw_chart()
         self._sync_buttons()
         self.notebook.select(self.train_tab)
         threading.Thread(
@@ -968,23 +1224,90 @@ class App:
     def on_train_mode(self) -> None:
         if self.train_mode_var.get() == "finetune":
             self.epoch_var.set(str(FINETUNE_EPOCHS))
-            self.lr_var.set(str(FINETUNE_LR))
             self.use_rec_var.set(True)
-            if self.out_name_var.get().strip() in ("", "latest"):
-                self.out_name_var.set("speaker")
+            self._show_base_info()
+            arch = self.arch_var.get()
+            self.lr_var.set(str(default_learning_rate(arch, finetune=True)))
+            self._suggest_out_name(arch, finetune=True)
         else:
+            # 추가 학습에서 기반 구조로 바뀐 선택을, 처음부터 학습에서 고른 구조로 되돌린다.
+            arch = self.project.arch if self.project.arch in ARCHS else self.arch_var.get()
+            self.arch_var.set(arch)
             self.epoch_var.set(str(self.project.epochs))
-            self.lr_var.set(str(self.project.learning_rate))
-            if self.out_name_var.get().strip() in ("", "speaker"):
-                self.out_name_var.set("latest")
-        self._show_base_info()
+            self.lr_var.set(str(self._scratch_lr(arch)))
+            self._suggest_out_name(arch, finetune=False)
+            self._show_base_info()
+
+    def _scratch_lr(self, arch: str) -> float:
+        return self.project.learning_rate if arch == self.project.arch else default_learning_rate(arch)
+
+    def _suggest_out_name(self, arch: str, finetune: bool) -> None:
+        """저장 이름이 비었거나 기본 이름일 때만 구조와 방식에 맞는 기본 이름으로 바꾼다."""
+        if self.out_name_var.get().strip() in ("", *DEFAULT_OUT_NAMES):
+            self.out_name_var.set(default_out_name(arch, finetune))
+
+    def pick_arch(self, arch: str) -> None:
+        if arch not in ARCHS or self.training:
+            return
+        if self.train_mode_var.get() == "finetune":
+            self.notify("추가 학습은 기반 결과의 구조를 그대로 씁니다. 구조를 바꾸려면 처음부터 학습을 고르세요.")
+            self._sync_arch_cards()
+            return
+        self.arch_var.set(arch)
+        self.on_arch()
+
+    def on_arch(self) -> None:
+        arch = self.arch_var.get()
+        if self.train_mode_var.get() == "finetune":
+            self._show_base_info()
+            return
+        if arch != self.project.arch:
+            self.lr_var.set(str(default_learning_rate(arch)))
+            self.project.arch = arch
+            self.project.learning_rate = default_learning_rate(arch)
+            self.project.save()
+        self._suggest_out_name(arch, finetune=False)
+        self._sync_arch_cards()
+        self.notify(f"{arch_title(arch)} 구조로 학습합니다. 저장 이름은 {self.out_name_var.get()}입니다.")
+
+    def _sync_arch_cards(self) -> None:
+        if not hasattr(self, "arch_cards"):
+            return
+        n_classes = len(self.project.labels())
+        selected = self.arch_var.get()
+        finetune = self.train_mode_var.get() == "finetune"
+        for name, parts in self.arch_cards.items():
+            info = ARCHS[name]
+            active = name == selected
+            parts["card"].configure(highlightbackground=BLUE if active else LINE)
+            parts["params"].configure(text=f"파라미터 {info.parameter_count(n_classes):,} · {n_classes}클래스")
+            parts["facts"].configure(
+                text=f"권장 학습률 {info.learning_rate:g} (추가 학습 {info.finetune_lr:g}) · 저장 이름 {info.scratch_name}"
+            )
+            parts["radio"].configure(state="disabled" if finetune and not active else "normal")
+        if finetune:
+            self.arch_note_var.set(f"추가 학습은 기반 결과의 구조({arch_title(selected)})를 그대로 이어 씁니다.")
+            if not self.arch_note.winfo_ismapped():
+                self.arch_note.pack(fill="x", pady=(8, 0))
+        else:
+            self.arch_note_var.set("")
+            self.arch_note.pack_forget()
 
     def _show_base_info(self) -> None:
         if self.train_mode_var.get() != "finetune":
             self.base_info_var.set("")
+            self._sync_arch_cards()
             return
         base = self._model_dir()
         self.base_info_var.set(f"기반: {base.name}" if base is not None else "기반: 없음 (위에서 학습 결과를 고르세요)")
+        if base is not None:
+            from kws.train import saved_arch
+
+            arch = saved_arch(base)
+            if arch is not None and arch != self.arch_var.get():
+                self.arch_var.set(arch)
+                self.lr_var.set(str(default_learning_rate(arch, finetune=True)))
+        self._sync_arch_cards()
 
     def request_stop_train(self) -> None:
         self.stop_train.set()
@@ -1166,7 +1489,7 @@ class App:
         self.eval_selected = -1
         self.evaluating = True
         self.stop_eval.clear()
-        self.exam_prompt.configure(text="", fg="#1f2937")
+        self.exam_prompt.configure(text="", fg=INK)
         self._set_text(self.eval_report, text)
         self.refresh_eval_view()
         self._sync_buttons()
@@ -1204,7 +1527,7 @@ class App:
                     f"{judged.decision.top_confidence * 100:.0f}%",
                     _short_path(item.path),
                 ),
-                tags=(judged.outcome,),
+                tags=(judged.outcome, "odd" if len(self.eval_rows) % 2 else "even"),
             )
             self.eval_rows[row] = index
             if index == self.eval_selected:
@@ -1265,7 +1588,7 @@ class App:
                     f"{judged.decision.top_confidence * 100:.0f}%",
                     _short_path(item.path),
                 ),
-                tags=(judged.outcome,),
+                tags=(judged.outcome, "odd" if len(self.eval_rows) % 2 else "even"),
             )
             self.eval_rows[row] = len(self.eval_items) - 1
             self.eval_tree.see(row)
@@ -1353,7 +1676,7 @@ class App:
             self.classifier = bundle.classifier(engine)
             self.last_labels = bundle.labels
             self.silence_label = bundle.silence_label
-            self.model_source_var.set(f"{model_dir.name} · {engine}")
+            self.model_source_var.set(f"{model_dir.name} · {arch_title(bundle.arch)} · {engine}")
             self.engine_status.configure(text=f"사용 중: {engine}")
             return True
         except FileNotFoundError:
@@ -1386,6 +1709,7 @@ class App:
             self.stop_test()
         self.classifier = None
         self._show_model_ready()
+        self.refresh_export_info()
 
     def browse_model(self) -> None:
         if self.recording or self.training or self.live:
@@ -1408,7 +1732,7 @@ class App:
 
     @staticmethod
     def _accuracy_text(result) -> str:
-        text = f"검증 정확도 {result.val_accuracy * 100:.1f}%"
+        text = f"{arch_title(result.arch)} · 검증 정확도 {result.val_accuracy * 100:.1f}%"
         if len(result.source_accuracy) > 1:
             text += " (" + ", ".join(f"{name} {value * 100:.0f}%" for name, value in result.source_accuracy.items()) + ")"
         if result.base_accuracy:
@@ -1419,23 +1743,74 @@ class App:
     def _show_model_ready(self) -> None:
         self._show_base_info()
         path = self._model_dir()
+        self._refresh_results_tree()
         if path is None:
             self.model_info_var.set("학습 결과가 없습니다.")
+            self.model_arch_badge.configure(text="")
+            self.model_arch_badge.pack_forget()
+            self.side_model_var.set("없음")
+            self.side_detail_var.set("학습하거나 결과 폴더를 고르세요.")
             self.status_var.set("학습 탭에서 학습 시작을 누르면 합성 데이터로 학습합니다. 합성 데이터가 없으면 먼저 만듭니다.")
             return
-        try:
-            import json
-
-            meta = json.loads((path / kws_paths.META_FILENAME).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            meta = {}
+        meta = _read_meta(path)
         labels = [str(label) for label in meta.get("labels", [])]
         accuracy = meta.get("val_accuracy")
         accuracy_text = f"검증 {float(accuracy) * 100:.0f}% · " if isinstance(accuracy, (int, float)) else ""
         self.model_info_var.set(f"{accuracy_text}{', '.join(labels)}")
+        title = arch_title(meta.get("arch"))
+        self.model_arch_badge.configure(text=title)
+        if not self.model_arch_badge.winfo_ismapped():
+            self.model_arch_badge.pack(side="left", padx=(14, 0), before=self.model_arch_badge.master.winfo_children()[-1])
+        self.side_model_var.set(path.name)
+        detail = title
+        if isinstance(accuracy, (int, float)):
+            detail += f" · 검증 {float(accuracy) * 100:.1f}%"
+        count = meta.get("parameter_count")
+        if isinstance(count, int):
+            detail += f"\n파라미터 {count:,}"
+        self.side_detail_var.set(detail)
         self.status_var.set(
             f"인식은 '{path.name}' 결과로 바로 할 수 있습니다. 다시 학습은 위의 다시 학습 또는 학습 탭에서 할 수 있습니다."
         )
+
+    def _refresh_results_tree(self) -> None:
+        tree = self.results_tree
+        tree.delete(*tree.get_children())
+        current = self.model_var.get()
+        for index, (name, path) in enumerate(self.saved_models.items()):
+            meta = _read_meta(path)
+            accuracy = meta.get("val_accuracy")
+            count = meta.get("parameter_count")
+            onnx_path = path / kws_paths.ONNX_FILENAME
+            created = str(meta.get("created", ""))[:19].replace("T", " ")
+            tags = ["odd" if index % 2 else "even"]
+            if name == current:
+                tags.append("current")
+            tree.insert(
+                "",
+                "end",
+                iid=name,
+                values=(
+                    name,
+                    arch_title(meta.get("arch")),
+                    f"{count:,}" if isinstance(count, int) else "-",
+                    f"{float(accuracy) * 100:.1f}%" if isinstance(accuracy, (int, float)) else "-",
+                    f"{onnx_path.stat().st_size / 1024:.1f} KB" if onnx_path.is_file() else "없음",
+                    created or "-",
+                ),
+                tags=tuple(tags),
+            )
+        if current in self.saved_models:
+            tree.selection_set(current)
+
+    def use_result_row(self) -> None:
+        selected = self.results_tree.selection()
+        if not selected or selected[0] not in self.saved_models:
+            self.notify("표에서 학습 결과를 고르세요.")
+            return
+        self.model_var.set(selected[0])
+        self.on_model_picked()
+        self.notify(f"인식에 '{selected[0]}' 결과를 씁니다.")
 
     def open_selected_model(self) -> None:
         path = self._model_dir() or self.project.model_dir
@@ -1512,11 +1887,19 @@ class App:
         return f"{int(round(gain * 100))}%"
 
     def _show_input_level(self, peak: float) -> None:
-        shown = int(round(min(max(float(peak), 0.0), 1.0) * 100))
+        level = min(max(float(peak), 0.0), 1.0)
+        shown = int(round(level * 100))
         text = f"입력 {shown}%"
         if peak > 0.98:
             text += " · 잘림"
         self.input_level_var.set(text)
+        meter = self.level_meter
+        meter.delete("all")
+        width = int(meter.cget("width"))
+        meter.create_line(4, 4, width - 4, 4, fill=TRACK, width=6, capstyle="round")
+        if level > 0:
+            color = DANGER if peak > 0.98 else (WARN if level < 0.05 else SUCCESS)
+            meter.create_line(4, 4, 4 + (width - 8) * level, 4, fill=color, width=6, capstyle="round")
 
     def on_threshold(self, _value: str) -> None:
         text = f"{float(self.threshold_var.get()):.2f}"
@@ -1538,17 +1921,26 @@ class App:
 
     def show_decision(self, decision, listening: bool = False) -> None:
         if listening or decision is None:
-            self.result_label.configure(text="듣는 중", fg="#5c6770")
+            self._paint_readout("#f1f5f9", MUTED, "듣는 중")
+            self.result_label.configure(text="듣는 중")
             self.detail_var.set("1초 이상 들리면 판정합니다.")
             return
         if decision.accepted:
-            self.result_label.configure(text=decision.label, fg="#0f7b3a")
+            self._paint_readout(SUCCESS_SOFT, SUCCESS, "인식됨")
+            self.result_label.configure(text=decision.label)
             self.detail_var.set(f"신뢰도 {decision.top_confidence * 100:.0f}%")
         else:
-            self.result_label.configure(text="대기", fg="#8a5a00")
+            self._paint_readout(WARN_SOFT, WARN, "임계값 미만 · 대기")
+            self.result_label.configure(text="대기")
             self.detail_var.set(
                 f"가장 가까운 명령 {decision.near_label}  {decision.near_confidence * 100:.0f}%"
             )
+
+    def _paint_readout(self, background: str, foreground: str, badge: str) -> None:
+        self.readout.configure(bg=background)
+        self.result_label.configure(bg=background, fg=foreground)
+        self.detail_label.configure(bg=background, fg=foreground if foreground != MUTED else MUTED)
+        self.readout_badge.configure(text=badge, bg=background, fg=foreground)
 
     def export_model(self) -> None:
         if self.training:
@@ -1603,6 +1995,7 @@ class App:
         try:
             self.project.batch_size = int(self.batch_var.get())
             if self.train_mode_var.get() == "scratch":
+                self.project.arch = self.arch_var.get()
                 self.project.epochs = int(self.epoch_var.get())
                 self.project.learning_rate = float(self.lr_var.get())
         except ValueError:
@@ -1610,7 +2003,19 @@ class App:
         self.project.threshold = float(self.threshold_var.get())
         self.project.save()
 
+    def _sync_busy(self) -> None:
+        busy = self.recording or self.training or self.evaluating
+        if busy and not self.busy_shown:
+            self.busy.pack(side="right", padx=14)
+            self.busy.start(12)
+            self.busy_shown = True
+        elif not busy and self.busy_shown:
+            self.busy.stop()
+            self.busy.pack_forget()
+            self.busy_shown = False
+
     def _sync_buttons(self) -> None:
+        self._sync_busy()
         locked = self.recording or self.training or self.live
         record_state = "disabled" if locked else "normal"
         for button in self.record_buttons:
@@ -1664,29 +2069,61 @@ class App:
         canvas.delete("all")
         width = max(int(canvas.winfo_width()), 320)
         height = max(int(canvas.winfo_height()), 140)
+        left, right, top, bottom = 40, 16, 30, 24
+        plot_w = width - left - right
+        plot_h = height - top - bottom
+        for step in range(5):
+            y_pos = top + plot_h * step / 4
+            canvas.create_line(left, y_pos, width - right, y_pos, fill=TRACK)
+            canvas.create_text(left - 6, y_pos, anchor="e", text=f"{100 - step * 25}%", fill=MUTED, font=(self.family, 8))
+        canvas.create_rectangle(left, 9, left + 10, 17, fill=BLUE, outline="")
+        canvas.create_text(left + 16, 13, anchor="w", text="검증 정확도", fill=INK, font=self.font_small)
+        canvas.create_rectangle(left + 100, 9, left + 110, 17, fill=LOSS, outline="")
+        canvas.create_text(left + 116, 13, anchor="w", text="학습 손실 (최대값 기준)", fill=INK, font=self.font_small)
         if not self.loss_history:
-            canvas.create_text(width / 2, height / 2, text="학습 곡선이 여기에 표시됩니다.", fill="#5c6770", font=self.font)
+            canvas.create_text(
+                left + plot_w / 2, top + plot_h / 2, text="학습을 시작하면 에폭마다 곡선이 그려집니다.", fill=MUTED, font=self.font
+            )
             return
-        canvas.create_text(12, 12, anchor="w", text="손실", fill="#c2410c", font=self.font_small)
-        canvas.create_text(70, 12, anchor="w", text="검증 정확도", fill="#1d4ed8", font=self.font_small)
-        self._draw_series(canvas, self.loss_history, "#c2410c", max(self.loss_history), width, height)
-        self._draw_series(canvas, self.acc_history, "#1d4ed8", 1.0, width, height)
+        count = len(self.loss_history)
+        canvas.create_text(left, height - 8, anchor="w", text="1", fill=MUTED, font=(self.family, 8))
+        canvas.create_text(width - right, height - 8, anchor="e", text=f"에폭 {count}", fill=MUTED, font=(self.family, 8))
+        loss_max = max(self.loss_history) or 1.0
+        self._draw_series(canvas, self.acc_history, BLUE, left, top, plot_w, plot_h, True, area_only=True)
+        self._draw_series(canvas, [value / loss_max for value in self.loss_history], LOSS, left, top, plot_w, plot_h, False)
+        self._draw_series(canvas, self.acc_history, BLUE, left, top, plot_w, plot_h, True)
 
-    def _draw_series(self, canvas: tk.Canvas, values: list[float], color: str, scale_max: float, width: int, height: int) -> None:
-        if scale_max <= 0:
-            scale_max = 1.0
-        pad = 28
-        points: list[float] = []
+    def _draw_series(
+        self,
+        canvas: tk.Canvas,
+        values: list[float],
+        color: str,
+        left: int,
+        top: int,
+        plot_w: int,
+        plot_h: int,
+        fill: bool,
+        area_only: bool = False,
+    ) -> None:
         count = len(values)
+        points: list[float] = []
         for index, value in enumerate(values):
-            x_pos = pad + (width - 2 * pad) * (index / max(1, count - 1))
-            y_pos = height - pad - (height - 2 * pad) * (float(value) / scale_max)
-            if count == 1:
-                canvas.create_oval(x_pos - 3, y_pos - 3, x_pos + 3, y_pos + 3, fill=color, outline="")
-                return
+            x_pos = left + plot_w * (index / max(1, count - 1)) if count > 1 else left + plot_w / 2
+            y_pos = top + plot_h * (1.0 - min(max(float(value), 0.0), 1.0))
             points.extend((x_pos, y_pos))
-        if len(points) >= 4:
-            canvas.create_line(*points, fill=color, width=2)
+        if area_only:
+            if count > 1:
+                area = [points[0], top + plot_h, *points, points[-2], top + plot_h]
+                canvas.create_polygon(*area, fill=BLUE_SOFT, outline="")
+            return
+        if count > 1:
+            canvas.create_line(*points, fill=color, width=2, smooth=False, capstyle="round", joinstyle="round")
+        x_last, y_last = points[-2], points[-1]
+        canvas.create_oval(x_last - 4, y_last - 4, x_last + 4, y_last + 4, fill=color, outline=CARD, width=2)
+        if fill:
+            canvas.create_text(
+                x_last - 8, y_last - 12, anchor="e", text=f"{float(values[-1]) * 100:.1f}%", fill=color, font=(self.family, 9, "bold")
+            )
 
     def draw_bars(self) -> None:
         accepted = self.last_decision is not None and self.last_decision.accepted
@@ -1702,26 +2139,36 @@ class App:
 
     def _draw_prob_bars(self, canvas: tk.Canvas, labels: list[str], probs, highlight: int, accepted: bool, empty_text: str) -> None:
         canvas.delete("all")
-        width = max(int(canvas.winfo_width()), 480)
-        height = max(int(canvas.winfo_height()), 100)
+        width = max(int(canvas.winfo_width()), 360)
+        height = max(int(canvas.winfo_height()), 60)
         if probs is None or not labels:
-            canvas.create_text(16, 24, anchor="w", text=empty_text, fill="#5c6770", font=self.font)
+            canvas.create_text(16, 24, anchor="w", text=empty_text, fill=MUTED, font=self.font)
             return
-        row_h = height / max(1, len(labels))
-        name_w = 140
-        threshold_x = name_w + max(10, width - name_w - 64) * float(self.threshold_var.get())
-        canvas.create_line(threshold_x, 2, threshold_x, height - 2, fill="#9ca3af", dash=(3, 3))
+        name_w = 110
+        value_w = 52
+        usable = max(10, width - name_w - value_w - 12)
+        row_h = min(40.0, (height - 18) / max(1, len(labels)))
+        bar_h = max(6, min(14, int(row_h * 0.45)))
+        threshold = float(self.threshold_var.get())
+        threshold_x = name_w + usable * threshold
         for index, (name, prob) in enumerate(zip(labels, probs)):
-            y_pos = index * row_h
-            canvas.create_text(8, y_pos + row_h / 2, anchor="w", text=name, font=self.font)
-            usable = max(10, width - name_w - 64)
-            x1 = name_w + usable * max(0.0, min(1.0, float(prob)))
+            y_pos = 4 + index * row_h + row_h / 2
+            value = max(0.0, min(1.0, float(prob)))
             if index == highlight:
-                color = "#1d4ed8" if accepted else "#d97706"
+                color = SUCCESS if accepted else WARN
+                weight = "bold"
             else:
-                color = "#d6dee8"
-            canvas.create_rectangle(name_w, y_pos + 8, max(x1, name_w + 2), y_pos + row_h - 8, fill=color, outline="")
-            canvas.create_text(width - 8, y_pos + row_h / 2, anchor="e", text=f"{float(prob) * 100:.0f}%", font=self.font)
+                color = "#a5b4c8"
+                weight = "normal"
+            canvas.create_text(8, y_pos, anchor="w", text=name, font=(self.family, 10, weight), fill=INK)
+            canvas.create_line(name_w, y_pos, name_w + usable, y_pos, fill=TRACK, width=bar_h, capstyle="round")
+            if value > 0.004:
+                canvas.create_line(name_w, y_pos, name_w + usable * value, y_pos, fill=color, width=bar_h, capstyle="round")
+            canvas.create_text(width - 8, y_pos, anchor="e", text=f"{value * 100:.0f}%", font=(self.family, 10, weight), fill=INK)
+        canvas.create_line(threshold_x, 2, threshold_x, 4 + len(labels) * row_h, fill=MUTED, dash=(3, 3))
+        canvas.create_text(
+            threshold_x, 4 + len(labels) * row_h + 7, text=f"임계값 {threshold * 100:.0f}%", fill=MUTED, font=(self.family, 8)
+        )
 
     def _wait(self, seconds: float) -> bool:
         end = time.time() + seconds
@@ -1768,6 +2215,9 @@ class App:
                         self.progress["value"] = 100.0 * float(payload["epoch"]) / float(payload["epochs"])
                         self.append_log(payload["text"])
                         self.acc_var.set(f"검증 정확도 {float(payload['val_accuracy']) * 100:.1f}%")
+                        self.kpi_accuracy.set(f"{max(self.acc_history) * 100:.1f}%")
+                        self.kpi_epoch.set(f"{payload['epoch']} / {payload['epochs']}")
+                        self.kpi_elapsed.set(_elapsed(time.time() - self.train_started))
                         self.draw_chart()
                 elif kind == "train_done":
                     self.training = False
@@ -1775,6 +2225,10 @@ class App:
                     self.append_log(payload.report)
                     self.append_log(payload.export_log)
                     self.acc_var.set(self._accuracy_text(payload))
+                    self.kpi_accuracy.set(f"{payload.val_accuracy * 100:.1f}%")
+                    self.kpi_epoch.set(f"최고 {payload.best_epoch}")
+                    self.kpi_params.set(f"{payload.parameter_count:,}")
+                    self.kpi_elapsed.set(_elapsed(time.time() - self.train_started))
                     self.refresh_export_info(payload.export_log)
                     self.refresh_saved_models(prefer=payload.model_dir.name)
                     self.refresh_lists()
@@ -1804,7 +2258,7 @@ class App:
                 elif kind == "eval_item":
                     self._add_eval_item(payload)
                 elif kind == "exam_prompt":
-                    self.exam_prompt.configure(text=str(payload), fg="#1f2937")
+                    self.exam_prompt.configure(text=str(payload), fg=INK)
                 elif kind == "eval_done":
                     skipped, message = payload
                     self.eval_skipped = int(skipped)
@@ -1857,179 +2311,180 @@ def apply_theme(root: tk.Tk, family: str) -> None:
     root.configure(bg=PAGE)
     style = ttk.Style(root)
     style.theme_use("clam")
-    style.configure(".", background=PAGE, foreground=INK, font=(family, 10))
+    style.configure(".", background=PAGE, foreground=INK, font=(family, 10), bordercolor=LINE, focuscolor=BLUE)
     style.configure("TFrame", background=PAGE)
-    style.configure("Card.TFrame", background=CARD)
+    style.configure("Card.TFrame", background=CARD, bordercolor=LINE, relief="solid", borderwidth=1)
+    style.configure("Inner.TFrame", background=CARD)
     style.configure("TLabel", background=PAGE, foreground=INK)
     style.configure("Inside.TLabel", background=CARD, foreground=INK)
+    style.configure("Field.TLabel", background=CARD, foreground=MUTED, font=(family, 9, "bold"))
+    style.configure("Muted.TLabel", background=CARD, foreground=MUTED, font=(family, 9))
     style.configure("Help.TLabel", background=CARD, foreground=INK, font=(family, 9))
     style.configure("Strong.TLabel", background=CARD, foreground=INK, font=(family, 11, "bold"))
+    style.configure("PageTitle.TLabel", background=PAGE, foreground=INK, font=(family, 17, "bold"))
+    style.configure("PageSub.TLabel", background=PAGE, foreground=MUTED, font=(family, 10))
     style.configure(
         "TLabelframe",
         background=CARD,
         bordercolor=LINE,
-        lightcolor=LINE,
-        darkcolor=LINE,
+        lightcolor=CARD,
+        darkcolor=CARD,
         relief="solid",
-        borderwidth=2,
+        borderwidth=1,
+        labeloutside=True,
+        labelmargins=(2, 0, 0, 5),
     )
-    style.configure(
-        "TLabelframe.Label",
-        background=PAGE,
-        foreground=BLUE_DARK,
-        font=(family, 10, "bold"),
-    )
-    style.configure(
-        "TButton",
+    style.configure("TLabelframe.Label", background=PAGE, foreground=MUTED, font=(family, 9, "bold"))
+
+    button = dict(
         background=CARD,
         foreground=INK,
-        bordercolor=LINE,
+        bordercolor=LINE_STRONG,
         lightcolor=CARD,
-        darkcolor="#c5ced6",
-        padding=(12, 7),
-        relief="solid",
-        borderwidth=2,
-        focusthickness=2,
-        focuscolor=BLUE,
+        darkcolor=CARD,
+        padding=(14, 6),
+        relief="raised",
+        borderwidth=1,
+        focusthickness=1,
+        focuscolor=CARD,
         font=(family, 10),
     )
+    style.configure("TButton", **button)
     style.map(
         "TButton",
-        background=[("pressed", "#d5e2f2"), ("active", "#eef4fb"), ("disabled", "#e5e7eb")],
-        foreground=[("disabled", "#6b7280")],
-        bordercolor=[("active", BLUE), ("focus", BLUE), ("disabled", "#9aa3ad")],
+        background=[("pressed", "#e2e8f0"), ("active", "#f1f5f9"), ("disabled", "#f3f4f6")],
+        foreground=[("disabled", "#9ca3af")],
+        bordercolor=[("focus", BLUE), ("active", "#94a3b8"), ("disabled", LINE)],
+        lightcolor=[("pressed", "#e2e8f0"), ("active", "#f1f5f9"), ("disabled", "#f3f4f6")],
+        darkcolor=[("pressed", "#e2e8f0"), ("active", "#f1f5f9"), ("disabled", "#f3f4f6")],
     )
     style.configure(
         "Accent.TButton",
         background=BLUE,
-        foreground=CARD,
-        bordercolor=BLUE_DARK,
-        lightcolor="#3b82f6",
-        darkcolor=BLUE_DARK,
-        padding=(14, 7),
+        foreground="#ffffff",
+        bordercolor=BLUE,
+        lightcolor=BLUE,
+        darkcolor=BLUE,
+        focuscolor=BLUE,
         font=(family, 10, "bold"),
     )
     style.map(
         "Accent.TButton",
-        background=[("pressed", BLUE_DARK), ("active", "#2563eb"), ("disabled", "#bfdbfe")],
-        foreground=[("disabled", "#1e3a8a")],
-        bordercolor=[("disabled", "#93c5fd"), ("active", BLUE_DARK)],
+        background=[("pressed", BLUE_DARK), ("active", "#4338ca"), ("disabled", "#c7d2fe")],
+        lightcolor=[("pressed", BLUE_DARK), ("active", "#4338ca"), ("disabled", "#c7d2fe")],
+        darkcolor=[("pressed", BLUE_DARK), ("active", "#4338ca"), ("disabled", "#c7d2fe")],
+        foreground=[("disabled", "#ffffff")],
+        bordercolor=[("focus", BLUE_DARK), ("disabled", "#c7d2fe"), ("active", "#4338ca")],
     )
     style.configure(
         "Stop.TButton",
-        background="#fff7ed",
-        foreground="#9a3412",
-        bordercolor="#c2410c",
-        lightcolor="#ffedd5",
-        darkcolor="#fdba74",
-        padding=(12, 7),
+        background=DANGER_SOFT,
+        foreground=DANGER,
+        bordercolor="#fecaca",
+        lightcolor=DANGER_SOFT,
+        darkcolor=DANGER_SOFT,
+        focuscolor=DANGER_SOFT,
         font=(family, 10, "bold"),
     )
     style.map(
         "Stop.TButton",
-        background=[("pressed", "#ffedd5"), ("active", "#ffedd5"), ("disabled", "#f3f4f6")],
-        foreground=[("disabled", "#9ca3af")],
-        bordercolor=[("disabled", "#9ca3af"), ("active", "#9a3412")],
+        background=[("pressed", "#fecaca"), ("active", "#fee2e2"), ("disabled", "#f9fafb")],
+        lightcolor=[("pressed", "#fecaca"), ("active", "#fee2e2"), ("disabled", "#f9fafb")],
+        darkcolor=[("pressed", "#fecaca"), ("active", "#fee2e2"), ("disabled", "#f9fafb")],
+        foreground=[("disabled", "#c0c4cc")],
+        bordercolor=[("disabled", LINE), ("active", "#f87171")],
     )
-    style.configure("TCheckbutton", background=CARD, foreground=INK, padding=(2, 4))
-    style.map(
-        "TCheckbutton",
-        background=[("active", "#e8f0fe")],
-        indicatorcolor=[("selected", BLUE), ("!selected", CARD)],
-    )
-    style.configure("TRadiobutton", background=CARD, foreground=INK, padding=(2, 4))
-    style.map(
-        "TRadiobutton",
-        background=[("active", "#e8f0fe")],
-        indicatorcolor=[("selected", BLUE), ("!selected", CARD)],
-    )
-    style.configure(
-        "TEntry",
-        fieldbackground=CARD,
-        foreground=INK,
-        bordercolor=LINE,
-        lightcolor=CARD,
-        padding=4,
-    )
-    style.map("TEntry", bordercolor=[("focus", BLUE)])
-    style.configure(
-        "TSpinbox",
-        fieldbackground=CARD,
-        foreground=INK,
-        bordercolor=LINE,
-        arrowcolor=INK,
-        arrowsize=14,
-        padding=4,
-    )
-    style.map("TSpinbox", bordercolor=[("focus", BLUE)])
-    style.configure(
-        "TCombobox",
-        fieldbackground=CARD,
-        background="#e8eef5",
-        foreground=INK,
-        bordercolor=LINE,
-        arrowcolor=INK,
-        arrowsize=14,
-        padding=4,
-    )
+    for name in ("TCheckbutton", "TRadiobutton"):
+        style.configure(name, background=CARD, foreground=INK, padding=(2, 4), indicatorcolor=CARD, indicatorbackground=CARD)
+        style.map(
+            name,
+            background=[("active", CARD)],
+            foreground=[("disabled", "#9ca3af")],
+            indicatorcolor=[("selected", BLUE), ("disabled", "#e5e7eb"), ("!selected", CARD)],
+        )
+    style.configure("Arch.TRadiobutton", font=(family, 12, "bold"))
+    field = dict(fieldbackground=CARD, foreground=INK, bordercolor=LINE_STRONG, lightcolor=CARD, darkcolor=CARD, padding=5)
+    style.configure("TEntry", **field)
+    style.map("TEntry", bordercolor=[("focus", BLUE)], lightcolor=[("focus", BLUE)])
+    style.configure("TSpinbox", arrowcolor=MUTED, arrowsize=12, background=CARD, **field)
+    style.map("TSpinbox", bordercolor=[("focus", BLUE)], lightcolor=[("focus", BLUE)])
+    style.configure("TCombobox", background=CARD, arrowcolor=MUTED, arrowsize=13, **field)
     style.map(
         "TCombobox",
         fieldbackground=[("readonly", CARD)],
+        background=[("active", "#f1f5f9")],
         bordercolor=[("focus", BLUE)],
+        lightcolor=[("focus", BLUE)],
+        selectbackground=[("readonly", CARD)],
+        selectforeground=[("readonly", INK)],
     )
-    style.configure("TScale", background=CARD, troughcolor="#d5dee8")
+    root.option_add("*TCombobox*Listbox.background", CARD)
+    root.option_add("*TCombobox*Listbox.selectBackground", BLUE_SOFT)
+    root.option_add("*TCombobox*Listbox.selectForeground", BLUE_DARK)
+    root.option_add("*TCombobox*Listbox.font", (family, 10))
     style.configure(
-        "TProgressbar",
-        background=BLUE,
-        troughcolor="#d5dee8",
-        bordercolor=LINE,
-        thickness=12,
+        "TScale", background=BLUE, troughcolor=TRACK, bordercolor=CARD, lightcolor=BLUE, darkcolor=BLUE, sliderlength=16
     )
-    style.configure("TNotebook", background=PAGE, bordercolor=LINE, tabmargins=(2, 6, 2, 0))
+    style.map("TScale", background=[("active", BLUE_DARK)])
     style.configure(
-        "TNotebook.Tab",
-        background="#c5d0dc",
-        foreground=INK,
-        bordercolor=LINE,
-        padding=(16, 8),
-        font=(family, 10, "bold"),
+        "Horizontal.TProgressbar", background=BLUE, troughcolor=TRACK, bordercolor=TRACK, lightcolor=BLUE, darkcolor=BLUE, thickness=8
     )
-    style.map(
-        "TNotebook.Tab",
-        background=[("selected", PAGE), ("active", "#f4f7fb")],
-        foreground=[("selected", BLUE)],
-        expand=[("selected", (1, 1, 1, 0))],
+    style.configure(
+        "Busy.Horizontal.TProgressbar", background=BLUE, troughcolor=TRACK, bordercolor=CARD, lightcolor=BLUE, darkcolor=BLUE, thickness=4
     )
+    # 쪽 이동은 왼쪽 메뉴가 맡으므로 탭 줄은 그리지 않는다.
+    style.configure(
+        "Pages.TNotebook", background=PAGE, bordercolor=PAGE, lightcolor=PAGE, darkcolor=PAGE, borderwidth=0, tabmargins=0
+    )
+    style.layout("Pages.TNotebook.Tab", [])
+    style.layout("Pages.TNotebook", [("Notebook.client", {"sticky": "nswe"})])
     style.configure(
         "Treeview",
         background=CARD,
         fieldbackground=CARD,
         foreground=INK,
         bordercolor=LINE,
+        lightcolor=CARD,
+        darkcolor=CARD,
         rowheight=28,
         font=(family, 10),
     )
     style.configure(
         "Treeview.Heading",
-        background="#dbe4ef",
-        foreground=INK,
+        background="#f8fafc",
+        foreground=MUTED,
         bordercolor=LINE,
+        lightcolor="#f8fafc",
+        darkcolor="#f8fafc",
         relief="flat",
-        padding=6,
-        font=(family, 10, "bold"),
+        padding=(8, 6),
+        font=(family, 9, "bold"),
     )
-    style.map("Treeview", background=[("selected", "#dbeafe")], foreground=[("selected", BLUE_DARK)])
+    style.map("Treeview.Heading", background=[("active", "#eef2f7")])
+    style.map("Treeview", background=[("selected", BLUE_SOFT)], foreground=[("selected", BLUE_DARK)])
     style.configure(
         "TScrollbar",
-        background="#c5d0dc",
-        troughcolor=PAGE,
-        bordercolor=LINE,
-        arrowcolor=INK,
-        arrowsize=14,
+        background="#d5dbe5",
+        troughcolor=CARD,
+        bordercolor=CARD,
+        lightcolor="#d5dbe5",
+        darkcolor="#d5dbe5",
+        arrowcolor=MUTED,
+        arrowsize=12,
+        gripcount=0,
     )
-    style.map("TScrollbar", background=[("active", "#8ea0b3")])
+    style.map("TScrollbar", background=[("active", "#b6c0cf")])
     style.configure("TPanedwindow", background=PAGE)
-    style.configure("Sash", sashthickness=8, background=LINE)
+    style.configure("Sash", sashthickness=10, background=PAGE, gripcount=0)
+
+
+def icon_font_family(root: tk.Tk) -> str | None:
+    """Windows 아이콘 글꼴. 없으면 메뉴에 점을 쓴다."""
+    families = set(tkfont.families(root))
+    for name in ("Segoe Fluent Icons", "Segoe MDL2 Assets"):
+        if name in families:
+            return name
+    return None
 
 
 def configure_fonts(root: tk.Tk) -> str:
@@ -2063,6 +2518,23 @@ def play_wav(path: Path) -> None:
         sd.play(wav, samplerate=sample_rate)
     except Exception as exc:
         messagebox.showerror("재생 오류", str(exc))
+
+
+def _read_meta(path: Path) -> dict:
+    import json
+
+    try:
+        data = json.loads((Path(path) / kws_paths.META_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _elapsed(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return f"{seconds}초"
+    return f"{seconds // 60}분 {seconds % 60:02d}초"
 
 
 def _short_path(path: Path) -> str:

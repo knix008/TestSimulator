@@ -13,6 +13,7 @@ from kws.infer import (
     hold_command,
     softmax,
 )
+from kws.archs import BCRESNET1
 from test.helpers import LABELS, parse_keys, project_with_model, run_module, temp_dir, trained_model
 
 
@@ -106,7 +107,51 @@ class ClassifierTest(unittest.TestCase):
         self.assertGreaterEqual(correct / total, 0.9)
 
 
+class BCResNetClassifierTest(unittest.TestCase):
+    def test_bundle_reads_arch_from_meta(self):
+        self.assertEqual(ModelBundle(trained_model()[1]).arch, "dscnn_v2")
+        self.assertEqual(ModelBundle(trained_model(BCRESNET1)[1]).arch, BCRESNET1)
+
+    def test_recognizes_training_files_with_both_engines(self):
+        audio, model = trained_model(BCRESNET1)
+        bundle = ModelBundle(model)
+        self.assertEqual(bundle.engines(), ["onnx", "pytorch"])
+        engines = {name: bundle.classifier(name) for name in ("onnx", "pytorch")}
+        correct = 0
+        total = 0
+        for index, label in enumerate(LABELS):
+            for path in sorted((audio / label).glob("*.wav"))[:6]:
+                wav = load_model_wav(path)
+                onnx_probs = engines["onnx"].predict_proba(wav)
+                np.testing.assert_allclose(onnx_probs, engines["pytorch"].predict_proba(wav), atol=1e-3)
+                correct += int(int(np.argmax(onnx_probs)) == index)
+                total += 1
+        self.assertGreaterEqual(correct / total, 0.9)
+
+    def test_live_window_on_long_audio(self):
+        # 마이크 루프와 같이 2초 버퍼에서 명령이 있는 1초를 골라 판정한다.
+        audio, model = trained_model(BCRESNET1)
+        classifier = ModelBundle(model).classifier("onnx")
+        wav = load_model_wav(sorted((audio / "해제").glob("*.wav"))[0])
+        long_wav = np.concatenate([np.zeros(16000, dtype=np.float32), wav])
+        probs = command_probs(classifier, long_wav)
+        decision = decide(probs, LABELS, "무음", 0.5)
+        self.assertEqual(decision.label, "해제")
+
+
 class InferCliTest(unittest.TestCase):
+    def test_model_option_and_arch_line(self):
+        root = project_with_model(temp_dir())
+        project_with_model(root, "bcresnet1", arch=BCRESNET1)
+        wav = sorted((root / "data" / "audio" / "경비").glob("*.wav"))[0]
+        completed = run_module("kws.infer", str(wav), "0.5", "--model", str(root / "models" / "bcresnet1"), root=root)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        values = parse_keys(completed.stdout)
+        self.assertEqual(values["ARCH"], BCRESNET1)
+        self.assertEqual(values["TOP_LABEL"], "경비")
+        default = parse_keys(run_module("kws.infer", str(wav), "0.5", root=root).stdout)
+        self.assertEqual(default["ARCH"], "dscnn_v2")
+
     def test_reports_machine_readable_result(self):
         root = project_with_model(temp_dir())
         wav = sorted((root / "data" / "audio" / "경비").glob("*.wav"))[0]

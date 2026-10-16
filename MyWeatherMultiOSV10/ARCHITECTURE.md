@@ -5,7 +5,7 @@ MyWeather 1.0.0 is a vanilla ES-module app. Tauri 2 hosts the same pages that th
 ## Layout
 
 - `src/core` holds settings, themes, documents, i18n, undo, and paths. `backgroundAlpha` maps transparency 0 to a fully opaque window and 100 to 25% opacity, so the window never disappears.
-- `src/weather` fetches the five sources and aggregates one forecast.
+- `src/weather` fetches the five sources and aggregates one forecast. The short-range models stop after 16 days, so the GFS ensemble's control run (35 days, Open-Meteo Ensemble API) fills the later days of the monthly forecast. It only adds days no source covers and is off when GFS is switched off.
 - `src/ui` draws the frameless window, forecast popups, menus, and the tray menu model in `tray-menu.js`.
 - `src/platform` is the seam between the pages and the host. `host.js` picks `desktop.js` when Tauri is present and `web.js` otherwise. `tauri-bridge.js` is the only file that calls Tauri: one function per Rust command, and listeners for the events Rust sends to this window.
 - `src/index.html` is a weather window, `popup-host.html` a dialog (forecast, settings, about, print setup), `menu-host.html` a command menu or the tray menu, and `print-host.html` the window the system print dialog opens over.
@@ -28,7 +28,7 @@ Other savings: window moves and resizes send at most one step per frame (`coales
 
 Weather windows are frameless, transparent, have no shadow, and skip the taskbar. Each is created hidden and shown once its page has loaded. The first window's place comes from window.json and settings.json, checked against the current displays (`place_window`). Extra windows saved from a moved city reopen where they were, or step down and right from the first.
 
-On startup Rust creates the tray icon from the bundle icon. A click opens `menu-host.html` as a tray menu: that page reads settings.json and builds the items with `buildTrayMenu` in the saved language and theme, then asks Rust to size and place it next to the icon. The first item, Show window, only reveals the main window. Any other item shows the main window and sends `menu-command` to it, which runs the same actions as the in-window menu.
+On startup Rust creates the tray icon from the bundle icon. A click opens `menu-host.html` as a tray menu: that page reads settings.json and builds the items with `buildTrayMenu` in the saved language and theme, then asks Rust to size and place it next to the icon. The first item, Show window, only reveals the main window; double-clicking the tray icon does the same (Windows), closing the menu the first click opened. Any other item shows the main window and sends `menu-command` to it, which runs the same actions as the in-window menu.
 
 Closing the first window hides it and closes its dialogs. Exit in the tray ends the program after saving the window's place. A second launch exits at once through the single-instance plugin; the running copy shows the "already running" message in the saved language.
 

@@ -8,15 +8,17 @@
 
 `run.bat` 또는 `run_gui.bat`으로 연다.
 
+왼쪽 메뉴에서 데이터, 학습, 실시간 테스트, 평가, 내보내기로 이동한다. `Ctrl+1`부터 `Ctrl+5`도 같은 순서이다. 화면 위 카드에는 마이크, 감도, 입력 막대와 인식에 쓸 학습 결과가 있고, 고른 결과의 모델 구조(DS-CNN v2 또는 BC-ResNet-1)가 이름표로 나온다. 메뉴 아래 상자에도 지금 인식에 쓰는 결과, 구조, 검증 정확도, 파라미터 수가 나온다. 녹음, 학습, 평가 중에는 아래 상태 줄에 진행 막대가 움직인다.
+
 | 하고 싶은 일 | 화면 | 결과 |
 | --- | --- | --- |
 | 합성 데이터만 만들기 | 데이터 | `data/synth/train`, `data/synth/test` |
 | 내 목소리 녹음 | 데이터 | `data/audio/명령/*.wav` |
-| 처음부터 학습 | 학습 | 합성 데이터(+내 녹음)로 `models/latest`. 인식 화면으로 넘어가지 않는다 |
-| 추가 학습 | 학습 | 고른 결과에서 이어서 내 녹음으로 `models/speaker` |
+| 처음부터 학습 | 학습 | 고른 구조로 `models/latest`(DS-CNN v2) 또는 `models/bcresnet1`(BC-ResNet-1). 인식 화면으로 넘어가지 않는다 |
+| 추가 학습 | 학습 | 고른 결과에서 같은 구조로 이어서 `models/speaker` 또는 `models/bcresnet1_speaker` |
 | 인식만 | 실시간 테스트 | 고른 학습 결과로 판정 |
 | 인식 성능 평가 | 평가 | 명령별 인식률, 혼동표, 추천 임계값. 마이크 시험 음성은 `data/eval/날짜_시각` |
-| ONNX만 다시 저장 | 내보내기 | 고른 결과 폴더의 `command_kws.onnx` |
+| 결과 비교, ONNX만 다시 저장 | 내보내기 | 저장된 결과의 구조·파라미터·검증 정확도·ONNX 크기 표, 고른 결과 폴더의 `command_kws.onnx` |
 
 학습 결과가 이미 있으면 실시간 테스트 탭이 먼저 열린다. 화면 위의 학습 결과 목록에 폴더 이름이 나온다. 현재 저장소에는 `models/synth_eval`이 있다. 그 항목을 고르면 다시 학습하지 않아도 실시간 테스트, 평가, 내보내기를 할 수 있다. 같은 결과를 새로 학습하려면 다시 학습을 누른다. 저장 이름이 기존 결과와 같으면 확인 후 그 폴더를 새 학습으로 바꾼다.
 
@@ -45,12 +47,25 @@
 
 ### 학습
 
-학습 탭에서 데이터와 방식을 고른 뒤 학습 시작을 누른다.
+학습 탭 왼쪽에서 모델 구조, 데이터와 방식을 고른 뒤 학습 시작을 누른다. 오른쪽에는 검증 정확도, 에폭, 파라미터, 걸린 시간과 에폭마다 그려지는 곡선, 로그가 나온다.
+
+#### 모델 구조
+
+| 구조 | 5클래스 파라미터 | 권장 학습률 (추가 학습) | 처음부터 학습 저장 이름 | 추가 학습 저장 이름 |
+| --- | --- | --- | --- | --- |
+| DS-CNN v2 (기본) | 17,637 | 0.002 (0.0005) | `latest` | `speaker` |
+| BC-ResNet-1 | 9,001 | 0.01 (0.0025) | `bcresnet1` | `bcresnet1_speaker` |
+
+구조 카드를 누르면 학습률과 저장 이름이 그 구조의 권장값으로 바뀐다. 저장 이름을 직접 바꿨으면 그대로 둔다. 고른 구조는 다음에 열어도 유지된다. BC-ResNet-1은 좁고 깊어서 DS-CNN과 같은 에폭에 수렴하려면 학습률이 더 커야 한다. 두 구조는 입력(`logmel [1,1,40,98]`)과 출력(`logits`)이 같으므로 실시간 테스트, 평가, 내보내기, C++ 예제를 그대로 쓴다. 구조의 차이는 [Architecture.md](Architecture.md)에 있다.
+
+추가 학습은 기반 결과의 구조를 그대로 이어 쓴다. 추가 학습을 고르면 구조 카드가 기반 결과의 구조로 바뀌고 다른 구조는 고를 수 없다. 화면 위의 다시 학습은 고른 결과의 구조로 그 폴더를 새로 학습한다.
+
+#### 방식
 
 | 방식 | 시작 가중치 | 기본 데이터 | 기본값 | 저장 이름 |
 | --- | --- | --- | --- | --- |
-| 처음부터 학습 | 무작위 | 합성 데이터 + 내 녹음(있으면) | 40에폭, 학습률 0.002 | `latest` |
-| 추가 학습 | 위에서 고른 학습 결과 | 합성 데이터 + 내 녹음 | 15에폭, 학습률 0.0005 | `speaker` |
+| 처음부터 학습 | 무작위 | 합성 데이터 + 내 녹음(있으면) | 40에폭, 구조별 권장 학습률 | `latest` 또는 `bcresnet1` |
+| 추가 학습 | 위에서 고른 학습 결과 | 합성 데이터 + 내 녹음 | 15에폭, 구조별 추가 학습 학습률 | `speaker` 또는 `bcresnet1_speaker` |
 
 - 처음 쓸 때는 녹음 없이 학습 시작만 누르면 된다. 합성 데이터가 없으면 만들지 묻고, 만든 뒤 이어서 학습한다.
 - 추가 학습은 실제 사용할 사람의 발음에 맞추는 단계이다. 고른 결과의 가중치와 특징 정규화 값을 그대로 이어받는다. 내 녹음은 내 녹음 반복 값(기본 3)만큼 에폭마다 여러 번 써서 비중을 높인다. 합성 데이터를 함께 써야 기존 명령 구분을 잊지 않는다.
@@ -82,7 +97,9 @@
 - 마이크 테스트 시작. 약 0.2초마다 직전 1초를 판정한다.
 - WAV 인식. 파일 하나의 결과를 큰 글씨로 보여 준다.
 
-엔진은 ONNX 또는 PyTorch이다. 고른 폴더에 있는 파일만 선택할 수 있다. `synth_eval`에는 둘 다 있다.
+엔진은 ONNX 또는 PyTorch이다. 고른 폴더에 있는 파일만 선택할 수 있다. `synth_eval`에는 둘 다 있다. PyTorch 엔진은 `meta.json`의 구조로 네트워크를 만들므로 BC-ResNet-1 결과도 그대로 읽는다.
+
+왼쪽 큰 칸은 판정 상태에 따라 색이 바뀐다. 초록은 인식됨, 노랑은 임계값 미만이라 대기, 회색은 듣는 중이다. 오른쪽 막대는 클래스별 확률이고 점선이 임계값이다. 아래 줄에 지금 쓰는 결과, 구조, 엔진이 나온다.
 
 ### 평가
 
@@ -113,7 +130,9 @@
 
 ### 내보내기
 
-내보내기 탭은 선택한 학습 결과의 `model.pt`로 ONNX를 다시 쓴다. INT8도 저장을 켜면 `command_kws.int8.onnx`가 함께 생긴다. 인식만 할 때는 이미 있는 `command_kws.onnx`로 충분하다.
+내보내기 탭 위의 표는 `models` 아래 학습 결과를 이름, 구조, 파라미터, 검증 정확도, ONNX 크기, 만든 시각으로 나란히 보여 준다. 줄을 두 번 누르거나 이 결과로 인식을 누르면 그 결과로 바뀐다.
+
+ONNX 다시 저장은 선택한 학습 결과의 `model.pt`로 ONNX를 다시 쓴다. INT8도 저장을 켜면 `command_kws.int8.onnx`가 함께 생긴다. INT8이 실수형보다 크면 저장하지 않고 로그에 알린다. BC-ResNet-1은 깊이별 합성곱이 많아 양자화 노드가 가중치 절약보다 커서 보통 이 경우이다. 인식만 할 때는 이미 있는 `command_kws.onnx`로 충분하다.
 
 ## 스크립트로 각각 실행
 
@@ -123,15 +142,17 @@ GUI 없이 한 단계만 실행할 때 쓴다.
 | --- | --- |
 | `run_record.bat 출근 5` | 출근을 5번 녹음. `무음`도 같은 형식 |
 | `run_train.bat` | 합성 데이터(있으면)와 `data/audio`로 처음부터 학습해 `models/latest`에 저장. `--no-synth`, `--no-recordings`로 끌 수 있음 |
-| `run_train.bat --finetune models\latest` | 추가 학습. 기본 15에폭, 학습률 0.0005, `models/speaker`에 저장. `--out 이름`, `--repeat 3` |
+| `run_train.bat --arch bcresnet1 --out bcresnet1` | BC-ResNet-1로 처음부터 학습. 생략하면 저장된 구조. 구조를 바꾸면 학습률은 그 구조의 권장값 |
+| `run_train.bat --finetune models\latest` | 추가 학습. 기반 결과의 구조를 그대로 쓰고, 기본 15에폭, 학습률은 구조별 추가 학습 값, `models/speaker`에 저장. `--out 이름`, `--repeat 3` |
 | `run_export.bat` | 저장된 가중치를 ONNX로 다시 저장. `--no-int8`이면 실수형만 |
-| `run_test.bat 파일.wav 0.70` | WAV 하나를 Python으로 판정 |
+| `run_test.bat 파일.wav 0.70` | WAV 하나를 Python으로 판정. `--model models\bcresnet1`로 다른 결과 |
 | `run_synth_test.bat` | 합성 음을 만들고 `models/synth_eval`에 따로 학습 |
 | `run_eval.bat [폴더]` | 폴더의 WAV를 한꺼번에 판정해 인식률, 혼동표, 틀린 파일 출력 |
 | `run_selftest.bat` | 특징, 학습, ONNX, C++ 특징 검사 |
-| `run_tests.bat` | `test` 폴더의 전체 테스트 실행. `ONNXRUNTIME_ROOT`가 없으면 `kws_infer` 비교만 건너뜀 |
-| `build_cpp.bat` | ONNX Runtime 없이 `test_logmel` 빌드 |
-| `build_cpp.bat C:\path\to\onnxruntime` | `kws_infer`까지 빌드 |
+| `run_tests.bat` | `test` 폴더의 전체 테스트 실행. C++ `kws_infer`를 빌드해 두 구조 모두 Python과 확률을 비교한다. ONNX Runtime이 없으면 처음 한 번 공식 패키지를 받는다(인터넷 필요) |
+| `build_cpp.bat` | `test_logmel` 빌드. `third_party/onnxruntime`이 있으면 `kws_infer`도 빌드 |
+| `build_cpp.bat download` | 공식 ONNX Runtime을 받아 `kws_infer`까지 빌드 |
+| `build_cpp.bat C:\path\to\onnxruntime` | 지정한 ONNX Runtime으로 `kws_infer`까지 빌드 |
 | `run_cpp.bat 파일.wav 0.70` | C++로 WAV 판정 |
 
 학습만 한 결과는 `models/latest`에 있다. 인식만 하려면 그 폴더 또는 `models/synth_eval`을 넘긴다.
@@ -141,7 +162,7 @@ run_test.bat data\synth\test\깨끗\경비\0000_p0.93.wav 0.70
 run_cpp.bat data\synth\test\깨끗\경비\0000_p0.93.wav 0.70
 ```
 
-C++ 예제는 모델 폴더와 WAV를 받는다. `run_cpp.bat`은 `models/latest`를 본다. `synth_eval`만 있을 때는 `cpp\build\Release\kws_infer.exe models\synth_eval 파일.wav 0.70`처럼 폴더를 직접 지정한다. `onnxruntime.dll`을 exe 옆에 둔다.
+C++ 예제는 모델 폴더와 WAV를 받는다. `run_cpp.bat`은 기본으로 `models/latest`를 보고, 세 번째 인자로 다른 폴더를 줄 수 있다. 예: `run_cpp.bat 파일.wav 0.70 models\bcresnet1`. exe는 `cpp\build\msvc\Release\kws_infer.exe`이고, 빌드 스크립트가 `onnxruntime.dll`을 그 옆에 복사한다. BC-ResNet-1 결과도 같은 exe로 판정한다.
 
 장치에 복사하는 파일은 `command_kws.onnx`, `mel_filters.bin`, `window.bin`, `norm.bin`, `labels.txt`, `frontend.txt`이다. 합계는 138,549바이트이다. 메모리와 CPU 클록은 [Architecture.md](Architecture.md)에 있다.
 
@@ -155,6 +176,7 @@ LABEL=대기 또는 명령
 TOP_LABEL=가장 높은 클래스
 TOP_CONFIDENCE=0에서 1
 ENGINE=onnx 또는 pytorch
+ARCH=dscnn_v2 또는 bcresnet1
 ```
 
 `ACCEPTED=1`일 때만 명령을 실행한다.

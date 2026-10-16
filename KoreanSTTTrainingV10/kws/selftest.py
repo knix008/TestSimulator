@@ -125,9 +125,10 @@ def build_test_logmel() -> Path:
     return exe
 
 
-def test_train() -> None:
+def test_train(arch: str) -> None:
     from kws.audio import save_wav
     from kws.infer import ModelBundle
+    from kws.model import default_learning_rate
     from kws.train import TrainOptions, train_project
 
     labels = ["가", "나", "다", "라", SILENCE_LABEL]
@@ -146,9 +147,17 @@ def test_train() -> None:
             audio,
             labels,
             root / "model",
-            TrainOptions(epochs=12, patience=6, batch_size=8, make_int8=True, seed=3),
+            TrainOptions(
+                epochs=40,
+                patience=15,
+                batch_size=8,
+                learning_rate=default_learning_rate(arch),
+                make_int8=True,
+                seed=3,
+                arch=arch,
+            ),
         )
-        print(f"val accuracy {result.val_accuracy:.3f} params {result.parameter_count}")
+        print(f"{arch} val accuracy {result.val_accuracy:.3f} params {result.parameter_count}")
         print(result.export_log)
         if result.val_accuracy < 0.9 or not result.export_ok:
             raise AssertionError("합성음 학습 또는 ONNX 내보내기에 실패했습니다.")
@@ -170,10 +179,10 @@ def test_train() -> None:
                     if int(np.argmax(other)) != int(np.argmax(probs)):
                         raise AssertionError("PyTorch와 ONNX 판정이 다릅니다.")
         accuracy = correct / total
-        print(f"file accuracy {accuracy:.3f}")
+        print(f"{arch} file accuracy {accuracy:.3f}")
         if accuracy < 0.9:
             raise AssertionError("저장한 파일을 다시 인식하지 못했습니다.")
-    print("train ok")
+    print(f"train ok ({arch})")
 
 
 def synthesize(label: str, frequency: int | None, rng: np.random.Generator) -> np.ndarray:
@@ -226,7 +235,10 @@ def main() -> None:
         test_cpp(exe, extractor, quiet, "quiet")
         test_cpp(exe, extractor, tone[:8000], "short")
     if not args.skip_train:
-        test_train()
+        from kws.model import ARCHS
+
+        for arch in ARCHS:
+            test_train(arch)
     if not args.skip_gui:
         test_gui()
     print("SELFTEST OK")

@@ -89,6 +89,18 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(project.list_wavs("출근"), [first])
         self.assertEqual(project.count("없는명령"), 0)
 
+    def test_arch_persists_and_bad_value_falls_back(self):
+        root = temp_dir()
+        project = Project(root)
+        self.assertEqual(project.arch, "dscnn_v2")
+        project.arch = "bcresnet1"
+        project.save()
+        self.assertEqual(Project(root).arch, "bcresnet1")
+        data = json.loads(project.config_path.read_text(encoding="utf-8"))
+        data["arch"] = "resnet50"
+        project.config_path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(Project(root).arch, "dscnn_v2")
+
     def test_kws_root_override(self):
         root = temp_dir()
         with kws_root(root):

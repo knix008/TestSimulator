@@ -25,19 +25,21 @@ The Windows setup file (about 2 MB) asks for the language first. An existing ins
 
 프로그램은 한 번에 하나만 돌아갑니다. 이미 돌아가고 있는데 또 실행하면 새로 띄운 쪽은 바로 끝나고, 돌아가고 있던 쪽이 이미 실행 중이라고 알려 줍니다. 창이 보이지 않으면 트레이 아이콘을 눌러 다시 불러옵니다.
 
-트레이 아이콘을 누르거나 마우스 오른쪽 단추로 누르면 메뉴가 열립니다. 맨 위의 창 표시는 숨긴 창을 다시 엽니다. 날씨, 도시, 파일, 편집은 하위 메뉴이고, 설정, 프로그램 정보, 종료는 바로 표시됩니다. 각 항목에는 컬러 아이콘이 있습니다.
+트레이 아이콘을 두 번 누르면 숨겨 둔 창이 바로 나타납니다. 트레이 아이콘을 한 번 누르거나 마우스 오른쪽 단추로 누르면 메뉴가 열립니다. 맨 위의 창 표시는 숨긴 창을 다시 엽니다. 날씨, 도시, 파일, 편집은 하위 메뉴이고, 설정, 프로그램 정보, 종료는 바로 표시됩니다. 각 항목에는 컬러 아이콘이 있습니다.
 
 - 날씨: 새로고침, 일간 예보, 주간 예보, 월간 예보
 - 도시: 다음 도시, 도시 추가, 새 날씨 창, 그리고 설정해 둔 도시 목록. 지금 보고 있는 도시 앞에는 점이 붙습니다.
 - 편집: 인쇄, 복사, 붙여넣기
 
-The window stays off the taskbar and the close button only hides it; Exit in the tray menu ends the program. Click the tray icon to open these menus. Every entry has a colour icon. English labels are used when the app language is English. General settings can start MyWeather when the system starts, and the window still stays off the taskbar.
+The window stays off the taskbar and the close button only hides it; Exit in the tray menu ends the program. Double-click the tray icon to show the window at once; click it once to open these menus. Every entry has a colour icon. English labels are used when the app language is English. General settings can start MyWeather when the system starts, and the window still stays off the taskbar.
 
 ## 날씨 보기
 
 프로그램을 다시 실행하면 마지막으로 사용한 창 크기와 위치를 그대로 엽니다. 그 위치가 현재 화면에 없으면 처음처럼 가운데에 엽니다.
 
-메인 창은 항상 오늘 날씨와 오늘 날짜만 보여 줍니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 연도와 월이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택과 배경 삭제도 나옵니다.
+메인 창은 항상 오늘 날씨와 오늘 날짜만 보여 줍니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 오늘부터 30일 동안의 첫날과 마지막 날이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택과 배경 삭제도 나옵니다.
+
+월간 예보는 달력의 한 달이 아니라 항상 오늘부터 30일(한 달)을 보여 줍니다. 칸은 일요일부터 시작하는 주 단위로 놓이고, 오늘 앞과 30일째 뒤의 칸은 비워 둡니다. 첫날과 매달 1일에는 "11/1"처럼 월도 함께 적힙니다. 16일째까지는 다섯 소스의 평균이고, 그 뒤는 GFS 장기 예보(앙상블)로 채웁니다. 설정에서 GFS를 끄면 이 장기 예보도 쓰지 않아 17일째부터는 "--"로 보입니다.
 
 예보 창 제목에는 지금 보고 있는 도시 이름도 함께 표시됩니다. 보는 도시를 바꾸면 열려 있는 일간, 주간, 월간 예보가 모두 그 도시로 따라 바뀝니다.
 

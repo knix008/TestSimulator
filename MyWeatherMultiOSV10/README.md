@@ -1,6 +1,6 @@
 # MyWeather 1.0.0
 
-MyWeather shows daily, weekly, and monthly weather for a chosen country and city. Forecasts are gathered from ECMWF, NOAA GFS, JMA, MET Norway, and wttr.in. The app runs on the web, Windows, Linux, and macOS.
+MyWeather shows daily, weekly, and monthly weather for a chosen country and city. Forecasts are gathered from ECMWF, NOAA GFS, JMA, MET Norway, and wttr.in. The monthly forecast always covers today and the next 29 days; past day 16 it is filled from the GFS ensemble. The app runs on the web, Windows, Linux, and macOS.
 
 The desktop app is built with [Tauri 2](https://tauri.app): a small Rust program hosts the pages in `src/` in the system webview (WebView2 on Windows). It replaced the earlier Electron build, which bundled its own Chromium.
 

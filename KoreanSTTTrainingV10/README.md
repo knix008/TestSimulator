@@ -18,7 +18,8 @@
 | `run.bat`, `run_gui.bat` | 녹음, 학습, 마이크 테스트, 내보내기 화면 |
 | `run_record.bat 출근 5` | 해당 명령을 마이크에서 녹음. `무음`도 같은 방식 |
 | `run_train.bat` | 합성 데이터(있으면)와 내 녹음으로 학습하고 ONNX 저장. `--epochs 40`처럼 옵션을 붙일 수 있음 |
-| `run_train.bat --finetune models\latest` | 기존 결과에서 이어서 내 녹음으로 추가 학습. `models/speaker`에 저장 |
+| `run_train.bat --arch bcresnet1 --out bcresnet1` | BC-ResNet-1 구조로 학습 |
+| `run_train.bat --finetune models\latest` | 기존 결과에서 이어서 내 녹음으로 추가 학습. 기반 결과의 구조를 그대로 쓰고 `models/speaker`에 저장 |
 | `run_export.bat` | 학습된 가중치를 ONNX로 다시 저장. `--no-int8`이면 실수형만 저장 |
 | `run_test.bat 파일.wav 0.70` | WAV 하나를 Python으로 판정 |
 | `run_eval.bat [폴더]` | 폴더의 WAV를 한꺼번에 판정해 명령별 인식률, 혼동표, 임계값별 오수락률, 틀린 파일 목록 출력. `--csv 결과.csv`로 저장 |
@@ -26,13 +27,14 @@
 | `run_tests.bat` | `test` 폴더의 전체 테스트 실행 (GUI, CLI, 스크립트, C++, 문서 포함) |
 | `run_synth_test.bat` | 출근·퇴근·경비·해제를 여러 높낮이로 합성해 학습 후 다른 음원으로 평가 |
 | `build_cpp.bat` | C++ 특징 검사 프로그램 빌드 |
-| `build_cpp.bat C:\path\to\onnxruntime` | 위 파일과 `kws_infer` 빌드 |
+| `build_cpp.bat download` | 공식 ONNX Runtime 패키지를 `third_party/onnxruntime`에 받고 `kws_infer`까지 빌드 |
+| `build_cpp.bat C:\path\to\onnxruntime` | 이미 있는 ONNX Runtime으로 `kws_infer`까지 빌드 |
 | `run_cpp.bat 파일.wav 0.70` | C++로 WAV 판정 |
 
 ## 사용 순서
 
 1. 데이터 탭의 명령은 출근, 퇴근, 경비, 해제입니다. 무음은 명령이 아닌 소리를 거절하려고 함께 학습합니다.
-2. 학습 탭에서 처음부터 학습으로 학습 시작을 누릅니다. 기본으로 Supertonic 2 합성 데이터(`data/synth/train`, 남녀 같은 수)를 쓰고, 없으면 먼저 만듭니다. 결과는 `models/latest`입니다.
+2. 학습 탭에서 모델 구조(DS-CNN v2 또는 BC-ResNet-1)를 고르고, 처음부터 학습으로 학습 시작을 누릅니다. BC-ResNet-1은 파라미터가 9,001개로 DS-CNN v2(17,637개)의 절반쯤이고, 결과는 `models/bcresnet1`에 저장됩니다. 기본으로 Supertonic 2 합성 데이터(`data/synth/train`, 남녀 같은 수)를 쓰고, 없으면 먼저 만듭니다. 결과는 `models/latest`입니다.
 3. 실제 사용할 사람의 발음에 맞추려면 데이터 탭에서 명령 녹음과 무음 녹음으로 내 목소리를 녹음합니다(명령마다 4–10개). 녹음은 `data/audio`에 따로 저장됩니다.
 4. 학습 탭에서 추가 학습을 고르고 학습 시작을 누릅니다. 위에서 고른 결과(예: latest)에서 이어서, 내 녹음을 합성 데이터와 섞어 짧게 더 학습합니다. 결과는 `models/speaker`입니다.
 5. 학습이 끝나면 로그에 출처별 검증 정확도, 추가 학습 전 정확도, 학습에 쓰지 않은 음성으로 채점한 결과가 나옵니다. 자세한 해석은 [UsersGuide.md](UsersGuide.md)에 있습니다.
@@ -70,7 +72,7 @@
 
 특징 계산은 `cpp/logmel.hpp`에 있고 Python과 같은 순서를 따릅니다. ONNX Runtime으로 추론하는 예제는 `cpp/main.cpp`입니다.
 
-[ONNX Runtime 릴리스](https://github.com/microsoft/onnxruntime/releases)에서 Windows x64 패키지를 받은 뒤, `include`와 `lib`가 있는 폴더를 지정합니다.
+`build_cpp.bat download`는 [ONNX Runtime 릴리스](https://github.com/microsoft/onnxruntime/releases)의 Windows x64 패키지(Python 패키지와 같은 1.31.0)를 `third_party/onnxruntime`에 받고, C++ 도구가 있는 정식 Visual Studio(미리보기 판 제외)를 `vswhere`로 찾아 `cpp/build/msvc`에 빌드한 뒤 `onnxruntime.dll`을 exe 옆에 복사합니다. `third_party/onnxruntime`이 있으면 `build_cpp.bat`만으로도 빌드합니다. 직접 빌드할 때는 `include`와 `lib`가 있는 폴더를 지정합니다.
 
 ```bat
 cmake -S cpp -B cpp/build -DONNXRUNTIME_ROOT=C:\path\to\onnxruntime

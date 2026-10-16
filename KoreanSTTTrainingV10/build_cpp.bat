@@ -22,22 +22,20 @@ if errorlevel 1 (
 echo Built cpp\build\test_logmel.exe
 
 :infer
+if /i "%~1"=="download" set "ONNXRUNTIME_ROOT="
+if /i "%~1"=="download" goto build_infer
+if not defined ONNXRUNTIME_ROOT if exist "third_party\onnxruntime\include\onnxruntime_cxx_api.h" goto build_infer
 if not defined ONNXRUNTIME_ROOT (
   echo.
-  echo kws_infer was not built. Pass the ONNX Runtime directory:
+  echo kws_infer was not built. Pass the ONNX Runtime directory, or download the official package:
   echo   build_cpp.bat C:\path\to\onnxruntime
+  echo   build_cpp.bat download
   exit /b 0
 )
-where cmake >nul 2>&1
-if errorlevel 1 (
-  echo cmake is required to build kws_infer.
-  goto fail
-)
-cmake -S cpp -B cpp\build -DONNXRUNTIME_ROOT="%ONNXRUNTIME_ROOT%"
+:build_infer
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build_kws_infer.ps1"
 if errorlevel 1 goto fail
-cmake --build cpp\build --config Release
-if errorlevel 1 goto fail
-echo Built kws_infer. Copy onnxruntime.dll next to the exe.
+echo Built kws_infer. onnxruntime.dll was copied next to the exe.
 exit /b 0
 :fail
 pause

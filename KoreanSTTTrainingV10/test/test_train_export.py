@@ -10,7 +10,8 @@ import torch
 from kws import paths
 from kws.export import export_onnx
 from kws.features import FeatureExtractor
-from kws.model import build_model
+from kws.archs import BCRESNET1, DSCNN
+from kws.model import build_model, parameter_count
 from kws.train import TrainOptions, train_project
 from test.helpers import LABELS, run_module, temp_dir, train_result, trained_model, write_tone_dataset
 
@@ -20,7 +21,9 @@ class TrainTest(unittest.TestCase):
         result = train_result()
         self.assertTrue(result.export_ok, result.export_log)
         self.assertGreaterEqual(result.val_accuracy, 0.9, result.report)
-        self.assertEqual(result.parameter_count, 17381)
+        self.assertEqual(result.parameter_count, parameter_count(build_model(len(LABELS))))
+        self.assertEqual(result.parameter_count, 17637)
+        self.assertEqual(result.arch, DSCNN)
         self.assertGreater(len(result.history), 0)
         self.assertIn("클래스별 검증 결과", result.report)
 
@@ -147,6 +150,118 @@ class ExportTest(unittest.TestCase):
             export_onnx(copy)
 
 
+class BCResNetTrainExportTest(unittest.TestCase):
+    """BC-ResNet-1도 학습, ONNX 저장, 다시 저장, 추가 학습이 DS-CNN과 같은 계약으로 동작한다."""
+
+    def test_learns_distinct_tones(self):
+        result = train_result(BCRESNET1)
+        self.assertTrue(result.export_ok, result.export_log)
+        self.assertEqual(result.arch, BCRESNET1)
+        self.assertGreaterEqual(result.val_accuracy, 0.9, result.report)
+        self.assertEqual(result.parameter_count, 9001)
+        self.assertIn("모델 구조: BC-ResNet-1", result.export_log)
+
+    def test_meta_records_arch(self):
+        _, model = trained_model(BCRESNET1)
+        meta = json.loads((model / paths.META_FILENAME).read_text(encoding="utf-8"))
+        self.assertEqual(meta["arch"], BCRESNET1)
+        self.assertEqual(meta["parameter_count"], 9001)
+        self.assertEqual(meta["learning_rate"], 1e-2)
+        self.assertEqual(meta["input_shape"], [1, 1, 40, 98])
+
+    def test_onnx_contract_is_the_same_as_dscnn(self):
+        _, model = trained_model(BCRESNET1)
+        loaded = onnx.load(str(model / paths.ONNX_FILENAME))
+        onnx.checker.check_model(loaded)
+        session = ort.InferenceSession(str(model / paths.ONNX_FILENAME), providers=["CPUExecutionProvider"])
+        self.assertEqual(session.get_inputs()[0].name, "logmel")
+        self.assertEqual(list(session.get_inputs()[0].shape), [1, 1, 40, 98])
+        self.assertEqual(session.get_outputs()[0].name, "logits")
+        self.assertEqual(list(session.get_outputs()[0].shape), [1, 5])
+        for name in ("labels.txt", "frontend.txt", "mel_filters.bin", "window.bin", "norm.bin", paths.CHECKPOINT_FILENAME):
+            with self.subTest(name=name):
+                self.assertTrue((model / name).is_file())
+
+    def test_onnx_matches_pytorch(self):
+        from kws.audio import load_model_wav
+
+        audio, model = trained_model(BCRESNET1)
+        extractor = FeatureExtractor.load(model / paths.FRONTEND_NPZ)
+        net = build_model(len(LABELS), BCRESNET1)
+        net.load_state_dict(torch.load(model / paths.CHECKPOINT_FILENAME, map_location="cpu", weights_only=True))
+        net.eval()
+        session = ort.InferenceSession(str(model / paths.ONNX_FILENAME), providers=["CPUExecutionProvider"])
+        for label in LABELS:
+            wav = load_model_wav(sorted((audio / label).glob("*.wav"))[0])
+            feature = extractor.transform(wav)[None, ...]
+            with torch.no_grad():
+                expected = net(torch.from_numpy(feature)).numpy()
+            np.testing.assert_allclose(session.run(None, {"logmel": feature})[0], expected, atol=1e-3)
+
+    def test_int8_is_kept_only_when_smaller(self):
+        result = train_result(BCRESNET1)
+        _, model = trained_model(BCRESNET1)
+        int8 = model / paths.ONNX_INT8_FILENAME
+        if int8.is_file():
+            self.assertLess(int8.stat().st_size, (model / paths.ONNX_FILENAME).stat().st_size)
+            self.assertIn("INT8 저장", result.export_log)
+        else:
+            self.assertIn("저장하지 않았습니다", result.export_log)
+
+    def test_reexport_builds_the_saved_arch(self):
+        audio, model = trained_model(BCRESNET1)
+        copy = temp_dir() / "model"
+        shutil.copytree(model, copy)
+        (copy / paths.ONNX_FILENAME).unlink()
+        log = export_onnx(copy, audio, make_int8=False)
+        self.assertIn("모델 구조: BC-ResNet-1", log)
+        self.assertTrue((copy / paths.ONNX_FILENAME).is_file())
+
+    def test_finetune_keeps_the_base_arch(self):
+        audio, model = trained_model(BCRESNET1)
+        events = []
+        result = train_project(
+            audio,
+            LABELS,
+            temp_dir() / "speaker",
+            # 구조를 DS-CNN으로 적어도 기반 결과의 BC-ResNet-1 가중치를 이어서 쓴다.
+            TrainOptions(epochs=2, learning_rate=2.5e-3, make_int8=False, init_from=model, arch=DSCNN),
+            on_event=events.append,
+        )
+        self.assertEqual(result.arch, BCRESNET1)
+        self.assertIsNotNone(result.base_accuracy)
+        self.assertGreaterEqual(result.base_accuracy["녹음"], 0.9)
+        meta = json.loads((result.model_dir / paths.META_FILENAME).read_text(encoding="utf-8"))
+        self.assertEqual(meta["arch"], BCRESNET1)
+        self.assertEqual(meta["init_from"], str(model))
+        self.assertIn("모델: BC-ResNet-1 (bcresnet1)", [event.get("text") for event in events])
+
+    def test_unknown_arch_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "지원하지 않는 모델 구조"):
+            train_project(tone_dir(), LABELS, temp_dir(), TrainOptions(epochs=1, arch="resnet50"))
+
+
+class SelftestTrainTest(unittest.TestCase):
+    def test_selftest_training_passes_for_every_arch(self):
+        import contextlib
+        import io
+
+        from kws import selftest
+        from kws.archs import ARCHS
+
+        for arch in ARCHS:
+            with self.subTest(arch=arch):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    selftest.test_train(arch)
+                self.assertIn(f"train ok ({arch})", output.getvalue())
+
+
+def tone_dir():
+    audio, _ = trained_model()
+    return audio
+
+
 class TrainExportCliTest(unittest.TestCase):
     def test_train_and_export_commands(self):
         audio, _ = trained_model()
@@ -159,6 +274,35 @@ class TrainExportCliTest(unittest.TestCase):
         exported = run_module("kws.export", "--no-int8", root=root)
         self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
         self.assertIn("ONNX 저장", exported.stdout)
+
+    def test_train_command_with_bc_resnet(self):
+        from kws.project import Project
+
+        audio, _ = trained_model()
+        root = temp_dir()
+        shutil.copytree(audio, root / "data" / "audio")
+        trained = run_module("kws.train", "--arch", "bcresnet1", "--epochs", "3", "--no-int8", "--out", "bcresnet1", root=root)
+        self.assertEqual(trained.returncode, 0, trained.stderr + trained.stdout)
+        self.assertIn("모델 구조: BC-ResNet-1", trained.stdout)
+        self.assertIn("파라미터: 9,001", trained.stdout)
+        meta = json.loads((root / "models" / "bcresnet1" / paths.META_FILENAME).read_text(encoding="utf-8"))
+        self.assertEqual(meta["arch"], "bcresnet1")
+        # 구조를 바꾸면 그 구조의 권장 학습률을 쓴다.
+        self.assertEqual(meta["learning_rate"], 1e-2)
+        self.assertEqual(Project(root).arch, "dscnn_v2")
+
+        finetuned = run_module(
+            "kws.train", "--finetune", str(root / "models" / "bcresnet1"), "--epochs", "1", "--no-int8", root=root
+        )
+        self.assertEqual(finetuned.returncode, 0, finetuned.stderr + finetuned.stdout)
+        speaker = json.loads((root / "models" / "speaker" / paths.META_FILENAME).read_text(encoding="utf-8"))
+        self.assertEqual(speaker["arch"], "bcresnet1")
+        self.assertEqual(speaker["learning_rate"], 2.5e-3)
+
+    def test_train_command_rejects_unknown_arch(self):
+        completed = run_module("kws.train", "--arch", "resnet50", root=temp_dir())
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("invalid choice", completed.stderr)
 
     def test_train_command_without_recordings_fails(self):
         completed = run_module("kws.train", "--epochs", "1", root=temp_dir())
@@ -247,12 +391,12 @@ class SourcesAndFinetuneTest(unittest.TestCase):
             train_project(mine, labels, temp_dir() / "x", TrainOptions(epochs=1, init_from=model))
 
     def test_finetune_needs_checkpoint(self):
-        _, model = trained_model()
+        audio, model = trained_model()
         copy = temp_dir() / "onnx_only"
         shutil.copytree(model, copy)
         (copy / paths.CHECKPOINT_FILENAME).unlink()
         with self.assertRaises(FileNotFoundError):
-            train_project(model.parent / "audio", LABELS, temp_dir() / "x", TrainOptions(epochs=1, init_from=copy))
+            train_project(audio, LABELS, temp_dir() / "x", TrainOptions(epochs=1, init_from=copy))
 
 
 if __name__ == "__main__":

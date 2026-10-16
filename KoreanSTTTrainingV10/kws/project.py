@@ -8,6 +8,7 @@ from pathlib import Path
 
 from kws import paths
 from kws.audio import clamp_gain
+from kws.archs import ARCHS, DEFAULT_ARCH
 
 SILENCE_LABEL = "무음"
 MAX_COMMANDS = 10
@@ -60,6 +61,7 @@ class Project:
         self.batch_size = 16
         self.learning_rate = 0.002
         self.threshold = 0.70
+        self.arch = DEFAULT_ARCH
         self.load()
 
     def labels(self) -> list[str]:
@@ -86,6 +88,8 @@ class Project:
             except (TypeError, ValueError):
                 threshold = 0.70
             self.threshold = min(0.95, max(0.40, threshold))
+            arch = str(data.get("arch", DEFAULT_ARCH))
+            self.arch = arch if arch in ARCHS else DEFAULT_ARCH
         self._sanitize()
         self.audio.mkdir(parents=True, exist_ok=True)
         self.model_dir.mkdir(parents=True, exist_ok=True)
@@ -103,6 +107,7 @@ class Project:
             "batch_size": self.batch_size,
             "learning_rate": self.learning_rate,
             "threshold": self.threshold,
+            "arch": self.arch,
         }
         self.config_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 

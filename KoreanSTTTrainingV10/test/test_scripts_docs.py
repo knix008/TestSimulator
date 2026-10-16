@@ -119,6 +119,15 @@ class DocumentsTest(unittest.TestCase):
         self.assertIn(f"{count:,}", architecture)
         self.assertIn(f"{parameter_count(build_model(11)):,}", architecture)
 
+    def test_documented_bc_resnet_parameter_counts(self):
+        architecture = (SOURCE_ROOT / "Architecture.md").read_text(encoding="utf-8")
+        guide = (SOURCE_ROOT / "UsersGuide.md").read_text(encoding="utf-8")
+        for n_classes in (5, 11, 12):
+            with self.subTest(n_classes=n_classes):
+                self.assertIn(f"{parameter_count(build_model(n_classes, 'bcresnet1')):,}", architecture)
+        self.assertIn(f"{parameter_count(build_model(5, 'bcresnet1')):,}", guide)
+        self.assertIn("--arch bcresnet1", guide)
+
     def test_documented_device_bundle_size_adds_up(self):
         architecture = (SOURCE_ROOT / "Architecture.md").read_text(encoding="utf-8")
         rows = re.findall(r"^\| `([^`]+)` \| ([\d,]+) \| 필요 \|$", architecture, flags=re.MULTILINE)

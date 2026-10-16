@@ -36,6 +36,7 @@ export function defaultFetch(url) {
   const href = String(url);
   if (href.includes("geocoding-api")) return jsonResponse({ results: [] });
   if (href.includes("met.no") || href.includes("wttr.in")) return jsonResponse({ error: true }, false, 503);
+  if (href.includes("ensemble-api")) return jsonResponse({ reason: "no long-range data in tests" }, false, 503);
   if (href.includes("models=gfs")) return jsonResponse(openMeteoBody(SAMPLE_DATES, 22));
   if (href.includes("models=jma")) return jsonResponse({ reason: "unavailable" }, false, 400);
   return jsonResponse(openMeteoBody(SAMPLE_DATES, 20));

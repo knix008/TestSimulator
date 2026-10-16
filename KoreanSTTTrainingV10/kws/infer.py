@@ -113,6 +113,7 @@ class ModelBundle:
         self.meta = json.loads(meta_path.read_text(encoding="utf-8"))
         self.labels = [str(label) for label in self.meta["labels"]]
         self.silence_label = str(self.meta.get("silence_label", SILENCE_LABEL))
+        self.arch = str(self.meta.get("arch", "dscnn_v2"))
         self.extractor = FeatureExtractor.load(self.model_dir / paths.FRONTEND_NPZ)
 
     def engines(self) -> list[str]:
@@ -161,7 +162,7 @@ class TorchClassifier(Classifier):
 
         self.bundle = bundle
         self.torch = torch
-        self.model = build_model(len(bundle.labels))
+        self.model = build_model(len(bundle.labels), bundle.arch)
         checkpoint = bundle.model_dir / paths.CHECKPOINT_FILENAME
         try:
             state = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -189,11 +190,12 @@ def main() -> int:
     parser.add_argument("wav", type=Path, help="16 kHz로 변환해 판정할 WAV")
     parser.add_argument("threshold", nargs="?", type=float, help="명령으로 받아들일 최소 확률. 생략하면 저장된 값.")
     parser.add_argument("--engine", choices=("onnx", "pytorch"), default="onnx")
+    parser.add_argument("--model", type=Path, help="학습 결과 폴더. 생략하면 models/latest.")
     args = parser.parse_args()
     project = Project()
     threshold = project.threshold if args.threshold is None else args.threshold
     try:
-        bundle = ModelBundle(project.model_dir)
+        bundle = ModelBundle(args.model or project.model_dir)
         engine = args.engine if args.engine in bundle.engines() else bundle.engines()[0]
         probs = command_probs(bundle.classifier(engine), load_model_wav(args.wav))
     except Exception as exc:
@@ -213,6 +215,7 @@ def main() -> int:
     print(f"TOP_LABEL={decision.top_label}")
     print(f"TOP_CONFIDENCE={decision.top_confidence:.3f}")
     print(f"ENGINE={engine}")
+    print(f"ARCH={bundle.arch}")
     return 0
 
 

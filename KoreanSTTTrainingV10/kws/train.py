@@ -18,8 +18,8 @@ import numpy as np
 from kws import paths
 from kws.audio import load_model_wav
 from kws.features import FEATURE_VERSION, FeatureExtractor
-from kws.model import ARCH_NAME, build_model, parameter_count
-from kws.project import FINETUNE_EPOCHS, FINETUNE_LR, MIN_CLIPS, RECORDING_REPEAT, SILENCE_LABEL
+from kws.model import ARCHS, DEFAULT_ARCH, arch_title, build_model, check_arch, default_learning_rate, parameter_count
+from kws.project import FINETUNE_EPOCHS, MIN_CLIPS, RECORDING_REPEAT, SILENCE_LABEL
 
 @dataclass
 class TrainOptions:
@@ -34,6 +34,7 @@ class TrainOptions:
     label_smoothing: float = 0.0
     make_int8: bool = True
     init_from: Path | None = None
+    arch: str = DEFAULT_ARCH
 
 
 @dataclass
@@ -59,6 +60,7 @@ class TrainResult:
     stopped: bool = False
     source_accuracy: dict[str, float] = field(default_factory=dict)
     base_accuracy: dict[str, float] | None = None
+    arch: str = DEFAULT_ARCH
 
 
 def train_project(
@@ -82,6 +84,7 @@ def train_project(
         raise ValueError("무음 클래스가 필요합니다.")
     if len(labels) < 2 or len(labels) > 11:
         raise ValueError("명령은 10개 이하이고 무음 클래스가 함께 있어야 합니다.")
+    arch = check_arch(options.arch)
 
     def emit(event: dict) -> None:
         if on_event is not None:
@@ -101,7 +104,10 @@ def train_project(
     val_cache = [loaded[path] for path, _, _ in val_items]
     val_sources = np.array([source_index for _, _, source_index in val_items], dtype=np.int64)
 
-    base = _load_base(options.init_from, labels) if options.init_from is not None else None
+    base = None
+    if options.init_from is not None:
+        # 추가 학습은 기반 결과의 구조를 그대로 이어 쓴다.
+        base, arch = _load_base(options.init_from, labels)
     torch.manual_seed(options.seed)
     if base is not None:
         extractor = FeatureExtractor.load(Path(options.init_from) / paths.FRONTEND_NPZ)
@@ -117,12 +123,13 @@ def train_project(
     val_y = np.array([index for _, index in val_cache], dtype=np.int64)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model(len(labels))
+    model = build_model(len(labels), arch)
     if base is not None:
         model.load_state_dict(base)
     model = model.to(device)
     count = parameter_count(model)
     emit({"type": "log", "text": f"장치: {device}"})
+    emit({"type": "log", "text": f"모델: {arch_title(arch)} ({arch})"})
     emit({"type": "log", "text": f"파라미터: {count:,}"})
     for source_index, source in enumerate(sources):
         clips = sum(1 for _, _, index in train_items if index == source_index)
@@ -228,7 +235,7 @@ def train_project(
     if base_accuracy is not None:
         report += "\n추가 학습 전 " + _format_accuracy(base_overall, base_accuracy)
     meta = {
-        "arch": ARCH_NAME,
+        "arch": arch,
         "feature_version": FEATURE_VERSION,
         "labels": labels,
         "silence_label": silence_label,
@@ -288,6 +295,7 @@ def train_project(
         stopped=user_stopped,
         source_accuracy=source_accuracy,
         base_accuracy=base_accuracy,
+        arch=arch,
     )
 
 
@@ -347,7 +355,7 @@ def _split_items(
     return train, val
 
 
-def _load_base(model_dir: Path, labels: list[str]) -> dict:
+def _load_base(model_dir: Path, labels: list[str]) -> tuple[dict, str]:
     import torch
 
     model_dir = Path(model_dir)
@@ -361,12 +369,23 @@ def _load_base(model_dir: Path, labels: list[str]) -> dict:
             "기존 결과와 명령 구성이 달라 추가 학습할 수 없습니다. 처음부터 학습하세요.\n"
             f"기존: {', '.join(meta.get('labels', []))}\n지금: {', '.join(labels)}"
         )
-    if meta.get("arch") != ARCH_NAME or meta.get("feature_version") != FEATURE_VERSION:
+    if meta.get("arch") not in ARCHS or meta.get("feature_version") != FEATURE_VERSION:
         raise ValueError("기존 결과의 모델 구조나 특징 버전이 달라 추가 학습할 수 없습니다.")
     try:
-        return torch.load(checkpoint, map_location="cpu", weights_only=True)
+        state = torch.load(checkpoint, map_location="cpu", weights_only=True)
     except TypeError:
-        return torch.load(checkpoint, map_location="cpu")
+        state = torch.load(checkpoint, map_location="cpu")
+    return state, str(meta["arch"])
+
+
+def saved_arch(model_dir: Path) -> str | None:
+    """저장된 학습 결과의 모델 구조. 읽을 수 없으면 None."""
+    try:
+        meta = json.loads((Path(model_dir) / paths.META_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    arch = meta.get("arch")
+    return str(arch) if arch in ARCHS else None
 
 
 def _accuracy_by_source(
@@ -453,17 +472,28 @@ def main() -> int:
     )
     parser.add_argument("--epochs", type=int, help="학습 에폭. 생략하면 저장된 값(추가 학습은 15).")
     parser.add_argument("--batch", type=int, help="배치 크기. 생략하면 저장된 값을 씁니다.")
-    parser.add_argument("--lr", type=float, help="학습률. 생략하면 저장된 값(추가 학습은 0.0005).")
+    parser.add_argument("--lr", type=float, help="학습률. 생략하면 구조별 권장값(DS-CNN 0.002, BC-ResNet-1 0.01, 추가 학습은 그 1/4).")
     parser.add_argument("--no-int8", action="store_true", help="INT8 ONNX는 만들지 않습니다.")
     parser.add_argument("--no-synth", action="store_true", help="data/synth/train 합성 음을 쓰지 않습니다.")
     parser.add_argument("--no-recordings", action="store_true", help="data/audio 내 녹음을 쓰지 않습니다.")
     parser.add_argument("--repeat", type=int, default=RECORDING_REPEAT, help="내 녹음을 한 에폭에 몇 번 쓸지")
     parser.add_argument("--finetune", type=Path, help="이 학습 결과 폴더에서 이어서 학습합니다.")
+    parser.add_argument(
+        "--arch",
+        choices=tuple(ARCHS),
+        help="모델 구조. dscnn_v2 또는 bcresnet1. 생략하면 저장된 값. 추가 학습은 기반 결과의 구조를 씁니다.",
+    )
     parser.add_argument("--out", help="저장할 models 아래 폴더 이름. 기본은 latest, 추가 학습은 speaker.")
     args = parser.parse_args()
     project = Project()
     finetune = args.finetune is not None
-    default_epochs, default_lr = (FINETUNE_EPOCHS, FINETUNE_LR) if finetune else (project.epochs, project.learning_rate)
+    arch = (saved_arch(args.finetune) if finetune else None) or args.arch or project.arch
+    if finetune:
+        default_epochs, default_lr = FINETUNE_EPOCHS, default_learning_rate(arch, finetune=True)
+    elif arch == project.arch:
+        default_epochs, default_lr = project.epochs, project.learning_rate
+    else:
+        default_epochs, default_lr = project.epochs, default_learning_rate(arch)
     options = TrainOptions(
         epochs=default_epochs if args.epochs is None else args.epochs,
         batch_size=project.batch_size if args.batch is None else args.batch,
@@ -471,6 +501,7 @@ def main() -> int:
         patience=15,
         make_int8=not args.no_int8,
         init_from=args.finetune,
+        arch=arch,
     )
     try:
         name = validate_model_name(args.out or ("speaker" if finetune else "latest"))
@@ -486,6 +517,7 @@ def main() -> int:
             print(text, flush=True)
 
     print("학습 데이터: " + ", ".join(source.name for source in sources), flush=True)
+    print(f"모델 구조: {arch_title(options.arch)}", flush=True)
     try:
         result = train_project(
             sources,
