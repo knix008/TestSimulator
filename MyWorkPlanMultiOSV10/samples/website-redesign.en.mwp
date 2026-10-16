@@ -2,11 +2,11 @@
  "format": "myworkplan",
  "version": 1,
  "kind": "plan",
- "saved": "2026-10-16T00:37:31.514Z",
+ "saved": "2026-10-16T11:24:32.340Z",
  "project": {
   "format": "myworkplan",
   "version": 1,
-  "id": "prj-mva8nd9882i4n4",
+  "id": "prj-mvavrfkx82htns",
   "title": "Website Redesign",
   "subject": "",
   "author": "",
@@ -101,7 +101,7 @@
     },
     "exceptions": [
      {
-      "id": "ex-mva8nd9ca54kes",
+      "id": "ex-mvavrfl2a59kze",
       "name": "Company holiday",
       "start": "2026-10-22",
       "finish": "2026-10-22",
@@ -244,7 +244,7 @@
   ],
   "resources": [
    {
-    "id": "r-mva8nd9883qwnx",
+    "id": "r-mvavrfkx83ti5k",
     "name": "Emma Clark",
     "type": "work",
     "initials": "EC",
@@ -261,7 +261,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd98843yka",
+    "id": "r-mvavrfkx84nze6",
     "name": "Daniel Lee",
     "type": "work",
     "initials": "DL",
@@ -278,7 +278,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9885oq7o",
+    "id": "r-mvavrfkx85dkbk",
     "name": "Sophie Turner",
     "type": "work",
     "initials": "ST",
@@ -295,7 +295,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9886n1un",
+    "id": "r-mvavrfkx86h1yg",
     "name": "Ryan Patel",
     "type": "work",
     "initials": "RP",
@@ -312,7 +312,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9887cyzk",
+    "id": "r-mvavrfkx87mibk",
     "name": "Marcus Hill",
     "type": "work",
     "initials": "MH",
@@ -329,7 +329,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd98884ak1",
+    "id": "r-mvavrfkx880pek",
     "name": "Olivia Brooks",
     "type": "work",
     "initials": "OB",
@@ -346,7 +346,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9889lgro",
+    "id": "r-mvavrfkx89rnu5",
     "name": "Stock images",
     "type": "material",
     "initials": "IMG",
@@ -363,7 +363,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd988a3sro",
+    "id": "r-mvavrfkx8a2iax",
     "name": "Hosting",
     "type": "cost",
     "initials": "HS",
@@ -382,7 +382,7 @@
   ],
   "tasks": [
    {
-    "id": "t-mva8nd988brfln",
+    "id": "t-mvavrfkx8b7g3g",
     "name": "Initiation",
     "outlineLevel": 1,
     "manual": false,
@@ -419,6 +419,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -430,12 +431,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-21T08:00",
     "scheduledFinish": "2026-09-28T12:00"
    },
    {
-    "id": "t-mva8nd998cc7tm",
+    "id": "t-mvavrfkx8c3h39",
     "name": "Kickoff meeting",
     "outlineLevel": 2,
     "manual": false,
@@ -472,6 +473,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -483,12 +485,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-21T08:00",
     "scheduledFinish": "2026-09-21T12:00"
    },
    {
-    "id": "t-mva8nd998d8k5r",
+    "id": "t-mvavrfkx8d4ohe",
     "name": "Stakeholder interviews",
     "outlineLevel": 2,
     "manual": false,
@@ -516,7 +518,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998cc7tm",
+      "taskId": "t-mvavrfkx8c3h39",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -532,6 +534,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -543,12 +546,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-21T13:00",
     "scheduledFinish": "2026-09-24T12:00"
    },
    {
-    "id": "t-mva8nd998eduuh",
+    "id": "t-mvavrfkx8ehbpj",
     "name": "Audit the current site",
     "outlineLevel": 2,
     "manual": false,
@@ -576,7 +579,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998d8k5r",
+      "taskId": "t-mvavrfkx8d4ohe",
       "type": "SS",
       "lag": 480,
       "lagUnit": "d"
@@ -592,6 +595,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -603,12 +607,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-22T13:00",
     "scheduledFinish": "2026-09-28T12:00"
    },
    {
-    "id": "t-mva8nd998faob1",
+    "id": "t-mvavrfkx8fjhbz",
     "name": "Scope signed off",
     "outlineLevel": 2,
     "manual": false,
@@ -636,13 +640,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998d8k5r",
+      "taskId": "t-mvavrfkx8d4ohe",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998eduuh",
+      "taskId": "t-mvavrfkx8ehbpj",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -658,6 +662,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -669,12 +674,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-28T12:00",
     "scheduledFinish": "2026-09-28T12:00"
    },
    {
-    "id": "t-mva8nd998gkn1j",
+    "id": "t-mvavrfkx8gjbmw",
     "name": "Planning and UX",
     "outlineLevel": 1,
     "manual": false,
@@ -711,6 +716,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -722,12 +728,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-28T13:00",
     "scheduledFinish": "2026-10-13T12:00"
    },
    {
-    "id": "t-mva8nd998hxfwf",
+    "id": "t-mvavrfkx8hc5p1",
     "name": "Information architecture",
     "outlineLevel": 2,
     "manual": false,
@@ -755,7 +761,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998faob1",
+      "taskId": "t-mvavrfkx8fjhbz",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -771,6 +777,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -782,12 +789,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-28T13:00",
     "scheduledFinish": "2026-10-02T12:00"
    },
    {
-    "id": "t-mva8nd998io6ah",
+    "id": "t-mvavrfkx8i14k4",
     "name": "Wireframes",
     "outlineLevel": 2,
     "manual": false,
@@ -815,7 +822,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998hxfwf",
+      "taskId": "t-mvavrfkx8hc5p1",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -831,6 +838,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -842,12 +850,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-02T13:00",
     "scheduledFinish": "2026-10-13T12:00"
    },
    {
-    "id": "t-mva8nd998jqn7j",
+    "id": "t-mvavrfkx8j9j0m",
     "name": "Content plan",
     "outlineLevel": 2,
     "manual": false,
@@ -875,7 +883,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998hxfwf",
+      "taskId": "t-mvavrfkx8hc5p1",
       "type": "SS",
       "lag": 960,
       "lagUnit": "d"
@@ -891,6 +899,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -902,12 +911,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-09-30T13:00",
     "scheduledFinish": "2026-10-07T12:00"
    },
    {
-    "id": "t-mva8nd998k1xwq",
+    "id": "t-mvavrfkx8koem4",
     "name": "UX approved",
     "outlineLevel": 2,
     "manual": false,
@@ -935,13 +944,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998io6ah",
+      "taskId": "t-mvavrfkx8i14k4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998jqn7j",
+      "taskId": "t-mvavrfkx8j9j0m",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -957,6 +966,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -968,12 +978,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-13T12:00",
     "scheduledFinish": "2026-10-13T12:00"
    },
    {
-    "id": "t-mva8nd998ll1g8",
+    "id": "t-mvavrfkx8lxgk4",
     "name": "Visual design",
     "outlineLevel": 1,
     "manual": false,
@@ -1010,6 +1020,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1021,12 +1032,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-09T13:00",
     "scheduledFinish": "2026-11-02T12:00"
    },
    {
-    "id": "t-mva8nd998mruo5",
+    "id": "t-mvavrfkx8m9ynv",
     "name": "Design system",
     "outlineLevel": 2,
     "manual": false,
@@ -1054,7 +1065,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998io6ah",
+      "taskId": "t-mvavrfkx8i14k4",
       "type": "FS",
       "lag": -960,
       "lagUnit": "d"
@@ -1070,6 +1081,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1081,12 +1093,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-09T13:00",
     "scheduledFinish": "2026-10-16T12:00"
    },
    {
-    "id": "t-mva8nd998nzcsv",
+    "id": "t-mvavrfkx8nals3",
     "name": "Home page mockups",
     "outlineLevel": 2,
     "manual": false,
@@ -1114,13 +1126,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998mruo5",
+      "taskId": "t-mvavrfkx8m9ynv",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998k1xwq",
+      "taskId": "t-mvavrfkx8koem4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1136,6 +1148,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1147,12 +1160,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-16T13:00",
     "scheduledFinish": "2026-10-23T12:00"
    },
    {
-    "id": "t-mva8nd998o9fvr",
+    "id": "t-mvavrfkx8owee2",
     "name": "Inner page designs",
     "outlineLevel": 2,
     "manual": false,
@@ -1180,7 +1193,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998nzcsv",
+      "taskId": "t-mvavrfkx8nals3",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1196,6 +1209,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1207,12 +1221,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-23T13:00",
     "scheduledFinish": "2026-11-02T12:00"
    },
    {
-    "id": "t-mva8nd998pyjq0",
+    "id": "t-mvavrfkx8plrgg",
     "name": "Buy stock images",
     "outlineLevel": 2,
     "manual": false,
@@ -1240,7 +1254,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998nzcsv",
+      "taskId": "t-mvavrfkx8nals3",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1256,6 +1270,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1267,12 +1282,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-23T13:00",
     "scheduledFinish": "2026-10-26T12:00"
    },
    {
-    "id": "t-mva8nd998qsk2m",
+    "id": "t-mvavrfkx8qs3eh",
     "name": "Design review",
     "outlineLevel": 2,
     "manual": false,
@@ -1300,7 +1315,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998o9fvr",
+      "taskId": "t-mvavrfkx8owee2",
       "type": "FF",
       "lag": 0,
       "lagUnit": "d"
@@ -1316,6 +1331,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1327,12 +1343,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T13:00",
     "scheduledFinish": "2026-11-02T12:00"
    },
    {
-    "id": "t-mva8nd998rhou9",
+    "id": "t-mvavrfkx8r0e97",
     "name": "Design signed off",
     "outlineLevel": 2,
     "manual": false,
@@ -1360,13 +1376,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998qsk2m",
+      "taskId": "t-mvavrfkx8qs3eh",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998pyjq0",
+      "taskId": "t-mvavrfkx8plrgg",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1382,6 +1398,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1393,12 +1410,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-02T12:00",
     "scheduledFinish": "2026-11-02T12:00"
    },
    {
-    "id": "t-mva8nd998sv7q0",
+    "id": "t-mvavrfkx8s9hbb",
     "name": "Development",
     "outlineLevel": 1,
     "manual": false,
@@ -1435,6 +1452,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1446,12 +1464,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-13T13:00",
     "scheduledFinish": "2026-11-16T12:00"
    },
    {
-    "id": "t-mva8nd998tlvlr",
+    "id": "t-mvavrfkx8tedw9",
     "name": "Set up the environments",
     "outlineLevel": 2,
     "manual": false,
@@ -1479,7 +1497,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998k1xwq",
+      "taskId": "t-mvavrfkx8koem4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1495,6 +1513,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1506,12 +1525,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-13T13:00",
     "scheduledFinish": "2026-10-15T12:00"
    },
    {
-    "id": "t-mva8nd998u2ms0",
+    "id": "t-mvavrfkx8uzll5",
     "name": "Front end",
     "outlineLevel": 2,
     "manual": false,
@@ -1548,6 +1567,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1559,12 +1579,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-16T13:00",
     "scheduledFinish": "2026-11-16T12:00"
    },
    {
-    "id": "t-mva8nd998vgaww",
+    "id": "t-mvavrfkx8vkoz9",
     "name": "UI components",
     "outlineLevel": 3,
     "manual": false,
@@ -1592,13 +1612,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998mruo5",
+      "taskId": "t-mvavrfkx8m9ynv",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998tlvlr",
+      "taskId": "t-mvavrfkx8tedw9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1614,6 +1634,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1625,12 +1646,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-16T13:00",
     "scheduledFinish": "2026-10-27T12:00"
    },
    {
-    "id": "t-mva8nd998wq2qw",
+    "id": "t-mvavrfkx8wz4v2",
     "name": "Build the pages",
     "outlineLevel": 3,
     "manual": false,
@@ -1658,13 +1679,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998vgaww",
+      "taskId": "t-mvavrfkx8vkoz9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998rhou9",
+      "taskId": "t-mvavrfkx8r0e97",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1680,6 +1701,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1691,12 +1713,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-02T13:00",
     "scheduledFinish": "2026-11-16T12:00"
    },
    {
-    "id": "t-mva8nd998xypuu",
+    "id": "t-mvavrfkx8xk0a7",
     "name": "Back end",
     "outlineLevel": 2,
     "manual": false,
@@ -1733,6 +1755,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1744,12 +1767,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-15T13:00",
     "scheduledFinish": "2026-11-04T12:00"
    },
    {
-    "id": "t-mva8nd998yk740",
+    "id": "t-mvavrfkx8y8epu",
     "name": "CMS integration",
     "outlineLevel": 3,
     "manual": false,
@@ -1777,7 +1800,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998tlvlr",
+      "taskId": "t-mvavrfkx8tedw9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1793,6 +1816,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1804,12 +1828,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-15T13:00",
     "scheduledFinish": "2026-10-28T12:00"
    },
    {
-    "id": "t-mva8nd998z4m7q",
+    "id": "t-mvavrfkx8z8t4u",
     "name": "Search and contact forms",
     "outlineLevel": 3,
     "manual": false,
@@ -1837,7 +1861,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998yk740",
+      "taskId": "t-mvavrfkx8y8epu",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1853,6 +1877,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1864,12 +1889,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T13:00",
     "scheduledFinish": "2026-11-04T12:00"
    },
    {
-    "id": "t-mva8nd9990mfb3",
+    "id": "t-mvavrfkx90jse9",
     "name": "Migrate the content",
     "outlineLevel": 2,
     "manual": false,
@@ -1897,7 +1922,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998yk740",
+      "taskId": "t-mvavrfkx8y8epu",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1913,6 +1938,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1924,12 +1950,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-20T13:00",
     "scheduledFinish": "2026-10-28T12:00"
    },
    {
-    "id": "t-mva8nd9991fwdt",
+    "id": "t-mvavrfkx910lje",
     "name": "Testing and launch",
     "outlineLevel": 1,
     "manual": false,
@@ -1966,6 +1992,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -1977,12 +2004,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-16T13:00",
     "scheduledFinish": "2026-12-04T12:00"
    },
    {
-    "id": "t-mva8nd9992pjy6",
+    "id": "t-mvavrfkx92newu",
     "name": "Integration testing",
     "outlineLevel": 2,
     "manual": false,
@@ -2010,19 +2037,19 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd998wq2qw",
+      "taskId": "t-mvavrfkx8wz4v2",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd998z4m7q",
+      "taskId": "t-mvavrfkx8z8t4u",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9990mfb3",
+      "taskId": "t-mvavrfkx90jse9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2038,6 +2065,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2049,12 +2077,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-16T13:00",
     "scheduledFinish": "2026-11-23T12:00"
    },
    {
-    "id": "t-mva8nd9993vtpz",
+    "id": "t-mvavrfky93ljy0",
     "name": "Accessibility and performance checks",
     "outlineLevel": 2,
     "manual": false,
@@ -2082,7 +2110,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9992pjy6",
+      "taskId": "t-mvavrfkx92newu",
       "type": "SS",
       "lag": 960,
       "lagUnit": "d"
@@ -2098,6 +2126,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2109,12 +2138,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-18T13:00",
     "scheduledFinish": "2026-11-23T12:00"
    },
    {
-    "id": "t-mva8nd999448q1",
+    "id": "t-mvavrfky94erin",
     "name": "User acceptance testing",
     "outlineLevel": 2,
     "manual": false,
@@ -2142,7 +2171,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9992pjy6",
+      "taskId": "t-mvavrfkx92newu",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2158,6 +2187,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2169,12 +2199,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-23T13:00",
     "scheduledFinish": "2026-11-27T12:00"
    },
    {
-    "id": "t-mva8nd9995vke7",
+    "id": "t-mvavrfky95h43p",
     "name": "Go live",
     "outlineLevel": 2,
     "manual": false,
@@ -2202,13 +2232,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd999448q1",
+      "taskId": "t-mvavrfky94erin",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9993vtpz",
+      "taskId": "t-mvavrfky93ljy0",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2224,6 +2254,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2235,12 +2266,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-27T12:00",
     "scheduledFinish": "2026-11-27T12:00"
    },
    {
-    "id": "t-mva8nd9996lb0r",
+    "id": "t-mvavrfky96jyzo",
     "name": "Freeze and back up the old site",
     "outlineLevel": 2,
     "manual": false,
@@ -2268,7 +2299,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9995vke7",
+      "taskId": "t-mvavrfky95h43p",
       "type": "SF",
       "lag": 0,
       "lagUnit": "d"
@@ -2284,6 +2315,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2295,12 +2327,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-25T13:00",
     "scheduledFinish": "2026-11-27T12:00"
    },
    {
-    "id": "t-mva8nd9997wsz4",
+    "id": "t-mvavrfky97d556",
     "name": "Post-launch support",
     "outlineLevel": 2,
     "manual": false,
@@ -2328,7 +2360,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9995vke7",
+      "taskId": "t-mvavrfky95h43p",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2344,6 +2376,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2355,12 +2388,12 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-27T13:00",
     "scheduledFinish": "2026-12-04T12:00"
    },
    {
-    "id": "t-mva8nd9998eza1",
+    "id": "t-mvavrfky98goqq",
     "name": "Project closed",
     "outlineLevel": 2,
     "manual": false,
@@ -2388,7 +2421,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9997wsz4",
+      "taskId": "t-mvavrfky97d556",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2404,6 +2437,7 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {
      "0": {
@@ -2415,203 +2449,203 @@
      }
     },
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-04T12:00",
     "scheduledFinish": "2026-12-04T12:00"
    }
   ],
   "assignments": [
    {
-    "id": "a-mva8nd9999ru3f",
-    "taskId": "t-mva8nd998cc7tm",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfky99winx",
+    "taskId": "t-mvavrfkx8c3h39",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 1
    },
    {
-    "id": "a-mva8nd999aeeir",
-    "taskId": "t-mva8nd998cc7tm",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfky9ats3l",
+    "taskId": "t-mvavrfkx8c3h39",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 1
    },
    {
-    "id": "a-mva8nd999b7wef",
-    "taskId": "t-mva8nd998cc7tm",
-    "resourceId": "r-mva8nd9885oq7o",
+    "id": "a-mvavrfky9b6w5b",
+    "taskId": "t-mvavrfkx8c3h39",
+    "resourceId": "r-mvavrfkx85dkbk",
     "units": 1
    },
    {
-    "id": "a-mva8nd999ctcaq",
-    "taskId": "t-mva8nd998d8k5r",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfky9ckjyz",
+    "taskId": "t-mvavrfkx8d4ohe",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 1
    },
    {
-    "id": "a-mva8nd999dih72",
-    "taskId": "t-mva8nd998d8k5r",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfky9dyt46",
+    "taskId": "t-mvavrfkx8d4ohe",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd999e3en4",
-    "taskId": "t-mva8nd998eduuh",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfky9eg9jz",
+    "taskId": "t-mvavrfkx8ehbpj",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd999ff2cs",
-    "taskId": "t-mva8nd998hxfwf",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfky9fhyg2",
+    "taskId": "t-mvavrfkx8hc5p1",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 1
    },
    {
-    "id": "a-mva8nd999gx6z2",
-    "taskId": "t-mva8nd998io6ah",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfky9grpcf",
+    "taskId": "t-mvavrfkx8i14k4",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 1
    },
    {
-    "id": "a-mva8nd999hke5p",
-    "taskId": "t-mva8nd998jqn7j",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfky9hpc74",
+    "taskId": "t-mvavrfkx8j9j0m",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd999ih9tj",
-    "taskId": "t-mva8nd998mruo5",
-    "resourceId": "r-mva8nd9885oq7o",
+    "id": "a-mvavrfkz9inrx1",
+    "taskId": "t-mvavrfkx8m9ynv",
+    "resourceId": "r-mvavrfkx85dkbk",
     "units": 1
    },
    {
-    "id": "a-mva8nd999jp9ed",
-    "taskId": "t-mva8nd998nzcsv",
-    "resourceId": "r-mva8nd9885oq7o",
+    "id": "a-mvavrfkz9j4jww",
+    "taskId": "t-mvavrfkx8nals3",
+    "resourceId": "r-mvavrfkx85dkbk",
     "units": 1
    },
    {
-    "id": "a-mva8nd999k1zy0",
-    "taskId": "t-mva8nd998o9fvr",
-    "resourceId": "r-mva8nd9885oq7o",
+    "id": "a-mvavrfkz9k1tl6",
+    "taskId": "t-mvavrfkx8owee2",
+    "resourceId": "r-mvavrfkx85dkbk",
     "units": 1
    },
    {
-    "id": "a-mva8nd999ldkv1",
-    "taskId": "t-mva8nd998pyjq0",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfkz9lmg8g",
+    "taskId": "t-mvavrfkx8plrgg",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 0.25
    },
    {
-    "id": "a-mva8nd999mrm6d",
-    "taskId": "t-mva8nd998pyjq0",
-    "resourceId": "r-mva8nd9889lgro",
+    "id": "a-mvavrfkz9mpmzm",
+    "taskId": "t-mvavrfkx8plrgg",
+    "resourceId": "r-mvavrfkx89rnu5",
     "units": 40
    },
    {
-    "id": "a-mva8nd999nhjwx",
-    "taskId": "t-mva8nd998qsk2m",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfkz9nw9gt",
+    "taskId": "t-mvavrfkx8qs3eh",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd999oeozh",
-    "taskId": "t-mva8nd998qsk2m",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfkz9o6qq0",
+    "taskId": "t-mvavrfkx8qs3eh",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd999p96dq",
-    "taskId": "t-mva8nd998tlvlr",
-    "resourceId": "r-mva8nd9887cyzk",
+    "id": "a-mvavrfkz9pd0ar",
+    "taskId": "t-mvavrfkx8tedw9",
+    "resourceId": "r-mvavrfkx87mibk",
     "units": 1
    },
    {
-    "id": "a-mva8nd999qnup1",
-    "taskId": "t-mva8nd998tlvlr",
-    "resourceId": "r-mva8nd988a3sro",
+    "id": "a-mvavrfkz9qqg2v",
+    "taskId": "t-mvavrfkx8tedw9",
+    "resourceId": "r-mvavrfkx8a2iax",
     "units": 1,
     "cost": 900
    },
    {
-    "id": "a-mva8nd999r4z57",
-    "taskId": "t-mva8nd998vgaww",
-    "resourceId": "r-mva8nd9886n1un",
+    "id": "a-mvavrfkz9rz1vh",
+    "taskId": "t-mvavrfkx8vkoz9",
+    "resourceId": "r-mvavrfkx86h1yg",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9soa4q",
-    "taskId": "t-mva8nd998wq2qw",
-    "resourceId": "r-mva8nd9886n1un",
+    "id": "a-mvavrfkz9skixi",
+    "taskId": "t-mvavrfkx8wz4v2",
+    "resourceId": "r-mvavrfkx86h1yg",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9txmb6",
-    "taskId": "t-mva8nd998yk740",
-    "resourceId": "r-mva8nd9887cyzk",
+    "id": "a-mvavrfkz9t6cbb",
+    "taskId": "t-mvavrfkx8y8epu",
+    "resourceId": "r-mvavrfkx87mibk",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9uibj9",
-    "taskId": "t-mva8nd998z4m7q",
-    "resourceId": "r-mva8nd9887cyzk",
+    "id": "a-mvavrfkz9udewc",
+    "taskId": "t-mvavrfkx8z8t4u",
+    "resourceId": "r-mvavrfkx87mibk",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9vfhfd",
-    "taskId": "t-mva8nd9990mfb3",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfl09vy3fb",
+    "taskId": "t-mvavrfkx90jse9",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9a9w7m96",
-    "taskId": "t-mva8nd9990mfb3",
-    "resourceId": "r-mva8nd98843yka",
+    "id": "a-mvavrfl09whcwh",
+    "taskId": "t-mvavrfkx90jse9",
+    "resourceId": "r-mvavrfkx84nze6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9a9x2ga5",
-    "taskId": "t-mva8nd9992pjy6",
-    "resourceId": "r-mva8nd98884ak1",
+    "id": "a-mvavrfl09xsbw7",
+    "taskId": "t-mvavrfkx92newu",
+    "resourceId": "r-mvavrfkx880pek",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9ytkds",
-    "taskId": "t-mva8nd9993vtpz",
-    "resourceId": "r-mva8nd98884ak1",
+    "id": "a-mvavrfl09ynrdl",
+    "taskId": "t-mvavrfky93ljy0",
+    "resourceId": "r-mvavrfkx880pek",
     "units": 1
    },
    {
-    "id": "a-mva8nd9a9z56a8",
-    "taskId": "t-mva8nd9993vtpz",
-    "resourceId": "r-mva8nd9886n1un",
+    "id": "a-mvavrfl09zkihf",
+    "taskId": "t-mvavrfky93ljy0",
+    "resourceId": "r-mvavrfkx86h1yg",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9aa0i8g5",
-    "taskId": "t-mva8nd999448q1",
-    "resourceId": "r-mva8nd9883qwnx",
+    "id": "a-mvavrfl0a0sebn",
+    "taskId": "t-mvavrfky94erin",
+    "resourceId": "r-mvavrfkx83ti5k",
     "units": 1
    },
    {
-    "id": "a-mva8nd9aa1kbbn",
-    "taskId": "t-mva8nd999448q1",
-    "resourceId": "r-mva8nd98884ak1",
+    "id": "a-mvavrfl0a12a09",
+    "taskId": "t-mvavrfky94erin",
+    "resourceId": "r-mvavrfkx880pek",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9aa27fui",
-    "taskId": "t-mva8nd9996lb0r",
-    "resourceId": "r-mva8nd9887cyzk",
+    "id": "a-mvavrfl0a2glf4",
+    "taskId": "t-mvavrfky96jyzo",
+    "resourceId": "r-mvavrfkx87mibk",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ba3w43u",
-    "taskId": "t-mva8nd9997wsz4",
-    "resourceId": "r-mva8nd9887cyzk",
+    "id": "a-mvavrfl0a35lxu",
+    "taskId": "t-mvavrfky97d556",
+    "resourceId": "r-mvavrfkx87mibk",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9ba4mdnu",
-    "taskId": "t-mva8nd9997wsz4",
-    "resourceId": "r-mva8nd9886n1un",
+    "id": "a-mvavrfl0a4f98j",
+    "taskId": "t-mvavrfky97d556",
+    "resourceId": "r-mvavrfkx86h1yg",
     "units": 0.5
    }
   ],
@@ -2625,6 +2659,6 @@
    "number1": "",
    "flag1": ""
   },
-  "created": "2026-10-16T09:37"
+  "created": "2026-10-16T20:24"
  }
 }

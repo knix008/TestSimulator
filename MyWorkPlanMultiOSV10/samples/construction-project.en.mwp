@@ -2,11 +2,11 @@
  "format": "myworkplan",
  "version": 1,
  "kind": "plan",
- "saved": "2026-10-16T00:37:31.517Z",
+ "saved": "2026-10-16T11:24:32.347Z",
  "project": {
   "format": "myworkplan",
   "version": 1,
-  "id": "prj-mva8nd9hccxnnd",
+  "id": "prj-mvavrflccccag2",
   "title": "Small Commercial Building",
   "subject": "",
   "author": "",
@@ -101,7 +101,7 @@
     },
     "exceptions": [
      {
-      "id": "ex-mva8nd9jeatg7c",
+      "id": "ex-mvavrflgea52lc",
       "name": "Christmas Eve",
       "start": "2026-12-24",
       "finish": "2026-12-24",
@@ -109,7 +109,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd9jebgi5h",
+      "id": "ex-mvavrflgeb3mbl",
       "name": "Christmas Day",
       "start": "2026-12-25",
       "finish": "2026-12-25",
@@ -117,7 +117,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd9jec71a8",
+      "id": "ex-mvavrflgecjwtt",
       "name": "New Year's Eve",
       "start": "2026-12-31",
       "finish": "2026-12-31",
@@ -260,7 +260,7 @@
   ],
   "resources": [
    {
-    "id": "r-mva8nd9hcdbc86",
+    "id": "r-mvavrflccdkedh",
     "name": "Site Manager",
     "type": "work",
     "initials": "SM",
@@ -277,7 +277,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hce9m8e",
+    "id": "r-mvavrflcce90zo",
     "name": "Project Engineer",
     "type": "work",
     "initials": "PE",
@@ -294,7 +294,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hcf2wei",
+    "id": "r-mvavrflccfci8l",
     "name": "Framing Crew",
     "type": "work",
     "initials": "FC",
@@ -311,7 +311,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hcgs04m",
+    "id": "r-mvavrflccgdl28",
     "name": "Electrician",
     "type": "work",
     "initials": "EL",
@@ -328,7 +328,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hchgs3o",
+    "id": "r-mvavrflcchs8n7",
     "name": "Plumber",
     "type": "work",
     "initials": "PL",
@@ -345,7 +345,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hci1y1v",
+    "id": "r-mvavrflccidl70",
     "name": "Finishing Crew",
     "type": "work",
     "initials": "FN",
@@ -362,7 +362,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hcjdjvt",
+    "id": "r-mvavrflccjntmj",
     "name": "Ready-mix concrete",
     "type": "material",
     "initials": "RC",
@@ -379,7 +379,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9hckdg5u",
+    "id": "r-mvavrflcckwlws",
     "name": "Rebar",
     "type": "material",
     "initials": "RB",
@@ -398,7 +398,7 @@
   ],
   "tasks": [
    {
-    "id": "t-mva8nd9hcl5m0p",
+    "id": "t-mvavrflccl0eqm",
     "name": "Pre-construction",
     "outlineLevel": 1,
     "manual": false,
@@ -435,15 +435,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd9hcmxy7c",
+    "id": "t-mvavrflccmgb4t",
     "name": "Obtain the building permit",
     "outlineLevel": 2,
     "manual": false,
@@ -480,15 +481,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-11-06T17:00"
    },
    {
-    "id": "t-mva8nd9hcn9wli",
+    "id": "t-mvavrflccnpsfy",
     "name": "Survey and soil test",
     "outlineLevel": 2,
     "manual": false,
@@ -516,7 +518,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcmxy7c",
+      "taskId": "t-mvavrflccmgb4t",
       "type": "SS",
       "lag": 2400,
       "lagUnit": "d"
@@ -532,15 +534,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-26T08:00",
     "scheduledFinish": "2026-10-30T17:00"
    },
    {
-    "id": "t-mva8nd9hcoyydq",
+    "id": "t-mvavrflccoyjzy",
     "name": "Site setup and mobilization",
     "outlineLevel": 2,
     "manual": false,
@@ -568,13 +571,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcmxy7c",
+      "taskId": "t-mvavrflccmgb4t",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9hcn9wli",
+      "taskId": "t-mvavrflccnpsfy",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -590,15 +593,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-09T08:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd9hcpsgay",
+    "id": "t-mvavrflccpc8yv",
     "name": "Groundbreaking",
     "outlineLevel": 2,
     "manual": false,
@@ -626,7 +630,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcoyydq",
+      "taskId": "t-mvavrflccoyjzy",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -642,15 +646,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-12T17:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd9hcqy8ha",
+    "id": "t-mvavrflccqkaej",
     "name": "Sitework and foundation",
     "outlineLevel": 1,
     "manual": false,
@@ -687,15 +692,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-13T08:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd9hcr38p7",
+    "id": "t-mvavrflccrfloc",
     "name": "Excavation",
     "outlineLevel": 2,
     "manual": false,
@@ -723,7 +729,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcpsgay",
+      "taskId": "t-mvavrflccpc8yv",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -739,15 +745,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-13T08:00",
     "scheduledFinish": "2026-11-20T17:00"
    },
    {
-    "id": "t-mva8nd9hcshs1d",
+    "id": "t-mvavrflccs2j05",
     "name": "Footing rebar",
     "outlineLevel": 2,
     "manual": false,
@@ -775,7 +782,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcr38p7",
+      "taskId": "t-mvavrflccrfloc",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -791,15 +798,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-23T08:00",
     "scheduledFinish": "2026-11-26T17:00"
    },
    {
-    "id": "t-mva8nd9hctmrll",
+    "id": "t-mvavrflcctm7lb",
     "name": "Pour the foundation",
     "outlineLevel": 2,
     "manual": false,
@@ -827,7 +835,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcshs1d",
+      "taskId": "t-mvavrflccs2j05",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -843,15 +851,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-27T08:00",
     "scheduledFinish": "2026-11-30T17:00"
    },
    {
-    "id": "t-mva8nd9hcu6a3o",
+    "id": "t-mvavrfldcu4dhr",
     "name": "Concrete curing",
     "outlineLevel": 2,
     "manual": false,
@@ -879,7 +888,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hctmrll",
+      "taskId": "t-mvavrflcctm7lb",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -895,15 +904,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-30T17:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd9hcvru4q",
+    "id": "t-mvavrfldcvb82z",
     "name": "Structure",
     "outlineLevel": 1,
     "manual": false,
@@ -940,15 +950,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-08T08:00",
     "scheduledFinish": "2027-01-14T17:00"
    },
    {
-    "id": "t-mva8nd9hcwsgz6",
+    "id": "t-mvavrfldcwjkx4",
     "name": "Ground floor frame",
     "outlineLevel": 2,
     "manual": false,
@@ -976,7 +987,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcu6a3o",
+      "taskId": "t-mvavrfldcu4dhr",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -992,15 +1003,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-08T08:00",
     "scheduledFinish": "2026-12-21T17:00"
    },
    {
-    "id": "t-mva8nd9hcxsej4",
+    "id": "t-mvavrfldcx1my2",
     "name": "Second floor frame",
     "outlineLevel": 2,
     "manual": false,
@@ -1028,7 +1040,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcwsgz6",
+      "taskId": "t-mvavrfldcwjkx4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1044,15 +1056,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-22T08:00",
     "scheduledFinish": "2027-01-07T17:00"
    },
    {
-    "id": "t-mva8nd9hcyi4bv",
+    "id": "t-mvavrfldcyyzjy",
     "name": "Roofing",
     "outlineLevel": 2,
     "manual": false,
@@ -1080,7 +1093,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcxsej4",
+      "taskId": "t-mvavrfldcx1my2",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1096,15 +1109,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-08T08:00",
     "scheduledFinish": "2027-01-14T17:00"
    },
    {
-    "id": "t-mva8nd9hcz8rpz",
+    "id": "t-mvavrfldczx8s3",
     "name": "Structure topped out",
     "outlineLevel": 2,
     "manual": false,
@@ -1132,7 +1146,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcyi4bv",
+      "taskId": "t-mvavrfldcyyzjy",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1148,15 +1162,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-14T17:00",
     "scheduledFinish": "2027-01-14T17:00"
    },
    {
-    "id": "t-mva8nd9hd0kea0",
+    "id": "t-mvavrfldd0jzvc",
     "name": "Building services and envelope",
     "outlineLevel": 1,
     "manual": false,
@@ -1193,15 +1208,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-29T08:00",
     "scheduledFinish": "2027-01-21T17:00"
    },
    {
-    "id": "t-mva8nd9hd1o2eh",
+    "id": "t-mvavrfldd1foqy",
     "name": "Electrical rough-in",
     "outlineLevel": 2,
     "manual": false,
@@ -1229,7 +1245,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcxsej4",
+      "taskId": "t-mvavrfldcx1my2",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1245,15 +1261,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-29T08:00",
     "scheduledFinish": "2027-01-08T17:00"
    },
    {
-    "id": "t-mva8nd9hd20c3o",
+    "id": "t-mvavrfldd24e8o",
     "name": "Plumbing rough-in",
     "outlineLevel": 2,
     "manual": false,
@@ -1281,7 +1298,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcxsej4",
+      "taskId": "t-mvavrfldcx1my2",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1297,15 +1314,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-29T08:00",
     "scheduledFinish": "2027-01-07T17:00"
    },
    {
-    "id": "t-mva8nd9hd3szcc",
+    "id": "t-mvavrfldd3j3ao",
     "name": "Install windows and doors",
     "outlineLevel": 2,
     "manual": false,
@@ -1333,7 +1351,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hcz8rpz",
+      "taskId": "t-mvavrfldczx8s3",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1349,15 +1367,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-15T08:00",
     "scheduledFinish": "2027-01-21T17:00"
    },
    {
-    "id": "t-mva8nd9hd47us2",
+    "id": "t-mvavrfldd4x0ne",
     "name": "Rough-in inspection",
     "outlineLevel": 2,
     "manual": false,
@@ -1385,13 +1404,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hd1o2eh",
+      "taskId": "t-mvavrfldd1foqy",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9hd20c3o",
+      "taskId": "t-mvavrfldd24e8o",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1407,15 +1426,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-18T08:00",
     "scheduledFinish": "2027-01-18T17:00"
    },
    {
-    "id": "t-mva8nd9hd5r2cj",
+    "id": "t-mvavrfldd5j5j2",
     "name": "Finishes",
     "outlineLevel": 1,
     "manual": false,
@@ -1452,15 +1472,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-22T08:00",
     "scheduledFinish": "2027-02-15T17:00"
    },
    {
-    "id": "t-mva8nd9id6w98m",
+    "id": "t-mvavrfldd63083",
     "name": "Drywall and ceilings",
     "outlineLevel": 2,
     "manual": false,
@@ -1488,13 +1509,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9hd47us2",
+      "taskId": "t-mvavrfldd4x0ne",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9hd3szcc",
+      "taskId": "t-mvavrfldd3j3ao",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1510,15 +1531,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-22T08:00",
     "scheduledFinish": "2027-02-04T17:00"
    },
    {
-    "id": "t-mva8nd9id71jln",
+    "id": "t-mvavrfldd71hzj",
     "name": "Painting",
     "outlineLevel": 2,
     "manual": false,
@@ -1546,7 +1568,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9id6w98m",
+      "taskId": "t-mvavrfldd63083",
       "type": "SS",
       "lag": 2400,
       "lagUnit": "d"
@@ -1562,15 +1584,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-29T08:00",
     "scheduledFinish": "2027-02-05T17:00"
    },
    {
-    "id": "t-mva8nd9id8hf82",
+    "id": "t-mvavrfldd8e3s0",
     "name": "Flooring",
     "outlineLevel": 2,
     "manual": false,
@@ -1598,7 +1621,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9id71jln",
+      "taskId": "t-mvavrfldd71hzj",
       "type": "FF",
       "lag": 960,
       "lagUnit": "d"
@@ -1614,15 +1637,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-03T08:00",
     "scheduledFinish": "2027-02-09T17:00"
    },
    {
-    "id": "t-mva8nd9id97qtd",
+    "id": "t-mvavrfldd9euaf",
     "name": "Lights and plumbing fixtures",
     "outlineLevel": 2,
     "manual": false,
@@ -1650,7 +1674,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9id71jln",
+      "taskId": "t-mvavrfldd71hzj",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1666,15 +1690,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-08T08:00",
     "scheduledFinish": "2027-02-11T17:00"
    },
    {
-    "id": "t-mva8nd9ida2x7o",
+    "id": "t-mvavrflddawifu",
     "name": "Final cleaning",
     "outlineLevel": 2,
     "manual": false,
@@ -1702,13 +1727,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9id8hf82",
+      "taskId": "t-mvavrfldd8e3s0",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9id97qtd",
+      "taskId": "t-mvavrfldd9euaf",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1724,15 +1749,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-12T08:00",
     "scheduledFinish": "2027-02-15T17:00"
    },
    {
-    "id": "t-mva8nd9idbllqv",
+    "id": "t-mvavrflddbymqk",
     "name": "Completion",
     "outlineLevel": 1,
     "manual": false,
@@ -1769,15 +1795,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-16T08:00",
     "scheduledFinish": "2027-02-22T17:00"
    },
    {
-    "id": "t-mva8nd9idcvp5u",
+    "id": "t-mvavrflddcua6y",
     "name": "Final inspection",
     "outlineLevel": 2,
     "manual": false,
@@ -1805,7 +1832,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9ida2x7o",
+      "taskId": "t-mvavrflddawifu",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1821,15 +1848,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-16T08:00",
     "scheduledFinish": "2027-02-17T17:00"
    },
    {
-    "id": "t-mva8nd9idd4mdd",
+    "id": "t-mvavrfldddnj35",
     "name": "Punch list",
     "outlineLevel": 2,
     "manual": false,
@@ -1857,7 +1885,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9idcvp5u",
+      "taskId": "t-mvavrflddcua6y",
       "type": "FS",
       "lag": -480,
       "lagUnit": "d"
@@ -1873,15 +1901,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-17T08:00",
     "scheduledFinish": "2027-02-22T17:00"
    },
    {
-    "id": "t-mva8nd9ideef87",
+    "id": "t-mvavrflddev9du",
     "name": "Handover to the owner",
     "outlineLevel": 2,
     "manual": false,
@@ -1909,7 +1938,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9idd4mdd",
+      "taskId": "t-mvavrfldddnj35",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1925,199 +1954,200 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-22T17:00",
     "scheduledFinish": "2027-02-22T17:00"
    }
   ],
   "assignments": [
    {
-    "id": "a-mva8nd9idfryyg",
-    "taskId": "t-mva8nd9hcmxy7c",
-    "resourceId": "r-mva8nd9hce9m8e",
+    "id": "a-mvavrflddf55o5",
+    "taskId": "t-mvavrflccmgb4t",
+    "resourceId": "r-mvavrflcce90zo",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9idg9xj3",
-    "taskId": "t-mva8nd9hcn9wli",
-    "resourceId": "r-mva8nd9hce9m8e",
+    "id": "a-mvavrflddgh7dq",
+    "taskId": "t-mvavrflccnpsfy",
+    "resourceId": "r-mvavrflcce90zo",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9idh64cv",
-    "taskId": "t-mva8nd9hcoyydq",
-    "resourceId": "r-mva8nd9hcdbc86",
+    "id": "a-mvavrflddh7ue6",
+    "taskId": "t-mvavrflccoyjzy",
+    "resourceId": "r-mvavrflccdkedh",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idiuuns",
-    "taskId": "t-mva8nd9hcoyydq",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrflddi744i",
+    "taskId": "t-mvavrflccoyjzy",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idj1lel",
-    "taskId": "t-mva8nd9hcr38p7",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrflddjv8mi",
+    "taskId": "t-mvavrflccrfloc",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 2
    },
    {
-    "id": "a-mva8nd9idkatv9",
-    "taskId": "t-mva8nd9hcr38p7",
-    "resourceId": "r-mva8nd9hcdbc86",
+    "id": "a-mvavrflddk009t",
+    "taskId": "t-mvavrflccrfloc",
+    "resourceId": "r-mvavrflccdkedh",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9idlhje0",
-    "taskId": "t-mva8nd9hcshs1d",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrflddl5r63",
+    "taskId": "t-mvavrflccs2j05",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 2
    },
    {
-    "id": "a-mva8nd9idmy7mg",
-    "taskId": "t-mva8nd9hcshs1d",
-    "resourceId": "r-mva8nd9hckdg5u",
+    "id": "a-mvavrflddm01qx",
+    "taskId": "t-mvavrflccs2j05",
+    "resourceId": "r-mvavrflcckwlws",
     "units": 12
    },
    {
-    "id": "a-mva8nd9idnuor7",
-    "taskId": "t-mva8nd9hctmrll",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrflddnr9ut",
+    "taskId": "t-mvavrflcctm7lb",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 2
    },
    {
-    "id": "a-mva8nd9idomczu",
-    "taskId": "t-mva8nd9hctmrll",
-    "resourceId": "r-mva8nd9hcjdjvt",
+    "id": "a-mvavrflddo67px",
+    "taskId": "t-mvavrflcctm7lb",
+    "resourceId": "r-mvavrflccjntmj",
     "units": 180
    },
    {
-    "id": "a-mva8nd9idpf777",
-    "taskId": "t-mva8nd9hcwsgz6",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrflddpmycc",
+    "taskId": "t-mvavrfldcwjkx4",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 2
    },
    {
-    "id": "a-mva8nd9idq4yad",
-    "taskId": "t-mva8nd9hcwsgz6",
-    "resourceId": "r-mva8nd9hcjdjvt",
+    "id": "a-mvavrflddq020i",
+    "taskId": "t-mvavrfldcwjkx4",
+    "resourceId": "r-mvavrflccjntmj",
     "units": 120
    },
    {
-    "id": "a-mva8nd9idrzrlw",
-    "taskId": "t-mva8nd9hcwsgz6",
-    "resourceId": "r-mva8nd9hckdg5u",
+    "id": "a-mvavrflddr3mum",
+    "taskId": "t-mvavrfldcwjkx4",
+    "resourceId": "r-mvavrflcckwlws",
     "units": 8
    },
    {
-    "id": "a-mva8nd9idst4xw",
-    "taskId": "t-mva8nd9hcxsej4",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrfldds0t8a",
+    "taskId": "t-mvavrfldcx1my2",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 2
    },
    {
-    "id": "a-mva8nd9idt5hsz",
-    "taskId": "t-mva8nd9hcxsej4",
-    "resourceId": "r-mva8nd9hcjdjvt",
+    "id": "a-mvavrflddt1e45",
+    "taskId": "t-mvavrfldcx1my2",
+    "resourceId": "r-mvavrflccjntmj",
     "units": 110
    },
    {
-    "id": "a-mva8nd9idukco7",
-    "taskId": "t-mva8nd9hcxsej4",
-    "resourceId": "r-mva8nd9hckdg5u",
+    "id": "a-mvavrflddu6zc8",
+    "taskId": "t-mvavrfldcx1my2",
+    "resourceId": "r-mvavrflcckwlws",
     "units": 7
    },
    {
-    "id": "a-mva8nd9idv0c3o",
-    "taskId": "t-mva8nd9hcyi4bv",
-    "resourceId": "r-mva8nd9hcf2wei",
+    "id": "a-mvavrfledvrjbs",
+    "taskId": "t-mvavrfldcyyzjy",
+    "resourceId": "r-mvavrflccfci8l",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idwx22w",
-    "taskId": "t-mva8nd9hd1o2eh",
-    "resourceId": "r-mva8nd9hcgs04m",
+    "id": "a-mvavrfledwrlby",
+    "taskId": "t-mvavrfldd1foqy",
+    "resourceId": "r-mvavrflccgdl28",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idxuax2",
-    "taskId": "t-mva8nd9hd20c3o",
-    "resourceId": "r-mva8nd9hchgs3o",
+    "id": "a-mvavrfledxyly6",
+    "taskId": "t-mvavrfldd24e8o",
+    "resourceId": "r-mvavrflcchs8n7",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idyxe8a",
-    "taskId": "t-mva8nd9hd3szcc",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrfledyy6cp",
+    "taskId": "t-mvavrfldd3j3ao",
+    "resourceId": "r-mvavrflccidl70",
     "units": 1
    },
    {
-    "id": "a-mva8nd9idzno9q",
-    "taskId": "t-mva8nd9hd47us2",
-    "resourceId": "r-mva8nd9hcdbc86",
+    "id": "a-mvavrfledzr98z",
+    "taskId": "t-mvavrfldd4x0ne",
+    "resourceId": "r-mvavrflccdkedh",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie0tftz",
-    "taskId": "t-mva8nd9hd47us2",
-    "resourceId": "r-mva8nd9hce9m8e",
+    "id": "a-mvavrflee0yrhg",
+    "taskId": "t-mvavrfldd4x0ne",
+    "resourceId": "r-mvavrflcce90zo",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie1hgx3",
-    "taskId": "t-mva8nd9id6w98m",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrflee1k48e",
+    "taskId": "t-mvavrfldd63083",
+    "resourceId": "r-mvavrflccidl70",
     "units": 2
    },
    {
-    "id": "a-mva8nd9ie25fdq",
-    "taskId": "t-mva8nd9id71jln",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrflee25k0h",
+    "taskId": "t-mvavrfldd71hzj",
+    "resourceId": "r-mvavrflccidl70",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie319rb",
-    "taskId": "t-mva8nd9id8hf82",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrflee3eimw",
+    "taskId": "t-mvavrfldd8e3s0",
+    "resourceId": "r-mvavrflccidl70",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9ie49yqh",
-    "taskId": "t-mva8nd9id97qtd",
-    "resourceId": "r-mva8nd9hcgs04m",
+    "id": "a-mvavrflee4obk5",
+    "taskId": "t-mvavrfldd9euaf",
+    "resourceId": "r-mvavrflccgdl28",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9ie5crrt",
-    "taskId": "t-mva8nd9id97qtd",
-    "resourceId": "r-mva8nd9hchgs3o",
+    "id": "a-mvavrflee50ygh",
+    "taskId": "t-mvavrfldd9euaf",
+    "resourceId": "r-mvavrflcchs8n7",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9ie68bud",
-    "taskId": "t-mva8nd9ida2x7o",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrflee6mbl5",
+    "taskId": "t-mvavrflddawifu",
+    "resourceId": "r-mvavrflccidl70",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie7i7zm",
-    "taskId": "t-mva8nd9idcvp5u",
-    "resourceId": "r-mva8nd9hcdbc86",
+    "id": "a-mvavrflee7ua3t",
+    "taskId": "t-mvavrflddcua6y",
+    "resourceId": "r-mvavrflccdkedh",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie8isw0",
-    "taskId": "t-mva8nd9idcvp5u",
-    "resourceId": "r-mva8nd9hce9m8e",
+    "id": "a-mvavrflee83d3w",
+    "taskId": "t-mvavrflddcua6y",
+    "resourceId": "r-mvavrflcce90zo",
     "units": 1
    },
    {
-    "id": "a-mva8nd9ie9wen9",
-    "taskId": "t-mva8nd9idd4mdd",
-    "resourceId": "r-mva8nd9hci1y1v",
+    "id": "a-mvavrflee95oh4",
+    "taskId": "t-mvavrfldddnj35",
+    "resourceId": "r-mvavrflccidl70",
     "units": 1
    }
   ],
@@ -2129,6 +2159,6 @@
    "number1": "",
    "flag1": ""
   },
-  "created": "2026-10-16T09:37"
+  "created": "2026-10-16T20:24"
  }
 }

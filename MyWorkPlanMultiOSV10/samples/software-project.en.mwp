@@ -2,11 +2,11 @@
  "format": "myworkplan",
  "version": 1,
  "kind": "plan",
- "saved": "2026-10-16T00:37:31.515Z",
+ "saved": "2026-10-16T11:24:32.344Z",
  "project": {
   "format": "myworkplan",
   "version": 1,
-  "id": "prj-mva8nd9ea6izya",
+  "id": "prj-mvavrfl7a6gt81",
   "title": "Software Development Project",
   "subject": "",
   "author": "",
@@ -101,7 +101,7 @@
     },
     "exceptions": [
      {
-      "id": "ex-mva8nd9hc94r78",
+      "id": "ex-mvavrflbc9f4rl",
       "name": "Christmas Eve",
       "start": "2026-12-24",
       "finish": "2026-12-24",
@@ -109,7 +109,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd9hca1epc",
+      "id": "ex-mvavrflbcav62q",
       "name": "Christmas Day",
       "start": "2026-12-25",
       "finish": "2026-12-25",
@@ -117,7 +117,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd9hcbqio8",
+      "id": "ex-mvavrflbcbf33v",
       "name": "New Year's Eve",
       "start": "2026-12-31",
       "finish": "2026-12-31",
@@ -260,7 +260,7 @@
   ],
   "resources": [
    {
-    "id": "r-mva8nd9ea7ddxn",
+    "id": "r-mvavrfl8a7den6",
     "name": "Project Manager",
     "type": "work",
     "initials": "PM",
@@ -277,7 +277,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9ea8gq31",
+    "id": "r-mvavrfl8a8uvxo",
     "name": "Tech Lead",
     "type": "work",
     "initials": "TL",
@@ -294,7 +294,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9ea9lfyz",
+    "id": "r-mvavrfl8a9z3f5",
     "name": "Business Analyst",
     "type": "work",
     "initials": "BA",
@@ -311,7 +311,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9eaa6xw8",
+    "id": "r-mvavrfl8aawn30",
     "name": "Backend Developer",
     "type": "work",
     "initials": "BE",
@@ -328,7 +328,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9eabnwq5",
+    "id": "r-mvavrfl8abxvkh",
     "name": "Frontend Developer",
     "type": "work",
     "initials": "FE",
@@ -345,7 +345,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9eac0vsz",
+    "id": "r-mvavrfl8act3rd",
     "name": "UX Designer",
     "type": "work",
     "initials": "UX",
@@ -362,7 +362,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9ead4dv3",
+    "id": "r-mvavrfl8adbtm4",
     "name": "QA Engineer",
     "type": "work",
     "initials": "QA",
@@ -379,7 +379,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9eaealmr",
+    "id": "r-mvavrfl8aepf1x",
     "name": "Cloud hosting",
     "type": "cost",
     "initials": "CL",
@@ -398,7 +398,7 @@
   ],
   "tasks": [
    {
-    "id": "t-mva8nd9faf7ih0",
+    "id": "t-mvavrfl8afadis",
     "name": "Initiation and requirements",
     "outlineLevel": 1,
     "manual": false,
@@ -435,15 +435,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-10-28T12:00"
    },
    {
-    "id": "t-mva8nd9fag6m5k",
+    "id": "t-mvavrfl8agezaq",
     "name": "Kickoff meeting",
     "outlineLevel": 2,
     "manual": false,
@@ -480,15 +481,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-10-19T12:00"
    },
    {
-    "id": "t-mva8nd9fah69dh",
+    "id": "t-mvavrfl8ah9tk7",
     "name": "Gather requirements",
     "outlineLevel": 2,
     "manual": false,
@@ -516,7 +518,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fag6m5k",
+      "taskId": "t-mvavrfl8agezaq",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -532,15 +534,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T13:00",
     "scheduledFinish": "2026-10-26T12:00"
    },
    {
-    "id": "t-mva8nd9fair0j3",
+    "id": "t-mvavrfl8aia3hs",
     "name": "Write the requirements specification",
     "outlineLevel": 2,
     "manual": false,
@@ -568,7 +571,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fah69dh",
+      "taskId": "t-mvavrfl8ah9tk7",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -584,15 +587,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-22T13:00",
     "scheduledFinish": "2026-10-28T12:00"
    },
    {
-    "id": "t-mva8nd9fajqc8h",
+    "id": "t-mvavrfl8ajoqdr",
     "name": "Requirements signed off",
     "outlineLevel": 2,
     "manual": false,
@@ -620,7 +624,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fair0j3",
+      "taskId": "t-mvavrfl8aia3hs",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -636,15 +640,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T12:00",
     "scheduledFinish": "2026-10-28T12:00"
    },
    {
-    "id": "t-mva8nd9faklfre",
+    "id": "t-mvavrfl8akp495",
     "name": "Design",
     "outlineLevel": 1,
     "manual": false,
@@ -681,15 +686,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T13:00",
     "scheduledFinish": "2026-11-06T12:00"
    },
    {
-    "id": "t-mva8nd9falr9we",
+    "id": "t-mvavrfl8al6eup",
     "name": "Design the system architecture",
     "outlineLevel": 2,
     "manual": false,
@@ -717,7 +723,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fajqc8h",
+      "taskId": "t-mvavrfl8ajoqdr",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -733,15 +739,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T13:00",
     "scheduledFinish": "2026-11-04T12:00"
    },
    {
-    "id": "t-mva8nd9famywjc",
+    "id": "t-mvavrfl8amhm59",
     "name": "User experience",
     "outlineLevel": 2,
     "manual": false,
@@ -778,15 +785,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T13:00",
     "scheduledFinish": "2026-11-06T12:00"
    },
    {
-    "id": "t-mva8nd9fanrefa",
+    "id": "t-mvavrfl8annuxh",
     "name": "Wireframes",
     "outlineLevel": 3,
     "manual": false,
@@ -814,7 +822,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fajqc8h",
+      "taskId": "t-mvavrfl8ajoqdr",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -830,15 +838,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T13:00",
     "scheduledFinish": "2026-11-03T12:00"
    },
    {
-    "id": "t-mva8nd9fao8rz7",
+    "id": "t-mvavrfl8aobu78",
     "name": "Prototype and usability review",
     "outlineLevel": 3,
     "manual": false,
@@ -866,7 +875,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fanrefa",
+      "taskId": "t-mvavrfl8annuxh",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -882,15 +891,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-03T13:00",
     "scheduledFinish": "2026-11-06T12:00"
    },
    {
-    "id": "t-mva8nd9fapfler",
+    "id": "t-mvavrfl8ap447f",
     "name": "Design the database",
     "outlineLevel": 2,
     "manual": false,
@@ -918,7 +928,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9falr9we",
+      "taskId": "t-mvavrfl8al6eup",
       "type": "SS",
       "lag": 960,
       "lagUnit": "d"
@@ -934,15 +944,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-30T13:00",
     "scheduledFinish": "2026-11-04T12:00"
    },
    {
-    "id": "t-mva8nd9faquvt5",
+    "id": "t-mvavrfl8aqk1wa",
     "name": "Design review passed",
     "outlineLevel": 2,
     "manual": false,
@@ -970,19 +981,19 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9falr9we",
+      "taskId": "t-mvavrfl8al6eup",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fao8rz7",
+      "taskId": "t-mvavrfl8aobu78",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fapfler",
+      "taskId": "t-mvavrfl8ap447f",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -998,15 +1009,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-06T12:00",
     "scheduledFinish": "2026-11-06T12:00"
    },
    {
-    "id": "t-mva8nd9far1xgx",
+    "id": "t-mvavrfl8arqej2",
     "name": "Development",
     "outlineLevel": 1,
     "manual": false,
@@ -1043,15 +1055,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-04T13:00",
     "scheduledFinish": "2026-12-01T12:00"
    },
    {
-    "id": "t-mva8nd9fasn0j5",
+    "id": "t-mvavrfl8ash0m2",
     "name": "Set up the development environment",
     "outlineLevel": 2,
     "manual": false,
@@ -1079,7 +1092,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9falr9we",
+      "taskId": "t-mvavrfl8al6eup",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1095,15 +1108,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-04T13:00",
     "scheduledFinish": "2026-11-06T12:00"
    },
    {
-    "id": "t-mva8nd9fath2ju",
+    "id": "t-mvavrfl8at7gqd",
     "name": "Back end",
     "outlineLevel": 2,
     "manual": false,
@@ -1140,15 +1154,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-06T13:00",
     "scheduledFinish": "2026-11-27T12:00"
    },
    {
-    "id": "t-mva8nd9faua807",
+    "id": "t-mvavrfl8auykbe",
     "name": "Build the APIs",
     "outlineLevel": 3,
     "manual": false,
@@ -1176,13 +1191,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9faquvt5",
+      "taskId": "t-mvavrfl8aqk1wa",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fasn0j5",
+      "taskId": "t-mvavrfl8ash0m2",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1198,15 +1213,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-06T13:00",
     "scheduledFinish": "2026-11-27T12:00"
    },
    {
-    "id": "t-mva8nd9favrv8l",
+    "id": "t-mvavrfl8avrhfb",
     "name": "Authentication and permissions",
     "outlineLevel": 3,
     "manual": false,
@@ -1234,7 +1250,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9faua807",
+      "taskId": "t-mvavrfl8auykbe",
       "type": "SS",
       "lag": 2400,
       "lagUnit": "d"
@@ -1250,15 +1266,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-13T13:00",
     "scheduledFinish": "2026-11-23T12:00"
    },
    {
-    "id": "t-mva8nd9faw2kca",
+    "id": "t-mvavrfl8awjqz4",
     "name": "Front end",
     "outlineLevel": 2,
     "manual": false,
@@ -1295,15 +1312,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-06T13:00",
     "scheduledFinish": "2026-12-01T12:00"
    },
    {
-    "id": "t-mva8nd9fax4n6k",
+    "id": "t-mvavrfl8axdmbo",
     "name": "Build the screens",
     "outlineLevel": 3,
     "manual": false,
@@ -1331,7 +1349,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9faquvt5",
+      "taskId": "t-mvavrfl8aqk1wa",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1347,15 +1365,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-06T13:00",
     "scheduledFinish": "2026-11-20T12:00"
    },
    {
-    "id": "t-mva8nd9fayjvri",
+    "id": "t-mvavrfl8ayjqpg",
     "name": "Connect the screens to the APIs",
     "outlineLevel": 3,
     "manual": false,
@@ -1383,13 +1402,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9faua807",
+      "taskId": "t-mvavrfl8auykbe",
       "type": "FS",
       "lag": -1440,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fax4n6k",
+      "taskId": "t-mvavrfl8axdmbo",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1405,15 +1424,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-24T13:00",
     "scheduledFinish": "2026-12-01T12:00"
    },
    {
-    "id": "t-mva8nd9fazakd9",
+    "id": "t-mvavrfl8azdnvg",
     "name": "Code reviews",
     "outlineLevel": 2,
     "manual": false,
@@ -1441,7 +1461,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fayjvri",
+      "taskId": "t-mvavrfl8ayjqpg",
       "type": "FF",
       "lag": 0,
       "lagUnit": "d"
@@ -1457,15 +1477,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-24T13:00",
     "scheduledFinish": "2026-12-01T12:00"
    },
    {
-    "id": "t-mva8nd9fb0cbv1",
+    "id": "t-mvavrfl8b0nclg",
     "name": "Feature complete",
     "outlineLevel": 2,
     "manual": false,
@@ -1493,13 +1514,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fazakd9",
+      "taskId": "t-mvavrfl8azdnvg",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9favrv8l",
+      "taskId": "t-mvavrfl8avrhfb",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1515,15 +1536,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-01T12:00",
     "scheduledFinish": "2026-12-01T12:00"
    },
    {
-    "id": "t-mva8nd9fb1nj6s",
+    "id": "t-mvavrfl8b1fru6",
     "name": "Testing",
     "outlineLevel": 1,
     "manual": false,
@@ -1560,15 +1582,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2026-11-18T08:00",
-    "scheduledFinish": "2026-12-29T17:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2026-11-20T08:00",
+    "scheduledFinish": "2026-12-29T12:00"
    },
    {
-    "id": "t-mva8nd9fb2ce1f",
+    "id": "t-mvavrfl8b224vl",
     "name": "Write the test plan",
     "outlineLevel": 2,
     "manual": false,
@@ -1582,8 +1605,8 @@
     "actualStart": null,
     "actualFinish": null,
     "constraint": {
-     "type": "ASAP",
-     "date": null
+     "type": "SNET",
+     "date": "2026-11-20T08:00"
     },
     "deadline": null,
     "priority": 500,
@@ -1596,7 +1619,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9faua807",
+      "taskId": "t-mvavrfl8auykbe",
       "type": "SS",
       "lag": 50,
       "lagUnit": "%"
@@ -1612,15 +1635,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2026-11-18T08:00",
-    "scheduledFinish": "2026-11-20T17:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2026-11-20T08:00",
+    "scheduledFinish": "2026-11-24T17:00"
    },
    {
-    "id": "t-mva8nd9fb37xoe",
+    "id": "t-mvavrfl8b3r9dy",
     "name": "Integration testing",
     "outlineLevel": 2,
     "manual": false,
@@ -1648,13 +1672,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb0cbv1",
+      "taskId": "t-mvavrfl8b0nclg",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fb2ce1f",
+      "taskId": "t-mvavrfl8b224vl",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1670,15 +1694,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-01T13:00",
     "scheduledFinish": "2026-12-15T12:00"
    },
    {
-    "id": "t-mva8nd9fb4k4op",
+    "id": "t-mvavrfl8b4a469",
     "name": "Fix defects",
     "outlineLevel": 2,
     "manual": false,
@@ -1706,7 +1731,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb37xoe",
+      "taskId": "t-mvavrfl8b3r9dy",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1722,15 +1747,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-04T13:00",
     "scheduledFinish": "2026-12-11T12:00"
    },
    {
-    "id": "t-mva8nd9fb51m0d",
+    "id": "t-mvavrfl8b5154l",
     "name": "Performance testing",
     "outlineLevel": 2,
     "manual": false,
@@ -1758,7 +1784,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb37xoe",
+      "taskId": "t-mvavrfl8b3r9dy",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1774,15 +1800,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-15T13:00",
     "scheduledFinish": "2026-12-18T12:00"
    },
    {
-    "id": "t-mva8nd9fb6ygvw",
+    "id": "t-mvavrfl8b6oy9g",
     "name": "User acceptance testing",
     "outlineLevel": 2,
     "manual": false,
@@ -1796,8 +1823,8 @@
     "actualStart": null,
     "actualFinish": null,
     "constraint": {
-     "type": "SNET",
-     "date": "2026-12-21T08:00"
+     "type": "ASAP",
+     "date": null
     },
     "deadline": null,
     "priority": 500,
@@ -1810,13 +1837,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb4k4op",
+      "taskId": "t-mvavrfl8b4a469",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9fb51m0d",
+      "taskId": "t-mvavrfl8b5154l",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1832,15 +1859,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2026-12-21T08:00",
-    "scheduledFinish": "2026-12-29T17:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2026-12-18T13:00",
+    "scheduledFinish": "2026-12-29T12:00"
    },
    {
-    "id": "t-mva8nd9fb7juk2",
+    "id": "t-mvavrfl8b7t46b",
     "name": "Release",
     "outlineLevel": 1,
     "manual": false,
@@ -1877,15 +1905,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2026-12-30T08:00",
-    "scheduledFinish": "2027-01-07T12:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2026-12-29T13:00",
+    "scheduledFinish": "2027-01-06T17:00"
    },
    {
-    "id": "t-mva8nd9fb813yo",
+    "id": "t-mvavrfl8b8r5uw",
     "name": "Prepare the deployment",
     "outlineLevel": 2,
     "manual": false,
@@ -1913,7 +1942,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb6ygvw",
+      "taskId": "t-mvavrfl8b6oy9g",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1929,15 +1958,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2026-12-30T08:00",
-    "scheduledFinish": "2027-01-01T17:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2026-12-29T13:00",
+    "scheduledFinish": "2027-01-01T12:00"
    },
    {
-    "id": "t-mva8nd9fb9s6rc",
+    "id": "t-mvavrfl8b9lxn2",
     "name": "Deploy to production",
     "outlineLevel": 2,
     "manual": false,
@@ -1965,7 +1995,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb813yo",
+      "taskId": "t-mvavrfl8b8r5uw",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1981,15 +2011,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2027-01-04T08:00",
-    "scheduledFinish": "2027-01-04T12:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2027-01-01T13:00",
+    "scheduledFinish": "2027-01-01T17:00"
    },
    {
-    "id": "t-mva8nd9fbaoc7z",
+    "id": "t-mvavrfl8baiqw4",
     "name": "Hand over to operations",
     "outlineLevel": 2,
     "manual": false,
@@ -2017,7 +2048,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fb9s6rc",
+      "taskId": "t-mvavrfl8b9lxn2",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2033,15 +2064,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2027-01-04T13:00",
-    "scheduledFinish": "2027-01-07T12:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2027-01-04T08:00",
+    "scheduledFinish": "2027-01-06T17:00"
    },
    {
-    "id": "t-mva8nd9fbbozsa",
+    "id": "t-mvavrfl8bbol3e",
     "name": "Project closed",
     "outlineLevel": 2,
     "manual": false,
@@ -2069,7 +2101,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9fbaoc7z",
+      "taskId": "t-mvavrfl8baiqw4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -2085,213 +2117,214 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
-    "scheduledStart": "2027-01-07T12:00",
-    "scheduledFinish": "2027-01-07T12:00"
+    "created": "2026-10-16T20:24",
+    "scheduledStart": "2027-01-06T17:00",
+    "scheduledFinish": "2027-01-06T17:00"
    }
   ],
   "assignments": [
    {
-    "id": "a-mva8nd9fbcdu57",
-    "taskId": "t-mva8nd9fag6m5k",
-    "resourceId": "r-mva8nd9ea7ddxn",
+    "id": "a-mvavrfl8bcca0u",
+    "taskId": "t-mvavrfl8agezaq",
+    "resourceId": "r-mvavrfl8a7den6",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbdu50e",
-    "taskId": "t-mva8nd9fag6m5k",
-    "resourceId": "r-mva8nd9ea9lfyz",
+    "id": "a-mvavrfl8bd3bbe",
+    "taskId": "t-mvavrfl8agezaq",
+    "resourceId": "r-mvavrfl8a9z3f5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbeypm9",
-    "taskId": "t-mva8nd9fah69dh",
-    "resourceId": "r-mva8nd9ea9lfyz",
+    "id": "a-mvavrfl8bes2q3",
+    "taskId": "t-mvavrfl8ah9tk7",
+    "resourceId": "r-mvavrfl8a9z3f5",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbf0o8l",
-    "taskId": "t-mva8nd9fah69dh",
-    "resourceId": "r-mva8nd9ea7ddxn",
+    "id": "a-mvavrfl8bffpvz",
+    "taskId": "t-mvavrfl8ah9tk7",
+    "resourceId": "r-mvavrfl8a7den6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbg47so",
-    "taskId": "t-mva8nd9fair0j3",
-    "resourceId": "r-mva8nd9ea9lfyz",
+    "id": "a-mvavrfl8bgpt0m",
+    "taskId": "t-mvavrfl8aia3hs",
+    "resourceId": "r-mvavrfl8a9z3f5",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbhx9z6",
-    "taskId": "t-mva8nd9falr9we",
-    "resourceId": "r-mva8nd9ea8gq31",
+    "id": "a-mvavrfl8bhs6cg",
+    "taskId": "t-mvavrfl8al6eup",
+    "resourceId": "r-mvavrfl8a8uvxo",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbi1r0x",
-    "taskId": "t-mva8nd9falr9we",
-    "resourceId": "r-mva8nd9ea7ddxn",
+    "id": "a-mvavrfl8biktxg",
+    "taskId": "t-mvavrfl8al6eup",
+    "resourceId": "r-mvavrfl8a7den6",
     "units": 0.25
    },
    {
-    "id": "a-mva8nd9fbj7m69",
-    "taskId": "t-mva8nd9fanrefa",
-    "resourceId": "r-mva8nd9eac0vsz",
+    "id": "a-mvavrfl8bjdk7s",
+    "taskId": "t-mvavrfl8annuxh",
+    "resourceId": "r-mvavrfl8act3rd",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbkfmpr",
-    "taskId": "t-mva8nd9fao8rz7",
-    "resourceId": "r-mva8nd9eac0vsz",
+    "id": "a-mvavrfl8bkmiuq",
+    "taskId": "t-mvavrfl8aobu78",
+    "resourceId": "r-mvavrfl8act3rd",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fblp3ue",
-    "taskId": "t-mva8nd9fao8rz7",
-    "resourceId": "r-mva8nd9ea9lfyz",
+    "id": "a-mvavrfl8bludim",
+    "taskId": "t-mvavrfl8aobu78",
+    "resourceId": "r-mvavrfl8a9z3f5",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbmag87",
-    "taskId": "t-mva8nd9fapfler",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl8bmq063",
+    "taskId": "t-mvavrfl8ap447f",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbnufwe",
-    "taskId": "t-mva8nd9fasn0j5",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl8bnass6",
+    "taskId": "t-mvavrfl8ash0m2",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fboy5e9",
-    "taskId": "t-mva8nd9fasn0j5",
-    "resourceId": "r-mva8nd9eaealmr",
+    "id": "a-mvavrfl8bov6pn",
+    "taskId": "t-mvavrfl8ash0m2",
+    "resourceId": "r-mvavrfl8aepf1x",
     "units": 1,
     "cost": 600
    },
    {
-    "id": "a-mva8nd9fbp8gnk",
-    "taskId": "t-mva8nd9faua807",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl8bpvssp",
+    "taskId": "t-mvavrfl8auykbe",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbqlr97",
-    "taskId": "t-mva8nd9favrv8l",
-    "resourceId": "r-mva8nd9ea8gq31",
+    "id": "a-mvavrfl8bqpi9a",
+    "taskId": "t-mvavrfl8avrhfb",
+    "resourceId": "r-mvavrfl8a8uvxo",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbr4seh",
-    "taskId": "t-mva8nd9fax4n6k",
-    "resourceId": "r-mva8nd9eabnwq5",
+    "id": "a-mvavrfl8brs2ed",
+    "taskId": "t-mvavrfl8axdmbo",
+    "resourceId": "r-mvavrfl8abxvkh",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbsi4th",
-    "taskId": "t-mva8nd9fayjvri",
-    "resourceId": "r-mva8nd9eabnwq5",
+    "id": "a-mvavrfl8bstvxs",
+    "taskId": "t-mvavrfl8ayjqpg",
+    "resourceId": "r-mvavrfl8abxvkh",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbtsddp",
-    "taskId": "t-mva8nd9fazakd9",
-    "resourceId": "r-mva8nd9ea8gq31",
+    "id": "a-mvavrfl9btyt74",
+    "taskId": "t-mvavrfl8azdnvg",
+    "resourceId": "r-mvavrfl8a8uvxo",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbu4y7v",
-    "taskId": "t-mva8nd9fb2ce1f",
-    "resourceId": "r-mva8nd9ead4dv3",
+    "id": "a-mvavrfl9bu7dic",
+    "taskId": "t-mvavrfl8b224vl",
+    "resourceId": "r-mvavrfl8adbtm4",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbv5q3y",
-    "taskId": "t-mva8nd9fb37xoe",
-    "resourceId": "r-mva8nd9ead4dv3",
+    "id": "a-mvavrfl9bvont4",
+    "taskId": "t-mvavrfl8b3r9dy",
+    "resourceId": "r-mvavrfl8adbtm4",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fbwc4dl",
-    "taskId": "t-mva8nd9fb37xoe",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9bwupu8",
+    "taskId": "t-mvavrfl8b3r9dy",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbx9x26",
-    "taskId": "t-mva8nd9fb4k4op",
-    "resourceId": "r-mva8nd9eabnwq5",
+    "id": "a-mvavrfl9bxs1o9",
+    "taskId": "t-mvavrfl8b4a469",
+    "resourceId": "r-mvavrfl8abxvkh",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fbyec7f",
-    "taskId": "t-mva8nd9fb4k4op",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9byvrfz",
+    "taskId": "t-mvavrfl8b4a469",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.25
    },
    {
-    "id": "a-mva8nd9fbzhm0d",
-    "taskId": "t-mva8nd9fb51m0d",
-    "resourceId": "r-mva8nd9ead4dv3",
+    "id": "a-mvavrfl9bzztqq",
+    "taskId": "t-mvavrfl8b5154l",
+    "resourceId": "r-mvavrfl8adbtm4",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fc0a35y",
-    "taskId": "t-mva8nd9fb51m0d",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9c0u2pv",
+    "taskId": "t-mvavrfl8b5154l",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fc199zv",
-    "taskId": "t-mva8nd9fb51m0d",
-    "resourceId": "r-mva8nd9eaealmr",
+    "id": "a-mvavrfl9c13rkv",
+    "taskId": "t-mvavrfl8b5154l",
+    "resourceId": "r-mvavrfl8aepf1x",
     "units": 1,
     "cost": 400
    },
    {
-    "id": "a-mva8nd9fc27au2",
-    "taskId": "t-mva8nd9fb6ygvw",
-    "resourceId": "r-mva8nd9ea9lfyz",
+    "id": "a-mvavrfl9c23wkt",
+    "taskId": "t-mvavrfl8b6oy9g",
+    "resourceId": "r-mvavrfl8a9z3f5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fc3ij5t",
-    "taskId": "t-mva8nd9fb6ygvw",
-    "resourceId": "r-mva8nd9ead4dv3",
+    "id": "a-mvavrfl9c357eb",
+    "taskId": "t-mvavrfl8b6oy9g",
+    "resourceId": "r-mvavrfl8adbtm4",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fc4m8u9",
-    "taskId": "t-mva8nd9fb813yo",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9c4927q",
+    "taskId": "t-mvavrfl8b8r5uw",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fc5il1x",
-    "taskId": "t-mva8nd9fb9s6rc",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9c57ho7",
+    "taskId": "t-mvavrfl8b9lxn2",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fc69njk",
-    "taskId": "t-mva8nd9fb9s6rc",
-    "resourceId": "r-mva8nd9ea7ddxn",
+    "id": "a-mvavrfl9c6h8qz",
+    "taskId": "t-mvavrfl8b9lxn2",
+    "resourceId": "r-mvavrfl8a7den6",
     "units": 1
    },
    {
-    "id": "a-mva8nd9fc7x0uf",
-    "taskId": "t-mva8nd9fbaoc7z",
-    "resourceId": "r-mva8nd9ea7ddxn",
+    "id": "a-mvavrfl9c7mc86",
+    "taskId": "t-mvavrfl8baiqw4",
+    "resourceId": "r-mvavrfl8a7den6",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9fc8g81t",
-    "taskId": "t-mva8nd9fbaoc7z",
-    "resourceId": "r-mva8nd9eaa6xw8",
+    "id": "a-mvavrfl9c8cpin",
+    "taskId": "t-mvavrfl8baiqw4",
+    "resourceId": "r-mvavrfl8aawn30",
     "units": 0.5
    }
   ],
@@ -2303,6 +2336,6 @@
    "number1": "",
    "flag1": ""
   },
-  "created": "2026-10-16T09:37"
+  "created": "2026-10-16T20:24"
  }
 }

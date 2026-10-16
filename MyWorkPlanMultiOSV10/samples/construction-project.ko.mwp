@@ -2,11 +2,11 @@
  "format": "myworkplan",
  "version": 1,
  "kind": "plan",
- "saved": "2026-10-16T00:37:31.505Z",
+ "saved": "2026-10-16T11:24:32.327Z",
  "project": {
   "format": "myworkplan",
   "version": 1,
-  "id": "prj-mva8nd914bwxwx",
+  "id": "prj-mvavrfkl4b0luo",
   "title": "상가 건물 신축 공사",
   "subject": "",
   "author": "",
@@ -101,7 +101,7 @@
     },
     "exceptions": [
      {
-      "id": "ex-mva8nd936962ir",
+      "id": "ex-mvavrfkp6999oq",
       "name": "성탄절",
       "start": "2026-12-25",
       "finish": "2026-12-25",
@@ -109,7 +109,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd936andkh",
+      "id": "ex-mvavrfkp6alw56",
       "name": "신정",
       "start": "2027-01-01",
       "finish": "2027-01-01",
@@ -117,7 +117,7 @@
       "periods": []
      },
      {
-      "id": "ex-mva8nd936b9ghc",
+      "id": "ex-mvavrfkp6btwiq",
       "name": "설날 연휴",
       "start": "2027-02-06",
       "finish": "2027-02-08",
@@ -260,7 +260,7 @@
   ],
   "resources": [
    {
-    "id": "r-mva8nd914c8i3b",
+    "id": "r-mvavrfkl4cgup7",
     "name": "현장 소장",
     "type": "work",
     "initials": "소장",
@@ -277,7 +277,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914dqli3",
+    "id": "r-mvavrfkl4dh0jx",
     "name": "공무 담당",
     "type": "work",
     "initials": "공무",
@@ -294,7 +294,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914ehcxi",
+    "id": "r-mvavrfkl4exbeb",
     "name": "골조팀",
     "type": "work",
     "initials": "골조",
@@ -311,7 +311,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914fv82y",
+    "id": "r-mvavrfkl4fdy52",
     "name": "전기 기사",
     "type": "work",
     "initials": "전기",
@@ -328,7 +328,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914gf7np",
+    "id": "r-mvavrfkl4gwhd2",
     "name": "설비 기사",
     "type": "work",
     "initials": "설비",
@@ -345,7 +345,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914h40rb",
+    "id": "r-mvavrfkl4h5z4t",
     "name": "마감팀",
     "type": "work",
     "initials": "마감",
@@ -362,7 +362,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914igzb2",
+    "id": "r-mvavrfkl4im7oc",
     "name": "레미콘",
     "type": "material",
     "initials": "레미",
@@ -379,7 +379,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd914j8o0f",
+    "id": "r-mvavrfkl4j7r6q",
     "name": "철근",
     "type": "material",
     "initials": "철근",
@@ -398,7 +398,7 @@
   ],
   "tasks": [
    {
-    "id": "t-mva8nd914kzwbd",
+    "id": "t-mvavrfkl4kfn0h",
     "name": "착공 준비",
     "outlineLevel": 1,
     "manual": false,
@@ -435,15 +435,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd914ljzi4",
+    "id": "t-mvavrfkl4lbv42",
     "name": "건축 허가 취득",
     "outlineLevel": 2,
     "manual": false,
@@ -480,15 +481,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-11-06T17:00"
    },
    {
-    "id": "t-mva8nd914mc9ce",
+    "id": "t-mvavrfkl4mwvm5",
     "name": "측량 및 지반 조사",
     "outlineLevel": 2,
     "manual": false,
@@ -516,7 +518,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914ljzi4",
+      "taskId": "t-mvavrfkl4lbv42",
       "type": "SS",
       "lag": 2400,
       "lagUnit": "d"
@@ -532,15 +534,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-26T08:00",
     "scheduledFinish": "2026-10-30T17:00"
    },
    {
-    "id": "t-mva8nd914nbhvv",
+    "id": "t-mvavrfkl4nc6bw",
     "name": "현장 가설 및 착공 준비",
     "outlineLevel": 2,
     "manual": false,
@@ -568,13 +571,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914ljzi4",
+      "taskId": "t-mvavrfkl4lbv42",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd914mc9ce",
+      "taskId": "t-mvavrfkl4mwvm5",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -590,15 +593,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-09T08:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd914ozyjl",
+    "id": "t-mvavrfkl4oi6vg",
     "name": "착공",
     "outlineLevel": 2,
     "manual": false,
@@ -626,7 +630,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914nbhvv",
+      "taskId": "t-mvavrfkl4nc6bw",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -642,15 +646,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-12T17:00",
     "scheduledFinish": "2026-11-12T17:00"
    },
    {
-    "id": "t-mva8nd914pr8d7",
+    "id": "t-mvavrfkl4pp3qn",
     "name": "토공 및 기초",
     "outlineLevel": 1,
     "manual": false,
@@ -687,15 +692,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-13T08:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd914qcpkk",
+    "id": "t-mvavrfkl4qyv2f",
     "name": "터파기",
     "outlineLevel": 2,
     "manual": false,
@@ -723,7 +729,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914ozyjl",
+      "taskId": "t-mvavrfkl4oi6vg",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -739,15 +745,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-13T08:00",
     "scheduledFinish": "2026-11-20T17:00"
    },
    {
-    "id": "t-mva8nd914r404r",
+    "id": "t-mvavrfkl4rgarm",
     "name": "기초 철근 배근",
     "outlineLevel": 2,
     "manual": false,
@@ -775,7 +782,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914qcpkk",
+      "taskId": "t-mvavrfkl4qyv2f",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -791,15 +798,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-23T08:00",
     "scheduledFinish": "2026-11-26T17:00"
    },
    {
-    "id": "t-mva8nd914s3w8w",
+    "id": "t-mvavrfkl4shnjb",
     "name": "기초 콘크리트 타설",
     "outlineLevel": 2,
     "manual": false,
@@ -827,7 +835,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914r404r",
+      "taskId": "t-mvavrfkl4rgarm",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -843,15 +851,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-27T08:00",
     "scheduledFinish": "2026-11-30T17:00"
    },
    {
-    "id": "t-mva8nd914tyjkm",
+    "id": "t-mvavrfkl4tkoe6",
     "name": "콘크리트 양생",
     "outlineLevel": 2,
     "manual": false,
@@ -879,7 +888,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914s3w8w",
+      "taskId": "t-mvavrfkl4shnjb",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -895,15 +904,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-30T17:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd914ut9yb",
+    "id": "t-mvavrfkl4uow6u",
     "name": "골조 공사",
     "outlineLevel": 1,
     "manual": false,
@@ -940,15 +950,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-08T08:00",
     "scheduledFinish": "2027-01-13T17:00"
    },
    {
-    "id": "t-mva8nd914v4c12",
+    "id": "t-mvavrfkl4vmpj1",
     "name": "1층 골조",
     "outlineLevel": 2,
     "manual": false,
@@ -976,7 +987,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914tyjkm",
+      "taskId": "t-mvavrfkl4tkoe6",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -992,15 +1003,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-08T08:00",
     "scheduledFinish": "2026-12-21T17:00"
    },
    {
-    "id": "t-mva8nd914wvggk",
+    "id": "t-mvavrfkl4wthco",
     "name": "2층 골조",
     "outlineLevel": 2,
     "manual": false,
@@ -1028,7 +1040,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914v4c12",
+      "taskId": "t-mvavrfkl4vmpj1",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1044,15 +1056,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-22T08:00",
     "scheduledFinish": "2027-01-06T17:00"
    },
    {
-    "id": "t-mva8nd914xk977",
+    "id": "t-mvavrfkl4xt04d",
     "name": "지붕 공사",
     "outlineLevel": 2,
     "manual": false,
@@ -1080,7 +1093,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914wvggk",
+      "taskId": "t-mvavrfkl4wthco",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1096,15 +1109,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-07T08:00",
     "scheduledFinish": "2027-01-13T17:00"
    },
    {
-    "id": "t-mva8nd914y4w2m",
+    "id": "t-mvavrfkl4yna2p",
     "name": "골조 완료",
     "outlineLevel": 2,
     "manual": false,
@@ -1132,7 +1146,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914xk977",
+      "taskId": "t-mvavrfkl4xt04d",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1148,15 +1162,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-13T17:00",
     "scheduledFinish": "2027-01-13T17:00"
    },
    {
-    "id": "t-mva8nd914zbpzr",
+    "id": "t-mvavrfkl4z75ug",
     "name": "설비 및 외장 공사",
     "outlineLevel": 1,
     "manual": false,
@@ -1193,15 +1208,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-28T08:00",
     "scheduledFinish": "2027-01-20T17:00"
    },
    {
-    "id": "t-mva8nd9150cweb",
+    "id": "t-mvavrfkl50k7yo",
     "name": "전기 배관·배선",
     "outlineLevel": 2,
     "manual": false,
@@ -1229,7 +1245,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914wvggk",
+      "taskId": "t-mvavrfkl4wthco",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1245,15 +1261,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-28T08:00",
     "scheduledFinish": "2027-01-07T17:00"
    },
    {
-    "id": "t-mva8nd9151jc2k",
+    "id": "t-mvavrfkl51g935",
     "name": "급배수 배관",
     "outlineLevel": 2,
     "manual": false,
@@ -1281,7 +1298,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914wvggk",
+      "taskId": "t-mvavrfkl4wthco",
       "type": "SS",
       "lag": 1440,
       "lagUnit": "d"
@@ -1297,15 +1314,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-28T08:00",
     "scheduledFinish": "2027-01-06T17:00"
    },
    {
-    "id": "t-mva8nd9152fbhz",
+    "id": "t-mvavrfkl52u3th",
     "name": "창호 설치",
     "outlineLevel": 2,
     "manual": false,
@@ -1333,7 +1351,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd914y4w2m",
+      "taskId": "t-mvavrfkl4yna2p",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1349,15 +1367,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-14T08:00",
     "scheduledFinish": "2027-01-20T17:00"
    },
    {
-    "id": "t-mva8nd91531ntp",
+    "id": "t-mvavrfkl53ajn8",
     "name": "중간 검사",
     "outlineLevel": 2,
     "manual": false,
@@ -1385,13 +1404,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9150cweb",
+      "taskId": "t-mvavrfkl50k7yo",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9151jc2k",
+      "taskId": "t-mvavrfkl51g935",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1407,15 +1426,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-18T08:00",
     "scheduledFinish": "2027-01-18T17:00"
    },
    {
-    "id": "t-mva8nd9154d9vp",
+    "id": "t-mvavrfkl549my1",
     "name": "마감 공사",
     "outlineLevel": 1,
     "manual": false,
@@ -1452,15 +1472,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-21T08:00",
     "scheduledFinish": "2027-02-15T17:00"
    },
    {
-    "id": "t-mva8nd9155b2ps",
+    "id": "t-mvavrfkl55kfkx",
     "name": "내벽 및 천장",
     "outlineLevel": 2,
     "manual": false,
@@ -1488,13 +1509,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd91531ntp",
+      "taskId": "t-mvavrfkl53ajn8",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9152fbhz",
+      "taskId": "t-mvavrfkl52u3th",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1510,15 +1531,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-21T08:00",
     "scheduledFinish": "2027-02-03T17:00"
    },
    {
-    "id": "t-mva8nd9156gd9a",
+    "id": "t-mvavrfkl569grs",
     "name": "도장",
     "outlineLevel": 2,
     "manual": false,
@@ -1546,7 +1568,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9155b2ps",
+      "taskId": "t-mvavrfkl55kfkx",
       "type": "SS",
       "lag": 2400,
       "lagUnit": "d"
@@ -1562,15 +1584,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-01-28T08:00",
     "scheduledFinish": "2027-02-04T17:00"
    },
    {
-    "id": "t-mva8nd9157pmlw",
+    "id": "t-mvavrfkl57p79u",
     "name": "바닥 마감",
     "outlineLevel": 2,
     "manual": false,
@@ -1598,7 +1621,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9156gd9a",
+      "taskId": "t-mvavrfkl569grs",
       "type": "FF",
       "lag": 960,
       "lagUnit": "d"
@@ -1614,15 +1637,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-02T08:00",
     "scheduledFinish": "2027-02-09T17:00"
    },
    {
-    "id": "t-mva8nd9158pp2x",
+    "id": "t-mvavrfkl58oom8",
     "name": "조명·위생기구 설치",
     "outlineLevel": 2,
     "manual": false,
@@ -1650,7 +1674,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9156gd9a",
+      "taskId": "t-mvavrfkl569grs",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1666,15 +1690,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-05T08:00",
     "scheduledFinish": "2027-02-11T17:00"
    },
    {
-    "id": "t-mva8nd9159tjx3",
+    "id": "t-mvavrfkl595npm",
     "name": "준공 청소",
     "outlineLevel": 2,
     "manual": false,
@@ -1702,13 +1727,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9157pmlw",
+      "taskId": "t-mvavrfkl57p79u",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9158pp2x",
+      "taskId": "t-mvavrfkl58oom8",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1724,15 +1749,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-12T08:00",
     "scheduledFinish": "2027-02-15T17:00"
    },
    {
-    "id": "t-mva8nd915ag58d",
+    "id": "t-mvavrfkl5a5i6n",
     "name": "준공",
     "outlineLevel": 1,
     "manual": false,
@@ -1769,15 +1795,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-16T08:00",
     "scheduledFinish": "2027-02-22T17:00"
    },
    {
-    "id": "t-mva8nd915bpei7",
+    "id": "t-mvavrfkl5bao16",
     "name": "사용 승인 검사",
     "outlineLevel": 2,
     "manual": false,
@@ -1805,7 +1832,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9159tjx3",
+      "taskId": "t-mvavrfkl595npm",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1821,15 +1848,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-16T08:00",
     "scheduledFinish": "2027-02-17T17:00"
    },
    {
-    "id": "t-mva8nd915cymjo",
+    "id": "t-mvavrfkl5csbnu",
     "name": "하자 보수",
     "outlineLevel": 2,
     "manual": false,
@@ -1857,7 +1885,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd915bpei7",
+      "taskId": "t-mvavrfkl5bao16",
       "type": "FS",
       "lag": -480,
       "lagUnit": "d"
@@ -1873,15 +1901,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-17T08:00",
     "scheduledFinish": "2027-02-22T17:00"
    },
    {
-    "id": "t-mva8nd915dbfwp",
+    "id": "t-mvavrfkl5dvdng",
     "name": "준공 및 인도",
     "outlineLevel": 2,
     "manual": false,
@@ -1909,7 +1938,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd915cymjo",
+      "taskId": "t-mvavrfkl5csbnu",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1925,199 +1954,200 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2027-02-22T17:00",
     "scheduledFinish": "2027-02-22T17:00"
    }
   ],
   "assignments": [
    {
-    "id": "a-mva8nd915eqdcs",
-    "taskId": "t-mva8nd914ljzi4",
-    "resourceId": "r-mva8nd914dqli3",
+    "id": "a-mvavrfkl5enkld",
+    "taskId": "t-mvavrfkl4lbv42",
+    "resourceId": "r-mvavrfkl4dh0jx",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd925faloj",
-    "taskId": "t-mva8nd914mc9ce",
-    "resourceId": "r-mva8nd914dqli3",
+    "id": "a-mvavrfkm5f4v9u",
+    "taskId": "t-mvavrfkl4mwvm5",
+    "resourceId": "r-mvavrfkl4dh0jx",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd925gn6c2",
-    "taskId": "t-mva8nd914nbhvv",
-    "resourceId": "r-mva8nd914c8i3b",
+    "id": "a-mvavrfkm5g5v0r",
+    "taskId": "t-mvavrfkl4nc6bw",
+    "resourceId": "r-mvavrfkl4cgup7",
     "units": 1
    },
    {
-    "id": "a-mva8nd925hbaxb",
-    "taskId": "t-mva8nd914nbhvv",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5htu8b",
+    "taskId": "t-mvavrfkl4nc6bw",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 1
    },
    {
-    "id": "a-mva8nd925ij7jn",
-    "taskId": "t-mva8nd914qcpkk",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5i97mf",
+    "taskId": "t-mvavrfkl4qyv2f",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 2
    },
    {
-    "id": "a-mva8nd925jbo2f",
-    "taskId": "t-mva8nd914qcpkk",
-    "resourceId": "r-mva8nd914c8i3b",
+    "id": "a-mvavrfkm5ju4a8",
+    "taskId": "t-mvavrfkl4qyv2f",
+    "resourceId": "r-mvavrfkl4cgup7",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd925km6nm",
-    "taskId": "t-mva8nd914r404r",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5kcqsn",
+    "taskId": "t-mvavrfkl4rgarm",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 2
    },
    {
-    "id": "a-mva8nd925ljh1u",
-    "taskId": "t-mva8nd914r404r",
-    "resourceId": "r-mva8nd914j8o0f",
+    "id": "a-mvavrfkm5lut5g",
+    "taskId": "t-mvavrfkl4rgarm",
+    "resourceId": "r-mvavrfkl4j7r6q",
     "units": 12
    },
    {
-    "id": "a-mva8nd925m2qt4",
-    "taskId": "t-mva8nd914s3w8w",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5mv9j9",
+    "taskId": "t-mvavrfkl4shnjb",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 2
    },
    {
-    "id": "a-mva8nd925nsq9x",
-    "taskId": "t-mva8nd914s3w8w",
-    "resourceId": "r-mva8nd914igzb2",
+    "id": "a-mvavrfkm5nx2pu",
+    "taskId": "t-mvavrfkl4shnjb",
+    "resourceId": "r-mvavrfkl4im7oc",
     "units": 180
    },
    {
-    "id": "a-mva8nd925omwwl",
-    "taskId": "t-mva8nd914v4c12",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5o06s7",
+    "taskId": "t-mvavrfkl4vmpj1",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 2
    },
    {
-    "id": "a-mva8nd925pe0x8",
-    "taskId": "t-mva8nd914v4c12",
-    "resourceId": "r-mva8nd914igzb2",
+    "id": "a-mvavrfkm5pxnwz",
+    "taskId": "t-mvavrfkl4vmpj1",
+    "resourceId": "r-mvavrfkl4im7oc",
     "units": 120
    },
    {
-    "id": "a-mva8nd925qyq6u",
-    "taskId": "t-mva8nd914v4c12",
-    "resourceId": "r-mva8nd914j8o0f",
+    "id": "a-mvavrfkm5q1ea6",
+    "taskId": "t-mvavrfkl4vmpj1",
+    "resourceId": "r-mvavrfkl4j7r6q",
     "units": 8
    },
    {
-    "id": "a-mva8nd925rj6bq",
-    "taskId": "t-mva8nd914wvggk",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5roi2g",
+    "taskId": "t-mvavrfkl4wthco",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 2
    },
    {
-    "id": "a-mva8nd925snmxy",
-    "taskId": "t-mva8nd914wvggk",
-    "resourceId": "r-mva8nd914igzb2",
+    "id": "a-mvavrfkm5s21en",
+    "taskId": "t-mvavrfkl4wthco",
+    "resourceId": "r-mvavrfkl4im7oc",
     "units": 110
    },
    {
-    "id": "a-mva8nd925tg3hw",
-    "taskId": "t-mva8nd914wvggk",
-    "resourceId": "r-mva8nd914j8o0f",
+    "id": "a-mvavrfkm5t81tu",
+    "taskId": "t-mvavrfkl4wthco",
+    "resourceId": "r-mvavrfkl4j7r6q",
     "units": 7
    },
    {
-    "id": "a-mva8nd925uyuvh",
-    "taskId": "t-mva8nd914xk977",
-    "resourceId": "r-mva8nd914ehcxi",
+    "id": "a-mvavrfkm5u71gm",
+    "taskId": "t-mvavrfkl4xt04d",
+    "resourceId": "r-mvavrfkl4exbeb",
     "units": 1
    },
    {
-    "id": "a-mva8nd925vx2jr",
-    "taskId": "t-mva8nd9150cweb",
-    "resourceId": "r-mva8nd914fv82y",
+    "id": "a-mvavrfkm5vuryn",
+    "taskId": "t-mvavrfkl50k7yo",
+    "resourceId": "r-mvavrfkl4fdy52",
     "units": 1
    },
    {
-    "id": "a-mva8nd925w0dbc",
-    "taskId": "t-mva8nd9151jc2k",
-    "resourceId": "r-mva8nd914gf7np",
+    "id": "a-mvavrfkm5w2b8x",
+    "taskId": "t-mvavrfkl51g935",
+    "resourceId": "r-mvavrfkl4gwhd2",
     "units": 1
    },
    {
-    "id": "a-mva8nd925xf3kd",
-    "taskId": "t-mva8nd9152fbhz",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkm5xnso9",
+    "taskId": "t-mvavrfkl52u3th",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 1
    },
    {
-    "id": "a-mva8nd925y3k7t",
-    "taskId": "t-mva8nd91531ntp",
-    "resourceId": "r-mva8nd914c8i3b",
+    "id": "a-mvavrfkm5y2cfy",
+    "taskId": "t-mvavrfkl53ajn8",
+    "resourceId": "r-mvavrfkl4cgup7",
     "units": 1
    },
    {
-    "id": "a-mva8nd925z0aln",
-    "taskId": "t-mva8nd91531ntp",
-    "resourceId": "r-mva8nd914dqli3",
+    "id": "a-mvavrfkm5z5u14",
+    "taskId": "t-mvavrfkl53ajn8",
+    "resourceId": "r-mvavrfkl4dh0jx",
     "units": 1
    },
    {
-    "id": "a-mva8nd9260htg8",
-    "taskId": "t-mva8nd9155b2ps",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkm60okso",
+    "taskId": "t-mvavrfkl55kfkx",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 2
    },
    {
-    "id": "a-mva8nd9261kwgz",
-    "taskId": "t-mva8nd9156gd9a",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkm61b73j",
+    "taskId": "t-mvavrfkl569grs",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 1
    },
    {
-    "id": "a-mva8nd9262zujt",
-    "taskId": "t-mva8nd9157pmlw",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkm62d6rn",
+    "taskId": "t-mvavrfkl57p79u",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd92636j7h",
-    "taskId": "t-mva8nd9158pp2x",
-    "resourceId": "r-mva8nd914fv82y",
+    "id": "a-mvavrfkm63q1yz",
+    "taskId": "t-mvavrfkl58oom8",
+    "resourceId": "r-mvavrfkl4fdy52",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9264jx46",
-    "taskId": "t-mva8nd9158pp2x",
-    "resourceId": "r-mva8nd914gf7np",
+    "id": "a-mvavrfkm64u4t9",
+    "taskId": "t-mvavrfkl58oom8",
+    "resourceId": "r-mvavrfkl4gwhd2",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9265a9yu",
-    "taskId": "t-mva8nd9159tjx3",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkn65vv6f",
+    "taskId": "t-mvavrfkl595npm",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 1
    },
    {
-    "id": "a-mva8nd9266zakh",
-    "taskId": "t-mva8nd915bpei7",
-    "resourceId": "r-mva8nd914c8i3b",
+    "id": "a-mvavrfkn66dvcz",
+    "taskId": "t-mvavrfkl5bao16",
+    "resourceId": "r-mvavrfkl4cgup7",
     "units": 1
    },
    {
-    "id": "a-mva8nd9267yyz9",
-    "taskId": "t-mva8nd915bpei7",
-    "resourceId": "r-mva8nd914dqli3",
+    "id": "a-mvavrfkn67f1wa",
+    "taskId": "t-mvavrfkl5bao16",
+    "resourceId": "r-mvavrfkl4dh0jx",
     "units": 1
    },
    {
-    "id": "a-mva8nd9268rngx",
-    "taskId": "t-mva8nd915cymjo",
-    "resourceId": "r-mva8nd914h40rb",
+    "id": "a-mvavrfkn685gin",
+    "taskId": "t-mvavrfkl5csbnu",
+    "resourceId": "r-mvavrfkl4h5z4t",
     "units": 1
    }
   ],
@@ -2129,6 +2159,6 @@
    "number1": "",
    "flag1": ""
   },
-  "created": "2026-10-16T09:37"
+  "created": "2026-10-16T20:24"
  }
 }

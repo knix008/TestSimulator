@@ -2,11 +2,11 @@
  "format": "myworkplan",
  "version": 1,
  "kind": "plan",
- "saved": "2026-10-16T00:37:31.519Z",
+ "saved": "2026-10-16T11:24:32.350Z",
  "project": {
   "format": "myworkplan",
   "version": 1,
-  "id": "prj-mva8nd9keddtx9",
+  "id": "prj-mvavrflhed4yii",
   "title": "Annual Conference",
   "subject": "",
   "author": "",
@@ -101,7 +101,7 @@
     },
     "exceptions": [
      {
-      "id": "ex-mva8nd9lg2bjjr",
+      "id": "ex-mvavrflkg2zz1s",
       "name": "Company holiday",
       "start": "2026-11-16",
       "finish": "2026-11-16",
@@ -244,7 +244,7 @@
   ],
   "resources": [
    {
-    "id": "r-mva8nd9keekoyf",
+    "id": "r-mvavrflheepom5",
     "name": "Event Lead",
     "type": "work",
     "initials": "EL",
@@ -261,7 +261,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9kef60ou",
+    "id": "r-mvavrflhefjcnn",
     "name": "Event Coordinator",
     "type": "work",
     "initials": "EC",
@@ -278,7 +278,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9kegwwz1",
+    "id": "r-mvavrflhegri0k",
     "name": "Marketing Specialist",
     "type": "work",
     "initials": "MS",
@@ -295,7 +295,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9keh1cs6",
+    "id": "r-mvavrflhehs8pa",
     "name": "Graphic Designer",
     "type": "work",
     "initials": "GD",
@@ -312,7 +312,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9kei6fhf",
+    "id": "r-mvavrflheifw2h",
     "name": "Printed materials",
     "type": "material",
     "initials": "PR",
@@ -329,7 +329,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9kejfexb",
+    "id": "r-mvavrflhejj2sz",
     "name": "Venue rental",
     "type": "cost",
     "initials": "VR",
@@ -346,7 +346,7 @@
     "notes": ""
    },
    {
-    "id": "r-mva8nd9kekhvq4",
+    "id": "r-mvavrflhek1koj",
     "name": "Catering",
     "type": "cost",
     "initials": "CT",
@@ -365,7 +365,7 @@
   ],
   "tasks": [
    {
-    "id": "t-mva8nd9kel038z",
+    "id": "t-mvavrflhelsueu",
     "name": "Planning",
     "outlineLevel": 1,
     "manual": false,
@@ -402,15 +402,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-11-11T17:00"
    },
    {
-    "id": "t-mva8nd9kemou52",
+    "id": "t-mvavrflhemszic",
     "name": "Set goals and budget",
     "outlineLevel": 2,
     "manual": false,
@@ -447,15 +448,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-19T08:00",
     "scheduledFinish": "2026-10-21T17:00"
    },
    {
-    "id": "t-mva8nd9ken4ycp",
+    "id": "t-mvavrflhenjcit",
     "name": "Shortlist venues",
     "outlineLevel": 2,
     "manual": false,
@@ -483,7 +485,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kemou52",
+      "taskId": "t-mvavrflhemszic",
       "type": "SS",
       "lag": 480,
       "lagUnit": "d"
@@ -499,15 +501,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-20T08:00",
     "scheduledFinish": "2026-10-26T17:00"
    },
    {
-    "id": "t-mva8nd9keozjq9",
+    "id": "t-mvavrflheowf4p",
     "name": "Book the venue",
     "outlineLevel": 2,
     "manual": false,
@@ -535,7 +538,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9ken4ycp",
+      "taskId": "t-mvavrflhenjcit",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -551,15 +554,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-27T08:00",
     "scheduledFinish": "2026-10-28T17:00"
    },
    {
-    "id": "t-mva8nd9kep0fr5",
+    "id": "t-mvavrflhepqnuz",
     "name": "Invite speakers",
     "outlineLevel": 2,
     "manual": false,
@@ -587,7 +591,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kemou52",
+      "taskId": "t-mvavrflhemszic",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -603,15 +607,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-22T08:00",
     "scheduledFinish": "2026-11-11T17:00"
    },
    {
-    "id": "t-mva8nd9keqq3k6",
+    "id": "t-mvavrflheq1odx",
     "name": "Plan approved",
     "outlineLevel": 2,
     "manual": false,
@@ -639,7 +644,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keozjq9",
+      "taskId": "t-mvavrflheowf4p",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -655,15 +660,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-28T17:00",
     "scheduledFinish": "2026-10-28T17:00"
    },
    {
-    "id": "t-mva8nd9ker24rs",
+    "id": "t-mvavrflherob74",
     "name": "Promotion",
     "outlineLevel": 1,
     "manual": false,
@@ -700,15 +706,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T08:00",
     "scheduledFinish": "2026-12-09T17:00"
    },
    {
-    "id": "t-mva8nd9kesue41",
+    "id": "t-mvavrflhes0272",
     "name": "Event branding",
     "outlineLevel": 2,
     "manual": false,
@@ -736,7 +743,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keqq3k6",
+      "taskId": "t-mvavrflheq1odx",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -752,15 +759,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T08:00",
     "scheduledFinish": "2026-11-03T17:00"
    },
    {
-    "id": "t-mva8nd9ket336i",
+    "id": "t-mvavrflhetd0yo",
     "name": "Build the event page",
     "outlineLevel": 2,
     "manual": false,
@@ -788,7 +796,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kesue41",
+      "taskId": "t-mvavrflhes0272",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -804,15 +812,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-04T08:00",
     "scheduledFinish": "2026-11-10T17:00"
    },
    {
-    "id": "t-mva8nd9keur4yw",
+    "id": "t-mvavrflheuhdca",
     "name": "Registration opens",
     "outlineLevel": 2,
     "manual": false,
@@ -840,7 +849,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9ket336i",
+      "taskId": "t-mvavrflhetd0yo",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -856,15 +865,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-10T17:00",
     "scheduledFinish": "2026-11-10T17:00"
    },
    {
-    "id": "t-mva8nd9kevggvf",
+    "id": "t-mvavrflhevtxvd",
     "name": "Promotion campaign",
     "outlineLevel": 2,
     "manual": false,
@@ -892,7 +902,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keur4yw",
+      "taskId": "t-mvavrflheuhdca",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -908,15 +918,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-11T08:00",
     "scheduledFinish": "2026-12-09T17:00"
    },
    {
-    "id": "t-mva8nd9kewjmpd",
+    "id": "t-mvavrflhew7k1d",
     "name": "Send the press release",
     "outlineLevel": 2,
     "manual": false,
@@ -944,7 +955,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kevggvf",
+      "taskId": "t-mvavrflhevtxvd",
       "type": "FS",
       "lag": -2400,
       "lagUnit": "d"
@@ -960,15 +971,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-03T08:00",
     "scheduledFinish": "2026-12-03T17:00"
    },
    {
-    "id": "t-mva8nd9kexo5oh",
+    "id": "t-mvavrfliex7h7y",
     "name": "Logistics",
     "outlineLevel": 1,
     "manual": false,
@@ -1005,15 +1017,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T08:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd9keyhd4h",
+    "id": "t-mvavrflieyxa58",
     "name": "Finalize the agenda",
     "outlineLevel": 2,
     "manual": false,
@@ -1041,7 +1054,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kep0fr5",
+      "taskId": "t-mvavrflhepqnuz",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1057,15 +1070,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-12T08:00",
     "scheduledFinish": "2026-11-17T17:00"
    },
    {
-    "id": "t-mva8nd9kez7idv",
+    "id": "t-mvavrfliezlepu",
     "name": "Arrange catering",
     "outlineLevel": 2,
     "manual": false,
@@ -1093,7 +1107,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keqq3k6",
+      "taskId": "t-mvavrflheq1odx",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1109,15 +1123,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T08:00",
     "scheduledFinish": "2026-10-30T17:00"
    },
    {
-    "id": "t-mva8nd9kf0hmd3",
+    "id": "t-mvavrflif0icbi",
     "name": "Book AV equipment",
     "outlineLevel": 2,
     "manual": false,
@@ -1145,7 +1160,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keozjq9",
+      "taskId": "t-mvavrflheowf4p",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1161,15 +1176,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-10-29T08:00",
     "scheduledFinish": "2026-10-29T17:00"
    },
    {
-    "id": "t-mva8nd9kf18b0y",
+    "id": "t-mvavrflif1f0gv",
     "name": "Print materials",
     "outlineLevel": 2,
     "manual": false,
@@ -1197,7 +1213,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keyhd4h",
+      "taskId": "t-mvavrflieyxa58",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1213,15 +1229,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-11-18T08:00",
     "scheduledFinish": "2026-11-20T17:00"
    },
    {
-    "id": "t-mva8nd9kf24rvj",
+    "id": "t-mvavrflif2f1g9",
     "name": "Brief the event staff",
     "outlineLevel": 2,
     "manual": false,
@@ -1249,7 +1266,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9keyhd4h",
+      "taskId": "t-mvavrflieyxa58",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1265,15 +1282,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-07T08:00",
     "scheduledFinish": "2026-12-07T12:00"
    },
    {
-    "id": "t-mva8nd9kf3rzhs",
+    "id": "t-mvavrflif399j9",
     "name": "Rehearsal",
     "outlineLevel": 2,
     "manual": false,
@@ -1301,19 +1319,19 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf18b0y",
+      "taskId": "t-mvavrflif1f0gv",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9kf24rvj",
+      "taskId": "t-mvavrflif2f1g9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9kf0hmd3",
+      "taskId": "t-mvavrflif0icbi",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1329,15 +1347,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-07T13:00",
     "scheduledFinish": "2026-12-07T17:00"
    },
    {
-    "id": "t-mva8nd9kf4c63g",
+    "id": "t-mvavrflif479et",
     "name": "Event",
     "outlineLevel": 1,
     "manual": false,
@@ -1374,15 +1393,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-10T08:00",
     "scheduledFinish": "2026-12-10T17:00"
    },
    {
-    "id": "t-mva8nd9kf5lx5z",
+    "id": "t-mvavrflif5az3u",
     "name": "Run the event",
     "outlineLevel": 2,
     "manual": false,
@@ -1410,13 +1430,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf3rzhs",
+      "taskId": "t-mvavrflif399j9",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9kevggvf",
+      "taskId": "t-mvavrflhevtxvd",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1432,15 +1452,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-10T08:00",
     "scheduledFinish": "2026-12-10T17:00"
    },
    {
-    "id": "t-mva8nd9kf6zph5",
+    "id": "t-mvavrflif6qzd4",
     "name": "Event completed",
     "outlineLevel": 2,
     "manual": false,
@@ -1468,7 +1489,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf5lx5z",
+      "taskId": "t-mvavrflif5az3u",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1484,15 +1505,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-10T17:00",
     "scheduledFinish": "2026-12-10T17:00"
    },
    {
-    "id": "t-mva8nd9kf7nhkl",
+    "id": "t-mvavrflif7kpbo",
     "name": "Wrap-up",
     "outlineLevel": 1,
     "manual": false,
@@ -1529,15 +1551,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-11T08:00",
     "scheduledFinish": "2026-12-17T17:00"
    },
    {
-    "id": "t-mva8nd9kf86tl9",
+    "id": "t-mvavrflif81kw5",
     "name": "Attendee survey",
     "outlineLevel": 2,
     "manual": false,
@@ -1565,7 +1588,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf6zph5",
+      "taskId": "t-mvavrflif6qzd4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1581,15 +1604,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-11T08:00",
     "scheduledFinish": "2026-12-15T17:00"
    },
    {
-    "id": "t-mva8nd9kf9i6ci",
+    "id": "t-mvavrflif9obrx",
     "name": "Settle the invoices",
     "outlineLevel": 2,
     "manual": false,
@@ -1617,7 +1641,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf6zph5",
+      "taskId": "t-mvavrflif6qzd4",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1633,15 +1657,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-11T08:00",
     "scheduledFinish": "2026-12-14T17:00"
    },
    {
-    "id": "t-mva8nd9kfahbbc",
+    "id": "t-mvavrflifaawqv",
     "name": "Write the final report",
     "outlineLevel": 2,
     "manual": false,
@@ -1669,13 +1694,13 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kf86tl9",
+      "taskId": "t-mvavrflif81kw5",
       "type": "FF",
       "lag": 0,
       "lagUnit": "d"
      },
      {
-      "taskId": "t-mva8nd9kf9i6ci",
+      "taskId": "t-mvavrflif9obrx",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1691,15 +1716,16 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-15T08:00",
     "scheduledFinish": "2026-12-17T17:00"
    },
    {
-    "id": "t-mva8nd9kfbixiq",
+    "id": "t-mvavrflifbutpl",
     "name": "Project closed",
     "outlineLevel": 2,
     "manual": false,
@@ -1727,7 +1753,7 @@
     "calendarId": null,
     "predecessors": [
      {
-      "taskId": "t-mva8nd9kfahbbc",
+      "taskId": "t-mvavrflifaawqv",
       "type": "FS",
       "lag": 0,
       "lagUnit": "d"
@@ -1743,171 +1769,172 @@
     "flag1": false,
     "barColor": "",
     "hideBar": false,
+    "timeline": false,
     "levelingDelay": 0,
     "baselines": {},
     "recurring": null,
-    "created": "2026-10-16T09:37",
+    "created": "2026-10-16T20:24",
     "scheduledStart": "2026-12-17T17:00",
     "scheduledFinish": "2026-12-17T17:00"
    }
   ],
   "assignments": [
    {
-    "id": "a-mva8nd9kfce5o9",
-    "taskId": "t-mva8nd9kemou52",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrflifcmgya",
+    "taskId": "t-mvavrflhemszic",
+    "resourceId": "r-mvavrflheepom5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfdntr4",
-    "taskId": "t-mva8nd9ken4ycp",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrflifdz8c3",
+    "taskId": "t-mvavrflhenjcit",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfe1ygv",
-    "taskId": "t-mva8nd9keozjq9",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrflife6tlb",
+    "taskId": "t-mvavrflheowf4p",
+    "resourceId": "r-mvavrflheepom5",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kffmupu",
-    "taskId": "t-mva8nd9keozjq9",
-    "resourceId": "r-mva8nd9kejfexb",
+    "id": "a-mvavrfliffap1a",
+    "taskId": "t-mvavrflheowf4p",
+    "resourceId": "r-mvavrflhejj2sz",
     "units": 1,
     "cost": 5200
    },
    {
-    "id": "a-mva8nd9kfgds52",
-    "taskId": "t-mva8nd9kep0fr5",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrflifgpjjn",
+    "taskId": "t-mvavrflhepqnuz",
+    "resourceId": "r-mvavrflheepom5",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfhn6ld",
-    "taskId": "t-mva8nd9kesue41",
-    "resourceId": "r-mva8nd9keh1cs6",
+    "id": "a-mvavrflifhydq3",
+    "taskId": "t-mvavrflhes0272",
+    "resourceId": "r-mvavrflhehs8pa",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfihhn0",
-    "taskId": "t-mva8nd9ket336i",
-    "resourceId": "r-mva8nd9keh1cs6",
+    "id": "a-mvavrflifi33hf",
+    "taskId": "t-mvavrflhetd0yo",
+    "resourceId": "r-mvavrflhehs8pa",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfjd0cp",
-    "taskId": "t-mva8nd9ket336i",
-    "resourceId": "r-mva8nd9kegwwz1",
+    "id": "a-mvavrflifj7d8t",
+    "taskId": "t-mvavrflhetd0yo",
+    "resourceId": "r-mvavrflhegri0k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfk6rtd",
-    "taskId": "t-mva8nd9kevggvf",
-    "resourceId": "r-mva8nd9kegwwz1",
+    "id": "a-mvavrflifka7fe",
+    "taskId": "t-mvavrflhevtxvd",
+    "resourceId": "r-mvavrflhegri0k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfla1gi",
-    "taskId": "t-mva8nd9kewjmpd",
-    "resourceId": "r-mva8nd9kegwwz1",
+    "id": "a-mvavrfliflxmm6",
+    "taskId": "t-mvavrflhew7k1d",
+    "resourceId": "r-mvavrflhegri0k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfmghj9",
-    "taskId": "t-mva8nd9keyhd4h",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrflifmrf65",
+    "taskId": "t-mvavrflieyxa58",
+    "resourceId": "r-mvavrflheepom5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfnjmi4",
-    "taskId": "t-mva8nd9keyhd4h",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrflifnwunl",
+    "taskId": "t-mvavrflieyxa58",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfostnq",
-    "taskId": "t-mva8nd9kez7idv",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrflifohl8t",
+    "taskId": "t-mvavrfliezlepu",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfp2ymf",
-    "taskId": "t-mva8nd9kez7idv",
-    "resourceId": "r-mva8nd9kekhvq4",
+    "id": "a-mvavrflifp2w4u",
+    "taskId": "t-mvavrfliezlepu",
+    "resourceId": "r-mvavrflhek1koj",
     "units": 1,
     "cost": 7500
    },
    {
-    "id": "a-mva8nd9kfqdgyq",
-    "taskId": "t-mva8nd9kf0hmd3",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrflifq4508",
+    "taskId": "t-mvavrflif0icbi",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfrczdc",
-    "taskId": "t-mva8nd9kf18b0y",
-    "resourceId": "r-mva8nd9keh1cs6",
+    "id": "a-mvavrflifr2v6h",
+    "taskId": "t-mvavrflif1f0gv",
+    "resourceId": "r-mvavrflhehs8pa",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9kfsbbsy",
-    "taskId": "t-mva8nd9kf18b0y",
-    "resourceId": "r-mva8nd9kei6fhf",
+    "id": "a-mvavrflifszqff",
+    "taskId": "t-mvavrflif1f0gv",
+    "resourceId": "r-mvavrflheifw2h",
     "units": 500
    },
    {
-    "id": "a-mva8nd9kft21q4",
-    "taskId": "t-mva8nd9kf24rvj",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrfliftwde5",
+    "taskId": "t-mvavrflif2f1g9",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfumw1s",
-    "taskId": "t-mva8nd9kf3rzhs",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrflifuvv1m",
+    "taskId": "t-mvavrflif399j9",
+    "resourceId": "r-mvavrflheepom5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfvxj7l",
-    "taskId": "t-mva8nd9kf3rzhs",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrfljfvssww",
+    "taskId": "t-mvavrflif399j9",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfwbuxh",
-    "taskId": "t-mva8nd9kf5lx5z",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrfljfwynfq",
+    "taskId": "t-mvavrflif5az3u",
+    "resourceId": "r-mvavrflheepom5",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfxy86r",
-    "taskId": "t-mva8nd9kf5lx5z",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrfljfxmmrb",
+    "taskId": "t-mvavrflif5az3u",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 1
    },
    {
-    "id": "a-mva8nd9kfydip4",
-    "taskId": "t-mva8nd9kf5lx5z",
-    "resourceId": "r-mva8nd9kegwwz1",
+    "id": "a-mvavrfljfymdh9",
+    "taskId": "t-mvavrflif5az3u",
+    "resourceId": "r-mvavrflhegri0k",
     "units": 1
    },
    {
-    "id": "a-mva8nd9lfzlunp",
-    "taskId": "t-mva8nd9kf86tl9",
-    "resourceId": "r-mva8nd9kegwwz1",
+    "id": "a-mvavrfljfzeqs3",
+    "taskId": "t-mvavrflif81kw5",
+    "resourceId": "r-mvavrflhegri0k",
     "units": 0.5
    },
    {
-    "id": "a-mva8nd9lg0yqv6",
-    "taskId": "t-mva8nd9kf9i6ci",
-    "resourceId": "r-mva8nd9kef60ou",
+    "id": "a-mvavrfljg0u3uz",
+    "taskId": "t-mvavrflif9obrx",
+    "resourceId": "r-mvavrflhefjcnn",
     "units": 1
    },
    {
-    "id": "a-mva8nd9lg1kftd",
-    "taskId": "t-mva8nd9kfahbbc",
-    "resourceId": "r-mva8nd9keekoyf",
+    "id": "a-mvavrfljg1tpao",
+    "taskId": "t-mvavrflifaawqv",
+    "resourceId": "r-mvavrflheepom5",
     "units": 1
    }
   ],
@@ -1919,6 +1946,6 @@
    "number1": "",
    "flag1": ""
   },
-  "created": "2026-10-16T09:37"
+  "created": "2026-10-16T20:24"
  }
 }

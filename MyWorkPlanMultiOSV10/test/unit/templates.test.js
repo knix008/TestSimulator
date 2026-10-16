@@ -9,6 +9,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parsePlan, serialize } from '../../src/domain/format.js';
 import { outline } from '../../src/domain/project.js';
+import { criticalPath } from '../../src/domain/critical.js';
 import { schedule } from '../../src/domain/schedule.js';
 import { TEMPLATES, buildSample, buildTemplate } from '../../src/domain/templates.js';
 import { dayOf, toMin, weekdayOfDay } from '../../src/domain/time.js';
@@ -30,6 +31,8 @@ function assertSchedulesCleanly(p, label) {
   assert.deepEqual(s.errors, [], `${label}: no calendar errors`);
   assert.ok(s.finish > s.start, `${label}: finish after start`);
   assert.ok(p.tasks.some((t) => s.info(t.id).critical), `${label}: a critical path`);
+  const cp = criticalPath(p, s);
+  assert.ok(cp.chains.some((chain) => s.info(chain[0]).start === s.start && s.info(chain.at(-1)).finish === s.finish), `${label}: the critical path runs from the project start to the finish`);
   const resources = new Set(p.resources.map((r) => r.id));
   const tasks = new Set(p.tasks.map((t) => t.id));
   for (const a of p.assignments) assert.ok(resources.has(a.resourceId) && tasks.has(a.taskId), `${label}: assignment ${a.id} points at real rows`);
