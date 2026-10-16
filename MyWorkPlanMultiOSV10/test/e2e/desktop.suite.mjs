@@ -659,6 +659,40 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `(a.switchView('gantt'), 1)`);
   } },
   // ───────────────────────── scheduling features
+  { group: '툴바', name: '보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 계획 이름 없음', async run(app) {
+    await freshSample(app);
+    assert.equal(await app.main.eval(`document.querySelector('#menubar .menubar-title')`), null, 'the menubar shows no plan title');
+    const views = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];
+    const layout = () => app.main.eval(`JSON.stringify([...document.querySelectorAll('#toolbar .tool-button')].map((b) => Math.round(b.getBoundingClientRect().left)))`);
+    const first = await layout();
+    for (const view of views) {
+      await W(app, `(a.switchView('${view}'), 1)`);
+      await sleep(150);
+      assert.equal(await app.main.eval(`document.querySelector('.view-split [data-view-name]:not(.off)').dataset.viewName`), view, 'the current view is named');
+      assert.equal(await layout(), first, `${view}: toolbar buttons stay in place`);
+    }
+    await W(app, `(a.switchView('gantt'), 1)`);
+  } },
+  { group: '일정', name: '주 공정 표시 버튼: 툴바에서 주 공정 강조를 켜고 끔', async run(app) {
+    await freshSample(app);
+    await W(app, `a.updateSettings({ showCritical: true })`);
+    const sel = '#toolbar [data-command="showCritical"]';
+    const state = () => app.main.eval(`({ pressed: document.querySelector('${sel}').getAttribute('aria-pressed'), setting: window.__myworkplan.state.settings.showCritical, rows: document.querySelectorAll('.grid-row.critical-row').length, bars: document.querySelectorAll('.bar.critical').length })`);
+    assert.ok(await app.main.eval(`document.querySelector('${sel}').title.length > 3`), 'tooltip');
+    const on = await state();
+    assert.equal(on.pressed, 'true');
+    assert.equal(on.setting, true);
+    assert.ok(on.bars > 0, `${on.bars} critical bars shown`);
+    await app.main.click(sel);
+    await sleep(300);
+    const off = await state();
+    assert.deepEqual([off.pressed, off.setting, off.rows, off.bars], ['false', false, 0, 0], 'pressing turns the highlight off');
+    await app.main.click(sel);
+    await sleep(300);
+    const again = await state();
+    assert.deepEqual([again.pressed, again.setting], ['true', true], 'pressing again turns it back on');
+    assert.ok(again.bars > 0);
+  } },
   { group: '일정', name: '주 공정 찾기 버튼: 토글, 앞뒤로 계산해 주 공정 작업·연결을 표시', async run(app) {
     await freshSample(app);
     await W(app, `a.updateSettings({ showCritical: false })`);

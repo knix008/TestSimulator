@@ -1130,7 +1130,7 @@ const TOOLBAR = [
   ['copy', 'paste'],
   ['insertTask', 'insertMilestone', 'indent', 'outdent', 'link', 'taskInfo'],
   ['viewSplit'],
-  ['criticalPath'],
+  ['showCritical', 'criticalPath'],
   ['zoom'],
   ['timescaleOut', 'timescaleIn'],
   ['leftPanel', 'rightPanel'],
@@ -1168,8 +1168,7 @@ function renderMenubar() {
   const onStart = state.showStart || !activeDoc();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
   menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
-    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
-    + `<span class="grow"></span><span class="menubar-title" title="${escapeHtml(activeDoc() ? activeDoc().project.title : 'MyWorkPlan')}">${escapeHtml(activeDoc() ? `${activeDoc().project.title}${activeDoc().dirty ? ' ●' : ''}` : '')}</span>`;
+    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
 }
 
 function renderToolbar() {
@@ -1192,7 +1191,7 @@ function renderToolbar() {
     }
     if (id === 'viewSplit') {
       const current = activeDoc()?.view.id ?? 'gantt';
-      return `<span class="split-button view-split"><button class="tool-button wide" data-command="viewMenu" title="${escapeHtml(commandTip('viewMenu'))}" aria-label="${escapeHtml(t('action.viewMenu'))}" aria-haspopup="true">${icon(VIEW_ICONS[current])}<span class="view-name">${escapeHtml(t(`view.${current}`))}</span>${icon('chevronDown', 'icon tiny')}</button></span>`;
+      return `<span class="split-button view-split"><button class="tool-button wide" data-command="viewMenu" title="${escapeHtml(commandTip('viewMenu'))}" aria-label="${escapeHtml(t('action.viewMenu'))}" aria-haspopup="true">${icon(VIEW_ICONS[current])}<span class="view-name">${Object.keys(VIEW_ICONS).map((id) => `<span data-view-name="${id}" class="${id === current ? '' : 'off'}" aria-hidden="${id !== current}">${escapeHtml(t(`view.${id}`))}</span>`).join('')}</span>${icon('chevronDown', 'icon tiny')}</button></span>`;
     }
     return plain(id);
   };
@@ -1216,8 +1215,9 @@ function renderToolbarState() {
   }
   const zoom = root.querySelector('#zoom-value');
   if (zoom && document.activeElement !== zoom) zoom.value = `${state.settings.zoom}%`;
-  const viewName = root.querySelector('.view-split .view-name');
-  if (viewName && activeDoc()) viewName.textContent = t(`view.${activeDoc().view.id}`);
+  // Every view name sits in the same cell (only the current one shows), so the button keeps the width of the longest one.
+  const current = activeDoc()?.view.id ?? 'gantt';
+  for (const name of root.querySelectorAll('.view-split [data-view-name]')) { const off = name.dataset.viewName !== current; name.classList.toggle('off', off); name.setAttribute('aria-hidden', String(off)); }
 }
 
 /** The window can never be so narrow that toolbar buttons or menus are hidden. */

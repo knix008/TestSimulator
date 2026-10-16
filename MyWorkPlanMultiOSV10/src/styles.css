@@ -64,7 +64,6 @@ html.is-popup #app { min-width: 0; display: block; }
 }
 .menubar-item .icon { width: 15px; height: 15px; color: var(--muted); }
 .menubar-item:hover, .menubar-item.open { background: var(--hover); }
-.menubar-title { font-size: 0.85em; color: var(--muted); max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
 
 #toolbar { padding: 3px 6px; background: var(--toolbar); border-bottom: 1px solid var(--border); overflow: hidden; }
 .toolbar-inner { display: flex; align-items: center; gap: 3px; white-space: nowrap; width: 100%; }
@@ -82,7 +81,10 @@ html.is-popup #app { min-width: 0; display: block; }
 .tool-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
 .tool-button.active { background: var(--hover); color: var(--accent); border-color: var(--accent); }
 .tool-button:disabled { opacity: 0.38; cursor: default; }
-.view-name { font-size: 0.92em; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.view-name { font-size: 0.92em; display: inline-grid; text-align: left; }
+/* All view names share one cell; the hidden ones still take space, so picking another view never resizes the button or moves the toolbar. */
+.view-name > [data-view-name] { grid-area: 1 / 1; white-space: nowrap; }
+.view-name > [data-view-name].off { visibility: hidden; }
 .split-button { display: inline-flex; align-items: center; }
 .split-button .tool-button:first-child:not(.wide) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .split-button .split-arrow { width: 16px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
