@@ -407,7 +407,10 @@ select.input { padding-right: 4px; }
 .start-scene { height: 32px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--bg-2) 62%, transparent); color: var(--text); cursor: pointer; }
 .start-scene:hover { border-color: var(--accent); }
 .start-scene.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--bg-2)); }
-.start-speed { display: flex; align-items: center; gap: 8px; width: max-content; max-width: 100%; margin-top: 10px; }
+.start-speeds { display: grid; grid-template-columns: max-content max-content; align-items: center; gap: 6px 10px; width: max-content; max-width: 100%; margin-top: 10px; }
+.start-speed { display: contents; }
+.start-speed-reset { grid-column: 2; justify-self: start; height: 24px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--bg-2) 62%, transparent); color: var(--text); cursor: pointer; font-size: 12px; }
+.start-speed-reset:hover { border-color: var(--accent); }
 .start-speed-label { flex: none; margin: 0; color: var(--text-2); font-size: 12px; white-space: nowrap; }
 .start-speed-control { display: grid; grid-template-columns: 24px 148px 24px; gap: 6px; align-items: center; }
 .start-speed-step { width: 24px; height: 24px; padding: 0; border: 1px solid color-mix(in srgb, var(--line-2) 80%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--bg-2) 62%, transparent); color: var(--text); cursor: pointer; font-size: 15px; line-height: 1; }

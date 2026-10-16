@@ -5,7 +5,7 @@ import { app } from '../store.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
-import { START_SCENE_IDS, startSceneId, startSpeedPercent } from './startscenes.js';
+import { CHANNEL_DEFAULT, CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startSceneId, startSpeedPercent } from './startscenes.js';
 
 const TIP_COUNT = 6;
 
@@ -58,42 +58,44 @@ export function createStartScenes(selected, onPick) {
   return h('div.start-scenes', buttons);
 }
 
-/** Speed label, − / + and a short bar, on one line. `onPick` receives 0–100. */
-export function createStartSpeed(selected, onPick) {
-  let speed = startSpeedPercent(selected);
+/** One speed row: label, − / + and a short bar. `onPick` receives the new percent (0–max). */
+function speedRow({ key, label, value, max, step, onPick }) {
+  let speed = value;
   const fill = h('span.start-speed-fill');
   const thumb = h('span.start-speed-thumb');
-  const value = h('span.start-speed-value');
+  const text = h('span.start-speed-value');
   const track = h('div.start-speed-track', {
     role: 'slider',
     tabindex: '0',
     'aria-valuemin': '0',
-    'aria-valuemax': '100',
-    'aria-label': t('settings.startMotion'),
-  }, fill, thumb, value);
-  const minus = h('button.start-speed-step', { type: 'button', 'aria-label': t('start.speedDown') }, '−');
-  const plus = h('button.start-speed-step', { type: 'button', 'aria-label': t('start.speedUp') }, '+');
+    'aria-valuemax': String(max),
+    'aria-label': label,
+  }, fill, thumb, text);
+  const minus = h('button.start-speed-step', { type: 'button', 'aria-label': `${label} ${t('start.speedDown')}`, title: t('start.speedDown') }, '−');
+  const plus = h('button.start-speed-step', { type: 'button', 'aria-label': `${label} ${t('start.speedUp')}`, title: t('start.speedUp') }, '+');
   const paint = () => {
-    fill.style.width = `${speed}%`;
-    thumb.style.left = `${speed}%`;
-    value.textContent = `${speed}%`;
+    const ratio = `${(speed / max) * 100}%`;
+    fill.style.width = ratio;
+    thumb.style.left = ratio;
+    text.textContent = `${speed}%`;
     track.setAttribute('aria-valuenow', String(speed));
     minus.disabled = speed <= 0;
-    plus.disabled = speed >= 100;
+    plus.disabled = speed >= max;
   };
+  const clamp = (n) => Math.max(0, Math.min(max, Math.round(Number(n) || 0)));
   const set = (next) => {
-    const n = startSpeedPercent(next);
+    const n = clamp(next);
     if (n === speed) return;
     speed = n;
     paint();
     onPick(speed);
   };
-  minus.addEventListener('click', () => set(speed - 5));
-  plus.addEventListener('click', () => set(speed + 5));
+  minus.addEventListener('click', () => set(speed - step));
+  plus.addEventListener('click', () => set(speed + step));
   const fromPointer = (event) => {
     const rect = track.getBoundingClientRect();
     const ratio = rect.width ? (event.clientX - rect.left) / rect.width : 0;
-    set(Math.round(Math.max(0, Math.min(1, ratio)) * 100));
+    set(Math.round((Math.max(0, Math.min(1, ratio)) * max) / step) * step);
   };
   track.addEventListener('pointerdown', (event) => {
     track.setPointerCapture(event.pointerId);
@@ -103,15 +105,63 @@ export function createStartSpeed(selected, onPick) {
     if (track.hasPointerCapture(event.pointerId)) fromPointer(event);
   });
   track.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); set(speed - 5); }
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); set(speed + 5); }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); set(speed - step); }
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); set(speed + step); }
     else if (event.key === 'Home') { event.preventDefault(); set(0); }
-    else if (event.key === 'End') { event.preventDefault(); set(100); }
+    else if (event.key === 'End') { event.preventDefault(); set(max); }
   });
   paint();
-  return h('div.start-speed',
-    h('span.start-speed-label', t('settings.startMotion')),
+  const el = h('div.start-speed', { dataset: { speed: key } },
+    h('span.start-speed-label', label),
     h('div.start-speed-control', minus, track, plus));
+  el.setValue = (n) => {
+    speed = clamp(n);
+    paint();
+  };
+  return el;
+}
+
+/** The speeds of a `startScreen` setting, each in range. */
+export function startSpeedValues(screen = {}) {
+  const out = { motion: startSpeedPercent(screen.motion) };
+  for (const channel of START_SPEED_CHANNELS) out[channel.key] = channelPercent(screen[channel.key]);
+  return out;
+}
+
+/** Speeds for a fresh start: the designed pace for everything. */
+export function defaultStartSpeeds() {
+  const out = { motion: 20 };
+  for (const channel of START_SPEED_CHANNELS) out[channel.key] = CHANNEL_DEFAULT;
+  return out;
+}
+
+/**
+ * The overall speed, then one row per clock (camera, objects, sky), and a reset button.
+ * `onPick(values)` receives every speed after any change. `el.sync(screen)` repaints from settings.
+ */
+export function createStartSpeed(screen, onPick) {
+  let values = startSpeedValues(screen);
+  const rows = [
+    speedRow({ key: 'motion', label: t('settings.startMotion'), value: values.motion, max: 100, step: 5, onPick: (n) => { values = { ...values, motion: n }; onPick(values); } }),
+    ...START_SPEED_CHANNELS.map((channel) => speedRow({
+      key: channel.key, label: t(channel.label), value: values[channel.key], max: CHANNEL_MAX, step: 10,
+      onPick: (n) => { values = { ...values, [channel.key]: n }; onPick(values); },
+    })),
+  ];
+  const sync = (next) => {
+    values = startSpeedValues(next);
+    for (const row of rows) row.setValue(values[row.dataset.speed]);
+  };
+  const reset = h('button.start-speed-reset', {
+    type: 'button',
+    onclick: () => {
+      sync(defaultStartSpeeds());
+      onPick(values);
+    },
+  }, t('start.speedReset'));
+  const el = h('div.start-speeds', rows, reset);
+  el.sync = sync;
+  return el;
 }
 
 function actionCard(glyph, title, text, run, primary = false, id) {
@@ -164,7 +214,6 @@ export function createStartPage(ctx) {
     }, h('span.task-icon', { html: icon(glyph) }), h('span.task-text', h('b', t(label)), h('small', t(`start.desc.${id}`)))));
     const screen = app.settings.startScreen ?? {};
     const scene = startSceneId(screen.scene);
-    const speed = startSpeedPercent(screen.motion);
     const group = (id, glyph, title, ...nodes) => h('section.start-group', { dataset: { group: id } },
       h('h2', h('span', { html: icon(glyph) }), h('span', title)), ...nodes);
     const board = h('div.start-board',
@@ -178,8 +227,8 @@ export function createStartPage(ctx) {
           app.settings.startScreen = { ...(app.settings.startScreen ?? {}), scene: id };
           app.saveSettings();
         }),
-        createStartSpeed(speed, (n) => {
-          app.settings.startScreen = { ...(app.settings.startScreen ?? {}), motion: n };
+        createStartSpeed(screen, (values) => {
+          app.settings.startScreen = { ...(app.settings.startScreen ?? {}), ...values };
           app.saveSettings();
         })));
     clear(scroll);
@@ -194,23 +243,12 @@ export function createStartPage(ctx) {
   function markBackground() {
     const screen = app.settings.startScreen ?? {};
     const scene = startSceneId(screen.scene);
-    const speed = startSpeedPercent(screen.motion);
     for (const button of scroll.querySelectorAll('.start-scene')) {
       const on = button.dataset.scene === scene;
       button.classList.toggle('on', on);
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
-    const track = scroll.querySelector('.start-speed-track');
-    const fill = scroll.querySelector('.start-speed-fill');
-    const thumb = scroll.querySelector('.start-speed-thumb');
-    const value = scroll.querySelector('.start-speed-value');
-    if (track) track.setAttribute('aria-valuenow', String(speed));
-    if (fill) fill.style.width = `${speed}%`;
-    if (thumb) thumb.style.left = `${speed}%`;
-    if (value) value.textContent = `${speed}%`;
-    const steps = scroll.querySelectorAll('.start-speed-step');
-    if (steps[0]) steps[0].disabled = speed <= 0;
-    if (steps[1]) steps[1].disabled = speed >= 100;
+    scroll.querySelector('.start-speeds')?.sync(screen);
   }
 
   return {
