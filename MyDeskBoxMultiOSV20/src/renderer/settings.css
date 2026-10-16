@@ -159,6 +159,9 @@ html, body {
 
 .step {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 26px;
   height: 26px;
   padding: 0;
@@ -255,7 +258,12 @@ output {
 }
 
 #foot button {
-  flex: 1;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  box-sizing: border-box;
   padding: 7px 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 9px;

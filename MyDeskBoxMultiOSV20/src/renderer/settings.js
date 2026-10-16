@@ -1,6 +1,6 @@
 'use strict';
 
-const id = new URLSearchParams(location.search).get('id');
+const id = window.deskQuery.get('id');
 
 const el = (name) => document.getElementById(name);
 const heading = el('heading');

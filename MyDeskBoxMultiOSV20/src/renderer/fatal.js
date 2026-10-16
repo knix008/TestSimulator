@@ -2,7 +2,7 @@
 
 // 큰 오류를 보여 준다. 글상자의 글을 골라 복사할 수 있고, 복사 단추는 글 전체를 보낸다.
 
-const params = new URLSearchParams(location.search);
+const params = window.deskQuery;
 const report = JSON.parse(params.get('report') || '{}');
 
 document.getElementById('title').textContent = report.title || '';

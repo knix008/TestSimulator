@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "MyDeskBox 의 모든 창. 창 조작·파일·트레이는 전부 MyDeskBox 자체 명령(src-tauri/src/commands.rs)으로만 하고, 여기서는 이벤트 수신만 연다.",
+  "windows": ["fence-*", "settings-*", "prefs", "ghost", "draw", "ask-*", "props-*", "fatal"],
+  "permissions": ["core:event:default"]
+}

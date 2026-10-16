@@ -4,7 +4,31 @@
 // 목록 창을 PrintWindow 로 그려 낸 뒤, 아이콘 칸 안에 배경이 아닌 색이 있는지 센다.
 // 그림이 사라지고 이름만 남으면 그 수가 0 에 가깝다.
 
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
 const koffi = require('koffi');
+
+// 빌드해 둔 실행 파일. MYDESKBOX_EXE 로 다른 것을 줄 수 있다.
+function appExe() {
+  const target = path.join(__dirname, '..', 'src-tauri', 'target');
+  const found = [process.env.MYDESKBOX_EXE, path.join(target, 'release', 'MyDeskBox.exe'), path.join(target, 'debug', 'mydeskbox.exe')]
+    .filter(Boolean)
+    .find((file) => fs.existsSync(file));
+  if (!found) {
+    console.error('실행 파일이 없습니다. npm run pack 으로 먼저 빌드해 주세요.');
+    process.exit(1);
+  }
+  return found;
+}
+
+function iconList() {
+  try {
+    return JSON.parse(execFileSync(appExe(), ['--icon-list'], { encoding: 'utf8' }));
+  } catch {
+    return [];
+  }
+}
 
 const user32 = koffi.load('user32.dll');
 const gdi32 = koffi.load('gdi32.dll');
@@ -56,7 +80,8 @@ ReleaseDC(defView, dc);
 
 // 아이콘 칸의 위쪽 48x48 이 그림 자리다. 그 안에서 색이 몇 가지나 되는지 센다.
 // 그림이 있으면 여러 색이 나오고, 없으면 배경 한 가지뿐이다.
-const list = require('../src/main/desktop/windows').debugList(0) || [];
+// 아이콘 자리는 앱이 탐색기 목록에서 읽어 준다 (MyDeskBox.exe --icon-list). 창은 띄우지 않는다.
+const list = iconList();
 let withArt = 0;
 for (const icon of list) {
   const x0 = Math.max(0, icon.x - r.left + 14);

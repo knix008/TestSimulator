@@ -1,248 +1,221 @@
 'use strict';
 
+// 설치 파일 만들기 (Tauri). 설정 파일과 NSIS 훅(src-tauri/windows/hooks.nsh)을 글로 읽어 약속을 지키는지 본다.
+// 실제 설치·제거는 사용자 컴퓨터를 바꾸므로 여기서는 돌리지 않는다.
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
+const TAURI = path.join(ROOT, 'src-tauri');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const nsh = fs.readFileSync(path.join(ROOT, 'build', 'installer.nsh'), 'utf8');
+const conf = JSON.parse(fs.readFileSync(path.join(TAURI, 'tauri.conf.json'), 'utf8'));
+const HOOKS = path.join(TAURI, 'windows', 'hooks.nsh');
+const nsh = fs.readFileSync(HOOKS, 'utf8');
+
+function macro(name) {
+  const at = nsh.indexOf(`!macro ${name}`);
+  assert.ok(at >= 0, `${name} is missing`);
+  return nsh.slice(at, nsh.indexOf('!macroend', at));
+}
+
+function fn(name) {
+  const at = nsh.indexOf(`Function ${name}\r\n`) >= 0 ? nsh.indexOf(`Function ${name}\r\n`) : nsh.indexOf(`Function ${name}\n`);
+  assert.ok(at >= 0, `Function ${name} is missing`);
+  return nsh.slice(at, nsh.indexOf('FunctionEnd', at));
+}
+
+// electron-builder 가 appId 로 짓는 GUID (UUID v5).
+function electronGuid(appId) {
+  const ns = Buffer.from('50e065bc313411e69bab38c9862bdaf3', 'hex');
+  const hash = crypto.createHash('sha1').update(Buffer.concat([ns, Buffer.from(appId)])).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 test('has an installer build script for each OS', () => {
-  for (const name of ['build', 'build:win', 'build:mac', 'build:linux']) {
-    assert.ok(pkg.scripts[name], `npm run ${name} is missing`);
-    assert.match(pkg.scripts[name], /electron-builder/);
-    assert.match(pkg.scripts[name], /tools\/copy-installer\.js/, 'does not copy the installer to the project root');
+  for (const [name, bundles] of [['build', null], ['build:win', 'nsis'], ['build:mac', 'dmg'], ['build:linux', 'appimage,deb']]) {
+    const script = pkg.scripts[name];
+    assert.ok(script, `npm run ${name} is missing`);
+    assert.match(script, /^tauri build/);
+    if (bundles) assert.ok(script.includes(`--bundles ${bundles}`), `${name} does not build ${bundles}`);
+    assert.match(script, /node tools\/copy-installer\.js$/, 'does not copy the installer to the project root');
   }
-  assert.ok(pkg.devDependencies['electron-builder'], 'electron-builder is missing');
+  assert.ok(pkg.devDependencies['@tauri-apps/cli'], '@tauri-apps/cli is missing');
+  assert.equal(pkg.devDependencies.electron, undefined, 'electron is still a dependency');
+  assert.equal(pkg.devDependencies['electron-builder'], undefined, 'electron-builder is still a dependency');
+  assert.equal(pkg.build, undefined, 'electron-builder settings are still in package.json');
+  assert.equal(fs.existsSync(path.join(ROOT, 'build', 'installer.nsh')), false, 'the Electron installer script is still there');
 });
 
-test('copies only the installer to the project root', () => {
-  const os = require('node:os');
-  const { pickInstaller, copyInstaller } = require('../tools/copy-installer');
-  assert.equal(
-    pickInstaller(['MyDeskBox-Setup-1.0.0-x64.exe', 'MyDeskBox-Setup-1.0.0-x64.exe.blockmap', 'builder-debug.yml'], 'win32'),
-    'MyDeskBox-Setup-1.0.0-x64.exe'
-  );
-  assert.equal(pickInstaller(['MyDeskBox-1.0.0-x64.dmg', 'MyDeskBox-1.0.0-x64.zip'], 'darwin'), 'MyDeskBox-1.0.0-x64.dmg');
-  assert.equal(pickInstaller(['MyDeskBox-1.0.0-x64.AppImage', 'MyDeskBox-1.0.0-x64.deb'], 'linux'), 'MyDeskBox-1.0.0-x64.deb');
+test('copies the installers to the project root under the usual names', () => {
+  const { installerName, pickInstaller, copyInstallers } = require('../tools/copy-installer');
+  assert.equal(installerName('MyDeskBox_1.0.0_x64-setup.exe'), 'MyDeskBox-Setup-1.0.0-x64.exe');
+  assert.equal(installerName('MyDeskBox_1.0.0_aarch64.dmg'), 'MyDeskBox_1.0.0_aarch64.dmg');
+  assert.equal(pickInstaller(['MyDeskBox_1.0.0_x64-setup.exe', 'MyDeskBox_1.0.0_x64-setup.exe.sig'], '.exe'), 'MyDeskBox_1.0.0_x64-setup.exe');
+  assert.equal(pickInstaller(['MyDeskBox_1.0.9_x64-setup.exe', 'MyDeskBox_1.0.10_x64-setup.exe'], '.exe'), 'MyDeskBox_1.0.10_x64-setup.exe');
 
-  const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-dist-'));
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-target-'));
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mydeskbox-root-'));
-  fs.writeFileSync(path.join(dist, 'MyDeskBox-Setup-1.0.0-x64.exe'), 'installer');
-  fs.writeFileSync(path.join(dist, 'MyDeskBox-Setup-1.0.0-x64.exe.blockmap'), 'map');
-  const copied = copyInstaller({ dist, root, platform: 'win32' });
-  assert.equal(copied.name, 'MyDeskBox-Setup-1.0.0-x64.exe');
-  assert.equal(fs.readFileSync(path.join(root, copied.name), 'utf8'), 'installer');
-  assert.equal(fs.readdirSync(root).length, 1);
-});
+  try {
+    const nsis = path.join(target, 'release', 'bundle', 'nsis');
+    fs.mkdirSync(nsis, { recursive: true });
+    fs.writeFileSync(path.join(nsis, 'MyDeskBox_1.0.0_x64-setup.exe'), 'installer');
+    fs.writeFileSync(path.join(nsis, 'MyDeskBox_1.0.0_x64-setup.exe.sig'), 'sig');
+    const linux = path.join(target, 'x86_64-unknown-linux-gnu', 'release', 'bundle');
+    fs.mkdirSync(path.join(linux, 'deb'), { recursive: true });
+    fs.mkdirSync(path.join(linux, 'appimage'), { recursive: true });
+    fs.writeFileSync(path.join(linux, 'deb', 'MyDeskBox_1.0.0_amd64.deb'), 'deb');
+    fs.writeFileSync(path.join(linux, 'appimage', 'MyDeskBox_1.0.0_amd64.AppImage'), 'appimage');
 
-test('defines package targets for all three OSes', () => {
-  const kinds = (list) => list.map((entry) => entry.target);
-  assert.deepEqual(kinds(pkg.build.win.target), ['nsis']);
-  assert.deepEqual(kinds(pkg.build.mac.target), ['dmg', 'zip']);
-  assert.deepEqual(kinds(pkg.build.linux.target), ['AppImage', 'deb']);
-});
-
-test('installer uses the same icon as the app', () => {
-  const appIcon = pkg.build.win.icon;
-  assert.equal(appIcon, 'assets/icon.ico');
-  for (const key of ['installerIcon', 'uninstallerIcon', 'installerHeaderIcon']) {
-    assert.equal(pkg.build.nsis[key], appIcon, `${key} differs from the app icon`);
-  }
-  for (const file of [pkg.build.win.icon, pkg.build.mac.icon, pkg.build.linux.icon]) {
-    assert.ok(fs.existsSync(path.join(ROOT, file)), `${file} is missing`);
+    const win = copyInstallers({ target, root, platform: 'win32' });
+    assert.deepEqual(win.map((item) => item.name), ['MyDeskBox-Setup-1.0.0-x64.exe']);
+    assert.equal(fs.readFileSync(path.join(root, 'MyDeskBox-Setup-1.0.0-x64.exe'), 'utf8'), 'installer');
+    const lin = copyInstallers({ target, root, platform: 'linux' });
+    assert.deepEqual(lin.map((item) => item.name).sort(), ['MyDeskBox_1.0.0_amd64.AppImage', 'MyDeskBox_1.0.0_amd64.deb']);
+    assert.equal(fs.readdirSync(root).length, 3, 'copied something that is not an installer');
+    assert.throws(() => copyInstallers({ target, root, platform: 'darwin' }), /찾지 못했습니다/);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('installer lets the user choose a language', () => {
-  const { nsis } = pkg.build;
-  assert.equal(nsis.multiLanguageInstaller, true);
+test('defines package targets for all three OSes with the app icon', () => {
+  assert.deepEqual(conf.bundle.targets, ['nsis', 'dmg', 'appimage', 'deb']);
+  assert.equal(conf.productName, 'MyDeskBox');
+  assert.equal(conf.mainBinaryName, 'MyDeskBox');
+  assert.equal(conf.identifier, 'com.suhokwon.mydeskbox', 'the identifier changed; the old install would not be found');
+  assert.equal(conf.version, pkg.version, 'tauri.conf.json and package.json versions differ');
+  for (const file of conf.bundle.icon) {
+    assert.ok(fs.existsSync(path.join(TAURI, file)), `${file} is missing`);
+  }
+  assert.equal(conf.bundle.windows.nsis.installerIcon, '../src/assets/icon.ico', 'installer icon differs from the app icon');
+  // 박스 창은 ../src 의 renderer 와 assets 를 그대로 싣는다.
+  assert.equal(conf.build.frontendDist, '../src');
+});
+
+test('installer lets the user choose a language and installs per user', () => {
+  const { nsis } = conf.bundle.windows;
   assert.equal(nsis.displayLanguageSelector, true);
-  assert.deepEqual([...nsis.installerLanguages].sort(), ['en_US', 'ko_KR']);
-});
-
-test('installer does not create shortcuts on its own', () => {
-  const { nsis } = pkg.build;
-  assert.equal(nsis.oneClick, false, 'one-click mode cannot ask the user');
-  assert.equal(nsis.createDesktopShortcut, false);
-  assert.equal(nsis.createStartMenuShortcut, false);
-});
-
-test('install script asks before creating shortcuts', () => {
-  for (const macro of ['customInit', 'customPageAfterChangeDir', 'customInstall', 'customUnInstall']) {
-    assert.match(nsh, new RegExp(`!macro\\s+${macro}\\b`), `${macro} is missing`);
+  assert.deepEqual([...nsis.languages].sort(), ['English', 'Korean']);
+  assert.equal(nsis.installMode, 'currentUser');
+  assert.equal(nsis.installerHooks, 'windows/hooks.nsh');
+  assert.ok(nsh.charCodeAt(0) === 0xfeff, 'hooks.nsh needs a UTF-8 BOM or Korean text breaks');
+  for (const name of ['NSIS_HOOK_PREINSTALL', 'NSIS_HOOK_POSTINSTALL', 'NSIS_HOOK_PREUNINSTALL', 'NSIS_HOOK_POSTUNINSTALL']) {
+    macro(name);
   }
-  assert.match(nsh, /Page custom ShortcutPageCreate ShortcutPageLeave/, 'shortcut choice page is missing');
-  assert.match(nsh, /\$DESKTOP\\\$\{PRODUCT_FILENAME\}\.lnk/, 'does not create the desktop shortcut');
-  assert.match(nsh, /\$SMPROGRAMS\\\$\{PRODUCT_FILENAME\}\.lnk/, 'does not create the Start Menu shortcut');
-  // Delete when unchecked, and clean up on uninstall too.
-  assert.equal((nsh.match(/Delete "\$DESKTOP/g) || []).length >= 2, true);
-  assert.equal((nsh.match(/Delete "\$SMPROGRAMS/g) || []).length >= 2, true);
-  assert.match(nsh, /un\.RestoreHeld/, 'uninstall does not restore files held in boxes');
-  assert.match(nsh, /mydeskbox\\held/, 'does not look for the held-files folder');
-});
-
-test('uninstall also removes the startup entry', () => {
-  const RUN = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run';
-  assert.ok(nsh.includes(`DeleteRegValue HKCU "${RUN}" "\${PRODUCT_FILENAME}"`), 'does not remove the startup entry');
-  // Versions before the explicit name used the AppUserModelId. Remove that too.
-  assert.ok(nsh.includes(`DeleteRegValue HKCU "${RUN}" "${pkg.build.appId}"`), 'does not remove the entry left by older versions');
-  // The name the app writes must match the name the uninstaller looks for.
-  const autostart = fs.readFileSync(path.join(ROOT, 'src', 'main', 'autostart.js'), 'utf8');
-  assert.ok(autostart.includes(`'${pkg.productName}'`), 'name written by the app differs from the product name');
-});
-
-test('install script text exists in Korean and English', () => {
   assert.match(nsh, /\$LANGUAGE == 1042/, 'does not detect Korean');
-  for (const word of ['바탕화면에 바로 가기 만들기', '시작 메뉴에 바로 가기 만들기']) {
-    assert.ok(nsh.includes(word), `${word} is missing`);
-  }
-  for (const word of ['Create a shortcut on the desktop', 'Create a shortcut in the Start Menu']) {
-    assert.ok(nsh.includes(word), `${word} is missing`);
-  }
 });
 
-test('OS-specific native files are unpacked from the archive', () => {
-  assert.ok(
-    pkg.build.asarUnpack.some((glob) => glob.includes('koffi')),
-    'windows will not open unless koffi is unpacked'
-  );
-});
-
-test('packaged file list includes everything needed to run', () => {
-  for (const glob of ['src/**/*', 'assets/**/*', 'package.json']) {
-    assert.ok(pkg.build.files.includes(glob), `${glob} is missing`);
+// 훅 파일은 설치 스크립트 맨 위에서 읽힌다. 템플릿의 변수는 그 뒤에 선언되므로 함수 안에서 쓰면 빈 글자가 된다.
+test('functions in the hooks do not use template variables', () => {
+  const functions = nsh.split(/^Function /m).slice(1).map((part) => part.slice(0, part.indexOf('FunctionEnd')));
+  assert.ok(functions.length > 10);
+  for (const body of functions) {
+    for (const name of ['$PassiveMode', '$UpdateMode', '$DeleteAppDataCheckboxState', '$WixMode']) {
+      assert.equal(body.includes(name), false, `${body.split(/\r?\n/)[0]} uses ${name}`);
+    }
   }
 });
 
-test('installer lets the user choose to erase old settings', () => {
-  assert.match(nsh, /Var WipeData/, 'no variable to hold the choice');
-  assert.match(nsh, /\$\{NSD_GetState\} \$WipeCheck \$WipeData/, 'does not read the choice');
-  assert.ok(nsh.includes('RMDir /r "$APPDATA\\${PRODUCT_FILENAME}"'), 'does not delete the settings folder');
-  // This can't be undone, so the default must be to keep settings.
-  assert.match(nsh, /StrCpy \$WipeData 0/, 'default is set to erase');
-  for (const word of ['예전 설정을 모두 지우고 새로 시작', 'Erase earlier settings and start fresh']) {
-    assert.ok(nsh.includes(word), `${word} is missing`);
+test('only one copy of the app runs at a time', () => {
+  const lib = fs.readFileSync(path.join(TAURI, 'src', 'lib.rs'), 'utf8');
+  assert.match(fs.readFileSync(path.join(TAURI, 'Cargo.toml'), 'utf8'), /tauri-plugin-single-instance/);
+  assert.match(lib, /tauri_plugin_single_instance::init/, 'a second launch is not handed to the first one');
+  assert.match(lib, /claim_single_instance\(\)/, 'nothing stops two copies from owning the desktop');
+});
+
+test('reinstall removes every earlier install completely', () => {
+  assert.ok(nsh.includes(electronGuid(conf.identifier)), 'the Electron install key does not match the appId');
+  assert.ok(nsh.includes('Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MyDeskBox'), 'does not look for the Tauri install');
+  const remove = fn('MdbRemoveOld');
+  // 앞 판은 늘 데이터를 두는 길로 지운다. 데이터를 지우는 일은 새로 깐 뒤에 따로 한다.
+  assert.match(remove, /ExecWait '"\$MdbTaUn" \/S \/UPDATE _\?=\$2'/, 'the Tauri uninstaller is not run in place in keep mode');
+  assert.match(remove, /\/S --updated \/currentuser _\?=\$MdbElDir'/, 'the Electron uninstaller is not run in place in keep mode');
+  assert.ok(remove.indexOf('Call MdbCloseApp') < remove.indexOf('ExecWait'), 'the running app is not closed first');
+  assert.match(remove, /DeleteRegKey HKCU "\$\{MDB_EL_UNKEY\}"/, 'leaves the Electron entry in Apps');
+  const sweep = fn('MdbSweepDir');
+  assert.match(sweep, /RMDir \/r "\$0"/, 'leftover files stay in the old folder');
+  assert.match(sweep, /StrCpy \$1 \$0 "" -9\s+\$\{If\} \$1 == "\$\{MDB_NAME\}"/, 'removes a folder that may not be ours');
+  assert.match(sweep, /Call MdbDropShortcutsTo/, 'old shortcuts keep pointing at the removed program');
+  // 둘 다 깔려 있을 수 있다. 하나를 찾았다고 멈추면 다른 하나가 남는다.
+  assert.equal(fn('MdbFindOld').includes('Return'), false, 'stops after finding the first install');
+  // 조용한 설치에서도 앞 판을 지운다.
+  assert.match(macro('NSIS_HOOK_PREINSTALL'), /Call MdbRemoveOld/);
+  // 묻는 일은 첫 페이지 전에 한다. 앞 판을 지워 두면 Tauri 의 '이미 설치됨' 페이지가 스스로 빠진다.
+  assert.match(nsh, /!define MUI_CUSTOMFUNCTION_GUIINIT MdbGuiInit/);
+  assert.match(fn('MdbGuiInit'), /Call MdbRemoveOld\s*$/, 'the old install is not removed before the pages');
+});
+
+test('asks whether to delete user data, and keeps it unless the user says so twice', () => {
+  const init = fn('MdbGuiInit');
+  assert.ok(nsh.includes('!define MDB_DATA "$APPDATA\\MyDeskBox"'), 'looks in the wrong place for user data');
+  assert.match(init, /layout\.json/, 'does not detect user data');
+  assert.match(init, /StrCpy \$MdbWipe 0/, 'default is to delete');
+  assert.match(init, /MB_YESNOCANCEL\|MB_ICONQUESTION\|MB_DEFBUTTON2/, 'the default button deletes the data');
+  assert.match(init, /askYes:\s+[^\n]*\n\s+MessageBox MB_YESNO\|MB_ICONEXCLAMATION\|MB_DEFBUTTON2 "\$6" IDYES wipeOk/, 'deletes without confirming');
+  assert.match(init, /Quit/, 'cancel does not stop the installation');
+  for (const word of ['사용자 데이터', '지울까요?', 'User data', 'Delete it?']) {
+    assert.ok(init.includes(word), `${word} is missing`);
   }
 });
 
-test('does not offer to erase settings when already installed', () => {
-  assert.match(nsh, /Var HasOldApp/, 'no variable to hold whether the app is installed');
-  assert.match(
-    nsh,
-    /ReadRegStr \$R0 SHELL_CONTEXT "\$\{INSTALL_REGISTRY_KEY\}" InstallLocation/,
-    'does not look up the install location in the registry'
-  );
-  // The erase checkbox is only created when the app is not installed.
-  assert.match(nsh, /\$\{ElseIf\} \$R7 == 1\s+\$\{NSD_CreateCheckbox\}[^\r\n]*\$R5/, 'always creates the erase checkbox');
-  // Erasing is double-guarded: even if we get here, nothing is erased when already installed.
-  assert.match(
-    nsh,
-    /\$\{If\} \$WipeData == \$\{BST_CHECKED\}\s+\$\{AndIf\} \$HasOldApp == 0/,
-    'settings can be erased even when already installed'
-  );
-  for (const word of ['이미 설치되어 있습니다', 'MyDeskBox is already installed']) {
-    assert.ok(nsh.includes(word), `${word} is missing`);
-  }
+test('returns box files to the desktop before deleting user data', () => {
+  const post = macro('NSIS_HOOK_POSTINSTALL');
+  const restore = post.indexOf('Call MdbRestoreDesktop');
+  assert.ok(restore > 0, 'does not restore the desktop');
+  assert.ok(post.indexOf('RMDir /r "${MDB_DATA}"') > restore, 'deletes before restoring');
+  assert.match(post, /\$\{If\} \$MdbWipe == 1/, 'deletes without being asked');
+  const desktop = fn('${p}MdbRestoreDesktop');
+  assert.ok(desktop.includes('--restore-desktop'), 'does not ask the app to restore');
+  assert.match(desktop, /\$\{If\} \$1 != 0\s+Call \$\{p\}MdbRestoreBoxFiles\s+Call \$\{p\}MdbShowShellIcons/, 'no manual fallback');
+  assert.ok(fn('${p}MdbRestoreBoxFiles').includes('${MDB_DATA}\\boxes'), 'does not look in the box storage');
 });
 
-test('silent uninstaller run during reinstall touches nothing', () => {
-  // The installer runs the old uninstaller once with --updated.
-  // Restoring at that point would dump everything held in boxes onto the desktop.
-  assert.match(nsh, /\$\{IfNot\} \$\{isUpdated\}/, 'does not detect the reinstall path');
-  const guard = nsh.indexOf('${IfNot} ${isUpdated}');
-  const restore = nsh.indexOf('Call un.RestoreHeld');
-  assert.ok(guard >= 0 && restore > guard, 'restore is outside the guard');
+test('uninstall restores the desktop before the program is deleted', () => {
+  const pre = macro('NSIS_HOOK_PREUNINSTALL');
+  assert.match(pre, /\$\{If\} \$UpdateMode <> 1/, 'restores during a reinstall too, emptying the boxes');
+  assert.ok(pre.indexOf('Call un.MdbCloseApp') < pre.indexOf('Call un.MdbRestoreDesktop'), 'restores while the app may still re-hide files');
+  const post = macro('NSIS_HOOK_POSTUNINSTALL');
+  assert.ok(post.indexOf('Call un.MdbRestoreBoxFiles') < post.indexOf('Call un.MdbDropShortcutsTo'), 'drops shortcuts before box files come back');
+  assert.match(post, /\$\{If\} \$DeleteAppDataCheckboxState = 1\s+RMDir \/r "\$\{MDB_DATA\}"/, 'user data is not removed when asked');
+  // 앱이 닫힐 때 바탕화면을 되돌리는 길과 이어진다.
+  const session = fs.readFileSync(path.join(TAURI, 'src', 'session.rs'), 'utf8');
+  assert.match(session, /WM_ENDSESSION => \{\s+if w\.0 != 0 \{\s+restore_now\(\);/, 'closing through Restart Manager no longer restores');
 });
 
-test('returns box files to the desktop before erasing settings', () => {
-  assert.match(nsh, /Function RestoreBoxFiles/, 'restore step is missing');
-  assert.ok(nsh.includes('$APPDATA\\${PRODUCT_FILENAME}\\boxes'), 'does not look for the box storage');
-  assert.match(nsh, /Call RestoreBoxFiles\s+RMDir \/r/, 'deletes before restoring');
+test('uninstall removes the startup entry under the name the app writes', () => {
+  const autostart = fs.readFileSync(path.join(TAURI, 'src', 'autostart.rs'), 'utf8');
+  assert.ok(autostart.includes(`"${conf.productName}".into()`), 'name written by the app differs from the product name');
+  const pre = macro('NSIS_HOOK_PREUNINSTALL');
+  assert.ok(pre.includes('DeleteRegValue HKCU "${MDB_RUN_KEY}" "${MDB_NAME}"'), 'does not remove the startup entry');
+  assert.ok(pre.includes(`DeleteRegValue HKCU "\${MDB_RUN_KEY}" "${conf.identifier}"`), 'does not remove the entry left by older versions');
+  // 다시 깔면 앞 판의 경로가 적힌 시작프로그램 값을 새 경로로 바꾼다.
+  assert.match(macro('NSIS_HOOK_POSTINSTALL'), /WriteRegStr HKCU "\$\{MDB_RUN_KEY\}" "\$\{MDB_NAME\}" '"\$INSTDIR\\\$\{MDB_EXE\}"'/);
 });
 
-test('reinstall keeps the current shortcut state', () => {
-  assert.match(
-    nsh,
-    /\$\{IfNot\} \$\{FileExists\} "\$DESKTOP\\\$\{PRODUCT_FILENAME\}\.lnk"\s+StrCpy \$MakeDesktop 0/,
-    'a deleted desktop shortcut comes back'
-  );
-  assert.match(
-    nsh,
-    /\$\{IfNot\} \$\{FileExists\} "\$SMPROGRAMS\\\$\{PRODUCT_FILENAME\}\.lnk"\s+StrCpy \$MakeStartMenu 0/,
-    'a deleted Start Menu shortcut comes back'
-  );
+test('unhides the same shell icons the app hides, without the call that wipes desktop icons', () => {
+  const windows = fs.readFileSync(path.join(TAURI, 'src', 'desktop', 'windows.rs'), 'utf8');
+  const listed = windows.slice(windows.indexOf('pub const SHELL_CLSID'), windows.indexOf('];', windows.indexOf('pub const SHELL_CLSID')));
+  const shown = fn('${p}MdbShowShellIcons').match(/\{[0-9A-Fa-f-]{36}\}/g) || [];
+  assert.ok(shown.includes('{645FF040-5081-101B-9F08-00AA002F954E}'), 'does not restore the Recycle Bin');
+  assert.deepEqual([...shown].sort(), [...listed.match(/\{[0-9A-Fa-f-]{36}\}/g)].sort(), 'differs from SHELL_CLSID in windows.rs');
+  // SHCNE_ASSOCCHANGED 하나에 바탕화면 그림이 모두 사라진다. 바탕화면 보기의 '새로 고침' 만 보낸다.
+  assert.equal(/SHChangeNotify\(i 0x08000000/.test(nsh), false, 'uses SHCNE_ASSOCCHANGED');
+  assert.match(fn('${p}MdbRefreshDesktop'), /0x7103/);
 });
 
-// After uninstall, the desktop must look as it did before the app ran.
-// Held files must not stay in the settings folder, and a hidden Recycle Bin must not stay hidden.
-test('uninstall restores the desktop', () => {
-  assert.match(nsh, /!macro customUnInit/, 'no restore step before files are deleted');
-  assert.ok(
-    nsh.includes('--restore-desktop'),
-    'does not ask the app to restore'
-  );
-  // The executable must be called before files are deleted (customUnInit).
-  const init = nsh.indexOf('!macro customUnInit');
-  const call = nsh.indexOf('--restore-desktop', init);
-  const end = nsh.indexOf('!macroend', init);
-  assert.ok(call > init && call < end, 'tries to call the executable after it is deleted');
-});
-
-test('restores files and Recycle Bin manually if the app cannot', () => {
-  assert.match(nsh, /Function un\.RestoreBoxFiles/, 'uninstaller has no manual restore');
-  assert.match(nsh, /Function un\.EmptyToDesktop/, 'move-to-desktop step is missing');
-  assert.match(nsh, /Function un\.ShowShellIcons/, 'does not unhide the Recycle Bin');
-  // The Recycle Bin CLSID must match SHELL_CLSID in windows.js.
-  const windows = fs.readFileSync(path.join(ROOT, 'src', 'main', 'desktop', 'windows.js'), 'utf8');
-  const shellAt = nsh.indexOf('Function un.ShowShellIcons');
-  const shellBody = nsh.slice(shellAt, nsh.indexOf('FunctionEnd', shellAt));
-  for (const clsid of shellBody.match(/\{[0-9A-Fa-f-]{36}\}/g) || []) {
-    assert.ok(windows.includes(clsid), `tries to restore an icon not listed in windows.js: ${clsid}`);
-  }
-  assert.ok(nsh.includes('{645FF040-5081-101B-9F08-00AA002F954E}'), 'does not restore the Recycle Bin');
-});
-
-test('restores once more after the app has stopped', () => {
-  // The app may still be running during customUnInit and could re-hide what we restored,
-  // so we must run again once the app has definitely stopped (customUnInstall).
-  const at = nsh.indexOf('!macro customUnInstall');
-  assert.ok(at > 0);
-  const end = nsh.indexOf('!macroend', at);
-  const body = nsh.slice(at, end);
-  assert.ok(body.includes('Call un.RestoreBoxFiles'), 'does not restore files at the end');
-  assert.ok(body.includes('Call un.ShowShellIcons'), 'does not restore the Recycle Bin at the end');
-});
-
-// A shortcut kept in a box comes back from the restore step, often renamed
-// ('MyDeskBox (2).lnk', '(1) MyDeskBox.lnk'). Deleting the exact name before that leaves it behind.
+// 박스에 담아 두었던 바로 가기는 이름이 바뀌어 돌아온다. 이름이 아니라 가리키는 파일로 찾는다.
 test('uninstall removes shortcuts that came back from boxes', () => {
-  const at = nsh.indexOf('!macro customUnInstall');
-  const end = nsh.indexOf('!macroend', at);
-  const body = nsh.slice(at, end);
-  const restore = body.lastIndexOf('Call un.RestoreBoxFiles');
-  const del = body.indexOf('Delete "$DESKTOP');
-  assert.ok(del > restore, 'deletes the shortcut before box files come back');
-  assert.ok(body.indexOf('Call un.DropOwnShortcuts') > restore, 'does not sweep shortcuts after restoring');
-  assert.match(nsh, /Function un\.DropOwnShortcuts/, 'shortcut sweep is missing');
-  assert.match(nsh, /Function un\.ShortcutTarget/, 'does not read the shortcut target');
-  // Matched by target, not by name, so other programs' shortcuts stay.
-  // The define does not exist yet where the function is read, so the macro passes the path in.
-  assert.ok(body.includes('Push "$INSTDIR\\${APP_EXECUTABLE_FILENAME}"'), 'does not compare with the installed executable');
-  const fn = nsh.slice(nsh.indexOf('Function un.DropOwnShortcuts'));
-  assert.ok(!fn.slice(0, fn.indexOf('FunctionEnd')).includes('${APP_EXECUTABLE_FILENAME}'), 'uses a define the uninstaller build does not have');
-});
-
-test('reinstall asks before restoring', () => {
-  const at = nsh.indexOf('!macro customInstall');
-  assert.ok(at > 0);
-  const end = nsh.indexOf('!macroend', at);
-  const body = nsh.slice(at, end);
-  assert.ok(body.includes('MessageBox MB_YESNO'), 'restores without asking');
-  assert.ok(body.includes('--restore-desktop'), 'does not call the restore path');
-  assert.ok(body.includes('$HasOldApp == 1'), 'asks even when not installed');
-  assert.ok(body.includes('${IfNot} ${Silent}'), 'asks even during a silent install');
-  assert.match(body, /boxes[\\]restore\.json/, 'does not check whether anything is held');
+  const drop = fn('${p}MdbDropShortcutsTo');
+  assert.match(drop, /\$DESKTOP\\\*\.lnk/, 'does not look at every desktop shortcut');
+  assert.match(drop, /Call \$\{p\}MdbShortcutTarget/, 'matches by name instead of target');
+  assert.ok(macro('NSIS_HOOK_POSTUNINSTALL').includes('Push "$INSTDIR\\${MDB_EXE}"'), 'does not compare with the installed executable');
 });

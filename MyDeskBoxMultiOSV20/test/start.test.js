@@ -1,9 +1,7 @@
 'use strict';
 
-// Checks that npm start relays the app's output without garbling it.
-//
-// Launching real Electron would take over the desktop, so node is swapped in for electron.
-// When started under node, main.js prints a Korean notice and exits with 1; we capture both.
+// npm start 가 tauri dev 를 띄우고, 그 출력을 깨뜨리지 않고 넘기는지 본다.
+// 진짜 tauri dev 는 빌드하고 바탕화면을 차지하므로 가짜 CLI 를 넣는다 (MYDESKBOX_TAURI_CLI).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -14,40 +12,45 @@ const { spawn } = require('node:child_process');
 
 const START = path.join(__dirname, '..', 'tools', 'start.js');
 
-test('npm start relays Korean app output intact and passes through the exit code', async () => {
+function run(args, extraEnv) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [START, ...args], { env: { ...process.env, ...extraEnv } });
+    const out = [];
+    child.stdout.on('data', (chunk) => out.push(chunk));
+    child.stderr.on('data', (chunk) => out.push(chunk));
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, text: Buffer.concat(out).toString('utf8') }));
+  });
+}
+
+test('npm start runs tauri dev, relays Korean output intact and passes through the exit code', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mdb-start-'));
-  const wrapper = path.join(dir, 'run.js');
-  fs.writeFileSync(wrapper, `'use strict';
-const Module = require('module');
-const original = Module._resolveFilename;
-Module._resolveFilename = function resolve(request, ...rest) {
-  if (request === 'electron') return ' electron';
-  return original.call(this, request, ...rest);
-};
-require.cache[' electron'] = { id: ' electron', filename: ' electron', loaded: true, exports: process.execPath };
-require(${JSON.stringify(START)});
+  const fake = path.join(dir, 'tauri.js');
+  fs.writeFileSync(fake, `'use strict';
+process.stdout.write('받은 인자: ' + JSON.stringify(process.argv.slice(2)) + '\\n');
+process.stderr.write('ELECTRON_RUN_AS_NODE=' + (process.env.ELECTRON_RUN_AS_NODE || '') + '\\n');
+process.stderr.write('바탕화면을 되돌렸습니다\\n');
+process.exit(3);
 `);
   try {
-    const result = await new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [wrapper], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
-      const out = [];
-      child.stdout.on('data', (chunk) => out.push(chunk));
-      child.stderr.on('data', (chunk) => out.push(chunk));
-      child.on('error', reject);
-      child.on('close', (code) => resolve({ code, text: Buffer.concat(out).toString('utf8') }));
-    });
-    assert.equal(result.code, 1, `the app's exit code was not passed through\n${result.text}`);
-    assert.match(result.text, /Electron 이 아니라 Node 로 켜졌습니다/, `the app's message was garbled or missing\n${result.text}`);
-    assert.doesNotMatch(result.text, /\uFFFD/, 'output contains garbled characters');
+    const plain = await run([], { MYDESKBOX_TAURI_CLI: fake, ELECTRON_RUN_AS_NODE: '1' });
+    assert.equal(plain.code, 3, `the exit code was not passed through\n${plain.text}`);
+    assert.match(plain.text, /받은 인자: \["dev"\]/, `does not run tauri dev\n${plain.text}`);
+    assert.match(plain.text, /바탕화면을 되돌렸습니다/, `output was garbled or missing\n${plain.text}`);
+    assert.match(plain.text, /ELECTRON_RUN_AS_NODE=\n/, 'ELECTRON_RUN_AS_NODE is passed down');
+    assert.doesNotMatch(plain.text, /�/, 'output contains garbled characters');
+
+    const withArgs = await run(['--restore-desktop'], { MYDESKBOX_TAURI_CLI: fake });
+    assert.match(withArgs.text, /받은 인자: \["dev","--","--","--restore-desktop"\]/, 'app arguments do not reach the app');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('npm start pipes the app output, decodes it as text, and rewrites it', () => {
+test('npm start pipes the output and decodes it as text', () => {
   const source = fs.readFileSync(START, 'utf8');
-  assert.match(source, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, 'the app writes straight to the terminal, so text is garbled in a CP949 terminal');
-  assert.match(source, /stdout\.setEncoding\('utf8'\)/, 'stdout is not decoded as UTF-8');
-  assert.match(source, /stderr\.setEncoding\('utf8'\)/, 'stderr is not decoded as UTF-8');
-  assert.match(source, /delete env\.ELECTRON_RUN_AS_NODE/, 'ELECTRON_RUN_AS_NODE is not removed');
+  assert.match(source, /stdio:\s*\['inherit',\s*'pipe',\s*'pipe'\]/, 'output goes straight to the terminal, so text is garbled in a CP949 terminal');
+  assert.match(source, /stdout\.setEncoding\('utf8'\)/);
+  assert.match(source, /stderr\.setEncoding\('utf8'\)/);
+  assert.ok(fs.existsSync(require.resolve('@tauri-apps/cli/tauri.js', { paths: [path.join(__dirname, '..')] })), 'run npm install first');
 });

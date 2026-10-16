@@ -1,6 +1,6 @@
 'use strict';
 
-const params = new URLSearchParams(location.search);
+const params = window.deskQuery;
 const ask = JSON.parse(params.get('ask') || '{}');
 
 const panel = document.getElementById('panel');

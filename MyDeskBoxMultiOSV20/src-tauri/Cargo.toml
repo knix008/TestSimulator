@@ -1,0 +1,73 @@
+[package]
+name = "mydeskbox"
+version = "1.0.0"
+description = "바탕화면 펜스. Windows, macOS, Linux에서 아이콘을 반투명 박스에 모아 둡니다."
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "mydeskbox_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+# 그림 파일을 줄여 박스에 보여 주고, 메뉴와 창에 쓸 그림을 PNG 로 만든다.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp", "ico"] }
+# 바탕화면 폴더가 바뀌면 곧바로 박스를 맞춘다 (Electron 판의 fs.watch).
+notify = "8"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: layout.json 의 항목 순서를 Electron 판과 같게 둔다 (사람이 읽기 쉽게).
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-single-instance = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Console",
+  "Win32_System_DataExchange",
+  "Win32_System_Environment",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_System_Registry",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
+  "Win32_System_Time",
+  "Win32_UI_Controls",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_WindowsAndMessaging",
+] }
+windows-core = "0.62"
+
+[target.'cfg(not(windows))'.dependencies]
+# 큰 오류를 알리는 시스템 창과, 휴지통으로 보내기.
+drag = "2"
+libc = "0.2"
+rfd = "0.16"
+trash = "5"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

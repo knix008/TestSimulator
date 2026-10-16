@@ -1,6 +1,6 @@
 'use strict';
 
-// assets 디렉터리의 그림을 모두 새로 만든다.
+// src/assets 디렉터리의 그림을 모두 새로 만든다.
 //   node tools/make-icons.js
 
 const fs = require('fs');
@@ -9,9 +9,9 @@ const { canvas } = require('./lib/draw');
 const { encodePng } = require('./lib/png');
 const { encodeIco, encodeIcns } = require('./lib/ico');
 const { icons, swatch, level, themeChip, cornerChip } = require('./icons');
-const { THEMES, OPACITIES, CORNERS } = require('../src/main/themes');
+const { THEMES, OPACITIES, CORNERS } = require('../src/shared/themes.json');
 
-const ASSETS = path.join(__dirname, '..', 'assets');
+const ASSETS = path.join(__dirname, '..', 'src', 'assets');
 const MENU = path.join(ASSETS, 'menu');
 
 

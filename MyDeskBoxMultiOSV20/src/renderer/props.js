@@ -2,7 +2,7 @@
 
 // 속성 창. 메인이 정해 준 줄을 그대로 그린다. 여기서 정하는 말은 없다.
 
-const params = new URLSearchParams(location.search);
+const params = window.deskQuery;
 const props = JSON.parse(params.get('props') || '{}');
 
 const panel = document.getElementById('panel');

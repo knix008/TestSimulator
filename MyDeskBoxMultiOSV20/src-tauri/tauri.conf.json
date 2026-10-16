@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyDeskBox",
+  "mainBinaryName": "MyDeskBox",
+  "version": "1.0.0",
+  "identifier": "com.suhokwon.mydeskbox",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON",
+    "license": "MIT",
+    "category": "Utility",
+    "shortDescription": "Desktop fences for your icons",
+    "longDescription": "바탕화면 펜스. Windows, macOS, Linux에서 아이콘을 반투명 박스에 모아 둡니다.",
+    "icon": [
+      "../src/assets/icon.png",
+      "../src/assets/icon.icns",
+      "../src/assets/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../src/assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

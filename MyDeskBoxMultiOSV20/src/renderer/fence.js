@@ -5,7 +5,7 @@
 // 담긴 파일은 박스의 폴더에 있다. 바탕화면 폴더에서 빠져 있으므로 탐색기는
 // 그 아이콘을 그리지 않는다. 그래서 고르기·열기·끌어 옮기기를 우리가 맡는다.
 
-const id = new URLSearchParams(location.search).get('id');
+const id = window.deskQuery.get('id');
 const panel = document.getElementById('panel');
 const title = document.getElementById('title');
 const nameEl = document.getElementById('name');
@@ -661,37 +661,35 @@ body.addEventListener('scroll', () => {
 
 // 탐색기나 바탕화면에서 끌어다 놓는 길. 박스 안의 아이콘을 끄는 길과 다르다.
 // 제목 줄 위에 놓아도 들어가야 하므로 창 전체가 받는다.
-document.addEventListener('dragover', (event) => {
-  event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-  if (!fence || drag) return;
-  // 끌고 오는 동안에도 어느 항목 위인지 보여 준다.
-  // 놓고 나서야 알게 되면 휴지통이나 폴더를 겨누기가 어렵다.
-  hover = {
-    filePath: '__external__',
-    localX: localX(event.clientX),
-    localY: localY(event.clientY),
-    into: receiverAt(event.clientX, event.clientY, null),
-  };
-  layout();
-});
-
-document.addEventListener('dragleave', (event) => {
-  // 창 안의 다른 칸으로 옮겨 간 것은 떠난 것이 아니다.
-  if (event.relatedTarget) return;
-  if (hover && hover.filePath === '__external__') {
-    hover = null;
-    layout();
+// 운영체제가 끄는 동안의 자리와 놓은 파일을 알려 준다 (bridge.js 의 onFileDrag).
+desk.onFileDrag((event) => {
+  if (event.type === 'leave') {
+    if (hover && hover.filePath === '__external__') {
+      hover = null;
+      layout();
+    }
+    return;
   }
-});
-
-document.addEventListener('drop', (event) => {
-  event.preventDefault();
+  if (event.type === 'enter' || event.type === 'over') {
+    if (!fence || drag) return;
+    // 끌고 오는 동안에도 어느 항목 위인지 보여 준다.
+    // 놓고 나서야 알게 되면 휴지통이나 폴더를 겨누기가 어렵다.
+    hover = {
+      filePath: '__external__',
+      localX: localX(event.clientX),
+      localY: localY(event.clientY),
+      into: receiverAt(event.clientX, event.clientY, null),
+    };
+    layout();
+    return;
+  }
+  if (event.type !== 'drop') return;
   const grid = window.DeskArrange.gridOf(panel.clientWidth, panel.clientHeight, false);
   const index = window.DeskArrange.insertIndex(localX(event.clientX), scrolled(localY(event.clientY)), grid, items.length);
-  const paths = [...event.dataTransfer.files].map((file) => desk.pathForFile(file)).filter(Boolean);
+  const paths = event.paths.filter(Boolean);
   const into = receiverAt(event.clientX, event.clientY, null);
   hover = null;
+  layout();
   if (paths.length) desk.dropFiles({ id, paths, index, into });
 });
 

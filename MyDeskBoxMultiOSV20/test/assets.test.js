@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { icons } = require('../tools/icons');
-const { THEMES, OPACITIES } = require('../src/main/themes');
+const { THEMES, OPACITIES } = require('../src/shared/themes.json');
 
-const ASSETS = path.join(__dirname, '..', 'assets');
+const ASSETS = path.join(__dirname, '..', 'src', 'assets');
 
 function readPngSize(file) {
   const buf = fs.readFileSync(file);
@@ -26,7 +26,7 @@ function menuNames() {
 
 test('all app and tray images exist', () => {
   for (const name of ['icon.png', 'icon.ico', 'icon.icns', 'tray.png', 'tray@2x.png']) {
-    assert.ok(fs.existsSync(path.join(ASSETS, name)), `assets/${name} is missing`);
+    assert.ok(fs.existsSync(path.join(ASSETS, name)), `src/assets/${name} is missing`);
   }
   assert.deepEqual(readPngSize(path.join(ASSETS, 'icon.png')), { width: 256, height: 256, bytes: readPngSize(path.join(ASSETS, 'icon.png')).bytes });
   assert.equal(readPngSize(path.join(ASSETS, 'tray.png')).width, 16);

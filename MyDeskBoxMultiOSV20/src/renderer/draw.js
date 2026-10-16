@@ -1,7 +1,7 @@
 'use strict';
 
 const band = document.getElementById('band');
-const lang = new URLSearchParams(location.search).get('lang');
+const lang = window.deskQuery.get('lang');
 document.getElementById('hint').textContent = window.DeskI18n.t(lang, 'draw.hint');
 let start = null;
 

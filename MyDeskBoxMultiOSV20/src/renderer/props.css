@@ -95,14 +95,22 @@ html, body {
 /* 경로처럼 긴 값은 어디서든 접어야 창을 넘지 않는다. */
 #rows dd.wide { word-break: break-all; }
 
+/* 단추는 가장 긴 글에 맞춘 같은 너비로, 가운데에 나란히 둔다. */
 #buttons {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 10px;
+  width: max-content;
+  margin: 0 auto;
 }
 
 button {
-  min-width: 78px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 88px;
   padding: 7px 14px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
