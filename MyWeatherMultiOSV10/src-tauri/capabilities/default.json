@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Weather windows, their dialogs and menus, the tray menu, and the print window. Everything else goes through MyWeather's own commands.",
+  "windows": ["main", "weather-*", "popup-*", "menu-*", "tray-*", "print-*"],
+  "permissions": ["core:event:default"]
+}

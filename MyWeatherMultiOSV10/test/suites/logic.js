@@ -15,7 +15,7 @@ import { MARGINS, PAPERS, PRINT_RANGES, SCALES, buildPrintModel, normalizeRanges
 import { RecentFiles } from "../../src/core/recent.js";
 import { DEFAULT_LOCATION, FONT_PARTS, MAX_CITIES, ROTATE_SECONDS, fontsForWindow, moveCityToWindow, sanitizeCities, sanitizeExtraWindows, sanitizeFonts, sanitizeSettings, samePlace } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
-import { PopupHub } from "../../electron/popup-hub.js";
+import { coalesceSteps } from "../../src/platform/desktop.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
 import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
 import { icon, knownIcons } from "../../src/ui/icons.js";
@@ -554,7 +554,7 @@ export function registerLogic(h) {
     assert.ok(parked.x > 0);
     const wide = placeBeside({ x: 0, y: 0, width: 1400, height: 1080 }, { width: 680, height: 640 }, work);
     assert.equal(wide.x, 1920 - 680);
-    assert.match(fs.readFileSync(path.join(root, "electron/main.js"), "utf8"), /popupWindowOptions\(stored, parent, workArea, parentBounds\)/);
+    assert.match(fs.readFileSync(path.join(root, "src/platform/desktop.js"), "utf8"), /popupWindowOptions\(spec, null, info\.workArea, info\.bounds\)/);
   });
   h.test("tab overflow uses previous and next instead of a scrollbar", () => {
     const layout = layoutTabScroller(0, 8, 300, 148);
@@ -744,64 +744,6 @@ export function registerLogic(h) {
       assert.match(svg.innerHTML, /fill="#[0-9a-f]{6}"/i, name);
     }
   });
-  h.test("each window keeps its own dialogs and loses them when it closes", () => {
-    const hub = new PopupHub();
-    const closed = [];
-    const stub = (name) => ({ close: () => closed.push(name), focus: () => {} });
-    const first = hub.begin({ type: "settings" }, () => stub("first"), "window-a");
-    const second = hub.begin({ type: "settings" }, () => stub("second"), "window-b");
-    assert.equal(first.focused, false);
-    assert.equal(second.focused, false);
-    assert.notEqual(first.id, second.id);
-    assert.equal(hub.begin({ type: "settings" }, () => stub("again"), "window-a").focused, true);
-    assert.equal(hub.refresh("settings", { title: "x" }, { focus: false }, "window-b").id, second.id);
-    assert.equal(hub.refresh("settings", { title: "x" }, { focus: false }, "window-c"), null);
-    hub.closeOwned("window-a");
-    assert.deepEqual(closed, ["first"]);
-    assert.equal(hub.windows.size, 1);
-    hub.closeAll();
-    assert.equal(hub.windows.size, 0);
-  });
-  h.test("popup hub closes every popup when the app quits", async () => {
-    const hub = new PopupHub();
-    const closed = [];
-    let focuses = 0;
-    const started = hub.begin({ type: "about" }, () => ({
-      close: () => closed.push("about"),
-      send() {},
-      focus() {
-        focuses += 1;
-      },
-    }));
-    const id = started.id;
-    assert.equal(started.focused, false);
-    const again = hub.begin({ type: "about" }, () => {
-      throw new Error("about should stay open");
-    });
-    assert.equal(again.focused, true);
-    assert.equal(again.id, id);
-    assert.equal(focuses, 1);
-    assert.equal(hub.windows.size, 1);
-    const daily = hub.begin({ type: "forecast", range: "daily" }, () => ({ close() {}, send() {}, focus() {} }));
-    const weekly = hub.begin({ type: "forecast", range: "weekly" }, () => ({ close() {}, send() {}, focus() {} }));
-    assert.equal(daily.focused, false);
-    assert.equal(weekly.focused, false);
-    assert.notEqual(daily.id, weekly.id);
-    const sent = [];
-    hub.windows.get(daily.id).win.send = (patch) => sent.push(patch);
-    const refreshed = hub.refresh("forecast:daily", { markup: "<p>2026-10-09</p>" });
-    assert.equal(refreshed.focused, true);
-    assert.equal(refreshed.id, daily.id);
-    assert.equal(sent[0].markup, "<p>2026-10-09</p>");
-    assert.match(hub.take(daily.id).markup, /2026-10-09/);
-    assert.equal(hub.refresh("forecast:missing", { markup: "no" }), null);
-    const pending = hub.wait(id);
-    hub.closeAll();
-    assert.deepEqual(await pending, { action: "close" });
-    assert.deepEqual(closed, ["about"]);
-    assert.equal(hub.windows.size, 0);
-  });
-
   h.category("Installer");
   h.test("fresh install only copies the app and registers both icons", () => {
     const plan = planInstall({ language: "en", existingInstall: false, userDataExists: false, installPath: "/opt/MyWeather", userDataPath: "/data" });
@@ -915,81 +857,144 @@ export function registerLogic(h) {
     assert.equal(declined.includes("uninstall-existing"), true);
   });
   h.test("packaged installers use one icon and offer korean and english", () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-    assert.equal(pkg.build.win.icon, "assets/icon.ico");
-    assert.equal(pkg.build.nsis.installerIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.nsis.uninstallerIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.nsis.installerHeaderIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.mac.icon, "assets/icon.icns");
-    assert.equal(pkg.build.linux.icon, "assets/icon.png");
-    assert.equal(pkg.build.fileAssociations[0].icon, "assets/file.ico");
-    assert.equal(pkg.build.fileAssociations[0].ext, "myweather");
-    assert.ok(pkg.build.nsis.installerLanguages.includes("ko_KR"));
-    assert.ok(pkg.build.nsis.installerLanguages.includes("en_US"));
-    assert.equal(pkg.build.nsis.deleteAppDataOnUninstall, false);
-    assert.equal(pkg.build.nsis.createDesktopShortcut, false);
-    assert.equal(pkg.build.nsis.createStartMenuShortcut, false);
-    assert.equal(pkg.build.extraResources[0].from, "assets/icon.ico");
-    assert.equal(pkg.build.extraResources[0].to, "icon.ico");
-    assert.equal(programIconFile("win32"), pkg.build.win.icon);
+    const conf = JSON.parse(fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"));
+    const bundle = conf.bundle;
+    assert.equal(conf.productName, "MyWeather");
+    assert.equal(conf.identifier, "com.shkwon.myweather");
+    assert.deepEqual(bundle.icon, ["../assets/icon.ico", "../assets/icon.png", "../assets/icon.icns"]);
+    assert.equal(bundle.windows.nsis.installerIcon, bundle.icon[0]);
+    assert.equal(bundle.windows.nsis.displayLanguageSelector, true);
+    assert.deepEqual(bundle.windows.nsis.languages, ["English", "Korean"]);
+    assert.equal(bundle.windows.nsis.installMode, "currentUser");
+    assert.equal(bundle.windows.nsis.installerHooks, "windows/hooks.nsh");
+    assert.equal(bundle.resources["../assets/icon.ico"], "icon.ico");
+    assert.equal(bundle.resources["../assets/file.ico"], "file.ico");
+    assert.deepEqual(bundle.fileAssociations[0].ext, ["myweather"]);
+    assert.equal(bundle.fileAssociations[0].mimeType, "application/x-myweather");
+    assert.equal(programIconFile("win32"), "assets/icon.ico");
     assert.equal(trayIconFile("win32"), "assets/icon.ico");
     assert.equal(programIconFor("darwin"), "assets/icon.icns");
     assert.equal(programIconFor("linux"), "assets/icon.png");
-    const nsis = fs.readFileSync(path.join(root, "installer/windows/installer.nsh"), "utf8");
+    const nsis = fs.readFileSync(path.join(root, "src-tauri/windows/hooks.nsh"), "utf8");
     assert.match(nsis, /Saved data from the previous installation/);
     assert.match(nsis, /이전에 설치한 프로그램의 저장 데이터가 있습니다/);
     assert.match(nsis, /완전히 삭제/);
     assert.match(nsis, /file\.ico/);
     assert.match(nsis, /바탕화면 바로가기/);
     assert.match(nsis, /시작 메뉴 바로가기/);
-    assert.match(nsis, /resources\\icon\.ico/);
+    assert.match(nsis, /\$INSTDIR\\icon\.ico/);
     assert.match(nsis, /CreateShortCut/);
-    assert.match(nsis, /RMDir \/r "\$INSTDIR"/);
+    // The Electron build it replaces is found by its own uninstall key and removed first.
+    assert.match(nsis, /8f6dd25c-f028-57b0-89e8-f6758dc44657/);
+    assert.match(nsis, /Uninstall MyWeather\.exe/);
     const linux = fs.readFileSync(path.join(root, "installer/linux/install.sh"), "utf8");
     const mac = fs.readFileSync(path.join(root, "installer/macos/install.sh"), "utf8");
     assert.match(linux, /cli\.js/);
     assert.match(mac, /cli\.js/);
+    const cli = fs.readFileSync(path.join(root, "installer/cli.js"), "utf8");
+    assert.match(cli, /"target", "release"/);
+    assert.doesNotMatch(cli, /"electron"/);
     const desktop = fs.readFileSync(path.join(root, "installer/linux/myweather.desktop"), "utf8");
     assert.match(desktop, /application\/x-myweather/);
     const mime = fs.readFileSync(path.join(root, "installer/linux/myweather-mime.xml"), "utf8");
     assert.match(mime, /\*\.myweather/);
-    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
-    assert.match(main, /assets\/icon\.png/);
-    assert.match(main, /frame: false/);
-    assert.match(main, /saveWindowPlacement/);
-    assert.match(main, /window-bounds/);
-    assert.match(main, /window\.json/);
-    assert.match(main, /thickFrame: false/);
-    assert.match(main, /skipTaskbar: true/);
-    assert.match(main, /setLoginItemSettings/);
-    assert.match(main, /set-open-at-login/);
+    assert.equal(fs.existsSync(path.join(root, "electron")), false, "the Electron shell is gone");
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    assert.equal(pkg.devDependencies.electron, undefined);
+    assert.equal(pkg.devDependencies["electron-builder"], undefined);
+    assert.ok(pkg.devDependencies["@tauri-apps/cli"]);
+    // npm start picks a port free on both 127.0.0.1 and ::1 for tauri dev's static server.
+    assert.equal(pkg.scripts.start, "node scripts/dev.js");
+    const dev = fs.readFileSync(path.join(root, "scripts/dev.js"), "utf8");
+    assert.match(dev, /"dev", "--port", String\(port\)/);
+    const free = fs.readFileSync(path.join(root, "scripts/free-port.js"), "utf8");
+    assert.match(free, /"127\.0\.0\.1"/);
+    assert.match(free, /"::1"/);
+  });
+
+  h.test("the Tauri shell keeps the frameless, transparent, tray-only window", () => {
+    const lib = fs.readFileSync(path.join(root, "src-tauri/src/lib.rs"), "utf8");
+    const created = lib.slice(lib.indexOf("fn create_weather_window"), lib.indexOf("fn reveal_weather_window"));
+    for (const call of [".decorations(false)", ".transparent(true)", ".shadow(false)", ".skip_taskbar(true)", ".visible(false)", ".min_inner_size(WINDOW_MIN.width, WINDOW_MIN.height)", '"src/index.html"']) {
+      assert.ok(created.includes(call), call);
+    }
+    // Shown only once the page has loaded, so a transparent window never flashes empty.
+    assert.match(created, /PageLoadEvent::Finished[\s\S]*?reveal_weather_window/);
+    assert.match(lib, /fn window_state_file[\s\S]*?window\.json/);
+    assert.match(lib, /fn settings_file[\s\S]*?settings\.json/);
+    // Settings carry over from the Electron build: %APPDATA%\MyWeather and its siblings.
+    assert.match(lib, /config_dir\(\)[\s\S]{0,200}join\("MyWeather"\)/);
+    // The tray goes up at startup and the close button only puts the first window away.
+    const setup = lib.slice(lib.indexOf(".setup(|app|"));
+    assert.ok(setup.indexOf("create_tray(") < setup.indexOf("open_configured_windows("));
+    assert.match(lib, /CloseRequested \{ api, \.\. \} => \{[\s\S]*?api\.prevent_close\(\);\s*hide_main_window\(app\);/);
+    assert.match(lib, /fn hide_main_window[\s\S]*?win\.hide\(\)/);
+    assert.match(lib, /RunEvent::ExitRequested \{ api, code, \.\. \}[\s\S]*?api\.prevent_exit\(\)/);
+    assert.match(lib, /tray_command/);
+    assert.match(lib, /fn fit_tray_menu/);
+    assert.match(lib, /fn fit_menu/);
+    assert.match(lib, /fn promote_tray_icon/);
+    // A move writes window.json once it settles, not on every step.
+    assert.match(lib, /FLUSH_DELAY/);
+    // Resource budget: one renderer for every page, drawn without the GPU.
+    assert.match(lib, /--process-per-site/);
+    assert.match(lib, /--renderer-process-limit=1/);
+    assert.match(lib, /--disable-gpu/);
+    // Login entry: never rewritten by a development build or a test run.
+    assert.match(lib, /fn apply_open_at_login[\s\S]*?cfg!\(debug_assertions\) \|\| std::env::var_os\("MYWEATHER_CONFIG_DIR"\)/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
-    assert.match(main, /new Tray/);
-    assert.match(main, /placeTrayMenu/);
-    assert.match(main, /fit-tray-menu/);
-    assert.match(main, /fit-menu/);
-    assert.match(main, /delete options\.parent/);
-    assert.match(main, /trayCommand/);
-    // The tray icon goes up at startup and the close button only puts the window away.
-    assert.match(main, /app\.whenReady\(\)[\s\S]*?createTray\(\)/);
-    assert.match(main, /function hideMainWindow\(\)[\s\S]*?mainWindow\.hide\(\)/);
-    assert.match(main, /if \(!isPrimary\(win\)\)[\s\S]*?event\.preventDefault\(\);\n    hideMainWindow\(\);/);
-    assert.match(main, /ipcMain\.handle\("new-window"/);
-    assert.match(main, /moveCityToWindow/);
-    assert.match(main, /extraWindows/);
-    assert.match(main, /function openConfiguredWindows\(\)/);
-    assert.match(main, /openConfiguredWindows\(\)/);
-    const created = main.slice(main.indexOf("function createMainWindow"));
-    const beforeLoad = created.slice(0, created.indexOf("win.loadFile"));
-    assert.match(beforeLoad, /ready-to-show/);
-    assert.match(beforeLoad, /did-finish-load/);
-    assert.match(main, /windowBoot\.set\([\s\S]{0,80}primary: first/);
-    // A destroyed window cannot be asked for its webContents, so closed handlers use a saved id.
-    const closedHandlers = main.split('on("closed"').slice(1).map((part) => part.slice(0, part.indexOf("});")));
-    assert.ok(closedHandlers.length >= 3, String(closedHandlers.length));
-    for (const handler of closedHandlers) assert.doesNotMatch(handler, /webContents/, handler.slice(0, 160));
-    assert.match(main, /revealMainWindowFromTray/);
-    assert.doesNotMatch(main, /popUpContextMenu/);
+    const page = fs.readFileSync(path.join(root, "src/index.html"), "utf8");
+    assert.match(page, /MyWeather V1\.0/);
+    assert.match(page, /assets\/icon\.png/);
+  });
+
+  h.test("every command the pages call is registered in Rust", () => {
+    const lib = fs.readFileSync(path.join(root, "src-tauri/src/lib.rs"), "utf8");
+    const start = lib.indexOf("generate_handler![");
+    const handler = lib.slice(start + "generate_handler![".length, lib.indexOf("])", start));
+    const registered = new Set(handler.match(/[a-z_]+/g));
+    const pages = ["src/platform/tauri-bridge.js", "test/suites/desktop.js"].map((file) => fs.readFileSync(path.join(root, file), "utf8")).join("\n");
+    const called = new Set([...pages.matchAll(/(?:invoke|send)\(\s*["'`]([a-z_]+)["'`]/g)].map((match) => match[1]));
+    for (const name of called) assert.ok(registered.has(name), `${name} is not in generate_handler!`);
+    // And nothing is registered that no page calls.
+    for (const name of registered) assert.ok(called.has(name), `${name} is registered but never called`);
+    for (const name of registered) {
+      assert.match(lib, new RegExp(`#\\[tauri::command\\]\\s*(async )?fn ${name}\\(`), name);
+    }
+  });
+
+  h.test("Rust uses the same window sizes and one-window dialogs as the page", () => {
+    const placement = fs.readFileSync(path.join(root, "src-tauri/src/placement.rs"), "utf8");
+    const size = (name) => placement.match(new RegExp(`${name}: Size = Size \\{ width: ([\\d.]+), height: ([\\d.]+) \\}`)).slice(1).map(Number);
+    assert.deepEqual(size("WINDOW_MIN"), [WINDOW_MIN.width, WINDOW_MIN.height]);
+    assert.deepEqual(size("WINDOW_DEFAULT"), [WINDOW_DEFAULT.width, WINDOW_DEFAULT.height]);
+    const hub = fs.readFileSync(path.join(root, "src-tauri/src/hub.rs"), "utf8");
+    const rustOne = hub.match(/ONE_WINDOW: \[&str; \d+\] = \[([^\]]+)\]/)[1].match(/"(\w+)"/g).map((name) => name.slice(1, -1));
+    const jsOne = fs.readFileSync(path.join(root, "src/ui/menu-layout.js"), "utf8").match(/const ONE_WINDOW = new Set\(\[([^\]]+)\]\)/)[1].match(/"(\w+)"/g).map((name) => name.slice(1, -1));
+    assert.deepEqual([...rustOne].sort(), [...jsOne].sort());
+  });
+
+  h.test("the desktop platform sends one window step per frame and never drops start or end", async () => {
+    const sent = [];
+    let tick = null;
+    const step = coalesceSteps(
+      (s) => {
+        sent.push(s.phase === "move" ? `move ${s.dx}` : s.phase);
+        return Promise.resolve(s);
+      },
+      (fn) => {
+        tick = fn;
+      },
+    );
+    step({ phase: "start" });
+    for (let dx = 1; dx <= 5; dx += 1) step({ phase: "move", dx, dy: 0 });
+    tick();
+    step({ phase: "move", dx: 9, dy: 0 });
+    await step({ phase: "end" });
+    assert.deepEqual(sent, ["start", "move 5", "move 9", "end"]);
+  });
+
+  h.test("the tray menu lists every command with an icon in both languages", () => {
     const koMenu = buildTrayMenu((key) => createI18n("ko").t(key));
     const enMenu = buildTrayMenu((key) => createI18n("en").t(key));
     const koItems = listTrayItems(koMenu);
@@ -1033,43 +1038,25 @@ export function registerLogic(h) {
     assert.match(guide, /바탕화면/);
     assert.match(guide, /시작 메뉴/);
     assert.match(guide, /트레이/);
-    assert.match(main, /transparent: true/);
-    assert.match(main, /WINDOW_MIN/);
-    assert.match(main, /window-resize/);
-    assert.match(main, /window-move/);
-    assert.match(main, /savedWindowPlacement/);
-    assert.match(main, /holdSavedBounds/);
-    assert.match(main, /setBounds\(bounds\)/);
-    assert.match(main, /placeWindow/);
-    assert.match(main, /function revealWindow/);
-    assert.match(main, /revealWindow\(win\)/);
-    assert.match(main, /uncaughtException/);
-    assert.match(main, /render-process-gone/);
-    assert.match(main, /clipboard\.writeText\(text\)/);
-    assert.match(main, /const contentsId = win\.webContents\.id/);
-    assert.match(main, /contentsToPopup\.delete\(contentsId\)/);
-    assert.doesNotMatch(main, /set-opacity/);
-    const page = fs.readFileSync(path.join(root, "src/index.html"), "utf8");
-    assert.match(page, /MyWeather V1\.0/);
-    assert.match(page, /assets\/icon\.png/);
+    const menuHost = fs.readFileSync(path.join(root, "src/menu-host.js"), "utf8");
+    assert.match(menuHost, /buildTrayMenu/, "the tray menu window builds its own items");
+    for (const file of ["src/menu-host.js", "src/popup-host.js", "src/renderer.js"]) {
+      assert.doesNotMatch(fs.readFileSync(path.join(root, file), "utf8"), /electronAPI/, file);
+    }
   });
 
   h.test("a second launch says so and leaves instead of opening another copy", () => {
-    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
-    assert.match(main, /app\.requestSingleInstanceLock\(\)/, "the lock is taken at startup");
-    // The copy that loses the lock must say its piece and go before building anything.
-    const ready = main.slice(main.indexOf("app.whenReady().then("));
-    const body = ready.slice(0, ready.indexOf("});"));
-    assert.match(body, /if \(!singleInstance\)/, body.slice(0, 200));
-    assert.match(body, /tellAlreadyRunning\(\);[\s\S]{0,40}app\.exit\(0\);[\s\S]{0,20}return;/, body.slice(0, 300));
-    assert.ok(
-      body.indexOf("app.exit(0)") < body.indexOf("createTray()"),
-      "it leaves before the tray icon and the window are built",
-    );
-    // It has no window of its own, so it speaks through a dialog in the saved language.
-    const telling = main.slice(main.indexOf("function tellAlreadyRunning()"));
-    assert.match(telling, /dialog\.showMessageBoxSync/);
-    assert.match(telling, /msg\.alreadyRunning/);
+    const lib = fs.readFileSync(path.join(root, "src-tauri/src/lib.rs"), "utf8");
+    // The single-instance plugin is registered first; the copy that loses leaves at once.
+    const run = lib.slice(lib.indexOf("pub fn run()"));
+    assert.ok(run.indexOf("tauri_plugin_single_instance::init") < run.indexOf("tauri_plugin_dialog::init"));
+    assert.match(run, /tauri_plugin_single_instance::init\(\|app, _args, _cwd\| \{[\s\S]*?"second-instance"/);
+    // The running copy speaks, in the saved language, through a native message box.
+    const app = fs.readFileSync(path.join(root, "src/app.js"), "utf8");
+    assert.match(app, /onSecondInstance\?\.\(\(\) => this\.tellAlreadyRunning\(\)\)/);
+    const telling = app.slice(app.indexOf("async tellAlreadyRunning()"));
+    assert.match(telling, /messageBox/);
+    assert.match(telling, /msg\.alreadyRunning"/);
     assert.match(telling, /msg\.alreadyRunningHint/);
     for (const language of ["ko", "en"]) {
       const i18n = createI18n(language);
@@ -1080,13 +1067,11 @@ export function registerLogic(h) {
     }
     assert.match(createI18n("ko").t("msg.alreadyRunningHint"), /트레이/, "it points at the tray, where the window hides");
     assert.match(createI18n("en").t("msg.alreadyRunningHint"), /tray/i);
-    // The running copy is left alone: no second-instance handler steals its focus.
-    assert.doesNotMatch(main, /app\.on\("second-instance"/);
-    // The way past the lock is for development only and keeps its own user data.
-    assert.match(main, /!app\.isPackaged &&/);
-    assert.match(main, /MYWEATHER_MULTI/);
-    assert.match(main, /--multi/);
-    assert.match(main, /setPath\("userData", `\$\{app\.getPath\("userData"\)\}-pid-\$\{process\.pid\}`\)/);
+    // The way past the lock is for development only and keeps its own settings folder.
+    assert.match(lib, /fn allow_multiple\(\) -> bool \{\s*cfg!\(debug_assertions\) &&/);
+    assert.match(lib, /MYWEATHER_MULTI/);
+    assert.match(lib, /--multi/);
+    assert.match(lib, /MyWeather-pid-\{\}/);
   });
 
   h.category("Icons");

@@ -141,6 +141,7 @@ class WeatherApp {
     this.applyAll();
     this.platform.onMenuCommand?.((id) => this.run(id));
     this.platform.onRequestClose?.(() => this.requestClose());
+    this.platform.onSecondInstance?.(() => this.tellAlreadyRunning());
     this.platform.onWindowState?.((state) => this.applyWindowState(state));
     this.platform.onPopupImmediate?.(async (msg) => {
       const handler = this.nativeImmediate || ((item) => this.handlePopupImmediate(item));
@@ -1920,6 +1921,16 @@ class WeatherApp {
     if (answer.action === "discard") return true;
     if (answer.action === "save") return Boolean(await this.save());
     return false;
+  }
+
+  /** A second launch leaves at once; this copy says so, since a hidden window looks closed. */
+  async tellAlreadyRunning() {
+    await this.platform.messageBox?.({
+      title: WINDOW_TITLE,
+      message: this.t("msg.alreadyRunning"),
+      detail: this.t("msg.alreadyRunningHint"),
+      ok: this.t("btn.ok"),
+    });
   }
 
   /** The window keeps running behind the tray icon; only the tray's exit ends the program. */

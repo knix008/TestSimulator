@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyWeather",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myweather",
+  "build": {
+    "frontendDist": "../web-dist",
+    "beforeDevCommand": "node scripts/stage-web.js",
+    "beforeBuildCommand": "node scripts/stage-web.js"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "SHKWON <knix008@naver.com>",
+    "category": "Weather",
+    "shortDescription": "MyWeather",
+    "longDescription": "Aggregated daily, weekly, and monthly weather for a chosen country and city.",
+    "icon": ["../assets/icon.ico", "../assets/icon.png", "../assets/icon.icns"],
+    "resources": {
+      "../assets/icon.ico": "icon.ico",
+      "../assets/file.ico": "file.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["myweather"],
+        "name": "MyWeather Document",
+        "description": "MyWeather weather document",
+        "mimeType": "application/x-myweather",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["English", "Korean"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  }
+}

@@ -6,16 +6,16 @@ English notes are included in each section.
 
 ## 설치
 
-Windows에서는 프로젝트 루트의 `MyWeather-Setup-1.0.0.exe`를 실행합니다. 설치 파일의 아이콘은 프로그램 아이콘과 같은 `assets/icon.ico`입니다.
+Windows에서는 프로젝트 루트의 `MyWeather_1.0.0_x64-setup.exe`(약 2MB)를 실행합니다. 설치 파일의 아이콘은 프로그램 아이콘과 같은 `assets/icon.ico`입니다. 화면 표시는 Windows에 들어 있는 WebView2를 쓰므로, WebView2가 없는 PC에서는 설치 중에 내려받습니다.
 
 1. 설치 언어를 고릅니다. English 또는 한국어입니다.
-2. 이미 설치된 MyWeather가 있으면 프로그램 폴더와 이전 바로가기를 완전히 지운 뒤 다시 설치합니다.
-3. 이전에 저장한 설정이나 날씨 파일이 있으면 삭제할지 물어봅니다. 아니오를 고르면 그 데이터는 남습니다.
+2. 이미 설치된 MyWeather가 있으면 프로그램 폴더와 이전 바로가기를 완전히 지운 뒤 다시 설치합니다. 예전 Electron 판(`MyWeather-Setup-1.0.0.exe`로 설치한 것)도 이때 찾아서 지웁니다.
+3. 이전에 저장한 설정이나 날씨 파일이 있으면 삭제할지 물어봅니다. 아니오를 고르면 그 데이터는 남고, 새 판이 그대로 이어서 씁니다. Electron 판이 남긴 브라우저 캐시 폴더만 정리합니다.
 4. 바탕화면 바로가기와 시작 메뉴 바로가기를 각각 선택할 수 있습니다. 둘 다 만들지 않을 수도 있습니다. 만들어지는 바로가기는 프로그램 아이콘 파일을 그대로 사용합니다.
 
-Linux와 macOS의 `installer/linux/install.sh`, `installer/macos/install.sh`도 같은 질문을 합니다. 언어, 기존 설치 삭제, 사용자 데이터 삭제, 바탕화면 바로가기, 시작 메뉴에 해당하는 바로가기를 사용자가 결정합니다.
+Linux와 macOS의 `installer/linux/install.sh`, `installer/macos/install.sh`도 같은 질문을 합니다. 언어, 기존 설치 삭제, 사용자 데이터 삭제, 바탕화면 바로가기, 시작 메뉴에 해당하는 바로가기를 사용자가 결정합니다. 이 스크립트는 먼저 `npm run build`로 만든 실행 파일을 복사합니다. `npm run build:linux`, `npm run build:mac`으로 deb·AppImage·dmg 설치 파일을 만들 수도 있습니다.
 
-The Windows setup file asks for the language first. An existing installation is removed completely and installed again. Saved data is deleted only if you answer yes. Desktop and Start menu shortcuts are separate checkboxes and use the program icon.
+The Windows setup file (about 2 MB) asks for the language first. An existing installation, including the older Electron build, is removed completely and installed again. Saved data is deleted only if you answer yes; otherwise the new build keeps using it. Desktop and Start menu shortcuts are separate checkboxes and use the program icon.
 
 ## 실행
 
@@ -23,7 +23,7 @@ The Windows setup file asks for the language first. An existing installation is 
 
 메인 창의 닫기 단추는 창을 숨기기만 합니다. 프로그램은 트레이에 남아 계속 돌아갑니다. 프로그램을 끝내려면 트레이 메뉴의 종료를 고릅니다.
 
-프로그램은 한 번에 하나만 돌아갑니다. 이미 돌아가고 있는데 또 실행하면 이미 실행 중이라고 알려 주고 바로 끝납니다. 돌아가고 있던 쪽은 그대로 두므로, 창이 보이지 않으면 트레이 아이콘을 눌러 다시 불러옵니다.
+프로그램은 한 번에 하나만 돌아갑니다. 이미 돌아가고 있는데 또 실행하면 새로 띄운 쪽은 바로 끝나고, 돌아가고 있던 쪽이 이미 실행 중이라고 알려 줍니다. 창이 보이지 않으면 트레이 아이콘을 눌러 다시 불러옵니다.
 
 트레이 아이콘을 누르거나 마우스 오른쪽 단추로 누르면 메뉴가 열립니다. 맨 위의 창 표시는 숨긴 창을 다시 엽니다. 날씨, 도시, 파일, 편집은 하위 메뉴이고, 설정, 프로그램 정보, 종료는 바로 표시됩니다. 각 항목에는 컬러 아이콘이 있습니다.
 
@@ -87,7 +87,7 @@ Background transparency runs from 0 through 100. At 100 the window background st
 
 이 프로그램은 파일을 저장하지 않습니다. 설정과 도시 목록은 바꾸는 즉시 사용자 데이터 폴더에 저절로 저장되고, 다음에 실행할 때 그대로 돌아옵니다. 그래서 메뉴에 새로 만들기, 열기, 저장, 다른 이름으로 저장, 실행 취소는 두지 않았습니다. 트레이에서 종료를 골라도 무엇을 저장할지 묻지 않습니다.
 
-종이에 남기는 것은 인쇄입니다. 인쇄 창 하나에 설정과 미리보기가 함께 들어 있습니다. 왼쪽에서 고르고 오른쪽에서 결과를 보고 인쇄를 누르면 바로 인쇄됩니다. 미리보기만 따로 여는 창은 없습니다.
+종이에 남기는 것은 인쇄입니다. 인쇄 창 하나에 설정과 미리보기가 함께 들어 있습니다. 왼쪽에서 고르고 오른쪽에서 결과를 보고 인쇄를 누르면, 인쇄할 쪽이 담긴 창이 열리고 프린터를 고르는 인쇄 대화상자가 나옵니다. 인쇄하거나 취소하면 그 창은 저절로 닫힙니다. 미리보기만 따로 여는 창은 없습니다.
 
 왼쪽에서 고르는 것은 두 가지입니다. 무엇을 인쇄할지는 전체 도시, 지금 보는 도시, 날짜를 지정한 부분 중에서 고르고 일간·주간·월간 가운데 넣을 예보를 켜고 끕니다. 용지와 배치는 용지(A4, A3, A5, Letter, Legal, B5), 방향, 여백(5~30mm), 글자 크기, 머리글 넣기, 페이지 번호 넣기, 번호를 왼쪽·가운데·오른쪽 어디에 둘지를 정합니다. 무엇을 바꾸든 오른쪽 미리보기가 바로 다시 그려집니다.
 
