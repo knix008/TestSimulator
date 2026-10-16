@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Market windows, their dialogs and menus, the tray menu, and the print window. Everything else goes through MyMoney's own commands.",
+  "windows": ["main", "money-*", "popup-*", "menu-*", "tray-*", "print-*"],
+  "permissions": ["core:event:default"]
+}

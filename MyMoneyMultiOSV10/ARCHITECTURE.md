@@ -1,18 +1,28 @@
 # Architecture
 
-MyMoney 1.0.0 is a vanilla ES-module app. Electron hosts the same pages that the browser preview uses. There is no bundler step for the renderer.
+MyMoney 1.0.0 is a vanilla ES-module app. Tauri 2 hosts the same pages that the browser preview uses, in the system webview. There is no bundler step for the renderer: `scripts/stage-web.js` copies `src/` and `assets/icon.png` into `web-dist/`, and Tauri compiles that folder into the executable.
 
 ## Layout
 
 - `src/core` holds settings, themes, documents, i18n, undo, and paths. `backgroundAlpha` maps transparency 0 to a fully opaque window and 100 to 25% opacity, so the window never disappears.
 - `src/market` fetches the five sources and aggregates one board. `markets.js` is the catalog of exchanges and listings, `providers.js` the URLs and parsers, `aggregate.js` the averaging, `service.js` the fetch pass, `format.js` the money and percent strings, and `trend.js` the three directions a quote can take.
 - `src/ui` draws the frameless window, the stocks, rates, and news popups, menus, and the tray menu model in `tray-menu.js`. `market-view.js` renders the scene and the three panels.
-- `src/platform` is the small seam between the browser and Electron. The renderer talks to `window.electronAPI` only through that seam.
-- `electron/main.js` creates the transparent window, the tray, file dialogs, and popup windows. `preload.cjs` exposes the IPC bridge. `popup-hub.js` tracks panel and settings windows.
-- `installer/plan.js` is the shared install policy. `installer/windows/installer.nsh` is the NSIS page for Windows. `installer/cli.js` performs the same steps on Linux and macOS.
+- `src/platform` is the seam between the pages and the host. `host.js` picks `desktop.js` when Tauri is present and `web.js` otherwise. `tauri-bridge.js` is the only file that calls Tauri: one function per Rust command, and listeners for the events Rust sends to this window.
+- `src/index.html` is a market window, `popup-host.html` a dialog (panels, settings, about, print setup), `menu-host.html` a command menu or the tray menu, and `print-host.html` the window the system print dialog opens over.
+- `src-tauri/src/lib.rs` owns the windows, the tray, file dialogs, settings.json and window.json, fetching, and every command. `placement.rs` (window placement, tray menu placement), `hub.rs` (one dialog per kind per window, waiting for answers), and `store.rs` (merging a window's save into settings.json) are plain Rust with unit tests.
+- `installer/plan.js` is the shared install policy. `src-tauri/windows/hooks.nsh` is the same policy for Tauri's NSIS installer. `installer/cli.js` performs the same steps on Linux and macOS.
 - `assets/icon.ico`, `assets/icon.png`, and `assets/icon.icns` are the program icon. `assets/file.ico` is only the `.mymoney` document icon. `assets/menu` holds the tray glyphs.
 - `scripts/generate_icons.py` draws the program icon, the document icon, and the tray glyphs. `scripts/copy-installer.js` copies the single setup executable to the repository root.
-- `test` loads the modules in jsdom and checks the parsers, the installer plan, the tray menu, the packaged icon paths, and the whole window.
+- `test` loads the modules in jsdom and checks the parsers, the installer plan, the tray menu, the packaged icon paths, and the whole window. It also runs `cargo test` and drives the real executable (`test/e2e/harness.js`, `test/suites/desktop.js`).
+
+## Resource use
+
+The Electron build shipped its own Chromium and ran a browser, GPU, and utility process plus one renderer per window. The Tauri build keeps the Rust host small and shares the system WebView2 among all windows. Every window is created with the same WebView2 switches (`BROWSER_ARGS`):
+
+- `--process-per-site --renderer-process-limit=1`: the market windows, panels, dialogs, and menus are small pages from one site, so one renderer serves them all.
+- `--disable-gpu`: nothing animates, and the GPU process shrinks to a fraction. Transparent windows look the same with software compositing.
+
+Window moves and resizes send at most one step per frame (`coalesceSteps` in `desktop.js`), and window.json is written once a move has been still for 400 ms instead of on every step. Requests go through Rust (`fetch_url`), so the quote, rate, and news services need no cross-origin headers.
 
 ## Data
 
@@ -32,37 +42,43 @@ Prices are shown in the listing's own currency, or converted to the base currenc
 
 `settings.sceneMode` picks what the main window draws. `single` is the large price, and the scene carries `data-scene-advance` so a click moves to the next symbol; because the same area is the window's drag handle, `noteSceneDrag` swallows the click that ends a drag. `rotateSeconds` arms an interval that calls the same move.
 
-`all` draws the watchlist as rows and `syncBoardWindow` sets the window to `boardWindowSize(rows)`, which is the toolbar plus the header plus one `BOARD_ROW` per row. It only resizes when the row count actually changes, so it never fights a reader dragging the grip, and it remembers the size held before the mode was entered so leaving restores it. On the desktop the exact size goes through the `window-size` IPC; in the browser preview the shell is sized directly.
+`all` draws the watchlist as rows and `syncBoardWindow` sets the window to `boardWindowSize(rows)`, which is the toolbar plus the header plus one `BOARD_ROW` per row. It only resizes when the row count actually changes, so it never fights a reader dragging the grip, and it remembers the size held before the mode was entered so leaving restores it. On the desktop the exact size goes through the `window_size` command; in the browser preview the shell is sized directly.
 
 `toolbarMinWidth()` counts the icon and the buttons but not the program name, because below `titleTextMinWidth()` the name is hidden and only the icon stays. That is what lets the window be as narrow as it is; `applyTitleRoom` measures the window itself, not the shell, whose border would hide the name a pixel early.
 
 ## Window placement
 
-`noteBounds` writes `window.json` on every move and resize, so the last placement survives even a kill, and `before-quit` writes the same rectangle into `settings.json`. On the next start `savedWindowPlacement` prefers the recorded rectangle, falls back to the settings copy, and `placeWindow` re-centres it when the display it belonged to is gone.
+`note_bounds` records every move and resize, and window.json is written once the window has been still for 400 ms, so the last placement survives even a kill. Exit writes the same rectangle into `settings.json`. On the next start `saved_window_placement` prefers the recorded rectangle, falls back to the settings copy, and `place_window` re-centres it when the display it belonged to is gone.
 
 A size counts as worth saving when it clears `WINDOW_MIN`, not a round number: `isUsableSize` is the single rule used by `noteBounds`, `recordedWindowPlacement` and `stampWindowPlacement`. A fixed floor of 200 used to sit above the real minimum height, so a window shrunk all the way down came back at its old size.
 
 ## Settings window size
 
-Settings pages differ a lot in length, so the popup is not one fixed box. `settingsWidth` adds up the tab labels - counting a Korean letter as a full em and a latin one as half - so every tab is on screen at once in either language and the arrows that would scroll them are hidden. `fitHeight` then measures the page on show with `popupFits` and sets the window to exactly that, bounded by `SETTINGS_MIN_HEIGHT` and `SETTINGS_MAX_HEIGHT`. The watchlist and currency blocks are two columns and take `listBlockHeight` for their own row count, so a three-symbol list is three rows tall rather than a fixed box. On the desktop the popup asks the main process for its new size through the `resize-popup` IPC.
+Settings pages differ a lot in length, so the popup is not one fixed box. `settingsWidth` adds up the tab labels - counting a Korean letter as a full em and a latin one as half - so every tab is on screen at once in either language and the arrows that would scroll them are hidden. `fitHeight` then measures the page on show with `popupFits` and sets the window to exactly that, bounded by `SETTINGS_MIN_HEIGHT` and `SETTINGS_MAX_HEIGHT`. The watchlist and currency blocks are two columns and take `listBlockHeight` for their own row count, so a three-symbol list is three rows tall rather than a fixed box. On the desktop the popup asks Rust for its new size through the `resize_popup` command.
 
 ## Window and tray
 
-The main `BrowserWindow` is frameless, transparent, and created with `skipTaskbar: true`. `ready-to-show`, `show`, and `focus` call `setSkipTaskbar(true)` again so Windows does not put the program icon back on the taskbar. Popup and print windows also skip the taskbar.
+Market windows are frameless, transparent, have no shadow, and skip the taskbar. Each is created hidden and shown once its page has loaded. Popup, menu, and print windows also skip the taskbar.
 
-On startup the main process creates a `Tray` from `assets/icon.ico` on Windows and `assets/icon.png` elsewhere. A click opens the themed menu window built from `buildTrayMenu`. Labels follow the language in `settings.json`. Every item, the Windows, Market and Edit parents and the window list included, has a colour glyph (`icons.js` `COLOR`, with a matching PNG in `assets/menu`). Show windows reveals every hidden window; Windows › New window and Windows › `window:<slot>` open or raise one; Exit calls `quitApp`. Any other item goes to the window used last (`activeWindow`) as `menu-command`.
+On startup Rust creates the tray icon from the bundle icon. A click opens `menu-host.html` as a tray menu: that page reads settings.json and builds the items with `buildTrayMenu`, then asks Rust to size and place it next to the icon. Labels follow the language in `settings.json`. Every item, the Windows, Market and Edit parents and the window list included, has a colour glyph (`icons.js` `COLOR`, with a matching PNG in `assets/menu`). Show windows reveals every hidden window; Windows › New window and Windows › `window:<slot>` open or raise one; Exit calls `quit_app`. Any other item goes to the window used last as `menu-command`.
 
-The close button never quits: `win.on("close")` turns into `hideMoneyWindow`, and the program ends only from Exit, which writes every window's rectangle and destroys all windows. There is no File menu and no unsaved state: boards and settings are written as they change.
+Events from Rust go to one window (`emit_to` with that window's label). The pages listen on their own window, because a global listener would also hear what other windows were sent. The shared Rust state is never held while a window is shown, hidden, moved, or destroyed, because those calls can report back through a window event that takes the same lock.
+
+The close button never quits: a close request turns into `hide_money_window`, and the program ends only from Exit, which writes every window's rectangle and destroys all windows. There is no File menu and no unsaved state: boards and settings are written as they change.
 
 ## Single instance
 
-`requestSingleInstanceLock` guards the program. A second launch shows `msg.alreadyRunning` in a native message box, in the saved language, and exits with code 0; the running copy is left alone, since its windows may be hidden in the tray. `--multi` / `MYMONEY_MULTI` (unpackaged only) skip the lock and move the copy to its own user data folder for testing.
+The single-instance plugin guards the program. A second launch shows `msg.alreadyRunning` in a native message box, in the saved language, and exits with code 0; the running copy is left alone, since its windows may be hidden in the tray. `--multi` / `MYMONEY_MULTI` (debug builds only) skip the lock and move the copy to `MyMoney-pid-<pid>` for testing.
+
+## Settings location
+
+settings.json and window.json live where the Electron build kept them: `%APPDATA%\MyMoney`, `~/.config/MyMoney`, or `~/Library/Application Support/MyMoney`. `MYMONEY_CONFIG_DIR` moves them (the tests use this, and then WebView2 data goes there too). The login entry is only written by a release build that is not running under `MYMONEY_CONFIG_DIR`.
 
 ## Several windows
 
-Every market window is a slot. The first is `main`: its board is `settings.defaultBoard` and its rectangle is the usual window placement. The others live in `settings.windows` as `{ id, board, bounds }` (`sanitizeWindowSlots`). The renderer never knows which slot it is: `read-settings` hands each window the shared settings with its own board and rectangle substituted, and `write-settings` from an extra window writes the shared part over the file and its board into its slot. The main process owns `settings.windows`; a renderer's copy is ignored, so two windows cannot undo each other's lists.
+Every market window is a slot. The first is `main`: its board is `settings.defaultBoard` and its rectangle is the usual window placement. The others live in `settings.windows` as `{ id, board, bounds }` (`sanitizeWindowSlots`). The renderer never knows which slot it is: `read_settings` hands each window the shared settings with its own board and rectangle substituted, and `write_settings` from an extra window writes the shared part over the file and its board into its slot. Rust owns `settings.windows`; a renderer's copy is ignored, so two windows cannot undo each other's lists.
 
-`WINDOW_FIELDS` (board, size, position, maximized) are per window; everything else is shared. After a write the main process sends `settings-changed` with `sharedSettings(...)` to the other windows, and `takeSharedSettings` applies it without writing back. Popups and menus are routed to the window that opened them through `windowOwners`; `PopupHub` scopes its one-window keys by owner, so each window has its own Settings and panels.
+`WINDOW_FIELDS` (board, size, position, maximized) are per window; everything else is shared. After a write Rust sends `settings-changed` with `sharedSettings(...)` to the other windows, and `takeSharedSettings` applies it without writing back. Popups and menus are routed to the window that opened them; the hub (`hub.rs`) scopes its one-window keys by owner, so each window has its own Settings and panels.
 
 ## Settings session
 
@@ -78,9 +94,9 @@ One window, `type: "print"`, 980×700: `.preview-setup` on the left, `.preview-s
 
 `planInstall` refuses to continue until the language is `ko` or `en`. When an older copy is detected it records an uninstall of the program directory and of any previous shortcuts, then an install. Saved data is deleted only when that step is explicitly requested. Desktop and Start menu shortcuts are separate steps and are omitted when declined. Both steps store the platform program-icon path.
 
-The Windows package turns electron-builder's automatic shortcuts off. `installer.nsh` shows two checkboxes and creates `.lnk` files with `$INSTDIR\resources\icon.ico`. That file is `assets/icon.ico`, copied with `extraResources`, and it is also `build.win.icon`, `installerIcon`, and `uninstallerIcon`. If a previous install is found, the script deletes the old shortcuts, runs the old uninstaller, and removes the install directory before the new files are written. User data under `%APPDATA%\MyMoney` is removed only after Yes.
+On Windows, `hooks.nsh` runs before the welcome page and looks for the Electron build (its electron-builder uninstall key, per user or all users) and for an earlier Tauri install. If either is there it says the program will be removed completely and installed again, then asks whether to delete saved data. It runs the old uninstaller silently and removes the folder. Without a yes, settings.json and window.json stay and only the Electron build's Chromium caches are deleted. The next page offers desktop and Start menu shortcuts as two checkboxes; Tauri's own shortcuts are turned off and the chosen ones point at `$INSTDIR\icon.ico`, which is `assets/icon.ico`. `.mymoney` documents get `$INSTDIR\file.ico`.
 
-`npm run build:win` builds `MyMoney-Setup-1.0.0.exe` and copies it to the root. `dist/` and that root installer stay gitignored.
+`npm run build:win` builds `MyMoney_1.0.0_x64-setup.exe` and copies it to the root. `web-dist/`, `src-tauri/target/`, and that root installer stay gitignored.
 
 ## Themes and documents
 

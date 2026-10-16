@@ -1,9 +1,13 @@
 import { applyFontFace, applyFontRoles, surfaceFonts } from "./core/fonts.js";
 import { applyThemeVars } from "./core/themes.js";
 import { applyPopupTheme, bootPopup, paintWallpaper } from "./ui/popups.js";
+import { coalesceSteps } from "./platform/desktop.js";
+import { createTauriApi } from "./platform/tauri-bridge.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
 
-window.electronAPI.onApplyTheme?.((payload) => {
+const api = createTauriApi();
+
+api.onApplyTheme((payload) => {
   if (!payload) return;
   const popup = document.querySelector("[data-popup]");
   if (popup?.dataset.popup === "panel" && (payload.fonts || payload.font)) {
@@ -25,16 +29,16 @@ window.electronAPI.onApplyTheme?.((payload) => {
   }
   if (payload.vars) applyThemeVars(document.documentElement, payload.vars, payload.mode);
 });
-window.electronAPI.onApplyWallpaper?.((payload) => {
+api.onApplyWallpaper((payload) => {
   const layer = document.querySelector('[data-popup="panel"] [data-gui="wallpaper"]');
   if (layer) paintWallpaper(layer, payload?.image || "", payload?.opacity);
 });
 
-const spec = await window.electronAPI.takePopupSpec();
+const spec = await api.takePopupSpec();
 bootPopup(spec, {
-  finish: (result) => window.electronAPI.finishPopup(result),
-  resize: (size) => window.electronAPI.resizePopup?.(size),
-  immediate: (message) => window.electronAPI.popupImmediate(message),
-  onUpdate: (callback) => window.electronAPI.onPopupUpdate(callback),
+  finish: (result) => api.finishPopup(result),
+  resize: (size) => api.resizePopup(size),
+  immediate: (message) => api.popupImmediate(message),
+  onUpdate: (callback) => api.onPopupUpdate(callback),
 });
-attachWindowDrag(document.body, (step) => window.electronAPI.moveWindow(step));
+attachWindowDrag(document.body, coalesceSteps((step) => api.moveWindow(step)));

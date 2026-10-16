@@ -1,10 +1,11 @@
 import { createApp } from "./app.js";
 import { createHostPlatform } from "./platform/host.js";
+import { createTauriApi, hasTauri } from "./platform/tauri-bridge.js";
 
 const root = document.querySelector("#app");
 try {
   const platform = createHostPlatform();
-  document.body.dataset.host = platform.kind === "electron" ? "desktop" : "web";
+  document.body.dataset.host = platform.kind === "desktop" ? "desktop" : "web";
   const app = createApp(root, {
     platform,
     autoLoad: true,
@@ -38,7 +39,7 @@ function showStartupError(error) {
   copy.addEventListener("click", async () => {
     area.select();
     try {
-      if (window.electronAPI?.clipboardWrite) await window.electronAPI.clipboardWrite(text);
+      if (hasTauri()) await createTauriApi().clipboardWrite(text);
       else await navigator.clipboard.writeText(text);
     } catch {
       document.execCommand?.("copy");

@@ -13,12 +13,11 @@ import { DICT, createI18n, dictionaryKeys } from "../../src/core/i18n.js";
 import { dirname, userDataDir } from "../../src/core/paths.js";
 import { MARGINS, PAPERS, PRINT_SECTIONS, SCALES, buildPrintModel, normalizeSections, normalizeSetup, paperSize } from "../../src/core/print-model.js";
 import { RecentFiles } from "../../src/core/recent.js";
-import { MAX_RATE_CURRENCIES, MAX_SYMBOLS, WINDOW_FIELDS, normalizeRateCurrencies, sanitizeSettings, sanitizeWindowSlots, sharedSettings, windowLabel } from "../../src/core/settings.js";
+import { MAX_EXTRA_WINDOWS, MAX_RATE_CURRENCIES, MAX_SYMBOLS, WINDOW_FIELDS, normalizeRateCurrencies, sanitizeSettings, sanitizeWindowSlots, sharedSettings, windowLabel } from "../../src/core/settings.js";
 import { UndoStack } from "../../src/core/undo.js";
-import { PopupHub } from "../../electron/popup-hub.js";
 import { applyPlan, planInstall, programIconFor, runInstaller } from "../../installer/plan.js";
 import { buildTrayMenu, listTrayItems, menuIconFile, placeTrayMenu, programIconFile, trayIconFile } from "../../src/ui/tray-menu.js";
-import { layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOptions } from "../../src/ui/menu-layout.js";
+import { keepsOneWindow, layoutMenu, menuWindowOptions, placeBeside, popupKey, popupWindowOptions } from "../../src/ui/menu-layout.js";
 import { icon, knownIcons } from "../../src/ui/icons.js";
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
@@ -725,12 +724,18 @@ export function registerLogic(h) {
     for (const field of WINDOW_FIELDS) assert.equal(field in shared, false, field);
     assert.match(windowLabel(sanitizeSettings({}).defaultBoard, "ko", 0), /^1\. 한국거래소 · 삼성전자, SK하이닉스 외 1$/);
     assert.match(windowLabel(board, "en", 1), /^2\. /);
-    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
-    assert.match(main, /for \(const slot of readSlots\(\)\) createMainWindow\(slot\.id, slot\)/);
-    assert.match(main, /function openNewWindow\(board\)/);
-    assert.match(main, /board: sanitizeBoard\(board\)/);
-    assert.match(main, /view\.fonts = entry\?\.fonts \|\| stored\.fonts/);
-    assert.match(main, /fonts: incoming\.fonts/);
+    // The Tauri shell restores every slot, and the page sanitizes a board before it is stored.
+    const shell = fs.readFileSync(path.join(root, "src-tauri/src/lib.rs"), "utf8");
+    const store = fs.readFileSync(path.join(root, "src-tauri/src/store.rs"), "utf8");
+    const desktop = fs.readFileSync(path.join(root, "src/platform/desktop.js"), "utf8");
+    assert.match(shell, /for entry in slots\(&read_settings_file\(app\)\)/);
+    assert.match(shell, /fn open_new_window\(app: &AppHandle, board: Value\)/);
+    assert.match(desktop, /api\.newWindow\?\.\(sanitizeBoard\(board\)\)/);
+    assert.match(desktop, /api\.writeSettings\(data, sanitizeBoard\(data\?\.defaultBoard\)\)/);
+    assert.match(store, /view\["fonts"\] = entry/);
+    assert.match(store, /entry\["fonts"\] = fonts\.clone\(\)/);
+    for (const field of WINDOW_FIELDS) assert.match(store, new RegExp(`"${field}"`), field);
+    assert.match(store, new RegExp(`MAX_EXTRA_WINDOWS: usize = ${MAX_EXTRA_WINDOWS}`));
     const ownFonts = sanitizeWindowSlots([{ id: "w3", fonts: { stocks: { name: { fontSize: 19 } } } }]);
     assert.equal(ownFonts[0].fonts.stocks.name.fontSize, 19);
     assert.equal(ownFonts[0].fonts.scene.name.fontSize, 22);
@@ -817,7 +822,7 @@ export function registerLogic(h) {
     assert.ok(parked.x > 0);
     assert.equal(popupKey({ type: "panel", panel: "rates" }), "panel:rates");
     assert.equal(popupKey({ type: "settings" }), "settings");
-    assert.match(fs.readFileSync(path.join(root, "electron/main.js"), "utf8"), /popupWindowOptions\(stored, parent, workArea, parentBounds\)/);
+    assert.match(fs.readFileSync(path.join(root, "src/platform/desktop.js"), "utf8"), /popupWindowOptions\(spec, null, info\.workArea, info\.bounds\)/);
   });
   h.test("tab overflow uses previous and next instead of a scrollbar", () => {
     const layout = layoutTabScroller(0, 8, 300, 148);
@@ -931,36 +936,14 @@ export function registerLogic(h) {
       assert.match(svg.innerHTML, /(?:fill|stroke)="#[0-9a-f]{6}"/i, name);
     }
   });
-  h.test("popup hub closes every popup when the app quits", async () => {
-    const hub = new PopupHub();
-    const closed = [];
-    let focuses = 0;
-    const started = hub.begin({ type: "about" }, () => ({
-      close: () => closed.push("about"),
-      send() {},
-      focus() {
-        focuses += 1;
-      },
-    }));
-    const id = started.id;
-    assert.equal(started.focused, false);
-    const again = hub.begin({ type: "about" }, () => {
-      throw new Error("about should stay open");
-    });
-    assert.equal(again.focused, true);
-    assert.equal(again.id, id);
-    assert.equal(focuses, 1);
-    assert.equal(hub.windows.size, 1);
-    const stocks = hub.begin({ type: "panel", panel: "stocks" }, () => ({ close() {}, send() {}, focus() {} }));
-    const rates = hub.begin({ type: "panel", panel: "rates" }, () => ({ close() {}, send() {}, focus() {} }));
-    assert.equal(stocks.focused, false);
-    assert.equal(rates.focused, false);
-    assert.notEqual(stocks.id, rates.id);
-    const pending = hub.wait(id);
-    hub.closeAll();
-    assert.deepEqual(await pending, { action: "close" });
-    assert.deepEqual(closed, ["about"]);
-    assert.equal(hub.windows.size, 0);
+  h.test("the Rust popup hub keeps one window for the same dialogs as the page", () => {
+    // The hub itself (focus, quit closes all) is tested by cargo test; here its list must match.
+    const hub = fs.readFileSync(path.join(root, "src-tauri/src/hub.rs"), "utf8");
+    const listed = [...hub.match(/const ONE_WINDOW: \[&str; \d+\] = \[([^\]]+)\]/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(listed.length >= 7);
+    for (const type of listed) assert.equal(keepsOneWindow({ type }), true, type);
+    for (const type of ["message", "progress", "popup"]) assert.equal(listed.includes(type), keepsOneWindow({ type }), type);
+    assert.match(hub, /format!\("panel:\{\}"/);
   });
 
   h.test("a list block is only as tall as its rows", () => {
@@ -1202,36 +1185,37 @@ export function registerLogic(h) {
     assert.equal(declined.includes("uninstall-existing"), true);
   });
   h.test("packaged installers use one icon and offer korean and english", () => {
+    const conf = JSON.parse(fs.readFileSync(path.join(root, "src-tauri/tauri.conf.json"), "utf8"));
     const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-    assert.equal(pkg.build.win.icon, "assets/icon.ico");
-    assert.equal(pkg.build.nsis.installerIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.nsis.uninstallerIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.nsis.installerHeaderIcon, pkg.build.win.icon);
-    assert.equal(pkg.build.mac.icon, "assets/icon.icns");
-    assert.equal(pkg.build.linux.icon, "assets/icon.png");
-    assert.equal(pkg.build.fileAssociations[0].icon, "assets/file.ico");
-    assert.equal(pkg.build.fileAssociations[0].ext, "mymoney");
-    assert.ok(pkg.build.nsis.installerLanguages.includes("ko_KR"));
-    assert.ok(pkg.build.nsis.installerLanguages.includes("en_US"));
-    assert.equal(pkg.build.nsis.deleteAppDataOnUninstall, false);
-    assert.equal(pkg.build.nsis.createDesktopShortcut, false);
-    assert.equal(pkg.build.nsis.createStartMenuShortcut, false);
-    assert.equal(pkg.build.extraResources[0].from, "assets/icon.ico");
-    assert.equal(pkg.build.extraResources[0].to, "icon.ico");
-    assert.equal(programIconFile("win32"), pkg.build.win.icon);
+    assert.equal(pkg.devDependencies.electron, undefined, "the Electron build is gone");
+    assert.equal(conf.identifier, "com.shkwon.mymoney");
+    assert.equal(conf.version, pkg.version);
+    assert.deepEqual(conf.bundle.icon, ["../assets/icon.ico", "../assets/icon.png", "../assets/icon.icns"]);
+    assert.equal(conf.bundle.windows.nsis.installerIcon, "../assets/icon.ico");
+    assert.deepEqual(conf.bundle.resources, { "../assets/icon.ico": "icon.ico", "../assets/file.ico": "file.ico" });
+    assert.deepEqual(conf.bundle.fileAssociations[0].ext, ["mymoney"]);
+    assert.equal(conf.bundle.fileAssociations[0].mimeType, "application/x-mymoney");
+    assert.deepEqual(conf.bundle.windows.nsis.languages, ["English", "Korean"]);
+    assert.equal(conf.bundle.windows.nsis.displayLanguageSelector, true);
+    assert.equal(programIconFile("win32"), "assets/icon.ico");
     assert.equal(trayIconFile("win32"), "assets/icon.ico");
     assert.equal(programIconFor("darwin"), "assets/icon.icns");
     assert.equal(programIconFor("linux"), "assets/icon.png");
-    const nsis = fs.readFileSync(path.join(root, "installer/windows/installer.nsh"), "utf8");
+    const nsis = fs.readFileSync(path.join(root, "src-tauri", conf.bundle.windows.nsis.installerHooks), "utf8");
     assert.match(nsis, /Saved data from the previous installation/);
     assert.match(nsis, /이전에 설치한 프로그램의 저장 데이터가 있습니다/);
     assert.match(nsis, /완전히 삭제/);
     assert.match(nsis, /file\.ico/);
     assert.match(nsis, /바탕화면 바로가기/);
     assert.match(nsis, /시작 메뉴 바로가기/);
-    assert.match(nsis, /resources\\icon\.ico/);
+    assert.match(nsis, /\$INSTDIR\\icon\.ico/);
     assert.match(nsis, /CreateShortCut/);
-    assert.match(nsis, /RMDir \/r "\$INSTDIR"/);
+    // The Electron copy (per-user or all users) and any earlier Tauri copy are removed first.
+    assert.match(nsis, /MW_ELECTRON_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\3111d79a-15ac-5a68-88a1-a0e1d81deb58"/);
+    assert.match(nsis, /ReadRegStr \$R5 HKLM "\$\{MW_ELECTRON_KEY\}"/);
+    assert.match(nsis, new RegExp(`MW_IDENTIFIER "${conf.identifier.replace(/\./g, "\\.")}"`));
+    assert.match(nsis, new RegExp(`MW_FILECLASS "${conf.bundle.fileAssociations[0].name}"`));
+    assert.match(nsis, /RMDir \/r "\$R8"/);
     const linux = fs.readFileSync(path.join(root, "installer/linux/install.sh"), "utf8");
     const mac = fs.readFileSync(path.join(root, "installer/macos/install.sh"), "utf8");
     assert.match(linux, /cli\.js/);
@@ -1240,28 +1224,27 @@ export function registerLogic(h) {
     assert.match(desktop, /application\/x-mymoney/);
     const mime = fs.readFileSync(path.join(root, "installer/linux/mymoney-mime.xml"), "utf8");
     assert.match(mime, /\*\.mymoney/);
-    const main = fs.readFileSync(path.join(root, "electron/main.js"), "utf8");
-    assert.match(main, /assets\/icon\.png/);
-    assert.match(main, /frame: false/);
-    assert.match(main, /saveWindowPlacement/);
-    assert.match(main, /window-bounds/);
+    const main = fs.readFileSync(path.join(root, "src-tauri/src/lib.rs"), "utf8");
+    assert.match(main, /\.decorations\(false\)/);
+    assert.match(main, /fn save_window_placement/);
+    assert.match(main, /fn window_bounds/);
     assert.match(main, /window\.json/);
-    assert.match(main, /thickFrame: false/);
-    assert.match(main, /skipTaskbar: true/);
+    assert.match(main, /\.skip_taskbar\(true\)/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
-    assert.match(main, /new Tray/);
-    assert.match(main, /placeTrayMenu/);
-    assert.match(main, /fit-tray-menu/);
-    assert.match(main, /trayCommand/);
-    assert.match(main, /revealFromTray/);
-    // A second launch says the program is already running and quits.
-    assert.match(main, /requestSingleInstanceLock/);
-    assert.match(main, /tellAlreadyRunning/);
-    assert.match(main, /msg.alreadyRunning/);
+    assert.match(main, /TrayIconBuilder::with_id/);
+    assert.match(main, /place_tray_menu/);
+    assert.match(main, /fn fit_tray_menu/);
+    assert.match(main, /tray_command/);
+    // A second launch leaves at once; the running copy says the program is already running.
+    assert.match(main, /tauri_plugin_single_instance::init/);
+    assert.match(main, /"second-instance"/);
+    const appSource = fs.readFileSync(path.join(root, "src/app.js"), "utf8");
+    assert.match(appSource, /onSecondInstance\?\.\(\(\) => this\.tellAlreadyRunning\(\)\)/);
+    assert.match(appSource, /msg\.alreadyRunning/);
     // The close button hides the window; only the tray ends the program.
-    assert.match(main, /hideMoneyWindow/);
-    assert.match(main, /quitApp/);
-    assert.doesNotMatch(main, /popUpContextMenu/);
+    assert.match(main, /api\.prevent_close\(\);\s+hide_money_window/);
+    assert.match(main, /fn quit_app/);
+    assert.match(main, /"exit" => quit_app\(app\)/);
     const windows = [{ slot: "main", label: "1. 한국거래소", active: true }, { slot: "w1", label: "2. 나스닥", active: false }];
     const koMenu = buildTrayMenu((key) => createI18n("ko").t(key), { windows });
     const enMenu = buildTrayMenu((key) => createI18n("en").t(key), { windows });
@@ -1296,19 +1279,19 @@ export function registerLogic(h) {
     assert.match(guide, /바탕화면/);
     assert.match(guide, /시작 메뉴/);
     assert.match(guide, /트레이/);
-    assert.match(main, /transparent: true/);
+    assert.match(main, /\.transparent\(true\)/);
     assert.match(main, /WINDOW_MIN/);
-    assert.match(main, /window-resize/);
-    assert.match(main, /window-move/);
-    assert.match(main, /savedWindowPlacement/);
-    assert.match(main, /placeWindow/);
-    assert.match(main, /function revealWindow/);
-    assert.match(main, /revealWindow\(win\)/);
-    assert.match(main, /uncaughtException/);
-    assert.match(main, /render-process-gone/);
-    assert.match(main, /clipboard\.writeText\(text\)/);
-    assert.match(main, /const contentsId = win\.webContents\.id/);
-    assert.match(main, /contentsToPopup\.delete\(contentsId\)/);
+    assert.match(main, /fn window_resize/);
+    assert.match(main, /fn window_move/);
+    assert.match(main, /fn saved_window_placement/);
+    assert.match(main, /place_window/);
+    // A page that never reports back still gets its window shown.
+    assert.match(main, /reveal_money_window\(&app, &label\)/);
+    assert.match(main, /fn clipboard_write/);
+    assert.match(main, /s\.popup_of\.remove\(&own\)/);
+    const placement = fs.readFileSync(path.join(root, "src-tauri/src/placement.rs"), "utf8");
+    assert.match(placement, new RegExp(`WINDOW_MIN: Size = Size \\{ width: ${WINDOW_MIN.width}\\.0, height: ${WINDOW_MIN.height}\\.0 \\}`));
+    assert.match(placement, new RegExp(`WINDOW_DEFAULT: Size = Size \\{ width: ${WINDOW_DEFAULT.width}\\.0, height: ${WINDOW_DEFAULT.height}\\.0 \\}`));
     assert.doesNotMatch(main, /set-opacity/);
     const page = fs.readFileSync(path.join(root, "src/index.html"), "utf8");
     assert.match(page, /MyMoney V1\.0/);

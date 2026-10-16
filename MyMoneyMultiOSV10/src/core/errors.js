@@ -55,8 +55,9 @@ function formatTime(date) {
 
 function environmentText() {
   const agent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
-  const electron = agent.match(/Electron\/[\d.]+/)?.[0];
+  // The desktop build runs in WebView2, which names itself Edg/.
+  const webview = agent.match(/Edg\/[\d.]+/)?.[0];
   const chrome = agent.match(/Chrome\/[\d.]+/)?.[0];
   const platform = typeof navigator !== "undefined" ? navigator.platform || "" : "";
-  return [electron, chrome, platform].filter(Boolean).join(", ") || agent.slice(0, 80) || "unknown";
+  return [webview, chrome, platform].filter(Boolean).join(", ") || agent.slice(0, 80) || "unknown";
 }
