@@ -26,7 +26,9 @@ export class WebApp {
     this.url = `http://127.0.0.1:${this.webPort}/`;
     this.profile = fs.mkdtempSync(path.join(os.tmpdir(), 'myworkplan-web-'));
     this.port = await freePort();
-    this.browser = spawn(browser, ['--headless=new', `--remote-debugging-port=${this.port}`, `--user-data-dir=${this.profile}`, '--window-size=1500,950', '--no-first-run', '--disable-features=Translate', this.url], { stdio: 'ignore' });
+    // No sync and no extensions: Edge signs in with the Windows account, syncs the user's extensions and one
+    // of them opened its welcome tab in front of the page a minute in (the page went hidden and stopped drawing).
+    this.browser = spawn(browser, ['--headless=new', `--remote-debugging-port=${this.port}`, `--user-data-dir=${this.profile}`, '--window-size=1500,950', '--no-first-run', '--disable-features=Translate', '--disable-sync', '--disable-extensions', this.url], { stdio: 'ignore' });
     const target = await waitTarget(this.port, (item) => item.type === 'page' && item.url.startsWith(this.url), 20000);
     this.main = await new Page(target).open();
     // "Leave the page?" (unsaved boards) is answered automatically and recorded.

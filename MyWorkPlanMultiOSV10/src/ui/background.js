@@ -1,8 +1,12 @@
 // Moving backgrounds for the start page and (faintly) behind the views:
-// aurora, waves, particles, constellation, bubbles, a flowing grid, drifting
-// Gantt bars and a star field. Colours follow the theme. The animation pauses
-// while the window is hidden; `frames` counts drawn frames (tests use it).
-export const ANIMATION_KINDS = ['aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'gantt', 'starfield'];
+// twenty of them (the list is ANIMATIONS in settings): aurora, waves, particles,
+// constellation, bubbles, a flowing grid, drifting Gantt bars, a star field, rain,
+// snow, fireflies, ripples, code rain, hexagons, orbits, a lava lamp, a spiral
+// galaxy, confetti, milestones and ribbons. Colours follow the theme. The animation
+// pauses while the window is hidden; `frames` counts drawn frames (tests use it).
+import { ANIMATIONS } from '../domain/settings.js';
+
+export const ANIMATION_KINDS = ANIMATIONS;
 
 const rand = (seed) => {
   let s = seed >>> 0;
@@ -12,10 +16,16 @@ const rand = (seed) => {
   };
 };
 
+// Parsed once per colour: the animations ask for rgba() hundreds of times a frame.
+const rgbCache = new Map();
 function hexToRgb(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
-  if (!m) return [128, 128, 128];
-  return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  let rgb = rgbCache.get(hex);
+  if (!rgb) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    rgb = m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [128, 128, 128];
+    rgbCache.set(hex, rgb);
+  }
+  return rgb;
 }
 /** The backgrounds drift slowly: 30 frames a second look the same as the screen's 60–144 and cost a fraction. */
 const FRAME_MS = 1000 / 30;
@@ -58,7 +68,10 @@ export class AnimatedBackground {
 
   seed() {
     const r = rand(this.kind.length * 9973 + 7);
-    const count = { particles: 90, constellation: 70, bubbles: 40, gantt: 26, starfield: 220 }[this.kind] ?? 0;
+    const count = {
+      particles: 90, constellation: 70, bubbles: 40, gantt: 26, starfield: 220, rain: 140, snow: 120, fireflies: 45,
+      ripples: 7, coderain: 34, orbits: 8, lava: 7, spiral: 160, confetti: 80, milestones: 9,
+    }[this.kind] ?? 0;
     this.items = Array.from({ length: count }, () => ({ x: r(), y: r(), z: r(), s: r(), v: r(), h: r() }));
   }
 
@@ -275,6 +288,253 @@ export class AnimatedBackground {
       c.beginPath();
       c.arc(x, y, r, 0, Math.PI * 2);
       c.fill();
+    }
+  }
+
+  /** Slanted streaks falling fast. */
+  rain(c, w, h, time, colors) {
+    c.lineWidth = Math.max(1, w / 1400);
+    c.lineCap = 'round';
+    for (const p of this.items) {
+      const length = (0.03 + p.s * 0.05) * h;
+      const y = (((p.y + time * (0.35 + p.v * 0.45)) % 1.2) - 0.1) * h;
+      const x = (p.x * 1.1 - 0.05) * w - y * 0.12;
+      c.strokeStyle = rgba(p.h > 0.65 ? colors.accent : colors.text, 0.12 + p.z * 0.28);
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + length * 0.12, y - length);
+      c.stroke();
+    }
+  }
+
+  /** Flakes drifting down and swaying. */
+  snow(c, w, h, time, colors) {
+    const scale = w / 1600 + 0.6;
+    for (const p of this.items) {
+      const y = (((p.y + time * (0.025 + p.v * 0.045)) % 1.1) - 0.05) * h;
+      const x = ((((p.x + time * 0.004 + Math.sin(time * 0.6 + p.h * 12) * 0.02) % 1) + 1) % 1) * w;
+      c.fillStyle = rgba(p.h > 0.8 ? colors.accent : colors.text, 0.3 + p.z * 0.45);
+      c.beginPath();
+      c.arc(x, y, (1 + p.s * 3) * scale, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+
+  /** Glowing dots wandering and pulsing. */
+  fireflies(c, w, h, time, colors) {
+    const scale = w / 1600 + 0.6;
+    c.globalCompositeOperation = colors.dark ? 'lighter' : 'source-over';
+    for (const p of this.items) {
+      const x = (0.5 + 0.46 * Math.sin(time * 0.11 * (0.5 + p.v) + p.x * 20)) * w;
+      const y = (0.5 + 0.44 * Math.cos(time * 0.09 * (0.5 + p.s) + p.y * 20)) * h;
+      const glow = 0.5 + 0.5 * Math.sin(time * (1 + p.h * 2) + p.z * 10);
+      const r = (5 + p.s * 9) * scale * (0.7 + glow * 0.6);
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(colors.accent, 0.25 + glow * 0.55));
+      g.addColorStop(1, rgba(colors.accent, 0));
+      c.fillStyle = g;
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  /** Rings spreading from points that move on each round, like drops on water. */
+  ripples(c, w, h, time, colors) {
+    const reach = Math.max(w, h) * 0.32;
+    c.lineWidth = Math.max(1, w / 1000);
+    this.items.forEach((p, i) => {
+      const period = 6 + p.v * 4;
+      const t = time + p.h * period;
+      const round = Math.floor(t / period);
+      const phase = (t % period) / period;
+      const at = (n) => { const v = Math.sin(i * 12.9898 + round * 78.233 + n) * 43758.5453; return v - Math.floor(v); };
+      const x = (0.1 + at(1) * 0.8) * w;
+      const y = (0.1 + at(2) * 0.8) * h;
+      for (const k of [1, 0.7, 0.4]) {
+        c.strokeStyle = rgba(k === 1 ? colors.accent : colors.text, (1 - phase) * 0.4 * k);
+        c.beginPath();
+        c.arc(x, y, Math.max(0, phase * reach * k), 0, Math.PI * 2);
+        c.stroke();
+      }
+    });
+  }
+
+  /** Columns of characters falling, a bright one at the head. */
+  coderain(c, w, h, time, colors) {
+    const glyphs = '0123456789ABCDEF<>{}[]=+*';
+    const column = w / this.items.length;
+    const size = column * 0.62;
+    c.font = `${Math.round(size)}px Consolas, Menlo, monospace`;
+    c.textAlign = 'center';
+    const heads = this.items.map((p) => [(((p.y + time * (0.06 + p.v * 0.1)) % 1.3) - 0.1) * h, Math.floor(time * 6 + p.h * 10)]);
+    // One colour per trail position (the head is brightest), set once for all columns.
+    for (let k = 0; k < 12; k++) {
+      c.fillStyle = k === 0 ? rgba(colors.text, 0.75) : rgba(colors.accent, 0.5 * (1 - k / 12));
+      heads.forEach(([head, tick], i) => {
+        const y = head - k * size * 1.15;
+        if (y < -size || y > h + size) return;
+        c.fillText(glyphs[(i * 7 + k * 13 + tick) % glyphs.length], (i + 0.5) * column, y);
+      });
+    }
+    c.textAlign = 'start';
+  }
+
+  /** A honeycomb with a wave of light running out from the middle. */
+  hexagons(c, w, h, time, colors) {
+    const r = Math.max(w, h) / 24;
+    const step = Math.sqrt(3) * r;
+    const LEVELS = 8;
+    const cells = Array.from({ length: LEVELS }, () => []);
+    for (let row = 0; row * r * 1.5 < h + r; row++) {
+      for (let col = 0; col * step < w + step; col++) {
+        const x = col * step + (row % 2) * step / 2;
+        const y = row * r * 1.5;
+        const pulse = 0.5 + 0.5 * Math.sin(time * 0.9 - Math.hypot(x - w / 2, y - h / 2) / (r * 3));
+        cells[Math.min(LEVELS - 1, Math.floor(pulse * LEVELS))].push(x, y);
+      }
+    }
+    // Cells of the same brightness are drawn as one path: a few calls a frame instead of hundreds.
+    c.lineWidth = Math.max(1, w / 1600);
+    cells.forEach((list, level) => {
+      if (!list.length) return;
+      c.beginPath();
+      for (let i = 0; i < list.length; i += 2) {
+        for (let k = 0; k < 6; k++) {
+          const a = Math.PI / 6 + (k * Math.PI) / 3;
+          c[k ? 'lineTo' : 'moveTo'](list[i] + Math.cos(a) * r * 0.92, list[i + 1] + Math.sin(a) * r * 0.92);
+        }
+        c.closePath();
+      }
+      const pulse = (level + 0.5) / LEVELS;
+      if (pulse > 0.8) {
+        c.fillStyle = rgba(colors.accent, (pulse - 0.8) * 0.9);
+        c.fill();
+      }
+      c.strokeStyle = rgba(colors.accent, 0.08 + pulse * pulse * 0.22);
+      c.stroke();
+    });
+  }
+
+  /** Planets circling a glowing centre, each on its own ring. */
+  orbits(c, w, h, time, colors) {
+    const cx = w / 2;
+    const cy = h / 2;
+    const unit = Math.min(w, h);
+    const scale = w / 1600 + 0.6;
+    const sun = c.createRadialGradient(cx, cy, 0, cx, cy, unit * 0.09);
+    sun.addColorStop(0, rgba(colors.accent, 0.5));
+    sun.addColorStop(1, rgba(colors.accent, 0));
+    c.fillStyle = sun;
+    c.fillRect(cx - unit * 0.09, cy - unit * 0.09, unit * 0.18, unit * 0.18);
+    c.lineWidth = Math.max(1, w / 1600);
+    this.items.forEach((p, i) => {
+      const radius = unit * (0.1 + i * 0.05);
+      c.strokeStyle = rgba(colors.text, 0.09);
+      c.beginPath();
+      c.ellipse(cx, cy, radius * 1.35, radius, 0, 0, Math.PI * 2);
+      c.stroke();
+      const a = time * (0.5 / (1 + i * 0.5)) * (p.v > 0.3 ? 1 : -1) + p.h * Math.PI * 2;
+      c.fillStyle = rgba(p.z > 0.7 ? colors.text : colors.accent, 0.55);
+      c.beginPath();
+      c.arc(cx + Math.cos(a) * radius * 1.35, cy + Math.sin(a) * radius, (3 + p.s * 6) * scale, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
+
+  /** Soft blobs rising and sinking slowly. */
+  lava(c, w, h, time, colors) {
+    const hues = [colors.accent, colors.accent2 ?? colors.accent, colors.danger ?? colors.accent];
+    c.globalCompositeOperation = colors.dark ? 'lighter' : 'source-over';
+    this.items.forEach((p, i) => {
+      const x = (0.12 + 0.76 * p.x + 0.06 * Math.sin(time * 0.2 + p.h * 9)) * w;
+      const y = (0.5 + 0.42 * Math.sin(time * 0.12 * (0.5 + p.v) + p.h * 9)) * h;
+      const r = Math.min(w, h) * (0.1 + p.s * 0.12) * (1 + 0.08 * Math.sin(time * 0.7 + i));
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      const hue = hues[i % hues.length];
+      g.addColorStop(0, rgba(hue, 0.42));
+      g.addColorStop(0.6, rgba(hue, 0.3));
+      g.addColorStop(1, rgba(hue, 0));
+      c.fillStyle = g;
+      c.fillRect(x - r, y - r, r * 2, r * 2);
+    });
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  /** Two arms of stars turning around the centre. */
+  spiral(c, w, h, time, colors) {
+    const cx = w / 2;
+    const cy = h / 2;
+    const reach = Math.min(w, h) * 0.5;
+    const scale = w / 1600 + 0.6;
+    const n = this.items.length;
+    this.items.forEach((p, i) => {
+      const k = i / n;
+      const a = k * Math.PI * 6 + time * 0.12 + (p.h > 0.5 ? Math.PI : 0) + (p.s - 0.5) * 0.4;
+      const d = k * reach * (0.9 + p.v * 0.2);
+      c.fillStyle = rgba(p.z > 0.75 ? colors.text : colors.accent, 0.2 + 0.55 * (1 - k));
+      c.beginPath();
+      c.arc(cx + Math.cos(a) * d * 1.3, cy + Math.sin(a) * d, (0.8 + p.z * 2.2) * scale, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
+
+  /** Paper bits tumbling down. */
+  confetti(c, w, h, time, colors) {
+    const hues = [colors.accent, colors.accent2 ?? colors.text, colors.danger ?? colors.accent, colors.text];
+    const scale = w / 1600 + 0.6;
+    for (const p of this.items) {
+      const y = (((p.y + time * (0.035 + p.v * 0.05)) % 1.1) - 0.05) * h;
+      const x = ((((p.x + Math.sin(time * 0.7 + p.h * 10) * 0.03) % 1) + 1) % 1) * w;
+      const turn = time * (1 + p.s * 2) + p.h * 6;
+      const size = (6 + p.s * 8) * scale;
+      c.setTransform(Math.cos(turn), Math.sin(turn), -Math.sin(turn), Math.cos(turn), x, y);
+      c.fillStyle = rgba(hues[Math.floor(p.z * hues.length)], 0.45);
+      c.fillRect(-size / 2, -size * 0.3, size, size * 0.6 * Math.abs(Math.cos(turn * 1.3)) + 1);
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  /** Milestone diamonds sliding along timeline rows. */
+  milestones(c, w, h, time, colors) {
+    const rows = this.items.length;
+    const size = Math.min(w, h) / 70 + 4;
+    c.lineWidth = Math.max(1, w / 1600);
+    this.items.forEach((p, i) => {
+      const y = ((i + 0.5) / rows) * h;
+      c.strokeStyle = rgba(colors.text, 0.08);
+      c.beginPath();
+      c.moveTo(0, y);
+      c.lineTo(w, y);
+      c.stroke();
+      for (let j = 0; j < 3; j++) {
+        const x = ((((p.x + j / 3 + time * 0.02 * (0.4 + p.v) * (i % 2 ? -1 : 1)) % 1) + 1) % 1) * (w + size * 4) - size * 2;
+        c.beginPath();
+        c.moveTo(x, y - size);
+        c.lineTo(x + size, y);
+        c.lineTo(x, y + size);
+        c.lineTo(x - size, y);
+        c.closePath();
+        c.fillStyle = rgba(j === 0 && p.h > 0.6 ? colors.danger ?? colors.accent : colors.accent, 0.28);
+        c.fill();
+        c.strokeStyle = rgba(colors.accent, 0.5);
+        c.stroke();
+      }
+    });
+  }
+
+  /** Wide ribbons of light swaying across. */
+  ribbons(c, w, h, time, colors) {
+    const stepX = Math.max(4, w / 120);
+    c.lineCap = 'round';
+    for (let layer = 0; layer < 6; layer++) {
+      c.beginPath();
+      for (let x = 0; x <= w + stepX; x += stepX) {
+        const y = h * (0.5 + 0.28 * Math.sin((x / w) * Math.PI * 2 * (0.8 + layer * 0.25) + time * (0.35 + layer * 0.08) + layer) * Math.sin(time * 0.15 + layer * 1.1));
+        c[x ? 'lineTo' : 'moveTo'](x, y);
+      }
+      c.lineWidth = h * 0.008 * (1 + (layer % 3));
+      c.strokeStyle = rgba(layer % 2 ? colors.accent : colors.accent2 ?? colors.text, 0.16);
+      c.stroke();
     }
   }
 }

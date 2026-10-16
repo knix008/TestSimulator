@@ -20,7 +20,10 @@ export const PANEL_MIN = { left: 236, right: 300 };
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
-export const ANIMATIONS = ['aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'gantt', 'starfield'];
+export const ANIMATIONS = [
+  'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'gantt', 'starfield', 'rain', 'snow',
+  'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'milestones', 'ribbons',
+];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];
 export const VIEWS = ['gantt', 'tracking', 'taskSheet', 'taskUsage', 'network', 'calendar', 'timeline', 'resourceSheet', 'resourceUsage', 'resourceGraph', 'teamPlanner', 'reports'];

@@ -32,7 +32,7 @@ The start page shows when no project is open (and from the **Home** button at th
 | **New** | Blank project and 7 templates (Software development · Building construction · Event planning · Marketing campaign · Product launch · Research study · Office move), **Open…**, **Import (MS Project XML · CSV)…** |
 | **Recent files** · **Recent folders** | The last 10 files and 10 folders. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all |
 | **Sample projects** | Installed samples (website redesign · software · construction · event plan · event template) |
-| **Moving background** | Pick one of 8 animations, **Change moving background** (random), **Background image…**, **Motion speed** |
+| **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed** |
 | **Help** | **User's guide**, **Keyboard shortcuts…** |
 | Bottom | **Show the start page when starting** check box |
 
