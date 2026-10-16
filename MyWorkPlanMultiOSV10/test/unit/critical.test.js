@@ -61,18 +61,41 @@ test('a link on a summary task reaches its subtasks; the summary is reported too
   assert.ok(cp.summaries.has(phase.id));
 });
 
-test('no critical path when everything is complete', () => {
+test('finished work stays on the path, from the project start through to the finish', () => {
   const p = make();
   const a = add(p, 'A', 2, { percentComplete: 100 });
-  const b = add(p, 'B', 2, { percentComplete: 100 });
+  const b = add(p, 'B', 3, { percentComplete: 100 });
+  const c = add(p, 'C', 2);
+  const d = add(p, 'D', 1); // shorter, and not linked, so it has slack
   P.linkTasks(p, a.id, b.id);
-  const cp = criticalPath(p, schedule(p));
-  assert.equal(cp.ids.size, 0);
-  assert.deepEqual(cp.chains, []);
-  assert.equal(cp.finish, null);
+  P.linkTasks(p, b.id, c.id);
+  const s = schedule(p);
+  const cp = criticalPath(p, s);
+  assert.deepEqual(names(p, [...cp.ids].sort((x, y) => s.info(x).row - s.info(y).row)), ['A', 'B', 'C']);
+  assert.deepEqual(cp.chains.map((chain) => names(p, chain)), [['A', 'B', 'C']]);
+  assert.equal(s.info(cp.chains[0][0]).start, s.start, 'the path opens at the project start');
+  assert.equal(s.info(cp.chains[0].at(-1)).finish, s.finish, 'the path closes at the project finish');
+  assert.equal(cp.ids.has(d.id), false);
 });
 
-test('sample plan: one start-to-finish chain, every step a real dependency, ending at the project finish', () => {
+test('a link that does not set the successor date is not a step of the path', () => {
+  const p = make();
+  const a = add(p, 'A', 4);
+  const b = add(p, 'B', 4);
+  const m = add(p, 'M', 0, { milestone: true });
+  P.linkTasks(p, a.id, b.id, 'SS', DAY, 'd'); // B starts one day after A and finishes later
+  P.linkTasks(p, a.id, m.id); // A finishes before B, so this link does not move M
+  P.linkTasks(p, b.id, m.id);
+  const s = schedule(p);
+  const cp = criticalPath(p, s);
+  assert.deepEqual(cp.chains.map((chain) => names(p, chain)), [['A', 'B', 'M']]);
+  assert.ok(cp.links.has(`${a.id}>${b.id}`) && cp.links.has(`${b.id}>${m.id}`));
+  assert.equal(cp.links.has(`${a.id}>${m.id}`), false);
+  assert.equal(s.info(cp.chains[0][0]).start, s.start);
+  assert.equal(s.info(m.id).finish, s.finish);
+});
+
+test('sample plan: driving chains from the project start to the project finish', () => {
   const p = buildSample('ko', { today: '2026-10-16' });
   const s = schedule(p);
   const cp = criticalPath(p, s);
@@ -80,9 +103,9 @@ test('sample plan: one start-to-finish chain, every step a real dependency, endi
   assert.ok(cp.chains.length >= 1);
   for (const chain of cp.chains) {
     for (let i = 1; i < chain.length; i++) {
-      const edges = s.graph.incoming.get(chain[i]);
-      assert.ok(edges.some((edge) => edge.from.includes(chain[i - 1])), 'consecutive tasks are linked');
+      assert.ok(s.graph.driving.get(chain[i]).includes(chain[i - 1]), 'each step is a driving link');
     }
+    assert.equal(s.info(chain[0]).start, s.start, 'each chain opens at the project start');
     assert.equal(s.info(chain.at(-1)).finish, s.finish, 'each chain runs to the project finish');
   }
   for (const id of cp.ids) assert.ok(s.info(id).critical && s.info(id).totalSlack <= 0);

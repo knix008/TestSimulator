@@ -1,20 +1,17 @@
-// The critical path, traced both ways over the scheduled plan.
+// The critical path: the driving chains that run to the project finish.
 //
-// schedule() already runs the forward pass (earliest start/finish, top → bottom)
-// and the backward pass (latest start/finish, bottom → top); a task is critical
-// when its total slack is gone. Here the critical tasks are linked into chains:
-//   - top → bottom: from the tasks that open a chain (no critical predecessor),
-//     follow critical successors;
-//   - bottom → top: from the tasks that close a chain (no critical successor,
-//     normally the ones that finish the project), follow critical predecessors.
-// A task reached both ways lies on a complete start-to-finish critical chain.
+// schedule() marks a task critical when its total slack is gone (finished work
+// included) and records which predecessor actually sets each task's start.
+// Tracing walks backward from the tasks that finish the project, along those
+// driving links only, so the chains run from the opening critical task to the
+// project finish. A link that does not move its successor is not a step.
 
 const MAX_CHAINS = 20;
 
 /**
- * Returns { ids: Set of critical leaf task ids on a full chain, summaries: Set of
- * summary ids that contain one, chains: [[id, …], …] from start to finish (rows
- * order), starts, ends, links: Set of "from>to" critical link keys, finish, duration }.
+ * Returns { ids: Set of critical leaf task ids on a chain that reaches the project
+ * finish, summaries: Set of summary ids that contain one, chains: [[id, …], …] in
+ * row order, starts, ends, links: Set of "from>to" driving link keys, start, finish }.
  */
 export function criticalPath(project, sched) {
   const graph = sched.graph;
@@ -23,37 +20,39 @@ export function criticalPath(project, sched) {
   const preds = new Map([...critical].map((id) => [id, []]));
   const succs = new Map([...critical].map((id) => [id, []]));
   for (const to of critical) {
-    for (const edge of graph.incoming.get(to) ?? []) {
-      for (const from of edge.from) {
-        if (!critical.has(from) || from === to) continue;
-        if (!preds.get(to).includes(from)) preds.get(to).push(from);
-        if (!succs.get(from).includes(to)) succs.get(from).push(to);
-      }
+    for (const from of graph.driving?.get(to) ?? []) {
+      if (!critical.has(from) || from === to) continue;
+      if (!preds.get(to).includes(from)) preds.get(to).push(from);
+      if (!succs.get(from).includes(to)) succs.get(from).push(to);
     }
   }
   const rowOf = (id) => info(id)?.row ?? 0;
   const byRow = (a, b) => rowOf(a) - rowOf(b);
-  const starts = [...critical].filter((id) => !preds.get(id).length).sort(byRow);
-  const ends = [...critical].filter((id) => !succs.get(id).length).sort(byRow);
-  const walk = (from, next) => {
+  const reachable = (from, next) => {
     const seen = new Set(from);
     const queue = [...from];
-    while (queue.length) for (const id of next.get(queue.shift())) if (!seen.has(id)) { seen.add(id); queue.push(id); }
+    while (queue.length) for (const id of next.get(queue.shift()) ?? []) if (!seen.has(id)) { seen.add(id); queue.push(id); }
     return seen;
   };
-  const down = walk(starts, succs); // top → bottom
-  const up = walk(ends, preds); // bottom → top
-  const ids = new Set([...critical].filter((id) => down.has(id) && up.has(id)));
+  // Backward from whatever finishes the project: those tasks, and the driving
+  // critical work in front of them, are the path from its opening task to the end.
+  const finishers = [...critical].filter((id) => info(id).finish === sched.finish);
+  const ids = reachable(finishers, preds);
+  const starts = [...ids].filter((id) => !(preds.get(id) ?? []).some((pred) => ids.has(pred))).sort(byRow);
+  const ends = [...ids].filter((id) => !(succs.get(id) ?? []).some((succ) => ids.has(succ))).sort(byRow);
   // Start-to-finish chains (depth first, in row order; capped for huge plans).
   const chains = [];
   const extend = (path) => {
     if (chains.length >= MAX_CHAINS) return;
     const last = path[path.length - 1];
-    const next = succs.get(last).filter((id) => ids.has(id) && !path.includes(id)).sort(byRow);
-    if (!next.length) { chains.push(path); return; }
+    const next = (succs.get(last) ?? []).filter((id) => ids.has(id) && !path.includes(id)).sort(byRow);
+    if (!next.length) {
+      if (info(last).finish === sched.finish) chains.push(path);
+      return;
+    }
     for (const id of next) extend([...path, id]);
   };
-  for (const id of starts) if (ids.has(id)) extend([id]);
+  for (const id of starts) extend([id]);
   const links = new Set();
   for (const chain of chains) for (let i = 1; i < chain.length; i++) links.add(`${chain[i - 1]}>${chain[i]}`);
   const summaries = new Set();

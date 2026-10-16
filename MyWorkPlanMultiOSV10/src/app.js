@@ -1719,8 +1719,7 @@ function toggleCriticalPath() {
   const doc = activeDoc();
   let showFirst = null;
   if (criticalMode && doc) {
-    // Forward pass (earliest dates, top → bottom) and backward pass (latest dates, bottom → top),
-    // then the critical tasks are traced into start-to-finish chains both ways.
+    // Forward and backward passes, then the driving critical chains that reach the project finish.
     doc.recalculate();
     const cp = criticalPath(doc.project, doc.sched);
     const name = (id) => `${doc.sched.info(id).row}. ${P.findTask(doc.project, id)?.name ?? ''}`;

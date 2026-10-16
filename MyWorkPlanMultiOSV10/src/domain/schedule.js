@@ -326,6 +326,30 @@ export function schedule(project, { delays = null, today = null } = {}) {
     }
   }
 
+  // Predecessor leaves whose link actually sets this task's start. The critical
+  // path follows only these driving links, from the project finish back to the start.
+  const driving = new Map();
+  for (const id of graph.leaves) {
+    const drivers = [];
+    const start = es.get(id);
+    if (start != null && !byId.get(id).manual) {
+      for (const edge of graph.incoming.get(id)) {
+        if (edge.from.some((leaf) => !es.has(leaf))) continue;
+        const lag = lagOf(edge.link, groupDuration(edge));
+        for (const leaf of edge.from) {
+          let candidate;
+          if (edge.type === 'SS') candidate = addLag(es.get(leaf), lag);
+          else if (edge.type === 'FF') candidate = backward(id, addLag(ef.get(leaf), lag));
+          else if (edge.type === 'SF') candidate = backward(id, addLag(es.get(leaf), lag));
+          else candidate = addLag(ef.get(leaf), lag);
+          if (snapStart(id, candidate) === start && !drivers.includes(leaf)) drivers.push(leaf);
+        }
+      }
+    }
+    driving.set(id, drivers);
+  }
+  graph.driving = driving;
+
   // ── leaf results
   const status = date(project.statusDate) ?? today ?? nowMin();
   const criticalLimit = Number(o.criticalSlack ?? 0) * (Number(o.hoursPerDay ?? 8) * 60);
@@ -360,7 +384,9 @@ export function schedule(project, { delays = null, today = null } = {}) {
       }
       info.freeSlack = Math.max(0, free);
       info.percentComplete = Math.max(0, Math.min(100, Number(task.percentComplete) || 0));
-      info.critical = info.active && info.percentComplete < 100 && info.totalSlack <= criticalLimit;
+      // Finished work stays critical when it has no slack, so the path can be
+      // traced from the first task of the project through to the last.
+      info.critical = info.active && info.totalSlack <= criticalLimit;
       info.calendarId = c.calendar.id;
       info.required = required.get(id);
       const deadline = date(task.deadline);
