@@ -5,6 +5,7 @@ import { app } from '../store.js';
 import { clear, h } from './dom.js';
 import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
+import { START_SCENE_IDS, startSceneId, startSpeedPercent } from './startscenes.js';
 
 const TIP_COUNT = 6;
 
@@ -34,6 +35,83 @@ function folderLabel(path) {
   const clean = String(path).replace(/^@\d+:/, '');
   const parts = clean.split(/[\\/]/).filter(Boolean);
   return parts.at(-1) || clean;
+}
+
+/** Background names. `onPick` receives the scene id. */
+export function createStartScenes(selected, onPick) {
+  const buttons = START_SCENE_IDS.map((id) => h('button.start-scene', {
+    type: 'button',
+    dataset: { scene: id },
+  }, t(`start.scene.${id}`)));
+  const paint = (id) => {
+    for (const button of buttons) {
+      const on = button.dataset.scene === id;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  };
+  for (const button of buttons) button.addEventListener('click', () => {
+    paint(button.dataset.scene);
+    onPick(button.dataset.scene);
+  });
+  paint(startSceneId(selected));
+  return h('div.start-scenes', buttons);
+}
+
+/** Speed label, − / + and a short bar, on one line. `onPick` receives 0–100. */
+export function createStartSpeed(selected, onPick) {
+  let speed = startSpeedPercent(selected);
+  const fill = h('span.start-speed-fill');
+  const thumb = h('span.start-speed-thumb');
+  const value = h('span.start-speed-value');
+  const track = h('div.start-speed-track', {
+    role: 'slider',
+    tabindex: '0',
+    'aria-valuemin': '0',
+    'aria-valuemax': '100',
+    'aria-label': t('settings.startMotion'),
+  }, fill, thumb, value);
+  const minus = h('button.start-speed-step', { type: 'button', 'aria-label': t('start.speedDown') }, '−');
+  const plus = h('button.start-speed-step', { type: 'button', 'aria-label': t('start.speedUp') }, '+');
+  const paint = () => {
+    fill.style.width = `${speed}%`;
+    thumb.style.left = `${speed}%`;
+    value.textContent = `${speed}%`;
+    track.setAttribute('aria-valuenow', String(speed));
+    minus.disabled = speed <= 0;
+    plus.disabled = speed >= 100;
+  };
+  const set = (next) => {
+    const n = startSpeedPercent(next);
+    if (n === speed) return;
+    speed = n;
+    paint();
+    onPick(speed);
+  };
+  minus.addEventListener('click', () => set(speed - 5));
+  plus.addEventListener('click', () => set(speed + 5));
+  const fromPointer = (event) => {
+    const rect = track.getBoundingClientRect();
+    const ratio = rect.width ? (event.clientX - rect.left) / rect.width : 0;
+    set(Math.round(Math.max(0, Math.min(1, ratio)) * 100));
+  };
+  track.addEventListener('pointerdown', (event) => {
+    track.setPointerCapture(event.pointerId);
+    fromPointer(event);
+  });
+  track.addEventListener('pointermove', (event) => {
+    if (track.hasPointerCapture(event.pointerId)) fromPointer(event);
+  });
+  track.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); set(speed - 5); }
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); set(speed + 5); }
+    else if (event.key === 'Home') { event.preventDefault(); set(0); }
+    else if (event.key === 'End') { event.preventDefault(); set(100); }
+  });
+  paint();
+  return h('div.start-speed',
+    h('span.start-speed-label', t('settings.startMotion')),
+    h('div.start-speed-control', minus, track, plus));
 }
 
 function actionCard(glyph, title, text, run, primary = false, id) {
@@ -84,15 +162,26 @@ export function createStartPage(ctx) {
       title: t(label),
       onclick: () => actions[id]?.(),
     }, h('span.task-icon', { html: icon(glyph) }), h('span.task-text', h('b', t(label)), h('small', t(`start.desc.${id}`)))));
+    const screen = app.settings.startScreen ?? {};
+    const scene = startSceneId(screen.scene);
+    const speed = startSpeedPercent(screen.motion);
     const group = (id, glyph, title, ...nodes) => h('section.start-group', { dataset: { group: id } },
       h('h2', h('span', { html: icon(glyph) }), h('span', title)), ...nodes);
     const board = h('div.start-board',
-      h('div.start-side',
-        group('begin', 'play', t('start.begin'), h('div.start-actions', begin)),
-        group('recent', 'clock', t('start.recent'),
-          recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
-          h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`))))),
-      group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)));
+      group('begin', 'play', t('start.begin'), h('div.start-actions', begin)),
+      group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)),
+      group('recent', 'clock', t('start.recent'),
+        recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
+        h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`)))),
+      group('scenes', 'image', t('start.background'),
+        createStartScenes(scene, (id) => {
+          app.settings.startScreen = { ...(app.settings.startScreen ?? {}), scene: id };
+          app.saveSettings();
+        }),
+        createStartSpeed(speed, (n) => {
+          app.settings.startScreen = { ...(app.settings.startScreen ?? {}), motion: n };
+          app.saveSettings();
+        })));
     clear(scroll);
     scroll.append(h('div.start',
       h('header.start-head',
@@ -100,6 +189,28 @@ export function createStartPage(ctx) {
         h('div', h('h1', 'MyPhotoManager'), h('p', t('start.lead')))),
       board));
     scroll.lang = getLanguage();
+  }
+
+  function markBackground() {
+    const screen = app.settings.startScreen ?? {};
+    const scene = startSceneId(screen.scene);
+    const speed = startSpeedPercent(screen.motion);
+    for (const button of scroll.querySelectorAll('.start-scene')) {
+      const on = button.dataset.scene === scene;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    const track = scroll.querySelector('.start-speed-track');
+    const fill = scroll.querySelector('.start-speed-fill');
+    const thumb = scroll.querySelector('.start-speed-thumb');
+    const value = scroll.querySelector('.start-speed-value');
+    if (track) track.setAttribute('aria-valuenow', String(speed));
+    if (fill) fill.style.width = `${speed}%`;
+    if (thumb) thumb.style.left = `${speed}%`;
+    if (value) value.textContent = `${speed}%`;
+    const steps = scroll.querySelectorAll('.start-speed-step');
+    if (steps[0]) steps[0].disabled = speed <= 0;
+    if (steps[1]) steps[1].disabled = speed >= 100;
   }
 
   return {
@@ -112,7 +223,7 @@ export function createStartPage(ctx) {
       stopLang = onLanguageChange(render);
       if (!this.settingsWatch) {
         this.settingsWatch = true;
-        app.on('settings', () => { if (shown) render(); });
+        app.on('settings', () => { if (shown) { render(); markBackground(); } });
       }
     },
     /** Build the buttons and compile the landscape before the user asks for the page. */

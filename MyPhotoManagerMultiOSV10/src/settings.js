@@ -3,6 +3,7 @@
 // WebView, which can lose its latest localStorage writes).
 import { fs } from './platform/fs.js';
 import { isDesktop } from './platform/native.js';
+import { startSpeedPercent } from './ui/startscenes.js';
 
 const KEY = 'myphotomanager.settings';
 
@@ -37,7 +38,7 @@ export const DEFAULTS = Object.freeze({
   mapTiles: true,
   startup: 'last',
   // Start page picture: one of START_SCENE_IDS, and how fast it moves (off | slow | medium | fast).
-  startScreen: { scene: 'valley', motion: 'slow' },
+  startScreen: { scene: 'valley', motion: 20 },
   lastFolder: null,
   recentFolders: [],
   recentFiles: [],
@@ -83,6 +84,7 @@ export function normalize(raw) {
   }
   out.thumbSize = Math.max(64, Math.min(400, out.thumbSize));
   out.jpegQuality = Math.max(10, Math.min(100, out.jpegQuality));
+  out.startScreen.motion = startSpeedPercent(raw?.startScreen?.motion ?? out.startScreen.motion);
   return out;
 }
 

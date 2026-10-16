@@ -2,7 +2,7 @@
 // other kinds are painted scenes. Settings choose the kind and how fast it moves.
 // The loop pauses while the page is hidden or the window is in the background.
 import { app } from '../store.js';
-import { motionScale, paintStartScene, startMotionId, startSceneId } from './startscenes.js';
+import { motionScale, paintStartScene, startSceneId } from './startscenes.js';
 
 function cssChannels(value) {
   const text = String(value ?? '').trim();
@@ -410,7 +410,7 @@ export class StartBackground {
   /** The kind and speed from Settings. `slow` is the original valley pace. */
   choice() {
     const saved = app.settings.startScreen ?? {};
-    return { scene: startSceneId(saved.scene), speed: motionScale(startMotionId(saved.motion)) };
+    return { scene: startSceneId(saved.scene), speed: motionScale(saved.motion) };
   }
 
   /** Compile the landscape once, off the click that opens the page. */
@@ -497,11 +497,23 @@ export class StartBackground {
       this.settingsWatch = true;
       app.on('settings', () => {
         if (!this.wanted) return;
-        this.stop();
-        this.activate(this.choice().scene);
-        this.resize();
-        this.applySize(performance.now());
-        this.start();
+        const { scene, speed } = this.choice();
+        if (scene !== this.kind) {
+          this.stop();
+          this.snap?.remove();
+          this.snapUntil = null;
+          this.activate(scene);
+          this.resize();
+          this.applySize(performance.now());
+          this.start();
+          return;
+        }
+        // Speed is read every frame. Only a restart is needed when motion begins again.
+        if (speed === 0) {
+          this.running = false;
+          this.still = this.still || performance.now();
+          this.applySize(this.still);
+        } else if (!this.running) this.start();
       });
     }
     this.wanted = true;
@@ -542,11 +554,13 @@ export class StartBackground {
     if (this.kind !== 'valley') {
       const canvas = this.flat;
       if (!canvas) return;
-      if (canvas.width !== this.wantW || canvas.height !== this.wantH) {
+      const realloc = canvas.width !== this.wantW || canvas.height !== this.wantH;
+      if (realloc) {
         canvas.width = this.wantW;
         canvas.height = this.wantH;
       }
       this.drawFlat(now);
+      this.releaseSnap(now, realloc);
       return;
     }
     const gl = this.gl;
@@ -561,10 +575,14 @@ export class StartBackground {
     this.aspect = this.canvas.width / this.canvas.height;
     this.draw(now);
     this.canvas.classList.remove('is-pending');
-    if (realloc) {
-      gl.flush();
-      this.snapUntil = now;
-    } else if (this.snap?.isConnected && this.snapUntil != null && now >= this.snapUntil) {
+    if (realloc) gl.flush();
+    this.releaseSnap(now, realloc);
+  }
+
+  // The cover stays for the resized frame, then the new picture shows through.
+  releaseSnap(now, fresh) {
+    if (fresh) this.snapUntil = now;
+    else if (this.snap?.isConnected && this.snapUntil != null && now >= this.snapUntil) {
       this.snap.remove();
       this.snapUntil = null;
     }
@@ -605,7 +623,7 @@ export class StartBackground {
     const speed = this.choice().speed;
     const t = speed === 0 ? (this.phase || 0) : (now / 1000) * speed + (this.phase || 0);
     // The sun walks the sky so slopes all across the valley change light.
-    const spin = t * 0.45;
+    const spin = t * 0.16;
     const sx = Math.cos(spin) * 0.8;
     const sy = 0.4 + Math.sin(t * 0.2) * 0.05;
     const sz = Math.sin(spin) * 0.8;
@@ -615,12 +633,13 @@ export class StartBackground {
     this.sun[2] = sz / sl;
     // A cruise around the lake, looking near the valley, so the hills slide
     // across the window the way a moving wallpaper does.
-    const elev = 0.22 + Math.sin(t * 0.35) * 0.1;
-    const dist = 24 + Math.sin(t * 0.22) * 4;
+    const cruise = this.angle + t * 0.16;
+    const elev = 0.22 + Math.sin(t * 0.7) * 0.12;
+    const dist = 22 + Math.sin(t * 0.45) * 6;
     const eye = [
-      Math.cos(this.angle) * dist * Math.cos(elev),
-      4.8 + Math.sin(elev) * 14 + Math.sin(t * 0.5) * 1.4,
-      Math.sin(this.angle) * dist * Math.cos(elev),
+      Math.cos(cruise) * dist * Math.cos(elev),
+      4.8 + Math.sin(elev) * 14 + Math.sin(t * 0.8) * 1.8,
+      Math.sin(cruise) * dist * Math.cos(elev),
     ];
     const look = [Math.sin(t * 0.15) * 3, 2.2, Math.cos(t * 0.18) * 2];
     lookAt(this.view, eye, look, [0, 1, 0]);
@@ -697,7 +716,7 @@ export class StartBackground {
       if (pace === 0) { this.running = false; this.applySize(this.still || now); return; }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      this.angle += dt * (calm ? 0.12 : 0.28) * pace;
+      this.angle += dt * (calm ? 0.05 : 0.1) * pace;
       this.applySize(now);
       this.frame = requestAnimationFrame(tick);
     };

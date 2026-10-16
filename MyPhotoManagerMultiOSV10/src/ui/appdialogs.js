@@ -6,7 +6,8 @@ import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
-import { START_MOTION_IDS, START_SCENE_IDS, startMotionId, startSceneId } from './startscenes.js';
+import { startSceneId, startSpeedPercent } from './startscenes.js';
+import { createStartScenes, createStartSpeed } from './startpage.js';
 import { h } from './dom.js';
 import { FLAG_EN, FLAG_KO } from './flags.js';
 import { icon } from './icons.js';
@@ -52,10 +53,13 @@ export async function settingsDialog({ onApply }) {
   const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
   autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
-  const startScene = selectEl(START_SCENE_IDS.map((id) => [id, t(`start.scene.${id}`)]), startSceneId(s.startScreen?.scene));
-  const startMotion = selectEl(START_MOTION_IDS.map((id) => [id, t(`start.motion.${id}`)]), startMotionId(s.startScreen?.motion));
-  startScene.dataset.key = 'start-scene';
-  startMotion.dataset.key = 'start-motion';
+  let startScene = startSceneId(s.startScreen?.scene);
+  let startSpeed = startSpeedPercent(s.startScreen?.motion);
+  const startBackup = { scene: startScene, motion: startSpeed };
+  const previewStart = () => {
+    s.startScreen = { ...(s.startScreen ?? {}), scene: startScene, motion: startSpeed };
+    app.emit('settings');
+  };
   const slideshow = slideshowSettingsFields(s.slideshow, { field, selectEl });
   const vs = { autoplay: true, loop: false, muted: false, volume: 100, speed: 1, controls: true, fit: 'fit', resume: true, nextAtEnd: false, ...(s.video ?? {}) };
   const video = {
@@ -77,7 +81,9 @@ export async function settingsDialog({ onApply }) {
       group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null))],
     ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
       group(t('settings.startScreen'),
-        field(t('settings.startScene'), startScene), field(t('settings.startMotion'), startMotion)))],
+        h('div.field-label', t('settings.startScene')),
+        createStartScenes(startScene, (id) => { startScene = id; previewStart(); }),
+        createStartSpeed(startSpeed, (n) => { startSpeed = n; previewStart(); })))],
     ['view', 'eye', t('settings.view'), h('div.settings-groups',
       group(t('settings.view'), field(t('settings.wheel'), wheel), enlarge.el, smooth.el, field(t('settings.measureUnit'), measureUnit), colorManaged.el, h('div.hint', t('settings.colorManagementHint'))))],
     ['browse', 'folder', t('settings.browse'), h('div.settings-groups',
@@ -119,14 +125,19 @@ export async function settingsDialog({ onApply }) {
   content.style.minHeight = `${tallest}px`;
   show(first); // measuring went through every tab: open on the first one
   const ok = await openDialog({ title: t('settings.title'), width: dialogWidth, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
-  if (!ok) { previewTheme(s.theme, s.customTheme); return; }
+  if (!ok) {
+    previewTheme(s.theme, s.customTheme);
+    s.startScreen = { ...(s.startScreen ?? {}), ...startBackup };
+    app.emit('settings');
+    return;
+  }
   Object.assign(s, {
     language: language.value, theme: theme.value, showHidden: hidden.input.checked, showAllFiles: allFiles.input.checked, showFolders: folders.input.checked,
     caption: { name: capName.input.checked, size: capSize.input.checked, dims: capDims.input.checked, date: capDate.input.checked, overlay: overlay.input.checked },
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
-    startScreen: { scene: startSceneId(startScene.value), motion: startMotionId(startMotion.value) },
+    startScreen: { scene: startSceneId(startScene), motion: startSpeedPercent(startSpeed) },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
