@@ -9,7 +9,7 @@ import numpy as np
 
 from kws import paths
 from kws.features import INPUT_NAME, OUTPUT_NAME, FeatureExtractor
-from kws.model import ARCH_NAME, build_model
+from kws.model import ARCHS, arch_title, build_model
 
 
 def export_onnx(model_dir: Path, audio_root: Path | None = None, make_int8: bool = True) -> str:
@@ -22,11 +22,12 @@ def export_onnx(model_dir: Path, audio_root: Path | None = None, make_int8: bool
     import json
 
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    if meta.get("arch") != ARCH_NAME:
+    arch = meta.get("arch")
+    if arch not in ARCHS:
         raise ValueError("이 프로그램이 만든 모델이 아닙니다.")
     labels = list(meta["labels"])
     extractor = FeatureExtractor.load(model_dir / paths.FRONTEND_NPZ)
-    model = build_model(len(labels))
+    model = build_model(len(labels), arch)
     try:
         state = torch.load(model_dir / paths.CHECKPOINT_FILENAME, map_location="cpu", weights_only=True)
     except TypeError:
@@ -75,6 +76,7 @@ def export_onnx(model_dir: Path, audio_root: Path | None = None, make_int8: bool
 
     lines = [
         f"ONNX 저장: {onnx_path}",
+        f"모델 구조: {arch_title(arch)}",
         f"크기: {onnx_path.stat().st_size / 1024:.1f} KB",
         f"PyTorch와 최대 로짓 차이: {max_diff:.6f}",
         f"입력: {INPUT_NAME} {expected}",
@@ -123,7 +125,15 @@ def _export_int8(onnx_path: Path, model_dir: Path, extractor: FeatureExtractor, 
         quantize_dynamic(str(onnx_path), str(int8_path), weight_type=QuantType.QInt8)
     except Exception as exc:
         return [f"INT8 저장에 실패했습니다. 실수형 ONNX는 사용할 수 있습니다. {exc}"]
-    lines = [f"INT8 저장: {int8_path}", f"INT8 크기: {int8_path.stat().st_size / 1024:.1f} KB"]
+    float_size = onnx_path.stat().st_size
+    int8_size = int8_path.stat().st_size
+    if int8_size >= float_size:
+        # 깊이별 합성곱이 많은 작은 모델은 양자화 노드가 가중치 절약보다 커질 수 있다.
+        int8_path.unlink(missing_ok=True)
+        return [
+            f"INT8은 {int8_size / 1024:.1f} KB로 실수형({float_size / 1024:.1f} KB)보다 커서 저장하지 않았습니다. 실수형 ONNX를 쓰세요."
+        ]
+    lines = [f"INT8 저장: {int8_path}", f"INT8 크기: {int8_size / 1024:.1f} KB"]
     if not wav_paths:
         return lines
     try:

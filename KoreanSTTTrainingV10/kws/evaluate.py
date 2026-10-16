@@ -307,7 +307,9 @@ def main() -> int:
     except Exception as exc:
         print(exc, file=sys.stderr)
         return 1
-    print(f"모델: {model_dir} ({engine})")
+    from kws.model import arch_title
+
+    print(f"모델: {model_dir} ({arch_title(bundle.arch)}, {engine})")
     print(f"평가 폴더: {folder}")
     print(report(items, bundle.labels, bundle.silence_label, threshold, skipped))
     wrong = [judge(item, bundle.labels, bundle.silence_label, threshold) for item in items]

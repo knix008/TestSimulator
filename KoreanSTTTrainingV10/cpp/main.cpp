@@ -14,6 +14,7 @@
 
 #ifdef _WIN32
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
@@ -77,7 +78,7 @@ int run(const std::filesystem::path& model_dir, const std::filesystem::path& wav
     }
 
     int top = 0;
-    int near = 0;
+    int nearest = 0;
     double near_prob = -1.0;
     for (int i = 0; i < static_cast<int>(probs.size()); ++i) {
         if (probs[static_cast<size_t>(i)] > probs[static_cast<size_t>(top)]) {
@@ -88,7 +89,7 @@ int run(const std::filesystem::path& model_dir, const std::filesystem::path& wav
         }
         if (probs[static_cast<size_t>(i)] > near_prob) {
             near_prob = probs[static_cast<size_t>(i)];
-            near = i;
+            nearest = i;
         }
     }
     const bool accepted = top != frontend.silence_index && probs[static_cast<size_t>(top)] >= static_cast<double>(threshold);
@@ -99,7 +100,7 @@ int run(const std::filesystem::path& model_dir, const std::filesystem::path& wav
         std::cout << "신뢰도: " << probs[static_cast<size_t>(top)] << "\n";
     } else {
         std::cout << "결과: 대기\n";
-        std::cout << "가장 가까운 명령: " << frontend.labels[static_cast<size_t>(near)]
+        std::cout << "가장 가까운 명령: " << frontend.labels[static_cast<size_t>(nearest)]
                   << "  " << near_prob << "\n";
     }
     for (size_t i = 0; i < frontend.labels.size(); ++i) {

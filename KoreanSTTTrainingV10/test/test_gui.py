@@ -10,6 +10,7 @@ import gui.app as app_module
 from kws import practice
 from kws.audio import save_wav
 from kws.project import SILENCE_LABEL
+from kws.archs import BCRESNET1, DSCNN
 from test.helpers import LABELS, kws_root, project_with_model, temp_dir, tone, write_tone_dataset
 
 
@@ -35,9 +36,12 @@ def fake_generate(commands, root=None, on_progress=None):
 
 
 class FakeMicrophone:
-    def __init__(self, device=None):
+    label = "해제"
+
+    def __init__(self, device=None, gain=1.0):
         rng = np.random.default_rng(4)
-        self.wav = tone("해제", rng)
+        self.gain = gain
+        self.wav = tone(self.label, rng)
 
     def start(self):
         pass
@@ -438,6 +442,291 @@ class ExistingModelTest(GuiTestCase):
         app.export_model()
         self.assertTrue(pump(app, lambda: "ONNX 저장" in app.export_text.get("1.0", "end"), 120))
         self.assertIn("synth_eval", app.export_text.get("1.0", "end"))
+
+
+def read_meta(folder):
+    import json
+
+    return json.loads((folder / "meta.json").read_text(encoding="utf-8"))
+
+
+def write_heldout_tones():
+    heldout = temp_dir()
+    rng = np.random.default_rng(3)
+    for label in LABELS[:-1]:
+        for group in ("깨끗", "소음섞인"):
+            save_wav(heldout / group / label / "0000.wav", tone(label, rng))
+    for group in ("다른말", "소음"):
+        save_wav(heldout / group / "0000.wav", tone(SILENCE_LABEL, rng))
+    return heldout
+
+
+class ModernLayoutTest(GuiTestCase):
+    def test_sidebar_switches_pages_and_highlights(self):
+        app = self.open()
+        # 클릭과 단축키는 화면에 보이는 창에만 전달된다.
+        app.root.deiconify()
+        app.root.update()
+        app.show_page(1)
+        app.root.update()
+        self.assertEqual(self.current_tab(), "학습")
+        self.assertEqual(app.nav_items[1]["label"].cget("bg"), app_module.SIDEBAR_ACTIVE)
+        self.assertEqual(app.nav_items[0]["label"].cget("bg"), app_module.SIDEBAR)
+        app.nav_items[3]["label"].event_generate("<Button-1>")
+        app.root.update()
+        self.assertEqual(self.current_tab(), "평가")
+        app.root.focus_force()
+        app.root.event_generate("<Control-Key-3>")
+        app.root.update()
+        self.assertEqual(self.current_tab(), "실시간 테스트")
+        self.assertEqual(app.nav_items[2]["marker"].cget("bg"), app_module.BLUE)
+        app.show_page(1)
+        app.arch_cards[BCRESNET1]["summary"].event_generate("<Button-1>")
+        app.root.update()
+        self.assertEqual(app.arch_var.get(), BCRESNET1)
+        app.root.withdraw()
+
+    def test_tab_strip_is_replaced_by_sidebar(self):
+        app = self.open()
+        layout = app_module.ttk.Style(app.root).layout("Pages.TNotebook.Tab")
+        self.assertNotIn("Notebook.tab", str(layout))
+        titles = [app.notebook.tab(tab, "text") for tab in app.notebook.tabs()]
+        self.assertEqual(titles, [page[0] for page in app_module.PAGES])
+        self.assertEqual([item["label"].cget("text") for item in app.nav_items], titles)
+
+    def test_input_level_meter(self):
+        app = self.open()
+        app._show_input_level(0.5)
+        self.assertEqual(app.input_level_var.get(), "입력 50%")
+        self.assertEqual(len(app.level_meter.find_all()), 2)
+        app._show_input_level(0.99)
+        self.assertIn("잘림", app.input_level_var.get())
+
+    def test_arch_cards_show_both_models(self):
+        app = self.open()
+        self.assertEqual(list(app.arch_cards), [DSCNN, BCRESNET1])
+        self.assertEqual(app.arch_var.get(), DSCNN)
+        self.assertEqual(app.out_name_var.get(), "latest")
+        self.assertEqual(app.lr_var.get(), "0.002")
+        self.assertIn("17,637", app.arch_cards[DSCNN]["params"].cget("text"))
+        self.assertIn("9,001", app.arch_cards[BCRESNET1]["params"].cget("text"))
+        self.assertEqual(str(app.arch_cards[DSCNN]["card"].cget("highlightbackground")), app_module.BLUE)
+
+    def test_picking_bc_resnet_updates_defaults_and_persists(self):
+        from kws.project import Project
+
+        app = self.open()
+        app.pick_arch(BCRESNET1)
+        self.assertEqual(app.arch_var.get(), BCRESNET1)
+        self.assertEqual(app.lr_var.get(), "0.01")
+        self.assertEqual(app.out_name_var.get(), "bcresnet1")
+        self.assertEqual(str(app.arch_cards[BCRESNET1]["card"].cget("highlightbackground")), app_module.BLUE)
+        self.assertEqual(Project().arch, BCRESNET1)
+        app.close()
+        self.app = None
+        again = self.open()
+        self.assertEqual(again.arch_var.get(), BCRESNET1)
+        self.assertEqual(again.lr_var.get(), "0.01")
+        self.assertEqual(again.out_name_var.get(), "bcresnet1")
+        again.pick_arch(DSCNN)
+        self.assertEqual(again.lr_var.get(), "0.002")
+        self.assertEqual(again.out_name_var.get(), "latest")
+
+    def test_custom_save_name_is_kept_when_switching(self):
+        app = self.open()
+        app.out_name_var.set("비교용")
+        app.pick_arch(BCRESNET1)
+        self.assertEqual(app.out_name_var.get(), "비교용")
+
+    def test_train_bc_resnet_then_live_verification(self):
+        write_tone_dataset(self.root / "data" / "audio")
+        app = self.open()
+        app.use_synth_var.set(False)
+        app.pick_arch(BCRESNET1)
+        app.epoch_var.set("20")
+        app.int8_var.set(False)
+        app.start_train()
+        self.assertTrue(app.training)
+        self.assertTrue(app.busy_shown)
+        self.assertEqual(app.kpi_params.get(), "9,001")
+        self.assertTrue(pump(app, lambda: not app.training))
+        self.messagebox.showerror.assert_not_called()
+        self.assertFalse(app.busy_shown)
+
+        model = self.root / "models" / "bcresnet1"
+        self.assertTrue((model / "command_kws.onnx").is_file())
+        self.assertEqual(read_meta(model)["arch"], BCRESNET1)
+        self.assertEqual(read_meta(model)["learning_rate"], 0.01)
+        self.assertIn("모델: BC-ResNet-1 (bcresnet1)", app.log.get("1.0", "end"))
+        self.assertTrue(app.acc_var.get().startswith("BC-ResNet-1 · 검증 정확도"))
+        self.assertTrue(app.kpi_accuracy.get().endswith("%"))
+        self.assertTrue(app.kpi_epoch.get().startswith("최고 "))
+        self.assertEqual(app.model_var.get(), "bcresnet1")
+        self.assertEqual(app.model_arch_badge.cget("text"), "BC-ResNet-1")
+        self.assertEqual(app.side_model_var.get(), "bcresnet1")
+        self.assertEqual(app.results_tree.item("bcresnet1", "values")[1], "BC-ResNet-1")
+
+        # 학습한 BC-ResNet-1로 바로 실시간 인식
+        app.threshold_var.set(0.5)
+        with mock.patch.object(app_module, "MicrophoneStream", FakeMicrophone):
+            app.toggle_test()
+            self.assertTrue(app.live)
+            self.assertTrue(pump(app, lambda: app.result_label.cget("text") == "해제", 20))
+            app.toggle_test()
+        self.assertIn("BC-ResNet-1", app.model_source_var.get())
+
+
+class BCResNetModelTest(GuiTestCase):
+    """저장된 BC-ResNet-1 결과로 실시간 인식, 평가, 추가 학습, 다시 학습, 내보내기를 한다."""
+
+    def setUp(self):
+        super().setUp()
+        project_with_model(self.root, "latest")
+        project_with_model(self.root, "bcresnet1", arch=BCRESNET1)
+
+    def open_bc(self):
+        app = self.open()
+        app.model_var.set("bcresnet1")
+        app.on_model_picked()
+        return app
+
+    def test_model_list_and_badges(self):
+        app = self.open()
+        self.assertEqual(list(app.model_combo["values"]), ["latest", "bcresnet1"])
+        self.assertEqual(app.model_arch_badge.cget("text"), "DS-CNN v2")
+        app.model_var.set("bcresnet1")
+        app.on_model_picked()
+        self.assertEqual(app.model_arch_badge.cget("text"), "BC-ResNet-1")
+        self.assertIn("출근, 퇴근, 경비, 해제, 무음", app.model_info_var.get())
+        self.assertIn("BC-ResNet-1", app.side_detail_var.get())
+        self.assertIn("9,001", app.side_detail_var.get())
+
+    def test_live_microphone_with_bc_resnet(self):
+        app = self.open_bc()
+        app.threshold_var.set(0.5)
+        with mock.patch.object(app_module, "MicrophoneStream", FakeMicrophone):
+            app.toggle_test()
+            self.assertTrue(app.live)
+            self.assertEqual(app.test_button.cget("text"), "테스트 중지")
+            self.assertTrue(pump(app, lambda: app.result_label.cget("text") == "해제", 20))
+            self.assertEqual(app.readout_badge.cget("text"), "인식됨")
+            self.assertEqual(str(app.readout.cget("bg")), app_module.SUCCESS_SOFT)
+            self.assertTrue(app.bar_canvas.find_all())
+            app.toggle_test()
+        self.assertFalse(app.live)
+        self.assertIn("bcresnet1 · BC-ResNet-1 · onnx", app.model_source_var.get())
+        self.messagebox.showerror.assert_not_called()
+
+    def test_wav_recognition_with_both_engines(self):
+        app = self.open_bc()
+        app.threshold_var.set(0.5)
+        wav = sorted((self.root / "data" / "audio" / "경비").glob("*.wav"))[0]
+        for engine in ("onnx", "pytorch"):
+            with self.subTest(engine=engine):
+                app.engine_var.set(engine)
+                app.recognize_wav(wav)
+                self.assertEqual(app.result_label.cget("text"), "경비")
+                self.assertIn(f"BC-ResNet-1 · {engine}", app.model_source_var.get())
+        silence = sorted((self.root / "data" / "audio" / SILENCE_LABEL).glob("*.wav"))[0]
+        app.recognize_wav(silence)
+        self.assertEqual(app.result_label.cget("text"), "대기")
+        self.assertEqual(str(app.readout.cget("bg")), app_module.WARN_SOFT)
+
+    def test_folder_evaluation_with_bc_resnet(self):
+        app = self.open_bc()
+        app.threshold_var.set(0.5)
+        with mock.patch.object(practice, "test_dir", return_value=write_heldout_tones()):
+            app.evaluate_practice()
+            self.assertTrue(app.busy_shown)
+            self.assertTrue(pump(app, lambda: not app.evaluating, 60))
+        from kws.evaluate import summarize
+
+        summary = summarize(app.eval_items, app.eval_labels, app.eval_silence, 0.5)
+        self.assertEqual(summary.total, 10)
+        self.assertGreaterEqual(summary.correct, 9, app.eval_report.get("1.0", "end"))
+        self.assertIn("혼동표", app.eval_report.get("1.0", "end"))
+
+    def test_microphone_exam_with_bc_resnet(self):
+        app = self.open_bc()
+        app.exam_repeat_var.set("1")
+        app.threshold_var.set(0.5)
+        fake = tone("경비", np.random.default_rng(5))
+        with mock.patch.object(app_module, "record_block", return_value=fake), mock.patch.object(app_module, "beep"):
+            app.start_exam()
+            self.assertTrue(pump(app, lambda: not app.evaluating, 60))
+        self.messagebox.showerror.assert_not_called()
+        self.assertEqual(len(app.eval_items), 6)
+        self.assertEqual(app.eval_score.cget("text"), "정확도 17% (1/6)")
+
+    def test_finetune_from_bc_resnet_keeps_arch(self):
+        app = self.open_bc()
+        app.train_mode_var.set("finetune")
+        app.on_train_mode()
+        self.assertEqual(app.base_info_var.get(), "기반: bcresnet1")
+        self.assertEqual(app.arch_var.get(), BCRESNET1)
+        self.assertEqual(app.lr_var.get(), "0.0025")
+        self.assertEqual(app.out_name_var.get(), "bcresnet1_speaker")
+        self.assertEqual(str(app.arch_cards[DSCNN]["radio"].cget("state")), "disabled")
+        self.assertIn("BC-ResNet-1", app.arch_note_var.get())
+        app.pick_arch(DSCNN)
+        self.assertEqual(app.arch_var.get(), BCRESNET1)
+
+        app.use_synth_var.set(False)
+        app.epoch_var.set("2")
+        app.int8_var.set(False)
+        app.start_train()
+        self.assertTrue(pump(app, lambda: not app.training))
+        self.messagebox.showerror.assert_not_called()
+        meta = read_meta(self.root / "models" / "bcresnet1_speaker")
+        self.assertEqual(meta["arch"], BCRESNET1)
+        self.assertEqual(meta["learning_rate"], 0.0025)
+        self.assertIn("추가 학습 전", app.acc_var.get())
+        self.assertEqual(app.model_var.get(), "bcresnet1_speaker")
+
+        app.train_mode_var.set("scratch")
+        app.on_train_mode()
+        self.assertEqual(app.arch_var.get(), DSCNN)
+        self.assertEqual(app.lr_var.get(), "0.002")
+        self.assertEqual(app.out_name_var.get(), "latest")
+        self.assertEqual(str(app.arch_cards[DSCNN]["radio"].cget("state")), "normal")
+
+    def test_retrain_selected_uses_saved_arch(self):
+        app = self.open_bc()
+        app.use_synth_var.set(False)
+        app.epoch_var.set("2")
+        app.int8_var.set(False)
+        app.retrain_selected()
+        self.assertEqual(app.arch_var.get(), BCRESNET1)
+        self.assertEqual(app.out_name_var.get(), "bcresnet1")
+        self.assertTrue(app.training)
+        self.assertTrue(pump(app, lambda: not app.training))
+        self.assertEqual(read_meta(self.root / "models" / "bcresnet1")["arch"], BCRESNET1)
+        self.assertEqual(read_meta(self.root / "models" / "latest")["arch"], DSCNN)
+
+    def test_results_table_compares_archs(self):
+        app = self.open()
+        tree = app.results_tree
+        self.assertEqual(list(tree.get_children()), ["latest", "bcresnet1"])
+        latest = tree.item("latest", "values")
+        bc = tree.item("bcresnet1", "values")
+        self.assertEqual((latest[1], latest[2]), ("DS-CNN v2", "17,637"))
+        self.assertEqual((bc[1], bc[2]), ("BC-ResNet-1", "9,001"))
+        self.assertTrue(bc[3].endswith("%"))
+        self.assertTrue(bc[4].endswith("KB"))
+        tree.selection_set("bcresnet1")
+        app.use_result_row()
+        self.assertEqual(app.model_var.get(), "bcresnet1")
+        self.assertIn(str(self.root / "models" / "bcresnet1"), app.export_text.get("1.0", "end"))
+        self.assertIn("current", tree.item("bcresnet1", "tags"))
+
+    def test_export_bc_resnet_result(self):
+        app = self.open_bc()
+        app.int8_var.set(False)
+        app.export_model()
+        self.assertTrue(pump(app, lambda: "ONNX 저장" in app.export_text.get("1.0", "end"), 120))
+        text = app.export_text.get("1.0", "end")
+        self.assertIn("모델 구조: BC-ResNet-1", text)
+        self.assertIn("bcresnet1", text)
 
 
 if __name__ == "__main__":

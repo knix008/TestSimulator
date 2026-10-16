@@ -1,7 +1,9 @@
 import os
 import shutil
 import subprocess
+import sys
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -85,25 +87,82 @@ class CppLogMelTest(unittest.TestCase):
         self.assertEqual(run_exe(self.exe).returncode, 2)
 
 
-@unittest.skipUnless(os.environ.get("ONNXRUNTIME_ROOT"), "ONNXRUNTIME_ROOT가 없어 kws_infer를 빌드하지 않습니다")
+def build_kws_infer() -> Path:
+    """scripts/build_kws_infer.ps1로 kws_infer를 빌드한다. ONNX Runtime이 없으면 공식 패키지를 받는다."""
+    if "kws_infer" not in _exe:
+        completed = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(SOURCE_ROOT / "scripts" / "build_kws_infer.ps1"),
+                "-BuildDir",
+                str(SOURCE_ROOT / "cpp" / "build" / "test_msvc"),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=1200,
+        )
+        if completed.returncode != 0:
+            raise AssertionError(completed.stdout[-4000:] + completed.stderr[-4000:])
+        _exe["kws_infer"] = Path(parse_keys(completed.stdout)["KWS_INFER"])
+    return _exe["kws_infer"]
+
+
+def cpp_probs(stdout: str, labels: list[str]) -> np.ndarray:
+    found: dict[str, float] = {}
+    for line in stdout.splitlines():
+        name, tab, value = line.partition("\t")
+        if tab and name in labels:
+            found[name] = float(value)
+    return np.array([found[label] for label in labels], dtype=np.float64)
+
+
+@unittest.skipUnless(sys.platform == "win32", "kws_infer 빌드는 Windows MSVC 기준입니다")
 class CppOnnxInferTest(unittest.TestCase):
-    def test_kws_infer_matches_python(self):
-        root = os.environ["ONNXRUNTIME_ROOT"]
-        build = temp_dir() / "build"
-        cmake = shutil.which("cmake")
-        self.assertIsNotNone(cmake, "cmake가 필요합니다")
-        subprocess.run([cmake, "-S", str(SOURCE_ROOT / "cpp"), "-B", str(build), f"-DONNXRUNTIME_ROOT={root}"], check=True)
-        subprocess.run([cmake, "--build", str(build), "--config", "Release"], check=True)
-        exe = next(path for path in (build / "Release" / "kws_infer.exe", build / "kws_infer.exe", build / "kws_infer") if path.exists())
-        for dll in list((os.path.join(root, "lib"),)):
-            for item in os.listdir(dll):
-                if item.endswith(".dll"):
-                    shutil.copy2(os.path.join(dll, item), exe.parent)
-        audio, model = trained_model()
+    """C++ kws_infer가 두 구조의 ONNX에서 Python과 같은 확률과 판정을 내는지 확인한다."""
+
+    def check_arch(self, arch: str) -> None:
+        from kws.infer import ModelBundle, decide
+
+        exe = build_kws_infer()
+        audio, model = trained_model(arch)
+        bundle = ModelBundle(model)
+        classifier = bundle.classifier("onnx")
+        for label in bundle.labels:
+            with self.subTest(arch=arch, label=label):
+                wav_path = sorted((audio / label).glob("*.wav"))[0]
+                completed = subprocess.run(
+                    [str(exe), str(model), str(wav_path), "0.5"], capture_output=True, text=True, encoding="utf-8"
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                values = parse_keys(completed.stdout)
+                expected = classifier.predict_proba(load_model_wav(wav_path))
+                # C++는 확률을 소수 셋째 자리까지 출력한다.
+                np.testing.assert_allclose(cpp_probs(completed.stdout, bundle.labels), expected, atol=2e-3)
+                decision = decide(expected, bundle.labels, bundle.silence_label, 0.5)
+                self.assertEqual(values["TOP_LABEL"], decision.top_label)
+                self.assertEqual(values["ACCEPTED"], "1" if decision.accepted else "0")
+                self.assertEqual(values["LABEL"], decision.label)
+                self.assertEqual(values["TOP_LABEL"], label)
+
+    def test_kws_infer_matches_python_dscnn(self):
+        self.check_arch("dscnn_v2")
+
+    def test_kws_infer_matches_python_bc_resnet(self):
+        self.check_arch("bcresnet1")
+
+    def test_kws_infer_usage_and_bad_model(self):
+        exe = build_kws_infer()
+        self.assertEqual(subprocess.run([str(exe)], capture_output=True).returncode, 2)
+        audio, _ = trained_model()
         wav = sorted((audio / "경비").glob("*.wav"))[0]
-        completed = subprocess.run([str(exe), str(model), str(wav), "0.5"], capture_output=True, text=True, encoding="utf-8")
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(parse_keys(completed.stdout).get("TOP_LABEL"), "경비")
+        completed = subprocess.run([str(exe), str(temp_dir()), str(wav)], capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(completed.returncode, 1)
 
 
 if __name__ == "__main__":

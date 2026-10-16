@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from kws.archs import BCRESNET1, DSCNN, default_learning_rate
 from kws.audio import save_wav
 from kws.paths import SOURCE_ROOT
 from kws.project import DEFAULT_COMMANDS, SILENCE_LABEL
@@ -54,36 +55,42 @@ def temp_dir() -> Path:
     return path
 
 
-def trained_model() -> tuple[Path, Path]:
-    """5클래스 음 모델을 한 번만 학습해 (오디오 폴더, 모델 폴더)를 돌려준다."""
-    if "model" not in _shared:
+def tone_audio() -> Path:
+    """구조마다 같은 음 녹음을 쓰도록 한 번만 만든다."""
+    if "audio" not in _shared:
+        audio = temp_dir() / "audio"
+        write_tone_dataset(audio)
+        _shared["audio"] = audio
+    return _shared["audio"]  # type: ignore[return-value]
+
+
+def trained_model(arch: str = DSCNN) -> tuple[Path, Path]:
+    """5클래스 음 모델을 구조마다 한 번만 학습해 (오디오 폴더, 모델 폴더)를 돌려준다."""
+    key = f"model:{arch}"
+    if key not in _shared:
         from kws.train import TrainOptions, train_project
 
-        root = temp_dir()
-        audio = root / "audio"
-        write_tone_dataset(audio)
+        audio = tone_audio()
         result = train_project(
             audio,
             LABELS,
-            root / "model",
-            TrainOptions(make_int8=True, seed=3),
+            temp_dir() / arch,
+            TrainOptions(make_int8=True, seed=3, arch=arch, learning_rate=default_learning_rate(arch)),
         )
         if not result.export_ok:
             raise RuntimeError(result.export_log)
-        _shared["audio"] = audio
-        _shared["model"] = result.model_dir
-        _shared["result"] = result
-    return _shared["audio"], _shared["model"]  # type: ignore[return-value]
+        _shared[key] = result
+    return tone_audio(), _shared[key].model_dir  # type: ignore[union-attr]
 
 
-def train_result():
-    trained_model()
-    return _shared["result"]
+def train_result(arch: str = DSCNN):
+    trained_model(arch)
+    return _shared[f"model:{arch}"]
 
 
-def project_with_model(root: Path, model_name: str = "latest") -> Path:
+def project_with_model(root: Path, model_name: str = "latest", arch: str = DSCNN) -> Path:
     """KWS_ROOT로 쓸 폴더에 학습 결과와 녹음을 복사한다."""
-    audio, model = trained_model()
+    audio, model = trained_model(arch)
     shutil.copytree(audio, root / "data" / "audio", dirs_exist_ok=True)
     shutil.copytree(model, root / "models" / model_name, dirs_exist_ok=True)
     return root
