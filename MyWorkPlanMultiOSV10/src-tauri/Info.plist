@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- .mwp plans and .mwpt templates use their own document icons (bundle resources plan.icns, template.icns). -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>MyWorkPlan Project Plan</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>mwp</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>plan.icns</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.shkwon.myworkplan.plan</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>MyWorkPlan Project Template</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>mwpt</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>template.icns</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.shkwon.myworkplan.template</string>
+      </array>
+    </dict>
+  </array>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.shkwon.myworkplan.plan</string>
+      <key>UTTypeDescription</key>
+      <string>MyWorkPlan Project Plan</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.json</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>plan.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>mwp</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-myworkplan</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.shkwon.myworkplan.template</string>
+      <key>UTTypeDescription</key>
+      <string>MyWorkPlan Project Template</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.json</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>template.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>mwpt</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-myworkplan-template</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

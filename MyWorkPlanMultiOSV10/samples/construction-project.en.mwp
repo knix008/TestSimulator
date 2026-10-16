@@ -1,0 +1,2134 @@
+{
+ "format": "myworkplan",
+ "version": 1,
+ "kind": "plan",
+ "saved": "2026-10-16T00:37:31.517Z",
+ "project": {
+  "format": "myworkplan",
+  "version": 1,
+  "id": "prj-mva8nd9hccxnnd",
+  "title": "Small Commercial Building",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "comments": "",
+  "start": "2026-10-19T08:00",
+  "finish": null,
+  "scheduleFrom": "start",
+  "statusDate": null,
+  "calendarId": "standard",
+  "priority": 500,
+  "options": {
+   "hoursPerDay": 8,
+   "hoursPerWeek": 40,
+   "daysPerMonth": 20,
+   "defaultStart": 480,
+   "defaultFinish": 1020,
+   "weekStart": 1,
+   "currency": "$",
+   "defaultTaskMode": "auto",
+   "defaultDurationUnit": "d",
+   "defaultTaskType": "fixedUnits",
+   "effortDriven": false,
+   "criticalSlack": 0,
+   "honorConstraints": true,
+   "autoCalculate": true,
+   "defaultStdRate": 0,
+   "defaultOvtRate": 0,
+   "newTaskDuration": 1
+  },
+  "calendars": [
+   {
+    "id": "standard",
+    "name": "Standard",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "2": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "3": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "4": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "5": [
+      [
+       480,
+       720
+      ],
+      [
+       780,
+       1020
+      ]
+     ],
+     "6": []
+    },
+    "exceptions": [
+     {
+      "id": "ex-mva8nd9jeatg7c",
+      "name": "Christmas Eve",
+      "start": "2026-12-24",
+      "finish": "2026-12-24",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mva8nd9jebgi5h",
+      "name": "Christmas Day",
+      "start": "2026-12-25",
+      "finish": "2026-12-25",
+      "working": false,
+      "periods": []
+     },
+     {
+      "id": "ex-mva8nd9jec71a8",
+      "name": "New Year's Eve",
+      "start": "2026-12-31",
+      "finish": "2026-12-31",
+      "working": false,
+      "periods": []
+     }
+    ]
+   },
+   {
+    "id": "24hours",
+    "name": "24 Hours",
+    "base": null,
+    "week": {
+     "0": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "1": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       1440
+      ]
+     ]
+    },
+    "exceptions": []
+   },
+   {
+    "id": "night",
+    "name": "Night Shift",
+    "base": null,
+    "week": {
+     "0": [],
+     "1": [
+      [
+       1380,
+       1440
+      ]
+     ],
+     "2": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "3": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "4": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "5": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ],
+      [
+       1380,
+       1440
+      ]
+     ],
+     "6": [
+      [
+       0,
+       180
+      ],
+      [
+       240,
+       480
+      ]
+     ]
+    },
+    "exceptions": []
+   }
+  ],
+  "resources": [
+   {
+    "id": "r-mva8nd9hcdbc86",
+    "name": "Site Manager",
+    "type": "work",
+    "initials": "SM",
+    "group": "Management",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 80,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hce9m8e",
+    "name": "Project Engineer",
+    "type": "work",
+    "initials": "PE",
+    "group": "Management",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 55,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hcf2wei",
+    "name": "Framing Crew",
+    "type": "work",
+    "initials": "FC",
+    "group": "Construction",
+    "email": "",
+    "maxUnits": 3,
+    "stdRate": 45,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hcgs04m",
+    "name": "Electrician",
+    "type": "work",
+    "initials": "EL",
+    "group": "Trades",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 60,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hchgs3o",
+    "name": "Plumber",
+    "type": "work",
+    "initials": "PL",
+    "group": "Trades",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 58,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hci1y1v",
+    "name": "Finishing Crew",
+    "type": "work",
+    "initials": "FN",
+    "group": "Construction",
+    "email": "",
+    "maxUnits": 4,
+    "stdRate": 40,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hcjdjvt",
+    "name": "Ready-mix concrete",
+    "type": "material",
+    "initials": "RC",
+    "group": "Materials",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 140,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "m³",
+    "code": "",
+    "notes": ""
+   },
+   {
+    "id": "r-mva8nd9hckdg5u",
+    "name": "Rebar",
+    "type": "material",
+    "initials": "RB",
+    "group": "Materials",
+    "email": "",
+    "maxUnits": 1,
+    "stdRate": 850,
+    "ovtRate": 0,
+    "costPerUse": 0,
+    "accrue": "prorated",
+    "calendarId": null,
+    "materialLabel": "t",
+    "code": "",
+    "notes": ""
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-mva8nd9hcl5m0p",
+    "name": "Pre-construction",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-10-19T08:00",
+    "scheduledFinish": "2026-11-12T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcmxy7c",
+    "name": "Obtain the building permit",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 7200,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 900,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "The city review can take one or two weeks longer than planned.",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-10-19T08:00",
+    "scheduledFinish": "2026-11-06T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcn9wli",
+    "name": "Survey and soil test",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcmxy7c",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-10-26T08:00",
+    "scheduledFinish": "2026-10-30T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcoyydq",
+    "name": "Site setup and mobilization",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1920,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcmxy7c",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mva8nd9hcn9wli",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-09T08:00",
+    "scheduledFinish": "2026-11-12T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcpsgay",
+    "name": "Groundbreaking",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcoyydq",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-12T17:00",
+    "scheduledFinish": "2026-11-12T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcqy8ha",
+    "name": "Sitework and foundation",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-13T08:00",
+    "scheduledFinish": "2026-12-07T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcr38p7",
+    "name": "Excavation",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2880,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcpsgay",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-13T08:00",
+    "scheduledFinish": "2026-11-20T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcshs1d",
+    "name": "Footing rebar",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1920,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcr38p7",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-23T08:00",
+    "scheduledFinish": "2026-11-26T17:00"
+   },
+   {
+    "id": "t-mva8nd9hctmrll",
+    "name": "Pour the foundation",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcshs1d",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-27T08:00",
+    "scheduledFinish": "2026-11-30T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcu6a3o",
+    "name": "Concrete curing",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 10080,
+    "durationUnit": "ed",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "Curing goes on over weekends, so it is planned in elapsed days.",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hctmrll",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-11-30T17:00",
+    "scheduledFinish": "2026-12-07T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcvru4q",
+    "name": "Structure",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-08T08:00",
+    "scheduledFinish": "2027-01-14T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcwsgz6",
+    "name": "Ground floor frame",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcu6a3o",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-08T08:00",
+    "scheduledFinish": "2026-12-21T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcxsej4",
+    "name": "Second floor frame",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcwsgz6",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-22T08:00",
+    "scheduledFinish": "2027-01-07T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcyi4bv",
+    "name": "Roofing",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcxsej4",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-08T08:00",
+    "scheduledFinish": "2027-01-14T17:00"
+   },
+   {
+    "id": "t-mva8nd9hcz8rpz",
+    "name": "Structure topped out",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcyi4bv",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-14T17:00",
+    "scheduledFinish": "2027-01-14T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd0kea0",
+    "name": "Building services and envelope",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-29T08:00",
+    "scheduledFinish": "2027-01-21T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd1o2eh",
+    "name": "Electrical rough-in",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 3840,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcxsej4",
+      "type": "SS",
+      "lag": 1440,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-29T08:00",
+    "scheduledFinish": "2027-01-08T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd20c3o",
+    "name": "Plumbing rough-in",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 3360,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcxsej4",
+      "type": "SS",
+      "lag": 1440,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2026-12-29T08:00",
+    "scheduledFinish": "2027-01-07T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd3szcc",
+    "name": "Install windows and doors",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hcz8rpz",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-15T08:00",
+    "scheduledFinish": "2027-01-21T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd47us2",
+    "name": "Rough-in inspection",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "SNET",
+     "date": "2027-01-18T08:00"
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hd1o2eh",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mva8nd9hd20c3o",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-18T08:00",
+    "scheduledFinish": "2027-01-18T17:00"
+   },
+   {
+    "id": "t-mva8nd9hd5r2cj",
+    "name": "Finishes",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-22T08:00",
+    "scheduledFinish": "2027-02-15T17:00"
+   },
+   {
+    "id": "t-mva8nd9id6w98m",
+    "name": "Drywall and ceilings",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 4800,
+    "durationUnit": "w",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9hd47us2",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mva8nd9hd3szcc",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-22T08:00",
+    "scheduledFinish": "2027-02-04T17:00"
+   },
+   {
+    "id": "t-mva8nd9id71jln",
+    "name": "Painting",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2880,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9id6w98m",
+      "type": "SS",
+      "lag": 2400,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-01-29T08:00",
+    "scheduledFinish": "2027-02-05T17:00"
+   },
+   {
+    "id": "t-mva8nd9id8hf82",
+    "name": "Flooring",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 2400,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9id71jln",
+      "type": "FF",
+      "lag": 960,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-03T08:00",
+    "scheduledFinish": "2027-02-09T17:00"
+   },
+   {
+    "id": "t-mva8nd9id97qtd",
+    "name": "Lights and plumbing fixtures",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1920,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9id71jln",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-08T08:00",
+    "scheduledFinish": "2027-02-11T17:00"
+   },
+   {
+    "id": "t-mva8nd9ida2x7o",
+    "name": "Final cleaning",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9id8hf82",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     },
+     {
+      "taskId": "t-mva8nd9id97qtd",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-12T08:00",
+    "scheduledFinish": "2027-02-15T17:00"
+   },
+   {
+    "id": "t-mva8nd9idbllqv",
+    "name": "Completion",
+    "outlineLevel": 1,
+    "manual": false,
+    "duration": 480,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-16T08:00",
+    "scheduledFinish": "2027-02-22T17:00"
+   },
+   {
+    "id": "t-mva8nd9idcvp5u",
+    "name": "Final inspection",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 960,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 800,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9ida2x7o",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-16T08:00",
+    "scheduledFinish": "2027-02-17T17:00"
+   },
+   {
+    "id": "t-mva8nd9idd4mdd",
+    "name": "Punch list",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 1920,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": false,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": null,
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9idcvp5u",
+      "type": "FS",
+      "lag": -480,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-17T08:00",
+    "scheduledFinish": "2027-02-22T17:00"
+   },
+   {
+    "id": "t-mva8nd9ideef87",
+    "name": "Handover to the owner",
+    "outlineLevel": 2,
+    "manual": false,
+    "duration": 0,
+    "durationUnit": "d",
+    "estimated": false,
+    "start": null,
+    "finish": null,
+    "milestone": true,
+    "percentComplete": 0,
+    "actualStart": null,
+    "actualFinish": null,
+    "constraint": {
+     "type": "ASAP",
+     "date": null
+    },
+    "deadline": "2027-02-25T17:00",
+    "priority": 500,
+    "type": "fixedUnits",
+    "effortDriven": false,
+    "fixedCost": 0,
+    "fixedCostAccrual": "prorated",
+    "work": null,
+    "notes": "",
+    "calendarId": null,
+    "predecessors": [
+     {
+      "taskId": "t-mva8nd9idd4mdd",
+      "type": "FS",
+      "lag": 0,
+      "lagUnit": "d"
+     }
+    ],
+    "active": true,
+    "collapsed": false,
+    "hyperlink": "",
+    "text1": "",
+    "text2": "",
+    "text3": "",
+    "number1": 0,
+    "flag1": false,
+    "barColor": "",
+    "hideBar": false,
+    "levelingDelay": 0,
+    "baselines": {},
+    "recurring": null,
+    "created": "2026-10-16T09:37",
+    "scheduledStart": "2027-02-22T17:00",
+    "scheduledFinish": "2027-02-22T17:00"
+   }
+  ],
+  "assignments": [
+   {
+    "id": "a-mva8nd9idfryyg",
+    "taskId": "t-mva8nd9hcmxy7c",
+    "resourceId": "r-mva8nd9hce9m8e",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9idg9xj3",
+    "taskId": "t-mva8nd9hcn9wli",
+    "resourceId": "r-mva8nd9hce9m8e",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9idh64cv",
+    "taskId": "t-mva8nd9hcoyydq",
+    "resourceId": "r-mva8nd9hcdbc86",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idiuuns",
+    "taskId": "t-mva8nd9hcoyydq",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idj1lel",
+    "taskId": "t-mva8nd9hcr38p7",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9idkatv9",
+    "taskId": "t-mva8nd9hcr38p7",
+    "resourceId": "r-mva8nd9hcdbc86",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9idlhje0",
+    "taskId": "t-mva8nd9hcshs1d",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9idmy7mg",
+    "taskId": "t-mva8nd9hcshs1d",
+    "resourceId": "r-mva8nd9hckdg5u",
+    "units": 12
+   },
+   {
+    "id": "a-mva8nd9idnuor7",
+    "taskId": "t-mva8nd9hctmrll",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9idomczu",
+    "taskId": "t-mva8nd9hctmrll",
+    "resourceId": "r-mva8nd9hcjdjvt",
+    "units": 180
+   },
+   {
+    "id": "a-mva8nd9idpf777",
+    "taskId": "t-mva8nd9hcwsgz6",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9idq4yad",
+    "taskId": "t-mva8nd9hcwsgz6",
+    "resourceId": "r-mva8nd9hcjdjvt",
+    "units": 120
+   },
+   {
+    "id": "a-mva8nd9idrzrlw",
+    "taskId": "t-mva8nd9hcwsgz6",
+    "resourceId": "r-mva8nd9hckdg5u",
+    "units": 8
+   },
+   {
+    "id": "a-mva8nd9idst4xw",
+    "taskId": "t-mva8nd9hcxsej4",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9idt5hsz",
+    "taskId": "t-mva8nd9hcxsej4",
+    "resourceId": "r-mva8nd9hcjdjvt",
+    "units": 110
+   },
+   {
+    "id": "a-mva8nd9idukco7",
+    "taskId": "t-mva8nd9hcxsej4",
+    "resourceId": "r-mva8nd9hckdg5u",
+    "units": 7
+   },
+   {
+    "id": "a-mva8nd9idv0c3o",
+    "taskId": "t-mva8nd9hcyi4bv",
+    "resourceId": "r-mva8nd9hcf2wei",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idwx22w",
+    "taskId": "t-mva8nd9hd1o2eh",
+    "resourceId": "r-mva8nd9hcgs04m",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idxuax2",
+    "taskId": "t-mva8nd9hd20c3o",
+    "resourceId": "r-mva8nd9hchgs3o",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idyxe8a",
+    "taskId": "t-mva8nd9hd3szcc",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9idzno9q",
+    "taskId": "t-mva8nd9hd47us2",
+    "resourceId": "r-mva8nd9hcdbc86",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie0tftz",
+    "taskId": "t-mva8nd9hd47us2",
+    "resourceId": "r-mva8nd9hce9m8e",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie1hgx3",
+    "taskId": "t-mva8nd9id6w98m",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 2
+   },
+   {
+    "id": "a-mva8nd9ie25fdq",
+    "taskId": "t-mva8nd9id71jln",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie319rb",
+    "taskId": "t-mva8nd9id8hf82",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9ie49yqh",
+    "taskId": "t-mva8nd9id97qtd",
+    "resourceId": "r-mva8nd9hcgs04m",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9ie5crrt",
+    "taskId": "t-mva8nd9id97qtd",
+    "resourceId": "r-mva8nd9hchgs3o",
+    "units": 0.5
+   },
+   {
+    "id": "a-mva8nd9ie68bud",
+    "taskId": "t-mva8nd9ida2x7o",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie7i7zm",
+    "taskId": "t-mva8nd9idcvp5u",
+    "resourceId": "r-mva8nd9hcdbc86",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie8isw0",
+    "taskId": "t-mva8nd9idcvp5u",
+    "resourceId": "r-mva8nd9hce9m8e",
+    "units": 1
+   },
+   {
+    "id": "a-mva8nd9ie9wen9",
+    "taskId": "t-mva8nd9idd4mdd",
+    "resourceId": "r-mva8nd9hci1y1v",
+    "units": 1
+   }
+  ],
+  "baselineDates": {},
+  "customFields": {
+   "text1": "",
+   "text2": "",
+   "text3": "",
+   "number1": "",
+   "flag1": ""
+  },
+  "created": "2026-10-16T09:37"
+ }
+}

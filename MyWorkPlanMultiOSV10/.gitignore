@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyWorkPlan-*.exe
+/MyWorkPlan-*.msi
+/MyWorkPlan-*.dmg
+/MyWorkPlan-*.deb
+/MyWorkPlan-*.rpm
+/MyWorkPlan-*.AppImage
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# Local database servers for the integration tests (credentials stay on this machine)
+test/db.local.json

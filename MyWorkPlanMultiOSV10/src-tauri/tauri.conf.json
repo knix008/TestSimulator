@@ -1,0 +1,108 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyWorkPlan",
+  "mainBinaryName": "MyWorkPlan",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myworkplan",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1450",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$APPCONFIG/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Productivity",
+    "shortDescription": "Project planning and scheduling",
+    "longDescription": "Plan projects like Microsoft Project: tasks and outlines, dependencies, critical path, calendars, resources and costs, leveling, baselines, progress tracking, Gantt / network / calendar / usage views, reports, printing and MS Project XML import/export.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/plan.ico": "plan.ico",
+      "icons/plan.icns": "plan.icns",
+      "icons/plan.png": "plan.png",
+      "icons/template.ico": "template.ico",
+      "icons/template.icns": "template.icns",
+      "icons/template.png": "template.png",
+      "../docs/UsersGuide.html": "docs/UsersGuide.html",
+      "../docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
+      "../docs/Tutorial.html": "docs/Tutorial.html",
+      "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
+      "../UsersGuide.md": "docs/UsersGuide.md",
+      "../README.md": "docs/README.md",
+      "../docs/tutorial/images/": "docs/tutorial/images/",
+      "../samples/": "samples/"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mwp"],
+        "name": "MyWorkPlan.Plan",
+        "description": "MyWorkPlan Project Plan",
+        "mimeType": "application/x-myworkplan",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mwpt"],
+        "name": "MyWorkPlan.Template",
+        "description": "MyWorkPlan Project Template",
+        "mimeType": "application/x-myworkplan-template",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyWorkPlan"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/myworkplan.xml": "linux/myworkplan.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myworkplan.png": "icons/plan.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myworkplan-template.png": "icons/template.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"],
+        "files": {
+          "/usr/share/mime/packages/myworkplan.xml": "linux/myworkplan.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myworkplan.png": "icons/plan.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myworkplan-template.png": "icons/template.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myworkplan">
+    <comment>MyWorkPlan Project Plan</comment>
+    <comment xml:lang="ko">MyWorkPlan 프로젝트 계획</comment>
+    <icon name="application-x-myworkplan"/>
+    <glob pattern="*.mwp"/>
+  </mime-type>
+  <mime-type type="application/x-myworkplan-template">
+    <comment>MyWorkPlan Project Template</comment>
+    <comment xml:lang="ko">MyWorkPlan 프로젝트 템플릿</comment>
+    <icon name="application-x-myworkplan-template"/>
+    <glob pattern="*.mwpt"/>
+  </mime-type>
+</mime-info>

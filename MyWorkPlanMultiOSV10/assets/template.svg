@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .mwpt template icon: a raised 3D page with a folded corner, a stencil of
+       empty task rows and a ruler. Same style as the app icon (transparent border, glowing
+       top-left), its own picture. Centred: the page spans x 192…832, y 112…912. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#ece4ff"/>
+      <stop offset="1" stop-color="#9d8bd6"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a46a8"/><stop offset="1" stop-color="#2c1f66"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9cfff"/><stop offset="1" stop-color="#7b66c9"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.12" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.45" stop-color="#241657" stop-opacity="0"/>
+      <stop offset="1" stop-color="#241657" stop-opacity="0.55"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="barShadow" x="-20%" y="-40%" width="140%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#241657" flood-opacity="0.4"/></filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="pageClip"><path d="M192 160a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z"/></clipPath>
+  </defs>
+  <ellipse cx="512" cy="950" rx="330" ry="30" fill="#1a1040" opacity="0.45" filter="url(#shadow)"/>
+  <path d="M192 196a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z" fill="url(#side)" transform="translate(0 -36)"/>
+  <g clip-path="url(#pageClip)">
+    <rect x="192" y="112" width="640" height="800" fill="url(#face)"/>
+    <!-- task list column and chart -->
+    <g fill="#6a58b3" opacity="0.55">
+      <rect x="252" y="352" width="120" height="22" rx="11"/><rect x="252" y="432" width="96" height="22" rx="11"/>
+      <rect x="252" y="512" width="132" height="22" rx="11"/><rect x="252" y="592" width="104" height="22" rx="11"/>
+      <rect x="252" y="672" width="118" height="22" rx="11"/>
+    </g>
+    <path d="M410 330v400" stroke="#6a58b3" stroke-opacity="0.4" stroke-width="6"/>
+    <g fill="none" stroke="#5a46a8" stroke-width="8" stroke-dasharray="22 14" stroke-linecap="round">
+      <rect x="430" y="344" width="170" height="40" rx="20"/>
+      <rect x="560" y="424" width="150" height="40" rx="20"/>
+      <rect x="500" y="504" width="190" height="40" rx="20"/>
+      <rect x="640" y="584" width="120" height="40" rx="20"/>
+      <path d="M760 664l30 30-30 30-30-30z"/>
+    </g>
+    <g stroke="#5a46a8" stroke-opacity="0.6" stroke-width="6"><path d="M430 300h340"/><path d="M430 290v20M515 290v20M600 290v20M685 290v20M770 290v20"/></g>
+    <rect x="192" y="112" width="640" height="800" fill="url(#shade)"/>
+    <rect x="192" y="112" width="640" height="800" fill="url(#glow)"/>
+  </g>
+  <!-- folded corner -->
+  <path d="M640 112v144a48 48 0 0 0 48 48h144z" fill="url(#fold)"/>
+  <path d="M640 112v144a48 48 0 0 0 48 48h144" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6"/>
+  <!-- file type label -->
+  <rect x="252" y="776" width="250" height="76" rx="22" fill="#5a46a8"/>
+  <text x="377" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">MWPT</text>
+  <circle cx="262" cy="186" r="62" fill="url(#spark)" opacity="0.95"/>
+  <path d="M262 122l10 52 52 10-52 10-10 52-10-52-52-10 52-10z" fill="#ffffff"/>
+</svg>
