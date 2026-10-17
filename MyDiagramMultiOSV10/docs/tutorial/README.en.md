@@ -7,7 +7,7 @@ This document follows the in-app **Tutorial** step by step, with a screenshot of
 - **Start page › Start tutorial**, the **Tutorial** toolbar button, **Help › Tutorial** or **F11**.
 - In the card: **Next / Previous** one step at a time, **Auto play** to the end, the chapter list to jump to a chapter, **✕** or **Esc** to stop at any time.
 - The tutorial works only in its own sample tab. Your open drawings are not changed, and the theme, language and view settings it changes are put back when it ends.
-- A recording of the whole tour: `MyDiagram-Tutorial.mp4` in the project root.
+- A recording of the whole tour is `MyDiagram-Tutorial.mp4` in the project root, made with `npm run tutorial:video` (needs ffmpeg). That file is not committed.
 
 ## Contents
 

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyDiagram-*.exe
+/MyDiagram-*.msi
+/MyDiagram-*.dmg
+/MyDiagram-*.deb
+/MyDiagram-*.rpm
+/MyDiagram-*.AppImage
+
+# Tutorial video (npm run tutorial:video → MyDiagram-Tutorial.mp4)
+*.mp4
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Atomic saves in progress (the app writes ".<name>.<pid>.tmp" and renames it)
+.*.tmp
+
+# Local database servers for the integration tests (credentials stay on this machine)
+test/db.local.json
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

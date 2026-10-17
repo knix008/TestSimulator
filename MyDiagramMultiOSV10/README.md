@@ -7,7 +7,7 @@ Windows · macOS · Linux · 웹에서 쓰는 다이어그램·도면 작성 프
 - 버전: 1.0.0
 - 사용법: [UsersGuide.md](UsersGuide.md) (English: [UsersGuide.en.md](UsersGuide.en.md))
 - 구조: [ARCHITECTURE.md](ARCHITECTURE.md)
-- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md), 동영상 `MyDiagram-Tutorial.mp4`
+- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md). 동영상은 `npm run tutorial:video`로 루트에 `MyDiagram-Tutorial.mp4`를 만듭니다(저장소에는 넣지 않습니다).
 
 ## 주요 기능
 
@@ -138,7 +138,7 @@ npm test -- --installer          # 설치 파일 빌드·검사까지
 
 - 실행 중에는 테스트마다 ✔/✖/○와 실행 시간이 색으로 표시되고, 끝나면 분류별 결과 표와 요약표가 나옵니다.
 - 결과는 `test-results/results.json`에도 저장됩니다.
-- DB 통합 테스트는 `test/db.local.json`(git 제외)의 MariaDB/MySQL 서버를 쓰고(없으면 건너뜀), PostgreSQL은 주소가 없으면 임시 서버를 띄웁니다.
+- DB 통합 테스트는 `test/db.local.json`(`.gitignore`로 제외, 비밀번호가 들어갈 수 있음)의 MariaDB/MySQL 서버를 쓰고(없으면 건너뜀), PostgreSQL은 주소가 없으면 임시 서버를 띄웁니다.
 - E2E는 실제 앱(데스크톱: WebView2, 웹: 헤드리스 Edge/Chrome)을 CDP로 조작합니다. 메뉴·툴바·팝업·끌어다 놓기·파일·인쇄·오류 팝업·단일 실행 잠금을 직접 확인하며, 사용자의 설정·창 위치·데이터는 건드리지 않습니다(전용 폴더 사용).
 - 문서 검사(`test/static/docs.test.js`)는 HTML 문서와 그 안의 링크·그림, README의 빌드 명령, 단축키 표를 확인합니다.
 
@@ -146,11 +146,26 @@ npm test -- --installer          # 설치 파일 빌드·검사까지
 
 ```bash
 npm run tutorial:docs    # 튜토리얼 단계마다 화면을 캡처 → docs/tutorial/README.md (+ README.en.md), docs/tutorial/images/
-npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → MyDiagram-Tutorial.mp4 (프로젝트 루트, ffmpeg 필요)
+npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → MyDiagram-Tutorial.mp4 (프로젝트 루트, ffmpeg 필요, 저장소에는 넣지 않음)
 npm run build:docs       # 마크다운 → docs/UsersGuide.html · UsersGuide.en.html · Tutorial.html · Tutorial.en.html
 ```
 
 그림은 `docs/tutorial/images/NN-<단계 id>.jpg`(NN = 튜토리얼 단계 순서)로 저장되고, 사용 설명서도 이 그림을 씁니다. 앱의 **도움말 › 사용 설명서**는 설치된 `docs/UsersGuide.html`(영어 화면이면 `UsersGuide.en.html`)을 엽니다. 웹 빌드는 `public/docs/`를 `./docs/`로 함께 내보냅니다.
+
+## 저장소에 넣지 않는 것
+
+`.gitignore`가 의존성과 만든 결과물을 커밋에서 뺍니다. `package-lock.json`과 `src-tauri/Cargo.lock`은 커밋합니다.
+
+| 경로 | 이유 |
+|---|---|
+| `node_modules/` | `npm install` |
+| `dist/` | `npm run build:web` |
+| `src-tauri/target/`, `src-tauri/gen/` | Rust · Tauri 빌드 |
+| `release/`, 루트의 `MyDiagram-*.exe` · `.msi` · `.dmg` · `.deb` · `.rpm` · `.AppImage` | 설치 파일 |
+| `*.mp4` | `npm run tutorial:video` |
+| `test-results/`, `*.log` | `npm test` 결과 |
+| `test/db.local.json` | DB 통합 테스트 접속 정보 |
+| `.*.tmp` | 저장 도중 임시 파일 |
 
 ## 파일 형식
 
@@ -197,6 +212,8 @@ npm test               # all tests (npm test -- --quick, --only js,rust, --insta
 ```
 
 The Windows installer asks for Korean or English, removes a previous installation completely, resets the previous settings while keeping the user's data (recent files, open drawings, My Shapes, database connection, background image), registers `.mdg` / `.mdgt` with their own icons and installs the user's guide with a Start-menu shortcut.
+
+`.gitignore` keeps dependencies and build output out of the repository (`node_modules/`, `dist/`, `src-tauri/target/`, `src-tauri/gen/`, `release/` and the root installers, `*.mp4`, `test-results/`, `test/db.local.json`). `package-lock.json` and `src-tauri/Cargo.lock` stay committed. `npm run tutorial:video` writes `MyDiagram-Tutorial.mp4` in the project root (ffmpeg); that file is not committed.
 
 User's guide: [UsersGuide.en.md](UsersGuide.en.md) · Architecture (Korean): [ARCHITECTURE.md](ARCHITECTURE.md)
 

@@ -57,6 +57,7 @@
 | `src/themes.js`, `icons.js`, `flags.js`, `stepper.js` | 테마(다크 20·라이트 20·시스템·사용자 정의), SVG 아이콘, 국기, `[−] 값 [+]` 숫자 입력 |
 | `src-tauri/` | Rust 백엔드, `tauri.conf.json`(번들·파일 연결·리소스), `windows/hooks.nsh`, `linux/`(MIME·postinst), `Info.plist` |
 | `scripts/` | `test.mjs`(테스트 러너), `build.mjs`(설치 파일), `start.mjs`, `build-docs.mjs`(문서 HTML), `render-icons.mjs`, `make-samples.mjs`, `tutorial-capture.mjs` |
+| `.gitignore` | 의존성, 빌드·설치 결과, 튜토리얼 동영상, 테스트 결과, 로컬 DB 접속 정보를 저장소에서 뺌 (`package-lock.json` · `Cargo.lock`은 커밋) |
 | `test/` | `unit/`(도메인·내보내기), `static/`(패키징·문서), `e2e/`(`cdp.mjs`, `harness.mjs`, `web.harness.mjs`, 스위트), `db_integration.rs` |
 | `docs/` | 생성된 HTML 설명서, `tutorial/`(튜토리얼 문서·그림) |
 | `samples/` | 예제 드로잉(`*.ko.mdg`, `*.en.mdg`, `online-shop.*.vsdx`, `brainstorm-template.*.mdgt`) — 설치 파일에 포함 |
@@ -201,6 +202,21 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 - `scripts/build-docs.mjs`: 의존성 없는 Markdown → HTML 변환기. `UsersGuide.md` · `UsersGuide.en.md` · `docs/tutorial/README*.md`를 `docs/*.html`로 만들고(목차, 밝은/어두운 색, 표·코드·그림), 그림 경로를 `docs/` 기준으로 고친 뒤 `public/docs/`에 복사합니다(웹 빌드가 `./docs/`로 제공).
 - 튜토리얼 캡처(`npm run tutorial:docs` / `tutorial:video`)는 `STEPS`(src/ui/tutorial.js) 순서대로 `docs/tutorial/images/NN-<id>.jpg`를 만들고, 사용 설명서는 그 이름으로 그림을 참조합니다. 단계를 더하거나 빼면 번호가 바뀌므로 설명서의 그림 참조도 함께 고칩니다.
 - `scripts/make-samples.mjs`는 `templates.js`의 `SAMPLE_FILES`로 `samples/`를 다시 만들고(옛 예제는 먼저 지움), `scripts/render-icons.mjs`는 `assets/*.svg`를 헤드리스 Edge/Chrome으로 그려 앱·문서 아이콘과 설치 프로그램 그림을 만듭니다.
+
+## 저장소
+
+`.gitignore`가 아래를 커밋에서 뺍니다. 잠금 파일(`package-lock.json`, `src-tauri/Cargo.lock`)은 커밋합니다.
+
+| 경로 | 이유 |
+|---|---|
+| `node_modules/` | `npm install` |
+| `dist/` | 웹 빌드 (`npm run build:web`, Tauri `frontendDist`) |
+| `src-tauri/target/`, `src-tauri/gen/` | Cargo 산출물, Tauri가 다시 만드는 스키마 |
+| `release/`, 루트의 `MyDiagram-*.exe` · `.msi` · `.dmg` · `.deb` · `.rpm` · `.AppImage` | `scripts/build.mjs`가 모아 두는 설치 파일 |
+| `*.mp4` | `npm run tutorial:video` → `MyDiagram-Tutorial.mp4` |
+| `test-results/`, `*.log` | `npm test`가 쓰는 `results.json`, 실행 기록 |
+| `test/db.local.json` | DB 통합 테스트 접속 정보(환경 변수로 대신 줄 수 있음) |
+| `.*.tmp` | 저장이 `.<이름>.<pid>.tmp`에 쓴 뒤 이름을 바꿈 |
 
 ## 테스트
 
