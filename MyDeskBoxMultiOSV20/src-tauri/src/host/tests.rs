@@ -881,3 +881,78 @@ fn the_recycle_bin_cannot_be_copied_and_empty_clipboard_is_not_pasted() {
         _ => panic!(),
     }
 }
+
+// 바로가기 하나를 담은 박스. 가리키는 프로그램은 따로 만든 설치 폴더에 있다.
+fn box_with_app_link() -> (Kit, String, String) {
+    let install = join(&room(), "Editor");
+    fs::create_dir_all(&install).unwrap();
+    let exe = join(&install, "edit.exe");
+    fs::write(&exe, "").unwrap();
+    let k = open_one(json!({ "items": [real_item(&room(), "Editor.lnk")] }));
+    let link = k.fence(0).items[0].path.clone();
+    k.desk.link(&link, &exe);
+    (k, link, exe)
+}
+
+fn age_missing(k: &Kit, link: &str) {
+    k.h().link_gone.insert(link.to_string(), now_ms() - moves::ORPHAN_GRACE_MS - 1.0);
+}
+
+#[test]
+fn a_shortcut_to_an_uninstalled_program_goes_to_the_recycle_bin() {
+    let (k, link, exe) = box_with_app_link();
+    k.refresh();
+    fs::remove_file(&exe).unwrap();
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed before the grace period");
+    age_missing(&k, &link);
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "shortcut is still in the box");
+    assert_eq!(k.ui.st().trashed, vec![link.clone()]);
+    assert!(!Path::new(&link).exists());
+    assert!(k.state().fences[0].items.is_empty(), "removal was not saved");
+}
+
+#[test]
+fn a_program_that_comes_back_during_an_update_keeps_its_shortcut() {
+    let (k, link, exe) = box_with_app_link();
+    k.refresh();
+    fs::remove_file(&exe).unwrap();
+    k.refresh();
+    fs::write(&exe, "").unwrap();
+    k.refresh();
+    assert!(!k.h().link_gone.contains_key(&link), "still counted as missing");
+    fs::remove_file(&exe).unwrap();
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "the missing time was not restarted");
+    assert!(k.ui.st().trashed.is_empty());
+}
+
+#[test]
+fn a_shortcut_broken_before_start_is_kept_while_its_folder_remains() {
+    let (k, link, exe) = box_with_app_link();
+    fs::remove_file(&exe).unwrap();
+    k.refresh();
+    age_missing(&k, &link);
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 1, "removed a shortcut never seen working");
+    fs::remove_dir_all(dirname(&exe)).unwrap();
+    k.refresh();
+    assert!(k.fence(0).items.is_empty(), "kept a shortcut whose install folder is gone");
+}
+
+#[test]
+fn shortcuts_to_documents_or_unreachable_drives_are_never_removed() {
+    let dir = room();
+    let doc = join(&dir, "report.txt");
+    let k = open_one(json!({ "items": [real_item(&room(), "Report.lnk"), real_item(&room(), "Net.lnk")] }));
+    let items = k.fence(0).items.clone();
+    k.desk.link(&items[0].path, &doc);
+    k.desk.link(&items[1].path, "\\\\server\\apps\\tool.exe");
+    for item in &items {
+        age_missing(&k, &item.path);
+    }
+    k.refresh();
+    assert_eq!(k.fence(0).items.len(), 2);
+    assert!(k.ui.st().trashed.is_empty());
+}

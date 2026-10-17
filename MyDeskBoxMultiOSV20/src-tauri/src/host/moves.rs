@@ -23,6 +23,21 @@ pub struct NewRect {
 }
 
 const NUDGE_GAP: f64 = 40.0;
+pub(crate) const ORPHAN_GRACE_MS: f64 = 60_000.0;
+
+// 프로그램 파일을 가리키는가. 문서나 폴더를 가리키는 바로가기는 지우지 않는다.
+fn names_program(target: &str) -> bool {
+    target.to_lowercase().ends_with(".exe")
+}
+
+// 빠진 USB 나 끊긴 네트워크의 프로그램은 지운 것이 아니다. 드라이브가 보일 때만 따진다.
+fn on_reachable_drive(target: &str) -> bool {
+    if target.starts_with("\\\\") || target.starts_with("//") {
+        return false;
+    }
+    let path = Path::new(target);
+    path.is_absolute() && path.ancestors().last().map(|root| root.exists()).unwrap_or(false)
+}
 
 impl Host {
     // ── 박스 자리 ───────────────────────────────────────────────────────
@@ -982,6 +997,71 @@ impl Host {
         self.seen_on_desk = Some(keys);
     }
 
+    // ── 지운 프로그램의 바로가기 ─────────────────────────────────────────
+
+    // 박스에 담은 바로가기는 박스 폴더에 있어서, 프로그램을 지울 때 제거 프로그램이 찾지 못한다.
+    // 가리키던 프로그램이 ORPHAN_GRACE_MS 동안 계속 없으면 우리가 휴지통으로 보낸다.
+    // 업데이트하며 잠깐 없어지는 것은 그 사이에 돌아온다.
+    // 이번에 켜 있는 동안 있는 것을 본 적이 없으면, 설치 폴더까지 없어졌을 때만 지운다
+    // (원래 깨져 있던 바로가기를 두고 싶은 사람도 있다).
+    pub(crate) fn drop_orphan_links(&mut self) -> bool {
+        let paths: Vec<String> = self
+            .state
+            .fences
+            .iter()
+            .flat_map(|f| f.items.iter())
+            .filter(|i| !is_shell_item(&i.path) && i.path.to_lowercase().ends_with(".lnk"))
+            .map(|i| i.path.clone())
+            .collect();
+        let links: Vec<(String, String)> = paths
+            .into_iter()
+            .filter_map(|path| {
+                let mtime = super::mtime_ms(&path)?;
+                let link = self.link_of(&path, mtime)?;
+                Some((path, link.target))
+            })
+            .collect();
+        let now = now_ms();
+        let mut gone = Vec::new();
+        let mut watched = HashSet::new();
+        for (path, target) in links {
+            if !names_program(&target) || !on_reachable_drive(&target) {
+                continue;
+            }
+            watched.insert(path.clone());
+            if Path::new(&target).exists() {
+                self.link_alive.insert(path.clone());
+                self.link_gone.remove(&path);
+                continue;
+            }
+            let since = *self.link_gone.entry(path.clone()).or_insert(now);
+            if now - since < ORPHAN_GRACE_MS {
+                continue;
+            }
+            if self.link_alive.contains(&path) || !Path::new(&dirname(&target)).exists() {
+                gone.push(path);
+            }
+        }
+        self.link_gone.retain(|p, _| watched.contains(p));
+        let mut changed = false;
+        for path in gone {
+            if !self.throw_away(&path) {
+                continue;
+            }
+            self.take_out(&path);
+            self.link_alive.remove(&path);
+            self.link_gone.remove(&path);
+            self.link_info.remove(&path);
+            changed = true;
+        }
+        if changed {
+            self.persist();
+            self.push_all();
+            self.watch_bin();
+        }
+        changed
+    }
+
     // 박스에 담긴 것은 박스 폴더에 있어 바탕화면 아이콘이 없다. 할 일은 박스 자리의 아이콘을 비키는 것.
     pub fn refresh_icons(&mut self) {
         if self.closing {
@@ -989,7 +1069,10 @@ impl Host {
         }
         self.watch_bin();
         // 박스를 폴더와 먼저 맞춘다. 그런 다음에 바탕화면에 새로 생긴 것을 본다.
-        let changed = self.settle_all();
+        let mut changed = self.settle_all();
+        if self.drop_orphan_links() {
+            changed = true;
+        }
         self.watch_fresh();
         self.drain_fresh();
         // 휴지통 같은 셸 항목은 바탕화면 쪽 아이콘을 레지스트리로 감추고 박스 창이 대신 그린다.
