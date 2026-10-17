@@ -248,6 +248,26 @@ async function handleApi(req, res, url) {
   }
 }
 
+// The manual in doc/ is also a page of its own (/doc/). Prefer the source
+// tree so a running server shows the current text; fall through to dist/doc
+// when this process is serving a build that already copied the folder.
+function serveDoc(req, res, url) {
+  let rel = decodeURIComponent(url.pathname);
+  if (rel !== '/doc' && !rel.startsWith('/doc/')) return false;
+  let name = rel === '/doc' || rel === '/doc/' ? 'index.html' : rel.slice('/doc/'.length);
+  if (!name || name.endsWith('/')) name += 'index.html';
+  const base = path.normalize(path.join(root, 'doc'));
+  const file = path.normalize(path.join(base, name));
+  if (!file.startsWith(base)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch { return false; }
+  if (!st.isFile()) return false;
+  res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'content-length': st.size, 'cache-control': 'no-cache' });
+  if (req.method === 'HEAD') { res.end(); return true; }
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
 function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/' || rel === '') rel = '/index.html';
@@ -275,6 +295,7 @@ const server = http.createServer((req, res) => {
     return handleApi(req, res, url).catch((err) => send(res, 500, { ok: false, error: serializeError(err) }));
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+  if (serveDoc(req, res, url)) return;
   serveStatic(req, res, url);
 });
 

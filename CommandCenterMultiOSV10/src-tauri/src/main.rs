@@ -215,12 +215,32 @@ fn start_core_inner() -> Result<(Child, HostConfig), String> {
     ))
 }
 
+// Tool windows and the theme list are separate windows. Closing the main
+// window closes them too, so a viewer or the settings window is not left
+// behind after the application is gone.
+fn close_popups(window: &tauri::Window) {
+    if window.label() != "main" {
+        return;
+    }
+    let app = window.app_handle();
+    for (label, popup) in app.webview_windows() {
+        if label != "main" {
+            let _ = popup.close();
+        }
+    }
+}
+
 fn main() {
     let (child, config) = start_core();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(CoreState { child: Mutex::new(child), config })
         .invoke_handler(tauri::generate_handler![host_config, bus_post])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                close_popups(window);
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building Command Center")
         .run(|app, event| {

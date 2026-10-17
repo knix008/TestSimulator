@@ -7,13 +7,11 @@
 // platform — only Windows and macOS have "move to trash") and reported both to
 // the page and to the host:
 //
-//   • the page — `--chrome-min-w` on :root, which `.app-fill` uses as its
-//     min-width, so a browser window narrower than that scrolls the area
-//     above the status bar instead of clipping the row. The status bar
-//     itself does not scroll.
 //   • the desktop app — setMinContentWidth (src/lib/backend.js) makes it the
 //     window's minimum width and widens the window if it happens to be
 //     narrower, so no size the user can drag the window to ever cuts a button off.
+//     The menu bar, toolbar and status bar stay on screen; the page does not
+//     scroll them the way a document would.
 import { setMinContentWidth } from './backend';
 
 // The width a single non-wrapping flex row needs: every child's own width with
@@ -44,8 +42,8 @@ export function rowWidth(el) {
 // The menu bar (with the window buttons), the toolbar and the function-key bar
 // each report the width their buttons need, including the right-hand inset
 // (--chrome-end) that keeps the last button clear of a scrollbar. That width is
-// the page minimum. The window is wider by the scrollbar itself, so the inset
-// stays inside the page and the bar never sits on the About button.
+// the desktop window's minimum. The window is wider by the scrollbar itself, so
+// the inset stays inside the page and the bar never sits on the About button.
 const reported = new Map();
 let applied = 0;
 

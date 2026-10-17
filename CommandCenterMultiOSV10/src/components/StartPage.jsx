@@ -13,6 +13,7 @@ const TIP_COUNT = 5;
 
 const BEGIN = [
   ['tutorial', 'help', 'start_tutorial', 'start_tutorial_text'],
+  ['manual', 'book', 'start_manual', 'start_manual_text'],
   ['files', 'grid', 'start_files', 'start_files_text', true],
   ['home', 'home', 'start_home_folder', 'start_home_folder_text'],
   ['newFolder', 'folderNew', 'new_folder', 'start_new_folder_text'],

@@ -225,10 +225,11 @@ const ko = {
   start_transparency: '투명도', start_motion: '속도', start_speed_reset: '초기화', start_less: '감소', start_more: '증가',
   start_at_launch: '시작 시 홈 보여주기',
   start_tutorial: '튜토리얼', start_tutorial_text: '사용법을 한 단계씩 보여 줍니다',
+  start_manual: '사용 설명', start_manual_text: '그림과 함께 기능을 찾습니다',
   tut_next: '다음', tut_prev: '이전', tut_exit: '끝내기', tut_finish: '마치기', tut_count: '{n} / {total}',
   tut_ch_start: '시작 화면', tut_ch_files: '파일 작업', tut_ch_tools: '메뉴와 도구',
   tut_welcome_title: 'Command Center 사용법', tut_welcome_text: '이 안내가 화면에서 해당하는 곳을 짚어 가며 한 단계씩 알려 줍니다. 다음으로 진행하고, 이전으로 돌아가며, 끝내기로 언제든 닫습니다. 파일을 지우거나 옮기지는 않습니다.',
-  tut_begin_title: '시작하기', tut_begin_text: '파일 관리는 두 패널로 돌아갑니다. 홈 폴더, 새 폴더, 검색, 터미널, 설정, 프로그램 정보도 여기서 바로 엽니다.',
+  tut_begin_title: '시작하기', tut_begin_text: '파일 관리는 두 패널로 돌아갑니다. 사용 설명, 홈 폴더, 새 폴더, 검색, 터미널, 설정, 프로그램 정보도 여기서 바로 엽니다.',
   tut_tasks_title: '작업 바로 가기', tut_tasks_text: '복사, 이동, 압축, 압축 해제, 이름 바꾸기, 폴더 비교, 보기, 인쇄, 즐겨찾기, 새 탭. 누르면 패널로 돌아가 그 명령을 실행합니다.',
   tut_recent_title: '최근 폴더', tut_recent_text: '두 패널에서 열었던 폴더입니다. 최대 10개까지 보이며, 이름을 누르면 활성 패널에서 그 폴더가 열립니다. 각 줄의 × 로 하나만 지우고, 폴더 기록 모두 지우기로 비웁니다. 아래 팁은 하루에 하나씩 바뀝니다.',
   tut_background_title: '배경', tut_background_text: '스무 가지 3D 풍경이 스스로 움직입니다. 종류를 고르면 이 화면만 바뀝니다. 투명도는 숫자와 %로 보이며, 올리면 테마 색이 비칩니다. 속도는 카메라와 물체와 하늘이 움직이는 빠르기입니다. 속도를 0으로 하면 멈춥니다. 시작 시 홈 보여주기를 끄면 다음 실행부터 파일 패널로 시작합니다. 같은 설정은 설정의 시작 화면 탭에도 있습니다.',
@@ -240,7 +241,7 @@ const ko = {
   tut_toolbar_title: '툴바', tut_toolbar_text: '아이콘만 있는 버튼입니다. 마우스를 올리면 설명이 나옵니다. 오른쪽 끝은 테마, 언어, 설정, 프로그램 정보입니다. 테마 펼침은 Dark 한 열, Light 한 열이고, 가장 아래 한 줄이 사용자 정의 테마입니다. 고르면 바로 적용됩니다.',
   tut_dock_title: '아래 패널', tut_dock_text: '로그, 빠른 검색, 터미널이 있습니다. Ctrl+` 로 여닫습니다. 터미널은 활성 패널의 폴더에서 셸을 띄우고, + 로 탭을 더 엽니다.',
   tut_settings_title: '설정', tut_settings_text: '톱니 버튼입니다. 일반, 시작 화면, 패널, 테마, 파일 열기, 보기·편집, 터미널, 프롬프트. 데스크톱에서는 내용에 맞는 크기로 바로 열립니다. 테마 탭은 어두운 것, 밝은 것, 사용자 정의가 나뉘고, 시작 화면 탭에서 배경·투명도(%)·속도·시작 시 홈 보여주기·최근 폴더를 바꿉니다. 값을 바꾸면 바로 적용되고, 취소하면 원래대로 돌아갑니다.',
-  tut_done_title: '여기까지입니다', tut_done_text: '홈으로 언제든 이 화면으로 돌아올 수 있습니다. 같은 설명이 doc/Tutorial.md 에도 있습니다. 파일 관리를 누르면 패널로 갑니다.',
+  tut_done_title: '여기까지입니다', tut_done_text: '홈으로 언제든 이 화면으로 돌아올 수 있습니다. 사용 설명에서 기능을 그림과 함께 찾아볼 수 있고, 같은 문서가 doc/index.html 입니다. 파일 관리를 누르면 패널로 갑니다.',
 };
 
 const en = {
@@ -467,10 +468,11 @@ const en = {
   start_transparency: 'Transparency', start_motion: 'Speed', start_speed_reset: 'Reset', start_less: 'Decrease', start_more: 'Increase',
   start_at_launch: 'Show Home at startup',
   start_tutorial: 'Tutorial', start_tutorial_text: 'A step-by-step tour of how to use it',
+  start_manual: 'Guide', start_manual_text: 'Find a feature, with pictures',
   tut_next: 'Next', tut_prev: 'Previous', tut_exit: 'End', tut_finish: 'Finish', tut_count: '{n} / {total}',
   tut_ch_start: 'Start page', tut_ch_files: 'Working with files', tut_ch_tools: 'Menus and tools',
   tut_welcome_title: 'How to use Command Center', tut_welcome_text: 'This tour points at the part of the window each step is about. Next moves on, Previous goes back, and End closes it at any time. It does not delete or move your files.',
-  tut_begin_title: 'Ways to begin', tut_begin_text: 'File manager returns to the two panels. Home folder, new folder, search, terminal, settings and about open from here too.',
+  tut_begin_title: 'Ways to begin', tut_begin_text: 'File manager returns to the two panels. The guide, home folder, new folder, search, terminal, settings and about open from here too.',
   tut_tasks_title: 'Task shortcuts', tut_tasks_text: 'Copy, move, compress, extract, rename, compare folders, view, print, favourites and a new tab. Choosing one returns to the panels and runs that command.',
   tut_recent_title: 'Recent folders', tut_recent_text: 'Folders the two panels have opened, up to ten. A name opens that folder in the active panel. × removes one, and Clear folder history removes them all. The tip below changes once a day.',
   tut_background_title: 'Background', tut_background_text: 'Twenty 3D landscapes move on their own. A kind changes only this page. Transparency is shown as a number and %. Raising it lets the theme colour show through, and speed is how fast the camera, the objects and the sky move. Speed 0 holds the picture still. Turning off Show Home at startup opens the file panels next time. The same controls are on the Start screen tab in Settings.',
@@ -482,7 +484,7 @@ const en = {
   tut_toolbar_title: 'Toolbar', tut_toolbar_text: 'The buttons are icons. Hover for what each one does. At the right: theme, language, settings and about. The theme list is one Dark column and one Light column, with Custom themes on a single line at the bottom. Choosing one applies it.',
   tut_dock_title: 'Bottom panel', tut_dock_text: 'Log, quick search and a terminal. Ctrl+` shows and hides it. The terminal starts a shell in the active panel\'s folder, and + opens another tab.',
   tut_settings_title: 'Settings', tut_settings_text: 'The gear button. General, the start screen, panels, theme, opening files, the viewer and editor, the terminal and the prompt. On the desktop it opens already fitted to those pages. The theme tab keeps dark, light and custom apart, and the start tab sets the picture, transparency (%), speed, Show Home at startup and recent folders. A change applies at once; Cancel puts the old values back.',
-  tut_done_title: 'That is the tour', tut_done_text: 'Home brings you back to this page at any time. The same guide is in doc/Tutorial.md. File manager returns to the panels.',
+  tut_done_title: 'That is the tour', tut_done_text: 'Home brings you back to this page at any time. Guide looks up every feature with pictures; the same pages are doc/index.html. File manager returns to the panels.',
 };
 
 const dicts = { ko, en };

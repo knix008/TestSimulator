@@ -3,7 +3,7 @@
 > 본 문서는 구현된 기능의 인벤토리입니다. 새 기능이 추가되면 함께 갱신합니다.
 
 Windows · macOS · Linux · 웹용 듀얼 패널 파일 관리자 **Command Center V1.0** 에 현재 구현되어 있는 기능의 전체 목록입니다.
-사용법은 [UsersGuide.md](UsersGuide.md), 내부 구조는 [Architecture.md](Architecture.md)를 보세요.
+사용법은 [UsersGuide.md](UsersGuide.md), 그림이 있는 설명은 [doc/index.html](doc/index.html), 내부 구조는 [Architecture.md](Architecture.md)를 보세요.
 
 ---
 

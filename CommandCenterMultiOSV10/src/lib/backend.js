@@ -343,6 +343,9 @@ async function ensureThemeMenuWindow(x, y) {
         focus: false,
         visible: false,
         center: false,
+        // Owned by the main window: Windows destroys it when the main window
+        // closes, and it can still be placed outside that window.
+        parent: 'main',
       });
       await new Promise((resolve, reject) => {
         webview.once('tauri://created', resolve);
@@ -374,6 +377,14 @@ export function setMinContentWidth(width) {
 }
 
 const webChildren = new Set();
+// A browser tab that opened the popups is the main window. Leaving it closes them.
+if (typeof window !== 'undefined' && !windowKind) {
+  window.addEventListener('pagehide', () => {
+    for (const child of webChildren) {
+      try { child.close(); } catch { /* already gone */ }
+    }
+  });
+}
 const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
 const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows double-clicks in the file list)
 let bus = null;
@@ -470,6 +481,8 @@ async function openTauriWindow(kind, args, { title, width, height } = {}) {
     center: true,
     visible: !reveal,
     backgroundColor: pageBackground(),
+    // Closing the main window closes this one with it.
+    parent: 'main',
   });
   await new Promise((resolve, reject) => {
     webview.once('tauri://created', resolve);

@@ -5,6 +5,7 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 다시 만들었으며, 같은 코어(`core/`)가 데스크톱 앱과 웹 서버 양쪽에서 동작합니다. 데스크톱 창은 Tauri 가 열고,
 파일 작업은 Tauri 가 띄운 `server/server.js` 가 처리합니다.
 
+- 그림과 함께 보는 설명 (웹에서 열기, 시작 화면의 **사용 설명**): [doc/index.html](doc/index.html)
 - 사용 방법: [UsersGuide.md](UsersGuide.md)
 - 기능 목록·단축키 전체 표: [Features.md](Features.md)
 - 내부 구조: [Architecture.md](Architecture.md)

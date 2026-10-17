@@ -153,8 +153,9 @@ test('the start page lists the ways to begin, the tasks, and at most ten recent 
   try {
     const begin = view.host.querySelector('.start-actions');
     assert.ok(buttonNamed(begin, '튜토리얼'));
+    assert.ok(buttonNamed(begin, '사용 설명'));
     assert.ok(buttonNamed(begin, '파일 관리'));
-    assert.equal(begin.querySelectorAll('button').length, 8);
+    assert.equal(begin.querySelectorAll('button').length, 9);
     const tasks = view.host.querySelector('.task-grid');
     for (const name of ['복사', '이동', '압축', '압축 해제', '다중 이름 바꾸기', '폴더 비교', '보기', '인쇄', '즐겨찾는 폴더', '새 탭']) {
       assert.ok(buttonNamed(tasks, name), name);
@@ -173,6 +174,8 @@ test('the start page lists the ways to begin, the tasks, and at most ten recent 
     assert.equal(view.host.querySelectorAll('.recent-item').length, 0);
     await view.click(buttonNamed(begin, '튜토리얼'));
     assert.equal(log.run, 'tutorial');
+    await view.click(buttonNamed(begin, '사용 설명'));
+    assert.equal(log.run, 'manual');
     await view.click(buttonNamed(begin, '파일 관리'));
     assert.equal(log.run, 'files');
   } finally {

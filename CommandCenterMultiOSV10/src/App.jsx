@@ -11,6 +11,7 @@ import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar, FnBar } from './components/Chrome';
 import { StartPage } from './components/StartPage';
 import { Tutorial } from './components/Tutorial';
+import { Manual } from './components/Manual';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
@@ -87,6 +88,7 @@ export default function App() {
   const [info, setInfo] = useState(null);
   const [session, setSession] = useState(null);
   const [startOpen, setStartOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [tutorial, setTutorial] = useState(false);
   const tutSnap = useRef({ dock: false });
   const [active, setActive] = useState('left');
@@ -1202,8 +1204,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="app-scroll">
-      <div className="app-fill">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
       {session.showToolbar !== false && <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} state={menuState} />}
       <div className="app-body">
@@ -1220,6 +1220,7 @@ export default function App() {
           onRecentClear={() => { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); }}
           onRun={(id) => {
             if (id === 'tutorial') { tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); return; }
+            if (id === 'manual') { setManualOpen(true); return; }
             setStartOpen(false); if (id !== 'files') onAction(id);
           }}
         />
@@ -1251,8 +1252,7 @@ export default function App() {
         }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       </div>
-      </div>
-      </div>
+      {manualOpen && <Manual lang={getLanguage()} onClose={() => setManualOpen(false)} />}
       </div>
       <div className="statusbar ellipsis" title={status}>
         {status}

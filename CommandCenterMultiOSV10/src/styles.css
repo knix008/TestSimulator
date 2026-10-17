@@ -54,17 +54,12 @@ button:disabled { cursor: default; opacity: 0.45; }
 .row { display: flex; gap: 8px; align-items: center; }
 .boot { height: 100%; display: grid; place-items: center; color: var(--fg-muted); }
 
-.app { height: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-/* The scroll lives above the status bar. A window narrower than the buttons
-   scrolls this area; the status bar stays one line and never grows a bar of its own. */
-.app-scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
-.app-fill { min-width: var(--chrome-min-w, 1149px); min-height: 100%; display: flex; flex-direction: column; }
-/* The width is the wider of the menu bar, the toolbar and the function-key bar
-   (src/lib/minwidth.js), already including --chrome-end. 1149 px is the floor
-   until the page has measured itself. */
+.app { height: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--bg); }
+/* Menu bar, toolbar and status bar are the window chrome: they stay put.
+   Only the work area between them changes. A list scrolls inside its panel. */
 
 /* ── Menu bar ── */
-.menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 var(--chrome-end) 0 8px; height: 32px; -webkit-app-region: drag; }
+.menubar { display: flex; align-items: center; flex: none; min-width: 0; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 0 0 8px; height: 32px; -webkit-app-region: drag; }
 .menu-home { display: flex; align-items: center; gap: 6px; height: 24px; margin: 0 8px 0 2px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--bg-hover); color: var(--fg); cursor: pointer; flex: none; font-weight: 600; -webkit-app-region: no-drag; }
 .menu-home:hover { background: var(--bg-sel); }
 .menu-home.on { background: var(--accent); color: var(--accent-text); }
@@ -74,8 +69,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 .menubar-logo { width: 16px; height: 16px; flex: none; -webkit-user-drag: none; }
 .menubar-app { font-weight: 600; color: var(--fg); white-space: nowrap; }
 .menubar-ver { color: var(--fg-muted); font-size: 11px; white-space: nowrap; }
-.win-controls { display: flex; align-self: stretch; flex: none; -webkit-app-region: no-drag; }
-.win-btn { width: 46px; border: 0; background: transparent; color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.win-controls { display: flex; align-self: stretch; flex: none; margin: 0; -webkit-app-region: no-drag; }
+.win-btn { width: 46px; height: 100%; margin: 0; border: 0; border-radius: 0; background: transparent; color: var(--fg); display: grid; place-items: center; cursor: pointer; }
 .win-btn:hover { background: var(--bg-hover); }
 .win-btn.win-close:hover { background: #c42b1c; color: #fff; }
 .menu-title { display: inline-flex; align-items: center; gap: 5px; flex: none; white-space: nowrap; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); -webkit-app-region: no-drag; }
@@ -84,7 +79,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .menu-title:hover, .menu-title.open { background: var(--bg-hover); }
 
 /* ── Toolbar ── */
-.toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 1px; padding: 4px calc(8px + var(--chrome-end)) 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.toolbar { display: flex; flex: none; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 1px; padding: 4px calc(8px + var(--chrome-end)) 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
 .toolbar .tb-btn, .toolbar .tb-sep, .toolbar .tb-split { flex: none; }
 .tb-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 5px 10px; border-radius: 4px; color: var(--fg); }
 .tb-btn:hover:not(:disabled) { background: var(--bg-hover); }
@@ -101,9 +96,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 .theme-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.3); }
 
 /* ── Panels ── */
-.panels { flex: 1; display: flex; min-height: 0; padding: 8px 8px 4px; }
-.app-body { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
-.app-work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.panels { flex: 1; display: flex; min-height: 0; padding: 8px 8px 4px; background: var(--bg); }
+.app-body { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; position: relative; overflow: hidden; }
+.app-work { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; background: var(--bg); }
 .app-work.covered { display: none; }
 
 /* Start page (Home on the menu bar). Cards sit over a moving WebGL world. */
@@ -198,6 +193,11 @@ button:disabled { cursor: default; opacity: 0.45; }
 @media (max-width: 860px) { .start { padding: 12px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .start-actions, .task-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Tutorial card and the outline around the part of the window the step is about. */
+.manual-layer { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); }
+.manual-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border); flex: none; background: var(--bg-panel); }
+.manual-title { display: inline-flex; align-items: center; gap: 8px; }
+.manual-title svg { color: var(--accent); flex: none; }
+.manual-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #f4f1ea; }
 .tutorial-spot { position: fixed; z-index: 4000; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
 .tutorial-card { position: fixed; right: 16px; bottom: 48px; z-index: 4010; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-panel); color: var(--fg); box-shadow: var(--shadow); }
 .tutorial-card.top { bottom: auto; top: 64px; }
@@ -211,7 +211,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tutorial-text { margin: 0 0 10px; line-height: 1.5; color: var(--fg-muted); }
 .tutorial-buttons { display: flex; gap: 6px; justify-content: flex-end; }
 .panel-slot { min-width: 0; display: flex; }
-.splitter { width: 10px; cursor: col-resize; position: relative; flex: none; }
+.splitter { width: 10px; cursor: col-resize; position: relative; flex: none; background: var(--bg); }
 .splitter::after { content: ''; position: absolute; left: 4px; top: 40%; bottom: 40%; width: 2px; background: var(--border); border-radius: 2px; }
 .splitter:hover::after { background: var(--accent); }
 /* stacked layout: panels one above the other, a horizontal divider */
@@ -291,7 +291,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ── Bottom dock: log + terminal tabs ── */
 .dock { flex: none; display: flex; flex-direction: column; min-height: 120px; position: relative; margin: 0 8px 4px; background: var(--bg-panel); border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.h-splitter { height: 7px; cursor: row-resize; flex: none; position: relative; }
+.h-splitter { height: 7px; cursor: row-resize; flex: none; position: relative; background: var(--bg-panel); }
 .h-splitter::after { content: ''; position: absolute; top: 2px; left: 46%; right: 46%; height: 2px; background: var(--border); border-radius: 2px; }
 .h-splitter:hover::after { background: var(--accent); }
 .dock-head { display: flex; align-items: center; gap: 2px; padding: 0 6px 0 4px; min-height: 30px; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
@@ -495,7 +495,7 @@ input:disabled, select:disabled { opacity: 0.5; }
 /* ── Total Commander style additions ── */
 .icon-btn.on { color: var(--accent); }
 .quick-search { position: sticky; bottom: 0; left: 0; display: inline-flex; align-items: center; gap: 6px; margin: 4px; padding: 3px 10px; background: var(--bg-elev); border: 1px solid var(--accent); border-radius: 4px; font-family: var(--mono); font-size: 12px; color: var(--fg); box-shadow: var(--shadow); }
-.fnbar { display: flex; gap: 4px; padding: 4px calc(8px + var(--chrome-end)) 2px 8px; background: var(--bg-elev); border-top: 1px solid var(--border); }
+.fnbar { display: flex; flex: none; min-width: 0; gap: 4px; padding: 4px calc(8px + var(--chrome-end)) 2px 8px; background: var(--bg-elev); border-top: 1px solid var(--border); }
 .fn-btn { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--fg); min-width: max-content; font-size: 12px; white-space: nowrap; }
 .fn-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
 .fn-btn:active:not(:disabled) { background: var(--bg-sel); }
