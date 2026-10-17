@@ -1,0 +1,721 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "template",
+ "saved": "2026-10-16T17:12:20.494Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pl8056ps",
+  "title": "마인드맵",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.492Z",
+  "design": "bubble",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pl8057sz",
+    "name": "페이지-1",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pl8058q1",
+      "type": "shape",
+      "master": "centralTopic",
+      "name": "",
+      "x": 449.07175594711975,
+      "y": 434.0717559471197,
+      "w": 180,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "신제품 출시",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pl8059vr",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 629.4435739202288,
+      "y": 290.69993797401077,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시장 조사",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805apf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8058q1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl8059vr",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805bav",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 652.6569608679245,
+      "y": 40,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "경쟁사",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805cqd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8059vr",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805bav",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805djm",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 898.1435118942395,
+      "y": 285.486551026315,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "고객 인터뷰",
+      "style": {},
+      "qs": {
+       "color": 1,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805ek0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8059vr",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805djm",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805f8j",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 629.4435739202288,
+      "y": 611.4435739202286,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "디자인",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805gdo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8058q1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805f8j",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805h2y",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 898.1435118942395,
+      "y": 632.6569608679245,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "시안",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805i0l",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805f8j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805h2y",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805jpn",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 652.6569608679245,
+      "y": 878.1435118942395,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "테스트",
+      "style": {},
+      "qs": {
+       "color": 2,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805ku6",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805f8j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805jpn",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805lqn",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 308.6999379740108,
+      "y": 611.4435739202288,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "마케팅",
+      "style": {},
+      "qs": {
+       "color": 3
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805mqj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8058q1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805lqn",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805ncd",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 305.48655102631506,
+      "y": 878.1435118942395,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "SNS",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805ool",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805lqn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805ncd",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805p9q",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 60.00000000000006,
+      "y": 632.6569608679245,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "광고",
+      "style": {},
+      "qs": {
+       "color": 3,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805qsd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805lqn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805p9q",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805ri3",
+      "type": "shape",
+      "master": "mainTopic",
+      "name": "",
+      "x": 308.6999379740107,
+      "y": 290.69993797401077,
+      "w": 140,
+      "h": 56,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "판매",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805szs",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl8058q1",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805ri3",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none",
+       "lineWidth": 3
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805tmm",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 60,
+      "y": 285.486551026315,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "온라인",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805uei",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805ri3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805tmm",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pl805v3h",
+      "type": "shape",
+      "master": "subTopic",
+      "name": "",
+      "x": 305.4865510263148,
+      "y": 40.000000000000114,
+      "w": 120,
+      "h": 40,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "매장",
+      "style": {},
+      "qs": {
+       "color": 4,
+       "variant": "subtle"
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pl805wnq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pl805ri3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pl805v3h",
+       "pt": "auto"
+      },
+      "route": "curved",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "mind",
+   "basic"
+  ]
+ }
+}

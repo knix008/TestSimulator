@@ -1,0 +1,41 @@
+[package]
+name = "mydiagram"
+version = "1.0.0"
+description = "Cross-platform diagramming (Microsoft Visio style)"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "mydiagram_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+arboard = { version = "3.6", default-features = false }
+fontdb = "0.23"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Drawings in a database (Settings › Database): SQLite, MariaDB/MySQL, PostgreSQL.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "mysql", "postgres", "sqlite"] }
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"
+# The "already running" message, shown before the app (and its event loop) starts.
+rfd = { version = "0.16", default-features = false, features = ["gtk3", "common-controls-v6"] }
+
+[dev-dependencies]
+tempfile = "3"
+# Starts a throw-away PostgreSQL server for the database tests (downloaded once, then cached).
+postgresql_embedded = { version = "0.21", features = ["tokio"] }
+
+[[test]]
+name = "db_integration"
+path = "../test/db_integration.rs"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

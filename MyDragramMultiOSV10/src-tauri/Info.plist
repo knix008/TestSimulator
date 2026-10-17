@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- .mdg drawings and .mdgt templates use their own document icons (bundle resources drawing.icns, template.icns). -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>MyDiagram Drawing</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>mdg</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>drawing.icns</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.shkwon.mydiagram.drawing</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>MyDiagram Drawing Template</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>mdgt</string>
+      </array>
+      <key>CFBundleTypeIconFile</key>
+      <string>template.icns</string>
+      <key>LSHandlerRank</key>
+      <string>Owner</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.shkwon.mydiagram.template</string>
+      </array>
+    </dict>
+  </array>
+  <key>UTExportedTypeDeclarations</key>
+  <array>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.shkwon.mydiagram.drawing</string>
+      <key>UTTypeDescription</key>
+      <string>MyDiagram Drawing</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.json</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>drawing.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>mdg</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-mydiagram</string>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeIdentifier</key>
+      <string>com.shkwon.mydiagram.template</string>
+      <key>UTTypeDescription</key>
+      <string>MyDiagram Drawing Template</string>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.json</string>
+        <string>public.data</string>
+      </array>
+      <key>UTTypeIconFile</key>
+      <string>template.icns</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>mdgt</string>
+        </array>
+        <key>public.mime-type</key>
+        <string>application/x-mydiagram-template</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>

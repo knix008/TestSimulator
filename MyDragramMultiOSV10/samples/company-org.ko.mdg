@@ -1,0 +1,543 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.471Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pkn023jv",
+  "title": "조직도",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.471Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pkn0247c",
+    "name": "페이지-1",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pkn025j3",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 515,
+      "y": 60,
+      "w": 170,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "김민준\n대표이사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "부서",
+        "label": "부서",
+        "type": "text",
+        "value": "경영",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pkn02673",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 148,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "이서연\n개발 이사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn027sf",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn025j3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02673",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02841",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 60,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "정하은\n프론트엔드",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn029bs",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn02673",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02841",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02abf",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 246,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "강도윤\n백엔드",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02bek",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn02673",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02abf",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02cpd",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 520,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "박지훈\n영업 이사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02d64",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn025j3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02cpd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02ejq",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 432,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "윤서준\n국내 영업",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02ffl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn02cpd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02ejq",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02g8v",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 618,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "임지아\n해외 영업",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02h6s",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn02cpd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02g8v",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02idu",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 804,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "최유나\n재무 이사",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02jgp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn025j3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02idu",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02kzv",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 809,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "한예린\n회계",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02ly8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn02idu",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02kzv",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pkn02mwj",
+      "type": "shape",
+      "master": "orgAssistant",
+      "name": "",
+      "x": 1000,
+      "y": 178.2,
+      "w": 140,
+      "h": 55,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "비서실",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pkn02nkj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pkn025j3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pkn02mwj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org",
+   "basic"
+  ]
+ }
+}

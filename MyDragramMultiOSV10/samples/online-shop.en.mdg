@@ -1,0 +1,1573 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.495Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pla05xno",
+  "title": "Online shop operations",
+  "subject": "MyDiagram sample drawing",
+  "author": "SHKWON",
+  "manager": "",
+  "company": "MyDiagram",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.494Z",
+  "design": "office",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pla05y6x",
+    "name": "Order process",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": "page-mvb86pla05z6q",
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [
+     {
+      "id": "layer-mvb86pla06nsy",
+      "name": "Notes",
+      "visible": true,
+      "print": true,
+      "locked": false,
+      "color": ""
+     }
+    ],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pla062bb",
+      "type": "shape",
+      "master": "swimlane",
+      "name": "",
+      "x": 40,
+      "y": 70,
+      "w": 1020,
+      "h": 165,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Customer",
+      "style": {},
+      "qs": {
+       "color": 1
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla063el",
+      "type": "shape",
+      "master": "swimlane",
+      "name": "",
+      "x": 40,
+      "y": 235,
+      "w": 1020,
+      "h": 165,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Shop",
+      "style": {},
+      "qs": {
+       "color": 5
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla064z1",
+      "type": "shape",
+      "master": "swimlane",
+      "name": "",
+      "x": 40,
+      "y": 400,
+      "w": 1020,
+      "h": 165,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Warehouse",
+      "style": {},
+      "qs": {
+       "color": 6
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla065gm",
+      "type": "shape",
+      "master": "title",
+      "name": "",
+      "x": 40,
+      "y": 18,
+      "w": 420,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Order handling flow",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla066yw",
+      "type": "shape",
+      "master": "terminator",
+      "name": "",
+      "x": 110,
+      "y": 120,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Place order",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Owner",
+        "label": "Owner",
+        "type": "text",
+        "value": "Customer",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla067y6",
+      "type": "shape",
+      "master": "data",
+      "name": "",
+      "x": 290,
+      "y": 115,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Payment details",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla068q9",
+      "type": "shape",
+      "master": "decision",
+      "name": "",
+      "x": 300,
+      "y": 270,
+      "w": 130,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Payment OK?",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Minutes",
+        "label": "Minutes",
+        "type": "number",
+        "value": "2",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla06928",
+      "type": "shape",
+      "master": "process",
+      "name": "",
+      "x": 530,
+      "y": 280,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Confirm order",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Minutes",
+        "label": "Minutes",
+        "type": "number",
+        "value": "5",
+        "options": []
+       },
+       {
+        "key": "Cost",
+        "label": "Cost",
+        "type": "number",
+        "value": "1200",
+        "options": []
+       }
+      ],
+      "hyperlink": "https://www.example.com/orders",
+      "comments": [
+       {
+        "id": "cmt-sample",
+        "author": "SHKWON",
+        "text": "Consider adding a stock check here",
+        "at": "2026-10-16T17:12:20.494Z",
+        "done": false
+       }
+      ],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla06aeh",
+      "type": "shape",
+      "master": "document",
+      "name": "",
+      "x": 760,
+      "y": 275,
+      "w": 130,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Confirmation e-mail",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla06b8n",
+      "type": "shape",
+      "master": "process",
+      "name": "",
+      "x": 530,
+      "y": 440,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Pick & pack",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Minutes",
+        "label": "Minutes",
+        "type": "number",
+        "value": "30",
+        "options": []
+       },
+       {
+        "key": "Cost",
+        "label": "Cost",
+        "type": "number",
+        "value": "3500",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla06c9i",
+      "type": "shape",
+      "master": "process",
+      "name": "",
+      "x": 760,
+      "y": 440,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Ship parcel",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Minutes",
+        "label": "Minutes",
+        "type": "number",
+        "value": "15",
+        "options": []
+       },
+       {
+        "key": "Cost",
+        "label": "Cost",
+        "type": "number",
+        "value": "3000",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla06d5j",
+      "type": "shape",
+      "master": "terminator",
+      "name": "",
+      "x": 900,
+      "y": 120,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Delivered",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pla06efp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla066yw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla067y6",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06fyy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla067y6",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla068q9",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06gws",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla068q9",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06928",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Yes",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06hvj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla068q9",
+       "pt": 3
+      },
+      "to": {
+       "id": "shp-mvb86pla066yw",
+       "pt": 2
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "No",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06iw3",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla06928",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06aeh",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06j5m",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla06928",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06b8n",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06kas",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla06b8n",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06c9i",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06l6g",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla06c9i",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06d5j",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pla06mje",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pla06aeh",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pla06d5j",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash",
+       "endArrow": "open"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb06oqj",
+      "type": "shape",
+      "master": "note",
+      "name": "",
+      "x": 880,
+      "y": 520,
+      "w": 170,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Delivery takes 1–2 days",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [
+       "layer-mvb86pla06nsy"
+      ],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   },
+   {
+    "id": "page-mvb86plb06pqq",
+    "name": "Organization",
+    "paper": "custom",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": "page-mvb86pla05z6q",
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86plb06qjx",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 443,
+      "y": 80,
+      "w": 170,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alex Kim\nCEO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb06rko",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 167,
+      "y": 190.8,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sara Lee\nOperations",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb06stb",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06qjx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb06rko",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb06tiz",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 80,
+      "y": 296.6,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hana Jung\nSupport",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb06uur",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06rko",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb06tiz",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb06v3u",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 264,
+      "y": 296.6,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Daniel Kang\nLogistics",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb06wsd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06rko",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb06v3u",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb06xai",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 535,
+      "y": 190.8,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "James Park\nMarketing",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb06yyq",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06qjx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb06xai",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb06zmh",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 448,
+      "y": 296.6,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sean Yoon\nContent",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb0706w",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06xai",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb06zmh",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb07117",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 632,
+      "y": 296.6,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Jia Lim\nAds",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb072ep",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06xai",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07117",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb0730p",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 816,
+      "y": 190.8,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Yuna Choi\nDevelopment",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb07488",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb06qjx",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb0730p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86plb075ee",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 821,
+      "y": 296.6,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Erin Han\nWeb",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb076zw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb0730p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb075ee",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   },
+   {
+    "id": "page-mvb86plb077nc",
+    "name": "Servers",
+    "paper": "custom",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": "page-mvb86pla05z6q",
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86plb078n7",
+      "type": "shape",
+      "master": "cloudNet",
+      "name": "",
+      "x": 470,
+      "y": 60,
+      "w": 130,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb079ba",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 490,
+      "y": 200,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb07ahi",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 490,
+      "y": 320,
+      "w": 90,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Load balancer",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb07bh7",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 330,
+      "y": 450,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web 1",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.1.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": "grp-mvb86plb07k6d",
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb07cwa",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 440,
+      "y": 450,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web 2",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.1.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": "grp-mvb86plb07k6d",
+      "showData": false
+     },
+     {
+      "id": "grp-mvb86plb07k6d",
+      "type": "group",
+      "master": "group",
+      "name": "",
+      "x": 330,
+      "y": 450,
+      "w": 170,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plb07dsl",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 640,
+      "y": 450,
+      "w": 70,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Database",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.2.20",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plb07eh5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb078n7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb079ba",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plb07fmw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb079ba",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07ahi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plb07gb5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb07ahi",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07bh7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plb07ho8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb07ahi",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07cwa",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plb07ih5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb07bh7",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07dsl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plb07jzw",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plb07cwa",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plb07dsl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "dash": "dash"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   },
+   {
+    "id": "page-mvb86pla05z6q",
+    "name": "Background",
+    "paper": "custom",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": true,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pla060c5",
+      "type": "shape",
+      "master": "rect",
+      "name": "",
+      "x": 20,
+      "y": 20,
+      "w": 1016,
+      "h": 776,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "",
+      "style": {
+       "fill": "none",
+       "line": "#94a3b8",
+       "lineWidth": 1
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pla0615k",
+      "type": "shape",
+      "master": "rect",
+      "name": "",
+      "x": 696,
+      "y": 726,
+      "w": 340,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "{title}\n{pageName} · {page}/{pages} · {date}",
+      "style": {
+       "fill": "#f8fafc",
+       "line": "#94a3b8",
+       "fontSize": 11,
+       "textColor": "#334155"
+      },
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "flowchart",
+   "containers",
+   "org",
+   "network",
+   "basic",
+   "callouts"
+  ]
+ }
+}

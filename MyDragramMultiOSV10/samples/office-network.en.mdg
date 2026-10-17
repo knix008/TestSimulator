@@ -1,0 +1,559 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.498Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pld08klk",
+  "title": "Basic Network Diagram",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.497Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pld08lrg",
+    "name": "Page-1",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pld08m8k",
+      "type": "shape",
+      "master": "cloudNet",
+      "name": "",
+      "x": 470,
+      "y": 30,
+      "w": 130,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Internet",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pld08n0j",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 490,
+      "y": 170,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Firewall",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pld08ovo",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 490,
+      "y": 300,
+      "w": 90,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Router",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pld08prw",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 480,
+      "y": 420,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Core switch",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pld08qjn",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 140,
+      "y": 560,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Web server",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.10",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08rk5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08qjn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08s7k",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 270,
+      "y": 560,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Mail server",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08tfk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08s7k",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86ple08uq4",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 400,
+      "y": 560,
+      "w": 70,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "DB server",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86ple08vi5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple08uq4",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86ple08w7o",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 620,
+      "y": 560,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Office PC",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86ple08xzc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple08w7o",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86ple08yi1",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 760,
+      "y": 560,
+      "w": 100,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Laptop",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86ple08ze1",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple08yi1",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86ple090we",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 900,
+      "y": 560,
+      "w": 90,
+      "h": 75,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Printer",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86ple0919v",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple090we",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86ple092b8",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08m8k",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08n0j",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86ple093ka",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08n0j",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08ovo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86ple094zd",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08ovo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08prw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network",
+   "basic"
+  ]
+ }
+}

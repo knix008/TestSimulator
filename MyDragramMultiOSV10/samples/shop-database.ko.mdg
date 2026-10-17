@@ -1,0 +1,238 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.472Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pko03929",
+  "title": "데이터베이스 모델(ERD)",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.472Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pko03a85",
+    "name": "페이지-1",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pko03bf5",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 80,
+      "y": 80,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "고객\n---\nPK 고객ID\n이름\n이메일",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko03cjn",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 420,
+      "y": 80,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주문\n---\nPK 주문ID\nFK 고객ID\n주문일",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko03dby",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 420,
+      "y": 330,
+      "w": 190,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "주문 항목\n---\nPK 항목ID\nFK 주문ID\nFK 상품ID\n수량",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko03e5s",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 760,
+      "y": 330,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "상품\n---\nPK 상품ID\n상품명\n가격",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko03fmy",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko03bf5",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko03cjn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "zeroMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pko03gxu",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko03cjn",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko03dby",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "oneMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pko03h1x",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko03e5s",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko03dby",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "zeroMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "erd",
+   "callouts"
+  ]
+ }
+}

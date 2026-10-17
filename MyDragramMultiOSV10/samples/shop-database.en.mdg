@@ -1,0 +1,238 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.498Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86ple095e5",
+  "title": "Database Model (ERD)",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.498Z",
+  "design": "sequence",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86ple096kq",
+    "name": "Page-1",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86ple097lp",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 80,
+      "y": 80,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Customer\n---\nPK CustomerID\nName\nEmail",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86ple098lb",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 420,
+      "y": 80,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Order\n---\nPK OrderID\nFK CustomerID\nOrderDate",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86ple099g7",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 420,
+      "y": 330,
+      "w": 190,
+      "h": 160,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Order Item\n---\nPK ItemID\nFK OrderID\nFK ProductID\nQuantity",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86ple09ax3",
+      "type": "shape",
+      "master": "entity",
+      "name": "",
+      "x": 760,
+      "y": 330,
+      "w": 190,
+      "h": 140,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Product\n---\nPK ProductID\nName\nPrice",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86ple09bng",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86ple097lp",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple098lb",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "zeroMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86ple09cmn",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86ple098lb",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple099g7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "oneMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86ple09d10",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86ple09ax3",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86ple099g7",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "startArrow": "oneOnly",
+       "endArrow": "zeroMany"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "erd",
+   "callouts"
+  ]
+ }
+}

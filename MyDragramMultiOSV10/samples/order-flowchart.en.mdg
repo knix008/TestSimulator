@@ -1,0 +1,358 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.496Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86plc07lrx",
+  "title": "Basic Flowchart",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.496Z",
+  "design": "linear",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86plc07m8j",
+    "name": "Page-1",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86plc07n7p",
+      "type": "shape",
+      "master": "terminator",
+      "name": "",
+      "x": 470,
+      "y": 40,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Start",
+      "style": {},
+      "qs": {
+       "color": 6
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plc07odd",
+      "type": "shape",
+      "master": "data",
+      "name": "",
+      "x": 460,
+      "y": 140,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Enter order",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plc07pam",
+      "type": "shape",
+      "master": "decision",
+      "name": "",
+      "x": 460,
+      "y": 250,
+      "w": 130,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "In stock?",
+      "style": {},
+      "qs": {
+       "color": 4
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plc07qj0",
+      "type": "shape",
+      "master": "process",
+      "name": "",
+      "x": 460,
+      "y": 390,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Ship",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plc07rxl",
+      "type": "shape",
+      "master": "process",
+      "name": "",
+      "x": 700,
+      "y": 260,
+      "w": 130,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Reorder stock",
+      "style": {},
+      "qs": {
+       "color": 2
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86plc07slw",
+      "type": "shape",
+      "master": "terminator",
+      "name": "",
+      "x": 470,
+      "y": 500,
+      "w": 130,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "End",
+      "style": {},
+      "qs": {
+       "color": 6
+      },
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86plc07t6f",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07n7p",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plc07odd",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plc07u19",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07odd",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plc07pam",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plc07vxo",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07pam",
+       "pt": 2
+      },
+      "to": {
+       "id": "shp-mvb86plc07qj0",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "Yes",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plc07w92",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07pam",
+       "pt": 1
+      },
+      "to": {
+       "id": "shp-mvb86plc07rxl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "No",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plc07xzp",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07rxl",
+       "pt": 0
+      },
+      "to": {
+       "id": "shp-mvb86plc07odd",
+       "pt": 1
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86plc07yre",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86plc07qj0",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86plc07slw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "flowchart",
+   "arrows",
+   "callouts"
+  ]
+ }
+}

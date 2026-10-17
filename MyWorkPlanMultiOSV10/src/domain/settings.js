@@ -23,6 +23,7 @@ export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
 export const ANIMATIONS = [
   'aurora', 'waves', 'particles', 'constellation', 'bubbles', 'gridflow', 'gantt', 'starfield', 'rain', 'snow',
   'fireflies', 'ripples', 'coderain', 'hexagons', 'orbits', 'lava', 'spiral', 'confetti', 'milestones', 'ribbons',
+  'fireworks',
 ];
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const DATE_FORMATS = ['iso', 'ko', 'us', 'eu'];

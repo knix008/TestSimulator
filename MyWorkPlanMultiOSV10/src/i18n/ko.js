@@ -224,7 +224,7 @@ export default {
   'animation.aurora': '오로라', 'animation.waves': '물결', 'animation.particles': '입자', 'animation.constellation': '별자리', 'animation.bubbles': '거품', 'animation.gridflow': '흐르는 격자',
   'animation.gantt': '간트 막대', 'animation.starfield': '별빛',
   'animation.rain': '비', 'animation.snow': '눈', 'animation.fireflies': '반딧불', 'animation.ripples': '파문', 'animation.coderain': '코드 비', 'animation.hexagons': '육각 격자',
-  'animation.orbits': '궤도', 'animation.lava': '라바 램프', 'animation.spiral': '은하 나선', 'animation.confetti': '색종이', 'animation.milestones': '마일스톤', 'animation.ribbons': '리본',
+  'animation.orbits': '궤도', 'animation.lava': '라바 램프', 'animation.spiral': '은하 나선', 'animation.confetti': '색종이', 'animation.milestones': '마일스톤', 'animation.ribbons': '리본', 'animation.fireworks': '불꽃놀이',
   'welcome.title': 'MyWorkPlan에 오신 것을 환영합니다', 'welcome.text': '처음 실행하셨네요. 튜토리얼이 예제 프로젝트로 작업 만들기부터 일정·자원·추적·보고서·인쇄·설정까지 모든 기능을 차례로 보여 줍니다.',
   'welcome.point1': '튜토리얼: 도움말 › 튜토리얼 (F11), 시작 페이지의 "튜토리얼 시작"', 'welcome.point2': '예제 프로젝트: 시작 페이지 › 예제 프로젝트', 'welcome.point3': '사용 설명서: 도움말 › 사용 설명서',
   'welcome.later': '나중에', 'welcome.sample': '예제 열기', 'welcome.start': '튜토리얼 시작',
@@ -258,8 +258,8 @@ export default {
   // ── about
   'about.title': '프로그램 정보', 'about.tagline': '프로젝트 계획·일정 관리 (Microsoft Project 스타일)',
   'about.description': '작업과 개요, 연결과 지연, 주 공정, 달력, 자원과 비용, 평준화, 기준 계획, 진행 추적, 간트·네트워크·일정표·사용 현황 보기, 보고서, 인쇄, MS Project XML 가져오기/내보내기를 제공합니다. Windows · macOS · Linux · 웹에서 실행됩니다.',
-  'about.buildInfo': '빌드 정보', 'about.authorInfo': '제작자', 'about.version': '버전', 'about.buildDate': '빌드 날짜', 'about.commit': '커밋', 'about.target': '대상', 'about.profile': '빌드 종류',
-  'about.runtime': '런타임', 'about.platform': '플랫폼', 'about.webBuild': '웹 (브라우저)', 'about.author': '제작자', 'about.copyright': '저작권',
+  'about.version': '버전', 'about.buildDate': '빌드 날짜', 'about.commit': '커밋', 'about.target': '대상', 'about.profile': '빌드 종류',
+  'about.runtime': '런타임', 'about.platform': '플랫폼', 'about.webBuild': '웹 (브라우저)', 'about.author': '제작자',
 
   // ── progress
   'progress.wait': '잠시 기다려 주세요…', 'progress.bytes': '{done} / {total}', 'progress.steps': '{done} / {total} 단계', 'progress.open': '여는 중', 'progress.save': '저장하는 중',

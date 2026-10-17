@@ -554,7 +554,7 @@ async function renderAbout() {
   if (!state.info) state.info = await native.appInfo().catch((error) => ({ name: 'MyWorkPlan', version: VERSION, error: native.errorText(error) }));
   const info = state.info;
   const date = info.buildDate ? new Date(info.buildDate).toLocaleString() : '-';
-  const build = [
+  const rows = [
     ['info', t('about.version'), `${info.version}`],
     ['clock', t('about.buildDate'), date],
     ['hyperlink', t('about.commit'), info.commit ?? '-'],
@@ -562,13 +562,9 @@ async function renderAbout() {
     ['gear', t('about.profile'), info.profile ?? '-'],
     ['calculate', t('about.runtime'), info.web ? t('about.webBuild') : `Tauri ${info.tauri} · ${info.rustc ?? ''}`],
     ['globe', t('about.platform'), `${info.os ?? '-'} / ${info.arch ?? '-'}`],
-  ];
-  const author = [
     ['user', t('about.author'), 'SHKWON(knix008@naver.com)'],
-    ['star', t('about.copyright'), `© ${new Date().getFullYear()} SHKWON(knix008@naver.com)`],
   ];
-  const table = (title, glyph, rows) => `<h3 class="about-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>
-    <dl class="about-table">${rows.map(([rowGlyph, label, value]) => `<dt title="${escapeHtml(label)}">${icon(rowGlyph)}<span>${escapeHtml(label)}</span></dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd>`).join('')}</dl>`;
+  const table = `<dl class="about-table">${rows.map(([rowGlyph, label, value]) => `<dt title="${escapeHtml(label)}">${icon(rowGlyph)}<span>${escapeHtml(label)}</span></dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd>`).join('')}</dl>`;
   root.innerHTML = frame({
     glyph: 'info', title: t('about.title'),
     body: `<div class="about">
@@ -580,7 +576,7 @@ async function renderAbout() {
           <p class="about-description">${escapeHtml(t('about.description'))}</p>
         </div>
       </div>
-      <div class="about-rows" id="about-rows">${table(t('about.buildInfo'), 'gear', build)}${table(t('about.authorInfo'), 'user', author)}</div>
+      <div class="about-rows" id="about-rows">${table}</div>
     </div>`,
     foot: `<span class="muted">© SHKWON(knix008@naver.com)</span><span class="grow"></span>${button('copy-about', t('action.copy'), 'copy')}${button('close', t('common.done'), 'check', 'primary')}`,
   });

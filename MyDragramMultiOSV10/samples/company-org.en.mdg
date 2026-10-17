@@ -1,0 +1,543 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.497Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pld07zvc",
+  "title": "Organization Chart",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.497Z",
+  "design": "ion",
+  "variant": 0,
+  "units": "in",
+  "language": "en",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pld080z6",
+    "name": "Page-1",
+    "paper": "Letter",
+    "orientation": "landscape",
+    "width": 1056,
+    "height": 816,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pld081wy",
+      "type": "shape",
+      "master": "orgExecutive",
+      "name": "",
+      "x": 515,
+      "y": 60,
+      "w": 170,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Alex Kim\nCEO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "Department",
+        "label": "Department",
+        "type": "text",
+        "value": "Management",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pld0825d",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 148,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sara Lee\nCTO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld083t5",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld081wy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld0825d",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld084pn",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 60,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Hana Jung\nFront-end",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld085dl",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld0825d",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld084pn",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld086ht",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 246,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Daniel Kang\nBack-end",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld087c7",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld0825d",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld086ht",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld088wo",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 520,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "James Park\nSales Director",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld089zc",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld081wy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld088wo",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08afw",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 432,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Sean Yoon\nDomestic",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08bt0",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld088wo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08afw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08cjc",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 618,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Jia Lim\nOverseas",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08dby",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld088wo",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08cjc",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08evl",
+      "type": "shape",
+      "master": "orgManager",
+      "name": "",
+      "x": 804,
+      "y": 173.2,
+      "w": 160,
+      "h": 65,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Yuna Choi\nCFO",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08fg2",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld081wy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08evl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08g6p",
+      "type": "shape",
+      "master": "orgPosition",
+      "name": "",
+      "x": 809,
+      "y": 281.4,
+      "w": 150,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Erin Han\nAccounting",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08hib",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld08evl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08g6p",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pld08ixy",
+      "type": "shape",
+      "master": "orgAssistant",
+      "name": "",
+      "x": 1000,
+      "y": 178.2,
+      "w": 140,
+      "h": 55,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "Assistant",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pld08jrs",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pld081wy",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pld08ixy",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "org",
+   "basic"
+  ]
+ }
+}

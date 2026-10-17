@@ -1,0 +1,108 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyDiagram",
+  "mainBinaryName": "MyDiagram",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mydiagram",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1450",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**", "$APPCONFIG/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Diagrams, flowcharts and drawings",
+    "longDescription": "Draw diagrams like Microsoft Visio: about 200 stencil shapes, auto-routed connectors, themes and quick styles, pages, background pages and layers, shape data and reports, automatic layout, org charts from data, Visio (.vsdx) open and save, PDF / SVG / picture / HTML export and printing.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/drawing.ico": "drawing.ico",
+      "icons/drawing.icns": "drawing.icns",
+      "icons/drawing.png": "drawing.png",
+      "icons/template.ico": "template.ico",
+      "icons/template.icns": "template.icns",
+      "icons/template.png": "template.png",
+      "../docs/UsersGuide.html": "docs/UsersGuide.html",
+      "../docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
+      "../docs/Tutorial.html": "docs/Tutorial.html",
+      "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
+      "../UsersGuide.md": "docs/UsersGuide.md",
+      "../README.md": "docs/README.md",
+      "../docs/tutorial/images/": "docs/tutorial/images/",
+      "../samples/": "samples/"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mdg"],
+        "name": "MyDiagram.Drawing",
+        "description": "MyDiagram Drawing",
+        "mimeType": "application/x-mydiagram",
+        "role": "Editor"
+      },
+      {
+        "ext": ["mdgt"],
+        "name": "MyDiagram.Template",
+        "description": "MyDiagram Drawing Template",
+        "mimeType": "application/x-mydiagram-template",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyDiagram"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/mydiagram.xml": "linux/mydiagram.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mydiagram.png": "icons/drawing.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mydiagram-template.png": "icons/template.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"],
+        "files": {
+          "/usr/share/mime/packages/mydiagram.xml": "linux/mydiagram.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mydiagram.png": "icons/drawing.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mydiagram-template.png": "icons/template.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

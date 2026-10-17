@@ -1,8 +1,8 @@
 // Moving backgrounds for the start page and (faintly) behind the views:
-// twenty of them (the list is ANIMATIONS in settings): aurora, waves, particles,
+// twenty-one of them (the list is ANIMATIONS in settings): aurora, waves, particles,
 // constellation, bubbles, a flowing grid, drifting Gantt bars, a star field, rain,
 // snow, fireflies, ripples, code rain, hexagons, orbits, a lava lamp, a spiral
-// galaxy, confetti, milestones and ribbons. Colours follow the theme. The animation
+// galaxy, confetti, milestones, ribbons and fireworks. Colours follow the theme. The animation
 // pauses while the window is hidden; `frames` counts drawn frames (tests use it).
 import { ANIMATIONS } from '../domain/settings.js';
 
@@ -31,6 +31,8 @@ function hexToRgb(hex) {
 const FRAME_MS = 1000 / 30;
 
 const rgba = (hex, a) => { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+/** Mixes two hex colours (amount 0 → a, 1 → b). */
+const mixHex = (a, b, amount) => `#${hexToRgb(a).map((v, i) => Math.round(v + (hexToRgb(b)[i] - v) * amount).toString(16).padStart(2, '0')).join('')}`;
 
 export class AnimatedBackground {
   constructor(canvas, { colors, speed = () => 1, kind = 'aurora' } = {}) {
@@ -70,7 +72,7 @@ export class AnimatedBackground {
     const r = rand(this.kind.length * 9973 + 7);
     const count = {
       particles: 90, constellation: 70, bubbles: 40, gantt: 26, starfield: 220, rain: 140, snow: 120, fireflies: 45,
-      ripples: 7, coderain: 34, orbits: 8, lava: 7, spiral: 160, confetti: 80, milestones: 9,
+      ripples: 7, coderain: 34, orbits: 8, lava: 7, spiral: 160, confetti: 80, milestones: 9, fireworks: 6,
     }[this.kind] ?? 0;
     this.items = Array.from({ length: count }, () => ({ x: r(), y: r(), z: r(), s: r(), v: r(), h: r() }));
   }
@@ -143,12 +145,58 @@ export class AnimatedBackground {
       const y = h * (0.45 + 0.38 * Math.cos(time * 0.13 + i * 2.3));
       const r = Math.max(w, h) * (0.32 + 0.08 * Math.sin(time * 0.3 + i));
       const g = c.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, rgba(hues[i % hues.length], colors.dark ? 0.32 : 0.22));
+      g.addColorStop(0, rgba(hues[i % hues.length], colors.dark ? 0.4 : 0.3));
       g.addColorStop(1, rgba(hues[i % hues.length], 0));
       c.fillStyle = g;
       c.fillRect(0, 0, w, h);
     }
-    c.globalCompositeOperation = 'source-over';
+    // Curtains of light: a band whose top edge waves across the sky and whose lower edge hangs in
+    // longer and shorter folds, brightest just under the top. Tinted toward green and violet
+    // (the aurora's own colours) but still from the theme's accent. They are drawn small and
+    // blurred, then stretched over the screen: every edge comes out soft, and it costs little.
+    const curtains = [mixHex(colors.accent, '#22d39a', 0.55), colors.accent, mixHex(colors.accent, '#9b6bff', 0.5)];
+    const main = c;
+    const fullW = w;
+    const fullH = h;
+    this.auroraCanvas ??= document.createElement('canvas');
+    const off = this.auroraCanvas;
+    w = Math.max(16, Math.round(fullW / 8));
+    h = Math.max(16, Math.round(fullH / 8));
+    if (off.width !== w || off.height !== h) { off.width = w; off.height = h; }
+    c = off.getContext('2d');
+    c.clearRect(0, 0, w, h);
+    c.filter = 'blur(2px)';
+    const stepX = 2;
+    const rayH = h * 0.3;
+    for (let band = 0; band < 3; band++) {
+      const base = h * (0.18 + band * 0.14);
+      const hue = curtains[band];
+      const g = c.createLinearGradient(0, base - h * 0.1, 0, base + rayH);
+      g.addColorStop(0, rgba(hue, 0));
+      g.addColorStop(0.2, rgba(hue, colors.dark ? 0.6 : 0.45));
+      g.addColorStop(0.55, rgba(hue, colors.dark ? 0.22 : 0.16));
+      g.addColorStop(1, rgba(hue, 0));
+      const top = [];
+      for (let x = -stepX; x <= w + stepX; x += stepX) {
+        const u = x / w;
+        top.push([x, base + h * 0.07 * Math.sin(u * Math.PI * (2.2 + band * 0.7) + time * (0.25 + band * 0.07) + band * 2)
+          + h * 0.02 * Math.sin(u * 11 + time * 0.8 + band)]);
+      }
+      c.fillStyle = g;
+      c.beginPath();
+      top.forEach(([x, y], k) => c[k ? 'lineTo' : 'moveTo'](x, y - h * 0.02));
+      for (let k = top.length - 1; k >= 0; k--) {
+        const [x, y] = top[k];
+        const u = x / w;
+        c.lineTo(x, y + rayH * (0.45 + 0.3 * Math.sin(u * 23 + time * 0.5 + band * 3) + 0.15 * Math.sin(u * 57 - time * 0.7)));
+      }
+      c.closePath();
+      c.fill();
+    }
+    main.imageSmoothingEnabled = true;
+    main.imageSmoothingQuality = 'high';
+    main.drawImage(off, 0, 0, fullW, fullH);
+    main.globalCompositeOperation = 'source-over';
   }
 
   waves(c, w, h, time, colors) {
@@ -536,5 +584,71 @@ export class AnimatedBackground {
       c.strokeStyle = rgba(layer % 2 ? colors.accent : colors.accent2 ?? colors.text, 0.16);
       c.stroke();
     }
+  }
+
+  /** Rockets rising and bursting into falling sparks, each round somewhere new. */
+  fireworks(c, w, h, time, colors) {
+    const hues = [colors.accent, colors.accent2 ?? colors.text, colors.danger ?? colors.accent, colors.text];
+    const scale = w / 1600 + 0.6;
+    const SPARKS = 28;
+    c.globalCompositeOperation = colors.dark ? 'lighter' : 'source-over';
+    this.items.forEach((p, i) => {
+      const period = 4 + p.v * 3;
+      const t = time + p.h * period;
+      const round = Math.floor(t / period);
+      const phase = (t % period) / period;
+      const at = (n) => { const v = Math.sin(i * 12.9898 + round * 78.233 + n) * 43758.5453; return v - Math.floor(v); };
+      const x = (0.12 + at(1) * 0.76) * w;
+      const top = (0.15 + at(2) * 0.35) * h;
+      const hue = hues[Math.floor(at(3) * hues.length)];
+      if (phase < 0.25) {
+        // The rocket climbs, slowing near the top.
+        const k = phase / 0.25;
+        const y = h - (h - top) * (1 - (1 - k) ** 2);
+        c.fillStyle = rgba(hue, 0.7);
+        c.beginPath();
+        c.arc(x, y, 2 * scale, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = rgba(hue, 0.18);
+        c.fillRect(x - scale, y, 2 * scale, h * 0.05);
+        return;
+      }
+      // The burst: a flash, then sparks fly out trailing streaks, fall a little and fade.
+      const k = (phase - 0.25) / 0.75;
+      const size = Math.min(w, h) * (0.16 + p.s * 0.12);
+      const reach = size * (1 - (1 - k) ** 3);
+      const fall = h * 0.08 * k * k;
+      const fade = 1 - k;
+      if (k < 0.3) {
+        const flash = c.createRadialGradient(x, top, 0, x, top, size * 0.6);
+        flash.addColorStop(0, rgba(hue, 0.45 * (1 - k / 0.3)));
+        flash.addColorStop(1, rgba(hue, 0));
+        c.fillStyle = flash;
+        c.fillRect(x - size * 0.6, top - size * 0.6, size * 1.2, size * 1.2);
+      }
+      const ends = Array.from({ length: SPARKS }, (_, j) => {
+        const a = (j / SPARKS) * Math.PI * 2 + at(4);
+        return [Math.cos(a), Math.sin(a)];
+      });
+      c.strokeStyle = rgba(hue, 0.5 * fade);
+      c.lineWidth = 1.6 * scale;
+      c.lineCap = 'round';
+      c.beginPath();
+      for (const [dx, dy] of ends) {
+        c.moveTo(x + dx * reach * 0.6, top + dy * reach * 0.6 + fall * 0.6);
+        c.lineTo(x + dx * reach, top + dy * reach + fall);
+      }
+      c.stroke();
+      c.fillStyle = rgba(hue, 0.9 * fade);
+      c.beginPath();
+      for (const [dx, dy] of ends) {
+        const sx = x + dx * reach;
+        const sy = top + dy * reach + fall;
+        c.moveTo(sx + 2.6 * scale, sy);
+        c.arc(sx, sy, 2.6 * scale, 0, Math.PI * 2);
+      }
+      c.fill();
+    });
+    c.globalCompositeOperation = 'source-over';
   }
 }

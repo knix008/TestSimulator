@@ -206,7 +206,7 @@ export default {
   'animation.aurora': 'Aurora', 'animation.waves': 'Waves', 'animation.particles': 'Particles', 'animation.constellation': 'Constellation', 'animation.bubbles': 'Bubbles', 'animation.gridflow': 'Flowing grid',
   'animation.gantt': 'Gantt bars', 'animation.starfield': 'Star field',
   'animation.rain': 'Rain', 'animation.snow': 'Snow', 'animation.fireflies': 'Fireflies', 'animation.ripples': 'Ripples', 'animation.coderain': 'Code rain', 'animation.hexagons': 'Hexagons',
-  'animation.orbits': 'Orbits', 'animation.lava': 'Lava lamp', 'animation.spiral': 'Spiral galaxy', 'animation.confetti': 'Confetti', 'animation.milestones': 'Milestones', 'animation.ribbons': 'Ribbons',
+  'animation.orbits': 'Orbits', 'animation.lava': 'Lava lamp', 'animation.spiral': 'Spiral galaxy', 'animation.confetti': 'Confetti', 'animation.milestones': 'Milestones', 'animation.ribbons': 'Ribbons', 'animation.fireworks': 'Fireworks',
   'welcome.title': 'Welcome to MyWorkPlan', 'welcome.text': 'This is your first start. The tutorial walks through every feature on a sample project — from creating tasks to scheduling, resources, tracking, reports, printing and settings.',
   'welcome.point1': 'Tutorial: Help › Tutorial (F11), or "Start the tutorial" on the start page', 'welcome.point2': 'Sample projects: start page › Sample projects', 'welcome.point3': "User's guide: Help › User's guide",
   'welcome.later': 'Later', 'welcome.sample': 'Open the sample', 'welcome.start': 'Start the tutorial',
@@ -238,8 +238,8 @@ export default {
 
   'about.title': 'About', 'about.tagline': 'Project planning and scheduling (Microsoft Project style)',
   'about.description': 'Tasks and outlines, links and lags, critical path, calendars, resources and costs, leveling, baselines, progress tracking, Gantt / network / calendar / usage views, reports, printing, and MS Project XML import and export. Runs on Windows, macOS, Linux and the web.',
-  'about.buildInfo': 'Build', 'about.authorInfo': 'Author', 'about.version': 'Version', 'about.buildDate': 'Build date', 'about.commit': 'Commit', 'about.target': 'Target', 'about.profile': 'Profile',
-  'about.runtime': 'Runtime', 'about.platform': 'Platform', 'about.webBuild': 'Web (browser)', 'about.author': 'Author', 'about.copyright': 'Copyright',
+  'about.version': 'Version', 'about.buildDate': 'Build date', 'about.commit': 'Commit', 'about.target': 'Target', 'about.profile': 'Profile',
+  'about.runtime': 'Runtime', 'about.platform': 'Platform', 'about.webBuild': 'Web (browser)', 'about.author': 'Author',
 
   'progress.wait': 'Please wait…', 'progress.bytes': '{done} / {total}', 'progress.steps': 'step {done} of {total}', 'progress.open': 'Opening', 'progress.save': 'Saving',
   'progress.export': 'Exporting', 'progress.image': 'Drawing the picture', 'progress.background': 'Copying the background image', 'progress.leveling': 'Leveling resources',

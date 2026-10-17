@@ -74,7 +74,7 @@ test('normalizeSettings clamps every number', () => {
 test('normalizeSettings repairs choices, booleans and text', () => {
   const base = S.defaultSettings('ko');
   const bad = S.normalizeSettings({
-    theme: 'no-such-theme', fontWeight: 450, fontStyle: 'oblique', backgroundKind: 'video', animation: 'fireworks', backgroundFit: 'zoom',
+    theme: 'no-such-theme', fontWeight: 450, fontStyle: 'oblique', backgroundKind: 'video', animation: 'no-such-animation', backgroundFit: 'zoom',
     dateFormat: 'roman', defaultView: 'kanban', barText: 'emoji', defaultTaskMode: 'robot', fontFamily: 12, backgroundImage: 7, lastDirectory: '',
     showCritical: 'yes', confirmDelete: 1, tutorialDone: null, showToday: undefined,
   }, 'ko');

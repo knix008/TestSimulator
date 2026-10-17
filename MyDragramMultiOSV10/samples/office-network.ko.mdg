@@ -1,0 +1,559 @@
+{
+ "format": "mydiagram",
+ "version": 1,
+ "kind": "drawing",
+ "saved": "2026-10-16T17:12:20.472Z",
+ "document": {
+  "format": "mydiagram",
+  "version": 1,
+  "id": "dgm-mvb86pko02or8",
+  "title": "기본 네트워크 다이어그램",
+  "subject": "",
+  "author": "",
+  "manager": "",
+  "company": "",
+  "category": "",
+  "keywords": "",
+  "description": "",
+  "created": "2026-10-16T17:12:20.472Z",
+  "design": "slice",
+  "variant": 0,
+  "units": "mm",
+  "language": "ko",
+  "options": {
+   "lineJumps": true,
+   "jumpSize": 1,
+   "avoidShapes": true,
+   "snapGrid": true,
+   "snapShapes": true,
+   "snapGuides": true,
+   "glue": true,
+   "dataGraphics": false,
+   "connectorRoute": "orthogonal"
+  },
+  "pages": [
+   {
+    "id": "page-mvb86pko02pa0",
+    "name": "페이지-1",
+    "paper": "A4",
+    "orientation": "landscape",
+    "width": 1122.52,
+    "height": 793.7,
+    "autoSize": true,
+    "background": false,
+    "backgroundId": null,
+    "color": "",
+    "grid": true,
+    "gridSize": 0,
+    "layers": [],
+    "activeLayer": null,
+    "guides": [],
+    "comments": [],
+    "shapes": [
+     {
+      "id": "shp-mvb86pko02q50",
+      "type": "shape",
+      "master": "cloudNet",
+      "name": "",
+      "x": 470,
+      "y": 30,
+      "w": 130,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "인터넷",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko02rtl",
+      "type": "shape",
+      "master": "firewall",
+      "name": "",
+      "x": 490,
+      "y": 170,
+      "w": 90,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "방화벽",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko02sqw",
+      "type": "shape",
+      "master": "router",
+      "name": "",
+      "x": 490,
+      "y": 300,
+      "w": 90,
+      "h": 60,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "라우터",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko02tfj",
+      "type": "shape",
+      "master": "switch",
+      "name": "",
+      "x": 480,
+      "y": 420,
+      "w": 110,
+      "h": 50,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "코어 스위치",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "shp-mvb86pko02ugl",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 140,
+      "y": 560,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "웹 서버",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.10",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko02vhx",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02ugl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pko02wbu",
+      "type": "shape",
+      "master": "server",
+      "name": "",
+      "x": 270,
+      "y": 560,
+      "w": 60,
+      "h": 90,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "메일 서버",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.11",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko02xqk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02wbu",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pko02yph",
+      "type": "shape",
+      "master": "dbServer",
+      "name": "",
+      "x": 400,
+      "y": 560,
+      "w": 70,
+      "h": 85,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "DB 서버",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [
+       {
+        "key": "IP",
+        "label": "IP",
+        "type": "text",
+        "value": "10.0.0.12",
+        "options": []
+       }
+      ],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko02zx9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02yph",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pko030yl",
+      "type": "shape",
+      "master": "desktop",
+      "name": "",
+      "x": 620,
+      "y": 560,
+      "w": 90,
+      "h": 80,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "사무실 PC",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko031pj",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko030yl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pko032mi",
+      "type": "shape",
+      "master": "laptop",
+      "name": "",
+      "x": 760,
+      "y": 560,
+      "w": 100,
+      "h": 70,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "노트북",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko033dk",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko032mi",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "shp-mvb86pko0340b",
+      "type": "shape",
+      "master": "printer",
+      "name": "",
+      "x": 900,
+      "y": 560,
+      "w": 90,
+      "h": 75,
+      "angle": 0,
+      "flipH": false,
+      "flipV": false,
+      "text": "프린터",
+      "style": {},
+      "qs": {},
+      "params": {},
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "showData": false
+     },
+     {
+      "id": "con-mvb86pko035pi",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko0340b",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pko0360j",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02q50",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02rtl",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pko037e9",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02rtl",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02sqw",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     },
+     {
+      "id": "con-mvb86pko0383u",
+      "type": "connector",
+      "from": {
+       "id": "shp-mvb86pko02sqw",
+       "pt": "auto"
+      },
+      "to": {
+       "id": "shp-mvb86pko02tfj",
+       "pt": "auto"
+      },
+      "route": "orthogonal",
+      "waypoints": [],
+      "text": "",
+      "textPos": 0.5,
+      "style": {
+       "endArrow": "none"
+      },
+      "layers": [],
+      "locked": {},
+      "data": [],
+      "hyperlink": "",
+      "comments": [],
+      "groupId": null,
+      "name": ""
+     }
+    ]
+   }
+  ],
+  "stencils": [
+   "network",
+   "basic"
+  ]
+ }
+}

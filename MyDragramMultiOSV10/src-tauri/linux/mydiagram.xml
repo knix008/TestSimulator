@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-mydiagram">
+    <comment>MyDiagram Drawing</comment>
+    <comment xml:lang="ko">MyDiagram 드로잉</comment>
+    <icon name="application-x-mydiagram"/>
+    <glob pattern="*.mdg"/>
+  </mime-type>
+  <mime-type type="application/x-mydiagram-template">
+    <comment>MyDiagram Drawing Template</comment>
+    <comment xml:lang="ko">MyDiagram 드로잉 템플릿</comment>
+    <icon name="application-x-mydiagram-template"/>
+    <glob pattern="*.mdgt"/>
+  </mime-type>
+</mime-info>
