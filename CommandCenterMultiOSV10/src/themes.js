@@ -1,4 +1,4 @@
-// 30 built-in themes (15 dark, 15 light) —
+// 40 built-in themes (20 dark, 20 light) —
 // applied as CSS custom properties on :root. `mk` derives the secondary
 // tokens (selection, active-panel glow, shadow) from the few that define a
 // look, so a theme is just its base colours.
@@ -185,6 +185,56 @@ export const THEMES = [
     bg: '#f9f2f8', raised: '#fefbfe', panel: '#f2e6f0', hover: '#ead8e7', active: '#dfc5db',
     border: '#e6d5e3', borderStrong: '#c4a3bf', text: '#341c30', textDim: '#6e5169',
     accent: '#8e24aa', accentStrong: '#6a1b9a', accentText: '#ffffff', shadow: '0 10px 30px rgba(90,30,80,0.16)', folder: '#e0a92a', file: '#9c7d98',
+  }),
+  mk('abyss', '심해', 'Abyss', 'dark', {
+    bg: '#070d18', raised: '#101828', panel: '#0c1422', hover: '#172236', active: '#1e2d48',
+    border: '#1c2a40', borderStrong: '#31466a', text: '#dce7f7', textDim: '#8ea2c4',
+    accent: '#3d8bfd', accentStrong: '#1d4ed8', accentText: '#041018', file: '#9eb6d8',
+  }),
+  mk('ember', '엠버', 'Ember', 'dark', {
+    bg: '#1a100c', raised: '#2a1812', panel: '#221410', hover: '#3a2218', active: '#4a2c20',
+    border: '#3d261c', borderStrong: '#6a4030', text: '#f6e6dc', textDim: '#c4a090',
+    accent: '#ff6a2a', accentStrong: '#e23d12', accentText: '#2a0c04', folder: '#ffb020', file: '#e0b8a0',
+  }),
+  mk('moss', '모스', 'Moss', 'dark', {
+    bg: '#121612', raised: '#1c241c', panel: '#181e18', hover: '#263026', active: '#314034',
+    border: '#2a382c', borderStrong: '#456048', text: '#e4f0e4', textDim: '#9cb49c',
+    accent: '#7dce6a', accentStrong: '#3d9a4a', accentText: '#081408', file: '#b0c8b0',
+  }),
+  mk('wine', '와인', 'Wine', 'dark', {
+    bg: '#160c12', raised: '#26141c', panel: '#1e1018', hover: '#341824', active: '#442030',
+    border: '#3a1c28', borderStrong: '#5c3044', text: '#f6e4ec', textDim: '#c498a8',
+    accent: '#e04070', accentStrong: '#b01848', accentText: '#240410', folder: '#f0a0c0', file: '#d8b0c0',
+  }),
+  mk('ink', '잉크', 'Ink', 'dark', {
+    bg: '#10141c', raised: '#1a2030', panel: '#161c28', hover: '#242c3c', active: '#303848',
+    border: '#2c3448', borderStrong: '#485068', text: '#e6eaf4', textDim: '#9aa4bc',
+    accent: '#f0c040', accentStrong: '#d09020', accentText: '#1c1404', folder: '#f0c040', file: '#b0b8cc',
+  }),
+  mk('blossom', '블로섬', 'Blossom', 'light', {
+    bg: '#fff0f4', raised: '#fffafb', panel: '#fde4ea', hover: '#f8d4de', active: '#f0c2d0',
+    border: '#f0d0da', borderStrong: '#d8a0b4', text: '#3a1828', textDim: '#7a4860',
+    accent: '#c2185b', accentStrong: '#880e4f', accentText: '#ffffff', shadow: '0 10px 30px rgba(120,30,60,0.16)', file: '#a06880',
+  }),
+  mk('glacier', '글레이셔', 'Glacier', 'light', {
+    bg: '#f3f7fb', raised: '#ffffff', panel: '#e7f0f6', hover: '#d6e5f0', active: '#c4d6e4',
+    border: '#cedde8', borderStrong: '#9bb4c8', text: '#122430', textDim: '#486274',
+    accent: '#156f96', accentStrong: '#0d5270', accentText: '#ffffff', file: '#608098',
+  }),
+  mk('cream', '크림', 'Cream', 'light', {
+    bg: '#fbf6ec', raised: '#fffdf8', panel: '#f4ead8', hover: '#eadcc4', active: '#dccab0',
+    border: '#e6d8c0', borderStrong: '#c8b48c', text: '#3a2e1c', textDim: '#7a6848',
+    accent: '#c47a20', accentStrong: '#9a5c10', accentText: '#ffffff', folder: '#d4a040', file: '#a08860',
+  }),
+  mk('meadow', '메도우', 'Meadow', 'light', {
+    bg: '#f3f8f2', raised: '#fbfefb', panel: '#e6f2e4', hover: '#d4e8d2', active: '#c0dcc0',
+    border: '#d0e4ce', borderStrong: '#9cc09a', text: '#1c3020', textDim: '#4a684c',
+    accent: '#2f8a3e', accentStrong: '#1e6830', accentText: '#ffffff', file: '#688868',
+  }),
+  mk('fog', '포그', 'Fog', 'light', {
+    bg: '#f2f3f5', raised: '#fafbfc', panel: '#e6e8ec', hover: '#d8dbe2', active: '#c8ccd4',
+    border: '#d4d7de', borderStrong: '#a8aeb8', text: '#22262e', textDim: '#5c6470',
+    accent: '#5b6b82', accentStrong: '#3d4c60', accentText: '#ffffff', file: '#7a8494',
   }),
 ];
 

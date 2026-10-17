@@ -7,8 +7,9 @@ import { t, useLanguage } from '../lib/i18n';
 import { THEMES, allThemes, setCustomThemes, baseColorsOf, themeById, CUSTOM_COLOR_KEYS } from '../themes';
 import { DialogFrame } from './Dialogs';
 import { SETTINGS_DEFAULTS } from '../lib/settings';
-import { isDesktop, fitWindow } from '../lib/backend';
+import { isDesktop, revealWindow } from '../lib/backend';
 import { Flag, Icon } from '../components/Icons';
+import { RecentFolders, StartBackgroundControls } from '../components/StartPage';
 import { PromptEditor } from './PromptEditor';
 
 // A number with a − button on its left and a + button on its right; typing in it works as before.
@@ -43,6 +44,7 @@ export function SettingsDialog({ spec, done }) {
   // rows and the buttons past the bottom of the dialog.
   const tabs = [
     ['general', t('set_general'), 'settings'],
+    ['start', t('set_start'), 'image'],
     ['panels', t('set_panels'), 'grid'],
     ['theme', t('set_theme'), 'palette'],
     ['open', t('set_open'), 'file'],
@@ -56,76 +58,18 @@ export function SettingsDialog({ spec, done }) {
   // colour grids stacked on the colour editor — and the terminal's two groups of settings — were the
   // tallest things in it by far.
   const SUBS = {
-    theme: [['builtin', t('set_themes_builtin')], ['custom', t('set_custom_themes')]],
+    theme: [['dark', t('set_themes_dark')], ['light', t('set_themes_light')], ['custom', t('set_custom_themes')]],
     terminal: [['shell', t('set_term_tab_shell')], ['output', t('set_term_output')]],
     prompt: [['presets', t('pe_tab_presets')], ['quick', t('pe_customize')], ['advanced', t('pe_advanced')]],
   };
-  const [sub, setSub] = useState({ theme: 'builtin', terminal: 'shell', prompt: 'presets' });
-  const paneOf = (id) => (SUBS[id] ? `${id}:${sub[id]}` : id);
-  // Every page that has to fit, as '<tab>' or '<tab>:<sub>' — the order they are measured in.
-  const panes = tabs.flatMap(([id]) => (SUBS[id] ? SUBS[id].map(([s]) => `${id}:${s}`) : [id]));
-
-  // ── The window is sized to its content, once, and then left alone ──
-  // Nothing in the settings scrolls or is cut off: every tab is measured (each is rendered for a frame with
-  // the pane free to take its natural height) and the window is fitted to the tallest one. Measuring beats a
-  // fixed number because the content's height depends on the font size, the language and the shell list.
-  const paneRef = useRef(null);
-  const [measuring, setMeasuring] = useState(spec.windowed && fitWindow ? panes[0] : null);
-  const fitted = useRef('');
-  const sizes = useRef({});
-  useEffect(() => {
-    if (!spec.windowed || !fitWindow) return;
-    const key = `${v.fontSize}|${v.language}|${shells.length}`;
-    if (fitted.current !== key) { fitted.current = key; sizes.current = {}; refit.current = false; setMeasuring(panes[0]); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [v.fontSize, v.language, shells.length]);
-  const pendingFit = useRef(false);
-  const refit = useRef(false);   // the one extra pass, once the fonts are in (see below)
-  useLayoutEffect(() => {
-    const el = paneRef.current;
-    if (!el) return;
-    if (measuring) {
-      // The pane is free-height and hidden right now, so this is what the tab really needs.
-      sizes.current[measuring] = el.scrollHeight;
-      const i = panes.indexOf(measuring);
-      setMeasuring(i >= 0 && i < panes.length - 1 ? panes[i + 1] : null);
-      if (i >= 0 && i === panes.length - 1) pendingFit.current = true;
-      return;
-    }
-    if (!pendingFit.current) return;
-    pendingFit.current = false;
-    // Back to the normal layout: grow (or shrink) the window by exactly what the tallest tab is short of.
-    const need = Math.max(...Object.values(sizes.current), 200);
-    const have = el.clientHeight;
-    if (Math.abs(need - have) >= 2) fitWindow(Math.ceil(window.innerHeight + (need - have)));
-    // The first pass can run before the page's font is in, and text measured in the fallback font is
-    // shorter than what is finally drawn — the tallest page then ends up a few pixels short and its last
-    // line is cut off. So everything is measured once more when the fonts are ready. Once: the second
-    // pass has the real font, and `refit` keeps a page that never settles from resizing the window forever.
-    if (!refit.current) {
-      refit.current = true;
-      const again = () => { if (paneRef.current) setMeasuring(panes[0]); };
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(again).catch(again);
-      else again();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measuring]);
-  const shown = measuring || paneOf(tab);   // while measuring, each page is rendered in turn (the pane is hidden)
-  const [shownTab, shownSub] = shown.split(':');
-  // ── and the page you are looking at is never cut off ──
-  // The pass above fits the window to the tallest page it measured, but a measurement can come out a few
-  // pixels under what the page finally takes — the text was measured in a fallback font, or in the
-  // language the dialog was in a tick earlier. Those few pixels are a hint line sliced in half at the
-  // bottom. So whichever page is on screen is checked once it has settled, and the window grows by
-  // exactly what it is short of. Growing changes clientHeight, the check runs again and finds nothing:
-  // it cannot loop.
-  useLayoutEffect(() => {
-    if (measuring || !spec.windowed || !fitWindow) return;
-    const el = paneRef.current;
-    if (!el) return;
-    const short = el.scrollHeight - el.clientHeight;
-    if (short >= 2) fitWindow(Math.ceil(window.innerHeight + short));
-  });
+  const [sub, setSub] = useState({ theme: themeById((spec.values || {}).theme).mode === 'light' ? 'light' : 'dark', terminal: 'shell', prompt: 'presets' });
+  const [recent, setRecent] = useState(spec.recent || []);
+  const changeRecent = (next) => { setRecent(next); if (spec.onRecent) spec.onRecent(next); };
+  const shownTab = tab;
+  const shownSub = (SUBS[tab] && sub[tab]) || '';
+  // The window is created at the size the pages need and kept hidden until this first draw,
+  // so it does not appear large and blank and then jump.
+  useLayoutEffect(() => { if (spec.windowed) revealWindow(); }, [spec.windowed]);
   // Pickers are native dialogs on the desktop; in the browser the path is typed.
   const browseFolder = async () => {
     try { const p = await spec.pickFolder(v.termCwd || undefined); if (p) set('termCwd', p); } catch { /* cancelled */ }
@@ -153,22 +97,21 @@ export function SettingsDialog({ spec, done }) {
   const removeCustom = () => { const list = (v.customThemes || []).filter((c) => c.id !== v.theme); setCustom(list, 'midnight'); };
 
   const Check = ({ k, label }) => (<><span /><label className="check"><input type="checkbox" checked={!!v[k]} onChange={(e) => set(k, e.target.checked)} /> {label}</label></>);
-  // The row of sub-tabs at the top of a tab that has them. While the pages are being measured the one
-  // being measured is the one marked, so the row is exactly as wide as it will be when that page is shown.
+  // The row of sub-tabs at the top of a tab that has them.
   const SubTabs = ({ of: id }) => (
     <div className="settings-tabs sub">
       {SUBS[id].map(([s, label]) => (
-        <button key={s} type="button" className={`settings-tab ${(measuring ? shownSub : sub[id]) === s ? 'active' : ''}`}
+        <button key={s} type="button" className={`settings-tab ${sub[id] === s ? 'active' : ''}`}
           onClick={() => setSub((m) => ({ ...m, [id]: s }))}>{label}</button>
       ))}
     </div>
   );
 
-  // 880, measured: every page still lays out whole at that width — nothing wraps to a scrollbar and
-  // nothing is cut off. Narrower is possible but not free: below ~840 the preset and theme grids drop a
-  // column, and what the window loses in width it takes back in height (694px of presets instead of 570).
+  // 960 × 540 is the window (src/lib/backend.js). At that width the tallest page, the viewer
+  // tab, fits the height; narrower wraps the prompt presets onto more rows and the window
+  // would have to grow again.
   return (
-    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={1080} windowed={spec.windowed} className="settings"
+    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={960} windowed={spec.windowed} className="settings"
       footer={<>
         <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}>{t('set_defaults')}</button>
         <span className="spacer" />
@@ -184,7 +127,7 @@ export function SettingsDialog({ spec, done }) {
           </button>
         ))}
       </div>
-      <form onSubmit={submit} className={`settings-pane ${measuring ? "measuring" : ""}`} ref={paneRef}>
+      <form onSubmit={submit} className="settings-pane">
         {shownTab === 'general' && (
           <div className="form-grid settings-grid">
             <div className="lang-line">
@@ -215,6 +158,20 @@ export function SettingsDialog({ spec, done }) {
             <Check k="autoRefresh" label={t('set_auto_refresh')} />
           </div>
         )}
+        {shownTab === 'start' && (<>
+          <StartBackgroundControls
+            scene={v.startScene}
+            transparency={v.startTransparency}
+            motion={v.startMotion}
+            showAtLaunch={v.startAtLaunch !== false}
+            onChange={(patch) => setV((s) => ({ ...s, ...patch }))}
+          />
+          <RecentFolders
+            recent={recent}
+            onRemove={(path) => changeRecent(recent.filter((p) => p !== path))}
+            onClear={() => changeRecent([])}
+          />
+        </>)}
         {shownTab === 'panels' && (
           <div className="form-grid settings-grid">
             <label>{t('set_columns')}</label>
@@ -243,29 +200,22 @@ export function SettingsDialog({ spec, done }) {
             sub-tab, which is where the height the window saves comes from. */}
         {shownTab === 'theme' && (<>
           <SubTabs of="theme" />
-          {shownSub === 'builtin' && [['dark', t('set_themes_dark')], ['light', t('set_themes_light')]].map(([mode, heading]) => {
-            const group = [...THEMES, ...customList].filter((th) => th.mode === mode);
-            if (!group.length) return null;
-            return (
-              <React.Fragment key={mode}>
-                <div className="settings-section">{heading} <span className="muted small">{group.length}</span></div>
-                <div className="theme-grid">
-                  {group.map((th) => (
-                    <button type="button" key={th.id} className={`theme-card ${v.theme === th.id ? 'active' : ''}`} onClick={() => set('theme', th.id)}
-                      style={{ background: th.tokens['--bg'], color: th.tokens['--fg'], borderColor: v.theme === th.id ? th.tokens['--accent'] : th.tokens['--border'] || 'transparent' }}>
-                      <span className="theme-sample" style={{ background: th.tokens['--bg-panel'] }}>
-                        <span className="theme-bar" style={{ background: th.tokens['--bg-elev'] }}><span style={{ background: th.tokens['--accent'] }} /></span>
-                        <span className="theme-line" style={{ background: th.tokens['--bg-sel'] }} />
-                        <span className="theme-line" style={{ background: th.tokens['--fg-muted'] }} />
-                        <span className="theme-line short" style={{ background: th.tokens['--fg-muted'] }} />
-                      </span>
-                      <span className="theme-name">{th.custom && <span className="theme-badge">★</span>}{lang === 'ko' ? th.label : th.labelEn}</span>
-                    </button>
-                  ))}
-                </div>
-              </React.Fragment>
-            );
-          })}
+          {(shownSub === 'dark' || shownSub === 'light') && (
+            <div className="theme-grid">
+              {[...THEMES, ...customList].filter((th) => th.mode === shownSub).map((th) => (
+                <button type="button" key={th.id} className={`theme-card ${v.theme === th.id ? 'active' : ''}`} onClick={() => set('theme', th.id)}
+                  style={{ background: th.tokens['--bg'], color: th.tokens['--fg'], borderColor: v.theme === th.id ? th.tokens['--accent'] : th.tokens['--border'] || 'transparent' }}>
+                  <span className="theme-sample" style={{ background: th.tokens['--bg-panel'] }}>
+                    <span className="theme-bar" style={{ background: th.tokens['--bg-elev'] }}><span style={{ background: th.tokens['--accent'] }} /></span>
+                    <span className="theme-line" style={{ background: th.tokens['--bg-sel'] }} />
+                    <span className="theme-line" style={{ background: th.tokens['--fg-muted'] }} />
+                    <span className="theme-line short" style={{ background: th.tokens['--fg-muted'] }} />
+                  </span>
+                  <span className="theme-name">{th.custom && <span className="theme-badge">★</span>}{lang === 'ko' ? th.label : th.labelEn}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {shownSub === 'custom' && (<>
           <div className="settings-section">{t('set_custom_themes')}</div>
           <div className="pe-quick">

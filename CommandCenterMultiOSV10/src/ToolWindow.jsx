@@ -15,7 +15,7 @@
 // undo step, navigate, apply settings) is posted over the window message bus
 // and handled in App.jsx (onAppMessage).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { call, windowKind, windowId, windowArgs, closeWindow, postToApp, onAppMessage, pickFolder, pickFile, writeClipboardText } from './lib/backend';
+import { call, ensureHost, windowKind, windowId, windowArgs, seededWindowArgs, closeWindow, postToApp, onAppMessage, pickFolder, pickFile, writeClipboardText } from './lib/backend';
 import { t, setLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, baseName } from './lib/format';
 import { applyTheme, themeById, DEFAULT_THEME, setCustomThemes } from './themes';
@@ -31,12 +31,30 @@ function applyFontSize(px) {
   document.documentElement.style.setProperty('--fs', `${Math.max(9, Number(px) || 12)}px`);
 }
 
+// Settings and About carry everything they need to draw in the arguments the opener stored.
+// Painting from those, instead of waiting for the session request, is what gets the window
+// on screen without the blank gap.
+function seedLook(a) {
+  if (!a) return null;
+  const src = windowKind === 'settings' ? (a.values || {}) : (a.info || {});
+  if (src.language) setLanguage(src.language);
+  if (src.fontSize) applyFontSize(src.fontSize);
+  if (src.customThemes) setCustomThemes(src.customThemes);
+  if (src.theme && src.theme !== 'dark') applyTheme(themeById(src.theme).id);
+  if (windowKind === 'settings') return { ...SETTINGS_DEFAULTS, ...src };
+  return { ...SETTINGS_DEFAULTS };
+}
+
 export default function ToolWindow() {
   useLanguage();
   const dialogs = useDialogs();
   const [info, setInfo] = useState(null);
-  const [session, setSession] = useState(null);
-  const [args, setArgs] = useState(null);
+  const seedRef = useRef(undefined);
+  if (seedRef.current === undefined && (windowKind === 'settings' || windowKind === 'about')) {
+    seedRef.current = seededWindowArgs();
+  }
+  const [session, setSession] = useState(() => seedLook(seedRef.current));
+  const [args, setArgs] = useState(() => seedRef.current || null);
   const [data, setData] = useState(null);       // viewer / editor: fs.readFile result
   const [mode, setMode] = useState(windowKind); // the viewer can turn into the editor (F4)
   const [error, setError] = useState('');
@@ -62,6 +80,7 @@ export default function ToolWindow() {
 
   useEffect(() => {
     (async () => {
+      await ensureHost();
       const i = await call('app.info');
       setSeparator(i.sep);
       setInfo(i);
@@ -163,6 +182,8 @@ export default function ToolWindow() {
     body = (
       <SettingsDialog spec={{
         values: args.values || {}, shells: args.shells || [], platform: info && info.platform, pickFolder, pickFile, windowed: true,
+        recent: args.recent || [],
+        onRecent: (list) => postToApp({ type: 'recentDirs', recentDirs: list }),
         onChange: (live) => postToApp({ type: 'settings', values: live, live: true }),
       }} done={(v) => {
         // OK keeps the live values; Cancel puts the original ones back.

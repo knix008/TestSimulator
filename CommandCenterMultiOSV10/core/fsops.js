@@ -73,12 +73,25 @@ async function realOrSelf(p) {
 
 // ── Listing ───────────────────────────────────────────────
 
+// Stat many names at once. A wide folder was waiting on one lstat after another.
+async function mapLimited(items, limit, fn) {
+  const out = new Array(items.length);
+  let cursor = 0;
+  const workers = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workers }, async () => {
+    for (;;) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  }));
+  return out;
+}
+
 async function listDirectory(dir, { showHidden = false } = {}) {
   dir = normalizePath(dir);
-  const names = await fsp.readdir(dir);
-  const entries = [];
-  for (const name of names) {
-    if (!showHidden && name.startsWith('.')) continue;
+  const names = (await fsp.readdir(dir)).filter((name) => showHidden || !name.startsWith('.'));
+  const rows = await mapLimited(names, 32, async (name) => {
     const full = path.join(dir, name);
     let st;
     let isSymlink = false;
@@ -87,11 +100,11 @@ async function listDirectory(dir, { showHidden = false } = {}) {
       isSymlink = lst.isSymbolicLink();
       st = isSymlink ? await fsp.stat(full).catch(() => lst) : lst;
     } catch {
-      continue;
+      return null;
     }
     const isDir = st.isDirectory();
     const ext = isDir ? '' : path.extname(name);
-    entries.push({
+    return {
       name,
       path: full,
       isDir,
@@ -102,20 +115,19 @@ async function listDirectory(dir, { showHidden = false } = {}) {
       perm: permString(st.mode, isDir),
       ext,
       hidden: name.startsWith('.'),
-    });
-  }
-  return { path: dir, parent: parentOf(dir), entries };
+    };
+  });
+  return { path: dir, parent: parentOf(dir), entries: rows.filter(Boolean) };
 }
 
 async function listSubdirectories(dir) {
   dir = normalizePath(dir);
-  const names = await fsp.readdir(dir);
-  const out = [];
-  for (const name of names) {
-    if (name.startsWith('.')) continue;
+  const names = (await fsp.readdir(dir)).filter((name) => !name.startsWith('.'));
+  const rows = await mapLimited(names, 32, async (name) => {
     const full = path.join(dir, name);
-    if (await isDirectory(full)) out.push({ name, path: full });
-  }
+    return (await isDirectory(full)) ? { name, path: full } : null;
+  });
+  const out = rows.filter(Boolean);
   out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   return out;
 }

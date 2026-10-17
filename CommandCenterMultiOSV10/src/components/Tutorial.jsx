@@ -9,6 +9,7 @@ export const TUTORIAL_STEPS = [
   { id: 'begin', chapter: 'start', target: '.start-actions', place: 'start' },
   { id: 'tasks', chapter: 'start', target: '.task-grid', place: 'start' },
   { id: 'recent', chapter: 'start', target: '[data-group="recent"]', place: 'start' },
+  { id: 'background', chapter: 'start', target: '[data-group="scenes"]', place: 'start' },
   { id: 'panels', chapter: 'files', target: '[data-tut="panels"]', place: 'work' },
   { id: 'active', chapter: 'files', target: '.file-panel.active', place: 'work' },
   { id: 'open', chapter: 'files', target: '.file-panel.active', place: 'work' },
@@ -37,13 +38,23 @@ export function Tutorial({ onClose, onPrepare }) {
     const measure = () => {
       const el = document.querySelector(step.target);
       if (!el || !el.getClientRects().length) { setBox(null); return; }
+      const r0 = el.getBoundingClientRect();
+      const outside = r0.top < 40 || r0.bottom > window.innerHeight - 8 || r0.width < 2;
+      if (outside && typeof el.scrollIntoView === 'function') {
+        try { el.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch { /* the test DOM has no layout */ }
+      }
       const r = el.getBoundingClientRect();
       setBox({ left: r.left - 4, top: r.top - 4, width: Math.max(8, r.width + 8), height: Math.max(8, r.height + 8) });
     };
     measure();
-    const id = setInterval(measure, 250);
+    const watched = document.querySelector(step.target);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    if (observer) {
+      if (watched) observer.observe(watched);
+      observer.observe(document.documentElement);
+    }
     window.addEventListener('resize', measure);
-    return () => { clearInterval(id); window.removeEventListener('resize', measure); };
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, [step]);
 
   useEffect(() => {

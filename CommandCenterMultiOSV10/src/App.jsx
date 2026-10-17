@@ -15,7 +15,7 @@ import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes, allThemes, themeWindowColors } from './themes';
-import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile } from './lib/settings';
+import { SETTINGS_DEFAULTS, SETTINGS_KEYS, isTextFile, showStartAtLaunch } from './lib/settings';
 import { History } from './lib/history';
 import { ResizeGrip } from './components/ResizeGrip';
 import { canPrintData } from './lib/print';
@@ -175,6 +175,7 @@ export default function App() {
       setSession(s);
       if (s.activeSide === 'right') setActive('right');
       if (s.logOpen === false) s.dockVisible = false;   // nothing to show yet (search and terminals start empty)
+      if (showStartAtLaunch(s)) setStartOpen(true);
       setStatus(t('ready', { app: t('appName') }));
     })().catch((err) => setStatus(String(err && err.message ? err.message : err)));
   }, []);
@@ -979,7 +980,7 @@ export default function App() {
       }
       case 'about': {
         if (openAlready('about')) break;
-        const about = { ...(info || {}), host: hostName };
+        const about = { ...(info || {}), host: hostName, theme: session.theme, language: getLanguage(), fontSize: session.fontSize, customThemes: session.customThemes };
         if (useWindows() && await openTool('about', { info: about }, { title: t('about_title') })) break;
         await dialogs.about(about);
         break;
@@ -992,8 +993,10 @@ export default function App() {
         for (const k of SETTINGS_KEYS) values[k] = session[k] !== undefined ? session[k] : SETTINGS_DEFAULTS[k];
         values.language = getLanguage();
         const startTab = id.startsWith('settings:') ? id.slice(9) : 'general';
-        if (useWindows() && await openTool('settings', { values, shells, tab: startTab }, { title: t('settings_title') })) break;
-        const result = await dialogs.settings(values, { shells, pickFolder, pickFile, tab: startTab, platform: info && info.platform, onChange: (live) => applySettings(live, { quiet: true }) });
+        const recent = session.recentDirs || [];
+        const onRecent = (list) => saveSession({ recentDirs: list });
+        if (useWindows() && await openTool('settings', { values, shells, tab: startTab, recent }, { title: t('settings_title') })) break;
+        const result = await dialogs.settings(values, { shells, pickFolder, pickFile, tab: startTab, platform: info && info.platform, recent, onRecent, onChange: (live) => applySettings(live, { quiet: true }) });
         applySettings(result || values);
         break;
       }
@@ -1054,6 +1057,7 @@ export default function App() {
       case 'clipCopy': inAppClipboard.current = msg.paths || []; setStatus(t('clip_copied', { n: (msg.paths || []).length })); break;
       case 'copyTo': await copyPathsTo(msg.side, msg.paths || []); break;
       case 'settings': applySettings(msg.values, { quiet: !!msg.live }); break;
+      case 'recentDirs': saveSession({ recentDirs: msg.recentDirs || [] }); break;
       default: break;
     }
   };
@@ -1153,7 +1157,7 @@ export default function App() {
     active: active === side,
     sort: session[`${side}Sort`] || { column: 'name', asc: true },
     showHidden: !!session.showHidden,
-    suspendWatch: busy > 0 || session.autoRefresh === false,
+    suspendWatch: busy > 0 || session.autoRefresh === false || startOpen,
     capabilities: info ? info.capabilities : {},
     onNavigate: (p) => { activatePanel(side); navigate(side, p); },
     onActivate: () => activatePanel(side),
@@ -1198,15 +1202,22 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="app-scroll">
+      <div className="app-fill">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
       {session.showToolbar !== false && <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} state={menuState} />}
       <div className="app-body">
       {startOpen && (
         <StartPage
           recent={(session.recentDirs) || []}
-          scene={session.startScene || 'day'}
-          onScene={(id) => saveSession({ startScene: id })}
+          scene={session.startScene || 'valley'}
+          transparency={session.startTransparency ?? 0}
+          motion={session.startMotion ?? 20}
+          showAtLaunch={showStartAtLaunch(session)}
+          onBackground={(patch) => saveSession(patch)}
           onRecent={(path) => { setStartOpen(false); navigate(active, path); }}
+          onRecentRemove={(path) => saveSession({ recentDirs: (session.recentDirs || []).filter((p) => p !== path) })}
+          onRecentClear={() => { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); }}
           onRun={(id) => {
             if (id === 'tutorial') { tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); return; }
             setStartOpen(false); if (id !== 'files') onAction(id);
@@ -1239,6 +1250,8 @@ export default function App() {
           onCopyTo: (side, paths) => copyPathsTo(side, paths),
         }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
+      </div>
+      </div>
       </div>
       </div>
       <div className="statusbar ellipsis" title={status}>

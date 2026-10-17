@@ -31,13 +31,15 @@
 
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
+html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+/* Kept clear of the vertical scrollbar. The About button is the last thing on the
+   toolbar, so without this inset the bar covers it at the window's minimum width. */
+html { --chrome-end: 18px; }
 body {
   font-family: var(--font);
   font-size: var(--fs);
   color: var(--fg);
   background: var(--bg);
-  overflow: auto hidden;   /* narrower than the app minimum (browser only): scroll sideways, never clip */
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
@@ -52,38 +54,37 @@ button:disabled { cursor: default; opacity: 0.45; }
 .row { display: flex; gap: 8px; align-items: center; }
 .boot { height: 100%; display: grid; place-items: center; color: var(--fg-muted); }
 
-.app { height: 100%; display: flex; flex-direction: column; min-width: var(--chrome-min-w, 1149px); }
-/* The width is the toolbar's own, measured in the page and set on :root (src/lib/minwidth.js): every
-   icon-only button is a command of its own, so none of them may ever be cut off. The desktop window's
-   minimum width is set from the same number, so it can only ever be hit in a browser — and there the
-   page scrolls sideways (body overflow) instead of clipping the row. 1149 px is what it comes to in
-   either language today; the variable is what counts. */
+.app { height: 100%; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+/* The scroll lives above the status bar. A window narrower than the buttons
+   scrolls this area; the status bar stays one line and never grows a bar of its own. */
+.app-scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
+.app-fill { min-width: var(--chrome-min-w, 1149px); min-height: 100%; display: flex; flex-direction: column; }
+/* The width is the wider of the menu bar, the toolbar and the function-key bar
+   (src/lib/minwidth.js), already including --chrome-end. 1149 px is the floor
+   until the page has measured itself. */
 
 /* ── Menu bar ── */
-.menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 4px; height: 30px; }
-.menu-home { display: flex; align-items: center; gap: 6px; height: 24px; margin: 0 6px 0 2px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--bg-hover); color: var(--fg); cursor: pointer; flex: none; font-weight: 600; }
+.menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 var(--chrome-end) 0 8px; height: 32px; -webkit-app-region: drag; }
+.menu-home { display: flex; align-items: center; gap: 6px; height: 24px; margin: 0 8px 0 2px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--bg-hover); color: var(--fg); cursor: pointer; flex: none; font-weight: 600; -webkit-app-region: no-drag; }
 .menu-home:hover { background: var(--bg-sel); }
 .menu-home.on { background: var(--accent); color: var(--accent-text); }
-.menubar-spacer { flex: 1; }
-/* The program's identity at the left of the menu bar. Where the page draws the window's title bar
-   (html.wco) this row *is* the title bar, so the icon, the name and the version number belong in it;
-   in a browser tab they are the program's heading. */
-.menubar-brand { display: flex; align-items: center; gap: 6px; flex: none; min-width: 0; padding: 0 10px 0 4px; margin-right: 4px; border-right: 1px solid var(--border); }
+.menubar-spacer { flex: 1; align-self: stretch; }
+/* Icon and name first, then the Home button. There is no separate title bar. */
+.menubar-brand { display: flex; align-items: center; gap: 6px; flex: none; min-width: 0; padding: 0 8px 0 0; }
 .menubar-logo { width: 16px; height: 16px; flex: none; -webkit-user-drag: none; }
 .menubar-app { font-weight: 600; color: var(--fg); white-space: nowrap; }
 .menubar-ver { color: var(--fg-muted); font-size: 11px; white-space: nowrap; }
-/* html.wco: the page draws the window's title bar itself, so this row *is* the title bar (see
-   src/lib/titlebar.js). It carries the window title, it drags the window — but its buttons must not —
-   and it keeps the native window controls' own space free on whichever side the platform puts them. */
-html.wco .menubar { -webkit-app-region: drag; padding-left: calc(4px + var(--wco-left, 0px)); padding-right: calc(4px + var(--wco-right, 0px)); }
-html.wco .menubar .menu-title, html.wco .menubar .menu-home { -webkit-app-region: no-drag; }
-.menu-title { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); }
+.win-controls { display: flex; align-self: stretch; flex: none; -webkit-app-region: no-drag; }
+.win-btn { width: 46px; border: 0; background: transparent; color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.win-btn:hover { background: var(--bg-hover); }
+.win-btn.win-close:hover { background: #c42b1c; color: #fff; }
+.menu-title { display: inline-flex; align-items: center; gap: 5px; flex: none; white-space: nowrap; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); -webkit-app-region: no-drag; }
 .menu-title .menu-icon { color: var(--fg-muted); }
 .menu-title:hover .menu-icon, .menu-title.open .menu-icon { color: inherit; }
 .menu-title:hover, .menu-title.open { background: var(--bg-hover); }
 
 /* ── Toolbar ── */
-.toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 1px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 1px; padding: 4px calc(8px + var(--chrome-end)) 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
 .toolbar .tb-btn, .toolbar .tb-sep, .toolbar .tb-split { flex: none; }
 .tb-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 5px 10px; border-radius: 4px; color: var(--fg); }
 .tb-btn:hover:not(:disabled) { background: var(--bg-hover); }
@@ -105,57 +106,96 @@ html.wco .menubar .menu-title, html.wco .menubar .menu-home { -webkit-app-region
 .app-work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .app-work.covered { display: none; }
 
-/* Start page (Home on the menu bar). Cards sit on a landscape, as in MyPhotoManager. */
+/* Start page (Home on the menu bar). Cards sit over a moving WebGL world. */
 .start-page { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); color: var(--fg); }
-.start-bg { position: absolute; inset: 0; background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
-.start-bg::after { content: ''; position: absolute; width: 90px; height: 90px; border-radius: 50%; left: 18%; top: 18%; background: rgba(255, 236, 170, 0.85); box-shadow: 0 0 40px rgba(255, 220, 140, 0.7); animation: start-drift 48s ease-in-out infinite alternate; }
-.start-bg[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }
-.start-bg[data-scene='night'] { background: linear-gradient(180deg, #0c1228 0%, #1c3358 48%, #0e1a14 100%); }
-.start-bg[data-scene='night']::after { background: rgba(230, 236, 255, 0.9); box-shadow: 0 0 24px rgba(200, 220, 255, 0.6); width: 42px; height: 42px; }
-.start-bg[data-scene='sea'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #1d6a8a 42%, #0e4a68 100%); }
-.start-bg[data-scene='forest'] { background: linear-gradient(180deg, #8ec8e8 0%, #d7e7c4 40%, #1f5a32 40%, #143820 100%); }
-@keyframes start-drift { from { transform: translate(0, 0); } to { transform: translate(80px, 18px); } }
+.start-bg { position: absolute; inset: 0; opacity: var(--start-opacity, 1); background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
+.start-bg-canvas, .start-bg-snap { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.start-bg-canvas.is-pending { visibility: hidden; }
+.start-swatch[data-scene='valley'] { background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
+.start-swatch[data-scene='ocean'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #0e4a68 100%); }
+.start-swatch[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }
+.start-swatch[data-scene='forest'] { background: linear-gradient(180deg, #8ec8e8 0%, #d7e7c4 40%, #143820 100%); }
+.start-swatch[data-scene='lake'] { background: linear-gradient(180deg, #7eb6d8 0%, #f3e2c4 40%, #1a4e72 100%); }
+.start-swatch[data-scene='sunrise'] { background: linear-gradient(180deg, #f08a6a 0%, #ffd29a 40%, #2a2438 100%); }
+.start-swatch[data-scene='mountains'] { background: linear-gradient(180deg, #7aa0c4 0%, #d7e4ef 36%, #243024 100%); }
+.start-swatch[data-scene='dunes'] { background: linear-gradient(180deg, #f0c27a 0%, #e8a060 40%, #c47a3a 100%); }
+.start-swatch[data-scene='rain'] { background: linear-gradient(180deg, #4d6270 0%, #8ea4b0 46%, #2c4a3c 100%); }
+.start-swatch[data-scene='snow'] { background: linear-gradient(180deg, #c5d4e0 0%, #f4f7fb 42%, #9aa8b4 100%); }
+.start-swatch[data-scene='aurora'] { background: linear-gradient(180deg, #06121c 0%, #1d6b4a 38%, #071018 100%); }
+.start-swatch[data-scene='stars'] { background: linear-gradient(180deg, #070b18 0%, #1a2744 100%); }
+.start-swatch[data-scene='nebula'] { background: linear-gradient(180deg, #1a1030 0%, #6a3088 50%, #101828 100%); }
+.start-swatch[data-scene='city'] { background: linear-gradient(180deg, #1c2438 0%, #f0b060 55%, #121820 100%); }
+.start-swatch[data-scene='fireflies'] { background: linear-gradient(180deg, #0c1810 0%, #1d4030 50%, #c8e060 100%); }
+.start-swatch[data-scene='petals'] { background: linear-gradient(180deg, #7eb6e0 0%, #f0c0d0 55%, #3a6a32 100%); }
+.start-swatch[data-scene='embers'] { background: linear-gradient(180deg, #1a100c 0%, #c04020 55%, #f0a040 100%); }
+.start-swatch[data-scene='bokeh'] { background: linear-gradient(180deg, #101820 0%, #3080a0 50%, #e0c080 100%); }
+.start-swatch[data-scene='ribbons'] { background: linear-gradient(135deg, #2040c0 0%, #e04080 50%, #40c0a0 100%); }
+.start-swatch[data-scene='geometry'] { background: linear-gradient(180deg, #10141c 0%, #4060c0 55%, #e0e8f0 100%); }
 .start-scroll { position: absolute; inset: 0; overflow: auto; }
-.start { max-width: 1280px; margin: 0 auto; padding: 22px 28px 40px; }
-.start-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.start-logo { display: grid; place-items: center; width: 58px; height: 58px; flex: none; border-radius: 14px; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
-.start-logo img { width: 32px; height: 32px; }
-.start-head h1 { margin: 0; font-size: 26px; font-weight: 700; }
-.start-head p { margin: 4px 0 0; max-width: 640px; }
-.start h2 { display: flex; align-items: center; gap: 8px; height: 22px; margin: 0 0 10px; font-size: 14px; }
+.start { max-width: 1100px; margin: 0 auto; padding: 10px 16px 12px; }
+.start-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.start-head .start-launch { margin: 0 0 0 auto; flex: none; }
+.start-logo { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 10px; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
+.start-logo img { width: 22px; height: 22px; }
+.start-head h1 { margin: 0; font-size: 18px; font-weight: 700; }
+.start-head p { margin: 1px 0 0; max-width: 640px; font-size: 12px; }
+.start h2 { display: flex; align-items: center; gap: 6px; height: 18px; margin: 0 0 6px; font-size: 13px; }
 .start h2 svg { color: var(--accent); }
-.start-board { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); grid-template-areas: "begin tasks" "recent scenes"; gap: 28px; align-items: start; }
+.start-board { display: grid; grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); grid-template-areas: "begin tasks" "recent scenes"; gap: 12px 16px; align-items: start; }
 .start-group[data-group='begin'] { grid-area: begin; }
 .start-group[data-group='tasks'] { grid-area: tasks; }
 .start-group[data-group='recent'] { grid-area: recent; }
 .start-group[data-group='scenes'] { grid-area: scenes; }
-.start-actions { display: flex; flex-direction: column; gap: 8px; }
-.task-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
-.action-card, .task-card { box-sizing: border-box; height: 64px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; }
-.action-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; border-radius: 10px; }
+.start-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.task-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; align-items: start; }
+.action-card, .task-card { box-sizing: border-box; height: 42px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; }
+.action-card { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px; text-align: left; border-radius: 8px; }
 .action-card:hover, .task-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--bg-panel) 90%, transparent); }
 .action-card[data-primary] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, color-mix(in srgb, var(--bg-panel) 82%, transparent)); }
-.action-icon, .task-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 8px; background: var(--bg-sel); color: var(--accent); }
-.action-text, .task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.action-icon, .task-icon { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 6px; background: var(--bg-sel); color: var(--accent); }
+.action-text, .task-text { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.action-text b, .task-text b { font-size: 12px; font-weight: 600; }
 .action-text small, .task-text small, .start-muted { color: var(--fg-muted); }
-.action-text small, .task-text small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-text small, .task-text small { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-folders { display: flex; flex-direction: column; gap: 4px; }
+.recent-head { display: flex; align-items: center; gap: 6px; height: 22px; margin: 0; font-size: 13px; font-weight: 600; }
+.recent-head svg { color: var(--accent); flex: none; }
+.recent-head > span { flex: 1; min-width: 0; }
+.recent-clear { height: 22px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; font-size: 11px; }
+.recent-clear:hover:not(:disabled) { border-color: var(--accent); }
+.recent-clear:disabled { opacity: 0.45; cursor: default; }
 .recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.recent-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; cursor: pointer; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); color: var(--fg); text-align: left; }
+.settings-pane .recent-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+.recent-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.recent-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 3px 8px; border: 0; border-radius: 8px; cursor: pointer; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); color: var(--fg); text-align: left; }
+.recent-x { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--fg-muted); display: grid; place-items: center; cursor: pointer; }
+.recent-x:hover { background: var(--bg-hover); color: var(--danger); }
 .recent-item:hover { background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel)); }
 .recent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.start-muted { margin: 0; }
-.start-tip { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); border: 1px solid var(--border); line-height: 1.45; }
-.start-tip-toggle { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.start-muted { margin: 0; font-size: 12px; }
+.start-tip { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); border: 1px solid var(--border); line-height: 1.35; font-size: 12px; }
+.start-tip-toggle { display: flex; align-items: flex-start; gap: 6px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .start-tip-toggle svg { color: var(--accent); flex: none; margin-top: 2px; }
 .start-tip-text { flex: 1; }
 .start-tip-more-label { flex: none; color: var(--accent); font-size: 12px; }
 .start-tip-more { margin: 0; white-space: pre-wrap; }
-.task-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; border-radius: 10px; }
-.start-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
-.start-scene { box-sizing: border-box; width: 100%; height: 32px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; }
+.task-card { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 8px; text-align: left; border-radius: 8px; }
+.start-scenes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.settings-pane .start-scenes { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+.start-scene { box-sizing: border-box; display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; font-size: 11px; text-align: left; }
+.start-scene span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .start-scene:hover { border-color: var(--accent); }
 .start-scene.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel)); }
-@media (max-width: 860px) { .start { padding: 16px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .task-grid { grid-template-columns: minmax(0, 1fr); } }
+.start-swatch { width: 14px; height: 14px; flex: none; border-radius: 4px; border: 1px solid rgba(0, 0, 0, 0.28); }
+.start-launch { margin: 0 0 6px; font-size: 12px; }
+.start-speeds { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; max-width: 440px; }
+.start-speed { display: grid; grid-template-columns: 72px 24px minmax(88px, 1fr) 24px 42px; align-items: center; gap: 6px; margin: 0; width: 100%; }
+.start-speed > span:first-child { font-size: 12px; color: var(--fg-muted); }
+.start-speed input[type='range'] { width: 100%; height: 18px; margin: 0; accent-color: var(--accent); }
+.start-speed-value { font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.start-speed-reset { height: 24px; margin-top: 2px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; font-size: 12px; }
+.start-speed-reset:hover { border-color: var(--accent); }
+@media (max-width: 860px) { .start { padding: 12px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .start-actions, .task-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Tutorial card and the outline around the part of the window the step is about. */
 .tutorial-spot { position: fixed; z-index: 4000; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
@@ -242,8 +282,9 @@ html.wco .menubar .menu-title, html.wco .menubar .menu-home { -webkit-app-region
 .ic-file { color: var(--file); }
 .panel-empty { position: absolute; inset: 40px 0 0; display: grid; place-items: center; color: var(--danger); padding: 12px; }
 
-.panel-status { padding: 5px 10px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 12px; }
-.statusbar { position: relative; padding: 4px 26px 6px 12px; font-size: 12px; color: var(--fg-muted); border-top: 1px solid var(--border); background: var(--bg-elev); }
+.panel-status { min-width: 0; padding: 5px 10px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statusbar { position: relative; flex: none; min-width: 0; padding: 4px 26px 6px 12px; font-size: 12px; color: var(--fg-muted); border-top: 1px solid var(--border); background: var(--bg-elev); overflow: hidden; scrollbar-width: none; }
+.statusbar::-webkit-scrollbar { display: none; }
 /* resize grip in the bottom-right corner (desktop): three diagonal lines, drag to resize the window */
 .resize-grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; color: var(--fg-muted); opacity: 0.7; }   /* the window's very corner: the marker's diagonal ends in it */
 .resize-grip:hover { opacity: 1; color: var(--accent); }
@@ -335,6 +376,19 @@ html.wco .menubar .menu-title, html.wco .menubar .menu-home { -webkit-app-region
 /* A heading over a group of menu items (the theme list is dark themes, then light ones). Not a menu item:
    it is never hovered, picked or focused — it just names what follows. */
 .ctx-head { flex: none; padding: 6px 10px 3px; font-size: 11px; font-weight: 600; color: var(--fg-muted); user-select: none; cursor: default; }
+/* Theme dropdown: one Dark column, one Light column, and custom themes on one line.
+   In the browser it is positioned in the page. On the desktop it is its own window
+   (class os), so it can extend past the application window. */
+.theme-drop { position: fixed; z-index: 1000; display: flex; flex-direction: column; max-width: calc(100vw - 16px); background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px; }
+.theme-drop.os { left: 0; top: 0; max-width: none; box-shadow: none; }
+html.theme-menu, html.theme-menu body, html.theme-menu #root { height: auto; min-height: 0; overflow: visible; background: transparent; }
+.theme-drop-cols { display: flex; align-items: flex-start; }
+.theme-drop-col { display: flex; flex-direction: column; min-width: 168px; }
+.theme-drop-col + .theme-drop-col { border-left: 1px solid var(--border); margin-left: 4px; padding-left: 4px; }
+.theme-drop-custom { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 2px; display: flex; flex-flow: row nowrap; align-items: center; min-width: 0; }
+.theme-drop-custom .ctx-head { white-space: nowrap; }
+.theme-drop-custom .ctx-item { flex: none; }
+.theme-drop-empty { margin: 0; padding: 2px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Dialogs ── */
 .dlg-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2000; }
@@ -441,12 +495,12 @@ input:disabled, select:disabled { opacity: 0.5; }
 /* ── Total Commander style additions ── */
 .icon-btn.on { color: var(--accent); }
 .quick-search { position: sticky; bottom: 0; left: 0; display: inline-flex; align-items: center; gap: 6px; margin: 4px; padding: 3px 10px; background: var(--bg-elev); border: 1px solid var(--accent); border-radius: 4px; font-family: var(--mono); font-size: 12px; color: var(--fg); box-shadow: var(--shadow); }
-.fnbar { display: flex; gap: 4px; padding: 4px 8px 2px; background: var(--bg-elev); border-top: 1px solid var(--border); }
-.fn-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--fg); min-width: 0; font-size: 12px; }
+.fnbar { display: flex; gap: 4px; padding: 4px calc(8px + var(--chrome-end)) 2px 8px; background: var(--bg-elev); border-top: 1px solid var(--border); }
+.fn-btn { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--fg); min-width: max-content; font-size: 12px; white-space: nowrap; }
 .fn-btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
 .fn-btn:active:not(:disabled) { background: var(--bg-sel); }
 .fn-key { font-family: var(--mono); font-weight: 700; color: var(--accent); }
-.fn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fn-label { white-space: nowrap; }
 .dlg.viewer .dlg-body, .dlg.editor .dlg-body { display: flex; flex-direction: column; min-height: 0; height: calc(100vh - 140px); padding: 0; }
 .dlg.viewer .dlg-footer, .dlg.editor .dlg-footer { align-items: center; }
 .dlg.viewer .dlg-footer .btn { white-space: nowrap; flex: none; }
@@ -761,7 +815,7 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 /* section heading inside a settings grid (spans both columns) */
 .settings-section { grid-column: 1 / -1; margin-top: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--fg-muted); font-size: 12px; }
 /* theme tab: one card per theme in its own colours; click = apply */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; }   /* 8 columns in the 1040 px settings window: 15 themes on two rows */
+.theme-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }   /* 20 themes of one mode, two rows */
 .theme-card { display: flex; flex-direction: column; gap: 3px; padding: 4px 5px; border: 2px solid transparent; border-radius: 6px; text-align: left; height: 58px; box-sizing: border-box; overflow: hidden; }
 .theme-badge { color: var(--accent); margin-right: 3px; }
 .theme-card:hover { filter: brightness(1.12); }

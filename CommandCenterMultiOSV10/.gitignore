@@ -21,8 +21,14 @@ public/icon.svg
 *.zip
 *.blockmap
 
-# ── Local scratch (screenshots, private profiles) ──
+# ── Local scratch (screenshots, private profiles, tutorial frame dumps) ──
 .smoke/
+.record/
+playwright-report/
+test-results/
+
+# ── Linker leftovers if a build is run outside src-tauri/target ──
+*.pdb
 # samples/ (images · video · audio · DICOM for the tests) is committed;
 # scripts/generate-samples.mjs rewrites the generated ones
 samples/.record.cjs

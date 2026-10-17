@@ -47,10 +47,20 @@ export const SETTINGS_DEFAULTS = {
   prompt: PROMPT_DEFAULT, // terminal prompt theme (see prompt.js)
   customPrompts: [],      // user-saved prompt themes (settings › terminal › prompt): [{ id, label, config }]
   customThemes: [],       // user-made themes (settings › theme): [{ id, label, mode, colors }]
+  // start page (also edited on the start page itself)
+  startAtLaunch: true,   // open the start screen when the program starts; false keeps the file panels
+  startScene: 'valley',
+  startTransparency: 0,   // 0 = the landscape is solid, 100 = only the theme colour shows
+  startMotion: 20,        // 0 = still, 20 = the default drift, 100 = fastest
 };
 
 // Keys the Settings dialog edits (everything else in the session — paths, bounds, hotlist — is left alone).
 export const SETTINGS_KEYS = Object.keys(SETTINGS_DEFAULTS);
+
+// A missing value shows the start screen, the same as the default. Only an explicit false skips it.
+export function showStartAtLaunch(session) {
+  return !session || session.startAtLaunch !== false;
+}
 
 // Extension → is it a "text file" under the current setting?
 export function isTextFile(name, exts) {

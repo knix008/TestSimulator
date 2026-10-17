@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5185",
-    "beforeDevCommand": "node ../scripts/tauri-before-dev.mjs",
-    "beforeBuildCommand": "node ../scripts/tauri-before-build.mjs"
+    "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
+    "beforeBuildCommand": "node scripts/tauri-before-build.mjs"
   },
   "app": {
     "withGlobalTauri": true,
@@ -20,7 +20,9 @@
         "minWidth": 1149,
         "minHeight": 713,
         "resizable": true,
-        "center": true
+        "center": true,
+        "decorations": false,
+        "shadow": true
       }
     ],
     "security": {

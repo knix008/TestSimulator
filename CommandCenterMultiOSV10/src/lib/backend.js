@@ -170,7 +170,8 @@ export function watchDir(id, path, onChange) {
         if (last !== null && mtime !== last) onChange({ id, path });
         last = mtime;
       } catch { /* ignore */ }
-      await new Promise((r) => setTimeout(r, 2000));
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      await new Promise((r) => setTimeout(r, hidden ? 8000 : 2000));
     }
   })();
   return () => { stopped = true; };
@@ -301,6 +302,72 @@ export const fitWindow = (isElectron && electron.fitWindow)
 
 // The width the toolbar needs (src/lib/minwidth.js) becomes the window's minimum width. In a browser
 // there is nothing to tell: the page's own min-width already makes it scroll instead of clipping.
+// The theme list is taller than the space under its button, and a menu drawn in
+// the page stops at the window edge. On the desktop it is a window of its own,
+// placed in screen coordinates, so it can hang outside the application window.
+// The browser has no such window and keeps the in-page menu.
+const THEME_MENU_KEY = 'cc-theme-menu';
+let themeMenuWindow = null;
+
+export async function anchorScreenPoint(el) {
+  const rect = el.getBoundingClientRect();
+  const { getCurrentWindow } = await import('@tauri-apps/api/window');
+  const win = getCurrentWindow();
+  const inner = await win.innerPosition();
+  const scale = await win.scaleFactor();
+  return {
+    x: inner.x / scale + rect.left,
+    y: inner.y / scale + rect.bottom + 2,
+    above: inner.y / scale + rect.top - 2,
+  };
+}
+
+async function ensureThemeMenuWindow(x, y) {
+  if (!themeMenuWindow) {
+    themeMenuWindow = (async () => {
+      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+      const existing = await WebviewWindow.getByLabel('theme-menu');
+      if (existing) return existing;
+      const webview = new WebviewWindow('theme-menu', {
+        url: 'index.html?win=themeMenu&id=theme-menu',
+        title: 'Theme',
+        width: 420,
+        height: 720,
+        x: Math.round(x),
+        y: Math.round(y),
+        decorations: false,
+        shadow: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        resizable: false,
+        focus: false,
+        visible: false,
+        center: false,
+      });
+      await new Promise((resolve, reject) => {
+        webview.once('tauri://created', resolve);
+        webview.once('tauri://error', (e) => reject(new Error(e && e.payload ? String(e.payload) : 'window error')));
+      });
+      return webview;
+    })().catch((err) => { themeMenuWindow = null; throw err; });
+  }
+  return themeMenuWindow;
+}
+
+export async function showThemeMenu(payload) {
+  const body = { ...payload, nonce: payload.nonce || Date.now() };
+  try { localStorage.setItem(THEME_MENU_KEY, JSON.stringify(body)); } catch { /* the page reads an empty menu */ }
+  await ensureThemeMenuWindow(payload.x, payload.y);
+  await postToApp({ type: 'themeMenu:show' });
+}
+
+export function hideThemeMenu() {
+  import('@tauri-apps/api/webviewWindow').then(async ({ WebviewWindow }) => {
+    const win = await WebviewWindow.getByLabel('theme-menu');
+    if (win) await win.hide();
+  }).catch(() => {});
+}
+
 export function setMinContentWidth(width) {
   if (isElectron && electron.setMinContentWidth) electron.setMinContentWidth(width);
   else if (isTauri) tauriMinWidth(width);
@@ -315,7 +382,13 @@ function channel() {
   return bus;
 }
 
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1080, 780], about: [560, 400] };
+// Settings and About open at the size their content actually takes, so the window is not
+// drawn large and then shrunk. Settings is the width at which its tallest page (the viewer
+// tab) still fits the height; About is the icon, the lines of text and the close button.
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260] };
+// These two are created hidden and shown once their page has drawn, so the blank window
+// never flashes past before the content is there.
+const REVEAL_KINDS = new Set(['settings', 'about']);
 const tauriToolIds = new Map();
 
 function newWinId() { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
@@ -335,11 +408,35 @@ function tauriFit(height) {
     await win.setSize(await tauriSize(Math.round(outer.width / scale), Math.max(200, Math.round(height))));
   }).catch(() => {});
 }
+// The colour behind the page while it is still blank. Taken from the theme that is on screen
+// now, so a new window is that colour instead of the web view's default grey.
+function pageBackground() {
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    const m = /^#([0-9a-fA-F]{6})$/.exec(raw);
+    if (!m) return [18, 22, 28, 255];
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
+  } catch { return [18, 22, 28, 255]; }
+}
+export function revealWindow() {
+  if (!isTauri) return;
+  currentTauriWindow().then(async (win) => {
+    await win.show();
+    try { await win.setFocus(); } catch { /* already in front */ }
+  }).catch(() => {});
+}
 function tauriMinWidth(width) {
   const w = Math.max(1149, Math.round(Number(width) || 0));
   currentTauriWindow().then(async (win) => {
     const { LogicalSize } = await import('@tauri-apps/api/dpi');
     await win.setMinSize(new LogicalSize(w, 713));
+    const scale = await win.scaleFactor();
+    const inner = await win.innerSize();
+    if (inner.width / scale < w - 0.5) {
+      const outer = await win.outerSize();
+      await win.setSize(new LogicalSize(w, Math.max(713, Math.round(outer.height / scale))));
+    }
   }).catch(() => {});
 }
 
@@ -361,20 +458,26 @@ async function openTauriWindow(kind, args, { title, width, height } = {}) {
   const id = newWinId();
   tauriToolIds.set(label, id);
   try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* ignore */ }
+  const reveal = REVEAL_KINDS.has(kind);
   const webview = new WebviewWindow(label, {
     url: `index.html?win=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`,
     title: title || kind,
     width: width || dw,
     height: height || dh,
     focus: !QUIET_KINDS.has(kind),
-    resizable: kind !== 'settings',
+    resizable: kind !== 'settings' && kind !== 'about',
     alwaysOnTop: QUIET_KINDS.has(kind),
     center: true,
+    visible: !reveal,
+    backgroundColor: pageBackground(),
   });
   await new Promise((resolve, reject) => {
     webview.once('tauri://created', resolve);
     webview.once('tauri://error', (e) => reject(new Error(e && e.payload ? String(e.payload) : 'window error')));
   });
+  // The page shows itself as soon as it has drawn. This is only the backstop, so a window
+  // whose page never gets that far does not stay invisible.
+  if (reveal) setTimeout(() => { webview.show().catch(() => {}); }, 1200);
   return id;
 }
 
@@ -395,17 +498,35 @@ export async function openWindow(kind, args, { title, width, height } = {}) {
   const url = new URL(window.location.href);
   url.searchParams.set('win', kind);
   url.searchParams.set('id', id);
-  const w = window.open(url.toString(), `cc-${kind}-${id}`, `popup=yes,width=${width || 900},height=${height || 680}`);
+  const [bw, bh] = TOOL_SIZES[kind] || [900, 680];
+  const w = window.open(url.toString(), `cc-${kind}-${id}`, `popup=yes,width=${width || bw},height=${height || bh}`);
   if (w) { w.ccKind = kind; w.ccId = id; }
   if (!w) throw new Error('POPUP_BLOCKED');
   webChildren.add(w);
   return id;
 }
 
+// Arguments for this tool window. Read once and kept, so a second read (the page renders
+// from them immediately, then the loader asks again) still returns the same object.
+const argCache = new Map();
+function cachedWindowArgs() {
+  if (!windowId) return null;
+  if (argCache.has(windowId)) return argCache.get(windowId);
+  let args = null;
+  try {
+    const raw = localStorage.getItem(`cc-win:${windowId}`);
+    if (raw) { localStorage.removeItem(`cc-win:${windowId}`); args = JSON.parse(raw); }
+  } catch { /* fall through */ }
+  argCache.set(windowId, args);
+  return args;
+}
+export function seededWindowArgs() {
+  if (isElectron) return null;
+  return cachedWindowArgs();
+}
 export async function windowArgs() {
   if (isElectron) return unwrap(await electron.windowArgs(windowId), 'window error');
-  try { const raw = localStorage.getItem(`cc-win:${windowId}`); if (raw) { localStorage.removeItem(`cc-win:${windowId}`); return JSON.parse(raw); } } catch { /* fall through */ }
-  return {};
+  return cachedWindowArgs() || {};
 }
 
 // Resize grip (desktop only): the window's outer size and a resize while dragging.

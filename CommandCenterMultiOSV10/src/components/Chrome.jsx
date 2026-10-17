@@ -1,16 +1,18 @@
-// Menu bar (파일/편집/보기/압축 — every title and item with an icon, as in
+// Menu bar (파일/편집/보기/압축/정보 — every title and item with an icon, as in
 // MyEditor) and the icon toolbar, drawn in-app so they look the same in the
 // desktop app and in the browser. View holds the bottom dock (log /
 // terminals); the toolbar has a terminal button. The right end of the
 // toolbar holds the theme picker (30 themes), the language toggle and the
 // About button. Toolbar buttons are icon-only; the tooltip (and aria-label)
 // carries the description.
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { allThemes, themeById, nextThemeId } from '../themes';
+import { isTauri, anchorScreenPoint, showThemeMenu, hideThemeMenu, onAppMessage } from '../lib/backend';
+import { getCustomThemesRaw, themeById, nextThemeId } from '../themes';
+import { ThemeMenu } from './ThemeMenu';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
-import { rowWidth, setChromeMinWidth } from '../lib/minwidth';
+import { rowWidth, reportChromeRow } from '../lib/minwidth';
 import BUILD from '../build-info.json';
 
 // A long path in the recent-folders list keeps its start and its end ("C:\Home\…\src\components").
@@ -18,9 +20,57 @@ function shortenPath(p, max = 64) {
   return p.length <= max ? p : `${p.slice(0, 22)}…${p.slice(-(max - 23))}`;
 }
 
+// Minimise, maximise and close sit on this row. The desktop window has no
+// separate title bar, so these are the window's own buttons, one row down.
+function WindowControls() {
+  const [maxed, setMaxed] = useState(false);
+  useEffect(() => {
+    if (!isTauri) return undefined;
+    let dead = false;
+    let stop = () => {};
+    (async () => {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const win = getCurrentWindow();
+      const sync = async () => { if (!dead) setMaxed(await win.isMaximized()); };
+      await sync();
+      const un = await win.onResized(() => { sync(); });
+      stop = () => un();
+    })().catch(() => {});
+    return () => { dead = true; stop(); };
+  }, []);
+  if (!isTauri) return null;
+  const run = (name) => {
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow()[name]()).catch(() => {});
+  };
+  return (
+    <div className="win-controls">
+      <button type="button" className="win-btn" aria-label={t('win_min')} title={t('win_min')} onClick={() => run('minimize')}><Icon name="winMin" size={12} /></button>
+      <button type="button" className="win-btn" aria-label={t(maxed ? 'win_restore' : 'win_max')} title={t(maxed ? 'win_restore' : 'win_max')} onClick={() => run('toggleMaximize')}><Icon name={maxed ? 'winRestore' : 'winMax'} size={12} /></button>
+      <button type="button" className="win-btn win-close" aria-label={t('win_close')} title={t('win_close')} onClick={() => run('close')}><Icon name="close" size={12} /></button>
+    </div>
+  );
+}
+
+function useChromeRow(id, ref, deps) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => reportChromeRow(id, rowWidth(el));
+    measure();
+    let live = true;
+    // Once more after layout, so a stylesheet update that lands in the same
+    // refresh (the right-hand inset) is included in the width.
+    const frame = requestAnimationFrame(() => { if (live) measure(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (live) measure(); }).catch(() => {});
+    return () => { live = false; cancelAnimationFrame(frame); };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 export function MenuBar({ onAction, state }) {
   useLanguage();
   const [open, setOpen] = useState(null); // { id, el }
+  const barRef = useRef(null);
+  useChromeRow('menu', barRef, [getLanguage(), state.start, 'end']);
 
   const menus = {
     file: [
@@ -100,25 +150,26 @@ export function MenuBar({ onAction, state }) {
       { id: 'compress', label: t('compress'), icon: 'archive', shortcut: 'Alt+F5', disabled: !state.hasSelection },
       { id: 'extract', label: t('extract'), icon: 'extract', shortcut: 'Alt+F9', disabled: !state.canExtract },
     ],
+    info: [
+      { id: 'about', label: t('about'), icon: 'info' },
+      { id: 'settings', label: t('settings'), icon: 'settings' },
+    ],
   };
 
   // Each menu title carries an icon, as in MyEditor's menu bar.
-  const titles = [['file', 'menu_file', 'folder'], ['edit', 'menu_edit', 'edit'], ['select', 'menu_select', 'select'], ['view', 'menu_view', 'eye'], ['archive', 'menu_archive', 'archive']];
+  const titles = [['file', 'menu_file', 'folder'], ['edit', 'menu_edit', 'edit'], ['select', 'menu_select', 'select'], ['view', 'menu_view', 'eye'], ['archive', 'menu_archive', 'archive'], ['info', 'menu_info', 'info']];
 
   return (
-    <div className="menubar" data-tut="menubar">
-      <button type="button" className={`menu-home ${state.start ? 'on' : ''}`} data-tut="home" title={t('start_title')} aria-label={t('start_title')} aria-pressed={!!state.start}
-        onClick={() => onAction('start')}>
-        <Icon name="home" size={14} /><span>{t('start_title')}</span>
-      </button>
-      {/* This row *is* the window's title bar where the host lets the page draw it (src/lib/titlebar.js).
-          The native caption that used to carry the program's icon, name and version is gone, so they open
-          the row instead — at its left, ahead of the menu titles, which is where a title bar keeps them. */}
-      <span className="menubar-brand" title={`${BUILD.productName} ${BUILD.version}`}>
+    <div className="menubar" data-tut="menubar" data-tauri-drag-region ref={barRef}>
+      <span className="menubar-brand" data-tauri-drag-region title={`${BUILD.productName} ${BUILD.version}`}>
         <img className="menubar-logo" src="./icon.svg" alt="" width={16} height={16} draggable={false} />
         <span className="menubar-app ellipsis">{BUILD.productName}</span>
         <span className="menubar-ver">{BUILD.version}</span>
       </span>
+      <button type="button" className={`menu-home ${state.start ? 'on' : ''}`} data-tut="home" title={t('start_title')} aria-label={t('start_title')} aria-pressed={!!state.start}
+        onClick={() => onAction('start')}>
+        <Icon name="home" size={14} /><span>{t('start_title')}</span>
+      </button>
       {titles.map(([id, label, icon]) => (
         <button key={id} className={`menu-title ${open && open.id === id ? 'open' : ''}`}
           onMouseDown={(e) => { e.preventDefault(); setOpen(open && open.id === id ? null : { id, el: e.currentTarget }); }}
@@ -126,7 +177,8 @@ export function MenuBar({ onAction, state }) {
           <Icon name={icon} size={14} className="menu-icon" />{t(label)}
         </button>
       ))}
-      <span className="menubar-spacer" />
+      <span className="menubar-spacer" data-tauri-drag-region />
+      <WindowControls />
       {open && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={menus[open.id]} onClose={() => setOpen(null)}
           onPick={(id, keep) => { if (!keep) setOpen(null); onAction(id); }} />
@@ -176,24 +228,37 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
     ['terminal', 'terminal', 'terminal', 'tip_dock', false, !!state.dockTerm],
   ].filter((it) => it !== undefined);
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  // The themes come dark, light, dark, light … in their own order, which makes a list of thirty of them
-  // hard to read: the two kinds are put under a heading each, the way the settings tab shows them. A
-  // theme the user made joins the group its mode belongs to.
-  const themeItems = [['dark', t('set_themes_dark')], ['light', t('set_themes_light')]].flatMap(([mode, heading], i) => {
-    const group = allThemes().filter((th) => th.mode === mode);
-    if (!group.length) return [];
-    return [
-      ...(i ? [{ sep: true }] : []),
-      { id: `theme-head:${mode}`, label: heading, header: true },
-      ...group.map((th) => ({
-        id: `theme:${th.id}`,
-        label: lang === 'ko' ? th.label : th.labelEn,
-        checked: th.id === theme,
-        swatch: th.tokens['--accent'],
-        swatchBg: th.tokens['--bg'],
-      })),
-    ];
-  });
+  const onActionRef = useRef(onAction);
+  onActionRef.current = onAction;
+  // Desktop: the list is a separate window, so it is not clipped by this one.
+  useEffect(() => {
+    if (!isTauri || !themeMenu) return undefined;
+    const anchor = themeMenu;
+    const nonce = Date.now();
+    let cancelled = false;
+    (async () => {
+      try {
+        const point = await anchorScreenPoint(anchor);
+        if (cancelled) return;
+        const fontSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')) || 13;
+        await showThemeMenu({ ...point, nonce, theme, language: lang, fontSize, customThemes: getCustomThemesRaw() });
+        if (cancelled) hideThemeMenu();
+      } catch { /* the button stays; the menu simply does not open */ }
+    })();
+    const off = onAppMessage((msg) => {
+      if (!msg || msg.nonce !== nonce) return;
+      if (msg.type === 'themeMenu:pick') { setThemeMenu(null); onActionRef.current(msg.id); }
+      else if (msg.type === 'themeMenu:closed') setThemeMenu(null);
+    });
+    const down = (e) => { if (anchor.contains(e.target)) return; setThemeMenu(null); };
+    document.addEventListener('mousedown', down, true);
+    return () => {
+      cancelled = true;
+      off();
+      document.removeEventListener('mousedown', down, true);
+      hideThemeMenu();
+    };
+  }, [themeMenu, theme, lang]);
   // Undo / redo: icon-only buttons whose tooltip names the operation they would reverse / replay.
   const undoTip = state.canUndo ? `${t('tip_undo')}\n${state.undoWhat}` : t('tip_undo_none');
   const redoTip = state.canRedo ? `${t('tip_redo')}\n${state.redoWhat}` : t('tip_redo_none');
@@ -201,17 +266,9 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
   // No button may ever be cut off: the row measures itself and that width becomes the page's (and the
   // window's) minimum — see src/lib/minwidth.js. Re-measured whenever the row can have changed size:
   // the button count (the trash button is platform-dependent), the language (the flag is the only
-  // button whose width the language decides) and the moment the fonts land.
+  // button whose width the language decides), the right-hand inset, and the moment the fonts land.
   const rowRef = useRef(null);
-  useLayoutEffect(() => {
-    const el = rowRef.current;
-    if (!el) return undefined;
-    const measure = () => setChromeMinWidth(rowWidth(el));
-    measure();
-    let live = true;
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (live) measure(); }).catch(() => { /* no font API */ });
-    return () => { live = false; };
-  }, [lang, items.length]);
+  useChromeRow('toolbar', rowRef, [lang, items.length, 'end']);
 
   return (
     <div className="toolbar" data-tut="toolbar" ref={rowRef}>
@@ -237,13 +294,12 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
       <button className="tb-btn tb-icon-only" data-tut="settings" title={t('tip_settings')} aria-label={t('settings')} onClick={() => onAction('settings')}>
         <Icon name="settings" />
       </button>
-      <span className="tb-sep" />
       <button className="tb-btn tb-icon-only" title={t('tip_about')} aria-label={t('menu_info')} onClick={() => onAction('about')}>
         <Icon name="info" />
       </button>
-      {themeMenu && (
-        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
-          onPick={(id) => { setThemeMenu(null); onAction(id); }} />
+      {themeMenu && !isTauri && (
+        <ThemeMenu anchorEl={themeMenu} lang={lang} current={theme}
+          onClose={() => setThemeMenu(null)} onPick={(id) => { setThemeMenu(null); onAction(id); }} />
       )}
     </div>
   );
@@ -252,6 +308,8 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
 // Total Commander's function-key bar at the bottom of the window.
 export function FnBar({ onAction, state }) {
   useLanguage();
+  const barRef = useRef(null);
+  useChromeRow('fn', barRef, [getLanguage(), 'end']);
   const keys = [
     ['F3', 'view', 'fn_view', !state.oneFile],
     ['F4', 'edit', 'fn_edit', !state.oneFile],
@@ -262,7 +320,7 @@ export function FnBar({ onAction, state }) {
     ['Alt+F4', 'quit', 'fn_quit', false],
   ];
   return (
-    <div className="fnbar" data-tut="fnbar">
+    <div className="fnbar" data-tut="fnbar" ref={barRef}>
       {keys.map(([key, id, label, disabled]) => (
         <button key={key} className="fn-btn" disabled={disabled} onClick={() => onAction(id)} title={`${key}: ${t(label)}`}>
           <span className="fn-key">{key}</span><span className="fn-label">{t(label)}</span>

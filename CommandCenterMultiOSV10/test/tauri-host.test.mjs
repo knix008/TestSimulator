@@ -132,6 +132,38 @@ describe('Tauri core host', { concurrency: false }, () => {
     assert.match(ui, /isTauri/);
   });
 
+  test('the desktop page origin can read the core, and a public site cannot', async () => {
+    const preflight = await request(origin, 'OPTIONS', '/api/app.info', {
+      headers: {
+        origin: 'http://127.0.0.1:5185',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'authorization, content-type',
+      },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers['access-control-allow-origin'], 'http://127.0.0.1:5185');
+    assert.match(preflight.headers['access-control-allow-headers'], /authorization/);
+    assert.equal(preflight.headers['access-control-allow-private-network'], 'true');
+
+    const packaged = await request(origin, 'OPTIONS', '/api/app.info', {
+      headers: { origin: 'http://tauri.localhost', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(packaged.headers['access-control-allow-origin'], 'http://tauri.localhost');
+
+    const blocked = await request(origin, 'OPTIONS', '/api/app.info', {
+      headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(blocked.headers['access-control-allow-origin'], undefined);
+
+    const posted = await request(origin, 'POST', '/api/app.info', {
+      headers: { origin: 'http://127.0.0.1:5185', 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(posted.status, 200);
+    assert.equal(posted.headers['access-control-allow-origin'], 'http://127.0.0.1:5185');
+    assert.equal(JSON.parse(posted.body.toString('utf8')).ok, true);
+  });
+
   test('app.info identifies the tauri desktop host and its capabilities', async () => {
     const info = await call(origin, 'app.info');
     assert.equal(info.host, 'tauri');

@@ -5,7 +5,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { formatSize, truncateMiddle } from '../lib/format';
 import { Icon } from '../components/Icons';
-import { writeClipboardText, fitWindow } from '../lib/backend';
+import { writeClipboardText, revealWindow } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './ToolDialogs';
 import { InfoDialog } from './InfoDialog';
@@ -225,29 +225,12 @@ function CompressDialog({ spec, done }) {
 
 // ── About ──
 
-// Sizes a windowed dialog to the content it just drew, so its window shows
-// everything without a scrollbar (the settings window does the same).
-function useFitToContent(windowed) {
-  useLayoutEffect(() => {
-    if (!windowed || !fitWindow) return;
-    const body = document.querySelector('.dlg.windowed .dlg-body');
-    if (!body) return;
-    // The body fills the window (flex), so its own height says nothing about the content: let it take its
-    // natural height for one measurement, then put it back and ask for a window that fits exactly.
-    const around = window.innerHeight - body.clientHeight;   // footer and margins, from the real layout
-    const flex = body.style.flex, h = body.style.height, ovf = body.style.overflow;
-    body.style.flex = 'none'; body.style.height = 'auto'; body.style.overflow = 'visible';
-    const content = body.scrollHeight;
-    body.style.flex = flex; body.style.height = h; body.style.overflow = ovf;
-    fitWindow(Math.ceil(content + around));
-  }, [windowed]);
-}
-
 export function AboutDialog({ spec, done }) {
   const info = spec.info || {};
   const build = info.buildInfo || {};
   useLanguage();
-  useFitToContent(spec.windowed);
+  // The window is already the size of this page. Show it on the first draw, not after a resize.
+  useLayoutEffect(() => { if (spec.windowed) revealWindow(); }, [spec.windowed]);
   return (
     <DialogFrame title={t('about_title')} onClose={() => done()} icon="info" width={460} windowed={spec.windowed} className="about-dlg"
       footer={<button className="btn close-btn" onClick={() => done()} autoFocus>{t('close')}</button>}>

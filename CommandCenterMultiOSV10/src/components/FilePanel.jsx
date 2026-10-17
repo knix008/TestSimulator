@@ -23,6 +23,20 @@ import { Icon } from './Icons';
 import { FolderTree } from './FolderTree';
 import { ContextMenu } from './ContextMenu';
 
+const ARCHIVE_EXT = ['.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz', '.tar', '.zip', '.gz', '.bz2'];
+
+function looksLikeArchive(name) {
+  const lower = String(name || '').toLowerCase();
+  if (ARCHIVE_EXT.some((ext) => lower.endsWith(ext))) return true;
+  if (/\.z\d+$/.test(lower)) return true;
+  const dot = lower.lastIndexOf('.');
+  if (dot <= 0) return false;
+  const suffix = lower.slice(dot + 1);
+  const base = lower.slice(0, dot);
+  if (/^\d{3}$/.test(suffix) || /^[a-z]{2}$/.test(suffix)) return ARCHIVE_EXT.some((ext) => base.endsWith(ext));
+  return false;
+}
+
 const COLUMNS = [
   { key: 'name', label: 'col_name', className: 'c-name' },
   { key: 'perm', label: 'col_perm', className: 'c-perm' },
@@ -104,9 +118,12 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
 
   useEffect(() => { load(false); setCursor(-1); setAnchor(-1); setDirSizes(new Map()); setQuick(''); }, [path, showHidden]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Directory watch (debounced refresh)
+  // Directory watch (debounced refresh). While the start page covers the panels
+  // the watch is suspended; coming back reads the folder once in case it changed.
+  const watchPaused = useRef(false);
   useEffect(() => {
-    if (suspendWatch) return undefined;
+    if (suspendWatch) { watchPaused.current = true; return undefined; }
+    if (watchPaused.current) { watchPaused.current = false; load(true); }
     let timer = null;
     const stop = watchDir(side, path, () => {
       if (timer) clearTimeout(timer);
@@ -123,7 +140,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   useEffect(() => {
     onSelectionChange && onSelectionChange(selectedEntries);
     let alive = true;
-    if (selectedEntries.length === 1) {
+    if (selectedEntries.length === 1 && looksLikeArchive(selectedEntries[0].name)) {
       call('archive.describe', { path: selectedEntries[0].path }).then((d) => { if (alive) setExtractable(!!d.isArchive); }).catch(() => {});
     } else {
       setExtractable(false);

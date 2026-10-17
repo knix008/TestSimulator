@@ -96,6 +96,39 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.end(data);
 }
 
+// The desktop window is served from the Vite origin (or tauri.localhost) and
+// calls this core on another loopback port. That fetch is cross-origin, so
+// the browser drops the response unless these headers are present. Only
+// loopback and the Tauri page origins are reflected; a public site cannot
+// read the API.
+function allowedPageOrigin(origin) {
+  if (!origin) return '';
+  let url;
+  try { url = new URL(origin); } catch { return ''; }
+  const host = url.hostname;
+  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  const tauriPage = host === 'tauri.localhost' || host === 'asset.localhost';
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+  return loopback || tauriPage ? origin : '';
+}
+
+function applyPageCors(req, res) {
+  const origin = allowedPageOrigin(req.headers.origin);
+  if (!origin) return;
+  const headers = {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET, HEAD, POST, OPTIONS',
+    'access-control-allow-headers': 'authorization, content-type, range',
+    'access-control-expose-headers': 'accept-ranges, content-length, content-range, content-disposition',
+    'access-control-allow-private-network': 'true',
+    vary: 'Origin',
+  };
+  const writeHead = res.writeHead;
+  res.writeHead = function patched(status, extra) {
+    return writeHead.call(this, status, { ...headers, ...(extra || {}) });
+  };
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -233,7 +266,14 @@ function serveStatic(req, res, url) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  if (url.pathname.startsWith('/api/')) return handleApi(req, res, url).catch((err) => send(res, 500, { ok: false, error: serializeError(err) }));
+  if (url.pathname.startsWith('/api/')) {
+    applyPageCors(req, res);
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { 'access-control-max-age': '600', 'content-length': 0 });
+      return res.end();
+    }
+    return handleApi(req, res, url).catch((err) => send(res, 500, { ok: false, error: serializeError(err) }));
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
   serveStatic(req, res, url);
 });

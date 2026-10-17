@@ -1,4 +1,4 @@
-// The themes (src/themes.js): 30 built-in ones, complete and distinct, cycling, custom themes and
+// The themes (src/themes.js): 40 built-in ones, complete and distinct, cycling, custom themes and
 // the colours the host window is painted in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,10 +10,10 @@ import {
 const TOKENS = ['--bg', '--bg-panel', '--bg-elev', '--bg-hover', '--bg-sel', '--bg-sel-inactive', '--fg', '--fg-muted', '--border', '--border-strong',
   '--accent', '--accent-strong', '--accent-text', '--danger', '--folder', '--file', '--ok', '--shadow', '--active-border', '--active-glow'];
 
-test('there are 30 built-in themes: 15 dark and 15 light', () => {
-  assert.equal(THEMES.length, 30);
-  assert.equal(THEMES.filter((t) => t.mode === 'dark').length, 15);
-  assert.equal(THEMES.filter((t) => t.mode === 'light').length, 15);
+test('there are 40 built-in themes: 20 dark and 20 light', () => {
+  assert.equal(THEMES.length, 40);
+  assert.equal(THEMES.filter((t) => t.mode === 'dark').length, 20);
+  assert.equal(THEMES.filter((t) => t.mode === 'light').length, 20);
 });
 
 test('theme ids are unique and every theme has a Korean and an English name', () => {
@@ -63,7 +63,7 @@ test('custom themes join the list, cycle with the rest and can be looked up', ()
   const colors = baseColorsOf(themeById('ocean'));
   setCustomThemes([{ id: 'custom-1', label: '내 테마', mode: 'light', colors }]);
   assert.equal(getCustomThemes().length, 1);
-  assert.equal(allThemes().length, 31);
+  assert.equal(allThemes().length, 41);
   const c = themeById('custom-1');
   assert.equal(c.custom, true);
   assert.equal(c.mode, 'light');
