@@ -792,7 +792,8 @@ body.dropping .drop-hint { display: flex; }
 .gradient-line, .level-line { position: absolute; height: 0; border-top: 2px dashed #fff; transform-origin: left center; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4); pointer-events: none; }
 .level-line { border-top-color: #ffd60a; }
 .radial-ring { position: absolute; transform: translate(-50%, -50%); border: 2px dashed #fff; border-radius: 50%; pointer-events: none; }
-.editor-overlay.tool-wbpick, .editor-overlay.tool-clone, .editor-overlay.tool-gradient, .editor-overlay.tool-radial, .editor-overlay.tool-brush, .editor-overlay.tool-line, .editor-overlay.tool-draw, .editor-overlay.tool-layer, .editor-overlay.tool-erase, .editor-overlay.tool-lasso, .editor-overlay.tool-wand, .editor-overlay.tool-color, .editor-overlay.tool-layermask { pointer-events: auto; cursor: crosshair; }
+.editor-overlay.tool-wbpick, .editor-overlay.tool-clone, .editor-overlay.tool-gradient, .editor-overlay.tool-radial, .editor-overlay.tool-brush, .editor-overlay.tool-line, .editor-overlay.tool-draw, .editor-overlay.tool-layer, .editor-overlay.tool-erase, .editor-overlay.tool-lasso, .editor-overlay.tool-wand, .editor-overlay.tool-color, .editor-overlay.tool-layermask, .editor-overlay.tool-bgrect, .editor-overlay.tool-bgfree { pointer-events: auto; cursor: crosshair; }
+.bg-marquee { pointer-events: none; }
 .effect-card { border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; margin: 6px 0; }
 /* editor: effect presets (looks) */
 .look-search { width: 100%; margin: 6px 0; }

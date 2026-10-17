@@ -3,6 +3,7 @@
 // WebView, which can lose its latest localStorage writes).
 import { fs } from './platform/fs.js';
 import { isDesktop } from './platform/native.js';
+import { DEFAULT_BG_ALGORITHM, normalizeAlgorithm } from './edit/background.js';
 import { channelPercent, START_SPEED_CHANNELS, startSpeedPercent, startTransparency } from './ui/startscenes.js';
 
 const KEY = 'myphotomanager.settings';
@@ -41,6 +42,8 @@ export const DEFAULTS = Object.freeze({
   // speed of each clock in percent of that pace, 0–300: camera, objects (waves, weather, shapes), sky and light;
   // transparency 0 (picture fully shown) – 100 (only the theme background).
   startScreen: { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 },
+  // Background removal in the editor. The algorithms themselves ship in src/edit/background.js.
+  background: { algorithm: DEFAULT_BG_ALGORITHM },
   lastFolder: null,
   recentFolders: [],
   recentFiles: [],
@@ -89,6 +92,7 @@ export function normalize(raw) {
   out.startScreen.motion = startSpeedPercent(raw?.startScreen?.motion ?? out.startScreen.motion);
   for (const channel of START_SPEED_CHANNELS) out.startScreen[channel.key] = channelPercent(out.startScreen[channel.key]);
   out.startScreen.transparency = startTransparency(out.startScreen.transparency);
+  out.background.algorithm = normalizeAlgorithm(out.background.algorithm);
   return out;
 }
 

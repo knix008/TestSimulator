@@ -378,9 +378,36 @@ function switchMode(mode) {
   }
 }
 
-function editPath(path) {
+let editorIntent = null;
+
+function editPath(path, intent = null) {
+  editorIntent = intent;
   editReturn = app.state.mode === 'view' ? 'view' : 'manage';
   setMode('edit', { path });
+}
+
+/** Start page and the editor: open a photo with the background-removal tools ready. */
+async function beginBackgroundRemoval() {
+  const ready = imageOnScreen() ?? canEdit(app.state.list.find((entry) => !entry.isDir));
+  if (ready) {
+    editPath(ready.path, { section: 'background', tool: 'bgrect' });
+    return;
+  }
+  if (isDesktop()) {
+    const files = await chooseFiles([{ name: t('file.mediaFiles'), extensions: MEDIA_EXTENSIONS }]);
+    if (!files?.length) return;
+    await openPaths(files);
+    if (isMedia(files[0])) editPath(files[0], { section: 'background', tool: 'bgrect' });
+    return;
+  }
+  const files = await pickInput({ multiple: true });
+  const media = files.filter((file) => isMedia(file.name));
+  if (!media.length) return;
+  const path = webFs.addMemoryFolder(t('web.openedFiles'), media.map((file) => ({ file, relativePath: file.name })));
+  await folderPane.render();
+  await openFolder(path);
+  const first = app.state.list.find((entry) => canEdit(entry));
+  if (first) editPath(first.path, { section: 'background', tool: 'bgrect' });
 }
 
 async function leaveEditor() {
@@ -412,6 +439,7 @@ const startPage = createStartPage(() => {
       manage: () => setMode('manage'),
       view: () => switchMode('view'),
       edit: () => switchMode('edit'),
+      cutout: () => beginBackgroundRemoval(),
       dashboard: () => switchMode('dashboard'),
       search: () => { setMode('manage'); showLeftTab('search'); },
       folders: () => { setMode('manage'); showLeftTab('folders'); },
@@ -444,7 +472,9 @@ app.on('mode', async (mode) => {
   if (mode === 'edit') {
     modeHost.append(editor.el);
     const item = app.state.list.find((i) => i.path === app.state.viewPath) ?? { path: app.state.viewPath, name: app.state.viewPath.split(/[\\/]/).pop() };
-    editor.open(item);
+    const intent = editorIntent;
+    editorIntent = null;
+    editor.open(item, intent);
   }
   if (mode === 'dashboard') { modeHost.append(dashboard.el); dashboard.render(); }
   syncModeChrome();

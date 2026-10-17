@@ -10,6 +10,7 @@
 //      special effects stack, tilt-shift)
 //   7. canvas size, border, layers (images with blend modes, adjustment layers,
 //      each with an optional mask), drawings, text
+//   8. background removal (alpha matte; the saved file is cropped to the object)
 // The same code draws the live preview (a smaller copy, `scale` < 1) and the
 // full-size result that is saved; everything positional is stored in original
 // pixels or as fractions, so both look the same.
@@ -20,6 +21,7 @@ import { DEFAULT_GEOMETRY, layout } from './geometry.js';
 import { inpaint, strokeMask } from './inpaint.js';
 import { applyLut, getLut } from './lut.js';
 import { dither, scaleHigh } from '../formats/highbit.js';
+import { normalizeBackground, removeBackground, selectionToPixels } from './background.js';
 
 export const DEFAULT_DETAIL = Object.freeze({ sharpen: 0, sharpenRadius: 1, clarity: 0, denoise: 0, blur: 0 });
 export const DEFAULT_FX = Object.freeze({ vignette: 0, vignetteMidpoint: 50, grain: 0, emboss: false, edges: false, pixelate: 0 });
@@ -45,6 +47,7 @@ export function defaultEdit() {
     overlay: { ...DEFAULT_OVERLAY, texts: [] },
     layers: [], // [{ path, name, mode, opacity, x, y, scale, visible, mask }] or adjustment layers [{ type: 'adjust', name, adjust, opacity, visible, mask }]
     drawings: [], // [{ type, points: [[x, y] fractions], color, width (% of short side), fill }]
+    background: null, // { algorithm, selection } — selection is fractions; see edit/background.js
   };
 }
 
@@ -55,6 +58,7 @@ export function normalizeEdit(edit) {
   for (const key of ['adjust', 'tone', 'lens', 'geometry', 'detail', 'fx', 'canvas', 'overlay']) out[key] = { ...base[key], ...(edit?.[key] ?? {}) };
   for (const key of ['effects', 'spots', 'local', 'layers', 'drawings']) out[key] = Array.isArray(edit?.[key]) ? edit[key] : [];
   if (!Array.isArray(out.overlay.texts)) out.overlay.texts = [];
+  out.background = normalizeBackground(edit?.background);
   return out;
 }
 
@@ -107,7 +111,7 @@ export function isEmptyEdit(edit) {
   const base = defaultEdit();
   return !e.lut && isNeutral(e.adjust) && toneIsNeutral(e.tone) && lensIsNeutral(e.lens) && same(e.geometry, base.geometry) && same(e.detail, base.detail)
     && same(e.fx, base.fx) && !e.effects.length && !e.tilt && !e.spots.length && !e.local.length && !e.canvas.width && !e.canvas.height
-    && !e.overlay.border && !e.overlay.texts.length && !e.layers.length && !e.drawings.length;
+    && !e.overlay.border && !e.overlay.texts.length && !e.layers.length && !e.drawings.length && !e.background;
 }
 
 /** The parts a preset carries (no crop, spots, layers or text — those belong to one photo). */
@@ -119,7 +123,7 @@ export function presetOf(edit) {
 /** `edit` with a preset applied on top. */
 export function applyPreset(edit, preset) {
   const e = normalizeEdit(edit);
-  return normalizeEdit({ ...e, ...JSON.parse(JSON.stringify(preset)), geometry: e.geometry, spots: e.spots, local: e.local, layers: e.layers, drawings: e.drawings, canvas: e.canvas });
+  return normalizeEdit({ ...e, ...JSON.parse(JSON.stringify(preset)), geometry: e.geometry, spots: e.spots, local: e.local, layers: e.layers, drawings: e.drawings, canvas: e.canvas, background: e.background });
 }
 
 const getPixels = (canvas) => context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
@@ -154,7 +158,7 @@ function highAt(high, width, height) {
   return sizes.get(key);
 }
 
-export function render(source, edit, { scale = 1, skipCrop = false, skipOverlay = false, layerImages = null, high = null } = {}) {
+export function render(source, edit, { scale = 1, skipCrop = false, skipOverlay = false, skipBackground = false, layerImages = null, high = null } = {}) {
   const e = normalizeEdit(edit);
   const sw = source.width;
   const sh = source.height;
@@ -261,7 +265,16 @@ export function render(source, edit, { scale = 1, skipCrop = false, skipOverlay 
     putPixels(stage, current);
   }
 
-  if (skipOverlay || skipCrop) return stage;
+  const withBackground = (canvas) => {
+    if (skipBackground || !e.background?.selection) return canvas;
+    const pixels = getPixels(canvas);
+    const sel = selectionToPixels(e.background.selection, canvas.width, canvas.height);
+    if (!sel) return canvas;
+    putPixels(canvas, removeBackground(pixels, sel, e.background.algorithm));
+    return canvas;
+  };
+
+  if (skipOverlay || skipCrop) return withBackground(stage);
 
   // 7. Canvas size, border, layers, drawings, text.
   if (e.canvas.width || e.canvas.height) {
@@ -315,7 +328,7 @@ export function render(source, edit, { scale = 1, skipCrop = false, skipOverlay 
     stage = framed;
     framed = null;
   }
-  return stage;
+  return withBackground(stage);
 }
 
 /** Shapes of the drawing tools; points are fractions of the picture. */

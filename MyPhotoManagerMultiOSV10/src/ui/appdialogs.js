@@ -4,6 +4,7 @@ import { fs } from '../platform/fs.js';
 import { invoke, isDesktop } from '../platform/native.js';
 import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
+import { BG_ALGORITHMS } from '../edit/background.js';
 import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
 import { startSceneId } from './startscenes.js';
@@ -53,6 +54,8 @@ export async function settingsDialog({ onApply }) {
   const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
   autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
+  const bgAlgorithm = selectEl(BG_ALGORITHMS.map((id) => [id, t(`edit.bg.${id}`)]), s.background?.algorithm ?? 'grabcut');
+  bgAlgorithm.dataset.key = 'bg-algorithm';
   let startScene = startSceneId(s.startScreen?.scene);
   let startSpeeds = startSpeedValues(s.startScreen);
   const startBackup = { scene: startScene, ...startSpeeds };
@@ -78,7 +81,8 @@ export async function settingsDialog({ onApply }) {
   const group = (title, ...nodes) => h('section.settings-group', h('h3.settings-group-title', title), ...nodes);
   const tabs = [
     ['general', 'gear', t('settings.general'), h('div.settings-groups',
-      group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null))],
+      group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null),
+      group(t('settings.background'), field(t('settings.bgAlgorithm'), bgAlgorithm), h('div.hint', t('settings.bgAlgorithmHint'))))],
     ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
       group(t('settings.startScreen'),
         h('div.field-label', t('settings.startScene')),
@@ -137,6 +141,7 @@ export async function settingsDialog({ onApply }) {
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
+    background: { algorithm: bgAlgorithm.value },
     startScreen: { scene: startSceneId(startScene), ...startSpeedValues(startSpeeds) },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };

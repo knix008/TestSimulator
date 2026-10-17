@@ -13,6 +13,7 @@ const TASKS = [
   ['manage', 'grid', 'mode.manage'],
   ['view', 'eye', 'mode.view'],
   ['edit', 'pencil', 'mode.edit'],
+  ['cutout', 'cutout', 'edit.background'],
   ['dashboard', 'chart', 'mode.dashboard'],
   ['search', 'search', 'pane.search'],
   ['folders', 'folder', 'pane.folders'],

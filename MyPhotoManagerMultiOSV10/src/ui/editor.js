@@ -8,11 +8,12 @@
 import { joinPath, parentOf } from '../catalog/catalog.js';
 import { applyAdjustments, autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
+import { alphaBounds, BG_ALGORITHMS, cropToObject, normalizeAlgorithm } from '../edit/background.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
 import { applyLook, lookCategories, lookTouches } from '../edit/looks.js';
 import { BUILTIN_LUTS, getLut, importLut, prepareEdit } from '../edit/lut.js';
 import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
-import { context2d, scaledCanvas } from '../formats/canvas.js';
+import { canvasFromImageData, context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
 import { editMetadataField, metadataFieldEditable } from '../formats/exif-edit.js';
@@ -76,6 +77,8 @@ export function createEditor({ onDone }) {
   let tool = null;
   let cropDraft = null;
   let cropAspect = null;
+  let bgDraft = null;
+  let bgChoice = null;
   const brush = { size: 40, hardness: 0.6, erase: false };
   let cloneSource = null;
   let before = false;
@@ -159,7 +162,7 @@ export function createEditor({ onDone }) {
   const draw = rafThrottle(() => {
     if (!preview) return;
     if (edit.lut && !getLut(edit.lut.id)) { prepareEdit(edit).then(() => draw()).catch(() => {}); }
-    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages, high: fullHigh });
+    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipBackground: tool === 'bgrect' || tool === 'bgfree', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages, high: fullHigh });
     let canvas = output;
     if (!(canvas instanceof HTMLCanvasElement)) {
       canvas = document.createElement('canvas');
@@ -172,16 +175,27 @@ export function createEditor({ onDone }) {
     canvasHolder.append(canvas);
     shown = canvas;
     fitCanvas();
+    let pixels = null;
     try {
-      drawHistogram(histCanvas, histogram(context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height), 3));
+      pixels = context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+      drawHistogram(histCanvas, histogram(pixels, 3));
     } catch { /* never break the preview */ }
     drawOverlay();
     const out = layout(full.width, full.height, edit.geometry);
-    info.textContent = `${item.name}${rawMode ? ' · RAW (LibRaw)' : ''}${fromOriginal ? ` · ${t('edit.fromOriginal')}` : ''}${fullHigh ? ` · ${t('edit.highBit')}` : ''} · ${full.width} × ${full.height} → ${out.width} × ${out.height}${before ? ` · ${t('edit.before')}` : ''}`;
+    let outW = out.width;
+    let outH = out.height;
+    if (!before && edit.background?.selection && pixels && tool !== 'bgrect' && tool !== 'bgfree') {
+      const box = alphaBounds(pixels);
+      if (box && scale) {
+        outW = Math.max(1, Math.round(box.w / scale));
+        outH = Math.max(1, Math.round(box.h / scale));
+      }
+    }
+    info.textContent = `${item.name}${rawMode ? ' · RAW (LibRaw)' : ''}${fromOriginal ? ` · ${t('edit.fromOriginal')}` : ''}${fullHigh ? ` · ${t('edit.highBit')}` : ''} · ${full.width} × ${full.height} → ${outW} × ${outH}${before ? ` · ${t('edit.before')}` : ''}`;
     const dimsCell = infoBody.querySelector('[data-info="dims"]');
     if (dimsCell) {
       const dims = formatDims(full.width, full.height);
-      const sizeText = out.width !== full.width || out.height !== full.height ? `${dims} → ${formatDims(out.width, out.height)}` : dims;
+      const sizeText = outW !== full.width || outH !== full.height ? `${dims} → ${formatDims(outW, outH)}` : dims;
       if (dimsCell.textContent !== sizeText) { dimsCell.textContent = sizeText; dimsCell.title = sizeText; }
     }
   });
@@ -324,6 +338,19 @@ export function createEditor({ onDone }) {
       overlay.append(shade, box);
       box.addEventListener('pointerdown', cropPointer);
     }
+    if ((tool === 'bgrect' || tool === 'bgfree') && bgDraft?.kind === 'rect') {
+      const r = displayRect();
+      overlay.append(h('div.crop-box.bg-marquee', { style: { left: `${r.x + bgDraft.x * r.w}px`, top: `${r.y + bgDraft.y * r.h}px`, width: `${bgDraft.w * r.w}px`, height: `${bgDraft.h * r.h}px` } }));
+    }
+    if ((tool === 'bgrect' || tool === 'bgfree') && bgDraft?.kind === 'free' && bgDraft.points?.length > 1) {
+      const r = displayRect();
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'lasso-path');
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      line.setAttribute('points', bgDraft.points.map(([x, y]) => `${r.x + x * r.w},${r.y + y * r.h}`).join(' '));
+      svg.append(line);
+      overlay.append(svg);
+    }
     if (['redeye', 'heal', 'clone'].includes(tool)) {
       for (const spot of edit.spots.filter((s) => s.type === tool)) {
         const p = sourceToDisplay(spot.x, spot.y);
@@ -373,8 +400,76 @@ export function createEditor({ onDone }) {
     else setFit();
   });
 
+  function currentBgAlgorithm() {
+    return normalizeAlgorithm(bgChoice ?? edit.background?.algorithm ?? app.settings.background?.algorithm);
+  }
+
+  function commitBackground(selection) {
+    const algorithm = currentBgAlgorithm();
+    tool = null;
+    bgDraft = null;
+    section = 'background';
+    panelReveal = 'background';
+    change((ed) => { ed.background = { algorithm, selection }; }, t('edit.background'));
+    buildPanel();
+  }
+
+  function startBackgroundSelect(event) {
+    event.preventDefault();
+    try { overlay.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
+    const start = fractionAt(event);
+    if (tool === 'bgrect') {
+      bgDraft = { kind: 'rect', x: start.fx, y: start.fy, w: 0, h: 0 };
+      drawOverlay();
+      const move = (e) => {
+        const p = fractionAt(e);
+        bgDraft = { kind: 'rect', x: Math.min(start.fx, p.fx), y: Math.min(start.fy, p.fy), w: Math.abs(p.fx - start.fx), h: Math.abs(p.fy - start.fy) };
+        drawOverlay();
+      };
+      const up = () => {
+        overlay.removeEventListener('pointermove', move);
+        overlay.removeEventListener('pointerup', up);
+        const draft = bgDraft;
+        bgDraft = null;
+        if (!draft || draft.w < 0.01 || draft.h < 0.01) { drawOverlay(); return; }
+        commitBackground({ kind: 'rect', x: draft.x, y: draft.y, w: draft.w, h: draft.h });
+      };
+      overlay.addEventListener('pointermove', move);
+      overlay.addEventListener('pointerup', up);
+      return;
+    }
+    const points = [[start.fx, start.fy]];
+    const box = overlay.getBoundingClientRect();
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'lasso-path');
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    svg.append(line);
+    overlay.append(svg);
+    const shownPoints = [[event.clientX - box.left, event.clientY - box.top]];
+    const paint = () => line.setAttribute('points', shownPoints.map((p) => p.join(',')).join(' '));
+    paint();
+    const move = (e) => {
+      const p = fractionAt(e);
+      const last = points[points.length - 1];
+      if (Math.hypot(p.fx - last[0], p.fy - last[1]) < 0.004) return;
+      points.push([p.fx, p.fy]);
+      shownPoints.push([e.clientX - box.left, e.clientY - box.top]);
+      paint();
+    };
+    const up = () => {
+      overlay.removeEventListener('pointermove', move);
+      overlay.removeEventListener('pointerup', up);
+      svg.remove();
+      if (points.length < 3) return;
+      commitBackground({ kind: 'free', points });
+    };
+    overlay.addEventListener('pointermove', move);
+    overlay.addEventListener('pointerup', up);
+  }
+
   overlay.addEventListener('pointerdown', (event) => {
     if (!shown || before || !tool || tool === 'crop') return;
+    if (tool === 'bgrect' || tool === 'bgfree') { startBackgroundSelect(event); return; }
     const { fx, fy } = fractionAt(event);
     if (fx < 0 || fy < 0 || fx > 1 || fy > 1) return;
     event.preventDefault();
@@ -653,8 +748,17 @@ export function createEditor({ onDone }) {
   }
 
   function setTool(next) {
-    tool = tool === next ? null : next;
+    const on = tool !== next;
+    tool = on ? next : null;
     cropDraft = null;
+    bgDraft = null;
+    if (on && (next === 'bgrect' || next === 'bgfree')) {
+      section = 'background';
+      panelReveal = 'background';
+      const selection = edit.background?.selection;
+      if (next === 'bgrect' && selection?.kind === 'rect') bgDraft = { ...selection };
+      if (next === 'bgfree' && selection?.kind === 'free') bgDraft = { kind: 'free', points: selection.points.map((point) => [...point]) };
+    }
     buildPanel();
     draw();
   }
@@ -662,6 +766,7 @@ export function createEditor({ onDone }) {
   function cancelTool() {
     tool = null;
     cropDraft = null;
+    bgDraft = null;
     buildPanel();
     draw();
   }
@@ -706,6 +811,7 @@ export function createEditor({ onDone }) {
     detail: (e) => { e.detail = { ...DEFAULT_DETAIL }; },
     lens: (e) => { e.lens = { ...DEFAULT_LENS }; },
     geometry: (e) => { e.geometry = { ...defaultEdit().geometry }; e.canvas = { ...DEFAULT_CANVAS }; },
+    background: (e) => { e.background = null; },
     local: (e) => { e.local = []; },
     repair: (e) => { e.spots = []; e.tone.skin = 0; },
     effects: (e) => { e.adjust.effect = 'none'; e.adjust.effectAmount = 100; e.fx = { ...DEFAULT_FX }; e.effects = []; e.tilt = null; },
@@ -722,6 +828,7 @@ export function createEditor({ onDone }) {
   }
   function resetSection(id) {
     change((e) => RESETS[id](e), `${t('edit.reset')}: ${t(`edit.${id}`)}`);
+    if (id === 'background') bgDraft = null;
     if (id === 'local') selectedLocal = -1;
     if (id === 'layers') selectedLayer = -1;
     buildPanel();
@@ -754,7 +861,7 @@ export function createEditor({ onDone }) {
 
   const SECTIONS = [
     ['light', 'sun'], ['color', 'droplet'], ['colorEq', 'palette'], ['lightEq', 'histogram'], ['splitTone', 'contrast'], ['levels', 'histogram'],
-    ['curves', 'contrast'], ['lut', 'cube'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['local', 'sliders'], ['repair', 'bandage'],
+    ['curves', 'contrast'], ['lut', 'cube'], ['detail', 'sharpen'], ['lens', 'camera'], ['geometry', 'crop'], ['background', 'cutout'], ['local', 'sliders'], ['repair', 'bandage'],
     ['effects', 'wand'], ['draw', 'pencil'], ['add', 'text'], ['layers', 'layers'], ['presets', 'bookmark'], ['history', 'clock'],
   ];
 
@@ -834,7 +941,7 @@ export function createEditor({ onDone }) {
     const kept = panel.scrollTop;
     drawWheels();
     clear(panel);
-    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, looks: looksPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
+    const bodies = { light: lightPanel, color: colorPanel, colorEq: colorEqPanel, lightEq: lightEqPanel, lut: lutPanel, splitTone: splitTonePanel, levels: levelsPanel, curves: curvesPanel, detail: detailPanel, lens: lensPanel, geometry: geometryPanel, background: backgroundPanel, local: localPanel, repair: repairPanel, effects: effectsPanel, looks: looksPanel, draw: drawPanel, add: addPanel, layers: layersPanel, presets: presetsPanel, history: historyPanel };
     for (const [id, iconName] of SECTIONS) {
       panel.append(sectionHead(id, t(`edit.${id}`), iconName));
       if (section === id) panel.append(h('div.edit-section', bodies[id]()));
@@ -1067,6 +1174,36 @@ export function createEditor({ onDone }) {
       h('div.row-buttons',
         h('button.btn.small', { type: 'button', id: 'canvas-apply', onclick: () => { change((e) => { e.canvas = { width: Number(canvasW.value), height: Number(canvasH.value), color: canvasColor.value, anchor: anchor.value }; }, t('edit.canvasSize')); buildPanel(); } }, t('edit.applyCanvas')),
         edit.canvas.width || edit.canvas.height ? resetButton(t('edit.canvasSize'), (e) => { e.canvas = { width: 0, height: 0, color: '#ffffff', anchor: 'center' }; }) : ''));
+  }
+
+  function backgroundPanel() {
+    const chosen = currentBgAlgorithm();
+    const algorithm = selectEl(BG_ALGORITHMS.map((id) => [id, t(`edit.bg.${id}`)]), chosen);
+    algorithm.id = 'bg-algorithm';
+    algorithm.dataset.key = 'bg-algorithm';
+    const hint = h('div.hint', t(`edit.bg.${chosen}Hint`));
+    bgChoice = chosen;
+    algorithm.addEventListener('change', () => {
+      const algorithmId = normalizeAlgorithm(algorithm.value);
+      bgChoice = algorithmId;
+      app.settings.background = { ...(app.settings.background ?? {}), algorithm: algorithmId };
+      app.saveSettings();
+      hint.textContent = t(`edit.bg.${algorithmId}Hint`);
+      if (edit.background?.selection && edit.background.algorithm !== algorithmId) {
+        change((ed) => { ed.background = { ...ed.background, algorithm: algorithmId }; }, t('edit.bgAlgorithm'));
+      }
+    });
+    const selectButton = (id, label, iconName) => h(`button.btn.small${tool === id ? '.primary' : ''}`, { type: 'button', id: `bg-panel-${id}`, onclick: () => setTool(id) }, h('span', { html: icon(iconName) }), label);
+    return h('div',
+      h('div.hint', t('edit.bgHint')),
+      field(t('edit.bgAlgorithm'), algorithm),
+      hint,
+      h('div.row-buttons', selectButton('bgrect', t('edit.bgRect'), 'square'), selectButton('bgfree', t('edit.bgFree'), 'lasso')),
+      edit.background?.selection
+        ? h('div',
+          h('div.hint', t('edit.bgReady')),
+          h('button.btn.small', { type: 'button', id: 'bg-clear', onclick: () => { change((ed) => { ed.background = null; }, t('edit.bgClear')); buildPanel(); } }, t('edit.bgClear')))
+        : '');
   }
 
   function localPanel() {
@@ -1771,6 +1908,9 @@ export function createEditor({ onDone }) {
           h(`button.btn${before ? '.on' : ''}`, { type: 'button', id: 'edit-before', title: `${t('edit.beforeAfter')} (B)`, onclick: () => { before = !before; updateBar(); draw(); } }, t('edit.beforeAfter')),
           h('button.btn', { type: 'button', disabled: isEmptyEdit(edit), onclick: resetAll }, t('edit.resetAll'))),
         h('div.tool-group',
+          button('square', t('edit.bgRect'), () => setTool('bgrect'), { className: tool === 'bgrect' ? 'on' : '', id: 'tool-bgrect', title: t('edit.bgRectHint') }),
+          button('lasso', t('edit.bgFree'), () => setTool('bgfree'), { className: tool === 'bgfree' ? 'on' : '', id: 'tool-bgfree', title: t('edit.bgFreeHint') })),
+        h('div.tool-group',
           button('fit', t('view.fit'), () => setFit(), { title: `${t('view.fit')} (/)`, id: 'edit-zoom-fit' })),
         h('div.editor-zoom',
           button('zoomOut', t('view.zoomOut'), () => zoomStep(-1), { title: `${t('view.zoomOut')} (-)`, id: 'edit-zoom-out' }),
@@ -1786,6 +1926,7 @@ export function createEditor({ onDone }) {
     edit = defaultEdit();
     look = null;
     tool = null;
+    bgDraft = null;
     buildPanel();
     draw();
     updateBar();
@@ -1812,12 +1953,17 @@ export function createEditor({ onDone }) {
     if (busy) return;
     const ext = extensionOf(item.name);
     let target = item.path;
-    let format = outputFormatFor(item.name)?.id ?? 'jpeg';
-    if (fullHigh && (format === 'png' || format === 'tiff')) format = `${format}16`; // a 16-bit file stays 16-bit
+    const cutout = Boolean(edit.background?.selection);
+    const originalFormat = outputFormatFor(item.name)?.id ?? 'jpeg';
+    let format = originalFormat;
+    // JPEG cannot keep a transparent background. PNG and WebP can.
+    if (cutout && format !== 'png' && format !== 'webp') format = 'png';
+    if (!cutout && fullHigh && (format === 'png' || format === 'tiff')) format = `${format}16`; // a 16-bit file stays 16-bit
     let quality = app.settings.jpegQuality / 100;
-    const inPlace = !asNew && canWriteBack(item.name) && fs.caps.write && !fs.isReadOnly?.(item.path);
+    const transparentTarget = cutout && (originalFormat === 'png' || originalFormat === 'webp');
+    const inPlace = !asNew && canWriteBack(item.name) && fs.caps.write && !fs.isReadOnly?.(item.path) && (!cutout || transparentTarget);
     if (!inPlace) {
-      const choice = await saveAsDialog(rawMode ? 'jpeg' : format);
+      const choice = await saveAsDialog(cutout ? format : (rawMode ? 'jpeg' : format), { transparent: cutout });
       if (!choice) return;
       ({ format, quality } = choice);
       const spec = OUTPUT_FORMATS.find((f) => f.id === format);
@@ -1834,7 +1980,11 @@ export function createEditor({ onDone }) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 30));
       await prepareEdit(edit);
-      const output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
+      let output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
+      if (cutout) {
+        const pixels = context2d(output, { willReadFrequently: true }).getImageData(0, 0, output.width, output.height);
+        output = canvasFromImageData(cropToObject(pixels));
+      }
       // 16-bit output: the precise result when the edit is tone / colour only, else the 8-bit one widened.
       let precise = null;
       if (OUTPUT_FORMATS.find((x) => x.id === format)?.deep && fullHigh && isEmptyEdit({ ...edit, adjust: DEFAULT_ADJUST }) && fullHigh.width === output.width && fullHigh.height === output.height) {
@@ -1864,9 +2014,10 @@ export function createEditor({ onDone }) {
     }
   }
 
-  async function saveAsDialog(defaultFormat) {
-    const specOf = (id) => OUTPUT_FORMATS.find((f) => f.id === id) ?? OUTPUT_FORMATS[0];
-    const knownExt = (ext) => OUTPUT_FORMATS.some((f) => f.ext === ext || f.id === ext || f.aliases?.includes(ext));
+  async function saveAsDialog(defaultFormat, { transparent = false } = {}) {
+    const formats = transparent ? OUTPUT_FORMATS.filter((f) => f.id === 'png' || f.id === 'webp') : OUTPUT_FORMATS;
+    const specOf = (id) => formats.find((f) => f.id === id) ?? formats[0];
+    const knownExt = (ext) => formats.some((f) => f.ext === ext || f.id === ext || f.aliases?.includes(ext));
     const withExtension = (value, spec) => {
       const trimmed = String(value ?? '').trim();
       const ext = extensionOf(trimmed);
@@ -1875,9 +2026,9 @@ export function createEditor({ onDone }) {
     };
     const name = h('input.input', {
       type: 'text', id: 'edit-save-name', autofocus: true, spellcheck: 'false', autocomplete: 'off',
-      value: withExtension(`${stemOf(item.name)}_edited`, specOf(defaultFormat)),
+      value: withExtension(`${stemOf(item.name)}${transparent ? '_cutout' : '_edited'}`, specOf(defaultFormat)),
     });
-    const format = selectEl(OUTPUT_FORMATS.map((f) => [f.id, f.label]), defaultFormat, (id) => { name.value = withExtension(name.value, specOf(id)); });
+    const format = selectEl(formats.map((f) => [f.id, f.label]), specOf(defaultFormat).id, (id) => { name.value = withExtension(name.value, specOf(id)); });
     const quality = h('input.slider', { type: 'range', min: 10, max: 100, value: app.settings.jpegQuality });
     const qualityValue = h('span.slider-value', String(app.settings.jpegQuality));
     quality.addEventListener('input', () => { qualityValue.textContent = quality.value; });
@@ -1921,18 +2072,20 @@ export function createEditor({ onDone }) {
     draw();
   }
 
-  async function open(target) {
+  async function open(target, intent) {
     item = target;
     edit = defaultEdit();
     look = null;
     lookFineOpen = false;
     undo = [];
     redo = [];
-    tool = null;
+    tool = intent?.tool ?? null;
+    bgDraft = null;
+    bgChoice = null;
     before = false;
     viewFit = true;
     viewOffset = { x: 0, y: 0 };
-    section = 'light';
+    section = intent?.section ?? 'light';
     selectedLocal = -1;
     selectedLayer = -1;
     fromOriginal = false;
@@ -1948,6 +2101,7 @@ export function createEditor({ onDone }) {
       full = await loadSource(original, item.name);
       preview = scaledCanvas(full, full.width, full.height, PREVIEW_MAX);
       scale = preview.width / full.width;
+      if (intent?.section) panelReveal = intent.section;
       buildPanel();
       updateBar();
       draw();

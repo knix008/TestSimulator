@@ -174,4 +174,18 @@ export default {
   'look.emerald': 'Emerald', 'look.magentaDream': 'Magenta dream', 'look.cineGreen': 'Cine green', 'look.nordic': 'Nordic',
   'look.bwSoft': 'Soft B&W', 'look.bwHigh': 'High-contrast B&W', 'look.bwSelenium': 'Selenium toned', 'look.bwWarmTone': 'Warm-toned B&W',
   'look.bwMatte': 'Matte B&W', 'look.bwClarity': 'Detailed B&W', 'look.bwFilmLut': 'B&W film (LUT)', 'look.bwLowKey': 'Low-key B&W',
+
+  'start.desc.cutout': 'Select an object and make the background transparent',
+  'settings.background': 'Background removal', 'settings.bgAlgorithm': 'Algorithm',
+  'settings.bgAlgorithmHint': 'Choosing an object in Edit uses this algorithm. All of them are installed with the app, and you can switch while editing.',
+  'edit.background': 'Remove background', 'edit.bgRect': 'Rectangle', 'edit.bgFree': 'Freehand',
+  'edit.bgRectHint': 'Draw a rectangle around the object', 'edit.bgFreeHint': 'Draw around the object',
+  'edit.bgHint': 'Outline the object with a rectangle or a freehand shape. The algorithm clears the background inside that outline — it does not just crop. Saving keeps only the box around the object, as a PNG or WebP with a transparent background.',
+  'edit.bgAlgorithm': 'Algorithm', 'edit.bgClear': 'Restore background', 'edit.bgReady': 'Object selected. Pick another algorithm to run it again.',
+  'edit.bg.grabcut': 'GrabCut (recommended)', 'edit.bg.color': 'Background colour', 'edit.bg.edge': 'Edge', 'edit.bg.kmeans': 'Colour groups', 'edit.bg.saliency': 'Contrast',
+  'edit.bg.grabcutHint': 'Separates object and background colours, then clears the background. Start here.',
+  'edit.bg.colorHint': 'Clears colours that match the background outside the selection. Best when that background is even.',
+  'edit.bg.edgeHint': 'Clears colour that continues in from outside the selection, and stops where the colour changes sharply.',
+  'edit.bg.kmeansHint': 'Groups similar colours, then clears the groups that mostly sit in the background.',
+  'edit.bg.saliencyHint': 'Keeps pixels that differ from the surrounding background.',
 };

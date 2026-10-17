@@ -165,4 +165,18 @@ export default {
   'look.emerald': '에메랄드', 'look.magentaDream': '마젠타 드림', 'look.cineGreen': '시네 그린', 'look.nordic': '노르딕',
   'look.bwSoft': '부드러운 흑백', 'look.bwHigh': '고대비 흑백', 'look.bwSelenium': '셀레늄 톤', 'look.bwWarmTone': '웜톤 흑백',
   'look.bwMatte': '매트 흑백', 'look.bwClarity': '디테일 흑백', 'look.bwFilmLut': '흑백 필름 (LUT)', 'look.bwLowKey': '로우키 흑백',
+
+  'start.desc.cutout': '대상을 골라 배경을 투명하게',
+  'settings.background': '배경 제거', 'settings.bgAlgorithm': '알고리즘',
+  'settings.bgAlgorithmHint': '편집에서 대상을 선택하면 이 알고리즘으로 배경을 지웁니다. 알고리즘은 설치할 때 함께 들어 있으며, 편집 중에도 바꿀 수 있습니다.',
+  'edit.background': '배경 제거', 'edit.bgRect': '사각형', 'edit.bgFree': '자유 도형',
+  'edit.bgRectHint': '사각형으로 대상을 감싸기', 'edit.bgFreeHint': '자유 도형으로 대상을 감싸기',
+  'edit.bgHint': '사각형이나 자유 도형으로 대상을 감싸세요. 고른 알고리즘이 그 안의 배경을 지웁니다. 잘라 내기만 하지 않습니다. 저장하면 대상이 들어가는 사각형만, 배경이 투명한 PNG나 WebP로 남습니다.',
+  'edit.bgAlgorithm': '알고리즘', 'edit.bgClear': '배경 되돌리기', 'edit.bgReady': '대상을 골랐습니다. 알고리즘을 바꾸면 다시 계산합니다.',
+  'edit.bg.grabcut': 'GrabCut (권장)', 'edit.bg.color': '배경색', 'edit.bg.edge': '경계선', 'edit.bg.kmeans': '색 묶음', 'edit.bg.saliency': '대비',
+  'edit.bg.grabcutHint': '대상과 배경의 색을 나눠 가며 배경을 지웁니다. 대부분 여기서 시작하세요.',
+  'edit.bg.colorHint': '선택 바깥의 배경색과 비슷한 색을 지웁니다. 배경색이 고를 때 잘 됩니다.',
+  'edit.bg.edgeHint': '선택 바깥에서 색이 비슷하게 이어진 곳을 지우고, 색이 확 바뀌는 경계에서 멈춥니다.',
+  'edit.bg.kmeansHint': '비슷한 색끼리 묶은 뒤, 배경에 많은 색 묶음을 지웁니다.',
+  'edit.bg.saliencyHint': '주변 배경과 색 차이가 큰 부분만 남깁니다.',
 };
