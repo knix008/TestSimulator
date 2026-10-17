@@ -1,0 +1,315 @@
+{
+  "date": "2026-10-17T01:33:06.245Z",
+  "passed": 43,
+  "failed": 0,
+  "skipped": 0,
+  "categories": [
+    {
+      "id": "web",
+      "title": "E2E · 웹",
+      "ms": 66775,
+      "results": [
+        {
+          "name": "웹 빌드 (vite build → dist/)",
+          "group": "빌드",
+          "ok": true,
+          "ms": 1362.3980000000001,
+          "error": null
+        },
+        {
+          "name": "브라우저 실행 · 페이지 열기",
+          "group": "실행",
+          "ok": true,
+          "ms": 1114.5230999999999
+        },
+        {
+          "name": "제목에 프로그램 이름과 버전, 아이콘",
+          "group": "페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 14.5308
+        },
+        {
+          "name": "처음 열면 튜토리얼 안내 (프레임 팝업)",
+          "group": "페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 645.5293000000001
+        },
+        {
+          "name": "템플릿·예제·튜토리얼·움직이는 배경",
+          "group": "시작 페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 1813.2412000000004
+        },
+        {
+          "name": "배경: 시작할 때마다 무작위, 정한 시간마다 자동으로 바뀜",
+          "group": "시작 페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 16541.196
+        },
+        {
+          "name": "메뉴바의 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1210.7732000000033
+        },
+        {
+          "name": "모든 버튼에 툴팁, 한 줄, 투명도 조절 없음",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 621.4577000000027
+        },
+        {
+          "name": "메뉴: 한 줄, 아이콘+이름, 머리글, 바깥 클릭으로 닫힘",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 141.86079999999856
+        },
+        {
+          "name": "컨텍스트 메뉴: 도형·연결선·빈 캔버스·페이지 탭이 서로 다름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 1139.6169999999984
+        },
+        {
+          "name": "팝업 프레임: 아이콘+제목, 스크롤 없음, 머리글을 끌어 이동",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2958.6306000000004
+        },
+        {
+          "name": "도형 서식·페이지 설정·디자인·레이어·찾기 팝업이 잘리지 않음",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2746.141200000002
+        },
+        {
+          "name": "테마 드롭다운: 다크 20 | 라이트 20 두 줄",
+          "group": "테마",
+          "ok": true,
+          "skipped": false,
+          "ms": 438.273799999999
+        },
+        {
+          "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1577.7449000000015
+        },
+        {
+          "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1270.7782000000007
+        },
+        {
+          "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1082.9564000000028
+        },
+        {
+          "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1280.5621000000028
+        },
+        {
+          "name": "사각형 도구로 실제 마우스 끌기 → 새 도형, 끌어서 이동, 화살표로 미세 이동",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1910.2016000000003
+        },
+        {
+          "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1826.7114999999976
+        },
+        {
+          "name": "연결선이 도형을 잇고, 도형을 옮기면 따라감",
+          "group": "연결선",
+          "ok": true,
+          "skipped": false,
+          "ms": 822.3742999999959
+        },
+        {
+          "name": "연결선 도구: 도형에서 도형으로 끌면 붙은 연결선",
+          "group": "연결선",
+          "ok": true,
+          "skipped": false,
+          "ms": 1304.0717000000004
+        },
+        {
+          "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
+          "group": "텍스트",
+          "ok": true,
+          "skipped": false,
+          "ms": 550.4513000000006
+        },
+        {
+          "name": "클립보드: Ctrl+C 로 브라우저 클립보드에 글자, Ctrl+V 로 붙여넣기",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 1104.3883999999962
+        },
+        {
+          "name": "Ctrl+휠 확대·축소 (캔버스)",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 723.7590000000055
+        },
+        {
+          "name": "빠른 스타일·디자인·정렬·그룹",
+          "group": "서식",
+          "ok": true,
+          "skipped": false,
+          "ms": 660.5959000000003
+        },
+        {
+          "name": "페이지 추가·이름 바꾸기·이동·삭제 (페이지 탭)",
+          "group": "페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 897.171699999999
+        },
+        {
+          "name": "파일 끌어다 놓기: 드로잉은 새 탭, 이미지는 그림 도형",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 2461.5011000000013
+        },
+        {
+          "name": "저장(브라우저 저장 창)·Visio/SVG/HTML/CSV/그림 내보내기",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 3515.2367000000013
+        },
+        {
+          "name": "Visio(.vsdx)로 내보낸 것을 다시 열면 같은 도형·연결",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1190.1491999999998
+        },
+        {
+          "name": "내보내기 버튼: 그림 형식 고르기, 투명 배경은 지원하는 형식에서만, 화살표는 모든 내보내기 형식",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1866.8488999999972
+        },
+        {
+          "name": "열기(브라우저 파일 선택)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 32.70809999999619
+        },
+        {
+          "name": "저장 안 한 변경이 있으면 페이지를 떠날 때 확인",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1213.4053000000058
+        },
+        {
+          "name": "설정은 새로 고침 뒤에도 남음 (localStorage)",
+          "group": "설정",
+          "ok": true,
+          "skipped": false,
+          "ms": 551.9481000000014
+        },
+        {
+          "name": "drawing",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1070.193600000006
+        },
+        {
+          "name": "pages",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 437.4406999999992
+        },
+        {
+          "name": "shapeSheet",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 437.22839999999997
+        },
+        {
+          "name": "shapeData",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 431.5520000000033
+        },
+        {
+          "name": "reports",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 447.20730000000185
+        },
+        {
+          "name": "보고서: 모든 보고서가 그려지고 HTML·CSV 로 내보냄",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1929.4825999999957
+        },
+        {
+          "name": "튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)",
+          "group": "도움말",
+          "ok": true,
+          "skipped": false,
+          "ms": 929.7263999999996
+        },
+        {
+          "name": "인쇄 미리 보기 → 브라우저 인쇄",
+          "group": "인쇄",
+          "ok": true,
+          "skipped": false,
+          "ms": 1250.4971000000005
+        },
+        {
+          "name": "F5 전체 화면 프레젠테이션: 페이지 넘김, Esc·전체 화면 해제로 끝",
+          "group": "프레젠테이션",
+          "ok": true,
+          "skipped": false,
+          "ms": 1206.9578000000038
+        },
+        {
+          "name": "잘못된 파일 → 오류 팝업, 자세히 복사",
+          "group": "오류",
+          "ok": true,
+          "skipped": false,
+          "ms": 1184.9662000000026
+        }
+      ]
+    }
+  ]
+}
