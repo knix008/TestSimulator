@@ -4,6 +4,7 @@
 // Official weights: https://github.com/danielgatis/rembg/releases/tag/v0.0.0
 import { t } from '../i18n.js';
 import { idbDelete, idbGet, idbSet } from '../platform/idb.js';
+import { progressDialog } from '../ui/dialog.js';
 import { clearNeuralAlgorithm, hasNeuralAlpha, neuralKey, selectionMask, storeNeuralAlpha } from './background.js';
 
 const REMBG = 'https://github.com/danielgatis/rembg/releases/download/v0.0.0';
@@ -359,7 +360,6 @@ function queueInference(work) {
 
 async function runInstall(id) {
   if (sessions.has(id) && await isInstalled(id)) return;
-  const [{ progressDialog }, { t }] = await Promise.all([import('../ui/dialog.js'), import('../i18n.js')]);
   const name = t(`edit.bg.${id}`);
   const progress = progressDialog(t('edit.bgDownloading', { name, percent: 0 }));
   const stop = onModelProgress((payload) => {
@@ -409,7 +409,6 @@ export async function prepareNeuralMask(image, selection, algorithm, report) {
     return key;
   }
   await installModel(algorithm);
-  const [{ progressDialog }, { t }] = await Promise.all([import('../ui/dialog.js'), import('../i18n.js')]);
   const name = t(`edit.bg.${algorithm}`);
   const text = (percent) => t('edit.bgRemoving', { name, percent });
   const progress = report ? null : progressDialog(text(0), { cancellable: false, immediate: true });
