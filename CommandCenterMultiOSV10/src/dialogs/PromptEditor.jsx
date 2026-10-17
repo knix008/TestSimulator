@@ -143,13 +143,16 @@ export function PromptEditor({ value, onChange, custom = [], onCustomChange, pag
     <div className="prompt-editor">
       <datalist id="pe-color-names">{['accent', 'foreground', 'background', 'auto', 'transparent', 'parentBackground'].map((x) => <option key={x} value={x} />)}</datalist>
 
-      {/* 1. preview — the current prompt in three sample states, under its own heading like the other sections */}
+      {/* Preview of the current prompt. The preset cards already draw each theme, so this block
+          stays off that page — stacked on the cards it pushed the buttons past the window. */}
+      {page !== 'presets' && <>
       <div className="pe-section-title">{t('pe_preview_label')} <span className="muted small">{t('pe_preview')}</span></div>
       <pre className="term-out pe-preview-out">
         {['clean', 'dirty', 'plain'].map((k) => (
           <React.Fragment key={k}><Prompt config={cfg} state={SAMPLE_STATES[k]} title={t(`pe_sample_${k}`)} /><span className="muted">{t(`pe_sample_${k}`)}</span>{'\n'}</React.Fragment>
         ))}
       </pre>
+      </>}
 
       {/* 2. presets — on a sub-tab of their own, as are the simple options and the advanced editor
           below them. Stacked, the four sections made the settings window nearly a screen tall. */}

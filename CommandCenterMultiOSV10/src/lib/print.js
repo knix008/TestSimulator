@@ -9,12 +9,11 @@
 // the document (@page + zoom), so the preview and the paper always agree. It
 // goes to
 //
-//   desktop  — electron/main.js printHtml: a hidden BrowserWindow renders it
-//              and prints it silently on the chosen printer (or through the
-//              system dialog when none is chosen); printPreview turns it into
-//              a PDF for the preview
-//   web      — a hidden <iframe> and its window.print(): the browser's own
-//              print dialog (the preview there is drawn by the dialog itself)
+//   tauri / web — a hidden <iframe> and its window.print(): the webview's
+//              print dialog (the preview is drawn by the dialog itself)
+//   electron — only if window.commandCenter is present: a hidden window
+//              prints silently on the chosen printer, or through the system
+//              dialog when none is chosen
 //
 // Files the app cannot render itself (PDF, Office documents …) are handed to
 // the OS instead (core: fs.print), which App decides on — see canPrintData.

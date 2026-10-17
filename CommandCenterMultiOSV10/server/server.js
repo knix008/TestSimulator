@@ -34,6 +34,9 @@ function arg(name, fallback) {
 const PORT = Number(arg('port', 5186));
 const HOST = arg('host', '127.0.0.1');
 const TOKEN = arg('token', '');
+// 'web' for the browser, 'tauri' when the desktop shell spawned this process.
+const HOST_NAME = process.env.CC_HOST_NAME || 'web';
+const CONFIG_DIR = process.env.CC_CONFIG_DIR || '';
 const OPEN = !process.argv.includes('--no-open') && !process.env.CC_NO_OPEN;
 // Double-click / Enter on a file launches the registered application — on
 // the machine this server runs on. That is what people expect when the server
@@ -47,7 +50,39 @@ try { buildInfo = JSON.parse(fs.readFileSync(path.join(root, 'src', 'build-info.
 let version = '';
 try { version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')).version; } catch { /* none */ }
 
-const api = createApi({ name: 'web', version, buildInfo, openPath: ALLOW_OPEN ? fsops.openWithDefaultApp : null });
+// Windows has no freedesktop trash folder. The Tauri shell is a desktop app, so
+// send the file to the recycle bin the way a double-click delete would.
+function desktopTrash(p) {
+  const { execFile } = require('child_process');
+  const q = String(p).replace(/'/g, "''");
+  const script = [
+    'Add-Type -AssemblyName Microsoft.VisualBasic',
+    `$p = '${q}'`,
+    "if (-not (Test-Path -LiteralPath $p)) { exit 0 }",
+    "if (Test-Path -LiteralPath $p -PathType Container) {",
+    "  [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($p, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '} else {',
+    "  [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '}',
+  ].join('; ');
+  return new Promise((resolve, reject) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 20000 }, (err, _stdout, stderr) => {
+      if (err) reject(new Error(String(stderr || '').trim() || err.message || 'trash failed'));
+      else resolve();
+    });
+  });
+}
+
+const api = createApi({
+  name: HOST_NAME,
+  version,
+  buildInfo,
+  configDir: CONFIG_DIR || undefined,
+  openPath: ALLOW_OPEN ? fsops.openWithDefaultApp : null,
+  // Files the app cannot print itself go through the OS, same as the Electron host.
+  printPath: HOST_NAME === 'tauri' ? fsops.printWithDefaultApp : null,
+  trashPath: HOST_NAME === 'tauri' && process.platform === 'win32' ? desktopTrash : null,
+});
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',

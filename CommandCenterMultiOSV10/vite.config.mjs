@@ -1,5 +1,5 @@
-// .mjs: the package has no "type": "module" (electron/*.js, core/*.js and
-// server/server.js are CommonJS), so a bare .js config would be loaded through
+// .mjs: the package has no "type": "module" (core/*.js and server/server.js are
+// CommonJS), so a bare .js config would be loaded through
 // the deprecated CJS Node API of Vite.
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,7 @@ export default defineConfig({
     // `npm run dev` + `npm run web:serve` → the browser UI talks to the API server.
     proxy: { '/api': 'http://127.0.0.1:5186' },
     // Build output and smoke screenshots must not trigger dev reloads.
-    watch: { ignored: ['**/release/**', '**/dist/**', '**/.smoke/**', '**/build/**'] },
+    watch: { ignored: ['**/release/**', '**/dist/**', '**/.smoke/**', '**/build/**', '**/src-tauri/**'] },
   },
   // The biggest chunk is libheif-js/wasm-bundle (~1.95 MB): the HEIC / HEIF decoder with its
   // WebAssembly inlined as base64. It is already a lazy import (src/lib/images.js, fetched only

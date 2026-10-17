@@ -1,10 +1,8 @@
 // Generates every platform icon from assets/icon.svg — the one icon used by
 // the app, the installer, the uninstaller and the web favicon:
 //
-//   build/icons/icon.ico             (Windows app + NSIS installer/uninstaller)
-//   build/icons/icon.icns            (macOS app bundle + DMG)
-//   build/icons/icon.png             (512, generic / Linux resources)
-//   build/icons/png/<size>x<size>.png (Linux icon set)
+//   build/icons/…                    (intermediate PNG / ICO / ICNS set)
+//   src-tauri/icons/                 (the icons the Tauri bundle actually ships)
 //
 // sharp rasterizes the SVG at every size, then our own ICO/ICNS encoders
 // (scripts/ico.mjs) wrap the PNGs into the containers.
@@ -71,6 +69,15 @@ async function main() {
   }
 
   await writeSet('icon', rasterize(null), { linuxSet: true });
+
+  // Tauri reads its bundle icons from src-tauri/icons (committed). The electron-builder set above stays generated.
+  const tauriIcons = path.join(root, 'src-tauri', 'icons');
+  fs.mkdirSync(tauriIcons, { recursive: true });
+  fs.copyFileSync(path.join(pngDir, '32x32.png'), path.join(tauriIcons, '32x32.png'));
+  fs.copyFileSync(path.join(pngDir, '128x128.png'), path.join(tauriIcons, '128x128.png'));
+  fs.copyFileSync(path.join(pngDir, '256x256.png'), path.join(tauriIcons, 'icon.png'));
+  fs.copyFileSync(path.join(outDir, 'icon.ico'), path.join(tauriIcons, 'icon.ico'));
+  console.log('[icons] Copied 32x32.png, 128x128.png, icon.png, icon.ico → src-tauri/icons');
 
   console.log(`[icons] Synced public/${syncPublicSvgs().join(', public/')}`);
 }

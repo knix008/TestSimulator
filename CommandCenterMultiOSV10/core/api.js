@@ -1,7 +1,7 @@
 // The one API surface both hosts expose to the UI.
 //
-//   electron/ipc.js     → ipcMain.handle('api', (e, name, args) => api.call(name, args))
 //   server/server.js    → POST /api/<name> with a JSON body
+//                         (the web host, and the Tauri shell which spawns this server)
 //
 // Every method takes a single plain-object argument and returns JSON-able
 // data, so the renderer's backend layer (src/lib/backend.js) is a thin
@@ -131,6 +131,9 @@ function createApi(host = {}) {
       host.clipboard.writeImage(String(dataUrl || ''));
       return { ok: true };
     },
+
+    // The Tauri shell calls this before it kills the core process, so shells do not linger.
+    'app.shutdown': async () => { terminals.shutdown(); return { ok: true }; },
   };
 
   async function call(name, args) {

@@ -61,6 +61,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ── Menu bar ── */
 .menubar { display: flex; align-items: center; background: var(--bg-elev); border-bottom: 1px solid var(--border); padding: 0 4px; height: 30px; }
+.menu-home { display: flex; align-items: center; gap: 6px; height: 24px; margin: 0 6px 0 2px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--bg-hover); color: var(--fg); cursor: pointer; flex: none; font-weight: 600; }
+.menu-home:hover { background: var(--bg-sel); }
+.menu-home.on { background: var(--accent); color: var(--accent-text); }
 .menubar-spacer { flex: 1; }
 /* The program's identity at the left of the menu bar. Where the page draws the window's title bar
    (html.wco) this row *is* the title bar, so the icon, the name and the version number belong in it;
@@ -73,7 +76,7 @@ button:disabled { cursor: default; opacity: 0.45; }
    src/lib/titlebar.js). It carries the window title, it drags the window — but its buttons must not —
    and it keeps the native window controls' own space free on whichever side the platform puts them. */
 html.wco .menubar { -webkit-app-region: drag; padding-left: calc(4px + var(--wco-left, 0px)); padding-right: calc(4px + var(--wco-right, 0px)); }
-html.wco .menubar .menu-title { -webkit-app-region: no-drag; }
+html.wco .menubar .menu-title, html.wco .menubar .menu-home { -webkit-app-region: no-drag; }
 .menu-title { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0 10px; height: 28px; border-radius: 4px; color: var(--fg); }
 .menu-title .menu-icon { color: var(--fg-muted); }
 .menu-title:hover .menu-icon, .menu-title.open .menu-icon { color: inherit; }
@@ -98,6 +101,75 @@ html.wco .menubar .menu-title { -webkit-app-region: no-drag; }
 
 /* ── Panels ── */
 .panels { flex: 1; display: flex; min-height: 0; padding: 8px 8px 4px; }
+.app-body { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.app-work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.app-work.covered { display: none; }
+
+/* Start page (Home on the menu bar). Cards sit on a landscape, as in MyPhotoManager. */
+.start-page { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); color: var(--fg); }
+.start-bg { position: absolute; inset: 0; background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
+.start-bg::after { content: ''; position: absolute; width: 90px; height: 90px; border-radius: 50%; left: 18%; top: 18%; background: rgba(255, 236, 170, 0.85); box-shadow: 0 0 40px rgba(255, 220, 140, 0.7); animation: start-drift 48s ease-in-out infinite alternate; }
+.start-bg[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }
+.start-bg[data-scene='night'] { background: linear-gradient(180deg, #0c1228 0%, #1c3358 48%, #0e1a14 100%); }
+.start-bg[data-scene='night']::after { background: rgba(230, 236, 255, 0.9); box-shadow: 0 0 24px rgba(200, 220, 255, 0.6); width: 42px; height: 42px; }
+.start-bg[data-scene='sea'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #1d6a8a 42%, #0e4a68 100%); }
+.start-bg[data-scene='forest'] { background: linear-gradient(180deg, #8ec8e8 0%, #d7e7c4 40%, #1f5a32 40%, #143820 100%); }
+@keyframes start-drift { from { transform: translate(0, 0); } to { transform: translate(80px, 18px); } }
+.start-scroll { position: absolute; inset: 0; overflow: auto; }
+.start { max-width: 1280px; margin: 0 auto; padding: 22px 28px 40px; }
+.start-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.start-logo { display: grid; place-items: center; width: 58px; height: 58px; flex: none; border-radius: 14px; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); }
+.start-logo img { width: 32px; height: 32px; }
+.start-head h1 { margin: 0; font-size: 26px; font-weight: 700; }
+.start-head p { margin: 4px 0 0; max-width: 640px; }
+.start h2 { display: flex; align-items: center; gap: 8px; height: 22px; margin: 0 0 10px; font-size: 14px; }
+.start h2 svg { color: var(--accent); }
+.start-board { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); grid-template-areas: "begin tasks" "recent scenes"; gap: 28px; align-items: start; }
+.start-group[data-group='begin'] { grid-area: begin; }
+.start-group[data-group='tasks'] { grid-area: tasks; }
+.start-group[data-group='recent'] { grid-area: recent; }
+.start-group[data-group='scenes'] { grid-area: scenes; }
+.start-actions { display: flex; flex-direction: column; gap: 8px; }
+.task-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.action-card, .task-card { box-sizing: border-box; height: 64px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; }
+.action-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; text-align: left; border-radius: 10px; }
+.action-card:hover, .task-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--bg-panel) 90%, transparent); }
+.action-card[data-primary] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, color-mix(in srgb, var(--bg-panel) 82%, transparent)); }
+.action-icon, .task-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 8px; background: var(--bg-sel); color: var(--accent); }
+.action-text, .task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.action-text small, .task-text small, .start-muted { color: var(--fg-muted); }
+.action-text small, .task-text small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.recent-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; cursor: pointer; background: color-mix(in srgb, var(--bg-panel) 55%, transparent); color: var(--fg); text-align: left; }
+.recent-item:hover { background: color-mix(in srgb, var(--accent) 16%, var(--bg-panel)); }
+.recent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-muted { margin: 0; }
+.start-tip { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); border: 1px solid var(--border); line-height: 1.45; }
+.start-tip-toggle { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.start-tip-toggle svg { color: var(--accent); flex: none; margin-top: 2px; }
+.start-tip-text { flex: 1; }
+.start-tip-more-label { flex: none; color: var(--accent); font-size: 12px; }
+.start-tip-more { margin: 0; white-space: pre-wrap; }
+.task-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; text-align: left; border-radius: 10px; }
+.start-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.start-scene { box-sizing: border-box; width: 100%; height: 32px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--bg-panel) 62%, transparent); color: var(--fg); cursor: pointer; }
+.start-scene:hover { border-color: var(--accent); }
+.start-scene.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--bg-panel)); }
+@media (max-width: 860px) { .start { padding: 16px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .task-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Tutorial card and the outline around the part of the window the step is about. */
+.tutorial-spot { position: fixed; z-index: 4000; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
+.tutorial-card { position: fixed; right: 16px; bottom: 48px; z-index: 4010; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-panel); color: var(--fg); box-shadow: var(--shadow); }
+.tutorial-card.top { bottom: auto; top: 64px; }
+.tutorial-top { display: flex; align-items: center; gap: 8px; }
+.tutorial-top svg { color: var(--accent); flex: none; }
+.tutorial-chapter { flex: 1; min-width: 0; height: 28px; font-size: 12px; }
+.tutorial-count { color: var(--fg-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tutorial-progress { height: 3px; margin: 8px 0 6px; border-radius: 2px; background: var(--bg-hover); overflow: hidden; }
+.tutorial-progress > span { display: block; height: 100%; background: var(--accent); }
+.tutorial-title { margin: 6px 0 4px; font-size: 15px; }
+.tutorial-text { margin: 0 0 10px; line-height: 1.5; color: var(--fg-muted); }
+.tutorial-buttons { display: flex; gap: 6px; justify-content: flex-end; }
 .panel-slot { min-width: 0; display: flex; }
 .splitter { width: 10px; cursor: col-resize; position: relative; flex: none; }
 .splitter::after { content: ''; position: absolute; left: 4px; top: 40%; bottom: 40%; width: 2px; background: var(--border); border-radius: 2px; }
@@ -561,7 +633,7 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .search-window.docked .dlg-body > .row .btn { padding: 3px 8px; min-width: 0; font-size: 12px; }
 .search-window.docked .search-status { margin-top: 4px; }
 .search-window.docked .dlg-footer { display: none; }
-.settings-pane textarea { width: 100%; min-width: 0; font-size: 12px; }
+.settings-pane textarea { width: 100%; min-width: 0; font-size: 12px; resize: none; }
 
 /* ── Panel tabs (Ctrl+T) ── */
 /* The tabs scroll inside .tab-scroll; the buttons on the right (‹ › ▾ +) stay put, so a tab hidden by a
@@ -594,6 +666,24 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .term-out .pseg-plain { padding: 0 2px; font-weight: 500; }
 .term-out .term-prompt.stale .pseg { opacity: 0.85; }
 /* ── Prompt editor (settings › prompt) ── */
+.dlg.settings .settings-layout { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; align-items: start; min-height: 0; }
+.lang-line { grid-column: 1 / -1; display: flex; flex-flow: row nowrap; align-items: center; gap: 12px; }
+.lang-line > label { flex: none; text-align: right; }
+.lang-choice { display: flex; flex-flow: row nowrap; align-items: center; gap: 8px; }
+.lang-btn { display: inline-flex; flex: 0 0 auto; flex-flow: row nowrap; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); white-space: nowrap; width: auto; }
+.lang-btn .flag { display: block; flex: none; }
+.lang-btn:hover:not(.on) { background: var(--bg-hover); }
+.lang-btn.on { border-color: var(--accent); background: var(--bg-sel); font-weight: 600; }
+.dlg.settings .settings-nav { display: flex; flex-direction: column; align-items: stretch; gap: 4px; border-right: 1px solid var(--border); padding-right: 12px; }
+.dlg.settings .settings-nav .settings-tab { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; height: 34px; margin: 0; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--fg-muted); text-align: left; white-space: nowrap; }
+.dlg.settings .settings-nav .settings-tab:hover:not(.on) { background: var(--bg-hover); color: var(--fg); }
+.dlg.settings .settings-nav .settings-tab.on { border-color: var(--accent); background: var(--bg-sel); color: var(--accent); font-weight: 600; }
+.dlg.settings .settings-tab-icon { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.dlg.settings .settings-pane > .form-grid,
+.dlg.settings .theme-grid,
+.dlg.settings .custom-theme,
+.dlg.settings .prompt-editor { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px 10px; background: color-mix(in srgb, var(--bg-elev) 45%, var(--bg-panel)); }
+.dlg.settings .dlg-footer .btn { min-width: 108px; height: 32px; justify-content: center; box-sizing: border-box; }
 .dlg.settings .settings-pane { min-height: 320px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .prompt-editor { display: flex; flex-direction: column; gap: 10px; }
 /* The preview holds three sample prompts. Its height is fixed rather than grown to fit, so that switching
@@ -602,7 +692,7 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
    So the room is the room the tallest preset needs: a two-line prompt (Paradox, Pure, Star …) measures
    125 px against the 90 px a one-line one takes. `auto` rather than `hidden` so that a hand-made prompt
    with more blocks still can be seen whole, by scrolling. */
-.pe-preview-out { flex: none; height: 128px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: auto; }
+.pe-preview-out { flex: none; height: 128px; max-height: none; min-height: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; cursor: default; font-size: 12.5px; margin-top: 4px; overflow: hidden; }
 .pe-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pe-row > label { color: var(--fg-muted); }
 .pe-row textarea { flex: 1; min-width: 200px; }
@@ -647,7 +737,7 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .pe-advanced { display: grid; grid-template-columns: 190px 1fr; grid-template-rows: minmax(0, 1fr); gap: 8px; flex: 1; min-height: 190px; }
 .pe-advanced > * { min-height: 0; }
 .pe-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; min-height: 0; }
-.pe-list-rows { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.pe-list-rows { flex: 1; min-height: 0; overflow: hidden; }
 .pe-list-block { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px; font-size: 11px; color: var(--fg-muted); background: var(--bg-elev); border-bottom: 1px solid var(--border); }
 .pe-list-row { display: flex; align-items: center; gap: 6px; padding: 2px 8px; font-size: 12px; background: none; border: 0; color: var(--fg); text-align: left; width: 100%; }
 .pe-list-row:hover { background: var(--bg-hover); }
@@ -656,7 +746,7 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .pe-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
 .pe-list-tools { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px; border-top: 1px solid var(--border); background: var(--bg-elev); }
 .pe-list-tools select { flex: 1; min-width: 0; font-size: 12px; }
-.pe-detail { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); overflow: auto; scrollbar-width: thin; }
+.pe-detail { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); overflow: hidden; }
 .pe-fields { grid-template-columns: max-content 1fr; gap: 6px 8px; align-items: center; }
 .pe-fields textarea { width: 100%; min-width: 0; font-size: 11px; resize: vertical; }
 .pe-fields .row { flex-wrap: wrap; gap: 6px; }
@@ -682,12 +772,13 @@ html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .theme-line { height: 4px; border-radius: 2px; opacity: 0.7; }
 .theme-line.short { width: 55%; }
 .theme-name { font-size: 10.5px; font-weight: 600; line-height: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the settings window never scrolls: the pane is sized to its content */
-/* The settings window is sized to its tallest tab (SettingsDialog measures every tab and asks the main
-   process to fit the window), so nothing here scrolls and nothing is cut off. */
-.dlg.settings .dlg-body { overflow: visible; }
+/* The dialog grows to the page. A flex child with overflow other than visible is allowed
+   to shrink below its content, which is what slid the last rows under the buttons. */
+.dlg.settings { overflow: hidden; }
+.dlg.settings .dlg-body { overflow: visible; flex: 0 0 auto; height: auto; }
+.dlg.settings .settings-pane { flex: none; height: auto; overflow: visible; }
 .dlg.settings .settings-pane { min-height: 0; }
-.dlg.settings.windowed .dlg-body { display: flex; flex-direction: column; overflow: hidden; }
+.dlg.settings.windowed .dlg-body { display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto; height: auto; }
 .dlg.settings.windowed .settings-pane { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .dlg.settings.windowed .settings-pane > .form-grid { flex: none; }
 /* the measuring pass: the pane takes its natural height, out of sight, so each tab can be measured */

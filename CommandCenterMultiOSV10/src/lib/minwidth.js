@@ -10,9 +10,9 @@
 //   • the page — `--chrome-min-w` on :root, which `.app` uses as its
 //     min-width, so a browser window narrower than that scrolls sideways
 //     instead of clipping the row.
-//   • the desktop app — win:minwidth (electron/ipc.js) makes it the window's
-//     minimum width and widens the window if it happens to be narrower, so no
-//     size the user can drag the window to ever cuts a button off.
+//   • the desktop app — setMinContentWidth (src/lib/backend.js) makes it the
+//     window's minimum width and widens the window if it happens to be
+//     narrower, so no size the user can drag the window to ever cuts a button off.
 import { setMinContentWidth } from './backend';
 
 // The width a single non-wrapping flex row needs: every child's own width with

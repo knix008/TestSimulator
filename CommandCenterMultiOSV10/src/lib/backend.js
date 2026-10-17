@@ -1,7 +1,9 @@
-// Transport switch between the two hosts.
+// Transport switch between the hosts.
 //
-//   desktop  — window.commandCenter (electron/preload.js): IPC calls, pushed
-//              job updates and fs.watch notifications
+//   electron — window.commandCenter, if a host injects it: IPC calls, pushed
+//              job updates and fs.watch notifications. The shipped desktop host is Tauri.
+//   tauri    — the same Node core as the web host (src-tauri spawns server.js)
+//              plus native dialogs and tool windows. Jobs and directories are polled.
 //   web      — fetch('/api/<method>'), jobs and directories are polled
 //
 // Everything above this file is host-agnostic.
@@ -10,7 +12,41 @@ import { getCustomThemesRaw } from '../themes';
 const electron = typeof window !== 'undefined' ? window.commandCenter : null;
 
 export const isElectron = !!electron;
-export const hostName = isElectron ? 'electron' : 'web';
+export const isTauri = typeof window !== 'undefined' && !electron && !!(window.__TAURI_INTERNALS__ || window.__TAURI__);
+export const isDesktop = isElectron || isTauri;
+export const hostName = isElectron ? 'electron' : isTauri ? 'tauri' : 'web';
+
+// Set once the Tauri shell has told us where it spawned the core.
+let apiOrigin = '';
+let tauriReady = null;
+
+export function ensureHost() {
+  if (!isTauri) return Promise.resolve();
+  if (!tauriReady) {
+    tauriReady = (async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const cfg = await invoke('host_config');
+      if (!cfg || cfg.error || !cfg.origin) throw new Error(cfg && cfg.error ? cfg.error : 'Tauri core is not running');
+      apiOrigin = cfg.origin.endsWith('/') ? cfg.origin : `${cfg.origin}/`;
+      try { if (cfg.token) sessionStorage.setItem('cc-token', cfg.token); } catch { /* private mode */ }
+    })();
+  }
+  return tauriReady;
+}
+
+// Absolute URL of a core endpoint. Tauri's page origin is not the core, so media,
+// uploads and downloads must not be relative there. The web host is same-origin.
+export function apiUrl(pathname, params) {
+  const path = String(pathname || '').replace(/^\//, '');
+  const base = apiOrigin || (typeof window !== 'undefined' ? new URL('./', window.location.href).href : 'http://127.0.0.1/');
+  const url = new URL(path, base.endsWith('/') ? base : `${base}/`);
+  if (params) for (const [k, v] of Object.entries(params)) if (v != null && v !== '') url.searchParams.set(k, String(v));
+  try {
+    const tok = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('cc-token') : '';
+    if (tok && !url.searchParams.has('token')) url.searchParams.set('token', tok);
+  } catch { /* ignore */ }
+  return url.href;
+}
 
 function webToken() {
   try {
@@ -34,11 +70,13 @@ function unwrap(body, fallback) {
 }
 
 export async function call(name, args = {}) {
+  await ensureHost();
   if (isElectron) return unwrap(await electron.call(name, args), 'IPC error');
   const headers = { 'content-type': 'application/json' };
   const token = webToken();
   if (token) headers.authorization = `Bearer ${token}`;
-  const res = await fetch(`./api/${encodeURIComponent(name)}`, { method: 'POST', headers, body: JSON.stringify(args) });
+  const endpoint = apiOrigin ? new URL(`api/${encodeURIComponent(name)}`, apiOrigin) : `./api/${encodeURIComponent(name)}`;
+  const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(args) });
   let body;
   try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status}`); }
   return unwrap(body, `HTTP ${res.status}`);
@@ -151,13 +189,19 @@ export async function writeClipboardText(text) {
 }
 
 // Native folder picker — desktop only (the web version has no file dialogs; the path is typed).
+async function tauriDialog() { return import('@tauri-apps/plugin-dialog'); }
+
 export async function pickFolder(defaultPath) {
-  if (!isElectron || !electron.dialog) return null;
-  return unwrap(await electron.dialog('openFolder', { defaultPath }), 'dialog error');
+  if (isElectron && electron.dialog) return unwrap(await electron.dialog('openFolder', { defaultPath }), 'dialog error');
+  if (!isTauri) return null;
+  const { open } = await tauriDialog();
+  const picked = await open({ directory: true, multiple: false, defaultPath: defaultPath || undefined });
+  return typeof picked === 'string' ? picked : null;
 }
 
 export function quitApp() {
   if (isElectron) electron.quit();
+  else if (isTauri) import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close());
   else window.close();
 }
 
@@ -186,22 +230,33 @@ export async function uploadFile(file, dir, rel, { overwrite = false, signal } =
   if (overwrite) q.set('overwrite', '1');
   if (!file) q.set('mkdir', '1');
   else headers['content-type'] = 'application/octet-stream';
-  const res = await fetch(`./api/upload?${q}`, { method: 'POST', headers, body: file || undefined, signal });
+  await ensureHost();
+  const res = await fetch(apiUrl('api/upload', Object.fromEntries(q)), { method: 'POST', headers, body: file || undefined, signal });
   let body;
   try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status}`); }
   return unwrap(body, `HTTP ${res.status}`);
 }
 
 // Native save-as picker (image save / convert) — desktop only; the browser downloads instead.
+function tauriFilters(filters) {
+  return (filters || []).filter((f) => f && f.extensions).map((f) => ({ name: f.name || 'Files', extensions: f.extensions }));
+}
+
 export async function pickSavePath(defaultPath, filters) {
-  if (!isElectron || !electron.dialog) return null;
-  return unwrap(await electron.dialog('saveFile', { defaultPath, filters }), 'dialog error');
+  if (isElectron && electron.dialog) return unwrap(await electron.dialog('saveFile', { defaultPath, filters }), 'dialog error');
+  if (!isTauri) return null;
+  const { save } = await tauriDialog();
+  const picked = await save({ defaultPath: defaultPath || undefined, filters: tauriFilters(filters) });
+  return picked || null;
 }
 
 // Native file picker (settings › text editor application) — desktop only.
 export async function pickFile(defaultPath, filters) {
-  if (!isElectron || !electron.dialog) return null;
-  return unwrap(await electron.dialog('openFile', { defaultPath, filters }), 'dialog error');
+  if (isElectron && electron.dialog) return unwrap(await electron.dialog('openFile', { defaultPath, filters }), 'dialog error');
+  if (!isTauri) return null;
+  const { open } = await tauriDialog();
+  const picked = await open({ directory: false, multiple: false, defaultPath: defaultPath || undefined, filters: tauriFilters(filters) });
+  return typeof picked === 'string' ? picked : null;
 }
 
 // ── Tool windows ──────────────────────────────────────────
@@ -217,10 +272,9 @@ export const windowKind = winParams.get('win') || '';
 export const windowId = winParams.get('id') || '';
 export const canOpenWindows = typeof window !== 'undefined' && (isElectron ? !!electron.openWindow : true);
 
-// Menu popup: on the desktop a menu is drawn in a frameless window of its own
-// (electron/main.js, src/MenuPopup.jsx) so it is never cut off by the app
-// window. `null` in the browser and in the popup page itself — the menu is
-// then drawn in the page (ContextMenu folds it into columns instead).
+// Menu popup: only when a host exposes popupMenu. Otherwise null and the menu
+// is drawn in the page (ContextMenu folds it into columns). Tauri uses the
+// in-page menu.
 // The theme and font size travel with every menu: the popup keeps no session.
 export const menuPopup = (isElectron && electron.popupMenu && windowKind !== 'menu') ? {
   show: async ({ items, anchor }) => {
@@ -241,25 +295,92 @@ export const menuPopup = (isElectron && electron.popupMenu && windowKind !== 'me
 
 // A window that sizes itself to its content (the settings window). Desktop only — a browser popup keeps
 // whatever size it was opened with.
-export const fitWindow = (isElectron && electron.fitWindow) ? ((height) => electron.fitWindow(height)) : null;
+export const fitWindow = (isElectron && electron.fitWindow)
+  ? ((height) => electron.fitWindow(height))
+  : (isTauri ? ((height) => { tauriFit(height); }) : null);
 
 // The width the toolbar needs (src/lib/minwidth.js) becomes the window's minimum width. In a browser
 // there is nothing to tell: the page's own min-width already makes it scroll instead of clipping.
 export function setMinContentWidth(width) {
   if (isElectron && electron.setMinContentWidth) electron.setMinContentWidth(width);
+  else if (isTauri) tauriMinWidth(width);
 }
 
 const webChildren = new Set();
 const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
-const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows clicks in the file list)
+const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows double-clicks in the file list)
 let bus = null;
 function channel() {
   if (!bus && typeof BroadcastChannel !== 'undefined') { try { bus = new BroadcastChannel('command-center'); } catch { bus = null; } }
   return bus;
 }
 
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [1080, 780], about: [560, 400] };
+const tauriToolIds = new Map();
+
+function newWinId() { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
+
+async function tauriSize(width, height) {
+  const { LogicalSize } = await import('@tauri-apps/api/dpi');
+  return new LogicalSize(width, height);
+}
+async function currentTauriWindow() {
+  const { getCurrentWindow } = await import('@tauri-apps/api/window');
+  return getCurrentWindow();
+}
+function tauriFit(height) {
+  currentTauriWindow().then(async (win) => {
+    const outer = await win.outerSize();
+    const scale = await win.scaleFactor();
+    await win.setSize(await tauriSize(Math.round(outer.width / scale), Math.max(200, Math.round(height))));
+  }).catch(() => {});
+}
+function tauriMinWidth(width) {
+  const w = Math.max(1149, Math.round(Number(width) || 0));
+  currentTauriWindow().then(async (win) => {
+    const { LogicalSize } = await import('@tauri-apps/api/dpi');
+    await win.setMinSize(new LogicalSize(w, 713));
+  }).catch(() => {});
+}
+
+async function openTauriWindow(kind, args, { title, width, height } = {}) {
+  const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+  const singleton = SINGLETON_KINDS.has(kind);
+  const label = singleton ? `tool-${kind}` : `tool-${kind}-${newWinId()}`;
+  const [dw, dh] = TOOL_SIZES[kind] || [900, 680];
+  const existing = singleton ? await WebviewWindow.getByLabel(label) : null;
+  if (existing) {
+    const id = tauriToolIds.get(label);
+    if (id) {
+      try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* ignore */ }
+      await postToApp({ type: 'replaceArgs', id, kind });
+    }
+    if (!QUIET_KINDS.has(kind)) { try { await existing.setFocus(); } catch { /* ignore */ } }
+    return id;
+  }
+  const id = newWinId();
+  tauriToolIds.set(label, id);
+  try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* ignore */ }
+  const webview = new WebviewWindow(label, {
+    url: `index.html?win=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}`,
+    title: title || kind,
+    width: width || dw,
+    height: height || dh,
+    focus: !QUIET_KINDS.has(kind),
+    resizable: kind !== 'settings',
+    alwaysOnTop: QUIET_KINDS.has(kind),
+    center: true,
+  });
+  await new Promise((resolve, reject) => {
+    webview.once('tauri://created', resolve);
+    webview.once('tauri://error', (e) => reject(new Error(e && e.payload ? String(e.payload) : 'window error')));
+  });
+  return id;
+}
+
 export async function openWindow(kind, args, { title, width, height } = {}) {
   if (isElectron) { const r = unwrap(await electron.openWindow({ kind, args, title, width, height }), 'window error'); return r.id; }
+  if (isTauri) return openTauriWindow(kind, args, { title, width, height });
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* no storage — the page falls back to the URL */ }
   if (SINGLETON_KINDS.has(kind)) {
@@ -288,22 +409,46 @@ export async function windowArgs() {
 }
 
 // Resize grip (desktop only): the window's outer size and a resize while dragging.
-export const canResizeWindow = isElectron && !!electron.resizeWindow;
-export async function windowSize() { return isElectron ? unwrap(await electron.windowSize(), 'window error') : { width: window.outerWidth, height: window.outerHeight }; }
-export function resizeWindow(width, height) { if (isElectron) electron.resizeWindow(width, height); }
+export const canResizeWindow = (isElectron && !!electron.resizeWindow) || isTauri;
+export async function windowSize() {
+  if (isElectron) return unwrap(await electron.windowSize(), 'window error');
+  if (isTauri) {
+    const win = await currentTauriWindow();
+    const outer = await win.outerSize();
+    const scale = await win.scaleFactor();
+    return { width: Math.round(outer.width / scale), height: Math.round(outer.height / scale) };
+  }
+  return { width: window.outerWidth, height: window.outerHeight };
+}
+export function resizeWindow(width, height) {
+  if (isElectron) electron.resizeWindow(width, height);
+  else if (isTauri) currentTauriWindow().then(async (win) => { await win.setSize(await tauriSize(width, height)); }).catch(() => {});
+}
 
 export function closeWindow() {
   if (isElectron) electron.closeWindow();
+  else if (isTauri) currentTauriWindow().then((win) => win.close()).catch(() => {});
   else window.close();
 }
 
-export function postToApp(msg) {
-  if (isElectron) electron.postMessage(msg);
-  else { const c = channel(); if (c) c.postMessage(msg); }
+export async function postToApp(msg) {
+  if (isElectron) { electron.postMessage(msg); return; }
+  if (isTauri) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('bus_post', { msg });
+    return;
+  }
+  const c = channel(); if (c) c.postMessage(msg);
 }
 
 export function onAppMessage(cb) {
   if (isElectron) return electron.onMessage(cb);
+  if (isTauri) {
+    let unlisten = () => {};
+    let dead = false;
+    import('@tauri-apps/api/event').then(({ listen }) => listen('cc-bus', (e) => cb(e.payload))).then((u) => { if (dead) u(); else unlisten = u; }).catch(() => {});
+    return () => { dead = true; unlisten(); };
+  }
   const c = channel();
   if (!c) return () => {};
   const handler = (e) => cb(e.data);

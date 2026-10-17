@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import ToolWindow from './ToolWindow';
 import MenuPopup from './MenuPopup';
-import { windowKind } from './lib/backend';
+import { windowKind, isTauri, ensureHost } from './lib/backend';
 import { watchTitlebarArea } from './lib/titlebar';
 import './styles.css';
 
@@ -13,8 +13,15 @@ const page = windowKind === 'menu' ? <MenuPopup /> : windowKind ? <ToolWindow />
 // Where the page draws the window's title bar itself, keep the native window controls' space free
 // (the menu popup has no title bar at all — it is frameless).
 if (windowKind !== 'menu') watchTitlebarArea();
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    {page}
-  </React.StrictMode>,
-);
+
+async function boot() {
+  if (isTauri) {
+    try { await ensureHost(); } catch (err) { console.error(err); }
+  }
+  createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      {page}
+    </React.StrictMode>,
+  );
+}
+boot();

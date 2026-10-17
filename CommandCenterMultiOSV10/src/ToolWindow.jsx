@@ -3,7 +3,7 @@
 // size), fetches its arguments from the host and renders one tool full-size:
 //
 //   viewer       { path }                       F3
-//   preview      { path }                       a click on an image in the list
+//   preview      { path }                       a double-click on an image, video or audio file, or the Preview command
 //   info         { path }                       Alt+Enter (file info)
 //   editor       { path }                       F4
 //   multiRename  { entries, parent }            Ctrl+M

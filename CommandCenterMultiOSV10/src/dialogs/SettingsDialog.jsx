@@ -7,8 +7,8 @@ import { t, useLanguage } from '../lib/i18n';
 import { THEMES, allThemes, setCustomThemes, baseColorsOf, themeById, CUSTOM_COLOR_KEYS } from '../themes';
 import { DialogFrame } from './Dialogs';
 import { SETTINGS_DEFAULTS } from '../lib/settings';
-import { isElectron, fitWindow } from '../lib/backend';
-import { Icon } from '../components/Icons';
+import { isDesktop, fitWindow } from '../lib/backend';
+import { Flag, Icon } from '../components/Icons';
 import { PromptEditor } from './PromptEditor';
 
 // A number with a − button on its left and a + button on its right; typing in it works as before.
@@ -38,10 +38,18 @@ export function SettingsDialog({ spec, done }) {
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } if (spec.onChange) spec.onChange(v); }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = (e) => { if (e) e.preventDefault(); done(v); };
-  // Five tabs: general (+ panels, windows), theme, files (open + viewer / editor), terminal (shell, start
-  // directory, how the output is shown — the dock's ⚙ opens this one) and the prompt editor, which needs
-  // the whole pane to itself.
-  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['open', t('set_files')], ['terminal', t('set_terminal')], ['prompt', t('set_prompt')]];
+  // Each page is short enough to sit in the window whole: nothing is covered and nothing scrolls.
+  // Panels and the viewer used to share a page with general and file-opening, which pushed the last
+  // rows and the buttons past the bottom of the dialog.
+  const tabs = [
+    ['general', t('set_general'), 'settings'],
+    ['panels', t('set_panels'), 'grid'],
+    ['theme', t('set_theme'), 'palette'],
+    ['open', t('set_open'), 'file'],
+    ['viewer', t('set_viewer'), 'eye'],
+    ['terminal', t('set_terminal'), 'terminal'],
+    ['prompt', t('set_prompt'), 'gitBranch'],
+  ];
   const Section = ({ label }) => <div className="settings-section">{label}</div>;
   // Two of those tabs hold several pages of their own, shown one at a time under sub-tabs. That is what
   // keeps the window short: it is fitted to the tallest page there is (below), and the theme tab's two
@@ -160,24 +168,38 @@ export function SettingsDialog({ spec, done }) {
   // nothing is cut off. Narrower is possible but not free: below ~840 the preset and theme grids drop a
   // column, and what the window loses in width it takes back in height (694px of presets instead of 570).
   return (
-    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={880} windowed={spec.windowed} className="settings"
+    <DialogFrame title={t('settings_title')} onClose={() => done(null)} icon="settings" width={1080} windowed={spec.windowed} className="settings"
       footer={<>
         <button className="btn" onClick={() => setV({ ...SETTINGS_DEFAULTS, language: v.language })}>{t('set_defaults')}</button>
         <span className="spacer" />
         <button className="btn" onClick={() => done(null)}>{t('cancel')}</button>
         <button className="btn primary" onClick={submit}>{t('ok')}</button>
       </>}>
-      <div className="settings-tabs">
-        {tabs.map(([id, label]) => <button key={id} type="button" className={`settings-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>)}
+      <div className="settings-layout">
+      <div className="settings-nav" role="tablist">
+        {tabs.map(([id, label, icon]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={`settings-tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>
+            <span className="settings-tab-icon"><Icon name={icon} size={16} /></span>
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
       <form onSubmit={submit} className={`settings-pane ${measuring ? "measuring" : ""}`} ref={paneRef}>
         {shownTab === 'general' && (
           <div className="form-grid settings-grid">
+            <div className="lang-line">
             <label>{t('set_language')}</label>
-            <select value={v.language} onChange={(e) => set('language', e.target.value)}>
-              <option value="ko">한국어</option>
-              <option value="en">English</option>
-            </select>
+            <div className="lang-choice" role="group" aria-label={t('set_language')}>
+              <button type="button" className={`lang-btn ${v.language === 'ko' ? 'on' : ''}`} aria-pressed={v.language === 'ko'} onClick={() => set('language', 'ko')}>
+                <Flag country="kr" width={22} />
+                <span>한국어</span>
+              </button>
+              <button type="button" className={`lang-btn ${v.language === 'en' ? 'on' : ''}`} aria-pressed={v.language === 'en'} onClick={() => set('language', 'en')}>
+                <Flag country="gb" width={22} />
+                <span>English</span>
+              </button>
+            </div>
+            </div>
 
             <label>{t('set_font_size')}</label>
             <Num value={v.fontSize} onChange={(n) => set('fontSize', n)} min={9} max={24} unit="px" />
@@ -191,8 +213,10 @@ export function SettingsDialog({ spec, done }) {
             <Check k="confirmDelete" label={t('set_confirm_delete')} />
             <Check k="restoreFolders" label={t('set_restore_folders')} />
             <Check k="autoRefresh" label={t('set_auto_refresh')} />
-
-            <Section label={t('set_panels')} />
+          </div>
+        )}
+        {shownTab === 'panels' && (
+          <div className="form-grid settings-grid">
             <label>{t('set_columns')}</label>
             <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
               {[['showPerm', 'col_perm'], ['showDate', 'col_date'], ['showType', 'col_type'], ['showSize', 'col_size']].map(([k, l]) => (
@@ -296,15 +320,17 @@ export function SettingsDialog({ spec, done }) {
             <div className="row">
               <input type="text" className="mono" value={v.textApp || ''} placeholder={t('set_text_app_hint')} spellCheck={false} disabled={v.textOpen !== 'custom'}
                 onChange={(e) => set('textApp', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-              {isElectron && spec.pickFile && <button type="button" className="btn" disabled={v.textOpen !== 'custom'} onClick={browseApp}>{t('set_browse')}</button>}
+              {isDesktop && spec.pickFile && <button type="button" className="btn" disabled={v.textOpen !== 'custom'} onClick={browseApp}>{t('set_browse')}</button>}
             </div>
 
             <label>{t('set_text_exts')}</label>
-            <textarea className="mono" rows={3} value={v.textExts} spellCheck={false} onChange={(e) => set('textExts', e.target.value)} style={{ resize: 'vertical' }} />
+            <textarea className="mono" rows={3} value={v.textExts} spellCheck={false} onChange={(e) => set('textExts', e.target.value)} />
             <span />
             <span className="muted small">{t('set_text_exts_hint')}</span>
-
-            <Section label={t('set_viewer')} />
+          </div>
+        )}
+        {shownTab === 'viewer' && (
+          <div className="form-grid settings-grid">
             <label>{t('set_viewer_font')}</label>
             <select value={v.viewerFontSize} onChange={(e) => set('viewerFontSize', Number(e.target.value))}>
               {[10, 11, 12, 13, 14, 15, 16, 18, 20].map((n) => <option key={n} value={n}>{n} px</option>)}
@@ -349,7 +375,7 @@ export function SettingsDialog({ spec, done }) {
             <div className="row">
               <input type="text" className="mono" value={v.termCwd || ''} placeholder={t('set_term_cwd_default')} spellCheck={false}
                 onChange={(e) => set('termCwd', e.target.value)} style={{ flex: 1, minWidth: 0 }} />
-              {isElectron && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}>{t('set_browse')}</button>}
+              {isDesktop && spec.pickFolder && <button type="button" className="btn" onClick={browseFolder}>{t('set_browse')}</button>}
             </div>
             <span />
             <span className="muted small">{t('set_term_cwd_hint')}</span>
@@ -386,6 +412,7 @@ export function SettingsDialog({ spec, done }) {
         </>)}
         <button type="submit" hidden />
       </form>
+      </div>
     </DialogFrame>
   );
 }

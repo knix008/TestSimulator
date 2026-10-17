@@ -1,8 +1,8 @@
 // The sample files (samples/, made by scripts/generate-samples.mjs) and how the hosts hand them to the
 // viewer: core readFile classifies every image / video / audio format, the DICOM samples parse with their
 // frame counts, the images decode, and the web server streams media with Range support (/api/media).
-// The rendering itself (HEIC / DICOM / TIFF decoders, <video>) is checked in the smoke test:
-//   npm run build && npm run smoke -- --scenario samples
+// The rendering itself (HEIC / DICOM / TIFF decoders, <video>) is the page's job.
+// This file checks classification, decoding sizes, and /api/media Range responses.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

@@ -1,11 +1,10 @@
 // Drag & drop between the panels and the outside world (Explorer / Finder / the
 // desktop / the browser).
 //
-//   out   — a row is dragged: on the desktop the HTML5 drag is cancelled and a
-//           native one takes its place (electron/ipc.js drag:start), so the
-//           files land wherever the OS lets them; in the browser the drag
-//           carries the paths (for the other panel) and, for a single file,
-//           a DownloadURL that Chromium turns into a download on the desktop.
+//   out   — a row is dragged. The page carries the paths (for the other panel)
+//           and, for a single file, a DownloadURL that the webview turns into
+//           a download. A host that exposes window.commandCenter can replace
+//           that with a native OS drag.
 //   in    — a drop on a panel: paths of our own (the other panel, or the
 //           native drag coming back), files from the OS (desktop: their paths;
 //           browser: uploaded through server.js /api/upload, folders walked
@@ -13,7 +12,7 @@
 //
 // Copy is the default, Shift while dropping moves — the panels' own drags only:
 // a drop from Explorer is always a copy, so the source never deletes anything.
-import { isElectron, droppedFilePath, startNativeDrag } from './backend';
+import { isElectron, droppedFilePath, startNativeDrag, apiUrl } from './backend';
 
 const MIME_PATHS = 'application/x-commandcenter-paths';
 
@@ -40,9 +39,8 @@ export function beginDrag(ev, entries) {
   dt.setData('text/plain', paths.join('\n'));
   if (entries.length === 1 && !entries[0].isDir) {
     // Chromium only: dropping the row on the desktop downloads the file.
-    const url = new URL(`./api/download?path=${encodeURIComponent(paths[0])}`, window.location.href);
-    try { const tok = sessionStorage.getItem('cc-token'); if (tok) url.searchParams.set('token', tok); } catch { /* no storage */ }
-    dt.setData('DownloadURL', `application/octet-stream:${entries[0].name.replace(/[:]/g, '_')}:${url.href}`);
+    const url = apiUrl('api/download', { path: paths[0] });
+    dt.setData('DownloadURL', `application/octet-stream:${entries[0].name.replace(/[:]/g, '_')}:${url}`);
   }
 }
 

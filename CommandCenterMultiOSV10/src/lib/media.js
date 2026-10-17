@@ -2,9 +2,9 @@
 // MEDIA_TYPES) and played from a URL the host streams with Range support —
 // the file is never read into the page.
 //
-//   desktop  — cc-media://file/?p=<path>   (electron/main.js protocol.handle)
-//   web      — /api/media?path=<path>[&token=…]   (server/server.js streamMedia)
-import { isElectron } from './backend';
+//   electron — cc-media://file/?p=<path>   (only if window.commandCenter is present)
+//   tauri/web — /api/media?path=<path>[&token=…]   (server/server.js streamMedia)
+import { isElectron, apiUrl } from './backend';
 
 export const VIDEO_EXTS = ['mp4', 'm4v', 'webm', 'mkv', 'mov', 'ogv', 'avi', 'mpg', 'mpeg', '3gp', 'ts', 'wmv'];
 export const AUDIO_EXTS = ['mp3', 'wav', 'flac', 'ogg', 'oga', 'opus', 'm4a', 'aac', 'weba', 'wma', 'aif', 'aiff', 'mid', 'midi'];
@@ -18,9 +18,8 @@ export function isMediaName(name) { return isVideoName(name) || isAudioName(name
 // The URL the <video> / <audio> element plays (and the PDF frame shows).
 export function mediaUrl(path) {
   if (isElectron) return `cc-media://file/?p=${encodeURIComponent(path)}`;
-  const url = new URL(`./api/media?path=${encodeURIComponent(path)}`, window.location.href);
-  try { const tok = sessionStorage.getItem('cc-token'); if (tok) url.searchParams.set('token', tok); } catch { /* no storage */ }
-  return url.href;
+  // Web and Tauri both stream from the Node core (Tauri's origin is the sidecar, not the page).
+  return apiUrl('api/media', { path });
 }
 
 // m:ss / h:mm:ss for a duration in seconds.

@@ -106,7 +106,11 @@ export function MenuBar({ onAction, state }) {
   const titles = [['file', 'menu_file', 'folder'], ['edit', 'menu_edit', 'edit'], ['select', 'menu_select', 'select'], ['view', 'menu_view', 'eye'], ['archive', 'menu_archive', 'archive']];
 
   return (
-    <div className="menubar">
+    <div className="menubar" data-tut="menubar">
+      <button type="button" className={`menu-home ${state.start ? 'on' : ''}`} data-tut="home" title={t('start_title')} aria-label={t('start_title')} aria-pressed={!!state.start}
+        onClick={() => onAction('start')}>
+        <Icon name="home" size={14} /><span>{t('start_title')}</span>
+      </button>
       {/* This row *is* the window's title bar where the host lets the page draw it (src/lib/titlebar.js).
           The native caption that used to carry the program's icon, name and version is gone, so they open
           the row instead — at its left, ahead of the menu titles, which is where a title bar keeps them. */}
@@ -210,7 +214,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
   }, [lang, items.length]);
 
   return (
-    <div className="toolbar" ref={rowRef}>
+    <div className="toolbar" data-tut="toolbar" ref={rowRef}>
       <button className="tb-btn tb-icon-only" title={undoTip} aria-label={t('undo')} disabled={!state.canUndo} onClick={() => onAction('undo')}><Icon name="undo" /></button>
       <button className="tb-btn tb-icon-only" title={redoTip} aria-label={t('redo')} disabled={!state.canRedo} onClick={() => onAction('redo')}><Icon name="redo" /></button>
       <span className="tb-sep" />
@@ -230,7 +234,7 @@ export function Toolbar({ onAction, theme, dockVisible, state = {} }) {
       <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onClick={() => onAction('toggleLanguage')}>
         <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
       </button>
-      <button className="tb-btn tb-icon-only" title={t('tip_settings')} aria-label={t('settings')} onClick={() => onAction('settings')}>
+      <button className="tb-btn tb-icon-only" data-tut="settings" title={t('tip_settings')} aria-label={t('settings')} onClick={() => onAction('settings')}>
         <Icon name="settings" />
       </button>
       <span className="tb-sep" />
@@ -258,7 +262,7 @@ export function FnBar({ onAction, state }) {
     ['Alt+F4', 'quit', 'fn_quit', false],
   ];
   return (
-    <div className="fnbar">
+    <div className="fnbar" data-tut="fnbar">
       {keys.map(([key, id, label, disabled]) => (
         <button key={key} className="fn-btn" disabled={disabled} onClick={() => onAction(id)} title={`${key}: ${t(label)}`}>
           <span className="fn-key">{key}</span><span className="fn-label">{t(label)}</span>

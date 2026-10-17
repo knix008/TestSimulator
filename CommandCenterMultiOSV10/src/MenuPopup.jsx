@@ -1,4 +1,4 @@
-// The page of the menu popup window (?win=menu, see electron/main.js).
+// The page of a menu popup window (?win=menu), used when a host opens one.
 //
 // Menus are drawn here rather than inside the app window so that a long menu
 // is never cut off: this window is frameless and transparent, so the menu can

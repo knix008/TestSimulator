@@ -23,6 +23,7 @@ const paths = {
   open: <><path d="M14 3h7v7" /><path d="M21 3l-9 9" /><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /></>,
   properties: <><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></>,
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.5 1-1.5 2M12 17h.01" /></>,
   tree: <><path d="M4 5h6M4 12h4M4 19h8" /><path d="M14 12h6M16 19h4" /><circle cx="12" cy="12" r="1" /></>,
   sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
   moon: <><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></>,
@@ -94,6 +95,7 @@ const paths = {
 // Drawn as filled shapes, so they ignore the stroke styling of the line icons.
 export function Flag({ country, width = 22, className = '' }) {
   const h = Math.round(width * 2 / 3);
+  const clipId = React.useId().replace(/:/g, '');
   if (country === 'kr') {
     // Taegeukgi: white field, red/blue taegeuk, four trigrams.
     return (
@@ -115,8 +117,8 @@ export function Flag({ country, width = 22, className = '' }) {
   // Union Jack (simplified): blue field, white + red saltires, white + red cross.
   return (
     <svg width={width} height={h} viewBox="0 0 36 24" className={`flag flag-gb ${className}`} aria-hidden="true">
-      <defs><clipPath id="flag-gb-clip"><rect width="36" height="24" rx="3" /></clipPath></defs>
-      <g clipPath="url(#flag-gb-clip)">
+      <defs><clipPath id={clipId}><rect width="36" height="24" rx="3" /></clipPath></defs>
+      <g clipPath={`url(#${clipId})`}>
         <rect width="36" height="24" fill="#012169" />
         <path d="M0 0L36 24M36 0L0 24" stroke="#ffffff" strokeWidth="4.8" />
         <path d="M0 0L36 24M36 0L0 24" stroke="#c8102e" strokeWidth="1.8" />

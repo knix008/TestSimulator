@@ -10,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const all = process.argv.includes('--all');
 
-const targets = ['dist', 'release', path.join('build', 'icons'), path.join('public', 'icon.svg'), path.join('src', 'build-info.json'), '.smoke', '.icons-preview.png', '.npm-install.log'];
+const targets = ['dist', 'release', path.join('build', 'icons'), path.join('public', 'icon.svg'), path.join('src', 'build-info.json'), '.smoke', '.icons-preview.png', '.npm-install.log', path.join('src-tauri', 'target'), path.join('src-tauri', 'gen')];
 if (all) targets.push('node_modules');
 for (const name of fs.readdirSync(root)) {
   if (/\.(exe|dmg|AppImage|deb|rpm|snap|blockmap)$/i.test(name)) targets.push(name);

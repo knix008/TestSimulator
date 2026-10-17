@@ -15,7 +15,7 @@ export function canPrintData(data) {
 }
 
 // ── Page setup ──
-// Paper sizes in mm (portrait). The names are what electron/main.js maps to printer paper sizes.
+// Paper sizes in mm (portrait). The names are the ones the print dialog offers.
 export const PAPERS = {
   A4: [210, 297], A3: [297, 420], A5: [148, 210], B5: [176, 250], Letter: [215.9, 279.4], Legal: [215.9, 355.6], Tabloid: [279.4, 431.8],
 };

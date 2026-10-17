@@ -183,10 +183,12 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   };
 
   // ── Navigation ──
+  // A double-click (and Enter) shows or runs the entry. A single click only selects it.
+  // onPreview returns true when it showed the file (an image, video or audio); anything else is opened or run.
   const activate = (e) => {
     if (!e) return;
     if (e.isDir) onNavigate(e.path);
-    else onOpenEntry(e);
+    else if (!(onPreview && onPreview(e))) onOpenEntry(e);
   };
   const goUp = () => { const parent = dirName(path); if (parent && parent !== path) onNavigate(parent); };
 
@@ -287,9 +289,6 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
     }
     if (e.button !== 0) return;
     selectIndex(i, { toggle: e.ctrlKey || e.metaKey, range: e.shiftKey });
-    // A plain click on an image file: the preview window (App decides whether the name is an image).
-    const entry = sorted[i];
-    if (onPreview && entry && !entry.isUp && !entry.isDir && !e.ctrlKey && !e.metaKey && !e.shiftKey) onPreview(entry);
   };
   const onContextMenu = (e) => {
     e.preventDefault();

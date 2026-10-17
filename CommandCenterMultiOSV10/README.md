@@ -1,8 +1,9 @@
 # Command Center (CommandCenterMultiOSV10)
 
 Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
-[CommandCenterGTKv10](../CommandCenterGTKv10) (GTK3, Linux/macOS) 를 참고하여 Electron 31 + React 18 + Vite 5 로
-다시 만들었으며, 같은 코어(`core/`)가 데스크톱 앱과 웹 서버 양쪽에서 동작합니다.
+[CommandCenterGTKv10](../CommandCenterGTKv10) (GTK3, Linux/macOS) 를 참고하여 Tauri 2 + React 18 + Vite 5 로
+다시 만들었으며, 같은 코어(`core/`)가 데스크톱 앱과 웹 서버 양쪽에서 동작합니다. 데스크톱 창은 Tauri 가 열고,
+파일 작업은 Tauri 가 띄운 `server/server.js` 가 처리합니다.
 
 - 사용 방법: [UsersGuide.md](UsersGuide.md)
 - 기능 목록·단축키 전체 표: [Features.md](Features.md)
@@ -19,11 +20,11 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 | 파일 작업 | 패널 간 복사(F5)/이동(F6), 새 폴더(F7)/새 파일(Shift+F4), 이름 바꾸기(F2), **다중 이름 바꾸기**(Ctrl+M — `[N]` `[E]` `[C]` 마스크·찾기/바꾸기·카운터·대소문자, 미리보기, 2단계 이름 변경), 삭제(F8), 휴지통, 클립보드 복사/붙여넣기(URI 목록), 열기(텍스트 파일은 설정에 따라 기본 앱 / 내장 뷰어 / 내장 편집기 / 지정 프로그램), 속성(Alt+Enter) |
 | 실행 취소 | **Ctrl+Z / Ctrl+Y** — 새 폴더·새 파일·이름 바꾸기·다중 이름 바꾸기·복사·이동·압축·압축 해제를 최근 50개까지 되돌리기/다시 실행. 툴팁과 상태줄에 되돌릴 작업 표시 |
 | 보기·편집 | **F3 내장 뷰어**(텍스트 — 인코딩 자동 감지·줄 바꿈·16진수, 이미지, 이진 파일 16진수 덤프), **F4 내장 편집기**(Ctrl+S 저장, UTF-8) |
-| 미리 보기 창 | 목록에서 **아무 파일이나 클릭**: 이미지 · 동영상/오디오 재생 · **PDF**(호스트의 PDF 뷰어 — 쪽 이동·확대·인쇄) · **텍스트는 뷰어 + 편집 버튼(같은 창이 간단한 편집기로, Ctrl+S)** · 그 밖의 파일은 **16진수 덤프** |
-| 동영상 · 오디오 | 목록에서 **동영상·오디오 파일을 클릭**하면 미리 보기 창에서 바로 **재생**(F3 뷰어도 같음): mp4·m4v·webm·mkv·mov·ogv·avi·mpg·3gp·ts·wmv / mp3·wav·flac·ogg·opus·m4a·aac·weba·wma·aiff·midi — 파일을 읽어 들이지 않고 호스트가 **스트리밍**(Range 지원, 탐색 가능; 데스크톱 `cc-media://`, 웹 `/api/media`), 브라우저 컨트롤(재생·탐색·음량·전체 화면), Space/←/→/M 키, 길이·크기·해상도 표시. 코덱은 호스트(Chromium)가 지원하는 것 |
-| 이미지 | **이미지 미리 보기·뷰어**: 목록에서 이미지를 클릭하면 **미리 보기 창**(포커스를 빼앗지 않는 별도 창, 다음 이미지를 클릭하면 갱신) — png·jpg·gif·webp·bmp·svg·ico·avif·apng 에 더해 **HEIC/HEIF**(libheif WASM)·**DICOM(.dcm)**(모든 표준 전송 구문: 비압축 LE/BE·RLE·JPEG baseline/12비트·JPEG 무손실·JPEG-LS·JPEG 2000/HTJ2K; 다중 프레임 탐색 + **▶ 연속 재생**(파일의 프레임 속도, 반복) + **⊞ 모든 프레임 한눈에**(격자, 클릭으로 선택); 윈도우/레벨 프리셋·입력·Ctrl+드래그·반전)·**TIFF**(LZW·PackBits·Deflate 등, 다중 페이지). 확대/축소(Ctrl+휠·+/−·0 맞춤·1 실제 크기·더블클릭), 드래그 이동, 회전(R), 인쇄, 클립보드 복사, **PNG/JPEG/WebP/BMP 로 저장(변환)**, 우클릭 컨텍스트 메뉴 |
+| 미리 보기 창 | **더블클릭 / Enter**: 이미지·동영상·오디오는 미리 보기 창(설정이 켜져 있을 때). 그 밖의 파일은 연결된 프로그램으로 열거나 실행. **파일 메뉴 · 우클릭 › 미리 보기** 는 아무 파일이나: 이미지 · 동영상/오디오 재생 · **PDF** · **텍스트는 뷰어 + 편집 버튼(Ctrl+S)** · 그 밖의 파일은 **16진수 덤프**. 한 번 클릭은 선택만 |
+| 동영상 · 오디오 | 목록에서 **동영상·오디오 파일을 더블클릭**하면 미리 보기 창에서 바로 **재생**(F3 뷰어도 같음): mp4·m4v·webm·mkv·mov·ogv·avi·mpg·3gp·ts·wmv / mp3·wav·flac·ogg·opus·m4a·aac·weba·wma·aiff·midi — 파일을 읽어 들이지 않고 `/api/media` 로 **스트리밍**(Range 지원, 탐색 가능), 브라우저 컨트롤(재생·탐색·음량·전체 화면), Space/←/→/M 키, 길이·크기·해상도 표시. 코덱은 웹뷰(WebView2 / WebKit)가 지원하는 것 |
+| 이미지 | **이미지 미리 보기·뷰어**: 목록에서 이미지를 **더블클릭**하면 **미리 보기 창**(포커스를 빼앗지 않는 별도 창) — png·jpg·gif·webp·bmp·svg·ico·avif·apng 에 더해 **HEIC/HEIF**(libheif WASM)·**DICOM(.dcm)**(모든 표준 전송 구문: 비압축 LE/BE·RLE·JPEG baseline/12비트·JPEG 무손실·JPEG-LS·JPEG 2000/HTJ2K; 다중 프레임 탐색 + **▶ 연속 재생**(파일의 프레임 속도, 반복) + **⊞ 모든 프레임 한눈에**(격자, 클릭으로 선택); 윈도우/레벨 프리셋·입력·Ctrl+드래그·반전)·**TIFF**(LZW·PackBits·Deflate 등, 다중 페이지). 확대/축소(Ctrl+휠·+/−·0 맞춤·1 실제 크기·더블클릭), 드래그 이동, 회전(R), 인쇄, 클립보드 복사, **PNG/JPEG/WebP/BMP 로 저장(변환)**, 우클릭 컨텍스트 메뉴 |
 | 파일 정보 | **Alt+Enter · 우클릭 메뉴 › 파일 정보 보기 · 툴바 ⓘ** — 일반(위치·종류·MIME·크기·디스크 사용)·시간(만든/수정/접근)·권한/속성·**내용**(이미지 크기·형식·EXIF(카메라·노출·촬영 일시·GPS)·DICOM 태그·TIFF 태그, 텍스트 인코딩·줄 수·줄 끝, 압축 파일 여부, 이진 시그니처)·**해시**(MD5/SHA-1/SHA-256, 버튼으로 계산). 창은 내용에 맞춰 크기가 정해져 스크롤 바가 없음 |
-| 인쇄 | **Ctrl+P · 툴바 🖨 · 파일 메뉴 · 우클릭 메뉴** — 텍스트·이미지는 **앱의 인쇄 창**(미리보기 + 프린터·용지·방향·여백·배율·글꼴·머리글·흑백·매수·페이지 범위; 데스크톱은 PDF 미리보기 그대로 프린터로, 웹은 브라우저 대화상자로), 뷰어·편집기에도 인쇄 버튼(편집 중인 내용 그대로). PDF·오피스 문서 등은 확인 후 **연결 프로그램으로 인쇄**(데스크톱) |
+| 인쇄 | **Ctrl+P · 툴바 🖨 · 파일 메뉴 · 우클릭 메뉴** — 텍스트·이미지는 **앱의 인쇄 창**(미리보기 + 용지·방향·여백·배율·글꼴·머리글·흑백·매수·페이지 범위). 인쇄는 웹뷰의 인쇄 대화상자로 나갑니다. 뷰어·편집기에도 인쇄 버튼(편집 중인 내용 그대로). PDF·오피스 문서 등은 확인 후 **연결 프로그램으로 인쇄** |
 | Total Commander 방식 | **패널 탭**(Ctrl+T 새 탭 · Ctrl+W 닫기 · Ctrl+Tab 순환, 세션 복원), 펑션 키 바(F3~F8·Alt+F4), Insert/Space 선택(Space 는 폴더 크기 계산), Num+/Num−/Num* 패턴 선택·반전, Alt+Num+ 같은 확장자, Shift+F2 폴더 비교, Ctrl+U 패널 바꾸기, Ctrl+←/→ 대상=원본, Alt+↓ 폴더 기록, Ctrl+D 즐겨찾는 폴더, Alt+F1/F2 드라이브, 글자 입력 빠른 검색 |
 | 별도 창 | 뷰어·편집기·**미리 보기·파일 정보**·다중 이름 바꾸기·검색·설정은 **독립된 창**(위치·크기 자유, 종류별 기억, **도구마다 창 하나** — 다시 누르면 앞으로 오고 새 파일/폴더를 받음, 앱 종료 시 함께 닫힘; 미리 보기 창은 포커스를 빼앗지 않고 메인 창 위에 머묾). 크기 조절이 되는 창마다 **우측 하단 크기 변경 마커**. 설정 창은 크기 고정(920×990, 스크롤 없음)이며 각 도구 창은 제목줄에 자기 아이콘을 씁니다. 설정에서 앱 내 대화상자로 전환 가능 |
 | 충돌·진행 | 같은 이름이 있으면 덮어쓰기/건너뛰기/취소 + "이후 항목에도 동일하게 적용", 모든 긴 작업은 진행률 창(취소 가능) |
@@ -38,11 +39,12 @@ Windows · macOS · Linux · **웹** 용 듀얼 패널 파일 관리자.
 
 ```bash
 npm install
-npm start          # Vite 개발 서버 + Electron (UI 는 핫 리로드, core/·electron/ 이 바뀌면 Electron 자동 재시작)
+npm start          # Tauri 개발 창. Vite(5185)가 UI 를 핫 리로드하고, 앱이 node server/server.js 를 띄웁니다
+npm run dev        # Vite 만: http://127.0.0.1:5185 (API 프록시). 데스크톱 창은 열리지 않습니다
 npm run web        # 빌드 후 웹 버전: http://127.0.0.1:5186 (브라우저가 열립니다)
 ```
 
-`CC_USER_DATA=<폴더>` 환경 변수를 주면 개발 실행이 별도 프로필(세션·창 상태·단일 인스턴스 잠금)을 사용합니다.
+데스크톱 세션은 OS 의 앱 데이터 폴더 `Command Center` 에 저장됩니다. `CC_CONFIG_DIR=<폴더>` 를 주면 그 폴더를 씁니다. Node 실행 파일은 `node` 이며, 다른 바이너리를 쓰려면 `CC_NODE` 를 지정합니다.
 
 ### 웹 버전
 
@@ -58,45 +60,32 @@ node server/server.js --host 0.0.0.0 --token 비밀값 --allow-open      # + 더
 
 ## 빌드 / 설치 파일
 
+현재 OS 용 설치 파일을 만듭니다. Rust 와 Node 가 필요합니다.
+
 ```bash
-npm run build:win     # release/Command Center Setup 1.0.0.exe (NSIS) — 프로젝트 루트에도 복사
-npm run build:mac     # release/Command Center-1.0.0.dmg          (macOS 에서 실행)
-npm run build:linux   # release/*.AppImage, *.deb                  (Linux 에서 실행)
+npm run tauri:build   # src-tauri/target/release/bundle/ 아래 (Windows: NSIS·MSI, macOS: .app/.dmg, Linux: deb·AppImage 등)
 ```
 
-아이콘(입체 슬랩 위의 명령 프롬프트 글리프 `>_` — 사방의 노드가 가운데로 모여 "모든 명령이 한곳에" — 파란 계열, 위에서 비추는 조명·그림자·바닥 그림자로 3D)은 `assets/icon.svg` 하나에서 `npm run generate:icons` 로 `build/icons/` 의 ico · icns · png 세트가 생성되며,
-앱 실행 아이콘 · 설치 파일 · 언인스톨러 · 바탕화면/시작 메뉴 바로가기 · macOS DMG · 웹 파비콘이 모두 같은 아이콘을 씁니다.
+아이콘(입체 슬랩 위의 명령 프롬프트 글리프 `>_` — 사방의 노드가 가운데로 모여 "모든 명령이 한곳에" — 파란 계열, 위에서 비추는 조명·그림자·바닥 그림자로 3D)은 `assets/icon.svg` 입니다. `npm run generate:icons` 가 그 SVG 에서 `src-tauri/icons/`(앱이 쓰는 32·128·256 PNG 와 `icon.ico`)를 다시 만듭니다. 웹 파비콘도 같은 SVG 입니다.
 도구 창(뷰어·편집기·미리 보기·파일 정보·다중 이름 바꾸기·검색·설정)의 제목줄 아이콘은 `node scripts/generate-tool-icons.mjs` 가 UI 아이콘에서 만들어 `assets/tool-icons/` 에 커밋해 둡니다.
 
-### 설치 동작
+세션·설정은 설치 후에도 같은 폴더에 남습니다.
 
-- **Windows (NSIS)** — 설치 폴더 선택, 바탕화면/시작 메뉴 바로가기 선택(한국어/영어). 이미 설치된 버전은 완전히 삭제한 뒤 설치하고, 남아 있는 이전 데이터(세션·설정)는 삭제 여부를 묻습니다(무인 설치는 유지).
-- **Linux (.deb / AppImage)** — `dpkg -i` 로 설치하면 애플리케이션 메뉴에 등록됩니다. 데이터는 `~/.config/Command Center`.
-- **macOS (.dmg)** — 앱을 Applications 로 끌어 넣습니다. 데이터는 `~/Library/Application Support/Command Center`.
+- **Windows** — `%APPDATA%\Command Center`
+- **Linux** — `~/.config/Command Center`
+- **macOS** — `~/Library/Application Support/Command Center`
 
 ```bash
-npm run clean         # dist/ release/ build/icons/ .smoke/ 와 루트의 설치 파일 삭제
+npm run clean         # dist/ release/ build/icons/ src-tauri/target/ src-tauri/gen/ 와 루트의 설치 파일 삭제
 npm run clean:all     # 위 항목 + node_modules/
 ```
 
 ## 테스트
 
 ```bash
-npm test                            # 단위 테스트: tar/zip/bz2 왕복, 분할 압축, 복사 충돌, 다중 이름 바꾸기, 파일 읽기/쓰기, 검색, API, 터미널, 프롬프트, 인쇄 문서, samples/(형식 분류·DICOM 프레임·이미지 디코딩·/api/media Range)
-npm run build && npm run smoke      # 실제 앱을 띄워 스크린샷(.smoke/main.png) + 웹 서버 API/UI 확인
-npm run smoke -- --scenario all     # 컨텍스트 메뉴·압축·검색·정보·삭제·테마·오류·터미널·로그·설정·뷰어·다중 이름 바꾸기·폴더 비교·실행 취소·미리 보기·파일 정보 화면을 각각 캡처
-npm run smoke -- --scenario preview --left D:\Pictures   # 그 폴더의 첫 이미지를 미리 보기 창에 (HEIC·DICOM·TIFF 도)
-npm run smoke -- --scenario samples # samples/ 의 모든 파일(PNG·JPEG·GIF·WebP·BMP·SVG·ICO·AVIF·TIFF·HEIC·DICOM 5종·PDF·MP4·WebM·WAV)을 뷰어로 열어 디코딩/재생 결과를 파일별로 출력
-npm run smoke -- --scenario print   # 인쇄 창(미리보기 + 페이지 설정)
-node scripts/generate-samples.mjs   # samples/ 다시 생성 (sharp + 자체 GIF/BMP/ICO/WAV 인코더 + Electron MediaRecorder 로 WebM; HEIC·MP4·DCM 은 커밋된 파일)
-npm run smoke -- --scenario compress --web   # 같은 시나리오를 웹 모드로
-npm run smoke -- --script my.js --name x --left C:\folder --tool-script tool.js --probe probe.js
-#   --script      : 파일에 든 임의 시나리오를 메인 창에서 실행
-#   --tool-script : 시나리오가 연 별도 창(뷰어·설정 …) 안에서 실행 — 창은 <name>-<kind>.png 로 캡처
-#   --probe       : 마지막에 메인 창에서 평가해 결과를 출력(검증용)
+npm test                            # 단위 테스트: tar/zip/bz2 왕복, 분할 압축, 복사 충돌, 다중 이름 바꾸기, 파일 읽기/쓰기, 검색, API, 터미널, 프롬프트, 인쇄 문서, samples/(형식 분류·DICOM 프레임·이미지 디코딩·/api/media Range), Tauri 가 띄우는 것과 같은 서버(test/tauri-host.test.mjs)
+node scripts/generate-samples.mjs   # samples/ 다시 생성 (sharp + 자체 GIF/BMP/ICO/WAV 인코더; WebM 은 이미 커밋된 파일을 유지. HEIC·MP4·DCM 도 커밋된 파일)
 ```
-
-smoke 테스트는 별도 프로필(`.smoke/profile`)로 실행되므로 실행 중인 앱과 충돌하지 않습니다.
 
 ## 단축키
 
@@ -133,19 +122,18 @@ smoke 테스트는 별도 프로필(`.smoke/profile`)로 실행되므로 실행 
 
 ```
 core/       api.js fsops.js archive.js tar.js bzip2-worker.js jobs.js session.js terminal.js   ← 플랫폼 무관 (Node)
-electron/   main.js ipc.js preload.js                                             ← 데스크톱 호스트
-server/     server.js                                                             ← 웹 호스트 (http 모듈만 사용)
+server/     server.js                                                             ← HTTP 호스트 (웹, 그리고 Tauri 가 띄우는 사이드카)
+src-tauri/  src/main.rs Cargo.toml tauri.conf.json capabilities/ icons/          ← 데스크톱 셸 (창, 대화상자, 코어 프로세스)
 src/        App.jsx ToolWindow.jsx(별도 창 페이지: viewer·editor·preview·info·multiRename·search·settings·about) themes.js styles.css main.jsx
   lib/      backend.js(전송 + 창 열기/메시지 버스/창 크기/저장 대화상자) i18n.js format.js ansi.jsx history.js(실행 취소) settings.js(설정 기본값) prompt.js(프롬프트 테마 · oh-my-posh 호환)
-            media.js(동영상·오디오 확장자·스트리밍 URL) print.js(인쇄 경로: 미리보기 PDF·프린터 목록·인쇄) printdoc.js(인쇄 문서·페이지 설정·페이지 범위, 순수 함수) images.js(이미지 형식·HEIC/TIFF 디코딩·회전·PNG/JPEG/WebP/BMP 인코딩) dicom.js(DICOM 태그·전송 구문별 코덱·프레임·윈도우) exif.js(JPEG EXIF) fileinfo.js(파일 정보 "내용" 행)
+            media.js(동영상·오디오 확장자·스트리밍 URL) print.js(인쇄 경로) printdoc.js(인쇄 문서·페이지 설정·페이지 범위, 순수 함수) images.js(이미지 형식·HEIC/TIFF 디코딩·회전·PNG/JPEG/WebP/BMP 인코딩) dicom.js(DICOM 태그·전송 구문별 코덱·프레임·윈도우) exif.js(JPEG EXIF) fileinfo.js(파일 정보 "내용" 행)
   themes.js(내장 30 + 사용자 정의 테마)
   dialogs/    PrintDialog.jsx(인쇄 창: 페이지 설정 + 미리보기)
   components/ FilePanel.jsx FolderTree.jsx(패널 옆 폴더 트리) MediaView.jsx(동영상·오디오 플레이어) Chrome.jsx(메뉴·툴바·펑션 키 바) ContextMenu.jsx Icons.jsx BottomDock.jsx Prompt.jsx ImageView.jsx(그림 창: 확대·회전·인쇄·저장·DICOM 막대) ResizeGrip.jsx(크기 변경 마커)
   dialogs/  Dialogs.jsx SearchDialog.jsx SettingsDialog.jsx PromptEditor.jsx ToolDialogs.jsx(뷰어·편집기·다중 이름 바꾸기) InfoDialog.jsx(파일 정보)
 assets/     icon.svg
-build/      installer.nsh linux/{after-install.sh, after-remove.sh}
-scripts/    generate-icons.mjs generate-tool-icons.mjs ico.mjs generate-build-info.mjs sync-public-svgs.mjs start-electron.mjs copy-installer.js free-port.mjs smoke.mjs clean.mjs
-test/       archive.test.mjs fsops.test.mjs terminal.test.mjs prompt.test.mjs
+scripts/    generate-icons.mjs generate-tool-icons.mjs ico.mjs generate-build-info.mjs sync-public-svgs.mjs tauri-before-dev.mjs tauri-before-build.mjs free-port.mjs clean.mjs
+test/       archive.test.mjs fsops.test.mjs terminal.test.mjs prompt.test.mjs tauri-host.test.mjs
 ```
 
 이미지 디코딩은 렌더러에서 합니다(데스크톱·웹 동일): `libheif-js`(HEIC/HEIF, WebAssembly) · `utif`(TIFF) · `dicom-parser` + `@cornerstonejs/codec-openjpeg`(JPEG 2000) · `@cornerstonejs/codec-charls`(JPEG-LS) · `@cornerstonejs/codec-libjpeg-turbo-8bit`/`-12bit`(JPEG) · `jpeg-lossless-decoder-js`(무손실 JPEG). 모두 첫 사용 때만 로드되는 별도 청크입니다.

@@ -258,7 +258,7 @@ export function AboutDialog({ spec, done }) {
           <div><b>{t('version')}</b>&nbsp; {info.version || build.version || '1.0.0'}</div>
           <div><b>{t('author')}</b>&nbsp; {t('author_name')}</div>
           <div className="muted">{t('about_desc')}</div>
-          <div className="muted small">{t('about_host')}: {info.host === 'electron' ? t('host_electron') : t('host_web')} · {info.platform}</div>
+          <div className="muted small">{t('about_host')}: {info.host === 'electron' ? t('host_electron') : info.host === 'tauri' ? t('host_tauri') : t('host_web')} · {info.platform}</div>
           {build.buildTime && <div className="muted small">{t('about_build')}: {build.buildTime.replace('T', ' ').slice(0, 16)}{build.gitCommit ? ` (${build.gitCommit})` : ''}</div>}
           <div className="about-copy">{t('copyright')}</div>
         </div>

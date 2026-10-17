@@ -380,7 +380,7 @@ export function BottomDock({ visible = true, tab, onTab, log, onClearLog, onCopy
     if (e.button === 1) { e.preventDefault(); if (id === 'log') onCloseLog && onCloseLog(); else if (id === 'search') onCloseSearch(); else onCloseTerm(id); } else onTab(id);
   };
   return (
-    <div className="dock" style={{ height, display: visible ? undefined : 'none' }}>
+    <div className="dock" data-tut="dock" style={{ height, display: visible ? undefined : 'none' }}>
       <div className="h-splitter" onMouseDown={onResizeStart} />
       <div className="dock-head">
         <div className="dock-tabs">

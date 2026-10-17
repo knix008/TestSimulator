@@ -1,10 +1,9 @@
-// Generates the sample files in samples/ that the tests (test/samples.test.mjs) and the smoke
-// scenarios (`npm run smoke -- --scenario samples`) open in the viewer / preview window:
+// Generates the sample files in samples/ that the tests (test/samples.test.mjs) open:
 //
 //   images  — PNG, JPEG, GIF (animated), WebP, TIFF, AVIF (sharp), BMP, ICO, SVG, APNG-less (written here)
 //   pdf     — a two-page PDF (written here)
-//   media   — WAV (PCM sine, written here), WebM video + WebM/Opus audio (recorded by Electron's
-//             MediaRecorder from a canvas / an oscillator — no ffmpeg needed)
+//   media   — WAV (PCM sine, written here). WebM video / audio are already in samples/;
+//             regenerating them needs a Chromium MediaRecorder and is skipped when Electron is gone.
 //
 // Files that cannot be produced here are committed as is: sample.heic (nokiatech HEIF conformance
 // C003), sample.mp4 (a short H.264 clip), *.dcm (pydicom test files: single frame, JPEG 2000, RGB,
@@ -164,6 +163,10 @@ function pdf() {
 // ── WebM video (VP9, 2 s of the badge turning) and WebM/Opus audio, recorded by Electron ──
 function webm() {
   const electron = path.join(root, 'node_modules', 'electron', 'cli.js');
+  if (!fs.existsSync(electron)) {
+    console.log('[samples] electron is not installed — leaving the committed WebM files as they are');
+    return Promise.resolve();
+  }
   const script = path.join(out, '.record.cjs');
   fs.writeFileSync(script, `
 const { app, BrowserWindow } = require('electron');

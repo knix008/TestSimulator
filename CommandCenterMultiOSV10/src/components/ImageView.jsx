@@ -8,7 +8,7 @@
 // window (centre / width) with presets, inputs, inversion and Ctrl+drag.
 import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../lib/i18n';
-import { call, isElectron, pickSavePath } from '../lib/backend';
+import { call, isElectron, isDesktop, pickSavePath } from '../lib/backend';
 import { decodeImage, renderImage, encodeImage, blobToBase64, withExt, SAVE_FORMATS } from '../lib/images';
 import { PrintDialog } from '../dialogs/PrintDialog';
 import { dirName, joinPath, baseName } from '../lib/format';
@@ -234,7 +234,7 @@ export const ImageView = forwardRef(function ImageView({ spec }, ref) {
     setBusy('save');
     try {
       const blob = await encodeImage(picture(), f.id);
-      if (isElectron) {
+      if (isDesktop) {
         const target = await pickSavePath(joinPath(dirName(path), outName), [{ name: f.label, extensions: [f.ext] }, { name: t('img_all_files'), extensions: ['*'] }]);
         if (!target) return;
         await call('fs.writeBytes', { path: target, base64: await blobToBase64(blob) });

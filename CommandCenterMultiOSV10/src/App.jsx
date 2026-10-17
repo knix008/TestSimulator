@@ -9,6 +9,8 @@ import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, joinPath, baseName, dirName, getSeparator, samePath } from './lib/format';
 import { FilePanel } from './components/FilePanel';
 import { MenuBar, Toolbar, FnBar } from './components/Chrome';
+import { StartPage } from './components/StartPage';
+import { Tutorial } from './components/Tutorial';
 import { DialogHost, useDialogs } from './dialogs/Dialogs';
 import { BottomDock } from './components/BottomDock';
 import { SearchDialog } from './dialogs/SearchDialog';
@@ -84,6 +86,9 @@ export default function App() {
   const baseDialogs = useDialogs();
   const [info, setInfo] = useState(null);
   const [session, setSession] = useState(null);
+  const [startOpen, setStartOpen] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
+  const tutSnap = useRef({ dock: false });
   const [active, setActive] = useState('left');
   const [status, setStatusText] = useState('');
   // Bottom dock: the log collects every status message and error; terminal
@@ -730,8 +735,8 @@ export default function App() {
   // Tools open as separate windows (settings › windows) when the host can; otherwise as in-app dialogs.
   const useWindows = () => session.separateWindows !== false && canOpenWindows;
   // Settings and About are a place to go, not a question being asked: there is one of each, however often
-  // the button is pressed. As a separate window that is the host's business (SINGLETON in electron/main.js
-  // brings the open one to the front); as a dialog inside the app it is this — a second copy stacked on the
+  // the button is pressed. As a separate window that is the host's business (one window per kind,
+  // and a second request brings the open one to the front); as a dialog inside the app it is this — a second copy stacked on the
   // first is never what was meant, and for the settings it would also hand back a stale set of values.
   const openAlready = (type) => dialogs.stack.some((d) => d.type === type);
   const openTool = async (kind, args, opts) => {
@@ -750,10 +755,10 @@ export default function App() {
     const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)), onPrintError: (err) => dialogs.error(err, t('print_failed')), onStatus: setStatus, onSaved: () => { p && p.refresh(); } });
     if (r === 'edit') await editFile(side, e, data);
   };
-  // A click on a file in the list (and the 'preview' action): the preview window — one for the app, shown
-  // without taking the focus, following every file clicked. An image is decoded there (HEIC / DICOM / TIFF
-  // too), a video / audio plays, a text file gets the viewer with its Edit button (the window turns into the
-  // editor), anything else the hex dump.
+  // The preview window — one for the app, shown without taking the focus. A double-click opens it for an
+  // image, video or audio file (when that setting is on); the Preview command opens it for any file.
+  // An image is decoded there (HEIC / DICOM / TIFF too), a video / audio plays, a text file gets the viewer
+  // with its Edit button (the window turns into the editor), anything else the hex dump.
   const previewImage = async (side, entry, explicit) => {
     const p = panel(side);
     const e = entry || (p && p.getCursorEntry());
@@ -913,6 +918,7 @@ export default function App() {
 
   const runAction = async (id, side) => {
     switch (id) {
+      case 'start': setStartOpen((open) => !open); break;
       case 'home': navigate(side, info ? info.home : session[side]); break;
       case 'newFolder': await newEntry(side, 'folder'); break;
       case 'newFile': await newEntry(side, 'file'); break;
@@ -1111,6 +1117,7 @@ export default function App() {
   };
 
   const menuState = useMemo(() => ({
+    start: startOpen,
     showHidden: !!(session && session.showHidden),
     recentDirs: (session && session.recentDirs) || [],
     treeLeft: !!(session && session.leftTree),
@@ -1136,7 +1143,7 @@ export default function App() {
     canRedo: history.canRedo,
     undoWhat: describeHistory(history.peekUndo()),
     redoWhat: describeHistory(history.peekRedo()),
-  }), [session, selCount, selIsDir, selImage, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [session, startOpen, selCount, selIsDir, selImage, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!session) return <div className="boot">{status || '…'}</div>;
 
@@ -1161,7 +1168,13 @@ export default function App() {
       setTimeout(() => setExtractable((x) => ({ ...x, [side]: !!(p && p.isExtractable()) })), 60);
     },
     onOpenEntry: (entry) => openEntry(side, entry),
-    onPreview: session.imagePreview !== false ? (entry) => { previewImage(side, entry, false).catch(() => {}); } : undefined,
+    // Double-click / Enter: show an image, video or audio file here; every other file is opened or run.
+    // Returns true when the preview took the file, so the panel does not also launch it.
+    onPreview: (entry) => {
+      if (session.imagePreview === false || (!isImageName(entry.name) && !isMediaName(entry.name))) return false;
+      previewImage(side, entry, false).catch(() => {});
+      return true;
+    },
     onAction: (id) => onAction(id, side),
     onDropFiles: ({ dest, move, drop }) => { dropTransfer(dest, move, drop).catch(showError); },
     history: dirHistory[side],
@@ -1187,7 +1200,21 @@ export default function App() {
     <div className="app">
       <MenuBar onAction={(id) => onAction(id)} state={menuState} />
       {session.showToolbar !== false && <Toolbar onAction={(id) => onAction(id)} theme={session.theme} dockVisible={!!session.dockVisible} state={menuState} />}
-      <div className={`panels ${vertical ? 'vertical' : ''}`} ref={splitRef}>
+      <div className="app-body">
+      {startOpen && (
+        <StartPage
+          recent={(session.recentDirs) || []}
+          scene={session.startScene || 'day'}
+          onScene={(id) => saveSession({ startScene: id })}
+          onRecent={(path) => { setStartOpen(false); navigate(active, path); }}
+          onRun={(id) => {
+            if (id === 'tutorial') { tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); return; }
+            setStartOpen(false); if (id !== 'files') onAction(id);
+          }}
+        />
+      )}
+      <div className={`app-work ${startOpen ? 'covered' : ''}`}>
+      <div className={`panels ${vertical ? 'vertical' : ''}`} data-tut="panels" ref={splitRef}>
         <div className="panel-slot" style={{ flexBasis: `${(session.splitter || 0.5) * 100}%` }}>
           <FilePanel ref={panels.left} {...panelProps('left')} />
         </div>
@@ -1212,6 +1239,8 @@ export default function App() {
           onCopyTo: (side, paths) => copyPathsTo(side, paths),
         }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
+      </div>
+      </div>
       <div className="statusbar ellipsis" title={status}>
         {status}
         <ResizeGrip />
@@ -1224,6 +1253,15 @@ export default function App() {
           onCopyTo={(side, paths) => copyPathsTo(side, paths)} />
       )}
       <DialogHost stack={dialogs.stack} resolve={dialogs.resolve} />
+      {tutorial && (
+        <Tutorial
+          onClose={() => { setTutorial(false); setStartOpen(true); if (!tutSnap.current.dock) showDock(false); }}
+          onPrepare={(step) => {
+            setStartOpen(step.place === 'start');
+            if (step.dock) { if (session.logOpen === false) saveSession({ logOpen: true }); showTab('log'); }
+          }}
+        />
+      )}
     </div>
   );
 }

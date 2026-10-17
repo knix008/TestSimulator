@@ -2,8 +2,7 @@
 //
 // A native caption is painted by the system in the system's colours, so it is
 // the one part of the window a theme could not reach. The host therefore hides
-// it (electron/main.js: titleBarStyle 'hidden' with a title-bar overlay on
-// Windows, 'hiddenInset' on macOS) and the page's top row — the menu bar in the
+// it (a host that paints windowControlsOverlay) and the page's top row — the menu bar in the
 // main window, the caption strip of a tool window — takes its place, themed
 // like everything else. The native window controls stay: they float over that
 // row as an overlay whose colours the host is told on every theme change
