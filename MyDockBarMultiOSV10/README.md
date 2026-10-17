@@ -183,26 +183,37 @@ sides of the bridge. The Rust suite (69 tests) covers PE icon extraction,
 `.desktop` parsing, the first-run seed, running-process filtering, the trash
 probes, the auto-hide geometry, atomic settings writes, and menu icon coverage.
 
-`npm run clean` deletes the Rust build (`src-tauri/target`, several GB) and
-copied installers; `--dry-run` lists what it would remove.
+`npm run clean` deletes the Rust build (`src-tauri/target`, several GB), the
+generated capability schemas (`src-tauri/gen`), any Electron-era `dist/` or
+`out/` folder, and installers copied to the project root. `--dry-run` lists
+what it would remove. It leaves `node_modules`, the sources and `build/`.
 
 ---
 
 ## Generated files
 
-Two parts of the tree are produced by scripts rather than written by hand.
+[`.gitignore`](.gitignore) keeps the generated tree out of version control.
+`src-tauri/Cargo.lock` is the exception on the Rust side: it pins the
+dependency set and is committed. The installer hooks in
+[`src-tauri/windows/hooks.nsh`](src-tauri/windows/hooks.nsh) are hand-written
+and tracked as well.
 
 | Path | Produced by | In git? |
 | --- | --- | --- |
 | `build/` | `npm run icons` | no — ~2MB of binaries that would churn on every tweak to the drawing code |
+| `src-tauri/target/` | `cargo` / `tauri build` | no — the Rust build, several GB |
+| `src-tauri/gen/` | `tauri dev` / `tauri build` | no — capability schemas, regenerated on the next run |
 | `MyDockBar-*.exe` etc. in the root | a build | no — copies of the bundles in `src-tauri/target/release/bundle/` |
+| `dist/`, `out/` | the old Electron build | no — leftovers; `npm run clean` removes them if they are still around |
 | `themes/` | `npm run themes` | yes — small JSON, shipped with the app, and the worked example the theme format is documented against |
+| `src-tauri/Cargo.lock` | `cargo` | yes — pins the Rust dependency set |
 
 `tauri dev` and `tauri build` (through `beforeDevCommand`/`beforeBuildCommand`)
 and `pretest` run [`scripts/ensure-icons.js`](scripts/ensure-icons.js), which
 regenerates the artwork when it is missing or older than the scripts that draw
-it. A fresh clone therefore needs nothing beyond `npm install`. `npm run icons`
-rebuilds unconditionally.
+it. `tauri dev` and `tauri build` also create `src-tauri/target/` and
+`src-tauri/gen/` the first time they run. A fresh clone therefore needs nothing
+beyond `npm install`. `npm run icons` rebuilds the artwork unconditionally.
 
 ---
 
@@ -220,7 +231,7 @@ Tauri writes the bundles to `src-tauri/target/release/bundle/`, and each build
 command ends with [`scripts/copy-installer.js`](scripts/copy-installer.js),
 which copies them to the project root under the names the documents use — the
 file you would hand to someone ends up next to the README rather than buried in
-`target/`:
+`target/`. Those copies are listed in `.gitignore`, so they are not committed:
 
 | Bundle | Copied as |
 | --- | --- |

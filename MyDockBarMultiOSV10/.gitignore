@@ -1,37 +1,51 @@
 # Dependencies
 node_modules/
 
-# Packaged output
+# ---------------------------------------------------------------------------
+# Rust / Tauri build output.
+#
+# src-tauri/target is the Cargo build (several GB). src-tauri/gen holds the
+# capability schemas Tauri writes on `tauri dev` and `tauri build`. Both are
+# recreated by the next run, and `npm run clean` deletes them.
+#
+# src-tauri/Cargo.lock IS tracked: it pins the Rust dependency set.
+# src-tauri/windows/hooks.nsh is hand-written and IS tracked.
+# ---------------------------------------------------------------------------
+src-tauri/target/
+src-tauri/gen/
+
+# Leftovers from the Electron build. `npm run clean` still removes them.
 dist/
 out/
 
 # Installers copied to the project root by scripts/copy-installer.js
+# (and the extra archive names `npm run clean` also removes).
 /MyDockBar-*.exe
 /MyDockBar-*.dmg
 /MyDockBar-*.AppImage
 /MyDockBar-*.deb
 /MyDockBar-*.rpm
+/MyDockBar-*.zip
+/MyDockBar-*.blockmap
 
 # ---------------------------------------------------------------------------
 # Generated artwork.
 #
-# Everything in build/ except installer.nsh is produced by `npm run icons`
-# from scripts/make-icons.js and scripts/menu-glyphs.js - about 2MB of binaries
-# that would otherwise churn on every tweak to the drawing code. `prestart`,
-# `predev` and `pretest` regenerate them when they are missing or stale, so a
-# fresh clone works without any extra step.
-#
-# build/installer.nsh is hand-written and IS tracked.
+# Everything in build/ is produced by `npm run icons` from scripts/make-icons.js
+# and scripts/menu-glyphs.js — about 2MB of binaries that would otherwise churn
+# on every tweak to the drawing code. `beforeDevCommand`, `beforeBuildCommand`
+# and `pretest` run scripts/ensure-icons.js, which regenerates them when they
+# are missing or stale, so a fresh clone works without any extra step.
 # ---------------------------------------------------------------------------
-build/*
-!build/installer.nsh
+build/
 
 # Logs
 *.log
 npm-debug.log*
 yarn-error.log*
 
-# Local runtime data, if the app is ever pointed at the working directory
+# A throwaway data folder, if MYDOCKBAR_CONFIG_DIR is pointed at the working
+# directory. Settings, icon caches and the webview profile all go there.
 .electron-user-data/
 userData/
 
@@ -55,7 +69,7 @@ ehthumbs.db
 desktop.ini
 $RECYCLE.BIN/
 
-# Electron / electron-builder caches
+# Tool caches, including leftovers from the Electron toolchain
 .electron/
 .electron-gyp/
 .cache/

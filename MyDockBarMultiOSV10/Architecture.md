@@ -319,17 +319,24 @@ Rust side asks for actually exists.
 ## 9. Build pipeline
 
 ```
-scripts/make-icons.js  ──▶  build/       (app icon, tray, menu glyphs, installer art)
-scripts/menu-glyphs.js ──┘
-scripts/make-themes.js ──▶  themes/      (48 theme.json files)
-tauri build            ──▶  src-tauri/target/release/bundle/   (installers)
-scripts/copy-installer.js ──▶  project root  (the installers, renamed)
+scripts/make-icons.js      ──▶  build/                    (app icon, tray, menu glyphs, installer art)
+scripts/menu-glyphs.js     ──┘
+scripts/make-themes.js     ──▶  themes/                   (48 theme.json files; committed)
+tauri dev / tauri build    ──▶  src-tauri/target/         (the Rust build and the installers)
+                           ──▶  src-tauri/gen/schemas/    (capability schemas)
+scripts/copy-installer.js  ──▶  project root              (the installers, renamed)
 ```
 
-`build/` is generated and is not in version control; `tauri dev`/`tauri build`
-(`beforeDevCommand`/`beforeBuildCommand`) and `pretest` run
-`scripts/ensure-icons.js`, which rebuilds it when it is missing or older than
-the scripts that draw it.
+`.gitignore` keeps that generated tree out of version control: `build/`,
+`src-tauri/target/` (several GB) and `src-tauri/gen/`. `src-tauri/Cargo.lock`
+is committed so the Rust dependency set stays pinned, and the installer hooks
+in `src-tauri/windows/hooks.nsh` are hand-written and tracked. `tauri dev` /
+`tauri build` (`beforeDevCommand` / `beforeBuildCommand`) and `pretest` run
+`scripts/ensure-icons.js`, which rebuilds `build/` when it is missing or older
+than the scripts that draw it. `tauri dev` and `tauri build` create
+`src-tauri/target/` and `src-tauri/gen/` the first time they run. `npm run clean`
+deletes both, plus any installers copied to the project root and any
+Electron-era `dist/` or `out/` folder still sitting in the tree.
 
 The artwork is drawn as SVG with **gradients only — no SVG filters** — so every
 rasteriser produces the same result. Installer bitmaps go through a small
