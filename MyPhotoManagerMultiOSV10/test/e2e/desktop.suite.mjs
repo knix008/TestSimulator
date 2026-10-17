@@ -242,7 +242,7 @@ export const cases = [
     },
   },
   {
-    ids: ['EDIT-LIGHT', 'EDIT-CROP', 'EDIT-RESTORE'], group: '편집', name: '노출 조정 + 자르기 → 저장: 파일이 바뀌고 원본 백업, EXIF 유지, 원본 복원',
+    ids: ['EDIT-LIGHT', 'EDIT-CROP', 'EDIT-RESTORE', 'EDIT-SAVEAS'], group: '편집', name: '노출 조정 + 자르기 → 저장: 제안 이름은 변경 내용으로 시작하고, 원래 이름으로 저장하면 파일이 바뀌고 원본 백업, EXIF 유지, 원본 복원',
     run: async (app) => {
       const beachFile = path.join(app.photos, 'beach.jpg');
       const pristine = fs.readFileSync(path.join(app.photos, 'beach-copy.jpg'));
@@ -263,6 +263,13 @@ export const cases = [
       await app.main.eval(`(() => { const chip = [...${P}.dqa('.chip')].find((c) => c.textContent === '1:1'); chip.click(); ${P}.dq('#crop-apply').click(); return 1; })()`);
       await app.main.waitFor(`${P}.editor.debug().edit.geometry.crop && !${P}.dq('#edit-save').disabled`);
       await app.main.eval(`${P}.dq('#edit-save').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#edit-save-name')`, { message: 'save as' });
+      const suggested = await app.main.eval(`${P}.dq('#edit-save-name').value`);
+      const prefix = await app.main.eval(`(async () => (await import('/src/edit/savename.js')).saveNamePrefix([${P}.t('edit.exposure'), ${P}.t('edit.crop')]))()`);
+      assert.equal(suggested, `${prefix}_beach.jpg`, 'the changes lead the suggested name');
+      await app.main.eval(`(() => { const i = ${P}.dq('#edit-save-name'); i.value = 'beach.jpg'; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
+      await app.main.eval(`(window.__myphotoPicks ||= []).push(true); 1`);
+      await confirmTopDialog(app);
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 30000 });
       const saved = new Uint8Array(fs.readFileSync(path.join(app.photos, 'beach.jpg')));
       assert.notDeepEqual(Buffer.from(saved), original);
@@ -302,7 +309,8 @@ export const cases = [
       await app.main.waitFor(`${P}.editor.debug().edit.spots.length === 1`);
       await app.main.key('Escape');
       await app.main.key('Escape');
-      await confirmTopDialog(app);
+      await app.main.waitFor(`${P}.dq('.dialog')`);
+      await app.main.eval(`(() => { const text = ${P}.t('edit.bgSaveNo'); const button = [...${P}.dqa('.dialog')].at(-1).querySelectorAll('button'); [...button].find((b) => b.textContent.trim() === text).click(); return 1; })()`);
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
       await backToFolder(app);
     },

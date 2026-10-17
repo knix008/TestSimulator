@@ -9,8 +9,35 @@ export const isDesktop = () => Boolean(globalThis.window?.__TAURI_INTERNALS__);
 
 export const invoke = (command, args, options) => tauriInvoke(command, args, options);
 
+const recentErrors = [];
+
 /** Readable text of anything thrown (Rust errors arrive as strings). */
-export const errorText = (error) => (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error));
+export function errorText(error) {
+  if (error instanceof Error) {
+    recentErrors.push(error);
+    if (recentErrors.length > 16) recentErrors.shift();
+  }
+  return error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error);
+}
+
+function formatError(error, depth = 0) {
+  if (error == null || depth > 4) return '';
+  if (error instanceof Error) {
+    const head = error.stack || `${error.name}: ${error.message}`;
+    return error.cause != null ? `${head}\n\nCause:\n${formatError(error.cause, depth + 1)}` : head;
+  }
+  if (typeof error === 'string') return error;
+  try { return JSON.stringify(error, null, 2); } catch { return String(error); }
+}
+
+/** Full text for an error popup: the message, then the stack when one was just thrown. */
+export function errorDetails(value) {
+  if (value instanceof Error) return formatError(value);
+  if (typeof value !== 'string') return formatError(value);
+  const hit = [...recentErrors].reverse().find((error) => error.message && (value === error.message || value.endsWith(error.message)) && error.stack);
+  if (hit && !value.includes(hit.stack)) return `${value}\n\n${formatError(hit)}`;
+  return value;
+}
 
 export const assetUrl = (path) => convertFileSrc(path);
 
@@ -67,6 +94,12 @@ export const startWindowResize = () => (isDesktop() ? getCurrentWindow().startRe
 
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 export const showWindow = () => (isDesktop() ? getCurrentWindow().show().catch(() => {}) : Promise.resolve());
+/** The user asked to close the window (the title-bar button, Alt+F4). `preventDefault` keeps it open. */
+export function onCloseRequested(handler) {
+  if (!isDesktop()) return Promise.resolve(() => {});
+  return getCurrentWindow().onCloseRequested(handler);
+}
+
 export const setWindowTitle = (title) => {
   document.title = title;
   return isDesktop() ? getCurrentWindow().setTitle(title).catch(() => {}) : Promise.resolve();

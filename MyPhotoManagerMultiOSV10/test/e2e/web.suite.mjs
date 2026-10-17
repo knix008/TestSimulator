@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { saveNamePrefix } from '../../src/edit/savename.js';
 import { sleep } from './cdp.mjs';
 import { fixtures, root } from './harness.mjs';
 
@@ -160,6 +161,66 @@ export const cases = [
         assert.equal(added.length, 1, `${key} downloaded`);
         assert.ok(check(fs.readFileSync(path.join(downloads, added[0]))), `${key}: ${added[0]}`);
       }
+    },
+  },
+  {
+    ids: ['APP-WEB', 'EDIT-SAVEAS', 'EDIT-BG'],
+    group: '편집', name: '변경이 있으면 다른 화면으로 나갈 때 저장을 묻고, 저장 이름은 변경 내용으로 시작하며 고칠 수 있다. 배경 제거 뒤 다른 선택도 저장을 묻는다',
+    run: async (app) => {
+      const clickDialog = async (key) => {
+        const result = await app.main.eval(`(() => { const text = ${P}.t(${js(key)}); const button = [...${P}.topDialog().querySelectorAll('button')].find((b) => b.textContent.trim() === text); if (!button) return 'missing'; button.click(); return 'ok'; })()`);
+        assert.equal(result, 'ok', key);
+      };
+      await app.main.eval(`${P}.actions.openSamples(); 1`);
+      await app.main.waitFor(`${P}.app.state.list.some((i) => i.name === 'beach.jpg')`);
+      const beach = await app.main.eval(`${P}.app.state.list.find((i) => i.name === 'beach.jpg').path`);
+      const edit = async () => {
+        await app.main.eval(`${P}.actions.editPath(${js(beach)}); 1`);
+        await app.main.waitFor(`${P}.editor.path === ${js(beach)} && ${P}.editor.debug().preview`, { timeout: 60000, message: 'editor' });
+      };
+      await edit();
+      await app.main.eval(`document.querySelector('[data-mode=manage]').click(); 1`);
+      await app.main.waitFor(`${P}.app.state.mode === 'manage' && !${P}.topDialog()`, { message: 'clean edit leaves without asking' });
+
+      await edit();
+      await app.main.eval(`${P}.editor.testing.change((e) => { e.adjust.exposure = 0.4; }, ${P}.t('edit.exposure')); ${P}.editor.testing.change((e) => { e.geometry.rotate = 90; }, ${P}.t('edit.crop')); 1`);
+      await app.main.eval(`document.querySelector('[data-mode=manage]').click(); 1`);
+      await app.main.waitFor(`${P}.topDialog()?.textContent.includes(${P}.t('edit.saveAsk'))`, { message: 'asks to save' });
+      await clickDialog('common.cancel');
+      await app.main.waitFor(`!${P}.topDialog() && ${P}.app.state.mode === 'edit' && ${P}.editor.dirty`, { message: 'cancel stays' });
+
+      await app.main.eval(`${P}.dq('#edit-save').click(); 1`);
+      await app.main.waitFor(`${P}.dq('#edit-save-name') && ${P}.topDialog()?.textContent.includes(${P}.t('edit.saveAs'))`, { message: 'save as' });
+      const suggested = await app.main.eval(`${P}.dq('#edit-save-name').value`);
+      const labels = await app.main.eval(`[${P}.t('edit.exposure'), ${P}.t('edit.crop')]`);
+      assert.equal(suggested, `${saveNamePrefix(labels)}_beach.jpg`);
+      await app.main.eval(`(() => { const input = ${P}.dq('#edit-save-name'); input.value = 'renamed-by-hand.jpg'; input.dispatchEvent(new Event('input', { bubbles: true })); return input.value; })()`);
+      assert.equal(await app.main.eval(`${P}.dq('#edit-save-name').value`), 'renamed-by-hand.jpg');
+      await clickDialog('common.cancel');
+      await app.main.waitFor(`!${P}.topDialog() && ${P}.app.state.mode === 'edit'`);
+
+      await app.main.eval(`${P}.dq('#edit-cancel').click(); 1`);
+      await app.main.waitFor(`${P}.topDialog()?.textContent.includes(${P}.t('edit.saveAsk'))`);
+      await clickDialog('edit.bgSaveNo');
+      await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
+
+      await edit();
+      await app.main.eval(`${P}.app.settings.background = { ...(${P}.app.settings.background ?? {}), algorithm: 'color' }; ${P}.editor.testing.setSection('background'); 1`);
+      await app.main.eval(`${P}.editor.testing.setTool('bgrect')`);
+      const box = await app.main.eval(`(() => { const r = document.querySelector('.editor-preview').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
+      await app.main.drag({ x: box.x + box.w * 0.25, y: box.y + box.h * 0.2 }, { x: box.x + box.w * 0.75, y: box.y + box.h * 0.85 });
+      await app.main.waitFor(`!document.querySelector('#bg-apply-bar').disabled`, { message: 'selection ready' });
+      await app.main.eval(`document.querySelector('#bg-apply-bar').click(); 1`);
+      await app.main.waitFor(`!${P}.editor.removing && ${P}.editor.debug().history.includes(${P}.t('edit.background')) && !${P}.topDialog()`, { timeout: 60000, message: 'background removed' });
+      await app.main.eval(`document.querySelector('#tool-snipfree').click(); 1`);
+      await app.main.waitFor(`${P}.topDialog()?.textContent.includes(${P}.t('edit.bgSaveAsk'))`, { message: 'asks before another selection' });
+      await clickDialog('common.cancel');
+      await app.main.waitFor(`!${P}.topDialog() && ${P}.editor.debug().tool == null`);
+      await app.main.eval(`document.querySelector('#tool-sniprect').click(); 1`);
+      await app.main.waitFor(`${P}.topDialog()?.textContent.includes(${P}.t('edit.bgSaveAsk'))`);
+      await clickDialog('edit.bgSaveNo');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'sniprect' && !${P}.topDialog()`);
+      await app.main.eval(`${P}.editor.testing.goToHistory(0); ${P}.actions.setMode('manage'); 1`);
     },
   },
 ];

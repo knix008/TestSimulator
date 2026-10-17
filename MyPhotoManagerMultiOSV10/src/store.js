@@ -400,7 +400,12 @@ export function selectFilesOnly() { setSelection(app.state.list.filter((item) =>
 
 // ───────────────────────── modes
 
+let modeGuard = null;
+/** Return false to refuse a mode change (for example while a background removal is running). */
+export function setModeGuard(fn) { modeGuard = fn; }
+
 export function setMode(mode, { path } = {}) {
+  if (modeGuard?.(mode, path) === false) return;
   if (path) app.state.viewPath = path;
   if (app.state.mode === mode && !path) return;
   app.state.mode = mode;

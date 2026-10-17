@@ -36,7 +36,7 @@ Open a folder or files, import from a camera, phone or scanner, start a slidesho
 
 ### 3. Task shortcuts
 
-One click to the manage, view, edit and dashboard modes, search, calendar, people, map, print, compare, duplicates, panorama, GIF, PDF, HDR, batch rename and auto-organize.
+One click to the manage, view, edit, remove-background and dashboard modes, search, calendar, people, map, print, compare, duplicates, panorama, GIF, PDF, HDR, batch rename and auto-organize. Remove background opens the editor: outline the object, then press Remove background on the toolbar.
 
 ![Task shortcuts](images/03-tasks.jpg)
 
@@ -214,6 +214,10 @@ Crop to a ratio, straighten, rotate by 90° and flip. Resize and canvas size are
 
 ![Crop and rotate](images/30-geometry.jpg)
 
+### Remove background
+
+Rectangle and Freehand on the toolbar outline the object. The yellow line only marks the selection; the picture stays as it is until you press Remove background. A progress popup stays up while it runs, and the result appears when the bar finishes. The left panel is only the algorithm buttons. GrabCut is the usual start. REMBG 1 and REMBG 2 are downloaded once in Settings. If a download fails, you are asked to try again. Cancel drops the selection, and Undo restores an applied result. Saving writes a PNG or WebP with a transparent background, cropped to the object. Settings › Background removal sets the line colour, a solid, dashed or dotted style, and its thickness.
+
 ### 31. Effects
 
 Basic effects like black & white or sepia, vignette, film grain, pixelate, a stack of special effects (oil paint, sketch, cartoon …) and tilt-shift miniature.
@@ -252,7 +256,7 @@ Before / after (B) switches between the original and the result.
 
 ### 37. Saving
 
-Saving keeps the original aside and remembers the settings. Save as writes a new file in another format and quality — JPEG, PNG, WebP, AVIF, TIFF and more.
+Saving keeps the original aside and remembers the settings. Save as writes a new file in another format and quality — JPEG, PNG, WebP, AVIF, TIFF and more. A cutout cannot stay transparent in JPEG, so it is saved as PNG or WebP and cropped to the object.
 
 ![Saving](images/37-save.jpg)
 
@@ -338,7 +342,7 @@ Charts of the folder: number of photos, dates taken, cameras and lenses, formats
 
 ### 50. Settings
 
-Tabs for general, view, video, editing, thumbnails, themes and more. Saved settings apply at once.
+Tabs for general, view, video, editing, thumbnails, themes and more. Background removal chooses the algorithm, the selection line colour, style and thickness, and can download the REMBG models. Saved settings apply at once. When something fails, a popup shows the details and the stack, and you can copy that text.
 
 ![Settings](images/50-settings.jpg)
 

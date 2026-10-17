@@ -12,6 +12,7 @@ const P = {
   checkSquare: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 12.5l3 3 5.5-6"/>',
   square: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/>',
   circle: '<circle cx="12" cy="12" r="7"/>',
+  ellipse: '<ellipse cx="12" cy="12" rx="8" ry="5"/>',
   radioOn: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
@@ -49,6 +50,8 @@ const P = {
   flipV: '<path d="M3 12h18"/><path d="M7 8l5-5 5 5zM7 16l5 5 5-5z"/>',
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/>',
   cutout: '<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><circle cx="12" cy="12" r="3.2"/>',
+  // A person kept in the frame, with checkerboard corners where the background was cleared.
+  removeBg: '<rect x="2.5" y="3" width="19" height="18" rx="2"/><path fill="currentColor" stroke="none" d="M4.3 5.1h2.6v2.6H4.3zm12.8 0h2.6v2.6h-2.6zM4.3 15.1h2.6v2.6H4.3zm12.8 0h2.6v2.6h-2.6z"/><circle cx="12" cy="9.3" r="2.5" fill="currentColor" stroke="none"/><path fill="currentColor" stroke="none" d="M8.4 17.9c.8-2.7 2-3.9 3.6-3.9s2.8 1.2 3.6 3.9z"/>',
   straighten: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
   play: '<path d="M7 4.5v15l13-7.5z"/>',
   pause: '<path d="M7 5h3v14H7zM14 5h3v14h-3z"/>',
@@ -70,6 +73,8 @@ const P = {
   fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
   fullscreenExit: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/>',
   compare: '<rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/>',
+  // A photo split by a slider: the empty half is before, the filled half is after.
+  beforeAfter: '<rect x="3" y="4" width="18" height="16" rx="2"/><path fill="currentColor" fill-opacity="0.35" stroke="none" d="M12 5.2h7.6a.8.8 0 0 1 .8.8v12a.8.8 0 0 1-.8.8H12z"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>',
   layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   print: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -96,6 +101,10 @@ const P = {
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
   redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
   save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+  // The save disk with a pencil: write the file out under a new name.
+  saveAs: '<path d="M3 4h8.5l2.5 2.5V20H3z"/><path d="M6 4v4.5h6V4M6 20v-6h7v6"/><path d="M14.2 15.4 19.6 10l1.8 1.8-5.4 5.4h-1.8z"/>',
+  // The picture, and an arrow that brings every edit back to the start.
+  resetAll: '<rect x="3" y="8" width="11" height="11" rx="2"/><path d="M16 7a7 7 0 1 1-1.4 8.6"/><path d="M16 3.2V7h-3.8"/>',
   external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   reveal: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v3"/><path d="M3 7v10a2 2 0 0 0 2 2h6"/><circle cx="17" cy="16" r="3"/><path d="M21 20l-1.8-1.8"/>',
   wallpaper: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M6 13l4-4 3 3 2-2 3 3"/>',

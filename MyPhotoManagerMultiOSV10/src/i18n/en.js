@@ -2,6 +2,7 @@
 export default {
   'app.name': 'MyPhotoManager',
   'common.ok': 'OK', 'common.cancel': 'Cancel', 'common.close': 'Close', 'common.delete': 'Delete', 'common.remove': 'Remove', 'common.save': 'Save',
+  'error.title': 'Error', 'error.hint': 'Details are below. Select the text or copy it.', 'error.copy': 'Copy', 'error.copied': 'Copied.',
 
   'menu.file': 'File', 'menu.edit': 'Edit', 'menu.view': 'View', 'menu.organize': 'Organize', 'menu.tools': 'Tools', 'menu.help': 'Help',
   'menu.settings': 'Settings', 'menu.theme': 'Theme', 'menu.language': 'Language', 'menu.viewStyle': 'View style', 'menu.batch': 'Batch',
@@ -24,6 +25,15 @@ export default {
   'start.tip.0': 'Ctrl+O opens a folder.', 'start.tip.1': 'Select a photo and press Ctrl+E to edit it.', 'start.tip.2': 'Ctrl+Shift+S starts a slideshow.',
   'start.tip.3': 'Keys 1–5 set the rating. Alt+1–5 set the colour label.', 'start.tip.4': 'Photos with a place show on the map.',
   'start.tip.5': 'The dashboard gathers counts and cameras for the folder you are in.',
+  'start.tip.6': 'Remove a background from the editor toolbar.',
+  'start.tipMore': 'More', 'start.tipLess': 'Less',
+  'start.tip.0.more': 'Ctrl+O asks for a folder and shows its photos as thumbnails. Recent folders stay on this page, so a place you opened before is one click away. You can also open photos on their own, or copy them in from a camera or a card with Import.',
+  'start.tip.1.more': 'In Manage, click a photo and press Ctrl+E (or choose Edit). The editor keeps the original and stores your adjustments beside it, so you can change them later without stacking edits. The left side holds the adjustments, the picture is in the middle, and file information is on the right. Ctrl+Z undoes a step.',
+  'start.tip.2.more': 'A slideshow plays the photos in the current folder full screen, one after another. Ctrl+Shift+S starts it from Manage or View. In Settings you can set the interval, the transition, shuffle, repeat, and background music. Space pauses. Esc leaves the show.',
+  'start.tip.3.more': 'With a photo selected, 1–5 sets the star rating and 0 clears it. Alt+1 through Alt+5 sets a colour label (red, yellow, green, blue, purple). These are stored in the catalog, so Search and the filters can find them later. They do not rewrite the photo file.',
+  'start.tip.4.more': 'Photos with GPS coordinates appear on the map in the right pane, and as their own task on this page. Click a marker to select that photo. If several were taken in the same place they share a marker with a count. Settings can turn map tiles off, which also stops the address lookup.',
+  'start.tip.5.more': 'Dashboard, in the mode switch at the top, charts the folder you are in: how many photos, when they were taken, which cameras and lenses, file types and ratings. It reads the catalog, so it stays quick even in a large folder. Open a folder first; an empty start page has nothing to count.',
+  'start.tip.6.more': 'In Edit, use Rectangle or Freehand on the toolbar to draw around the object. The line only marks the selection — the picture does not change until you press Remove background. The left panel lists the algorithms; GrabCut is the usual start, and REMBG 1 and REMBG 2 download once from Settings. Cancel drops the selection. Undo (Ctrl+Z) restores the previous edit. Saving a cutout writes a PNG or WebP with a transparent background, cropped to the object rather than the original frame. Settings › Background removal chooses the line colour, a solid, dashed or dotted line, and its thickness. The line is yellow and dashed unless you change it.',
   'pane.folders': 'Folders', 'pane.catalog': 'Catalog', 'pane.calendar': 'Calendar', 'pane.search': 'Search', 'pane.properties': 'Properties', 'pane.preview': 'Preview', 'pane.map': 'Map',
   'place.home': 'Home ({name})', 'place.pictures': 'Pictures', 'place.desktop': 'Desktop', 'place.documents': 'Documents', 'place.downloads': 'Downloads',
 

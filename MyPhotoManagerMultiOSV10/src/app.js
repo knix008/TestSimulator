@@ -6,13 +6,13 @@ import { GROUP_KEYS, SORT_KEYS } from './catalog/listing.js';
 import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
 import { filesFromDrop, fs, hasFolderAccess, webFs } from './platform/fs.js';
-import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onFileDrop, setWindowTheme, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
+import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onCloseRequested, onFileDrop, setWindowTheme, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
 import { setColorManagement } from './formats/decode.js';
 import { DEFAULTS as DEFAULT_SETTINGS, loadSettings, loadSettingsFile } from './settings.js';
 import {
   addToBasket, app, catalogFolder, copyToClipboard, deleteItems, focusedItem, goBack, goForward, goUp, invertSelection, loadCatalog, newFolder, openFolder, openSource,
   pasteClipboard, rate, rebuildList, refreshList, reload, renameItem, saveCatalogNow, selectAll, selectedFiles, selectedItems, selectFilesOnly, selectItem, selectNone,
-  setLabel, setMode, setSelection, targetPaths, toggleTag, transfer, viewableList, viewItem,
+  setLabel, setMode, setModeGuard, setSelection, targetPaths, toggleTag, transfer, viewableList, viewItem,
 } from './store.js';
 import { thumbs } from './thumbs/thumbs.js';
 import { aboutDialog, settingsDialog, shortcutsDialog } from './ui/appdialogs.js';
@@ -143,6 +143,12 @@ const viewer = createViewer({
 });
 let editReturn = 'manage';
 const editor = createEditor({ onDone: () => setMode(editReturn === 'view' ? 'view' : 'manage') });
+setModeGuard((mode, path) => {
+  if (!editor.removing) return true;
+  if (mode === app.state.mode && !path) return true;
+  toast(t('edit.bgBusy'), 'info');
+  return false;
+});
 const dashboard = createDashboard({
   open: (target) => {
     setMode('manage');
@@ -364,7 +370,8 @@ function imageOnScreen() {
   return canEdit(fileList.displayedFile()) ?? canEdit(focusedItem());
 }
 
-function switchMode(mode) {
+async function switchMode(mode) {
+  if (app.state.mode === 'edit' && mode !== 'edit' && !(await leaveEditor())) return;
   if (mode === 'view') {
     const item = focusedItem() && !focusedItem().isDir ? focusedItem() : viewableList()[0];
     if (!item) { toast(t('mode.nothingToView'), 'info'); return; }
@@ -380,7 +387,8 @@ function switchMode(mode) {
 
 let editorIntent = null;
 
-function editPath(path, intent = null) {
+async function editPath(path, intent = null) {
+  if (app.state.mode === 'edit' && !(await leaveEditor())) return;
   editorIntent = intent;
   editReturn = app.state.mode === 'view' ? 'view' : 'manage';
   setMode('edit', { path });
@@ -411,8 +419,9 @@ async function beginBackgroundRemoval() {
 }
 
 async function leaveEditor() {
-  if (app.state.mode === 'edit' && editor.dirty) return confirmDialog(t('edit.discard'), { ok: t('edit.discardOk'), danger: true });
-  return true;
+  if (app.state.mode !== 'edit') return true;
+  if (editor.removing) { toast(t('edit.bgBusy'), 'info'); return false; }
+  return editor.confirmLeave();
 }
 
 async function showStart() {
@@ -720,7 +729,8 @@ function editMenu() {
 const WORKSPACE_KEYS = ['panes', 'view', 'thumbSize', 'sort', 'groupBy', 'caption'];
 const currentLayout = () => JSON.parse(JSON.stringify(Object.fromEntries(WORKSPACE_KEYS.map((key) => [key, app.settings[key]]))));
 
-function applyWorkspace(layout) {
+async function applyWorkspace(layout) {
+  if (!(await leaveEditor())) return;
   const s = app.settings;
   for (const key of WORKSPACE_KEYS) {
     if (layout[key] === undefined) continue;
@@ -1224,10 +1234,14 @@ async function openSettings() {
   });
 }
 
-async function quit() {
-  if (!(await leaveEditor())) return;
+async function shutdown() {
   await saveCatalogNow();
   await thumbs.flush().catch(() => {});
+}
+
+async function quit() {
+  if (!(await leaveEditor())) return;
+  await shutdown();
   invoke('quit_app');
 }
 
@@ -1671,7 +1685,14 @@ registerCommands([
 ]);
 
 // Typing in the catalog of Tauri: Ctrl+R / F5 must not reload the page.
-window.addEventListener('beforeunload', () => { saveCatalogNow(); });
+// The web app has no title-bar close event, so the tab close asks too.
+window.addEventListener('beforeunload', (event) => {
+  saveCatalogNow();
+  if (!isDesktop() && app.state.mode === 'edit' && editor.dirty) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
 
 // ───────────────────────── start-up
 
@@ -1715,6 +1736,11 @@ async function start() {
       }
     });
     listen('fatal-error', (error) => toast(`${error.message} (${error.location})`, 'error', 15000));
+    // The title-bar close bypasses File → Exit. Ask while the window is still open.
+    onCloseRequested(async (event) => {
+      if (!(await leaveEditor())) { event.preventDefault(); return; }
+      await shutdown();
+    }).catch(() => {});
     if (!opened) {
       const places = await fs.places().catch(() => []);
       const pick = (kind) => places.find((p) => p.kind === kind)?.path;

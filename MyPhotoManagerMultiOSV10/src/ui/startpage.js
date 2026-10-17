@@ -7,7 +7,7 @@ import { icon } from './icons.js';
 import { StartBackground } from './startbg.js';
 import { CHANNEL_DEFAULT, CHANNEL_MAX, channelPercent, START_SCENE_IDS, START_SPEED_CHANNELS, startSceneId, startSpeedPercent, startTransparency } from './startscenes.js';
 
-const TIP_COUNT = 6;
+const TIP_COUNT = 7;
 
 const TASKS = [
   ['manage', 'grid', 'mode.manage'],
@@ -176,6 +176,23 @@ function actionCard(glyph, title, text, run, primary = false, id) {
   }, h('span.action-icon', { html: icon(glyph) }), h('span.action-text', h('b', title), h('small', text)));
 }
 
+/** One daily tip. The short line stays visible; More opens the longer explanation. */
+function tipCard(index) {
+  const more = h('p.start-tip-more', { hidden: true }, t(`start.tip.${index}.more`));
+  const label = h('span.start-tip-more-label', t('start.tipMore'));
+  const toggle = h('button.start-tip-toggle', {
+    type: 'button',
+    'aria-expanded': 'false',
+    onclick: () => {
+      const open = more.hidden;
+      more.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      label.textContent = t(open ? 'start.tipLess' : 'start.tipMore');
+    },
+  }, h('span', { html: icon('starFill') }), h('span.start-tip-text', h('b', `${t('start.tip')} `), t(`start.tip.${index}`)), label);
+  return h('div.start-tip', toggle, more);
+}
+
 /**
  * ctx(): { recent: string[], showSamples: boolean, actions: Record<string, () => void> }
  */
@@ -223,7 +240,7 @@ export function createStartPage(ctx) {
       group('tasks', 'grid', t('start.tasks'), h('div.task-grid', tasks)),
       group('recent', 'clock', t('start.recent'),
         recentItems.length ? h('ul.recent-list', recentItems) : h('p.start-muted', t('start.noRecent')),
-        h('p.start-tip', h('span', { html: icon('starFill') }), h('span', h('b', `${t('start.tip')} `), t(`start.tip.${tip}`)))),
+        tipCard(tip)),
       group('scenes', 'image', t('start.background'),
         createStartScenes(scene, (id) => {
           app.settings.startScreen = { ...(app.settings.startScreen ?? {}), scene: id };

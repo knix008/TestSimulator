@@ -39,6 +39,36 @@ export default defineConfig({
   server: { port: DEV_PORT, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/release/**'] } },
   worker: { format: 'es' },
   // OpenJPEG's decoder is CommonJS: pre-bundled so the browser gets its factory as the default export.
-  optimizeDeps: { exclude: ['libheif-js', 'libraw-wasm', '@jsquash/jxl'], include: ['@cornerstonejs/codec-openjpeg/decode', '@cornerstonejs/codec-openjpeg'] },
+  optimizeDeps: { exclude: ['libheif-js', 'libraw-wasm', '@jsquash/jxl', 'onnxruntime-web'], include: ['@cornerstonejs/codec-openjpeg/decode', '@cornerstonejs/codec-openjpeg'] },
+  plugins: [{
+    name: 'bg-model-proxy',
+    configureServer(server) {
+      const files = {
+        'u2net.onnx': 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx',
+        'isnet-general-use.onnx': 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx',
+      };
+      server.middlewares.use('/bg-models', async (req, res) => {
+        const name = decodeURIComponent((req.url || '').split('?')[0]).replace(/^\/bg-models\//, '').replace(/^\//, '');
+        const url = files[name];
+        if (!url) { res.statusCode = 404; res.end(); return; }
+        try {
+          const upstream = await fetch(url);
+          res.statusCode = upstream.status;
+          const length = upstream.headers.get('content-length');
+          if (length) res.setHeader('Content-Length', length);
+          res.setHeader('Content-Type', 'application/octet-stream');
+          res.setHeader('Cache-Control', 'no-store');
+          if (!upstream.ok || !upstream.body) { res.end(await upstream.text()); return; }
+          const { Readable } = await import('node:stream');
+          const stream = Readable.fromWeb(upstream.body);
+          req.on('close', () => stream.destroy());
+          stream.pipe(res);
+        } catch (error) {
+          res.statusCode = 502;
+          res.end(String(error?.message || error));
+        }
+      });
+    },
+  }],
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 4000 },
 });

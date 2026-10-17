@@ -1,25 +1,85 @@
-// Background removal. The rectangle or freehand outline is a hint about where the
-// object is, not a crop: pixels outside it are background, and pixels inside it
-// that belong to the background are cleared too. The matte is only an alpha
-// channel. cropToObject then keeps the tight box around what is still opaque.
+// Background removal. A rectangle, ellipse, circle or freehand outline is a hint
+// about where the object is, not a crop: pixels outside it are background, and
+// pixels inside it that belong to the background are cleared too. The matte is
+// only an alpha channel. cropToObject then keeps the tight box around what is
+// still opaque.
 //
-// Every algorithm lives in this module, so the desktop installer and the web
-// build ship them together. Nothing is downloaded when the app is installed
-// or when a photo is opened.
+// The colour algorithms live in this module and ship with the installer and the
+// web build. REMBG 1 and REMBG 2 are neural models (src/edit/bgmodels.js): the
+// runtime ships with the app, and each model file is downloaded and installed
+// on first use. A neural matte is applied here only after that install has
+// stored an alpha mask for this picture.
 //
 //   grabcut  — iterative colour models (the usual best starting point)
 //   color    — drop colours that match the background outside the selection
 //   edge     — flood in from outside and stop at a strong colour edge
 //   kmeans   — drop colour groups that mostly sit outside the selection
 //   saliency — keep pixels that differ from the surrounding background
+//   rembg1   — U²-Net (rembg), downloaded
+//   rembg2   — ISNet (rembg), downloaded
 
-export const BG_ALGORITHMS = Object.freeze(['grabcut', 'color', 'edge', 'kmeans', 'saliency']);
+export const BG_BUILTIN = Object.freeze(['grabcut', 'color', 'edge', 'kmeans', 'saliency']);
+export const BG_NEURAL = Object.freeze(['rembg1', 'rembg2']);
+export const BG_ALGORITHMS = Object.freeze([...BG_BUILTIN, ...BG_NEURAL]);
 export const DEFAULT_BG_ALGORITHM = 'grabcut';
+
+const neuralCache = new Map();
+
+export function isNeuralAlgorithm(id) {
+  return BG_NEURAL.includes(id);
+}
+
+/** Cache key for a prepared REMBG mask. `selection` is in pixels of this picture. */
+export function neuralKey(algorithm, selection, width, height) {
+  return `${algorithm}|${width}x${height}|${JSON.stringify(selection)}`;
+}
+
+export function hasNeuralAlpha(key) {
+  return neuralCache.has(key);
+}
+
+export function storeNeuralAlpha(key, alpha) {
+  if (neuralCache.has(key)) neuralCache.delete(key);
+  neuralCache.set(key, alpha);
+  while (neuralCache.size > 4) neuralCache.delete(neuralCache.keys().next().value);
+}
+
+export function clearNeuralAlgorithm(id) {
+  for (const key of [...neuralCache.keys()]) if (key.startsWith(`${id}|`)) neuralCache.delete(key);
+}
 
 const WORK_SIDE = 360;
 
 export function normalizeAlgorithm(id) {
   return BG_ALGORITHMS.includes(id) ? id : DEFAULT_BG_ALGORITHM;
+}
+
+export const BG_LINE_STYLES = ['solid', 'dashed', 'dotted'];
+export const DEFAULT_BG_LINE_COLOR = '#ffe14a';
+export const DEFAULT_BG_LINE_STYLE = 'dashed';
+export const DEFAULT_BG_LINE_WIDTH = 3;
+
+export function normalizeLineColor(value) {
+  const text = String(value ?? '').trim();
+  return /^#[0-9a-fA-F]{6}$/.test(text) ? text.toLowerCase() : DEFAULT_BG_LINE_COLOR;
+}
+
+export function normalizeLineStyle(value) {
+  return BG_LINE_STYLES.includes(value) ? value : DEFAULT_BG_LINE_STYLE;
+}
+
+export function normalizeLineWidth(value) {
+  const width = Math.round(Number(value));
+  return Number.isFinite(width) ? Math.max(1, Math.min(24, width)) : DEFAULT_BG_LINE_WIDTH;
+}
+
+/** Colour, kind and thickness of the selection outline, plus the dash pattern. */
+export function selectionLine(background) {
+  const color = normalizeLineColor(background?.lineColor);
+  const style = normalizeLineStyle(background?.lineStyle);
+  const width = normalizeLineWidth(background?.lineWidth);
+  const dash = style === 'solid' ? null : style === 'dotted' ? [1, Math.max(3, width * 2)] : [Math.max(6, width * 3), Math.max(4, width * 2)];
+  return { color, style, width, dash };
 }
 
 const num = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
@@ -35,13 +95,22 @@ export function normalizeBackground(value) {
 
 function normalizeSelection(selection) {
   if (!selection || typeof selection !== 'object') return null;
-  if (selection.kind === 'rect') {
-    const x = clamp01(num(selection.x));
-    const y = clamp01(num(selection.y));
-    const w = Math.min(1 - x, Math.max(0, num(selection.w)));
-    const h = Math.min(1 - y, Math.max(0, num(selection.h)));
-    if (w < 0.005 || h < 0.005) return null;
-    return { kind: 'rect', x, y, w, h };
+  if (selection.kind === 'rect' || selection.kind === 'ellipse' || selection.kind === 'circle') {
+    const x = num(selection.x);
+    const y = num(selection.y);
+    const w = num(selection.w);
+    const h = num(selection.h);
+    if (!(w > 0.005) || !(h > 0.005)) return null;
+    if (x >= 1 || y >= 1 || x + w <= 0 || y + h <= 0) return null;
+    if (selection.kind === 'rect') {
+      const left = clamp01(x);
+      const top = clamp01(y);
+      const rw = Math.min(1 - left, w);
+      const rh = Math.min(1 - top, h);
+      if (rw < 0.005 || rh < 0.005) return null;
+      return { kind: 'rect', x: left, y: top, w: rw, h: rh };
+    }
+    return { kind: selection.kind, x, y, w, h };
   }
   if (selection.kind === 'free' && Array.isArray(selection.points)) {
     const points = [];
@@ -58,21 +127,59 @@ function normalizeSelection(selection) {
 /** Fractions (as stored on an edit) → pixels of a picture this size. */
 export function selectionToPixels(selection, width, height) {
   if (!selection) return null;
-  if (selection.kind === 'rect') {
-    return { kind: 'rect', x: selection.x * width, y: selection.y * height, w: selection.w * width, h: selection.h * height };
-  }
   if (selection.kind === 'free') {
     return { kind: 'free', points: (selection.points ?? []).map(([x, y]) => [x * width, y * height]) };
+  }
+  if (selection.kind === 'rect' || selection.kind === 'ellipse' || selection.kind === 'circle') {
+    return { kind: selection.kind, x: selection.x * width, y: selection.y * height, w: selection.w * width, h: selection.h * height };
   }
   return null;
 }
 
 function scaleSelection(selection, sx, sy) {
-  if (selection.kind === 'rect') return { kind: 'rect', x: selection.x * sx, y: selection.y * sy, w: selection.w * sx, h: selection.h * sy };
-  return { kind: 'free', points: selection.points.map(([x, y]) => [x * sx, y * sy]) };
+  if (selection.kind === 'free') return { kind: 'free', points: selection.points.map(([x, y]) => [x * sx, y * sy]) };
+  return { kind: selection.kind, x: selection.x * sx, y: selection.y * sy, w: selection.w * sx, h: selection.h * sy };
+}
+
+/** A circle uses the shorter side of its box, so it stays round in pixels. */
+function roundBox(selection) {
+  if (selection.kind !== 'circle') return selection;
+  const side = Math.min(selection.w, selection.h);
+  return {
+    kind: 'circle',
+    x: selection.x + (selection.w - side) / 2,
+    y: selection.y + (selection.h - side) / 2,
+    w: side,
+    h: side,
+  };
+}
+
+function fillEllipse(mask, width, height, box) {
+  const rx = box.w / 2;
+  const ry = box.h / 2;
+  if (rx < 0.5 || ry < 0.5) return;
+  const cx = box.x + rx;
+  const cy = box.y + ry;
+  const yStart = Math.max(0, Math.floor(box.y));
+  const yEnd = Math.min(height, Math.ceil(box.y + box.h));
+  const xStart = Math.max(0, Math.floor(box.x));
+  const xEnd = Math.min(width, Math.ceil(box.x + box.w));
+  for (let y = yStart; y < yEnd; y++) {
+    const dy = (y + 0.5 - cy) / ry;
+    const dy2 = dy * dy;
+    if (dy2 > 1) continue;
+    for (let x = xStart; x < xEnd; x++) {
+      const dx = (x + 0.5 - cx) / rx;
+      if (dx * dx + dy2 <= 1) mask[y * width + x] = 1;
+    }
+  }
 }
 
 /** 1 where the selection claims the object might be. */
+export function selectionMask(width, height, selection) {
+  return insideMask(width, height, selection);
+}
+
 function insideMask(width, height, selection) {
   const mask = new Uint8Array(width * height);
   if (!selection) return mask;
@@ -82,6 +189,10 @@ function insideMask(width, height, selection) {
     const x1 = Math.min(width, Math.ceil(selection.x + selection.w));
     const y1 = Math.min(height, Math.ceil(selection.y + selection.h));
     for (let y = y0; y < y1; y++) mask.fill(1, y * width + x0, y * width + x1);
+    return mask;
+  }
+  if (selection.kind === 'ellipse' || selection.kind === 'circle') {
+    fillEllipse(mask, width, height, roundBox(selection));
     return mask;
   }
   const points = selection.points ?? [];
@@ -104,9 +215,28 @@ function insideMask(width, height, selection) {
   return mask;
 }
 
-function downscale(image, tw, th) {
+/** Runs a generator to the end. Yielded numbers are ignored; the return value is kept. */
+function runSync(factory) {
+  const gen = factory();
+  let step = gen.next();
+  while (!step.done) step = gen.next();
+  return step.value;
+}
+
+/** Same generator, but paints progress between slices. `say(done)` is 0–100. */
+async function runAsync(factory, say, from, to) {
+  const gen = factory();
+  let step = gen.next();
+  while (!step.done) {
+    await say(from + Number(step.value) * (to - from));
+    step = gen.next();
+  }
+  return step.value;
+}
+
+function* downscaleSteps(image, tw, th) {
   const { width: sw, height: sh, data: src } = image;
-  if (tw === sw && th === sh) return src;
+  if (tw === sw && th === sh) { yield 1; return src; }
   const data = new Uint8ClampedArray(tw * th * 4);
   for (let y = 0; y < th; y++) {
     const y0 = Math.floor((y * sh) / th);
@@ -124,8 +254,13 @@ function downscale(image, tw, th) {
       const o = (y * tw + x) * 4;
       data[o] = r / n; data[o + 1] = g / n; data[o + 2] = b / n; data[o + 3] = a / n;
     }
+    if (y % 8 === 7) yield (y + 1) / th;
   }
   return data;
+}
+
+function downscale(image, tw, th) {
+  return runSync(() => downscaleSteps(image, tw, th));
 }
 
 function kmeans(colors, k, iterations = 8) {
@@ -186,34 +321,6 @@ function minDist2(r, g, b, centroids) {
   return best;
 }
 
-/** Otsu threshold of a list of non-negative distances. */
-function otsu(values) {
-  let max = 0;
-  for (let i = 0; i < values.length; i++) if (values[i] > max) max = values[i];
-  if (max <= 0) return 0;
-  const bins = new Uint32Array(256);
-  const scale = 255 / max;
-  for (let i = 0; i < values.length; i++) bins[Math.min(255, (values[i] * scale + 0.5) | 0)]++;
-  const total = values.length;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * bins[i];
-  let sumB = 0;
-  let wB = 0;
-  let best = -1;
-  let index = 0;
-  for (let i = 0; i < 256; i++) {
-    wB += bins[i];
-    if (!wB) continue;
-    const wF = total - wB;
-    if (!wF) break;
-    sumB += i * bins[i];
-    const diff = sumB / wB - (sum - sumB) / wF;
-    const between = wB * wF * diff * diff;
-    if (between > best) { best = between; index = i; }
-  }
-  return index / scale;
-}
-
 function sampleStep(n) {
   return Math.max(1, Math.round(Math.sqrt(n / 3500)));
 }
@@ -225,62 +332,111 @@ function solidInside(inside) {
 }
 
 /**
- * GrabCut-style colour models. Outside the selection trains the background.
- * Inside, colours that stand away from that background train the foreground.
- * A few passes then label every pixel by the nearer model.
+ * GrabCut-style colour models. Outside the selection trains the background and
+ * is never mixed back in from pixels the cut rejected. Inside, a pixel is
+ * background only when it sits in that background's own colour spread. Being
+ * merely closer to sand or sky than to a small dark detail used to erase the
+ * subject, so a freehand outline showed holes instead of the cut-out.
  */
-function grabcutAlpha(data, w, h, inside) {
+function nearestCentroid(r, g, b, centroids) {
+  let best = 0;
+  let bestD = Infinity;
+  for (let j = 0; j < centroids.length; j++) {
+    const c = centroids[j];
+    const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
+    if (d < bestD) { bestD = d; best = j; }
+  }
+  return best;
+}
+
+function* grabcutSteps(data, w, h, inside) {
   const n = w * h;
   const step = sampleStep(n);
-  const bgColors = [];
+  const samples = [];
   const insideIdx = [];
+  let outsideCount = 0;
   for (let y = 0; y < h; y += step) {
     for (let x = 0; x < w; x += step) {
       const i = y * w + x;
       const p = i * 4;
-      if (inside[i]) insideIdx.push(i);
-      else bgColors.push([data[p], data[p + 1], data[p + 2]]);
+      const inn = inside[i] ? 1 : 0;
+      samples.push([data[p], data[p + 1], data[p + 2], inn]);
+      if (inn) insideIdx.push(i);
+      else outsideCount++;
     }
   }
-  if (bgColors.length < 4 || insideIdx.length < 4) return solidInside(inside);
-  let bgC = kmeans(bgColors, 4);
-  const dists = new Float64Array(insideIdx.length);
-  for (let k = 0; k < insideIdx.length; k++) {
-    const p = insideIdx[k] * 4;
-    dists[k] = minDist2(data[p], data[p + 1], data[p + 2], bgC);
+  if (outsideCount < 4 || insideIdx.length < 4) { yield 1; return solidInside(inside); }
+  // A colour that lives mostly inside the outline is the subject. A freehand
+  // stroke that clips an arm must not teach that skin colour as background.
+  const groups = kmeans(samples.map((sample) => [sample[0], sample[1], sample[2]]), 5);
+  const innCount = new Uint32Array(groups.length);
+  const outCount = new Uint32Array(groups.length);
+  const groupOf = new Uint16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const group = nearestCentroid(samples[i][0], samples[i][1], samples[i][2], groups);
+    groupOf[i] = group;
+    if (samples[i][3]) innCount[group]++;
+    else outCount[group]++;
   }
-  const threshold = otsu(dists);
+  const subject = groups.map((_, group) => {
+    const total = innCount[group] + outCount[group];
+    return total > 0 && innCount[group] / total >= 0.45;
+  });
+  const bgColors = [];
+  for (let i = 0; i < samples.length; i++) {
+    if (samples[i][3] || subject[groupOf[i]]) continue;
+    bgColors.push([samples[i][0], samples[i][1], samples[i][2]]);
+  }
+  if (bgColors.length < 4) {
+    for (let i = 0; i < samples.length; i++) if (!samples[i][3]) bgColors.push([samples[i][0], samples[i][1], samples[i][2]]);
+  }
+  const bgC = kmeans(bgColors, 4);
+  yield 0.12;
+  const outside = [];
+  for (const c of bgColors) outside.push(minDist2(c[0], c[1], c[2], bgC));
+  outside.sort((a, b) => a - b);
+  const spread = outside[Math.min(outside.length - 1, Math.floor(outside.length * 0.9))];
+  const thresh = Math.max(28 * 28, spread * 1.6);
   const fgColors = [];
   for (let k = 0; k < insideIdx.length; k++) {
-    if (dists[k] <= threshold) continue;
     const p = insideIdx[k] * 4;
+    if (minDist2(data[p], data[p + 1], data[p + 2], bgC) <= thresh) continue;
     fgColors.push([data[p], data[p + 1], data[p + 2]]);
   }
-  if (fgColors.length < 4) return solidInside(inside);
+  if (fgColors.length < 4) { yield 1; return solidInside(inside); }
   let fgC = kmeans(fgColors, 4);
+  yield 0.22;
   const label = new Uint8Array(n);
   for (let iter = 0; iter < 3; iter++) {
     const nextFg = [];
-    const nextBg = [];
-    for (let i = 0; i < n; i++) {
-      const p = i * 4;
-      const r = data[p];
-      const g = data[p + 1];
-      const b = data[p + 2];
-      const fg = inside[i] && minDist2(r, g, b, fgC) <= minDist2(r, g, b, bgC);
-      label[i] = fg ? 1 : 0;
-      if (i % step === 0) (fg ? nextFg : nextBg).push([r, g, b]);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const p = i * 4;
+        const r = data[p];
+        const g = data[p + 1];
+        const b = data[p + 2];
+        const bgD = minDist2(r, g, b, bgC);
+        const fg = inside[i] && !(bgD <= thresh && bgD <= minDist2(r, g, b, fgC));
+        label[i] = fg ? 1 : 0;
+        if (fg && i % step === 0) nextFg.push([r, g, b]);
+      }
+      if (y % 12 === 11) yield 0.22 + ((iter + (y + 1) / h) / 3) * 0.7;
     }
     if (nextFg.length >= 4) fgC = kmeans(nextFg, 4);
-    if (nextBg.length >= 4) bgC = kmeans(nextBg, 4);
+    yield 0.22 + ((iter + 1) / 3) * 0.7;
   }
   const alpha = new Uint8Array(n);
   for (let i = 0; i < n; i++) alpha[i] = label[i] ? 255 : 0;
   return alpha;
 }
 
+function grabcutAlpha(data, w, h, inside) {
+  return runSync(() => grabcutSteps(data, w, h, inside));
+}
+
 /** Colours close to the background palette (sampled outside the selection) go. */
-function colorAlpha(data, w, h, inside) {
+function* colorSteps(data, w, h, inside) {
   const n = w * h;
   const step = sampleStep(n);
   const bgColors = [];
@@ -292,24 +448,33 @@ function colorAlpha(data, w, h, inside) {
       bgColors.push([data[p], data[p + 1], data[p + 2]]);
     }
   }
-  if (bgColors.length < 4) return solidInside(inside);
+  if (bgColors.length < 4) { yield 1; return solidInside(inside); }
   const centroids = kmeans(bgColors, 4);
+  yield 0.35;
   const outside = [];
   for (const c of bgColors) outside.push(minDist2(c[0], c[1], c[2], centroids));
   outside.sort((a, b) => a - b);
   const p95 = outside[Math.min(outside.length - 1, Math.floor(outside.length * 0.95))];
   const thresh = Math.max(24 * 24, p95 * 2.5);
   const alpha = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    if (!inside[i]) continue;
-    const p = i * 4;
-    alpha[i] = minDist2(data[p], data[p + 1], data[p + 2], centroids) <= thresh ? 0 : 255;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!inside[i]) continue;
+      const p = i * 4;
+      alpha[i] = minDist2(data[p], data[p + 1], data[p + 2], centroids) <= thresh ? 0 : 255;
+    }
+    if (y % 12 === 11) yield 0.35 + ((y + 1) / h) * 0.65;
   }
   return alpha;
 }
 
+function colorAlpha(data, w, h, inside) {
+  return runSync(() => colorSteps(data, w, h, inside));
+}
+
 /** Walk in from outside the selection. A step larger than the colour gap stops the walk. */
-function edgeAlpha(data, w, h, inside) {
+function* edgeSteps(data, w, h, inside) {
   const n = w * h;
   const bg = new Uint8Array(n);
   const qx = new Int32Array(n);
@@ -324,12 +489,15 @@ function edgeAlpha(data, w, h, inside) {
     qe++;
   };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!inside[y * w + x]) push(x, y);
+  yield 0.15;
   const limit = 36 * 36;
   let qs = 0;
+  let since = 0;
   while (qs < qe) {
     const x = qx[qs];
     const y = qy[qs];
     qs++;
+    since++;
     const p = (y * w + x) * 4;
     const r = data[p];
     const g = data[p + 1];
@@ -338,6 +506,10 @@ function edgeAlpha(data, w, h, inside) {
     if (x > 0) consider(x - 1, y);
     if (y + 1 < h) consider(x, y + 1);
     if (y > 0) consider(x, y - 1);
+    if (since >= 4000) {
+      since = 0;
+      yield 0.15 + Math.min(0.8, (qs / Math.max(1, n)) * 0.8);
+    }
     function consider(nx, ny) {
       const j = ny * w + nx;
       if (bg[j]) return;
@@ -353,8 +525,12 @@ function edgeAlpha(data, w, h, inside) {
   return alpha;
 }
 
+function edgeAlpha(data, w, h, inside) {
+  return runSync(() => edgeSteps(data, w, h, inside));
+}
+
 /** Colour groups that live mostly outside the selection are background. */
-function kmeansAlpha(data, w, h, inside) {
+function* kmeansSteps(data, w, h, inside) {
   const n = w * h;
   const step = sampleStep(n);
   const colors = [];
@@ -365,24 +541,29 @@ function kmeansAlpha(data, w, h, inside) {
     }
   }
   const centroids = kmeans(colors, 5);
+  yield 0.3;
   const groups = centroids.length;
   const inn = new Uint32Array(groups);
   const out = new Uint32Array(groups);
   const assign = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    const p = i * 4;
-    let best = 0;
-    let bestD = Infinity;
-    const r = data[p];
-    const g = data[p + 1];
-    const b = data[p + 2];
-    for (let j = 0; j < groups; j++) {
-      const c = centroids[j];
-      const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
-      if (d < bestD) { bestD = d; best = j; }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      const p = i * 4;
+      let best = 0;
+      let bestD = Infinity;
+      const r = data[p];
+      const g = data[p + 1];
+      const b = data[p + 2];
+      for (let j = 0; j < groups; j++) {
+        const c = centroids[j];
+        const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
+        if (d < bestD) { bestD = d; best = j; }
+      }
+      assign[i] = best;
+      if (inside[i]) inn[best]++; else out[best]++;
     }
-    assign[i] = best;
-    if (inside[i]) inn[best]++; else out[best]++;
+    if (y % 12 === 11) yield 0.3 + ((y + 1) / h) * 0.6;
   }
   const drop = new Uint8Array(groups);
   for (let j = 0; j < groups; j++) {
@@ -394,8 +575,12 @@ function kmeansAlpha(data, w, h, inside) {
   return alpha;
 }
 
+function kmeansAlpha(data, w, h, inside) {
+  return runSync(() => kmeansSteps(data, w, h, inside));
+}
+
 /** Pixels that differ from the average colour outside the selection stay. */
-function saliencyAlpha(data, w, h, inside) {
+function* saliencySteps(data, w, h, inside) {
   const n = w * h;
   const step = sampleStep(n);
   let sr = 0; let sg = 0; let sb = 0; let sn = 0;
@@ -407,8 +592,9 @@ function saliencyAlpha(data, w, h, inside) {
       sr += data[p]; sg += data[p + 1]; sb += data[p + 2]; sn++;
     }
   }
-  if (sn < 4) return solidInside(inside);
+  if (sn < 4) { yield 1; return solidInside(inside); }
   const mean = [sr / sn, sg / sn, sb / sn];
+  yield 0.25;
   let acc = 0;
   for (let y = 0; y < h; y += step) {
     for (let x = 0; x < w; x += step) {
@@ -420,23 +606,123 @@ function saliencyAlpha(data, w, h, inside) {
   }
   const spread = Math.max(12, Math.sqrt(acc / sn));
   const thresh2 = (spread * 2.5) ** 2;
+  yield 0.45;
   const alpha = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    if (!inside[i]) continue;
-    const p = i * 4;
-    const dr = data[p] - mean[0];
-    const dg = data[p + 1] - mean[1];
-    const db = data[p + 2] - mean[2];
-    alpha[i] = dr * dr + dg * dg + db * db > thresh2 ? 255 : 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!inside[i]) continue;
+      const p = i * 4;
+      const dr = data[p] - mean[0];
+      const dg = data[p + 1] - mean[1];
+      const db = data[p + 2] - mean[2];
+      alpha[i] = dr * dr + dg * dg + db * db > thresh2 ? 255 : 0;
+    }
+    if (y % 12 === 11) yield 0.45 + ((y + 1) / h) * 0.55;
   }
   return alpha;
 }
 
+function saliencyAlpha(data, w, h, inside) {
+  return runSync(() => saliencySteps(data, w, h, inside));
+}
+
 const ALGORITHMS = { grabcut: grabcutAlpha, color: colorAlpha, edge: edgeAlpha, kmeans: kmeansAlpha, saliency: saliencyAlpha };
+const ALGORITHM_STEPS = { grabcut: grabcutSteps, color: colorSteps, edge: edgeSteps, kmeans: kmeansSteps, saliency: saliencySteps };
+
+const builtinCache = new Map();
+
+function rememberBuiltin(key, alpha) {
+  if (builtinCache.has(key)) builtinCache.delete(key);
+  builtinCache.set(key, alpha);
+  while (builtinCache.size > 4) builtinCache.delete(builtinCache.keys().next().value);
+}
+
+function workSize(width, height) {
+  const fit = Math.min(1, WORK_SIDE / Math.max(width, height));
+  return { sw: Math.max(1, Math.round(width * fit)), sh: Math.max(1, Math.round(height * fit)) };
+}
+
+function builtinKey(algorithm, sw, sh, selection) {
+  return `${normalizeAlgorithm(algorithm)}|${sw}x${sh}|${JSON.stringify(selection)}`;
+}
+
+/**
+ * Runs a built-in algorithm ahead of the preview and reports 0–100.
+ * `removeBackground` then reuses that matte, so the picture updates after the
+ * bar finishes instead of freezing with no feedback.
+ * `isCancelled` stops between slices and throws Error('cancelled').
+ */
+export async function prepareBuiltinRemoval(image, selection, algorithm, report, isCancelled) {
+  const name = BG_ALGORITHMS.includes(algorithm) ? algorithm : DEFAULT_BG_ALGORITHM;
+  if (isNeuralAlgorithm(name)) return;
+  const say = async (done) => {
+    if (isCancelled?.()) throw new Error('cancelled');
+    report?.(Math.max(0, Math.min(100, Math.round(done))), 100);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (isCancelled?.()) throw new Error('cancelled');
+  };
+  const { width, height } = image;
+  const fullInside = insideMask(width, height, selection);
+  let any = false;
+  for (let i = 0; i < fullInside.length; i++) if (fullInside[i]) { any = true; break; }
+  if (!any) { await say(100); return; }
+  const { sw, sh } = workSize(width, height);
+  const scaled = scaleSelection(selection, sw / width, sh / height);
+  const key = builtinKey(name, sw, sh, scaled);
+  if (builtinCache.has(key)) { await say(100); return; }
+  await say(4);
+  const small = await runAsync(() => downscaleSteps(image, sw, sh), say, 4, 32);
+  await say(34);
+  const inside = insideMask(sw, sh, scaled);
+  const alpha = await runAsync(() => ALGORITHM_STEPS[normalizeAlgorithm(name)](small, sw, sh, inside), say, 34, 96);
+  protectSubject(small, sw, sh, inside, alpha);
+  rememberBuiltin(key, alpha);
+  await say(100);
+}
+
+/**
+ * Puts back colours that live mostly inside the selection. Background colour,
+ * edge and contrast otherwise treat skin that resembles sand as background and
+ * the cut-out disappears.
+ */
+function protectSubject(data, width, height, inside, alpha) {
+  const step = sampleStep(width * height);
+  const samples = [];
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = y * width + x;
+      const p = i * 4;
+      samples.push([data[p], data[p + 1], data[p + 2], inside[i] ? 1 : 0]);
+    }
+  }
+  if (samples.length < 8) return alpha;
+  const groups = kmeans(samples.map((sample) => [sample[0], sample[1], sample[2]]), 5);
+  const innCount = new Uint32Array(groups.length);
+  const outCount = new Uint32Array(groups.length);
+  for (let i = 0; i < samples.length; i++) {
+    const group = nearestCentroid(samples[i][0], samples[i][1], samples[i][2], groups);
+    if (samples[i][3]) innCount[group]++;
+    else outCount[group]++;
+  }
+  const keep = new Uint8Array(groups.length);
+  let any = false;
+  for (let group = 0; group < groups.length; group++) {
+    const total = innCount[group] + outCount[group];
+    if (total > 0 && innCount[group] / total >= 0.45) { keep[group] = 1; any = true; }
+  }
+  if (!any) return alpha;
+  for (let i = 0; i < alpha.length; i++) {
+    if (!inside[i] || alpha[i]) continue;
+    const p = i * 4;
+    if (keep[nearestCentroid(data[p], data[p + 1], data[p + 2], groups)]) alpha[i] = 255;
+  }
+  return alpha;
+}
 
 /**
  * `image` is { width, height, data: RGBA }. `selection` is in pixels of that
- * image: { kind: 'rect', x, y, w, h } or { kind: 'free', points }.
+ * image: { kind: 'rect' | 'ellipse' | 'circle', x, y, w, h } or { kind: 'free', points }.
  * Returns a same-size RGBA image; background pixels have alpha 0.
  * Unknown algorithm names use GrabCut.
  */
@@ -447,13 +733,27 @@ export function removeBackground(image, selection, algorithm = DEFAULT_BG_ALGORI
   let any = false;
   for (let i = 0; i < fullInside.length; i++) if (fullInside[i]) { any = true; break; }
   if (!any) return { width, height, data: out };
-  const fit = Math.min(1, WORK_SIDE / Math.max(width, height));
-  const sw = Math.max(1, Math.round(width * fit));
-  const sh = Math.max(1, Math.round(height * fit));
-  const small = downscale(image, sw, sh);
-  const inside = insideMask(sw, sh, scaleSelection(selection, sw / width, sh / height));
-  const run = ALGORITHMS[normalizeAlgorithm(algorithm)];
-  const alpha = run(small, sw, sh, inside);
+  const name = BG_ALGORITHMS.includes(algorithm) ? algorithm : DEFAULT_BG_ALGORITHM;
+  if (isNeuralAlgorithm(name)) {
+    const alpha = neuralCache.get(neuralKey(name, selection, width, height));
+    if (alpha && alpha.length === width * height) {
+      for (let i = 0; i < alpha.length; i++) {
+        const p = i * 4;
+        out[p + 3] = fullInside[i] ? Math.round((data[p + 3] * alpha[i]) / 255) : 0;
+      }
+    }
+    return { width, height, data: out };
+  }
+  const { sw, sh } = workSize(width, height);
+  const scaled = scaleSelection(selection, sw / width, sh / height);
+  const key = builtinKey(name, sw, sh, scaled);
+  let alpha = builtinCache.get(key);
+  if (!alpha) {
+    const small = downscale(image, sw, sh);
+    const inside = insideMask(sw, sh, scaled);
+    alpha = protectSubject(small, sw, sh, inside, ALGORITHMS[normalizeAlgorithm(name)](small, sw, sh, inside));
+    rememberBuiltin(key, alpha);
+  }
   for (let y = 0; y < height; y++) {
     const yy = Math.min(sh - 1, Math.floor(((y + 0.5) * sh) / height));
     for (let x = 0; x < width; x++) {

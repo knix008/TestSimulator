@@ -21,7 +21,7 @@ test-results/
 *.log
 
 # Video files stay on disk and are not committed
-*.mp4
+# *.mp4
 
 # Editors and OS files
 .vscode/*

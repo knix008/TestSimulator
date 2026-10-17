@@ -3,7 +3,7 @@
 // WebView, which can lose its latest localStorage writes).
 import { fs } from './platform/fs.js';
 import { isDesktop } from './platform/native.js';
-import { DEFAULT_BG_ALGORITHM, normalizeAlgorithm } from './edit/background.js';
+import { DEFAULT_BG_ALGORITHM, DEFAULT_BG_LINE_COLOR, DEFAULT_BG_LINE_STYLE, DEFAULT_BG_LINE_WIDTH, normalizeAlgorithm, normalizeLineColor, normalizeLineStyle, normalizeLineWidth } from './edit/background.js';
 import { channelPercent, START_SPEED_CHANNELS, startSpeedPercent, startTransparency } from './ui/startscenes.js';
 
 const KEY = 'myphotomanager.settings';
@@ -43,7 +43,7 @@ export const DEFAULTS = Object.freeze({
   // transparency 0 (picture fully shown) – 100 (only the theme background).
   startScreen: { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 },
   // Background removal in the editor. The algorithms themselves ship in src/edit/background.js.
-  background: { algorithm: DEFAULT_BG_ALGORITHM },
+  background: { algorithm: DEFAULT_BG_ALGORITHM, lineColor: DEFAULT_BG_LINE_COLOR, lineStyle: DEFAULT_BG_LINE_STYLE, lineWidth: DEFAULT_BG_LINE_WIDTH },
   lastFolder: null,
   recentFolders: [],
   recentFiles: [],
@@ -93,6 +93,9 @@ export function normalize(raw) {
   for (const channel of START_SPEED_CHANNELS) out.startScreen[channel.key] = channelPercent(out.startScreen[channel.key]);
   out.startScreen.transparency = startTransparency(out.startScreen.transparency);
   out.background.algorithm = normalizeAlgorithm(out.background.algorithm);
+  out.background.lineColor = normalizeLineColor(out.background.lineColor);
+  out.background.lineStyle = normalizeLineStyle(out.background.lineStyle);
+  out.background.lineWidth = normalizeLineWidth(out.background.lineWidth);
   return out;
 }
 

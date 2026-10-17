@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { saveNamePrefix } from '../../src/edit/savename.js';
 import { readMetadata } from '../../src/formats/exif.js';
 import { readOrientation } from '../../src/formats/jpeg-meta.js';
 import { readZip, extractZip } from '../../src/formats/zip.js';
@@ -144,8 +145,18 @@ const primary = (app) => app.main.eval(`${TOP}.querySelector('.dialog-buttons .b
 /** Answers the next native folder / file / save pickers (true = the suggested save path). */
 const pick = (app, ...answers) => app.main.eval(`(window.__myphotoPicks ||= []).push(...${js(answers)}); 1`);
 
+/** The editor's Save opens Save as. `name` replaces the suggestion; omitted keeps it. Returns the suggestion. */
+async function confirmSaveAs(app, name) {
+  await app.main.waitFor(`Boolean(${P}.dq('#edit-save-name'))`, { timeout: 15000, message: 'save as dialog' });
+  const suggested = await app.main.eval(`${P}.dq('#edit-save-name').value`);
+  if (name != null) await setField(app, 'edit.fileName', name);
+  await pick(app, true);
+  await primary(app);
+  return suggested;
+}
+
 async function waitToast(app, key) {
-  await app.main.waitFor(`[...${P}.dqa('.toast-text')].some((e) => e.textContent.includes(${P}.t(${js(key)}).split('{')[0].trim()))`, { timeout: 30000, message: `toast ${key}` });
+  await app.main.waitFor(`(() => { const text = ${P}.t(${js(key)}).split('{')[0].trim(); const toast = [...${P}.dqa('.toast-text')].some((e) => e.textContent.includes(text)); const error = [...${P}.dqa('#error-dialog textarea')].some((e) => e.value.includes(text)); return toast || error; })()`, { timeout: 30000, message: `toast ${key}` });
 }
 
 /** Size and mean colour (of a region in fractions) of a picture file, decoded in the page. */
@@ -256,6 +267,11 @@ async function moves(app, label, act, min = 1) {
 async function at(app, fx, fy) {
   const r = await app.main.eval(`(() => { const r = ${P}.dq('.editor-preview').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
   return { x: r.x + fx * r.w, y: r.y + fy * r.h };
+}
+
+/** Alpha of the editor preview at fractions of the picture. */
+async function previewAlpha(app, fx, fy) {
+  return app.main.eval(`(() => { const s = ${P}.editor.testing.shown(); const x = Math.min(s.width - 1, Math.max(0, Math.round(${fx} * s.width))); const y = Math.min(s.height - 1, Math.max(0, Math.round(${fy} * s.height))); return s.getContext('2d', { willReadFrequently: true }).getImageData(x, y, 1, 1).data[3]; })()`);
 }
 
 async function leaveEditor(app) {
@@ -1108,7 +1124,7 @@ export const cases = [
       assert.ok(!(await app.main.eval(`Boolean(${P}.dq('.app-toolbar .zoom-value'))`)), 'not in the browsing toolbar');
       // Viewer: the picture's zoom.
       await app.main.eval(`${P}.actions.viewItem(${js(await pathOf(app, 'beach.jpg'))}); 1`);
-      await app.main.waitFor(`${P}.app.state.mode === 'view' && /^\\d+%$/.test(${P}.dq('#viewer-zoom')?.textContent ?? '')`, { timeout: 20000, message: 'viewer zoom shown' });
+      await app.main.waitFor(`${P}.app.state.mode === 'view' && ${P}.viewer.debug().kind !== 'placeholder' && /^\\d+%$/.test(${P}.dq('#viewer-zoom')?.textContent ?? '')`, { timeout: 20000, message: 'viewer zoom shown' });
       const before = await app.main.eval(`parseInt(${P}.dq('#viewer-zoom').textContent, 10)`);
       assert.equal(before, await app.main.eval(`Math.round(${P}.viewer.debug().zoom * 100) || parseInt(document.querySelector('.status-zoom').textContent, 10)`) || before);
       const v = await centred('#viewer-zoom-out', '#viewer-zoom', '#viewer-zoom-in');
@@ -2090,6 +2106,7 @@ export const cases = [
       await primary(app);
       await menuDone(app);
       await waitToast(app, 'private.wrong');
+      if (await app.main.eval(`Boolean(${P}.dq('#error-dialog'))`)) await primary(app);
       assert.ok(!(await app.main.eval(`${P}.app.state.source.path?.startsWith('@') ?? false`)), 'still locked');
       fs.rmSync(path.join(studio, 'secret.jpg'));
     },
@@ -2313,6 +2330,182 @@ export const cases = [
 
   // ───────── editor
   {
+    ids: ['EDIT-SAVEAS'],
+    group: '편집', name: '변경이 있으면 다른 화면으로 나갈 때 저장을 묻고, 저장은 다른 이름이며 변경 내용이 이름 앞에 붙고 고칠 수 있다',
+    run: async (app) => {
+      const studio = dir(app, 'studio');
+      fs.copyFileSync(path.join(fixtures, 'beach.jpg'), path.join(studio, 'save-ask.jpg'));
+      await open(app, studio, 6);
+      await reloadList(app);
+      const file = await pathOf(app, 'save-ask.jpg');
+      await openEditor(app, file);
+      await app.main.eval(`document.querySelector('[data-mode=manage]').click(); 1`);
+      await app.main.waitFor(`${P}.app.state.mode === 'manage' && !${TOP}`, { message: 'no question when nothing changed' });
+
+      await openEditor(app, file);
+      await app.main.eval(`${P}.editor.testing.change((e) => { e.adjust.exposure = 0.4; }, ${P}.t('edit.exposure')); ${P}.editor.testing.change((e) => { e.geometry.rotate = 90; }, ${P}.t('edit.crop')); 1`);
+      await app.main.eval(`document.querySelector('[data-mode=manage]').click(); 1`);
+      await dialog(app, 'edit.saveAsk');
+      await clickText(app, 'common.cancel');
+      await app.main.waitFor(`!${TOP} && ${P}.app.state.mode === 'edit' && ${P}.editor.dirty`, { message: 'cancel stays in the editor' });
+
+      await app.main.eval(`${P}.dq('#edit-save').click(); 1`);
+      await dialog(app, 'edit.saveAs');
+      const suggested = await app.main.eval(`${P}.dq('#edit-save-name').value`);
+      const labels = await app.main.eval(`[${P}.t('edit.exposure'), ${P}.t('edit.crop')]`);
+      assert.equal(suggested, `${saveNamePrefix(labels)}_save-ask.jpg`);
+      await setField(app, 'edit.fileName', 'renamed-by-hand.jpg');
+      assert.equal(await app.main.eval(`${P}.dq('#edit-save-name').value`), 'renamed-by-hand.jpg');
+      await clickText(app, 'common.cancel');
+      await app.main.waitFor(`!${TOP} && ${P}.app.state.mode === 'edit'`);
+      assert.equal(fs.existsSync(path.join(studio, 'renamed-by-hand.jpg')), false, 'cancelling save as writes nothing');
+
+      await app.main.eval(`${P}.dq('#edit-cancel').click(); 1`);
+      await dialog(app, 'edit.saveAsk');
+      await clickText(app, 'edit.bgSaveNo');
+      await app.main.waitFor(`${P}.app.state.mode === 'manage'`);
+      assert.ok(fs.readFileSync(file).equals(fs.readFileSync(path.join(fixtures, 'beach.jpg'))), 'don\'t save leaves the original');
+    },
+  },
+  {
+    ids: ['EDIT-BG', 'EDIT-SAVEAS'],
+    group: '편집', name: '배경 제거 결과를 보는 동안 다른 선택을 하면 저장을 묻는다',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await openEditor(app, await pathOf(app, 'beach.jpg'));
+      await app.main.eval(`${P}.app.settings.background = { ...(${P}.app.settings.background ?? {}), algorithm: 'color' }; 1`);
+      await section(app, 'background');
+      await app.main.eval(`${P}.editor.testing.setTool('bgrect')`);
+      await app.main.drag(await at(app, 0.25, 0.2), await at(app, 0.75, 0.85));
+      await app.main.waitFor(`!${P}.dq('#bg-apply-bar').disabled`, { message: 'selection ready' });
+      await app.main.eval(`${P}.dq('#bg-apply-bar').click(); 1`);
+      await app.main.waitFor(`!${P}.editor.removing && ${P}.editor.debug().history.includes(${P}.t('edit.background')) && !${TOP}`, { timeout: 60000, message: 'background removed' });
+      await app.main.eval(`${P}.dq('#tool-snipfree').click(); 1`);
+      await dialog(app, 'edit.bgSaveAsk');
+      await clickText(app, 'common.cancel');
+      await app.main.waitFor(`!${TOP} && ${P}.editor.debug().tool == null && ${P}.editor.debug().history.includes(${P}.t('edit.background'))`, { message: 'cancel keeps the result' });
+      await sleep(400);
+      // The click opens a dialog window. Schedule it so this call returns, then wait for the question.
+      await app.main.eval(`setTimeout(() => ${P}.dq('#tool-sniprect').click(), 0); 1`);
+      await dialog(app, 'edit.bgSaveAsk');
+      await clickText(app, 'edit.bgSaveNo');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'sniprect' && !${TOP}`, { message: 'don\'t save starts the new selection' });
+      await leaveEditor(app);
+    },
+  },
+  {
+    ids: ['EDIT-SNIP'],
+    group: '편집', name: '선택 영역: 사각형·타원·원·자유 선택을 툴바·메뉴·단축키로 복사하고 잘라낸다',
+    run: async (app) => {
+      await open(app, dir(app, 'studio'), 6);
+      await openEditor(app, await pathOf(app, 'beach.jpg'));
+      await app.main.send('Page.bringToFront').catch(() => {});
+      const buttons = await app.main.eval(`['#tool-sniprect', '#tool-snipellipse', '#tool-snipcircle', '#tool-snipfree', '#snip-copy', '#snip-cut', '#bg-apply-bar'].map((id) => ({ id, disabled: document.querySelector(id).disabled, label: document.querySelector(id).getAttribute('aria-label'), tool: document.querySelector(id).classList.contains('tool'), icon: Boolean(document.querySelector(id).querySelector('svg')) }))`);
+      assert.deepEqual(buttons.map((button) => button.id), ['#tool-sniprect', '#tool-snipellipse', '#tool-snipcircle', '#tool-snipfree', '#snip-copy', '#snip-cut', '#bg-apply-bar']);
+      assert.ok(buttons.slice(0, 4).every((button) => button.label && !button.disabled), 'the four selection tools are buttons');
+      assert.ok(buttons.slice(4, 6).every((button) => button.disabled), 'copy and cut wait for a selection');
+      assert.equal(buttons[6].disabled, true, 'background removal waits for a rectangle or freehand selection');
+      assert.equal(buttons[6].tool && buttons[6].icon, true, 'background removal is an icon button');
+      assert.equal(await app.main.eval(`document.querySelectorAll('#tool-bgrect, #tool-bgfree, #tool-sniprect, #tool-snipfree').length`), 2, 'one rectangle tool and one freehand tool');
+
+      const clickTool = async (id) => {
+        await app.main.eval(`document.querySelector(${js(id)}).scrollIntoView({ inline: 'center', block: 'nearest' }); 1`);
+        const box = await app.main.center(id);
+        await app.main.realClick(box.x, box.y);
+      };
+      const dragShape = async (points) => {
+        const spots = [];
+        for (const [fx, fy] of points) spots.push(await at(app, fx, fy));
+        await app.main.mouse('mouseMoved', spots[0].x, spots[0].y, { button: 'none' });
+        await app.main.mouse('mousePressed', spots[0].x, spots[0].y);
+        for (const spot of spots.slice(1)) await app.main.mouse('mouseMoved', spot.x, spot.y);
+        await app.main.mouse('mouseReleased', spots.at(-1).x, spots.at(-1).y);
+      };
+      const copiedPiece = async (act) => {
+        await app.main.eval(`document.querySelectorAll('.toast').forEach((el) => el.remove()); 1`);
+        await act();
+        await app.main.waitFor(`[...document.querySelectorAll('.toast-text')].some((el) => el.textContent === ${P}.t('edit.snipCopied'))`, { timeout: 8000, message: 'selection copied' });
+        const piece = await app.main.eval(`(() => { const snip = ${P}.editor.debug().lastSnip; const mid = (Math.floor(snip.height / 2) * snip.width + Math.floor(snip.width / 2)) * 4; return { w: snip.width, h: snip.height, alpha: snip.data[mid + 3] }; })()`);
+        assert.ok(piece.w > 8 && piece.h > 8, `copied piece ${piece.w}x${piece.h}`);
+        assert.equal(piece.alpha, 255, 'the copied centre is opaque');
+        assert.equal(await app.main.eval(`${P}.editor.debug().edit.cuts.length`), 0, 'copy leaves the picture');
+      };
+
+      await clickTool('#tool-sniprect');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'sniprect' && !document.querySelector('#snip-cancel')`);
+      await dragShape([[0.12, 0.08], [0.4, 0.3]]);
+      await app.main.waitFor(`${P}.editor.debug().snip?.ready && ${P}.editor.debug().snip.kind === 'rect' && Boolean(document.querySelector('.editor-overlay .bg-marquee')) && !document.querySelector('#snip-copy').disabled && !document.querySelector('#bg-apply-bar').disabled`, { message: 'rectangle ready' });
+      const stage = await at(app, 0.5, 0.55);
+      await app.main.mouse('mousePressed', stage.x, stage.y, { button: 'right' });
+      await app.main.mouse('mouseReleased', stage.x, stage.y, { button: 'right' });
+      await app.main.waitFor(`Boolean(document.querySelector('[data-id=snip-menu-copy]'))`, { message: 'selection menu' });
+      const menu = await app.main.eval(`[...document.querySelectorAll('.menu-item')].map((el) => ({ id: el.dataset.id, shortcut: el.querySelector('.menu-shortcut')?.textContent ?? '', disabled: el.disabled }))`);
+      assert.deepEqual(menu.map((item) => [item.id, item.shortcut, item.disabled]), [
+        ['snip-menu-rect', 'R', false],
+        ['snip-menu-ellipse', 'E', false],
+        ['snip-menu-circle', 'O', false],
+        ['snip-menu-free', 'L', false],
+        ['snip-menu-copy', 'Ctrl+C', false],
+        ['snip-menu-cut', 'Ctrl+X', false],
+        ['snip-menu-bg', '', false],
+        ['snip-menu-clear', 'Esc', false],
+      ]);
+      const copyItem = await app.main.center('[data-id=snip-menu-copy]');
+      await copiedPiece(async () => { await app.main.realClick(copyItem.x, copyItem.y); });
+      assert.equal(await previewAlpha(app, 0.26, 0.19), 255);
+
+      await clickTool('#snip-cut');
+      await app.main.waitFor(`${P}.editor.debug().edit.cuts.length === 1 && ${P}.editor.debug().edit.cuts[0].kind === 'rect' && [...document.querySelectorAll('.toast-text')].some((el) => el.textContent === ${P}.t('edit.snipCutDone'))`, { timeout: 8000, message: 'rectangle cut' });
+      assert.equal(await previewAlpha(app, 0.26, 0.19), 0);
+      assert.equal(await previewAlpha(app, 0.02, 0.02), 255);
+      assert.equal(await app.main.eval(`${P}.editor.dirty`), true);
+      await app.main.key('z', 2);
+      await app.main.waitFor(`${P}.editor.debug().edit.cuts.length === 0`);
+      assert.equal(await previewAlpha(app, 0.26, 0.19), 255, 'undo restores the cut');
+
+      await app.main.key('e');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'snipellipse'`);
+      await dragShape([[0.55, 0.36], [0.9, 0.62]]);
+      await app.main.waitFor(`${P}.editor.debug().snip?.kind === 'ellipse' && Boolean(document.querySelector('.editor-overlay ellipse')) && !document.querySelector('#bg-apply-bar').disabled`, { message: 'ellipse ready' });
+      await copiedPiece(async () => { await app.main.key('c', 2); });
+      await app.main.key('x', 2);
+      await app.main.waitFor(`${P}.editor.debug().edit.cuts.some((cut) => cut.kind === 'ellipse')`, { message: 'ellipse cut' });
+      assert.equal(await previewAlpha(app, 0.72, 0.49), 0);
+      assert.equal(await previewAlpha(app, 0.57, 0.38), 255, 'an ellipse corner stays');
+      await app.main.eval(`${P}.editor.testing.goToHistory(0); 1`);
+
+      await clickTool('#tool-snipcircle');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'snipcircle'`);
+      await dragShape([[0.15, 0.72], [0.78, 0.9]]);
+      await app.main.waitFor(`${P}.editor.debug().snip?.kind === 'circle' && !document.querySelector('#bg-apply-bar').disabled`, { message: 'circle ready' });
+      const circle = await app.main.eval(`(() => { const snip = ${P}.editor.debug().snip; const preview = ${P}.editor.debug().preview; return { pixelW: snip.w * preview.w, pixelH: snip.h * preview.h, x: snip.x, y: snip.y, w: snip.w, h: snip.h }; })()`);
+      assert.ok(Math.abs(circle.pixelW - circle.pixelH) < 1.5, `circle pixels ${circle.pixelW} x ${circle.pixelH}`);
+      await clickTool('#snip-cut');
+      await app.main.waitFor(`${P}.editor.debug().edit.cuts.some((cut) => cut.kind === 'circle')`, { message: 'circle cut' });
+      assert.equal(await previewAlpha(app, circle.x + circle.w / 2, circle.y + circle.h / 2), 0);
+      assert.equal(await previewAlpha(app, circle.x + circle.w * 0.02, circle.y + circle.h * 0.02), 255, 'a corner of the circle box stays');
+      await app.main.eval(`${P}.editor.testing.goToHistory(0); 1`);
+
+      await app.main.key('l');
+      await app.main.waitFor(`${P}.editor.debug().tool === 'snipfree'`);
+      await dragShape([[0.08, 0.48], [0.3, 0.5], [0.12, 0.74]]);
+      await app.main.waitFor(`${P}.editor.debug().snip?.kind === 'free' && ${P}.editor.debug().snip.points.length >= 3 && Boolean(document.querySelector('.editor-overlay polygon')) && !document.querySelector('#bg-apply-bar').disabled`, { message: 'freehand ready' });
+      const freePoint = await at(app, 0.16, 0.58);
+      await app.main.mouse('mousePressed', freePoint.x, freePoint.y, { button: 'right' });
+      await app.main.mouse('mouseReleased', freePoint.x, freePoint.y, { button: 'right' });
+      await app.main.waitFor(`document.querySelector('[data-id=snip-menu-cut]') && !document.querySelector('[data-id=snip-menu-cut]').disabled && document.querySelector('[data-id=snip-menu-bg]') && !document.querySelector('[data-id=snip-menu-bg]').disabled`, { message: 'cut and background removal in the menu' });
+      const cutItem = await app.main.center('[data-id=snip-menu-cut]');
+      await app.main.realClick(cutItem.x, cutItem.y);
+      await app.main.waitFor(`${P}.editor.debug().edit.cuts.some((cut) => cut.kind === 'free')`, { message: 'freehand cut' });
+      assert.equal(await previewAlpha(app, 0.16, 0.58), 0);
+      assert.equal(await previewAlpha(app, 0.02, 0.5), 255);
+
+      await app.main.key('Escape');
+      await app.main.waitFor(`${P}.editor.debug().tool == null && !document.querySelector('#snip-cancel')`);
+      await leaveEditor(app);
+    },
+  },
+  {
     ids: ['EDIT-LIGHT', 'EDIT-COLOR', 'EDIT-LEVELS', 'EDIT-COLOREQ', 'EDIT-LIGHTEQ', 'EDIT-SPLIT', 'EDIT-DEHAZE', 'EDIT-DETAIL', 'EDIT-LENS', 'EDIT-PERSPECTIVE', 'EDIT-TILTSHIFT', 'EDIT-SKIN'],
     group: '편집', name: '조정 패널: 노출·색·레벨·곡선·Color EQ·Light EQ·스플릿 토닝·안개·디테일·렌즈·원근·틸트시프트·피부 — 각각 미리 보기가 바뀐다',
     run: async (app) => {
@@ -2463,6 +2656,7 @@ export const cases = [
       await app.main.waitFor(`${P}.editor.debug().edit.spots.some((s) => s.type === 'erase' && s.strokes[0].points.length > 2)`, { message: 'erase stroke' });
       await settle(app);
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'erase-me.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 120000 });
       const after = await imageInfo(app, file, sun);
       const seaAfter = await imageInfo(app, file, sea);
@@ -2667,6 +2861,7 @@ export const cases = [
       const multiplied = await signature(app);
       assert.ok(difference(normal, multiplied) > 0.5, 'blend mode changes the result');
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'layered.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000, message: 'saved' });
       const info = await imageInfo(app, path.join(studio, 'layered.jpg'));
       assert.deepEqual([info.width, info.height], [1000, 700], 'canvas size');
@@ -2778,13 +2973,15 @@ export const cases = [
       // Apply again. The light section stays available under the pinned looks.
       await app.main.eval(`${P}.dq('.editor-panel [data-look=noir]').click(); 1`);
       await app.main.waitFor(`${P}.editor.debug().edit.adjust.saturation === -100`);
+      await app.main.eval(`(() => { const s = ${P}.dq('[data-key=look-search]'); if (s && s.value) { s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })); } return 1; })()`);
       await section(app, 'light');
       await app.main.waitFor(`Boolean(${P}.dq('.editor-panel .edit-section-head.open[data-section=light]')) && Boolean(${P}.dq('.editor-panel input.slider[data-key="adjust.exposure"]')) && ${P}.dqa('.editor-panel .look-cat').length === 17`, { message: 'light section under the pinned looks' });
       // The look's values are in the ordinary sections too.
       await section(app, 'color');
       assert.equal(await app.main.eval(`Number(${P}.dq('.editor-panel input.slider[data-key="adjust.saturation"]').value)`), -100);
-      // Saved: a grey picture.
+      // Saved: a grey picture. The name stays the original so the check reads that file.
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'looks.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
       const saved = await imageInfo(app, file);
       assert.ok(Math.abs(saved.mean[0] - saved.mean[1]) < 3 && Math.abs(saved.mean[1] - saved.mean[2]) < 3, `grey: ${saved.mean.map((v) => v.toFixed(0))}`);
@@ -2832,6 +3029,7 @@ export const cases = [
       await app.main.waitFor(`${P}.editor.debug().edit.lut?.name === 'invert' && ${P}.app.settings.luts.some((x) => x.name === 'invert')`, { message: 'imported' });
       await app.main.waitFor(`[...${P}.dq('.editor-panel select[data-key=lut]').options].some((o) => o.textContent === 'invert')`);
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'graded.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
       const after = (await imageInfo(app, file)).mean;
       for (let c = 0; c < 3; c++) assert.ok(Math.abs(after[c] - (255 - base[c])) < 12, `channel ${c}: ${base[c].toFixed(0)} → ${after[c].toFixed(0)} (inverted)`);
@@ -2860,8 +3058,9 @@ export const cases = [
       // The preview row: with 8 bits there would be ~17 steps; dithered precise values average out smoothly.
       const smooth = await app.main.eval(`(() => { const c = ${P}.dq('.editor-preview'); const d = c.getContext('2d').getImageData(0, 0, c.width, 4).data; const cols = []; for (let x = 0; x + 4 <= c.width; x += 4) { let s = 0; for (let y = 0; y < 4; y++) for (let k = 0; k < 4; k++) s += d[(y * c.width + x + k) * 4]; cols.push(s / 16); } let max = 0; for (let i = 1; i < cols.length; i++) max = Math.max(max, Math.abs(cols[i] - cols[i - 1])); return { max, levels: new Set(cols.map((v) => Math.round(v * 2))).size, n: cols.length }; })()`);
       assert.ok(smooth.max < 4, `no band steps in the preview ${JSON.stringify(smooth)}`);
-      // Save in place: stays a 16-bit PNG with precise values.
+      // Save as, keeping this file's name: stays a 16-bit PNG with precise values.
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'deep.png');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
       const bytes = new Uint8Array(fs.readFileSync(target));
       assert.equal(bytes[24], 16, '16 bits per channel');
@@ -2885,6 +3084,7 @@ export const cases = [
       await section(app, 'light');
       await slider(app, 'adjust.exposure', 1);
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'again.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
       const once = (await imageInfo(app, file)).mean[1];
       assert.ok(once > base + 15, `brighter after the first save ${base.toFixed(0)} → ${once.toFixed(0)}`);
@@ -2896,6 +3096,7 @@ export const cases = [
       await section(app, 'light');
       await slider(app, 'adjust.exposure', 0.5);
       await app.main.key('s', 2);
+      await confirmSaveAs(app, 'again.jpg');
       await app.main.waitFor(`${P}.app.state.mode === 'manage'`, { timeout: 60000 });
       const twice = (await imageInfo(app, file)).mean[1];
       assert.ok(twice > base + 5 && twice < once - 5, `re-edited from the original: ${base.toFixed(0)} < ${twice.toFixed(0)} < ${once.toFixed(0)}`);

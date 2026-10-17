@@ -1,6 +1,7 @@
 // link.exe prints "Creating library …" when it builds the cdylib import library.
 #![allow(unknown_lints, linker_messages)]
 
+pub mod bgmodels;
 pub mod catalogdb;
 pub mod files;
 pub mod mtp;
@@ -460,6 +461,37 @@ fn print_window(window: WebviewWindow) -> Result<(), String> {
 // ───────────────────────── app data (catalog database, settings)
 
 /// The app's own data folder (tests point it elsewhere with MYPHOTO_DATA_DIR).
+fn model_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir(app)?.join("models"))
+}
+
+#[tauri::command]
+fn bg_model_info(app: AppHandle, id: String) -> Result<bgmodels::ModelInfo, String> {
+    bgmodels::info(&model_dir(&app)?, &id)
+}
+
+#[tauri::command]
+async fn bg_model_download(app: AppHandle, id: String) -> Result<(), String> {
+    let dir = model_dir(&app)?;
+    bgmodels::download(app, dir, id).await
+}
+
+#[tauri::command]
+fn bg_model_cancel(id: String) {
+    bgmodels::cancel(&id);
+}
+
+#[tauri::command]
+fn bg_model_delete(app: AppHandle, id: String) -> Result<(), String> {
+    bgmodels::delete(&model_dir(&app)?, &id)
+}
+
+#[tauri::command]
+async fn bg_model_read(app: AppHandle, id: String) -> Result<Vec<u8>, String> {
+    let dir = model_dir(&app)?;
+    blocking(move || bgmodels::read(&dir, &id)).await
+}
+
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     if let Some(dir) = std::env::var_os("MYPHOTO_DATA_DIR") {
         return Ok(PathBuf::from(dir));
@@ -742,6 +774,11 @@ pub fn run() {
             list_printers,
             data_read,
             data_write,
+            bg_model_info,
+            bg_model_download,
+            bg_model_cancel,
+            bg_model_delete,
+            bg_model_read,
             catalog_db_load,
             catalog_db_save,
             catalog_db_info,

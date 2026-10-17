@@ -2,6 +2,7 @@
 export default {
   'app.name': 'MyPhotoManager',
   'common.ok': '확인', 'common.cancel': '취소', 'common.close': '닫기', 'common.delete': '삭제', 'common.remove': '제거', 'common.save': '저장',
+  'error.title': '오류', 'error.hint': '자세한 내용입니다. 아래 글에서 선택하거나 복사할 수 있습니다.', 'error.copy': '복사', 'error.copied': '복사했습니다.',
 
   'menu.file': '파일', 'menu.edit': '편집', 'menu.view': '보기', 'menu.organize': '정리', 'menu.tools': '도구', 'menu.help': '도움말',
   'menu.settings': '설정', 'menu.theme': '테마', 'menu.language': '언어', 'menu.viewStyle': '보기 방식', 'menu.batch': '일괄 처리',
@@ -24,6 +25,15 @@ export default {
   'start.tip.0': 'Ctrl+O 로 폴더를 엽니다.', 'start.tip.1': '사진을 고르고 Ctrl+E 를 누르면 편집입니다.', 'start.tip.2': 'Ctrl+Shift+S 로 슬라이드 쇼를 시작합니다.',
   'start.tip.3': '숫자 1–5 는 별점, Alt+1–5 는 색 레이블입니다.', 'start.tip.4': '장소가 있는 사진은 지도에서 볼 수 있습니다.',
   'start.tip.5': '대시보드는 지금 폴더의 사진 수와 카메라를 모아 보여 줍니다.',
+  'start.tip.6': '편집 툴바에서 배경을 제거할 수 있습니다.',
+  'start.tipMore': '자세히', 'start.tipLess': '접기',
+  'start.tip.0.more': 'Ctrl+O 로 폴더를 고르면 그 안의 사진이 썸네일로 나옵니다. 한 번 연 폴더는 이 시작 화면의 최근 폴더에 남아, 다음에도 한 번만 누르면 열립니다. 사진만 따로 열거나, 가져오기로 카메라·카드에서 복사해 올 수도 있습니다.',
+  'start.tip.1.more': '관리 화면에서 사진을 고르고 Ctrl+E 를 누르거나 편집을 고릅니다. 편집은 원본을 덮어 쓰지 않고 보정 값을 옆에 기억하므로, 나중에 원본에서 다시 고칠 수 있습니다. 왼쪽이 조정, 가운데가 미리 보기, 오른쪽이 파일 정보입니다. Ctrl+Z 로 한 단계를 되돌립니다.',
+  'start.tip.2.more': '슬라이드 쇼는 지금 폴더의 사진을 전체 화면에서 하나씩 보여 줍니다. 관리나 보기에서 Ctrl+Shift+S 로 시작합니다. 설정에서 간격, 전환, 무작위, 반복, 배경 음악을 정할 수 있습니다. 스페이스로 잠시 멈추고, Esc 로 나옵니다.',
+  'start.tip.3.more': '사진을 고른 뒤 1–5 는 별점이고 0 은 별점을 지웁니다. Alt+1 부터 Alt+5 는 색 레이블(빨강, 노랑, 초록, 파랑, 보라)입니다. 이 값은 사진 파일이 아니라 카탈로그에 저장되어, 검색과 필터에서 다시 찾을 수 있습니다.',
+  'start.tip.4.more': 'GPS 가 있는 사진은 오른쪽 창의 지도와 이 화면의 지도 작업에 나타납니다. 마커를 누르면 그 사진이 선택됩니다. 같은 곳에서 찍은 여러 장은 개수가 붙은 마커 하나를 같이 씁니다. 설정에서 지도 타일을 끄면 주소 찾기도 함께 멈춥니다.',
+  'start.tip.5.more': '위쪽 모드에서 대시보드를 누르면, 지금 연 폴더의 사진 수, 촬영 날짜, 카메라와 렌즈, 파일 형식, 별점을 차트로 모읍니다. 카탈로그를 읽으므로 폴더가 커도 빠릅니다. 폴더를 열기 전에는 셀 내용이 없습니다.',
+  'start.tip.6.more': '편집 툴바의 사각형, 타원, 원 또는 자유 선택으로 대상을 감쌉니다. 선은 선택만 표시하고, 배경 제거를 누르기 전에는 그림이 바뀌지 않습니다. 왼쪽 패널에는 알고리즘 버튼만 있습니다. 보통은 GrabCut 으로 시작하고, REMBG 1·2 는 설정에서 한 번 받으면 됩니다. 취소는 선택을 버리고, Undo(Ctrl+Z) 는 적용한 편집을 되돌립니다. 저장하면 대상이 들어가는 사각형만 배경이 투명한 PNG 나 WebP 로 남습니다. 설정 › 배경 제거에서 선택 선의 색, 실선·파선·점선, 굵기를 바꿉니다. 기본은 노란색 파선입니다.',
   'pane.folders': '폴더', 'pane.catalog': '카탈로그', 'pane.calendar': '달력', 'pane.search': '검색', 'pane.properties': '속성', 'pane.preview': '미리 보기', 'pane.map': '지도',
   'place.home': '홈 ({name})', 'place.pictures': '사진', 'place.desktop': '바탕 화면', 'place.documents': '문서', 'place.downloads': '다운로드',
 

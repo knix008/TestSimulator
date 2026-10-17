@@ -8,37 +8,98 @@
 import { joinPath, parentOf } from '../catalog/catalog.js';
 import { applyAdjustments, autoLevels, curveTable, DEFAULT_ADJUST, histogram } from '../edit/adjust.js';
 import { BLEND_MODES, COLOR_BANDS, EFFECTS, effectParams, whiteBalanceFromPixel } from '../edit/advanced.js';
-import { alphaBounds, BG_ALGORITHMS, cropToObject, normalizeAlgorithm } from '../edit/background.js';
+import { alphaBounds, BG_ALGORITHMS, cropToObject, hasNeuralAlpha, isNeuralAlgorithm, neuralKey, normalizeAlgorithm, normalizeBackground, prepareBuiltinRemoval, selectionLine, selectionToPixels } from '../edit/background.js';
+import { downloadFailedText, installModel, isInstalled, prepareNeuralMask } from '../edit/bgmodels.js';
 import { apply, cropForAspect, invert, layout } from '../edit/geometry.js';
 import { applyLook, lookCategories, lookTouches } from '../edit/looks.js';
 import { BUILTIN_LUTS, getLut, importLut, prepareEdit } from '../edit/lut.js';
 import { applyPreset, DEFAULT_CANVAS, DEFAULT_DETAIL, DEFAULT_FX, DEFAULT_LENS, DEFAULT_OVERLAY, defaultEdit, isEmptyEdit, normalizeEdit, presetOf, render } from '../edit/pipeline.js';
-import { canvasFromImageData, context2d, scaledCanvas } from '../formats/canvas.js';
+import { saveNamePrefix } from '../edit/savename.js';
+import { extractSnip, normalizeSnip, normalizeSnips } from '../edit/snip.js';
+import { canvasFromImageData, canvasToBlob, context2d, scaledCanvas } from '../formats/canvas.js';
 import { decodeImage } from '../formats/decode.js';
 import { encodeCanvas } from '../formats/encode.js';
 import { editMetadataField, metadataFieldEditable } from '../formats/exif-edit.js';
 import { formatExposure, readMetadata } from '../formats/exif.js';
 import { isJpeg } from '../formats/jpeg-meta.js';
-import { badgeOf, canWriteBack, extensionOf, isRaw, OUTPUT_FORMATS, outputFormatFor, stemOf } from '../formats/types.js';
+import { badgeOf, extensionOf, isRaw, OUTPUT_FORMATS, outputFormatFor, stemOf } from '../formats/types.js';
 import { t } from '../i18n.js';
 import { fs } from '../platform/fs.js';
 import { chooseFiles, chooseSavePath, errorText, isDesktop } from '../platform/native.js';
 import { app, reload, saveCatalogSoon } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
 import { formatBytes, formatDateTime, formatDims, formatDuration } from '../util/format.js';
-import { confirmDialog, field, openDialog, promptDialog, selectEl, toast } from './dialog.js';
+import { confirmDialog, field, openDialog, progressDialog, promptDialog, selectEl, toast } from './dialog.js';
+import { closeMenus, contextMenu } from './menu.js';
 import { colorSwatches } from './colorswatch.js';
 import { button, clear, h, rafThrottle, typing } from './dom.js';
 import { drawHistogram } from './histogram.js';
 import { icon } from './icons.js';
-import { commandFor, registerCommands } from './keymap.js';
+import { commandFor, keyOf, registerCommands } from './keymap.js';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const PREVIEW_MAX = 1800;
+
+/** Freehand outline while the pointer is down: a dashed stroke, not a filled shape. */
+function bgLasso(points) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'bg-lasso');
+  const halo = document.createElementNS(SVG_NS, 'polyline');
+  halo.setAttribute('class', 'bg-lasso-halo');
+  const line = document.createElementNS(SVG_NS, 'polyline');
+  line.setAttribute('class', 'bg-lasso-line');
+  svg.append(halo, line);
+  const paint = () => {
+    const text = points.map((point) => `${point[0]},${point[1]}`).join(' ');
+    halo.setAttribute('points', text);
+    line.setAttribute('points', text);
+  };
+  paint();
+  return { svg, paint };
+}
+
+/** Finished freehand selection: the enclosed area is filled and the outline is closed. */
+function bgSelection(points) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'bg-lasso');
+  const text = points.map((point) => `${point[0]},${point[1]}`).join(' ');
+  for (const [name, cls] of [['polygon', 'bg-lasso-fill'], ['polygon', 'bg-lasso-halo'], ['polygon', 'bg-lasso-line']]) {
+    const shape = document.createElementNS(SVG_NS, name);
+    shape.setAttribute('class', cls);
+    shape.setAttribute('points', text);
+    svg.append(shape);
+  }
+  return svg;
+}
+
+/** Ellipse or circle marquee. `box` is in overlay pixels. */
+function snipEllipse(box) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'bg-lasso');
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const rx = Math.max(0, box.w / 2);
+  const ry = Math.max(0, box.h / 2);
+  for (const cls of ['bg-lasso-fill', 'bg-lasso-halo', 'bg-lasso-line']) {
+    const shape = document.createElementNS(SVG_NS, 'ellipse');
+    shape.setAttribute('class', cls);
+    shape.setAttribute('cx', String(cx));
+    shape.setAttribute('cy', String(cy));
+    shape.setAttribute('rx', String(rx));
+    shape.setAttribute('ry', String(ry));
+    svg.append(shape);
+  }
+  return svg;
+}
+
 const ASPECTS = [['free', null], ['original', 'original'], ['1:1', 1], ['4:3', 4 / 3], ['3:2', 3 / 2], ['16:9', 16 / 9], ['5:4', 5 / 4], ['3:4', 3 / 4], ['2:3', 2 / 3], ['9:16', 9 / 16]];
 const ANCHORS = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
 const clone = (value) => JSON.parse(JSON.stringify(value));
 /** Tools that work in source-pixel coordinates (the preview is drawn without border/layers/text). */
 const SOURCE_TOOLS = ['redeye', 'heal', 'clone', 'erase', 'wbpick', 'gradient', 'radial', 'brush', 'lasso', 'wand', 'color'];
+const SNIP_TOOLS = ['sniprect', 'snipellipse', 'snipcircle', 'snipfree'];
+/** Older entry points named the rectangle and freehand tools after background removal. */
+const SNIP_TOOL_ALIAS = { bgrect: 'sniprect', bgfree: 'snipfree' };
 const SELECTION_TOOLS = ['lasso', 'wand', 'color'];
 const hueOf = (r, g, b) => { const max = Math.max(r, g, b); const d = max - Math.min(r, g, b); if (!d) return 0; const h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4); return h < 0 ? h + 360 : h; };
 
@@ -78,7 +139,11 @@ export function createEditor({ onDone }) {
   let cropDraft = null;
   let cropAspect = null;
   let bgDraft = null;
+  let snipDraft = null;
+  let lastSnip = null;
   let bgChoice = null;
+  let removing = false;
+  let cutoutNeedsSave = false;
   const brush = { size: 40, hardness: 0.6, erase: false };
   let cloneSource = null;
   let before = false;
@@ -117,6 +182,7 @@ export function createEditor({ onDone }) {
   }
 
   function commit(label = t(`edit.${section ?? 'light'}`)) {
+    revision += 1;
     undo.push({ edit: clone(edit), label, look: lookSnap() });
     if (undo.length > 150) undo.shift();
     redo = [];
@@ -137,6 +203,7 @@ export function createEditor({ onDone }) {
     const entry = undo.pop();
     redo.push({ edit: clone(edit), label: entry.label, look: lookSnap() });
     applySnap(entry);
+    revision += 1;
     buildPanel();
     draw();
     updateBar();
@@ -147,6 +214,7 @@ export function createEditor({ onDone }) {
     const entry = redo.pop();
     undo.push({ edit: clone(edit), label: entry.label, look: lookSnap() });
     applySnap(entry);
+    revision += 1;
     buildPanel();
     draw();
     updateBar();
@@ -159,10 +227,10 @@ export function createEditor({ onDone }) {
 
   // ───────── drawing
 
-  const draw = rafThrottle(() => {
+  function paint() {
     if (!preview) return;
     if (edit.lut && !getLut(edit.lut.id)) { prepareEdit(edit).then(() => draw()).catch(() => {}); }
-    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipBackground: tool === 'bgrect' || tool === 'bgfree', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages, high: fullHigh });
+    const output = before ? preview : render(preview, edit, { scale, skipCrop: tool === 'crop', skipOverlay: SOURCE_TOOLS.includes(tool) || tool === 'crop' || tool === 'line', layerImages, high: fullHigh });
     let canvas = output;
     if (!(canvas instanceof HTMLCanvasElement)) {
       canvas = document.createElement('canvas');
@@ -179,12 +247,13 @@ export function createEditor({ onDone }) {
     try {
       pixels = context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
       drawHistogram(histCanvas, histogram(pixels, 3));
+      scheduleNeural(pixels);
     } catch { /* never break the preview */ }
     drawOverlay();
     const out = layout(full.width, full.height, edit.geometry);
     let outW = out.width;
     let outH = out.height;
-    if (!before && edit.background?.selection && pixels && tool !== 'bgrect' && tool !== 'bgfree') {
+    if (!before && edit.background?.selection && pixels) {
       const box = alphaBounds(pixels);
       if (box && scale) {
         outW = Math.max(1, Math.round(box.w / scale));
@@ -198,7 +267,8 @@ export function createEditor({ onDone }) {
       const sizeText = outW !== full.width || outH !== full.height ? `${dims} → ${formatDims(outW, outH)}` : dims;
       if (dimsCell.textContent !== sizeText) { dimsCell.textContent = sizeText; dimsCell.title = sizeText; }
     }
-  });
+  }
+  const draw = rafThrottle(paint);
 
   /** Scale that fits the preview in the stage, at most 2× (same as before zoom existed). */
   function fitFactor() {
@@ -326,7 +396,17 @@ export function createEditor({ onDone }) {
     return { x: r.x + px * k, y: r.y + py * k, k: k * scale };
   }
 
+  function paintSelectionLine() {
+    const line = selectionLine(app.settings?.background);
+    overlay.style.setProperty('--bg-line-color', line.color);
+    overlay.style.setProperty('--bg-line-width', `${line.width}px`);
+    overlay.style.setProperty('--bg-line-halo', `${line.width + 2}px`);
+    overlay.style.setProperty('--bg-line-style', line.style);
+    overlay.style.setProperty('--bg-line-dash', line.dash ? line.dash.join(' ') : 'none');
+  }
+
   function drawOverlay() {
+    paintSelectionLine();
     clear(overlay);
     overlay.className = `editor-overlay${tool ? ` tool-${tool}` : ''}`;
     if (!shown || before) return;
@@ -338,18 +418,16 @@ export function createEditor({ onDone }) {
       overlay.append(shade, box);
       box.addEventListener('pointerdown', cropPointer);
     }
-    if ((tool === 'bgrect' || tool === 'bgfree') && bgDraft?.kind === 'rect') {
+    if (SNIP_TOOLS.includes(tool) && snipDraft && (snipDraft.kind === 'rect' || snipDraft.kind === 'ellipse' || snipDraft.kind === 'circle')) {
       const r = displayRect();
-      overlay.append(h('div.crop-box.bg-marquee', { style: { left: `${r.x + bgDraft.x * r.w}px`, top: `${r.y + bgDraft.y * r.h}px`, width: `${bgDraft.w * r.w}px`, height: `${bgDraft.h * r.h}px` } }));
+      const box = { x: r.x + snipDraft.x * r.w, y: r.y + snipDraft.y * r.h, w: snipDraft.w * r.w, h: snipDraft.h * r.h };
+      if (snipDraft.kind === 'rect') overlay.append(h('div.crop-box.bg-marquee', { style: { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` } }, h('div.bg-marquee-fill')));
+      else overlay.append(snipEllipse(box));
     }
-    if ((tool === 'bgrect' || tool === 'bgfree') && bgDraft?.kind === 'free' && bgDraft.points?.length > 1) {
+    if (SNIP_TOOLS.includes(tool) && snipDraft?.kind === 'free' && snipDraft.points?.length > 1) {
       const r = displayRect();
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('class', 'lasso-path');
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      line.setAttribute('points', bgDraft.points.map(([x, y]) => `${r.x + x * r.w},${r.y + y * r.h}`).join(' '));
-      svg.append(line);
-      overlay.append(svg);
+      const points = snipDraft.points.map(([x, y]) => [r.x + x * r.w, r.y + y * r.h]);
+      overlay.append(snipDraft.ready ? bgSelection(points) : bgLasso(points).svg);
     }
     if (['redeye', 'heal', 'clone'].includes(tool)) {
       for (const spot of edit.spots.filter((s) => s.type === tool)) {
@@ -400,39 +478,234 @@ export function createEditor({ onDone }) {
     else setFit();
   });
 
+  const neuralFailed = new Set();
+
   function currentBgAlgorithm() {
     return normalizeAlgorithm(bgChoice ?? edit.background?.algorithm ?? app.settings.background?.algorithm);
   }
 
+  function scheduleNeural(pixels) {
+    if (before || !pixels) return;
+    const background = normalizeBackground(edit.background);
+    if (!background?.selection || !isNeuralAlgorithm(background.algorithm)) return;
+    const selection = selectionToPixels(background.selection, pixels.width, pixels.height);
+    const key = neuralKey(background.algorithm, selection, pixels.width, pixels.height);
+    if (hasNeuralAlpha(key) || neuralFailed.has(key)) return;
+    neuralFailed.add(key);
+    const image = { width: pixels.width, height: pixels.height, data: pixels.data };
+    prepareNeuralMask(image, selection, background.algorithm).then(() => {
+      neuralFailed.delete(key);
+      draw();
+    }).catch((error) => {
+      if (String(error?.message || error) === 'cancelled') return;
+      if (error?.downloadFailed) toast(downloadFailedText(background.algorithm, error), 'error', 7000);
+      else toast(t('edit.bgModelFailed', { error: errorText(error) }), 'error', 7000);
+    });
+  }
+
+  let busyNote = 0;
+  function setRemoving(on) {
+    removing = on;
+    document.body.classList.toggle('bg-removing', on);
+    if (on) closeMenus();
+    updateBar();
+  }
+  document.addEventListener('pointerdown', (event) => {
+    if (!removing) return;
+    if (event.target.closest?.('.dialog, .dialog-overlay, .dialog-shield')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const now = Date.now();
+    if (now - busyNote < 1500) return;
+    busyNote = now;
+    toast(t('edit.bgBusy'), 'info');
+  }, true);
+
   function commitBackground(selection) {
-    const algorithm = currentBgAlgorithm();
+    neuralFailed.clear();
+    const normalized = normalizeBackground({ algorithm: currentBgAlgorithm(), selection });
+    if (!normalized) return;
     tool = null;
     bgDraft = null;
+    snipDraft = null;
     section = 'background';
     panelReveal = 'background';
-    change((ed) => { ed.background = { algorithm, selection }; }, t('edit.background'));
+    change((ed) => { ed.background = normalized; }, t('edit.background'));
+    cutoutNeedsSave = true;
+    paint();
     buildPanel();
   }
 
-  function startBackgroundSelect(event) {
+  function unsavedCutout() {
+    return cutoutNeedsSave && Boolean(edit.background?.selection);
+  }
+
+  let askingSave = false;
+  let revision = 0;
+  let savedRevision = 0;
+
+  function needsSave() {
+    return revision !== savedRevision && !isEmptyEdit(edit) && undo.length > 0;
+  }
+
+  /** 'save' writes the file and stays in the editor. 'discard' continues. 'cancel' stays put. */
+  async function askSaveEdits(message) {
+    if (askingSave) return 'cancel';
+    askingSave = true;
+    try {
+      const choice = await openDialog({
+        title: t('edit.save'),
+        body: h('p.dialog-message', message),
+        width: 420,
+        buttons: [
+          { label: t('common.cancel'), value: 'cancel' },
+          { label: t('edit.bgSaveNo'), value: 'discard' },
+          { label: t('edit.save'), value: 'save', primary: true },
+        ],
+      });
+      if (choice === 'save') {
+        const saved = await save(false, { stay: true });
+        return saved ? 'save' : 'cancel';
+      }
+      if (choice === 'discard') return 'discard';
+      return 'cancel';
+    } finally { askingSave = false; }
+  }
+
+  async function askSaveCutout() {
+    const choice = await askSaveEdits(t('edit.bgSaveAsk'));
+    if (choice === 'discard') cutoutNeedsSave = false;
+    return choice;
+  }
+
+  async function confirmLeave() {
+    if (removing) return false;
+    if (!needsSave()) return true;
+    return (await askSaveEdits(t('edit.saveAsk'))) !== 'cancel';
+  }
+
+  function removalLabel(algorithm, percent) {
+    return t('edit.bgRemoving', { name: t(`edit.bg.${algorithm}`), percent });
+  }
+
+  /** Shows a progress popup, then prepares the matte the next draw will apply. */
+  async function showRemoval(selection, algorithm) {
+    // The preview looks up the matte with the clamped selection. Preparing the
+    // raw stroke (it often runs outside the photo) stores a different key, so
+    // REMBG reports success and the picture stays unchanged.
+    const normalized = normalizeBackground({ algorithm, selection });
+    if (!preview || !normalized) return false;
+    selection = normalized.selection;
+    algorithm = normalized.algorithm;
+    if (isNeuralAlgorithm(algorithm) && !(await isInstalled(algorithm))) {
+      try { await installModel(algorithm); } catch (error) {
+        if (String(error?.message || error) === 'cancelled') return false;
+        toast(error?.downloadFailed ? downloadFailedText(algorithm, error) : t('edit.bgModelFailed', { error: errorText(error) }), 'error', 7000);
+        return false;
+      }
+    }
+    const progress = progressDialog(removalLabel(algorithm, 0), { immediate: true });
+    progress.update(0, 100, removalLabel(algorithm, 0));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    try {
+      if (progress.cancelled) throw new Error('cancelled');
+      const output = render(preview, edit, { scale, skipBackground: true, layerImages, high: fullHigh });
+      let canvas = output;
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        canvas = document.createElement('canvas');
+        canvas.width = output.width;
+        canvas.height = output.height;
+        canvas.getContext('2d').drawImage(output, 0, 0);
+      }
+      const pixels = context2d(canvas, { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+      const image = { width: pixels.width, height: pixels.height, data: pixels.data };
+      const sel = selectionToPixels(selection, image.width, image.height);
+      const report = (done, total) => progress.update(done, total, removalLabel(algorithm, total ? Math.round((done / total) * 100) : 0));
+      if (isNeuralAlgorithm(algorithm)) await prepareNeuralMask(image, sel, algorithm, report);
+      else await prepareBuiltinRemoval(image, sel, algorithm, report, () => progress.cancelled);
+      if (progress.cancelled) throw new Error('cancelled');
+      progress.update(100, 100, removalLabel(algorithm, 100));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      return true;
+    } catch (error) {
+      if (String(error?.message || error) === 'cancelled') return false;
+      if (error?.downloadFailed) toast(downloadFailedText(algorithm, error), 'error', 7000);
+      else if (isNeuralAlgorithm(algorithm)) toast(t('edit.bgModelFailed', { error: errorText(error) }), 'error', 7000);
+      else toast(errorText(error), 'error', 7000);
+      return false;
+    } finally {
+      progress.close();
+    }
+  }
+
+  /** Background removal uses whichever selection is ready: rectangle, ellipse, circle or freehand. */
+  function backgroundSelection() {
+    return snipSelection();
+  }
+
+  async function applyBackground() {
+    const selection = backgroundSelection();
+    if (!selection || removing) return;
+    setRemoving(true);
+    try {
+      if (await showRemoval(selection, currentBgAlgorithm())) commitBackground(selection);
+    } finally { setRemoving(false); }
+  }
+
+  function pictureAspect() {
+    if (!preview) return 1;
+    const plan = layout(preview.width, preview.height, edit.geometry);
+    return plan.height > 0 ? plan.width / plan.height : 1;
+  }
+
+  /** Drag box for a rectangle, ellipse, or a circle that is round on the picture. */
+  function snipBox(kind, start, current) {
+    const x0 = start.fx;
+    const y0 = start.fy;
+    const x1 = current.fx;
+    const y1 = current.fy;
+    if (kind !== 'circle') return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
+    const aspect = pictureAspect();
+    const side = Math.min(Math.abs(x1 - x0), Math.abs(y1 - y0) / (aspect || 1));
+    const wf = side;
+    const hf = side * aspect;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    return { x: cx - wf / 2, y: cy - hf / 2, w: wf, h: hf };
+  }
+
+  function holdSnip(draft) {
+    snipDraft = draft;
+    updateBar();
+    drawOverlay();
+  }
+
+  function snipSelection(draft = snipDraft) {
+    if (!draft?.ready) return null;
+    if (draft.kind === 'free') return { kind: 'free', points: draft.points.map((point) => [...point]) };
+    return { kind: draft.kind, x: draft.x, y: draft.y, w: draft.w, h: draft.h };
+  }
+
+  function startSnipSelect(event) {
+    if (event.button !== 0) return;
     event.preventDefault();
+    paintSelectionLine();
     try { overlay.setPointerCapture(event.pointerId); } catch { /* synthetic */ }
     const start = fractionAt(event);
-    if (tool === 'bgrect') {
-      bgDraft = { kind: 'rect', x: start.fx, y: start.fy, w: 0, h: 0 };
+    const kind = tool === 'sniprect' ? 'rect' : tool === 'snipellipse' ? 'ellipse' : tool === 'snipcircle' ? 'circle' : 'free';
+    if (kind !== 'free') {
+      snipDraft = { kind, ...snipBox(kind, start, start) };
       drawOverlay();
       const move = (e) => {
-        const p = fractionAt(e);
-        bgDraft = { kind: 'rect', x: Math.min(start.fx, p.fx), y: Math.min(start.fy, p.fy), w: Math.abs(p.fx - start.fx), h: Math.abs(p.fy - start.fy) };
+        snipDraft = { kind, ...snipBox(kind, start, fractionAt(e)) };
         drawOverlay();
       };
       const up = () => {
         overlay.removeEventListener('pointermove', move);
         overlay.removeEventListener('pointerup', up);
-        const draft = bgDraft;
-        bgDraft = null;
-        if (!draft || draft.w < 0.01 || draft.h < 0.01) { drawOverlay(); return; }
-        commitBackground({ kind: 'rect', x: draft.x, y: draft.y, w: draft.w, h: draft.h });
+        const draft = snipDraft;
+        if (!draft || draft.w < 0.01 || draft.h < 0.01) { snipDraft = null; drawOverlay(); updateBar(); return; }
+        holdSnip({ kind, x: draft.x, y: draft.y, w: draft.w, h: draft.h, ready: true });
       };
       overlay.addEventListener('pointermove', move);
       overlay.addEventListener('pointerup', up);
@@ -440,36 +713,93 @@ export function createEditor({ onDone }) {
     }
     const points = [[start.fx, start.fy]];
     const box = overlay.getBoundingClientRect();
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'lasso-path');
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    svg.append(line);
-    overlay.append(svg);
     const shownPoints = [[event.clientX - box.left, event.clientY - box.top]];
-    const paint = () => line.setAttribute('points', shownPoints.map((p) => p.join(',')).join(' '));
-    paint();
+    const lasso = bgLasso(shownPoints);
+    overlay.append(lasso.svg);
     const move = (e) => {
       const p = fractionAt(e);
       const last = points[points.length - 1];
       if (Math.hypot(p.fx - last[0], p.fy - last[1]) < 0.004) return;
       points.push([p.fx, p.fy]);
       shownPoints.push([e.clientX - box.left, e.clientY - box.top]);
-      paint();
+      lasso.paint();
     };
     const up = () => {
       overlay.removeEventListener('pointermove', move);
       overlay.removeEventListener('pointerup', up);
-      svg.remove();
-      if (points.length < 3) return;
-      commitBackground({ kind: 'free', points });
+      lasso.svg.remove();
+      if (points.length < 3) { snipDraft = null; drawOverlay(); updateBar(); return; }
+      holdSnip({ kind: 'free', points: points.map((point) => [...point]), ready: true });
     };
     overlay.addEventListener('pointermove', move);
     overlay.addEventListener('pointerup', up);
   }
 
+  // Copy and cut must call clipboard.write in the gesture, before any await,
+  // or the browser drops the permission to put an image on the clipboard.
+  function copySnip(cut) {
+    const selection = snipSelection();
+    if (!selection || !full) { toast(t('edit.snipNeed'), 'info'); return; }
+    let piece;
+    let blobPromise;
+    try {
+      const output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
+      const pixels = context2d(output, { willReadFrequently: true }).getImageData(0, 0, output.width, output.height);
+      piece = extractSnip(pixels, selection);
+      if (!piece) { toast(t('edit.snipNeed'), 'info'); return; }
+      lastSnip = piece;
+      blobPromise = canvasToBlob(canvasFromImageData(piece), 'image/png');
+    } catch (error) {
+      toast(t('edit.snipCopyFailed', { error: errorText(error) }), 'error');
+      return;
+    }
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      toast(t('edit.snipCopyFailed', { error: 'clipboard' }), 'error');
+      return;
+    }
+    window.focus();
+    const stored = normalizeSnip(selection);
+    const draft = snipDraft;
+    const editing = item;
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]).then(() => {
+      if (!shown || item !== editing) return;
+      if (cut && stored) {
+        if (snipDraft === draft) snipDraft = null;
+        change((ed) => { ed.cuts = [...normalizeSnips(ed.cuts), stored]; }, t('edit.snipCut'));
+      }
+      toast(t(cut ? 'edit.snipCutDone' : 'edit.snipCopied'), 'info');
+    }).catch((error) => {
+      toast(t('edit.snipCopyFailed', { error: errorText(error) }), 'error');
+    });
+  }
+
+  function snipShortcut(id) {
+    return keyOf(SNIP_COMMANDS.find((command) => command.id === id) ?? {});
+  }
+
+  function snipMenu(event) {
+    const ready = Boolean(snipDraft?.ready);
+    contextMenu(event, [
+      { id: 'snip-menu-rect', icon: 'square', label: t('edit.snipRect'), shortcut: snipShortcut('edit:snipRect'), action: () => setTool('sniprect') },
+      { id: 'snip-menu-ellipse', icon: 'ellipse', label: t('edit.snipEllipse'), shortcut: snipShortcut('edit:snipEllipse'), action: () => setTool('snipellipse') },
+      { id: 'snip-menu-circle', icon: 'circle', label: t('edit.snipCircle'), shortcut: snipShortcut('edit:snipCircle'), action: () => setTool('snipcircle') },
+      { id: 'snip-menu-free', icon: 'lasso', label: t('edit.snipFree'), shortcut: snipShortcut('edit:snipFree'), action: () => setTool('snipfree') },
+      'separator',
+      { id: 'snip-menu-copy', icon: 'copy', label: t('edit.snipCopy'), shortcut: snipShortcut('edit:snipCopy'), disabled: !ready, action: () => copySnip(false) },
+      { id: 'snip-menu-cut', icon: 'scissors', label: t('edit.snipCut'), shortcut: snipShortcut('edit:snipCut'), disabled: !ready, action: () => copySnip(true) },
+      { id: 'snip-menu-bg', icon: 'removeBg', label: t('edit.background'), disabled: !backgroundSelection(), action: () => applyBackground() },
+      { id: 'snip-menu-clear', icon: 'close', label: t('edit.snipClear'), shortcut: 'Esc', disabled: !snipDraft && !SNIP_TOOLS.includes(tool), action: () => cancelTool() },
+    ]);
+  }
+
+  stage.addEventListener('contextmenu', (event) => {
+    if (!shown) return;
+    snipMenu(event);
+  });
+
   overlay.addEventListener('pointerdown', (event) => {
     if (!shown || before || !tool || tool === 'crop') return;
-    if (tool === 'bgrect' || tool === 'bgfree') { startBackgroundSelect(event); return; }
+    if (SNIP_TOOLS.includes(tool)) { startSnipSelect(event); return; }
     const { fx, fy } = fractionAt(event);
     if (fx < 0 || fy < 0 || fx > 1 || fy > 1) return;
     event.preventDefault();
@@ -747,19 +1077,18 @@ export function createEditor({ onDone }) {
     draw();
   }
 
-  function setTool(next) {
+  async function setTool(next) {
+    next = SNIP_TOOL_ALIAS[next] ?? next;
+    if (SNIP_TOOLS.includes(next) && tool !== next && unsavedCutout()) {
+      if ((await askSaveCutout()) === 'cancel') return;
+    }
     const on = tool !== next;
     tool = on ? next : null;
     cropDraft = null;
     bgDraft = null;
-    if (on && (next === 'bgrect' || next === 'bgfree')) {
-      section = 'background';
-      panelReveal = 'background';
-      const selection = edit.background?.selection;
-      if (next === 'bgrect' && selection?.kind === 'rect') bgDraft = { ...selection };
-      if (next === 'bgfree' && selection?.kind === 'free') bgDraft = { kind: 'free', points: selection.points.map((point) => [...point]) };
-    }
+    snipDraft = null;
     buildPanel();
+    updateBar();
     draw();
   }
 
@@ -767,7 +1096,9 @@ export function createEditor({ onDone }) {
     tool = null;
     cropDraft = null;
     bgDraft = null;
+    snipDraft = null;
     buildPanel();
+    updateBar();
     draw();
   }
 
@@ -827,8 +1158,8 @@ export function createEditor({ onDone }) {
     return JSON.stringify(probe) !== JSON.stringify(normalizeEdit(edit));
   }
   function resetSection(id) {
-    change((e) => RESETS[id](e), `${t('edit.reset')}: ${t(`edit.${id}`)}`);
     if (id === 'background') bgDraft = null;
+    change((e) => RESETS[id](e), `${t('edit.reset')}: ${t(`edit.${id}`)}`);
     if (id === 'local') selectedLocal = -1;
     if (id === 'layers') selectedLayer = -1;
     buildPanel();
@@ -848,7 +1179,7 @@ export function createEditor({ onDone }) {
   }
 
   function sectionHead(id, title, iconName) {
-    const reset = RESETS[id] && sectionChanged(id) ? resetMark(id, title) : null;
+    const reset = id !== 'background' && RESETS[id] && sectionChanged(id) ? resetMark(id, title) : null;
     const head = h(`button.edit-section-head${section === id ? '.open' : ''}`, { type: 'button', dataset: { section: id } }, h('span', { html: icon(iconName) }), h('span', title), reset, h('span.arrow', { html: icon(section === id ? 'chevronDown' : 'chevronRight') }));
     head.addEventListener('click', () => {
       const open = section !== id;
@@ -1178,32 +1509,38 @@ export function createEditor({ onDone }) {
 
   function backgroundPanel() {
     const chosen = currentBgAlgorithm();
-    const algorithm = selectEl(BG_ALGORITHMS.map((id) => [id, t(`edit.bg.${id}`)]), chosen);
-    algorithm.id = 'bg-algorithm';
-    algorithm.dataset.key = 'bg-algorithm';
-    const hint = h('div.hint', t(`edit.bg.${chosen}Hint`));
     bgChoice = chosen;
-    algorithm.addEventListener('change', () => {
-      const algorithmId = normalizeAlgorithm(algorithm.value);
+    const pick = (algorithmId) => {
+      if (algorithmId === chosen || removing) return;
       bgChoice = algorithmId;
+      neuralFailed.clear();
       app.settings.background = { ...(app.settings.background ?? {}), algorithm: algorithmId };
       app.saveSettings();
-      hint.textContent = t(`edit.bg.${algorithmId}Hint`);
-      if (edit.background?.selection && edit.background.algorithm !== algorithmId) {
-        change((ed) => { ed.background = { ...ed.background, algorithm: algorithmId }; }, t('edit.bgAlgorithm'));
-      }
-    });
-    const selectButton = (id, label, iconName) => h(`button.btn.small${tool === id ? '.primary' : ''}`, { type: 'button', id: `bg-panel-${id}`, onclick: () => setTool(id) }, h('span', { html: icon(iconName) }), label);
-    return h('div',
-      h('div.hint', t('edit.bgHint')),
-      field(t('edit.bgAlgorithm'), algorithm),
-      hint,
-      h('div.row-buttons', selectButton('bgrect', t('edit.bgRect'), 'square'), selectButton('bgfree', t('edit.bgFree'), 'lasso')),
-      edit.background?.selection
-        ? h('div',
-          h('div.hint', t('edit.bgReady')),
-          h('button.btn.small', { type: 'button', id: 'bg-clear', onclick: () => { change((ed) => { ed.background = null; }, t('edit.bgClear')); buildPanel(); } }, t('edit.bgClear')))
-        : '');
+      const go = async () => {
+        if (unsavedCutout() && edit.background?.algorithm !== algorithmId) {
+          if ((await askSaveCutout()) === 'cancel') { bgChoice = chosen; buildPanel(); return; }
+        }
+        if (edit.background?.selection && edit.background.algorithm !== algorithmId) {
+          setRemoving(true);
+          let ok = false;
+          try {
+            ok = await showRemoval(edit.background.selection, algorithmId);
+            if (ok) {
+              const normalized = normalizeBackground({ algorithm: algorithmId, selection: edit.background.selection });
+              change((ed) => { ed.background = normalized ?? { ...ed.background, algorithm: algorithmId }; }, t('edit.bgAlgorithm'));
+              cutoutNeedsSave = true;
+              paint();
+            }
+          } finally { setRemoving(false); }
+          if (!ok) { bgChoice = chosen; cutoutNeedsSave = Boolean(edit.background?.selection); buildPanel(); return; }
+        }
+        buildPanel();
+      };
+      go();
+    };
+    return h('div.bg-algorithms', { id: 'bg-algorithm' }, BG_ALGORITHMS.map((id) => h(`button.btn.small${id === chosen ? '.primary' : ''}`, {
+      type: 'button', dataset: { algorithm: id }, onclick: () => pick(id),
+    }, t(`edit.bg.${id}`))));
   }
 
   function localPanel() {
@@ -1899,17 +2236,22 @@ export function createEditor({ onDone }) {
           button('panelRight', t('toolbar.rightPane'), () => (infoShown ? setEditorPane({ infoCollapsed: true }) : showInfoPane()), { title: infoShown ? t('pane.collapse') : t('pane.expand'), className: infoShown ? 'on' : '', id: 'edit-info-toggle' })),
         h('div.tool-group',
           h('button.btn.primary', { type: 'button', id: 'edit-save', disabled: !dirty || busy, onclick: () => save(false) }, h('span', { html: icon('save') }), t('edit.save')),
-          h('button.btn', { type: 'button', id: 'edit-save-as', disabled: busy, onclick: () => save(true) }, t('edit.saveAs')),
+          button('saveAs', t('edit.saveAs'), () => save(true), { id: 'edit-save-as', title: `${t('edit.saveAs')} (${keyOf({ id: 'edit:saveAs', key: 'Ctrl+Shift+S' })})`, disabled: busy }),
           h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
         h('div.tool-group',
           button('undo', t('edit.undo'), doUndo, { title: `${t('edit.undo')} (Ctrl+Z)`, disabled: !undo.length }),
           button('redo', t('edit.redo'), doRedo, { title: `${t('edit.redo')} (Ctrl+Y)`, disabled: !redo.length })),
         h('div.tool-group',
-          h(`button.btn${before ? '.on' : ''}`, { type: 'button', id: 'edit-before', title: `${t('edit.beforeAfter')} (B)`, onclick: () => { before = !before; updateBar(); draw(); } }, t('edit.beforeAfter')),
-          h('button.btn', { type: 'button', disabled: isEmptyEdit(edit), onclick: resetAll }, t('edit.resetAll'))),
+          button('beforeAfter', t('edit.beforeAfter'), () => { before = !before; updateBar(); draw(); }, { className: before ? 'on' : '', id: 'edit-before', title: `${t('edit.beforeAfter')} (B)` }),
+          button('resetAll', t('edit.resetAll'), resetAll, { id: 'edit-reset', title: t('edit.resetAll'), disabled: isEmptyEdit(edit) })),
         h('div.tool-group',
-          button('square', t('edit.bgRect'), () => setTool('bgrect'), { className: tool === 'bgrect' ? 'on' : '', id: 'tool-bgrect', title: t('edit.bgRectHint') }),
-          button('lasso', t('edit.bgFree'), () => setTool('bgfree'), { className: tool === 'bgfree' ? 'on' : '', id: 'tool-bgfree', title: t('edit.bgFreeHint') })),
+          button('square', t('edit.snipRect'), () => setTool('sniprect'), { className: tool === 'sniprect' ? 'on' : '', id: 'tool-sniprect', title: `${t('edit.snipRect')} (${snipShortcut('edit:snipRect')})` }),
+          button('ellipse', t('edit.snipEllipse'), () => setTool('snipellipse'), { className: tool === 'snipellipse' ? 'on' : '', id: 'tool-snipellipse', title: `${t('edit.snipEllipse')} (${snipShortcut('edit:snipEllipse')})` }),
+          button('circle', t('edit.snipCircle'), () => setTool('snipcircle'), { className: tool === 'snipcircle' ? 'on' : '', id: 'tool-snipcircle', title: `${t('edit.snipCircle')} (${snipShortcut('edit:snipCircle')})` }),
+          button('lasso', t('edit.snipFree'), () => setTool('snipfree'), { className: tool === 'snipfree' ? 'on' : '', id: 'tool-snipfree', title: `${t('edit.snipFree')} (${snipShortcut('edit:snipFree')})` }),
+          button('copy', t('edit.snipCopy'), () => copySnip(false), { id: 'snip-copy', title: `${t('edit.snipCopy')} (${snipShortcut('edit:snipCopy')})`, disabled: !snipDraft?.ready || removing }),
+          button('scissors', t('edit.snipCut'), () => copySnip(true), { id: 'snip-cut', title: `${t('edit.snipCut')} (${snipShortcut('edit:snipCut')})`, disabled: !snipDraft?.ready || removing }),
+          button('removeBg', t('edit.background'), applyBackground, { id: 'bg-apply-bar', title: backgroundSelection() ? t('edit.bgPending') : t('edit.bgDraw'), disabled: removing || !backgroundSelection() })),
         h('div.tool-group',
           button('fit', t('view.fit'), () => setFit(), { title: `${t('view.fit')} (/)`, id: 'edit-zoom-fit' })),
         h('div.editor-zoom',
@@ -1927,13 +2269,14 @@ export function createEditor({ onDone }) {
     look = null;
     tool = null;
     bgDraft = null;
+    snipDraft = null;
     buildPanel();
     draw();
     updateBar();
   }
 
   async function cancel() {
-    if (!isEmptyEdit(edit) && undo.length && !(await confirmDialog(t('edit.discard'), { ok: t('edit.discardOk'), danger: true }))) return;
+    if (!(await confirmLeave())) return;
     close();
   }
 
@@ -1949,37 +2292,43 @@ export function createEditor({ onDone }) {
 
   // ───────── save
 
-  async function save(asNew) {
-    if (busy) return;
+  const changePrefix = () => saveNamePrefix(undo.map((entry) => entry.label), t('edit.savePrefix'));
+
+  async function save(_asNew, { stay = false } = {}) {
+    if (busy) return false;
     const ext = extensionOf(item.name);
     let target = item.path;
     const cutout = Boolean(edit.background?.selection);
+    const transparent = cutout || Boolean(edit.cuts?.length);
     const originalFormat = outputFormatFor(item.name)?.id ?? 'jpeg';
     let format = originalFormat;
-    // JPEG cannot keep a transparent background. PNG and WebP can.
-    if (cutout && format !== 'png' && format !== 'webp') format = 'png';
-    if (!cutout && fullHigh && (format === 'png' || format === 'tiff')) format = `${format}16`; // a 16-bit file stays 16-bit
+    // JPEG cannot keep a transparent hole. PNG and WebP can.
+    if (transparent && format !== 'png' && format !== 'webp') format = 'png';
+    if (!transparent && fullHigh && (format === 'png' || format === 'tiff')) format = `${format}16`; // a 16-bit file stays 16-bit
     let quality = app.settings.jpegQuality / 100;
-    const transparentTarget = cutout && (originalFormat === 'png' || originalFormat === 'webp');
-    const inPlace = !asNew && canWriteBack(item.name) && fs.caps.write && !fs.isReadOnly?.(item.path) && (!cutout || transparentTarget);
-    if (!inPlace) {
-      const choice = await saveAsDialog(cutout ? format : (rawMode ? 'jpeg' : format), { transparent: cutout });
-      if (!choice) return;
-      ({ format, quality } = choice);
-      const spec = OUTPUT_FORMATS.find((f) => f.id === format);
-      const suggested = choice.name;
-      if (isDesktop() && !fs.isReadOnly?.(item.path)) {
-        target = await chooseSavePath(joinPath(parentOf(item.path), suggested), [{ name: spec.label, extensions: [spec.ext] }]);
-        if (!target) return;
-      } else {
-        target = joinPath(parentOf(item.path), suggested);
-      }
+    // An edit is saved under a new name. The dialog suggests a prefix from the changes, and the name can be edited.
+    const choice = await saveAsDialog(transparent ? format : (rawMode ? 'jpeg' : format), { transparent });
+    if (!choice) return false;
+    ({ format, quality } = choice);
+    const spec = OUTPUT_FORMATS.find((f) => f.id === format);
+    const suggested = choice.name;
+    if (isDesktop() && !fs.isReadOnly?.(item.path)) {
+      target = await chooseSavePath(joinPath(parentOf(item.path), suggested), [{ name: spec.label, extensions: [spec.ext] }]);
+      if (!target) return false;
+    } else {
+      target = joinPath(parentOf(item.path), suggested);
     }
     busy = true;
     updateBar();
     try {
       await new Promise((resolve) => setTimeout(resolve, 30));
       await prepareEdit(edit);
+      if (cutout && isNeuralAlgorithm(edit.background.algorithm)) {
+        const bare = render(full, edit, { scale: 1, skipBackground: true, layerImages, high: fullHigh });
+        const base = context2d(bare, { willReadFrequently: true }).getImageData(0, 0, bare.width, bare.height);
+        const normalized = normalizeBackground(edit.background);
+        await prepareNeuralMask({ width: base.width, height: base.height, data: base.data }, selectionToPixels(normalized.selection, base.width, base.height), normalized.algorithm);
+      }
       let output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
       if (cutout) {
         const pixels = context2d(output, { willReadFrequently: true }).getImageData(0, 0, output.width, output.height);
@@ -2004,13 +2353,19 @@ export function createEditor({ onDone }) {
       saveCatalogSoon();
       toast(how === 'downloaded' ? t('edit.downloaded') : t('edit.saved', { name: target.split(/[\\/]/).pop() }), 'success');
       busy = false;
+      cutoutNeedsSave = false;
+      savedRevision = revision;
+      app.emit('edited', target);
+      if (stay) { updateBar(); return true; }
       close();
       await reload();
-      app.emit('edited', target);
+      return true;
     } catch (error) {
       busy = false;
       updateBar();
+      if (String(error?.message || error) === 'cancelled') return false;
       toast(t('edit.saveFailed', { error: errorText(error) }), 'error', 7000);
+      return false;
     }
   }
 
@@ -2018,16 +2373,18 @@ export function createEditor({ onDone }) {
     const formats = transparent ? OUTPUT_FORMATS.filter((f) => f.id === 'png' || f.id === 'webp') : OUTPUT_FORMATS;
     const specOf = (id) => formats.find((f) => f.id === id) ?? formats[0];
     const knownExt = (ext) => formats.some((f) => f.ext === ext || f.id === ext || f.aliases?.includes(ext));
+    const suggestedStem = `${changePrefix()}_${stemOf(item.name)}`;
     const withExtension = (value, spec) => {
       const trimmed = String(value ?? '').trim();
       const ext = extensionOf(trimmed);
       const stem = knownExt(ext) ? trimmed.slice(0, -(ext.length + 1)) : trimmed;
-      return `${stem || `${stemOf(item.name)}_edited`}.${spec.ext}`;
+      return `${stem || suggestedStem}.${spec.ext}`;
     };
     const name = h('input.input', {
       type: 'text', id: 'edit-save-name', autofocus: true, spellcheck: 'false', autocomplete: 'off',
-      value: withExtension(`${stemOf(item.name)}${transparent ? '_cutout' : '_edited'}`, specOf(defaultFormat)),
+      value: withExtension(suggestedStem, specOf(defaultFormat)),
     });
+    name.addEventListener('focus', () => name.select());
     const format = selectEl(formats.map((f) => [f.id, f.label]), specOf(defaultFormat).id, (id) => { name.value = withExtension(name.value, specOf(id)); });
     const quality = h('input.slider', { type: 'range', min: 10, max: 100, value: app.settings.jpegQuality });
     const qualityValue = h('span.slider-value', String(app.settings.jpegQuality));
@@ -2079,9 +2436,14 @@ export function createEditor({ onDone }) {
     lookFineOpen = false;
     undo = [];
     redo = [];
-    tool = intent?.tool ?? null;
+    tool = SNIP_TOOL_ALIAS[intent?.tool] ?? intent?.tool ?? null;
     bgDraft = null;
     bgChoice = null;
+    snipDraft = null;
+    lastSnip = null;
+    cutoutNeedsSave = false;
+    revision = 0;
+    savedRevision = 0;
     before = false;
     viewFit = true;
     viewOffset = { x: 0, y: 0 };
@@ -2096,7 +2458,16 @@ export function createEditor({ onDone }) {
     updateBar();
     clear(panel);
     try {
+      const record = app.catalog.get(item.path);
       original = await fs.read(item.path);
+      // Re-edit from the kept original with the saved settings.
+      const originalPath = record?.editState ? await Promise.resolve(fs.originalPath?.(item.path)).catch(() => null) : null;
+      if (originalPath && (await confirmDialog(t('edit.reopenAsk'), { ok: t('edit.reopenYes'), cancel: t('edit.reopenNo') }))) {
+        original = await fs.read(originalPath);
+        edit = normalizeEdit(record.editState);
+        fromOriginal = true;
+        for (const layer of edit.layers) if (layer.path) await loadLayerImage(layer.path).catch(() => {});
+      }
       rawMode = isRaw(item.name) ? 'camera' : null;
       full = await loadSource(original, item.name);
       preview = scaledCanvas(full, full.width, full.height, PREVIEW_MAX);
@@ -2113,6 +2484,15 @@ export function createEditor({ onDone }) {
     }
   }
 
+  const SNIP_COMMANDS = [
+    { id: 'edit:snipRect', label: 'keys.edit.snipRect', key: 'R', run: () => setTool('sniprect') },
+    { id: 'edit:snipEllipse', label: 'keys.edit.snipEllipse', key: 'E', run: () => setTool('snipellipse') },
+    { id: 'edit:snipCircle', label: 'keys.edit.snipCircle', key: 'O', run: () => setTool('snipcircle') },
+    { id: 'edit:snipFree', label: 'keys.edit.snipFree', key: 'L', run: () => setTool('snipfree') },
+    { id: 'edit:snipCopy', label: 'keys.edit.snipCopy', key: 'Ctrl+C', run: () => copySnip(false) },
+    { id: 'edit:snipCut', label: 'keys.edit.snipCut', key: 'Ctrl+X', run: () => copySnip(true) },
+  ];
+
   // The editor's keys, as commands the user can reassign. Esc (cancel) and
   // Enter (apply the crop) stay fixed.
   registerCommands([
@@ -2128,10 +2508,13 @@ export function createEditor({ onDone }) {
     { id: 'edit:fit', label: 'keys.view.fit', key: '/', run: () => setFit() },
     { id: 'edit:actual', label: 'keys.view.actual', key: '*', run: () => setViewZoom(1) },
     { id: 'edit:snapshot', label: 'keys.edit.snapshot', key: 'Ctrl+Shift+N', run: () => takeSnapshot() },
+    ...SNIP_COMMANDS,
   ], 'edit');
 
   function onKey(event) {
+    if (removing) return true;
     if (typing(event) && !event.ctrlKey && !event.metaKey && !event.altKey) return false;
+    if (typing(event) && (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && ['a', 'c', 'x', 'v'].includes(event.key.toLowerCase())) return false;
     if (event.code === 'Space' && event.target?.tagName !== 'BUTTON') { spaceDown = true; return true; }
     if (event.key === 'Escape') { if (tool) cancelTool(); else cancel(); return true; }
     if (event.key === 'Enter' && tool === 'crop') { applyCrop(); return true; }
@@ -2144,17 +2527,21 @@ export function createEditor({ onDone }) {
   document.addEventListener('keyup', (event) => { if (event.code === 'Space') spaceDown = false; });
 
   new ResizeObserver(() => { fitCanvas(); drawOverlay(); }).observe(canvasHolder);
+  app.on('settings', () => { if (shown && SNIP_TOOLS.includes(tool)) drawOverlay(); });
 
   return {
     el, open, onKey,
-    get dirty() { return !isEmptyEdit(edit) && undo.length > 0; },
+    get dirty() { return needsSave(); },
+    get removing() { return removing; },
+    confirmLeave,
     get path() { return item?.path ?? null; },
     /** Test hooks: state and a few direct actions. */
-    debug: () => ({ edit, scale, rawMode, fromOriginal, tool, highBit: Boolean(fullHigh), history: undo.map((u) => u.label), preview: preview && { w: preview.width, h: preview.height }, full: full && { w: full.width, h: full.height } }),
+    debug: () => ({ edit, scale, rawMode, fromOriginal, tool, snip: snipDraft, lastSnip, highBit: Boolean(fullHigh), history: undo.map((u) => u.label), preview: preview && { w: preview.width, h: preview.height }, full: full && { w: full.width, h: full.height } }),
     testing: {
       change: (fn, label = 'test') => change(fn, label),
       setSection: (id) => { section = id; buildPanel(); },
       setTool: (id) => setTool(id),
+      copySelection: (cut = false) => copySnip(cut),
       addLayerPath,
       goToHistory,
       shown: () => shown,

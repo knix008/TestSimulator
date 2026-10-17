@@ -7,7 +7,7 @@
 // window is covered by a shield while a dialog is open (modal).
 // Web: dialogs are drawn over the page (browsers block or misplace popups).
 import { t } from '../i18n.js';
-import { invoke, isDesktop } from '../platform/native.js';
+import { errorDetails, invoke, isDesktop } from '../platform/native.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { wrapNumber } from './steppers.js';
@@ -246,10 +246,83 @@ export async function promptDialog(label, value = '', { title = t('app.name'), o
   return result === true ? input.value : null;
 }
 
+// ───────────────────────── errors
+
+let errorReport = null;
+let reporting = false;
+
+async function copyText(text, from) {
+  const doc = from?.ownerDocument ?? document;
+  const view = doc.defaultView;
+  const shown = doc.querySelector('#error-dialog textarea');
+  if (shown) {
+    shown.focus();
+    shown.select();
+    try { if (doc.execCommand('copy')) return true; } catch { /* try the clipboard API */ }
+  }
+  try {
+    if (view?.navigator?.clipboard?.writeText) {
+      await view.navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* the dialog window may refuse the async clipboard */ }
+  return false;
+}
+
+/** Popup with the full error text, selectable and copyable. Further errors join the open popup. */
+export function reportError(error) {
+  const text = String(errorDetails(error) ?? '').trim();
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  if (!text || message === 'cancelled' || text === 'cancelled') return;
+  if (/^ResizeObserver loop/.test(message) || /^ResizeObserver loop/.test(text)) return;
+  if (errorReport) { errorReport.append(text); return; }
+  if (reporting) return;
+  reporting = true;
+  const area = h('textarea.input.error-detail', { readOnly: true, spellcheck: false, rows: 8, autofocus: true });
+  area.value = text;
+  area.addEventListener('focus', () => area.select());
+  const note = h('span.error-copied', { hidden: true }, t('error.copied'));
+  const copy = h('button.btn', {
+    type: 'button',
+    onclick: async (event) => {
+      const ok = await copyText(area.value, event.currentTarget);
+      note.hidden = !ok;
+      if (ok) setTimeout(() => { note.hidden = true; }, 1600);
+    },
+  }, t('error.copy'));
+  errorReport = {
+    append(more) {
+      if (!more || area.value.includes(more)) return;
+      area.value = `${area.value}\n\n———\n\n${more}`;
+    },
+  };
+  openDialog({
+    title: t('error.title'),
+    width: 560,
+    id: 'error-dialog',
+    body: h('div', h('p.dialog-message', t('error.hint')), area, h('div.error-actions', copy, note)),
+    buttons: [{ label: t('common.close'), value: true, primary: true }],
+    onOpen: () => { area.focus(); area.select(); },
+  }).finally(() => { errorReport = null; });
+  reporting = false;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    if (reporting) return;
+    reportError(event.error || event.message);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    if (reporting) return;
+    reportError(event.reason);
+  });
+}
+
 // ───────────────────────── toasts
 
 let toastHost = null;
 export function toast(message, kind = 'info', ms = 3200) {
+  if (kind === 'error') { reportError(message); return; }
   if (!toastHost) { toastHost = h('div.toasts', { role: 'status', 'aria-live': 'polite' }); document.body.append(toastHost); }
   const el = h(`div.toast.${kind}`, h('span', { html: icon(kind === 'error' ? 'warning' : kind === 'success' ? 'check' : 'info') }), h('span.toast-text', message));
   toastHost.append(el);
@@ -262,7 +335,7 @@ export function toast(message, kind = 'info', ms = 3200) {
  * Progress: { update(done, total, text), close(), cancelled }. Shown in the
  * status bar at once and, when the work takes longer, in a dialog window.
  */
-export function progressDialog(title, { cancellable = true } = {}) {
+export function progressDialog(title, { cancellable = true, immediate = false } = {}) {
   const bar = h('div.progress-bar', h('div.progress-fill'));
   const label = h('div.progress-label', '');
   const count = h('div.progress-count', '');
@@ -274,7 +347,7 @@ export function progressDialog(title, { cancellable = true } = {}) {
     body: h('div.progress', label, bar, count),
     buttons: cancellable ? [{ label: t('common.cancel'), value: 'cancel' }] : [],
     closable: false,
-    delay: 400,
+    delay: immediate ? 0 : 400,
     onReady: (close) => { closeFn = close; },
     onOpen: (box, close) => { closeFn = close; },
   }).then((value) => { if (value === 'cancel') state.cancelled = true; });
@@ -284,7 +357,11 @@ export function progressDialog(title, { cancellable = true } = {}) {
     update(done, total, text) {
       bar.firstChild.style.width = `${total ? Math.round((done / total) * 100) : 0}%`;
       count.textContent = total ? `${done} / ${total}` : '';
-      if (text != null) label.textContent = text;
+      if (text != null) {
+        label.textContent = text;
+        const heading = bar.closest('.dialog')?.querySelector('.dialog-title');
+        if (heading) heading.textContent = text;
+      }
       task.update(done, total, text);
     },
     close() {

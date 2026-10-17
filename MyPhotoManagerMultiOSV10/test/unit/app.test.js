@@ -31,6 +31,12 @@ test('settings: defaults fill in, wrong types are ignored, limits apply', () => 
   assert.deepEqual(s.recentFolders, []);
   assert.equal(s.lastFolder, null);
   assert.deepEqual(normalize(null), JSON.parse(JSON.stringify(DEFAULTS)));
+  assert.equal(s.background.lineColor, '#ffe14a');
+  assert.equal(s.background.lineStyle, 'dashed');
+  const line = normalize({ background: { lineColor: 'nope', lineStyle: 'solid', lineWidth: 40 } }).background;
+  assert.equal(line.lineColor, '#ffe14a');
+  assert.equal(line.lineStyle, 'solid');
+  assert.equal(line.lineWidth, 24);
   for (let i = 0; i < 15; i++) rememberFolder(s, `/f${i % 13}`);
   assert.equal(s.recentFolders.length, 10, 'at most 10 recent folders');
   assert.equal(s.recentFolders[0], '/f1');

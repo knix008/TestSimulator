@@ -38,6 +38,25 @@ function slide(selector, value) {
   return true;
 }
 
+/** Drags on the preview as fractions of the picture (0–1). */
+async function dragPreview(x0, y0, x1, y1) {
+  const canvas = q('.editor-preview');
+  const overlay = q('.editor-overlay');
+  if (!canvas || !overlay) return false;
+  const r = canvas.getBoundingClientRect();
+  const at = (fx, fy, type, buttons) => overlay.dispatchEvent(new PointerEvent(type, {
+    bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+    clientX: r.left + r.width * fx, clientY: r.top + r.height * fy, button: 0, buttons,
+  }));
+  at(x0, y0, 'pointerdown', 1);
+  for (let i = 1; i <= 8; i++) {
+    at(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * i / 8, 'pointermove', 1);
+    await sleep(40);
+  }
+  at(x1, y1, 'pointerup', 0);
+  return true;
+}
+
 export const TUTORIAL_FILES = ['beach.jpg', 'beach-copy.jpg', 'city.jpg', 'forest.jpg', 'portrait.jpg', 'sunset.png', 'flower.webp', 'aerial.webp', 'clip.webm', 'ct.dcm', 'cine.dcm'];
 
 /**
@@ -151,6 +170,7 @@ export const STEPS = [
     await until(() => q('.editor-panel [data-look=portra]'));
     await sleep(1200);
     click('.editor-panel [data-look=portra]');
+    await until(() => q('.look-tune[data-look-active=portra]'));
   } },
   { id: 'lookTune', chapter: 'edit', target: '.look-tune', async run(a) {
     await a.edit('forest.jpg');
@@ -166,6 +186,36 @@ export const STEPS = [
     slide('.editor-panel input.slider[data-key="fx.grain"]', 35);
   } },
   { id: 'geometry', chapter: 'edit', target: '.editor-panel', run: async (a) => { await a.edit('forest.jpg'); a.editor.testing.setSection('geometry'); } },
+  { id: 'selection', chapter: 'edit', target: '#tool-snipellipse', dwell: 6000, async run(a) {
+    await a.edit('forest.jpg');
+    q('#tool-sniprect')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    click('#tool-sniprect');
+    await dragPreview(0.18, 0.22, 0.62, 0.72);
+    await sleep(700);
+    click('#tool-snipellipse');
+    await dragPreview(0.28, 0.18, 0.78, 0.82);
+    await until(() => q('#bg-apply-bar') && !q('#bg-apply-bar').disabled);
+    const stage = q('.editor-stage');
+    const box = q('.editor-preview')?.getBoundingClientRect();
+    if (stage && box) {
+      stage.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left + box.width * 0.5, clientY: box.top + box.height * 0.5, button: 2 }));
+      await sleep(1600);
+      document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 8, clientY: 8, button: 0 }));
+    }
+  } },
+  { id: 'background', chapter: 'edit', target: '#bg-algorithm', dwell: 7000, async run(a) {
+    await a.edit('portrait.jpg');
+    a.editor.testing.setSection('background');
+    q('#tool-snipellipse')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    click('[data-algorithm=grabcut]');
+    click('#tool-snipellipse');
+    await dragPreview(0.22, 0.12, 0.78, 0.98);
+    await until(() => q('#bg-apply-bar') && !q('#bg-apply-bar').disabled);
+    click('#bg-apply-bar');
+    await until(() => a.editor.removing, 5000);
+    await until(() => !a.editor.removing && a.editor.debug().edit?.background?.selection, 120000);
+    await sleep(600);
+  } },
   { id: 'effects', chapter: 'edit', target: '.editor-panel', run: async (a) => { await a.edit('forest.jpg'); a.editor.testing.setSection('effects'); } },
   { id: 'local', chapter: 'edit', target: '.editor-panel', run: async (a) => { await a.edit('forest.jpg'); a.editor.testing.setSection('local'); } },
   { id: 'textDraw', chapter: 'edit', target: '.editor-panel', run: async (a) => { await a.edit('forest.jpg'); a.editor.testing.setSection('add'); } },
@@ -179,7 +229,15 @@ export const STEPS = [
   } },
   { id: 'save', chapter: 'edit', target: '#edit-save', dwell: 5000, async run(a) {
     await a.edit('forest.jpg');
-    if (!q('#edit-save')?.disabled) click('#edit-save');
+    if (!q('#edit-save')?.disabled) {
+      click('#edit-save');
+      // Save asks for a new name. Accept the suggestion (the native picker too) so the copy is written.
+      await until(() => q('#edit-save-name'), 8000);
+      if (q('#edit-save-name')) {
+        (globalThis.__myphotoPicks ||= []).push(true);
+        q('.dialog .btn.primary')?.click();
+      }
+    }
     await until(() => a.app.state.mode === 'manage', 20000);
   } },
   // ── create and tools (dialogs are opened and left for the next step to close)
@@ -275,6 +333,11 @@ export function createTutorial(deps) {
       const item = file(name);
       if (!item) return;
       if (app.state.mode === 'edit' && deps.editor.path === item.path) return;
+      // A step may leave a cutout on screen for its dwell. Put the picture back before opening another, so the tour is not stopped by the save question.
+      if (app.state.mode === 'edit' && deps.editor.dirty) {
+        deps.editor.testing.goToHistory(0);
+        await sleep(200);
+      }
       deps.actions.editPath(item.path);
       await until(() => deps.editor.path === item.path && deps.editor.debug().preview && q('.editor-preview'), 20000);
       await sleep(300);

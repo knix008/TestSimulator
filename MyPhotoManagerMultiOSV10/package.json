@@ -41,6 +41,7 @@
     "jpeg-lossless-decoder-js": "^2.1.2",
     "libheif-js": "^1.19.8",
     "libraw-wasm": "^1.6.0",
+    "onnxruntime-web": "^1.21.0",
     "pako": "^2.1.0",
     "pdfjs-dist": "^6.4.299",
     "utif2": "^4.1.0"

@@ -4,16 +4,19 @@ import { fs } from '../platform/fs.js';
 import { invoke, isDesktop } from '../platform/native.js';
 import { app, saveCatalogNow } from '../store.js';
 import { thumbs } from '../thumbs/thumbs.js';
-import { BG_ALGORITHMS } from '../edit/background.js';
+import { BG_ALGORITHMS, BG_LINE_STYLES, BG_NEURAL, isNeuralAlgorithm, selectionLine } from '../edit/background.js';
+import { deleteModel, downloadFailedText, installModel, isInstalled, MODEL_SPECS, modelPhase, onModelProgress } from '../edit/bgmodels.js';
 import { ARCHIVES, DICOM, EXTRA, HEIF, JP2, JXL, NATIVE, OUTPUT_FORMATS, PDF, PSD, RAW, SVG, TIFF, VIDEO } from '../formats/types.js';
 import { confirmDialog, field, openDialog, selectEl, toast } from './dialog.js';
 import { startSceneId } from './startscenes.js';
 import { createStartScenes, createStartSpeed, startSpeedValues } from './startpage.js';
+import { colorSwatches } from './colorswatch.js';
 import { h } from './dom.js';
 import { FLAG_EN, FLAG_KO } from './flags.js';
 import { icon } from './icons.js';
 import { AUDIO_EXTENSIONS, slideshowSettingsFields } from './slideshow.js';
 import { previewTheme, themeGrid } from './themepicker.js';
+import { formatBytes } from '../util/format.js';
 
 /** Language as a row of buttons — the flag with the language's own name; `.value` is the choice. */
 function languageButtons(value) {
@@ -56,6 +59,74 @@ export async function settingsDialog({ onApply }) {
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
   const bgAlgorithm = selectEl(BG_ALGORITHMS.map((id) => [id, t(`edit.bg.${id}`)]), s.background?.algorithm ?? 'grabcut');
   bgAlgorithm.dataset.key = 'bg-algorithm';
+  const lineNow = selectionLine(s.background);
+  const bgLineColor = colorSwatches(lineNow.color, { key: 'bg-line-color', palette: ['#ffe14a', '#ffffff', '#ff3b30', '#34c759', '#30b0ff', '#ff9500', '#af52de', '#000000'] });
+  const bgLineStyle = selectEl(BG_LINE_STYLES.map((id) => [id, t(`settings.bgLine.${id}`)]), lineNow.style);
+  bgLineStyle.dataset.key = 'bg-line-style';
+  const bgLineWidth = h('input.input', { type: 'number', min: 1, max: 24, step: 1, value: lineNow.width, dataset: { key: 'bg-line-width' } });
+  const lineSample = h('i.bg-line-sample');
+  const linePreview = h('div.bg-line-preview', lineSample);
+  const paintLine = () => {
+    const line = selectionLine({ lineColor: bgLineColor.value, lineStyle: bgLineStyle.value, lineWidth: bgLineWidth.value });
+    lineSample.style.borderTopWidth = `${line.width}px`;
+    lineSample.style.borderTopStyle = line.style;
+    lineSample.style.borderTopColor = line.color;
+  };
+  bgLineColor.addEventListener('input', paintLine);
+  bgLineStyle.addEventListener('change', paintLine);
+  bgLineWidth.addEventListener('input', paintLine);
+  paintLine();
+  const modelBox = h('div');
+  const installedCache = new Map();
+  const asked = new Set();
+  const paintModels = () => {
+    const rows = [];
+    for (const id of BG_NEURAL) {
+      const phase = modelPhase(id);
+      const busy = phase?.phase === 'download' || phase?.phase === 'install';
+      if (phase?.phase === 'removed' || phase?.phase === 'error') installedCache.set(id, false);
+      if (phase?.phase === 'ready') installedCache.set(id, true);
+      if (!installedCache.has(id) && !busy && !asked.has(id)) {
+        asked.add(id);
+        isInstalled(id).then((yes) => { installedCache.set(id, yes); paintModels(); }).catch(() => { installedCache.set(id, false); paintModels(); });
+      }
+      const installed = installedCache.get(id) === true && !busy;
+      const percent = phase?.phase === 'download' && phase.total ? Math.min(99, Math.round((phase.received / phase.total) * 90)) : phase?.phase === 'install' ? 95 : 0;
+      const statusText = phase?.phase === 'download' ? t('edit.bgDownloading', { name: t(`edit.bg.${id}`), percent })
+        : phase?.phase === 'install' ? t('edit.bgInstalling', { name: t(`edit.bg.${id}`) })
+          : phase?.phase === 'error' ? t('settings.bgDownloadFailed')
+            : !installedCache.has(id) ? '…'
+              : installed ? t('settings.bgInstalled') : t('settings.bgNotInstalled');
+      const button = h('button.btn.small', {
+        type: 'button',
+        dataset: { bgModelAction: id },
+        disabled: busy,
+        onclick: () => {
+          const job = installed && !busy ? deleteModel(id) : installModel(id);
+          Promise.resolve(job).then(paintModels).catch((error) => {
+            paintModels();
+            if (String(error?.message || error) === 'cancelled') return;
+            toast(error?.downloadFailed ? downloadFailedText(id, error) : String(error?.message || error), 'error', 7000);
+          });
+        },
+      }, installed && !busy ? t('settings.bgRemove') : t('settings.bgDownload'));
+      rows.push(h('div.bg-model', { dataset: { bgModel: id } },
+        h('div.bg-model-head', h('span', `${t(`edit.bg.${id}`)} · ${formatBytes(MODEL_SPECS[id].bytes)}`), h('span.hint', { dataset: { bgModelStatus: id } }, statusText), button),
+        h('div.progress-bar.bg-model-bar', { dataset: { bgModelBar: id }, hidden: !busy }, h('div.progress-fill', { style: { width: `${percent}%` } }))));
+    }
+    modelBox.replaceChildren(...rows);
+  };
+  bgAlgorithm.addEventListener('change', () => {
+    const id = bgAlgorithm.value;
+    if (!isNeuralAlgorithm(id)) return;
+    isInstalled(id).then((installed) => (installed ? null : installModel(id))).then(paintModels).catch((error) => {
+      paintModels();
+      if (String(error?.message || error) === 'cancelled') return;
+      toast(error?.downloadFailed ? downloadFailedText(id, error) : t('edit.bgModelFailed', { error: String(error?.message || error) }), 'error', 7000);
+    });
+  });
+  const stopModels = onModelProgress(() => { paintModels(); });
+  paintModels();
   let startScene = startSceneId(s.startScreen?.scene);
   let startSpeeds = startSpeedValues(s.startScreen);
   const startBackup = { scene: startScene, ...startSpeeds };
@@ -82,7 +153,7 @@ export async function settingsDialog({ onApply }) {
   const tabs = [
     ['general', 'gear', t('settings.general'), h('div.settings-groups',
       group(t('settings.general'), field(t('settings.language'), language), isDesktop() ? field(t('settings.startup'), startup) : null),
-      group(t('settings.background'), field(t('settings.bgAlgorithm'), bgAlgorithm), h('div.hint', t('settings.bgAlgorithmHint'))))],
+      group(t('settings.background'), field(t('settings.bgAlgorithm'), bgAlgorithm), h('div.hint', t('settings.bgAlgorithmHint')), h('div.field-label', t('settings.bgLine')), field(t('settings.bgLineColor'), bgLineColor), field(t('settings.bgLineStyle'), bgLineStyle), field(t('settings.bgLineWidth'), bgLineWidth), linePreview, h('div.field-label', t('settings.bgModels')), modelBox, h('div.hint', t('settings.bgModelsHint'))))],
     ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
       group(t('settings.startScreen'),
         h('div.field-label', t('settings.startScene')),
@@ -128,7 +199,12 @@ export async function settingsDialog({ onApply }) {
   probe.remove();
   content.style.minHeight = `${tallest}px`;
   show(first); // measuring went through every tab: open on the first one
-  const ok = await openDialog({ title: t('settings.title'), width: dialogWidth, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
+  let ok = false;
+  try {
+    ok = await openDialog({ title: t('settings.title'), width: dialogWidth, body: h('div.settings', nav, content), buttons: [{ label: t('common.cancel'), value: false }, { label: t('common.save'), value: true, primary: true }], id: 'settings-dialog' });
+  } finally {
+    stopModels();
+  }
   if (!ok) {
     previewTheme(s.theme, s.customTheme);
     s.startScreen = { ...(s.startScreen ?? {}), ...startBackup };
@@ -141,11 +217,12 @@ export async function settingsDialog({ onApply }) {
     confirmDelete: confirmDelete.input.checked, useTrash: useTrash.input.checked, jpegQuality: Math.max(10, Math.min(100, Number(quality.value) || 92)),
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
-    background: { algorithm: bgAlgorithm.value },
+    background: (() => { const line = selectionLine({ lineColor: bgLineColor.value, lineStyle: bgLineStyle.value, lineWidth: bgLineWidth.value }); return { ...(s.background ?? {}), algorithm: bgAlgorithm.value, lineColor: line.color, lineStyle: line.style, lineWidth: line.width }; })(),
     startScreen: { scene: startSceneId(startScene), ...startSpeedValues(startSpeeds) },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
+  app.emit('settings');
   onApply?.();
 }
 
@@ -243,7 +320,7 @@ export const SHORTCUTS = [
     ['Backspace / Alt+↑', 'shortcut.up'], ['Alt+← / Alt+→', 'shortcut.history'], ['F5', 'shortcut.refresh'], ['Ctrl+F', 'shortcut.search'], ['Ctrl+Shift+N', 'shortcut.newFolder']]],
   ['organize', [['Ctrl+0 … 5', 'shortcut.rating'], ['Alt+1 … 5 / Alt+0', 'shortcut.label'], ['`', 'shortcut.tag'], ['Ctrl+B', 'shortcut.basket'], ['Ctrl+[ / Ctrl+]', 'shortcut.rotate']]],
   ['view', [['← → / Space', 'shortcut.navigate'], ['+ / - / * / /', 'shortcut.zoom'], ['F', 'shortcut.fullscreen'], ['I / H', 'shortcut.overlays'], ['E', 'shortcut.edit'], ['S', 'shortcut.slideshow'], ['Esc', 'shortcut.back']]],
-  ['edit', [['Ctrl+Z / Ctrl+Y', 'shortcut.undoRedo'], ['Ctrl+S', 'shortcut.save'], ['B', 'shortcut.beforeAfter'], ['Enter', 'shortcut.applyCrop'], ['Esc', 'shortcut.cancel']]],
+  ['edit', [['Ctrl+Z / Ctrl+Y', 'shortcut.undoRedo'], ['Ctrl+S', 'shortcut.save'], ['B', 'shortcut.beforeAfter'], ['Enter', 'shortcut.applyCrop'], ['Esc', 'shortcut.cancel'], ['R / E / O / L', 'shortcut.snipTools'], ['Ctrl+C / Ctrl+X', 'shortcut.snipClipboard']]],
 ];
 
 export function shortcutsDialog() {
