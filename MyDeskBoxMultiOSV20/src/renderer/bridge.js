@@ -57,6 +57,31 @@
     return foreign;
   }
 
+  // 끄는 동안의 알림과 손을 뗀 알림은 보낸 차례대로 처리돼야 한다.
+  // 명령은 모두 async 라 메인에서 엇갈려 돌 수 있고, 늦게 닿은 '끄는 중' 이 손을 뗀 뒤에
+  // 따라다니는 그림을 다시 켜 바탕화면에 남긴다. 그래서 앞의 것이 끝난 뒤에 보낸다.
+  // 아직 못 보낸 '끄는 중' 은 마지막 자리 하나로 합쳐, 움직임이 쌓여 늦어지지 않게 한다.
+  let chain = Promise.resolve();
+  let waitingHover = null;
+  function inOrder(send) {
+    const run = chain.then(send);
+    chain = run.catch(() => {});
+    return run;
+  }
+  function hover(payload) {
+    if (waitingHover) {
+      waitingHover.payload = payload || null;
+      return waitingHover.run;
+    }
+    const slot = { payload: payload || null };
+    waitingHover = slot;
+    slot.run = inOrder(() => {
+      waitingHover = null;
+      return invoke('fence_hover', { payload: slot.payload });
+    });
+    return slot.run;
+  }
+
   // 탐색기에서 박스 창으로 파일을 끌어 오는 길. Tauri 가 끄는 동안의 자리와 놓은 파일을 알려 준다.
   // 자리는 창 안의 물리 픽셀이라 CSS 픽셀로 바꿔 넘긴다.
   function onFileDrag(handler) {
@@ -99,24 +124,24 @@
     picked: (id) => invoke('fence_picked', { id }),
     move: (rect) => invoke('fence_bounds', { rect }),
     saveBounds: (rect) => invoke('fence_bounds_save', { rect }),
-    hover: (payload) => invoke('fence_hover', { payload: payload || null }),
+    hover,
     overForeign,
     // 파일 하나나 여러 개의 목록을 넘긴다.
     dragOut: (filePaths) => {
-      invoke('fence_drag_out', { paths: filePaths });
+      inOrder(() => invoke('fence_drag_out', { paths: filePaths }));
       return true;
     },
     // 마우스 메시지가 끝난 뒤에 넘긴다. 단추는 아직 눌려 있다.
-    dragOutLater: (filePaths) => invoke('fence_drag_out', { paths: filePaths }),
+    dragOutLater: (filePaths) => inOrder(() => invoke('fence_drag_out', { paths: filePaths })),
     scrolled: (id, top) => invoke('fence_scroll', { id, top }),
     collapse: (id, collapsed) => invoke('fence_collapse', { id, collapsed }),
-    transfer: (payload) => invoke('fence_transfer', {
+    transfer: (payload) => inOrder(() => invoke('fence_transfer', {
       id: payload.id,
       filePath: payload.filePath,
       screenX: payload.screenX,
       screenY: payload.screenY,
       paths: payload.paths || null,
-    }),
+    })),
     dropFiles: (payload) => invoke('fence_drop', {
       id: payload.id,
       paths: payload.paths,

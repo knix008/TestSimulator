@@ -229,3 +229,39 @@ test('dialog buttons are aligned', () => {
     assert.match(body, /justify-content: center/, `${file} ${selector} text is not centered horizontally`);
   }
 });
+
+// 끄는 중 알림이 손을 뗀 알림보다 늦게 처리되면, 따라다니는 그림이 바탕화면에 남는다.
+test('the bridge sends drag messages in order and merges waiting hovers', async () => {
+  const sent = [];
+  const pending = [];
+  const invoke = (name, args) => new Promise((resolve) => {
+    sent.push([name, args]);
+    pending.push(resolve);
+  });
+  const view = { listen: () => Promise.resolve(() => {}) };
+  const window = { __TAURI__: { core: { invoke }, webviewWindow: { getCurrentWebviewWindow: () => view } } };
+  vm.runInNewContext(read(RENDERER, 'bridge.js'), { window, URLSearchParams, location: { search: '' }, Promise });
+  const desk = window.desk;
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const finishOne = async () => {
+    pending.shift()();
+    await flush();
+  };
+
+  desk.hover({ filePath: 'a', screenX: 1, screenY: 1 });
+  await flush();
+  desk.hover({ filePath: 'a', screenX: 2, screenY: 2 });
+  desk.hover({ filePath: 'a', screenX: 3, screenY: 3 });
+  desk.transfer({ id: 'f1', filePath: 'a', screenX: 4, screenY: 4, paths: ['a'] });
+  await flush();
+  assert.deepEqual(sent.map(([name]) => name), ['fence_hover'], 'sent more than one message at once');
+  assert.equal(sent[0][1].payload.screenX, 1);
+
+  await finishOne();
+  assert.deepEqual(sent.map(([name]) => name), ['fence_hover', 'fence_hover'], 'waiting hovers were not merged');
+  assert.equal(sent[1][1].payload.screenX, 3, 'merged hover is not the latest position');
+
+  await finishOne();
+  assert.deepEqual(sent.map(([name]) => name), ['fence_hover', 'fence_hover', 'fence_transfer'], 'transfer did not wait for the hovers');
+  await finishOne();
+});
