@@ -164,6 +164,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 
 .tabbar { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
 .tabbar[hidden] { display: none; }
+/* With no tabs, the button row itself takes the free space and sits on the right. */
+.tabbar[hidden] ~ .range-tools { margin-left: auto; }
 .tab-strip { display: flex; gap: 4px; overflow: hidden; flex: 1 1 auto; min-width: 0; }
 .tab {
   flex: 0 1 auto;
@@ -199,7 +201,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   flex: 0 0 auto;
 }
 .tool-btn:hover, .tool-btn:focus-visible { background: var(--surface); }
-.corner-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.corner-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
 .corner-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
 
 .icon-btn {
@@ -222,7 +224,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .content {
   --scene-scale: 1;
   --art-scale: 1;
-  --scene-text: 256px;
+  --scene-text: 160px;
+  --scene-gap: 15px;
   --font-scale: 1;
   position: relative;
   z-index: 1;
@@ -279,7 +282,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 
 .drop-active .window-shell { outline: 3px dashed var(--accent); outline-offset: -6px; }
 
-/* Quote scene. The picture and labels share --scene-scale and fill the content box. */
+/* Quote scene. The picture follows --art-scale. The labels follow --font-scale, which is 1 at the smallest window. */
 .market {
   height: 100%;
   max-height: 100%;
@@ -296,7 +299,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   visibility: hidden;
   align-items: center;
   justify-content: center;
-  gap: calc(24px * var(--scene-scale));
+  gap: calc(var(--scene-gap) * var(--font-scale, 1));
   width: 100%;
   max-width: 100%;
   min-height: 0;
@@ -305,8 +308,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   scrollbar-width: none;
 }
 .scene-copy {
-  flex: 0 0 calc(var(--scene-text) * var(--scene-scale));
-  width: calc(var(--scene-text) * var(--scene-scale));
+  flex: 0 0 calc(var(--scene-text) * var(--font-scale, 1));
+  width: calc(var(--scene-text) * var(--font-scale, 1));
   min-width: 0;
   overflow: hidden;
 }

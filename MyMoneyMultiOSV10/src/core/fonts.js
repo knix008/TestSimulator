@@ -62,6 +62,17 @@ export const FONT_ROLES = ["name", "price", "change", "note"];
 /** The windows that draw quotes. Each one keeps its own set of piece fonts. */
 export const FONT_SURFACES = ["scene", "stocks", "rates", "news"];
 
+/**
+ * The pieces each window actually draws. A rate has no rise and fall, and a
+ * headline has no price, so those windows do not offer the missing pieces.
+ */
+export const FONT_SURFACE_ROLES = {
+  scene: ["name", "price", "change", "note"],
+  stocks: ["name", "price", "change", "note"],
+  rates: ["name", "price", "note"],
+  news: ["name", "note"],
+};
+
 export const FONT_ROLE_DEFAULTS = {
   name: { fontSize: 22, fontBold: false },
   price: { fontSize: 44, fontBold: false },

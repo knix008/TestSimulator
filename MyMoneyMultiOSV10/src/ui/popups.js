@@ -1,6 +1,6 @@
 import { APP_INFO } from "../core/app-info.js";
 import { errorCopyText } from "../core/errors.js";
-import { FONT_FLAGS, FONT_ROLES, FONT_SURFACES, applyFontRoles, fontFace, fontRoleStyle, normalizeFonts, surfaceFonts } from "../core/fonts.js";
+import { FONT_FLAGS, FONT_SURFACE_ROLES, FONT_SURFACES, applyFontRoles, fontFace, fontRoleStyle, normalizeFonts, surfaceFonts } from "../core/fonts.js";
 import { MARGINS, PAGE_NUMBER_SPOTS, PAPERS, PRINT_SECTIONS, SCALES, pageHtml, paperSize } from "../core/print-model.js";
 import { PRINT_CSS } from "../core/print-style.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, applyThemeVars, sanitizeCustomTheme, themeColors, themeVars } from "../core/themes.js";
@@ -209,6 +209,24 @@ export function buildUnsavedSpec(fileLabel, t) {
     buttons: [
       { id: "save", action: "save", icon: "save", label: t("btn.save") },
       { id: "discard", action: "discard", icon: "trash", label: t("btn.discard") },
+      { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
+    ],
+  };
+}
+
+/** Asked before every other window goes away, leaving the one that asked. */
+export function buildCloseOtherWindowsSpec(t) {
+  return {
+    type: "close-other-windows",
+    icon: "close",
+    title: t("cmd.closeOtherWindows"),
+    width: 480,
+    height: 200,
+    resizable: false,
+    scroll: "none",
+    rows: [{ kind: "static", id: "message", label: t("msg.closeOtherWindows"), value: "" }],
+    buttons: [
+      { id: "ok", action: "ok", icon: "trash", label: t("btn.ok") },
       { id: "cancel", action: "cancel", icon: "close", label: t("btn.cancel") },
     ],
   };
@@ -1431,11 +1449,26 @@ function shownFont(values) {
   };
 }
 
+function fontCatalog(t) {
+  const labels = {};
+  const samples = {};
+  for (const surface of FONT_SURFACES) {
+    labels[surface] = {};
+    samples[surface] = {};
+    for (const role of FONT_SURFACE_ROLES[surface]) {
+      labels[surface][role] = t(`font.item.${surface}.${role}`);
+      samples[surface][role] = t(`font.sample.${surface}.${role}`);
+    }
+  }
+  return { labels, samples };
+}
+
 function fontRows(model) {
   const t = model.t;
   const values = model.values;
   const face = shownFont(values);
   const families = model.fonts?.length ? model.fonts : [face.fontFamily];
+  const { labels, samples } = fontCatalog(t);
   return [
     { kind: "hidden", id: "fonts", value: JSON.stringify(values.fonts || {}) },
     {
@@ -1446,7 +1479,8 @@ function fontRows(model) {
       surface: "scene",
       role: "name",
       surfaces: FONT_SURFACES.map((surface) => ({ value: surface, label: t(`font.surface.${surface}`) })),
-      roles: FONT_ROLES.map((role) => ({ value: role, label: t(`font.role.${role}`) })),
+      roles: FONT_SURFACE_ROLES.scene.map((role) => ({ value: role, label: labels.scene[role] })),
+      catalog: labels,
     },
     {
       kind: "select",
@@ -1481,7 +1515,7 @@ function fontRows(model) {
       kind: "font-preview",
       id: "fontPreview",
       label: t("field.fontPreview"),
-      samples: Object.fromEntries(FONT_ROLES.map((role) => [role, t(`font.sample.${role}`)])),
+      samples,
     },
   ];
 }
@@ -1536,10 +1570,32 @@ function commitFontRole(el) {
   storeFontDraft(el, fonts);
 }
 
+function readJsonData(node, name) {
+  try {
+    const parsed = JSON.parse(node?.dataset?.[name] || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The pieces the chosen window draws, falling back when the previous piece is absent. */
+function fillFontRoles(el, surface, role) {
+  const select = el.querySelector('[data-field="fontRole"]');
+  const roles = FONT_SURFACE_ROLES[surface] || FONT_SURFACE_ROLES.scene;
+  const next = roles.includes(role) ? role : roles[0];
+  if (!select) return next;
+  const labels = readJsonData(select, "catalog")[surface] || {};
+  select.innerHTML = roles.map((id) => `<option value="${esc(id)}">${esc(labels[id] || id)}</option>`).join("");
+  select.value = next;
+  return next;
+}
+
 /** Load one piece of one window into the font controls. */
 function showFontTarget(el, surface, role) {
+  const next = fillFontRoles(el, surface, role);
   const fonts = fontDraft(el);
-  writeFontControls(el, fonts[surface]?.[role] || {});
+  writeFontControls(el, fonts[surface]?.[next] || {});
   const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
   const roleSelect = el.querySelector('[data-field="fontRole"]');
   if (surfaceSelect) {
@@ -1547,8 +1603,8 @@ function showFontTarget(el, surface, role) {
     surfaceSelect.dataset.editing = surface;
   }
   if (roleSelect) {
-    roleSelect.value = role;
-    roleSelect.dataset.editing = role;
+    roleSelect.value = next;
+    roleSelect.dataset.editing = next;
   }
   paintFontPreview(el);
 }
@@ -1560,12 +1616,15 @@ function paintFontPreview(el) {
   if (!sample || !text) return;
   const fonts = fontDraft(el);
   const surface = el.querySelector('[data-field="fontSurface"]')?.value || "scene";
-  const role = el.querySelector('[data-field="fontRole"]')?.dataset.editing || el.querySelector('[data-field="fontRole"]')?.value || "name";
+  const roles = FONT_SURFACE_ROLES[surface] || FONT_SURFACE_ROLES.scene;
+  const picked = el.querySelector('[data-field="fontRole"]')?.dataset.editing || el.querySelector('[data-field="fontRole"]')?.value || roles[0];
+  const role = roles.includes(picked) ? picked : roles[0];
   const map = { ...(fonts[surface] || {}) };
   map[role] = readFontControls(el);
   applyFontRoles(sample, map);
   text.dataset.fontRole = role;
-  text.textContent = sample.dataset[`sample${role[0].toUpperCase()}${role.slice(1)}`] || "";
+  const samples = readJsonData(sample, "samples");
+  text.textContent = samples[surface]?.[role] || "";
 }
 
 function dataRows(model) {
@@ -1624,14 +1683,7 @@ function resetSettingsForm(el, spec) {
   });
   const fonts = normalizeFonts(null, defaults);
   assign("fonts", JSON.stringify(fonts));
-  assign("fontSurface", "scene");
-  assign("fontRole", "name");
-  const surfaceSelect = el.querySelector('[data-field="fontSurface"]');
-  const roleSelect = el.querySelector('[data-field="fontRole"]');
-  if (surfaceSelect) surfaceSelect.dataset.editing = "scene";
-  if (roleSelect) roleSelect.dataset.editing = "name";
-  writeFontControls(el, fonts.scene.name);
-  paintFontPreview(el);
+  showFontTarget(el, "scene", "name");
   assign("customMode", custom.mode);
   assign("customBg", custom.bg);
   assign("customText", custom.text);
@@ -1679,7 +1731,7 @@ function renderRow(row) {
   if (row.kind === "font-pair") {
     const options = (list, value) =>
       (list || []).map((option) => `<option value="${esc(option.value)}"${option.value === value ? " selected" : ""}>${esc(option.label)}</option>`).join("");
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.surfaceLabel)}</label><select data-field="fontSurface" title="${esc(row.surfaceLabel)}">${options(row.surfaces, row.surface)}</select><span class="font-pair-label">${esc(row.roleLabel)}</span><select data-field="fontRole" title="${esc(row.roleLabel)}">${options(row.roles, row.role)}</select></div>`;
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.surfaceLabel)}</label><select data-field="fontSurface" title="${esc(row.surfaceLabel)}">${options(row.surfaces, row.surface)}</select><span class="font-pair-label">${esc(row.roleLabel)}</span><select data-field="fontRole" data-catalog="${esc(JSON.stringify(row.catalog || {}))}" title="${esc(row.roleLabel)}">${options(row.roles, row.role)}</select></div>`;
   }
   if (row.kind === "select") {
     const options = (row.options || [])
@@ -1704,8 +1756,8 @@ function renderRow(row) {
   }
   if (row.kind === "font-preview") {
     const samples = row.samples || {};
-    const attrs = FONT_ROLES.map((role) => `data-sample-${role}="${esc(samples[role] || "")}"`).join(" ");
-    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label || "")}</label><div class="font-preview" data-gui="font-preview" ${attrs}><span class="font-sample-text" data-gui="font-sample-text" data-font-role="name">${esc(samples.name || "")}</span></div></div>`;
+    const first = samples.scene?.name || "";
+    return `<div class="popup-row" data-row="${esc(row.id)}"${style}><label>${esc(row.label || "")}</label><div class="font-preview" data-gui="font-preview" data-samples="${esc(JSON.stringify(samples))}"><span class="font-sample-text" data-gui="font-sample-text" data-font-role="name">${esc(first)}</span></div></div>`;
   }
   if (row.kind === "radio") {
     return `<label class="popup-row" data-row="${esc(row.id)}"${style}><span>${esc(row.label)}</span><input type="radio" name="${esc(row.name)}" value="${esc(row.value)}" title="${esc(row.label)}"${row.checked ? " checked" : ""}></label>`;

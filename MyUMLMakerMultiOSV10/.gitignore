@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyUMLMaker-*.exe
+/MyUMLMaker-*.msi
+/MyUMLMaker-*.dmg
+/MyUMLMaker-*.deb
+/MyUMLMaker-*.rpm
+/MyUMLMaker-*.AppImage
+
+# Videos (npm run tutorial:video → MyUMLMaker-Tutorial.mp4)
+*.mp4
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# Local database servers for the integration tests (credentials stay on this machine)
+test/db.local.json

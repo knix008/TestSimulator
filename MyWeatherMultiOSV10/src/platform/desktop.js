@@ -159,6 +159,18 @@ export function createDesktopPlatform(api) {
     async windowBoot() {
       return (await api.windowBoot?.()) || null;
     },
+    async weatherWindowCount() {
+      return api.weatherWindowCount?.();
+    },
+    async removeWindow() {
+      return api.removeWindow?.();
+    },
+    onWindowsChanged(callback) {
+      api.onWindowsChanged?.(callback);
+    },
+    onWindowRole(callback) {
+      api.onWindowRole?.(callback);
+    },
     async openPopup(spec) {
       const started = await api.beginPopup(spec, await popupPlace(api, spec));
       if (started?.focused) return { action: "focused" };

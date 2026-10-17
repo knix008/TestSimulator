@@ -8,7 +8,7 @@ import { DICT, createI18n, formatMessage } from "./core/i18n.js";
 import { dirname } from "./core/paths.js";
 import { buildPrintModel, normalizeSetup } from "./core/print-model.js";
 import { RecentFiles } from "./core/recent.js";
-import { FONT_PARTS, MAX_CITIES, clamp, fontsForWindow, moveCityToWindow, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, sanitizeCities, sanitizeFonts, sanitizeSettings, samePlace } from "./core/settings.js";
+import { FONT_PARTS, MAX_CITIES, clamp, fontsForWindow, moveCityToWindow, normalizeDateFormat, normalizeDisplayPriority, normalizeRotateSeconds, normalizeUpdateHours, removeWeatherWindow, sanitizeCities, sanitizeExtraWindows, sanitizeFonts, sanitizeSettings, samePlace } from "./core/settings.js";
 import { applyThemeVars, isTheme, sanitizeCustomTheme, themeColors, themeVars } from "./core/themes.js";
 import { UndoStack } from "./core/undo.js";
 import { CITIES, filterCities } from "./weather/cities.js";
@@ -60,6 +60,7 @@ class WeatherApp {
     /** Extra windows keep their own city list, so only the first window stores one. */
     this.ownsCityList = true;
     this.windowKey = "";
+    this.weatherWindowCount = 1;
     this.fonts = resolveFontList([]);
     this.settings = sanitizeSettings(this.platform.readSettingsSync?.() || null);
     this.sceneFonts = fontsForWindow(this.settings);
@@ -142,6 +143,8 @@ class WeatherApp {
     this.platform.onMenuCommand?.((id) => this.run(id));
     this.platform.onRequestClose?.(() => this.requestClose());
     this.platform.onSecondInstance?.(() => this.tellAlreadyRunning());
+    this.platform.onWindowsChanged?.((payload) => this.noteWindowsChanged(payload));
+    this.platform.onWindowRole?.((payload) => this.adoptWindowRole(payload));
     this.platform.onWindowState?.((state) => this.applyWindowState(state));
     this.platform.onPopupImmediate?.(async (msg) => {
       const handler = this.nativeImmediate || ((item) => this.handlePopupImmediate(item));
@@ -181,6 +184,7 @@ class WeatherApp {
         this.doc.activeIndex = Math.max(0, Math.min(this.doc.tabs.length - 1, Math.round(Number(boot.cityIndex))));
       }
       this.sceneFonts = fontsForWindow(this.settings, { primary: this.ownsCityList, windowKey: this.windowKey });
+      this.weatherWindowCount = 1 + (Array.isArray(this.settings.extraWindows) ? this.settings.extraWindows.length : 0);
       for (const part of FONT_PARTS) {
         const name = this.sceneFonts[part];
         if (name && !this.fonts.includes(name)) this.fonts.unshift(name);
@@ -435,6 +439,7 @@ class WeatherApp {
         "add-tab": () => this.addTab(),
         "add-city": () => this.openCitySearch(),
         "new-window": () => this.openWeatherWindow(),
+        "close-window": () => this.removeWindow(),
         "close-tab": () => this.closeTab(),
         "search-online": () => this.searchOnline(),
         download: () => this.downloadWeather(),
@@ -868,6 +873,7 @@ class WeatherApp {
       { cities: [place], windowKey, sourceKey: this.windowKey, moved: place },
       this.settings.defaultLocation,
     );
+    this.weatherWindowCount += 1;
     this.doc.tabs.splice(at, 1);
     if (this.doc.activeIndex >= this.doc.tabs.length) this.doc.activeIndex = this.doc.tabs.length - 1;
     else if (this.doc.activeIndex > at) this.doc.activeIndex -= 1;
@@ -876,6 +882,56 @@ class WeatherApp {
     this.armRotateTimer();
     if (this.ownsCityList) await this.persist();
     await this.platform.newWindow({ cities: [place], windowKey, sourceKey: this.windowKey || "", moved: place });
+  }
+
+  /** Another window opened or closed. The count is how many weather windows are open now. */
+  noteWindowsChanged(payload) {
+    if (Array.isArray(payload?.extraWindows)) {
+      this.settings.extraWindows = sanitizeExtraWindows(payload.extraWindows, this.settings.defaultLocation);
+    }
+    const count = Number(payload?.count);
+    if (Number.isFinite(count) && count > 0) this.weatherWindowCount = count;
+  }
+
+  /** This window took the place of the one that was removed. */
+  adoptWindowRole(payload) {
+    this.ownsCityList = payload?.primary !== false;
+    this.windowKey = payload?.windowKey ? String(payload.windowKey) : "";
+    if (Array.isArray(payload?.cities) && payload.cities.length) {
+      this.settings.cities = sanitizeCities(payload.cities, this.settings.defaultLocation);
+      this.syncTabsToCities();
+    }
+    if (payload?.fonts && typeof payload.fonts === "object") {
+      this.settings.fonts = sanitizeFonts(payload.fonts, this.settings.fontFamily);
+      this.sceneFonts = fontsForWindow(this.settings, { primary: this.ownsCityList, windowKey: this.windowKey });
+      this.applyFont();
+    }
+    this.noteWindowsChanged(payload);
+    this.afterStructure();
+  }
+
+  /** Remove the weather window on screen. The last open one stays. */
+  async removeWindow() {
+    if ((this.weatherWindowCount || 1) <= 1) return;
+    if (this.platform.removeWindow) {
+      const removed = await this.platform.removeWindow();
+      if (removed === false) return;
+      return;
+    }
+    const next = removeWeatherWindow(this.settings, { primary: this.ownsCityList, windowKey: this.windowKey });
+    if (!next) return;
+    this.settings.extraWindows = next.extraWindows;
+    if (next.promoted) {
+      this.settings.cities = next.cities;
+      if (next.fonts) this.settings.fonts = sanitizeFonts(next.fonts, this.settings.fontFamily);
+      this.syncTabsToCities();
+      this.sceneFonts = fontsForWindow(this.settings, { primary: true });
+      this.applyFont();
+      this.afterStructure();
+    }
+    this.weatherWindowCount = Math.max(1, this.weatherWindowCount - 1);
+    await this.persist();
+    await this.platform.windowControl?.("close");
   }
 
   /** A click on the window, the tray, or the rotation timer all land here. */
@@ -2423,6 +2479,7 @@ class WeatherApp {
       recent: this.recent.toJSON(),
       canUndo: this.history.canUndo(),
       canRedo: this.history.canRedo(),
+      canCloseWindow: this.weatherWindowCount > 1,
     });
     const rect = atPointer ? null : anchorEvent?.currentTarget?.getBoundingClientRect?.() || anchorEvent?.target?.getBoundingClientRect?.();
     const anchor = {

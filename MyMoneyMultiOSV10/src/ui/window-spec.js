@@ -107,9 +107,13 @@ export function sceneFit(box, textWidth = SCENE_TEXT) {
   return { text: shared, art: shared };
 }
 
-/** Smallest and largest multiple applied to every configured font together. */
-export const FONT_SCALE_MIN = 0.4;
-export const FONT_SCALE_MAX = 3;
+/**
+ * The configured size is already the size at the smallest window, so the
+ * ratio never drops below 1. The ceiling is only a guard for a box far past
+ * a 4K window; a large window still grows in proportion up to that.
+ */
+export const FONT_SCALE_MIN = 1;
+export const FONT_SCALE_MAX = 16;
 
 /** The content box inside a window of the given outer size. */
 export function contentBoxFor(size = WINDOW_DEFAULT) {
@@ -122,11 +126,11 @@ export function contentBoxFor(size = WINDOW_DEFAULT) {
 }
 
 /**
- * One ratio for every configured font. It is 1 in the reference box, so the
- * sizes chosen in Settings are what the normal window shows, and a larger or
- * smaller window multiplies them all by the same amount.
+ * One ratio for every configured font. It is 1 in the smallest window, so the
+ * sizes chosen in Settings are what that window shows. A larger window
+ * multiplies every size by the same ratio of the two content boxes.
  */
-export function fontWindowScale(box, reference = contentBoxFor(WINDOW_DEFAULT)) {
+export function fontWindowScale(box, reference = contentBoxFor(WINDOW_MIN)) {
   const baseWidth = Math.max(1, Number(reference?.width) || 1);
   const baseHeight = Math.max(1, Number(reference?.height) || 1);
   const width = Math.max(1, Number(box?.width) || baseWidth);
@@ -135,6 +139,11 @@ export function fontWindowScale(box, reference = contentBoxFor(WINDOW_DEFAULT)) 
   const clamped = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, scale));
   return Math.round(clamped * 1000) / 1000;
 }
+
+/** Label column and the gap beside the picture when the font ratio is 1. */
+const MIN_SCENE_FIT = sceneFit(contentBoxFor(WINDOW_MIN));
+export const SCENE_LABEL_BASE = Math.round(SCENE_TEXT * MIN_SCENE_FIT.text);
+export const SCENE_GAP_BASE = Math.round(SCENE_GAP * MIN_SCENE_FIT.text);
 
 /** One row of the watchlist board: a 32px row and the 2px gap under it. */
 export const BOARD_ROW = 34;

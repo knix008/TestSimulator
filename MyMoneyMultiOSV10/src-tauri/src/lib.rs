@@ -20,8 +20,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
-use store::{edit_slots, merge_settings, settings_view, shared_settings, slot_bounds, slots, with_bounds, MAIN_SLOT, MAX_EXTRA_WINDOWS};
-use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use store::{edit_slots, merge_settings, settings_view, shared_settings, slot_bounds, slots, with_bounds, MAIN_SLOT, MAX_EXTRA_WINDOWS, WINDOW_LIST_FIELD};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Monitor, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
@@ -34,6 +34,8 @@ const FLUSH_DELAY: Duration = Duration::from_millis(400);
 const SLOT_DELAY: Duration = Duration::from_millis(250);
 /// A menu that loses focus closes, but not during the moment it takes to appear.
 const BLUR_GRACE: Duration = Duration::from_millis(80);
+/// A single click opens the menu only after this, so a double-click can show the windows instead.
+const TRAY_CLICK_WAIT: Duration = Duration::from_millis(450);
 
 /// WebView2 switches every window must share, or the second window cannot be created.
 /// The --disable-features list is Tauri's default. Every window is a small page from one
@@ -72,6 +74,8 @@ struct State {
   tray_closed_at: Option<Instant>,
   tray_command: String,
   tray_rect: Option<Rect>,
+  /// Bumped on each tray click so a double-click can cancel the menu a single click scheduled.
+  tray_click: u64,
   cascade: i32,
   quitting: bool,
   seq: u64,
@@ -708,6 +712,95 @@ fn remove_money_window(app: &AppHandle, label: &str) -> bool {
   if let Some(win) = app.get_webview_window(label) {
     let _ = win.destroy();
   }
+  note_windows(app);
+  true
+}
+
+/// Tell every market window how many are open, so a menu can stop at the last one.
+fn note_windows(app: &AppHandle) {
+  let (rows, main) = {
+    let s = st(app);
+    (s.money.clone(), s.main.clone())
+  };
+  let can_add = slot_count(app) < MAX_EXTRA_WINDOWS;
+  let count = rows.len();
+  for (label, _) in rows {
+    emit(
+      app,
+      &label,
+      "windows-changed",
+      json!({
+        "windowCount": count,
+        "primary": main.as_deref() == Some(label.as_str()),
+        "canAddWindow": can_add,
+      }),
+    );
+  }
+}
+
+/// The window that stays becomes the first window, and keeps its own board.
+fn adopt_keeper_as_main(app: &AppHandle, keeper: &str, slot: &str) {
+  let stored = read_settings_file(app);
+  let entry = crate::store::slot_of(&slots(&stored), slot).cloned().unwrap_or(Value::Null);
+  let own = app.get_webview_window(keeper).and_then(|win| bounds(&win));
+  let view = settings_view(&stored, slot, own);
+  let board = view.get("defaultBoard").cloned().unwrap_or(Value::Null);
+  let placement = own.map(|rect| Placement { x: rect.x, y: rect.y, width: rect.width, height: rect.height, maximized: false });
+  let mut merged = merge_settings(&view, &stored, MAIN_SLOT, &board, placement);
+  if let Some(fonts) = entry.get("fonts").filter(|fonts| fonts.is_object()) {
+    merged["fonts"] = fonts.clone();
+  }
+  merged[WINDOW_LIST_FIELD] = json!([]);
+  let file = settings_file(&st(app));
+  let _ = write_json(&file, &merged, true);
+  let mut s = st(app);
+  if let Some(pair) = s.money.iter_mut().find(|(label, _)| label == keeper) {
+    pair.1 = MAIN_SLOT.to_string();
+  }
+  s.main = Some(keeper.to_string());
+  s.active = Some(keeper.to_string());
+}
+
+/// Remove every market window except the one that asked. One window is always left.
+fn close_other_money_windows(app: &AppHandle, keeper: &str) -> bool {
+  let (keeper_slot, others) = {
+    let s = st(app);
+    if !s.is_money(keeper) {
+      return false;
+    }
+    let others: Vec<String> = s.money.iter().map(|(label, _)| label.clone()).filter(|label| label != keeper).collect();
+    if others.is_empty() {
+      return false;
+    }
+    (s.slot_of(keeper).unwrap_or_default(), others)
+  };
+  if keeper_slot != MAIN_SLOT && !keeper_slot.is_empty() {
+    adopt_keeper_as_main(app, keeper, &keeper_slot);
+  } else {
+    change_slots(app, |_| Vec::new());
+    let mut s = st(app);
+    s.main = Some(keeper.to_string());
+    s.active = Some(keeper.to_string());
+  }
+  for label in &others {
+    let closing = {
+      let mut s = st(app);
+      s.slot_due.remove(label);
+      s.money.retain(|(entry, _)| entry != label);
+      if s.main.as_deref() == Some(label.as_str()) {
+        s.main = Some(keeper.to_string());
+      }
+      if s.active.as_deref() == Some(label.as_str()) {
+        s.active = Some(keeper.to_string());
+      }
+      s.hub.close_owned(&owner_key(Some(label)))
+    };
+    destroy_all(closing);
+    if let Some(win) = app.get_webview_window(label) {
+      let _ = win.destroy();
+    }
+  }
+  note_windows(app);
   true
 }
 
@@ -749,7 +842,11 @@ fn open_new_window(app: &AppHandle, board: Value) -> bool {
     list.push(entry);
     list
   });
-  create_money_window(app, &id, None).is_ok()
+  let opened = create_money_window(app, &id, None).is_ok();
+  if opened {
+    note_windows(app);
+  }
+  opened
 }
 
 fn reveal_money(app: &AppHandle, label: &str) {
@@ -802,6 +899,13 @@ fn open_configured_windows(app: &AppHandle) {
 // ---------------------------------------------------------------------------------------
 // Tray
 
+/// The next tray click. A newer click, or a double-click, drops a menu that is still waiting.
+fn arm_tray_click(app: &AppHandle) -> u64 {
+  let mut state = st(app);
+  state.tray_click = state.tray_click.wrapping_add(1);
+  state.tray_click
+}
+
 fn tray_icon_rect(app: &AppHandle, rect: &tauri::Rect) -> Rect {
   let scale = app.primary_monitor().ok().flatten().map(|m| m.scale_factor()).unwrap_or(1.0);
   let position = rect.position.to_logical::<f64>(scale);
@@ -819,10 +923,40 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
   }
   builder
     .on_tray_icon_event(|tray, event| {
-      if let TrayIconEvent::Click { rect, button_state: MouseButtonState::Up, .. } = event {
-        let app = tray.app_handle();
-        let icon = tray_icon_rect(app, &rect);
-        show_tray_menu(app, icon);
+      let app = tray.app_handle().clone();
+      match event {
+        // A double-click brings the windows back. The click that finishes it must not also open the menu.
+        TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => {
+          let _ = arm_tray_click(&app);
+          close_tray_menu(&app);
+          reveal_all_windows(&app);
+        }
+        TrayIconEvent::Click { rect, button, button_state: MouseButtonState::Up, .. } => {
+          if st(&app).tray_closed_at.is_some_and(|at| at.elapsed() < Duration::from_millis(500)) {
+            return;
+          }
+          let icon = tray_icon_rect(&app, &rect);
+          if button != MouseButton::Left {
+            let _ = arm_tray_click(&app);
+            show_tray_menu(&app, icon);
+            return;
+          }
+          let token = arm_tray_click(&app);
+          std::thread::spawn(move || {
+            std::thread::sleep(TRAY_CLICK_WAIT);
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+              let open_menu = {
+                let state = st(&handle);
+                !state.quitting && state.tray_click == token
+              };
+              if open_menu {
+                show_tray_menu(&handle, icon);
+              }
+            });
+          });
+        }
+        _ => {}
       }
     })
     .build(app)?;
@@ -1222,11 +1356,15 @@ fn window_control(app: AppHandle, window: WebviewWindow, action: String) {
 #[tauri::command]
 fn window_boot(app: AppHandle, window: WebviewWindow) -> Value {
   let label = money_label_of(&st(&app), window.label()).unwrap_or_default();
-  let (slot, primary) = {
+  let (slot, primary, window_count) = {
     let s = st(&app);
-    (s.slot_of(&label).unwrap_or_else(|| MAIN_SLOT.to_string()), s.main.as_deref() == Some(label.as_str()))
+    (
+      s.slot_of(&label).unwrap_or_else(|| MAIN_SLOT.to_string()),
+      s.main.as_deref() == Some(label.as_str()),
+      s.money.len(),
+    )
   };
-  json!({ "slot": slot, "primary": primary, "canAddWindow": slot_count(&app) < MAX_EXTRA_WINDOWS })
+  json!({ "slot": slot, "primary": primary, "canAddWindow": slot_count(&app) < MAX_EXTRA_WINDOWS, "windowCount": window_count })
 }
 
 #[tauri::command]
@@ -1238,6 +1376,12 @@ fn new_window(app: AppHandle, board: Option<Value>) -> bool {
 fn remove_window(app: AppHandle, window: WebviewWindow) -> bool {
   let Some(label) = money_label_of(&st(&app), window.label()) else { return false };
   remove_money_window(&app, &label)
+}
+
+#[tauri::command]
+fn close_other_windows(app: AppHandle, window: WebviewWindow) -> bool {
+  let Some(label) = money_label_of(&st(&app), window.label()) else { return false };
+  close_other_money_windows(&app, &label)
 }
 
 #[tauri::command]
@@ -1905,6 +2049,7 @@ pub fn run() {
       window_boot,
       new_window,
       remove_window,
+      close_other_windows,
       confirm_quit,
       read_settings,
       write_settings,

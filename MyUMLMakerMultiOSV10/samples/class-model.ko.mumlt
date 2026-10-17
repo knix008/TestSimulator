@@ -1,0 +1,318 @@
+{
+ "format": "myumlmaker",
+ "version": 1,
+ "kind": "template",
+ "saved": "2026-10-17T03:55:11.347Z",
+ "project": {
+  "_type": "Project",
+  "_id": "AAAAAAFH/9ZyAjAIDQ7OohuO",
+  "name": "새 프로젝트",
+  "author": "",
+  "company": "",
+  "copyright": "",
+  "version": "1.0",
+  "documentation": "",
+  "ownedElements": [
+   {
+    "_type": "UMLModel",
+    "_id": "AAAAAAFH/9ZyAjAt5s/Nmz9t",
+    "name": "모델",
+    "visibility": "public",
+    "_parent": {
+     "$ref": "AAAAAAFH/9ZyAjAIDQ7OohuO"
+    },
+    "ownedElements": [
+     {
+      "_type": "UMLClassDiagram",
+      "_id": "AAAAAAFH/9ZyAjAbYK1diOS1",
+      "name": "클래스다이어그램1",
+      "defaultDiagram": true,
+      "ownedViews": [
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAFH/9ZyAjA9+QWS2Xpj",
+        "model": {
+         "$ref": "AAAAAAFH/9ZyAjAIBNDDy17k"
+        },
+        "left": 60,
+        "top": 60,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAbYK1diOS1"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAFH/9ZyAjAp/IV7bA07",
+        "model": {
+         "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+        },
+        "left": 60,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAbYK1diOS1"
+        }
+       },
+       {
+        "_type": "UMLClassView",
+        "_id": "AAAAAAFH/9ZyAjA0yGXMFGCL",
+        "model": {
+         "$ref": "AAAAAAFH/9ZyAjA2Hu+xmVpZ"
+        },
+        "left": 360,
+        "top": 260,
+        "width": 0,
+        "height": 0,
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAbYK1diOS1"
+        }
+       },
+       {
+        "_type": "UMLGeneralizationView",
+        "_id": "AAAAAAFH/9ZyAjAD7s5vLNvO",
+        "model": {
+         "$ref": "AAAAAAFH/9ZyAjASSP8qM4zY"
+        },
+        "tail": {
+         "$ref": "AAAAAAFH/9ZyAjAp/IV7bA07"
+        },
+        "head": {
+         "$ref": "AAAAAAFH/9ZyAjA9+QWS2Xpj"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAbYK1diOS1"
+        }
+       },
+       {
+        "_type": "UMLAssociationView",
+        "_id": "AAAAAAFH/9ZzAjA8Ysz/qin7",
+        "model": {
+         "$ref": "AAAAAAFH/9ZyAjApkFnFbgnS"
+        },
+        "tail": {
+         "$ref": "AAAAAAFH/9ZyAjAp/IV7bA07"
+        },
+        "head": {
+         "$ref": "AAAAAAFH/9ZyAjA0yGXMFGCL"
+        },
+        "points": [],
+        "lineStyle": "",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAbYK1diOS1"
+        }
+       }
+      ],
+      "_parent": {
+       "$ref": "AAAAAAFH/9ZyAjAt5s/Nmz9t"
+      }
+     },
+     {
+      "_type": "UMLClass",
+      "_id": "AAAAAAFH/9ZyAjAIBNDDy17k",
+      "name": "사람",
+      "visibility": "public",
+      "isAbstract": true,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isActive": false,
+      "_parent": {
+       "$ref": "AAAAAAFH/9ZyAjAt5s/Nmz9t"
+      },
+      "attributes": [
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAFH/9ZyAjAI9VFrOTtD",
+        "name": "name",
+        "visibility": "private",
+        "type": "String",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAIBNDDy17k"
+        }
+       }
+      ],
+      "operations": [
+       {
+        "_type": "UMLOperation",
+        "_id": "AAAAAAFH/9ZyAjAsiYO4xMeA",
+        "name": "getName",
+        "visibility": "public",
+        "isStatic": false,
+        "isAbstract": false,
+        "isQuery": false,
+        "isLeaf": false,
+        "concurrency": "sequential",
+        "raisedExceptions": "",
+        "specification": "",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAIBNDDy17k"
+        },
+        "parameters": [
+         {
+          "_type": "UMLParameter",
+          "_id": "AAAAAAFH/9ZyAjAYQuUrRlpw",
+          "name": "",
+          "type": "String",
+          "multiplicity": "",
+          "defaultValue": "",
+          "direction": "return",
+          "_parent": {
+           "$ref": "AAAAAAFH/9ZyAjAsiYO4xMeA"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "_type": "UMLClass",
+      "_id": "AAAAAAFH/9ZyAjAyhahKUd9q",
+      "name": "학생",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isActive": false,
+      "_parent": {
+       "$ref": "AAAAAAFH/9ZyAjAt5s/Nmz9t"
+      },
+      "attributes": [
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAFH/9ZyAjA/PLZ+REL6",
+        "name": "studentId",
+        "visibility": "private",
+        "type": "int",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+        }
+       }
+      ],
+      "ownedElements": [
+       {
+        "_type": "UMLGeneralization",
+        "_id": "AAAAAAFH/9ZyAjASSP8qM4zY",
+        "name": "",
+        "source": {
+         "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+        },
+        "target": {
+         "$ref": "AAAAAAFH/9ZyAjAIBNDDy17k"
+        },
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+        }
+       },
+       {
+        "_type": "UMLAssociation",
+        "_id": "AAAAAAFH/9ZyAjApkFnFbgnS",
+        "name": "",
+        "visibility": "public",
+        "isDerived": false,
+        "end1": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAFH/9ZzAjAtVwsZ8wKB",
+         "name": "",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "0..*",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+         },
+         "_parent": {
+          "$ref": "AAAAAAFH/9ZyAjApkFnFbgnS"
+         }
+        },
+        "end2": {
+         "_type": "UMLAssociationEnd",
+         "_id": "AAAAAAFH/9ZzAjA5hNc0Wh0g",
+         "name": "courses",
+         "visibility": "public",
+         "navigable": "unspecified",
+         "aggregation": "none",
+         "multiplicity": "1..*",
+         "qualifiers": "",
+         "isDerived": false,
+         "isReadOnly": false,
+         "isOrdered": false,
+         "isUnique": false,
+         "reference": {
+          "$ref": "AAAAAAFH/9ZyAjA2Hu+xmVpZ"
+         },
+         "_parent": {
+          "$ref": "AAAAAAFH/9ZyAjApkFnFbgnS"
+         }
+        },
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjAyhahKUd9q"
+        }
+       }
+      ]
+     },
+     {
+      "_type": "UMLClass",
+      "_id": "AAAAAAFH/9ZyAjA2Hu+xmVpZ",
+      "name": "과목",
+      "visibility": "public",
+      "isAbstract": false,
+      "isFinalSpecialization": false,
+      "isLeaf": false,
+      "isActive": false,
+      "_parent": {
+       "$ref": "AAAAAAFH/9ZyAjAt5s/Nmz9t"
+      },
+      "attributes": [
+       {
+        "_type": "UMLAttribute",
+        "_id": "AAAAAAFH/9ZyAjAMoFh1FKdI",
+        "name": "title",
+        "visibility": "private",
+        "type": "String",
+        "multiplicity": "",
+        "defaultValue": "",
+        "isStatic": false,
+        "isDerived": false,
+        "isReadOnly": false,
+        "isOrdered": false,
+        "isUnique": false,
+        "isID": false,
+        "aggregation": "none",
+        "_parent": {
+         "$ref": "AAAAAAFH/9ZyAjA2Hu+xmVpZ"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

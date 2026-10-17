@@ -37,7 +37,7 @@ The window stays off the taskbar and the close button only hides it; Exit in the
 
 프로그램을 다시 실행하면 마지막으로 사용한 창 크기와 위치를 그대로 엽니다. 그 위치가 현재 화면에 없으면 처음처럼 가운데에 엽니다.
 
-메인 창은 항상 오늘 날씨와 오늘 날짜만 보여 줍니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 오늘부터 30일 동안의 첫날과 마지막 날이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택과 배경 삭제도 나옵니다.
+메인 창은 항상 오늘 날씨와 오늘 날짜만 보여 줍니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 오늘부터 30일 동안의 첫날과 마지막 날이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택, 배경 삭제와 함께 창 없애기도 나옵니다. 열려 있는 날씨 창이 하나뿐이면 창 없애기는 쓸 수 없습니다.
 
 월간 예보는 달력의 한 달이 아니라 항상 오늘부터 30일(한 달)을 보여 줍니다. 칸은 일요일부터 시작하는 주 단위로 놓이고, 오늘 앞과 30일째 뒤의 칸은 비워 둡니다. 첫날과 매달 1일에는 "11/1"처럼 월도 함께 적힙니다. 16일째까지는 다섯 소스의 평균이고, 그 뒤는 GFS 장기 예보(앙상블)로 채웁니다. 설정에서 GFS를 끄면 이 장기 예보도 쓰지 않아 17일째부터는 "--"로 보입니다.
 
@@ -55,9 +55,9 @@ The window stays off the taskbar and the close button only hides it; Exit in the
 
 설정의 일반 탭에 있는 도시 자동 전환 주기를 고르면 그 간격마다 다음 도시로 저절로 넘어갑니다. 3초마다, 5초마다, 10초마다, 30초마다, 1분마다, 5분마다, 10분마다 중에서 고르고, 끔을 고르면 보고 있는 도시가 그대로 유지됩니다. 도시를 직접 바꾸면 그 시점부터 다시 셉니다.
 
-새 날씨 창을 고르면 이 창에 있는 도시가 나옵니다. 그 중 하나를 고르면 그 도시만 담은 창이 새로 열리고, 원래 창에서는 그 도시가 빠집니다. 도시가 하나뿐이면 그 도시는 이 창에 남습니다. 프로그램을 다시 실행하면 저장해 둔 날씨 창이 모두 다시 열립니다. 새로 연 창의 닫기 단추는 그 창만 닫습니다.
+새 날씨 창을 고르면 이 창에 있는 도시가 나옵니다. 그 중 하나를 고르면 그 도시만 담은 창이 새로 열리고, 원래 창에서는 그 도시가 빠집니다. 도시가 하나뿐이면 그 도시는 이 창에 남습니다. 프로그램을 다시 실행하면 저장해 둔 날씨 창이 모두 다시 열립니다. 새로 연 창의 닫기 단추는 그 창만 닫습니다. 오른쪽 단추 메뉴의 창 없애기는 보고 있는 날씨 창을 지우고, 다시 실행해도 그 창은 열리지 않습니다. 날씨 창이 하나만 남으면 더 이상 없앨 수 없습니다.
 
-Several cities can be listed. Click the weather picture to step to the next one, pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own. Restarting opens every saved weather window.
+Several cities can be listed. Click the weather picture to step to the next one, pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own. Restarting opens every saved weather window. Remove window, on the right-click menu, deletes the weather window you are looking at. The last remaining window cannot be removed.
 
 ## 도시 고르기
 

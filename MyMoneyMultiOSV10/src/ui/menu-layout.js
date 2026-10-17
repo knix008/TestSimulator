@@ -81,7 +81,7 @@ export function menuWindowOptions(layout, parent) {
 
 const BESIDE_GAP = 16;
 const COMPANION_POPUPS = new Set(["panel", "settings", "about"]);
-const ONE_WINDOW = new Set(["panel", "settings", "about", "print", "preview", "unsaved", "remove-window"]);
+const ONE_WINDOW = new Set(["panel", "settings", "about", "print", "preview", "unsaved", "remove-window", "close-other-windows"]);
 
 export function popupKey(spec) {
   if (!spec?.type) return "popup";

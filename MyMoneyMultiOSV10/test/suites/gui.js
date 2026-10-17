@@ -56,6 +56,12 @@ export function registerGui(h) {
       assert.match(nut.innerHTML, /M8\.2 4\.4h7\.6L20\.4 12l-4\.6 7\.6H8\.2L3\.6 12z/);
       assert.match(nut.innerHTML, /fill-rule="evenodd"/);
       assert.equal(app.root.querySelector(".shell-top").dataset.gui, "drag-region");
+      assert.deepEqual(
+        [...app.root.querySelector(".shell-top").children].map((el) => el.className),
+        ["titlebar", "tabbar", "range-tools", "corner-actions"],
+      );
+      const css = [...document.styleSheets[0].cssRules].map((rule) => rule.cssText).join("\n");
+      assert.match(css, /\.tabbar\[hidden\] ~ \.range-tools \{margin-left: auto;\}/);
     });
   });
   h.test("the bottom-right resize marker resizes the web panel and persists the size", async () => {
@@ -1937,6 +1943,8 @@ export function registerGui(h) {
         // The tip continues the line rather than doubling back under it.
         assert.ok(tip.x >= line.x, `${trend} tip must be beyond the line end`);
         assert.equal(tip.y > line.y, !rising, `${trend} tip must continue the line's slope`);
+        // The tip and the last segment are one straight line.
+        assert.equal(line.dx * (tip.y - line.y) - line.dy * (tip.x - line.x), 0, `${trend} tip leaves the line`);
       }
     });
   });
@@ -2388,6 +2396,65 @@ export function registerGui(h) {
       assert.equal(app.content.style.getPropertyValue("--font-change-size"), "16px");
     });
   });
+  h.test("rates and news offer the items they show, and a change shows at once", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const rates = await openPanel(app, "rates");
+      const pending = app.showSettings("wallpaper");
+      await settle();
+      const popup = document.querySelector('[data-popup="settings"]');
+      const surface = popup.querySelector('[data-field="fontSurface"]');
+      const role = popup.querySelector('[data-field="fontRole"]');
+      const shown = popup.querySelector("[data-gui='font-sample-text']");
+      surface.value = "rates";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.deepEqual([...role.options].map((option) => option.value), ["name", "price", "note"]);
+      assert.deepEqual([...role.options].map((option) => option.textContent), ["통화쌍", "환율", "통화"]);
+      assert.equal(shown.dataset.fontRole, "name");
+      assert.equal(shown.textContent, "USD/KRW");
+      role.value = "price";
+      role.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(shown.textContent, "1,380.25");
+      const size = popup.querySelector('[data-field="fontSize"]');
+      size.value = "36";
+      size.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await settle();
+      const ratePanel = rates.popup.querySelector('[data-gui="panel"]');
+      assert.equal(ratePanel.style.getPropertyValue("--font-price-size"), "36px");
+      assert.equal(app.content.style.getPropertyValue("--font-price-size"), "44px");
+      assert.equal(getComputedStyle(popup).fontSize, "14px");
+      role.value = "note";
+      role.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(shown.textContent, "미국 달러");
+      surface.value = "news";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.deepEqual([...role.options].map((option) => option.value), ["name", "note"]);
+      assert.deepEqual([...role.options].map((option) => option.textContent), ["기사", "출처"]);
+      assert.equal(shown.textContent, "연합뉴스 · 09:30");
+      role.value = "name";
+      role.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(shown.textContent, "삼성전자, 실적 호조");
+      assert.equal(popup.querySelector('[data-field="fontSize"]').value, "22");
+      surface.value = "stocks";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.deepEqual([...role.options].map((option) => option.textContent), ["종목", "현재가", "등락", "거래소"]);
+      assert.equal(shown.textContent, "삼성전자");
+      role.value = "change";
+      role.dispatchEvent(new window.Event("change", { bubbles: true }));
+      surface.value = "news";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.equal(role.value, "name", "a headline has no change, so the first item is shown");
+      assert.equal(shown.textContent, "삼성전자, 실적 호조");
+      surface.value = "scene";
+      surface.dispatchEvent(new window.Event("change", { bubbles: true }));
+      assert.deepEqual([...role.options].map((option) => option.value), ["name", "price", "change", "note"]);
+      assert.equal(shown.textContent, "삼성전자");
+      popup.querySelector('[data-action="cancel"]').click();
+      await pending;
+      await rates.close();
+    });
+  });
   h.test("settings show at once; Cancel, the close button and Escape all put them back", async () => {
     await withApp(async ({ app, platform }) => {
       for (const exit of ["cancel", "close", "escape"]) {
@@ -2453,6 +2520,43 @@ export function registerGui(h) {
       },
       { platform },
     );
+  });
+  h.test("the context menu removes a created window and can leave only this one", async () => {
+    const platform = createMemoryPlatform();
+    platform.windowBoot = async () => ({ slot: "w1", primary: false, canAddWindow: true, windowCount: 3 });
+    platform.removeWindow = async () => true;
+    let closed = 0;
+    platform.closeOtherWindows = async () => {
+      closed += 1;
+      return true;
+    };
+    await withApp(async ({ app }) => {
+      app.openMenu("context", { clientX: 16, clientY: 16 }, { atPointer: true });
+      const menu = document.querySelector('.menu-popup[data-menu="context"]');
+      const remove = menu.querySelector('[data-cmd="remove-window"]');
+      const others = menu.querySelector('[data-cmd="close-other-windows"]');
+      assert.equal(remove.querySelector(".menu-label").textContent, "이 창 없애기");
+      assert.equal(others.querySelector(".menu-label").textContent, "다른 창 없애기");
+      assert.equal(remove.disabled, false);
+      assert.equal(others.disabled, false);
+      others.click();
+      await settle();
+      document.querySelector('[data-popup="close-other-windows"] [data-action="cancel"]').click();
+      await settle();
+      assert.equal(closed, 0);
+      app.openMenu("context", { clientX: 16, clientY: 16 }, { atPointer: true });
+      document.querySelector('.menu-popup[data-menu="context"] [data-cmd="close-other-windows"]').click();
+      await settle();
+      document.querySelector('[data-popup="close-other-windows"] [data-action="ok"]').click();
+      await settle();
+      assert.equal(closed, 1);
+      assert.equal(app.windowInfo.windowCount, 1);
+      assert.equal(app.windowInfo.primary, true);
+      app.openMenu("context", { clientX: 16, clientY: 16 }, { atPointer: true });
+      const left = document.querySelector('.menu-popup[data-menu="context"]');
+      assert.equal(left.querySelector('[data-cmd="remove-window"]').disabled, true);
+      assert.equal(left.querySelector('[data-cmd="close-other-windows"]').disabled, true);
+    }, { platform });
   });
   h.test("a chosen symbol moves into a new window and leaves the list it came from", async () => {
     await withApp(async ({ app, platform }) => {
@@ -3509,8 +3613,9 @@ export function registerGui(h) {
       // Picture and number grow together, so the price never loses room to the chart.
       assert.equal(art, text);
       assert.ok(art > 1);
-      // At the normal window the configured sizes are the sizes on screen.
-      assert.equal(Number(app.content.style.getPropertyValue("--font-scale")), 1);
+      // Settings is the size at the smallest window, so the ordinary window is already larger.
+      const font = Number(app.content.style.getPropertyValue("--font-scale"));
+      assert.ok(font > 2);
       await app.refreshMarket();
       app.applySceneScale();
       assert.equal(app.content.style.getPropertyValue("--art-scale"), String(art));
@@ -3522,7 +3627,7 @@ export function registerGui(h) {
       assert.equal(smallArt, smallText);
       assert.ok(smallArt >= 0.55 && smallArt <= 1);
       const smallFont = Number(app.content.style.getPropertyValue("--font-scale"));
-      assert.ok(smallFont < 1 && smallFont >= 0.4);
+      assert.equal(smallFont, 1);
       const content = getComputedStyle(app.content);
       assert.equal(content.paddingTop, "2px");
       assert.equal(content.paddingBottom, "2px");
@@ -3535,7 +3640,7 @@ export function registerGui(h) {
       app.shellSize = { width: 1200, height: 900 };
       app.applyShellSize();
       const grown = Number(app.content.style.getPropertyValue("--font-scale"));
-      assert.ok(grown > 1 && grown <= 3);
+      assert.ok(grown > font && grown <= 16);
       const css = [...document.styleSheets[0].cssRules].map((rule) => rule.cssText).join("\n");
       for (const role of ["name", "price", "change", "note"]) {
         assert.match(css, new RegExp(`font-size: calc\\(var\\(--font-${role}-size, \\d+px\\) \\* var\\(--font-scale, 1\\)\\)`));

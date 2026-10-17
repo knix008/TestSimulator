@@ -160,6 +160,12 @@ export function createDesktopPlatform(api) {
     async removeWindow() {
       return api.removeWindow?.();
     },
+    async closeOtherWindows() {
+      return api.closeOtherWindows?.();
+    },
+    onWindowsChanged(callback) {
+      api.onWindowsChanged?.(callback);
+    },
     async openPopup(spec) {
       const started = await api.beginPopup(spec, await popupPlace(api, spec));
       if (started?.focused) return { action: "focused" };

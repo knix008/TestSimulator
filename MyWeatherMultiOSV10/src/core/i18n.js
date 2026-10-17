@@ -100,6 +100,7 @@ const ROWS = [
   ["cmd.addCity", "도시 추가", "Add city"],
   ["cmd.closeCity", "도시 닫기", "Close city"],
   ["cmd.newWindow", "새 날씨 창", "New weather window"],
+  ["cmd.closeWindow", "창 없애기", "Remove window"],
   ["theme.modeLight", "라이트", "Light"],
   ["theme.modeDark", "다크", "Dark"],
   ["theme.modeCustom", "사용자 정의", "Custom"],

@@ -1011,7 +1011,7 @@ export function registerGui(h) {
       assert.equal(menu.style.columnCount, "1");
       const items = [...menu.querySelectorAll('[role="menuitem"]')];
       const ids = items.map((item) => item.dataset.cmd);
-      for (const id of ["refresh", "copy", "paste", "next-city", "add-city", "close-tab", "new-window", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about"]) {
+      for (const id of ["refresh", "copy", "paste", "next-city", "add-city", "close-tab", "new-window", "close-window", "print", "choose-wallpaper", "clear-wallpaper", "settings", "about"]) {
         assert.ok(ids.includes(id), id);
       }
       // Nothing is saved to a file and nothing is undone, so those commands are gone.
@@ -1108,6 +1108,34 @@ export function registerGui(h) {
       assert.equal(windowMenu.querySelectorAll(".ico-color").length, windowMenu.querySelectorAll('[role="menuitem"]').length);
       app.closeMenu();
       await forecast.close();
+    });
+  });
+  h.test("the right-click menu removes a weather window until one remains", async () => {
+    await withApp(async ({ app, platform }) => {
+      app.openMenu("context", { clientX: 12, clientY: 16 }, { atPointer: true });
+      const blocked = document.querySelector('[data-cmd="close-window"]');
+      assert.equal(blocked.querySelector(".menu-label").textContent, "창 없애기");
+      assert.equal(blocked.disabled, true);
+      blocked.click();
+      await settle();
+      assert.equal(platform.commands.includes("close"), false);
+      app.closeMenu();
+      const tokyo = findCity("JP", "Tokyo");
+      app.settings.extraWindows = [{ key: "win-a", cities: [tokyo], fonts: { city: "Verdana" } }];
+      app.weatherWindowCount = 2;
+      app.openMenu("window", { clientX: 12, clientY: 16 }, { atPointer: true });
+      const item = document.querySelector('.menu-popup[data-menu="window"] [data-cmd="close-window"]');
+      assert.equal(item.disabled, false);
+      item.click();
+      await settle();
+      assert.equal(app.settings.cities[0].cityEn, "Tokyo");
+      assert.deepEqual(app.settings.extraWindows, []);
+      assert.equal(app.settings.fonts.city, "Verdana");
+      assert.equal(platform.commands.at(-1), "close");
+      assert.equal(app.weatherWindowCount, 1);
+      app.openMenu("context", { clientX: 12, clientY: 16 }, { atPointer: true });
+      assert.equal(document.querySelector('[data-cmd="close-window"]').disabled, true);
+      app.closeMenu();
     });
   });
 

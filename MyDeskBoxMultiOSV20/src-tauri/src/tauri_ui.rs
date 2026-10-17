@@ -352,10 +352,18 @@ impl Ui for TauriUi {
         }
     }
 
+    // show_no_activate 로 보인 창은 Tauri 가 숨은 창으로 알고 있어 win.hide() 가 아무 일도 하지 않는다.
+    // 그래서 직접도 숨긴다. win.hide() 도 불러 두어야 다음 win.show() 가 듣는다.
     fn hide(&self, label: &str) {
-        if let Some(win) = self.window(label) {
-            let _ = win.hide();
+        let Some(win) = self.window(label) else { return };
+        #[cfg(windows)]
+        {
+            let known = self.hwnds.lock().unwrap().get(label).copied();
+            if let Some(hwnd) = known {
+                win32::hide(hwnd as isize);
+            }
         }
+        let _ = win.hide();
     }
 
     fn set_bounds(&self, label: &str, rect: Rect) {
@@ -603,7 +611,7 @@ pub mod win32 {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND};
     use windows::Win32::UI::WindowsAndMessaging::{
-        SetWindowPos, ShowWindow, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER, SW_SHOWNOACTIVATE,
+        SetWindowPos, ShowWindow, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE,
     };
 
     fn hwnd(n: isize) -> HWND {
@@ -630,6 +638,12 @@ pub mod win32 {
     pub fn show_no_activate(n: isize) {
         unsafe {
             let _ = ShowWindow(hwnd(n), SW_SHOWNOACTIVATE);
+        }
+    }
+
+    pub fn hide(n: isize) {
+        unsafe {
+            let _ = ShowWindow(hwnd(n), SW_HIDE);
         }
     }
 }

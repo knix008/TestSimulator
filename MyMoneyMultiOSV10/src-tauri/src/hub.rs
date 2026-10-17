@@ -8,7 +8,7 @@ use tokio::sync::oneshot;
 
 /// Only one of these is open per market window. Asking again brings it forward.
 /// Same list as `ONE_WINDOW` in src/ui/menu-layout.js.
-const ONE_WINDOW: [&str; 7] = ["panel", "settings", "about", "print", "preview", "unsaved", "remove-window"];
+const ONE_WINDOW: [&str; 8] = ["panel", "settings", "about", "print", "preview", "unsaved", "remove-window", "close-other-windows"];
 
 /// Same as `popupKey` in src/ui/menu-layout.js: each panel is its own dialog.
 pub fn popup_key(spec: &Value) -> String {

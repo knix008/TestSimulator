@@ -870,12 +870,14 @@ export function registerLogic(h) {
     const huge = sceneFit({ width: 4000, height: 3000 });
     assert.equal(huge.art, SCENE_MAX_SCALE);
     assert.equal(huge.text, SCENE_MAX_SCALE);
-    const normal = contentBoxFor(WINDOW_DEFAULT);
-    assert.equal(fontWindowScale(normal), 1);
-    assert.equal(fontWindowScale({ width: normal.width * 1.5, height: normal.height * 1.5 }), 1.5);
-    assert.equal(fontWindowScale({ width: normal.width * 2, height: normal.height }), 1);
-    assert.equal(fontWindowScale({ width: normal.width * 0.5, height: normal.height * 0.5 }), 0.5);
+    const least = contentBoxFor(WINDOW_MIN);
+    assert.equal(fontWindowScale(least), 1);
+    assert.equal(fontWindowScale({ width: least.width * 2, height: least.height * 2 }), 2);
+    assert.equal(fontWindowScale({ width: least.width * 2, height: least.height }), 1);
+    assert.equal(fontWindowScale({ width: least.width * 0.5, height: least.height * 0.5 }), 1);
     assert.equal(fontWindowScale({ width: 10, height: 10 }), FONT_SCALE_MIN);
+    // The ordinary window is already much larger than the smallest one, so its fonts are too.
+    assert.ok(fontWindowScale(contentBoxFor(WINDOW_DEFAULT)) > 2);
     const tight = sceneFit({ width: 300, height: 160 });
     assert.ok(tight.text < 1);
     assert.equal(tight.text, tight.art);
@@ -1232,6 +1234,8 @@ export function registerLogic(h) {
     assert.match(main, /\.skip_taskbar\(true\)/);
     assert.doesNotMatch(fs.readFileSync(path.join(root, "src/styles.css"), "utf8"), /app-region/);
     assert.match(main, /TrayIconBuilder::with_id/);
+    assert.match(main, /TrayIconEvent::DoubleClick/);
+    assert.match(main, /reveal_all_windows\(&app\)/);
     assert.match(main, /place_tray_menu/);
     assert.match(main, /fn fit_tray_menu/);
     assert.match(main, /tray_command/);

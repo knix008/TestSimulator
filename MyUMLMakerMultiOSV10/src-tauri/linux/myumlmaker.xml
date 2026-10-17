@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myumlmaker">
+    <comment>MyUMLMaker Project</comment>
+    <comment xml:lang="ko">MyUMLMaker 프로젝트</comment>
+    <icon name="application-x-myumlmaker"/>
+    <glob pattern="*.muml"/>
+  </mime-type>
+  <mime-type type="application/x-myumlmaker-template">
+    <comment>MyUMLMaker Project Template</comment>
+    <comment xml:lang="ko">MyUMLMaker 프로젝트 템플릿</comment>
+    <icon name="application-x-myumlmaker-template"/>
+    <glob pattern="*.mumlt"/>
+  </mime-type>
+</mime-info>

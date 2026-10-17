@@ -16,7 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant};
-use store::{merge_settings, remember_extra_windows, Boot};
+use store::{forget_weather_window, merge_settings, remember_extra_windows, Boot};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, Monitor, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
@@ -486,6 +486,7 @@ fn create_weather_window(app: &AppHandle, opts: NewWindow) -> tauri::Result<Webv
   let handle = app.clone();
   let own = label.clone();
   win.on_window_event(move |event| on_weather_event(&handle, &own, event));
+  publish_window_count(app);
   // A page that never reports back still gets its window shown.
   let handle = app.clone();
   std::thread::spawn(move || {
@@ -555,17 +556,20 @@ fn on_weather_event(app: &AppHandle, label: &str, event: &WindowEvent) {
       hide_main_window(app);
     }
     WindowEvent::Destroyed => {
-      let mut s = st(app);
-      s.weather.retain(|l| l != label);
-      s.boots.remove(label);
-      s.revealed.remove(label);
-      s.resize_starts.remove(label);
-      s.move_starts.remove(label);
-      s.window_state.remove(label);
-      s.owners.retain(|_, owner| owner != label);
-      if s.main.as_deref() == Some(label) {
-        s.main = s.weather.first().cloned();
+      {
+        let mut s = st(app);
+        s.weather.retain(|l| l != label);
+        s.boots.remove(label);
+        s.revealed.remove(label);
+        s.resize_starts.remove(label);
+        s.move_starts.remove(label);
+        s.window_state.remove(label);
+        s.owners.retain(|_, owner| owner != label);
+        if s.main.as_deref() == Some(label) {
+          s.main = s.weather.first().cloned();
+        }
       }
+      publish_window_count(app);
     }
     WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
       let Some(win) = app.get_webview_window(label) else { return };
@@ -1014,6 +1018,93 @@ async fn new_window(app: AppHandle, options: Value) -> Result<bool, String> {
 #[tauri::command]
 fn window_boot(app: AppHandle, window: WebviewWindow) -> Value {
   st(&app).boots.get(window.label()).map(Boot::to_json).unwrap_or(Value::Null)
+}
+
+fn publish_window_count(app: &AppHandle) {
+  let labels = st(app).weather.clone();
+  let message = json!({ "count": labels.len() });
+  for label in labels {
+    emit(app, &label, "windows-changed", message.clone());
+  }
+}
+
+/// The window on screen leaves the saved set and closes. The last open window stays.
+#[tauri::command]
+fn remove_window(app: AppHandle, window: WebviewWindow) -> bool {
+  let label = match weather_label_of(&st(&app), window.label()) {
+    Some(label) => label,
+    None => return false,
+  };
+  let (primary, window_key, successor) = {
+    let s = st(&app);
+    if s.weather.len() <= 1 {
+      return false;
+    }
+    let primary = s.main.as_deref() == Some(label.as_str());
+    let window_key = s.boots.get(&label).map(|boot| boot.window_key.clone()).unwrap_or_default();
+    let successor = if primary { s.weather.iter().find(|other| *other != &label).cloned() } else { None };
+    (primary, window_key, successor)
+  };
+  save_window_placement(&app, true);
+  let file = settings_file(&st(&app));
+  let mut settings = read_json(&file);
+  let Some(forgotten) = forget_weather_window(&mut settings, primary, &window_key) else { return false };
+  if let Some(next) = successor.as_ref().filter(|_| forgotten.promoted_key.is_some()) {
+    if let Some(win) = app.get_webview_window(next) {
+      if let Some(bounds) = bounds(&win) {
+        let placement = Placement {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          maximized: win.is_maximized().unwrap_or(false),
+        };
+        stamp_window_placement(&mut settings, &placement);
+        st(&app).live = Some(placement);
+      }
+    }
+  }
+  if write_json(&file, &settings, true).is_err() {
+    return false;
+  }
+  let extra = settings.get("extraWindows").cloned().unwrap_or_else(|| json!([]));
+  if forgotten.promoted_key.is_some() {
+    if let Some(next) = successor.clone() {
+      {
+        let mut s = st(&app);
+        if let Some(boot) = s.boots.get_mut(&next) {
+          boot.primary = true;
+          boot.window_key.clear();
+        }
+        s.main = Some(next.clone());
+      }
+      let mut role = json!({ "primary": true, "windowKey": "", "extraWindows": extra.clone() });
+      if let Some(cities) = forgotten.cities {
+        role["cities"] = cities;
+      }
+      if let Some(fonts) = forgotten.fonts {
+        role["fonts"] = fonts;
+      }
+      emit(&app, &next, "window-role", role);
+    }
+  }
+  for other in st(&app).weather.clone() {
+    if other == label {
+      continue;
+    }
+    emit(&app, &other, "windows-changed", json!({ "extraWindows": extra.clone() }));
+  }
+  let closing = st(&app).hub.close_owned(&owner_key(Some(&label)));
+  destroy_all(closing);
+  if let Some(win) = app.get_webview_window(&label) {
+    let _ = win.destroy();
+  }
+  true
+}
+
+#[tauri::command]
+fn weather_window_count(app: AppHandle) -> usize {
+  st(&app).weather.len()
 }
 
 /// The tray marks the city the window shows, so it has to hear about every change.
@@ -1661,6 +1752,8 @@ pub fn run() {
       window_control,
       new_window,
       window_boot,
+      remove_window,
+      weather_window_count,
       shown_city,
       confirm_quit,
       read_settings,

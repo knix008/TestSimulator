@@ -11,6 +11,7 @@ export function buildMenuItems(name, ctx) {
       item("add-city", "add", t("cmd.addCity"), "", true),
       item("close-tab", "close", t("cmd.closeCity"), "", true),
       item("new-window", "window", t("cmd.newWindow"), "", true, true),
+      item("close-window", "close", t("cmd.closeWindow"), "", ctx.canCloseWindow === true),
       item("print", "print", t("cmd.print"), "Ctrl+P", true, true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
       item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
@@ -27,6 +28,7 @@ export function buildMenuItems(name, ctx) {
       item("next-city", "next", t("cmd.nextCity"), "", true, true),
       item("add-city", "add", t("cmd.addCity"), "", true),
       item("new-window", "window", t("cmd.newWindow"), "", true),
+      item("close-window", "close", t("cmd.closeWindow"), "", ctx.canCloseWindow === true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
       item("clear-wallpaper", "trash", t("cmd.clearWallpaper"), "", true),
     ];

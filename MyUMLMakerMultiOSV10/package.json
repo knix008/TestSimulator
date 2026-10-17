@@ -1,0 +1,38 @@
+{
+  "name": "myumlmaker",
+  "productName": "MyUMLMaker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "UML modelling (StarUML style) for Web, Windows, macOS and Linux (Tauri) — model explorer, 29 kinds of diagrams, quick edit, code generation and reverse engineering, StarUML/Mermaid/PlantUML interop, HTML/Markdown docs",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4175 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:quick": "node scripts/test.mjs --quick",
+    "test:unit": "node scripts/test.mjs --only js,rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:webapp": "node scripts/build.mjs web",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "tutorial:docs": "node scripts/tutorial-capture.mjs docs",
+    "tutorial:video": "node scripts/tutorial-capture.mjs video",
+    "samples": "node scripts/make-samples.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "vite": "^7.1.7"
+  }
+}

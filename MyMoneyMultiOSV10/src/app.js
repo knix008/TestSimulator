@@ -54,13 +54,14 @@ import {
   buildOfflineSpec,
   buildSettingsSpec,
   buildUnsavedSpec,
+  buildCloseOtherWindowsSpec,
   buildRemoveWindowSpec,
   buildSearchResultsSpec,
   buildWallpaperDropSpec,
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { BOARD_HEAD, BOARD_ROW, CONTENT_PADDING, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, contentBoxFor, fontWindowScale, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
+import { BOARD_HEAD, BOARD_ROW, CONTENT_PADDING, SCENE_GAP_BASE, SCENE_LABEL_BASE, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, contentBoxFor, fontWindowScale, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
 import { boardRowCount, clampPage, panelFitHeight, panelMaxBody, panelPageCount, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
@@ -96,7 +97,7 @@ class MoneyApp {
     this.listingDraft = null;
     this.closed = false;
     /** Which window this page is. Only an extra window can be removed. */
-    this.windowInfo = { primary: true, canAddWindow: true };
+    this.windowInfo = { primary: true, canAddWindow: true, windowCount: 1 };
     this.destroyed = false;
     this.menuEl = null;
     this.progressAborted = false;
@@ -123,15 +124,15 @@ class MoneyApp {
               <img class="title-icon" src="../assets/icon.png" alt="" width="18" height="18" draggable="false">
               <span class="title-name" data-gui="window-title">${WINDOW_TITLE}</span>
             </div>
-            <div class="range-tools" data-gui="range-tools">
-              <button type="button" class="tool-btn" data-cmd="stocks" data-gui="range-button" data-i18n-title="panel.stocks">${icon("stocks")}</button>
-              <button type="button" class="tool-btn" data-cmd="rates" data-gui="range-button" data-i18n-title="panel.rates">${icon("rates")}</button>
-              <button type="button" class="tool-btn" data-cmd="news" data-gui="range-button" data-i18n-title="panel.news">${icon("news")}</button>
-            </div>
             <div class="tabbar" data-gui="tabbar" hidden>
               <button type="button" class="chev" data-cmd="tab-prev" data-gui="tab-nav" data-i18n-title="tip.tabPrev">${icon("left")}</button>
               <div id="tab-strip" class="tab-strip"></div>
               <button type="button" class="chev" data-cmd="tab-next" data-gui="tab-nav" data-i18n-title="tip.tabNext">${icon("right")}</button>
+            </div>
+            <div class="range-tools" data-gui="range-tools">
+              <button type="button" class="tool-btn" data-cmd="stocks" data-gui="range-button" data-i18n-title="panel.stocks">${icon("stocks")}</button>
+              <button type="button" class="tool-btn" data-cmd="rates" data-gui="range-button" data-i18n-title="panel.rates">${icon("rates")}</button>
+              <button type="button" class="tool-btn" data-cmd="news" data-gui="range-button" data-i18n-title="panel.news">${icon("news")}</button>
             </div>
             <div class="corner-actions" data-gui="corner-actions">
               <button type="button" class="icon-btn" data-cmd="refresh" data-gui="corner-button" data-i18n-title="tip.refresh">${icon("refresh")}</button>
@@ -172,6 +173,7 @@ class MoneyApp {
     this.platform.onRequestClose?.(() => this.requestClose());
     this.platform.onSecondInstance?.(() => this.tellAlreadyRunning());
     this.platform.onSettingsChanged?.((shared) => this.takeSharedSettings(shared));
+    this.platform.onWindowsChanged?.((info) => this.takeWindowInfo(info));
     this.platform.onWindowState?.((state) => this.applyWindowState(state));
     this.platform.onPopupImmediate?.(async (msg) => {
       const handler = this.nativeImmediate || ((item) => this.handlePopupImmediate(item));
@@ -475,6 +477,7 @@ class MoneyApp {
         exit: () => this.exitProgram(),
         "new-window": () => this.openNewWindow(),
         "remove-window": () => this.removeWindow(),
+        "close-other-windows": () => this.closeOtherWindows(),
         "tab-prev": () => this.nudgeTabs(-1),
         "tab-next": () => this.nudgeTabs(1),
         "add-tab": () => this.addTab(),
@@ -1218,8 +1221,10 @@ class MoneyApp {
     const reference = this.settings.sceneMode === "all"
       ? { width: contentBoxFor(WINDOW_DEFAULT).width, height: BOARD_HEAD + rows * BOARD_ROW }
       : undefined;
-    // Configured sizes are the size at the normal window. Resizing multiplies every piece by this one ratio.
+    // Settings stores the size at the smallest window. Every piece then grows by this one ratio.
     this.content.style.setProperty("--font-scale", String(fontWindowScale(available, reference)));
+    this.content.style.setProperty("--scene-text", `${SCENE_LABEL_BASE}px`);
+    this.content.style.setProperty("--scene-gap", `${SCENE_GAP_BASE}px`);
     const fit = sceneFit(available, SCENE_TEXT);
     const boxKey = `${Math.round(available.width)}x${Math.round(available.height)}`;
     if (this.content.dataset.sceneReady === "1" && this._sceneBox === boxKey) return;
@@ -1231,7 +1236,6 @@ class MoneyApp {
         return;
       }
     }
-    this.content.style.setProperty("--scene-text", `${SCENE_TEXT}px`);
     this.content.style.setProperty("--scene-scale", String(fit.text));
     this.content.style.setProperty("--art-scale", String(fit.art));
     if (this.placementReady && measured) {
@@ -2038,7 +2042,7 @@ class MoneyApp {
     return Boolean(opened);
   }
 
-  /** An extra window can be removed; its board goes with it. The first window stays. */
+  /** An extra window can be removed; its board goes with it. The last window stays. */
   async removeWindow() {
     if (!this.platform.removeWindow || this.windowInfo.primary !== false) return false;
     const answer = await this.openPopup(buildRemoveWindowSpec((key, vars) => this.t(key, vars)));
@@ -2046,6 +2050,27 @@ class MoneyApp {
     this.closed = true;
     this.destroy();
     return Boolean(await this.platform.removeWindow());
+  }
+
+  /**
+   * Drop every window except this one. A created window that asks becomes the
+   * window that remains, so deleting can continue until a single window is left.
+   */
+  async closeOtherWindows() {
+    if (!this.platform.closeOtherWindows || (this.windowInfo.windowCount || 1) < 2) return false;
+    const answer = await this.openPopup(buildCloseOtherWindowsSpec((key, vars) => this.t(key, vars)));
+    if (answer?.action !== "ok") return false;
+    const closed = Boolean(await this.platform.closeOtherWindows());
+    if (closed) this.takeWindowInfo({ windowCount: 1, primary: true, canAddWindow: true });
+    return closed;
+  }
+
+  /** How many market windows are open, and whether this one is the first. */
+  takeWindowInfo(info) {
+    if (!info || typeof info !== "object" || this.destroyed) return;
+    if (info.windowCount != null) this.windowInfo.windowCount = Math.max(1, Math.round(Number(info.windowCount) || 1));
+    if (info.primary != null) this.windowInfo.primary = Boolean(info.primary);
+    if (info.canAddWindow != null) this.windowInfo.canAddWindow = Boolean(info.canAddWindow);
   }
 
   /**
@@ -2565,6 +2590,7 @@ class MoneyApp {
       canDetachSymbol: this.canDetachSymbol(),
       canAddWindow: Boolean(this.platform.newWindow) && this.windowInfo.canAddWindow !== false,
       canRemoveWindow: Boolean(this.platform.removeWindow) && this.windowInfo.primary === false,
+      canCloseOtherWindows: Boolean(this.platform.closeOtherWindows) && (this.windowInfo.windowCount || 1) > 1,
     });
     const rect = atPointer ? null : anchorEvent?.currentTarget?.getBoundingClientRect?.() || anchorEvent?.target?.getBoundingClientRect?.();
     const anchor = {

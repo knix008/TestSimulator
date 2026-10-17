@@ -96,6 +96,52 @@ pub fn merge_settings(incoming: Value, stored: &Value, boot: Option<&Boot>, own_
   incoming
 }
 
+/// One weather window left the set. `promoted_key` is set when the first window was the one
+/// removed and another window took its cities.
+pub struct ForgottenWindow {
+  pub promoted_key: Option<String>,
+  pub cities: Option<Value>,
+  pub fonts: Option<Value>,
+}
+
+/// Drops the window the user asked to remove. The last saved window stays.
+pub fn forget_weather_window(settings: &mut Value, primary: bool, window_key: &str) -> Option<ForgottenWindow> {
+  if !settings.is_object() {
+    *settings = json!({});
+  }
+  let extra = settings.get("extraWindows").and_then(Value::as_array).cloned().unwrap_or_default();
+  if 1 + extra.len() <= 1 {
+    return None;
+  }
+  if !primary {
+    if window_key.is_empty() {
+      return None;
+    }
+    let next: Vec<Value> = extra.iter().filter(|entry| entry.get("key").and_then(Value::as_str) != Some(window_key)).cloned().collect();
+    if next.len() == extra.len() {
+      return None;
+    }
+    settings["extraWindows"] = json!(next);
+    return Some(ForgottenWindow { promoted_key: None, cities: None, fonts: None });
+  }
+  let mut extra = extra;
+  let promoted = extra.remove(0);
+  let key = promoted.get("key").and_then(Value::as_str).unwrap_or("").to_string();
+  if key.is_empty() {
+    return None;
+  }
+  let cities = promoted.get("cities").filter(|c| c.as_array().is_some_and(|a| !a.is_empty())).cloned();
+  let fonts = promoted.get("fonts").filter(|f| f.is_object()).cloned();
+  if let Some(cities) = cities.clone() {
+    settings["cities"] = cities;
+  }
+  if let Some(fonts) = fonts.clone() {
+    settings["fonts"] = fonts;
+  }
+  settings["extraWindows"] = json!(extra);
+  Some(ForgottenWindow { promoted_key: Some(key), cities, fonts })
+}
+
 /// Each open extra window writes where it is now into its saved slot.
 pub fn remember_extra_windows(settings: &mut Value, open: &[(String, Rect)]) {
   let Some(list) = settings.get_mut("extraWindows").and_then(Value::as_array_mut) else { return };
@@ -152,6 +198,26 @@ mod tests {
   }
 
   #[test]
+  #[test]
+  fn removing_a_window_leaves_the_last_one() {
+    let mut alone = json!({ "cities": [{ "cityEn": "Seoul" }], "extraWindows": [] });
+    assert!(forget_weather_window(&mut alone, true, "").is_none());
+    let mut settings = json!({
+      "cities": [{ "cityEn": "Seoul" }],
+      "extraWindows": [{ "key": "win-a", "cities": [{ "cityEn": "Tokyo" }], "fonts": { "city": "Verdana" } }, { "key": "win-b", "cities": [{ "cityEn": "Paris" }] }],
+    });
+    let dropped = forget_weather_window(&mut settings, false, "win-a").unwrap();
+    assert!(dropped.promoted_key.is_none());
+    assert_eq!(settings["cities"][0]["cityEn"], "Seoul");
+    assert_eq!(settings["extraWindows"].as_array().unwrap().len(), 1);
+    assert_eq!(settings["extraWindows"][0]["key"], "win-b");
+    let promoted = forget_weather_window(&mut settings, true, "").unwrap();
+    assert_eq!(promoted.promoted_key.as_deref(), Some("win-b"));
+    assert_eq!(settings["cities"][0]["cityEn"], "Paris");
+    assert!(settings["extraWindows"].as_array().unwrap().is_empty());
+    assert!(forget_weather_window(&mut settings, true, "").is_none());
+  }
+
   fn open_extra_windows_record_where_they_are() {
     let mut settings = json!({ "extraWindows": [{ "key": "win-a" }, { "key": "win-b" }] });
     remember_extra_windows(&mut settings, &[("win-b".into(), Rect { x: 1.0, y: 2.0, width: 330.0, height: 160.0 })]);

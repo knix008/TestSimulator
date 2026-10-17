@@ -462,6 +462,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   overflow: visible;
 }
 .menu-item:hover:not(:disabled), .menu-item:focus-visible { outline: none; background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.menu-item:disabled { color: var(--muted); }
 .menu-icon { flex: none; display: inline-flex; width: 16px; height: 16px; }
 .menu-label { flex: 1 1 auto; overflow: visible; white-space: nowrap; text-align: left; }
 .menu-key { flex: 0 0 auto; margin-left: auto; padding-left: 18px; color: var(--muted); font-size: 12px; text-align: right; white-space: nowrap; }

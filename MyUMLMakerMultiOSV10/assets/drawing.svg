@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- .muml project icon: a raised 3D page with a folded corner and a small UML class diagram. -->
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#d9f3ee"/>
+      <stop offset="1" stop-color="#7fb8b6"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3f8d8c"/><stop offset="1" stop-color="#1d4f55"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bfe6e0"/><stop offset="1" stop-color="#5aa29d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.12" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="0.75" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.45" stop-color="#0b3d44" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0b3d44" stop-opacity="0.55"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-300%" width="160%" height="700%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="barShadow" x="-20%" y="-40%" width="140%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0b3d44" flood-opacity="0.4"/></filter>
+    <radialGradient id="spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="pageClip"><path d="M192 160a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z"/></clipPath>
+  </defs>
+  <ellipse cx="512" cy="950" rx="330" ry="30" fill="#082a30" opacity="0.45" filter="url(#shadow)"/>
+  <path d="M192 196a48 48 0 0 1 48-48h400l192 192v560a48 48 0 0 1-48 48H240a48 48 0 0 1-48-48z" fill="url(#side)" transform="translate(0 -36)"/>
+  <g clip-path="url(#pageClip)">
+    <rect x="192" y="112" width="640" height="800" fill="url(#face)"/>
+    <!-- class diagram -->
+    <g fill="none" stroke="#0d4f6b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+      <path d="M342 610v-60h340v60M512 550v-40"/>
+    </g>
+    <path d="M512 470l-34 48h68z" fill="#ffffff" stroke="#0d4f6b" stroke-width="9" stroke-linejoin="round"/>
+    <g filter="url(#barShadow)">
+      <rect x="402" y="330" width="220" height="140" rx="12" fill="#1f9e9a"/>
+      <rect x="262" y="610" width="160" height="110" rx="12" fill="#f4a21a"/>
+      <rect x="602" y="610" width="160" height="110" rx="12" fill="#ef476f"/>
+    </g>
+    <g stroke="#ffffff" stroke-width="7" opacity="0.85"><path d="M402 378h220M402 424h220M262 656h160M602 656h160"/></g>
+    <rect x="192" y="112" width="640" height="800" fill="url(#shade)"/>
+    <rect x="192" y="112" width="640" height="800" fill="url(#glow)"/>
+  </g>
+  <!-- folded corner -->
+  <path d="M640 112v144a48 48 0 0 0 48 48h144z" fill="url(#fold)"/>
+  <path d="M640 112v144a48 48 0 0 0 48 48h144" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6"/>
+  <!-- file type label -->
+  <rect x="242" y="776" width="230" height="76" rx="22" fill="#0b5f6e"/>
+  <text x="357" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">MUML</text>
+  <circle cx="262" cy="186" r="62" fill="url(#spark)" opacity="0.95"/>
+  <path d="M262 122l10 52 52 10-52 10-10 52-10-52-52-10 52-10z" fill="#ffffff"/>
+</svg>

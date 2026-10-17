@@ -184,6 +184,23 @@ export function moveCityToWindow(extraWindows, { cities, windowKey, sourceKey, m
   return extra.slice(0, MAX_CITIES);
 }
 
+/**
+ * Drop the weather window the user is looking at. The last one stays.
+ * Closing the first window hands its place to the oldest other window.
+ */
+export function removeWeatherWindow(settings, { primary = true, windowKey = "" } = {}) {
+  const fallback = settings?.defaultLocation || DEFAULT_LOCATION;
+  const extra = sanitizeExtraWindows(settings?.extraWindows, fallback);
+  if (1 + extra.length <= 1) return null;
+  if (primary === false) {
+    const key = String(windowKey || "");
+    if (!key || !extra.some((entry) => entry.key === key)) return null;
+    return { extraWindows: extra.filter((entry) => entry.key !== key), promoted: null };
+  }
+  const [promoted, ...rest] = extra;
+  return { extraWindows: rest, promoted, cities: promoted.cities, fonts: promoted.fonts || null };
+}
+
 export function sanitizeCities(raw, fallback = DEFAULT_LOCATION) {
   const list = Array.isArray(raw) ? raw : [];
   const cities = list

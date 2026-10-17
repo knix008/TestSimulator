@@ -8,6 +8,7 @@ export function buildMenuItems(name, ctx) {
     const windows = [];
     if (ctx.canAddWindow !== false) windows.push(item("new-window", "window", t("cmd.newWindow"), "", true, true));
     if (ctx.canRemoveWindow) windows.push(item("remove-window", "trash", t("cmd.removeWindow"), "", true, !windows.length));
+    if (ctx.canCloseOtherWindows) windows.push(item("close-other-windows", "close", t("cmd.closeOtherWindows"), "", true, !windows.length));
     return [
       item("refresh", "refresh", t("cmd.refresh"), "F5", true),
       item("undo", "undo", t("cmd.undo"), "Ctrl+Z", ctx.canUndo, true),
@@ -33,6 +34,8 @@ export function buildMenuItems(name, ctx) {
       item("add-symbol", "add", t("cmd.addSymbol"), "", true),
       item("remove-symbol", "trash", t("cmd.removeSymbol"), "", ctx.canRemoveSymbol !== false),
       item("detach-symbol", "window", t("cmd.detachSymbol"), "", ctx.canDetachSymbol === true),
+      item("remove-window", "trash", t("cmd.removeWindow"), "", ctx.canRemoveWindow === true),
+      item("close-other-windows", "close", t("cmd.closeOtherWindows"), "", ctx.canCloseOtherWindows === true),
       item("toggle-favorite", "favorite", t("cmd.toggleFavorite"), "", true),
       item("refresh", "refresh", t("cmd.refresh"), "", true, true),
       item("choose-wallpaper", "image", t("cmd.chooseWallpaper"), "", true, true),
