@@ -32,16 +32,54 @@ const server = http.createServer((req, res) => {
       return;
     }
     const type = types[path.extname(file).toLowerCase()] || "application/octet-stream";
-    res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" });
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store", "X-MyCalc-Root": encodeURIComponent(root) });
     res.end(data);
   });
 });
 
-server.on("error", (error) => {
-  console.error(error.message);
-  process.exit(1);
+// Asks whoever holds the port whether it serves this very folder. A server
+// left over from an earlier run that was killed does, and can simply be used.
+function probe() {
+  return new Promise((resolve) => {
+    const req = http.get({ host: "127.0.0.1", port, path: "/index.html", timeout: 2000 }, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", () => {
+        if (res.headers["x-mycalc-root"] === encodeURIComponent(root)) return resolve("same");
+        // An older copy of this script sent no header; its page is still ours.
+        let ours = false;
+        try {
+          ours = Buffer.concat(chunks).equals(fs.readFileSync(path.join(root, "index.html")));
+        } catch { /* Not readable here, so not provably ours. */ }
+        resolve(ours ? "same" : "other");
+      });
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve("none"));
+  });
+}
+
+let borrowing = false;
+
+server.on("error", async (error) => {
+  if (error.code !== "EADDRINUSE") {
+    console.error(error.message);
+    process.exit(1);
+  }
+  const holder = await probe();
+  if (holder === "other") {
+    console.error(`Port ${port} is taken by another program, so MyCalc cannot load. Close it and run npm start again.`);
+    process.exit(1);
+  }
+  if (!borrowing) console.log(`MyCalc  http://127.0.0.1:${port} (already running, reusing it)`);
+  borrowing = true;
+  // tauri dev stops the app when this command ends, so stay up, and take the
+  // port over if the other server goes away.
+  setTimeout(() => server.listen(port, "127.0.0.1"), 2000);
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`MyCalc  http://127.0.0.1:${port}`);
+server.on("listening", () => {
+  console.log(`MyCalc  http://127.0.0.1:${port}${borrowing ? " (took over)" : ""}`);
 });
+
+server.listen(port, "127.0.0.1");

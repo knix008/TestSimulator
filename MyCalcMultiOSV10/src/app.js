@@ -142,7 +142,10 @@ let sidePanelOpen = null;
 let pendingGraphExpr = "";
 let pendingGraphDim = "";
 try {
-  graphChannel = new BroadcastChannel("mycalc-graph");
+  // Every running copy of the program shares one browser profile, so each
+  // keeps its graph traffic to its own windows. Settings stay shared.
+  const instance = window.__MYCALC_INSTANCE__;
+  graphChannel = new BroadcastChannel(instance ? `mycalc-graph-${instance}` : "mycalc-graph");
 } catch {
   graphChannel = null;
 }
@@ -3669,7 +3672,7 @@ function openChildWindow(kind) {
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
-  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=560" : kind === "help" ? "width=720,height=640" : kind === "memo" ? "width=760,height=640" : "width=560,height=420";
+  const size = kind === "graph" ? "width=1140,height=700" : kind === "print" ? "width=920,height=680" : kind === "settings" ? "width=820,height=700" : kind === "help" ? "width=720,height=640" : kind === "memo" ? "width=760,height=640" : "width=560,height=420";
   const resizable = kind === "settings" || kind === "info" ? "resizable=no" : "resizable=yes";
   const child = window.open(url.href, `mycalc-${kind}`, `popup=yes,${size},${resizable}`);
   if (child) child.focus();

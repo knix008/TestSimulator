@@ -2987,6 +2987,34 @@ suite("Product features", () => {
       info.frame.remove();
     }
   });
+
+  test("The theme swatches fit the settings window at its smallest", async () => {
+    // The floor the desktop window can be dragged down to, from the shell itself.
+    const shell = await (await fetch("../src-tauri/src/lib.rs")).text();
+    const spec = shell.match(/"settings" => ChildSpec \{[\s\S]*?min_width: ([\d.]+),[\s\S]*?min_height: ([\d.]+),/);
+    assert(spec, "the settings window size was not found in lib.rs");
+    const settings = await loadApp("pop=settings");
+    try {
+      settings.frame.style.width = `${Number(spec[1])}px`;
+      settings.frame.style.height = `${Number(spec[2])}px`;
+      await wait(50);
+      const doc = settings.win.document;
+      // A squashed chip shrinks its dots and name along with it rather than
+      // overflowing, so compare it with a free-standing copy of itself.
+      const chips = [...doc.querySelectorAll("#settingsSheet .theme-chip")];
+      const copy = chips[0].cloneNode(true);
+      copy.style.cssText = `position:absolute;visibility:hidden;height:auto;width:${chips[0].getBoundingClientRect().width}px`;
+      chips[0].parentElement.append(copy);
+      const natural = copy.getBoundingClientRect().height;
+      copy.remove();
+      const squashed = chips.filter((chip) => chip.getBoundingClientRect().height < natural - 1);
+      assert(!squashed.length, `${squashed.length} swatches are squashed at ${spec[1]}x${spec[2]} (need ${Math.round(natural)}px each)`);
+      const sheet = doc.getElementById("settingsSheet");
+      assert(sheet.scrollHeight - sheet.clientHeight === 0, "Settings scrolls");
+    } finally {
+      settings.frame.remove();
+    }
+  });
 });
 
 suite("Function coverage", () => {

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -10,6 +10,7 @@ use tauri::{
 use tauri_plugin_dialog::DialogExt;
 
 mod edit_menu;
+mod instances;
 mod print_job;
 
 // The calculator window is not a free rectangle. Each mode has one content
@@ -52,9 +53,10 @@ fn child_spec(kind: &str) -> Option<ChildSpec> {
         },
         "settings" => ChildSpec {
             width: 780.0,
-            height: 520.0,
+            height: 660.0,
             min_width: 720.0,
-            min_height: 460.0,
+            // Shorter than this and the four rows of theme swatches get squashed.
+            min_height: 640.0,
             title: "설정 — MyCalc 10.0",
             desktop: false,
             fixed: false,
@@ -102,6 +104,8 @@ struct AppState {
     // Set once the calculator is closing, so no window is built ahead of time
     // that would keep the program running with nothing on screen.
     closing: AtomicBool,
+    // How far this copy's windows step away from those of copies already open.
+    cascade: AtomicU32,
 }
 
 // Building a WebView2 window holds the UI thread for a quarter of a second or
@@ -218,6 +222,10 @@ fn reveal_when_ready(app: &AppHandle, label: &str) {
     });
 }
 
+fn cascade(app: &AppHandle) -> u32 {
+    app.try_state::<AppState>().map(|state| state.cascade.load(Ordering::SeqCst)).unwrap_or(0)
+}
+
 fn closing(app: &AppHandle) -> bool {
     app.try_state::<AppState>()
         .map(|state| state.closing.load(Ordering::SeqCst))
@@ -297,6 +305,7 @@ fn build_child(app: &AppHandle, kind: &str) -> Result<WebviewWindow, String> {
             .maximizable(true);
     }
     let child = builder.build().map_err(|err| err.to_string())?;
+    instances::shift(&child, cascade(app));
     edit_menu::hide_builtin_menu(&child);
     if spec.fixed {
         lock_content(&child, spec.width, spec.height);
@@ -340,6 +349,7 @@ fn open_print(app: &AppHandle, owner: &WebviewWindow) -> Result<(), String> {
     remember_floor(app, "print", 760.0, 520.0);
     watch_maximized(&child);
     edit_menu::hide_builtin_menu(&child);
+    instances::shift(&child, cascade(app));
     reveal_when_ready(app, "print");
     Ok(())
 }
@@ -530,12 +540,18 @@ fn window_ready(app: AppHandle, window: WebviewWindow, state: tauri::State<AppSt
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // The pages tell their own copy's windows apart from another copy's by this.
+    let instance = tauri::plugin::Builder::<tauri::Wry, ()>::new("mycalc-instance")
+        .js_init_script(format!("window.__MYCALC_INSTANCE__ = '{}';", std::process::id()))
+        .build();
     tauri::Builder::default()
+        .plugin(instance)
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             floors: Mutex::new(HashMap::new()),
             waiting: Mutex::new(HashSet::new()),
             closing: AtomicBool::new(false),
+            cascade: AtomicU32::new(0),
         })
         .manage(edit_menu::EditState::new())
         .invoke_handler(tauri::generate_handler![
@@ -556,6 +572,9 @@ pub fn run() {
                 return Ok(());
             };
             lock_content(&main, 360.0, 594.0);
+            let steps = instances::free_step(&main);
+            app.state::<AppState>().cascade.store(steps, Ordering::SeqCst);
+            instances::shift(&main, steps);
             hold_still(&main);
             edit_menu::hide_builtin_menu(&main);
             reveal_when_ready(app.handle(), "main");
