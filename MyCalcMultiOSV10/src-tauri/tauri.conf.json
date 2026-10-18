@@ -49,6 +49,8 @@
     "windows": {
       "nsis": {
         "installerHooks": "windows/hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
         "languages": ["Korean", "English"],
         "displayLanguageSelector": true,
         "installMode": "both"

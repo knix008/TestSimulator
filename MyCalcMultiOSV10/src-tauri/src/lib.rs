@@ -12,6 +12,7 @@ use tauri_plugin_dialog::DialogExt;
 mod edit_menu;
 mod instances;
 mod print_job;
+mod window_icon;
 
 // The calculator window is not a free rectangle. Each mode has one content
 // size, and the page asks for it by name. The same numbers size `.app` in CSS.
@@ -305,6 +306,7 @@ fn build_child(app: &AppHandle, kind: &str) -> Result<WebviewWindow, String> {
             .maximizable(true);
     }
     let child = builder.build().map_err(|err| err.to_string())?;
+    window_icon::apply(&child);
     instances::shift(&child, cascade(app));
     edit_menu::hide_builtin_menu(&child);
     if spec.fixed {
@@ -349,6 +351,7 @@ fn open_print(app: &AppHandle, owner: &WebviewWindow) -> Result<(), String> {
     remember_floor(app, "print", 760.0, 520.0);
     watch_maximized(&child);
     edit_menu::hide_builtin_menu(&child);
+    window_icon::apply(&child);
     instances::shift(&child, cascade(app));
     reveal_when_ready(app, "print");
     Ok(())
@@ -572,6 +575,7 @@ pub fn run() {
                 return Ok(());
             };
             lock_content(&main, 360.0, 594.0);
+            window_icon::apply(&main);
             let steps = instances::free_step(&main);
             app.state::<AppState>().cascade.store(steps, Ordering::SeqCst);
             instances::shift(&main, steps);

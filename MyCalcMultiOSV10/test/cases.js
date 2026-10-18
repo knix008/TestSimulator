@@ -5456,6 +5456,18 @@ suite("Windows installer", () => {
     assert((nsis.languages || []).includes("English"), "English is not among the installer languages");
   });
 
+  test("The installer and uninstaller carry the program's own icon", async () => {
+    const conf = JSON.parse(await fetchText("../src-tauri/tauri.conf.json"));
+    const nsis = conf.bundle.windows.nsis;
+    // Left out, NSIS shows its stock globe in Explorer and on the taskbar.
+    const programIcon = conf.bundle.icon.find((file) => file.endsWith(".ico"));
+    assert(programIcon, "the bundle has no .ico");
+    assert(nsis.installerIcon === programIcon, `the installer icon is ${nsis.installerIcon}, not ${programIcon}`);
+    assert(nsis.uninstallerIcon === programIcon, `the uninstaller icon is ${nsis.uninstallerIcon}, not ${programIcon}`);
+    const res = await fetch(`../src-tauri/${programIcon}`);
+    assert(res.ok, `${programIcon} is missing`);
+  });
+
   test("The installer takes the old program out before laying the new one down", async () => {
     const script = await fetchCode("../src-tauri/windows/hooks.nsh");
     const trouble = [];
