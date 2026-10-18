@@ -16,6 +16,7 @@
     "tauri": "tauri",
     "tauri:build": "tauri build",
     "build:win": "tauri build --bundles nsis",
+    "postbuild:win": "node scripts/copy-installer.mjs",
     "predev": "node scripts/free-port.mjs 5185 && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
     "dev": "vite --port 5185",
     "web": "npm run build && node server/server.js",
