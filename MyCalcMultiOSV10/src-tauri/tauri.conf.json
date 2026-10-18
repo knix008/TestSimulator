@@ -25,8 +25,8 @@
         "maximizable": false,
         "fullscreen": false,
         "decorations": false,
-        "transparent": false,
-        "backgroundColor": "#1c1917",
+        "visible": false,
+        "transparent": true,
         "shadow": true,
         "center": true,
         "zoomHotkeysEnabled": false

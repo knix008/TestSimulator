@@ -49,6 +49,12 @@
     },
   };
 
+  // Every window is built hidden and shown once its page is in, so it never
+  // flashes up as an empty outline.
+  const reportReady = () => invoke("window_ready").catch(() => {});
+  if (document.readyState === "complete") reportReady();
+  else window.addEventListener("load", reportReady, { once: true });
+
   document.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     const editable = textField(event.target);

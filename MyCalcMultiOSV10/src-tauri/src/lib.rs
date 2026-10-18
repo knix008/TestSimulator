@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindow,
@@ -93,7 +95,23 @@ struct AppState {
     // A window remembers the smallest size it was opened with. A drag that
     // reports a smaller box is raised back to this floor.
     floors: Mutex<HashMap<String, (f64, f64)>>,
+    // Windows are built hidden. These are the ones somebody asked for, to be
+    // shown once their page has loaded. A window built ahead of time is not
+    // in here and stays hidden until its button is pressed.
+    waiting: Mutex<HashSet<String>>,
+    // Set once the calculator is closing, so no window is built ahead of time
+    // that would keep the program running with nothing on screen.
+    closing: AtomicBool,
 }
+
+// Building a WebView2 window holds the UI thread for a quarter of a second or
+// more, and the page then takes as long again to load. The windows the
+// calculator's own buttons open are built hidden in advance, and built again
+// after each close, so a press only has to show one.
+const PREBUILT: &[&str] = &["settings", "info", "memo", "graph"];
+
+// A page that never reports in is shown anyway after this long.
+const REVEAL_FALLBACK: Duration = Duration::from_millis(1500);
 
 #[derive(serde::Deserialize)]
 struct Bounds {
@@ -165,6 +183,60 @@ fn shell<R: tauri::Runtime, M: Manager<R>>(
         .shadow(true)
         .zoom_hotkeys_enabled(false)
         .center()
+        // A transparent window shown before its page has painted is only a
+        // shadow and an outline. window_ready shows it instead.
+        .visible(false)
+}
+
+fn reveal(window: &WebviewWindow) {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+}
+
+// Show the window when its page reports in, or after REVEAL_FALLBACK.
+fn reveal_when_ready(app: &AppHandle, label: &str) {
+    if let Some(state) = app.try_state::<AppState>() {
+        state.waiting.lock().expect("waiting windows").insert(label.to_string());
+    }
+    let app = app.clone();
+    let label = label.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(REVEAL_FALLBACK);
+        let queued = app.clone();
+        let _ = queued.run_on_main_thread(move || {
+            let Some(state) = app.try_state::<AppState>() else {
+                return;
+            };
+            if !state.waiting.lock().expect("waiting windows").remove(&label) {
+                return;
+            }
+            if let Some(window) = app.get_webview_window(&label) {
+                reveal(&window);
+            }
+        });
+    });
+}
+
+fn closing(app: &AppHandle) -> bool {
+    app.try_state::<AppState>()
+        .map(|state| state.closing.load(Ordering::SeqCst))
+        .unwrap_or(true)
+}
+
+// Build a hidden copy of the window after `delay`, unless one exists already.
+fn prebuild_later(app: &AppHandle, kind: &'static str, delay: Duration) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(delay);
+        let queued = app.clone();
+        let _ = queued.run_on_main_thread(move || {
+            if closing(&app) || app.get_webview_window(kind).is_some() {
+                return;
+            }
+            let _ = build_child(&app, kind);
+        });
+    });
 }
 
 fn watch_maximized(window: &WebviewWindow) {
@@ -187,81 +259,23 @@ fn hold_still(window: &WebviewWindow) {
             if guard.is_fullscreen().unwrap_or(false) {
                 let _ = guard.set_fullscreen(false);
             }
-            round_corners(&guard);
         }
     });
 }
 
-fn round_corners(window: &WebviewWindow) {
-    #[cfg(windows)]
-    {
-        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-        let Ok(handle) = window.window_handle() else {
-            return;
-        };
-        let RawWindowHandle::Win32(raw) = handle.as_raw() else {
-            return;
-        };
-        unsafe { clip_round_corners(raw.hwnd.get() as isize) };
-    }
-    #[cfg(not(windows))]
-    let _ = window;
-}
-
-#[cfg(windows)]
-unsafe fn clip_round_corners(hwnd: isize) {
-    #[repr(C)]
-    struct Rect {
-        left: i32,
-        top: i32,
-        right: i32,
-        bottom: i32,
-    }
-    #[link(name = "user32")]
-    extern "system" {
-        fn GetDpiForWindow(hwnd: isize) -> u32;
-        fn GetWindowRect(hwnd: isize, rect: *mut Rect) -> i32;
-        fn SetWindowRgn(hwnd: isize, region: isize, redraw: i32) -> i32;
-    }
-    #[link(name = "gdi32")]
-    extern "system" {
-        fn CreateRoundRectRgn(left: i32, top: i32, right: i32, bottom: i32, width: i32, height: i32) -> isize;
-    }
-    #[link(name = "dwmapi")]
-    extern "system" {
-        fn DwmSetWindowAttribute(hwnd: isize, attribute: u32, value: *const u32, size: u32) -> i32;
-    }
-    let mut rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
-    if GetWindowRect(hwnd, &mut rect) == 0 {
-        return;
-    }
-    let width = rect.right - rect.left;
-    let height = rect.bottom - rect.top;
-    if width < 20 || height < 20 {
-        return;
-    }
-    let mut dpi = GetDpiForWindow(hwnd);
-    if dpi == 0 {
-        dpi = 96;
-    }
-    // The same 16px the calculator card uses. Windows 11 would otherwise
-    // round the frame again, a little less, on top of this.
-    let radius = (16 * dpi / 96) as i32;
-    let region = CreateRoundRectRgn(0, 0, width, height, radius * 2, radius * 2);
-    if region == 0 {
-        return;
-    }
-    SetWindowRgn(hwnd, region, 1);
-    let square: u32 = 1;
-    DwmSetWindowAttribute(hwnd, 33, &square, 4);
-}
-
 fn open_child(app: &AppHandle, kind: &str) -> Result<(), String> {
-    let spec = child_spec(kind).ok_or_else(|| "window".to_string())?;
     if let Some(existing) = app.get_webview_window(kind) {
-        let _ = existing.set_focus();
+        // Either open already, or built ahead of time and waiting.
+        reveal(&existing);
         return Ok(());
     }
+    build_child(app, kind)?;
+    reveal_when_ready(app, kind);
+    Ok(())
+}
+
+fn build_child(app: &AppHandle, kind: &str) -> Result<WebviewWindow, String> {
+    let spec = child_spec(kind).ok_or_else(|| "window".to_string())?;
     let mut builder = shell(WebviewWindowBuilder::new(
         app,
         kind,
@@ -291,12 +305,22 @@ fn open_child(app: &AppHandle, kind: &str) -> Result<(), String> {
         remember_floor(app, kind, spec.min_width, spec.min_height);
         watch_maximized(&child);
     }
-    Ok(())
+    if let Some(&kind) = PREBUILT.iter().find(|&&name| name == kind) {
+        let handle = app.clone();
+        child.on_window_event(move |event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                // Closed, so have the next one ready. Not at once: the build
+                // holds the UI thread, and the reader is likely still busy.
+                prebuild_later(&handle, kind, Duration::from_millis(1200));
+            }
+        });
+    }
+    Ok(child)
 }
 
 fn open_print(app: &AppHandle, owner: &WebviewWindow) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window("print") {
-        let _ = existing.set_focus();
+        reveal(&existing);
         return Ok(());
     }
     let child = shell(WebviewWindowBuilder::new(
@@ -316,6 +340,7 @@ fn open_print(app: &AppHandle, owner: &WebviewWindow) -> Result<(), String> {
     remember_floor(app, "print", 760.0, 520.0);
     watch_maximized(&child);
     edit_menu::hide_builtin_menu(&child);
+    reveal_when_ready(app, "print");
     Ok(())
 }
 
@@ -469,6 +494,9 @@ fn save_file(window: WebviewWindow, name: String, bytes: Vec<u8>) -> SaveOutcome
 }
 
 fn close_children(app: &AppHandle) {
+    if let Some(state) = app.try_state::<AppState>() {
+        state.closing.store(true, Ordering::SeqCst);
+    }
     for label in ["graph", "settings", "info", "help", "memo", "print"] {
         if let Some(child) = app.get_webview_window(label) {
             let _ = child.close();
@@ -484,12 +512,30 @@ fn close_window(app: AppHandle, window: WebviewWindow) {
     let _ = window.close();
 }
 
+// The page calls this once it has loaded, so its window shows up drawn.
+#[tauri::command]
+fn window_ready(app: AppHandle, window: WebviewWindow, state: tauri::State<AppState>) {
+    let label = window.label().to_string();
+    if state.waiting.lock().expect("waiting windows").remove(&label) {
+        reveal(&window);
+    }
+    // Even when the fallback showed it first. A window that exists already
+    // is left alone, so a reload asks for nothing new.
+    if label == "main" {
+        for (index, &kind) in PREBUILT.iter().enumerate() {
+            prebuild_later(&app, kind, Duration::from_millis(600 + 400 * index as u64));
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             floors: Mutex::new(HashMap::new()),
+            waiting: Mutex::new(HashSet::new()),
+            closing: AtomicBool::new(false),
         })
         .manage(edit_menu::EditState::new())
         .invoke_handler(tauri::generate_handler![
@@ -498,6 +544,7 @@ pub fn run() {
             set_bounds,
             open_window,
             close_window,
+            window_ready,
             save_file,
             list_printers,
             print_page,
@@ -509,11 +556,9 @@ pub fn run() {
                 return Ok(());
             };
             lock_content(&main, 360.0, 594.0);
-            // An opaque window appears as soon as it exists. The corners are
-            // still rounded, so the desktop shows through them.
-            round_corners(&main);
             hold_still(&main);
             edit_menu::hide_builtin_menu(&main);
+            reveal_when_ready(app.handle(), "main");
             let handle = app.handle().clone();
             main.on_window_event(move |event| {
                 if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {

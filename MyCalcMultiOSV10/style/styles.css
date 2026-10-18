@@ -895,6 +895,12 @@ html[data-scheme="light"] .version { color: #57534e; }
   color: var(--muted);
   font-size: 11px;
   line-height: 1.1;
+  cursor: text;
+}
+
+.date-part:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--chip));
+  color: var(--ink);
 }
 
 .date-part[aria-pressed="true"] { border-color: var(--accent); }
