@@ -78,6 +78,7 @@ export function defaultSettings(language = 'ko') {
     showTime: false,
     statusClock: true,
     showGrid: true,
+    showRulers: true,
     showMinimap: true,
     snapToGrid: true,
     gridSize: 10,
@@ -159,7 +160,7 @@ export function normalizeSettings(raw = {}, language) {
   s.codegenOptions = s.codegenOptions && typeof s.codegenOptions === 'object' ? s.codegenOptions : {};
   s.reverseLanguage = typeof s.reverseLanguage === 'string' ? s.reverseLanguage : base.reverseLanguage;
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
-  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid',
+  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showRulers',
     'showMinimap', 'snapToGrid', 'showShadow', 'showQuickButtons', 'explorerSort', 'toolboxCompact', 'reparentOnDrop', 'autoValidate', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];

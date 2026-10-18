@@ -1,8 +1,8 @@
-// Reverse engineering (StarUML's Java / C# / Python / TypeScript / DDL
+// Reverse engineering (StarUML's Java / C# / C++ / Python / TypeScript / DDL
 // importers): reverseEngineer() parses source files and returns new model
 // elements ready to be put into a package with insertElement():
 //
-//   packages (Java package, C# namespace, Python / TypeScript folders) become
+//   packages (Java package, C# / C++ namespace, Python / TypeScript folders) become
 //   UMLPackage elements with their classifiers inside; classes, interfaces and
 //   enumerations get their attributes, operations (+ parameters, the return
 //   type as a 'return' parameter), literals and template parameters;
@@ -16,6 +16,7 @@
 // The language parsers return a neutral description (Decl objects, see
 // newDecl in java.js); everything model-specific happens here. Pure.
 import { createElement, insertElement, ref } from '../model.js';
+import * as cpp from './cpp.js';
 import * as csharp from './csharp.js';
 import * as java from './java.js';
 import { reverseError } from './java.js';
@@ -28,6 +29,7 @@ export { reverseError };
 export const REVERSE_LANGUAGES = [
   { id: 'java', name: 'Java', exts: ['java'] },
   { id: 'csharp', name: 'C#', exts: ['cs'] },
+  { id: 'cpp', name: 'C++', exts: ['h', 'hpp', 'hh', 'hxx', 'cpp', 'cc', 'cxx'] },
   { id: 'python', name: 'Python', exts: ['py', 'pyi'] },
   { id: 'typescript', name: 'TypeScript', exts: ['ts', 'tsx', 'mts', 'cts'] },
   { id: 'sql', name: 'SQL (DDL)', exts: ['sql', 'ddl'] },
@@ -42,7 +44,7 @@ export const DEFAULT_REVERSE_OPTIONS = {
   modelName: 'DataModel', // SQL: name of the ERDDataModel
 };
 
-const PARSERS = { java: java.parse, csharp: csharp.parse, python: python.parse, typescript: typescript.parse };
+const PARSERS = { java: java.parse, csharp: csharp.parse, cpp: cpp.parse, python: python.parse, typescript: typescript.parse };
 
 /**
  * files = [{ name, content }] → { elements, warnings }.
@@ -80,8 +82,13 @@ function folderPackages(name, root) {
 
 const COLLECTIONS = new Set(['List', 'ArrayList', 'LinkedList', 'Set', 'HashSet', 'TreeSet', 'LinkedHashSet', 'SortedSet', 'Collection', 'Iterable', 'Queue', 'Deque', 'ArrayDeque', 'Vector', 'Stack',
   'IList', 'ICollection', 'IEnumerable', 'IReadOnlyList', 'IReadOnlyCollection', 'ISet', 'HashSet', 'ObservableCollection', 'Array', 'ReadonlyArray', 'list', 'set', 'frozenset', 'tuple', 'Sequence', 'MutableSequence',
-  'Iterator', 'Generator', 'Tuple', 'FrozenSet', 'MutableList', 'MutableSet', 'Stream']);
-const OPTIONALS = new Set(['Optional', 'Nullable', 'Option']);
+  'Iterator', 'Generator', 'Tuple', 'FrozenSet', 'MutableList', 'MutableSet', 'Stream',
+  'vector', 'deque', 'forward_list', 'multiset', 'unordered_set', 'unordered_multiset', 'span', 'QList', 'QVector']);
+/** C++ std::array<T, N>: a collection whose second argument is a size. */
+const SIZED_COLLECTIONS = new Set(['array']);
+const OPTIONALS = new Set(['Optional', 'Nullable', 'Option', 'optional']);
+/** C++ smart pointers: one object of the argument type. */
+const POINTERS = new Set(['unique_ptr', 'shared_ptr', 'weak_ptr', 'QPointer', 'QSharedPointer']);
 
 /** Splits "a, b<c, d>" at top-level commas. */
 function splitArgs(text) {
@@ -102,6 +109,12 @@ function splitArgs(text) {
 export function analyzeType(raw) {
   let text = String(raw ?? '').trim().replace(/^['"](.*)['"]$/, '$1').replace(/^(readonly|final|const)\s+/, '');
   if (!text) return { name: '', multiplicity: '' };
+  // C++: "const Order*", "Order&", "Order&&" → Order (a pointer may be null: 0..1).
+  if (/[*&]$/.test(text)) {
+    const pointer = /\*$/.test(text);
+    const inner = analyzeType(text.replace(/(\s*(\*|&&?)\s*(const\s*)?)+$/, ''));
+    return { name: inner.name, multiplicity: inner.multiplicity || (pointer ? '0..1' : '') };
+  }
   if (text.endsWith('...')) return { name: analyzeType(text.slice(0, -3)).name, multiplicity: '*' };
   const union = splitUnion(text);
   if (union.length > 1) {
@@ -120,6 +133,8 @@ export function analyzeType(raw) {
       return { name: analyzeType(inner).name || inner, multiplicity: '*' };
     }
     if (OPTIONALS.has(outer) && args.length === 1) return { name: analyzeType(args[0]).name, multiplicity: '0..1' };
+    if (SIZED_COLLECTIONS.has(outer) && args.length === 2) return { name: analyzeType(args[0]).name || args[0], multiplicity: /^\d+$/.test(args[1]) ? args[1] : '*' };
+    if (POINTERS.has(outer) && args.length >= 1) return { name: analyzeType(args[0]).name, multiplicity: '' };
   }
   return { name: text, multiplicity: '' };
 }

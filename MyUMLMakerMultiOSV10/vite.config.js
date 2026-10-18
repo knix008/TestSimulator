@@ -22,7 +22,8 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     __BUILD_COMMIT__: JSON.stringify(commit),
   },
-  server: { port: 1450, strictPort: true, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/docs/**', '**/samples/**'] } },
+  // MYUMLMAKER_NO_HMR: the E2E harness's own server — an edit while the tests run must not reload the app under test.
+  server: { port: 1450, strictPort: true, hmr: process.env.MYUMLMAKER_NO_HMR ? false : undefined, watch: { ignored: ['**/src-tauri/**', '**/test-results/**', '**/docs/**', '**/samples/**'] } },
   // Only the app page is an entry (docs/*.html are standalone documents).
   optimizeDeps: { entries: ['index.html'] },
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },

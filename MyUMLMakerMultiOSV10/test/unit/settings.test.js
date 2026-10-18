@@ -104,29 +104,29 @@ test('zoomStep zooms in and out through the drawing zoom steps', () => {
 
 test('addRecent puts the newest first, without duplicates', () => {
   let list = [];
-  list = Rc.addRecent(list, { path: 'C:\\Plans\\a.muml', title: 'A', at: 1 });
-  list = Rc.addRecent(list, { path: 'C:\\Plans\\b.muml', at: 2 });
-  assert.deepEqual(list.map((item) => item.path), ['C:\\Plans\\b.muml', 'C:\\Plans\\a.muml']);
-  assert.deepEqual(list[1], { path: 'C:\\Plans\\a.muml', title: 'A', web: false, at: 1 });
+  list = Rc.addRecent(list, { path: 'C:\\Plans\\a.myuml', title: 'A', at: 1 });
+  list = Rc.addRecent(list, { path: 'C:\\Plans\\b.myuml', at: 2 });
+  assert.deepEqual(list.map((item) => item.path), ['C:\\Plans\\b.myuml', 'C:\\Plans\\a.myuml']);
+  assert.deepEqual(list[1], { path: 'C:\\Plans\\a.myuml', title: 'A', web: false, at: 1 });
   assert.equal(list[0].title, '');
-  list = Rc.addRecent(list, { path: 'c:/plans/A.MUML', title: 'A again', web: 1, at: 3 });
-  assert.deepEqual(list.map((item) => item.path), ['c:/plans/A.MUML', 'C:\\Plans\\b.muml'], 'the same file, written differently');
+  list = Rc.addRecent(list, { path: 'c:/plans/A.MYUML', title: 'A again', web: 1, at: 3 });
+  assert.deepEqual(list.map((item) => item.path), ['c:/plans/A.MYUML', 'C:\\Plans\\b.myuml'], 'the same file, written differently');
   assert.deepEqual([list[0].title, list[0].web], ['A again', true]);
   assert.equal(typeof Rc.addRecent([], { path: 'x' })[0].at, 'number', 'the time defaults to now');
 });
 
 test('addRecent keeps at most ten', () => {
   let list = [];
-  for (let i = 0; i < 15; i++) list = Rc.addRecent(list, { path: `/p/${i}.muml` });
+  for (let i = 0; i < 15; i++) list = Rc.addRecent(list, { path: `/p/${i}.myuml` });
   assert.equal(list.length, Rc.MAX_RECENT);
-  assert.equal(list[0].path, '/p/14.muml');
-  assert.equal(list.at(-1).path, '/p/5.muml');
+  assert.equal(list[0].path, '/p/14.myuml');
+  assert.equal(list.at(-1).path, '/p/5.myuml');
   assert.equal(Rc.addRecent(list, { path: '/new' }, 3).length, 3, 'a smaller maximum');
 });
 
 test('removeRecent matches like addRecent', () => {
-  const list = [{ path: 'C:\\A\\x.muml' }, { path: '/b/y.muml' }];
-  assert.deepEqual(Rc.removeRecent(list, 'c:/a/X.muml'), [{ path: '/b/y.muml' }]);
+  const list = [{ path: 'C:\\A\\x.myuml' }, { path: '/b/y.myuml' }];
+  assert.deepEqual(Rc.removeRecent(list, 'c:/a/X.myuml'), [{ path: '/b/y.myuml' }]);
   assert.deepEqual(Rc.removeRecent(list, '/nope'), list);
   assert.equal(list.length, 2, 'the list itself is not changed');
 });
@@ -135,7 +135,7 @@ test('recent files and recent folders are stored separately', () => {
   const storage = memoryStorage();
   assert.deepEqual(Rc.loadRecent(storage), []);
   assert.deepEqual(Rc.loadRecentDirs(storage), []);
-  const files = [{ path: '/a.muml', title: 'A' }, { path: '/b.muml', title: 'B' }];
+  const files = [{ path: '/a.myuml', title: 'A' }, { path: '/b.myuml', title: 'B' }];
   const dirs = [{ path: '/plans' }];
   Rc.storeRecent(storage, files);
   Rc.storeRecentDirs(storage, dirs);
@@ -237,9 +237,9 @@ test('a new installation resets the preferences once and keeps the user data', (
     dbKind: 'postgres', dbHost: 'db.local', dbUser: 'kim', backgroundImage: 'bg.png', backgroundName: '산.png', lastDirectory: 'D:\Plans', tutorialOffered: true, tutorialDone: true };
   const storage = fullStorage({
     [S.STORAGE_KEY]: JSON.stringify(saved),
-    [S.RECENT_KEY]: '[{"path":"D:\\a.muml"}]',
+    [S.RECENT_KEY]: '[{"path":"D:\\a.myuml"}]',
     [S.RECENT_DIRS_KEY]: '["D:\\Plans"]',
-    [S.SESSION_KEY]: '{"files":["D:\\a.muml"]}',
+    [S.SESSION_KEY]: '{"files":["D:\\a.myuml"]}',
     'myumlmaker.columns.v1': '{"task:entry":{"name":400}}',
     'myumlmaker.popup.settings': '{"x":10}',
     [S.PRINT_KEY]: '{"orientation":"portrait"}',

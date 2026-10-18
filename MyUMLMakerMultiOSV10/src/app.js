@@ -1,7 +1,7 @@
 // Main window: menu bar, toolbar, project tabs, Toolbox (left), the diagram
 // editor with the working-diagram tabs (centre), Model Explorer and Editors
 // (right: Properties, Style, Documentation, Tags & Constraints), status bar.
-// Files (.muml, StarUML .mdj, fragments), import and export (images, PDF,
+// Files (.myuml, StarUML .mdj, fragments), import and export (images, PDF,
 // HTML/Markdown documentation, Mermaid, PlantUML), code generation and
 // reverse engineering, model validation, printing, the database, settings.
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -25,6 +25,7 @@ import { exportMermaid, importMermaid } from './domain/interop/mermaid.js';
 import { exportPlantUml, importPlantUml } from './domain/interop/plantuml.js';
 import { htmlDocs, markdownDocs } from './domain/docs.js';
 import { RULES as VALIDATION_RULES, validate } from './domain/validate.js';
+import * as Tr from './domain/trace.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
   loadSettings, PANEL_MIN, PRINT_KEY, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, ZOOM, CANVAS_ZOOM, zoomStep, dbConfig, dbDescribe, dbProblems, ANIMATIONS, LINE_STYLES, DIAGRAM_THEME_IDS,
@@ -135,8 +136,10 @@ function untitledName() {
   return t('tabs.untitled', { n: state.untitled });
 }
 
+/** One project at a time: a new or opened project replaces the current one. Callers that come from the
+ * user ask first (confirmReplace), so the replaced project is saved or its changes were given up. */
 function addTab(tab) {
-  state.docs.push(tab);
+  state.docs.splice(0, state.docs.length, tab);
   activate(tab.id);
   persistSession();
   return tab;
@@ -149,6 +152,29 @@ function newProject(templateId = 'blank') {
   if (templateId !== 'blank') tab.markSaved(null);
   notify('success', t(templateId === 'blank' ? 'notice.newProject' : 'notice.fromTemplate', { name: project.name }));
   return tab;
+}
+
+/** Before another project replaces the current one: Save / Don't save / Cancel when it has changes. */
+async function confirmReplace() {
+  const tab = activeTab();
+  if (!tab?.dirty) return true;
+  const choice = await ask({
+    icon: 'save', title: t('confirm.replaceTitle'), message: t('confirm.replaceMessage', { name: docName(tab) }),
+    buttons: [{ id: 'cancel', label: t('confirm.cancel') }, { id: 'discard', label: t('confirm.discard'), icon: 'trash', danger: true }, { id: 'save', label: t('confirm.save'), icon: 'save', primary: true }],
+  });
+  if (choice === 'save') return saveDoc(tab);
+  return choice === 'discard';
+}
+
+/** New project from the UI (menu, toolbar, start page, template): asks about unsaved changes first. */
+async function newProjectAsk(templateId = 'blank') {
+  if (!(await confirmReplace())) return null;
+  return newProject(templateId);
+}
+
+async function openSampleAsk() {
+  if (!(await confirmReplace())) return null;
+  return openSampleBuiltin();
 }
 
 function openSampleBuiltin() {
@@ -196,6 +222,7 @@ function afterChange({ explorer = true } = {}) {
   if (explorer) renderExplorer();
   renderEditors();
   if (state.settings.autoValidate) scheduleValidation();
+  refreshTracePopups();
 }
 
 function persistSession() {
@@ -289,6 +316,17 @@ function addDiagram(type) {
   const diagram = change('op.addDiagram', (project) => M.addDiagram(project, owner?._id ?? project.ownedElements[0]?._id, type, { language: lang() }));
   if (diagram) { openDiagram(diagram._id); notify('success', t('notice.diagramAdded', { name: diagram.name })); }
   return diagram;
+}
+
+/** A diagram-type tab: the last opened diagram of that type, else the first in the model, else a new one. */
+function openDiagramType(type) {
+  const tab = activeTab();
+  if (!tab) return addDiagram(type);
+  const ofType = (d) => d && d._type === type;
+  const recent = [...tab.view.open].reverse().map((id) => tab.index.get(id)).find(ofType);
+  const any = recent ?? [...tab.index.byId.values()].find(ofType);
+  if (any) { openDiagram(any._id); return any; }
+  return addDiagram(type);
 }
 
 function diagramOwnerOrModel() {
@@ -433,7 +471,7 @@ function applyQuickEdit(project, element, text) {
         const params = fields.parameters;
         delete fields.parameters;
         const old = keep.parameters ?? [];
-        keep.parameters = params.map((p, k) => Object.assign(old[k] ?? M.createElement('UMLParameter', {}, { language: lang() }), p));
+        keep.parameters = params.map((p, k) => Object.assign(old[k] ?? M.createElement('UMLParameter', {}, { language: lang() }), p, { type: resolveTypeName(project, p.type) }));
       }
       if (fields.type !== undefined) fields.type = resolveTypeName(project, fields.type);
       return Object.assign(keep, fields);
@@ -914,7 +952,7 @@ const toggle = (key) => updateSettings({ [key]: !state.settings[key] });
 
 const commands = {
   // file
-  new: { icon: 'fileNew', label: 'action.new', key: 'Ctrl+N', run: () => newProject() },
+  new: { icon: 'fileNew', label: 'action.new', key: 'Ctrl+N', run: () => newProjectAsk() },
   newFromTemplate: { icon: 'templateNew', label: 'action.newFromTemplate', run: (context) => templateMenu(context?.anchor) },
   open: { icon: 'folderOpen', label: 'action.open', key: 'Ctrl+O', run: () => openWithDialog() },
   startPage: { icon: 'home', label: 'action.startPage', key: 'Ctrl+Shift+H', checked: () => state.showStart || !hasDoc(), run: () => showStartPage(!state.showStart || !hasDoc()) },
@@ -968,6 +1006,8 @@ const commands = {
   moveDown: { icon: 'arrowDown', label: 'action.moveDown', key: 'Ctrl+Down', enabled: hasElementSel, run: () => moveInModel(1) },
   showRelations: { icon: 'showRelations', label: 'action.showRelations', enabled: hasDiagram, run: () => showRelations() },
   unusedElements: { icon: 'unused', label: 'action.unusedElements', enabled: hasDoc, run: () => showUnused() },
+  requirements: { icon: 'sysmlRequirement', label: 'action.requirements', enabled: hasDoc, run: () => openRequirements() },
+  traceMatrix: { icon: 'table', label: 'action.traceMatrix', enabled: hasDoc, run: () => openTraceMatrix() },
   validate: { icon: 'validate', label: 'action.validate', key: 'Ctrl+Shift+V', enabled: hasDoc, run: () => runValidation() },
   statistics: { icon: 'statistics', label: 'action.statistics', enabled: hasDoc, run: () => showStatistics() },
   // tools
@@ -1020,6 +1060,7 @@ const commands = {
   fitPage: { icon: 'fitPage', label: 'action.fitDiagram', key: 'Ctrl+Shift+W', enabled: hasDiagram, run: () => state.view?.fitPage?.() },
   zoomSelection: { icon: 'zoomSelection', label: 'action.zoomSelection', enabled: hasSelection, run: () => state.view?.zoomSelection?.() },
   grid: { icon: 'grid', label: 'action.grid', checked: () => state.settings.showGrid, run: () => toggle('showGrid') },
+  rulers: { icon: 'rulers', label: 'action.rulers', checked: () => state.settings.showRulers, run: () => toggle('showRulers') },
   snapGrid: { icon: 'snap', label: 'action.snapGrid', checked: () => state.settings.snapToGrid, run: () => toggle('snapToGrid') },
   minimap: { icon: 'minimap', label: 'action.minimap', checked: () => state.settings.showMinimap, run: () => toggle('showMinimap') },
   quickButtons: { icon: 'quickButtons', label: 'action.quickButtons', checked: () => state.settings.showQuickButtons, run: () => toggle('showQuickButtons') },
@@ -1031,8 +1072,8 @@ const commands = {
   rightPanel: { icon: 'panelRight', label: 'action.explorerPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => toggle('showStatusBar') },
   closeDiagram: { icon: 'closeDiagram', label: 'action.closeDiagram', key: 'Ctrl+F4', enabled: hasDiagram, run: () => closeDiagram(currentDiagram()._id) },
-  nextDiagram: { icon: 'pageNext', label: 'action.nextDiagram', key: 'Ctrl+PageDown', enabled: () => (activeTab()?.view.open.length ?? 0) > 1, run: () => diagramStep(1) },
-  prevDiagram: { icon: 'pagePrev', label: 'action.prevDiagram', key: 'Ctrl+PageUp', enabled: () => (activeTab()?.view.open.length ?? 0) > 1, run: () => diagramStep(-1) },
+  nextDiagram: { icon: 'pageNext', label: 'action.nextDiagram', key: 'Ctrl+PageDown', enabled: () => projectDiagrams().length > 1, run: () => diagramStep(1) },
+  prevDiagram: { icon: 'pagePrev', label: 'action.prevDiagram', key: 'Ctrl+PageUp', enabled: () => projectDiagrams().length > 1, run: () => diagramStep(-1) },
   theme: { icon: 'palette', label: 'action.themeRandom', run: () => updateSettings({ theme: randomThemeId(state.settings.theme) }) },
   themeMenu: { icon: 'chevronDown', label: 'action.themeChoose', run: (context) => openThemePicker(context?.anchor) },
   language: { icon: 'globe', label: 'action.language', key: 'Ctrl+Shift+L', run: () => updateSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }) },
@@ -1076,13 +1117,13 @@ async function run(id, context) {
 function undo() {
   const tab = activeTab();
   const label = tab?.undo();
-  if (label !== null && label !== undefined) afterHistory(t('notice.undone', { name: label }));
+  if (label !== null && label !== undefined) afterHistory(t('notice.undone', { label }));
 }
 
 function redo() {
   const tab = activeTab();
   const label = tab?.redo();
-  if (label !== null && label !== undefined) afterHistory(t('notice.redone', { name: label }));
+  if (label !== null && label !== undefined) afterHistory(t('notice.redone', { label }));
 }
 
 function afterHistory(text) {
@@ -1093,11 +1134,16 @@ function afterHistory(text) {
   notify('info', text);
 }
 
+/** The project's diagrams in tab order. */
+const projectDiagrams = () => (activeTab() ? M.elementsWhere(activeTab().project, (e) => M.isDiagram(e)) : []);
+
+/** The next / previous diagram tab (wraps around). */
 function diagramStep(direction) {
-  const tab = activeTab();
-  const open = tab.view.open;
-  const i = open.indexOf(tab.view.diagramId);
-  openDiagram(open[(i + direction + open.length) % open.length]);
+  const ids = projectDiagrams().map((d) => d._id);
+  if (!ids.length) return;
+  const i = ids.indexOf(currentDiagram()?._id);
+  openDiagram(ids[(i + direction + ids.length) % ids.length]);
+  scrollActiveTabIntoView();
 }
 
 /** Double-click on an empty part of the diagram: a menu of the toolbox's node tools. */
@@ -1129,7 +1175,7 @@ const SUBMENUS = {
   importFrom: { icon: 'importFile', items: ['importStarUml', 'importFragment', 'importText', 'reverse'] },
   exportTo: { icon: 'exportFile', items: ['exportImage', 'exportSvg', 'exportPdf', 'exportAllImages', '-', 'exportHtml', 'exportMarkdown', '-', 'exportStarUml', 'exportFragment', 'exportMermaid', 'exportPlantUml'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'zoomSelection'] },
-  show: { icon: 'eye', items: ['grid', 'snapGrid', 'minimap', 'quickButtons', 'showShadows', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['grid', 'rulers', 'snapGrid', 'minimap', 'quickButtons', 'showShadows', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
   diagramTheme: { icon: 'palette', items: DIAGRAM_THEME_IDS.map((id) => `diagramTheme:${id}`) },
   defaultLine: { icon: 'lineRectilinear', items: LINE_STYLES.map((s) => `defaultLine:${s}`) },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
@@ -1140,13 +1186,13 @@ const SUBMENUS = {
   order: { icon: 'bringFront', items: ['bringFront', 'sendBack', 'bringForward', 'sendBackward'] },
   align: { icon: 'alignCenter', items: ['alignLeft', 'alignCenter', 'alignRight', '-', 'alignTop', 'alignMiddle', 'alignBottom', '-', 'distributeH', 'distributeV', '-', 'sameWidth', 'sameHeight', 'sameSize'] },
   layout: { icon: 'layout', items: LAYOUT_DIRECTIONS.map((d) => `layout:${d}`) },
-  diagrams: { icon: 'dgClass', items: ['addDiagram', 'closeDiagram', 'prevDiagram', 'nextDiagram'] },
+  diagrams: { icon: 'dgClass', items: ['addDiagram', 'prevDiagram', 'nextDiagram'] },
 };
 const sub = (key) => ({ sub: key });
 const MENUS = {
-  file: ['new', 'newFromTemplate', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveAll', 'saveTemplate', '-', ...(desktop ? ['dbOpen', 'dbSave', '-'] : []), sub('importFrom'), sub('exportTo'), '-', 'print', 'projectProps', '-', 'closeTab', 'closeAll', '-', 'exit'],
+  file: ['new', 'newFromTemplate', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', ...(desktop ? ['dbOpen', 'dbSave', '-'] : []), sub('importFrom'), sub('exportTo'), '-', 'print', 'projectProps', '-', 'closeTab', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', '-', 'delete', 'deleteFromModel', '-', 'selectAll', 'clearSelection', 'selectInExplorer', 'selectInDiagram', '-', 'editName', 'find'],
-  model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'validate', 'statistics'],
+  model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'requirements', 'traceMatrix', '-', 'validate', 'statistics'],
   view: [sub('zoom'), sub('show'), '-', sub('diagramTheme'), sub('defaultLine'), '-', sub('diagrams'), 'presentation', '-', sub('appearance')],
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent'],
   arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout')],
@@ -1276,26 +1322,33 @@ function updateMinimumWidth() {
 
 // ───────────────────────── project tabs
 
+/** The tab bar: the project (one at a time) and a tab for each of its diagrams; ‹ › when they do not fit. */
 function renderTabs() {
   const tabs = root.querySelector('#tabs');
+  const doc = activeTab();
+  tabs.hidden = !doc || state.showStart;
+  if (tabs.hidden) { tabs.innerHTML = ''; return; }
   const scroll = tabs.querySelector('.tab-strip')?.scrollLeft ?? 0;
+  const current = currentDiagram()?._id;
+  const ko = lang() === 'ko';
+  const diagrams = M.elementsWhere(doc.project, (e) => M.isDiagram(e));
   tabs.innerHTML = `
-    <div class="tab-strip"><div class="tab-list" role="tablist">
-      ${state.docs.map((doc) => `
-        <div class="tab ${doc.id === state.active && !state.showStart ? 'active' : ''} ${doc.dirty ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.active}" data-doc="${doc.id}" title="${escapeHtml(doc.path ?? docName(doc))}">
-          ${icon(doc.fromTemplate ? 'template' : 'umlProject')}<span class="tab-name">${escapeHtml(docName(doc))}</span>
-          <span class="tab-dirty" title="${escapeHtml(t('status.modified'))}">●</span>
-          <button class="tab-close" data-close-doc="${doc.id}" title="${escapeHtml(t('tabs.close'))}" aria-label="${escapeHtml(t('tabs.close'))}">${icon('close')}</button>
-        </div>`).join('')}
+    <div class="tab-project ${doc.dirty ? 'dirty' : ''}" title="${escapeHtml(doc.path ?? docName(doc))}">${icon(doc.fromTemplate ? 'template' : 'umlProject')}<span class="tab-name">${escapeHtml(docName(doc))}</span><span class="tab-dirty" title="${escapeHtml(t('status.modified'))}">●</span></div>
+    <div class="tab-strip"><div class="tab-list" role="tablist" aria-label="${escapeHtml(t('tabs.diagrams'))}">
+      ${diagrams.map((d) => {
+        const def = typeDef(d._type);
+        return `<div class="tab ${d._id === current ? 'active' : ''}" role="tab" aria-selected="${d._id === current}" data-diagram-tab="${d._id}" title="${escapeHtml(`${d.name} (${ko ? def.ko : def.en})`)}">${icon(def.icon ?? 'dgClass')}<span class="tab-name">${escapeHtml(d.name || '—')}</span></div>`;
+      }).join('')}
     </div></div>
-    <button class="tab-add" data-tab-new title="${escapeHtml(t('tabs.new'))}" aria-label="${escapeHtml(t('tabs.new'))}">${icon('plus')}</button>
+    <button class="tab-add" data-command="addDiagram" title="${escapeHtml(t('action.addDiagram'))}" aria-label="${escapeHtml(t('action.addDiagram'))}">${icon('plus')}</button>
     <div class="tab-nav">
       <button class="tab-scroll" data-tab-scroll="-1" title="${escapeHtml(t('tabs.left'))}" aria-label="${escapeHtml(t('tabs.left'))}">${icon('chevronLeft')}</button>
       <button class="tab-scroll" data-tab-scroll="1" title="${escapeHtml(t('tabs.right'))}" aria-label="${escapeHtml(t('tabs.right'))}">${icon('chevronRight')}</button>
     </div>`;
-  const strip = tabs.querySelector('.tab-strip');
-  strip.scrollLeft = scroll;
+  tabs.querySelector('.tab-strip').scrollLeft = scroll;
   updateTabNav();
+  // Another diagram became current (a new one, Ctrl+Tab, the explorer, a type tab): keep its tab in sight.
+  if (current !== renderTabs.shown) { renderTabs.shown = current; scrollActiveTabIntoView(); }
 }
 
 function updateTabNav() {
@@ -1326,10 +1379,15 @@ function scrollActiveTabIntoView() {
   updateTabNav();
 }
 
+/** Rename a diagram on its tab (double click, the tab's context menu): on the live tab element, once. */
+function renameDiagramTab(id) {
+  const el = root.querySelector(`#tabs [data-diagram-tab="${CSS.escape(id)}"]`);
+  if (el && !el.querySelector('.page-tab-input')) state.view?.renameDiagramInline?.(el);
+}
+
+/** Ctrl+Tab / Ctrl+Shift+Tab: the next / previous diagram tab. */
 function cycleTab(direction) {
-  const index = state.docs.findIndex((doc) => doc.id === state.active);
-  const next = state.docs[(index + direction + state.docs.length) % state.docs.length];
-  if (next) activateDoc(next.id);
+  if (activeTab()) diagramStep(direction);
 }
 
 // ───────────────────────── left panel (Toolbox)
@@ -1357,7 +1415,7 @@ function renderToolbox() {
       const list = query ? tools.filter((tool) => `${tool.ko} ${tool.en}`.toLowerCase().includes(query)) : tools;
       if (!list.length) return '';
       const collapsed = !query && state.collapsedToolbox.has(id);
-      return `<section class="tool-section ${collapsed ? 'collapsed' : ''}"><header><button class="stencil-toggle" data-toolbox-toggle="${id}" aria-expanded="${!collapsed}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}<span>${escapeHtml(lang() === 'ko' ? ko : en)}</span><span class="count">${list.length}</span></button></header>
+      return `<section class="tool-section ${collapsed ? 'collapsed' : ''}"><header><button class="stencil-toggle" data-toolbox-toggle="${id}" aria-expanded="${!collapsed}" title="${escapeHtml(lang() === 'ko' ? ko : en)}">${icon(collapsed ? 'caretRight' : 'caretDown', 'icon tiny')}<span>${escapeHtml(lang() === 'ko' ? ko : en)}</span><span class="count">${list.length}</span></button></header>
         ${collapsed ? '' : `<div class="tool-list ${compact ? 'compact' : ''}">${list.map((tool) => `<button class="tool-item ${state.tool?.id === tool.id ? 'active' : ''}" data-tool="${escapeHtml(tool.id)}" title="${escapeHtml(`${lang() === 'ko' ? tool.ko : tool.en}${tool.kind === 'edge' ? ` — ${t('toolbox.edgeTip')}` : ` — ${t('toolbox.nodeTip')}`}`)}" aria-pressed="${state.tool?.id === tool.id}">${icon(tool.icon)}${compact ? '' : `<span>${escapeHtml(lang() === 'ko' ? tool.ko : tool.en)}</span>`}</button>`).join('')}</div>`}</section>`;
     }).join('');
   }
@@ -1570,7 +1628,7 @@ function showStartPage(show = true) {
 async function onStartAction(target) {
   const value = target.dataset.value;
   switch (target.dataset.start) {
-    case 'template': return newProject(value);
+    case 'template': return newProjectAsk(value);
     case 'open': return openWithDialog();
     case 'import': return openWithDialog(null, 'mdj');
     case 'reverse': return reverseMenu(anchorBelow(target));
@@ -1582,7 +1640,7 @@ async function onStartAction(target) {
     case 'remove-folder': state.recentDirs = removeRecent(state.recentDirs, value); storeRecentDirs(globalThis.localStorage, state.recentDirs); return renderStartPage();
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
     case 'open-sample': return openPath(value);
-    case 'builtin-sample': return openSampleBuiltin();
+    case 'builtin-sample': return openSampleAsk();
     case 'tutorial': return startTutorial();
     case 'guide': return openUserGuide();
     case 'tutorial-doc': return openReader('tutorial');
@@ -1595,7 +1653,7 @@ async function onStartAction(target) {
 }
 
 function templateMenu(anchor) {
-  const handlers = Object.fromEntries(TEMPLATES.map(([id]) => [`custom:${id}`, () => newProject(id)]));
+  const handlers = Object.fromEntries(TEMPLATES.map(([id]) => [`custom:${id}`, () => newProjectAsk(id)]));
   return showMenu(TEMPLATES.map(([id, , glyph]) => ({ id: `custom:${id}`, label: t(`template.${id}`), icon: glyph })), anchor ?? anchorBelow(root.querySelector('[data-menu="file"]')), 'context', { handlers, header: { icon: 'template', title: t('action.newFromTemplate') } });
 }
 
@@ -1739,7 +1797,7 @@ function applySettings(previous = {}) {
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
-  const redraw = ['diagramTheme', 'defaultLineStyle', 'diagramFont', 'diagramFontSize', 'showShadow', 'showGrid', 'showMinimap', 'gridSize', 'language', 'showQuickButtons'].some((key) => s[key] !== previous[key]);
+  const redraw = ['diagramTheme', 'defaultLineStyle', 'diagramFont', 'diagramFontSize', 'showShadow', 'showGrid', 'showRulers', 'showMinimap', 'gridSize', 'language', 'showQuickButtons'].some((key) => s[key] !== previous[key]);
   if (redraw && state.view) state.view.update();
   renderAll();
   updateMinimumWidth();
@@ -1798,7 +1856,7 @@ function rememberDirectory(dir) {
   if (state.settings.lastDirectory !== dir) updateSettings({ lastDirectory: dir }, { quiet: true });
 }
 
-/** A project from file text: .muml / .mumlt / a StarUML .mdj. */
+/** A project from file text: .myuml / .mumlt / a StarUML .mdj. */
 function parseAny(name, text) {
   if (isStarUmlFileName(name)) return { project: normalizeProject(importMdj(text)), template: false, imported: true };
   const parsed = parseProject(text);
@@ -1817,6 +1875,7 @@ async function openPath(path, { quiet = false } = {}) {
     if (!quiet) notify('info', t('notice.alreadyOpen', { name }));
     return existing;
   }
+  if (!(await confirmReplace())) return null;
   try {
     const content = await withProgress('progress.open', name, (op) => native.readTextFile(path, op));
     const { project, template, imported } = parseAny(name, content);
@@ -1833,6 +1892,7 @@ async function openPath(path, { quiet = false } = {}) {
 }
 
 async function openContent(name, content, handle = null) {
+  if (isProjectFileName(name) || isStarUmlFileName(name)) { if (!(await confirmReplace())) return null; }
   try {
     const { project, template, imported } = parseAny(name, content);
     const tab = new ProjectDocument(project, { name: template || imported ? project.name : name, handle: template || imported ? null : handle, template: template || imported });
@@ -1851,10 +1911,11 @@ async function openWithDialog(directory = null, kind = null) {
   try {
     if (desktop) {
       const paths = kind === 'mdj' ? await native.chooseFiles(directory ?? state.settings.lastDirectory, [native.SAVE_TYPES.mdj]) : await native.chooseDiagramsToOpen(directory ?? state.settings.lastDirectory);
-      for (const path of paths) await openPath(path);
+      // One project at a time: the first chosen file.
+      if (paths[0]) await openPath(paths[0]);
     } else {
       const files = kind === 'mdj' ? await Promise.all((await native.pickWithInput('.mdj', true)).map(async (file) => ({ name: file.name, content: await file.text(), handle: null }))) : await native.pickDiagramFilesWeb();
-      for (const file of files) await openContent(file.name, file.content, file.handle);
+      if (files[0]) await openContent(files[0].name, files[0].content, files[0].handle);
     }
   } catch (error) {
     showError('error.open', error);
@@ -1912,15 +1973,15 @@ async function saveDoc(tab, { saveAs = false } = {}) {
   if (!tab) return false;
   state.view?.finishEdit?.();
   const text = tab.text();
-  const suggested = `${safeName(tab)}.muml`;
+  const suggested = `${safeName(tab)}.myuml`;
   try {
     if (desktop) {
       let path = tab.path;
-      if (!path || saveAs || extensionOf(path) !== 'muml') {
+      if (!path || saveAs || extensionOf(path) !== 'myuml') {
         const dir = tab.path ? directoryOf(tab.path) : state.settings.lastDirectory;
-        path = await native.chooseSavePath(dir ? `${dir}/${suggested}` : suggested, ['muml']);
+        path = await native.chooseSavePath(dir ? `${dir}/${suggested}` : suggested, ['myuml']);
         if (!path) return false;
-        path = withExtension(path, 'muml');
+        path = withExtension(path, 'myuml');
       }
       await withProgress('progress.save', baseName(path), (op) => native.writeTextFile(path, text, op));
       tab.markSaved(path);
@@ -2011,10 +2072,11 @@ async function openDatabaseProject(id) {
   if (existing) { activateDoc(existing.id); notify('info', t('notice.alreadyOpen', { name: docName(existing) })); return existing; }
   const db = dbReady();
   if (!db) return null;
+  if (!(await confirmReplace())) return null;
   try {
     const row = await withProgress('progress.dbLoad', db.where, () => native.dbLoad(db.config, id));
     if (!row) { notify('error', t('notice.dbMissing', { name: id })); return null; }
-    const { project } = parseAny(`${row.title || 'project'}.muml`, row.data);
+    const { project } = parseAny(`${row.title || 'project'}.myuml`, row.data);
     const tab = new ProjectDocument(project, { name: row.title || project.name });
     tab.dbId = id;
     addTab(tab);
@@ -2421,6 +2483,97 @@ function showStatistics() {
   ask({ icon: 'statistics', title: t('action.statistics'), message: t('stats.summary', { elements: stats.elements, views: stats.views, diagrams: stats.diagrams }), items: rows, buttons: [{ id: 'ok', label: t('common.ok'), primary: true }] });
 }
 
+// ───────────────────────── requirements list and traceability matrix
+
+const traceState = { options: null, projectId: null };
+
+function requirementList() {
+  const tab = activeTab();
+  return tab ? Tr.requirementRows(tab.project, { language: lang() }) : [];
+}
+
+function openRequirements() {
+  if (!activeTab()) return;
+  popups.open('requirements', { rows: requirementList() });
+}
+
+/** A requirement's status or priority from the list (one undo step). */
+function setRequirementField(data) {
+  const allowed = Tr.EDITABLE_REQUIREMENT_FIELDS[data.key];
+  if (!allowed?.includes(data.value)) return;
+  change('op.requirementEdit', (project) => { const r = M.findById(project, data.id); if (r?._type === 'SysMLRequirement') r[data.key] = data.value; });
+}
+
+/** First matrix: requirements × the kind of element most often related to them. */
+function defaultTraceOptions(project, index) {
+  const types = Tr.elementTypesIn(project).map((x) => x.type);
+  const source = types.includes('SysMLRequirement') ? 'SysMLRequirement' : types[0] ?? '';
+  const others = new Map();
+  for (const rel of M.elementsWhere(project, M.isRelationship)) {
+    const [a, b] = M.relationshipEnds(rel).map((id) => index.get(id));
+    if (!a || !b) continue;
+    for (const [x, y] of [[a, b], [b, a]]) if (x._type === source && y._type !== source) others.set(y._type, (others.get(y._type) ?? 0) + 1);
+  }
+  const target = [...others.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? (types.includes('SysMLBlock') ? 'SysMLBlock' : source);
+  return { sourceType: source, targetType: target, relationType: '', sourceScope: '', targetScope: '', direction: source === 'SysMLRequirement' ? 'colToRow' : 'rowToCol' };
+}
+
+function traceParams() {
+  const tab = activeTab();
+  const project = tab.project;
+  const o = traceState.options;
+  const name = (type) => typeLabel(type, lang());
+  return {
+    options: o,
+    elementTypes: Tr.elementTypesIn(project).map(({ type, count }) => ({ type, label: name(type), count })),
+    relationTypes: [...new Set([...Tr.relationTypesIn(project).map((x) => x.type), ...Tr.RELATION_TYPES])].map((type) => ({ type, label: name(type), count: 0 })),
+    scopes: Tr.scopesIn(project),
+    matrix: Tr.matrix(project, {
+      sourceTypes: o.sourceType ? [o.sourceType] : [], targetTypes: o.targetType ? [o.targetType] : [], relationTypes: o.relationType ? [o.relationType] : [],
+      sourceScope: o.sourceScope || null, targetScope: o.targetScope || null, language: lang(),
+    }),
+  };
+}
+
+function openTraceMatrix() {
+  const tab = activeTab();
+  if (!tab) return;
+  if (!traceState.options || traceState.projectId !== tab.project._id) {
+    traceState.options = defaultTraceOptions(tab.project, tab.index);
+    traceState.projectId = tab.project._id;
+  }
+  popups.open('tracematrix', traceParams());
+}
+
+function postTraceMatrix() {
+  if (activeTab() && traceState.options) popups.post('tracematrix', { type: 'trace-matrix', ...traceParams() });
+}
+
+/** A matrix cell click: deletes the chosen relationship between the two (either way), else creates it in the chosen direction. */
+function toggleTraceCell(data) {
+  const o = traceState.options;
+  const type = o?.relationType;
+  if (!type) { notify('info', t('trace.pickType')); return; }
+  const [sourceId, targetId] = o.direction === 'colToRow' ? [data.colId, data.rowId] : [data.rowId, data.colId];
+  change('op.traceToggle', (project) => {
+    const forward = Tr.relationsBetween(project, sourceId, targetId, type).length;
+    const back = Tr.relationsBetween(project, targetId, sourceId, type).length;
+    return !forward && back ? Tr.toggleRelation(project, { sourceId: targetId, targetId: sourceId, type, language: lang() }) : Tr.toggleRelation(project, { sourceId, targetId, type, language: lang() });
+  });
+}
+
+let traceRefreshTimer = 0;
+/** Open requirement / matrix popups follow every edit (and undo). */
+function refreshTracePopups() {
+  if (!popups.isOpen('requirements') && !popups.isOpen('tracematrix')) return;
+  clearTimeout(traceRefreshTimer);
+  traceRefreshTimer = setTimeout(() => {
+    if (!activeTab()) return;
+    if (popups.isOpen('requirements')) popups.post('requirements', { type: 'req-rows', rows: requirementList() });
+    if (popups.isOpen('tracematrix')) postTraceMatrix();
+  }, 60);
+}
+
 function openFind() {
   popups.open('find', { query: '' });
 }
@@ -2652,12 +2805,12 @@ function contextMenu(event, kind, payload = {}) {
     return showMenu(items, anchor, 'context', { handlers, header: { icon: element._type === 'Project' ? 'umlProject' : typeDef(element._type)?.icon, title: M.displayName(element, lang()) } });
   }
   if (kind === 'diagramTab') {
-    const handlers = { 'custom:rename': () => { const el = root.querySelector(`[data-diagram="${CSS.escape(payload.id)}"]`); if (el) state.view.renameDiagramInline(el); }, 'custom:select': () => revealElement(payload.id) };
-    return showMenu([{ id: 'custom:rename', label: t('explorer.rename'), icon: 'textTool' }, { id: 'custom:select', label: t('action.selectInExplorer'), icon: 'selectInExplorer' }, { separator: true }, ...menuItems(['closeDiagram', 'prevDiagram', 'nextDiagram', '-', 'exportImage', 'exportSvg', 'exportMermaid', 'exportPlantUml'])], anchor, 'context', { handlers, header: { icon: 'dgClass', title: tab.index.get(payload.id)?.name ?? '' } });
+    const handlers = { 'custom:rename': () => renameDiagramTab(payload.id), 'custom:select': () => revealElement(payload.id) };
+    return showMenu([{ id: 'custom:rename', label: t('explorer.rename'), icon: 'textTool' }, { id: 'custom:select', label: t('action.selectInExplorer'), icon: 'selectInExplorer' }, { separator: true }, ...menuItems(['prevDiagram', 'nextDiagram', '-', 'exportImage', 'exportSvg', 'exportMermaid', 'exportPlantUml'])], anchor, 'context', { handlers, header: { icon: 'dgClass', title: tab.index.get(payload.id)?.name ?? '' } });
   }
   if (kind === 'tab') {
     activateDoc(payload.id);
-    return showMenu(menuItems(['save', 'saveAs', 'saveTemplate', '-', 'projectProps', 'print', '-', 'closeTab', 'closeAll', '-', 'new']), anchor, 'context', { header: { icon: 'umlProject', title: docName(activeTab()) } });
+    return showMenu(menuItems(['save', 'saveAs', 'saveTemplate', '-', 'projectProps', 'print', '-', 'closeTab', '-', 'new']), anchor, 'context', { header: { icon: 'umlProject', title: docName(activeTab()) } });
   }
   if (kind === 'tool') return showMenu([{ id: 'custom:sticky', label: t('toolbox.stickyTip'), icon: 'info', disabled: true }], anchor, 'context', { header: { icon: 'toolbox', title: t('panel.toolbox') } });
   if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('panel.toolbox') } });
@@ -2875,7 +3028,7 @@ function bindEvents() {
       const anchor = ['themeMenu', 'exportMenu', 'alignMenu', 'layoutMenu', 'lineStyleMenu', 'recentFolders', 'fillColor', 'lineColor', 'fontColor', 'addDiagram', 'addElement', 'reverse'].includes(id) ? anchorBelow(command.closest('.split-button') ?? command) : undefined;
       return run(id, { anchor });
     }
-    const tool = target.closest('[data-tool]');
+    const tool = target.closest('[data-tool]:not(#app)');
     if (tool) return pickTool(tool.dataset.tool);
     const tbToggle = target.closest('[data-toolbox-toggle]');
     if (tbToggle) { const id = tbToggle.dataset.toolboxToggle; if (state.collapsedToolbox.has(id)) state.collapsedToolbox.delete(id); else state.collapsedToolbox.add(id); return renderToolbox(); }
@@ -2913,20 +3066,23 @@ function bindEvents() {
     }
     const imagePick = target.closest('[data-image-pick]');
     if (imagePick) return pickImageFor(imagePick.dataset.imagePick);
-    const closeButton = target.closest('[data-close-doc]');
-    if (closeButton) return closeDoc(state.docs.find((doc) => doc.id === closeButton.dataset.closeDoc));
-    const tab = target.closest('[data-doc]');
-    if (tab) return activateDoc(tab.dataset.doc);
-    if (target.closest('[data-tab-new]')) return newProject();
+    const diagramTab = target.closest('[data-diagram-tab]');
+    if (diagramTab) {
+      const id = diagramTab.dataset.diagramTab;
+      // The second press of a double click (the first one re-rendered the tab bar, so no dblclick event follows).
+      if (event.detail === 2 && id === currentDiagram()?._id && !state.showStart) return renameDiagramTab(id);
+      if (id !== currentDiagram()?._id || state.showStart || state.reader) openDiagram(id);
+      return scrollActiveTabIntoView();
+    }
     const scroll = target.closest('[data-tab-scroll]');
     if (scroll) return scrollTabs(Number(scroll.dataset.tabScroll));
     return undefined;
   });
 
   root.addEventListener('dblclick', (event) => {
-    const tabs = event.target.closest('#tabs');
-    if (tabs && !event.target.closest('[data-doc], button')) newProject();
-    const tool = event.target.closest('[data-tool]');
+    const diagramTab = event.target.closest('[data-diagram-tab]');
+    if (diagramTab) renameDiagramTab(diagramTab.dataset.diagramTab);
+    const tool = event.target.closest('[data-tool]:not(#app)');
     if (tool && state.tool) state.tool = { ...state.tool, sticky: true };
   });
 
@@ -2972,8 +3128,8 @@ function bindEvents() {
     if (editable) { event.preventDefault(); return textContextMenu(editable, event); }
     if (event.defaultPrevented) return undefined;
     event.preventDefault();
-    const tab = event.target.closest('[data-doc]');
-    if (tab) return contextMenu(event, 'tab', { id: tab.dataset.doc });
+    const diagramTab = event.target.closest('[data-diagram-tab]');
+    if (diagramTab) { openDiagram(diagramTab.dataset.diagramTab); return contextMenu(event, 'diagramTab', { id: diagramTab.dataset.diagramTab }); }
     if (event.target.closest('#start-page')) return contextMenu(event, 'start');
     if (event.target.closest('#statusbar')) return contextMenu(event, 'status');
     if (event.target.closest('.side-panel, #toolbar, #menubar')) return contextMenu(event, 'panel');
@@ -3132,7 +3288,7 @@ const SHORTCUTS = [
   ['b', false, 'bold'], ['i', false, 'italic'], ['>', true, 'fontUp'], ['.', true, 'fontUp'], ['<', true, 'fontDown'], [',', true, 'fontDown'],
   ['f', true, 'bringFront'], ['k', true, 'sendBack'], ['g', true, 'generateCode'], ['r', true, 'reverse'], ['v', true, 'validate'], ['1', false, 'tool:pointer'],
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'], ['@', true, 'rightPanel'], ['2', true, 'rightPanel'],
-  ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['pageup', false, 'prevDiagram'], ['pagedown', false, 'nextDiagram'], ['f4', false, 'closeDiagram'],
+  ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['pageup', false, 'prevDiagram'], ['pagedown', false, 'nextDiagram'],
   ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['r', false, 'recent'],
 ];
 
@@ -3177,7 +3333,7 @@ function onKeyDown(event) {
   if (key === 'enter' && canvas && selectedIds().length === 1) { event.preventDefault(); canvas.startEdit(selectedIds()[0]); return; }
   if (canvas && key.startsWith('arrow') && selectedIds().length) {
     event.preventDefault();
-    const step = event.shiftKey ? 1 : canvas.gridStep();
+    const step = event.shiftKey ? 1 : Math.max(1, Math.round(canvas.gridStep()));
     const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
     const dy = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
     change('op.nudge', (project, diagram) => E.moveViews(diagram, selectedIds(), dx, dy));
@@ -3270,6 +3426,7 @@ const appApi = {
   showError,
   change,
   openDiagram,
+  openDiagramType,
   closeDiagram,
   addDiagram,
   createNodeAt,
@@ -3360,7 +3517,7 @@ async function start() {
     setTimeout(async () => {
       const result = await popups.open('welcome', {});
       if (result?.choice === 'tutorial') startTutorial();
-      else if (result?.choice === 'sample') openSampleBuiltin();
+      else if (result?.choice === 'sample') openSampleAsk();
     }, 600);
   }
 }
@@ -3378,7 +3535,7 @@ window.__myumlmaker = {
     newProject, openPath, openContent, saveDoc, closeDoc, select, selectElements, change, undo, redo, copySelection, pasteClipboard, duplicate, deleteFromView, deleteFromModel,
     setCanvasZoom, updateSettings, handleDroppedPaths, handleDroppedFiles, setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu,
     contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, showStartPage, exportAs, exportImage, exportPdf, exportAllImages, createNodeAt, createEdgeBetween,
-    align, distribute, reorder, setViewStyle, commitEdit, addDiagram, openDiagram, closeDiagram, renameElement, addElementTo, addRelated, quickAction, dropElements, moveElements,
+    align, distribute, reorder, setViewStyle, commitEdit, addDiagram, openDiagram, openDiagramType, closeDiagram, renameElement, addElementTo, addRelated, quickAction, dropElements, moveElements,
     runLayout, runValidation, openCodegen, reverseFiles, openTextImport, startTutorial, startPresentation, stopPresentation, presentStep, setTool, pickTool, findElements, revealElement,
     rememberDirectory, applyColor, openSampleBuiltin, shuffleBackground, fitToContent, showRelations,
   },

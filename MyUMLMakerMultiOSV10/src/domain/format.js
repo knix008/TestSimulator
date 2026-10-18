@@ -1,4 +1,4 @@
-// The .muml file (a project) and .mumlt (a template: the same content, kept as
+// The .myuml file (a project) and .mumlt (a template: the same content, kept as
 // a starting point) — UTF-8 JSON:
 //   { "format": "myumlmaker", "version": 1, "kind": "project" | "template", "saved": "…", "project": { _type: "Project", … } }
 // A bare StarUML project ({ "_type": "Project", … }, .mdj) is read too.
@@ -8,7 +8,7 @@
 import { buildIndex, childLists, FORMAT, isEdgeView, newId, ref, refId, removeDeadViews, VERSION, walk } from './model.js';
 import { isDiagramType, TYPES } from './meta.js';
 
-export const PROJECT_EXTENSION = 'muml';
+export const PROJECT_EXTENSION = 'myuml';
 export const TEMPLATE_EXTENSION = 'mumlt';
 
 export class FormatError extends Error {
@@ -28,12 +28,12 @@ export const directoryOf = (path) => {
 export const extensionOf = (name) => (/\.([^./\\]+)$/.exec(String(name ?? ''))?.[1] ?? '').toLowerCase();
 export const stripExtension = (name) => String(name ?? '').replace(/\.[^./\\]+$/, '');
 export const withExtension = (path, extension) => (extensionOf(path) === extension ? path : `${stripExtension(path)}.${extension}`);
-export const isProjectFileName = (name) => ['muml', 'mumlt', 'json'].includes(extensionOf(name));
+export const isProjectFileName = (name) => ['myuml', 'mumlt', 'muml', 'json'].includes(extensionOf(name));
 export const isTemplateFileName = (name) => extensionOf(name) === 'mumlt';
 export const isStarUmlFileName = (name) => extensionOf(name) === 'mdj';
 export const isFragmentFileName = (name) => extensionOf(name) === 'mfj';
 export const isImageFileName = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'].includes(extensionOf(name));
-export const isSourceFileName = (name) => ['java', 'cs', 'py', 'ts', 'tsx', 'js', 'sql', 'kt', 'cpp', 'h', 'hpp', 'php'].includes(extensionOf(name));
+export const isSourceFileName = (name) => ['java', 'cs', 'py', 'ts', 'tsx', 'js', 'sql', 'kt', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hh', 'hxx', 'php'].includes(extensionOf(name));
 export const isTextModelFileName = (name) => ['mmd', 'mermaid', 'puml', 'plantuml', 'pu'].includes(extensionOf(name));
 /** Files the app opens as a project. */
 export const isOpenableFileName = (name) => isProjectFileName(name) || isStarUmlFileName(name);
@@ -45,6 +45,11 @@ export function normalizeProject(project) {
   if (!project || typeof project !== 'object' || project._type !== 'Project') throw new FormatError('format.notProject');
   project.name ??= 'Untitled';
   project.ownedElements = Array.isArray(project.ownedElements) ? project.ownedElements : [];
+  // Baselines (domain/baseline.js): keep the well-formed ones, drop the key when none are left.
+  if (project.baselines !== undefined) {
+    const kept = Array.isArray(project.baselines) ? project.baselines.filter((b) => b && typeof b === 'object' && typeof b.snapshot === 'string' && b._id) : [];
+    if (kept.length) project.baselines = kept; else delete project.baselines;
+  }
   const seen = new Set();
   // Unique ids and parent links for elements and views.
   const fix = (element, parent) => {

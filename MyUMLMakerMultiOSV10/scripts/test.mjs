@@ -360,8 +360,8 @@ async function runInstaller(report) {
   check('설치 아이콘 = 프로그램 아이콘', () => {
     if (!/!define INSTALLERICON ".*[\\/]icons[\\/]icon\.ico"/.test(nsi) || !nsi.includes('!define MUI_ICON "${INSTALLERICON}"')) throw new Error('INSTALLERICON');
   });
-  check('파일 형식 등록: .muml / .mumlt', () => {
-    for (const part of ['APP_ASSOCIATE "muml" "MyUMLMaker.Drawing"', 'APP_ASSOCIATE "mumlt" "MyUMLMaker.Template"']) if (!nsi.includes(part)) throw new Error(part);
+  check('파일 형식 등록: .myuml / .mumlt', () => {
+    for (const part of ['APP_ASSOCIATE "myuml" "MyUMLMaker.Drawing"', 'APP_ASSOCIATE "mumlt" "MyUMLMaker.Template"']) if (!nsi.includes(part)) throw new Error(part);
   });
   check('문서 아이콘 파일 설치 (drawing.ico, template.ico)', () => { for (const part of ['"/oname=drawing.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
   check('설치 훅: 설정 초기화(사용자 데이터 유지) · 이전 설치 완전 제거 · 문서 아이콘 · 설명서 바로 가기', () => {
@@ -369,7 +369,7 @@ async function runInstaller(report) {
     for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL']) if (!nsi.includes(part)) throw new Error(part);
   });
   check('문서 포함: 사용 설명서 · 튜토리얼 · 예제 드로잉', () => {
-    for (const part of ['UsersGuide.html', 'UsersGuide.en.html', 'Tutorial.html', 'Tutorial.en.html', 'online-shop.ko.muml']) if (!nsi.includes(part)) throw new Error(`${part} is not in the installer`);
+    for (const part of ['UsersGuide.html', 'UsersGuide.en.html', 'Tutorial.html', 'Tutorial.en.html', 'online-shop.ko.myuml']) if (!nsi.includes(part)) throw new Error(`${part} is not in the installer`);
   });
   check('설치 파일이 프로젝트 루트에 복사됨', () => {
     const copy = path.join(root, `MyUMLMaker-Setup-${version}.exe`);

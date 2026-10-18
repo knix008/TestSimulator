@@ -4,6 +4,7 @@
 // message. Pure (no DOM).
 import { UNNAMED, typeDef, typeLabel } from './meta.js';
 import { allDiagrams, buildIndex, relationshipEnds, refId, walk } from './model.js';
+import { coverageProblems } from './trace.js';
 
 /** The rules: id, severity, bilingual description. */
 export const RULES = [
@@ -28,6 +29,9 @@ export const RULES = [
   { id: 'foreign-key-no-reference', severity: 'warning', ko: '외래 키 열이 참조하는 열이 없습니다', en: 'Foreign key column has no referenced column' },
   { id: 'diagram-empty', severity: 'warning', ko: '빈 다이어그램입니다', en: 'Diagram is empty' },
   { id: 'broken-ref', severity: 'error', ko: '없는 요소를 가리키는 참조가 있습니다', en: 'Reference to a missing element' },
+  { id: 'requirement-not-satisfied', severity: 'warning', ko: '승인된 요구사항을 충족하는 요소가 없습니다', en: 'Approved requirement is not satisfied by any element' },
+  { id: 'requirement-not-verified', severity: 'warning', ko: '승인된 요구사항을 검증하는 요소가 없습니다', en: 'Approved requirement is not verified by any element' },
+  { id: 'requirement-id-duplicate', severity: 'warning', ko: '요구사항 ID가 중복됩니다', en: 'Requirement id is used more than once' },
 ];
 const RULE = Object.fromEntries(RULES.map((r) => [r.id, r]));
 
@@ -116,7 +120,7 @@ export function validate(project) {
         generalizations.push([source._id, target._id, element]);
         if (!compatible(source._type, target._type)) report('generalization-incompatible', element, { ko: `${typeLabel(source._type, 'ko')} → ${typeLabel(target._type, 'ko')}`, en: `${typeLabel(source._type, 'en')} → ${typeLabel(target._type, 'en')}` });
       }
-      if (target && ((type === 'UMLInterfaceRealization' && target._type !== 'UMLInterface') || (type === 'UMLRealization' && ['UMLClass', 'UMLDataType', 'UMLEnumeration', 'UMLPrimitiveType'].includes(target._type)))) {
+      if (target && ((type === 'UMLInterfaceRealization' && !['UMLInterface', 'SysMLInterfaceBlock'].includes(target._type)) || (type === 'UMLRealization' && ['UMLClass', 'UMLDataType', 'UMLEnumeration', 'UMLPrimitiveType'].includes(target._type)))) {
         report('realization-target-not-interface', element, { ko: target.name ?? '', en: target.name ?? '' });
       }
       if (type === 'UMLMessage' && element.messageSort === 'createMessage' && a && a === b) report('create-message-self', element);
@@ -173,6 +177,13 @@ export function validate(project) {
     state.set(id, 2);
   };
   for (const id of parents.keys()) if (!state.has(id)) visit(id);
+
+  // Requirement coverage (approved, implemented and verified leaf requirements) and duplicate ids.
+  for (const p of coverageProblems(project)) {
+    const element = index.get(p.id);
+    const extra = p.rule === 'requirement-id-duplicate' ? { ko: `${p.reqId} = ${index.get(p.other)?.name ?? ''}`, en: `${p.reqId} = ${index.get(p.other)?.name ?? ''}` } : { ko: element?.id ?? '', en: element?.id ?? '' };
+    report(p.rule, element, extra);
+  }
 
   // Diagrams without views.
   for (const diagram of allDiagrams(project)) if (!(diagram.ownedViews ?? []).length) report('diagram-empty', diagram);

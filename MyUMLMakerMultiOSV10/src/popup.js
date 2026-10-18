@@ -212,8 +212,15 @@ function alignRows() {
   }
 }
 
-/** Popups whose height follows their content (confirm, about, welcome): sized once drawn. */
+/** Popups whose height follows their content (confirm, about, welcome): sized once drawn, and again when
+ * web fonts and pictures have loaded (they change the height: About in English was 7 px short). */
 function fitHeight() {
+  fitHeightNow();
+  document.fonts?.ready.then(() => requestAnimationFrame(fitHeightNow)).catch(() => {});
+  for (const img of root.querySelectorAll('img')) if (!img.complete) img.addEventListener('load', fitHeightNow, { once: true });
+}
+
+function fitHeightNow() {
   const popup = root.querySelector('.popup');
   if (!popup) return;
   popup.classList.add('fit');
@@ -515,7 +522,7 @@ export const SHORTCUT_LIST = [
   ['Ctrl+E', 'action.selectInExplorer'], ['F2 / Enter', 'action.editName'], ['shortcut.doubleClick', 'shortcut.quickEdit'], ['Ctrl+Enter', 'shortcut.applyQuickEdit'], ['Ctrl+1', 'tool.pointer'],
   ['shortcut.shiftCreate', 'shortcut.keepTool'], ['Ctrl+B / I', 'action.bold'], ['Ctrl+Shift+> / <', 'action.fontUp'], ['Ctrl+Shift+F / K', 'action.bringFront'], ['Ctrl+Up / Down', 'action.moveUp'],
   ['shortcut.arrows', 'shortcut.nudge'], ['shortcut.shiftDrag', 'shortcut.constrain'], ['shortcut.altDrag', 'shortcut.noSnap'], ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomReset'],
-  ['Ctrl+Shift+W', 'action.fitDiagram'], ['shortcut.wheel', 'action.zoomIn'], ['shortcut.space', 'shortcut.pan'], ['Ctrl+PageUp / PageDown', 'action.nextDiagram'], ['Ctrl+F4', 'action.closeDiagram'],
+  ['Ctrl+Shift+W', 'action.fitDiagram'], ['shortcut.wheel', 'action.zoomIn'], ['shortcut.space', 'shortcut.pan'], ['Ctrl+PageUp / PageDown', 'action.nextDiagram'],
   ['Ctrl+Shift+G', 'action.generateCode'], ['Ctrl+Shift+R', 'action.reverse'], ['Ctrl+Shift+V', 'action.validate'], ['F5', 'action.presentation'], ['Ctrl+Tab', 'tabs.next'],
   ['Ctrl+Shift+1 / 2', 'action.toolboxPanel'], ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'],
   ['F11', 'action.tutorial'], ['F1', 'action.about'],
@@ -755,6 +762,7 @@ function settingsDiagram() {
     row('font', t('settings.diagramFont'), `<input type="text" data-setting-text="diagramFont" value="${escapeHtml(s().diagramFont)}" placeholder="${escapeHtml(t('style.default'))}" />`),
     row('fontUp', t('settings.diagramFontSize'), numberField('diagramFontSize', s().diagramFontSize, 9, 24, 1, 'px', t('settings.diagramFontSize'))),
     toggle('showGrid', t('action.grid'), 'grid'),
+    toggle('showRulers', t('action.rulers'), 'rulers'),
     row('grid', t('settings.gridSize'), segmented('gridSize', GRID_SIZES.map((g) => [String(g), `${g}px`]), String(s().gridSize))),
     toggle('snapToGrid', t('action.snapGrid'), 'snap'),
     toggle('showMinimap', t('action.minimap'), 'minimap'),

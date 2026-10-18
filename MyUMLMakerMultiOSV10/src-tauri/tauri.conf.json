@@ -40,9 +40,9 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "icons/drawing.ico": "drawing.ico",
-      "icons/drawing.icns": "drawing.icns",
-      "icons/drawing.png": "drawing.png",
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns",
+      "icons/project.png": "project.png",
       "icons/template.ico": "template.ico",
       "icons/template.icns": "template.icns",
       "icons/template.png": "template.png",
@@ -58,7 +58,7 @@
     "fileAssociations": [
       {
         "ext": [
-          "muml"
+          "myuml"
         ],
         "name": "MyUMLMaker.Project",
         "description": "MyUMLMaker Project",
@@ -101,7 +101,7 @@
         ],
         "files": {
           "/usr/share/mime/packages/myumlmaker.xml": "linux/myumlmaker.xml",
-          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker.png": "icons/drawing.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker.png": "icons/project.png",
           "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker-template.png": "icons/template.png"
         },
         "postInstallScript": "linux/postinst.sh",
@@ -114,7 +114,7 @@
         ],
         "files": {
           "/usr/share/mime/packages/myumlmaker.xml": "linux/myumlmaker.xml",
-          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker.png": "icons/drawing.png",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker.png": "icons/project.png",
           "/usr/share/icons/hicolor/256x256/mimetypes/application-x-myumlmaker-template.png": "icons/template.png"
         },
         "postInstallScript": "linux/postinst.sh",

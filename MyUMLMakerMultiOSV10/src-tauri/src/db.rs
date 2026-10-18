@@ -2,7 +2,7 @@
 //!
 //! One table holds everything (created on first use):
 //!   myumlmaker_projects (id, title, data, updated)
-//! `data` is the plan exactly as a .muml file holds it (UTF-8 JSON text), so a
+//! `data` is the plan exactly as a .myuml file holds it (UTF-8 JSON text), so a
 //! plan read back from the database opens like a file. Saving replaces the
 //! plan's row in one transaction.
 use crate::tr;
@@ -43,7 +43,7 @@ pub enum Dialect {
     Postgres,
 }
 
-/// A stored plan: its id (the project id), title and .muml text.
+/// A stored plan: its id (the project id), title and .myuml text.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanRow {

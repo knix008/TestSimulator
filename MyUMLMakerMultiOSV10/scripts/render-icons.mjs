@@ -1,8 +1,8 @@
 // Renders the icons into everything the build needs:
 //   assets/icon.svg  → assets/icon.png (1024²), src-tauri/icons/* (via `tauri icon`),
 //                      public/icon.png (web favicon), assets/icon.ico / icon.icns
-//   assets/drawing.svg  → src-tauri/icons/drawing.png (256²), drawing.ico, drawing.icns
-//                      (the .muml drawing document icon)
+//   assets/project.svg  → src-tauri/icons/project.png (256²), project.ico, project.icns
+//                      (the .myuml project document icon)
 //   assets/template.svg → src-tauri/icons/template.png (256²), template.ico, template.icns
 //                      (the .mumlt template icon)
 //   installer images → src-tauri/windows/installerHeader.bmp (150×57), installerSidebar.bmp (164×314)
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const svg = fs.readFileSync(path.join(root, 'assets', 'icon.svg'), 'utf8');
-const drawingSvg = fs.readFileSync(path.join(root, 'assets', 'drawing.svg'), 'utf8');
+const projectSvg = fs.readFileSync(path.join(root, 'assets', 'project.svg'), 'utf8');
 const templateSvg = fs.readFileSync(path.join(root, 'assets', 'template.svg'), 'utf8');
 
 const browsers = [
@@ -70,7 +70,7 @@ const b64 = (text) => Buffer.from(text).toString('base64');
 const images = await evaluate(`(async () => {
   const load = async (data) => { const image = new Image(); image.src = 'data:image/svg+xml;base64,' + data; await image.decode(); return image; };
   const image = await load('${b64(svg)}');
-  const drawing = await load('${b64(drawingSvg)}');
+  const project = await load('${b64(projectSvg)}');
   const template = await load('${b64(templateSvg)}');
   const make = (width, height, draw, raw = false) => {
     const canvas = document.createElement('canvas');
@@ -81,8 +81,8 @@ const images = await evaluate(`(async () => {
     return { width, height, png: canvas.toDataURL('image/png'), rgba: raw ? Array.from(context.getImageData(0, 0, width, height).data) : null };
   };
   const icon = make(1024, 1024, (context) => context.drawImage(image, 0, 0, 1024, 1024));
-  const drawingIcon = make(1024, 1024, (context) => context.drawImage(drawing, 0, 0, 1024, 1024));
-  const drawingSmall = make(256, 256, (context) => context.drawImage(drawing, 0, 0, 256, 256));
+  const projectIcon = make(1024, 1024, (context) => context.drawImage(project, 0, 0, 1024, 1024));
+  const projectSmall = make(256, 256, (context) => context.drawImage(project, 0, 0, 256, 256));
   const templateIcon = make(1024, 1024, (context) => context.drawImage(template, 0, 0, 1024, 1024));
   const templateSmall = make(256, 256, (context) => context.drawImage(template, 0, 0, 256, 256));
   const header = make(150, 57, (context) => {
@@ -100,10 +100,10 @@ const images = await evaluate(`(async () => {
     context.fillText('MyUMLMaker', 82, 186);
     context.font = '12px Segoe UI, sans-serif';
     context.fillStyle = 'rgba(255,255,255,0.85)';
-    context.fillText('Diagrams & drawings', 82, 208);
+    context.fillText('UML modelling', 82, 208);
     context.fillText('SHKWON', 82, 290);
   }, true);
-  return { icon: icon.png, drawingIcon: drawingIcon.png, drawingSmall: drawingSmall.png, templateIcon: templateIcon.png, templateSmall: templateSmall.png, header, sidebar };
+  return { icon: icon.png, projectIcon: projectIcon.png, projectSmall: projectSmall.png, templateIcon: templateIcon.png, templateSmall: templateSmall.png, header, sidebar };
 })()`);
 ws.close();
 child.kill();
@@ -156,7 +156,7 @@ fs.copyFileSync(path.join(icons, 'icon.icns'), path.join(root, 'assets', 'icon.i
 fs.copyFileSync(path.join(icons, '128x128@2x.png'), path.join(root, 'assets', 'icon-256.png'));
 
 // File-type icons: tauri icon into a scratch folder, then keep .ico / .icns / 256 px PNG.
-for (const [name, large, small] of [['drawing', images.drawingIcon, images.drawingSmall], ['template', images.templateIcon, images.templateSmall]]) {
+for (const [name, large, small] of [['project', images.projectIcon, images.projectSmall], ['template', images.templateIcon, images.templateSmall]]) {
   const source = path.join(root, 'assets', `${name}.png`);
   fs.writeFileSync(source, png(large));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `myumlmaker-${name}-icon-`));
@@ -167,4 +167,4 @@ for (const [name, large, small] of [['drawing', images.drawingIcon, images.drawi
   fs.rmSync(scratch, { recursive: true, force: true });
 }
 try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* the browser may still hold its profile for a moment */ }
-console.log('assets/icon.png·drawing.png·template.png, icon.ico·icns, src-tauri/icons/* (drawing.*, template.* 포함), public/icon.png, installer BMPs 생성 완료');
+console.log('assets/icon.png·project.png·template.png, icon.ico·icns, src-tauri/icons/* (project.*, template.* 포함), public/icon.png, installer BMPs 생성 완료');

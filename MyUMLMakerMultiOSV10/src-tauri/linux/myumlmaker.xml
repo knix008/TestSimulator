@@ -4,7 +4,7 @@
     <comment>MyUMLMaker Project</comment>
     <comment xml:lang="ko">MyUMLMaker 프로젝트</comment>
     <icon name="application-x-myumlmaker"/>
-    <glob pattern="*.muml"/>
+    <glob pattern="*.myuml"/>
   </mime-type>
   <mime-type type="application/x-myumlmaker-template">
     <comment>MyUMLMaker Project Template</comment>

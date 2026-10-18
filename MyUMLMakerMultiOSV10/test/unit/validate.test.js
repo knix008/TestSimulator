@@ -59,6 +59,9 @@ function broken() {
   const data = M.insertElement(project, M.createElement('ERDDataModel', { name: 'Data' }));
   const entity = add(data, 'ERDEntity', { name: 'T' });
   add(entity, 'ERDColumn', { name: 'other_id', foreignKey: true });
+  // Requirements: approved but neither satisfied nor verified, and one id twice.
+  add(model, 'SysMLRequirement', { name: 'Fast', id: 'REQ-1', status: 'approved' });
+  add(model, 'SysMLRequirement', { name: 'Safe', id: 'REQ-1' });
   // Diagram without views, and a view pointing nowhere.
   M.addDiagram(project, model._id, 'UMLClassDiagram', { name: 'Empty' });
   const d = M.addDiagram(project, model._id, 'UMLClassDiagram', { name: 'Ghost' });

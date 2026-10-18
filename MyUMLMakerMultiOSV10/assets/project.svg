@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- .muml project icon: a raised 3D page with a folded corner and a small UML class diagram. -->
+  <!-- .myuml project icon: a raised 3D page with a folded corner and a small UML class diagram. -->
   <defs>
     <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
@@ -50,8 +50,8 @@
   <path d="M640 112v144a48 48 0 0 0 48 48h144z" fill="url(#fold)"/>
   <path d="M640 112v144a48 48 0 0 0 48 48h144" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6"/>
   <!-- file type label -->
-  <rect x="242" y="776" width="230" height="76" rx="22" fill="#0b5f6e"/>
-  <text x="357" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">MUML</text>
+  <rect x="217" y="776" width="280" height="76" rx="22" fill="#0b5f6e"/>
+  <text x="357" y="830" font-family="Segoe UI, Arial, sans-serif" font-size="50" font-weight="800" fill="#ffffff" text-anchor="middle">MYUML</text>
   <circle cx="262" cy="186" r="62" fill="url(#spark)" opacity="0.95"/>
   <path d="M262 122l10 52 52 10-52 10-10 52-10-52-52-10 52-10z" fill="#ffffff"/>
 </svg>

@@ -1,4 +1,4 @@
-// The .muml / .mumlt file format and the open project document: saving and
+// The .myuml / .mumlt file format and the open project document: saving and
 // reading back, StarUML projects, refusals, repairs of damaged files, undo and
 // redo, dirty tracking, working diagrams, and the file-name helpers; plus the
 // templates and the sample project.
@@ -9,6 +9,7 @@ import * as M from '../../src/domain/model.js';
 import { ProjectDocument } from '../../src/domain/document.js';
 import { buildSample, buildTemplate, SAMPLE_FILES, TEMPLATES } from '../../src/domain/templates.js';
 import { validate } from '../../src/domain/validate.js';
+import { DIAGRAM_TYPES } from '../../src/domain/meta.js';
 
 const failsWith = (fn, code) => assert.throws(fn, (error) => error instanceof Fm.FormatError && error.code === code, code);
 
@@ -81,7 +82,7 @@ test('the project document: undo, redo, dirty, working diagrams', () => {
   assert.equal(doc.diagram._id, second._id);
   doc.closeDiagram(second._id);
   assert.equal(doc.view.open.length, 1);
-  doc.markSaved('C:/p.muml');
+  doc.markSaved('C:/p.myuml');
   assert.equal(doc.dirty, false);
   assert.ok(doc.text().includes('"format": "myumlmaker"'));
   assert.ok(doc.index.get(doc.project._id), 'the index finds elements');
@@ -106,17 +107,18 @@ test('the sample project covers many kinds of diagrams and is valid', () => {
   for (const language of ['ko', 'en']) {
     const project = buildSample(language);
     const kinds = new Set(M.allDiagrams(project).map((d) => d._type));
-    assert.ok(kinds.size >= 10, `${kinds.size} kinds`);
+    // One finished diagram of every kind the program draws.
+    assert.deepEqual([...kinds].sort(), Object.keys(DIAGRAM_TYPES).sort(), 'a diagram of every kind');
     assert.deepEqual(validate(project), [], 'no problems');
   }
   assert.ok(SAMPLE_FILES.length >= 2);
 });
 
 test('file name helpers', () => {
-  assert.equal(Fm.baseName('C:\\a\\b\\shop.muml'), 'shop.muml');
-  assert.equal(Fm.directoryOf('C:/a/b/shop.muml'), 'C:/a/b');
-  assert.equal(Fm.withExtension('C:/a/shop.mdj', 'muml'), 'C:/a/shop.muml');
-  assert.ok(Fm.isOpenableFileName('x.muml') && Fm.isOpenableFileName('x.MDJ') && !Fm.isOpenableFileName('x.mfj'));
+  assert.equal(Fm.baseName('C:\\a\\b\\shop.myuml'), 'shop.myuml');
+  assert.equal(Fm.directoryOf('C:/a/b/shop.myuml'), 'C:/a/b');
+  assert.equal(Fm.withExtension('C:/a/shop.mdj', 'myuml'), 'C:/a/shop.myuml');
+  assert.ok(Fm.isOpenableFileName('x.myuml') && Fm.isOpenableFileName('x.MDJ') && !Fm.isOpenableFileName('x.mfj'));
   assert.ok(Fm.isFragmentFileName('a.mfj') && Fm.isSourceFileName('A.java') && Fm.isTextModelFileName('d.puml'));
   assert.ok(Fm.isTemplateFileName('t.mumlt'));
 });

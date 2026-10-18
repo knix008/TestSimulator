@@ -57,15 +57,15 @@ export const writeTextFile = (path, content, op) => invoke('write_text_file', { 
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
 const DIAGRAM_FILTERS = () => [
-  { name: 'MyUMLMaker / StarUML (*.muml, *.mumlt, *.mdj)', extensions: ['muml', 'mumlt', 'mdj', 'json'] },
-  { name: 'MyUMLMaker Project (*.muml)', extensions: ['muml'] },
+  { name: 'MyUMLMaker / StarUML (*.myuml, *.mumlt, *.mdj)', extensions: ['myuml', 'mumlt', 'muml', 'mdj', 'json'] },
+  { name: 'MyUMLMaker Project (*.myuml)', extensions: ['myuml'] },
   { name: 'MyUMLMaker Template (*.mumlt)', extensions: ['mumlt'] },
   { name: 'StarUML Project (*.mdj)', extensions: ['mdj'] },
   { name: 'JSON (*.json)', extensions: ['json'] },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
 export const SAVE_TYPES = {
-  muml: { name: 'MyUMLMaker Drawing (*.muml)', extensions: ['muml'] },
+  myuml: { name: 'MyUMLMaker Project (*.myuml)', extensions: ['myuml'] },
   mumlt: { name: 'MyUMLMaker Template (*.mumlt)', extensions: ['mumlt'] },
   mdj: { name: 'StarUML Project (*.mdj)', extensions: ['mdj'] },
   mfj: { name: 'Model Fragment (*.mfj)', extensions: ['mfj'] },
@@ -120,7 +120,7 @@ export async function chooseDataFile(defaultPath) {
   return Array.isArray(result) ? result : [result];
 }
 
-export async function chooseSavePath(defaultPath, types = ['muml']) {
+export async function chooseSavePath(defaultPath, types = ['myuml']) {
   const picked = testPick('__myumlmakerSavePicks');
   if (picked) return picked.value;
   return (await saveDialog({ defaultPath: defaultPath ?? undefined, filters: types.map((type) => SAVE_TYPES[type]) })) ?? null;
@@ -152,7 +152,7 @@ export async function chooseDatabaseFile(defaultPath) {
 }
 /** Connects (creating the plans table if needed) and returns the server version. */
 export const dbTest = (config) => invoke('db_test', { config });
-/** drawing = { id, title, data } (data = the .muml text). */
+/** drawing = { id, title, data } (data = the .myuml text). */
 export const dbSave = (config, plan) => invoke('db_save', { config, plan });
 /** → { id, title, data } or null. */
 export const dbLoad = (config, id) => invoke('db_load', { config, id });
@@ -168,7 +168,7 @@ export const sampleFiles = () => (isDesktop() ? invoke('sample_files') : Promise
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_TYPES = [{ description: 'MyUMLMaker / StarUML', accept: { 'application/json': ['.muml', '.mumlt', '.mdj', '.json'] } }];
+const WEB_TYPES = [{ description: 'MyUMLMaker / StarUML', accept: { 'application/json': ['.myuml', '.mumlt', '.muml', '.mdj', '.json'] } }];
 const isBinaryName = () => false;
 const readContent = async (file) => (isBinaryName(file.name) ? new Uint8Array(await file.arrayBuffer()) : file.text());
 
@@ -187,7 +187,7 @@ export async function pickDiagramFilesWeb() {
       return { name: file.name, content: await readContent(file), handle, size: file.size };
     }));
   }
-  const files = await pickWithInput('.muml,.mumlt,.mdj,.json,application/json', true);
+  const files = await pickWithInput('.myuml,.mumlt,.muml,.mdj,.json,application/json', true);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: await readContent(file), handle: null, size: file.size })));
 }
 

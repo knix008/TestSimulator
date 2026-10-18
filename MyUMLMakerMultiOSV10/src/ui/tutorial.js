@@ -49,8 +49,15 @@ export const STEPS = [
   { id: 'sample', chapter: 'model', target: '#workspace', run: (a) => a.sample() },
   { id: 'explorer', chapter: 'model', target: '#explorer', dwell: 6000, async run(a) { await a.sample(); a.app.run('closeDiagram'); await sleep(200); a.diagram('UMLClassDiagram'); a.explorer()?.reveal(a.element('Order')._id); a.app.selectElements([a.element('Order')._id]); } },
   { id: 'modelView', chapter: 'model', target: '#explorer', dwell: 7000, async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); const order = a.element('Order'); a.app.selectElements([order._id]); a.app.state.rightTab = 'properties'; a.app.renderAll(); } },
-  { id: 'workingDiagrams', chapter: 'model', target: '.diagram-tabs', dwell: 6000, async run(a) { await a.sample(); for (const type of ['UMLUseCaseDiagram', 'UMLSequenceDiagram', 'UMLClassDiagram']) { a.diagram(type); await sleep(700); } } },
-  { id: 'addDiagram', chapter: 'model', target: '[data-diagram-add]', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.popup(() => a.app.run('addDiagram', { anchor: a.app.anchorBelow(q('[data-diagram-add]') ?? q('#toolbar')) }), 'menu'); } },
+  { id: 'workingDiagrams', chapter: 'model', target: '#tabs', dwell: 6000, async run(a) { await a.sample(); for (const type of ['UMLUseCaseDiagram', 'UMLSequenceDiagram', 'UMLClassDiagram']) { a.diagram(type); await sleep(700); } } },
+  { id: 'addDiagram', chapter: 'model', target: '#tabs .tab-add', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.popup(() => a.app.run('addDiagram', { anchor: a.app.anchorBelow(q('#tabs .tab-add') ?? q('#toolbar')) }), 'menu'); } },
+  { id: 'diagramTypes', chapter: 'model', target: '.type-tabs', dwell: 7000, async run(a) {
+    await a.sample(); a.diagram('UMLClassDiagram');
+    for (const [group, type] of [['umlBehavior', 'UMLStatechartDiagram'], ['sysml', 'SysMLRequirementDiagram'], ['umlStructure', 'UMLClassDiagram']]) {
+      q(`[data-type-group="${group}"]`)?.click(); await sleep(600);
+      q(`[data-diagram-type="${type}"]`)?.click(); await sleep(900);
+    }
+  } },
   { id: 'editors', chapter: 'model', target: '#editors', dwell: 6000, async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.selectView('Customer'); for (const tab of ['properties', 'style', 'documentation', 'tags', 'properties']) { a.app.state.rightTab = tab; a.app.renderAll(); await sleep(700); } } },
   // ── drawing
   { id: 'toolbox', chapter: 'draw', target: '#left-panel', dwell: 6000, async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.app.pickTool('UMLClass'); await sleep(900); a.app.setTool(null); } },

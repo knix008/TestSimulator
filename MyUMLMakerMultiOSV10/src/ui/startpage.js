@@ -32,7 +32,7 @@ export function startPageHtml(app) {
     </div>`).join('') : `<div class="start-empty">${icon('info')}<span>${escapeHtml(t('recent.noFolders'))}</span></div>`;
   const samplesHtml = (samples.length ? samples.map((path) => ({ id: path, name: baseName(path), path }))
     : [{ id: 'builtin', name: t('start.sampleBuiltin') }])
-    .filter((item) => !item.path || (item.path.includes(`.${L}.`) && /.(muml|mdj)$/i.test(item.path)))
+    .filter((item) => !item.path || (item.path.includes(`.${L}.`) && /.(myuml|mdj)$/i.test(item.path)))
     .map((item) => `<button class="start-link compact" data-start="${item.path ? 'open-sample' : 'builtin-sample'}" data-value="${escapeHtml(item.path ?? '')}" title="${escapeHtml(item.path ?? item.name)}">${icon('samples')}<span class="name">${escapeHtml(item.name)}</span></button>`).join('');
   const recentBlockHtml = `
             <h2>${icon('recent')}<span>${escapeHtml(t('start.recent'))}</span><span class="grow"></span>${recent.length ? `<button class="small-button danger" data-start="clear-recent" title="${escapeHtml(t('recent.clear'))}">${icon('clearHistory')}<span>${escapeHtml(t('recent.clear'))}</span></button>` : ''}</h2>

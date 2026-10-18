@@ -12,26 +12,29 @@
 //   { kind, type: 'result' | 'action' | 'ready' | 'place' | 'close' | 'hide' | 'drag', data }
 import { emitTo, invoke, isDesktop, listen } from './native.js';
 
-/** Logical size of each popup. Fixed: each fits its content without scrolling. */
+/** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
+ * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
 export const POPUPS = {
-  settings: { width: 1100, height: 640 },
+  settings: { width: 1100, height: 650 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
-  progress: { width: 480, height: 210 },
-  recent: { width: 800, height: 600 },
-  print: { width: 1180, height: 760 },
+  progress: { width: 480, height: 180 },
+  recent: { width: 800, height: 510 },
+  print: { width: 960, height: 760 },
   menu: { width: 300, height: 200 },
   theme: { width: 620, height: 680 },
   welcome: { width: 640, height: 470 },
-  image: { width: 680, height: 450 },
-  database: { width: 800, height: 600 },
-  find: { width: 720, height: 560 },
-  validation: { width: 820, height: 560 },
+  image: { width: 680, height: 380 },
+  database: { width: 800, height: 470 },
+  find: { width: 720, height: 500 },
+  validation: { width: 820, height: 510 },
   codegen: { width: 1080, height: 680 },
   textimport: { width: 820, height: 600 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
+  requirements: { width: 1120, height: 640 },
+  tracematrix: { width: 1120, height: 740 },
 };
 
 export const popupKey = (kind) => `myumlmaker.popup.${kind}`;

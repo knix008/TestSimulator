@@ -210,7 +210,43 @@ export function siblingsIn(owner, type) {
 export function addElement(project, ownerId, type, attrs = {}, { language = 'en', index = null } = {}) {
   const owner = findById(project, ownerId) ?? project;
   const element = createElement(type, attrs, { language, siblings: siblingsIn(owner, type) });
+  numberRequirement(project, element);
   return insertElement(owner, element, index);
+}
+
+// ───────────────────────── requirement ids
+
+/**
+ * The next free requirement id: one more than the highest "REQ-<n>" in the
+ * project, as wide as the widest such number (REQ-001 in a new project).
+ */
+export function nextRequirementId(project, prefix = 'REQ-') {
+  let max = 0;
+  let width = 3;
+  let found = false;
+  const used = new Set();
+  walk(project, (e) => {
+    if (e._type !== 'SysMLRequirement' || !e.id) return;
+    const id = String(e.id).trim();
+    used.add(id);
+    if (!id.startsWith(prefix)) return;
+    const digits = id.slice(prefix.length);
+    if (!/^\d+$/.test(digits)) return;
+    if (!found) { width = digits.length; found = true; } else width = Math.max(width, digits.length);
+    max = Math.max(max, Number(digits));
+  });
+  for (let n = max + 1; ; n += 1) {
+    const id = `${prefix}${String(n).padStart(width, '0')}`;
+    if (!used.has(id)) return id;
+  }
+}
+
+/** Gives a new requirement an id (when it has none) and the project's author. */
+export function numberRequirement(project, element) {
+  if (element?._type !== 'SysMLRequirement') return element;
+  if (!String(element.id ?? '').trim()) element.id = nextRequirementId(project);
+  if (!element.author && project?.author) element.author = project.author;
+  return element;
 }
 
 /** A new project: one model with a class diagram (or the given diagram type). */
@@ -561,7 +597,8 @@ export function findElements(project, query, { matchCase = false, whole = false,
   const norm = (s) => (matchCase ? String(s ?? '') : String(s ?? '').toLowerCase());
   const want = norm(text);
   const hit = (s) => { const v = norm(s); return whole ? v === want || new RegExp(`\\b${want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(v) : v.includes(want); };
-  return elementsWhere(project, (e) => (!types || types.includes(e._type)) && (hit(e.name) || (documentation && hit(e.documentation)) || hit(typeLabel(e._type, language)) || (e.type && typeof e.type === 'string' && hit(e.type))));
+  return elementsWhere(project, (e) => (!types || types.includes(e._type)) && (hit(e.name) || (documentation && hit(e.documentation)) || hit(typeLabel(e._type, language)) || (e.type && typeof e.type === 'string' && hit(e.type))
+    || (e._type === 'SysMLRequirement' && (hit(e.id) || hit(e.text)))));
 }
 
 // ───────────────────────── statistics

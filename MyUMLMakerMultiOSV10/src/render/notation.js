@@ -20,10 +20,10 @@ export const CONTAINER_SHAPES = new Set(['frame', 'diagramFrame', 'fragment', 's
 
 /** Diagram colour schemes (Settings › Diagram). */
 export const DIAGRAM_THEMES = {
-  classic: { background: '#ffffff', fill: '#ffffff', line: '#1f1f1f', color: '#000000', grid: '#e8ebf0' },
-  pastel: { background: '#ffffff', fill: '#fffdf2', line: '#4a4a4a', color: '#1f2937', grid: '#eceff3', fills: { classifier: '#fff7d6', instance: '#e8f4ff', behavior: '#f1ecff', state: '#eaf7ee', activity: '#eaf7ee', interaction: '#f0f6ff', erd: '#fff1e6', flowchart: '#eef6ff', dfd: '#fef2f2', sysml: '#f3f0ff', package: '#f5f5f4', annotation: '#fffbe6' } },
-  blueprint: { background: '#0f3057', fill: '#14406f', line: '#cfe3ff', color: '#ffffff', grid: '#1d4a7c' },
-  dark: { background: '#1e1f24', fill: '#2a2c33', line: '#c9ccd4', color: '#e8eaef', grid: '#2c2e35' },
+  classic: { background: '#ffffff', fill: '#ffffff', line: '#1f1f1f', color: '#000000', grid: '#e9ecf1', gridMajor: '#a9b2bf' },
+  pastel: { background: '#ffffff', fill: '#fffdf2', line: '#4a4a4a', color: '#1f2937', grid: '#eceff3', gridMajor: '#b3bac5', fills: { classifier: '#fff7d6', instance: '#e8f4ff', behavior: '#f1ecff', state: '#eaf7ee', activity: '#eaf7ee', interaction: '#f0f6ff', erd: '#fff1e6', flowchart: '#eef6ff', dfd: '#fef2f2', sysml: '#f3f0ff', package: '#f5f5f4', annotation: '#fffbe6' } },
+  blueprint: { background: '#0f3057', fill: '#14406f', line: '#cfe3ff', color: '#ffffff', grid: '#1a4675', gridMajor: '#4f8cca' },
+  dark: { background: '#1e1f24', fill: '#2a2c33', line: '#c9ccd4', color: '#e8eaef', grid: '#2a2c33', gridMajor: '#535867' },
 };
 
 const NOTE_GROUP = new Set(['annotation']);
@@ -160,7 +160,8 @@ function layoutSequence(ctx) {
   }
   const bottom = Math.max(maxY + MESSAGE_GAP * 2, ...[...lifelines.values()].map((l) => l.top + Math.max(l.view.height || 0, l.headerH + 260)));
   for (const l of lifelines.values()) {
-    l.end = l.destroyed ? l.end : bottom;
+    // A destroyed lifeline ends at its delete message, never above its own header.
+    l.end = l.destroyed ? Math.max(Number(l.end) || 0, l.headTop + l.headerH + 20) : bottom;
     ctx.boxes.set(l.view._id, { x: l.x, y: l.headTop, w: l.w, h: Math.max(l.headerH, l.end - l.headTop) });
   }
   return { lifelines, messages, numbers, bottom };
@@ -455,6 +456,8 @@ function edgeLabels(ctx, view, element) {
     case 'UMLControlFlow': case 'UMLObjectFlow': case 'BPMNSequenceFlow': case 'FCFlow': case 'DFDDataFlow': case 'CloudConnection': out.push({ text: flowText(element), at: 'middle', side: -1 }); break;
     case 'C4Relationship': out.push({ text: element.name ?? '', at: 'middle', side: -1, bold: false }); if (element.technology) out.push({ text: `[${element.technology}]`, at: 'middle', side: 1, small: true }); break;
     case 'UMLExtend': out.push({ text: '«extend»', at: 'middle', side: -1 }); if (element.condition) out.push({ text: `[${element.condition}]`, at: 'middle', side: 1, small: true }); return out;
+    // «flow» and the conveyed information items (or the name).
+    case 'UMLInformationFlow': if (stereo) out.push({ text: stereo, at: 'middle', side: -1 }); if (element.conveyed || element.name) out.push({ text: element.conveyed || element.name, at: 'middle', side: 1 }); return out;
     default:
       if (stereo) out.push({ text: stereo, at: 'middle', side: -1, offset: element.name ? 1 : 0 });
       if (element.name && !def.noName) out.push({ text: element.name, at: 'middle', side: element._type === 'UMLAssociation' && stereo ? 1 : -1 });
@@ -614,8 +617,12 @@ export function diagramBounds(ctx, ids = null) {
     } else {
       const b = nodeBox(ctx, view);
       const def = viewDef(view._type);
-      add(b.x, b.y - (elementOf(ctx, view)?.templateParameters?.length ? 12 : 0));
-      add(b.x + b.w + 4, b.y + b.h + (def.nameOutside || shapeOfView(view) === 'cloudService' ? 34 : 4));
+      const element = elementOf(ctx, view);
+      // A name wider than its symbol (ports, lollipops, events, cloud tiles) is drawn centred below it.
+      const name = element?.name ? ctx.measure(element.name, { fontSize: ctx.fontSize || 13 }) : 0;
+      const over = Math.max(0, (name - b.w) / 2);
+      add(b.x - over, b.y - (element?.templateParameters?.length ? 12 : 0));
+      add(b.x + b.w + 4 + over, b.y + b.h + (def.nameOutside || shapeOfView(view) === 'cloudService' || over > 0 ? 34 : 4));
     }
   }
   if (x0 === Infinity) return { x: 0, y: 0, w: 0, h: 0 };

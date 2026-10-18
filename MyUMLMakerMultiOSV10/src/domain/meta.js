@@ -208,7 +208,18 @@ T('DFDDataStore', '데이터 저장소', 'Data Store', { group: 'dfd', icon: 'df
 T('DFDDataFlow', '데이터 흐름', 'Data Flow', { group: 'dfd', icon: 'umlControlFlow', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'filled' });
 
 // SysML
-T('SysMLRequirement', '요구사항', 'Requirement', { group: 'sysml', icon: 'sysmlRequirement', shape: 'requirement', keyword: 'requirement', fields: [F('id', 'string'), F('text', 'text'), F('risk', 'enum', { options: ['', 'low', 'medium', 'high'] }), F('verifyMethod', 'enum', { options: ['', 'analysis', 'demonstration', 'inspection', 'test'] })] });
+/** Requirement attributes (Enterprise Architect style). */
+export const REQUIREMENT_KINDS = ['functional', 'nonFunctional', 'performance', 'interface', 'usability', 'reliability', 'security', 'designConstraint', 'physical', 'business', 'user'];
+export const REQUIREMENT_STATUSES = ['proposed', 'approved', 'implemented', 'verified', 'rejected', 'deferred'];
+export const REQUIREMENT_PRIORITIES = ['high', 'medium', 'low'];
+export const REQUIREMENT_LEVELS = ['low', 'medium', 'high'];
+export const VERIFY_METHODS = ['analysis', 'demonstration', 'inspection', 'test'];
+T('SysMLRequirement', '요구사항', 'Requirement', {
+  group: 'sysml', icon: 'sysmlRequirement', shape: 'requirement', keyword: 'requirement',
+  fields: [F('id', 'string'), F('text', 'text'), F('kind', 'enum', { options: REQUIREMENT_KINDS, def: 'functional' }), F('status', 'enum', { options: REQUIREMENT_STATUSES, def: 'proposed' }),
+    F('priority', 'enum', { options: REQUIREMENT_PRIORITIES, def: 'medium' }), F('difficulty', 'enum', { options: REQUIREMENT_LEVELS, def: 'medium' }), F('stability', 'enum', { options: REQUIREMENT_LEVELS, def: 'medium' }),
+    F('risk', 'enum', { options: ['', ...REQUIREMENT_LEVELS] }), F('verifyMethod', 'enum', { options: ['', ...VERIFY_METHODS] }), F('version', 'string'), F('author', 'string'), F('phase', 'string')],
+});
 T('SysMLBlock', '블록', 'Block', { group: 'sysml', icon: 'sysmlBlock', shape: 'classifier', keyword: 'block', namespace: true, fields: CLASSIFIER, compartments: ['parts', 'references', 'values', 'attributes', 'operations', 'ports'] });
 T('SysMLInterfaceBlock', '인터페이스 블록', 'Interface Block', { group: 'sysml', icon: 'sysmlBlock', shape: 'classifier', keyword: 'interfaceBlock', fields: CLASSIFIER, compartments: ['attributes', 'operations', 'ports'] });
 T('SysMLValueType', '값 타입', 'Value Type', { group: 'sysml', icon: 'umlDataType', shape: 'classifier', keyword: 'valueType', fields: [...CLASSIFIER, F('unit', 'string'), F('quantityKind', 'string')], compartments: ['attributes'] });
@@ -321,7 +332,7 @@ Dg('AzureDiagram', 'Azure 다이어그램', 'Azure Diagram', 'cloud', 'dgAzure',
 Dg('GCPDiagram', 'GCP 다이어그램', 'GCP Diagram', 'cloud', 'dgGcp', { owner: 'CloudModel', provider: 'gcp' });
 
 /** Types whose new elements get no name (pseudostates, bars, fragments …). */
-export const UNNAMED = new Set(['UMLCombinedFragment', 'UMLInteractionOperand', 'UMLRegion', 'UMLPseudostate', 'UMLFinalState', 'UMLInitialNode', 'UMLActivityFinalNode', 'UMLFlowFinalNode', 'UMLForkNode', 'UMLJoinNode', 'UMLDecisionNode', 'UMLMergeNode', 'UMLEndpoint', 'UMLGate', 'UMLTimeTick', 'BPMNExclusiveGateway', 'BPMNParallelGateway', 'BPMNInclusiveGateway', 'BPMNEventBasedGateway', 'BPMNComplexGateway', 'BPMNStartEvent', 'BPMNEndEvent', 'BPMNIntermediateEvent', 'BPMNBoundaryEvent', 'FCOr', 'FCSummingJunction', 'FCCollate', 'FCSort', 'FCMerge', 'FCExtract', 'UMLInputPin', 'UMLOutputPin']);
+export const UNNAMED = new Set(['UMLSlot', 'UMLCombinedFragment', 'UMLInteractionOperand','UMLRegion', 'UMLPseudostate', 'UMLFinalState', 'UMLInitialNode', 'UMLActivityFinalNode', 'UMLFlowFinalNode', 'UMLForkNode', 'UMLJoinNode', 'UMLDecisionNode', 'UMLMergeNode', 'UMLEndpoint', 'UMLGate', 'UMLTimeTick', 'BPMNExclusiveGateway', 'BPMNParallelGateway', 'BPMNInclusiveGateway', 'BPMNEventBasedGateway', 'BPMNComplexGateway', 'BPMNStartEvent', 'BPMNEndEvent', 'BPMNIntermediateEvent', 'BPMNBoundaryEvent', 'FCOr', 'FCSummingJunction', 'FCCollate', 'FCSort', 'FCMerge', 'FCExtract', 'UMLInputPin', 'UMLOutputPin']);
 
 export const DIAGRAM_FAMILIES = [
   ['uml', 'UML', 'UML'], ['erd', 'ERD', 'ERD'], ['flowchart', '순서도', 'Flowchart'], ['dfd', '데이터 흐름', 'Data Flow'],
@@ -383,6 +394,8 @@ export const CHILD_COLLECTIONS = ['ownedElements', ...new Set(COLLECTION_RULES.m
 export function collectionFor(ownerType, childType) {
   const key = COLLECTION_OF.get(childType);
   if (key === 'vertices' || key === 'transitions') return ownerType === 'UMLRegion' ? key : 'regions';
+  // An interaction use on an interaction overview diagram is a node of its activity.
+  if (childType === 'UMLInteractionUse' && ownerType === 'UMLActivity') return 'nodes';
   if (key) return key;
   return 'ownedElements';
 }

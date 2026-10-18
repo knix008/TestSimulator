@@ -1,5 +1,5 @@
 // npm run samples — writes the sample projects installed with the app into samples/:
-// the Online Shop project in Korean and English (.muml), a StarUML copy of it
+// the Online Shop project in Korean and English (.myuml), a StarUML copy of it
 // (.mdj), a model fragment (.mfj, the domain package), and the class-model
 // template (.mumlt). The StarUML sample of the interop tests (staruml-sample.mdj) stays.
 import fs from 'node:fs';
@@ -17,7 +17,7 @@ const dir = path.join(root, 'samples');
 function sampleFiles() {
   const files = SAMPLE_FILES.map(([name, build]) => [name, () => serialize(build())]);
   for (const language of ['ko', 'en']) {
-    const sample = () => SAMPLE_FILES.find(([name]) => name === `online-shop.${language}.muml`)[1]();
+    const sample = () => SAMPLE_FILES.find(([name]) => name === `online-shop.${language}.myuml`)[1]();
     files.push([`online-shop.${language}.mdj`, () => exportMdj(sample())]);
     files.push([`shop-domain.${language}.mfj`, () => exportFragment(elementsWhere(sample(), (e) => e._type === 'UMLPackage' && e.name === 'domain')[0])]);
     files.push([`class-model.${language}.mumlt`, () => serialize(buildTemplate('classModel', { language }), { template: true })]);
@@ -28,7 +28,7 @@ function sampleFiles() {
 fs.mkdirSync(dir, { recursive: true });
 // Stale samples go first; other files in samples/ stay.
 for (const name of fs.readdirSync(dir)) {
-  if (/\.(muml|mumlt|mfj)$/i.test(name) || /^online-shop\..*\.mdj$/i.test(name)) fs.rmSync(path.join(dir, name));
+  if (/\.(myuml|mumlt|mfj)$/i.test(name) || /^online-shop\..*\.mdj$/i.test(name)) fs.rmSync(path.join(dir, name));
 }
 for (const [name, make] of sampleFiles()) {
   const content = make();

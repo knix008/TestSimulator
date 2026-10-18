@@ -10,7 +10,8 @@ use std::time::Duration;
 pub const CHUNK: usize = 1 << 20;
 
 /// Extensions the app opens: projects, templates, StarUML projects and fragments, JSON.
-pub const DIAGRAM_EXTENSIONS: [&str; 5] = ["muml", "mumlt", "mdj", "mfj", "json"];
+/// "muml" is the extension of version 1.0 projects; they still open.
+pub const DIAGRAM_EXTENSIONS: [&str; 6] = ["myuml", "mumlt", "muml", "mdj", "mfj", "json"];
 
 /// Test hook: `MYUMLMAKER_IO_DELAY_MS` slows every chunk so the progress window can be checked.
 fn chunk_delay() -> Option<Duration> {
@@ -193,7 +194,7 @@ mod tests {
     #[test]
     fn write_then_read_round_trips_and_reports_progress() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("nested").join("plan.muml");
+        let path = dir.path().join("nested").join("plan.myuml");
         let data = "한글 board ".repeat(300_000);
         let mut steps = Vec::new();
         write_with_progress(&path, data.as_bytes(), |done, total| steps.push((done, total))).unwrap();
@@ -208,7 +209,7 @@ mod tests {
     #[test]
     fn atomic_write_leaves_no_temporary_file() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("a.muml");
+        let path = dir.path().join("a.myuml");
         write_with_progress(&path, b"one", |_, _| {}).unwrap();
         write_with_progress(&path, b"two", |_, _| {}).unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"two");
@@ -226,10 +227,10 @@ mod tests {
     #[test]
     fn read_rejects_binary_and_missing_files() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("bin.muml");
+        let path = dir.path().join("bin.myuml");
         fs::write(&path, [0xff, 0xfe, 0x00, 0xc3]).unwrap();
         assert!(read_text(&path, |_, _| {}).is_err());
-        assert!(read_text(&dir.path().join("missing.muml"), |_, _| {}).is_err());
+        assert!(read_text(&dir.path().join("missing.myuml"), |_, _| {}).is_err());
     }
 
     #[test]
@@ -248,7 +249,7 @@ mod tests {
     #[test]
     fn diagram_files_keeps_existing_projects_only() {
         let dir = tempfile::tempdir().unwrap();
-        let plan = dir.path().join("plan.MDG");
+        let plan = dir.path().join("plan.MYUML");
         let text = dir.path().join("notes.txt");
         fs::write(&plan, "{}").unwrap();
         fs::write(&text, "x").unwrap();
@@ -257,7 +258,7 @@ mod tests {
             "--flag".to_string(),
             plan.to_string_lossy().to_string(),
             text.to_string_lossy().to_string(),
-            dir.path().join("gone.muml").to_string_lossy().to_string(),
+            dir.path().join("gone.myuml").to_string_lossy().to_string(),
         ];
         assert_eq!(diagram_files(args), vec![plan]);
     }

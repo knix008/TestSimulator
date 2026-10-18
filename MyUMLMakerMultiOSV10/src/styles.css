@@ -141,7 +141,7 @@ html.is-popup #app { min-width: 0; display: block; }
 #app.no-left.no-right #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 0 68px; }
 /* The start page fills the window whatever the panels are set to (the no-left.no-right rule above is more specific). */
 #app.on-start #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
-#app.on-start .side-panel, #app.on-start .panel-split { display: none; }
+#app.on-start .side-panel, #app.on-start #right-panel, #app.on-start .panel-split { display: none; }
 .side-panel { background: color-mix(in srgb, var(--panel) 100%, transparent); overflow: auto; min-height: 0; scrollbar-width: thin; }
 #left-panel { border-right: 1px solid var(--border); }
 #right-panel { border-left: 1px solid var(--border); }
@@ -672,11 +672,18 @@ kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82
 
 /* print preview */
 .popup-print .popup-body { padding: 0; }
-.print-view { display: grid; grid-template-columns: 540px minmax(0, 1fr); height: 100%; }
-.print-options { padding: 8px 14px; border-right: 1px solid var(--border); overflow: hidden; background: var(--panel); }
+/* A narrow settings column (label above its control) beside the preview, which keeps its size. */
+.print-view { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100%; }
+.print-options { padding: 6px 14px; border-right: 1px solid var(--border); overflow: hidden; background: var(--panel); }
 .print-options .row { min-height: 34px; }
-.print-options .row-label { min-width: 110px; }
-.print-options select { max-width: 150px; }
+.print-options .row:has(> .row-label):not(:has(.switch-wrap)) { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 7px 0; }
+.print-options .row.row:has(> .row-label):has(.switch-wrap) { display: flex; justify-content: space-between; }
+.print-options .row:has(.switch-wrap) .row-control { flex: none; }
+.print-options .row-label { min-width: 0; }
+.print-options .row-control > .segmented { display: flex; width: 100%; }
+.print-options .segmented .segment { flex: 1; justify-content: center; padding: 4px 6px; }
+.print-options select, .print-options input[type="text"] { width: 100%; max-width: none; }
+.print-options .row .muted { white-space: normal; }
 .print-options .stepper .stepper-value { width: 54px; }
 .radio-row { justify-content: flex-start; cursor: pointer; }
 .radio-row span { display: inline-flex; align-items: center; gap: 6px; }
@@ -810,8 +817,8 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--a
   .tool-tile:hover:not(:disabled) { transform: none; }
 }
 
-/* Tab strips: "<" ">" always sit at the right end; they light up when the tabs overflow. */
-.tab-nav { display: inline-flex; border-left-color: var(--hairline); }
+/* Diagram tabs: "<" ">" appear at the right end when the tabs do not fit. */
+.tab-nav { border-left-color: var(--hairline); }
 .tabs { align-items: flex-end; gap: 6px; }
 .tabs-strip { display: flex; gap: 2px; flex: 1; min-width: 0; overflow: hidden; }
 .tabs .tab { flex: none; white-space: nowrap; }
@@ -1090,8 +1097,10 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .stencil-ghost svg { width: 100%; height: 100%; }
 
 /* ───────────────────────── MyUMLMaker: diagram canvas */
-.canvas-host .canvas-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
-.canvas-host .canvas-scroll { grid-area: 1 / 1; }
+.canvas-host .canvas-view.no-rulers .canvas-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.canvas-host .canvas-view.no-rulers .canvas-scroll { grid-area: 1 / 1; }
+.canvas-host .ruler { width: 100%; height: 100%; cursor: default; }
+.canvas-host .ruler-corner svg { width: 14px; height: 14px; }
 .canvas-svg .node-view, .canvas-svg .edge-view { cursor: default; }
 .canvas-svg .edge-view .hit { cursor: pointer; }
 #app[data-tool="node"] .canvas-scroll, #app[data-tool="node"] .canvas-svg .node-view { cursor: crosshair; }
@@ -1193,6 +1202,10 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 
 /* ───────────────────────── popups: find, validation, code generation, text import */
 .result-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; overflow: auto; max-height: 360px; }
+/* Find: the results take the rest of the popup and scroll there (the rows above stay in view). */
+.find-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.find-editor > .row { flex: none; }
+.find-editor > .result-list { flex: 1; min-height: 0; max-height: none; }
 .result-row { display: grid; grid-template-columns: 18px auto minmax(0, 1fr); gap: 8px; align-items: center; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
 .result-row:hover:not(:disabled) { border-color: var(--accent); }
 .result-row .icon { width: 16px; height: 16px; color: var(--accent); }
@@ -1216,3 +1229,40 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .text-import { display: flex; flex-direction: column; height: 100%; }
 .text-import .code-input { flex: 1; min-height: 300px; width: 100%; box-sizing: border-box; resize: none; font-family: "Cascadia Mono", Consolas, "D2Coding", monospace; font-size: 12.5px; line-height: 1.45; }
 .text-import .small-button { margin-right: 4px; }
+
+/* ───────────────────────── diagram-type tabs (groups, then the types of a group) */
+.type-tabs { flex: none; display: flex; flex-direction: column; background: var(--panel); border-bottom: 1px solid var(--border); min-width: 0; }
+.type-tabs[hidden] { display: none; }
+/* Each row is one line; when its tabs do not fit, ‹ › at the right end scroll it (also the mouse wheel). */
+.type-row { display: flex; align-items: stretch; min-width: 0; }
+.type-row.types { background: var(--surface); border-top: 1px solid var(--border); }
+.type-strip { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 2px; padding: 3px 6px 0; flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.type-strip::-webkit-scrollbar { display: none; }
+.type-list { padding: 3px 6px; }
+.type-nav { display: none; align-items: center; gap: 2px; flex: none; padding: 0 6px; border-left: 1px solid var(--hairline, var(--border)); }
+.type-row.overflow .type-nav { display: inline-flex; }
+.type-scroll { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.type-scroll:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.type-scroll:disabled { opacity: 0.35; cursor: default; }
+.type-scroll svg { width: 16px; height: 16px; }
+.type-family, .type-tab, .type-add { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 3px 8px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; white-space: nowrap; font: inherit; }
+.type-family { border-radius: 8px 8px 0 0; border-bottom: 0; }
+.type-family.has { color: var(--text); }
+.type-family:hover, .type-tab:hover, .type-add:hover { background: var(--hover); }
+.type-family.active { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 600; margin-bottom: -1px; box-shadow: inset 0 2px 0 var(--accent); }
+.type-tab { border-radius: 7px; }
+.type-tab.active { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--text); font-weight: 600; }
+.type-family svg, .type-tab svg, .type-add svg { width: 16px; height: 16px; flex: none; }
+.type-count { min-width: 16px; padding: 0 5px; border-radius: 8px; background: var(--hover); color: var(--muted); font-size: 0.82em; font-weight: 600; text-align: center; }
+.type-tab.active .type-count { background: var(--accent); color: var(--accent-text, #fff); }
+.type-add { border-radius: 7px; padding: 4px 7px; }
+
+/* ───────────────────────── tab bar: the project, then a tab per diagram */
+#tabs[hidden] { display: none; }
+.tab-project { display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 240px; padding: 4px 10px 4px 4px; margin-right: 4px; border-right: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; }
+.tab-project .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-project .icon, .tab-project svg { width: 16px; height: 16px; flex: none; }
+.tab-project.dirty .tab-dirty { display: inline; }
+
+/* Settings: a long label (English) wraps onto a second line instead of being cut off. */
+.popup-settings .row-label > span { white-space: normal; line-height: 1.25; }

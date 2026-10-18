@@ -39,7 +39,7 @@ function literalKeys() {
   for (const match of text.matchAll(/'([a-z][a-zA-Z]*\.[a-zA-Z0-9_.]+)'/g)) {
     const key = match[1];
     if (!NAMESPACES.includes(key.split('.')[0])) continue;
-    if (/\.(js|css|png|svg|html|json|mjs|muml|mumlt|mdj|mfj|xml|csv|md|ico|pdf|zip|sql)$/.test(key)) continue;
+    if (/\.(js|css|png|svg|html|json|mjs|myuml|mumlt|mdj|mfj|xml|csv|md|ico|pdf|zip|sql)$/.test(key)) continue;
     keys.add(key);
   }
   return keys;

@@ -96,8 +96,11 @@ export class Page {
 
   async realClick(x, y, options = {}) {
     await this.mouse('mouseMoved', x, y, { ...options, button: 'none' });
-    await this.mouse('mousePressed', x, y, options);
-    await this.mouse('mouseReleased', x, y, options);
+    // A double click is two presses (counts 1 and 2), as a real mouse sends it.
+    for (let count = 1; count <= (options.clickCount ?? 1); count++) {
+      await this.mouse('mousePressed', x, y, { ...options, clickCount: count });
+      await this.mouse('mouseReleased', x, y, { ...options, clickCount: count });
+    }
   }
 
   /** Real pointer drag from one point to another in small steps. */

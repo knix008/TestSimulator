@@ -69,17 +69,21 @@ export const cases = [
     assert.ok(await W(app, 'api.diagram().ownedViews.length >= 4'));
     await noError(app, 'template');
   } },
-  { group: '창', name: '도구 상자·모델 탐색기·편집기·작업 다이어그램 탭', async run(app) {
+  { group: '창', name: '도구 상자·모델 탐색기·편집기·프로젝트 이름과 다이어그램 탭', async run(app) {
     await freshSample(app);
     const info = await app.main.eval(`({
       tools: document.querySelectorAll('#left-panel .tool-item[data-tool]').length,
       tree: document.querySelectorAll('#explorer .tree-row').length,
       editorTabs: document.querySelectorAll('#editor-tabs .editor-tab').length,
-      diagramTab: document.querySelector('.diagram-tabs .page-tab.active')?.textContent.trim(),
+      diagramTab: document.querySelector('#tabs .tab[data-diagram-tab].active')?.textContent.trim(),
+      diagramTabs: document.querySelectorAll('#tabs .tab[data-diagram-tab]').length,
+      project: document.querySelector('#tabs .tab-project .tab-name')?.textContent,
       views: document.querySelectorAll('.canvas-svg [data-view]').length,
     })`);
     assert.ok(info.tools > 20 && info.tree > 3 && info.editorTabs === 4 && info.views > 10, JSON.stringify(info));
     assert.ok(info.diagramTab, 'the open diagram has a tab');
+    assert.equal(info.diagramTabs, await W(app, 'M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).length'), 'a tab per diagram');
+    assert.ok(info.project, 'the project name before the diagram tabs');
   } },
   { group: '다이어그램', name: '클래스를 누르면 선택·탐색기에서 선택·속성 표시 (실제 마우스)', async run(app) {
     await freshSample(app);
@@ -337,9 +341,9 @@ export const cases = [
     await freshProject(app, 'classModel');
     await W(app, `(w.run('generateCode'), 1)`);
     await app.waitFrame('codegen', `document.querySelector('.code-preview')?.textContent.includes('class ')`);
-    assert.match(await app.frame('codegen', `document.querySelector('.code-preview').textContent`), /public (abstract )?class \w+/);
+    assert.match(await app.frame('codegen', `document.querySelector('.code-preview').textContent`), /public (abstract )?class \S+/);
     await app.frame('codegen', `(() => { const s = document.querySelector('[data-draft-select="language"]'); s.value = 'python'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
-    await app.waitFrame('codegen', `/^class \\w+/m.test(document.querySelector('.code-preview')?.textContent ?? '')`);
+    await app.waitFrame('codegen', `/^class \\S+/m.test(document.querySelector('.code-preview')?.textContent ?? '')`);
     await closeFrames(app);
   } },
   { group: '모델 도구', name: '역공학: Java 소스 → 클래스·상속·연관과 다이어그램', async run(app) {
@@ -371,14 +375,14 @@ export const cases = [
       await new Promise((r) => setTimeout(r, 800));
       return 1;
     })()`);
-    assert.equal(await W(app, 'w.state.docs.length'), 2, 'the StarUML project opened in a new tab');
+    assert.equal(await W(app, 'w.state.docs.length'), 1, 'the StarUML project replaced the current one (one project at a time)');
     assert.ok(await W(app, 'M.allDiagrams(a.activeDoc().project).length >= 2'));
     await noError(app, 'drop');
   } },
   { group: '파일', name: '저장 텍스트를 다시 열면 같은 프로젝트', async run(app) {
     await freshSample(app);
     const text = await W(app, 'a.activeDoc().text()');
-    await W(app, `(a.openContent('copy.muml', ${JSON.stringify(await W(app, 'a.activeDoc().text()'))}), 1)`);
+    await W(app, `(a.openContent('copy.myuml', ${JSON.stringify(await W(app, 'a.activeDoc().text()'))}), 1)`);
     await sleep(300);
     const again = await W(app, 'a.activeDoc().text()');
     assert.equal(JSON.parse(again).project._id, JSON.parse(text).project._id);

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- .muml projects and .mumlt templates use their own document icons (bundle resources drawing.icns, template.icns). -->
+  <!-- .myuml projects and .mumlt templates use their own document icons (bundle resources project.icns, template.icns). -->
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
@@ -12,10 +12,10 @@
       <string>Editor</string>
       <key>CFBundleTypeExtensions</key>
       <array>
-        <string>muml</string>
+        <string>myuml</string>
       </array>
       <key>CFBundleTypeIconFile</key>
-      <string>drawing.icns</string>
+      <string>project.icns</string>
       <key>LSHandlerRank</key>
       <string>Owner</string>
       <key>LSItemContentTypes</key>
@@ -55,12 +55,12 @@
         <string>public.data</string>
       </array>
       <key>UTTypeIconFile</key>
-      <string>drawing.icns</string>
+      <string>project.icns</string>
       <key>UTTypeTagSpecification</key>
       <dict>
         <key>public.filename-extension</key>
         <array>
-          <string>muml</string>
+          <string>myuml</string>
         </array>
         <key>public.mime-type</key>
         <string>application/x-myumlmaker</string>

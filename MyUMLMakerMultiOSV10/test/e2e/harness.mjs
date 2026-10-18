@@ -49,7 +49,7 @@ export class App {
     for (const dir of [this.files, this.profile, this.config, this.data]) fs.mkdirSync(dir, { recursive: true });
     if (!(await portOpen(DEV_PORT))) {
       const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js');
-      this.vite = spawn(process.execPath, [vite, '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
+      this.vite = spawn(process.execPath, [vite, '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore', env: { ...process.env, MYUMLMAKER_NO_HMR: '1' } });
       for (let i = 0; i < 150 && !(await portOpen(DEV_PORT)); i++) await sleep(100);
     }
     await this.warmUp();

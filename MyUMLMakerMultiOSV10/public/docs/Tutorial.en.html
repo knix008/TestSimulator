@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyUMLMaker scripts/build-docs.mjs" />
+<title>MyUMLMaker tutorial</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyUMLMaker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko">한국어</a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#running-the-tutorial">Running the tutorial</a></li><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-start">1. Start</a></li><li class="h3"><a href="#1-welcome-to-myumlmaker">1. Welcome to MyUMLMaker</a></li><li class="h3"><a href="#2-the-home-button">2. The Home button</a></li><li class="h3"><a href="#3-creating-a-project">3. Creating a project</a></li><li class="h3"><a href="#4-recent-files-and-folders">4. Recent files and folders</a></li><li class="h3"><a href="#5-moving-background">5. Moving background</a></li><li class="h2"><a href="#2-the-model">2. The model</a></li><li class="h3"><a href="#6-the-sample-project">6. The sample project</a></li><li class="h3"><a href="#7-the-model-explorer">7. The Model Explorer</a></li><li class="h3"><a href="#8-model-and-views">8. Model and views</a></li><li class="h3"><a href="#9-diagram-tabs">9. Diagram tabs</a></li><li class="h3"><a href="#10-adding-diagrams">10. Adding diagrams</a></li><li class="h3"><a href="#11-diagram-type-tabs">11. Diagram type tabs</a></li><li class="h3"><a href="#12-the-editors">12. The editors</a></li><li class="h2"><a href="#3-drawing">3. Drawing</a></li><li class="h3"><a href="#13-the-toolbox">13. The Toolbox</a></li><li class="h3"><a href="#14-creating-elements">14. Creating elements</a></li><li class="h3"><a href="#15-quick-edit">15. Quick edit</a></li><li class="h3"><a href="#16-quick-buttons">16. Quick buttons</a></li><li class="h3"><a href="#17-relationships">17. Relationships</a></li><li class="h3"><a href="#18-adding-related-elements">18. Adding related elements</a></li><li class="h3"><a href="#19-moving-and-resizing">19. Moving and resizing</a></li><li class="h3"><a href="#20-drag-from-the-explorer">20. Drag from the explorer</a></li><li class="h3"><a href="#21-deleting">21. Deleting</a></li><li class="h3"><a href="#22-undo-and-redo">22. Undo and redo</a></li><li class="h2"><a href="#4-kinds-of-diagrams">4. Kinds of diagrams</a></li><li class="h3"><a href="#23-use-case-diagram">23. Use case diagram</a></li><li class="h3"><a href="#24-sequence-diagram">24. Sequence diagram</a></li><li class="h3"><a href="#25-combined-fragments">25. Combined fragments</a></li><li class="h3"><a href="#26-statechart-diagram">26. Statechart diagram</a></li><li class="h3"><a href="#27-activity-diagram">27. Activity diagram</a></li><li class="h3"><a href="#28-component-diagram">28. Component diagram</a></li><li class="h3"><a href="#29-deployment-diagram">29. Deployment diagram</a></li><li class="h3"><a href="#30-er-diagram">30. ER diagram</a></li><li class="h3"><a href="#31-more-diagrams">31. More diagrams</a></li><li class="h2"><a href="#5-format--arrange">5. Format &amp; arrange</a></li><li class="h3"><a href="#32-style">32. Style</a></li><li class="h3"><a href="#33-colours">33. Colours</a></li><li class="h3"><a href="#34-line-styles">34. Line styles</a></li><li class="h3"><a href="#35-align-and-distribute">35. Align and distribute</a></li><li class="h3"><a href="#36-auto-layout">36. Auto layout</a></li><li class="h3"><a href="#37-zoom-and-pan">37. Zoom and pan</a></li><li class="h2"><a href="#6-model-tools">6. Model tools</a></li><li class="h3"><a href="#38-model-validation">38. Model validation</a></li><li class="h3"><a href="#39-find">39. Find</a></li><li class="h3"><a href="#40-code-generation">40. Code generation</a></li><li class="h3"><a href="#41-reverse-engineering">41. Reverse engineering</a></li><li class="h3"><a href="#42-mermaid--plantuml-import">42. Mermaid &amp; PlantUML import</a></li><li class="h2"><a href="#7-files--export">7. Files &amp; export</a></li><li class="h3"><a href="#43-saving">43. Saving</a></li><li class="h3"><a href="#44-the-file-menu">44. The File menu</a></li><li class="h3"><a href="#45-exporting-pictures">45. Exporting pictures</a></li><li class="h3"><a href="#46-docs-and-other-formats">46. Docs and other formats</a></li><li class="h3"><a href="#47-staruml-compatibility">47. StarUML compatibility</a></li><li class="h3"><a href="#48-printing-and-preview">48. Printing and preview</a></li><li class="h2"><a href="#8-customizing">8. Customizing</a></li><li class="h3"><a href="#49-themes">49. Themes</a></li><li class="h3"><a href="#50-diagram-colours">50. Diagram colours</a></li><li class="h3"><a href="#51-language">51. Language</a></li><li class="h3"><a href="#52-collapsing-panels">52. Collapsing panels</a></li><li class="h3"><a href="#53-settings">53. Settings</a></li><li class="h2"><a href="#9-help">9. Help</a></li><li class="h3"><a href="#54-presentation-mode">54. Presentation mode</a></li><li class="h3"><a href="#55-keyboard-shortcuts">55. Keyboard shortcuts</a></li><li class="h3"><a href="#56-about">56. About</a></li><li class="h3"><a href="#57-reading-the-tutorial-document">57. Reading the tutorial document</a></li><li class="h3"><a href="#58-thats-the-tour">58. That&#39;s the tour</a></li></ul></nav>
+<main>
+<h1 id="myumlmaker-tutorial">MyUMLMaker tutorial</h1>
+<p>This document follows the in-app <strong>Tutorial</strong> step by step, with a screenshot of each step taken from the real app (<code>npm run tutorial:docs</code> makes them again).</p>
+<h2 id="running-the-tutorial">Running the tutorial <a class="anchor" href="#running-the-tutorial" aria-hidden="true">#</a></h2>
+<ul><li><strong>Start page › Start tutorial</strong>, the <strong>Tutorial</strong> toolbar button, <strong>Help › Tutorial</strong> or <strong>F11</strong>.</li><li>In the card: <strong>Next / Previous</strong> one step at a time, <strong>Auto play</strong> to the end, the chapter list to jump to a chapter, <strong>✕</strong> or <strong>Esc</strong> to stop at any time.</li><li>The tutorial works only in its own sample tab. Your open drawings are not changed, and the theme, language and view settings it changes are put back when it ends.</li><li>A recording of the whole tour: <code>MyUMLMaker-Tutorial.mp4</code> in the project root.</li></ul>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li><a href="#1-start">Start</a></li><li><a href="#2-the-model">The model</a></li><li><a href="#3-drawing">Drawing</a></li><li><a href="#4-kinds-of-diagrams">Kinds of diagrams</a></li><li><a href="#5-format--arrange">Format &amp; arrange</a></li><li><a href="#6-model-tools">Model tools</a></li><li><a href="#7-files--export">Files &amp; export</a></li><li><a href="#8-customizing">Customizing</a></li><li><a href="#9-help">Help</a></li></ol>
+<h2 id="1-start">1. Start <a class="anchor" href="#1-start" aria-hidden="true">#</a></h2>
+<h3 id="1-welcome-to-myumlmaker">1. Welcome to MyUMLMaker <a class="anchor" href="#1-welcome-to-myumlmaker" aria-hidden="true">#</a></h3>
+<p>This tutorial shows every feature of MyUMLMaker with a sample project. Press Next (or auto play). Your files are not touched, and settings it changes are put back at the end.</p>
+<p><img src="tutorial/images/01-welcome.jpg" alt="Welcome to MyUMLMaker" loading="lazy" /></p>
+<h3 id="2-the-home-button">2. The Home button <a class="anchor" href="#2-the-home-button" aria-hidden="true">#</a></h3>
+<p>The Home button at the start of the menu bar (or Ctrl+Shift+H) brings you back here at any time. Open projects stay in their tabs.</p>
+<p><img src="tutorial/images/02-home.jpg" alt="The Home button" loading="lazy" /></p>
+<h3 id="3-creating-a-project">3. Creating a project <a class="anchor" href="#3-creating-a-project" aria-hidden="true">#</a></h3>
+<p>Start blank or from a class, use case, sequence, state, activity, component, deployment, ER, flowchart, data flow, SysML, BPMN, C4, mind map, wireframe or AWS template. You can also open StarUML projects (.mdj) or reverse engineer source code.</p>
+<p><img src="tutorial/images/03-templates.jpg" alt="Creating a project" loading="lazy" /></p>
+<h3 id="4-recent-files-and-folders">4. Recent files and folders <a class="anchor" href="#4-recent-files-and-folders" aria-hidden="true">#</a></h3>
+<p>The last 10 files and 10 folders are remembered. ✕ removes one entry, &quot;Clear all&quot; removes them all. The File menu manages them too.</p>
+<p><img src="tutorial/images/04-recent.jpg" alt="Recent files and folders" loading="lazy" /></p>
+<h3 id="5-moving-background">5. Moving background <a class="anchor" href="#5-moving-background" aria-hidden="true">#</a></h3>
+<p>The start page background keeps moving. Pick one of many, shuffle, or change the speed. You can also use a picture.</p>
+<p><img src="tutorial/images/05-background.jpg" alt="Moving background" loading="lazy" /></p>
+<h2 id="2-the-model">2. The model <a class="anchor" href="#2-the-model" aria-hidden="true">#</a></h2>
+<h3 id="6-the-sample-project">6. The sample project <a class="anchor" href="#6-the-sample-project" aria-hidden="true">#</a></h3>
+<p>This is the Online Shop sample. Left: the Toolbox. Centre: the diagram with the working-diagram tabs. Top right: the Model Explorer. Bottom right: the editors (properties, style, documentation, tags).</p>
+<p><img src="tutorial/images/06-sample.jpg" alt="The sample project" loading="lazy" /></p>
+<h3 id="7-the-model-explorer">7. The Model Explorer <a class="anchor" href="#7-the-model-explorer" aria-hidden="true">#</a></h3>
+<p>Every element of the project is in this tree: models, packages, classes with their attributes and operations, relationships, diagrams. Drag to move into another package, F2 to rename, right-click to add elements or diagrams.</p>
+<p><img src="tutorial/images/07-explorer.jpg" alt="The Model Explorer" loading="lazy" /></p>
+<h3 id="8-model-and-views">8. Model and views <a class="anchor" href="#8-model-and-views" aria-hidden="true">#</a></h3>
+<p>A box on a diagram is a &quot;view&quot; of a model element. The same element can be shown on many diagrams, and renaming it changes it everywhere. Delete removes it from the diagram only; Ctrl+Delete removes it from the model.</p>
+<p><img src="tutorial/images/08-modelView.jpg" alt="Model and views" loading="lazy" /></p>
+<h3 id="9-diagram-tabs">9. Diagram tabs <a class="anchor" href="#9-diagram-tabs" aria-hidden="true">#</a></h3>
+<p>Every diagram of the project has a tab at the top. Click a tab or use Ctrl+Tab, Ctrl+PageUp/PageDown; when there are many, ‹ › scroll them. Double-click a tab to rename it. One project is open at a time.</p>
+<p><img src="tutorial/images/09-workingDiagrams.jpg" alt="Diagram tabs" loading="lazy" /></p>
+<h3 id="10-adding-diagrams">10. Adding diagrams <a class="anchor" href="#10-adding-diagrams" aria-hidden="true">#</a></h3>
+<p>Add any of the 15 UML diagrams, ERD, flowchart, DFD, four SysML diagrams, BPMN, C4, mind map, wireframe, AWS, Azure and GCP. Sequence diagrams go into an interaction, statecharts into a state machine automatically.</p>
+<p><img src="tutorial/images/10-addDiagram.jpg" alt="Adding diagrams" loading="lazy" /></p>
+<h3 id="11-diagram-type-tabs">11. Diagram type tabs <a class="anchor" href="#11-diagram-type-tabs" aria-hidden="true">#</a></h3>
+<p>Pick a group in the upper row (UML Structure, UML Behavior, ER, SysML, BPMN …) and a type in the lower row. Its diagram opens (a new one when there is none) and the Toolbox shows just the tools that diagram needs. The number is how many diagrams of that type there are.</p>
+<p><img src="tutorial/images/11-diagramTypes.jpg" alt="Diagram type tabs" loading="lazy" /></p>
+<h3 id="12-the-editors">12. The editors <a class="anchor" href="#12-the-editors" aria-hidden="true">#</a></h3>
+<p>Edit the selected element’s properties (visibility, types, multiplicities, relationship ends …), the view style, documentation, and tags &amp; constraints. Every change is one undo step.</p>
+<p><img src="tutorial/images/12-editors.jpg" alt="The editors" loading="lazy" /></p>
+<h2 id="3-drawing">3. Drawing <a class="anchor" href="#3-drawing" aria-hidden="true">#</a></h2>
+<h3 id="13-the-toolbox">13. The Toolbox <a class="anchor" href="#13-the-toolbox" aria-hidden="true">#</a></h3>
+<p>It shows the tools of the current kind of diagram. Pick a tool, then click or drag on the diagram; drag relationship tools from one element to another. Hold Shift to keep the tool.</p>
+<p><img src="tutorial/images/13-toolbox.jpg" alt="The Toolbox" loading="lazy" /></p>
+<h3 id="14-creating-elements">14. Creating elements <a class="anchor" href="#14-creating-elements" aria-hidden="true">#</a></h3>
+<p>A new class is ready for its name. You can also drag a tool onto the diagram, or double-click an empty spot for a menu of elements to add there.</p>
+<p><img src="tutorial/images/14-createClass.jpg" alt="Creating elements" loading="lazy" /></p>
+<h3 id="15-quick-edit">15. Quick edit <a class="anchor" href="#15-quick-edit" aria-hidden="true">#</a></h3>
+<p>Double-click a class to edit its name, attributes and operations as text. Write UML notation such as &quot;+name: String = 1&quot; or &quot;+getName(): String {query}&quot; and visibility, types, defaults and parameters are filled in.</p>
+<p><img src="tutorial/images/15-quickEdit.jpg" alt="Quick edit" loading="lazy" /></p>
+<h3 id="16-quick-buttons">16. Quick buttons <a class="anchor" href="#16-quick-buttons" aria-hidden="true">#</a></h3>
+<p>Buttons under the selected element add attributes, operations, literals or columns, and create related elements (subclass, associated class, interface …) together with the relationship.</p>
+<p><img src="tutorial/images/16-quickButtons.jpg" alt="Quick buttons" loading="lazy" /></p>
+<h3 id="17-relationships">17. Relationships <a class="anchor" href="#17-relationships" aria-hidden="true">#</a></h3>
+<p>Association, directed, aggregation, composition, dependency, generalization, interface realization …. Select a line to move its ends to other elements, drag its middle to bend it, double-click a bend point to remove it.</p>
+<p><img src="tutorial/images/17-relationships.jpg" alt="Relationships" loading="lazy" /></p>
+<h3 id="18-adding-related-elements">18. Adding related elements <a class="anchor" href="#18-adding-related-elements" aria-hidden="true">#</a></h3>
+<p>Create a superclass, subclass, associated or composite class, realized interface, included use case, next state, next action and more in one step.</p>
+<p><img src="tutorial/images/18-addRelated.jpg" alt="Adding related elements" loading="lazy" /></p>
+<h3 id="19-moving-and-resizing">19. Moving and resizing <a class="anchor" href="#19-moving-and-resizing" aria-hidden="true">#</a></h3>
+<p>Drag to move, use the handles to resize. Positions snap to the grid (Alt turns it off), and containers such as packages carry what is inside. Dropping an element into a package moves it there in the model too.</p>
+<p><img src="tutorial/images/19-moveResize.jpg" alt="Moving and resizing" loading="lazy" /></p>
+<h3 id="20-drag-from-the-explorer">20. Drag from the explorer <a class="anchor" href="#20-drag-from-the-explorer" aria-hidden="true">#</a></h3>
+<p>Drag an element from the Model Explorer onto a diagram to show it there, with its relationships to elements already shown. On a sequence diagram a class becomes a lifeline.</p>
+<p><img src="tutorial/images/20-dragFromExplorer.jpg" alt="Drag from the explorer" loading="lazy" /></p>
+<h3 id="21-deleting">21. Deleting <a class="anchor" href="#21-deleting" aria-hidden="true">#</a></h3>
+<p>Delete removes the view only; the element stays in the model. Ctrl+Delete (Delete from model) removes the element, all its views and the relationships that need it.</p>
+<p><img src="tutorial/images/21-deleteModel.jpg" alt="Deleting" loading="lazy" /></p>
+<h3 id="22-undo-and-redo">22. Undo and redo <a class="anchor" href="#22-undo-and-redo" aria-hidden="true">#</a></h3>
+<p>Every edit can be undone (Ctrl+Z) and redone (Ctrl+Y).</p>
+<p><img src="tutorial/images/22-undo.jpg" alt="Undo and redo" loading="lazy" /></p>
+<h2 id="4-kinds-of-diagrams">4. Kinds of diagrams <a class="anchor" href="#4-kinds-of-diagrams" aria-hidden="true">#</a></h2>
+<h3 id="23-use-case-diagram">23. Use case diagram <a class="anchor" href="#23-use-case-diagram" aria-hidden="true">#</a></h3>
+<p>Actors, use cases, subject, with association, «include», «extend» and generalization.</p>
+<p><img src="tutorial/images/23-useCase.jpg" alt="Use case diagram" loading="lazy" /></p>
+<h3 id="24-sequence-diagram">24. Sequence diagram <a class="anchor" href="#24-sequence-diagram" aria-hidden="true">#</a></h3>
+<p>Draw synchronous, asynchronous, reply, create and delete messages between lifelines; numbers and activation bars appear automatically. Drag a message up or down to change the order.</p>
+<p><img src="tutorial/images/24-sequence.jpg" alt="Sequence diagram" loading="lazy" /></p>
+<h3 id="25-combined-fragments">25. Combined fragments <a class="anchor" href="#25-combined-fragments" aria-hidden="true">#</a></h3>
+<p>Twelve combined fragments (alt, opt, loop, par, break, critical …), interaction uses (ref), state invariants, continuations, endpoints and gates.</p>
+<p><img src="tutorial/images/25-fragments.jpg" alt="Combined fragments" loading="lazy" /></p>
+<h3 id="26-statechart-diagram">26. Statechart diagram <a class="anchor" href="#26-statechart-diagram" aria-hidden="true">#</a></h3>
+<p>States with entry/do/exit activities, composite states, initial, final, choice, junction, fork, join and history pseudostates, and &quot;trigger [guard] / effect&quot; transitions.</p>
+<p><img src="tutorial/images/26-stateMachine.jpg" alt="Statechart diagram" loading="lazy" /></p>
+<h3 id="27-activity-diagram">27. Activity diagram <a class="anchor" href="#27-activity-diagram" aria-hidden="true">#</a></h3>
+<p>Actions, signals, time events, decision, merge, fork and join, object nodes and pins, swimlanes (partitions), structured, expansion and interruptible regions.</p>
+<p><img src="tutorial/images/27-activity.jpg" alt="Activity diagram" loading="lazy" /></p>
+<h3 id="28-component-diagram">28. Component diagram <a class="anchor" href="#28-component-diagram" aria-hidden="true">#</a></h3>
+<p>Components, interfaces (lollipop icon), ports and artifacts with provided / required interfaces and assembly / delegation connectors.</p>
+<p><img src="tutorial/images/28-component.jpg" alt="Component diagram" loading="lazy" /></p>
+<h3 id="29-deployment-diagram">29. Deployment diagram <a class="anchor" href="#29-deployment-diagram" aria-hidden="true">#</a></h3>
+<p>Deploy artifacts on nodes, devices and execution environments, linked by communication paths.</p>
+<p><img src="tutorial/images/29-deployment.jpg" alt="Deployment diagram" loading="lazy" /></p>
+<h3 id="30-er-diagram">30. ER diagram <a class="anchor" href="#30-er-diagram" aria-hidden="true">#</a></h3>
+<p>Entities with columns (PK, FK, type, length) and crow’s-foot relationships. Tools › Generate SQL DDL writes MySQL, PostgreSQL, SQLite, SQL Server or Oracle scripts.</p>
+<p><img src="tutorial/images/30-erd.jpg" alt="ER diagram" loading="lazy" /></p>
+<h3 id="31-more-diagrams">31. More diagrams <a class="anchor" href="#31-more-diagrams" aria-hidden="true">#</a></h3>
+<p>Flowcharts, data flow, SysML, BPMN, C4, mind maps, wireframes and AWS / Azure / GCP cloud diagrams work the same way.</p>
+<p><img src="tutorial/images/31-others.jpg" alt="More diagrams" loading="lazy" /></p>
+<h2 id="5-format--arrange">5. Format &amp; arrange <a class="anchor" href="#5-format--arrange" aria-hidden="true">#</a></h2>
+<h3 id="32-style">32. Style <a class="anchor" href="#32-style" aria-hidden="true">#</a></h3>
+<p>Set fill, line and font colour, font, line width and style, stereotype display, suppressed compartments, visibility and signatures, shadows and auto size for each view.</p>
+<p><img src="tutorial/images/32-style.jpg" alt="Style" loading="lazy" /></p>
+<h3 id="33-colours">33. Colours <a class="anchor" href="#33-colours" aria-hidden="true">#</a></h3>
+<p>The fill and line colour buttons colour the selected views; their left half applies the last colour again.</p>
+<p><img src="tutorial/images/33-colors.jpg" alt="Colours" loading="lazy" /></p>
+<h3 id="34-line-styles">34. Line styles <a class="anchor" href="#34-line-styles" aria-hidden="true">#</a></h3>
+<p>Choose rectilinear, oblique, rounded or curved. The default for new lines is in the View menu or Settings.</p>
+<p><img src="tutorial/images/34-lineStyle.jpg" alt="Line styles" loading="lazy" /></p>
+<h3 id="35-align-and-distribute">35. Align and distribute <a class="anchor" href="#35-align-and-distribute" aria-hidden="true">#</a></h3>
+<p>Align several views left, centre, right, top, middle or bottom, distribute them evenly, or give them the same size.</p>
+<p><img src="tutorial/images/35-align.jpg" alt="Align and distribute" loading="lazy" /></p>
+<h3 id="36-auto-layout">36. Auto layout <a class="anchor" href="#36-auto-layout" aria-hidden="true">#</a></h3>
+<p>A layered layout rearranges elements top-down, left-right and so on; parents go above their subclasses. On a sequence diagram it evens out lifelines and messages.</p>
+<p><img src="tutorial/images/36-layout.jpg" alt="Auto layout" loading="lazy" /></p>
+<h3 id="37-zoom-and-pan">37. Zoom and pan <a class="anchor" href="#37-zoom-and-pan" aria-hidden="true">#</a></h3>
+<p>Ctrl+wheel zooms, the middle button or Space+drag pans. The rulers at the top and left show where you are, and the grid has a darker line every 5 cells (5 × 5). The minimap at the bottom right helps with large diagrams.</p>
+<p><img src="tutorial/images/37-zoom.jpg" alt="Zoom and pan" loading="lazy" /></p>
+<h2 id="6-model-tools">6. Model tools <a class="anchor" href="#6-model-tools" aria-hidden="true">#</a></h2>
+<h3 id="38-model-validation">38. Model validation <a class="anchor" href="#38-model-validation" aria-hidden="true">#</a></h3>
+<p>Checks the model against about 20 rules: missing or duplicate names, inheritance cycles, bad multiplicities, regions without an initial state, entities without a primary key …. Click a result to go there.</p>
+<p><img src="tutorial/images/38-validate.jpg" alt="Model validation" loading="lazy" /></p>
+<h3 id="39-find">39. Find <a class="anchor" href="#39-find" aria-hidden="true">#</a></h3>
+<p>Find elements anywhere in the model by name, documentation or kind, and jump to them.</p>
+<p><img src="tutorial/images/39-find.jpg" alt="Find" loading="lazy" /></p>
+<h3 id="40-code-generation">40. Code generation <a class="anchor" href="#40-code-generation" aria-hidden="true">#</a></h3>
+<p>Preview and generate Java, C#, C++, Python, TypeScript, Kotlin, PHP and SQL DDL into a folder or a ZIP. Packages become folders and namespaces; inheritance, interfaces, associations and doc comments are included.</p>
+<p><img src="tutorial/images/40-codegen.jpg" alt="Code generation" loading="lazy" /></p>
+<h3 id="41-reverse-engineering">41. Reverse engineering <a class="anchor" href="#41-reverse-engineering" aria-hidden="true">#</a></h3>
+<p>Reads Java, C#, Python or TypeScript sources, or SQL CREATE TABLE, into classes, attributes, operations and relationships (or entities) and draws a diagram. Works with whole folders or dropped files.</p>
+<p><img src="tutorial/images/41-reverse.jpg" alt="Reverse engineering" loading="lazy" /></p>
+<h3 id="42-mermaid--plantuml-import">42. Mermaid &amp; PlantUML import <a class="anchor" href="#42-mermaid--plantuml-import" aria-hidden="true">#</a></h3>
+<p>Turns Mermaid (class, sequence, flowchart, ER, state) and PlantUML (class, sequence) text into model elements and a diagram. Diagrams can be exported to Mermaid and PlantUML too.</p>
+<p><img src="tutorial/images/42-textImport.jpg" alt="Mermaid &amp; PlantUML import" loading="lazy" /></p>
+<h2 id="7-files--export">7. Files &amp; export <a class="anchor" href="#7-files--export" aria-hidden="true">#</a></h2>
+<h3 id="43-saving">43. Saving <a class="anchor" href="#43-saving" aria-hidden="true">#</a></h3>
+<p>A project is saved as one .myuml file (templates: .mumlt), and can also be stored in a database (SQLite, MariaDB, MySQL, PostgreSQL).</p>
+<p><img src="tutorial/images/43-save.jpg" alt="Saving" loading="lazy" /></p>
+<h3 id="44-the-file-menu">44. The File menu <a class="anchor" href="#44-the-file-menu" aria-hidden="true">#</a></h3>
+<p>Open, save, templates, recent files and folders, import (StarUML, fragments, Mermaid/PlantUML, reverse engineering) and export, printing, the database.</p>
+<p><img src="tutorial/images/44-fileMenu.jpg" alt="The File menu" loading="lazy" /></p>
+<h3 id="45-exporting-pictures">45. Exporting pictures <a class="anchor" href="#45-exporting-pictures" aria-hidden="true">#</a></h3>
+<p>Export the current diagram or the selection as PNG, JPEG, WebP, BMP, TIFF or SVG, with scale and transparent background.</p>
+<p><img src="tutorial/images/45-exportImage.jpg" alt="Exporting pictures" loading="lazy" /></p>
+<h3 id="46-docs-and-other-formats">46. Docs and other formats <a class="anchor" href="#46-docs-and-other-formats" aria-hidden="true">#</a></h3>
+<p>Export all diagrams to PDF, a ZIP of pictures, searchable HTML documentation, Markdown, StarUML .mdj, model fragments, Mermaid and PlantUML.</p>
+<p><img src="tutorial/images/46-exportDocs.jpg" alt="Docs and other formats" loading="lazy" /></p>
+<h3 id="47-staruml-compatibility">47. StarUML compatibility <a class="anchor" href="#47-staruml-compatibility" aria-hidden="true">#</a></h3>
+<p>StarUML projects (.mdj) open directly with their model and diagrams, and can be exported back to .mdj. Model fragments (.mfj) work both ways.</p>
+<p><img src="tutorial/images/47-starUml.jpg" alt="StarUML compatibility" loading="lazy" /></p>
+<h3 id="48-printing-and-preview">48. Printing and preview <a class="anchor" href="#48-printing-and-preview" aria-hidden="true">#</a></h3>
+<p>Choose all diagrams, the current one or a range; fit to page, actual size (tiled) or a scale; paper, orientation, margins, header and footer — with a preview.</p>
+<p><img src="tutorial/images/48-print.jpg" alt="Printing and preview" loading="lazy" /></p>
+<h2 id="8-customizing">8. Customizing <a class="anchor" href="#8-customizing" aria-hidden="true">#</a></h2>
+<h3 id="49-themes">49. Themes <a class="anchor" href="#49-themes" aria-hidden="true">#</a></h3>
+<p>The theme button picks a different theme at random on every press. The ▾ next to it lists 20 dark and 20 light themes in two columns; the custom theme is edited color by color in Settings › Theme.</p>
+<p><img src="tutorial/images/49-theme.jpg" alt="Themes" loading="lazy" /></p>
+<h3 id="50-diagram-colours">50. Diagram colours <a class="anchor" href="#50-diagram-colours" aria-hidden="true">#</a></h3>
+<p>Choose classic, pastel, blueprint or dark colours for diagrams. Exports and printing use the same colours.</p>
+<p><img src="tutorial/images/50-diagramTheme.jpg" alt="Diagram colours" loading="lazy" /></p>
+<h3 id="51-language">51. Language <a class="anchor" href="#51-language" aria-hidden="true">#</a></h3>
+<p>The flag button switches between Korean and English: the UK flag shows while the UI is Korean, the Korean flag while it is English.</p>
+<p><img src="tutorial/images/51-language.jpg" alt="Language" loading="lazy" /></p>
+<h3 id="52-collapsing-panels">52. Collapsing panels <a class="anchor" href="#52-collapsing-panels" aria-hidden="true">#</a></h3>
+<p>Collapsed, the tool and properties panels leave a narrow rail with icons and a title; the expand button is at the top. Drag the separators to change their width.</p>
+<p><img src="tutorial/images/52-panels.jpg" alt="Collapsing panels" loading="lazy" /></p>
+<h3 id="53-settings">53. Settings <a class="anchor" href="#53-settings" aria-hidden="true">#</a></h3>
+<p>Tabs: general, start page, theme, font, background, diagram (colours, line style, grid, snapping, shadows, quick buttons, auto save), database, recent files, shortcuts.</p>
+<p><img src="tutorial/images/53-settings.jpg" alt="Settings" loading="lazy" /></p>
+<h2 id="9-help">9. Help <a class="anchor" href="#9-help" aria-hidden="true">#</a></h2>
+<h3 id="54-presentation-mode">54. Presentation mode <a class="anchor" href="#54-presentation-mode" aria-hidden="true">#</a></h3>
+<p>F5 shows the diagrams full screen one by one. Arrow keys or a click go on, Esc ends.</p>
+<p><img src="tutorial/images/54-presentation.jpg" alt="Presentation mode" loading="lazy" /></p>
+<h3 id="55-keyboard-shortcuts">55. Keyboard shortcuts <a class="anchor" href="#55-keyboard-shortcuts" aria-hidden="true">#</a></h3>
+<p>Settings › Shortcuts lists them all; the menus show them next to each command.</p>
+<p><img src="tutorial/images/55-shortcuts.jpg" alt="Keyboard shortcuts" loading="lazy" /></p>
+<h3 id="56-about">56. About <a class="anchor" href="#56-about" aria-hidden="true">#</a></h3>
+<p>The ⓘ toolbar button shows the version, build information and the author (SHKWON, knix008@naver.com). Errors open a popup with every detail, ready to copy.</p>
+<p><img src="tutorial/images/56-about.jpg" alt="About" loading="lazy" /></p>
+<h3 id="57-reading-the-tutorial-document">57. Reading the tutorial document <a class="anchor" href="#57-reading-the-tutorial-document" aria-hidden="true">#</a></h3>
+<p>A document with every step of this tutorial and its screen can be read inside the program: open it from Help › Tutorial document on the home screen or in the Help menu. The bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. Home takes you back.</p>
+<p><img src="tutorial/images/57-tutorialDoc.jpg" alt="Reading the tutorial document" loading="lazy" /></p>
+<h3 id="58-thats-the-tour">58. That&#39;s the tour <a class="anchor" href="#58-thats-the-tour" aria-hidden="true">#</a></h3>
+<p>Watch it again any time with Help › Tutorial or the graduation-cap toolbar button (F11). See Help › User&#39;s guide for the details.</p>
+<p><img src="tutorial/images/58-finish.jpg" alt="That&#39;s the tour" loading="lazy" /></p>
+</main>
+</div>
+<footer>MyUMLMaker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

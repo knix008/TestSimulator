@@ -1,5 +1,5 @@
 // Packaging checks without building: icons (3D look, transparent border, glowing
-// top-left, centred), the .muml / .mumlt document icons and their registration,
+// top-left, centred), the .myuml / .mumlt document icons and their registration,
 // installer languages, data/reinstall hooks, docs in the installer, title bar,
 // single instance and the build commands.
 import assert from 'node:assert/strict';
@@ -131,23 +131,23 @@ test('app icon: 3D tile, transparent border, glowing top-left, in the exact cent
   }
 });
 
-test('document icons (.muml project, .mumlt template): same style, their own pictures, centred', () => {
-  for (const name of ['drawing', 'template']) {
+test('document icons (.myuml project, .mumlt template): same style, their own pictures, centred', () => {
+  for (const name of ['project', 'template']) {
     const image = checkIcon(`assets/${name}.png`);
     const box = opaqueBox(image);
     assert.ok(Math.abs((box.left + box.right) / 2 - 0.5) < 0.02, `${name}: centred horizontally`);
     assert.notDeepEqual(read(`assets/${name}.png`), read('assets/icon.png'));
     assert.equal(decodePng(read(`src-tauri/icons/${name}.png`)).width, 256);
   }
-  assert.notDeepEqual(read('assets/drawing.png'), read('assets/template.png'));
+  assert.notDeepEqual(read('assets/project.png'), read('assets/template.png'));
 });
 
 test('ICO files carry every size Windows needs', () => {
-  for (const file of ['src-tauri/icons/icon.ico', 'src-tauri/icons/drawing.ico', 'src-tauri/icons/template.ico']) {
+  for (const file of ['src-tauri/icons/icon.ico', 'src-tauri/icons/project.ico', 'src-tauri/icons/template.ico']) {
     const sizes = icoSizes(file);
     for (const size of [16, 32, 48, 256]) assert.ok(sizes.includes(size), `${file} has ${size}px (${sizes})`);
   }
-  for (const file of ['src-tauri/icons/icon.icns', 'src-tauri/icons/drawing.icns', 'src-tauri/icons/template.icns']) assert.equal(read(file).subarray(0, 4).toString(), 'icns');
+  for (const file of ['src-tauri/icons/icon.icns', 'src-tauri/icons/project.icns', 'src-tauri/icons/template.icns']) assert.equal(read(file).subarray(0, 4).toString(), 'icns');
 });
 
 test('installer, program and running window all use the same icon', () => {
@@ -159,7 +159,7 @@ test('installer, program and running window all use the same icon', () => {
   for (const bmp of ['installerHeader.bmp', 'installerSidebar.bmp']) assert.equal(read(`src-tauri/windows/${bmp}`).subarray(0, 2).toString(), 'BM');
 });
 
-for (const [ext, name, iconName, mime] of [['muml', 'MyUMLMaker.Project', 'drawing', 'application-x-myumlmaker'], ['mumlt', 'MyUMLMaker.Template', 'template', 'application-x-myumlmaker-template']]) {
+for (const [ext, name, iconName, mime] of [['myuml', 'MyUMLMaker.Project', 'project', 'application-x-myumlmaker'], ['mumlt', 'MyUMLMaker.Template', 'template', 'application-x-myumlmaker-template']]) {
   test(`.${ext} is registered with its own icon on every OS`, () => {
     const association = conf.bundle.fileAssociations.find((item) => item.ext.includes(ext));
     assert.ok(association, 'file association');

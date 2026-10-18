@@ -198,3 +198,20 @@ export function toolById(diagramType, id) {
 }
 /** Every diagram type has a toolbox. */
 export const DIAGRAM_TYPE_IDS = Object.keys(DIAGRAM_TYPES);
+
+/** The diagram-type tabs above the canvas: [id, ko, en, diagram types]. Every diagram type is in exactly one group. */
+export const DIAGRAM_TABS = [
+  ['umlStructure', 'UML 구조', 'UML Structure', ['UMLClassDiagram', 'UMLPackageDiagram', 'UMLObjectDiagram', 'UMLCompositeStructureDiagram', 'UMLComponentDiagram', 'UMLDeploymentDiagram', 'UMLProfileDiagram']],
+  ['umlBehavior', 'UML 행위', 'UML Behavior', ['UMLUseCaseDiagram', 'UMLActivityDiagram', 'UMLStatechartDiagram', 'UMLSequenceDiagram', 'UMLCommunicationDiagram', 'UMLTimingDiagram', 'UMLInteractionOverviewDiagram', 'UMLInformationFlowDiagram']],
+  ['erd', 'ER', 'ER', ['ERDDiagram']],
+  ['flowchart', '순서도', 'Flowchart', ['FCFlowchartDiagram']],
+  ['dfd', '데이터 흐름', 'Data Flow', ['DFDDiagram']],
+  ['sysml', 'SysML', 'SysML', ['SysMLRequirementDiagram', 'SysMLBlockDefinitionDiagram', 'SysMLInternalBlockDiagram', 'SysMLParametricDiagram']],
+  ['bpmn', 'BPMN', 'BPMN', ['BPMNDiagram']],
+  ['c4', 'C4', 'C4', ['C4Diagram']],
+  ['mindmap', '마인드맵', 'Mind Map', ['MMMindmapDiagram']],
+  ['wireframe', '와이어프레임', 'Wireframe', ['WFWireframeDiagram']],
+  ['cloud', '클라우드', 'Cloud', ['AWSDiagram', 'AzureDiagram', 'GCPDiagram']],
+];
+/** The tab group of a diagram type. */
+export const diagramTabOf = (type) => DIAGRAM_TABS.find(([, , , types]) => types.includes(type))?.[0] ?? 'umlStructure';

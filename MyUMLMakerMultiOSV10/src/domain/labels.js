@@ -120,7 +120,8 @@ export function messageText(message, index, { number = null, signature = 'nameAn
   if (message.arguments && !op) body += `(${message.arguments})`;
   if (message.assignmentTarget) body = `${message.assignmentTarget} = ${body}`;
   if (message.guard) body = `[${message.guard}] ${body}`;
-  return number !== null && number !== undefined ? `${number} : ${body}` : body;
+  if (number === null || number === undefined) return body;
+  return body ? `${number} : ${body}` : String(number);
 }
 
 /** Transition label "trigger [guard] / effect". */

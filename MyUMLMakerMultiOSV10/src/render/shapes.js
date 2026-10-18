@@ -78,7 +78,18 @@ function classifierParts(ctx, v, el, st) {
     if (!items.length && !always && !(key === 'literals' && el._type === 'UMLEnumeration')) continue;
     sections.push({ key, title: TITLED.has(key) ? key : '', items });
   }
-  if (el._type === 'SysMLRequirement') sections.push({ key: 'req', title: '', items: [{ text: `Id = "${el.id ?? ''}"`, align: 'left' }, { text: `Text = "${el.text ?? ''}"`, align: 'left', wrap: true }] });
+  if (el._type === 'SysMLRequirement') {
+    const items = [{ text: `Id = "${el.id ?? ''}"`, align: 'left' }, { text: `Text = "${el.text ?? ''}"`, align: 'left', wrap: true }];
+    // EA-style attributes: status and priority, then risk and verification when they are set.
+    if (v.showRequirementDetails !== false) {
+      const pair = (list) => list.filter(([, value]) => value).map(([key, value]) => `${key} = ${value}`).join(', ');
+      const status = pair([['Status', el.status], ['Priority', el.priority]]);
+      const check = pair([['Risk', el.risk], ['Verify', el.verifyMethod]]);
+      if (status) items.push({ text: status, align: 'left', size: st.size - 1 });
+      if (check) items.push({ text: check, align: 'left', size: st.size - 1 });
+    }
+    sections.push({ key: 'req', title: '', items });
+  }
   return { header, sections };
 }
 
@@ -376,7 +387,7 @@ export const SHAPES = {
         const guard = op.guard ? `[${op.guard}]` : op.name ? op.name : '';
         if (guard) out += textLine(guard, b.x + (i === 0 ? tag.w + 8 : 8), ys[i].y + (i === 0 ? st.size + 2 : st.size + 4), { ...base(st), size: st.size - 1 });
       });
-            return out;
+      return out;
     },
   },
   interactionUse: {

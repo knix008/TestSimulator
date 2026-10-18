@@ -7,7 +7,7 @@
 // arranging them (align, distribute, same size), and reparenting an element
 // when its view is dropped into a package. Pure (no DOM).
 import {
-  addElement, addView, buildIndex, canContain, createEdgeView, createElement, createNodeView, findView, insertElement, isEdgeView, isWithin, moveElement, ref, refId,
+  addElement, addView, buildIndex, canContain, createEdgeView, createElement, createNodeView, findView, insertElement, isEdgeView, isWithin, moveElement, numberRequirement, ref, refId,
   relationshipOwner, setRelationshipEnds, siblingsIn, uniqueName, viewsOf,
 } from './model.js';
 import { collectionFor, typeDef, viewTypeOf, VIEW_ONLY } from './meta.js';
@@ -84,6 +84,7 @@ export function createNode(project, diagram, tool, box, { language = 'en', boxes
   delete attrs.actor;
   if (tool.type === 'UMLState' && tool.id === 'compositeState') attrs.regions = [];
   const element = createElement(tool.type, attrs, { language, siblings: siblingsIn(owner, tool.type) });
+  numberRequirement(project, element);
   insertElement(owner, element);
   if (tool.type === 'UMLState' && tool.id === 'compositeState') insertElement(element, createElement('UMLRegion', {}, { language }));
   // A lifeline represents a property of the collaboration (typed by an actor for an actor lifeline).
@@ -166,7 +167,9 @@ export function createEdge(project, diagram, tool, tailView, headView, { languag
     if (element.messageSort === 'reply') element.name = '';
   }
   insertElement(owner, element);
-  const extra = tool.type === 'UMLMessage' && y !== null ? { y: Math.round(y) } : {};
+  // A sequence message always has a height: where it was drawn, else below the last message.
+  const lastY = Math.max(80, ...diagram.ownedViews.filter((v) => v._type === 'UMLMessageView' && Number.isFinite(v.y)).map((v) => v.y));
+  const extra = tool.type === 'UMLMessage' && diagram._type === 'UMLSequenceDiagram' ? { y: Math.round(y ?? lastY + 40) } : tool.type === 'UMLMessage' && y !== null ? { y: Math.round(y) } : {};
   const view = addView(diagram, createEdgeView(viewTypeOf(tool.type), element._id, tailView._id, headView._id, extra));
   return { element, view };
 }

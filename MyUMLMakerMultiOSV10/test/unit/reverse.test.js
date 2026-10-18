@@ -1,4 +1,4 @@
-// Reverse engineering (reverse/*.js): Java, C#, Python, TypeScript and SQL
+// Reverse engineering (reverse/*.js): Java, C#, C++, Python, TypeScript and SQL
 // sources → model elements (packages, classifiers, attributes, operations,
 // literals, generalizations, interface realizations, associations, ER
 // entities / columns / relationships), tolerance of comments, strings,
@@ -32,7 +32,7 @@ function load(result) {
 }
 
 test('languages, options and errors', () => {
-  assert.deepEqual(REVERSE_LANGUAGES.map((l) => l.id), ['java', 'csharp', 'python', 'typescript', 'sql']);
+  assert.deepEqual(REVERSE_LANGUAGES.map((l) => l.id), ['java', 'csharp', 'cpp', 'python', 'typescript', 'sql']);
   assert.equal(DEFAULT_REVERSE_OPTIONS.associations, true);
   assert.throws(() => reverseEngineer([], 'cobol'), (e) => e.message === 'reverse.unknownLanguage' && e.detail === 'cobol');
   assert.deepEqual(reverseEngineer([], 'java'), { elements: [], warnings: [] });
@@ -661,6 +661,122 @@ test('SQL: tables, columns, keys, defaults and foreign key relationships', () =>
   assert.ok(rels.every((r) => m.ownerName(r) === 'Shop'));
 });
 
+// ───────────────────────── C++
+
+const CPP_HEADER = `#pragma once
+#include <string>
+#include <vector>
+#include <memory>
+#include "customer.h"
+
+namespace shop::model {
+
+/** Something with a price. */
+class IPriced {
+public:
+    virtual ~IPriced() = default;
+    virtual double price(const std::string& currency) const = 0;
+};
+
+enum class Status : int { New = 1, Paid, Shipped };
+
+template <typename T, int N = 4>
+class Box {
+public:
+    T items[N];
+};
+
+/// A customer order.
+class Order : public Entity, public IPriced {
+public:
+    static constexpr int MAX_LINES = 10;
+    explicit Order(long id, Customer* buyer = nullptr);
+    ~Order() override;
+    double price(const std::string& currency) const override;
+    virtual void cancel();
+    void addLine(const OrderLine& line, int count = 1);
+    bool operator==(const Order& other) const;
+    friend class OrderPrinter;
+    std::vector<OrderLine> lines;
+protected:
+    Customer* buyer;
+    std::shared_ptr<Address> shipTo;
+private:
+    long id_ = 0;
+    int flags : 3;
+    Status status{Status::New};
+    double total() const { return 0.0; }
+};
+
+struct OrderLine {
+    int quantity = 1;
+    double unitPrice;
+};
+
+class Entity {
+public:
+    virtual std::string describe() const = 0;
+protected:
+    long id;
+};
+
+} // namespace shop::model
+
+class Forward;
+void Order::cancel() { status = Status::New; }
+`;
+
+test('C++: namespaces, classes, structs, enums, access sections, members and relationships', () => {
+  const m = load(reverseEngineer([{ name: 'include/order.h', content: CPP_HEADER }], 'cpp'));
+  assert.deepEqual(m.warnings.filter((w) => w.code === 'reverse.parseError'), []);
+  assert.equal(m.ownerName(m.cls('Order')), 'model');
+  assert.equal(m.ownerName(m.named('UMLPackage', 'model')), 'shop', 'namespace shop::model → nested packages');
+  const order = m.cls('Order');
+  assert.equal(order.documentation, 'A customer order.');
+  assert.equal(m.cls('Forward'), null, 'forward declarations are not classes');
+  // Fields: static constexpr → static read-only; default values; access sections; a bit-field.
+  assert.deepEqual([m.attr('Order', 'MAX_LINES').isStatic, m.attr('Order', 'MAX_LINES').isReadOnly, m.attr('Order', 'MAX_LINES').defaultValue], [true, true, '10']);
+  assert.deepEqual([m.attr('Order', 'id_').visibility, m.attr('Order', 'id_').defaultValue], ['private', '0']);
+  assert.ok(m.attr('Order', 'flags'), 'bit-field');
+  assert.deepEqual([m.attr('Order', 'status').visibility, m.attr('Order', 'status').defaultValue], ['private', 'Status::New']);
+  // Associations: vector<OrderLine> → *, Customer* → 0..1, shared_ptr<Address> stays a type (Address is not parsed).
+  const lines = m.rels('UMLAssociation').find((a) => a.end2.name === 'lines');
+  assert.deepEqual([...m.ends(lines), lines.end2.multiplicity, lines.end2.visibility ?? 'public'], ['Order', 'OrderLine', '*', 'public']);
+  assert.equal(m.attr('Order', 'buyer')?.visibility ?? m.rels('UMLAssociation').find((a) => a.end2.name === 'buyer')?.end2.visibility, 'protected');
+  assert.ok(m.attr('Order', 'shipTo'), 'a smart pointer to an unknown class stays an attribute');
+  // Operations: constructor, const/virtual/override methods, defaults; destructor, operators, friends skipped; inline bodies kept.
+  assert.ok(m.op('Order', 'Order'), 'constructor');
+  assert.deepEqual(m.inputs(m.op('Order', 'Order')).map((p) => [p.name, p.defaultValue]), [['id', ''], ['buyer', 'nullptr']]);
+  assert.deepEqual(m.inputs(m.op('Order', 'addLine')).map((p) => [p.name, p.defaultValue]), [['line', ''], ['count', '1']]);
+  assert.equal(m.ret(m.op('Order', 'price'))?.type, 'double');
+  assert.ok(m.op('Order', 'cancel') && m.op('Order', 'total'));
+  assert.deepEqual(order.operations.filter((o) => /^~|operator/.test(o.name)).map((o) => o.name), []);
+  assert.equal(m.op('Order', 'total').visibility, 'private');
+  // Base list: class → generalization, interface (only pure virtual methods) → realization.
+  assert.equal(m.cls('IPriced')._type, 'UMLInterface');
+  assert.equal(m.op('IPriced', 'price').isAbstract, true);
+  assert.ok(m.rels('UMLGeneralization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'Entity'));
+  assert.ok(m.rels('UMLInterfaceRealization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'IPriced'));
+  assert.equal(m.cls('Entity').isAbstract, true, 'a pure virtual method makes the class abstract');
+  // struct: public by default; enum class literals; template parameters.
+  assert.deepEqual(m.cls('OrderLine').attributes.map((a) => [a.name, a.visibility]), [['quantity', 'public'], ['unitPrice', 'public']]);
+  assert.deepEqual(m.cls('Status').literals.map((l) => l.name), ['New', 'Paid', 'Shipped']);
+  assert.deepEqual(m.cls('Box').templateParameters.map((t) => t.name), ['T', 'N']);
+  // Out-of-class definitions in a .cpp file add nothing.
+  const source = load(reverseEngineer([{ name: 'order.cpp', content: '#include "order.h"\nnamespace shop { void Order::cancel() { } double Order::price(const std::string& c) const { return 1; } }\n' }], 'cpp'));
+  assert.equal(source.cls('Order'), null);
+});
+
+test('type text analysis: C++ pointers, references, std containers and smart pointers', () => {
+  assert.deepEqual(analyzeType('Item*'), { name: 'Item', multiplicity: '0..1' });
+  assert.deepEqual(analyzeType('const Item&'), { name: 'Item', multiplicity: '' });
+  assert.deepEqual(analyzeType('std::vector<Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('std::vector<Item*>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('std::array<Item, 3>'), { name: 'Item', multiplicity: '3' });
+  assert.deepEqual(analyzeType('std::unique_ptr<Item>'), { name: 'Item', multiplicity: '' });
+  assert.deepEqual(analyzeType('std::optional<Item>'), { name: 'Item', multiplicity: '0..1' });
+});
+
 // ───────────────────────── round trips
 
 /** A model with packages, inheritance, an interface, an enum, collections and an association. */
@@ -733,7 +849,7 @@ function roundTrip(language, codegenOptions = {}, reverseOptions = {}) {
   return { before: summary(model.ownedElements, project), after: summary(target.ownedElements[0].ownedElements, target) };
 }
 
-for (const language of ['java', 'csharp', 'python', 'typescript']) {
+for (const language of ['java', 'csharp', 'cpp', 'python', 'typescript']) {
   test(`round trip: ${language} generate → reverse gives the same model`, () => {
     const { before, after } = roundTrip(language);
     assert.deepEqual(after, before);

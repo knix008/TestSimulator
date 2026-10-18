@@ -133,6 +133,8 @@ function readView(view, diagram, all) {
   if (!isObj(view) || !view._type || view.visible === false || SUB_VIEW.test(view._type)) return null;
   const model = view.model ? all.get(refId(view.model)) ?? null : null;
   let type = Object.hasOwn(VIEW_TYPE_MAP, view._type) ? VIEW_TYPE_MAP[view._type] : undefined;
+  // StarUML's containment lines have no model element; ours (a UMLContainment) are kept.
+  if (type === null && view._type === 'UMLContainmentView' && model?._type === 'UMLContainment') type = view._type;
   if (type === null) return null;
   if (!type) {
     if (VIEW_ONLY[view._type]) type = view._type;
@@ -445,6 +447,7 @@ export function exportMdj(project) {
   if (!isObj(project) || project._type !== 'Project') throw fail('interop.notProject', isObj(project) ? project._type : typeof project);
   const copy = clone(project);
   delete copy._parent;
+  delete copy.baselines; // MyUMLMaker baselines stay in the .myuml file
   return JSON.stringify(writeDiagrams(copy), null, '\t');
 }
 

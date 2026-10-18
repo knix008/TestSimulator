@@ -13,7 +13,7 @@
 ;     runs silently, then its folder is deleted) before the new files go in,
 ;     even when the "already installed" page was left at "reinstall".
 ; After installing:
-;  3. .muml projects and .mumlt templates get their own icons (drawing.ico,
+;  3. .myuml projects and .mumlt templates get their own icons (project.ico,
 ;     template.ico), not the app icon.
 ;
 ; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
@@ -44,7 +44,7 @@
   FileWrite $R9 "$9"
   FileClose $R9
   ; 3. Document icons (Tauri registers the types with the app icon).
-  WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Project\DefaultIcon" "" "$INSTDIR\drawing.ico"
+  WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Project\DefaultIcon" "" "$INSTDIR\project.ico"
   WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Template\DefaultIcon" "" "$INSTDIR\template.ico"
   ; Start menu shortcut to the user's guide installed with the program.
   ${If} ${FileExists} "$INSTDIR\docs\UsersGuide.html"

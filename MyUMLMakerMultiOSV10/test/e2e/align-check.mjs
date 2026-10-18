@@ -2,7 +2,7 @@
 //  - label | control rows: in each column of rows (rows of the same left edge and width —
 //    a page may set its rows in two columns), every control starts on one vertical line,
 //    and fields that fill their row (text, select, dates) end on one line;
-//  - each row: label and control share a vertical centre;
+//  - each row: label and control share a vertical centre (unless the row stacks them);
 //  - buttons in one bar (footer, toolbars inside the popup): same height and top;
 //  - inside every button: icon and text share a vertical centre;
 //  - tabs: one row, same height.
@@ -23,13 +23,16 @@ export const ALIGN_CHECK = `(() => {
       const control = row.querySelector(':scope > .row-control');
       const first = [...control.children].find(visible);
       if (!first) continue;
+      // A stacked row (label above its control, as in the print settings column) has no shared centre
+      // and its control starts under the label, not on the column's control line.
+      const stacked = getComputedStyle(row).flexDirection === 'column';
       const left = Math.round(box(first).left);
-      starts.set(left, [...(starts.get(left) ?? []), name(row)]);
+      if (!stacked) starts.set(left, [...(starts.get(left) ?? []), name(row)]);
       const fill = [...control.children].filter((c) => visible(c) && getComputedStyle(c).flexGrow !== '0');
       const last = [...control.children].filter(visible).at(-1);
       if (fill.includes(last)) { const right = Math.round(box(last).right); ends.set(right, [...(ends.get(right) ?? []), name(row)]); }
       const label = row.querySelector(':scope > .row-label > span') ?? row.querySelector(':scope > .row-label');
-      const items = [...control.children].filter(visible).filter((c) => box(c).height < 60);
+      const items = stacked ? [] : [...control.children].filter(visible).filter((c) => box(c).height < 60);
       for (const item of items) {
         const d = Math.abs(mid(box(label)) - mid(box(item)));
         if (d > 2.5) { out.push('row "' + name(row) + '": label and "' + name(item) + '" off centre by ' + d.toFixed(1) + 'px'); break; }
