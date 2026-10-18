@@ -76,7 +76,11 @@ class Session {
     this.data = { ...this.data, ...(patch || {}) };
     try {
       fs.mkdirSync(this.configDir, { recursive: true });
-      fs.writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf-8');
+      // Two running copies share this file. Write aside and replace, so one
+      // save cannot leave the other with a half-written session.
+      const tmp = `${this.file}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf-8');
+      fs.renameSync(tmp, this.file);
     } catch { /* best effort */ }
     return this.get();
   }

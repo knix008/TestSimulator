@@ -7,6 +7,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -230,12 +231,81 @@ fn close_popups(window: &tauri::Window) {
     }
 }
 
+// A second process cannot share the first process's WebView2 profile.
+// Each launch gets its own folder, named by process id, so several
+// Command Center windows can run at the same time.
+static WINDOW_SHIFT: AtomicI32 = AtomicI32::new(0);
+
+fn prepare_webview_data_dir() {
+    #[cfg(windows)]
+    {
+        if std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_some() {
+            return;
+        }
+        let root = std::env::temp_dir().join("CommandCenter-webview");
+        let _ = std::fs::create_dir_all(&root);
+        let mine = std::process::id();
+        let mut others = false;
+        if let Ok(entries) = std::fs::read_dir(&root) {
+            for entry in entries.flatten() {
+                let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else {
+                    continue;
+                };
+                if pid != mine && process_alive(pid) {
+                    others = true;
+                } else if pid != mine {
+                    let _ = std::fs::remove_dir_all(entry.path());
+                }
+            }
+        }
+        let dir = root.join(mine.to_string());
+        let _ = std::fs::create_dir_all(&dir);
+        std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", &dir);
+        if others {
+            WINDOW_SHIFT.store(32 + ((mine % 5) as i32) * 28, Ordering::Relaxed);
+        }
+    }
+}
+
+#[cfg(windows)]
+fn process_alive(pid: u32) -> bool {
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut std::ffi::c_void;
+        fn GetExitCodeProcess(handle: *mut std::ffi::c_void, code: *mut u32) -> i32;
+        fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
+    }
+    const QUERY: u32 = 0x1000;
+    const STILL_ACTIVE: u32 = 259;
+    unsafe {
+        let handle = OpenProcess(QUERY, 0, pid);
+        if handle.is_null() {
+            return false;
+        }
+        let mut code = 0u32;
+        let ok = GetExitCodeProcess(handle, &mut code);
+        CloseHandle(handle);
+        ok != 0 && code == STILL_ACTIVE
+    }
+}
+
 fn main() {
+    prepare_webview_data_dir();
     let (child, config) = start_core();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(CoreState { child: Mutex::new(child), config })
         .invoke_handler(tauri::generate_handler![host_config, bus_post])
+        .setup(|app| {
+            let shift = WINDOW_SHIFT.load(Ordering::Relaxed);
+            if shift != 0 {
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Ok(pos) = window.outer_position() {
+                        let _ = window.set_position(tauri::PhysicalPosition::new(pos.x + shift, pos.y + shift));
+                    }
+                }
+            }
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 close_popups(window);

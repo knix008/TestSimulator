@@ -4,12 +4,13 @@
 //   build/icons/…                    (intermediate PNG / ICO / ICNS set)
 //   src-tauri/icons/                 (the icons the Tauri bundle actually ships)
 //
-// sharp rasterizes the SVG at every size, then our own ICO/ICNS encoders
-// (scripts/ico.mjs) wrap the PNGs into the containers.
+// sharp rasterizes the SVG at every size. The ICO stores those pixels as
+// uncompressed 32-bit BMP so NSIS, the program and the shortcuts share it.
+// The ICNS still wraps PNG images.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
-import { encodeIco, encodeIcns } from './ico.mjs';
+import { encodeIcoBmp, encodeIcns } from './ico.mjs';
 import { syncPublicSvgs } from './sync-public-svgs.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,8 +57,11 @@ async function main() {
     }
 
     const ico = [];
-    for (const size of ICO_SIZES) ico.push({ size, png: new Uint8Array(await png(size)) });
-    fs.writeFileSync(path.join(outDir, `${name}.ico`), Buffer.from(encodeIco(ico)));
+    for (const size of ICO_SIZES) {
+      const rgba = await sharp(await png(size)).ensureAlpha().raw().toBuffer();
+      ico.push({ size, rgba });
+    }
+    fs.writeFileSync(path.join(outDir, `${name}.ico`), Buffer.from(encodeIcoBmp(ico)));
     console.log(`[icons] Wrote ${name}.ico`);
 
     if (icns) {
