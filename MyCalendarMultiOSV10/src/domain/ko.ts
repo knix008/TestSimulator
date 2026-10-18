@@ -50,6 +50,8 @@ export const ko: Messages = {
   holidayCached: "마지막 확인 내용을 표시 중",
   holidayBuiltin: "내장 공휴일을 표시 중",
   holidayError: "공휴일을 확인하지 못했습니다",
+  offlineTitle: "네트워크에 연결되어 있지 않습니다",
+  offlineBody: "저장된 공휴일이나 내장 공휴일로 계속 표시하며, 연결되면 다시 확인합니다.",
   checkedAt: "확인 시각 {time}",
   checking: "공휴일 확인 중…",
   noHoliday: "공휴일 없음",

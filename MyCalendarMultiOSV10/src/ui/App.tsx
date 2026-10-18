@@ -13,6 +13,7 @@ import {
   reportMainReady,
   setWindowTitle,
 } from "../platform/desktop";
+import { NetworkNotice, useNetworkNotice } from "./NetworkNotice";
 import { ReminderPopup, useReminderScheduler } from "./ReminderPopup";
 import { CalendarScreen } from "./CalendarScreen";
 import { MenuWindow } from "./DayMenu";
@@ -168,6 +169,7 @@ function AuxDialog({ view, ctx, onClose }: { view: AuxView; ctx: ReadyContext; o
 
 function MainWindow() {
   const [dialog, setDialog] = useState<AuxView | null>(null);
+  const network = useNetworkNotice();
   useReminderScheduler();
 
   useEffect(() => {
@@ -218,6 +220,7 @@ function MainWindow() {
         <div className="app-frame">
           <CalendarScreen ctx={ctx} onOpenSettings={openSettings} onOpenEvents={openEvents} onOpenPrint={openPrint} />
           {dialog && <AuxDialog key={dialog} view={dialog} ctx={ctx} onClose={() => setDialog(null)} />}
+          {network.open && <NetworkNotice t={ctx.t} onClose={network.dismiss} />}
           {!isTauri() && (
             <div className="reminder-overlay">
               <ReminderPopup t={ctx.t} language={ctx.settings.language} />

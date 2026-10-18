@@ -50,6 +50,8 @@ export const en: Messages = {
   holidayCached: "Showing the last check",
   holidayBuiltin: "Showing built-in holidays",
   holidayError: "Could not check holidays",
+  offlineTitle: "No network connection",
+  offlineBody: "The calendar keeps working with saved or built-in holidays and checks again once the connection is back.",
   checkedAt: "Checked {time}",
   checking: "Checking holidays…",
   noHoliday: "No public holiday",

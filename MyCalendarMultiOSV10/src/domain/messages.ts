@@ -49,6 +49,8 @@ export interface Messages {
   holidayCached: string;
   holidayBuiltin: string;
   holidayError: string;
+  offlineTitle: string;
+  offlineBody: string;
   checkedAt: string;
   checking: string;
   noHoliday: string;

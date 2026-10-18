@@ -735,6 +735,11 @@ html[data-window="menu"] .menu-popup .day-menu {
   margin-block: auto;
 }
 .modal.settings-modal { width: min(600px, calc(100vw - 24px)); }
+.modal.notice-modal { width: min(340px, calc(100vw - 24px)); }
+.panel.notice { gap: 10px; padding: 16px 18px; }
+.panel.notice h2 { margin: 0; font-size: 15px; }
+.panel.notice p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.panel.notice .sheet-actions { justify-content: flex-end; }
 .modal .panel {
   width: 100%;
   height: auto;

@@ -313,7 +313,8 @@ fn update_tray_labels(
     language: String,
     language_switch: String,
 ) -> Result<(), String> {
-    let state = app.state::<TrayState>();
+    // No tray state means the tray could not be made at start; the calendar runs without it.
+    let Some(state) = app.try_state::<TrayState>() else { return Ok(()) };
     state.show.set_text(show).map_err(|error| error.to_string())?;
     state.events.set_text(events).map_err(|error| error.to_string())?;
     state.settings.set_text(settings).map_err(|error| error.to_string())?;
@@ -969,7 +970,10 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-            setup_tray(app)?;
+            // A tray that cannot be made right after sign-in must not stop the calendar from starting.
+            if let Err(error) = setup_tray(app) {
+                eprintln!("My Calendar: tray not created ({error})");
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || start_main(handle));
             Ok(())
