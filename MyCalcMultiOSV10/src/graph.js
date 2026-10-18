@@ -165,11 +165,19 @@ class GraphBoard {
     canvas.addEventListener("pointerup", (ev) => this.onPointerUp(ev));
     canvas.addEventListener("pointerleave", (ev) => this.onPointerUp(ev));
     canvas.addEventListener("wheel", (ev) => this.onWheel(ev), { passive: false });
+  }
+
+  // Size the canvas and draw. The calculator calls this after its own first
+  // paint: the plot lives off screen there, and sizing it during startup kept
+  // the window blank.
+  watchSize() {
+    if (this.watching) return;
+    this.watching = true;
     window.addEventListener("resize", () => this.resize());
     if (typeof ResizeObserver === "function") {
       this.sizeWatcher = new ResizeObserver(() => this.resize());
-      this.sizeWatcher.observe(canvas);
-    }
+      this.sizeWatcher.observe(this.canvas);
+    } else this.resize();
   }
 
   get functions() {

@@ -12,6 +12,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# The calculator window is created by these crates. Left unoptimized, a debug
+# launch spends a few seconds before anything is on screen. The app crate
+# itself stays unoptimized, so changes here still rebuild quickly.
+[profile.dev.package."*"]
+opt-level = 1
+debug-assertions = false
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

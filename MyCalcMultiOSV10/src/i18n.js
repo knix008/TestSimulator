@@ -403,6 +403,7 @@ const STRINGS = {
     historyClear: "기록 모두 지우기",
     confirm: "확인",
     settingsTitle: "설정",
+    language: "언어",
     resetDefaults: "기본 설정",
     darkThemes: "다크 테마",
     lightThemes: "라이트 테마",
@@ -770,6 +771,7 @@ const STRINGS = {
     historyClear: "Clear history",
     confirm: "OK",
     settingsTitle: "Settings",
+    language: "Language",
     resetDefaults: "Defaults",
     darkThemes: "Dark themes",
     lightThemes: "Light themes",
@@ -1011,14 +1013,10 @@ function applyLanguage(lang) {
   for (const node of document.querySelectorAll("[data-i18n-placeholder]")) {
     node.setAttribute("placeholder", t(node.getAttribute("data-i18n-placeholder")));
   }
-  const flag = document.getElementById("langFlag");
-  const langBtn = document.getElementById("langBtn");
-  if (flag) flag.setAttribute("src", uiLang === "ko" ? "assets/icons/flag-uk.svg" : "assets/icons/flag-kr.svg");
-  if (langBtn) {
-    const label = uiLang === "ko" ? "English" : "한국어";
-    langBtn.setAttribute("aria-label", label);
-    langBtn.dataset.tooltip = label;
-  }
+  const ko = document.getElementById("langKo");
+  const en = document.getElementById("langEn");
+  if (ko) ko.setAttribute("aria-pressed", String(uiLang === "ko"));
+  if (en) en.setAttribute("aria-pressed", String(uiLang === "en"));
   if (typeof renderKeys === "function") renderKeys();
   if (typeof renderHistory === "function") renderHistory();
   if (typeof renderThemeGroups === "function") renderThemeGroups();

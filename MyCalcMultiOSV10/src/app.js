@@ -126,6 +126,8 @@ board.onDraw = () => {
 const pageKind = new URLSearchParams(location.search).get("pop");
 const graphPopup = pageKind === "graph";
 board.autoSquare = graphPopup || !document.documentElement.classList.contains("desktop");
+if (graphPopup) board.watchSize();
+else requestAnimationFrame(() => requestAnimationFrame(() => board.watchSize()));
 const graphWindowId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 let graphChannel = null;
 let uiChannel = null;
@@ -3751,15 +3753,18 @@ syncViewFields();
 setMode("basic");
 const storedTheme = loadTheme();
 activeThemeId = storedTheme?.id || "dark-1";
+document.documentElement.classList.add("ready");
 renderCustomFields(picksForActive(storedTheme));
 renderThemeGroups();
 renderPadChoices();
 document.getElementById("infoBtn").addEventListener("click", openInfoWindow);
 document.getElementById("settingsBtn").addEventListener("click", openSettingsWindow);
-document.getElementById("langBtn").addEventListener("click", () => {
-  applyLanguage(uiLang === "ko" ? "en" : "ko");
+function chooseLanguage(lang) {
+  applyLanguage(lang);
   publishUi({ type: "lang", lang: uiLang });
-});
+}
+document.getElementById("langKo").addEventListener("click", () => chooseLanguage("ko"));
+document.getElementById("langEn").addEventListener("click", () => chooseLanguage("en"));
 document.getElementById("closeSettings").addEventListener("click", closeSettingsView);
 document.getElementById("infoOk").addEventListener("click", () => {
   if (pageKind === "info") closeThisWindow();
@@ -3841,9 +3846,16 @@ window.addEventListener("unhandledrejection", (ev) => {
 });
 if (!pageKind) exprEl.focus();
 const winClose = document.getElementById("winClose");
+const winMin = document.getElementById("winMin");
 if (document.documentElement.classList.contains("desktop") && !pageKind && winClose) {
   winClose.hidden = false;
   winClose.addEventListener("click", () => closeThisWindow());
+  if (winMin) {
+    winMin.hidden = false;
+    winMin.addEventListener("click", () => {
+      if (window.mycalcDesktop && window.mycalcDesktop.windowControl) window.mycalcDesktop.windowControl("minimize");
+    });
+  }
 }
 if (pageKind === "settings" || pageKind === "info") {
   (pageKind === "settings" ? settingsSheet : infoSheet).hidden = false;

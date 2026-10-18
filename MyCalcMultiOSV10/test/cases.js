@@ -256,21 +256,26 @@ suite("Programmer", () => {
 });
 
 suite("Screen and modes", () => {
-  test("The toolbar flag switches Korean and English", () => {
+  test("Settings switches Korean and English", () => {
     const doc = appWindow.document;
     const saved = localStorage.getItem("mycalc-lang");
     try {
       appWindow.applyLanguage("ko");
-      const flag = doc.getElementById("langFlag");
+      const ko = doc.getElementById("langKo");
+      const en = doc.getElementById("langEn");
       const settings = doc.getElementById("settingsBtn");
-      assert(flag.getAttribute("src").includes("flag-uk"), flag.getAttribute("src"));
+      assert(!doc.getElementById("langBtn"), "The main window still has a language button");
+      assert((ko.querySelector("img.flag")?.getAttribute("src") || "").includes("flag-kr.svg"), "Korean flag");
+      assert((en.querySelector("img.flag")?.getAttribute("src") || "").includes("flag-uk.svg"), "English flag");
+      assert(ko.getAttribute("aria-pressed") === "true", "Korean is selected");
       assert(settings.getAttribute("aria-label") === "설정", settings.getAttribute("aria-label"));
-      doc.getElementById("langBtn").click();
-      assert(flag.getAttribute("src").includes("flag-kr"), flag.getAttribute("src"));
+      en.click();
+      assert(en.getAttribute("aria-pressed") === "true", "English is selected");
       assert(settings.getAttribute("aria-label") === "Settings", settings.getAttribute("aria-label"));
       assert(doc.documentElement.lang === "en", doc.documentElement.lang);
-      doc.getElementById("langBtn").click();
-      assert(flag.getAttribute("src").includes("flag-uk"), flag.getAttribute("src"));
+      assert(doc.querySelector(".lang-setting h3").textContent === "Language", doc.querySelector(".lang-setting h3").textContent);
+      ko.click();
+      assert(ko.getAttribute("aria-pressed") === "true", "Korean is selected again");
       assert(settings.getAttribute("aria-label") === "설정", settings.getAttribute("aria-label"));
     } finally {
       appWindow.applyLanguage("ko");
@@ -2145,7 +2150,12 @@ suite("Product features", () => {
     try {
       const doc = loaded.win.document;
       const close = doc.getElementById("winClose");
+      const minimize = doc.getElementById("winMin");
       assert(close && !close.hidden, "Close button");
+      assert(minimize && !minimize.hidden, "Minimize button");
+      const minBox = minimize.getBoundingClientRect();
+      const closeBox = close.getBoundingClientRect();
+      assert(minBox.width > 0 && minBox.right <= closeBox.left + 1, "Minimize sits left of close");
       assert(doc.documentElement.classList.contains("desktop"), "Desktop class");
       assert(callWin(loaded.win, () => pageKind) == null, "Main page");
       const rect = doc.querySelector(".app").getBoundingClientRect();
@@ -6260,6 +6270,368 @@ suite("3D axes and surfaces", () => {
       }
     } finally {
       closeScene(loaded);
+    }
+  });
+});
+
+suite("GUI", () => {
+  function press(doc, label) {
+    const button = [...doc.querySelectorAll("#keys .key")].find((item) => item.textContent === label || item.getAttribute("aria-label") === label);
+    assert(button, `Missing ${label}`);
+    assert(!button.disabled, `${label} is disabled`);
+    button.click();
+  }
+
+  function showMode(doc, mode) {
+    const button = doc.querySelector(`.modes button[data-mode="${mode}"]`);
+    assert(button, mode);
+    button.click();
+    return button;
+  }
+
+  function changeValue(win, id, value) {
+    const input = win.document.getElementById(id);
+    input.value = value;
+    input.dispatchEvent(new win.Event("change", { bubbles: true }));
+  }
+
+  function restoreCalc() {
+    const doc = appWindow.document;
+    appWindow.applyLanguage("ko");
+    appWindow.closeSheets();
+    const notice = doc.getElementById("notice");
+    if (notice) notice.hidden = true;
+    const sweep = doc.querySelector("#history .history-clear");
+    if (sweep) sweep.click();
+    appCall(() => {
+      setAngle("deg");
+      setNotation("norm");
+      setMemory(0);
+      setBase(10);
+      clearCalc();
+    });
+    appWindow.setMode("basic");
+  }
+
+  test("Every mode button opens its own screen", () => {
+    const doc = appWindow.document;
+    const screens = [
+      ["basic", "screenCalc"],
+      ["scientific", "screenCalc"],
+      ["programmer", "screenProg"],
+      ["stats", "screenStats"],
+      ["currency", "screenRates"],
+      ["unit", "screenUnit"],
+      ["date", "screenDate"],
+    ];
+    try {
+      for (const [mode, id] of screens) {
+        const button = showMode(doc, mode);
+        assert(button.getAttribute("aria-selected") === "true", `${mode} is not selected`);
+        assert(!doc.getElementById(id).hidden, `${id} stayed hidden`);
+      }
+      showMode(doc, "basic");
+      const opened = [];
+      const original = appWindow.open;
+      appWindow.open = (url) => {
+        opened.push(String(url));
+        return null;
+      };
+      try {
+        showMode(doc, "graph");
+      } finally {
+        appWindow.open = original;
+      }
+      assert(opened.some((url) => url.includes("pop=graph")), opened.join(" ") || "no window");
+      assert(!doc.getElementById("screenCalc").hidden, "The graph button replaced the calculator");
+      assert(doc.querySelector('.modes button[data-mode="basic"]').getAttribute("aria-selected") === "true", "The graph button took over the calculator");
+    } finally {
+      restoreCalc();
+    }
+  });
+
+  test("The basic keys, memory and angle button do their jobs", () => {
+    const doc = appWindow.document;
+    try {
+      showMode(doc, "basic");
+      if (doc.getElementById("angleBtn").textContent !== "DEG") doc.getElementById("angleBtn").click();
+      press(doc, "AC");
+      for (const label of ["1", "2", "+", "3", "4", "="]) press(doc, label);
+      assert(doc.getElementById("result").textContent === "46", doc.getElementById("result").textContent);
+      assert(doc.querySelectorAll("#history .history-chip").length > 0, "The calculation was not kept");
+      doc.getElementById("memAdd").click();
+      assert(!doc.getElementById("memFlag").hidden, "M+ did not show the memory flag");
+      press(doc, "AC");
+      doc.getElementById("memRecall").click();
+      assert(doc.getElementById("expr").value === "46", doc.getElementById("expr").value);
+      doc.getElementById("angleBtn").click();
+      assert(doc.getElementById("angleBtn").textContent === "RAD", doc.getElementById("angleBtn").textContent);
+      doc.getElementById("notationBtn").click();
+      assert(doc.getElementById("notationBtn").textContent === "SCI", doc.getElementById("notationBtn").textContent);
+    } finally {
+      restoreCalc();
+    }
+  });
+
+  test("The scientific keys evaluate a function", () => {
+    const doc = appWindow.document;
+    try {
+      showMode(doc, "scientific");
+      if (doc.getElementById("angleBtn").textContent !== "DEG") doc.getElementById("angleBtn").click();
+      press(doc, "AC");
+      press(doc, "sin");
+      press(doc, "9");
+      press(doc, "0");
+      press(doc, "=");
+      assert(doc.getElementById("expr").value === "sin(90)", doc.getElementById("expr").value);
+      assert(doc.getElementById("result").textContent === "1", doc.getElementById("result").textContent);
+    } finally {
+      restoreCalc();
+    }
+  });
+
+  test("The programmer keys build and evaluate an integer", () => {
+    const doc = appWindow.document;
+    try {
+      showMode(doc, "programmer");
+      doc.querySelector('#bases button[data-base="10"]').click();
+      const expr = doc.getElementById("progExpr");
+      for (let i = 0; i < 16 && expr.value && expr.value !== "0"; i += 1) press(doc, "⌫");
+      press(doc, "2");
+      press(doc, "5");
+      press(doc, "=");
+      assert(doc.getElementById("val10").textContent.replace(/\s/g, "") === "25", doc.getElementById("val10").textContent);
+    } finally {
+      restoreCalc();
+    }
+  });
+
+  test("The statistics keys add a value to the list", () => {
+    const saved = localStorage.getItem("mycalc-stats");
+    const doc = appWindow.document;
+    try {
+      appWindow.applyLanguage("ko");
+      showMode(doc, "stats");
+      doc.getElementById("statClear").click();
+      press(doc, "8");
+      press(doc, "추가");
+      const listed = [...doc.querySelectorAll(".stat-value")].map((node) => node.textContent);
+      assert(listed.includes("8"), listed.join(",") || "empty");
+    } finally {
+      if (saved == null) localStorage.removeItem("mycalc-stats");
+      else localStorage.setItem("mycalc-stats", saved);
+      appCall(() => {
+        state.stats.values = readStoredStats();
+        state.stats.draft = "";
+        renderStats();
+      });
+      restoreCalc();
+    }
+  });
+
+  test("The currency and unit keys type into their screens", () => {
+    const savedUnit = localStorage.getItem("mycalc-unit");
+    const doc = appWindow.document;
+    try {
+      showMode(doc, "currency");
+      press(doc, "AC");
+      press(doc, "4");
+      assert(doc.getElementById("rateAmount").value === "4", doc.getElementById("rateAmount").value);
+      showMode(doc, "unit");
+      changeValue(appWindow, "unitGroup", "length");
+      changeValue(appWindow, "unitFrom", "m");
+      changeValue(appWindow, "unitTo", "cm");
+      press(doc, "AC");
+      press(doc, "2");
+      assert(doc.getElementById("unitResult").textContent === "200", doc.getElementById("unitResult").textContent);
+      doc.getElementById("unitSwap").click();
+      assert(doc.getElementById("unitFrom").value === "cm", doc.getElementById("unitFrom").value);
+      assert(doc.getElementById("unitResult").textContent === "0.02", doc.getElementById("unitResult").textContent);
+    } finally {
+      if (savedUnit == null) localStorage.removeItem("mycalc-unit");
+      else localStorage.setItem("mycalc-unit", savedUnit);
+      restoreCalc();
+    }
+  });
+
+  test("The date buttons calculate a difference and swap the days", () => {
+    const saved = localStorage.getItem("mycalc-date");
+    const doc = appWindow.document;
+    try {
+      appWindow.applyLanguage("ko");
+      showMode(doc, "date");
+      doc.getElementById("dateJobDiff").click();
+      changeValue(appWindow, "dateFrom", "2020-01-01");
+      changeValue(appWindow, "dateTo", "2021-01-01");
+      assert(doc.getElementById("dateDiffResult").textContent === "1년", doc.getElementById("dateDiffResult").textContent);
+      doc.getElementById("dateSwap").click();
+      assert(doc.getElementById("dateFrom").value === "2021-01-01", doc.getElementById("dateFrom").value);
+      assert(doc.getElementById("dateTo").value === "2020-01-01", doc.getElementById("dateTo").value);
+      doc.getElementById("dateJobAdd").click();
+      assert(doc.getElementById("dateAddPane").hidden === false, "Add did not open");
+      assert(doc.getElementById("dateDiffPane").hidden === true, "Difference stayed open");
+    } finally {
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+      restoreCalc();
+    }
+  });
+
+  test("Settings, language and a theme chip are clicked into place", () => {
+    const savedTheme = localStorage.getItem("mycalc-theme");
+    const savedLang = localStorage.getItem("mycalc-lang");
+    const doc = appWindow.document;
+    try {
+      appWindow.applyLanguage("ko");
+      appWindow.openSheet(doc.getElementById("settingsSheet"));
+      assert(!doc.getElementById("settingsSheet").hidden, "Settings did not open");
+      assert(!doc.getElementById("langBtn"), "The main window still has a language button");
+      doc.getElementById("langEn").click();
+      assert(doc.getElementById("settingsTitle").textContent === "Settings", doc.getElementById("settingsTitle").textContent);
+      assert(doc.getElementById("langEn").getAttribute("aria-pressed") === "true", "English was not selected");
+      doc.getElementById("langKo").click();
+      assert(doc.getElementById("settingsTitle").textContent === "설정", doc.getElementById("settingsTitle").textContent);
+      const chip = [...doc.querySelectorAll("#darkThemes .theme-chip")].find((item) => item.getAttribute("aria-pressed") !== "true");
+      assert(chip, "No theme chip to click");
+      const name = chip.querySelector(".theme-name").textContent;
+      chip.click();
+      const selected = [...doc.querySelectorAll("#darkThemes .theme-chip")].find((item) => item.querySelector(".theme-name").textContent === name);
+      assert(selected && selected.getAttribute("aria-pressed") === "true", name);
+    } finally {
+      if (savedTheme == null) localStorage.removeItem("mycalc-theme");
+      else localStorage.setItem("mycalc-theme", savedTheme);
+      if (savedLang == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", savedLang);
+      appCall(() => loadTheme());
+      restoreCalc();
+    }
+  });
+
+  test("The info, memo and settings buttons ask for their windows", () => {
+    const doc = appWindow.document;
+    const opened = [];
+    const original = appWindow.open;
+    appWindow.open = (url) => {
+      opened.push(String(url));
+      return null;
+    };
+    try {
+      doc.getElementById("infoBtn").click();
+      doc.getElementById("memoBtn").click();
+      doc.getElementById("settingsBtn").click();
+    } finally {
+      appWindow.open = original;
+    }
+    assert(opened.some((url) => url.includes("pop=info")), opened.join(" "));
+    assert(opened.some((url) => url.includes("pop=memo")), opened.join(" "));
+    assert(opened.some((url) => url.includes("pop=settings")), opened.join(" "));
+  });
+
+  test("The settings window changes the language from its own buttons", async () => {
+    const saved = localStorage.getItem("mycalc-lang");
+    const loaded = await loadApp("pop=settings");
+    try {
+      const doc = loaded.win.document;
+      assert(!doc.getElementById("settingsSheet").hidden, "Settings window");
+      loaded.win.applyLanguage("ko");
+      doc.getElementById("langEn").click();
+      assert(doc.getElementById("settingsTitle").textContent === "Settings", doc.getElementById("settingsTitle").textContent);
+      assert(doc.documentElement.lang === "en", doc.documentElement.lang);
+      doc.getElementById("langKo").click();
+      assert(doc.getElementById("settingsTitle").textContent === "설정", doc.getElementById("settingsTitle").textContent);
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", saved);
+      appWindow.applyLanguage("ko");
+    }
+  });
+
+  test("The notepad window adds the note that was typed", async () => {
+    const saved = localStorage.getItem("mycalc-memo");
+    localStorage.removeItem("mycalc-memo");
+    const loaded = await loadApp("pop=memo");
+    try {
+      const doc = loaded.win.document;
+      const text = doc.getElementById("memoNewText");
+      text.value = "GUI note";
+      doc.getElementById("memoAddBtn").click();
+      const row = [...doc.querySelectorAll("#memoList .memo-item")].find((item) => item.textContent.includes("GUI note"));
+      assert(row, "The typed note is not in the list");
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-memo");
+      else localStorage.setItem("mycalc-memo", saved);
+    }
+  });
+
+  test("The graph window adds a curve, switches dimension and zooms", async () => {
+    const loaded = await loadApp("pop=graph&desktop=1");
+    try {
+      const doc = loaded.win.document;
+      const win = loaded.win;
+      callWin(win, () => {
+        board.setDimension("2d");
+        while (board.fns2d.length) board.removeFunction(board.fns2d[0].id);
+        board.resetView();
+      });
+      const expr = doc.getElementById("graphExpr");
+      expr.value = "sin(x)";
+      doc.getElementById("addFn").click();
+      const row = [...doc.querySelectorAll("#fnList li")].find((item) => item.textContent.includes("sin(x)"));
+      assert(row, "sin(x) was not added");
+      doc.getElementById("dim3d").click();
+      assert(doc.getElementById("dim3d").getAttribute("aria-pressed") === "true", "3D did not switch on");
+      doc.getElementById("dim2d").click();
+      assert(doc.getElementById("dim2d").getAttribute("aria-pressed") === "true", "2D did not switch back");
+      const before = callWin(win, () => board.view.xMax - board.view.xMin);
+      doc.getElementById("zoomIn").click();
+      const after = callWin(win, () => board.view.xMax - board.view.xMin);
+      assert(after < before, `${before} -> ${after}`);
+      doc.getElementById("resetView").click();
+      const opened = [];
+      win.open = (url) => {
+        opened.push(String(url));
+        return null;
+      };
+      doc.getElementById("helpGraph").click();
+      assert(opened.some((url) => url.includes("pop=help")), opened.join(" ") || "no help window");
+      assert(!doc.getElementById("graphMin").hidden, "Minimize");
+      assert(!doc.getElementById("graphClose").hidden, "Close");
+      const minBox = doc.getElementById("graphMin").getBoundingClientRect();
+      const closeBox = doc.getElementById("graphClose").getBoundingClientRect();
+      assert(minBox.right <= closeBox.left + 1, "Minimize is not left of close");
+    } finally {
+      callWin(loaded.win, () => {
+        while (board.fns2d.length) board.removeFunction(board.fns2d[0].id);
+      });
+      loaded.frame.remove();
+    }
+  });
+
+  test("The calculator window puts minimize on the left of close", async () => {
+    const loaded = await loadApp("desktop=1");
+    try {
+      const doc = loaded.win.document;
+      assert(!doc.getElementById("langBtn"), "Language button");
+      const minimize = doc.getElementById("winMin");
+      const close = doc.getElementById("winClose");
+      assert(minimize && !minimize.hidden, "Minimize");
+      assert(close && !close.hidden, "Close");
+      const minBox = minimize.getBoundingClientRect();
+      const closeBox = close.getBoundingClientRect();
+      assert(minBox.width > 0 && minBox.right <= closeBox.left + 1, "Minimize sits left of close");
+      let hover = "";
+      for (const sheet of doc.styleSheets) {
+        let rules = [];
+        try { rules = [...sheet.cssRules]; } catch { rules = []; }
+        for (const rule of rules) {
+          if (rule.selectorText && rule.selectorText.includes(".win-close:hover")) hover = rule.style.backgroundColor;
+        }
+      }
+      assert(hover === "rgb(220, 38, 38)" || hover === "#dc2626", hover || "no hover colour");
+    } finally {
+      loaded.frame.remove();
     }
   });
 });

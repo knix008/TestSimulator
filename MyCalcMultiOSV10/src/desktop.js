@@ -50,17 +50,13 @@
   };
 
   document.addEventListener("contextmenu", (event) => {
-    const target = event.target;
-    const editable = textField(target);
-    const selected = String(window.getSelection ? window.getSelection() : "").trim().length > 0;
-    if (!editable && !selected) {
-      event.preventDefault();
-      return;
-    }
     event.preventDefault();
+    const editable = textField(event.target);
+    const selected = String(window.getSelection ? window.getSelection() : "").trim().length > 0;
     invoke("edit_menu", {
       request: {
         editable,
+        selected,
         lang: document.documentElement.lang === "en" ? "en" : "ko",
       },
     });

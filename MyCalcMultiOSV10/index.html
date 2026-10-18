@@ -38,12 +38,10 @@
           </div>
         </div>
         <div class="brand-actions">
-          <button type="button" id="langBtn" class="lang-btn" aria-label="English" data-tooltip="English">
-            <img id="langFlag" class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />
-          </button>
           <button type="button" id="memoBtn" data-i18n-aria="memoOpen" data-i18n-title="memoOpen" aria-label="메모장 보기" data-tooltip="메모장 보기"><span class="icon icon-memo" aria-hidden="true"></span></button>
           <button type="button" id="settingsBtn" data-i18n-aria="settings" data-i18n-title="settings" aria-label="설정" data-tooltip="설정"><span class="icon icon-settings" aria-hidden="true"></span></button>
           <button type="button" id="infoBtn" data-i18n-aria="info" data-i18n-title="info" aria-label="정보" data-tooltip="정보"><span class="icon icon-info" aria-hidden="true"></span></button>
+          <button type="button" id="winMin" class="win-btn" hidden data-i18n-aria="minimize" data-i18n-title="minimize" aria-label="최소화" data-tooltip="최소화"><span class="icon icon-min" aria-hidden="true"></span></button>
           <button type="button" id="winClose" class="win-close" hidden data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
         </div>
       </div>
@@ -474,6 +472,13 @@
             <button type="button" id="closeSettings" class="settings-close" data-i18n-aria="close" data-i18n-title="close" aria-label="닫기" data-tooltip="닫기">×</button>
           </div>
         </div>
+        <section class="lang-setting">
+          <h3 data-i18n="language">언어</h3>
+          <div class="lang-choices" role="group" data-i18n-aria="language" aria-label="언어">
+            <button type="button" id="langKo" aria-pressed="true"><img class="flag" alt="" src="assets/icons/flag-kr.svg" width="22" height="15" draggable="false" />한국어</button>
+            <button type="button" id="langEn" aria-pressed="false"><img class="flag" alt="" src="assets/icons/flag-uk.svg" width="22" height="15" draggable="false" />English</button>
+          </div>
+        </section>
         <div class="theme-columns">
           <section class="theme-group">
             <h3 data-i18n="darkThemes">다크 테마</h3>

@@ -187,8 +187,73 @@ fn hold_still(window: &WebviewWindow) {
             if guard.is_fullscreen().unwrap_or(false) {
                 let _ = guard.set_fullscreen(false);
             }
+            round_corners(&guard);
         }
     });
+}
+
+fn round_corners(window: &WebviewWindow) {
+    #[cfg(windows)]
+    {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        let Ok(handle) = window.window_handle() else {
+            return;
+        };
+        let RawWindowHandle::Win32(raw) = handle.as_raw() else {
+            return;
+        };
+        unsafe { clip_round_corners(raw.hwnd.get() as isize) };
+    }
+    #[cfg(not(windows))]
+    let _ = window;
+}
+
+#[cfg(windows)]
+unsafe fn clip_round_corners(hwnd: isize) {
+    #[repr(C)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetDpiForWindow(hwnd: isize) -> u32;
+        fn GetWindowRect(hwnd: isize, rect: *mut Rect) -> i32;
+        fn SetWindowRgn(hwnd: isize, region: isize, redraw: i32) -> i32;
+    }
+    #[link(name = "gdi32")]
+    extern "system" {
+        fn CreateRoundRectRgn(left: i32, top: i32, right: i32, bottom: i32, width: i32, height: i32) -> isize;
+    }
+    #[link(name = "dwmapi")]
+    extern "system" {
+        fn DwmSetWindowAttribute(hwnd: isize, attribute: u32, value: *const u32, size: u32) -> i32;
+    }
+    let mut rect = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+    if GetWindowRect(hwnd, &mut rect) == 0 {
+        return;
+    }
+    let width = rect.right - rect.left;
+    let height = rect.bottom - rect.top;
+    if width < 20 || height < 20 {
+        return;
+    }
+    let mut dpi = GetDpiForWindow(hwnd);
+    if dpi == 0 {
+        dpi = 96;
+    }
+    // The same 16px the calculator card uses. Windows 11 would otherwise
+    // round the frame again, a little less, on top of this.
+    let radius = (16 * dpi / 96) as i32;
+    let region = CreateRoundRectRgn(0, 0, width, height, radius * 2, radius * 2);
+    if region == 0 {
+        return;
+    }
+    SetWindowRgn(hwnd, region, 1);
+    let square: u32 = 1;
+    DwmSetWindowAttribute(hwnd, 33, &square, 4);
 }
 
 fn open_child(app: &AppHandle, kind: &str) -> Result<(), String> {
@@ -287,6 +352,9 @@ fn set_content_size(window: WebviewWindow, mode: String) {
 fn window_control(window: WebviewWindow, action: String) -> WindowState {
     // The calculator window has one size per mode. It does not maximize.
     if window.label() == "main" {
+        if action == "minimize" {
+            let _ = window.minimize();
+        }
         return WindowState { maximized: false };
     }
     if action == "minimize" {
@@ -332,11 +400,21 @@ fn set_bounds(window: WebviewWindow, state: tauri::State<AppState>, bounds: Boun
 
 #[tauri::command]
 fn open_window(app: AppHandle, window: WebviewWindow, kind: String) -> Result<(), String> {
-    if kind == "print" {
-        open_print(&app, &window)
-    } else {
-        open_child(&app, &kind)
-    }
+    // The button's command is running on the UI thread. Building the graph
+    // window there waits for that same thread, so the calculator never gets
+    // another turn. Hand the creation to the next turn and return now.
+    let owner = window.clone();
+    std::thread::spawn(move || {
+        let queued = app.clone();
+        let _ = queued.run_on_main_thread(move || {
+            let _ = if kind == "print" {
+                open_print(&app, &owner)
+            } else {
+                open_child(&app, &kind)
+            };
+        });
+    });
+    Ok(())
 }
 
 #[tauri::command]
@@ -431,6 +509,9 @@ pub fn run() {
                 return Ok(());
             };
             lock_content(&main, 360.0, 594.0);
+            // An opaque window appears as soon as it exists. The corners are
+            // still rounded, so the desktop shows through them.
+            round_corners(&main);
             hold_still(&main);
             edit_menu::hide_builtin_menu(&main);
             let handle = app.handle().clone();
