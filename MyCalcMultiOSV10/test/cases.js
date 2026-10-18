@@ -331,6 +331,11 @@ suite("Screen and modes", () => {
     assert(size() === "360x594", size());
     const unit = keyShape();
     assert(unit.wide && unit.inside, "Unit keys");
+    win.setMode("date");
+    flush(win);
+    assert(size() === "360x594", size());
+    const date = keyShape();
+    assert(date.wide && date.inside, "Date keys");
     win.setMode("basic");
   });
 
@@ -3178,7 +3183,7 @@ suite("Keypad layout", () => {
     try {
       for (const order of ["789", "123"]) {
         appWindow.setKeypad(order);
-        for (const mode of ["basic", "scientific", "programmer", "currency", "unit"]) {
+        for (const mode of ["basic", "scientific", "programmer", "currency", "unit", "date"]) {
           appWindow.setMode(mode);
           flush(appWindow);
           const gap = centres();
@@ -3630,11 +3635,170 @@ suite("Units", () => {
       assert(last.bottom <= rect.bottom + 1 && last.right <= rect.right + 1, "The keypad spills out of the card");
       assert(app.scrollHeight - app.clientHeight === 0, `${app.scrollHeight - app.clientHeight}px of overflow`);
       const tabs = [...doc.querySelectorAll(".modes button")];
-      assert(tabs.length === 7, `${tabs.length} tabs`);
+      assert(tabs.length === 8, `${tabs.length} tabs`);
       assert(tabs.every((tab) => tab.querySelector(".icon") && tab.dataset.tooltip), "Every mode tab needs an icon and a tooltip");
       assert(tabs.find((tab) => tab.dataset.mode === "unit").getAttribute("aria-selected") === "true", "The unit tab is not selected");
     } finally {
       appWindow.setMode("basic");
+    }
+  });
+});
+
+suite("Dates", () => {
+  test("A day count agrees with the calendar", () => {
+    appCall(() => {
+      const trouble = [];
+      const check = (from, to, days, years, months, rest) => {
+        const diff = dateDiff(from, to);
+        if (!diff) {
+          trouble.push(`${from} → ${to} is missing`);
+          return;
+        }
+        const got = [diff.totalDays, diff.years, diff.months, diff.days, diff.negative].join(",");
+        const want = [days, years, months, rest, days < 0].join(",");
+        if (got !== want) trouble.push(`${from} → ${to} is ${got}, not ${want}`);
+      };
+      check("1970-01-01", "1970-01-01", 0, 0, 0, 0);
+      check("1970-01-01", "1970-01-02", 1, 0, 0, 1);
+      check("2019-02-28", "2019-03-01", 1, 0, 0, 1);
+      check("2020-02-28", "2020-03-01", 2, 0, 0, 2);
+      check("2020-01-31", "2020-03-01", 30, 0, 0, 30);
+      check("2000-01-01", "2001-01-01", 366, 1, 0, 0);
+      check("1900-01-01", "1901-01-01", 365, 1, 0, 0);
+      check("2021-01-01", "2020-01-01", -366, 1, 0, 0);
+      if (dateWeekday(parseIsoDate("1970-01-01")) !== 4) trouble.push("1970-01-01 is not Thursday");
+      if (dateWeekday(parseIsoDate("2000-01-01")) !== 6) trouble.push("2000-01-01 is not Saturday");
+      if (parseIsoDate("1900-02-29") || !parseIsoDate("2000-02-29") || !parseIsoDate("2024-02-29")) trouble.push("leap day");
+      for (const iso of ["0001-01-01", "1970-01-01", "2024-02-29", "9999-12-31"]) {
+        const date = parseIsoDate(iso);
+        const back = fromSerial(toSerial(date.y, date.m, date.d));
+        if (!back || formatIsoDate(back) !== iso) trouble.push(`${iso} round trip`);
+      }
+      if (formatDateDiff(dateDiff("2020-01-01", "2020-01-01"), "ko") !== "같은 날") trouble.push("same day");
+      if (formatDateDiff(dateDiff("2020-01-01", "2021-01-01"), "en") !== "1 year") trouble.push("one year");
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("Adding months stops on the last real day", () => {
+    appCall(() => {
+      const trouble = [];
+      const check = (iso, span, want) => {
+        const got = shiftDate(iso, span);
+        const text = got ? formatIsoDate(got) : "out";
+        if (text !== want) trouble.push(`${iso} ${JSON.stringify(span)} → ${text}, not ${want}`);
+      };
+      check("2024-01-31", { years: 0, months: 1, weeks: 0, days: 0, negative: false }, "2024-02-29");
+      check("2025-01-31", { years: 0, months: 1, weeks: 0, days: 0, negative: false }, "2025-02-28");
+      check("2024-03-31", { years: 0, months: 1, weeks: 0, days: 0, negative: true }, "2024-02-29");
+      check("2024-02-29", { years: 1, months: 0, weeks: 0, days: 0, negative: false }, "2025-02-28");
+      check("2024-02-28", { years: 0, months: 0, weeks: 1, days: 0, negative: false }, "2024-03-06");
+      check("9999-12-31", { years: 0, months: 0, weeks: 0, days: 1, negative: false }, "out");
+      check("0001-01-01", { years: 0, months: 0, weeks: 0, days: 1, negative: true }, "out");
+      if (trouble.length) throw new Error(trouble.join(" | "));
+    });
+  });
+
+  test("The date screen shows the gap and the shifted day", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-date");
+    const savedLang = localStorage.getItem("mycalc-lang");
+    try {
+      appWindow.setMode("date");
+      appWindow.setDateJob("diff");
+      appWindow.setDateRange("2020-01-01", "2021-01-01");
+      appWindow.applyLanguage("ko");
+      assert(doc.getElementById("dateDiffResult").textContent === "1년", doc.getElementById("dateDiffResult").textContent);
+      assert(doc.getElementById("dateDiffNote").textContent.includes("366"), doc.getElementById("dateDiffNote").textContent);
+      assert(doc.getElementById("dateJobDiff").getAttribute("aria-pressed") === "true", "Difference is not selected");
+      const dateTab = doc.querySelector('.modes button[data-mode="date"]');
+      assert(dateTab.dataset.tooltip === "날짜" && dateTab.getAttribute("aria-label") === "날짜", dateTab.dataset.tooltip);
+      appWindow.applyLanguage("en");
+      assert(doc.getElementById("dateDiffResult").textContent === "1 year", doc.getElementById("dateDiffResult").textContent);
+      assert(dateTab.dataset.tooltip === "Date", dateTab.dataset.tooltip);
+      appWindow.setDateJob("add");
+      appWindow.setDateRange("2024-02-29", "2024-02-29");
+      appWindow.setDateSpan({ years: 1, months: 0, weeks: 0, days: 0, negative: false });
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2025-02-28"), doc.getElementById("dateAddResult").textContent);
+      assert(doc.getElementById("dateAddPane").hidden === false, "The add pane is hidden");
+      assert(doc.getElementById("dateDiffPane").hidden === true, "The difference pane stayed open");
+      appWindow.applyLanguage("ko");
+      appWindow.setDateJob("diff");
+      appWindow.setDateRange("2020-01-01", "2021-01-01");
+      doc.getElementById("dateSwap").click();
+      assert(doc.getElementById("dateFrom").value === "2021-01-01" && doc.getElementById("dateTo").value === "2020-01-01", `${doc.getElementById("dateFrom").value} → ${doc.getElementById("dateTo").value}`);
+      assert(doc.getElementById("dateDiffResult").textContent === "−1년", doc.getElementById("dateDiffResult").textContent);
+    } finally {
+      appWindow.applyLanguage("ko");
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+      if (savedLang == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", savedLang);
+    }
+  });
+
+  test("The keypad edits the span and the choice is kept", async () => {
+    const saved = localStorage.getItem("mycalc-date");
+    localStorage.removeItem("mycalc-date");
+    const loaded = await loadApp("");
+    try {
+      callWin(loaded.win, () => {
+        setMode("date");
+        setDateJob("add");
+        setDateRange("2024-03-01", "2024-03-01");
+        setDateSpan({ years: 0, months: 0, weeks: 0, days: 0, negative: false });
+        state.date.part = "days";
+        renderDate();
+        return 1;
+      });
+      await wait(40);
+      const doc = loaded.win.document;
+      const press = (label) => [...doc.querySelectorAll("#keys .key")].find((key) => key.textContent === label).click();
+      press("1");
+      press("5");
+      assert(callWin(loaded.win, () => state.date.days) === "15", callWin(loaded.win, () => state.date.days));
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2024-03-16"), doc.getElementById("dateAddResult").textContent);
+      press("±");
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2024-02-15"), doc.getElementById("dateAddResult").textContent);
+      const stored = JSON.parse(localStorage.getItem("mycalc-date"));
+      assert(stored.days === "15" && stored.negative === true && stored.job === "add", JSON.stringify(stored));
+      const again = await loadApp("");
+      try {
+        const kept = callWin(again.win, () => [state.date.days, state.date.negative, state.date.job].join(","));
+        assert(kept === "15,true,add", kept);
+      } finally {
+        again.frame.remove();
+      }
+    } finally {
+      loaded.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+    }
+  });
+
+  test("Date mode fits the card, in both calculations", () => {
+    const doc = appWindow.document;
+    doc.documentElement.classList.remove("desktop");
+    const app = doc.querySelector(".app");
+    const saved = localStorage.getItem("mycalc-date");
+    try {
+      appWindow.setMode("date");
+      for (const job of ["diff", "add"]) {
+        appWindow.setDateJob(job);
+        flush(appWindow);
+        const rect = app.getBoundingClientRect();
+        assert(`${Math.round(rect.width)}x${Math.round(rect.height)}` === "360x594", `${job} ${rect.width}x${rect.height}`);
+        const last = [...doc.querySelectorAll("#keys .key")].pop().getBoundingClientRect();
+        assert(last.bottom <= rect.bottom + 1 && last.right <= rect.right + 1, `${job} keypad spills`);
+        assert(app.scrollHeight - app.clientHeight === 0, `${job} overflows by ${app.scrollHeight - app.clientHeight}px`);
+        const today = [...doc.querySelectorAll("#keys .key")].find((key) => key.textContent === "오늘");
+        assert(today && today.scrollWidth <= today.clientWidth + 1, "The today key is clipped");
+      }
+    } finally {
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
     }
   });
 });
@@ -4615,19 +4779,19 @@ suite("Windows installer", () => {
   };
 
   test("The build points at the installer script", async () => {
-    const pkg = JSON.parse(await fetchText("../package.json"));
-    const nsis = pkg.build.nsis;
-    assert(nsis.include === "build/installer.nsh", `include is ${nsis.include}`);
-    assert(nsis.oneClick === false, "a one click installer never gets to ask anything");
-    // The questions are written in Korean and English; the installer has to be
-    // able to speak both or one of them is never read.
-    assert(nsis.multiLanguageInstaller === true, "the installer carries one language only");
-    assert((nsis.installerLanguages || []).includes("ko_KR"), "Korean is not among the installer languages");
-    assert((nsis.installerLanguages || []).includes("en_US"), "English is not among the installer languages");
+    const conf = JSON.parse(await fetchText("../src-tauri/tauri.conf.json"));
+    const nsis = conf.bundle.windows.nsis;
+    assert(nsis.installerHooks === "windows/hooks.nsh", `hooks are ${nsis.installerHooks}`);
+    // A one-click installer never stops to ask. installMode "both" asks which
+    // account the program is for, and the language selector asks which text to show.
+    assert(nsis.installMode === "both", "the installer does not ask where to put the program");
+    assert(nsis.displayLanguageSelector === true, "the installer carries one language only");
+    assert((nsis.languages || []).includes("Korean"), "Korean is not among the installer languages");
+    assert((nsis.languages || []).includes("English"), "English is not among the installer languages");
   });
 
   test("The installer takes the old program out before laying the new one down", async () => {
-    const script = await fetchCode("../build/installer.nsh");
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
     const trouble = [];
     if (!/!macro customInit/.test(script)) trouble.push("there is no customInit");
     if (!/Call RemoveOldApp/.test(script)) trouble.push("the old program is never removed");
@@ -4641,7 +4805,7 @@ suite("Windows installer", () => {
   });
 
   test("The installer asks before it erases anyone's settings", async () => {
-    const script = await fetchCode("../build/installer.nsh");
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
     const trouble = [];
     const ask = script.match(/MessageBox MB_YESNO[^\n]*/);
     if (!ask) trouble.push("nothing is ever asked");
@@ -4667,11 +4831,11 @@ suite("Windows installer", () => {
   });
 
   test("The settings are erased only once the new files are down", async () => {
-    const script = await fetchCode("../build/installer.nsh");
+    const script = await fetchCode("../src-tauri/windows/hooks.nsh");
     const trouble = [];
     // A profile that was open a moment ago still holds its files, so erasing it
     // in customInit leaves half a folder behind. customInstall runs after
-    // electron-builder has made sure the app is closed.
+    // the installer has made sure the app is closed.
     const inInstall = script.indexOf("!macro customInstall");
     const wipe = script.indexOf("Call WipeOldData", inInstall);
     if (inInstall < 0) trouble.push("there is no customInstall");

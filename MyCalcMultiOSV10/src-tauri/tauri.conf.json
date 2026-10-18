@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyCalc",
+  "version": "10.0.0",
+  "identifier": "local.mycalc.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/dev-server.js",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "node scripts/build-web.js",
+    "frontendDist": "../dist/web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "MyCalc 10.0",
+        "url": "index.html?desktop=1",
+        "width": 360,
+        "height": 594,
+        "resizable": false,
+        "maximizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
+        "center": true,
+        "zoomHotkeysEnabled": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "계산기",
+    "longDescription": "MyCalc 10.0",
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installMode": "both"
+      }
+    }
+  }
+}

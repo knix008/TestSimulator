@@ -9,6 +9,7 @@ const screenProg = document.getElementById("screenProg");
 const screenGraph = document.getElementById("screenGraph");
 const screenRates = document.getElementById("screenRates");
 const screenUnit = document.getElementById("screenUnit");
+const screenDate = document.getElementById("screenDate");
 const screenStats = document.getElementById("screenStats");
 const angleBtn = document.getElementById("angleBtn");
 const notationBtn = document.getElementById("notationBtn");
@@ -48,6 +49,36 @@ const STATS_KEY = "mycalc-stats";
 // A data set people typed by hand; past this it is a file, not a keypad.
 const STATS_MAX = 500;
 
+function readStoredDate() {
+  const today = todayIso();
+  const fresh = {
+    job: "diff",
+    from: today,
+    to: today,
+    years: "0",
+    months: "0",
+    weeks: "0",
+    days: "0",
+    negative: false,
+    part: "days",
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("mycalc-date"));
+    if (!saved || typeof saved !== "object") return fresh;
+    if (saved.job === "add") fresh.job = "add";
+    if (parseIsoDate(saved.from)) fresh.from = saved.from;
+    if (parseIsoDate(saved.to)) fresh.to = saved.to;
+    for (const part of ["years", "months", "weeks", "days"]) {
+      if (typeof saved[part] === "string" && /^\d{1,6}$/.test(saved[part])) fresh[part] = String(Number(saved[part]));
+    }
+    fresh.negative = saved.negative === true;
+    if (["years", "months", "weeks", "days"].includes(saved.part)) fresh.part = saved.part;
+  } catch {
+    /* Start from today when storage cannot be read. */
+  }
+  return fresh;
+}
+
 function readStoredStats() {
   try {
     const saved = JSON.parse(localStorage.getItem(STATS_KEY));
@@ -71,6 +102,7 @@ const state = {
   currency: { amount: "1", from: "USD", to: "KRW" },
   keypad: readStoredKeypad(),
   unit: readStoredUnit() || { group: "length", from: "cm", to: "in", amount: "1" },
+  date: readStoredDate(),
   stats: { values: readStoredStats(), draft: "" },
 };
 
@@ -310,6 +342,28 @@ function unitKeys() {
   return rows;
 }
 
+function dateKeys() {
+  const digit = (label, span) => ({ label, type: "ddigit", value: label, span });
+  const sides = [
+    { label: "00", type: "ddigit", value: "00" },
+    { label: "000", type: "ddigit", value: "000" },
+    { label: t(`date.part.${state.date.part}`), type: "dpart", className: "util", title: t("datePart") },
+  ];
+  const rows = [
+    [
+      { label: "AC", type: "dclear", className: "util" },
+      { label: "\u232b", type: "dback", className: "util" },
+      { label: "\u00b1", type: "dsign", className: state.date.negative ? "util active" : "util", title: t("dateSign") },
+      { label: t("dateTodayKey"), type: "dtoday", className: "op", title: t("dateToday") },
+    ],
+  ];
+  digitRows().forEach((trio, index) => {
+    rows.push([...trio.map((label) => digit(label)), sides[index]]);
+  });
+  rows.push([digit("0", 3), { label: t("copyKey"), type: "dcopy", className: "eq", title: t("copyResult") }]);
+  return rows;
+}
+
 // Four columns of entry beside three of tools, in a grid whose cells come out
 // square. Everything the mode can do is on the pad, so a data set can be typed,
 // tidied and sent to the graph without reaching for the mouse.
@@ -379,6 +433,10 @@ function renderKeys() {
   }
   if (state.mode === "unit") {
     keysEl.append(renderGrid(unitKeys(), 4));
+    return;
+  }
+  if (state.mode === "date") {
+    keysEl.append(renderGrid(dateKeys(), 4));
     return;
   }
   if (state.mode === "stats") {
@@ -460,6 +518,13 @@ function onKey(key, second) {
   else if (type === "uback") setUnitAmount(state.unit.amount.slice(0, -1) || "0");
   else if (type === "usign") toggleUnitSign();
   else if (type === "uswap") swapUnit();
+  else if (type === "ddigit") typeDate(value);
+  else if (type === "dclear") clearDateSpan();
+  else if (type === "dback") setDatePartValue(state.date[state.date.part].slice(0, -1));
+  else if (type === "dsign") toggleDateSign();
+  else if (type === "dpart") cycleDatePart();
+  else if (type === "dtoday") setDateToday();
+  else if (type === "dcopy") copyDateResult();
   else if (type === "sdigit") typeStat(value);
   else if (type === "sdot") typeStat(".");
   else if (type === "sexp") typeStat("E");
@@ -815,7 +880,7 @@ function setMode(mode) {
     tab.setAttribute("aria-selected", String(tab.dataset.mode === mode));
   }
   screenCalc.hidden =
-    mode === "programmer" || mode === "graph" || mode === "currency" || mode === "unit" || mode === "stats";
+    mode === "programmer" || mode === "graph" || mode === "currency" || mode === "unit" || mode === "date" || mode === "stats";
   screenProg.hidden = mode !== "programmer";
   screenStats.hidden = mode !== "stats";
   // The off-screen plot keeps drawing in the calculator window so a graph
@@ -823,9 +888,11 @@ function setMode(mode) {
   screenGraph.hidden = graphPopup && mode !== "graph";
   screenRates.hidden = mode !== "currency";
   screenUnit.hidden = mode !== "unit";
+  screenDate.hidden = mode !== "date";
   renderKeys();
   if (mode === "currency") openCurrency();
   if (mode === "unit") openUnit();
+  if (mode === "date") openDate();
   if (mode === "stats") openStats();
   if (mode === "graph") {
     requestAnimationFrame(() => requestAnimationFrame(() => board.resize()));
@@ -835,7 +902,7 @@ function setMode(mode) {
 
 function fitModeWindow(mode) {
   if (pageKind || !window.mycalcDesktop) return;
-  const sized = ["basic", "scientific", "programmer", "stats", "currency", "unit"];
+  const sized = ["basic", "scientific", "programmer", "stats", "currency", "unit", "date"];
   if (!sized.includes(mode)) return;
   window.mycalcDesktop.setContentSize(mode);
 }
@@ -1599,6 +1666,10 @@ function bind() {
       typeConverterKey(ev.key);
       return;
     }
+    if (state.mode === "date") {
+      typeDateKey(ev.key);
+      return;
+    }
     if (ev.key === "Enter") equals();
     else if (ev.key === "Escape") clearCalc();
     else if (ev.key === "Backspace") backspace(exprEl);
@@ -2054,6 +2125,179 @@ function bindUnit() {
   document.getElementById("unitSwap").addEventListener("click", swapUnit);
   renderUnitOptions();
   renderUnit();
+}
+
+// ---- dates ----
+
+function rememberDate() {
+  try {
+    localStorage.setItem("mycalc-date", JSON.stringify(state.date));
+  } catch {
+    /* The dates simply start from today next time. */
+  }
+}
+
+function dateSpan() {
+  return {
+    years: state.date.years,
+    months: state.date.months,
+    weeks: state.date.weeks,
+    days: state.date.days,
+    negative: state.date.negative,
+  };
+}
+
+function renderDate() {
+  const diffPane = document.getElementById("dateDiffPane");
+  const addPane = document.getElementById("dateAddPane");
+  if (!diffPane || !addPane) return;
+  const adding = state.date.job === "add";
+  diffPane.hidden = adding;
+  addPane.hidden = !adding;
+  document.getElementById("dateJobDiff").setAttribute("aria-pressed", String(!adding));
+  document.getElementById("dateJobAdd").setAttribute("aria-pressed", String(adding));
+  const from = document.getElementById("dateFrom");
+  const to = document.getElementById("dateTo");
+  const start = document.getElementById("dateStart");
+  if (from.value !== state.date.from) from.value = state.date.from;
+  if (to.value !== state.date.to) to.value = state.date.to;
+  if (start.value !== state.date.from) start.value = state.date.from;
+  for (const part of ["years", "months", "weeks", "days"]) {
+    const input = document.getElementById(`date${part[0].toUpperCase()}${part.slice(1)}`);
+    const label = input.closest(".date-part");
+    label.setAttribute("aria-pressed", String(state.date.part === part));
+    if (document.activeElement !== input && input.value !== state.date[part]) input.value = state.date[part];
+  }
+  const diff = dateDiff(state.date.from, state.date.to);
+  document.getElementById("dateDiffResult").textContent = formatDateDiff(diff, uiLang);
+  document.getElementById("dateDiffNote").textContent = diff ? formatDateTotal(diff.totalDays, uiLang) : "";
+  const shifted = shiftDate(state.date.from, dateSpan());
+  document.getElementById("dateAddResult").textContent = formatDateShift(shifted, uiLang);
+  document.getElementById("dateAddNote").textContent = state.date.negative
+    ? (uiLang === "en" ? "Subtracting" : "빼는 중")
+    : (uiLang === "en" ? "Adding" : "더하는 중");
+  if (state.mode === "date") renderKeys();
+}
+
+function setDatePartValue(text) {
+  const cleaned = String(text || "").replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 6);
+  state.date[state.date.part] = cleaned || "0";
+  rememberDate();
+  renderDate();
+}
+
+function typeDate(text) {
+  const current = state.date[state.date.part];
+  const body = current === "0" ? "" : current;
+  setDatePartValue(body + text);
+}
+
+function clearDateSpan() {
+  state.date.years = "0";
+  state.date.months = "0";
+  state.date.weeks = "0";
+  state.date.days = "0";
+  state.date.negative = false;
+  rememberDate();
+  renderDate();
+}
+
+function toggleDateSign() {
+  state.date.negative = !state.date.negative;
+  rememberDate();
+  renderDate();
+}
+
+function cycleDatePart() {
+  const order = ["years", "months", "weeks", "days"];
+  state.date.part = order[(order.indexOf(state.date.part) + 1) % order.length];
+  rememberDate();
+  renderDate();
+}
+
+function setDateToday() {
+  state.date.from = todayIso();
+  rememberDate();
+  renderDate();
+}
+
+function copyDateResult() {
+  const id = state.date.job === "add" ? "dateAddResult" : "dateDiffResult";
+  copyToClipboard(document.getElementById(id).textContent);
+}
+
+function setDateJob(job) {
+  state.date.job = job === "add" ? "add" : "diff";
+  rememberDate();
+  renderDate();
+}
+
+function setDateRange(from, to) {
+  if (parseIsoDate(from)) state.date.from = from;
+  if (parseIsoDate(to)) state.date.to = to;
+  rememberDate();
+  renderDate();
+}
+
+function setDateSpan(span) {
+  for (const part of ["years", "months", "weeks", "days"]) {
+    if (span[part] != null) state.date[part] = String(span[part]).replace(/\D/g, "").slice(0, 6) || "0";
+  }
+  if (typeof span.negative === "boolean") state.date.negative = span.negative;
+  rememberDate();
+  renderDate();
+}
+
+function typeDateKey(key) {
+  if (key === "Escape") clearDateSpan();
+  else if (key === "Backspace") setDatePartValue(state.date[state.date.part].slice(0, -1));
+  else if (/^[0-9]$/.test(key)) typeDate(key);
+  else if (key === "-") toggleDateSign();
+}
+
+function openDate() {
+  renderDate();
+}
+
+function bindDate() {
+  document.getElementById("dateJobDiff").addEventListener("click", () => setDateJob("diff"));
+  document.getElementById("dateJobAdd").addEventListener("click", () => setDateJob("add"));
+  document.getElementById("dateSwap").addEventListener("click", () => {
+    const { from, to } = state.date;
+    state.date.from = to;
+    state.date.to = from;
+    rememberDate();
+    renderDate();
+  });
+  for (const [id, key] of [["dateFrom", "from"], ["dateTo", "to"], ["dateStart", "from"]]) {
+    document.getElementById(id).addEventListener("change", (ev) => {
+      if (!parseIsoDate(ev.target.value)) {
+        ev.target.value = state.date[key];
+        return;
+      }
+      state.date[key] = ev.target.value;
+      rememberDate();
+      renderDate();
+    });
+  }
+  for (const part of ["years", "months", "weeks", "days"]) {
+    const input = document.getElementById(`date${part[0].toUpperCase()}${part.slice(1)}`);
+    input.addEventListener("focus", () => {
+      if (state.date.part === part) return;
+      state.date.part = part;
+      rememberDate();
+      renderDate();
+    });
+    input.addEventListener("input", () => {
+      state.date.part = part;
+      const cleaned = input.value.replace(/\D/g, "").slice(0, 6);
+      state.date[part] = cleaned.replace(/^0+(?=\d)/, "") || "0";
+      if (input.value !== state.date[part]) input.value = state.date[part];
+      rememberDate();
+      renderDate();
+    });
+  }
+  renderDate();
 }
 
 // ---- statistics ----
@@ -2991,7 +3235,7 @@ function layoutPrintPreview() {
     image.style.filter = setup.color ? "none" : "grayscale(1)";
   }
   if (style) {
-    const padding = window.mycalcPrint
+    const padding = window.mycalcPrint && window.mycalcPrint.nativeMargins
       ? "0"
       : `${setup.marginTop}mm ${setup.marginRight}mm ${setup.marginBottom}mm ${setup.marginLeft}mm`;
     const borderMm = setup.borderOn ? (setup.border === "double" ? 1.1 : 0.35) : 0;
@@ -3171,6 +3415,10 @@ function bindPrintWindow() {
 }
 
 function openChildWindow(kind) {
+  if (window.mycalcDesktop && window.mycalcDesktop.openWindow) {
+    Promise.resolve(window.mycalcDesktop.openWindow(kind)).catch((error) => reportProgram(error));
+    return null;
+  }
   const url = new URL("index.html", location.href);
   url.searchParams.set("pop", kind);
   url.hash = kind;
@@ -3249,6 +3497,7 @@ bind();
 bindExport();
 bindCurrency();
 bindUnit();
+bindDate();
 bindStats();
 bindTooltips();
 renderKeys();

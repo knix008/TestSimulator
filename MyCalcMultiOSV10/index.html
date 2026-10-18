@@ -34,7 +34,7 @@
           <img class="logo" src="assets/icon.png" alt="" width="42" height="42" draggable="false" />
           <div>
             <h1>MyCalc <span class="version">10.0</span></h1>
-            <p data-i18n="tagline">기본, 공학용, 프로그래머, 통계, 그래프, 단위</p>
+            <p data-i18n="tagline">기본, 공학용, 프로그래머, 통계, 그래프, 단위, 날짜</p>
           </div>
         </div>
         <div class="brand-actions">
@@ -55,6 +55,7 @@
         <button type="button" role="tab" data-mode="graph" aria-selected="false" data-i18n-aria="mode.graph" data-i18n-title="mode.graph" aria-label="그래프" data-tooltip="그래프"><span class="icon icon-graph" aria-hidden="true"></span></button>
         <button type="button" role="tab" data-mode="currency" aria-selected="false" data-i18n-aria="mode.currency" data-i18n-title="mode.currency" aria-label="환율" data-tooltip="환율"><span class="icon icon-rates" aria-hidden="true"></span></button>
         <button type="button" role="tab" data-mode="unit" aria-selected="false" data-i18n-aria="mode.unit" data-i18n-title="mode.unit" aria-label="단위" data-tooltip="단위"><span class="icon icon-units" aria-hidden="true"></span></button>
+        <button type="button" role="tab" data-mode="date" aria-selected="false" data-i18n-aria="mode.date" data-i18n-title="mode.date" aria-label="날짜" data-tooltip="날짜"><span class="icon icon-date" aria-hidden="true"></span></button>
       </nav>
     </header>
 
@@ -132,6 +133,52 @@
         <output id="unitResult" class="rate-result">0</output>
       </div>
       <div class="rate-note" id="unitNote"></div>
+    </section>
+
+    <section class="screen" id="screenDate" hidden>
+      <div class="date-jobs" role="group" data-i18n-aria="dateJob" aria-label="날짜 계산">
+        <button type="button" id="dateJobDiff" aria-pressed="true" data-i18n="dateDiff">차이</button>
+        <button type="button" id="dateJobAdd" aria-pressed="false" data-i18n="dateAdd">더하기</button>
+      </div>
+      <div id="dateDiffPane">
+        <label class="date-line">
+          <span data-i18n="dateFrom">시작</span>
+          <input type="date" id="dateFrom" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateFrom" aria-label="시작" />
+        </label>
+        <button type="button" id="dateSwap" class="rate-swap" data-i18n-aria="dateSwap" data-i18n-title="dateSwap" aria-label="날짜 바꾸기" data-tooltip="날짜 바꾸기">⇅</button>
+        <label class="date-line">
+          <span data-i18n="dateTo">끝</span>
+          <input type="date" id="dateTo" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateTo" aria-label="끝" />
+        </label>
+        <output id="dateDiffResult" class="date-result"></output>
+        <div class="rate-note" id="dateDiffNote"></div>
+      </div>
+      <div id="dateAddPane" hidden>
+        <label class="date-line">
+          <span data-i18n="dateStart">날짜</span>
+          <input type="date" id="dateStart" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateStart" aria-label="날짜" />
+        </label>
+        <div class="date-span">
+          <label class="date-part" data-part="years">
+            <span data-i18n="dateYears">년</span>
+            <input id="dateYears" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateYears" aria-label="년" />
+          </label>
+          <label class="date-part" data-part="months">
+            <span data-i18n="dateMonths">월</span>
+            <input id="dateMonths" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateMonths" aria-label="월" />
+          </label>
+          <label class="date-part" data-part="weeks">
+            <span data-i18n="dateWeeks">주</span>
+            <input id="dateWeeks" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateWeeks" aria-label="주" />
+          </label>
+          <label class="date-part" data-part="days">
+            <span data-i18n="dateDays">일</span>
+            <input id="dateDays" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateDays" aria-label="일" />
+          </label>
+        </div>
+        <output id="dateAddResult" class="date-result"></output>
+        <div class="rate-note" id="dateAddNote"></div>
+      </div>
     </section>
 
     <section class="screen" id="screenStats" hidden>
@@ -342,7 +389,7 @@
             <img class="info-icon" src="assets/icon.png" alt="" width="52" height="52" draggable="false" />
             <div class="info-intro">
               <p class="info-name" id="infoTitle">MyCalc 10.0</p>
-              <p class="info-lead" data-i18n="infoLead">기본, 공학용, 프로그래머, 환율, 단위 계산기입니다. 그래프는 별도의 창에서 엽니다.</p>
+              <p class="info-lead" data-i18n="infoLead">기본, 공학용, 프로그래머, 환율, 단위, 날짜 계산기입니다. 그래프는 별도의 창에서 엽니다.</p>
             </div>
           </div>
           <dl class="info-list">
@@ -365,6 +412,10 @@
             <div>
               <dt data-i18n="infoUnit">단위</dt>
               <dd data-i18n="infoUnitDesc">길이, 무게, 온도를 비롯한 열두 가지를 변환합니다.</dd>
+            </div>
+            <div>
+              <dt data-i18n="infoDate">날짜</dt>
+              <dd data-i18n="infoDateDesc">두 날짜의 차이와, 기간을 더하거나 빼는 계산을 합니다.</dd>
             </div>
             <div>
               <dt data-i18n="infoBuild">빌드 정보</dt>
@@ -671,6 +722,8 @@
   <script src="src/themes.js"></script>
   <script src="src/rates.js"></script>
   <script src="src/units.js"></script>
+  <script src="src/dates.js"></script>
+  <script src="src/desktop.js"></script>
   <script src="src/app.js"></script>
   <script src="src/memo.js"></script>
 </body>

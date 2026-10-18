@@ -7,17 +7,35 @@
 ;    아무것도 손대기 전에 먼저 묻는다. 묻기 전에 지우면 고를 것이 없다.
 ;    조용히 설치할 때(/S)는 물을 사람이 없으므로 그대로 둔다.
 ;
-; electron-builder 가 붙여 주는 이름(${INSTALL_REGISTRY_KEY} 같은 것)은 이 파일을
-; 읽어 들이는 시점에는 아직 정해져 있지 않다. 매크로는 끼워 넣는 자리에서 펼쳐지
-; 므로 그 안에서는 쓸 수 있다. 그래서 이름을 읽는 일은 모두 customInit 안에서 하고,
-; 함수들은 거기서 적어 둔 변수만 본다.
+; Tauri 가 붙여 주는 이름(${INSTALL_REGISTRY_KEY} 같은 것)은 이 파일을
+; 읽어 들이는 시점에는 아직 정해져 있지 않을 수 있다. 매크로는 끼워 넣는 자리에서
+; 펼쳐지므로 그 안에서는 쓸 수 있다. 그래서 이름을 읽는 일은 모두 customInit
+; 안에서 하고, 함수들은 거기서 적어 둔 변수만 본다. 이름이 없으면 아래 기본값을 쓴다.
 ;
-; 이 파일은 설치 프로그램을 만들 때와 제거 프로그램을 만들 때 두 번 읽힌다.
-; 제거 프로그램에 쓰지 않는 코드가 들어가면 electron-builder 가 경고를 오류로
-; 다루므로, 설치 쪽에서만 쓰는 것은 BUILD_UNINSTALLER 로 걸러 낸다.
+; 이 파일은 설치 프로그램을 만들 때와 제거 프로그램을 만들 때 두 번 읽힐 수 있다.
+; 제거 프로그램에 쓰지 않는 코드는 BUILD_UNINSTALLER 로 걸러 낸다.
 
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+
+!ifndef APP_EXECUTABLE_FILENAME
+  !define APP_EXECUTABLE_FILENAME "MyCalc.exe"
+!endif
+!ifndef APP_FILENAME
+  !define APP_FILENAME "MyCalc"
+!endif
+!ifndef APP_PRODUCT_FILENAME
+  !define APP_PRODUCT_FILENAME "mycalc"
+!endif
+!ifndef APP_PACKAGE_NAME
+  !define APP_PACKAGE_NAME "local.mycalc.desktop"
+!endif
+!ifndef INSTALL_REGISTRY_KEY
+  !define INSTALL_REGISTRY_KEY "Software\MyCalc"
+!endif
+!ifndef UNINSTALL_REGISTRY_KEY
+  !define UNINSTALL_REGISTRY_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyCalc"
+!endif
 
 !ifndef BUILD_UNINSTALLER
 
@@ -66,9 +84,9 @@ FunctionEnd
 
 ; 설정이 남아 있는지 본다.
 ;
-; Electron 은 설정을 언제나 사용자별 자리에 둔다. 이름은 두 가지가 쓰인다.
-; 깔아서 쓸 때는 보이는 이름(MyCalc)이고, 소스에서 바로 띄울 때는 package.json
-; 의 이름(mycalc)이다. 둘 다 사용자의 것이므로 함께 본다.
+; 설정은 사용자별 자리에 둔다. 예전 Electron 판은 %APPDATA%\MyCalc 와
+; %APPDATA%\mycalc 를 썼고, Tauri 판은 식별자 폴더(local.mycalc.desktop)를 쓴다.
+; 셋 다 사용자의 것이므로 함께 본다.
 Function FindOldData
   StrCpy $HasOldData 0
   SetShellVarContext current
@@ -105,6 +123,9 @@ Function WipeOldData
     ${If} $DataThree != ""
       RMDir /r "$DataThree"
     ${EndIf}
+    RMDir /r "$LOCALAPPDATA\${APP_FILENAME}"
+    RMDir /r "$LOCALAPPDATA\${APP_PRODUCT_FILENAME}"
+    RMDir /r "$LOCALAPPDATA\${APP_PACKAGE_NAME}"
     ${If} $R2 >= 8
       Return
     ${EndIf}
@@ -115,6 +136,10 @@ Function WipeOldData
     ${EndIf}
     ${If} $DataThree != ""
     ${AndIf} ${FileExists} "$DataThree\*.*"
+      Sleep 400
+      Goto wipeRound
+    ${EndIf}
+    ${If} ${FileExists} "$LOCALAPPDATA\${APP_PACKAGE_NAME}\*.*"
       Sleep 400
       Goto wipeRound
     ${EndIf}
@@ -129,8 +154,8 @@ FunctionEnd
 ; 바로 가기와 적어 둔 값을 남긴다. 여기서 바라는 것은 완전히 지우는 쪽이다.
 ;
 ; 지우지 못하는 수도 있다. 프로그램이 돌고 있으면 파일이 잠긴다. 그때는 그대로
-; 둔다. 이어서 electron-builder 가 가는 길에 프로그램을 닫으라는 안내가 있고,
-; 거기서 제거를 다시 한 번 시도한다.
+; 둔다. 이어서 설치 마법사가 프로그램을 닫으라고 안내하고, 거기서 제거를 다시
+; 한 번 시도한다.
 Function RemoveOldApp
   ${If} $OldUninstaller == ""
     ; 적힌 제거 프로그램이 없는데 파일만 남은 자리는 손으로 치운다.
@@ -171,7 +196,7 @@ FunctionEnd
   StrCpy $WipeData 0
   StrCpy $OldDir ""
   StrCpy $OldUninstaller ""
-  StrCpy $ExeName "${APP_EXECUTABLE_FILENAME}"
+  StrCpy $ExeName "${MAINBINARYNAME}.exe"
 
   ; 설정이 놓이는 자리. 쓰이지 않는 이름은 빈 글자로 둔다.
   StrCpy $DataOne "$APPDATA\${APP_FILENAME}"
@@ -186,24 +211,31 @@ FunctionEnd
     StrCpy $DataThree ""
   !endif
 
-  ; 깔려 있는 판을 찾는다. 자리는 두 군데에 적혀 있다. 프로그램 키의
-  ; InstallLocation 과 제어판 목록의 UninstallString 이다. 어느 한쪽만 남은 판도
-  ; 있으므로 둘 다 본다. 사용자용과 컴퓨터용을 차례로 보는 것은 지난 판이 어느
-  ; 쪽으로 깔렸는지 알 수 없기 때문이다.
-  ReadRegStr $OldDir SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
-  ${If} $OldDir == ""
-    ReadRegStr $OldDir HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+  ; 깔려 있는 판을 찾는다. Tauri 는 제어판 키의 InstallLocation 과 제품 키의
+  ; 기본값에 자리를 둔다. InstallLocation 은 따옴표로 감싸여 있다.
+  ; 예전 Electron 판은 식별자 키에 남아 있을 수 있어 그것도 본다.
+  ReadRegStr $R0 SHCTX "${UNINSTKEY}" InstallLocation
+  ${If} $R0 != ""
+    Push $R0
+    Call UnquotePath
+    Pop $OldDir
   ${EndIf}
   ${If} $OldDir == ""
-    ReadRegStr $OldDir HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ReadRegStr $OldDir SHCTX "${MANUPRODUCTKEY}" ""
+  ${EndIf}
+  ${If} $OldDir == ""
+    ReadRegStr $OldDir HKCU "Software\local.mycalc.desktop" InstallLocation
+  ${EndIf}
+  ${If} $OldDir == ""
+    ReadRegStr $OldDir HKLM "Software\local.mycalc.desktop" InstallLocation
   ${EndIf}
 
-  ReadRegStr $R0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString
+  ReadRegStr $R0 SHCTX "${UNINSTKEY}" UninstallString
   ${If} $R0 == ""
-    ReadRegStr $R0 HKCU "${UNINSTALL_REGISTRY_KEY}" UninstallString
+    ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.mycalc.desktop" UninstallString
   ${EndIf}
   ${If} $R0 == ""
-    ReadRegStr $R0 HKLM "${UNINSTALL_REGISTRY_KEY}" UninstallString
+    ReadRegStr $R0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.mycalc.desktop" UninstallString
   ${EndIf}
   ${If} $R0 != ""
     Push $R0
@@ -251,13 +283,29 @@ FunctionEnd
 !macroend
 
 ; 설정을 지우는 것은 맨 뒤로 미룬다. 여기까지 오면 돌고 있던 프로그램은 확실히
-; 닫혀 있고(electron-builder 가 닫으라고 안내한 다음이다), 새 파일도 다 놓였다.
+; 닫혀 있고(설치 마법사가 닫으라고 안내한 다음이다), 새 파일도 다 놓였다.
 ; 새로 깐 프로그램은 아직 뜨기 전이므로 지운 자리를 다시 만들어 놓지도 않는다.
 !macro customInstall
   ${If} $WipeData == 1
     DetailPrint "이전 설정을 지웁니다"
     Call WipeOldData
   ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+  !insertmacro customInit
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  !insertmacro customInstall
+!macroend
+
+!else
+
+!macro NSIS_HOOK_PREINSTALL
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
 !macroend
 
 !endif ; BUILD_UNINSTALLER
