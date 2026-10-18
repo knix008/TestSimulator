@@ -9,7 +9,7 @@
 // quick edit of a class: name, attributes and operations as text), the quick
 // buttons under a selected class, zooming and panning, and the tabs of the
 // working diagrams. Every edit goes through the app as one undo step.
-import { createRenderContext, edgeRoute, elementOf, layoutDiagram, renderViews, shapeOfView, svgDefs, viewsInside, CONTAINER_SHAPES, DIAGRAM_THEMES, diagramBounds } from '../render/notation.js';
+import { backgroundLayers, createRenderContext, edgeRoute, elementOf, layoutDiagram, renderViews, shapeOfView, svgDefs, viewsInside, CONTAINER_SHAPES, DIAGRAM_THEMES, diagramBounds } from '../render/notation.js';
 import { isEdgeView, refId } from '../domain/model.js';
 import { typeDef, viewDef } from '../domain/meta.js';
 import { CANVAS_ZOOM } from '../domain/settings.js';
@@ -74,7 +74,7 @@ export class DiagramView {
           <div class="canvas-scroll" tabindex="0" aria-label="${escapeHtml(app.t('view.diagram'))}">
             <div class="canvas-stage">
               <svg class="canvas-svg" xmlns="${NS}"><defs class="canvas-defs"></defs>
-                <g class="viewport"><g class="grid-layer"></g><g class="content"></g></g>
+                <g class="viewport"><g class="bg-layer"></g><g class="grid-layer"></g><g class="content"></g></g>
               </svg>
               <svg class="canvas-overlay" xmlns="${NS}"></svg>
               <div class="quick-bar" hidden></div>
@@ -92,6 +92,7 @@ export class DiagramView {
     this.defs = host.querySelector('.canvas-defs');
     this.viewport = host.querySelector('.viewport');
     this.gridLayer = host.querySelector('.grid-layer');
+    this.bgLayer = host.querySelector('.bg-layer');
     this.content = host.querySelector('.content');
     this.overlay = host.querySelector('.canvas-overlay');
     this.quickBar = host.querySelector('.quick-bar');
@@ -145,9 +146,19 @@ export class DiagramView {
     return Math.max(1, Number(s.gridSize) || 10);
   }
 
-  /** Grid step in page units: the grid keeps its spacing on the screen, so zooming in makes it finer on the page. */
+  /**
+   * Grid step in page units (an adaptive grid). At 100 % a cell is the grid size; zooming scales the grid
+   * with the diagram until a cell is smaller than half the grid size or larger than 2.5 times it on the
+   * screen — then the grid is redrawn one level coarser or finer (× 5, so the darker lines of one level
+   * become the thin lines of the next and the 5 × 5 pattern carries on).
+   */
   gridStep() {
-    return this.gridPixels() / this.z;
+    const base = this.gridPixels();
+    const z = this.z;
+    let step = base;
+    while (step * z < base * 0.5) step *= 5;
+    while (step * z > base * 2.5) step /= 5;
+    return step;
   }
 
   /** Snaps to the visible grid lines (whole page units). */
@@ -188,7 +199,6 @@ export class DiagramView {
     this.layoutStage();
     this.defs.innerHTML = svgDefs(this.ctx);
     this.content.innerHTML = svg;
-    this.svg.style.background = this.ctx.background;
     this.drawGrid();
     this.renderOverlay();
     this.renderTabs();
@@ -286,15 +296,21 @@ export class DiagramView {
   }
 
   /** Grid lines: a thin line every grid step and a darker one every 5 steps (each major square is 5 × 5).
-   * The spacing is constant on the screen; zooming redraws the grid finer or coarser on the page. */
+   * The grid zooms with the diagram and is redrawn a level finer or coarser past a threshold (gridStep). */
   drawGrid() {
     const s = this.app.settings();
     this.drawRulers();
+    this.drawBackground();
     if (!s.showGrid || !this.world) { this.gridLayer.innerHTML = ''; return; }
     const z = this.z;
     const minor = this.gridStep();
     const major = minor * 5;
-    const theme = DIAGRAM_THEMES[s.diagramTheme] ?? {};
+    let theme = DIAGRAM_THEMES[s.diagramTheme] ?? {};
+    // A diagram with its own background colour gets grid colours that suit it (light ones on a dark
+    // background, dark ones on a light one), not the colour scheme's.
+    const d = this.diagram;
+    const own = d && (d.backgroundKind === 'color' || d.backgroundKind === 'pattern') ? luminance(d.backgroundColor) : null;
+    if (own !== null) theme = own > 0.45 ? DIAGRAM_THEMES.classic : DIAGRAM_THEMES.dark;
     const minorColor = theme.grid ?? '#e8ebf0';
     const majorColor = theme.gridMajor ?? '#cfd5de';
     const px = 1 / z; // one screen pixel in page units
@@ -303,6 +319,45 @@ export class DiagramView {
     const minorPath = lines ? `<path d="${lines}" stroke="${minorColor}" stroke-width="${n(px)}" fill="none"/>` : '';
     const w = this.world;
     this.gridLayer.innerHTML = `<defs><pattern id="grid-pattern" width="${n(major)}" height="${n(major)}" patternUnits="userSpaceOnUse" x="0" y="0">${minorPath}<path d="M0 0V${n(major)}M0 0H${n(major)}" stroke="${majorColor}" stroke-width="${n(px * 1.5)}" fill="none"/></pattern></defs><rect x="${n(w.x)}" y="${n(w.y)}" width="${n(w.w)}" height="${n(w.h)}" fill="url(#grid-pattern)" pointer-events="none"/>`;
+  }
+
+  /** The visible part of the page (page units). */
+  visibleBox() {
+    const z = this.z; const sc = this.scroll; const w = this.world ?? { x: 0, y: 0 };
+    return { x: w.x + sc.scrollLeft / z, y: w.y + sc.scrollTop / z, w: (sc.clientWidth || 800) / z, h: (sc.clientHeight || 600) / z };
+  }
+
+  /**
+   * The diagram's own background (render/notation.js backgroundLayers) under the grid and the views:
+   * colour and pattern cover the whole world; a picture is tiled from page 0,0 or placed (fill, fit,
+   * centre, stretch) over the visible part and follows scrolling. Without one the SVG gets the
+   * scheme's background colour as before. Redrawn only when the background or the world changes.
+   */
+  drawBackground() {
+    const bg = this.ctx?.backdrop ?? null;
+    this.svg.style.background = bg ? 'transparent' : (this.ctx?.background ?? '');
+    if (!bg || !this.world) { if (this.bgKey) { this.bgLayer.innerHTML = ''; this.bgKey = ''; } return; }
+    const w = this.world;
+    const key = JSON.stringify({ ...bg, image: `${bg.image.length}:${bg.image.slice(-80)}`, world: [w.x, w.y, w.w, w.h], id: this.diagram?._id });
+    if (key !== this.bgKey) {
+      this.bgKey = key;
+      this.bgLayer.innerHTML = backgroundLayers(bg, w, { id: `cbg-${this.diagram?._id ?? ''}`, view: this.visibleBox() });
+    }
+    this.placeBackground();
+  }
+
+  /** A placed picture follows the visible part of the page (scrolling, resizing). */
+  placeBackground() {
+    const bg = this.ctx?.backdrop;
+    if (!bg || bg.kind !== 'image' || bg.fit === 'tile' || !bg.image) return;
+    const v = this.visibleBox();
+    const set = (el, attrs) => { if (el) for (const [k, value] of Object.entries(attrs)) el.setAttribute(k, n(value)); };
+    const layer = this.bgLayer.querySelector('.diagram-background');
+    if (bg.fit === 'center') {
+      const box = layer?.querySelector(':scope > svg');
+      set(box, { x: v.x, y: v.y, width: v.w, height: v.h });
+      set(box?.querySelector('image'), { x: (v.w - (bg.imageWidth || 256)) / 2, y: (v.h - (bg.imageHeight || 256)) / 2 });
+    } else set(layer?.querySelector(':scope > image'), { x: v.x, y: v.y, width: v.w, height: v.h });
   }
 
   /** Rulers along the top and left edges: page coordinates, ticks on the grid, numbers on the major lines, the pointer marked. */
@@ -317,7 +372,7 @@ export class DiagramView {
     // numbers every major line, or every 2/4/… majors when they would crowd.
     let labelEvery = 5;
     while (labelEvery * minor * z < 50) labelEvery *= 2;
-    const tickEvery = this.gridPixels() >= 4 ? 1 : 5;
+    const tickEvery = minor * z >= 4 ? 1 : 5;
     const css = getComputedStyle(this.root);
     const ink = css.getPropertyValue('--muted').trim() || '#6b7280';
     const accent = css.getPropertyValue('--accent').trim() || '#2f6fed';
@@ -434,8 +489,40 @@ export class DiagramView {
       const a = S(d.start); const b = S(d.current);
       out += `<rect x="${n(Math.min(a.x, b.x))}" y="${n(Math.min(a.y, b.y))}" width="${n(Math.abs(a.x - b.x))}" height="${n(Math.abs(a.y - b.y))}" fill="none" stroke="${accent}" stroke-dasharray="4 3" pointer-events="none"/>`;
     }
+    out += this.problemBadges(S, z);
     this.overlay.innerHTML = out;
     this.renderQuickBar();
+  }
+
+  /** A red (error) or orange (warning) "!" at the top-right corner of each view whose element has a
+   * problem (edges: at the middle of the line) while the Problems panel is open; its tooltip lists them. */
+  problemBadges(S, z) {
+    const marks = this.app.problemMarkers?.();
+    if (!marks?.size) return '';
+    const language = this.app.language();
+    let out = '';
+    for (const [viewId, entry] of marks) {
+      const view = this.viewById(viewId);
+      if (!view) continue;
+      let x; let y;
+      if (isEdgeView(view)) {
+        const route = this.ctx.routes.get(viewId);
+        if (!route?.points?.length) continue;
+        const pts = route.points;
+        const i = Math.max(1, Math.floor(pts.length / 2));
+        const a = S(pts[i - 1]); const b = S(pts[i] ?? pts[i - 1]);
+        x = (a.x + b.x) / 2 + 10; y = (a.y + b.y) / 2 - 10;
+      } else {
+        const box = this.boxOf(viewId);
+        if (!box) continue;
+        const p = S(box);
+        x = p.x + box.w * z - 2; y = p.y + 2;
+      }
+      const color = entry.severity === 'error' ? '#e5484d' : '#f5a524';
+      const tip = [this.app.t('problems.badgeTip', { count: entry.rows.length }), ...entry.rows.slice(0, 8).map((r) => `• ${r.message?.[language] ?? ''}`), entry.rows.length > 8 ? '…' : ''].filter(Boolean).join('\n');
+      out += `<g class="problem-badge ${entry.severity}" data-problem-view="${escapeHtml(viewId)}" transform="translate(${n(x)},${n(y)})"><title>${escapeHtml(tip)}</title><circle r="8" fill="${color}" stroke="#fff" stroke-width="1.5"/><text y="4" text-anchor="middle" font-size="12" font-weight="700" font-family="Segoe UI, sans-serif" fill="#fff">!</text></g>`;
+    }
+    return out;
   }
 
   locked(view) { return Boolean(view?.locked) || Boolean(elementOf(this.ctx, view)?.isLocked); }
@@ -498,7 +585,7 @@ export class DiagramView {
     // No 'dblclick' listener: the press re-renders the view under the pointer and the drag captures
     // the pointer, so the browser never fires click/dblclick here. onPointerDown spots the second press.
     sc.addEventListener('contextmenu', (event) => this.onContextMenu(event));
-    sc.addEventListener('scroll', () => { if (!this.growing) { this.growNearEdges(); this.saveScroll(); this.drawMinimapView(); } this.drawRulers(); }, { passive: true });
+    sc.addEventListener('scroll', () => { if (!this.growing) { this.growNearEdges(); this.saveScroll(); this.drawMinimapView(); } this.drawRulers(); this.placeBackground(); }, { passive: true });
     sc.addEventListener('wheel', (event) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
@@ -559,6 +646,15 @@ export class DiagramView {
   onPointerDown(event) {
     if (event.button === 1 || (event.button === 0 && this.spaceDown)) return this.startPan(event);
     if (event.button !== 0) return undefined;
+    const badge = event.target.closest?.('.problem-badge');
+    if (badge) {
+      // A problem badge: select the view and its first problem in the Problems panel.
+      event.preventDefault();
+      const id = badge.dataset.problemView;
+      if (this.viewById(id)) this.app.select([id], { primary: id });
+      this.app.problemBadge?.(id);
+      return undefined;
+    }
     if (this.isSecondPress(event)) { event.preventDefault(); return this.onDoubleClick(event); }
     if (this.editing) { this.finishEdit(); }
     const p = this.toPage(event.clientX, event.clientY);
@@ -933,39 +1029,56 @@ export class DiagramView {
     this.minimap.hidden = !show;
     if (!show || !this.ctx) return;
     const b = this.contentBox();
-    const box = b.w ? { x: b.x - 20, y: b.y - 20, w: b.w + 40, h: b.h + 40 } : { x: 0, y: 0, w: 400, h: 300 };
-    this.miniBox = box;
+    this.miniContent = b.w ? { x: b.x - 20, y: b.y - 20, w: b.w + 40, h: b.h + 40 } : { x: 0, y: 0, w: 400, h: 300 };
     const svg = this.minimap.querySelector('svg');
-    svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.w} ${box.h}`);
-    svg.innerHTML = this.content.innerHTML;
+    const bg = this.ctx.backdrop;
+    svg.innerHTML = (bg ? backgroundLayers(bg, this.world ?? this.miniContent, { id: `mbg-${this.diagram._id}`, view: this.miniContent }) : '') + this.content.innerHTML;
     this.drawMinimapView();
   }
 
   drawMinimapView() {
-    if (this.minimap.hidden || !this.miniBox || !this.world) return;
-    const rect = this.minimap.getBoundingClientRect();
-    const box = this.miniBox;
-    const s = Math.min(rect.width / box.w, rect.height / box.h);
-    const ox = (rect.width - box.w * s) / 2; const oy = (rect.height - box.h * s) / 2;
+    if (this.minimap.hidden || !this.miniContent || !this.world) return;
     const z = this.z;
     const vx = this.world.x + this.scroll.scrollLeft / z; const vy = this.world.y + this.scroll.scrollTop / z;
+    const vw = this.scroll.clientWidth / z; const vh = this.scroll.clientHeight / z;
+    // The minimap shows the drawing AND the visible part, so the view rectangle is always inside it and to scale.
+    const c = this.miniContent;
+    const x1 = Math.min(c.x, vx - 10); const y1 = Math.min(c.y, vy - 10);
+    const box = this.miniFrozen ?? { x: x1, y: y1, w: Math.max(c.x + c.w, vx + vw + 10) - x1, h: Math.max(c.y + c.h, vy + vh + 10) - y1 };
+    this.miniBox = box;
+    this.minimap.querySelector('svg').setAttribute('viewBox', `${n(box.x)} ${n(box.y)} ${n(box.w)} ${n(box.h)}`);
+    const rect = { width: this.minimap.clientWidth, height: this.minimap.clientHeight };
+    const s = Math.min(rect.width / box.w, rect.height / box.h);
+    const ox = (rect.width - box.w * s) / 2; const oy = (rect.height - box.h * s) / 2;
     const view = this.minimap.querySelector('.minimap-view');
-    Object.assign(view.style, { left: `${n(ox + (vx - box.x) * s)}px`, top: `${n(oy + (vy - box.y) * s)}px`, width: `${n((this.scroll.clientWidth / z) * s)}px`, height: `${n((this.scroll.clientHeight / z) * s)}px` });
+    // The visible part, clamped inside the minimap: all four edges of the rectangle always show,
+    // also when the view reaches past the drawing (scrolled to an edge, or zoomed far out).
+    const W = this.minimap.clientWidth; const H = this.minimap.clientHeight;
+    const MIN = 8;
+    let left = ox + (vx - box.x) * s; let top = oy + (vy - box.y) * s;
+    let right = left + vw * s; let bottom = top + vh * s;
+    left = Math.max(0, Math.min(left, W - MIN)); top = Math.max(0, Math.min(top, H - MIN));
+    right = Math.min(W, Math.max(right, left + MIN)); bottom = Math.min(H, Math.max(bottom, top + MIN));
+    Object.assign(view.style, { left: `${n(left)}px`, top: `${n(top)}px`, width: `${n(right - left)}px`, height: `${n(bottom - top)}px` });
     this.miniScale = { s, ox, oy };
   }
 
   onMinimapDown(event) {
     event.preventDefault();
     const go = (e) => {
+      // Measured from the inside of the frame, like the view rectangle.
       const rect = this.minimap.getBoundingClientRect();
+      const left = rect.left + this.minimap.clientLeft; const top = rect.top + this.minimap.clientTop;
       const { s, ox, oy } = this.miniScale ?? { s: 1, ox: 0, oy: 0 };
-      const p = { x: this.miniBox.x + (e.clientX - rect.left - ox) / s, y: this.miniBox.y + (e.clientY - rect.top - oy) / s };
+      const p = { x: this.miniBox.x + (e.clientX - left - ox) / s, y: this.miniBox.y + (e.clientY - top - oy) / s };
       this.scrollPageTo(p, this.scroll.clientWidth / 2, this.scroll.clientHeight / 2);
       this.drawMinimapView();
     };
+    // While dragging, the minimap keeps its framing (it would otherwise follow the view and slide under the pointer).
+    this.miniFrozen = this.miniBox;
     go(event);
     const move = (e) => go(e);
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); this.miniFrozen = null; this.drawMinimapView(); };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   }
@@ -1074,3 +1187,12 @@ function boundsOfPoints(points) {
 }
 
 export { layoutDiagram as layoutRender };
+
+/** Relative luminance (0 dark … 1 light) of a #rgb / #rrggbb colour; null when it is not one. */
+function luminance(color) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color ?? '').trim());
+  if (!m) return null;
+  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}

@@ -15,7 +15,7 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
  * or empty space. Fixed; confirm, about, welcome and prompt then follow their content height (fitHeight). */
 export const POPUPS = {
-  settings: { width: 1100, height: 650 },
+  settings: { width: 1100, height: 670 },
   about: { width: 740, height: 600 },
   confirm: { width: 540, height: 270 },
   error: { width: 720, height: 500 },
@@ -33,8 +33,12 @@ export const POPUPS = {
   textimport: { width: 820, height: 600 },
   color: { width: 300, height: 300 },
   prompt: { width: 520, height: 230 },
+  document: { width: 860, height: 500 },
+  baselines: { width: 900, height: 480 },
+  compare: { width: 1120, height: 680 },
   requirements: { width: 1120, height: 640 },
   tracematrix: { width: 1120, height: 740 },
+  background: { width: 960, height: 500 },
 };
 
 export const popupKey = (kind) => `myumlmaker.popup.${kind}`;

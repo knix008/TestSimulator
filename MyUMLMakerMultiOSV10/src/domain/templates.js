@@ -1,12 +1,14 @@
 // New-project templates (one per kind of diagram) and the sample project
-// "Online Shop" — one finished diagram of each of the 29 kinds (UML structure
+// "Online Shop" — one finished diagram of each of the 38 kinds (UML structure
 // and behaviour, ER, flowchart, data flow, SysML, BPMN, C4, mind map,
-// wireframe, AWS/Azure/GCP) — in Korean and English. Everything is built with
+// wireframe, AWS/Azure/GCP, and in templates-more.js Gantt, WBS, timeline,
+// ArchiMate, network, JSON, YAML, EBNF, regex) — in Korean and English. Everything is built with
 // the normal editing functions, so the samples are exactly what a user could draw.
 import { addDiagram, addElement, allDiagrams, createProject, findById, ref, refId, showElement } from './model.js';
 import { addCommunicationMessage, createEdge, createNode, dropElement } from './edit.js';
 import { toolById } from './toolbox.js';
 import { TYPES } from './meta.js';
+import { buildMoreSamples, buildMoreTemplate } from './templates-more.js';
 
 /** id, diagram type, icon */
 export const TEMPLATES = [
@@ -14,6 +16,7 @@ export const TEMPLATES = [
   ['stateMachine', 'UMLStatechartDiagram', 'dgState'], ['activity', 'UMLActivityDiagram', 'dgActivity'], ['component', 'UMLComponentDiagram', 'dgComponent'], ['deployment', 'UMLDeploymentDiagram', 'dgDeployment'],
   ['erd', 'ERDDiagram', 'dgErd'], ['flowchart', 'FCFlowchartDiagram', 'dgFlowchart'], ['dfd', 'DFDDiagram', 'dgDfd'], ['sysml', 'SysMLRequirementDiagram', 'dgRequirement'],
   ['bpmn', 'BPMNDiagram', 'dgBpmn'], ['c4', 'C4Diagram', 'dgC4'], ['mindmap', 'MMMindmapDiagram', 'dgMindmap'], ['wireframe', 'WFWireframeDiagram', 'dgWireframe'], ['aws', 'AWSDiagram', 'dgAws'],
+  ['gantt', 'GanttDiagram', 'dgGantt'], ['wbs', 'WBSDiagram', 'dgWbs'], ['archimate', 'ArchiMateDiagram', 'dgArchimate'], ['network', 'NetworkDiagram', 'dgNetwork'],
 ];
 
 const L = (language, ko, en) => (language === 'ko' ? ko : en);
@@ -228,7 +231,7 @@ export function buildTemplate(id, { language = 'ko' } = {}) {
       p.edge('CloudConnection', 'u', 'elb'); p.edge('CloudConnection', 'elb', 'ec2'); p.edge('CloudConnection', 'ec2', 'rds');
       break;
     }
-    default: break;
+    default: buildMoreTemplate(id, project, diagram, language); break;
   }
   project.name = name;
   return project;
@@ -236,7 +239,7 @@ export function buildTemplate(id, { language = 'ko' } = {}) {
 
 /**
  * The sample project "Online Shop": one finished example of every kind of
- * diagram the program draws (29), all about the same shop and sharing its
+ * diagram the program draws (38), all about the same shop and sharing its
  * model elements (the classes of the class diagram are the objects' classes,
  * the lifelines' types, the parts of the composite structure …).
  */
@@ -274,6 +277,7 @@ export function buildSample(language = 'ko') {
   buildMindmap(s);
   buildWireframe(s);
   buildCloud(s);
+  buildMoreSamples(s); // Gantt, WBS, timeline, ArchiMate, network, JSON, YAML, EBNF, regex
   return project;
 }
 

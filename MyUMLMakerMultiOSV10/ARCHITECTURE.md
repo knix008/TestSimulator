@@ -17,12 +17,12 @@
                │ invoke (Tauri IPC) / emit · listen              │ localStorage + 메시지
 ┌──────────────▼──────────────────┐         ┌───────────────────▼────────────────────┐
 │ src-tauri/src (Rust)            │         │ 팝업 창 (label "popup-<kind>")           │
-│  lib.rs    명령 · 창 · 패닉 훅   │         │ src/popup.js (18종)                      │
-│  instance.rs  단일 실행 잠금     │         │ settings about confirm error progress    │
+│  lib.rs    명령 · 창 · 패닉 훅   │         │ src/popup.js (23종)                      │
+│  instance.rs  여러 실행 판별     │         │ settings about confirm error progress    │
 │  files.rs  파일 입출력·진행률    │         │ recent print menu theme welcome image    │
 │  db.rs     DB 저장(sqlx Any)     │         │ database find validation codegen         │
-│  fonts.rs  window_state.rs       │         │ textimport color prompt                  │
-│  i18n.rs   (tr! 한/영 메시지)    │         │                                          │
+│  fonts.rs  window_state.rs       │         │ textimport color prompt requirements     │
+│  i18n.rs   (tr! 한/영 메시지)    │         │ tracematrix document baselines compare   │
 └─────────────────────────────────┘         └──────────────────────────────────────────┘
 ```
 
@@ -33,37 +33,44 @@
 | 경로 | 역할 |
 |---|---|
 | `src/domain/` | UI와 무관한 순수 로직 (Node에서 단위 테스트) |
-| `├ meta.js` | 메타모델: 요소 타입 254개(`TYPES`, UML 2와 ERD · 순서도 · DFD · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드), 다이어그램 29종(`DIAGRAM_TYPES`, `DIAGRAM_FAMILIES` 10계열), 타입별 필드(속성 패널을 만듦), 자식이 들어갈 컬렉션(`collectionFor`), 모델 없는 주석 뷰(`VIEW_ONLY`), 뷰의 `shape` |
+| `├ meta.js` | 메타모델: 요소 타입 299개(`TYPES`, UML 2와 ERD · 순서도 · DFD · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 간트·WBS·타임라인 · ArchiMate · 네트워크 · JSON·YAML·EBNF·정규식), 다이어그램 38종(`DIAGRAM_TYPES`, `DIAGRAM_FAMILIES` 14계열), 요구사항 속성 값(`REQUIREMENT_KINDS` · `REQUIREMENT_STATUSES` · `REQUIREMENT_PRIORITIES` · `VERIFY_METHODS`), 타입별 필드(속성 패널을 만듦), 자식이 들어갈 컬렉션(`collectionFor`), 모델 없는 주석 뷰(`VIEW_ONLY`), 뷰의 `shape` |
 | `├ model.js` | 프로젝트 트리와 모든 모델 편집: id(`newId`), `$ref` 참조, 색인(`buildIndex`), 요소·다이어그램 추가/삭제/이동, 관계 끝, 뷰 생성(`createNodeView`/`createEdgeView`), 찾기, 통계, 복제(`cloneWithNewIds`) |
 | `├ edit.js` | 모델과 뷰를 함께 바꾸는 편집: 도구로 요소+뷰 만들기(알맞은 소유자 찾기), 두 뷰 사이 관계 그리기, 기존 요소 보이기, 관련 클래스 빠른 추가(`RELATED`), 이동·맞춤·분배·같은 크기·순서, 패키지에 놓으면 소유자 바꾸기 |
-| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 29종): 노드·간선·주석 도구. `DIAGRAM_TABS`(다이어그램 종류 탭의 묶음 11개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
+| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 38종): 노드·간선·주석 도구. `DIAGRAM_TABS`(다이어그램 종류 탭의 묶음 14개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 프로젝트 · ArchiMate · 데이터 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
 | `├ labels.js` | UML 표기 문자열(`+ name: Type [0..*] = 1`, 오퍼레이션 서명, «스테레오타입», 메시지·전이 레이블)과 그 역(빠른 편집 입력 → 필드: `parseAttribute`, `parseOperation`) |
 | `├ layout.js` | 자동 레이아웃(층 배치, 방향 `TB`/`BT`/`LR`/`RL`, 일반화는 위로)과 시퀀스 다이어그램 정리 |
-| `├ validate.js` | 모델 검증 규칙 21개(`RULES`, 오류/경고, 한/영 메시지)와 `validate`, `summarize` |
-| `├ docs.js` | 모델 문서: HTML 한 페이지(탐색 트리, 요소별 절, 인라인 SVG 다이어그램, 검색)와 Markdown |
+| `├ validate.js` | 모델 검증 규칙 34개(`RULES`, 오류/경고, 한/영 메시지 — 날짜·기간·데이터 문법, 요구사항 충족·검증·ID 중복, ERD 중복 열·엔터티·열 타입·외래 키 타입·관계의 외래 키 포함)와 `validate`(앱의 색인을 받아 다시 만들지 않음), `summarize`, `sqlTypeKey` |
+| `├ problems.js` | 문제 패널: 검증 결과를 고칠 자리(경로·종류·보여 주는 다이어그램과 뷰)가 담긴 줄로 바꾸기(`problemRows`), 정렬·묶기·필터(심각도·현재 다이어그램·글자)·개수, 다이어그램 표시(`problemsByView`), 두 번 누를 때 갈 필드(`problemField`) |
+| `├ planning.js` | 간트 차트·타임라인의 날짜 계산: 날짜 ↔ 일 번호, 쉬는 요일·날짜, 작업일 기간, 일정(`schedule`: 자기 시작일 → 선행 작업이 끝나는 날 → 프로젝트 시작) |
+| `├ archimate.js` | ArchiMate 3 계층별 요소(`ARCHIMATE_LAYERS`, `ARCHIMATE_ELEMENTS`, `kind` = "<계층>-<이름>", PlantUML 스프라이트 이름)와 색·모양, 관계 11종(`ARCHIMATE_RELATIONS`) |
+| `├ datatext.js` | 데이터 다이어그램의 글: JSON·YAML 파싱과 나무 표 행(`parseData`, `dataRows`), EBNF 규칙·정규식 → 철도 다이어그램 나무(`railroadOf`) |
+| `├ trace.js` | 요구사항 관리와 추적: 요구사항 목록(`requirementRows`, 충족·검증·파생 수), 충족 범위(`coverage`)와 검증 문제(`coverageProblems`, 승인·구현·검증됨이고 하위 요구사항 없는 것만), 관계 매트릭스(`matrix`)와 칸 편집(`toggleRelation`), CSV/TSV. 요구사항 ID 자동 번호는 `model.js`의 `nextRequirementId`(`REQ-001` …) |
+| `├ baseline.js`, `diff.js` | 기준선: `project.baselines`에 `{ _id, name, note, date, scopeId, scopeName, elements, snapshot }`(snapshot은 기준선을 뺀 모델의 JSON 글이라 id가 현재 모델과 부딪히지 않음), 만들기·삭제·`.myuml`로 내보내기·요소 복원(`restoreElement`). `diff.js`는 두 모델을 id로 맞춰 추가·삭제·변경(필드·관계 끝·다이어그램 뷰)을 구하고 `diffTree`로 소유자를 포함한 들여쓴 행을 만듦 |
+| `├ report.js` | 문서 생성: 템플릿 5종(`REPORT_TEMPLATES`: full · requirements · design · usecase · data)과 구성 항목(`REPORT_SECTIONS`)으로 표지·목차·제목·문단·표·그림·쪽 나눔 블록 목록을 만듦(한/영). `export/docx.js` · `export/report-pdf.js` · HTML 작성기가 파일로 바꿈 |
+| `├ docs.js` | 모델 문서: HTML 한 페이지(탐색 트리, 요구사항 표, 요소별 절, 인라인 SVG 다이어그램, 검색)와 Markdown |
 | `├ codegen/` | 코드 생성: `index.js`(`generateCode`, 공통 컨텍스트, `CODE_LANGUAGES`, `DEFAULT_CODEGEN_OPTIONS`)와 `java.js` · `csharp.js` · `cpp.js` · `python.js` · `typescript.js` · `kotlin.js` · `php.js` · `sql.js`(ERD → DDL, 방언 5가지) |
 | `├ reverse/` | 역공학: `index.js`(`reverseEngineer`, 중립 기술 → 모델)와 파서 `java.js`(C 계열 공용 토크나이저·커서 포함) · `csharp.js` · `cpp.js` · `python.js` · `typescript.js` · `sql.js`(DDL → ERDDataModel) |
-| `├ interop/` | `staruml.js`(`.mdj` 프로젝트·`.mfj` 조각 읽기/쓰기), `mermaid.js`(Mermaid ↔ 모델, 공용 중간 표현과 층 배치), `plantuml.js`(PlantUML ↔ 모델) |
-| `├ format.js` | `.myuml`/`.mumlt` 직렬화·파싱·복구(`normalizeProject`, 예전 `.muml`도 프로젝트 파일로 읽음), 파일 이름 판별(`isStarUmlFileName`, `isFragmentFileName`, `isSourceFileName` …) |
+| `├ interop/` | `staruml.js`(`.mdj` 프로젝트·`.mfj` 조각 읽기/쓰기), `mermaid.js`(Mermaid ↔ 모델, 공용 중간 표현과 층 배치), `plantuml.js`(PlantUML ↔ 모델: 모든 UML 다이어그램과 마인드맵, 전처리기 `preprocessPlantUml`), `plantuml-more.js`(`@startgantt` · `@startwbs` · `@startchronology` · ArchiMate · `@startnwdiag` · `@startjson` · `@startyaml` · `@startebnf` · `@startregex` · `@startsalt`, `plantuml.js`가 먼저 물어봄), `xmi.js`(XMI 2.x 읽기·쓰기), `xml.js`(작은 XML 파서·작성기) |
+| `├ format.js` | `.myuml`/`.mumlt` 직렬화·파싱·복구(`normalizeProject`, 예전 `.muml`도 프로젝트 파일로 읽음), 파일 이름 판별(`isStarUmlFileName`, `isXmiFileName`, `isFragmentFileName`, `isSourceFileName` …). 기준선은 `.myuml`에만 저장(템플릿에서는 뺌) |
 | `├ document.js`, `history.js` | 열린 프로젝트 하나(한 번에 하나만 열림): 경로, 변경 여부, 색인 캐시, 최근에 연 다이어그램 순서(`view.open`)와 다이어그램별 확대·스크롤, 스냅샷 실행 취소 |
-| `├ templates.js` | 새 프로젝트 템플릿 17종(`TEMPLATES`)과 예제 "Online Shop"(한/영, 일반 편집 함수로 빌드, `SAMPLE_FILES`) |
+| `├ templates.js`, `templates-more.js` | 새 프로젝트 템플릿 21종(`TEMPLATES`)과 예제 "Online Shop"(다이어그램 38개, 한/영, 일반 편집 함수로 빌드, `SAMPLE_FILES`). `templates-more.js`는 간트 · WBS · 타임라인 · ArchiMate · 네트워크 · JSON · YAML · EBNF · 정규식 예제와 그 템플릿 |
 | `├ cloud.js` | AWS · Azure · Google Cloud 서비스 목록과 그룹 종류(타일 색만, 공급자 그림 없음) |
 | `├ settings.js`, `recent.js` | 설정 기본값·검증·저장(localStorage), DB 연결 설정, 설치 후 초기화, 최근 파일·폴더 10개 |
-| `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 118종), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
+| `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 135종 — `shapes-more.js`의 간트 막대·WBS·타임라인·ArchiMate·네트워크·JSON/YAML 나무 표·철도 다이어그램을 합침. 날짜를 따르는 뷰는 `place`가 위치를 정함), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
 | `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 다이어그램 종류 탭 `renderTypeTabs`) |
 | `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`, `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `dom.js` |
 | `src/print/render.js` | 인쇄용 SVG 용지(맞춤·실제 크기·배율 나눠 찍기, 머리글·바닥글, 테마와 무관한 흰 바탕) |
-| `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기 제한), `files.js`(ZIP 작성기, base64, JPEG 쪽 → PDF) |
+| `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기 제한), `files.js`(ZIP 작성기, base64, JPEG 쪽 → PDF), `docx.js`(Word 작성기: 스타일, 열 때 갱신되는 목차 필드, 표, PNG 그림, 쪽 번호), `report-pdf.js`(문서 블록 → A4 SVG 쪽, 앱이 JPEG로 그려 PDF로 묶음) |
 | `src/platform/native.js`, `idb.js` | 플랫폼 경계: 데스크톱은 Rust 명령, 웹은 브라우저 API(File System Access · 내려받기 · IndexedDB) |
 | `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`) |
 | `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `SUBMENUS`, `TOOLBAR`, 오른쪽 클릭 메뉴, `SHORTCUTS`, 다이어그램 탭 줄(`renderTabs`), 프로젝트 바꾸기 전 확인(`confirmReplace`), 파일·가져오기·내보내기·코드 생성·역공학·DB 처리 |
-| `src/popup.js` | 모든 팝업 창과 `SHORTCUT_LIST` |
+| `src/popup.js` | 모든 팝업 창(요구사항 목록 · 추적 매트릭스 · 문서 생성 · 기준선 · 비교 포함)과 `SHORTCUT_LIST` |
 | `src/i18n/ko.js`, `en.js`, `i18n.js` | UI 문자열(키는 두 파일이 같음) |
 | `src/themes.js`, `icons.js`, `icons-uml.js`, `flags.js`, `stepper.js` | 테마(라이트 20·다크 20·시스템·사용자 정의), SVG 아이콘(모델 요소·다이어그램 아이콘은 `icons-uml.js`), 국기, `[−] 값 [+]` 숫자 입력 |
 | `src-tauri/` | Rust 백엔드, `tauri.conf.json`(번들·파일 연결·리소스), `windows/hooks.nsh`, `linux/`(MIME·postinst·postrm), `Info.plist` |
 | `scripts/` | `test.mjs`(테스트 러너), `build.mjs`(설치 파일), `start.mjs`, `build-docs.mjs`(문서 HTML), `render-icons.mjs`, `make-samples.mjs`, `tutorial-capture.mjs` |
 | `.gitignore` | 의존성, 빌드·설치 결과, 튜토리얼 동영상, 테스트 결과, 로컬 DB 접속 정보를 저장소에서 뺌 (`package-lock.json` · `Cargo.lock`은 커밋) |
-| `test/` | `unit/`(도메인·렌더링·내보내기), `static/`(패키징·문서), `e2e/`(`cdp.mjs`, `harness.mjs`, `web.harness.mjs`, 스위트, `align-check.mjs`, `clip-check.mjs`, `dialogs.ps1`), `db_integration.rs` |
+| `test/` | `unit/`(도메인·렌더링·내보내기), `conformance/`(StarUML · Enterprise Architect · PlantUML 기능 점검표), `static/`(패키징·문서), `e2e/`(`cdp.mjs`, `harness.mjs`, `web.harness.mjs`, 스위트, `align-check.mjs`, `clip-check.mjs`, `dialogs.ps1`), `db_integration.rs` |
 | `docs/` | 생성된 HTML 설명서와 `tutorial/`(튜토리얼 문서·그림) — `npm run build:docs` / `tutorial:docs`가 만듦 |
 | `samples/` | 예제(`online-shop.*.myuml`, `online-shop.*.mdj`, `shop-domain.*.mfj`, `class-model.*.mumlt`, `staruml-sample.mdj`) — 설치 파일에 포함 |
 
@@ -122,7 +129,7 @@
 ### 6. 레이아웃·검증
 
 - **자동 레이아웃**(`layout.js`): 순환을 끊고 최장 경로로 층을 나눈 뒤 무게중심으로 정렬합니다. 일반화·실현·확장·포함 관계는 위를 향해 부모가 자식 위에 놓입니다. 컨테이너·메모·텍스트·선은 제자리, 옮긴 선은 꺾임점을 잃습니다. 시퀀스 다이어그램은 라이프라인 간격과 메시지 간격을 고르게 맞춥니다. 노드 크기는 렌더러가 줍니다.
-- **검증**(`validate.js`): 이름 없음·중복, 일반화 순환, 인터페이스가 아닌 실현 대상, 잘못된 다중성, 리터럴 없는 열거형, 시작 의사 상태 없는 영역 같은 규칙으로 프로젝트를 훑습니다. **설정**의 자동 검증이 켜져 있으면 편집 뒤 0.8초에 다시 검사해 상태 표시줄에 오류·경고 수를 보입니다.
+- **검증**(`validate.js`): 이름 없음·중복, 일반화 순환, 인터페이스가 아닌 실현 대상, 잘못된 다중성, 리터럴 없는 열거형, 시작 의사 상태 없는 영역, 잘못된 날짜·뒤집힌 기간, JSON·YAML·EBNF·정규식 문법, 충족·검증되지 않은 요구사항(`trace.js`의 `coverageProblems`), 중복 요구사항 ID 같은 규칙으로 프로젝트를 훑습니다. **설정**의 자동 검증이 켜져 있으면 편집 뒤 0.8초에 다시 검사해 상태 표시줄에 오류·경고 수를 보입니다.
 
 ### 7. 코드 생성과 역공학
 
@@ -148,7 +155,10 @@
 | StarUML `.mdj` | `interop/staruml.js` | 모델 부분은 같은 타입·필드 이름이라 그대로 둠. 뷰는 다름: StarUML은 구획·레이블을 `subViews`에 중첩하고, 점을 `"x:y;x:y"`, 선 모양과 글꼴을 숫자·문자열로 쓰고, 시퀀스·커뮤니케이션용 뷰 타입이 따로 있음(`VIEW_TYPE_MAP`). 읽기는 우리 뷰로 펴고, 쓰기는 StarUML이 그리는 데 필요한 최소 하위 뷰를 다시 만듦. 맨 `{ "_type": "Project" }` JSON도 `parseProject`가 알아봄 |
 | `.mfj` | `interop/staruml.js` | StarUML 모델 조각: 요소 하나와 그 소유물. 읽으면 새 id로 바꿔(조각 안 참조도 다시 연결) 고른 소유자에 넣음 |
 | Mermaid | `interop/mermaid.js` | 읽기: classDiagram · sequenceDiagram · flowchart/graph · erDiagram · stateDiagram → 소유자 요소 하나와 배치된 다이어그램 하나. 쓰기: 클래스 · 시퀀스 · 순서도 · ER · 상태 · 유스케이스 · 액티비티(뒤 둘은 flowchart) |
-| PlantUML | `interop/plantuml.js` | 쓰기: 클래스 · 유스케이스 · 시퀀스 · 액티비티 · 상태 · 컴포넌트 · 배치 · ER(`@startuml … @enduml`). 읽기: 클래스 · 시퀀스(Mermaid와 같은 결과 모양) |
+| PlantUML | `interop/plantuml.js`, `plantuml-more.js` | 읽기·쓰기: 모든 UML 다이어그램(클래스 · 객체 · 패키지 · 프로파일 · 유스케이스 · 컴포넌트 · 배치 · 복합 구조 · 정보 흐름 · 시퀀스 · 액티비티 새/옛 문법 · 상태 · 타이밍 · ER IE 표기), `@startmindmap`, 그리고 `plantuml-more.js`의 간트 · WBS · chronology · ArchiMate · nwdiag · JSON · YAML · EBNF · regex · Salt(와이어프레임). 쓰기에서 커뮤니케이션은 시퀀스로, 인터랙션 개요는 옛 문법 액티비티로, 프로파일은 클래스로. 읽기 전 전처리(주석, `!define`·`!$var` 치환, `!if`/`!ifdef`; `!include`·skinparam·스타일·범례·머리글은 경고와 함께 버림). 결과는 Mermaid와 같은 `{ owner, diagram, kind, warnings }`이고 경고는 앱이 목록 창으로 보임 |
+| XMI 2.x | `interop/xmi.js` | 쓰기(`exportXmi`): UML 부분을 XMI 2.5.1로 — 패키지, 분류자와 속성·오퍼레이션·매개변수·리터럴, 관계, 상태 머신·액티비티·인터랙션, 인스턴스, 주석, 스테레오타입 적용. `flavor: 'ea'`(기본)는 Enterprise Architect `xmi:Extension`에 다이어그램 위치(`Left=..;Top=..`)를 더하고 `'plain'`은 모델만. UML이 아닌 표기는 뺌. 읽기(`readXmi`): EA 2.1/2.5(확장의 다이어그램, EAStub, 태그 값, 메모), MagicDraw · Papyrus(UML DI·GMF 모양). 다이어그램 정보가 없으면 패키지마다 클래스 다이어그램을 만들어 배치. 모르는 것은 경고로 건너뛰고 예외를 던지지 않음 |
+| 기준선 | `baseline.js` | `.myuml`의 `project.baselines`(기준선마다 모델 JSON 글 `snapshot`). StarUML `.mdj` 쓰기와 템플릿에서는 뺌 |
+| Word / PDF / HTML 문서 | `report.js`, `export/docx.js`, `export/report-pdf.js` | 문서 블록 → `.docx`(Office Open XML, ZIP), PDF(쪽마다 JPEG, 한국어 글꼴 내장 불필요), HTML(SVG 그림) |
 | HTML / Markdown | `docs.js` | 모델 문서. Markdown은 다이어그램을 `images/<이름>.svg` 링크로 두고 ZIP으로 묶음 |
 | 그림 · SVG · PDF | `render/notation.js`, `export/` | PNG/JPEG/WebP는 캔버스, BMP·TIFF는 `image-encode.js`, SVG는 그대로(한 변 16 000px 제한). 모든 다이어그램 그림은 ZIP. PDF는 인쇄 레이아웃의 각 용지를 JPEG로 그려 `pdfFromJpegs`로 묶음(한국어 글꼴 내장 불필요) |
 | 클립보드 | `app.js` | 앱 안 복사는 메모리의 뷰·요소 묶음(`state.clipboard`), OS 클립보드에는 요소 이름 |
@@ -186,7 +196,7 @@ Rust 쪽 메시지는 모두 `tr!("한국어", "English")`로 두 언어를 가�
 
 ### 창
 
-메인 창은 처음엔 숨겨 두었다가 첫 화면을 그린 뒤 보입니다. 제목은 `MyUMLMaker v<버전>`, 기본 크기 1480×900, 최소 크기는 1000×600이며, 툴바가 다 보이는 폭보다 좁아지지 않게 `setMinimumSize`를 갱신합니다. 위치·크기·최대화는 `window_state.rs`가 설정 폴더의 `window-state.json`에 저장합니다(마지막 변경 0.5초 뒤 쓰고 rename, 연결된 모니터에 보이지 않는 위치는 버림).
+메인 창은 처음엔 숨겨 두었다가 첫 화면을 그린 뒤 보입니다. 제목은 `MyUMLMaker v<버전>`, 기본 크기 1480×900, 최소 크기는 1000×600이며, 툴바가 다 보이는 폭보다 좁아지지 않게 `setMinimumSize`를 갱신합니다. 위치·크기·최대화는 `window_state.rs`가 설정 폴더의 `window-state.json`에 저장합니다(마지막 변경 0.5초 뒤, 프로세스·호출마다 다른 임시 파일 `window-state.json.<pid>-<n>.tmp`에 쓰고 rename — 여러 복사본이 함께 써도 파일이 깨지지 않고 마지막으로 닫은 창의 값이 남음, 연결된 모니터에 보이지 않는 위치는 버림).
 
 ### 심각한 오류
 
@@ -196,9 +206,14 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 `db.rs`: sqlx `Any` 드라이버로 SQLite · MariaDB · MySQL · PostgreSQL에 저장합니다. 테이블은 하나(`myumlmaker_projects (id, title, data, updated)`, 처음 쓸 때 생성)이고 `data`는 `.myuml` 파일 내용 그대로라 DB에서 읽은 프로젝트는 파일처럼 열립니다. 저장은 한 트랜잭션으로 행을 바꿉니다. PostgreSQL은 자리표시자를 `$1…`로 바꿉니다. 연결 설정은 **설정 › 데이터베이스**(`settings.js`의 `dbConfig`/`dbProblems`)에 있고, 비밀번호는 저장을 고르지 않으면 이번 실행에만 기억합니다. DB가 설정되어 있으면 **저장**이 파일과 DB에 함께 씁니다. 오류 문구에는 비밀번호를 넣지 않습니다.
 
-## 단일 실행 잠금
+## 여러 실행
 
-`instance.rs`: 시작할 때 임시 폴더의 `myumlmaker-<사용자>.lock`에 OS 파일 잠금을 겁니다. 이미 잠겨 있으면 시스템 언어로 "이미 실행 중" 오류 상자(Windows는 `MessageBoxW`, 그 밖은 `rfd`)를 보이고 종료 코드 3으로 끝납니다. 잠금은 프로세스가 끝나면(비정상 종료 포함) OS가 풀어 주므로 낡은 잠금 파일이 다음 실행을 막지 않습니다. 두 번째 실행에 넘긴 파일은 열리지 않습니다(전달 없음).
+여러 복사본이 함께 실행됩니다. 실행할 때마다 자기 메인 창을 엽니다(탐색기에서 `.myuml`을 두 번 누르면 새 복사본이 그 파일을 엶). `instance.rs`는 다른 복사본이 돌고 있는지만 알려 줍니다: 복사본마다 사용자별 폴더(임시 폴더의 `myumlmaker-<사용자>\`)의 `<pid>.lock`에 OS 파일 잠금을 걸고 쥐고 있습니다. 시작할 때 `startup.lock`을 잡은 채(동시에 시작한 두 복사본이 서로 첫째라고 여기지 않게) 다른 `*.lock`을 잠가 보아, 잠기지 않는 것(살아 있는 복사본)을 세고 잠기는 것(끝난 복사본, 비정상 종료 포함 — OS가 잠금을 풂)은 지웁니다.
+
+- 첫 복사본(`others == 0`)만 지난 세션을 되살리고(`app.js` `restoreSession`) 세션을 저장합니다(`persistSession`). 나중 복사본은 시작 페이지(또는 명령줄 파일)로 열리고 첫 복사본의 세션을 덮어쓰지 않습니다. 페이지는 `instance_info` 명령(`{ first, others }`)으로 묻습니다.
+- 나중 복사본의 창은 저장된 자리 그대로가 아니라 `instance::cascade`로 복사본 수 × 32 논리 px만큼 오른쪽 아래로 비켜, 모니터 작업 영역 안에 열립니다(넘치면 작업 영역 왼쪽 위로). 저장된 상태가 최대화여도 나중 복사본은 최대화하지 않습니다.
+- WebView2: 모든 복사본이 같은 사용자 데이터 폴더(`%LOCALAPPDATA%\com.shkwon.myumlmaker`)를 쓰고, 모든 웹뷰가 같은 `BROWSER_ARGS`를 써서 WebView2가 브라우저 프로세스 하나를 함께 씁니다(인자가 다르면 두 번째 환경이 만들어지지 않음). 그래서 localStorage(설정, 최근 파일·폴더, 세션, DB 연결)가 공유되고 `storage` 이벤트로 다른 창에 바로 반영됩니다. 최근 파일·폴더는 추가하기 전에 저장소에서 다시 읽어, 다른 창이 그사이 더한 항목을 지우지 않습니다.
+- 메인 창이 닫히면 그 프로세스만 끝납니다(`app.exit`) — 다른 복사본은 그대로입니다.
 
 ## 설치 프로그램 훅
 
@@ -206,9 +221,13 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 | 훅 | 하는 일 |
 |---|---|
-| `NSIS_HOOK_PREINSTALL` | 이전 설치의 `uninstall.exe /S`를 기다려 실행하고, 폴더 이름이 제품 이름이면 폴더째 삭제 |
-| `NSIS_HOOK_POSTINSTALL` | `%APPDATA%\com.shkwon.myumlmaker\install-reset`에 토큰을 쓰고 `window-state.json`을 지움 → 다음 실행에 `window_state.rs`가 토큰을 넘기고 `resetForNewInstall`이 설정만 기본값으로(최근 파일·폴더, 세션, DB 연결, 배경 이미지, 튜토리얼 기록은 유지). `MyUMLMaker.Project` / `MyUMLMaker.Template`의 `DefaultIcon`을 `project.ico`("MYUML" 문서 아이콘) / `template.ico`로, 시작 메뉴에 `MyUMLMaker User's Guide.lnk`(→ `docs\UsersGuide.html`), 셸에 연결 변경 알림 |
+| `MUI_CUSTOMFUNCTION_GUIINIT` → `MumGuiInit` | 첫 페이지 전(MUI `.onGUIInit`, `/S`에서는 안 돎). 이전 설치(HKCU·HKLM의 `Uninstall\MyUMLMaker` `UninstallString`, 없으면 `Software\SHKWON\MyUMLMaker` 기본값)나 사용자 데이터(`%APPDATA%\com.shkwon.myumlmaker` 또는 `%LOCALAPPDATA%\com.shkwon.myumlmaker`에 무엇이든 있음)가 있으면 설치 언어(`LangString` 1042/1033)로 "이전에 사용하던 사용자 데이터(…)를 삭제할까요?" — 예/아니오(기본)/취소(`Quit`, 아무것도 안 바뀜). 그다음 Restart Manager(`RmGetList`)로 이전 설치·`$INSTDIR`의 `MyUMLMaker.exe`를 쓰는 프로세스를 세어(몇 개든) 확인/취소를 묻고 `RmShutdown`으로 모두 닫은 뒤 `MumRemoveOld`. 여기서 지워 두면 Tauri의 "이미 설치됨" 페이지는 스스로 건너뜀. `/P`는 묻지 않음 |
+| `MumRemoveOld` | 현재 사용자 설치: `uninstall.exe /S /UPDATE _?=<폴더>`(제자리 실행·기다림, `/UPDATE`라 데이터는 안 지움) 후 폴더 이름이 `MyUMLMaker`면 폴더째, 아니면 우리 파일만 삭제하고 등록 키 삭제. 컴퓨터 전체 설치: 관리자 권한으로(`ExecShellWait runas`) 같은 제거와 폴더 삭제. 파일이 없는 낡은 HKCU 등록은 지움 |
+| `NSIS_HOOK_PREINSTALL` | 조용한 설치(`/S`)처럼 `MumGuiInit`이 안 돈 경우 묻지 않고 `MumFindOld` + `MumRemoveOld`(데이터 유지). 그다음 템플릿의 `CheckIfAppIsRunning`이 `$INSTDIR`의 실행 중인 복사본을 모두 닫음 |
+| `NSIS_HOOK_POSTINSTALL` | **예**를 골랐으면(`$MumWipe`) `MumWipeData`로 두 데이터 폴더를 지움(표시 파일 없음). 아니면 `%APPDATA%\com.shkwon.myumlmaker\install-reset`에 토큰을 쓰고 `window-state.json`을 지움 → 다음 실행에 `window_state.rs`가 토큰을 넘기고 `resetForNewInstall`이 설정만 기본값으로(최근 파일·폴더, 세션, DB 연결, 배경 이미지, 튜토리얼 기록은 유지). `MyUMLMaker.Project` / `MyUMLMaker.Template`의 `DefaultIcon`을 `project.ico`("MYUML" 문서 아이콘) / `template.ico`로, 시작 메뉴에 `MyUMLMaker User's Guide.lnk`(→ `docs\UsersGuide.html`), 셸에 연결 변경 알림 |
 | `NSIS_HOOK_POSTUNINSTALL` | 설명서 바로 가기 삭제 |
+
+훅 파일은 `installer.nsi` 맨 위(템플릿의 `Var PassiveMode/UpdateMode`, `DeleteAppDataCheckboxState`, `!define BUNDLEID` 따위보다 앞)에서 `!include`되므로, 그 안의 `Function`은 자기 `!define /IfNDef MUM_*`(경로·키)와 자기 `Var`만 씁니다. 훅 매크로는 Section 안에서 펼쳐지므로 템플릿 것을 써도 됩니다. `MUM_*` 정의는 미리 바꿀 수 있어, `test/installer/hooks-test.nsi`가 가짜 설치본·가짜 데이터 폴더·`HKCU\Software\MyUMLMakerHookTest`로 같은 함수를 조용히 돌리고 질문의 답은 `MessageBox /SD`(`MUM_SD_ASK`, `MUM_SD_RUNNING`)로 줍니다(`test/installer/hooks-cases.mjs`, `npm test -- --installer`). 실제 설치 프로그램은 개발 기계에서 돌리지 않습니다.
 
 `tauri.conf.json`: 현재 사용자 설치, 언어 선택(Korean/English), `.myuml`/`.mumlt` 파일 연결, 리소스로 문서 아이콘·`docs/`(HTML 설명서·튜토리얼·그림·`UsersGuide.md`·`README.md`)·`samples/`. Linux deb/rpm은 `linux/myumlmaker.xml` MIME과 문서 아이콘을 설치하고 `postinst.sh`/`postrm.sh`가 MIME·아이콘 캐시를 갱신합니다. macOS는 `Info.plist`가 문서 타입과 아이콘을 등록합니다.
 
@@ -236,18 +255,19 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 ## 테스트
 
-`npm test`(`scripts/test.mjs`)가 분류별로 실행하고 결과를 표로 정리해 `test-results/results.json`에 씁니다. `--quick`은 js · package · rust만, `--only` / `--skip`으로 분류를 고르고, `--installer`는 설치 프로그램 분류를 더합니다.
+`npm test`(`scripts/test.mjs`)가 분류별로 실행하고 결과를 표로 정리해 `test-results/results.json`에 씁니다. `--quick`은 js · conformance · package · rust만, `--only` / `--skip`으로 분류를 고르고, `--installer`는 설치 프로그램 분류를 더합니다.
 
 | 분류 | 내용 |
 |---|---|
-| JS 단위 (`js`) | `test/unit/*.test.js` — 메타모델·모델/뷰 편집, 도구 상자, 렌더링, 레이아웃, 파일 형식과 복구, StarUML/Mermaid/PlantUML, 코드 생성, 역공학(C++ 포함), 검증, 문서, 설정, 번역 키, 테마, 아이콘, 그림 인코딩. `staruml.test.js`는 StarUML 호환을 확인합니다: StarUML의 모든 다이어그램 종류와 그 도구 상자 도구, 모든 도구가 그리기·잇기·렌더링되는지, 기능 명령, 코드 생성·역공학 언어, `.mdj` · 모델 조각 · Mermaid · PlantUML 왕복, HTML · Markdown 문서, 예제에 모든 다이어그램 종류가 있는지 |
+| JS 단위 (`js`) | `test/unit/*.test.js` — 메타모델·모델/뷰 편집, 도구 상자, 렌더링, 레이아웃, 파일 형식과 복구, StarUML/Mermaid/PlantUML/XMI, 새 다이어그램 종류, 요구사항·추적, 기준선·비교, 문서 생성, 코드 생성, 역공학(C++ 포함), 검증, 문서, 설정, 번역 키, 테마, 아이콘, 그림 인코딩 |
+| 기능 비교 (`conformance`) | `test/conformance/*.test.js` — 기능 하나가 테스트 하나인 점검표. `staruml.test.js`: StarUML의 모든 다이어그램 종류와 도구 상자, 모든 도구 그리기·잇기·렌더링, 다이어그램마다 `createNode`/`createEdge`로 그린 작은 다이어그램의 SVG 표기 검사(`canvas.js`: 뷰별 SVG, 글자, 끝 표시 판별), 빠른 편집 파서, 모델 탐색기 조작, 서식 옵션, 자동 레이아웃, 모델 조각, 언어별 코드 생성·역공학, 문서, 검증. `enterprise-architect.test.js`: 구현한 EA 기능 점검표(UML 2.5 · SysML · BPMN · ArchiMate 3 · 데이터 모델링 · 간트/WBS/타임라인 · 네트워크, 요구사항·관계 매트릭스, 기준선·비교·복원, 문서 템플릿·docx·PDF·HTML, XMI(EA · MagicDraw · Papyrus), 코드 엔지니어링, DB 저장, 검색); 없는 기능은 `{ todo }`. `plantuml.test.js`: PlantUML 언어 점검표(종류별 문법, 전처리기, skinparam/테마, 제목 — 가져오기 · 렌더링 · 내보내기 · 다시 가져오기). `npm test -- --only conformance`; `todo`는 결과에 "건너뜀 — TODO: 이유"로 나옴 |
 | 패키징 · 아이콘 · 문서 (`package`) | `test/static/` — 아이콘, 파일 형식 등록, 설치 언어·훅·재설치, 설정 초기화, 문서(`docs.test.js`: HTML·링크·그림·README 빌드 명령·한/영 장 구성·단축키 표·튜토리얼 단계 수와 그림 번호) |
-| Rust 단위 (`rust`) | `cargo test --lib` — 파일 입출력·진행률, 글꼴, 창 위치, 단일 실행 잠금, DB URL·SQLite |
+| Rust 단위 (`rust`) | `cargo test --lib` — 파일 입출력·진행률, 글꼴, 창 위치(여러 복사본이 함께 써도 깨지지 않음), 여러 실행(복사본 세기·창 비켜 열기), DB URL·SQLite |
 | DB 통합 (`db`) | `cargo test --test db_integration` — `test/db.local.json`의 MariaDB/MySQL(없으면 건너뜀), 임시 PostgreSQL 서버 |
 | E2E 웹 (`web`) | 웹 빌드를 헤드리스 Edge/Chrome으로 조작 (`test/e2e/web.harness.mjs`, `web.suite.mjs`, CDP 실제 포인터 이벤트) |
 | E2E 데스크톱 GUI (`desktop`) | 실제 앱을 띄워 메뉴·툴바·팝업·다이어그램·모델 탐색기·파일·인쇄·설정을 조작 (`test/e2e/harness.mjs`, `desktop.suite.mjs`, WebView2 CDP + Win32 `dialogs.ps1`; 팝업 정렬·잘림은 `align-check.mjs`·`clip-check.mjs`) |
 | 튜토리얼 (`tutorial`) | 모든 단계가 오류 없이 대상 요소를 표시하는지, 끝나면 설정·화면이 돌아오는지 |
-| 설치 프로그램 (`installer`) | `--installer`일 때 `npm run build:win` 후 NSIS 설치 파일 검사 |
+| 설치 프로그램 (`installer`) | `--installer`일 때 `npm run build:win` 후 NSIS 설치 파일 검사, 생성된 `installer.nsi`를 makensis로 다시 컴파일해 hooks.nsh 경고 확인, 설치 훅을 가짜 설치본에 실행(묻기·예/아니오/취소·조용한 설치·낡은 등록·실행 중인 복사본 두 개 닫기) |
 
 ### E2E 훅
 
@@ -262,9 +282,8 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 | 변수 | 효과 |
 |---|---|
-| `MYUMLMAKER_MULTI` | 단일 실행 잠금을 건너뜀(여러 복사본 동시 실행, `npm start`도 씀) |
-| `MYUMLMAKER_LOCK_DIR` | 잠금 파일 폴더(기본: 임시 폴더) |
-| `MYUMLMAKER_ALREADY_RUNNING_FILE` | "이미 실행 중" 문구를 메시지 상자 대신 이 파일에 씀 |
+| `MYUMLMAKER_MULTI` | 다른 복사본을 세지 않음: 언제나 첫 복사본처럼(세션 복원, 저장된 창 자리) — E2E 하네스와 `npm start`가 씀 |
+| `MYUMLMAKER_LOCK_DIR` | 복사본 잠금 파일 폴더(기본: 임시 폴더의 `myumlmaker-<사용자>`) |
 | `MYUMLMAKER_CONFIG_DIR` | 창 위치 파일 폴더(사용자 것을 건드리지 않게) |
 | `MYUMLMAKER_DATA_DIR` | 데이터 폴더(배경 이미지, crash.log) |
 | `MYUMLMAKER_IO_DELAY_MS` | 파일 청크마다 지연 — 진행 팝업 확인용 |

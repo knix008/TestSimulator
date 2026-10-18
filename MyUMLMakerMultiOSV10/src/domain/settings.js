@@ -18,7 +18,9 @@ export const ZOOM = { min: 50, max: 200, step: 10 };
 /** Drawing zoom in percent (toolbar, status bar, Ctrl+wheel). */
 export const CANVAS_ZOOM = { min: 10, max: 800, steps: [10, 15, 20, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800] };
 /** Narrowest side panels that still show all of their content. */
-export const PANEL_MIN = { left: 240, right: 300 };
+export const PANEL_MIN = { left: 240, right: 300, bottom: 90 };
+/** The bottom (Problems) panel is never taller than this share of the window. */
+export const BOTTOM_MAX_SHARE = 0.6;
 export const BACKGROUND_KINDS = ['animated', 'image', 'none'];
 /** Choices for the start page's automatic background change (seconds; 0 = off). */
 export const ANIMATION_INTERVALS = [0, 15, 30, 60, 120, 300];
@@ -69,6 +71,9 @@ export function defaultSettings(language = 'ko') {
     showLeftPanel: true,
     showRightPanel: true,
     showStatusBar: true,
+    // The bottom panel (Problems: background model check, IDE style).
+    showBottomPanel: true,
+    bottomHeight: 180,
     leftWidth: 240,
     rightWidth: 340,
     lastDirectory: null,
@@ -145,6 +150,7 @@ export function normalizeSettings(raw = {}, language) {
   s.lastDirectory = typeof s.lastDirectory === 'string' && s.lastDirectory ? s.lastDirectory : null;
   s.leftWidth = clamp(s.leftWidth, PANEL_MIN.left, 600, base.leftWidth);
   s.rightWidth = clamp(s.rightWidth, PANEL_MIN.right, 700, base.rightWidth);
+  s.bottomHeight = clamp(s.bottomHeight, PANEL_MIN.bottom, 2000, base.bottomHeight);
   s.dateFormat = DATE_FORMATS.includes(s.dateFormat) ? s.dateFormat : base.dateFormat;
   s.rowHeight = clamp(s.rowHeight, 20, 44, 26);
   s.startRecentCount = Math.round(clamp(s.startRecentCount, 1, 10, 8));
@@ -160,7 +166,7 @@ export function normalizeSettings(raw = {}, language) {
   s.codegenOptions = s.codegenOptions && typeof s.codegenOptions === 'object' ? s.codegenOptions : {};
   s.reverseLanguage = typeof s.reverseLanguage === 'string' ? s.reverseLanguage : base.reverseLanguage;
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
-  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showRulers',
+  for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showRulers',
     'showMinimap', 'snapToGrid', 'showShadow', 'showQuickButtons', 'explorerSort', 'toolboxCompact', 'reparentOnDrop', 'autoValidate', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];

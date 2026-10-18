@@ -28,7 +28,7 @@ const getClipboard = () => ps('[Console]::OutputEncoding=[Text.Encoding]::UTF8; 
 
 const W = (app, expression) => app.main.eval(`(() => { const w = window.__myumlmaker; const a = w.actions; const api = w.api; const M = w.domain.M; return ${expression}; })()`);
 const resize = (app, width, height) => app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: ${width}, height: ${height} } } }).then(() => 1)`);
-const mainWindow = (app) => app.windowInfo().find((w) => w.owner === 0 && w.visible && w.title === TITLE);
+const mainWindow = async (app) => (await app.windowInfo()).find((w) => w.owner === 0 && w.visible && w.title === TITLE);
 const closeAllDocs = `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); return 1; })()`;
 const now = (app) => app.main.eval('Date.now()');
 
@@ -97,7 +97,7 @@ async function menuWindow(app, since, timeout = 15000) {
 /** OS window checks for a popup: its own window titled "<title> — MyUMLMaker vX", owned by the main window, fixed size, no scroll bars, icon + title. */
 async function expectPopupWindow(app, page, kind, { resizable = false } = {}) {
   assert.equal(await page.eval('document.title'), `popup-${kind}`);
-  const head = await page.eval(`(() => { if (${kind === 'menu'}) { const m = document.querySelector('.popup-menu'); return m ? { icon: true, text: m.getAttribute('aria-label') || '', drag: true } : null; } const h = document.querySelector('.popup-head h2'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim(), drag: Boolean(document.querySelector('[data-tauri-drag-region]')) } : null; })()`);
+  const head = await page.eval(`(() => { if (${kind === 'menu'}) { const m = document.querySelector('.popup-menu'); return m ? { icon: true, text: m.getAttribute('aria-label') || '', drag: true } : null; } const h = document.querySelector('.popup-head h2'); return h ? { icon: Boolean(h.querySelector('svg')), text: h.textContent.trim(), drag: Boolean(document.querySelector('[data-window-drag]')) } : null; })()`);
   assert.ok(head?.icon && head.text, `${kind}: header has an icon and a title (${JSON.stringify(head)})`);
   assert.ok(head.drag, `${kind}: can be moved by its title bar`);
   assert.deepEqual(await page.eval(POPUP_SCROLL_CHECK), [], `${kind}: no scroll bars inside the popup`);
@@ -105,7 +105,7 @@ async function expectPopupWindow(app, page, kind, { resizable = false } = {}) {
   let popup;
   for (let i = 0; i < 16 && !popup; i++) {
     if (i) await sleep(150);
-    windows = app.windowInfo().filter((w) => w.visible && w.title.endsWith(TITLE));
+    windows = (await app.windowInfo()).filter((w) => w.visible && w.title.endsWith(TITLE));
     popup = windows.find((w) => w.owner !== 0 && w.title === `${head.text} — ${TITLE}`);
   }
   const main = windows.find((w) => w.owner === 0);
@@ -150,6 +150,206 @@ async function waitFile(file, tries = 40) {
 /** The text of a project file made from a template (for files written to the temp folder). */
 const templateText = (app, template) => W(app, `(() => { const doc = a.newProject(${JSON.stringify(template)}); const text = doc.text(); a.closeDoc(doc, { force: true }); return text; })()`);
 
+/**
+ * A real click on the element `selector` of `page`: it is scrolled into view first (as a user scrolls a list
+ * or a tab row), and the click fails when something else covers its centre.
+ */
+async function clickOn(page, selector, options = {}) {
+  const p = await page.eval(`(() => {
+    const e = document.querySelector(${JSON.stringify(selector)});
+    if (!e) return null;
+    e.scrollIntoView({ block: ${JSON.stringify(options.block ?? 'nearest')}, inline: 'nearest', behavior: 'instant' });
+    const r = e.getBoundingClientRect(); const x = r.left + r.width / 2; const y = r.top + r.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return { x, y, ok: Boolean(hit && (hit === e || e.contains(hit))), hit: hit?.outerHTML.slice(0, 100) ?? null };
+  })()`);
+  if (!p) throw new Error(`${selector}: missing`);
+  if (!p.ok) throw new Error(`${selector}: covered by ${p.hit}`);
+  await page.realClick(p.x, p.y, options);
+  return p;
+}
+
+/** OS mouse input (SetCursorPos + mouse_event) for what only the real mouse does: the window's drag area and edges. */
+const OS_INPUT = `if (-not ('MI' -as [type])) { Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class MI{[DllImport("user32.dll")]public static extern IntPtr WindowFromPoint(P p);[DllImport("user32.dll")]public static extern IntPtr GetAncestor(IntPtr h,uint f);[DllImport("user32.dll")]public static extern IntPtr GetForegroundWindow();[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(uint f,uint x,uint y,uint d,UIntPtr e);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);[DllImport("user32.dll")]public static extern bool ClientToScreen(IntPtr h,ref P p);public struct P{public int X,Y;}}' }`;
+/**
+ * Runs OS mouse actions on the main window: { at: client CSS point } moves the cursor (in steps from the last
+ * point when `steps` is given), { down } / { up } press and release the left button, { wait: ms } pauses.
+ */
+async function osMouse(app, actions) {
+  const main = await mainWindow(app);
+  const dpr = await app.main.eval('devicePixelRatio');
+  // Brings the main window to the front first (other programs on the desktop can hold the foreground).
+  let script = `${OS_INPUT};$h=[IntPtr]${main.handle};for($k=0;$k -lt 5 -and [MI]::GetForegroundWindow() -ne $h;$k++){[MI]::keybd_event(0x12,0,0,[UIntPtr]::Zero);[MI]::keybd_event(0x12,0,2,[UIntPtr]::Zero);[void][MI]::SetForegroundWindow($h);Start-Sleep -Milliseconds 120};$o=New-Object MI+P;$o.X=0;$o.Y=0;[void][MI]::ClientToScreen($h,[ref]$o)`;
+  let last = null;
+  for (const a of actions) {
+    if (a.at) {
+      const steps = a.steps && last ? a.steps : 1;
+      for (let i = 1; i <= steps; i++) {
+        const x = last && steps > 1 ? last.x + ((a.at.x - last.x) * i) / steps : a.at.x;
+        const y = last && steps > 1 ? last.y + ((a.at.y - last.y) * i) / steps : a.at.y;
+        // Screen points from where the page was when the gesture began (the window may move or grow meanwhile).
+        script += `;$p=New-Object MI+P;$p.X=$o.X+${Math.round(x * dpr)};$p.Y=$o.Y+${Math.round(y * dpr)};[void][MI]::SetCursorPos($p.X,$p.Y);Start-Sleep -Milliseconds ${steps > 1 ? 25 : 120}`;
+      }
+      last = a.at;
+    }
+    if (a.probe) script += ';"under=$([int64][MI]::GetAncestor([MI]::WindowFromPoint($p),2)) fg=$([int64][MI]::GetForegroundWindow()) main=$([int64]$h)"';
+    if (a.down) script += ';[MI]::mouse_event(2,0,0,0,[UIntPtr]::Zero)';
+    if (a.up) script += ';[MI]::mouse_event(4,0,0,0,[UIntPtr]::Zero)';
+    if (a.wait) script += `;Start-Sleep -Milliseconds ${a.wait}`;
+  }
+  const out = await app.shell(script);
+  await sleep(300);
+  return out;
+}
+const osDoubleClick = (app, at) => osMouse(app, [{ at: { x: at.x - 20, y: at.y } }, { at, steps: 3 }, { wait: 200 }, { probe: true }, { down: true }, { wait: 30 }, { up: true }, { wait: 90 }, { down: true }, { wait: 30 }, { up: true }]);
+const setWindow = (app, x, y, width, height) => app.main.eval(`Promise.all([window.__TAURI_INTERNALS__.invoke('plugin:window|unmaximize', { label: 'main' }).catch(() => 1)]).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: ${width}, height: ${height} } } })).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_position', { label: 'main', value: { Logical: { x: ${x}, y: ${y} } } })).then(() => 1)`);
+/** A client point in the empty part of the menu bar (the drag area). */
+const dragArea = (app) => app.main.eval(`(() => { const r = document.querySelector('#menubar .menubar-drag').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; })()`);
+
+/** Picks an example in the text import's example dropdown (fills the text box). */
+const pickSample = (page, kind) => page.eval(`(() => { const s = document.querySelector('select[data-text-sample]'); s.focus(); s.value = ${JSON.stringify(kind)}; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+
+/** Opens a menubar menu and runs its items (submenu ids first, then the item) with real clicks. */
+async function runMenu(app, menu, ...ids) {
+  // A menu closes when it loses the focus: if one did not show (or closed early), the whole path is opened again.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      let since = await now(app);
+      await clickOn(app.main, `[data-menu="${menu}"]`);
+      for (const id of ids) {
+        const page = await menuWindow(app, since, 6000);
+        since = await now(app);
+        // A submenu row opens on hover and on a click; the leaf item gets the real click.
+        if (id.startsWith('submenu:')) await page.click(`[data-id="${id}"]`); else await clickOn(page, `[data-id="${id}"]`);
+        page.close();
+      }
+      await sleep(300);
+      return;
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      await closePopups(app);
+      await sleep(400);
+    }
+  }
+}
+
+/** Opens a diagram type with the type tabs (real clicks): its group tab, then its type tab. */
+async function openTypeByTabs(app, type) {
+  const group = await app.main.eval(`import('/src/domain/toolbox.js').then((m) => m.diagramTabOf(${JSON.stringify(type)}))`);
+  await clickOn(app.main, `.type-family[data-type-group="${group}"]`);
+  await sleep(200);
+  await clickOn(app.main, `.type-tab[data-diagram-type="${type}"]`);
+  await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === ${JSON.stringify(type)}`, { timeout: 5000, message: `${type} opens from its type tab` });
+  await sleep(250);
+}
+
+/** Node tools to draw per diagram type: [the tool drawn twice and connected, …tools drawn once]. Others: the first tools of the toolbox. */
+const MAIN_TOOLS = {
+  UMLSequenceDiagram: ['UMLLifeline', 'actorLifeline'],
+  UMLCommunicationDiagram: ['UMLLifeline', 'actorLifeline'],
+  UMLTimingDiagram: ['UMLTimingLifeline'],
+  UMLInteractionOverviewDiagram: ['UMLInteractionUse', 'UMLInitialNode', 'UMLDecisionNode'],
+  UMLStatechartDiagram: ['UMLState', 'pseudo:initial', 'UMLFinalState'],
+  UMLActivityDiagram: ['UMLAction', 'UMLInitialNode', 'UMLActivityFinalNode'],
+  BPMNDiagram: ['BPMNTask', 'BPMNStartEvent', 'BPMNExclusiveGateway'],
+  SysMLInternalBlockDiagram: ['SysMLPart', 'UMLActor'],
+  SysMLParametricDiagram: ['SysMLConstraintProperty', 'SysMLConstraintParameter'],
+  NetworkDiagram: ['NWNode', 'NWNetwork'],
+  GanttDiagram: ['GanttTask', 'GanttMilestone'],
+  TimelineDiagram: ['TLEvent', 'TLPeriod'],
+};
+/** Tools that only make sense inside another element (ports, pins, lanes …) are not drawn on the bare canvas. */
+const INNER_TOOL = /Port$|Pin$|Lane$|Parameter$|Property$|TimeTick$|^UMLPart$|CollaborationUse$/;
+
+/**
+ * Draws on a diagram type like a user (real mouse and keyboard): opens it with the type tabs, draws the main
+ * node tools (tool click + canvas click, naming each in the in-place editor), connects two nodes with the main
+ * relationship tool by dragging, and renames one with a double click (quick edit). Checks the model and the views.
+ */
+async function drawDiagramType(app, type) {
+  app.main.errors.length = 0;
+  await openTypeByTabs(app, type);
+  const plan = await W(app, `(() => {
+    const groups = w.domain.toolboxFor(${JSON.stringify(type)}).filter(([id]) => id !== 'annotations');
+    const all = groups.flatMap((g) => g[3]);
+    const wanted = ${JSON.stringify(MAIN_TOOLS[type] ?? null)};
+    const first = groups[0][3].filter((t) => t.kind === 'node' && !${INNER_TOOL}.test(t.type) && !${INNER_TOOL}.test(t.id));
+    const cloud = first.length && first.every((t) => t.type === 'CloudGroup');
+    const pool = cloud ? all.filter((t) => t.kind === 'node' && t.type === 'CloudService') : first;
+    const ids = wanted ?? [...new Map(pool.map((t) => [t.type, t.id])).values()].slice(0, 3);
+    return { nodes: ids, edge: all.find((t) => t.kind === 'edge')?.id ?? null, row: ${JSON.stringify(['UMLSequenceDiagram'].includes(type))} };
+  })()`);
+  assert.ok(plan.nodes.length, `${type}: node tools`);
+  const spots = plan.row ? [[0.08, 0.1], [0.42, 0.1], [0.74, 0.1]] : [[0.05, 0.08], [0.05, 0.52], [0.55, 0.08], [0.55, 0.52]];
+  const order = [plan.nodes[0], plan.nodes[0], ...plan.nodes.slice(1)].slice(0, spots.length);
+  const viewIds = () => W(app, `api.diagram().ownedViews.map((v) => v._id)`);
+  const created = [];
+  const place = async (i, tool) => {
+    const before = new Set(await viewIds());
+    for (let attempt = 0; attempt < 3 && (await W(app, 'w.state.tool?.id ?? null')) !== tool; attempt++) {
+      await clickOn(app.main, `#left-panel .tool-item[data-tool="${tool}"]`, { block: 'center' });
+      await app.main.waitFor(`window.__myumlmaker.state.tool?.id === ${JSON.stringify(tool)}`, { timeout: 1200 }).catch(() => {});
+    }
+    assert.equal(await W(app, 'w.state.tool?.id ?? null'), tool, `${type}: the ${tool} tool is picked ${JSON.stringify(await W(app, 'w.debug()'))}`);
+    // The second node goes just below the first one (the canvas can be short: bottom panel, small window).
+    const at = i === 1 && !plan.row ? await W(app, `(() => { const v = api.view; const b = v.boxOf(${JSON.stringify(created[0])}); const r = v.stage.getBoundingClientRect(); const p = v.toStage({ x: b.x, y: b.y + b.h }); return { x: r.left + p.x + 4, y: r.top + p.y + 50 }; })()`) : await canvasPoint(app, ...spots[i]);
+    await app.main.realClick(at.x, at.y);
+    const editing = await app.main.waitFor(`Boolean(document.querySelector('.text-editor'))`, { timeout: 700 }).then(() => true, () => false);
+    if (editing) {
+      await app.main.type(`N${i + 1}`);
+      await app.main.key('Enter', 2);
+    }
+    await sleep(200);
+    const added = (await viewIds()).filter((id) => !before.has(id));
+    assert.ok(added.length >= 1, `${type}: ${tool} drew a view (click at ${Math.round(at.x)},${Math.round(at.y)})`);
+    const node = await W(app, `(() => { const ids = ${JSON.stringify(added)}; const tool = w.domain.toolboxFor(${JSON.stringify(type)}).flatMap((g) => g[3]).find((t) => t.id === ${JSON.stringify(tool)}); const nodes = ids.filter((id) => { const v = M.findView(api.diagram(), id); return v && !M.isEdgeView(v); }); return nodes.find((id) => { const v = M.findView(api.diagram(), id); return v.model && a.activeDoc().index.get(v.model.$ref)?._type === tool?.type; }) ?? nodes[0] ?? ids[0]; })()`);
+    created.push(node);
+    if (editing) assert.ok(await W(app, `(() => { const v = M.findView(api.diagram(), ${JSON.stringify(node)}); const e = v?.model && a.activeDoc().index.get(v.model.$ref); return !e || JSON.stringify(e).includes('N${i + 1}'); })()`), `${type}: ${tool} took the typed name`);
+  };
+  // The two nodes to connect first (others drawn later can be laid out over them, e.g. Gantt milestones by date).
+  for (const [i, tool] of order.slice(0, 2).entries()) await place(i, tool);
+  assert.equal(await W(app, 'w.state.tool'), null, `${type}: back to the pointer`);
+  const [first, second] = created;
+  const pointOf = (id) => W(app, `(() => { const v = api.view; const b = v.boxOf(${JSON.stringify(id)}); const r = v.stage.getBoundingClientRect(); const p = v.toStage({ x: b.x + b.w / 2, y: b.y + (${plan.row} ? Math.min(b.h / 2, 140) : b.h / 2) }); return { x: r.left + p.x, y: r.top + p.y }; })()`);
+  if (plan.edge && first !== second) {
+    const edgesBefore = await W(app, `api.diagram().ownedViews.filter((v) => M.isEdgeView(v)).length`);
+    await clickOn(app.main, `#left-panel .tool-item[data-tool="${plan.edge}"]`, { block: 'center' });
+    assert.equal(await W(app, 'w.state.tool?.id ?? null'), plan.edge, `${type}: the ${plan.edge} tool is picked`);
+    await app.main.drag(await pointOf(first), await pointOf(second), 14);
+    await sleep(300);
+    const edge = await W(app, `(() => { const e = api.diagram().ownedViews.filter((v) => M.isEdgeView(v)).at(-1); const m = e?.model && a.activeDoc().index.get(e.model.$ref); return e ? { count: api.diagram().ownedViews.filter((v) => M.isEdgeView(v)).length, ends: [e.tail?.$ref, e.head?.$ref], type: m?._type ?? e._type } : null; })()`);
+    assert.ok(edge && edge.count === edgesBefore + 1, `${type}: dragging with ${plan.edge} adds a line ${JSON.stringify(edge)}`);
+    assert.deepEqual([...edge.ends].sort(), [first, second].sort(), `${type}: between the two ${order[0]} views ${JSON.stringify({ edge, first, second })}`);
+  }
+  // Quick edit: a double click on the first node edits it in place.
+  const mode = await W(app, `(() => { const m = api.editModeOf(M.findView(api.diagram(), ${JSON.stringify(first)})); return m ? m.kind : null; })()`);
+  if (mode) {
+    await app.main.key('Escape');
+    // Near the top of the view (its name), which is on screen also for big frames.
+    const p = await W(app, `(() => { const v = api.view; v.reveal(${JSON.stringify(first)}); const b = v.boxOf(${JSON.stringify(first)}); const r = v.stage.getBoundingClientRect(); const q = v.toStage({ x: b.x + Math.min(b.w / 2, 70), y: b.y + Math.min(b.h / 2, 14) }); return { x: r.left + q.x, y: r.top + q.y }; })()`);
+    await app.main.realClick(p.x, p.y, { clickCount: 2 });
+    await app.main.waitFor(`Boolean(document.querySelector('.text-editor'))`, { timeout: 3000, message: `${type}: a double click opens the in-place editor (${mode})` });
+    await app.main.eval(`(() => { const e = document.querySelector('.text-editor'); const end = e.value.indexOf('\\n'); e.setSelectionRange(0, end < 0 ? e.value.length : end); return 1; })()`);
+    await app.main.type('Edited');
+    await app.main.key('Enter', 2);
+    await sleep(250);
+    assert.ok(await W(app, `(() => { const v = M.findView(api.diagram(), ${JSON.stringify(first)}); const e = v?.model ? a.activeDoc().index.get(v.model.$ref) : v; return JSON.stringify(e).includes('Edited'); })()`), `${type}: the double-click edit reached the model (${mode})`);
+  }
+  for (const [i, tool] of order.entries()) if (i >= 2) await place(i, tool);
+  assert.ok(await app.main.eval(`document.querySelectorAll('.canvas-svg [data-view]').length >= ${created.length}`), `${type}: drawn on the canvas`);
+  assert.deepEqual(app.main.errors, [], `${type}: no exceptions`);
+  await noErrorPopup(app, type);
+  return { type, nodes: order, edge: plan.edge, mode };
+}
+
+/** One case per group of diagram types: a blank project, then each type drawn with the real mouse. */
+const drawCase = (name, types) => ({ group: '다이어그램 종류', name: `${name}: 종류 탭으로 열고 도구로 그리고 끌어 연결·두 번 눌러 고침 (실제 마우스)`, async run(app) {
+  await freshProject(app);
+  await W(app, `(a.updateSettings({ showRulers: true, snapToGrid: true }), 1)`);
+  for (const type of types) await drawDiagramType(app, type);
+  assert.deepEqual(await W(app, `[...new Set(M.allDiagrams(a.activeDoc().project).map((d) => d._type))].filter((t) => ${JSON.stringify(types)}.includes(t)).sort()`), [...types].sort(), 'a diagram of every type');
+} });
+
 export const cases = [
   // ───────────────────────── first start
   { group: '처음 실행', name: '튜토리얼 안내 팝업 (독립 OS 창) → 나중에', async run(app) {
@@ -170,7 +370,7 @@ export const cases = [
     const templates = await W(app, 'w.domain.TEMPLATES.length');
     const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('.start-hero [data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: [...document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]')].map((b) => b.dataset.value), help: ['tutorial-doc', 'guide', 'shortcuts'].every((x) => document.querySelector('[data-start="' + x + '"]')), left: getComputedStyle(document.querySelector('#left-panel')).display, version: document.querySelector('.start-hero h1').textContent })`);
     assert.ok(info.shown, 'start page shown');
-    assert.equal(templates, 17, 'MyUMLMaker has 17 templates');
+    assert.equal(templates, 21, 'MyUMLMaker has 21 templates');
     assert.equal(info.templates, templates, 'a tile per template');
     assert.ok(info.tutorial && info.banner && info.recent && info.help, JSON.stringify(info));
     assert.ok(info.samples.length >= 1 && info.samples.every((p) => !p || /\.ko\.(myuml|mdj)$/.test(p)), `sample projects in the UI language ${JSON.stringify(info.samples)}`);
@@ -209,15 +409,16 @@ export const cases = [
 
   // ───────────────────────── window
   { group: '창', name: '타이틀 바: 프로그램 이름과 버전', async run(app) {
-    assert.equal(mainWindow(app)?.title, TITLE);
+    assert.equal((await mainWindow(app))?.title, TITLE);
     assert.equal(await app.main.eval('document.title'), TITLE);
   } },
-  { group: '창', name: '메뉴바의 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이', async run(app) {
+  { group: '창', name: '메뉴바: 프로그램 이름 다음에 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이', async run(app) {
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
-      const first = document.querySelector('#menubar').firstElementChild;
-      return { homeFirst: first.matches('[data-home]'), homeIcon: Boolean(first.querySelector('svg')), homeTitle: first.title,
+      const kids = [...document.querySelector('#menubar').children];
+      const first = kids.find((e) => e.matches('[data-home]'));
+      return { homeFirst: kids[0].matches('.app-brand') && kids[1] === first, homeIcon: Boolean(first?.querySelector('svg')), homeTitle: first?.title,
         toolbarBottom: Math.round(r('#toolbar').bottom), leftTop: Math.round(r('#left-panel').top), rightTop: Math.round(r('#right-panel').top),
         tabsLeft: Math.round(r('#tabs').left), tabsRight: Math.round(r('#tabs').right), leftRight: Math.round(r('#left-panel').right), rightLeft: Math.round(r('#right-panel').left) };
     })()`);
@@ -250,53 +451,89 @@ export const cases = [
     assert.equal(bar.docTabs, 0, 'no project tabs, no new-tab / close-tab buttons');
     assert.equal(bar.oldBar, false, 'the bottom working-diagrams bar is gone');
   } },
-  { group: '창', name: '이미 실행 중이면 오류 메시지 상자 후 종료 (두 번째 실행)', async run(app) {
+  { group: '창', name: '두 번째 실행은 두 번째 창: 둘 다 보이고, 비켜 열리고, 시작 페이지(세션 복원 없음), 하나를 닫아도 다른 하나는 계속', async run() {
+    // Two real copies without MYUMLMAKER_MULTI, sharing one lock folder and one WebView2 profile
+    // (as two starts of the installed program do). Both pages are on the same debugging port.
     const lockDir = tempDir('lock');
-    const report = path.join(lockDir, 'already.txt');
     const profile = tempDir('profile2');
     const exe = path.join(root, 'src-tauri', 'target', 'debug', 'myumlmaker.exe');
-    const env = { ...process.env, MYUMLMAKER_LOCK_DIR: lockDir, MYUMLMAKER_CONFIG_DIR: profile, MYUMLMAKER_DATA_DIR: profile, WEBVIEW2_USER_DATA_FOLDER: profile, MYUMLMAKER_NO_OPEN: '1' };
+    const port = 9700 + Math.floor(Math.random() * 200);
+    const env = { ...process.env, MYUMLMAKER_LOCK_DIR: lockDir, MYUMLMAKER_CONFIG_DIR: profile, MYUMLMAKER_DATA_DIR: profile, WEBVIEW2_USER_DATA_FOLDER: profile, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`, MYUMLMAKER_NO_OPEN: '1' };
     delete env.MYUMLMAKER_MULTI;
     delete env.ELECTRON_RUN_AS_NODE;
+    const sample = path.join(root, 'samples', 'online-shop.en.myuml');
+    const mains = async () => (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json().catch(() => [])).filter((t) => t.type === 'page' && t.url.startsWith('http') && !String(t.title).startsWith('popup-'));
+    const attach = async (skip) => {
+      for (let i = 0; i < 250; i++) {
+        const target = (await mains().catch(() => [])).find((t) => !skip.includes(t.id));
+        if (target) {
+          const page = await new Page(target).open();
+          await page.waitFor(`Boolean(window.__myumlmaker && document.querySelector('#toolbar .tool-button') && document.querySelector('#statusbar .status-notice'))`, { timeout: 40000 });
+          return page;
+        }
+        await sleep(150);
+      }
+      throw new Error('main page not found');
+    };
+    const visibleMain = (pid) => [].concat(JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'test', 'e2e', 'dialogs.ps1'), '-ProcessId', String(pid)], { windowsHide: true }).toString() || '[]')).filter((w) => w.title === TITLE);
+    const facts = (page) => page.eval(`(async () => ({ instance: await window.__TAURI_INTERNALS__.invoke('instance_info'), docs: window.__myumlmaker.state.docs.length, start: !document.querySelector('#start-page').hidden, session: localStorage.getItem('myumlmaker.session.v1'), x: screenX, y: screenY }))()`);
+    const kill = (child) => spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
     const first = spawn(exe, [], { env, stdio: 'ignore' });
+    let second;
+    const pages = [];
     try {
-      await sleep(2500);
-      // The real message box (no test hook): it must open in front of everything.
-      const second = spawn(exe, [], { env, stdio: 'ignore' });
-      const exited = new Promise((resolve) => second.once('exit', resolve));
-      const probe = (close = false) => JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'test', 'e2e', 'dialogs.ps1'), '-ProcessId', String(second.pid), ...(close ? ['-Close'] : [])], { windowsHide: true }).toString() || '[]');
-      let box;
-      for (let i = 0; i < 40 && !box; i++) { await sleep(250); box = [].concat(probe()).find((w) => w.class === '#32770'); }
-      assert.ok(box, 'the second copy shows a message box');
-      assert.match(box.title, /MyUMLMaker/);
-      assert.ok(box.topmost, `the message box is in front of every window ${JSON.stringify(box)}`);
+      const one = await attach([]);
+      pages.push(one);
+      // What a later copy must not restore: session restore on, the sample "open".
+      await one.eval(`(() => { const s = JSON.parse(localStorage.getItem('myumlmaker.settings.v1') || '{}'); Object.assign(s, { restoreSession: true, tutorialOffered: true }); localStorage.setItem('myumlmaker.settings.v1', JSON.stringify(s)); localStorage.setItem('myumlmaker.session.v1', JSON.stringify({ files: [${JSON.stringify(sample)}] })); return 1; })()`);
+      const a = await facts(one);
+      assert.deepEqual(a.instance, { first: true, others: 0 }, 'the first copy knows it is the first');
+      second = spawn(exe, [], { env, stdio: 'ignore' });
+      const two = await attach([one.target.id]);
+      pages.push(two);
+      await sleep(1200);
+      const b = await facts(two);
+      assert.deepEqual(b.instance, { first: false, others: 1 }, 'the second copy sees the first');
       assert.equal(first.exitCode, null, 'the first copy keeps running');
-      probe(true); // OK
-      const code = await Promise.race([exited, sleep(10000).then(() => 'running')]);
-      assert.equal(code, 3, 'the second copy quits after the message');
-      // The wording (Korean/English) through the text hook:
-      const third = spawn(exe, [], { env: { ...env, MYUMLMAKER_ALREADY_RUNNING_FILE: report }, stdio: 'ignore' });
-      await Promise.race([new Promise((resolve) => third.once('exit', resolve)), sleep(10000)]);
-      assert.match(fs.readFileSync(report, 'utf8'), /이미 실행 중|already running/);
+      assert.equal(second.exitCode, null, 'the second copy runs too (no "already running" message, no exit)');
+      assert.equal(visibleMain(first.pid).length, 1, 'the first copy has its visible main window');
+      assert.equal(visibleMain(second.pid).length, 1, 'the second copy has its own visible main window');
+      assert.ok(b.x - a.x >= 24 && b.y - a.y >= 24, `the second window is offset, not over the first ${JSON.stringify([a.x, a.y, b.x, b.y])}`);
+      assert.equal(b.docs, 0, 'the second copy does not restore the session');
+      assert.equal(b.start, true, 'it shows the start page');
+      assert.match(b.session, /online-shop/, 'and leaves the session of the first alone');
+      // Closing the second (File › Exit) leaves the first running.
+      await two.eval(`window.__TAURI_INTERNALS__.invoke('quit_app'), 1`).catch(() => {});
+      for (let i = 0; i < 60 && second.exitCode == null; i++) await sleep(150);
+      assert.notEqual(second.exitCode, null, 'the second copy ended');
+      await sleep(500);
+      assert.equal(first.exitCode, null, 'the first copy is still running');
+      assert.equal((await facts(one)).instance.first, true, 'and still answers');
+      assert.equal(visibleMain(first.pid).length, 1, 'with its window');
     } finally {
-      spawn('taskkill', ['/PID', String(first.pid), '/T', '/F'], { stdio: 'ignore' });
+      for (const page of pages) page.close?.();
+      kill(first);
+      if (second) kill(second);
       await sleep(800);
     }
   } },
-  { group: '창', name: '최소 창 폭: 툴바·메뉴가 가려지지 않고 툴바는 한 줄', async run(app) {
+  { group: '창', name: '최소 창 폭: 툴바·메뉴·이름·창 단추가 가려지지 않고 툴바와 메뉴 막대는 한 줄', async run(app) {
     await freshSample(app);
     const min = await W(app, 'w.state.minWidth');
     assert.ok(min > 800, `minimum width ${min}`);
     await resize(app, 600, 500);
     await sleep(700);
     const result = await app.main.eval(`(() => {
-      const items = [...document.querySelectorAll('#toolbar .tool-button, #toolbar .stepper-value, #menubar .menubar-item')];
+      const items = [...document.querySelectorAll('#toolbar .tool-button, #toolbar .stepper-value, #menubar .menubar-item, #menubar .app-brand, #menubar [data-window]')];
+      const bar = [...document.querySelectorAll('#menubar .menubar-item, #menubar .app-brand, #menubar [data-window]')];
       const toolbar = document.querySelector('#toolbar').getBoundingClientRect();
       const tools = [...document.querySelectorAll('#toolbar .tool-button')];
       return {
         width: innerWidth,
         hidden: items.filter((b) => { const r = b.getBoundingClientRect(); return r.right > innerWidth + 0.5 || r.left < -0.5 || r.width < 14; }).map((b) => b.dataset.command ?? b.dataset.menu ?? b.className),
         rows: new Set(tools.map((b) => Math.round(b.getBoundingClientRect().top + b.getBoundingClientRect().height / 2))).size,
+        barRows: new Set(bar.map((b) => Math.round((b.getBoundingClientRect().top + b.getBoundingClientRect().bottom) / 2 / 4))).size,
+        overlap: bar.some((b, i) => bar.some((c, j) => j > i && b.getBoundingClientRect().right > c.getBoundingClientRect().left + 1 && c.getBoundingClientRect().right > b.getBoundingClientRect().left + 1)),
         height: toolbar.height,
       };
     })()`);
@@ -304,6 +541,7 @@ export const cases = [
     await sleep(400);
     assert.ok(result.width >= min - 2, `window kept ${result.width}px ≥ ${min}px`);
     assert.equal(result.rows, 1, 'one toolbar row');
+    assert.ok(result.barRows === 1 && !result.overlap, `the menu bar (brand, menus, window buttons) is one row without overlaps ${JSON.stringify(result)}`);
     assert.ok(result.height < 48, `${result.height}px high`);
     assert.deepEqual(result.hidden, []);
   } },
@@ -315,7 +553,7 @@ export const cases = [
     assert.equal(grip.cursor, 'nwse-resize');
     assert.ok(grip.title);
     const before = await app.main.eval('({ w: innerWidth, h: innerHeight })');
-    const main = mainWindow(app);
+    const main = await mainWindow(app);
     // The OS resize loop (startResizeDragging) only follows the real mouse.
     const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class M{[DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);[DllImport("user32.dll")]public static extern void mouse_event(uint f,uint x,uint y,uint d,UIntPtr e);[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);[DllImport("user32.dll")]public static extern bool ClientToScreen(IntPtr h,ref P p);[DllImport("user32.dll")]public static extern IntPtr WindowFromPoint(P p);[DllImport("user32.dll")]public static extern IntPtr GetAncestor(IntPtr h,uint f);public struct P{public int X,Y;}}';
 $h=[IntPtr]${main.handle};[M]::keybd_event(0x12,0,0,[UIntPtr]::Zero);[M]::keybd_event(0x12,0,2,[UIntPtr]::Zero);[void][M]::SetForegroundWindow($h);Start-Sleep -Milliseconds 200;$p=New-Object M+P;$p.X=${Math.round(grip.x * grip.dpr)};$p.Y=${Math.round(grip.y * grip.dpr)};[void][M]::ClientToScreen($h,[ref]$p);
@@ -324,15 +562,115 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     // The press can miss when Windows keeps another window in front for a moment: try again.
     let after = before;
     const hits = [];
-    for (let attempt = 0; attempt < 3 && !(after.w > before.w + 40); attempt++) {
-      hits.push(ps(script));
+    void script;
+    await app.main.eval(`window.__gripEvents = []; if (!window.__gripHooked) { window.__gripHooked = 1; for (const t of ['pointerdown', 'pointerup', 'mousedown']) window.addEventListener(t, (e) => window.__gripEvents.push(t + ':' + (e.target.dataset?.resizeGrip !== undefined ? 'grip' : e.target.className)), true); } 1`);
+    for (let attempt = 0; attempt < 5 && !(after.w > before.w + 40); attempt++) {
+      hits.push(await osMouse(app, [{ at: { x: grip.x - 20, y: grip.y - 20 } }, { at: { x: grip.x, y: grip.y }, steps: 3 }, { wait: 200 }, { probe: true }, { down: true }, { wait: 450 }, ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => ({ at: { x: grip.x + 12 * i, y: grip.y + 8 * i } })), { wait: 150 }, { up: true }]));
       await sleep(600);
       after = await app.main.eval('({ w: innerWidth, h: innerHeight })');
     }
-    assert.ok(after.w > before.w + 40, `the window grew (${hits.join(' ')}; main ${main.handle})`);
+    assert.ok(after.w > before.w + 40, `the window grew (${hits.join(' ')}; main ${main.handle}; page saw ${await app.main.eval('JSON.stringify(window.__gripEvents)')})`);
     await resize(app, 1480, 900);
     await sleep(300);
     assert.ok(after.w > before.w + 40 && after.h > before.h + 25, `window grew ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
+  } },
+  { group: '창', name: '시스템 제목 표시줄 없음: 메뉴 막대 줄 왼쪽 끝에 아이콘·이름·버전, 오른쪽 끝에 최소화·최대화·닫기 (한 줄)', async run(app) {
+    await freshSample(app);
+    const row = await app.main.eval(`(() => {
+      const bar = document.querySelector('#menubar'); const r = bar.getBoundingClientRect(); const box = (e) => e.getBoundingClientRect();
+      const brand = bar.querySelector('.app-brand'); const controls = bar.querySelector('.window-controls');
+      const buttons = [...controls.querySelectorAll('[data-window]')];
+      const mid = (e) => Math.round(box(e).top + box(e).height / 2);
+      return { first: bar.firstElementChild === brand, brandLeft: Math.round(box(brand).left - r.left), name: brand.querySelector('.app-brand-name')?.textContent, version: brand.querySelector('.app-brand-version')?.textContent, icon: Boolean(brand.querySelector('img.app-brand-icon')?.naturalWidth),
+        drag: brand.hasAttribute('data-window-drag') && bar.querySelector('.menubar-drag').hasAttribute('data-window-drag'),
+        ids: buttons.map((b) => b.dataset.window), right: Math.round(innerWidth - box(controls).right), rows: new Set([brand, ...bar.querySelectorAll('.menubar-item'), ...buttons].map(mid)).size,
+        tips: buttons.every((b) => b.title && b.querySelector('svg')), top: Math.round(r.top) };
+    })()`);
+    assert.ok(row.first && row.brandLeft <= 12 && row.icon, `the brand starts the row ${JSON.stringify(row)}`);
+    assert.equal(row.name, 'MyUMLMaker');
+    assert.equal(row.version, `v${VERSION}`);
+    assert.deepEqual(row.ids, ['minimize', 'maximize', 'close']);
+    assert.ok(row.right <= 1 && row.tips, `window buttons flush right with icons and tooltips ${JSON.stringify(row)}`);
+    assert.ok(row.rows <= 2 && row.top <= 1 && row.drag, `one row at the very top, a drag area ${JSON.stringify(row)}`);
+    const main = await mainWindow(app);
+    assert.equal(main.title, TITLE, 'the window title (taskbar, Alt+Tab) stays');
+    const clientTop = Number(await app.shell(`${OS_INPUT};$p=New-Object MI+P;$p.X=0;$p.Y=0;[void][MI]::ClientToScreen([IntPtr]${main.handle},[ref]$p);$p.Y`));
+    assert.ok(clientTop - main.top <= 10, `no system title bar above the page (client top ${clientTop}, window top ${main.top})`);
+  } },
+  { group: '창', name: '창 단추: 최소화 → 복원, 최대화 → (복원 단추) → 복원, 빈 메뉴 막대를 두 번 누르면 최대화 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await setWindow(app, 120, 80, 1300, 820);
+    await sleep(500);
+    const state = async () => { const w = await mainWindow(app) ?? (await app.windowInfo()).find((x) => x.owner === 0 && x.title === TITLE); return { iconic: w.iconic, zoomed: w.zoomed, button: await app.main.eval(`document.querySelector('[data-window="maximize"]').title`) }; };
+    const titles = await W(app, `[w.t('window.maximize'), w.t('window.restore')]`);
+    await clickOn(app.main, '[data-window="minimize"]');
+    await sleep(700);
+    assert.equal((await state()).iconic, true, 'minimized');
+    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|unminimize', { label: 'main' }).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_focus', { label: 'main' })).then(() => 1)`);
+    await sleep(700);
+    assert.equal((await state()).iconic, false, 'restored');
+    await clickOn(app.main, '[data-window="maximize"]');
+    await sleep(800);
+    let s = await state();
+    assert.ok(s.zoomed && s.button === titles[1], `maximized, the button says restore ${JSON.stringify(s)}`);
+    await clickOn(app.main, '[data-window="maximize"]');
+    await sleep(800);
+    s = await state();
+    assert.ok(!s.zoomed && s.button === titles[0], `restored ${JSON.stringify(s)}`);
+    // A double click on the empty part of the menu bar (real OS mouse) maximizes, another restores.
+    // (The press can miss while Windows keeps another window in front for a moment: up to three tries.)
+    for (const want of [true, false]) {
+      const probes = [];
+      for (let attempt = 0; attempt < 5 && (await state()).zoomed !== want; attempt++) {
+        probes.push(await osDoubleClick(app, await dragArea(app)));
+        await sleep(900);
+      }
+      assert.equal((await state()).zoomed, want, `${want ? 'double click on the drag area maximizes' : 'and restores'} ${JSON.stringify(probes)}`);
+    }
+    await noErrorPopup(app, 'window buttons');
+  } },
+  { group: '창', name: '빈 메뉴 막대를 끌면 창이 움직이고, 창 가장자리·모서리를 끌면 크기가 바뀜 (제목 표시줄 없는 창, 실제 OS 마우스)', async run(app) {
+    await freshSample(app);
+    await setWindow(app, 120, 80, 1300, 820);
+    await sleep(600);
+    const before = await mainWindow(app);
+    const from = await dragArea(app);
+    // The press can miss while Windows keeps another window in front for a moment: try again (as the grip case does).
+    let moved = before;
+    for (let attempt = 0; attempt < 6 && !(moved.left - before.left >= 30 && moved.top - before.top >= 20); attempt++) {
+      if (attempt) { await setWindow(app, 120, 80, 1300, 820); await sleep(500); }
+      await osMouse(app, [{ at: from }, { down: true }, { wait: 250 }, ...[1, 2, 3, 4, 5, 6].map((i) => ({ at: { x: from.x + 15 * i, y: from.y + 10 * i } })), { wait: 150 }, { up: true }]);
+      moved = await mainWindow(app);
+    }
+    // With the pointer (90, 60): a loaded machine can start the move loop a step late, but never jumps elsewhere.
+    assert.ok(moved.left - before.left >= 30 && moved.left - before.left <= 105 && moved.top - before.top >= 20 && moved.top - before.top <= 75, `dragging the menu bar moves the window with the pointer (no jump) ${JSON.stringify([before.left, before.top, moved.left, moved.top])}`);
+    assert.equal(moved.right - moved.left, before.right - before.left, 'same size');
+    const size = () => app.main.eval('({ w: innerWidth, h: innerHeight })');
+    const s0 = await size();
+    // Right edge: the resize border (Windows 11 keeps it just outside the visible edge, in the shadow).
+    const probes = [];
+    const edgeDrag = async (from, to) => { const start = await size(); for (let attempt = 0; attempt < 6; attempt++) { probes.push(await osMouse(app, [{ at: { x: from.x - 30, y: from.y - 20 } }, { at: from, steps: 4 }, { wait: 200 }, { probe: true }, { down: true }, { wait: 400 }, ...[1, 2, 3, 4, 5, 6, 7].map((i) => ({ at: { x: from.x + ((to.x - from.x) * i) / 7, y: from.y + ((to.y - from.y) * i) / 7 } })), { wait: 250 }, { up: true }])); const now = await size(); if (now.w !== start.w || now.h !== start.h) return now; } return size(); };
+    const s1 = await edgeDrag({ x: s0.w + 3, y: s0.h / 2 }, { x: s0.w + 73, y: s0.h / 2 });
+    assert.ok(s1.w > s0.w + 20 && Math.abs(s1.h - s0.h) < 4, `the right edge resizes the width ${JSON.stringify([s0, s1, probes])}`);
+    // Bottom-left corner.
+    const s2 = await edgeDrag({ x: -3, y: s1.h + 3 }, { x: -63, y: s1.h + 53 });
+    assert.ok(s2.w > s1.w + 15 && s2.h > s1.h + 15, `the corner resizes both ${JSON.stringify([s1, s2])}`);
+    await setWindow(app, 120, 80, 1480, 900);
+    await sleep(400);
+    await noErrorPopup(app, 'move / resize');
+  } },
+  { group: '창', name: '닫기 단추: 저장 안 한 변경이 있으면 물어봄, 취소하면 그대로 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.change('op.edit', (p) => { p.name = '닫기 전'; }), 1)`);
+    await clickOn(app.main, '[data-window="close"]');
+    const page = await app.popup('confirm');
+    assert.deepEqual(await page.eval(`[...document.querySelectorAll('[data-action="choice"]')].map((b) => b.dataset.value).sort()`), ['cancel', 'discard', 'save']);
+    await clickOn(page, '[data-value="cancel"]');
+    page.close();
+    await sleep(600);
+    assert.equal(app.process.exitCode, null, 'the app keeps running');
+    assert.deepEqual(await W(app, '[w.state.docs.length, a.activeDoc().project.name, a.activeDoc().dirty]'), [1, '닫기 전', true], 'with the project and its change');
+    await W(app, closeAllDocs);
   } },
   { group: '창', name: '상태 표시줄: 명령 결과·다이어그램·저장 상태·뷰 수·선택 크기·테마·언어·확대 비율', async run(app) {
     await freshSample(app);
@@ -543,19 +881,267 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await W(app, 'w.state.settings.showRulers'), true, 'and on again');
     await noErrorPopup(app, 'rulers');
   } },
-  { group: '프로젝트·탭', name: '격자: 50 %·100 %·200 % 에서 화면 간격이 같고, 맞춤도 화면 격자를 따름', async run(app) {
+  { group: '프로젝트·탭', name: '격자: 확대에 따라 커지다가 0.5×~2.5× 를 벗어나면 한 단계(×5) 촘촘하게/성기게, 5칸마다 진한 선, 맞춤도 따름 (실제 키보드·Ctrl+휠)', async run(app) {
     await freshSample(app);
     await W(app, `(a.updateSettings({ showGrid: true, snapToGrid: true, gridSize: 10 }), 1)`);
-    const sizes = {};
-    for (const zoom of [50, 100, 200]) {
-      await W(app, `(a.setCanvasZoom(${zoom}), 1)`);
-      await sleep(300);
-      sizes[zoom] = await app.main.eval(`(() => { const p = document.querySelector('#view-host pattern#grid-pattern'); const z = window.__myumlmaker.actions.activeDoc().view.zoom[window.__myumlmaker.api.diagram()._id] / 100; return { screen: Math.round(Number(p.getAttribute('width')) * z * 100) / 100, step: window.__myumlmaker.api.view.gridStep(), snap: window.__myumlmaker.api.view.snap(13) }; })()`);
+    const measure = () => app.main.eval(`(() => { const p = document.querySelector('#view-host pattern#grid-pattern'); const api = window.__myumlmaker.api; const zoom = window.__myumlmaker.actions.activeDoc().view.zoom[api.diagram()._id] ?? 100; const cell = api.view.gridStep(); const paths = [...p.querySelectorAll('path')]; return { zoom, cell, screen: Math.round(cell * zoom) / 100, width: Number(p.getAttribute('width')), snap: api.view.snap(13), darker: paths.length > 1 && paths[0].getAttribute('stroke') !== paths.at(-1).getAttribute('stroke') }; })()`);
+    const at = {};
+    for (const zoom of [40, 50, 60, 100, 200, 240, 260]) {
+      // The zoom box in the toolbar, typed into like a user does.
+      await clickOn(app.main, '#zoom-value');
+      await app.main.eval(`(document.querySelector('#zoom-value').select(), 1)`);
+      await app.main.type(String(zoom));
+      await app.main.key('Enter');
+      await sleep(350);
+      at[zoom] = await measure();
+      assert.equal(at[zoom].zoom, zoom, `zoom ${zoom} % from the zoom box`);
+      assert.ok(at[zoom].width === at[zoom].cell * 5 && at[zoom].darker, `a darker line every 5 cells ${JSON.stringify(at[zoom])}`);
+      assert.equal(at[zoom].snap, Math.round(13 / at[zoom].cell) * at[zoom].cell, `snapping follows the cell ${JSON.stringify(at[zoom])}`);
     }
-    assert.ok(sizes[50].screen === sizes[100].screen && sizes[100].screen === sizes[200].screen && sizes[100].screen > 0, `the grid pattern is the same size on the screen ${JSON.stringify(sizes)}`);
-    assert.deepEqual([sizes[50].step, sizes[100].step, sizes[200].step], [20, 10, 5], 'grid step in page units = grid size / zoom');
-    assert.deepEqual([sizes[50].snap, sizes[100].snap, sizes[200].snap], [20, 10, 15], 'snapping follows the visible grid');
+    const cells = Object.fromEntries(Object.entries(at).map(([z, m]) => [z, m.cell]));
+    assert.deepEqual(cells, { 40: 50, 50: 10, 60: 10, 100: 10, 200: 10, 240: 10, 260: 2 }, 'page cell: 10 from 50 % to 240 %, 50 below, 2 above');
+    assert.ok(at[60].screen < at[100].screen && at[100].screen < at[200].screen, `the cell grows with the zoom on screen ${JSON.stringify(at)}`);
+    for (const m of Object.values(at)) assert.ok(m.screen >= 5 - 0.01 && m.screen <= 25 + 0.01, `the screen cell stays between 0.5× and 2.5× ${JSON.stringify(m)}`);
+    // Ctrl+wheel (real wheel) zooms in from 100 %: the grid grows with it.
     await W(app, `(a.setCanvasZoom(100), 1)`);
+    await sleep(250);
+    const p = await canvasPoint(app, 0.5, 0.5);
+    await app.main.wheel(p.x, p.y, -120, 2);
+    await sleep(350);
+    const wheeled = await measure();
+    assert.ok(wheeled.zoom > 100 && wheeled.screen > at[100].screen && wheeled.cell === 10, `Ctrl+wheel zooms in and the grid grows ${JSON.stringify(wheeled)}`);
+    assert.ok(await app.main.eval(`(() => { const c = document.querySelector('.ruler-h'); return Boolean(c && c.width > 0); })()`) || !(await W(app, 'w.state.settings.showRulers')), 'the rulers follow the zoom');
+    await W(app, `(a.setCanvasZoom(100), 1)`);
+  } },
+
+  { group: '프로젝트·탭', name: '미니맵: 보이는 영역 사각형은 100 %·25 %·오른쪽 아래 끝에서도 틀 안에 다 보이고, 끌면 포인터를 따라감 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showMinimap: true }), 1)`);
+    const rect = () => app.main.eval(`(() => { const m = document.querySelector('.minimap'); const v = m.querySelector('.minimap-view'); const r = m.getBoundingClientRect(); const b = v.getBoundingClientRect(); const L = r.left + m.clientLeft; const T = r.top + m.clientTop; const sc = window.__myumlmaker.api.view.scroll; return { left: b.left - L, top: b.top - T, right: b.right - L, bottom: b.bottom - T, w: m.clientWidth, h: m.clientHeight, border: m.clientLeft, cx: (b.left + b.right) / 2, cy: (b.top + b.bottom) / 2, ratio: b.width / b.height, view: sc.clientWidth / sc.clientHeight, scroll: [sc.scrollLeft, sc.scrollTop] }; })()`);
+    const inside = (r, where) => assert.ok(r.left >= -0.5 && r.top >= -0.5 && r.right <= r.w + 0.5 && r.bottom <= r.h + 0.5 && r.right - r.left >= 7.5 && r.bottom - r.top >= 7.5, `${where}: the view rectangle is inside the minimap ${JSON.stringify(r)}`);
+    const place = async (zoom, where) => { await W(app, `(a.setCanvasZoom(${zoom}), 1)`); await sleep(250); await app.main.eval(`(() => { const sc = window.__myumlmaker.api.view.scroll; ${where === 'end' ? 'sc.scrollLeft = sc.scrollWidth; sc.scrollTop = sc.scrollHeight;' : 'sc.scrollLeft = 0; sc.scrollTop = 0;'} return 1; })()`); await sleep(300); return rect(); };
+    const topLeft = await place(100, 'start');
+    inside(topLeft, '100 % top-left');
+    assert.ok(topLeft.border >= 1, 'the minimap has a visible frame');
+    assert.ok(Math.abs(topLeft.ratio - topLeft.view) / topLeft.view < 0.15, `to scale ${JSON.stringify(topLeft)}`);
+    inside(await place(25, 'start'), '25 %');
+    inside(await place(100, 'end'), '100 % bottom-right');
+    // A real drag inside the minimap (from where the sample opens): while dragging, the rectangle's centre follows the pointer.
+    await freshSample(app);
+    await sleep(300);
+    const before = await rect();
+    const from = { x: before.cx, y: before.cy };
+    await app.main.mouse('mouseMoved', from.x, from.y, { button: 'none' });
+    await app.main.mouse('mousePressed', from.x, from.y);
+    let to = from;
+    for (let i = 1; i <= 8; i++) { to = { x: from.x + 2.5 * i, y: from.y + 1.5 * i }; await app.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: to.x, y: to.y, button: 'left', buttons: 1, pointerType: 'mouse' }); await sleep(30); }
+    await sleep(200);
+    const during = await rect();
+    await app.main.mouse('mouseReleased', to.x, to.y);
+    await sleep(300);
+    inside(during, 'while dragging');
+    inside(await rect(), 'after the drag');
+    assert.ok(Math.abs(during.cx - to.x) < 3 && Math.abs(during.cy - to.y) < 3, `the rectangle follows the pointer ${JSON.stringify({ from, to, during })}`);
+    assert.ok(during.scroll[0] > before.scroll[0] && during.scroll[1] > before.scroll[1], `the canvas scrolled ${JSON.stringify([before.scroll, during.scroll])}`);
+    await W(app, `(a.setCanvasZoom(100), 1)`);
+    await noErrorPopup(app, 'minimap');
+  } },
+
+  // ───────────────────────── diagram background
+  { group: '다이어그램 배경', name: '서식 › 다이어그램 배경…: 무늬·무늬 칸·무늬 색을 골라 확인 → 캔버스에 무늬, 다른 다이어그램은 그대로, Ctrl+Z 로 되돌림, 팝업 검사 (한국어·영어, 실제 마우스)', async run(app) {
+    await freshSample(app);
+    const popupChecks = async (page, where) => {
+      assert.deepEqual(await page.eval(POPUP_SCROLL_CHECK), [], `${where}: no scroll bars`);
+      assert.equal(await page.eval(`(() => { const b = document.querySelector('.popup-body'); return Math.max(0, b.scrollHeight - b.clientHeight - 1); })()`), 0, `${where}: content fits`);
+      assert.deepEqual(await page.eval(CLIP_CHECK), [], `${where}: nothing cut off`);
+    };
+    const diagram = await W(app, 'api.diagram()._id');
+    const patterned = (id) => W(app, `(() => { const d = a.activeDoc().index.get(${JSON.stringify(id)}); return { kind: d.backgroundKind ?? '', pattern: d.backgroundPattern ?? '', color: d.backgroundPatternColor ?? '' }; })()`);
+    const layer = () => app.main.eval(`(() => { const l = document.querySelector('#view-host .bg-layer'); return { pattern: Boolean(l?.querySelector('pattern')), html: (l?.innerHTML ?? '').length }; })()`);
+    assert.equal((await layer()).pattern, false, 'no pattern at first');
+    await runMenu(app, 'format', 'diagramBackground');
+    let page = await app.popup('background');
+    await expectPopupWindow(app, page, 'background');
+    await popupChecks(page, 'background (default)');
+    await clickOn(page, '[data-bg="backgroundKind"][data-value="pattern"]');
+    await page.waitFor(`Boolean(document.querySelector('.bg-pattern'))`);
+    await clickOn(page, '.bg-pattern[data-value="diagonal"]');
+    await clickOn(page, '.bg-swatch[data-bg="backgroundPatternColor"][data-value="#90caf9"]');
+    await sleep(200);
+    await popupChecks(page, 'background (pattern)');
+    assert.ok(await page.eval(`Boolean(document.querySelector('.bg-preview svg pattern'))`), 'the preview shows the pattern');
+    await clickOn(page, '[data-action="background-apply"]');
+    page.close();
+    await sleep(500);
+    assert.deepEqual(await patterned(diagram), { kind: 'pattern', pattern: 'diagonal', color: '#90caf9' }, 'the diagram has the pattern');
+    assert.ok((await layer()).pattern, 'the canvas background layer draws the pattern');
+    // Another diagram keeps its own (default) background.
+    const other = await W(app, `M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).map((d) => d._id).find((id) => id !== ${JSON.stringify(diagram)})`);
+    await app.main.eval(`(document.querySelector('#tabs [data-diagram-tab="${other}"]').scrollIntoView({ inline: 'nearest' }), 1)`);
+    await clickOn(app.main, `#tabs [data-diagram-tab="${other}"]`);
+    await sleep(400);
+    assert.equal(await W(app, 'api.diagram()._id'), other);
+    assert.equal((await layer()).pattern, false, 'the other diagram has no pattern');
+    assert.equal((await patterned(other)).kind, '', 'and keeps its background');
+    await app.main.eval(`(document.querySelector('#tabs [data-diagram-tab="${diagram}"]').scrollIntoView({ inline: 'nearest' }), 1)`);
+    await clickOn(app.main, `#tabs [data-diagram-tab="${diagram}"]`);
+    await sleep(400);
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await sleep(400);
+    assert.equal((await patterned(diagram)).kind, '', 'Ctrl+Z: one undo step back to the default');
+    assert.equal((await layer()).pattern, false, 'and the canvas follows');
+    // The popup in English too.
+    await W(app, `a.updateSettings({ language: 'en' })`);
+    await sleep(300);
+    try {
+      await runMenu(app, 'format', 'diagramBackground');
+      page = await app.popup('background');
+      await popupChecks(page, 'background (en, default)');
+      for (const kind of ['color', 'pattern', 'image']) {
+        await clickOn(page, `[data-bg="backgroundKind"][data-value="${kind}"]`);
+        await sleep(200);
+        await popupChecks(page, `background (en, ${kind})`);
+      }
+      await clickOn(page, '[data-action="close"]');
+      page.close();
+    } finally {
+      await W(app, `a.updateSettings({ language: 'ko' })`);
+    }
+    assert.equal((await patterned(diagram)).kind, '', 'Cancel changes nothing');
+    await noErrorPopup(app, 'diagram background');
+  } },
+  { group: '다이어그램 배경', name: '편집기 패널 › 배경 (선택 없음): 색 + 불투명도 50 % → PNG 로 내보내면 빈 곳의 알파 ≈ 128 (실제 마우스·키보드)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.select([]), w.state.explorer = [], 1)`);
+    await sleep(300);
+    const section = '#editors [data-bg-target]';
+    if (!(await app.main.eval(`Boolean(document.querySelector('${section}'))`))) await clickOn(app.main, '#editors [data-editor-toggle="diagramBackground"]');
+    await app.main.waitFor(`Boolean(document.querySelector('${section} [data-bg="backgroundKind"][data-value="color"]'))`, { message: 'the 배경 section of the diagram options' });
+    await clickOn(app.main, `${section} [data-bg="backgroundKind"][data-value="color"]`);
+    await sleep(300);
+    await clickOn(app.main, `${section} .bg-swatch[data-bg="backgroundColor"][data-value="#e3f2fd"]`);
+    await sleep(300);
+    await clickOn(app.main, `${section} input[type="number"][data-bg-input="backgroundColorOpacity"]`);
+    await app.main.eval(`(document.querySelector('${section} input[type="number"][data-bg-input="backgroundColorOpacity"]').select(), 1)`);
+    await app.main.type('50');
+    await app.main.key('Enter');
+    await app.main.key('Tab');
+    await sleep(400);
+    const fields = await W(app, `(() => { const d = api.diagram(); return [d.backgroundKind, d.backgroundColor, d.backgroundColorOpacity]; })()`);
+    assert.deepEqual(fields, ['color', '#e3f2fd', 50], 'colour at 50 %');
+    const file = path.join(tempDir('bg-png'), 'half.png');
+    // "With background" (not the transparent option, which leaves the background out): no white underlay any more.
+    await W(app, `(window.__myumlmakerSavePicks = [${JSON.stringify(file)}], a.exportImage({ format: 'png', transparent: false, area: 'content', scale: 1, quality: 90 }).then(() => 1))`);
+    const bytes = await waitFile(file);
+    const pixel = await app.main.eval(`(async () => { const img = new Image(); img.src = 'data:image/png;base64,${bytes.toString('base64')}'; await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const x = c.getContext('2d'); x.drawImage(img, 0, 0); return [...x.getImageData(2, 2, 1, 1).data]; })()`);
+    assert.ok(Math.abs(pixel[3] - 128) <= 8, `an empty corner is half transparent ${JSON.stringify(pixel)}`);
+    assert.ok(pixel[2] > pixel[0], `in the chosen blue ${JSON.stringify(pixel)}`);
+    await W(app, '(a.undo(), a.undo(), a.undo(), 1)');
+    await noErrorPopup(app, 'background export');
+  } },
+
+  // ───────────────────────── bottom panel: problems
+  { group: '문제 패널', name: '아래 패널 켜고 끄기: 툴바 버튼·Ctrl+J·× 단추·상태 표시줄 개수 (실제 마우스·키보드)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showBottomPanel: true }), 1)`);
+    await sleep(300);
+    const shown = () => app.main.eval(`(() => { const p = document.querySelector('#bottom-panel'); const r = p.getBoundingClientRect(); return { on: getComputedStyle(p).display !== 'none' && r.height > 40, pressed: document.querySelector('#toolbar [data-command="bottomPanel"]').getAttribute('aria-pressed'), setting: window.__myumlmaker.state.settings.showBottomPanel }; })()`);
+    const expect = async (on, how) => { await sleep(300); const s = await shown(); assert.deepEqual([s.on, s.setting, s.pressed], [on, on, String(on)], `${how}: ${JSON.stringify(s)}`); };
+    await expect(true, 'shown by default');
+    assert.ok(await app.main.eval(`(() => { const p = document.querySelector('#bottom-panel').getBoundingClientRect(); const c = document.querySelector('.canvas-scroll').getBoundingClientRect(); return p.top >= c.bottom - 1; })()`), 'under the canvas');
+    await clickOn(app.main, '#toolbar [data-command="bottomPanel"]');
+    await expect(false, 'the toolbar button hides it');
+    await clickOn(app.main, '#toolbar [data-command="bottomPanel"]');
+    await expect(true, 'and shows it');
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('j', 2);
+    await expect(false, 'Ctrl+J hides it');
+    await app.main.key('j', 2);
+    await expect(true, 'Ctrl+J shows it');
+    await clickOn(app.main, '#bottom-panel .problems-header [data-command="bottomPanel"]');
+    await expect(false, 'the × closes it');
+    await app.main.waitFor(`Boolean(document.querySelector('#statusbar [data-problems-open]'))`, { timeout: 4000, message: 'the status bar counts the problems' });
+    await clickOn(app.main, '#statusbar [data-problems-open]');
+    await expect(true, 'the status bar count opens it');
+    await noErrorPopup(app, 'bottom panel toggle');
+  } },
+  { group: '문제 패널', name: '문제 패널: 중복 이름·중복 열·기본 키 없음이 1.5초 안에 나타나고, 누르면 그 다이어그램·뷰, 배지, 실행 취소하면 사라짐 (실제 마우스·키보드)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showBottomPanel: true }), 1)`);
+    const rows = (rule) => app.main.eval(`[...document.querySelectorAll('#bottom-panel .problem-row[data-problem]')].filter((r) => r.querySelector('.cell.rule code')?.textContent === ${JSON.stringify(rule)}).map((r) => ({ key: r.dataset.problem, name: r.querySelector('.cell.el b')?.textContent, msg: r.querySelector('.cell.msg').textContent }))`);
+    const waitRows = async (rule, test, message) => { const end = Date.now() + 1500 + 600; let got = []; while (Date.now() < end) { got = await rows(rule); if (test(got)) return got; await sleep(100); } throw new Error(`${message} ${JSON.stringify(got)}`); };
+    const quickEdit = async (name, edit) => {
+      const v = await viewAt(app, name);
+      await app.main.realClick(v.x, v.y, { clickCount: 2 });
+      await app.main.waitFor(`Boolean(document.querySelector('.text-editor'))`, { message: `the quick edit box opens on ${name}` });
+      await edit();
+      await app.main.key('Enter', 2);
+      await sleep(200);
+      return v;
+    };
+    // A class renamed to the name of another one.
+    const dupBefore = (await rows('name-duplicate')).length;
+    const customer = await quickEdit('Customer', async () => { await app.main.eval(`(() => { const e = document.querySelector('.text-editor'); const end = e.value.indexOf('\\n'); e.setSelectionRange(0, end < 0 ? e.value.length : end); return 1; })()`); await app.main.type('Order'); });
+    const dup = await waitRows('name-duplicate', (r) => r.length > dupBefore && r.some((x) => x.name === 'Order'), 'a duplicate-name problem appears');
+    assert.ok(dup.some((x) => /Order/.test(x.msg) || x.name === 'Order'), JSON.stringify(dup));
+    await app.main.waitFor(`[...document.querySelectorAll('.problem-badge[data-problem-view]')].some((b) => { const v = window.__myumlmaker.domain.M.findView(window.__myumlmaker.api.diagram(), b.dataset.problemView); return v?.model && window.__myumlmaker.actions.activeDoc().index.get(v.model.$ref)?.name === 'Order'; })`, { timeout: 3000, message: 'a "!" badge on a view named Order' });
+    // Clicking the row (from another diagram) opens the diagram with the view selected.
+    const classDiagram = await W(app, 'api.diagram()._id');
+    await openTypeByTabs(app, 'UMLUseCaseDiagram');
+    const row = dup.find((x) => x.name === 'Order' && x.key.includes(customer.model)) ?? dup.at(-1);
+    await clickOn(app.main, `#bottom-panel .problem-row[data-problem="${row.key}"]`);
+    await sleep(500);
+    assert.equal(await W(app, 'api.diagram()._id'), classDiagram, 'the row opens the diagram of the element');
+    const picked = await W(app, `({ views: w.state.selection.ids.map((id) => M.findView(api.diagram(), id)).filter(Boolean).map((v) => a.activeDoc().index.get(v.model?.$ref)?.name), explorer: w.state.explorer.map((id) => a.activeDoc().index.get(id)?.name) })`);
+    assert.ok(picked.views.includes('Order') && picked.explorer.includes('Order'), `and selects its view and element ${JSON.stringify(picked)}`);
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await waitRows('name-duplicate', (r) => r.length === dupBefore, 'Ctrl+Z: the problem goes away');
+    // ERD: a duplicate column, then a missing primary key.
+    await openTypeByTabs(app, 'ERDDiagram');
+    const colBefore = (await rows('column-name-duplicate')).length;
+    await quickEdit('customer', async () => {
+      const line = await app.main.eval(`(() => { const e = document.querySelector('.text-editor'); const lines = e.value.split('\\n'); e.setSelectionRange(e.value.length, e.value.length); return lines.find((l) => /:/.test(l) && !/^PK /.test(l)) ?? lines.at(-1); })()`);
+      await app.main.type(`\n${line}`);
+    });
+    await waitRows('column-name-duplicate', (r) => r.length > colBefore, 'a duplicate column appears');
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await waitRows('column-name-duplicate', (r) => r.length === colBefore, 'Ctrl+Z: the duplicate column problem goes away');
+    const pkBefore = (await rows('entity-no-primary-key')).length;
+    await quickEdit('customer', async () => {
+      const at = await app.main.eval(`(() => { const e = document.querySelector('.text-editor'); const i = e.value.search(/(^|\\n)PK /); const at = i < 0 ? -1 : i + (e.value[i] === '\\n' ? 1 : 0); if (at >= 0) e.setSelectionRange(at, at + 3); return at; })()`);
+      assert.ok(at >= 0, 'the entity has a PK column');
+      await app.main.key('Delete');
+    });
+    await waitRows('entity-no-primary-key', (r) => r.length > pkBefore && r.some((x) => x.name === 'customer'), 'a missing primary key appears');
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await waitRows('entity-no-primary-key', (r) => r.length === pkBefore, 'Ctrl+Z: it goes away');
+    await noErrorPopup(app, 'problems');
+  } },
+  { group: '문제 패널', name: '문제 패널 구분자를 끌면 높이가 바뀌고 다음 실행에도 그대로 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showBottomPanel: true, bottomHeight: 180 }), 1)`);
+    await sleep(300);
+    const height = () => app.main.eval(`Math.round(document.querySelector('#bottom-panel').getBoundingClientRect().height)`);
+    const before = await height();
+    const split = await app.main.center('[data-split="bottom"]');
+    await app.main.drag(split, { x: split.x, y: split.y - 90 }, 12);
+    await sleep(400);
+    const after = await height();
+    assert.ok(after > before + 60, `taller ${before} → ${after}`);
+    const saved = await W(app, 'w.state.settings.bottomHeight');
+    assert.ok(Math.abs(saved - after) <= 40, `the height is a setting (${saved})`);
+    await sleep(300);
+    await app.quit();
+    await app.launch();
+    await afterStart(app);
+    await freshSample(app);
+    assert.equal(await W(app, 'w.state.settings.bottomHeight'), saved, 'kept after a restart');
+    assert.ok(Math.abs(await height() - after) <= 2, 'drawn at that height');
+    await W(app, `(a.updateSettings({ bottomHeight: 180 }), 1)`);
   } },
 
   // ───────────────────────── toolbar
@@ -702,6 +1288,38 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `(a.setCanvasZoom(100), 1)`);
   } },
 
+  { group: '툴바', name: '격자·눈금자·미니맵 버튼: 누르면 꺼지고 다시 누르면 켜짐, 눌림 표시, 다음 실행에도 그대로 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await W(app, `(a.updateSettings({ showGrid: true, showRulers: true, showMinimap: true }), 1)`);
+    await sleep(200);
+    const state = () => app.main.eval(`({ grid: Boolean(document.querySelector('#view-host pattern#grid-pattern')), rulers: !document.querySelector('.canvas-view').classList.contains('no-rulers') && getComputedStyle(document.querySelector('.ruler-h')).display !== 'none', gridPressed: document.querySelector('#toolbar [data-command="grid"]').getAttribute('aria-pressed'), rulersPressed: document.querySelector('#toolbar [data-command="rulers"]').getAttribute('aria-pressed'), minimap: !document.querySelector('.minimap').hidden && getComputedStyle(document.querySelector('.minimap')).display !== 'none', minimapPressed: document.querySelector('#toolbar [data-command="minimap"]').getAttribute('aria-pressed'), tips: [document.querySelector('#toolbar [data-command="grid"]').title, document.querySelector('#toolbar [data-command="rulers"]').title, document.querySelector('#toolbar [data-command="minimap"]').title] })`);
+    const on = await state();
+    assert.deepEqual([on.grid, on.rulers, on.minimap, on.gridPressed, on.rulersPressed, on.minimapPressed], [true, true, true, 'true', 'true', 'true'], `both on ${JSON.stringify(on)}`);
+    assert.deepEqual(on.tips, [await W(app, `w.t('action.grid')`), await W(app, `w.t('action.rulers')`), await W(app, `w.t('action.minimap')`)], 'tooltips');
+    assert.ok(await app.main.eval(`(() => { const b = [...document.querySelectorAll('#toolbar [data-command]')]; const i = (c) => b.findIndex((x) => x.dataset.command === c); return i('grid') > i('fitPage') && i('rulers') === i('grid') + 1 && i('minimap') === i('rulers') + 1; })()`), 'after zoom / fit');
+    await clickOn(app.main, '#toolbar [data-command="grid"]');
+    await clickOn(app.main, '#toolbar [data-command="rulers"]');
+    await clickOn(app.main, '#toolbar [data-command="minimap"]');
+    await sleep(300);
+    const off = await state();
+    assert.deepEqual([off.grid, off.rulers, off.minimap, off.gridPressed, off.rulersPressed, off.minimapPressed], [false, false, false, 'false', 'false', 'false'], `both off ${JSON.stringify(off)}`);
+    assert.deepEqual(await W(app, '[w.state.settings.showGrid, w.state.settings.showRulers, w.state.settings.showMinimap]'), [false, false, false]);
+    await sleep(300);
+    await app.quit();
+    await app.launch();
+    await afterStart(app);
+    await freshSample(app);
+    const restarted = await state();
+    assert.deepEqual([restarted.grid, restarted.rulers, restarted.minimap, restarted.gridPressed, restarted.rulersPressed, restarted.minimapPressed], [false, false, false, 'false', 'false', 'false'], `still off after a restart ${JSON.stringify(restarted)}`);
+    await clickOn(app.main, '#toolbar [data-command="grid"]');
+    await clickOn(app.main, '#toolbar [data-command="rulers"]');
+    await clickOn(app.main, '#toolbar [data-command="minimap"]');
+    await sleep(300);
+    const back = await state();
+    assert.deepEqual([back.grid, back.rulers, back.minimap, back.gridPressed, back.rulersPressed, back.minimapPressed], [true, true, true, 'true', 'true', 'true'], `on again ${JSON.stringify(back)}`);
+    await noErrorPopup(app, 'grid / rulers buttons');
+  } },
+
   // ───────────────────────── menus
   ...MENUS.map((name) => ({ group: '메뉴', name: `메뉴 "${name}": 독립 창, 한 줄, 아이콘+이름, 모두 보임`, async run(app) {
     if (!(await W(app, 'Boolean(a.activeDoc()) && !w.state.showStart'))) await freshSample(app);
@@ -717,6 +1335,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       info = await menu.eval(`(() => { const items = [...document.querySelectorAll('.menu-item')]; return { count: items.length, lefts: [...new Set(items.map((i) => Math.round(i.getBoundingClientRect().left)))], noIcon: items.filter((i) => !i.querySelector('.menu-icon svg')).length, noLabel: items.filter((i) => !i.querySelector('.menu-label').textContent.trim()).length, fits: document.documentElement.scrollHeight <= innerHeight + 2 && document.documentElement.scrollWidth <= innerWidth + 2 }; })()`);
       try {
         await expectPopupWindow(app, menu, 'menu');
+        assert.ok(await W(app, `document.querySelector('[data-menu="${name}"]').classList.contains('open')`), 'the menubar shows the open menu');
       } catch (error) {
         if (attempt) throw error;
         info = null;
@@ -729,7 +1348,6 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(info.noIcon, 0, 'every item has an icon');
     assert.equal(info.noLabel, 0, 'every item has a label');
     assert.ok(info.fits, 'the menu window shows every item');
-    assert.ok(await W(app, `document.querySelector('[data-menu="${name}"]').classList.contains('open')`), 'the menubar shows the open menu');
     await menu.key('Escape');
     await sleep(300);
     menu.close();
@@ -738,15 +1356,21 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     const min = await W(app, 'w.state.minWidth');
     await resize(app, min, 600);
     await sleep(500);
-    const since = await now(app);
-    await app.main.click('[data-menu="file"]');
-    const menu = await menuWindow(app, since);
-    await sleep(300);
-    const windows = app.windowInfo().filter((w) => w.visible);
-    const main = windows.find((w) => w.owner === 0 && w.title === TITLE);
-    const popup = windows.find((w) => w.owner === main?.handle && w.title.startsWith('파일'));
-    await menu.key('Escape');
-    menu.close();
+    let popup;
+    let main;
+    // (A menu closes when something takes the focus away for a moment: open it once more then.)
+    for (let attempt = 0; attempt < 3 && !popup; attempt++) {
+      const since = await now(app);
+      await app.main.click('[data-menu="file"]');
+      const menu = await menuWindow(app, since);
+      await sleep(300);
+      const windows = (await app.windowInfo()).filter((w) => w.visible);
+      main = windows.find((w) => w.owner === 0 && w.title === TITLE);
+      popup = windows.find((w) => w.owner === main?.handle && w.title.startsWith('파일'));
+      await menu.key('Escape');
+      menu.close();
+      await sleep(300);
+    }
     await resize(app, 1480, 900);
     await sleep(300);
     assert.ok(popup, 'menu window');
@@ -778,18 +1402,25 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   { group: '메뉴', name: '키보드: ↓ 로 항목 이동, Enter 로 실행 (편집 › 모두 선택), Esc 로 닫힘', async run(app) {
     await freshProject(app, 'classModel');
     await W(app, '(a.select([]), 1)');
-    let since = await now(app);
-    await app.main.click('[data-menu="edit"]');
-    let menu = await menuWindow(app, since);
-    let focused = null;
-    for (let i = 0; i < 20 && focused !== 'selectAll'; i++) {
-      await menu.key('ArrowDown');
-      focused = await menu.eval(`document.activeElement?.dataset.id ?? null`);
-      assert.ok(focused && !(await menu.eval(`document.activeElement.disabled`)), 'only enabled items get the focus');
+    let since;
+    let menu;
+    // A menu closes when it loses the focus (another window popping up meanwhile): then it is opened once more.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      since = await now(app);
+      await app.main.click('[data-menu="edit"]');
+      menu = await menuWindow(app, since);
+      let focused = null;
+      for (let i = 0; i < 20 && focused !== 'selectAll'; i++) {
+        await menu.key('ArrowDown');
+        focused = await menu.eval(`document.activeElement?.dataset.id ?? null`);
+        assert.ok(focused && !(await menu.eval(`document.activeElement.disabled`)), 'only enabled items get the focus');
+      }
+      assert.equal(focused, 'selectAll');
+      const open = await W(app, `w.state.openMenu === 'edit'`);
+      if (open || attempt === 2) { await menu.key('Enter'); menu.close(); break; }
+      menu.close();
+      await closePopups(app);
     }
-    assert.equal(focused, 'selectAll');
-    await menu.key('Enter');
-    menu.close();
     await sleep(400);
     assert.equal(await W(app, 'w.state.selection.ids.length'), await W(app, 'api.diagram().ownedViews.length'), 'Enter ran "select all"');
     since = await now(app);
@@ -798,7 +1429,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await menu.key('Escape');
     menu.close();
     await sleep(400);
-    const shown = app.windowInfo().filter((w) => w.visible && w.title.startsWith('편집 —'));
+    const shown = (await app.windowInfo()).filter((w) => w.visible && w.title.startsWith('편집 —'));
     assert.deepEqual(shown, [], 'Esc closes the menu window');
     assert.equal(await W(app, 'w.state.openMenu'), null);
   } },
@@ -873,6 +1504,11 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     ['recent', `w.run('recent')`],
     ['confirm', `w.run('statistics')`],
     ['error', `a.showError('error.unexpected', new Error('테스트 오류'), 'e2e')`],
+    ['requirements', `w.run('requirements')`],
+    ['tracematrix', `w.run('traceMatrix')`],
+    ['document', `w.run('generateDocument')`],
+    ['baselines', `w.run('baselines')`],
+    ['compare', `import('/src/domain/diff.js').then((d) => { const tab = a.activeDoc(); const old = JSON.parse(JSON.stringify(tab.project)); const classes = M.elementsWhere(old, (e) => e._type === 'UMLClass'); classes[0].name = 'Renamed'; classes[1].documentation = 'changed'; return w.popups.open('compare', { name: 'Baseline', subtitle: 'e2e', diff: d.compareModels(old, tab.project, { language: 'ko' }), canRestore: true }); })`],
   ].map(([kind, js]) => ({ group: '팝업', name: `"${kind}": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 잘림 없음 · 이동 가능`, async run(app) {
     await freshSample(app);
     await W(app, `(${js}, 1)`);
@@ -890,19 +1526,20 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       await page.eval(`document.querySelector('.tabs .tab[data-value="${tab}"]').click(); 1`);
       await sleep(tab === 'font' ? 600 : 150);
       assert.deepEqual(await page.eval(POPUP_SCROLL_CHECK), [], `${kind} › ${tab}: no scroll bars`);
-      const over = await page.eval(`(() => { const b = document.querySelector('.popup-body'); return b.scrollHeight > b.clientHeight + 1; })()`);
-      assert.equal(over, false, `${kind} › ${tab}: content fits`);
+      const over = await page.eval(`(() => { const b = document.querySelector('.popup-body'); return Math.max(0, b.scrollHeight - b.clientHeight - 1); })()`);
+      assert.equal(over, 0, `${kind} › ${tab}: content fits (${over}px too tall)`);
       assert.deepEqual(await page.eval(ALIGN_CHECK), [], `${kind} › ${tab}: controls and buttons line up`);
       assert.deepEqual(await page.eval(CLIP_CHECK), [], `${kind} › ${tab}: nothing cut off`);
     }
     // Moved with its title bar (OS drag region) — here: the window can be placed anywhere.
     await page.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|set_position', { label: 'popup-${kind}', value: { Logical: { x: 20, y: 20 } } }).then(() => 1)`);
     await sleep(250);
-    const moved = app.windowInfo().find((w) => w.handle === popup.handle);
+    const moved = (await app.windowInfo()).find((w) => w.handle === popup.handle);
     assert.ok(Math.abs(moved.left - popup.left) > 5 || Math.abs(moved.top - popup.top) > 5, 'moved');
     page.close();
     await closePopups(app);
     await sleep(200);
+    for (let i = 0; i < 25 && await app.hasPopup(kind); i++) await sleep(200);
     assert.equal(await app.hasPopup(kind), false, `${kind}: the window is gone after closing`);
   } })),
 
@@ -1040,6 +1677,9 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     for (const type of types) report.push(...await W(app, `(() => {
       const out = [];
       const type = ${JSON.stringify(type)};
+      // A project per type: one project with every diagram would make each later drawing slower.
+      for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true });
+      a.newProject('blank');
       a.addDiagram(type);
       if (api.diagram()?._type !== type) return [type + ': not opened'];
       let i = 0;
@@ -1067,6 +1707,312 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(300);
     assert.equal(await W(app, `api.diagram().ownedViews.filter((v) => v._type === 'UMLMessageView').length`), count + 1, 'a new message');
     await noErrorPopup(app, 'message');
+  } },
+
+  // ───────────────────────── every diagram type, drawn with the real mouse
+  drawCase('UML 구조 (클래스·패키지·객체·복합 구조·컴포넌트·배치·프로파일)', ['UMLClassDiagram', 'UMLPackageDiagram', 'UMLObjectDiagram', 'UMLCompositeStructureDiagram', 'UMLComponentDiagram', 'UMLDeploymentDiagram', 'UMLProfileDiagram']),
+  drawCase('UML 행위 1 (유스케이스·활동·상태·시퀀스)', ['UMLUseCaseDiagram', 'UMLActivityDiagram', 'UMLStatechartDiagram', 'UMLSequenceDiagram']),
+  drawCase('UML 행위 2 (커뮤니케이션·타이밍·상호작용 개요·정보 흐름)', ['UMLCommunicationDiagram', 'UMLTimingDiagram', 'UMLInteractionOverviewDiagram', 'UMLInformationFlowDiagram']),
+  drawCase('ER·순서도·데이터 흐름·SysML 4종', ['ERDDiagram', 'FCFlowchartDiagram', 'DFDDiagram', 'SysMLRequirementDiagram', 'SysMLBlockDefinitionDiagram', 'SysMLInternalBlockDiagram', 'SysMLParametricDiagram']),
+  drawCase('BPMN·C4·마인드맵·와이어프레임·AWS·Azure·GCP', ['BPMNDiagram', 'C4Diagram', 'MMMindmapDiagram', 'WFWireframeDiagram', 'AWSDiagram', 'AzureDiagram', 'GCPDiagram']),
+  drawCase('새 종류 1 (네트워크·간트·WBS·타임라인·ArchiMate)', ['NetworkDiagram', 'GanttDiagram', 'WBSDiagram', 'TimelineDiagram', 'ArchiMateDiagram']),
+  drawCase('새 종류 2 (JSON·YAML·EBNF·정규식)', ['JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram']),
+  { group: '다이어그램 종류', name: '종류 탭은 38종, 줄마다 한 줄이고 좁은 창에서는 ‹ › 와 휠로 옆으로 넘김 (실제 마우스)', async run(app) {
+    await freshProject(app);
+    const count = await app.main.eval(`import('/src/domain/toolbox.js').then((m) => m.DIAGRAM_TABS.flatMap((g) => g[3]).length)`);
+    assert.equal(count, 38, 'every diagram type has a type tab');
+    const families = await app.main.eval(`[...document.querySelectorAll('.type-family')].map((f) => f.dataset.typeGroup)`);
+    for (const group of ['project', 'archimate', 'data', 'cloud']) assert.ok(families.includes(group), `${group} group ${JSON.stringify(families)}`);
+    const min = await W(app, 'w.state.minWidth');
+    await resize(app, min, 700);
+    await sleep(700);
+    try {
+      const rows = () => app.main.eval(`[...document.querySelectorAll('.type-tabs .type-row')].map((row) => { const s = row.querySelector('.type-strip'); const n = row.querySelector('.type-nav'); const tops = new Set([...s.children].map((c) => Math.round(c.getBoundingClientRect().top))); return { overflow: row.classList.contains('overflow'), nav: getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0, lines: tops.size, scroll: s.scrollLeft, bar: s.offsetHeight - s.clientHeight }; })`);
+      const before = await rows();
+      assert.ok(before[0].overflow && before[0].nav, `the group row overflows at ${min}px and shows ‹ › ${JSON.stringify(before)}`);
+      assert.ok(before.every((r) => r.lines <= 1 && r.bar === 0), `each row is one line without a scroll bar ${JSON.stringify(before)}`);
+      await clickOn(app.main, '.type-tabs .type-row:first-child [data-type-scroll="1"]');
+      await sleep(250);
+      const right = await rows();
+      assert.ok(right[0].scroll > before[0].scroll, `› scrolls the groups ${before[0].scroll} → ${right[0].scroll}`);
+      await clickOn(app.main, '.type-tabs .type-row:first-child [data-type-scroll="-1"]');
+      await sleep(250);
+      assert.ok((await rows())[0].scroll < right[0].scroll, '‹ scrolls them back');
+      const strip = await app.main.center('.type-tabs .type-row:first-child .type-strip');
+      const scrolled = (await rows())[0].scroll;
+      await app.main.wheel(strip.x, strip.y, 200);
+      await sleep(250);
+      assert.ok((await rows())[0].scroll > scrolled, 'the mouse wheel scrolls the row sideways');
+      // The last group can still be reached and opened.
+      await openTypeByTabs(app, 'RegexDiagram');
+    } finally {
+      await resize(app, 1480, 900);
+      await sleep(400);
+    }
+    await noErrorPopup(app, 'type tab overflow');
+  } },
+
+  // ───────────────────────── requirements, traceability, baselines, documents, XMI, PlantUML
+  { group: '새 기능', name: '요구사항 목록 (모델 › 요구사항): 목록에서 상태를 바꾸면 모델이 바뀜, 정렬·검색 (실제 마우스·키보드)', async run(app) {
+    await freshSample(app);
+    await runMenu(app, 'model', 'requirements');
+    const page = await app.popup('requirements');
+    await expectPopupWindow(app, page, 'requirements');
+    const total = await W(app, `M.elementsWhere(a.activeDoc().project, (e) => e._type === 'SysMLRequirement').length`);
+    assert.ok(total >= 3, `${total} requirements in the sample`);
+    assert.equal(await page.eval(`document.querySelectorAll('.req-table tbody tr').length`), Math.min(total, 13), 'a row per requirement');
+    const first = await page.eval(`(() => { const s = document.querySelector('.req-table tbody select[data-req-field="status"]'); return { id: s.dataset.id, value: s.value, last: s.selectedIndex === s.options.length - 1 }; })()`);
+    // Keyboard on the focused list box (as Tab + ↓ does): the next status.
+    await page.eval(`(document.querySelector('.req-table tbody select[data-req-field="status"][data-id="${first.id}"]').focus(), 1)`);
+    await page.key(first.last ? 'ArrowUp' : 'ArrowDown');
+    await sleep(400);
+    const status = await W(app, `a.activeDoc().index.get(${JSON.stringify(first.id)}).status`);
+    assert.notEqual(status, first.value, `the status changed in the model (${first.value} → ${status})`);
+    assert.equal(await page.eval(`document.querySelector('select[data-req-field="status"][data-id="${first.id}"]').value`), status, 'the list shows it');
+    await clickOn(page, '.req-table thead [data-action="req-sort"][data-value="name"]');
+    await sleep(200);
+    const names = await page.eval(`[...document.querySelectorAll('.req-table tbody .req-name')].map((c) => c.textContent)`);
+    assert.deepEqual(names, [...names].sort((x, y) => x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' })), 'sorted by name');
+    await clickOn(page, '.req-search input');
+    await page.type(names[0]);
+    await sleep(300);
+    assert.ok(await page.eval(`document.querySelectorAll('.req-table tbody tr').length`) < Math.min(total, 13) || total === 1, 'the search narrows the list');
+    // Undo in the main window: the list follows.
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await sleep(400);
+    assert.equal(await W(app, `a.activeDoc().index.get(${JSON.stringify(first.id)}).status`), first.value, 'Ctrl+Z restores the status');
+    const csv = path.join(tempDir('req'), 'requirements.csv');
+    await W(app, `(window.__myumlmakerSavePicks = [${JSON.stringify(csv)}], 1)`);
+    await clickOn(page, '[data-action="req-export"]');
+    assert.match((await waitFile(csv)).toString('utf8'), /REQ|요구/, 'CSV export');
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await noErrorPopup(app, 'requirements');
+  } },
+  { group: '새 기능', name: '추적 매트릭스 (모델 › 추적 매트릭스): 칸을 누르면 관계가 생기고, Ctrl+Z 로 없어짐 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await runMenu(app, 'model', 'traceMatrix');
+    const page = await app.popup('tracematrix');
+    await expectPopupWindow(app, page, 'tracematrix');
+    assert.ok(await page.eval(`document.querySelectorAll('.trace-table tbody tr').length > 1`), 'the matrix has rows');
+    // A relationship kind is needed to edit: pick the first one with the keyboard.
+    await page.eval(`(document.querySelector('select[data-trace="relationType"]').focus(), 1)`);
+    await page.key('ArrowDown');
+    await page.waitFor(`!document.querySelector('[data-action="trace-cell"][aria-disabled="true"]')`, { timeout: 5000, message: 'cells become editable' });
+    const type = await page.eval(`document.querySelector('select[data-trace="relationType"]').value`);
+    assert.ok(type, 'a relationship kind is chosen');
+    const count = () => W(app, `M.elementsWhere(a.activeDoc().project, (e) => e._type === ${JSON.stringify(type)}).length`);
+    const before = await count();
+    const cell = await page.eval(`(() => { const b = [...document.querySelectorAll('.trace-table td.cell:not(.filled) [data-action="trace-cell"]')][0]; return b ? { row: b.dataset.row, col: b.dataset.col } : null; })()`);
+    assert.ok(cell, 'an empty cell');
+    const selector = `[data-action="trace-cell"][data-row="${cell.row}"][data-col="${cell.col}"]`;
+    await clickOn(page, selector);
+    await sleep(500);
+    assert.equal(await count(), before + 1, `clicking the cell creates a ${type}`);
+    await page.waitFor(`document.querySelector('${selector}').closest('td').classList.contains('filled')`, { timeout: 4000, message: 'the cell shows the new relationship' });
+    await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+    await app.main.key('z', 2);
+    await sleep(500);
+    assert.equal(await count(), before, 'Ctrl+Z removes it again');
+    await page.waitFor(`!document.querySelector('${selector}').closest('td').classList.contains('filled')`, { timeout: 4000, message: 'and the matrix follows' });
+    await clickOn(page, selector);
+    await sleep(400);
+    await clickOn(page, selector);
+    await sleep(400);
+    assert.equal(await count(), before, 'clicking a filled cell deletes the relationship');
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await noErrorPopup(app, 'trace matrix');
+  } },
+  { group: '새 기능', name: '기준선 (모델 › 기준선): 만들기 → 클래스 이름 고침 → 비교에 "변경" → 되돌리기 (실제 마우스·키보드)', async run(app) {
+    await freshSample(app);
+    await runMenu(app, 'model', 'baselines');
+    let page = await app.popup('baselines');
+    await expectPopupWindow(app, page, 'baselines');
+    await clickOn(page, '[data-bl-text="name"]');
+    await page.type('기준선 E2E');
+    await clickOn(page, '[data-bl-action="create"]');
+    await page.waitFor(`document.querySelectorAll('.baseline-row').length === 1`, { timeout: 5000, message: 'the baseline is listed' });
+    assert.match(await page.eval(`document.querySelector('.baseline-row b').textContent`), /기준선 E2E/);
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await sleep(300);
+    // Rename a class with the quick edit (real double click, first line only).
+    const v = await viewAt(app, 'Customer');
+    await app.main.realClick(v.x, v.y, { clickCount: 2 });
+    await app.main.waitFor(`Boolean(document.querySelector('.text-editor'))`, { message: 'the quick edit box opens' });
+    await app.main.eval(`(() => { const e = document.querySelector('.text-editor'); const end = e.value.indexOf('\\n'); e.setSelectionRange(0, end < 0 ? e.value.length : end); return 1; })()`);
+    await app.main.type('Client');
+    await app.main.key('Enter', 2);
+    await sleep(300);
+    assert.equal((await elementNamed(app, 'Client'))?._id, v.model, 'renamed');
+    await runMenu(app, 'model', 'baselines');
+    page = await app.popup('baselines');
+    await clickOn(page, '.baseline-row [data-bl-action="compare"]');
+    page.close();
+    page = await app.popup('compare');
+    await expectPopupWindow(app, page, 'compare');
+    const row = `.cmp-row[data-value="${v.model}"]`;
+    await page.waitFor(`Boolean(document.querySelector('${row}.changed'))`, { timeout: 5000, message: 'the renamed class is listed as changed' });
+    assert.match(await page.eval(`document.querySelector('.badge.warn').textContent`), /[1-9]/, 'the summary counts the change');
+    await clickOn(page, row);
+    await page.waitFor(`Boolean(document.querySelector('#cmp-detail [data-cmp-action="restore"]'))`);
+    assert.match(await page.eval(`document.querySelector('#cmp-detail').textContent`), /Customer[\s\S]*Client/, 'before and after');
+    await clickOn(page, '#cmp-detail [data-cmp-action="restore"]');
+    await app.main.waitFor(`window.__myumlmaker.actions.activeDoc().index.get(${JSON.stringify(v.model)}).name === 'Customer'`, { timeout: 5000, message: 'restored from the baseline' });
+    await page.waitFor(`!document.querySelector('${row}.changed')`, { timeout: 5000, message: 'the comparison is up to date' });
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await noErrorPopup(app, 'baselines');
+  } },
+  { group: '새 기능', name: '파일과 비교 (모델 › 파일과 비교): 저장한 뒤 바꾼 것이 "변경"으로', async run(app) {
+    await freshSample(app);
+    const file = path.join(tempDir('compare'), 'before.myuml');
+    fs.writeFileSync(file, await W(app, 'a.activeDoc().text()'));
+    await W(app, `(a.change('op.edit', (p) => { M.elementsWhere(p, (e) => e.name === 'Order')[0].name = 'Purchase'; }), 1)`);
+    await W(app, `(window.__myumlmakerOpenPicks = [${JSON.stringify(file)}], 1)`);
+    await runMenu(app, 'model', 'compareFile');
+    const page = await app.popup('compare');
+    const id = (await elementNamed(app, 'Purchase'))._id;
+    await page.waitFor(`Boolean(document.querySelector('.cmp-row.changed[data-value="${id}"]'))`, { timeout: 8000, message: 'the renamed element is changed' });
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await noErrorPopup(app, 'compare file');
+  } },
+  { group: '새 기능', name: '문서 생성 (도구 › 문서 생성): Word(.docx) 를 임시 폴더에 → ZIP 안에 word/document.xml (실제 마우스)', async run(app) {
+    await freshSample(app);
+    const dir = tempDir('document');
+    const docx = path.join(dir, 'report.docx');
+    await W(app, `(window.__myumlmakerSavePicks = [${JSON.stringify(docx)}], 1)`);
+    await runMenu(app, 'tools', 'generateDocument');
+    // The first time, the document window is created from scratch (slow while the full suite runs);
+    // if it is not up yet, choose the menu item once more (still through the real menu).
+    let page = await app.popup('document', 20000).catch(async () => {
+      await runMenu(app, 'tools', 'generateDocument');
+      return app.popup('document', 30000);
+    });
+    await expectPopupWindow(app, page, 'document');
+    await clickOn(page, '[data-doc-seg="format"][data-value="docx"]');
+    await clickOn(page, '[data-doc-action="generate"]');
+    page.close();
+    const bytes = await waitFile(docx, 300);
+    assert.equal(bytes.subarray(0, 2).toString('latin1'), 'PK', 'a ZIP');
+    assert.ok(bytes.includes(Buffer.from('word/document.xml')) && bytes.includes(Buffer.from('[Content_Types].xml')), 'a Word document');
+    // HTML too (the choice is remembered: HTML is picked again here).
+    const html = path.join(dir, 'report.html');
+    await W(app, `(window.__myumlmakerSavePicks = [${JSON.stringify(html)}], 1)`);
+    await runMenu(app, 'tools', 'generateDocument');
+    page = await app.popup('document');
+    assert.equal(await page.eval(`document.querySelector('[data-doc-seg="format"].active').dataset.value`), 'docx', 'the last format is remembered');
+    await clickOn(page, '[data-doc-seg="format"][data-value="html"]');
+    await clickOn(page, '[data-doc-action="generate"]');
+    page.close();
+    assert.match((await waitFile(html, 200)).toString('utf8'), /<html[\s\S]*<svg/i, 'an HTML document with the diagrams');
+    await noErrorPopup(app, 'document');
+  } },
+  { group: '새 기능', name: 'XMI (파일 › 내보내기 › XMI → 가져오기 › XMI): 같은 다이어그램 수·클래스', async run(app) {
+    await freshProject(app, 'classModel');
+    await W(app, `(a.addDiagram('UMLUseCaseDiagram'), a.addDiagram('UMLSequenceDiagram'), 1)`);
+    const summary = () => W(app, `({ diagrams: M.allDiagrams(a.activeDoc().project).length, classes: M.elementsWhere(a.activeDoc().project, (e) => e._type === 'UMLClass').map((e) => e.name).sort() })`);
+    const before = await summary();
+    const file = path.join(tempDir('xmi'), 'model.xmi');
+    await W(app, `(window.__myumlmakerSavePicks = [${JSON.stringify(file)}], 1)`);
+    await runMenu(app, 'file', 'submenu:exportTo', 'exportXmi');
+    const text = (await waitFile(file, 80)).toString('utf8');
+    assert.match(text, /<xmi:XMI[\s\S]*uml:Model/, 'an XMI file');
+    assert.match(text, /EAStub|Enterprise Architect|xmi:Extension/, 'with the Enterprise Architect extension (diagrams)');
+    await W(app, `(window.__myumlmakerOpenPicks = [${JSON.stringify(file)}], 1)`);
+    await runMenu(app, 'file', 'submenu:importFrom', 'importXmi');
+    // The project was changed (diagrams added): replacing it asks first.
+    const ask = await app.popup('confirm', 4000).catch(() => null);
+    if (ask) { await clickOn(ask, '[data-value="discard"]'); ask.close(); }
+    await app.main.waitFor(`window.__myumlmaker.actions.activeDoc()?.path === null && /model/.test(window.__myumlmaker.actions.activeDoc().project.name ?? '') || window.__myumlmaker.state.docs.length === 1 && window.__myumlmaker.actions.activeDoc().path === null`, { timeout: 10000 });
+    await sleep(400);
+    assert.deepEqual(await summary(), before, 'the same diagrams and classes after the round trip');
+    await noErrorPopup(app, 'xmi');
+  } },
+  { group: '새 기능', name: 'PlantUML 붙여넣기 (Ctrl+V): @startgantt 텍스트 → 가져오기 창 → 간트 다이어그램 (실제 키보드)', async run(app) {
+    await freshProject(app);
+    const saved = await app.main.eval(`window.__TAURI_INTERNALS__.invoke('clipboard_read').catch(() => '')`);
+    const gantt = '@startgantt\n[Design] lasts 5 days\n[Build] lasts 10 days\n[Build] starts at [Design]\'s end\n[Release] happens at [Build]\'s end\n@endgantt';
+    try {
+      // The system clipboard can be busy for a moment (another program reading it): try again.
+      await app.main.eval(`(async () => { for (let i = 0; ; i++) { try { await window.__TAURI_INTERNALS__.invoke('clipboard_write', { text: ${JSON.stringify(gantt)} }); return 1; } catch (error) { if (i >= 9) throw error; await new Promise((r) => setTimeout(r, 200)); } } })()`);
+      await app.main.eval(`document.querySelector('.canvas-scroll').focus(); 1`);
+      await app.main.key('v', 2);
+      const page = await app.popup('textimport');
+      await page.waitFor(`document.querySelector('[data-draft="text"]').value.includes('@startgantt')`, { message: 'the pasted text is in the import window' });
+      assert.equal(await page.eval(`document.querySelector('[data-draft-segment="format"].active').dataset.value`), 'plantuml');
+      await clickOn(page, '[data-action="text-apply"]');
+      page.close();
+      await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === 'GanttDiagram'`, { timeout: 8000, message: 'a Gantt diagram opens' });
+      assert.ok(await countOf(app, 'GanttTask') >= 2, 'with its tasks');
+      assert.ok(await app.main.eval(`document.querySelector('.canvas-svg').textContent.includes('Build')`), 'drawn');
+    } finally {
+      if (saved) await app.main.eval(`window.__TAURI_INTERNALS__.invoke('clipboard_write', { text: ${JSON.stringify(saved)} }).then(() => 1)`).catch(() => {});
+    }
+    await noErrorPopup(app, 'paste PlantUML');
+  } },
+  { group: '새 기능', name: 'PlantUML 가져오기 창: 예제 드롭다운의 21종 모두 (UML 11 + 간트·WBS·연대기·ArchiMate·nwdiag·JSON·YAML·EBNF·정규식·Salt) + 직접 입력, 경고는 팝업으로 (실제 마우스)', async run(app) {
+    await freshProject(app);
+    const importText = async (pick) => {
+      await W(app, `(w.run('importText'), 1)`);
+      const page = await app.popup('textimport');
+      await clickOn(page, '[data-draft-segment="format"][data-value="plantuml"]');
+      await sleep(150);
+      await pick(page);
+      await page.waitFor(`!document.querySelector('[data-action="text-apply"]').disabled`);
+      const diagrams = await W(app, 'M.allDiagrams(a.activeDoc().project).length');
+      await clickOn(page, '[data-action="text-apply"]');
+      page.close();
+      await app.main.waitFor(`window.__myumlmaker.domain.M.allDiagrams(window.__myumlmaker.actions.activeDoc().project).length > ${diagrams}`, { timeout: 8000, message: 'a diagram is added' });
+      await sleep(250);
+      return W(app, 'api.diagram()._type');
+    };
+    const kinds = await (async () => { await W(app, `(w.run('importText'), 1)`); const page = await app.popup('textimport'); await clickOn(page, '[data-draft-segment="format"][data-value="plantuml"]'); await sleep(200); const list = await page.eval(`[...document.querySelectorAll('select[data-text-sample] option')].map((o) => o.value).filter(Boolean)`); await clickOn(page, '[data-action="close"]'); page.close(); await sleep(300); return list; })();
+    assert.ok(kinds.length >= 21, `21 PlantUML examples in the dropdown ${JSON.stringify(kinds)}`);
+    const got = {};
+    for (const kind of kinds) got[kind] = await importText((page) => pickSample(page, kind));
+    const typed = {
+      wbs2: '@startwbs\n* Shop\n** Design\n*** Pages\n** Build\n@endwbs',
+      json2: '@startjson\n{ "id": 1, "tags": ["a", "b"] }\n@endjson',
+      mindmap2: '@startmindmap\n* Root\n** Child\n@endmindmap',
+    };
+    for (const [kind, text] of Object.entries(typed)) got[kind] = await importText(async (page) => { await clickOn(page, '[data-draft="text"]'); await page.type(text); });
+    const expect = { class: 'UMLClassDiagram', sequence: 'UMLSequenceDiagram', usecase: 'UMLUseCaseDiagram', activity: 'UMLActivityDiagram', state: 'UMLStatechartDiagram', component: 'UMLComponentDiagram', deployment: 'UMLDeploymentDiagram', timing: 'UMLTimingDiagram', er: 'ERDDiagram', mindmap: 'MMMindmapDiagram', object: 'UMLObjectDiagram', gantt: 'GanttDiagram', wbs: 'WBSDiagram', chronology: 'TimelineDiagram', archimate: 'ArchiMateDiagram', nwdiag: 'NetworkDiagram', json: 'JSONDiagram', yaml: 'YAMLDiagram', ebnf: 'EBNFDiagram', regex: 'RegexDiagram', salt: 'WFWireframeDiagram', wbs2: 'WBSDiagram', json2: 'JSONDiagram', mindmap2: 'MMMindmapDiagram' };
+    for (const [kind, type] of Object.entries(expect)) if (got[kind]) assert.equal(got[kind], type, `${kind} → ${type} ${JSON.stringify(got)}`);
+    // Something the importer does not read is listed in a warnings popup (not dropped silently).
+    await W(app, `(w.run('importText'), 1)`);
+    const page = await app.popup('textimport');
+    await clickOn(page, '[data-draft-segment="format"][data-value="plantuml"]');
+    await clickOn(page, '[data-draft="text"]');
+    await page.type('@startuml\n!include common.puml\nclass Warned\n@enduml');
+    await clickOn(page, '[data-action="text-apply"]');
+    page.close();
+    const warnings = await app.popup('validation');
+    assert.match(await warnings.eval(`document.querySelector('.popup').innerText`), /include/i, 'the warnings popup names the skipped line');
+    assert.ok(await elementNamed(app, 'Warned'), 'the rest was imported');
+    await clickOn(warnings, '[data-action="close"]');
+    warnings.close();
+    await noErrorPopup(app, 'PlantUML import');
+  } },
+  { group: '새 기능', name: 'C++ 역공학: .h·.cpp 를 끌어다 놓으면 클래스·상속·멤버', async run(app) {
+    await freshProject(app);
+    const dir = tempDir('cpp');
+    const header = path.join(dir, 'shape.h');
+    const source = path.join(dir, 'shape.cpp');
+    fs.writeFileSync(header, 'namespace geo {\nclass Shape {\npublic:\n  virtual double area() const = 0;\nprotected:\n  int id;\n};\nclass Circle : public Shape {\npublic:\n  double area() const override;\nprivate:\n  double radius;\n};\n}\n');
+    fs.writeFileSync(source, '#include "shape.h"\nnamespace geo {\ndouble Circle::area() const { return 3.14 * radius * radius; }\n}\n');
+    await W(app, `a.handleDroppedPaths([${JSON.stringify(header)}, ${JSON.stringify(source)}]).then(() => 1)`);
+    await app.main.waitFor(`Boolean([...window.__myumlmaker.actions.activeDoc().index.byId.values()].find((e) => e.name === 'Circle'))`, { timeout: 10000, message: 'the C++ classes are read' });
+    const circle = await elementNamed(app, 'Circle');
+    const shape = await elementNamed(app, 'Shape');
+    assert.ok(shape && circle, 'both classes');
+    assert.ok(circle.attributes.some((x) => x.name === 'radius' && x.visibility === 'private'), 'a private member');
+    assert.ok(shape.operations.some((o) => o.name === 'area'), 'an operation');
+    assert.ok(await W(app, `M.elementsWhere(a.activeDoc().project, (e) => e._type === 'UMLGeneralization').some((g) => g.source.$ref === ${JSON.stringify(circle._id)} && g.target.$ref === ${JSON.stringify(shape._id)})`), 'Circle → Shape');
+    await noErrorPopup(app, 'C++');
   } },
 
   // ───────────────────────── model tools
@@ -1148,7 +2094,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await freshProject(app);
     await W(app, `(w.run('importText'), 1)`);
     const page = await app.popup('textimport');
-    await page.click('[data-action="text-sample"][data-value="class"]');
+    await pickSample(page, 'class');
     await page.waitFor(`!document.querySelector('[data-action="text-apply"]').disabled`);
     await page.click('[data-action="text-apply"]');
     page.close();
@@ -1594,6 +2540,43 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.main.click('[data-reader="home"]');
     await sleep(300);
     assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+  } },
+  { group: '도움말', name: '시작 페이지의 도움말 단추: 도움말 메뉴 → 튜토리얼 문서(프로그램 안) · 사용 설명서(시스템 프로그램) (실제 클릭)', async run(app) {
+    const log = path.join(tempDir('help'), 'open.log');
+    await app.restart([], { MYUMLMAKER_OPEN_LOG: log });
+    await afterStart(app);
+    try {
+      const openHelp = async () => {
+        await W(app, '(a.showStartPage(true), 1)');
+        await sleep(300);
+        const button = await app.main.eval(`(() => { const h = document.querySelector('[data-start="help-menu"]'); const t = document.querySelector('.start-hero [data-start="tutorial"]'); return h && t ? { before: h.getBoundingClientRect().right <= t.getBoundingClientRect().left + 1, title: h.title } : null; })()`);
+        assert.ok(button?.before && button.title, `the Help button sits left of "start the tutorial" ${JSON.stringify(button)}`);
+        const since = await now(app);
+        const at = await clickOn(app.main, '[data-start="help-menu"]');
+        const menu = await menuWindow(app, since);
+        const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id)`);
+        const place = await menu.eval('({ x: window.screenX, y: window.screenY })');
+        return { menu, ids, at, place };
+      };
+      let { menu, ids, place } = await openHelp();
+      assert.deepEqual(ids, ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', 'settings', 'about'], 'the Help menu items');
+      const button = await app.main.eval(`(() => { const r = document.querySelector('[data-start="help-menu"]').getBoundingClientRect(); return { bottom: window.screenY + r.bottom }; })()`);
+      assert.ok(place.y >= button.bottom - 40, `the menu opens below the button ${JSON.stringify({ place, button })}`);
+      await clickOn(menu, '[data-id="tutorialDoc"]');
+      menu.close();
+      await app.main.waitFor(`!document.querySelector('#reader-page').hidden && /Tutorial(\\.en)?\\.html/.test(document.querySelector('.reader-frame')?.contentWindow?.location.href ?? '') && Boolean(document.querySelector('.reader-frame').contentDocument?.querySelector('h1'))`, { timeout: 15000, message: 'the reader shows docs/Tutorial.html' });
+      ({ menu } = await openHelp());
+      await clickOn(menu, '[data-id="userGuide"]');
+      menu.close();
+      for (let i = 0; i < 30 && !fs.existsSync(log); i++) await sleep(150);
+      assert.match(fs.readFileSync(log, 'utf8'), /UsersGuide(\.en)?\.html/, 'the user guide is handed to the system browser');
+      await sleep(400);
+      await noErrorPopup(app, 'help menu');
+      assert.doesNotMatch(await app.main.eval(`document.querySelector('#statusbar .status-notice')?.textContent ?? ''`), new RegExp(await W(app, `w.t('error.guide')`).catch(() => 'error\\.guide')), 'no "cannot open the guide" notice');
+    } finally {
+      await app.restart();
+      await afterStart(app);
+    }
   } },
   { group: '도움말', name: '사용 설명서 열기 (설치된 문서를 시스템 프로그램으로)', async run(app) {
     const log = path.join(tempDir('open'), 'open.log');

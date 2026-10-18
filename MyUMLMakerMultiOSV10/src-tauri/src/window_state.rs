@@ -67,10 +67,17 @@ pub fn save(path: &Path, state: &WindowState) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    // Write-then-rename so a crash mid-write never leaves a broken file.
-    let temporary = path.with_extension("json.tmp");
-    std::fs::write(&temporary, serde_json::to_vec_pretty(state)?)?;
-    std::fs::rename(&temporary, path)
+    // Write-then-rename so a crash mid-write never leaves a broken file. The temporary file is
+    // per process and per call: several MyUMLMaker copies (or the delayed save and the close in one
+    // copy) may save at the same moment, and the last rename wins with a whole file.
+    static SERIAL: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let serial = SERIAL.fetch_add(1, Ordering::Relaxed);
+    let temporary = path.with_extension(format!("json.{}-{serial}.tmp", std::process::id()));
+    if let Err(error) = std::fs::write(&temporary, serde_json::to_vec_pretty(state)?).and_then(|()| std::fs::rename(&temporary, path)) {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(error);
+    }
+    Ok(())
 }
 
 /// True when at least `MIN_VISIBLE` × `MIN_VISIBLE` pixels of the window are on one monitor
@@ -198,10 +205,39 @@ mod tests {
         let state = WindowState { x: -1200, y: 40, width: 1000, height: 700, maximized: true };
         save(&path, &state).unwrap();
         assert_eq!(load(&path), Some(state));
+        let leftovers = std::fs::read_dir(path.parent().unwrap()).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".tmp")).count();
+        assert_eq!(leftovers, 0, "the temporary file is renamed into place");
         std::fs::write(&path, b"{broken").unwrap();
         assert_eq!(load(&path), None, "a damaged file is ignored");
         std::fs::write(&path, br#"{"x":0,"y":0,"width":10,"height":10,"maximized":false}"#).unwrap();
         assert_eq!(load(&path), None, "absurd sizes are ignored");
+    }
+
+    #[test]
+    fn copies_saving_at_the_same_time_never_leave_a_broken_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(FILE_NAME);
+        let writers: Vec<_> = (0..4)
+            .map(|n| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    for i in 0..50 {
+                        let _ = save(&path, &window(n * 100 + i, 10));
+                    }
+                })
+            })
+            .collect();
+        for _ in 0..200 {
+            if path.exists() {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    assert!(text.is_empty() || serde_json::from_str::<WindowState>(&text).is_ok(), "always a whole file: {text}");
+                }
+            }
+        }
+        for writer in writers {
+            writer.join().unwrap();
+        }
+        assert!(load(&path).is_some());
     }
 
     #[test]

@@ -10,6 +10,7 @@ import { displayName, elementsWhere, isDiagram, isEdgeView, isRelationship, proj
 import { MULTIPLICITIES, operationText, attributeText } from '../domain/labels.js';
 import { escapeHtml } from './dom.js';
 import { icon } from '../icons.js';
+import { backgroundControlsHtml } from './diagram-background.js';
 
 export const PRIMITIVES = ['int', 'long', 'short', 'byte', 'float', 'double', 'boolean', 'char', 'String', 'void', 'Integer', 'Real', 'Boolean', 'UnlimitedNatural', 'Date', 'DateTime', 'List', 'Map', 'Set', 'Object'];
 export const SQL_TYPES = ['INTEGER', 'BIGINT', 'SMALLINT', 'DECIMAL', 'NUMERIC', 'FLOAT', 'DOUBLE', 'REAL', 'BOOLEAN', 'CHAR', 'VARCHAR', 'TEXT', 'DATE', 'TIME', 'TIMESTAMP', 'DATETIME', 'BLOB', 'UUID', 'JSON'];
@@ -46,7 +47,10 @@ function fieldControl(app, project, element, field) {
   switch (field.type) {
     case 'bool': return `<label class="switch-wrap"><input type="checkbox" ${attrs} ${value ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`;
     case 'enum': return `<select ${attrs}>${field.options.map((o) => `<option value="${escapeHtml(o)}" ${String(value ?? field.def ?? '') === o ? 'selected' : ''}>${escapeHtml(o === '' ? '—' : t(`enum.${o}`) === `enum.${o}` ? o : t(`enum.${o}`))}</option>`).join('')}</select>`;
-    case 'text': return `<textarea ${attrs} rows="3" spellcheck="false">${escapeHtml(value ?? '')}</textarea>`;
+    // The source text of a data view (JSON/YAML document, EBNF rule, regular expression) gets room and a fixed-width font.
+    case 'text': return ['DSDocument', 'EBNFRule', 'RegexPattern'].includes(element._type) && field.key !== 'documentation'
+      ? `<textarea ${attrs} rows="${element._type === 'DSDocument' ? 12 : 4}" spellcheck="false" wrap="off" style="font-family: Consolas, 'D2Coding', monospace; white-space: pre">${escapeHtml(value ?? '')}</textarea>`
+      : `<textarea ${attrs} rows="3" spellcheck="false">${escapeHtml(value ?? '')}</textarea>`;
     case 'multiplicity': return `<input type="text" list="dl-multiplicity" ${attrs} value="${escapeHtml(value ?? '')}" spellcheck="false" />`;
     case 'stereotype': {
       const text = typeof value === 'object' && value ? index.get(refId(value))?.name ?? '' : value ?? '';
@@ -75,7 +79,9 @@ function fieldControl(app, project, element, field) {
       return list.length ? list.map((e) => `<button class="link-button" data-goto="${e._id}">${escapeHtml(displayName(e, app.language()))}</button>`).join(' ') : '—';
     }
     case 'int': return `<input type="number" ${attrs} value="${escapeHtml(value ?? 0)}" />`;
-    default: return `<input type="text" ${attrs} value="${escapeHtml(value ?? '')}" spellcheck="false" />`;
+    default: return field.date
+      ? `<input type="text" ${attrs} value="${escapeHtml(value ?? '')}" placeholder="YYYY-MM-DD" pattern="\\d{4}-\\d{2}-\\d{2}" spellcheck="false" />`
+      : `<input type="text" ${attrs} value="${escapeHtml(value ?? '')}" spellcheck="false" />`;
   }
 }
 
@@ -133,7 +139,7 @@ export function propertiesHtml(app, element) {
   const def = typeDef(element._type);
   const title = element._type === 'Project' ? t('explorer.project') : typeLabel(element._type, lang);
   const qname = element._type === 'Project' ? '' : qualifiedName(project, element._id, app.tab().index);
-  const fields = element._type === 'Project' ? [{ key: 'name', type: 'string' }, ...fieldsOf('Project').filter((f) => f.key !== 'name' && f.key !== 'stereotype')] : fieldsOf(element._type).filter((f) => f.key !== 'documentation');
+  const fields = element._type === 'Project' ? [{ key: 'name', type: 'string' }, ...fieldsOf('Project').filter((f) => f.key !== 'name' && f.key !== 'stereotype')] : fieldsOf(element._type).filter((f) => f.key !== 'documentation' && !f.background);
   out += section(app, 'general', def?.icon ?? 'umlProject', title, `${qname ? row(t('props.qualifiedName'), `<span class="prop-value" title="${escapeHtml(qname)}">${escapeHtml(qname)}</span>`) : ''}${fields.map((f) => row(fieldLabel(t, f.key), fieldControl(app, project, element, f), { tall: f.type === 'text' })).join('')}`);
   for (const key of ['end1', 'end2']) {
     const end = element[key];
@@ -165,7 +171,11 @@ export function diagramPropertiesHtml(app, diagram) {
   const stats = (diagram.ownedViews ?? []).length;
   body += row(t('props.viewCount'), `<span class="prop-value">${stats}</span>`);
   void def;
-  return section(app, 'diagramOptions', 'gear', t('props.diagramOptions'), body);
+  // The diagram's own background (one undo step per change; the popup has the same controls and a preview).
+  const background = backgroundControlsHtml(diagram, { t, theme: app.settings().diagramTheme, row: (label, control, cls = '') => row(label, control, { tall: cls === 'tall' }) });
+  const open = `<button class="icon-button" data-command="diagramBackground" title="${escapeHtml(t('action.diagramBackground'))}" aria-label="${escapeHtml(t('action.diagramBackground'))}">${icon('diagramBackground')}</button>`;
+  return section(app, 'diagramOptions', 'gear', t('props.diagramOptions'), body)
+    + section(app, 'diagramBackground', 'diagramBackground', t('bg.group'), `<div class="bg-controls" data-bg-target="${diagram._id}">${background}</div>`, open);
 }
 
 // ───────────────────────── style

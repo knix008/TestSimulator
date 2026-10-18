@@ -1,8 +1,8 @@
 // Reverse engineering (StarUML's Java / C# / C++ / Python / TypeScript / DDL
-// importers): reverseEngineer() parses source files and returns new model
-// elements ready to be put into a package with insertElement():
+// importers, plus Kotlin and PHP): reverseEngineer() parses source files and
+// returns new model elements ready to be put into a package with insertElement():
 //
-//   packages (Java package, C# / C++ namespace, Python / TypeScript folders) become
+//   packages (Java / Kotlin package, C# / C++ / PHP namespace, Python / TypeScript folders) become
 //   UMLPackage elements with their classifiers inside; classes, interfaces and
 //   enumerations get their attributes, operations (+ parameters, the return
 //   type as a 'return' parameter), literals and template parameters;
@@ -20,6 +20,8 @@ import * as cpp from './cpp.js';
 import * as csharp from './csharp.js';
 import * as java from './java.js';
 import { reverseError } from './java.js';
+import * as kotlin from './kotlin.js';
+import * as php from './php.js';
 import * as python from './python.js';
 import * as sql from './sql.js';
 import * as typescript from './typescript.js';
@@ -32,6 +34,8 @@ export const REVERSE_LANGUAGES = [
   { id: 'cpp', name: 'C++', exts: ['h', 'hpp', 'hh', 'hxx', 'cpp', 'cc', 'cxx'] },
   { id: 'python', name: 'Python', exts: ['py', 'pyi'] },
   { id: 'typescript', name: 'TypeScript', exts: ['ts', 'tsx', 'mts', 'cts'] },
+  { id: 'kotlin', name: 'Kotlin', exts: ['kt', 'kts'] },
+  { id: 'php', name: 'PHP', exts: ['php'] },
   { id: 'sql', name: 'SQL (DDL)', exts: ['sql', 'ddl'] },
 ];
 
@@ -44,7 +48,7 @@ export const DEFAULT_REVERSE_OPTIONS = {
   modelName: 'DataModel', // SQL: name of the ERDDataModel
 };
 
-const PARSERS = { java: java.parse, csharp: csharp.parse, cpp: cpp.parse, python: python.parse, typescript: typescript.parse };
+const PARSERS = { java: java.parse, csharp: csharp.parse, cpp: cpp.parse, python: python.parse, typescript: typescript.parse, kotlin: kotlin.parse, php: php.parse };
 
 /**
  * files = [{ name, content }] → { elements, warnings }.
@@ -82,10 +86,15 @@ function folderPackages(name, root) {
 
 const COLLECTIONS = new Set(['List', 'ArrayList', 'LinkedList', 'Set', 'HashSet', 'TreeSet', 'LinkedHashSet', 'SortedSet', 'Collection', 'Iterable', 'Queue', 'Deque', 'ArrayDeque', 'Vector', 'Stack',
   'IList', 'ICollection', 'IEnumerable', 'IReadOnlyList', 'IReadOnlyCollection', 'ISet', 'HashSet', 'ObservableCollection', 'Array', 'ReadonlyArray', 'list', 'set', 'frozenset', 'tuple', 'Sequence', 'MutableSequence',
-  'Iterator', 'Generator', 'Tuple', 'FrozenSet', 'MutableList', 'MutableSet', 'Stream',
-  'vector', 'deque', 'forward_list', 'multiset', 'unordered_set', 'unordered_multiset', 'span', 'QList', 'QVector']);
+  'Iterator', 'Generator', 'Tuple', 'FrozenSet', 'MutableList', 'MutableSet', 'Stream', 'MutableCollection', 'MutableIterable', 'Flow',
+  'vector', 'deque', 'forward_list', 'multiset', 'unordered_set', 'unordered_multiset', 'span', 'QList', 'QVector',
+  'array', 'iterable', 'non-empty-array', 'non-empty-list', 'ArrayCollection']);
 /** C++ std::array<T, N>: a collection whose second argument is a size. */
 const SIZED_COLLECTIONS = new Set(['array']);
+/** PHPDoc array<K, V> / Collection<K, V>: a collection of the second argument. */
+const KEYED_COLLECTIONS = new Set(['array', 'iterable', 'list', 'non-empty-array', 'Collection', 'ArrayCollection', 'Traversable', 'Generator']);
+/** Kotlin IntArray, DoubleArray, …: a collection of the primitive. */
+const PRIMITIVE_ARRAY = /^(Int|Long|Short|Byte|Float|Double|Boolean|Char|UInt|ULong|UShort|UByte)Array$/;
 const OPTIONALS = new Set(['Optional', 'Nullable', 'Option', 'optional']);
 /** C++ smart pointers: one object of the argument type. */
 const POINTERS = new Set(['unique_ptr', 'shared_ptr', 'weak_ptr', 'QPointer', 'QSharedPointer']);
@@ -122,9 +131,15 @@ export function analyzeType(raw) {
     if (rest.length === 1) { const inner = analyzeType(rest[0]); return { name: inner.name, multiplicity: inner.multiplicity || '0..1' }; }
     return { name: text, multiplicity: '' };
   }
-  if (/\?$/.test(text)) return { name: analyzeType(text.slice(0, -1)).name || text.slice(0, -1), multiplicity: '0..1' };
+  // "Item?" (C#, Kotlin) and "?Item" (PHP) → 0..1; a nullable collection "List<Item>?" stays '*'.
+  const nullable = /\?$/.test(text) ? text.slice(0, -1) : /^\?[\w\\(]/.test(text) ? text.slice(1) : null;
+  if (nullable !== null) {
+    const inner = analyzeType(nullable);
+    return { name: inner.name || nullable, multiplicity: inner.multiplicity === '*' ? '*' : '0..1' };
+  }
   if (/\[[\s,]*\]$/.test(text)) return { name: text.replace(/\[[\s,]*\]$/, '').trim(), multiplicity: '*' };
-  const generic = /^([\w.$:\\]+)\s*[<[]([\s\S]*)[>\]]$/.exec(text);
+  if (PRIMITIVE_ARRAY.test(text)) return { name: PRIMITIVE_ARRAY.exec(text)[1], multiplicity: '*' };
+  const generic = /^([\w.$:\\-]+)\s*[<[]([\s\S]*)[>\]]$/.exec(text);
   if (generic) {
     const outer = generic[1].split(/[.:\\]/).pop();
     const args = splitArgs(generic[2]);
@@ -132,6 +147,7 @@ export function analyzeType(raw) {
       const inner = args[0] === '...' ? '' : args[0];
       return { name: analyzeType(inner).name || inner, multiplicity: '*' };
     }
+    if (KEYED_COLLECTIONS.has(outer) && args.length === 2 && !/^\d+$/.test(args[1])) return { name: analyzeType(args[1]).name || args[1], multiplicity: '*' };
     if (OPTIONALS.has(outer) && args.length === 1) return { name: analyzeType(args[0]).name, multiplicity: '0..1' };
     if (SIZED_COLLECTIONS.has(outer) && args.length === 2) return { name: analyzeType(args[0]).name || args[0], multiplicity: /^\d+$/.test(args[1]) ? args[1] : '*' };
     if (POINTERS.has(outer) && args.length >= 1) return { name: analyzeType(args[0]).name, multiplicity: '' };

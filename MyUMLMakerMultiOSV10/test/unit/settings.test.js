@@ -261,3 +261,16 @@ test('a new installation resets the preferences once and keeps the user data', (
   assert.equal(S.resetForNewInstall(storage, '888'), true, 'the next installation resets again');
   assert.equal(S.resetForNewInstall(brokenStorage, '1'), false, 'blocked storage: no crash');
 });
+
+test('the bottom (Problems) panel: shown by default, height kept within its limits', () => {
+  const base = S.defaultSettings('ko');
+  assert.equal(base.showBottomPanel, true);
+  assert.ok(base.bottomHeight >= S.PANEL_MIN.bottom);
+  assert.equal(S.PANEL_MIN.bottom, 90);
+  assert.ok(S.BOTTOM_MAX_SHARE > 0 && S.BOTTOM_MAX_SHARE <= 0.6);
+  assert.equal(S.normalizeSettings({ bottomHeight: 10 }, 'ko').bottomHeight, S.PANEL_MIN.bottom);
+  assert.equal(S.normalizeSettings({ bottomHeight: 'tall' }, 'ko').bottomHeight, base.bottomHeight);
+  assert.equal(S.normalizeSettings({ bottomHeight: 260.4 }, 'ko').bottomHeight, 260);
+  assert.equal(S.normalizeSettings({ showBottomPanel: 'no' }, 'ko').showBottomPanel, true, 'not a boolean: the default');
+  assert.equal(S.normalizeSettings({ showBottomPanel: false }, 'ko').showBottomPanel, false);
+});

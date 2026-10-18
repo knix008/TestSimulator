@@ -8,7 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { importMdj } from '../../src/domain/interop/staruml.js';
 import { importMermaid } from '../../src/domain/interop/mermaid.js';
-import { RULES, summarize, validMultiplicity, validate } from '../../src/domain/validate.js';
+import { RULES, sqlTypeKey, summarize, validMultiplicity, validate } from '../../src/domain/validate.js';
 import * as M from '../../src/domain/model.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -58,15 +58,36 @@ function broken() {
   // ERD.
   const data = M.insertElement(project, M.createElement('ERDDataModel', { name: 'Data' }));
   const entity = add(data, 'ERDEntity', { name: 'T' });
-  add(entity, 'ERDColumn', { name: 'other_id', foreignKey: true });
+  add(entity, 'ERDColumn', { name: 'other_id', type: 'INTEGER', foreignKey: true });
+  // More ERD: a column twice (any case), a column without a type, an entity without columns, a foreign key of
+  // another type than its key, a relationship with no foreign key between its entities, a table name twice.
+  add(entity, 'ERDColumn', { name: 'code', type: 'CHAR' });
+  add(entity, 'ERDColumn', { name: 'CODE', type: 'CHAR' });
+  const untyped = add(entity, 'ERDColumn', { name: 'note', type: '' });
+  const voidEntity = add(data, 'ERDEntity', { name: 'Void' });
+  const user = add(data, 'ERDEntity', { name: 'U' });
+  const userId = add(user, 'ERDColumn', { name: 'id', type: 'INTEGER', primaryKey: true });
+  const mismatched = add(entity, 'ERDColumn', { name: 'u_id', type: 'VARCHAR', length: '20', foreignKey: true, referenceTo: M.ref(userId) });
+  const loose = add(data, 'ERDRelationship', { end1: { reference: M.ref(user), cardinality: '1' }, end2: { reference: M.ref(voidEntity), cardinality: '0..*' } });
+  add(data, 'ERDRelationship', { end1: { reference: M.ref(user), cardinality: '1' }, end2: { reference: M.ref(entity), cardinality: '0..*' } });
+  const twinTable = add(data, 'ERDEntity', { name: 't' });
+  add(twinTable, 'ERDColumn', { name: 'id', type: 'INTEGER', primaryKey: true });
   // Requirements: approved but neither satisfied nor verified, and one id twice.
   add(model, 'SysMLRequirement', { name: 'Fast', id: 'REQ-1', status: 'approved' });
   add(model, 'SysMLRequirement', { name: 'Safe', id: 'REQ-1' });
+  // Gantt chart and data views: a bad date, a task without duration, a reversed period, text that does not parse.
+  const plan = add(project, 'PMPlan', { name: 'Plan' });
+  add(plan, 'GanttTask', { name: 'Late', start: '2026-13-40' });
+  add(plan, 'GanttTask', { name: 'Zero', duration: 0 });
+  add(plan, 'TLPeriod', { name: 'Back', start: '2026-05-01', end: '2026-04-01' });
+  const spec = add(project, 'DSSpecification', { name: 'Spec' });
+  add(spec, 'DSDocument', { name: 'Doc', format: 'json', text: '{ "a": ' });
+  add(spec, 'RegexPattern', { name: 'Re', pattern: '(ab' });
   // Diagram without views, and a view pointing nowhere.
   M.addDiagram(project, model._id, 'UMLClassDiagram', { name: 'Empty' });
   const d = M.addDiagram(project, model._id, 'UMLClassDiagram', { name: 'Ghost' });
   M.addView(d, M.createNodeView('UMLClassView', 'NOWHERE', { x: 0, y: 0 }));
-  return { project, ids: { nameless, iface, concrete, lifeline, fin, entity, decision } };
+  return { project, ids: { nameless, iface, concrete, lifeline, fin, entity, decision, untyped, voidEntity, mismatched, loose, twinTable } };
 }
 
 test('rules: ids are unique, severities known, messages bilingual', () => {
@@ -101,6 +122,16 @@ test('every rule fires on a project built to break it', () => {
   assert.equal(of('region-multiple-initial').length, 1);
   assert.ok(of('broken-ref').some((p) => p.message.en.includes('GONE')));
   assert.ok(of('broken-ref').some((p) => p.message.en.includes('NOWHERE')));
+  // ERD rules: each on the element to fix.
+  assert.equal(of('column-name-duplicate').length, 1, 'code / CODE');
+  assert.deepEqual(of('column-type-missing').map((p) => p.id), [ids.untyped._id]);
+  assert.deepEqual(of('entity-no-columns').map((p) => p.id), [ids.voidEntity._id]);
+  assert.ok(!of('entity-no-primary-key').some((p) => p.id === ids.voidEntity._id), 'no columns: one report, not two');
+  assert.deepEqual(of('foreign-key-type-mismatch').map((p) => p.id), [ids.mismatched._id]);
+  assert.match(of('foreign-key-type-mismatch')[0].message.en, /VARCHAR ≠ INTEGER \(U\.id\)/);
+  assert.deepEqual(of('relationship-no-foreign-key').map((p) => p.id), [ids.loose._id], 'the U — T relationship has u_id');
+  assert.deepEqual(of('entity-name-duplicate').map((p) => p.id), [ids.twinTable._id]);
+  assert.ok(!of('name-duplicate').some((p) => p.id === ids.twinTable._id), 'entities are not reported twice');
   for (const p of problems) {
     assert.equal(p.severity, RULES.find((r) => r.id === p.rule).severity);
     assert.ok(p.message.ko && p.message.en);
@@ -127,4 +158,30 @@ test('clean projects have no errors', () => {
     const errors = validate(project).filter((p) => p.severity === 'error');
     assert.deepEqual(errors, [], source);
   }
+});
+
+test('ERD: column types compare without length and across synonyms', () => {
+  assert.equal(sqlTypeKey('varchar(20)'), 'VARCHAR');
+  assert.equal(sqlTypeKey(' int '), 'INTEGER');
+  assert.equal(sqlTypeKey('SERIAL'), 'INTEGER');
+  assert.equal(sqlTypeKey('character  varying'), 'VARCHAR');
+  assert.equal(sqlTypeKey('numeric(10,2)'), 'DECIMAL');
+  assert.equal(sqlTypeKey(''), '');
+});
+
+test('ERD: a clean data model passes; duplicates in a nested data model are reported once', () => {
+  const project = M.createProject({ diagram: null });
+  const add = (owner, type, attrs = {}) => M.insertElement(owner, M.createElement(type, attrs, { siblings: M.siblingsIn(owner, type) }));
+  const data = add(project, 'ERDDataModel', { name: 'DB' });
+  const a = add(data, 'ERDEntity', { name: 'a' });
+  const aId = add(a, 'ERDColumn', { name: 'id', type: 'SERIAL', primaryKey: true });
+  const b = add(data, 'ERDEntity', { name: 'b' });
+  add(b, 'ERDColumn', { name: 'id', type: 'INTEGER', primaryKey: true });
+  add(b, 'ERDColumn', { name: 'a_id', type: 'int', foreignKey: true, referenceTo: M.ref(aId) });
+  add(data, 'ERDRelationship', { end1: { reference: M.ref(b) }, end2: { reference: M.ref(a) } });
+  assert.deepEqual(validate(project).map((p) => p.rule), [], 'SERIAL key, int foreign key, relationship drawn either way');
+  const inner = add(data, 'ERDDataModel', { name: 'Inner' });
+  const twin = add(inner, 'ERDEntity', { name: 'A' });
+  add(twin, 'ERDColumn', { name: 'id', type: 'INTEGER', primaryKey: true });
+  assert.deepEqual(validate(project).filter((p) => p.rule === 'entity-name-duplicate').map((p) => p.id), [twin._id]);
 });

@@ -50,8 +50,6 @@
       "../docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
       "../docs/Tutorial.html": "docs/Tutorial.html",
       "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
-      "../UsersGuide.md": "docs/UsersGuide.md",
-      "../README.md": "docs/README.md",
       "../docs/tutorial/images/": "docs/tutorial/images/",
       "../samples/": "samples/"
     },

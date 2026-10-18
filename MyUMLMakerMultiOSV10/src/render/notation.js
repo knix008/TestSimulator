@@ -9,14 +9,17 @@
 // what is exported. Pure: text is measured by a function passed in.
 import { esc, estimateMeasure, n, textLine, DEFAULT_FONT } from './text.js';
 import { SHAPES, operandBounds, shade } from './shapes.js';
-import { typeDef, viewDef } from '../domain/meta.js';
+import { DIAGRAM_BG_FITS, DIAGRAM_BG_KINDS, DIAGRAM_BG_PATTERNS, typeDef, viewDef } from '../domain/meta.js';
 import { buildIndex, isEdgeView, refId } from '../domain/model.js';
 import { flowText, messageText, stereotypeText, transitionText } from '../domain/labels.js';
+import { MORE_CONTAINERS, MORE_FREE, MORE_ROUTES } from './shapes-more.js';
 
 /** Shapes whose stored size wins over the fitted size (containers, bars, widgets). */
 const FREE = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'rect', 'roundRect', 'ellipse', 'image', 'timingLifeline', 'subject', 'bar', 'wfFrame', 'wfMobile', 'wfPanel', 'wfInput', 'wfTextArea', 'wfDropdown', 'wfSlider', 'wfTabs', 'wfImage', 'wfAvatar', 'wfList', 'wfTable', 'wfDivider', 'wfProgress', 'wfIcon', 'note', 'text', 'cloudService', 'pseudostate']);
 /** Container shapes: drawn behind the other nodes; moving one moves what is inside. */
 export const CONTAINER_SHAPES = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'subject', 'package', 'state', 'node3d', 'component', 'wfFrame', 'wfMobile', 'wfPanel', 'collaboration', 'subsystem']);
+for (const shape of MORE_FREE) FREE.add(shape);
+for (const shape of MORE_CONTAINERS) CONTAINER_SHAPES.add(shape);
 
 /** Diagram colour schemes (Settings › Diagram). */
 export const DIAGRAM_THEMES = {
@@ -34,11 +37,14 @@ const NOTE_GROUP = new Set(['annotation']);
  */
 export function createRenderContext({ project, diagram, index = null, measure = estimateMeasure, language = 'ko', lineStyle = 'rectilinear', theme = 'classic', font = '', fontSize = 13, showShadow = true } = {}) {
   const palette = DIAGRAM_THEMES[theme] ?? DIAGRAM_THEMES.classic;
+  // The diagram's own background (null: the scheme's). Its colour is also what hollow arrowheads are filled with.
+  const backdrop = diagramBackground(diagram, palette);
   const ctx = {
-    project, diagram, index: index ?? buildIndex(project), measure, language, lineStyle, palette, background: palette.background, font, fontSize, showShadow,
-    boxes: new Map(), routes: new Map(), sequence: null, diagramProvider: typeDef(diagram?._type)?.provider ?? null,
+    project, diagram, index: index ?? buildIndex(project), measure, language, lineStyle, palette, background: backdrop?.color ?? palette.background, backdrop, font, fontSize, showShadow,
+    boxes: new Map(), routes: new Map(), cache: new Map(), sequence: null, diagramProvider: typeDef(diagram?._type)?.provider ?? null,
   };
   ctx.containsViews = (view) => containsViews(ctx, view);
+  ctx.nodeBox = (view) => nodeBox(ctx, view);
   ctx.headerHeight = (view) => ctx.sequence?.lifelines.get(view._id)?.headerH ?? null;
   return ctx;
 }
@@ -77,6 +83,12 @@ export function nodeBox(ctx, view) {
     if (FREE.has(shape) && view.width > 0 && view.height > 0) { w = view.width; h = view.height; } else if (view.autoResize) { w = fit.w; h = fit.h; } else { w = Math.max(view.width || 0, fit.w); h = Math.max(view.height || 0, fit.h); }
     if (shape === 'pseudostate' && !(view.width > 0)) { w = fit.w; h = fit.h; }
     box = { x: view.left ?? 0, y: view.top ?? 0, w: Math.max(4, w), h: Math.max(4, h) };
+    // Views placed by their data (a task bar on its dates, an event on the time axis).
+    if (spec.place && element) {
+      ctx.boxes.set(view._id, box);
+      const placed = spec.place(ctx, view, element, box);
+      if (placed && [placed.x, placed.y, placed.w, placed.h].every(Number.isFinite)) box = placed;
+    }
   }
   ctx.boxes.set(view._id, box);
   return box;
@@ -296,7 +308,10 @@ export function edgeRoute(ctx, view) {
       const style = lineStyleOf(ctx, view);
       const bends = (view.points ?? []).map((p) => ({ x: p.x, y: p.y }));
       let pts;
-      if (tail.view === head.view && !bends.length) pts = selfLoop(tail.box);
+      // Lines with their own route when the user has not bent them (Gantt dependencies, timeline links).
+      const custom = !bends.length && tail.view !== head.view && !tail.view.tail && !head.view.tail ? MORE_ROUTES[elementOf(ctx, view)?._type] : null;
+      if (custom) pts = custom(tail.box, head.box);
+      else if (tail.view === head.view && !bends.length) pts = selfLoop(tail.box);
       else if (style === 'rectilinear' || style === 'roundRect') {
         pts = bends.length ? orthogonalize([centerOf(tail.box), ...bends, centerOf(head.box)]) : autoRectilinear(tail.box, head.box);
         pts = clipEnd(clipStart(pts, tail.box, 'rect'), head.box, 'rect');
@@ -379,6 +394,7 @@ export function endMark(kind, tip, angle, st, background) {
     case 'composite': return `<polygon points="${pts([tip, P(10, -6), P(20, 0), P(10, 6)])}" fill="${esc(st.line)}" ${stroke}/>`;
     case 'cross': { const a = P(10, -5); const b = P(20, 5); const a2 = P(20, -5); const b2 = P(10, 5); return `<path d="M${n(a.x)} ${n(a.y)}L${n(b.x)} ${n(b.y)}M${n(a2.x)} ${n(a2.y)}L${n(b2.x)} ${n(b2.y)}" fill="none" ${stroke}/>`; }
     case 'circle': { const o = P(5, 0); return `<circle cx="${n(o.x)}" cy="${n(o.y)}" r="5" fill="${esc(background)}" ${stroke}/>`; }
+    case 'dot': { const o = P(3.5, 0); return `<circle cx="${n(o.x)}" cy="${n(o.y)}" r="3.5" fill="${esc(st.line)}" ${stroke}/>`; }
     case 'containment': { const o = P(7, 0); const a = P(1, 0); const b = P(13, 0); const l = P(7, -6); const r = P(7, 6); return `<circle cx="${n(o.x)}" cy="${n(o.y)}" r="6" fill="${esc(background)}" ${stroke}/><path d="M${n(a.x)} ${n(a.y)}L${n(b.x)} ${n(b.y)}M${n(l.x)} ${n(l.y)}L${n(r.x)} ${n(r.y)}" ${stroke}/>`; }
     case 'slash': { const a = P(14, -6); const b = P(6, 6); return `<path d="M${n(a.x)} ${n(a.y)}L${n(b.x)} ${n(b.y)}" ${stroke}/>`; }
     case 'deleteX': { const a = P(-9, -9); const b = P(9, 9); const a2 = P(9, -9); const b2 = P(-9, 9); return `<path d="M${n(a.x)} ${n(a.y)}L${n(b.x)} ${n(b.y)}M${n(a2.x)} ${n(a2.y)}L${n(b2.x)} ${n(b2.y)}" fill="none" stroke="${esc(st.line)}" stroke-width="2"/>`; }
@@ -435,6 +451,9 @@ function edgeLook(ctx, view, element) {
       break;
     case 'BPMNSequenceFlow': if (element.isDefault) look.tail = 'slash'; break;
     case 'BPMNAssociation': look.head = element.associationDirection === 'one' || element.associationDirection === 'both' ? 'open' : ''; look.tail = element.associationDirection === 'both' ? 'open' : ''; break;
+    // ArchiMate access: the arrow shows the direction of the data (read: towards the reader).
+    case 'ArchiMateAccess': look.head = ['write', 'readwrite'].includes(element.accessType ?? 'write') ? 'open' : ''; look.tail = ['read', 'readwrite'].includes(element.accessType) ? 'open' : ''; break;
+    case 'ArchiMateAssociation': look.head = element.isDirected ? 'open' : ''; break;
     default: break;
   }
   return look;
@@ -455,6 +474,8 @@ function edgeLabels(ctx, view, element) {
     case 'UMLTransition': out.push({ text: transitionText(element), at: 'middle', side: -1 }); break;
     case 'UMLControlFlow': case 'UMLObjectFlow': case 'BPMNSequenceFlow': case 'FCFlow': case 'DFDDataFlow': case 'CloudConnection': out.push({ text: flowText(element), at: 'middle', side: -1 }); break;
     case 'C4Relationship': out.push({ text: element.name ?? '', at: 'middle', side: -1, bold: false }); if (element.technology) out.push({ text: `[${element.technology}]`, at: 'middle', side: 1, small: true }); break;
+    case 'NWConnection': if (element.address) out.push({ text: element.address, at: 'head', side: 1, small: true }); return out;
+    case 'ArchiMateInfluence': if (element.name || element.strength) out.push({ text: [element.strength, element.name].filter(Boolean).join(' '), at: 'middle', side: -1 }); return out;
     case 'UMLExtend': out.push({ text: '«extend»', at: 'middle', side: -1 }); if (element.condition) out.push({ text: `[${element.condition}]`, at: 'middle', side: 1, small: true }); return out;
     // «flow» and the conveyed information items (or the name).
     case 'UMLInformationFlow': if (stereo) out.push({ text: stereo, at: 'middle', side: -1 }); if (element.conveyed || element.name) out.push({ text: element.conveyed || element.name, at: 'middle', side: 1 }); return out;
@@ -553,6 +574,7 @@ function commMessages(ctx, view, connector, points, st) {
 /** Computes boxes and routes for every view. */
 export function layoutDiagram(ctx) {
   ctx.boxes.clear();
+  ctx.cache?.clear();
   ctx.routes.clear();
   ctx.sequence = isSequence(ctx) ? layoutSequence(ctx) : null;
   for (const view of viewsOf(ctx)) if (!isEdgeView(view)) nodeBox(ctx, view);
@@ -644,8 +666,89 @@ export function renderDiagramSvg(project, diagram, options = {}) {
   const scale = options.scale ?? 1;
   const background = options.background ?? ctx.background;
   const body = renderViews(ctx, { ids, tag: false });
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(w * scale)}" height="${n(h * scale)}" viewBox="${x} ${y} ${w} ${h}" font-family="${esc(DEFAULT_FONT)}"><defs>${svgDefs(ctx)}</defs>${background && background !== 'none' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(background)}"/>` : ''}${body}</svg>`;
+  // options.background: 'none' (transparent export, print without background) or a colour win over the diagram's own background.
+  const back = options.background === undefined && ctx.backdrop ? backgroundLayers(ctx.backdrop, { x, y, w, h }, { id: `bg-${diagram?._id ?? 'diagram'}` })
+    : background && background !== 'none' ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(background)}"/>` : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(w * scale)}" height="${n(h * scale)}" viewBox="${x} ${y} ${w} ${h}" font-family="${esc(DEFAULT_FONT)}"><defs>${svgDefs(ctx)}</defs>${back}${body}</svg>`;
   return { svg, width: w, height: h, bounds: { x, y, w, h } };
+}
+
+// ───────────────────────── diagram background
+
+/** Pattern tiles (page units at 100 %), drawn in the pattern colour `c`. */
+export const BG_PATTERN_TILES = {
+  dots: { w: 20, h: 20, svg: (c) => `<circle cx="10" cy="10" r="2" fill="${c}"/>` },
+  grid: { w: 20, h: 20, svg: (c) => `<path d="M0 0.5H20M0.5 0V20" stroke="${c}" stroke-width="1" fill="none"/>` },
+  'lines-h': { w: 20, h: 10, svg: (c) => `<path d="M0 5H20" stroke="${c}" stroke-width="1.2" fill="none"/>` },
+  'lines-v': { w: 10, h: 20, svg: (c) => `<path d="M5 0V20" stroke="${c}" stroke-width="1.2" fill="none"/>` },
+  diagonal: { w: 14, h: 14, svg: (c) => `<path d="M-3.5 3.5L3.5 -3.5M0 14L14 0M10.5 17.5L17.5 10.5" stroke="${c}" stroke-width="1.2" fill="none"/>` },
+  'diagonal-cross': { w: 14, h: 14, svg: (c) => `<path d="M-3.5 3.5L3.5 -3.5M0 14L14 0M10.5 17.5L17.5 10.5M-3.5 10.5L3.5 17.5M0 0L14 14M10.5 -3.5L17.5 3.5" stroke="${c}" stroke-width="1" fill="none"/>` },
+  checker: { w: 20, h: 20, svg: (c) => `<path d="M0 0H10V10H0ZM10 10H20V20H10Z" fill="${c}"/>` },
+  crosshatch: { w: 8, h: 8, svg: (c) => `<path d="M0 4H8M4 0V8M0 0L8 8M8 0L0 8" stroke="${c}" stroke-width="0.5" fill="none"/>` },
+  waves: { w: 20, h: 10, svg: (c) => `<path d="M0 5Q5 0 10 5T20 5" stroke="${c}" stroke-width="1.2" fill="none"/>` },
+  hexagon: { w: 30, h: 17.32, svg: (c) => `<path d="M0 8.66L5 0H15L20 8.66L15 17.32H5ZM20 8.66H30" stroke="${c}" stroke-width="1" fill="none"/>` },
+};
+
+const percent = (value, fallback = 100, min = 0, max = 100) => (value === '' || value === null || value === undefined || !Number.isFinite(Number(value)) ? fallback : Math.min(max, Math.max(min, Number(value))));
+
+/**
+ * A diagram's own background, resolved against the colour scheme: { kind, color, colorOpacity, image,
+ * imageWidth, imageHeight, fit, opacity, pattern, patternColor, patternOpacity, patternScale }, or null
+ * when it uses the scheme's background. Without backgroundKind (older files) a picture or a colour
+ * alone decides the kind.
+ */
+export function diagramBackground(diagram, palette = DIAGRAM_THEMES.classic) {
+  const d = diagram ?? {};
+  const kind = d.backgroundKind === undefined ? (d.backgroundImage ? 'image' : d.backgroundColor ? 'color' : '') : d.backgroundKind;
+  if (!kind || !DIAGRAM_BG_KINDS.includes(kind)) return null;
+  return {
+    kind,
+    color: d.backgroundColor || palette.background,
+    colorOpacity: percent(d.backgroundColorOpacity),
+    image: kind === 'image' ? String(d.backgroundImage || '') : '',
+    imageWidth: Number(d.backgroundImageWidth) > 0 ? Number(d.backgroundImageWidth) : 0,
+    imageHeight: Number(d.backgroundImageHeight) > 0 ? Number(d.backgroundImageHeight) : 0,
+    fit: DIAGRAM_BG_FITS.includes(d.backgroundFit) ? d.backgroundFit : 'fill',
+    opacity: percent(d.backgroundOpacity),
+    pattern: kind === 'pattern' ? (DIAGRAM_BG_PATTERNS.includes(d.backgroundPattern) ? d.backgroundPattern : 'dots') : '',
+    patternColor: d.backgroundPatternColor || palette.gridMajor || '#a9b2bf',
+    patternOpacity: percent(d.backgroundPatternOpacity),
+    patternScale: percent(d.backgroundPatternScale, 100, 50, 300),
+  };
+}
+
+/**
+ * The background layers as SVG: the colour, then the picture or the pattern, each with its own opacity
+ * (a layer at 0 % is left out). `box` is the area covered (the exported drawing, or the canvas world);
+ * `view` is where a fitted, filled, centred or stretched picture is placed (default: box). Tiles and
+ * patterns start at page 0,0 so they line up between the canvas and the export. `id` keeps <pattern>
+ * ids apart when several drawings share a document.
+ */
+export function backgroundLayers(bg, box, { id = 'bg', view = box } = {}) {
+  if (!bg) return '';
+  const key = String(id).replace(/[^\w-]/g, '_');
+  const alpha = (value, attr) => (value < 100 ? ` ${attr}="${n(value / 100)}"` : '');
+  const area = (fill, extra = '') => `<rect x="${n(box.x)}" y="${n(box.y)}" width="${n(box.w)}" height="${n(box.h)}" fill="${fill}"${extra}/>`;
+  let out = '';
+  if (bg.colorOpacity > 0) out += area(esc(bg.color), alpha(bg.colorOpacity, 'fill-opacity'));
+  if (bg.kind === 'image' && bg.image && bg.opacity > 0) {
+    const iw = bg.imageWidth || 256; const ih = bg.imageHeight || 256;
+    const href = esc(bg.image);
+    if (bg.fit === 'tile') {
+      out += `<defs><pattern id="${key}-img" patternUnits="userSpaceOnUse" x="0" y="0" width="${n(iw)}" height="${n(ih)}"><image href="${href}" width="${n(iw)}" height="${n(ih)}" preserveAspectRatio="none"/></pattern></defs>${area(`url(#${key}-img)`, alpha(bg.opacity, 'opacity'))}`;
+    } else if (bg.fit === 'center') {
+      out += `<svg x="${n(view.x)}" y="${n(view.y)}" width="${n(view.w)}" height="${n(view.h)}" overflow="hidden"><image href="${href}" x="${n((view.w - iw) / 2)}" y="${n((view.h - ih) / 2)}" width="${n(iw)}" height="${n(ih)}"${alpha(bg.opacity, 'opacity')}/></svg>`;
+    } else {
+      const aspect = { fill: 'xMidYMid slice', fit: 'xMidYMid meet', stretch: 'none' }[bg.fit];
+      out += `<image href="${href}" x="${n(view.x)}" y="${n(view.y)}" width="${n(view.w)}" height="${n(view.h)}" preserveAspectRatio="${aspect}"${alpha(bg.opacity, 'opacity')}/>`;
+    }
+  }
+  if (bg.kind === 'pattern' && bg.patternOpacity > 0) {
+    const tile = BG_PATTERN_TILES[bg.pattern] ?? BG_PATTERN_TILES.dots;
+    const k = bg.patternScale / 100;
+    out += `<defs><pattern id="${key}-pat" patternUnits="userSpaceOnUse" x="0" y="0" width="${tile.w}" height="${tile.h}"${k !== 1 ? ` patternTransform="scale(${n(k)})"` : ''}>${tile.svg(esc(bg.patternColor))}</pattern></defs>${area(`url(#${key}-pat)`, alpha(bg.patternOpacity, 'opacity'))}`;
+  }
+  return out ? `<g class="diagram-background" pointer-events="none">${out}</g>` : '';
 }
 
 /** Small preview of a diagram (start page, diagram list). */

@@ -78,7 +78,7 @@ export function facts(project, element, index, language, diagramsOf, relationshi
   const stereo = stereotypeName(element, index);
   if (stereo) properties.push([fieldLabel('stereotype', language), stereo, null]);
   for (const field of fieldsOf(element._type)) {
-    if (['name', 'documentation', 'stereotype'].includes(field.key)) continue;
+    if (['name', 'documentation', 'stereotype'].includes(field.key) || field.background) continue;
     const raw = element[field.key];
     const text = valueText(raw, index, t);
     if (text === '' || (field.type === 'bool' && raw === false && field.def !== true)) continue;

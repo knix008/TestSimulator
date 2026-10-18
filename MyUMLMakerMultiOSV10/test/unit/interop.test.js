@@ -1,6 +1,6 @@
 // Exchange with other UML tools: StarUML .mdj/.mfj (both ways), Mermaid
-// (class, sequence, flowchart, ER, state — both ways) and PlantUML (writing
-// eight diagram kinds, reading class and sequence diagrams).
+// (class, sequence, flowchart, ER, state — both ways) and PlantUML (the basics
+// here; every diagram kind is in plantuml.test.js).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -590,7 +590,7 @@ test('exportPlantUml: use case, sequence, activity, state, component, deployment
   assert.match(erText, /\*id : int <<PK>>\n {2}--\n {2}\*note : string/);
   assert.match(erText, /A \|\|--o\{ B : has/);
 
-  assert.throws(() => exportPlantUml(uc.project, { _type: 'MMMindmapDiagram', ownedViews: [] }), { message: 'interop.unsupportedDiagram' });
+  assert.throws(() => exportPlantUml(uc.project, { _type: 'BPMNDiagram', ownedViews: [] }), { message: 'interop.unsupportedDiagram' });
 });
 
 test('importPlantUml: class diagram', () => {
@@ -665,5 +665,5 @@ end note
   ]);
   assert.deepEqual(interaction.fragments[0].operands.map((o) => o.guard), ['found', 'missing']);
   assert.throws(() => importPlantUml('@startuml\n@enduml'), { message: 'interop.empty' });
-  assert.throws(() => importPlantUml('@startuml\n(*) --> "x"\n@enduml'), { message: 'interop.unsupportedPlantUml' });
+  assert.throws(() => importPlantUml('@startuml\nfoo bar baz\n@enduml'), { message: 'interop.unsupportedPlantUml' });
 });

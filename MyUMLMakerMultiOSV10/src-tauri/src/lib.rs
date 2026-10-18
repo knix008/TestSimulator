@@ -18,13 +18,16 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 /// by the main window: it can sit outside the main window and closes with it.
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "welcome", "image", "database",
-    "find", "validation", "codegen", "textimport", "color", "prompt", "requirements", "tracematrix",
+    "find", "validation", "codegen", "textimport", "color", "prompt", "requirements", "tracematrix", "document", "baselines", "compare",
+    "background",
 ];
 
 #[derive(Default)]
 struct Shared {
     /// Project files given on the command line, handed to the UI once.
     startup_files: Vec<PathBuf>,
+    /// Other MyUMLMaker copies that were running when this one started (instance.rs).
+    other_instances: usize,
 }
 
 type AppState = Mutex<Shared>;
@@ -83,6 +86,20 @@ fn set_language(language: String) {
 #[tauri::command]
 fn startup_files(state: tauri::State<'_, AppState>) -> Vec<PathBuf> {
     std::mem::take(&mut lock(&state).startup_files)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstanceInfo {
+    /// No other copy was running at start: this one restores the previous session and keeps it.
+    first: bool,
+    others: usize,
+}
+
+#[tauri::command]
+fn instance_info(state: tauri::State<'_, AppState>) -> InstanceInfo {
+    let others = lock(&state).other_instances;
+    InstanceInfo { first: others == 0, others }
 }
 
 #[derive(Clone, Serialize)]
@@ -334,6 +351,58 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     Ok(())
 }
 
+/// Moves (`edge` = None) or resizes the window with the mouse, from a press in the page (the menu bar's
+/// empty area, the resize grip). On Windows this asks the system move / size loop directly
+/// (WM_SYSCOMMAND SC_MOVE / SC_SIZE): the loop then starts from where the cursor is. (tao's
+/// start_dragging posts WM_NCLBUTTONDOWN with a wrong cursor position, so the window jumped
+/// when the drag began and a resize from the grip often did not start.)
+#[tauri::command]
+fn window_drag(window: WebviewWindow, edge: Option<String>) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        #[link(name = "user32")]
+        extern "system" {
+            fn ReleaseCapture() -> i32;
+            fn PostMessageW(hwnd: *mut std::ffi::c_void, msg: u32, wparam: usize, lparam: isize) -> i32;
+        }
+        const WM_SYSCOMMAND: u32 = 0x0112;
+        // SC_MOVE | HTCAPTION and SC_SIZE | WMSZ_*: the "mouse" variants of the commands.
+        let command = match edge.as_deref() {
+            None => 0xF012,
+            Some("West") => 0xF001,
+            Some("East") => 0xF002,
+            Some("North") => 0xF003,
+            Some("NorthWest") => 0xF004,
+            Some("NorthEast") => 0xF005,
+            Some("South") => 0xF006,
+            Some("SouthWest") => 0xF007,
+            Some(_) => 0xF008, // SouthEast
+        };
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        unsafe {
+            ReleaseCapture();
+            PostMessageW(hwnd.0 as _, WM_SYSCOMMAND, command, 0);
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        use tauri::window::ResizeDirection;
+        let direction = match edge.as_deref() {
+            None => return window.start_dragging().map_err(|error| error.to_string()),
+            Some("West") => ResizeDirection::West,
+            Some("East") => ResizeDirection::East,
+            Some("North") => ResizeDirection::North,
+            Some("NorthWest") => ResizeDirection::NorthWest,
+            Some("NorthEast") => ResizeDirection::NorthEast,
+            Some("South") => ResizeDirection::South,
+            Some("SouthWest") => ResizeDirection::SouthWest,
+            Some(_) => ResizeDirection::SouthEast,
+        };
+        window.start_resize_dragging(direction).map_err(|error| error.to_string())
+    }
+}
+
 /// Called by a popup page once it has drawn itself.
 #[tauri::command]
 fn popup_ready(window: WebviewWindow) {
@@ -505,25 +574,22 @@ async fn db_delete(config: db::DbConfig, id: String) -> Result<(), String> {
 }
 
 pub fn run() {
-    // One MyUMLMaker at a time: a second start reports it and ends.
-    // Tests run copies side by side (MYUMLMAKER_MULTI=1).
-    let _instance = if std::env::var_os("MYUMLMAKER_MULTI").is_none() {
-        match instance::acquire() {
-            Some(lock) => Some(lock),
-            None => {
-                instance::report_already_running();
-                std::process::exit(3);
-            }
-        }
-    } else {
-        None
-    };
+    // Any number of copies may run; each opens its own window. Only the first one restores the
+    // previous session, and later ones open their window offset (instance.rs).
+    // MYUMLMAKER_MULTI=1 (the E2E harness, npm start) skips the counting: every copy acts as the first.
+    let instance = if std::env::var_os("MYUMLMAKER_MULTI").is_none() { instance::register() } else { None };
+    let others = instance.as_ref().map_or(0, |instance| instance.others);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
-        .setup(|app| {
+        .setup(move |app| {
             install_panic_hook(app.handle());
-            lock(&app.state::<AppState>()).startup_files = files::diagram_files(std::env::args().skip(1));
+            {
+                let state = app.state::<AppState>();
+                let mut shared = lock(&state);
+                shared.startup_files = files::diagram_files(std::env::args().skip(1));
+                shared.other_instances = others;
+            }
             if let Ok(dir) = background_dir(app.handle()) {
                 let _ = app.asset_protocol_scope().allow_directory(&dir, true);
             }
@@ -531,8 +597,13 @@ pub fn run() {
             // First start after the installer: forget the window place, and have the page reset its preferences.
             let install_reset = state_path.as_deref().and_then(window_state::take_install_reset);
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
+            // No system title bar: the menu bar row carries the icon, name and version (left) and the
+            // minimize / maximize / close buttons (right), and is the drag area (src/app.js renderMenubar).
+            // The title is still set for the taskbar and Alt+Tab.
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
+                .decorations(false)
+                .shadow(true)
                 .min_inner_size(1000.0, 600.0)
                 .visible(false)
                 .additional_browser_args(BROWSER_ARGS);
@@ -544,10 +615,14 @@ pub fn run() {
                 Some((state, scale)) => builder
                     .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
                     .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
-                    .maximized(state.maximized),
+                    // A later copy opens beside the first, not maximized over it.
+                    .maximized(state.maximized && others == 0),
                 None => builder.inner_size(1480.0, 900.0).center(),
             };
             let main = builder.build()?;
+            if others > 0 {
+                offset_window(&main, others);
+            }
             if let Some(path) = state_path {
                 window_state::track(&main, path);
             }
@@ -564,6 +639,7 @@ pub fn run() {
             app_info,
             set_language,
             startup_files,
+            instance_info,
             read_text_file,
             read_base64_file,
             write_text_file,
@@ -581,6 +657,7 @@ pub fn run() {
             list_files,
             open_popup,
             popup_ready,
+            window_drag,
             place_popup,
             hide_popup,
             close_popup,
@@ -595,4 +672,23 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running MyUMLMaker");
+    drop(instance);
+}
+
+/// Cascades a later copy's window by 32 px for every other copy that runs, kept inside the work area
+/// of its monitor (the window is still hidden; the page shows it).
+fn offset_window(window: &WebviewWindow, copies: usize) {
+    let (Ok(position), Ok(size)) = (window.outer_position(), window.outer_size()) else { return };
+    let monitor = window.current_monitor().ok().flatten().or_else(|| window.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else { return };
+    let area = monitor.work_area();
+    let step = (32.0 * monitor.scale_factor()).round() as i32;
+    let (x, y) = instance::cascade(
+        (position.x, position.y),
+        (size.width, size.height),
+        (area.position.x, area.position.y, area.size.width, area.size.height),
+        step,
+        copies,
+    );
+    let _ = window.set_position(PhysicalPosition::new(x, y));
 }

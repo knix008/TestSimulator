@@ -52,7 +52,7 @@ export function ownerForNew(project, diagram, type, p, boxes, index = buildIndex
     if (element._type === 'UMLActivityPartition' || element._type === 'UMLStructuredActivityNode' || element._type === 'UMLExpansionRegion') {
       if (/^UML(Action|InitialNode|ActivityFinalNode|FlowFinalNode|ForkNode|JoinNode|DecisionNode|MergeNode|ObjectNode|CentralBufferNode|DataStoreNode)$/.test(type)) return diagramOwner(project, diagram, index);
     }
-    if (element._type === 'MMNode' && type === 'MMNode') return element;
+    if ((element._type === 'MMNode' && type === 'MMNode') || (element._type === 'WBSNode' && type === 'WBSNode')) return element;
     if (typeDef(element._type)?.namespace && canContain(element, type) && !['UMLInteraction', 'UMLStateMachine', 'UMLActivity'].includes(element._type)) return element;
   }
   const owner = diagramOwner(project, diagram, index);
@@ -118,7 +118,7 @@ export function createNode(project, diagram, tool, box, { language = 'en', boxes
 export function canConnect(project, diagram, tool, tailView, headView, index = buildIndex(project)) {
   if (!tailView || !headView) return false;
   if (tool.type === 'UMLNoteLinkView') return tailView._type === 'UMLNoteView' || headView._type === 'UMLNoteView' || tailView._type === 'UMLConstraintView' || headView._type === 'UMLConstraintView';
-  if (tool.type === 'FreelineEdgeView' || tool.type === 'MMEdgeView') return true;
+  if (tool.type === 'FreelineEdgeView' || tool.type === 'MMEdgeView' || tool.type === 'WBSEdgeView') return true;
   const tail = index.get(refId(tailView.model));
   const head = index.get(refId(headView.model));
   if (tool.type === 'UMLAssociationClassLink') return Boolean(head || tail) && (isEdgeView(tailView) || isEdgeView(headView));
@@ -136,11 +136,12 @@ export function createEdge(project, diagram, tool, tailView, headView, { languag
   const index = buildIndex(project);
   if (VIEW_ONLY[tool.type]) {
     const view = addView(diagram, createEdgeView(tool.type, null, tailView._id, headView._id));
-    // A mind-map branch makes the head node a child of the tail node.
-    if (tool.type === 'MMEdgeView') {
+    // A mind-map branch (or a WBS sub-item line) makes the head node a child of the tail node.
+    if (tool.type === 'MMEdgeView' || tool.type === 'WBSEdgeView') {
+      const kind = tool.type === 'MMEdgeView' ? 'MMNode' : 'WBSNode';
       const parent = index.get(refId(tailView.model));
       const child = index.get(refId(headView.model));
-      if (parent?._type === 'MMNode' && child?._type === 'MMNode' && !isWithin(project, parent._id, child._id, index)) moveElement(project, child._id, parent._id);
+      if (parent?._type === kind && child?._type === kind && !isWithin(project, parent._id, child._id, index)) moveElement(project, child._id, parent._id);
     }
     return { element: null, view };
   }
@@ -232,6 +233,8 @@ export const RELATED = {
   childNode: { rel: 'MMEdgeView', type: 'MMNode', from: 'this', dx: 200, dy: 0 },
   referencedEntity: { rel: 'ERDRelationship', type: 'ERDEntity', from: 'this', dx: 260, dy: 0, attrs: { end1: { cardinality: '1' }, end2: { cardinality: '0..*' } } },
   nextStep: { rel: 'FCFlow', type: 'FCProcess', from: 'this', dx: 0, dy: 110 },
+  subItem: { rel: 'WBSEdgeView', type: 'WBSNode', from: 'this', dx: 30, dy: 80 },
+  nextTask: { rel: 'GanttDependency', type: 'GanttTask', from: 'this', dx: 0, dy: 30 },
 };
 
 /** Which RELATED entries make sense for an element. */
@@ -244,6 +247,8 @@ export function relatedFor(element) {
     case 'UMLState': return ['nextState'];
     case 'UMLAction': return ['nextAction'];
     case 'MMNode': return ['childNode'];
+    case 'WBSNode': return ['subItem'];
+    case 'GanttTask': return ['nextTask'];
     case 'ERDEntity': return ['referencedEntity'];
     case 'FCProcess': case 'FCDecision': case 'FCTerminator': case 'FCData': return ['nextStep'];
     default: return [];
@@ -258,7 +263,7 @@ export function addRelated(project, diagram, viewId, kind, { language = 'en', bo
   const box = boxes.get(view._id) ?? { x: view.left, y: view.top, w: view.width || 120, h: view.height || 60 };
   const index = buildIndex(project);
   const current = index.get(refId(view.model));
-  const owner = spec.type === 'MMNode' ? current : (index.parent(current._id) ?? project.ownedElements[0]);
+  const owner = spec.type === 'MMNode' || spec.type === 'WBSNode' ? current : (index.parent(current._id) ?? project.ownedElements[0]);
   let type = spec.type;
   if (kind === 'subclass' || kind === 'superclass') type = current._type;
   const element = insertElement(owner, createElement(type, {}, { language, siblings: siblingsIn(owner, type) }));

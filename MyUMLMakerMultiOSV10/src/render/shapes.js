@@ -15,6 +15,7 @@ import {
 import { typeDef } from '../domain/meta.js';
 import { refId } from '../domain/model.js';
 import { groupInfo, serviceInfo } from '../domain/cloud.js';
+import { MORE_SHAPES } from './shapes-more.js';
 
 const PAD = 6;
 const lineAttrs = (st, extra = '') => `stroke="${esc(st.line)}" stroke-width="${n(st.lineWidth ?? 1)}"${extra}`;
@@ -43,11 +44,15 @@ function headerLines(ctx, v, el, st, { name = el?.name ?? '', keyword = true, un
   return lines;
 }
 
+const SYSML_SPLIT = { values: 'SysMLValue', references: 'SysMLReference' };
 /** Compartment item lines of a classifier. */
 function compartmentItems(ctx, v, el, key) {
   const index = ctx.index;
   const opts = { visibility: v.showVisibility !== false, type: v.showType !== false, multiplicity: v.showMultiplicity !== false, property: v.showProperty !== false };
-  const list = el[key] ?? [];
+  let list = el[key] ?? [];
+  // SysML value and reference properties are kept with the attributes but listed in their own compartments.
+  if (SYSML_SPLIT[key] && !el[key]) list = (el.attributes ?? []).filter((a) => a._type === SYSML_SPLIT[key]);
+  if (key === 'attributes' && (typeDef(el._type)?.compartments ?? []).includes('values')) list = list.filter((a) => !Object.values(SYSML_SPLIT).includes(a._type));
   switch (key) {
     case 'attributes': case 'parts': case 'references': case 'values': case 'ports':
       return list.map((a) => ({ text: attributeText(a, index, opts), underline: a.isStatic, align: 'left' }));
@@ -100,15 +105,21 @@ function sectionLines(section, st) {
 function classifierSize(ctx, v, el, st) {
   const { header, sections } = classifierParts(ctx, v, el, st);
   const b = base(st);
-  let w = stackWidth(header, b, ctx.measure) + PAD * 2 + 8;
-  let h = stackHeight(header, 9999, b, ctx.measure) + PAD * 2;
+  // Word wrap (Format › Word Wrap): the name breaks at spaces to fit a narrower view; the box is at least its longest word wide.
+  const wrapTo = v.wordWrap && !v.autoResize && v.width > 0 ? v.width : 0;
+  const longestWord = (line) => String(line.text ?? '').split(/\s+/).reduce((a, word) => (ctx.measure(word, { fontSize: line.size ?? b.size, bold: line.bold }) > ctx.measure(a, { fontSize: line.size ?? b.size, bold: line.bold }) ? word : a), '');
+  const widthLines = wrapTo ? header.map((line) => (line.wrap ? { ...line, text: longestWord(line) } : line)) : header;
+  let w = stackWidth(widthLines, b, ctx.measure) + PAD * 2 + 8;
+  let h = 0;
   for (const s of sections) {
     const lines = sectionLines(s, st);
     w = Math.max(w, stackWidth(lines, b, ctx.measure) + PAD * 2 + 4);
     h += Math.max(10, stackHeight(lines, 9999, b, ctx.measure, { gap: 0 }) + PAD);
   }
   if (el.templateParameters?.length) w += 20;
-  return { w: Math.max(Math.ceil(w), 60), h: Math.ceil(h) };
+  w = Math.max(Math.ceil(w), 60);
+  h += stackHeight(header, wrapTo ? Math.max(wrapTo, w) : 9999, b, ctx.measure) + PAD * 2;
+  return { w, h: Math.ceil(h) };
 }
 
 function classifierDraw(ctx, v, el, b, st, { icon = '' } = {}) {
@@ -210,9 +221,11 @@ function pentagonTag(ctx, b, label, st, { bold = true } = {}) {
 export const SHAPES = {
   classifier: {
     clip: 'rect',
-    size: (ctx, v, el, st) => (isLollipop(v, el) ? { w: 26, h: 26 } : classifierSize(ctx, v, el, st)),
+    size: (ctx, v, el, st) => (isLollipop(v, el) ? { w: 26, h: 26 } : robustnessOf(ctx, v, el) ? robustnessSize(ctx, v, el, st) : classifierSize(ctx, v, el, st)),
     draw: (ctx, v, el, b, st) => {
       if (isLollipop(v, el)) return circleAt(b.x + b.w / 2, b.y + b.h / 2, Math.min(b.w, b.h) / 2, st) + nameBelow(ctx, v, el, b, st);
+      const robust = robustnessOf(ctx, v, el);
+      if (robust) return robustnessDraw(ctx, v, el, b, st, robust);
       let icon = '';
       if (v.stereotypeDisplay === 'decoration') icon = decorationIcon(el, b, st);
       return classifierDraw(ctx, v, el, b, st, { icon });
@@ -787,6 +800,9 @@ Object.assign(SHAPES, {
   wfIcon: wf((ctx, v, el, b, st) => pathSvg(`M${n(b.x + b.w / 2)} ${n(b.y)}L${n(b.x + b.w * 0.62)} ${n(b.y + b.h * 0.36)}H${n(b.x + b.w)}L${n(b.x + b.w * 0.69)} ${n(b.y + b.h * 0.58)}L${n(b.x + b.w * 0.81)} ${n(b.y + b.h)}L${n(b.x + b.w / 2)} ${n(b.y + b.h * 0.76)}L${n(b.x + b.w * 0.19)} ${n(b.y + b.h)}L${n(b.x + b.w * 0.31)} ${n(b.y + b.h * 0.58)}L${n(b.x)} ${n(b.y + b.h * 0.36)}H${n(b.x + b.w * 0.38)}Z`, { ...st, fill: v.fillColor || '#fbbf24', shadow: false }), () => ({ w: 24, h: 24 })),
 });
 
+// Gantt, WBS, timeline, ArchiMate, network, JSON/YAML and railroad shapes (shapes-more.js).
+Object.assign(SHAPES, MORE_SHAPES);
+
 // ───────────────────────── helpers used above
 
 export function shade(hex, amount) {
@@ -799,6 +815,26 @@ export function shade(hex, amount) {
 }
 
 const isLollipop = (v, el) => el._type === 'UMLInterface' && v.stereotypeDisplay === 'icon';
+/** StarUML's icons of the robustness stereotypes: a class «boundary», «control» or «entity» shown as an icon. */
+const ROBUSTNESS = new Set(['boundary', 'control', 'entity']);
+const robustnessOf = (ctx, v, el) => {
+  if (v.stereotypeDisplay !== 'icon' || el?._type !== 'UMLClass') return '';
+  const kind = stereotypeText(el, ctx.index, { keyword: false }).replace(/[«»]/g, '').trim().toLowerCase();
+  return ROBUSTNESS.has(kind) ? kind : '';
+};
+function robustnessSize(ctx, v, el, st) {
+  return { w: Math.max(56, Math.ceil(ctx.measure(el.name ?? '', { fontSize: st.size, bold: true }) + 8)), h: 44 + st.size + 6 };
+}
+function robustnessDraw(ctx, v, el, b, st, kind) {
+  const r = 18;
+  const cx = b.x + b.w / 2 + (kind === 'boundary' ? 8 : 0);
+  const cy = b.y + 4 + r;
+  let svg = circleAt(cx, cy, r, st);
+  if (kind === 'boundary') svg += strokeSvg(`M${n(cx - r - 16)} ${n(cy - r)}V${n(cy + r)}M${n(cx - r - 16)} ${n(cy)}H${n(cx - r)}`, st);
+  if (kind === 'control') svg += strokeSvg(`M${n(cx + 2)} ${n(cy - r - 5)}L${n(cx - 5)} ${n(cy - r)}L${n(cx + 2)} ${n(cy - r + 5)}`, st);
+  if (kind === 'entity') svg += strokeSvg(`M${n(cx - r)} ${n(cy + r)}H${n(cx + r)}`, st);
+  return svg + textLine(el.name, b.x + b.w / 2, b.y + b.h - 3, { ...base(st), anchor: 'middle', bold: true, italic: el.isAbstract });
+}
 function decorationIcon(el, b, st) {
   const x = b.x + b.w - 18; const y = b.y + 6;
   if (el._type === 'UMLInterface') return circleAt(x + 6, y + 6, 6, { ...st, shadow: false });

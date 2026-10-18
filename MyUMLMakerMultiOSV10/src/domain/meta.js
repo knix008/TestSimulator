@@ -8,6 +8,7 @@
 // StarUML's .mdj format so that its files open without translation.
 //
 // Pure data (no DOM). Labels are bilingual here so that a new type is one entry.
+import { ARCHIMATE_KINDS, ARCHIMATE_RELATIONS } from './archimate.js';
 
 // ───────────────────────── fields
 
@@ -294,8 +295,72 @@ T('CloudGroup', '클라우드 그룹', 'Cloud Group', { group: 'cloud', icon: 'c
 T('CloudService', '클라우드 서비스', 'Cloud Service', { group: 'cloud', icon: 'cloudService', shape: 'cloudService', fields: [F('provider', 'enum', { options: ['aws', 'azure', 'gcp'], def: 'aws' }), F('service', 'string', { def: 'EC2' })], nameOutside: true });
 T('CloudConnection', '연결', 'Connection', { group: 'cloud', icon: 'umlDependency', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'filled' });
 
+// Project planning: Gantt chart, work breakdown structure, timeline (PlantUML @startgantt, @startwbs, @startchronology)
+const DATE = (key) => F(key, 'string', { date: true });
+T('PMPlan', '프로젝트 계획', 'Project Plan', { group: 'package', icon: 'pmPlan', namespace: true, fields: [DATE('start')] });
+T('GanttCalendar', '달력', 'Calendar', { group: 'gantt', icon: 'ganttCalendar', shape: 'ganttCalendar', container: true, fields: [DATE('start'), F('days', 'int', { def: 0 }), F('dayWidth', 'int', { def: 22 }), F('closedDays', 'string', { def: 'saturday,sunday' }), F('closedDates', 'string')] });
+T('GanttTask', '작업', 'Task', { group: 'gantt', icon: 'ganttTask', shape: 'ganttTask', fields: [DATE('start'), DATE('end'), F('duration', 'int', { def: 5 }), F('completion', 'int', { def: 0 }), F('resources', 'string')] });
+T('GanttMilestone', '마일스톤', 'Milestone', { group: 'gantt', icon: 'ganttMilestone', shape: 'ganttMilestone', fields: [DATE('date')] });
+T('GanttSeparator', '구분선', 'Separator', { group: 'gantt', icon: 'ganttSeparator', shape: 'ganttSeparator', fields: [] });
+T('GanttDependency', '선후 관계', 'Dependency', { group: 'gantt', icon: 'ganttDependency', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'filled', noName: true });
+T('WBSNode', '작업 항목', 'Work Item', { group: 'wbs', icon: 'wbsNode', shape: 'wbsNode', namespace: true, fields: [F('code', 'string'), F('side', 'enum', { options: ['auto', 'left', 'right'], def: 'auto' })] });
+T('TLTimeline', '시간 축', 'Time Axis', { group: 'timeline', icon: 'tlTimeline', shape: 'tlTimeline', container: true, fields: [DATE('start'), DATE('end'), F('dayWidth', 'int', { def: 3 })] });
+T('TLEvent', '사건', 'Event', { group: 'timeline', icon: 'tlEvent', shape: 'tlEvent', fields: [DATE('date')] });
+T('TLPeriod', '기간', 'Period', { group: 'timeline', icon: 'tlPeriod', shape: 'tlPeriod', fields: [DATE('start'), DATE('end')] });
+T('TLLink', '연결', 'Link', { group: 'timeline', icon: 'tlLink', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'open', line: 'dash' });
+
+// ArchiMate 3 (layers, elements and relationships: archimate.js)
+T('ArchiMateModel', 'ArchiMate 모델', 'ArchiMate Model', { group: 'package', icon: 'archimateModel', namespace: true, fields: [] });
+T('ArchiMateElement', 'ArchiMate 요소', 'ArchiMate Element', { group: 'archimate', icon: 'amActor', shape: 'archimate', fields: [F('kind', 'enum', { options: ARCHIMATE_KINDS, def: 'business-actor' })] });
+T('ArchiMateGrouping', '그룹화', 'Grouping', { group: 'archimate', icon: 'amGrouping', shape: 'amGrouping', container: true, fields: [] });
+T('ArchiMateJunction', '접합', 'Junction', { group: 'archimate', icon: 'amJunction', shape: 'amJunction', fields: [F('junctionType', 'enum', { options: ['and', 'or'], def: 'and' })], nameOutside: true });
+const AM_LOOK = {
+  ArchiMateComposition: { tailMark: 'composite' }, ArchiMateAggregation: { tailMark: 'shared' }, ArchiMateAssignment: { tailMark: 'dot', arrow: 'filled' },
+  ArchiMateRealization: { arrow: 'triangle', line: 'dot' }, ArchiMateServing: { arrow: 'open' }, ArchiMateAccess: { arrow: 'open', line: 'dot' },
+  ArchiMateInfluence: { arrow: 'open', line: 'dash' }, ArchiMateTriggering: { arrow: 'filled' }, ArchiMateFlow: { arrow: 'filled', line: 'dash' },
+  ArchiMateSpecialization: { arrow: 'triangle' }, ArchiMateAssociation: {},
+};
+const AM_FIELDS = { ArchiMateAccess: [F('accessType', 'enum', { options: ['write', 'read', 'access', 'readwrite'], def: 'write' })], ArchiMateInfluence: [F('strength', 'string')], ArchiMateAssociation: [F('isDirected', 'bool')] };
+for (const [type, ko, en] of ARCHIMATE_RELATIONS) T(type, ko, en, { group: 'archimate', icon: `am${en}`, edge: true, ends: 'directed', fields: [...DIRECTED, ...(AM_FIELDS[type] ?? [])], ...AM_LOOK[type] });
+
+// Network diagram (PlantUML @startnwdiag)
+export const NW_DEVICES = ['server', 'database', 'router', 'switch', 'firewall', 'pc', 'laptop', 'mobile', 'storage', 'cloud', 'printer', 'queue'];
+T('NWModel', '네트워크 모델', 'Network Model', { group: 'package', icon: 'nwModel', namespace: true, fields: [] });
+T('NWNetwork', '네트워크', 'Network', { group: 'network', icon: 'nwNetwork', shape: 'nwNetwork', fields: [F('address', 'string'), F('description', 'string')] });
+T('NWNode', '네트워크 노드', 'Network Node', { group: 'network', icon: 'nwServer', shape: 'nwNode', fields: [F('device', 'enum', { options: NW_DEVICES, def: 'server' }), F('description', 'string')] });
+T('NWGroup', '노드 그룹', 'Node Group', { group: 'network', icon: 'nwGroup', shape: 'nwGroup', container: true, fields: [F('description', 'string')] });
+T('NWConnection', '네트워크 연결', 'Network Connection', { group: 'network', icon: 'nwConnection', edge: true, ends: 'directed', fields: [...DIRECTED, F('address', 'string')], noName: true });
+
+// Data views: JSON and YAML documents, EBNF grammars, regular expressions (@startjson, @startyaml, @startebnf, @startregex)
+T('DSSpecification', '데이터 명세', 'Data Specification', { group: 'package', icon: 'dsSpec', namespace: true, fields: [] });
+T('DSDocument', '데이터 문서', 'Data Document', { group: 'data', icon: 'dsDocument', shape: 'dsDocument', fields: [F('format', 'enum', { options: ['json', 'yaml'], def: 'json' }), F('text', 'text')] });
+T('EBNFRule', 'EBNF 규칙', 'EBNF Rule', { group: 'data', icon: 'ebnfRule', shape: 'ebnfRule', fields: [F('expression', 'text')] });
+T('RegexPattern', '정규식', 'Regular Expression', { group: 'data', icon: 'regexPattern', shape: 'regexPattern', fields: [F('pattern', 'text')] });
+T('DSReference', '참조', 'Reference', { group: 'data', icon: 'dsReference', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'open', line: 'dash' });
+
 // Diagrams
-const D_FIELDS = [F('defaultDiagram', 'bool')];
+// The diagram's own background (render/notation.js backgroundSvg): '' = the diagram colour scheme's,
+// 'color' = a colour, 'image' = a picture over the colour, 'pattern' = a pattern over the colour. Every
+// layer has its own opacity (0–100 %). `background: true` fields are edited in the diagram options'
+// background group (not as Properties rows), get no value on a new diagram, and stay out of documents.
+export const DIAGRAM_BG_KINDS = ['', 'color', 'image', 'pattern'];
+export const DIAGRAM_BG_FITS = ['fill', 'fit', 'tile', 'center', 'stretch'];
+export const DIAGRAM_BG_PATTERNS = ['dots', 'grid', 'lines-h', 'lines-v', 'diagonal', 'diagonal-cross', 'checker', 'crosshatch', 'waves', 'hexagon'];
+export const BACKGROUND_FIELDS = [
+  F('backgroundKind', 'enum', { options: DIAGRAM_BG_KINDS, def: '', background: true }),
+  F('backgroundColor', 'string', { background: true }),
+  F('backgroundColorOpacity', 'int', { def: 100, min: 0, max: 100, background: true }),
+  F('backgroundImage', 'string', { background: true }),
+  F('backgroundImageWidth', 'int', { background: true }),
+  F('backgroundImageHeight', 'int', { background: true }),
+  F('backgroundFit', 'enum', { options: DIAGRAM_BG_FITS, def: 'fill', background: true }),
+  F('backgroundOpacity', 'int', { def: 100, min: 0, max: 100, background: true }),
+  F('backgroundPattern', 'enum', { options: DIAGRAM_BG_PATTERNS, def: 'dots', background: true }),
+  F('backgroundPatternColor', 'string', { background: true }),
+  F('backgroundPatternOpacity', 'int', { def: 100, min: 0, max: 100, background: true }),
+  F('backgroundPatternScale', 'int', { def: 100, min: 50, max: 300, background: true }),
+];
+const D_FIELDS = [F('defaultDiagram', 'bool'), ...BACKGROUND_FIELDS];
 export const DIAGRAM_TYPES = {};
 function Dg(type, ko, en, family, icon, extra = {}) {
   T(type, ko, en, { group: 'diagram', icon, diagram: true, family, fields: D_FIELDS, ...extra });
@@ -330,13 +395,23 @@ Dg('WFWireframeDiagram', '와이어프레임 다이어그램', 'Wireframe Diagra
 Dg('AWSDiagram', 'AWS 다이어그램', 'AWS Diagram', 'cloud', 'dgAws', { owner: 'CloudModel', provider: 'aws' });
 Dg('AzureDiagram', 'Azure 다이어그램', 'Azure Diagram', 'cloud', 'dgAzure', { owner: 'CloudModel', provider: 'azure' });
 Dg('GCPDiagram', 'GCP 다이어그램', 'GCP Diagram', 'cloud', 'dgGcp', { owner: 'CloudModel', provider: 'gcp' });
+Dg('GanttDiagram', '간트 차트', 'Gantt Chart', 'project', 'dgGantt', { owner: 'PMPlan' });
+Dg('WBSDiagram', 'WBS 다이어그램', 'WBS Diagram', 'project', 'dgWbs', { owner: 'PMPlan' });
+Dg('TimelineDiagram', '타임라인 다이어그램', 'Timeline Diagram', 'project', 'dgTimeline', { owner: 'PMPlan' });
+Dg('ArchiMateDiagram', 'ArchiMate 다이어그램', 'ArchiMate Diagram', 'archimate', 'dgArchimate', { owner: 'ArchiMateModel' });
+Dg('NetworkDiagram', '네트워크 다이어그램', 'Network Diagram', 'network', 'dgNetwork', { owner: 'NWModel' });
+Dg('JSONDiagram', 'JSON 다이어그램', 'JSON Diagram', 'data', 'dgJson', { owner: 'DSSpecification', dataFormat: 'json' });
+Dg('YAMLDiagram', 'YAML 다이어그램', 'YAML Diagram', 'data', 'dgYaml', { owner: 'DSSpecification', dataFormat: 'yaml' });
+Dg('EBNFDiagram', 'EBNF 다이어그램', 'EBNF Diagram', 'data', 'dgEbnf', { owner: 'DSSpecification' });
+Dg('RegexDiagram', '정규식 다이어그램', 'Regex Diagram', 'data', 'dgRegex', { owner: 'DSSpecification' });
 
 /** Types whose new elements get no name (pseudostates, bars, fragments …). */
-export const UNNAMED = new Set(['UMLSlot', 'UMLCombinedFragment', 'UMLInteractionOperand','UMLRegion', 'UMLPseudostate', 'UMLFinalState', 'UMLInitialNode', 'UMLActivityFinalNode', 'UMLFlowFinalNode', 'UMLForkNode', 'UMLJoinNode', 'UMLDecisionNode', 'UMLMergeNode', 'UMLEndpoint', 'UMLGate', 'UMLTimeTick', 'BPMNExclusiveGateway', 'BPMNParallelGateway', 'BPMNInclusiveGateway', 'BPMNEventBasedGateway', 'BPMNComplexGateway', 'BPMNStartEvent', 'BPMNEndEvent', 'BPMNIntermediateEvent', 'BPMNBoundaryEvent', 'FCOr', 'FCSummingJunction', 'FCCollate', 'FCSort', 'FCMerge', 'FCExtract', 'UMLInputPin', 'UMLOutputPin']);
+export const UNNAMED = new Set(['UMLSlot', 'UMLCombinedFragment', 'UMLInteractionOperand','UMLRegion', 'UMLPseudostate', 'UMLFinalState', 'UMLInitialNode', 'UMLActivityFinalNode', 'UMLFlowFinalNode', 'UMLForkNode', 'UMLJoinNode', 'UMLDecisionNode', 'UMLMergeNode', 'UMLEndpoint', 'UMLGate', 'UMLTimeTick', 'BPMNExclusiveGateway', 'BPMNParallelGateway', 'BPMNInclusiveGateway', 'BPMNEventBasedGateway', 'BPMNComplexGateway', 'BPMNStartEvent', 'BPMNEndEvent', 'BPMNIntermediateEvent', 'BPMNBoundaryEvent', 'FCOr', 'FCSummingJunction', 'FCCollate', 'FCSort', 'FCMerge', 'FCExtract', 'UMLInputPin', 'UMLOutputPin', 'ArchiMateJunction']);
 
 export const DIAGRAM_FAMILIES = [
   ['uml', 'UML', 'UML'], ['erd', 'ERD', 'ERD'], ['flowchart', '순서도', 'Flowchart'], ['dfd', '데이터 흐름', 'Data Flow'],
   ['sysml', 'SysML', 'SysML'], ['bpmn', 'BPMN', 'BPMN'], ['c4', 'C4', 'C4'], ['mindmap', '마인드맵', 'Mind Map'], ['wireframe', '와이어프레임', 'Wireframe'], ['cloud', '클라우드', 'Cloud'],
+  ['project', '프로젝트 관리', 'Project Management'], ['archimate', 'ArchiMate', 'ArchiMate'], ['network', '네트워크', 'Network'], ['data', '데이터', 'Data'],
 ];
 
 /** Views that have no model element (annotations). */
@@ -352,6 +427,7 @@ export const VIEW_ONLY = {
   ImageView: { ko: '그림', en: 'Image', shape: 'image', icon: 'picture' },
   FreelineEdgeView: { ko: '자유선', en: 'Free Line', edge: true, icon: 'lineTool' },
   MMEdgeView: { ko: '가지', en: 'Branch', edge: true, icon: 'umlAssociation' },
+  WBSEdgeView: { ko: '하위 작업', en: 'Sub-item', edge: true, icon: 'wbsBranch' },
 };
 
 // ───────────────────────── where children live

@@ -24,6 +24,14 @@ import { ANIMATION_INTERVALS } from './domain/settings.js';
 import { intervalLabel } from './ui/startpage.js';
 import { IMAGE_FORMATS, IMAGE_SCALES, imageFormat, rasterSize } from './export/image-encode.js';
 import { canvasMeasure } from './views/diagram.js';
+import { backgroundLayers, diagramBackground, DIAGRAM_THEMES } from './render/notation.js';
+import { backgroundControlsHtml, backgroundValue } from './ui/diagram-background.js';
+import { REPORT_SECTIONS, REPORT_TEMPLATE_IDS, REPORT_TEMPLATES } from './domain/report.js';
+import { PLANTUML_MORE_EXAMPLES } from './domain/interop/plantuml-examples.js';
+import { DIFF_CATEGORIES, DIFF_STATUSES, diffTree } from './domain/diff.js';
+import { typeDef } from './domain/meta.js';
+import { REQUIREMENT_KINDS, REQUIREMENT_PRIORITIES, REQUIREMENT_STATUSES } from './domain/meta.js';
+import { COMMITTED_STATUSES, matrixCsv, matrixTsv, requirementsCsv } from './domain/trace.js';
 
 const desktop = native.isDesktop();
 const appWindow = desktop ? getCurrentWindow() : null;
@@ -115,8 +123,8 @@ function setOsTitle(title) {
 function frame({ glyph, title, body, foot = '', tabs = '' }) {
   setOsTitle(title);
   return `<div class="popup popup-${kind}" role="dialog" aria-labelledby="popup-title">
-    <header class="popup-head" data-tauri-drag-region data-drag-region>
-      <h2 id="popup-title" data-tauri-drag-region>${icon(glyph)}<span data-tauri-drag-region>${escapeHtml(title)}</span></h2>
+    <header class="popup-head" data-window-drag data-drag-region>
+      <h2 id="popup-title" data-window-drag>${icon(glyph)}<span data-window-drag>${escapeHtml(title)}</span></h2>
       <button class="window-button" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>
     </header>
     ${tabs}
@@ -192,6 +200,8 @@ function render() {
       settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, recent: renderRecent,
       print: renderPrint, menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, image: renderImage, database: renderDatabase,
       find: renderFind, validation: renderValidation, codegen: renderCodegen, textimport: renderTextImport, color: renderColor, prompt: renderPrompt,
+      document: renderDocument, baselines: renderBaselines, compare: renderCompare, background: renderBackground,
+      requirements: renderRequirements, tracematrix: renderTraceMatrix,
     })[kind]?.();
     alignRows();
     updateTabsNav();
@@ -524,7 +534,7 @@ export const SHORTCUT_LIST = [
   ['shortcut.arrows', 'shortcut.nudge'], ['shortcut.shiftDrag', 'shortcut.constrain'], ['shortcut.altDrag', 'shortcut.noSnap'], ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomReset'],
   ['Ctrl+Shift+W', 'action.fitDiagram'], ['shortcut.wheel', 'action.zoomIn'], ['shortcut.space', 'shortcut.pan'], ['Ctrl+PageUp / PageDown', 'action.nextDiagram'],
   ['Ctrl+Shift+G', 'action.generateCode'], ['Ctrl+Shift+R', 'action.reverse'], ['Ctrl+Shift+V', 'action.validate'], ['F5', 'action.presentation'], ['Ctrl+Tab', 'tabs.next'],
-  ['Ctrl+Shift+1 / 2', 'action.toolboxPanel'], ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'],
+  ['Ctrl+Shift+1 / 2', 'action.toolboxPanel'], ['Ctrl+J', 'action.bottomPanel'], ['Ctrl+Shift+L', 'action.language'], ['Ctrl+Shift+B', 'action.shuffleBackground'], ['Ctrl+Shift+H', 'action.startPage'], ['Ctrl+,', 'action.settings'],
   ['F11', 'action.tutorial'], ['F1', 'action.about'],
 ];
 
@@ -769,6 +779,7 @@ function settingsDiagram() {
     toggle('showShadow', t('action.showShadows'), 'shadow'),
     toggle('showQuickButtons', t('action.quickButtons'), 'quickButtons'),
     toggle('reparentOnDrop', t('settings.reparentOnDrop'), 'umlPackage'),
+    toggle('showBottomPanel', t('action.bottomPanel'), 'panelBottom'),
     toggle('autoValidate', t('settings.autoValidate'), 'validate'),
     row('save', t('settings.autoSave'), segmented('autoSaveMinutes', [0, 1, 5, 10, 30].map((m) => [String(m), m ? t('settings.minutes', { n: m }) : t('start.never')]), String(s().autoSaveMinutes))),
   ].join('');
@@ -920,6 +931,49 @@ function renderImage() {
   ready();
 }
 
+// ───────────────────────── diagram background (the editor panel has the same controls: ui/diagram-background.js)
+
+function renderBackground() {
+  const p = P();
+  if (!state.draft) {
+    state.draft = { fields: { ...(p.fields ?? {}) }, hasImage: Boolean(p.hasImage), image: '', preview: null };
+    // The drawing and the picture come by message (too big for the popup parameters).
+    action('background-request');
+  }
+  const d = state.draft;
+  const values = { ...d.fields, backgroundImage: d.hasImage ? d.image || (p.hasImage ? 'data:image/png;base64,' : '') : '' };
+  root.innerHTML = frame({
+    glyph: 'diagramBackground', title: t('bg.title'),
+    body: `<div class="bg-editor">
+      <div class="editor bg-form">${backgroundControlsHtml(values, { t, theme: p.theme, row: (label, control, cls = '', glyph = 'dot') => row(glyph, label, control, label, cls) })}</div>
+      <figure class="bg-preview-box"><figcaption>${icon('eye')}<span>${escapeHtml(t('bg.preview'))}</span><span class="muted" title="${escapeHtml(p.name ?? '')}">${escapeHtml(p.name ?? '')}</span></figcaption><div class="bg-preview">${backgroundPreviewSvg()}</div></figure>
+    </div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('background-apply', t('common.ok'), 'check', 'primary')}`,
+  });
+  ready();
+}
+
+/** The diagram drawn over the draft background (transparent parts show the checkerboard behind). */
+function backgroundPreviewSvg() {
+  const d = state.draft;
+  const preview = d?.preview;
+  if (!preview?.svg) return `<span class="muted">${icon('info')}</span>`;
+  const palette = DIAGRAM_THEMES[P().theme] ?? DIAGRAM_THEMES.classic;
+  const b = preview.bounds;
+  const bg = diagramBackground({ ...d.fields, backgroundImage: d.hasImage ? d.image : '' }, palette);
+  const back = bg ? backgroundLayers(bg, b, { id: 'preview-bg' }) : `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${escapeHtml(palette.background)}"/>`;
+  const inner = preview.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%">${back}${inner}</svg>`;
+}
+
+function setBackgroundDraft(key, raw, { redraw = true } = {}) {
+  const d = state.draft;
+  if (!d) return;
+  d.fields[key] = backgroundValue(key, raw);
+  if (redraw) render();
+  else { const box = root.querySelector('.bg-preview'); if (box) box.innerHTML = backgroundPreviewSvg(); }
+}
+
 // ───────────────────────── find (elements by name, documentation, type)
 
 const draftToggle = (key, label, glyph, checked) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-draft-toggle="${key}" ${checked ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
@@ -964,6 +1018,134 @@ function renderValidation() {
     foot: `${pager}<span class="grow"></span>${button('close', t('common.close'), 'close', 'primary')}`,
   });
   ready();
+}
+
+// ───────────────────────── requirements list (Model › Requirements)
+
+const REQ_COLUMNS = [
+  ['reqId', 'req.col.id'], ['name', 'req.col.name'], ['kind', 'req.col.kind'], ['status', 'req.col.status'], ['priority', 'req.col.priority'], ['risk', 'req.col.risk'],
+  ['verifyMethod', 'req.col.verify'], ['satisfiedBy', 'req.col.satisfied'], ['verifiedBy', 'req.col.verified'], ['derivedFrom', 'req.col.derived'],
+];
+/** Sort ranks of the ordered attributes (high before low, proposed before verified …). */
+const REQ_RANK = {
+  priority: REQUIREMENT_PRIORITIES, status: REQUIREMENT_STATUSES, risk: ['high', 'medium', 'low', ''], kind: REQUIREMENT_KINDS,
+};
+const enumText = (value) => (value ? t(`enum.${value}`, null, value) : '—');
+const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+function requirementsShown() {
+  const d = state.draft;
+  const query = String(d.text ?? '').trim().toLowerCase();
+  const rows = (state.reqRows ?? P().rows ?? []).filter((r) => (!d.status || r.status === d.status) && (!d.priority || r.priority === d.priority)
+    && (!query || [r.reqId, r.name, r.text, r.path].some((x) => String(x ?? '').toLowerCase().includes(query))));
+  const key = d.sort;
+  const rank = REQ_RANK[key];
+  const cmp = (a, b) => {
+    if (typeof a[key] === 'number') return a[key] - b[key];
+    if (rank) return rank.indexOf(a[key] ?? '') - rank.indexOf(b[key] ?? '');
+    return naturalOrder.compare(String(a[key] ?? ''), String(b[key] ?? ''));
+  };
+  return [...rows].sort((a, b) => (d.desc ? -1 : 1) * cmp(a, b) || naturalOrder.compare(a.reqId, b.reqId));
+}
+
+function renderRequirements() {
+  if (!state.draft) state.draft = { text: '', status: '', priority: '', sort: 'reqId', desc: false };
+  const d = state.draft;
+  const all = state.reqRows ?? P().rows ?? [];
+  const shown = requirementsShown();
+  const [items, pager] = paged('requirements', shown, 13);
+  const head = REQ_COLUMNS.map(([key, label]) => `<th class="${typeof all[0]?.[key] === 'number' ? 'num' : ''}"><button class="sort-head ${d.sort === key ? 'active' : ''}" data-action="req-sort" data-value="${key}" title="${escapeHtml(t('req.sortBy', { name: t(label) }))}">${escapeHtml(t(label))}${d.sort === key ? icon(d.desc ? 'chevronDown' : 'chevronUp', 'icon tiny') : ''}</button></th>`).join('');
+  const pick = (r, key, options) => `<select data-req-field="${key}" data-id="${escapeHtml(r.id)}" title="${escapeHtml(t(`field.${key}`))}" aria-label="${escapeHtml(t(`field.${key}`))}">${options.map((o) => `<option value="${o}" ${r[key] === o ? 'selected' : ''}>${escapeHtml(enumText(o))}</option>`).join('')}</select>`;
+  const count = (n, warn) => `<td class="num ${warn && !n ? 'missing' : ''}" ${warn && !n ? `title="${escapeHtml(t('req.uncovered'))}"` : ''}>${n}</td>`;
+  const body = items.map((r) => {
+    const committed = COMMITTED_STATUSES.includes(r.status) && !r.children;
+    return `<tr class="status-${escapeHtml(r.status)}">
+      <td><button class="req-link" data-action="req-select" data-value="${escapeHtml(r.id)}" title="${escapeHtml(t('req.reveal', { name: r.path }))}">${escapeHtml(r.reqId || '—')}</button></td>
+      <td class="req-name" title="${escapeHtml(r.text ? `${r.name}\n${r.text}` : r.name)}">${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(enumText(r.kind))}</td><td>${pick(r, 'status', REQUIREMENT_STATUSES)}</td><td>${pick(r, 'priority', REQUIREMENT_PRIORITIES)}</td>
+      <td>${escapeHtml(enumText(r.risk))}</td><td>${escapeHtml(enumText(r.verifyMethod))}</td>
+      ${count(r.satisfiedBy, committed)}${count(r.verifiedBy, committed)}${count(r.derivedFrom, false)}
+    </tr>`;
+  }).join('');
+  const choice = (key, options, label) => select('data-draft-select', key, [['', label], ...options.map((o) => [o, enumText(o)])], d[key], label);
+  root.innerHTML = frame({
+    glyph: 'sysmlRequirement', title: t('action.requirements'),
+    body: `<div class="editor req-editor">
+      <div class="req-filters">
+        <span class="req-search">${icon('search')}<input type="text" data-draft="text" value="${escapeHtml(d.text)}" placeholder="${escapeHtml(t('req.filterText'))}" aria-label="${escapeHtml(t('req.filterText'))}" /></span>
+        ${choice('status', REQUIREMENT_STATUSES, t('req.anyStatus'))}${choice('priority', REQUIREMENT_PRIORITIES, t('req.anyPriority'))}
+        <span class="grow"></span><span class="muted">${escapeHtml(t('req.count', { shown: shown.length, count: all.length }))}</span>
+      </div>
+      ${all.length ? `<table class="req-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<div class="muted find-hint">${icon('info')}<span>${escapeHtml(t('req.empty'))}</span></div>`}
+    </div>`,
+    foot: `${pager}<span class="grow"></span>${button('req-export', t('req.exportCsv'), 'csvFile', '', '', all.length ? '' : 'disabled')}${button('close', t('common.close'), 'close', 'primary')}`,
+  });
+  ready();
+}
+
+function exportRequirementsCsv() {
+  const text = requirementsCsv(requirementsShown(), { language: L(), label: (v) => t(`enum.${v}`, null, v) });
+  return action('save-csv', { name: `${t('action.requirements')}.csv`, text });
+}
+
+// ───────────────────────── relationship matrix (Model › Traceability Matrix)
+
+const TRACE_ROWS = 14;
+const TRACE_COLS = 14;
+
+function traceOptionsHtml(o, p) {
+  const types = [['', t('trace.anyType')], ...(p.elementTypes ?? []).map((x) => [x.type, `${x.label} (${x.count})`])];
+  const scopes = [['', t('trace.wholeProject')], ...(p.scopes ?? []).map((x) => [x.id, x.path || x.name])];
+  const rels = [['', t('trace.allRelations')], ...(p.relationTypes ?? []).map((x) => [x.type, x.label])];
+  const sel = (key, options, label) => `<select data-trace="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(o[key] ?? '') === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
+  return `<div class="trace-options">
+    <span class="trace-label">${icon('list')}${escapeHtml(t('trace.source'))}</span>${sel('sourceType', types, t('trace.sourceType'))}${sel('sourceScope', scopes, t('trace.sourceScope'))}
+    <button class="icon-button" data-action="trace-swap" title="${escapeHtml(t('trace.swap'))}" aria-label="${escapeHtml(t('trace.swap'))}">${icon('viewSwitch')}</button>
+    <span class="trace-label">${icon('columns')}${escapeHtml(t('trace.target'))}</span>${sel('targetType', types, t('trace.targetType'))}${sel('targetScope', scopes, t('trace.targetScope'))}
+  </div>
+  <div class="trace-options">
+    <span class="trace-label">${icon('link')}${escapeHtml(t('trace.relation'))}</span>${sel('relationType', rels, t('trace.relation'))}
+    <span class="trace-label">${icon('plus')}${escapeHtml(t('trace.createAs'))}</span>${segmented('direction', [['rowToCol', t('trace.rowToCol')], ['colToRow', t('trace.colToRow')]], o.direction ?? 'rowToCol', 'data-trace-segment')}
+  </div>`;
+}
+
+function renderTraceMatrix() {
+  const p = P();
+  const o = state.traceOptions ?? p.options ?? {};
+  state.traceOptions = o;
+  const m = state.traceMatrix ?? p.matrix ?? { rows: [], cols: [], cells: {}, emptyRows: [], emptyCols: [], total: 0 };
+  state.traceMatrix = m;
+  const [rows, rowPager] = paged('traceRows', m.rows, TRACE_ROWS);
+  const [cols, colPager] = paged('traceCols', m.cols, TRACE_COLS);
+  const typeName = (type) => (p.relationTypes ?? []).find((x) => x.type === type)?.label ?? type;
+  const empty = new Set(m.emptyRows);
+  const canEdit = Boolean(o.relationType);
+  const head = `<tr><th class="corner">${escapeHtml(t('trace.corner'))}</th>${cols.map((c) => `<th class="col-head ${c.count ? '' : 'empty'}" title="${escapeHtml(`${c.label}\n${c.path}`)}"><button class="trace-head" data-action="req-select" data-value="${escapeHtml(c.id)}"><span>${escapeHtml(c.label)}</span></button></th>`).join('')}<th class="sum">Σ</th></tr>`;
+  const body = rows.map((r) => `<tr class="${empty.has(r.id) ? 'empty-row' : ''}"><th class="row-head" title="${escapeHtml(`${r.label}\n${r.path}`)}"><button class="trace-head" data-action="req-select" data-value="${escapeHtml(r.id)}">${escapeHtml(r.label)}</button></th>${cols.map((c) => {
+    const list = m.cells[`${r.id}|${c.id}`] ?? [];
+    const tip = list.length ? list.map((x) => `${x.arrow} ${typeName(x.type)}`).join('\n') : canEdit ? t('trace.cellCreate', { type: typeName(o.relationType) }) : t('trace.pickType');
+    return `<td class="cell ${list.length ? 'filled' : ''}"><button data-action="trace-cell" data-row="${escapeHtml(r.id)}" data-col="${escapeHtml(c.id)}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(`${r.label} / ${c.label}: ${tip}`)}" ${canEdit ? '' : 'aria-disabled="true"'}>${escapeHtml([...new Set(list.map((x) => x.arrow))].join(''))}</button></td>`;
+  }).join('')}<td class="sum">${r.count}</td></tr>`).join('');
+  const foot = `<tr><th class="row-head sum">Σ</th>${cols.map((c) => `<td class="sum ${c.count ? '' : 'empty'}">${c.count}</td>`).join('')}<td class="sum">${m.total}</td></tr>`;
+  const grid = m.rows.length && m.cols.length ? `<div class="trace-grid"><table class="trace-table"><thead>${head}</thead><tbody>${body}${foot}</tbody></table></div>` : `<div class="muted find-hint">${icon('info')}<span>${escapeHtml(t('trace.none'))}</span></div>`;
+  root.innerHTML = frame({
+    glyph: 'table', title: t('action.traceMatrix'),
+    body: `<div class="editor trace-editor">
+      ${traceOptionsHtml(o, p)}
+      <div class="trace-status"><span class="muted">${escapeHtml(t('trace.legend'))}</span><span class="grow"></span><span class="badge ${m.emptyRows.length ? 'warn' : 'ok'}">${escapeHtml(t('trace.emptyRows', { count: m.emptyRows.length, total: m.rows.length }))}</span></div>
+      ${grid}
+    </div>`,
+    foot: `${rowPager ? `<span class="trace-pager">${icon('list', 'icon tiny')}${rowPager}</span>` : ''}${colPager ? `<span class="trace-pager">${icon('columns', 'icon tiny')}${colPager}</span>` : ''}<span class="grow"></span>${button('trace-copy', t('trace.copy'), 'copy', '', '', m.rows.length ? '' : 'disabled')}${button('trace-export', t('req.exportCsv'), 'csvFile', '', '', m.rows.length ? '' : 'disabled')}${button('close', t('common.close'), 'close', 'primary')}`,
+  });
+  ready();
+}
+
+function runTrace(patch) {
+  state.traceOptions = { ...state.traceOptions, ...patch };
+  state.pager.traceRows = 0;
+  state.pager.traceCols = 0;
+  render();
+  return action('trace-run', { options: state.traceOptions });
 }
 
 // ───────────────────────── code generation
@@ -1023,8 +1205,19 @@ const TEXT_SAMPLES = {
     state: 'stateDiagram-v2\n  [*] --> Idle\n  Idle --> Running : start\n  Running --> Idle : stop\n  Running --> [*] : quit',
   },
   plantuml: {
-    class: '@startuml\nabstract class Shape {\n  - name : String\n  + area() : double\n}\nclass Circle\ninterface Drawable\nShape <|-- Circle\nDrawable <|.. Shape\n@enduml',
-    sequence: '@startuml\nactor User\nparticipant Server\nUser -> Server : login(id)\nServer --> User : token\n@enduml',
+    class: '@startuml\npackage shapes {\n  abstract class Shape {\n    - name : String\n    {abstract} + area() : double\n  }\n  class Circle {\n    - radius : double\n  }\n  interface Drawable\n  enum Color {\n    RED\n    GREEN\n  }\n}\nclass Canvas\nShape <|-- Circle\nDrawable <|.. Shape\nCanvas "1" *-- "0..*" Shape : contains >\nShape ..> Color\nnote right of Canvas : draws shapes\n@enduml',
+    object: '@startuml\nobject "kim : Customer" as kim {\n  name = "Kim"\n}\nobject "order1 : Order" as order1 {\n  total = 120\n}\nmap Stock {\n  apples => 10\n  pears => 4\n}\nkim --> order1 : places\norder1 ..> Stock\n@enduml',
+    usecase: '@startuml\nleft to right direction\nactor Customer\nactor :Bank Clerk: as Clerk\nrectangle ATM {\n  usecase "Withdraw Cash" as UC1\n  (Check Balance) as UC2\n  (Authenticate)\n}\nCustomer --> UC1\nCustomer --> UC2\nClerk --> UC2\nUC1 ..> (Authenticate) : <<include>>\nUC2 ..> (Authenticate) : <<include>>\n@enduml',
+    sequence: '@startuml\nautonumber\nactor User\nparticipant "Web App" as Web\ndatabase DB\nUser -> Web : login(id)\nactivate Web\nWeb -> DB : find user\nDB --> Web : row\nalt found\n  Web --> User : token\nelse missing\n  Web --> User : error\nend\ndeactivate Web\nnote over User, Web : HTTPS\n@enduml',
+    activity: '@startuml\n|Customer|\nstart\n:Choose items;\n|Shop|\nif (In stock?) then (yes)\n  fork\n    :Charge card;\n  fork again\n    :Pack items;\n  end fork\n  :Ship;\nelse (no)\n  :Apologise;\nendif\nwhile (More orders?) is (yes)\n  :Process next;\nendwhile (no)\nstop\n@enduml',
+    state: '@startuml\n[*] --> Idle\nstate Running {\n  [*] --> Working\n  Working --> Paused : pause\n  Paused --> Working : resume\n}\nIdle --> Running : start [ready] / init()\nRunning --> Idle : stop\nRunning : entry / lock()\nstate check <<choice>>\nRunning --> check : done\ncheck --> [*] : [ok]\ncheck --> Idle : [retry]\n@enduml',
+    component: '@startuml\npackage "Front End" {\n  [Web UI] as UI\n}\ncomponent Orders {\n  port api\n}\ninterface REST\ndatabase "Orders DB" as DB\nOrders - REST\nUI ..> REST : use\nOrders --> DB\n@enduml',
+    deployment: '@startuml\nnode "Web Server" as web <<device>> {\n  node Tomcat <<executionEnvironment>> {\n    artifact "shop.war" as war\n  }\n}\nnode "DB Server" as dbs {\n  database PostgreSQL\n}\nweb -- dbs : JDBC\n@enduml',
+    timing: '@startuml\nrobust "Web Browser" as WB\nconcise "Web User" as WU\nWB has Idle,Processing,Waiting\n@0\nWU is Idle\nWB is Idle\n@100\nWU is Waiting\nWB is Processing\n@300\nWB is Waiting\nWB -> WU : page\n@400\nWU is Idle\nWB@100 <-> @300 : {200 ms}\n@enduml',
+    er: '@startuml\nentity Customer {\n  *id : int\n  --\n  *name : varchar(80)\n  email : varchar(120)\n}\nentity Order {\n  *id : int\n  --\n  *customer_id : int <<FK>>\n  total : decimal\n}\nCustomer ||--o{ Order : places\n@enduml',
+    mindmap: '@startmindmap\n* Shop launch\n** Products\n*** Catalogue\n*** Pricing\n** Marketing\nleft side\n** Risks\n*** Payment outage\n@endmindmap',
+    // Beyond UML: Gantt, WBS, chronology, ArchiMate, nwdiag, JSON, YAML, EBNF, regex, Salt.
+    ...PLANTUML_MORE_EXAMPLES,
   },
 };
 
@@ -1037,9 +1230,9 @@ function renderTextImport() {
     glyph: 'mermaid', title: t('textImport.title'),
     body: `<div class="editor text-import">
       ${row('mermaid', t('textImport.format'), segmented('format', [['mermaid', 'Mermaid'], ['plantuml', 'PlantUML']], d.format, 'data-draft-segment'))}
-      ${row('samples', t('textImport.samples'), Object.keys(samples).map((k) => `<button class="small-button" data-action="text-sample" data-value="${k}">${escapeHtml(t(`textImport.sample.${k}`))}</button>`).join(''))}
-      <textarea class="code-input" data-draft="text" spellcheck="false" placeholder="${escapeHtml(t('textImport.placeholder'))}">${escapeHtml(d.text)}</textarea>
-      <p class="muted">${escapeHtml(t('textImport.hint'))}</p>
+      ${row('samples', t('textImport.samples'), `<select data-text-sample title="${escapeHtml(t('textImport.samples'))}" aria-label="${escapeHtml(t('textImport.samples'))}"><option value="">${escapeHtml(t('textImport.samplePick'))}</option>${Object.keys(samples).map((k) => `<option value="${k}">${escapeHtml(t(`textImport.sample.${k}`))}</option>`).join('')}</select>`)}
+      <textarea class="code-input" data-draft="text" spellcheck="false" placeholder="${escapeHtml(t(d.format === 'plantuml' ? 'textImport.placeholderPlantUml' : 'textImport.placeholder'))}">${escapeHtml(d.text)}</textarea>
+      <p class="muted">${escapeHtml(t(d.format === 'plantuml' ? 'textImport.hintPlantUml' : 'textImport.hint'))}</p>
     </div>`,
     foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('text-apply', t('textImport.import'), 'importFile', 'primary', '', d.text.trim() ? '' : 'disabled')}`,
   });
@@ -1071,6 +1264,182 @@ function renderColor() {
   ready();
 }
 
+// ───────────────────────── generate document (templates → Word, PDF, HTML)
+
+const DOC_FORMATS = [['docx', 'Word (.docx)', 'reportWord'], ['pdf', 'PDF', 'reportPdf'], ['html', 'HTML', 'reportHtml']];
+function docSectionsOf(template) {
+  const def = REPORT_TEMPLATES[template] ?? REPORT_TEMPLATES.full;
+  return Object.fromEntries(REPORT_SECTIONS.map((section) => [section, def.sections.includes(section)]));
+}
+
+function renderDocument() {
+  const p = P();
+  if (!state.draft) {
+    const last = p.last ?? {};
+    const template = REPORT_TEMPLATES[last.template] ? last.template : 'full';
+    state.draft = {
+      scope: p.root ? 'selection' : 'all', template, sections: { ...docSectionsOf(template), ...(last.template === template ? last.sections ?? {} : {}) },
+      language: last.language ?? (L() === 'en' ? 'en' : 'ko'), format: last.format ?? 'docx',
+      title: p.title ?? '', author: p.author ?? '', version: p.version ?? '', date: p.date ?? '',
+    };
+  }
+  const d = state.draft;
+  const text = (key, label) => `<input type="text" data-doc-text="${key}" value="${escapeHtml(d[key])}" aria-label="${escapeHtml(label)}" spellcheck="false" />`;
+  const checks = REPORT_SECTIONS.map((section) => `<label class="check-row inline"><input type="checkbox" data-doc-section="${section}" ${d.sections[section] ? 'checked' : ''} /><span>${escapeHtml(t(`report.section.${section}`))}</span></label>`).join('');
+  root.innerHTML = frame({
+    glyph: 'reportWord', title: t('report.title'),
+    body: `<div class="editor document-editor">
+      ${row('umlPackage', t('report.scope'), segmented('scope', [['all', t('report.scopeAll')], ...(p.root ? [['selection', p.root.name]] : [])], d.scope, 'data-doc-seg'))}
+      ${row('template', t('report.template'), select('data-doc-select', 'template', REPORT_TEMPLATE_IDS.map((id) => [id, t(`report.template.${id}`)]), d.template, t('report.template')))}
+      ${row('list', t('report.sections'), `<span class="doc-sections">${checks}</span>`)}
+      ${row('globe', t('report.language'), segmented('language', [['ko', '한국어'], ['en', 'English']], d.language, 'data-doc-seg'))}
+      ${row('file', t('report.format'), segmented('format', DOC_FORMATS, d.format, 'data-doc-seg'))}
+      ${row('edit', t('report.docTitle'), text('title', t('report.docTitle')))}
+      ${row('user', t('report.author'), text('author', t('report.author')))}
+      ${row('tag', t('report.version'), text('version', t('report.version')))}
+      ${row('calendar', t('report.date'), text('date', t('report.date')))}
+      ${row('info', '', `<span class="muted">${escapeHtml(t('report.hint'))}</span>`)}
+    </div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.cancel'), 'close')}<button class="button primary" data-doc-action="generate" title="${escapeHtml(t('report.generate'))}">${icon(DOC_FORMATS.find((f) => f[0] === d.format)?.[2] ?? 'reportWord')}<span>${escapeHtml(t('report.generate'))}</span></button>`,
+  });
+  ready();
+}
+
+// ───────────────────────── baselines
+
+function renderBaselines() {
+  const p = P();
+  if (!state.draft) state.draft = { name: '', note: '', scope: 'all' };
+  const d = state.draft;
+  const items = (state.baselineItems?.for === p ? state.baselineItems.items : null) ?? p.baselines ?? [];
+  const when = (iso) => { try { return new Date(iso).toLocaleString(L() === 'en' ? 'en-US' : 'ko-KR'); } catch { return iso; } };
+  const iconButton = (act, id, glyph, label) => `<button class="icon-button" data-bl-action="${act}" data-value="${escapeHtml(id)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${icon(glyph)}</button>`;
+  const list = items.length ? `<div class="result-list baseline-list">${items.map((b) => `<div class="result-row baseline-row" title="${escapeHtml(b.note || b.name)}">${icon('clock')}<b>${escapeHtml(b.name)}</b><span class="muted">${escapeHtml(`${when(b.date)} · ${b.scopeName} · ${t('baseline.elements', { count: b.elements ?? 0 })}${b.note ? ` · ${b.note}` : ''}`)}</span><span class="baseline-actions">${iconButton('compare', b._id, 'viewSwitch', t('baseline.compare'))}${iconButton('export', b._id, 'exportFile', t('baseline.export'))}${iconButton('delete', b._id, 'trash', t('baseline.delete'))}</span></div>`).join('')}</div>`
+    : `<div class="muted find-hint">${icon('info')}<span>${escapeHtml(t('baseline.none'))}</span></div>`;
+  root.innerHTML = frame({
+    glyph: 'clock', title: t('baseline.title'),
+    body: `<div class="editor baseline-editor">
+      ${row('edit', t('baseline.name'), `<input type="text" data-bl-text="name" value="${escapeHtml(d.name)}" placeholder="${escapeHtml(p.suggestedName ?? '')}" aria-label="${escapeHtml(t('baseline.name'))}" />`)}
+      ${row('notes', t('baseline.note'), `<input type="text" data-bl-text="note" value="${escapeHtml(d.note)}" aria-label="${escapeHtml(t('baseline.note'))}" />`)}
+      ${row('umlPackage', t('baseline.scope'), `${segmented('scope', [['all', t('report.scopeAll')], ...(p.root ? [['selection', p.root.name]] : [])], d.scope, 'data-bl-seg')}<button class="button primary" data-bl-action="create" title="${escapeHtml(t('baseline.create'))}">${icon('plus')}<span>${escapeHtml(t('baseline.create'))}</span></button>`)}
+      ${list}
+    </div>`,
+    foot: `<button class="button" data-bl-action="compare-file" title="${escapeHtml(t('action.compareFile'))}">${icon('folderOpen')}<span>${escapeHtml(t('action.compareFile'))}</span></button><span class="grow"></span>${button('close', t('common.close'), 'close', 'primary')}`,
+  });
+  ready();
+}
+
+// ───────────────────────── compare (baseline or file ↔ current model)
+
+function currentDiff() {
+  const p = P();
+  return (state.compareDiff?.for === p ? state.compareDiff.diff : null) ?? p.diff ?? { items: [], summary: { added: 0, removed: 0, changed: 0 } };
+}
+function compareRows() {
+  const d = state.draft;
+  return diffTree(currentDiff(), { statuses: DIFF_STATUSES.filter((s) => d.show[s]), categories: DIFF_CATEGORIES.filter((c) => d.cats[c]), text: d.text });
+}
+function compareListHtml() {
+  const d = state.draft;
+  const rows = compareRows();
+  if (!rows.length) return `<div class="muted find-hint">${icon('info')}<span>${escapeHtml(t('compare.none'))}</span></div>`;
+  return rows.map((r) => `<button class="result-row cmp-row ${r.status ?? 'context'} ${d.selected === r.id ? 'selected' : ''}" data-cmp-action="select" data-value="${escapeHtml(r.id)}" style="padding-left:${8 + r.depth * 16}px" title="${escapeHtml(r.path ?? r.name)}">${icon(typeDef(r.type)?.icon ?? 'umlClass')}<b>${escapeHtml(r.name || r.typeLabel || '')}</b><span class="muted">${escapeHtml(r.status ? `${t(`compare.status.${r.status}`)}${r.renamed ? ` · ${t('compare.renamed', { name: r.oldName })}` : ''}` : '')}</span></button>`).join('');
+}
+function compareDetailHtml() {
+  const p = P();
+  const diff = currentDiff();
+  const item = diff.items.find((x) => x.id === state.draft.selected);
+  if (!item) return `<div class="muted find-hint">${icon('info')}<span>${escapeHtml(t('compare.pick'))}</span></div>`;
+  const field = (key) => t(`compare.field.${key}`, null, key);
+  const changes = item.changes.length ? `<table class="cmp-table"><thead><tr><th>${escapeHtml(t('compare.field'))}</th><th>${escapeHtml(t('compare.before'))}</th><th>${escapeHtml(t('compare.after'))}</th></tr></thead><tbody>${item.changes.map((c) => `<tr><td>${escapeHtml(field(c.field))}</td><td>${escapeHtml(c.before)}</td><td>${escapeHtml(c.after)}</td></tr>`).join('')}</tbody></table>` : '';
+  const actions = [
+    item.status !== 'removed' ? `<button class="button" data-cmp-action="reveal" data-value="${escapeHtml(item.id)}">${icon('goTo')}<span>${escapeHtml(t('compare.reveal'))}</span></button>` : '',
+    p.canRestore && item.status !== 'added' ? `<button class="button primary" data-cmp-action="restore" data-value="${escapeHtml(item.id)}">${icon('undo')}<span>${escapeHtml(t('compare.restore'))}</span></button>` : '',
+  ].join('');
+  return `<div class="cmp-head"><b>${escapeHtml(item.name || item.typeLabel)}</b><span class="badge ${item.status === 'removed' ? 'danger' : item.status === 'added' ? 'ok' : 'warn'}">${escapeHtml(t(`compare.status.${item.status}`))}</span></div>
+    <div class="muted">${escapeHtml(`${item.typeLabel} · ${item.path}`)}</div>${changes}<div class="cmp-actions">${actions}</div>`;
+}
+
+function renderCompare() {
+  const p = P();
+  if (!state.draft) state.draft = { show: { added: true, removed: true, changed: true }, cats: Object.fromEntries(DIFF_CATEGORIES.map((c) => [c, true])), text: '', selected: null };
+  const d = state.draft;
+  const summary = currentDiff()?.summary ?? { added: 0, removed: 0, changed: 0 };
+  const chip = (group, key, label) => `<label class="check-row inline"><input type="checkbox" data-cmp-toggle="${group}:${key}" ${d[group][key] ? 'checked' : ''} /><span>${escapeHtml(label)}</span></label>`;
+  root.innerHTML = frame({
+    glyph: 'viewSwitch', title: t('compare.title', { name: p.name ?? '' }),
+    body: `<div class="editor compare-editor">
+      <div class="row badges"><span class="badge ok"><span>${escapeHtml(t('compare.added', { count: summary.added }))}</span></span><span class="badge danger"><span>${escapeHtml(t('compare.removed', { count: summary.removed }))}</span></span><span class="badge warn"><span>${escapeHtml(t('compare.changed', { count: summary.changed }))}</span></span><span class="muted">${escapeHtml(p.subtitle ?? '')}</span></div>
+      ${row('filter', t('compare.filter'), `${DIFF_STATUSES.map((s) => chip('show', s, t(`compare.status.${s}`))).join('')}${DIFF_CATEGORIES.map((c) => chip('cats', c, t(`compare.category.${c}`))).join('')}`)}
+      ${row('search', t('compare.search'), `<input type="text" data-cmp-text value="${escapeHtml(d.text)}" aria-label="${escapeHtml(t('compare.search'))}" />`)}
+      <div class="compare-grid"><div class="result-list cmp-list" id="cmp-list">${compareListHtml()}</div><div class="cmp-detail" id="cmp-detail">${compareDetailHtml()}</div></div>
+    </div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.close'), 'close', 'primary')}`,
+  });
+  ready();
+}
+
+root.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-doc-seg], [data-doc-action], [data-bl-seg], [data-bl-action], [data-cmp-action]');
+  if (!target || target.disabled || !state.draft) return undefined;
+  const d = state.draft;
+  const value = target.dataset.value;
+  if (target.dataset.docSeg) { d[target.dataset.docSeg] = value; return render(); }
+  if (target.dataset.docAction === 'generate') return close({ scope: d.scope, template: d.template, sections: d.sections, language: d.language, format: d.format, title: d.title, author: d.author, version: d.version, date: d.date });
+  if (target.dataset.blSeg) { d[target.dataset.blSeg] = value; return render(); }
+  switch (target.dataset.blAction) {
+    case 'create': { const data = { name: d.name, note: d.note, scope: d.scope }; d.name = ''; d.note = ''; return action('baseline-create', data); }
+    case 'compare': return close({ action: 'compare', id: value });
+    case 'export': return action('baseline-export', { id: value });
+    case 'delete': return action('baseline-delete', { id: value });
+    case 'compare-file': return close({ action: 'compare-file' });
+    default: break;
+  }
+  switch (target.dataset.cmpAction) {
+    case 'select': {
+      d.selected = value;
+      for (const el of root.querySelectorAll('.cmp-row')) el.classList.toggle('selected', el.dataset.value === value);
+      const detail = root.querySelector('#cmp-detail');
+      if (detail) detail.innerHTML = compareDetailHtml();
+      const item = currentDiff()?.items.find((x) => x.id === value);
+      if (item?.status !== 'removed') action('compare-reveal', { id: value });
+      return undefined;
+    }
+    case 'reveal': return action('compare-reveal', { id: value });
+    case 'restore': return action('compare-restore', { id: value });
+    default: return undefined;
+  }
+});
+root.addEventListener('change', (event) => {
+  const target = event.target;
+  const d = state.draft;
+  if (!d) return undefined;
+  // Text import: an example from the list (21 for PlantUML) fills the text box.
+  if (target.matches('[data-text-sample]')) { if (target.value) { d.text = TEXT_SAMPLES[d.format][target.value]; return render(); } return undefined; }
+  if (target.dataset.docSelect === 'template') { d.template = target.value; d.sections = docSectionsOf(d.template); return render(); }
+  if (target.dataset.docSection) { d.sections[target.dataset.docSection] = target.checked; return undefined; }
+  if (target.dataset.cmpToggle) { const [group, key] = target.dataset.cmpToggle.split(':'); d[group][key] = target.checked; const list = root.querySelector('#cmp-list'); if (list) list.innerHTML = compareListHtml(); }
+  return undefined;
+});
+root.addEventListener('input', (event) => {
+  const target = event.target;
+  const d = state.draft;
+  if (!d) return;
+  if (target.dataset.docText) d[target.dataset.docText] = target.value;
+  if (target.dataset.blText) d[target.dataset.blText] = target.value;
+  if ('cmpText' in target.dataset) { d.text = target.value; const list = root.querySelector('#cmp-list'); if (list) list.innerHTML = compareListHtml(); }
+});
+function onReportHostMessage(message) {
+  if (message?.type === 'baselines' && kind === 'baselines') { state.baselineItems = { for: P(), items: Array.isArray(message.items) ? message.items : [] }; render(); }
+  if (message?.type === 'compare-diff' && kind === 'compare') {
+    state.compareDiff = { for: P(), diff: message.diff ?? { items: [], summary: { added: 0, removed: 0, changed: 0 } } };
+    if (state.draft && !state.compareDiff.diff.items.some((x) => x.id === state.draft.selected)) state.draft.selected = null;
+    render();
+  }
+}
+if (desktop) native.listen('popup-message', onReportHostMessage);
+else window.addEventListener('message', (event) => { if (event.origin === location.origin && event.data?.myumlmakerHost) onReportHostMessage(event.data); });
+
 // ───────────────────────── prompt (a name)
 
 function renderPrompt() {
@@ -1091,8 +1460,17 @@ function renderPrompt() {
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
-  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-print-segment], [data-draft-swatch], [data-pick-design], [data-pick-quick], [data-pick-color]');
+  const target = event.target.closest('[data-action], [data-setting], .menu-item, [data-theme-group], [data-pick-theme], [data-draft-segment], [data-print-segment], [data-draft-swatch], [data-pick-design], [data-pick-quick], [data-pick-color], [data-trace-segment], [data-bg], [data-bg-action]');
   if (!target || target.disabled) return undefined;
+  if (kind === 'background' && target.dataset.bg !== undefined) return setBackgroundDraft(target.dataset.bg, target.dataset.value);
+  if (kind === 'background' && target.dataset.bgAction) {
+    if (target.dataset.bgAction === 'pick') return action('background-pick');
+    Object.assign(state.draft, { hasImage: false, image: '' });
+    delete state.draft.fields.backgroundImageWidth;
+    delete state.draft.fields.backgroundImageHeight;
+    return render();
+  }
+  if (target.dataset.traceSegment) return runTrace({ [target.dataset.traceSegment]: target.dataset.value });
   if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
@@ -1159,10 +1537,25 @@ root.addEventListener('click', async (event) => {
     case 'find-run': return action('find-run', { text: d.text, matchCase: d.matchCase, whole: d.whole, documentation: d.documentation });
     case 'find-select': return action('find-select', { id: value });
     case 'validation-select': return action('validation-select', { id: value });
+    case 'req-select': return action('req-select', { id: value });
+    case 'req-sort': d.desc = d.sort === value ? !d.desc : false; d.sort = value; return render();
+    case 'req-export': return exportRequirementsCsv();
+    case 'trace-cell': return action('trace-toggle', { rowId: target.dataset.row, colId: target.dataset.col });
+    case 'trace-swap': {
+      const o = state.traceOptions ?? {};
+      return runTrace({ sourceType: o.targetType, targetType: o.sourceType, sourceScope: o.targetScope, targetScope: o.sourceScope, direction: o.direction === 'colToRow' ? 'rowToCol' : 'colToRow' });
+    }
+    case 'trace-export': {
+      const typeName = (type) => (P().relationTypes ?? []).find((x) => x.type === type)?.label ?? type;
+      return action('save-csv', { name: `${t('action.traceMatrix')}.csv`, text: matrixCsv(state.traceMatrix, { language: L(), typeName }) });
+    }
+    case 'trace-copy':
+      try { await copyText(matrixTsv(state.traceMatrix)); return action('notice', { kind: 'success', text: t('trace.copied') }); } catch (error) { return action('notice', { kind: 'error', text: `${t('error.copyFailed')}: ${native.errorText(error)}` }); }
     case 'codegen-apply': return close({ language: d.language, scope: d.scope, target: d.target, options: d.options });
     case 'text-sample': d.text = TEXT_SAMPLES[d.format][value]; return render();
     case 'text-apply': return close({ format: d.format, text: d.text });
     case 'prompt-apply': return close({ value: d.value });
+    case 'background-apply': return close({ fields: d.fields, hasImage: d.hasImage });
     default: return undefined;
   }
 });
@@ -1170,6 +1563,9 @@ root.addEventListener('click', async (event) => {
 root.addEventListener('change', (event) => {
   const target = event.target;
   const d = state.draft;
+  if (target.dataset.reqField) return action('req-set', { id: target.dataset.id, key: target.dataset.reqField, value: target.value });
+  if (kind === 'background' && target.dataset.bgInput) return setBackgroundDraft(target.dataset.bgInput, target.value);
+  if (target.dataset.trace) return runTrace({ [target.dataset.trace]: target.value });
   if (target.dataset.toggle) return update({ [target.dataset.toggle]: target.checked });
   if (target.dataset.dbText || 'dbPassword' in target.dataset) {
     const patch = target.dataset.dbText ? { [target.dataset.dbText]: target.value.trim() } : null;
@@ -1215,9 +1611,23 @@ root.addEventListener('change', (event) => {
 
 root.addEventListener('input', (event) => {
   const target = event.target;
+  // Background sliders, numbers and colours: the preview follows while dragging (the change redraws the controls).
+  if (kind === 'background' && target.dataset.bgInput) {
+    for (const twin of target.closest('.bg-slider')?.querySelectorAll('input') ?? []) if (twin !== target) twin.value = target.value;
+    return setBackgroundDraft(target.dataset.bgInput, target.value, { redraw: false });
+  }
   if (target.dataset.draft && state.draft) {
     state.draft[target.dataset.draft] = target.value;
     if (kind === 'textimport') { const btn = root.querySelector('[data-action="text-apply"]'); if (btn) btn.disabled = !target.value.trim(); }
+    if (kind === 'requirements') {
+      // The list filters as you type; the box keeps focus and caret over the redraw.
+      const caret = target.selectionStart;
+      state.pager.requirements = 0;
+      render();
+      const box = root.querySelector('[data-draft="text"]');
+      box?.focus();
+      box?.setSelectionRange(caret, caret);
+    }
   }
   if ('dbPassword' in target.dataset) state.dbPassword = target.value;
 });
@@ -1249,10 +1659,25 @@ document.addEventListener('contextmenu', (event) => {
   if (!event.target.closest('textarea, input')) event.preventDefault();
 });
 
+/**
+ * The main window (undecorated) can take the activation back by itself right after a dropdown got it.
+ * Such a loss of focus (the main window got the focus without a click or key there — app.js trackMaximized
+ * records both) is undone: the dropdown takes the focus again and stays open.
+ */
+function regainedFromMain(lostAt) {
+  if (!desktop) return false;
+  const time = (key) => { try { return Number(globalThis.localStorage?.getItem(key)) || 0; } catch { return 0; } };
+  if (time('myumlmaker.main.focus') < lostAt - 100 || time('myumlmaker.main.input') >= lostAt - 400) return false;
+  window.focus();
+  native.invoke('popup_ready').catch(() => {});
+  return true;
+}
+
 // The theme dropdown and the colour picker close when they lose focus.
 window.addEventListener('blur', () => {
-  if (kind === 'theme' && !pickerDone) setTimeout(() => { if (!document.hasFocus() && !pickerDone) { pickerDone = true; close(); } }, 120);
-  if (kind === 'color' && !colorDone) setTimeout(() => { if (!document.hasFocus() && !colorDone && !document.querySelector('[data-color-custom]:focus')) { colorDone = true; close(); } }, 200);
+  const lostAt = Date.now();
+  if (kind === 'theme' && !pickerDone) setTimeout(() => { if (!document.hasFocus() && !pickerDone && !regainedFromMain(lostAt)) { pickerDone = true; close(); } }, 150);
+  if (kind === 'color' && !colorDone) setTimeout(() => { if (!document.hasFocus() && !colorDone && !document.querySelector('[data-color-custom]:focus') && !regainedFromMain(lostAt)) { colorDone = true; close(); } }, 200);
 });
 
 // Number fields (steppers).
@@ -1265,10 +1690,21 @@ bindSteppers(root, (key, value) => {
 
 // Menus close when they lose focus (a click anywhere else).
 window.addEventListener('blur', () => {
-  if (kind === 'menu' && menuOpen) setTimeout(() => { if (!document.hasFocus()) chooseMenu(null); }, 60);
+  if (kind !== 'menu' || !menuOpen) return;
+  const lostAt = Date.now();
+  setTimeout(() => { if (!document.hasFocus() && menuOpen && !regainedFromMain(lostAt)) chooseMenu(null); }, 150);
 });
 
-// Frames: drag the popup by its header (OS windows use data-tauri-drag-region).
+// OS windows: the header moves the popup (lib.rs window_drag starts the system move loop from the cursor).
+if (desktop) {
+  root.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 || !event.target.closest?.('[data-window-drag]') || event.target.closest('button, input, select, textarea')) return;
+    event.preventDefault();
+    native.invoke('window_drag', {}).catch(() => {});
+  });
+}
+
+// Frames: drag the popup by its header.
 if (!desktop) {
   root.addEventListener('pointerdown', (event) => {
     const handle = event.target.closest('[data-drag-region]');
@@ -1309,9 +1745,33 @@ function onHostMessage(message) {
   } else if (message?.type === 'db-list' && kind === 'database') {
     state.dbItems = Array.isArray(message.items) ? message.items : [];
     render();
+  } else if (message?.type === 'req-rows' && kind === 'requirements') {
+    state.reqRows = Array.isArray(message.rows) ? message.rows : [];
+    keepFocus(render);
+  } else if (message?.type === 'trace-matrix' && kind === 'tracematrix') {
+    state.params = { ...state.params, elementTypes: message.elementTypes, relationTypes: message.relationTypes, scopes: message.scopes };
+    state.traceOptions = message.options ?? state.traceOptions;
+    state.traceMatrix = message.matrix ?? state.traceMatrix;
+    keepFocus(render);
+  } else if (message?.type === 'background-data' && kind === 'background' && state.draft) {
+    state.draft.preview = message.preview ?? null;
+    if (state.draft.hasImage) state.draft.image = String(message.image ?? '');
+    render();
+  } else if (message?.type === 'background-image' && kind === 'background' && state.draft) {
+    Object.assign(state.draft, { hasImage: true, image: String(message.image ?? '') });
+    Object.assign(state.draft.fields, { backgroundKind: 'image', backgroundImageWidth: message.width, backgroundImageHeight: message.height });
+    render();
   } else if (message?.type === 'refresh') {
     refresh();
   }
+}
+
+/** Redraws without losing the focused control (a select or the filter box being used). */
+function keepFocus(draw) {
+  const active = document.activeElement;
+  const selector = active && active !== document.body ? ['data-draft', 'data-trace', 'data-req-field', 'data-action'].map((a) => (active.hasAttribute(a) ? `[${a}="${CSS.escape(active.getAttribute(a))}"]${active.dataset.id ? `[data-id="${CSS.escape(active.dataset.id)}"]` : ''}${active.dataset.row ? `[data-row="${CSS.escape(active.dataset.row)}"][data-col="${CSS.escape(active.dataset.col)}"]` : ''}` : '')).find(Boolean) : '';
+  draw();
+  if (selector) root.querySelector(selector)?.focus();
 }
 
 function refresh() {
@@ -1325,6 +1785,9 @@ function refresh() {
   state.dbItems = null;
   state.dbResult = null;
   state.draft = null;
+  state.reqRows = null;
+  state.traceOptions = null;
+  state.traceMatrix = null;
   state.print = null;
   state.printData = null;
   if (kind === 'theme' || kind === 'color') { state.placed = false; pickerDone = false; colorDone = false; }

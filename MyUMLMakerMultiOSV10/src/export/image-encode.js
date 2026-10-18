@@ -20,6 +20,16 @@ export function rasterSize(width, height, scale) {
   return { width: Math.max(1, Math.round(width * factor)), height: Math.max(1, Math.round(height * factor)), factor };
 }
 
+/** Longest side of a diagram background picture: larger pictures are scaled down when they are chosen. */
+export const BACKGROUND_IMAGE_MAX = 2560;
+
+/** A picture's size scaled down (never up) so that no side passes `max`: { width, height, scaled }. */
+export function fitWithin(width, height, max = BACKGROUND_IMAGE_MAX) {
+  const w = Math.max(1, Number(width) || 1); const h = Math.max(1, Number(height) || 1);
+  const factor = Math.min(1, max / Math.max(w, h));
+  return { width: Math.max(1, Math.round(w * factor)), height: Math.max(1, Math.round(h * factor)), scaled: factor < 1 };
+}
+
 /**
  * 32-bit BMP (BITMAPV4HEADER with an alpha mask) from RGBA pixels, top row first.
  * Rows are stored bottom-up as BGRA.

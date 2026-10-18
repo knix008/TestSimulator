@@ -3,10 +3,10 @@
 //   npm test                          all categories (installer build excluded)
 //   npm test -- --only js,rust        just those
 //   npm test -- --skip desktop        everything except those
-//   npm test -- --quick               js + package + rust (no app window, no browser)
+//   npm test -- --quick               js + conformance + package + rust (no app window, no browser)
 //   npm test -- --installer           also build the Windows installer and check it
 //
-// Categories: js · package · rust · db · web · desktop · tutorial · installer
+// Categories: js · conformance · package · rust · db · web · desktop · tutorial · installer
 // While running, each test is printed as it finishes (✔ ✖ ○ + time, coloured).
 // At the end every category is listed with its tests aligned in columns
 // (failures first, then slowest first) and a summary table follows. The full
@@ -18,6 +18,7 @@
 // server that test is skipped; without a PostgreSQL URL a temporary PostgreSQL server is started.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { run } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -33,13 +34,14 @@ const c = {
 
 const CATEGORIES = [
   { id: 'js', title: 'JS 단위 테스트', subtitle: '메타모델 · 모델/뷰 편집 · 도구 상자 · 렌더링 · 레이아웃 · 형식 · StarUML/Mermaid/PlantUML · 코드 생성 · 역공학 · 검증 · 문서 · 번역 · 아이콘', tint: c.cyan, run: runJs('unit') },
-  { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 설정 초기화(사용자 데이터 유지) · 재설치 · 문서 포함', tint: c.purple, run: runJs('static') },
-  { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · 단일 실행 잠금', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
+  { id: 'conformance', title: '기능 비교 (StarUML · Enterprise Architect · PlantUML)', subtitle: '각 도구의 다이어그램과 기능을 하나씩 확인', tint: c.teal, run: runJs('conformance') },
+  { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 사용자 데이터 삭제 질문 · 기존 설치 완전 제거 · 여러 실행 · 문서 포함', tint: c.purple, run: runJs('static') },
+  { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · 여러 실행(첫 실행 판별 · 창 비켜 열기)', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
   { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL 서버 (test/db.local.json) · 임시 PostgreSQL 서버 · 프로젝트 저장/읽기/목록/삭제', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
   { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
   { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱 실행 후 메뉴·툴바·팝업·다이어그램·모델 탐색기·파일·인쇄·설정 조작 (CDP + Win32)', tint: c.yellow, run: runDesktop },
   { id: 'tutorial', title: '튜토리얼', subtitle: '실제 앱에서 튜토리얼의 모든 단계를 실행 (오류 없음)', tint: c.teal, run: runTutorial },
-  { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사', tint: c.orange, run: runInstaller, optIn: true },
+  { id: 'installer', title: '설치 프로그램', subtitle: 'npm run build:win → NSIS 설치 파일 검사 · 설치 훅을 가짜 설치본에 실행', tint: c.orange, run: runInstaller, optIn: true },
 ];
 
 // ───────────────────────── arguments
@@ -54,7 +56,7 @@ const listArg = (name) => {
 let selected = CATEGORIES.filter((category) => !category.optIn || args.includes('--installer')).map((category) => category.id);
 const only = listArg('only');
 const skip = listArg('skip');
-if (args.includes('--quick')) selected = ['js', 'package', 'rust'];
+if (args.includes('--quick')) selected = ['js', 'conformance', 'package', 'rust'];
 if (only) selected = CATEGORIES.map((category) => category.id).filter((id) => only.has(id));
 if (skip) selected = selected.filter((id) => !skip.has(id));
 
@@ -143,12 +145,14 @@ function runJs(folder) {
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
       const data = event.data;
       if (data.details?.type === 'suite' || data.nesting > 0) continue;
-      const error = event.type === 'test:fail' ? data.details?.error : null;
+      // A { todo } test is a feature not done yet: listed (yellow, with its reason), never a failure.
+      const todo = data.todo ? `TODO${typeof data.todo === 'string' ? `: ${data.todo}` : ''}` : null;
+      const error = event.type === 'test:fail' && !todo ? data.details?.error : null;
       report({
         name: data.name,
         group: path.basename(data.file ?? '', '.test.js'),
-        ok: event.type === 'test:pass',
-        skipped: Boolean(data.skip),
+        ok: event.type === 'test:pass' || Boolean(todo),
+        skipped: data.skip ? (typeof data.skip === 'string' ? data.skip : true) : todo ?? false,
         ms: data.details?.duration_ms ?? 0,
         error: error ? String(error.cause?.message ?? error.message ?? error) : null,
       });
@@ -262,7 +266,10 @@ function exec(command, commandArgs, options = {}) {
 }
 
 async function runCases(report, cases, context, label) {
+  // MYUMLMAKER_E2E_ONLY=<regex>: only the cases whose "group name" matches (while working on a few).
+  const only = process.env.MYUMLMAKER_E2E_ONLY ? new RegExp(process.env.MYUMLMAKER_E2E_ONLY) : null;
   for (const testCase of cases) {
+    if (only && !only.test(`${testCase.group ?? ''} ${testCase.name}`)) continue;
     spin(`${label} · ${testCase.group ? `${testCase.group} › ` : ''}${testCase.name}`);
     const start = performance.now();
     try {
@@ -361,13 +368,58 @@ async function runInstaller(report) {
     if (!/!define INSTALLERICON ".*[\\/]icons[\\/]icon\.ico"/.test(nsi) || !nsi.includes('!define MUI_ICON "${INSTALLERICON}"')) throw new Error('INSTALLERICON');
   });
   check('파일 형식 등록: .myuml / .mumlt', () => {
-    for (const part of ['APP_ASSOCIATE "myuml" "MyUMLMaker.Drawing"', 'APP_ASSOCIATE "mumlt" "MyUMLMaker.Template"']) if (!nsi.includes(part)) throw new Error(part);
+    for (const part of ['APP_ASSOCIATE "myuml" "MyUMLMaker.Project"', 'APP_ASSOCIATE "mumlt" "MyUMLMaker.Template"']) if (!nsi.includes(part)) throw new Error(part);
   });
-  check('문서 아이콘 파일 설치 (drawing.ico, template.ico)', () => { for (const part of ['"/oname=drawing.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
-  check('설치 훅: 설정 초기화(사용자 데이터 유지) · 이전 설치 완전 제거 · 문서 아이콘 · 설명서 바로 가기', () => {
-    if (!/!include ".*hooks\.nsh"/.test(nsi)) throw new Error('hooks.nsh not included');
-    for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL']) if (!nsi.includes(part)) throw new Error(part);
+  check('문서 아이콘 파일 설치 (project.ico, template.ico)', () => { for (const part of ['"/oname=project.ico"', '"/oname=template.ico"']) if (!nsi.includes(part)) throw new Error(part); });
+  check('설치 훅: 이전 설치 완전 제거 · 사용자 데이터 삭제 질문 · 설정 초기화 · 문서 아이콘 · 설명서 바로 가기', () => {
+    const include = /!include "(.*hooks\.nsh)"/.exec(nsi);
+    if (!include) throw new Error('hooks.nsh not included');
+    for (const part of ['!insertmacro NSIS_HOOK_PREINSTALL', '!insertmacro NSIS_HOOK_POSTINSTALL', '!insertmacro NSIS_HOOK_POSTUNINSTALL']) if (!nsi.includes(part)) throw new Error(part);
+    // The question runs from MUI's .onGUIInit: the hooks (and their GUIINIT define) must come before the pages.
+    if (nsi.indexOf(include[0]) > nsi.indexOf('!insertmacro MUI_PAGE_WELCOME')) throw new Error('hooks.nsh is included after the first page');
+    if (nsi.indexOf(include[0]) > nsi.indexOf('!insertmacro MUI_LANGUAGE "Korean"')) throw new Error('hooks.nsh is included after the languages');
+    const hooks = fs.readFileSync(include[1]);
+    if (hooks[0] !== 0xef || hooks[1] !== 0xbb || hooks[2] !== 0xbf) throw new Error('hooks.nsh lost its UTF-8 BOM');
+    const text = hooks.toString();
+    if (!text.includes('!define MUI_CUSTOMFUNCTION_GUIINIT MumGuiInit')) throw new Error('GUIINIT');
+    // The data folders the hooks delete are the app's (identifier = BUNDLEID).
+    const id = /!define BUNDLEID "([^"]+)"/.exec(nsi)?.[1];
+    if (!id || !text.includes(`"$APPDATA\\${id}"`) || !text.includes(`"$LOCALAPPDATA\\${id}"`)) throw new Error(`data folders of ${id}`);
+    // Its registry keys are the template's.
+    for (const [define, mine] of [['UNINSTKEY', 'MUM_UNKEY'], ['MANUPRODUCTKEY', 'MUM_PRODKEY']]) {
+      const value = /!define (\w+) "([^"]+)"/g;
+      const defines = Object.fromEntries([...nsi.matchAll(value)].map((m) => [m[1], m[2]]));
+      const expand = (v) => v.replace(/\$\{(\w+)\}/g, (_, k) => expand(defines[k] ?? ''));
+      const ours = new RegExp(`!define /IfNDef ${mine} "([^"]+)"`).exec(text)?.[1];
+      if (expand(defines[define] ?? '') !== ours) throw new Error(`${mine} "${ours}" ≠ ${define} "${expand(defines[define] ?? '')}"`);
+    }
+    // Running copies (any number) are closed by the template too, before files are replaced.
+    if (!nsi.includes('!insertmacro CheckIfAppIsRunning "$INSTDIR\\${MAINBINARYNAME}.exe"')) throw new Error('CheckIfAppIsRunning');
   });
+  // The generated script compiled again on its own, to see makensis warnings (Tauri hides them).
+  const t0 = performance.now();
+  const nsisDir = path.join(root, 'src-tauri', 'target', 'release', 'nsis', 'x64');
+  const { findMakensis, runHookCases } = await import(pathToFileURL(path.join(root, 'test', 'installer', 'hooks-cases.mjs')).href);
+  const makensis = findMakensis();
+  if (makensis) {
+    spin('설치 스크립트 경고 확인 (makensis)…');
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'myumlmaker-nsis-'));
+    for (const file of fs.readdirSync(nsisDir)) if (fs.statSync(path.join(nsisDir, file)).isFile()) fs.copyFileSync(path.join(nsisDir, file), path.join(scratch, file));
+    const compiled = await exec(makensis, ['-V2', path.join(scratch, 'installer.nsi')]);
+    const warnings = compiled.output.split(/\r?\n/).filter((line) => /warning/i.test(line) && /hooks\.nsh|Mum/i.test(line));
+    report({ name: 'makensis: 생성된 설치 스크립트가 경고 없이 다시 컴파일됨 (hooks.nsh)', group: '설치 파일', ok: compiled.code === 0 && warnings.length === 0, ms: performance.now() - t0, error: compiled.code ? compiled.output.split('\n').slice(-15).join('\n') : warnings.join('\n') || null });
+    fs.rmSync(scratch, { recursive: true, force: true });
+    // The hook logic against a fake installation (never the real installer, never the user's data).
+    spin('설치 훅을 가짜 설치본에 실행 중…');
+    try {
+      await runHookCases(async (name, fn) => {
+        const t1 = performance.now();
+        try { await fn(); report({ name, group: '설치 훅', ok: true, ms: performance.now() - t1 }); } catch (error) { report({ name, group: '설치 훅', ok: false, ms: performance.now() - t1, error: error.message }); }
+      });
+    } catch (error) {
+      report({ name: '설치 훅 검사 준비', group: '설치 훅', ok: false, ms: 0, error: error.message });
+    }
+  }
   check('문서 포함: 사용 설명서 · 튜토리얼 · 예제 드로잉', () => {
     for (const part of ['UsersGuide.html', 'UsersGuide.en.html', 'Tutorial.html', 'Tutorial.en.html', 'online-shop.ko.myuml']) if (!nsi.includes(part)) throw new Error(`${part} is not in the installer`);
   });

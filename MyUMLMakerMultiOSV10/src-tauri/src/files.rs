@@ -9,9 +9,10 @@ use std::time::Duration;
 
 pub const CHUNK: usize = 1 << 20;
 
-/// Extensions the app opens: projects, templates, StarUML projects and fragments, JSON.
+/// Extensions the app opens: projects, templates, StarUML projects and fragments, JSON,
+/// XMI 2.x (Enterprise Architect, MagicDraw, Papyrus).
 /// "muml" is the extension of version 1.0 projects; they still open.
-pub const DIAGRAM_EXTENSIONS: [&str; 6] = ["myuml", "mumlt", "muml", "mdj", "mfj", "json"];
+pub const DIAGRAM_EXTENSIONS: [&str; 7] = ["myuml", "mumlt", "muml", "mdj", "mfj", "json", "xmi"];
 
 /// Test hook: `MYUMLMAKER_IO_DELAY_MS` slows every chunk so the progress window can be checked.
 fn chunk_delay() -> Option<Duration> {

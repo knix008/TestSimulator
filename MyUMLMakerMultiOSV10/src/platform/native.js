@@ -40,6 +40,8 @@ export async function appInfo() {
 
 export const setBackendLanguage = (language) => (isDesktop() ? invoke('set_language', { language }).catch(() => {}) : Promise.resolve());
 export const startupFiles = () => (isDesktop() ? invoke('startup_files') : Promise.resolve([]));
+/** { first, others }: several copies may run; only the first restores and keeps the session. */
+export const instanceInfo = () => (isDesktop() ? invoke('instance_info') : Promise.resolve({ first: true, others: 0 }));
 
 // ───────────────────────── events between windows
 
@@ -57,10 +59,11 @@ export const writeTextFile = (path, content, op) => invoke('write_text_file', { 
 export const pathsExist = (paths) => (isDesktop() ? invoke('paths_exist', { paths }) : Promise.resolve(paths.map(() => true)));
 
 const DIAGRAM_FILTERS = () => [
-  { name: 'MyUMLMaker / StarUML (*.myuml, *.mumlt, *.mdj)', extensions: ['myuml', 'mumlt', 'muml', 'mdj', 'json'] },
+  { name: 'MyUMLMaker / StarUML / XMI (*.myuml, *.mumlt, *.mdj, *.xmi)', extensions: ['myuml', 'mumlt', 'muml', 'mdj', 'json', 'xmi', 'xml', 'uml'] },
   { name: 'MyUMLMaker Project (*.myuml)', extensions: ['myuml'] },
   { name: 'MyUMLMaker Template (*.mumlt)', extensions: ['mumlt'] },
   { name: 'StarUML Project (*.mdj)', extensions: ['mdj'] },
+  { name: 'XMI 2.x — Enterprise Architect, MagicDraw, Papyrus (*.xmi, *.xml, *.uml)', extensions: ['xmi', 'xml', 'uml'] },
   { name: 'JSON (*.json)', extensions: ['json'] },
 ];
 /** Save types: the drawing, a template, StarUML, pictures, documents. */
@@ -69,6 +72,7 @@ export const SAVE_TYPES = {
   mumlt: { name: 'MyUMLMaker Template (*.mumlt)', extensions: ['mumlt'] },
   mdj: { name: 'StarUML Project (*.mdj)', extensions: ['mdj'] },
   mfj: { name: 'Model Fragment (*.mfj)', extensions: ['mfj'] },
+  xmi: { name: 'XMI 2.x (*.xmi, *.xml, *.uml)', extensions: ['xmi', 'xml', 'uml'] },
   mmd: { name: 'Mermaid (*.mmd)', extensions: ['mmd'] },
   puml: { name: 'PlantUML (*.puml)', extensions: ['puml'] },
   sql: { name: 'SQL (*.sql)', extensions: ['sql'] },
@@ -168,7 +172,7 @@ export const sampleFiles = () => (isDesktop() ? invoke('sample_files') : Promise
 
 export const hasFileSystemAccess = () => typeof globalThis.showOpenFilePicker === 'function';
 
-const WEB_TYPES = [{ description: 'MyUMLMaker / StarUML', accept: { 'application/json': ['.myuml', '.mumlt', '.muml', '.mdj', '.json'] } }];
+const WEB_TYPES = [{ description: 'MyUMLMaker / StarUML / XMI', accept: { 'application/json': ['.myuml', '.mumlt', '.muml', '.mdj', '.json'], 'application/xml': ['.xmi', '.xml', '.uml'] } }];
 const isBinaryName = () => false;
 const readContent = async (file) => (isBinaryName(file.name) ? new Uint8Array(await file.arrayBuffer()) : file.text());
 
@@ -187,7 +191,7 @@ export async function pickDiagramFilesWeb() {
       return { name: file.name, content: await readContent(file), handle, size: file.size };
     }));
   }
-  const files = await pickWithInput('.myuml,.mumlt,.muml,.mdj,.json,application/json', true);
+  const files = await pickWithInput('.myuml,.mumlt,.muml,.mdj,.json,.xmi,.xml,.uml,application/json', true);
   return Promise.all(files.map(async (file) => ({ name: file.name, content: await readContent(file), handle: null, size: file.size })));
 }
 

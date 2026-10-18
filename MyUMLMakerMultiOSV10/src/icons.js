@@ -53,6 +53,10 @@ const base = {
   panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
   statusBar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16h18"/>',
+  // Bottom panel (Problems): a window with a tall bottom part holding a warning mark.
+  panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/><path d="M12 14.2v2.4"/><circle cx="12" cy="18.2" r="0.4"/>',
+  // A problem list: a triangle with "!" and two lines.
+  problems: '<path d="M7 3l5 9H2z"/><path d="M7 6.5v2.3M7 10.4v.1"/><path d="M14 6h7M14 11h7M3 16h18M3 20h12"/>',
   palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.6-1.3-.6-2.1 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="14.5" cy="7" r="1.2"/>',
   dice: '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.1" fill="currentColor"/>',
   chevronDown: '<path d="M5 9l7 7 7-7"/>',
@@ -77,6 +81,11 @@ const base = {
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7 14h10"/>',
   bug: '<rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7v13M9 4l1.5 3M15 4l-1.5 3M3 13h4M17 13h4M4 8l3 2M20 8l-3 2M4 19l3-2M20 19l-3-2"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  // Window buttons in the menu bar row (the app has no system title bar).
+  winMinimize: '<path d="M6 12.5h12"/>',
+  winMaximize: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+  winRestore: '<rect x="5.5" y="8.5" width="10" height="10" rx="1"/><path d="M8.5 8.5V6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2"/>',
+  winClose: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   clear: '<path d="M4 20h16"/><path d="M7 16l9.5-9.5a2.1 2.1 0 0 0-3-3L4 13l3 3z"/>',
   chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
   chevronRight: '<path d="M9 5l7 7-7 7"/>',
@@ -297,6 +306,12 @@ const base = {
   alignMenu: '<path d="M4 4h16M4 20h16"/><rect x="6" y="8" width="5" height="8" rx="1"/><rect x="13" y="10" width="5" height="4" rx="1"/>',
   backgroundMenu: '<rect x="7" y="3" width="13" height="15" rx="1.5" stroke-dasharray="2.5 2"/><rect x="4" y="7" width="11" height="14" rx="1.5"/><path d="M7 17l3-3 2 2 2-2"/>',
   textBox: '<rect x="3" y="5" width="18" height="14" rx="1.5" stroke-dasharray="3 2"/><path d="M8 9h8M12 9v7"/>',
+  // A diagram's own background: a sheet with a hatched backdrop behind a box.
+  diagramBackground: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9l6-6M3 15L15 3M3 21L21 3M9 21l12-12M15 21l6-6" stroke-width="1" opacity="0.55"/><rect x="8" y="9" width="8" height="6" rx="1" fill="var(--surface, #fff)"/>',
+  // ── XMI (Enterprise Architect, MagicDraw, Papyrus): angle brackets with an arrow in / out, or a model box
+  xmiImport: '<path d="M6 9l-3 3 3 3M12 9l3 3-3 3"/><path d="M10 7l-2 10"/><path d="M20 3v8M17 8l3 3 3-3"/>',
+  xmiExport: '<path d="M6 9l-3 3 3 3M12 9l3 3-3 3"/><path d="M10 7l-2 10"/><path d="M20 11V3M17 6l3-3 3 3"/>',
+  xmiModelExport: '<path d="M6 13l-3 3 3 3M12 13l3 3-3 3"/><path d="M10 11l-2 10"/><rect x="15" y="3" width="6" height="5" rx="1"/><path d="M18 8v3"/>',
 };
 const paths = { ...base, ...UML_ICONS };
 

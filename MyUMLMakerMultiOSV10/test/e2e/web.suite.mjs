@@ -251,7 +251,10 @@ export const cases = [
     for (const type of types) report.push(...await W(app, `(() => {
       const out = [];
       { const type = ${JSON.stringify(type)};
-        a.addDiagram(type);
+        // A project per type: one project with every diagram would make each later drawing slower.
+      for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true });
+      a.newProject('blank');
+      a.addDiagram(type);
         let i = 0;
         for (const [, , , tools] of w.domain.toolboxFor(type)) for (const tool of tools) {
           if (tool.kind !== 'node' || /Pin$/.test(tool.type)) continue;
@@ -298,11 +301,12 @@ export const cases = [
     const s2 = await viewAt(app, '학생');
     assert.ok(p2.box.x < s2.box.x);
   } },
-  { group: '팝업', name: '팝업은 스크롤 없이 그려짐 (설정 모든 탭·찾기·검증·코드 생성·텍스트 가져오기·그림·인쇄·정보)', async run(app) {
+  { group: '팝업', name: '팝업은 스크롤 없이 그려짐 (설정 모든 탭·찾기·검증·코드 생성·텍스트 가져오기·그림·인쇄·정보·요구사항·추적·문서·기준선·배경), 배경 무늬 적용', async run(app) {
     await freshSample(app);
     const open = [
       ['settings', `w.popups.open('settings', { tab: 'general' })`], ['find', `w.run('find')`], ['validation', `w.popups.open('validation', { title: 'x', problems: [{ id: '', severity: 'warning', name: 'a', message: { ko: '경고', en: 'warning' } }] })`],
       ['codegen', `w.run('generateCode')`], ['textimport', `w.run('importText')`], ['image', `w.run('exportImage')`], ['print', `w.run('print')`], ['about', `w.run('about')`],
+      ['requirements', `w.run('requirements')`], ['tracematrix', `w.run('traceMatrix')`], ['document', `w.run('generateDocument')`], ['baselines', `w.run('baselines')`], ['background', `w.run('diagramBackground')`],
     ];
     for (const [kind, js] of open) {
       await closeFrames(app);
@@ -311,6 +315,19 @@ export const cases = [
       await sleep(kind === 'codegen' || kind === 'print' ? 900 : 250);
       assert.deepEqual(await app.frame(kind, FRAME_SCROLL_CHECK), [], `${kind}: no scroll bars`);
     }
+    // Diagram background: pattern picked in the frame, OK → the canvas draws it; one undo step.
+    await closeFrames(app);
+    await W(app, `(w.run('diagramBackground'), 1)`);
+    await app.waitFrame('background');
+    await app.frame('background', `(document.querySelector('[data-bg="backgroundKind"][data-value="pattern"]').click(), 1)`);
+    await app.waitFrame('background', `document.querySelector('.bg-pattern[data-value="dots"]')`);
+    await app.frame('background', `(document.querySelector('.bg-pattern[data-value="dots"]').click(), 1)`);
+    assert.deepEqual(await app.frame('background', FRAME_SCROLL_CHECK), [], 'background (pattern): no scroll bars');
+    await app.frame('background', `(document.querySelector('[data-action="background-apply"]').click(), 1)`);
+    await app.main.waitFor(`Boolean(document.querySelector('#view-host .bg-layer pattern'))`, { timeout: 5000, message: 'the canvas draws the pattern' });
+    assert.equal(await W(app, 'api.diagram().backgroundPattern'), 'dots');
+    await W(app, '(a.undo(), 1)');
+    assert.equal(await W(app, 'api.diagram().backgroundKind ?? ""'), '', 'one undo step');
     for (const tab of ['start', 'appearance', 'font', 'background', 'diagram', 'database', 'recent', 'shortcuts']) {
       await app.frame('settings', `(window.__myumlmakerPopup.state.tab = ${JSON.stringify(tab)}, window.__myumlmakerPopup.render(), 1)`).catch(() => {});
     }
@@ -359,7 +376,7 @@ export const cases = [
     await freshProject(app);
     await W(app, `(w.run('importText'), 1)`);
     await app.waitFrame('textimport');
-    await app.frame('textimport', `(document.querySelector('[data-action="text-sample"][data-value="sequence"]').click(), 1)`);
+    await app.frame('textimport', `(() => { const s = document.querySelector('select[data-text-sample]'); s.value = 'sequence'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     await app.waitFrame('textimport', `!document.querySelector('[data-action="text-apply"]').disabled`);
     await app.frame('textimport', `(document.querySelector('[data-action="text-apply"]').click(), 1)`);
     await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === 'UMLSequenceDiagram'`);

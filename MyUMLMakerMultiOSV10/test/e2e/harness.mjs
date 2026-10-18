@@ -4,7 +4,7 @@
 // - Vite serves the UI on :1450 (reused when a dev server already runs there).
 // - The app runs with its own WebView2 profile, config and data folders, so the
 //   user's settings, recent files and any installed MyUMLMaker are untouched.
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -89,7 +89,7 @@ export class App {
     delete this.env.ELECTRON_RUN_AS_NODE;
     this.process = spawn(exe, args, { cwd: root, env: this.env, stdio: 'ignore' });
     this.exited = new Promise((resolve) => this.process.once('exit', resolve));
-    const target = await waitTarget(this.port, (item) => item.type === 'page' && !String(item.title).startsWith('popup-'), 40000);
+    const target = await waitTarget(this.port, (item) => item.type === 'page' && !String(item.title).startsWith('popup-'), 60000);
     this.main = await new Page(target).open();
     const ready = `Boolean(window.__myumlmaker && document.querySelector('#toolbar .tool-button') && document.querySelector('#statusbar .status-notice'))`;
     try {
@@ -155,17 +155,48 @@ export class App {
     return (await this.targets()).some((item) => item.title === `popup-${kind}`);
   }
 
-  /** Window rectangle and visibility of a window of this process, by title (Windows). */
-  windowInfo(titlePrefix) {
-    const script = `[Console]::OutputEncoding=[Text.Encoding]::UTF8;Add-Type -TypeDefinition 'using System;using System.Text;using System.Runtime.InteropServices;public static class W{public delegate bool P(IntPtr h,IntPtr l);[DllImport("user32.dll")]public static extern bool EnumWindows(P p,IntPtr l);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern int GetWindowText(IntPtr h,StringBuilder s,int n);[DllImport("user32.dll")]public static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);[DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern IntPtr GetWindow(IntPtr h,uint c);[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern bool GetClientRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern bool GetLayeredWindowAttributes(IntPtr h,out uint k,out byte a,out uint f);public struct R{public int L,T,Rt,B;}}';
-$pid0=${this.process.pid};$out=@();[W]::EnumWindows({param($h,$l) $p=0;[void][W]::GetWindowThreadProcessId($h,[ref]$p); if($p -eq $pid0){$sb=New-Object System.Text.StringBuilder 256;[void][W]::GetWindowText($h,$sb,256);$r=New-Object W+R;[void][W]::GetWindowRect($h,[ref]$r);$k=0;$a=[byte]255;$f=0;$ex=[W]::GetWindowLong($h,-20);$st=[W]::GetWindowLong($h,-16);if($ex -band 0x80000){[void][W]::GetLayeredWindowAttributes($h,[ref]$k,[ref]$a,[ref]$f)};$script:out+=[pscustomobject]@{title=$sb.ToString();visible=[W]::IsWindowVisible($h);left=$r.L;top=$r.T;right=$r.Rt;bottom=$r.B;owner=[int64][W]::GetWindow($h,4);handle=[int64]$h;layered=[bool]($ex -band 0x80000);alpha=[int]$a;style=[int64]$st}};$true},[IntPtr]::Zero)|Out-Null;$out|ConvertTo-Json -Compress`;
-    const text = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true }).toString('utf8').trim();
+  /**
+   * Runs PowerShell in ONE long-lived hidden process (started on first use). A new powershell.exe per
+   * probe can take the foreground for a moment, and a menu window closes when it loses the focus.
+   */
+  shell(script) {
+    if (!this.psProc || this.psProc.exitCode != null) {
+      this.psProc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '-'], { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+      this.psProc.stdout.setEncoding('utf8');
+      this.psBuffer = '';
+      this.psQueue = Promise.resolve();
+      this.psProc.stdout.on('data', (chunk) => { this.psBuffer += chunk; this.psWake?.(); });
+      this.psProc.stdin.write('[Console]::OutputEncoding=[Text.Encoding]::UTF8\n');
+    }
+    const run = this.psQueue.then(() => new Promise((resolve) => {
+      const marker = `@@end${Math.random().toString(36).slice(2)}@@`;
+      const check = () => {
+        const at = this.psBuffer.indexOf(marker);
+        if (at < 0) return;
+        const out = this.psBuffer.slice(0, at);
+        this.psBuffer = this.psBuffer.slice(at + marker.length).replace(/^\r?\n/, '');
+        this.psWake = null;
+        resolve(out.trim());
+      };
+      this.psWake = check;
+      this.psProc.stdin.write(`${script.replace(/\r?\n/g, ';')}\nWrite-Output '${marker}'\n`);
+    }));
+    this.psQueue = run.catch(() => {});
+    return run;
+  }
+
+  /** Window rectangle and visibility of the windows of this process, by title (Windows). */
+  async windowInfo(titlePrefix) {
+    const script = `if (-not ('W' -as [type])) { Add-Type -TypeDefinition 'using System;using System.Text;using System.Runtime.InteropServices;public static class W{public delegate bool P(IntPtr h,IntPtr l);[DllImport("user32.dll")]public static extern bool EnumWindows(P p,IntPtr l);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern int GetWindowText(IntPtr h,StringBuilder s,int n);[DllImport("user32.dll")]public static extern uint GetWindowThreadProcessId(IntPtr h,out uint p);[DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);[DllImport("user32.dll")]public static extern bool IsIconic(IntPtr h);[DllImport("user32.dll")]public static extern bool IsZoomed(IntPtr h);[DllImport("user32.dll")]public static extern IntPtr GetForegroundWindow();[DllImport("user32.dll")]public static extern bool GetWindowRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern IntPtr GetWindow(IntPtr h,uint c);[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern bool GetClientRect(IntPtr h,out R r);[DllImport("user32.dll")]public static extern bool GetLayeredWindowAttributes(IntPtr h,out uint k,out byte a,out uint f);public struct R{public int L,T,Rt,B;}}' }
+$pid0=${this.process.pid};$out=@();[W]::EnumWindows({param($h,$l) $p=0;[void][W]::GetWindowThreadProcessId($h,[ref]$p); if($p -eq $pid0){$sb=New-Object System.Text.StringBuilder 256;[void][W]::GetWindowText($h,$sb,256);$r=New-Object W+R;[void][W]::GetWindowRect($h,[ref]$r);$k=0;$a=[byte]255;$f=0;$ex=[W]::GetWindowLong($h,-20);$st=[W]::GetWindowLong($h,-16);if($ex -band 0x80000){[void][W]::GetLayeredWindowAttributes($h,[ref]$k,[ref]$a,[ref]$f)};$script:out+=[pscustomobject]@{title=$sb.ToString();visible=[W]::IsWindowVisible($h);left=$r.L;top=$r.T;right=$r.Rt;bottom=$r.B;owner=[int64][W]::GetWindow($h,4);handle=[int64]$h;layered=[bool]($ex -band 0x80000);alpha=[int]$a;style=[int64]$st;iconic=[W]::IsIconic($h);zoomed=[W]::IsZoomed($h);foreground=([W]::GetForegroundWindow() -eq $h)}};$true},[IntPtr]::Zero)|Out-Null;$out|ConvertTo-Json -Compress`;
+    const text = await this.shell(script);
     const list = text ? [].concat(JSON.parse(text)) : [];
     return titlePrefix ? list.filter((item) => item.title.startsWith(titlePrefix)) : list;
   }
 
   async stop() {
     this.main?.close();
+    try { this.psProc?.stdin.end(); this.psProc?.kill(); } catch { /* gone */ }
     await this.kill();
     this.vite?.kill();
     await sleep(300);

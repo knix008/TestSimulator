@@ -1,116 +1,100 @@
-//! One MyUMLMaker per user. A second start finds the lock held, tells the user
-//! in a message box that the program is already running, and ends.
+//! Several MyUMLMaker copies may run at once: every start opens its own main
+//! window. This module only tells a start whether other copies are running, so
+//! that just the first one restores the previous session (src/app.js
+//! restoreSession) and a later one opens its window a little offset
+//! (`cascade`) instead of exactly over the first.
 //!
-//! The lock is an OS file lock on `myumlmaker-<user>.lock` in the temporary
-//! folder: it is released by the OS when the first copy ends, even after a
-//! crash, so a stale file never blocks a later start.
+//! Each running copy holds an OS file lock on `<pid>.lock` in a per-user folder
+//! (`myumlmaker-<user>` in the temporary folder). A start counts the lock files
+//! that are still locked; a file that can be locked belongs to a copy that has
+//! ended (even after a crash the OS releases the lock) and is removed. The
+//! counting is done while holding `startup.lock`, so two copies started at the
+//! same moment never both believe they are the first.
 use std::fs::{File, OpenOptions};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub struct InstanceLock {
+const GATE: &str = "startup.lock";
+
+pub struct Instance {
     _file: File,
+    /// Other copies running when this one started.
+    pub others: usize,
 }
 
-fn lock_path() -> PathBuf {
-    let dir = std::env::var_os("MYUMLMAKER_LOCK_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+impl Instance {
+    pub fn is_first(&self) -> bool {
+        self.others == 0
+    }
+}
+
+fn lock_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("MYUMLMAKER_LOCK_DIR") {
+        return PathBuf::from(dir);
+    }
     let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_else(|_| "user".into());
     let user: String = user.chars().filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_').collect();
-    dir.join(format!("myumlmaker-{user}.lock"))
+    std::env::temp_dir().join(format!("myumlmaker-{user}"))
 }
 
-/// Takes the lock, or returns `None` when another copy holds it.
-pub fn acquire() -> Option<InstanceLock> {
-    acquire_at(&lock_path())
+fn open(path: &Path) -> Option<File> {
+    OpenOptions::new().create(true).truncate(false).read(true).write(true).open(path).ok()
 }
 
-pub fn acquire_at(path: &std::path::Path) -> Option<InstanceLock> {
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+/// Registers this process. `None` only when the lock folder cannot be used;
+/// the caller then behaves as the first copy.
+pub fn register() -> Option<Instance> {
+    register_in(&lock_dir(), std::process::id())
+}
+
+pub fn register_in(dir: &Path, pid: u32) -> Option<Instance> {
+    std::fs::create_dir_all(dir).ok()?;
+    // Serialises the starts; released when `gate` is dropped at the end.
+    let gate = open(&dir.join(GATE));
+    if let Some(gate) = &gate {
+        let _ = gate.lock();
     }
-    let file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(path).ok()?;
-    match file.try_lock() {
-        Ok(()) => Some(InstanceLock { _file: file }),
-        Err(_) => None,
-    }
-}
-
-/// The message shown to the second copy, in the system language.
-pub fn already_running_text() -> (String, String) {
-    let korean = system_is_korean();
-    if korean {
-        (
-            "MyUMLMaker — 실행 오류".into(),
-            "MyUMLMaker 이 이미 실행 중입니다.\n\n같은 프로그램을 두 번 실행할 수 없습니다. 이미 열려 있는 MyUMLMaker 창을 사용하세요.\n(작업 표시줄에서 MyUMLMaker 을 찾을 수 있습니다.)\n\n이 실행은 종료됩니다.".into(),
-        )
-    } else {
-        (
-            "MyUMLMaker — Start error".into(),
-            "MyUMLMaker is already running.\n\nThe program cannot run twice. Please use the MyUMLMaker window that is already open\n(look for MyUMLMaker on the taskbar).\n\nThis copy will now close.".into(),
-        )
-    }
-}
-
-fn system_is_korean() -> bool {
-    for key in ["LC_ALL", "LC_MESSAGES", "LANG"] {
-        if let Ok(value) = std::env::var(key) {
-            if !value.is_empty() {
-                return value.to_lowercase().starts_with("ko");
+    let own_name = format!("{pid}.lock");
+    let file = open(&dir.join(&own_name))?;
+    file.try_lock().ok()?;
+    let mut others = 0;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.ends_with(".lock") || name == GATE || name == own_name {
+            continue;
+        }
+        let Some(other) = open(&entry.path()) else { continue };
+        match other.try_lock() {
+            Ok(()) => {
+                // Left behind by a copy that has ended.
+                drop(other);
+                let _ = std::fs::remove_file(entry.path());
             }
+            Err(_) => others += 1,
         }
     }
-    #[cfg(windows)]
-    {
-        // GetUserDefaultUILanguage: primary language 0x12 = Korean.
-        extern "system" {
-            fn GetUserDefaultUILanguage() -> u16;
+    drop(gate);
+    Some(Instance { _file: file, others })
+}
+
+/// Where a later copy opens its window: `step` px further right and down per
+/// copy that runs already, starting again at the top-left of the work area when
+/// the window would leave it. Physical pixels.
+pub fn cascade(position: (i32, i32), size: (u32, u32), area: (i32, i32, u32, u32), step: i32, copies: usize) -> (i32, i32) {
+    let (ax, ay, aw, ah) = (area.0, area.1, area.2 as i32, area.3 as i32);
+    let (w, h) = (size.0 as i32, size.1 as i32);
+    let (mut x, mut y) = position;
+    for _ in 0..copies {
+        x += step;
+        y += step;
+        if x + w > ax + aw {
+            x = ax;
         }
-        // SAFETY: a plain Win32 call without arguments.
-        let lang = unsafe { GetUserDefaultUILanguage() };
-        return lang & 0x3ff == 0x12;
+        if y + h > ay + ah {
+            y = ay;
+        }
     }
-    #[allow(unreachable_code)]
-    false
-}
-
-/// Shows the "already running" error. Tests set `MYUMLMAKER_ALREADY_RUNNING_FILE`
-/// to get the text written to a file instead of a blocking message box.
-pub fn report_already_running() {
-    let (title, text) = already_running_text();
-    if let Some(file) = std::env::var_os("MYUMLMAKER_ALREADY_RUNNING_FILE") {
-        let _ = std::fs::write(file, format!("{title}\n{text}"));
-        return;
-    }
-    show_error_box(&title, &text);
-}
-
-/// Windows: the system message box, topmost and brought to the front. A plain
-/// dialog could open behind the running MyUMLMaker window, so the second start
-/// looked like it did nothing.
-#[cfg(windows)]
-fn show_error_box(title: &str, text: &str) {
-    extern "system" {
-        fn MessageBoxW(hwnd: *mut core::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
-    }
-    const MB_OK: u32 = 0x0;
-    const MB_ICONERROR: u32 = 0x10;
-    const MB_SETFOREGROUND: u32 = 0x1_0000;
-    const MB_TOPMOST: u32 = 0x4_0000;
-    let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
-    let (text, title) = (wide(text), wide(title));
-    // SAFETY: both strings are NUL-terminated UTF-16 that outlive the call; no owner window.
-    unsafe {
-        MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_OK | MB_ICONERROR | MB_SETFOREGROUND | MB_TOPMOST);
-    }
-}
-
-#[cfg(not(windows))]
-fn show_error_box(title: &str, text: &str) {
-    rfd::MessageDialog::new()
-        .set_level(rfd::MessageLevel::Error)
-        .set_title(title)
-        .set_description(text)
-        .set_buttons(rfd::MessageButtons::Ok)
-        .show();
+    // Never left of / above the work area (the title row must stay reachable).
+    (x.max(ax).min((ax + aw - 120).max(ax)), y.max(ay).min((ay + ah - 120).max(ay)))
 }
 
 #[cfg(test)]
@@ -118,20 +102,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn second_lock_fails_until_the_first_is_released() {
+    fn counts_the_copies_that_are_running() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("x.lock");
-        let first = acquire_at(&path).expect("first copy gets the lock");
-        assert!(acquire_at(&path).is_none(), "a second copy is refused");
+        let first = register_in(dir.path(), 101).expect("first copy");
+        assert!(first.is_first());
+        let second = register_in(dir.path(), 102).expect("a second copy starts too");
+        assert_eq!(second.others, 1, "it sees the first");
+        assert!(!second.is_first());
+        let third = register_in(dir.path(), 103).unwrap();
+        assert_eq!(third.others, 2);
         drop(first);
-        assert!(acquire_at(&path).is_some(), "the lock is free again once the first copy ends");
+        drop(second);
+        let fourth = register_in(dir.path(), 104).unwrap();
+        assert_eq!(fourth.others, 1, "ended copies are not counted");
+        assert!(!dir.path().join("101.lock").exists(), "and their lock files are cleaned up");
+        drop(third);
+        drop(fourth);
+        assert!(register_in(dir.path(), 105).unwrap().is_first(), "alone again: first");
     }
 
     #[test]
-    fn message_names_the_program_and_says_it_closes() {
-        let (title, text) = already_running_text();
-        assert!(title.contains("MyUMLMaker"));
-        assert!(text.contains("MyUMLMaker"));
-        assert!(text.len() > 40);
+    fn later_windows_are_offset_and_stay_on_screen() {
+        let area = (0, 0, 1920, 1080);
+        assert_eq!(cascade((100, 80), (1480, 900), area, 32, 0), (100, 80), "the first copy is not moved");
+        assert_eq!(cascade((100, 80), (1480, 900), area, 32, 1), (132, 112));
+        assert_eq!(cascade((100, 80), (1480, 900), area, 32, 2), (164, 144));
+        // Near the edge: starts again at the top-left of the work area.
+        assert_eq!(cascade((420, 100), (1480, 900), area, 32, 1), (0, 132));
+        assert_eq!(cascade((420, 200), (1480, 900), area, 32, 1), (0, 0));
+        // Second monitor on the left; a window larger than the screen.
+        assert_eq!(cascade((-1280, 0), (1000, 700), (-1280, 0, 1280, 1024), 32, 1), (-1248, 32));
+        assert_eq!(cascade((0, 0), (3000, 2000), area, 32, 3), (0, 0));
     }
 }

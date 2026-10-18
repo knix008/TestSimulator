@@ -3,8 +3,10 @@
 // problem names the rule, its severity, the element id and a bilingual
 // message. Pure (no DOM).
 import { UNNAMED, typeDef, typeLabel } from './meta.js';
-import { allDiagrams, buildIndex, relationshipEnds, refId, walk } from './model.js';
+import { buildIndex, isDiagram, relationshipEnds, refId, walk } from './model.js';
 import { coverageProblems } from './trace.js';
+import { parseDate } from './planning.js';
+import { parseData, railroadOf } from './datatext.js';
 
 /** The rules: id, severity, bilingual description. */
 export const RULES = [
@@ -29,9 +31,19 @@ export const RULES = [
   { id: 'foreign-key-no-reference', severity: 'warning', ko: '외래 키 열이 참조하는 열이 없습니다', en: 'Foreign key column has no referenced column' },
   { id: 'diagram-empty', severity: 'warning', ko: '빈 다이어그램입니다', en: 'Diagram is empty' },
   { id: 'broken-ref', severity: 'error', ko: '없는 요소를 가리키는 참조가 있습니다', en: 'Reference to a missing element' },
+  { id: 'gantt-date-invalid', severity: 'error', ko: '날짜 형식이 잘못되었습니다 (YYYY-MM-DD)', en: 'Invalid date (YYYY-MM-DD)' },
+  { id: 'gantt-duration-invalid', severity: 'warning', ko: '작업 기간이 하루보다 짧고 끝 날짜도 없습니다', en: 'Task lasts less than a day and has no end date' },
+  { id: 'gantt-period-reversed', severity: 'error', ko: '끝 날짜가 시작 날짜보다 앞섭니다', en: 'End date is before the start date' },
+  { id: 'data-syntax-error', severity: 'error', ko: '내용에 문법 오류가 있습니다', en: 'Syntax error in the text' },
   { id: 'requirement-not-satisfied', severity: 'warning', ko: '승인된 요구사항을 충족하는 요소가 없습니다', en: 'Approved requirement is not satisfied by any element' },
   { id: 'requirement-not-verified', severity: 'warning', ko: '승인된 요구사항을 검증하는 요소가 없습니다', en: 'Approved requirement is not verified by any element' },
   { id: 'requirement-id-duplicate', severity: 'warning', ko: '요구사항 ID가 중복됩니다', en: 'Requirement id is used more than once' },
+  { id: 'column-name-duplicate', severity: 'error', ko: '엔터티에 같은 이름의 열이 있습니다', en: 'Duplicate column name in the entity' },
+  { id: 'column-type-missing', severity: 'warning', ko: '열에 데이터 타입이 없습니다', en: 'Column has no data type' },
+  { id: 'entity-no-columns', severity: 'warning', ko: '엔터티에 열이 없습니다', en: 'Entity has no columns' },
+  { id: 'foreign-key-type-mismatch', severity: 'warning', ko: '외래 키의 타입이 참조하는 열의 타입과 다릅니다', en: 'Foreign key type differs from the referenced column' },
+  { id: 'relationship-no-foreign-key', severity: 'warning', ko: '관계로 이어진 엔터티 사이에 외래 키 열이 없습니다', en: 'No foreign key column links the related entities' },
+  { id: 'entity-name-duplicate', severity: 'error', ko: '데이터 모델에 같은 이름의 엔터티가 있습니다', en: 'Duplicate entity name in the data model' },
 ];
 const RULE = Object.fromEntries(RULES.map((r) => [r.id, r]));
 
@@ -62,9 +74,22 @@ export function validMultiplicity(text) {
   return hi === undefined || hi === '*' || Number(lo) <= Number(hi);
 }
 
-/** Every problem of the project: [{ rule, severity, id, message: { ko, en } }]. */
-export function validate(project) {
-  const index = buildIndex(project);
+/** Same-meaning SQL type names (an INTEGER key referenced by an INT column is fine). */
+const SQL_SYNONYMS = {
+  INT: 'INTEGER', INT4: 'INTEGER', SERIAL: 'INTEGER', SERIAL4: 'INTEGER', MEDIUMINT: 'INTEGER',
+  INT8: 'BIGINT', BIGSERIAL: 'BIGINT', SERIAL8: 'BIGINT', INT2: 'SMALLINT', SMALLSERIAL: 'SMALLINT',
+  BOOL: 'BOOLEAN', NUMERIC: 'DECIMAL', DEC: 'DECIMAL', 'CHARACTER VARYING': 'VARCHAR', 'VARCHAR2': 'VARCHAR', NVARCHAR: 'VARCHAR', NVARCHAR2: 'VARCHAR',
+  CHARACTER: 'CHAR', NCHAR: 'CHAR', 'DOUBLE PRECISION': 'DOUBLE', FLOAT8: 'DOUBLE', FLOAT4: 'REAL', DATETIME: 'TIMESTAMP',
+};
+/** A column type without its length and in one spelling: "varchar(20)" → "VARCHAR". */
+export function sqlTypeKey(type) {
+  const base = String(type ?? '').trim().toUpperCase().replace(/\(.*$/, '').replace(/\s+/g, ' ').trim();
+  return SQL_SYNONYMS[base] ?? base;
+}
+
+/** Every problem of the project: [{ rule, severity, id, message: { ko, en }, detail: { ko, en } }].
+ * `index`: the project's current index when the caller keeps one (the background check), else built here. */
+export function validate(project, { index = buildIndex(project) } = {}) {
   const out = [];
   const label = (element) => (element?.name ? `'${element.name}'` : '');
   const report = (ruleId, element, extra = { ko: '', en: '' }) => {
@@ -73,26 +98,41 @@ export function validate(project) {
     out.push({
       rule: ruleId, severity: rule.severity, id: element?._id ?? null,
       message: { ko: `${what('ko')}: ${rule.ko}${extra.ko ? ` (${extra.ko})` : ''}`, en: `${what('en')}: ${rule.en}${extra.en ? ` (${extra.en})` : ''}` },
+      // The same without the element in front (the Problems panel shows the element in its own column).
+      detail: { ko: `${rule.ko}${extra.ko ? ` (${extra.ko})` : ''}`, en: `${rule.en}${extra.en ? ` (${extra.en})` : ''}` },
     });
   };
   const exists = (value) => Boolean(index.get(value));
 
   const generalizations = [];
   const outgoing = new Map();
+  // ERD: column → its entity, foreign key columns with a reference, relationships, duplicate entities reported.
+  const columnOwner = new Map();
+  const foreignKeys = [];
+  const erdRelationships = [];
+  const entityDuplicates = new Set();
+  // Collected on the one walk (a large model is walked as few times as possible).
+  const decisions = [];
+  const diagrams = [];
+  let requirements = false;
   walk(project, (element, parent) => {
     const type = element._type;
+    if (type === 'UMLDecisionNode' || type === 'FCDecision') decisions.push(element);
+    else if (type === 'SysMLRequirement') requirements = true;
+    if (isDiagram(element)) diagrams.push(element);
     const def = typeDef(type);
     if (!def) return;
     // Names.
     if (needsName(type) && !String(element.name ?? '').trim()) report('name-missing', element);
     // Duplicate names among siblings of the same kind.
-    for (const key of ['ownedElements', 'attributes', 'operations', 'literals', 'columns', 'participants', 'vertices']) {
+    // (Columns and entities have their own ERD rules below.)
+    for (const key of ['ownedElements', 'attributes', 'operations', 'literals', 'participants', 'vertices']) {
       const list = element[key];
       if (!Array.isArray(list)) continue;
       const seen = new Map();
       for (const child of list) {
         const cd = typeDef(child._type);
-        if (!child.name || !cd || cd.edge || cd.diagram) continue;
+        if (!child.name || !cd || cd.edge || cd.diagram || child._type === 'ERDEntity') continue;
         // Operations may be overloaded: same name + same parameter types only.
         const signature = child._type === 'UMLOperation' ? `${child.name}(${(child.parameters ?? []).filter((p) => p.direction !== 'return').map((p) => (typeof p.type === 'string' ? p.type : refId(p.type))).join(',')})` : child.name;
         const kind = key === 'ownedElements' ? 'element' : key;
@@ -142,16 +182,78 @@ export function validate(project) {
       if (initials.length > 1) report('region-multiple-initial', element, { ko: String(initials.length), en: String(initials.length) });
     }
     // ERD.
-    if (type === 'ERDEntity' && !(element.columns ?? []).some((c) => c.primaryKey)) report('entity-no-primary-key', element);
-    if (type === 'ERDColumn' && element.foreignKey && !refId(element.referenceTo)) report('foreign-key-no-reference', element);
+    if (type === 'ERDEntity') {
+      const columns = element.columns ?? [];
+      if (!columns.length) report('entity-no-columns', element);
+      else if (!columns.some((c) => c.primaryKey)) report('entity-no-primary-key', element);
+      const seen = new Set();
+      for (const column of columns) {
+        columnOwner.set(column._id, element);
+        const key = String(column.name ?? '').trim().toLowerCase();
+        if (!key) continue;
+        if (seen.has(key)) report('column-name-duplicate', column, { ko: element.name ?? '', en: element.name ?? '' }); else seen.add(key);
+      }
+    }
+    if (type === 'ERDDataModel') {
+      // Table names are unique in the whole data model (sub-packages included), case-insensitive like SQL.
+      const seen = new Set();
+      walk(element, (child) => {
+        if (child._type !== 'ERDEntity') return;
+        const key = String(child.name ?? '').trim().toLowerCase();
+        if (!key) return;
+        if (!seen.has(key)) { seen.add(key); return; }
+        if (entityDuplicates.has(child._id)) return; // a data model inside another one: reported once
+        entityDuplicates.add(child._id);
+        report('entity-name-duplicate', child, { ko: element.name ?? '', en: element.name ?? '' });
+      });
+    }
+    if (type === 'ERDColumn') {
+      if (!String(element.type ?? '').trim()) report('column-type-missing', element, { ko: parent?.name ?? '', en: parent?.name ?? '' });
+      if (element.foreignKey && !refId(element.referenceTo)) report('foreign-key-no-reference', element);
+      if (element.foreignKey && refId(element.referenceTo)) foreignKeys.push(element);
+    }
+    if (type === 'ERDRelationship') erdRelationships.push(element);
+    // Gantt charts and timelines: dates, durations, periods.
+    for (const field of def.fields ?? []) {
+      if (field.date && String(element[field.key] ?? '').trim() && parseDate(element[field.key]) === null) report('gantt-date-invalid', element, { ko: `${field.key} = ${element[field.key]}`, en: `${field.key} = ${element[field.key]}` });
+    }
+    if (type === 'GanttTask' && !(Number(element.duration) >= 1) && !parseDate(element.end)) report('gantt-duration-invalid', element);
+    if ((type === 'GanttTask' || type === 'TLPeriod') && parseDate(element.start) !== null && parseDate(element.end) !== null && parseDate(element.end) < parseDate(element.start)) report('gantt-period-reversed', element, { ko: `${element.start} → ${element.end}`, en: `${element.start} → ${element.end}` });
+    // Data views: JSON / YAML documents, EBNF rules and regular expressions must parse.
+    if (type === 'DSDocument') { const parsed = parseData(element.format, element.text ?? ''); if (!parsed.ok) report('data-syntax-error', element, { ko: parsed.error, en: parsed.error }); }
+    if (type === 'EBNFRule' || type === 'RegexPattern') { const parsed = railroadOf(type === 'RegexPattern' ? 'regex' : 'ebnf', type === 'RegexPattern' ? element.pattern : element.expression); if (!parsed.ok) report('data-syntax-error', element, { ko: parsed.error, en: parsed.error }); }
   });
 
+  // ERD: a foreign key has the type of the column it references.
+  for (const column of foreignKeys) {
+    const target = index.get(refId(column.referenceTo));
+    if (!target || target._type !== 'ERDColumn') continue;
+    const a = sqlTypeKey(column.type);
+    const b = sqlTypeKey(target.type);
+    if (a && b && a !== b) {
+      const where = `${columnOwner.get(target._id)?.name ?? ''}.${target.name ?? ''}`;
+      report('foreign-key-type-mismatch', column, { ko: `${column.type} ≠ ${target.type} (${where})`, en: `${column.type} ≠ ${target.type} (${where})` });
+    }
+  }
+  // ERD: entities joined by a relationship have a foreign key column between them (either direction).
+  const linked = new Set();
+  for (const column of foreignKeys) {
+    const from = columnOwner.get(column._id);
+    const to = columnOwner.get(refId(column.referenceTo));
+    if (from && to) { linked.add(`${from._id}\u0000${to._id}`); linked.add(`${to._id}\u0000${from._id}`); }
+  }
+  for (const relationship of erdRelationships) {
+    const a = index.get(refId(relationship.end1?.reference));
+    const b = index.get(refId(relationship.end2?.reference));
+    if (a?._type !== 'ERDEntity' || b?._type !== 'ERDEntity') continue;
+    if (!linked.has(`${a._id}\u0000${b._id}`)) report('relationship-no-foreign-key', relationship, { ko: `${a.name ?? ''} — ${b.name ?? ''}`, en: `${a.name ?? ''} — ${b.name ?? ''}` });
+  }
+
   // Decision nodes: outgoing flows.
-  walk(project, (element) => {
-    if (element._type !== 'UMLDecisionNode' && element._type !== 'FCDecision') return;
+  for (const element of decisions) {
     const flows = (outgoing.get(element._id) ?? []).filter((r) => /Flow$/.test(r._type));
     if (flows.length < 2) report('decision-few-outgoing', element, { ko: String(flows.length), en: String(flows.length) });
-  });
+  }
 
   // Generalization cycles: one report per cycle (on the first generalization found in it).
   const parents = new Map();
@@ -179,14 +281,14 @@ export function validate(project) {
   for (const id of parents.keys()) if (!state.has(id)) visit(id);
 
   // Requirement coverage (approved, implemented and verified leaf requirements) and duplicate ids.
-  for (const p of coverageProblems(project)) {
+  for (const p of requirements ? coverageProblems(project) : []) {
     const element = index.get(p.id);
     const extra = p.rule === 'requirement-id-duplicate' ? { ko: `${p.reqId} = ${index.get(p.other)?.name ?? ''}`, en: `${p.reqId} = ${index.get(p.other)?.name ?? ''}` } : { ko: element?.id ?? '', en: element?.id ?? '' };
     report(p.rule, element, extra);
   }
 
   // Diagrams without views.
-  for (const diagram of allDiagrams(project)) if (!(diagram.ownedViews ?? []).length) report('diagram-empty', diagram);
+  for (const diagram of diagrams) if (!(diagram.ownedViews ?? []).length) report('diagram-empty', diagram);
 
   // Broken references anywhere (model and views, sub views included).
   const ids = new Set();
@@ -196,12 +298,14 @@ export function validate(project) {
     if (value._id) ids.add(value._id);
     for (const [key, child] of Object.entries(value)) if (key !== '_parent' && child && typeof child === 'object') collect(child);
   };
-  collect(project);
+  // The index knows almost every id; the whole tree is only searched when it does not.
+  let collected = false;
+  const known = (id) => index.byId?.has(id) || ((collected || (collect(project), collected = true)) && ids.has(id));
   const check = (value, holder, path) => {
     if (Array.isArray(value)) { value.forEach((item, i) => check(item, holder, `${path}[${i}]`)); return; }
     if (!value || typeof value !== 'object') return;
     if (typeof value.$ref === 'string' && Object.keys(value).length === 1) {
-      if (!ids.has(value.$ref)) report('broken-ref', holder, { ko: `${path} → ${value.$ref}`, en: `${path} → ${value.$ref}` });
+      if (!known(value.$ref)) report('broken-ref', holder, { ko: `${path} → ${value.$ref}`, en: `${path} → ${value.$ref}` });
       return;
     }
     const owner = value._id ? value : holder;

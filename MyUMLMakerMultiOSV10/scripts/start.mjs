@@ -5,9 +5,10 @@
 // run) keeps that port and the start fails with "Port 1450 is already in use".
 // Such a leftover is stopped here; anything else on the port is reported.
 //
-// The app allows one copy at a time; the development build runs next to an
-// installed MyUMLMaker that is open (MYUMLMAKER_MULTI=1, as the tests do) instead
-// of saying "already running" and ending.
+// Several copies may run at once; a later copy skips the session restore and
+// opens its window offset. The development build is not counted against an
+// installed MyUMLMaker that is open (MYUMLMAKER_MULTI=1, as the tests do): it
+// always acts as the first copy.
 import { execFileSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

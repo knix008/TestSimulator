@@ -1,6 +1,6 @@
 # MyUMLMaker User's Guide
 
-MyUMLMaker draws UML and software diagrams model first, the way StarUML does. It draws the 15 UML 2 diagrams (class, sequence, state machine, activity and the rest) plus ER, flowchart, data flow, SysML, BPMN, C4, mind map, wireframe and cloud (AWS, Azure, GCP) diagrams. It validates the model, generates Java, C#, C++, Python, TypeScript, Kotlin and PHP code and SQL DDL, and reads source code back into a model. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
+MyUMLMaker draws UML and software diagrams model first, the way StarUML does. It draws the 15 UML 2 diagrams (class, sequence, state machine, activity and the rest) plus ER, flowchart, data flow, SysML, BPMN, C4, mind map, wireframe, cloud (AWS, Azure, GCP) and network diagrams, Gantt charts, WBS and timelines, ArchiMate 3, and JSON, YAML, EBNF and regex diagrams. It manages and traces requirements, validates the model, generates Java, C#, C++, Python, TypeScript, Kotlin and PHP code and SQL DDL, and reads source code back into a model. It compares the model with baselines, generates Word, PDF and HTML documents, and exchanges models with StarUML (.mdj), XMI (Enterprise Architect and others), PlantUML and Mermaid. It runs with the same screens as a desktop app on Windows, macOS and Linux and in a web browser.
 
 This guide is organised by task. Menu and command names are written exactly as the program shows them (for example **File › Export › HTML documentation (.html)…** is the "HTML documentation (.html)…" command in the "Export" submenu of the "File" menu). The pictures are captured from the tutorial. Shortcuts are given for Windows and Linux; on macOS use `Cmd` instead of `Ctrl`.
 
@@ -20,7 +20,7 @@ On the first start the **Welcome to MyUMLMaker** window opens. It explains that 
 | **Open the sample** | Opens the "Online Shop" sample project |
 | **Later** | Closes the window. The tutorial is always at **Help › Tutorial** (`F11`) |
 
-The welcome window shows only once. Only one MyUMLMaker desktop app runs per user. Starting it again while it is running shows an error window and the new copy closes (see [Help and troubleshooting](#help-and-troubleshooting)).
+The welcome window shows only once. You can run several MyUMLMaker desktop apps at once: every start opens one more window (see [Running several windows](#running-several-windows)).
 
 ### Start page
 
@@ -28,8 +28,8 @@ The start page shows when no project is open (and from the **Home** button at th
 
 | Area | Contents |
 |---|---|
-| Top | Program name and version, the line "Model UML and software diagrams, generate code and publish documentation.", and **Start the tutorial**. Until the tutorial has been finished, a "New here?" banner with a **Start** button shows too |
-| **New** | 17 template tiles, **Open…**, **Open StarUML project (.mdj)…**, **Reverse engineer (code → model)**, **Import Mermaid / PlantUML…** |
+| Top | Program name and version, the line "Model UML and software diagrams, generate code and publish documentation.", a **Help** button (the tutorial, the tutorial document, the user's guide, the shortcut list, settings and About) and **Start the tutorial**. Until the tutorial has been finished, a "New here?" banner with a **Start** button shows too |
+| **New** | 21 template tiles, **Open…**, **Open StarUML project (.mdj)…**, **Reverse engineer (code → model)**, **Import Mermaid / PlantUML…** |
 | **Recent files** · **Recent folders** | The files and folders opened lately. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all. Clicking a folder opens the Open window in that folder |
 | **Help** | **Tutorial document**, **User's guide**, **Keyboard shortcuts…** |
 | **Sample projects** | The installed sample files (only those in the current language). If the install folder has no samples, a single **Online Shop (sample)** shows |
@@ -63,12 +63,16 @@ Pick a template tile on the start page or **File › New from template**. Each t
 | **Mind map** | A central topic and branches |
 | **Wireframe** | Screen sketches |
 | **AWS architecture** | A VPC, services and connections |
+| **Gantt chart** | Calendar, tasks, milestone, dependencies |
+| **Work breakdown (WBS)** | The project split into work items |
+| **ArchiMate view** | Business and application layers |
+| **Network diagram** | Networks, nodes, addresses |
 
 **New project** on the toolbar (`Ctrl+N`) makes a blank project. Only one project is open at a time, so a new project, a template or the sample replaces the current project. When the current project has unsaved changes, you are asked first: **Save** · **Don't save** · **Cancel** (see [Unsaved changes](#unsaved-changes)). A project made from a template has no file yet, so the first save asks for a file name.
 
 ### The sample project
 
-The "Online Shop" sample draws the requirements, structure, behaviour and data of an online shop in several notations: a finished example of every one of the 29 kinds of diagram the program draws.
+The "Online Shop" sample draws the requirements, structure, behaviour and data of an online shop in several notations: a finished example of every one of the 38 kinds of diagram the program draws.
 
 ![The sample project](docs/tutorial/images/06-sample.jpg)
 
@@ -103,12 +107,21 @@ The "Online Shop" sample draws the requirements, structure, behaviour and data o
 | AWS Deployment | AWS | Region, VPC, subnets, Auto Scaling and connected services |
 | Azure Deployment | Azure | Resource group, virtual network and connected services |
 | GCP Deployment | GCP | Project, region, VPC and connected services |
+| Shop Launch Schedule | Gantt chart | A calendar with closed week days and dates, three separators, tasks (completion, resources) and milestones, dependencies |
+| Shop Work Breakdown | WBS | The top item and two levels of numbered work items |
+| Shop Year 2026 | Timeline | A one-year time axis, five linked events and four periods |
+| Order Handling Layered View | ArchiMate | Motivation, strategy and implementation elements, a business grouping, application and technology layers, serving, realization, assignment, access, flow, triggering and more |
+| Shop Network | Network | Internet and firewall, the dmz and internal networks with addresses, a web server node group, database, storage and laptop nodes |
+| Order API Messages | JSON | Order request, payment response and shipping event JSON documents with references |
+| Deployment Configuration | YAML | application.yaml · deployment.yaml · a CI workflow |
+| Order Number Grammar | EBNF | Railroad diagrams of five EBNF rules that refer to each other |
+| Input Validation | Regex | Regular expressions for e-mail, domain, mobile number, coupon code and postal code |
 
 The `samples` folder of the installation holds the same sample as `.myuml` and as StarUML `.mdj`, a class model template (`.mumlt`) and a model fragment (`.mfj`), in Korean and English.
 
 ### Tutorial
 
-Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the right of the toolbar, or **Start the tutorial** on the start page. The tutorial drives the real program and shows the features one by one in 58 steps.
+Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the right of the toolbar, or **Start the tutorial** on the start page. The tutorial drives the real program and shows the features one by one in 66 steps.
 
 - Move through it with the **Next** and **Previous step** buttons in the guide box at the bottom right, or with **Auto play** (▶). While auto play runs, **Pause auto play** stops it. On the last step press **Done**.
 - The **Choose a chapter** list jumps to a chapter: Start · The model · Drawing · Kinds of diagrams · Format & arrange · Model tools · Files & export · Customizing · Help.
@@ -117,7 +130,7 @@ Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the ri
 
 **Tutorial document** — a document of every tutorial step with its picture can be read inside the program. Open it from **Help › Tutorial document** on the start page or from the **Help › Tutorial document** menu; the document shows in the middle, and the bar at the top offers **Go to chapter**, a 한국어/English switch, **Start tutorial** and **Open in browser**. The **Home** button goes back.
 
-![The tutorial document](docs/tutorial/images/56-tutorialDoc.jpg)
+![The tutorial document](docs/tutorial/images/65-tutorialDoc.jpg)
 
 ## The screen
 
@@ -131,19 +144,19 @@ The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to t
 |---|---|
 | **File** | New project · New from template · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save as template… · Open from database… · Save to database (desktop app) · Import ▸ · Export ▸ · Print… · Project properties · Close project · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Duplicate · Delete from diagram · Delete from model · Select all · Clear selection · Select in Model Explorer · Select in diagram · Edit name · Find… |
-| **Model** | Add diagram · Add element · Move up in model · Move down in model · Show all relationships · Elements not on any diagram · Validate model · Model statistics |
+| **Model** | Add diagram · Add element · Move up in model · Move down in model · Show all relationships · Elements not on any diagram · Requirements · Traceability Matrix · Baselines… · Compare with file… · Validate model · Model statistics |
 | **View** | Zoom ▸ · Show ▸ · Diagram colours ▸ · Default line style ▸ · Diagrams ▸ · Presentation mode · Theme, language and background ▸ |
-| **Format** | Font ▸ · Fill color · Line color · Line style ▸ · Stereotype display ▸ · Display ▸ · Auto resize · Fit to content |
+| **Format** | Font ▸ · Fill color · Line color · Line style ▸ · Stereotype display ▸ · Display ▸ · Auto resize · Fit to content · Diagram background… |
 | **Arrange** | Order ▸ · Align & distribute ▸ · Auto layout · Auto layout ▸ |
-| **Tools** | Generate code… · Generate SQL DDL… · Reverse engineer (code → model) · Validate model · Settings… |
+| **Tools** | Generate code… · Generate SQL DDL… · Generate document… · Reverse engineer (code → model) · Validate model · Settings… |
 | **Help** | Tutorial · Tutorial document · User's guide · Keyboard shortcuts… · Settings… · About… |
 
 The submenus hold:
 
 | Submenu | Commands |
 |---|---|
-| **File › Import** | Open StarUML project (.mdj)… · Import model fragment (.mfj)… · Import Mermaid / PlantUML… · Reverse engineer (code → model) |
-| **File › Export** | Export as picture… · Export SVG (current diagram)… · Export PDF (all diagrams)… · All diagrams as pictures (.zip)… · HTML documentation (.html)… · Markdown documentation (.zip)… · StarUML project (.mdj)… · Export model fragment (.mfj)… · Mermaid (.mmd)… · PlantUML (.puml)… |
+| **File › Import** | Open StarUML project (.mdj)… · Open XMI (Enterprise Architect, MagicDraw, Papyrus)… · Import model fragment (.mfj)… · Import Mermaid / PlantUML… · Reverse engineer (code → model) |
+| **File › Export** | Export as picture… · Export SVG (current diagram)… · Export PDF (all diagrams)… · All diagrams as pictures (.zip)… · HTML documentation (.html)… · Markdown documentation (.zip)… · StarUML project (.mdj)… · XMI 2.5 for Enterprise Architect (.xmi, with diagrams)… · XMI 2.5, model only (.xmi)… · Export model fragment (.mfj)… · Mermaid (.mmd)… · PlantUML (.puml)… |
 | **View › Zoom** | Zoom in · Zoom out · Zoom 100% · Fit diagram · Zoom to selection |
 | **View › Show** | Grid · Rulers · Snap to grid · Pan & zoom window · Quick edit buttons · Show shadows · Toolbox · Model Explorer & editors · Status bar |
 | **View › Diagram colours** | Classic (white) · Pastel · Blueprint · Dark |
@@ -170,7 +183,7 @@ From the left the toolbar buttons fall into these groups. Pointing at a button s
 | Tools | **Pointer** · **Add diagram** |
 | Colour and line | **Fill color** · **Line color** (the left half paints the last colour at once, the ▾ opens the colour picker) · **Line style** |
 | Arrange | **Align** · **Auto layout** |
-| Zoom | − · the zoom box · + · **Fit diagram** |
+| Zoom and display | − · the zoom box · + · **Fit diagram** · **Grid** · **Rulers** · **Pan & zoom window** (shown pressed while on; the same as **View › Show › Grid** · **Rulers** · **Pan & zoom window**) |
 | Model tools | **Generate code…** · **Reverse engineer (code → model)** · **Validate model** |
 | Panels | **Toolbox** · **Model Explorer & editors** (show or hide) |
 | Right end | **Tutorial** (graduation cap) · the theme button (a random theme on every click, ▾ for **Choose theme**) · the flag button (**Switch language**) · **Settings…** · **About…** (ⓘ) |
@@ -195,7 +208,7 @@ The **Model Explorer** at the top right shows every element of the project as a 
 
 ### Collapsing the panels
 
-![The panels](docs/tutorial/images/12-toolbox.jpg)
+![The panels](docs/tutorial/images/13-toolbox.jpg)
 
 The toolbox and the right panel collapse with the arrow buttons in their headers (**Collapse tool panel** · **Collapse properties panel**), with the panel buttons on the toolbar, or with `Ctrl+Shift+1` · `Ctrl+Shift+2`. A collapsed panel becomes a narrow strip with only an icon and a title ("Tools" · "Model"), and the **Expand** button at its top opens it again. The collapsed toolbox strip still holds the pointer and a few common tools, ready to use.
 
@@ -223,9 +236,9 @@ Right-clicking the status bar offers hide the bar · zoom · theme · language.
 | An element (view) | Edit (`F2`) · Add related element ▸ · add members such as attributes and operations · Cut · Copy · Paste · Duplicate · Delete from diagram · Delete from model · Select in Model Explorer · Stereotype display ▸ · Display ▸ · Auto resize · Fit to content · Font ▸ · Fill color · Line color · Order ▸ |
 | A line (relationship) | Edit · Cut · Copy · Paste · Duplicate · Delete from diagram · Delete from model · Select in Model Explorer · Line style ▸ · Font ▸ · Fill color · Line color · Order ▸ |
 | Several selected | Cut · Copy · Duplicate · Delete from diagram · Delete from model · Align & distribute ▸ · Order ▸ · Auto layout ▸ · Font ▸ · Fill color · Line color · Line style ▸ |
-| An empty part of the diagram | Paste (where you clicked) · Select all · Add here · Show all relationships · Auto layout ▸ · Zoom in · Zoom out · Fit diagram · Show ▸ · Export as picture… · Export SVG (current diagram)… |
+| An empty part of the diagram | Paste (where you clicked) · Select all · Add here · Show all relationships · Auto layout ▸ · Zoom in · Zoom out · Fit diagram · Show ▸ · Diagram background… · Export as picture… · Export SVG (current diagram)… |
 | Model Explorer | Open diagram · Add element · Add diagram · Rename · Select in diagram · Copy · Cut · Paste · Move up in model · Move down in model · Delete from model · Generate code… · Export model fragment (.mfj)… |
-| A diagram tab | Rename · Select in Model Explorer · Previous diagram · Next diagram · Export as picture… · Export SVG (current diagram)… · Mermaid (.mmd)… · PlantUML (.puml)… |
+| A diagram tab | Rename · Select in Model Explorer · Previous diagram · Next diagram · Diagram background… · Export as picture… · Export SVG (current diagram)… · Mermaid (.mmd)… · PlantUML (.puml)… |
 | A text box | Undo typing · Cut · Copy · Paste · Select all |
 
 ### Pop-up windows
@@ -278,9 +291,9 @@ The **Add diagram** · **Add element** buttons in the panel header put a new dia
 
 ### Adding diagrams
 
-Choose one from **Model › Add diagram**, **Add diagram** on the toolbar, or **+** in the Model Explorer header or at the end of the diagram tab row. The menu is grouped into UML · ERD · Flowchart · Data flow · SysML · BPMN · C4 · Mind map · Wireframe · Cloud (29 kinds, see [Kinds of diagrams](#kinds-of-diagrams)).
+Choose one from **Model › Add diagram**, **Add diagram** on the toolbar, or **+** in the Model Explorer header or at the end of the diagram tab row. The menu is grouped into UML · ERD · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud · Project Management · ArchiMate · Network · Data (38 kinds, see [Kinds of diagrams](#kinds-of-diagrams)).
 
-A new diagram is made under the package or model selected in the Model Explorer (else in the package of the current diagram) and opens at once. Owners that some kinds need are made automatically: sequence, communication and timing diagrams go inside an interaction, state machine diagrams inside a state machine, activity and interaction overview diagrams inside an activity, and ER diagrams inside a data model.
+A new diagram is made under the package or model selected in the Model Explorer (else in the package of the current diagram) and opens at once. Owners that some kinds need are made automatically: sequence, communication and timing diagrams go inside an interaction, state machine diagrams inside a state machine, activity and interaction overview diagrams inside an activity, ER diagrams inside a data model, Gantt charts, WBS and timeline diagrams inside a project plan, ArchiMate diagrams inside an ArchiMate model, network diagrams inside a network model, and JSON, YAML, EBNF and regex diagrams inside a data specification.
 
 The **+** (**Add another {type}**) at the end of the [diagram type tabs](#diagram-type-tabs) makes one more diagram of the current diagram's type.
 
@@ -304,8 +317,8 @@ Under the diagram tab row are the two rows of **diagram type tabs**.
 
 | Row | Contents |
 |---|---|
-| Upper row (**Diagram groups**) | UML Structure · UML Behavior · ER · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud |
-| Lower row (**Diagram types**) | The diagram types of the chosen group. For example UML Structure has Class · Package · Object · Composite Structure · Component · Deployment · Profile, UML Behavior has Use Case · Activity · Statechart · Sequence · Communication · Timing · Interaction Overview · Information Flow, SysML has Requirement · Block Definition · Internal Block · Parametric, and Cloud has AWS · Azure · GCP |
+| Upper row (**Diagram groups**) | UML Structure · UML Behavior · ER · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud · Project · ArchiMate · Data |
+| Lower row (**Diagram types**) | The diagram types of the chosen group. For example UML Structure has Class · Package · Object · Composite Structure · Component · Deployment · Profile, UML Behavior has Use Case · Activity · Statechart · Sequence · Communication · Timing · Interaction Overview · Information Flow, SysML has Requirement · Block Definition · Internal Block · Parametric, Cloud has AWS · Azure · GCP · Network, Project has Gantt Chart · WBS · Timeline, and Data has JSON · YAML · EBNF · Regex |
 
 - Clicking a group switches the lower row to its types. Opening a diagram picks its group by itself.
 - The number next to a type is how many diagrams of that type the project has.
@@ -317,7 +330,7 @@ Under the diagram tab row are the two rows of **diagram type tabs**.
 
 ### Editors
 
-![The editors](docs/tutorial/images/11-editors.jpg)
+![The editors](docs/tutorial/images/12-editors.jpg)
 
 The editors under the Model Explorer edit the selected element: the element of the view selected on the diagram, the element picked in the Model Explorer, or, with nothing selected, the current diagram (the project when there is no diagram). Every change is one undo step. Text fields apply on `Enter` or when you move elsewhere.
 
@@ -344,7 +357,7 @@ On the **Tags & constraints** tab, **Add tag** adds a name, a kind (String · Bo
 
 ### Toolbox
 
-![The toolbox](docs/tutorial/images/12-toolbox.jpg)
+![The toolbox](docs/tutorial/images/13-toolbox.jpg)
 
 The toolbox shows the tools for the kind of the current diagram. Changing the type on the [diagram type tabs](#diagram-type-tabs) changes the toolbox to that type's tools. The diagram kind is at the top, with the **Find a tool** box and the **Pointer** tool under it. Clicking a tool group header (for example Classes · Relationships · Annotations) collapses or expands it; the number next to the header is the number of tools. The **Icons only** button in the header hides the names and packs the icons closely.
 
@@ -359,7 +372,7 @@ The toolbox shows the tools for the kind of the current diagram. Changing the ty
 
 ### Creating elements
 
-![Creating a class](docs/tutorial/images/13-createClass.jpg)
+![Creating a class](docs/tutorial/images/14-createClass.jpg)
 
 A new class is ready for its name straight away. `Enter` applies and `Esc` cancels. Double-clicking an empty spot (or right-click › **Add here**) shows a menu of elements to add at that spot.
 
@@ -367,7 +380,7 @@ Members such as attributes and operations must be put inside an element that can
 
 ### Quick edit
 
-![Quick edit](docs/tutorial/images/14-quickEdit.jpg)
+![Quick edit](docs/tutorial/images/15-quickEdit.jpg)
 
 Double-clicking a class (including interfaces, data types, signals, enumerations and entities), or pressing `F2` or `Enter`, edits its name, attributes and operations as text in one go (StarUML's quick edit). The first line is the name, then after a `--` line the attributes, then after another `--` the operations, one per line. `Ctrl+Enter` applies and `Esc` cancels.
 
@@ -410,13 +423,13 @@ For other elements:
 
 ### Quick buttons
 
-![Quick buttons](docs/tutorial/images/15-quickButtons.jpg)
+![Quick buttons](docs/tutorial/images/16-quickButtons.jpg)
 
 When one element is selected, small buttons show under it. A class has **Add attribute** · **Add operation** · **Add related**; an enumeration has **Add literal**, an entity **Add column**, an object **Add slot**, a combined fragment **Add operand**, and a timing lifeline **Add time segment**. Adding a member opens quick edit at once. Turn the buttons off with **View › Show › Quick edit buttons** or in **Settings › Diagram**.
 
 ### Adding related elements
 
-![Adding related elements](docs/tutorial/images/17-addRelated.jpg)
+![Adding related elements](docs/tutorial/images/18-addRelated.jpg)
 
 **Add related** (▾) among the quick buttons, or right-click › **Add related element**, makes a new element next to the selected one and links them with a relationship. The new element is ready for its name straight away.
 
@@ -434,7 +447,7 @@ When one element is selected, small buttons show under it. A class has **Add att
 
 ### Drawing relationships
 
-![Relationships](docs/tutorial/images/16-relationships.jpg)
+![Relationships](docs/tutorial/images/17-relationships.jpg)
 
 Choose a relationship tool (association · directed association · aggregation · composition · dependency · generalization · interface realization …) and drag from one element to another. While you drag, the element under the pointer is outlined, and an element that this relationship cannot connect to is marked red. Starting on an empty spot gives "Start a relationship on an element and drag to another.", and releasing on an empty spot gives "Release over the element to connect to."
 
@@ -457,7 +470,7 @@ A selected line shows square handles at both ends, filled handles at its bend po
 
 ### Moving and resizing
 
-![Moving and resizing](docs/tutorial/images/18-moveResize.jpg)
+![Moving and resizing](docs/tutorial/images/19-moveResize.jpg)
 
 - **Selection** — click to select; with `Shift` or `Ctrl` held, a click adds to or removes from the selection. Dragging on an empty spot picks the views that lie entirely inside the rectangle (with `Shift` or `Ctrl` it adds to the selection). `Ctrl+A` selects all and `Esc` clears the selection.
 - **Move** — drag to move. Positions snap to the grid (hold `Alt` not to snap), and `Shift` keeps the move horizontal or vertical. The arrow keys move by the grid, `Shift`+arrow by 1 pixel. Dragging to the edge of the window scrolls the view.
@@ -467,7 +480,7 @@ A selected line shows square handles at both ends, filled handles at its bend po
 
 ### Dragging from the Model Explorer
 
-![Dragging from the Model Explorer](docs/tutorial/images/19-dragFromExplorer.jpg)
+![Dragging from the Model Explorer](docs/tutorial/images/20-dragFromExplorer.jpg)
 
 Dragging an element from the Model Explorer onto a diagram makes a view of it, and its relationships with the elements already on the diagram show too. Several elements can be picked and dropped together. An element that is already on the diagram is not made again, only selected. A class dropped on a sequence diagram becomes a lifeline that represents the class. Dropping a diagram opens that diagram.
 
@@ -483,13 +496,13 @@ Dragging an element from the Model Explorer onto a diagram makes a view of it, a
 
 ### Undo and redo
 
-![Undo](docs/tutorial/images/21-undo.jpg)
+![Undo](docs/tutorial/images/22-undo.jpg)
 
 Every edit can be taken back with **Undo** (`Ctrl+Z`) and **Redo** (`Ctrl+Y` or `Ctrl+Shift+Z`). Dragging, a quick edit, a property change, an auto layout and so on are one step each. Pointing at the toolbar buttons shows what they would undo, like "Undo: Move", and the status bar says what was undone. The undo history belongs to the open project and starts afresh when another project is opened.
 
 ## Kinds of diagrams
 
-MyUMLMaker draws 29 kinds of diagrams. They all work the same way (toolbox, quick edit, dragging relationships, editors), and the toolbox shows the tools that fit each kind.
+MyUMLMaker draws 38 kinds of diagrams. They all work the same way (toolbox, quick edit, dragging relationships, editors), and the toolbox shows the tools that fit each kind.
 
 ### The 15 UML diagrams
 
@@ -513,13 +526,13 @@ MyUMLMaker draws 29 kinds of diagrams. They all work the same way (toolbox, quic
 
 ### Use case diagram
 
-![Use case diagram](docs/tutorial/images/22-useCase.jpg)
+![Use case diagram](docs/tutorial/images/23-useCase.jpg)
 
 Place actors, use cases and the subject (system boundary), and link them with association, include («include»), extend («extend») and generalization. A use case's **Extension points** are added in the member list of the Properties tab. Use cases inside a subject move with it.
 
 ### Sequence diagram
 
-![Sequence diagram](docs/tutorial/images/23-sequence.jpg)
+![Sequence diagram](docs/tutorial/images/24-sequence.jpg)
 
 Draw synchronous, asynchronous, reply, create and delete messages between lifelines; numbers and activation bars are added automatically. A lifeline that receives a create message starts at that height, and one that receives a delete message ends there with an ×.
 
@@ -530,29 +543,29 @@ Draw synchronous, asynchronous, reply, create and delete messages between lifeli
 
 ### Combined fragments
 
-![Combined fragments](docs/tutorial/images/24-fragments.jpg)
+![Combined fragments](docs/tutorial/images/25-fragments.jpg)
 
 There are 12 combined fragments (alt · opt · loop · par · break · critical · neg · strict · seq · ignore · consider · assert), interaction uses (ref), state invariants, continuations, endpoints and gates. Double-clicking a fragment edits the guards of its operands, one per line, and **Add operand** among the quick buttons adds operands. **Refers to** of an interaction use points at another interaction.
 
 ### State machine diagram
 
-![State machine diagram](docs/tutorial/images/25-stateMachine.jpg)
+![State machine diagram](docs/tutorial/images/26-stateMachine.jpg)
 
 There are states (with **Entry activity** · **Do activity** · **Exit activity**), composite states, submachine states, and the initial, final, choice, junction, fork, join, shallow history, deep history, entry point, exit point and terminate pseudostates. A transition with **Triggers**, **Guard** and **Effect** shows as "trigger [guard] / effect". The transition **Kind** is external · internal · local. A state put inside a composite state goes into that state's region.
 
 ### Activity diagram
 
-![Activity diagram](docs/tutorial/images/26-activity.jpg)
+![Activity diagram](docs/tutorial/images/27-activity.jpg)
 
 There are actions and call behavior, call operation, send signal, accept event and time event actions, decision, merge, fork and join, object nodes with input and output pins, swimlanes (partitions), and structured, expansion and interruptible regions. A **Guard** on a control flow or object flow shows as `[guard]`. Partitions come vertical and horizontal, and actions inside them move with them.
 
 ### Component and deployment diagrams
 
-![Component diagram](docs/tutorial/images/27-component.jpg)
+![Component diagram](docs/tutorial/images/28-component.jpg)
 
 A component diagram has components, interfaces (lollipop icon), ports and artifacts with provided / required interfaces and assembly and delegation connectors. The **Interface (Icon)** tool draws an interface as a circle (lollipop), and any interface can be switched to that with **Format › Stereotype display › Icon (interface lollipop)**.
 
-![Deployment diagram](docs/tutorial/images/28-deployment.jpg)
+![Deployment diagram](docs/tutorial/images/29-deployment.jpg)
 
 A deployment diagram deploys artifacts on nodes, devices and execution environments, linked by communication paths. Elements inside a container such as a node move with it.
 
@@ -568,7 +581,7 @@ A deployment diagram deploys artifacts on nodes, devices and execution environme
 
 ### ER diagram
 
-![ER diagram](docs/tutorial/images/29-erd.jpg)
+![ER diagram](docs/tutorial/images/30-erd.jpg)
 
 Draw entities with columns (PK, FK, type, length) and relationships in crow's-foot notation. The relationship tools are One to Many · One to One · One to Zero or One · Many to Many · Non-identifying One to Many. Columns have **Primary key (PK)**, **Foreign key (FK)**, **References column**, **Nullable**, **Unique** and **Default value**, and entities have the **Weak entity** flag. **Tools › Generate SQL DDL…** writes MySQL, PostgreSQL, SQLite, SQL Server and Oracle scripts (see [Code generation](#code-generation)).
 
@@ -586,11 +599,11 @@ Draw entities with columns (PK, FK, type, length) and relationships in crow's-fo
 | **SysML Internal Block Diagram** | Block · Part Property · Port · Actor / Connector · Item Flow · Dependency |
 | **SysML Parametric Diagram** | Constraint Block · Constraint Property · Constraint Parameter · Part Property / Connector |
 
-Requirements have fields such as ID, text, risk and verification method.
+Requirements have fields such as ID, text, kind, status, priority, risk and verification method, and the requirement box shows the status and priority too. For the requirements list and the traceability matrix see [Requirements and traceability](#requirements-and-traceability).
 
 ### BPMN, C4, mind map, wireframe and cloud
 
-![Other diagrams](docs/tutorial/images/30-others.jpg)
+![Other diagrams](docs/tutorial/images/31-others.jpg)
 
 - **BPMN Diagram** — Pool · Lane (swimlanes); Task and User, Service, Script, Manual, Send, Receive and Business Rule tasks; Sub-Process · Call Activity; start, intermediate, boundary and end events (message, timer, signal, error, terminate and so on); exclusive, parallel, inclusive, event-based and complex gateways; Data Object · Data Store · Text Annotation · Group; Sequence Flow · Message Flow · Association · Data Association.
 - **C4 Diagram** — Person · External Person · Software System · External System · Container · Container (Database) · Component, Boundary · Deployment Node, and Relationship. Elements take a **Description** and a **Technology**, and relationships take a **Technology** (for example HTTPS).
@@ -598,11 +611,38 @@ Requirements have fields such as ID, text, risk and verification method.
 - **Wireframe Diagram** — Desktop Frame · Web Frame · Mobile Frame · Panel frames and the Button · Text · Link · Input · Text Area · Checkbox · Radio · Switch · Dropdown · Slider · Tabs · Image · Avatar · List · Table · Divider · Progress · Icon widgets. Widgets have **Checked** · **Disabled** · **Items (comma separated)** fields.
 - **AWS Diagram** · **Azure Diagram** · **GCP Diagram** — groups such as cloud, region, VPC and subnet, service tiles (coloured by category: compute · storage · database · network · security · analytics · integration · ML · management · developer tools · users) and connections. AWS, for example, has EC2 · Lambda · S3 · RDS · DynamoDB · CloudFront · API Gateway · IAM · SQS and more. The tiles are pictures drawn by MyUMLMaker; no company logos are used.
 
+### Nine more kinds of diagram
+
+![Gantt, WBS, ArchiMate, network, data](docs/tutorial/images/32-moreDiagrams.jpg)
+
+These are the kinds PlantUML and Enterprise Architect draw. In the diagram type tabs they are in the **Project** (Gantt Chart · WBS · Timeline), **ArchiMate**, **Cloud** (Network) and **Data** (JSON · YAML · EBNF · Regex) groups. All of them import from and export to PlantUML (see [PlantUML and Mermaid](#plantuml-and-mermaid)).
+
+| Diagram | Toolbox |
+|---|---|
+| **Gantt Chart** | Calendar · Task · Milestone · Separator / Dependency |
+| **WBS Diagram** | Work Item / Sub-item |
+| **Timeline Diagram** | Time Axis · Event · Period / Link |
+| **ArchiMate Diagram** | The elements of the Business · Application · Technology · Physical · Motivation · Strategy · Implementation & Migration · Other groups / Composition · Aggregation · Assignment · Realization · Serving · Access · Influence · Triggering · Flow · Specialization · Association |
+| **Network Diagram** | Network · Network Node · nodes per device (database · router · switch · firewall · pc · laptop · mobile · storage · cloud · printer · queue) · Node Group / Network Connection |
+| **JSON Diagram** · **YAML Diagram** | JSON Document · YAML Document / Reference |
+| **EBNF Diagram** | EBNF Rule / Reference |
+| **Regex Diagram** | Regular Expression / Reference |
+
+- **Gantt Chart** — the **Calendar** (**Start** · **Days (0 = fit)** · **Day width** · **Closed week days** · **Closed dates**) draws the date scale and a task name column on the left. Tasks and milestones move by themselves to the horizontal position of their dates on the row where they are placed, and separators fit the calendar's width. A **Task** has **Start** · **End** · **Duration** (working days, closed days skipped) · **Completion (%)** · **Resources**, a **Milestone** has a **Date**. A task without a start date starts when the task before it (linked by a **Dependency**) ends, or else on the project start. The bar is filled darker for the completion, with the resources next to it. The **Add Next Task** quick button of a task makes a linked task right under it.
+- **WBS Diagram** — **Work Items** (**Code** · **Side**) are joined as a tree with **Sub-item** lines. The **Add Sub-item** quick button grows the branches.
+- **Timeline Diagram** — **Events** (**Date**) and **Periods** (**Start** · **End**) placed on a **Time Axis** (**Start** · **End** · **Day width**) move to the position of their dates. Events are joined with **Links**.
+- **ArchiMate Diagram** — every element of the ArchiMate 3 layers (Business Actor · Business Process · Application Component · Node · Goal · Capability · Work Package …) is drawn with its layer's colour and shape. Changing an element's **Kind** makes it another element. A **Grouping** is a frame that holds elements, and **Junction (And)** · **Junction (Or)** (**Junction type**) split or join relationships. **Access** relationships have an **Access type** (Write · Read · Access · Read/write), **Influence** has a **Strength** and **Association** has **Directed**.
+- **Network Diagram** — like PlantUML nwdiag, **Network Nodes** (**Device** · **Description**) are attached with **Network Connections** (**Address**) to long horizontal **Networks** (**Address** · **Description**). A **Node Group** is a frame around nodes.
+- **JSON and YAML diagrams** — the **Text** of a data document is drawn as a tree table of keys and values (**Format**: JSON · YAML).
+- **EBNF and regex diagrams** — the **Expression** of an EBNF rule or a regular expression is drawn as a railroad diagram. Documents and rules are joined with **References**.
+
+Dates are written as `YYYY-MM-DD`. [Model validation](#model-validation) reports invalid dates, periods that end before they start, and JSON, YAML, EBNF or regex text with syntax errors.
+
 ## Format and arrange
 
 ### Style
 
-![Style](docs/tutorial/images/31-style.jpg)
+![Style](docs/tutorial/images/33-style.jpg)
 
 The **Style** tab of the editors sets how the selected views look (its header reads "View style (N)"). With several views selected, a change applies to all of them.
 
@@ -624,15 +664,41 @@ The same commands are in the **Format** menu and the right-click menu: **Format 
 
 ### Colours
 
-![Colours](docs/tutorial/images/32-colors.jpg)
+![Colours](docs/tutorial/images/34-colors.jpg)
 
 The **Fill color** · **Line color** buttons on the toolbar change the colours of the selected views. The left half of a button paints the last colour, shown in the bar under it, at once; the ▾ opens the colour picker. The colour picker has 12 **Soft colours** and 18 **Standard colors**, **None** (back to the diagram colours) and **More colors…** (the system colour picker).
 
 ### Line styles
 
-![Line styles](docs/tutorial/images/33-lineStyle.jpg)
+![Line styles](docs/tutorial/images/36-lineStyle.jpg)
 
 Lines are **Rectilinear** · **Oblique** · **Rounded rectilinear** · **Curve**. Select a line and change it with **Line style** on the toolbar, **Format › Line style** or the Style tab. Changing the style removes the bend points added by hand. The style of new lines is set in **View › Default line style** or **Settings › Diagram › Default line style**, and lines whose style is **Default (settings)** follow that setting.
+
+### Diagram background
+
+![The diagram background window (pattern)](docs/tutorial/images/35-diagramBackground.jpg)
+
+Every diagram can have its own background. The diagram colours (**View › Diagram colours**) stay as they are; only this diagram's background changes. Text and line colours follow the colour scheme.
+
+- **Editors panel**: click an empty part of the diagram so that nothing is selected; the Properties tab shows a **Background** group under **Diagram options**. Every change applies at once and is one undo step (`Ctrl+Z`).
+- **Format › Diagram background…** (also in the right-click menu of an empty part of the diagram and of a diagram tab, and the button on the Background group's header) opens a window with the same controls and a **Preview**. **OK** applies everything as one step, undone in one step.
+
+| Item | Description |
+|---|---|
+| **Kind** | **Default** (the colour scheme's background) · **Colour** · **Picture** · **Pattern** |
+| **Background colour** | 12 swatches, **Custom colour**, **Default** (the colour scheme's background colour). Pictures and patterns are drawn over this colour |
+| **Colour opacity** | Opacity of the colour layer, 0–100 %. At 0 % the colour is fully transparent and the program's background shows through on screen |
+| **Picture** | **Choose picture…** · **Clear**. A picture longer than 2560 px on a side is scaled down to 2560 px when chosen. The picture is saved inside the project file |
+| **Fit** | **Fill** (cropped to fill) · **Fit** (all of it visible) · **Tile** (repeated at its own size) · **Centre** (its own size, centred) · **Stretch** (ignores the aspect ratio) |
+| **Picture opacity** | Opacity of the picture layer, 0–100 % |
+| **Pattern** | **Dots** · **Grid** · **Horizontal lines** · **Vertical lines** · **Diagonal lines** · **Diagonal cross** · **Checkerboard** · **Crosshatch** · **Waves** · **Hexagons** (click a tile) |
+| **Pattern colour** | The colour the pattern is drawn in (swatches, custom colour; **Default** is the colour scheme's grid colour) |
+| **Pattern opacity** | Opacity of the pattern layer, 0–100 % |
+| **Pattern size** | 50–300 % |
+
+On the canvas the background lies under the grid and the views, and the minimap shows it. Tiled pictures and patterns start at page 0, 0, so they sit where they do in an exported picture; pictures with the other fits are placed over the visible area. The background is in **Export as picture**, SVG and PDF, printing, the presentation and the diagram pictures of generated documents (HTML · Word · PDF · Markdown). **Transparent** in **Export as picture** still exports with no background at all, and with **Print the diagram background** off the sheet is printed on white. Where an opacity is below 100 %, PNG · WebP · BMP · TIFF · SVG stay that transparent; JPEG, which has no transparency, and printing put it over white.
+
+The background is saved in .myuml projects and StarUML (.mdj) files and is the same when opened again; XMI exports leave it out. Comparing with a baseline lists it as changed diagram fields (Background kind, Background colour …).
 
 ### Order
 
@@ -640,7 +706,7 @@ The front-to-back order of overlapping views is changed in **Arrange › Order**
 
 ### Align and distribute
 
-![Align](docs/tutorial/images/34-align.jpg)
+![Align](docs/tutorial/images/37-align.jpg)
 
 Select two or more views and use **Align** on the toolbar or **Arrange › Align & distribute**.
 
@@ -655,13 +721,13 @@ With only one view selected you get "Select two or more views.", and when distri
 
 ### Auto layout
 
-![Auto layout](docs/tutorial/images/35-layout.jpg)
+![Auto layout](docs/tutorial/images/38-layout.jpg)
 
 Pick a direction from **Auto layout** on the toolbar or **Arrange › Auto layout**: **Top to bottom** · **Bottom to top** · **Left to right** · **Right to left**. A layered layout rearranges the elements, with parents of an inheritance on top (the first row). With two or more views selected, only the selected views are rearranged. On a sequence diagram the lifelines and the message spacing are evened out. Afterwards the whole diagram is fitted into view and "Rearranged N views." shows. If you do not like it, `Ctrl+Z` takes it back.
 
 ### Zoom and pan
 
-![Zoom and pan](docs/tutorial/images/36-zoom.jpg)
+![Zoom and pan](docs/tutorial/images/39-zoom.jpg)
 
 | How | What it does |
 |---|---|
@@ -673,11 +739,11 @@ Pick a direction from **Auto layout** on the toolbar or **Arrange › Auto layou
 | Drag with the middle button, `Space`+drag | Pan |
 | Wheel · `Shift`+wheel | Scroll up and down · left and right |
 
-The diagram is an endless canvas that grows by itself when you draw near its edge. The **Pan & zoom window** (minimap) at the bottom right shows the whole diagram and the visible part; clicking or dragging in it moves there. Turn it off with **View › Show › Pan & zoom window**. The grid is turned on and off with **View › Show › Grid**, and snapping with **Snap to grid**.
+The diagram is an endless canvas that grows by itself when you draw near its edge. The **Pan & zoom window** (minimap) at the bottom right shows the whole diagram and the visible part; clicking or dragging in it moves there. Turn it off and on with the **Pan & zoom window** toolbar button or **View › Show › Pan & zoom window**. The grid is turned on and off with **View › Show › Grid** (or the **Grid** button on the toolbar), and snapping with **Snap to grid**.
 
-**Grid** — the grid is drawn as lines: a thin line every grid step and a darker, thicker line every 5 steps, so each large square is 5×5 cells. The colours follow the [diagram colours](#diagram-colours). The grid spacing (**Settings › Diagram › Grid size**, 5–40px) is in **screen pixels**, so the grid keeps the same spacing on the screen at every zoom level: zooming does not magnify the grid, it is redrawn finer (zoom in) or coarser (zoom out) on the page. Snapping to the grid and nudging with the arrow keys follow the visible grid lines (whole page units): with a 10px grid, positions snap every 5 page units at 200% and every 20 at 50%.
+**Grid** — the grid is drawn as lines: a thin line every grid step and a darker, thicker line every 5 steps, so each large square is 5×5 cells. The colours follow the [diagram colours](#diagram-colours). The grid spacing (**Settings › Diagram › Grid size**, 5–40px) is the size of a cell at 100 %. Zooming makes the grid grow and shrink with the diagram until a cell on the screen gets smaller than half the grid size or larger than 2.5 times it; past that threshold the grid is redrawn one level coarser (5 cells become 1) or finer (1 cell becomes 5), so the darker lines of one level become the thin lines of the next and the 5×5 pattern carries on. With a 10px grid, for example, there is a line every 10 page units from 50 % to 240 % (5–24 px on the screen), every 2 above 250 % and every 50 below 50 %. Snapping and arrow-key nudging follow the visible grid cell.
 
-**Rulers** — rulers run along the top and left edges of the diagram. They show page coordinates, with numbers on the major grid lines, and mark where the pointer is. The spacing of the numbers adapts to the zoom (for example every 100 at 50% and every 25 at 200%). Turn them on and off with **View › Show › Rulers** or **Settings › Diagram › Rulers**.
+**Rulers** — rulers run along the top and left edges of the diagram. They show page coordinates, with numbers on the major grid lines, and mark where the pointer is. The spacing of the numbers adapts to the zoom (for example every 100 at 50% and every 25 at 200%). Turn them on and off with **View › Show › Rulers**, the **Rulers** button on the toolbar or **Settings › Diagram › Rulers**. The **Grid** and **Rulers** toolbar buttons show pressed while they are on.
 
 Turning `Ctrl`+wheel outside the diagram (over a panel or menu) changes the size of the whole program screen (**Settings › Font › Zoom**, 50–200%).
 
@@ -685,9 +751,9 @@ Turning `Ctrl`+wheel outside the diagram (over a panel or menu) changes the size
 
 ### Model validation
 
-![Model validation](docs/tutorial/images/37-validate.jpg)
+![Model validation](docs/tutorial/images/40-validate.jpg)
 
-**Model › Validate model** (`Ctrl+Shift+V`, **Validate model** on the toolbar) checks the model against about 20 rules. With no problems it says "The model has no problems."; otherwise the validation results window shows the numbers of errors and warnings and the list. Clicking an entry shows that element in the Model Explorer and on its diagram. The result also stays on the status bar as "N errors · N warnings". With **Settings › Diagram › Validate the model after each edit** on, the counts on the status bar are refreshed after every edit.
+**Model › Validate model** (`Ctrl+Shift+V`, **Validate model** on the toolbar) checks the model against 34 rules. With no problems it says "The model has no problems."; otherwise the validation results window shows the numbers of errors and warnings and the list. Clicking an entry shows that element in the Model Explorer and on its diagram. The result also stays on the status bar as "N errors · N warnings". While the [Problems panel](#problems-panel) at the bottom is open, the same check runs in the background after every edit and its list and counts refresh by themselves. With the panel closed, **Settings › Diagram › Validate the model after each edit (counts in the status bar while the Problems panel is closed)** keeps just the status bar counts fresh.
 
 | Rule | Severity |
 |---|---|
@@ -712,10 +778,40 @@ Turning `Ctrl`+wheel outside the diagram (over a panel or menu) changes the size
 | Foreign key column has no referenced column | Warning |
 | Diagram is empty | Warning |
 | Reference to a missing element | Error |
+| Invalid date (YYYY-MM-DD) | Error |
+| Task lasts less than a day and has no end date | Warning |
+| End date is before the start date | Error |
+| Syntax error in the text | Error |
+| Approved requirement is not satisfied by any element | Warning |
+| Approved requirement is not verified by any element | Warning |
+| Requirement id is used more than once | Warning |
+| Duplicate column name in the entity | Error |
+| Column has no data type | Warning |
+| Entity has no columns | Warning |
+| Foreign key type differs from the referenced column | Warning |
+| No foreign key column links the related entities | Warning |
+| Duplicate entity name in the data model | Error |
+
+The date rules apply to the date fields of Gantt charts and timelines, the syntax rule to JSON and YAML documents, EBNF rules and regular expressions. The satisfied and verified rules apply only to requirements whose status is **approved**, **implemented** or **verified** and that have no sub-requirements (a requirement with sub-requirements is covered by them). **proposed**, **rejected** and **deferred** requirements are not checked.
+
+The ER diagram rules compare column and entity names without regard to case, as SQL does (`email` and `EMAIL` are the same name). Foreign key types are compared without their length and with same-meaning names taken as one (`INT` = `INTEGER` = `SERIAL`, `NUMERIC` = `DECIMAL`, `VARCHAR(20)` = `VARCHAR`). The relationship rule passes when either of the two related entities has a foreign key column that references a column of the other.
+
+### Problems panel
+
+![The Problems panel](docs/tutorial/images/41-problemsPanel.jpg)
+
+The **Problems** panel under the diagram keeps checking the model in the background, as an IDE does, and shows what is wrong in the ERD or UML model and where to fix it. After an edit, an undo or redo or opening a file, it checks once the edits pause (about 0.4 s) and in idle time, so typing and dragging never stutter. A large model that takes long to check waits longer (up to 3 s), and nothing is checked during a drag.
+
+- **Show and hide** — **View › Show › Problems panel**, the **Problems panel** button on the toolbar, `Ctrl+J`, the **×** at the panel's top right, or **Settings › Diagram › Problems panel**. Clicking "N errors · N warnings" on the status bar opens it too. Closing it keeps its filters and selection; the start page does not show it.
+- **Header** — the error and warning counts, the **All** · **Errors** · **Warnings** filter, **Current diagram only** (only problems of elements drawn on the diagram you are looking at), a box that filters by message, element, path or diagram name, how many problems were found and how long the check took, and **Validate all** (check again now).
+- **List** — errors first, then warnings, each by element path. A row shows the severity, the message, the element's name and path (`package::…`), its type, the diagrams that show it and the rule id. A column or an attribute, which is not drawn by itself, lists the diagrams of its entity or class.
+- **Going there** — clicking a row selects the element in the Model Explorer (expanding its owners), opens the first diagram that shows it (the current one when it does) and selects and scrolls to its view. A double-click goes on to the property editor field to fix (name, type, multiplicity …). In the list, the up and down arrow keys move the selection, `Enter` goes there (`Ctrl+Enter` as a double-click) and `Esc` returns to the diagram.
+- **Marks on the diagram** — while the panel is open, views whose element has a problem get a red (error) or orange (warning) **!** at their top-right corner (lines: at the middle). Its tooltip lists the messages; clicking it selects the problem in the list.
+- **Size** — drag the border above the panel to change its height (from 90 pixels up to 60 % of the window). The height is remembered for the next start.
 
 ### Find
 
-![Find](docs/tutorial/images/38-find.jpg)
+![Find](docs/tutorial/images/42-find.jpg)
 
 **Edit › Find…** (`Ctrl+F`) opens the **Find in model** window. Type in **Find what** and press **Find** to search the whole model by name, documentation, kind and type. The **Options** are **Match case** · **Whole words** · **Include documentation**. The results show the name, kind and qualified name (package path); clicking one expands and selects it in the Model Explorer and opens a diagram that shows it.
 
@@ -723,7 +819,7 @@ The **Filter model** box above the Model Explorer is a lighter way that narrows 
 
 ### Code generation
 
-![Code generation](docs/tutorial/images/39-codegen.jpg)
+![Code generation](docs/tutorial/images/43-codegen.jpg)
 
 **Tools › Generate code…** (`Ctrl+Shift+G`) opens the **Generate code** window. As you choose the settings on the left, the files to be made and their contents show at once on the right ("N files").
 
@@ -747,7 +843,7 @@ Pressing **Generate** asks for a folder (files in a folder) or a ZIP file name.
 
 ### Reverse engineering (code → model)
 
-![Reverse engineering](docs/tutorial/images/40-reverse.jpg)
+![Reverse engineering](docs/tutorial/images/47-reverse.jpg)
 
 **Tools › Reverse engineer (code → model)** (`Ctrl+Shift+R`, the toolbar button, the start page) opens a menu of languages.
 
@@ -763,26 +859,135 @@ Pressing **Generate** asks for a folder (files in a folder) or a ZIP file name.
 
 Several files can be picked. The result goes into the model or package selected in the Model Explorer (else the first model). Packages, namespaces and folders become packages, inheritance and implementation become generalizations and interface realizations, and fields typed with a class that was read become navigable associations. Reading code makes a "Reverse Engineered" class diagram, and reading SQL an ER diagram, laid out automatically. Unresolved types and the like are listed in the **Reverse engineering warnings** window. Dropping source files on the window reverse engineers them too.
 
-### Mermaid and PlantUML import
+### PlantUML and Mermaid
 
-![Mermaid and PlantUML import](docs/tutorial/images/41-textImport.jpg)
+![Mermaid and PlantUML import](docs/tutorial/images/48-textImport.jpg)
 
-**File › Import › Import Mermaid / PlantUML…** turns text into model elements and a diagram. Choose the **Format** (Mermaid · PlantUML), paste the text and press **Import**. The **Examples** buttons (Class · Sequence · Flowchart · ER · State) show what the format looks like.
+**File › Import › Import Mermaid / PlantUML…** turns text into model elements and a diagram. Choose the **Format** (Mermaid · PlantUML), paste the text and press **Import**. Choosing one in the **Examples** list puts its text in (Mermaid: Class · Sequence · Flowchart · ER · State; 21 for PlantUML: Class · Object · Use case · Sequence · Activity · State · Component · Deployment · Timing · ER · Mind map · Gantt · WBS · Timeline · ArchiMate · Network · JSON · YAML · EBNF · Regex · Salt screen).
 
-| Format | Diagrams it can import |
+| Format | Diagrams it imports and exports |
 |---|---|
-| Mermaid | `classDiagram` · `sequenceDiagram` · `flowchart`/`graph` · `erDiagram` · `stateDiagram`/`stateDiagram-v2` |
-| PlantUML | Class and sequence diagrams in `@startuml … @enduml` |
+| PlantUML `@startuml` | Every UML diagram PlantUML has: class · object · package · profile · use case · component · deployment · composite structure · information flow · sequence · activity (new and legacy syntax) · state · timing · ER (IE `entity` notation), and ArchiMate (archimate sprites and macros) |
+| Other PlantUML blocks | `@startmindmap` (mind map) · `@startgantt` (Gantt chart) · `@startwbs` (WBS) · `@startchronology` (timeline) · `@startnwdiag` (network) · `@startjson` · `@startyaml` · `@startebnf` · `@startregex` · `@startsalt` (wireframe) |
+| Mermaid | Import: `classDiagram` · `sequenceDiagram` · `flowchart`/`graph` · `erDiagram` · `stateDiagram`/`stateDiagram-v2` |
 
-The imported elements and diagram go into the selected package (else the first model) and the diagram opens. Opening or dropping a `.mmd` · `.mermaid` · `.puml` · `.plantuml` · `.pu` file opens this window with its contents. Other kinds of Mermaid diagram give "This kind of Mermaid diagram cannot be imported (class, sequence, flowchart, ER and state only)."
+- The PlantUML preprocessor is followed: comments, `!define` and `!$variable` substitution, `!if` · `!ifdef` are applied, and decorations such as `!include`, `skinparam`, styles, legends, headers and footers are skipped.
+- Lines that were skipped or not understood are listed after the import in an **N import warnings** window.
+- The imported elements and diagram go into the selected package (else the first model) and the diagram opens.
+- Opening or dropping a `.mmd` · `.mermaid` · `.puml` · `.plantuml` · `.pu` file opens this window with its contents. **Paste** (`Ctrl+V`) with any PlantUML block starting with `@start…` (`@startuml` · `@startgantt` · `@startjson` …) or Mermaid text on the clipboard opens it too, and so does dropping such text on the window.
+- Other kinds of Mermaid diagram give "This kind of Mermaid diagram cannot be imported (class, sequence, flowchart, ER and state only)."
 
-The other way round, **File › Export › Mermaid (.mmd)…** · **PlantUML (.puml)…** write the current diagram as text. Mermaid exports class · sequence · flowchart · ER · state machine · use case · activity diagrams (use case and activity as flowcharts), and PlantUML exports class · use case · sequence · activity · state · component · deployment · ER diagrams.
+The other way round, **File › Export › PlantUML (.puml)…** · **Mermaid (.mmd)…** write the current diagram as text. PlantUML exports every kind in the table above (wireframes as Salt); communication diagrams are written as sequence diagrams, interaction overviews as activities and profiles as class diagrams. Mermaid exports class · sequence · flowchart · ER · state machine · use case · activity diagrams (use case and activity as flowcharts).
+
+## Requirements and traceability
+
+As in Enterprise Architect, each requirement carries attributes, and the trace relationships between requirements and other elements are handled as a table and a matrix. Requirements are made with the **Requirement** tool of a SysML requirement diagram.
+
+### Requirement attributes
+
+The Properties tab of a requirement has these fields.
+
+| Field | Values |
+|---|---|
+| **ID** | A new requirement gets the number after the highest `REQ-` number of the project by itself (`REQ-001` in a new project). It can be changed |
+| **Text** | The requirement text |
+| **Kind** | functional · non-functional · performance · interface · usability · reliability · security · design constraint · physical · business · user |
+| **Status** | proposed · approved · implemented · verified · rejected · deferred |
+| **Priority** | high · medium · low |
+| **Difficulty** · **Stability** | low · medium · high |
+| **Risk** | (none) · low · medium · high |
+| **Verify method** | (none) · analysis · demonstration · inspection · test |
+| **Version** · **Author** · **Phase** | Free text. The author starts as the author in the project properties |
+
+On the diagram the requirement box shows `Status = …, Priority = …` under `Id` and `Text`, and `Risk = …, Verify = …` when a risk or verification method is set.
+
+### Requirements list
+
+![Requirements list](docs/tutorial/images/44-requirements.jpg)
+
+**Model › Requirements** shows every requirement of the project in a table.
+
+- Columns: **ID** · **Name** · **Kind** · **Status** · **Priority** · **Risk** · **Verification** · **Satisfied** · **Verified** · **Derived** (the number of elements linked by satisfy, verify and derive relationships).
+- Clicking a heading sorts by that column; clicking it again reverses the order.
+- The box at the top (**Filter by id, name or text**) and the **Any status** · **Any priority** lists filter the rows; "N of M" shows on the right.
+- **Status** and **Priority** are changed right in the table (one undo step, **Edit requirement**).
+- When an approved, implemented or verified requirement without sub-requirements has nothing satisfying or verifying it, that cell is highlighted ("Approved requirement with nothing linked").
+- Clicking an ID shows the requirement in the Model Explorer and on its diagram.
+- **Export CSV** saves the rows shown now (after filtering) as a CSV file.
+
+While it is open, the list follows every edit and undo.
+
+### Traceability matrix
+
+![Traceability matrix](docs/tutorial/images/45-traceMatrix.jpg)
+
+**Model › Traceability Matrix** shows the relationships between elements as a grid. At first the rows are the requirements and the columns the kind of element most often related to them.
+
+| Item | Contents |
+|---|---|
+| **Rows** · **Columns** | The element type (**Row element type** · **Column element type**, with counts) and package (**Row package** · **Column package**, **Whole project** by default). The button between them is **Swap rows and columns** |
+| **Relationship** | **All relationships** or one relationship type (satisfy · verify · derive · trace · dependency …) |
+| **New link** | The direction of relationships made by clicking cells: **Row → column** · **Column → row** |
+
+- A cell shows the direction of its relationships: → the row is the source, ← the row is the target, ↔ undirected. Its tooltip names the relationship types.
+- With one type chosen in **Relationship**, clicking a cell creates that relationship (empty cell) or deletes it (filled cell). Every change can be undone (**Change trace relationship**). With **All relationships**, clicking a cell says "Choose one relationship type to create or delete links by clicking cells."
+- Rows without any relationship are highlighted, and "N of M rows without links" shows at the top. The last row and column (Σ) are totals.
+- Clicking a row or column heading goes to that element. Many rows or columns are paged with the buttons at the bottom.
+- **Copy** puts the matrix on the clipboard as tab-separated text, and **Export CSV** saves it as a CSV file.
+
+### Requirements in documents
+
+**HTML documentation (.html)…**, **Markdown documentation (.zip)…** and the documents of [Generating documents](#generating-documents) include a requirements table (ID · Name · Kind · Status · Priority · Risk · Verification · Satisfied by · Verified by · Text). For the requirement rules see [Model validation](#model-validation).
+
+## Baselines and documents
+
+### Baselines
+
+![Baselines and comparison](docs/tutorial/images/46-baselines.jpg)
+
+A **baseline** is a named snapshot of the model at one point in time. **Model › Baselines…** opens the **Baselines** window.
+
+- Set a **Name** (empty: the project name and the date), a **Note** and the **Scope** (**Whole project** or the package picked in the Model Explorer) and press **Create baseline**.
+- The list shows each baseline's name, creation time, scope, number of elements and note, with buttons for **Compare with current**, **Export as .myuml** (the model of that time as a project file of its own) and **Delete**.
+- Baselines are saved inside the `.myuml` project file. Creating and deleting them can be undone too. Templates (`.mumlt`) and StarUML `.mdj` files are saved without baselines.
+- **Compare with file…** at the bottom of the window (or **Model › Compare with file…**) compares the current model with another `.myuml`, `.mumlt` or `.mdj` file.
+
+### Comparison
+
+The compare window (**Compare with {name}**) shows the differences between the baseline (or file) and the current model.
+
+- At the top are the **N added** · **N removed** · **N changed** counts.
+- **Show** filters by added · removed · changed and by elements · members · relationships · diagrams, and **Filter by text** finds names.
+- The list on the left shows the changed elements as a tree under their owners ("renamed from …" when the name changed). Picking a row shows the changed fields on the right as a **Field** · **Before** · **Now** table. Diagrams show the numbers of views added, removed, moved or resized and restyled.
+- **Go to element** shows the element in the Model Explorer and on its diagram (just picking the row goes there too).
+- **Restore from baseline** puts a changed element back to its baseline contents, or puts a removed element back into its old owner. It is one undo step (**Restore from baseline**).
+
+### Generating documents
+
+![Generate document](docs/tutorial/images/53-generateDocument.jpg)
+
+**Tools › Generate document…** makes Word, PDF and HTML documents from templates.
+
+| Item | Choices |
+|---|---|
+| **Scope** | **Whole project** or the package picked in the Model Explorer |
+| **Template** | **Full model report** · **Requirements specification** · **Design document (classes + diagrams)** · **Use case specification** · **Data dictionary (ER)** |
+| **Sections** | **Cover page** · **Table of contents** · **Diagrams as pictures** · **Documentation** · **Properties** · **Attributes / columns** · **Operations** · **Relationships** · **Tags and constraints** · **Requirements table** (choosing a template switches on its sections; each can be switched on or off) |
+| **Language** | 한국어 · English |
+| **Format** | Word (.docx) · PDF · HTML |
+| **Title** · **Author** · **Version** · **Date** | Go on the cover page. They start as the project name, author and version and today's date |
+
+A template chooses the elements and diagrams of the document: the requirements specification holds the requirements and requirement diagrams, the design document classes, interfaces, components, blocks and the like with structure and behaviour diagrams, the use case specification actors, use cases and use case diagrams, and the data dictionary ER entities and ER diagrams. **Generate** asks for a file name and saves. The template, sections, language and format chosen last are remembered.
+
+- **Word (.docx)** — title and heading styles, a table of contents, tables, PNG pictures of the diagrams and page numbers. Word refreshes the table of contents when the document opens.
+- **PDF** — every A4 page is made as a picture, so Korean text prints exactly as shown (the text on the pages cannot be selected or searched).
+- **HTML** — one file with the diagrams embedded as SVG.
 
 ## Files and export
 
 ### Saving
 
-![Saving](docs/tutorial/images/42-save.jpg)
+![Saving](docs/tutorial/images/49-save.jpg)
 
 A project is saved as one `.myuml` file holding the model and all diagrams (in JSON). Files in the old `.muml` format still open; saving one asks for a `.myuml` file name.
 
@@ -798,11 +1003,11 @@ With **Settings › Diagram › Auto save (saved files)** set to 1, 5, 10 or 30 
 
 ### The File menu
 
-![The File menu](docs/tutorial/images/43-fileMenu.jpg)
+![The File menu](docs/tutorial/images/50-fileMenu.jpg)
 
 ### Opening
 
-**Open…** (`Ctrl+O`) opens `.myuml` (project, the old `.muml` too), `.mumlt` (template) and `.mdj` (StarUML project) files. Only one project is open at a time, so the opened file replaces the current project. When the current project has unsaved changes, the **Unsaved changes** window asks first: **Save** · **Don't save** · **Cancel**. When several files are picked, only the first one opens. Opening the file that is open now says "{name} is already open." Recent files, drag and drop and opening from the database replace the current project in the same way. Opening a template makes a new project with its contents (the template itself stays as it is), and opening a StarUML file makes an imported project that asks for a `.myuml` name when saved.
+**Open…** (`Ctrl+O`) opens `.myuml` (project, the old `.muml` too), `.mumlt` (template), `.mdj` (StarUML project) and `.xmi` · `.xml` · `.uml` (XMI 2.x, see [Exchanging XMI](#exchanging-xmi)) files. Only one project is open at a time, so the opened file replaces the current project. When the current project has unsaved changes, the **Unsaved changes** window asks first: **Save** · **Don't save** · **Cancel**. When several files are picked, only the first one opens. Opening the file that is open now says "{name} is already open." Recent files, drag and drop and opening from the database replace the current project in the same way. Opening a template makes a new project with its contents (the template itself stays as it is), and opening a StarUML or XMI file makes an imported project that asks for a `.myuml` name when saved.
 
 The installed desktop app is associated with `.myuml` and `.mumlt` files, so double-clicking them in Explorer or the Finder opens them at once. After installation `.myuml` files show their own MyUMLMaker project document icon labelled "MYUML".
 
@@ -812,10 +1017,23 @@ The installed desktop app is associated with `.myuml` and `.mumlt` files, so dou
 
 ### Exchanging with StarUML
 
-![StarUML compatibility](docs/tutorial/images/46-starUml.jpg)
+![StarUML compatibility](docs/tutorial/images/55-starUml.jpg)
 
 - **File › Import › Open StarUML project (.mdj)…** (or **Open…**) opens the model and diagrams of a StarUML project as they are. MyUMLMaker's model uses the same element kinds and field names as StarUML, so the model carries over unchanged, and the diagram views are converted.
-- **File › Export › StarUML project (.mdj)…** writes the current project as an `.mdj` that StarUML can open.
+- **File › Export › StarUML project (.mdj)…** writes the current project as an `.mdj` that StarUML can open (without baselines).
+
+### Exchanging XMI
+
+![XMI and PlantUML](docs/tutorial/images/54-xmi.jpg)
+
+XMI 2.x (OMG UML 2.5 XMI) exchanges models with tools such as Enterprise Architect, MagicDraw (Cameo) and Papyrus.
+
+- **File › Import › Open XMI (Enterprise Architect, MagicDraw, Papyrus)…** — opens an `.xmi` · `.xml` · `.uml` file as an imported project (replacing the current one). **Open…** and drag and drop open them too. Enterprise Architect 2.1 / 2.5 exports are read with their diagrams and element positions, tagged values and notes; MagicDraw and Papyrus files use their diagram information (UML DI or GMF) when they have it. Without any diagram information a class diagram is made per package and laid out automatically.
+- What cannot be read is skipped; after opening, a message such as "Imported … with N warning(s). First: …" gives the number of warnings and the first one. XMI import never stops with an error.
+- **File › Export › XMI 2.5 for Enterprise Architect (.xmi, with diagrams)…** — writes the model plus the diagrams and element positions in Enterprise Architect's extension, so EA shows them as drawn after importing.
+- **File › Export › XMI 2.5, model only (.xmi)…** — writes standard XMI with the model only, no diagrams (MagicDraw, Papyrus and others).
+
+What is exchanged: packages, models and profiles; classes, interfaces, data types, enumerations, signals, components, nodes, artifacts, actors and use cases with their attributes, operations, parameters and literals; generalizations, interface realizations, associations (with their ends), dependencies of every kind, include, extend and profile extensions; state machines, activities and interactions; instances; comments and documentation; stereotype applications. Non-UML notations such as ER, BPMN and C4 are not written to XMI.
 
 ### Model fragments
 
@@ -826,14 +1044,14 @@ A model fragment (`.mfj`) is a file holding one element (for example one package
 
 ### Exporting pictures
 
-![Exporting pictures](docs/tutorial/images/44-exportImage.jpg)
+![Exporting pictures](docs/tutorial/images/51-exportImage.jpg)
 
 **File › Export › Export as picture…** (the export button on the toolbar) opens the **Export as image** window. The last settings are remembered.
 
 | Item | Choices |
 |---|---|
 | **File format** | PNG · JPEG · WebP · BMP · TIFF · SVG |
-| **Background** | Transparent · White (JPEG has no transparency, so it gets white) |
+| **Background** | Transparent · White (JPEG has no transparency, so it gets white). White exports the diagram's own background too ([Diagram background](#diagram-background)) |
 | **Area** | Whole diagram · Selected views |
 | **Scale** | 1× · 2× · 3× (SVG is a vector format and stays sharp at any scale) |
 | **Quality** | The compression quality of JPEG and WebP (40–100%) |
@@ -849,12 +1067,12 @@ Exports and printing use the **Diagram colours** and the default line style as t
 
 ### Exporting documentation
 
-![Documentation and other formats](docs/tutorial/images/45-exportDocs.jpg)
+![Documentation and other formats](docs/tutorial/images/52-exportDocs.jpg)
 
 - **HTML documentation (.html)…** — makes a single searchable HTML page. On the left is a tree of the model; on the right each element has its kind, qualified name, documentation, properties, members, relationships and the diagrams it shows on, and every diagram is embedded as SVG. A search box filters elements and diagrams, and light or dark colours follow the system setting. Being one file, it can be mailed or put on the web as it is.
 - **Markdown documentation (.zip)…** — saves one Markdown document and the diagram SVG pictures (the `images/` folder) in one ZIP.
 
-The titles and headings of the documents are made in the current language (Korean or English). The descriptions written on the **Documentation** tab of the editors go into the documents.
+The titles and headings of the documents are made in the current language (Korean or English). The descriptions written on the **Documentation** tab of the editors go into the documents, and so does a requirements table when the project has requirements. For Word and PDF documents with a cover and contents made from a template, use **Tools › Generate document…** (see [Generating documents](#generating-documents)).
 
 ### Recent files and folders
 
@@ -871,7 +1089,7 @@ Dragging a file onto the window shows the "Drop here to open" hint, and the drop
 
 | Dropped | What happens |
 |---|---|
-| `.myuml` · `.muml` · `.mumlt` · `.mdj` | Opens as a project (replacing the current one) |
+| `.myuml` · `.muml` · `.mumlt` · `.mdj` · `.xmi` · `.xml` · `.uml` | Opens as a project (replacing the current one) |
 | `.mfj` | Imports the model fragment |
 | `.mmd` · `.mermaid` · `.puml` · `.plantuml` · `.pu` | Opens the Mermaid / PlantUML import window with its contents |
 | Java · C# · C++ · Python · TypeScript · SQL sources | Reverse engineers them |
@@ -881,7 +1099,7 @@ In the web version, dropping Mermaid or PlantUML text also opens the import wind
 
 ### Printing and print preview
 
-![Printing and print preview](docs/tutorial/images/47-print.jpg)
+![Printing and print preview](docs/tutorial/images/56-print.jpg)
 
 **File › Print…** (`Ctrl+P`) opens the **Print preview** window. Changing a setting on the left updates the preview on the right at once, and ‹ › at the bottom turn the pages. The settings are remembered for the next print and for PDF export.
 
@@ -921,7 +1139,7 @@ Choose the **Database type** on the **Settings › Database** tab: **None** · S
 
 ### Themes
 
-![Themes](docs/tutorial/images/48-theme.jpg)
+![Themes](docs/tutorial/images/57-theme.jpg)
 
 The theme button at the right of the toolbar picks a different random theme on every click. The ▾ next to it (**Choose theme**) shows 20 dark and 20 light themes in two rows, with **System setting** (follow the light or dark mode of the operating system) and **Custom** at the top. **Edit custom theme…** at the bottom opens the Theme tab of the settings.
 
@@ -929,13 +1147,13 @@ In **Settings › Theme** you pick from the dark · light · custom groups. A cu
 
 ### Diagram colours
 
-![Diagram colours](docs/tutorial/images/49-diagramTheme.jpg)
+![Diagram colours](docs/tutorial/images/58-diagramTheme.jpg)
 
 In **View › Diagram colours** or **Settings › Diagram › Diagram colours** pick the colours of the whole diagram: **Classic (white)** · **Pastel** · **Blueprint** · **Dark**. They are set apart from the program theme, and the same colours are used for picture, SVG and PDF export, printing and presentations. Colours given to a view (its style) win over the diagram colours.
 
 ### Language
 
-![Language](docs/tutorial/images/50-language.jpg)
+![Language](docs/tutorial/images/59-language.jpg)
 
 The flag button on the toolbar (`Ctrl+Shift+L`) switches between Korean and English. In Korean it shows the British flag, in English the Korean flag. **Settings › General › Language** changes it too. Menus, windows, error messages, the default names of new elements and the headings of exported documents follow the language. The names of elements already made do not change.
 
@@ -968,13 +1186,13 @@ In **Settings › Font** set the **Font** (from the fonts installed on the syste
 
 ### Panels
 
-![Collapsing the panels](docs/tutorial/images/51-panels.jpg)
+![Collapsing the panels](docs/tutorial/images/60-panels.jpg)
 
-**View › Show** shows or hides the **Toolbox** (`Ctrl+Shift+1`) · **Model Explorer & editors** (`Ctrl+Shift+2`) · **Status bar**. The panel widths, the height shared by the Model Explorer and the editors, **Icons only** in the toolbox and **Sort by name** in the Model Explorer are remembered for the next start. Right-clicking a panel, the toolbar or the menu bar also shows the panel menu.
+**View › Show** shows or hides the **Toolbox** (`Ctrl+Shift+1`) · **Model Explorer & editors** (`Ctrl+Shift+2`) · **Problems panel** (`Ctrl+J`) · **Status bar**. The panel widths, the height shared by the Model Explorer and the editors, **Icons only** in the toolbox and **Sort by name** in the Model Explorer are remembered for the next start. Right-clicking a panel, the toolbar or the menu bar also shows the panel menu.
 
 ### The Settings window
 
-![Settings](docs/tutorial/images/52-settings.jpg)
+![Settings](docs/tutorial/images/61-settings.jpg)
 
 **Settings…** (`Ctrl+,`, the gear on the toolbar) has these tabs. Changes apply and are saved at once. **Defaults** puts every setting back to the start, and **Done** closes the window.
 
@@ -997,19 +1215,20 @@ The **Settings › Diagram** tab:
 | **Diagram colours** | Classic (white) · Pastel · Blueprint · Dark |
 | **Default line style** | Rectilinear · Oblique · Rounded rectilinear · Curve |
 | **Diagram font** · **Diagram font size** | The default font of diagrams (the default when empty) and its size |
-| **Grid** · **Grid size** | Show the grid, spacing 5 · 10 · 15 · 20 · 25 · 40px. The spacing is in screen pixels, so the grid looks the same on the screen at every zoom level; every 5th line is darker (see [Zoom and pan](#zoom-and-pan)) |
+| **Grid** · **Grid size** | Show the grid, spacing 5 · 10 · 15 · 20 · 25 · 40px (a cell at 100 %). It zooms with the diagram and is redrawn 5× finer or coarser past a threshold; every 5th line is darker (see [Zoom and pan](#zoom-and-pan)) |
 | **Rulers** | Show the rulers along the top and left edges of the diagram |
 | **Snap to grid** | Snap to the grid when moving and creating |
 | **Pan & zoom window** | Show the minimap |
 | **Show shadows** | Shadows of element views |
 | **Quick edit buttons** | The quick buttons under the selected element |
 | **Dropping into a package moves the element in the model** | A drop into a container changes the owner in the model |
-| **Validate the model after each edit** | Keeps the validation counts on the status bar up to date |
+| **Problems panel** | Shows the background check under the diagram ([Problems panel](#problems-panel)) |
+| **Validate the model after each edit (counts in the status bar while the Problems panel is closed)** | Keeps the validation counts on the status bar up to date even with the Problems panel closed (with it open the model is always checked) |
 | **Auto save (saved files)** | Off · 1 min · 5 min · 10 min · 30 min |
 
 ## Keyboard shortcuts
 
-![Keyboard shortcuts](docs/tutorial/images/54-shortcuts.jpg)
+![Keyboard shortcuts](docs/tutorial/images/63-shortcuts.jpg)
 
 The **Settings › Shortcuts** tab (or **Help › Keyboard shortcuts…**) has the same list, and the menus show the shortcuts next to their commands. On macOS use `Cmd` instead of `Ctrl`.
 
@@ -1044,7 +1263,7 @@ The **Settings › Shortcuts** tab (or **Help › Keyboard shortcuts…**) has t
 | `Ctrl+Shift+> / <` | Increase font size / Decrease font size | |
 | `Ctrl+Shift+F / K` | Bring to front / Send to back | |
 | `Ctrl+Up / Down` | Move up in model / Move down in model | Order within the same parent |
-| `Arrow keys` | Nudge by the grid (Shift: 1 pixel) | One visible grid cell (with a 10px grid: 5 at 200%, 20 at 50%) |
+| `Arrow keys` | Nudge by the grid (Shift: 1 pixel) | One visible grid cell (with a 10px grid: 10 from 50% to 240%, 2 above 250%, 50 below 50%) |
 | `Shift+drag` | Move straight, resize keeping proportions, rotate in 15° steps | On a diagram, dragging moves only horizontally or vertically |
 | `Alt+drag` | Drag without snapping | Does not snap to the grid |
 | `Ctrl+= / Ctrl+-` | Zoom in / Zoom out | |
@@ -1059,6 +1278,7 @@ The **Settings › Shortcuts** tab (or **Help › Keyboard shortcuts…**) has t
 | `F5` | Presentation mode | |
 | `Ctrl+Tab` | Next diagram tab | `Ctrl+Shift+Tab` goes to the previous diagram tab |
 | `Ctrl+Shift+1 / 2` | Toolbox / Model Explorer & editors | Show or hide the panels |
+| `Ctrl+J` | Problems panel | Show or hide the problem list under the diagram |
 | `Ctrl+Shift+L` | Switch language | |
 | `Ctrl+Shift+B` | Change moving background | |
 | `Ctrl+Shift+H` | Start page | |
@@ -1081,7 +1301,7 @@ In presentation mode these keys work:
 
 ### Presentation mode
 
-![Presentation mode](docs/tutorial/images/53-presentation.jpg)
+![Presentation mode](docs/tutorial/images/62-presentation.jpg)
 
 **View › Presentation mode** (`F5`) shows the diagrams that have views one after another in full screen. It starts at the current diagram, and the bar at the bottom shows the diagram name, its place such as "3 / 11", and the **Previous diagram** · **Next diagram** · **Exit (Esc)** buttons. When it ends, the last diagram shown is opened. The diagram colours are used as they are.
 
@@ -1089,7 +1309,7 @@ In presentation mode these keys work:
 
 | Command | What it does |
 |---|---|
-| **Tutorial** (`F11`) | Starts the 58 steps tutorial (see [Tutorial](#tutorial)) |
+| **Tutorial** (`F11`) | Starts the 66 steps tutorial (see [Tutorial](#tutorial)) |
 | **Tutorial document** | Opens, inside the program, a document of every tutorial step with its picture |
 | **User's guide** | Opens this guide (HTML) in the default web browser |
 | **Keyboard shortcuts…** | Opens the Shortcuts tab of the settings window |
@@ -1097,7 +1317,7 @@ In presentation mode these keys work:
 
 ### About
 
-![About](docs/tutorial/images/55-about.jpg)
+![About](docs/tutorial/images/64-about.jpg)
 
 The **About** window (ⓘ on the toolbar) shows the program name and version, a description of the features, and the **Build** information (version · build date · commit · target · profile · runtime · platform · author). **Copy** copies it all, to paste when reporting a problem. The author is SHKWON (knix008@naver.com).
 
@@ -1126,9 +1346,30 @@ When a serious error happens inside the program (the backend), the **Serious err
 | macOS | `~/Library/Application Support/com.shkwon.myumlmaker/crash.log` |
 | Linux | `~/.local/share/com.shkwon.myumlmaker/crash.log` |
 
-### "Already running" error
+### Running several windows
 
-Only one MyUMLMaker desktop app runs per user. Starting it again while it runs shows "MyUMLMaker is already running." in the **MyUMLMaker — Start error** window, and the new copy closes. Find the open window on the taskbar (Dock) and use it. In the open window, **File › Open…** opens another project (it replaces the current one). Even after the program ends abnormally, the operating system releases the lock, so the next start is not blocked.
+You can run several MyUMLMaker desktop apps at once. Starting it again from the Start menu or a shortcut opens one more window, and each window holds its own project. Double-clicking a `.myuml` file in Explorer opens it in a new window even when MyUMLMaker is already open.
+
+- A later window opens a little (32 px) further right and down so it does not cover the earlier one, and stays on the screen. It opens at normal size even when the earlier window is maximized.
+- **Settings › General › Reopen last files when starting** applies only to the first window, opened while no other one runs. Later windows open on the start page (or with the file you double-clicked), and the files to reopen next time stay those of the first window.
+- Settings, recent files and folders, the database connection and background pictures are shared by all windows; a change in one shows in the others at once.
+- The window position and size of the window closed last are remembered.
+- Closing a window or **File › Exit** ends only that window; the others stay open.
+- If two windows edit the same project file, the later save overwrites the earlier one. Edit a file in one window only.
+
+### Installing and reinstalling (Windows)
+
+MyUMLMaker is installed only once on a computer. When the installer finds a previous installation (any version) it removes it completely before installing. Every open MyUMLMaker window must be closed for that, so it first asks: **OK** (close them and continue) or **Cancel** (stop installing). Unsaved changes are lost, so save before installing.
+
+When there is a previous installation or user data from earlier use, the installer asks before its first page, in the installer language (Korean or English): "Delete the user data from earlier use (settings, recent files and folders, the list of open projects, database connection, background pictures, tutorial history, window position)?"
+
+| Choice | Result |
+|---|---|
+| **Yes** | All user data is deleted and the program starts like a fresh installation (`%APPDATA%\com.shkwon.myumlmaker`, `%LOCALAPPDATA%\com.shkwon.myumlmaker`) |
+| **No** (default) | The user data is kept. At the first start after installing only the preferences (theme, fonts, zoom, panels, view options, window position and so on) go back to their defaults |
+| **Cancel** | Nothing is changed and the installation stops |
+
+A silent installation (`/S`) does not ask and keeps the user data. Your own project files (`.myuml`) are not user data and are never deleted.
 
 ### Unsaved changes
 

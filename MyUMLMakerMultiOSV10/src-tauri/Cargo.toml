@@ -22,8 +22,6 @@ serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "mysql", "postgres", "sqlite"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
-# The "already running" message, shown before the app (and its event loop) starts.
-rfd = { version = "0.16", default-features = false, features = ["gtk3", "common-controls-v6"] }
 
 [dev-dependencies]
 tempfile = "3"

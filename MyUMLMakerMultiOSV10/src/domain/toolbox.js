@@ -3,8 +3,10 @@
 // line between two views (edge), or an annotation view (note, text, shapes).
 //   { id, type, kind: 'node' | 'edge', icon, ko, en, attrs (model fields), view (view fields), size }
 // Pure data plus helpers.
-import { DIAGRAM_TYPES, TYPES, VIEW_ONLY } from './meta.js';
+import { DIAGRAM_TYPES, NW_DEVICES, TYPES, VIEW_ONLY } from './meta.js';
 import { GROUP_KINDS, SERVICES } from './cloud.js';
+import { ARCHIMATE_ELEMENTS, ARCHIMATE_LAYERS, ARCHIMATE_RELATIONS } from './archimate.js';
+import { archimateIcon, deviceIcon } from '../render/glyphs.js';
 
 const label = (type) => TYPES[type] ?? VIEW_ONLY[type];
 /** A node tool for a model type (or annotation view type). */
@@ -189,6 +191,57 @@ for (const [diagram, provider] of [['AWSDiagram', 'aws'], ['AzureDiagram', 'azur
   ];
 }
 
+// Project planning, ArchiMate, network and data diagrams (the PlantUML / Enterprise Architect kinds).
+Object.assign(TOOLBOX, {
+  GanttDiagram: [
+    ['gantt', '간트', 'Gantt', [N('GanttCalendar'), N('GanttTask'), N('GanttMilestone'), N('GanttSeparator')]],
+    ['relations', '관계', 'Relationships', [E('GanttDependency')]],
+    ANNOTATIONS,
+  ],
+  WBSDiagram: [
+    ['wbs', 'WBS', 'WBS', [N('WBSNode')]],
+    ['relations', '가지', 'Branches', [E('WBSEdgeView', { id: 'wbsBranch' })]],
+    ANNOTATIONS,
+  ],
+  TimelineDiagram: [
+    ['timeline', '타임라인', 'Timeline', [N('TLTimeline'), N('TLEvent'), N('TLPeriod')]],
+    ['relations', '관계', 'Relationships', [E('TLLink')]],
+    ANNOTATIONS,
+  ],
+  ArchiMateDiagram: [
+    ...ARCHIMATE_LAYERS.filter(([layer]) => layer !== 'other').map(([layer, ko, en]) => [layer, ko, en, ARCHIMATE_ELEMENTS.filter(([kind]) => kind.startsWith(`${layer}-`)).map(([kind, eko, een]) => N('ArchiMateElement', { id: `archimate:${kind}`, ko: eko, en: een, icon: archimateIcon(kind.slice(layer.length + 1)), attrs: { kind } }))]),
+    ['other', '기타', 'Other', [N('ArchiMateElement', { id: 'archimate:other-location', ko: '위치', en: 'Location', icon: 'amLocation', attrs: { kind: 'other-location' } }), N('ArchiMateGrouping', { size: { w: 360, h: 240 } }),
+      N('ArchiMateJunction', { ko: '접합 (그리고)', en: 'Junction (And)' }), N('ArchiMateJunction', { id: 'junction:or', ko: '접합 (또는)', en: 'Junction (Or)', icon: 'amJunctionOr', attrs: { junctionType: 'or' } })]],
+    ['relations', '관계', 'Relationships', ARCHIMATE_RELATIONS.map(([type]) => E(type))],
+    ANNOTATIONS,
+  ],
+  NetworkDiagram: [
+    ['network', '네트워크', 'Network', [N('NWNetwork', { size: { w: 560, h: 0 } }), ...NW_DEVICES.map((device, i) => N('NWNode', { id: i ? `nwnode:${device}` : 'NWNode', ko: i ? `노드 (${device})` : undefined, en: i ? `Node (${device})` : undefined, icon: deviceIcon(device), attrs: { device } })), N('NWGroup', { size: { w: 300, h: 160 } })]],
+    ['relations', '연결', 'Connections', [E('NWConnection')]],
+    ANNOTATIONS,
+  ],
+  JSONDiagram: [
+    ['data', '데이터', 'Data', [N('DSDocument', { id: 'jsonDocument', ko: 'JSON 문서', en: 'JSON Document', icon: 'dsJson', attrs: { format: 'json', text: '{\n  "id": 1,\n  "name": "value",\n  "tags": ["a", "b"]\n}' } })]],
+    ['relations', '관계', 'Relationships', [E('DSReference')]],
+    ANNOTATIONS,
+  ],
+  YAMLDiagram: [
+    ['data', '데이터', 'Data', [N('DSDocument', { id: 'yamlDocument', ko: 'YAML 문서', en: 'YAML Document', icon: 'dsYaml', attrs: { format: 'yaml', text: 'id: 1\nname: value\ntags:\n  - a\n  - b' } })]],
+    ['relations', '관계', 'Relationships', [E('DSReference')]],
+    ANNOTATIONS,
+  ],
+  EBNFDiagram: [
+    ['grammar', '문법', 'Grammar', [N('EBNFRule', { attrs: { expression: 'letter, { letter | digit }' } })]],
+    ['relations', '관계', 'Relationships', [E('DSReference')]],
+    ANNOTATIONS,
+  ],
+  RegexDiagram: [
+    ['regex', '정규식', 'Regex', [N('RegexPattern', { attrs: { pattern: '[A-Z]{2}-\\d{4}' } })]],
+    ['relations', '관계', 'Relationships', [E('DSReference')]],
+    ANNOTATIONS,
+  ],
+});
+
 /** Toolbox groups of a diagram type. */
 export const toolboxFor = (diagramType) => TOOLBOX[diagramType] ?? TOOLBOX.UMLClassDiagram;
 /** A tool by id within a diagram type. */
@@ -211,7 +264,10 @@ export const DIAGRAM_TABS = [
   ['c4', 'C4', 'C4', ['C4Diagram']],
   ['mindmap', '마인드맵', 'Mind Map', ['MMMindmapDiagram']],
   ['wireframe', '와이어프레임', 'Wireframe', ['WFWireframeDiagram']],
-  ['cloud', '클라우드', 'Cloud', ['AWSDiagram', 'AzureDiagram', 'GCPDiagram']],
+  ['cloud', '클라우드', 'Cloud', ['AWSDiagram', 'AzureDiagram', 'GCPDiagram', 'NetworkDiagram']],
+  ['project', '프로젝트', 'Project', ['GanttDiagram', 'WBSDiagram', 'TimelineDiagram']],
+  ['archimate', 'ArchiMate', 'ArchiMate', ['ArchiMateDiagram']],
+  ['data', '데이터', 'Data', ['JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram']],
 ];
 /** The tab group of a diagram type. */
 export const diagramTabOf = (type) => DIAGRAM_TABS.find(([, , , types]) => types.includes(type))?.[0] ?? 'umlStructure';

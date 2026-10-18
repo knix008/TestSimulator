@@ -6,7 +6,7 @@
 // views of missing elements, lines whose ends are gone) and refuses what is
 // not a project.
 import { buildIndex, childLists, FORMAT, isEdgeView, newId, ref, refId, removeDeadViews, VERSION, walk } from './model.js';
-import { isDiagramType, TYPES } from './meta.js';
+import { DIAGRAM_BG_FITS, DIAGRAM_BG_KINDS, DIAGRAM_BG_PATTERNS, isDiagramType, TYPES } from './meta.js';
 
 export const PROJECT_EXTENSION = 'myuml';
 export const TEMPLATE_EXTENSION = 'mumlt';
@@ -33,12 +33,25 @@ export const isTemplateFileName = (name) => extensionOf(name) === 'mumlt';
 export const isStarUmlFileName = (name) => extensionOf(name) === 'mdj';
 export const isFragmentFileName = (name) => extensionOf(name) === 'mfj';
 export const isImageFileName = (name) => ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico'].includes(extensionOf(name));
-export const isSourceFileName = (name) => ['java', 'cs', 'py', 'ts', 'tsx', 'js', 'sql', 'kt', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hh', 'hxx', 'php'].includes(extensionOf(name));
+export const isSourceFileName = (name) => ['java', 'cs', 'py', 'ts', 'tsx', 'js', 'sql', 'kt', 'kts', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hh', 'hxx', 'php'].includes(extensionOf(name));
 export const isTextModelFileName = (name) => ['mmd', 'mermaid', 'puml', 'plantuml', 'pu'].includes(extensionOf(name));
+/** XMI 2.x (Enterprise Architect, MagicDraw, Papyrus .uml): read into a new project. */
+export const isXmiFileName = (name) => ['xmi', 'xml', 'uml'].includes(extensionOf(name));
 /** Files the app opens as a project. */
-export const isOpenableFileName = (name) => isProjectFileName(name) || isStarUmlFileName(name);
+export const isOpenableFileName = (name) => isProjectFileName(name) || isStarUmlFileName(name) || isXmiFileName(name);
 
 const num = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+
+/** A diagram's background fields (meta.js BACKGROUND_FIELDS): known values, numbers in range, pictures only as data: URLs. */
+export function normalizeBackground(diagram) {
+  const enums = { backgroundKind: DIAGRAM_BG_KINDS, backgroundFit: DIAGRAM_BG_FITS, backgroundPattern: DIAGRAM_BG_PATTERNS };
+  for (const [key, options] of Object.entries(enums)) if (diagram[key] !== undefined && !options.includes(diagram[key])) delete diagram[key];
+  const ranges = { backgroundColorOpacity: [0, 100], backgroundOpacity: [0, 100], backgroundPatternOpacity: [0, 100], backgroundPatternScale: [50, 300], backgroundImageWidth: [0, 100000], backgroundImageHeight: [0, 100000] };
+  for (const [key, [min, max]] of Object.entries(ranges)) if (diagram[key] !== undefined) diagram[key] = Math.round(Math.min(max, Math.max(min, num(diagram[key], key.endsWith('Scale') || key.endsWith('Opacity') ? 100 : 0))));
+  for (const key of ['backgroundColor', 'backgroundPatternColor']) if (diagram[key] !== undefined && (typeof diagram[key] !== 'string' || /[<>"]/.test(diagram[key]))) delete diagram[key];
+  if (diagram.backgroundImage !== undefined && !(typeof diagram.backgroundImage === 'string' && (diagram.backgroundImage === '' || /^data:image\/[\w.+-]+[;,]/.test(diagram.backgroundImage)))) delete diagram.backgroundImage;
+  return diagram;
+}
 
 /** Repairs a project in place (ids, parents, collections, views) and returns it. */
 export function normalizeProject(project) {
@@ -74,6 +87,7 @@ export function normalizeProject(project) {
       }
       const gone = new Set(element.ownedViews.filter((v) => v.model && !index.get(refId(v.model))).map((v) => refId(v.model)));
       removeDeadViews(element, gone);
+      normalizeBackground(element);
     }
     // Association ends must exist.
     if (TYPES[element._type]?.ends === 'association') {
@@ -85,7 +99,9 @@ export function normalizeProject(project) {
 
 /** The project as file text. */
 export function serialize(project, { template = false } = {}) {
-  return `${JSON.stringify({ format: FORMAT, version: VERSION, kind: template ? 'template' : 'project', saved: new Date().toISOString(), project }, null, 1)}\n`;
+  // A template starts new projects: it carries no baselines (snapshots of the project it was made from).
+  const content = template && project.baselines ? { ...project, baselines: undefined } : project;
+  return `${JSON.stringify({ format: FORMAT, version: VERSION, kind: template ? 'template' : 'project', saved: new Date().toISOString(), project: content }, null, 1)}\n`;
 }
 
 /** Parses file text: { project, template, starUml }. */

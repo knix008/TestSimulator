@@ -89,9 +89,20 @@ export const STEPS = [
   { id: 'deployment', chapter: 'diagrams', target: '#view-host', run: async (a) => { await a.sample(); a.diagram('UMLDeploymentDiagram'); } },
   { id: 'erd', chapter: 'diagrams', target: '#view-host', run: async (a) => { await a.sample(); a.diagram('ERDDiagram'); } },
   { id: 'others', chapter: 'diagrams', target: '#view-host', dwell: 7000, run: async (a) => { await a.sample(); for (const type of ['FCFlowchartDiagram', 'C4Diagram', 'UMLPackageDiagram']) { a.diagram(type); await sleep(1200); } } },
+  { id: 'moreDiagrams', chapter: 'diagrams', target: '#view-host', dwell: 8000, run: async (a) => { await a.sample(); for (const type of ['GanttDiagram', 'ArchiMateDiagram', 'WBSDiagram', 'NetworkDiagram', 'JSONDiagram']) { a.diagram(type); await sleep(1300); } } },
   // ── format and arrange
   { id: 'style', chapter: 'format', target: '#editors', dwell: 6000, async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.selectView('Order'); a.app.state.rightTab = 'style'; a.app.renderAll(); } },
   { id: 'colors', chapter: 'format', target: '[data-command="fillColor"]', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.selectView('Product'); a.app.actions?.applyColor?.('fillColor', '#dae8fc'); } },
+  { id: 'diagramBackground', chapter: 'format', target: '.web-popup-background', dwell: 7000, async run(a) {
+    await a.sample(); a.diagram('UMLClassDiagram');
+    await a.popup(() => a.app.run('diagramBackground'), 'background');
+    // The pattern page of the popup (its frame), with a pattern picked.
+    const doc = () => q('.web-popup-background iframe')?.contentDocument;
+    await until(() => doc()?.querySelector('[data-bg="backgroundKind"][data-value="pattern"]'));
+    doc()?.querySelector('[data-bg="backgroundKind"][data-value="pattern"]')?.click();
+    await until(() => doc()?.querySelector('.bg-pattern[data-value="diagonal"]'));
+    doc()?.querySelector('.bg-pattern[data-value="diagonal"]')?.click();
+  } },
   { id: 'lineStyle', chapter: 'format', target: '#view-host', dwell: 6000, async run(a) {
     await a.sample(); a.diagram('UMLClassDiagram');
     const edges = viewsOf(a.app.diagram()).filter((v) => v.tail).map((v) => v._id);
@@ -103,8 +114,19 @@ export const STEPS = [
   { id: 'zoom', chapter: 'format', target: '.toolbar-zoom', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); await a.app.run('zoomOut'); await sleep(500); await a.app.run('fitPage'); } },
   // ── model tools
   { id: 'validate', chapter: 'tools', target: '[data-command="validate"]', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); await a.app.run('validate'); } },
+  { id: 'problemsPanel', chapter: 'tools', target: '#bottom-panel', dwell: 7000, async run(a) {
+    await a.sample(); a.diagram('ERDDiagram');
+    if (!a.app.settings().showBottomPanel) a.app.updateSettings({ showBottomPanel: true });
+    // A mistake to find: the customer table gets a second column of the same name.
+    const entity = a.element('customer');
+    if (entity) a.app.change('op.edit', (project) => { const M = a.domain().M; const e = M.findById(project, entity._id); const c = e?.columns?.at(-1); if (c) e.columns.push({ ...JSON.parse(JSON.stringify(c)), _id: M.newId() }); });
+    await sleep(1200);
+  } },
   { id: 'find', chapter: 'tools', target: '.web-popup-find', async run(a) { await a.sample(); a.popup(() => a.app.run('find'), 'find'); } },
   { id: 'codegen', chapter: 'tools', target: '.web-popup-codegen', dwell: 7000, async run(a) { await a.sample(); a.app.selectElements([a.element('domain')._id]); a.popup(() => a.app.run('generateCode'), 'codegen'); } },
+  { id: 'requirements', chapter: 'tools', target: '.web-popup-requirements', dwell: 7000, async run(a) { await a.sample(); a.popup(() => a.app.run('requirements'), 'requirements'); } },
+  { id: 'traceMatrix', chapter: 'tools', target: '.web-popup-tracematrix', dwell: 7000, async run(a) { await a.sample(); a.popup(() => a.app.run('traceMatrix'), 'tracematrix'); } },
+  { id: 'baselines', chapter: 'tools', target: '.web-popup-baselines', async run(a) { await a.sample(); a.popup(() => a.app.run('baselines'), 'baselines'); } },
   { id: 'reverse', chapter: 'tools', target: '[data-command="reverse"]', async run(a) { await a.sample(); } },
   { id: 'textImport', chapter: 'tools', target: '.web-popup-textimport', async run(a) { await a.sample(); a.popup(() => a.app.run('importText'), 'textimport'); } },
   // ── files
@@ -112,6 +134,8 @@ export const STEPS = [
   { id: 'fileMenu', chapter: 'files', target: '.web-popup-menu', async run(a) { await a.sample(); a.popup(() => a.app.openMenubarMenu('file'), 'menu'); } },
   { id: 'exportImage', chapter: 'files', target: '.web-popup-image', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.popup(() => a.app.run('exportImage'), 'image'); } },
   { id: 'exportDocs', chapter: 'files', target: '[data-command="exportMenu"]', async run(a) { await a.sample(); a.popup(() => a.app.run('exportMenu', { anchor: a.app.anchorBelow(q('[data-command="exportMenu"]')) }), 'menu'); } },
+  { id: 'generateDocument', chapter: 'files', target: '.web-popup-document', dwell: 7000, async run(a) { await a.sample(); a.popup(() => a.app.run('generateDocument'), 'document'); } },
+  { id: 'xmi', chapter: 'files', target: '.web-popup-menu', dwell: 7000, async run(a) { await a.sample(); a.popup(() => a.app.openMenubarMenu('file'), 'menu'); } },
   { id: 'starUml', chapter: 'files', target: '#menubar [data-menu="file"]', run: (a) => a.sample() },
   { id: 'print', chapter: 'files', target: '.web-popup-print', async run(a) { await a.sample(); a.popup(() => a.app.run('print'), 'print'); } },
   // ── customizing

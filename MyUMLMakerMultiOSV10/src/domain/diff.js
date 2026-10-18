@@ -54,6 +54,8 @@ function display(value, index, language) {
     if (value.$ref) { const target = index.get(value.$ref); return target ? target.name || `(${typeLabel(target._type, language)})` : `#${value.$ref}`; }
     return stable(value);
   }
+  // A picture (a diagram background) is a data: URL: its kind and length, not the bytes.
+  if (typeof value === 'string' && value.startsWith('data:') && value.length > 120) return `${value.slice(0, value.indexOf(',') + 1 || 30)}… (${Math.round(value.length / 1024)} KB)`;
   return String(value);
 }
 

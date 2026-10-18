@@ -116,7 +116,7 @@ export function parseYaml(text) {
         const at = keyColon(rest);
         if (at > 0) {
           // "- key: value" starts a mapping whose other keys are indented past the dash.
-          const inner = level + 2 + (line.text.length - line.text.slice(1).trimStart().length - 1);
+          const inner = level + (line.text.length - line.text.slice(1).trimStart().length);
           lines[pos - 1] = { indent: inner, text: rest, raw: `${' '.repeat(inner)}${rest}` };
           pos -= 1;
           list.push(parseMap(inner));
@@ -339,7 +339,8 @@ export function parseRegex(pattern) {
     if (ch === '[') {
       const text = classText();
       const negated = text.startsWith('[^');
-      return { t: 'class', text: `${negated ? 'none of ' : 'one of '}${text.slice(negated ? 2 : 1, -1)}` };
+      const inside = text.slice(negated ? 2 : 1, -1).replace(/\\([dwsDWS])/g, (m, c) => ` ${{ d: 'digit', w: 'word', s: 'space', D: 'non-digit', W: 'non-word', S: 'non-space' }[c]} `).replace(/\s+/g, ' ').trim();
+      return { t: 'class', text: `${negated ? 'none of ' : 'one of '}${inside}` };
     }
     if (ch === '.') { i += 1; return { t: 'special', text: 'any char' }; }
     if (ch === '^') { i += 1; return { t: 'special', text: 'start' }; }

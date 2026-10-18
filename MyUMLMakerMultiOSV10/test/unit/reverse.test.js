@@ -1,5 +1,5 @@
-// Reverse engineering (reverse/*.js): Java, C#, C++, Python, TypeScript and SQL
-// sources → model elements (packages, classifiers, attributes, operations,
+// Reverse engineering (reverse/*.js): Java, C#, C++, Python, TypeScript, Kotlin,
+// PHP and SQL sources → model elements (packages, classifiers, attributes, operations,
 // literals, generalizations, interface realizations, associations, ER
 // entities / columns / relationships), tolerance of comments, strings,
 // annotations, generics and unknown code, and round trips through the code
@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateCode } from '../../src/domain/codegen/index.js';
 import { addElement, buildIndex, createProject, insertElement, ref, walk } from '../../src/domain/model.js';
+import { isSourceFileName } from '../../src/domain/format.js';
 import { analyzeType, DEFAULT_REVERSE_OPTIONS, REVERSE_LANGUAGES, reverseEngineer } from '../../src/domain/reverse/index.js';
 
 /** Puts the reverse result into a fresh project and gives lookup helpers. */
@@ -32,7 +33,10 @@ function load(result) {
 }
 
 test('languages, options and errors', () => {
-  assert.deepEqual(REVERSE_LANGUAGES.map((l) => l.id), ['java', 'csharp', 'cpp', 'python', 'typescript', 'sql']);
+  assert.deepEqual(REVERSE_LANGUAGES.map((l) => l.id), ['java', 'csharp', 'cpp', 'python', 'typescript', 'kotlin', 'php', 'sql']);
+  assert.deepEqual(REVERSE_LANGUAGES.find((l) => l.id === 'kotlin').exts, ['kt', 'kts']);
+  assert.deepEqual(REVERSE_LANGUAGES.find((l) => l.id === 'php').exts, ['php']);
+  assert.ok(['A.kt', 'build.gradle.kts', 'a.php'].every(isSourceFileName));
   assert.equal(DEFAULT_REVERSE_OPTIONS.associations, true);
   assert.throws(() => reverseEngineer([], 'cobol'), (e) => e.message === 'reverse.unknownLanguage' && e.detail === 'cobol');
   assert.deepEqual(reverseEngineer([], 'java'), { elements: [], warnings: [] });
@@ -777,6 +781,401 @@ test('type text analysis: C++ pointers, references, std containers and smart poi
   assert.deepEqual(analyzeType('std::optional<Item>'), { name: 'Item', multiplicity: '0..1' });
 });
 
+// ───────────────────────── Kotlin
+
+const KOTLIN_ORDER = String.raw`@file:JvmName("Orders")
+package com.shop.model
+
+import java.time.Instant
+import com.shop.Priced
+import com.shop.util.Money as Cash
+
+/**
+ * A customer order.
+ * @property id the key
+ */
+@Serializable
+data class Order(
+    val id: Long,
+    private var note: String = "a, b; { c }",
+    internal val customer: Customer? = null,
+    count: Int = 0,
+) : BaseEntity(id), Priced, Comparable<Order> {
+    /** Lines of the order. */
+    val lines: MutableList<OrderLine> = mutableListOf()
+    var tags: Set<String> = emptySet()
+        private set
+    protected lateinit var createdAt: Instant
+    var total: Double = 0.0
+        get() = field * 2
+        set(value) { field = value }
+    val size: Int get() = lines.size
+    val label by lazy { "Order $id" }
+    var discount = 0.5
+    private val codes = arrayOf<String>()
+    val scores: IntArray = IntArray(3)
+
+    init {
+        require(id > 0) { "id" }
+    }
+
+    constructor(other: Order) : this(other.id)
+
+    /** Total with a discount. */
+    override fun price(currency: String): Double = total *
+        (1 - discount)
+
+    suspend fun load(vararg keys: String, force: Boolean = false): List<OrderLine>? {
+        return null
+    }
+
+    fun <T : Comparable<T>> sorted(items: Collection<T>): List<T> where T : Any = items.sorted()
+
+    private fun String.shout(): String = uppercase()
+
+    override fun compareTo(other: Order): Int = id.compareTo(other.id)
+
+    companion object Factory {
+        const val MAX = 10
+        @JvmStatic
+        fun create(): Order = Order(1)
+    }
+
+    enum class Kind { SMALL, LARGE }
+
+    inner class Cursor(val at: Int)
+}
+`;
+const KOTLIN_OTHERS = [
+  { name: 'com/shop/model/BaseEntity.kt', content: 'package com.shop.model\n\n/** Base of all entities. */\nabstract class BaseEntity(open val id: Long) {\n    abstract fun describe(): String\n    open fun touch() {}\n}\n' },
+  { name: 'com/shop/Priced.kt', content: 'package com.shop\n\n/** Has a price. */\ninterface Priced {\n    val currency: String\n    fun price(currency: String): Double\n    fun free(): Boolean = price(currency) == 0.0\n}\n' },
+  {
+    name: 'com/shop/model/More.kt',
+    content: String.raw`package com.shop.model
+
+sealed class Shape
+object Registry {
+    val items = mutableListOf<OrderLine>()
+    fun register(line: OrderLine) { items.add(line) }
+}
+
+enum class Status(val code: String) {
+    /** New one. */
+    NEW("n") { override fun label() = "new" },
+    DONE("d");
+
+    open fun label(): String = code
+}
+
+class OrderLine(val order: Order, var qty: Int = 1)
+
+class Customer(val name: String) {
+    val orders: List<Order> = listOf()
+}
+
+typealias Lines = List<OrderLine>
+
+fun topLevel(): Int { class Local; return 1 }
+`,
+  },
+];
+
+test('Kotlin: packages, primary constructors, properties, functions, companion objects and relationships', () => {
+  const m = load(reverseEngineer([{ name: 'com/shop/model/Order.kt', content: KOTLIN_ORDER }, ...KOTLIN_OTHERS], 'kotlin'));
+  assert.deepEqual(m.warnings.filter((w) => w.code === 'reverse.parseError'), []);
+  assert.equal(m.ownerName(m.cls('Order')), 'model');
+  assert.equal(m.ownerName(m.named('UMLPackage', 'model')), 'shop');
+  assert.equal(m.ownerName(m.cls('Priced')), 'shop');
+  const order = m.cls('Order');
+  assert.deepEqual([order._type, order.documentation, order.visibility, order.isFinalSpecialization], ['UMLClass', 'A customer order.', 'public', true]);
+  // Primary constructor: val / var parameters are properties, a plain parameter is not.
+  assert.deepEqual([m.attr('Order', 'id').type, m.attr('Order', 'id').isReadOnly, m.attr('Order', 'id').visibility], ['Long', true, 'public']);
+  assert.deepEqual([m.attr('Order', 'note').visibility, m.attr('Order', 'note').isReadOnly, m.attr('Order', 'note').defaultValue], ['private', false, '"a, b; { c }"']);
+  assert.equal(m.attr('Order', 'count'), null);
+  const assoc = (name) => m.rels('UMLAssociation').find((a) => a.end2.name === name);
+  assert.deepEqual([...m.ends(assoc('customer')), assoc('customer').end2.multiplicity, assoc('customer').end2.visibility], ['Order', 'Customer', '0..1', 'package'], 'internal → package');
+  // Body properties.
+  assert.deepEqual([...m.ends(assoc('lines')), assoc('lines').end2.multiplicity, assoc('lines').end2.isReadOnly, assoc('lines').end2.documentation], ['Order', 'OrderLine', '*', true, 'Lines of the order.']);
+  assert.deepEqual([m.attr('Order', 'tags').type, m.attr('Order', 'tags').multiplicity, m.attr('Order', 'tags').isReadOnly], ['String', '*', false]);
+  assert.deepEqual([m.attr('Order', 'createdAt').visibility, m.attr('Order', 'createdAt').type], ['protected', 'Instant']);
+  assert.deepEqual([m.attr('Order', 'total').type, m.attr('Order', 'total').defaultValue], ['Double', '0.0'], 'getter and setter lines are skipped');
+  assert.deepEqual([m.attr('Order', 'size').type, m.attr('Order', 'size').isReadOnly], ['Int', true]);
+  assert.ok(m.attr('Order', 'label'), 'delegated property');
+  assert.equal(m.attr('Order', 'discount').type, 'Double', 'type inferred from the initializer');
+  assert.deepEqual([m.attr('Order', 'codes').type, m.attr('Order', 'codes').multiplicity, m.attr('Order', 'codes').visibility], ['String', '*', 'private']);
+  assert.deepEqual([m.attr('Order', 'scores').type, m.attr('Order', 'scores').multiplicity], ['Int', '*'], 'IntArray');
+  // Functions.
+  assert.equal(order.operations.filter((o) => o.name === 'Order').length, 2, 'primary (with a plain parameter) and secondary constructor');
+  const price = m.op('Order', 'price');
+  assert.equal(price.documentation, 'Total with a discount.');
+  assert.deepEqual([m.inputs(price).map((p) => [p.name, p.type]), m.ret(price).type], [[['currency', 'String']], 'Double']);
+  const loadOp = m.op('Order', 'load');
+  assert.deepEqual(m.inputs(loadOp).map((p) => [p.name, p.type, p.multiplicity, p.defaultValue]), [['keys', 'String', '*', ''], ['force', 'Boolean', '', 'false']]);
+  assert.deepEqual([m.typeName(m.ret(loadOp).type), m.ret(loadOp).multiplicity], ['OrderLine', '*']);
+  const sorted = m.op('Order', 'sorted');
+  assert.deepEqual(sorted.templateParameters.map((t) => [t.name, t.parameterType]), [['T', 'Comparable<T>, Any']]);
+  assert.deepEqual([m.ret(sorted).type, m.ret(sorted).multiplicity], ['T', '*']);
+  assert.equal(m.op('Order', 'shout').visibility, 'private', 'extension function');
+  assert.ok(m.op('Order', 'compareTo'));
+  // Companion object members are static.
+  const max = m.attr('Order', 'MAX');
+  assert.deepEqual([max.isStatic, max.isReadOnly, max.defaultValue, max.type], [true, true, '10', 'Int']);
+  assert.deepEqual([m.op('Order', 'create').isStatic, m.typeName(m.ret(m.op('Order', 'create')).type)], [true, 'Order']);
+  assert.equal(m.cls('Factory'), null, 'the companion is not a class');
+  // Nested declarations.
+  assert.deepEqual([m.ownerName(m.cls('Kind')), m.cls('Kind')._type], ['Order', 'UMLEnumeration']);
+  assert.deepEqual(m.cls('Kind').literals.map((l) => l.name), ['SMALL', 'LARGE']);
+  assert.deepEqual([m.ownerName(m.cls('Cursor')), m.cls('Cursor').attributes.map((a) => a.name)], ['Order', ['at']]);
+  // Supertypes: Base(…) → generalization, interfaces → realization; Comparable is not parsed.
+  assert.ok(m.rels('UMLGeneralization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'BaseEntity'));
+  assert.ok(m.rels('UMLInterfaceRealization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'Priced'));
+  assert.ok(m.warnings.some((w) => w.code === 'reverse.unresolvedType' && /Comparable/.test(w.detail)));
+  // Other files.
+  const base = m.cls('BaseEntity');
+  assert.deepEqual([base.isAbstract, base.documentation, m.op('BaseEntity', 'describe').isAbstract, m.op('BaseEntity', 'touch').isAbstract], [true, 'Base of all entities.', true, false]);
+  assert.ok(m.attr('BaseEntity', 'id'));
+  const priced = m.cls('Priced');
+  assert.deepEqual([priced._type, priced.documentation], ['UMLInterface', 'Has a price.']);
+  assert.deepEqual([m.op('Priced', 'price').isAbstract, m.op('Priced', 'free').isAbstract, m.attr('Priced', 'currency').isReadOnly], [true, false, true]);
+  assert.equal(m.cls('Shape').isAbstract, true, 'sealed class');
+  const registry = m.attr('Registry', 'items');
+  assert.deepEqual([registry.isStatic, m.typeName(registry.type), registry.multiplicity, m.op('Registry', 'register').isStatic], [true, 'OrderLine', '*', true], 'object members are static');
+  const status = m.cls('Status');
+  assert.deepEqual([status._type, status.literals.map((l) => l.name), status.literals[0].documentation], ['UMLEnumeration', ['NEW', 'DONE'], 'New one.']);
+  assert.ok(m.attr('Status', 'code') && m.op('Status', 'label'));
+  assert.ok(m.rels('UMLAssociation').find((a) => a.end2.name === 'order' && m.ends(a)[0] === 'OrderLine'));
+  assert.deepEqual([m.attr('OrderLine', 'qty').defaultValue, m.attr('OrderLine', 'qty').isReadOnly], ['1', false]);
+  assert.equal(m.op('OrderLine', 'OrderLine'), null, 'a primary constructor of properties only is not an operation');
+  assert.deepEqual([...m.ends(assoc('orders')), assoc('orders').end2.multiplicity], ['Customer', 'Order', '*']);
+  assert.equal(m.cls('Local'), null, 'classes inside functions are skipped');
+  assert.equal(m.cls('Lines'), null, 'type aliases are skipped');
+});
+
+test('Kotlin: scripts (.kts), interfaces extending interfaces, generic bounds and broken input', () => {
+  const kts = 'plugins {\n    kotlin("jvm") version "2.0.0"\n}\n\nval greeting = "hi"\n\ninterface Repo<T : Any> : Iterable<T>, AutoCloseable {\n    fun find(id: Long): T?\n}\n\nfun interface Handler { fun handle(e: String) }\n\nclass Store<K, V : Comparable<V>> private constructor(val map: Map<K, V>) : Repo<V>\n';
+  const m = load(reverseEngineer([{ name: 'build.gradle.kts', content: kts }, { name: 'Broken.kt', content: 'class A { val a = ; fun f( { } } class B : { val b: Int' }], 'kotlin'));
+  assert.equal(m.cls('Repo')._type, 'UMLInterface');
+  assert.deepEqual(m.cls('Repo').templateParameters.map((t) => [t.name, t.parameterType]), [['T', 'Any']]);
+  assert.deepEqual([m.op('Repo', 'find').isAbstract, m.ret(m.op('Repo', 'find')).multiplicity], [true, '0..1']);
+  assert.equal(m.cls('Handler')._type, 'UMLInterface', 'fun interface');
+  const store = m.cls('Store');
+  assert.deepEqual(store.templateParameters.map((t) => [t.name, t.parameterType]), [['K', ''], ['V', 'Comparable<V>']]);
+  assert.deepEqual([m.op('Store', 'Store').visibility, m.attr('Store', 'map').type], ['private', 'Map<K, V>'], 'explicit private constructor');
+  assert.ok(m.rels('UMLInterfaceRealization').map(m.ends).some(([a, b]) => a === 'Store' && b === 'Repo'));
+  assert.ok(m.cls('A') && m.cls('B'), 'broken input keeps what was understood');
+});
+
+// ───────────────────────── PHP
+
+const PHP_ORDER = String.raw`<html><?php /* inline */ ?></html>
+<?php
+declare(strict_types=1);
+
+namespace App\Model;
+
+use App\Contracts\Priced;
+use App\Support\{Money, Clock as Time};
+use function App\helpers\format;
+use DateTimeImmutable;
+
+/**
+ * A customer order.
+ *
+ * @author someone
+ */
+#[ORM\Entity(repositoryClass: OrderRepository::class)]
+final class Order extends BaseEntity implements Priced, \JsonSerializable
+{
+    use HasTimestamps, SoftDeletes;
+
+    public const MAX = 10;
+    private const string PREFIX = 'O-', SUFFIX = '#';
+
+    /** @var OrderLine[] */
+    private array $lines = [];
+
+    /**
+     * The buyer.
+     * @var Customer|null
+     */
+    protected ?Customer $customer = null;
+
+    # a hash comment with 'quotes' and { braces
+    public static int $count = 0;
+    var $legacy;
+    private string $note = "a ; tricky { string } ?> inside";
+    public readonly string $code;
+    /** @var array<string, Tag> */
+    private $tags;
+    private $ratio = 0.5, $flag = true;
+
+    public function __construct(
+        private readonly int $id,
+        public Customer $owner,
+        protected ?Status $status = null,
+        string $label = 'none',
+    ) {
+        parent::__construct();
+        $this->code = <<<EOT
+            O-{$id} } ;
+            EOT;
+    }
+
+    /**
+     * Total with a discount.
+     *
+     * @param float $discount the rate
+     * @param string ...$codes
+     * @return float
+     * @throws \InvalidArgumentException
+     */
+    public function total(float $discount = 0.1, string ...$codes): float
+    {
+        return 0.0;
+    }
+
+    /**
+     * @param OrderLine[] $lines
+     * @return static
+     */
+    public static function create(array $lines, &$errors = []): static
+    {
+        return new static();
+    }
+
+    public function price(string $currency): float { return 1.0; }
+
+    final public function clear(): void {}
+
+    public function jsonSerialize(): mixed { return []; }
+}
+`;
+const PHP_OTHERS = [
+  { name: 'src/Model/BaseEntity.php', content: '<?php\nnamespace App\\Model;\n\n/** Base of all entities. */\nabstract class BaseEntity\n{\n    protected int $id;\n    abstract public function describe(): string;\n    abstract protected function validate(): bool;\n}\n' },
+  {
+    name: 'src/more.php',
+    content: String.raw`<?php
+namespace App\Contracts {
+    /** Has a price. */
+    interface Priced extends \Countable
+    {
+        const TAX = 0.1;
+        public function price(string $currency): float;
+    }
+}
+
+namespace App\Model {
+    enum Status: string implements \App\Contracts\Priced
+    {
+        /** New one. */
+        case New = 'new';
+        case Done = 'done';
+        const DEFAULT = self::New;
+        public function price(string $currency): float { return 0; }
+        public static function fromLabel(string $label): self { return self::New; }
+    }
+
+    trait HasTimestamps { protected ?DateTimeImmutable $createdAt = null; }
+
+    class Customer { /** @var Order[] */ public array $orders = []; public string $name = ''; }
+
+    class OrderLine
+    {
+        public function __construct(public Order $order, public int $qty = 1) {}
+    }
+
+    function helper() { class Local {} }
+}
+`,
+  },
+];
+
+test('PHP: namespaces, uses, classes, typed and PHPDoc properties, promotion, methods and relationships', () => {
+  const m = load(reverseEngineer([{ name: 'src/Model/Order.php', content: PHP_ORDER }, ...PHP_OTHERS], 'php'));
+  assert.deepEqual(m.warnings.filter((w) => w.code === 'reverse.parseError'), []);
+  assert.equal(m.ownerName(m.cls('Order')), 'Model');
+  assert.equal(m.ownerName(m.named('UMLPackage', 'Model')), 'App', 'App\\Model → nested packages');
+  assert.equal(m.ownerName(m.cls('Priced')), 'Contracts', 'namespace block');
+  assert.equal(m.ownerName(m.cls('Status')), 'Model', 'second namespace block of the file');
+  const order = m.cls('Order');
+  assert.deepEqual([order.documentation, order.isFinalSpecialization, order.isAbstract], ['A customer order.', true, false]);
+  // Constants and properties.
+  assert.deepEqual([m.attr('Order', 'MAX').isStatic, m.attr('Order', 'MAX').isReadOnly, m.attr('Order', 'MAX').defaultValue, m.attr('Order', 'MAX').type], [true, true, '10', 'int']);
+  assert.deepEqual([m.attr('Order', 'PREFIX').type, m.attr('Order', 'PREFIX').visibility, m.attr('Order', 'SUFFIX').defaultValue], ['string', 'private', "'#'"]);
+  const assoc = (name) => m.rels('UMLAssociation').find((a) => a.end2.name === name);
+  assert.deepEqual([...m.ends(assoc('lines')), assoc('lines').end2.multiplicity, assoc('lines').end2.visibility], ['Order', 'OrderLine', '*', 'private'], '@var OrderLine[] on array');
+  assert.deepEqual([...m.ends(assoc('customer')), assoc('customer').end2.multiplicity, assoc('customer').end2.visibility, assoc('customer').end2.documentation], ['Order', 'Customer', '0..1', 'protected', 'The buyer.']);
+  assert.deepEqual([m.attr('Order', 'count').isStatic, m.attr('Order', 'count').type, m.attr('Order', 'count').defaultValue], [true, 'int', '0']);
+  assert.equal(m.attr('Order', 'legacy').visibility, 'public', 'var → public');
+  assert.equal(m.attr('Order', 'note').defaultValue, '"a ; tricky { string } ?> inside"');
+  assert.equal(m.attr('Order', 'code').isReadOnly, true);
+  assert.deepEqual([m.attr('Order', 'tags').type, m.attr('Order', 'tags').multiplicity], ['Tag', '*'], 'array<string, Tag>');
+  assert.deepEqual([m.attr('Order', 'ratio').type, m.attr('Order', 'flag').type], ['float', 'bool'], 'second declarator, inferred types');
+  // Constructor promotion.
+  assert.deepEqual([m.attr('Order', 'id').visibility, m.attr('Order', 'id').isReadOnly, m.attr('Order', 'id').type], ['private', true, 'int']);
+  assert.ok(assoc('owner'), 'promoted property of a parsed class type');
+  assert.deepEqual([m.attr('Order', 'status').visibility, m.typeName(m.attr('Order', 'status').type), m.attr('Order', 'status').multiplicity], ['protected', 'Status', '0..1']);
+  assert.equal(m.attr('Order', 'label'), null, 'a plain constructor parameter is not a property');
+  const ctor = m.op('Order', 'Order');
+  assert.deepEqual(m.inputs(ctor).map((p) => [p.name, p.defaultValue]), [['id', ''], ['owner', ''], ['status', 'null'], ['label', "'none'"]]);
+  // Methods.
+  const total = m.op('Order', 'total');
+  assert.equal(total.documentation, 'Total with a discount.');
+  assert.deepEqual(m.inputs(total).map((p) => [p.name, p.type, p.multiplicity, p.defaultValue]), [['discount', 'float', '', '0.1'], ['codes', 'string', '*', '']]);
+  assert.deepEqual([m.ret(total).type, total.raisedExceptions], ['float', 'InvalidArgumentException']);
+  const create = m.op('Order', 'create');
+  assert.equal(create.isStatic, true);
+  assert.deepEqual(m.inputs(create).map((p) => [p.name, m.typeName(p.type), p.multiplicity, p.direction, p.defaultValue]), [['lines', 'OrderLine', '*', 'in', ''], ['errors', '', '', 'inout', '[]']]);
+  assert.equal(m.typeName(m.ret(create).type), 'Order', 'static → the class');
+  assert.deepEqual([m.op('Order', 'clear').isLeaf, m.ret(m.op('Order', 'clear'))], [true, null]);
+  assert.equal(m.ret(m.op('Order', 'jsonSerialize')).type, 'mixed');
+  assert.equal(order.operations.some((o) => o.name === '__construct'), false);
+  // Relationships.
+  assert.ok(m.rels('UMLGeneralization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'BaseEntity'));
+  assert.ok(m.rels('UMLInterfaceRealization').map(m.ends).some(([a, b]) => a === 'Order' && b === 'Priced'));
+  assert.ok(m.rels('UMLInterfaceRealization').map(m.ends).some(([a, b]) => a === 'Status' && b === 'Priced'), 'fully qualified \\App\\Contracts\\Priced');
+  assert.ok(m.warnings.some((w) => w.code === 'reverse.unresolvedType' && /JsonSerializable/.test(w.detail)));
+  assert.ok(m.warnings.some((w) => w.code === 'reverse.unresolvedType' && /Countable/.test(w.detail)));
+  // Other types.
+  const base = m.cls('BaseEntity');
+  assert.deepEqual([base.isAbstract, base.documentation, m.op('BaseEntity', 'describe').isAbstract, m.op('BaseEntity', 'validate').visibility], [true, 'Base of all entities.', true, 'protected']);
+  const priced = m.cls('Priced');
+  assert.deepEqual([priced._type, priced.documentation, m.op('Priced', 'price').isAbstract], ['UMLInterface', 'Has a price.', true]);
+  assert.deepEqual([m.attr('Priced', 'TAX').isStatic, m.attr('Priced', 'TAX').type], [true, 'float']);
+  const status = m.cls('Status');
+  assert.deepEqual([status._type, status.literals.map((l) => l.name), status.literals[0].documentation], ['UMLEnumeration', ['New', 'Done'], 'New one.']);
+  assert.deepEqual([m.attr('Status', 'DEFAULT').isStatic, m.op('Status', 'fromLabel').isStatic, m.typeName(m.ret(m.op('Status', 'fromLabel')).type)], [true, true, 'Status']);
+  assert.equal(m.cls('HasTimestamps')._type, 'UMLClass', 'trait');
+  assert.deepEqual([m.attr('HasTimestamps', 'createdAt').type, m.attr('HasTimestamps', 'createdAt').multiplicity], ['DateTimeImmutable', '0..1']);
+  assert.deepEqual([...m.ends(assoc('orders')), assoc('orders').end2.multiplicity], ['Customer', 'Order', '*']);
+  assert.ok(m.rels('UMLAssociation').find((a) => a.end2.name === 'order' && m.ends(a)[0] === 'OrderLine'));
+  assert.equal(m.attr('OrderLine', 'qty').defaultValue, '1');
+  assert.equal(m.cls('Local'), null, 'classes inside functions are skipped');
+});
+
+test('PHP: a file without an opening tag, accessors skipped, broken input', () => {
+  const src = 'class Account { private int $balance = 0; public function getBalance(): int { return $this->balance; } public function setBalance(int $balance): void {} }';
+  const m = load(reverseEngineer([{ name: 'Account.php', content: src }, { name: 'Broken.php', content: '<?php class A { public $a = ; function f( { } } class B extends { public int $b;' }], 'php', { skipAccessors: true }));
+  assert.deepEqual(m.cls('Account').attributes.map((a) => a.name), ['balance']);
+  assert.deepEqual((m.cls('Account').operations ?? []).map((o) => o.name), [], 'getBalance / setBalance skipped');
+  assert.ok(m.cls('A') && m.cls('B'));
+});
+
+test('type text analysis: Kotlin and PHP forms', () => {
+  assert.deepEqual(analyzeType('MutableList<Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('Array<Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('List<Item>?'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('Item?'), { name: 'Item', multiplicity: '0..1' });
+  assert.deepEqual(analyzeType('IntArray'), { name: 'Int', multiplicity: '*' });
+  assert.deepEqual(analyzeType('?Item'), { name: 'Item', multiplicity: '0..1' });
+  assert.deepEqual(analyzeType('Item[]|null'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('array<int, Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('array<Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('list<Item>'), { name: 'Item', multiplicity: '*' });
+  assert.deepEqual(analyzeType('array'), { name: 'array', multiplicity: '' });
+  assert.deepEqual(analyzeType('Collection<? extends Item>'), { name: '? extends Item', multiplicity: '*' });
+});
+
 // ───────────────────────── round trips
 
 /** A model with packages, inheritance, an interface, an enum, collections and an association. */
@@ -849,7 +1248,7 @@ function roundTrip(language, codegenOptions = {}, reverseOptions = {}) {
   return { before: summary(model.ownedElements, project), after: summary(target.ownedElements[0].ownedElements, target) };
 }
 
-for (const language of ['java', 'csharp', 'cpp', 'python', 'typescript']) {
+for (const language of ['java', 'csharp', 'cpp', 'python', 'typescript', 'kotlin', 'php']) {
   test(`round trip: ${language} generate → reverse gives the same model`, () => {
     const { before, after } = roundTrip(language);
     assert.deepEqual(after, before);

@@ -6,11 +6,12 @@
 // reverse engineering, model validation, printing, the database, settings.
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import APP_ICON from '../assets/icon-256.png';
 import * as M from './domain/model.js';
 import { ProjectDocument } from './domain/document.js';
 import {
   baseName, directoryOf, extensionOf, FormatError, isFragmentFileName, isImageFileName, isOpenableFileName, isProjectFileName, isSourceFileName, isStarUmlFileName, isTemplateFileName, isTextModelFileName,
-  normalizeProject, parseProject, stripExtension, withExtension,
+  normalizeProject, parseProject, stripExtension, withExtension, isXmiFileName, normalizeBackground,
 } from './domain/format.js';
 import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
 import { CLASSIFIER_TYPES, DIAGRAM_FAMILIES, DIAGRAM_TYPES, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
@@ -21,14 +22,16 @@ import { parseAttribute, parseNameWithStereotype, parseOperation, attributeText,
 import { CODE_LANGUAGES, DEFAULT_CODEGEN_OPTIONS, generateCode, SQL_DIALECTS } from './domain/codegen/index.js';
 import { DEFAULT_REVERSE_OPTIONS, REVERSE_LANGUAGES, reverseEngineer } from './domain/reverse/index.js';
 import { exportFragment, exportMdj, importFragment, importMdj } from './domain/interop/staruml.js';
+import { exportXmi, readXmi } from './domain/interop/xmi.js';
 import { exportMermaid, importMermaid } from './domain/interop/mermaid.js';
 import { exportPlantUml, importPlantUml } from './domain/interop/plantuml.js';
 import { htmlDocs, markdownDocs } from './domain/docs.js';
 import { RULES as VALIDATION_RULES, validate } from './domain/validate.js';
+import { countProblems, filterProblems, groupProblems, problemField, problemRows, problemsByView } from './domain/problems.js';
 import * as Tr from './domain/trace.js';
 import { addRecent, loadRecent, loadRecentDirs, removeRecent, storeRecent, storeRecentDirs } from './domain/recent.js';
 import {
-  loadSettings, PANEL_MIN, PRINT_KEY, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, ZOOM, CANVAS_ZOOM, zoomStep, dbConfig, dbDescribe, dbProblems, ANIMATIONS, LINE_STYLES, DIAGRAM_THEME_IDS,
+  loadSettings, PANEL_MIN, BOTTOM_MAX_SHARE, PRINT_KEY, RECENT_DIRS_KEY, RECENT_KEY, SESSION_KEY, STORAGE_KEY, storeSettings, ZOOM, CANVAS_ZOOM, zoomStep, dbConfig, dbDescribe, dbProblems, ANIMATIONS, LINE_STYLES, DIAGRAM_THEME_IDS,
 } from './domain/settings.js';
 import { switchFlag } from './flags.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -45,8 +48,15 @@ import { datalistsHtml, diagramPropertiesHtml, documentationHtml, propertiesHtml
 import { DiagramView, canvasMeasure } from './views/diagram.js';
 import { createRenderContext, diagramBounds, fittedSize, layoutDiagram as layoutRender, renderDiagramSvg } from './render/notation.js';
 import { bytesToBase64, pdfFromJpegs, zip } from './export/files.js';
-import { encodeBmp, encodeTiff, imageFormat, rasterSize } from './export/image-encode.js';
+import { encodeBmp, encodeTiff, fitWithin, imageFormat, rasterSize, BACKGROUND_IMAGE_MAX } from './export/image-encode.js';
+import { backgroundFieldsOf, backgroundValue, BG_KEYS } from './ui/diagram-background.js';
 import { renderPrintSheets } from './print/render.js';
+import { buildReport } from './domain/report.js';
+import { reportHtml } from './domain/docs.js';
+import { reportDocx } from './export/docx.js';
+import { reportPdfPages } from './export/report-pdf.js';
+import { addBaseline, baselineRoot, compareWithBaseline, createBaseline, currentScope, exportBaselineText, findBaseline, listBaselines, removeBaseline, restoreElement } from './domain/baseline.js';
+import { compareModels } from './domain/diff.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -77,6 +87,8 @@ const state = {
   untitled: 0,
   dropActive: false,
   minWidth: 0,
+  /** The main window is maximized (the menu bar shows Restore instead of Maximize). */
+  maximized: false,
   clipboard: null,
   showStart: false,
   view: null,
@@ -89,6 +101,10 @@ const state = {
   toolboxQuery: '',
   fonts: [],
   dynamicMenus: new Map(),
+  /** The Problems panel: rows of the last background check, its filters and the selected row. */
+  problems: { rows: [], docId: null, ms: 0 },
+  problemFilter: { severity: 'all', current: false, query: '' },
+  problemSelected: null,
 };
 
 const activeTab = () => state.docs.find((doc) => doc.id === state.active) ?? null;
@@ -191,8 +207,10 @@ function activate(id) {
   state.explorer = [];
   state.showStart = false;
   state.reader = null;
+  state.problemSelected = null;
   mountView();
   renderAll();
+  scheduleProblems(0);
 }
 
 function activateDoc(id) {
@@ -221,11 +239,14 @@ function afterChange({ explorer = true } = {}) {
   renderToolbarState();
   if (explorer) renderExplorer();
   renderEditors();
-  if (state.settings.autoValidate) scheduleValidation();
+  scheduleProblems();
   refreshTracePopups();
 }
 
 function persistSession() {
+  // A later copy (another MyUMLMaker window started while this one ran) does not overwrite the
+  // session of the first: the next start reopens what the first window had open.
+  if (state.instance && !state.instance.first) return;
   try {
     globalThis.localStorage?.setItem(SESSION_KEY, JSON.stringify({ files: state.docs.filter((doc) => doc.path).map((doc) => doc.path) }));
   } catch { /* ignore */ }
@@ -682,6 +703,17 @@ function pasteClipboard({ at = null } = {}) {
   if (views?.length) select(views.map((v) => v._id));
 }
 
+/** Text that is a model: Mermaid, or any PlantUML block (@startuml, @startmindmap, @startgantt, @startwbs, @startjson …). */
+const MODEL_TEXT = /^\s*(classDiagram|sequenceDiagram|flowchart|graph|erDiagram|stateDiagram|@start[a-z]+)/;
+
+/** Ctrl+V: PlantUML / Mermaid text on the system clipboard opens the text import; otherwise the copied views or elements. */
+async function pasteAny(context) {
+  const text = await native.clipboardRead().catch(() => '');
+  if (typeof text === 'string' && MODEL_TEXT.test(text)) return openTextImport({ text, format: /^\s*@start[a-z]+/.test(text) ? 'plantuml' : 'mermaid' });
+  if (!state.clipboard) { notify('info', t('notice.cannotPaste')); return undefined; }
+  return pasteClipboard({ at: context?.point ?? null });
+}
+
 function duplicate() { copySelection(); pasteClipboard(); }
 
 // ───────────────────────── arrange & format
@@ -966,6 +998,9 @@ const commands = {
   importFragment: { icon: 'fragmentIn', label: 'action.importFragment', enabled: hasDoc, run: () => importFragmentFile() },
   importText: { icon: 'textImport', label: 'action.importText', run: () => openTextImport() },
   exportStarUml: { icon: 'starUmlExport', label: 'action.exportStarUml', enabled: hasDoc, run: () => exportAs('mdj') },
+  importXmi: { icon: 'xmiImport', label: 'action.importXmi', run: () => openWithDialog(null, 'xmi') },
+  exportXmi: { icon: 'xmiExport', label: 'action.exportXmi', enabled: hasDoc, run: () => exportAs('xmi') },
+  exportXmiModel: { icon: 'xmiModelExport', label: 'action.exportXmiModel', enabled: hasDoc, run: () => exportAs('xmi', { flavor: 'plain' }) },
   exportFragment: { icon: 'fragmentOut', label: 'action.exportFragment', enabled: hasElementSel, run: () => exportAs('mfj') },
   exportImage: { icon: 'exportImage', label: 'action.exportImage', enabled: hasDiagram, run: () => exportImage() },
   exportSvg: { icon: 'svgFile', label: 'action.exportSvg', enabled: hasDiagram, run: () => exportAs('svg') },
@@ -989,7 +1024,7 @@ const commands = {
   redo: { icon: 'redo', label: 'action.redo', key: 'Ctrl+Y', enabled: () => Boolean(activeTab()?.history.canRedo), run: () => redo() },
   cut: { icon: 'cut', label: 'action.cut', key: 'Ctrl+X', enabled: () => hasSelection() || state.explorer.length > 0, run: () => copySelection({ cut: true }) },
   copy: { icon: 'copy', label: 'action.copy', key: 'Ctrl+C', enabled: () => hasSelection() || state.explorer.length > 0, run: () => copySelection() },
-  paste: { icon: 'paste', label: 'action.paste', key: 'Ctrl+V', enabled: () => Boolean(state.clipboard) && hasDoc(), run: (context) => pasteClipboard({ at: context?.point ?? null }) },
+  paste: { icon: 'paste', label: 'action.paste', key: 'Ctrl+V', enabled: hasDoc, run: (context) => pasteAny(context) },
   duplicate: { icon: 'duplicate', label: 'action.duplicate', key: 'Ctrl+D', enabled: hasSelection, run: () => duplicate() },
   delete: { icon: 'trash', label: 'action.delete', key: 'Delete', enabled: hasSelection, run: () => deleteFromView() },
   deleteFromModel: { icon: 'deleteModel', label: 'action.deleteFromModel', key: 'Ctrl+Delete', enabled: () => hasElementSel() || selectedViews().some((v) => !v.model), run: () => deleteFromModel() },
@@ -1027,6 +1062,7 @@ const commands = {
   clearBends: { icon: 'clearBends', label: 'action.clearBends', enabled: () => selectedViews().some((v) => v.points?.length), run: () => setViewStyle({ points: [] }, selectedViews().filter(M.isEdgeView).map((v) => v._id)) },
   autoResize: { icon: 'autoSize', label: 'action.autoResize', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.autoResize), run: () => setViewStyle({ autoResize: !selectedNodeViews().every((v) => v.autoResize) || null }) },
   fitContent: { icon: 'fitContent', label: 'action.fitContent', enabled: () => selectedNodeViews().length > 0, run: () => fitToContent() },
+  diagramBackground: { icon: 'diagramBackground', label: 'action.diagramBackground', enabled: hasDiagram, run: () => openDiagramBackground() },
   shadow: { icon: 'shadow', label: 'action.shadow', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.showShadow !== false), run: () => setViewStyle({ showShadow: selectedNodeViews().every((v) => v.showShadow !== false) ? false : null }) },
   suppressAttributes: { icon: 'hideAttributes', label: 'action.suppressAttributes', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.suppressAttributes), run: () => setViewStyle({ suppressAttributes: !selectedNodeViews().every((v) => v.suppressAttributes) || null }) },
   suppressOperations: { icon: 'hideOperations', label: 'action.suppressOperations', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.suppressOperations), run: () => setViewStyle({ suppressOperations: !selectedNodeViews().every((v) => v.suppressOperations) || null }) },
@@ -1070,6 +1106,8 @@ const commands = {
   presentation: { icon: 'presentation', label: 'action.presentation', key: 'F5', enabled: hasDoc, run: () => startPresentation() },
   leftPanel: { icon: 'panelLeft', label: 'action.toolboxPanel', key: 'Ctrl+Shift+1', checked: () => state.settings.showLeftPanel, run: () => toggle('showLeftPanel') },
   rightPanel: { icon: 'panelRight', label: 'action.explorerPanel', key: 'Ctrl+Shift+2', checked: () => state.settings.showRightPanel, run: () => toggle('showRightPanel') },
+  bottomPanel: { icon: 'panelBottom', label: 'action.bottomPanel', key: 'Ctrl+J', checked: () => state.settings.showBottomPanel, run: () => toggle('showBottomPanel') },
+  showProblems: { icon: 'problems', label: 'action.showProblems', enabled: hasDoc, run: () => showProblems() },
   statusBar: { icon: 'statusBar', label: 'action.statusBar', checked: () => state.settings.showStatusBar, run: () => toggle('showStatusBar') },
   closeDiagram: { icon: 'closeDiagram', label: 'action.closeDiagram', key: 'Ctrl+F4', enabled: hasDiagram, run: () => closeDiagram(currentDiagram()._id) },
   nextDiagram: { icon: 'pageNext', label: 'action.nextDiagram', key: 'Ctrl+PageDown', enabled: () => projectDiagrams().length > 1, run: () => diagramStep(1) },
@@ -1172,10 +1210,10 @@ function toScreenPoint(p) {
 // ───────────────────────── layout
 
 const SUBMENUS = {
-  importFrom: { icon: 'importFile', items: ['importStarUml', 'importFragment', 'importText', 'reverse'] },
-  exportTo: { icon: 'exportFile', items: ['exportImage', 'exportSvg', 'exportPdf', 'exportAllImages', '-', 'exportHtml', 'exportMarkdown', '-', 'exportStarUml', 'exportFragment', 'exportMermaid', 'exportPlantUml'] },
+  importFrom: { icon: 'importFile', items: ['importStarUml', 'importXmi', 'importFragment', 'importText', 'reverse'] },
+  exportTo: { icon: 'exportFile', items: ['exportImage', 'exportSvg', 'exportPdf', 'exportAllImages', '-', 'exportHtml', 'exportMarkdown', '-', 'exportStarUml', 'exportXmi', 'exportXmiModel', 'exportFragment', 'exportMermaid', 'exportPlantUml'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'zoomSelection'] },
-  show: { icon: 'eye', items: ['grid', 'rulers', 'snapGrid', 'minimap', 'quickButtons', 'showShadows', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
+  show: { icon: 'eye', items: ['grid', 'rulers', 'snapGrid', 'minimap', 'quickButtons', 'showShadows', '-', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar'] },
   diagramTheme: { icon: 'palette', items: DIAGRAM_THEME_IDS.map((id) => `diagramTheme:${id}`) },
   defaultLine: { icon: 'lineRectilinear', items: LINE_STYLES.map((s) => `defaultLine:${s}`) },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
@@ -1192,11 +1230,11 @@ const sub = (key) => ({ sub: key });
 const MENUS = {
   file: ['new', 'newFromTemplate', 'open', 'startPage', 'recent', 'recentFolders', 'clearRecent', '-', 'save', 'saveAs', 'saveTemplate', '-', ...(desktop ? ['dbOpen', 'dbSave', '-'] : []), sub('importFrom'), sub('exportTo'), '-', 'print', 'projectProps', '-', 'closeTab', '-', 'exit'],
   edit: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'duplicate', '-', 'delete', 'deleteFromModel', '-', 'selectAll', 'clearSelection', 'selectInExplorer', 'selectInDiagram', '-', 'editName', 'find'],
-  model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'requirements', 'traceMatrix', '-', 'validate', 'statistics'],
+  model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'requirements', 'traceMatrix', '-', 'baselines', 'compareFile', '-', 'validate', 'statistics'],
   view: [sub('zoom'), sub('show'), '-', sub('diagramTheme'), sub('defaultLine'), '-', sub('diagrams'), 'presentation', '-', sub('appearance')],
-  format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent'],
+  format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
   arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout')],
-  tools: ['generateCode', 'generateDdl', 'reverse', '-', 'validate', '-', 'settings'],
+  tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', '-', 'settings'],
   help: ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', model: 'umlModel', view: 'eye', format: 'formatShape', arrange: 'bringFront', tools: 'tools', help: 'question' };
@@ -1208,9 +1246,9 @@ const TOOLBAR = [
   ['tool:pointer', 'addDiagram'],
   ['fillSplit', 'lineSplit', 'lineStyleMenu'],
   ['alignMenu', 'layoutMenu'],
-  ['zoom', 'fitPage'],
+  ['zoom', 'fitPage', 'grid', 'rulers', 'minimap'],
   ['generateCode', 'reverse', 'validate'],
-  ['leftPanel', 'rightPanel'],
+  ['leftPanel', 'rightPanel', 'bottomPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -1232,6 +1270,8 @@ function renderShell() {
           <div id="reader-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
+        <div class="splitter horizontal bottom-split" data-split="bottom" title="${escapeHtml(t('problems.splitter'))}" role="separator" aria-orientation="horizontal"></div>
+        <section id="bottom-panel" aria-label="${escapeHtml(t('problems.title'))}"></section>
       </section>
       <div class="splitter vertical panel-split" data-split="right" title="${escapeHtml(t('tip.panelSplitter'))}" role="separator" aria-orientation="vertical"></div>
       <aside id="right-panel" class="side-panel" aria-label="${escapeHtml(t('panel.explorer'))}"></aside>
@@ -1247,8 +1287,39 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeTab();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
-    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
+  // No system title bar: this row starts with the icon, name and version, ends with the window buttons,
+  // and its empty parts move the window (double-click maximizes).
+  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyUMLMaker v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyUMLMaker</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
+  const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
+  const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
+  menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
+    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
+    + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+}
+
+/** The window buttons of the menu bar row. Close goes through the normal close (it asks about unsaved changes). */
+function windowButton(id) {
+  if (!desktop) return;
+  if (id === 'minimize') appWindow.minimize().catch(() => {});
+  else if (id === 'maximize') appWindow.toggleMaximize().catch(() => {});
+  else if (id === 'close') requestExit();
+}
+
+/** Keeps the maximize / restore button in step with the window. */
+async function trackMaximized() {
+  if (!desktop) return;
+  const update = async () => {
+    const maximized = await appWindow.isMaximized().catch(() => false);
+    if (maximized !== state.maximized) { state.maximized = maximized; renderMenubar(); }
+  };
+  await update();
+  appWindow.onResized(() => update()).catch(() => {});
+  // Without a system title bar Windows sometimes hands the activation back to this window a moment after
+  // a menu window took it. The menu (popup.js) only closes on losing the focus when this window got it
+  // through a click or a key: it reads these times (localStorage is shared by every window of the app).
+  const mark = (key) => { try { globalThis.localStorage?.setItem(key, String(Date.now())); } catch { /* private mode */ } };
+  for (const type of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(type, () => mark('myumlmaker.main.input'), { capture: true, passive: true });
+  window.addEventListener('focus', () => mark('myumlmaker.main.focus'));
 }
 
 let toolbarLanguage = null;
@@ -1563,7 +1634,7 @@ function renderStatus() {
     else if (diagram) items.push(`<span class="status-item" title="${escapeHtml(t('status.viewsTip'))}">${icon('dgClass')}<span>${escapeHtml(t('status.views', { count: M.viewsOf(diagram).length }))}</span></span>`);
     if (state.pointer && diagram) items.push(`<span class="status-item pointer-pos" title="${escapeHtml(t('status.pointerTip'))}">${icon('position')}<span id="status-pointer">${Math.round(state.pointer.x)}, ${Math.round(state.pointer.y)}</span></span>`);
     if (state.tool) items.push(`<button class="status-item warn" data-command="tool:pointer" title="${escapeHtml(t('status.toolTip'))}">${icon(state.tool.icon)}<span>${escapeHtml(lang() === 'ko' ? state.tool.ko : state.tool.en)}</span></button>`);
-    if (state.validation) items.push(`<button class="status-item ${state.validation.errors ? 'error-count' : ''}" data-command="validate" title="${escapeHtml(t('status.validationTip'))}">${icon('validate')}<span>${escapeHtml(t('status.validation', { errors: state.validation.errors, warnings: state.validation.warnings }))}</span></button>`);
+    if (state.validation) items.push(`<button class="status-item ${state.validation.errors ? 'error-count' : ''}" data-command="validate" data-problems-open title="${escapeHtml(t('status.validationTip'))}">${icon('validate')}<span>${escapeHtml(t('status.validation', { errors: state.validation.errors, warnings: state.validation.warnings }))}</span></button>`);
   }
   items.push(`<span class="status-item" title="${escapeHtml(t('status.theme', { name: themeName(s.theme, getLanguage()) }))}">${icon('palette')}<span>${escapeHtml(themeName(s.theme, getLanguage()))}</span></span>`);
   items.push(`<span class="status-item" title="${escapeHtml(t('status.language'))}">${icon('globe')}<span>${escapeHtml(t('status.language'))}</span></span>`);
@@ -1588,6 +1659,8 @@ function renderAll() {
   root.classList.toggle('no-status', !state.settings.showStatusBar);
   root.classList.toggle('no-left', !state.settings.showLeftPanel);
   root.classList.toggle('no-right', !state.settings.showRightPanel);
+  root.classList.toggle('no-bottom', !state.settings.showBottomPanel);
+  root.style.setProperty('--bottom-height', `${bottomHeight()}px`);
   root.style.setProperty('--left-width', `${state.settings.leftWidth}px`);
   root.style.setProperty('--right-width', `${state.settings.rightWidth}px`);
   root.style.setProperty('--zoom', String(state.settings.zoom / 100));
@@ -1598,6 +1671,7 @@ function renderAll() {
   renderToolbox();
   renderView();
   renderRight();
+  renderProblems();
   renderStatus();
   updateBackgroundState();
 }
@@ -1641,6 +1715,8 @@ async function onStartAction(target) {
     case 'clear-folders': state.recentDirs = []; storeRecentDirs(globalThis.localStorage, []); return renderStartPage();
     case 'open-sample': return openPath(value);
     case 'builtin-sample': return openSampleAsk();
+    // The Help button of the start page: the same items as the Help menu, below the button.
+    case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'tutorial': return startTutorial();
     case 'guide': return openUserGuide();
     case 'tutorial-doc': return openReader('tutorial');
@@ -1799,6 +1875,9 @@ function applySettings(previous = {}) {
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
   const redraw = ['diagramTheme', 'defaultLineStyle', 'diagramFont', 'diagramFontSize', 'showShadow', 'showGrid', 'showRulers', 'showMinimap', 'gridSize', 'language', 'showQuickButtons'].some((key) => s[key] !== previous[key]);
   if (redraw && state.view) state.view.update();
+  // The Problems panel opened (or autoValidate turned on): check now; the canvas badges come and go with the panel.
+  if ((s.showBottomPanel && !previous.showBottomPanel) || (s.autoValidate && !previous.autoValidate)) scheduleProblems(0);
+  if (s.showBottomPanel !== previous.showBottomPanel) state.view?.renderOverlay?.();
   renderAll();
   updateMinimumWidth();
 }
@@ -1843,15 +1922,16 @@ async function withProgress(titleKey, name, task) {
 
 const findOpenDoc = (path) => state.docs.find((doc) => doc.path && doc.path.replace(/\\/g, '/').toLowerCase() === path.replace(/\\/g, '/').toLowerCase());
 
+// Re-read before adding: another MyUMLMaker window may have added files since this one loaded the list.
 function rememberRecent(entry) {
-  state.recent = addRecent(state.recent, entry);
+  state.recent = addRecent(loadRecent(globalThis.localStorage), entry);
   storeRecent(globalThis.localStorage, state.recent);
   if (!entry.web) rememberDirectory(directoryOf(entry.path));
 }
 
 function rememberDirectory(dir) {
   if (!dir) return;
-  state.recentDirs = addRecent(state.recentDirs, { path: dir });
+  state.recentDirs = addRecent(loadRecentDirs(globalThis.localStorage), { path: dir });
   storeRecentDirs(globalThis.localStorage, state.recentDirs);
   if (state.settings.lastDirectory !== dir) updateSettings({ lastDirectory: dir }, { quiet: true });
 }
@@ -1859,6 +1939,12 @@ function rememberDirectory(dir) {
 /** A project from file text: .myuml / .mumlt / a StarUML .mdj. */
 function parseAny(name, text) {
   if (isStarUmlFileName(name)) return { project: normalizeProject(importMdj(text)), template: false, imported: true };
+  if (isXmiFileName(name)) {
+    // XMI (Enterprise Architect, MagicDraw, Papyrus …): never fails; what was skipped comes back as warnings.
+    const { project, warnings } = readXmi(text);
+    if (warnings.length) console.warn(`XMI ${name}:\n${warnings.join('\n')}`);
+    return { project: normalizeProject(project), template: false, imported: true, warnings };
+  }
   const parsed = parseProject(text);
   if (parsed.starUml) return { project: normalizeProject(importMdj(text)), template: false, imported: true };
   return { project: parsed.project, template: parsed.template || isTemplateFileName(name), imported: false };
@@ -1878,12 +1964,12 @@ async function openPath(path, { quiet = false } = {}) {
   if (!(await confirmReplace())) return null;
   try {
     const content = await withProgress('progress.open', name, (op) => native.readTextFile(path, op));
-    const { project, template, imported } = parseAny(name, content);
+    const { project, template, imported, warnings } = parseAny(name, content);
     const tab = new ProjectDocument(project, { path: template || imported ? null : path, name: template || imported ? project.name : null, template: template || imported });
     if (imported) tab.saved = '';
     addTab(tab);
     rememberRecent({ path, title: project.name });
-    if (!quiet) notify('success', t(imported ? 'notice.imported' : 'notice.opened', { name }));
+    if (!quiet) notify(warnings?.length ? 'info' : 'success', warnings?.length ? t('notice.xmiWarnings', { name, count: warnings.length, first: warnings[0] }) : t(imported ? 'notice.imported' : 'notice.opened', { name }));
     return tab;
   } catch (error) {
     showError('error.open', error, path);
@@ -1892,14 +1978,14 @@ async function openPath(path, { quiet = false } = {}) {
 }
 
 async function openContent(name, content, handle = null) {
-  if (isProjectFileName(name) || isStarUmlFileName(name)) { if (!(await confirmReplace())) return null; }
+  if (isProjectFileName(name) || isStarUmlFileName(name) || isXmiFileName(name)) { if (!(await confirmReplace())) return null; }
   try {
-    const { project, template, imported } = parseAny(name, content);
+    const { project, template, imported, warnings } = parseAny(name, content);
     const tab = new ProjectDocument(project, { name: template || imported ? project.name : name, handle: template || imported ? null : handle, template: template || imported });
     if (imported) tab.saved = '';
     addTab(tab);
     rememberRecent({ path: name, title: project.name, web: true });
-    notify('success', t(imported ? 'notice.imported' : 'notice.opened', { name }));
+    notify(warnings?.length ? 'info' : 'success', warnings?.length ? t('notice.xmiWarnings', { name, count: warnings.length, first: warnings[0] }) : t(imported ? 'notice.imported' : 'notice.opened', { name }));
     return tab;
   } catch (error) {
     showError('error.open', error, name);
@@ -1910,11 +1996,11 @@ async function openContent(name, content, handle = null) {
 async function openWithDialog(directory = null, kind = null) {
   try {
     if (desktop) {
-      const paths = kind === 'mdj' ? await native.chooseFiles(directory ?? state.settings.lastDirectory, [native.SAVE_TYPES.mdj]) : await native.chooseDiagramsToOpen(directory ?? state.settings.lastDirectory);
+      const paths = kind === 'mdj' || kind === 'xmi' ? await native.chooseFiles(directory ?? state.settings.lastDirectory, [native.SAVE_TYPES[kind]]) : await native.chooseDiagramsToOpen(directory ?? state.settings.lastDirectory);
       // One project at a time: the first chosen file.
       if (paths[0]) await openPath(paths[0]);
     } else {
-      const files = kind === 'mdj' ? await Promise.all((await native.pickWithInput('.mdj', true)).map(async (file) => ({ name: file.name, content: await file.text(), handle: null }))) : await native.pickDiagramFilesWeb();
+      const files = kind === 'mdj' || kind === 'xmi' ? await Promise.all((await native.pickWithInput(kind === 'xmi' ? '.xmi,.xml,.uml' : '.mdj', true)).map(async (file) => ({ name: file.name, content: await file.text(), handle: null }))) : await native.pickDiagramFilesWeb();
       if (files[0]) await openContent(files[0].name, files[0].content, files[0].handle);
     }
   } catch (error) {
@@ -2125,7 +2211,7 @@ async function chooseDatabaseFile() {
 
 // ───────────────────────── export
 
-const MIMES = { mumlt: 'application/json', mdj: 'application/json', mfj: 'application/json', svg: 'image/svg+xml', html: 'text/html', md: 'text/markdown', mmd: 'text/plain', puml: 'text/plain', pdf: 'application/pdf', zip: 'application/zip', sql: 'text/plain' };
+const MIMES = { mumlt: 'application/json', mdj: 'application/json', mfj: 'application/json', xmi: 'application/xml', svg: 'image/svg+xml', html: 'text/html', md: 'text/markdown', mmd: 'text/plain', puml: 'text/plain', pdf: 'application/pdf', zip: 'application/zip', sql: 'text/plain', csv: 'text/csv' };
 
 /** Writes content (text or bytes) to a file the user picks. */
 async function saveExport(name, type, content) {
@@ -2151,7 +2237,7 @@ async function saveExport(name, type, content) {
 const diagramSvg = (diagram, options = {}) => renderDiagramSvg(activeTab().project, diagram, { measure, language: lang(), lineStyle: state.settings.defaultLineStyle, theme: state.settings.diagramTheme, font: state.settings.diagramFont, fontSize: state.settings.diagramFontSize, showShadow: state.settings.showShadow, ...options });
 const fileSafe = (text) => String(text ?? '').replace(/[\\/:*?"<>|]/g, '_');
 
-async function exportAs(type) {
+async function exportAs(type, options = {}) {
   const tab = activeTab();
   if (!tab) return;
   state.view?.finishEdit?.();
@@ -2162,6 +2248,7 @@ async function exportAs(type) {
     let content;
     if (type === 'mumlt') content = tab.text({ template: true });
     else if (type === 'mdj') content = exportMdj(tab.project);
+    else if (type === 'xmi') content = exportXmi(tab.project, { flavor: options.flavor ?? 'ea' });
     else if (type === 'mfj') {
       const element = selectedElements()[0] ?? tab.index.get(state.explorer[0]);
       if (!element) return;
@@ -2217,7 +2304,9 @@ async function exportImage(options) {
 
 async function imageBlob({ svg, width, height }, format, choice, transparent) {
   if (format.encoder === 'svg') return new Blob([svg], { type: format.mime });
-  const canvas = await svgToCanvas(svg, width, height, choice.scale ?? 2, transparent ? null : '#ffffff');
+  // Formats with alpha keep what the drawing leaves transparent (a diagram background below 100 % opacity);
+  // JPEG has none: the drawing goes over white.
+  const canvas = await svgToCanvas(svg, width, height, choice.scale ?? 2, transparent || format.alpha ? null : '#ffffff');
   if (format.encoder === 'canvas') return new Promise((resolve, reject) => canvas.toBlob((b) => (b?.type === format.mime ? resolve(b) : reject(new Error(`${format.mime}: not supported by this system`))), format.mime, (choice.quality ?? 92) / 100));
   const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
   const bytes = format.encoder === 'bmp' ? encodeBmp(pixels, canvas.width, canvas.height) : encodeTiff(pixels, canvas.width, canvas.height);
@@ -2286,6 +2375,181 @@ async function exportPdf() {
   }
 }
 
+// ───────────────────────── documents from templates (Word, PDF, HTML)
+
+const DOCUMENT_CHOICE_KEY = 'myumlmaker.document';
+MIMES.docx = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+commands.generateDocument = { icon: 'reportWord', label: 'action.generateDocument', enabled: hasDoc, run: () => openGenerateDocument() };
+commands.baselines = { icon: 'clock', label: 'action.baselines', enabled: hasDoc, run: () => openBaselines() };
+commands.compareFile = { icon: 'viewSwitch', label: 'action.compareFile', enabled: hasDoc, run: () => compareWithFile() };
+
+/** The package (or other owner) picked in the Model Explorer, for "selected package" scopes. */
+function selectedScope(tab) {
+  const element = state.explorer.map((id) => tab.index.get(id)).find(Boolean) ?? null;
+  if (!element || element._type === 'Project' || M.isDiagram(element) || !M.childrenOf(element, { ends: false }).length) return null;
+  return { id: element._id, name: M.qualifiedName(tab.project, element._id, tab.index) || element.name || typeLabel(element._type, lang()) };
+}
+
+async function openGenerateDocument() {
+  const tab = activeTab();
+  if (!tab) return;
+  state.view?.finishEdit?.();
+  let last = null;
+  try { last = JSON.parse(globalThis.localStorage?.getItem(DOCUMENT_CHOICE_KEY) ?? 'null'); } catch { last = null; }
+  const scope = selectedScope(tab);
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const choice = await popups.open('document', { root: scope, title: tab.project.name ?? '', author: tab.project.author ?? '', version: tab.project.version ?? '', date, last });
+  if (!choice?.format) return;
+  try { globalThis.localStorage?.setItem(DOCUMENT_CHOICE_KEY, JSON.stringify({ template: choice.template, sections: choice.sections, language: choice.language, format: choice.format })); } catch { /* private mode */ }
+  await generateDocument(tab, { ...choice, scopeId: choice.scope === 'selection' && scope ? scope.id : '' });
+}
+
+/** Builds the document of a template and saves it as .docx, .pdf or .html. */
+async function generateDocument(tab, choice) {
+  const report = buildReport(tab.project, choice);
+  const format = ['docx', 'pdf', 'html'].includes(choice.format) ? choice.format : 'docx';
+  const name = `${safeName(tab)} - ${fileSafe(report.subtitle)}.${format}`;
+  const noPicture = choice.language === 'en' ? '(no picture)' : '(그림 없음)';
+  const diagrams = report.blocks.filter((b) => b.kind === 'image').map((b) => b.diagram);
+  try {
+    const content = await withProgress('progress.document', name, async (op, report_) => {
+      if (format === 'html') return reportHtml(report, { renderDiagram: (d) => diagramSvg(d).svg });
+      if (format === 'docx') {
+        const pictures = new Map();
+        for (const [i, d] of diagrams.entries()) {
+          report_?.({ done: i, total: diagrams.length });
+          try {
+            const drawing = diagramSvg(d);
+            const blob = await imageBlob(drawing, imageFormat('png'), { scale: 2 }, false);
+            pictures.set(d._id, { png: new Uint8Array(await blob.arrayBuffer()), width: drawing.width, height: drawing.height });
+          } catch { /* left out: the document says so */ }
+        }
+        return reportDocx(report, { image: (d) => pictures.get(d._id) ?? null, noPicture });
+      }
+      const sheets = reportPdfPages(report, { measure, diagramSvg: (d) => diagramSvg(d), noPicture });
+      const pages = [];
+      for (const [i, sheet] of sheets.entries()) {
+        report_?.({ done: i, total: sheets.length });
+        const canvas = await svgToCanvas(sheet.svg, sheet.width, sheet.height, 150 / 96, '#ffffff');
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        pages.push({ jpeg: new Uint8Array(await blob.arrayBuffer()), width: canvas.width, height: canvas.height });
+      }
+      return pdfFromJpegs(pages, { title: report.title });
+    });
+    await saveExport(name, format, content);
+  } catch (error) {
+    showError('error.export', error, name);
+  }
+}
+
+// ───────────────────────── baselines and model comparison
+
+/** What the open compare popup shows: { tab, name, oldRoot() } (to refresh it after a restore). */
+let comparing = null;
+
+const baselineList = (tab) => listBaselines(tab.project);
+
+async function openBaselines() {
+  const tab = activeTab();
+  if (!tab) return;
+  state.view?.finishEdit?.();
+  const now = new Date();
+  const result = await popups.open('baselines', { baselines: baselineList(tab), root: selectedScope(tab), suggestedName: `${tab.project.name || 'Baseline'} ${now.toLocaleDateString(lang() === 'en' ? 'en-US' : 'ko-KR')}` });
+  if (result?.action === 'compare') compareWithBaselineId(result.id);
+  else if (result?.action === 'compare-file') compareWithFile();
+}
+
+function createBaselineFrom(data) {
+  const tab = activeTab();
+  if (!tab) return;
+  const scope = data.scope === 'selection' ? selectedScope(tab) : null;
+  const fallback = `${scope?.name ?? tab.project.name ?? 'Baseline'} ${new Date().toLocaleString(lang() === 'en' ? 'en-US' : 'ko-KR')}`;
+  const created = change('op.createBaseline', (project) => addBaseline(project, createBaseline(project, { name: String(data.name ?? '').trim() || fallback, note: String(data.note ?? '').trim(), scopeId: scope?.id ?? '' })), { explorer: false });
+  if (created) notify('success', t('baseline.created', { name: created.name }));
+  popups.post('baselines', { type: 'baselines', items: baselineList(tab) });
+}
+
+async function deleteBaseline(id) {
+  const tab = activeTab();
+  const baseline = tab && findBaseline(tab.project, id);
+  if (!baseline) return;
+  const choice = await ask({ icon: 'trash', title: t('baseline.title'), message: t('baseline.deleteConfirm', { name: baseline.name }), buttons: [{ id: 'cancel', label: t('common.cancel') }, { id: 'delete', label: t('baseline.delete'), icon: 'trash', danger: true, primary: true }] });
+  if (choice !== 'delete') return;
+  change('op.deleteBaseline', (project) => removeBaseline(project, id), { explorer: false });
+  popups.post('baselines', { type: 'baselines', items: baselineList(tab) });
+}
+
+async function exportBaseline(id) {
+  const tab = activeTab();
+  const baseline = tab && findBaseline(tab.project, id);
+  if (!baseline) return;
+  const name = `${safeName(tab)} - ${fileSafe(baseline.name)}.myuml`;
+  try { await saveExport(name, 'myuml', exportBaselineText(baseline)); } catch (error) { showError('error.export', error, name); }
+}
+
+function postCompare() {
+  if (!comparing) return;
+  const tab = state.docs.includes(comparing.tab) ? comparing.tab : null;
+  if (!tab) return;
+  popups.post('compare', { type: 'compare-diff', diff: comparing.diff() });
+}
+
+function compareWithBaselineId(id) {
+  const tab = activeTab();
+  const baseline = tab && findBaseline(tab.project, id);
+  if (!baseline) return;
+  if (baseline.scopeId && !currentScope(tab.project, baseline)) notify('info', t('baseline.scopeGone'));
+  comparing = {
+    tab,
+    diff: () => { const b = findBaseline(tab.project, id); return b ? compareWithBaseline(tab.project, b, { language: lang() }) : { items: [], summary: { added: 0, removed: 0, changed: 0, total: 0 } }; },
+    oldRoot: () => { const b = findBaseline(tab.project, id); return b ? baselineRoot(b) : null; },
+  };
+  const when = new Date(baseline.date).toLocaleString(lang() === 'en' ? 'en-US' : 'ko-KR');
+  popups.open('compare', { name: baseline.name, subtitle: `${when} · ${baseline.scopeName}${baseline.note ? ` · ${baseline.note}` : ''}`, diff: comparing.diff(), canRestore: true }).finally(() => { comparing = null; });
+}
+
+async function compareWithFile() {
+  const tab = activeTab();
+  if (!tab) return;
+  let text = null;
+  let name = '';
+  try {
+    if (desktop) {
+      const [path] = await native.chooseFiles(state.settings.lastDirectory, [{ name: 'MyUMLMaker / StarUML (*.myuml, *.mumlt, *.mdj)', extensions: ['myuml', 'mumlt', 'mdj', 'json'] }], false);
+      if (!path) return;
+      text = await native.readTextFile(path, `op-${M.newId()}`);
+      name = baseName(path);
+    } else {
+      const [file] = await native.pickWithInput('.myuml,.mumlt,.mdj,.json');
+      if (!file) return;
+      text = await file.text();
+      name = file.name;
+    }
+    const other = parseProject(text).project;
+    comparing = {
+      tab,
+      diff: () => compareModels(other, tab.project, { language: lang() }),
+      oldRoot: () => other,
+    };
+    popups.open('compare', { name, subtitle: other.name ?? '', diff: comparing.diff(), canRestore: true }).finally(() => { comparing = null; });
+  } catch (error) {
+    showError('error.open', error, name);
+  }
+}
+
+function restoreFromCompare(id) {
+  if (!comparing || activeTab() !== comparing.tab) return;
+  const oldRoot = comparing.oldRoot();
+  if (!oldRoot) return;
+  const restored = change('op.restoreBaseline', (project) => restoreElement(project, oldRoot, id));
+  if (restored) {
+    notify('success', t('compare.restored', { name: restored.name || typeLabel(restored._type, lang()) }));
+    if (!M.isDiagram(restored)) revealElement(restored._id);
+  }
+  postCompare();
+}
+
 // ───────────────────────── import: fragments, Mermaid / PlantUML text
 
 /** Puts an imported element into the selected element, else a sensible place. */
@@ -2327,6 +2591,12 @@ async function openTextImport(initial = {}) {
     const diagram = imported.diagram ? activeTab().index.get(imported.diagram._id) : null;
     if (diagram) openDiagram(diagram._id);
     notify('success', t('notice.textImported', { kind: imported.kind }));
+    // What was skipped or not understood (an !include, an unsupported line …) is listed, not dropped silently.
+    const warnings = imported.warnings ?? [];
+    if (warnings.length) {
+      const text = (w) => [t(w.code) === w.code ? w.code : t(w.code), w.detail].filter(Boolean).join(' — ');
+      popups.open('validation', { title: t('textImport.warnings', { count: warnings.length }), problems: warnings.map((w) => ({ severity: 'warning', rule: w.code, message: { ko: text(w), en: text(w) } })) });
+    }
   } catch (error) {
     showError('error.import', error);
   }
@@ -2456,14 +2726,293 @@ function reverseFiles(files, languageId, options = {}) {
 
 // ───────────────────────── validation, unused elements, statistics, find
 
-let validationTimer = 0;
-function scheduleValidation() { clearTimeout(validationTimer); validationTimer = setTimeout(() => { const tab = activeTab(); if (tab) { const p = validate(tab.project); state.validation = { errors: p.filter((x) => x.severity === 'error').length, warnings: p.filter((x) => x.severity !== 'error').length }; renderStatus(); } }, 800); }
+// ───────────────────────── Problems panel: the model checked in the background
+
+/** The background check runs while the Problems panel is open; with it closed, Settings › Diagram ›
+ * "Validate the model after each edit" (autoValidate) keeps only the status bar counts fresh. */
+const backgroundCheck = () => state.settings.showBottomPanel || state.settings.autoValidate;
+const problemCheck = { timer: 0, busy: false, again: false };
+const idleCall = (fn) => (typeof globalThis.requestIdleCallback === 'function' ? globalThis.requestIdleCallback(fn, { timeout: 1200 }) : setTimeout(fn, 1));
+
+/** After a change: check again once the edits pause — about 400 ms, longer for a model that takes long
+ * to check (5 × the last check, at most 3 s) — and in idle time, so typing and dragging never wait for it. */
+function scheduleProblems(delay = null) {
+  if (!backgroundCheck()) return;
+  clearTimeout(problemCheck.timer);
+  const wait = delay ?? Math.min(3000, Math.max(400, Math.round(state.problems.ms * 5)));
+  problemCheck.timer = setTimeout(() => idleCall(() => checkProblems()), wait);
+}
+
+/** Validates the active project now (skipped while a check is still running: it runs again after it). */
+function checkProblems() {
+  if (problemCheck.busy) { problemCheck.again = true; return; }
+  // Never in the middle of a drag on the canvas: after it.
+  if (state.view?.drag) { scheduleProblems(); return; }
+  const tab = activeTab();
+  if (!tab) {
+    if (state.problems.docId) { state.problems = { rows: [], docId: null, ms: 0 }; renderProblems(); }
+    return;
+  }
+  problemCheck.busy = true;
+  try {
+    const started = performance.now();
+    const list = validate(tab.project, { index: tab.index });
+    setProblems(tab, list, performance.now() - started);
+  } catch (error) {
+    console.error('background check', error);
+  } finally {
+    problemCheck.busy = false;
+  }
+  if (problemCheck.again) { problemCheck.again = false; scheduleProblems(); }
+}
+
+function setProblems(tab, list, ms) {
+  const rows = problemRows(tab.project, list, { index: tab.index });
+  state.problems = { rows, docId: tab.id, ms };
+  const counts = countProblems(rows);
+  state.validation = { errors: counts.error, warnings: counts.warning };
+  renderProblems();
+  renderStatus();
+  state.view?.renderOverlay?.();
+}
+
+/** The rows of the active project (empty while a check of it is pending). */
+const problemList = () => { const tab = activeTab(); return tab && state.problems.docId === tab.id ? state.problems.rows : []; };
+
+/** The rows the panel shows, in display order (errors, then warnings; by path). */
+function shownProblems() {
+  const f = state.problemFilter;
+  const rows = filterProblems(problemList(), { severity: f.severity, diagramId: f.current ? currentDiagram()?._id ?? '-' : null, query: f.query, language: lang() });
+  return groupProblems(rows, lang());
+}
+
+/** Height of the Problems panel: at least PANEL_MIN.bottom, at most 60 % of the window. */
+function bottomHeight() {
+  const max = Math.max(PANEL_MIN.bottom, Math.round(window.innerHeight * BOTTOM_MAX_SHARE));
+  return Math.max(PANEL_MIN.bottom, Math.min(max, state.settings.bottomHeight));
+}
+
+/** Badges on the canvas (view id → { severity, rows }); none while the panel is closed. */
+const markerCache = { rows: null, diagram: null, map: null };
+function problemMarkers() {
+  if (!state.settings.showBottomPanel || state.showStart || state.reader) return null;
+  const diagram = currentDiagram();
+  if (!diagram) return null;
+  const rows = problemList();
+  if (markerCache.rows !== rows || markerCache.diagram !== diagram._id) Object.assign(markerCache, { rows, diagram: diagram._id, map: problemsByView(rows, diagram._id) });
+  return markerCache.map;
+}
+
+function problemRowHtml(r) {
+  const language = lang();
+  const type = r.type ? typeLabel(r.type, language) : '';
+  const where = r.diagrams.length ? r.diagrams.map((d) => d.name || '—').join(', ') : '';
+  const selected = r.key === state.problemSelected;
+  return `<div class="problem-row ${r.severity === 'error' ? 'error' : 'warning'} ${selected ? 'selected' : ''}" role="option" aria-selected="${selected}" data-problem="${escapeHtml(r.key)}" title="${escapeHtml(`${r.message[language] ?? ''}\n${t('problems.rowTip')}`)}">
+    <span class="cell sev">${icon(r.severity === 'error' ? 'error' : 'warning')}</span>
+    <span class="cell msg">${escapeHtml(r.detail?.[language] ?? r.message[language] ?? '')}</span>
+    <span class="cell el">${r.type ? icon(typeDef(r.type)?.icon ?? 'dot', 'icon tiny') : ''}<b>${escapeHtml(r.name || (type ? `(${type})` : '—'))}</b>${r.path && r.path !== r.name ? `<small>${escapeHtml(r.path)}</small>` : ''}</span>
+    <span class="cell type">${escapeHtml(type)}</span>
+    <span class="cell dg">${where ? escapeHtml(where) : `<i>${escapeHtml(t('problems.notShown'))}</i>`}</span>
+    <span class="cell rule"><code>${escapeHtml(r.rule)}</code></span>
+  </div>`;
+}
+
+/** The bottom panel: header (counts, filters, Validate all, close) and the problem list. */
+function renderProblems() {
+  const panel = root.querySelector('#bottom-panel');
+  if (!panel || !state.settings.showBottomPanel) return;
+  const f = state.problemFilter;
+  if (panel.dataset.lang !== lang() || !panel.querySelector('.problems-header')) {
+    panel.dataset.lang = lang();
+    const seg = (id, label, glyph) => `<button class="segment" data-problem-severity="${id}" role="radio" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`;
+    panel.innerHTML = `
+      <div class="problems-header">
+        <span class="problems-title">${icon('problems')}<span>${escapeHtml(t('problems.title'))}</span></span>
+        <span class="problem-count error" data-problem-count="error">${icon('error')}<b>0</b></span>
+        <span class="problem-count warning" data-problem-count="warning">${icon('warning')}<b>0</b></span>
+        <span class="segmented small" role="radiogroup" aria-label="${escapeHtml(t('problems.severityFilter'))}">${seg('all', t('problems.all'))}${seg('error', t('problems.errors'), 'error')}${seg('warning', t('problems.warnings'), 'warning')}</span>
+        <button class="problem-toggle" data-problem-current title="${escapeHtml(t('problems.currentOnlyTip'))}" aria-label="${escapeHtml(t('problems.currentOnly'))}">${icon('dgClass')}<span>${escapeHtml(t('problems.currentOnly'))}</span></button>
+        <label class="search-box problems-search" title="${escapeHtml(t('problems.filter'))}">${icon('filter')}<input id="problem-query" type="search" placeholder="${escapeHtml(t('problems.filter'))}" aria-label="${escapeHtml(t('problems.filter'))}" /></label>
+        <span class="grow"></span>
+        <span class="problems-meta" id="problems-meta"></span>
+        <button class="button small" data-problem-run title="${escapeHtml(t('problems.runNowTip'))}" aria-label="${escapeHtml(t('problems.runNow'))}">${icon('validate')}<span>${escapeHtml(t('problems.runNow'))}</span></button>
+        <button class="icon-button" data-command="bottomPanel" title="${escapeHtml(`${t('problems.close')} (${keyLabel('Ctrl+J')})`)}" aria-label="${escapeHtml(t('problems.close'))}">${icon('close')}</button>
+      </div>
+      <div class="problems-list" tabindex="0" role="listbox" aria-label="${escapeHtml(t('problems.list'))}">
+        <div class="problem-row head" aria-hidden="true"><span class="cell sev"></span><span class="cell msg">${escapeHtml(t('problems.colMessage'))}</span><span class="cell el">${escapeHtml(t('problems.colElement'))}</span><span class="cell type">${escapeHtml(t('problems.colType'))}</span><span class="cell dg">${escapeHtml(t('problems.colDiagrams'))}</span><span class="cell rule">${escapeHtml(t('problems.colRule'))}</span></div>
+        <div class="problems-body"></div>
+      </div>`;
+  }
+  const tab = activeTab();
+  const all = problemList();
+  const counts = countProblems(all);
+  panel.querySelector('[data-problem-count="error"] b').textContent = String(counts.error);
+  panel.querySelector('[data-problem-count="warning"] b').textContent = String(counts.warning);
+  panel.querySelector('[data-problem-count="error"]').title = t('problems.errorCount', { count: counts.error });
+  panel.querySelector('[data-problem-count="warning"]').title = t('problems.warningCount', { count: counts.warning });
+  for (const b of panel.querySelectorAll('[data-problem-severity]')) { const on = b.dataset.problemSeverity === f.severity; b.classList.toggle('active', on); b.setAttribute('aria-checked', String(on)); }
+  const current = panel.querySelector('[data-problem-current]');
+  current.classList.toggle('active', f.current);
+  current.setAttribute('aria-pressed', String(f.current));
+  current.disabled = !currentDiagram();
+  const query = panel.querySelector('#problem-query');
+  if (document.activeElement !== query && query.value !== f.query) query.value = f.query;
+  panel.querySelector('[data-problem-run]').disabled = !tab;
+  panel.querySelector('#problems-meta').textContent = tab && state.problems.docId === tab.id ? t('problems.checked', { count: all.length, ms: Math.max(1, Math.round(state.problems.ms)) }) : '';
+  const groups = shownProblems();
+  let html;
+  if (!tab) html = `<p class="problems-empty">${icon('info')}<span>${escapeHtml(t('problems.noProject'))}</span></p>`;
+  else if (!groups.length) html = `<p class="problems-empty">${icon(all.length ? 'filter' : 'check')}<span>${escapeHtml(t(all.length ? 'problems.noneFiltered' : 'problems.none'))}</span></p>`;
+  else {
+    let budget = 1000; // a huge list stays quick: the first thousand rows
+    html = groups.map((g) => {
+      const rows = g.rows.slice(0, Math.max(0, budget));
+      budget -= rows.length;
+      return `<div class="problem-group ${g.severity}">${icon(g.severity === 'error' ? 'error' : 'warning')}<span>${escapeHtml(t(g.severity === 'error' ? 'problems.errors' : 'problems.warnings'))}</span><b>${g.rows.length}</b></div>${rows.map(problemRowHtml).join('')}`;
+    }).join('');
+  }
+  const body = panel.querySelector('.problems-body');
+  if (body.dataset.html !== html) { body.innerHTML = html; body.dataset.html = html; }
+}
+
+/** Selects a row (and shows its element when `reveal`; `edit` also goes to the property to fix). */
+function selectProblem(key, { reveal = false, edit = false } = {}) {
+  state.problemSelected = key;
+  renderProblems();
+  root.querySelector(`#bottom-panel [data-problem="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'nearest' });
+  const row = problemList().find((r) => r.key === key);
+  if (row && reveal) revealProblem(row, { edit });
+}
+
+/** Shows a problem's element: selected in the Model Explorer (expanded), its first diagram open
+ * (the current one when it shows it) with its view selected and scrolled into sight. */
+function revealProblem(row, { edit = false } = {}) {
+  const tab = activeTab();
+  const element = row.id ? tab?.index.get(row.id) : null;
+  if (!element) return;
+  if (M.isDiagram(element)) { openDiagram(element._id); return; }
+  const currentId = currentDiagram()?._id;
+  const place = row.diagrams.find((d) => d.id === currentId) ?? row.diagrams[0] ?? null;
+  // Only the latest reveal finishes (the first click of a double-click must not undo the second's work).
+  const token = (revealProblem.token = (revealProblem.token ?? 0) + 1);
+  const finish = () => {
+    if (token !== revealProblem.token) return;
+    const diagram = currentDiagram();
+    const view = place?.viewId && diagram?._id === place.id ? M.findView(diagram, place.viewId) : null;
+    const own = Boolean(view) && M.refId(view.model) === element._id;
+    state.explorer = [element._id];
+    // To edit a column (drawn inside its entity) the editors show the column itself, not the entity's view.
+    state.selection = view && (!edit || own) ? { ids: [view._id], primary: view._id } : { ids: [], primary: null };
+    if (view) state.view?.reveal?.(view._id);
+    if (edit) { state.rightTab = 'properties'; if (!state.settings.showRightPanel) updateSettings({ showRightPanel: true }); }
+    explorerView?.reveal(element._id);
+    selectionChanged();
+    if (edit) focusProblemField(element, row.rule);
+  };
+  if (place && place.id !== currentId && !state.showStart) { openDiagram(place.id); setTimeout(finish, 0); } else finish();
+}
+
+/** Focuses the editor field that the rule is about (else the name, else the first field). */
+function focusProblemField(element, rule) {
+  requestAnimationFrame(() => {
+    const host = root.querySelector('#editors');
+    if (!host) return;
+    const target = CSS.escape(element._id);
+    const input = host.querySelector(`[data-field="${CSS.escape(problemField(rule))}"][data-target="${target}"]`) ?? host.querySelector(`[data-field="name"][data-target="${target}"]`) ?? host.querySelector('input:not([type="hidden"]), select, textarea');
+    if (!input) return;
+    input.scrollIntoView({ block: 'nearest' });
+    input.focus();
+    input.select?.();
+  });
+}
+
+/** Opens the Problems panel (status bar count, canvas badge) and puts the keyboard in its list. */
+function showProblems() {
+  if (!state.settings.showBottomPanel) updateSettings({ showBottomPanel: true });
+  const tab = activeTab();
+  if (tab && state.problems.docId !== tab.id) checkProblems();
+  requestAnimationFrame(() => root.querySelector('#bottom-panel .problems-list')?.focus({ preventScroll: true }));
+}
+
+/** A badge on the canvas was clicked: its first problem is selected in the panel. */
+function problemBadge(viewId) {
+  const entry = problemMarkers()?.get(viewId);
+  if (!entry) return;
+  const shown = shownProblems().flatMap((g) => g.rows);
+  let first = shown.find((r) => entry.rows.includes(r));
+  if (!first) { state.problemFilter = { ...state.problemFilter, severity: 'all', query: '' }; first = shownProblems().flatMap((g) => g.rows).find((r) => entry.rows.includes(r)); }
+  if (first) selectProblem(first.key);
+  root.querySelector('#bottom-panel .problems-list')?.focus({ preventScroll: true });
+}
+
+/** "Validate all" in the panel: checks now and says how it went. */
+function runProblemsNow() {
+  clearTimeout(problemCheck.timer);
+  checkProblems();
+  const counts = countProblems(problemList());
+  notify(counts.total ? 'info' : 'success', counts.total ? t('status.validation', { errors: counts.error, warnings: counts.warning }) : t('notice.valid'));
+}
+
+/** Clicks, double-clicks, typing and keys of the Problems panel. */
+function bindProblemsPanel() {
+  const panel = root.querySelector('#bottom-panel');
+  if (!panel) return;
+  panel.addEventListener('click', (event) => {
+    const severity = event.target.closest('[data-problem-severity]');
+    if (severity) { state.problemFilter = { ...state.problemFilter, severity: severity.dataset.problemSeverity }; renderProblems(); return; }
+    const current = event.target.closest('[data-problem-current]');
+    if (current && !current.disabled) { state.problemFilter = { ...state.problemFilter, current: !state.problemFilter.current }; renderProblems(); return; }
+    if (event.target.closest('[data-problem-run]')) { runProblemsNow(); return; }
+    const row = event.target.closest('[data-problem]');
+    if (row) selectProblem(row.dataset.problem, { reveal: true });
+  });
+  panel.addEventListener('dblclick', (event) => {
+    const row = event.target.closest('[data-problem]');
+    if (row) selectProblem(row.dataset.problem, { reveal: true, edit: true });
+  });
+  panel.addEventListener('input', (event) => {
+    if (event.target.id !== 'problem-query') return;
+    state.problemFilter = { ...state.problemFilter, query: event.target.value };
+    renderProblems();
+  });
+  panel.addEventListener('keydown', (event) => {
+    if (!event.target.closest('.problems-list')) return;
+    const keys = shownProblems().flatMap((g) => g.rows).map((r) => r.key);
+    if (!keys.length) return;
+    const at = keys.indexOf(state.problemSelected);
+    const go = (i) => { event.preventDefault(); selectProblem(keys[Math.max(0, Math.min(keys.length - 1, i))]); };
+    if (event.key === 'ArrowDown') go(at < 0 ? 0 : at + 1);
+    else if (event.key === 'ArrowUp') go(at < 0 ? 0 : at - 1);
+    else if (event.key === 'Home') go(0);
+    else if (event.key === 'End') go(keys.length - 1);
+    else if (event.key === 'PageDown') go(at + 10);
+    else if (event.key === 'PageUp') go(at - 10);
+    else if (event.key === 'Enter' && at >= 0) { event.preventDefault(); selectProblem(keys[at], { reveal: true, edit: event.ctrlKey || event.metaKey }); root.querySelector('#bottom-panel .problems-list')?.focus({ preventScroll: true }); }
+    else if (event.key === 'Escape') { event.preventDefault(); state.view?.scroll?.focus({ preventScroll: true }); }
+  });
+  root.querySelector('[data-split="bottom"]')?.addEventListener('pointerdown', (event) => {
+    if (!state.settings.showBottomPanel || event.button !== 0) return;
+    event.preventDefault();
+    const start = bottomHeight();
+    pointerDrag(event, {
+      cursor: 'row-resize',
+      move: (dx, dy) => {
+        const max = Math.max(PANEL_MIN.bottom, Math.round(window.innerHeight * BOTTOM_MAX_SHARE));
+        const height = Math.max(PANEL_MIN.bottom, Math.min(max, start - dy));
+        root.style.setProperty('--bottom-height', `${height}px`);
+        state.settings.bottomHeight = height;
+      },
+      end: (e, moved) => { if (moved) updateSettings({ bottomHeight: state.settings.bottomHeight }, { quiet: true }); },
+    });
+  });
+}
 
 async function runValidation() {
   const tab = activeTab();
-  const problems = validate(tab.project);
-  state.validation = { errors: problems.filter((x) => x.severity === 'error').length, warnings: problems.filter((x) => x.severity !== 'error').length };
-  renderStatus();
+  const started = performance.now();
+  const problems = validate(tab.project, { index: tab.index });
+  setProblems(tab, problems, performance.now() - started);
   if (!problems.length) { notify('success', t('notice.valid')); return; }
   const index = tab.index;
   popups.open('validation', { title: t('action.validate'), problems: problems.map((p) => ({ ...p, name: p.id ? M.qualifiedName(tab.project, p.id, index) || M.displayName(index.get(p.id), lang()) : '' })), rules: VALIDATION_RULES });
@@ -2781,7 +3330,7 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'multi') return showMenu(menuItems(['cut', 'copy', 'duplicate', '-', 'delete', 'deleteFromModel', '-', sub('align'), sub('order'), sub('layout'), '-', sub('font'), 'fillColor', 'lineColor', sub('lineStyle')]), anchor, 'context', { header: { icon: 'selectAll', title: t('status.selected', { count: selectedIds().length }) } });
   if (kind === 'canvas') {
-    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), '-', 'exportImage', 'exportSvg']);
+    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), 'diagramBackground', '-', 'exportImage', 'exportSvg']);
     return showMenu(items, anchor, 'context', { header: { icon: typeDef(currentDiagram()?._type)?.icon ?? 'dgClass', title: currentDiagram()?.name ?? '' }, point: payload.point });
   }
   if (kind === 'element') {
@@ -2806,14 +3355,14 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'diagramTab') {
     const handlers = { 'custom:rename': () => renameDiagramTab(payload.id), 'custom:select': () => revealElement(payload.id) };
-    return showMenu([{ id: 'custom:rename', label: t('explorer.rename'), icon: 'textTool' }, { id: 'custom:select', label: t('action.selectInExplorer'), icon: 'selectInExplorer' }, { separator: true }, ...menuItems(['prevDiagram', 'nextDiagram', '-', 'exportImage', 'exportSvg', 'exportMermaid', 'exportPlantUml'])], anchor, 'context', { handlers, header: { icon: 'dgClass', title: tab.index.get(payload.id)?.name ?? '' } });
+    return showMenu([{ id: 'custom:rename', label: t('explorer.rename'), icon: 'textTool' }, { id: 'custom:select', label: t('action.selectInExplorer'), icon: 'selectInExplorer' }, { separator: true }, ...menuItems(['prevDiagram', 'nextDiagram', '-', 'diagramBackground', '-', 'exportImage', 'exportSvg', 'exportMermaid', 'exportPlantUml'])], anchor, 'context', { handlers, header: { icon: 'dgClass', title: tab.index.get(payload.id)?.name ?? '' } });
   }
   if (kind === 'tab') {
     activateDoc(payload.id);
     return showMenu(menuItems(['save', 'saveAs', 'saveTemplate', '-', 'projectProps', 'print', '-', 'closeTab', '-', 'new']), anchor, 'context', { header: { icon: 'umlProject', title: docName(activeTab()) } });
   }
   if (kind === 'tool') return showMenu([{ id: 'custom:sticky', label: t('toolbox.stickyTip'), icon: 'info', disabled: true }], anchor, 'context', { header: { icon: 'toolbox', title: t('panel.toolbox') } });
-  if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('panel.toolbox') } });
+  if (kind === 'panel') return showMenu(menuItems(['leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', '-', 'settings']), anchor, 'context', { header: { icon: 'panelLeft', title: t('panel.toolbox') } });
   if (kind === 'start') return showMenu(menuItems(['new', 'open', 'recent', '-', 'shuffleBackground', 'backgroundImage', '-', 'tutorial', 'about']), anchor, 'context', { header: { icon: 'home', title: t('action.startPage') } });
   if (kind === 'status') return showMenu(menuItems(['statusBar', '-', 'zoomIn', 'zoomOut', 'zoomReset', 'fitPage', '-', 'theme', 'language']), anchor, 'context', { header: { icon: 'statusBar', title: t('action.statusBar') } });
   return showMenu(menuItems(['new', 'open', 'save', '-', 'undo', 'redo', '-', 'settings', 'about']), anchor, 'context', { header: { icon: 'umlProject', title: 'MyUMLMaker' } });
@@ -2991,7 +3540,8 @@ async function handleDroppedFiles(files, text) {
       showError('error.drop', error, file.name);
     }
   }
-  if (!files.length && text && /^\s*(classDiagram|sequenceDiagram|flowchart|graph|erDiagram|stateDiagram|@startuml)/.test(text)) await openTextImport({ text, format: /@startuml/.test(text) ? 'plantuml' : 'mermaid' });
+  // Pasted text: Mermaid, or any PlantUML block (@startuml, @startmindmap, @startgantt, @startwbs, @startjson …).
+  if (!files.length && text && MODEL_TEXT.test(text)) await openTextImport({ text, format: /^\s*@start[a-z]+/.test(text) ? 'plantuml' : 'mermaid' });
 }
 
 function setDropActive(active) {
@@ -3004,6 +3554,7 @@ function setDropActive(active) {
 // ───────────────────────── events
 
 function bindEvents() {
+  bindProblemsPanel();
   root.addEventListener('click', (event) => {
     const target = event.target;
     const present = target.closest('[data-present]');
@@ -3022,6 +3573,8 @@ function bindEvents() {
     if (start && !start.disabled) return onStartAction(start);
     const colorApply = target.closest('[data-color-apply]');
     if (colorApply && !colorApply.disabled && !target.closest('.split-arrow')) return applyColor(colorApply.dataset.colorApply, lastColors[colorApply.dataset.colorApply]);
+    // The status bar's problem count opens the Problems panel (it keeps data-command="validate" for its look and tests).
+    if (target.closest('[data-problems-open]')) return showProblems();
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const id = command.dataset.command;
@@ -3066,6 +3619,16 @@ function bindEvents() {
     }
     const imagePick = target.closest('[data-image-pick]');
     if (imagePick) return pickImageFor(imagePick.dataset.imagePick);
+    const bgSet = target.closest('[data-bg-target] [data-bg]');
+    if (bgSet && !bgSet.disabled) return setDiagramBackground(bgSet.closest('[data-bg-target]').dataset.bgTarget, { [bgSet.dataset.bg]: backgroundValue(bgSet.dataset.bg, bgSet.dataset.value) });
+    const bgAction = target.closest('[data-bg-target] [data-bg-action]');
+    if (bgAction && !bgAction.disabled) {
+      const id = bgAction.closest('[data-bg-target]').dataset.bgTarget;
+      if (bgAction.dataset.bgAction === 'pick') return pickDiagramBackground(id);
+      return setDiagramBackground(id, { backgroundImage: null, backgroundImageWidth: null, backgroundImageHeight: null });
+    }
+    const windowControl = target.closest('[data-window]');
+    if (windowControl) return windowButton(windowControl.dataset.window);
     const diagramTab = target.closest('[data-diagram-tab]');
     if (diagramTab) {
       const id = diagramTab.dataset.diagramTab;
@@ -3139,6 +3702,7 @@ function bindEvents() {
   root.addEventListener('change', (event) => {
     const target = event.target;
     if (target.dataset.field && target.dataset.target) return setField(target.dataset.target, target.dataset.field, target.value, target);
+    if (target.dataset.bgInput && target.closest('[data-bg-target]')) return setDiagramBackground(target.closest('[data-bg-target]').dataset.bgTarget, { [target.dataset.bgInput]: backgroundValue(target.dataset.bgInput, target.value) });
     if (target.dataset.style) {
       const key = target.dataset.style;
       if (target.type === 'checkbox') return setViewStyle({ [key]: target.checked });
@@ -3160,6 +3724,8 @@ function bindEvents() {
 
   root.addEventListener('input', (event) => {
     const target = event.target;
+    // A background slider and its number show the same value while dragging (the change commits it).
+    if (target.dataset.bgInput && target.closest('.bg-slider')) for (const twin of target.closest('.bg-slider').querySelectorAll('input')) if (twin !== target) twin.value = target.value;
     if (target.id === 'toolbox-search') {
       clearTimeout(bindEvents.searchTimer);
       bindEvents.searchTimer = setTimeout(() => {
@@ -3212,14 +3778,23 @@ function bindEvents() {
     });
   }));
 
+  // The menu bar row is the title bar: its empty parts move the window, a double click maximizes.
+  // (window_drag in lib.rs starts the system move / size loop from where the cursor is.)
+  root.querySelector('#menubar')?.addEventListener('mousedown', (event) => {
+    if (!desktop || event.button !== 0 || !event.target.closest?.('[data-window-drag]')) return;
+    event.preventDefault();
+    if (event.detail === 2) appWindow?.toggleMaximize().catch(() => {});
+    else native.invoke('window_drag', {}).catch(() => {});
+  });
   root.querySelector('[data-resize-grip]')?.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
-    appWindow?.startResizeDragging('SouthEast').catch(() => {});
+    native.invoke('window_drag', { edge: 'SouthEast' }).catch(() => appWindow?.startResizeDragging('SouthEast').catch(() => {}));
   });
 
   window.addEventListener('resize', frameThrottle(() => {
     updateTabNav();
+    root.style.setProperty('--bottom-height', `${bottomHeight()}px`);
     if (state.presenting) renderPresentation();
     if (desktop && state.minWidth && window.innerWidth < state.minWidth - 1) native.setMinimumSize(state.minWidth, 600).catch(() => {});
   }));
@@ -3268,15 +3843,98 @@ function bindEvents() {
   }, 30000);
 }
 
+/** Lets the user choose a picture file: its data: URL, or null. */
+async function chooseImageDataUrl() {
+  let src = null;
+  if (desktop) { const path = await native.chooseImage(state.settings.lastDirectory); if (path) src = `data:image/${extensionOf(path) === 'svg' ? 'svg+xml' : extensionOf(path) === 'jpg' ? 'jpeg' : extensionOf(path)};base64,${await native.readBase64File(path, `op-${M.newId()}`)}`; } else {
+    const [file] = await native.pickWithInput('image/*');
+    if (file) src = await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(file); });
+  }
+  return src;
+}
+
 async function pickImageFor(viewId) {
   try {
-    let src = null;
-    if (desktop) { const path = await native.chooseImage(state.settings.lastDirectory); if (path) src = `data:image/${extensionOf(path) === 'svg' ? 'svg+xml' : extensionOf(path) === 'jpg' ? 'jpeg' : extensionOf(path)};base64,${await native.readBase64File(path, `op-${M.newId()}`)}`; } else {
-      const [file] = await native.pickWithInput('image/*');
-      if (file) src = await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(file); });
-    }
+    const src = await chooseImageDataUrl();
     if (src) change('op.edit', (project, diagram) => { const v = M.findView(diagram, viewId); if (v) v.src = src; });
   } catch (error) { showError('error.picture', error); }
+}
+
+// ───────────────────────── diagram background (domain: meta.js BACKGROUND_FIELDS, drawing: notation.js backgroundLayers)
+
+/**
+ * A picture for a diagram background: { src, width, height }. A picture larger than BACKGROUND_IMAGE_MAX
+ * on its longest side is scaled down (PNG keeps its transparency, photos become JPEG); SVG stays vector.
+ */
+async function downscalePicture(src, max = BACKGROUND_IMAGE_MAX) {
+  const image = new Image();
+  image.src = src;
+  await image.decode();
+  const width = image.naturalWidth || 256; const height = image.naturalHeight || 256;
+  const size = fitWithin(width, height, max);
+  if (!size.scaled || src.startsWith('data:image/svg')) return { src, width: size.width, height: size.height };
+  const canvas = document.createElement('canvas');
+  canvas.width = size.width;
+  canvas.height = size.height;
+  const context = canvas.getContext('2d');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, size.width, size.height);
+  const photo = /^data:image\/(jpe?g|bmp)/i.test(src);
+  return { src: photo ? canvas.toDataURL('image/jpeg', 0.9) : canvas.toDataURL('image/png'), width: size.width, height: size.height };
+}
+
+async function chooseBackgroundPicture() {
+  try {
+    const src = await chooseImageDataUrl();
+    return src ? await downscalePicture(src) : null;
+  } catch (error) { showError('error.picture', error); return null; }
+}
+
+/** Changes a diagram's background fields as one undo step ('' / null removes a field; the kind '' stays: "the scheme's"). */
+function setDiagramBackground(diagramId, patch) {
+  const current = activeTab()?.index.get(diagramId);
+  if (!current || Object.entries(patch).every(([key, value]) => (current[key] ?? null) === (value === '' && key !== 'backgroundKind' ? null : value ?? null))) return;
+  change('op.background', (project) => {
+    const diagram = M.findById(project, diagramId);
+    if (!diagram) return;
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === undefined || (value === '' && key !== 'backgroundKind')) delete diagram[key]; else diagram[key] = value;
+    }
+    normalizeBackground(diagram);
+  }, { explorer: false });
+}
+
+async function pickDiagramBackground(diagramId) {
+  const picked = await chooseBackgroundPicture();
+  if (picked) setDiagramBackground(diagramId, { backgroundKind: 'image', backgroundImage: picked.src, backgroundImageWidth: picked.width, backgroundImageHeight: picked.height });
+}
+
+/** The popup being edited: which diagram, and the picture it shows (kept here: pictures are too big for the popup parameters). */
+let backgroundPopup = null;
+
+/** "Diagram background…": the popup with the same controls and a live preview; OK applies all as one undo step. */
+async function openDiagramBackground(diagramId = currentDiagram()?._id) {
+  const diagram = diagramId ? activeTab()?.index.get(diagramId) : null;
+  if (!diagram) return;
+  const { backgroundImage = '', ...fields } = backgroundFieldsOf(diagram);
+  backgroundPopup = { diagramId, image: backgroundImage };
+  const result = await popups.open('background', { diagramId, name: diagram.name ?? '', fields, hasImage: Boolean(backgroundImage), theme: state.settings.diagramTheme });
+  const session = backgroundPopup;
+  backgroundPopup = null;
+  if (!result?.fields || !session) return;
+  const patch = Object.fromEntries(BG_KEYS.filter((key) => key !== 'backgroundImage').map((key) => [key, result.fields[key] === undefined ? null : backgroundValue(key, result.fields[key])]));
+  patch.backgroundImage = result.hasImage ? session.image || null : null;
+  if (!patch.backgroundImage) { patch.backgroundImageWidth = null; patch.backgroundImageHeight = null; }
+  setDiagramBackground(session.diagramId, patch);
+}
+
+/** The popup asks for its preview: the drawing without background, and the current picture. */
+function postBackgroundData(kind) {
+  const tab = activeTab();
+  const diagram = backgroundPopup && tab?.index.get(backgroundPopup.diagramId);
+  if (!diagram) return;
+  const drawing = diagramSvg(diagram, { background: 'none' });
+  popups.post(kind, { type: 'background-data', image: backgroundPopup.image, preview: { svg: drawing.svg, bounds: drawing.bounds } });
 }
 
 /** Ctrl+key shortcuts: [key, shift, command]. */
@@ -3289,7 +3947,7 @@ const SHORTCUTS = [
   ['f', true, 'bringFront'], ['k', true, 'sendBack'], ['g', true, 'generateCode'], ['r', true, 'reverse'], ['v', true, 'validate'], ['1', false, 'tool:pointer'],
   [',', false, 'settings'], ['l', true, 'language'], ['!', true, 'leftPanel'], ['1', true, 'leftPanel'], ['@', true, 'rightPanel'], ['2', true, 'rightPanel'],
   ['q', false, 'exit'], ['h', true, 'startPage'], ['b', true, 'shuffleBackground'], ['pageup', false, 'prevDiagram'], ['pagedown', false, 'nextDiagram'],
-  ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['r', false, 'recent'],
+  ['arrowup', false, 'moveUp'], ['arrowdown', false, 'moveDown'], ['r', false, 'recent'], ['j', false, 'bottomPanel'],
 ];
 
 function onKeyDown(event) {
@@ -3320,7 +3978,7 @@ function onKeyDown(event) {
     if (key === 'escape' && !event.target.classList.contains('text-editor')) event.target.blur();
     return;
   }
-  if (event.target.closest?.('#explorer')) return;
+  if (event.target.closest?.('#explorer, #bottom-panel')) return;
   const canvas = state.view instanceof DiagramView ? state.view : null;
   if (key === ' ' && canvas) { event.preventDefault(); canvas.spaceDown = true; return; }
   if (key === 'f2' && canvas && selectedIds().length === 1) { event.preventDefault(); canvas.startEdit(selectedIds()[0]); return; }
@@ -3357,7 +4015,25 @@ function bindPopupActions() {
   popups.on('show-start', () => showStartPage(true));
   popups.on('find-run', (data, kind) => popups.post(kind, { type: 'find-results', results: findElements(data) }));
   popups.on('find-select', (data) => revealElement(data.id));
+  popups.on('background-request', (data, kind) => postBackgroundData(kind));
+  popups.on('background-pick', async (data, kind) => {
+    const picked = await chooseBackgroundPicture();
+    if (!picked || !backgroundPopup) return;
+    backgroundPopup.image = picked.src;
+    popups.post(kind, { type: 'background-image', image: picked.src, width: picked.width, height: picked.height });
+  });
+  popups.on('baseline-create', (data) => createBaselineFrom(data));
+  popups.on('baseline-export', (data) => exportBaseline(data.id));
+  popups.on('baseline-delete', (data) => deleteBaseline(data.id));
+  popups.on('compare-reveal', (data) => { if (comparing && activeTab() === comparing.tab) revealElement(data.id); });
+  popups.on('compare-restore', (data) => restoreFromCompare(data.id));
   popups.on('validation-select', (data) => { if (data.id) revealElement(data.id); });
+  popups.on('req-select', (data) => { if (data.id) revealElement(data.id); });
+  popups.on('req-set', (data) => setRequirementField(data));
+  popups.on('req-refresh', () => popups.post('requirements', { type: 'req-rows', rows: requirementList() }));
+  popups.on('trace-run', (data) => { traceState.options = { ...traceState.options, ...(data.options ?? {}) }; postTraceMatrix(); });
+  popups.on('trace-toggle', (data) => toggleTraceCell(data));
+  popups.on('save-csv', (data) => saveExport(fileSafe(data.name || 'export.csv'), 'csv', `﻿${String(data.text ?? '')}`));
   popups.on('raise-test-panic', () => native.invoke('raise_test_panic').catch((error) => showError('error.unexpected', error)));
   popups.on('db-password', (data) => { dbSessionPassword = String(data.password ?? ''); });
   popups.on('db-test', (data, kind) => testDatabase(String(data.password ?? ''), kind));
@@ -3390,6 +4066,8 @@ async function startTutorial(options = {}) {
 
 async function restoreSession() {
   if (!desktop || !state.settings.restoreSession) return;
+  // Only the first copy: a later MyUMLMaker window starts on the start page (or with its file).
+  if (state.instance && !state.instance.first) return;
   let files = [];
   try { files = JSON.parse(globalThis.localStorage?.getItem(SESSION_KEY) ?? '{}').files ?? []; } catch { /* none */ }
   if (!files.length) return;
@@ -3444,6 +4122,8 @@ const appApi = {
   dropElements,
   moveElements,
   viewsOfElement,
+  problemMarkers,
+  problemBadge,
   zoomChanged,
   showStartPage,
   updateSettings,
@@ -3469,6 +4149,7 @@ async function start() {
   bindPopupActions();
   await popups.init();
   state.info = await native.appInfo().catch(() => null);
+  state.instance = await native.instanceInfo().catch(() => ({ first: true, others: 0 }));
   if (state.settings.animationRandom) updateSettings({ animation: randomAnimation(state.settings.animation) }, { quiet: true });
   setInterval(tickStartBackground, 1000);
   document.title = `MyUMLMaker v${state.info?.version ?? VERSION}`;
@@ -3502,6 +4183,7 @@ async function start() {
   }
 
   await restoreSession();
+  trackMaximized();
   for (const path of await native.startupFiles().catch(() => [])) await openPath(path);
   state.showStart = !state.docs.length && state.settings.showStartPage;
   if (!state.docs.length && !state.settings.showStartPage) newProject();
