@@ -140,15 +140,22 @@
         <button type="button" id="dateJobDiff" aria-pressed="true" data-i18n="dateDiff">차이</button>
         <button type="button" id="dateJobAdd" aria-pressed="false" data-i18n="dateAdd">더하기</button>
       </div>
+      <div class="date-panes">
       <div id="dateDiffPane">
         <label class="date-line">
           <span data-i18n="dateFrom">시작</span>
-          <input type="date" id="dateFrom" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateFrom" aria-label="시작" />
+          <span class="date-field">
+            <input type="text" id="dateFrom" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateFrom" aria-label="시작" />
+            <button type="button" class="date-cal" data-for="dateFrom" data-i18n-aria="dateCalendar" aria-label="달력"><span class="icon icon-date" aria-hidden="true"></span></button>
+          </span>
         </label>
         <button type="button" id="dateSwap" class="rate-swap" data-i18n-aria="dateSwap" data-i18n-title="dateSwap" aria-label="날짜 바꾸기" data-tooltip="날짜 바꾸기">⇅</button>
         <label class="date-line">
           <span data-i18n="dateTo">끝</span>
-          <input type="date" id="dateTo" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateTo" aria-label="끝" />
+          <span class="date-field">
+            <input type="text" id="dateTo" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateTo" aria-label="끝" />
+            <button type="button" class="date-cal" data-for="dateTo" data-i18n-aria="dateCalendar" aria-label="달력"><span class="icon icon-date" aria-hidden="true"></span></button>
+          </span>
         </label>
         <output id="dateDiffResult" class="date-result"></output>
         <div class="rate-note" id="dateDiffNote"></div>
@@ -156,7 +163,10 @@
       <div id="dateAddPane" hidden>
         <label class="date-line">
           <span data-i18n="dateStart">날짜</span>
-          <input type="date" id="dateStart" min="0001-01-01" max="9999-12-31" data-i18n-aria="dateStart" aria-label="날짜" />
+          <span class="date-field">
+            <input type="text" id="dateStart" inputmode="numeric" autocomplete="off" spellcheck="false" data-i18n-aria="dateStart" aria-label="날짜" />
+            <button type="button" class="date-cal" data-for="dateStart" data-i18n-aria="dateCalendar" aria-label="달력"><span class="icon icon-date" aria-hidden="true"></span></button>
+          </span>
         </label>
         <div class="date-span">
           <label class="date-part" data-part="years">
@@ -179,7 +189,25 @@
         <output id="dateAddResult" class="date-result"></output>
         <div class="rate-note" id="dateAddNote"></div>
       </div>
+      </div>
     </section>
+
+    <div id="datePop" class="date-pop" hidden>
+      <div class="date-pick-line">
+        <button type="button" id="datePopTitle" class="date-part-label" data-i18n="datePickYear" data-i18n-aria="dateShowYears" aria-label="연도 선택">연도</button>
+        <button type="button" id="dateYearPrev" class="date-nav" data-i18n-aria="datePrevYear" aria-label="이전 해">‹</button>
+        <input id="dateYearJump" type="text" inputmode="numeric" maxlength="4" autocomplete="off" spellcheck="false" data-i18n-aria="datePickYear" aria-label="연도" />
+        <button type="button" id="dateYearNext" class="date-nav" data-i18n-aria="dateNextYear" aria-label="다음 해">›</button>
+      </div>
+      <div class="date-pick-line">
+        <span data-i18n="datePickMonth">월</span>
+        <button type="button" id="dateMonthPrev" class="date-nav" data-i18n-aria="datePrevMonth" aria-label="이전 달">‹</button>
+        <button type="button" id="dateMonthTitle" class="date-pop-title" data-i18n-aria="dateShowMonths" aria-label="월 선택"></button>
+        <button type="button" id="dateMonthNext" class="date-nav" data-i18n-aria="dateNextMonth" aria-label="다음 달">›</button>
+      </div>
+      <div id="datePopGrid" class="date-pop-grid"></div>
+      <button type="button" id="datePopToday" class="date-pop-today" data-i18n="dateTodayKey">오늘</button>
+    </div>
 
     <section class="screen" id="screenStats" hidden>
       <div class="stat-head">

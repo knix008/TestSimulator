@@ -889,6 +889,7 @@ function setMode(mode) {
   screenRates.hidden = mode !== "currency";
   screenUnit.hidden = mode !== "unit";
   screenDate.hidden = mode !== "date";
+  if (mode !== "date") closeDatePop();
   renderKeys();
   if (mode === "currency") openCurrency();
   if (mode === "unit") openUnit();
@@ -1667,6 +1668,11 @@ function bind() {
       return;
     }
     if (state.mode === "date") {
+      const pop = document.getElementById("datePop");
+      if (pop && !pop.hidden && ev.key === "Escape") {
+        closeDatePop();
+        return;
+      }
       typeDateKey(ev.key);
       return;
     }
@@ -2228,6 +2234,7 @@ function copyDateResult() {
 
 function setDateJob(job) {
   state.date.job = job === "add" ? "add" : "diff";
+  closeDatePop();
   rememberDate();
   renderDate();
 }
@@ -2257,6 +2264,172 @@ function typeDateKey(key) {
 
 function openDate() {
   renderDate();
+}
+
+const datePop = { input: null, year: 2000, month: 1, view: "days", page: 0 };
+
+function dateLocale() {
+  return uiLang === "en" ? "en-US" : "ko-KR";
+}
+
+function closeDatePop() {
+  const pop = document.getElementById("datePop");
+  if (!pop) return;
+  pop.hidden = true;
+  datePop.input = null;
+}
+
+function typedDateYear() {
+  const year = Number(String(document.getElementById("dateYearJump").value || "").replace(/\D/g, ""));
+  return year >= 1 && year <= 9999 ? year : datePop.year;
+}
+
+function openDatePop(input) {
+  const parsed = parseIsoDate(input.value) || parseIsoDate(todayIso());
+  datePop.input = input;
+  datePop.year = parsed.y;
+  datePop.month = parsed.m;
+  datePop.view = "days";
+  datePop.page = Math.floor((parsed.y - 1) / 12);
+  const pop = document.getElementById("datePop");
+  pop.hidden = false;
+  renderDatePop();
+  placeDatePop();
+}
+
+function stepDateYear(dir) {
+  const year = typedDateYear() + dir;
+  if (year < 1 || year > 9999) return;
+  datePop.year = year;
+  datePop.page = Math.floor((year - 1) / 12);
+  renderDatePop();
+  placeDatePop();
+}
+
+function stepDateMonth(dir) {
+  let month = datePop.month + dir;
+  let year = typedDateYear();
+  if (month < 1) { month = 12; year -= 1; }
+  if (month > 12) { month = 1; year += 1; }
+  if (year < 1 || year > 9999) return;
+  datePop.month = month;
+  datePop.year = year;
+  datePop.page = Math.floor((year - 1) / 12);
+  renderDatePop();
+  placeDatePop();
+}
+
+function dateMonthLabel(month) {
+  return new Intl.DateTimeFormat(dateLocale(), { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2024, month - 1, 1)));
+}
+
+function chooseDatePop(day) {
+  const input = datePop.input;
+  const iso = formatIsoDate({ y: datePop.year, m: datePop.month, d: day });
+  closeDatePop();
+  input.value = iso;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function renderDatePop() {
+  const grid = document.getElementById("datePopGrid");
+  const jump = document.getElementById("dateYearJump");
+  const monthTitle = document.getElementById("dateMonthTitle");
+  jump.value = String(datePop.year);
+  document.getElementById("dateYearPrev").disabled = datePop.year <= 1;
+  document.getElementById("dateYearNext").disabled = datePop.year >= 9999;
+  document.getElementById("dateMonthPrev").disabled = datePop.year === 1 && datePop.month === 1;
+  document.getElementById("dateMonthNext").disabled = datePop.year === 9999 && datePop.month === 12;
+  document.getElementById("datePopTitle").setAttribute("aria-label", t(datePop.view === "years" ? "dateShowDays" : "dateShowYears"));
+  monthTitle.textContent = dateMonthLabel(datePop.month);
+  monthTitle.setAttribute("aria-label", t(datePop.view === "months" ? "dateShowDays" : "dateShowMonths"));
+  grid.replaceChildren();
+  if (datePop.view === "years") {
+    const start = datePop.page * 12 + 1;
+    grid.className = "date-pop-grid years";
+    for (let year = start; year < start + 12 && year <= 9999; year++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = year === datePop.year ? "date-year is-selected" : "date-year";
+      button.textContent = String(year);
+      button.addEventListener("pointerdown", (ev) => ev.preventDefault());
+      button.addEventListener("click", () => {
+        datePop.year = year;
+        datePop.view = "days";
+        datePop.page = Math.floor((year - 1) / 12);
+        renderDatePop();
+        placeDatePop();
+      });
+      grid.append(button);
+    }
+    return;
+  }
+  if (datePop.view === "months") {
+    grid.className = "date-pop-grid months";
+    for (let month = 1; month <= 12; month++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = month === datePop.month ? "date-month is-selected" : "date-month";
+      button.textContent = dateMonthLabel(month);
+      button.addEventListener("pointerdown", (ev) => ev.preventDefault());
+      button.addEventListener("click", () => {
+        datePop.year = typedDateYear();
+        datePop.month = month;
+        datePop.page = Math.floor((datePop.year - 1) / 12);
+        datePop.view = "days";
+        renderDatePop();
+        placeDatePop();
+      });
+      grid.append(button);
+    }
+    return;
+  }
+  grid.className = "date-pop-grid days";
+  for (let day = 0; day < 7; day++) {
+    const label = document.createElement("span");
+    label.className = "date-dow";
+    label.textContent = new Intl.DateTimeFormat(dateLocale(), { weekday: "narrow", timeZone: "UTC" }).format(new Date(Date.UTC(2023, 0, 1 + day)));
+    grid.append(label);
+  }
+  const first = dateWeekday({ y: datePop.year, m: datePop.month, d: 1 });
+  const count = daysInMonth(datePop.year, datePop.month);
+  const selected = datePop.input ? parseIsoDate(datePop.input.value) : null;
+  const today = parseIsoDate(todayIso());
+  for (let i = 0; i < first; i++) {
+    const blank = document.createElement("span");
+    grid.append(blank);
+  }
+  for (let day = 1; day <= count; day++) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "date-day";
+    button.textContent = String(day);
+    if (selected && selected.y === datePop.year && selected.m === datePop.month && selected.d === day) button.classList.add("is-selected");
+    if (today && today.y === datePop.year && today.m === datePop.month && today.d === day) button.classList.add("is-today");
+    button.addEventListener("pointerdown", (ev) => ev.preventDefault());
+    button.addEventListener("click", () => {
+      datePop.year = typedDateYear();
+      datePop.page = Math.floor((datePop.year - 1) / 12);
+      chooseDatePop(day);
+    });
+    grid.append(button);
+  }
+}
+
+function placeDatePop() {
+  const pop = document.getElementById("datePop");
+  const field = datePop.input && datePop.input.closest(".date-field");
+  const host = document.querySelector(".app");
+  if (!field || !host || pop.hidden) return;
+  const fieldBox = field.getBoundingClientRect();
+  const hostBox = host.getBoundingClientRect();
+  const popBox = pop.getBoundingClientRect();
+  let top = fieldBox.bottom - hostBox.top + 6;
+  if (top + popBox.height > hostBox.height - 8) top = Math.max(8, fieldBox.top - hostBox.top - popBox.height - 6);
+  let left = fieldBox.left - hostBox.left;
+  if (left + popBox.width > hostBox.width - 8) left = Math.max(8, hostBox.width - popBox.width - 8);
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.left = `${Math.round(left)}px`;
 }
 
 function bindDate() {
@@ -2297,6 +2470,69 @@ function bindDate() {
       renderDate();
     });
   }
+  for (const button of document.querySelectorAll(".date-cal")) {
+    button.addEventListener("click", () => {
+      const input = document.getElementById(button.dataset.for);
+      const pop = document.getElementById("datePop");
+      if (datePop.input === input && !pop.hidden) closeDatePop();
+      else openDatePop(input);
+    });
+  }
+  for (const [id, dir] of [["dateMonthPrev", -1], ["dateMonthNext", 1]]) {
+    const button = document.getElementById(id);
+    button.addEventListener("pointerdown", (ev) => ev.preventDefault());
+    button.addEventListener("click", () => stepDateMonth(dir));
+  }
+  for (const [id, dir] of [["dateYearPrev", -1], ["dateYearNext", 1]]) {
+    const button = document.getElementById(id);
+    button.addEventListener("pointerdown", (ev) => ev.preventDefault());
+    button.addEventListener("click", () => stepDateYear(dir));
+  }
+  document.getElementById("datePopTitle").addEventListener("click", () => {
+    datePop.year = typedDateYear();
+    datePop.page = Math.floor((datePop.year - 1) / 12);
+    datePop.view = datePop.view === "years" ? "days" : "years";
+    renderDatePop();
+    placeDatePop();
+  });
+  document.getElementById("dateMonthTitle").addEventListener("click", () => {
+    datePop.year = typedDateYear();
+    datePop.view = datePop.view === "months" ? "days" : "months";
+    renderDatePop();
+    placeDatePop();
+  });
+  const yearJump = document.getElementById("dateYearJump");
+  yearJump.addEventListener("change", () => {
+    datePop.year = typedDateYear();
+    datePop.page = Math.floor((datePop.year - 1) / 12);
+    renderDatePop();
+    placeDatePop();
+  });
+  yearJump.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      datePop.year = typedDateYear();
+      datePop.page = Math.floor((datePop.year - 1) / 12);
+      datePop.view = "days";
+      renderDatePop();
+      placeDatePop();
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeDatePop();
+    }
+  });
+  document.getElementById("datePopToday").addEventListener("click", () => {
+    const today = parseIsoDate(todayIso());
+    datePop.year = today.y;
+    datePop.month = today.m;
+    chooseDatePop(today.d);
+  });
+  document.addEventListener("pointerdown", (ev) => {
+    const pop = document.getElementById("datePop");
+    if (!pop || pop.hidden) return;
+    if (pop.contains(ev.target) || ev.target.closest(".date-cal")) return;
+    closeDatePop();
+  });
   renderDate();
 }
 
@@ -2536,9 +2772,10 @@ async function pasteStats() {
   }
   const room = STATS_MAX - state.stats.values.length;
   state.stats.values.push(...values.slice(0, room));
-  statNote(values.length > room ? t("statFull") : "");
   rememberStats();
   renderStats();
+  // renderStats writes the one-value hint, so a limit message has to follow it.
+  if (values.length > room) statNote(t("statFull"));
 }
 
 // A CSV from a spreadsheet brings headers, labels and several columns. Every
@@ -2583,9 +2820,9 @@ async function loadStatCsv(file) {
   // opening a file means everywhere else.
   state.stats.values = values.slice(0, STATS_MAX);
   state.stats.draft = "";
-  statNote(values.length > STATS_MAX ? t("statFull") : "");
   rememberStats();
   renderStats();
+  if (values.length > STATS_MAX) statNote(t("statFull"));
 }
 
 function copyStatData() {
@@ -2861,8 +3098,16 @@ function closeSheets() {
 
 // The settings are either their own window or a sheet over the pad, so closing
 // means two different things and every exit from them goes through here.
+function closeThisWindow() {
+  if (window.mycalcDesktop && window.mycalcDesktop.closeWindow) {
+    Promise.resolve(window.mycalcDesktop.closeWindow()).catch(() => {});
+    return;
+  }
+  window.close();
+}
+
 function closeSettingsView() {
-  if (pageKind === "settings") window.close();
+  if (pageKind === "settings") closeThisWindow();
   else closeSheets();
 }
 
@@ -3407,7 +3652,7 @@ function bindPrintWindow() {
   document.getElementById("printNow").addEventListener("click", () => {
     printGraphPage();
   });
-  document.getElementById("printCancel").addEventListener("click", () => window.close());
+  document.getElementById("printCancel").addEventListener("click", () => closeThisWindow());
   window.addEventListener("resize", layoutPrintPreview);
   loadPrinters();
   requestAnimationFrame(() => layoutPrintPreview());
@@ -3517,7 +3762,7 @@ document.getElementById("langBtn").addEventListener("click", () => {
 });
 document.getElementById("closeSettings").addEventListener("click", closeSettingsView);
 document.getElementById("infoOk").addEventListener("click", () => {
-  if (pageKind === "info") window.close();
+  if (pageKind === "info") closeThisWindow();
   else closeSheets();
 });
 document.getElementById("resetSettings").addEventListener("click", resetSettings);
@@ -3550,7 +3795,7 @@ document.addEventListener("keydown", (ev) => {
   if (pageKind === "settings" || pageKind === "info" || pageKind === "print") {
     ev.preventDefault();
     ev.stopPropagation();
-    window.close();
+    closeThisWindow();
     return;
   }
   if (!infoSheet.hidden || !settingsSheet.hidden) {
@@ -3598,7 +3843,7 @@ if (!pageKind) exprEl.focus();
 const winClose = document.getElementById("winClose");
 if (document.documentElement.classList.contains("desktop") && !pageKind && winClose) {
   winClose.hidden = false;
-  winClose.addEventListener("click", () => window.close());
+  winClose.addEventListener("click", () => closeThisWindow());
 }
 if (pageKind === "settings" || pageKind === "info") {
   (pageKind === "settings" ? settingsSheet : infoSheet).hidden = false;
@@ -3631,7 +3876,7 @@ function bindWindowButtons(minId, maxId, closeId) {
   }
   if (closeButton) {
     closeButton.hidden = false;
-    closeButton.addEventListener("click", () => window.close());
+    closeButton.addEventListener("click", () => closeThisWindow());
   }
   if (window.mycalcDesktop && window.mycalcDesktop.onWindowState && maxButton) {
     window.mycalcDesktop.onWindowState((state) => setMaximized(maxButton, !!state.maximized));
@@ -3729,7 +3974,7 @@ if (graphPopup) {
   }
   graphMin.addEventListener("click", () => controlGraphWindow("minimize"));
   graphMax.addEventListener("click", () => controlGraphWindow("maximize"));
-  graphClose.addEventListener("click", () => window.close());
+  graphClose.addEventListener("click", () => closeThisWindow());
   printGraphBtn.addEventListener("click", openPrintWindow);
   const bindGraphResize = (el, edges) => {
     el.addEventListener("pointerdown", (ev) => {

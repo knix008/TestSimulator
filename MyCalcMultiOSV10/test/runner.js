@@ -90,7 +90,7 @@ function render() {
       row.dataset.id = item.id;
       const num = document.createElement("div");
       num.className = "num";
-      num.textContent = String(index).padStart(2, "0");
+      num.textContent = String(index);
       const badge = document.createElement("span");
       badge.className = `badge ${item.status}`;
       badge.textContent = STATUS_LABEL[item.status];

@@ -323,6 +323,11 @@ suite("Screen and modes", () => {
     assert(size() === "480x700", size());
     const programmer = keyShape();
     assert(programmer.wide && programmer.inside, "Programmer keys");
+    win.setMode("stats");
+    flush(win);
+    assert(size() === "560x810", size());
+    const stats = keyShape();
+    assert(stats.wide && stats.inside, "Statistics keys");
     win.setMode("currency");
     flush(win);
     assert(size() === "360x594", size());
@@ -673,6 +678,85 @@ suite("Graph", () => {
     assert(spatial.includes("sin(x)*cos(y)"), spatial.join(","));
     assert(spatial.includes("x^2+y^2"), spatial.join(","));
     doc.getElementById("dim2d").click();
+  });
+
+  test("Every built-in graph draws a curve or a surface", () => {
+    const report = appCall(() => {
+      const trouble = [];
+      const savedDim = board.dimension;
+      const saved = board.functions.map((fn) => fn.expr);
+      const previousAngle = engine.angleMode;
+      const clear = () => {
+        while (board.functions.length) board.removeFunction(board.functions[0].id);
+      };
+      const redPixels = () => {
+        const { width, height } = board.canvas;
+        const data = board.ctx.getImageData(0, 0, width, height).data;
+        let red = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] > 160 && data[i + 1] < 140 && data[i + 2] < 140) red += 1;
+        }
+        return red;
+      };
+      engine.angleMode = "rad";
+      try {
+        board.canvas.width = 320;
+        board.canvas.height = 180;
+        board.setDimension("2d");
+        board.resetView();
+        const curves = ["sin(x)", "cos(x)", "tan(x)", "x^2", "1/x", "ln(x)", "e^(-x^2)", "normalpdf(x)", "normalcdf(x)", "normalpdf(x,0,2)", "normalpdf(x,0,0.5)"];
+        for (const expr of curves) {
+          clear();
+          const fn = board.addFunction(expr);
+          let finite = 0;
+          for (let i = 0; i <= 40; i++) {
+            const y = board.sample(fn.ast, -8 + (16 * i) / 40);
+            if (Number.isFinite(y)) finite += 1;
+          }
+          board.draw();
+          const red = redPixels();
+          if (finite < 8) trouble.push(`${expr} finite ${finite}`);
+          if (red < 8) trouble.push(`${expr} drew ${red}`);
+        }
+        board.setDimension("3d");
+        board.resetView();
+        const surfaces = ["sin(x)*cos(y)", "x^2+y^2", "x^2-y^2", "sin(sqrt(x^2+y^2))", "e^(-(x^2+y^2))", "cos(x)+sin(y)"];
+        for (const expr of surfaces) {
+          clear();
+          const fn = board.addFunction(expr);
+          let finite = 0;
+          for (let j = 0; j < 7; j++) {
+            const y = -4 + (8 * j) / 6;
+            for (let i = 0; i < 7; i++) {
+              const x = -4 + (8 * i) / 6;
+              let z = NaN;
+              try { z = engine.evalAst(fn.ast, { x, y }); } catch { z = NaN; }
+              if (Number.isFinite(z)) finite += 1;
+            }
+          }
+          board.draw();
+          const mesh = board.scene && board.scene.surfaces && board.scene.surfaces[0];
+          let finiteZ = 0;
+          if (mesh && mesh.points) {
+            for (let i = 2; i < mesh.points.length; i += 3) {
+              if (Number.isFinite(mesh.points[i])) finiteZ += 1;
+            }
+          }
+          if (finite < 40) trouble.push(`${expr} finite ${finite}`);
+          if (finiteZ < 1000) trouble.push(`${expr} mesh ${finiteZ}`);
+        }
+      } finally {
+        clear();
+        board.setDimension(savedDim === "3d" ? "3d" : "2d");
+        for (const expr of saved) {
+          try { board.addFunction(expr); } catch { /* The board is left without a curve that no longer parses. */ }
+        }
+        engine.angleMode = previousAngle;
+        board.draw();
+      }
+      return trouble.join("; ");
+    });
+    if (report) throw new Error(report);
   });
 
   test("Sigma and the built-in functions are on the quick keys", () => {
@@ -3799,6 +3883,437 @@ suite("Dates", () => {
       appWindow.setMode("basic");
       if (saved == null) localStorage.removeItem("mycalc-date");
       else localStorage.setItem("mycalc-date", saved);
+    }
+  });
+
+  test("Today, the field key, clear and copy follow the keypad", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-date");
+    const savedLang = localStorage.getItem("mycalc-lang");
+    try {
+      appCall(() => {
+        window.__copied = [];
+        window.__clipboard = navigator.clipboard;
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: (text) => { window.__copied.push(text); return Promise.resolve(); } },
+        });
+      });
+      appWindow.applyLanguage("ko");
+      appWindow.setMode("date");
+      appWindow.setDateJob("add");
+      appWindow.setDateRange("2020-01-31", "2020-01-31");
+      appWindow.setDateSpan({ years: 0, months: 0, weeks: 0, days: 0, negative: false });
+      appCall(() => { state.date.part = "days"; renderDate(); });
+      const press = (label) => [...doc.querySelectorAll("#keys .key")].find((key) => key.textContent === label).click();
+      press("일");
+      assert(appCall(() => state.date.part) === "years", "The field key did not move to years");
+      press("2");
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2022-01-31"), doc.getElementById("dateAddResult").textContent);
+      doc.getElementById("dateWeeks").focus();
+      press("1");
+      assert(appCall(() => state.date.weeks) === "1", "The weeks field did not take the key");
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2022-02-07"), doc.getElementById("dateAddResult").textContent);
+      press("오늘");
+      const today = appCall(() => todayIso());
+      assert(doc.getElementById("dateStart").value === today, doc.getElementById("dateStart").value);
+      press("AC");
+      const cleared = appCall(() => [state.date.years, state.date.months, state.date.weeks, state.date.days, state.date.negative].join(","));
+      assert(cleared === "0,0,0,0,false", cleared);
+      assert(doc.getElementById("dateAddResult").textContent.startsWith(today), doc.getElementById("dateAddResult").textContent);
+      press("복사");
+      const copied = appCall(() => window.__copied[0] || "");
+      assert(copied.startsWith(today), copied || "nothing was copied");
+      appWindow.applyLanguage("en");
+      appWindow.setDateRange("2000-01-01", "2000-01-01");
+      assert(doc.getElementById("dateAddResult").textContent.includes("Saturday"), doc.getElementById("dateAddResult").textContent);
+    } finally {
+      appCall(() => {
+        if (window.__clipboard) Object.defineProperty(navigator, "clipboard", { configurable: true, value: window.__clipboard });
+      });
+      appWindow.applyLanguage("ko");
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+      if (savedLang == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", savedLang);
+    }
+  });
+
+  test("The keyboard edits the span and a bad date is put back", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-date");
+    try {
+      appWindow.setMode("date");
+      appWindow.setDateJob("add");
+      appWindow.setDateRange("2024-01-01", "2024-01-01");
+      appWindow.setDateSpan({ years: 0, months: 0, weeks: 0, days: 0, negative: false });
+      appCall(() => { state.date.part = "days"; renderDate(); });
+      const press = (key) => appCall(new Function(`
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, bubbles: true }));
+        return state.date.days + (state.date.negative ? "-" : "+");
+      `));
+      const typed = press("1");
+      assert(typed === "1+", typed);
+      press("2");
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2024-01-13"), doc.getElementById("dateAddResult").textContent);
+      assert(press("Backspace") === "1+", "Backspace");
+      assert(press("-").endsWith("-"), "The minus key did not subtract");
+      assert(doc.getElementById("dateAddResult").textContent.startsWith("2023-12-31"), doc.getElementById("dateAddResult").textContent);
+      const cleared = press("Escape");
+      assert(cleared === "0+", cleared);
+      assert(doc.getElementById("expr").value === "", "The keys leaked into the calculator");
+      const from = doc.getElementById("dateFrom");
+      appWindow.setDateJob("diff");
+      from.value = "2020-02-31";
+      from.dispatchEvent(new Event("change", { bubbles: true }));
+      assert(from.value === "2024-01-01", from.value);
+    } finally {
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+    }
+  });
+
+  test("The calendar icon stays visible and a year is picked from the list", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-date");
+    try {
+      appWindow.setMode("date");
+      appWindow.setDateJob("diff");
+      appWindow.setDateRange("2020-06-15", "2021-01-01");
+      const from = doc.getElementById("dateFrom");
+      assert(from.type === "text", from.type);
+      const button = from.parentElement.querySelector(".date-cal");
+      const icon = button.querySelector(".icon");
+      const tone = (color) => {
+        const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color);
+        if (!match) return null;
+        return 0.2126 * Number(match[1]) + 0.7152 * Number(match[2]) + 0.0722 * Number(match[3]);
+      };
+      for (const id of ["dark-1", "light-1"]) {
+        appWindow.applyTheme(appWindow.themeById(id));
+        const iconTone = tone(doc.defaultView.getComputedStyle(icon).backgroundColor);
+        const fieldTone = tone(doc.defaultView.getComputedStyle(from.parentElement).backgroundColor);
+        assert(iconTone != null && fieldTone != null && Math.abs(iconTone - fieldTone) > 40, `${id} icon is hard to see`);
+        const box = icon.getBoundingClientRect();
+        assert(box.width >= 14 && box.height >= 14, `${id} icon is ${box.width}x${box.height}`);
+      }
+      button.click();
+      const pop = doc.getElementById("datePop");
+      assert(pop.hidden === false, "The calendar stayed closed");
+      const appBox = doc.querySelector(".app").getBoundingClientRect();
+      const popBox = pop.getBoundingClientRect();
+      assert(popBox.left >= appBox.left - 1 && popBox.right <= appBox.right + 1 && popBox.top >= appBox.top - 1 && popBox.bottom <= appBox.bottom + 1, "The calendar spills out of the window");
+      const jump = doc.getElementById("dateYearJump");
+      const yearBox = jump.getBoundingClientRect();
+      const monthBox = doc.getElementById("dateMonthTitle").getBoundingClientRect();
+      const dayBox = pop.querySelector(".date-day").getBoundingClientRect();
+      assert(yearBox.bottom <= monthBox.top + 1 && monthBox.bottom <= dayBox.top + 1, "Choose the year, then the month, then the day");
+      jump.value = "2010";
+      jump.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      assert(jump.value === "2010", jump.value);
+      const yearPrev = doc.getElementById("dateYearPrev");
+      const yearNext = doc.getElementById("dateYearNext");
+      assert(yearPrev && yearNext && !yearPrev.disabled && !yearNext.disabled, "The year arrows are missing");
+      yearPrev.click();
+      assert(jump.value === "2009", jump.value);
+      yearNext.click();
+      assert(jump.value === "2010", jump.value);
+      const monthTitle = doc.getElementById("dateMonthTitle");
+      const june = monthTitle.textContent;
+      doc.getElementById("dateMonthNext").click();
+      assert(jump.value === "2010" && monthTitle.textContent !== june, monthTitle.textContent);
+      doc.getElementById("dateMonthPrev").click();
+      assert(monthTitle.textContent === june, monthTitle.textContent);
+      monthTitle.click();
+      const months = [...pop.querySelectorAll(".date-month")];
+      assert(months.length === 12, "The month list is missing");
+      const other = months.find((item) => item.textContent !== june);
+      other.click();
+      assert(monthTitle.textContent === other.textContent && jump.value === "2010", monthTitle.textContent);
+      monthTitle.click();
+      [...pop.querySelectorAll(".date-month")].find((item) => item.textContent === june).click();
+      assert(monthTitle.textContent === june && jump.value === "2010", monthTitle.textContent);
+      jump.value = "1";
+      jump.dispatchEvent(new Event("change", { bubbles: true }));
+      assert(yearPrev.disabled && !yearNext.disabled, "The first year can still go backward");
+      jump.value = "9999";
+      jump.dispatchEvent(new Event("change", { bubbles: true }));
+      assert(yearNext.disabled && !yearPrev.disabled, "The last year can still go forward");
+      yearPrev.click();
+      assert(jump.value === "9998", jump.value);
+      doc.getElementById("datePopTitle").click();
+      assert(doc.getElementById("datePopGrid").classList.contains("years"), "The year list did not open");
+      jump.value = "1999";
+      jump.dispatchEvent(new Event("change", { bubbles: true }));
+      const year = [...pop.querySelectorAll(".date-year")].find((item) => item.textContent === "1999");
+      assert(year, [...pop.querySelectorAll(".date-year")].map((item) => item.textContent).join(" "));
+      year.click();
+      const day = [...pop.querySelectorAll(".date-day")].find((item) => item.textContent === "15");
+      assert(day, "15 is missing");
+      day.click();
+      assert(from.value === "1999-06-15", from.value);
+      assert(pop.hidden === true, "The calendar stayed open");
+      appWindow.setDateJob("add");
+      doc.querySelector('#dateStart').parentElement.querySelector(".date-cal").click();
+      assert(doc.getElementById("datePop").hidden === false, "The add calendar stayed closed");
+    } finally {
+      appWindow.loadTheme();
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+    }
+  });
+});
+
+suite("Statistics", () => {
+  function restoreStats(saved) {
+    if (saved == null) localStorage.removeItem("mycalc-stats");
+    else localStorage.setItem("mycalc-stats", saved);
+    appCall(() => {
+      state.stats.values = readStoredStats();
+      state.stats.draft = "";
+      statSortDesc = false;
+      renderStats();
+    });
+    appWindow.setMode("basic");
+  }
+
+  test("The statistics functions match their published values", () => {
+    const got = appCall(() => {
+      const engine = new CalcEngine();
+      return {
+        mean: engine.evaluate("mean(1,2,3,4)"),
+        medianOdd: engine.evaluate("median(1,2,3)"),
+        medianEven: engine.evaluate("median(1,2,3,4)"),
+        stdev: engine.evaluate("stdev(1,2,3,4,5)"),
+        variance: engine.evaluate("variance(1,2,3,4,5)"),
+        stdevp: engine.evaluate("stdevp(1,2,3,4,5)"),
+        variancep: engine.evaluate("variancep(1,2,3,4,5)"),
+        pdf: engine.evaluate("normalpdf(0)"),
+        cdf: engine.evaluate("normalcdf(0)"),
+        inv: engine.evaluate("invnorm(0.5)"),
+        list: readStatList("1, 2\n3 4").join(","),
+        csv: readStatCsv('name,score\n"a",1\nb,2.5').join(","),
+      };
+    });
+    near(got.mean, 2.5, 1e-12, "mean");
+    near(got.medianOdd, 2, 1e-12, "median");
+    near(got.medianEven, 2.5, 1e-12, "median of four");
+    near(got.stdev, Math.sqrt(2.5), 1e-12, "stdev");
+    near(got.variance, 2.5, 1e-12, "variance");
+    near(got.stdevp, Math.sqrt(2), 1e-12, "stdevp");
+    near(got.variancep, 2, 1e-12, "variancep");
+    near(got.pdf, 1 / Math.sqrt(2 * Math.PI), 1e-12, "normalpdf");
+    near(got.cdf, 0.5, 1e-9, "normalcdf");
+    near(got.inv, 0, 1e-6, "invnorm");
+    assert(got.list === "1,2,3,4", got.list);
+    assert(got.csv === "1,2.5", got.csv);
+  });
+
+  test("A known list fills every summary row", () => {
+    const saved = localStorage.getItem("mycalc-stats");
+    try {
+      appWindow.applyLanguage("ko");
+      appWindow.setMode("stats");
+      const shown = appCall(() => {
+        clearStats();
+        state.stats.values = [1, 2, 3, 4, 5];
+        renderStats();
+        const rows = {};
+        for (const term of document.querySelectorAll("#statSummary dt")) rows[term.textContent] = term.nextElementSibling.textContent;
+        const summary = statSummary([1, 2, 3, 4, 5]);
+        const one = [1];
+        state.stats.values = one;
+        renderStats();
+        const lone = document.getElementById("statNote").textContent;
+        const loneSd = [...document.querySelectorAll("#statSummary dt")].find((term) => term.textContent === "표본 표준편차 s").nextElementSibling.textContent;
+        state.stats.values = [1, 2, 3, 4, 5];
+        renderStats();
+        return {
+          rows,
+          mean: formatStat(summary.mean),
+          sd: formatStat(summary.sampleSd),
+          listed: [...document.querySelectorAll(".stat-value")].map((node) => node.textContent).join(","),
+          empty: document.getElementById("statEmpty").hidden,
+          lone,
+          loneSd,
+        };
+      });
+      assert(shown.rows["개수 n"] === "5", shown.rows["개수 n"]);
+      assert(shown.rows["평균 x̄"] === shown.mean, shown.rows["평균 x̄"]);
+      assert(shown.rows["중앙값"] === "3", shown.rows["중앙값"]);
+      assert(shown.rows["합계 Σx"] === "15", shown.rows["합계 Σx"]);
+      assert(shown.rows["최솟값"] === "1" && shown.rows["최댓값"] === "5" && shown.rows["범위"] === "4", JSON.stringify(shown.rows));
+      assert(shown.rows["표본 표준편차 s"] === shown.sd, shown.rows["표본 표준편차 s"]);
+      assert(shown.rows["1사분위 Q1"] === "2" && shown.rows["3사분위 Q3"] === "4", JSON.stringify(shown.rows));
+      assert(shown.listed === "1,2,3,4,5", shown.listed);
+      assert(shown.empty === true, "The empty hint stayed up");
+      assert(shown.lone === "표본 표준편차는 값이 2개 이상이어야 합니다.", shown.lone);
+      assert(shown.loneSd === "—", shown.loneSd);
+    } finally {
+      restoreStats(saved);
+    }
+  });
+
+  test("The keypad adds, repeats, sorts, undoes and clears", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-stats");
+    try {
+      appWindow.applyLanguage("ko");
+      appWindow.setMode("stats");
+      appCall(() => { clearStats(); statSortDesc = false; });
+      const press = (label) => {
+        const key = [...doc.querySelectorAll("#keys .key")].find((button) => button.textContent === label || button.getAttribute("aria-label") === label);
+        assert(key, `Missing key ${label}`);
+        key.click();
+      };
+      assert(doc.getElementById("statSort").disabled, "Sort starts enabled");
+      assert(doc.getElementById("statEmpty").textContent === "값을 입력하고 추가를 누르세요.", doc.getElementById("statEmpty").textContent);
+      press("1");
+      press("추가");
+      press("3");
+      press("추가");
+      press("2");
+      press("추가");
+      assert(appCall(() => state.stats.values.join(",")) === "1,3,2", appCall(() => state.stats.values.join(",")));
+      press("9");
+      doc.getElementById("statUndo").click();
+      assert(doc.getElementById("statInput").value === "", "Undo did not clear the draft");
+      assert(appCall(() => state.stats.values.join(",")) === "1,3,2", "Undo removed a stored value");
+      doc.getElementById("statSort").click();
+      assert(appCall(() => state.stats.values.join(",")) === "1,2,3", appCall(() => state.stats.values.join(",")));
+      assert(doc.getElementById("statSort").getAttribute("aria-label") === "내림차순 정렬", doc.getElementById("statSort").getAttribute("aria-label"));
+      doc.getElementById("statSort").click();
+      assert(appCall(() => state.stats.values.join(",")) === "3,2,1", appCall(() => state.stats.values.join(",")));
+      doc.querySelector(".stat-drop").click();
+      assert(appCall(() => state.stats.values.join(",")) === "2,1", appCall(() => state.stats.values.join(",")));
+      press("같은 값을 한 번 더 추가");
+      assert(appCall(() => state.stats.values.join(",")) === "2,1,1", appCall(() => state.stats.values.join(",")));
+      appCall(() => setStatDraft("1e"));
+      press("추가");
+      assert(doc.getElementById("statNote").textContent === "숫자를 입력하세요.", doc.getElementById("statNote").textContent);
+      assert(appCall(() => state.stats.values.join(",")) === "2,1,1", "A bad value was stored");
+      doc.getElementById("statUndo").click();
+      assert(doc.getElementById("statInput").value === "" && appCall(() => state.stats.values.join(",")) === "2,1,1", "Undo removed a stored value instead of the draft");
+      doc.getElementById("statUndo").click();
+      assert(appCall(() => state.stats.values.join(",")) === "2,1", appCall(() => state.stats.values.join(",")));
+      doc.getElementById("statClear").click();
+      assert(appCall(() => state.stats.values.length) === 0, "Clear left a value");
+      assert(!doc.getElementById("statEmpty").hidden, "The empty hint did not return");
+    } finally {
+      restoreStats(saved);
+    }
+  });
+
+  test("Paste, a CSV file and copy move the data", async () => {
+    const saved = localStorage.getItem("mycalc-stats");
+    const loaded = await loadApp("");
+    const doc = loaded.win.document;
+    try {
+      callWin(loaded.win, () => {
+        window.__copied = [];
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: {
+            readText: () => Promise.resolve("4, 5\n6"),
+            writeText: (text) => { window.__copied.push(text); return Promise.resolve(); },
+          },
+        });
+        setMode("stats");
+        clearStats();
+        return 1;
+      });
+      await wait(40);
+      const press = (label) => [...doc.querySelectorAll("#keys .key")].find((button) => button.getAttribute("aria-label") === label).click();
+      press("클립보드의 숫자 목록 붙여넣기");
+      await wait(40);
+      assert(callWin(loaded.win, () => state.stats.values.join(",")) === "4,5,6", callWin(loaded.win, () => state.stats.values.join(",")));
+      await callWin(loaded.win, () => loadStatCsv(new File(['label,x\na,10\nb,20\n'], "data.csv", { type: "text/csv" })));
+      await wait(40);
+      assert(callWin(loaded.win, () => state.stats.values.join(",")) === "10,20", callWin(loaded.win, () => state.stats.values.join(",")));
+      press("데이터를 한 줄에 하나씩 복사");
+      press("통계 요약을 표로 복사");
+      await wait(20);
+      const copied = callWin(loaded.win, () => window.__copied.slice());
+      assert(copied[0] === "10\n20", copied[0]);
+      assert(copied[1].includes("평균 x̄") && copied[1].includes("15"), copied[1]);
+      callWin(loaded.win, () => { state.stats.values = Array(500).fill(1); renderStats(); return 1; });
+      press("클립보드의 숫자 목록 붙여넣기");
+      await wait(40);
+      const capped = callWin(loaded.win, () => [state.stats.values.length, document.getElementById("statNote").textContent].join("|"));
+      assert(capped === "500|값은 500개까지 넣을 수 있습니다.", capped);
+    } finally {
+      loaded.frame.remove();
+      restoreStats(saved);
+    }
+  });
+
+  test("The fitted curve is drawn only when there are two values", async () => {
+    const saved = localStorage.getItem("mycalc-stats");
+    const loaded = await loadApp("");
+    try {
+      callWin(loaded.win, () => {
+        window.__opened = [];
+        window.__open = window.open;
+        window.open = (url) => { window.__opened.push(String(url)); return null; };
+        setMode("stats");
+        clearStats();
+        state.stats.values = [4];
+        renderStats();
+        return 1;
+      });
+      await wait(40);
+      const doc = loaded.win.document;
+      const plot = [...doc.querySelectorAll("#keys .key")].find((button) => button.getAttribute("aria-label") === "이 데이터의 정규분포를 그래프로");
+      assert(plot, "The plot key is missing");
+      plot.click();
+      assert(doc.getElementById("statNote").textContent === "통계 모드에 값을 2개 이상 넣으세요.", doc.getElementById("statNote").textContent);
+      callWin(loaded.win, () => { state.stats.values = [1, 2, 3, 4, 5]; renderStats(); return 1; });
+      plot.click();
+      const drawn = callWin(loaded.win, () => ({
+        expr: board.functions.map((fn) => fn.expr).filter((expr) => expr.startsWith("normalpdf")),
+        opened: window.__opened.join(" "),
+      }));
+      assert(drawn.expr.length === 1 && drawn.expr[0].startsWith("normalpdf(x,3,"), drawn.expr.join(","));
+      assert(drawn.opened.includes("pop=graph"), drawn.opened || "no graph window");
+    } finally {
+      callWin(loaded.win, () => {
+        for (const fn of board.functions.filter((item) => item.expr.startsWith("normalpdf"))) board.removeFunction(fn.id);
+        if (window.__open) window.open = window.__open;
+      });
+      loaded.frame.remove();
+      restoreStats(saved);
+    }
+  });
+
+  test("The statistics screen speaks both languages and keeps its data", async () => {
+    const saved = localStorage.getItem("mycalc-stats");
+    const savedLang = localStorage.getItem("mycalc-lang");
+    localStorage.setItem("mycalc-stats", JSON.stringify([8, 9]));
+    const loaded = await loadApp("");
+    try {
+      const doc = appWindow.document;
+      appWindow.setMode("stats");
+      appWindow.applyLanguage("ko");
+      const tab = doc.querySelector('.modes button[data-mode="stats"]');
+      assert(tab.dataset.tooltip === "통계" && tab.getAttribute("aria-selected") === "true", tab.dataset.tooltip);
+      const koMean = [...doc.querySelectorAll("#statSummary dt")].some((term) => term.textContent === "평균 x̄");
+      assert(koMean, "Korean summary");
+      appWindow.applyLanguage("en");
+      assert(tab.dataset.tooltip === "Statistics", tab.dataset.tooltip);
+      const enMean = [...doc.querySelectorAll("#statSummary dt")].some((term) => term.textContent === "Mean x̄");
+      assert(enMean, "English summary");
+      const kept = callWin(loaded.win, () => state.stats.values.join(","));
+      assert(kept === "8,9", kept);
+    } finally {
+      loaded.frame.remove();
+      appWindow.applyLanguage("ko");
+      if (savedLang == null) localStorage.removeItem("mycalc-lang");
+      else localStorage.setItem("mycalc-lang", savedLang);
+      restoreStats(saved);
     }
   });
 });

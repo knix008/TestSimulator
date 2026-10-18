@@ -763,7 +763,7 @@ function bindMemoWindow() {
   document.getElementById("memoSheet").hidden = false;
   const desktop = !!(window.mycalcDesktop && window.mycalcDesktop.windowControl);
   bindWindowButtons(desktop ? "memoMin" : null, desktop ? "memoMax" : null, null);
-  document.getElementById("memoClose").addEventListener("click", () => window.close());
+  document.getElementById("memoClose").addEventListener("click", () => closeThisWindow());
   if (desktop && window.mycalcDesktop.setBounds) bindMemoResize(document.getElementById("memoMax"));
   const compose = document.getElementById("memoCompose");
   const textEl = document.getElementById("memoNewText");

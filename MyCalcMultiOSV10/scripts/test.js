@@ -163,7 +163,7 @@ async function readResult(cdp) {
           const group = suite.querySelector("h3")?.textContent || "";
           return [...suite.querySelectorAll(".case")].map((row) => ({
             group,
-            name: row.querySelector(".name")?.textContent || "",
+            name: row.querySelector(".name")?.childNodes[0]?.textContent?.trim() || "",
             status: row.classList.contains("fail") ? "fail" : row.classList.contains("pass") ? "pass" : row.classList.contains("run") ? "run" : "wait",
             dur: (row.querySelector(".dur")?.textContent || "").trim(),
             error: row.querySelector(".error")?.textContent || "",
@@ -236,9 +236,26 @@ async function main() {
     await cdp.send("Runtime.enable");
 
     const started = Date.now();
-    let last = "";
     let result;
-    while (Date.now() - started < 60000) {
+    let printed = 0;
+    let lastGroup = "";
+    // Four digits covers the suite and keeps 1 and 221 on the same right edge.
+    const numberWidth = 4;
+    const writeCase = (item, index) => {
+      if (item.group !== lastGroup) {
+        const count = (result.cases || []).filter((row) => row.group === item.group).length;
+        console.log("");
+        console.log(`  ${paint("1", item.group)}  ${paint("2", `(${count})`)}`);
+        lastGroup = item.group;
+      }
+      const status = item.status === "pass" ? paint("32", "Passed".padEnd(10)) : paint("31", "Failed".padEnd(10));
+      const detail = item.error ? `  ${paint("31", item.error)}` : "";
+      console.log(`  ${String(index).padStart(numberWidth)}  ${status}${(item.dur || "—").padEnd(12)}${item.name}${detail}`);
+    };
+    console.log(paint("1", "DETAILS"));
+    console.log(paint("2", `  ${"#".padStart(numberWidth)}  ${"Status".padEnd(10)}${"Duration".padEnd(12)}Case`));
+    console.log(paint("2", `  ${"-".repeat(72)}`));
+    while (Date.now() - started < 180000) {
       await new Promise((resolve) => setTimeout(resolve, 80));
       try {
         result = await readResult(cdp);
@@ -246,18 +263,17 @@ async function main() {
         continue;
       }
       if (!result.ready) continue;
-      const running = (result.cases || []).find((item) => item.status === "run");
-      const line = running
-        ? `Running  ${running.group} · ${running.name}   ${result.clock}`
-        : `${result.label}   ${result.clock}`;
-      if (line !== last) {
-        process.stdout.write(`\r${paint("36", line.padEnd(Math.max(last.length, line.length), " "))}`);
-        last = line;
+      const cases = result.cases || [];
+      while (printed < cases.length) {
+        const item = cases[printed];
+        if (item.status !== "pass" && item.status !== "fail") break;
+        printed += 1;
+        writeCase(item, printed);
       }
-      const finished = (result.cases || []).filter((item) => item.status === "pass" || item.status === "fail").length;
-      if (result.done && Number(result.total) > 0 && finished >= Number(result.total)) break;
+      const finishedCount = cases.filter((item) => item.status === "pass" || item.status === "fail").length;
+      if (result.done && Number(result.total) > 0 && finishedCount >= Number(result.total)) break;
     }
-    process.stdout.write("\n\n");
+    console.log("");
     if (!result || !result.done) {
       console.error(paint("31", "Tests did not finish in time."));
       process.exitCode = 1;
@@ -266,24 +282,6 @@ async function main() {
 
     const finished = (result.cases || []).filter((item) => item.status === "pass" || item.status === "fail");
     const suites = [...new Set(finished.map((item) => item.group))];
-    console.log(paint("1", "DETAILS"));
-    console.log(paint("2", "  " + "#".padEnd(4) + "Status".padEnd(10) + "Duration".padEnd(12) + "Case"));
-    console.log(paint("2", "  " + "-".repeat(72)));
-    let lastGroup = "";
-    finished.forEach((item, index) => {
-      if (item.group !== lastGroup) {
-        const count = finished.filter((row) => row.group === item.group).length;
-        console.log("");
-        console.log(`  ${paint("1", item.group)}  ${paint("2", `(${count})`)}`);
-        lastGroup = item.group;
-      }
-      const status = item.status === "pass" ? paint("32", "Passed".padEnd(10)) : paint("31", "Failed".padEnd(10));
-      const number = String(index + 1).padStart(2, "0");
-      const duration = (item.dur || "—").padEnd(12);
-      const detail = item.error ? `  ${paint("31", item.error)}` : "";
-      console.log(`  ${number}  ${status}${duration}${item.name}${detail}`);
-    });
-    console.log("");
     const summaryRows = [
       ["Total", result.total],
       ["Passed", result.pass],
@@ -298,8 +296,9 @@ async function main() {
       console.log(`  ${label.padEnd(10)}  ${paint(color, String(value).padStart(8))}`);
     }
     console.log("");
-    const summaryWidth = 28 + 8 + 8 + 12;
-    const summaryHead = "  " + "Suite".padEnd(28) + "Passed".padStart(8) + "Failed".padStart(8) + "Duration".padStart(12);
+    const suiteWidth = Math.max(12, ...suites.map((group) => group.length));
+    const summaryWidth = suiteWidth + 8 + 8 + 12;
+    const summaryHead = "  " + "Suite".padEnd(suiteWidth) + "Passed".padStart(8) + "Failed".padStart(8) + "Duration".padStart(12);
     console.log(paint("2", summaryHead));
     console.log(paint("2", "  " + "-".repeat(summaryWidth)));
     let passedAll = 0;
@@ -314,11 +313,12 @@ async function main() {
       failedAll += failed;
       msAll += ms;
       const failedText = paint(failed ? "31" : "32", String(failed).padStart(8));
-      console.log(`  ${group.padEnd(28)}${paint("32", String(passed).padStart(8))}${failedText}${formatSummaryDuration(ms).padStart(12)}`);
+      const groupName = paint(failed ? "31" : "32", group.padEnd(suiteWidth));
+      console.log(`  ${groupName}${paint("32", String(passed).padStart(8))}${failedText}${paint("33", formatSummaryDuration(ms).padStart(12))}`);
     }
     console.log(paint("2", "  " + "-".repeat(summaryWidth)));
     const failedTotal = paint(failedAll ? "31" : "32", String(failedAll).padStart(8));
-    console.log(`  ${paint("1", "Total".padEnd(28))}${paint("32", String(passedAll).padStart(8))}${failedTotal}${formatSummaryDuration(msAll).padStart(12)}`);
+    console.log(`  ${paint("1", "Total".padEnd(suiteWidth))}${paint("32", String(passedAll).padStart(8))}${failedTotal}${paint("33", formatSummaryDuration(msAll).padStart(12))}`);
     console.log("");
     if (result.fail !== "0") process.exitCode = 1;
   } finally {

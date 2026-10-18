@@ -25,6 +25,9 @@
     openWindow(kind) {
       return invoke("open_window", { kind });
     },
+    closeWindow() {
+      return invoke("close_window");
+    },
     onWindowState(handler) {
       if (!tauri.event || typeof tauri.event.listen !== "function") return;
       tauri.event.listen("window-state", (event) => handler(event.payload));

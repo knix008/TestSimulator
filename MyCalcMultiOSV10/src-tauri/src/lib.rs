@@ -398,6 +398,14 @@ fn close_children(app: &AppHandle) {
     }
 }
 
+#[tauri::command]
+fn close_window(app: AppHandle, window: WebviewWindow) {
+    if window.label() == "main" {
+        close_children(&app);
+    }
+    let _ = window.close();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -411,6 +419,7 @@ pub fn run() {
             window_control,
             set_bounds,
             open_window,
+            close_window,
             save_file,
             list_printers,
             print_page,

@@ -646,19 +646,39 @@ html[data-scheme="light"] .version { color: #57534e; }
 }
 
 .date-jobs button {
-  min-height: 28px;
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--chip);
   color: var(--ink);
   cursor: pointer;
   font-size: 12px;
+  line-height: 30px;
+  white-space: nowrap;
 }
 
 .date-jobs button[aria-pressed="true"] {
   background: var(--op);
-  border-color: transparent;
+  border-color: var(--op);
   color: var(--op-ink);
+}
+
+/* Both jobs stay in the same cell, so the keypad keeps one height. */
+.date-panes {
+  display: grid;
+}
+
+.date-panes > * {
+  grid-area: 1 / 1;
+}
+
+.date-panes > [hidden] {
+  display: block !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .date-line {
@@ -670,19 +690,191 @@ html[data-scheme="light"] .version { color: #57534e; }
   color: var(--muted);
 }
 
-.date-line input[type="date"] {
+.date-field {
+  display: flex;
+  align-items: center;
   min-width: 0;
-  width: 100%;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--chip);
   color: var(--ink);
-  padding: 0 6px;
-  font-size: 13px;
-  line-height: 28px;
-  color-scheme: inherit;
 }
+
+.date-field input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border: 0;
+  border-radius: 10px 0 0 10px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0 4px 0 8px;
+  font-size: 13px;
+  line-height: 26px;
+  outline: none;
+}
+
+.date-cal {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  margin-right: 1px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 22%, var(--chip));
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.date-cal .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.date-cal:hover { background: color-mix(in srgb, var(--accent) 36%, var(--chip)); }
+
+.date-pop {
+  position: absolute;
+  z-index: 30;
+  width: 268px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.date-nav,
+.date-pop-title,
+.date-part-label,
+.date-year,
+.date-month,
+.date-day,
+.date-pop-today {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.date-nav,
+.date-pop-title {
+  height: 30px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.date-nav { font-size: 18px; }
+.date-pop-title { font-size: 14px; }
+.date-nav:hover,
+.date-pop-title:hover,
+.date-part-label:hover,
+.date-year:hover,
+.date-month:hover,
+.date-day:hover { background: var(--key); }
+
+.date-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+
+.date-pick-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.date-pick-line .date-nav {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--key);
+}
+
+.date-part-label,
+.date-pick-line > span {
+  flex: 0 0 42px;
+  width: 42px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.date-pick-line input,
+.date-pick-line .date-pop-title {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--screen);
+  color: var(--ink);
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  outline: none;
+}
+
+.date-pop-grid {
+  display: grid;
+  gap: 2px;
+}
+
+.date-pop-grid.days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.date-pop-grid.years,
+.date-pop-grid.months { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.date-dow {
+  height: 22px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+.date-year,
+.date-month,
+.date-day {
+  height: 32px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-year.is-selected,
+.date-month.is-selected,
+.date-day.is-selected {
+  background: var(--accent);
+  color: var(--eq-ink);
+}
+
+.date-day.is-today { box-shadow: inset 0 0 0 1px var(--accent); }
+.date-day.is-selected.is-today { box-shadow: none; }
+
+.date-pop-today {
+  width: 100%;
+  height: 30px;
+  margin-top: 6px;
+  border-radius: 8px;
+  background: var(--key);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-pop-today:hover { background: var(--key-hover); }
 
 .date-span {
   display: grid;
@@ -2340,8 +2532,10 @@ html.graph-pop #screenGraph .graph-side {
 }
 
 .graph-side .axis-toggle {
-  width: 36px;
-  height: 32px;
+  width: 30px;
+  height: 26px;
+  min-height: 26px;
+  font-size: 11px;
 }
 
 .side-group {
