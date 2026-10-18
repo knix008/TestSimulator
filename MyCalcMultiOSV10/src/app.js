@@ -3285,6 +3285,38 @@ function applyGraphState(state) {
   }
 }
 
+// Tooltips can be switched off in the settings for readers who find them
+// popping up too often. Read on every hover, so a switch made in another
+// window, or another running copy, holds at once.
+const TOOLTIPS_KEY = "mycalc-tooltips";
+
+function tooltipsEnabled() {
+  try {
+    return localStorage.getItem(TOOLTIPS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function renderTooltipChoice() {
+  const on = tooltipsEnabled();
+  const onBtn = document.getElementById("tipsOn");
+  const offBtn = document.getElementById("tipsOff");
+  if (onBtn) onBtn.setAttribute("aria-pressed", String(on));
+  if (offBtn) offBtn.setAttribute("aria-pressed", String(!on));
+  if (!on) for (const tip of document.querySelectorAll(".tooltip")) tip.hidden = true;
+}
+
+function chooseTooltips(on) {
+  try {
+    localStorage.setItem(TOOLTIPS_KEY, on ? "on" : "off");
+  } catch {
+    /* Without storage there is nowhere to keep the choice; tooltips stay on. */
+  }
+  renderTooltipChoice();
+  publishUi({ type: "tooltips" });
+}
+
 function bindTooltips() {
   const tip = document.createElement("div");
   tip.className = "tooltip";
@@ -3300,7 +3332,7 @@ function bindTooltips() {
 
   function place(el) {
     const text = el.dataset.tooltip;
-    if (!text) return;
+    if (!text || !tooltipsEnabled()) return;
     current = el;
     tip.textContent = text;
     tip.hidden = false;
@@ -3768,6 +3800,9 @@ function chooseLanguage(lang) {
 }
 document.getElementById("langKo").addEventListener("click", () => chooseLanguage("ko"));
 document.getElementById("langEn").addEventListener("click", () => chooseLanguage("en"));
+document.getElementById("tipsOn").addEventListener("click", () => chooseTooltips(true));
+document.getElementById("tipsOff").addEventListener("click", () => chooseTooltips(false));
+renderTooltipChoice();
 document.getElementById("closeSettings").addEventListener("click", closeSettingsView);
 document.getElementById("infoOk").addEventListener("click", () => {
   if (pageKind === "info") closeThisWindow();
@@ -3816,6 +3851,7 @@ window.addEventListener("storage", (ev) => {
   if (ev.key === "mycalc-theme") applyStoredTheme();
   if (ev.key === KEYPAD_KEY) applyStoredKeypad();
   if (ev.key === STATS_KEY) applyStoredStats();
+  if (ev.key === TOOLTIPS_KEY) renderTooltipChoice();
   if (ev.key === "mycalc-lang" && (ev.newValue === "ko" || ev.newValue === "en") && ev.newValue !== uiLang) applyLanguage(ev.newValue);
 });
 if (uiChannel) {
@@ -3825,6 +3861,7 @@ if (uiChannel) {
     if (message.type === "theme") applyStoredTheme();
     if (message.type === "keypad") applyStoredKeypad();
     if (message.type === "stats") applyStoredStats();
+    if (message.type === "tooltips") renderTooltipChoice();
     if (message.type === "lang" && (message.lang === "ko" || message.lang === "en") && message.lang !== uiLang) applyLanguage(message.lang);
   };
 }

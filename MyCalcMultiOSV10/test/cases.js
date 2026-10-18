@@ -2988,6 +2988,43 @@ suite("Product features", () => {
     }
   });
 
+  test("Tooltips can be switched off and on in the settings", async () => {
+    const saved = localStorage.getItem("mycalc-tooltips");
+    const settings = await loadApp("pop=settings");
+    const calc = await loadApp("");
+    try {
+      const sdoc = settings.win.document;
+      const cdoc = calc.win.document;
+      const hover = () => {
+        const target = cdoc.getElementById("infoBtn");
+        target.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+        const tip = cdoc.querySelector(".tooltip");
+        const shown = !!tip && !tip.hidden;
+        target.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: cdoc.body }));
+        return shown;
+      };
+      const on = sdoc.getElementById("tipsOn");
+      const off = sdoc.getElementById("tipsOff");
+      assert(on && off, "The settings have no tooltip switch");
+      on.click();
+      assert(hover(), "A tooltip did not show while they were on");
+      off.click();
+      assert(off.getAttribute("aria-pressed") === "true" && on.getAttribute("aria-pressed") === "false", "The switch does not show it is off");
+      assert(localStorage.getItem("mycalc-tooltips") === "off", "The choice was not kept");
+      assert(!hover(), "A tooltip still showed in another window after they were switched off");
+      on.click();
+      assert(hover(), "Tooltips did not come back when switched on");
+      const row = sdoc.querySelector(".lang-setting").getBoundingClientRect();
+      const offBox = off.getBoundingClientRect();
+      assert(offBox.right <= row.right + 1 && offBox.top < row.bottom, "The tooltip switch does not sit in the language row");
+    } finally {
+      settings.frame.remove();
+      calc.frame.remove();
+      if (saved == null) localStorage.removeItem("mycalc-tooltips");
+      else localStorage.setItem("mycalc-tooltips", saved);
+    }
+  });
+
   test("The theme swatches fit the settings window at its smallest", async () => {
     // The floor the desktop window can be dragged down to, from the shell itself.
     const shell = await (await fetch("../src-tauri/src/lib.rs")).text();
@@ -4099,6 +4136,82 @@ suite("Dates", () => {
       assert(doc.getElementById("datePop").hidden === false, "The add calendar stayed closed");
     } finally {
       appWindow.loadTheme();
+      appWindow.setMode("basic");
+      if (saved == null) localStorage.removeItem("mycalc-date");
+      else localStorage.setItem("mycalc-date", saved);
+    }
+  });
+
+  test("Each calendar opens under its own button in the desktop window", async () => {
+    // The calculator window itself, at the size the shell gives the date mode.
+    const shell = await (await fetch("../src-tauri/src/lib.rs")).text();
+    const size = shell.match(/\("date", ([\d.]+), ([\d.]+)\)/);
+    assert(size, "the date mode size was not found in lib.rs");
+    const loaded = await loadApp("desktop=1");
+    try {
+      loaded.frame.style.width = `${Number(size[1])}px`;
+      loaded.frame.style.height = `${Number(size[2])}px`;
+      const win = loaded.win;
+      const doc = win.document;
+      win.setMode("date");
+      const trouble = [];
+      for (const [job, id] of [["diff", "dateFrom"], ["diff", "dateTo"], ["add", "dateStart"]]) {
+        win.setDateJob(job);
+        const button = doc.getElementById(id).parentElement.querySelector(".date-cal");
+        button.click();
+        const pop = doc.getElementById("datePop").getBoundingClientRect();
+        const field = doc.getElementById(id).closest(".date-field").getBoundingClientRect();
+        const app = doc.querySelector(".app").getBoundingClientRect();
+        const edge = Math.round(pop.top - field.bottom);
+        if (edge < 0 || edge > 12) trouble.push(`${id} starts ${edge}px below its field (field ${Math.round(field.top)}-${Math.round(field.bottom)}, calendar ${Math.round(pop.top)}-${Math.round(pop.bottom)})`);
+        if (pop.bottom > app.bottom + 1) trouble.push(`${id} runs ${Math.round(pop.bottom - app.bottom)}px past the window (${Math.round(app.bottom)})`);
+        win.closeDatePop();
+      }
+      assert(!trouble.length, trouble.join(" | "));
+    } finally {
+      loaded.frame.remove();
+    }
+  });
+
+  test("The calendar holds still while the year and month change", () => {
+    const doc = appWindow.document;
+    const saved = localStorage.getItem("mycalc-date");
+    try {
+      appWindow.setMode("date");
+      const pop = doc.getElementById("datePop");
+      const where = () => {
+        const box = pop.getBoundingClientRect();
+        return `${Math.round(box.left)},${Math.round(box.top)} ${Math.round(box.width)}x${Math.round(box.height)}`;
+      };
+      // February 2026 fills four weeks and August 2026 six, so a run of
+      // months goes through every height a month can have.
+      for (const [job, id] of [["diff", "dateFrom"], ["diff", "dateTo"], ["add", "dateStart"]]) {
+        appWindow.setDateJob(job);
+        appWindow.setDateRange("2025-12-15", "2025-12-15");
+        doc.getElementById(id).parentElement.querySelector(".date-cal").click();
+        assert(!pop.hidden, `${id}: the calendar stayed closed`);
+        const first = where();
+        const moved = [];
+        const check = (step) => {
+          const now = where();
+          if (now !== first) moved.push(`${step}: ${now}`);
+        };
+        for (let i = 0; i < 14; i++) {
+          doc.getElementById("dateMonthNext").click();
+          check(`month ${doc.getElementById("dateMonthTitle").textContent} ${doc.getElementById("dateYearJump").value}`);
+        }
+        doc.getElementById("dateYearPrev").click();
+        check("previous year");
+        doc.getElementById("datePopTitle").click();
+        check("year list");
+        doc.getElementById("datePopTitle").click();
+        doc.getElementById("dateMonthTitle").click();
+        check("month list");
+        appWindow.closeDatePop();
+        assert(!moved.length, `${id}: opened at ${first}, then ${moved.slice(0, 3).join(" | ")}`);
+      }
+    } finally {
+      appWindow.closeDatePop();
       appWindow.setMode("basic");
       if (saved == null) localStorage.removeItem("mycalc-date");
       else localStorage.setItem("mycalc-date", saved);
