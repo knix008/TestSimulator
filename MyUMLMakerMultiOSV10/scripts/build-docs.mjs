@@ -7,6 +7,8 @@
 //
 // The pages and docs/tutorial/images/ are then copied to public/docs/ so the
 // web build serves them at ./docs/… (Help › User's guide in the browser).
+// `npm run build:docs -- --with-video` also copies docs/video/ (the tutorial video
+// and its chapter list) for the web build; without it the web player says how to make it.
 //
 // No dependencies: a small Markdown converter (headings, paragraphs, nested
 // lists, tables, fenced code, blockquotes, rules, images, links, inline code,
@@ -391,7 +393,18 @@ function copyDir(from, to) {
 
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 
-export function build() {
+/**
+ * The tutorial video (docs/video/) goes into the web build only when asked (`--with-video`): it is large, and
+ * without it the web player says how to make it. The desktop installer always carries docs/video/.
+ */
+export function copyVideo(withVideo) {
+  const target = path.join(publicDocs, 'video');
+  fs.rmSync(target, { recursive: true, force: true });
+  if (!withVideo) return [];
+  return copyDir(path.join(docsDir, 'video'), target).filter((file) => !file.endsWith('.gitkeep'));
+}
+
+export function build({ withVideo = false } = {}) {
   fs.mkdirSync(docsDir, { recursive: true });
   const written = [];
   for (const info of PAGES) {
@@ -408,12 +421,13 @@ export function build() {
   fs.mkdirSync(publicDocs, { recursive: true });
   for (const info of PAGES) fs.copyFileSync(path.join(docsDir, info.output), path.join(publicDocs, info.output));
   const images = copyDir(imagesDir, path.join(publicDocs, 'tutorial', 'images'));
-  return { written, images };
+  const video = copyVideo(withVideo);
+  return { written, images, video };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { written, images } = build();
+  const { written, images, video } = build({ withVideo: process.argv.includes('--with-video') });
   console.log('문서 HTML:');
   for (const { output, note } of written) console.log(`  ${path.relative(root, output).split(path.sep).join('/')}  (${kb(fs.statSync(output).size)}) ← ${note}`);
-  console.log(`public/docs/ 에 복사: HTML ${PAGES.length}개, 튜토리얼 그림 ${images.length}개`);
+  console.log(`public/docs/ 에 복사: HTML ${PAGES.length}개, 튜토리얼 그림 ${images.length}개${video.length ? `, 튜토리얼 동영상 ${video.length}개 파일` : ' (튜토리얼 동영상은 --with-video 일 때만)'}`);
 }

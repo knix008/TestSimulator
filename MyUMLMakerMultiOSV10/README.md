@@ -7,7 +7,7 @@ Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니�
 - 버전: 1.0.0
 - 사용법: [UsersGuide.md](UsersGuide.md) (English: [UsersGuide.en.md](UsersGuide.en.md))
 - 구조: [ARCHITECTURE.md](ARCHITECTURE.md)
-- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md). 동영상은 `npm run tutorial:video`로 루트에 `MyUMLMaker-Tutorial.mp4`를 만듭니다(저장소에는 넣지 않습니다).
+- 튜토리얼 문서: [docs/tutorial/README.md](docs/tutorial/README.md). 튜토리얼 동영상은 `npm run tutorial:video`로 `docs/video/MyUMLMaker-Tutorial.mp4`(+ 장 목록 `MyUMLMaker-Tutorial.json`)를 만듭니다. 동영상과 장 목록은 저장소에 함께 들어 있습니다. 앱에서는 시작 화면의 **사용 설명서 · 튜토리얼 문서 · 튜토리얼 동영상** 단추가 각각 별도의 창을 엽니다.
 
 ## 주요 기능
 
@@ -59,6 +59,7 @@ Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니�
 - **한국어/영어** — 툴바의 국기 버튼, 백엔드 메시지까지 전환
 - **시작 페이지** — 템플릿, 열기, 최근 파일·폴더, 예제, 튜토리얼, **움직이는 배경 20가지**
 - **튜토리얼** — 실제 프로그램을 움직이며 66단계로 모든 기능을 보여 줌(자동 재생, 장 고르기)
+- **문서 창** — 시작 화면의 **사용 설명서 · 튜토리얼 문서 · 튜토리얼 동영상** 단추(그리고 도움말 메뉴)가 각자의 OS 창을 엶: 장으로 이동, 한국어/English, 문서에서 찾기(`Ctrl+F`), 인쇄, 브라우저로 열기, 테마 색; 동영상은 재생 속도(0.5–2×) · 전체 화면 · 장 표시와 장 목록. 문서마다 창 하나(다시 고르면 그 창이 앞으로), 위치·크기 기억, 주 창과 함께 닫힘. 웹에서는 새 탭
 - **설정** — 일반 · 테마 · 글꼴 · 배경 · 시작 화면 · 다이어그램 · 데이터베이스 · 단축키 등, 다음 실행에 다시 쓰임
 - 접을 수 있는 패널, 상태 표시줄, **메뉴와 팝업은 독립 창**(메인 창과 함께 닫힘), 오류 팝업(내용 복사), 심각한 오류는 `crash.log`
 - **여러 개 동시 실행** — 실행할 때마다 창이 하나씩 열림(다른 창과 겹치지 않게 비켜 열리고, 지난 세션 복원은 첫 창만), 타이틀 바에 `MyUMLMaker v1.0.0`, 창 위치·크기 기억, 프레젠테이션 모드
@@ -86,7 +87,7 @@ npm run build:icons  # 앱·문서 아이콘과 설치 프로그램 그림 다�
 npm run samples      # samples/ 예제 다시 만들기
 ```
 
-Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. 설치 파일은 `release/`에 만들어지고 프로젝트 루트에도 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML, 한국어·영어), 튜토리얼 문서와 그림, 예제가 함께 들어갑니다.
+Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에서 만듭니다. 설치 파일은 `release/`에 만들어지고 프로젝트 루트에도 사본이 놓입니다. 설치 파일에는 사용 설명서(HTML, 한국어·영어), 튜토리얼 문서와 그림, 튜토리얼 동영상(`docs/video/`, 만들어 두었을 때), 예제가 함께 들어갑니다. `docs/video/` 폴더는 동영상이 없어도 저장소에 있으므로(`.gitkeep`) 새로 받은 소스도 그대로 빌드됩니다.
 
 ### Windows 설치 프로그램
 
@@ -94,7 +95,7 @@ Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에�
 - 설치는 **하나만** 있습니다. 이전 설치(현재 사용자용·컴퓨터 전체용, 어느 버전이든)가 있으면 **완전히 제거한 뒤** 새로 설치합니다: 실행 중인 MyUMLMaker 창을 모두 닫고(몇 개든, 닫기 전에 묻습니다), 이전 제거 프로그램을 조용히 실행하고 폴더를 지웁니다.
 - 이전 설치나 사용자 데이터가 있으면 첫 화면 전에 **"이전에 사용하던 사용자 데이터(설정, 최근 파일·폴더, 열린 프로젝트 목록, 데이터베이스 연결, 배경 그림, 튜토리얼 기록, 창 위치)를 삭제할까요?"** 라고 설치 언어로 묻습니다. **예**: `%APPDATA%\com.shkwon.myumlmaker`와 `%LOCALAPPDATA%\com.shkwon.myumlmaker`(WebView2 프로필)를 지웁니다. **아니오**: 사용자 데이터는 그대로 두고 **설정만 기본값으로** 되돌립니다(설치 후 첫 실행 때 한 번). **취소**: 아무것도 바꾸지 않고 설치를 그만둡니다. 조용한 설치(`/S`)는 묻지 않고 데이터를 둡니다.
 - `.myuml`(프로젝트, "MYUML" 문서 아이콘 `src-tauri/icons/project.ico`)과 `.mumlt`(템플릿)를 **각자의 문서 아이콘**으로 등록합니다. 파일을 두 번 클릭하면 MyUMLMaker에서 열립니다.
-- 사용 설명서와 튜토리얼 문서를 설치 폴더의 `docs`에, 예제를 `samples`에 넣습니다.
+- 사용 설명서와 튜토리얼 문서를 설치 폴더의 `docs`에, 튜토리얼 동영상과 장 목록을 `docs/video`에, 예제를 `samples`에 넣습니다.
 - 현재 사용자용 설치(관리자 권한 불필요). macOS는 .dmg, Linux deb/rpm은 MIME 형식과 문서 아이콘을 등록합니다.
 
 ## 테스트
@@ -123,11 +124,18 @@ npm test -- --installer          # 설치 파일 빌드·검사까지
 
 ```bash
 npm run tutorial:docs    # 튜토리얼 단계마다 화면을 캡처 → docs/tutorial/README.md (+ README.en.md), docs/tutorial/images/
-npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → MyUMLMaker-Tutorial.mp4 (프로젝트 루트, ffmpeg 필요, 저장소에는 넣지 않음)
+npm run tutorial:video   # 튜토리얼 자동 재생을 녹화 → docs/video/MyUMLMaker-Tutorial.mp4 + .json (ffmpeg 필요, 결과는 저장소에 커밋)
 npm run build:docs       # 마크다운 → docs/UsersGuide.html · UsersGuide.en.html · Tutorial.html · Tutorial.en.html
 ```
 
-그림은 `docs/tutorial/images/NN-<단계 id>.jpg`(NN = 튜토리얼 단계 순서)로 저장되고, 사용 설명서도 이 그림을 씁니다. 앱의 **도움말 › 사용 설명서**는 설치된 `docs/UsersGuide.html`(영어 화면이면 `UsersGuide.en.html`)을 엽니다. 웹 빌드는 `public/docs/`를 `./docs/`로 함께 내보냅니다.
+그림은 `docs/tutorial/images/NN-<단계 id>.jpg`(NN = 튜토리얼 단계 순서)로 저장되고, 사용 설명서도 이 그림을 씁니다. 앱의 **사용 설명서** · **튜토리얼 문서**는 설치된 `docs/UsersGuide.html` · `docs/Tutorial.html`(영어는 `.en.html`)을 별도의 문서 창에서 보여 줍니다. 웹 빌드는 `public/docs/`를 `./docs/`로 함께 내보냅니다.
+
+### 튜토리얼 동영상
+
+- `npm run tutorial:video`는 디버그 앱(`cargo build`)을 자기 프로필로 띄우고 튜토리얼을 자동 재생하며 주 창을 녹화합니다(팝업은 튜토리얼 동안 창 안의 프레임이라 함께 찍힙니다). 약 7분, 1440×900.
+- 결과: `docs/video/MyUMLMaker-Tutorial.mp4`(H.264 · yuv420p · faststart, 화면용 `-tune stillimage`, 기본 CRF 24 — `CRF=21 npm run tutorial:video`처럼 바꿀 수 있음)와 `docs/video/MyUMLMaker-Tutorial.json`(단계·장마다 시작 시각과 한국어·영어 제목 → 플레이어의 장 표시).
+- ffmpeg는 PATH, `FFMPEG=경로`, 또는 Windows의 Chocolatey(`C:\ProgramData\chocolatey\bin\ffmpeg.exe`)에서 찾습니다.
+- 데스크톱 앱의 동영상 창은 설치된(개발 중에는 소스 폴더의) 파일을 asset 프로토콜로 재생합니다. 웹 빌드에는 크기 때문에 기본으로 넣지 않으며, `npm run build:docs -- --with-video`로 `public/docs/video/`에 복사하면 웹에서도 재생됩니다. 동영상이 없으면 만드는 방법을 알려 줍니다.
 
 ## 저장소에 넣지 않는 것
 
@@ -139,7 +147,6 @@ npm run build:docs       # 마크다운 → docs/UsersGuide.html · UsersGuide.e
 | `dist/` | `npm run build:web` |
 | `src-tauri/target/`, `src-tauri/gen/` | Rust · Tauri 빌드 |
 | `release/`, 루트의 `MyUMLMaker-*.exe` · `.msi` · `.dmg` · `.deb` · `.rpm` · `.AppImage` | 설치 파일 |
-| `*.mp4` | `npm run tutorial:video` |
 | `test-results/`, `*.log` | `npm test` 결과 |
 | `test/db.local.json` | DB 통합 테스트 접속 정보 |
 
@@ -176,6 +183,7 @@ SHKWON (knix008@naver.com)
 - **Requirements, baselines, documents** — requirement attributes with automatic ids, a requirements list (sort, filter, inline status and priority, CSV) and a traceability matrix (click a cell to create or delete a relationship, undoable, rows without links highlighted); baselines kept in the `.myuml` file, compared with the current model or another file, with restore; documents from 5 templates as Word (.docx), PDF or HTML.
 - **One project at a time** — the row above the canvas shows the project name and one tab per diagram (‹ › when they overflow), with diagram type tabs (group › type) under it that open a diagram of that type and switch the toolbox; new / open / recent / drop / database open replace the current project after asking about unsaved changes. Rulers on the top and left edges, a line grid with a darker line every 5 steps that zooms with the diagram and is redrawn 5× finer or coarser past a threshold.
 - **Files** — `.myuml` projects (old `.muml` files still open), `.mumlt` templates, `.mfj` model fragments, StarUML `.mdj` open and save, XMI 2.x open (Enterprise Architect, MagicDraw, Papyrus) and XMI 2.5 export (for Enterprise Architect with diagrams, or model only), picture (PNG, JPEG, WebP, BMP, TIFF, SVG) and PDF export, HTML and Markdown model documents, database storage (SQLite, MariaDB, MySQL, PostgreSQL), recent files and folders, drag and drop, printing with a preview.
+- **Document windows** — the **User's guide · Tutorial document · Tutorial video** buttons of the start page (and the Help menu) open their own OS windows: chapter list, 한국어/English, find in page (`Ctrl+F`), print, open in browser, theme colours; the video player has speed (0.5–2×), full screen and chapter marks with a chapter list. One window per document (choosing it again brings it forward), size and place remembered, closed with the main window; a new tab on the web.
 - **UI** — 20 dark + 20 light + custom themes, 4 diagram colour schemes, Korean/English with a flag button, start page with 20 moving backgrounds, a 66-step tutorial, persisted settings, separate popup windows, error popups; several copies may run at once (each start opens its own window, offset from the others; only the first restores the last session).
 
 ```bash
@@ -193,9 +201,11 @@ npm test -- --only conformance   # StarUML, Enterprise Architect and PlantUML fe
 
 The `conformance` test category (`test/conformance/`) is a feature checklist, one test per feature: `staruml.test.js` draws every StarUML diagram kind through the editing API and checks its notation in the SVG (names, «stereotypes», multiplicities, guards, arrowheads, diamonds, dashed lines) plus quick edit, Model Explorer operations, format options, auto layout, fragments, code generation and reverse engineering per language, documents and validation; `enterprise-architect.test.js` lists the Enterprise Architect features that are implemented (UML 2.5, SysML, BPMN, ArchiMate 3, data modelling, Gantt/WBS/timeline, network, requirements and the relationship matrix, baselines and model compare, document templates for Word/PDF/HTML, EA-flavoured XMI and MagicDraw/Papyrus XMI, code engineering, database storage, model search), with the missing ones (Kotlin and PHP reverse engineering) marked `todo`; `plantuml.test.js` checks the PlantUML language per diagram kind with snippets in the form of the official documentation, importing, rendering, exporting and importing again.
 
-The Windows installer asks for Korean or English and keeps a single installation: a previous one (current-user or per-machine, any version) is removed completely after closing every running MyUMLMaker window. When there is a previous installation or user data, it first asks whether to delete the user data (settings, recent files and folders, open projects, database connection, background pictures, tutorial history, window position): Yes deletes `%APPDATA%\com.shkwon.myumlmaker` and `%LOCALAPPDATA%\com.shkwon.myumlmaker`, No keeps the data and only resets the settings at the next start, Cancel stops; a silent install (`/S`) keeps the data. It registers `.myuml` (its own "MYUML" document icon) / `.mumlt` with their own icons and installs the user's guide and samples.
+The Windows installer asks for Korean or English and keeps a single installation: a previous one (current-user or per-machine, any version) is removed completely after closing every running MyUMLMaker window. When there is a previous installation or user data, it first asks whether to delete the user data (settings, recent files and folders, open projects, database connection, background pictures, tutorial history, window position): Yes deletes `%APPDATA%\com.shkwon.myumlmaker` and `%LOCALAPPDATA%\com.shkwon.myumlmaker`, No keeps the data and only resets the settings at the next start, Cancel stops; a silent install (`/S`) keeps the data. It registers `.myuml` (its own "MYUML" document icon) / `.mumlt` with their own icons and installs the user's guide, the tutorial document and pictures, the tutorial video (`docs/video/`, when it has been made) and the samples.
 
-`.gitignore` keeps dependencies and build output out of the repository (`node_modules/`, `dist/`, `src-tauri/target/`, `src-tauri/gen/`, `release/` and the root installers, `*.mp4`, `test-results/`, `test/db.local.json`). `package-lock.json` and `src-tauri/Cargo.lock` stay committed.
+**Tutorial video** — `npm run tutorial:video` runs the tutorial on auto play in the debug app and records the main window (popups are frames during the tutorial, so they are recorded too) into `docs/video/MyUMLMaker-Tutorial.mp4` (H.264, yuv420p, faststart, `-tune stillimage`, CRF 24 by default, `CRF=…` to change; ffmpeg from PATH, `FFMPEG=…` or Chocolatey) and `docs/video/MyUMLMaker-Tutorial.json` (start time and Korean/English title of every step and chapter, for the player's chapter marks). The desktop player plays the installed file (the source tree's in development) through the asset protocol; the web build gets it only with `npm run build:docs -- --with-video`. Without the video the player says how to make it. The video and its chapter list are committed with the project; a checkout without the video still builds (`docs/video/.gitkeep`).
+
+`.gitignore` keeps dependencies and build output out of the repository (`node_modules/`, `dist/`, `src-tauri/target/`, `src-tauri/gen/`, `release/` and the root installers, `test-results/`, `test/db.local.json`). `package-lock.json` and `src-tauri/Cargo.lock` stay committed.
 
 User's guide: [UsersGuide.en.md](UsersGuide.en.md) · Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 

@@ -201,6 +201,78 @@ async function osMouse(app, actions) {
   await sleep(300);
   return out;
 }
+// ───────────────────────── document windows (user's guide, tutorial document, tutorial video)
+
+const WS_MAXIMIZEBOX = 0x10000;
+const WS_CAPTION = 0xc00000;
+const DOC_LABELS = ['doc-guide', 'doc-tutorial', 'doc-video'];
+
+/** Closes every document window (no questions). */
+async function closeDocWindows(app) {
+  await app.main.eval(`Promise.all(${JSON.stringify(DOC_LABELS)}.map((label) => window.__TAURI_INTERNALS__.invoke('plugin:window|destroy', { label }).catch(() => 1))).then(() => 1)`).catch(() => {});
+  await sleep(400);
+}
+
+/** The page of the document window of `kind` once it is drawn (a document: its chapters listed) and `ready` holds. */
+async function docWindow(app, kind, ready = 'true', timeout = 20000) {
+  const end = Date.now() + timeout;
+  const drawn = kind === 'video' ? 'true' : `document.querySelectorAll('[data-viewer-chapter] option').length > 5 && Boolean(document.querySelector('.viewer-frame')?.contentDocument?.querySelector('h1'))`;
+  let last;
+  while (Date.now() < end) {
+    const target = await waitTarget(app.port, (item) => item.title === `doc-${kind}`, Math.max(1000, end - Date.now()));
+    const page = await new Page(target).open().catch((error) => { last = error; return null; });
+    if (!page) { await sleep(200); continue; }
+    try {
+      await page.waitFor(`Boolean(window.__myumlmakerViewer) && ${drawn} && (${ready})`, { timeout: Math.max(1000, end - Date.now()), message: `doc-${kind} is drawn` });
+      return page;
+    } catch (error) {
+      last = error;
+      page.close();
+      if (!/window closed/.test(error.message)) throw error;
+      await sleep(200);
+    }
+  }
+  throw last ?? new Error(`doc-${kind} did not open`);
+}
+
+/** The visible OS window "MyUMLMaker — <name>". */
+async function docOsWindow(app, name) {
+  const title = `MyUMLMaker — ${name}`;
+  let found;
+  for (let i = 0; i < 30 && !found; i++) {
+    if (i) await sleep(200);
+    found = (await app.windowInfo()).find((w) => w.visible && w.title === title);
+  }
+  assert.ok(found, `the OS window "${title}" (${JSON.stringify((await app.windowInfo()).filter((w) => w.visible).map((w) => w.title))})`);
+  return found;
+}
+
+/** Evaluates inside the document shown in a document window (window and document are the page's). */
+const frameEval = (page, expression) => page.eval(`(() => { const f = document.querySelector('.viewer-frame'); return ((window, document) => (${expression}))(f.contentWindow, f.contentDocument); })()`);
+
+/** Closes a window with the close button of its system title bar (real mouse) and waits until it is gone. */
+async function closeWithTitleBar(app, page, title) {
+  const dpr = await page.eval('devicePixelRatio');
+  let gone = false;
+  const probes = [];
+  for (let attempt = 0; attempt < 3 && !gone; attempt++) {
+    const win = (await app.windowInfo()).find((w) => w.visible && w.title === title);
+    if (!win) { gone = true; break; }
+    // The window rectangle includes the invisible resize border (about 7 px at the sides): the close button
+    // is the 46 px at the right end of the 30 px title bar.
+    const x = win.right - Math.round(30 * dpr);
+    const y = win.top + Math.round(14 * dpr);
+    probes.push(await app.shell(`${OS_INPUT};$h=[IntPtr]${win.handle};for($k=0;$k -lt 5 -and [MI]::GetForegroundWindow() -ne $h;$k++){[MI]::keybd_event(0x12,0,0,[UIntPtr]::Zero);[MI]::keybd_event(0x12,0,2,[UIntPtr]::Zero);[void][MI]::SetForegroundWindow($h);Start-Sleep -Milliseconds 120};$p=New-Object MI+P;$p.X=${x - 20};$p.Y=${y};[void][MI]::SetCursorPos($p.X,$p.Y);Start-Sleep -Milliseconds 120;$p.X=${x};[void][MI]::SetCursorPos($p.X,$p.Y);Start-Sleep -Milliseconds 250;"under=$([int64][MI]::GetAncestor([MI]::WindowFromPoint($p),2)) win=${win.handle}";[MI]::mouse_event(2,0,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 60;[MI]::mouse_event(4,0,0,0,[UIntPtr]::Zero)`));
+    for (let i = 0; i < 20 && !gone; i++) {
+      await sleep(150);
+      gone = !(await app.windowInfo()).some((w) => w.visible && w.title === title);
+    }
+  }
+  page.close();
+  assert.ok(gone, `"${title}" closed with its title bar's close button (${probes.join(' ')})`);
+  await sleep(300);
+}
+
 const osDoubleClick = (app, at) => osMouse(app, [{ at: { x: at.x - 20, y: at.y } }, { at, steps: 3 }, { wait: 200 }, { probe: true }, { down: true }, { wait: 30 }, { up: true }, { wait: 90 }, { down: true }, { wait: 30 }, { up: true }]);
 const setWindow = (app, x, y, width, height) => app.main.eval(`Promise.all([window.__TAURI_INTERNALS__.invoke('plugin:window|unmaximize', { label: 'main' }).catch(() => 1)]).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: ${width}, height: ${height} } } })).then(() => window.__TAURI_INTERNALS__.invoke('plugin:window|set_position', { label: 'main', value: { Logical: { x: ${x}, y: ${y} } } })).then(() => 1)`);
 /** A client point in the empty part of the menu bar (the drag area). */
@@ -2031,6 +2103,15 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(await app.main.eval(`Boolean(document.querySelector('#explorer .tree-row.selected'))`), 'and shown in the explorer');
     page.close();
     await closePopups(app);
+    // The toolbar's Find button (end of the edit group) opens the same popup (real click).
+    const button = await app.main.eval(`(() => { const b = document.querySelector('#toolbar [data-command="find"]'); if (!b) return null; const prev = b.previousElementSibling; return { title: b.title, icon: Boolean(b.querySelector('svg')), afterDelete: Boolean(document.querySelector('#toolbar [data-command="deleteFromModel"]')) && (prev?.dataset.command === 'deleteFromModel' || b.parentElement.querySelector('[data-command="deleteFromModel"]') !== null) }; })()`);
+    assert.ok(button?.icon && /Ctrl\+F/.test(button.title), `toolbar Find button with icon and tooltip ${JSON.stringify(button)}`);
+    assert.ok(button.afterDelete, 'in the edit group, after Delete from model');
+    await clickOn(app.main, '#toolbar [data-command="find"]');
+    const viaToolbar = await app.popup('find');
+    assert.ok(await viaToolbar.eval(`Boolean(document.querySelector('[data-draft="text"]'))`), 'the find popup opened from the toolbar');
+    viaToolbar.close();
+    await closePopups(app);
   } },
   { group: '모델 도구', name: '검증 (툴바 버튼): 문제를 팝업으로, 상태 표시줄에 개수, 누르면 그 요소', async run(app) {
     await freshProject(app, 'classModel');
@@ -2519,74 +2600,207 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await sleep(400);
     assert.equal(await W(app, 'w.state.presenting ?? null'), null);
   } },
-  { group: '도움말', name: '튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목, 장 선택, 언어)', async run(app) {
+  { group: '도움말', name: '시작 페이지 머리: 사용 설명서·튜토리얼 문서·튜토리얼 동영상 단추 (아이콘·설명), 최소 창 폭에서도 잘리지 않음', async run(app) {
+    await closePopups(app);
+    await resize(app, 600, 500);
+    await sleep(600);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(400);
+    try {
+      const hero = await app.main.eval(`(() => {
+        const ids = ['guide', 'tutorial-doc', 'tutorial-video', 'help-menu', 'tutorial'];
+        const buttons = ids.map((id) => document.querySelector('.start-hero [data-start="' + id + '"]'));
+        if (buttons.some((b) => !b)) return null;
+        const box = document.querySelector('.start-hero').getBoundingClientRect();
+        return {
+          width: innerWidth,
+          rows: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top / 8))).size,
+          inside: buttons.every((b) => { const r = b.getBoundingClientRect(); return r.left >= box.left - 0.5 && r.right <= box.right + 0.5 && r.right <= innerWidth + 0.5; }),
+          icons: buttons.every((b) => Boolean(b.querySelector('svg'))),
+          titles: buttons.map((b) => b.title),
+          labels: buttons.slice(0, 3).map((b) => b.textContent.trim()),
+        };
+      })()`);
+      assert.ok(hero, 'the three document buttons, Help and Start tutorial are in the start page header');
+      assert.ok(hero.inside && hero.icons, `inside the header, with icons ${JSON.stringify(hero)}`);
+      assert.ok(hero.rows <= 2, `one row (or wrapped neatly) at the minimum width ${JSON.stringify(hero)}`);
+      assert.ok(hero.titles.every(Boolean), 'every button has a tooltip');
+      assert.deepEqual(hero.labels, await W(app, `['action.userGuide', 'action.tutorialDoc', 'action.tutorialVideo'].map((k) => w.t(k))`));
+      assert.deepEqual(await app.main.eval(`(${CLIP_CHECK}).filter((x) => x.includes('start-hero') || x.includes('doc-button') || x.includes('start-docs'))`), [], 'nothing in the header is cut off');
+      // The help card lists them too.
+      assert.ok(await app.main.eval(`['guide', 'tutorial-doc', 'tutorial-video', 'shortcuts'].every((x) => document.querySelector('.start-card.recent [data-start="' + x + '"]'))`));
+    } finally {
+      await resize(app, 1480, 900);
+      await sleep(300);
+    }
+  } },
+  { group: '도움말', name: '사용 설명서: 시작 페이지 단추 → 별도의 창 (제목, h1, 장 이동, 언어, 찾기, 다시 누르면 같은 창, 제목 표시줄 닫기 단추) (실제 마우스)', async run(app) {
+    await closeDocWindows(app);
     await W(app, '(a.showStartPage(true), 1)');
     await sleep(300);
-    await app.main.click('#start-page [data-start="tutorial-doc"]');
-    await app.main.waitFor(`document.querySelectorAll('[data-reader-chapter] option').length > 5`, { timeout: 15000 });
-    const doc = await app.main.eval(`(() => { const d = document.querySelector('.reader-frame').contentDocument; return { shown: !document.querySelector('#reader-page').hidden, h1: d.querySelector('h1').textContent, steps: d.querySelectorAll('h3').length, images: d.images.length, raw: d.body.innerText.includes('<a id='), chapters: [...document.querySelectorAll('[data-reader-chapter] option')].slice(1).map((o) => o.textContent) }; })()`);
-    assert.ok(doc.shown);
+    await clickOn(app.main, '.start-hero [data-start="guide"]');
+    const page = await docWindow(app, 'guide');
+    const win = await docOsWindow(app, '사용 설명서');
+    assert.equal(win.owner, 0, 'a window of its own (not a popup of the main window)');
+    assert.ok(win.style & WS_THICKFRAME, 'resizable');
+    assert.ok(win.style & WS_MAXIMIZEBOX, 'maximizable');
+    assert.ok(win.style & WS_CAPTION, 'with the system title bar');
+    assert.match(await frameEval(page, `document.querySelector('h1').textContent`), /MyUMLMaker 사용 설명서/);
+    assert.equal(await frameEval(page, `getComputedStyle(document.querySelector('.topbar')).display`), 'none', 'the page\'s own bar gives way to the window\'s');
+    // Chapters: h2 and h3 of the page; picking one scrolls there.
+    const chapters = await page.eval(`[...document.querySelectorAll('[data-viewer-chapter] option')].slice(1).map((o) => o.textContent.trim())`);
+    assert.ok(chapters.length > 20 && chapters.every((c) => c && !c.endsWith('#')), JSON.stringify(chapters.slice(0, 5)));
+    await page.eval(`(() => { const s = document.querySelector('[data-viewer-chapter]'); s.value = s.options[12].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(300);
+    assert.ok(await frameEval(page, 'window.scrollY > 200'), 'a chapter can be picked');
+    // Find in page (Ctrl+F, typing, Enter): every match highlighted, the counter moves.
+    await clickOn(page, '.viewer-title');
+    await page.key('f', 2);
+    assert.ok(await page.eval(`document.activeElement?.matches('[data-viewer-find]')`), 'Ctrl+F goes to the find box');
+    await page.type('다이어그램');
+    await sleep(200);
+    await page.key('Enter');
+    await sleep(200);
+    const found = await page.eval(`document.querySelector('[data-find-count]').textContent`);
+    assert.match(found, /^2\/\d+$/, `the second match after Enter (${found})`);
+    assert.ok(Number(found.split('/')[1]) > 20, 'many matches');
+    assert.ok(await frameEval(page, `window.CSS.highlights.has('mum-find') && window.CSS.highlights.has('mum-find-current')`), 'matches are highlighted');
+    await clickOn(page, '[data-viewer="find-prev"]');
+    assert.match(await page.eval(`document.querySelector('[data-find-count]').textContent`), /^1\//, 'previous match');
+    // Language: the English page.
+    await clickOn(page, '[data-viewer="lang"][data-value="en"]');
+    await page.waitFor(`/User's Guide/i.test(document.querySelector('.viewer-frame').contentDocument?.querySelector('h1')?.textContent ?? '') && document.querySelectorAll('[data-viewer-chapter] option').length > 20`, { timeout: 15000, message: 'the English guide' });
+    assert.ok(await page.eval(`document.querySelector('[data-viewer="lang"][data-value="en"]').classList.contains('active')`));
+    for (const button of ['print', 'external']) assert.ok(await page.eval(`Boolean(document.querySelector('[data-viewer="${button}"]')?.title)`), `${button} button`);
+    // Choosing it again brings the same window back, no second one.
+    await clickOn(app.main, '.start-hero [data-start="guide"]');
+    await sleep(800);
+    assert.equal((await app.windowInfo()).filter((w) => w.visible && w.title === win.title).length, 1, 'one guide window');
+    assert.equal((await app.targets()).filter((target) => target.title === 'doc-guide').length, 1, 'one guide page');
+    assert.match(await frameEval(page, `document.querySelector('h1').textContent`), /User's Guide/i, 'the same window, as it was left');
+    await noErrorPopup(app, 'guide window');
+    // The close button of its title bar (real mouse).
+    await closeWithTitleBar(app, page, win.title);
+  } },
+  { group: '도움말', name: '튜토리얼 문서: 시작 페이지 단추 → 별도의 창 (단계마다 그림, 장 이동, English, 닫기) (실제 마우스)', async run(app) {
+    await closeDocWindows(app);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(300);
+    await clickOn(app.main, '.start-hero [data-start="tutorial-doc"]');
+    const page = await docWindow(app, 'tutorial');
+    const win = await docOsWindow(app, '튜토리얼 문서');
+    const doc = await frameEval(page, `({ h1: document.querySelector('h1').textContent, steps: document.querySelectorAll('h3').length, images: document.images.length, raw: document.body.innerText.includes('<a id=') })`);
     assert.match(doc.h1, /MyUMLMaker/);
-    const steps = await app.main.eval(`window.__myumlmaker.domain.tutorialSteps()`);
+    const steps = await W(app, 'w.domain.tutorialSteps()');
     assert.equal(doc.steps, steps, 'every tutorial step is in the document');
     assert.equal(doc.images, steps, 'with a picture each');
     assert.equal(doc.raw, false, 'no raw HTML shows as text');
-    assert.ok(doc.chapters.every((c) => !c.endsWith('#')), JSON.stringify(doc.chapters));
-    await app.main.eval(`(() => { const s = document.querySelector('[data-reader-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await page.eval(`(() => { const s = document.querySelector('[data-viewer-chapter]'); s.value = s.options[4].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
     await sleep(300);
-    assert.ok(await app.main.eval(`document.querySelector('.reader-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
-    await app.main.click('[data-reader="lang"][data-value="en"]');
-    await app.main.waitFor(`/tutorial/i.test(document.querySelector('.reader-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000 });
-    await app.main.click('[data-reader="home"]');
-    await sleep(300);
-    assert.deepEqual(await app.main.eval(`[!document.querySelector('#reader-page').hidden, !document.querySelector('#start-page').hidden]`), [false, true], 'Home goes back to the start page');
+    assert.ok(await frameEval(page, 'window.scrollY > 200'), 'a chapter can be picked');
+    await clickOn(page, '[data-viewer="lang"][data-value="en"]');
+    await page.waitFor(`/tutorial/i.test(document.querySelector('.viewer-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000, message: 'the English tutorial document' });
+    await closeWithTitleBar(app, page, win.title);
+    // Choosing it after closing opens it again.
+    await clickOn(app.main, '.start-hero [data-start="tutorial-doc"]');
+    const again = await docWindow(app, 'tutorial');
+    await docOsWindow(app, '튜토리얼 문서');
+    await closeWithTitleBar(app, again, win.title);
+    await noErrorPopup(app, 'tutorial document window');
   } },
-  { group: '도움말', name: '시작 페이지의 도움말 단추: 도움말 메뉴 → 튜토리얼 문서(프로그램 안) · 사용 설명서(시스템 프로그램) (실제 클릭)', async run(app) {
-    const log = path.join(tempDir('help'), 'open.log');
-    await app.restart([], { MYUMLMAKER_OPEN_LOG: log });
+  { group: '도움말', name: '도움말 메뉴 (시작 페이지의 도움말 단추): 튜토리얼 문서 · 튜토리얼 동영상 · 사용 설명서가 각자의 창으로 (실제 클릭)', async run(app) {
+    await closeDocWindows(app);
+    const openHelp = async () => {
+      await W(app, '(a.showStartPage(true), 1)');
+      await sleep(300);
+      const button = await app.main.eval(`(() => { const h = document.querySelector('[data-start="help-menu"]'); const t = document.querySelector('.start-hero [data-start="tutorial"]'); return h && t ? { before: h.getBoundingClientRect().right <= t.getBoundingClientRect().left + 1, title: h.title } : null; })()`);
+      assert.ok(button?.before && button.title, `the Help button sits left of "start the tutorial" ${JSON.stringify(button)}`);
+      const since = await now(app);
+      await clickOn(app.main, '[data-start="help-menu"]');
+      const menu = await menuWindow(app, since);
+      const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id)`);
+      const place = await menu.eval('({ x: window.screenX, y: window.screenY })');
+      return { menu, ids, place };
+    };
+    let { menu, ids, place } = await openHelp();
+    assert.deepEqual(ids, ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', 'settings', 'about'], 'the Help menu items');
+    const button = await app.main.eval(`(() => { const r = document.querySelector('[data-start="help-menu"]').getBoundingClientRect(); return { bottom: window.screenY + r.bottom }; })()`);
+    assert.ok(place.y >= button.bottom - 40, `the menu opens below the button ${JSON.stringify({ place, button })}`);
+    const opened = [];
+    for (const [id, kind, title] of [['tutorialDoc', 'tutorial', '튜토리얼 문서'], ['tutorialVideo', 'video', '튜토리얼 동영상'], ['userGuide', 'guide', '사용 설명서']]) {
+      if (opened.length) ({ menu } = await openHelp());
+      await clickOn(menu, `[data-id="${id}"]`);
+      menu.close();
+      const page = await docWindow(app, kind);
+      opened.push({ page, title: (await docOsWindow(app, title)).title });
+    }
+    await noErrorPopup(app, 'help menu');
+    assert.doesNotMatch(await app.main.eval(`document.querySelector('#statusbar .status-notice')?.textContent ?? ''`), new RegExp(await W(app, `w.t('error.docWindow')`)), 'no "cannot open" notice');
+    for (const { page, title } of opened) await closeWithTitleBar(app, page, title);
+  } },
+  { group: '도움말', name: '튜토리얼 동영상: 별도의 창에서 재생 (길이, 재생 시간 증가, 장 표시, 장으로 이동, 속도, 전체 화면 단추) (실제 마우스)', async run(app) {
+    const video = path.join(root, 'docs', 'video', 'MyUMLMaker-Tutorial.mp4');
+    if (!fs.existsSync(video)) return { skipped: 'docs/video/MyUMLMaker-Tutorial.mp4 없음 (npm run tutorial:video)' };
+    await closeDocWindows(app);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(300);
+    await clickOn(app.main, '.start-hero [data-start="tutorial-video"]');
+    const page = await docWindow(app, 'video', `document.querySelector('video')?.readyState >= 1`);
+    const win = await docOsWindow(app, '튜토리얼 동영상');
+    assert.ok(win.style & WS_THICKFRAME && win.style & WS_MAXIMIZEBOX, 'resizable and maximizable');
+    const info = await page.eval(`(() => { const v = document.querySelector('video'); return { duration: v.duration, controls: v.controls, src: v.currentSrc, message: !document.querySelector('[data-video-message]').hidden, marks: document.querySelectorAll('[data-video-marks] i').length, chapters: document.querySelectorAll('.video-chapter').length, steps: document.querySelectorAll('.video-step').length, options: document.querySelectorAll('[data-video-chapter] option').length - 1 }; })()`);
+    assert.ok(info.duration > 60, `the video is longer than a minute (${info.duration} s)`);
+    assert.ok(info.controls && !info.message, JSON.stringify(info));
+    assert.ok(info.chapters >= 5 && info.marks === info.chapters && info.options === info.chapters, `chapter marks from the sidecar ${JSON.stringify(info)}`);
+    assert.ok(info.steps >= 50, 'and every step');
+    // A chapter in the list (real click) seeks there.
+    const target = await page.eval(`Number(document.querySelectorAll('.video-chapter')[2].dataset.videoSeek)`);
+    await clickOn(page, '.video-chapter-list section:nth-child(3) .video-chapter');
+    await sleep(300);
+    assert.ok(Math.abs(await page.eval(`document.querySelector('video').currentTime`) - target) < 1, 'the chapter starts playing from its mark');
+    assert.ok(await page.eval(`document.querySelectorAll('.video-chapter')[2].classList.contains('active')`), 'and is shown as the current chapter');
+    // Space plays; the time advances.
+    await clickOn(page, '.viewer-title');
+    await page.key(' ', 0, 'Space');
+    await page.waitFor(`!document.querySelector('video').paused && document.querySelector('video').currentTime > ${target + 1}`, { timeout: 10000, message: 'the video plays' });
+    // Speed 2×.
+    await page.eval(`(() => { const s = document.querySelector('[data-video-speed]'); s.value = '2'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    assert.equal(await page.eval(`document.querySelector('video').playbackRate`), 2);
+    assert.deepEqual(await page.eval(`[...document.querySelectorAll('[data-video-speed] option')].map((o) => Number(o.value))`), [0.5, 0.75, 1, 1.25, 1.5, 2]);
+    await page.key(' ', 0, 'Space');
+    await page.waitFor(`document.querySelector('video').paused`, { timeout: 5000, message: 'Space pauses' });
+    assert.ok(await page.eval(`Boolean(document.querySelector('[data-viewer="fullscreen"]')?.title)`), 'full screen button');
+    await noErrorPopup(app, 'video window');
+    await closeWithTitleBar(app, page, win.title);
+  } },
+  { group: '도움말', name: '튜토리얼 동영상이 없으면 만드는 방법을 알려 줌 (오류 아님)', async run(app) {
+    await app.restart([], { MYUMLMAKER_TUTORIAL_VIDEO: path.join(tempDir('novideo'), 'missing.mp4') });
     await afterStart(app);
     try {
-      const openHelp = async () => {
-        await W(app, '(a.showStartPage(true), 1)');
-        await sleep(300);
-        const button = await app.main.eval(`(() => { const h = document.querySelector('[data-start="help-menu"]'); const t = document.querySelector('.start-hero [data-start="tutorial"]'); return h && t ? { before: h.getBoundingClientRect().right <= t.getBoundingClientRect().left + 1, title: h.title } : null; })()`);
-        assert.ok(button?.before && button.title, `the Help button sits left of "start the tutorial" ${JSON.stringify(button)}`);
-        const since = await now(app);
-        const at = await clickOn(app.main, '[data-start="help-menu"]');
-        const menu = await menuWindow(app, since);
-        const ids = await menu.eval(`[...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id)`);
-        const place = await menu.eval('({ x: window.screenX, y: window.screenY })');
-        return { menu, ids, at, place };
-      };
-      let { menu, ids, place } = await openHelp();
-      assert.deepEqual(ids, ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', 'settings', 'about'], 'the Help menu items');
-      const button = await app.main.eval(`(() => { const r = document.querySelector('[data-start="help-menu"]').getBoundingClientRect(); return { bottom: window.screenY + r.bottom }; })()`);
-      assert.ok(place.y >= button.bottom - 40, `the menu opens below the button ${JSON.stringify({ place, button })}`);
-      await clickOn(menu, '[data-id="tutorialDoc"]');
-      menu.close();
-      await app.main.waitFor(`!document.querySelector('#reader-page').hidden && /Tutorial(\\.en)?\\.html/.test(document.querySelector('.reader-frame')?.contentWindow?.location.href ?? '') && Boolean(document.querySelector('.reader-frame').contentDocument?.querySelector('h1'))`, { timeout: 15000, message: 'the reader shows docs/Tutorial.html' });
-      ({ menu } = await openHelp());
-      await clickOn(menu, '[data-id="userGuide"]');
-      menu.close();
-      for (let i = 0; i < 30 && !fs.existsSync(log); i++) await sleep(150);
-      assert.match(fs.readFileSync(log, 'utf8'), /UsersGuide(\.en)?\.html/, 'the user guide is handed to the system browser');
-      await sleep(400);
-      await noErrorPopup(app, 'help menu');
-      assert.doesNotMatch(await app.main.eval(`document.querySelector('#statusbar .status-notice')?.textContent ?? ''`), new RegExp(await W(app, `w.t('error.guide')`).catch(() => 'error\\.guide')), 'no "cannot open the guide" notice');
+      await W(app, '(a.showStartPage(true), 1)');
+      await sleep(300);
+      await clickOn(app.main, '.start-hero [data-start="tutorial-video"]');
+      const page = await docWindow(app, 'video', `!document.querySelector('[data-video-message]').hidden && /tutorial:video/.test(document.querySelector('[data-video-message]').textContent)`);
+      const shown = await page.eval(`({ text: document.querySelector('[data-video-message]').textContent, video: !document.querySelector('video').hidden, src: document.querySelector('video').getAttribute('src') })`);
+      assert.match(shown.text, /튜토리얼 동영상이 아직 없습니다\. npm run tutorial:video 로 만들 수 있습니다\./);
+      assert.equal(shown.video, false, 'no empty player');
+      assert.equal(shown.src, null);
+      await noErrorPopup(app, 'missing video');
     } finally {
       await app.restart();
       await afterStart(app);
     }
   } },
-  { group: '도움말', name: '사용 설명서 열기 (설치된 문서를 시스템 프로그램으로)', async run(app) {
-    const log = path.join(tempDir('open'), 'open.log');
-    await app.restart([], { MYUMLMAKER_OPEN_LOG: log });
-    await afterStart(app);
-    await W(app, `(w.run('userGuide'), 1)`);
-    for (let i = 0; i < 20 && !fs.existsSync(log); i++) await sleep(150);
-    assert.match(fs.readFileSync(log, 'utf8'), /UsersGuide(\.en)?\.html/);
+  { group: '도움말', name: '주 창을 닫으면 문서 창도 함께 닫히고 프로그램이 끝남', async run(app) {
+    await closeDocWindows(app);
+    await W(app, `(a.openDocWindow('guide'), 1)`);
+    await docWindow(app, 'guide');
+    await app.main.eval(`window.__TAURI_INTERNALS__.invoke('plugin:window|destroy', { label: 'main' }).catch(() => 1); 1`).catch(() => {});
+    await Promise.race([app.exited, sleep(10000)]);
+    const exited = app.process.exitCode != null;
     await app.restart();
     await afterStart(app);
+    assert.ok(exited, 'the app ended with its main window (the guide window did not keep it running)');
   } },
   { group: '도움말', name: '튜토리얼: 시작·다음·Esc 로 끝내면 원래대로 (자기 탭은 닫힘)', async run(app) {
     await freshSample(app);

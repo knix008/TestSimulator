@@ -28,10 +28,10 @@ The start page shows when no project is open (and from the **Home** button at th
 
 | Area | Contents |
 |---|---|
-| Top | Program name and version, the line "Model UML and software diagrams, generate code and publish documentation.", a **Help** button (the tutorial, the tutorial document, the user's guide, the shortcut list, settings and About) and **Start the tutorial**. Until the tutorial has been finished, a "New here?" banner with a **Start** button shows too |
+| Top | Program name and version, the line "Model UML and software diagrams, generate code and publish documentation.", three document buttons — **User's guide** · **Tutorial document** · **Tutorial video** (each opens its own window, see [Document windows](#document-windows)) —, a **Help** button (the tutorial, the tutorial document, the tutorial video, the user's guide, the shortcut list, settings and About) and **Start the tutorial**. Until the tutorial has been finished, a "New here?" banner with a **Start** button shows too |
 | **New** | 21 template tiles, **Open…**, **Open StarUML project (.mdj)…**, **Reverse engineer (code → model)**, **Import Mermaid / PlantUML…** |
 | **Recent files** · **Recent folders** | The files and folders opened lately. ✕ removes one entry, **Clear all** · **Clear all folders** remove them all. Clicking a folder opens the Open window in that folder |
-| **Help** | **Tutorial document**, **User's guide**, **Keyboard shortcuts…** |
+| **Help** | **Tutorial document**, **User's guide**, **Tutorial video**, **Keyboard shortcuts…** |
 | **Sample projects** | The installed sample files (only those in the current language). If the install folder has no samples, a single **Online Shop (sample)** shows |
 | **Moving background** | Pick one of 20 animations, **Change moving background** (random), **Background image…**, **Motion speed** (0–300%), **Random at start**, **Auto change** (Off, every 15 s, 30 s, 1 min, 2 min or 5 min) |
 | Bottom | **Show the start page at start-up** check box |
@@ -128,9 +128,32 @@ Start it with **Help › Tutorial** (`F11`), the graduation-cap button at the ri
 - The part of the screen each step explains is outlined. The guide box can be dragged out of the way. `Esc` or ✕ (**End the tutorial (Esc)**) ends it.
 - The tutorial opens its own sample project separately, and at the end closes it and goes back to the project you had open. Your project is not changed, and the settings the tutorial changes (theme, language, background and so on) are put back when it ends.
 
-**Tutorial document** — a document of every tutorial step with its picture can be read inside the program. Open it from **Help › Tutorial document** on the start page or from the **Help › Tutorial document** menu; the document shows in the middle, and the bar at the top offers **Go to chapter**, a 한국어/English switch, **Start tutorial** and **Open in browser**. The **Home** button goes back.
+**Tutorial document** — a document of every tutorial step with its picture. The **Tutorial document** button at the top of the start page or **Help › Tutorial document** opens it in its own window (see [Document windows](#document-windows)).
 
 ![The tutorial document](docs/tutorial/images/65-tutorialDoc.jpg)
+
+### Document windows
+
+The **User's guide** and the **Tutorial document** open in a window of their own, apart from the program window — from the buttons at the top of the start page, the start page's **Help** list or the **Help** menu alike. There is one window per document; choosing a document that is already open brings its window to the front. Move it by its title bar, resize it by its edges, maximize and close it like any window; it opens again where you left it. Closing the program (its main window) closes the document windows too.
+
+| Bar at the top | What it does |
+|---|---|
+| **Go to chapter** | The chapters and sections of the document; pick one to go there. The chapter being read is shown |
+| **Find in document** (`Ctrl+F`) | Every match of the text is highlighted, with "3/12" telling which one is current. `Enter`/`F3` next, `Shift+Enter`/`Shift+F3` previous, `Esc` clears |
+| **한국어** / **English** | Switches the document's language (the program's stays) |
+| **Print** (`Ctrl+P`) | Prints the document |
+| **Open in browser** | Opens the same document in the default web browser |
+
+The document follows the program's theme colours. In the web version the same document view opens in a new browser tab.
+
+### Tutorial video
+
+A recording of the whole tutorial (66 steps) on auto play. The **Tutorial video** button at the top of the start page or **Help › Tutorial video** plays it in its own window (which behaves like the [document windows](#document-windows)).
+
+- The bar under the picture plays, pauses, seeks, sets the volume and goes full screen. `Space` plays/pauses, `←`/`→` jump 5 seconds, `F` toggles full screen.
+- The bar at the top: **Go to chapter** (the chapters with their start times), **Playback speed** (0.5× – 2×), **Full screen**, 한국어/English (the language of the chapter names) and **Open in player** (the system's default video player).
+- The list on the right holds the chapters and steps with their times; click one to play from there. The current chapter is marked, and the strip under the video shows where each chapter starts.
+- The video is `docs/video/MyUMLMaker-Tutorial.mp4` in the installation folder. Without it the window says "The tutorial video has not been made yet. Run npm run tutorial:video to make it."
 
 ## The screen
 
@@ -149,7 +172,7 @@ The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to t
 | **Format** | Font ▸ · Fill color · Line color · Line style ▸ · Stereotype display ▸ · Display ▸ · Auto resize · Fit to content · Diagram background… |
 | **Arrange** | Order ▸ · Align & distribute ▸ · Auto layout · Auto layout ▸ |
 | **Tools** | Generate code… · Generate SQL DDL… · Generate document… · Reverse engineer (code → model) · Validate model · Settings… |
-| **Help** | Tutorial · Tutorial document · User's guide · Keyboard shortcuts… · Settings… · About… |
+| **Help** | Tutorial · Tutorial document · Tutorial video · User's guide · Keyboard shortcuts… · Settings… · About… |
 
 The submenus hold:
 
@@ -179,7 +202,7 @@ From the left the toolbar buttons fall into these groups. Pointing at a button s
 |---|---|
 | File | **New project** · **Open…** · **Save** · **Export as picture…** (the ▾ next to it is the **Choose an export format** menu) |
 | Undo | **Undo** · **Redo** (pointing at them shows what they would undo or redo) |
-| Clipboard | **Cut** · **Copy** · **Paste** · **Delete from model** |
+| Clipboard and find | **Cut** · **Copy** · **Paste** · **Delete from model** · **Find…** (`Ctrl+F`, see [Find](#find)) |
 | Tools | **Pointer** · **Add diagram** |
 | Colour and line | **Fill color** · **Line color** (the left half paints the last colour at once, the ▾ opens the colour picker) · **Line style** |
 | Arrange | **Align** · **Auto layout** |
@@ -1310,8 +1333,9 @@ In presentation mode these keys work:
 | Command | What it does |
 |---|---|
 | **Tutorial** (`F11`) | Starts the 66 steps tutorial (see [Tutorial](#tutorial)) |
-| **Tutorial document** | Opens, inside the program, a document of every tutorial step with its picture |
-| **User's guide** | Opens this guide (HTML) in the default web browser |
+| **Tutorial document** | Opens a document of every tutorial step with its picture in its own window ([Document windows](#document-windows)) |
+| **Tutorial video** | Plays a recording of the whole tutorial in its own window ([Tutorial video](#tutorial-video)) |
+| **User's guide** | Opens this guide in its own window; **Open in browser** there opens it in the default web browser |
 | **Keyboard shortcuts…** | Opens the Shortcuts tab of the settings window |
 | **About…** (`F1`) | Version and build information |
 
@@ -1334,7 +1358,7 @@ When something goes wrong, the **Error** window opens. It has the message, the *
 | Could not save to the database · The database operation failed | Wrong server address, port, user or password, the database does not exist, the SQLite file cannot be written |
 | Could not print | A problem with the printer or the print dialog |
 | Background image error | A picture file that cannot be read |
-| The user's guide could not be opened | The `docs` folder of the installation was deleted |
+| The document window could not be opened · The user's guide could not be opened | The `docs` folder of the installation was deleted |
 
 ### Serious errors and crash.log
 

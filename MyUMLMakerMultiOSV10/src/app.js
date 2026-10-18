@@ -57,6 +57,7 @@ import { reportDocx } from './export/docx.js';
 import { reportPdfPages } from './export/report-pdf.js';
 import { addBaseline, baselineRoot, compareWithBaseline, createBaseline, currentScope, exportBaselineText, findBaseline, listBaselines, removeBaseline, restoreElement } from './domain/baseline.js';
 import { compareModels } from './domain/diff.js';
+import { DOC_KINDS, docLabel, docWindowTitle } from './domain/helpdocs.js';
 
 const root = document.querySelector('#app');
 const desktop = native.isDesktop();
@@ -92,7 +93,6 @@ const state = {
   clipboard: null,
   showStart: false,
   view: null,
-  reader: null,
   presenting: null,
   pointer: null,
   rightTab: 'properties',
@@ -206,7 +206,6 @@ function activate(id) {
   state.selection = { ids: [], primary: null };
   state.explorer = [];
   state.showStart = false;
-  state.reader = null;
   state.problemSelected = null;
   mountView();
   renderAll();
@@ -312,7 +311,7 @@ function openDiagram(id, { reveal = null } = {}) {
   const diagram = tab.index.get(id);
   if (!diagram || !M.isDiagram(diagram)) return;
   state.view?.finishEdit?.();
-  if (state.showStart || state.reader) { state.showStart = false; state.reader = null; }
+  if (state.showStart) state.showStart = false;
   tab.openDiagram(id);
   state.selection = { ids: [], primary: null };
   setTool(null);
@@ -913,9 +912,9 @@ function mountView() {
   const host = root.querySelector('#view-host');
   if (!host) return;
   host.innerHTML = '';
-  if (!activeTab() || state.showStart || state.reader) return;
+  if (!activeTab() || state.showStart) return;
   host.hidden = false;
-  root.classList.remove('on-start', 'on-reader');
+  root.classList.remove('on-start');
   state.view = new DiagramView(appApi, host);
   state.view.render();
 }
@@ -927,16 +926,11 @@ function updateView() {
 function renderView() {
   const host = root.querySelector('#view-host');
   const start = root.querySelector('#start-page');
-  const reader = root.querySelector('#reader-page');
-  const reading = Boolean(state.reader);
-  const showStart = !reading && (state.showStart || !activeTab());
-  root.classList.toggle('on-start', showStart || reading);
-  root.classList.toggle('on-reader', reading);
-  host.hidden = showStart || reading;
+  const showStart = state.showStart || !activeTab();
+  root.classList.toggle('on-start', showStart);
+  host.hidden = showStart;
   start.hidden = !showStart;
-  reader.hidden = !reading;
-  if (reading) renderReader();
-  else if (showStart) renderStartPage();
+  if (showStart) renderStartPage();
   else if (!state.view) mountView();
 }
 
@@ -977,7 +971,7 @@ function pickTool(id) {
 // ───────────────────────── commands
 
 const hasDoc = () => Boolean(activeTab());
-const hasDiagram = () => hasDoc() && Boolean(currentDiagram()) && !state.showStart && !state.reader;
+const hasDiagram = () => hasDoc() && Boolean(currentDiagram()) && !state.showStart;
 const multi = () => selectedIds().length > 1;
 const hasElementSel = () => selectedElements().length > 0 || state.explorer.length > 0;
 const toggle = (key) => updateSettings({ [key]: !state.settings[key] });
@@ -1120,8 +1114,9 @@ const commands = {
   clearBackground: { icon: 'imageClear', label: 'action.clearBackground', enabled: () => Boolean(state.settings.backgroundImage) || state.settings.backgroundKind !== 'none', run: () => removeBackground() },
   // help
   tutorial: { icon: 'tutorial', label: 'action.tutorial', key: 'F11', run: () => startTutorial() },
-  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openUserGuide() },
-  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', checked: () => state.reader?.doc === 'tutorial', run: () => openReader('tutorial') },
+  userGuide: { icon: 'userGuide', label: 'action.userGuide', run: () => openDocWindow('guide') },
+  tutorialDoc: { icon: 'tutorialDoc', label: 'action.tutorialDoc', run: () => openDocWindow('tutorial') },
+  tutorialVideo: { icon: 'tutorialVideo', label: 'action.tutorialVideo', run: () => openDocWindow('video') },
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
@@ -1235,14 +1230,14 @@ const MENUS = {
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
   arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout')],
   tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', '-', 'settings'],
-  help: ['tutorial', 'tutorialDoc', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  help: ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', model: 'umlModel', view: 'eye', format: 'formatShape', arrange: 'bringFront', tools: 'tools', help: 'question' };
 
 const TOOLBAR = [
   ['new', 'open', 'save', 'exportSplit'],
   ['undo', 'redo'],
-  ['cut', 'copy', 'paste', 'deleteFromModel'],
+  ['cut', 'copy', 'paste', 'deleteFromModel', 'find'],
   ['tool:pointer', 'addDiagram'],
   ['fillSplit', 'lineSplit', 'lineStyleMenu'],
   ['alignMenu', 'layoutMenu'],
@@ -1267,7 +1262,6 @@ function renderShell() {
         <div id="center-body">
           <div id="view-host" class="view-host"></div>
           <div id="start-page" hidden></div>
-          <div id="reader-page" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
         <div class="splitter horizontal bottom-split" data-split="bottom" title="${escapeHtml(t('problems.splitter'))}" role="separator" aria-orientation="horizontal"></div>
@@ -1694,7 +1688,6 @@ function renderStartPage() {
 function showStartPage(show = true) {
   state.view?.finishEdit?.();
   state.showStart = show;
-  state.reader = null;
   if (show) { state.view?.destroy?.(); state.view = null; } else mountView();
   renderAll();
 }
@@ -1718,8 +1711,9 @@ async function onStartAction(target) {
     // The Help button of the start page: the same items as the Help menu, below the button.
     case 'help-menu': return showMenu(menuItems(MENUS.help), anchorBelow(target), 'help');
     case 'tutorial': return startTutorial();
-    case 'guide': return openUserGuide();
-    case 'tutorial-doc': return openReader('tutorial');
+    case 'guide': return openDocWindow('guide');
+    case 'tutorial-doc': return openDocWindow('tutorial');
+    case 'tutorial-video': return openDocWindow('video');
     case 'shortcuts': return run('shortcuts');
     case 'animation': updateSettings({ animation: value, backgroundKind: 'animated' }); return notify('info', t('notice.animation', { name: t(`animation.${value}`) }));
     case 'shuffle': return shuffleBackground();
@@ -2795,7 +2789,7 @@ function bottomHeight() {
 /** Badges on the canvas (view id → { severity, rows }); none while the panel is closed. */
 const markerCache = { rows: null, diagram: null, map: null };
 function problemMarkers() {
-  if (!state.settings.showBottomPanel || state.showStart || state.reader) return null;
+  if (!state.settings.showBottomPanel || state.showStart) return null;
   const diagram = currentDiagram();
   if (!diagram) return null;
   const rows = problemList();
@@ -3388,74 +3382,50 @@ function textContextMenu(element, event) {
   ], anchor, 'context', { handlers, header: { icon: 'edit', title: t('menu.edit') } });
 }
 
-// ───────────────────────── document reader (tutorial document)
+// ───────────────────────── document and video windows (user's guide, tutorial document, tutorial video)
 
-const READER_DOCS = { tutorial: { file: 'Tutorial', title: 'action.tutorialDoc', glyph: 'tutorialDoc' } };
-
-function openReader(doc = 'tutorial', language = getLanguage()) {
+/**
+ * Opens a help document or the tutorial video in a window of its own (src/viewer.js): an OS window
+ * "doc-<kind>" on the desktop (one per kind: choosing it again brings it back), a browser tab in the
+ * web build, and a frame in this window while the tutorial runs (so a screen recording shows it).
+ */
+async function openDocWindow(kind) {
+  const info = DOC_KINDS[kind];
+  if (!info) return undefined;
   popups.hideMenu();
-  state.reader = { doc, lang: language === 'en' ? 'en' : 'ko' };
-  state.view?.destroy?.();
-  state.view = null;
-  renderAll();
-}
-
-function readerUrl() {
-  const info = READER_DOCS[state.reader.doc];
-  return `docs/${info.file}${state.reader.lang === 'en' ? '.en' : ''}.html`;
-}
-
-function renderReader() {
-  const host = root.querySelector('#reader-page');
-  const info = READER_DOCS[state.reader.doc];
-  const url = readerUrl();
-  const frame = host.querySelector('.reader-frame');
-  if (frame && frame.dataset.url === url && host.dataset.uiLang === getLanguage()) return;
-  host.dataset.uiLang = getLanguage();
-  const language = state.reader.lang;
-  host.innerHTML = `
-    <div class="reader-bar">
-      <button class="button" data-reader="home" title="${escapeHtml(t('tip.home'))}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button>
-      <h2 class="reader-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h2>
-      <select class="reader-chapters" data-reader-chapter title="${escapeHtml(t('reader.chapters'))}" aria-label="${escapeHtml(t('reader.chapters'))}"><option value="">${escapeHtml(t('reader.chapters'))}</option></select>
-      <span class="grow"></span>
-      <span class="segmented" role="radiogroup" title="${escapeHtml(t('reader.language'))}">
-        <button class="segment ${language === 'ko' ? 'active' : ''}" data-reader="lang" data-value="ko" role="radio" aria-checked="${language === 'ko'}" title="한국어">한국어</button>
-        <button class="segment ${language === 'en' ? 'active' : ''}" data-reader="lang" data-value="en" role="radio" aria-checked="${language === 'en'}" title="English">English</button>
-      </span>
-      <button class="button primary" data-reader="tutorial" title="${escapeHtml(commandTip('tutorial'))}">${icon('tutorial')}<span>${escapeHtml(t('reader.startTutorial'))}</span></button>
-      <button class="button" data-reader="external" title="${escapeHtml(t('reader.externalTip'))}">${icon('readerExternal')}<span>${escapeHtml(t('reader.external'))}</span></button>
-    </div>
-    <iframe class="reader-frame" data-url="${escapeHtml(url)}" src="${escapeHtml(url)}" title="${escapeHtml(t(info.title))}"></iframe>`;
-  const iframe = host.querySelector('.reader-frame');
-  iframe.addEventListener('load', () => {
-    const chapters = host.querySelector('[data-reader-chapter]');
-    const headings = [...(iframe.contentDocument?.querySelectorAll('h2[id]') ?? [])];
-    chapters.innerHTML = `<option value="">${escapeHtml(t('reader.chapters'))}</option>${headings.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.textContent.replace(/#\s*$/, '').trim())}</option>`).join('')}`;
-  });
-}
-
-async function onReaderAction(target) {
-  switch (target.dataset.reader) {
-    case 'home': return showStartPage(true);
-    case 'lang': state.reader.lang = target.dataset.value; return renderAll();
-    case 'tutorial': return startTutorial();
-    case 'external': {
-      if (!desktop) return window.open(readerUrl(), '_blank');
-      try { await native.openDocument(readerUrl().slice('docs/'.length)); } catch (error) { showError('error.guide', error); }
-      return undefined;
-    }
-    default: return undefined;
+  const url = `${location.pathname}?viewer=${kind}&lang=${getLanguage() === 'en' ? 'en' : 'ko'}`;
+  if (popups.inline) return openDocFrame(kind, url);
+  if (!desktop) {
+    const opened = globalThis.open(url, `myumlmaker-${docLabel(kind)}`);
+    opened?.focus?.();
+    return undefined;
   }
-}
-
-async function openUserGuide() {
+  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
   try {
-    await native.openDocument(getLanguage() === 'en' ? 'UsersGuide.en.html' : 'UsersGuide.html');
-    notify('info', t('notice.guide'));
+    await native.invoke('open_doc_window', { kind, title: docWindowTitle(t(info.title)), width: info.width, height: info.height, dark });
   } catch (error) {
-    showError('error.guide', error);
+    showError('error.docWindow', error);
   }
+  return undefined;
+}
+
+/** The document window as a frame over the app (tutorial): closed with the other frames. */
+function openDocFrame(kind, url) {
+  const key = docLabel(kind);
+  let frame = popups.frames.get(key);
+  if (!frame) {
+    frame = document.createElement('div');
+    frame.className = `web-popup web-popup-doc web-popup-${key}`;
+    frame.dataset.kind = key;
+    frame.innerHTML = `<iframe title="${escapeHtml(key)}" src="${escapeHtml(url)}"></iframe>`;
+    document.body.append(frame);
+    popups.frames.set(key, frame);
+  }
+  return frame;
+}
+
+function closeDocFrames() {
+  for (const kind of Object.keys(DOC_KINDS)) if (popups.frames.has(docLabel(kind))) popups.close(docLabel(kind));
 }
 
 // ───────────────────────── presentation (full screen, diagram by diagram)
@@ -3567,8 +3537,6 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-home]')) return showStartPage(true);
-    const reader = target.closest('[data-reader]');
-    if (reader) return onReaderAction(reader);
     const start = target.closest('[data-start]');
     if (start && !start.disabled) return onStartAction(start);
     const colorApply = target.closest('[data-color-apply]');
@@ -3634,7 +3602,7 @@ function bindEvents() {
       const id = diagramTab.dataset.diagramTab;
       // The second press of a double click (the first one re-rendered the tab bar, so no dblclick event follows).
       if (event.detail === 2 && id === currentDiagram()?._id && !state.showStart) return renameDiagramTab(id);
-      if (id !== currentDiagram()?._id || state.showStart || state.reader) openDiagram(id);
+      if (id !== currentDiagram()?._id || state.showStart) openDiagram(id);
       return scrollActiveTabIntoView();
     }
     const scroll = target.closest('[data-tab-scroll]');
@@ -3716,7 +3684,6 @@ function bindEvents() {
     if (target.id === 'zoom-value') return setCanvasZoom(parseFloat(target.value) || 100);
     if (target.id === 'zoom-slider') return setCanvasZoom(CANVAS_ZOOM.steps[Number(target.value)]);
     if ('startSpeed' in target.dataset) return updateSettings({ animationSpeed: Number(target.value) }, { quiet: true });
-    if ('readerChapter' in target.dataset && target.value) { root.querySelector('.reader-frame')?.contentDocument?.getElementById(target.value)?.scrollIntoView({ block: 'start' }); return undefined; }
     if ('startRandom' in target.dataset) return updateSettings({ animationRandom: target.checked }, { quiet: true });
     if ('startInterval' in target.dataset) { startBackgroundChangedAt = Date.now(); return updateSettings({ animationInterval: Number(target.value) }, { quiet: true }); }
     return undefined;
@@ -4137,8 +4104,8 @@ const appApi = {
   anchorBelow,
   closeDoc,
   ask,
-  openReader: (doc, language) => openReader(doc, language),
-  closeReader: () => { if (state.reader) { state.reader = null; if (activeTab()) mountView(); renderAll(); } },
+  openDocWindow,
+  closeDocFrames,
   get view() { return state.view; },
   get explorer() { return explorerView; },
 };
@@ -4219,7 +4186,7 @@ window.__myumlmaker = {
     contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, showStartPage, exportAs, exportImage, exportPdf, exportAllImages, createNodeAt, createEdgeBetween,
     align, distribute, reorder, setViewStyle, commitEdit, addDiagram, openDiagram, openDiagramType, closeDiagram, renameElement, addElementTo, addRelated, quickAction, dropElements, moveElements,
     runLayout, runValidation, openCodegen, reverseFiles, openTextImport, startTutorial, startPresentation, stopPresentation, presentStep, setTool, pickTool, findElements, revealElement,
-    rememberDirectory, applyColor, openSampleBuiltin, shuffleBackground, fitToContent, showRelations,
+    rememberDirectory, applyColor, openSampleBuiltin, shuffleBackground, fitToContent, showRelations, openDocWindow, closeDocFrames,
   },
   domain: { M, E, TYPES, DIAGRAM_TYPES, TEMPLATES, toolboxFor, buildTemplate, buildSample, renderDiagramSvg, diagramBounds, tutorialSteps: () => TUTORIAL_STEPS.length },
   tutorial: () => tutorial,

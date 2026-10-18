@@ -7,7 +7,7 @@ This document follows the in-app **Tutorial** step by step, with a screenshot of
 - **Start page › Start tutorial**, the **Tutorial** toolbar button, **Help › Tutorial** or **F11**.
 - In the card: **Next / Previous** one step at a time, **Auto play** to the end, the chapter list to jump to a chapter, **✕** or **Esc** to stop at any time.
 - The tutorial works only in its own sample tab. Your open drawings are not changed, and the theme, language and view settings it changes are put back when it ends.
-- A recording of the whole tour: `MyUMLMaker-Tutorial.mp4` in the project root.
+- A recording of the whole tour: **Start page › Tutorial video** or **Help › Tutorial video** plays it in its own window (chapter marks, speed, full screen). The file is `docs/video/MyUMLMaker-Tutorial.mp4`, made with `npm run tutorial:video`.
 
 ## Contents
 
@@ -425,7 +425,7 @@ The ⓘ toolbar button shows the version, build information and the author (SHKW
 
 ### 65. Reading the tutorial document
 
-A document with every step of this tutorial and its screen can be read inside the program: open it from Help › Tutorial document on the home screen or in the Help menu. The bar on top jumps to a chapter, switches 한국어/English, starts the tutorial or opens the document in a browser. Home takes you back.
+A document with every step of this tutorial and its screen opens in its own window: use the Tutorial document button on the start page or the Help menu. The bar on top jumps to a chapter, switches 한국어/English, finds text in the document (Ctrl+F), prints it or opens it in a browser. The user's guide and the tutorial video open in their own windows from the start page too.
 
 ![Reading the tutorial document](images/65-tutorialDoc.jpg)
 

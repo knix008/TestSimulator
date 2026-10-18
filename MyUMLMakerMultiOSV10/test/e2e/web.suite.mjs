@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { sleep } from './cdp.mjs';
+import { listTargets, Page, sleep, waitTarget } from './cdp.mjs';
 import { root } from './harness.mjs';
 
 const VERSION = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
@@ -426,6 +426,49 @@ export const cases = [
     await W(app, `(a.stopPresentation(), 1)`);
     await sleep(300);
     assert.ok(await app.main.eval(`document.querySelector('#presentation').hidden`));
+  } },
+  { group: '도움말', name: '시작 페이지의 사용 설명서·튜토리얼 문서·튜토리얼 동영상 단추 → 문서 보기 페이지를 새 탭으로 (장, 언어, 찾기; 동영상이 없으면 안내)', async run(app) {
+    await closeFrames(app);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(300);
+    const viewerTab = async (kind, ready) => {
+      const target = await waitTarget(app.port, (item) => item.type === 'page' && item.url.includes(`viewer=${kind}`), 15000);
+      const page = await new Page(target).open();
+      await page.waitFor(`Boolean(window.__myumlmakerViewer) && (${ready})`, { timeout: 15000, message: `the ${kind} tab is drawn` });
+      return page;
+    };
+    const docReady = `document.querySelectorAll('[data-viewer-chapter] option').length > 5 && Boolean(document.querySelector('.viewer-frame')?.contentDocument?.querySelector('h1'))`;
+    // User's guide.
+    await app.main.click('.start-hero [data-start="guide"]');
+    const guide = await viewerTab('guide', docReady);
+    assert.match(await guide.eval('document.title'), /MyUMLMaker — 사용 설명서/);
+    assert.match(await guide.eval(`document.querySelector('.viewer-frame').contentDocument.querySelector('h1').textContent`), /MyUMLMaker 사용 설명서/);
+    await guide.eval(`(() => { const s = document.querySelector('[data-viewer-chapter]'); s.value = s.options[8].value; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(300);
+    assert.ok(await guide.eval(`document.querySelector('.viewer-frame').contentWindow.scrollY > 200`), 'a chapter can be picked');
+    await guide.eval(`(window.__myumlmakerViewer.runFind('StarUML', true), 1)`);
+    assert.match(await guide.eval(`document.querySelector('[data-find-count]').textContent`), /^1\/\d+$/, 'find in page');
+    await guide.click('[data-viewer="lang"][data-value="en"]');
+    await guide.waitFor(`/User's Guide/i.test(document.querySelector('.viewer-frame').contentDocument?.querySelector('h1')?.textContent ?? '')`, { timeout: 10000, message: 'the English guide' });
+    // Choosing it again reuses the tab.
+    await app.main.click('.start-hero [data-start="guide"]');
+    await sleep(1200);
+    assert.equal((await listTargets(app.port)).filter((item) => item.type === 'page' && item.url.includes('viewer=guide')).length, 1, 'one guide tab');
+    guide.close();
+    // Tutorial document.
+    await app.main.click('.start-hero [data-start="tutorial-doc"]');
+    const tutorial = await viewerTab('tutorial', docReady);
+    assert.equal(await tutorial.eval(`document.querySelector('.viewer-frame').contentDocument.querySelectorAll('h3').length`), await W(app, 'w.domain.tutorialSteps()'), 'every tutorial step');
+    tutorial.close();
+    // Tutorial video: not copied into the web build by default → how to make it, no error.
+    await app.main.click('.start-hero [data-start="tutorial-video"]');
+    const hasVideo = fs.existsSync(path.join(root, 'dist', 'docs', 'video', 'MyUMLMaker-Tutorial.mp4'));
+    const video = await viewerTab('video', hasVideo ? `document.querySelector('video').readyState >= 1` : `!document.querySelector('[data-video-message]').hidden && /tutorial:video/.test(document.querySelector('[data-video-message]').textContent)`);
+    if (!hasVideo) assert.match(await video.eval(`document.querySelector('[data-video-message]').textContent`), /npm run tutorial:video/);
+    else assert.ok(await video.eval(`document.querySelector('video').duration > 60`));
+    video.close();
+    for (const item of (await listTargets(app.port)).filter((x) => x.type === 'page' && x.url.includes('viewer='))) await fetch(`http://127.0.0.1:${app.port}/json/close/${item.id}`).catch(() => {});
+    await noError(app, 'document tabs');
   } },
   { group: '도움말', name: '튜토리얼의 모든 단계가 오류 없이 대상 요소를 그림', async run(app) {
     await closeFrames(app);

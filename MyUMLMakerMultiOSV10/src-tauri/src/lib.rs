@@ -269,6 +269,86 @@ async fn open_document(app: AppHandle, name: String) -> Result<PathBuf, String> 
     Ok(shown)
 }
 
+/// Document windows (label `doc-<kind>`): the user's guide, the tutorial document and the tutorial video
+/// (src/viewer.js). Each is an ordinary resizable window with the system title bar, not owned by the main
+/// window (it can go behind it and has its own taskbar button); the app ends with the main window anyway.
+const DOC_KINDS: &[&str] = &["guide", "tutorial", "video"];
+
+/// The tutorial video installed with the program (docs/video/), or MYUMLMAKER_TUTORIAL_VIDEO (tests).
+const TUTORIAL_VIDEO: &str = "video/MyUMLMaker-Tutorial.mp4";
+
+/// Opens the document window of `kind`, or brings it back when it is already open. The page shows
+/// it once drawn (popup_ready); its place and size are remembered (window-state.doc-<kind>.json).
+#[tauri::command]
+async fn open_doc_window(app: AppHandle, kind: String, title: String, width: f64, height: f64, dark: Option<bool>) -> Result<(), String> {
+    if !DOC_KINDS.contains(&kind.as_str()) {
+        return Err(format!("unknown document {kind}"));
+    }
+    static CREATING: Mutex<()> = Mutex::new(());
+    let _guard = CREATING.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let label = format!("doc-{kind}");
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    let state_path = window_state::state_file(&app).map(|path| path.with_file_name(format!("window-state.{label}.json")));
+    let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(&app, path));
+    let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .decorations(true)
+        .resizable(true)
+        .maximizable(true)
+        .minimizable(true)
+        .min_inner_size(640.0, 420.0)
+        .theme(dark.map(|dark| if dark { tauri::Theme::Dark } else { tauri::Theme::Light }))
+        .visible(false)
+        .additional_browser_args(BROWSER_ARGS);
+    let builder = match placement {
+        Some((state, scale)) => builder
+            .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
+            .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
+            .maximized(state.maximized),
+        None => builder.inner_size(width.clamp(640.0, 4000.0), height.clamp(420.0, 3000.0)).center(),
+    };
+    let window = builder.build().map_err(|error| error.to_string())?;
+    if let Some(path) = state_path {
+        window_state::track(&window, path);
+    }
+    // Shown by the page once drawn; if the page never says so (a load error), shown anyway.
+    let late = window.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        if !late.is_visible().unwrap_or(true) {
+            let _ = late.show();
+        }
+    });
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VideoInfo {
+    /// The video file (null: not installed / not made yet).
+    path: Option<PathBuf>,
+    /// Its chapter sidecar (MyUMLMaker-Tutorial.json beside it), as text.
+    chapters: Option<String>,
+}
+
+/// The tutorial video for the player window: its path (now loadable through the asset protocol) and chapters.
+#[tauri::command]
+fn tutorial_video(app: AppHandle) -> VideoInfo {
+    let path = match std::env::var_os("MYUMLMAKER_TUTORIAL_VIDEO") {
+        Some(path) => Some(PathBuf::from(path)).filter(|path| path.is_file()),
+        None => document_path(&app, TUTORIAL_VIDEO),
+    };
+    let Some(path) = path else { return VideoInfo { path: None, chapters: None } };
+    let _ = app.asset_protocol_scope().allow_file(&path);
+    let chapters = std::fs::read_to_string(path.with_extension("json")).ok();
+    VideoInfo { path: Some(path), chapters }
+}
+
 /// Opens a web address or a file with the system (shape hyperlinks).
 #[tauri::command]
 async fn open_external(target: String) -> Result<(), String> {
@@ -626,7 +706,7 @@ pub fn run() {
             if let Some(path) = state_path {
                 window_state::track(&main, path);
             }
-            // Closing the main window ends the app: the popups go with it.
+            // Closing the main window ends the app: the popups and the document windows go with it.
             let handle = app.handle().clone();
             main.on_window_event(move |event| {
                 if let tauri::WindowEvent::Destroyed = event {
@@ -652,6 +732,8 @@ pub fn run() {
             clipboard_write,
             clipboard_read,
             open_document,
+            open_doc_window,
+            tutorial_video,
             open_external,
             sample_files,
             list_files,

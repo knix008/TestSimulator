@@ -26,7 +26,7 @@
 └─────────────────────────────────┘         └──────────────────────────────────────────┘
 ```
 
-하나의 번들(`index.html` + `src/main.js`)이 모든 창을 맡습니다. `main.js`는 창 라벨(데스크톱) 또는 `?popup=<kind>`(웹·튜토리얼 프레임)를 보고 `app.js` 또는 `popup.js`를 불러옵니다. 첫 그리기 전에 설치 후 초기화(`resetForNewInstall`), 언어, 테마와 글꼴을 적용해 창이 잘못된 색으로 깜빡이지 않습니다.
+하나의 번들(`index.html` + `src/main.js`)이 모든 창을 맡습니다. `main.js`는 창 라벨(데스크톱) 또는 `?popup=<kind>` · `?viewer=<kind>`(웹·튜토리얼 프레임)를 보고 `app.js`, `popup.js` 또는 `viewer.js`(문서·동영상 창, 라벨 `doc-<kind>`)를 불러옵니다. 첫 그리기 전에 설치 후 초기화(`resetForNewInstall`), 언어, 테마와 글꼴을 적용해 창이 잘못된 색으로 깜빡이지 않습니다.
 
 ## 디렉터리
 
@@ -65,6 +65,7 @@
 | `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`) |
 | `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `SUBMENUS`, `TOOLBAR`, 오른쪽 클릭 메뉴, `SHORTCUTS`, 다이어그램 탭 줄(`renderTabs`), 프로젝트 바꾸기 전 확인(`confirmReplace`), 파일·가져오기·내보내기·코드 생성·역공학·DB 처리 |
 | `src/popup.js` | 모든 팝업 창(요구사항 목록 · 추적 매트릭스 · 문서 생성 · 기준선 · 비교 포함)과 `SHORTCUT_LIST` |
+| `src/viewer.js`, `src/domain/helpdocs.js` | 문서 창(사용 설명서 · 튜토리얼 문서)과 튜토리얼 동영상 창 — [문서 창](#문서-창) |
 | `src/i18n/ko.js`, `en.js`, `i18n.js` | UI 문자열(키는 두 파일이 같음) |
 | `src/themes.js`, `icons.js`, `icons-uml.js`, `flags.js`, `stepper.js` | 테마(라이트 20·다크 20·시스템·사용자 정의), SVG 아이콘(모델 요소·다이어그램 아이콘은 `icons-uml.js`), 국기, `[−] 값 [+]` 숫자 입력 |
 | `src-tauri/` | Rust 백엔드, `tauri.conf.json`(번들·파일 연결·리소스), `windows/hooks.nsh`, `linux/`(MIME·postinst·postrm), `Info.plist` |
@@ -173,6 +174,16 @@
 - **메뉴**는 `menu` 팝업 하나를 재사용합니다. 시작 후 미리 만들어 두고(prewarm), 내용을 그린 뒤 크기를 재서 모니터 작업 영역 안에 놓습니다(아래 공간이 없으면 위로). 숨겼다가 다시 씁니다(`hide_popup`). 테마 목록(`theme`)과 색 고르기(`color`)는 포커스를 잃으면 닫히는 드롭다운 팝업입니다.
 - 설정 팝업이 설정을 바꾸면 `localStorage`의 `storage` 이벤트로 메인 창이 다시 적용합니다.
 
+## 문서 창
+
+사용 설명서 · 튜토리얼 문서 · 튜토리얼 동영상은 각자의 창에서 열립니다(`src/viewer.js`, 순수 함수는 `src/domain/helpdocs.js`의 `DOC_KINDS` · `chapterEntries` · `findOffsets` · `parseVideoChapters` …). 시작 페이지 머리의 단추 셋, 시작 페이지의 도움말 목록, **도움말** 메뉴(`userGuide` · `tutorialDoc` · `tutorialVideo` 명령)가 모두 `openDocWindow(kind)`(app.js)를 부릅니다.
+
+- **데스크톱**: `open_doc_window`(lib.rs, `DOC_KINDS`에 있는 것만)가 라벨 `doc-guide` · `doc-tutorial` · `doc-video`의 보통 창(시스템 제목 표시줄, 크기 조절·최대화, 소유되지 않아 작업 표시줄 단추가 따로)을 만듭니다. 이미 있으면 그 창을 앞으로 가져옵니다(문서마다 창 하나). 페이지가 그린 뒤 `popup_ready`로 보이고(4초 안에 신호가 없어도 보임), 제목은 `MyUMLMaker — <문서 이름>`, 위치·크기는 `window_state.rs`로 `window-state.doc-<kind>.json`에 기억합니다. 주 창이 없어지면 `exit(0)`이라 함께 닫힙니다. 권한은 `capabilities/default.json`의 `doc-*`.
+- **문서**: `docs/<문서>(.en).html`을 프레임에 띄우고(앱 페이지와 같은 출처 — 데스크톱은 앱 자원, 웹은 `public/docs/`), 문서 쪽의 위쪽 막대를 숨기고 앱 테마 색을 CSS 변수로 넣습니다. 막대: `h2[id]` · `h3[id]`로 만든 장 목록(스크롤하면 지금 장 표시), 한국어/English, 찾기(`Ctrl+F`, CSS Custom Highlight API로 모든 곳 표시, `Enter`/`Shift+Enter`/`F3`), 인쇄, 브라우저로 열기(`open_document`), 문서 안의 웹 링크는 `open_external`.
+- **동영상**: `tutorial_video`가 설치된 `docs/video/MyUMLMaker-Tutorial.mp4`(개발 중에는 소스 폴더의 것, 테스트는 `MYUMLMAKER_TUTORIAL_VIDEO`)의 경로를 asset 프로토콜 범위에 넣고 옆의 `.json`(장 목록)과 함께 돌려줍니다. 페이지는 `convertFileSrc`로 `<video controls>`에 넣고, 속도(0.5–2×), 전체 화면(OS 창도 `setFullscreen`), 장 목록·장 눈금 띠, `Space` · `←/→` · `F` 키를 둡니다. 파일이 없으면 "튜토리얼 동영상이 아직 없습니다. npm run tutorial:video 로 만들 수 있습니다."
+- **웹**: `index.html?viewer=<kind>&lang=<ko|en>`을 이름 붙은 새 탭(`myumlmaker-doc-<kind>`, 다시 고르면 그 탭)으로 엽니다. 동영상은 `public/docs/video/`에 있을 때만(`npm run build:docs -- --with-video`) 재생합니다.
+- **튜토리얼 중**: 녹화에 찍히도록 같은 페이지를 주 창 안의 프레임(`.web-popup-doc`)으로 띄웁니다(`popups.inline`).
+
 ## 플랫폼 경계
 
 `src/platform/native.js`만 플랫폼을 압니다.
@@ -234,7 +245,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 ## 문서 생성
 
 - `scripts/build-docs.mjs`: 의존성 없는 Markdown → HTML 변환기. `UsersGuide.md` · `UsersGuide.en.md` · `docs/tutorial/README*.md`를 `docs/UsersGuide*.html` · `docs/Tutorial*.html`로 만들고(목차, 밝은/어두운 색, 표·코드·그림), `public/docs/`에 복사합니다(웹 빌드가 `./docs/`로 제공).
-- 튜토리얼 캡처(`npm run tutorial:docs` / `tutorial:video`)는 `STEPS`(src/ui/tutorial.js) 순서대로 `docs/tutorial/images/NN-<id>.jpg`를 만들고, 설명서는 그 이름으로 그림을 참조합니다. 단계를 더하거나 빼면 번호가 바뀌므로 설명서의 그림 참조도 함께 고칩니다.
+- 튜토리얼 캡처(`npm run tutorial:docs` / `tutorial:video`)는 `STEPS`(src/ui/tutorial.js) 순서대로 `docs/tutorial/images/NN-<id>.jpg`를 만들고, 설명서는 그 이름으로 그림을 참조합니다. `tutorial:video`는 자동 재생을 CDP 화면 전송(`Page.startScreencast`)으로 받아 ffmpeg로 `docs/video/MyUMLMaker-Tutorial.mp4`(H.264 · yuv420p · faststart · `-tune stillimage` · CRF 24, 4초마다 키프레임)를 만들고, 페이지 시계로 잰 단계 시작 시각을 `MyUMLMaker-Tutorial.json`(장·단계, 한/영 제목)에 씁니다. `build-docs.mjs --with-video`일 때만 웹 빌드로 복사합니다. 단계를 더하거나 빼면 번호가 바뀌므로 설명서의 그림 참조도 함께 고칩니다.
 - `scripts/make-samples.mjs`는 `templates.js`의 `SAMPLE_FILES`와 `buildTemplate`으로 `samples/`를 다시 만들고(`.myuml`, StarUML 사본 `.mdj`, 도메인 패키지 조각 `.mfj`, 클래스 모델 템플릿 `.mumlt`; 상호 운용 테스트용 `staruml-sample.mdj`는 그대로), `scripts/render-icons.mjs`는 `assets/*.svg`를 헤드리스 Edge/Chrome으로 그려 앱·문서 아이콘과 설치 프로그램 그림을 만듭니다.
 
 ## 저장소
@@ -247,7 +258,6 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 | `dist/` | 웹 빌드 (`npm run build:web`, Tauri `frontendDist`) |
 | `src-tauri/target/`, `src-tauri/gen/` | Cargo 산출물, Tauri가 다시 만드는 스키마 |
 | `release/`, 루트의 `MyUMLMaker-*.exe` · `.msi` · `.dmg` · `.deb` · `.rpm` · `.AppImage` | `scripts/build.mjs`가 모아 두는 설치 파일 |
-| `*.mp4` | `npm run tutorial:video` → `MyUMLMaker-Tutorial.mp4` |
 | `test-results/`, `*.log` | `npm test`가 쓰는 `results.json`, 실행 기록 |
 | `test/db.local.json` | DB 통합 테스트 접속 정보(환경 변수로 대신 줄 수 있음) |
 
@@ -275,6 +285,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 |---|---|
 | `window.__myumlmaker` | 메인 창: `state`, `t`, `commands`, `run(id)`, `popups`, `api`, `debug()`, `actions`(newProject · openPath · saveDoc · select · change · undo/redo · createNodeAt · createEdgeBetween · addDiagram · runLayout · runValidation · openCodegen · reverseFiles · openTextImport · exportAs …), `domain`(M · E · TYPES · DIAGRAM_TYPES · TEMPLATES · toolboxFor · buildSample · renderDiagramSvg …), `tutorial()` |
 | `window.__myumlmakerPopup` | 팝업 창: `kind`, `state`, `render`, `close`, `errorReport`, `printLayout`, `refresh` |
+| `window.__myumlmakerViewer` | 문서·동영상 창: `kind`, `state`, `runFind`, `goChapter`, `switchLanguage`, `seek`, `chapters()` (CDP 대상 제목은 `doc-<kind>`) |
 | `window.__myumlmakerPrintHook` | 있으면 OS 인쇄 대신 인쇄 레이아웃을 넘겨받음 |
 | `globalThis.__MYUMLMAKER_NO_WELCOME`, URL `?nowelcome` | 첫 실행 환영 창 생략 |
 
@@ -290,6 +301,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 | `MYUMLMAKER_TEST_COMMANDS` | `raise_test_panic` 명령 허용(심각한 오류 팝업 확인) |
 | `MYUMLMAKER_OPEN_LOG` | 문서·링크를 여는 대신 경로를 이 파일에 기록 |
 | `MYUMLMAKER_NO_OPEN` | 문서·링크를 열지 않음 |
+| `MYUMLMAKER_TUTORIAL_VIDEO` | 튜토리얼 동영상 파일 대신 쓸 경로(없는 경로면 "동영상이 없음" 안내 확인) |
 | `MYUMLMAKER_TEST_MYSQL_URL`, `MYUMLMAKER_TEST_POSTGRES_URL` | DB 통합 테스트 서버(`test/db.local.json` 대신) |
 
 WebView2의 CDP 포트와 사용자 데이터 폴더는 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, `WEBVIEW2_USER_DATA_FOLDER`로 테스트마다 따로 잡아 사용자의 설정·최근 기록을 건드리지 않습니다.

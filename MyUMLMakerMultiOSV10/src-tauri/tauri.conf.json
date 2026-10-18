@@ -19,7 +19,8 @@
         "scope": [
           "$APPDATA/**",
           "$APPLOCALDATA/**",
-          "$APPCONFIG/**"
+          "$APPCONFIG/**",
+          "$RESOURCE/docs/video/**"
         ]
       }
     }
@@ -51,6 +52,7 @@
       "../docs/Tutorial.html": "docs/Tutorial.html",
       "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
       "../docs/tutorial/images/": "docs/tutorial/images/",
+      "../docs/video/": "docs/video/",
       "../samples/": "samples/"
     },
     "fileAssociations": [

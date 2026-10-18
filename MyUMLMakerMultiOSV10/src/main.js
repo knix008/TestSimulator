@@ -15,10 +15,15 @@ setLanguage(settings.language);
 applyTheme(resolveTheme(settings.theme, globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches, settings.customTheme));
 applyFont(settings);
 
-const framed = new URLSearchParams(location.search).get('popup');
-const label = framed ? `popup-${framed}` : window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? 'main';
+const search = new URLSearchParams(location.search);
+const framed = search.get('popup');
+// Documents and the tutorial video: OS windows "doc-<kind>" (desktop), index.html?viewer=<kind> (browser tab, tutorial frame).
+const viewer = search.get('viewer');
+const label = framed ? `popup-${framed}` : viewer ? `doc-${viewer}` : window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ?? 'main';
 
-if (label.startsWith('popup-')) {
+if (label.startsWith('doc-')) {
+  import('./viewer.js');
+} else if (label.startsWith('popup-')) {
   document.documentElement.classList.add('is-popup');
   import('./popup.js');
 } else {

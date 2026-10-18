@@ -95,6 +95,8 @@ const base = {
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   tutorialDoc: '<path d="M4 5a2 2 0 0 1 2-2h5v16H6a2 2 0 0 0-2 2z"/><path d="M20 5a2 2 0 0 0-2-2h-5v16h5a2 2 0 0 1 2 2z"/><path d="M7 8h2M7 11h2M15 8h2M15 11h2"/>',
   readerExternal: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  tutorialVideo: '<rect x="2.5" y="5" width="14" height="14" rx="2.5"/><path d="M16.5 10l5-3v10l-5-3"/><path d="M7.5 9.5l4 2.5-4 2.5z"/>',
+  fullscreen: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
   imageFormat: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><circle cx="10" cy="12" r="1.4"/><path d="M18 17l-4-3-6 5"/>',
   transparentBg: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h5V4M9 9v5h5V9h6M14 14v6M4 14h5v6M14 4v5" stroke-dasharray="0"/>',
   whiteBg: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z" opacity="0.35"/>',

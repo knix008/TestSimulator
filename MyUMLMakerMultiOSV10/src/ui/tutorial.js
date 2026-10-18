@@ -148,7 +148,13 @@ export const STEPS = [
   { id: 'presentation', chapter: 'help', target: '#presentation', dwell: 6000, async run(a) { await a.sample(); await a.app.run('presentation'); } },
   { id: 'shortcuts', chapter: 'help', target: '.web-popup-settings', async run(a) { a.stopPresentation(); await a.sample(); a.popup(() => a.app.popups.open('settings', { tab: 'shortcuts' }), 'settings'); } },
   { id: 'about', chapter: 'help', target: '.web-popup-about', async run(a) { await a.sample(); a.popup(() => a.app.run('about'), 'about'); } },
-  { id: 'tutorialDoc', chapter: 'help', target: '#reader-page', dwell: 7000, async run(a) { await a.closeMenus(); a.app.openReader('tutorial'); } },
+  // The tutorial document window: a frame here, so that a recording shows it (an OS window of its own otherwise).
+  { id: 'tutorialDoc', chapter: 'help', target: '.web-popup-doc', dwell: 7000, async run(a) {
+    await a.sample(); a.app.showStartPage(true); await sleep(300);
+    await a.popup(() => a.app.openDocWindow('tutorial'), 'doc');
+    const doc = () => q('.web-popup-doc iframe')?.contentDocument?.querySelector('.viewer-frame')?.contentDocument;
+    await until(() => doc()?.querySelector('h1'));
+  } },
   { id: 'finish', chapter: 'help', target: '[data-command="tutorial"]', run: (a) => a.sample() },
 ];
 
@@ -187,10 +193,9 @@ export class Tutorial {
           tutorial.docId = doc.id;
           app.state.docs.push(doc);
         }
-        if (app.state.active !== doc.id || app.state.showStart || app.state.reader) {
+        if (app.state.active !== doc.id || app.state.showStart) {
           app.state.active = doc.id;
           app.state.showStart = false;
-          app.state.reader = null;
           app.renderAll();
           if (!app.view) app.openDiagram(doc.view.diagramId ?? allDiagrams(doc.project)[0]._id);
         }
@@ -259,7 +264,7 @@ export class Tutorial {
     if (doc) await this.app.closeDoc(doc, { force: true });
     this.docId = null;
     this.stopPresentation();
-    this.app.closeReader?.();
+    this.app.closeDocFrames?.();
     const restore = { ...this.saved, tutorialDone: true, tutorialOffered: true };
     this.app.updateSettings(restore);
     const back = this.app.state.docs.find((item) => item.id === this.savedActive);

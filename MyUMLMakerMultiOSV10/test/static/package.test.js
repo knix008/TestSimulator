@@ -220,7 +220,7 @@ test('installer hooks: one installation only (an old one removed completely), th
 
 test('the documents and samples are installed with the program', () => {
   const resources = conf.bundle.resources;
-  for (const doc of ['docs/UsersGuide.html', 'docs/UsersGuide.en.html', 'docs/Tutorial.html', 'docs/Tutorial.en.html', 'docs/tutorial/images/', 'samples/']) {
+  for (const doc of ['docs/UsersGuide.html', 'docs/UsersGuide.en.html', 'docs/Tutorial.html', 'docs/Tutorial.en.html', 'docs/tutorial/images/', 'docs/video/', 'samples/']) {
     assert.ok(Object.values(resources).includes(doc), `${doc} is installed`);
   }
   // The Markdown copies duplicated the HTML guide and linked to files that are not installed.
@@ -232,11 +232,12 @@ test('the documents and samples are installed with the program', () => {
 test('every help entry opens an installed document, and the installed documents link only to installed files', () => {
   const installed = Object.values(conf.bundle.resources).map((dst) => dst.replace(/\/$/, ''));
   const isInstalled = (target) => installed.some((dst) => target === dst || target.startsWith(`${dst}/`));
-  // Documents the app opens: Help › User's guide (ko/en) and the in-app tutorial document (ko/en).
-  const app = read('src/app.js').toString();
-  const opened = app.split('\n').filter((line) => line.includes('openDocument(')).flatMap((line) => [...line.matchAll(/'([\w.]+\.html)'/g)].map((m) => m[1]));
-  for (const [, file] of app.matchAll(/READER_DOCS = \{[^}]*?file: '(\w+)'/g)) opened.push(`${file}.html`, `${file}.en.html`);
+  // Documents the app opens in its document windows (src/domain/helpdocs.js DOC_KINDS): user's guide and tutorial (ko/en).
+  const helpdocs = read('src/domain/helpdocs.js').toString();
+  const opened = [...helpdocs.matchAll(/file: '(\w+)'/g)].flatMap(([, file]) => [`${file}.html`, `${file}.en.html`]);
   assert.ok(opened.length >= 4, `documents opened by the app: ${opened.join(', ')}`);
+  const video = /export const VIDEO_FILE = '([^']+)'/.exec(helpdocs)?.[1];
+  assert.ok(video && isInstalled(`docs/${video}`), `the tutorial video (docs/${video}) is in an installed folder`);
   for (const name of opened) assert.ok(isInstalled(`docs/${name}`), `docs/${name} (opened from Help) is installed`);
   // Links and pictures inside the installed pages.
   for (const page of installed.filter((dst) => dst.startsWith('docs/') && dst.endsWith('.html'))) {
@@ -298,6 +299,33 @@ test('every popup the app opens is allowed by the backend (POPUP_KINDS)', () => 
   const allowed = /const POPUP_KINDS: &\[&str\] = &\[([\s\S]*?)\];/.exec(read('src-tauri/src/lib.rs').toString())?.[1] ?? '';
   assert.ok(kinds.length > 15, 'popup sizes found');
   assert.deepEqual(kinds.filter((kind) => !allowed.includes(`"${kind}"`)), [], 'popups the desktop backend would refuse to open');
+});
+
+test('document and video windows: allowed kinds, capabilities, installed video folder, asset access', () => {
+  const lib = read('src-tauri/src/lib.rs').toString();
+  const kinds = /const DOC_KINDS: &\[&str\] = &\[([^\]]*)\];/.exec(lib)?.[1] ?? '';
+  for (const kind of ['guide', 'tutorial', 'video']) assert.ok(kinds.includes(`"${kind}"`), `the backend opens the ${kind} window`);
+  const helpdocs = read('src/domain/helpdocs.js').toString();
+  for (const [, kind] of /export const DOC_KINDS = \{([\s\S]*?)\n\};/.exec(helpdocs)[1].matchAll(/^ {2}(\w+):/gm)) assert.ok(kinds.includes(`"${kind}"`), `${kind}: the page's kinds match the backend's`);
+  assert.match(lib, /format!\("doc-\{kind\}"\)/, 'windows are labelled doc-<kind>');
+  assert.match(lib, /fn open_doc_window[\s\S]{0,900}get_webview_window\(&label\)[\s\S]{0,200}set_focus\(\)/, 'choosing a document again brings its window back');
+  assert.match(lib, /fn open_doc_window[\s\S]{0,2500}\.decorations\(true\)[\s\S]{0,200}\.resizable\(true\)[\s\S]{0,60}\.maximizable\(true\)/, 'an ordinary resizable window with the system title bar');
+  assert.match(lib, /open_doc_window,\s*tutorial_video,/, 'commands registered');
+  // Closing the main window ends the app, and every other window with it.
+  assert.match(lib, /main\.on_window_event[\s\S]{0,120}WindowEvent::Destroyed[\s\S]{0,60}handle\.exit\(0\)/);
+  const capability = json('src-tauri/capabilities/default.json');
+  for (const label of ['main', 'popup-*', 'doc-*']) assert.ok(capability.windows.includes(label), `capability covers ${label}`);
+  for (const permission of ['core:window:allow-set-title', 'core:window:allow-set-theme', 'core:window:allow-set-fullscreen', 'core:window:allow-set-focus']) assert.ok(capability.permissions.includes(permission), permission);
+  // docs/video/ is installed and exists without the video (a fresh checkout builds), the video itself stays out of git.
+  assert.equal(conf.bundle.resources['../docs/video/'], 'docs/video/');
+  assert.ok(fs.existsSync(path.join(root, 'docs', 'video', '.gitkeep')), 'docs/video/.gitkeep keeps the folder');
+  // The tutorial video (docs/video/MyUMLMaker-Tutorial.mp4) is committed with the project; a checkout without it still builds.
+  assert.ok(conf.app.security.assetProtocol.enable && conf.app.security.assetProtocol.scope.includes('$RESOURCE/docs/video/**'), 'the player may load the installed video');
+  assert.match(lib, /fn tutorial_video[\s\S]{0,600}asset_protocol_scope\(\)\.allow_file/, 'and the one found in the source tree (dev)');
+  // The video goes into the web build only on request.
+  assert.match(read('scripts/build-docs.mjs').toString(), /--with-video/);
+  assert.match(read('scripts/tutorial-capture.mjs').toString(), /docs', 'video'[\s\S]{0,200}MyUMLMaker-Tutorial\.mp4/);
+  assert.match(read('scripts/tutorial-capture.mjs').toString(), /'-pix_fmt', 'yuv420p', '-movflags', '\+faststart'/);
 });
 
 test('author is shown in the About window', () => {

@@ -388,6 +388,12 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .start-hero h1 { margin: 0; font-size: 1.8em; }
 .start-hero h1 small { font-size: 0.5em; color: var(--accent); }
 .start-hero p { margin: 4px 0 0; color: var(--muted); }
+.start-hero { flex-wrap: wrap; row-gap: 12px; }
+.start-hero > div:not(.start-hero-actions) { flex: 1 1 220px; min-width: 0; }
+.start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.start-docs { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 10px; border-right: 1px solid var(--border); }
+.start-hero .button.big.doc-button { padding: 9px 12px; }
+.start-hero .button.big.doc-button .icon { color: var(--accent); }
 .start-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); border: 1px solid var(--accent); }
 .start-banner .icon { color: var(--accent); }
 .start-banner span { flex: 1; }
@@ -856,13 +862,51 @@ html.is-web body { overflow-x: auto; }
 .status-item.modified, .status-item.warn { color: color-mix(in srgb, var(--warning) 55%, var(--text)); }
 
 
-/* Document reader: the tutorial document in the centre of the window. */
-#reader-page { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.reader-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hairline); background: var(--toolbar); flex: none; }
-.reader-title { display: flex; align-items: center; gap: 8px; margin: 0 6px; font-size: 1em; white-space: nowrap; }
-.reader-title .icon { color: var(--accent); }
-.reader-chapters { max-width: 260px; }
-.reader-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #fff; }
+/* ───────────────────────── document and video windows (src/viewer.js) */
+html.is-viewer, html.is-viewer body { height: 100%; overflow: hidden; background: var(--bg); }
+html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width: 0; height: 100vh; }
+.viewer { height: 100vh; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+.viewer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); background: var(--toolbar); flex: none; }
+.viewer-title { display: flex; align-items: center; gap: 8px; margin: 0 6px 0 0; font-size: 1.05em; white-space: nowrap; }
+.viewer-title .icon { color: var(--accent); width: 20px; height: 20px; }
+.viewer-chapters { max-width: 320px; min-width: 160px; }
+.viewer-find { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.viewer-find > .icon { width: 15px; height: 15px; color: var(--muted); }
+.viewer-find input[type="search"] { border: 0 !important; box-shadow: none !important; background: transparent; width: 170px; padding: 3px 2px; }
+.viewer-find output { min-width: 44px; text-align: right; color: var(--muted); font-size: 0.9em; white-space: nowrap; }
+.viewer-find .icon-button { width: 26px; height: 26px; }
+.viewer-speed { display: inline-flex; align-items: center; gap: 4px; }
+.viewer-speed .icon { color: var(--muted); }
+.viewer-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--bg); display: block; }
+.viewer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px; text-align: center; color: var(--muted); max-width: 640px; }
+.viewer-empty .icon { width: 56px; height: 56px; color: var(--accent); }
+.viewer-empty p { margin: 0; font-size: 1.1em; line-height: 1.6; color: var(--text); user-select: text; -webkit-user-select: text; }
+.video-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.video-body.no-chapters { grid-template-columns: minmax(0, 1fr); }
+.video-body.no-chapters .video-chapter-list { display: none; }
+.video-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+.video-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 10px; overflow: hidden; }
+.video-stage:fullscreen { border-radius: 0; }
+.viewer-video.no-video .video-stage { background: var(--surface); border: 1px solid var(--border); }
+.viewer-video.no-video .video-marks, .viewer-video.no-video .video-keys, .viewer-video.no-video .video-chapter-list,
+.viewer-video.no-video [data-video-chapter], .viewer-video.no-video .viewer-speed, .viewer-video.no-video [data-viewer="fullscreen"], .viewer-video.no-video [data-viewer="external"] { display: none; }
+.viewer-video.no-video .video-body { grid-template-columns: minmax(0, 1fr); }
+.video-stage video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.video-marks { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--border) 70%, transparent); cursor: pointer; flex: none; }
+.video-marks .video-played { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 6px; background: color-mix(in srgb, var(--accent) 55%, transparent); pointer-events: none; }
+.video-marks i { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--accent); }
+.video-marks i:hover { background: var(--text); }
+.video-keys { margin: 0; font-size: 0.85em; flex: none; }
+.video-chapter-list { overflow: auto; border-left: 1px solid var(--border); background: var(--surface); padding: 8px; min-height: 0; }
+.video-chapter-list section { margin-bottom: 6px; }
+.video-chapter, .video-step { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px; width: 100%; text-align: left; border: 0; background: transparent; padding: 4px 6px; border-radius: 6px; cursor: pointer; color: var(--text); align-items: baseline; }
+.video-chapter:hover, .video-step:hover { background: var(--hover); }
+.video-chapter.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.video-chapter time, .video-step time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9em; }
+.video-step { padding-left: 14px; font-size: 0.92em; }
+.video-step span { color: var(--muted); }
+/* A document window shown as a frame in the main window (while the tutorial runs). */
+.web-popup.web-popup-doc { inset: 5% 6% 7% 6%; z-index: 1000; }
 
 /* ───────────────────────── chart axes: rulers with tick marks and numbers, gridlines */
 .graph-svg .g-grid, .graph-svg .g-vgrid { stroke: color-mix(in srgb, var(--border) 70%, transparent); stroke-width: 1; }

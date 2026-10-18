@@ -70,9 +70,15 @@ export function startPageHtml(app) {
             <h1>MyUMLMaker <small>v${escapeHtml(version)}</small></h1>
             <p>${escapeHtml(t('start.tagline'))}</p>
           </div>
-          <span class="grow"></span>
-          <button class="button big" data-start="help-menu" title="${escapeHtml(t('tip.startHelp'))}" aria-haspopup="true">${icon('question')}<span>${escapeHtml(t('menu.help'))}</span>${icon('chevronDown', 'icon tiny')}</button>
-          <button class="button primary big" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('tutorial')}<span>${escapeHtml(t('start.tutorialStart'))}</span></button>
+          <div class="start-hero-actions">
+            <div class="start-docs" role="group" aria-label="${escapeHtml(t('start.help'))}">
+              <button class="button big doc-button" data-start="guide" title="${escapeHtml(t('tip.userGuide'))}">${icon('userGuide')}<span>${escapeHtml(t('action.userGuide'))}</span></button>
+              <button class="button big doc-button" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span>${escapeHtml(t('action.tutorialDoc'))}</span></button>
+              <button class="button big doc-button" data-start="tutorial-video" title="${escapeHtml(t('tip.tutorialVideo'))}">${icon('tutorialVideo')}<span>${escapeHtml(t('action.tutorialVideo'))}</span></button>
+            </div>
+            <button class="button big" data-start="help-menu" title="${escapeHtml(t('tip.startHelp'))}" aria-haspopup="true">${icon('question')}<span>${escapeHtml(t('menu.help'))}</span>${icon('chevronDown', 'icon tiny')}</button>
+            <button class="button primary big" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('tutorial')}<span>${escapeHtml(t('start.tutorialStart'))}</span></button>
+          </div>
         </header>
         ${settings.tutorialDone || settings.startShowTutorialBanner === false ? '' : `<div class="start-banner">${icon('bulb')}<span>${escapeHtml(t('start.tutorialBanner'))}</span><button class="small-button" data-start="tutorial" title="${escapeHtml(t('start.tutorialStart'))}">${icon('play')}<span>${escapeHtml(t('start.tutorialGo'))}</span></button></div>`}
         <div class="start-grid${showSide ? '' : ' no-side'}">
@@ -90,7 +96,8 @@ export function startPageHtml(app) {
 ${settings.startShowRecent === false ? '' : recentBlockHtml}${settings.startShowFolders === false ? '' : foldersBlockHtml}            <h2>${icon('userGuide')}<span>${escapeHtml(t('start.help'))}</span></h2>
             <div class="start-list">
               <button class="start-link compact" data-start="tutorial-doc" title="${escapeHtml(t('tip.tutorialDoc'))}">${icon('tutorialDoc')}<span class="name">${escapeHtml(t('action.tutorialDoc'))}</span></button>
-              <button class="start-link compact" data-start="guide" title="${escapeHtml(t('action.userGuide'))}">${icon('userGuide')}<span class="name">${escapeHtml(t('action.userGuide'))}</span></button>
+              <button class="start-link compact" data-start="guide" title="${escapeHtml(t('tip.userGuide'))}">${icon('userGuide')}<span class="name">${escapeHtml(t('action.userGuide'))}</span></button>
+              <button class="start-link compact" data-start="tutorial-video" title="${escapeHtml(t('tip.tutorialVideo'))}">${icon('tutorialVideo')}<span class="name">${escapeHtml(t('action.tutorialVideo'))}</span></button>
               <button class="start-link compact" data-start="shortcuts" title="${escapeHtml(t('action.shortcuts'))}">${icon('keyboard')}<span class="name">${escapeHtml(t('action.shortcuts'))}</span></button>
             </div>
           </section>
