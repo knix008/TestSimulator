@@ -298,6 +298,7 @@ function activate_(id) {
 }
 
 function activateDoc(id) {
+  closeDocViewer();
   if (state.active === id && !state.home) return;
   state.home = false;
   activate_(id);
@@ -550,6 +551,8 @@ function commandTip(id) {
 async function run(id, context) {
   const command = commands[id];
   if (!command || !commandEnabled(id)) return;
+  // Reading the tutorial document stays up while the language changes (it reloads in that language).
+  if (id !== 'tutorialDoc' && id !== 'language') closeDocViewer();
   recordCommand(id);
   try {
     await command.run(context);
@@ -634,6 +637,7 @@ function renderShell() {
           </div>
           <div class="view3d" id="view3d" hidden></div>
           <div class="start-page" id="start-page" hidden></div>
+          <div class="doc-viewer" id="doc-viewer" hidden></div>
           <div class="drop-overlay" aria-hidden="true"><div>${icon('drop')}<span></span></div></div>
         </div>
         <div class="command-bar">
@@ -1210,6 +1214,7 @@ function selectLight() {
 
 /** Shows (or leaves) the start page. */
 function showHome(on = true) {
+  if (on) closeDocViewer();
   if (on && state.tool) cancelTool();
   state.home = on;
   if (on) loadSamples();
@@ -1460,13 +1465,71 @@ async function openTutorial(options = {}) {
   return state.tutorial;
 }
 
-/** The tutorial document (doc/Tutorial.html with its pictures), in the browser. */
+/**
+ * Tutorial.html in the current language. The installed app reads the copy
+ * shipped in its resource folder (doc/); the web build reads doc/ next to the page.
+ */
+async function tutorialDocUrl() {
+  const name = getLanguage() === 'en' ? 'Tutorial.en.html' : 'Tutorial.html';
+  if (desktop) {
+    const path = await native.tutorialDocument(name);
+    return { name, url: native.assetUrl(path) };
+  }
+  return { name, url: new URL(`doc/${name}`, document.baseURI).href };
+}
+
+function isDocViewerOpen() {
+  const viewer = root.querySelector('#doc-viewer');
+  return Boolean(viewer && !viewer.hidden);
+}
+
+/** The tutorial document (doc/Tutorial.html with its pictures), inside this window. */
+async function showDocViewer(url) {
+  const viewer = root.querySelector('#doc-viewer');
+  if (!viewer) return;
+  if (!url) url = (await tutorialDocUrl()).url;
+  const current = viewer.querySelector('iframe');
+  viewer.hidden = false;
+  root.classList.add('doc-open');
+  if (current?.dataset.src === url) return;
+  viewer.innerHTML = `<header class="doc-viewer-bar">
+      ${icon('book')}<b>${escapeHtml(t('action.tutorialDoc'))}</b>
+      <button type="button" class="small-button doc-viewer-close" data-doc-close title="${escapeHtml(t('error.close'))}">${icon('close')}<span>${escapeHtml(t('error.close'))}</span></button>
+    </header>
+    <iframe class="doc-viewer-frame" title="${escapeHtml(t('action.tutorialDoc'))}" src="${escapeHtml(url)}" data-src="${escapeHtml(url)}"></iframe>`;
+  const frame = viewer.querySelector('iframe');
+  frame.addEventListener('load', () => {
+    try {
+      frame.contentWindow?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); closeDocViewer(); }
+      });
+    } catch { /* the page went away */ }
+  });
+  viewer.querySelector('[data-doc-close]')?.focus();
+}
+
+function closeDocViewer() {
+  const viewer = root.querySelector('#doc-viewer');
+  if (!viewer || viewer.hidden) return;
+  viewer.hidden = true;
+  const frame = viewer.querySelector('iframe');
+  if (frame) frame.src = 'about:blank';
+  frame?.removeAttribute('data-src');
+  root.classList.remove('doc-open');
+}
+
 async function openTutorialDoc() {
+  let name = 'Tutorial.html';
   try {
-    if (desktop) await native.invoke('open_document', { name: getLanguage() === 'en' ? 'Tutorial.en.html' : 'Tutorial.html' });
-    else window.open(`doc/${getLanguage() === 'en' ? 'Tutorial.en.html' : 'Tutorial.html'}`, '_blank', 'noopener');
+    const found = await tutorialDocUrl();
+    name = found.name;
+    if (!desktop) {
+      const response = await fetch(found.url, { cache: 'no-store' });
+      if (!response.ok) throw new Error(String(response.status));
+    }
+    await showDocViewer(found.url);
   } catch (error) {
-    showError('error.open', error, 'doc/Tutorial.html');
+    showError('error.open', error, `doc/${name}`);
   }
 }
 
@@ -3993,6 +4056,7 @@ function applySettings(previous = {}) {
     setLanguage(s.language);
     native.setBackendLanguage(s.language);
     if (previous.language) notify('info', t('notice.language'));
+    if (isDocViewerOpen()) openTutorialDoc();
   }
   if (s.backgroundImage !== previous.backgroundImage) loadBackground();
   if (s.theme !== previous.theme && previous.theme) notify('info', t('notice.theme', { name: themeName(s.theme, getLanguage()) }));
@@ -5755,6 +5819,7 @@ function bindEvents() {
       if (state.lastMenuClose.name === name && Date.now() - state.lastMenuClose.at < 300) return undefined;
       return openMenubarMenu(name);
     }
+    if (target.closest('[data-doc-close]')) return closeDocViewer();
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const anchor = command.dataset.command === 'themeMenu' ? anchorBelow(command.closest('.split-button') ?? command)
@@ -6104,6 +6169,7 @@ function onKeyDown(event) {
   }
   if (key === ' ' && !canvasState.spaceDown) { canvasState.spaceDown = true; event.preventDefault(); return; }
   if (key === 'escape') {
+    if (isDocViewerOpen()) { closeDocViewer(); return; }
     if (state.focusView) { setFocusView(false); return; }
     if (state.tool) { if (state.tool.points.length || state.tool.target) { state.tool.cancel(); renderCommandBar(); scheduleRender(); } else setTool('select'); return; }
     if (state.toolId !== 'select') { setTool('select'); return; }

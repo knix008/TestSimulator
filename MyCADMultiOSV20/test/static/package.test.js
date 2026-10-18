@@ -186,6 +186,18 @@ test('.mcad is registered with its own icon on every OS', () => {
   assert.match(read('src-tauri/linux/postinst.sh').toString(), /update-mime-database/);
 });
 
+test('tutorial documents in doc/ are installed with the app', () => {
+  assert.equal(conf.bundle.resources['../doc/'], 'doc/', 'the doc directory is a bundled resource');
+  for (const file of ['Tutorial.html', 'Tutorial.en.html', 'Tutorial.md', 'Tutorial.en.md']) {
+    assert.ok(fs.existsSync(path.join(root, 'doc', file)), file);
+  }
+  assert.ok(fs.existsSync(path.join(root, 'doc', 'images', 'ko', 'start-page.webp')));
+  assert.ok(fs.existsSync(path.join(root, 'doc', 'images', 'en', 'start-page.webp')));
+  const lib = read('src-tauri/src/lib.rs').toString();
+  assert.match(lib, /fn tutorial_document/);
+  assert.match(lib, /resources\.join\("doc"\)/);
+});
+
 test('installer languages: Korean and English, user selectable', () => {
   const nsis = conf.bundle.windows.nsis;
   assert.deepEqual(nsis.languages, ['Korean', 'English']);

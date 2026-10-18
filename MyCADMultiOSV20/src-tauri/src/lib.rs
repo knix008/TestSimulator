@@ -587,24 +587,41 @@ async fn raise_test_panic() -> Result<(), String> {
     Ok(())
 }
 
-/// Opens a page of the user documentation (doc/<name>, e.g. Tutorial.html) in
-/// the default browser: from the installed resources, or from the project
-/// folder when running a development build.
-#[tauri::command]
-fn open_document(app: AppHandle, name: String) -> Result<(), String> {
+/// A page of the user documentation installed with the app (`doc/<name>` in the
+/// resource directory), or the project copy when running a development build.
+fn document_file(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     if name.is_empty() || name.contains("..") || name.contains('/') || name.contains('\\') {
         return Err(tr!("문서 이름이 올바르지 않습니다: {name}", "Not a document name: {name}"));
     }
     let mut candidates = Vec::new();
     if let Ok(resources) = app.path().resource_dir() {
-        candidates.push(resources.join("doc").join(&name));
+        candidates.push(resources.join("doc").join(name));
     }
-    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("doc").join(&name));
-    let path = candidates
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("doc").join(name));
+    candidates
         .into_iter()
-        .find(|path| path.exists())
-        .ok_or_else(|| tr!("문서를 찾을 수 없습니다: doc/{name}", "The document was not found: doc/{name}"))?;
-    open_with_system(&path)
+        .find(|path| path.is_file())
+        .ok_or_else(|| tr!("문서를 찾을 수 없습니다: doc/{name}", "The document was not found: doc/{name}"))
+}
+
+/// The installed tutorial page, as a path the window may load (pictures included).
+#[tauri::command]
+fn tutorial_document(app: AppHandle, name: String) -> Result<PathBuf, String> {
+    let path = document_file(&app, &name)?;
+    if let Some(dir) = path.parent() {
+        app.asset_protocol_scope()
+            .allow_directory(dir, true)
+            .map_err(|error| tr!("문서를 열 수 없습니다: {error}", "Could not open the document: {error}"))?;
+    }
+    Ok(path)
+}
+
+/// Opens a page of the user documentation (doc/<name>, e.g. Tutorial.html) in
+/// the default browser: from the installed resources, or from the project
+/// folder when running a development build.
+#[tauri::command]
+fn open_document(app: AppHandle, name: String) -> Result<(), String> {
+    open_with_system(&document_file(&app, &name)?)
 }
 
 /// The Save dialog with MyCAD's options in the area Windows keeps for file properties.
@@ -804,6 +821,7 @@ pub fn run() {
             print_window,
             quit_app,
             open_document,
+            tutorial_document,
             open_url,
             open_data_folder,
             previous_run,

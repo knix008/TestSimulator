@@ -941,6 +941,18 @@ html.popup-kind-menu, html.popup-kind-menu body { background: var(--surface); }
 .start .action-card, .start .task-card, .start .sample-card, .start .start-tip { background: color-mix(in srgb, var(--surface) 72%, transparent); backdrop-filter: blur(2px); }
 .start .action-card[data-primary] { background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, var(--surface) 84%, transparent)); }
 .start .action-card:hover { background: color-mix(in srgb, var(--hover) 90%, transparent); }
+/* The tutorial document, read in this window (over the drawing or the start page). */
+.doc-viewer { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; background: var(--surface); }
+.doc-viewer[hidden] { display: none; }
+.doc-viewer-bar { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--surface); flex: none; }
+.doc-viewer-bar > .icon { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.doc-viewer-bar b { font-size: 0.95em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-viewer-close { display: inline-flex; align-items: center; gap: 5px; height: 28px; margin-left: auto; box-sizing: border-box; }
+.doc-viewer-close .icon { width: 14px; height: 14px; }
+.doc-viewer-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #fff; }
+#app.doc-open #workspace { grid-template-columns: 0 minmax(0, 1fr) 0; }
+#app.doc-open #left-panel, #app.doc-open #right-panel { visibility: hidden; overflow: hidden; }
+#app.doc-open .command-bar { visibility: hidden; }
 /* The house in the menu bar: back to the start page. */
 .menubar-home { display: inline-grid; place-items: center; width: 30px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
 .menubar-home .icon { width: 17px; height: 17px; }

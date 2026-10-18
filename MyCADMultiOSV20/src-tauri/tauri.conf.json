@@ -39,9 +39,7 @@
       "icons/drawing.ico": "drawing.ico",
       "icons/drawing.icns": "drawing.icns",
       "icons/drawing.png": "drawing.png",
-      "../doc/Tutorial.html": "doc/Tutorial.html",
-      "../doc/Tutorial.en.html": "doc/Tutorial.en.html",
-      "../doc/images/": "doc/images/"
+      "../doc/": "doc/"
     },
     "fileAssociations": [
       {

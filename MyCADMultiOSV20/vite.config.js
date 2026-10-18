@@ -1,6 +1,7 @@
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, createReadStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { freeDevPort } from './scripts/port.mjs';
 
@@ -13,15 +14,48 @@ const commit = (() => {
   }
 })();
 
-// The start page's samples (those in samples/index.json) and the tutorial
-// document (doc/) go next to the app in dist/; the dev server serves them
-// from the project folder as they are.
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+
+// doc/ and samples/ are ordinary files the page fetches (the tutorial document,
+// the sample list). The dev server hands them out from the project folder;
+// a build copies them next to the app in dist/.
+function serveProjectDirs(rootDir, dirs) {
+  const types = {
+    '.html': 'text/html; charset=utf-8', '.json': 'application/json; charset=utf-8',
+    '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml',
+    '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
+  };
+  return (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    let pathname = '';
+    try { pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://local').pathname); } catch { return next(); }
+    const top = pathname.split('/').filter(Boolean)[0];
+    if (!dirs.includes(top)) return next();
+    const rel = pathname.replace(/^\/+/, '');
+    if (rel.split('/').includes('..')) return next();
+    const file = path.resolve(rootDir, rel);
+    const base = path.resolve(rootDir, top);
+    if (file !== base && !file.startsWith(base + path.sep)) return next();
+    let info;
+    try { info = statSync(file); } catch { return next(); }
+    if (!info.isFile()) return next();
+    res.statusCode = 200;
+    res.setHeader('Content-Type', types[path.extname(file).toLowerCase()] || 'application/octet-stream');
+    res.setHeader('Content-Length', info.size);
+    res.setHeader('Cache-Control', 'no-cache');
+    if (req.method === 'HEAD') { res.end(); return; }
+    createReadStream(file).pipe(res);
+  };
+}
+
 function copyContent() {
   return {
     name: 'mycad-content',
-    apply: 'build',
+    configureServer(server) {
+      server.middlewares.use(serveProjectDirs(projectRoot, ['doc', 'samples']));
+    },
     closeBundle() {
-      const root = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+      const root = projectRoot;
       const out = path.join(root, 'dist');
       const index = path.join(root, 'samples', 'index.json');
       if (existsSync(index)) {

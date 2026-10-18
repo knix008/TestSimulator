@@ -15,6 +15,11 @@ export function invoke(command, args) {
   return tauriInvoke(command, args);
 }
 
+/** The tutorial page installed with the app (doc/<name>), as a filesystem path. */
+export const tutorialDocument = (name) => invoke('tutorial_document', { name });
+/** A file path as a URL this window can show, pictures included. */
+export const assetUrl = (filePath) => convertFileSrc(filePath);
+
 /** Readable text of anything thrown (Rust errors arrive as strings). */
 export const errorText = (error) => (error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? String(error));
 
