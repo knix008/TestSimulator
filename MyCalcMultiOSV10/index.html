@@ -192,18 +192,18 @@
         </div>
         <div class="graph-axis-row" id="axisRow">
         <div class="axis-field" data-axis="x">
-          <input type="color" id="axisColorX" value="#fb923c" data-i18n-aria="axisX" data-i18n-title="axisX" aria-label="X 축" data-tooltip="X 축" />
           <button type="button" id="axisShowX" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisX" data-i18n-title="axisX" aria-label="X 축" data-tooltip="X 축">X</button>
+          <input type="color" id="axisColorX" class="axis-color-pop" value="#fb923c" tabindex="-1" aria-hidden="true" />
         </div>
         <div class="axis-field" data-axis="y">
-          <input type="color" id="axisColorY" value="#4ade80" data-i18n-aria="axisY" data-i18n-title="axisY" aria-label="Y 축" data-tooltip="Y 축" />
           <button type="button" id="axisShowY" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisY" data-i18n-title="axisY" aria-label="Y 축" data-tooltip="Y 축">Y</button>
+          <input type="color" id="axisColorY" class="axis-color-pop" value="#4ade80" tabindex="-1" aria-hidden="true" />
         </div>
         <div class="axis-field" data-axis="z" hidden>
-          <input type="color" id="axisColorZ" value="#7dd3fc" data-i18n-aria="axisZ" data-i18n-title="axisZ" aria-label="Z 축" data-tooltip="Z 축" />
           <button type="button" id="axisShowZ" class="axis-toggle" aria-pressed="true" data-i18n-aria="axisZ" data-i18n-title="axisZ" aria-label="Z 축" data-tooltip="Z 축">Z</button>
+          <input type="color" id="axisColorZ" class="axis-color-pop" value="#7dd3fc" tabindex="-1" aria-hidden="true" />
         </div>
-        <span class="axis-sep" aria-hidden="true"></span>
+        <span class="axis-sep" id="axisRangeSep" aria-hidden="true"></span>
         <div class="axis-span" data-axis="x">
           <span class="axis-span-tag">X</span>
           <input type="number" id="axisMinX" class="axis-num" step="any" data-i18n-aria="axisMinX" data-i18n-title="axisMinX" aria-label="X 최소" data-tooltip="X 최소" />
@@ -221,13 +221,6 @@
           <input type="number" id="axisMinZ" class="axis-num" step="any" data-i18n-aria="axisMinZ" data-i18n-title="axisMinZ" aria-label="Z 최소" data-tooltip="Z 최소" />
           <span class="axis-span-dash" aria-hidden="true">~</span>
           <input type="number" id="axisMaxZ" class="axis-num" step="any" data-i18n-aria="axisMaxZ" data-i18n-title="axisMaxZ" aria-label="Z 최대" data-tooltip="Z 최대" />
-        </div>
-        <span class="axis-sep" id="lightSep" aria-hidden="true" hidden></span>
-        <div class="axis-span light-span" id="lightSpan" hidden>
-          <span class="icon icon-light axis-span-icon" aria-hidden="true"></span>
-          <input type="number" id="lightAtX" class="axis-num" step="any" data-i18n-aria="lightAtX" data-i18n-title="lightAtX" aria-label="광원 X" data-tooltip="광원 X" />
-          <input type="number" id="lightAtY" class="axis-num" step="any" data-i18n-aria="lightAtY" data-i18n-title="lightAtY" aria-label="광원 Y" data-tooltip="광원 Y" />
-          <input type="number" id="lightAtZ" class="axis-num" step="any" data-i18n-aria="lightAtZ" data-i18n-title="lightAtZ" aria-label="광원 Z" data-tooltip="광원 Z" />
         </div>
         </div>
       </div>
@@ -275,6 +268,38 @@
           <div id="readout" class="readout">드래그로 이동, 휠로 확대</div>
         </div>
         <aside class="graph-side" id="graphSide" hidden>
+          <div class="side-axis-colors" id="sideAxisColors"></div>
+          <section class="side-group" id="sideAxisValues">
+            <h3 data-i18n="axisRange">축 범위</h3>
+            <div id="sideAxisValueList"></div>
+          </section>
+          <section class="side-group" id="sideAxisGroup">
+            <h3 data-i18n="axisLength">축 길이</h3>
+            <label class="axis-length">
+              <span>X</span>
+              <span class="num-step">
+                <button type="button" class="step-down" id="axisLenDownX" data-i18n-aria="axisDownX" data-i18n-title="axisDownX" aria-label="X 감소" data-tooltip="X 감소">−</button>
+                <span class="axis-range-slot" id="axisRangeX"><output id="axisLenX" data-i18n-aria="axisLenX" aria-label="X 길이">20</output></span>
+                <button type="button" class="step-up" id="axisLenUpX" data-i18n-aria="axisUpX" data-i18n-title="axisUpX" aria-label="X 증가" data-tooltip="X 증가">+</button>
+              </span>
+            </label>
+            <label class="axis-length">
+              <span>Y</span>
+              <span class="num-step">
+                <button type="button" class="step-down" id="axisLenDownY" data-i18n-aria="axisDownY" data-i18n-title="axisDownY" aria-label="Y 감소" data-tooltip="Y 감소">−</button>
+                <span class="axis-range-slot" id="axisRangeY"><output id="axisLenY" data-i18n-aria="axisLenY" aria-label="Y 길이">20</output></span>
+                <button type="button" class="step-up" id="axisLenUpY" data-i18n-aria="axisUpY" data-i18n-title="axisUpY" aria-label="Y 증가" data-tooltip="Y 증가">+</button>
+              </span>
+            </label>
+            <label class="axis-length">
+              <span>Z</span>
+              <span class="num-step">
+                <button type="button" class="step-down" id="axisLenDownZ" data-i18n-aria="axisDownZ" data-i18n-title="axisDownZ" aria-label="Z 감소" data-tooltip="Z 감소">−</button>
+                <span class="axis-range-slot" id="axisRangeZ"><output id="axisLenZ" data-i18n-aria="axisLenZ" aria-label="Z 길이">20</output></span>
+                <button type="button" class="step-up" id="axisLenUpZ" data-i18n-aria="axisUpZ" data-i18n-title="axisUpZ" aria-label="Z 증가" data-tooltip="Z 증가">+</button>
+              </span>
+            </label>
+          </section>
           <section class="side-group" id="sideLightGroup">
             <h3 data-i18n="light">광원</h3>
             <label class="side-check"><input type="checkbox" id="sideLightOn" checked /><span data-i18n="lightOn">광원 켜기</span></label>

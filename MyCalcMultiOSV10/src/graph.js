@@ -72,6 +72,9 @@ const FIT_TRIM = 0.01;
 // half-length. The diagonal of the box reaches about 1.41, so this keeps the
 // ends of the axes clear of the drawing without racing away from it.
 const AXIS_OVERHANG = 1.2;
+// How far an axis line is followed, in the units of the box. The length on
+// the panel sizes the graph; the line itself runs on and fades out of view.
+const AXIS_RAY = 240;
 // How finely a 3D axis is cut to be sorted in among the surface cells, and how
 // light it is drawn.
 const AXIS_PIECES = 64;
@@ -90,6 +93,14 @@ function clamp(value, min, max) {
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function cssRgb(color) {
+  const text = String(color || "").trim();
+  if (text.startsWith("#")) return hexToRgb(text);
+  const parts = text.match(/[\d.]+/g);
+  if (!parts || parts.length < 3) return [120, 113, 108];
+  return [Number(parts[0]), Number(parts[1]), Number(parts[2])];
 }
 
 function mixRgb(a, b, t) {
@@ -341,6 +352,24 @@ class GraphBoard {
     this.onView?.();
   }
 
+  // One axis grows or shrinks about its own middle. The other two stay put,
+  // and the drawn box remains a cube: a longer axis only spreads its ticks.
+  stepAxis(axis, factor) {
+    if (axis !== "x" && axis !== "y" && axis !== "z") return;
+    const lowKey = `${axis}Min`;
+    const highKey = `${axis}Max`;
+    const low = this.view[lowKey];
+    const high = this.view[highKey];
+    const middle = (low + high) / 2;
+    let half = ((high - low) / 2) * factor;
+    if (!Number.isFinite(half)) return;
+    half = Math.min(1e9, Math.max(1e-6, half));
+    const nextLow = middle - half;
+    const nextHigh = middle + half;
+    if (Math.abs(nextHigh - nextLow - (high - low)) <= Math.max(1e-9, Math.abs(high - low) * 1e-9)) return;
+    this.setView({ [lowKey]: nextLow, [highKey]: nextHigh });
+  }
+
   resetView() {
     this.zAuto = false;
     this.stretched = false;
@@ -424,12 +453,14 @@ class GraphBoard {
     if (Math.abs(next - this.camera.zoom) < 1e-6) return;
     this.camera.zoom = next;
     if (fast) {
+      // One frame per refresh, and that frame is the finished picture.
+      // A second draw after the wheel stops used to fill in what the
+      // quick pass had left out.
       this.fastPaint = true;
       this.scheduleDraw();
       clearTimeout(this.fullPaintTimer);
       this.fullPaintTimer = setTimeout(() => {
         this.fastPaint = false;
-        if (this.drag?.mode !== "rotate") this.draw();
       }, 140);
     } else {
       this.fastPaint = false;
@@ -459,7 +490,6 @@ class GraphBoard {
       clearTimeout(this.fullPaintTimer);
       this.fullPaintTimer = setTimeout(() => {
         this.fastPaint = false;
-        if (this.drag?.mode !== "rotate") this.draw();
       }, 140);
     } else {
       this.fastPaint = false;
@@ -1169,7 +1199,8 @@ class GraphBoard {
     this.hoverLabel = `x = ${formatTick(x)}   y = ${formatTick(y)}`;
   }
 
-  // The widest thing on screen is the cylinder around the box, and the light with it.
+  // The cylinder around the box. The lamp is left out: folding it in makes the
+  // whole picture zoom and shift every time the lamp moves.
   sceneBounds() {
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
     const rx = Math.abs(this.worldToFloorX(xMax) - this.worldToFloorX(xMin)) / 2;
@@ -1180,12 +1211,6 @@ class GraphBoard {
     const reaches = this.axes.x.visible || this.axes.y.visible;
     if (reaches) radius = Math.max(radius, Math.max(rx, ry) * AXIS_OVERHANG);
     if (this.axes.z.visible) half *= AXIS_OVERHANG;
-    if (this.light.on) {
-      const beam = this.lightPoint();
-      const held = 1.6;
-      radius = Math.max(radius, Math.min(Math.hypot(beam.x, beam.y), held));
-      half = Math.max(half, Math.min(Math.abs(beam.z), held));
-    }
     return { radius, half };
   }
 
@@ -1277,21 +1302,34 @@ class GraphBoard {
     this.meshKey = key;
     const n = 109;
     const grids = visible.map(() => new Float64Array(n * n));
-    const magnitudes = [];
-    for (let j = 0; j < n; j++) {
-      const y = y0 + (j / (n - 1)) * (y1 - y0);
-      for (let i = 0; i < n; i++) {
-        const x = x0 + (i / (n - 1)) * (x1 - x0);
-        visible.forEach((fn, index) => {
-          const z = this.evalScope(fn.ast, { x, y });
-          grids[index][j * n + i] = z;
-          if (Number.isFinite(z)) magnitudes.push(Math.abs(z));
-        });
+    const trackHeight = this.zAuto || !(this.view.zMax > this.view.zMin);
+    const magnitudes = trackHeight ? [] : null;
+    const previousAngle = this.engine.angleMode;
+    this.engine.angleMode = "rad";
+    try {
+      for (let j = 0; j < n; j++) {
+        const y = y0 + (j / (n - 1)) * (y1 - y0);
+        for (let i = 0; i < n; i++) {
+          const x = x0 + (i / (n - 1)) * (x1 - x0);
+          for (let index = 0; index < visible.length; index++) {
+            let z = NaN;
+            try {
+              const value = this.engine.evalAst(visible[index].ast, { x, y });
+              z = Number.isFinite(value) ? value : NaN;
+            } catch {
+              z = NaN;
+            }
+            grids[index][j * n + i] = z;
+            if (trackHeight && Number.isFinite(z)) magnitudes.push(Math.abs(z));
+          }
+        }
       }
+    } finally {
+      this.engine.angleMode = previousAngle;
     }
-    magnitudes.sort((a, b) => a - b);
-    const robust = magnitudes.length ? magnitudes[Math.floor(magnitudes.length * 0.95)] : 1;
-    if (this.zAuto || !(this.view.zMax > this.view.zMin)) {
+    if (trackHeight) {
+      magnitudes.sort((a, b) => a - b);
+      const robust = magnitudes.length ? magnitudes[Math.floor(magnitudes.length * 0.95)] : 1;
       this.zScale = Math.max(robust, 1e-6);
       this.view.zMin = -this.zScale;
       this.view.zMax = this.zScale;
@@ -1315,11 +1353,37 @@ class GraphBoard {
     const beam = this.light.on
       ? `${this.light.azimuth.toFixed(3)},${this.light.elevation.toFixed(3)},${this.lightReach().toFixed(3)}`
       : "off";
-    const key = `${this.meshKey}|${theme}|${colors}|${beam}`;
+    const geomKey = `${this.meshKey}|${theme}|${colors}`;
+    const key = `${geomKey}|${beam}`;
     if (this.scene && this.scene.key === key) return;
+    // Moving the lamp only changes how bright each face is. The shape stays.
+    if (this.scene && this.scene.geomKey === geomKey) {
+      this.recolorScene();
+      this.scene.key = key;
+      return;
+    }
     const surfaces = [];
     for (const mesh of this.meshes || []) this.cacheSurface(mesh, surfaces);
-    this.scene = { key, surfaces };
+    this.scene = { key, geomKey, surfaces };
+  }
+
+  recolorScene() {
+    const beam = this.light.on ? this.lightVector() : null;
+    for (const surface of this.scene.surfaces) {
+      const { colors, shades, normals, edges, base } = surface;
+      for (let index = 0; index < colors.length; index++) {
+        if (!colors[index]) continue;
+        const at = index * 3;
+        const lit = this.paintLit(normals[at], normals[at + 1], normals[at + 2], base, beam);
+        colors[index] = lit.color;
+        shades[index] = lit.shade;
+      }
+      for (const edge of edges) {
+        const lit = this.paintLit(edge.nx, edge.ny, edge.nz, base, beam);
+        edge.color = lit.color;
+        edge.shade = lit.shade;
+      }
+    }
   }
 
   cacheSurface(mesh, surfaces) {
@@ -1340,10 +1404,27 @@ class GraphBoard {
     const corner = (index) => ({ x: points[index * 3], y: points[index * 3 + 1], z: points[index * 3 + 2] });
     const zFloor = this.view.zMin;
     const zCeiling = this.view.zMax;
-    const colours = new Array((n - 1) * (n - 1)).fill(null);
+    const cellCount = (n - 1) * (n - 1);
+    const colours = new Array(cellCount).fill(null);
+    const shades = new Uint8Array(cellCount);
+    const normals = new Float32Array(cellCount * 3);
     const edges = [];
+    const scratch = this.normalScratch || (this.normalScratch = new Float64Array(3));
+    const beam = this.light.on ? this.lightVector() : null;
     // One function, one colour: height does not tint the surface.
-    const shadeOf = (locals) => this.localShade(locals, base);
+    const remember = (locals, cell) => {
+      this.unitNormal(locals, scratch);
+      const lit = this.paintLit(scratch[0], scratch[1], scratch[2], base, beam);
+      if (cell >= 0) {
+        const at = cell * 3;
+        normals[at] = scratch[0];
+        normals[at + 1] = scratch[1];
+        normals[at + 2] = scratch[2];
+        colours[cell] = lit.color;
+        shades[cell] = lit.shade;
+      }
+      return lit;
+    };
     for (let j = 0; j < n - 1; j++) {
       for (let i = 0; i < n - 1; i++) {
         const first = j * n + i;
@@ -1354,7 +1435,7 @@ class GraphBoard {
         const under = samples.filter((value) => value < zFloor).length;
         if (over === 4 || under === 4) continue;
         if (!over && !under) {
-          colours[j * (n - 1) + i] = shadeOf(locals);
+          remember(locals, j * (n - 1) + i);
           continue;
         }
         // The cell meets the height limit: cut it there rather than fold it flat.
@@ -1380,7 +1461,8 @@ class GraphBoard {
           y: this.worldToFloorY(point.y),
           z: this.zToLocalFree(point.z),
         }));
-        edges.push({ shape, count: piece.length, color: shadeOf(slope) });
+        const lit = remember(slope, -1);
+        edges.push({ shape, count: piece.length, nx: scratch[0], ny: scratch[1], nz: scratch[2], color: lit.color, shade: lit.shade });
       }
     }
     const count = n * n;
@@ -1391,8 +1473,11 @@ class GraphBoard {
     }
     surfaces.push({
       n,
+      base,
       points,
       colors: colours,
+      shades,
+      normals,
       edges,
       sx: new Float32Array(count),
       sy: new Float32Array(count),
@@ -1428,23 +1513,27 @@ class GraphBoard {
 
   projectSurfaces() {
     const proj = this.beginProjection();
+    const { cy, sy, cp, sp, focal, ox, oy } = proj;
     const batch = [];
+    const spot = this.projectSpot || (this.projectSpot = { sx: 0, sy: 0, away: 0 });
     const place = (x, y, z) => {
-      const flatX = x * proj.cy - y * proj.sy;
-      const flatY = x * proj.sy + y * proj.cy;
-      const toward = flatY * proj.cp - z * proj.sp;
-      const up = flatY * proj.sp + z * proj.cp;
+      const flatX = x * cy - y * sy;
+      const flatY = x * sy + y * cy;
+      const toward = flatY * cp - z * sp;
+      const up = flatY * sp + z * cp;
       const away = 3.2 - toward;
-      if (!(away > 0.2)) return null;
-      const scale = proj.focal / away;
-      return { sx: proj.ox + flatX * scale, sy: proj.oy - up * scale, away };
+      if (!(away > 0.2)) return false;
+      const scale = focal / away;
+      spot.sx = ox + flatX * scale;
+      spot.sy = oy - up * scale;
+      spot.away = away;
+      return true;
     };
     for (const surface of this.scene?.surfaces || []) {
       const { n, points, sx, sy, depth } = surface;
       const count = n * n;
       for (let index = 0; index < count; index++) {
-        const spot = place(points[index * 3], points[index * 3 + 1], points[index * 3 + 2]);
-        if (!spot) {
+        if (!place(points[index * 3], points[index * 3 + 1], points[index * 3 + 2])) {
           depth[index] = 0;
           continue;
         }
@@ -1453,22 +1542,24 @@ class GraphBoard {
         depth[index] = spot.away;
       }
       let at = 0;
-      surface.edges.forEach((edge, piece) => {
+      const { edges, rimSx, rimSy, rimDepth } = surface;
+      for (let piece = 0; piece < edges.length; piece++) {
+        const edge = edges[piece];
         let sum = 0;
         let good = true;
         for (let vertex = 0; vertex < edge.count; vertex++) {
-          const spot = place(edge.shape[vertex * 3], edge.shape[vertex * 3 + 1], edge.shape[vertex * 3 + 2]);
-          if (!spot) {
+          const o = vertex * 3;
+          if (!place(edge.shape[o], edge.shape[o + 1], edge.shape[o + 2])) {
             good = false;
             break;
           }
-          surface.rimSx[at + vertex] = spot.sx;
-          surface.rimSy[at + vertex] = spot.sy;
+          rimSx[at + vertex] = spot.sx;
+          rimSy[at + vertex] = spot.sy;
           sum += spot.away;
         }
-        surface.rimDepth[piece] = good ? sum / edge.count : 0;
+        rimDepth[piece] = good ? sum / edge.count : 0;
         at += edge.count;
-      });
+      }
       batch.push(surface);
     }
     return batch;
@@ -1555,19 +1646,36 @@ class GraphBoard {
     return faces;
   }
 
+  unitNormal(locals, out) {
+    const e1x = locals[1].x - locals[0].x;
+    const e1y = locals[1].y - locals[0].y;
+    const e1z = locals[1].z - locals[0].z;
+    const e2x = locals[3].x - locals[0].x;
+    const e2y = locals[3].y - locals[0].y;
+    const e2z = locals[3].z - locals[0].z;
+    let x = e1y * e2z - e1z * e2y;
+    let y = e1z * e2x - e1x * e2z;
+    let z = e1x * e2y - e1y * e2x;
+    const length = Math.hypot(x, y, z) || 1;
+    out[0] = x / length;
+    out[1] = y / length;
+    out[2] = z / length;
+    return out;
+  }
+
+  paintLit(nx, ny, nz, rgb, beam) {
+    const lit = beam ? clamp(0.62 + 0.38 * Math.abs(nx * beam.x + ny * beam.y + nz * beam.z), 0.45, 1) : 0.92;
+    const box = this.litBox || (this.litBox = { color: "", shade: 0 });
+    box.color = this.shadeColor(rgb, lit);
+    box.shade = Math.round(lit * 255);
+    return box;
+  }
+
   localShade(locals, rgb) {
-    if (!this.light.on) return this.shadeColor(rgb, 0.92);
-    const e1 = { x: locals[1].x - locals[0].x, y: locals[1].y - locals[0].y, z: locals[1].z - locals[0].z };
-    const e2 = { x: locals[3].x - locals[0].x, y: locals[3].y - locals[0].y, z: locals[3].z - locals[0].z };
-    const normal = {
-      x: e1.y * e2.z - e1.z * e2.y,
-      y: e1.z * e2.x - e1.x * e2.z,
-      z: e1.x * e2.y - e1.y * e2.x,
-    };
-    const length = Math.hypot(normal.x, normal.y, normal.z) || 1;
-    const beam = this.lightVector();
-    const facing = Math.abs((normal.x * beam.x + normal.y * beam.y + normal.z * beam.z) / length);
-    return this.shadeColor(rgb, 0.62 + 0.38 * facing);
+    const scratch = this.normalScratch || (this.normalScratch = new Float64Array(3));
+    this.unitNormal(locals, scratch);
+    const beam = this.light.on ? this.lightVector() : null;
+    return this.paintLit(scratch[0], scratch[1], scratch[2], rgb, beam).color;
   }
 
   // How far each axis runs from the middle, in the units of the box. The box
@@ -1595,45 +1703,274 @@ class GraphBoard {
     this.onChange?.();
   }
 
+  // Where a screen pixel meets the floor, or null when the ray misses it,
+  // runs behind the eye, or only hits past the distance we still draw.
+  screenToFloor(px, py, z, maxDepth) {
+    const proj = this.proj || this.beginProjection();
+    const u = (px - proj.ox) / proj.focal;
+    const v = -(py - proj.oy) / proj.focal;
+    const eye = 3.2;
+    const denom = proj.sp + v * proj.cp;
+    if (!(Math.abs(denom) > 1e-6)) return null;
+    const depth = (z + eye * proj.sp) / denom;
+    if (!(depth > 0.35) || depth > maxDepth) return null;
+    const cam = { x: u * depth, y: eye - depth, z: v * depth };
+    return this.unrotateLocal(cam);
+  }
+
+  // Where lines of this spacing have closed up to a few pixels. Drawing any
+  // further only piles them into a dark band with a hard edge.
+  floorVanish(stepWorld) {
+    const proj = this.proj || this.beginProjection();
+    const z = this.floorLevel();
+    const anchor = this.projectLocal({ x: 0, y: 0, z });
+    const horizon = proj.oy + proj.focal * Math.tan(this.camera.pitch);
+    const fallback = { depth: 24, sy: Number.isFinite(horizon) ? horizon : proj.oy };
+    if (!anchor || !Number.isFinite(horizon) || Math.abs(horizon - anchor.sy) < 24) return fallback;
+    const step = stepWorld / this.floorScale();
+    const minPx = 6 * (window.devicePixelRatio || 1);
+    const spacingAt = (py) => {
+      const hit = this.screenToFloor(proj.ox, py, z, 500);
+      if (!hit) return 0;
+      const here = this.projectLocal({ x: hit.x, y: hit.y, z });
+      if (!here) return 0;
+      let gap = Infinity;
+      for (const [dx, dy] of [[step, 0], [0, step]]) {
+        const over = this.projectLocal({ x: hit.x + dx, y: hit.y + dy, z });
+        if (!over) continue;
+        gap = Math.min(gap, Math.hypot(over.sx - here.sx, over.sy - here.sy));
+      }
+      return Number.isFinite(gap) ? gap : 0;
+    };
+    let nearY = anchor.sy;
+    let farY = nearY + (horizon - nearY) * 0.97;
+    if (spacingAt(farY) >= minPx) nearY = farY;
+    else if (!(spacingAt(nearY) >= minPx)) nearY = nearY + (farY - nearY) * 0.25;
+    else {
+      for (let i = 0; i < 18; i++) {
+        const mid = (nearY + farY) / 2;
+        if (spacingAt(mid) >= minPx) nearY = mid;
+        else farY = mid;
+      }
+    }
+    const hit = this.screenToFloor(proj.ox, nearY, z, 500);
+    if (!hit) return { depth: fallback.depth, sy: nearY };
+    const depth = 3.2 - this.rotateLocal({ x: hit.x, y: hit.y, z }).y;
+    if (!(depth > 2)) return fallback;
+    return { depth: clamp(depth, 4, 140), sy: nearY };
+  }
+
+  // The screen row where the range's far side sits, so the ink can stay solid
+  // over the axes and thin out only past them.
+  floorSolidSy(z) {
+    const proj = this.proj || this.beginProjection();
+    const horizon = proj.oy + proj.focal * Math.tan(this.camera.pitch);
+    const { xMin, xMax, yMin, yMax } = this.view;
+    let best = null;
+    for (const x of [xMin, xMax]) {
+      for (const y of [yMin, yMax]) {
+        const point = this.projectLocal({ x: this.worldToFloorX(x), y: this.worldToFloorY(y), z });
+        if (!point) continue;
+        if (best == null || Math.abs(point.sy - horizon) < Math.abs(best - horizon)) best = point.sy;
+      }
+    }
+    if (best == null) {
+      const anchor = this.projectLocal({ x: 0, y: 0, z });
+      return anchor ? anchor.sy : proj.oy;
+    }
+    return best;
+  }
+
+  // The bit of the floor the window can see, always at least the range the
+  // axes measure, so the grid never shrinks inside the box.
+  floorSpan(z, vanish) {
+    const proj = this.proj || this.beginProjection();
+    const { xMin, xMax, yMin, yMax } = this.view;
+    let minX = this.worldToFloorX(xMin);
+    let maxX = this.worldToFloorX(xMax);
+    let minY = this.worldToFloorY(yMin);
+    let maxY = this.worldToFloorY(yMax);
+    const maxDepth = vanish.depth + 1;
+    const consider = (px, py) => {
+      const hit = this.screenToFloor(px, py, z, maxDepth);
+      if (!hit || !Number.isFinite(hit.x) || !Number.isFinite(hit.y)) return;
+      minX = Math.min(minX, hit.x);
+      maxX = Math.max(maxX, hit.x);
+      minY = Math.min(minY, hit.y);
+      maxY = Math.max(maxY, hit.y);
+    };
+    const steps = 12;
+    for (let i = 0; i <= steps; i++) {
+      const across = (i / steps) * proj.w;
+      const down = (i / steps) * proj.h;
+      consider(across, 0);
+      consider(across, proj.h);
+      consider(0, down);
+      consider(proj.w, down);
+      consider(across, vanish.sy);
+    }
+    const pad = this.floorStep() / this.floorScale();
+    return { minX: minX - pad, maxX: maxX + pad, minY: minY - pad, maxY: maxY + pad };
+  }
+
+  // Keep the part of a floor line that is inside the window and in front of
+  // the eye. A straight line stays straight in perspective, so the two ends
+  // are enough.
+  clipFloorSegment(a, b, maxDepth) {
+    const proj = this.proj || this.beginProjection();
+    const ca = this.rotateLocal(a);
+    const cb = this.rotateLocal(b);
+    const eye = 3.2;
+    const near = 0.35;
+    const focal = proj.focal;
+    const margin = 8;
+    const left = -margin;
+    const top = -margin;
+    const right = proj.w + margin;
+    const bottom = proj.h + margin;
+    let t0 = 0;
+    let t1 = 1;
+    const keep = (f0, df) => {
+      if (Math.abs(df) < 1e-9) return f0 >= -1e-6;
+      const bound = -f0 / df;
+      if (df > 0) {
+        if (bound > t1) return false;
+        if (bound > t0) t0 = bound;
+      } else {
+        if (bound < t0) return false;
+        if (bound < t1) t1 = bound;
+      }
+      return t0 <= t1 + 1e-8;
+    };
+    const dx = cb.x - ca.x;
+    const dy = cb.y - ca.y;
+    const dz = cb.z - ca.z;
+    if (!keep(eye - ca.y - near, -dy)) return null;
+    if (!keep(maxDepth - (eye - ca.y), dy)) return null;
+    const leftK = proj.ox - left;
+    if (!keep(leftK * (eye - ca.y) + focal * ca.x, -leftK * dy + focal * dx)) return null;
+    const rightK = right - proj.ox;
+    if (!keep(rightK * (eye - ca.y) - focal * ca.x, -rightK * dy - focal * dx)) return null;
+    const topK = proj.oy - top;
+    if (!keep(topK * (eye - ca.y) - focal * ca.z, -topK * dy - focal * dz)) return null;
+    const bottomK = bottom - proj.oy;
+    if (!keep(bottomK * (eye - ca.y) + focal * ca.z, -bottomK * dy + focal * dz)) return null;
+    if (!(t1 > t0 + 1e-5)) return null;
+    const at = (t) => ({
+      x: a.x + (b.x - a.x) * t,
+      y: a.y + (b.y - a.y) * t,
+      z: a.z + (b.z - a.z) * t,
+    });
+    return [at(t0), at(t1)];
+  }
+
   floorLines() {
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const camera = this.camera;
+    const stamp = [
+      xMin, xMax, yMin, yMax, zMin, zMax, this.floorZ,
+      camera.yaw, camera.pitch, camera.zoom,
+      this.canvas.width, this.canvas.height,
+      this.axes.x.visible, this.axes.y.visible, this.axes.z.visible,
+      window.devicePixelRatio || 1,
+    ].join("|");
+    if (this.floorStamp === stamp && this.floorCache) return this.floorCache;
+    const lines = this.makeFloorLines();
+    this.floorStamp = stamp;
+    this.floorCache = lines;
+    return lines;
+  }
+
+  makeFloorLines() {
     const { xMin, xMax, yMin, yMax } = this.view;
     const z = this.floorLevel();
     const step = this.floorStep();
+    const scale = this.floorScale();
+    const proj = this.beginProjection();
+    const vanish = this.floorVanish(step);
+    const span = this.floorSpan(z, vanish);
+    // Full ink through the far side of the range. The five by five lives on
+    // this side of that row; only the ground past it is allowed to thin.
+    const solid = this.floorSolidSy(z);
+    const midX = (xMin + xMax) / 2;
+    const midY = (yMin + yMax) / 2;
+    // A zoomed-out window can see a long way. Cap the count so a flat view
+    // cannot ask for tens of thousands of lines that would only merge anyway.
+    // The measured range is kept either way: the cap used to centre on the
+    // horizon and drop the five by five out of the picture.
+    const capRange = (lo, hi, gap, keepLo, keepHi) => {
+      const cap = 400;
+      if (!(hi > lo) || !((hi - lo) / gap > cap)) return [lo, hi];
+      const keepA = Math.min(keepLo, keepHi);
+      const keepB = Math.max(keepLo, keepHi);
+      const half = Math.max(0, cap * gap - (keepB - keepA)) / 2;
+      let a = keepA - half;
+      let b = keepB + half;
+      if (a < lo) {
+        b = Math.min(hi, b + (lo - a));
+        a = lo;
+      }
+      if (b > hi) {
+        a = Math.max(lo, a - (b - hi));
+        b = hi;
+      }
+      return [a, b];
+    };
+    const [worldX0, worldX1] = capRange(span.minX * scale + midX, span.maxX * scale + midX, step, xMin, xMax);
+    const [worldY0, worldY1] = capRange(span.minY * scale + midY, span.maxY * scale + midY, step, yMin, yMax);
     const lines = [];
-    const push = (x0, y0, x1, y1, width, fade) => {
-      lines.push({
-        p: [
-          { x: this.worldToFloorX(x0), y: this.worldToFloorY(y0), z },
-          { x: this.worldToFloorX(x1), y: this.worldToFloorY(y1), z },
-        ],
-        width,
-        fade,
-      });
+    const push = (x0, y0, x1, y1, width, fade, limit, flat) => {
+      const clipped = this.clipFloorSegment(
+        { x: this.worldToFloorX(x0), y: this.worldToFloorY(y0), z },
+        { x: this.worldToFloorX(x1), y: this.worldToFloorY(y1), z },
+        limit.depth
+      );
+      if (!clipped) return;
+      lines.push(flat ? { p: clipped, width, fade, flat: true } : { p: clipped, width, fade, vanish: limit.sy, solid });
     };
     // How wide one cell is on screen, measured the same way from every angle.
-    const proj = this.proj || this.beginProjection();
-    const cell = (step / this.floorScale()) * (proj.focal / 3.2);
+    const cell = (step / scale) * (proj.focal / 3.2);
     const dpr = window.devicePixelRatio || 1;
     let split = 1;
     if (cell > 300 * dpr) split = 25;
     else if (cell > 64 * dpr) split = 5;
     if (split > 1) {
       const fine = step / split;
+      const fineVanish = this.floorVanish(fine);
+      const [fineX0, fineX1] = capRange(worldX0, worldX1, fine, xMin, xMax);
+      const [fineY0, fineY1] = capRange(worldY0, worldY1, fine, yMin, yMax);
       const labelled = (value) => Math.abs(value / step - Math.round(value / step)) < 1e-6;
-      for (const x of this.multiples(xMin, xMax, fine)) {
+      for (const x of this.multiples(fineX0, fineX1, fine)) {
         if (labelled(x)) continue;
-        push(x, yMin, x, yMax, 1, 0.14);
+        push(x, worldY0, x, worldY1, 1, 0.14, fineVanish);
       }
-      for (const y of this.multiples(yMin, yMax, fine)) {
+      for (const y of this.multiples(fineY0, fineY1, fine)) {
         if (labelled(y)) continue;
-        push(xMin, y, xMax, y, 1, 0.14);
+        push(worldX0, y, worldX1, y, 1, 0.14, fineVanish);
       }
     }
-    // The cell lines of the five by five, one ink from edge to edge. The floor
-    // stops where the axes stop: lines trailing off past the range only fade
-    // away unevenly and leave the drawing without a readable edge.
-    for (const x of this.multiples(xMin, xMax, step)) push(x, yMin, x, yMax, 1.2, 0.58);
-    for (const y of this.multiples(yMin, yMax, step)) push(xMin, y, xMax, y, 1.2, 0.58);
+    // The extension thins toward the horizon. Where a line crosses the range
+    // it is left out here and drawn again, solid, just below: a foreshortened
+    // angle used to fade that crossing away with the distance, and the five
+    // by five disappeared.
+    const inside = (value, lo, hi) => value >= lo - step * 1e-6 && value <= hi + step * 1e-6;
+    for (const x of this.multiples(worldX0, worldX1, step)) {
+      if (!inside(x, xMin, xMax)) push(x, worldY0, x, worldY1, 1.2, 0.58, vanish);
+      else {
+        if (worldY0 < yMin - step * 1e-4) push(x, worldY0, x, yMin, 1.2, 0.58, vanish);
+        if (worldY1 > yMax + step * 1e-4) push(x, yMax, x, worldY1, 1.2, 0.58, vanish);
+      }
+    }
+    for (const y of this.multiples(worldY0, worldY1, step)) {
+      if (!inside(y, yMin, yMax)) push(worldX0, y, worldX1, y, 1.2, 0.58, vanish);
+      else {
+        if (worldX0 < xMin - step * 1e-4) push(worldX0, y, xMin, y, 1.2, 0.58, vanish);
+        if (worldX1 > xMax + step * 1e-4) push(xMax, y, worldX1, y, 1.2, 0.58, vanish);
+      }
+    }
+    const across = { depth: 120, sy: vanish.sy };
+    for (const x of this.multiples(xMin, xMax, step)) push(x, yMin, x, yMax, 1.2, 0.58, across, true);
+    for (const y of this.multiples(yMin, yMax, step)) push(xMin, y, xMax, y, 1.2, 0.58, across, true);
     return lines;
   }
 
@@ -1649,6 +1986,7 @@ class GraphBoard {
     this.paintSurfaces(ctx, dpr, pieces);
     if (this.showGrid && !eyeAboveFloor) this.drawFloor(ctx, dpr);
     if (this.showGrid) this.drawFloor(ctx, dpr, true);
+    this.drawAxisRays(ctx, dpr);
     this.drawAxisLetters(ctx, dpr, letters);
     this.drawLight(ctx, dpr);
     ctx.restore();
@@ -1658,8 +1996,39 @@ class GraphBoard {
   // cells, each just before the first cell that is nearer than it.
   paintSurfaces(ctx, dpr, pieces = []) {
     let next = 0;
+    // Pieces that share a colour and meet end to end go down as one stroke.
+    // Separate strokes of the same translucent ink leave a dark bead at the join.
     const drawFartherThan = (away) => {
-      while (next < pieces.length && pieces[next].depth >= away) this.drawAxisPiece(ctx, pieces[next++]);
+      while (next < pieces.length && pieces[next].depth >= away) {
+        const piece = pieces[next];
+        if (piece.text) {
+          this.drawAxisPiece(ctx, piece);
+          next += 1;
+          continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = AXIS_LINE_ALPHA;
+        ctx.lineCap = "butt";
+        ctx.lineWidth = piece.width;
+        ctx.strokeStyle = piece.color;
+        ctx.beginPath();
+        const width = piece.width;
+        const color = piece.color;
+        while (
+          next < pieces.length &&
+          pieces[next].depth >= away &&
+          !pieces[next].text &&
+          pieces[next].width === width &&
+          pieces[next].color === color
+        ) {
+          const line = pieces[next].line;
+          ctx.moveTo(line[0], line[1]);
+          ctx.lineTo(line[2], line[3]);
+          next += 1;
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
     };
     const batch = this.projectSurfaces();
     if (!batch.length) {
@@ -1669,42 +2038,94 @@ class GraphBoard {
     const { order, owner, cells, kind, far, count } = this.sortedCells(batch);
     ctx.save();
     ctx.lineWidth = Math.max(1, 0.9 * dpr);
+    let pathOpen = false;
+    let runColor = "";
+    let runWind = 0;
+    const flush = () => {
+      if (!pathOpen) return;
+      ctx.fillStyle = runColor;
+      ctx.strokeStyle = runColor;
+      ctx.fill();
+      // The hairline seals the seam between neighbouring cells.
+      ctx.stroke();
+      pathOpen = false;
+    };
+    // Opposite windings in one path would cut a hole where two cells overlap.
+    const begin = (paint, wind) => {
+      const opposite = pathOpen && wind !== 0 && runWind !== 0 && (wind < 0) !== (runWind < 0);
+      if (!pathOpen || paint !== runColor || opposite) {
+        flush();
+        ctx.beginPath();
+        pathOpen = true;
+        runColor = paint;
+        runWind = wind || runWind;
+      }
+    };
     for (let index = 0; index < count; index++) {
       const slot = order[index];
-      // Each piece saves and restores its own state, so the cell's survives.
-      drawFartherThan(far[slot]);
+      const away = far[slot];
+      if (next < pieces.length && pieces[next].depth >= away) {
+        flush();
+        drawFartherThan(away);
+      }
       const surface = batch[owner[slot]];
-      let paint;
-      ctx.beginPath();
       if (kind[slot] === 1) {
         const edge = surface.edges[cells[slot]];
-        paint = edge.color;
-        ctx.moveTo(surface.rimSx[edge.at], surface.rimSy[edge.at]);
-        for (let vertex = 1; vertex < edge.count; vertex++) {
-          ctx.lineTo(surface.rimSx[edge.at + vertex], surface.rimSy[edge.at + vertex]);
-        }
+        const paint = edge.color;
+        const origin = edge.at;
+        const x0 = surface.rimSx[origin];
+        const y0 = surface.rimSy[origin];
+        const second = Math.min(2, edge.count - 1);
+        const wind = (surface.rimSx[origin + 1] - x0) * (surface.rimSy[origin + second] - y0) - (surface.rimSx[origin + second] - x0) * (surface.rimSy[origin + 1] - y0);
+        begin(paint, wind);
+        ctx.moveTo(x0, y0);
+        for (let vertex = 1; vertex < edge.count; vertex++) ctx.lineTo(surface.rimSx[origin + vertex], surface.rimSy[origin + vertex]);
       } else {
         const n = surface.n;
         const cell = cells[slot];
         const row = Math.floor(cell / (n - 1));
         const first = row * n + (cell - row * (n - 1));
-        const { sx, sy } = surface;
-        paint = surface.colors[cell];
-        ctx.moveTo(sx[first], sy[first]);
-        ctx.lineTo(sx[first + 1], sy[first + 1]);
-        ctx.lineTo(sx[first + n + 1], sy[first + n + 1]);
-        ctx.lineTo(sx[first + n], sy[first + n]);
+        const { sx, sy, depth } = surface;
+        const i1 = first + 1;
+        const i2 = first + n + 1;
+        const i3 = first + n;
+        if (!(depth[first] > 0) || !(depth[i1] > 0) || !(depth[i2] > 0) || !(depth[i3] > 0)) continue;
+        const paint = surface.colors[cell];
+        const x0 = sx[first];
+        const y0 = sy[first];
+        const x1 = sx[i1];
+        const y1 = sy[i1];
+        const x2 = sx[i2];
+        const y2 = sy[i2];
+        const wind = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+        begin(paint, wind);
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(sx[i3], sy[i3]);
       }
       ctx.closePath();
-      ctx.fillStyle = paint;
-      ctx.strokeStyle = paint;
-      ctx.fill();
-      // The hairline seals the seam between neighbouring cells.
-      ctx.stroke();
     }
+    flush();
     ctx.restore();
     // Whatever is nearer than every cell goes on last.
     drawFartherThan(-Infinity);
+  }
+
+  // Nothing where the cells have closed up, full ink by the far side of the
+  // range. Past either end the gradient keeps that colour, so the near ground
+  // stays solid and the far tips stay blank.
+  floorFadeStyle(ctx, red, green, blue, alpha, vanishSy, solidSy) {
+    const ink = (amount) => `rgba(${red}, ${green}, ${blue}, ${amount})`;
+    if (typeof vanishSy !== "number" || typeof solidSy !== "number" || Math.abs(vanishSy - solidSy) < 12) {
+      return ink(alpha);
+    }
+    const gradient = ctx.createLinearGradient(0, vanishSy, 0, solidSy);
+    gradient.addColorStop(0, ink(0));
+    gradient.addColorStop(0.22, ink(alpha * 0.12));
+    gradient.addColorStop(0.62, ink(alpha * 0.72));
+    gradient.addColorStop(1, ink(alpha));
+    return gradient;
   }
 
   drawFloor(ctx, dpr, ghost) {
@@ -1713,7 +2134,7 @@ class GraphBoard {
     ctx.save();
     // The pass over the surface is a whisper: enough to read the floor
     // through it, never enough to wash the colour out.
-    ctx.strokeStyle = themeVar("--muted", "#78716c");
+    const [red, green, blue] = cssRgb(themeVar("--muted", "#78716c"));
     // Pieces of the same shade go down in one path: translucent strokes that
     // cross inside a single path do not darken each other, so a crossing keeps
     // the colour of the lines that meet there. Butt ends let the pieces of one
@@ -1728,15 +2149,18 @@ class GraphBoard {
       const raw = ghost ? Math.min(0.12, line.fade * 0.2) : line.fade * FLOOR_INK;
       const alpha = Math.max(0.01, Math.round(raw * 100) / 100);
       const width = Math.max(1, (ghost ? 1 : line.width || 1) * dpr);
-      const key = `${alpha}|${width}`;
+      const vanish = line.flat ? "flat" : Math.round(line.vanish);
+      const solid = line.flat ? "flat" : Math.round(line.solid);
+      const key = `${alpha}|${width}|${vanish}|${solid}`;
       let shade = shades.get(key);
-      if (!shade) shades.set(key, (shade = { alpha, width, path: new Path2D() }));
+      if (!shade) shades.set(key, (shade = { alpha, width, vanish, solid, path: new Path2D() }));
       shade.path.moveTo(a.sx, a.sy);
       shade.path.lineTo(b.sx, b.sy);
     }
     for (const shade of shades.values()) {
-      ctx.globalAlpha = shade.alpha;
+      ctx.globalAlpha = 1;
       ctx.lineWidth = shade.width;
+      ctx.strokeStyle = this.floorFadeStyle(ctx, red, green, blue, shade.alpha, shade.vanish, shade.solid);
       ctx.stroke(shade.path);
     }
     ctx.restore();
@@ -1937,7 +2361,6 @@ class GraphBoard {
   axisPieces(dpr) {
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
     const origin = this.axisAnchor();
-    const pad = 0.12;
     // An axis that stops dead on the face of the box reads as a short stub,
     // because the corners of the box reach half again as far. Each one carries
     // on past the drawing by the same share of its own half-length, which is
@@ -1950,25 +2373,25 @@ class GraphBoard {
     const zHigh = this.zToLocal(zMax) * AXIS_OVERHANG;
     const axes = [
       {
+        key: "x",
         from: { x: xLow, y: origin.y, z: origin.z },
         to: { x: xHigh, y: origin.y, z: origin.z },
-        at: { x: xHigh + pad, y: origin.y, z: origin.z },
         color: this.axes.x.color,
         label: "X",
         visible: this.axes.x.visible,
       },
       {
+        key: "y",
         from: { x: origin.x, y: yLow, z: origin.z },
         to: { x: origin.x, y: yHigh, z: origin.z },
-        at: { x: origin.x, y: yHigh + pad, z: origin.z },
         color: this.axes.y.color,
         label: "Y",
         visible: this.axes.y.visible,
       },
       {
+        key: "z",
         from: { x: origin.x, y: origin.y, z: zLow },
         to: { x: origin.x, y: origin.y, z: zHigh },
-        at: { x: origin.x, y: origin.y, z: zHigh + pad },
         color: this.axes.z.color,
         label: "Z",
         visible: this.axes.z.visible,
@@ -1976,7 +2399,6 @@ class GraphBoard {
     ];
     const pieces = [];
     const letters = [];
-    const centre = this.projectLocal(origin);
     const margin = 14 * dpr;
     const width = AXIS_LINE_WIDTH * dpr;
     for (const axis of axes) {
@@ -1998,18 +2420,11 @@ class GraphBoard {
         }
         previous = next;
       }
-      // The letter marks where the drawing ends, one step further out along
-      // the axis so no tick number can sit on top of it.
-      const mark = this.projectLocal(axis.at) || b;
-      const outX = centre ? mark.sx - centre.sx : 1;
-      const outY = centre ? mark.sy - centre.sy : 0;
-      const run = Math.hypot(outX, outY) || 1;
-      letters.push({
-        text: axis.label,
-        color: axis.color,
-        x: Math.min(this.canvas.width - margin, Math.max(margin, mark.sx + (outX / run) * 18 * dpr)),
-        y: Math.min(this.canvas.height - margin, Math.max(margin, mark.sy + (outY / run) * 18 * dpr)),
-      });
+      // The line runs on past this end, so the letter stands beside it
+      // rather than further along, where it would sit on the stroke.
+      const half = 8 * dpr;
+      const spot = this.settleAxisLetter(b.sx, b.sy, this.axisLabelNormal(axis.key), half, dpr, margin);
+      letters.push({ text: axis.label, color: axis.color, x: spot.x, y: spot.y });
     }
     // The numbers give way to the letters, never the other way round.
     if (this.showAxisValues) this.axisValuePieces(dpr, letters, pieces);
@@ -2017,6 +2432,204 @@ class GraphBoard {
     for (const piece of pieces) piece.depth -= bias;
     pieces.sort((one, two) => two.depth - one.depth);
     return { pieces, letters };
+  }
+
+  // A unit screen normal that leaves the axis. The side is the one that still
+  // reads as "beside" when the camera looks along the axis: up off the floor
+  // for X and Y, out to the side for Z, with a second choice when that
+  // direction is edge-on.
+  axisLabelNormal(axis) {
+    const origin = this.axisAnchor();
+    const along = axis === "x"
+      ? { x: origin.x + 1, y: origin.y, z: origin.z }
+      : axis === "y"
+        ? { x: origin.x, y: origin.y + 1, z: origin.z }
+        : { x: origin.x, y: origin.y, z: origin.z + 1 };
+    const here = this.projectLocal(origin);
+    const there = this.projectLocal(along);
+    const dx = here && there ? there.sx - here.sx : 1;
+    const dy = here && there ? there.sy - here.sy : 0;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    let nx = -uy;
+    let ny = ux;
+    if (!here) return { nx, ny };
+    const lift = 0.45;
+    const preferences = axis === "x"
+      ? [
+          { x: origin.x, y: origin.y, z: origin.z + lift },
+          { x: origin.x, y: origin.y - lift, z: origin.z },
+        ]
+      : axis === "y"
+        ? [
+            { x: origin.x, y: origin.y, z: origin.z + lift },
+            { x: origin.x - lift, y: origin.y, z: origin.z },
+          ]
+        : [
+            { x: origin.x + lift, y: origin.y, z: origin.z },
+            { x: origin.x, y: origin.y - lift, z: origin.z },
+          ];
+    let best = 0;
+    for (const pref of preferences) {
+      const side = this.projectLocal(pref);
+      if (!side) continue;
+      let px = side.sx - here.sx;
+      let py = side.sy - here.sy;
+      const alongPx = px * ux + py * uy;
+      px -= alongPx * ux;
+      py -= alongPx * uy;
+      const plen = Math.hypot(px, py);
+      if (plen > best) {
+        best = plen;
+        nx = px / plen;
+        ny = py / plen;
+      }
+    }
+    return { nx, ny };
+  }
+
+  // Centre of a label whose glyphs clear the stroke. wide and tall are the
+  // half-size of the text. The other side is used when the first one leaves
+  // the window, so the clamp never has to pull the text back onto the line.
+  placeAxisLabel(sx, sy, normal, wide, tall, dpr) {
+    const pad = 8 * dpr;
+    const gap = wide * Math.abs(normal.nx) + tall * Math.abs(normal.ny) + pad;
+    const margin = 4;
+    const maxX = this.canvas.width - margin;
+    const maxY = this.canvas.height - margin;
+    const fits = (x, y) => x >= margin && x <= maxX && y >= margin && y <= maxY;
+    const spot = (sign) => ({ x: sx + sign * normal.nx * gap, y: sy + sign * normal.ny * gap });
+    const first = spot(1);
+    if (fits(first.x, first.y)) return first;
+    const second = spot(-1);
+    if (fits(second.x, second.y)) return second;
+    return first;
+  }
+
+  // The three axis lines on the screen, or whichever of them still shows.
+  axisScreenLines() {
+    const origin = this.axisAnchor();
+    const here = this.projectLocal(origin);
+    if (!here) return [];
+    const lines = [];
+    const axes = [
+      ["x", { x: origin.x + 1, y: origin.y, z: origin.z }],
+      ["y", { x: origin.x, y: origin.y + 1, z: origin.z }],
+      ["z", { x: origin.x, y: origin.y, z: origin.z + 1 }],
+    ];
+    for (const [key, there] of axes) {
+      if (!this.axes[key].visible) continue;
+      const tip = this.projectLocal(there);
+      if (!tip) continue;
+      const dx = tip.sx - here.sx;
+      const dy = tip.sy - here.sy;
+      if (Math.hypot(dx, dy) < 1) continue;
+      lines.push({ x: here.sx, y: here.sy, dx, dy });
+    }
+    return lines;
+  }
+
+  distanceToAxis(x, y, line) {
+    const len = Math.hypot(line.dx, line.dy) || 1;
+    return Math.abs((x - line.x) * line.dy - (y - line.y) * line.dx) / len;
+  }
+
+  // True when the glyph box around (x, y) misses every axis stroke.
+  labelClearsAxes(x, y, wide, tall, dpr, lines) {
+    const pad = 3 * dpr;
+    for (const line of lines) {
+      const len = Math.hypot(line.dx, line.dy) || 1;
+      const nx = -line.dy / len;
+      const ny = line.dx / len;
+      const need = wide * Math.abs(nx) + tall * Math.abs(ny) + pad;
+      const dist = this.distanceToAxis(x, y, line);
+      if (dist + 0.75 < need) return false;
+    }
+    return true;
+  }
+
+  // Keep the letter off the stroke even when the window edge pushes it back.
+  settleAxisLetter(sx, sy, normal, half, dpr, margin) {
+    const lines = this.axisScreenLines();
+    const clamp = (spot) => ({
+      x: Math.min(this.canvas.width - margin, Math.max(margin, spot.x)),
+      y: Math.min(this.canvas.height - margin, Math.max(margin, spot.y)),
+    });
+    const sides = [normal, { nx: -normal.nx, ny: -normal.ny }];
+    let fallback = null;
+    for (const side of sides) {
+      const spot = clamp(this.placeAxisLabel(sx, sy, side, half, half, dpr));
+      if (!fallback) fallback = spot;
+      if (this.labelClearsAxes(spot.x, spot.y, half, half, dpr, lines)) return spot;
+    }
+    return fallback;
+  }
+
+  // The part of each axis past the graph. The length sets where the graph
+  // stops; these lines do not, and they fade as they leave the window.
+  axisRays() {
+    const origin = this.axisAnchor();
+    const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const far = AXIS_RAY;
+    const rays = [];
+    const push = (color, from, to) => {
+      const clipped = this.clipFloorSegment(from, to, 400);
+      if (!clipped) return;
+      const span = Math.hypot(
+        clipped[1].x - clipped[0].x,
+        clipped[1].y - clipped[0].y,
+        clipped[1].z - clipped[0].z
+      );
+      if (!(span > 0.04)) return;
+      rays.push({ color, from: clipped[0], to: clipped[1] });
+    };
+    if (this.axes.x.visible) {
+      const xLow = this.worldToFloorX(xMin) * AXIS_OVERHANG;
+      const xHigh = this.worldToFloorX(xMax) * AXIS_OVERHANG;
+      push(this.axes.x.color, { x: xHigh, y: origin.y, z: origin.z }, { x: far, y: origin.y, z: origin.z });
+      push(this.axes.x.color, { x: xLow, y: origin.y, z: origin.z }, { x: -far, y: origin.y, z: origin.z });
+    }
+    if (this.axes.y.visible) {
+      const yLow = this.worldToFloorY(yMin) * AXIS_OVERHANG;
+      const yHigh = this.worldToFloorY(yMax) * AXIS_OVERHANG;
+      push(this.axes.y.color, { x: origin.x, y: yHigh, z: origin.z }, { x: origin.x, y: far, z: origin.z });
+      push(this.axes.y.color, { x: origin.x, y: yLow, z: origin.z }, { x: origin.x, y: -far, z: origin.z });
+    }
+    if (this.axes.z.visible) {
+      const zLow = this.zToLocal(zMin) * AXIS_OVERHANG;
+      const zHigh = this.zToLocal(zMax) * AXIS_OVERHANG;
+      push(this.axes.z.color, { x: origin.x, y: origin.y, z: zHigh }, { x: origin.x, y: origin.y, z: far });
+      push(this.axes.z.color, { x: origin.x, y: origin.y, z: zLow }, { x: origin.x, y: origin.y, z: -far });
+    }
+    return rays;
+  }
+
+  drawAxisRays(ctx, dpr) {
+    const rays = this.axisRays();
+    if (!rays.length) return;
+    ctx.save();
+    ctx.lineCap = "butt";
+    ctx.lineWidth = Math.max(1, AXIS_LINE_WIDTH * dpr);
+    for (const ray of rays) {
+      const a = this.projectLocal(ray.from);
+      const b = this.projectLocal(ray.to);
+      if (!a || !b) continue;
+      if (Math.hypot(a.sx - b.sx, a.sy - b.sy) < 2) continue;
+      const [red, green, blue] = hexToRgb(ray.color);
+      const ink = (alpha) => `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+      const shade = ctx.createLinearGradient(a.sx, a.sy, b.sx, b.sy);
+      const solid = AXIS_LINE_ALPHA;
+      shade.addColorStop(0, ink(solid));
+      shade.addColorStop(0.62, ink(solid * 0.9));
+      shade.addColorStop(1, ink(0));
+      ctx.strokeStyle = shade;
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Axis lines and numbers are drawn lighter than the curves: they are the
@@ -2062,14 +2675,26 @@ class GraphBoard {
     const height = this.canvas.height;
     const font = `600 ${11 * dpr}px Consolas, "Malgun Gothic", sans-serif`;
     const tickWidth = Math.max(1, dpr);
-    const label = (text, point, dx, dy, color) => {
+    const lines = this.axisScreenLines();
+    const label = (text, point, normal, color) => {
       if (!point) return;
-      const x = point.sx + dx;
-      const y = point.sy + dy;
-      if (x < 4 || x > width - 4 || y < 4 || y > height - 4) return;
-      if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < 18 * dpr)) return;
-      placed.push({ x, y });
-      pieces.push({ depth: point.depth, text, x, y, color, font });
+      // Half the width of the text, so a wider number still clears the stroke.
+      const wide = Math.max(7 * dpr, text.length * 3.4 * dpr);
+      const tall = 6 * dpr;
+      const pad = 8 * dpr;
+      const gap = wide * Math.abs(normal.nx) + tall * Math.abs(normal.ny) + pad;
+      // The preferred side first. The other side is used when that one sits on
+      // a crossing axis or on a letter.
+      for (const sign of [1, -1]) {
+        const x = point.sx + sign * normal.nx * gap;
+        const y = point.sy + sign * normal.ny * gap;
+        if (x < 4 || x > width - 4 || y < 4 || y > height - 4) continue;
+        if (lines.some((line) => this.distanceToAxis(x, y, line) < 8 * dpr)) continue;
+        if (placed.some((item) => Math.hypot(item.x - x, item.y - y) < 18 * dpr)) continue;
+        placed.push({ x, y });
+        pieces.push({ depth: point.depth, text, x, y, color, font });
+        return;
+      }
     };
     const tick = (point, end, color) => {
       if (point && end) pieces.push({ depth: (point.depth + end.depth) / 2, line: [point.sx, point.sy, end.sx, end.sy], color, width: tickWidth });
@@ -2077,12 +2702,15 @@ class GraphBoard {
     const origin = this.axisAnchor();
     const step = this.floorStep();
     const { xMin, xMax, yMin, yMax, zMin, zMax } = this.view;
+    const xNormal = this.axisLabelNormal("x");
+    const yNormal = this.axisLabelNormal("y");
+    const zNormal = this.axisLabelNormal("z");
     if (this.axes.x.visible) {
       for (const value of this.multiples(xMin, xMax, step)) {
         const local = { x: this.worldToFloorX(value), y: origin.y, z: origin.z };
         const point = this.projectLocal(local);
         tick(point, this.projectLocal({ x: local.x, y: origin.y, z: origin.z + 0.05 }), this.axes.x.color);
-        label(formatTick(value), point, 0, 14 * dpr, this.axes.x.color);
+        label(formatTick(value), point, xNormal, this.axes.x.color);
       }
     }
     if (this.axes.y.visible) {
@@ -2090,7 +2718,7 @@ class GraphBoard {
         const local = { x: origin.x, y: this.worldToFloorY(value), z: origin.z };
         const point = this.projectLocal(local);
         tick(point, this.projectLocal({ x: origin.x, y: local.y, z: origin.z + 0.05 }), this.axes.y.color);
-        label(formatTick(value), point, 14 * dpr, 0, this.axes.y.color);
+        label(formatTick(value), point, yNormal, this.axes.y.color);
       }
     }
     if (!this.axes.z.visible) return;
@@ -2101,7 +2729,7 @@ class GraphBoard {
       const local = { x: origin.x, y: origin.y, z: (value - middleZ) / this.heightScale() };
       const point = this.projectLocal(local);
       tick(point, this.projectLocal({ x: origin.x + 0.05, y: origin.y, z: local.z }), this.axes.z.color);
-      label(formatTick(value), point, 12 * dpr, 0, this.axes.z.color);
+      label(formatTick(value), point, zNormal, this.axes.z.color);
     }
   }
 }

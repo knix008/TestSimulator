@@ -87,7 +87,7 @@ board.onChange = () => {
 board.onView = syncViewFields;
 board.onDimension = syncGraphChrome;
 board.onDraw = () => {
-  const moving = board.drag?.mode === "rotate" || board.fastPaint;
+  const moving = board.drag?.mode === "rotate" || board.drag?.mode === "light" || board.fastPaint;
   if (!moving) schedulePublish();
 };
 
@@ -142,8 +142,13 @@ const EXPR_PAD = [
   { id: "var3d", tokens: ["y"], dims: ["3d"] },
   { id: "op", tokens: ["+", "-", "*", "/", "^", "(", ")"], dims: ["2d", "3d"] },
   { id: "const", tokens: ["pi", "e"], dims: ["2d", "3d"] },
-  { id: "fn", tokens: ["sqrt(", "sin(", "cos(", "tan(", "ln(", "log(", "abs(", "exp("], dims: ["2d", "3d"] },
-  { id: "stat", tokens: ["normalpdf(", "normalcdf(", "invnorm("], dims: ["2d"] },
+  { id: "sum", tokens: ["Σ("], dims: ["2d", "3d"] },
+  { id: "fn", tokens: ["sqrt(", "cbrt(", "abs(", "exp(", "ln(", "log(", "log2(", "log10(", "fact("], dims: ["2d", "3d"] },
+  { id: "trig", tokens: ["sin(", "cos(", "tan(", "asin(", "acos(", "atan("], dims: ["2d", "3d"] },
+  { id: "hyp", tokens: ["sinh(", "cosh(", "tanh(", "asinh(", "acosh(", "atanh("], dims: ["2d", "3d"] },
+  { id: "round", tokens: ["floor(", "ceil(", "round("], dims: ["2d", "3d"] },
+  { id: "two", tokens: ["min(", "max(", "mod(", "nCr(", "nPr("], dims: ["2d", "3d"] },
+  { id: "stat", tokens: ["normalpdf(", "normalcdf(", "invnorm(", "mean(", "median(", "stdev(", "variance(", "stdevp(", "variancep(", "total(", "count("], dims: ["2d", "3d"] },
 ];
 
 function basicKeys() {
@@ -1129,6 +1134,7 @@ function syncViewFields() {
   }
   syncAxisSpans();
   syncGraphStatus();
+  if (typeof syncSidePanel === "function") syncSidePanel();
 }
 
 // A number the reader can edit: short enough to fit the box, and written so
@@ -1146,7 +1152,9 @@ function syncAxisSpans() {
   for (const axis of ["x", "y", "z"]) {
     const upper = axis.toUpperCase();
     const group = document.querySelector(`.axis-span[data-axis="${axis}"]`);
-    if (group) group.hidden = axis === "z" && !is3d;
+    // 3D takes the length from the settings panel and splits it in half, so
+    // the smallest and largest boxes stay hidden. 2D still types them here.
+    if (group) group.hidden = is3d || axis === "z";
     for (const end of ["Min", "Max"]) {
       const input = document.getElementById(`axis${end}${upper}`);
       // Whoever is typing keeps their text until they are done with it.
@@ -1154,17 +1162,6 @@ function syncAxisSpans() {
       input.value = spanText(board.view[`${axis}${end}`]);
       input.classList.remove("is-wrong");
     }
-  }
-  const sep = document.getElementById("lightSep");
-  const lamp = document.getElementById("lightSpan");
-  if (sep) sep.hidden = !is3d;
-  if (lamp) lamp.hidden = !is3d;
-  if (!is3d) return;
-  const place = board.lightPlace();
-  for (const [id, value] of [["lightAtX", place.x], ["lightAtY", place.y], ["lightAtZ", place.z]]) {
-    const input = document.getElementById(id);
-    if (!input || document.activeElement === input) continue;
-    input.value = spanText(Math.round(value * 100) / 100);
   }
 }
 
@@ -1209,28 +1206,6 @@ function bindAxisSpans() {
       });
     }
   }
-  const lamp = ["lightAtX", "lightAtY", "lightAtZ"].map((id) => document.getElementById(id));
-  if (lamp.some((input) => !input)) return;
-  const place = () => {
-    const [x, y, z] = lamp.map(readNumberField);
-    const wrong = lamp.some((input) => readNumberField(input) === null);
-    for (const input of lamp) input.classList.toggle("is-wrong", wrong);
-    if (wrong) return;
-    board.setLightPlace({ x, y, z });
-    // The lamp is kept as a turn and a rise, so what it took may not be what
-    // was typed; the fields are written back from where it actually hangs.
-    syncAxisSpans();
-    syncGraphChrome();
-    publishGraph();
-  };
-  for (const input of lamp) {
-    input.addEventListener("change", place);
-    input.addEventListener("blur", () => {
-      if (!input.classList.contains("is-wrong")) return;
-      syncAxisSpans();
-      for (const field of lamp) field.classList.remove("is-wrong");
-    });
-  }
 }
 
 function graphHelp() {
@@ -1251,12 +1226,12 @@ function syncGraphChrome() {
   const lightToggle = document.getElementById("lightToggle");
   lightToggle.hidden = !is3d;
   lightToggle.setAttribute("aria-pressed", String(board.light.on));
-  // The settings panel only holds the light, so it and its button come and go
-  // with 3D. Relaid only on a real change: the layout resizes the plot.
+  // Both dimensions share the settings panel. Relaid only on a real change:
+  // the layout resizes the plot.
   if (graphPopup && sidePanelOpen !== null) {
     const side = document.getElementById("graphSide");
     const button = document.getElementById("panelRight");
-    if (side.hidden === (sidePanelOpen && is3d) || button.hidden === is3d) layoutGraphPanels();
+    if (side.hidden === Boolean(sidePanelOpen) || button.hidden) layoutGraphPanels();
   }
   gridToggle.setAttribute("aria-pressed", String(board.showGrid));
   axisToggle.setAttribute("aria-pressed", String(board.showAxisValues));
@@ -1266,7 +1241,47 @@ function syncGraphChrome() {
   if (legendToggle) legendToggle.setAttribute("aria-pressed", String(board.showLegend));
   readoutEl.textContent = graphHelp();
   syncAxisFields();
+  placeAxisColors();
+  placeAxisRanges();
   renderPresets();
+}
+
+// The colour buttons sit at the top of the settings panel in both dimensions.
+function placeAxisColors() {
+  const row = document.getElementById("axisRow");
+  const slot = document.getElementById("sideAxisColors");
+  if (row) row.hidden = true;
+  if (!slot) return;
+  for (const axis of ["x", "y", "z"]) {
+    const field = document.querySelector(`.axis-field[data-axis="${axis}"]`);
+    if (field && field.parentElement !== slot) slot.append(field);
+  }
+}
+
+// 2D types the two ends of each axis. 3D uses one length and hides those boxes.
+function placeAxisRanges() {
+  const list = document.getElementById("sideAxisValueList");
+  const values = document.getElementById("sideAxisValues");
+  const lengths = document.getElementById("sideAxisGroup");
+  const light = document.getElementById("sideLightGroup");
+  const is3d = board.dimension === "3d";
+  if (values) values.hidden = is3d;
+  if (lengths) lengths.hidden = !is3d;
+  if (light) light.hidden = !is3d;
+  if (!list) return;
+  for (const axis of ["x", "y", "z"]) {
+    const span = document.querySelector(`.axis-span[data-axis="${axis}"]`);
+    if (span && span.parentElement !== list) list.append(span);
+  }
+}
+
+function inkOn(hex) {
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  if (!Number.isFinite(n)) return "#1c1917";
+  const red = (n >> 16) & 255;
+  const green = (n >> 8) & 255;
+  const blue = n & 255;
+  return red * 299 + green * 587 + blue * 114 > 150000 ? "#1c1917" : "#fafaf9";
 }
 
 function syncAxisFields() {
@@ -1279,6 +1294,9 @@ function syncAxisFields() {
     if (color && document.activeElement !== color) color.value = state.color;
     document.documentElement.style.setProperty(`--axis-${axis}`, state.color);
     if (!show) continue;
+    show.style.background = state.color;
+    show.style.borderColor = state.color;
+    show.style.color = inkOn(state.color);
     show.setAttribute("aria-pressed", String(state.visible));
   }
   const axesToggle = document.getElementById("axesToggle");
@@ -1541,10 +1559,17 @@ function bind() {
   for (const axis of ["x", "y", "z"]) {
     const color = document.getElementById(`axisColor${axis.toUpperCase()}`);
     const show = document.getElementById(`axisShow${axis.toUpperCase()}`);
-    color.addEventListener("input", () => board.setAxisColor(axis, color.value));
-    show.addEventListener("click", () => {
-      board.toggleAxis(axis);
+    color.addEventListener("input", () => {
+      board.setAxisColor(axis, color.value);
       syncAxisFields();
+    });
+    show.addEventListener("click", () => {
+      try {
+        if (typeof color.showPicker === "function") color.showPicker();
+        else color.click();
+      } catch {
+        color.click();
+      }
     });
   }
   bindAxisSpans();
@@ -2389,6 +2414,15 @@ function bindStats() {
 
 // The expression panel can be widened with the bar beside it.
 function bindGraphPanel() {
+  const pad = document.getElementById("exprPad");
+  if (pad) {
+    pad.addEventListener("wheel", (ev) => {
+      if (pad.scrollWidth <= pad.clientWidth) return;
+      if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+      pad.scrollLeft += ev.deltaY;
+      ev.preventDefault();
+    }, { passive: false });
+  }
   const split = document.getElementById("graphSplit");
   if (!split) return;
   const least = 150;
@@ -2442,11 +2476,10 @@ function layoutGraphPanels() {
   const fnPanel = document.getElementById("fnPanel");
   const split = document.getElementById("graphSplit");
   const side = document.getElementById("graphSide");
-  const is3d = board.dimension === "3d";
   const left = !fnPanel.hidden;
-  const right = Boolean(sidePanelOpen) && is3d;
+  const right = Boolean(sidePanelOpen);
   side.hidden = !right;
-  document.getElementById("panelRight").hidden = !is3d;
+  document.getElementById("panelRight").hidden = false;
   const columns = [];
   if (left) columns.push("var(--panel, 210px)", "10px");
   columns.push("minmax(0, 1fr)");
@@ -2486,6 +2519,21 @@ function syncSidePanel() {
     if (document.activeElement !== input) input.value = String(value);
     document.getElementById(`${id}Out`).textContent = label;
   };
+  const minHalf = 1e-6;
+  const maxHalf = 1e9;
+  for (const axis of ["x", "y", "z"]) {
+    const upper = axis.toUpperCase();
+    const low = board.view[`${axis}Min`];
+    const high = board.view[`${axis}Max`];
+    if (!Number.isFinite(low) || !Number.isFinite(high)) continue;
+    const half = (high - low) / 2;
+    const length = document.getElementById(`axisLen${upper}`);
+    if (length) length.textContent = spanText(high - low);
+    const down = document.getElementById(`axisLenDown${upper}`);
+    const up = document.getElementById(`axisLenUp${upper}`);
+    if (down) down.disabled = !(half > minHalf);
+    if (up) up.disabled = !(half < maxHalf);
+  }
   document.getElementById("sideLightOn").checked = board.light.on;
   set("sideLightTurn", degrees(board.light.azimuth), `${degrees(board.light.azimuth)}\u00b0`);
   set("sideLightRise", degrees(board.light.elevation), `${degrees(board.light.elevation)}\u00b0`);
@@ -2516,6 +2564,17 @@ function bindSidePanel() {
   };
   for (const input of [turn, rise, far]) input.addEventListener("input", apply);
   lit.addEventListener("change", apply);
+  const step = (axis, factor) => {
+    board.stepAxis(axis, factor);
+    syncSidePanel();
+    syncGraphChrome();
+    publishGraph();
+  };
+  for (const axis of ["x", "y", "z"]) {
+    const upper = axis.toUpperCase();
+    document.getElementById(`axisLenDown${upper}`).addEventListener("click", () => step(axis, 0.75));
+    document.getElementById(`axisLenUp${upper}`).addEventListener("click", () => step(axis, 4 / 3));
+  }
 }
 
 function bindCurrency() {
@@ -3489,7 +3548,7 @@ if (graphPopup) {
     return fallback;
   };
   document.getElementById("fnPanel").hidden = remembered("left", false);
-  // The light settings are what 3D is for, so the panel starts open there.
+  // Colours and axis values live here in both dimensions, so it starts open.
   sidePanelOpen = !remembered("right", false);
   panelLeftBtn.addEventListener("click", () => toggleGraphPanel("left"));
   panelRightBtn.addEventListener("click", () => toggleGraphPanel("right"));

@@ -944,7 +944,9 @@ html[data-scheme="light"] .version { color: #57534e; }
 #axisToggle[aria-pressed="true"],
 #axesToggle[aria-pressed="true"],
 #legendToggle[aria-pressed="true"],
-#lightToggle[aria-pressed="true"] {
+#lightToggle[aria-pressed="true"],
+#panelLeft[aria-pressed="true"],
+#panelRight[aria-pressed="true"] {
   background: var(--op);
   border-color: transparent;
   color: var(--op-ink);
@@ -1049,13 +1051,13 @@ html[data-scheme="light"] .version { color: #57534e; }
 }
 
 .axis-field {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 14px;
   font-weight: 700;
 }
-.axis-field input[type="color"],
 .fn-color {
   width: 28px;
   height: 28px;
@@ -1065,7 +1067,18 @@ html[data-scheme="light"] .version { color: #57534e; }
   background: transparent;
   cursor: pointer;
 }
-/* The letter on the button is the label: lit when the axis is drawn. */
+/* The letter is the colour control. The picker itself takes no space. */
+.axis-field .axis-color-pop {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+/* The letter on the button is the label, painted in that axis's colour. */
 .axis-toggle {
   width: 30px;
   height: 30px;
@@ -1081,10 +1094,8 @@ html[data-scheme="light"] .version { color: #57534e; }
   font-size: 13px;
   font-weight: 700;
 }
-.axis-toggle[aria-pressed="true"] {
-  background: var(--op);
-  border-color: transparent;
-  color: var(--op-ink);
+.axis-toggle[aria-pressed="false"] {
+  opacity: 0.4;
 }
 
 .graph-tools .tool-icon {
@@ -1111,11 +1122,6 @@ html[data-scheme="light"] .version { color: #57534e; }
   gap: 3px;
   font-size: 11px;
   color: var(--muted);
-}
-
-.graph-axis-row .axis-field input[type="color"] {
-  width: 30px;
-  height: 30px;
 }
 
 /* A rule between the groups on the axis line: colours, then ranges, then the lamp. */
@@ -1145,12 +1151,6 @@ html[data-scheme="light"] .version { color: #57534e; }
 .axis-span[data-axis="z"] .axis-span-tag { color: var(--axis-z); }
 
 .axis-span-dash { color: var(--muted); }
-
-.axis-span-icon {
-  width: 16px;
-  height: 16px;
-  background-color: var(--warn, #f59e0b);
-}
 
 .axis-num {
   width: 58px;
@@ -1555,14 +1555,20 @@ canvas.is-3d.dragging { cursor: grabbing; }
    kept in groups so the eye finds one without reading every chip. */
 .expr-pad {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+
+.expr-pad::-webkit-scrollbar { display: none; }
 
 .pad-group {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 3px;
   padding: 2px;
   background: var(--screen);
@@ -2218,6 +2224,31 @@ html.graph-pop #screenGraph .graph-side {
   background: var(--chip);
 }
 
+.side-axis-colors {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+#sideAxisValueList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.graph-side .axis-span { min-width: 0; }
+
+.graph-side .axis-num {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.graph-side .axis-toggle {
+  width: 36px;
+  height: 32px;
+}
+
 .side-group {
   display: flex;
   flex-direction: column;
@@ -2257,6 +2288,54 @@ html.graph-pop #screenGraph .graph-side {
 .side-slide output {
   text-align: right;
   font-family: Consolas, "Malgun Gothic", monospace;
+  color: var(--ink);
+}
+
+.axis-length {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.axis-range-slot {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+}
+
+.graph-side .axis-span {
+  justify-content: center;
+  min-width: 0;
+}
+
+.graph-side .axis-span-tag { display: none; }
+
+.graph-side .axis-num {
+  width: 52px;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.num-step output {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  padding: 4px 0;
+  font-family: Consolas, "Malgun Gothic", monospace;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--ink);
 }
 

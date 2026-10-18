@@ -670,6 +670,80 @@ suite("Graph", () => {
     doc.getElementById("dim2d").click();
   });
 
+  test("Sigma and the built-in functions are on the quick keys", () => {
+    const doc = appWindow.document;
+    const labels = () => [...doc.querySelectorAll("#exprPad button")].map((button) => button.textContent);
+    doc.getElementById("dim2d").click();
+    flush(appWindow);
+    const flat = labels();
+    assert(flat.includes("Σ"), flat.join(" "));
+    assert(flat.includes("asin") && flat.includes("sinh") && flat.includes("normalpdf") && flat.includes("fact"), flat.join(" "));
+    assert(!flat.includes("y"), `2D offered ${flat.join(" ")}`);
+    doc.getElementById("dim3d").click();
+    flush(appWindow);
+    const spatial = labels();
+    assert(spatial.includes("Σ") && spatial.includes("y"), spatial.join(" "));
+    assert(spatial.includes("normalpdf") && spatial.includes("cbrt") && spatial.includes("nCr"), spatial.join(" "));
+    doc.getElementById("dim2d").click();
+  });
+
+  test("Zooming out keeps x^2+y^2 on the origin", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.camera.yaw = -0.75;
+      board.camera.pitch = -1.05;
+      board.camera.zoom = 1.35;
+      board.addFunction("x^2+y^2");
+      const check = (label) => {
+        board.draw();
+        const mesh = board.meshes[0];
+        const n = mesh.n;
+        const { xMin, xMax, yMin, yMax } = board.view;
+        let best = { z: Infinity };
+        for (let j = 0; j < n; j++) {
+          const y = yMin + (j / (n - 1)) * (yMax - yMin);
+          for (let i = 0; i < n; i++) {
+            const x = xMin + (i / (n - 1)) * (xMax - xMin);
+            const z = mesh.z[j * n + i];
+            if (z < best.z) best = { i, j, x, y, z };
+          }
+        }
+        if (Math.abs(best.x) > 1e-6 || Math.abs(best.y) > 1e-6 || Math.abs(best.z) > 1e-8) {
+          throw new Error(`${label} lowest is ${best.x}, ${best.y}, ${best.z}`);
+        }
+        const local = board.localGridPoint(best.i, best.j, n, best.z);
+        const origin = board.axisAnchor();
+        const gap = Math.hypot(local.x - origin.x, local.y - origin.y, local.z - origin.z);
+        if (gap > 1e-6) throw new Error(`${label} tip is ${gap} from the axes`);
+        const tip = board.projectLocal(local);
+        const cross = board.projectLocal(origin);
+        if (!tip || !cross) throw new Error(`${label} could not place the origin`);
+        const px = Math.hypot(tip.sx - cross.sx, tip.sy - cross.sy);
+        if (px > 0.5) throw new Error(`${label} draws the tip ${px}px from the axes`);
+        const row = best.j > 0 ? best.j - 1 : 0;
+        const col = best.i > 0 ? best.i - 1 : 0;
+        if (!board.scene.surfaces[0].colors[row * (n - 1) + col]) throw new Error(`${label} did not draw the origin cell`);
+      };
+      check("added");
+      for (let step = 0; step < 5; step++) board.zoom(4 / 3);
+      check("zoomed out");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      for (let step = 0; step < 4; step++) board.zoom(4 / 3);
+      check("square zoomed out");
+      for (let step = 0; step < 6; step++) board.zoom(0.75);
+      check("square zoomed in");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.setDimension("2d");
+    });
+  });
+
   test("Each graph can set its legend label and visibility", () => {
     const doc = appWindow.document;
     appCall(() => board.resize());
@@ -758,24 +832,39 @@ suite("Graph", () => {
     for (const id of ["axisBar", "gridZField", "gridZ", "applyView", "sideGridZ"]) {
       assert(!doc.getElementById(id), `${id} is still on the window`);
     }
+    const colors = doc.getElementById("sideAxisColors");
+    const values = doc.getElementById("sideAxisValues");
+    assert(!doc.getElementById("graphSide").hidden, "2D hid the settings panel");
+    assert(doc.getElementById("graphSide").firstElementChild === colors, "2D colours are not at the top of the settings panel");
+    assert(colors.contains(doc.getElementById("axisShowX")) && colors.contains(doc.getElementById("axisShowY")), "2D colours left the settings panel");
+    assert(doc.querySelector('.axis-field[data-axis="z"]').hidden, "2D shows the Z colour");
+    assert(!values.hidden && values.contains(doc.getElementById("axisMinX")) && values.contains(doc.getElementById("axisMaxY")), "2D ranges left the settings panel");
+    assert(doc.getElementById("axisRow").hidden, "2D left the axis row on the toolbar");
+    assert(doc.getElementById("sideAxisGroup").hidden && doc.getElementById("sideLightGroup").hidden, "2D shows the lengths or the lamp");
     doc.getElementById("dim3d").click();
     flush(loaded.win);
-    const axisRow = doc.getElementById("axisRow");
-    assert(doc.getElementById("axisColorX").closest(".graph-axis-row") === axisRow, "Axis colours are not on their own row");
-    assert(!axisRow.querySelector(".graph-tool-row"), "The axis row sits inside the toolbar row");
-    const tools = doc.querySelector(".graph-tool-row").getBoundingClientRect();
-    assert(axisRow.getBoundingClientRect().top >= tools.bottom - 1, "The axis row did not move below the toolbar");
+    assert(doc.getElementById("graphSide").firstElementChild === colors, "Axis colours are not at the top of the settings panel");
+    assert(colors.contains(doc.getElementById("axisShowX")) && colors.contains(doc.getElementById("axisShowZ")), "3D colours left the settings panel");
+    assert(doc.getElementById("sideAxisValues").hidden && !doc.getElementById("sideAxisGroup").hidden, "3D still types the two ends");
+    assert(!doc.getElementById("axisRow").querySelector(".axis-field"), "3D left an axis colour on the toolbar");
     for (const axis of ["X", "Y", "Z"]) {
       const toggle = doc.getElementById(`axisShow${axis}`);
+      const field = toggle.parentElement;
       assert(toggle.textContent.trim() === axis, `${axis} toggle shows ${toggle.textContent}`);
       assert(!toggle.querySelector(".icon"), `${axis} toggle still carries an icon`);
-      assert(toggle.getAttribute("aria-pressed") === "true", `${axis} starts off`);
+      assert(field.querySelectorAll("button").length === 1, `${axis} has more than one button`);
+      assert(doc.getElementById(`axisColor${axis}`).getBoundingClientRect().width < 2, `${axis} colour box still stands beside the button`);
     }
     assert(!doc.querySelector('.axis-field[data-axis="x"] span'), "The axis letter is written twice");
-    doc.getElementById("axisShowX").click();
-    assert(doc.getElementById("axisShowX").getAttribute("aria-pressed") === "false", "The X button did not switch off");
-    assert(callWin(loaded.win, () => board.axes.x.visible) === false, "The X axis stayed on");
-    doc.getElementById("axisShowX").click();
+    const paintedX = callWin(loaded.win, () => {
+      const input = document.getElementById("axisColorX");
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      setValue.call(input, "#123456");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return board.axes.x.color;
+    });
+    assert(paintedX === "#123456", paintedX);
+    assert(getComputedStyle(doc.getElementById("axisShowX")).backgroundColor === "rgb(18, 52, 86)", "The X button did not take the colour");
     const floor = callWin(loaded.win, () => board.floorLevel() - board.zToLocal(0));
     assert(Math.abs(floor) < 1e-9, `The floor sits ${floor} away from z = 0`);
     doc.getElementById("dim2d").click();
@@ -1311,8 +1400,7 @@ suite("Product features", () => {
     assert(doc.querySelector("#axisToggle .icon").classList.contains("icon-axis-values"), "Axis value icon");
     assert(doc.querySelector("#axesToggle .icon").classList.contains("icon-axis"), "Axis icon");
     assert(!doc.querySelector("#axesToggle .icon").classList.contains("icon-axis-values"), "Axis icons match");
-    doc.getElementById("axisShowY").click();
-    assert(doc.getElementById("axisShowY").getAttribute("aria-pressed") === "false", "Y axis button");
+    assert(doc.querySelector('.axis-field[data-axis="y"]').querySelectorAll("button").length === 1, "Y has more than one button");
     const painted = appCall(() => {
       const input = document.getElementById("axisColorX");
       const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
@@ -1331,10 +1419,10 @@ suite("Product features", () => {
       };
     });
     assert(painted.x === "#123456", painted.x);
-    assert(painted.y === false, "Y axis stayed visible");
+    assert(painted.y === true, "Choosing a colour hid the Y axis");
+    assert(getComputedStyle(doc.getElementById("axisShowX")).backgroundColor === "rgb(18, 52, 86)", "The X button did not take the colour");
     assert(painted.fn === "#abcdef", painted.fn);
     assert(painted.swatch === "#abcdef", painted.swatch);
-    doc.getElementById("axisShowY").click();
     const axes = doc.getElementById("axesToggle");
     assert(!axes.hidden, "3D axis toggle is hidden");
     axes.click();
@@ -1422,6 +1510,15 @@ suite("Product features", () => {
       if (Math.abs(aimed.azimuth - board.light.azimuth) < 1e-6 && Math.abs(aimed.elevation - board.light.elevation) < 1e-6) {
         throw new Error("The light stayed where it was");
       }
+      const framed = board.fitFocal(board.canvas.width, board.canvas.height);
+      const origin = board.projectLocal(board.axisAnchor());
+      board.setLight({ azimuth: 0.2, elevation: 1.2, reach: 2.4 });
+      const shifted = board.projectLocal(board.axisAnchor());
+      if (Math.abs(board.fitFocal(board.canvas.width, board.canvas.height) - framed) > 1e-6) {
+        throw new Error("Moving the light refitted the picture");
+      }
+      if (Math.hypot(shifted.sx - origin.sx, shifted.sy - origin.sy) > 0.5) throw new Error("Moving the light moved the picture");
+      board.setLight({ azimuth: -0.95, elevation: 0.9, reach: 1.3 });
       board.toggleLight();
       board.draw();
       if (board.light.on) throw new Error("The light stayed on");
@@ -1517,35 +1614,259 @@ suite("Product features", () => {
     assert(counts.passes.filter((ghost) => !ghost).length === 1, `solid passes ${counts.passes.join(",")}`);
   });
 
-  test("The floor grid is one shade and stops at the range", () => {
+  test("The floor grid is one shade and runs on past the range", () => {
     appCall(() => board.resize());
     flush(appWindow);
     const shades = appCall(() => {
       board.setDimension("3d");
       board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.camera.yaw = -0.75;
+      board.camera.pitch = -1.05;
+      board.camera.zoom = 1.35;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
       board.draw();
       // With the range square and centred, the drawn square is -1..1 across.
+      // The plane carries on past that square, out to the window.
       const outside = (point) => Math.abs(point.x) > 1 + 1e-6 || Math.abs(point.y) > 1 + 1e-6;
       const cellInk = new Set();
       const fineInk = new Set();
-      const beyond = [];
       let cells = 0;
+      let past = 0;
+      let reach = 0;
+      let loose = 0;
       for (const line of board.floorLines()) {
         const [a, b] = line.p;
-        if (outside(a) || outside(b)) beyond.push(`${a.x.toFixed(2)},${a.y.toFixed(2)}`);
+        if (outside(a) || outside(b)) past += 1;
+        reach = Math.max(reach, Math.abs(a.x), Math.abs(a.y), Math.abs(b.x), Math.abs(b.y));
+        for (const point of [a, b]) {
+          const projected = board.projectLocal(point);
+          if (!projected || projected.sx < -12 || projected.sy < -12 || projected.sx > 812 || projected.sy > 612) loose += 1;
+        }
         if ((line.width || 1) >= 1.2) {
           cells += 1;
           cellInk.add(Number(line.fade.toFixed(6)));
         } else fineInk.add(Number(line.fade.toFixed(6)));
       }
-      return { cells, cellInk: [...cellInk], fineInk: [...fineInk], beyond: beyond.slice(0, 4) };
+      return { cells, cellInk: [...cellInk], fineInk: [...fineInk], past, reach, loose };
     });
     appCall(() => board.setDimension("2d"));
     assert(shades.cells >= 10, `${shades.cells} cell lines`);
-    assert(shades.beyond.length === 0, `grid runs past the range at ${shades.beyond.join(" ")}`);
+    assert(shades.past > 0, "the grid stops at the range");
+    assert(shades.reach > 1.4, `the plane only reaches ${shades.reach}`);
+    assert(shades.loose === 0, `${shades.loose} grid ends fall outside the window`);
     assert(shades.cellInk.length === 1, `the cell lines are drawn in ${shades.cellInk.length} shades`);
     for (const ink of shades.fineInk) {
       assert(ink < shades.cellInk[0], `a finer line (${ink}) is no lighter than a cell line (${shades.cellInk[0]})`);
+    }
+  });
+
+  test("The five by five stays drawn from every angle", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const views = appCall(() => {
+      board.setDimension("3d");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      const angles = [
+        { yaw: -0.75, pitch: -1.05, zoom: 1.35 },
+        { yaw: 0, pitch: -0.55, zoom: 1.35 },
+        { yaw: 1.15, pitch: -0.3, zoom: 0.55 },
+        { yaw: -1.57, pitch: -0.85, zoom: 2.4 },
+      ];
+      const reports = [];
+      for (const angle of angles) {
+        Object.assign(board.camera, angle);
+        board.draw();
+        let cells = 0;
+        let reach = 0;
+        for (const line of board.floorLines()) {
+          if ((line.width || 1) < 1.2 || !line.flat) continue;
+          const [a, b] = line.p;
+          const span = Math.hypot(b.x - a.x, b.y - a.y);
+          const midX = (a.x + b.x) / 2;
+          const midY = (a.y + b.y) / 2;
+          if (Math.abs(midX) > 1.05 || Math.abs(midY) > 1.05 || !(span > 0.35)) continue;
+          const pa = board.projectLocal(a);
+          const pb = board.projectLocal(b);
+          if (pa && pb) reach += Math.hypot(pb.sx - pa.sx, pb.sy - pa.sy);
+          cells += 1;
+        }
+        reports.push({ ...angle, cells, reach: Math.round(reach) });
+      }
+      board.camera.yaw = -0.75;
+      board.camera.pitch = -1.05;
+      board.camera.zoom = 1.35;
+      board.setDimension("2d");
+      return reports;
+    });
+    for (const view of views) {
+      assert(view.cells >= 8, `${view.cells} cell lines at yaw ${view.yaw}`);
+      assert(view.reach > 80, `the five by five draws ${view.reach}px at yaw ${view.yaw}`);
+    }
+  });
+
+  test("Zooming keeps the 3D surface on its grid", () => {
+    appCall(() => board.resize());
+    flush(appWindow);
+    const reports = appCall(() => {
+      board.setDimension("3d");
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.addFunction("sin(x)*cos(y)");
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      board.camera.yaw = -0.75;
+      board.camera.pitch = -1.05;
+      board.camera.zoom = 1.35;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      const inspect = (label) => {
+        board.draw();
+        const { xMin, xMax, yMin, yMax } = board.view;
+        const mesh = board.meshes[0];
+        const n = mesh.n;
+        const at = (i, j) => {
+          const x = xMin + (i / (n - 1)) * (xMax - xMin);
+          const y = yMin + (j / (n - 1)) * (yMax - yMin);
+          return { x, y, z: mesh.z[j * n + i] };
+        };
+        const mid = (n - 1) / 2;
+        const center = at(mid, mid);
+        const side = at(Math.round((n - 1) * 0.25), Math.round((n - 1) * 0.75));
+        const domain = board.meshDomain();
+        const local = board.localGridPoint(mid, mid, n, center.z);
+        const placed = board.projectLocal(local);
+        let lines = 0;
+        let loose = 0;
+        let bad = 0;
+        const flats = [];
+        for (const line of board.floorLines()) {
+          lines += 1;
+          if ((line.width || 1) >= 1.2 && line.flat) flats.push(line);
+          for (const point of line.p) {
+            if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) {
+              bad += 1;
+              continue;
+            }
+            const projected = board.projectLocal(point);
+            if (!projected || !Number.isFinite(projected.sx) || !Number.isFinite(projected.sy)) bad += 1;
+            else if (projected.sx < -24 || projected.sy < -24 || projected.sx > 824 || projected.sy > 624) loose += 1;
+          }
+        }
+        const covers = (sx, sy) => flats.some((line) => {
+          const a = board.projectLocal(line.p[0]);
+          const b = board.projectLocal(line.p[1]);
+          if (!a || !b) return false;
+          const dx = b.sx - a.sx;
+          const dy = b.sy - a.sy;
+          const len2 = dx * dx + dy * dy;
+          if (!(len2 > 1)) return Math.hypot(sx - a.sx, sy - a.sy) < 2.5;
+          const t = Math.max(0, Math.min(1, ((sx - a.sx) * dx + (sy - a.sy) * dy) / len2));
+          return Math.hypot(sx - a.sx - dx * t, sy - a.sy - dy * t) < 2.5;
+        });
+        const level = board.floorLevel();
+        const gap = board.floorStep();
+        let missed = 0;
+        let visible = 0;
+        const crossing = (x0, y0, x1, y1) => {
+          const a = board.projectLocal({ x: board.worldToFloorX(x0), y: board.worldToFloorY(y0), z: level });
+          const b = board.projectLocal({ x: board.worldToFloorX(x1), y: board.worldToFloorY(y1), z: level });
+          if (!a || !b) return;
+          const dx = b.sx - a.sx;
+          const dy = b.sy - a.sy;
+          let t0 = 0;
+          let t1 = 1;
+          const edge = (p, q) => {
+            if (Math.abs(p) < 1e-9) return q >= 0;
+            const bound = q / p;
+            if (p < 0) {
+              if (bound > t1) return false;
+              if (bound > t0) t0 = bound;
+            } else {
+              if (bound < t0) return false;
+              if (bound < t1) t1 = bound;
+            }
+            return t0 <= t1;
+          };
+          if (!edge(-dx, a.sx - 16) || !edge(dx, 784 - a.sx) || !edge(-dy, a.sy - 16) || !edge(dy, 584 - a.sy)) return;
+          if (!(t1 > t0)) return;
+          const length = Math.hypot(dx * (t1 - t0), dy * (t1 - t0));
+          if (length < 12) return;
+          visible += 1;
+          const mid = (t0 + t1) / 2;
+          if (!covers(a.sx + dx * mid, a.sy + dy * mid)) missed += 1;
+        };
+        for (const x of board.multiples(xMin, xMax, gap)) crossing(x, yMin, x, yMax);
+        for (const y of board.multiples(yMin, yMax, gap)) crossing(xMin, y, xMax, y);
+        const painted = board.scene.surfaces[0].colors.filter(Boolean).length;
+        const expected = (sample) => Math.sin(sample.x) * Math.cos(sample.y);
+        return {
+          label,
+          domain: domain.x0 === xMin && domain.x1 === xMax && domain.y0 === yMin && domain.y1 === yMax,
+          center: Math.abs(center.z - expected(center)),
+          side: Math.abs(side.z - expected(side)),
+          map: Math.abs(local.x - board.worldToFloorX(center.x)) + Math.abs(local.y - board.worldToFloorY(center.y)),
+          placed: placed ? Math.hypot(placed.sx - 400, placed.sy - 300) : -1,
+          lines,
+          loose,
+          bad,
+          missed,
+          visible,
+          camera: board.camera.zoom,
+          painted,
+          span: xMax - xMin,
+        };
+      };
+      const out = [inspect("start")];
+      for (let step = 0; step < 5; step++) {
+        board.zoom(0.75);
+        out.push(inspect(`in ${step + 1}`));
+      }
+      for (let step = 0; step < 8; step++) {
+        board.zoom(1.3333);
+        out.push(inspect(`out ${step + 1}`));
+      }
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      for (const zoom of [0.12, 0.4, 1.35, 6, 24]) {
+        board.camera.zoom = zoom;
+        out.push(inspect(`camera ${zoom}`));
+      }
+      board.camera.zoom = 1.35;
+      board.camera.yaw = 1.55;
+      board.camera.pitch = -0.35;
+      board.setView({ xMin: 2, xMax: 14, yMin: -6, yMax: 6, zMin: -8, zMax: 8 });
+      out.push(inspect("along"));
+      board.zoom(0.75);
+      board.zoom(0.75);
+      out.push(inspect("along in"));
+      board.zoom(1.3333);
+      board.zoom(1.3333);
+      board.zoom(1.3333);
+      out.push(inspect("along out"));
+      board.camera.zoom = 10;
+      out.push(inspect("along camera"));
+      board.camera.yaw = -0.75;
+      board.camera.pitch = -1.05;
+      board.camera.zoom = 1.35;
+      while (board.functions.length) board.removeFunction(board.functions[0].id);
+      board.resetView();
+      board.setDimension("2d");
+      return out;
+    });
+    for (const report of reports) {
+      assert(report.domain, `${report.label} left the surface domain`);
+      assert(report.center < 1e-6, `${report.label} centre is ${report.center} off the function`);
+      assert(report.side < 1e-6, `${report.label} sample is ${report.side} off the function`);
+      assert(report.map < 1e-6, `${report.label} surface left the grid mapping`);
+      assert(report.placed >= 0 && report.placed < 220, `${report.label} centre sits ${report.placed}px from the middle`);
+      assert(report.bad === 0, `${report.label} has ${report.bad} broken grid points`);
+      assert(report.loose === 0, `${report.label} has ${report.loose} grid ends off the window`);
+      assert(report.missed === 0, `${report.label} missed ${report.missed} of ${report.visible} grid lines in the window`);
+      if (!report.label.startsWith("along") && !report.label.startsWith("camera")) {
+        assert(report.visible >= 8, `${report.label} shows ${report.visible} cell lines`);
+      }
+      assert(report.lines < 2500, `${report.label} drew ${report.lines} grid lines`);
+      assert(report.painted > 4000, `${report.label} painted ${report.painted} cells`);
     }
   });
 
@@ -2089,21 +2410,26 @@ suite("Product features", () => {
       flush(loaded.win);
       assert(!left.hidden, "The list button is missing");
       assert(!list.hidden, "The expression panel starts closed");
-      assert(right.hidden && side.hidden, "2D shows the settings panel or its button");
+      assert(!right.hidden && !side.hidden, "2D hides the settings panel");
       doc.getElementById("dim3d").click();
       flush(loaded.win);
       assert(!right.hidden, "3D has no settings button");
       assert(!side.hidden, "The settings panel does not start open in 3D");
       assert(right.getAttribute("aria-pressed") === "true", "The button does not show its state");
+      const openMark = getComputedStyle(doc.getElementById("gridToggle")).backgroundColor;
+      assert(getComputedStyle(left).backgroundColor === openMark, "The list button does not show that its panel is open");
+      assert(getComputedStyle(right).backgroundColor === openMark, "The settings button does not show that its panel is open");
       const columns = getComputedStyle(doc.querySelector(".graph-body")).gridTemplateColumns.split(" ");
       assert(columns.length === 4, columns.join(" "));
       right.click();
       flush(loaded.win);
       assert(side.hidden && right.getAttribute("aria-pressed") === "false", "The settings panel did not close");
+      assert(getComputedStyle(right).backgroundColor !== openMark, "The settings button stays marked when its panel is closed");
       right.click();
       left.click();
       flush(loaded.win);
       assert(list.hidden, "The expression panel did not close");
+      assert(getComputedStyle(left).backgroundColor !== openMark, "The list button stays marked when its panel is closed");
       assert(!side.hidden, "The settings panel did not open again");
       assert(doc.getElementById("graphSplit").hidden, "The splitter stayed behind");
       const turn = doc.getElementById("sideLightTurn");
@@ -2122,7 +2448,8 @@ suite("Product features", () => {
       left.click();
       doc.getElementById("dim2d").click();
       flush(loaded.win);
-      assert(!list.hidden && side.hidden && right.hidden, "The panels did not go back");
+      assert(!list.hidden && !side.hidden && !right.hidden, "The panels did not stay open in 2D");
+      assert(!doc.getElementById("sideAxisValues").hidden && doc.getElementById("sideLightGroup").hidden, "2D did not swap the lamp for the axis values");
     } finally {
       callWin(loaded.win, () => board.setLight({ on: true, azimuth: (-54 * Math.PI) / 180, elevation: (52 * Math.PI) / 180, reach: 1.3 }));
       loaded.frame.remove();
@@ -2175,11 +2502,12 @@ suite("Product features", () => {
         if (wantLeft) assert(fnPanel.getBoundingClientRect().right <= box.left, `${name}: the plot runs under the list`);
         if (!wantLeft && !wantRight) assert(box.width > area.width - 1, `${name}: the plot does not fill the window`);
       }
-      // 2D gives the settings column back to the plot even when it is wanted in 3D.
+      // 2D keeps the settings column, now holding the axis colours and ranges.
       doc.getElementById("dim2d").click();
       flush(loaded.win);
-      assert(!shown(side), "2D kept the settings panel");
-      assert(Math.abs(plot.getBoundingClientRect().right - body.getBoundingClientRect().right) < 1, "2D left the settings column empty");
+      assert(shown(side), "2D dropped the settings panel");
+      const sideBox = side.getBoundingClientRect();
+      assert(Math.abs(sideBox.right - body.getBoundingClientRect().right) < 1, "2D left the settings column empty");
     } finally {
       loaded.frame.remove();
       localStorage.removeItem("mycalc-panel-left");
@@ -2263,37 +2591,37 @@ suite("Product features", () => {
       const doc = win.document;
       const side = doc.getElementById("graphSide");
       const button = doc.getElementById("panelRight");
-      const check = (dim, panel, name) => {
+      const check = (panel, name) => {
         flush(win);
-        assert(button.hidden === (dim === "2d"), `${name}: the button is ${button.hidden ? "hidden" : "shown"}`);
+        assert(!button.hidden, `${name}: the button is hidden`);
         assert(side.hidden === !panel, `${name}: the panel is ${side.hidden ? "hidden" : "shown"}`);
-        assert((getComputedStyle(button).display === "none") === (dim === "2d"), `${name}: the button displays as ${getComputedStyle(button).display}`);
+        assert(getComputedStyle(button).display !== "none", `${name}: the button displays as ${getComputedStyle(button).display}`);
       };
       doc.getElementById("dim2d").click();
-      check("2d", false, "2D");
+      check(true, "2D");
       doc.getElementById("dim3d").click();
-      check("3d", true, "3D");
+      check(true, "3D");
       button.click();
-      check("3d", false, "3D closed");
+      check(false, "3D closed");
       doc.getElementById("dim2d").click();
-      check("2d", false, "back to 2D");
+      check(false, "back to 2D");
       doc.getElementById("dim3d").click();
-      check("3d", false, "3D again keeps it closed");
+      check(false, "3D again keeps it closed");
       button.click();
-      check("3d", true, "3D reopened");
+      check(true, "3D reopened");
       // A dimension change that arrives from the calculator window does the same.
       callWin(win, () => {
         const state = snapshotGraph();
         state.dimension = "2d";
         applyGraphState(state);
       });
-      check("2d", false, "2D from the other window");
+      check(true, "2D from the other window");
       callWin(win, () => {
         const state = snapshotGraph();
         state.dimension = "3d";
         applyGraphState(state);
       });
-      check("3d", true, "3D from the other window");
+      check(true, "3D from the other window");
     } finally {
       loaded.frame.remove();
       localStorage.removeItem("mycalc-panel-right");
@@ -2331,6 +2659,8 @@ suite("Product features", () => {
         ["a list row", row],
         ["the row's text", row.querySelector(".fn-expr")],
         ["the settings panel", doc.getElementById("graphSide")],
+        ["the axis length heading", doc.querySelector("#sideAxisGroup h3")],
+        ["an axis length", doc.getElementById("axisLenX")],
         ["the light heading", doc.querySelector("#sideLightGroup h3")],
         ["the light-on label", doc.querySelector(".side-check span")],
         ["a slider label", doc.querySelector(".side-slide span")],
@@ -2385,7 +2715,7 @@ suite("Product features", () => {
       const app = doc.querySelector(".app").getBoundingClientRect();
       const tools = doc.querySelector(".graph-tool-row");
       const toolBox = tools.getBoundingClientRect();
-      for (const id of ["dim2d", "graphExpr", "addFn", "zoomIn", "resetView", "axisColorX", "printGraph"]) {
+      for (const id of ["dim2d", "graphExpr", "addFn", "zoomIn", "resetView", "axisShowX", "printGraph"]) {
         const box = doc.getElementById(id).getBoundingClientRect();
         assert(box.width > 0, `${id} has no room`);
         assert(box.right <= app.right - 6, `${id} is clipped at ${Math.round(box.right)} of ${Math.round(app.right)}`);
@@ -3575,19 +3905,50 @@ suite("Graph colours and axes", () => {
           drawn.push({ value: String(value), x, y });
           return text(value, x, y);
         };
-        board.draw();
+        const trouble = [];
+        const linesOf = () => board.axisScreenLines();
+        const lineDistance = (px, py, line) => {
+          const len = Math.hypot(line.dx, line.dy) || 1;
+          return Math.abs((px - line.x) * line.dy - (py - line.y) * line.dx) / len;
+        };
+        const watch = (yaw, pitch) => {
+          board.camera.yaw = yaw;
+          board.camera.pitch = pitch;
+          drawn.length = 0;
+          board.draw();
+          const lines = linesOf();
+          const letters = drawn.filter((spot) => ["X", "Y", "Z"].includes(spot.value));
+          const numbers = drawn.filter((spot) => !["X", "Y", "Z"].includes(spot.value));
+          if (letters.length !== 3) trouble.push(`${yaw},${pitch}: ${letters.length} letters`);
+          for (const spot of letters.concat(numbers)) {
+            for (const line of lines) {
+              const gap = lineDistance(spot.x, spot.y, line);
+              if (gap < 8) trouble.push(`${spot.value} is ${gap.toFixed(1)}px from an axis at ${yaw},${pitch}`);
+            }
+          }
+          for (const letter of letters) {
+            const near = numbers.filter((spot) => Math.hypot(spot.x - letter.x, spot.y - letter.y) < 18);
+            if (near.length) trouble.push(`${letter.value} shares its spot with ${near.map((s) => s.value).join(",")}`);
+          }
+        };
+        watch(0.4, -0.35);
+        watch(-1.5, 0.9);
+        watch(-0.75, -1.05);
         ctx.fillText = text;
-        return drawn;
+        board.camera.yaw = -0.75;
+        board.camera.pitch = -1.05;
+        return { drawn, trouble };
       });
-      const letters = spots.filter((spot) => ["X", "Y", "Z"].includes(spot.value));
-      assert(letters.length === 3, `${letters.length} letters: ${spots.map((s) => s.value).join(",")}`);
-      const numbers = spots.filter((spot) => !["X", "Y", "Z"].includes(spot.value));
+      const letters = spots.drawn.filter((spot) => ["X", "Y", "Z"].includes(spot.value));
+      const numbers = spots.drawn.filter((spot) => !["X", "Y", "Z"].includes(spot.value));
+      assert(letters.length === 3, `${letters.length} letters: ${spots.drawn.map((s) => s.value).join(",")}`);
       assert(numbers.length > 3, `${numbers.length} tick numbers`);
       for (const letter of letters) {
         const near = numbers.filter((spot) => Math.hypot(spot.x - letter.x, spot.y - letter.y) < 18);
         assert(!near.length, `${letter.value} shares its spot with ${near.map((s) => s.value).join(",")}`);
       }
-      assert(!spots.some((spot) => ["x", "y", "z"].includes(spot.value)), "A lower case axis letter is still drawn");
+      assert(!spots.drawn.some((spot) => ["x", "y", "z"].includes(spot.value)), "A lower case axis letter is still drawn");
+      assert(!spots.trouble.length, spots.trouble.join(" | "));
     } finally {
       loaded.frame.remove();
     }
@@ -3877,6 +4238,19 @@ suite("The 3D box", () => {
       // The reach is measured in the units of the box, so a wider range does
       // not make the axis shoot off the canvas.
       if (Math.abs(wider.x - reach.x) > 1e-9) trouble.push("the reach changed with the numbers on the axis");
+      const width = board.canvas.width;
+      const height = board.canvas.height;
+      board.canvas.width = 800;
+      board.canvas.height = 600;
+      board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
+      const rays = board.axisRays();
+      board.canvas.width = width;
+      board.canvas.height = height;
+      if (rays.length < 6) trouble.push(`${rays.length} axis rays`);
+      for (const ray of rays) {
+        const past = Math.max(Math.abs(ray.to.x), Math.abs(ray.to.y), Math.abs(ray.to.z));
+        if (!(past > reach.x + 0.4)) trouble.push(`a ray stops at ${past.toFixed(2)}`);
+      }
       board.setDimension("2d");
       board.resetView();
       if (trouble.length) throw new Error(trouble.join(" | "));
@@ -3924,7 +4298,7 @@ suite("Axis ranges and the lamp", () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       const doc = loaded.win.document;
-      doc.getElementById("dim3d").click();
+      doc.getElementById("dim2d").click();
       flush(loaded.win);
       const after = callWin(loaded.win, () => {
         const input = document.getElementById("axisMaxX");
@@ -3960,50 +4334,47 @@ suite("Axis ranges and the lamp", () => {
       flush(loaded.win);
       const hiddenIn2d = {
         z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
-        lamp: doc.getElementById("lightSpan").hidden,
-        rule: doc.getElementById("lightSep").hidden,
+        lamp: doc.getElementById("lightToggle").hidden,
+        light: doc.getElementById("sideLightGroup").hidden,
+        lengths: doc.getElementById("sideAxisGroup").hidden,
+        values: doc.getElementById("sideAxisValues").hidden,
+        side: doc.getElementById("graphSide").hidden,
       };
       doc.getElementById("dim3d").click();
       flush(loaded.win);
       const shownIn3d = {
         z: doc.querySelector('.axis-span[data-axis="z"]').hidden,
-        lamp: doc.getElementById("lightSpan").hidden,
-        rule: doc.getElementById("lightSep").hidden,
+        lamp: doc.getElementById("lightToggle").hidden,
+        values: doc.getElementById("sideAxisValues").hidden,
+        lengths: doc.getElementById("sideAxisGroup").hidden,
+        side: doc.getElementById("graphSide").hidden,
       };
-      assert(hiddenIn2d.z && hiddenIn2d.lamp && hiddenIn2d.rule, "the height or the lamp showed in 2D");
-      assert(!shownIn3d.z && !shownIn3d.lamp && !shownIn3d.rule, "the height or the lamp stayed away in 3D");
-      // The groups are kept apart by a rule, and the lamp sits last.
-      const row = doc.getElementById("axisRow");
-      const order = [...row.children].map((node) => node.className.split(" ")[0]);
-      assert(order.filter((name) => name === "axis-sep").length === 2, `rules: ${order.join(",")}`);
-      assert(order[order.length - 1] === "axis-span", `the row ends with ${order[order.length - 1]}`);
-      assert(row.lastElementChild.id === "lightSpan", "the lamp is not the last group");
+      assert(hiddenIn2d.z && hiddenIn2d.lamp && hiddenIn2d.light && hiddenIn2d.lengths && !hiddenIn2d.values && !hiddenIn2d.side, "the height or the lamp showed in 2D");
+      assert(shownIn3d.z && shownIn3d.values, "3D still shows the smallest and largest");
+      assert(!shownIn3d.lamp && !shownIn3d.lengths && !shownIn3d.side, "the lamp stayed away in 3D");
+      assert(doc.getElementById("lightAtX") == null && doc.getElementById("lightSpan") == null, "the lamp position is still on the toolbar");
+      assert(doc.getElementById("axisRangeZ").contains(doc.getElementById("axisLenZ")), "the z length is not in the settings panel");
+      assert(doc.getElementById("sideAxisValueList").contains(doc.querySelector('.axis-span[data-axis="x"]')), "the x range left the settings panel");
+      assert(!doc.getElementById("axisRow").querySelector(".axis-span, .axis-field"), "the toolbar still holds an axis setting");
     } finally {
       loaded.frame.remove();
     }
   });
 
-  test("The lamp can be placed by its x, y and z", async () => {
+  test("The lamp is placed from the settings panel, not the toolbar", async () => {
     const loaded = await loadApp("pop=graph&desktop=1");
     try {
       const doc = loaded.win.document;
       doc.getElementById("dim3d").click();
       flush(loaded.win);
+      assert(doc.getElementById("axisRow").querySelector("#lightAtX, #lightAtY, #lightAtZ") == null, "the toolbar still types the lamp position");
       const moved = callWin(loaded.win, () => {
         board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 });
-        const put = (id, value) => {
-          const input = document.getElementById(id);
-          input.focus();
-          input.value = String(value);
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-          input.blur();
-        };
-        put("lightAtX", 6);
-        put("lightAtY", -4);
-        put("lightAtZ", 8);
+        board.setLightPlace({ x: 6, y: -4, z: 8 });
         return {
           place: board.lightPlace(),
-          boxes: ["lightAtX", "lightAtY", "lightAtZ"].map((id) => Number(document.getElementById(id).value)),
+          turn: Number(document.getElementById("sideLightTurn").value),
+          rise: Number(document.getElementById("sideLightRise").value),
           light: { ...board.light },
         };
       });
@@ -4014,7 +4385,7 @@ suite("Axis ranges and the lamp", () => {
       const want = Math.hypot(asked.x, asked.y, asked.z) || 1;
       const dot = (moved.place.x * asked.x + moved.place.y * asked.y + moved.place.z * asked.z) / (size * want);
       assert(dot > 0.999, `the lamp points elsewhere (${dot.toFixed(4)})`);
-      assert(moved.boxes.every((value) => Number.isFinite(value)), `the boxes read ${moved.boxes.join(",")}`);
+      assert(Number.isFinite(moved.turn) && Number.isFinite(moved.rise), `the panel reads ${moved.turn}, ${moved.rise}`);
       assert(Number.isFinite(moved.light.azimuth) && Number.isFinite(moved.light.elevation), "the lamp lost its direction");
     } finally {
       loaded.frame.remove();
@@ -4927,8 +5298,11 @@ suite("Graph side panels", () => {
       assert(left.dataset.tooltip === "Expression panel" && left.getAttribute("aria-label") === "Expression panel", left.dataset.tooltip);
       assert(right.dataset.tooltip === "Settings panel" && right.getAttribute("aria-label") === "Settings panel", right.dataset.tooltip);
       assert(g.doc.querySelector("#sideLightGroup h3").textContent === "Light", g.doc.querySelector("#sideLightGroup h3").textContent);
+      assert(g.doc.querySelector("#sideAxisGroup h3").textContent === "Axis length", g.doc.querySelector("#sideAxisGroup h3").textContent);
+      assert(g.doc.getElementById("axisLenDownX").getAttribute("aria-label") === "Decrease X", g.doc.getElementById("axisLenDownX").getAttribute("aria-label"));
       g.win.applyLanguage("ko");
       assert(g.doc.querySelector("#sideLightGroup h3").textContent === "광원", g.doc.querySelector("#sideLightGroup h3").textContent);
+      assert(g.doc.querySelector("#sideAxisGroup h3").textContent === "축 길이", g.doc.querySelector("#sideAxisGroup h3").textContent);
       assert(left.dataset.tooltip === "식 패널" && right.dataset.tooltip === "설정 패널", `${left.dataset.tooltip} / ${right.dataset.tooltip}`);
     } finally {
       g.win.applyLanguage("ko");
@@ -4948,16 +5322,17 @@ suite("Graph side panels", () => {
       g.doc.getElementById("panelLeft").click();
       await frame();
       assert(plot.width > before, `closing the list left the plot ${before} -> ${plot.width}`);
-      // 3D brings the settings panel, which takes its column from the plot.
+      // Both dimensions keep the settings column, so closing it is what widens the plot.
       const wide = plot.width;
       g.doc.getElementById("dim3d").click();
       await frame();
-      assert(plot.width < wide, `opening the settings left the plot ${wide} -> ${plot.width}`);
-      const narrow = plot.width;
+      assert(plot.width === wide, `3D changed the plot ${wide} -> ${plot.width}`);
       g.doc.getElementById("panelRight").click();
       await frame();
-      assert(plot.width === wide, `closing the settings left the plot ${narrow} -> ${plot.width}, not ${wide}`);
+      assert(plot.width > wide, `closing the settings left the plot ${wide} -> ${plot.width}`);
       g.doc.getElementById("panelRight").click();
+      await frame();
+      assert(plot.width === wide, `opening the settings left the plot ${plot.width}, not ${wide}`);
       g.doc.getElementById("dim2d").click();
       await frame();
       assert(plot.width === wide, `going back to 2D left the plot ${plot.width}, not ${wide}`);
@@ -4965,6 +5340,66 @@ suite("Graph side panels", () => {
       const ratio = plot.width / box.width;
       assert(Math.abs(ratio - g.win.devicePixelRatio) < 0.05, `the plot is drawn at ${ratio.toFixed(2)}x its box`);
     } finally {
+      closeGraph(g);
+    }
+  });
+
+  test("Each axis length steps from the settings panel", async () => {
+    const g = await openGraph({ right: true });
+    try {
+      callWin(g.win, () => board.setView({ xMin: -10, xMax: 10, yMin: -10, yMax: 10, zMin: -10, zMax: 10 }));
+      flush(g.win);
+      const centred = (axis) => {
+        const slot = g.doc.getElementById(`axisRange${axis}`);
+        const length = g.doc.getElementById(`axisLen${axis}`);
+        const row = slot.parentElement.getBoundingClientRect();
+        const box = length.getBoundingClientRect();
+        const ends = g.doc.querySelector(`.axis-span[data-axis="${axis.toLowerCase()}"]`);
+        return {
+          home: slot.contains(length),
+          align: getComputedStyle(length).textAlign,
+          delta: (box.left + box.right) / 2 - (row.left + row.right) / 2,
+          text: length.textContent,
+          hiddenEnds: ends.hidden && g.doc.getElementById("sideAxisValueList").contains(ends),
+        };
+      };
+      for (const axis of ["X", "Y", "Z"]) {
+        const place = centred(axis);
+        assert(place.home, `${axis} length left the settings panel`);
+        assert(place.align === "center", `${axis} length is not centred`);
+        assert(Math.abs(place.delta) < 1, `${axis} length sits ${place.delta}px off centre`);
+        assert(place.text === "20", `${axis} reads ${place.text}`);
+        assert(place.hiddenEnds, `${axis} still shows its smallest and largest`);
+      }
+      g.doc.getElementById("axisLenUpX").click();
+      const grown = callWin(g.win, () => ({ ...board.view }));
+      assert(Math.abs(grown.xMax - grown.xMin - 80 / 3) < 1e-9, `x grew to ${grown.xMax - grown.xMin}`);
+      assert(Math.abs((grown.xMin + grown.xMax) / 2) < 1e-9, "x left its middle");
+      assert(Math.abs(grown.xMin + 40 / 3) < 1e-9 && Math.abs(grown.xMax - 40 / 3) < 1e-9, "x was not split in half");
+      assert(grown.yMin === -10 && grown.yMax === 10 && grown.zMin === -10 && grown.zMax === 10, "y or z moved with x");
+      assert(g.doc.getElementById("axisLenX").textContent === "26.666667", g.doc.getElementById("axisLenX").textContent);
+      g.doc.getElementById("axisLenDownX").click();
+      const back = callWin(g.win, () => board.view.xMax - board.view.xMin);
+      assert(Math.abs(back - 20) < 1e-6, `x came back to ${back}`);
+      assert(g.doc.getElementById("axisLenX").textContent === "20", g.doc.getElementById("axisLenX").textContent);
+      g.doc.getElementById("axisLenDownZ").click();
+      const shrunk = callWin(g.win, () => ({
+        span: board.view.zMax - board.view.zMin,
+        mid: (board.view.zMin + board.view.zMax) / 2,
+        x: board.view.xMax - board.view.xMin,
+        low: board.view.zMin,
+        high: board.view.zMax,
+      }));
+      assert(Math.abs(shrunk.span - 15) < 1e-9, `z shrank to ${shrunk.span}`);
+      assert(Math.abs(shrunk.mid) < 1e-9, "z left its middle");
+      assert(Math.abs(shrunk.low + 7.5) < 1e-9 && Math.abs(shrunk.high - 7.5) < 1e-9, "z was not split in half");
+      assert(Math.abs(shrunk.x - 20) < 1e-6, "x moved with z");
+      assert(g.doc.getElementById("axisLenZ").textContent === "15", g.doc.getElementById("axisLenZ").textContent);
+    } finally {
+      callWin(g.win, () => {
+        board.resetView();
+        board.setDimension("2d");
+      });
       closeGraph(g);
     }
   });
@@ -5088,7 +5523,7 @@ suite("3D axes and surfaces", () => {
   test("A surface in front of an axis hides it", async () => {
     const loaded = await openScene("5+0*x");
     try {
-      const covered = probe(loaded, [...alongX(0), ...alongY(0), { axis: "z", x: 0, y: 0, z: 2 }, { axis: "z", x: 0, y: 0, z: 3.5 }]);
+      const covered = probe(loaded, [...alongX(0), ...alongY(0), { axis: "z", x: 0, y: 0, z: 3 }, { axis: "z", x: 0, y: 0, z: 3.5 }]);
       const seen = covered.map((spot, index) => [index, spot.change]).filter(([, change]) => change > 20);
       assert(!seen.length, `axis showing through the sheet at ${seen.map(([index, change]) => `#${index} (${change})`).join(", ")}`);
       // Above the sheet the same Z axis is in the open again.
