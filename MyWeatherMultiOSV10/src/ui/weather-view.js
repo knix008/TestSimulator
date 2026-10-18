@@ -1,5 +1,6 @@
 import { esc } from "./html.js";
 import { presentWeather } from "../weather/aggregate.js";
+import { dustAt, dustBrief, dustText, worseGrade } from "../weather/air.js";
 import { formatTemp, isoDate } from "../weather/format.js";
 import { MONTH_SPAN } from "../weather/providers.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
@@ -10,15 +11,18 @@ export function renderWeatherHtml({ tab, language, units, today, t, priority = "
   const reading = todayReading(shown, today);
   const code = reading?.code ?? 1;
   const art = conditionIcon(code);
+  const dust = dustAt(shown?.weather?.air, reading?.day?.date, reading?.hour?.time);
   const advance = cityCount > 1 ? ` data-scene-advance="1" title="${esc(t("tip.nextCity"))}"` : "";
+  const dustLine = dust ? `<div class="scene-dust" data-gui="scene-dust">${esc(dustText(dust, t))}</div>` : "";
   const scene = `<section class="weather-scene" data-gui="scene"${advance}>
-      ${sceneArt(art)}
+      <span class="scene-art-wrap">${sceneArt(art)}${dust ? dustArt(worseGrade(dust.pm10, dust.pm25)) : ""}</span>
       <div class="scene-copy">
         <div class="scene-city">${esc(city)}</div>
         <div class="scene-date" data-gui="scene-date">${esc(formatDay(isoDate(today), language, dateFormat, t) || "\u00a0")}</div>
         <div class="scene-temp">${esc(reading ? formatTemp(reading.temp, units) : "—")}</div>
         <div class="scene-cond">${esc(reading ? conditionText(code, language) : t("weather.empty"))}</div>
         <div class="scene-range">${esc(reading ? `${formatTemp(reading.day.tempMin, units)} – ${formatTemp(reading.day.tempMax, units)}` : "\u00a0")}</div>
+        ${dustLine}
       </div>
     </section>`;
   return `<div class="weather">${scene}</div>`;
@@ -37,9 +41,9 @@ export function renderForecastHtml({ range, tab, language, units, today, t, prio
 
 export function forecastFitHeight(range, hasWeather) {
   if (!hasWeather) return 72;
-  if (range === "weekly") return 96;
-  if (range === "monthly") return 500;
-  return 288;
+  if (range === "weekly") return 136;
+  if (range === "monthly") return 640;
+  return 352;
 }
 
 export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {
@@ -116,12 +120,13 @@ function hoursHtml(day, tab, language, units, t) {
       const hour = byHour.get(hourIndex);
       const label = hourLabel(hourIndex, language);
       if (!hour) {
-        cells.push(`<div class="hour is-empty"><span class="hour-icon"></span><span class="hour-time">${esc(label)}</span><span class="hour-temp">—</span></div>`);
+        cells.push(`<div class="hour is-empty"><span class="hour-icon"></span><span class="hour-time">${esc(label)}</span><span class="hour-temp">—</span><span class="hour-dust"></span></div>`);
         continue;
       }
-      const title = `${label} ${conditionText(hour.code, language)} ${formatTemp(hour.temp, units)}`;
+      const dust = dustAt(tab.weather?.air, day?.date, hour.time);
+      const title = `${label} ${conditionText(hour.code, language)} ${formatTemp(hour.temp, units)}${dust ? ` ${dustText(dust, t)}` : ""}`;
       cells.push(
-        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span class="hour-time">${esc(label)}</span><span class="hour-temp">${esc(formatTemp(hour.temp, units))}</span></button>`,
+        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span class="hour-time">${esc(label)}</span><span class="hour-temp">${esc(formatTemp(hour.temp, units))}</span>${dustCell(dust, t, "hour-dust")}</button>`,
       );
     }
     return `<div class="hour-band" data-band="${id}"><span class="band-name">${esc(t(`period.${id}`))}</span>${cells.join("")}</div>`;
@@ -142,6 +147,7 @@ function weekHtml(days, tab, language, units, today, t, dateFormat, anchor) {
       language,
       units,
       today,
+      t,
       name: t(`weekday.${id}`),
       iconSize: 26,
     });
@@ -164,7 +170,9 @@ function monthHtml(days, tab, language, units, today, t, dateFormat) {
   const cells = [];
   while (cursor <= end) {
     const key = isoDate(cursor);
-    if (cursor < first || cursor > last) cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span></div>`);
+    if (cursor < first || cursor > last) {
+      cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span><span class="day-slot"></span><span class="temps"></span><span class="dust-line"></span></div>`);
+    }
     else {
       // The span crosses a month, so the first day and each 1st also say which month.
       const label = cursor.getTime() === first.getTime() || cursor.getDate() === 1 ? `${cursor.getMonth() + 1}/${cursor.getDate()}` : String(cursor.getDate());
@@ -176,6 +184,7 @@ function monthHtml(days, tab, language, units, today, t, dateFormat) {
           language,
           units,
           today,
+          t,
           name: "",
           iconSize: 20,
           label,
@@ -187,7 +196,7 @@ function monthHtml(days, tab, language, units, today, t, dateFormat) {
   return `<div class="range-title">${esc(monthTitle(today, language, dateFormat, t))}</div><div class="month-cal" data-gui="month">${heads}${cells.join("")}</div>`;
 }
 
-function dayCell({ dateKey, day, tab, language, units, today, name, iconSize, label = String(Number(dateKey.slice(8))) }) {
+function dayCell({ dateKey, day, tab, language, units, today, t, name, iconSize, label = String(Number(dateKey.slice(8))) }) {
   const selected = dateKey === tab.selectedDate ? " is-selected" : "";
   const alert = day && isAlert(day, tab) ? " is-alert" : "";
   const todayMark = dateKey === isoDate(today) ? " is-today" : "";
@@ -196,11 +205,12 @@ function dayCell({ dateKey, day, tab, language, units, today, name, iconSize, la
   const temps = day
     ? `<span class="temps"><span>${esc(formatTemp(day.tempMin, units))}</span><span>${esc(formatTemp(day.tempMax, units))}</span></span>`
     : `<span class="temps"><span>${esc(blank)}</span></span>`;
+  const dust = dustAt(tab.weather?.air, dateKey);
   const condition = day ? `${conditionText(day.code, language)} ` : "";
   const range = day ? `${formatTemp(day.tempMin, units)} – ${formatTemp(day.tempMax, units)}` : "";
-  const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}`.trim();
+  const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}${dust ? ` ${dustText(dust, t)}` : ""}`.trim();
   const head = name ? `<span class="weekday">${esc(name)}</span>` : "";
-  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${esc(label)}</span>${art}${temps}</button>`;
+  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${esc(label)}</span>${art}${temps}${dustCell(dust, t, "dust-line")}</button>`;
 }
 
 function missingTemp(units) {
@@ -261,6 +271,21 @@ function spanTitle(start, end, language, format = "long", t) {
   }
   if (language === "ko") return `${start.getMonth() + 1}월 ${start.getDate()}일 – ${end.getMonth() + 1}월 ${end.getDate()}일`;
   return `${MONTH_EN[start.getMonth()].slice(0, 3)} ${start.getDate()} – ${MONTH_EN[end.getMonth()].slice(0, 3)} ${end.getDate()}`;
+}
+
+const DUST_COLOR = { good: "#3dbe7a", moderate: "#e6b325", bad: "#e07a2f", veryBad: "#d64545" };
+
+function dustCell(dust, t, klass) {
+  if (!dust) return `<span class="${klass}"></span>`;
+  const grade = worseGrade(dust.pm10, dust.pm25);
+  return `<span class="${klass}" data-dust="${esc(grade)}" title="${esc(dustText(dust, t))}">${dustArt(grade, 12)}<span>${esc(dustBrief(dust))}</span></span>`;
+}
+
+/** Particle picture. The color is the worse of PM10 and PM2.5. */
+function dustArt(grade, size = 72) {
+  const color = DUST_COLOR[grade] || "#9aa8b5";
+  const body = `<circle cx="60" cy="60" r="22" fill="${color}"/><circle cx="34" cy="40" r="7" fill="${color}"/><circle cx="86" cy="38" r="5" fill="${color}"/><circle cx="80" cy="82" r="8" fill="${color}"/><circle cx="38" cy="84" r="4" fill="${color}"/>`;
+  return `<span class="dust-art" data-dust="${esc(grade || "none")}"><svg viewBox="12 12 96 96" width="${size}" height="${size}" aria-hidden="true">${body}</svg></span>`;
 }
 
 function sceneArt(name, size = 240) {

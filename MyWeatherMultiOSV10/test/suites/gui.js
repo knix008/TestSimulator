@@ -1630,7 +1630,7 @@ export function registerGui(h) {
         assert.equal(row.querySelectorAll("br").length, 0);
       }
       const part = popup.querySelector('[data-field="fontPart"]');
-      assert.deepEqual([...part.options].map((option) => option.value), ["city", "date", "temp", "cond", "range"]);
+      assert.deepEqual([...part.options].map((option) => option.value), ["city", "date", "temp", "cond", "range", "dust"]);
       assert.equal(popup.querySelector('[data-field="fontPick"]').options.length, 51);
       assert.equal(popup.querySelector('[data-field="itemSize"]').value, "44");
       const shown = popup.querySelector("[data-size-label]");
@@ -1687,6 +1687,11 @@ export function registerGui(h) {
       part.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
       assert.equal(sample.textContent, "12° – 24°");
+      part.value = "dust";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "미세 32");
+      assert.equal(popup.querySelector('[data-field="itemSize"]').value, "16");
       const korean = popup.querySelector('[data-choice="language"][data-value="ko"]');
       const englishButton = popup.querySelector('[data-choice="language"][data-value="en"]');
       assert.equal(korean.querySelector("span").textContent, "한국어");

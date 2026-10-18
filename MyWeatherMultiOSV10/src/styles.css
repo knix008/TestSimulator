@@ -296,6 +296,10 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .scene-temp { min-height: calc(var(--size-temp, 68px) * var(--scene-scale)); font-family: var(--font-temp), sans-serif; font-size: calc(var(--size-temp, 68px) * var(--scene-scale)); font-weight: 720; line-height: 1; letter-spacing: -1px; white-space: nowrap; }
 .scene-cond { min-height: calc(var(--size-cond, 16px) * 1.2 * var(--scene-scale)); font-family: var(--font-cond), sans-serif; font-size: calc(var(--size-cond, 16px) * var(--scene-scale)); color: var(--muted); line-height: 1.2; white-space: nowrap; }
 .scene-range { min-height: calc(var(--size-range, 16px) * 1.2 * var(--scene-scale)); font-family: var(--font-range), sans-serif; font-size: calc(var(--size-range, 16px) * var(--scene-scale)); color: var(--muted); line-height: 1.2; white-space: nowrap; }
+.scene-dust { min-height: calc(var(--size-dust, 16px) * 1.2 * var(--scene-scale)); font-family: var(--font-dust), sans-serif; font-size: calc(var(--size-dust, 16px) * var(--scene-scale)); color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scene-art-wrap { position: relative; display: inline-flex; flex: 0 0 auto; }
+.scene-art-wrap > .dust-art { position: absolute; right: 0; bottom: 0; width: calc(64px * var(--art-scale)); height: calc(64px * var(--art-scale)); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2)); }
+.scene-art-wrap > .dust-art svg { width: 100%; height: 100%; }
 .scene-art { display: inline-flex; flex: 0 0 auto; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.22)); }
 .scene-art .scene-svg { width: calc(216px * var(--art-scale)); height: auto; }
 .content[data-scene-ready="1"] .weather-scene { visibility: visible; }
@@ -331,7 +335,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .hour-band {
   display: grid;
   grid-template-columns: 52px repeat(6, minmax(0, 1fr));
-  grid-template-rows: 22px 16px 16px;
+  grid-template-rows: 22px 16px 16px 14px;
   column-gap: 8px;
   row-gap: 2px;
   align-items: center;
@@ -366,7 +370,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 .hour {
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
   display: grid;
   grid-template-rows: subgrid;
   justify-items: center;
@@ -382,6 +386,8 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 }
 .hour .scene-svg { width: 22px; height: 22px; }
 .hour-time, .hour-temp { width: 100%; height: 16px; line-height: 16px; text-align: center; }
+.hour-dust, .dust-line { display: inline-flex; align-items: center; justify-content: center; gap: 2px; width: 100%; max-width: 100%; height: 14px; overflow: hidden; font-size: 10px; line-height: 14px; white-space: nowrap; color: var(--ink); }
+.hour-dust svg, .dust-line svg { width: 12px; height: 12px; flex: 0 0 auto; }
 .hour.is-empty, .hour-gap { color: var(--muted); }
 .hour.is-empty { background: rgba(0, 0, 0, 0.01); }
 .hour .scene-art, .day .scene-art { filter: none; }
@@ -400,8 +406,24 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .weekday { font-size: 13px; font-weight: 700; }
 .day-num { font-size: 12px; font-weight: 650; }
 
-.week-row, .month-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.week-row .day { min-height: 0; padding: 1px 2px; gap: 0; }
+.week-row, .month-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; align-items: stretch; }
+.week-row .day {
+  display: grid;
+  grid-template-rows: 16px 16px 26px 16px 14px;
+  align-content: start;
+  justify-items: center;
+  align-items: center;
+  min-height: 0;
+  padding: 1px 2px;
+  gap: 2px;
+}
+.week-row .day .weekday,
+.week-row .day .day-num,
+.week-row .day .temps { width: 100%; height: 16px; line-height: 16px; text-align: center; }
+.week-row .day .scene-art,
+.week-row .day .hour-gap { width: 100%; height: 26px; display: grid; place-items: center; }
+.week-row .day .scene-svg { width: 26px; height: 26px; }
+.week-row .day .temps { justify-content: center; }
 .month-head {
   text-align: center;
   font-size: 12px;
@@ -413,15 +435,17 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .month-head:last-child, .week-row .day:last-child .weekday { color: #3d8bfd; }
 .month-cal .day {
   display: grid;
-  grid-template-rows: 18px 22px 16px;
+  grid-template-rows: 18px 22px 16px 14px;
   align-content: start;
   justify-items: center;
   align-items: center;
   gap: 2px;
-  min-height: 62px;
+  min-height: 78px;
   padding: 4px 2px 2px;
 }
-.month-cal .day .day-num { height: 18px; line-height: 18px; }
+.month-cal .day .day-num { width: 100%; height: 18px; line-height: 18px; text-align: center; }
+.month-cal .day .temps { width: 100%; height: 16px; align-items: center; justify-content: center; }
+.month-cal .day .day-slot,
 .month-cal .day .hour-gap,
 .month-cal .day .scene-art { height: 22px; display: grid; place-items: center; }
 .month-cal .day .scene-svg { width: 20px; height: 20px; }

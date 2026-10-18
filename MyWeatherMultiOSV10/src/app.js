@@ -14,6 +14,7 @@ import { UndoStack } from "./core/undo.js";
 import { CITIES, filterCities } from "./weather/cities.js";
 import { formatTemp, isoDate } from "./weather/format.js";
 import { geocodeUrl, mergeGeocoding, parseGeocoding, sourcePageUrl } from "./weather/providers.js";
+import { dustAt, dustText } from "./weather/air.js";
 import { loadWeather } from "./weather/service.js";
 import { conditionText } from "./weather/wmo.js";
 import { gripIcon, icon } from "./ui/icons.js";
@@ -1456,8 +1457,9 @@ class WeatherApp {
     tab.selectedDate = date || "";
     const day = tab.weather?.daily?.find((row) => row.date === date);
     const city = displayCity(tab.place, this.settings.language);
+    const dust = day ? dustText(dustAt(tab.weather?.air, day.date), (key) => this.i18n.t(key)) : "";
     this.selectionText = day
-      ? `${city} ${day.date} ${conditionText(day.code, this.settings.language)} ${formatTemp(day.tempMin, this.settings.units)} ${formatTemp(day.tempMax, this.settings.units)}`
+      ? `${city} ${day.date} ${conditionText(day.code, this.settings.language)} ${formatTemp(day.tempMin, this.settings.units)} ${formatTemp(day.tempMax, this.settings.units)}${dust ? ` ${dust}` : ""}`
       : city;
     this.renderWeather();
     this.syncPanels();
@@ -2211,23 +2213,14 @@ class WeatherApp {
       target.backgroundImage = values.backgroundImage || "";
       target.backgroundName = values.backgroundName || "";
     }
-    const fonts = sanitizeFonts(
-      {
-        city: values.fontCity,
-        date: values.fontDate,
-        temp: values.fontTemp,
-        cond: values.fontCond,
-        range: values.fontRange,
-        sizes: {
-          city: values.sizeCity,
-          date: values.sizeDate,
-          temp: values.sizeTemp,
-          cond: values.sizeCond,
-          range: values.sizeRange,
-        },
-      },
-      target.fontFamily,
-    );
+    const families = {};
+    const sizes = {};
+    for (const part of FONT_PARTS) {
+      const name = `${part.charAt(0).toUpperCase()}${part.slice(1)}`;
+      families[part] = values[`font${name}`];
+      sizes[part] = values[`size${name}`];
+    }
+    const fonts = sanitizeFonts({ ...families, sizes }, target.fontFamily);
     this.sceneFonts = fonts;
     if (this.ownsCityList) target.fonts = fonts;
     target.openAtLogin = Boolean(values.openAtLogin);

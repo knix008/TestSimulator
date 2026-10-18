@@ -23,8 +23,10 @@ import { layoutMenu, menuWindowOptions, placeBeside, popupWindowOptions } from "
 import { buildTrayColumn } from "../../src/ui/menus.js";
 import { CITY_PAGE_SIZE, PAGE_SPAN, moveCity, pageWindow } from "../../src/ui/popups.js";
 import { layoutTabScroller } from "../../src/ui/tab-scroller.js";
+import { renderForecastHtml, renderWeatherHtml } from "../../src/ui/weather-view.js";
 import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURAL, SCENE_TEXT, WINDOW_DEFAULT, WINDOW_MIN, clampWindowSize, isCompactWidth, placeWindow, recordedWindowPlacement, roomyMinWidth, sceneFit, sceneScale, stampWindowPlacement, toolbarMinWidth } from "../../src/ui/window-spec.js";
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
+import { applyAirQuality, dustAt, dustGrade, parseAirQuality, worseGrade } from "../../src/weather/air.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
 import { formatTemp } from "../../src/weather/format.js";
 import { MONTH_SPAN, extendedUrl, geocodeUrl, mergeGeocoding, metNoUrl, openMeteoUrl, parseExtended, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
@@ -143,7 +145,8 @@ export function registerLogic(h) {
     assert.deepEqual(promoted.extraWindows, []);
     assert.equal(removeWeatherWindow({ cities: [busan], extraWindows: [] }), null);
     const legacy = sanitizeFonts({ fontFamily: "Georgia" });
-    assert.deepEqual(FONT_PARTS.map((part) => legacy[part]), ["Georgia", "Georgia", "Georgia", "Georgia", "Georgia"]);
+    assert.deepEqual(FONT_PARTS.map((part) => legacy[part]), FONT_PARTS.map(() => "Georgia"));
+    assert.equal(legacy.sizes.dust, 16);
     assert.equal(legacy.sizes.city, 44);
     assert.equal(legacy.sizes.temp, 68);
     assert.equal(legacy.sizes.date, 16);
@@ -442,6 +445,89 @@ export function registerLogic(h) {
     assert.equal(weather.daily[0].tempMax, 21);
     assert.equal(seen.at(-1)[0], 100);
     assert.equal(weather.sources.find((source) => source.id === "metno").ok, false);
+    assert.equal(weather.air, undefined, "a forecast body is not treated as dust");
+  });
+  h.test("fine dust is graded and drawn with the weather", async () => {
+    assert.equal(dustGrade("pm10", 30), "good");
+    assert.equal(dustGrade("pm10", 31), "moderate");
+    assert.equal(dustGrade("pm10", 81), "bad");
+    assert.equal(dustGrade("pm10", 151), "veryBad");
+    assert.equal(dustGrade("pm25", 15), "good");
+    assert.equal(dustGrade("pm25", 36), "bad");
+    assert.equal(dustGrade("pm25", 76), "veryBad");
+    assert.equal(worseGrade(20, 80), "veryBad");
+    const parsed = parseAirQuality({
+      hourly: {
+        time: ["2026-10-07T09:00", "2026-10-07T10:00", "2026-10-08T09:00", "later"],
+        pm10: [40, 20, 10, 9],
+        pm2_5: [20, 10, 5, 1],
+      },
+    });
+    assert.equal(parsed.hourly.length, 3);
+    assert.equal(parsed.daily[0].pm10, 30);
+    assert.equal(parsed.daily[0].pm25, 15);
+    assert.equal(parseAirQuality({ daily: { time: [] } }).hourly.length, 0);
+    assert.equal(applyAirQuality({ daily: [] }, { hourly: [], daily: [] }).air, undefined);
+    const weather = await loadWeather(
+      { lat: 37.5, lon: 127, cityEn: "Seoul" },
+      {
+        sources: ["ecmwf"],
+        fetchImpl: async (url) => {
+          if (String(url).includes("air-quality")) {
+            return jsonResponse({ hourly: { time: ["2026-10-07T09:00"], pm10: [40], pm2_5: [20] } });
+          }
+          return jsonResponse(openMeteoBody(SAMPLE_DATES, 20));
+        },
+      },
+    );
+    assert.equal(weather.daily[0].tempMax, 20);
+    assert.equal(dustAt(weather.air, "2026-10-07", "2026-10-07T09:00").pm10, 40);
+    const ko = createI18n("ko");
+    const tab = {
+      place: { cityKo: "서울", cityEn: "Seoul" },
+      selectedDate: "2026-10-07",
+      weather: {
+        ...weather,
+        daily: [{ date: "2026-10-07", tempMin: 10, tempMax: 20, code: 1 }],
+        hourly: [{ time: "2026-10-07T09:00", temp: 18, code: 1 }],
+      },
+    };
+    const html = renderWeatherHtml({
+      tab,
+      language: "ko",
+      units: "C",
+      today: new Date(2026, 9, 7, 9, 0, 0),
+      t: (key) => ko.t(key),
+      cityCount: 1,
+    });
+    assert.match(html, /scene-dust/);
+    assert.match(html, /data-dust="moderate"/);
+    assert.match(html, /미세 40/);
+    assert.match(html, /초미세 20/);
+    const daily = renderForecastHtml({ range: "daily", tab, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), anchor: "2026-10-07" });
+    assert.equal((daily.match(/class="hour-dust"/g) || []).length, 24);
+    assert.match(daily, /40·20/);
+    const weekly = renderForecastHtml({ range: "weekly", tab, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), anchor: "2026-10-07" });
+    assert.equal((weekly.match(/class="dust-line"/g) || []).length, 7);
+    assert.match(weekly, /40·20/);
+    const monthly = renderForecastHtml({ range: "monthly", tab, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key) });
+    assert.match(monthly, /data-date="2026-10-07"[^>]*title="[^"]*미세 40/);
+    assert.match(monthly, /data-date="2026-11-05"/);
+    const quiet = {
+      place: { cityKo: "부산", cityEn: "Busan" },
+      weather: {
+        daily: [{ date: "2026-10-07", tempMin: 10, tempMax: 20, code: 1 }],
+        hourly: [{ time: "2026-10-07T09:00", temp: 18, code: 1 }],
+      },
+    };
+    const plain = renderWeatherHtml({ tab: quiet, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), cityCount: 1 });
+    assert.doesNotMatch(plain, /scene-dust|dust-art/);
+    const plainDaily = renderForecastHtml({ range: "daily", tab: quiet, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), anchor: "2026-10-07" });
+    assert.equal((plainDaily.match(/class="hour-dust"/g) || []).length, 24);
+    assert.doesNotMatch(plainDaily, /dust-art/);
+    const plainWeek = renderForecastHtml({ range: "weekly", tab: quiet, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), anchor: "2026-10-07" });
+    assert.equal((plainWeek.match(/class="dust-line"/g) || []).length, 7);
+    assert.doesNotMatch(plainWeek, /dust-art/);
   });
   h.test("loadWeather reports a dead connection without treating it as a source error", async () => {
     const error = await loadWeather(

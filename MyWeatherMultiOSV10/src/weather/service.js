@@ -1,4 +1,5 @@
 import { isOfflineError } from "../core/errors.js";
+import { airQualityUrl, applyAirQuality, parseAirQuality } from "./air.js";
 import { aggregate } from "./aggregate.js";
 import { EXTENDED_SOURCE, createProviders } from "./providers.js";
 
@@ -10,6 +11,7 @@ export async function loadWeather(location, options) {
     return aggregate([{ id: "none", ok: false, error: "No sources enabled" }]);
   }
   const fill = enabled.has(EXTENDED_SOURCE.follows) ? fetchExtended(location, options) : Promise.resolve(null);
+  const air = fetchAir(location, options);
   let finished = 0;
   const results = await Promise.all(
     providers.map(async (provider) => {
@@ -44,7 +46,18 @@ export async function loadWeather(location, options) {
     error.code = "OFFLINE";
     throw error;
   }
-  return aggregate(results, await fill);
+  return applyAirQuality(aggregate(results, await fill), await air);
+}
+
+/** Quiet, like the monthly fill-in: a failure only leaves the dust line empty. */
+async function fetchAir(location, options) {
+  try {
+    const response = await options.fetchImpl(airQualityUrl(location), { signal: options.signal });
+    if (!response.ok) return null;
+    return parseAirQuality(await response.json());
+  } catch {
+    return null;
+  }
 }
 
 /** The monthly fill-in. It is quiet: a failure only leaves the later days empty. */

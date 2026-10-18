@@ -37,7 +37,7 @@ The window stays off the taskbar and the close button only hides it; Exit in the
 
 프로그램을 다시 실행하면 마지막으로 사용한 창 크기와 위치를 그대로 엽니다. 그 위치가 현재 화면에 없으면 처음처럼 가운데에 엽니다.
 
-메인 창은 항상 오늘 날씨와 오늘 날짜만 보여 줍니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 오늘부터 30일 동안의 첫날과 마지막 날이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택, 배경 삭제와 함께 창 없애기도 나옵니다. 열려 있는 날씨 창이 하나뿐이면 창 없애기는 쓸 수 없습니다.
+메인 창은 오늘 날씨, 오늘 날짜, 미세먼지와 초미세먼지를 보여 줍니다. 날씨 그림 귀퉁이의 입자 그림은 둘 중 더 나쁜 등급을 따릅니다. 좋음은 초록, 보통은 노랑, 나쁨은 주황, 매우 나쁨은 빨강입니다. 일간 예보는 시간마다, 주간과 월간 예보는 날마다 같은 숫자와 그림을 보여 줍니다. 미세먼지 정보가 없는 도시는 숫자와 입자 그림을 그리지 않습니다. 월간 예보에서 미세먼지 예보가 없는 나중 날도 비워 둡니다. 다른 날을 골라도 메인 창은 오늘로 유지됩니다. 창 위쪽의 세 단추는 일간, 주간, 월간 예보를 엽니다. 각 예보 창 제목에는 아이콘과 함께, 일간은 월과 일, 주간은 시작부터 끝까지, 월간은 오늘부터 30일 동안의 첫날과 마지막 날이 표시됩니다. 단추에 마우스를 올리면 툴팁이 보입니다. 주간이나 월간 예보에서 날짜를 두 번 누르면 그 날의 일간 예보가 열립니다. 일간 예보가 이미 열려 있으면 그 창의 내용이 그 날로 바뀝니다. 월간 예보에서 날짜를 고르면 열려 있는 일간 예보와 주간 예보도 그 날로 바뀝니다. 메인 창의 단추로 열면 항상 오늘을 보여 줍니다. 예보 칸에는 테두리가 없고, 마우스를 올리면 조금 떠 보입니다. 날씨 화면이나 예보의 날짜를 마우스 오른쪽 단추로 누르면 배경 선택, 배경 삭제와 함께 창 없애기도 나옵니다. 열려 있는 날씨 창이 하나뿐이면 창 없애기는 쓸 수 없습니다.
 
 월간 예보는 달력의 한 달이 아니라 항상 오늘부터 30일(한 달)을 보여 줍니다. 칸은 일요일부터 시작하는 주 단위로 놓이고, 오늘 앞과 30일째 뒤의 칸은 비워 둡니다. 첫날과 매달 1일에는 "11/1"처럼 월도 함께 적힙니다. 16일째까지는 다섯 소스의 평균이고, 그 뒤는 GFS 장기 예보(앙상블)로 채웁니다. 설정에서 GFS를 끄면 이 장기 예보도 쓰지 않아 17일째부터는 "--"로 보입니다.
 
@@ -79,9 +79,9 @@ Several cities can be listed. Click the weather picture to step to the next one,
 
 테마는 라이트 20개, 다크 20개, 사용자 정의입니다. 각 테마 단추에는 그 테마의 강조색이 아래쪽에 가로 띠로 깔려 있어 한눈에 구분됩니다. 설정에서 테마를 고르면 메인 창과 이미 열려 있는 창이 함께 바뀝니다. 배경 투명도와 그림 투명도는 입력 좌우의 감소, 증가 버튼으로도 바꿀 수 있습니다. 그림 투명도 0은 그림을 숨기고, 100은 그림을 완전히 보여 줍니다. 이것은 창 배경 투명도와 다른 값입니다. 같은 바탕 그림과 그림 투명도는 일간, 주간, 월간 예보 창에도 쓰입니다. 바탕·글꼴 탭의 그림 선택과 그림 제거는 한 줄에 나란히 있습니다.
 
-글꼴과 글자 크기는 날씨 창마다 따로 고릅니다. 바탕·글꼴 탭에서 항목을 고르면 그 항목의 글꼴을 고르고, 크기는 감소와 증가로 바꿉니다. 가운데에는 지금 크기가 보입니다. 예시는 고른 항목만 보여 줍니다. 글꼴과 크기는 그 항목의 날씨 글자에만 적용되고, 제목 줄과 단추와 설정 창은 바뀌지 않습니다. 다른 날씨 창의 글꼴과 크기도 바뀌지 않습니다. 정해 둔 글꼴과 글자 크기는 기준입니다. 창을 키우거나 줄이면 도시, 날짜, 기온, 날씨, 최저·최고가 그 기준에서 창 크기에 비례해 함께 커지거나 작아집니다.
+글꼴과 글자 크기는 날씨 창마다 따로 고릅니다. 바탕·글꼴 탭에서 항목을 고르면 그 항목의 글꼴을 고르고, 크기는 감소와 증가로 바꿉니다. 가운데에는 지금 크기가 보입니다. 예시는 고른 항목만 보여 줍니다. 글꼴과 크기는 그 항목의 날씨 글자에만 적용되고, 제목 줄과 단추와 설정 창은 바뀌지 않습니다. 다른 날씨 창의 글꼴과 크기도 바뀌지 않습니다. 정해 둔 글꼴과 글자 크기는 기준입니다. 창을 키우거나 줄이면 도시, 날짜, 기온, 날씨, 최저·최고, 미세먼지가 그 기준에서 창 크기에 비례해 함께 커지거나 작아집니다.
 
-Each weather window keeps its own fonts and sizes. On the image and font page, choose an item, then set that item's font. Decrease and increase change its size, and the current size sits centred between them. The sample shows only the chosen item. The font and size change that weather text alone. Those sizes are the base: resizing the window scales the city, date, temperature, condition, and low–high together.
+Each weather window keeps its own fonts and sizes. On the image and font page, choose an item, then set that item's font. Decrease and increase change its size, and the current size sits centred between them. The sample shows only the chosen item. The font and size change that weather text alone. Those sizes are the base: resizing the window scales the city, date, temperature, condition, low–high, and fine dust together. The main view and the daily, weekly, and monthly forecasts show PM10 and PM2.5 with a particle picture colored by the worse grade. A city with no fine-dust reading omits the numbers and the picture. Later days in the month stay blank when no dust forecast is available.
 
 Background transparency runs from 0 through 100. At 100 the window background stays visible. Wallpaper opacity is a separate control and may be 0. Both sliders have decrease and increase buttons.
 
