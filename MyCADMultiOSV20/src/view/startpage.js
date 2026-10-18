@@ -1,7 +1,9 @@
 // The start page: what MyCAD can do (each task with its tutorial lesson and a
 // sample), quick actions, recent files, a tip of the day, and every sample
 // with a thumbnail. Shown in the canvas area (the house tab of the tab row).
+import { START_SCENE_ICONS, START_SCENES } from '../domain/settings.js';
 import { icon } from '../icons.js';
+import { stepperHtml } from '../stepper.js';
 
 /** Tasks on the start page: icon, tutorial lesson (1-based) and a sample. */
 export const START_TASKS = [
@@ -23,8 +25,30 @@ export const TIP_COUNT = 10;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+/** Scene buttons and the transparency / speed controls, under the recent files. */
+function backgroundSection(ctx) {
+  const { t } = ctx;
+  const settings = ctx.settings ?? {};
+  const current = settings.startScene ?? 'gears';
+  const scenes = START_SCENES.map((id) => {
+    const label = t(`settings.scene.${id}`);
+    const on = current === id;
+    return `<button type="button" class="start-scene ${on ? 'active' : ''}" role="radio" aria-checked="${on}" data-start-scene="${id}" title="${escapeHtml(label)}">${icon(START_SCENE_ICONS[id])}<span>${escapeHtml(label)}</span></button>`;
+  }).join('');
+  const field = (key, value, min, max, step, label) => `<label class="start-bg-row" title="${escapeHtml(label)}"><span>${escapeHtml(label)}</span>${stepperHtml({ key, value: value ?? 0, min, max, step, unit: '%', label })}</label>`;
+  return `<h2>${icon('cube')}<span>${escapeHtml(t('settings.startScene'))}</span></h2>
+    <div class="start-scene-grid" role="radiogroup" aria-label="${escapeHtml(t('settings.startScene'))}">${scenes}</div>
+    <div class="start-bg-settings">
+      ${field('startTransparency', settings.startTransparency, 0, 100, 5, t('settings.startTransparency'))}
+      ${field('startMotion', settings.startMotion, 0, 100, 5, t('settings.startMotion'))}
+      ${field('startCamera', settings.startCamera, 0, 300, 10, t('settings.startCamera'))}
+      ${field('startObjects', settings.startObjects, 0, 300, 10, t('settings.startObjects'))}
+      <button type="button" class="small-button start-bg-reset" data-start-motion-reset title="${escapeHtml(t('settings.startReset'))}">${icon('refresh')}<span>${escapeHtml(t('settings.startReset'))}</span></button>
+    </div>`;
+}
+
 /**
- * HTML of the start page. ctx: { t, language, appIcon, version, recent: [{ path, title, at }], samples: [index entries] | null, error }
+ * HTML of the start page. ctx: { t, language, appIcon, version, recent: [{ path, title, at }], samples: [index entries] | null, error, settings }
  */
 export function startPageHtml(ctx) {
   const { t } = ctx;
@@ -76,6 +100,7 @@ export function startPageHtml(ctx) {
         </div>
         <h2 class="recent-head">${icon('recent')}<span>${escapeHtml(t('start.recent'))}</span>${ctx.recent.length ? `<button type="button" class="small-button" data-recent-clear title="${escapeHtml(t('start.clearRecent'))}">${escapeHtml(t('start.clearRecent'))}</button>` : ''}</h2>
         ${recent ? `<ul class="recent-list">${recent}</ul>` : `<p class="muted">${escapeHtml(t('start.noRecent'))}</p>`}
+        ${backgroundSection(ctx)}
         <p class="start-tip">${icon('bulb')}<span><b>${escapeHtml(t('start.tip'))}</b> ${escapeHtml(t(`start.tip.${tip}`))}</span></p>
       </aside>
       <section class="start-main">

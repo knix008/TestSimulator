@@ -14,6 +14,18 @@ export const TEXT_HEIGHT = { min: 1, max: 50 };
 export const ZOOM = { min: 1, max: 20000 };
 export const BACKGROUND_FITS = ['cover', 'contain', 'tile', 'center', 'stretch'];
 export const SNAP_MODES = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'nearest', 'perpendicular', 'parallel', 'extension', 'angle', 'special'];
+/** Mechanical scenes drawn behind the start page. */
+export const START_SCENES = [
+  'gears', 'shaft', 'flange', 'fastener', 'bracket', 'housing', 'frame', 'pulley', 'spring', 'pipe',
+  'vise', 'coupling', 'bearing', 'plate', 'cam', 'crank', 'lathe', 'mill', 'block', 'reducer',
+];
+/** Icon for each start-page scene (icons.js). */
+export const START_SCENE_ICONS = {
+  gears: 'gear', shaft: 'shaft', flange: 'flange', fastener: 'bolt', bracket: 'bracket',
+  housing: 'housing', frame: 'frame', pulley: 'pulley', spring: 'spring', pipe: 'archPipe',
+  vise: 'vise', coupling: 'coupling', bearing: 'bearing', plate: 'plate', cam: 'camDisc',
+  crank: 'crank', lathe: 'lathe', mill: 'mill', block: 'solidBox', reducer: 'reducer',
+};
 /** Widths (px) the cursor's cross-hair can be drawn with. */
 export const CROSSHAIR_WIDTHS = [1, 1.5, 2, 3];
 export const GRID_SIZES = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
@@ -43,6 +55,13 @@ export function defaultSettings(language = 'ko') {
     restoreSession: true,
     // The start page shows when the program starts (not when it opens files).
     showStartPage: true,
+    // Start-page backdrop: which CAD scene, how see-through it is (0 solid … 100 hidden),
+    // and how fast it moves. 20 is the designed pace; camera and parts are percents of that (100 = as designed).
+    startScene: 'gears',
+    startTransparency: 0,
+    startMotion: 20,
+    startCamera: 100,
+    startObjects: 100,
     statusClock: true,
     showGrid: true,
     showRulers: true,
@@ -110,6 +129,11 @@ export function normalizeSettings(raw = {}, language) {
   s.dimTextHeight = clamp(s.dimTextHeight, TEXT_HEIGHT.min, TEXT_HEIGHT.max, base.dimTextHeight, false);
   s.dimPrecision = clamp(s.dimPrecision, 0, 4, base.dimPrecision);
   delete s.transparency;
+  s.startScene = START_SCENES.includes(s.startScene) ? s.startScene : 'gears';
+  s.startTransparency = clamp(s.startTransparency, 0, 100, 0);
+  s.startMotion = clamp(s.startMotion, 0, 100, 20);
+  s.startCamera = clamp(s.startCamera, 0, 300, 100);
+  s.startObjects = clamp(s.startObjects, 0, 300, 100);
   s.backgroundOpacity = clamp(s.backgroundOpacity, 0, 100, base.backgroundOpacity);
   s.backgroundFit = BACKGROUND_FITS.includes(s.backgroundFit) ? s.backgroundFit : base.backgroundFit;
   s.backgroundImage = typeof s.backgroundImage === 'string' && s.backgroundImage ? s.backgroundImage : null;

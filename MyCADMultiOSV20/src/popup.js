@@ -13,7 +13,7 @@ import './view/partIcons.js';
 import { defaultPrintOptions, MARGINS, PAPERS, paginate, pageSvg, SCALES, selectContent } from './domain/print.js';
 import { loadRecent, MAX_RECENT, removeRecent, storeRecent } from './domain/recent.js';
 import {
-  BACKGROUND_FITS, CROSSHAIR_WIDTHS, defaultSettings, FONT_STYLES, FONT_WEIGHTS, GRID_SIZES, loadSettings, RECENT_KEY, SNAP_MODES, STORAGE_KEY, storeSettings, TEXT_HEIGHT,
+  BACKGROUND_FITS, CROSSHAIR_WIDTHS, defaultSettings, FONT_STYLES, FONT_WEIGHTS, GRID_SIZES, loadSettings, RECENT_KEY, SNAP_MODES, START_SCENE_ICONS, START_SCENES, STORAGE_KEY, storeSettings, TEXT_HEIGHT,
 } from './domain/settings.js';
 import { previewSvg } from './domain/svg.js';
 import { prepareStl } from './domain/stl.js';
@@ -205,6 +205,7 @@ function frameAnchor() {
 
 const SETTINGS_TABS = [
   ['general', 'globe', 'settings.general'],
+  ['start', 'home', 'settings.start'],
   ['appearance', 'palette', 'settings.appearance'],
   ['font', 'font', 'settings.font'],
   ['background', 'image', 'settings.background'],
@@ -218,7 +219,7 @@ function renderSettings() {
   const tabs = `<nav class="tabs" role="tablist">${SETTINGS_TABS.map(([id, glyph, key]) => `
     <button class="tab ${state.tab === id ? 'active' : ''}" role="tab" aria-selected="${state.tab === id}" data-action="tab" data-value="${id}" title="${escapeHtml(t(key))}">${icon(glyph)}<span>${escapeHtml(t(key))}</span></button>`).join('')}</nav>`;
   const body = {
-    general: settingsGeneral, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
+    general: settingsGeneral, start: settingsStart, appearance: settingsAppearance, font: settingsFont, background: settingsBackground,
     drawing: settingsDrawing, snaps: settingsSnaps, recent: settingsRecent, shortcuts: settingsShortcuts,
   }[state.tab]?.() ?? '';
   root.innerHTML = frame({
@@ -243,6 +244,25 @@ function settingsGeneral() {
     toggle('showRightPanel', t('action.rightPanel'), 'panelRight'),
     toggle('showStatusBar', t('action.statusBar'), 'statusBar'),
     row('folder', t('settings.lastDirectory'), `<span class="path" title="${escapeHtml(s().lastDirectory ?? '')}">${escapeHtml(s().lastDirectory ?? t('settings.none'))}</span>`),
+  ].join('');
+}
+
+function settingsStart() {
+  const current = s().startScene;
+  const scenes = `<div class="start-scene-grid" role="radiogroup" aria-label="${escapeHtml(t('settings.startScene'))}">${START_SCENES.map((id) => {
+    const label = t(`settings.scene.${id}`);
+    const on = current === id;
+    return `<button type="button" class="start-scene ${on ? 'active' : ''}" role="radio" aria-checked="${on}" data-setting="startScene" data-value="${id}" title="${escapeHtml(label)}">${icon(START_SCENE_ICONS[id])}<span>${escapeHtml(label)}</span></button>`;
+  }).join('')}</div>`;
+  return [
+    `<div class="start-scene-label">${icon('cube')}<span>${escapeHtml(t('settings.startScene'))}</span></div>`,
+    scenes,
+    row('opacity', t('settings.startTransparency'), numberField('startTransparency', s().startTransparency, 0, 100, 5, '%', t('settings.startTransparency')), t('settings.startTransparencyTip')),
+    row('play', t('settings.startMotion'), numberField('startMotion', s().startMotion, 0, 100, 5, '%', t('settings.startMotion')), t('settings.startMotionTip')),
+    row('eye', t('settings.startCamera'), numberField('startCamera', s().startCamera, 0, 300, 10, '%', t('settings.startCamera')), t('settings.startCameraTip')),
+    row('rotate', t('settings.startObjects'), numberField('startObjects', s().startObjects, 0, 300, 10, '%', t('settings.startObjects')), t('settings.startObjectsTip')),
+    `<p class="start-motion-note">${escapeHtml(t('settings.startMotionNote'))}</p>`,
+    `<div class="row start-reset">${button('reset-start-motion', t('settings.startReset'), 'refresh', 'small')}</div>`,
   ].join('');
 }
 
@@ -2266,6 +2286,10 @@ root.addEventListener('click', async (event) => {
     case 'reset-settings': {
       const keep = { backgroundImage: s().backgroundImage, backgroundName: s().backgroundName, lastDirectory: s().lastDirectory, language: s().language, author: s().author };
       return update({ ...defaultSettings(s().language), ...keep });
+    }
+    case 'reset-start-motion': {
+      const fresh = defaultSettings(s().language);
+      return update({ startTransparency: fresh.startTransparency, startMotion: fresh.startMotion, startCamera: fresh.startCamera, startObjects: fresh.startObjects });
     }
     case 'choose-background':
       return action('choose-background');

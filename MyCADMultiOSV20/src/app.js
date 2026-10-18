@@ -11,6 +11,7 @@ import {
 } from './domain/entities.js';
 import { evaluate } from './domain/expr.js';
 import { startPageHtml } from './view/startpage.js';
+import { bindSteppers } from './stepper.js';
 import appIconUrl from '../assets/icon-256.png';
 import { importDrawingBytes, isCadDrawingFileName } from './domain/import2d.js';
 import { exportHpgl } from './domain/formats2d.js';
@@ -657,7 +658,7 @@ function renderShell() {
 function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   // The house: back to the start page from anywhere (lit while it is shown).
-  const home = `<button class="menubar-home ${state.home ? 'active' : ''}" data-command="startPage" title="${escapeHtml(t('action.startPage'))}" aria-label="${escapeHtml(t('action.startPage'))}" aria-pressed="${state.home}">${icon('home')}</button><span class="menubar-sep" aria-hidden="true"></span>`;
+  const home = `<button class="menubar-home ${state.home ? 'active' : ''}" data-command="startPage" title="${escapeHtml(t('action.startPage'))}" aria-label="${escapeHtml(t('menubar.home'))}" aria-pressed="${state.home}">${icon('home')}<span>${escapeHtml(t('menubar.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
   menubar.innerHTML = home + Object.keys(MENUS).filter((name) => name !== 'test' || state.settings.testMenu).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
 }
@@ -1303,44 +1304,34 @@ function renderStart() {
     scroll = page.querySelector('.start-scroll');
   }
   showStartBackground(page.querySelector('.start-bg'));
-  const key = JSON.stringify([getLanguage(), state.recent.map((item) => `${item.path}|${item.at}`), state.samples?.length ?? null, state.samplesError, state.info?.version]);
+  const screen = state.settings;
+  const key = JSON.stringify([getLanguage(), state.recent.map((item) => `${item.path}|${item.at}`), state.samples?.length ?? null, state.samplesError, state.info?.version, screen.startScene, screen.startTransparency, screen.startMotion, screen.startCamera, screen.startObjects]);
   if (scroll.dataset.key === key) return;
+  const top = scroll.scrollTop;
   scroll.dataset.key = key;
-  scroll.innerHTML = startPageHtml({ t, language: getLanguage(), appIcon: appIconUrl, version: displayVersion(state.info?.version), recent: state.recent, samples: state.samples, error: state.samplesError });
+  scroll.innerHTML = startPageHtml({ t, language: getLanguage(), appIcon: appIconUrl, version: displayVersion(state.info?.version), recent: state.recent, samples: state.samples, error: state.samplesError, settings: screen });
+  scroll.scrollTop = top;
   paintThumbs();
-}
-
-/**
- * The start page's background: two meshing spur gears (z 24 and z 16, module 3,
- * on their shafts) that turn at the right ratio while the view orbits slowly.
- */
-function gearPairMeshes() {
-  const module = 3;
-  const gear = (teeth, bore, angle) => {
-    const part = normalizeEntity({ type: 'part', kind: 'gear', x: 0, y: 0, angle, params: { module, teeth, bore, keyway: true, pitchCircle: false } });
-    const shapes = buildShapes(collectLoops([part]).loops).map(({ outer, holes }) => ({ outer, holes }));
-    return solidMesh(normalizeEntity({ type: 'solid', ...featureFrom('pad', { shapes }, { height: 14 }) }));
-  };
-  const shaft = (radius) => solidMesh(normalizeEntity({ type: 'solid', kind: 'cylinder', params: { radius, height: 44 }, x: 0, y: 0, z: -15 }));
-  const [z1, z2] = [24, 16];
-  const distance = (module * (z1 + z2)) / 2;
-  const speed = 0.32; // rad/s of the large gear; the small one turns z1/z2 times as fast the other way
-  return [
-    { tris: gear(z1, 16, 0), color: '#e8a53a', pivot: { x: 0, y: 0 }, rate: speed },
-    { tris: shaft(7.6), color: '#9aa4b1', pivot: { x: 0, y: 0 }, rate: speed },
-    // Half a tooth turned: a gap of the small gear faces a tooth of the large one.
-    { tris: gear(z2, 12, 180 / z2), color: '#3a6cf0', pivot: { x: distance, y: 0 }, rate: (-speed * z1) / z2 },
-    { tris: shaft(5.6), color: '#9aa4b1', pivot: { x: distance, y: 0 }, rate: (-speed * z1) / z2 },
-  ];
 }
 
 let startBackground = null;
 let backgroundLoading = null;
+
+function startViewOptions() {
+  const s = state.settings;
+  return {
+    scene: s.startScene,
+    transparency: s.startTransparency,
+    motion: s.startMotion,
+    camera: s.startCamera,
+    objects: s.startObjects,
+    colors: { background: getComputedStyle(root).getPropertyValue('--canvas').trim() || '#f4f6fb' },
+  };
+}
+
 function showStartBackground(host) {
-  const colors = { background: getComputedStyle(root).getPropertyValue('--canvas').trim() || '#f4f6fb' };
   if (startBackground) {
-    startBackground.setColors(colors);
-    if (startBackground.radius) { startBackground.wanted = true; startBackground.start(); }
+    startBackground.configure(startViewOptions());
     return;
   }
   if (backgroundLoading) return;
@@ -1348,7 +1339,7 @@ function showStartBackground(host) {
     await new Promise((resolve) => setTimeout(resolve, 150));
     const { StartBackground } = await import('./view/startbg.js');
     startBackground = new StartBackground(host);
-    await startBackground.show(gearPairMeshes(), colors);
+    await startBackground.configure(startViewOptions());
     if (!state.home) startBackground.hide();
   })().catch(() => { /* the page works without its background */ });
 }
@@ -5810,6 +5801,9 @@ async function renameGroup(id) {
 
 function bindEvents() {
   bindTreeEvents();
+  bindSteppers(root, (key, value) => {
+    if (key === 'startTransparency' || key === 'startMotion' || key === 'startCamera' || key === 'startObjects') updateSettings({ [key]: value });
+  });
   root.addEventListener('click', (event) => {
     if (suppressClick) return undefined;
     const target = event.target;
@@ -5835,6 +5829,12 @@ function bindEvents() {
       return renderStart();
     }
     if (target.closest('[data-recent-clear]')) { state.recent = []; storeRecent(globalThis.localStorage, state.recent); return renderStart(); }
+    const sceneButton = target.closest('[data-start-scene]');
+    if (sceneButton) return updateSettings({ startScene: sceneButton.dataset.startScene });
+    if (target.closest('[data-start-motion-reset]')) {
+      const fresh = defaultSettings(state.settings.language);
+      return updateSettings({ startTransparency: fresh.startTransparency, startMotion: fresh.startMotion, startCamera: fresh.startCamera, startObjects: fresh.startObjects });
+    }
     const recentItem = target.closest('[data-recent-path]');
     if (recentItem) return openRecent(recentItem.dataset.recentPath);
     const sample = target.closest('[data-sample-open], [data-sample]');
