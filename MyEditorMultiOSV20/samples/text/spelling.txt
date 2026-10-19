@@ -1,0 +1,4 @@
+This paragraph has a few misspeled words so the spell checker can be tried.
+The quick brown fox jumps over the lazy dog — that sentense is fine.
+Right-click an underlined word for sugestions, or add it to the dictionary.
+URLs like https://example.com/path, identifiers like my_var2 and acronyms like NASA are skipped.

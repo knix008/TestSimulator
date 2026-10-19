@@ -1,0 +1,61 @@
+// Hosts the single CodeMirror view. App.jsx swaps EditorStates in and out of
+// it when the active tab changes (every tab keeps its own state: text, undo
+// history, selection, folds). The pane also takes dropped files and shows
+// the editor context menu (with spelling suggestions for the word under the pointer).
+import React, { useEffect, useRef, useState } from 'react';
+import { EditorView } from '@codemirror/view';
+import { ContextMenu } from './ContextMenu';
+import { Minimap } from './Minimap';
+
+export function EditorPane({ initialState, onView, onDropFiles, contextItems, onAction, fontFamily, fontSize, lineHeight = 1.55, empty, minimap = false, version }) {
+  const hostRef = useRef(null);
+  const viewRef = useRef(null);
+  const [view, setView] = useState(null);   // for the minimap, once the editor exists
+  const [ctx, setCtx] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  useEffect(() => {
+    const view = new EditorView({ state: initialState, parent: hostRef.current });
+    viewRef.current = view;
+    setView(view);
+    onView(view);
+    return () => { view.destroy(); viewRef.current = null; setView(null); onView(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const style = { '--editor-fs': `${fontSize}px`, '--editor-lh': String(lineHeight), '--editor-font': fontFamily ? `'${fontFamily.replace(/'/g, '')}', var(--mono)` : 'var(--mono)' };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    const v = viewRef.current;
+    if (files.length) onDropFiles(files, v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null);
+  };
+  // An image on the clipboard (screenshot, copied picture) is handed over like a dropped file.
+  const onPaste = (e) => {
+    const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter((f) => /^image\//.test(f.type));
+    if (!files.length || !e.target.closest('.cm-editor')) return;
+    e.preventDefault();
+    onDropFiles(files, null);
+  };
+
+  return (
+    <div className={`editor-pane ${dragOver ? 'drag-over' : ''} ${empty ? 'empty' : ''}`} style={style}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!dragOver) setDragOver(true); } }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+      onDrop={onDrop} onPaste={onPaste}
+      onContextMenu={(e) => { if (e.target.closest('.cm-editor')) { e.preventDefault(); const v = viewRef.current; setCtx({ x: e.clientX, y: e.clientY, pos: v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null }); } }}>
+      <div className="editor-body">
+        <div className="cm-host" ref={hostRef} />
+        {minimap && !empty && view && <Minimap view={view} version={version} />}
+      </div>
+      {ctx && (
+        <ContextMenu x={ctx.x} y={ctx.y} items={contextItems(ctx.pos)} onClose={() => setCtx(null)}
+          onPick={(id) => { setCtx(null); onAction(id, ctx.pos); }} />
+      )}
+    </div>
+  );
+}
+
+export default EditorPane;

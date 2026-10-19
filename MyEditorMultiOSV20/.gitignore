@@ -1,0 +1,37 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (reproducible: npm install && npm run tauri:build) ──
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/sidecar/
+src-tauri/icons/
+build/icons/
+src/build-info.json
+public/icon.svg
+
+# ── Installer packages left in the project root ────────
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+
+# ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
+.smoke/
+.icons-preview.png
+.npm-install.log
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

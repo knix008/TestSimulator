@@ -1,0 +1,260 @@
+// Modal dialogs: the shell, confirm / error / about, go-to-line, a text
+// prompt (new file / folder, rename), the language and encoding pickers and
+// the shortcut list. Every dialog closes with Escape; Enter triggers the
+// primary button.
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { t, useLanguage, getLanguage } from '../lib/i18n';
+import { hostName, writeClipboardText } from '../lib/backend';
+import { Icon, LangIcon } from '../components/Icons';
+import { ALL_LANGUAGES, FEATURED_LANGUAGES, PLAIN } from '../lib/languages';
+
+// Every dialog can be dragged by its title bar (kept inside the window). A
+// non-modal one (modal={false}: settings, info, shortcuts) leaves the editor
+// usable underneath — it behaves like a small separate window that closes
+// with the app — while the others keep their dimmed, click-to-close backdrop.
+export function Dialog({ title, icon, kind = '', width, onClose, children, footer, onEnter, className = '', modal = true, embedded = false, closable = true }) {
+  useLanguage();
+  const ref = useRef(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const onTitleDown = (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    e.preventDefault();
+    const el = ref.current;
+    const start = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    const r0 = el ? el.getBoundingClientRect() : null;
+    const move = (ev) => {
+      let dx = start.ox + ev.clientX - start.x, dy = start.oy + ev.clientY - start.y;
+      if (r0) {   // keep the title bar reachable inside the window
+        const minX = -r0.left + 8 + (start.ox), maxX = window.innerWidth - r0.right - 8 + start.ox;
+        const minY = -r0.top + 8 + start.oy, maxY = window.innerHeight - r0.top - 40 + start.oy;
+        dx = Math.max(minX, Math.min(maxX, dx)); dy = Math.max(minY, Math.min(maxY, dy));
+      }
+      setOffset({ x: dx, y: dy });
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  useEffect(() => {
+    const el = ref.current;
+    const focusable = el && el.querySelector('input:not([type=checkbox]), select, textarea, [data-autofocus], button.primary, button');
+    if (focusable) focusable.focus();
+  }, []);
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); if (closable) onClose(); }
+    else if (e.key === 'Enter' && onEnter && !(e.target.tagName === 'TEXTAREA') && !(e.target.tagName === 'BUTTON' && e.target !== document.activeElement)) {
+      if (e.target.tagName === 'BUTTON') return;   // let the focused button act
+      e.preventDefault(); onEnter();
+    }
+  };
+  if (embedded) {
+    // A separate window: the dialog is the page; the title bar drags the window (-webkit-app-region).
+    return (
+      <div className={`dlg embedded ${kind} ${className}`} ref={ref} role="dialog" onKeyDown={onKey}>
+        <div className="dlg-title drag-region">
+          {icon && <span data-tauri-drag-region><Icon name={icon} /></span>}
+          <span data-tauri-drag-region>{title}</span>
+          {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
+        </div>
+        <div className="dlg-body">{children}</div>
+        {footer && <div className="dlg-footer">{footer}</div>}
+      </div>
+    );
+  }
+  return (
+    <div className={`dlg-backdrop ${modal ? '' : 'nomodal'}`} onMouseDown={(e) => { if (modal && closable && e.target === e.currentTarget) onClose(); }}>
+      <div className={`dlg ${kind} ${className}`} style={{ ...(width ? { width } : {}), transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined }} ref={ref} role="dialog" aria-modal={modal ? 'true' : 'false'} onKeyDown={onKey}>
+        <div className="dlg-title" onMouseDown={onTitleDown}>
+          {icon && <Icon name={icon} />}
+          <span>{title}</span>
+          {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
+        </div>
+        <div className="dlg-body">{children}</div>
+        {footer && <div className="dlg-footer">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+// buttons: [{ id, label, kind: 'primary' | 'danger' | '' }] → resolve(id); close = 'cancel'
+export function ConfirmDialog({ title, message, icon = 'warning', kind = 'danger', buttons, detail, width = 460, onResult }) {
+  useLanguage();
+  const primary = buttons.find((b) => b.kind === 'primary') || buttons[0];
+  return (
+    <Dialog title={title} icon={icon} kind={kind} width={width} onClose={() => onResult('cancel')} onEnter={() => onResult(primary.id)}>
+      <p className="pre">{message}</p>
+      {detail && <pre className="detail">{detail}</pre>}
+      <div className="dlg-footer inner">
+        {buttons.map((b) => <button key={b.id} className={`btn ${b.kind || ''}`} onClick={() => onResult(b.id)}>{b.label}</button>)}
+      </div>
+    </Dialog>
+  );
+}
+
+export function ErrorDialog({ title, message, error, onClose }) {
+  useLanguage();
+  const [copied, setCopied] = useState(false);
+  const detail = error ? [
+    error.code ? `${t('error_code')}: ${error.code}` : null,
+    error.path ? `${t('error_path')}: ${error.path}` : null,
+    error.message,
+    error.stack ? `\n${error.stack}` : null,
+  ].filter(Boolean).join('\n') : '';
+  const copy = async () => { await writeClipboardText(`${title}\n${message}\n\n${detail}`); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  return (
+    <Dialog title={title || t('error_title')} icon="warning" kind="error" width={520} onClose={onClose} onEnter={onClose}
+      footer={<><button className="btn" onClick={copy}>{copied ? t('copied_details') : t('copy_details')}</button><span className="spacer" /><button className="btn primary" onClick={onClose}>{t('ok')}</button></>}>
+      <p className="pre">{message || t('error_unexpected')}</p>
+      {detail && <><div className="muted small">{t('error_details')}</div><pre className="detail">{detail}</pre></>}
+    </Dialog>
+  );
+}
+
+export function AboutDialog({ info, onClose, embedded = false }) {
+  useLanguage();
+  const bi = info && info.buildInfo;
+  return (
+    <Dialog modal={false} embedded={embedded} title={t('about_title')} icon="info" kind="info" width={520} onClose={onClose} onEnter={onClose}
+      footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
+      <div className="about">
+        <img src="./icon.svg" alt="" width={72} height={72} />
+        <div className="about-text selectable">
+          <div className="about-name">{t('appName')}</div>
+          <div>{t('about_desc')}</div>
+          <div className="muted small">{t('about_libs')}</div>
+          <div className="form-grid small" style={{ marginTop: 6 }}>
+            <label>{t('version')}</label><span>{info ? info.version : '…'}</span>
+            <label>{t('author')}</label><span>{t('author_name')}</span>
+            <label>{t('about_host')}</label><span>{hostName === 'tauri' ? t('host_tauri') : hostName === 'electron' ? t('host_electron') : t('host_web')}{info ? ` · ${info.platform}` : ''}</span>
+            {bi && <><label>{t('about_build')}</label><span>{bi.buildTime ? bi.buildTime.replace('T', ' ').slice(0, 19) : ''}{bi.gitCommit ? ` · ${bi.gitCommit}` : ''}{bi.node ? ` · node ${bi.node}` : ''}</span></>}
+          </div>
+          <div className="about-copy muted small">{t('copyright')}</div>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+export function GotoLineDialog({ lines, current, onGo, onClose }) {
+  useLanguage();
+  const [v, setV] = useState(String(current || 1));
+  const go = () => {
+    const m = v.trim().match(/^(\d+)(?:\s*[:,]\s*(\d+))?$/);
+    if (!m) return;
+    onGo(Number(m[1]), m[2] ? Number(m[2]) : 1);
+  };
+  return (
+    <Dialog title={t('goto_line_title')} icon="hash" kind="info" width={360} onClose={onClose} onEnter={go}
+      footer={<><button className="btn" onClick={onClose}>{t('cancel')}</button><button className="btn primary" onClick={go}>{t('go')}</button></>}>
+      <div className="form-row">
+        <span className="muted small">{t('goto_line_hint', { n: lines })}</span>
+        <input value={v} onChange={(e) => setV(e.target.value)} onFocus={(e) => e.target.select()} spellCheck={false} />
+      </div>
+    </Dialog>
+  );
+}
+
+export function PromptDialog({ title, label, initial = '', okLabel, icon = 'rename', onResult, validate }) {
+  useLanguage();
+  const [v, setV] = useState(initial);
+  const err = validate ? validate(v) : null;
+  const ok = () => { if (!err && v.trim()) onResult(v.trim()); };
+  return (
+    <Dialog title={title} icon={icon} kind="info" width={420} onClose={() => onResult(null)} onEnter={ok}
+      footer={<><button className="btn" onClick={() => onResult(null)}>{t('cancel')}</button><button className="btn primary" disabled={!!err || !v.trim()} onClick={ok}>{okLabel || t('ok')}</button></>}>
+      <div className="form-row">
+        <span className="muted small">{label}</span>
+        <input value={v} onChange={(e) => setV(e.target.value)} onFocus={(e) => { const i = e.target.value.lastIndexOf('.'); e.target.setSelectionRange(0, i > 0 ? i : e.target.value.length); }} spellCheck={false} />
+        {err && <span className="danger small">{err}</span>}
+      </div>
+    </Dialog>
+  );
+}
+
+// Searchable list of all language modes (also opened from the status bar).
+export function LanguagePicker({ current, onPick, onClose }) {
+  useLanguage();
+  const [q, setQ] = useState('');
+  const [idx, setIdx] = useState(0);
+  const list = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    const base = [{ name: PLAIN, label: t('lang_plain') }, { name: 'auto', label: t('lang_auto') }, ...(ql ? ALL_LANGUAGES : [...FEATURED_LANGUAGES, ...ALL_LANGUAGES.filter((d) => !FEATURED_LANGUAGES.includes(d))]).map((d) => ({ name: d.name, label: d.name, ext: d.extensions.slice(0, 6).join(' ') }))];
+    return ql ? base.filter((x) => x.label.toLowerCase().includes(ql) || (x.ext || '').includes(ql)) : base;
+  }, [q, getLanguage()]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const listRef = useRef(null);
+  useEffect(() => { setIdx(0); }, [q]);
+  useEffect(() => { const el = listRef.current && listRef.current.children[idx]; if (el) el.scrollIntoView({ block: 'nearest' }); }, [idx]);
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((i) => Math.min(list.length - 1, i + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((i) => Math.max(0, i - 1)); }
+  };
+  return (
+    <Dialog title={t('m_lang')} icon="code" kind="info" width={420} onClose={onClose} onEnter={() => list[idx] && onPick(list[idx].name)}>
+      <div className="form-row">
+        <input value={q} placeholder={t('sb_filter')} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} spellCheck={false} />
+        <div className="listbox tall" ref={listRef}>
+          {list.map((x, i) => (
+            <div key={x.name} className={`listbox-item ${i === idx ? 'selected' : ''} ${x.name === current ? 'current' : ''}`} onMouseEnter={() => setIdx(i)} onClick={() => onPick(x.name)}>
+              <span className="ctx-icon"><LangIcon name={x.name} /></span>
+              <span className="ellipsis">{x.label}</span>
+              {x.name === current && <Icon name="check" size={14} className="ctx-check" />}
+              {x.ext && <span className="muted small mono">{x.ext}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+export function EncodingPicker({ title, encodings, current, onPick, onClose }) {
+  useLanguage();
+  return (
+    <Dialog title={title} icon="text" kind="info" width={380} onClose={onClose}>
+      <div className="listbox tall">
+        {encodings.map((e) => (
+          <div key={e.id} className={`listbox-item ${e.id === current ? 'selected' : ''}`} onClick={() => onPick(e.id)}>
+            <span className="ctx-icon">{e.id === current ? <Icon name="check" size={14} /> : null}</span>
+            <span className="ellipsis">{e.label}</span>
+          </div>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
+
+const SHORTCUTS = [
+  ['Ctrl+N', 'new_file'], ['Ctrl+O', 'open_file'], ['Ctrl+P', 'print'], ['Ctrl+Shift+O', 'open_folder'], ['Ctrl+S', 'save'], ['Ctrl+Alt+S', 'save_as'], ['Ctrl+Shift+S', 'save_all'],
+  ['Ctrl+W', 'close'], ['Ctrl+Shift+W', 'close_all'], ['Ctrl+Tab / Ctrl+PgDn', 'tab_next'], ['Ctrl+Shift+Tab / Ctrl+PgUp', 'tab_prev'], ['Ctrl+1 … Ctrl+9', 'tab_n'],
+  ['Ctrl+Z / Ctrl+Y', 'undo_redo'], ['Ctrl+D', 'dup_line'], ['Ctrl+L', 'del_line'], ['Alt+↑ / Alt+↓', 'move_line'], ['Ctrl+/', 'toggle_comment'], ['Tab / Shift+Tab', 'indent_outdent'],
+  ['Ctrl+U / Ctrl+Shift+U', 'case'], ['Alt+Click', 'multi_cursor'], ['Alt+Drag', 'rect_sel'],
+  ['Ctrl+F', 'find'], ['Ctrl+H', 'replace'], ['F3 / Shift+F3', 'find_next_prev'], ['Ctrl+G', 'goto_line'], ['Esc', 'close_find'],
+  ['Ctrl+B', 'sidebar'], ['Ctrl+Shift+B', 'sidebar_md'], ['Ctrl+= / Ctrl+-', 'zoom'], ['Ctrl+0', 'zoom_reset'], ['Ctrl+Wheel', 'zoom'], ['F11', 'fullscreen'], ['Ctrl+,', 'settings'],
+  ['Ctrl+1 … Ctrl+6', 'md_h'], ['Ctrl+B / Ctrl+I', 'md_bi'], ['Ctrl+Shift+X', 'md_strike'], ['Ctrl+`', 'md_code'], ['Ctrl+Shift+C', 'md_code_block'], ['Ctrl+Shift+Q', 'md_quote'],
+  ['Ctrl+Shift+8 / 7 / 9', 'md_lists'], ['Ctrl+K', 'md_link'], ['Ctrl+Shift+I', 'md_image'], ['Ctrl+Shift+W', 'md_wysiwyg_menu'], ['Ctrl+Shift+M', 'md_preview_menu'],
+  ['Ctrl+Shift+F', 'find_in_files'], ['Ctrl+Alt+F', 'find_in_open'], ['Shift+Alt+F', 'format_doc'], ['F7', 'spell_check'], ['F8', 'lint_next'],
+  ['Ctrl+`', 'terminal_sc'], ['Ctrl+Shift+`', 'term_new'], ['Ctrl+\\', 'split_sc'], ['Ctrl+Alt+1 … 4', 'split_layouts'], ['F6', 'next_pane'],
+];
+const SHORTCUT_LABELS = {
+  ko: { terminal_sc: '터미널 패널 (Markdown 문서 밖에서)', split_sc: '편집 창 좌우 나누기 ↔ 하나', split_layouts: '편집 창: 하나 / 좌우 / 상하 / 4개', sidebar_md: '폴더 트리 (Markdown 문서에서)', md_h: 'Markdown: 제목 H1~H6', md_bi: 'Markdown: 굵게 / 기울임', md_lists: 'Markdown: 글머리 / 번호 / 체크리스트', tab_next: '다음 탭', tab_prev: '이전 탭', tab_n: 'n번째 탭', undo_redo: '실행 취소 / 다시 실행', move_line: '줄 위/아래로 이동', indent_outdent: '들여쓰기 / 내어쓰기', case: '소문자 / 대문자', multi_cursor: '커서 추가 (다중 커서)', rect_sel: '사각형 선택', find_next_prev: '다음 / 이전 찾기', zoom: '확대 / 축소' },
+  en: { terminal_sc: 'Terminal panel (outside Markdown documents)', split_sc: 'Split the editor left / right ↔ single', split_layouts: 'Editor panes: single / left-right / top-bottom / four', sidebar_md: 'Folder tree (in Markdown documents)', md_h: 'Markdown: heading H1–H6', md_bi: 'Markdown: bold / italic', md_lists: 'Markdown: bullet / numbered / task list', tab_next: 'Next tab', tab_prev: 'Previous tab', tab_n: 'n-th tab', undo_redo: 'Undo / Redo', move_line: 'Move line up / down', indent_outdent: 'Indent / Outdent', case: 'lowercase / UPPERCASE', multi_cursor: 'Add cursor (multi-cursor)', rect_sel: 'Rectangular selection', find_next_prev: 'Find next / previous', zoom: 'Zoom in / out' },
+};
+
+export function ShortcutsDialog({ onClose, embedded = false }) {
+  useLanguage();
+  const lang = getLanguage();
+  const label = (k) => SHORTCUT_LABELS[lang][k] || t(k);
+  // Two columns; three on a short window, so the list never needs a scrollbar.
+  const ncol = window.innerHeight < 760 ? 3 : 2;
+  const per = Math.ceil(SHORTCUTS.length / ncol);
+  const parts = Array.from({ length: ncol }, (_, i) => SHORTCUTS.slice(i * per, (i + 1) * per));
+  const col = (list) => list.map(([k, v]) => <React.Fragment key={k}><kbd>{k.replace(/Ctrl/g, navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl')}</kbd><span>{label(v)}</span></React.Fragment>);
+  return (
+    <Dialog modal={false} embedded={embedded} title={t('shortcuts_title')} icon="keyboard" kind="info" className="shortcuts" width={ncol === 3 ? 1150 : 960} onClose={onClose} onEnter={onClose}
+      footer={<button className="btn primary" onClick={onClose}>{t('ok')}</button>}>
+      <div className="shortcut-cols selectable" style={{ gridTemplateColumns: `repeat(${ncol}, 1fr)` }}>
+        {parts.map((part, i) => <div key={i} className="shortcut-grid">{col(part)}</div>)}
+      </div>
+    </Dialog>
+  );
+}

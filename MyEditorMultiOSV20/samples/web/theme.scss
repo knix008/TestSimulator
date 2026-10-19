@@ -1,0 +1,22 @@
+// SCSS — variables, nesting, mixins
+$accent: #4cc9f0;
+$radius: 6px;
+
+@mixin panel($bg) {
+  background: $bg;
+  border-radius: $radius;
+  padding: 8px 12px;
+}
+
+.toolbar {
+  @include panel(#1a2029);
+  display: flex;
+  gap: 4px;
+
+  button {
+    border: 0;
+    color: inherit;
+    &:hover { background: lighten(#1a2029, 8%); }
+    &.on { color: $accent; }
+  }
+}

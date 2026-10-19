@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My Editor",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myeditor",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5189",
+    "beforeDevCommand": "node scripts/sync-tauri-icons.mjs && npm run dev",
+    "beforeBuildCommand": "node scripts/sync-tauri-icons.mjs && node scripts/stage-tauri-sidecar.mjs --with-deps && npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "sidecar/": "app/"
+    },
+    "category": "DeveloperTool",
+    "shortDescription": "Text / code editor",
+    "longDescription": "Tabbed text and code editor with syntax highlighting, a terminal, and HTML / Markdown preview.",
+    "copyright": "Copyright © 2026 SHKWON",
+    "publisher": "SHKWON",
+    "fileAssociations": [
+      {
+        "ext": ["txt", "md", "log", "json", "js", "ts", "css", "html", "xml", "yaml", "yml", "ini", "cfg", "csv", "py", "c", "cpp", "h", "java", "cs", "sh", "bat", "ps1", "sql"],
+        "name": "Text document",
+        "description": "Text document",
+        "role": "Editor"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+# TOML — tables, arrays of tables, dates
+title = "My Editor"
+
+[server]
+host = "127.0.0.1"
+port = 5190
+token = ""
+
+[editor]
+font_size = 14
+tab_size = 4
+insert_spaces = true
+themes = ["midnight", "daylight", "nord"]
+
+[[recent]]
+path = "notes.txt"
+opened = 2026-09-15T10:00:00Z
+
+[[recent]]
+path = "README.md"
+opened = 2026-09-14T18:30:00Z
