@@ -1,0 +1,165 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "Residual connection (ResNet block)",
+ "description": "A graph with a skip connection (Add). Try rewiring it in the model editor.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "spiral",
+   "params": {
+    "n": 450,
+    "classes": 3,
+    "noise": 0.18,
+    "turns": 1.5,
+    "seed": 4
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas351h3f5",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "2"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas351i06l",
+    "type": "dense",
+    "name": "stem",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas351jw0u",
+    "type": "dense",
+    "name": "res_a",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas351ki7x",
+    "type": "dense",
+    "name": "res_b",
+    "params": {
+     "units": 32,
+     "activation": "linear",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   },
+   {
+    "id": "nmvevas351l3r4",
+    "type": "add",
+    "name": "skip_add",
+    "params": {},
+    "x": 60,
+    "y": 472
+   },
+   {
+    "id": "nmvevas351mhqr",
+    "type": "activation",
+    "name": "relu",
+    "params": {
+     "activation": "relu"
+    },
+    "x": 60,
+    "y": 580
+   },
+   {
+    "id": "nmvevas351ng4m",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 3,
+     "activation": "softmax",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 688
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas351i06l",
+    "from": "nmvevas351h3f5",
+    "to": "nmvevas351i06l"
+   },
+   {
+    "id": "e2_nmvevas351jw0u",
+    "from": "nmvevas351i06l",
+    "to": "nmvevas351jw0u"
+   },
+   {
+    "id": "e3_nmvevas351ki7x",
+    "from": "nmvevas351jw0u",
+    "to": "nmvevas351ki7x"
+   },
+   {
+    "id": "e4_nmvevas351l3r4",
+    "from": "nmvevas351ki7x",
+    "to": "nmvevas351l3r4"
+   },
+   {
+    "id": "e5_nmvevas351l3r4",
+    "from": "nmvevas351i06l",
+    "to": "nmvevas351l3r4"
+   },
+   {
+    "id": "e6_nmvevas351mhqr",
+    "from": "nmvevas351l3r4",
+    "to": "nmvevas351mhqr"
+   },
+   {
+    "id": "e7_nmvevas351ng4m",
+    "from": "nmvevas351mhqr",
+    "to": "nmvevas351ng4m"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 100,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "residual"
+}

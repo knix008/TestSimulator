@@ -1,0 +1,30 @@
+import fs from 'node:fs';
+import * as tf from '@tensorflow/tfjs';
+import { Trainer } from './src/engine/trainer-core.js';
+import { sampleProject } from './src/domain/samples.js';
+import { fromSource } from './src/domain/datasets.js';
+import { parseSoundBank } from './src/domain/datasets-media.js';
+import { prepare } from './src/domain/preprocess.js';
+import { cleanTrain, effectiveTask, normalizeProject } from './src/domain/project.js';
+import { validateModel, inferShapes, totalParams } from './src/domain/graph.js';
+const buf = fs.readFileSync('public/datasets/kws-ko.bin');
+const { index, clips } = parseSoundBank(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+console.log('bank', index.labels, clips.length, clips[0].wave.length);
+const p = normalizeProject(JSON.parse(JSON.stringify(sampleProject('kwsKo', 'ko'))));
+console.log('variants kept', p.variants?.list.map((v) => v.id), p.dataset.source);
+const data = fromSource(p.dataset.source, { sounds: clips, overrides: { copies: Number(process.env.COPIES ?? 1) } });
+if (process.env.ONLY) p.variants.list = p.variants.list.filter((v) => v.id === process.env.ONLY);
+console.log('data', data.n, data.labels, data.inputShape);
+const prep = prepare(data, p.dataset.steps, p.dataset.split);
+for (const v of p.variants.list) {
+  const task = effectiveTask(prep.task, v.model, prep.inputShape);
+  const problems = validateModel(v.model, task).filter((x) => x.level === 'error');
+  const msgs = []; const t = new Trainer(tf, (m) => msgs.push(m));
+  await t.handle({ type: 'build', graph: v.model, inputShape: prep.inputShape, task, train: cleanTrain({ ...p.train, epochs: Number(process.env.EPOCHS ?? 3) }) });
+  await t.handle({ type: 'data', train: prep.train, val: prep.val, test: prep.test, kind: prep.kind, task, inputShape: prep.inputShape });
+  const t0 = Date.now();
+  await t.handle({ type: 'train' });
+  const err = msgs.find((m) => m.type === 'error');
+  const eps = msgs.filter((m) => m.type === 'epoch').map((m) => `${m.epoch}:${m.acc?.toFixed(2)}/${m.valAcc?.toFixed(2)}`);
+  console.log(v.id, problems.map((x) => x.code), err ? 'ERROR ' + err.message : '', eps.join(' '), 'params', totalParams(inferShapes(v.model, prep.inputShape)).total, `${Date.now() - t0}ms`);
+}

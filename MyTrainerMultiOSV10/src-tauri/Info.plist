@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the macOS app bundle by Tauri: the Test tab can listen to the microphone and watch the webcam. -->
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>MyTrainer tests speech models with your voice (Test tab → microphone).</string>
+  <key>NSCameraUsageDescription</key>
+  <string>MyTrainer tests picture and video models with the webcam (Test tab → webcam).</string>
+</dict>
+</plist>

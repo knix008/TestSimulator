@@ -1,0 +1,182 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "숫자 인식 (CNN)",
+ "description": "합성곱 필터와 특징 맵을 채널별로 보며 CNN이 획을 찾는 방법을 봅니다.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "digits",
+   "params": {
+    "n": 1500,
+    "size": 16,
+    "noise": 0.04,
+    "seed": 10
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas31g0k6",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "16,16,1"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas31hn19",
+    "type": "conv2d",
+    "name": "conv_1",
+    "params": {
+     "filters": 8,
+     "kernelSize": 3,
+     "strides": 1,
+     "padding": "same",
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas31i0kp",
+    "type": "maxPool2d",
+    "name": "pool_1",
+    "params": {
+     "poolSize": 2,
+     "strides": 2
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas31j356",
+    "type": "conv2d",
+    "name": "conv_2",
+    "params": {
+     "filters": 16,
+     "kernelSize": 3,
+     "strides": 1,
+     "padding": "same",
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   },
+   {
+    "id": "nmvevas31kl6d",
+    "type": "maxPool2d",
+    "name": "pool_2",
+    "params": {
+     "poolSize": 2,
+     "strides": 2
+    },
+    "x": 60,
+    "y": 472
+   },
+   {
+    "id": "nmvevas31l3o2",
+    "type": "flatten",
+    "name": "flatten",
+    "params": {},
+    "x": 60,
+    "y": 580
+   },
+   {
+    "id": "nmvevas31m5vv",
+    "type": "dense",
+    "name": "dense",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 688
+   },
+   {
+    "id": "nmvevas31nz5l",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 10,
+     "activation": "softmax",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 796
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas31hn19",
+    "from": "nmvevas31g0k6",
+    "to": "nmvevas31hn19"
+   },
+   {
+    "id": "e2_nmvevas31i0kp",
+    "from": "nmvevas31hn19",
+    "to": "nmvevas31i0kp"
+   },
+   {
+    "id": "e3_nmvevas31j356",
+    "from": "nmvevas31i0kp",
+    "to": "nmvevas31j356"
+   },
+   {
+    "id": "e4_nmvevas31kl6d",
+    "from": "nmvevas31j356",
+    "to": "nmvevas31kl6d"
+   },
+   {
+    "id": "e5_nmvevas31l3o2",
+    "from": "nmvevas31kl6d",
+    "to": "nmvevas31l3o2"
+   },
+   {
+    "id": "e6_nmvevas31m5vv",
+    "from": "nmvevas31l3o2",
+    "to": "nmvevas31m5vv"
+   },
+   {
+    "id": "e7_nmvevas31nz5l",
+    "from": "nmvevas31m5vv",
+    "to": "nmvevas31nz5l"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.003,
+  "epochs": 12,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "digitsCnn"
+}

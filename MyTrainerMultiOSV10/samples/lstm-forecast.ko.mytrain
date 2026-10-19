@@ -1,0 +1,96 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "시계열 예측 (LSTM)",
+ "description": "사인파 24걸음을 보고 다음 값을 예측합니다. LSTM 게이트 값을 시간대별로 봅니다.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "sineForecast",
+   "params": {
+    "n": 800,
+    "steps": 24,
+    "noise": 0.05,
+    "seed": 13
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas32w83k",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "24,1"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas32xf4u",
+    "type": "lstm",
+    "name": "lstm",
+    "params": {
+     "units": 16,
+     "returnSequences": false
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas32ytzf",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "linear",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas32xf4u",
+    "from": "nmvevas32w83k",
+    "to": "nmvevas32xf4u"
+   },
+   {
+    "id": "e2_nmvevas32ytzf",
+    "from": "nmvevas32xf4u",
+    "to": "nmvevas32ytzf"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 30,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "lstmForecast"
+}

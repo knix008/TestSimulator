@@ -1,0 +1,132 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "Spiral (3 classes)",
+ "description": "A deeper MLP untangles three spiral arms; watch activations and weight histograms change.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "spiral",
+   "params": {
+    "n": 450,
+    "classes": 3,
+    "noise": 0.18,
+    "turns": 1.5,
+    "seed": 4
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas2zbrmd",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "2"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas2zc9x4",
+    "type": "dense",
+    "name": "dense_1",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas2zds6c",
+    "type": "dense",
+    "name": "dense_2",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas2zey71",
+    "type": "dense",
+    "name": "dense_3",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   },
+   {
+    "id": "nmvevas2zfv0b",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 3,
+     "activation": "softmax",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 472
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas2zc9x4",
+    "from": "nmvevas2zbrmd",
+    "to": "nmvevas2zc9x4"
+   },
+   {
+    "id": "e2_nmvevas2zds6c",
+    "from": "nmvevas2zc9x4",
+    "to": "nmvevas2zds6c"
+   },
+   {
+    "id": "e3_nmvevas2zey71",
+    "from": "nmvevas2zds6c",
+    "to": "nmvevas2zey71"
+   },
+   {
+    "id": "e4_nmvevas2zfv0b",
+    "from": "nmvevas2zey71",
+    "to": "nmvevas2zfv0b"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 120,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "spiral"
+}

@@ -1,0 +1,132 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "나선 3분류",
+ "description": "깊은 MLP가 세 갈래 나선을 나눕니다. 층별 활성값과 가중치 분포 변화를 관찰하세요.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "spiral",
+   "params": {
+    "n": 450,
+    "classes": 3,
+    "noise": 0.18,
+    "turns": 1.5,
+    "seed": 4
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas2y6n3r",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "2"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas2y7v88",
+    "type": "dense",
+    "name": "dense_1",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas2y8fvd",
+    "type": "dense",
+    "name": "dense_2",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas2y9qmm",
+    "type": "dense",
+    "name": "dense_3",
+    "params": {
+     "units": 32,
+     "activation": "relu",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   },
+   {
+    "id": "nmvevas2yagz2",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 3,
+     "activation": "softmax",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 472
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas2y7v88",
+    "from": "nmvevas2y6n3r",
+    "to": "nmvevas2y7v88"
+   },
+   {
+    "id": "e2_nmvevas2y8fvd",
+    "from": "nmvevas2y7v88",
+    "to": "nmvevas2y8fvd"
+   },
+   {
+    "id": "e3_nmvevas2y9qmm",
+    "from": "nmvevas2y8fvd",
+    "to": "nmvevas2y9qmm"
+   },
+   {
+    "id": "e4_nmvevas2yagz2",
+    "from": "nmvevas2y9qmm",
+    "to": "nmvevas2yagz2"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 120,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "spiral"
+}

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MyTrainer-*.exe
+/MyTrainer-*.msi
+/MyTrainer-*.dmg
+/MyTrainer-*.deb
+/MyTrainer-*.rpm
+/MyTrainer-*.AppImage
+
+# Test runs (npm test)
+test-results/
+*.log
+
+# Python caches (python/)
+__pycache__/
+*.pyc
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Text-to-speech tools for scripts/make-kws-ko.py
+.venv-tts/

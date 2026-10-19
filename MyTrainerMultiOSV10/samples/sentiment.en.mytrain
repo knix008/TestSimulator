@@ -1,0 +1,111 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "Sentiment (embedding + LSTM)",
+ "description": "Turns word ids into embeddings and reads them with an LSTM — including \"not\".",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "sentiment",
+   "params": {
+    "n": 1000,
+    "length": 8,
+    "seed": 17
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas3416edy",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "8"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas34179fs",
+    "type": "embedding",
+    "name": "embedding",
+    "params": {
+     "inputDim": 36,
+     "outputDim": 8
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas3418xa3",
+    "type": "lstm",
+    "name": "lstm",
+    "params": {
+     "units": 16,
+     "returnSequences": false
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas3419t22",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "sigmoid",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas34179fs",
+    "from": "nmvevas3416edy",
+    "to": "nmvevas34179fs"
+   },
+   {
+    "id": "e2_nmvevas3418xa3",
+    "from": "nmvevas34179fs",
+    "to": "nmvevas3418xa3"
+   },
+   {
+    "id": "e3_nmvevas3419t22",
+    "from": "nmvevas3418xa3",
+    "to": "nmvevas3419t22"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 25,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "sentiment"
+}

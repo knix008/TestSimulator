@@ -1,0 +1,96 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "Forecasting (LSTM)",
+ "description": "Predicts the next value of a sine wave from 24 steps; inspect the LSTM gates over time.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "sineForecast",
+   "params": {
+    "n": 800,
+    "steps": 24,
+    "noise": 0.05,
+    "seed": 13
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas33zmyj",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "24,1"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas3310chh",
+    "type": "lstm",
+    "name": "lstm",
+    "params": {
+     "units": 16,
+     "returnSequences": false
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas3311xgw",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "linear",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas3310chh",
+    "from": "nmvevas33zmyj",
+    "to": "nmvevas3310chh"
+   },
+   {
+    "id": "e2_nmvevas3311xgw",
+    "from": "nmvevas3310chh",
+    "to": "nmvevas3311xgw"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 30,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "lstmForecast"
+}

@@ -1,0 +1,47 @@
+{
+  "name": "mytrainer",
+  "productName": "MyTrainer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Visual deep learning workbench for Web, Windows, macOS and Linux (Tauri) — visual model editor, data preprocessing, live training with layer and neuron level visualization, testing, PyTorch code generation and an optional PyTorch engine",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview --port 4185 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:unit": "node scripts/test.mjs --only js,rust",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "data": "node scripts/make-data.mjs"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@lezer/highlight": "^1.2.5",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "vite": "^7.1.7"
+  }
+}

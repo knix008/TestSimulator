@@ -1,0 +1,111 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "감성 분석 (임베딩 + LSTM)",
+ "description": "짧은 문장(단어 번호)을 임베딩으로 바꾸고 LSTM으로 긍정·부정을 판단합니다. \"not\"도 배웁니다.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "sentiment",
+   "params": {
+    "n": 1000,
+    "length": 8,
+    "seed": 17
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas3312hki",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "8"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas3313iyn",
+    "type": "embedding",
+    "name": "embedding",
+    "params": {
+     "inputDim": 36,
+     "outputDim": 8
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas3314z68",
+    "type": "lstm",
+    "name": "lstm",
+    "params": {
+     "units": 16,
+     "returnSequences": false
+    },
+    "x": 60,
+    "y": 256
+   },
+   {
+    "id": "nmvevas3315tp9",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "sigmoid",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 364
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas3313iyn",
+    "from": "nmvevas3312hki",
+    "to": "nmvevas3313iyn"
+   },
+   {
+    "id": "e2_nmvevas3314z68",
+    "from": "nmvevas3313iyn",
+    "to": "nmvevas3314z68"
+   },
+   {
+    "id": "e3_nmvevas3315tp9",
+    "from": "nmvevas3314z68",
+    "to": "nmvevas3315tp9"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.01,
+  "epochs": 25,
+  "batchSize": 32,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "sentiment"
+}

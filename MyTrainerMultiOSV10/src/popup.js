@@ -1,0 +1,433 @@
+// Popup windows. Each runs this page in its own OS window (desktop, label
+// "popup-<kind>") or in a frame (web build: ?popup=<kind>). Every popup has a
+// fixed size chosen so its content fits; long content is split into tabs.
+//   settings · about · confirm · error · progress · pyenv (Python / PyTorch) · samples · prompt · shortcuts
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import appIcon from '../assets/icon-256.png';
+import { SAMPLE_GROUPS, SAMPLE_IDS, SAMPLES } from './domain/samples.js';
+import { COLOR_MAPS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings, storeSettings, CODE_FONT_SIZE } from './domain/settings.js';
+import { getLanguage, setLanguage, t } from './i18n.js';
+import { icon } from './icons.js';
+import * as native from './platform/native.js';
+import { popupParams } from './platform/popups.js';
+import { bindSteppers, stepperHtml } from './stepper.js';
+import { applyFont, applyTheme, CUSTOM, CUSTOM_KEYS, customFrom, customTheme, DARK_THEMES, LIGHT_THEMES, normalizeCustom, resolveTheme, SYSTEM, themeName } from './themes.js';
+import { escapeHtml } from './ui/dom.js';
+import { showContextMenu, textMenuItems } from './ui/contextmenu.js';
+
+const desktop = native.isDesktop();
+const appWindow = desktop ? getCurrentWindow() : null;
+const kind = new URLSearchParams(location.search).get('popup') ?? (desktop ? appWindow.label.replace(/^popup-/, '') : 'settings');
+const root = document.querySelector('#app');
+document.title = `popup-${kind}`;
+document.documentElement.classList.add(`popup-kind-${kind}`);
+const prefersDark = () => Boolean(globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0';
+
+// ───────────────────────── bridge to the main window
+
+function send(type, data) {
+  if (desktop) return native.emitTo('main', 'popup-message', { kind, type, data }).catch(() => {});
+  globalThis.parent?.postMessage({ mytrainer: true, kind, type, data }, location.origin);
+  return Promise.resolve();
+}
+const result = (data) => send('result', data);
+const action = (name, data = {}) => send('action', { action: name, ...data });
+
+async function close(value = null) {
+  if (value) await result(value);
+  if (desktop) await native.invoke('close_popup', { kind }).catch(() => {});
+  else send('close');
+}
+
+let shown = false;
+function ready() {
+  if (shown) return;
+  shown = true;
+  if (desktop) native.invoke('popup_ready').catch(() => {});
+  else send('ready');
+}
+
+const state = {
+  settings: loadSettings(globalThis.localStorage),
+  params: popupParams(kind),
+  tab: popupParams(kind).tab ?? 'general',
+  fonts: null,
+  info: null,
+  log: [],
+  installing: false,
+  detecting: false,
+  message: null,
+  group: null,
+};
+const s = () => state.settings;
+const P = () => state.params;
+const L = () => getLanguage();
+
+function applyLook() {
+  setLanguage(s().language);
+  applyTheme(resolveTheme(s().theme, prefersDark(), s().customTheme));
+  applyFont(s());
+}
+
+function update(patch) {
+  state.settings = { ...state.settings, ...patch };
+  storeSettings(globalThis.localStorage, state.settings);
+  applyLook();
+  render();
+}
+
+window.addEventListener('error', (event) => action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }));
+
+// ───────────────────────── frame and controls
+
+function frame({ glyph, title, body, foot = '', tabs = '' }) {
+  if (desktop) appWindow.setTitle(`${title} — MyTrainer v${VERSION}`).catch(() => {});
+  return `<div class="popup popup-${kind}" role="dialog" aria-labelledby="popup-title">
+    <header class="popup-head" data-window-drag>
+      <h2 id="popup-title" data-window-drag>${icon(glyph)}<span data-window-drag>${escapeHtml(title)}</span></h2>
+      <button class="window-button" data-action="close" title="${escapeHtml(t('common.close'))}" aria-label="${escapeHtml(t('common.close'))}">${icon('close')}</button>
+    </header>
+    ${tabs}
+    <div class="popup-body">${body}</div>
+    ${foot ? `<footer class="popup-foot">${foot}</footer>` : ''}
+  </div>`;
+}
+
+const button = (name, label, glyph = '', extra = '', value = '', attrs = '') => `<button class="button ${extra}" data-action="${name}" ${value !== '' ? `data-value="${escapeHtml(value)}"` : ''} ${attrs}>${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`;
+const row = (glyph, label, control, title = label) => `<div class="row" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${control}</span></div>`;
+const toggle = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap"><input type="checkbox" data-toggle="${key}" ${s()[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}"/><span class="switch"></span></label>`);
+const select = (key, options, current, label) => `<select data-setting="${key}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
+const tabsHtml = (list, current) => `<nav class="tabs" role="tablist"><div class="tabs-strip">${list.map(([id, glyph, label]) => `<button class="tab ${current === id ? 'active' : ''}" data-tab="${id}" role="tab">${icon(glyph)} ${escapeHtml(label)}</button>`).join('')}</div></nav>`;
+
+// ───────────────────────── popups
+
+function render() {
+  const renderers = { settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
+  const html = (renderers[kind] ?? renderSettings)();
+  if (html != null) root.innerHTML = html;
+  bindSteppers(root, (key, value) => update({ [key]: value }));
+  requestAnimationFrame(ready);
+}
+
+/** The theme drop-down: dark themes (two columns), light themes (two columns), custom, system. Picks apply at once. */
+function renderThemes() {
+  const current = s().theme;
+  const cell = (theme) => `<button class="theme-row compact-cell ${current === theme.id ? 'active' : ''}" data-pick-theme="${theme.id}" title="${escapeHtml(theme.name[L()] ?? theme.name.en)}"><span class="swatches">${theme.swatch.map((c) => `<i style="background:${c}"></i>`).join('')}</span><span class="theme-name">${escapeHtml(theme.name[L()] ?? theme.name.en)}</span></button>`;
+  const group = (glyph, title, list) => `<h4 class="themes-head">${icon(glyph, 'icon tiny')}<span>${escapeHtml(title)} (${list.length})</span></h4><div class="themes-grid">${list.map(cell).join('')}</div>`;
+  return `<div class="themes-drop" role="menu">
+    ${group('moon', t('settings.dark'), DARK_THEMES)}
+    ${group('sun', t('settings.light'), LIGHT_THEMES)}
+    <div class="menu-sep"></div>
+    <div class="themes-foot">
+      <span class="themes-custom"><button class="theme-row wide-row ${current === CUSTOM ? 'active' : ''}" data-pick-theme="${CUSTOM}">${icon('palette', 'icon tiny')}<span class="swatches">${customTheme(s().customTheme).swatch.map((c) => `<i style="background:${c}"></i>`).join('')}</span><span>${escapeHtml(t('settings.customTheme'))}</span></button><button class="icon-button" data-edit-custom title="${escapeHtml(t('menu.customThemeEdit'))}">${icon('edit')}</button></span>
+      <button class="theme-row wide-row ${current === SYSTEM ? 'active' : ''}" data-pick-theme="${SYSTEM}">${icon('globe', 'icon tiny')}<span>${escapeHtml(t('settings.systemTheme'))}</span></button>
+    </div>
+  </div>`;
+}
+
+function renderSettings() {
+  const tabs = [['general', 'gear', t('settings.general')], ['appearance', 'palette', t('settings.appearance')], ['custom', 'edit', t('settings.customTheme')], ['font', 'font', t('settings.font')], ['visual', 'nodesView', t('settings.visual')], ['code', 'tabCode', t('settings.code')], ['python', 'python', t('settings.python')]];
+  let body = '';
+  switch (state.tab) {
+    case 'general':
+      body = row('globe', t('settings.language'), `<span class="segmented"><button class="segment ${s().language === 'ko' ? 'active' : ''}" data-set="language" data-value="ko">한국어</button><button class="segment ${s().language === 'en' ? 'active' : ''}" data-set="language" data-value="en">English</button></span>`)
+        + toggle('showStartPage', t('settings.showStartPage'), 'home')
+        + toggle('confirmExit', t('settings.confirmExit'), 'exit')
+        + toggle('saveWeights', t('settings.saveWeights'), 'save')
+        + toggle('showStatusBar', t('menu.statusBar'), 'statusBar');
+      break;
+    case 'appearance': {
+      const themeRow = (theme) => `<button class="theme-row ${s().theme === theme.id ? 'active' : ''}" data-set="theme" data-value="${theme.id}"><span class="swatches">${theme.swatch.map((c) => `<i style="background:${c}"></i>`).join('')}</span><span>${escapeHtml(theme.name[L()] ?? theme.name.en)}</span></button>`;
+      body = `<div class="theme-head">${row('palette', t('settings.theme'), `<button class="theme-row ${s().theme === SYSTEM ? 'active' : ''}" data-set="theme" data-value="${SYSTEM}">${icon('sun')}<span>${escapeHtml(themeName(SYSTEM, L()))}</span></button>`)}</div>
+        <div class="theme-columns"><div><h4>${icon('sun', 'icon tiny')} ${escapeHtml(t('settings.light'))} (${LIGHT_THEMES.length})</h4><div class="theme-grid">${LIGHT_THEMES.map(themeRow).join('')}</div></div>
+        <div><h4>${icon('moon', 'icon tiny')} ${escapeHtml(t('settings.dark'))} (${DARK_THEMES.length})</h4><div class="theme-grid">${DARK_THEMES.map(themeRow).join('')}</div></div></div>
+        <div class="theme-head">${row('edit', t('settings.customTheme'), `${themeRow(customTheme(s().customTheme))}<button class="button small" data-tab="custom">${icon('edit')}<span>${escapeHtml(t('menu.customThemeEdit'))}</span></button>`)}</div>`;
+      break;
+    }
+    case 'custom': {
+      const custom = normalizeCustom(s().customTheme ?? customFrom(resolveTheme(s().theme === CUSTOM ? 'light' : s().theme, prefersDark(), null)));
+      const preview = customTheme(custom);
+      body = `<p class="muted">${escapeHtml(t('settings.customHint'))}</p>
+        ${row('palette', t('settings.useCustom'), `<label class="switch-wrap"><input type="checkbox" data-custom-use ${s().theme === CUSTOM ? 'checked' : ''}/><span class="switch"></span></label>`)}
+        ${row('moon', t('settings.customDark'), `<label class="switch-wrap"><input type="checkbox" data-custom-dark ${custom.dark ? 'checked' : ''}/><span class="switch"></span></label>`)}
+        <div class="custom-colors">${CUSTOM_KEYS.map((key) => `<label class="custom-color"><input type="color" data-custom-color="${key}" value="${custom[key]}"/><span>${escapeHtml(t(`color.${key}`))}</span><code>${custom[key]}</code></label>`).join('')}</div>
+        <div class="custom-actions">
+          <select data-custom-from><option value="">${escapeHtml(t('settings.customFrom'))}</option>${[...LIGHT_THEMES, ...DARK_THEMES].map((th) => `<option value="${th.id}">${escapeHtml(th.name[L()] ?? th.name.en)}</option>`).join('')}</select>
+        </div>
+        <div class="custom-preview" style="background:${preview.colors.bg};color:${preview.colors.text};border-color:${preview.colors.border}">
+          <span class="preview-chip" style="background:${preview.colors.surface};border:1px solid ${preview.colors.border}">${escapeHtml(t('settings.previewSurface'))}</span>
+          <span class="preview-chip" style="background:${preview.colors.accent};color:${preview.colors.accentText}">${escapeHtml(t('settings.previewAccent'))}</span>
+          <span style="color:${preview.colors.muted}">${escapeHtml(t('settings.previewMuted'))}</span>
+        </div>`;
+      break;
+    }
+    case 'font':
+      if (!state.fonts) native.listFonts().then((fonts) => { state.fonts = fonts; render(); }).catch(() => { state.fonts = []; render(); });
+      body = row('font', t('settings.fontFamily'), `<select data-setting="fontFamily"><option value="">${escapeHtml(t('settings.fontDefault'))}</option>${(state.fonts ?? []).map((f) => `<option value="${escapeHtml(f)}" ${s().fontFamily === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select>`)
+        + row('fontUp', t('settings.fontSize'), stepperHtml({ key: 'fontSize', value: s().fontSize, min: FONT_SIZE.min, max: FONT_SIZE.max, step: 1, unit: 'px', label: t('settings.fontSize') }))
+        + row('bold', t('settings.fontWeight'), select('fontWeight', FONT_WEIGHTS.map((w) => [w, String(w)]), s().fontWeight, t('settings.fontWeight')))
+        + row('italic', t('settings.fontStyle'), select('fontStyle', FONT_STYLES.map((v) => [v, t(`settings.style.${v}`)]), s().fontStyle, t('settings.fontStyle')))
+        + `<p class="font-preview" style="font-family:var(--font-family)">${escapeHtml(t('settings.fontPreview'))}</p>`;
+      break;
+    case 'visual':
+      body = row('palette', t('model.colorMap'), select('colorMap', COLOR_MAPS.map((m) => [m, t(`colorMap.${m}`)]), s().colorMap, t('model.colorMap')))
+        + row('neuron', t('model.maxNeurons'), stepperHtml({ key: 'maxNeurons', value: s().maxNeurons, min: 4, max: 64, step: 4, label: t('model.maxNeurons') }))
+        + toggle('animateFlow', t('model.animate'), 'animNeural')
+        + `<p class="muted">${escapeHtml(t('settings.visualHint'))}</p>`;
+      break;
+    case 'code':
+      body = row('fontUp', t('code.fontSize'), stepperHtml({ key: 'codeFontSize', value: s().codeFontSize, min: CODE_FONT_SIZE.min, max: CODE_FONT_SIZE.max, step: 1, unit: 'px', label: t('code.fontSize') }))
+        + toggle('codeWrap', t('code.wrap'), 'textAlignLeft')
+        + toggle('codeHooks', t('code.hooks'), 'probe')
+        + `<p class="muted">${escapeHtml(t('code.hooksTip'))}</p>`;
+      break;
+    case 'python':
+      body = row('python', t('settings.pythonPath'), `<input type="text" data-setting="pythonPath" value="${escapeHtml(s().pythonPath)}" spellcheck="false" placeholder="${escapeHtml(t('settings.pythonAuto'))}"/>`)
+        + row('install', t('settings.torchVariant'), select('torchVariant', ['auto', 'cpu', 'cuda', 'default'].map((v) => [v, t(`py.variant.${v}`)]), s().torchVariant, t('settings.torchVariant')))
+        + `<p class="muted">${escapeHtml(t('settings.pythonHint'))}</p>`;
+      break;
+    default: break;
+  }
+  return frame({ glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(tabs, state.tab), body: `<div class="settings-body">${body}</div>`, foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+}
+
+function renderAbout() {
+  if (!state.info) native.appInfo().then((info) => { state.info = info; render(); });
+  const i = state.info;
+  const rows = i ? [[t('about.version'), i.version], [t('about.build'), `${i.commit} · ${new Date(i.buildDate).toLocaleString()}`], [t('about.target'), i.target], ['Tauri', i.tauri], [t('about.os'), `${i.os} ${i.arch}`]] : [];
+  root.innerHTML = frame({
+    glyph: 'info', title: t('menu.about'),
+    body: `<div class="about"><img src="${appIcon}" alt="" class="about-icon"/><div><h1>MyTrainer</h1><p>${escapeHtml(t('start.tagline'))}</p>
+      <dl class="kv">${rows.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>
+      <p class="muted small">${escapeHtml(t('about.libraries'))}: TensorFlow.js, PyTorch (${escapeHtml(t('about.optional'))}), CodeMirror 6, Tauri 2</p>
+      <p class="muted small">© SHKWON (knix008@naver.com)</p></div></div>`,
+    foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}`,
+  });
+  requestAnimationFrame(ready);
+  return null;
+}
+
+function renderConfirm() {
+  const p = P();
+  const buttons = (p.buttons ?? [['ok', t('common.ok'), 'primary'], ['cancel', t('common.cancel'), '']]).map(([value, label, extra]) => button('choice', label, '', extra, value)).join('');
+  return frame({ glyph: 'question', title: p.title ?? t('common.confirm'), body: `<p class="confirm-text">${escapeHtml(p.message ?? '')}</p>`, foot: `<span class="grow"></span>${buttons}` });
+}
+
+function renderError() {
+  const p = P();
+  return frame({ glyph: 'error', title: t('error.title'), body: `<p>${escapeHtml(p.message ?? '')}</p><pre class="error-detail">${escapeHtml(p.detail ?? '')}</pre>`, foot: `${button('copy', t('code.copy'), 'copy')}<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+}
+
+function renderProgress() {
+  const p = P();
+  return frame({ glyph: 'hourglass', title: p.title ?? t('progress.title'), body: `<p>${escapeHtml(p.message ?? '')}</p><div class="progress-line"><i style="width:${p.percent ?? 0}%"></i></div>` });
+}
+
+function renderPrompt() {
+  const p = P();
+  return frame({ glyph: 'edit', title: p.title ?? '', body: `<p>${escapeHtml(p.message ?? '')}</p><input type="text" class="wide" data-prompt value="${escapeHtml(p.value ?? '')}"/>`, foot: `<span class="grow"></span>${button('promptOk', t('common.ok'), 'check', 'primary')}${button('close', t('common.cancel'))}` });
+}
+
+function renderShortcuts() {
+  const list = [
+    ['Ctrl+N', 'menu.new'], ['Ctrl+O', 'menu.open'], ['Ctrl+S', 'menu.save'], ['Ctrl+Shift+S', 'menu.saveAs'], ['Ctrl+Z', 'menu.undo'], ['Ctrl+Y', 'menu.redo'],
+    ['Ctrl+1 … 5', 'shortcut.tabs'], ['Del', 'menu.delete'], ['Ctrl+D', 'menu.duplicate'], ['Ctrl+A', 'menu.selectAll'], ['Ctrl+L', 'menu.autoLayout'], ['Ctrl+E', 'menu.neurons'],
+    ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'menu.fit'], ['F5', 'menu.train'], ['F6', 'menu.pause'], ['F10', 'menu.step'], ['Shift+F5', 'menu.stop'], ['F1', 'menu.guide'],
+    ['Ctrl+F', 'shortcut.find'], ['Ctrl+Space', 'shortcut.complete'], ['Shift+drag', 'shortcut.band'], ['Ctrl+wheel', 'shortcut.zoom'],
+  ];
+  return frame({ glyph: 'keyboard', title: t('menu.shortcuts'), body: `<table class="shortcut-table">${list.map(([key, label]) => `<tr><td><kbd>${escapeHtml(key)}</kbd></td><td>${escapeHtml(t(label))}</td></tr>`).join('')}</table>`, foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+}
+
+function renderSamples() {
+  const group = state.group;
+  const list = SAMPLE_IDS.filter((id) => !group || SAMPLES[id].group === group);
+  const tabs = [[null, 'samples', t('dictKind.all')], ...SAMPLE_GROUPS.map((g) => [g, SAMPLES[SAMPLE_IDS.find((id) => SAMPLES[id].group === g)].icon, t(`sampleGroup.${g}`)])];
+  const tabHtml = `<nav class="tabs"><div class="tabs-strip">${tabs.map(([id, glyph, label]) => `<button class="tab ${group === id ? 'active' : ''}" data-group="${id ?? ''}">${icon(glyph)} ${escapeHtml(label)}</button>`).join('')}</div></nav>`;
+  const cards = list.map((id) => {
+    const sample = SAMPLES[id];
+    // A sample with a choice of models shows its first one (and the names of the others).
+    const spec = sample.layers ?? Object.values(sample.variants ?? {})[0]?.layers ?? [];
+    const layers = spec.filter(([, type]) => type !== 'input').map(([, type]) => t(`layer.${type}`));
+    const variants = sample.variants ? Object.values(sample.variants).map((v) => (L() === 'en' ? v.en : v.ko)).join(' / ') : '';
+    const source = sample.dataset.source;
+    const dataName = source.kind === 'sounds' ? t(`bank.${source.bank}`) : t(`gen.${source.id}`);
+    return `<button class="sample-card" data-sample="${id}">
+      <span class="sample-card-icon">${icon(sample.icon)}</span>
+      <span class="sample-card-text"><b>${escapeHtml(L() === 'en' ? sample.en : sample.ko)}</b><span>${escapeHtml(L() === 'en' ? sample.descEn : sample.descKo)}</span>
+      <small>${icon('dataset', 'icon tiny')} ${escapeHtml(dataName)} · ${icon('tabModel', 'icon tiny')} ${escapeHtml(variants || layers.slice(0, 5).join(' → '))}${!variants && layers.length > 5 ? ' …' : ''}</small></span></button>`;
+  }).join('');
+  return frame({ glyph: 'samples', title: t('start.gallery'), tabs: tabHtml, body: `<div class="sample-cards">${cards}</div>`, foot: `<span class="muted">${escapeHtml(t('samples.hint', { n: SAMPLE_IDS.length }))}</span><span class="grow"></span>${button('close', t('common.close'))}` });
+}
+
+// ── Python / PyTorch environment
+
+const canInstall = (p) => p.implementation === 'CPython' && p.bits === 64 && (() => { const [major, minor] = p.version.split('.').map(Number); return major === 3 && minor >= 9; })() && !p.venv && !p.own;
+
+function renderPyEnv() {
+  const detection = state.params.detection;
+  const chosen = state.params.chosen ?? s().pythonPath;
+  const pythons = detection?.pythons ?? [];
+  const withTorch = pythons.filter((p) => p.torch && p.numpy);
+  const current = pythons.find((p) => p.path === chosen && p.torch) ?? (detection?.best != null ? pythons[detection.best] : null);
+  const bases = pythons.filter(canInstall);
+  const baseDefault = detection?.base != null ? pythons[detection.base]?.path : bases[0]?.path;
+  const statusHtml = state.detecting || !detection
+    ? `<div class="py-status busy">${icon('hourglass')}<span>${escapeHtml(t('py.detecting'))}</span></div>`
+    : current
+      ? `<div class="py-status ok">${icon('check')}<span>${escapeHtml(t('py.found', { torch: current.torch, version: current.version, device: current.cuda ? `CUDA · ${current.gpu ?? ''}` : current.mps ? 'Apple MPS' : 'CPU' }))}</span><code>${escapeHtml(current.path)}</code></div>`
+      : `<div class="py-status warn">${icon('warning')}<span>${escapeHtml(pythons.length ? t('py.noTorch') : t('py.noPython'))}</span></div>`;
+  const rows = pythons.map((p) => `<tr class="${p.path === current?.path ? 'current' : ''}">
+      <td title="${escapeHtml(p.path)}"><code>${escapeHtml(p.path)}</code>${p.own ? ` <span class="chip small">${escapeHtml(t('py.own'))}</span>` : ''}</td>
+      <td>${escapeHtml(p.version)}</td>
+      <td>${p.torch ? escapeHtml(p.torch) : `<span class="muted">${escapeHtml(t('py.none'))}</span>`}${p.error ? ` <span class="danger-text" title="${escapeHtml(p.error)}">!</span>` : ''}</td>
+      <td>${p.cuda ? 'CUDA' : p.mps ? 'MPS' : p.torch ? 'CPU' : '–'}</td>
+      <td>${escapeHtml(t(`py.source.${p.source}`, null, p.source))}</td>
+      <td>${p.torch && p.numpy ? (p.path === current?.path ? `<span class="chip small active">${escapeHtml(t('py.inUse'))}</span>` : button('use', t('py.use'), '', 'small', p.path)) : ''}</td></tr>`).join('');
+  const install = withTorch.length && !state.installing && !state.message ? `<p class="muted">${escapeHtml(t('py.alreadyHint'))}</p>` : '';
+  const variant = s().torchVariant;
+  const installHtml = `<section class="py-install"><h4>${icon('install')} ${escapeHtml(t('py.installTitle'))}</h4>
+    ${install}
+    ${bases.length ? `<div class="py-install-row">
+      <label>${escapeHtml(t('py.base'))} <select data-py="base">${bases.map((p) => `<option value="${escapeHtml(p.path)}" ${p.path === (state.base ?? baseDefault) ? 'selected' : ''}>Python ${escapeHtml(p.version)} — ${escapeHtml(p.path)}</option>`).join('')}</select></label>
+      <label>${escapeHtml(t('py.variant'))} <select data-py="variant">${['auto', 'cpu', 'cuda', 'default'].map((v) => `<option value="${v}" ${variant === v ? 'selected' : ''}>${escapeHtml(t(`py.variant.${v}`))}${v === 'auto' ? ` (${detection?.nvidia ? 'CUDA' : 'CPU'})` : ''}</option>`).join('')}</select></label>
+      ${state.installing ? button('cancelInstall', t('common.cancel'), 'close', 'danger') : button('install', t('py.install'), 'install', 'primary')}
+    </div><p class="muted small">${escapeHtml(t('py.installHint', { dir: detection?.envDir ?? '' }))}</p>`
+      : `<p>${escapeHtml(t('py.noBase'))}</p>${detection?.os === 'windows' ? button('installPython', t('py.installPython'), 'install', 'primary', '', state.installing ? 'disabled' : '') : `<p class="muted">${escapeHtml(t('py.installPythonManual'))}</p>`}`}
+    ${state.message ? `<div class="py-message ${state.message.kind}">${icon(state.message.kind === 'error' ? 'error' : 'check')}<span>${escapeHtml(state.message.text)}</span></div>` : ''}
+    <pre class="py-log" ${state.log.length ? '' : 'hidden'}>${escapeHtml(state.log.slice(-400).join('\n'))}</pre></section>`;
+  return frame({
+    glyph: 'python', title: t('py.title'),
+    body: `<div class="pyenv">${statusHtml}
+      <p class="muted small">${escapeHtml(t('py.intro'))}</p>
+      <div class="py-table-wrap"><table class="py-table"><thead><tr><th>${escapeHtml(t('py.path'))}</th><th>Python</th><th>PyTorch</th><th>${escapeHtml(t('py.device'))}</th><th>${escapeHtml(t('py.where'))}</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="muted">${escapeHtml(state.detecting || !detection ? t('py.detecting') : t('py.noPython'))}</td></tr>`}</tbody></table></div>
+      ${installHtml}</div>`,
+    foot: `${button('detect', t('py.detect'), 'refresh', '', '', state.detecting || state.installing ? 'disabled' : '')}<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}`,
+  });
+}
+
+function onHostMessage(message) {
+  if (!message || kind !== 'pyenv') {
+    if (message?.type === 'refresh') { state.params = popupParams(kind); render(); }
+    return;
+  }
+  switch (message.type) {
+    case 'detecting': state.detecting = true; break;
+    case 'detection': state.detecting = false; state.params = { ...state.params, detection: message.detection, chosen: message.chosen }; break;
+    case 'log': state.log.push(message.line.text); if (state.log.length > 2000) state.log.splice(0, 500); break;
+    case 'installed': state.installing = false; state.params = { ...state.params, detection: message.detection, chosen: message.chosen }; state.message = { kind: 'ok', text: t('py.installDone') }; break;
+    case 'installFailed': state.installing = false; state.message = { kind: 'error', text: message.message }; break;
+    case 'error': state.detecting = false; state.message = { kind: 'error', text: message.message }; break;
+    case 'refresh': state.params = popupParams(kind); break;
+    default: break;
+  }
+  render();
+  const logBox = root.querySelector('.py-log');
+  if (logBox) logBox.scrollTop = logBox.scrollHeight;
+}
+
+// ───────────────────────── input
+
+root.addEventListener('click', (event) => {
+  const target = event.target;
+  const pickTheme = target.closest('[data-pick-theme]');
+  if (pickTheme) {
+    const id = pickTheme.dataset.pickTheme;
+    update(id === CUSTOM ? { theme: CUSTOM, customTheme: s().customTheme ?? customFrom(resolveTheme(s().theme, prefersDark(), null)) } : { theme: id });
+    close({ theme: id });
+    return;
+  }
+  if (target.closest('[data-edit-custom]')) { close({ editCustom: true }); return; }
+  const tab = target.closest('[data-tab]');
+  if (tab) { state.tab = tab.dataset.tab; render(); return; }
+  const group = target.closest('[data-group]');
+  if (group) { state.group = group.dataset.group || null; render(); return; }
+  const sample = target.closest('[data-sample]');
+  if (sample) { close({ sample: sample.dataset.sample }); return; }
+  const set = target.closest('[data-set]');
+  if (set) { update({ [set.dataset.set]: set.dataset.value }); return; }
+  const actionButton = target.closest('[data-action]');
+  if (!actionButton || actionButton.disabled) return;
+  const name = actionButton.dataset.action;
+  switch (name) {
+    case 'close': close(kind === 'confirm' ? { choice: 'cancel' } : null); break;
+    case 'choice': close({ choice: actionButton.dataset.value }); break;
+    case 'promptOk': close({ value: root.querySelector('[data-prompt]')?.value ?? '' }); break;
+    case 'copy': navigator.clipboard.writeText(`${P().message}\n${P().detail}`).catch(() => {}); break;
+    case 'use': action('py-use', { path: actionButton.dataset.value }); break;
+    case 'detect': state.detecting = true; state.message = null; render(); action('py-refresh'); break;
+    case 'install': {
+      state.installing = true;
+      state.message = null;
+      state.log = [];
+      const base = root.querySelector('[data-py="base"]')?.value;
+      const variant = root.querySelector('[data-py="variant"]')?.value ?? 'auto';
+      action('py-install', { base, variant });
+      render();
+      break;
+    }
+    case 'installPython': state.installing = true; state.log = []; action('py-install-python'); render(); break;
+    case 'cancelInstall': action('py-cancel'); break;
+    default: break;
+  }
+});
+
+function updateCustom(patch) {
+  const base = normalizeCustom(s().customTheme ?? customFrom(resolveTheme(s().theme === CUSTOM ? 'light' : s().theme, prefersDark(), null)));
+  update({ customTheme: { ...base, ...patch }, theme: CUSTOM });
+}
+
+root.addEventListener('input', (event) => {
+  if (event.target.matches('[data-custom-color]')) updateCustom({ [event.target.dataset.customColor]: event.target.value });
+});
+
+root.addEventListener('change', (event) => {
+  const target = event.target;
+  if (target.matches('[data-custom-use]')) { if (target.checked) updateCustom({}); else update({ theme: 'light' }); return; }
+  if (target.matches('[data-custom-dark]')) { updateCustom({ dark: target.checked }); return; }
+  if (target.matches('[data-custom-from]') && target.value) { update({ customTheme: customFrom(resolveTheme(target.value, false, null)), theme: CUSTOM }); return; }
+  if (target.matches('[data-toggle]')) update({ [target.dataset.toggle]: target.checked });
+  else if (target.matches('[data-setting]')) {
+    const key = target.dataset.setting;
+    update({ [key]: ['fontWeight', 'maxNeurons'].includes(key) ? Number(target.value) : target.value });
+  } else if (target.matches('[data-py="base"]')) state.base = target.value;
+  else if (target.matches('[data-py="variant"]')) update({ torchVariant: target.value });
+});
+
+root.addEventListener('pointerdown', (event) => {
+  if (desktop && event.button === 0 && event.target.closest('[data-window-drag]') && !event.target.closest('button')) native.invoke('window_drag', {}).catch(() => {});
+});
+
+// Our own context menu (with icons) instead of the WebView's.
+window.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+  const items = textMenuItems(event.target, t);
+  if (kind !== 'menu') items.push(...(items.length ? ['sep'] : []), { label: t('common.close'), icon: 'close', action: () => close(kind === 'confirm' ? { choice: 'cancel' } : null) });
+  showContextMenu(items, { x: event.clientX, y: event.clientY });
+});
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') close(kind === 'confirm' ? { choice: 'cancel' } : null);
+  if (event.key === 'Enter' && kind === 'prompt') close({ value: root.querySelector('[data-prompt]')?.value ?? '' });
+});
+
+// Messages from the main window
+if (desktop) {
+  native.listen('popup-message', onHostMessage);
+  native.listen('popup-refresh', () => { state.params = popupParams(kind); state.settings = loadSettings(globalThis.localStorage); applyLook(); state.log = []; state.message = null; render(); });
+}
+window.addEventListener('message', (event) => {
+  if (event.origin === location.origin && event.data?.mytrainerHost) onHostMessage(event.data);
+});
+window.addEventListener('storage', (event) => {
+  if (event.key === 'mytrainer.settings.v1') { state.settings = loadSettings(globalThis.localStorage); applyLook(); }
+});
+
+applyLook();
+render();
+
+// The theme drop-down closes as soon as it loses the focus (a click anywhere else), like a menu.
+if (kind === 'themes') {
+  if (desktop) appWindow.onFocusChanged(({ payload: focused }) => { if (!focused && shown) close(); }).catch(() => {});
+  window.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+}

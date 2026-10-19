@@ -1,0 +1,96 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "XOR 문제",
+ "description": "직선 하나로는 나눌 수 없는 XOR을 은닉층 4개 뉴런이 푸는 과정을 뉴런 단위로 봅니다.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "xor",
+   "params": {
+    "n": 240,
+    "noise": 0.12,
+    "seed": 1
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas2w005k",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "2"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas2w1bhy",
+    "type": "dense",
+    "name": "hidden",
+    "params": {
+     "units": 4,
+     "activation": "tanh",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas2w2juw",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "sigmoid",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas2w1bhy",
+    "from": "nmvevas2w005k",
+    "to": "nmvevas2w1bhy"
+   },
+   {
+    "id": "e2_nmvevas2w2juw",
+    "from": "nmvevas2w1bhy",
+    "to": "nmvevas2w2juw"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.05,
+  "epochs": 150,
+  "batchSize": 16,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "xor"
+}

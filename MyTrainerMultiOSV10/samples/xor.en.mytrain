@@ -1,0 +1,96 @@
+{
+ "format": "mytrainer",
+ "version": 1,
+ "name": "XOR problem",
+ "description": "Watch four hidden neurons solve XOR, which no single straight line can separate.",
+ "dataset": {
+  "source": {
+   "kind": "generator",
+   "id": "xor",
+   "params": {
+    "n": 240,
+    "noise": 0.12,
+    "seed": 1
+   }
+  },
+  "steps": [],
+  "split": {
+   "val": 0.15,
+   "test": 0.15,
+   "seed": 42,
+   "shuffle": true,
+   "stratify": true
+  }
+ },
+ "model": {
+  "nodes": [
+   {
+    "id": "nmvevas2x3tj5",
+    "type": "input",
+    "name": "input",
+    "params": {
+     "shape": "2"
+    },
+    "x": 60,
+    "y": 40
+   },
+   {
+    "id": "nmvevas2x42dd",
+    "type": "dense",
+    "name": "hidden",
+    "params": {
+     "units": 4,
+     "activation": "tanh",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 148
+   },
+   {
+    "id": "nmvevas2x5uit",
+    "type": "dense",
+    "name": "output",
+    "params": {
+     "units": 1,
+     "activation": "sigmoid",
+     "useBias": true
+    },
+    "x": 60,
+    "y": 256
+   }
+  ],
+  "edges": [
+   {
+    "id": "e1_nmvevas2x42dd",
+    "from": "nmvevas2x3tj5",
+    "to": "nmvevas2x42dd"
+   },
+   {
+    "id": "e2_nmvevas2x5uit",
+    "from": "nmvevas2x42dd",
+    "to": "nmvevas2x5uit"
+   }
+  ]
+ },
+ "train": {
+  "optimizer": "adam",
+  "learningRate": 0.05,
+  "epochs": 150,
+  "batchSize": 16,
+  "loss": "auto",
+  "schedule": "none",
+  "earlyStop": false,
+  "patience": 8,
+  "weightDecay": 0,
+  "snapshotEvery": 1,
+  "probeIndex": 0
+ },
+ "engine": "tfjs",
+ "code": {
+  "text": null,
+  "custom": false
+ },
+ "runs": [],
+ "weights": null,
+ "sample": "xor"
+}
