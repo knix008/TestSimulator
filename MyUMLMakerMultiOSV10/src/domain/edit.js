@@ -256,6 +256,24 @@ export function relatedFor(element) {
 }
 
 /** Adds a related element next to a view and links them. Returns { element, view }. */
+/**
+ * The first place near (x, y) where a new box (about 120×50) overlaps no node: (x, y) itself, then
+ * stepping down / up alternately (sideways when `alongY` is false). Adding several related elements
+ * in a row (child nodes of a mind map topic, subclasses …) so puts them one under another.
+ */
+export function freeSpot(diagram, boxes, x, y, alongY = true, size = { w: 120, h: 50 }) {
+  const taken = viewsOf(diagram).filter((v) => !isEdgeView(v) && v.left !== undefined).map((v) => boxes.get(v._id) ?? { x: v.left, y: v.top, w: v.width || 120, h: v.height || 50 });
+  const free = (px, py) => !taken.some((b) => px < b.x + b.w + 8 && px + size.w + 8 > b.x && py < b.y + b.h + 8 && py + size.h + 8 > b.y);
+  const step = alongY ? size.h + 16 : size.w + 24;
+  for (let i = 0; i < 40; i++) {
+    const k = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * step;
+    const px = alongY ? x : x + k;
+    const py = alongY ? y + k : y;
+    if (py >= 0 && px >= 0 && free(px, py)) return { x: Math.round(px), y: Math.round(py) };
+  }
+  return { x, y };
+}
+
 export function addRelated(project, diagram, viewId, kind, { language = 'en', boxes = new Map() } = {}) {
   const spec = RELATED[kind];
   const view = findView(diagram, viewId);
@@ -268,7 +286,8 @@ export function addRelated(project, diagram, viewId, kind, { language = 'en', bo
   if (kind === 'subclass' || kind === 'superclass') type = current._type;
   const element = insertElement(owner, createElement(type, {}, { language, siblings: siblingsIn(owner, type) }));
   if (type === 'ERDEntity') insertElement(element, createElement('ERDColumn', { name: 'id', type: 'INTEGER', primaryKey: true }, { language }));
-  const newView = addView(diagram, createNodeView(viewTypeOf(type), element._id, { x: box.x + spec.dx, y: box.y + spec.dy, w: 0, h: 0 }));
+  const at = freeSpot(diagram, boxes, box.x + spec.dx, box.y + spec.dy, spec.dx !== 0);
+  const newView = addView(diagram, createNodeView(viewTypeOf(type), element._id, { x: at.x, y: at.y, w: 0, h: 0 }));
   const [tailView, headView] = spec.from === 'this' ? [view, newView] : [newView, view];
   createEdge(project, diagram, { type: spec.rel, attrs: spec.attrs ?? {} }, tailView, headView, { language });
   return { element, view: newView };

@@ -16,6 +16,7 @@ import { typeDef } from '../domain/meta.js';
 import { refId } from '../domain/model.js';
 import { groupInfo, serviceInfo } from '../domain/cloud.js';
 import { MORE_SHAPES } from './shapes-more.js';
+import { centralTopic, descendantCount, isTopic } from '../domain/mindmap.js';
 
 const PAD = 6;
 const lineAttrs = (st, extra = '') => `stroke="${esc(st.line)}" stroke-width="${n(st.lineWidth ?? 1)}"${extra}`;
@@ -663,11 +664,37 @@ export const SHAPES = {
   // ── mind map
   mmNode: {
     clip: 'rect',
-    size: (ctx, v, el, st) => { const root = isMindRoot(ctx, el); return sizeOfText(ctx, { ...st, size: root ? st.size + 3 : st.size }, [{ text: el.name, bold: root }], { padX: root ? 20 : 12, padY: root ? 12 : 7, minW: 60, minH: root ? 44 : 30 }); },
+    size: (ctx, v, el, st) => {
+      const root = isMindRoot(ctx, el);
+      // Shapes that cut into the corners need more room around the text.
+      const extra = { ellipse: [14, 8], diamond: [26, 14], hexagonal: [14, 2], cloudy: [16, 10] }[el.shape] ?? [0, 0];
+      const lines = [{ text: el.name, bold: root }, ...mindTaskLines(ctx, el, st)];
+      const box = sizeOfText(ctx, { ...st, size: root ? st.size + 3 : st.size }, lines, { padX: (root ? 20 : 12) + extra[0], padY: (root ? 12 : 7) + extra[1], minW: 60, minH: root ? 44 : 30 });
+      return { w: box.w + mindMarkers(el).length * MIND_MARK, h: box.h };
+    },
     draw: (ctx, v, el, b, st) => {
       const root = isMindRoot(ctx, el);
+      const shape = el.shape && el.shape !== 'auto' ? el.shape : 'rounded';
       const c = v.fillColor || (root ? '#5b6ee1' : mindColor(ctx, el));
-      return rectSvg(b, { ...st, fill: c, line: shade(c, -0.25) }, { r: Math.min(b.h / 2, 14) }) + textLine(el.name, b.x + b.w / 2, b.y + b.h / 2 + (root ? st.size + 3 : st.size) * 0.36, { ...base(st), size: root ? st.size + 3 : st.size, anchor: 'middle', bold: root, color: v.fontColor || (root ? '#ffffff' : '#1f2937') });
+      // Without a box (underlined, plain) the text is dark on the canvas, whatever the branch colour.
+      const boxed = shape !== 'underlined' && shape !== 'plain';
+      const textColor = v.fontColor || (boxed && root ? '#ffffff' : '#1f2937');
+      const size = root ? st.size + 3 : st.size;
+      const marks = mindMarkers(el);
+      const task = mindTaskLines(ctx, el, st);
+      // Markers, then the text; together centred in the box. A task line goes under the name.
+      const textW = Math.max(ctx.measure(el.name ?? '', { fontSize: size, bold: root, font: st.face }), ...task.map((l) => ctx.measure(l.text, { fontSize: l.size, font: st.face })));
+      const contentW = marks.length * MIND_MARK + textW;
+      const x0 = b.x + (b.w - contentW) / 2;
+      const lineH = task.length ? (size + task[0].size * 1.25) : size;
+      const nameY = b.y + (b.h - lineH) / 2 + size * 0.86;
+      const tx = x0 + marks.length * MIND_MARK;
+      const center = !marks.length;
+      return mindShapeSvg(b, shape, { ...st, fill: c, line: v.lineColor || shade(c, -0.25) })
+        + marks.map((mark, i) => mindMarkerSvg(mark, x0 + i * MIND_MARK, b.y + b.h / 2 - 8)).join('')
+        + textLine(el.name, center ? b.x + b.w / 2 : tx, nameY, { ...base(st), size, anchor: center ? 'middle' : 'start', bold: root, color: textColor })
+        + task.map((l) => textLine(l.text, center ? b.x + b.w / 2 : tx, nameY + l.size * 1.3, { ...base(st), size: l.size, anchor: center ? 'middle' : 'start', color: textColor })).join('')
+        + mindToggleSvg(ctx, el, b, st, c);
     },
   },
 
@@ -1035,6 +1062,100 @@ function c4Lines(el, st, kind) {
   return [{ text: el.name ?? '', bold: true, wrap: true }, { text: `[${el.external ? `External ${tech}` : tech}]`, size: st.size - 2 }, ...(el.description ? [{ text: el.description, size: st.size - 1, wrap: true }] : [])];
 }
 function isMindRoot(ctx, el) { return ctx.index?.parent(el._id)?._type !== 'MMNode'; }
+/** Width a topic marker takes before the text. */
+const MIND_MARK = 19;
+const PRIORITY_COLORS = ['#e53935', '#fb8c00', '#1e88e5', '#43a047', '#757575'];
+const MARKER_LOOK = {
+  flag: ['#e53935', '⚑'], star: ['#f9a825', '★'], check: ['#43a047', '✓'], question: ['#1e88e5', '?'],
+  warning: ['#fb8c00', '!'], idea: ['#fbc02d', 'i'], heart: ['#d81b60', '♥'], smile: ['#8e24aa', '☺'],
+};
+/** A topic's markers in MindManager's order: priority, progress, then its symbol. */
+function mindMarkers(el) {
+  const marks = [];
+  // Stored as p1…p5 and pct0…pct100 (their own option names: plain numbers are other enums' labels).
+  const number = (value) => Number(String(value).replace(/[^0-9]/g, ''));
+  if (el.priority) marks.push({ kind: 'priority', value: number(el.priority) });
+  if (el.progress !== undefined && el.progress !== '') marks.push({ kind: 'progress', value: number(el.progress) });
+  if (el.marker && MARKER_LOOK[el.marker]) marks.push({ kind: 'marker', value: el.marker });
+  return marks;
+}
+/** One 16×16 marker with its top-left at (x, y). */
+function mindMarkerSvg(mark, x, y) {
+  const cx = x + 8; const cy = y + 8;
+  const glyph = (fill, text, color = '#ffffff', size = 10) => `<circle cx="${n(cx)}" cy="${n(cy)}" r="7.5" fill="${fill}"/>`
+    + `<text x="${n(cx)}" y="${n(cy + size * 0.36)}" font-family="Segoe UI Symbol, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${color}" text-anchor="middle">${esc(text)}</text>`;
+  if (mark.kind === 'priority') return glyph(PRIORITY_COLORS[mark.value - 1] ?? '#757575', String(mark.value));
+  if (mark.kind === 'progress') {
+    const p = Math.max(0, Math.min(100, mark.value));
+    if (p >= 100) return glyph('#43a047', '✓');
+    const ring = `<circle cx="${n(cx)}" cy="${n(cy)}" r="7" fill="#ffffff" stroke="#43a047" stroke-width="1.5"/>`;
+    if (p <= 0) return ring;
+    const angle = (p / 100) * Math.PI * 2;
+    const ex = cx + 6 * Math.sin(angle); const ey = cy - 6 * Math.cos(angle);
+    return `${ring}<path d="M${n(cx)} ${n(cy)}V${n(cy - 6)}A6 6 0 ${p > 50 ? 1 : 0} 1 ${n(ex)} ${n(ey)}Z" fill="#43a047"/>`;
+  }
+  const [fill, text] = MARKER_LOOK[mark.value];
+  return glyph(fill, text, mark.value === 'idea' ? '#3e2723' : '#ffffff', mark.value === 'star' || mark.value === 'heart' ? 11 : 10);
+}
+/** The task line under a topic's name: start → due · owner. */
+function mindTaskLines(ctx, el, st) {
+  const dates = [el.startDate, el.dueDate].filter(Boolean).join(' → ');
+  const text = [dates, el.resource].filter(Boolean).join(' · ');
+  return text ? [{ text, size: Math.max(9, st.size - 2) }] : [];
+}
+/**
+ * MindManager's +/− beside a topic with subtopics, on the side its branch grows to (below in an
+ * org chart): "−" while open, the number of hidden topics while collapsed. A click toggles it
+ * (views/diagram.js reads data-mm-toggle).
+ */
+function mindToggleSvg(ctx, el, b, st, color) {
+  if (!(el.ownedElements ?? []).some(isTopic) || !ctx.index) return '';
+  const central = centralTopic(ctx.index, el);
+  if (central === el) return '';
+  const down = ctx.diagram?.mindLayout === 'down';
+  let side = 1;
+  if (!down) {
+    const centralView = (ctx.diagram?.ownedViews ?? []).find((v) => v.model && refId(v.model) === central._id && ctx.boxes.has(v._id));
+    const cb = centralView ? ctx.boxes.get(centralView._id) : null;
+    if (cb) side = b.x + b.w / 2 < cb.x + cb.w / 2 ? -1 : 1;
+  }
+  const cx = down ? b.x + b.w / 2 : side > 0 ? b.x + b.w + 9 : b.x - 9;
+  const cy = down ? b.y + b.h + 9 : b.y + b.h / 2;
+  const collapsed = Boolean(el.collapsed);
+  const label = collapsed ? String(descendantCount(el)) : '−';
+  const line = shade(color, -0.3);
+  return `<g data-mm-toggle="${esc(el._id)}" style="cursor:pointer"><circle cx="${n(cx)}" cy="${n(cy)}" r="7.5" fill="#ffffff" stroke="${esc(line)}" stroke-width="1.2"${collapsed ? '' : ' opacity="0.85"'}/>`
+    + `<text x="${n(cx)}" y="${n(cy + (collapsed ? 3.2 : 4))}" font-family="Segoe UI, Arial, sans-serif" font-size="${collapsed && label.length > 1 ? 8 : 10}" font-weight="700" fill="${esc(line)}" text-anchor="middle">${esc(label)}</text></g>`;
+}
+
+/** A mind map topic's outline (MMNode `shape`; "auto" draws "rounded"). */
+function mindShapeSvg(b, shape, st) {
+  const { x, y, w, h } = b;
+  const cx = x + w / 2; const cy = y + h / 2;
+  switch (shape) {
+    case 'rectangle': return rectSvg(b, st, { r: 2 });
+    case 'capsule': return rectSvg(b, st, { r: h / 2 });
+    case 'ellipse': return `<ellipse cx="${n(cx)}" cy="${n(cy)}" rx="${n(w / 2)}" ry="${n(h / 2)}" ${shapeAttrs(st)}/>`;
+    case 'diamond': return pathSvg(`M${n(cx)} ${n(y)}L${n(x + w)} ${n(cy)}L${n(cx)} ${n(y + h)}L${n(x)} ${n(cy)}Z`, st);
+    case 'hexagonal': { const k = Math.min(h / 2, w / 4); return pathSvg(`M${n(x + k)} ${n(y)}H${n(x + w - k)}L${n(x + w)} ${n(cy)}L${n(x + w - k)} ${n(y + h)}H${n(x + k)}L${n(x)} ${n(cy)}Z`, st); }
+    case 'cloudy': {
+      // Bumps along the edges of an inset box.
+      const bumpsX = Math.max(2, Math.round(w / 34)); const bumpsY = Math.max(1, Math.round(h / 30));
+      const ix = x + 5; const iy = y + 5; const iw = w - 10; const ih = h - 10;
+      const sx = iw / bumpsX; const sy = ih / bumpsY;
+      let d = `M${n(ix)} ${n(iy)}`;
+      for (let i = 0; i < bumpsX; i++) d += `a${n(sx / 2)} ${n(Math.min(sx / 2, 9))} 0 0 1 ${n(sx)} 0`;
+      for (let i = 0; i < bumpsY; i++) d += `a${n(Math.min(sy / 2, 9))} ${n(sy / 2)} 0 0 1 0 ${n(sy)}`;
+      for (let i = 0; i < bumpsX; i++) d += `a${n(sx / 2)} ${n(Math.min(sx / 2, 9))} 0 0 1 ${n(-sx)} 0`;
+      for (let i = 0; i < bumpsY; i++) d += `a${n(Math.min(sy / 2, 9))} ${n(sy / 2)} 0 0 1 0 ${n(-sy)}`;
+      return pathSvg(`${d}Z`, st);
+    }
+    // MindManager's "line" topic: only a line under the text, in the branch colour.
+    case 'underlined': return `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="transparent" stroke="none"/>` + strokeSvg(`M${n(x)} ${n(y + h - 1)}H${n(x + w)}`, { ...st, line: shade(st.fill, -0.2), lineWidth: 2.5 });
+    case 'plain': return `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="transparent" stroke="none"/>`;
+    default: return rectSvg(b, st, { r: Math.min(h / 2, 14) });
+  }
+}
 const MIND = ['#fde68a', '#bbf7d0', '#bfdbfe', '#fecaca', '#ddd6fe', '#fbcfe8', '#a5f3fc'];
 function mindColor(ctx, el) {
   let top = el;

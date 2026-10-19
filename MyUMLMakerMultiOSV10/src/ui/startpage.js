@@ -4,7 +4,7 @@
 // speed) — all over the animated background.
 import appIcon from '../../assets/icon-256.png';
 import { escapeHtml } from './dom.js';
-import { icon } from '../icons.js';
+import { animationIcon, icon } from '../icons.js';
 import { t, getLanguage } from '../i18n.js';
 import { TEMPLATES } from '../domain/templates.js';
 import { ANIMATION_KINDS } from './background.js';
@@ -48,7 +48,7 @@ export function startPageHtml(app) {
 `;
   const backgroundBlockHtml = `
             <h2>${icon('sparkles')}<span>${escapeHtml(t('start.background'))}</span></h2>
-            <div class="anim-chips" role="radiogroup">${ANIMATION_KINDS.map((kind) => `<button class="anim-chip ${settings.animation === kind && settings.backgroundKind === 'animated' ? 'active' : ''}" data-start="animation" data-value="${kind}" role="radio" aria-checked="${settings.animation === kind}" title="${escapeHtml(t(`animation.${kind}`))}">${escapeHtml(t(`animation.${kind}`))}</button>`).join('')}</div>
+            <div class="anim-chips" role="radiogroup">${ANIMATION_KINDS.map((kind) => `<button class="anim-chip ${settings.animation === kind && settings.backgroundKind === 'animated' ? 'active' : ''}" data-start="animation" data-value="${kind}" role="radio" aria-checked="${settings.animation === kind}" title="${escapeHtml(t(`animation.${kind}`))}">${icon(animationIcon(kind))}<span>${escapeHtml(t(`animation.${kind}`))}</span></button>`).join('')}</div>
             <div class="start-actions">
               <button class="button" data-start="shuffle" title="${escapeHtml(t('action.shuffleBackground'))}">${icon('dice')}<span>${escapeHtml(t('action.shuffleBackground'))}</span></button>
               <button class="button" data-start="background-image" title="${escapeHtml(t('action.backgroundImage'))}">${icon('imageBg')}<span>${escapeHtml(t('action.backgroundImage'))}</span></button>

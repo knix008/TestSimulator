@@ -50,6 +50,23 @@ const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@ta
 });
 if (result.status !== 0) process.exit(result.status ?? 1);
 
+// The page is embedded in the program when Rust compiles. If dist/ was being rebuilt at that
+// moment (a `vite build` elsewhere empties it first), the program has no page: it starts with
+// "asset not found: index.html" and is no use. Every dist/assets file must be in the binary.
+const releaseDir = path.join(root, 'src-tauri', 'target', 'release');
+const binary = [`${name}.exe`, 'myumlmaker.exe', name, 'myumlmaker']
+  .map((file) => path.join(releaseDir, file))
+  .filter((file) => fs.existsSync(file))
+  .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+const assets = fs.readdirSync(path.join(root, 'dist', 'assets')).filter((file) => /\.(js|css)$/.test(file));
+const embedded = binary ? fs.readFileSync(binary).toString('latin1') : '';
+const missing = assets.filter((file) => !embedded.includes(`/assets/${file}`));
+if (!binary || !assets.length || missing.length) {
+  console.error(`\n프로그램에 웹 페이지가 들어가지 않았습니다 (${binary ? path.basename(binary) : '실행 파일 없음'}: 빠진 파일 ${missing.length}/${assets.length}개).`);
+  console.error('빌드 중에 dist/ 가 다시 만들어진 것 같습니다. 다른 vite build 가 끝난 뒤 다시 빌드하세요.');
+  process.exit(1);
+}
+
 const bundleDir = path.join(root, 'src-tauri', 'target', 'release', 'bundle');
 const release = path.join(root, 'release');
 fs.mkdirSync(release, { recursive: true });

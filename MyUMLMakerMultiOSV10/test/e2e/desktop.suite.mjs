@@ -286,13 +286,19 @@ async function runMenu(app, menu, ...ids) {
   // A menu closes when it loses the focus: if one did not show (or closed early), the whole path is opened again.
   for (let attempt = 0; ; attempt++) {
     try {
-      let since = await now(app);
+      const since = await now(app);
       await clickOn(app.main, `[data-menu="${menu}"]`);
-      for (const id of ids) {
-        const page = await menuWindow(app, since, 6000);
-        since = await now(app);
-        // A submenu row opens on hover and on a click; the leaf item gets the real click.
-        if (id.startsWith('submenu:')) await page.click(`[data-id="${id}"]`); else await clickOn(page, `[data-id="${id}"]`);
+      const page = await menuWindow(app, since, 6000);
+      try {
+        for (const id of ids) {
+          // A group row opens its items beside it in the same menu (on hover or a click); the leaf gets the real click.
+          if (id.startsWith('submenu:')) {
+            await page.click(`[data-id="${id}"]`);
+            await page.waitFor(`Boolean(document.querySelector('.popup-menu[data-level="1"] .menu-item'))`, { timeout: 3000 });
+            await sleep(150);
+          } else await clickOn(page, `[data-id="${id}"]`);
+        }
+      } finally {
         page.close();
       }
       await sleep(300);
@@ -931,14 +937,13 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(on.h[3] < 40 && on.v[2] < 40 && on.h[1] + on.h[3] <= on.canvas[1] + 1 && on.v[0] + on.v[2] <= on.canvas[0] + 1, `along the top and left of the canvas ${JSON.stringify(on)}`);
     assert.ok(await app.main.eval(`(() => { const c = document.querySelector('.ruler-h'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let ink = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0) ink++; return ink > 50; })()`), 'the horizontal ruler has ticks drawn');
     const toggle = async () => {
-      let since = await now(app);
+      const since = await now(app);
       await app.main.click('[data-menu="view"]');
-      let menu = await menuWindow(app, since);
-      since = await now(app);
+      const menu = await menuWindow(app, since);
       let p = await menu.center('[data-id="submenu:show"]');
       await menu.realClick(p.x, p.y);
-      menu.close();
-      menu = await menuWindow(app, since);
+      await menu.waitFor(`Boolean(document.querySelector('.popup-menu[data-level="1"] [data-id="rulers"]'))`, { timeout: 3000 });
+      await sleep(150);
       p = await menu.center('[data-id="rulers"]');
       await menu.realClick(p.x, p.y);
       menu.close();
@@ -1448,28 +1453,66 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(popup, 'menu window');
     assert.ok(popup.bottom > main.bottom || popup.top < main.top, `menu ${popup.top}..${popup.bottom} goes beyond the window ${main.top}..${main.bottom}`);
   } },
-  { group: '메뉴', name: '하위 메뉴: 보기 › 다이어그램 색 구성 › 청사진 (행 옆에 열림, 실제 클릭)', async run(app) {
+  { group: '메뉴', name: '하위 메뉴: 보기 › 다이어그램 색 구성 — 마우스를 올리면 행 옆에 열리고, 다른 행으로 가면 닫히고, 청사진 선택 (실제 마우스)', async run(app) {
     await freshSample(app);
-    let since = await now(app);
+    const since = await now(app);
     await app.main.click('[data-menu="view"]');
-    let menu = await menuWindow(app, since);
-    const groups = await menu.eval(`[...document.querySelectorAll('.menu-item.has-sub')].map((i) => ({ id: i.dataset.id, arrow: Boolean(i.querySelector('.menu-check svg')) }))`);
-    assert.ok(groups.length >= 4 && groups.every((g) => g.arrow), JSON.stringify(groups));
-    const parent = await menu.eval(`(() => { const r = document.querySelector('[data-id="submenu:diagramTheme"]').getBoundingClientRect(); return { right: window.screenX + r.right, top: window.screenY + r.top }; })()`);
-    since = await now(app);
-    await menu.click('[data-id="submenu:diagramTheme"]');
-    menu.close();
-    menu = await menuWindow(app, since);
-    const place = await menu.eval(`({ x: window.screenX, y: window.screenY, head: document.querySelector('.popup-menu').getAttribute('aria-label'), ids: [...document.querySelectorAll('.menu-item')].map((i) => i.dataset.id) })`);
-    assert.equal(place.head, '다이어그램 색 구성');
-    assert.deepEqual(place.ids, ['diagramTheme:classic', 'diagramTheme:pastel', 'diagramTheme:blueprint', 'diagramTheme:dark']);
-    assert.ok(Math.abs(place.x - parent.right) < 14 && Math.abs(place.y - parent.top) < 20, `submenu opens beside its row ${JSON.stringify({ parent, place })}`);
-    await menu.click('[data-id="diagramTheme:blueprint"]');
-    menu.close();
+    const menu = await menuWindow(app, since);
+    try {
+      const groups = await menu.eval(`[...document.querySelectorAll('.menu-item.has-sub')].map((i) => ({ id: i.dataset.id, arrow: Boolean(i.querySelector('.menu-check svg')) }))`);
+      assert.ok(groups.length >= 4 && groups.every((g) => g.arrow), JSON.stringify(groups));
+      // The pointer only rests on the row: no click.
+      const row = await menu.center('[data-id="submenu:diagramTheme"]');
+      await menu.mouse('mouseMoved', row.x - 30, row.y, { button: 'none' });
+      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
+      await menu.waitFor(`Boolean(document.querySelector('.popup-menu[data-level="1"]'))`, { timeout: 3000 });
+      await sleep(200);
+      const place = await menu.eval(`(() => { const main = document.querySelector('.popup-menu[data-level="0"]').getBoundingClientRect(); const row = document.querySelector('[data-id="submenu:diagramTheme"]').getBoundingClientRect(); const sub = document.querySelector('.popup-menu[data-level="1"]'); const r = sub.getBoundingClientRect(); return { head: sub.getAttribute('aria-label'), ids: [...sub.querySelectorAll('.menu-item')].map((i) => i.dataset.id), gap: r.left - main.right, dy: r.top - row.top, open: document.querySelector('[data-id="submenu:diagramTheme"]').classList.contains('open'), win: { w: innerWidth, h: innerHeight }, right: r.right, bottom: r.bottom }; })()`);
+      assert.equal(place.head, '다이어그램 색 구성');
+      assert.deepEqual(place.ids, ['diagramTheme:classic', 'diagramTheme:pastel', 'diagramTheme:blueprint', 'diagramTheme:dark']);
+      assert.ok(place.open && Math.abs(place.gap) < 8 && Math.abs(place.dy) < 14, `the submenu opens beside its row ${JSON.stringify(place)}`);
+      assert.ok(place.right <= place.win.w && place.bottom <= place.win.h, `the menu window holds the submenu ${JSON.stringify(place)}`);
+      // Resting on an ordinary row of the parent closes it again.
+      const plain = await menu.center('.popup-menu[data-level="0"] .menu-item:not(.has-sub):not([disabled])');
+      await menu.mouse('mouseMoved', plain.x, plain.y, { button: 'none' });
+      await menu.waitFor(`!document.querySelector('.popup-menu[data-level="1"]')`, { timeout: 3000 });
+      // Open again, move into it and pick 청사진.
+      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
+      await menu.waitFor(`Boolean(document.querySelector('.popup-menu[data-level="1"] [data-id="diagramTheme:blueprint"]'))`, { timeout: 3000 });
+      await sleep(200);
+      const leaf = await menu.center('[data-id="diagramTheme:blueprint"]');
+      await menu.mouse('mouseMoved', leaf.x - 40, leaf.y, { button: 'none' });
+      await menu.realClick(leaf.x, leaf.y);
+    } finally {
+      menu.close();
+    }
     await sleep(500);
     assert.equal(await W(app, 'w.state.settings.diagramTheme'), 'blueprint');
     await W(app, `(a.updateSettings({ diagramTheme: 'classic' }), 1)`);
     await noErrorPopup(app, 'submenu');
+  } },
+  { group: '메뉴', name: '하위 메뉴: 마인드맵 노드의 컨텍스트 메뉴 › 관련 요소 추가 — 마우스를 올리면 열리고 하위 노드 추가 (실제 마우스)', async run(app) {
+    await freshProject(app, 'mindmap');
+    await sleep(400);
+    const nodes = () => W(app, 'api.diagram().ownedViews.length');
+    const before = await nodes();
+    const point = await app.main.eval(`(() => { const g = [...document.querySelectorAll('#view-host [data-view]')].find((e) => e.getBoundingClientRect().width > 40); const r = g.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    const since = await now(app);
+    await app.main.realClick(point.x, point.y, { button: 'right' });
+    const menu = await menuWindow(app, since);
+    try {
+      const row = await menu.center('[data-id^="submenu:related"]');
+      await menu.mouse('mouseMoved', row.x, row.y, { button: 'none' });
+      await menu.waitFor(`Boolean(document.querySelector('.popup-menu[data-level="1"] [data-id="custom:rel:childNode"]'))`, { timeout: 3000 });
+      await sleep(200);
+      const leaf = await menu.center('[data-id="custom:rel:childNode"]');
+      await menu.realClick(leaf.x, leaf.y);
+    } finally {
+      menu.close();
+    }
+    await sleep(600);
+    assert.ok(await nodes() > before, 'a child node was added');
+    await noErrorPopup(app, 'mind map submenu');
   } },
   { group: '메뉴', name: '키보드: ↓ 로 항목 이동, Enter 로 실행 (편집 › 모두 선택), Esc 로 닫힘', async run(app) {
     await freshProject(app, 'classModel');

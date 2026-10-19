@@ -424,6 +424,13 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     if kind == "menu" || kind == "progress" || kind == "theme" {
         builder = builder.always_on_top(true);
     }
+    // A menu holds its open submenus as panels side by side (popup.js): the window is transparent
+    // and each panel draws its own shadow. macOS needs Tauri's private API for that and keeps an
+    // opaque window.
+    #[cfg(not(target_os = "macos"))]
+    if kind == "menu" {
+        builder = builder.transparent(true).shadow(false);
+    }
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main).map_err(|error| error.to_string())?;
     }
@@ -700,6 +707,16 @@ pub fn run() {
                 None => builder.inner_size(1480.0, 900.0).center(),
             };
             let main = builder.build()?;
+            // The page shows the window once it has drawn itself (src/app.js start). If it never runs
+            // (a program built without its page, a broken WebView2), the window is shown anyway:
+            // otherwise every start leaves one more invisible process behind.
+            let unshown = main.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(15));
+                if !unshown.is_visible().unwrap_or(true) {
+                    let _ = unshown.show();
+                }
+            });
             if others > 0 {
                 offset_window(&main, others);
             }

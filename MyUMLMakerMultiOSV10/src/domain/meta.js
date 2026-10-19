@@ -273,8 +273,12 @@ T('C4Boundary', '경계', 'Boundary', { group: 'c4', icon: 'umlSubject', shape: 
 T('C4Relationship', '관계', 'Relationship', { group: 'c4', icon: 'umlDependency', edge: true, ends: 'directed', fields: [...DIRECTED, F('technology', 'string')], arrow: 'open', line: 'dash' });
 
 // Mind map
+const MM_DATE = (key) => F(key, 'string', { date: true });
 T('MMMindmap', '마인드맵', 'Mind Map', { group: 'package', icon: 'mmMap', namespace: true, fields: [] });
-T('MMNode', '마인드맵 노드', 'Mind Map Node', { group: 'mindmap', icon: 'mmNode', shape: 'mmNode', namespace: true, fields: [F('direction', 'enum', { options: ['auto', 'left', 'right'], def: 'auto' })] });
+T('MMNode', '마인드맵 노드', 'Mind Map Node', { group: 'mindmap', icon: 'mmNode', shape: 'mmNode', namespace: true, fields: [F('direction', 'enum', { options: ['auto', 'left', 'right'], def: 'auto' }), F('shape', 'enum', { options: ['auto', 'rounded', 'rectangle', 'capsule', 'ellipse', 'diamond', 'hexagonal', 'cloudy', 'underlined', 'plain'], def: 'auto' }),
+  // MindManager's topic markers and task information (mindmap.js MIND_MARKERS has the same markers).
+  F('marker', 'enum', { options: ['', 'flag', 'star', 'check', 'question', 'warning', 'idea', 'heart', 'smile'], def: '' }), F('priority', 'enum', { options: ['', 'p1', 'p2', 'p3', 'p4', 'p5'], def: '' }),
+  F('progress', 'enum', { options: ['', 'pct0', 'pct25', 'pct50', 'pct75', 'pct100'], def: '' }), MM_DATE('startDate'), MM_DATE('dueDate'), F('resource', 'string'), F('collapsed', 'bool')] });
 T('MMEdge', '가지', 'Branch', { group: 'mindmap', icon: 'umlAssociation', edge: true, ends: 'directed', fields: DIRECTED, noName: true, curved: true });
 
 // Wireframe
@@ -390,7 +394,7 @@ Dg('SysMLInternalBlockDiagram', 'SysML 내부 블록 다이어그램', 'SysML In
 Dg('SysMLParametricDiagram', 'SysML 매개변수 다이어그램', 'SysML Parametric Diagram', 'sysml', 'dgParametric');
 Dg('BPMNDiagram', 'BPMN 다이어그램', 'BPMN Diagram', 'bpmn', 'dgBpmn', { owner: 'BPMNProcess' });
 Dg('C4Diagram', 'C4 다이어그램', 'C4 Diagram', 'c4', 'dgC4', { owner: 'C4Model' });
-Dg('MMMindmapDiagram', '마인드맵 다이어그램', 'Mind Map Diagram', 'mindmap', 'dgMindmap', { owner: 'MMMindmap' });
+Dg('MMMindmapDiagram', '마인드맵 다이어그램', 'Mind Map Diagram', 'mindmap', 'dgMindmap', { owner: 'MMMindmap', fields: [...D_FIELDS, F('mindLayout', 'enum', { options: ['map', 'right', 'left', 'down', 'free'], def: 'map' })] });
 Dg('WFWireframeDiagram', '와이어프레임 다이어그램', 'Wireframe Diagram', 'wireframe', 'dgWireframe', { owner: 'WFWireframe' });
 Dg('AWSDiagram', 'AWS 다이어그램', 'AWS Diagram', 'cloud', 'dgAws', { owner: 'CloudModel', provider: 'aws' });
 Dg('AzureDiagram', 'Azure 다이어그램', 'Azure Diagram', 'cloud', 'dgAzure', { owner: 'CloudModel', provider: 'azure' });

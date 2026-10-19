@@ -92,6 +92,20 @@ test('related elements come with their relationship', () => {
   assert.equal(diagram.ownedViews.filter(M.isEdgeView).length, E.relatedFor(a.element).length);
 });
 
+test('related elements added one after another do not land on each other', () => {
+  const { project, diagram } = fresh();
+  const a = E.createNode(project, diagram, toolById('UMLClassDiagram', 'UMLClass'), { x: 0, y: 200, w: 0, h: 0 });
+  const added = [1, 2, 3].map(() => E.addRelated(project, diagram, a.view._id, 'subclass', { boxes: boxes(project, diagram) }).view);
+  const b = boxes(project, diagram);
+  const rects = [a.view, ...added].map((v) => b.get(v._id));
+  for (let i = 0; i < rects.length; i++) {
+    for (let j = i + 1; j < rects.length; j++) {
+      const [p, q] = [rects[i], rects[j]];
+      assert.ok(p.x + p.w <= q.x || q.x + q.w <= p.x || p.y + p.h <= q.y || q.y + q.h <= p.y, `views ${i} and ${j} overlap: ${JSON.stringify([p, q])}`);
+    }
+  }
+});
+
 test('align, distribute, same size, order and moves', () => {
   const { project, diagram } = fresh();
   const make = (x, y) => E.createNode(project, diagram, toolById('UMLClassDiagram', 'UMLClass'), { x, y, w: 0, h: 0 }).view;

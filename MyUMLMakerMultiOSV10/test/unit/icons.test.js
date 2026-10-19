@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { ICON_NAMES, icon } from '../../src/icons.js';
+import { animationIcon, ICON_NAMES, icon } from '../../src/icons.js';
 import { TEMPLATES } from '../../src/domain/templates.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -86,4 +86,12 @@ test('icons are well-formed SVG with a fallback', () => {
     assert.equal((svg.match(/<svg/g) ?? []).length, 1, `${name}: one svg element`);
   }
   assert.ok(icon('no-such-icon').includes('<circle'), 'unknown names show a dot');
+});
+
+test('every moving background has its own icon', async () => {
+  const { ANIMATIONS } = await import('../../src/domain/settings.js');
+  const names = ANIMATIONS.map(animationIcon);
+  for (const name of names) assert.ok(ICON_NAMES.includes(name), name);
+  const pictures = names.map((name) => icon(name));
+  assert.equal(new Set(pictures).size, pictures.length);
 });

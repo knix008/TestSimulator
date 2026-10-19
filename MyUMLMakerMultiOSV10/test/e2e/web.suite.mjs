@@ -405,6 +405,68 @@ export const cases = [
     assert.equal(JSON.parse(again).project._id, JSON.parse(text).project._id);
     assert.deepEqual(JSON.parse(again).project, JSON.parse(text).project);
   } },
+  { group: '마인드맵', name: 'MindManager 방식: Tab=하위 토픽, Enter=같은 수준 토픽, 자동 배치(겹침 없음), 표식·과제 정보, +/− 접기, 아래로(조직도) 배치 (실제 키·클릭)', async run(app) {
+    // Keys go to the canvas only without a popup in front (the welcome popup, shown shortly after the start, when run alone).
+    await app.main.waitFor(`Boolean(document.querySelector('.web-popup-welcome'))`, { timeout: 2500 }).catch(() => {});
+    await closeFrames(app);
+    await W(app, '(a.showStartPage(true), 1)');
+    await sleep(300);
+    await app.main.click('[data-start="template"][data-value="mindmap"]');
+    await sleep(800);
+    const topics = () => W(app, `api.diagram().ownedViews.filter((v) => v._type === 'MMNodeView').map((v) => { const e = a.activeDoc().index.get(v.model.$ref); return { id: v._id, name: e.name, parent: a.activeDoc().index.parent(e._id)?.name ?? null, x: v.left, y: v.top }; })`);
+    const central = (await topics()).find((t) => t.parent === '마인드맵1' || t.name === '프로젝트');
+    const box = await app.main.eval(`(() => { const r = document.querySelector('#view-host g[data-view="${central.id}"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await app.main.realClick(box.x, box.y);
+    await sleep(200);
+    assert.deepEqual(await W(app, 'w.state.selection.ids'), [central.id], 'the click selects the central topic');
+    const name = async (text) => { await sleep(250); await app.main.type(text); await app.main.key('Enter'); await sleep(250); };
+    await app.main.key('Tab'); await name('예산');
+    await app.main.key('Enter'); await name('일정 계획');
+    await app.main.key('Tab'); await name('1분기');
+    await app.main.key('Enter'); await name('2분기');
+    const list = await topics();
+    const parent = (n) => list.find((t) => t.name === n)?.parent;
+    assert.deepEqual(['예산', '일정 계획', '1분기', '2분기'].map(parent), [central.name, central.name, '일정 계획', '일정 계획'], JSON.stringify(list));
+    const overlaps = await app.main.eval(`(() => { const r = [...document.querySelectorAll('#view-host g[data-view].node-view .hit')].map((e) => e.getBoundingClientRect()); let n = 0; for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) { const p = r[i], q = r[j]; if (p.left < q.right - 1 && q.left < p.right - 1 && p.top < q.bottom - 1 && q.top < p.bottom - 1) n++; } return n; })()`);
+    assert.equal(overlaps, 0, 'the map is laid out without overlaps');
+    // Markers and task information from the properties panel.
+    const plan = list.find((t) => t.name === '일정 계획');
+    await W(app, `(a.select([${JSON.stringify(plan.id)}], { primary: ${JSON.stringify(plan.id)} }), 1)`);
+    await sleep(250);
+    for (const [field, value] of [['priority', 'p1'], ['progress', 'pct50'], ['marker', 'flag'], ['shape', 'hexagonal']]) {
+      await app.main.eval(`(() => { const s = document.querySelector('select[data-field="${field}"]'); s.value = '${value}'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+      await sleep(120);
+    }
+    await app.main.eval(`(() => { const i = document.querySelector('input[data-field="resource"]'); i.value = '권수호'; i.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(250);
+    const drawn = await app.main.eval(`(() => { const g = document.querySelector('#view-host g[data-view="${plan.id}"]'); return { circles: g.querySelectorAll('circle').length, text: g.textContent, hexagon: Boolean(g.querySelector('path')) }; })()`);
+    assert.ok(drawn.circles >= 4 && drawn.text.includes('권수호') && drawn.text.startsWith('1'), `priority, progress, flag, +/− and the owner are drawn ${JSON.stringify(drawn)}`);
+    // The +/− of 일정 계획: a real click collapses its branch (the badge counts the hidden topics), another opens it.
+    const kids = list.filter((t) => t.parent === '일정 계획').map((t) => t.id);
+    const drawnKids = () => app.main.eval(`${JSON.stringify(kids)}.filter((id) => document.querySelector('#view-host g[data-view="' + id + '"]')).length`);
+    assert.equal(await drawnKids(), 2);
+    const toggleAt = () => app.main.eval(`(() => { const r = document.querySelector('#view-host g[data-view="${plan.id}"] [data-mm-toggle]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    let p = await toggleAt();
+    await app.main.realClick(p.x, p.y);
+    await sleep(350);
+    assert.equal(await drawnKids(), 0, 'its two subtopics are hidden');
+    assert.equal(await app.main.eval(`document.querySelector('#view-host g[data-view="${plan.id}"] [data-mm-toggle] text').textContent`), '2');
+    p = await toggleAt();
+    await app.main.realClick(p.x, p.y);
+    await sleep(350);
+    assert.equal(await drawnKids(), 2, 'shown again');
+    // Map layout: down (org chart).
+    await W(app, '(a.select([]), 1)');
+    await sleep(200);
+    await app.main.eval(`(() => { const s = document.querySelector('select[data-field="mindLayout"]'); s.value = 'down'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await sleep(200);
+    await W(app, `(w.run('mmRelayout'), 1)`);
+    await sleep(400);
+    const down = await topics();
+    const c = down.find((t) => t.id === central.id);
+    assert.ok(down.filter((t) => t.id !== central.id).every((t) => t.y > c.y), 'every topic below the central one');
+    await noError(app, 'mind map');
+  } },
   { group: '보기', name: '다이어그램 색 구성·선 모양·언어를 바꿔도 오류 없음', async run(app) {
     await freshSample(app);
     for (const theme of ['pastel', 'blueprint', 'dark', 'classic']) { await W(app, `(a.updateSettings({ diagramTheme: ${JSON.stringify(theme)} }), 1)`); await sleep(150); }

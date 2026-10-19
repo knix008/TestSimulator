@@ -420,7 +420,9 @@ body.dragging-rows, body.dragging-rows * { cursor: grabbing !important; }
 .start-empty { display: flex; align-items: center; gap: 6px; padding: 8px; color: var(--muted); font-size: 0.88em; }
 /* Every background button the same size, lined up in columns. */
 .anim-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.anim-chip { display: block; height: 28px; line-height: 26px; text-align: center; min-width: 0; padding: 0 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 0.86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anim-chip { display: flex; align-items: center; justify-content: flex-start; gap: 3px; height: 28px; min-width: 0; padding: 0 2px 0 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 0.86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.anim-chip .icon { width: 13px; height: 13px; flex: none; }
+.anim-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .anim-chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .start-speed { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 0.88em; }
 .start-speed input { flex: 1; }
@@ -802,6 +804,12 @@ select:focus, input:focus, textarea:focus { outline: none; border-color: var(--a
 .row { border-bottom-color: color-mix(in srgb, var(--border) 38%, transparent); }
 .web-popup { border-radius: 12px; overflow: hidden; box-shadow: var(--elev-2); }
 .web-popup-menu { border-radius: 10px; }
+/* A menu and its open submenus are panels in one transparent popup (popup.js "menu"): each panel
+   draws its own shadow inside the popup's margin, the space between them shows what is behind. */
+.web-popup.web-popup-menu { background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+html.popup-kind-menu.menu-glass, html.popup-kind-menu.menu-glass body { background: transparent; }
+html.menu-glass .popup-menu { box-shadow: 0 6px 18px -4px var(--shadow), 0 1px 3px color-mix(in srgb, var(--shadow) 45%, transparent); }
+.menu-item.open:not(:hover):not(:focus-visible) { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /* Status bar. */
 #statusbar { border-top-color: var(--hairline); }

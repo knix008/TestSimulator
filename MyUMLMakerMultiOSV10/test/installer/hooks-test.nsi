@@ -2,6 +2,10 @@
 Unicode true
 !include "MUI2.nsh"
 !include "Win\RestartManager.nsh"
+; Never the real desktop or Start menu: the hooks delete the old installation's shortcuts there.
+!ifndef MUM_DESKTOP | MUM_SMPROGRAMS | MUM_ROAMING | MUM_LOCAL
+  !error "hooks-test.nsi needs MUM_DESKTOP, MUM_SMPROGRAMS, MUM_ROAMING and MUM_LOCAL (temporary folders)"
+!endif
 !include "${HOOKS}"
 
 Name "MumHookTest"

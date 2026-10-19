@@ -1,13 +1,16 @@
 ﻿; MyUMLMaker installer hooks (included by Tauri's NSIS template).
 ;
 ; Only one MyUMLMaker installation may exist. Before installing:
-;  1. A previous installation (current-user or per-machine, any version) is
-;     always removed completely: running MyUMLMaker windows are closed (all of
-;     them; several copies may run), its uninstaller runs silently in place with
-;     /UPDATE (keeps the user data), then its folder is deleted.
+;  1. When a previous installation (current-user or per-machine, any version)
+;     exists, the user is asked first whether to remove it completely and
+;     install again (Yes) or to stop the installation (No: nothing changed).
+;     Removing it: running MyUMLMaker windows are closed (all of them; several
+;     copies may run), its uninstaller runs silently in place with /UPDATE
+;     (keeps the user data), then its folder and its shortcuts (desktop, Start
+;     menu) are deleted - this installation makes the ones the user chooses.
 ;  2. When there is a previous installation or user data from earlier use, the
-;     user is asked, before the first wizard page and in the installer language,
-;     whether to delete the user data:
+;     user is then asked, before the first wizard page and in the installer
+;     language, whether to delete the user data:
 ;       Yes    : %APPDATA%\com.shkwon.myumlmaker (window place, install marker,
 ;                background pictures, crash.log) and
 ;                %LOCALAPPDATA%\com.shkwon.myumlmaker (the WebView2 profile:
@@ -26,12 +29,23 @@
 ;     keeps recent files and folders, the open-project session, the database
 ;     connection, the background image and the tutorial history (window_state.rs,
 ;     resetForNewInstall in settings.js).
+; Shortcuts: a "Shortcuts" page before the Start menu folder page lets the user
+;  choose a desktop shortcut and a Start menu shortcut (both checked). Without
+;  the Start menu one the folder page is skipped; the desktop one replaces the
+;  template's check box on the finish page. Silent (/S) and passive (/P)
+;  installs keep Tauri's behaviour (both, or none with /NS).
 ; After installing:
 ;  4. .myuml projects and .mumlt templates get their own icons (project.ico,
 ;     template.ico), not the app icon.
+;  5. With a Start menu shortcut, the user's guide gets one in the same folder;
+;     the folder is remembered (StartMenuFolder) so that the uninstaller and the
+;     next installation find a folder the user renamed.
 ;
-; Tauri's hooks cannot add pages, so the question is asked from MUI's GUI init
+; Tauri's hooks cannot add pages, so the questions are asked from MUI's GUI init
 ; (MUI_CUSTOMFUNCTION_GUIINIT), which runs before the first page and not with /S;
+; the shortcuts page comes from wrapping MUI's MUI_PAGE_STARTMENU (and
+; MUI_PAGE_FINISH loses its desktop check box), both expanded where the template
+; inserts those pages, after its variables exist;
 ; NSIS_HOOK_PREINSTALL repeats the removal for silent installs. Removing the old
 ; copy there also makes Tauri's own "already installed" page skip itself.
 ; This file is included at the top of installer.nsi, before the template's
@@ -43,6 +57,7 @@
 
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "nsDialogs.nsh"
 
 ; Every define can be set beforehand (the hook test points them at a fake installation).
 !define /IfNDef MUM_NAME "MyUMLMaker"
@@ -53,13 +68,27 @@
 ; = the template's UNINSTKEY and MANUPRODUCTKEY
 !define /IfNDef MUM_UNKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MyUMLMaker"
 !define /IfNDef MUM_PRODKEY "Software\SHKWON\MyUMLMaker"
+; Where the old installation's shortcuts are (the hook test points them at a temporary folder).
+!define /IfNDef MUM_DESKTOP "$DESKTOP"
+!define /IfNDef MUM_SMPROGRAMS "$SMPROGRAMS"
 ; Answers when the questions run silently: only the hook test does that (MumGuiInit never runs with /S).
+!define /IfNDef MUM_SD_REINSTALL IDYES
 !define /IfNDef MUM_SD_ASK IDNO
 !define /IfNDef MUM_SD_RUNNING IDCANCEL
 
 ; 1042 = Korean, 1033 = English (the installer's two languages).
-LangString MumOldFound 1042 "이전에 설치한 MyUMLMaker 가 있습니다. 완전히 지운 뒤 새로 설치합니다."
-LangString MumOldFound 1033 "An earlier MyUMLMaker is installed. It is removed completely before installing."
+LangString MumAskReinstall 1042 "이전에 설치한 MyUMLMaker 가 있습니다.$\n$R9$\n$\n이전 프로그램을 완전히 삭제하고 다시 설치할까요?$\n$\n예: 이전 프로그램과 바로가기를 지우고 새로 설치합니다. 사용자 데이터는 다음 질문에서 정합니다.$\n아니오: 설치를 그만둡니다."
+LangString MumAskReinstall 1033 "An earlier MyUMLMaker is installed.$\n$R9$\n$\nRemove the earlier program completely and install again?$\n$\nYes: remove the earlier program and its shortcuts, then install. The next question decides about the user data.$\nNo: stop the installation."
+LangString MumShortcutsTitle 1042 "바로가기"
+LangString MumShortcutsTitle 1033 "Shortcuts"
+LangString MumShortcutsSubtitle 1042 "MyUMLMaker 바로가기를 만들 곳을 고르십시오."
+LangString MumShortcutsSubtitle 1033 "Choose where to create MyUMLMaker shortcuts."
+LangString MumShortcutsText 1042 "선택한 곳에 MyUMLMaker 를 실행하는 바로가기를 만듭니다. 시작 메뉴를 고르면 다음 페이지에서 폴더를 정합니다."
+LangString MumShortcutsText 1033 "Shortcuts that start MyUMLMaker are created where you choose. With the Start menu, the next page picks its folder."
+LangString MumShortcutDesktop 1042 "바탕 화면에 바로가기 만들기"
+LangString MumShortcutDesktop 1033 "Create a shortcut on the desktop"
+LangString MumShortcutStartMenu 1042 "시작 메뉴에 바로가기 만들기 (사용 설명서 포함)"
+LangString MumShortcutStartMenu 1033 "Create shortcuts in the Start menu (with the user's guide)"
 LangString MumAskData 1042 "이전에 사용하던 사용자 데이터(설정, 최근 파일·폴더, 열린 프로젝트 목록, 데이터베이스 연결, 배경 그림, 튜토리얼 기록, 창 위치)를 삭제할까요?$\n$\n예: 사용자 데이터를 모두 지우고 처음 설치한 상태로 시작합니다.$\n아니오: 사용자 데이터를 그대로 둡니다. 다음 실행 때 환경 설정만 기본값으로 돌아갑니다.$\n취소: 설치를 그만둡니다."
 LangString MumAskData 1033 "Delete the user data from earlier use (settings, recent files and folders, the list of open projects, database connection, background pictures, tutorial history, window position)?$\n$\nYes: delete all user data and start as a fresh installation.$\nNo: keep the user data. Only the preferences go back to their defaults at the next start.$\nCancel: stop the installation."
 LangString MumRunning 1042 "MyUMLMaker 가 실행 중입니다 (창 $R9개). 설치하려면 모두 닫아야 합니다.$\n저장하지 않은 변경 내용은 사라집니다.$\n$\n확인: MyUMLMaker 를 닫고 계속합니다.$\n취소: 설치를 그만둡니다."
@@ -72,6 +101,11 @@ Var MumDone
 ; Folders of a previous installation (current user / per machine), or "".
 Var MumOldUser
 Var MumOldMachine
+; Shortcuts page: 1 = create (both checked at first).
+Var MumDesktop
+Var MumStartMenu
+; The Start menu folder of the installation being removed (read before its uninstaller deletes the key).
+Var MumSmFolder
 
 !define MUI_CUSTOMFUNCTION_GUIINIT MumGuiInit
 
@@ -240,10 +274,37 @@ Function MumSweep
   Pop $0
 FunctionEnd
 
+; Deletes the shortcuts of the old installation: run with /UPDATE, its uninstaller keeps them,
+; and this installation makes the ones the user chooses. An update by Tauri's updater
+; (this installer with /UPDATE) keeps them, as it makes none.
+Function MumRemoveOldShortcuts
+  Push $0
+  Push $1
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "/UPDATE" $1
+  ${If} ${Errors}
+    ReadRegStr $MumSmFolder HKCU "${MUM_PRODKEY}" "StartMenuFolder"
+    ${If} $MumSmFolder == ""
+      StrCpy $MumSmFolder "${MUM_NAME}"
+    ${EndIf}
+    Delete "${MUM_SMPROGRAMS}\$MumSmFolder\${MUM_NAME}.lnk"
+    Delete "${MUM_SMPROGRAMS}\$MumSmFolder\${MUM_NAME} User's Guide.lnk"
+    RMDir "${MUM_SMPROGRAMS}\$MumSmFolder"
+    Delete "${MUM_SMPROGRAMS}\${MUM_NAME}.lnk"
+    Delete "${MUM_DESKTOP}\${MUM_NAME}.lnk"
+  ${EndIf}
+  Pop $1
+  Pop $0
+FunctionEnd
+
 ; Removes every previous installation silently. /UPDATE keeps the user data (that is decided
 ; here, by MumWipe); _?= runs the uninstaller in place and waits for it.
 Function MumRemoveOld
   StrCpy $MumDone 1
+  ${If} "$MumOldUser$MumOldMachine" != ""
+    Call MumRemoveOldShortcuts
+  ${EndIf}
   ${If} $MumOldUser != ""
     DetailPrint "Removing the previous installation: $MumOldUser"
     ExecWait '"$MumOldUser\uninstall.exe" /S /UPDATE _?=$MumOldUser'
@@ -263,9 +324,11 @@ Function MumRemoveOld
   ${EndIf}
 FunctionEnd
 
-; Before the first page (not with /S). Cancel at either question quits with nothing changed.
+; Before the first page (not with /S). No / Cancel at any question quits with nothing changed.
 Function MumGuiInit
   StrCpy $MumWipe 0
+  StrCpy $MumDesktop 1
+  StrCpy $MumStartMenu 1
   Call MumFindOld
   ; Passive installs (/P) do not ask: the data is kept.
   ${GetParameters} $0
@@ -276,16 +339,25 @@ Function MumGuiInit
     Return
   ${EndIf}
 
+  ; 1. Remove the earlier program and install again? ($R9: where it is.)
+  ${If} "$MumOldUser$MumOldMachine" != ""
+    StrCpy $R9 "$MumOldUser"
+    ${If} $MumOldMachine != ""
+      ${If} $R9 != ""
+        StrCpy $R9 "$R9$\n"
+      ${EndIf}
+      StrCpy $R9 "$R9$MumOldMachine"
+    ${EndIf}
+    MessageBox MB_YESNO|MB_ICONQUESTION "$(MumAskReinstall)" /SD ${MUM_SD_REINSTALL} IDYES +2
+    Quit
+  ${EndIf}
+
+  ; 2. Delete the user data?
   Call MumHasData
   Pop $2
   ${If} "$MumOldUser$MumOldMachine" != ""
-    StrCpy $3 "$(MumOldFound)$\n$\n$(MumAskData)"
-  ${Else}
-    StrCpy $3 "$(MumAskData)"
-  ${EndIf}
-  ${If} "$MumOldUser$MumOldMachine" != ""
   ${OrIf} $2 == 1
-    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION|MB_DEFBUTTON2 "$3" /SD ${MUM_SD_ASK} IDYES mumYes IDNO mumNo
+    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION|MB_DEFBUTTON2 "$(MumAskData)" /SD ${MUM_SD_ASK} IDYES mumYes IDNO mumNo
     Quit
     mumYes:
       StrCpy $MumWipe 1
@@ -313,6 +385,96 @@ Function MumWipeData
   RMDir /r "${MUM_LOCAL}"
 FunctionEnd
 
+; ── Shortcuts page
+; MUI_PAGE_STARTMENU is wrapped: the template inserts it after declaring $PassiveMode and
+; $AppStartMenuFolder, so the page and its functions are written there. The folder page keeps
+; its place but loses its own "no shortcuts" box (the choice is made here) and is skipped
+; without a Start menu shortcut; ">" before the folder tells MUI_STARTMENU_WRITE_BEGIN (and
+; the template) to make none.
+!ifmacrodef MUI_PAGE_STARTMENU
+!macroundef MUI_PAGE_STARTMENU
+!macro MUI_PAGE_STARTMENU ID VAR
+  Var MumDesktopBox
+  Var MumStartMenuBox
+  Page custom MumShortcutsShow MumShortcutsLeave
+
+  Function MumShortcutsShow
+    ${If} $PassiveMode = 1
+      Abort
+    ${EndIf}
+    !insertmacro MUI_HEADER_TEXT "$(MumShortcutsTitle)" "$(MumShortcutsSubtitle)"
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
+    ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
+    ${NSD_CreateLabel} 0 0 100% 24u "$(MumShortcutsText)"
+    Pop $0
+    ${NSD_CreateCheckbox} 0 34u 100% 12u "$(MumShortcutDesktop)"
+    Pop $MumDesktopBox
+    ${If} $MumDesktop == 1
+      ${NSD_Check} $MumDesktopBox
+    ${EndIf}
+    ${NSD_CreateCheckbox} 0 52u 100% 12u "$(MumShortcutStartMenu)"
+    Pop $MumStartMenuBox
+    ${If} $MumStartMenu == 1
+      ${NSD_Check} $MumStartMenuBox
+    ${EndIf}
+    nsDialogs::Show
+  FunctionEnd
+
+  Function MumShortcutsLeave
+    ${NSD_GetState} $MumDesktopBox $MumDesktop
+    ${NSD_GetState} $MumStartMenuBox $MumStartMenu
+    StrCpy $0 ${VAR} 1
+    ${If} $MumStartMenu == ${BST_CHECKED}
+      ${If} $0 == ">"
+        StrCpy ${VAR} ${VAR} "" 1
+      ${EndIf}
+    ${ElseIf} $0 != ">"
+      ${If} ${VAR} == ""
+        StrCpy ${VAR} "${MUI_STARTMENUPAGE_DEFAULTFOLDER}"
+      ${EndIf}
+      StrCpy ${VAR} ">${VAR}"
+    ${EndIf}
+  FunctionEnd
+
+  Function MumStartMenuPre
+    Call SkipIfPassive
+    ${If} $MumStartMenu != ${BST_CHECKED}
+      Abort
+    ${EndIf}
+  FunctionEnd
+
+  !ifdef MUI_PAGE_CUSTOMFUNCTION_PRE
+    !undef MUI_PAGE_CUSTOMFUNCTION_PRE
+  !endif
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE MumStartMenuPre
+  !define MUI_STARTMENUPAGE_NODISABLE
+  !verbose push
+  !verbose ${MUI_VERBOSE}
+  !insertmacro MUI_PAGE_INIT
+  !insertmacro MUI_PAGEDECLARATION_STARTMENU "${ID}" "${VAR}"
+  !verbose pop
+!macroend
+!endif
+
+; The finish page without the template's "Create desktop shortcut" box (chosen on the shortcuts page).
+!ifmacrodef MUI_PAGE_FINISH
+!macroundef MUI_PAGE_FINISH
+!macro MUI_PAGE_FINISH
+  !insertmacro MUI_UNSET MUI_FINISHPAGE_SHOWREADME
+  !insertmacro MUI_UNSET MUI_FINISHPAGE_SHOWREADME_TEXT
+  !insertmacro MUI_UNSET MUI_FINISHPAGE_SHOWREADME_FUNCTION
+  !verbose push
+  !verbose ${MUI_VERBOSE}
+  !insertmacro MUI_PAGE_INIT
+  !insertmacro MUI_PAGEDECLARATION_FINISH
+  !verbose pop
+!macroend
+!endif
+
 !macro NSIS_HOOK_PREINSTALL
   ; 1. Silent installs: MumGuiInit did not run. No question; the data is kept.
   ${If} $MumDone != 1
@@ -338,14 +500,44 @@ FunctionEnd
   ; 4. Document icons (Tauri registers the types with the app icon).
   WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Project\DefaultIcon" "" "$INSTDIR\project.ico"
   WriteRegStr SHCTX "Software\Classes\MyUMLMaker.Template\DefaultIcon" "" "$INSTDIR\template.ico"
-  ; Start menu shortcut to the user's guide installed with the program.
-  ${If} ${FileExists} "$INSTDIR\docs\UsersGuide.html"
-    CreateDirectory "$SMPROGRAMS\${PRODUCTNAME}"
-    CreateShortCut "$SMPROGRAMS\${PRODUCTNAME}\MyUMLMaker User's Guide.lnk" "$INSTDIR\docs\UsersGuide.html"
+  ; Desktop shortcut chosen on the shortcuts page (silent and passive installs: the template makes it).
+  ${IfNot} ${Silent}
+  ${AndIf} $PassiveMode <> 1
+  ${AndIf} $MumDesktop == ${BST_CHECKED}
+    Call CreateOrUpdateDesktopShortcut
+  ${EndIf}
+  ; 5. The user's guide next to the app's Start menu shortcut, and the folder for the uninstaller.
+  StrCpy $0 $AppStartMenuFolder 1
+  ${If} $0 != ">"
+  ${AndIf} $AppStartMenuFolder != ""
+  ${AndIf} ${FileExists} "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+    ${If} ${FileExists} "$INSTDIR\docs\UsersGuide.html"
+      CreateShortCut "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME} User's Guide.lnk" "$INSTDIR\docs\UsersGuide.html"
+    ${EndIf}
+    WriteRegStr SHCTX "${MANUPRODUCTKEY}" "StartMenuFolder" "$AppStartMenuFolder"
+  ${Else}
+    DeleteRegValue SHCTX "${MANUPRODUCTKEY}" "StartMenuFolder"
   ${EndIf}
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 !macroend
 
+!macro NSIS_HOOK_PREUNINSTALL
+  ; Read before the template deletes the key. Tauri's uninstaller only knows the default folder.
+  ReadRegStr $MumSmFolder SHCTX "${MANUPRODUCTKEY}" "StartMenuFolder"
+  ${If} $MumSmFolder == ""
+    StrCpy $MumSmFolder "${PRODUCTNAME}"
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
-  Delete "$SMPROGRAMS\${PRODUCTNAME}\MyUMLMaker User's Guide.lnk"
+  ; An update (/UPDATE) keeps the shortcuts, like the template does.
+  ${If} $UpdateMode <> 1
+    Delete "$SMPROGRAMS\$MumSmFolder\${PRODUCTNAME} User's Guide.lnk"
+    !insertmacro IsShortcutTarget "$SMPROGRAMS\$MumSmFolder\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    Pop $0
+    ${If} $0 = 1
+      Delete "$SMPROGRAMS\$MumSmFolder\${PRODUCTNAME}.lnk"
+    ${EndIf}
+    RMDir "$SMPROGRAMS\$MumSmFolder"
+  ${EndIf}
 !macroend

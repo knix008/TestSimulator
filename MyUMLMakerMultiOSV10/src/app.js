@@ -17,6 +17,7 @@ import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
 import { CLASSIFIER_TYPES, DIAGRAM_FAMILIES, DIAGRAM_TYPES, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
 import { toolboxFor, toolById } from './domain/toolbox.js';
 import * as E from './domain/edit.js';
+import * as MM from './domain/mindmap.js';
 import { layoutDiagram as autoLayout, LAYOUT_DIRECTIONS } from './domain/layout.js';
 import { parseAttribute, parseNameWithStereotype, parseOperation, attributeText, operationText, isMultiplicity } from './domain/labels.js';
 import { CODE_LANGUAGES, DEFAULT_CODEGEN_OPTIONS, generateCode, SQL_DIALECTS } from './domain/codegen/index.js';
@@ -574,9 +575,56 @@ function relatedMenu(viewId, anchor) {
 }
 
 function addRelated(viewId, kind) {
+  if (kind === 'childNode' && isMindMap()) return addMindTopic('child', viewId);
   const boxes = renderContext().boxes;
   const result = change('op.addRelated', (project, diagram) => E.addRelated(project, diagram, viewId, kind, { language: lang(), boxes }));
   if (result?.view) { select([result.view._id]); setTimeout(() => state.view?.startEdit?.(result.view._id), 30); }
+}
+
+// ───────────────────────── mind maps (MindManager-style: domain/mindmap.js)
+
+const isMindMap = () => currentDiagram()?._type === 'MMMindmapDiagram';
+/** The topic view selected alone on a mind map, or null. */
+function selectedTopicView() {
+  if (!isMindMap() || selectedIds().length !== 1) return null;
+  const view = viewById(selectedIds()[0]);
+  const element = view?.model ? activeTab().index.get(M.refId(view.model)) : null;
+  return element?._type === 'MMNode' ? view : null;
+}
+const selectedTopic = () => { const view = selectedTopicView(); return view ? activeTab().index.get(M.refId(view.model)) : null; };
+/** Rendered sizes inside a change: the project as it is now, with a fresh index. */
+function boxesOf(project, diagram) {
+  const s = state.settings;
+  return layoutRender(createRenderContext({ project, index: M.buildIndex(project), diagram, measure, language: lang(), lineStyle: s.defaultLineStyle, theme: s.diagramTheme, font: s.diagramFont, fontSize: s.diagramFontSize, showShadow: s.showShadow })).boxes;
+}
+/** Enter / Tab / Insert: a topic after the selected one or a subtopic of it; the map is laid out again and the new topic is named. */
+function addMindTopic(where, viewId = selectedTopicView()?._id) {
+  if (!viewId) return;
+  const result = change(where === 'child' ? 'action.mmAddChild' : 'action.mmAddSibling', (project, diagram) => {
+    const added = MM.addTopic(project, diagram, viewId, where, { language: lang() });
+    if (added) MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
+    return added;
+  });
+  if (result?.view) { select([result.view._id]); setTimeout(() => state.view?.startEdit?.(result.view._id), 30); }
+}
+/** The +/− of a topic (or Ctrl+. on the selected one). */
+function toggleMindTopic(topicId = selectedTopic()?._id) {
+  if (!topicId) return;
+  change('action.mmToggle', (project, diagram) => {
+    const next = MM.toggleCollapsed(project, topicId);
+    if (next !== null) MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
+    return next;
+  });
+}
+function collapseMindMap(collapse) {
+  change(collapse ? 'action.mmCollapseAll' : 'action.mmExpandAll', (project, diagram) => {
+    const changed = MM.collapseToLevel(project, diagram, collapse ? 1 : Infinity);
+    MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
+    return changed;
+  });
+}
+function relayoutMindMap() {
+  change('action.mmRelayout', (project, diagram) => MM.layoutMindmap(project, diagram, boxesOf(project, diagram), { layout: !diagram.mindLayout || diagram.mindLayout === 'free' ? 'map' : diagram.mindLayout }));
 }
 
 /** Elements dragged from the Model Explorer onto the diagram. */
@@ -1028,6 +1076,12 @@ const commands = {
   clearSelection: { icon: 'deselect', label: 'action.clearSelection', key: 'Esc', enabled: () => hasSelection() || state.explorer.length > 0, run: () => clearSelection() },
   find: { icon: 'search', label: 'action.find', key: 'Ctrl+F', enabled: hasDoc, run: () => openFind() },
   editName: { icon: 'textTool', label: 'action.editName', key: 'F2', enabled: () => selectedIds().length === 1, run: () => state.view?.startEdit(selectedIds()[0]) },
+  mmAddChild: { icon: 'mmAddChild', label: 'action.mmAddChild', key: 'Tab', enabled: () => Boolean(selectedTopicView()), run: () => addMindTopic('child') },
+  mmAddSibling: { icon: 'mmAddSibling', label: 'action.mmAddSibling', key: 'Enter', enabled: () => Boolean(selectedTopicView()), run: () => addMindTopic('sibling') },
+  mmToggle: { icon: 'mmToggle', label: 'action.mmToggle', key: 'Ctrl+.', enabled: () => Boolean(selectedTopic()?.ownedElements?.some((e) => e._type === 'MMNode')), run: () => toggleMindTopic() },
+  mmCollapseAll: { icon: 'mmCollapseAll', label: 'action.mmCollapseAll', enabled: isMindMap, run: () => collapseMindMap(true) },
+  mmExpandAll: { icon: 'mmExpandAll', label: 'action.mmExpandAll', enabled: isMindMap, run: () => collapseMindMap(false) },
+  mmRelayout: { icon: 'mmRelayout', label: 'action.mmRelayout', enabled: isMindMap, run: () => relayoutMindMap() },
   // model
   addDiagram: { icon: 'dgAdd', label: 'action.addDiagram', run: (context) => addDiagramMenu(context?.anchor) },
   addElement: { icon: 'plus', label: 'action.addElement', enabled: hasDoc, run: (context) => addElementMenu(context?.anchor) },
@@ -1205,6 +1259,7 @@ function toScreenPoint(p) {
 // ───────────────────────── layout
 
 const SUBMENUS = {
+  mindmap: { icon: 'dgMindmap', items: ['mmAddChild', 'mmAddSibling', 'mmToggle', '-', 'mmCollapseAll', 'mmExpandAll', 'mmRelayout'] },
   importFrom: { icon: 'importFile', items: ['importStarUml', 'importXmi', 'importFragment', 'importText', 'reverse'] },
   exportTo: { icon: 'exportFile', items: ['exportImage', 'exportSvg', 'exportPdf', 'exportAllImages', '-', 'exportHtml', 'exportMarkdown', '-', 'exportStarUml', 'exportXmi', 'exportXmiModel', 'exportFragment', 'exportMermaid', 'exportPlantUml'] },
   zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'zoomSelection'] },
@@ -1228,7 +1283,7 @@ const MENUS = {
   model: ['addDiagram', 'addElement', '-', 'moveUp', 'moveDown', '-', 'showRelations', 'unusedElements', '-', 'requirements', 'traceMatrix', '-', 'baselines', 'compareFile', '-', 'validate', 'statistics'],
   view: [sub('zoom'), sub('show'), '-', sub('diagramTheme'), sub('defaultLine'), '-', sub('diagrams'), 'presentation', '-', sub('appearance')],
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
-  arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout')],
+  arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout'), sub('mindmap')],
   tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', '-', 'settings'],
   help: ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
@@ -3265,10 +3320,27 @@ function menuItems(ids) {
   }));
 }
 
+/**
+ * Gives every group row its items (`children`), so the menu opens them beside the row on hover.
+ * The handlers of dynamic groups (related elements, element and diagram groups) join the menu's.
+ */
+function withChildren(items, handlers, depth = 0) {
+  return items.map((item) => {
+    if (!item.submenu || item.children || depth > 3) return item;
+    const key = item.id.slice('submenu:'.length);
+    const dynamic = state.dynamicMenus.get(key);
+    if (dynamic) Object.assign(handlers, dynamic.handlers);
+    const children = dynamic ? dynamic.items : SUBMENUS[key] ? menuItems(SUBMENUS[key].items) : null;
+    return children ? { ...item, children: withChildren(children, handlers, depth + 1) } : item;
+  });
+}
+
 async function showMenu(items, anchor, name = 'context', context = {}) {
   state.openMenu = name;
   renderMenubar();
   const header = context.header ?? (MENUS[name] ? { icon: MENU_ICONS[name], title: t(`menu.${name}`) } : { icon: 'umlProject', title: 'MyUMLMaker' });
+  context = { ...context, handlers: { ...context.handlers } };
+  items = withChildren(items, context.handlers);
   const result = await popups.open('menu', { items, name, header }, { anchor });
   if (state.openMenu === name) {
     state.openMenu = null;
@@ -3305,6 +3377,7 @@ function contextMenu(event, kind, payload = {}) {
     const element = v?.model ? tab.index.get(M.refId(v.model)) : null;
     const items = [{ id: 'custom:edit', label: t('canvas.edit'), icon: 'textTool', shortcut: 'F2' }, { separator: true }];
     const handlers = { 'custom:edit': () => state.view?.startEdit(payload.id) };
+    if (element?._type === 'MMNode') items.push(...menuItems(['mmAddChild', 'mmAddSibling', 'mmToggle']), { separator: true });
     if (element) {
       const related = E.relatedFor(element);
       if (related.length) {
@@ -3324,7 +3397,7 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'multi') return showMenu(menuItems(['cut', 'copy', 'duplicate', '-', 'delete', 'deleteFromModel', '-', sub('align'), sub('order'), sub('layout'), '-', sub('font'), 'fillColor', 'lineColor', sub('lineStyle')]), anchor, 'context', { header: { icon: 'selectAll', title: t('status.selected', { count: selectedIds().length }) } });
   if (kind === 'canvas') {
-    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), 'diagramBackground', '-', 'exportImage', 'exportSvg']);
+    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), ...(isMindMap() ? [sub('mindmap')] : []), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), 'diagramBackground', '-', 'exportImage', 'exportSvg']);
     return showMenu(items, anchor, 'context', { header: { icon: typeDef(currentDiagram()?._type)?.icon ?? 'dgClass', title: currentDiagram()?.name ?? '' }, point: payload.point });
   }
   if (kind === 'element') {
@@ -3906,6 +3979,7 @@ function postBackgroundData(kind) {
 
 /** Ctrl+key shortcuts: [key, shift, command]. */
 const SHORTCUTS = [
+  ['.', false, 'mmToggle'],
   ['n', false, 'new'], ['o', false, 'open'], ['s', false, 'save'], ['s', true, 'saveAs'], ['w', false, 'closeTab'], ['p', false, 'print'],
   ['z', false, 'undo'], ['y', false, 'redo'], ['z', true, 'redo'], ['x', false, 'cut'], ['c', false, 'copy'], ['v', false, 'paste'], ['d', false, 'duplicate'],
   ['a', false, 'selectAll'], ['f', false, 'find'], ['e', false, 'selectInExplorer'], ['delete', false, 'deleteFromModel'],
@@ -3955,6 +4029,7 @@ function onKeyDown(event) {
     run('clearSelection');
     return;
   }
+  if (canvas && (key === 'tab' || key === 'insert' || key === 'enter') && selectedTopicView()) { event.preventDefault(); addMindTopic(key === 'enter' && !event.shiftKey ? 'sibling' : 'child'); return; }
   if (key === 'enter' && canvas && selectedIds().length === 1) { event.preventDefault(); canvas.startEdit(selectedIds()[0]); return; }
   if (canvas && key.startsWith('arrow') && selectedIds().length) {
     event.preventDefault();
@@ -4045,6 +4120,7 @@ async function restoreSession() {
 /** What the views, the explorer, the editors and the tutorial use. */
 const appApi = {
   state,
+  toggleTopic: (id) => toggleMindTopic(id),
   t,
   measure,
   language: () => getLanguage(),

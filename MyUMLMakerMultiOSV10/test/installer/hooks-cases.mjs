@@ -41,15 +41,17 @@ export async function runHookCases(check) {
   const local = path.join(base, 'Local', 'com.shkwon.myumlmaker');
   const fake = path.join(work, 'fake-uninstall.exe');
   const builds = new Map();
-  const installer = (mode, ask, running = 'IDOK') => {
-    const key = `${mode}-${ask}-${running}`;
+  const desktop = path.join(base, 'Desktop');
+  const programs = path.join(base, 'Programs');
+  const installer = (mode, ask, running = 'IDOK', reinstall = 'IDYES') => {
+    const key = `${mode}-${ask}-${running}-${reinstall}`;
     if (!builds.has(key)) {
       const out = path.join(work, `hooks-${key}.exe`);
       compile(path.join(here, 'hooks-test.nsi'), {
         HOOKS, OUT: out, MODE: mode, INST: path.join(base, 'new', 'MyUMLMaker'), RESULT: path.join(base, 'result.txt'),
-        MUM_ROAMING: roaming, MUM_LOCAL: local,
+        MUM_ROAMING: roaming, MUM_LOCAL: local, MUM_DESKTOP: desktop, MUM_SMPROGRAMS: programs,
         MUM_UNKEY: 'Software\\MyUMLMakerHookTest\\Uninstall\\MyUMLMaker', MUM_PRODKEY: 'Software\\MyUMLMakerHookTest\\SHKWON\\MyUMLMaker',
-        MUM_SD_ASK: ask, MUM_SD_RUNNING: running,
+        MUM_SD_ASK: ask, MUM_SD_RUNNING: running, MUM_SD_REINSTALL: reinstall,
       });
       builds.set(key, out);
     }
@@ -63,7 +65,8 @@ export async function runHookCases(check) {
   const calls = () => { const file = path.join(base, 'old', 'uninstall-calls.log'); return fs.existsSync(file) ? fs.readFileSync(file, 'latin1') : ''; };
   const registered = () => reg('query', `${TESTKEY}\\Uninstall\\MyUMLMaker`).status === 0;
   const dataKept = () => fs.existsSync(path.join(roaming, 'window-state.json')) && fs.existsSync(path.join(local, 'EBWebView', 'Default', 'Local Storage'));
-  const setup = ({ install = false, data = false, emptyLocal = false, stale = false, app = null } = {}) => {
+  const shortcuts = (folder = 'MyUMLMaker') => [path.join(desktop, 'MyUMLMaker.lnk'), path.join(programs, folder, 'MyUMLMaker.lnk'), path.join(programs, folder, "MyUMLMaker User's Guide.lnk")];
+  const setup = ({ install = false, data = false, emptyLocal = false, stale = false, app = null, links = null } = {}) => {
     fs.rmSync(base, { recursive: true, force: true });
     fs.mkdirSync(base, { recursive: true });
     reg('delete', TESTKEY, '/f');
@@ -81,6 +84,10 @@ export async function runHookCases(check) {
       fs.mkdirSync(path.join(local, 'EBWebView', 'Default', 'Local Storage'), { recursive: true });
     }
     if (emptyLocal) fs.mkdirSync(local, { recursive: true });
+    if (links) {
+      for (const file of shortcuts(links)) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, 'x'); }
+      if (links !== 'MyUMLMaker') reg('add', `${TESTKEY}\\SHKWON\\MyUMLMaker`, '/v', 'StartMenuFolder', '/d', links, '/f');
+    }
   };
   const expect = (ok, detail) => { if (!ok) throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail)); };
 
@@ -115,6 +122,18 @@ export async function runHookCases(check) {
       setup({ install: true });
       installer('gui', 'IDYES');
       expect(result()?.wipe === '1' && !fs.existsSync(old), result());
+    });
+    await check('훅: 이전 설치 → 완전히 삭제하고 다시 설치? 아니오 → 설치 중단, 아무것도 안 바뀜', () => {
+      setup({ install: true, data: true, links: 'MyUMLMaker' });
+      installer('gui', 'IDYES', 'IDOK', 'IDNO');
+      expect(result() === null && fs.existsSync(path.join(old, 'uninstall.exe')) && registered() && calls() === '' && dataKept(), 'nothing changed');
+      expect(shortcuts().every((file) => fs.existsSync(file)), 'shortcuts kept');
+    });
+    await check('훅: 이전 설치 제거 → 바탕 화면·시작 메뉴 바로가기(이름 바꾼 폴더 포함)도 삭제', () => {
+      setup({ install: true, links: 'My Tools' });
+      installer('gui', 'IDNO');
+      expect(result() && !fs.existsSync(old), result());
+      expect(shortcuts('My Tools').every((file) => !fs.existsSync(file)) && !fs.existsSync(path.join(programs, 'My Tools')), `old shortcuts and their folder removed: ${JSON.stringify(shortcuts('My Tools').filter((file) => fs.existsSync(file)))}`);
     });
     await check('훅: 취소 → 설치 중단, 이전 설치·등록·데이터 그대로', () => {
       setup({ install: true, data: true });

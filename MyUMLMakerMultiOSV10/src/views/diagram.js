@@ -646,6 +646,8 @@ export class DiagramView {
   onPointerDown(event) {
     if (event.button === 1 || (event.button === 0 && this.spaceDown)) return this.startPan(event);
     if (event.button !== 0) return undefined;
+    const toggle = event.target.closest?.('[data-mm-toggle]');
+    if (toggle) { event.preventDefault(); event.stopPropagation(); this.app.toggleTopic?.(toggle.dataset.mmToggle); return undefined; }
     const badge = event.target.closest?.('.problem-badge');
     if (badge) {
       // A problem badge: select the view and its first problem in the Problems panel.

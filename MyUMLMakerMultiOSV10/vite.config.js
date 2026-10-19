@@ -42,6 +42,8 @@ function chunkOf(id) {
   const area = [
     ['/src/i18n/', 'i18n'],
     ['/src/icons', 'icons'],
+    // Leaf drawing data used by the renderer, the toolbox (model) and the UML icons: in 'render' it made model → render → model.
+    ['/src/render/glyphs.js', 'icons'],
     ['/src/domain/interop/', 'interop'],
     ['/src/domain/codegen/', 'code'],
     ['/src/domain/reverse/', 'code'],

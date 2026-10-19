@@ -314,7 +314,38 @@ const base = {
   xmiImport: '<path d="M6 9l-3 3 3 3M12 9l3 3-3 3"/><path d="M10 7l-2 10"/><path d="M20 3v8M17 8l3 3 3-3"/>',
   xmiExport: '<path d="M6 9l-3 3 3 3M12 9l3 3-3 3"/><path d="M10 7l-2 10"/><path d="M20 11V3M17 6l3-3 3 3"/>',
   xmiModelExport: '<path d="M6 13l-3 3 3 3M12 13l3 3-3 3"/><path d="M10 11l-2 10"/><rect x="15" y="3" width="6" height="5" rx="1"/><path d="M18 8v3"/>',
+  // ── mind map commands (MindManager): a topic with a new one beside / under it, +/−, all closed / open, laid out again
+  mmAddChild: '<rect x="2" y="8" width="9" height="7" rx="3"/><path d="M11 11.5h3l2 5"/><rect x="15" y="15" width="7" height="6" rx="2.5"/><path d="M18.5 3v6M15.5 6h6"/>',
+  mmAddSibling: '<rect x="8" y="3" width="11" height="7" rx="3"/><rect x="8" y="14" width="11" height="7" rx="3" stroke-dasharray="2.5 2"/><path d="M4 6.5h4M4 6.5v11h4"/>',
+  mmToggle: '<rect x="2" y="8" width="10" height="8" rx="3"/><circle cx="17.5" cy="12" r="4.5"/><path d="M15.5 12h4M17.5 10v4M12 12h1"/>',
+  mmCollapseAll: '<rect x="8" y="9" width="8" height="6" rx="2.5"/><circle cx="4" cy="12" r="2.5"/><circle cx="20" cy="12" r="2.5"/><path d="M18.8 12h2.4M2.8 12h2.4M6.5 12H8M16 12h1.5"/>',
+  mmExpandAll: '<rect x="8.5" y="9.5" width="7" height="5" rx="2"/><path d="M8.5 12L4 5M8.5 12L4 19M15.5 12L20 5M15.5 12L20 19"/><circle cx="4" cy="5" r="1.5"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/><circle cx="20" cy="19" r="1.5"/>',
+  mmRelayout: '<rect x="9" y="10" width="6" height="4" rx="1.5"/><path d="M9 12H5M15 12h4M5 7v10M19 7v10"/><path d="M20 3a9 9 0 0 0-9-1.5M4 21a9 9 0 0 0 9 1.5"/><path d="M17 2.5l3 .5-.5 3"/>',
+  // ── moving backgrounds (start page chips): anim + the ANIMATIONS name, capitalised
+  animAurora: '<path d="M3 6c3-2 6 2 9 0s6-2 9 0"/><path d="M5 7.5v7M9 8v11M13 7v9M17 7v12M20 7.5v6" opacity="0.65"/>',
+  animWaves: '<path d="M3 7c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+  animParticles: '<circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="12" cy="4.5" r="0.8" fill="currentColor"/><circle cx="18.5" cy="7.5" r="1.6" fill="currentColor"/><circle cx="9" cy="11" r="1.8" fill="currentColor"/><circle cx="15.5" cy="13" r="1" fill="currentColor"/><circle cx="4.5" cy="16.5" r="1" fill="currentColor"/><circle cx="11" cy="18.5" r="1.3" fill="currentColor"/><circle cx="19.5" cy="18" r="0.9" fill="currentColor"/>',
+  animConstellation: '<path d="M4 17l5-7 6 3 5-8M9 10l-2-5"/><circle cx="4" cy="17" r="1.4"/><circle cx="9" cy="10" r="1.4"/><circle cx="15" cy="13" r="1.4"/><circle cx="20" cy="5" r="1.4"/><circle cx="7" cy="5" r="1"/>',
+  animBubbles: '<circle cx="8" cy="15" r="4.5"/><circle cx="16.5" cy="8" r="3"/><circle cx="17.5" cy="17.5" r="2"/><circle cx="7" cy="5.5" r="1.5"/><path d="M6 13a2.2 2.2 0 0 1 2-1.5" opacity="0.6"/>',
+  animGridflow: '<path d="M3 20h18M5 15.5h14M7.5 12h9M10 9.5h4M12 9.5V20M10 9.5L6 20M14 9.5l4 10.5M8 9.5L3 17M16 9.5l5 7.5"/><path d="M4 5h16" opacity="0.5"/>',
+  animFlowchart: '<rect x="3" y="3" width="7" height="5" rx="1"/><path d="M6.5 8v2.5"/><path d="M6.5 10.5l3.5 3.5-3.5 3.5-3.5-3.5z"/><path d="M10 14h4M12.5 12.5L14 14l-1.5 1.5"/><rect x="14" y="11.5" width="7" height="5" rx="2.5"/>',
+  animStarfield: '<path d="M9.5 9.5L6 6M14.5 9.5L18 6M9.5 14.5L6 18M14.5 14.5L18 18M12 8.5V4M12 15.5V20M8.5 12H4M15.5 12H20"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/>',
+  animRain: '<path d="M7 13a4 4 0 0 1 .4-8 5 5 0 0 1 9.6 1.5A3.3 3.3 0 0 1 17 13z"/><path d="M8.5 16l-1 3M12.5 16l-1 3M16.5 16l-1 3"/>',
+  animSnow: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M10 4.5l2 2 2-2M10 19.5l2-2 2 2"/>',
+  animFireflies: '<circle cx="7" cy="8" r="1.4" fill="currentColor"/><circle cx="7" cy="8" r="3.4" opacity="0.45"/><circle cx="15.5" cy="15.5" r="1.6" fill="currentColor"/><circle cx="15.5" cy="15.5" r="4" opacity="0.45"/><circle cx="17.5" cy="5.5" r="1" fill="currentColor"/><circle cx="5.5" cy="18" r="1" fill="currentColor"/>',
+  animRipples: '<path d="M12 3v5"/><ellipse cx="12" cy="15" rx="2.5" ry="1"/><ellipse cx="12" cy="15" rx="6" ry="2.6"/><ellipse cx="12" cy="15" rx="9.5" ry="4.5" opacity="0.6"/>',
+  animCoderain: '<path d="M5 3v10M10 6v14M15 3v8M20 8v12" stroke-dasharray="2 2.5"/><path d="M5 15v1M15 13v1" stroke-width="2.6"/>',
+  animHexagons: '<path d="M8 4l3.5 2v4L8 12 4.5 10V6zM15.5 8l3.5 2v4l-3.5 2-3.5-2v-4zM8 12l3.5 2v4L8 20l-3.5-2v-4z"/>',
+  animOrbits: '<circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="9.5" ry="4"/><ellipse cx="12" cy="12" rx="4" ry="9.5" opacity="0.55"/><circle cx="2.5" cy="12" r="1.3" fill="currentColor"/>',
+  animLava: '<path d="M9.5 3h5l2.5 15H7z"/><path d="M8 21h8M9.5 18v3M14.5 18v3"/><circle cx="12" cy="14" r="1.8"/><circle cx="11" cy="8.5" r="1.1"/>',
+  animSpiral: '<path d="M12 12a1.5 1.5 0 0 1 3 0 3 3 0 0 1-6 0 4.5 4.5 0 0 1 9 0 6 6 0 0 1-12 0 7.5 7.5 0 0 1 15 0"/>',
+  animConfetti: '<path d="M4 5l2 2M17 3.5l-1.5 2.5M10 9.5l1 2.5M18.5 13.5l2.5 1M4.5 16l1.5-2.5M13 19.5l2.5-.5M7.5 21l-1-1.5"/><rect x="12.5" y="6.5" width="2.5" height="2.5" rx="0.5" transform="rotate(25 13.75 7.75)"/><circle cx="20" cy="8.5" r="1" fill="currentColor"/><circle cx="8" cy="12" r="1" fill="currentColor"/><circle cx="18" cy="20" r="1" fill="currentColor"/>',
+  animNodes: '<circle cx="12" cy="12" r="2.5"/><circle cx="4.5" cy="5" r="1.8"/><circle cx="19.5" cy="5" r="1.8"/><circle cx="4.5" cy="19" r="1.8"/><circle cx="19.5" cy="19" r="1.8"/><path d="M10.2 10.3L5.8 6.3M13.8 10.3l4.4-4M10.2 13.7l-4.4 4M13.8 13.7l4.4 4M6.3 5h11.4"/>',
+  animRibbons: '<path d="M3 14c4-8 8 4 12-4 2-4 4-4 6-5"/><path d="M3 19c4-8 8 4 12-4 2-4 4-4 6-5" opacity="0.6"/>',
 };
+
+/** The icon for a moving background kind (`aurora` → `animAurora`). */
+export const animationIcon = (kind) => `anim${kind[0].toUpperCase()}${kind.slice(1)}`;
 const paths = { ...base, ...UML_ICONS };
 
 export const ICON_NAMES = Object.keys(paths);

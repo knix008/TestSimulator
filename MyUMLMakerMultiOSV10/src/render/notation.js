@@ -8,6 +8,7 @@
 // thumbnails and the HTML documentation all use this, so what is on screen is
 // what is exported. Pure: text is measured by a function passed in.
 import { esc, estimateMeasure, n, textLine, DEFAULT_FONT } from './text.js';
+import { hiddenViews } from '../domain/mindmap.js';
 import { SHAPES, operandBounds, shade } from './shapes.js';
 import { DIAGRAM_BG_FITS, DIAGRAM_BG_KINDS, DIAGRAM_BG_PATTERNS, typeDef, viewDef } from '../domain/meta.js';
 import { buildIndex, isEdgeView, refId } from '../domain/model.js';
@@ -43,13 +44,15 @@ export function createRenderContext({ project, diagram, index = null, measure = 
     project, diagram, index: index ?? buildIndex(project), measure, language, lineStyle, palette, background: backdrop?.color ?? palette.background, backdrop, font, fontSize, showShadow,
     boxes: new Map(), routes: new Map(), cache: new Map(), sequence: null, diagramProvider: typeDef(diagram?._type)?.provider ?? null,
   };
+  ctx.hidden = diagram?._type === 'MMMindmapDiagram' ? hiddenViews(diagram, ctx.index) : null;
   ctx.containsViews = (view) => containsViews(ctx, view);
   ctx.nodeBox = (view) => nodeBox(ctx, view);
   ctx.headerHeight = (view) => ctx.sequence?.lifelines.get(view._id)?.headerH ?? null;
   return ctx;
 }
 
-const viewsOf = (ctx) => ctx.diagram?.ownedViews ?? [];
+// A mind map leaves out the topics under a collapsed topic (mindmap.js hiddenViews).
+const viewsOf = (ctx) => (ctx.hidden?.size ? (ctx.diagram?.ownedViews ?? []).filter((view) => !ctx.hidden.has(view._id)) : ctx.diagram?.ownedViews ?? []);
 export const elementOf = (ctx, view) => (view.model ? ctx.index.get(refId(view.model)) : null);
 export const shapeOfView = (view) => viewDef(view._type).shape ?? 'rect';
 

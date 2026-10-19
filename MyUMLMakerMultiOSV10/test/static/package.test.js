@@ -186,17 +186,26 @@ test('installer languages: Korean and English, user selectable', () => {
 test('installer hooks: one installation only (an old one removed completely), the user is asked whether to delete the user data', () => {
   const buffer = read('src-tauri/windows/hooks.nsh');
   assert.deepEqual([...buffer.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'UTF-8 BOM (NSIS reads Korean correctly)');
-  const hooks = buffer.toString();
+  // Git may check the file out with CRLF (core.autocrlf): the patterns below expect LF.
+  const hooks = buffer.toString().replace(/\r\n/g, '\n');
   const fn = (name) => new RegExp(`\\nFunction ${name}\\n([\\s\\S]*?)\\nFunctionEnd`).exec(hooks)?.[1] ?? assert.fail(`Function ${name}`);
   const macro = (name) => new RegExp(`!macro ${name}\\n([\\s\\S]*?)\\n!macroend`).exec(hooks)?.[1] ?? assert.fail(`!macro ${name}`);
   // The data folders are those of the real identifier.
   assert.ok(hooks.includes(`"$APPDATA\\${conf.identifier}"`) && hooks.includes(`"$LOCALAPPDATA\\${conf.identifier}"`), 'the data folders of tauri.conf.json identifier');
   // Asked before the first page (MUI GUI init), in the installer language.
   assert.match(hooks, /!define MUI_CUSTOMFUNCTION_GUIINIT MumGuiInit/);
-  for (const lang of ['1042', '1033']) for (const name of ['MumAskData', 'MumOldFound', 'MumRunning']) assert.match(hooks, new RegExp(`LangString ${name} ${lang} "`), `${name} for ${lang}`);
+  for (const lang of ['1042', '1033']) for (const name of ['MumAskReinstall', 'MumAskData', 'MumRunning', 'MumShortcutDesktop', 'MumShortcutStartMenu']) assert.match(hooks, new RegExp(`LangString ${name} ${lang} "`), `${name} for ${lang}`);
   assert.ok(hooks.includes('LangString MumAskData 1042 "이전에 사용하던 사용자 데이터(설정, 최근 파일·폴더, 열린 프로젝트 목록, 데이터베이스 연결, 배경 그림, 튜토리얼 기록, 창 위치)를 삭제할까요?'), 'the Korean question');
+  assert.ok(hooks.includes('완전히 삭제하고 다시 설치할까요?'), 'the Korean reinstall question');
   const gui = fn('MumGuiInit');
-  assert.match(gui, /MessageBox MB_YESNOCANCEL\|MB_ICONQUESTION\|MB_DEFBUTTON2 "\$3"/, 'Yes / No (default) / Cancel');
+  // First: remove the earlier program and install again? (No stops the installation.) Then: delete the user data?
+  assert.match(gui, /MessageBox MB_YESNO\|MB_ICONQUESTION "\$\(MumAskReinstall\)"[^\n]*IDYES \+2\s*Quit/, 'reinstall: Yes / No (stop)');
+  assert.match(gui, /MessageBox MB_YESNOCANCEL\|MB_ICONQUESTION\|MB_DEFBUTTON2 "\$\(MumAskData\)"/, 'user data: Yes / No (default) / Cancel');
+  assert.ok(gui.indexOf('MumAskReinstall') < gui.indexOf('MumAskData'), 'the reinstall question comes first');
+  // Shortcuts: a page with desktop and Start menu check boxes (MUI_PAGE_STARTMENU wrapped), old shortcuts removed with the old copy.
+  assert.match(hooks, /!macroundef MUI_PAGE_STARTMENU[\s\S]*Page custom MumShortcutsShow MumShortcutsLeave/);
+  assert.match(hooks, /!macroundef MUI_PAGE_FINISH[\s\S]*MUI_UNSET MUI_FINISHPAGE_SHOWREADME\b/, 'no second desktop check box on the finish page');
+  assert.match(fn('MumRemoveOld'), /Call MumRemoveOldShortcuts/);
   assert.match(gui, /"\$MumOldUser\$MumOldMachine" != ""\s*\$\{OrIf\} \$2 == 1\s*MessageBox/, 'asked only with a previous installation or existing user data');
   assert.ok(gui.indexOf('MumRunningApps') > gui.indexOf('MB_YESNOCANCEL') && gui.indexOf('Call MumRemoveOld', gui.indexOf('MB_YESNOCANCEL')) > gui.indexOf('"close"'), 'ask, then close the running windows, then remove the old copy');
   // Functions in the hooks file are compiled before the template's variables and defines exist.

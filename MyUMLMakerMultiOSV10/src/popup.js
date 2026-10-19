@@ -703,35 +703,141 @@ function renderRecent() {
 }
 
 // ───────────────────────── menu
+//
+// A menu and its open groups are panels in this one popup. A group row (`children`) opens its
+// items in a panel beside it when the pointer rests on it (or on a click, → or Enter), and the
+// popup grows to hold every open panel. Where the window can be transparent (Windows, Linux, the
+// web frame) only the panels show, each with its own shadow in MENU_MARGIN around them; macOS
+// windows stay opaque (Tauri needs its private API for that), so there the popup is a plain box.
 
-function renderMenu() {
-  const p = P();
-  // Created ahead of time (prewarm) or reopened without a menu: stay hidden.
-  if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
-  const items = p.items;
-  setOsTitle(p.header?.title);
-  // Items only: no name/icon header row (the name stays the window title and the accessible name).
-  const header = '';
-  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}">${header}${items.map((item, index) => (item.separator
+const menuGlass = !desktop || !/Mac/i.test(navigator.platform);
+const MENU_MARGIN = menuGlass ? 10 : 0;
+const MENU_OPEN_DELAY = 120;
+const MENU_CLOSE_DELAY = 300;
+if (kind === 'menu' && menuGlass) document.documentElement.classList.add('menu-glass');
+/** Open panels, outermost first: { el, items, row (the group row that opened it), x, y, w, h } in screen pixels. */
+let menuPanels = [];
+let menuTimer = 0;
+
+function menuPanelHtml(items, level, label) {
+  return `<div class="popup-menu" role="menu" data-level="${level}" aria-label="${escapeHtml(label ?? '')}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
         <span class="menu-icon">${icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
       </button>`)).join('')}</div>`;
-  const menu = root.querySelector('.popup-menu');
-  const width = Math.ceil(menu.scrollWidth) + 2;
-  const height = Math.ceil(menu.scrollHeight) + 2;
-  const anchor = p.anchor ?? { x: 100, y: 100 };
-  if (desktop) {
-    native.invoke('place_popup', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true })
-      .then(() => window.focus())
-      .catch(() => {});
-  } else {
-    send('place', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
+}
+
+/** Adds a panel (hidden until placed) and measures it. */
+function addMenuPanel(items, level, label) {
+  root.querySelector('.menu-stack').insertAdjacentHTML('beforeend', menuPanelHtml(items, level, label));
+  const el = root.querySelector(`.popup-menu[data-level="${level}"]`);
+  return { el, items, w: Math.ceil(el.offsetWidth), h: Math.ceil(el.offsetHeight) };
+}
+
+/** Screen position of this popup's top-left corner (the web frame: inside the page, as popups.js places it). */
+function menuOrigin() {
+  const frame = window.frameElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
+  return { x: window.screenX + frame.left, y: window.screenY + frame.top };
+}
+
+/** Where panels may go: the monitor's work area (desktop) or the page (web), less the shadow margin. */
+function menuBounds() {
+  const m = Math.max(MENU_MARGIN, 4);
+  if (desktop || !window.parent || window.parent === window) {
+    const s = window.screen;
+    const left = s.availLeft ?? 0;
+    const top = s.availTop ?? 0;
+    return { left: left + m, top: top + m, right: left + s.availWidth - m, bottom: top + s.availHeight - m };
   }
+  return { left: window.screenX + m, top: window.screenY + m, right: window.screenX + window.parent.innerWidth - m, bottom: window.screenY + window.parent.innerHeight - m };
+}
+
+function placeMenuWindow(x, y, width, height, flipY = null) {
+  if (desktop) {
+    native.invoke('place_popup', { x, y, width, height, flipY, show: true }).then(() => window.focus()).catch(() => {});
+  } else {
+    send('place', { x, y, width, height, flipY });
+  }
+}
+
+/** Sizes the popup to the open panels (plus their shadow margin) and puts each panel at its place. */
+function layoutMenus() {
+  const left = Math.min(...menuPanels.map((p) => p.x)) - MENU_MARGIN;
+  const top = Math.min(...menuPanels.map((p) => p.y)) - MENU_MARGIN;
+  const right = Math.max(...menuPanels.map((p) => p.x + p.w)) + MENU_MARGIN;
+  const bottom = Math.max(...menuPanels.map((p) => p.y + p.h)) + MENU_MARGIN;
+  for (const p of menuPanels) {
+    p.el.style.left = `${p.x - left}px`;
+    p.el.style.top = `${p.y - top}px`;
+    p.el.style.visibility = '';
+  }
+  placeMenuWindow(left, top, right - left, bottom - top);
+}
+
+function renderMenu() {
+  const p = P();
+  // Created ahead of time (prewarm) or reopened without a menu: stay hidden.
+  if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
+  setOsTitle(p.header?.title);
+  clearTimeout(menuTimer);
+  // Items only: no name/icon header row (the name stays the window title and the accessible name).
+  root.innerHTML = '<div class="menu-stack"></div>';
+  const main = addMenuPanel(p.items, 0, p.header?.title);
+  main.el.style.left = `${MENU_MARGIN}px`;
+  main.el.style.top = `${MENU_MARGIN}px`;
+  menuPanels = [main];
+  const anchor = p.anchor ?? { x: 100, y: 100 };
+  // The host keeps the menu on the screen (and opens it above `flipY` when there is no room below).
+  placeMenuWindow(anchor.x - MENU_MARGIN, anchor.y - MENU_MARGIN, main.w + 2 * MENU_MARGIN, main.h + 2 * MENU_MARGIN, anchor.flipY != null ? anchor.flipY + MENU_MARGIN : null);
   menuOpen = true;
+}
+
+const panelLevel = (element) => Number(element?.closest('.popup-menu')?.dataset.level ?? 0);
+
+/** Closes the panels from `level` on (the group rows that opened them are no longer open). */
+function closeSubmenus(level) {
+  if (menuPanels.length <= level) return;
+  for (const panel of menuPanels.splice(level)) {
+    panel.el.remove();
+    panel.row?.classList.remove('open');
+    panel.row?.setAttribute('aria-expanded', 'false');
+  }
+  layoutMenus();
+}
+
+/** Opens a group row's items beside it: right of its panel, or left when the screen ends there. */
+function openSubmenu(row, focusFirst = false) {
+  const level = panelLevel(row);
+  const parent = menuPanels[level];
+  const item = parent?.items[Number(row.dataset.index)];
+  if (!item?.children?.length || row.disabled) return false;
+  if (menuPanels[level + 1]?.row !== row) {
+    // The first panel's place on the screen, from where the host really put it.
+    if (level === 0 && menuPanels.length === 1) {
+      const origin = menuOrigin();
+      parent.x = origin.x + parseFloat(parent.el.style.left);
+      parent.y = origin.y + parseFloat(parent.el.style.top);
+    }
+    closeSubmenus(level + 1);
+    const panel = addMenuPanel(item.children, level + 1, item.label);
+    panel.el.style.visibility = 'hidden';
+    const bounds = menuBounds();
+    const rowTop = parent.y + (row.getBoundingClientRect().top - parent.el.getBoundingClientRect().top);
+    let x = parent.x + parent.w + 2;
+    if (x + panel.w > bounds.right) x = parent.x - panel.w - 2;
+    let y = rowTop - 7;
+    if (y + panel.h > bounds.bottom) y = bounds.bottom - panel.h;
+    Object.assign(panel, { row, x: Math.max(bounds.left, x), y: Math.max(bounds.top, y) });
+    menuPanels.push(panel);
+    row.classList.add('open');
+    row.setAttribute('aria-expanded', 'true');
+    layoutMenus();
+  }
+  if (focusFirst) menuPanels[level + 1].el.querySelector('.menu-item:not([disabled])')?.focus();
+  return true;
 }
 
 let menuOpen = false;
@@ -740,27 +846,62 @@ function shownOnce() {
   const at = Number(P().at) || 0;
   return at >= loadedAt - 60_000;
 }
-async function chooseMenu(id) {
+async function chooseMenu(id, row = null) {
   if (!menuOpen) return;
+  const item = row ?? (id ? root.querySelector(`.menu-item[data-id="${CSS.escape(id)}"]`) : null);
+  // A group opens beside its row and the menu stays.
+  if (item?.classList.contains('has-sub') && openSubmenu(item, true)) return;
   menuOpen = false;
-  const item = id ? root.querySelector(`.menu-item[data-id="${CSS.escape(id)}"]`) : null;
-  // A group: the host opens its items in a menu just right of this row (screen coordinates).
+  clearTimeout(menuTimer);
+  // A group without its items (should not happen): the host opens them in a menu just right of the row.
   if (item?.classList.contains('has-sub')) {
     const rect = item.getBoundingClientRect();
-    const frame = window.frameElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
-    const x = window.screenX + frame.left + rect.right + 2;
-    const y = window.screenY + frame.top + rect.top - 6;
-    return hide({ id, at: { x, y, flipY: window.screenY + frame.top + rect.bottom + 6 } });
+    const origin = menuOrigin();
+    return hide({ id, at: { x: origin.x + rect.right + 2, y: origin.y + rect.top - 6, flipY: origin.y + rect.bottom + 6 } });
   }
   await hide({ id });
 }
 
+/** ↑ / ↓ within the panel that has the focus (else the innermost one). */
 function moveMenuFocus(direction) {
-  const items = [...root.querySelectorAll('.menu-item:not([disabled])')];
+  const panel = document.activeElement?.closest?.('.popup-menu') ?? menuPanels.at(-1)?.el;
+  const items = [...(panel?.querySelectorAll('.menu-item:not([disabled])') ?? [])];
   if (!items.length) return;
   const current = items.indexOf(document.activeElement);
   items[(current + direction + items.length) % items.length].focus();
 }
+
+/** ← / Esc in a submenu: closes it and gives the focus back to its group row. */
+function closeInnermostSubmenu() {
+  const level = Math.max(panelLevel(document.activeElement), menuPanels.length - 1);
+  if (level < 1 || !menuPanels[level]) return false;
+  const row = menuPanels[level].row;
+  closeSubmenus(level);
+  row?.focus();
+  return true;
+}
+
+// The pointer resting on a group row opens it; resting on another row of that panel closes the
+// open group (later, so that a diagonal move into the submenu does not close it on the way).
+root.addEventListener('pointerover', (event) => {
+  if (kind !== 'menu' || !menuOpen) return;
+  const panel = event.target.closest('.popup-menu');
+  if (!panel) return;
+  clearTimeout(menuTimer);
+  const row = event.target.closest('.menu-item');
+  if (!row) return;
+  const level = panelLevel(row);
+  if (row.classList.contains('has-sub') && !row.disabled) {
+    if (menuPanels[level + 1]?.row !== row) menuTimer = setTimeout(() => openSubmenu(row), MENU_OPEN_DELAY);
+  } else if (menuPanels.length > level + 1) {
+    menuTimer = setTimeout(() => closeSubmenus(level + 1), MENU_CLOSE_DELAY);
+  }
+});
+
+// A click on the empty space around the panels closes the menu, as a click outside it does.
+root.addEventListener('pointerdown', (event) => {
+  if (kind === 'menu' && menuOpen && !event.target.closest('.popup-menu')) chooseMenu(null);
+});
 
 
 // ───────────────────────── settings: drawing and defaults
@@ -1471,7 +1612,7 @@ root.addEventListener('click', async (event) => {
     return render();
   }
   if (target.dataset.traceSegment) return runTrace({ [target.dataset.traceSegment]: target.dataset.value });
-  if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id);
+  if (target.classList.contains('menu-item')) return chooseMenu(target.dataset.id, target);
   if (target.dataset.setting) {
     const key = target.dataset.setting;
     const raw = target.dataset.value;
@@ -1635,14 +1776,16 @@ root.addEventListener('input', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault();
-    if (kind === 'menu') chooseMenu(null);
+    // A menu: Esc closes the innermost open submenu first.
+    if (kind === 'menu') { if (!closeInnermostSubmenu()) chooseMenu(null); }
     else if (kind !== 'progress') { if (kind === 'color') colorDone = true; close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null); }
   }
   if (kind === 'menu') {
     if (event.key === 'ArrowDown') { event.preventDefault(); moveMenuFocus(1); }
     if (event.key === 'ArrowUp') { event.preventDefault(); moveMenuFocus(-1); }
-    if (event.key === 'Enter' && document.activeElement?.classList.contains('menu-item')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
-    if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
+    if (event.key === 'Enter' && document.activeElement?.classList.contains('menu-item')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id, document.activeElement); }
+    if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id, document.activeElement); }
+    if (event.key === 'ArrowLeft') { event.preventDefault(); closeInnermostSubmenu(); }
   }
   if (kind === 'print' && event.key === 'PageDown') { state.page += 1; render(); }
   if (kind === 'print' && event.key === 'PageUp') { state.page -= 1; render(); }
