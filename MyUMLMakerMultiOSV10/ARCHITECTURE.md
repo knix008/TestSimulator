@@ -33,14 +33,16 @@
 | 경로 | 역할 |
 |---|---|
 | `src/domain/` | UI와 무관한 순수 로직 (Node에서 단위 테스트) |
-| `├ meta.js` | 메타모델: 요소 타입 299개(`TYPES`, UML 2와 ERD · 순서도 · DFD · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 간트·WBS·타임라인 · ArchiMate · 네트워크 · JSON·YAML·EBNF·정규식), 다이어그램 38종(`DIAGRAM_TYPES`, `DIAGRAM_FAMILIES` 14계열), 요구사항 속성 값(`REQUIREMENT_KINDS` · `REQUIREMENT_STATUSES` · `REQUIREMENT_PRIORITIES` · `VERIFY_METHODS`), 타입별 필드(속성 패널을 만듦), 자식이 들어갈 컬렉션(`collectionFor`), 모델 없는 주석 뷰(`VIEW_ONLY`), 뷰의 `shape` |
+| `├ meta.js` | 메타모델: 요소 타입 316개(`TYPES`, 다이어그램 타입 포함, UML 2와 ERD · 순서도 · DFD · SysML · BPMN · C4 · 마인드맵(관계선 `MMRelationship` · 경계 `MMBoundary` 포함) · 와이어프레임 · 클라우드 · 간트·WBS·타임라인 · ArchiMate · 네트워크 · 애자일·UX(`UXModel`, 스토리 맵 `US*`, 고객 여정 `CJ*`) · JSON·YAML·EBNF·정규식), 다이어그램 40종(`DIAGRAM_TYPES`, `DIAGRAM_FAMILIES` 15계열), 요구사항 속성 값(`REQUIREMENT_KINDS` · `REQUIREMENT_STATUSES` · `REQUIREMENT_PRIORITIES` · `VERIFY_METHODS`), 타입별 필드(속성 패널을 만듦), 자식이 들어갈 컬렉션(`collectionFor`), 모델 없는 주석 뷰(`VIEW_ONLY`), 뷰의 `shape` |
 | `├ model.js` | 프로젝트 트리와 모든 모델 편집: id(`newId`), `$ref` 참조, 색인(`buildIndex`), 요소·다이어그램 추가/삭제/이동, 관계 끝, 뷰 생성(`createNodeView`/`createEdgeView`), 찾기, 통계, 복제(`cloneWithNewIds`) |
 | `├ edit.js` | 모델과 뷰를 함께 바꾸는 편집: 도구로 요소+뷰 만들기(알맞은 소유자 찾기), 두 뷰 사이 관계 그리기, 기존 요소 보이기, 관련 클래스 빠른 추가(`RELATED`), 이동·맞춤·분배·같은 크기·순서, 패키지에 놓으면 소유자 바꾸기 |
-| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 38종): 노드·간선·주석 도구. `DIAGRAM_TABS`(다이어그램 종류 탭의 묶음 14개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 프로젝트 · ArchiMate · 데이터 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
+| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 40종): 노드·간선·주석 도구(같은 타입에 다른 기본값을 준 도구도 있음: 떠 있는 토픽, 생각·고통 지점·기회·아이디어 카드). `DIAGRAM_TABS`(다이어그램 종류 탭의 묶음 15개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 프로젝트 · ArchiMate · 애자일·UX · 데이터 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
 | `├ labels.js` | UML 표기 문자열(`+ name: Type [0..*] = 1`, 오퍼레이션 서명, «스테레오타입», 메시지·전이 레이블)과 그 역(빠른 편집 입력 → 필드: `parseAttribute`, `parseOperation`) |
 | `├ layout.js` | 자동 레이아웃(층 배치, 방향 `TB`/`BT`/`LR`/`RL`, 일반화는 위로)과 시퀀스 다이어그램 정리 |
 | `├ validate.js` | 모델 검증 규칙 34개(`RULES`, 오류/경고, 한/영 메시지 — 날짜·기간·데이터 문법, 요구사항 충족·검증·ID 중복, ERD 중복 열·엔터티·열 타입·외래 키 타입·관계의 외래 키 포함)와 `validate`(앱의 색인을 받아 다시 만들지 않음), `summarize`, `sqlTypeKey` |
 | `├ problems.js` | 문제 패널: 검증 결과를 고칠 자리(경로·종류·보여 주는 다이어그램과 뷰)가 담긴 줄로 바꾸기(`problemRows`), 정렬·묶기·필터(심각도·현재 다이어그램·글자)·개수, 다이어그램 표시(`problemsByView`), 두 번 누를 때 갈 필드(`problemField`) |
+| `├ mindmap.js` | MindManager식 마인드맵: 토픽 추가(`addTopic`, 하위·같은 수준), 자동 배치(`layoutMindmap`, `map` · `right` · `left` · `down` · `free`), 가지 접기(`toggleCollapsed`, `collapseToLevel`)와 렌더러가 쓰는 숨은 뷰(`hiddenViews`), 개요(`outlineRows`, `outlineText` 텍스트·Markdown, 들여쓴 글 파싱 `parseOutline`과 하위 토픽 추가 `addOutline`) |
+| `├ bpmnsim.js` | BPMN 토큰 시뮬레이션: 다이어그램 → 노드·시퀀스 흐름 그래프(`simulationGraph`), 실행 상태(`createSimulation`, 시드가 있는 무작위 선택, 최대 400단계)와 한 단계(`stepSimulation`: 게이트웨이 종류별 분기, 병렬·포괄 합류, 교착 판정), 끝까지 실행(`runSimulation`), 여러 번 실행해 완료·교착·반복 초과·도달 비율·도달하지 않는 요소·쓰이지 않는 흐름 모으기(`analyseSimulation`). 모델은 바꾸지 않음 |
 | `├ planning.js` | 간트 차트·타임라인의 날짜 계산: 날짜 ↔ 일 번호, 쉬는 요일·날짜, 작업일 기간, 일정(`schedule`: 자기 시작일 → 선행 작업이 끝나는 날 → 프로젝트 시작) |
 | `├ archimate.js` | ArchiMate 3 계층별 요소(`ARCHIMATE_LAYERS`, `ARCHIMATE_ELEMENTS`, `kind` = "<계층>-<이름>", PlantUML 스프라이트 이름)와 색·모양, 관계 11종(`ARCHIMATE_RELATIONS`) |
 | `├ datatext.js` | 데이터 다이어그램의 글: JSON·YAML 파싱과 나무 표 행(`parseData`, `dataRows`), EBNF 규칙·정규식 → 철도 다이어그램 나무(`railroadOf`) |
@@ -53,17 +55,17 @@
 | `├ interop/` | `staruml.js`(`.mdj` 프로젝트·`.mfj` 조각 읽기/쓰기), `mermaid.js`(Mermaid ↔ 모델, 공용 중간 표현과 층 배치), `plantuml.js`(PlantUML ↔ 모델: 모든 UML 다이어그램과 마인드맵, 전처리기 `preprocessPlantUml`), `plantuml-more.js`(`@startgantt` · `@startwbs` · `@startchronology` · ArchiMate · `@startnwdiag` · `@startjson` · `@startyaml` · `@startebnf` · `@startregex` · `@startsalt`, `plantuml.js`가 먼저 물어봄), `xmi.js`(XMI 2.x 읽기·쓰기), `xml.js`(작은 XML 파서·작성기) |
 | `├ format.js` | `.myuml`/`.mumlt` 직렬화·파싱·복구(`normalizeProject`, 예전 `.muml`도 프로젝트 파일로 읽음), 파일 이름 판별(`isStarUmlFileName`, `isXmiFileName`, `isFragmentFileName`, `isSourceFileName` …). 기준선은 `.myuml`에만 저장(템플릿에서는 뺌) |
 | `├ document.js`, `history.js` | 열린 프로젝트 하나(한 번에 하나만 열림): 경로, 변경 여부, 색인 캐시, 최근에 연 다이어그램 순서(`view.open`)와 다이어그램별 확대·스크롤, 스냅샷 실행 취소 |
-| `├ templates.js`, `templates-more.js` | 새 프로젝트 템플릿 21종(`TEMPLATES`)과 예제 "Online Shop"(다이어그램 38개, 한/영, 일반 편집 함수로 빌드, `SAMPLE_FILES`). `templates-more.js`는 간트 · WBS · 타임라인 · ArchiMate · 네트워크 · JSON · YAML · EBNF · 정규식 예제와 그 템플릿 |
+| `├ templates.js`, `templates-more.js` | 새 프로젝트 템플릿 23종(`TEMPLATES`)과 예제 "Online Shop"(다이어그램 40개, 한/영, 일반 편집 함수로 빌드, `SAMPLE_FILES`). `templates-more.js`는 간트 · WBS · 타임라인 · ArchiMate · 네트워크 · JSON · YAML · EBNF · 정규식 예제, 애자일·UX 모델의 사용자 스토리 맵 · 고객 여정 지도 예제와 그 템플릿 |
 | `├ cloud.js` | AWS · Azure · Google Cloud 서비스 목록과 그룹 종류(타일 색만, 공급자 그림 없음) |
 | `├ settings.js`, `recent.js` | 설정 기본값·검증·저장(localStorage), DB 연결 설정, 설치 후 초기화, 최근 파일·폴더 10개 |
-| `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 135종 — `shapes-more.js`의 간트 막대·WBS·타임라인·ArchiMate·네트워크·JSON/YAML 나무 표·철도 다이어그램을 합침. 날짜를 따르는 뷰는 `place`가 위치를 정함), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
-| `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 다이어그램 종류 탭 `renderTypeTabs`) |
-| `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`, `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `dom.js` |
+| `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 145종 — `shapes-more.js`의 간트 막대·WBS·타임라인·ArchiMate·네트워크·JSON/YAML 나무 표·철도 다이어그램·스토리 맵 카드와 릴리스 띠·고객 여정 단계/행/카드/감정을 합침. 날짜를 따르는 뷰는 `place`가 위치를 정함), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
+| `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 다이어그램 종류 탭 `renderTypeTabs`, 시뮬레이션 프레임을 `.canvas-sim` 층에 그리는 `drawSimulation`) |
+| `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`, `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `simulation.js`(`SimulationController`: BPMN 시뮬레이션 막대 — 재생·한 단계·처음부터·속도·100회 분석·닫기·상태 줄 — 와 흐름을 따라 움직이는 토큰 애니메이션, `bpmnsim.js`를 씀), `dom.js` |
 | `src/print/render.js` | 인쇄용 SVG 용지(맞춤·실제 크기·배율 나눠 찍기, 머리글·바닥글, 테마와 무관한 흰 바탕) |
 | `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기 제한), `files.js`(ZIP 작성기, base64, JPEG 쪽 → PDF), `docx.js`(Word 작성기: 스타일, 열 때 갱신되는 목차 필드, 표, PNG 그림, 쪽 번호), `report-pdf.js`(문서 블록 → A4 SVG 쪽, 앱이 JPEG로 그려 PDF로 묶음) |
 | `src/platform/native.js`, `idb.js` | 플랫폼 경계: 데스크톱은 Rust 명령, 웹은 브라우저 API(File System Access · 내려받기 · IndexedDB) |
 | `src/platform/popups.js` | 팝업 열기/닫기/메시지, 팝업 크기 표(`POPUPS`) |
-| `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `SUBMENUS`, `TOOLBAR`, 오른쪽 클릭 메뉴, `SHORTCUTS`, 다이어그램 탭 줄(`renderTabs`), 프로젝트 바꾸기 전 확인(`confirmReplace`), 파일·가져오기·내보내기·코드 생성·역공학·DB 처리 |
+| `src/app.js` | 메인 창: 명령 표(`commands`), `MENUS`, `SUBMENUS`(하위 메뉴 줄에 `withChildren`이 항목 `children`을 붙여 메뉴 팝업이 옆에 펼침), `TOOLBAR`, 오른쪽 클릭 메뉴, 오른쪽 패널의 마인드맵 **개요** 탭, `SHORTCUTS`, 다이어그램 탭 줄(`renderTabs`), 프로젝트 바꾸기 전 확인(`confirmReplace`), 파일·가져오기·내보내기·코드 생성·역공학·DB 처리 |
 | `src/popup.js` | 모든 팝업 창(요구사항 목록 · 추적 매트릭스 · 문서 생성 · 기준선 · 비교 포함)과 `SHORTCUT_LIST` |
 | `src/viewer.js`, `src/domain/helpdocs.js` | 문서 창(사용 설명서 · 튜토리얼 문서)과 튜토리얼 동영상 창 — [문서 창](#문서-창) |
 | `src/i18n/ko.js`, `en.js`, `i18n.js` | UI 문자열(키는 두 파일이 같음) |
@@ -122,10 +124,12 @@
 - **격자**(`drawGrid`): 격자 간격(`gridSize`, 5–40)은 **화면 픽셀**입니다. `gridStep()`이 확대 비율에 맞는 다이어그램 좌표 간격(정수)을 골라 화면에서 늘 같은 간격으로 보이게 하고, 확대하면 더 촘촘하게·축소하면 더 성기게 다시 그립니다. SVG 패턴 하나에 가는 선(간격마다, 화면에서 5px 이상 떨어질 때만)과 진한 선(5칸마다, 5×5)을 그리며 색은 다이어그램 색 구성(`grid`, `gridMajor`)을 따릅니다. 격자 맞추기(`snap`)와 방향키 이동도 같은 `gridStep()`을 쓰므로, 10px 격자는 200%에서 5, 50%에서 20 단위로 맞춰집니다.
 - **눈금자**(`drawRulers`): 위쪽·왼쪽 가장자리에 다이어그램 좌표를 그립니다. 눈금은 격자선에, 숫자는 진한 격자선에(붐비면 2·4…칸마다) 붙고, 포인터 위치(`onHover`)를 표시합니다. 설정 `showRulers`(보기 › 표시 › 눈금자, 설정 › 다이어그램).
 - **다이어그램 종류 탭**(`renderTypeTabs`): `DIAGRAM_TABS`의 묶음 줄과 고른 묶음의 종류 줄(종류마다 다이어그램 수 배지), 끝에 지금 종류를 하나 더 만드는 **+**. 종류를 누르면 `app.openDiagramType(type)`이 `view.open`에서 마지막으로 연 그 종류의 다이어그램 → 첫 다이어그램 → 새 다이어그램 순으로 엽니다. 다이어그램 탭 자체는 `app.js`의 `renderTabs`가 그립니다([문서와 실행 취소](#문서와-실행-취소) 참고).
+- **마인드맵**: 접힌 토픽 아래의 뷰는 `mindmap.js`의 `hiddenViews`가 고른 대로 그리지 않고(접힌 토픽 옆에 숨은 토픽 수), 토픽을 더하거나 접으면 `layoutMindmap`이 다이어그램의 **맵 배치**대로 다시 배치합니다(`free`는 움직이지 않음). `Tab` · `Insert` · `Shift+Enter` · `Enter` · `Ctrl+.`은 `app.js`의 `mmAddChild` · `mmAddSibling` · `mmToggle` 명령입니다.
+- **시뮬레이션 층**: `.canvas-sim` SVG 층은 뷰 위에 얹히고, `SimulationController`가 넘기는 프레임(지나간·토큰이 있는·교착 요소의 테두리, 합류에서 기다리는 토큰 수, 흐름 위를 움직이는 토큰, 분석 결과의 도달 비율과 도달하지 않는 요소·쓰이지 않는 흐름)을 `drawSimulation`이 그립니다. 모델과 실행 취소 기록은 건드리지 않습니다.
 
 ### 5. 모델 탐색기와 편집기 (`ui/explorer.js`, `ui/editors.js`)
 
-모델 탐색기는 프로젝트를 트리로 보입니다(영역은 펼쳐 보이고 연관 끝·태그는 숨김). 클릭은 요소와 현재 다이어그램의 뷰를 선택하고, 두 번 클릭은 다이어그램을 열거나 이름을 바꾸며, 행을 다른 행에 끌면 요소가 옮겨지고 캔버스에 끌면 다이어그램에 보입니다. 오른쪽 편집기는 **속성**(메타모델 필드 전부와 멤버 목록: 속성·오퍼레이션·매개변수·리터럴·열·피연산자 …), **스타일**(선택한 뷰의 색·글꼴·선 모양·표시 옵션), **설명**, **태그와 제약** 탭이고, 편집은 `data-*` 속성으로 앱에 보내 하나씩 실행 취소 단계가 됩니다.
+모델 탐색기는 프로젝트를 트리로 보입니다(영역은 펼쳐 보이고 연관 끝·태그는 숨김). 클릭은 요소와 현재 다이어그램의 뷰를 선택하고, 두 번 클릭은 다이어그램을 열거나 이름을 바꾸며, 행을 다른 행에 끌면 요소가 옮겨지고 캔버스에 끌면 다이어그램에 보입니다. 오른쪽 편집기는 **속성**(메타모델 필드 전부와 멤버 목록: 속성·오퍼레이션·매개변수·리터럴·열·피연산자 …), **스타일**(선택한 뷰의 색·글꼴·선 모양·표시 옵션), **설명**, **태그와 제약** 탭이고, 마인드맵 다이어그램에서는 **개요** 탭(`EDITOR_TABS`의 `outline`: `outlineRows`의 들여쓴 토픽 목록과 배지·기한, 줄을 누르면 선택, 화살표로 접기, 텍스트·Markdown 복사, 들여쓴 글 → `addOutline`)이 더해집니다. 편집은 `data-*` 속성으로 앱에 보내 하나씩 실행 취소 단계가 됩니다.
 
 ### 6. 레이아웃·검증
 
@@ -156,7 +160,7 @@
 | StarUML `.mdj` | `interop/staruml.js` | 모델 부분은 같은 타입·필드 이름이라 그대로 둠. 뷰는 다름: StarUML은 구획·레이블을 `subViews`에 중첩하고, 점을 `"x:y;x:y"`, 선 모양과 글꼴을 숫자·문자열로 쓰고, 시퀀스·커뮤니케이션용 뷰 타입이 따로 있음(`VIEW_TYPE_MAP`). 읽기는 우리 뷰로 펴고, 쓰기는 StarUML이 그리는 데 필요한 최소 하위 뷰를 다시 만듦. 맨 `{ "_type": "Project" }` JSON도 `parseProject`가 알아봄 |
 | `.mfj` | `interop/staruml.js` | StarUML 모델 조각: 요소 하나와 그 소유물. 읽으면 새 id로 바꿔(조각 안 참조도 다시 연결) 고른 소유자에 넣음 |
 | Mermaid | `interop/mermaid.js` | 읽기: classDiagram · sequenceDiagram · flowchart/graph · erDiagram · stateDiagram → 소유자 요소 하나와 배치된 다이어그램 하나. 쓰기: 클래스 · 시퀀스 · 순서도 · ER · 상태 · 유스케이스 · 액티비티(뒤 둘은 flowchart) |
-| PlantUML | `interop/plantuml.js`, `plantuml-more.js` | 읽기·쓰기: 모든 UML 다이어그램(클래스 · 객체 · 패키지 · 프로파일 · 유스케이스 · 컴포넌트 · 배치 · 복합 구조 · 정보 흐름 · 시퀀스 · 액티비티 새/옛 문법 · 상태 · 타이밍 · ER IE 표기), `@startmindmap`, 그리고 `plantuml-more.js`의 간트 · WBS · chronology · ArchiMate · nwdiag · JSON · YAML · EBNF · regex · Salt(와이어프레임). 쓰기에서 커뮤니케이션은 시퀀스로, 인터랙션 개요는 옛 문법 액티비티로, 프로파일은 클래스로. 읽기 전 전처리(주석, `!define`·`!$var` 치환, `!if`/`!ifdef`; `!include`·skinparam·스타일·범례·머리글은 경고와 함께 버림). 결과는 Mermaid와 같은 `{ owner, diagram, kind, warnings }`이고 경고는 앱이 목록 창으로 보임 |
+| PlantUML | `interop/plantuml.js`, `plantuml-more.js` | 읽기·쓰기: 모든 UML 다이어그램(클래스 · 객체 · 패키지 · 프로파일 · 유스케이스 · 컴포넌트 · 배치 · 복합 구조 · 정보 흐름 · 시퀀스 · 액티비티 새/옛 문법 · 상태 · 타이밍 · ER IE 표기), `@startmindmap`, 그리고 `plantuml-more.js`의 간트 · WBS · chronology · ArchiMate · nwdiag · JSON · YAML · EBNF · regex · Salt(와이어프레임). 쓰기에서 커뮤니케이션은 시퀀스로, 인터랙션 개요는 옛 문법 액티비티로, 프로파일은 클래스로. 읽기 전 전처리(주석, `!define`·`!$var` 치환, `!if`/`!ifdef`; `!include`·skinparam·스타일·범례·머리글은 경고와 함께 버림). 결과는 Mermaid와 같은 `{ owner, diagram, kind, warnings }`이고 경고는 앱이 목록 창으로 보임. 사용자 스토리 맵 · 고객 여정 지도는 PlantUML 형식이 없어 다루지 않음 |
 | XMI 2.x | `interop/xmi.js` | 쓰기(`exportXmi`): UML 부분을 XMI 2.5.1로 — 패키지, 분류자와 속성·오퍼레이션·매개변수·리터럴, 관계, 상태 머신·액티비티·인터랙션, 인스턴스, 주석, 스테레오타입 적용. `flavor: 'ea'`(기본)는 Enterprise Architect `xmi:Extension`에 다이어그램 위치(`Left=..;Top=..`)를 더하고 `'plain'`은 모델만. UML이 아닌 표기는 뺌. 읽기(`readXmi`): EA 2.1/2.5(확장의 다이어그램, EAStub, 태그 값, 메모), MagicDraw · Papyrus(UML DI·GMF 모양). 다이어그램 정보가 없으면 패키지마다 클래스 다이어그램을 만들어 배치. 모르는 것은 경고로 건너뛰고 예외를 던지지 않음 |
 | 기준선 | `baseline.js` | `.myuml`의 `project.baselines`(기준선마다 모델 JSON 글 `snapshot`). StarUML `.mdj` 쓰기와 템플릿에서는 뺌 |
 | Word / PDF / HTML 문서 | `report.js`, `export/docx.js`, `export/report-pdf.js` | 문서 블록 → `.docx`(Office Open XML, ZIP), PDF(쪽마다 JPEG, 한국어 글꼴 내장 불필요), HTML(SVG 그림) |
@@ -171,7 +175,7 @@
 - **데스크톱**: 팝업은 `open_popup`으로 만드는 OS 창(label `popup-<kind>`, `POPUP_KINDS`에 있는 것만)이며 메인 창에 소유됩니다. 메인 창 밖에 둘 수 있고, 메인 창이 없어지면(`Destroyed` → `exit(0)`) 함께 닫힙니다. 각 팝업은 `POPUPS` 표의 고정 크기이고 내용이 스크롤 없이 들어갑니다(긴 내용은 탭이나 쪽으로 나눔). 그린 뒤 `popup_ready`/`place_popup`으로 보여 빈 창이 깜빡이지 않습니다.
 - **웹과 튜토리얼 중**: 같은 페이지를 `index.html?popup=<kind>` 프레임으로 메인 창 안에 띄우고 메시지를 씁니다(`PopupHost.useFrames`). 튜토리얼은 화면 녹화에 팝업이 찍히도록 데스크톱에서도 프레임을 씁니다(`popups.inline`).
 - 매개변수는 모든 창이 공유하는 `localStorage`의 `myumlmaker.popup.<kind>`로 넘기고, 팝업은 `result`(닫으며 결과) · `action`(열린 채로 메인 창에 요청: 찾기, 최근 파일 열기, 코드 생성 미리 보기, DB 시험·목록 …) · `ready` · `place` · `close` · `hide` · `drag` 메시지로 답합니다.
-- **메뉴**는 `menu` 팝업 하나를 재사용합니다. 시작 후 미리 만들어 두고(prewarm), 내용을 그린 뒤 크기를 재서 모니터 작업 영역 안에 놓습니다(아래 공간이 없으면 위로). 숨겼다가 다시 씁니다(`hide_popup`). 테마 목록(`theme`)과 색 고르기(`color`)는 포커스를 잃으면 닫히는 드롭다운 팝업입니다.
+- **메뉴**는 `menu` 팝업 하나를 재사용합니다. 시작 후 미리 만들어 두고(prewarm), 내용을 그린 뒤 크기를 재서 모니터 작업 영역 안에 놓습니다(아래 공간이 없으면 위로). 숨겼다가 다시 씁니다(`hide_popup`). 하위 메뉴는 따로 창을 열지 않고 같은 팝업 안의 패널입니다: `app.js`의 `withChildren`이 하위 메뉴 줄(`submenu:*`, 동적 묶음 포함)에 항목 `children`을 붙여 보내면, `popup.js`가 포인터가 그 줄에 머물 때(약 0.12초, 또는 클릭 · `→` · `Enter`) 옆에 패널을 열고(화면 오른쪽 끝이면 왼쪽에) 팝업을 모든 패널이 들어가게 키우며, 같은 패널의 다른 줄로 옮기면 조금 뒤에 닫습니다(`←` · `Esc`는 가장 안쪽부터). 창을 투명하게 만들 수 있는 곳(Windows · Linux · 웹 프레임)에서는 투명한 팝업 안에 패널만 그림자와 함께 보이고, macOS는 불투명한 상자 하나입니다. 테마 목록(`theme`)과 색 고르기(`color`)는 포커스를 잃으면 닫히는 드롭다운 팝업입니다.
 - 설정 팝업이 설정을 바꾸면 `localStorage`의 `storage` 이벤트로 메인 창이 다시 적용합니다.
 
 ## 문서 창
@@ -232,13 +236,16 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 | 훅 | 하는 일 |
 |---|---|
-| `MUI_CUSTOMFUNCTION_GUIINIT` → `MumGuiInit` | 첫 페이지 전(MUI `.onGUIInit`, `/S`에서는 안 돎). 이전 설치(HKCU·HKLM의 `Uninstall\MyUMLMaker` `UninstallString`, 없으면 `Software\SHKWON\MyUMLMaker` 기본값)나 사용자 데이터(`%APPDATA%\com.shkwon.myumlmaker` 또는 `%LOCALAPPDATA%\com.shkwon.myumlmaker`에 무엇이든 있음)가 있으면 설치 언어(`LangString` 1042/1033)로 "이전에 사용하던 사용자 데이터(…)를 삭제할까요?" — 예/아니오(기본)/취소(`Quit`, 아무것도 안 바뀜). 그다음 Restart Manager(`RmGetList`)로 이전 설치·`$INSTDIR`의 `MyUMLMaker.exe`를 쓰는 프로세스를 세어(몇 개든) 확인/취소를 묻고 `RmShutdown`으로 모두 닫은 뒤 `MumRemoveOld`. 여기서 지워 두면 Tauri의 "이미 설치됨" 페이지는 스스로 건너뜀. `/P`는 묻지 않음 |
-| `MumRemoveOld` | 현재 사용자 설치: `uninstall.exe /S /UPDATE _?=<폴더>`(제자리 실행·기다림, `/UPDATE`라 데이터는 안 지움) 후 폴더 이름이 `MyUMLMaker`면 폴더째, 아니면 우리 파일만 삭제하고 등록 키 삭제. 컴퓨터 전체 설치: 관리자 권한으로(`ExecShellWait runas`) 같은 제거와 폴더 삭제. 파일이 없는 낡은 HKCU 등록은 지움 |
+| `MUI_CUSTOMFUNCTION_GUIINIT` → `MumGuiInit` | 첫 페이지 전(MUI `.onGUIInit`, `/S`에서는 안 돎). 이전 설치(HKCU·HKLM의 `Uninstall\MyUMLMaker` `UninstallString`, 없으면 `Software\SHKWON\MyUMLMaker` 기본값)가 있으면 먼저 그 폴더와 함께 "이전 프로그램을 완전히 삭제하고 다시 설치할까요?"(`MumAskReinstall`) — 예/아니오(`Quit`, 아무것도 안 바뀜). 이전 설치나 사용자 데이터(`%APPDATA%\com.shkwon.myumlmaker` 또는 `%LOCALAPPDATA%\com.shkwon.myumlmaker`에 무엇이든 있음)가 있으면 설치 언어(`LangString` 1042/1033)로 "이전에 사용하던 사용자 데이터(…)를 삭제할까요?" — 예/아니오(기본)/취소(`Quit`, 아무것도 안 바뀜). 그다음 Restart Manager(`RmGetList`)로 이전 설치·`$INSTDIR`의 `MyUMLMaker.exe`를 쓰는 프로세스를 세어(몇 개든) 확인/취소를 묻고 `RmShutdown`으로 모두 닫은 뒤 `MumRemoveOld`. 여기서 지워 두면 Tauri의 "이미 설치됨" 페이지는 스스로 건너뜀. `/P`는 묻지 않음 |
+| `MumRemoveOldShortcuts` | 이전 설치의 바로가기 삭제(`/UPDATE`로 돈 제거 프로그램은 바로가기를 남기므로): 등록된 `StartMenuFolder`(없으면 `MyUMLMaker`)의 앱·설명서 바로가기와 빈 폴더, 시작 메뉴 바로 아래의 것, 바탕 화면의 것. Tauri 업데이터의 `/UPDATE` 설치는 그대로 둠. 경로는 `MUM_DESKTOP` · `MUM_SMPROGRAMS`로 바꿀 수 있음 |
+| `MUI_PAGE_STARTMENU` 감싸기 → **바로가기** 페이지 | 템플릿이 시작 메뉴 폴더 페이지를 넣는 자리에 nsDialogs 페이지(`MumShortcutsShow`/`MumShortcutsLeave`)를 앞에 둠: **바탕 화면에 바로가기 만들기** · **시작 메뉴에 바로가기 만들기 (사용 설명서 포함)**(둘 다 처음에 켜짐, `$MumDesktop` · `$MumStartMenu`). 시작 메뉴를 끄면 폴더 이름 앞에 `>`를 붙여 MUI·템플릿이 시작 메뉴 바로가기를 만들지 않게 하고, 폴더 페이지는 `MumStartMenuPre`에서 건너뜀. `MUI_PAGE_FINISH`도 감싸 템플릿의 "바탕 화면 바로 가기" 체크 상자를 뺌. `/P` · `/S`는 Tauri 동작 그대로 |
+| `MumRemoveOld` | `MumRemoveOldShortcuts` 뒤에 현재 사용자 설치: `uninstall.exe /S /UPDATE _?=<폴더>`(제자리 실행·기다림, `/UPDATE`라 데이터는 안 지움) 후 폴더 이름이 `MyUMLMaker`면 폴더째, 아니면 우리 파일만 삭제하고 등록 키 삭제. 컴퓨터 전체 설치: 관리자 권한으로(`ExecShellWait runas`) 같은 제거와 폴더 삭제. 파일이 없는 낡은 HKCU 등록은 지움 |
 | `NSIS_HOOK_PREINSTALL` | 조용한 설치(`/S`)처럼 `MumGuiInit`이 안 돈 경우 묻지 않고 `MumFindOld` + `MumRemoveOld`(데이터 유지). 그다음 템플릿의 `CheckIfAppIsRunning`이 `$INSTDIR`의 실행 중인 복사본을 모두 닫음 |
-| `NSIS_HOOK_POSTINSTALL` | **예**를 골랐으면(`$MumWipe`) `MumWipeData`로 두 데이터 폴더를 지움(표시 파일 없음). 아니면 `%APPDATA%\com.shkwon.myumlmaker\install-reset`에 토큰을 쓰고 `window-state.json`을 지움 → 다음 실행에 `window_state.rs`가 토큰을 넘기고 `resetForNewInstall`이 설정만 기본값으로(최근 파일·폴더, 세션, DB 연결, 배경 이미지, 튜토리얼 기록은 유지). `MyUMLMaker.Project` / `MyUMLMaker.Template`의 `DefaultIcon`을 `project.ico`("MYUML" 문서 아이콘) / `template.ico`로, 시작 메뉴에 `MyUMLMaker User's Guide.lnk`(→ `docs\UsersGuide.html`), 셸에 연결 변경 알림 |
-| `NSIS_HOOK_POSTUNINSTALL` | 설명서 바로 가기 삭제 |
+| `NSIS_HOOK_POSTINSTALL` | **예**를 골랐으면(`$MumWipe`) `MumWipeData`로 두 데이터 폴더를 지움(표시 파일 없음). 아니면 `%APPDATA%\com.shkwon.myumlmaker\install-reset`에 토큰을 쓰고 `window-state.json`을 지움 → 다음 실행에 `window_state.rs`가 토큰을 넘기고 `resetForNewInstall`이 설정만 기본값으로(최근 파일·폴더, 세션, DB 연결, 배경 이미지, 튜토리얼 기록은 유지). `MyUMLMaker.Project` / `MyUMLMaker.Template`의 `DefaultIcon`을 `project.ico`("MYUML" 문서 아이콘) / `template.ico`로, **바로가기** 페이지에서 고른 바탕 화면 바로가기(`CreateOrUpdateDesktopShortcut`), 시작 메뉴 바로가기가 있으면 같은 폴더에 `MyUMLMaker User's Guide.lnk`(→ `docs\UsersGuide.html`)와 폴더 이름(`StartMenuFolder`, 사용자가 바꾼 폴더도 제거 프로그램과 다음 설치가 찾게), 셸에 연결 변경 알림 |
+| `NSIS_HOOK_PREUNINSTALL` | 템플릿이 키를 지우기 전에 `StartMenuFolder`를 읽어 둠 |
+| `NSIS_HOOK_POSTUNINSTALL` | 업데이트(`/UPDATE`)가 아니면 그 폴더의 설명서 바로가기, 우리 앱을 가리키는 앱 바로가기, 빈 폴더 삭제 |
 
-훅 파일은 `installer.nsi` 맨 위(템플릿의 `Var PassiveMode/UpdateMode`, `DeleteAppDataCheckboxState`, `!define BUNDLEID` 따위보다 앞)에서 `!include`되므로, 그 안의 `Function`은 자기 `!define /IfNDef MUM_*`(경로·키)와 자기 `Var`만 씁니다. 훅 매크로는 Section 안에서 펼쳐지므로 템플릿 것을 써도 됩니다. `MUM_*` 정의는 미리 바꿀 수 있어, `test/installer/hooks-test.nsi`가 가짜 설치본·가짜 데이터 폴더·`HKCU\Software\MyUMLMakerHookTest`로 같은 함수를 조용히 돌리고 질문의 답은 `MessageBox /SD`(`MUM_SD_ASK`, `MUM_SD_RUNNING`)로 줍니다(`test/installer/hooks-cases.mjs`, `npm test -- --installer`). 실제 설치 프로그램은 개발 기계에서 돌리지 않습니다.
+훅 파일은 `installer.nsi` 맨 위(템플릿의 `Var PassiveMode/UpdateMode`, `DeleteAppDataCheckboxState`, `!define BUNDLEID` 따위보다 앞)에서 `!include`되므로, 그 안의 `Function`은 자기 `!define /IfNDef MUM_*`(경로·키)와 자기 `Var`만 씁니다. 훅 매크로는 Section 안에서 펼쳐지므로 템플릿 것을 써도 됩니다. `MUM_*` 정의는 미리 바꿀 수 있어, `test/installer/hooks-test.nsi`가 가짜 설치본·가짜 데이터 폴더·`HKCU\Software\MyUMLMakerHookTest`로 같은 함수를 조용히 돌리고 질문의 답은 `MessageBox /SD`(`MUM_SD_REINSTALL`, `MUM_SD_ASK`, `MUM_SD_RUNNING`)로 줍니다(`test/installer/hooks-cases.mjs`, `npm test -- --installer`). 실제 설치 프로그램은 개발 기계에서 돌리지 않습니다.
 
 `tauri.conf.json`: 현재 사용자 설치, 언어 선택(Korean/English), `.myuml`/`.mumlt` 파일 연결, 리소스로 문서 아이콘·`docs/`(HTML 설명서·튜토리얼·그림·`UsersGuide.md`·`README.md`)·`samples/`. Linux deb/rpm은 `linux/myumlmaker.xml` MIME과 문서 아이콘을 설치하고 `postinst.sh`/`postrm.sh`가 MIME·아이콘 캐시를 갱신합니다. macOS는 `Info.plist`가 문서 타입과 아이콘을 등록합니다.
 
@@ -269,7 +276,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 | 분류 | 내용 |
 |---|---|
-| JS 단위 (`js`) | `test/unit/*.test.js` — 메타모델·모델/뷰 편집, 도구 상자, 렌더링, 레이아웃, 파일 형식과 복구, StarUML/Mermaid/PlantUML/XMI, 새 다이어그램 종류, 요구사항·추적, 기준선·비교, 문서 생성, 코드 생성, 역공학(C++ 포함), 검증, 문서, 설정, 번역 키, 테마, 아이콘, 그림 인코딩 |
+| JS 단위 (`js`) | `test/unit/*.test.js` — 메타모델·모델/뷰 편집, 도구 상자, 렌더링, 레이아웃, 파일 형식과 복구, StarUML/Mermaid/PlantUML/XMI, 새 다이어그램 종류(`newtypes.test.js`, 애자일·UX 포함), 마인드맵(`mindmap.test.js`: 토픽 추가·배치·접기·개요), BPMN 시뮬레이션(`bpmnsim.test.js`: 게이트웨이·합류·교착·반복 한도·시드·여러 번 실행 분석), 요구사항·추적, 기준선·비교, 문서 생성, 코드 생성, 역공학(C++ 포함), 검증, 문서, 설정, 번역 키, 테마, 아이콘, 그림 인코딩 |
 | 기능 비교 (`conformance`) | `test/conformance/*.test.js` — 기능 하나가 테스트 하나인 점검표. `staruml.test.js`: StarUML의 모든 다이어그램 종류와 도구 상자, 모든 도구 그리기·잇기·렌더링, 다이어그램마다 `createNode`/`createEdge`로 그린 작은 다이어그램의 SVG 표기 검사(`canvas.js`: 뷰별 SVG, 글자, 끝 표시 판별), 빠른 편집 파서, 모델 탐색기 조작, 서식 옵션, 자동 레이아웃, 모델 조각, 언어별 코드 생성·역공학, 문서, 검증. `enterprise-architect.test.js`: 구현한 EA 기능 점검표(UML 2.5 · SysML · BPMN · ArchiMate 3 · 데이터 모델링 · 간트/WBS/타임라인 · 네트워크, 요구사항·관계 매트릭스, 기준선·비교·복원, 문서 템플릿·docx·PDF·HTML, XMI(EA · MagicDraw · Papyrus), 코드 엔지니어링, DB 저장, 검색); 없는 기능은 `{ todo }`. `plantuml.test.js`: PlantUML 언어 점검표(종류별 문법, 전처리기, skinparam/테마, 제목 — 가져오기 · 렌더링 · 내보내기 · 다시 가져오기). `npm test -- --only conformance`; `todo`는 결과에 "건너뜀 — TODO: 이유"로 나옴 |
 | 패키징 · 아이콘 · 문서 (`package`) | `test/static/` — 아이콘, 파일 형식 등록, 설치 언어·훅·재설치, 설정 초기화, 문서(`docs.test.js`: HTML·링크·그림·README 빌드 명령·한/영 장 구성·단축키 표·튜토리얼 단계 수와 그림 번호) |
 | Rust 단위 (`rust`) | `cargo test --lib` — 파일 입출력·진행률, 글꼴, 창 위치(여러 복사본이 함께 써도 깨지지 않음), 여러 실행(복사본 세기·창 비켜 열기), DB URL·SQLite |
@@ -277,7 +284,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 | E2E 웹 (`web`) | 웹 빌드를 헤드리스 Edge/Chrome으로 조작 (`test/e2e/web.harness.mjs`, `web.suite.mjs`, CDP 실제 포인터 이벤트) |
 | E2E 데스크톱 GUI (`desktop`) | 실제 앱을 띄워 메뉴·툴바·팝업·다이어그램·모델 탐색기·파일·인쇄·설정을 조작 (`test/e2e/harness.mjs`, `desktop.suite.mjs`, WebView2 CDP + Win32 `dialogs.ps1`; 팝업 정렬·잘림은 `align-check.mjs`·`clip-check.mjs`) |
 | 튜토리얼 (`tutorial`) | 모든 단계가 오류 없이 대상 요소를 표시하는지, 끝나면 설정·화면이 돌아오는지 |
-| 설치 프로그램 (`installer`) | `--installer`일 때 `npm run build:win` 후 NSIS 설치 파일 검사, 생성된 `installer.nsi`를 makensis로 다시 컴파일해 hooks.nsh 경고 확인, 설치 훅을 가짜 설치본에 실행(묻기·예/아니오/취소·조용한 설치·낡은 등록·실행 중인 복사본 두 개 닫기) |
+| 설치 프로그램 (`installer`) | `--installer`일 때 `npm run build:win` 후 NSIS 설치 파일 검사, 생성된 `installer.nsi`를 makensis로 다시 컴파일해 hooks.nsh 경고 확인, 설치 훅을 가짜 설치본에 실행(다시 설치 질문·이전 바로가기 삭제·데이터 묻기 예/아니오/취소·조용한 설치·낡은 등록·실행 중인 복사본 두 개 닫기) |
 
 ### E2E 훅
 

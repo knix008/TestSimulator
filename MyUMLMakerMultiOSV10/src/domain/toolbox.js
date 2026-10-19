@@ -168,8 +168,8 @@ export const TOOLBOX = {
     ANNOTATIONS,
   ],
   MMMindmapDiagram: [
-    ['mindmap', '마인드맵', 'Mind Map', [N('MMNode')]],
-    ['relations', '가지', 'Branches', [E('MMEdgeView', { id: 'branch', ko: '가지', en: 'Branch' })]],
+    ['mindmap', '마인드맵', 'Mind Map', [N('MMNode'), N('MMNode', { id: 'mm:floating', ko: '떠 있는 토픽', en: 'Floating Topic', icon: 'mmFloating' }), N('MMBoundary', { size: { w: 260, h: 160 } })]],
+    ['relations', '가지', 'Branches', [E('MMEdgeView', { id: 'branch', ko: '가지', en: 'Branch' }), E('MMRelationship')]],
     ANNOTATIONS,
   ],
   WFWireframeDiagram: [
@@ -220,6 +220,20 @@ Object.assign(TOOLBOX, {
     ['relations', '연결', 'Connections', [E('NWConnection')]],
     ANNOTATIONS,
   ],
+  UserStoryMapDiagram: [
+    ['storymap', '스토리 맵', 'Story Map', [N('USActivity'), N('USStep'), N('USStory'), N('USRelease', { size: { w: 900, h: 160 } })]],
+    ['relations', '관계', 'Relationships', [E('USDependency')]],
+    ANNOTATIONS,
+  ],
+  CustomerJourneyDiagram: [
+    ['journey', '고객 여정', 'Customer Journey', [N('CJPersona'), N('CJStage', { size: { w: 220, h: 560 } }), N('CJLane', { size: { w: 1000, h: 90 } }), N('CJTouchpoint'),
+      N('CJCard'), N('CJCard', { id: 'cjcard:thought', ko: '생각', en: 'Thought', icon: 'cjThought', attrs: { cardKind: 'thought' } }),
+      N('CJCard', { id: 'cjcard:painPoint', ko: '고통 지점', en: 'Pain Point', icon: 'cjPain', attrs: { cardKind: 'painPoint' } }),
+      N('CJCard', { id: 'cjcard:opportunity', ko: '기회', en: 'Opportunity', icon: 'cjOpportunity', attrs: { cardKind: 'opportunity' } }),
+      N('CJCard', { id: 'cjcard:idea', ko: '아이디어', en: 'Idea', icon: 'cjIdea', attrs: { cardKind: 'idea' } }), N('CJEmotion')]],
+    ['relations', '관계', 'Relationships', [E('CJEmotionLink')]],
+    ANNOTATIONS,
+  ],
   JSONDiagram: [
     ['data', '데이터', 'Data', [N('DSDocument', { id: 'jsonDocument', ko: 'JSON 문서', en: 'JSON Document', icon: 'dsJson', attrs: { format: 'json', text: '{\n  "id": 1,\n  "name": "value",\n  "tags": ["a", "b"]\n}' } })]],
     ['relations', '관계', 'Relationships', [E('DSReference')]],
@@ -267,6 +281,7 @@ export const DIAGRAM_TABS = [
   ['cloud', '클라우드', 'Cloud', ['AWSDiagram', 'AzureDiagram', 'GCPDiagram', 'NetworkDiagram']],
   ['project', '프로젝트', 'Project', ['GanttDiagram', 'WBSDiagram', 'TimelineDiagram']],
   ['archimate', 'ArchiMate', 'ArchiMate', ['ArchiMateDiagram']],
+  ['agile', '애자일·UX', 'Agile & UX', ['UserStoryMapDiagram', 'CustomerJourneyDiagram']],
   ['data', '데이터', 'Data', ['JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram']],
 ];
 /** The tab group of a diagram type. */

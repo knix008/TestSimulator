@@ -279,6 +279,9 @@ T('MMNode', '마인드맵 노드', 'Mind Map Node', { group: 'mindmap', icon: 'm
   // MindManager's topic markers and task information (mindmap.js MIND_MARKERS has the same markers).
   F('marker', 'enum', { options: ['', 'flag', 'star', 'check', 'question', 'warning', 'idea', 'heart', 'smile'], def: '' }), F('priority', 'enum', { options: ['', 'p1', 'p2', 'p3', 'p4', 'p5'], def: '' }),
   F('progress', 'enum', { options: ['', 'pct0', 'pct25', 'pct50', 'pct75', 'pct100'], def: '' }), MM_DATE('startDate'), MM_DATE('dueDate'), F('resource', 'string'), F('collapsed', 'bool')] });
+// MindManager's relationship (a dashed curved arrow between any two topics) and boundary (around a branch).
+T('MMRelationship', '관계선', 'Relationship', { group: 'mindmap', icon: 'mmRelationship', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'open', line: 'dash', curved: true });
+T('MMBoundary', '경계', 'Boundary', { group: 'mindmap', icon: 'mmBoundary', shape: 'mmBoundary', container: true, fields: [F('boundaryShape', 'enum', { options: ['rounded', 'cloudy', 'rectangle'], def: 'rounded' })] });
 T('MMEdge', '가지', 'Branch', { group: 'mindmap', icon: 'umlAssociation', edge: true, ends: 'directed', fields: DIRECTED, noName: true, curved: true });
 
 // Wireframe
@@ -342,6 +345,21 @@ T('EBNFRule', 'EBNF 규칙', 'EBNF Rule', { group: 'data', icon: 'ebnfRule', sha
 T('RegexPattern', '정규식', 'Regular Expression', { group: 'data', icon: 'regexPattern', shape: 'regexPattern', fields: [F('pattern', 'text')] });
 T('DSReference', '참조', 'Reference', { group: 'data', icon: 'dsReference', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'open', line: 'dash' });
 
+// Agile & UX (Visual Paradigm): user story maps and customer journey maps
+T('UXModel', '애자일·UX 모델', 'Agile & UX Model', { group: 'package', icon: 'uxModel', namespace: true, fields: [] });
+T('USActivity', '사용자 활동', 'User Activity', { group: 'storymap', icon: 'usActivity', shape: 'usCard', fields: [F('description', 'text')] });
+T('USStep', '사용자 단계', 'User Step', { group: 'storymap', icon: 'usStep', shape: 'usCard', fields: [F('description', 'text')] });
+T('USStory', '사용자 스토리', 'User Story', { group: 'storymap', icon: 'usStory', shape: 'usStory', fields: [F('asA', 'string'), F('iWant', 'string'), F('soThat', 'string'), F('priority', 'enum', { options: ['must', 'should', 'could', 'wont'], def: 'should' }), F('storyPoints', 'int', { def: 0 }), F('status', 'enum', { options: ['todo', 'doing', 'done'], def: 'todo' }), F('acceptance', 'text')] });
+T('USRelease', '릴리스', 'Release', { group: 'storymap', icon: 'usRelease', shape: 'usRelease', container: true, fields: [F('date', 'string', { date: true }), F('goal', 'string')] });
+T('USDependency', '의존', 'Dependency', { group: 'storymap', icon: 'usDependency', edge: true, ends: 'directed', fields: DIRECTED, arrow: 'open', line: 'dash' });
+T('CJPersona', '페르소나', 'Persona', { group: 'journey', icon: 'cjPersona', shape: 'cjPersona', fields: [F('role', 'string'), F('goals', 'text'), F('frustrations', 'text')] });
+T('CJStage', '여정 단계', 'Journey Stage', { group: 'journey', icon: 'cjStage', shape: 'cjStage', container: true, fields: [F('goal', 'string')] });
+T('CJLane', '여정 행', 'Journey Row', { group: 'journey', icon: 'cjLane', shape: 'cjLane', container: true, fields: [F('laneKind', 'enum', { options: ['actions', 'touchpoints', 'thoughts', 'emotions', 'painPoints', 'opportunities'], def: 'actions' })] });
+T('CJTouchpoint', '터치포인트', 'Touchpoint', { group: 'journey', icon: 'cjTouchpoint', shape: 'cjTouchpoint', fields: [F('channel', 'enum', { options: ['web', 'mobile', 'store', 'phone', 'email', 'social', 'ad', 'other'], def: 'web' })] });
+T('CJCard', '여정 카드', 'Journey Card', { group: 'journey', icon: 'cjCard', shape: 'cjCard', fields: [F('cardKind', 'enum', { options: ['action', 'thought', 'painPoint', 'opportunity', 'idea'], def: 'action' })] });
+T('CJEmotion', '감정', 'Emotion', { group: 'journey', icon: 'cjEmotion', shape: 'cjEmotion', fields: [F('score', 'enum', { options: ['veryNegative', 'negative', 'neutral', 'positive', 'veryPositive'], def: 'neutral' })], nameOutside: true });
+T('CJEmotionLink', '감정 곡선', 'Emotion Curve', { group: 'journey', icon: 'cjEmotionLink', edge: true, ends: 'directed', fields: DIRECTED, noName: true, curved: true });
+
 // Diagrams
 // The diagram's own background (render/notation.js backgroundSvg): '' = the diagram colour scheme's,
 // 'color' = a colour, 'image' = a picture over the colour, 'pattern' = a pattern over the colour. Every
@@ -404,6 +422,8 @@ Dg('WBSDiagram', 'WBS 다이어그램', 'WBS Diagram', 'project', 'dgWbs', { own
 Dg('TimelineDiagram', '타임라인 다이어그램', 'Timeline Diagram', 'project', 'dgTimeline', { owner: 'PMPlan' });
 Dg('ArchiMateDiagram', 'ArchiMate 다이어그램', 'ArchiMate Diagram', 'archimate', 'dgArchimate', { owner: 'ArchiMateModel' });
 Dg('NetworkDiagram', '네트워크 다이어그램', 'Network Diagram', 'network', 'dgNetwork', { owner: 'NWModel' });
+Dg('UserStoryMapDiagram', '사용자 스토리 맵', 'User Story Map', 'agile', 'dgStoryMap', { owner: 'UXModel' });
+Dg('CustomerJourneyDiagram', '고객 여정 지도', 'Customer Journey Map', 'agile', 'dgJourney', { owner: 'UXModel' });
 Dg('JSONDiagram', 'JSON 다이어그램', 'JSON Diagram', 'data', 'dgJson', { owner: 'DSSpecification', dataFormat: 'json' });
 Dg('YAMLDiagram', 'YAML 다이어그램', 'YAML Diagram', 'data', 'dgYaml', { owner: 'DSSpecification', dataFormat: 'yaml' });
 Dg('EBNFDiagram', 'EBNF 다이어그램', 'EBNF Diagram', 'data', 'dgEbnf', { owner: 'DSSpecification' });
@@ -415,7 +435,7 @@ export const UNNAMED = new Set(['UMLSlot', 'UMLCombinedFragment', 'UMLInteractio
 export const DIAGRAM_FAMILIES = [
   ['uml', 'UML', 'UML'], ['erd', 'ERD', 'ERD'], ['flowchart', '순서도', 'Flowchart'], ['dfd', '데이터 흐름', 'Data Flow'],
   ['sysml', 'SysML', 'SysML'], ['bpmn', 'BPMN', 'BPMN'], ['c4', 'C4', 'C4'], ['mindmap', '마인드맵', 'Mind Map'], ['wireframe', '와이어프레임', 'Wireframe'], ['cloud', '클라우드', 'Cloud'],
-  ['project', '프로젝트 관리', 'Project Management'], ['archimate', 'ArchiMate', 'ArchiMate'], ['network', '네트워크', 'Network'], ['data', '데이터', 'Data'],
+  ['project', '프로젝트 관리', 'Project Management'], ['archimate', 'ArchiMate', 'ArchiMate'], ['network', '네트워크', 'Network'], ['data', '데이터', 'Data'], ['agile', '애자일·UX', 'Agile & UX'],
 ];
 
 /** Views that have no model element (annotations). */

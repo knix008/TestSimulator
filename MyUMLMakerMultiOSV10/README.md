@@ -1,6 +1,6 @@
 # MyUMLMaker
 
-Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니다. StarUML처럼 **모델 기반**으로 UML 2 다이어그램 15종과 ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 네트워크 · 간트 차트 · WBS · 타임라인 · ArchiMate · JSON · YAML · EBNF · 정규식 다이어그램을 그리고, 요구사항을 추적하고, 모델을 검증하고, 코드를 만들고(코드 생성), 거꾸로 소스 코드를 모델로 읽어 들입니다(역공학). JavaScript(Vite) UI와 Tauri 2(Rust) 백엔드로 만들었습니다.
+Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니다. StarUML처럼 **모델 기반**으로 UML 2 다이어그램 15종과 ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 네트워크 · 간트 차트 · WBS · 타임라인 · ArchiMate · 사용자 스토리 맵 · 고객 여정 지도 · JSON · YAML · EBNF · 정규식 다이어그램을 그리고, 요구사항을 추적하고, 모델을 검증하고, BPMN 프로세스를 시뮬레이션하고, 코드를 만들고(코드 생성), 거꾸로 소스 코드를 모델로 읽어 들입니다(역공학). JavaScript(Vite) UI와 Tauri 2(Rust) 백엔드로 만들었습니다.
 
 ![아이콘](assets/icon-256.png)
 
@@ -16,14 +16,16 @@ Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니�
 - **모델과 뷰를 나눔** — 요소는 모델에 한 번만 있고, 여러 다이어그램에 뷰로 나타납니다. 뷰만 지우기 / 모델에서 지우기
 - **모델 탐색기** — 프로젝트 › 모델 › 패키지 › 요소 트리, 검색, 끌어서 옮기기, 탐색기에서 다이어그램으로 끌어 놓기
 - **편집기** — 속성 · 구성원(속성·오퍼레이션·리터럴·매개변수) · 문서 · 스타일 탭에서 선택한 요소를 바로 편집
-- **다이어그램 38종** — UML 15종(클래스 · 패키지 · 객체 · 복합 구조 · 컴포넌트 · 배치 · 프로파일 · 유스케이스 · 시퀀스 · 커뮤니케이션 · 타이밍 · 인터랙션 개요 · 정보 흐름 · 상태 머신 · 액티비티), ER, 순서도, 데이터 흐름, SysML 4종, BPMN, C4, 마인드맵, 와이어프레임, 클라우드(AWS · Azure · GCP) · 네트워크, 프로젝트(간트 차트 · WBS · 타임라인), ArchiMate 3, 데이터(JSON · YAML · EBNF · 정규식)
-- **템플릿 21종**과 "온라인 쇼핑몰" 예제 프로젝트(한국어/영어)
+- **다이어그램 40종** — UML 15종(클래스 · 패키지 · 객체 · 복합 구조 · 컴포넌트 · 배치 · 프로파일 · 유스케이스 · 시퀀스 · 커뮤니케이션 · 타이밍 · 인터랙션 개요 · 정보 흐름 · 상태 머신 · 액티비티), ER, 순서도, 데이터 흐름, SysML 4종, BPMN, C4, 마인드맵, 와이어프레임, 클라우드(AWS · Azure · GCP) · 네트워크, 프로젝트(간트 차트 · WBS · 타임라인), ArchiMate 3, 애자일·UX(사용자 스토리 맵 · 고객 여정 지도), 데이터(JSON · YAML · EBNF · 정규식)
+- **템플릿 23종**과 "온라인 쇼핑몰" 예제 프로젝트(다이어그램 40개, 한국어/영어)
 
 ### 그리기
 
 - 다이어그램 종류마다 맞는 **도구 상자**, 요소 위의 **빠른 단추**와 **관련 요소 추가**(이웃 요소를 관계와 함께 만들기)
 - **빠른 편집** — 요소를 두 번 눌러 `+name: Type`, `+op(a: int): void` 같은 한 줄 문법으로 이름·속성·오퍼레이션을 한꺼번에 고침
 - 시퀀스 메시지 번호와 활성 막대 자동, 결합 프래그먼트 12종, 상태·전이의 트리거 [가드] / 효과, 액티비티 파티션, ER 까마귀발 표기
+- **마인드맵** — MindManager처럼 `Tab` · `Enter`로 하위·다음 토픽, 자동 배치(맵 · 오른쪽 · 왼쪽 · 아래로 · 자유), 가지 접기(`Ctrl+.`), 모양 · 표식 · 우선순위 · 진행률 · 기한, 관계선 · 경계 · 떠 있는 토픽, **정렬 › 마인드맵** 메뉴, 오른쪽 패널의 **개요** 탭(들여쓴 토픽 목록, 텍스트·Markdown으로 복사, 들여쓴 글로 하위 토픽 추가)
+- **사용자 스토리 맵**(활동 · 단계 · 스토리 카드의 MoSCoW 우선순위 · 스토리 포인트 · 상태, 릴리스 띠, 의존)과 **고객 여정 지도**(페르소나 · 여정 단계 · 행 · 터치포인트 · 카드 · 감정과 감정 곡선) — Visual Paradigm 방식
 - 관계 끌기(허용되지 않는 관계는 막음), 선 모양(직각 · 직선 · 곡선), 꺾임점, 끝 레이블(역할·다중성)
 - 잘라내기 · 복사 · 붙여넣기, 실행 취소/다시 실행, 맞춤·분배, 자동 레이아웃, 확대(`Ctrl+휠`)와 미니맵
 - 위쪽·왼쪽 **눈금자**(다이어그램 좌표, 포인터 위치), 선 **격자**(5칸마다 진한 선, 확대·축소에 따라 커지고 작아지다가 임계점에서 5배 촘촘하게/성기게 다시 그림)
@@ -32,6 +34,7 @@ Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니�
 ### 모델 도구
 
 - **모델 검증** — 34개 규칙(이름 없음, 중복 이름, 순환 일반화, 다중성 형식, 시작 의사 상태, 기본 키, 중복 열·엔터티, 열 타입, 외래 키 타입, 관계의 외래 키, 날짜·문법, 충족·검증되지 않은 요구사항, 중복 요구사항 ID …), 결과에서 요소로 이동
+- **BPMN 프로세스 시뮬레이션** — 토큰이 시퀀스 흐름을 따라 움직이는 애니메이션(재생 · 한 단계 · 처음부터 · 속도 0.5–4×), 게이트웨이 종류별 분기·합류, 교착과 끝나지 않는 반복 표시, **100회 분석**(완료 · 교착 · 반복 초과 횟수, 요소별 도달 비율, 도달하지 않는 요소·쓰이지 않는 흐름). 모델은 바꾸지 않음
 - **문제 패널** — 다이어그램 아래(`Ctrl+J`)에서 모델을 백그라운드로 계속 검사해 오류·경고를 경로·종류·다이어그램과 함께 보여 주고, 누르면 그 요소로 이동하며 다이어그램의 뷰에 **!** 표시
 - **요구사항 관리** — ID 자동 번호, 종류 · 상태 · 우선순위 · 난이도 · 안정성 · 위험 · 검증 방법 · 버전 · 작성자 · 단계, **요구사항 목록**(정렬 · 거르기 · 표에서 상태·우선순위 편집 · CSV), **추적 매트릭스**(행·열 요소 종류와 패키지, 관계 종류, 칸을 눌러 관계 만들기·지우기, 실행 취소, 관계 없는 행 표시, 복사 · CSV)
 - **기준선과 비교** — 모델(또는 패키지) 스냅숏을 `.myuml` 안에 보관, 현재 모델·다른 파일과 비교(추가 · 삭제 · 변경 나무, 필드별 이전/현재), 요소 복원(실행 취소 가능), 기준선을 `.myuml`로 내보내기
@@ -58,10 +61,10 @@ Windows · macOS · Linux · 웹에서 쓰는 UML 모델링 프로그램입니�
 - **테마** — 다크 20 · 라이트 20 · 사용자 정의 · 시스템 설정, **다이어그램 색 구성** 4가지(클래식 · 파스텔 · 청사진 · 어두운)
 - **한국어/영어** — 툴바의 국기 버튼, 백엔드 메시지까지 전환
 - **시작 페이지** — 템플릿, 열기, 최근 파일·폴더, 예제, 튜토리얼, **움직이는 배경 20가지**
-- **튜토리얼** — 실제 프로그램을 움직이며 66단계로 모든 기능을 보여 줌(자동 재생, 장 고르기)
+- **튜토리얼** — 실제 프로그램을 움직이며 71단계로 모든 기능을 보여 줌(자동 재생, 장 고르기)
 - **문서 창** — 시작 화면의 **사용 설명서 · 튜토리얼 문서 · 튜토리얼 동영상** 단추(그리고 도움말 메뉴)가 각자의 OS 창을 엶: 장으로 이동, 한국어/English, 문서에서 찾기(`Ctrl+F`), 인쇄, 브라우저로 열기, 테마 색; 동영상은 재생 속도(0.5–2×) · 전체 화면 · 장 표시와 장 목록. 문서마다 창 하나(다시 고르면 그 창이 앞으로), 위치·크기 기억, 주 창과 함께 닫힘. 웹에서는 새 탭
 - **설정** — 일반 · 테마 · 글꼴 · 배경 · 시작 화면 · 다이어그램 · 데이터베이스 · 단축키 등, 다음 실행에 다시 쓰임
-- 접을 수 있는 패널, 상태 표시줄, **메뉴와 팝업은 독립 창**(메인 창과 함께 닫힘), 오류 팝업(내용 복사), 심각한 오류는 `crash.log`
+- 접을 수 있는 패널, 상태 표시줄, **메뉴와 팝업은 독립 창**(메인 창과 함께 닫힘, ▸ 하위 메뉴는 포인터를 올리면 그 줄 옆에 열리고 `→` · `Enter`로 열고 `←` · `Esc`로 닫음), 오류 팝업(내용 복사), 심각한 오류는 `crash.log`
 - **여러 개 동시 실행** — 실행할 때마다 창이 하나씩 열림(다른 창과 겹치지 않게 비켜 열리고, 지난 세션 복원은 첫 창만), 타이틀 바에 `MyUMLMaker v1.0.0`, 창 위치·크기 기억, 프레젠테이션 모드
 
 ## 빠른 시작
@@ -92,8 +95,9 @@ Tauri는 교차 빌드를 하지 않으므로 각 OS 설치 파일은 그 OS에�
 ### Windows 설치 프로그램
 
 - 설치 시작 시 **한국어/영어**를 고릅니다.
-- 설치는 **하나만** 있습니다. 이전 설치(현재 사용자용·컴퓨터 전체용, 어느 버전이든)가 있으면 **완전히 제거한 뒤** 새로 설치합니다: 실행 중인 MyUMLMaker 창을 모두 닫고(몇 개든, 닫기 전에 묻습니다), 이전 제거 프로그램을 조용히 실행하고 폴더를 지웁니다.
-- 이전 설치나 사용자 데이터가 있으면 첫 화면 전에 **"이전에 사용하던 사용자 데이터(설정, 최근 파일·폴더, 열린 프로젝트 목록, 데이터베이스 연결, 배경 그림, 튜토리얼 기록, 창 위치)를 삭제할까요?"** 라고 설치 언어로 묻습니다. **예**: `%APPDATA%\com.shkwon.myumlmaker`와 `%LOCALAPPDATA%\com.shkwon.myumlmaker`(WebView2 프로필)를 지웁니다. **아니오**: 사용자 데이터는 그대로 두고 **설정만 기본값으로** 되돌립니다(설치 후 첫 실행 때 한 번). **취소**: 아무것도 바꾸지 않고 설치를 그만둡니다. 조용한 설치(`/S`)는 묻지 않고 데이터를 둡니다.
+- 설치는 **하나만** 있습니다. 이전 설치(현재 사용자용·컴퓨터 전체용, 어느 버전이든)가 있으면 첫 화면 전에 **"이전 프로그램을 완전히 삭제하고 다시 설치할까요?"** 라고 먼저 묻습니다. **예**: 이전 프로그램과 그 바탕 화면·시작 메뉴 바로가기를 지운 뒤 새로 설치합니다(실행 중인 MyUMLMaker 창을 모두 닫고 — 몇 개든, 닫기 전에 묻습니다 — 이전 제거 프로그램을 조용히 실행하고 폴더를 지움). **아니오**: 아무것도 바꾸지 않고 설치를 그만둡니다.
+- 이전 설치나 사용자 데이터가 있으면 이어서 **"이전에 사용하던 사용자 데이터(설정, 최근 파일·폴더, 열린 프로젝트 목록, 데이터베이스 연결, 배경 그림, 튜토리얼 기록, 창 위치)를 삭제할까요?"** 라고 설치 언어로 묻습니다. **예**: `%APPDATA%\com.shkwon.myumlmaker`와 `%LOCALAPPDATA%\com.shkwon.myumlmaker`(WebView2 프로필)를 지웁니다. **아니오**: 사용자 데이터는 그대로 두고 **설정만 기본값으로** 되돌립니다(설치 후 첫 실행 때 한 번). **취소**: 아무것도 바꾸지 않고 설치를 그만둡니다. 조용한 설치(`/S`)는 묻지 않고 이전 설치를 지우며 데이터를 둡니다.
+- **바로가기** 페이지에서 **바탕 화면에 바로가기 만들기**와 **시작 메뉴에 바로가기 만들기 (사용 설명서 포함)**를 고릅니다(둘 다 처음에 켜짐). 시작 메뉴 바로가기를 끄면 시작 메뉴 폴더 페이지는 건너뜁니다.
 - `.myuml`(프로젝트, "MYUML" 문서 아이콘 `src-tauri/icons/project.ico`)과 `.mumlt`(템플릿)를 **각자의 문서 아이콘**으로 등록합니다. 파일을 두 번 클릭하면 MyUMLMaker에서 열립니다.
 - 사용 설명서와 튜토리얼 문서를 설치 폴더의 `docs`에, 튜토리얼 동영상과 장 목록을 `docs/video`에, 예제를 `samples`에 넣습니다.
 - 현재 사용자용 설치(관리자 권한 불필요). macOS는 .dmg, Linux deb/rpm은 MIME 형식과 문서 아이콘을 등록합니다.
@@ -177,14 +181,15 @@ SHKWON (knix008@naver.com)
 **MyUMLMaker** is a model-driven UML tool in the style of StarUML for Windows, macOS, Linux and the web (JavaScript/Vite UI, Tauri 2/Rust backend).
 
 - **Model and views** — every element lives once in the model and appears as views on any number of diagrams; Model Explorer tree with search and drag and drop; an editor with properties, members, documentation and style.
-- **38 diagram types** — 15 UML 2 diagrams (class, package, object, composite structure, component, deployment, profile, use case, sequence, communication, timing, interaction overview, information flow, state machine, activity), ER, flowchart, data flow, 4 SysML diagrams, BPMN, C4, mind map, wireframe, cloud (AWS, Azure, GCP) and network, project (Gantt chart, WBS, timeline), ArchiMate 3 and data (JSON, YAML, EBNF, regex); 21 templates and a sample project.
+- **40 diagram types** — 15 UML 2 diagrams (class, package, object, composite structure, component, deployment, profile, use case, sequence, communication, timing, interaction overview, information flow, state machine, activity), ER, flowchart, data flow, 4 SysML diagrams, BPMN, C4, mind map, wireframe, cloud (AWS, Azure, GCP) and network, project (Gantt chart, WBS, timeline), ArchiMate 3, agile & UX (user story map, customer journey map) and data (JSON, YAML, EBNF, regex); 23 templates and a sample project with 40 diagrams.
+- **Mind maps, story maps, journeys** — MindManager-style mind maps (`Tab` / `Enter` for subtopics and next topics, automatic layout, collapsing with `Ctrl+.`, shapes, markers, priority, progress, due dates, relationships, boundaries, floating topics, an **Arrange › Mind map** menu and an **Outline** tab in the right panel that lists the topics, copies them as text or Markdown and adds subtopics from indented text); Visual Paradigm-style user story maps (activities, steps, story cards with MoSCoW priority, story points and status, release bands, dependencies) and customer journey maps (persona, stages, rows, touchpoints, cards, emotions and an emotion curve).
 - **Drawing** — per-diagram toolbox, quick buttons and "add related element", one-line **quick edit** (`+name: Type`, `+op(a: int): void`), automatic message numbers and activation bars, 12 combined fragments, crow's-foot ER notation, rectilinear/straight/curved lines, align and distribute, auto layout, undo/redo. Every diagram can have its own **background**: a colour, a picture (fill, fit, tile, centre, stretch; scaled down to 2560 px and kept in the project) or one of 10 patterns (ink colour, size), each layer with its own opacity (0–100 %), the same on the canvas, the minimap, picture/SVG/PDF export, printing, the presentation and documents, saved in `.myuml` and `.mdj`.
-- **Model tools** — validation (34 rules) and a **Problems panel** (`Ctrl+J`) that checks the model in the background and marks the views with problems, find, **code generation** (Java, C#, C++, Python, TypeScript, Kotlin, PHP, SQL DDL for five dialects), **reverse engineering** from Java, C#, C++ (`.h .hpp .hh .hxx .cpp .cc .cxx`), Python, TypeScript and SQL DDL, PlantUML import/export for every UML diagram plus Gantt, WBS, chronology, ArchiMate, nwdiag, JSON, YAML, EBNF, regex and Salt (with the preprocessor and an import warnings list), Mermaid import/export.
+- **Model tools** — **BPMN process simulation** (tokens animated along the sequence flows with play, one step, from the start and 0.5–4× speed; gateway splits and joins, deadlocks and endless loops marked; **Analyse 100 runs** counts completed, deadlocked and too-long runs and marks how often each element was reached, the elements never reached and the flows never used; the model is not changed), validation (34 rules) and a **Problems panel** (`Ctrl+J`) that checks the model in the background and marks the views with problems, find, **code generation** (Java, C#, C++, Python, TypeScript, Kotlin, PHP, SQL DDL for five dialects), **reverse engineering** from Java, C#, C++ (`.h .hpp .hh .hxx .cpp .cc .cxx`), Python, TypeScript and SQL DDL, PlantUML import/export for every UML diagram plus Gantt, WBS, chronology, ArchiMate, nwdiag, JSON, YAML, EBNF, regex and Salt (with the preprocessor and an import warnings list), Mermaid import/export.
 - **Requirements, baselines, documents** — requirement attributes with automatic ids, a requirements list (sort, filter, inline status and priority, CSV) and a traceability matrix (click a cell to create or delete a relationship, undoable, rows without links highlighted); baselines kept in the `.myuml` file, compared with the current model or another file, with restore; documents from 5 templates as Word (.docx), PDF or HTML.
 - **One project at a time** — the row above the canvas shows the project name and one tab per diagram (‹ › when they overflow), with diagram type tabs (group › type) under it that open a diagram of that type and switch the toolbox; new / open / recent / drop / database open replace the current project after asking about unsaved changes. Rulers on the top and left edges, a line grid with a darker line every 5 steps that zooms with the diagram and is redrawn 5× finer or coarser past a threshold.
 - **Files** — `.myuml` projects (old `.muml` files still open), `.mumlt` templates, `.mfj` model fragments, StarUML `.mdj` open and save, XMI 2.x open (Enterprise Architect, MagicDraw, Papyrus) and XMI 2.5 export (for Enterprise Architect with diagrams, or model only), picture (PNG, JPEG, WebP, BMP, TIFF, SVG) and PDF export, HTML and Markdown model documents, database storage (SQLite, MariaDB, MySQL, PostgreSQL), recent files and folders, drag and drop, printing with a preview.
 - **Document windows** — the **User's guide · Tutorial document · Tutorial video** buttons of the start page (and the Help menu) open their own OS windows: chapter list, 한국어/English, find in page (`Ctrl+F`), print, open in browser, theme colours; the video player has speed (0.5–2×), full screen and chapter marks with a chapter list. One window per document (choosing it again brings it forward), size and place remembered, closed with the main window; a new tab on the web.
-- **UI** — 20 dark + 20 light + custom themes, 4 diagram colour schemes, Korean/English with a flag button, start page with 20 moving backgrounds, a 66-step tutorial, persisted settings, separate popup windows, error popups; several copies may run at once (each start opens its own window, offset from the others; only the first restores the last session).
+- **UI** — 20 dark + 20 light + custom themes, 4 diagram colour schemes, Korean/English with a flag button, start page with 20 moving backgrounds, a 71-step tutorial, persisted settings, separate popup windows (▸ submenus open beside their row when the pointer rests on it; `→` / `Enter` open, `←` / `Esc` close), error popups; several copies may run at once (each start opens its own window, offset from the others; only the first restores the last session).
 
 ```bash
 npm install
@@ -201,7 +206,7 @@ npm test -- --only conformance   # StarUML, Enterprise Architect and PlantUML fe
 
 The `conformance` test category (`test/conformance/`) is a feature checklist, one test per feature: `staruml.test.js` draws every StarUML diagram kind through the editing API and checks its notation in the SVG (names, «stereotypes», multiplicities, guards, arrowheads, diamonds, dashed lines) plus quick edit, Model Explorer operations, format options, auto layout, fragments, code generation and reverse engineering per language, documents and validation; `enterprise-architect.test.js` lists the Enterprise Architect features that are implemented (UML 2.5, SysML, BPMN, ArchiMate 3, data modelling, Gantt/WBS/timeline, network, requirements and the relationship matrix, baselines and model compare, document templates for Word/PDF/HTML, EA-flavoured XMI and MagicDraw/Papyrus XMI, code engineering, database storage, model search), with the missing ones (Kotlin and PHP reverse engineering) marked `todo`; `plantuml.test.js` checks the PlantUML language per diagram kind with snippets in the form of the official documentation, importing, rendering, exporting and importing again.
 
-The Windows installer asks for Korean or English and keeps a single installation: a previous one (current-user or per-machine, any version) is removed completely after closing every running MyUMLMaker window. When there is a previous installation or user data, it first asks whether to delete the user data (settings, recent files and folders, open projects, database connection, background pictures, tutorial history, window position): Yes deletes `%APPDATA%\com.shkwon.myumlmaker` and `%LOCALAPPDATA%\com.shkwon.myumlmaker`, No keeps the data and only resets the settings at the next start, Cancel stops; a silent install (`/S`) keeps the data. It registers `.myuml` (its own "MYUML" document icon) / `.mumlt` with their own icons and installs the user's guide, the tutorial document and pictures, the tutorial video (`docs/video/`, when it has been made) and the samples.
+The Windows installer asks for Korean or English and keeps a single installation. When a previous one (current-user or per-machine, any version) is found, it first asks "Remove the earlier program completely and install again?": Yes removes the old program and its desktop and Start menu shortcuts (after closing every running MyUMLMaker window) and then installs, No stops. When there is a previous installation or user data, it then asks whether to delete the user data (settings, recent files and folders, open projects, database connection, background pictures, tutorial history, window position): Yes deletes `%APPDATA%\com.shkwon.myumlmaker` and `%LOCALAPPDATA%\com.shkwon.myumlmaker`, No keeps the data and only resets the settings at the next start, Cancel stops; a silent install (`/S`) removes the old installation without asking and keeps the data. A **Shortcuts** page chooses a desktop shortcut and a Start menu shortcut (both checked; without the Start menu shortcut the folder page is skipped). It registers `.myuml` (its own "MYUML" document icon) / `.mumlt` with their own icons and installs the user's guide, the tutorial document and pictures, the tutorial video (`docs/video/`, when it has been made) and the samples.
 
 **Tutorial video** — `npm run tutorial:video` runs the tutorial on auto play in the debug app and records the main window (popups are frames during the tutorial, so they are recorded too) into `docs/video/MyUMLMaker-Tutorial.mp4` (H.264, yuv420p, faststart, `-tune stillimage`, CRF 24 by default, `CRF=…` to change; ffmpeg from PATH, `FFMPEG=…` or Chocolatey) and `docs/video/MyUMLMaker-Tutorial.json` (start time and Korean/English title of every step and chapter, for the player's chapter marks). The desktop player plays the installed file (the source tree's in development) through the asset protocol; the web build gets it only with `npm run build:docs -- --with-video`. Without the video the player says how to make it. The video and its chapter list are committed with the project; a checkout without the video still builds (`docs/video/.gitkeep`).
 

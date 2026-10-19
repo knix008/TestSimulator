@@ -25,6 +25,13 @@ async function freshSample(app) {
   await sleep(500);
 }
 
+/** A new project from a start page template tile (a real click on the tile); open projects are closed first (no save question). */
+async function fromTemplateTile(app, id) {
+  await W(app, `(() => { for (const doc of [...w.state.docs]) a.closeDoc(doc, { force: true }); a.showStartPage(true); return 1; })()`);
+  await sleep(300);
+  await app.main.click(`[data-start="template"][data-value="${id}"]`);
+}
+
 /** A new project (empty class diagram) at 100 %. */
 async function freshProject(app, template = 'blank') {
   await closeFrames(app);
@@ -409,9 +416,7 @@ export const cases = [
     // Keys go to the canvas only without a popup in front (the welcome popup, shown shortly after the start, when run alone).
     await app.main.waitFor(`Boolean(document.querySelector('.web-popup-welcome'))`, { timeout: 2500 }).catch(() => {});
     await closeFrames(app);
-    await W(app, '(a.showStartPage(true), 1)');
-    await sleep(300);
-    await app.main.click('[data-start="template"][data-value="mindmap"]');
+    await fromTemplateTile(app, 'mindmap');
     await sleep(800);
     const topics = () => W(app, `api.diagram().ownedViews.filter((v) => v._type === 'MMNodeView').map((v) => { const e = a.activeDoc().index.get(v.model.$ref); return { id: v._id, name: e.name, parent: a.activeDoc().index.parent(e._id)?.name ?? null, x: v.left, y: v.top }; })`);
     const central = (await topics()).find((t) => t.parent === '마인드맵1' || t.name === '프로젝트');
@@ -466,6 +471,86 @@ export const cases = [
     const c = down.find((t) => t.id === central.id);
     assert.ok(down.filter((t) => t.id !== central.id).every((t) => t.y > c.y), 'every topic below the central one');
     await noError(app, 'mind map');
+  } },
+  { group: '마인드맵', name: '개요 탭: 들여쓴 글로 하위 토픽 추가, 줄을 누르면 토픽 선택, ▸로 접기(맵에서도); 관계선·경계', async run(app) {
+    await closeFrames(app);
+    await fromTemplateTile(app, 'mindmap');
+    await sleep(800);
+    const central = await W(app, `api.diagram().ownedViews.find((v) => v._type === 'MMNodeView' && a.activeDoc().index.parent(v.model.$ref)?._type !== 'MMNode')._id`);
+    await W(app, `(a.select([${JSON.stringify(central)}], { primary: ${JSON.stringify(central)} }), 1)`);
+    await sleep(200);
+    await app.main.click('[data-editor-tab="outline"]');
+    await sleep(300);
+    const before = await app.main.eval(`document.querySelectorAll('.outline-row').length`);
+    await app.main.eval(`(() => { const t = document.querySelector('[data-outline-text]'); t.value = '- 마케팅\\n  - SNS 광고\\n  - 이메일\\n- 고객 지원'; return 1; })()`);
+    await app.main.click('[data-outline-add]');
+    await sleep(500);
+    const rows = await app.main.eval(`[...document.querySelectorAll('.outline-row')].map((r) => [r.querySelector('.outline-name').textContent, parseInt(r.style.paddingLeft, 10)])`);
+    assert.equal(rows.length, before + 4, JSON.stringify(rows));
+    const at = (name) => rows.find(([n]) => n === name)[1];
+    assert.ok(at('SNS 광고') > at('마케팅') && at('마케팅') === at('고객 지원'), 'nested as written');
+    await app.main.eval(`(() => { [...document.querySelectorAll('.outline-row')].find((r) => r.textContent.includes('이메일')).click(); return 1; })()`);
+    await sleep(250);
+    assert.equal(await W(app, `a.activeDoc().index.get(api.diagram().ownedViews.find((v) => v._id === w.state.selection.ids[0]).model.$ref).name`), '이메일', 'a row selects its topic');
+    await app.main.eval(`(() => { [...document.querySelectorAll('.outline-row')].find((r) => r.textContent.includes('마케팅')).querySelector('[data-outline-toggle]').click(); return 1; })()`);
+    await sleep(400);
+    assert.equal(await app.main.eval(`document.querySelectorAll('.outline-row').length`), before + 2, 'collapsed in the outline');
+    assert.equal(await W(app, `a.activeDoc().index.get(api.diagram().ownedViews.find((v) => v._id === w.state.selection.ids[0]).model.$ref).name`), '마케팅', 'the selection moves to the collapsed topic');
+    await noError(app, 'outline collapse');
+    // A relationship arrow and a boundary from the toolbox.
+    const tool = (id) => `w.domain.toolboxFor('MMMindmapDiagram').flatMap((g) => g[3]).find((t) => t.id === '${id}')`;
+    const view = (name) => W(app, `api.diagram().ownedViews.find((v) => v._type === 'MMNodeView' && a.activeDoc().index.get(v.model.$ref).name === ${JSON.stringify(name)})._id`);
+    await W(app, `(a.createEdgeBetween(${tool('MMRelationship')}, ${JSON.stringify(await view('목표'))}, ${JSON.stringify(await view('위험'))}), 1)`);
+    await W(app, `(a.createNodeAt(${tool('MMBoundary')}, { x: 20, y: 20, w: 200, h: 120 }), 1)`);
+    await sleep(300);
+    await app.main.key('Escape');
+    assert.deepEqual(await W(app, `api.diagram().ownedViews.map((v) => v._type).filter((t) => /Relationship|Boundary/.test(t)).sort()`), ['MMBoundaryView', 'MMRelationshipView']);
+    await noError(app, 'relationship and boundary');
+    // The new boundary opened its name for editing: finish it so the next case starts clean.
+    await W(app, '(w.state.view?.finishEdit?.(), a.select([]), 1)');
+    await sleep(200);
+  } },
+  { group: '애자일·UX', name: '사용자 스토리 맵·고객 여정 지도: 시작 페이지 템플릿, 예제 프로젝트의 완성된 다이어그램, 오류 없이 그려짐', async run(app) {
+    await closeFrames(app);
+    for (const [template, type, min] of [['storymap', 'UserStoryMapDiagram', 7], ['journey', 'CustomerJourneyDiagram', 15]]) {
+      await fromTemplateTile(app, template);
+      await sleep(700);
+      assert.equal(await W(app, 'api.diagram()?._type'), type, `${template}: the template opens its diagram`);
+      const drawn = await app.main.eval(`document.querySelectorAll('#view-host g[data-view]').length`);
+      assert.ok(drawn >= min, `${template}: ${drawn} views drawn`);
+      await noError(app, template);
+    }
+    await freshSample(app);
+    for (const type of ['UserStoryMapDiagram', 'CustomerJourneyDiagram']) {
+      const id = await W(app, `[...a.activeDoc().index.byId.values()].find((e) => e._type === ${JSON.stringify(type)})._id`);
+      await W(app, `(a.openDiagram(${JSON.stringify(id)}), 1)`);
+      await sleep(400);
+      assert.ok(await app.main.eval(`document.querySelectorAll('#view-host g[data-view]').length`) > 15, `${type}: the sample diagram is drawn`);
+    }
+    await noError(app, 'agile samples');
+  } },
+  { group: 'BPMN', name: '프로세스 시뮬레이션: 도구 › BPMN 프로세스 시뮬레이션, 한 단계·재생으로 끝까지, 100회 분석(완료 100), 닫기', async run(app) {
+    await closeFrames(app);
+    await fromTemplateTile(app, 'bpmn');
+    await sleep(700);
+    await W(app, `(w.run('bpmnSimulate'), 1)`);
+    await sleep(300);
+    const status = () => app.main.eval(`document.querySelector('[data-sim-status]')?.textContent ?? ''`);
+    assert.ok(await app.main.eval(`Boolean(document.querySelector('.sim-bar'))`), 'the simulation bar');
+    assert.equal(await app.main.eval(`document.querySelectorAll('.canvas-sim .sim-token').length`), 1, 'a token on the start event');
+    await app.main.click('[data-sim="step"]');
+    await sleep(900);
+    assert.match(await status(), /단계 1/);
+    await app.main.click('[data-sim="play"]');
+    await app.main.waitFor(`/완료/.test(document.querySelector('[data-sim-status]')?.textContent ?? '')`, { timeout: 15000, message: 'the run completes' });
+    await app.main.click('[data-sim="analyse"]');
+    await sleep(400);
+    assert.match(await status(), /100회: 완료 100 · 교착 0/);
+    assert.ok(await app.main.eval(`document.querySelectorAll('.canvas-sim text').length`) >= 5, 'every element shows the share of runs that reached it');
+    await app.main.click('[data-sim="close"]');
+    await sleep(200);
+    assert.ok(await app.main.eval(`!document.querySelector('.sim-bar') && !document.querySelector('.canvas-sim').innerHTML`), 'closed and cleared');
+    await noError(app, 'simulation');
   } },
   { group: '보기', name: '다이어그램 색 구성·선 모양·언어를 바꿔도 오류 없음', async run(app) {
     await freshSample(app);

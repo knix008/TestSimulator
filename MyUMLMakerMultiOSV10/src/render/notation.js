@@ -18,7 +18,7 @@ import { MORE_CONTAINERS, MORE_FREE, MORE_ROUTES } from './shapes-more.js';
 /** Shapes whose stored size wins over the fitted size (containers, bars, widgets). */
 const FREE = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'rect', 'roundRect', 'ellipse', 'image', 'timingLifeline', 'subject', 'bar', 'wfFrame', 'wfMobile', 'wfPanel', 'wfInput', 'wfTextArea', 'wfDropdown', 'wfSlider', 'wfTabs', 'wfImage', 'wfAvatar', 'wfList', 'wfTable', 'wfDivider', 'wfProgress', 'wfIcon', 'note', 'text', 'cloudService', 'pseudostate']);
 /** Container shapes: drawn behind the other nodes; moving one moves what is inside. */
-export const CONTAINER_SHAPES = new Set(['frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'subject', 'package', 'state', 'node3d', 'component', 'wfFrame', 'wfMobile', 'wfPanel', 'collaboration', 'subsystem']);
+export const CONTAINER_SHAPES = new Set(['mmBoundary', 'usRelease', 'cjStage', 'cjLane', 'frame', 'diagramFrame', 'fragment', 'swimlane', 'pool', 'lane', 'bpmnSubProcess', 'bpmnGroup', 'expansion', 'structured', 'interruptible', 'c4Boundary', 'cloudGroup', 'subject', 'package', 'state', 'node3d', 'component', 'wfFrame', 'wfMobile', 'wfPanel', 'collaboration', 'subsystem']);
 for (const shape of MORE_FREE) FREE.add(shape);
 for (const shape of MORE_CONTAINERS) CONTAINER_SHAPES.add(shape);
 

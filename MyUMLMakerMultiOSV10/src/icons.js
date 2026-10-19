@@ -320,6 +320,9 @@ const base = {
   mmToggle: '<rect x="2" y="8" width="10" height="8" rx="3"/><circle cx="17.5" cy="12" r="4.5"/><path d="M15.5 12h4M17.5 10v4M12 12h1"/>',
   mmCollapseAll: '<rect x="8" y="9" width="8" height="6" rx="2.5"/><circle cx="4" cy="12" r="2.5"/><circle cx="20" cy="12" r="2.5"/><path d="M18.8 12h2.4M2.8 12h2.4M6.5 12H8M16 12h1.5"/>',
   mmExpandAll: '<rect x="8.5" y="9.5" width="7" height="5" rx="2"/><path d="M8.5 12L4 5M8.5 12L4 19M15.5 12L20 5M15.5 12L20 19"/><circle cx="4" cy="5" r="1.5"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="1.5"/><circle cx="20" cy="19" r="1.5"/>',
+  // A process with a token on its way.
+  bpmnSimulate: '<circle cx="4" cy="12" r="2.5"/><rect x="9" y="8" width="7" height="8" rx="2"/><circle cx="21" cy="12" r="1.8" stroke-width="2.6"/><path d="M6.5 12H9M16 12h3"/><circle cx="7.8" cy="12" r="1.4" fill="currentColor"/>',
+  mmOutline: '<path d="M4 5h.01M4 12h.01M4 19h.01"/><path d="M8 5h12M11 12h9M14 19h6"/><path d="M8 12h1M8 19h4"/>',
   mmRelayout: '<rect x="9" y="10" width="6" height="4" rx="1.5"/><path d="M9 12H5M15 12h4M5 7v10M19 7v10"/><path d="M20 3a9 9 0 0 0-9-1.5M4 21a9 9 0 0 0 9 1.5"/><path d="M17 2.5l3 .5-.5 3"/>',
   // ── moving backgrounds (start page chips): anim + the ANIMATIONS name, capitalised
   animAurora: '<path d="M3 6c3-2 6 2 9 0s6-2 9 0"/><path d="M5 7.5v7M9 8v11M13 7v9M17 7v12M20 7.5v6" opacity="0.65"/>',

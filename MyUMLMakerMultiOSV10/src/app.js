@@ -18,6 +18,7 @@ import { CLASSIFIER_TYPES, DIAGRAM_FAMILIES, DIAGRAM_TYPES, TYPES, typeDef, type
 import { toolboxFor, toolById } from './domain/toolbox.js';
 import * as E from './domain/edit.js';
 import * as MM from './domain/mindmap.js';
+import { SimulationController } from './ui/simulation.js';
 import { layoutDiagram as autoLayout, LAYOUT_DIRECTIONS } from './domain/layout.js';
 import { parseAttribute, parseNameWithStereotype, parseOperation, attributeText, operationText, isMultiplicity } from './domain/labels.js';
 import { CODE_LANGUAGES, DEFAULT_CODEGEN_OPTIONS, generateCode, SQL_DIALECTS } from './domain/codegen/index.js';
@@ -610,11 +611,18 @@ function addMindTopic(where, viewId = selectedTopicView()?._id) {
 /** The +/− of a topic (or Ctrl+. on the selected one). */
 function toggleMindTopic(topicId = selectedTopic()?._id) {
   if (!topicId) return;
-  change('action.mmToggle', (project, diagram) => {
-    const next = MM.toggleCollapsed(project, topicId);
-    if (next !== null) MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
-    return next;
+  const next = change('action.mmToggle', (project, diagram) => {
+    const collapsed = MM.toggleCollapsed(project, topicId);
+    if (collapsed !== null) MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
+    return collapsed;
   });
+  if (next) {
+    const hidden = MM.hiddenViews(currentDiagram(), activeTab().index);
+    if (selectedIds().some((id) => hidden.has(id))) {
+      const own = M.viewsOf(currentDiagram()).find((v) => v.model && M.refId(v.model) === topicId);
+      select(own ? [own._id] : []);
+    }
+  }
 }
 function collapseMindMap(collapse) {
   change(collapse ? 'action.mmCollapseAll' : 'action.mmExpandAll', (project, diagram) => {
@@ -820,7 +828,7 @@ function addableTypes(element) {
   return Object.keys(TYPES).filter((type) => {
     const def = TYPES[type];
     if (def.diagram || def.edge || type === 'Project' || type === 'UMLRegion' || type === 'UMLAssociationEnd' || type === 'ERDRelationshipEnd' || type === 'UMLTag' || type === 'UMLMessage') return false;
-    if (element._type === 'Project') return ['UMLModel', 'UMLPackage', 'UMLProfile', 'ERDDataModel', 'FCFlowchart', 'DFDDataFlowModel', 'BPMNProcess', 'C4Model', 'MMMindmap', 'WFWireframe', 'CloudModel'].includes(type);
+    if (element._type === 'Project') return ['UMLModel', 'UMLPackage', 'UMLProfile', 'ERDDataModel', 'FCFlowchart', 'DFDDataFlowModel', 'BPMNProcess', 'C4Model', 'MMMindmap', 'WFWireframe', 'CloudModel', 'UXModel'].includes(type);
     if (!M.canContain(element, type)) return false;
     // UML owners get UML features; SysML owners get both.
     if (/^UML/.test(element._type) && /^SysML/.test(type) && def.feature !== undefined && !['UMLModel', 'UMLPackage'].includes(element._type)) return false;
@@ -969,7 +977,12 @@ function mountView() {
 
 function updateView() {
   if (state.view) state.view.update();
+  simulation.diagramChanged();
 }
+
+/** BPMN simulation on the canvas (Tools › Simulate process). */
+const simulation = new SimulationController({ t, view: () => state.view, project: () => activeTab()?.project, diagram: () => (state.showStart ? null : currentDiagram()), notify: (kind, text) => notify(kind, text) });
+const isBpmn = () => hasDiagram() && currentDiagram()?._type === 'BPMNDiagram';
 
 function renderView() {
   const host = root.querySelector('#view-host');
@@ -978,8 +991,7 @@ function renderView() {
   root.classList.toggle('on-start', showStart);
   host.hidden = showStart;
   start.hidden = !showStart;
-  if (showStart) renderStartPage();
-  else if (!state.view) mountView();
+  if (showStart) { simulation.stop(); renderStartPage(); } else if (!state.view) mountView();
 }
 
 // ───────────────────────── zoom
@@ -1092,6 +1104,7 @@ const commands = {
   requirements: { icon: 'sysmlRequirement', label: 'action.requirements', enabled: hasDoc, run: () => openRequirements() },
   traceMatrix: { icon: 'table', label: 'action.traceMatrix', enabled: hasDoc, run: () => openTraceMatrix() },
   validate: { icon: 'validate', label: 'action.validate', key: 'Ctrl+Shift+V', enabled: hasDoc, run: () => runValidation() },
+  bpmnSimulate: { icon: 'bpmnSimulate', label: 'action.bpmnSimulate', enabled: isBpmn, checked: () => simulation.active, run: () => (simulation.active ? simulation.stop() : simulation.start()) },
   statistics: { icon: 'statistics', label: 'action.statistics', enabled: hasDoc, run: () => showStatistics() },
   // tools
   ...Object.fromEntries(['pointer'].map((id) => [`tool:${id}`, { icon: 'pointer', label: 'tool.pointer', key: 'Ctrl+1', checked: () => !state.tool, run: () => setTool(null) }])),
@@ -1284,7 +1297,7 @@ const MENUS = {
   view: [sub('zoom'), sub('show'), '-', sub('diagramTheme'), sub('defaultLine'), '-', sub('diagrams'), 'presentation', '-', sub('appearance')],
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
   arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout'), sub('mindmap')],
-  tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', '-', 'settings'],
+  tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', 'bpmnSimulate', '-', 'settings'],
   help: ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', model: 'umlModel', view: 'eye', format: 'formatShape', arrange: 'bringFront', tools: 'tools', help: 'question' };
@@ -1588,7 +1601,9 @@ function renderExplorer() {
   if (!explorerView.host.querySelector('.explorer-tree')) explorerView.render(); else explorerView.renderTree();
 }
 
-const EDITOR_TABS = [['properties', 'propertiesTab'], ['style', 'formatShape'], ['documentation', 'docText'], ['tags', 'tag']];
+const EDITOR_TABS = [['properties', 'propertiesTab'], ['style', 'formatShape'], ['documentation', 'docText'], ['tags', 'tag'], ['outline', 'mmOutline']];
+/** The tabs shown: the Outline only on a mind map. */
+const editorTabs = () => EDITOR_TABS.filter(([id]) => id !== 'outline' || isMindMap());
 
 /** What the Editors show: the selected element (or annotation views), else the explorer selection, else the diagram. */
 function editorTarget() {
@@ -1614,7 +1629,8 @@ function renderEditors() {
     renderEditors.timer = setTimeout(() => { if (!host.contains(document.activeElement)) renderEditors(); }, 400);
     return;
   }
-  tabsHost.innerHTML = EDITOR_TABS.map(([id, glyph]) => `<button class="editor-tab ${state.rightTab === id ? 'active' : ''}" data-editor-tab="${id}" role="tab" aria-selected="${state.rightTab === id}" title="${escapeHtml(t(`editors.${id}`))}">${icon(glyph)}<span>${escapeHtml(t(`editors.${id}`))}</span></button>`).join('');
+  if (state.rightTab === 'outline' && !isMindMap()) state.rightTab = 'properties';
+  tabsHost.innerHTML = editorTabs().map(([id, glyph]) => `<button class="editor-tab ${state.rightTab === id ? 'active' : ''}" data-editor-tab="${id}" role="tab" aria-selected="${state.rightTab === id}" title="${escapeHtml(t(`editors.${id}`))}">${icon(glyph)}<span>${escapeHtml(t(`editors.${id}`))}</span></button>`).join('');
   const tab = activeTab();
   root.querySelector('#datalists').innerHTML = datalistsHtml(appApi);
   if (!tab) { host.innerHTML = `<p class="panel-hint">${icon('info')}<span>${escapeHtml(t('editors.noProject'))}</span></p>`; return; }
@@ -1625,6 +1641,7 @@ function renderEditors() {
     case 'style': html = styleHtml(appApi, views); break;
     case 'documentation': html = documentationHtml(appApi, element); break;
     case 'tags': html = tagsHtml(appApi, element); break;
+    case 'outline': html = outlineHtml(); break;
     default:
       if (!element && views.length) html = annotationProps(views[0]);
       else if (element && M.isDiagram(element)) html = propertiesHtml(appApi, element) + diagramPropertiesHtml(appApi, element);
@@ -1632,6 +1649,36 @@ function renderEditors() {
   }
   host.innerHTML = `<div class="editor-body">${html}</div>`;
   host.scrollTop = scroll;
+}
+
+/** MindManager's Outline View: the topics as an indented list; a row selects its topic, its caret collapses the branch. */
+function outlineHtml() {
+  const tab = activeTab();
+  const diagram = currentDiagram();
+  if (!tab || !diagram) return '';
+  const rows = MM.outlineRows(tab.project, diagram);
+  const selected = new Set(selectedIds());
+  const marks = (e) => [e.priority ? `<span class="outline-mark pri">${escapeHtml(String(e.priority).replace(/\D/g, ''))}</span>` : '', e.progress ? `<span class="outline-mark pct">${escapeHtml(String(e.progress).replace(/\D/g, ''))}%</span>` : '', e.marker ? `<span class="outline-mark">${escapeHtml(t(`enum.${e.marker}`))}</span>` : ''].join('');
+  const list = rows.map((r) => `<div class="outline-row ${r.viewId && selected.has(r.viewId) ? 'selected' : ''}" data-outline-view="${escapeHtml(r.viewId ?? '')}" style="padding-left:${6 + r.depth * 16}px" title="${escapeHtml(r.element.name ?? '')}">`
+    + (r.hasChildren ? `<button class="outline-caret" data-outline-toggle="${escapeHtml(r.id)}" aria-label="${escapeHtml(t('action.mmToggle'))}">${icon(r.element.collapsed ? 'caretRight' : 'caretDown')}</button>` : '<span class="outline-caret"></span>')
+    + `${marks(r.element)}<span class="outline-name ${r.depth ? '' : 'central'}">${escapeHtml(r.element.name || '—')}</span>${r.element.dueDate ? `<span class="outline-due">${escapeHtml(r.element.dueDate)}</span>` : ''}</div>`).join('');
+  return `<section class="prop-section outline-section"><header><span class="section-toggle">${icon('mmOutline')}<span>${escapeHtml(t('outline.title'))}</span></span></header>
+    <div class="outline-actions"><button class="button small" data-outline-copy="text" title="${escapeHtml(t('outline.copyText'))}">${icon('copy')}<span>${escapeHtml(t('outline.copyText'))}</span></button><button class="button small" data-outline-copy="markdown" title="${escapeHtml(t('outline.copyMarkdown'))}">${icon('reportMarkdown')}<span>${escapeHtml(t('outline.copyMarkdown'))}</span></button></div>
+    <div class="outline-list" role="tree">${list || `<p class="panel-hint">${escapeHtml(t('outline.empty'))}</p>`}</div>
+    <div class="outline-add"><label class="prop-label" for="outline-text">${escapeHtml(t('outline.addLabel'))}</label><textarea id="outline-text" data-outline-text rows="4" spellcheck="false" placeholder="${escapeHtml(t('outline.addHint'))}"></textarea>
+    <button class="button small" data-outline-add ${selectedTopicView() ? '' : 'disabled'} title="${escapeHtml(t('outline.addTip'))}">${icon('mmAddChild')}<span>${escapeHtml(t('outline.add'))}</span></button></div></section>`;
+}
+
+/** Outline › add: the indented lines become subtopics of the selected topic. */
+function addOutlineText(text) {
+  const viewId = selectedTopicView()?._id;
+  if (!viewId || !String(text ?? '').trim()) return;
+  const added = change('action.mmAddChild', (project, diagram) => {
+    const views = MM.addOutline(project, diagram, viewId, text, { language: lang() });
+    if (views.length) MM.layoutMindmap(project, diagram, boxesOf(project, diagram));
+    return views;
+  });
+  notify('success', t('outline.added', { count: added?.length ?? 0 }));
 }
 
 function annotationProps(v) {
@@ -3397,7 +3444,7 @@ function contextMenu(event, kind, payload = {}) {
   }
   if (kind === 'multi') return showMenu(menuItems(['cut', 'copy', 'duplicate', '-', 'delete', 'deleteFromModel', '-', sub('align'), sub('order'), sub('layout'), '-', sub('font'), 'fillColor', 'lineColor', sub('lineStyle')]), anchor, 'context', { header: { icon: 'selectAll', title: t('status.selected', { count: selectedIds().length }) } });
   if (kind === 'canvas') {
-    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), ...(isMindMap() ? [sub('mindmap')] : []), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), 'diagramBackground', '-', 'exportImage', 'exportSvg']);
+    const items = menuItems(['paste', 'selectAll', '-', 'quickAddHere', 'showRelations', '-', sub('layout'), ...(isMindMap() ? [sub('mindmap')] : []), ...(isBpmn() ? ['bpmnSimulate'] : []), '-', 'zoomIn', 'zoomOut', 'fitPage', '-', sub('show'), 'diagramBackground', '-', 'exportImage', 'exportSvg']);
     return showMenu(items, anchor, 'context', { header: { icon: typeDef(currentDiagram()?._type)?.icon ?? 'dgClass', title: currentDiagram()?.name ?? '' }, point: payload.point });
   }
   if (kind === 'element') {
@@ -3627,6 +3674,13 @@ function bindEvents() {
     const tbToggle = target.closest('[data-toolbox-toggle]');
     if (tbToggle) { const id = tbToggle.dataset.toolboxToggle; if (state.collapsedToolbox.has(id)) state.collapsedToolbox.delete(id); else state.collapsedToolbox.add(id); return renderToolbox(); }
     if (target.closest('[data-toolbox-compact]')) { updateSettings({ toolboxCompact: !state.settings.toolboxCompact }, { quiet: true }); return renderToolbox(); }
+    const outlineToggle = target.closest('[data-outline-toggle]');
+    if (outlineToggle) return toggleMindTopic(outlineToggle.dataset.outlineToggle);
+    const outlineRow = target.closest('[data-outline-view]');
+    if (outlineRow?.dataset.outlineView) { select([outlineRow.dataset.outlineView], { primary: outlineRow.dataset.outlineView }); state.view?.reveal?.(outlineRow.dataset.outlineView); return renderEditors(); }
+    const outlineCopy = target.closest('[data-outline-copy]');
+    if (outlineCopy) { const tab = activeTab(); native.clipboardWrite(MM.outlineText(MM.outlineRows(tab.project, currentDiagram(), { all: true }), outlineCopy.dataset.outlineCopy)).then(() => notify('success', t('outline.copied'))).catch(() => {}); return undefined; }
+    if (target.closest('[data-outline-add]')) return addOutlineText(root.querySelector('[data-outline-text]')?.value);
     const editorTab = target.closest('[data-editor-tab]');
     if (editorTab) { state.rightTab = editorTab.dataset.editorTab; return renderEditors(); }
     const editorToggle = target.closest('[data-editor-toggle]');

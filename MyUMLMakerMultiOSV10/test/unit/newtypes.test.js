@@ -22,7 +22,7 @@ import { validate } from '../../src/domain/validate.js';
 import { hasIcon } from '../../src/icons.js';
 import { PLANTUML_MORE_EXAMPLES } from '../../src/domain/interop/plantuml-examples.js';
 
-const NEW_TYPES = ['GanttDiagram', 'WBSDiagram', 'TimelineDiagram', 'ArchiMateDiagram', 'NetworkDiagram', 'JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram'];
+const NEW_TYPES = ['GanttDiagram', 'WBSDiagram', 'TimelineDiagram', 'ArchiMateDiagram', 'NetworkDiagram', 'JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram', 'UserStoryMapDiagram', 'CustomerJourneyDiagram'];
 const toolsOf = (type) => toolboxFor(type).flatMap(([, , , tools]) => tools);
 const fresh = (type) => {
   const project = M.createProject({ name: 'P', language: 'en', diagram: null });
@@ -222,7 +222,8 @@ test('PlantUML details survive: Gantt dates, completion and resources; ArchiMate
 
 test('the sample diagrams of the new kinds export to PlantUML and come back', () => {
   const project = buildSample('en');
-  for (const type of NEW_TYPES) {
+  // PlantUML has no story map or customer journey notation.
+  for (const type of NEW_TYPES.filter((t) => !['UserStoryMapDiagram', 'CustomerJourneyDiagram'].includes(t))) {
     const diagram = M.allDiagrams(project).find((d) => d._type === type);
     const text = exportPlantUmlMore(project, diagram);
     assert.equal(typeof text, 'string', `${type}: exported`);

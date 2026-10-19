@@ -90,6 +90,16 @@ export const STEPS = [
   { id: 'erd', chapter: 'diagrams', target: '#view-host', run: async (a) => { await a.sample(); a.diagram('ERDDiagram'); } },
   { id: 'others', chapter: 'diagrams', target: '#view-host', dwell: 7000, run: async (a) => { await a.sample(); for (const type of ['FCFlowchartDiagram', 'C4Diagram', 'UMLPackageDiagram']) { a.diagram(type); await sleep(1200); } } },
   { id: 'moreDiagrams', chapter: 'diagrams', target: '#view-host', dwell: 8000, run: async (a) => { await a.sample(); for (const type of ['GanttDiagram', 'ArchiMateDiagram', 'WBSDiagram', 'NetworkDiagram', 'JSONDiagram']) { a.diagram(type); await sleep(1300); } } },
+  { id: 'mindmapKeys', chapter: 'diagrams', target: '#view-host', dwell: 8000, async run(a) {
+    await a.sample(); a.diagram('MMMindmapDiagram');
+    // MindManager keys: Tab adds a subtopic, Enter the next topic (here through the same commands).
+    const index = a.app.tab().index;
+    const central = a.app.diagram().ownedViews.find((v) => v._type === 'MMNodeView' && index.parent(refId(v.model))?._type !== 'MMNode');
+    if (central) { a.app.select([central._id], { primary: central._id }); a.app.run('mmAddChild'); await sleep(700); a.app.state.view?.finishEdit?.(); await sleep(300); a.app.run('mmAddSibling'); await sleep(700); a.app.state.view?.finishEdit?.(); }
+  } },
+  { id: 'mindmapOutline', chapter: 'diagrams', target: '#editors', dwell: 7000, async run(a) { await a.sample(); a.diagram('MMMindmapDiagram'); a.app.state.rightTab = 'outline'; a.app.renderAll(); } },
+  { id: 'storyMap', chapter: 'diagrams', target: '#view-host', dwell: 7000, async run(a) { await a.sample(); a.diagram('UserStoryMapDiagram'); } },
+  { id: 'journeyMap', chapter: 'diagrams', target: '#view-host', dwell: 7000, async run(a) { await a.sample(); a.diagram('CustomerJourneyDiagram'); } },
   // ── format and arrange
   { id: 'style', chapter: 'format', target: '#editors', dwell: 6000, async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.selectView('Order'); a.app.state.rightTab = 'style'; a.app.renderAll(); } },
   { id: 'colors', chapter: 'format', target: '[data-command="fillColor"]', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); a.selectView('Product'); a.app.actions?.applyColor?.('fillColor', '#dae8fc'); } },
@@ -114,6 +124,13 @@ export const STEPS = [
   { id: 'zoom', chapter: 'format', target: '.toolbar-zoom', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); await a.app.run('zoomOut'); await sleep(500); await a.app.run('fitPage'); } },
   // ── model tools
   { id: 'validate', chapter: 'tools', target: '[data-command="validate"]', async run(a) { await a.sample(); a.diagram('UMLClassDiagram'); await a.app.run('validate'); } },
+  { id: 'bpmnSimulation', chapter: 'tools', target: '.sim-bar', dwell: 9000, async run(a) {
+    await a.sample(); a.diagram('BPMNDiagram');
+    if (!a.app.state.view || a.app.diagram()?._type !== 'BPMNDiagram') return;
+    a.app.run('bpmnSimulate');
+    await sleep(300);
+    q('.sim-bar [data-sim="play"]')?.click();
+  } },
   { id: 'problemsPanel', chapter: 'tools', target: '#bottom-panel', dwell: 7000, async run(a) {
     await a.sample(); a.diagram('ERDDiagram');
     if (!a.app.settings().showBottomPanel) a.app.updateSettings({ showBottomPanel: true });

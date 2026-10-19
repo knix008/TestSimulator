@@ -335,6 +335,8 @@ const MAIN_TOOLS = {
   NetworkDiagram: ['NWNode', 'NWNetwork'],
   GanttDiagram: ['GanttTask', 'GanttMilestone'],
   TimelineDiagram: ['TLEvent', 'TLPeriod'],
+  UserStoryMapDiagram: ['USStory', 'USStep'],
+  CustomerJourneyDiagram: ['CJEmotion', 'CJCard'],
 };
 /** Tools that only make sense inside another element (ports, pins, lanes …) are not drawn on the bare canvas. */
 const INNER_TOOL = /Port$|Pin$|Lane$|Parameter$|Property$|TimeTick$|^UMLPart$|CollaborationUse$/;
@@ -448,7 +450,7 @@ export const cases = [
     const templates = await W(app, 'w.domain.TEMPLATES.length');
     const info = await app.main.eval(`({ shown: !document.querySelector('#start-page').hidden, templates: document.querySelectorAll('.template-tile').length, tutorial: Boolean(document.querySelector('.start-hero [data-start="tutorial"]')), banner: Boolean(document.querySelector('.start-banner')), recent: Boolean(document.querySelector('.start-card.recent')), samples: [...document.querySelectorAll('[data-start="open-sample"], [data-start="builtin-sample"]')].map((b) => b.dataset.value), help: ['tutorial-doc', 'guide', 'shortcuts'].every((x) => document.querySelector('[data-start="' + x + '"]')), left: getComputedStyle(document.querySelector('#left-panel')).display, version: document.querySelector('.start-hero h1').textContent })`);
     assert.ok(info.shown, 'start page shown');
-    assert.equal(templates, 21, 'MyUMLMaker has 21 templates');
+    assert.equal(templates, 23, 'MyUMLMaker has 23 templates');
     assert.equal(info.templates, templates, 'a tile per template');
     assert.ok(info.tutorial && info.banner && info.recent && info.help, JSON.stringify(info));
     assert.ok(info.samples.length >= 1 && info.samples.every((p) => !p || /\.ko\.(myuml|mdj)$/.test(p)), `sample projects in the UI language ${JSON.stringify(info.samples)}`);
@@ -1491,6 +1493,26 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await W(app, `(a.updateSettings({ diagramTheme: 'classic' }), 1)`);
     await noErrorPopup(app, 'submenu');
   } },
+  { group: '메뉴', name: 'BPMN 시뮬레이션: 도구 › BPMN 프로세스 시뮬레이션 (실제 클릭) → 재생해서 끝까지, 100회 분석, 닫기', async run(app) {
+    await freshProject(app, 'bpmn');
+    await sleep(400);
+    // Opened once by hand: the command toggles, and runMenu's retry could switch it off again.
+    const since = await now(app);
+    await clickOn(app.main, '[data-menu="tools"]');
+    const menu = await menuWindow(app, since);
+    await clickOn(menu, '[data-id="bpmnSimulate"]');
+    menu.close();
+    await app.main.waitFor(`Boolean(document.querySelector('.sim-bar'))`, { timeout: 4000, message: 'the simulation bar' });
+    await clickOn(app.main, '[data-sim="play"]');
+    await app.main.waitFor(`/완료/.test(document.querySelector('[data-sim-status]')?.textContent ?? '')`, { timeout: 15000, message: 'the run completes' });
+    await clickOn(app.main, '[data-sim="analyse"]');
+    await sleep(400);
+    assert.match(await app.main.eval(`document.querySelector('[data-sim-status]').textContent`), /완료 100 · 교착 0/);
+    await clickOn(app.main, '[data-sim="close"]');
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('.sim-bar'))`), false);
+    await noErrorPopup(app, 'bpmn simulation');
+  } },
   { group: '메뉴', name: '하위 메뉴: 마인드맵 노드의 컨텍스트 메뉴 › 관련 요소 추가 — 마우스를 올리면 열리고 하위 노드 추가 (실제 마우스)', async run(app) {
     await freshProject(app, 'mindmap');
     await sleep(400);
@@ -1832,10 +1854,11 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   drawCase('BPMN·C4·마인드맵·와이어프레임·AWS·Azure·GCP', ['BPMNDiagram', 'C4Diagram', 'MMMindmapDiagram', 'WFWireframeDiagram', 'AWSDiagram', 'AzureDiagram', 'GCPDiagram']),
   drawCase('새 종류 1 (네트워크·간트·WBS·타임라인·ArchiMate)', ['NetworkDiagram', 'GanttDiagram', 'WBSDiagram', 'TimelineDiagram', 'ArchiMateDiagram']),
   drawCase('새 종류 2 (JSON·YAML·EBNF·정규식)', ['JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram']),
-  { group: '다이어그램 종류', name: '종류 탭은 38종, 줄마다 한 줄이고 좁은 창에서는 ‹ › 와 휠로 옆으로 넘김 (실제 마우스)', async run(app) {
+  drawCase('새 종류 3 (사용자 스토리 맵·고객 여정 지도)', ['UserStoryMapDiagram', 'CustomerJourneyDiagram']),
+  { group: '다이어그램 종류', name: '종류 탭은 40종, 줄마다 한 줄이고 좁은 창에서는 ‹ › 와 휠로 옆으로 넘김 (실제 마우스)', async run(app) {
     await freshProject(app);
     const count = await app.main.eval(`import('/src/domain/toolbox.js').then((m) => m.DIAGRAM_TABS.flatMap((g) => g[3]).length)`);
-    assert.equal(count, 38, 'every diagram type has a type tab');
+    assert.equal(count, 40, 'every diagram type has a type tab');
     const families = await app.main.eval(`[...document.querySelectorAll('.type-family')].map((f) => f.dataset.typeGroup)`);
     for (const group of ['project', 'archimate', 'data', 'cloud']) assert.ok(families.includes(group), `${group} group ${JSON.stringify(families)}`);
     const min = await W(app, 'w.state.minWidth');

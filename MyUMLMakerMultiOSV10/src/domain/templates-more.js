@@ -3,7 +3,7 @@
 // milestones (timeline), the order handling layered view (ArchiMate 3), the
 // shop network (nwdiag style), the order API messages (JSON), the deployment
 // configuration (YAML), the order number grammar (EBNF) and the input checks
-// (regular expressions). Built with the normal editing functions, Korean and
+// (regular expressions), and the shop's user story map and customer journey. Built with the normal editing functions, Korean and
 // English. Used by buildSample (templates.js).
 import { addDiagram, addElement, showElement } from './model.js';
 import { createEdge, createNode } from './edit.js';
@@ -196,6 +196,72 @@ function buildNetwork(s) {
   c('admin', 'internal', '172.16.0.200');
 }
 
+// ───────────────────────── agile & UX (Visual Paradigm): user story map, customer journey map
+
+const STORY_COL = 170;
+const STORY_X = 160;
+
+/** The shop's story map: activities and steps across the top, stories in release bands below. */
+function buildStoryMap(s, model) {
+  const { project, language, T } = s;
+  const diagram = addDiagram(project, model._id, 'UserStoryMapDiagram', { language, name: T('쇼핑몰 사용자 스토리 맵', 'Shop User Story Map') });
+  const p = painter(project, diagram, language);
+  const releases = [[T('MVP (1차 오픈)', 'MVP (first launch)'), '2026-11-02', T('주문부터 배송 조회까지', 'Order to delivery tracking')], [T('릴리스 2', 'Release 2'), '2027-02-01', T('편의 기능', 'Convenience')]];
+  releases.forEach(([name, date, goal], i) => p.node(`rel${i}`, 'USRelease', 20, 180 + i * 130, { name, date, goal }, { w: STORY_X - 20 + 5 * STORY_COL + 10, h: 120 }));
+  const activities = [[T('상품 찾기', 'Find products'), 0, 2], [T('주문하기', 'Order'), 2, 2], [T('받기', 'Receive'), 4, 1]];
+  activities.forEach(([name, col, span], i) => p.node(`act${i}`, 'USActivity', STORY_X + col * STORY_COL, 20, { name }, { w: span * STORY_COL - 20, h: 64 }));
+  const steps = [T('검색', 'Search'), T('상품 보기', 'View product'), T('장바구니', 'Cart'), T('결제', 'Pay'), T('배송 조회', 'Track delivery')];
+  steps.forEach((name, i) => p.node(`step${i}`, 'USStep', STORY_X + i * STORY_COL, 100, { name }, { w: STORY_COL - 20, h: 56 }));
+  const stories = [
+    [0, 0, T('키워드로 상품 검색', 'Search by keyword'), 'must', 3, 'done'], [0, 1, T('상품 상세 보기', 'See product details'), 'must', 2, 'done'],
+    [0, 2, T('장바구니에 담기', 'Add to cart'), 'must', 3, 'doing'], [0, 3, T('카드로 결제', 'Pay by card'), 'must', 5, 'todo'],
+    [0, 4, T('주문 상태 보기', 'See order status'), 'should', 2, 'todo'],
+    [1, 0, T('필터와 정렬', 'Filter and sort'), 'should', 3, 'todo'], [1, 1, T('구매 후기 보기', 'Read reviews'), 'could', 3, 'todo'],
+    [1, 3, T('간편 결제', 'One-click payment'), 'should', 5, 'todo'], [1, 4, T('배송 알림 받기', 'Delivery notifications'), 'could', 2, 'todo'],
+  ];
+  stories.forEach(([release, col, name, priority, storyPoints, status], i) => p.node(`story${i}`, 'USStory', STORY_X + col * STORY_COL, 194 + release * 130, {
+    name, priority, storyPoints, status, asA: T('고객', 'a customer'), iWant: name,
+  }, { w: STORY_COL - 20, h: 92 }));
+  p.edge('USDependency', 'story3', 'story2', { name: T('필요', 'needs') });
+}
+
+const JOURNEY_COL = 230;
+const JOURNEY_X = 240;
+/** A row's name: what its kind is called. */
+const laneName = (T, kind) => ({ actions: T('고객 행동', 'Actions'), touchpoints: T('터치포인트', 'Touchpoints'), thoughts: T('생각', 'Thoughts'), emotions: T('감정', 'Emotions'), painPoints: T('고통 지점', 'Pain points'), opportunities: T('기회', 'Opportunities') })[kind];
+const JOURNEY_LANES = [['actions', 150, 90], ['touchpoints', 250, 70], ['emotions', 330, 110], ['painPoints', 450, 90], ['opportunities', 550, 90]];
+
+/** The shop's customer journey: a persona, five stages, and the rows of what happens in each. */
+function buildJourney(s, model) {
+  const { project, language, T } = s;
+  const diagram = addDiagram(project, model._id, 'CustomerJourneyDiagram', { language, name: T('쇼핑몰 고객 여정 지도', 'Shop Customer Journey Map') });
+  const p = painter(project, diagram, language);
+  const stages = [[T('인지', 'Awareness'), T('광고를 봄', 'Sees an ad')], [T('탐색', 'Consideration'), T('비교해 봄', 'Compares')], [T('구매', 'Purchase'), T('주문함', 'Orders')], [T('배송', 'Delivery'), T('기다림', 'Waits')], [T('재구매', 'Loyalty'), T('다시 찾음', 'Comes back')]];
+  const width = JOURNEY_X - 20 + stages.length * JOURNEY_COL;
+  stages.forEach(([name, goal], i) => p.node(`stage${i}`, 'CJStage', JOURNEY_X + i * JOURNEY_COL, 10, { name, goal }, { w: JOURNEY_COL - 10, h: 640 }));
+  JOURNEY_LANES.forEach(([laneKind, y, h]) => p.node(`lane-${laneKind}`, 'CJLane', 20, y, { laneKind, name: laneName(T, laneKind) }, { w: width, h }));
+  p.node('persona', 'CJPersona', 20, 10, { name: T('김지은', 'Jamie Kim'), role: T('30대 직장인, 모바일 쇼핑', 'Office worker, shops on mobile'), goals: T('빠르고 믿을 수 있는 쇼핑', 'Quick, trustworthy shopping'), frustrations: T('긴 결제 과정', 'Long checkout') }, { w: 200, h: 130 });
+  const x = (i) => JOURNEY_X + i * JOURNEY_COL + 30;
+  const actions = [T('SNS 광고를 봄', 'Sees a social ad'), T('상품과 후기를 비교', 'Compares products and reviews'), T('장바구니에서 결제', 'Checks out from the cart'), T('배송 상태를 확인', 'Checks the delivery'), T('쿠폰으로 다시 주문', 'Orders again with a coupon')];
+  actions.forEach((name, i) => p.node(`a${i}`, 'CJCard', x(i), 165, { name, cardKind: 'action' }, { w: 160, h: 60 }));
+  const touch = [['social', 'Instagram'], ['web', T('쇼핑몰 웹', 'Shop website')], ['mobile', T('모바일 앱', 'Mobile app')], ['email', T('배송 메일', 'Delivery email')], ['mobile', T('앱 푸시', 'App push')]];
+  touch.forEach(([channel, name], i) => p.node(`t${i}`, 'CJTouchpoint', x(i), 265, { name, channel }, { w: 160, h: 40 }));
+  const feelings = [['positive', T('호기심', 'Curious')], ['neutral', T('고민', 'Unsure')], ['negative', T('결제가 길다', 'Checkout is long')], ['veryPositive', T('빨리 옴!', 'Fast!')], ['positive', T('만족', 'Satisfied')]];
+  feelings.forEach(([score, name], i) => p.node(`e${i}`, 'CJEmotion', x(i) + 63, 368 - { veryNegative: -2, negative: -1, neutral: 0, positive: 1, veryPositive: 2 }[score] * 20, { name, score }, { w: 34, h: 34 }));
+  for (let i = 0; i < feelings.length - 1; i++) p.edge('CJEmotionLink', `e${i}`, `e${i + 1}`);
+  const pains = [T('광고가 너무 많음', 'Too many ads'), T('후기를 믿기 어려움', 'Hard to trust reviews'), T('입력할 것이 많음', 'Too many fields'), '', T('쿠폰 찾기 어려움', 'Coupons are hard to find')];
+  pains.forEach((name, i) => { if (name) p.node(`p${i}`, 'cjcard:painPoint', x(i), 465, { name }, { w: 160, h: 60 }); });
+  const ideas = [T('관심사 맞춤 광고', 'Targeted ads'), T('구매 인증 후기', 'Verified reviews'), T('간편 결제 도입', 'Offer one-click payment'), T('실시간 배송 지도', 'Live delivery map'), T('재구매 쿠폰 자동 적용', 'Auto-applied coupons')];
+  ideas.forEach((name, i) => p.node(`o${i}`, 'cjcard:opportunity', x(i), 565, { name }, { w: 160, h: 60 }));
+}
+
+/** The agile & UX samples of the Online Shop. */
+function buildAgile(s) {
+  const model = addElement(s.project, s.project._id, 'UXModel', { name: s.T('애자일·UX', 'Agile & UX') });
+  buildStoryMap(s, model);
+  buildJourney(s, model);
+}
+
 // ───────────────────────── data views
 
 const ORDER_JSON = (T) => JSON.stringify({
@@ -256,6 +322,7 @@ export function buildMoreSamples(s) {
   buildArchimate(s);
   buildNetwork(s);
   buildData(s);
+  buildAgile(s);
 }
 
 /** The small new-project templates of these kinds (buildTemplate in templates.js). */
@@ -298,6 +365,26 @@ export function buildMoreTemplate(id, project, diagram, language) {
       p.node('db', 'nwnode:database', 260, 180, { name: 'db01' });
       p.edge('NWConnection', 'web', 'net', { address: '192.168.0.10' });
       p.edge('NWConnection', 'db', 'net', { address: '192.168.0.20' });
+      break;
+    }
+    case 'storymap': {
+      p.node('rel', 'USRelease', 20, 170, { name: 'MVP', goal: T('첫 출시', 'First release') }, { w: 670, h: 120 });
+      p.node('act', 'USActivity', 160, 20, { name: T('주문하기', 'Order') }, { w: 320, h: 64 });
+      p.node('s1', 'USStep', 160, 96, { name: T('장바구니', 'Cart') }, { w: 150, h: 56 });
+      p.node('s2', 'USStep', 330, 96, { name: T('결제', 'Pay') }, { w: 150, h: 56 });
+      p.node('st1', 'USStory', 160, 184, { name: T('장바구니에 담기', 'Add to cart'), priority: 'must', storyPoints: 3 }, { w: 150, h: 92 });
+      p.node('st2', 'USStory', 330, 184, { name: T('카드로 결제', 'Pay by card'), priority: 'must', storyPoints: 5 }, { w: 150, h: 92 });
+      p.node('st3', 'USStory', 500, 184, { name: T('주문 확인 메일', 'Order email'), priority: 'should', storyPoints: 2 }, { w: 150, h: 92 });
+      break;
+    }
+    case 'journey': {
+      [[T('탐색', 'Explore'), 0], [T('구매', 'Buy'), 1], [T('사용', 'Use'), 2]].forEach(([name, i]) => p.node(`s${i}`, 'CJStage', 160 + i * 220, 10, { name }, { w: 210, h: 360 }));
+      [['actions', 60, 90], ['emotions', 160, 100], ['painPoints', 270, 90]].forEach(([laneKind, y, h]) => p.node(laneKind, 'CJLane', 20, y, { laneKind, name: laneName(T, laneKind) }, { w: 800, h }));
+      [T('상품을 비교', 'Compares'), T('주문함', 'Orders'), T('상품을 씀', 'Uses it')].forEach((name, i) => p.node(`a${i}`, 'CJCard', 190 + i * 220, 75, { name, cardKind: 'action' }, { w: 150, h: 60 }));
+      [['neutral', 0, T('고민', 'Unsure')], ['negative', 1, T('불편', 'Annoyed')], ['positive', 2, T('만족', 'Happy')]].forEach(([score, i, name]) => p.node(`e${i}`, 'CJEmotion', 248 + i * 220, 193 - { negative: -1, neutral: 0, positive: 1 }[score] * 20, { score, name }, { w: 34, h: 34 }));
+      p.edge('CJEmotionLink', 'e0', 'e1'); p.edge('CJEmotionLink', 'e1', 'e2');
+      p.node('pain', 'cjcard:painPoint', 410, 285, { name: T('결제가 복잡함', 'Checkout is complex') }, { w: 150, h: 60 });
+      p.node('persona', 'CJPersona', 20, 380, { name: T('고객', 'Customer'), role: T('처음 방문', 'First visit') }, { w: 200, h: 90 });
       break;
     }
     default: break;

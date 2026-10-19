@@ -969,6 +969,15 @@ html.is-viewer #app, html.is-viewer #app:not(:empty) { display: block; min-width
 .canvas-svg, .canvas-overlay { position: absolute; left: 0; top: 0; }
 .canvas-svg { user-select: none; }
 .canvas-overlay { pointer-events: none; }
+.canvas-sim { position: absolute; left: 0; top: 0; pointer-events: none; }
+/* BPMN simulation bar (ui/simulation.js), over the top of the canvas */
+.sim-bar { position: absolute; top: 28px; left: calc(50% + 10px); transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 24px); padding: 4px 6px 4px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: 0 6px 18px -6px var(--shadow); white-space: nowrap; }
+.sim-title { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; color: var(--accent); }
+.sim-speed { display: inline-flex; align-items: center; gap: 3px; }
+.sim-speed select { height: 26px; }
+.sim-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 2px 8px; border-radius: 8px; font-size: 0.86em; background: var(--hover); }
+.sim-status.ok { background: color-mix(in srgb, #16a34a 16%, transparent); color: #15803d; }
+.sim-status.warning { background: color-mix(in srgb, #dc2626 14%, transparent); color: #b91c1c; }
 .canvas-overlay .handle, .canvas-overlay .comment-mark { pointer-events: auto; }
 .canvas-overlay .comment-mark { cursor: pointer; }
 .text-editor {
@@ -1219,9 +1228,28 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .editor-tabs { display: flex; flex: none; gap: 2px; padding: 4px 6px 0; border-bottom: 1px solid var(--border); background: var(--panel); overflow-x: auto; scrollbar-width: none; }
 .editor-tab { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid transparent; border-bottom: 0; border-radius: 7px 7px 0 0; background: none; color: var(--muted); cursor: pointer; white-space: nowrap; font-size: 0.84em; }
 .editor-tab .icon { width: 15px; height: 15px; }
+/* Five tabs (a mind map has its Outline): the others show only their icon (the name is the tooltip). */
+.editor-tabs:has(> .editor-tab:nth-child(5)) .editor-tab:not(.active) > span { display: none; }
 .editor-tab:hover { color: var(--text); background: var(--hover); }
 .editor-tab.active { color: var(--text); background: var(--surface); border-color: var(--border); box-shadow: inset 0 2px 0 var(--accent); font-weight: 600; }
 .editors { flex: 1; overflow: auto; min-height: 0; scrollbar-width: thin; }
+/* Outline tab (mind maps) */
+.outline-actions { display: flex; gap: 6px; padding: 6px 10px; flex-wrap: wrap; }
+.outline-list { padding: 2px 4px 8px; }
+.outline-row { display: flex; align-items: center; gap: 4px; min-height: 24px; padding-right: 6px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.outline-row:hover { background: var(--hover); }
+.outline-row.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.outline-caret { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.outline-caret .icon { width: 13px; height: 13px; }
+.outline-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.outline-name.central { font-weight: 700; }
+.outline-mark { flex: none; padding: 0 5px; border-radius: 8px; font-size: 0.78em; background: var(--hover); color: var(--muted); }
+.outline-mark.pri { background: #e53935; color: #fff; }
+.outline-mark.pct { background: #43a047; color: #fff; }
+.outline-due { margin-left: auto; padding-left: 8px; font-size: 0.8em; color: var(--muted); }
+.outline-add { display: grid; gap: 6px; padding: 8px 10px 12px; border-top: 1px solid var(--border); }
+.outline-add textarea { width: 100%; resize: vertical; font-family: inherit; }
+.outline-add .button { justify-self: start; }
 .prop-section { border-bottom: 1px solid var(--border); }
 .prop-section > header { display: flex; align-items: center; gap: 4px; }
 .prop-section .section-toggle { flex: 1; display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; background: none; color: var(--text); font-weight: 600; font-size: 0.88em; cursor: pointer; text-align: left; }

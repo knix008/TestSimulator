@@ -3,7 +3,7 @@
 // timelines (a time axis with events and periods), ArchiMate 3 elements,
 // groupings and junctions, network diagrams (networks, nodes, groups), JSON
 // and YAML tree tables, and the railroad diagrams of EBNF rules and regular
-// expressions. Merged into SHAPES (shapes.js); same entry format:
+// expressions, user story maps and customer journey maps. Merged into SHAPES (shapes.js); same entry format:
 //   size(ctx, view, element, style) → { w, h }, draw(ctx, view, element, box, style) → SVG, clip
 // plus `place(ctx, view, element, box) → box` for views whose position follows
 // their data (a task bar starts on its start date on the calendar).
@@ -612,7 +612,173 @@ const RAILROAD = {
 };
 
 /** The shapes, merged into SHAPES. */
-export const MORE_SHAPES = { ...GANTT, ...TIMELINE, ...WBS, ...ARCHIMATE, ...NETWORK, ...DOCUMENT, ...RAILROAD };
+// ───────────────────────── agile & UX: user story maps, customer journey maps (Visual Paradigm)
+
+/** Lines of `value` wrapped to `width` (at most `max` lines, the last one cut with …). */
+function wrapLines(ctx, value, width, size, bold = false, max = 3) {
+  const lines = wrapText(String(value ?? ''), width, { fontSize: size, bold }, ctx.measure);
+  if (lines.length <= max) return lines;
+  const kept = lines.slice(0, max);
+  kept[max - 1] = `${kept[max - 1].replace(/.$/, '')}…`;
+  return kept;
+}
+const card = (b, st, fill, { r = 6, line = tint(fill, -0.3) } = {}) => rect(b, st, { r, fill, line });
+/** A sticky-note card: a coloured box with its name wrapped in the middle. */
+function stickyCard(ctx, el, b, st, fill, { top = 0, bottom = 0, bold = true } = {}) {
+  const color = isDark(fill) ? '#ffffff' : '#1f2937';
+  const lines = wrapLines(ctx, el.name, b.w - 16, st.size, bold, Math.max(1, Math.floor((b.h - top - bottom - 8) / (st.size * 1.25))));
+  const h = lines.length * st.size * 1.25;
+  const y0 = b.y + top + (b.h - top - bottom - h) / 2 + st.size * 0.95;
+  return card(b, st, fill) + lines.map((line, i) => text(line, b.x + b.w / 2, y0 + i * st.size * 1.25, st, { anchor: 'middle', bold, color })).join('');
+}
+const STORY_PRIORITY = { must: ['#dc2626', 'M'], should: ['#ea580c', 'S'], could: ['#2563eb', 'C'], wont: ['#6b7280', 'W'] };
+const STORY_STATUS = { todo: '#9ca3af', doing: '#2563eb', done: '#16a34a' };
+const STORY_STATUS_LABEL = { todo: ['할 일', 'To do'], doing: ['진행 중', 'Doing'], done: ['완료', 'Done'] };
+const LANE_COLORS = { actions: '#dbeafe', touchpoints: '#e0e7ff', thoughts: '#f3e8ff', emotions: '#fef9c3', painPoints: '#fee2e2', opportunities: '#dcfce7' };
+const LANE_LABEL = { actions: ['고객 행동', 'Actions'], touchpoints: ['터치포인트', 'Touchpoints'], thoughts: ['생각', 'Thoughts'], emotions: ['감정', 'Emotions'], painPoints: ['고통 지점', 'Pain points'], opportunities: ['기회', 'Opportunities'] };
+const CARD_COLORS = { action: '#bfdbfe', thought: '#e9d5ff', painPoint: '#fecaca', opportunity: '#bbf7d0', idea: '#fef08a' };
+const STAGE_COLORS = ['#6366f1', '#0ea5e9', '#14b8a6', '#22c55e', '#eab308', '#f97316', '#ec4899'];
+const EMOTION = { veryNegative: ['#dc2626', -2], negative: ['#f97316', -1], neutral: ['#eab308', 0], positive: ['#84cc16', 1], veryPositive: ['#16a34a', 2] };
+const CHANNEL_GLYPHS = {
+  web: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 8h18M8 21h8M12 18v3"/>',
+  mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  store: '<path d="M3 9l2-5h14l2 5M3 9h18v11H3zM9 20v-6h6v6"/>',
+  phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/>',
+  email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  social: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
+  ad: '<path d="M3 10v4h3l7 4V6l-7 4z"/><path d="M17 9a4 4 0 0 1 0 6M19.5 7a7 7 0 0 1 0 10"/>',
+  other: '<circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>',
+};
+/** The index of a stage among the stages on the diagram (left to right), for its colour. */
+function stageIndex(ctx, view) {
+  return memo(ctx, `stages`, () => viewsOf(ctx).filter((v) => modelOf(ctx, v)?._type === 'CJStage').sort((a, b) => finite(a.left) - finite(b.left)).map((v) => v._id)).indexOf(view._id);
+}
+
+const AGILE = {
+  // Activities (the backbone) and the steps under them: big sticky cards.
+  usCard: {
+    clip: 'rect',
+    size: (ctx, v, el) => (el._type === 'USActivity' ? { w: 170, h: 64 } : { w: 150, h: 56 }),
+    draw: (ctx, v, el, b, st) => stickyCard(ctx, el, b, st, st.userFill ? st.fill : el._type === 'USActivity' ? '#fdba74' : '#93c5fd'),
+  },
+  // A story card: priority (MoSCoW) and points at the top, the name, its status at the bottom.
+  usStory: {
+    clip: 'rect',
+    size: () => ({ w: 150, h: 92 }),
+    draw: (ctx, v, el, b, st) => {
+      const fill = st.userFill ? st.fill : '#fef08a';
+      const [pc, pl] = STORY_PRIORITY[el.priority] ?? STORY_PRIORITY.should;
+      const status = STORY_STATUS[el.status] ? el.status : 'todo';
+      const small = Math.max(9, st.size - 3);
+      const points = finite(el.storyPoints);
+      const statusText = STORY_STATUS_LABEL[status][ko(ctx) ? 0 : 1];
+      const pillW = measure(ctx, statusText, small, true) + 14;
+      return stickyCard(ctx, el, b, st, fill, { top: 20, bottom: 20, bold: false })
+        + `<rect x="${n(b.x + 6)}" y="${n(b.y + 5)}" width="16" height="14" rx="3" fill="${pc}"/>` + text(pl, b.x + 14, b.y + 15.5, st, { size: small, anchor: 'middle', bold: true, color: '#ffffff' })
+        + (points ? `<circle cx="${n(b.x + b.w - 13)}" cy="${n(b.y + 12)}" r="8" fill="#ffffff" stroke="${tint(fill, -0.4)}"/>` + text(String(points), b.x + b.w - 13, b.y + 15.5, st, { size: small, anchor: 'middle', bold: true, color: '#1f2937' }) : '')
+        + `<rect x="${n(b.x + b.w - pillW - 6)}" y="${n(b.y + b.h - 18)}" width="${n(pillW)}" height="13" rx="6.5" fill="${STORY_STATUS[status]}"/>`
+        + text(statusText, b.x + b.w - pillW / 2 - 6, b.y + b.h - 8.5, st, { size: small, anchor: 'middle', bold: true, color: '#ffffff' });
+    },
+  },
+  // A release: a band across the map with its name, date and goal on the left.
+  usRelease: {
+    clip: 'rect',
+    // Smallest size: the toolbox draws it wide (900×160).
+    size: () => ({ w: 320, h: 90 }),
+    draw: (ctx, v, el, b, st) => {
+      const c = st.userFill ? st.fill : '#e0e7ff';
+      const head = Math.min(130, b.w / 4);
+      const dark = tint(c, -0.6);
+      const lines = wrapLines(ctx, el.goal ?? '', head - 16, st.size - 2, false, 4);
+      return rect(b, st, { fill: c, opacity: 0.35, line: tint(c, -0.3), shadow: false })
+        + stroke(`M${n(b.x)} ${n(b.y)}H${n(b.x + b.w)}`, st, { color: tint(c, -0.45), width: 2, dash: '8 4' })
+        + rect({ x: b.x, y: b.y, w: head, h: b.h }, st, { fill: c, line: tint(c, -0.3), shadow: false })
+        + text(el.name, b.x + 8, b.y + st.size + 8, st, { bold: true, color: dark })
+        + (el.date ? text(el.date, b.x + 8, b.y + 2 * st.size + 11, st, { size: st.size - 2, color: dark }) : '')
+        + lines.map((line, i) => text(line, b.x + 8, b.y + (el.date ? 3 : 2) * st.size + 14 + i * (st.size - 2) * 1.25, st, { size: st.size - 2, color: tint(c, -0.5) })).join('');
+    },
+  },
+  // A persona: a face, the name and role, then goals and frustrations.
+  cjPersona: {
+    clip: 'rect',
+    size: () => ({ w: 180, h: 70 }),
+    draw: (ctx, v, el, b, st) => {
+      const fill = st.fill === 'none' ? '#ffffff' : st.fill;
+      const small = Math.max(9, st.size - 2);
+      const body = [...(el.goals ? [`${ko(ctx) ? '목표' : 'Goals'}: ${el.goals}`] : []), ...(el.frustrations ? [`${ko(ctx) ? '불만' : 'Frustrations'}: ${el.frustrations}`] : [])].join('\n');
+      const lines = body.split('\n').flatMap((part) => (part ? wrapLines(ctx, part, b.w - 20, small, false, 3) : []));
+      const maxLines = Math.max(0, Math.floor((b.h - 52) / (small * 1.25)));
+      return card(b, st, fill, { r: 8, line: st.line })
+        + `<circle cx="${n(b.x + 24)}" cy="${n(b.y + 24)}" r="15" fill="#c7d2fe"/>` + glyph('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', b.x + 13, b.y + 13, 22, '#4338ca')
+        + text(el.name, b.x + 46, b.y + 21, st, { bold: true })
+        + (el.role ? text(el.role, b.x + 46, b.y + 21 + st.size, st, { size: small, color: fade(st, st.color, 0.35) }) : '')
+        + lines.slice(0, maxLines).map((line, i) => text(line, b.x + 10, b.y + 58 + i * small * 1.25, st, { size: small })).join('');
+    },
+  },
+  // A stage of the journey: a tall column with a coloured header.
+  cjStage: {
+    clip: 'rect',
+    size: () => ({ w: 140, h: 160 }),
+    draw: (ctx, v, el, b, st) => {
+      const c = st.userFill ? st.fill : STAGE_COLORS[Math.max(0, stageIndex(ctx, v)) % STAGE_COLORS.length];
+      const head = el.goal ? 48 : 32;
+      return rect(b, st, { r: 6, fill: c, opacity: 0.08, line: tint(c, -0.1), shadow: false })
+        + `<path d="M${n(b.x)} ${n(b.y + head)}V${n(b.y + 6)}a6 6 0 0 1 6 -6H${n(b.x + b.w - 6)}a6 6 0 0 1 6 6V${n(b.y + head)}Z" fill="${esc(c)}"/>`
+        + text(el.name, b.x + b.w / 2, b.y + 21, st, { anchor: 'middle', bold: true, color: isDark(c) ? '#ffffff' : '#1f2937' })
+        + (el.goal ? text(el.goal, b.x + b.w / 2, b.y + 39, st, { size: st.size - 2, anchor: 'middle', color: isDark(c) ? '#eef2ff' : '#374151' }) : '');
+    },
+  },
+  // A row of the journey (actions, touchpoints, thoughts, emotions, pain points, opportunities).
+  cjLane: {
+    clip: 'rect',
+    size: () => ({ w: 300, h: 60 }),
+    draw: (ctx, v, el, b, st) => {
+      const kind = LANE_COLORS[el.laneKind] ? el.laneKind : 'actions';
+      const c = st.userFill ? st.fill : LANE_COLORS[kind];
+      const label = el.name || LANE_LABEL[kind][ko(ctx) ? 0 : 1];
+      const head = Math.min(120, b.w / 5);
+      const lines = wrapLines(ctx, label, head - 14, st.size, true, 3);
+      const y0 = b.y + b.h / 2 - ((lines.length - 1) * st.size * 1.25) / 2 + st.size * 0.36;
+      return rect(b, st, { fill: c, opacity: 0.45, line: tint(c, -0.2), shadow: false })
+        + rect({ x: b.x, y: b.y, w: head, h: b.h }, st, { fill: c, line: tint(c, -0.2), shadow: false })
+        + lines.map((line, i) => text(line, b.x + 8, y0 + i * st.size * 1.25, st, { bold: true, color: tint(c, -0.7) })).join('');
+    },
+  },
+  // A touchpoint: the channel's picture and the name.
+  cjTouchpoint: {
+    clip: 'rect',
+    size: (ctx, v, el, st) => ({ w: Math.max(120, Math.ceil(measure(ctx, el.name, st.size, true) + 46)), h: 40 }),
+    draw: (ctx, v, el, b, st) => {
+      const fill = st.fill === 'none' ? '#ffffff' : st.fill;
+      const channel = CHANNEL_GLYPHS[el.channel] ? el.channel : 'other';
+      return rect(b, st, { r: b.h / 2, fill, line: '#6366f1' })
+        + glyph(CHANNEL_GLYPHS[channel], b.x + 10, b.y + b.h / 2 - 10, 20, '#4f46e5')
+        + text(el.name, b.x + 36, b.y + b.h / 2 + st.size * 0.36, st, { bold: true });
+    },
+  },
+  // A card of a kind (action, thought, pain point, opportunity, idea): a small sticky note.
+  cjCard: {
+    clip: 'rect',
+    size: () => ({ w: 150, h: 60 }),
+    draw: (ctx, v, el, b, st) => stickyCard(ctx, el, b, st, st.userFill ? st.fill : CARD_COLORS[el.cardKind] ?? CARD_COLORS.action, { bold: false }),
+  },
+  // An emotion: a face from very unhappy (red) to very happy (green); the curve joins them.
+  cjEmotion: {
+    clip: 'ellipse',
+    size: () => ({ w: 34, h: 34 }),
+    draw: (ctx, v, el, b, st) => {
+      const [c, score] = EMOTION[el.score] ?? EMOTION.neutral;
+      const cx = b.x + b.w / 2; const cy = b.y + b.h / 2; const r = Math.min(b.w, b.h) / 2;
+      const mouthY = cy + r * 0.35; const bend = score * r * 0.12;
+      return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" fill="${c}" stroke="${tint(c, -0.35)}" stroke-width="1.2"${shadowAttr(st)}/>`
+        + `<circle cx="${n(cx - r * 0.32)}" cy="${n(cy - r * 0.2)}" r="${n(r * 0.1)}" fill="#1f2937"/><circle cx="${n(cx + r * 0.32)}" cy="${n(cy - r * 0.2)}" r="${n(r * 0.1)}" fill="#1f2937"/>`
+        + `<path d="M${n(cx - r * 0.4)} ${n(mouthY - bend)}Q${n(cx)} ${n(mouthY + bend * 2)} ${n(cx + r * 0.4)} ${n(mouthY - bend)}" fill="none" stroke="#1f2937" stroke-width="1.6" stroke-linecap="round"/>`
+        + (el.name ? text(el.name, cx, b.y + b.h + st.size + 2, st, { size: st.size - 1, anchor: 'middle' }) : '');
+    },
+  },
+};
+
+export const MORE_SHAPES = { ...GANTT, ...TIMELINE, ...WBS, ...ARCHIMATE, ...NETWORK, ...DOCUMENT, ...RAILROAD, ...AGILE };
 /**
  * Routes of lines that follow their ends' data (used when the user has not bent the line):
  * a Gantt dependency leaves the end of its task and enters the start of the next (or drops onto

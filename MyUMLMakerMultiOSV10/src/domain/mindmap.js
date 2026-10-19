@@ -105,7 +105,7 @@ export function addTopic(project, diagram, viewId, where = 'child', { language =
   const parent = where === 'sibling' && isTopic(parentOfTopic) ? parentOfTopic : topic;
   const siblings = siblingsIn(parent, 'MMNode');
   const position = parent === topic ? null : siblings.indexOf(topic) + 1;
-  if (parent.collapsed) delete parent.collapsed;
+  for (let above = parent; isTopic(above); above = index.parent(above._id)) if (above.collapsed) delete above.collapsed;
   const attrs = name ? { name } : {};
   // A new main topic beside one with a fixed side stays on that side.
   if (parent !== topic && !isTopic(index.parent(parent._id)) && topic.direction && topic.direction !== 'auto') attrs.direction = topic.direction;
@@ -249,4 +249,64 @@ export function layoutMindmap(project, diagram, boxes = new Map(), { layout = di
   const shown = new Set([...views.values()].map((view) => view._id));
   for (const view of viewsOf(diagram)) if (view._type === 'MMEdgeView' && shown.has(refId(view.tail)) && shown.has(refId(view.head)) && view.points?.length) { view.points = []; moved++; }
   return moved;
+}
+
+// ───────────────────────── outline (MindManager's Outline View)
+
+/**
+ * The topics of the map as an outline: central topics first, their subtopics below in model
+ * order, each row { id, viewId, depth, element, hasChildren }. A collapsed topic hides its rows.
+ */
+export function outlineRows(project, diagram, { all = false } = {}) {
+  const index = buildIndex(project);
+  const views = topicViews(diagram, index);
+  const rows = [];
+  const visit = (element, depth) => {
+    const kids = topicsOf(element);
+    rows.push({ id: element._id, viewId: views.get(element._id)?._id ?? null, depth, element, hasChildren: kids.length > 0 });
+    if (all || !element.collapsed) for (const child of kids) visit(child, depth + 1);
+  };
+  const centrals = [...views.keys()].map((id) => index.get(id)).filter((element) => !isTopic(index.parent(element._id)));
+  for (const central of centrals) visit(central, 0);
+  return rows;
+}
+
+/** The outline as text: one topic per line, indented with tabs (text) or as a Markdown list. */
+export function outlineText(rows, format = 'text') {
+  return rows.map((row) => (format === 'markdown' ? `${'  '.repeat(row.depth)}- ${row.element.name ?? ''}` : `${'\t'.repeat(row.depth)}${row.element.name ?? ''}`)).join('\n');
+}
+
+/**
+ * Indented lines (tabs, or two or four spaces), Markdown lists (- * + 1.) or headings (#) as
+ * [{ depth, name }], depths starting at 0.
+ */
+export function parseOutline(text) {
+  const items = [];
+  const lines = String(text ?? '').split(/\r?\n/).filter((line) => line.trim());
+  const spaces = lines.map((line) => /^( *)/.exec(line.replace(/\t/g, '    '))[1].length).filter((n) => n > 0);
+  const unit = spaces.length && spaces.every((n) => n % 4 === 0) ? 4 : 2;
+  for (const line of lines) {
+    const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line);
+    if (heading) { items.push({ depth: heading[1].length - 1, name: heading[2].trim() }); continue; }
+    const indent = /^( *)/.exec(line.replace(/\t/g, ' '.repeat(unit)))[1].length;
+    const name = line.trim().replace(/^([-*+]|\d+[.)])\s+/, '').trim();
+    if (name) items.push({ depth: Math.floor(indent / unit), name });
+  }
+  const min = items.length ? Math.min(...items.map((item) => item.depth)) : 0;
+  return items.map((item) => ({ ...item, depth: item.depth - min }));
+}
+
+/** Adds an outline (parseOutline) as subtopics of the topic of view `viewId`. Returns the new topics' views. */
+export function addOutline(project, diagram, viewId, text, { language = 'en' } = {}) {
+  const stack = [viewId];
+  const added = [];
+  for (const { depth, name } of parseOutline(text)) {
+    const level = Math.min(depth, stack.length - 1);
+    const result = addTopic(project, diagram, stack[level], 'child', { language, name });
+    if (!result) continue;
+    stack.length = level + 1;
+    stack.push(result.view._id);
+    added.push(result.view);
+  }
+  return added;
 }

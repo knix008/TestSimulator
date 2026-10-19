@@ -529,7 +529,7 @@ export const SHORTCUT_LIST = [
   ['Ctrl+N', 'action.new'], ['Ctrl+O', 'action.open'], ['Ctrl+S', 'action.save'], ['Ctrl+Shift+S', 'action.saveAs'], ['Ctrl+Alt+S', 'action.saveAll'], ['Ctrl+W', 'action.closeTab'],
   ['Ctrl+P', 'action.print'], ['Ctrl+R', 'action.recent'], ['Ctrl+Z', 'action.undo'], ['Ctrl+Y', 'action.redo'], ['Ctrl+X', 'action.cut'], ['Ctrl+C', 'action.copy'], ['Ctrl+V', 'action.paste'],
   ['Ctrl+D', 'action.duplicate'], ['Delete', 'action.delete'], ['Ctrl+Delete', 'action.deleteFromModel'], ['Ctrl+A', 'action.selectAll'], ['Esc', 'action.clearSelection'], ['Ctrl+F', 'action.find'],
-  ['Ctrl+E', 'action.selectInExplorer'], ['F2 / Enter', 'action.editName'], ['shortcut.doubleClick', 'shortcut.quickEdit'], ['Ctrl+Enter', 'shortcut.applyQuickEdit'], ['Ctrl+1', 'tool.pointer'],
+  ['Ctrl+E', 'action.selectInExplorer'], ['F2 / Enter', 'action.editName'], ['Tab / Insert / Shift+Enter', 'action.mmAddChild'], ['Enter', 'action.mmAddSibling'], ['Ctrl+.', 'action.mmToggle'], ['shortcut.doubleClick', 'shortcut.quickEdit'], ['Ctrl+Enter', 'shortcut.applyQuickEdit'], ['Ctrl+1', 'tool.pointer'],
   ['shortcut.shiftCreate', 'shortcut.keepTool'], ['Ctrl+B / I', 'action.bold'], ['Ctrl+Shift+> / <', 'action.fontUp'], ['Ctrl+Shift+F / K', 'action.bringFront'], ['Ctrl+Up / Down', 'action.moveUp'],
   ['shortcut.arrows', 'shortcut.nudge'], ['shortcut.shiftDrag', 'shortcut.constrain'], ['shortcut.altDrag', 'shortcut.noSnap'], ['Ctrl+= / Ctrl+-', 'action.zoomIn'], ['Ctrl+0', 'action.zoomReset'],
   ['Ctrl+Shift+W', 'action.fitDiagram'], ['shortcut.wheel', 'action.zoomIn'], ['shortcut.space', 'shortcut.pan'], ['Ctrl+PageUp / PageDown', 'action.nextDiagram'],

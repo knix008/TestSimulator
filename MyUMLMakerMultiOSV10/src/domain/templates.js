@@ -17,6 +17,7 @@ export const TEMPLATES = [
   ['erd', 'ERDDiagram', 'dgErd'], ['flowchart', 'FCFlowchartDiagram', 'dgFlowchart'], ['dfd', 'DFDDiagram', 'dgDfd'], ['sysml', 'SysMLRequirementDiagram', 'dgRequirement'],
   ['bpmn', 'BPMNDiagram', 'dgBpmn'], ['c4', 'C4Diagram', 'dgC4'], ['mindmap', 'MMMindmapDiagram', 'dgMindmap'], ['wireframe', 'WFWireframeDiagram', 'dgWireframe'], ['aws', 'AWSDiagram', 'dgAws'],
   ['gantt', 'GanttDiagram', 'dgGantt'], ['wbs', 'WBSDiagram', 'dgWbs'], ['archimate', 'ArchiMateDiagram', 'dgArchimate'], ['network', 'NetworkDiagram', 'dgNetwork'],
+  ['storymap', 'UserStoryMapDiagram', 'dgStoryMap'], ['journey', 'CustomerJourneyDiagram', 'dgJourney'],
 ];
 
 const L = (language, ko, en) => (language === 'ko' ? ko : en);

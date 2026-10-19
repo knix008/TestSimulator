@@ -698,6 +698,17 @@ export const SHAPES = {
     },
   },
 
+  // A boundary around topics: a soft tinted outline (rounded, cloud or rectangle) with its name at the top.
+  mmBoundary: {
+    clip: 'rect', size: () => ({ w: 120, h: 80 }),
+    draw: (ctx, v, el, b, st) => {
+      const c = v.fillColor || '#a5b4fc';
+      const look = { ...st, fill: c, line: v.lineColor || shade(c, -0.3), shadow: false };
+      const outline = el.boundaryShape === 'cloudy' ? mindShapeSvg(b, 'cloudy', look) : rectSvg(b, look, { r: el.boundaryShape === 'rectangle' ? 2 : 18, dash: '7 4' });
+      return outline.replace(/fill="([^"]+)"/, 'fill="$1" fill-opacity="0.18"') + textLine(el.name, b.x + 14, b.y + st.size + 6, { ...base(st), bold: true, color: v.fontColor || shade(c, -0.55) });
+    },
+  },
+
   // ── cloud
   cloudGroup: {
     clip: 'rect', size: () => ({ w: 420, h: 280 }),

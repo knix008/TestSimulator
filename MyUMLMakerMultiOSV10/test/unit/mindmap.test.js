@@ -90,3 +90,32 @@ test('right, down and free layouts; collapsed branches take no room', () => {
   assert.equal(MM.layoutMindmap(project, diagram, new Map(), { layout: 'free' }), 0);
   assert.deepEqual(mains.map((m) => [m.view.left, m.view.top]), before, 'free: nothing moves');
 });
+
+test('outline: rows in model order (a collapsed topic hides its rows), text and Markdown, and back from text', () => {
+  const { project, diagram, view } = freshMap();
+  const added = MM.addOutline(project, diagram, view._id, '- Plan\n  - Q1\n  - Q2\n- Budget\n\t\tdeep\n');
+  assert.equal(added.length, 5);
+  const rows = MM.outlineRows(project, diagram);
+  assert.deepEqual(rows.map((r) => [r.depth, r.element.name]), [[0, 'Central'], [1, 'Plan'], [2, 'Q1'], [2, 'Q2'], [1, 'Budget'], [2, 'deep']]);
+  assert.equal(MM.outlineText(rows), 'Central\n\tPlan\n\t\tQ1\n\t\tQ2\n\tBudget\n\t\tdeep');
+  assert.equal(MM.outlineText(rows, 'markdown').split('\n')[2], '    - Q1');
+  const plan = rows[1].element;
+  MM.toggleCollapsed(project, plan._id, true);
+  assert.deepEqual(MM.outlineRows(project, diagram).map((r) => r.element.name), ['Central', 'Plan', 'Budget', 'deep']);
+  assert.equal(MM.outlineRows(project, diagram, { all: true }).length, 6);
+  // Parsing: headings, numbered lists, four-space indents.
+  assert.deepEqual(MM.parseOutline('# A\n## B\n1. C\n    - D'), [{ depth: 0, name: 'A' }, { depth: 1, name: 'B' }, { depth: 0, name: 'C' }, { depth: 1, name: 'D' }]);
+  assert.deepEqual(MM.parseOutline('  x\n    y'), [{ depth: 0, name: 'x' }, { depth: 1, name: 'y' }]);
+});
+
+test('adding under a topic inside a collapsed branch opens every collapsed topic above it', () => {
+  const { project, diagram, view, central } = freshMap();
+  const a = MM.addTopic(project, diagram, view._id, 'child', { name: 'A' });
+  const a1 = MM.addTopic(project, diagram, a.view._id, 'child', { name: 'A1' });
+  MM.toggleCollapsed(project, central._id, true);
+  MM.toggleCollapsed(project, a.element._id, true);
+  const added = MM.addTopic(project, diagram, a1.view._id, 'child', { name: 'A11' });
+  assert.equal(central.collapsed, undefined);
+  assert.equal(a.element.collapsed, undefined);
+  assert.equal(MM.hiddenViews(diagram, M.buildIndex(project)).has(added.view._id), false, 'the new topic is shown');
+});

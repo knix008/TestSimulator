@@ -362,7 +362,7 @@ export function canContain(owner, type) {
   const def = typeDef(type);
   const ownerDef = typeDef(owner._type);
   const key = collectionFor(owner._type, type);
-  if (owner._type === 'Project') return type === 'UMLModel' || type === 'UMLProfile' || /DataModel|Flowchart|DataFlowModel|BPMNProcess|C4Model|MMMindmap|WFWireframe|CloudModel|PMPlan|ArchiMateModel|NWModel|DSSpecification/.test(type) || type === 'UMLPackage';
+  if (owner._type === 'Project') return type === 'UMLModel' || type === 'UMLProfile' || /DataModel|Flowchart|DataFlowModel|BPMNProcess|C4Model|MMMindmap|WFWireframe|CloudModel|PMPlan|ArchiMateModel|NWModel|DSSpecification|UXModel/.test(type) || type === 'UMLPackage';
   if (def?.feature || key !== 'ownedElements') {
     if (key === 'attributes' || key === 'operations') return ['UMLClass', 'UMLInterface', 'UMLDataType', 'UMLPrimitiveType', 'UMLEnumeration', 'UMLSignal', 'UMLComponent', 'UMLActor', 'UMLArtifact', 'UMLUseCase', 'UMLStereotype', 'UMLCollaboration', 'UMLNode', 'UMLSubsystem', 'SysMLBlock', 'SysMLInterfaceBlock', 'SysMLValueType', 'SysMLConstraintBlock', 'UMLInformationItem', 'UMLDevice', 'UMLExecutionEnvironment'].includes(owner._type);
     if (key === 'literals') return owner._type === 'UMLEnumeration';

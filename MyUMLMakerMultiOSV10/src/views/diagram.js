@@ -77,6 +77,7 @@ export class DiagramView {
                 <g class="viewport"><g class="bg-layer"></g><g class="grid-layer"></g><g class="content"></g></g>
               </svg>
               <svg class="canvas-overlay" xmlns="${NS}"></svg>
+              <svg class="canvas-sim" xmlns="${NS}" aria-hidden="true"></svg>
               <div class="quick-bar" hidden></div>
             </div>
           </div>
@@ -95,6 +96,7 @@ export class DiagramView {
     this.bgLayer = host.querySelector('.bg-layer');
     this.content = host.querySelector('.content');
     this.overlay = host.querySelector('.canvas-overlay');
+    this.simLayer = host.querySelector('.canvas-sim');
     this.quickBar = host.querySelector('.quick-bar');
     this.minimap = host.querySelector('.minimap');
     this.empty = host.querySelector('.canvas-empty');
@@ -243,7 +245,7 @@ export class DiagramView {
     const w = Math.ceil(world.w * z); const h = Math.ceil(world.h * z);
     this.stage.style.width = `${w}px`;
     this.stage.style.height = `${h}px`;
-    for (const svg of [this.svg, this.overlay]) { svg.setAttribute('width', w); svg.setAttribute('height', h); }
+    for (const svg of [this.svg, this.overlay, this.simLayer]) { svg.setAttribute('width', w); svg.setAttribute('height', h); }
     this.viewport.setAttribute('transform', `translate(${n(-world.x * z)} ${n(-world.y * z)}) scale(${z})`);
     if (before) {
       const dx = (before.x - world.x) * z; const dy = (before.y - world.y) * z;
@@ -492,6 +494,36 @@ export class DiagramView {
     out += this.problemBadges(S, z);
     this.overlay.innerHTML = out;
     this.renderQuickBar();
+    this.paintSimulation();
+  }
+
+  /**
+   * A BPMN simulation frame (ui/simulation.js), or null to clear it: elements visited, holding a
+   * token, waiting at a join (with the number of tokens), stuck, never reached (with the share of
+   * runs that reached each), unused flows, and the tokens (page points).
+   */
+  drawSimulation(frame) {
+    this.simFrame = frame;
+    this.paintSimulation();
+  }
+
+  paintSimulation() {
+    if (!this.simLayer) return;
+    const f = this.simFrame;
+    if (!f || !this.ctx || !this.world) { this.simLayer.innerHTML = ''; return; }
+    const z = this.z;
+    const S = (p) => this.toStage(p);
+    const box = (id, pad, attrs) => { const b = this.boxOf(id); if (!b) return ''; const p = S({ x: b.x - pad, y: b.y - pad }); return `<rect x="${n(p.x)}" y="${n(p.y)}" width="${n((b.w + 2 * pad) * z)}" height="${n((b.h + 2 * pad) * z)}" rx="${n(8 * z)}" ${attrs}/>`; };
+    let out = '';
+    for (const id of f.unusedFlows ?? []) { const r = this.ctx.routes.get(id); if (r) out += `<polyline points="${r.points.map((p) => { const q = S(p); return `${n(q.x)},${n(q.y)}`; }).join(' ')}" fill="none" stroke="#dc2626" stroke-width="${n(2.5 * z)}" stroke-dasharray="${n(6 * z)} ${n(4 * z)}" opacity="0.8"/>`; }
+    for (const id of f.visited ?? []) out += box(id, 4, 'fill="#22c55e" fill-opacity="0.12" stroke="#16a34a" stroke-width="1.5"');
+    for (const id of f.unreached ?? []) out += box(id, 5, `fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="${n(5 * z)} ${n(3 * z)}"`);
+    for (const id of f.active ?? []) out += box(id, 6, 'fill="none" stroke="#f59e0b" stroke-width="3"');
+    for (const id of f.stuck ?? []) out += box(id, 7, 'fill="#dc2626" fill-opacity="0.12" stroke="#dc2626" stroke-width="3"');
+    for (const [id, count] of f.waiting ?? []) { const b = this.boxOf(id); if (!b) continue; const p = S({ x: b.x + b.w, y: b.y }); out += `<circle cx="${n(p.x)}" cy="${n(p.y)}" r="${n(9 * z)}" fill="#f59e0b" stroke="#fff" stroke-width="1.5"/><text x="${n(p.x)}" y="${n(p.y + 3.5 * z)}" font-size="${n(10 * z)}" font-weight="700" fill="#fff" text-anchor="middle">${count}</text>`; }
+    for (const [id, pct] of f.percent ?? []) { const b = this.boxOf(id); if (!b) continue; const p = S({ x: b.x + b.w / 2, y: b.y - 8 }); out += `<text x="${n(p.x)}" y="${n(p.y)}" font-size="${n(11 * z)}" font-weight="700" fill="${pct ? '#15803d' : '#dc2626'}" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="${n(3 * z)}">${pct}%</text>`; }
+    for (const t of f.tokens ?? []) { const p = S(t); out += `<circle class="sim-token" cx="${n(p.x)}" cy="${n(p.y)}" r="${n(7 * z)}" fill="#f59e0b" stroke="#ffffff" stroke-width="${n(2 * z)}"/>`; }
+    this.simLayer.innerHTML = out;
   }
 
   /** A red (error) or orange (warning) "!" at the top-right corner of each view whose element has a
@@ -532,7 +564,7 @@ export class DiagramView {
     const sel = this.app.selection().ids;
     const view = sel.length === 1 ? this.viewById(sel[0]) : null;
     const element = view && !isEdgeView(view) ? elementOf(this.ctx, view) : null;
-    if (!element || this.drag || this.editing || !this.app.settings().showQuickButtons) { this.quickBar.hidden = true; return; }
+    if (!element || !this.boxOf(view._id) || this.drag || this.editing || !this.app.settings().showQuickButtons) { this.quickBar.hidden = true; return; }
     const def = typeDef(element._type);
     const buttons = [];
     const t = this.app.t;
