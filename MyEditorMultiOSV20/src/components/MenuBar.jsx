@@ -129,8 +129,8 @@ export function MenuBar({ menus, onAction, theme, controls = false, startOpen = 
         <img src="./icon.svg" alt="" width={16} height={16} className="tb-logo" draggable={false} />
         <span className="tb-title">{t('appName')}</span>
       </span>
-      <button type="button" className={`menu-btn start-nav ${startOpen ? 'open' : ''}`} title={t('tip_start')}
-        onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('openStart')}>
+      <button type="button" className={`menu-btn start-nav ${startOpen ? 'open' : ''}`} title={t('tip_start')} aria-pressed={startOpen ? 'true' : 'false'}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('showStart')}>
         <Icon name="home" size={14} className="menu-icon" />{t('start_nav')}
       </button>
       <span className="menus">

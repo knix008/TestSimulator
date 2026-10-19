@@ -1434,7 +1434,6 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   const onTutorialPlace = useCallback((place) => setStartOpen(place === 'start'), []);
   const action = async (id, arg) => {
     if (id === 'showStart') { setStartOpen((v) => !v); return; }
-    if (id === 'openStart') { setStartOpen(true); return; }
     if (id === 'tutorial') { setTutorialOn(true); setStartOpen(true); return; }
     if (/^(new|open|openFolder|find|replace|formatDoc|print|toggleSplit|togglePreview|html:browser|toggleStructure|toggleTerminal|toggleLog|lintPanel|toggleLintPanel|nextTheme)$/.test(id) || id.startsWith('recent:') || id === 'toggle:mdWysiwyg') setStartOpen(false);
     const v = viewRef.current;
