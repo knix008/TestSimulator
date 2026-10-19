@@ -13,7 +13,7 @@ const all = process.argv.includes('--all');
 const targets = ['dist', 'release', path.join('build', 'icons'), path.join('public', 'icon.svg'), path.join('src', 'build-info.json'), '.smoke', '.icons-preview.png', '.npm-install.log'];
 if (all) targets.push('node_modules');
 for (const name of fs.readdirSync(root)) {
-  if (/\.(exe|dmg|AppImage|deb|rpm|snap|blockmap)$/i.test(name)) targets.push(name);
+  if (/\.(exe|msi|dmg|AppImage|deb|rpm|snap|blockmap)$/i.test(name) || name.endsWith('.app')) targets.push(name);
 }
 
 let removed = 0;

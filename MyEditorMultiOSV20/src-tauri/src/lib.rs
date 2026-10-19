@@ -312,11 +312,11 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
         builder = builder.center();
     }
     let win = builder.build().map_err(|err| err.to_string())?;
-    let icon = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons").join(if cfg!(windows) { "icon.ico" } else { "icon.png" });
-    if icon.is_file() {
-        if let Ok(image) = tauri::image::Image::from_path(&icon) {
-            let _ = win.set_icon(image);
-        }
+    // The window icon is the exe resource from bundle.icon (icons/icon.ico).
+    // Shortcuts and the NSIS installer use that same file, so this does not
+    // load a second copy from the source tree.
+    if let Some(icon) = app.default_window_icon() {
+        let _ = win.set_icon(icon.clone());
     }
     if maximized {
         let _ = win.maximize();

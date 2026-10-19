@@ -20,6 +20,50 @@ function copyTree(from, to) {
   fs.cpSync(from, to, { recursive: true, dereference: true });
 }
 
+function dirStamp(dir) {
+  let count = 0;
+  let newest = 0;
+  const walk = (current) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else {
+        count += 1;
+        const mtime = fs.statSync(full).mtimeMs;
+        if (mtime > newest) newest = mtime;
+      }
+    }
+  };
+  walk(dir);
+  return `${count}:${newest}`;
+}
+
+function sourceStamp() {
+  const lockPath = fs.existsSync(path.join(root, 'package-lock.json'))
+    ? path.join(root, 'package-lock.json')
+    : path.join(root, 'package.json');
+  const lock = fs.statSync(lockPath);
+  return [
+    'v1',
+    withDeps ? 'deps' : 'nodeps',
+    process.version,
+    `${lock.size}:${lock.mtimeMs}`,
+    dirStamp(path.join(root, 'core')),
+    dirStamp(path.join(root, 'host')),
+  ].join('|');
+}
+
+const stampPath = path.join(out, '.stamp');
+const nodeName = process.platform === 'win32' ? 'node.exe' : 'node';
+const stamp = sourceStamp();
+if (fs.existsSync(stampPath) && fs.readFileSync(stampPath, 'utf8') === stamp
+  && (!withDeps || fs.existsSync(path.join(out, nodeName)))) {
+  const info = path.join(root, 'src', 'build-info.json');
+  if (fs.existsSync(info)) fs.copyFileSync(info, path.join(out, 'build-info.json'));
+  console.log('[sidecar] Up to date');
+  process.exit(0);
+}
+
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 copyTree(path.join(root, 'core'), path.join(out, 'core'));
@@ -51,9 +95,9 @@ if (withDeps) {
     }
     copyTree(path.join(modules, name), path.join(dest, name));
   }
-  const nodeName = process.platform === 'win32' ? 'node.exe' : 'node';
   fs.copyFileSync(process.execPath, path.join(out, nodeName));
   console.log(`[sidecar] Staged core, host, node_modules and ${nodeName}`);
 } else {
   console.log('[sidecar] Staged core and host');
 }
+fs.writeFileSync(stampPath, stamp);

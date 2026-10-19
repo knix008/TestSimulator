@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encodeIco } from '../scripts/ico.mjs';
+import { BUILDS, rejectReason, copyInstallersToRoot } from '../scripts/platform-build.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,4 +56,43 @@ test('prepare:assets keeps the window icon in sync with assets/icon.svg', () => 
   assert.match(sync, /generate-icons\.mjs/);
   assert.match(sync, /icon\.ico/);
   assert.match(sync, /src-tauri/);
+  assert.equal(pkg.scripts['build:web'], 'npm run prepare:assets && vite build');
+  assert.equal(pkg.scripts['build:win'], 'node scripts/platform-build.mjs win');
+  assert.equal(pkg.scripts['build:linux'], 'node scripts/platform-build.mjs linux');
+  assert.equal(pkg.scripts['build:mac'], 'node scripts/platform-build.mjs mac');
+  const conf = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  assert.ok(conf.bundle.icon.includes('icons/icon.ico'));
+  assert.equal(conf.bundle.windows.nsis.installerIcon, 'icons/icon.ico');
+  assert.equal(conf.bundle.windows.nsis.uninstallerIcon, 'icons/icon.ico');
+  assert.equal(conf.bundle.windows.nsis.displayLanguageSelector, true);
+  assert.equal(conf.bundle.windows.nsis.languages[0], 'Korean');
+  assert.ok(conf.bundle.windows.nsis.languages.includes('English'));
+  assert.deepEqual(conf.bundle.targets, ['nsis', 'deb', 'appimage', 'app', 'dmg']);
+});
+
+test('linux and macOS installers are built on that operating system', () => {
+  assert.equal(BUILDS.linux.bundles, 'deb,appimage');
+  assert.equal(BUILDS.mac.bundles, 'app,dmg');
+  assert.equal(BUILDS.win.bundles, 'nsis');
+  assert.equal(rejectReason('win', 'win32'), null);
+  assert.equal(rejectReason('linux', 'linux'), null);
+  assert.equal(rejectReason('mac', 'darwin'), null);
+  assert.match(rejectReason('linux', 'win32'), /Run this on Linux/);
+  assert.match(rejectReason('mac', 'win32'), /Run this on macOS/);
+});
+
+test('installer files are copied to the project root', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'med-build-'));
+  const bundle = path.join(tmp, 'bundle');
+  const project = path.join(tmp, 'project');
+  fs.mkdirSync(path.join(bundle, 'nsis'), { recursive: true });
+  fs.mkdirSync(path.join(bundle, 'macos', 'My Editor.app'), { recursive: true });
+  fs.mkdirSync(project);
+  fs.writeFileSync(path.join(bundle, 'nsis', 'My Editor_1.0.0_x64-setup.exe'), 'exe');
+  fs.writeFileSync(path.join(bundle, 'macos', 'My Editor.app', 'bin'), 'app');
+  const copied = copyInstallersToRoot(project, bundle);
+  assert.equal(fs.readFileSync(path.join(project, 'My Editor_1.0.0_x64-setup.exe'), 'utf8'), 'exe');
+  assert.equal(fs.readFileSync(path.join(project, 'My Editor.app', 'bin'), 'utf8'), 'app');
+  assert.equal(copied.length, 2);
+  fs.rmSync(tmp, { recursive: true, force: true });
 });

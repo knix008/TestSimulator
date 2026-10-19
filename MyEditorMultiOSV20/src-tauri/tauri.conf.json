@@ -18,7 +18,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "appimage", "app", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -28,6 +28,35 @@
     ],
     "resources": {
       "sidecar/": "app/"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "displayLanguageSelector": true,
+        "languages": [
+          "Korean",
+          "English",
+          "Japanese",
+          "SimpChinese",
+          "TradChinese",
+          "Spanish",
+          "SpanishInternational",
+          "French",
+          "German",
+          "Italian",
+          "Portuguese",
+          "PortugueseBR",
+          "Russian",
+          "Arabic",
+          "Bulgarian",
+          "Dutch",
+          "Hebrew",
+          "Swedish",
+          "Turkish",
+          "Ukrainian"
+        ]
+      }
     },
     "category": "DeveloperTool",
     "shortDescription": "Text / code editor",

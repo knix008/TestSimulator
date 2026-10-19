@@ -54,10 +54,13 @@ npm run web          # 웹 버전: 빌드 후 http://127.0.0.1:5190 (브라우�
 ## 설치 파일 만들기
 
 ```bash
-npm run tauri:build   # 현재 OS 의 설치 패키지 → src-tauri/target/release/bundle/
+npm run build:web     # 웹 화면 → dist/     (서버 실행은 npm run web)
+npm run build:win     # Windows → NSIS 설치 파일 하나. 실행하면 언어를 고릅니다
+npm run build:linux   # Linux   → .deb, AppImage   ※ Linux 에서 실행
+npm run build:mac     # macOS   → .app, .dmg       ※ macOS 에서 실행
 ```
 
-Windows 에서는 NSIS 설치 프로그램과 MSI, macOS 에서는 .dmg, Linux 에서는 .deb 와 AppImage 가 만들어집니다. 각 패키지는 그 운영체제에서 빌드합니다. 설치본은 텍스트·소스 확장자를 이 앱과 연결합니다.
+데스크톱 설치 파일은 그 운영체제에서 만듭니다. 빌드가 끝나면 설치 파일을 프로젝트 루트에 복사합니다. 설치본은 텍스트·소스 확장자를 이 앱과 연결합니다. 설치 파일, 바로가기, 실행 중 창의 아이콘은 모두 `assets/icon.svg` 에서 만듭니다. Windows 는 `icon.ico`, macOS 는 `icon.icns`, Linux 는 PNG, 웹은 `icon.svg` 입니다.
 
 아이콘은 `assets/icon.svg` 에서 `build/icons/` 로 만들고, Tauri 가 쓰는 크기는 `src-tauri/icons/` 로 복사됩니다. 각 창은 자기 Node 서비스를 따로 띄우므로 파일·터미널·미리보기가 다른 창과 섞이지 않습니다. 설정 폴더는 함께 씁니다.
 

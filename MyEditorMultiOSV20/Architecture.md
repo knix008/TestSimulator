@@ -102,5 +102,6 @@ MyEditorMultiOSV20/
 
 ## 4. 빌드 · 패키징
 
-- `npm run tauri:build` 는 아이콘을 맞추고 사이드카(`core/`, `host/`, 운영에 필요한 `node_modules`, Node 실행 파일)를 준비한 뒤 `vite build` → `dist/` 를 Tauri 가 묶습니다. 패키지는 `src-tauri/target/release/bundle/` 에 나옵니다. `src/build-info.json`(빌드 시각 · git 커밋) 은 사이드카와 함께 들어가 정보 대화상자에 표시됩니다.
+- `npm run build:web` 는 웹 화면을 `dist/` 에 만듭니다. `npm run web` 이 그 결과를 서버로 띄웁니다.
+- `npm run build:win` · `build:linux` · `build:mac` 은 각 운영체제에서 설치 파일을 만듭니다(Windows 는 NSIS 설치 파일 하나이고 설치를 시작할 때 언어를 고릅니다. Linux deb·AppImage, macOS app·dmg). 아이콘을 맞추고 사이드카(`core/`, `host/`, 운영에 필요한 `node_modules`, Node 실행 파일)를 준비한 뒤 `vite build` → `dist/` 를 Tauri 가 묶습니다. 패키지는 `src-tauri/target/release/bundle/` 에 만들어진 뒤 프로젝트 루트로 복사됩니다. `src/build-info.json`(빌드 시각 · git 커밋) 은 사이드카와 함께 들어가 정보 대화상자에 표시됩니다.
 - `MED_USER_DATA` 환경 변수로 프로필 위치를 바꿀 수 있습니다(테스트용).
