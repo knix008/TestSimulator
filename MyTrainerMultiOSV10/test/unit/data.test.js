@@ -18,7 +18,8 @@ for (const id of GENERATOR_IDS) {
     if (a.task.kind === 'classification') {
       const counts = classCounts(a);
       assert.equal(counts.length, a.task.classes);
-      assert.ok(counts.every((c) => c > 0), `every class present: ${counts}`);
+      // A language model's vocabulary has tokens that are never a next character (<pad>, <unk>).
+      if (!a.media?.charLevel) assert.ok(counts.every((c) => c > 0), `every class present: ${counts}`);
       if (a.labels) assert.equal(a.labels.length, a.task.classes);
     }
     assert.equal(GENERATORS[id].group.length > 0, true);

@@ -29,8 +29,26 @@ export function defaultTrain() {
     weightDecay: 0,
     snapshotEvery: 1,
     probeIndex: 0,
+    // Advanced: optimizer hyperparameters, schedule, early stopping, data order, loss.
+    momentum: 0.9,
+    nesterov: false,
+    beta1: 0.9,
+    beta2: 0.999,
+    epsilon: 1e-7,
+    rho: 0.9,
+    stepSize: 0,          // epochs per step (0: a quarter of the epochs)
+    decayRate: 0,         // step / exponential factor (0: 0.5 / 0.95)
+    minLearningRate: 0,
+    warmupEpochs: 0,
+    monitor: 'val_loss',
+    minDelta: 0,
+    restoreBest: false,
+    shuffle: true,
+    labelSmoothing: 0,
   };
 }
+
+export const MONITORS = ['val_loss', 'loss', 'val_acc', 'acc'];
 
 const clampNumber = (value, min, max, fallback, integer = false) => {
   let n = Number(value);
@@ -53,6 +71,21 @@ export function cleanTrain(raw = {}) {
     weightDecay: clampNumber(raw.weightDecay, 0, 1, base.weightDecay),
     snapshotEvery: clampNumber(raw.snapshotEvery, 1, 1000, base.snapshotEvery, true),
     probeIndex: clampNumber(raw.probeIndex, 0, 1e7, base.probeIndex, true),
+    momentum: clampNumber(raw.momentum, 0, 0.999, base.momentum),
+    nesterov: raw.nesterov === true,
+    beta1: clampNumber(raw.beta1, 0, 0.9999, base.beta1),
+    beta2: clampNumber(raw.beta2, 0, 0.99999, base.beta2),
+    epsilon: clampNumber(raw.epsilon, 1e-10, 1, base.epsilon),
+    rho: clampNumber(raw.rho, 0, 0.9999, base.rho),
+    stepSize: clampNumber(raw.stepSize, 0, 10000, base.stepSize, true),
+    decayRate: clampNumber(raw.decayRate, 0, 1, base.decayRate),
+    minLearningRate: clampNumber(raw.minLearningRate, 0, 10, base.minLearningRate),
+    warmupEpochs: clampNumber(raw.warmupEpochs, 0, 1000, base.warmupEpochs, true),
+    monitor: MONITORS.includes(raw.monitor) ? raw.monitor : base.monitor,
+    minDelta: clampNumber(raw.minDelta, 0, 10, base.minDelta),
+    restoreBest: raw.restoreBest === true,
+    shuffle: raw.shuffle !== false,
+    labelSmoothing: clampNumber(raw.labelSmoothing, 0, 0.5, base.labelSmoothing),
   };
 }
 
@@ -167,10 +200,17 @@ export function resolveLoss(train, task) {
 /** Learning rate at an epoch (0-based) for the schedule. */
 export function scheduledRate(train, epoch) {
   const lr = train.learningRate;
+  const low = Math.min(train.minLearningRate ?? 0, lr);
+  const step = train.stepSize || Math.max(1, Math.round(train.epochs / 4));
+  let rate;
   switch (train.schedule) {
-    case 'step': return lr * 0.5 ** Math.floor(epoch / Math.max(1, Math.round(train.epochs / 4)));
-    case 'exponential': return lr * 0.95 ** epoch;
-    case 'cosine': return lr * 0.5 * (1 + Math.cos((Math.PI * epoch) / Math.max(1, train.epochs)));
-    default: return lr;
+    case 'step': rate = lr * (train.decayRate || 0.5) ** Math.floor(epoch / step); break;
+    case 'exponential': rate = lr * (train.decayRate || 0.95) ** epoch; break;
+    case 'cosine': rate = low + (lr - low) * 0.5 * (1 + Math.cos((Math.PI * epoch) / Math.max(1, train.epochs))); break;
+    default: rate = lr;
   }
+  rate = Math.max(low, rate);
+  // Warm-up: the first epochs climb linearly to the scheduled rate.
+  if (train.warmupEpochs > 0 && epoch < train.warmupEpochs) rate *= (epoch + 1) / (train.warmupEpochs + 1);
+  return rate;
 }

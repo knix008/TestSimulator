@@ -69,6 +69,7 @@ export const AI_ICONS = {
   copyLog: '<rect x="8" y="3" width="13" height="15" rx="2"/><path d="M5 7v12a2 2 0 0 0 2 2h10"/><path d="M11 8h7M11 11h7M11 14h4"/>',
   volume: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a3.5 3.5 0 0 1 0 6M18.5 6.5a7 7 0 0 1 0 11"/>',
   commentToggle: '<path d="M4 6h3M4 12h3M4 18h3"/><path d="M10 6l4 12M14 6l4 12"/>',
+  tune: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
   exportC: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12.5 13.2a2.6 2.6 0 1 0 0 3.6"/>',
   exportOnnx: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="7.5" r="1.6"/><circle cx="8" cy="14.5" r="1.6"/><circle cx="16" cy="14.5" r="1.6"/><path d="M12 9.1l-2.8 4M12 9.1l2.8 4M9.6 14.5h4.8"/>',
   microphone: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>',

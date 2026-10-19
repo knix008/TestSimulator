@@ -79,7 +79,7 @@ test('the generated PyTorch code of every sample is valid Python, with a model c
       assert.match(code, /class Net\(nn\.Module\):/);
       assert.match(code, /CONFIG = \{/);
       assert.equal(code.includes('= mt.trace('), hooks, `${id}: hooks ${hooks}`);
-      for (const node of project.model.nodes) if (node.type !== 'input' && !['activation', 'leakyRelu', 'flatten', 'add', 'concatenate', 'globalAvgPool2d', 'globalAvgPool1d', 'reshape'].includes(node.type)) assert.ok(code.includes(`self.${node.name}`), `${id}: ${node.name}`);
+      for (const node of project.model.nodes) if (node.type !== 'input' && !['activation', 'leakyRelu', 'flatten', 'add', 'concatenate', 'globalAvgPool2d', 'globalAvgPool1d', 'reshape', 'freqAvgPool', 'lastStep'].includes(node.type)) assert.ok(code.includes(`self.${node.name}`), `${id}: ${node.name}`);
       fs.writeFileSync(path.join(dir, `${id}_${hooks}.py`), code);
     }
   }

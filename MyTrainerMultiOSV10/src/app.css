@@ -452,3 +452,10 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 /* Center tabs when the names do not fit: icons only (the names are in the tooltips). */
 #tabs.compact .tab > span, #tabs.compact .tab-info { display: none; }
 #tabs.compact .tab { padding-left: 10px; padding-right: 10px; }
+
+/* Advanced training settings */
+.advanced-train > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; font-size: 0.86em; color: var(--muted); list-style: none; padding: 2px 0 6px; }
+.advanced-train > summary::-webkit-details-marker { display: none; }
+.advanced-train > summary::after { content: '▸'; margin-left: auto; transition: transform 0.15s; }
+.advanced-train[open] > summary::after { transform: rotate(90deg); }
+.lr-input { width: 100%; min-width: 0; box-sizing: border-box; }

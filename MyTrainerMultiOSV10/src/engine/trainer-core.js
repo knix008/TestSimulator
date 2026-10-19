@@ -39,12 +39,12 @@ function optimizerFor(tf, train) {
   const lr = train.learningRate;
   switch (train.optimizer) {
     case 'sgd': return tf.train.sgd(lr);
-    case 'momentum': return tf.train.momentum(lr, 0.9);
-    case 'rmsprop': return tf.train.rmsprop(lr);
+    case 'momentum': return tf.train.momentum(lr, train.momentum ?? 0.9, train.nesterov === true);
+    case 'rmsprop': return tf.train.rmsprop(lr, train.rho ?? 0.9, 0, train.epsilon ?? 1e-7);
     case 'adagrad': return tf.train.adagrad(lr);
-    case 'adadelta': return tf.train.adadelta(lr);
-    case 'adamax': return tf.train.adamax(lr);
-    default: return tf.train.adam(lr);
+    case 'adadelta': return tf.train.adadelta(lr, train.rho ?? 0.95, train.epsilon ?? 1e-7);
+    case 'adamax': return tf.train.adamax(lr, train.beta1 ?? 0.9, train.beta2 ?? 0.999, train.epsilon ?? 1e-7);
+    default: return tf.train.adam(lr, train.beta1 ?? 0.9, train.beta2 ?? 0.999, train.epsilon ?? 1e-7);
   }
 }
 
@@ -121,10 +121,20 @@ export class Trainer {
     const built = buildTfModel(this.tf, graph, inputShape, { weightDecay: train.weightDecay });
     this.built = built;
     this.lossName = resolveLoss(train, task);
+    // Label smoothing (categorical): the targets become (1 − ε)·onehot + ε / classes.
+    const smoothing = this.lossName === 'categoricalCrossentropy' && train.labelSmoothing > 0 ? train.labelSmoothing : 0;
+    const tf = this.tf;
+    const loss = smoothing
+      ? (yTrue, yPred) => tf.tidy(() => {
+        const classes = yTrue.shape.at(-1);
+        const target = tf.add(tf.mul(yTrue, 1 - smoothing), smoothing / classes);
+        return tf.mean(tf.neg(tf.sum(tf.mul(target, tf.log(tf.clipByValue(yPred, 1e-7, 1))), -1)));
+      })
+      : lossFor(tf, this.lossName);
     built.model.compile({
-      optimizer: optimizerFor(this.tf, train),
-      loss: lossFor(this.tf, this.lossName),
-      metrics: task.kind === 'classification' ? ['accuracy'] : [],
+      optimizer: optimizerFor(tf, train),
+      loss,
+      metrics: task.kind === 'classification' ? [smoothing ? 'categoricalAccuracy' : 'accuracy'] : [],
     });
     this.history = [];
     this.epoch = 0;
@@ -181,7 +191,7 @@ export class Trainer {
       epochs: endEpoch,
       initialEpoch: startEpoch,
       batchSize: train.batchSize,
-      shuffle: true,
+      shuffle: train.shuffle !== false,
       validationData: data.val ? [data.val.x, data.val.y] : undefined,
       verbose: 0,
       callbacks: {
@@ -203,12 +213,17 @@ export class Trainer {
         },
         onEpochEnd: async (epoch, logs) => {
           self.epoch = epoch + 1;
-          const entry = { epoch: epoch + 1, loss: logs.loss, acc: logs.acc ?? null, valLoss: logs.val_loss ?? null, valAcc: logs.val_acc ?? null, lr: self.rate, time: Date.now() - started };
+          const entry = { epoch: epoch + 1, loss: logs.loss, acc: logs.acc ?? logs.categoricalAccuracy ?? null, valLoss: logs.val_loss ?? null, valAcc: logs.val_acc ?? logs.val_categoricalAccuracy ?? null, lr: self.rate, time: Date.now() - started };
           self.history.push(entry);
           self.send('epoch', { ...entry, epochs: endEpoch });
           if ((epoch + 1 - startEpoch) % train.snapshotEvery === 0 || epoch + 1 === endEpoch) await self.snapshot(null, null, 'epoch');
-          const watched = logs.val_loss ?? logs.loss;
-          if (watched < best - 1e-6) { best = watched; since = 0; } else since++;
+          // Early stopping watches one figure (lower loss / higher accuracy is better), by at least minDelta.
+          const pick = { val_loss: entry.valLoss ?? entry.loss, loss: entry.loss, val_acc: entry.valAcc ?? entry.acc, acc: entry.acc }[train.monitor ?? 'val_loss'] ?? entry.loss;
+          const watched = (train.monitor ?? 'val_loss').endsWith('acc') ? -(pick ?? 0) : pick;
+          if (watched < best - Math.max(1e-6, train.minDelta ?? 0)) {
+            best = watched; since = 0;
+            if (train.earlyStop && train.restoreBest) { self.bestWeights?.forEach((w) => w.dispose()); self.bestWeights = model.getWeights().map((w) => w.clone()); self.bestEpoch = epoch + 1; }
+          } else since++;
           if (train.earlyStop && since >= train.patience) {
             self.send('log', { level: 'info', code: 'train.earlyStopped', params: { epoch: epoch + 1 } });
             model.stopTraining = true;
@@ -217,6 +232,14 @@ export class Trainer {
         },
       },
     });
+    if (this.bestWeights) {
+      // Restore the best epoch's weights (early stopping with "restore best").
+      model.setWeights(this.bestWeights);
+      this.bestWeights.forEach((w) => w.dispose());
+      this.bestWeights = null;
+      this.send('log', { level: 'info', code: 'train.restoredBest', params: { epoch: this.bestEpoch } });
+      await this.snapshot(null, null, 'epoch');
+    }
     const evaluation = await this.evaluate();
     this.status('idle');
     this.send('done', { epochs: this.epoch, stopped: Boolean(this.stopRequested), history: this.history, evaluation: evaluation?.summary ?? null, time: Date.now() - started });
