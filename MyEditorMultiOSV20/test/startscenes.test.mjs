@@ -8,8 +8,9 @@ import { SETTINGS_DEFAULTS, pickSettings } from '../src/lib/settings.js';
 import { SCENE_IDS } from '../src/lib/start3d/scenes.js';
 
 test('start scenes keep the designed set and an unknown id falls back to the terminal', () => {
-  assert.equal(START_SCENE_IDS.length, 22);
-  assert.equal(startSceneId('editor'), 'editor');
+  assert.equal(START_SCENE_IDS.length, 20);
+  assert.equal(startSceneId('coderain'), 'coderain');
+  assert.equal(startSceneId('editor'), 'terminal');
   assert.equal(startSceneId('nope'), 'terminal');
   assert.equal(startSceneId(undefined), 'terminal');
   assert.equal(startSceneId('valley'), 'terminal');

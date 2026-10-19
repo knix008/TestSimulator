@@ -3,9 +3,9 @@
 // plain values the settings, the start page and the tests share.
 
 export const START_SCENE_IDS = [
-  'terminal', 'editor', 'coderain', 'circuit', 'racks', 'git', 'tokens', 'binary', 'keyboard', 'chip',
+  'terminal', 'coderain', 'circuit', 'racks', 'git', 'tokens', 'binary', 'keyboard', 'chip',
   'network', 'stack', 'ast', 'debug', 'containers', 'fiber', 'hex', 'pipeline', 'repo', 'api',
-  'glyphs', 'memory',
+  'glyphs',
 ];
 
 const LEGACY_SPEED = { off: 0, slow: 20, medium: 55, fast: 100 };

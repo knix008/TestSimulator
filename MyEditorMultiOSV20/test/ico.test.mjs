@@ -67,6 +67,8 @@ test('prepare:assets keeps the window icon in sync with assets/icon.svg', () => 
   assert.equal(conf.bundle.windows.nsis.displayLanguageSelector, true);
   assert.equal(conf.bundle.windows.nsis.languages[0], 'Korean');
   assert.ok(conf.bundle.windows.nsis.languages.includes('English'));
+  assert.equal(conf.bundle.windows.nsis.customLanguageFiles.Hebrew, 'nsis/Hebrew.nsh');
+  assert.match(fs.readFileSync(path.join(root, 'src-tauri', 'nsis', 'Hebrew.nsh'), 'utf8'), /\$\{LANG_HEBREW\}/);
   assert.deepEqual(conf.bundle.targets, ['nsis', 'deb', 'appimage', 'app', 'dmg']);
 });
 

@@ -12,9 +12,6 @@ import { FontPicker } from './FontPicker';
 
 const GROUPS = [
   [
-    { id: 'showStart', icon: 'home', tip: 'tip_start', on: (st, state) => !!state.startOpen },
-  ],
-  [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
     { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
     { id: 'openFolder', icon: 'folderOpen', tip: 'tip_open_folder' },

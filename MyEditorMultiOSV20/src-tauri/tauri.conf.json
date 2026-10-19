@@ -34,6 +34,9 @@
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
         "displayLanguageSelector": true,
+        "customLanguageFiles": {
+          "Hebrew": "nsis/Hebrew.nsh"
+        },
         "languages": [
           "Korean",
           "English",
