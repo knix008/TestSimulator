@@ -1,0 +1,111 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d1qo54dy",
+  "text": "책 제목",
+  "children": [
+   {
+    "id": "tmvftn8d1i8rmdn",
+    "text": "한 줄 요약",
+    "children": [
+     {
+      "id": "tmvftn8d1jiktdm",
+      "text": "...",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d1xfggdq",
+    "text": "핵심 내용",
+    "children": [
+     {
+      "id": "tmvftn8d17cn9do",
+      "text": "1장",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d1sr9jdp",
+      "text": "2장",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d1x2mhds",
+    "text": "인상 깊은 문장",
+    "children": [
+     {
+      "id": "tmvftn8d1rpzndr",
+      "text": "\"...\"",
+      "children": [],
+      "icons": [
+       "bookmark"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d106ujdv",
+    "text": "내 생각",
+    "children": [
+     {
+      "id": "tmvftn8d1us3sdt",
+      "text": "동의",
+      "children": [],
+      "icons": [
+       "thumbsUp"
+      ]
+     },
+     {
+      "id": "tmvftn8d11qntdu",
+      "text": "의문",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d1g37ddx",
+    "text": "적용할 점",
+    "children": [
+     {
+      "id": "tmvftn8d1lccfdw",
+      "text": "...",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ],
+    "icons": [
+     "target"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "paper",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.957Z",
+  "modified": "2026-10-19T22:24:07.957Z"
+ }
+}

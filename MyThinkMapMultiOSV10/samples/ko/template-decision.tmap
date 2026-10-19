@@ -1,0 +1,146 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cyilq7bu",
+  "text": "어떤 방법을 고를까?",
+  "children": [
+   {
+    "id": "tmvftn8cygdocbi",
+    "text": "선택지 A",
+    "children": [
+     {
+      "id": "tmvftn8cy9q1ebf",
+      "text": "장점",
+      "children": [
+       {
+        "id": "tmvftn8cynvkvbe",
+        "text": "빠름",
+        "children": [],
+        "icons": [
+         "thumbsUp"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "tmvftn8cyn0wpbh",
+      "text": "단점",
+      "children": [
+       {
+        "id": "tmvftn8cy6elvbg",
+        "text": "비쌈",
+        "children": [],
+        "icons": [
+         "thumbsDown"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cymc9ubn",
+    "text": "선택지 B",
+    "children": [
+     {
+      "id": "tmvftn8cyskyybk",
+      "text": "장점",
+      "children": [
+       {
+        "id": "tmvftn8cyqph2bj",
+        "text": "저렴함",
+        "children": [],
+        "icons": [
+         "thumbsUp"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "tmvftn8cyo485bm",
+      "text": "단점",
+      "children": [
+       {
+        "id": "tmvftn8cyhdvlbl",
+        "text": "느림",
+        "children": [],
+        "icons": [
+         "thumbsDown"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cyk15bbr",
+    "text": "판단 기준",
+    "children": [
+     {
+      "id": "tmvftn8cyzb77bo",
+      "text": "비용",
+      "children": [],
+      "task": {
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8cy9tczbp",
+      "text": "시간",
+      "children": [],
+      "task": {
+       "priority": 2
+      }
+     },
+     {
+      "id": "tmvftn8cyc2yqbq",
+      "text": "품질",
+      "children": [],
+      "task": {
+       "priority": 1
+      }
+     }
+    ],
+    "icons": [
+     "target"
+    ]
+   },
+   {
+    "id": "tmvftn8cyvxo0bt",
+    "text": "결론",
+    "children": [
+     {
+      "id": "tmvftn8cy2c3mbs",
+      "text": "...",
+      "children": []
+     }
+    ],
+    "icons": [
+     "star"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "auto",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.954Z",
+  "modified": "2026-10-19T22:24:07.954Z"
+ }
+}

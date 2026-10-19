@@ -1,0 +1,156 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8ct4i0m5b",
+  "text": "2027년의 나",
+  "children": [
+   {
+    "id": "tmvftn8ctdasi4y",
+    "text": "건강",
+    "children": [
+     {
+      "id": "tmvftn8ctoq074w",
+      "text": "하프 마라톤 완주",
+      "children": [],
+      "task": {
+       "progress": 25
+      }
+     },
+     {
+      "id": "tmvftn8ctauz14x",
+      "text": "주 3회 근력 운동",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     }
+    ],
+    "icons": [
+     "heart"
+    ]
+   },
+   {
+    "id": "tmvftn8ct6iwo51",
+    "text": "배움",
+    "children": [
+     {
+      "id": "tmvftn8ct4jue4z",
+      "text": "일본어 JLPT N3",
+      "children": [],
+      "task": {
+       "progress": 25
+      }
+     },
+     {
+      "id": "tmvftn8ctrt6s50",
+      "text": "책 24권",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     }
+    ],
+    "icons": [
+     "book"
+    ]
+   },
+   {
+    "id": "tmvftn8ct2bv654",
+    "text": "일",
+    "children": [
+     {
+      "id": "tmvftn8ctbtnc52",
+      "text": "팀 리드 역할",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     },
+     {
+      "id": "tmvftn8ctk61x53",
+      "text": "사이드 프로젝트 출시",
+      "children": [],
+      "task": {
+       "progress": 75
+      }
+     }
+    ],
+    "icons": [
+     "rocket"
+    ]
+   },
+   {
+    "id": "tmvftn8ctazl457",
+    "text": "돈",
+    "children": [
+     {
+      "id": "tmvftn8ct8xt955",
+      "text": "비상금 6개월치",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     },
+     {
+      "id": "tmvftn8ct8sh556",
+      "text": "연금 계좌 시작",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     }
+    ],
+    "icons": [
+     "money"
+    ]
+   },
+   {
+    "id": "tmvftn8ctkhcm5a",
+    "text": "관계",
+    "children": [
+     {
+      "id": "tmvftn8ct4ele58",
+      "text": "매달 부모님 방문",
+      "children": [],
+      "task": {
+       "progress": 75
+      }
+     },
+     {
+      "id": "tmvftn8ctrrj659",
+      "text": "친구들과 여행",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ],
+    "icons": [
+     "people"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "forest",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.949Z",
+  "modified": "2026-10-19T22:24:07.949Z"
+ }
+}

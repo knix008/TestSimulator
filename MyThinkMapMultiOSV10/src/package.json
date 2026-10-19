@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "private": true,
+  "description": "The UI sources are ES modules (Vite bundles them; the tests import src/lib/*.js directly)."
+}

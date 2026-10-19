@@ -1,0 +1,119 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8de90v2r4",
+  "text": "SWOT analysis",
+  "children": [
+   {
+    "id": "tmvftn8dey0j0qu",
+    "text": "Strengths",
+    "children": [
+     {
+      "id": "tmvftn8depq81qs",
+      "text": "Technology",
+      "children": []
+     },
+     {
+      "id": "tmvftn8demhqtqt",
+      "text": "Loyal customers",
+      "children": []
+     }
+    ],
+    "style": {
+     "fill": "#2e7d32",
+     "color": "#ffffff",
+     "shape": "rounded"
+    },
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8deazoiqx",
+    "text": "Weaknesses",
+    "children": [
+     {
+      "id": "tmvftn8debs8uqv",
+      "text": "Small reach",
+      "children": []
+     },
+     {
+      "id": "tmvftn8decp57qw",
+      "text": "High cost",
+      "children": []
+     }
+    ],
+    "style": {
+     "fill": "#c62828",
+     "color": "#ffffff",
+     "shape": "rounded"
+    },
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8debu8br0",
+    "text": "Opportunities",
+    "children": [
+     {
+      "id": "tmvftn8de55sbqy",
+      "text": "New markets",
+      "children": []
+     },
+     {
+      "id": "tmvftn8de7tvmqz",
+      "text": "Deregulation",
+      "children": []
+     }
+    ],
+    "style": {
+     "fill": "#1565c0",
+     "color": "#ffffff",
+     "shape": "rounded"
+    },
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8deqajqr3",
+    "text": "Threats",
+    "children": [
+     {
+      "id": "tmvftn8dev5x0r1",
+      "text": "Competitors",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dedkwer2",
+      "text": "Exchange rates",
+      "children": []
+     }
+    ],
+    "style": {
+     "fill": "#ef6c00",
+     "color": "#ffffff",
+     "shape": "rounded"
+    },
+    "side": "left"
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "classic",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.970Z",
+  "modified": "2026-10-19T22:24:07.970Z"
+ }
+}

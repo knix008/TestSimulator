@@ -1,0 +1,116 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d8n9xki9",
+  "text": "Smart home hub roadmap",
+  "children": [
+   {
+    "id": "tmvftn8d8yg1chz",
+    "text": "Q1",
+    "children": [
+     {
+      "id": "tmvftn8d8t4pyhx",
+      "text": "Korean voice commands",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     },
+     {
+      "id": "tmvftn8d8n9yphy",
+      "text": "App dark mode",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8y9xgi2",
+    "text": "Q2",
+    "children": [
+     {
+      "id": "tmvftn8d86w20i0",
+      "text": "Matter support",
+      "children": [],
+      "icons": [
+       "star"
+      ],
+      "task": {
+       "progress": 50
+      }
+     },
+     {
+      "id": "tmvftn8d8dm49i1",
+      "text": "Energy reports",
+      "children": [],
+      "task": {
+       "progress": 25
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8xu83i5",
+    "text": "Q3",
+    "children": [
+     {
+      "id": "tmvftn8d8nkm2i3",
+      "text": "Shared automation recipes",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d8gb4xi4",
+      "text": "Camera support",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d86314i8",
+    "text": "Q4",
+    "children": [
+     {
+      "id": "tmvftn8d879b1i6",
+      "text": "Hub gen 2",
+      "children": [],
+      "icons": [
+       "rocket"
+      ]
+     },
+     {
+      "id": "tmvftn8d80hhwi7",
+      "text": "Launch in Japan",
+      "children": []
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "ocean",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.964Z",
+  "modified": "2026-10-19T22:24:07.964Z"
+ }
+}

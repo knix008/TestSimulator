@@ -1,0 +1,155 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dd35raq8",
+  "text": "Idea session",
+  "children": [
+   {
+    "id": "tmvftn8ddb5tfpu",
+    "text": "The problem",
+    "children": [
+     {
+      "id": "tmvftn8dd5zcnpr",
+      "text": "What is wrong?",
+      "children": []
+     },
+     {
+      "id": "tmvftn8ddjgovps",
+      "text": "Who has it?",
+      "children": []
+     },
+     {
+      "id": "tmvftn8ddp22zpt",
+      "text": "Why now?",
+      "children": []
+     }
+    ],
+    "icons": [
+     "question"
+    ]
+   },
+   {
+    "id": "tmvftn8dd5lzcpy",
+    "text": "Ideas",
+    "children": [
+     {
+      "id": "tmvftn8dd3m3ypv",
+      "text": "Idea 1",
+      "children": [],
+      "icons": [
+       "idea"
+      ]
+     },
+     {
+      "id": "tmvftn8ddzvvepw",
+      "text": "Idea 2",
+      "children": [],
+      "icons": [
+       "idea"
+      ]
+     },
+     {
+      "id": "tmvftn8dd1tdipx",
+      "text": "Idea 3",
+      "children": [],
+      "icons": [
+       "idea"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddvc98q1",
+    "text": "Pros",
+    "children": [
+     {
+      "id": "tmvftn8ddck6ipz",
+      "text": "Fast",
+      "children": [],
+      "icons": [
+       "thumbsUp"
+      ]
+     },
+     {
+      "id": "tmvftn8dd623sq0",
+      "text": "Cheap",
+      "children": [],
+      "icons": [
+       "thumbsUp"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddzva3q4",
+    "text": "Concerns",
+    "children": [
+     {
+      "id": "tmvftn8ddb0zmq2",
+      "text": "Risks",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
+     },
+     {
+      "id": "tmvftn8ddjzu1q3",
+      "text": "Cost",
+      "children": [],
+      "icons": [
+       "money"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddc6zeq7",
+    "text": "Next steps",
+    "children": [
+     {
+      "id": "tmvftn8ddwc5qq5",
+      "text": "Pick owners",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     },
+     {
+      "id": "tmvftn8ddpkvpq6",
+      "text": "Set dates",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ],
+    "icons": [
+     "rocket"
+    ]
+   }
+  ],
+  "notes": "Write every thought down without judging, then evaluate at the end."
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "rainbow",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.969Z",
+  "modified": "2026-10-19T22:24:07.969Z"
+ }
+}

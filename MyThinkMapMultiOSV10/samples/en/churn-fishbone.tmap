@@ -1,0 +1,130 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d8o57dhh",
+  "text": "Subscription churn up (8%/month)",
+  "children": [
+   {
+    "id": "tmvftn8d8cf0th3",
+    "text": "Product",
+    "children": [
+     {
+      "id": "tmvftn8d8hf64h1",
+      "text": "Slow app",
+      "children": [],
+      "icons": [
+       "exclamation"
+      ]
+     },
+     {
+      "id": "tmvftn8d8pmyyh2",
+      "text": "Too many features",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8chroh6",
+    "text": "Price",
+    "children": [
+     {
+      "id": "tmvftn8d8ua3eh4",
+      "text": "Price rise poorly announced",
+      "children": [],
+      "task": {
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8d8uxrch5",
+      "text": "No yearly plan",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8l1zfh9",
+    "text": "Support",
+    "children": [
+     {
+      "id": "tmvftn8d888sbh7",
+      "text": "Replies take 48 h+",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d8qwu0h8",
+      "text": "Thin FAQ",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8t8d9hc",
+    "text": "Onboarding",
+    "children": [
+     {
+      "id": "tmvftn8d8jp36ha",
+      "text": "Low first-week use",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
+     },
+     {
+      "id": "tmvftn8d8m2efhb",
+      "text": "Tutorial skipped",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d8ebu9he",
+    "text": "Competition",
+    "children": [
+     {
+      "id": "tmvftn8d8wuyahd",
+      "text": "Free alternative",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d83a6bhg",
+    "text": "Billing",
+    "children": [
+     {
+      "id": "tmvftn8d8vqcuhf",
+      "text": "Expired card failures",
+      "children": []
+     }
+    ]
+   }
+  ],
+  "style": {
+   "fill": "#c62828",
+   "color": "#ffffff"
+  }
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "fishbone",
+ "style": "classic",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.964Z",
+  "modified": "2026-10-19T22:24:07.964Z"
+ }
+}

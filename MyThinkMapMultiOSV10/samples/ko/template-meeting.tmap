@@ -1,0 +1,133 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cyh7uxaw",
+  "text": "주간 회의 2026-10-20",
+  "children": [
+   {
+    "id": "tmvftn8cyzb1jak",
+    "text": "참석자",
+    "children": [
+     {
+      "id": "tmvftn8cy34tiai",
+      "text": "홍길동",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8cyv6yqaj",
+      "text": "김영희",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cyij7vao",
+    "text": "안건",
+    "children": [
+     {
+      "id": "tmvftn8cyuxegal",
+      "text": "지난주 진행 상황",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cy8b1pam",
+      "text": "이번 주 우선순위",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cyq7a5an",
+      "text": "기타",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cymqfjaq",
+    "text": "결정 사항",
+    "children": [
+     {
+      "id": "tmvftn8cyshpgap",
+      "text": "출시일 확정",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cyq6abat",
+    "text": "실행 항목",
+    "children": [
+     {
+      "id": "tmvftn8cy34qgar",
+      "text": "보고서 작성",
+      "children": [],
+      "task": {
+       "due": "2026-10-23",
+       "resources": "홍길동",
+       "progress": 0,
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8cy7fplas",
+      "text": "견적 요청",
+      "children": [],
+      "task": {
+       "due": "2026-10-25",
+       "resources": "김영희",
+       "progress": 0,
+       "priority": 2
+      }
+     }
+    ],
+    "icons": [
+     "flag-orange"
+    ]
+   },
+   {
+    "id": "tmvftn8cys3b4av",
+    "text": "다음 회의",
+    "children": [
+     {
+      "id": "tmvftn8cyezccau",
+      "text": "2026-10-27",
+      "children": [],
+      "icons": [
+       "calendar"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "auto",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.954Z",
+  "modified": "2026-10-19T22:24:07.954Z"
+ }
+}

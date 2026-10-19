@@ -1,0 +1,162 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dcv9wpnx",
+  "text": "ERP migration risks",
+  "children": [
+   {
+    "id": "tmvftn8dc4ijwno",
+    "text": "High",
+    "children": [
+     {
+      "id": "tmvftn8dcv7vsnl",
+      "text": "Data migration errors",
+      "children": [
+       {
+        "id": "tmvftn8dcce4lnk",
+        "text": "Three dry runs",
+        "children": [],
+        "icons": [
+         "check"
+        ]
+       }
+      ],
+      "task": {
+       "priority": 1
+      },
+      "icons": [
+       "flag-red"
+      ]
+     },
+     {
+      "id": "tmvftn8dcrf9nnn",
+      "text": "Key people leaving",
+      "children": [
+       {
+        "id": "tmvftn8dcy8fdnm",
+        "text": "Docs and backups",
+        "children": [],
+        "icons": [
+         "check"
+        ]
+       }
+      ],
+      "task": {
+       "priority": 1
+      },
+      "icons": [
+       "flag-red"
+      ]
+     }
+    ],
+    "style": {
+     "fill": "#c62828",
+     "color": "#ffffff"
+    }
+   },
+   {
+    "id": "tmvftn8dcgjhrnt",
+    "text": "Medium",
+    "children": [
+     {
+      "id": "tmvftn8dcjrx6nq",
+      "text": "Two-week slip",
+      "children": [
+       {
+        "id": "tmvftn8dcasqsnp",
+        "text": "Schedule buffer",
+        "children": [],
+        "icons": [
+         "check"
+        ]
+       }
+      ],
+      "task": {
+       "priority": 2
+      },
+      "icons": [
+       "flag-orange"
+      ]
+     },
+     {
+      "id": "tmvftn8dcaa0sns",
+      "text": "Too little training",
+      "children": [
+       {
+        "id": "tmvftn8dcpzshnr",
+        "text": "Department champions",
+        "children": [],
+        "icons": [
+         "check"
+        ]
+       }
+      ],
+      "task": {
+       "priority": 3
+      },
+      "icons": [
+       "flag-orange"
+      ]
+     }
+    ],
+    "style": {
+     "fill": "#ef6c00",
+     "color": "#ffffff"
+    }
+   },
+   {
+    "id": "tmvftn8dcs48pnw",
+    "text": "Low",
+    "children": [
+     {
+      "id": "tmvftn8dca8y5nv",
+      "text": "Licence cost rise",
+      "children": [
+       {
+        "id": "tmvftn8dctoi9nu",
+        "text": "Negotiate 3 years",
+        "children": [],
+        "icons": [
+         "check"
+        ]
+       }
+      ],
+      "task": {
+       "priority": 5
+      },
+      "icons": [
+       "flag-green"
+      ]
+     }
+    ],
+    "style": {
+     "fill": "#2e7d32",
+     "color": "#ffffff"
+    }
+   }
+  ],
+  "notes": "Reviewed every Monday at the risk meeting."
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "right",
+ "style": "graphite",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.968Z",
+  "modified": "2026-10-19T22:24:07.968Z"
+ }
+}

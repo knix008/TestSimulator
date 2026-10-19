@@ -1,0 +1,129 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8df1ig4s4",
+  "text": "This week",
+  "children": [
+   {
+    "id": "tmvftn8dfnxj7rr",
+    "text": "Mon",
+    "children": [
+     {
+      "id": "tmvftn8dfvanhrq",
+      "text": "To do",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfie1nrt",
+    "text": "Tue",
+    "children": [
+     {
+      "id": "tmvftn8dfe7i9rs",
+      "text": "To do",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfxj83rv",
+    "text": "Wed",
+    "children": [
+     {
+      "id": "tmvftn8dfhendru",
+      "text": "To do",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfmkavrx",
+    "text": "Thu",
+    "children": [
+     {
+      "id": "tmvftn8df142nrw",
+      "text": "To do",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfygoerz",
+    "text": "Fri",
+    "children": [
+     {
+      "id": "tmvftn8df28zory",
+      "text": "To do",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8df85xcs1",
+    "text": "Sat",
+    "children": [
+     {
+      "id": "tmvftn8dffu50s0",
+      "text": "Rest",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfa8d6s3",
+    "text": "Sun",
+    "children": [
+     {
+      "id": "tmvftn8df4vxws2",
+      "text": "Rest",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "pastel",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.971Z",
+  "modified": "2026-10-19T22:24:07.971Z"
+ }
+}

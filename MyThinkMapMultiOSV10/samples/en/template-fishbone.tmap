@@ -1,0 +1,116 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8df6ql0sm",
+  "text": "Rising defect rate",
+  "children": [
+   {
+    "id": "tmvftn8dfdjims9",
+    "text": "People",
+    "children": [
+     {
+      "id": "tmvftn8dfzisgs7",
+      "text": "Not enough training",
+      "children": []
+     },
+     {
+      "id": "tmvftn8df7qdds8",
+      "text": "Shift handover",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8df03x6sc",
+    "text": "Machines",
+    "children": [
+     {
+      "id": "tmvftn8df68zgsa",
+      "text": "Old equipment",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dfa7ymsb",
+      "text": "Maintenance gaps",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8df8yvdsf",
+    "text": "Materials",
+    "children": [
+     {
+      "id": "tmvftn8dfgo1csd",
+      "text": "New supplier",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dfxs5vse",
+      "text": "Storage",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfht4lsh",
+    "text": "Methods",
+    "children": [
+     {
+      "id": "tmvftn8df33jqsg",
+      "text": "No standard work",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfrnsosj",
+    "text": "Measurement",
+    "children": [
+     {
+      "id": "tmvftn8dfk3sosi",
+      "text": "Unclear checks",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfrdy2sl",
+    "text": "Environment",
+    "children": [
+     {
+      "id": "tmvftn8dfi6crsk",
+      "text": "Temperature, humidity",
+      "children": []
+     }
+    ]
+   }
+  ],
+  "style": {
+   "fill": "#c62828",
+   "color": "#ffffff"
+  }
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "fishbone",
+ "style": "classic",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.971Z",
+  "modified": "2026-10-19T22:24:07.971Z"
+ }
+}

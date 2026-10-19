@@ -1,0 +1,120 @@
+{
+ "format": "mythinkmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d22rf8f2",
+  "text": "제주 여행",
+  "children": [
+   {
+    "id": "tmvftn8d2oz46er",
+    "text": "일정",
+    "children": [
+     {
+      "id": "tmvftn8d2kfyoeo",
+      "text": "1일차",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d27vb9ep",
+      "text": "2일차",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d2i0cqeq",
+      "text": "3일차",
+      "children": []
+     }
+    ],
+    "icons": [
+     "calendar"
+    ]
+   },
+   {
+    "id": "tmvftn8d2uzhget",
+    "text": "숙소",
+    "children": [
+     {
+      "id": "tmvftn8d2yukees",
+      "text": "예약 확인",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     }
+    ],
+    "icons": [
+     "home"
+    ]
+   },
+   {
+    "id": "tmvftn8d2in5aex",
+    "text": "준비물",
+    "children": [
+     {
+      "id": "tmvftn8d28w10eu",
+      "text": "여권/신분증",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d2nr8qev",
+      "text": "충전기",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d2nw5pew",
+      "text": "상비약",
+      "children": []
+     }
+    ],
+    "icons": [
+     "bookmark"
+    ]
+   },
+   {
+    "id": "tmvftn8d23txjf1",
+    "text": "예산",
+    "children": [
+     {
+      "id": "tmvftn8d2o8ftey",
+      "text": "교통",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d2uopyez",
+      "text": "식비",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d2z8lzf0",
+      "text": "숙박",
+      "children": []
+     }
+    ],
+    "icons": [
+     "money"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "ocean",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.958Z",
+  "modified": "2026-10-19T22:24:07.958Z"
+ }
+}
