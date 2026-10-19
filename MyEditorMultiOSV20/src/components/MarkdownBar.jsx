@@ -1,10 +1,9 @@
 // Markdown formatting toolbar, shown above the editor while a Markdown
 // document is active: H1–H6, bold / italic / strikethrough / code, code
-// block, quote, lists, link / image / table / rule, the WYSIWYG toggle
-// (rendered in place — src/lib/mdlive.js), the preview toggle, and the
-// structure-panel toggle (the headings as a tree — Outline.jsx).
-// Each button applies the Markdown syntax to the selection (or toggles it
-// off again) — see src/lib/markdown.js.
+// block, quote, lists, link / image / table / rule.
+// WYSIWYG and the structure panel sit at the right end of this row.
+// Each formatting button applies the Markdown syntax to the selection (or
+// toggles it off again) — see src/lib/markdown.js.
 import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
@@ -33,7 +32,7 @@ const GROUPS = [
   ],
 ];
 
-export function MarkdownBar({ onAction, preview, outline, wysiwyg }) {
+export function MarkdownBar({ onAction, wysiwygOn, outlineOn }) {
   useLanguage();
   const tip = (b) => `${t(b.tip)}${b.shortcut ? ` (${b.shortcut})` : ''}`;
   return (
@@ -55,16 +54,14 @@ export function MarkdownBar({ onAction, preview, outline, wysiwyg }) {
           ))}
         </React.Fragment>
       ))}
-      <span className="spacer" />
-      <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('md_preview')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdPreview')}>
-        <Icon name="eye" size={16} /><span>{t('md_preview')}</span>
-      </button>
-      <button className={`md-btn md-toggle ${wysiwyg ? 'on' : ''}`} title={`${t('md_wysiwyg')} (Ctrl+Shift+W)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdWysiwyg')}>
-        <Icon name="text" size={16} /><span>{wysiwyg ? 'WYSIWYG' : t('md_source')}</span>
-      </button>
-      <button className={`md-btn md-toggle ${outline ? 'on' : ''}`} title={t('md_outline_tip')} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdOutline')}>
-        <Icon name="listTree" size={16} /><span>{t('md_outline')}</span>
-      </button>
+      <span className="mdbar-end">
+        <button type="button" className={`md-btn md-toggle${outlineOn ? ' on' : ''}`} data-cmd="toggleStructure" title={t('md_outline_tip')} aria-label={t('md_outline')} aria-pressed={outlineOn ? 'true' : 'false'} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggleStructure')}>
+          <Icon name="listTree" size={16} />
+        </button>
+        <button type="button" className={`md-btn md-toggle${wysiwygOn ? ' on' : ''}`} data-cmd="toggle:mdWysiwyg" title={`${t('md_wysiwyg')} (Ctrl+Shift+W)`} aria-label={t('md_wysiwyg_menu')} aria-pressed={wysiwygOn ? 'true' : 'false'} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:mdWysiwyg')}>
+          <Icon name="wysiwyg" size={16} />
+        </button>
+      </span>
     </div>
   );
 }

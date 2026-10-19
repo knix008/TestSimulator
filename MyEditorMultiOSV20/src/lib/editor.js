@@ -67,12 +67,12 @@ const SYNTAX_SPECS = [
   { tag: [t.changed], color: 'var(--syn-number)' },
   { tag: [t.self, t.constant(t.variableName), t.constant(t.name)], color: 'var(--syn-constant)' },
 ];
-const highlight = HighlightStyle.define(SYNTAX_SPECS);
+export const editorHighlight = HighlightStyle.define(SYNTAX_SPECS);
 // The same colours for the minimap (components/Minimap.jsx): a highlighter whose "class" is the CSS variable of the colour.
 export const minimapHighlighter = tagHighlighter(SYNTAX_SPECS.filter((s) => s.color && s.color.startsWith('var(')).flatMap((s) => (Array.isArray(s.tag) ? s.tag : [s.tag]).map((tag) => ({ tag, class: s.color.slice(4, -1) }))));
 
 // The editor chrome. `&` is the .cm-editor element.
-const editorTheme = EditorView.theme({
+export const editorTheme = EditorView.theme({
   '&': { height: '100%', background: 'var(--bg)', color: 'var(--fg)', fontSize: 'var(--editor-fs, 12px)' },
   '.cm-scroller': { fontFamily: 'var(--editor-font, var(--mono))', lineHeight: 'var(--editor-lh, 1.55)', overflow: 'auto' },
   '.cm-content': { caretColor: 'var(--accent)', padding: '4px 0 40vh' },
@@ -120,7 +120,7 @@ export function baseExtensions(settings, { onChange, onUpdate }) {
     drawSelection(),
     dropCursor(),
     EditorState.allowMultipleSelections.of(true),
-    syntaxHighlighting(highlight),
+    syntaxHighlighting(editorHighlight),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     rectangularSelection(),
     crosshairCursor(),

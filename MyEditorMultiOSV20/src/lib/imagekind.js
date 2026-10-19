@@ -15,6 +15,17 @@ export const isBinaryImageName = (name) => {
 };
 export const isImageName = (name) => isSvgName(name) || isBinaryImageName(name);
 
+export const AUDIO_EXT = new Set(['mp3', 'wav', 'ogg', 'oga', 'flac', 'aac', 'm4a', 'opus', 'aiff', 'aif', 'wma']);
+export const VIDEO_EXT = new Set(['mp4', 'm4v', 'webm', 'ogv', 'mov', 'mkv', 'avi']);
+const mediaExt = (name) => {
+  const m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+  return m ? m[1].toLowerCase() : '';
+};
+export const isAudioName = (name) => AUDIO_EXT.has(mediaExt(name));
+export const isVideoName = (name) => VIDEO_EXT.has(mediaExt(name));
+export const isMediaName = (name) => isAudioName(name) || isVideoName(name);
+export const mediaKindOf = (name) => (isVideoName(name) ? 'video' : isAudioName(name) ? 'audio' : '');
+
 // A session tab that was a picture / hex dump (or a raster by name). file.read
 // with a saved encoding would skip the binary sniff and show the bytes as text.
 export function restoreAsPicture(tab) {
@@ -29,6 +40,7 @@ export function restoreAsPicture(tab) {
 export function openKind(name, { force = false } = {}) {
   if (isSvgName(name)) return 'svg';
   if (isBinaryImageName(name)) return 'picture';
+  if (isMediaName(name)) return 'media';
   return force ? 'text' : 'unknown';
 }
 
@@ -37,6 +49,7 @@ export function openKind(name, { force = false } = {}) {
 export const MAX_TEXT = 64 * 1024 * 1024;
 export function openMode({ name, sniff, force = false, encoding = null } = {}) {
   if (force || encoding) return 'text';
+  if (isMediaName(name)) return 'media';
   if (isBinaryImageName(name)) return 'hex';
   if (sniff && sniff.binary) return 'hex';
   if (sniff && sniff.size > MAX_TEXT) return 'too-big';

@@ -220,7 +220,7 @@ export function Preview({ view, docVersion, cursorPos, width, base, onAction, on
   };
   return (
     <>
-      <div className="md-preview selectable" ref={ref} style={{ width }} onClick={onClick} onContextMenu={onContextMenu} />
+      <div className="md-preview selectable" ref={ref} style={{ width: 'auto' }} onClick={onClick} onContextMenu={onContextMenu} />
       {ctx && <ContextMenu x={ctx.x} y={ctx.y} items={items} onClose={() => setCtx(null)} onPick={pick} />}
     </>
   );

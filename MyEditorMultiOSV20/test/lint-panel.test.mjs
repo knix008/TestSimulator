@@ -18,42 +18,36 @@ test('sortLintItems puts errors first, then line order', () => {
   assert.deepEqual(sorted.map((d) => d.message), ['e1', 'e2', 'w', 'i']);
 });
 
-test('toolbar Terminal / Log / Problems buttons are independent', () => {
+test('the bottom panel is one set of tabs', () => {
   let st = pickSettings({});
   assert.deepEqual(visibleBottomTabs(st), []);
   assert.equal(st.termVisible, false);
 
   st = { ...st, ...toggleBottomPanel(st, 'log') };
-  assert.deepEqual(visibleBottomTabs(st), ['log']);
+  assert.deepEqual(visibleBottomTabs(st), ['terminal', 'log', 'lint']);
   assert.equal(st.showLog, true);
-  assert.equal(st.showTerminal, false);
-  assert.equal(st.showLint, false);
+  assert.equal(st.showTerminal, true);
+  assert.equal(st.showLint, true);
   assert.equal(st.termVisible, true);
   assert.equal(activeBottomTab(st), 'log');
 
   st = { ...st, ...toggleBottomPanel(st, 'terminal') };
-  assert.deepEqual(visibleBottomTabs(st), ['terminal', 'log']);
-  assert.equal(st.showTerminal, true);
-  assert.equal(st.showLog, true);
-  assert.equal(st.bottomTab, 'terminal');
-
-  st = { ...st, ...toggleBottomPanel(st, 'lint') };
   assert.deepEqual(visibleBottomTabs(st), ['terminal', 'log', 'lint']);
-  assert.equal(st.showLint, true);
-
-  st = { ...st, ...toggleBottomPanel(st, 'log') };
-  assert.deepEqual(visibleBottomTabs(st), ['terminal', 'lint']);
-  assert.equal(st.showLog, false);
-  assert.equal(st.showTerminal, true);
-  assert.equal(st.showLint, true);
+  assert.equal(st.bottomTab, 'terminal');
   assert.equal(st.termVisible, true);
 
-  st = { ...st, ...hideBottomPanel() };
+  st = { ...st, ...toggleBottomPanel(st, 'lint') };
+  assert.equal(activeBottomTab(st), 'lint');
+  assert.equal(st.showLint, true);
+
+  st = { ...st, ...toggleBottomPanel(st, 'lint') };
   assert.deepEqual(visibleBottomTabs(st), []);
-  assert.equal(st.termVisible, false);
-  assert.equal(st.showTerminal, false);
   assert.equal(st.showLog, false);
+  assert.equal(st.showTerminal, false);
   assert.equal(st.showLint, false);
+  assert.equal(st.termVisible, false);
+
+  st = { ...pickSettings({}), ...toggleBottomPanel(pickSettings({}), 'terminal'), ...hideBottomPanel() };
 
   const old = pickSettings({ termVisible: true, bottomTab: 'lint' });
   assert.equal(old.showLint, true);
@@ -74,10 +68,9 @@ test('the bottom panel has Terminal, Log and Lint tabs', () => {
   assert.match(panel, /tab === 'lint'/);
   assert.match(panel, /lint_tab/);
   assert.match(panel, /log_tab/);
-  assert.match(panel, /open\.terminal &&/);
-  assert.match(panel, /open\.log &&/);
-  assert.match(panel, /open\.lint &&/);
   assert.match(panel, /onPanel && onPanel\('terminal'\)/);
+  assert.match(panel, /onPanel && onPanel\('log'\)/);
+  assert.match(panel, /onPanel && onPanel\('lint'\)/);
   const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
   assert.match(app, /toggleBottomPanel\(st, tab\)/);
   assert.match(app, /hideBottomPanel\(\)/);
@@ -90,9 +83,9 @@ test('the bottom panel has Terminal, Log and Lint tabs', () => {
   assert.match(toolbar, /id: 'toggleTerminal'/);
   assert.match(toolbar, /id: 'toggleLog'/);
   assert.match(toolbar, /id: 'lintPanel'/);
-  assert.match(toolbar, /on: \(st\) => !!st\.showTerminal/);
-  assert.match(toolbar, /on: \(st\) => !!st\.showLog/);
-  assert.match(toolbar, /on: \(st\) => !!st\.showLint/);
+  assert.match(toolbar, /bottomTab === 'terminal'/);
+  assert.match(toolbar, /bottomTab === 'log'/);
+  assert.match(toolbar, /bottomTab === 'lint'/);
   const status = fs.readFileSync(path.join(root, 'src', 'components', 'StatusBar.jsx'), 'utf8');
   assert.match(status, /onAction\('lintPanel'\)/);
   const i18n = fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.js'), 'utf8');

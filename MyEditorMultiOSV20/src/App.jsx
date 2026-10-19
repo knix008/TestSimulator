@@ -14,7 +14,7 @@ import { EditorView } from '@codemirror/view';
 import { indentSelection } from '@codemirror/commands';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
-import { SETTINGS_DEFAULTS, pickSettings, toggleBottomPanel, hideBottomPanel, activeBottomTab } from './lib/settings';
+import { SETTINGS_DEFAULTS, pickSettings, toggleBottomPanel, hideBottomPanel, activeBottomTab, mdColWeights, equalMdContent } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, onOsFileDrop, rendererReady, pathForFile,
   onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openPrintWindow, warmPopups, sendSettingsPatch, onSettingsPatch, printHtml,
@@ -25,7 +25,7 @@ import { commands as md } from './lib/markdown';
 import { resolveFormatter, toolLabel } from './lib/formatters';
 import { HexView } from './components/HexView';
 import { Outline } from './components/Outline';
-import { markdownLive, imageBase } from './lib/mdlive';
+import { MarkdownWysiwyg } from './components/MarkdownWysiwyg';
 import { dockerfileCompletion, kubernetesCompletion } from './lib/devops';
 import { fileToDataUrl, isImageFile, isImageName, resolveImageSrc, analyzeImage, encodeImage, icoDisplaySrc } from './lib/images';
 import { buildCodePrintHtmlAsync, highlightCodeLinesAsync, printOptsOf, pageSizeMm } from './lib/print';
@@ -40,14 +40,17 @@ import { EditorPane } from './components/EditorPane';
 import { FindBar } from './components/FindBar';
 import { MarkdownBar } from './components/MarkdownBar';
 import { Preview } from './components/Preview';
-import { HtmlPreview, HtmlBar, buildHtmlDocument } from './components/HtmlPreview';
-import { ImagePreview, ImageBar, SvgPreviewButton, isBinaryImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
-import { restoreAsPicture } from './lib/imagekind';
+import { HtmlPreview, buildHtmlDocument } from './components/HtmlPreview';
+import { ImagePreview, ImageBar, isBinaryImageName, isSvgName, insertSvgTag } from './components/ImagePreview';
+import { MediaPlayer } from './components/MediaPlayer';
+import { restoreAsPicture, isMediaName } from './lib/imagekind';
 import { withMenuIcons } from './lib/menuicons';
 import { Sidebar } from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { StatusBar } from './components/StatusBar';
 import { TerminalPanel } from './components/TerminalPanel';
+import { StartPage } from './components/StartPage';
+import { Tutorial } from './components/Tutorial';
 import { Icon, LangIcon } from './components/Icons';
 import { ContextMenu } from './components/ContextMenu';
 import { ConfirmDialog, ErrorDialog, AboutDialog, GotoLineDialog, PromptDialog, LanguagePicker, EncodingPicker, ShortcutsDialog } from './dialogs/Dialogs';
@@ -77,6 +80,8 @@ const samePath = (a, b) => !!a && !!b && pathKey(a) === pathKey(b);
 export default function App() {
   useLanguage();
   const [booted, setBooted] = useState(false);
+  const [startOpen, setStartOpen] = useState(false);
+  const [tutorialOn, setTutorialOn] = useState(false);
   const [info, setInfo] = useState(null);
   const [settings, setSettingsState] = useState(SETTINGS_DEFAULTS);
   const settingsRef = useRef(settings);
@@ -85,6 +90,8 @@ export default function App() {
   const [activeId, setActiveIdState] = useState(null);
   const activeIdRef = useRef(null);
   const viewRef = useRef(null);
+  const mdLiveSyncs = useRef(new Set());   // source-editor updates copied into Markdown WYSIWYG panes
+  const wysiwygViews = useRef(new Set());  // those panes, so a command follows the one that has focus
   const [view, setView] = useState(null);
   const statesRef = useRef(new Map());     // id → EditorState of docs not shown in a pane
   const hexRef = useRef(new Map());        // id → read(offset, length) of a binary document (kind 'hex'; its editor state stays empty)
@@ -97,14 +104,15 @@ export default function App() {
   const [paneMenu, setPaneMenu] = useState(null);   // { i, el, files: [{ name, path }] | null }
   // The pane's document picker: the open documents, then the files of the
   // folder open in the sidebar (or the active document's folder), then "Open…".
-  const openPaneMenu = (i, el) => {
-    setPaneMenu({ i, el, files: null });
+  const openPaneMenu = (i, el, point) => {
+    const at = point ? { x: point.x, y: point.y } : null;
+    setPaneMenu({ i, el: el || null, x: at ? at.x : 0, y: at ? at.y : 0, files: null });
     const dir = folderRef.current || (() => { const d = getDoc(activeIdRef.current); return d && d.path ? dirName(d.path) : ''; })();
     if (!dir) return;
     call('fs.list', { path: dir, showHidden: false }).then((r) => {
       const entries = (r && r.entries) || (Array.isArray(r) ? r : []);
       const files = entries.filter((e) => !e.isDir).map((e) => ({ name: e.name, path: e.path })).slice(0, 200);
-      setPaneMenu((m) => (m && m.i === i && m.el === el ? { ...m, dir, files } : m));
+      setPaneMenu((m) => (m && m.i === i && m.el === (el || null) && (!at || (m.x === at.x && m.y === at.y)) ? { ...m, dir, files } : m));
     }).catch(() => {});
   };
   // Picked from the pane menu: an open document moves into the pane, a file is opened there.
@@ -262,7 +270,7 @@ export default function App() {
     const doc = getDoc(id);
     const state = getState(id);
     if (!doc || !state || !settingsRef.current.lint) return;
-    if (doc.kind === 'hex') { patchDoc(id, { lint: null }); return; }
+    if (doc.kind === 'hex' || doc.kind === 'media') { patchDoc(id, { lint: null }); return; }
     const text = state.doc.toString();
     const guessed = detectLanguage(doc.name) || detectLanguageFromText(text);
     const language = doc.langName || (doc.language && doc.language !== PLAIN ? doc.language : null) || (guessed && guessed.name) || null;
@@ -575,7 +583,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     lintAll();
     return undefined;
   }, [booted]);   // eslint-disable-line react-hooks/exhaustive-deps
-  handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); };
+  handlersRef.current.onUpdate = (u) => { setCursor(cursorInfo(u.state)); for (const fn of mdLiveSyncs.current) fn(u); };
 
   const newDocState = (text, { selection } = {}) => {
     let state = createState(text, settingsRef.current, handlers);
@@ -611,11 +619,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     loadLanguage(desc).then((support) => {
       const cur = getDoc(doc.id);
       if (!cur || (cur.langName || null) !== langName) return;
-      // Markdown documents get the WYSIWYG rendering on top of the grammar.
-      const live = langName === 'Markdown' && settingsRef.current.mdWysiwyg ? [markdownLive, imageBase.of(cur.path ? dirName(cur.path) : folderRef.current || '')] : [];
       // Dockerfiles and Kubernetes manifests (YAML) complete their own vocabulary (lib/devops.js) on top of the grammar.
+      // Markdown WYSIWYG is a separate pane (MarkdownWysiwyg), so the source editor stays plain text.
       const extra = support && support.language && (langName === 'Dockerfile' ? [support.language.data.of({ autocomplete: dockerfileCompletion })] : langName === 'YAML' ? [support.language.data.of({ autocomplete: kubernetesCompletion })] : []);
-      dispatchTo(doc.id, { effects: languageEffect([support, live, extra || []]) });
+      dispatchTo(doc.id, { effects: languageEffect([support, extra || []]) });
       scheduleLint(doc.id, 0);
     }).catch(() => { scheduleLint(doc.id, 0); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -818,6 +825,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   // and a second request for a file that is still being read joins the first.
   const openingRef = useRef(new Map());   // pathKey → Promise<doc>
   const openPath = (p, opts = {}) => {
+    if (!opts.quiet) setStartOpen(false);
     const key = pathKey(p);
     const pending = openingRef.current.get(key);
     if (pending && !opts.encoding) return pending.then((d) => { if (d && opts.activateIt !== false) activate(d.id); return d; });
@@ -837,6 +845,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     let err = null;
     const doc = await withProgress({ title: t('prog_open'), message: t('prog_open_file'), detail: name, delay: 180 }, async ({ report }) => {
       try {
+        if (!force && !encoding && isMediaName(name)) return await openMedia(p, { activateIt, quiet });
         if (!force && !encoding && isBinaryImageName(name)) {
           report({ message: t('prog_hex') });
           return await openHex(p, { activateIt, quiet });
@@ -923,6 +932,21 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       return null;
     }
   };
+  const openMedia = async (p, { activateIt = true, quiet = false } = {}) => {
+    try {
+      const r = await call('file.readRange', { path: p, offset: 0, length: 0 });
+      const existing = docsRef.current.find((d) => samePath(d.path, r.path));
+      if (existing) { if (activateIt) activate(existing.id); return existing; }
+      const doc = addDoc({ path: r.path, name: r.name, kind: 'media', language: PLAIN, mtime: r.mtime, size: r.size, readonly: true }, '', { activateIt });
+      call('recent.touch', { path: r.path }).then(setRecent).catch(() => {});
+      setMessage(t('media_opened', { name: r.name }));
+      return doc;
+    } catch (e) {
+      if (quiet) setMessage(t('open_failed', { name: baseName(p) }));
+      else await showError(t('error_title'), t('open_failed', { name: baseName(p) }), e);
+      return null;
+    }
+  };
   const openFiles = async (paths) => {
     const run = async (report) => {
       let last = null;
@@ -952,7 +976,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   const saveDoc = async (id, { as = false, encoding = null } = {}) => {
     const doc = getDoc(id);
     if (!doc) return false;
-    if (doc.kind === 'hex') { setMessage(t('hex_readonly')); return false; }
+    if (doc.kind === 'hex' || doc.kind === 'media') { setMessage(t(doc.kind === 'media' ? 'media_readonly' : 'hex_readonly')); return false; }
     let target = doc.path;
     if (as || !target) {
       const f = folderRef.current, sep = (infoRef.current && infoRef.current.sep) || '/';
@@ -1110,6 +1134,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       const sel = s ? s.selection.main : null;
       const tab = { path: d.path, name: d.name, untitledNo: d.untitledNo, encoding: d.encoding, eol: d.eol, language: d.language, cursor: sel ? { anchor: sel.anchor, head: sel.head } : null };
       if (d.kind === 'hex') { tab.kind = 'hex'; tab.imageHex = !!d.imageHex; }
+      if (d.kind === 'media') tab.kind = 'media';
       if (d.dirty && s && s.doc.length <= 512 * 1024) tab.draft = s.doc.toString();
       return tab;
     });
@@ -1161,6 +1186,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
               // Same path as File › Open (`openPath`): a raster goes to openHex
               // (picture fill). Do not file.read with the tab's encoding — that
               // skips the binary sniff and pastes the bytes into the editor.
+              if (isMediaName(tab.name || baseName(tab.path)) || tab.kind === 'media') {
+                const media = await openPath(tab.path, { activateIt: false, quiet: true });
+                if (media) { restored++; continue; }
+              }
               if (restoreAsPicture(tab)) {
                 const hex = await openPath(tab.path, { activateIt: false, quiet: true });
                 if (hex) {
@@ -1213,6 +1242,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
         if (ap !== 0) setTimeout(() => focusPane(ap), 50);
       }
       bootedRef.current = true;
+      if (!restored) setStartOpen(true);
       setBooted(true);
       if (settingsRef.current.lint) lintAll();
       rendererReady();
@@ -1285,16 +1315,19 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       if (!fromRemote && patch.lintToolsAt) sendSettingsPatch(patch);
       return;
     }
+    if ((rest.mdPreview !== undefined && rest.mdPreview !== settingsRef.current.mdPreview)
+      || (rest.mdWysiwyg !== undefined && rest.mdWysiwyg !== settingsRef.current.mdWysiwyg)) {
+      rest.mdColWeights = equalMdContent(settingsRef.current.mdColWeights);
+    }
     const next = setSettings(rest);
     if (patch.language !== undefined) { setLanguage(next.language); setDocs((ds) => ds.map((d) => (d.path ? d : { ...d, name: t('untitled', { n: d.untitledNo }) }))); }
     if (patch.customThemes !== undefined) setCustomThemes(next.customThemes);
     if (patch.theme !== undefined || patch.customThemes !== undefined) { const th = applyTheme(next.theme); call('session.save', { themeBg: th.tokens['--bg'] }).catch(() => {}); }
     const editorKeys = ['tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'indentGuides', 'highlightActiveLine', 'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'spellCheck', 'autoIndent', 'lint', 'autocomplete'];
     if (editorKeys.some((k) => patch[k] !== undefined)) applyEditorSettings(next);
-    if (patch.mdWysiwyg !== undefined) for (const d of docsRef.current) if (d.langName === 'Markdown') applyLanguage(d);
     if (patch.spellCodeAll !== undefined) { setSpellOptions({ codeAll: !!next.spellCodeAll }); spellRefreshAll([viewRef.current]); }
     if (patch.lint !== undefined || patch.linters !== undefined || patch.lintToolsAt) lintAll();
-    if (!fromRemote) { call('session.save', rest).catch(() => {}); sendSettingsPatch(patch); }
+    if (!fromRemote) { call('session.save', rest).catch(() => {}); sendSettingsPatch(rest.mdColWeights ? { ...patch, mdColWeights: rest.mdColWeights } : patch); }
   };
   const toggleSetting = (k) => changeSettings({ [k]: !settingsRef.current[k] });
   const zoom = Math.round((settings.fontSize / BASE_FONT) * 100);
@@ -1392,8 +1425,18 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   };
 
   // ── actions (menus, toolbar, shortcuts, status bar) ──
-  const withView = (fn) => { const v = viewRef.current; if (v) { fn(v); v.focus(); } };
+  const withView = (fn) => {
+    let v = viewRef.current;
+    const el = document.activeElement;
+    if (el) for (const w of wysiwygViews.current) if (w.dom === el || w.dom.contains(el)) { v = w; break; }
+    if (v) { fn(v); v.focus(); }
+  };
+  const onTutorialPlace = useCallback((place) => setStartOpen(place === 'start'), []);
   const action = async (id, arg) => {
+    if (id === 'showStart') { setStartOpen((v) => !v); return; }
+    if (id === 'openStart') { setStartOpen(true); return; }
+    if (id === 'tutorial') { setTutorialOn(true); setStartOpen(true); return; }
+    if (/^(new|open|openFolder|find|replace|formatDoc|print|toggleSplit|togglePreview|html:browser|toggleStructure|toggleTerminal|toggleLog|lintPanel|toggleLintPanel|nextTheme)$/.test(id) || id.startsWith('recent:') || id === 'toggle:mdWysiwyg') setStartOpen(false);
     const v = viewRef.current;
     const cur = activeIdRef.current;
     if (id.startsWith('theme:')) return changeSettings({ theme: id.slice(6) });
@@ -1435,7 +1478,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       if (st.termHeight === 75) patch.termHeight = SETTINGS_DEFAULTS.termHeight;
       if (tab === 'lint' && patch.showLint && !st.lint) patch.lint = true;
       changeSettings(patch);
-      if (patch.showTerminal) {
+      // A shell is only started for the terminal tab. Opening the log or problems
+      // must stay on that tab of the same panel.
+      if (tab === 'terminal' && patch.showTerminal) {
         if (!terms.length) newTerminal();
         call('term.shells', { refresh: true }).then(setShells).catch(() => {});
       }
@@ -1446,7 +1491,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     if (id.startsWith('md:heading:')) return withView((vw) => md.heading(vw, Number(id.slice(11))));
     if (id === 'md:image') { setDialog({ type: 'mdImage' }); return undefined; }
     if (id.startsWith('split:')) { setSplit(id.slice(6)); return undefined; }
-    if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); if (d && isBinaryImageName(d.name)) return undefined; toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel — not for a raster image (PNG · JPEG · GIF · WebP · AVIF · BMP · ICO). SVG is a text document.
+    if (id === 'toggleStructure') { const d = getDoc(activeIdRef.current); if (d && (isBinaryImageName(d.name) || isMediaName(d.name) || d.kind === 'media')) return undefined; toggleSetting(d && d.langName === 'Markdown' ? 'mdOutline' : 'minimap'); return undefined; }   // toolbar: the minimap, or a Markdown document's structure panel — not for a picture or a recording. SVG is a text document.
     // The toolbar's split button (and Ctrl+\) steps through the layouts: one → left / right → top / bottom → four → one.
     if (id === 'toggleSplit') { const st = settingsRef.current; setSplit('multi', st.split === 'multi' ? Math.min(9, (st.paneCount || 2) + 1) : 2); return undefined; }   // one more pane per press
     if (id === 'nextPane') { nextPane(); return undefined; }
@@ -1523,7 +1568,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       case 'unfoldAll': withView(commands.unfoldAll); break;
       // search
       case 'find': case 'replace': {
-        if (getDoc(activeIdRef.current) && getDoc(activeIdRef.current).kind === 'hex') break;   // a hex dump / a picture: nothing to search
+        if (getDoc(activeIdRef.current) && (getDoc(activeIdRef.current).kind === 'hex' || getDoc(activeIdRef.current).kind === 'media')) break;   // a hex dump, a picture, or a recording: nothing to search
         const sel = v ? v.state.sliceDoc(v.state.selection.main.from, v.state.selection.main.to) : '';
         setFind({ mode: id, initial: sel && !sel.includes('\n') ? sel : (findRef.current ? findRef.current.initial : ''), key: Date.now() });
         break;
@@ -1677,7 +1722,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     const h = (e) => {
       if (!(isMac ? e.metaKey : e.ctrlKey) || !e.target.closest) return;
       if (e.target.closest('.image-preview')) return;   // the picture zooms itself (Ctrl+wheel)
-      if (e.target.closest('.editor-pane')) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1 : -1); }
+      if (e.target.closest('.editor-pane') || e.target.closest('.md-wysiwyg')) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1 : -1); }
     };
     window.addEventListener('wheel', h, { passive: false });
     return () => window.removeEventListener('wheel', h);
@@ -1687,10 +1732,19 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   // ── menus ──
   const sc = (win, mac) => (isMac ? (mac || win.replace('Ctrl', '⌘')) : win);
   const cur = activeDoc;
+  const isMarkdown = !!cur && cur.langName === 'Markdown';
+  const isHtml = !!cur && cur.langName === 'HTML';
+  const isSvg = !!cur && isSvgName(cur.name);                 // SVG source on the left, live picture in the preview pane
+  const isBinaryImage = !!cur && isBinaryImageName(cur.name); // PNG · JPEG · GIF · WebP · AVIF · … — the picture (or hex), no minimap
+  const isMedia = !!cur && (cur.kind === 'media' || isMediaName(cur.name));
+  const docKind = isMedia ? 'media' : isMarkdown ? 'markdown' : isHtml ? 'html' : isSvg ? 'svg' : isBinaryImage ? 'image' : (cur ? 'code' : 'none');
+  const canPreview = docKind === 'markdown' || docKind === 'html' || docKind === 'svg';
+  const previewOn = docKind === 'markdown' ? !!settings.mdPreview : docKind === 'html' ? !!settings.htmlPreview : docKind === 'svg' ? !!settings.imagePreview : false;
+  const bottomOpen = !!(settings.showTerminal || settings.showLog || settings.showLint);
   // 문서 정렬 (toolbar button + menu item): the formatter the active document
   // gets, and whether there is anything for it to do.
   const curState = cur ? getState(cur.id) : null;
-  const fmtInfo = cur && cur.kind !== 'hex' ? resolveFormatter({ lang: cur.langName, settings, tools: fmtTools }) : null;
+  const fmtInfo = cur && cur.kind !== 'hex' && cur.kind !== 'media' ? resolveFormatter({ lang: cur.langName, settings, tools: fmtTools }) : null;
   const fmtEmpty = !curState || curState.doc.length === 0;
   const fmtDone = !!(fmtCheck && cur && curState && fmtCheck.id === cur.id && fmtCheck.doc === curState.doc && fmtCheck.formatted);
   const canFormat = !!cur && !fmtEmpty && !(fmtInfo && fmtInfo.off) && !fmtDone;
@@ -1703,10 +1757,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     const first = list.find((x) => x.available);
     return [
       { header: t('set_format_for', { lang }) },
-      { id: 'formatter:auto', label: t('fmt_auto', { tool: first ? toolLabel(first) : t('fmt_indent') }), checked: choice === 'auto', radio: true },
-      ...list.map((x) => ({ id: `formatter:${x.id}`, label: toolLabel(x), meta: x.available ? '' : (x.installable ? t('fmt_not_installed_auto') : t('fmt_not_installed_manual')), checked: choice === x.id, radio: true })),
-      { id: 'formatter:indent', label: t('fmt_indent'), checked: choice === 'indent', radio: true },
-      { id: 'formatter:none', label: t('fmt_none_opt'), checked: choice === 'none', radio: true },
+      { id: 'formatter:auto', icon: 'format', label: t('fmt_auto', { tool: first ? toolLabel(first) : t('fmt_indent') }), checked: choice === 'auto', radio: true },
+      ...list.map((x) => ({ id: `formatter:${x.id}`, icon: 'format', label: toolLabel(x), meta: x.available ? '' : (x.installable ? t('fmt_not_installed_auto') : t('fmt_not_installed_manual')), checked: choice === x.id, radio: true })),
+      { id: 'formatter:indent', icon: 'indent', label: t('fmt_indent'), checked: choice === 'indent', radio: true },
+      { id: 'formatter:none', icon: 'eyeOff', label: t('fmt_none_opt'), checked: choice === 'none', radio: true },
     ];
   } : null;
   const menus = [
@@ -1799,15 +1853,10 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       { id: 'toggle:lint', icon: 'lint', label: t('lint'), checked: settings.lint },
       { id: 'lintNext', icon: 'lintNext', label: t('lint_next'), shortcut: 'F8', disabled: !settings.lint },
       { id: 'lintPanel', icon: 'list', label: t('lint_panel'), disabled: !settings.lint },
-      { sep: true },
-      { id: 'toggle:mdWysiwyg', icon: 'eye', label: t('md_wysiwyg_menu'), checked: settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdPreview', icon: 'splitView', label: t('md_preview_menu'), checked: settings.mdPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:mdOutline', icon: 'listTree', label: t('md_outline_menu'), checked: settings.mdOutline, disabled: !cur || cur.langName !== 'Markdown' },
-      { id: 'toggle:htmlPreview', icon: 'splitView', label: t('html_preview_menu'), checked: settings.htmlPreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || cur.langName !== 'HTML' },
-      { id: 'html:browser', icon: 'play', label: t('html_browser_menu'), disabled: !cur || cur.langName !== 'HTML' },
-      { id: 'toggle:imagePreview', icon: 'fileImage', label: t('img_pv_menu'), checked: settings.imagePreview, shortcut: sc('Ctrl+Shift+M'), disabled: !cur || !isSvgName(cur.name) },
     ] },
     { id: 'view', label: t('m_view'), labelKey: 'm_view', icon: 'eye', items: () => [
+      { id: 'showStart', icon: 'home', label: t('start_title'), checked: startOpen },
+      { sep: true },
       { id: 'toggle:sidebarVisible', icon: 'sidebar', label: t('sidebar'), checked: settings.sidebarVisible, shortcut: sc('Ctrl+B') },
       { id: 'toggle:toolbarVisible', icon: 'toolbar', label: t('toolbar'), checked: settings.toolbarVisible },
       { id: 'toggle:statusBarVisible', icon: 'statusbar', label: t('statusbar'), checked: settings.statusBarVisible },
@@ -1819,9 +1868,14 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       { id: 'split:grid', icon: 'splitGrid', label: t('split_grid'), checked: settings.split === 'grid', radio: true, shortcut: sc('Ctrl+Alt+4') },
       { id: 'nextPane', icon: 'nextPane', label: t('next_pane'), shortcut: 'F6', disabled: settings.split === 'none' },
       { sep: true },
-      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: !!settings.showTerminal, shortcut: sc('Ctrl+`') },
-      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: !!settings.showLog },
-      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: !!settings.showLint },
+      { id: 'togglePreview', icon: docKind === 'svg' ? 'fileImage' : 'eye', label: t('md_preview'), checked: canPreview && previewOn, shortcut: sc('Ctrl+Shift+M'), disabled: !canPreview },
+      { id: 'html:browser', icon: 'play', label: t('html_browser'), disabled: docKind !== 'html' },
+      { id: 'toggleStructure', icon: docKind === 'markdown' ? 'listTree' : 'minimap', label: t('md_outline'), checked: docKind !== 'image' && docKind !== 'media' && (isMarkdown ? !!settings.mdOutline : !!settings.minimap), disabled: docKind === 'image' || docKind === 'media' },
+      { id: 'toggle:mdWysiwyg', icon: 'wysiwyg', label: 'WYSIWYG', checked: isMarkdown && !!settings.mdWysiwyg, shortcut: sc('Ctrl+Shift+W'), disabled: !isMarkdown },
+      { sep: true },
+      { id: 'toggleTerminal', label: t('terminal'), icon: 'terminal', checked: bottomOpen && (settings.bottomTab || 'terminal') === 'terminal', shortcut: sc('Ctrl+`') },
+      { id: 'toggleLog', label: t('log_tab'), icon: 'log', checked: bottomOpen && settings.bottomTab === 'log' },
+      { id: 'toggleLintPanel', label: t('lint_tab'), icon: 'lint', checked: bottomOpen && settings.bottomTab === 'lint' },
       { id: 'newTerminal', icon: 'terminalPlus', label: t('term_new'), shortcut: sc('Ctrl+Shift+`') },
       { sep: true },
       { id: 'zoomIn', label: t('zoom_in'), icon: 'zoomIn', shortcut: sc('Ctrl++') },
@@ -1850,6 +1904,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       ...EOLS.map((e) => ({ id: `eol:${e}`, icon: 'eol', label: t(`eol_${e}`), checked: !!cur && cur.eol === e, radio: true })),
     ] },
     { id: 'help', label: t('m_help'), labelKey: 'm_help', icon: 'help', items: () => [
+      { id: 'tutorial', icon: 'help', label: t('tut_menu') },
       { id: 'shortcuts', label: t('shortcuts'), icon: 'keyboard' },
       { sep: true },
       { id: 'settings', label: t('settings'), icon: 'settings', shortcut: sc('Ctrl+,') },
@@ -1886,7 +1941,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     if (!hit) return [];
     const sugg = spellReady() ? spellSuggest(hit.word) : [];
     return [
-      ...(sugg.length ? sugg.map((w) => ({ id: `spell:replace:${w}`, label: w, icon: 'spell' })) : [{ id: 'spell:none', label: t(spellReady() ? 'spell_none' : 'spell_loading'), disabled: true }]),
+      ...(sugg.length ? sugg.map((w) => ({ id: `spell:replace:${w}`, label: w, icon: 'spell' })) : [{ id: 'spell:none', label: t(spellReady() ? 'spell_none' : 'spell_loading'), icon: 'spell', disabled: true }]),
       { id: 'spell:add', label: t('spell_add', { word: hit.word }), icon: 'plus' },
       { id: 'spell:ignore', label: t('spell_ignore', { word: hit.word }), icon: 'eyeOff' },
       { sep: true },
@@ -1949,6 +2004,40 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
     // pointer events are switched off on every iframe for the duration of the drag.
     document.body.classList.add('dragging');
     const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); call('session.save', { mdPreviewWidth: settingsRef.current.mdPreviewWidth }).catch(() => {}); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  // Markdown columns (structure | editor | WYSIWYG | preview). A drag moves only the two
+  // columns that share that divider. Opening or closing the editor, WYSIWYG or preview
+  // resets those three to the same weight (see changeSettings).
+  const onMdSplitDown = (e) => {
+    e.preventDefault();
+    const left = e.currentTarget.previousElementSibling;
+    const right = e.currentTarget.nextElementSibling;
+    if (!left || !right) return;
+    const lk = left.dataset.col;
+    const rk = right.dataset.col;
+    if (!lk || !rk) return;
+    const x0 = e.clientX;
+    const lw0 = left.getBoundingClientRect().width;
+    const total = lw0 + right.getBoundingClientRect().width;
+    if (total < 40) return;
+    const start = mdColWeights(settingsRef.current.mdColWeights);
+    const sum = start[lk] + start[rk];
+    const lo = Math.min(120, total / 2);
+    document.body.classList.add('dragging', 'dragging-x');
+    const move = (ev) => {
+      const nextLeft = Math.max(lo, Math.min(total - lo, lw0 + (ev.clientX - x0)));
+      const share = nextLeft / total;
+      setSettings({ mdColWeights: { ...start, [lk]: sum * share, [rk]: sum * (1 - share) } });
+    };
+    const up = () => {
+      document.body.classList.remove('dragging', 'dragging-x');
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      call('session.save', { mdColWeights: settingsRef.current.mdColWeights }).catch(() => {});
+    };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };
@@ -2044,13 +2133,15 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
   }, []);
 
   const openPaths = useMemo(() => new Set(docs.map((d) => d.path).filter(Boolean)), [docs]);
-  const isMarkdown = !!cur && cur.langName === 'Markdown';
-  const isHtml = !!cur && cur.langName === 'HTML';
-  const isSvg = !!cur && isSvgName(cur.name);                 // SVG source on the left, live picture in the preview pane
-  const isBinaryImage = !!cur && isBinaryImageName(cur.name); // PNG · JPEG · GIF · WebP · AVIF · … — the picture (or hex), no minimap
   // What the prompt's session / os segments show (app.info): one object per app info, so the transcripts are not re-rendered for nothing.
   const termEnv = useMemo(() => ({ home: info ? info.home : '', user: info ? info.user : '', host: info ? info.hostname : '', platform: info ? info.platform : '' }), [info]);
-  const toolbarState = { dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, structureOn: isBinaryImage ? false : (isMarkdown ? !!settings.mdOutline : !!settings.minimap), canStructure: !isBinaryImage };
+  const toolbarState = {
+    dirty: !!cur && cur.dirty, anyDirty: docs.some((d) => d.dirty), canFormat, formatter: fmtInfo, formatterItems, formatTip, zoom, docKind,
+    canPreview, previewOn, startOpen,
+    canWysiwyg: isMarkdown, wysiwygOn: isMarkdown && !!settings.mdWysiwyg,
+    canRun: isHtml,
+    structureOn: docKind === 'image' || docKind === 'media' ? false : (isMarkdown ? !!settings.mdOutline : !!settings.minimap), canStructure: docKind !== 'image' && docKind !== 'media',
+  };
 
   // Before boot the app is a single line of text — but the two dialogs that
   // `ask()` can raise while the session is being restored (a file handed over
@@ -2067,7 +2158,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
 
   return (
     <div className="app">
-      <MenuBar menus={menus} onAction={action} theme={settings.theme} controls={!settings.toolbarVisible} />
+      <MenuBar menus={menus} onAction={action} theme={settings.theme} controls={!settings.toolbarVisible} startOpen={startOpen} />
       {settings.toolbarVisible && <Toolbar onAction={action} onSetting={changeSettings} settings={settings} state={toolbarState} />}
       <div className="body">
         {/* sidebar + editor side by side; the bottom panel below spans the whole window */}
@@ -2090,9 +2181,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
         <div className="editor-area">
           <TabBar docs={docs} activeId={activeId} onActivate={activate} onClose={(id) => closeDocs([id])} onNew={() => newUntitled()}
             onReorder={(from, to) => { setDocs((ds) => { const a = ds.slice(); const i = a.findIndex((d) => d.id === from), j = a.findIndex((d) => d.id === to); const [m] = a.splice(i, 1); a.splice(j, 0, m); return a; }); schedulePersist(); }}
-            onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems}
-            under={isHtml ? <HtmlBar onAction={action} preview={settings.htmlPreview} /> : isSvg ? <SvgPreviewButton onAction={action} preview={settings.imagePreview} /> : null} />
-          {isMarkdown && <MarkdownBar onAction={action} preview={settings.mdPreview} outline={settings.mdOutline} wysiwyg={settings.mdWysiwyg} />}
+            onAction={(id, docId) => action(id, docId)} onContextItems={tabContextItems} />
+          {isMarkdown && <MarkdownBar onAction={action} wysiwygOn={!!settings.mdWysiwyg} outlineOn={!!settings.mdOutline} />}
           {(isSvg || isBinaryImage) && <ImageBar onAction={action} svg={isSvg} imageHex={!!cur.imageHex} />}
           {find && view && !(cur && cur.kind === 'hex') && <FindBar key={find.key} view={view} mode={find.mode} initial={find.initial} docVersion={docVersion} onClose={() => action('closeFind')} onModeChange={(mode) => setFind({ ...find, mode })} />}
           <div className="editor-split">
@@ -2107,8 +2197,12 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
                 const previewWidth = `${Math.round(settings.mdPreviewWidth * 100)}%`;
                 const previewBase = pd && pd.path ? dirName(pd.path) : folder || '';
                 const showMd = !!(pd && paneView && paneViewEpoch >= 0 && pd.kind !== 'hex' && pd.langName === 'Markdown' && settings.mdPreview);
+                const showOutline = !!(pd && paneView && pd.kind !== 'hex' && pd.langName === 'Markdown' && settings.mdOutline);
                 const showHtml = !!(pd && paneView && pd.kind !== 'hex' && pd.langName === 'HTML' && settings.htmlPreview);
                 const showSvg = !!(pd && paneView && pd.kind !== 'hex' && isSvgName(pd.name) && settings.imagePreview);
+                const mdLayout = !!(pd && paneView && pd.kind !== 'hex' && pd.langName === 'Markdown');
+                const showWysiwyg = !!(mdLayout && settings.mdWysiwyg);
+                const colW = mdColWeights(settings.mdColWeights);
                 return (
                   <div key={p.key} className={`pane ${i === activePane ? 'active' : ''}`} style={multi && i === panes.length - 1 && panes.length % multi.cols ? { gridColumn: `span ${multi.cols - (panes.length % multi.cols) + 1}` } : settings.split === 'grid' && panes.length === 3 && i === 2 ? { gridColumn: '1 / -1' } : undefined} onMouseDownCapture={() => { if (activePaneRef.current !== i) focusPane(i, { focus: false }); }}>
                     {panes.length > 1 && (
@@ -2128,19 +2222,55 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
                       </div>
                     )}
                     {panes.length > 1 && p.docId == null && (
-                      <div className="pane-empty"><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
+                      <div className="pane-empty" onContextMenu={(e) => { e.preventDefault(); openPaneMenu(i, null, { x: e.clientX, y: e.clientY }); }}><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
-                    <div className="pane-body">
-                    <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
-                      fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && pd.kind === 'hex')}
-                      minimap={settings.minimap && !(pd && (pd.langName === 'Markdown' || isBinaryImageName(pd.name)))} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
-                    {(showMd || showHtml || showSvg) && (
+                    <div className={`pane-body${mdLayout ? ' md-layout' : ''}`} style={mdLayout ? undefined : { '--outline-grow': showOutline ? 1.25 : 0, '--editor-grow': (showHtml || showSvg) ? 0.85 : 1, '--preview-grow': (showHtml || showSvg) ? Math.max(1.35, (settings.mdPreviewWidth || 0.5) * 2.8) : 0 }}>
+                    {mdLayout ? (
                       <>
-                        <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
-                        {showMd && <Preview view={paneView} docVersion={docVersion} cursorPos={i === activePane ? cursor.pos : paneView.state.selection.main.head} onAction={action} onSaveImage={saveImage} onMessage={setMessage} base={previewBase} width={previewWidth} />}
-                        {showHtml && <HtmlPreview view={paneView} docVersion={docVersion} base={previewBase} name={pd.name} width={previewWidth} />}
-                        {showSvg && <ImagePreview view={paneView} docVersion={docVersion} path={pd.path} name={pd.name} mtime={pd.mtime} width={previewWidth} />}
+                        {showOutline && (
+                          <div className="md-col" data-col="outline" style={{ flex: `${colW.outline} 1 0%` }}>
+                            <Outline view={paneView} docVersion={docVersion} cursorPos={i === activePane ? cursor.pos : paneView.state.selection.main.head} onClose={() => changeSettings({ mdOutline: false })} />
+                          </div>
+                        )}
+                        {showOutline && <div className="v-splitter" onMouseDown={onMdSplitDown} />}
+                        <div className="md-col" data-col="editor" style={{ flex: `${colW.editor} 1 0%` }}>
+                          <div className="md-col-head">{t('md_edit')}</div>
+                          <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
+                            fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && (pd.kind === 'hex' || pd.kind === 'media'))}
+                            minimap={false} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
+                        </div>
+                        {showWysiwyg && <div className="v-splitter" onMouseDown={onMdSplitDown} />}
+                        {showWysiwyg && (
+                          <div className="md-col" data-col="wysiwyg" style={{ flex: `${colW.wysiwyg} 1 0%` }}>
+                            <div className="md-col-head"><span className="md-col-title ellipsis">WYSIWYG</span><span className="spacer" /><button type="button" className="icon-btn md-close" title={t('close')} aria-label={t('close')} onClick={() => changeSettings({ mdWysiwyg: false })}><Icon name="close" size={13} /></button></div>
+                            <MarkdownWysiwyg sourceView={paneView} base={previewBase} syncs={mdLiveSyncs} views={wysiwygViews}
+                              fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} />
+                          </div>
+                        )}
+                        {showMd && <div className="v-splitter" onMouseDown={onMdSplitDown} />}
+                        {showMd && (
+                          <div className="md-col" data-col="preview" style={{ flex: `${colW.preview} 1 0%` }}>
+                            <div className="md-col-head"><span className="md-col-title ellipsis">{t('md_preview')}</span><span className="spacer" /><button type="button" className="icon-btn md-close" title={t('close')} aria-label={t('close')} onClick={() => changeSettings({ mdPreview: false })}><Icon name="close" size={13} /></button></div>
+                            <Preview view={paneView} docVersion={docVersion} cursorPos={i === activePane ? cursor.pos : paneView.state.selection.main.head} onAction={action} onSaveImage={saveImage} onMessage={setMessage} base={previewBase} width={previewWidth} />
+                          </div>
+                        )}
                       </>
+                    ) : (
+                      <>
+                        <EditorPane initialState={initialState} onView={(v) => onPaneView(p.key, v)} onDropFiles={dropFiles} contextItems={editorContextItems} onAction={action}
+                          fontFamily={settings.fontFamily} fontSize={settings.fontSize} lineHeight={settings.lineHeight} empty={!docs.length || p.docId == null || (pd && (pd.kind === 'hex' || pd.kind === 'media'))}
+                          minimap={settings.minimap && !(pd && isBinaryImageName(pd.name))} version={`${p.docId}:${docVersion}:${settings.theme}:${cursor.line}`} />
+                        {(showHtml || showSvg) && (
+                          <>
+                            <div className="v-splitter" onMouseDown={onPreviewSplitDown} />
+                            {showHtml && <HtmlPreview view={paneView} docVersion={docVersion} base={previewBase} name={pd.name} width={previewWidth} />}
+                            {showSvg && <ImagePreview view={paneView} docVersion={docVersion} path={pd.path} name={pd.name} mtime={pd.mtime} width={previewWidth} />}
+                          </>
+                        )}
+                      </>
+                    )}
+                    {pd && pd.kind === 'media' && (
+                      <div className="pane-media"><MediaPlayer path={pd.path} name={pd.name} /></div>
                     )}
                     {pd && pd.kind === 'hex' && isBinaryImageName(pd.name) && (
                       <div className="pane-media"
@@ -2167,26 +2297,27 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
               })}
             </div>
             {paneMenu && panes[paneMenu.i] && (
-              <ContextMenu anchorEl={paneMenu.el} x={0} y={0} className="pane-menu" items={[
+              <ContextMenu anchorEl={paneMenu.el || undefined} x={paneMenu.x || 0} y={paneMenu.y || 0} className="pane-menu" items={[
                 { header: t('pane_open_docs') },
                 ...docs.map((d) => ({ id: `doc:${d.id}`, label: d.name + (d.dirty ? ' ●' : ''), meta: (() => { const j = paneOfDoc(d.id); return j >= 0 && j !== paneMenu.i ? t('pane_in', { n: j + 1 }) : undefined; })(), checked: panes[paneMenu.i].docId === d.id, radio: true, iconEl: <LangIcon name={d.langName || 'plain'} /> })),
                 ...(paneMenu.files ? [
                   { sep: true },
                   { header: t('pane_folder_files', { name: baseName(paneMenu.dir) }) },
-                  ...(paneMenu.files.length ? paneMenu.files.filter((f) => !docs.some((d) => samePath(d.path, f.path))).map((f) => ({ id: `file:${f.path}`, label: f.name, icon: 'file' })) : [{ id: 'none', label: t('pane_folder_empty'), disabled: true }]),
+                  ...(paneMenu.files.length ? paneMenu.files.filter((f) => !docs.some((d) => samePath(d.path, f.path))).map((f) => ({ id: `file:${f.path}`, label: f.name, icon: 'file' })) : [{ id: 'none', icon: 'file', label: t('pane_folder_empty'), disabled: true }]),
                 ] : []),
                 { sep: true },
                 { id: 'open', label: t('open_file'), icon: 'fileOpen' },
               ]}
                 onClose={() => setPaneMenu(null)} onPick={(id) => { const i = paneMenu.i; setPaneMenu(null); paneMenuPick(i, id); }} />
             )}
-            {isMarkdown && settings.mdOutline && view && (
-              <Outline view={view} docVersion={docVersion} cursorPos={cursor.pos} onClose={() => changeSettings({ mdOutline: false })} />
-            )}
           </div>
         </div>
         </div>
         </div>
+        {startOpen && (
+          <StartPage settings={settings} recent={recent} onAction={action} onScreen={(patch) => changeSettings({ startScreen: { ...(settings.startScreen || {}), ...patch } })} />
+        )}
+        {tutorialOn && <Tutorial onPlace={onTutorialPlace} onClose={() => setTutorialOn(false)} />}
         {(settings.showTerminal || settings.showLog || settings.showLint) && (
           <TerminalPanel terms={terms} activeId={activeTerm} shells={shells} height={settings.termHeight} onResizeStart={onTermResizeStart}
             onActivate={setActiveTerm} onNew={(shell) => newTerminal(shell)} onClose={closeTerminal} onHide={() => changeSettings(hideBottomPanel())}

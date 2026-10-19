@@ -52,8 +52,8 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
     return (
       <div className={`dlg embedded ${kind} ${className}`} ref={ref} role="dialog" onKeyDown={onKey}>
         <div className="dlg-title drag-region">
-          {icon && <span data-tauri-drag-region><Icon name={icon} /></span>}
-          <span data-tauri-drag-region>{title}</span>
+          {icon && <span className="dlg-title-icon" data-tauri-drag-region><Icon name={icon} /></span>}
+          <span className="dlg-title-text" data-tauri-drag-region>{title}</span>
           {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
         </div>
         <div className="dlg-body">{children}</div>
@@ -66,7 +66,7 @@ export function Dialog({ title, icon, kind = '', width, onClose, children, foote
       <div className={`dlg ${kind} ${className}`} style={{ ...(width ? { width } : {}), transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined }} ref={ref} role="dialog" aria-modal={modal ? 'true' : 'false'} onKeyDown={onKey}>
         <div className="dlg-title" onMouseDown={onTitleDown}>
           {icon && <Icon name={icon} />}
-          <span>{title}</span>
+          <span className="dlg-title-text">{title}</span>
           {closable && <button className="dlg-x" onClick={onClose} title={t('close_btn')} aria-label={t('close_btn')}><Icon name="close" size={14} /></button>}
         </div>
         <div className="dlg-body">{children}</div>

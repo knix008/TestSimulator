@@ -1,13 +1,15 @@
-// Structure panel of a Markdown document (MarkdownBar › 구조): its headings
+// Structure panel of a Markdown document (toolbar › 구조): its headings
 // as a tree — a heading's children are the deeper headings that follow it —
 // drawn like the folder tree (connecting guide lines, ⊞ / ⊟ to fold a
 // branch), the heading the cursor is in highlighted. A click puts the cursor
-// on that heading and scrolls it to the top. ATX headings (# … ######) and
+// on that heading and scrolls it to the top of the editor and of the WYSIWYG
+// pane. ATX headings (# … ######) and
 // setext ones (a line underlined with === or ---); fenced code blocks are
 // skipped. Rebuilt from the document text on every change (docVersion).
 import React, { useMemo, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { t, useLanguage } from '../lib/i18n';
+import { wysiwygFollow } from '../lib/mdlive';
 import { Icon } from './Icons';
 
 // [{ level, text, line, from }] in document order
@@ -70,7 +72,13 @@ export function Outline({ view, docVersion, cursorPos, onClose, width }) {
   const toggle = (n) => setFolded((s) => { const next = new Set(s); if (next.has(n.id)) next.delete(n.id); else next.add(n.id); return next; });
   const go = (h) => {
     if (!view) return;
-    view.dispatch({ selection: { anchor: h.from }, effects: EditorView.scrollIntoView(h.from, { y: 'start', yMargin: 24 }) });
+    view.dispatch({
+      selection: { anchor: h.from },
+      effects: [
+        EditorView.scrollIntoView(h.from, { y: 'start', yMargin: 24 }),
+        wysiwygFollow.of(h.from),
+      ],
+    });
     view.focus();
   };
   const foldAll = (fold) => setFolded(fold ? new Set(heads.map((h, i) => `${h.line}:${i}`)) : new Set());
@@ -82,7 +90,7 @@ export function Outline({ view, docVersion, cursorPos, onClose, width }) {
         <span className="spacer" />
         <button className="icon-btn" title={t('unfold_all')} onClick={() => foldAll(false)}><Icon name="plusBox" size={13} /></button>
         <button className="icon-btn" title={t('fold_all')} onClick={() => foldAll(true)}><Icon name="minusBox" size={13} /></button>
-        <button className="icon-btn" title={t('close')} onClick={onClose}><Icon name="close" size={13} /></button>
+        <button className="icon-btn md-close" title={t('close')} aria-label={t('close')} onClick={onClose}><Icon name="close" size={13} /></button>
       </div>
       <div className="md-outline-list">
         {!heads.length && <div className="muted small md-outline-empty">{t('md_outline_empty')}</div>}

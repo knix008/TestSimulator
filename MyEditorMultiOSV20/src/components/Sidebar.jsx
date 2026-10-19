@@ -15,8 +15,10 @@ import { ContextMenu } from './ContextMenu';
 const CODE_EXT = /\.(js|jsx|ts|tsx|mjs|cjs|py|c|cpp|h|hpp|cs|java|go|rs|php|rb|sh|bat|ps1|sql|kt|swift|lua|pl|r|m|scala|dart|vue|svelte)$/i;
 const MARKUP_EXT = /\.(html?|xml|svg|css|scss|less|json|ya?ml|toml|md|markdown|ini|cfg|conf|csv)$/i;
 const IMAGE_EXT = /\.(png|jpe?g|gif|bmp|webp|avif|ico|icns|tiff?|heic|heif|dcm|dicom)$/i;
+const AUDIO_EXT = /\.(mp3|wav|ogg|oga|flac|aac|m4a|opus|aiff?|wma)$/i;
+const VIDEO_EXT = /\.(mp4|m4v|webm|ogv|mov|mkv|avi)$/i;
 const ARCHIVE_EXT = /\.(zip|7z|rar|tar|gz|bz2|xz|tgz)$/i;
-const BIN_EXT = /\.(exe|dll|so|dylib|bin|msi|dmg|deb|rpm|appimage|pdf|docx?|xlsx?|pptx?|mp[34]|mkv|avi|wav|flac|ogg)$/i;
+const BIN_EXT = /\.(exe|dll|so|dylib|bin|msi|dmg|deb|rpm|appimage|pdf|docx?|xlsx?|pptx?)$/i;
 
 // "Expand all" leaves these collapsed and stops after this many entries.
 const HEAVY_DIRS = new Set(['node_modules', '.git', '.svn', '.hg', 'dist', 'release', 'build', 'out', 'target', 'bin', 'obj', '__pycache__', '.venv', 'venv', '.cache', '.smoke', '.idea', '.vs', 'vendor', 'bower_components', 'coverage', '.next', '.nuxt']);
@@ -27,6 +29,8 @@ function fileIcon(name) {
   if (CODE_EXT.test(name)) return 'fileCode';
   if (MARKUP_EXT.test(name)) return 'fileMarkup';
   if (IMAGE_EXT.test(name)) return 'fileImage';
+  if (AUDIO_EXT.test(name)) return 'fileAudio';
+  if (VIDEO_EXT.test(name)) return 'fileVideo';
   if (ARCHIVE_EXT.test(name)) return 'fileArchive';
   if (BIN_EXT.test(name)) return 'fileExe';
   return 'fileText';

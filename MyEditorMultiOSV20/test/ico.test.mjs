@@ -88,10 +88,10 @@ test('installer files are copied to the project root', () => {
   fs.mkdirSync(path.join(bundle, 'nsis'), { recursive: true });
   fs.mkdirSync(path.join(bundle, 'macos', 'My Editor.app'), { recursive: true });
   fs.mkdirSync(project);
-  fs.writeFileSync(path.join(bundle, 'nsis', 'My Editor_1.0.0_x64-setup.exe'), 'exe');
+  fs.writeFileSync(path.join(bundle, 'nsis', 'My Editor_1.1.0_x64-setup.exe'), 'exe');
   fs.writeFileSync(path.join(bundle, 'macos', 'My Editor.app', 'bin'), 'app');
   const copied = copyInstallersToRoot(project, bundle);
-  assert.equal(fs.readFileSync(path.join(project, 'My Editor_1.0.0_x64-setup.exe'), 'utf8'), 'exe');
+  assert.equal(fs.readFileSync(path.join(project, 'My Editor_1.1.0_x64-setup.exe'), 'utf8'), 'exe');
   assert.equal(fs.readFileSync(path.join(project, 'My Editor.app', 'bin'), 'utf8'), 'app');
   assert.equal(copied.length, 2);
   fs.rmSync(tmp, { recursive: true, force: true });

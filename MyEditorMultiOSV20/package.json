@@ -1,6 +1,6 @@
 {
   "name": "myeditor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "My Editor — tabbed text / code editor for Windows, macOS, Linux and the web (Tauri desktop shell, syntax highlighting for 100+ languages, autocomplete, find & replace, encodings, line endings, folder tree, terminal with themed prompts, HTML / Markdown preview, 20 themes + custom themes, Korean / English UI).",
   "author": {
     "name": "SHKWON",

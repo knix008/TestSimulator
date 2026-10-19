@@ -41,6 +41,16 @@ function unwrap(body, fallback) {
   throw err;
 }
 
+// A URL the <audio> / <video> element can play. The element cannot send the
+// bearer header, so the desktop service accepts the same token on the query.
+export async function mediaSrc(filePath) {
+  if (tauriHost) return tauri.mediaSrc(filePath);
+  const q = new URLSearchParams({ path: filePath });
+  const token = webToken();
+  if (token) q.set('token', token);
+  return `./api/file.media?${q}`;
+}
+
 export async function call(name, args = {}) {
   if (tauriHost) return tauri.apiCall(name, args);
   if (electron) return unwrap(await electron.call(name, args), 'IPC error');

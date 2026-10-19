@@ -9,20 +9,15 @@ function clock(ts) {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-export function LogPanel({ entries, onClear }) {
+export function LogPanel({ entries }) {
   useLanguage();
   const endRef = useRef(null);
   useEffect(() => { if (endRef.current) endRef.current.scrollIntoView({ block: 'end' }); }, [entries]);
   if (!entries.length) {
-    return <div className="sb-empty"><Icon name="log" size={26} /><p>{t('log_empty')}</p></div>;
+    return <div className="log-panel"><div className="sb-empty"><Icon name="log" size={26} /><p>{t('log_empty')}</p></div></div>;
   }
   return (
     <div className="log-panel">
-      <div className="lint-meta">
-        <span>{t('log_tab')}</span>
-        <span className="spacer" />
-        <button className="btn small" onClick={onClear}>{t('log_clear')}</button>
-      </div>
       <pre className="log-out selectable">
         {entries.map((e, i) => (
           <div key={i} className={`log-line log-${e.kind || 'info'}`}>

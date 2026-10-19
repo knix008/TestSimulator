@@ -17,6 +17,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { createApi, serializeError } = require('../core/api');
+const { serveMedia } = require('../core/mediafile');
 
 const root = path.join(__dirname, '..');
 const distDir = path.join(root, 'dist');
@@ -107,6 +108,10 @@ function serveStatic(req, res, url) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (url.pathname === '/api/file.media' && (req.method === 'GET' || req.method === 'HEAD')) {
+    if (!authorized(req, url)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+    return serveMedia(req, res, url.searchParams.get('path') || '');
+  }
   if (url.pathname.startsWith('/api/')) return handleApi(req, res, url).catch((err) => send(res, 500, { ok: false, error: serializeError(err) }));
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
   serveStatic(req, res, url);

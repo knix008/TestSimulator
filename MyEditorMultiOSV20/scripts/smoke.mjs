@@ -242,7 +242,7 @@ const SCENARIOS = {
   // Markdown structure panel: opened from the bar, lists the headings as a tree; a click on a heading moves the cursor there.
   outline: `(async () => { ${PRELUDE} const s = window.__med.state; const md = s.docs.find((d) => d.name === 'README.md'); window.__med.activate(md.id); await wait(300);
     window.__med.setText('# Title\\n\\ntext\\n\\n## Part one\\n\\ntext\\n\\n### Detail A\\n\\n\`\`\`\\n# not a heading\\n\`\`\`\\n\\n## Part two\\n\\nSetext heading\\n--------------\\n\\ntext\\n'); await wait(300);
-    const btn = Array.from(document.querySelectorAll('.mdbar .md-toggle')).find((b) => b.textContent.includes('구조')); if (!btn) throw new Error('no structure button'); btn.click(); await wait(300);
+    const btn = document.querySelector('.mdbar [data-cmd="toggleStructure"]'); if (!btn) throw new Error('no structure button'); btn.click(); await wait(300);
     const panel = document.querySelector('.md-outline'); if (!panel) throw new Error('no outline panel');
     const rows = Array.from(panel.querySelectorAll('.tree-row')); const names = rows.map((r) => r.querySelector('.tree-name').textContent);
     if (names.join('|') !== 'Title|Part one|Detail A|Part two|Setext heading') throw new Error('headings: ' + names.join('|'));
@@ -612,7 +612,7 @@ const SCENARIOS = {
     return JSON.stringify(out); })()`,
   // ── the HTML preview pane: local stylesheet and image inlined, the page's script ran ──
   html_preview: `(async () => { ${PRELUDE} const S = () => window.__med.state; await window.__med.openPath(${wp(path.join(work, 'docs', 'page.html'))}); await wait(500); const d = S().docs.find((x) => x.name === 'page.html');
-    const out = { lang: d.langName, bar: !!document.querySelector('.htmlbar'), before: !!document.querySelector('.html-preview') };
+    const out = { lang: d.langName, bar: !!document.querySelector('.icon-toolbar [data-cmd="togglePreview"]:not(:disabled)'), before: !!document.querySelector('.html-preview') };
     window.__med.action('togglePreview'); await until(() => { const f = document.querySelector('.html-preview iframe'); return f && f.srcdoc && f.srcdoc.includes('data:image/png'); }, 8000); await wait(600);
     const f = document.querySelector('.html-preview iframe'); out.setting = S().settings.htmlPreview; out.css = f.srcdoc.includes('<style>') && f.srcdoc.includes('#3a86ff'); out.img = f.srcdoc.includes('data:image/png;base64'); out.sandbox = f.getAttribute('sandbox'); out.noLink = !/<link[^>]*stylesheet/.test(f.srcdoc);
     const v = window.__med.view(); v.dispatch({ changes: { from: v.state.doc.toString().indexOf('Hello preview'), insert: 'Edited ' } }); await until(() => document.querySelector('.html-preview iframe').srcdoc.includes('Edited Hello'), 5000); out.liveUpdate = true;
@@ -727,8 +727,10 @@ const SCENARIOS = {
     document.querySelectorAll('.tb-size .tool-btn')[1].click(); document.querySelectorAll('.tb-size .tool-btn')[1].click(); await wait(300);
     return JSON.stringify({ fonts: n, hasMalgun: Array.from(document.querySelectorAll('#tb-font-list option')).some((o) => /Malgun|맑은/i.test(o.value)), family: window.__med.state.settings.fontFamily, size: window.__med.state.settings.fontSize, css: getComputedStyle(document.querySelector('.cm-scroller')).fontFamily.slice(0, 40) }); })()`,
   source_view: `(async () => { ${PRELUDE} const s = window.__med.state; window.__med.activate(s.docs.find((d) => d.name === 'README.md').id); await wait(400);
-    const h1 = () => getComputedStyle(document.querySelector('.cm-line')).fontSize; const live = h1(); window.__med.action('toggle:mdWysiwyg'); await wait(400); const src = h1();
-    return JSON.stringify({ live, source: src, body: getComputedStyle(document.querySelectorAll('.cm-line')[2]).fontSize }); })()`,
+    const fs = (sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).fontSize : ''; };
+    const live = fs('.md-wysiwyg .cm-line'); const source = fs('.editor-pane .cm-line');
+    window.__med.action('toggle:mdWysiwyg'); await wait(400);
+    return JSON.stringify({ live, source, wysiwygHidden: !document.querySelector('.md-wysiwyg'), body: fs('.editor-pane .cm-line') }); })()`,
   // Commands are typed at the prompt drawn at the end of the output (directory ▶ git branch ▶ >);
   // the typed line stays there with its prompt, `cd` moves the prompt, Tab completes a path.
   terminal: `(async () => { ${PRELUDE} window.__med.setFolder(${wp(root)}); await wait(300); window.__med.action('newTerminal'); await until(() => document.querySelector('.term-out input')); await wait(800);

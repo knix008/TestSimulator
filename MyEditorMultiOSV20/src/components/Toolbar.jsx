@@ -12,6 +12,9 @@ import { FontPicker } from './FontPicker';
 
 const GROUPS = [
   [
+    { id: 'showStart', icon: 'home', tip: 'tip_start', on: (st, state) => !!state.startOpen },
+  ],
+  [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
     { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
     { id: 'openFolder', icon: 'folderOpen', tip: 'tip_open_folder' },
@@ -35,16 +38,20 @@ const GROUPS = [
   ],
   [
     { id: 'formatDoc', icon: 'format', tip: 'tip_format', needs: 'canFormat', tipOf: (st) => st.formatTip },   // an action, not a toggle: formats the active document with the language's formatter
-    { label: 'formatter' },   // which formatter that is (state.formatter, see App)
+    { widget: 'formatter' },   // which formatter that is (state.formatter, see App)
   ],
   [
     { id: 'toggle:showWhitespace', icon: 'pilcrow', tip: 'tip_ws', toggle: 'showWhitespace' },
-    { id: 'toggleStructure', icon: 'minimap', tip: 'tip_structure', on: (st, state) => state.structureOn, needs: 'canStructure' },   // the document's structure: the minimap, or the headings tree of a Markdown document — off for an image (the picture fills the pane)
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in' },
-    { label: 'zoom' },        // the zoom level; a click resets it
+    { widget: 'zoom' },        // the zoom level; a click resets it
     { id: 'zoomOut', icon: 'zoomOut', tip: 'tip_zoom_out' },
     { id: 'toggleSplit', icon: 'splitCols', tip: 'tip_split' },   // an action, not a toggle: each press steps to the next pane layout
     { id: 'toggle:sidebarVisible', icon: 'sidebar', tip: 'tip_sidebar', toggle: 'sidebarVisible' },
+  ],
+  // Preview and run — icons only. WYSIWYG and Markdown structure live on the Markdown bar.
+  [
+    { id: 'togglePreview', iconOf: (state) => (state.docKind === 'svg' ? 'fileImage' : 'eye'), label: 'md_preview', tipOf: (state) => `${t(state.docKind === 'html' ? 'html_preview' : state.docKind === 'svg' ? 'img_pv_menu' : 'md_preview')} (Ctrl+Shift+M)`, needs: 'canPreview', on: (st, state) => state.previewOn },
+    { id: 'html:browser', icon: 'play', label: 'html_browser', tip: 'html_browser_tip', needs: 'canRun' },
   ],
   [
     { id: 'toggle:indentGuides', icon: 'indentGuides', tip: 'tip_indent_guides', toggle: 'indentGuides', on: (st) => st.indentGuides !== false },
@@ -54,9 +61,9 @@ const GROUPS = [
     { id: 'toggle:autoIndent', icon: 'autoIndent', tip: 'tip_auto_indent', toggle: 'autoIndent' },
     { id: 'toggle:spellCheck', icon: 'spell', tip: 'tip_spell', toggle: 'spellCheck' },
     { id: 'toggle:autocomplete', icon: 'autocomplete', tip: 'tip_autocomplete', toggle: 'autocomplete' },
-    { id: 'toggleTerminal', icon: 'terminal', tip: 'tip_terminal', on: (st) => !!st.showTerminal },
-    { id: 'toggleLog', icon: 'log', tip: 'tip_log', on: (st) => !!st.showLog },
-    { id: 'lintPanel', icon: 'lint', tip: 'tip_lint', on: (st) => !!st.showLint },
+    { id: 'toggleTerminal', icon: 'terminal', tip: 'tip_terminal', on: (st) => !!(st.termVisible && st.bottomTab === 'terminal') },
+    { id: 'toggleLog', icon: 'log', tip: 'tip_log', on: (st) => !!(st.termVisible && st.bottomTab === 'log') },
+    { id: 'lintPanel', icon: 'lint', tip: 'tip_lint', on: (st) => !!(st.termVisible && st.bottomTab === 'lint') },
   ],
 ];
 
@@ -92,12 +99,12 @@ export function Toolbar({ onAction, onSetting, settings, state }) {
       {GROUPS.map((g, gi) => (
         <React.Fragment key={gi}>
           {gi > 0 && <span className="tb-sep" />}
-          {g.map((b) => b.label ? labels[b.label]() : (
-            <button key={b.id} className={`tool-btn ${(b.on ? b.on(settings, state) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={(b.tipOf && b.tipOf(state)) || t(b.tip)} aria-label={t(b.tip)}
+          {g.map((b) => b.widget ? labels[b.widget]() : (
+            <button key={b.id} data-cmd={b.id} className={`tool-btn ${(b.on ? b.on(settings, state) : b.toggle && settings[b.toggle]) ? 'on' : ''}`} title={(b.tipOf && b.tipOf(state)) || (b.label ? `${t(b.label)} — ${t(b.tip)}` : t(b.tip))} aria-label={b.label ? t(b.label) : t(b.tip)}
               disabled={b.needs ? !state[b.needs] : false}
               onMouseDown={(e) => e.preventDefault()}   /* keep the editor focused */
               onClick={() => onAction(b.id)}>
-              <Icon name={b.icon} size={17} />
+              <Icon name={b.iconOf ? b.iconOf(state) : b.icon} size={17} />
             </button>
           ))}
         </React.Fragment>

@@ -45,7 +45,12 @@ export function EditorPane({ initialState, onView, onDropFiles, contextItems, on
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!dragOver) setDragOver(true); } }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
       onDrop={onDrop} onPaste={onPaste}
-      onContextMenu={(e) => { if (e.target.closest('.cm-editor')) { e.preventDefault(); const v = viewRef.current; setCtx({ x: e.clientX, y: e.clientY, pos: v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null }); } }}>
+      onContextMenu={(e) => {
+        if (e.target.closest('.ctx-menu')) return;
+        e.preventDefault();
+        const v = viewRef.current;
+        setCtx({ x: e.clientX, y: e.clientY, pos: v ? v.posAtCoords({ x: e.clientX, y: e.clientY }) : null });
+      }}>
       <div className="editor-body">
         <div className="cm-host" ref={hostRef} />
         {minimap && !empty && view && <Minimap view={view} version={version} />}

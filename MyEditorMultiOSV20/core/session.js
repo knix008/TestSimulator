@@ -48,7 +48,8 @@ const DEFAULTS = {
   statusBarVisible: true,
   mdPreview: false,        // Markdown live preview pane
   mdOutline: false,        // Markdown structure panel (the headings as a tree)
-  mdWysiwyg: true,         // Markdown rendered in place while editing
+  mdWysiwyg: true,         // Markdown: a WYSIWYG pane beside the source editor
+  mdColWeights: { outline: 0.45, editor: 1, wysiwyg: 1, preview: 1 }, // structure ≈ 31% beside the editor; content panes reset to equal when one opens or closes
   spellCheck: true,        // English spell checking (bundled en_US dictionary)
   spellCodeAll: false,     // in code files check every word, not only comments / strings
   autoIndent: true,        // Enter keeps the indentation; Tab inserts spaces (insertSpaces) or a tab, tabSize wide
@@ -105,6 +106,7 @@ const DEFAULTS = {
   activeTab: 0,
   recent: [],        // most recent first, absolute paths
   themeBg: '#12161c',
+  startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
 };
 
 const MAX_RECENT = 12;

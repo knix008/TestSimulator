@@ -15,8 +15,8 @@
 // breaks it, or is dropped (termCr); the line ending Enter sends to a running
 // program is the shell's own, LF or CRLF (termEol).
 //
-// Terminal / Log / Problems tabs follow the toolbar buttons (showTerminal /
-// showLog / showLint). Each button is independent; only the on tabs appear.
+// One bottom panel. Terminal, Log and Problems are always its tabs; `panel`
+// chooses which one is in front.
 // The ⚙ at the right end belongs to the tab shown: the terminal settings on
 // the terminal tab, the checker settings on the Problems one.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -299,13 +299,7 @@ export function TerminalPanel({
     call('term.shells', { refresh: true }).then((x) => { if (Array.isArray(x)) setShellList(x); }).catch(() => {});
   };
   const shellItems = shellList.map((s) => ({ id: `shell:${s.id}`, label: s.label, icon: 'terminal' }));
-  const open = {
-    terminal: !!(panels && panels.terminal),
-    log: !!(panels && panels.log),
-    lint: !!(panels && panels.lint),
-  };
-  const openTabs = ['terminal', 'log', 'lint'].filter((id) => open[id]);
-  const tab = openTabs.includes(panel) ? panel : (openTabs[0] || 'terminal');
+  const tab = panel === 'log' || panel === 'lint' || panel === 'terminal' ? panel : 'terminal';
   const lintCount = lint && lint.total ? lint.total : 0;
   const mode = (id) => `panel-mode ${tab === id ? 'active' : ''}`;
   return (
@@ -313,14 +307,12 @@ export function TerminalPanel({
       <div className="h-splitter" onMouseDown={onResizeStart} />
       <div className="term-head">
         <div className="panel-modes" role="tablist" data-tab={tab}>
-          {open.terminal && <button type="button" className={mode('terminal')} onClick={() => onPanel && onPanel('terminal')}><Icon name="terminal" size={14} /> {t('terminal')}</button>}
-          {open.log && <button type="button" className={mode('log')} onClick={() => onPanel && onPanel('log')}><Icon name="log" size={14} /> {t('log_tab')}</button>}
-          {open.lint && (
-            <button type="button" className={mode('lint')} onClick={() => onPanel && onPanel('lint')}>
-              <Icon name="lint" size={14} /> {t('lint_tab')}
-              {lintCount > 0 ? <span className={`panel-badge ${lint.error ? 'err' : lint.warning ? 'warn' : ''}`}>{lintCount}</span> : null}
-            </button>
-          )}
+          <button type="button" className={mode('terminal')} onClick={() => onPanel && onPanel('terminal')}><Icon name="terminal" size={14} /> {t('terminal')}</button>
+          <button type="button" className={mode('log')} onClick={() => onPanel && onPanel('log')}><Icon name="log" size={14} /> {t('log_tab')}</button>
+          <button type="button" className={mode('lint')} onClick={() => onPanel && onPanel('lint')}>
+            <Icon name="lint" size={14} /> {t('lint_tab')}
+            {lintCount > 0 ? <span className={`panel-badge ${lint.error ? 'err' : lint.warning ? 'warn' : ''}`}>{lintCount}</span> : null}
+          </button>
         </div>
         {tab === 'terminal' && (
           <>
@@ -337,6 +329,7 @@ export function TerminalPanel({
           </>
         )}
         <span className="spacer" />
+        {tab === 'log' && onLogClear && <button className="btn small" onClick={onLogClear}>{t('log_clear')}</button>}
         {tab === 'terminal' && onSettings && <button className="icon-btn" title={t('term_settings')} onClick={onSettings}><Icon name="settings" size={14} /></button>}
         {tab === 'lint' && onLintSettings && <button className="icon-btn" title={t('lint_settings')} onClick={onLintSettings}><Icon name="settings" size={14} /></button>}
         <button className="icon-btn" title={t('term_hide')} onClick={onHide}><Icon name="close" size={15} /></button>
@@ -344,7 +337,7 @@ export function TerminalPanel({
       <div className="term-body">
         {tab === 'terminal' && terms.length === 0 && <div className="sb-empty"><Icon name="terminal" size={26} /><p>{t('term_empty')}</p><button className="btn" onClick={() => onNew()}>{t('term_new')}</button></div>}
         {tab === 'terminal' && terms.map((tm) => <TerminalView key={tm.id} term={tm} active={tm.id === activeId} onExit={onExit} prompt={prompt} env={env} termEol={termEol} termCr={termCr} termColor={termColor} />)}
-        {tab === 'log' && <LogPanel entries={logEntries || []} onClear={onLogClear} />}
+        {tab === 'log' && <LogPanel entries={logEntries || []} />}
         {tab === 'lint' && <LintPanel doc={lintDoc} lint={lint} enabled={lintEnabled} onGoto={onLintGoto} onRefresh={onLintRefresh} />}
       </div>
       {menu && <ContextMenu anchorEl={menu} above x={0} y={0} items={shellItems} onClose={() => setMenu(null)} onPick={(id) => { setMenu(null); onNew(id.slice(6)); }} />}

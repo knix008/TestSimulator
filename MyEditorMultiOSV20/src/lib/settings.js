@@ -40,7 +40,8 @@ export const SETTINGS_DEFAULTS = {
   statusBarVisible: true,
   mdPreview: false,
   mdOutline: false,
-  mdWysiwyg: true,
+  mdWysiwyg: true,          // Markdown: a WYSIWYG pane beside the source editor
+  mdColWeights: { outline: 0.45, editor: 1, wysiwyg: 1, preview: 1 }, // structure ≈ 31% beside the editor (the running app); the three content panes reset to equal when one opens or closes
   spellCheck: true,
   spellCodeAll: false,
   autoIndent: true,
@@ -86,6 +87,7 @@ export const SETTINGS_DEFAULTS = {
   printPaper: 'a4',        // a4 · letter · legal · a5
   printLandscape: false,   // page orientation
   printMargin: 12,         // page margin in mm
+  startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
@@ -106,12 +108,10 @@ export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, k =
 
 export const BOTTOM_PANEL_FLAGS = { terminal: 'showTerminal', log: 'showLog', lint: 'showLint' };
 
+// One bottom panel. While it is open, Terminal, Log and Problems are always its tabs.
 export function visibleBottomTabs(st) {
-  const tabs = [];
-  if (st && st.showTerminal) tabs.push('terminal');
-  if (st && st.showLog) tabs.push('log');
-  if (st && st.showLint) tabs.push('lint');
-  return tabs;
+  if (st && (st.showTerminal || st.showLog || st.showLint)) return ['terminal', 'log', 'lint'];
+  return [];
 }
 
 export function activeBottomTab(st) {
@@ -121,20 +121,35 @@ export function activeBottomTab(st) {
   return tabs.includes(cur) ? cur : tabs[0];
 }
 
+// Open the single bottom panel on `tab`, switch to that tab, or close the panel
+// when that tab is already the one in front.
 export function toggleBottomPanel(st, tab) {
-  const flag = BOTTOM_PANEL_FLAGS[tab];
-  if (!flag) return {};
-  const on = !(st && st[flag]);
-  const next = { ...(st || {}), [flag]: on };
-  if (on) next.bottomTab = tab;
-  const tabs = visibleBottomTabs(next);
-  next.termVisible = tabs.length > 0;
-  if (!on && tabs.length && ((st && st.bottomTab) || 'terminal') === tab) next.bottomTab = tabs[0];
-  return { [flag]: on, termVisible: next.termVisible, bottomTab: next.bottomTab };
+  if (!BOTTOM_PANEL_FLAGS[tab]) return {};
+  const open = !!(st && (st.showTerminal || st.showLog || st.showLint));
+  if (open && activeBottomTab(st) === tab) return hideBottomPanel();
+  return { showTerminal: true, showLog: true, showLint: true, termVisible: true, bottomTab: tab };
 }
 
 export function hideBottomPanel() {
   return { showTerminal: false, showLog: false, showLint: false, termVisible: false };
+}
+
+export const MD_COL_KEYS = ['outline', 'editor', 'wysiwyg', 'preview'];
+
+// A positive finite weight per column; anything else falls back to 1.
+export function mdColWeights(raw) {
+  const out = {};
+  for (const k of MD_COL_KEYS) {
+    const n = raw && Number(raw[k]);
+    const fallback = k === 'outline' ? SETTINGS_DEFAULTS.mdColWeights.outline : 1;
+    out[k] = n > 0 && Number.isFinite(n) ? n : fallback;
+  }
+  return out;
+}
+
+// Editor, WYSIWYG and preview share the width equally. The structure column keeps its weight.
+export function equalMdContent(raw) {
+  return { ...mdColWeights(raw), editor: 1, wysiwyg: 1, preview: 1 };
 }
 
 export function pickSettings(obj) {

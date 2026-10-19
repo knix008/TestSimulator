@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RASTER_EXT, isSvgName, isHeicName, isDicomName, isBinaryImageName, isImageName,
-  restoreAsPicture, openKind, openMode, paneView, MAX_TEXT,
+  restoreAsPicture, openKind, openMode, paneView, MAX_TEXT, isAudioName, isVideoName, isMediaName,
 } from '../src/lib/imagekind.js';
 
 for (const ext of [...RASTER_EXT].sort()) {
@@ -46,6 +46,19 @@ test('unknown and text names stay unknown until sniffed', () => {
   assert.equal(isImageName('a.txt'), false);
   assert.equal(isBinaryImageName(''), false);
   assert.equal(isSvgName(''), false);
+});
+
+test('audio and video names open as media, not a hex dump', () => {
+  for (const name of ['song.mp3', 'clip.MP4', 'a.wav', 'b.webm', 'c.mkv', 'd.flac']) {
+    assert.equal(isMediaName(name), true, name);
+    assert.equal(openKind(name), 'media', name);
+    assert.equal(openMode({ name, sniff: { binary: true, size: 1000 } }), 'media', name);
+    assert.equal(isBinaryImageName(name), false, name);
+  }
+  assert.equal(isAudioName('song.mp3'), true);
+  assert.equal(isVideoName('clip.mp4'), true);
+  assert.equal(isAudioName('clip.mp4'), false);
+  assert.equal(openMode({ name: 'song.mp3', force: true }), 'text');
 });
 
 test('openMode: sniffed binary is hex; oversized text is too-big', () => {

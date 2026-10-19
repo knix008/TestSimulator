@@ -1,13 +1,14 @@
-// The top of the window, three rows:
-//   title bar  — replaces the OS title bar of the frameless window: app icon
-//                + name and, in the desktop app, minimize / maximize / close;
-//                the window's drag region (double-click maximizes)
-//   menu bar   — the menus (파일 · 편집 · 찾기 · 편집기 · 보기 · 언어 · 인코딩 · 도움말,
-//                each with an icon). On the desktop a click opens a native OS
-//                menu (it may reach beyond the window); on the web the in-page
-//                ContextMenu, which switches on hover while one is open
+// The top of the window, two rows:
+//   menu bar   — app icon and name (My Editor V1.1) on the left, then the menus
+//                (파일 · 편집 · 찾기 · 편집기 · 보기 · 언어 · 인코딩 · 도움말, each
+//                with an icon), and on the desktop minimize / maximize / close
+//                on the right. The icon, name and the empty stretch are the
+//                frameless window's drag region (double-click maximizes).
+//                On the desktop a click opens a native OS menu (it may reach
+//                beyond the window); on the web the in-page ContextMenu, which
+//                switches on hover while one is open
 //   toolbar    — Toolbar.jsx
-// Both bars are rendered here (MenuBar).
+// The menu bar is rendered here (MenuBar).
 //
 // AppControls — theme picker (split button: main part cycles, caret lists
 // them all, dark and light side by side), language toggle (the flag of the
@@ -75,7 +76,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
       <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onMouseDown={keep} onClick={() => onAction('toggleLanguage')}>
         <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
       </button>
-      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_settings')} onMouseDown={keep} onClick={() => onAction('settings')}>
+      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} data-cmd="settings" title={t('tip_settings')} onMouseDown={keep} onClick={() => onAction('settings')}>
         <Icon name="settings" />{!compact && <Widest k="settings" />}
       </button>
       <span className="tb-sep" />
@@ -91,7 +92,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
 }
 
 // menus: [{ id, label, icon, items: () => [...] }]
-export function MenuBar({ menus, onAction, theme, controls = false }) {
+export function MenuBar({ menus, onAction, theme, controls = false, startOpen = false }) {
   useLanguage();
   // The window must stay wide enough for the menus (and the app controls when the icon toolbar is hidden).
   useLayoutEffect(() => { syncWindowMinWidth(); });
@@ -123,14 +124,15 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
   const allTitles = menus.map((m) => (m.labelKey ? t(m.labelKey) : m.label));
 
   return (
-    <>
-    <div className="toolbar titlebar" onDoubleClick={onDouble}>
-      <img src="./icon.svg" alt="" width={18} height={18} className="tb-logo" data-tauri-drag-region />
-      <span className="tb-title" data-tauri-drag-region>{t('appName')}</span>
-      <span className="tb-spacer" data-tauri-drag-region />
-      {isElectron && <WindowButtons />}
-    </div>
-    <div className="toolbar menubar">
+    <div className="toolbar menubar" onDoubleClick={onDouble}>
+      <span className="tb-brand" data-tauri-drag-region>
+        <img src="./icon.svg" alt="" width={16} height={16} className="tb-logo" draggable={false} />
+        <span className="tb-title">{t('appName')}</span>
+      </span>
+      <button type="button" className={`menu-btn start-nav ${startOpen ? 'open' : ''}`} title={t('tip_start')}
+        onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('openStart')}>
+        <Icon name="home" size={14} className="menu-icon" />{t('start_nav')}
+      </button>
       <span className="menus">
         {menus.map((m) => (
           <button key={m.id} className={`menu-btn ${open && open.id === m.id ? 'open' : ''}`}
@@ -140,14 +142,14 @@ export function MenuBar({ menus, onAction, theme, controls = false }) {
           </button>
         ))}
       </span>
-      <span className="tb-spacer" />
+      <span className="tb-spacer" data-tauri-drag-region />
       {controls && <AppControls onAction={onAction} theme={theme} />}
+      {isElectron && <WindowButtons />}
       {current && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={current.items()} className="menu-drop" onClose={() => setOpen(null)}
           onPick={(id) => { setOpen(null); onAction(id); }} onAction={onAction} />
       )}
     </div>
-    </>
   );
 }
 

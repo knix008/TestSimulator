@@ -19,12 +19,16 @@
 // ./editor.js; the H1–H6 sizes and the inline-code box are applied here, so
 // the source view (WYSIWYG off) stays uniform monospace.
 import { ViewPlugin, Decoration, WidgetType, EditorView } from '@codemirror/view';
-import { Facet } from '@codemirror/state';
+import { Facet, StateEffect } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { resolveImageSrc } from './images';
 
 // The folder relative image paths are resolved against (the document's folder).
 export const imageBase = Facet.define({ combine: (v) => v[0] || '' });
+
+// Dispatched on the source editor when the structure panel jumps to a heading.
+// The WYSIWYG pane reads it and scrolls that same position to the top.
+export const wysiwygFollow = StateEffect.define();
 
 const IMG_TAG = /^<img\s[^>]*>$/i;
 const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i')); return m ? (m[2] ?? m[3] ?? m[4]) : null; };

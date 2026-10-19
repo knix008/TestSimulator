@@ -42,6 +42,12 @@ function ensureHost() {
   return hostPromise;
 }
 
+export async function mediaSrc(filePath) {
+  const host = await ensureHost();
+  const q = new URLSearchParams({ path: filePath, token: host.token });
+  return `http://127.0.0.1:${host.port}/api/file.media?${q}`;
+}
+
 export async function apiCall(name, args = {}) {
   const host = await ensureHost();
   let res;

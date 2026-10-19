@@ -250,7 +250,7 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill,
   const wlMax = info ? Math.round((info.valueMax ?? 1000) + wlRange / 2) : 1000;
 
   return (
-    <div className={`image-preview${fill ? ' fill' : ''}`} style={fill ? undefined : { width }} tabIndex={0} onKeyDown={onKeyDown}>
+    <div className={`image-preview${fill ? ' fill' : ''}`} style={fill ? undefined : { width: 'auto' }} tabIndex={0} onKeyDown={onKeyDown}>
       <div className={`image-preview-body ${zoomed ? 'zoomed' : 'fit'}${overflow ? ' overflow' : ''}${panning ? ' panning' : ''}`} ref={bodyRef}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
         onPointerLeave={() => setProbe(null)}
@@ -378,7 +378,7 @@ export function insertSvgTag(view, id) {
 }
 
 // The slim bar above an SVG document: the elements to insert (as icons).
-// The preview toggle sits under the tab. A raster image keeps Hexa here.
+// Preview, run and structure live on the main toolbar. A raster image keeps Hexa here.
 export function ImageBar({ onAction, svg, imageHex }) {
   useLanguage();
   return (
@@ -398,18 +398,6 @@ export function ImageBar({ onAction, svg, imageHex }) {
         </>
       )}
     </div>
-  );
-}
-
-// Shown under the active SVG tab.
-export function SvgPreviewButton({ onAction, preview }) {
-  useLanguage();
-  return (
-    <span className="htmlbar-actions">
-      <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('img_pv_menu')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:imagePreview')}>
-        <Icon name="fileImage" size={16} /><span>{t('md_preview')}</span>
-      </button>
-    </span>
   );
 }
 

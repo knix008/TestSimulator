@@ -7,9 +7,8 @@
 // The scroll position survives a re-render: a small script in the page
 // reports it (postMessage) and the next render starts there.
 import React, { useEffect, useRef, useState } from 'react';
-import { t, useLanguage } from '../lib/i18n';
+import { useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
-import { Icon } from './Icons';
 import { isRemote, joinPath, resolveImageSrc } from '../lib/images';
 
 const RENDER_DELAY = 350;   // ms after the last change
@@ -94,24 +93,9 @@ export function HtmlPreview({ view, docVersion, base, name, width }) {
   }, [view, docVersion, base]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="html-preview" style={{ width }}>
+    <div className="html-preview" style={{ width: 'auto' }}>
       <iframe ref={frameRef} title={name || 'HTML'} sandbox="allow-scripts allow-forms allow-popups allow-modals" srcDoc={html} />
     </div>
-  );
-}
-
-// Preview and run, shown directly under the active HTML tab.
-export function HtmlBar({ onAction, preview }) {
-  useLanguage();
-  return (
-    <span className="htmlbar-actions">
-      <button className={`md-btn md-toggle ${preview ? 'on' : ''}`} title={`${t('html_preview')} (Ctrl+Shift+M)`} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('toggle:htmlPreview')}>
-        <Icon name="eye" size={16} /><span>{t('md_preview')}</span>
-      </button>
-      <button className="md-btn htmlbar-run" title={t('html_browser_tip')} onMouseDown={(e) => e.preventDefault()} onClick={() => onAction('html:browser')}>
-        <Icon name="play" size={16} /><span>{t('html_browser')}</span>
-      </button>
-    </span>
   );
 }
 

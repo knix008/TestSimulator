@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import {
   SETTINGS_DEFAULTS, SETTING_KEYS, RESET_KEYS, resetPatch, pickSettings,
   visibleBottomTabs, activeBottomTab, toggleBottomPanel, hideBottomPanel,
-  BOTTOM_PANEL_FLAGS, FONT_SUGGESTIONS,
+  BOTTOM_PANEL_FLAGS, FONT_SUGGESTIONS, mdColWeights, equalMdContent,
 } from '../src/lib/settings.js';
 
 const require = createRequire(import.meta.url);
@@ -45,15 +45,16 @@ test('pickSettings keeps independent flags and derives termVisible', () => {
   assert.equal(off.termVisible, false);
 });
 
+const ALL_TABS = ['terminal', 'log', 'lint'];
 const FLAG_COMBOS = [
   [false, false, false, []],
-  [true, false, false, ['terminal']],
-  [false, true, false, ['log']],
-  [false, false, true, ['lint']],
-  [true, true, false, ['terminal', 'log']],
-  [true, false, true, ['terminal', 'lint']],
-  [false, true, true, ['log', 'lint']],
-  [true, true, true, ['terminal', 'log', 'lint']],
+  [true, false, false, ALL_TABS],
+  [false, true, false, ALL_TABS],
+  [false, false, true, ALL_TABS],
+  [true, true, false, ALL_TABS],
+  [true, false, true, ALL_TABS],
+  [false, true, true, ALL_TABS],
+  [true, true, true, ALL_TABS],
 ];
 
 for (const [showTerminal, showLog, showLint, tabs] of FLAG_COMBOS) {
@@ -87,6 +88,18 @@ test('session defaults keep the three bottom-panel flags off', () => {
   assert.equal(DEFAULTS.showLog, false);
   assert.equal(DEFAULTS.showLint, false);
   assert.equal(DEFAULTS.sessionVersion, 6);
+});
+
+test('markdown content columns open at the same weight and keep the structure weight', () => {
+  assert.deepEqual(mdColWeights(null), { outline: 0.45, editor: 1, wysiwyg: 1, preview: 1 });
+  assert.deepEqual(mdColWeights({ outline: 0, editor: -2, wysiwyg: 'no', preview: 1.5 }), { outline: 0.45, editor: 1, wysiwyg: 1, preview: 1.5 });
+  const next = equalMdContent({ outline: 0.4, editor: 2, wysiwyg: 0.5, preview: 3 });
+  assert.equal(next.outline, 0.4);
+  assert.equal(next.editor, 1);
+  assert.equal(next.wysiwyg, 1);
+  assert.equal(next.preview, 1);
+  assert.equal(DEFAULTS.mdColWeights.editor, DEFAULTS.mdColWeights.wysiwyg);
+  assert.equal(DEFAULTS.mdColWeights.wysiwyg, DEFAULTS.mdColWeights.preview);
 });
 
 test('font suggestions include a Korean coding font and Consolas', () => {

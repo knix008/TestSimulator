@@ -15,6 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const { createApi, serializeError } = require('../core/api');
+const { serveMedia } = require('../core/mediafile');
 const files = require('../core/files');
 const { listPrinters, printHtml } = require('./print');
 
@@ -138,7 +139,7 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
     'cache-control': 'no-store',
     'content-length': Buffer.byteLength(data),
     'access-control-allow-origin': '*',
-    'access-control-allow-headers': 'content-type, authorization',
+    'access-control-allow-headers': 'content-type, authorization, range',
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-private-network': 'true',
   });
@@ -159,15 +160,19 @@ function readBody(req) {
   });
 }
 
-function authorized(req) {
-  return (req.headers.authorization || '') === `Bearer ${TOKEN}`;
+function authorized(req, url) {
+  if ((req.headers.authorization || '') === `Bearer ${TOKEN}`) return true;
+  return !!(url && url.searchParams.get('token') === TOKEN);
 }
 
 const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(res, 204, '');
   const url = new URL(req.url, 'http://127.0.0.1');
   if (!url.pathname.startsWith('/api/')) return send(res, 404, { ok: false, error: { code: 'ENOTFOUND', message: 'Not found' } });
-  if (!authorized(req)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+  if (!authorized(req, url)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+  if ((req.method === 'GET' || req.method === 'HEAD') && decodeURIComponent(url.pathname.slice('/api/'.length)) === 'file.media') {
+    return serveMedia(req, res, url.searchParams.get('path') || '');
+  }
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: { code: 'METHOD', message: 'POST only' } });
   const name = decodeURIComponent(url.pathname.slice('/api/'.length));
   readBody(req).then((raw) => {
