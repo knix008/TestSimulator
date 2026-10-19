@@ -403,17 +403,21 @@ test('App.jsx keeps picture + Hexa inside each pane, not beside the whole split'
   assert.match(src, /className="pane-media"/);
   assert.match(src, /<ImagePreview fill/);
   assert.match(src, /pd\.imageHex && ensureHexReader\(pd\)/);
-  assert.match(src, /minimap=\{settings\.minimap && !\(pd && \(pd\.langName === 'Markdown' \|\| isBinaryImageName\(pd\.name\)\)\)\}/);
+  assert.match(src, /minimap=\{settings\.minimap && !\(pd && isBinaryImageName\(pd\.name\)\)\}/);
   assert.equal(/isBinaryImage && cur\.imageHex/.test(src), false, 'Hexa must not sit next to the whole panes grid');
   const media = src.slice(src.indexOf('className="pane-media"'));
   assert.match(media, /<HexView /);
-  assert.match(src, /onToggleHex=/);
+  assert.doesNotMatch(src, /onToggleHex=/);
 });
 
-test('ImagePreview fill mode exposes a Hexa toggle on the picture itself', () => {
-  const src = fs.readFileSync(path.join(root, 'src', 'components', 'ImagePreview.jsx'), 'utf8');
-  assert.match(src, /fill && onToggleHex/);
-  assert.match(src, /t\('img_hex'\)/);
+test('a picture keeps a single Hexa button on the bar above it', () => {
+  const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
+  const preview = fs.readFileSync(path.join(root, 'src', 'components', 'ImagePreview.jsx'), 'utf8');
+  assert.match(app, /<ImageBar onAction=\{action\} svg=\{isSvg\} imageHex=\{!!cur\.imageHex\} \/>/);
+  assert.match(preview, /function ImageBar/);
+  assert.match(preview, /t\('img_hex'\)/);
+  assert.doesNotMatch(preview, /fill && onToggleHex/);
+  assert.doesNotMatch(preview, /onToggleHex/);
 });
 
 test('session restore of an already-open image is a picture, not file.read text', () => {

@@ -2,8 +2,8 @@
 // pane (no minimap). HEIC / HEIF / DICOM are decoded first (Chromium cannot
 // draw them). A DICOM with several frames — or a folder of .dcm files in the
 // same series — gets a slider; window/level, invert and a metadata panel sit
-// under the picture. The Hexa button opens a hex dump of the same bytes beside
-// the picture. SVG is still a text document — the source is edited on the left
+// under the picture. Hexa lives on the bar above the picture and opens a hex
+// dump of the same bytes beside it. SVG is still a text document — the source is edited on the left
 // and this pane (Ctrl+Shift+M) draws it as you type. Left click zooms in, right
 // click zooms out; Ctrl+wheel does the same. Drag pans when the picture is
 // larger than the pane. The picture stays centred in the pane after a zoom.
@@ -32,7 +32,7 @@ function picSize(el) {
   return el.naturalWidth || el.width || 0;
 }
 
-export function ImagePreview({ view, docVersion, path, name, mtime, width, fill, imageHex, onToggleHex }) {
+export function ImagePreview({ view, docVersion, path, name, mtime, width, fill }) {
   useLanguage();
   const [src, setSrc] = useState('');
   const [err, setErr] = useState('');
@@ -250,7 +250,7 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill,
   const wlMax = info ? Math.round((info.valueMax ?? 1000) + wlRange / 2) : 1000;
 
   return (
-    <div className={`image-preview${fill ? ' fill' : ''}`} style={fill ? undefined : { width: 'auto' }} tabIndex={0} onKeyDown={onKeyDown}>
+    <div className={`image-preview${fill ? ' fill' : ''}`} style={fill ? undefined : width ? { flex: `0 0 ${width}`, width: 'auto' } : { width: 'auto' }} tabIndex={0} onKeyDown={onKeyDown}>
       <div className={`image-preview-body ${zoomed ? 'zoomed' : 'fit'}${overflow ? ' overflow' : ''}${panning ? ' panning' : ''}`} ref={bodyRef}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}
         onPointerLeave={() => setProbe(null)}
@@ -330,13 +330,6 @@ export function ImagePreview({ view, docVersion, path, name, mtime, width, fill,
         <span>{zoomed ? t('img_pv_zoom', { n: Math.round(scale * 100) }) : t('img_pv_fit_on')}</span>
         {probe && probe.hu != null && <span className="img-hu">{t('img_pv_hu', { n: Math.round(probe.hu) })}</span>}
         {probe && probe.hu == null && Array.isArray(probe.stored) && <span className="img-hu">{probe.stored.join(', ')}</span>}
-        <span className="spacer" />
-        {fill && onToggleHex && (
-          <button type="button" className={`md-btn md-toggle ${imageHex ? 'on' : ''}`} title={t('img_hex_tip')}
-            onMouseDown={(e) => e.preventDefault()} onClick={(e) => { e.stopPropagation(); onToggleHex(); }}>
-            <Icon name="binary" size={14} /><span>{t('img_hex')}</span>
-          </button>
-        )}
       </div>
     </div>
   );

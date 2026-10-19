@@ -17,7 +17,7 @@ import { applyTheme, nextThemeId, themeById, setCustomThemes } from './themes';
 import { SETTINGS_DEFAULTS, pickSettings, toggleBottomPanel, hideBottomPanel, activeBottomTab, mdColWeights, equalMdContent } from './lib/settings';
 import {
   call, isElectron, nativeDialog, setDialogFallback, writeClipboardText, readClipboardText, onOpenFiles, onOsFileDrop, rendererReady, pathForFile,
-  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openPrintWindow, warmPopups, sendSettingsPatch, onSettingsPatch, printHtml,
+  onCloseRequest, replyClose, onWindowFocus, setWindowTitle, windowControl, quitApp, isMac, openPopup, openHelp, openPrintWindow, warmPopups, sendSettingsPatch, onSettingsPatch, printHtml,
 } from './lib/backend';
 import { createState, settingsEffects, languageEffect, readOnlyEffect, commands, searchApi, applySaveTransforms, cursorInfo } from './lib/editor';
 import { detectLanguage, detectLanguageFromText, languageByName, loadLanguage, FEATURED_LANGUAGES, PLAIN } from './lib/languages';
@@ -1159,6 +1159,11 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       if (appInfo && appInfo.platform) hostIsWindows = appInfo.platform === 'win32';
       const s = pickSettings(session);
       settingsRef.current = s; setSettingsState(s);
+      // The running service may still be on the previous default (fully opaque).
+      // Remember 80% and the new session version so a later choice of 0% stays.
+      if ((Number(session.sessionVersion) || 1) < 7 && session.startScreen && session.startScreen.transparency === 0 && s.startScreen.transparency === 80) {
+        call('session.save', { startScreen: s.startScreen, sessionVersion: 7 }).catch(() => {});
+      }
       setLanguage(s.language);
       setCustomThemes(s.customThemes);
       applyTheme(s.theme);
@@ -1167,20 +1172,34 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       setSpellOptions({ codeAll: !!s.spellCodeAll });
       setSidebarWidth(session.sidebarWidth || 240);
       if (session.folder) { try { await call('file.stat', { path: session.folder }); setFolder(session.folder); } catch { /* folder gone: start without one */ } }
+      // The window comes up now; the previous documents open behind it.
+      // Saving the session waits for the restore (bootedRef), so a half-restored
+      // tab list never replaces the saved one.
+      const tabs = s.restoreSession && Array.isArray(session.tabs) ? session.tabs.filter(Boolean) : [];
+      const activeTab = Math.min(Math.max(0, session.activeTab || 0), Math.max(0, tabs.length - 1));
+      if (!tabs.length || s.showStartOnLaunch) setStartOpen(true);
+      setBooted(true);
+      rendererReady();
       // Restore the tabs (files are re-read; unsaved drafts come back dirty).
       // A file that no longer exists is not restored: its tab is dropped, or —
       // when it had unsaved changes — those come back in a new untitled document
       // so nothing is lost. With nothing to restore the editor starts with a new
-      // empty document.
-      const tabs = s.restoreSession && Array.isArray(session.tabs) ? session.tabs : [];
+      // empty document. Every text file is read at once; the tabs still come
+      // back in their old order, and the one that was active is shown as soon
+      // as it is in.
+      const reads = tabs.map((tab) => (tab.path && !isMediaName(tab.name || baseName(tab.path)) && tab.kind !== 'media' && !restoreAsPicture(tab)
+        ? call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }).then((r) => ({ r }), (e) => ({ e }))
+        : null));
       let restored = 0;
+      let shown = false;
       const seen = new Set();
-      await withProgress({ title: t('prog_restore'), message: t('prog_restore_file'), delay: tabs.length > 1 ? 0 : 400 }, async ({ report }) => {
+      if (tabs.length > 1) setMessage(t('prog_restore_file'));
+      {
         for (let i = 0; i < tabs.length; i++) {
+          if (cancelled) return;
           const tab = tabs[i];
-          if (!tab) continue;
           if (tab.path) { const k = pathKey(tab.path); if (seen.has(k)) continue; seen.add(k); }
-          report({ detail: tab.path || tab.name || '', value: tabs.length ? i / tabs.length : 0 });
+          const before = docsRef.current.length;
           try {
             if (tab.path) {
               // Same path as File › Open (`openPath`): a raster goes to openHex
@@ -1198,9 +1217,9 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
                   continue;
                 }
               }
-              let r = null;
-              let readErr = null;
-              try { r = await call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }); } catch (e) { readErr = e; }
+              const read = await (reads[i] || call('file.read', { path: tab.path, encoding: tab.encoding || null, defaultEol: s.defaultEol }).then((x) => ({ r: x }), (e) => ({ e })));
+              const r = read.r || null;
+              const readErr = read.e || null;
               if (!r && readErr && (readErr.code === 'EBINARY' || readErr.code === 'ETOOBIG') && !tab.draft) {
                 const hex = await openPath(tab.path, { activateIt: false, quiet: true });
                 if (hex) { restored++; continue; }
@@ -1219,14 +1238,19 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
               addDoc({ untitledNo: n, name: t('untitled', { n }), encoding: tab.encoding || s.defaultEncoding, eol: tab.eol || s.defaultEol, language: tab.language || null }, tab.draft || '', { activateIt: false, dirty: !!tab.draft, selection: tab.cursor });
               restored++;
             }
-          } catch (e) { console.error('restore failed', e); }
+          } catch (e) { console.error('restore failed', e); } finally {
+            // The first document in, and then the one that was active, is shown right away.
+            const added = docsRef.current.length > before ? docsRef.current[docsRef.current.length - 1] : null;
+            if (added && !cancelled && (!shown || i === activeTab)) { activate(added.id); shown = true; }
+          }
         }
-      });
+      }
       if (cancelled) return;
+      if (tabs.length > 1) setMessage('');
       if (!restored) newUntitled('', { activateIt: false });
       const list = docsRef.current;
       const idx = Math.min(Math.max(0, session.activeTab || 0), list.length - 1);
-      activate(list[idx].id);
+      if (!restored) activate(list[idx].id);
       // The split layout and what each pane showed.
       const mode = s.split || 'none';
       if (mode !== 'none' && Array.isArray(session.paneDocs)) {
@@ -1243,9 +1267,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       }
       bootedRef.current = true;
       if (!restored) setStartOpen(true);
-      setBooted(true);
+      schedulePersist();   // anything changed while the documents were coming in
       if (settingsRef.current.lint) lintAll();
-      rendererReady();
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1588,6 +1611,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       case 'toggleLanguage': changeSettings({ language: getLanguage() === 'ko' ? 'en' : 'ko' }); break;
       case 'settings': case 'about': case 'shortcuts': if (!openPopup(id)) setDialog({ type: id }); break;
       case 'guide': setDialog({ type: 'shortcuts' }); break;
+      case 'openHelp': openHelp(arg || ''); break;
       case 'languagePicker': setDialog({ type: 'language', docId: arg || cur }); break;
       case 'reopenPicker': setDialog({ type: 'encoding', mode: 'reopen' }); break;
       case 'nextTab': case 'prevTab': {
@@ -1693,6 +1717,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       else if (mod && e.key === '-') action('zoomOut');
       else if (mod && e.key === '0') action('zoomReset');
       else if (e.key === 'F11') action('fullscreen');
+      else if (e.key === 'F1') action('openHelp');
       else if (e.key === 'F7') action('toggle:spellCheck');
       else if (e.key === 'F8') action('lintNext');
       else if (e.altKey && e.shiftKey && !mod && (e.key === 'F' || e.key === 'f')) action('formatDoc');
@@ -1903,7 +1928,8 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
       ...EOLS.map((e) => ({ id: `eol:${e}`, icon: 'eol', label: t(`eol_${e}`), checked: !!cur && cur.eol === e, radio: true })),
     ] },
     { id: 'help', label: t('m_help'), labelKey: 'm_help', icon: 'help', items: () => [
-      { id: 'tutorial', icon: 'help', label: t('tut_menu') },
+      { id: 'openHelp', icon: 'help', label: t('help_menu'), shortcut: 'F1' },
+      { id: 'tutorial', icon: 'play', label: t('tut_menu') },
       { id: 'shortcuts', label: t('shortcuts'), icon: 'keyboard' },
       { sep: true },
       { id: 'settings', label: t('settings'), icon: 'settings', shortcut: sc('Ctrl+,') },
@@ -2223,7 +2249,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
                     {panes.length > 1 && p.docId == null && (
                       <div className="pane-empty" onContextMenu={(e) => { e.preventDefault(); openPaneMenu(i, null, { x: e.clientX, y: e.clientY }); }}><Icon name="file" size={26} /><p>{t('pane_empty')}</p><div className="pane-empty-btns"><button className="btn" onClick={(e) => openPaneMenu(i, e.currentTarget)}>{t('pane_pick')}</button><button className="btn" onClick={() => closePane(i)}>{t('pane_close')}</button></div></div>
                     )}
-                    <div className={`pane-body${mdLayout ? ' md-layout' : ''}`} style={mdLayout ? undefined : { '--outline-grow': showOutline ? 1.25 : 0, '--editor-grow': (showHtml || showSvg) ? 0.85 : 1, '--preview-grow': (showHtml || showSvg) ? Math.max(1.35, (settings.mdPreviewWidth || 0.5) * 2.8) : 0 }}>
+                    <div className={`pane-body${mdLayout ? ' md-layout' : ''}`} style={mdLayout ? undefined : { '--outline-grow': showOutline ? 1.25 : 0 }}>
                     {mdLayout ? (
                       <>
                         {showOutline && (
@@ -2275,8 +2301,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
                       <div className="pane-media"
                         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
                         onDrop={(e) => { e.preventDefault(); const files = Array.from(e.dataTransfer.files || []); if (files.length) dropFiles(files, null); }}>
-                        <ImagePreview fill path={pd.path} name={pd.name} mtime={pd.mtime} imageHex={!!pd.imageHex}
-                          onToggleHex={() => { ensureHexReader(pd); patchDoc(pd.id, { imageHex: !pd.imageHex }); }} />
+                        <ImagePreview fill path={pd.path} name={pd.name} mtime={pd.mtime} />
                         {pd.imageHex && ensureHexReader(pd) && (
                           <HexView read={hexRef.current.get(pd.id)} version={pd.mtime} name={pd.name} size={pd.size} fontSize={settings.fontSize}
                             width={`${Math.round((settings.mdPreviewWidth || 0.5) * 100)}%`}
@@ -2314,7 +2339,7 @@ img{max-width:100%;height:auto;page-break-inside:avoid;break-inside:avoid}table{
         </div>
         </div>
         {startOpen && (
-          <StartPage settings={settings} recent={recent} onAction={action} onScreen={(patch) => changeSettings({ startScreen: { ...(settings.startScreen || {}), ...patch } })} />
+          <StartPage settings={settings} recent={recent} onAction={action} onSettings={changeSettings} onScreen={(patch) => changeSettings({ startScreen: { ...(settings.startScreen || {}), ...patch } })} />
         )}
         {tutorialOn && <Tutorial onPlace={onTutorialPlace} onClose={() => setTutorialOn(false)} />}
         {(settings.showTerminal || settings.showLog || settings.showLint) && (

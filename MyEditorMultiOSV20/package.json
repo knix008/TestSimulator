@@ -32,7 +32,7 @@
     "test:lint": "node --test --test-reporter ./test/lint-reporter.mjs test/lint-cases.test.mjs",
     "test:tap": "node --test test/*.test.mjs",
     "free:port": "node scripts/free-port.mjs 5189",
-    "smoke": "node scripts/smoke.mjs",
+    "help:media": "node scripts/make-help-media.mjs",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all"
   },

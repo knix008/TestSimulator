@@ -208,6 +208,13 @@ export function openPopup(kind, tab) {
   if (electron && electron.openPopup && !electron.smoke) { electron.openPopup(kind, tab || ''); return true; }
   return false;
 }
+/** The Help window. The web version opens it as a browser popup of the same page. */
+export function openHelp(chapter = '') {
+  if (openPopup('help', chapter)) return;
+  const url = new URL(window.location.href);
+  url.search = chapter ? `?popup=help&tab=${encodeURIComponent(chapter)}` : '?popup=help';
+  window.open(url.toString(), 'myeditor-help', 'popup,width=1180,height=820');
+}
 export function warmPopups() { if (tauriHost) tauri.warmPopups(); }
 export function openPrintWindow(job) {
   if (tauriHost) { tauri.openPrint(job); return true; }

@@ -87,7 +87,7 @@ test('session defaults keep the three bottom-panel flags off', () => {
   assert.equal(DEFAULTS.showTerminal, false);
   assert.equal(DEFAULTS.showLog, false);
   assert.equal(DEFAULTS.showLint, false);
-  assert.equal(DEFAULTS.sessionVersion, 6);
+  assert.equal(DEFAULTS.sessionVersion, 7);
 });
 
 test('markdown content columns open at the same weight and keep the structure weight', () => {
@@ -106,4 +106,16 @@ test('font suggestions include a Korean coding font and Consolas', () => {
   assert.ok(FONT_SUGGESTIONS.includes('D2Coding'));
   assert.ok(FONT_SUGGESTIONS.includes('Consolas'));
   assert.ok(FONT_SUGGESTIONS.length >= 10);
+});
+
+test('always-show-start-page is off by default and offered in settings and on the start page', async () => {
+  const fs = await import('node:fs');
+  assert.equal(SETTINGS_DEFAULTS.showStartOnLaunch, false);
+  assert.equal(DEFAULTS.showStartOnLaunch, false);
+  assert.equal(pickSettings({ showStartOnLaunch: true }).showStartOnLaunch, true);
+  assert.ok(RESET_KEYS.includes('showStartOnLaunch'));
+  const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+  assert.match(read('../src/dialogs/SettingsDialog.jsx'), /<Check id="showStartOnLaunch"/);
+  assert.match(read('../src/components/StartPage.jsx'), /onSettings\(\{ showStartOnLaunch: e\.target\.checked \}\)/);
+  assert.match(read('../src/App.jsx'), /if \(!tabs\.length \|\| s\.showStartOnLaunch\) setStartOpen\(true\)/);
 });

@@ -93,7 +93,9 @@ export function HtmlPreview({ view, docVersion, base, name, width }) {
   }, [view, docVersion, base]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="html-preview" style={{ width: 'auto' }}>
+    // `width` (the divider's share of the pane) is the preview's own width: the editor takes the rest,
+    // so the divider stays under the mouse while it is dragged.
+    <div className="html-preview" style={width ? { flex: `0 0 ${width}`, width: 'auto' } : { width: 'auto' }}>
       <iframe ref={frameRef} title={name || 'HTML'} sandbox="allow-scripts allow-forms allow-popups allow-modals" srcDoc={html} />
     </div>
   );

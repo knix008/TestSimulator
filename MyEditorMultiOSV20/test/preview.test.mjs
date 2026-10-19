@@ -94,3 +94,17 @@ test('HEIC / DICOM extensions are images; a junk HEIC is refused', async () => {
   await assert.rejects(() => files.dataUrl(p), /HEIC|HEIF|heic/i);
   await assert.rejects(() => files.imagePreview(p), (e) => e.code === 'ENOTHEIC' || /HEIC/i.test(e.message));
 });
+
+// The HTML / SVG preview divider: the drag stores the preview's share of the row
+// (mdPreviewWidth), so the preview must be exactly that wide and the editor must
+// take all the rest — a flex-grow total under 1 leaves part of the row empty and
+// the divider falls behind the mouse.
+test('the HTML / SVG preview is as wide as the divider says, the editor fills the rest', () => {
+  const src = (...p) => fs.readFileSync(path.join(import.meta.dirname, '..', 'src', ...p), 'utf8');
+  assert.match(src('components', 'HtmlPreview.jsx'), /className="html-preview" style=\{width \? \{ flex: `0 0 \$\{width\}`/);
+  assert.match(src('components', 'ImagePreview.jsx'), /width \? \{ flex: `0 0 \$\{width\}`/);
+  const app = src('App.jsx');
+  assert.doesNotMatch(app, /'--editor-grow'/);
+  assert.doesNotMatch(app, /'--preview-grow': \(showHtml/);
+  assert.match(app, /setSettings\(\{ mdPreviewWidth: frac \}\)/);
+});

@@ -342,8 +342,9 @@ pub fn run() {
         .run(|app, event| match event {
             RunEvent::Exit => kill_host(app),
             RunEvent::WindowEvent { label, event: WindowEvent::Destroyed, .. } if label == "main" => {
-                for name in ["settings", "about", "shortcuts", "print"] {
-                    if let Some(win) = app.get_webview_window(name) {
+                // Every popup (settings, about, help, print…) goes with the main window.
+                for (name, win) in app.webview_windows() {
+                    if name != "main" {
                         let _ = win.destroy();
                     }
                 }

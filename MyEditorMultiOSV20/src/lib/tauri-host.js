@@ -16,6 +16,7 @@ const POPUPS = {
   about: { width: 560, height: 340 },
   shortcuts: { width: 1000, height: 780 },
   print: { width: 1100, height: 800, resizable: true },
+  help: { width: 1180, height: 820, resizable: true },
 };
 const POPUP_LABELS = Object.keys(POPUPS);
 const KEEP = new Set(['settings']);

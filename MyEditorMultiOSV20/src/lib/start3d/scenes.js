@@ -3,7 +3,8 @@
 // a frame from three clocks (`draw`): `camera` moves the viewer, `objects` moves
 // packets, carets, tokens and cables, `sky` moves stars and light. Every clock
 // runs at its own speed from Settings.
-import { box, MeshBuilder, seeds, tube } from './meshes.js';
+import { modelMatrix } from './gl.js';
+import { box, MeshBuilder, seeds, solid, tube } from './meshes.js';
 import { TERRAIN } from './terrain.js';
 
 const TAU = Math.PI * 2;
@@ -611,6 +612,57 @@ const SCENES = {
       });
       draw();
       k.points(s.dust, { uCenter: [0, 2.2, 0], uBox: [12, 4, 6], uVel: [0.2, 0.3, 0], uWobble: [0.3, 0.3, 0.3], uWobbleFreq: 0.4, uTime: t.objects, uSize: 0.06, uColorA: accent, uColorB: TYC, uAlpha: 0.7 });
+    },
+  },
+
+  memory: {
+    build(kit, rnd) {
+      const kinds = ['cube', 'ico', 'octa', 'torus', 'tetra'];
+      const solids = kinds.map((kind) => {
+        const b = new MeshBuilder();
+        solid(b, kind, [1, 1, 1], rnd);
+        return kit.mesh(b);
+      });
+      const items = Array.from({ length: 16 }, (_, i) => ({
+        kind: i % kinds.length,
+        orbit: 4 + rnd() * 7,
+        angle: rnd() * TAU,
+        y: 1.4 + rnd() * 3.5,
+        size: 0.7 + rnd() * 0.9,
+        spin: 0.25 + rnd() * 0.45,
+        color: i % SYNTAX.length,
+        phase: rnd() * TAU,
+      }));
+      return { phase: rnd() * TAU, solids, items };
+    },
+    draw(k, s, t, tone) {
+      const { accent } = tone;
+      const env = codeLight(tone, [14, 50]);
+      const { eye } = fly(s, t, 14, 10, 4.5, 0.8);
+      const sky = beginScene(k, tone, t, eye, [0, 2, 0], env, { stars: 0.6, nebula: 0.2 });
+      const draw = () => {
+        for (const item of s.items) {
+          const ang = item.angle + t.objects * 0.08 * (item.orbit < 7 ? 1 : -0.6);
+          const pos = [Math.cos(ang) * item.orbit, item.y + Math.sin(t.objects * 0.5 + item.phase) * 0.35, Math.sin(ang) * item.orbit];
+          modelMatrix(k.model, pos, t.objects * item.spin + item.phase, t.objects * item.spin * 0.6, 0, item.size);
+          k.solid(s.solids[item.kind], {
+            ...light(env),
+            uTint: SYNTAX[item.color],
+            uEmit: 0.28,
+            uRim: mix(accent, [1, 1, 1], 0.45),
+          }, { model: k.model });
+        }
+      };
+      k.beginMirror();
+      k.sky(sky);
+      draw();
+      k.endMirror();
+      k.water({
+        uSpan: 120, uWave: 0, uRipple: 0, uTime: t.objects, uSun: env.sun, uSunColor: [1, 1, 1],
+        uDeep: [0.025, 0.03, 0.05], uShallow: [0.04, 0.045, 0.07], uZenith: sky.uZenith, uHorizon: sky.uHorizon,
+        uFog: env.fog, uFogRange: env.fogRange, uMirror: 0.5, uSpec: 0.35, uShine: 320,
+      });
+      draw();
     },
   },
 };

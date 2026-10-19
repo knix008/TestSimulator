@@ -124,7 +124,8 @@ test('untitled markdown is checked and lint.run forgets cached bins after instal
   assert.match(app, /detectLanguageFromText/);
   assert.match(app, /languageByName\(doc\.langName\)/);
   assert.match(app, /if \(!booted \|\| !settings\.lint\) return/);
-  assert.match(app, /setBooted\(true\);\s*if \(settingsRef\.current\.lint\) lintAll\(\)/);
+  // Once the restored documents are all in (the window itself is up before them).
+  assert.match(app, /bootedRef\.current = true;[\s\S]{0,200}?if \(settingsRef\.current\.lint\) lintAll\(\)/);
   assert.match(app, /scheduleLint\(doc\.id, 0\)/);
   assert.match(app, /\.catch\(\(\) => \{ scheduleLint\(doc\.id, 0\); \}\)/);
   assert.doesNotMatch(app, /Markdown && !doc\.path/);

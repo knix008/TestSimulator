@@ -29,7 +29,10 @@ MyEditorMultiOSV20/
 ├ server/server.js      웹 호스트: dist/ 정적 서빙 + POST /api/<name>
 ├ src/                  React UI (Vite)
 │  ├ App.jsx            문서 모델·탭·열기/저장/닫기·세션 복원·메뉴·단축키·대화상자 흐름·인쇄 HTML 생성
-│  ├ PopupWindow.jsx    별도 창 페이지(설정·정보·단축키): 세션 읽기, settings:patch 로 창 간 동기화
+│  ├ PopupWindow.jsx    별도 창 페이지(설정·정보·단축키·도움말·인쇄): 세션 읽기, settings:patch 로 창 간 동기화
+│  ├ help/              도움말 본문(ko/ · en/ NN-장.md — 같은 번호가 같은 장, 첫 # 줄이 제목 · ## 이 절)과 스크린샷(images/ko · images/en) — Vite 가 번들에 넣음
+│  ├ components/HelpWindow.jsx  도움말 창: 장·절 목록, 검색(본문 <mark>), 이전/다음
+│  ├ components/StartScreenControls.jsx  시작 화면 배경 컨트롤(장면·투명도·속도) — 시작 화면과 설정 › 시작 화면이 같이 씀
 │  ├ lib/editor.js      CodeMirror 확장 세트, Compartment, 테마(CSS 변수), 검색 API, 편집 명령
 │  ├ lib/indentguides.js 탭 크기마다 세로 안내선 (현재 줄의 들여쓰기 강조)
 │  ├ lib/languages.js   @codemirror/language-data 150+ 언어 지연 로드, 확장자 판별
@@ -51,7 +54,7 @@ MyEditorMultiOSV20/
 │  ├ lib/termtext.js    터미널 출력의 CR 처리(덮어쓰기/줄 바꿈/제거)
 │  ├ components/        MenuBar · Toolbar · TabBar · EditorPane · FindBar · MarkdownBar · Preview · HtmlPreview · ImagePreview(래스터·HEIC·DICOM 슬라이더·윈도우/레벨) · Prompt · Sidebar · SearchPanel · TerminalPanel · FontPicker · StatusBar · ContextMenu · Icons
 │  └ dialogs/           Dialogs(확인·오류·정보·줄 이동·프롬프트·언어·인코딩·단축키) · SettingsDialog(일반·테마·터미널·정렬·검사·인쇄) · PromptEditor(프리셋·사용자 정의·간단/고급 편집) · FileDialog(웹) · PrintPreviewDialog(인쇄 미리보기)
-├ scripts/              free-port · generate-icons · sync-tauri-icons · stage-tauri-sidecar · build-info · smoke · clean …
+├ scripts/              free-port · generate-icons · sync-tauri-icons · stage-tauri-sidecar · build-info · make-help-media(+tutorial-video) · clean …
 ├ test/                 단위 테스트 (npm test, 결과 문구는 영어)
 └ build/icons/          assets/icon.svg 에서 생성. Tauri 아이콘은 src-tauri/icons/ 로 복사
 ```
@@ -98,7 +101,7 @@ MyEditorMultiOSV20/
 ## 3. 테스트
 
 - `npm test` — 단위 테스트. 결과 표의 문구는 영어입니다.
-- `npm run smoke` — 개발 서버의 UI 를 `window.__med` 훅으로 실행하고 `.smoke/*.png` 를 남깁니다. 시나리오마다 별도 프로필을 씁니다.
+- `npm run help:media` — 웹 빌드를 헤드리스 Edge/Chrome 에서 `window.__med` 훅으로 조작해 `src/help/images/*.png` 와 `tutorial-all.mp4` 를 만듭니다. 장면마다 새 샘플 폴더·세션을 씁니다.
 
 ## 4. 빌드 · 패키징
 

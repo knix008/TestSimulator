@@ -35,6 +35,7 @@ const DEFAULTS = {
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
+  showStartOnLaunch: false,
   autoSave: 'off',         // off | blur | delay
   autoSaveDelay: 5,        // seconds after the last edit (autoSave = delay)
   reloadChangedFiles: true,
@@ -73,7 +74,7 @@ const DEFAULTS = {
   showLint: false,         // toolbar Problems
   bottomTab: 'terminal',   // which of the open bottom tabs is in front
   termHeight: 195,         // ~8 output lines (12.5px × 1.45) + header, splitter, padding
-  sessionVersion: 6,       // see the migrations in load()
+  sessionVersion: 7,       // see the migrations in load()
   termCwd: '',             // where new terminals start; '' = the folder open in the sidebar (else the document's folder)
   termShell: '',           // shell of a new terminal (id from term.shells); '' = the first one offered
   termColor: true,         // terminal output in colour (ANSI + error / warning / link highlighting); false = plain
@@ -106,7 +107,7 @@ const DEFAULTS = {
   activeTab: 0,
   recent: [],        // most recent first, absolute paths
   themeBg: '#12161c',
-  startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
+  startScreen: { scene: 'terminal', transparency: 80, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
 };
 
 const MAX_RECENT = 12;
@@ -150,7 +151,13 @@ function createSession(configDir) {
         data.showLint = false;
       }
     }
+    let migratedStart = false;
+    if (savedVersion < 7 && data.startScreen && typeof data.startScreen === 'object' && data.startScreen.transparency === 0) {
+      data.startScreen = { ...data.startScreen, transparency: DEFAULTS.startScreen.transparency };
+      migratedStart = true;
+    }
     data.sessionVersion = DEFAULTS.sessionVersion;
+    if (migratedStart) write();
     return data;
   }
 

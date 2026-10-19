@@ -5,8 +5,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { StartBackground } from '../lib/startbg';
-import { CHANNEL_MAX, START_SCENE_IDS, START_SPEED_CHANNELS, startSceneId } from '../lib/startscenes';
 import { Icon } from './Icons';
+import { StartScreenControls, screenOf } from './StartScreenControls';
 
 const TIP_COUNT = 7;
 const BEGIN = [
@@ -37,50 +37,6 @@ function fileLabel(path) {
   return parts[parts.length - 1] || path;
 }
 
-function screenOf(settings) {
-  return settings.startScreen && typeof settings.startScreen === 'object' ? settings.startScreen : {};
-}
-
-function percent(value, fallback, max) {
-  if (value == null || value === '') return fallback;
-  const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.min(max, n));
-}
-
-function SpeedRow({ id, label, value, max, step, onChange }) {
-  const track = useRef(null);
-  const setFrom = (clientX) => {
-    const rect = track.current.getBoundingClientRect();
-    const ratio = rect.width ? (clientX - rect.left) / rect.width : 0;
-    const raw = Math.max(0, Math.min(1, ratio)) * max;
-    onChange(Math.max(0, Math.min(max, Math.round(raw / step) * step)));
-  };
-  const ratio = `${(value / max) * 100}%`;
-  return (
-    <div className="start-speed" data-speed={id}>
-      <span className="start-speed-label">{label}</span>
-      <div className="start-speed-control">
-        <button type="button" className="start-speed-step" aria-label={`${label} ${t('start_speed_down')}`} title={t('start_speed_down')} disabled={value <= 0} onClick={() => onChange(Math.max(0, value - step))}>−</button>
-        <div className="start-speed-track" ref={track} role="slider" tabIndex={0} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-label={label}
-          onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setFrom(e.clientX); }}
-          onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setFrom(e.clientX); }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); onChange(Math.max(0, value - step)); }
-            else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); onChange(Math.min(max, value + step)); }
-            else if (e.key === 'Home') { e.preventDefault(); onChange(0); }
-            else if (e.key === 'End') { e.preventDefault(); onChange(max); }
-          }}>
-          <span className="start-speed-fill" style={{ width: ratio }} />
-          <span className="start-speed-thumb" style={{ left: ratio }} />
-          <span className="start-speed-value">{value}%</span>
-        </div>
-        <button type="button" className="start-speed-step" aria-label={`${label} ${t('start_speed_up')}`} title={t('start_speed_up')} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>+</button>
-      </div>
-    </div>
-  );
-}
-
 function TipCard() {
   useLanguage();
   const index = Math.floor(Date.now() / 86400000) % TIP_COUNT;
@@ -97,14 +53,12 @@ function TipCard() {
   );
 }
 
-export function StartPage({ settings, recent, onAction, onScreen }) {
+export function StartPage({ settings, recent, onAction, onSettings, onScreen }) {
   useLanguage();
   const host = useRef(null);
   const bg = useRef(null);
   const screenRef = useRef(screenOf(settings));
   screenRef.current = screenOf(settings);
-  const screen = screenRef.current;
-  const scene = startSceneId(screen.scene);
 
   useEffect(() => {
     const picture = new StartBackground(host.current, () => screenRef.current);
@@ -113,12 +67,6 @@ export function StartPage({ settings, recent, onAction, onScreen }) {
     return () => { picture.hide(); bg.current = null; };
   }, []);
   useEffect(() => { bg.current?.refresh(); }, [settings.startScreen]);
-
-  const speeds = [
-    ['transparency', t('start_transparency'), percent(screen.transparency, 0, 100), 100, 5],
-    ['motion', t('start_motion'), percent(screen.motion, 20, 100), 100, 5],
-    ...START_SPEED_CHANNELS.map((ch) => [ch.key, t(ch.key === 'cameraSpeed' ? 'start_speed_camera' : ch.key === 'objectSpeed' ? 'start_speed_objects' : 'start_speed_sky'), percent(screen[ch.key], 100, CHANNEL_MAX), CHANNEL_MAX, 10]),
-  ];
 
   return (
     <div className="start-page">
@@ -143,6 +91,10 @@ export function StartPage({ settings, recent, onAction, onScreen }) {
                   </button>
                 ))}
               </div>
+              <label className="check start-always">
+                <input type="checkbox" checked={!!settings.showStartOnLaunch} onChange={(e) => onSettings({ showStartOnLaunch: e.target.checked })} />
+                <span>{t('set_start_always')}</span>
+              </label>
             </section>
             <section className="start-group" data-group="tasks">
               <h2><Icon name="grid" size={16} /><span>{t('start_tasks')}</span></h2>
@@ -154,6 +106,10 @@ export function StartPage({ settings, recent, onAction, onScreen }) {
                   </button>
                 ))}
               </div>
+              <button type="button" className="action-card start-help" id="start-help" title={t('help_open')} onClick={() => onAction('openHelp')}>
+                <span className="action-icon"><Icon name="help" size={18} /></span>
+                <span className="action-text"><b>{t('help_open')}</b><small>{t('start_help_text')}</small></span>
+              </button>
             </section>
             <section className="start-group" data-group="recent">
               <h2><Icon name="clock" size={16} /><span>{t('start_recent')}</span></h2>
@@ -170,19 +126,7 @@ export function StartPage({ settings, recent, onAction, onScreen }) {
             </section>
             <section className="start-group" data-group="scenes">
               <h2><Icon name="fileImage" size={16} /><span>{t('start_background')}</span></h2>
-              <div className="start-scenes">
-                {START_SCENE_IDS.map((id) => (
-                  <button key={id} type="button" className={`start-scene${scene === id ? ' on' : ''}`} data-scene={id} aria-pressed={scene === id ? 'true' : 'false'} onClick={() => onScreen({ scene: id })}>{t(`start_scene_${id}`)}</button>
-                ))}
-              </div>
-              <div className="start-speeds">
-                <div className="start-speed-list">
-                  {speeds.map(([key, label, value, max, step]) => (
-                    <SpeedRow key={key} id={key} label={label} value={value} max={max} step={step} onChange={(n) => onScreen({ [key]: n })} />
-                  ))}
-                </div>
-                <button type="button" className="start-speed-reset" onClick={() => onScreen({ motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 })}>{t('start_speed_reset')}</button>
-              </div>
+              <StartScreenControls settings={settings} onScreen={onScreen} />
             </section>
           </div>
         </div>

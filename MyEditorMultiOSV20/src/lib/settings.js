@@ -27,6 +27,7 @@ export const SETTINGS_DEFAULTS = {
   trimTrailingOnSave: false,
   finalNewlineOnSave: false,
   restoreSession: true,
+  showStartOnLaunch: false,   // open the start page on every launch, even when tabs were restored
   autoSave: 'off',         // save edited files by itself: off | blur (when the window loses the focus) | delay (autoSaveDelay seconds after the last edit)
   autoSaveDelay: 5,
   reloadChangedFiles: true,
@@ -87,7 +88,7 @@ export const SETTINGS_DEFAULTS = {
   printPaper: 'a4',        // a4 · letter · legal · a5
   printLandscape: false,   // page orientation
   printMargin: 12,         // page margin in mm
-  startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
+  startScreen: { scene: 'terminal', transparency: 80, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
@@ -98,7 +99,7 @@ export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
 export const RESET_KEYS = [
   'theme', 'fontFamily', 'fontSize', 'lineHeight', 'autoSave', 'autoSaveDelay', 'defaultLanguage', 'treeShowHidden', 'tabSize', 'insertSpaces', 'wordWrap', 'lineNumbers', 'showWhitespace', 'indentGuides', 'highlightActiveLine',
   'autoCloseBrackets', 'bracketMatching', 'foldGutter', 'minimap', 'defaultEncoding', 'defaultEol', 'eolOnSave', 'trimTrailingOnSave', 'finalNewlineOnSave',
-  'restoreSession', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
+  'restoreSession', 'showStartOnLaunch', 'reloadChangedFiles', 'confirmClose', 'mdWysiwyg', 'spellCheck', 'spellCodeAll', 'autoIndent', 'lint', 'autocomplete',
   'formatters', 'linters', 'formatOnSave', 'termCwd', 'termShell', 'termColor', 'termEol', 'termCr', 'prompt',
   'printHeader', 'printLineNumbers', 'printBorder', 'printPageNumbers', 'printDate',
   'printSyntax', 'printColor', 'printZebra', 'printGutter', 'printWrap', 'printFontSize', 'printLineHeight',
@@ -156,6 +157,13 @@ export function pickSettings(obj) {
   const out = {};
   for (const k of SETTING_KEYS) out[k] = obj && obj[k] !== undefined && obj[k] !== null ? obj[k] : SETTINGS_DEFAULTS[k];   // null (the session's "unset" prompt) takes the default too
   if (out.termHeight === 75) out.termHeight = SETTINGS_DEFAULTS.termHeight;   // previous default: too short for eight lines
+  if (out.startScreen && typeof out.startScreen === 'object') {
+    const screen = { ...SETTINGS_DEFAULTS.startScreen, ...out.startScreen };
+    // v7: the background starts at 80% transparency. A saved 0 is the previous default.
+    const version = obj && obj.sessionVersion != null ? Number(obj.sessionVersion) || 1 : 1;
+    if (version < 7 && screen.transparency === 0) screen.transparency = SETTINGS_DEFAULTS.startScreen.transparency;
+    out.startScreen = screen;
+  }
   if (obj && obj.showTerminal == null && obj.showLog == null && obj.showLint == null) {
     if (obj.termVisible) {
       const tab = obj.bottomTab || 'terminal';

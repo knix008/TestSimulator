@@ -147,6 +147,22 @@ test('encoding: one NUL in a source file is still text; real binaries are not', 
   assert.equal(enc.decode(Buffer.from('hello world\n', 'utf16le')).encoding, 'utf16le', 'UTF-16 without BOM is still sniffed first');
 });
 
+test('session: a saved fully opaque background becomes the 80% default once', () => {
+  const dir = path.join(tmp, 'cfg-transparency');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'session.json'), JSON.stringify({
+    sessionVersion: 6,
+    startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 },
+  }));
+  const s = createSession(dir);
+  assert.equal(s.get().startScreen.transparency, 80);
+  assert.equal(s.get().sessionVersion, 7);
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, 'session.json'), 'utf8'));
+  assert.equal(saved.startScreen.transparency, 80);
+  s.save({ startScreen: { ...s.get().startScreen, transparency: 0 } });
+  assert.equal(createSession(dir).get().startScreen.transparency, 0);
+});
+
 test('session: terminal / theme / preview defaults', () => {
   const s = createSession(path.join(tmp, 'cfg3')).get();
   assert.equal(s.termEol, 'auto');

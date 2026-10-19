@@ -5,7 +5,7 @@
 export const START_SCENE_IDS = [
   'terminal', 'coderain', 'circuit', 'racks', 'git', 'tokens', 'binary', 'keyboard', 'chip',
   'network', 'stack', 'ast', 'debug', 'containers', 'fiber', 'hex', 'pipeline', 'repo', 'api',
-  'glyphs',
+  'glyphs', 'memory',
 ];
 
 const LEGACY_SPEED = { off: 0, slow: 20, medium: 55, fast: 100 };
@@ -61,10 +61,10 @@ export function startRates(screen = {}) {
   return out;
 }
 
-/** How see-through the background is, 0 (fully shown) through 100 (only the theme colour). */
+/** How see-through the background is, 0 (fully shown) through 100 (only the theme colour). A missing value is the 80% default. */
 export function startTransparency(value) {
   const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) return 0;
+  if (!Number.isFinite(n)) return 80;
   return Math.max(0, Math.min(100, n));
 }
 

@@ -21,8 +21,7 @@ public/icon.svg
 *.snap
 *.zip
 
-# ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
-.smoke/
+# ── Generated previews / logs ──
 .icons-preview.png
 .npm-install.log
 

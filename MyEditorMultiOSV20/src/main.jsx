@@ -13,7 +13,7 @@ startDesktop();
 // page instead — the session brings the tabs back.
 if (import.meta.hot) import.meta.hot.on('vite:beforeUpdate', () => window.location.reload());
 
-// ?popup=settings|about|shortcuts|print — the page is one of the separate windows.
+// ?popup=settings|about|shortcuts|help|print — the page is one of the separate windows.
 const popup = new URLSearchParams(window.location.search).get('popup');
 const popupTab = new URLSearchParams(window.location.search).get('tab') || '';
 createRoot(document.getElementById('root')).render(

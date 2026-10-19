@@ -10,6 +10,8 @@
 
 ## 주요 기능
 
+- **시작 화면**: 시작하기 · 할 수 있는 일 · **사용법 보기** · 최근 파일 · 오늘의 팁 · 배경 효과. 창이 먼저 뜨고 이전 문서는 뒤에서 열립니다. "시작 시 항상 시작 화면 보기" 와 배경은 설정 › **시작 화면** 탭에서도 바꿉니다
+- **도움말 창**(도움말 › 도움말, F1, 시작 화면의 사용법 보기): 19개 장에 걸친 모든 기능의 자세한 설명과 실행 화면(한국어 · 영어 — UI 언어를 따름), 장·절 목록, 검색, 이전/다음 — 별도 창으로 열립니다
 - **여러 문서를 탭**으로 편집 — 드래그로 순서 변경, 가운데 클릭으로 닫기, 탭이 화면 폭을 넘으면 우측 `<` `>` 버튼으로 이동(스크롤바 없음)
 - **구문 강조 150+ 언어**(확장자로 자동 판별, 언어 메뉴·상태 표시줄에서 변경) — 문법은 처음 쓸 때 지연 로드
 - **찾기 / 바꾸기**(Ctrl+F / Ctrl+H): 대/소문자, 단어 단위, 정규식, 일치 개수와 위치, 모두 선택 / 모두 바꾸기
@@ -70,12 +72,22 @@ npm run build:mac     # macOS   → .app, .dmg       ※ macOS 에서 실행
 
 `samples/` 에 지원 형식별 예제(코드 18종, 웹, 데이터/설정, 텍스트·Markdown·스펠링, 인코딩 7종, 줄 끝 4종, 이미지 PNG·JPEG·GIF·WebP·AVIF·DICOM 등)가 있습니다. 파일 › 폴더 열기로 `samples` 를 열어 보세요. `node scripts/make-samples.mjs` 로 다시 생성합니다.
 
+## 도움말 화면과 튜토리얼 영상
+
+```bash
+npm run build && npm run help:media      # 도움말 스크린샷(src/help/images) + 전체 튜토리얼 영상(tutorial-all.mp4)
+node scripts/make-help-media.mjs --shots  # 한국어 스크린샷만   (--only find,replace 로 일부만)
+node scripts/make-help-media.mjs --shots --lang en  # 영어 도움말 스크린샷 (영어 UI)
+node scripts/make-help-media.mjs --video  # 영상만 (ffmpeg 필요)
+```
+
+웹 빌드를 임시 샘플 폴더와 함께 띄우고 헤드리스 Edge/Chrome 으로 실제 화면을 조작해 찍습니다. 도움말 본문은 `src/help/ko/*.md`(한국어) · `src/help/en/*.md`(영어)이고, 스크린샷은 `src/help/images/<언어>/` 입니다. UI 언어에 따라 그 언어의 도움말이 보입니다.
+
 ## 테스트
 
 ```bash
 npm test                          # 코어: 인코딩·줄 끝·파일 읽기/쓰기·세션·API·인쇄·미리보기 (DICOM/HEIC)
-npm run build && npm run smoke    # 데스크톱 + 웹 스모크: 실제 창에서 편집·저장·찾기 후 .smoke/*.png 스크린샷
-npm run smoke -- --scenario all   # 모든 시나리오(메뉴·대화상자·테마·탭 오버플로·Markdown…)
+npm run build && npm run help:media   # 실제 화면을 조작해 도움말 스크린샷·튜토리얼 영상을 다시 만듦 (눈으로 확인)
 ```
 
 ## 데이터 위치

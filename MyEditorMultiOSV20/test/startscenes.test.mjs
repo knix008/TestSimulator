@@ -8,7 +8,8 @@ import { SETTINGS_DEFAULTS, pickSettings } from '../src/lib/settings.js';
 import { SCENE_IDS } from '../src/lib/start3d/scenes.js';
 
 test('start scenes keep the designed set and an unknown id falls back to the terminal', () => {
-  assert.equal(START_SCENE_IDS.length, 20);
+  assert.equal(START_SCENE_IDS.length, 21);
+  assert.equal(startSceneId('memory'), 'memory');
   assert.equal(startSceneId('coderain'), 'coderain');
   assert.equal(startSceneId('editor'), 'terminal');
   assert.equal(startSceneId('nope'), 'terminal');
@@ -22,6 +23,7 @@ test('start speeds scale the three clocks and a still picture is detected', () =
   assert.equal(startSpeedPercent(0), 0);
   assert.equal(channelPercent(undefined), 100);
   assert.equal(startTransparency(140), 100);
+  assert.equal(startTransparency(undefined), 80);
   const rates = startRates({ motion: 20, cameraSpeed: 100, objectSpeed: 0, skySpeed: 200 });
   assert.equal(rates.camera, 1);
   assert.equal(rates.objects, 0);
@@ -35,4 +37,9 @@ test('the editor default start screen is the terminal at the designed pace', () 
   assert.deepEqual(screen, SETTINGS_DEFAULTS.startScreen);
   assert.equal(screen.scene, 'terminal');
   assert.equal(screen.motion, 20);
+  assert.equal(screen.transparency, 80);
+  const kept = pickSettings({ sessionVersion: 7, startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 } }).startScreen;
+  assert.equal(kept.transparency, 0);
+  const moved = pickSettings({ sessionVersion: 6, startScreen: { scene: 'terminal', transparency: 0, motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100 } }).startScreen;
+  assert.equal(moved.transparency, 80);
 });

@@ -8,6 +8,7 @@ import { THEMES, themeById, baseColorsOf, setCustomThemes, CUSTOM_COLOR_KEYS } f
 import { PromptEditor } from './PromptEditor';
 import { FontPicker } from '../components/FontPicker';
 import { Icon } from '../components/Icons';
+import { StartScreenControls, screenOf } from '../components/StartScreenControls';
 import { Dialog, ConfirmDialog } from './Dialogs';
 import { InstallDialog } from './InstallDialog';
 import { isElectron, nativeDialog, call } from '../lib/backend';
@@ -90,7 +91,7 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
   const [tab, setTab] = useState((initialTab || 'general').split(':')[0]);
   useEffect(() => { if (initialTab) setTab(initialTab.split(':')[0]); }, [initialTab]);   // "tab:stamp" — asked for again while open
   const lang = getLanguage();
-  const tabs = [['general', t('set_general')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')], ['lint', t('set_lint_tab')], ['print', t('set_print')]];
+  const tabs = [['general', t('set_general')], ['start', t('set_start_tab')], ['theme', t('set_theme')], ['terminal', t('set_terminal')], ['format', t('set_format')], ['lint', t('set_lint_tab')], ['print', t('set_print')]];
   // ── custom themes (settings › theme) ──
   const customList = (settings.customThemes || []).map((c) => ({ ...c, tokens: themeById(c.id).tokens, custom: true, labelEn: c.label }));
   const customCur = (settings.customThemes || []).find((c) => c.id === settings.theme) || null;
@@ -336,6 +337,19 @@ export function SettingsDialog({ settings, encodings, shells = [], formatDir = '
             <Check id="lint" label={t('set_lint')} settings={settings} onChange={onChange} />
             </div></fieldset>
           </div>
+        </div>
+      )}
+      {tab === 'start' && (
+        <div className="settings-start">
+          <fieldset className="settings-group">
+            <legend>{t('set_grp_start_launch')}</legend>
+            <Check id="showStartOnLaunch" label={t('set_start_always')} settings={settings} onChange={onChange} />
+            <p className="muted small settings-hint">{t('set_start_always_hint')}</p>
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>{t('start_background')}</legend>
+            <StartScreenControls settings={settings} onScreen={(patch) => onChange({ startScreen: { ...screenOf(settings), ...patch } })} />
+          </fieldset>
         </div>
       )}
       {tab === 'theme' && (<>
