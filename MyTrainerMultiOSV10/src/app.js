@@ -566,7 +566,6 @@ const api = {
   dataError: () => state.dataError,
   task: () => state.task,
   run: () => state.run,
-  view: () => state.view,
   liveState: () => state.live,
   visual: () => state.visual,
   evaluation: () => state.evaluation,

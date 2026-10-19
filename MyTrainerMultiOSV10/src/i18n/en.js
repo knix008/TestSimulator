@@ -412,7 +412,7 @@ export default {
   'train.monitor.acc': "Training accuracy",
   'train.minDelta': "Minimum improvement",
   'train.minDeltaTip': "Smaller changes do not count as improving.",
-  'train.restoreBest': "Restore the best weights",
+  'train.restoreBest': "Restore best weights",
   'train.restoreBestTip': "At the end, go back to the weights of the epoch where the watched figure was best.",
   'train.shuffle': "Shuffle every epoch",
   'train.shuffleTip': "The batch order changes every epoch (usually on).",

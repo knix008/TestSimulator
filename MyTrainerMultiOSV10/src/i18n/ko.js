@@ -426,7 +426,7 @@ export default {
   'train.monitor.acc': "학습 정확도",
   'train.minDelta': "최소 개선폭",
   'train.minDeltaTip': "이만큼 이상 좋아져야 개선으로 칩니다.",
-  'train.restoreBest': "가장 좋았던 가중치로 되돌리기",
+  'train.restoreBest': "최고 가중치 복원",
   'train.restoreBestTip': "학습이 끝나면 기준값이 가장 좋았던 에포크의 가중치로 되돌립니다.",
   'train.shuffle': "에포크마다 섞기",
   'train.shuffleTip': "배치 순서를 매 에포크 섞습니다(보통 켜 둡니다).",

@@ -34,7 +34,7 @@ function advancedHtml(app, { row, step, busy }) {
   }
   rows.push(row(t('train.shuffle'), check('shuffle'), t('train.shuffleTip')));
   if (app.task()?.kind === 'classification') rows.push(row(t('train.labelSmoothing'), choose('labelSmoothing', [0, 0.05, 0.1, 0.15, 0.2]), t('train.labelSmoothingTip')));
-  return `<details class="panel-section advanced-train" ${app.view().trainAdvanced ? 'open' : ''}><summary data-train-advanced>${icon('tune')}<span>${escapeHtml(t('train.advanced'))}</span></summary>
+  return `<details class="panel-section advanced-train" ${app.view.trainAdvanced ? 'open' : ''}><summary data-train-advanced>${icon('tune')}<span>${escapeHtml(t('train.advanced'))}</span></summary>
     ${rows.join('')}
     <p class="muted small">${escapeHtml(t('train.advancedHint'))}</p></details>`;
 }
