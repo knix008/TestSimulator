@@ -44,6 +44,7 @@ function attribute(w, name, value) {
   else if (value?.f != null) { w.float(2, value.f); w.int(20, 1); }
   else if (typeof value === 'string') { w.string(4, value); w.int(20, 3); }
   else if (value?.floats) { for (const f of value.floats) w.float(7, f); w.int(20, 6); }
+  else if (value?.strings) { for (const text of value.strings) w.string(9, text); w.int(20, 8); }
   else if (Array.isArray(value)) { for (const i of value) w.int(8, i); w.int(20, 7); }
 }
 
@@ -268,7 +269,7 @@ export function generateOnnx({ project, prepared, weights, rawShape = null }) {
         if (node.type === 'simpleRnn') {
           const names = { tanh: 'Tanh', relu: 'Relu', sigmoid: 'Sigmoid', softsign: 'Softsign', softplus: 'Softplus', elu: 'Elu', hardSigmoid: 'HardSigmoid', linear: 'Affine' };
           if (!names[p.activation]) errors.push(`${node.name}: RNN activation ${p.activation}`);
-          attrs.activations = [names[p.activation] ?? 'Tanh'];
+          attrs.activations = { strings: [names[p.activation] ?? 'Tanh'] };
           if (p.activation === 'linear') { attrs.activation_alpha = { floats: [1] }; attrs.activation_beta = { floats: [0] }; }
           if (p.activation === 'hardSigmoid') { attrs.activation_alpha = { floats: [0.2] }; attrs.activation_beta = { floats: [0.5] }; }
         }

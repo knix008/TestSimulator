@@ -566,6 +566,7 @@ const api = {
   dataError: () => state.dataError,
   task: () => state.task,
   run: () => state.run,
+  view: () => state.view,
   liveState: () => state.live,
   visual: () => state.visual,
   evaluation: () => state.evaluation,
@@ -1813,6 +1814,7 @@ function bindShell() {
     if (start) { startAction(start.dataset.start, start.dataset.value); return; }
     const trainBtn = target.closest('[data-train-action]');
     if (trainBtn && !trainBtn.disabled) { trainAction(trainBtn.dataset.trainAction); return; }
+    if (target.closest('[data-train-advanced]')) { state.view.trainAdvanced = !target.closest('details').open; return; }
     const variantBtn = target.closest('[data-variant]');
     if (variantBtn && !variantBtn.disabled) { switchVariant(variantBtn.dataset.variant); return; }
     const engineBtn = target.closest('[data-engine]');
@@ -1915,10 +1917,11 @@ function bindShell() {
       state.project.dataset.steps[Number(target.dataset.stepToggle)].enabled = target.checked; commit('data', { data: true });
     } else if (target.matches('[data-train]')) {
       const key = target.dataset.train;
-      const value = target.type === 'checkbox' ? target.checked : ['learningRate', 'weightDecay'].includes(key) ? Number(target.value) : target.value;
+      const value = target.type === 'checkbox' ? target.checked : ['learningRate', 'weightDecay', 'epsilon', 'minLearningRate', 'minDelta', 'labelSmoothing'].includes(key) ? Number(target.value) : target.value;
       state.project.train = cleanTrain({ ...state.project.train, [key]: value });
       commit('train', { render: false });
-      if (key === 'earlyStop') renderCenter();
+      // The advanced rows follow the optimizer, the schedule and early stopping; a clamped value is shown as kept.
+      if (['earlyStop', 'optimizer', 'schedule', 'learningRate'].includes(key)) renderCenter();
     } else if (target.matches('[data-setting]')) {
       const key = target.dataset.setting;
       updateSettings({ [key]: target.type === 'checkbox' ? target.checked : key === 'maxNeurons' ? Number(target.value) : target.value }, { quiet: true });

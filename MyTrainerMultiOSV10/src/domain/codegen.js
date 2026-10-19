@@ -11,7 +11,7 @@ import { incoming, inferShapes, lastActivation, nodeById, outputNodes, topoOrder
 import { parseShape } from './layers.js';
 import { resolveLoss } from './project.js';
 
-const PY_BUILTINS = new Set(['input', 'sum', 'max', 'min', 'list', 'dict', 'type', 'id', 'len', 'map', 'filter', 'range', 'iter', 'next', 'object', 'str', 'int', 'float', 'bool', 'set', 'tuple', 'print', 'format', 'hash', 'abs', 'all', 'any', 'zip', 'out', 'loss', 'epoch', 'logs', 'optimizer', 'scheduler', 'device', 'xb', 'yb']);
+const PY_BUILTINS = new Set(['input', 'sum', 'max', 'min', 'list', 'dict', 'type', 'id', 'len', 'map', 'filter', 'range', 'iter', 'next', 'object', 'str', 'int', 'float', 'bool', 'set', 'tuple', 'print', 'format', 'hash', 'abs', 'all', 'any', 'zip', 'out', 'loss', 'epoch', 'logs', 'optimizer', 'scheduler', 'device', 'xb', 'yb', 'copy', 'math', 'learning_rate', 'monitor', 'value', 'watched', 'best_state', 'group']);
 const varName = (name) => (PY_BUILTINS.has(name) ? `${name}_` : name);
 const pyNumber = (value) => (Number.isInteger(value) ? String(value) : String(Number(value.toPrecision(8))));
 const pyBool = (value) => (value ? 'True' : 'False');
@@ -283,7 +283,9 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   const classification = task?.kind === 'classification';
   const binary = classification && task.classes === 2 && task.binaryOutput === 1;
   const lossLine = {
-    categoricalCrossentropy: last === 'softmax' ? 'lambda out, y: F.nll_loss(torch.log(out.clamp_min(1e-7)), y)  # the model already ends with softmax' : 'nn.CrossEntropyLoss()',
+    categoricalCrossentropy: train.labelSmoothing > 0
+      ? (last === 'softmax' ? `lambda out, y: -(((1 - ${pyNumber(train.labelSmoothing)}) * F.one_hot(y, out.shape[1]) + ${pyNumber(train.labelSmoothing)} / out.shape[1]) * torch.log(out.clamp_min(1e-7))).sum(1).mean()  # label smoothing` : `nn.CrossEntropyLoss(label_smoothing=${pyNumber(train.labelSmoothing)})`)
+      : last === 'softmax' ? 'lambda out, y: F.nll_loss(torch.log(out.clamp_min(1e-7)), y)  # the model already ends with softmax' : 'nn.CrossEntropyLoss()',
     binaryCrossentropy: last === 'sigmoid' ? 'nn.BCELoss()' : 'nn.BCEWithLogitsLoss()',
     meanAbsoluteError: 'nn.L1Loss()',
     huber: 'nn.HuberLoss(delta=1.0)',
@@ -291,18 +293,13 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   }[loss] ?? 'nn.MSELoss()';
   const optimizerLine = {
     sgd: 'torch.optim.SGD(model.parameters(), lr=lr, weight_decay=wd)',
-    momentum: 'torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=wd)',
-    rmsprop: 'torch.optim.RMSprop(model.parameters(), lr=lr, weight_decay=wd)',
+    momentum: 'torch.optim.SGD(model.parameters(), lr=lr, momentum=CONFIG["momentum"], nesterov=CONFIG["nesterov"], weight_decay=wd)',
+    rmsprop: 'torch.optim.RMSprop(model.parameters(), lr=lr, alpha=CONFIG["rho"], eps=CONFIG["epsilon"], weight_decay=wd)',
     adagrad: 'torch.optim.Adagrad(model.parameters(), lr=lr, weight_decay=wd)',
-    adadelta: 'torch.optim.Adadelta(model.parameters(), lr=lr, weight_decay=wd)',
-    adamax: 'torch.optim.Adamax(model.parameters(), lr=lr, weight_decay=wd)',
-    adam: 'torch.optim.Adam(model.parameters(), lr=lr, weight_decay=wd)',
+    adadelta: 'torch.optim.Adadelta(model.parameters(), lr=lr, rho=CONFIG["rho"], eps=CONFIG["epsilon"], weight_decay=wd)',
+    adamax: 'torch.optim.Adamax(model.parameters(), lr=lr, betas=(CONFIG["beta1"], CONFIG["beta2"]), eps=CONFIG["epsilon"], weight_decay=wd)',
+    adam: 'torch.optim.Adam(model.parameters(), lr=lr, betas=(CONFIG["beta1"], CONFIG["beta2"]), eps=CONFIG["epsilon"], weight_decay=wd)',
   }[train.optimizer];
-  const scheduleLine = {
-    step: `torch.optim.lr_scheduler.StepLR(optimizer, step_size=max(1, round(CONFIG["epochs"] / 4)), gamma=0.5)`,
-    exponential: 'torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)',
-    cosine: 'torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=CONFIG["epochs"])',
-  }[train.schedule] ?? null;
   const correct = classification
     ? binary
       ? `((out > ${last === 'sigmoid' ? '0.5' : '0.0'}).float() == y).sum().item()`
@@ -317,6 +314,9 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push('reports progress, and mt.trace() / mt.watch() let MyTrainer show what every layer and');
   lines.push('neuron does. Remove them and the script still trains; MyTrainer then only shows the logs.');
   lines.push('"""');
+  lines.push('import copy');
+  lines.push('import math');
+  lines.push('');
   lines.push('import torch');
   lines.push('import torch.nn as nn');
   lines.push('import torch.nn.functional as F');
@@ -331,6 +331,22 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push(`    "weight_decay": ${pyNumber(train.weightDecay)},`);
   lines.push(`    "optimizer": ${pyString(train.optimizer)},`);
   lines.push(`    "loss": ${pyString(loss)},`);
+  lines.push(`    "schedule": ${pyString(train.schedule)},`);
+  lines.push(`    "step_size": ${train.stepSize},  # epochs per step (0: a quarter of the epochs)`);
+  lines.push(`    "decay_rate": ${pyNumber(train.decayRate)},  # step / exponential factor (0: 0.5 / 0.95)`);
+  lines.push(`    "min_learning_rate": ${pyNumber(train.minLearningRate)},`);
+  lines.push(`    "warmup_epochs": ${train.warmupEpochs},`);
+  lines.push(`    "momentum": ${pyNumber(train.momentum)},`);
+  lines.push(`    "nesterov": ${pyBool(train.nesterov)},`);
+  lines.push(`    "beta1": ${pyNumber(train.beta1)},`);
+  lines.push(`    "beta2": ${pyNumber(train.beta2)},`);
+  lines.push(`    "epsilon": ${pyNumber(train.epsilon)},`);
+  lines.push(`    "rho": ${pyNumber(train.rho)},`);
+  lines.push(`    "shuffle": ${pyBool(train.shuffle)},`);
+  lines.push(`    "label_smoothing": ${pyNumber(train.labelSmoothing)},`);
+  lines.push(`    "monitor": ${pyString(train.monitor)},  # what early stopping watches`);
+  lines.push(`    "min_delta": ${pyNumber(train.minDelta)},`);
+  lines.push(`    "restore_best": ${pyBool(train.restoreBest)},`);
   lines.push(`    "early_stopping": ${pyBool(train.earlyStop)},`);
   lines.push(`    "patience": ${train.patience},`);
   lines.push('}');
@@ -351,6 +367,24 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push('');
   lines.push('');
   lines.push(`loss_fn = ${lossLine}`);
+  lines.push('');
+  lines.push('');
+  lines.push('def learning_rate(epoch):');
+  lines.push('    """The learning rate of an epoch (0-based): schedule, floor and warm-up, as in MyTrainer."""');
+  lines.push('    lr, low = CONFIG["learning_rate"], min(CONFIG["min_learning_rate"], CONFIG["learning_rate"])');
+  lines.push('    step = CONFIG["step_size"] or max(1, round(CONFIG["epochs"] / 4))');
+  lines.push('    if CONFIG["schedule"] == "step":');
+  lines.push('        rate = lr * (CONFIG["decay_rate"] or 0.5) ** (epoch // step)');
+  lines.push('    elif CONFIG["schedule"] == "exponential":');
+  lines.push('        rate = lr * (CONFIG["decay_rate"] or 0.95) ** epoch');
+  lines.push('    elif CONFIG["schedule"] == "cosine":');
+  lines.push('        rate = low + (lr - low) * 0.5 * (1 + math.cos(math.pi * epoch / max(1, CONFIG["epochs"])))');
+  lines.push('    else:');
+  lines.push('        rate = lr');
+  lines.push('    rate = max(low, rate)');
+  lines.push('    if CONFIG["warmup_epochs"] > 0 and epoch < CONFIG["warmup_epochs"]:');
+  lines.push('        rate *= (epoch + 1) / (CONFIG["warmup_epochs"] + 1)');
+  lines.push('    return rate');
   lines.push('');
   lines.push('');
   lines.push('def evaluate(model, x, y, device, prefix=""):');
@@ -377,13 +411,14 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push('    mt.watch(model, loss_fn)  # weights, gradients and activations for MyTrainer');
   lines.push('    lr, wd = CONFIG["learning_rate"], CONFIG["weight_decay"]');
   lines.push(`    optimizer = ${optimizerLine}`);
-  if (scheduleLine) lines.push(`    scheduler = ${scheduleLine}`);
-  lines.push('    best, waited = float("inf"), 0');
+  lines.push('    best, waited, best_state = float("inf"), 0, None');
   lines.push('');
   lines.push('    for epoch in range(CONFIG["epochs"]):');
+  lines.push('        for group in optimizer.param_groups:');
+  lines.push('            group["lr"] = learning_rate(epoch)');
   lines.push('        model.train()');
   lines.push('        total, right, seen = 0.0, 0, 0');
-  lines.push('        for xb, yb in mt.batches(data["x_train"], data["y_train"], CONFIG["batch_size"], shuffle=True):');
+  lines.push('        for xb, yb in mt.batches(data["x_train"], data["y_train"], CONFIG["batch_size"], shuffle=CONFIG["shuffle"]):');
   lines.push('            xb, yb = xb.to(device), yb.to(device)');
   lines.push('            optimizer.zero_grad()');
   lines.push('            out = model(xb)');
@@ -397,12 +432,20 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push(`        logs = {"loss": total / seen${correct ? ', "acc": right / seen' : ''}}`);
   lines.push('        logs.update(evaluate(model, data["x_val"], data["y_val"], device, prefix="val_"))');
   lines.push('        mt.report_epoch(epoch, logs, lr=optimizer.param_groups[0]["lr"])');
-  if (scheduleLine) lines.push('        scheduler.step()');
-  lines.push('        watched = logs.get("val_loss", logs["loss"])');
-  lines.push('        best, waited = (watched, 0) if watched < best - 1e-6 else (best, waited + 1)');
+  lines.push('        monitor = CONFIG["monitor"]');
+  lines.push('        value = logs.get(monitor, logs.get(monitor.replace("val_", ""), logs["loss"]))');
+  lines.push('        watched = -value if monitor.endswith("acc") else value');
+  lines.push('        if watched < best - max(1e-6, CONFIG["min_delta"]):');
+  lines.push('            best, waited = watched, 0');
+  lines.push('            if CONFIG["early_stopping"] and CONFIG["restore_best"]:');
+  lines.push('                best_state = copy.deepcopy(model.state_dict())');
+  lines.push('        else:');
+  lines.push('            waited += 1');
   lines.push('        if mt.should_stop() or (CONFIG["early_stopping"] and waited >= CONFIG["patience"]):');
   lines.push('            break');
   lines.push('');
+  lines.push('    if best_state is not None:');
+  lines.push('        model.load_state_dict(best_state)  # the best epoch (early stopping, restore best)');
   lines.push('    mt.finish(model, evaluate(model, data["x_test"], data["y_test"], device))');
   lines.push('    mt.serve(model)  # answers MyTrainer\'s test requests until the app stops the run');
   lines.push('');

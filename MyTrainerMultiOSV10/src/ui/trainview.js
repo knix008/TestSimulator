@@ -10,6 +10,35 @@ import { stepperHtml } from '../stepper.js';
 import { barChart, CLASS_COLORS, drawPicture, fmt, histogramChart, lineChart, scatterPlot, SERIES, setupCanvas, theme } from './charts.js';
 import { escapeHtml } from './dom.js';
 
+/** Advanced training settings: only the ones that apply to the chosen optimizer, schedule and stopping. */
+function advancedHtml(app, { row, step, busy }) {
+  const t = app.t;
+  const train = app.project().train;
+  const check = (key) => `<label class="switch-wrap"><input type="checkbox" data-train="${key}" ${train[key] ? 'checked' : ''} ${busy ? 'disabled' : ''}/><span class="switch"></span></label>`;
+  const choose = (key, options, label = (o) => o) => `<select data-train="${key}" ${busy ? 'disabled' : ''}>${options.map((o) => `<option value="${o}" ${String(train[key]) === String(o) ? 'selected' : ''}>${escapeHtml(label(o))}</option>`).join('')}</select>`;
+  const rows = [];
+  const o = train.optimizer;
+  if (o === 'momentum') rows.push(row(t('train.momentum'), step('momentum', 0, 0.999, 0.01, t('train.momentum')), t('train.momentumTip')), row(t('train.nesterov'), check('nesterov'), t('train.nesterovTip')));
+  if (o === 'adam' || o === 'adamax') rows.push(row('β₁', step('beta1', 0, 0.999, 0.01, 'beta1'), t('train.beta1Tip')), row('β₂', step('beta2', 0.9, 0.9999, 0.0001, 'beta2'), t('train.beta2Tip')));
+  if (o === 'rmsprop' || o === 'adadelta') rows.push(row('ρ (rho)', step('rho', 0, 0.999, 0.01, 'rho'), t('train.rhoTip')));
+  if (['adam', 'adamax', 'rmsprop', 'adadelta'].includes(o)) rows.push(row('ε (epsilon)', choose('epsilon', [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3]), t('train.epsilonTip')));
+  const s = train.schedule;
+  if (s === 'step') rows.push(row(t('train.stepSize'), step('stepSize', 0, 1000, 1, t('train.stepSize')), t('train.stepSizeTip')));
+  if (s === 'step' || s === 'exponential') rows.push(row(t('train.decayRate'), step('decayRate', 0, 1, 0.01, t('train.decayRate')), t('train.decayRateTip')));
+  if (s !== 'none') rows.push(row(t('train.minLearningRate'), choose('minLearningRate', [0, 1e-6, 1e-5, 1e-4, 1e-3]), t('train.minLearningRateTip')));
+  rows.push(row(t('train.warmupEpochs'), step('warmupEpochs', 0, 100, 1, t('train.warmupEpochs')), t('train.warmupTip')));
+  if (train.earlyStop) {
+    rows.push(row(t('train.monitor'), choose('monitor', ['val_loss', 'loss', 'val_acc', 'acc'], (m) => t(`train.monitor.${m}`)), t('train.monitorTip')));
+    rows.push(row(t('train.minDelta'), choose('minDelta', [0, 0.0001, 0.001, 0.005, 0.01, 0.05]), t('train.minDeltaTip')));
+    rows.push(row(t('train.restoreBest'), check('restoreBest'), t('train.restoreBestTip')));
+  }
+  rows.push(row(t('train.shuffle'), check('shuffle'), t('train.shuffleTip')));
+  if (app.task()?.kind === 'classification') rows.push(row(t('train.labelSmoothing'), choose('labelSmoothing', [0, 0.05, 0.1, 0.15, 0.2]), t('train.labelSmoothingTip')));
+  return `<details class="panel-section advanced-train" ${app.view().trainAdvanced ? 'open' : ''}><summary data-train-advanced>${icon('tune')}<span>${escapeHtml(t('train.advanced'))}</span></summary>
+    ${rows.join('')}
+    <p class="muted small">${escapeHtml(t('train.advancedHint'))}</p></details>`;
+}
+
 export function trainViewHtml(app) {
   const t = app.t;
   const project = app.project();
@@ -44,7 +73,7 @@ export function trainViewHtml(app) {
       </section>
       <section class="panel-section"><h3>${icon('gear')}<span>${escapeHtml(t('train.settings'))}</span></h3>
         ${row(t('train.optimizer'), select('optimizer', OPTIMIZERS, 'optimizer'), t('train.optimizerTip'))}
-        ${row(t('train.learningRate'), `<select data-train="learningRate" ${busy ? 'disabled' : ''}>${[0.3, 0.1, 0.05, 0.03, 0.01, 0.005, 0.003, 0.001, 0.0005, 0.0001].map((v) => `<option value="${v}" ${Math.abs(train.learningRate - v) < 1e-12 ? 'selected' : ''}>${v}</option>`).join('')}${[0.3, 0.1, 0.05, 0.03, 0.01, 0.005, 0.003, 0.001, 0.0005, 0.0001].includes(train.learningRate) ? '' : `<option value="${train.learningRate}" selected>${train.learningRate}</option>`}</select>`, t('train.learningRateTip'))}
+        ${row(t('train.learningRate'), `<input type="number" class="lr-input" data-train="learningRate" value="${train.learningRate}" min="0.000001" max="10" step="any" list="mt-lr-presets" ${busy ? 'disabled' : ''} aria-label="${escapeHtml(t('train.learningRate'))}"/><datalist id="mt-lr-presets">${[0.3, 0.1, 0.05, 0.03, 0.01, 0.005, 0.003, 0.001, 0.0005, 0.0001].map((v) => `<option value="${v}"></option>`).join('')}</datalist>`, t('train.learningRateTip'))}
         ${row(t('train.epochs'), step('epochs', 1, 2000, 1, t('train.epochs')))}
         ${row(t('train.batchSize'), step('batchSize', 1, 1024, 1, t('train.batchSize')), t('train.batchTip'))}
         ${row(t('train.loss'), select('loss', LOSSES, 'loss'), t('train.lossTip'))}
@@ -54,6 +83,7 @@ export function trainViewHtml(app) {
         ${train.earlyStop ? row(t('train.patience'), step('patience', 1, 200, 1, t('train.patience'))) : ''}
         ${row(t('train.snapshotEvery'), step('snapshotEvery', 1, 100, 1, t('train.snapshotEvery')), t('train.snapshotTip'))}
       </section>
+      ${advancedHtml(app, { row, step, busy })}
       <section class="panel-section train-controls">
         <div class="control-row">
           <button class="button primary" data-train-action="train" ${busy ? 'disabled' : ''}>${icon('train')}<span>${escapeHtml(run.epoch && engine === 'tfjs' && run.canContinue ? t('train.continue') : t('train.start'))}</span></button>
