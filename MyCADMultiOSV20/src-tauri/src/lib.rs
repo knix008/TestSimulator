@@ -770,6 +770,10 @@ pub fn run() {
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
                 .min_inner_size(960.0, 600.0)
+                // No OS title bar: the menu bar row carries the icon, name, version
+                // and the minimize / maximize / close buttons.
+                .decorations(false)
+                .shadow(true)
                 .visible(false)
                 .additional_browser_args(BROWSER_ARGS);
             let builder = match placement {

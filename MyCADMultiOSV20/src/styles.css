@@ -39,9 +39,23 @@ html.is-popup #app { min-width: 0; display: block; opacity: 1; }
 #app.no-status #statusbar { display: none; }
 
 #menubar {
-  display: flex; gap: 2px; align-items: center; padding: 2px 6px;
-  background: var(--toolbar); border-bottom: 1px solid var(--border);
+  display: flex; gap: 2px; align-items: center; min-height: 32px; padding: 0 6px;
+  background: var(--toolbar); border-bottom: 1px solid var(--border); user-select: none;
 }
+/* The window has no OS title bar: icon, name and version on the left of the menu bar… */
+.menubar-brand { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px 0 2px; white-space: nowrap; }
+.menubar-brand img { width: 18px; height: 18px; flex: none; }
+.menubar-brand b { font-weight: 600; }
+.menubar-brand small { color: var(--muted); font-size: 0.9em; }
+/* …the empty middle moves the window… */
+.menubar-drag { flex: 1 1 auto; align-self: stretch; min-width: 24px; }
+/* …and minimize / maximize / close on the right, flush with the window edge. */
+#menubar.desktop { padding-right: 0; }
+.window-controls { display: inline-flex; align-self: stretch; flex: none; }
+.caption-button { display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0; border: 0; background: none; color: inherit; cursor: default; }
+.caption-button .icon { width: 15px; height: 15px; stroke-width: 1.5; }
+.caption-button:hover { background: var(--hover); }
+.caption-button.close:hover { background: #e81123; color: #fff; }
 .menubar-item {
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
   border: 0; border-radius: 6px; background: none; cursor: default; white-space: nowrap;

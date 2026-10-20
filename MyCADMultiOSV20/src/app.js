@@ -622,7 +622,7 @@ const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 
 function renderShell() {
   root.innerHTML = `
-    <nav id="menubar" role="menubar"></nav>
+    <nav id="menubar" class="${desktop ? 'desktop' : ''}" role="menubar" data-tauri-drag-region></nav>
     <div id="toolbar" role="toolbar"></div>
     <main id="workspace">
       <aside id="left-panel" class="side-panel"></aside>
@@ -659,8 +659,21 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   // The house: back to the start page from anywhere (lit while it is shown).
   const home = `<button class="menubar-home ${state.home ? 'active' : ''}" data-command="startPage" title="${escapeHtml(t('action.startPage'))}" aria-label="${escapeHtml(t('menubar.home'))}" aria-pressed="${state.home}">${icon('home')}<span>${escapeHtml(t('menubar.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  menubar.innerHTML = home + Object.keys(MENUS).filter((name) => name !== 'test' || state.settings.testMenu).map((name) => `
-    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
+  // No OS title bar: the program's icon, name and version lead the row, the window buttons end it.
+  const brand = `<span class="menubar-brand" data-tauri-drag-region><img src="${appIconUrl}" alt="" draggable="false" data-tauri-drag-region /><b data-tauri-drag-region>MyCAD</b><small data-tauri-drag-region>${escapeHtml(displayVersion(state.info?.version))}</small></span><span class="menubar-sep" aria-hidden="true"></span>`;
+  const windowButton = (action, glyph, label) => `<button class="caption-button ${action}" data-window="${action}" title="${escapeHtml(t(label))}" aria-label="${escapeHtml(t(label))}">${icon(glyph)}</button>`;
+  const controls = desktop ? `<span class="menubar-drag" data-tauri-drag-region></span><span class="window-controls">${windowButton('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? windowButton('maximize', 'winRestore', 'window.restore') : windowButton('maximize', 'winMaximize', 'window.maximize')}${windowButton('close', 'close', 'window.close')}</span>` : '';
+  menubar.innerHTML = brand + home + Object.keys(MENUS).filter((name) => name !== 'test' || state.settings.testMenu).map((name) => `
+    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + controls;
+  updateMinimumWidth();
+}
+
+/** The title bar buttons now living at the right end of the menu bar. */
+function windowControl(action) {
+  if (action === 'minimize') return appWindow.minimize();
+  if (action === 'maximize') return appWindow.toggleMaximize();
+  if (action === 'close') return requestExit();
+  return undefined;
 }
 
 function renderToolbar() {
@@ -717,7 +730,13 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const width = Math.ceil(left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2);
+    const toolbarWidth = left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2;
+    // The menu bar must fit too: it carries the name and the window buttons.
+    const menubar = root.querySelector('#menubar');
+    const menubarStyle = getComputedStyle(menubar);
+    const menubarWidth = [...menubar.children].reduce((sum, child) => sum + (child.classList.contains('menubar-drag') ? 24 : child.getBoundingClientRect().width) + 2, 0)
+      + parseFloat(menubarStyle.paddingLeft) + parseFloat(menubarStyle.paddingRight);
+    const width = Math.ceil(Math.max(toolbarWidth, menubarWidth));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
     document.documentElement.style.setProperty('--min-width', `${width}px`);
@@ -5814,6 +5833,8 @@ function bindEvents() {
       return openMenubarMenu(name);
     }
     if (target.closest('[data-doc-close]')) return closeDocViewer();
+    const windowAction = target.closest('[data-window]');
+    if (windowAction && desktop) return windowControl(windowAction.dataset.window)?.catch?.((error) => showError('error.unexpected', error, 'window'));
     const command = target.closest('[data-command]');
     if (command && !command.disabled) {
       const anchor = command.dataset.command === 'themeMenu' ? anchorBelow(command.closest('.split-button') ?? command)
@@ -6240,6 +6261,14 @@ async function start() {
   await loadBackground();
 
   if (desktop) {
+    // The maximize button shows "restore" while the window is maximized.
+    const syncMaximized = () => appWindow.isMaximized().then((maximized) => {
+      if (maximized === state.maximized) return;
+      state.maximized = maximized;
+      renderMenubar();
+    }).catch(() => {});
+    syncMaximized();
+    appWindow.onResized(syncMaximized);
     appWindow.onCloseRequested(async (event) => {
       if (state.quitting) return;
       event.preventDefault();
