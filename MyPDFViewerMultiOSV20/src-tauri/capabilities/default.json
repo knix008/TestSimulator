@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window and the theme popup. Files, dialogs, clipboard and window control all go through MyPDFViewer's own commands (src-tauri/src/lib.rs); only event listening is opened here.",
+  "windows": ["main", "theme-popup"],
+  "permissions": ["core:event:default"]
+}

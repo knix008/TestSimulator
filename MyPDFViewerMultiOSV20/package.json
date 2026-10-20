@@ -1,0 +1,72 @@
+{
+  "name": "mypdfviewer",
+  "productName": "MyPDFViewer",
+  "version": "1.0.0",
+  "description": "Cross-platform (Web / Windows / macOS / Linux) PDF viewer that lets you read and highlight PDFs and copy the text and images inside them.",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/ensure-deps.mjs && node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "ensure:deps": "node scripts/ensure-deps.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all",
+    "clean:dry": "node scripts/clean.mjs --all --dry-run",
+    "prestart": "node scripts/ensure-deps.mjs",
+    "start": "tauri dev",
+    "predev": "npm run free:port && npm run prepare:assets",
+    "dev": "vite --port 5179",
+    "preweb": "npm run free:port && npm run prepare:assets",
+    "web": "vite --port 5179",
+    "tauri": "tauri",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "copy:pdfjs": "node scripts/copy-pdfjs-assets.mjs",
+    "sync:svgs": "node scripts/sync-public-svgs.mjs",
+    "prebuild": "npm run prepare:assets",
+    "build": "vite build",
+    "prebuild:win": "node scripts/ensure-deps.mjs && npm run generate:icons",
+    "build:win": "tauri build --bundles nsis && node scripts/copy-installer.mjs",
+    "prebuild:mac": "node scripts/ensure-deps.mjs && npm run generate:icons",
+    "build:mac": "tauri build --bundles dmg && node scripts/copy-installer.mjs",
+    "prebuild:linux": "node scripts/ensure-deps.mjs && npm run generate:icons",
+    "build:linux": "tauri build --bundles appimage,deb && node scripts/copy-installer.mjs",
+    "prebuild:all": "node scripts/ensure-deps.mjs && npm run generate:icons",
+    "build:all": "tauri build && node scripts/copy-installer.mjs",
+    "copy:installer": "node scripts/copy-installer.mjs",
+    "preview": "vite preview --port 4179",
+    "free:port": "node scripts/free-port.mjs 5179",
+    "pretest": "node scripts/ensure-deps.mjs",
+    "test": "npm run test:js && npm run test:rust",
+    "test:js": "vitest run",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "pretest:watch": "node scripts/ensure-deps.mjs",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "@testing-library/react": "^16.0.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "i18next": "^23.11.5",
+    "jsdom": "^24.1.0",
+    "pdfjs-dist": "^4.8.69",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^14.1.2",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1",
+    "vitest": "^2.1.1"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  }
+}

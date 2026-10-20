@@ -1,0 +1,48 @@
+[package]
+name = "mypdfviewer"
+version = "1.0.0"
+description = "Cross-platform PDF viewer: read PDFs, highlight them and copy their text and images"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "mypdfviewer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Clipboard text and pictures (the webview's async Clipboard API needs a fresh
+# user gesture, which a context-menu click has already used up).
+arboard = { version = "3.7", features = ["image-data"] }
+fontdb = "0.23"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+# "Open URL": a plain blocking GET with progress, run off the main thread.
+ureq = "2.12"
+
+# Printing straight to the printer chosen in the app (GDI), without a second
+# system print window.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Printing",
+  "Win32_Storage_Xps",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

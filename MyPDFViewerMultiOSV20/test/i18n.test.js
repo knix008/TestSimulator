@@ -1,0 +1,134 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import i18n, { setLanguage, otherLang } from '../src/i18n.js';
+
+function flatten(obj, prefix = '') {
+  const keys = [];
+  for (const [k, v] of Object.entries(obj || {})) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object' && !Array.isArray(v)) keys.push(...flatten(v, path));
+    else keys.push(path);
+  }
+  return keys;
+}
+
+describe('language packs', () => {
+  const ko = i18n.getResourceBundle('ko', 'translation');
+  const en = i18n.getResourceBundle('en', 'translation');
+  const koKeys = flatten(ko);
+  const enKeys = flatten(en);
+
+  it('ships Korean and English bundles', () => {
+    expect(ko.app.title).toBe('MyPDFViewer');
+    expect(en.app.title).toBe('MyPDFViewer');
+    expect(koKeys.length).toBeGreaterThan(150);
+    expect(enKeys.length).toBeGreaterThan(150);
+  });
+
+  it('keeps the two packs in key lockstep', () => {
+    const missingInEn = koKeys.filter((k) => !enKeys.includes(k));
+    const missingInKo = enKeys.filter((k) => !koKeys.includes(k));
+    expect(missingInEn).toEqual([]);
+    expect(missingInKo).toEqual([]);
+  });
+
+  it('does not leave empty strings', () => {
+    for (const key of koKeys) {
+      const v = i18n.getResource('ko', 'translation', key);
+      expect(String(v).length, key).toBeGreaterThan(0);
+    }
+    for (const key of enKeys) {
+      const v = i18n.getResource('en', 'translation', key);
+      expect(String(v).length, key).toBeGreaterThan(0);
+    }
+  });
+
+  it('covers the main feature areas', () => {
+    const expected = [
+      'toolbar.print', 'toolbar.toolText', 'toolbar.toolImage', 'toolbar.toolRegion',
+      'toolbar.comments', 'toolbar.bookmarks', 'toolbar.search',
+      'toolbar.infoPanel', 'tip.infoPanel', 'info.title', 'info.empty', 'info.encrypted',
+      'toolbar.rotate', 'toolbar.goPage', 'toolbar.panels',
+      'tip.rotate', 'tip.rotatePick', 'tip.goPage', 'tip.goPagePick',
+      'toolbar.layoutSingle', 'toolbar.layoutContinuous', 'toolbar.layoutTwoPage',
+      'toolbar.fitWidth', 'toolbar.fitPage', 'toolbar.fitHeight', 'toolbar.actual',
+      'tip.fitWidth', 'tip.fitPage', 'tip.fitHeight', 'tip.actual',
+      'toolbar.pageEffect', 'toolbar.effectNone', 'toolbar.effectFade', 'toolbar.effectSlide', 'toolbar.effectFlip',
+      'tip.pageEffect', 'tip.pageEffectPick', 'tip.effectFlip',
+      'tip.layoutSingle', 'tip.layoutContinuous', 'tip.layoutTwoPage',
+      'settings.twoPage', 'settings.pageEffect', 'settings.effectFlip',
+      'settings.themeDark', 'settings.themeLight', 'settings.themeCustom',
+      'settings.themeAdd', 'settings.themeSave', 'settings.themeCustomName',
+      'tip.comments', 'tip.bookmarks',
+      'tip.lang', 'tip.langPick',
+      'print.rangeEmpty', 'print.rangeInvalid', 'print.rangeOutside',
+      'capture.fmt.png', 'capture.fmt.gif', 'capture.fmt.bmp',
+      'error.ctx.print', 'error.notPdf', 'error.password',
+      'side.outline', 'side.bookmarks', 'side.comments', 'side.clips', 'side.history',
+      'side.folders', 'side.pickFolder', 'side.drive', 'side.noFolder',
+      'settings.tabs.appearance', 'about.version',
+      'unsaved.title', 'unsaved.message', 'unsaved.discard',
+      'tabs.list', 'tabs.close', 'tabs.prev', 'tabs.next', 'tip.closeTab',
+    ];
+    for (const key of expected) {
+      expect(koKeys).toContain(key);
+      expect(enKeys).toContain(key);
+    }
+  });
+});
+
+describe('otherLang', () => {
+  it('returns the language the toolbar flag should switch to', () => {
+    expect(otherLang('ko')).toBe('en');
+    expect(otherLang('en')).toBe('ko');
+    expect(otherLang('en-GB')).toBe('ko');
+    expect(otherLang('ko-KR')).toBe('en');
+    expect(otherLang('KO')).toBe('en');
+    expect(otherLang('')).toBe('en');
+  });
+});
+
+describe('setLanguage', () => {
+  beforeEach(async () => {
+    await setLanguage('ko');
+  });
+
+  it('switches translations immediately', async () => {
+    expect(i18n.t('toolbar.open')).toBe('열기');
+    await setLanguage('en');
+    expect(i18n.t('toolbar.open')).toBe('Open');
+    expect(i18n.language).toBe('en');
+  });
+
+  it('persists the choice in localStorage', async () => {
+    await setLanguage('en');
+    expect(localStorage.getItem('mypdfviewer-lang')).toBe('en');
+    await setLanguage('ko');
+    expect(localStorage.getItem('mypdfviewer-lang')).toBe('ko');
+  });
+
+  it('interpolates counts and names', async () => {
+    await setLanguage('en');
+    expect(i18n.t('side.results_one', { count: 1 })).toBe('1 result');
+    expect(i18n.t('status.copiedChars', { n: 12 })).toBe('Copied 12 characters');
+    expect(i18n.t('print.allHint', { n: 9 })).toContain('9');
+    await setLanguage('ko');
+    expect(i18n.t('status.chars', { n: 4 })).toBe('4자');
+  });
+
+  it('names the document tab strip and its overflow buttons', async () => {
+    await setLanguage('ko');
+    expect(i18n.t('tabs.list')).toBe('열린 문서');
+    expect(i18n.t('tabs.prev')).toBe('이전 탭');
+    expect(i18n.t('tabs.next')).toBe('다음 탭');
+    expect(i18n.t('tip.closeTab')).toMatch(/Ctrl\+W/);
+    await setLanguage('en');
+    expect(i18n.t('tabs.list')).toBe('Open documents');
+    expect(i18n.t('tabs.prev')).toBe('Previous tabs');
+    expect(i18n.t('tabs.next')).toBe('Next tabs');
+  });
+
+  it('does not HTML-escape interpolated values', async () => {
+    await setLanguage('en');
+    expect(i18n.t('status.loaded', { name: 'A & B.pdf' })).toContain('A & B.pdf');
+  });
+});
