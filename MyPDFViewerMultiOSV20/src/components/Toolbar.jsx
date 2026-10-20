@@ -9,7 +9,7 @@ import {
   IconSettings, IconInfo, IconFlag, IconTheme, IconTrash, IconDown, IconFolder,
   IconSelectText, IconPrint, IconPageSingle, IconPageContinuous, IconPageSpread,
   IconEffectNone, IconEffectFade, IconEffectSlide, IconEffectFlip,
-  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary,
+  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconHome, IconHelp,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { ThemeMenu } from './ThemePicker.jsx';
@@ -278,13 +278,14 @@ function MenuButton({
 export default function Toolbar({
   settings, doc, pageNumber, numPages, scale, hasSelection, dirty,
   history, tool, onTool, panel,
-  onOpen, onOpenUrl, onOpenRecent, onRemoveRecent, onClearRecent,
+  onOpen, onOpenUrl, onOpenRecent, onRemoveRecent, onClearRecent, isFavoritePath, onToggleFavorite,
   onSave, onSaveAs, onSaveWorkspace, onSaveWorkspaceAs, onAttachFile,
   onCopyText, onSelectPage, onExtractImages, onExportText,
   onHighlight, onComment, onComments, onBookmarks, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout, onPageEffect,
   onSearch, onTogglePanel, onToggleInfo, onTheme, onLang, onSettings, onAbout, onPrint,
-  galleryOpen = false, onGallery, favoritesOpen = false, onFavorites, libraryOpen = false, onLibrary,
+  galleryOpen = false, onGallery, libraryOpen = false, onLibrary,
+  homeOpen = false, onHome, onHelp,
 }) {
   const { t, i18n } = useTranslation();
   const [pageInput, setPageInput] = useState(String(pageNumber));
@@ -322,8 +323,11 @@ export default function Toolbar({
           in its dropdown so the same command is never shown twice. */}
       <div className="toolbar-scroll" ref={scrollRef}>
 
-      {/* File */}
+      {/* File (the Home button brings back the start screen) */}
       <div className="toolbar-group">
+        {onHome ? (
+          <ToolButton icon={IconHome} label={t('toolbar.home')} tip={t('tip.home')} onClick={onHome} active={homeOpen} showLabel={showLabel} />
+        ) : null}
         <MenuButton icon={IconFolder} label={t('toolbar.fileMenu')} tip={t('tip.fileMenu')} showLabel={showLabel} width={430}>
           <ul className="dd-list">
             <li><button className="dd-item" onClick={onOpen} title={t('tip.open')}>
@@ -376,6 +380,22 @@ export default function Toolbar({
                     <span className="dd-name">{f.name}</span>
                     <span className="dd-dir">{f.dir || ''}</span>
                   </button>
+                  {onToggleFavorite && /\.pdf$/i.test(f.path || '') ? (() => {
+                    const on = !!isFavoritePath?.(f.path);
+                    const label = on ? t('gallery.unfavorite') : t('gallery.favorite');
+                    return (
+                      <button
+                        className={`icon-btn row-fav${on ? ' on' : ''}`}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(f, !on); }}
+                        title={label}
+                        aria-label={label}
+                        aria-pressed={on}
+                      >
+                        <IconStar size={14} filled={on} />
+                      </button>
+                    );
+                  })() : null}
                   <button
                     className="icon-btn"
                     onMouseDown={(e) => e.stopPropagation()}
@@ -636,9 +656,6 @@ export default function Toolbar({
         {onGallery ? (
           <ToolButton icon={IconGallery} label={t('toolbar.gallery')} tip={t('tip.gallery')} onClick={onGallery} active={galleryOpen} />
         ) : null}
-        {onFavorites ? (
-          <ToolButton icon={IconStar} label={t('toolbar.favorites')} tip={t('tip.favorites')} onClick={onFavorites} active={favoritesOpen} />
-        ) : null}
         {onLibrary ? (
           <ToolButton icon={IconLibrary} label={t('toolbar.library')} tip={t('tip.library')} onClick={onLibrary} active={libraryOpen} />
         ) : null}
@@ -676,6 +693,9 @@ export default function Toolbar({
           tip={t('tip.lang')}
           onClick={() => onLang()}
         />
+        {onHelp ? (
+          <ToolButton icon={IconHelp} label={t('toolbar.help')} tip={t('tip.help')} onClick={onHelp} />
+        ) : null}
         <ToolButton icon={IconSettings} label={t('toolbar.settings')} tip={t('tip.settings')} onClick={onSettings} />
         <ToolButton icon={IconInfo} label={t('toolbar.about')} tip={t('tip.about')} onClick={onAbout} />
       </div>

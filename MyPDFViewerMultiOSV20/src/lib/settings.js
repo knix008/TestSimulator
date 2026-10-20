@@ -6,6 +6,9 @@
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
 import { normalizePageLayout, normalizePageEffect, normalizeZoomMode } from './view.js';
 import {
+  normalizeStartBg, clampStartOpacity, clampStartSpeed, normalizeStartInterval,
+} from './startbg.js';
+import {
   normalizeGallery, normalizeGalleryView, seedGallery, clampTileSize, clampBookSize, normalizeLibraryView,
 } from './gallery.js';
 import {
@@ -88,8 +91,16 @@ export const DEFAULT_SETTINGS = {
   gallery: [],               // [{ path, name, dir, size, addedAt, openedAt?, favorite? }] — see lib/gallery.js
   galleryView: 'tiles',      // tiles | details
   galleryTileSize: 168,      // px, tile view (96–320)
-  libraryBookSize: 220,      // px, the library's book covers (140–360)
+  libraryBookSize: 220,      // px, the library's book covers (60–360)
   libraryView: 'shelf',      // shelf | covers | list | details
+
+  // Start screen (src/lib/startbg.js)
+  showStartPage: true,       // show it when the app starts (the Home button always can)
+  startBg: 'books',          // one of the 21 moving backgrounds
+  startBgOpacity: 0.6,       // 0.1–1
+  startBgSpeed: 1,           // 0.1–3
+  startBgRandom: false,      // automatic changes pick a random one, not the next
+  startBgInterval: 0,        // seconds between automatic changes, 0 = never
   recentDirs: [],            // [path]
   lastSession: null,         // { path, page, zoomMode, zoom, rotation }
 };
@@ -116,6 +127,10 @@ export function normalize(raw) {
   out.galleryTileSize = clampTileSize(out.galleryTileSize);
   out.libraryBookSize = clampBookSize(out.libraryBookSize);
   out.libraryView = normalizeLibraryView(out.libraryView);
+  out.startBg = normalizeStartBg(out.startBg);
+  out.startBgOpacity = clampStartOpacity(out.startBgOpacity);
+  out.startBgSpeed = clampStartSpeed(out.startBgSpeed);
+  out.startBgInterval = normalizeStartInterval(out.startBgInterval);
   out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, out.fontSize));
   out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
   out.rightPanelWidth = clampInfoPanelWidth(out.rightPanelWidth);

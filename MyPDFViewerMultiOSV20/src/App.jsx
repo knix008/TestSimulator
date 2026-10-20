@@ -20,7 +20,7 @@ import {
   IconCopy, IconSelectAll, IconMarquee, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose, IconComment,
-  IconFitPage, IconFitHeight, IconActual, IconGallery, IconStar, IconOpen, IconFolderOpen,
+  IconFitPage, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconOpen, IconFolderOpen,
 } from './components/Icons.jsx';
 
 import {
@@ -67,6 +67,7 @@ import { listHighlights, splitHighlightDeletes } from './lib/highlights.js';
 import { startFolderCandidates } from './lib/folders.js';
 import Gallery from './components/Gallery.jsx';
 import Library from './components/Library.jsx';
+import StartScreen from './components/StartScreen.jsx';
 
 export default function App() {
   const { t } = useTranslation();
@@ -1529,26 +1530,64 @@ export default function App() {
 
   // The gallery and the library (favorites on shelves) each fill the document
   // area; one at a time.
-  const [showGallery, setShowGalleryRaw] = useState(false);
-  const [showLibrary, setShowLibraryRaw] = useState(false);
-  const setShowGallery = useCallback((v) => {
-    setShowGalleryRaw((cur) => {
-      const next = typeof v === 'function' ? v(cur) : v;
-      if (next) setShowLibraryRaw(false);
-      return next;
+  // One full-area view at a time: null, 'gallery' or 'library'. Plain
+  // updaters only — no state set from inside another state's updater.
+  const [overlay, setOverlay] = useState(null);
+  const showGallery = overlay === 'gallery';
+  const showLibrary = overlay === 'library';
+  const setOverlayFor = useCallback((name) => (v) => {
+    setOverlay((cur) => {
+      const on = typeof v === 'function' ? v(cur === name) : !!v;
+      if (on) return name;
+      return cur === name ? null : cur;
     });
   }, []);
-  const setShowLibrary = useCallback((v) => {
-    setShowLibraryRaw((cur) => {
-      const next = typeof v === 'function' ? v(cur) : v;
-      if (next) setShowGalleryRaw(false);
-      return next;
-    });
+  const setShowGallery = useMemo(() => setOverlayFor('gallery'), [setOverlayFor]);
+  const setShowLibrary = useMemo(() => setOverlayFor('library'), [setOverlayFor]);
+  // The gallery and the library open over the whole work area, panels
+  // hidden. Asking for the left or right panel while one is up (toolbar,
+  // F8, F9, Ctrl+F) moves it into the document area so the panels show
+  // beside it; it opens full again next time.
+  const [overlayInset, setOverlayInset] = useState(false);
+  useEffect(() => { setOverlayInset(false); }, [overlay]);
+  const panelsHidden = !!overlay && !overlayInset;
+  const panelsHiddenRef = useRef(panelsHidden);
+  panelsHiddenRef.current = panelsHidden;
+  // Toggles a panel; while the panels are hidden it only ever shows one.
+  const toggleSidebar = useCallback((next = (cur) => (cur === 'none' ? 'thumbnails' : 'none')) => {
+    if (panelsHiddenRef.current) {
+      setOverlayInset(true);
+      setSettings((s) => (s.sidebar === 'none' ? { ...s, sidebar: next('none') } : s));
+      return;
+    }
+    setSettings((s) => ({ ...s, sidebar: next(s.sidebar) }));
+  }, []);
+  const toggleInfoPanel = useCallback(() => {
+    if (panelsHiddenRef.current) {
+      setOverlayInset(true);
+      setSettings((s) => (s.rightPanel ? s : { ...s, rightPanel: true }));
+      return;
+    }
+    setSettings((s) => ({ ...s, rightPanel: !s.rightPanel }));
   }, []);
   // Whatever document comes up next — from the gallery, the library or elsewhere — is shown.
   useEffect(() => {
-    if (file) { setShowGalleryRaw(false); setShowLibraryRaw(false); }
+    if (file) { setOverlay(null); setHomeOpen(false); }
   }, [file]);
+
+  // The start screen: shown while nothing is open (unless switched off), and
+  // any time from the Home button.
+  const [homeOpen, setHomeOpen] = useState(false);
+
+  // The program guide (doc/Guide.html) in a window of its own.
+  const openGuide = useCallback(() => {
+    const page = i18n.language === 'en' ? 'Guide.en.html' : 'Guide.html';
+    if (isDesktop && api.win?.openGuide) {
+      api.win.openGuide(page).catch((err) => fail(err, 'open'));
+      return;
+    }
+    window.open(`./doc/${page}`, 'mypdfviewer-guide', 'popup=yes,width=1100,height=860');
+  }, [fail]);
 
   // Empties the library at once: every star goes, files and gallery cards stay.
   const clearLibrary = useCallback((books) => {
@@ -1690,6 +1729,7 @@ export default function App() {
       if (mod && e.key === '3') { e.preventDefault(); setTool('region'); return; }
       if (mod && e.key.toLowerCase() === 'f') {
         e.preventDefault();
+        setOverlayInset(true);
         setSettings((s) => ({ ...s, sidebar: 'search' }));
         setTimeout(() => document.querySelector('[data-search-input]')?.focus(), 60);
         return;
@@ -1701,8 +1741,9 @@ export default function App() {
         setSettings((s) => ({ ...s, zoomMode: isPagedLayout(s.pageLayout) ? 'fit-page' : 'actual' }));
         return;
       }
-      if (e.key === 'F8') { e.preventDefault(); setSettings((s) => ({ ...s, rightPanel: !s.rightPanel })); return; }
-      if (e.key === 'F9') { e.preventDefault(); setSettings((s) => ({ ...s, sidebar: nextSidebar(s.sidebar) })); return; }
+      if (e.key === 'F8') { e.preventDefault(); toggleInfoPanel(); return; }
+      if (e.key === 'F1') { e.preventDefault(); openGuide(); return; }
+      if (e.key === 'F9') { e.preventDefault(); toggleSidebar(nextSidebar); return; }
       if (inField) return;
       if (e.key === 'PageDown' || (e.key === 'ArrowRight' && !mod)) {
         goToPage(stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1));
@@ -1719,7 +1760,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [changeZoom, closeTab, copySelection, doc, goToPage, history, openViaDialog, pageNumber,
+  }, [toggleInfoPanel, toggleSidebar, changeZoom, closeTab, copySelection, doc, goToPage, history, openGuide, openViaDialog, pageNumber,
     savePdf, selectedImage, setTool, settings.pageLayout, switchToTab, tool]);
 
   // ── Drag & drop ────────────────────────────────────────
@@ -1809,12 +1850,9 @@ export default function App() {
       file?.path && inGallery(settings.gallery, file.path)
         ? { icon: IconGallery, label: t('ctx.removeFromGallery'), onClick: () => removeFromGalleryList(file.path) }
         : { icon: IconGallery, label: t('ctx.addToGallery'), onClick: () => registerCurrentInGallery(), disabled: !file?.path },
-      {
-        icon: IconStar,
-        label: isFavorite(settings.gallery, file?.path) ? t('gallery.unfavorite') : t('gallery.favorite'),
-        onClick: () => currentEntry && toggleFavorite(currentEntry, !isFavorite(settings.gallery, file?.path)),
-        disabled: !currentEntry,
-      },
+      // Both library items, only the one that applies enabled.
+      { icon: IconStar, label: t('gallery.favorite'), onClick: () => currentEntry && toggleFavorite(currentEntry, true), disabled: !currentEntry || isFavorite(settings.gallery, file?.path) },
+      { icon: IconLibrary, label: t('gallery.unfavorite'), onClick: () => currentEntry && toggleFavorite(currentEntry, false), disabled: !currentEntry || !isFavorite(settings.gallery, file?.path) },
       { separator: true },
       { icon: IconPrev, label: t('menu.prev'), onClick: () => goToPage(stepPage(settings.pageLayout, pageNumber, -1, doc?.numPages || 1)), disabled: !doc || stepPage(settings.pageLayout, pageNumber, -1, doc?.numPages || 1) === pageNumber },
       { icon: IconNext, label: t('menu.next'), onClick: () => goToPage(stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1)), disabled: !doc || stepPage(settings.pageLayout, pageNumber, 1, doc?.numPages || 1) === pageNumber },
@@ -1851,7 +1889,8 @@ export default function App() {
     e.preventDefault();
     openItemsMenu(e, [
       { icon: IconOpen, label: t('ctx.open'), onClick: () => openGalleryEntry(entry) },
-      { icon: IconStar, label: entry.favorite ? t('gallery.unfavorite') : t('gallery.favorite'), onClick: () => toggleFavorite(entry, !entry.favorite) },
+      { icon: IconStar, label: t('gallery.favorite'), onClick: () => toggleFavorite(entry, true), disabled: !!entry.favorite },
+      { icon: IconLibrary, label: t('gallery.unfavorite'), onClick: () => toggleFavorite(entry, false), disabled: !entry.favorite },
       { icon: IconClose, label: t('ctx.removeFromGallery'), onClick: () => removeFromGalleryList(entry.path) },
       { separator: true },
       isDesktop ? { icon: IconFolderOpen, label: t('ctx.reveal'), onClick: () => revealPath(entry.path) } : null,
@@ -1890,6 +1929,43 @@ export default function App() {
     setSettings(next);
   }, [settings.lang]);
 
+  // The gallery or the library (see overlayInset for where it goes).
+  const overlayView = showLibrary ? (
+    <Library
+      entries={settings.gallery}
+      currentPath={file?.path || ''}
+      bookSize={settings.libraryBookSize}
+      view={settings.libraryView}
+      onView={(v) => setSettings((s) => ({ ...s, libraryView: v }))}
+      onBookSize={(n) => setSettings((s) => ({ ...s, libraryBookSize: clampBookSize(n) }))}
+      onOpen={openGalleryEntry}
+      onUnfavorite={(e) => toggleFavorite(e, false)}
+      onRemoveAll={clearLibrary}
+      onAdd={isDesktop ? addToLibrary : undefined}
+      onNeedThumb={requestGalleryThumb}
+      onBookMenu={galleryCardMenu}
+      onShowGallery={() => setShowGallery(true)}
+      onClose={() => setShowLibrary(false)}
+    />
+  ) : showGallery ? (
+    <Gallery
+      entries={settings.gallery}
+      currentPath={file?.path || ''}
+      view={settings.galleryView}
+      tileSize={settings.galleryTileSize}
+      onView={(v) => setSettings((s) => ({ ...s, galleryView: v }))}
+      onTileSize={(n) => setSettings((s) => ({ ...s, galleryTileSize: clampTileSize(n) }))}
+      onOpen={openGalleryEntry}
+      onRemove={removeFromGalleryList}
+      onFavorite={toggleFavorite}
+      onAdd={isDesktop ? addToGallery : undefined}
+      onNeedThumb={requestGalleryThumb}
+      onCardMenu={galleryCardMenu}
+      onShowLibrary={() => setShowLibrary(true)}
+      onClose={() => setShowGallery(false)}
+    />
+  ) : null;
+
   return (
     <div
       className="app"
@@ -1910,12 +1986,14 @@ export default function App() {
         history={history}
         tool={tool}
         onTool={setTool}
-        panel={settings.sidebar}
+        panel={panelsHidden ? 'none' : settings.sidebar}
         onOpen={openViaDialog}
         onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
         onOpenRecent={openRecent}
         onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
         onClearRecent={() => setSettings((s) => ({ ...s, recentFiles: [] }))}
+        isFavoritePath={(p) => isFavorite(settings.gallery, p)}
+        onToggleFavorite={toggleFavorite}
         onSave={savePdf}
         onSaveAs={savePdfAs}
         onSaveWorkspace={saveWorkspace}
@@ -1954,14 +2032,15 @@ export default function App() {
           }));
           setTimeout(() => document.querySelector('[data-search-input]')?.focus(), 60);
         }}
-        onTogglePanel={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'none' ? 'thumbnails' : 'none' }))}
-        onToggleInfo={() => setSettings((s) => ({ ...s, rightPanel: !s.rightPanel }))}
+        onTogglePanel={() => toggleSidebar()}
+        onToggleInfo={toggleInfoPanel}
         galleryOpen={showGallery}
         onGallery={() => setShowGallery((v) => !v)}
-        favoritesOpen={settings.sidebar === 'favorites'}
-        onFavorites={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'favorites' ? 'none' : 'favorites' }))}
         libraryOpen={showLibrary}
         onLibrary={() => setShowLibrary((v) => !v)}
+        homeOpen={!overlay && (homeOpen || (!doc && settings.showStartPage !== false))}
+        onHome={() => { setShowGallery(false); setShowLibrary(false); setHomeOpen((v) => !v || !doc); }}
+        onHelp={openGuide}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id }))}
         onLang={changeLang}
         onSettings={() => setShowSettings(true)}
@@ -2137,43 +2216,8 @@ export default function App() {
               </div>
             )}
           />
-          {showLibrary ? (
-            <Library
-              entries={settings.gallery}
-              currentPath={file?.path || ''}
-              bookSize={settings.libraryBookSize}
-              view={settings.libraryView}
-              onView={(v) => setSettings((s) => ({ ...s, libraryView: v }))}
-              onBookSize={(n) => setSettings((s) => ({ ...s, libraryBookSize: clampBookSize(n) }))}
-              onOpen={openGalleryEntry}
-              onUnfavorite={(e) => toggleFavorite(e, false)}
-              onRemoveAll={clearLibrary}
-              onAdd={isDesktop ? addToLibrary : undefined}
-              onNeedThumb={requestGalleryThumb}
-              onBookMenu={galleryCardMenu}
-              onShowGallery={() => setShowGallery(true)}
-              onClose={() => setShowLibrary(false)}
-            />
-          ) : null}
-          {showGallery ? (
-            <Gallery
-              entries={settings.gallery}
-              currentPath={file?.path || ''}
-              view={settings.galleryView}
-              tileSize={settings.galleryTileSize}
-              onView={(v) => setSettings((s) => ({ ...s, galleryView: v }))}
-              onTileSize={(n) => setSettings((s) => ({ ...s, galleryTileSize: clampTileSize(n) }))}
-              onOpen={openGalleryEntry}
-              onRemove={removeFromGalleryList}
-              onFavorite={toggleFavorite}
-              onAdd={isDesktop ? addToGallery : undefined}
-              onNeedThumb={requestGalleryThumb}
-              onCardMenu={galleryCardMenu}
-              onShowLibrary={() => setShowLibrary(true)}
-              onClose={() => setShowGallery(false)}
-            />
-          ) : null}
           {dragOver ? <div className="dropzone">{t('common.dropHere')}</div> : null}
+          {overlayInset ? overlayView : null}
         </main>
         <InfoPanel
           open={settings.rightPanel}
@@ -2193,6 +2237,26 @@ export default function App() {
           attachmentCount={(workspace.attachments || []).length}
           outlineCount={Array.isArray(outline) ? outline.length : 0}
         />
+        {/* The start screen covers the whole work area — left panel included. */}
+        {(homeOpen || (!doc && settingsReady && settings.showStartPage !== false)) && !showGallery && !showLibrary ? (
+          <StartScreen
+            settings={settings}
+            onSettings={(fn) => setSettings((s) => ({ ...s, ...fn(s) }))}
+            entries={settings.gallery}
+            currentPath={file?.path || ''}
+            onOpenFile={openViaDialog}
+            onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
+            onOpenEntry={(e) => { setHomeOpen(false); openGalleryEntry(e); }}
+            onForgetRecent={forgetRecent}
+            onShowLibrary={() => setShowLibrary(true)}
+            onShowGallery={() => setShowGallery(true)}
+            onOpenGuide={openGuide}
+            onNeedThumb={requestGalleryThumb}
+          />
+        ) : null}
+        {/* The library and the gallery, like the start screen, take the whole
+            work area until a panel is asked for (overlayInset). */}
+        {overlayInset ? null : overlayView}
       </div>
 
       {settings.showStatusBar ? (

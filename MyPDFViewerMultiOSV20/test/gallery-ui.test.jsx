@@ -167,6 +167,18 @@ describe('History panel', () => {
     expect(onClearEditHistory).toHaveBeenCalled();
     expect(document.querySelector('[role=dialog]')).toBeNull();
   });
+
+  it('adds a recent file to the library, or takes it out, with the star on its row', () => {
+    const { container, onToggleFavorite } = renderSide();
+    const [a, b] = container.querySelectorAll('.recent-list li .row-fav');
+    expect(a.getAttribute('aria-label')).toBe('서재에서 빼기');
+    expect(a.getAttribute('aria-pressed')).toBe('true');
+    expect(b.getAttribute('aria-label')).toBe('서재에 추가');
+    fireEvent.click(b);
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'b.pdf' }), true);
+    fireEvent.click(a);
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a.pdf' }), false);
+  });
 });
 
 describe('Highlights panel', () => {
@@ -279,6 +291,31 @@ describe('left-panel right-click menus', () => {
     expect(onForgetRecent).toHaveBeenCalledWith('C:\\d\\a.pdf');
     items.find((i) => i.label === '폴더에서 보기').onClick();
     expect(onRevealPath).toHaveBeenCalledWith('C:\\d\\a.pdf');
+  });
+
+  it('has add to library in the menu of a recent file and of the edit history', () => {
+    const current = entries[1];
+    const { container, onContextMenuItems, onToggleFavorite } = renderSide({ currentEntry: current, currentIsFavorite: false });
+    const pair = (items) => Object.fromEntries(items.filter((i) => /^서재(에 추가|에서 빼기)$/.test(i.label)).map((i) => [i.label, !i.disabled]));
+    // b.pdf is not in the library: both listed, only adding enabled
+    fireEvent.contextMenu(container.querySelectorAll('.recent-list li')[1]);
+    expect(pair(lastItems(onContextMenuItems))).toEqual({ '서재에 추가': true, '서재에서 빼기': false });
+    lastItems(onContextMenuItems).find((i) => i.label === '서재에 추가').onClick();
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'b.pdf' }), true);
+    // a.pdf is: only taking it out enabled
+    fireEvent.contextMenu(container.querySelectorAll('.recent-list li')[0]);
+    expect(pair(lastItems(onContextMenuItems))).toEqual({ '서재에 추가': false, '서재에서 빼기': true });
+    lastItems(onContextMenuItems).find((i) => i.label === '서재에서 빼기').onClick();
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a.pdf' }), false);
+    const editRow = container.querySelectorAll('.hist-list li')[1];
+    fireEvent.contextMenu(editRow);
+    const items = lastItems(onContextMenuItems);
+    expect(allHaveIcons(items)).toBe(true);
+    expect(items.find((i) => i.label === '현재 문서를 서재에서 빼기').disabled).toBe(true);
+    items.find((i) => i.label === '현재 문서를 서재에 추가').onClick();
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(current, true);
+    fireEvent.contextMenu(container.querySelector('.side-body'));
+    expect(lastItems(onContextMenuItems)[0].label).toBe('현재 문서를 서재에 추가');
   });
 
   it('shows the general menu on empty panel space and on the rail', () => {

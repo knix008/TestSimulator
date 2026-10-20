@@ -254,6 +254,8 @@ export function createDesktopApi({
       closeThemePopup: () => call('win_close_theme_popup'),
       setPopupSize: ({ width, height } = {}) => call('win_set_popup_size', { width: Number(width), height: Number(height) }),
       pickTheme: (id) => call('win_pick_theme', { id: String(id || '') }),
+      // The program guide (doc/…html) in an ordinary window of its own.
+      openGuide: (page) => call('win_open_guide', { page: String(page || 'Guide.html') }),
       onThemePicked: on('theme-picked'),
     },
   };

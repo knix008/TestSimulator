@@ -795,6 +795,47 @@ fn win_pick_theme(app: AppHandle, id: String) -> bool {
   true
 }
 
+// ── The program guide ────────────────────────────────────────
+const GUIDE: &str = "doc-guide";
+const GUIDE_PAGES: [&str; 2] = ["Guide.html", "Guide.en.html"];
+
+/// Only the guide pages shipped in doc/; anything else falls back to the Korean one.
+pub fn guide_page(page: &str) -> &'static str {
+  GUIDE_PAGES.iter().copied().find(|p| *p == page).unwrap_or(GUIDE_PAGES[0])
+}
+
+/// The guide (doc/Guide.html, with its pictures) in an ordinary window of its
+/// own; a second request brings the open one to the front on the asked page.
+#[tauri::command]
+async fn win_open_guide(app: AppHandle, page: String) -> Result<bool, String> {
+  let page = guide_page(&page);
+  if let Some(w) = app.get_webview_window(GUIDE) {
+    let _ = w.eval(&format!("if (!location.pathname.endsWith('/{page}')) location.href = './{page}';"));
+    let _ = w.unminimize();
+    let _ = w.show();
+    let _ = w.set_focus();
+    return Ok(true);
+  }
+  let handle = app.clone();
+  WebviewWindowBuilder::new(&app, GUIDE, WebviewUrl::App(format!("doc/{page}").into()))
+    .title("MyPDFViewer — 프로그램 설명 / Guide")
+    .inner_size(1100.0, 860.0)
+    .min_inner_size(640.0, 480.0)
+    .center()
+    .on_navigation(move |url| {
+      if is_app_url(url) {
+        return true;
+      }
+      if files::is_external_url(url.as_str()) {
+        let _ = handle.opener().open_url(url.as_str(), None::<&str>);
+      }
+      false
+    })
+    .build()
+    .map_err(err)?;
+  Ok(true)
+}
+
 // ── Main window ──────────────────────────────────────────────
 fn is_app_url(url: &tauri::Url) -> bool {
   match url.scheme() {
@@ -937,6 +978,7 @@ pub fn run() {
       win_set_popup_size,
       win_close_theme_popup,
       win_pick_theme,
+      win_open_guide,
     ])
     .build(tauri::generate_context!())
     .expect("error while building MyPDFViewer");
@@ -957,6 +999,14 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn guide_pages_are_limited_to_the_shipped_ones() {
+    assert_eq!(guide_page("Guide.en.html"), "Guide.en.html");
+    assert_eq!(guide_page("Guide.html"), "Guide.html");
+    assert_eq!(guide_page("../../secret.html"), "Guide.html");
+    assert_eq!(guide_page(""), "Guide.html");
+  }
 
   #[test]
   fn min_width_is_clamped() {

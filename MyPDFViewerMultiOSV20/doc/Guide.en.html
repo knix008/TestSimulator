@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyPDFViewer Program Guide</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.7 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  }
+  .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 22px 16px;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-weight: 700; font-size: 17px; }
+  nav .brand img { width: 34px; height: 34px; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 5px 10px; border-radius: 7px; color: var(--dim); text-decoration: none; font-size: 13.5px;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  nav .lang { margin-top: 18px; font-size: 13px; }
+  nav .lang a { color: var(--accent); }
+  main { max-width: 980px; padding: 34px 44px 80px; }
+  header.hero {
+    display: flex; gap: 20px; align-items: center; padding: 22px 24px; margin-bottom: 30px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  }
+  header.hero img { width: 72px; height: 72px; }
+  header.hero h1 { margin: 0; font-size: 28px; }
+  header.hero p { margin: 4px 0 0; color: var(--dim); }
+  h2 { margin: 46px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); font-size: 22px; scroll-margin-top: 16px; }
+  h3 { margin: 26px 0 6px; font-size: 17px; scroll-margin-top: 16px; }
+  p, li { color: var(--text); }
+  ul, ol.steps { padding-left: 22px; }
+  li + li { margin-top: 3px; }
+  figure { margin: 18px 0 22px; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 10px;
+    border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 420px; }
+  figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 12.5px/1.6 Consolas, monospace;
+  }
+  code { padding: 1px 5px; border-radius: 4px; background: var(--code); font: 13px Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 14px 0; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  footer { margin-top: 60px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 24px 18px 60px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand"><img src="images/icon.svg" alt=""><span>MyPDFViewer</span></div>
+    <ol>
+      <li><a href="#intro">1. Introduction</a></li>
+      <li><a href="#start">2. Start screen</a></li>
+      <li><a href="#open">3. Opening documents</a></li>
+      <li><a href="#view">4. Fit and zoom</a></li>
+      <li><a href="#copy">5. Copying text and pictures</a></li>
+      <li><a href="#highlight">6. Highlights</a></li>
+      <li><a href="#save">7. Saving</a></li>
+      <li><a href="#gallery">8. Gallery</a></li>
+      <li><a href="#library">9. Library</a></li>
+      <li><a href="#panels">10. Left panel</a></li>
+      <li><a href="#menus">11. Right-click menus</a></li>
+      <li><a href="#print">12. Printing</a></li>
+      <li><a href="#settings">13. Settings</a></li>
+      <li><a href="#keys">14. Shortcuts</a></li>
+      <li><a href="#install">15. Installing and your data</a></li>
+    </ol>
+    <div class="lang"><a href="./Guide.html">한국어 설명서 →</a></div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>MyPDFViewer Program Guide</h1>
+        <p>Read PDFs, highlight them and save the highlights into the PDF, and take out their text and pictures — Windows · macOS · Linux · web browser</p>
+      </div>
+    </header>
+
+    <h2 id="intro">1. Introduction</h2>
+    <p>MyPDFViewer opens PDFs quickly, lets you <b>highlight</b> passages and <b>save the highlights into the PDF itself</b>, and copies text and pictures out of a document.
+      Every document you open is collected in the <b>gallery</b>; the ones you love go into your <b>library</b>, shown like books on shelves.</p>
+    <ul>
+      <li>A document always opens <b>fitted to the window</b>; the toolbar switches to actual size, fit width or fit height.</li>
+      <li>Highlights are standard PDF annotations, so other PDF readers show them too.</li>
+      <li>Pick the printer, copies and orientation and press [Print] — no second system print window.</li>
+      <li>The start screen has 21 moving 3D backgrounds with adjustable opacity and speed.</li>
+    </ul>
+
+    <h2 id="start">2. Start screen</h2>
+    <p>The start screen appears when the program starts; the <b>Home</b> button at the left of the toolbar brings it back at any time. It uses the whole window, left panel included.</p>
+    <figure><img src="images/start.png" alt="Start screen"><figcaption>Start screen — the title card, then Get started · My library · Start-screen background</figcaption></figure>
+    <ul>
+      <li><b>Title card</b> — name and version, <b>[Program guide]</b> (opens this guide in a new window) and <b>[Open the library]</b>.</li>
+      <li><b>Get started</b> — Open, Open URL, Gallery, and your <b>recently opened files</b> with an ✕ to forget each.</li>
+      <li><b>My library</b> — your library on a shelf; a book opens its document.</li>
+      <li><b>Start-screen background</b> — choose and tune the moving background (below).</li>
+      <li>Untick <b>Show this screen at startup</b> to start with an empty window.</li>
+    </ul>
+    <h3>Start-screen background</h3>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/start-background.png" alt="Background picker"><figcaption>21 backgrounds, random, opacity, speed, automatic changes</figcaption></figure>
+      <div>
+        <p>Books · Pages · Stars · Letters · Planes · Tunnel · Waves · Galaxy · Cubes · Helix · Knot · Sphere · Bubbles · Snow · Fireflies · Starmap · Aurora · Hexes · Orbits · Hills · Ink — 21 3D scenes about reading, books and paper. Hover a button for a description.</p>
+        <ul>
+          <li><b>Random background</b> picks any other one.</li>
+          <li><b>Opacity</b> 10 %–100 %, <b>motion speed</b> 10 %–300 %.</li>
+          <li><b>Change automatically</b> every 15 s to 5 min, in order or in <b>random order</b>.</li>
+        </ul>
+        <p>The same controls are in <b>Settings → Start screen</b>. Colours follow the current theme.</p>
+      </div>
+    </div>
+
+    <h2 id="open">3. Opening documents</h2>
+    <ul>
+      <li><b>Open</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) a PDF or a <code>.pdfvw</code> workspace; several files open as tabs.</li>
+      <li><b>Open URL</b> downloads a PDF from the internet.</li>
+      <li><b>Drag and drop</b> PDFs from your file manager onto the window.</li>
+      <li>The <b>folder panel</b> starts in the folder you last opened a file from, or your home folder if that is gone.</li>
+    </ul>
+    <figure><img src="images/viewer.png" alt="Viewer"><figcaption>A document open — toolbar, left panel (thumbnails) and the page</figcaption></figure>
+
+    <h2 id="view">4. Fit and zoom</h2>
+    <figure><img src="images/toolbar.png" alt="Toolbar"><figcaption>The toolbar — Home, File, undo, tools, copy, pages, layout, zoom, view fit, rotate; on the right Gallery, Library, sidebar, theme, language, Help, Settings</figcaption></figure>
+    <table>
+      <tr><th>Button</th><th>What you see</th></tr>
+      <tr><td>Fit window</td><td>The whole page inside the window — every document opens this way.</td></tr>
+      <tr><td>Actual size</td><td>100 % (<kbd>Ctrl</kbd>+<kbd>0</kbd>).</td></tr>
+      <tr><td>Fit width</td><td>The page width fills the window width.</td></tr>
+      <tr><td>Fit height</td><td>The page height fills the window height.</td></tr>
+    </table>
+
+    <h2 id="copy">5. Copying text and pictures</h2>
+    <ul>
+      <li><b>Text tool</b> (<kbd>Ctrl</kbd>+<kbd>1</kbd>) — drag to select, <kbd>Ctrl</kbd>+<kbd>C</kbd>.</li>
+      <li><b>Image tool</b> (<kbd>Ctrl</kbd>+<kbd>2</kbd>) — click a picture, then copy or save it at full resolution.</li>
+      <li><b>Region tool</b> (<kbd>Ctrl</kbd>+<kbd>3</kbd>) — drag a rectangle and keep it as a picture (PNG · JPEG · WebP · GIF · BMP).</li>
+    </ul>
+
+    <h2 id="highlight">6. Highlights</h2>
+    <ol class="steps">
+      <li>Select text with the text tool — several lines are fine.</li>
+      <li>Choose <b>Highlight</b> from the copy menu or the right-click menu. The whole selection becomes <b>one highlight</b>.</li>
+      <li>Save with <kbd>Ctrl</kbd>+<kbd>S</kbd>; the highlight goes into the PDF as a standard annotation.</li>
+    </ol>
+    <figure><img src="images/highlights.png" alt="Highlights panel"><figcaption>The Highlights tab — jump to one, delete one with ✕ or all with the bin, at once</figcaption></figure>
+
+    <h2 id="save">7. Saving</h2>
+    <ul>
+      <li><b>Save PDF</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) writes highlights, comments, bookmarks and attachments <b>into the open PDF</b>.</li>
+      <li><b>Save PDF As</b> keeps the original and writes a copy (<code>name-annotated.pdf</code>).</li>
+      <li><b>Save workspace</b> keeps the PDF path, page, highlights, bookmarks and clips in a <code>.pdfvw</code>.</li>
+    </ul>
+
+    <h2 id="gallery">8. Gallery</h2>
+    <p>Open it with the <b>Gallery</b> button. Every PDF you open is <b>added by itself</b>, shown with its first page and name. It uses the whole window.</p>
+    <figure><img src="images/gallery.png" alt="Gallery tiles"><figcaption>Tiles — size slider, ☆ adds to the library, ✕ removes from the gallery (the file stays)</figcaption></figure>
+    <figure><img src="images/gallery-details.png" alt="Gallery details"><figcaption>Details — name, folder, size, last opened, added; click a heading to sort</figcaption></figure>
+
+    <h2 id="library">9. Library</h2>
+    <p><b>Add to library</b> (☆ on a gallery card, or the right-click menu) and open it large with the <b>Library</b> button. The library uses the whole window; the toolbar <b>Sidebar</b> and <b>Document info</b> buttons (<kbd>F9</kbd> · <kbd>F8</kbd>) open the side panels beside it.</p>
+    <figure><img src="images/library.png" alt="Library shelves"><figcaption>Shelves — book size slider, sort, search, clear all, add files</figcaption></figure>
+    <div class="grid2">
+      <figure><img src="images/library-covers.png" alt="Covers"><figcaption>Covers</figcaption></figure>
+      <figure><img src="images/library-list.png" alt="List"><figcaption>List</figcaption></figure>
+    </div>
+    <ul>
+      <li>Four views — <b>shelves, covers, list, details</b>; one size slider scales them all, down to very small.</li>
+      <li>Titles stay on one line (shortened with …) so the books stand level.</li>
+      <li>✕ takes a book off the shelves; <b>Clear all</b> empties the library. Files and gallery cards stay.</li>
+    </ul>
+
+    <h2 id="panels">10. Left panel</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/history-panel.png" alt="History"><figcaption>History — recently opened and edit history, ✕ and clear all</figcaption></figure>
+      <figure class="narrow"><img src="images/library-panel.png" alt="Library panel"><figcaption>Library — count, clear all, ✕ per entry</figcaption></figure>
+    </div>
+
+    <h2 id="menus">11. Right-click menus</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/context-menu.png" alt="Right-click menu"><figcaption>Right-click on a page</figcaption></figure>
+      <p>Pages, every left-panel entry and every gallery or library card have a menu, each item with an icon: copy, highlight, add to gallery or library, show in folder, copy path, delete and more.</p>
+    </div>
+
+    <h2 id="print">12. Printing</h2>
+    <figure><img src="images/print.png" alt="Print dialog"><figcaption>Range, printer, copies, orientation and preview</figcaption></figure>
+    <ul>
+      <li>All · current page · custom range (<code>1-5, 8, 11-13</code>).</li>
+      <li>Pick the printer, copies and orientation and press <b>[Print]</b> — it prints at once. The printer and orientation are remembered.</li>
+      <li>Use <b>[System print dialog…]</b> for paper, duplex and other settings.</li>
+    </ul>
+
+    <h2 id="settings">13. Settings</h2>
+    <figure><img src="images/settings-start.png" alt="Settings — start screen"><figcaption>Settings → Start screen</figcaption></figure>
+
+    <h2 id="keys">14. Shortcuts</h2>
+    <table>
+      <tr><th>Key</th><th>Action</th><th>Key</th><th>Action</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save into the open PDF</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td><td><kbd>F1</kbd></td><td>This guide</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></td><td>Text / image / region tool</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>Undo / redo</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom in / out</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>Actual size</td></tr>
+      <tr><td><kbd>F9</kbd></td><td>Sidebar</td><td><kbd>Esc</kbd></td><td>Close the gallery or library</td></tr>
+    </table>
+
+    <h2 id="install">15. Installing and your data</h2>
+    <ul>
+      <li>Build the Windows installer with <code>npm run build:win</code> (<code>build:mac</code>, <code>build:linux</code>).</li>
+      <li>Settings, recent files, the gallery and the library live in <code>%APPDATA%\MyPDFViewer\settings.json</code>.</li>
+    </ul>
+
+    <footer>MyPDFViewer · © SHKWON (knix008@naver.com) · MIT License</footer>
+  </main>
+</div>
+</body>
+</html>

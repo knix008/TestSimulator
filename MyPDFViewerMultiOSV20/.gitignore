@@ -12,6 +12,8 @@ src-tauri/gen/
 # but committed: tauri-build embeds icon.ico at compile time.
 # copied from pdfjs-dist — npm run copy:pdfjs
 public/pdfjs/
+# copied from doc/ — npm run sync:doc (part of prepare:assets)
+public/doc/
 # stamped with the build time and commit on every build — npm run generate:build-info
 # (tracking it meant every machine's build dirtied the file and `git pull` conflicted;
 # prepare:assets and postinstall regenerate it, so a clone always has one)
