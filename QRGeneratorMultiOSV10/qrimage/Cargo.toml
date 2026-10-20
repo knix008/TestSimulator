@@ -1,0 +1,20 @@
+[package]
+name = "qrimage"
+version = "1.0.0"
+description = "Raster export (PNG, JPEG, WebP, GIF, BMP, TIFF, ICO) for QR Generator; native and WebAssembly."
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "qrimage"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
