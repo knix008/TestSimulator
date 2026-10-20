@@ -123,7 +123,7 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
   const {
     doc, map, L, ms, lang, settings, editing, draftText, linkFrom, readonly,
     onSelect, onSelectRel, onAction, onEditStart, onEditChange, onEditCommit, onEditCancel, onKey,
-    onMove, onFloat, onNudge, onRelControl, onLink, onViewChange, onContextMenu, onBadge, onToggleFold, onCreateFloating,
+    onMove, onFloat, onNudge, onRelControl, onBend, onLink, onViewChange, onContextMenu, onBadge, onToggleFold, onCreateFloating,
     dimIds, hitIds, presentationIds,
   } = props;
   const host = useRef(null);
@@ -133,7 +133,7 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
   const [view, setViewState] = useState(() => doc.view || null);
   const viewRef = useRef(view);
   const drag = useRef(null);
-  const [overlay, setOverlay] = useState(null);   // { ghost, drop, marquee, linkTo, relEdit }
+  const [overlay, setOverlay] = useState(null);   // { ghost, drop, marquee, linkTo, relEdit, bend }
   const lastDown = useRef({ t: 0, id: null, x: 0, y: 0 });
   const anim = useRef(0);
   const composing = useRef(false);
@@ -299,6 +299,11 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
       return;
     }
     focusEditor();
+    if (target && target.dataset.handle === 'bend') {
+      drag.current = { mode: 'bend', id: target.dataset.bendid, side: target.dataset.bendside };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
     if (target && target.dataset.handle) {
       drag.current = { mode: 'handle', which: target.dataset.handle, rel: target.dataset.relid, start: p };
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -379,6 +384,11 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
       setOverlay({ relEdit: { rel: d.rel, which: d.which, p } });
       return;
     }
+    if (d.mode === 'bend') {
+      const b = bendAt(d.id, d.side, p);
+      if (b) { d.bend = b.bend; setOverlay({ bend: { id: d.id, side: d.side, at: b.at } }); }
+      return;
+    }
     if (d.mode === 'pendingTopic') {
       if (readonly || Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_START) return;
       const n = L.nodes.get(d.id);
@@ -421,6 +431,7 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
       return;
     }
     if (d.mode === 'marquee') { setOverlay(null); return; }
+    if (d.mode === 'bend') { setOverlay(null); if (d.bend != null && onBend) onBend(d.id, d.bend); return; }
     if (d.mode === 'handle') {
       const p = toWorld(e);
       setOverlay(null);
@@ -541,6 +552,15 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
     };
   })();
 
+  // An elbow trunk dragged to p: the parent's bend (a share of the gap, 5 – 95 %) and where it lands.
+  const bendAt = (id, side, p) => {
+    const n = L.nodes.get(id);
+    const t = n && n.trunks && n.trunks[side];
+    if (!t) return null;
+    const bend = Math.max(0.05, Math.min(0.95, Math.round((((t.axis === 'x' ? p.x : p.y) - t.edge) * t.sign / t.gap) * 100) / 100));
+    return { bend, at: t.edge + t.sign * t.gap * bend };
+  };
+
   // ── overlay pieces ──
   const selected = (doc.sel || []).map((id) => L.nodes.get(id)).filter(Boolean);
   const selRel = doc.selRel ? (map.relationships || []).find((r) => r.id === doc.selRel) : null;
@@ -563,6 +583,8 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
   const k = v.k;
   const dropNode = overlay && overlay.drop && overlay.drop.id ? L.nodes.get(overlay.drop.id) : null;
   const linkSource = linkFrom ? L.nodes.get(linkFrom) : null;
+  // the bend handles of the one selected topic whose subtopics hang from elbow lines
+  const bendNode = !readonly && selected.length === 1 && selected[0].trunks ? selected[0] : null;
 
   return (
     <div className={`map-canvas ${settings.showGrid ? 'grid' : ''} ${settings.showRulers ? 'rulers' : ''} ${linkFrom ? 'linking' : ''}`} ref={host}
@@ -586,6 +608,25 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
                 <circle data-handle="c2" data-relid={relHandles.rel.id} cx={relHandles.g.c2.x} cy={relHandles.g.c2.y} r={7 / k} className="tm-handle" style={{ strokeWidth: 2 / k }} />
               </g>
             )}
+            {bendNode && Object.values(bendNode.trunks).map((t) => {
+              const live = overlay && overlay.bend && overlay.bend.id === bendNode.id && overlay.bend.side === t.side;
+              const at = live ? overlay.bend.at : t.at;
+              // along the trunk, halfway from the parent's middle to the trunk's far end: clear of
+              // the fold button, which sits on the parent's middle
+              const c = t.axis === 'x' ? bendNode.y + bendNode.h / 2 : bendNode.x + bendNode.w / 2;
+              const end = t.hi - c >= c - t.lo ? t.hi : t.lo;
+              const mid = Math.abs(end - c) >= 32 ? c + (end - c) / 2 : c + (end >= c ? 1 : -1) * 16;
+              const [hx, hy] = t.axis === 'x' ? [at, mid] : [mid, at];
+              const s = 6 / k;
+              return (
+                <g key={t.side} className="tm-bend">
+                  {live && <path className="tm-bend-preview" d={t.axis === 'x' ? `M${at} ${t.lo} L${at} ${t.hi}` : `M${t.lo} ${at} L${t.hi} ${at}`} style={{ strokeWidth: 2 / k }} />}
+                  <rect data-handle="bend" data-bendid={bendNode.id} data-bendside={t.side} className={`tm-bend-handle ${t.axis}`} x={hx - s} y={hy - s} width={s * 2} height={s * 2} rx={2 / k} transform={`rotate(45 ${hx} ${hy})`} style={{ strokeWidth: 2 / k }}>
+                    <title>{lang === 'ko' ? '끌어서 꺾임 위치 바꾸기' : 'Drag to move the bend'}</title>
+                  </rect>
+                </g>
+              );
+            })}
             {dropNode && (
               overlay.drop.zone === 'child'
                 ? <rect className="tm-drop" x={dropNode.x - 5} y={dropNode.y - 5} width={dropNode.w + 10} height={dropNode.h + 10} rx={9} style={{ strokeWidth: 3 / k }} />

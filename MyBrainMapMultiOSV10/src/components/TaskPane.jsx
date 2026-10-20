@@ -145,6 +145,20 @@ function FormatTab({ map, topics, edit, ms, primaryNode, clipStyle, setClipStyle
             options={[{ value: '', label: t('auto'), icon: 'refresh' }, ...[120, 160, 200, 260, 320, 400, 520].map((w) => ({ value: String(w), label: `${w}px`, iconEl: widthIcon(w, 520) }))]} />
         </Row>
       </Section>
+      {/* elbow lines to the subtopics: where they turn (also the ◆ handle on the map) */}
+      {primaryNode && primaryNode.trunks && (
+        <Section title={t('fmt_bend')}>
+          <Row label={t('fmt_bend_at')}>
+            <input type="range" name="bend" min={5} max={95} step={5} value={Math.round((Number(first.bend) || 0.5) * 100)}
+              onChange={(e) => { const v = Number(e.target.value) / 100; edit((m) => setField(m, ids, 'bend', v === 0.5 ? null : v), `bend:${ids.join(',')}`); }} />
+            <span className="pane-num">{Math.round((Number(first.bend) || 0.5) * 100)}%</span>
+          </Row>
+          <div className="pane-btns">
+            <button type="button" className="btn small" data-cmd="bend-reset" disabled={!topics.some((x) => x.bend)} onClick={() => edit((m) => setField(m, ids, 'bend', null), '')}><Icon name="refresh" size={13} /> {t('fmt_bend_reset')}</button>
+          </div>
+          <p className="muted small">{t('fmt_bend_hint')}</p>
+        </Section>
+      )}
       <Section title={t('fmt_sub_layout')}>
         <div className="layout-grid small">
           <button type="button" className={`layout-btn ${subLayout === '' ? 'on' : ''}`} onClick={() => pickSub('')} title={t('auto')}><Icon name="refresh" size={18} /><span>{t('auto')}</span></button>

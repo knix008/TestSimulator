@@ -288,11 +288,23 @@ fn host_info(host: tauri::State<'_, Host>) -> HostInfo {
     }
 }
 
+// The main window appears only once the page has drawn itself with the saved settings (theme,
+// start-page background) — shown any earlier, it would flash the default look first.
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        if !win.is_visible().unwrap_or(false) {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+    }
+}
+
 #[tauri::command]
 fn renderer_ready(app: tauri::AppHandle, host: tauri::State<'_, Host>) {
     if let Ok(mut ready) = host.ready.lock() {
         *ready = true;
     }
+    show_main(&app);
     let files: Vec<String> = host.pending.lock().map(|mut g| g.drain(..).collect()).unwrap_or_default();
     if !files.is_empty() {
         let _ = app.emit_to("main", "files:open", &files);
@@ -353,7 +365,12 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     if maximized {
         let _ = win.maximize();
     }
-    let _ = win.show();
+    // shown by renderer_ready; should the page never get there, it still appears after a while
+    let handle = app.handle().clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(5));
+        show_main(&handle);
+    });
     Ok(())
 }
 

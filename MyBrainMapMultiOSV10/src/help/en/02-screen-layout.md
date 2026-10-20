@@ -16,7 +16,7 @@ At the top: the app icon and name, the **Start** button, and the File · Edit ·
 
 | Group | Buttons |
 | --- | --- |
-| File | New map, open, save |
+| File | New map, open, save, save as |
 | Output | Export, print |
 | Edit | Undo, redo |
 | Add topics | Sub, sibling and parent topic, callout, floating topic |
@@ -30,7 +30,7 @@ At the top: the app icon and name, the **Start** button, and the File · Edit ·
 | Screen | Grid, rulers, overview window |
 | Panes | Left pane, right pane |
 
-Buttons of one kind are grouped, with a separator between groups. The toolbar is always one row, its groups centred so the left and right margins are equal.
+Buttons of one kind are grouped, with a separator between groups. The toolbar is always one row, every button left-aligned.
 
 The window never gets narrower than the toolbar with all its buttons on one row. Hover a button for its name and shortcut.
 
@@ -40,7 +40,7 @@ At the right end of the menu bar, just left of the minimize button: theme (click
 
 One tab per map. An unsaved map has an italic name and a ●. Drag tabs to reorder, middle-click to close, right-click for the tab menu.
 
-When the tabs do not all fit, `<` / `>` at the two ends bring the next hidden tab on that side into view; each is on only while tabs are hidden on its side. The current tab stays in view when the window gets narrower. `Ctrl+Tab` / `Ctrl+Shift+Tab` switch tabs.
+When the tabs do not all fit, `<` / `>` — side by side at the right end of the tab row — bring the next hidden tab on that side into view; each is on only while tabs are hidden on its side. The current tab stays in view when the window gets narrower. `Ctrl+Tab` / `Ctrl+Shift+Tab` switch tabs.
 
 ## Sidebar
 

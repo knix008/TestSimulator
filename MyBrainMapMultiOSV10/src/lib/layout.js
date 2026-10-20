@@ -586,6 +586,24 @@ export function layoutMap(map, opts) {
     p.spineMin = Math.min(p.spineMin != null ? p.spineMin : p.x + p.spineEnd, n.bone.e.x - 6);
   }
 
+  // The trunk of a parent's elbow lines on one side: `gap` from its edge × its bend position.
+  // Recorded on the parent (p.trunks[side]) with the span of the subtopics it reaches, for the
+  // handle that moves it.
+  const BENT = new Set(['elbow', 'rounded']);
+  const bendOf = (p) => { const v = Number(p.topic.bend); return v > 0 && v < 1 ? Math.max(0.05, Math.min(0.95, v)) : 0.5; };
+  const trunkOf = (p, side, b, gap) => {
+    const horizontal = side === 'right' || side === 'left';
+    const edge = side === 'right' ? p.x + p.w : side === 'left' ? p.x : side === 'down' ? p.y + p.h : p.y;
+    const sign = side === 'right' || side === 'down' ? 1 : -1;
+    const at = edge + sign * gap * bendOf(p);
+    p.trunks = p.trunks || {};
+    const t = p.trunks[side] || (p.trunks[side] = { side, axis: horizontal ? 'x' : 'y', at, edge, sign, gap, lo: Infinity, hi: -Infinity });
+    const along = horizontal ? b.y : b.x;
+    t.lo = Math.min(t.lo, along, horizontal ? p.y + p.h / 2 : p.x + p.w / 2);
+    t.hi = Math.max(t.hi, along, horizontal ? p.y + p.h / 2 : p.x + p.w / 2);
+    return at;
+  };
+
   for (const n of order) {
     const p = n.parent;
     if (!p) continue;
@@ -612,15 +630,20 @@ export function layoutMap(map, opts) {
         lines.push({ id: n.id, d: taperPath(a, b, w * 2.6, w * 0.9, style), fill: color, stroke: 'none', width: 0 });
       } else {
         const start = pr ? { x: toRight ? p.x + p.w - 2 : p.x + 2, y: p.y + p.h / 2 } : a;
-        lines.push({ id: n.id, d: hPath(style, pr && style === 'curve' ? a : start, b), stroke: color, width: w });
+        // elbow lines: every subtopic on this side bends on one shared trunk, at the parent's bend
+        // position (topic.bend, 0.5: halfway to where the subtopics start)
+        const mx = BENT.has(style) ? trunkOf(p, toRight ? 'right' : 'left', b, gapH(p.level)) : undefined;
+        lines.push({ id: n.id, d: hPath(style, pr && style === 'curve' ? a : start, b, mx), stroke: color, width: w });
       }
     } else if (pd === 'down' || pd === 'up') {
       let down = pd === 'down';
       if (n.offX || n.offY) down = n.y + n.h / 2 >= p.y + p.h / 2;
       const a = { x: p.x + p.w / 2, y: down ? p.y + p.h : p.y };
       const b = { x: n.x + n.w / 2, y: down ? n.y : n.y + n.h };
+      // the bus the subtopics hang from: one for all of them, at the parent's bend position
+      const my = BENT.has(style) ? trunkOf(p, down ? 'down' : 'up', b, orgGapV) : undefined;
       // the bus under the central topic is shared by every branch: neutral colour there
-      lines.push({ id: n.id, d: vPath(style, a, b), stroke: pr && style !== 'curve' && style !== 'straight' ? ms.line.color : color, width: w });
+      lines.push({ id: n.id, d: vPath(style, a, b, my), stroke: pr && style !== 'curve' && style !== 'straight' ? ms.line.color : color, width: w });
     } else if (pd === 'treeRight' || pd === 'treeLeft') {
       const x = p.x + treeStart(p, pd);
       const a = { x, y: p.y + p.h };
@@ -763,30 +786,31 @@ export function layoutMap(map, opts) {
 
 const r = (v) => Math.round(v * 10) / 10;
 
-// horizontal connection a → b
-function hPath(style, a, b) {
+// horizontal connection a → b. mx: where an elbow line turns (the parent's shared trunk);
+// halfway when not given
+function hPath(style, a, b, mx) {
   const dx = b.x - a.x;
   if (style === 'straight') return `M${r(a.x)} ${r(a.y)} L${r(b.x)} ${r(b.y)}`;
   if (style === 'elbow' || style === 'rounded') {
-    const mx = a.x + dx / 2;
-    if (style === 'elbow' || Math.abs(b.y - a.y) < 1) return `M${r(a.x)} ${r(a.y)} H${r(mx)} V${r(b.y)} H${r(b.x)}`;
-    const rad = Math.min(10, Math.abs(b.y - a.y) / 2, Math.abs(dx) / 4);
-    const sx = Math.sign(dx) || 1, sy = Math.sign(b.y - a.y) || 1;
-    return `M${r(a.x)} ${r(a.y)} H${r(mx - sx * rad)} Q${r(mx)} ${r(a.y)} ${r(mx)} ${r(a.y + sy * rad)} V${r(b.y - sy * rad)} Q${r(mx)} ${r(b.y)} ${r(mx + sx * rad)} ${r(b.y)} H${r(b.x)}`;
+    const m = mx ?? a.x + dx / 2;
+    const rad = Math.min(10, Math.abs(b.y - a.y) / 2, Math.abs(m - a.x), Math.abs(b.x - m));
+    if (style === 'elbow' || rad < 0.5) return `M${r(a.x)} ${r(a.y)} H${r(m)} V${r(b.y)} H${r(b.x)}`;
+    const s1 = Math.sign(m - a.x) || 1, s2 = Math.sign(b.x - m) || 1, sy = Math.sign(b.y - a.y) || 1;
+    return `M${r(a.x)} ${r(a.y)} H${r(m - s1 * rad)} Q${r(m)} ${r(a.y)} ${r(m)} ${r(a.y + sy * rad)} V${r(b.y - sy * rad)} Q${r(m)} ${r(b.y)} ${r(m + s2 * rad)} ${r(b.y)} H${r(b.x)}`;
   }
   return `M${r(a.x)} ${r(a.y)} C${r(a.x + dx * 0.5)} ${r(a.y)} ${r(b.x - dx * 0.5)} ${r(b.y)} ${r(b.x)} ${r(b.y)}`;
 }
 
-// vertical connection a → b (org chart)
-function vPath(style, a, b) {
+// vertical connection a → b (org chart). my: the height of the bus the subtopics hang from
+function vPath(style, a, b, my) {
   const dy = b.y - a.y;
   if (style === 'straight') return `M${r(a.x)} ${r(a.y)} L${r(b.x)} ${r(b.y)}`;
   if (style === 'curve') return `M${r(a.x)} ${r(a.y)} C${r(a.x)} ${r(a.y + dy * 0.5)} ${r(b.x)} ${r(b.y - dy * 0.5)} ${r(b.x)} ${r(b.y)}`;
-  const my = a.y + dy / 2;
-  if (style === 'elbow' || Math.abs(b.x - a.x) < 1) return `M${r(a.x)} ${r(a.y)} V${r(my)} H${r(b.x)} V${r(b.y)}`;
-  const rad = Math.min(10, Math.abs(b.x - a.x) / 2, Math.abs(dy) / 4);
-  const sx = Math.sign(b.x - a.x) || 1, sy = Math.sign(dy) || 1;
-  return `M${r(a.x)} ${r(a.y)} V${r(my - sy * rad)} Q${r(a.x)} ${r(my)} ${r(a.x + sx * rad)} ${r(my)} H${r(b.x - sx * rad)} Q${r(b.x)} ${r(my)} ${r(b.x)} ${r(my + sy * rad)} V${r(b.y)}`;
+  const m = my ?? a.y + dy / 2;
+  const rad = Math.min(10, Math.abs(b.x - a.x) / 2, Math.abs(m - a.y), Math.abs(b.y - m));
+  if (style === 'elbow' || rad < 0.5) return `M${r(a.x)} ${r(a.y)} V${r(m)} H${r(b.x)} V${r(b.y)}`;
+  const s1 = Math.sign(m - a.y) || 1, s2 = Math.sign(b.y - m) || 1, sx = Math.sign(b.x - a.x) || 1;
+  return `M${r(a.x)} ${r(a.y)} V${r(m - s1 * rad)} Q${r(a.x)} ${r(m)} ${r(a.x + sx * rad)} ${r(m)} H${r(b.x - sx * rad)} Q${r(b.x)} ${r(m)} ${r(b.x)} ${r(m + s2 * rad)} V${r(b.y)}`;
 }
 
 // tree: down from the parent, then across to the child (rounded corner)

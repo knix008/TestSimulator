@@ -85,10 +85,14 @@ export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, 
       onClose();
     };
     const key = (e) => { if (e.key === 'Escape') { if (portal) { e.preventDefault(); e.stopPropagation(); } onClose(); } };
+    // a press anywhere else closes the menu. pointerdown as well as mousedown: the map canvas
+    // cancels pointerdown, and then the browser sends no mousedown at all
+    document.addEventListener('pointerdown', down, true);
     document.addEventListener('mousedown', down, true);
     document.addEventListener('keydown', key, true);
     window.addEventListener('blur', onClose);
     return () => {
+      document.removeEventListener('pointerdown', down, true);
       document.removeEventListener('mousedown', down, true);
       document.removeEventListener('keydown', key, true);
       window.removeEventListener('blur', onClose);

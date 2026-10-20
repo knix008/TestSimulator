@@ -168,19 +168,23 @@ async function saveBounds() {
 
 let closeCb = null;
 let closeInstalled = false;
+// The window's close (×, File › Exit, the OS) asks the page first — whether to save changed maps.
+// One listener for the life of the window, calling whichever callback was given last: the page
+// hands in a new one as its maps change, and taking the listener down with an old callback
+// would let the window close without asking.
 export function onCloseRequest(cb) {
   closeCb = cb;
-  if (closeInstalled) return () => { closeCb = null; };
-  closeInstalled = true;
-  let un = () => {};
-  getCurrentWindow().onCloseRequested(async (event) => {
-    if (getCurrentWindow().label !== 'main') return;
-    if (closing) return;
-    event.preventDefault();
-    try { await saveBounds(); } catch { /* the session write is best-effort */ }
-    if (closeCb) closeCb();
-  }).then((off) => { un = off; }).catch(() => {});
-  return () => { closeCb = null; un(); };
+  if (!closeInstalled) {
+    closeInstalled = true;
+    getCurrentWindow().onCloseRequested(async (event) => {
+      if (getCurrentWindow().label !== 'main') return;
+      if (closing) return;
+      event.preventDefault();
+      try { await saveBounds(); } catch { /* the session write is best-effort */ }
+      if (closeCb) closeCb(); else replyClose(true);
+    }).catch(() => {});
+  }
+  return () => { if (closeCb === cb) closeCb = null; };
 }
 
 export async function replyClose(allow) {

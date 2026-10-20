@@ -49,20 +49,7 @@ export function PrintPreviewDialog({ map, settings, onSettings, onClose, onDone 
     <Dialog title={t('print_title')} icon="print" kind="info" className="print-preview" width={1100} onClose={onClose}
       footer={<>{err && <span className="danger small">{err}</span>}<span className="spacer" /><button className="btn" onClick={onClose}>{t('cancel')}</button><button className="btn primary" disabled={busy} onClick={go}>{busy ? t('print_busy') : t('print_go')}</button></>}>
       <div className="print-pv-main">
-        <div className="print-pv-stage">
-          <div className="print-pv-bar">
-            <span className="muted small">{t('print_page_count', { n: doc.pages })}</span>
-            <span className="spacer" />
-            <button type="button" className="icon-btn" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}><Icon name="zoomOut" size={15} /></button>
-            <span className="print-pv-zoom small">{Math.round(zoom * 100)}%</span>
-            <button type="button" className="icon-btn" onClick={() => setZoom((z) => Math.min(1.5, z + 0.1))}><Icon name="zoomIn" size={15} /></button>
-          </div>
-          <div className="print-pv-scroll">
-            <div className="print-pv-scale" style={{ width: pw * zoom, height: (ph + 8 * MM) * doc.pages * zoom }}>
-              <iframe title="print preview" srcDoc={doc.html} style={{ width: pw, height: (ph + 8 * MM) * doc.pages, transform: `scale(${zoom})` }} />
-            </div>
-          </div>
-        </div>
+        {/* the page settings on the left, the preview on the right */}
         <div className="print-pv-side">
           {isDesktop && (<>
             <label>{t('print_printer')}</label>
@@ -85,6 +72,20 @@ export function PrintPreviewDialog({ map, settings, onSettings, onClose, onDone 
             <label className="check"><input type="checkbox" checked={o.color} onChange={(e) => onSettings({ printColor: e.target.checked })} /><span>{t('print_color')}</span></label>
           </div>
           {!isDesktop && <p className="muted small">{t('print_web_note')}</p>}
+        </div>
+        <div className="print-pv-stage">
+          <div className="print-pv-bar">
+            <span className="muted small">{t('print_page_count', { n: doc.pages })}</span>
+            <span className="spacer" />
+            <button type="button" className="icon-btn" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}><Icon name="zoomOut" size={15} /></button>
+            <span className="print-pv-zoom small">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="icon-btn" onClick={() => setZoom((z) => Math.min(1.5, z + 0.1))}><Icon name="zoomIn" size={15} /></button>
+          </div>
+          <div className="print-pv-scroll">
+            <div className="print-pv-scale" style={{ width: pw * zoom, height: (ph + 8 * MM) * doc.pages * zoom }}>
+              <iframe title="print preview" srcDoc={doc.html} style={{ width: pw, height: (ph + 8 * MM) * doc.pages, transform: `scale(${zoom})` }} />
+            </div>
+          </div>
         </div>
       </div>
     </Dialog>

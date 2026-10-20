@@ -362,7 +362,13 @@ export default function App() {
       setReady(true);
       // the very first launch after installing: the tutorial map and the guided tour
       if (!s.tutorialDone) setTimeout(() => { runActionRef.current && runActionRef.current('tour'); }, 400);
-      rendererReady();
+      // the window is shown only now, with these settings in place: after two frames (React commits,
+      // then the start page draws its saved background) — or a moment later, as a hidden window
+      // may run no animation frames at all
+      let shown = false;
+      const show = () => { if (!shown) { shown = true; rendererReady(); } };
+      requestAnimationFrame(() => requestAnimationFrame(show));
+      setTimeout(show, 150);
       warmPopups();
     })();
     return () => { alive = false; };
@@ -621,6 +627,8 @@ export default function App() {
     if (id.startsWith('shape:')) { if (needDoc()) edit((m) => setStyle(m, sel, { shape: id.slice(6) || null })); return; }
     if (id.startsWith('priority:')) { if (needDoc()) { const p = Number(id.slice(9)); edit((m) => setTask(m, sel, { priority: p || null })); } return; }
     if (id.startsWith('progress:')) { if (needDoc()) { const v = id.slice(9); edit((m) => setTask(m, sel, { progress: v === '' ? null : Number(v) })); } return; }
+    // where the elbow lines to the selected topics' subtopics turn: 5 – 95 % of the gap ('bend:' resets)
+    if (id.startsWith('bend:')) { if (needDoc() && sel.length) { const v = Number(id.slice(5)); edit((m) => setField(m, sel, 'bend', v > 0 && v < 1 && Math.abs(v - 0.5) >= 0.005 ? Math.max(0.05, Math.min(0.95, v)) : null)); } return; }
     if (id.startsWith('level:')) { if (needDoc()) edit((m) => expandToLevel(m, Number(id.slice(6)))); return; }
     // the guided tour's demos (src/lib/tourSteps.js): topics of the tutorial map by their place
     // ("0/3": main topic 0, its subtopic 3), texts as "한국어|English"
@@ -1147,7 +1155,7 @@ export default function App() {
       ...(recent.length ? [{ id: 'recentClear', label: t('recent_clear'), icon: 'trash' }] : []),
       { sep: true },
       { id: 'save', label: t('save'), icon: 'fileSave', shortcut: sc('Ctrl+S'), disabled: !hasDoc },
-      { id: 'saveAs', label: t('save_as'), icon: 'save', shortcut: sc('Ctrl+Shift+S'), disabled: !hasDoc },
+      { id: 'saveAs', label: t('save_as'), icon: 'fileSaveAs', shortcut: sc('Ctrl+Shift+S'), disabled: !hasDoc },
       { id: 'saveAll', label: t('save_all'), icon: 'saveAll', disabled: !docs.some(isDirty) },
       { sep: true },
       { id: 'export', label: t('export'), icon: 'export', shortcut: sc('Ctrl+E'), disabled: !hasDoc },
@@ -1465,6 +1473,7 @@ export default function App() {
                 onMove={(ids, target, zone) => { const r = edit((m) => cmdMove(m, ids, target, zone, { autoBalance: settings.autoBalance })); if (!r) flash(t('msg_move_refused')); }}
                 onFloat={(ids, c) => edit((m) => cmdFloat(m, ids, c))}
                 onNudge={(ids, dx, dy) => edit((m) => cmdNudge(m, ids, dx, dy))}
+                onBend={(id, bend) => edit((m) => setField(m, [id], 'bend', Math.abs(bend - 0.5) < 0.005 ? null : bend), '', [id])}
                 onRelControl={(relId, which, p) => edit((m) => { const rel = (m.relationships || []).find((x) => x.id === relId); if (!rel) return null; const n = L.nodes.get(which === 'c1' ? rel.from : rel.to); if (!n) return null; const auto = !rel.c1 && !rel.c2 && L.relBends ? L.relBends.get(relId) : null; const keep = auto ? { c1: { x: Math.round(auto.c1.x), y: Math.round(auto.c1.y) }, c2: { x: Math.round(auto.c2.x), y: Math.round(auto.c2.y) } } : {}; return updateRelationship(m, relId, { ...keep, [which]: { x: Math.round(p.x - (n.x + n.w / 2)), y: Math.round(p.y - (n.y + n.h / 2)) } }); })}
                 onLink={finishLink} onViewChange={onCanvasView}
                 onContextMenu={(c) => setCtx({ ...c, items: c.kind === 'topic' ? topicMenu(c.id) : c.kind === 'rel' ? relMenu(c.id) : canvasMenu(c.world) })}

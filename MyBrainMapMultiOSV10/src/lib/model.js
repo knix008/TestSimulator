@@ -716,6 +716,8 @@ export function normalizeMap(raw) {
     if (topic.offset && !(typeof topic.offset === 'object' && Number.isFinite(Number(topic.offset.x)) && Number.isFinite(Number(topic.offset.y)) && !floating)) delete topic.offset;
     else if (topic.offset) topic.offset = { x: Number(topic.offset.x), y: Number(topic.offset.y) };
     for (const k of ['icons', 'tags', 'attachments', 'comments', 'props']) if (k in topic && !Array.isArray(topic[k])) delete topic[k];
+    // where the elbow lines to its subtopics turn: a share of the gap, strictly between 0 and 1
+    if ('bend' in topic && !(Number(topic.bend) > 0 && Number(topic.bend) < 1)) delete topic.bend;
     return topic;
   };
   const map = {

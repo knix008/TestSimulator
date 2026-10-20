@@ -42,7 +42,7 @@ const ko = {
   help_menu: '도움말', help_open: '사용법 보기', help_search: '도움말 검색', help_found: '{n}개 장에서 찾음', shortcuts: '단축키', shortcuts_title: '단축키', menu_info: '정보',
 
   // toolbar tips
-  tip_new: '새 맵 (Ctrl+N)', tip_open: '열기 (Ctrl+O)', tip_save: '저장 (Ctrl+S)', tip_export: '내보내기 — PNG · SVG · PDF · Word · … (Ctrl+E)', tip_print: '인쇄 (Ctrl+P)',
+  tip_new: '새 맵 (Ctrl+N)', tip_open: '열기 (Ctrl+O)', tip_save: '저장 (Ctrl+S)', tip_save_as: '다른 이름으로 저장 (Ctrl+Shift+S)', tip_export: '내보내기 — PNG · SVG · PDF · Word · … (Ctrl+E)', tip_print: '인쇄 (Ctrl+P)',
   tip_undo: '실행 취소 (Ctrl+Z)', tip_redo: '다시 실행 (Ctrl+Y)',
   tip_add_child: '하위 토픽 추가 (Tab / Insert)', tip_add_sibling: '형제 토픽 추가 (Enter)', tip_add_parent: '상위 토픽 추가 (Ctrl+Shift+Insert)', tip_add_callout: '설명선 추가 (Ctrl+Shift+Enter)', tip_add_floating: '플로팅 토픽 추가 (빈 곳을 두 번 눌러도 됩니다)',
   tip_relationship: '관계선 — 두 토픽을 선택했으면 바로 잇고, 아니면 이을 토픽을 누릅니다 (Ctrl+Shift+R)', tip_boundary: '경계 넣기 / 없애기 (Ctrl+Shift+B)',
@@ -70,7 +70,7 @@ const ko = {
   pane_no_selection: '토픽을 선택하세요.', pane_no_doc: '열린 맵이 없습니다.', close_btn: '닫기',
   fmt_shape: '모양', fmt_colors: '색', fmt_fill: '채우기', fmt_text_color: '글자색', fmt_border: '테두리', fmt_no_border: '없음', fmt_line: '연결선', fmt_text: '글자',
   fmt_font: '글꼴', fmt_size: '크기', fmt_bold: '굵게', fmt_italic: '기울임', fmt_underline: '밑줄', fmt_strike: '취소선',
-  fmt_align_left: '왼쪽 맞춤', fmt_align_center: '가운데 맞춤', fmt_align_right: '오른쪽 맞춤', fmt_width: '최대 너비', fmt_sub_layout: '하위 토픽 배치',
+  fmt_align_left: '왼쪽 맞춤', fmt_align_center: '가운데 맞춤', fmt_align_right: '오른쪽 맞춤', fmt_width: '최대 너비', fmt_bend: '꺾임 위치', fmt_bend_at: '꺾이는 곳', fmt_bend_reset: '가운데로', fmt_bend_hint: '하위 토픽으로 가는 꺾은 선이 꺾이는 곳입니다(부모 쪽 5% ~ 하위 토픽 쪽 95%). 맵에서 선택한 토픽의 ◆ 단추를 끌어도 됩니다. 연결선 모양이 꺾은 선 · 둥근 꺾은 선일 때 쓰입니다.', fmt_sub_layout: '하위 토픽 배치',
   fmt_copy: '서식 복사', fmt_copy_tip: '이 토픽의 서식을 기억합니다', fmt_paste: '서식 붙이기', fmt_paste_tip: '기억한 서식을 선택한 토픽에 적용합니다', fmt_clear: '서식 지우기',
   auto: '자동', none: '없음', on: '켜기', off: '끄기', clear: '지우기', add: '추가', remove: '제거', select: '선택',
   color_auto: '자동 (스타일 색)', color_none: '없음', color_custom: '직접 고르기',
@@ -216,7 +216,7 @@ const en = {
   filter: 'Filter…', filter_clear: 'Clear filter', settings: 'Settings', map_style_more: 'Map style and format…',
   help_menu: 'Help', help_open: 'How to use', help_search: 'Search help', help_found: 'Found in {n} chapters', shortcuts: 'Keyboard shortcuts', shortcuts_title: 'Keyboard shortcuts', menu_info: 'About',
 
-  tip_new: 'New map (Ctrl+N)', tip_open: 'Open (Ctrl+O)', tip_save: 'Save (Ctrl+S)', tip_export: 'Export — PNG, SVG, PDF, Word, … (Ctrl+E)', tip_print: 'Print (Ctrl+P)',
+  tip_new: 'New map (Ctrl+N)', tip_open: 'Open (Ctrl+O)', tip_save: 'Save (Ctrl+S)', tip_save_as: 'Save as (Ctrl+Shift+S)', tip_export: 'Export — PNG, SVG, PDF, Word, … (Ctrl+E)', tip_print: 'Print (Ctrl+P)',
   tip_undo: 'Undo (Ctrl+Z)', tip_redo: 'Redo (Ctrl+Y)',
   tip_add_child: 'Add subtopic (Tab / Insert)', tip_add_sibling: 'Add sibling topic (Enter)', tip_add_parent: 'Add parent topic (Ctrl+Shift+Insert)', tip_add_callout: 'Add callout (Ctrl+Shift+Enter)', tip_add_floating: 'Add floating topic (or double-click empty space)',
   tip_relationship: 'Relationship — joins two selected topics, or click the topic to join (Ctrl+Shift+R)', tip_boundary: 'Add / remove boundary (Ctrl+Shift+B)',
@@ -240,7 +240,7 @@ const en = {
   pane_no_selection: 'Select a topic.', pane_no_doc: 'No map is open.', close_btn: 'Close',
   fmt_shape: 'Shape', fmt_colors: 'Colours', fmt_fill: 'Fill', fmt_text_color: 'Text', fmt_border: 'Border', fmt_no_border: 'None', fmt_line: 'Line', fmt_text: 'Text',
   fmt_font: 'Font', fmt_size: 'Size', fmt_bold: 'Bold', fmt_italic: 'Italic', fmt_underline: 'Underline', fmt_strike: 'Strikethrough',
-  fmt_align_left: 'Align left', fmt_align_center: 'Centre', fmt_align_right: 'Align right', fmt_width: 'Max width', fmt_sub_layout: 'Subtopic layout',
+  fmt_align_left: 'Align left', fmt_align_center: 'Centre', fmt_align_right: 'Align right', fmt_width: 'Max width', fmt_bend: 'Bend position', fmt_bend_at: 'Turns at', fmt_bend_reset: 'Back to the middle', fmt_bend_hint: 'Where the elbow lines to the subtopics turn (5 % next to the parent – 95 % next to the subtopics). You can also drag the ◆ handle of the selected topic on the map. Used with the elbow and rounded line styles.', fmt_sub_layout: 'Subtopic layout',
   fmt_copy: 'Copy format', fmt_copy_tip: 'Remember this topic\'s format', fmt_paste: 'Paste format', fmt_paste_tip: 'Apply the remembered format to the selection', fmt_clear: 'Clear format',
   auto: 'Automatic', none: 'None', on: 'On', off: 'Off', clear: 'Clear', add: 'Add', remove: 'Remove', select: 'Select',
   color_auto: 'Automatic (style colour)', color_none: 'None', color_custom: 'Pick a colour',

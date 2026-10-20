@@ -1,6 +1,6 @@
 // Map tabs: click to activate, middle-click or × to close, drag to reorder,
-// right-click for the tab menu. When the tabs do not all fit, "<" / ">" at the
-// two ends bring the next hidden tab on that side into view — each is enabled
+// right-click for the tab menu. When the tabs do not all fit, "<" / ">" (side by
+// side at the right end) bring the next hidden tab on that side into view — each is enabled
 // only while tabs are hidden on its side (Ctrl+Shift+Tab / Ctrl+Tab switch tabs);
 // "+" makes a new map. The active tab is kept in view, also when the window
 // gets narrower; the mouse wheel scrolls the strip.
@@ -60,7 +60,6 @@ export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, 
 
   return (
     <div className="tabbar">
-      <button className="tab-ctl tab-prev" data-cmd="tab-prev" title={t('tab_prev')} aria-label={t('tab_prev')} disabled={!scroll.left} onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)}><Icon name="chevronLeft" size={14} /></button>
       <div className="tab-strip" ref={stripRef} onWheel={onWheel}>
         {docs.map((d) => (
           <div key={d.id} data-tab={d.id}
@@ -85,6 +84,7 @@ export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, 
         ))}
       </div>
       <div className="tab-controls">
+        <button className="tab-ctl tab-prev" data-cmd="tab-prev" title={t('tab_prev')} aria-label={t('tab_prev')} disabled={!scroll.left} onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)}><Icon name="chevronLeft" size={14} /></button>
         <button className="tab-ctl tab-next" data-cmd="tab-next" title={t('tab_next')} aria-label={t('tab_next')} disabled={!scroll.right} onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)}><Icon name="chevronRight" size={14} /></button>
         <button className="tab-ctl" data-cmd="tab-new" title={t('tab_new')} aria-label={t('tab_new')} onMouseDown={(e) => e.preventDefault()} onClick={onNew}><Icon name="plus" size={14} /></button>
       </div>

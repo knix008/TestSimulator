@@ -508,19 +508,20 @@ async function main() {
   });
 
   // ── the window's top: app controls on the menu bar, one-row toolbar with even margins ──
-  await step('theme, language, settings and info sit right-aligned on the menu bar; the toolbar is one row with equal margins', async () => {
+  await step('theme, language, settings and info sit right-aligned on the menu bar; the toolbar is one row, left-aligned', async () => {
     const r = await page.eval(`(() => { const mb = document.querySelector('.menubar').getBoundingClientRect(); const ac = document.querySelector('.menubar .app-controls'); const it = document.querySelector('.icon-toolbar'); const tr = it.getBoundingClientRect(); const gs = [...it.querySelectorAll('.tb-group')]; const a = gs[0].getBoundingClientRect(), b = gs[gs.length - 1].getBoundingClientRect(); const next = ac.nextElementSibling; return { inToolbar: !!it.querySelector('.app-controls'), right: Math.round(mb.right - ac.getBoundingClientRect().right), after: next ? next.className : '', buttons: ac.querySelectorAll('button').length, rows: new Set(gs.map((g) => { const b = g.getBoundingClientRect(); return Math.round((b.top + b.bottom) / 20); })).size, left: Math.round(a.left - tr.left), rightGap: Math.round(tr.right - b.right) }; })()`);
     eq(r.inToolbar, false, 'no app controls on the toolbar');
     assert(r.right <= 12, `right-aligned on the menu bar (${r.right} px from the end)`);
     assert(r.after === '' || /win-buttons/.test(r.after), `followed only by the window buttons (${r.after})`);
     eq(r.buttons, 5, 'theme, theme list, language, settings, info');
     eq(r.rows, 1, 'toolbar rows');
-    assert(Math.abs(r.left - r.rightGap) <= 1, `toolbar margins ${r.left} / ${r.rightGap}`);
+    eq(r.left, 6, 'the first button group starts at the left padding (left-aligned)');
+    assert(r.rightGap >= 6, `nothing cut off on the right (${r.rightGap} px left over)`);
   });
   await step('toolbar: one group per kind of command, a visible separator between groups', async () => {
     const groups = await page.eval(`[...document.querySelectorAll('.icon-toolbar .tb-group')].map((g) => [...g.querySelectorAll('[data-cmd]')].map((b) => b.dataset.cmd))`);
     eq(groups, [
-      ['new', 'open', 'save'], ['export', 'print'], ['undo', 'redo'],
+      ['new', 'open', 'save', 'saveAs'], ['export', 'print'], ['undo', 'redo'],
       ['addChild', 'addSibling', 'addParent', 'addCallout', 'addFloating'], ['relationship', 'boundary', 'summary'],
       ['pane:markers', 'pane:notes', 'pane:links', 'pane:task'], ['layoutMenu', 'styleMenu'],
       ['redraw:orgDown', 'redraw:right', 'redraw:left', 'redraw:map', 'arrange'], ['expandAll', 'collapseAll', 'focusBranch'],
@@ -545,6 +546,8 @@ async function main() {
     for (let i = 0; i < 14; i++) await page.eval("window.__mtm.run('new')");
     await page.sleep(400);
     const st = () => page.eval(`(() => { const s = document.querySelector('.tab-strip'); const a = s.querySelector('.tab.active'); const sr = s.getBoundingClientRect(), ar = a.getBoundingClientRect(); return { prev: !document.querySelector('[data-cmd=tab-prev]').disabled, next: !document.querySelector('[data-cmd=tab-next]').disabled, hiddenL: s.scrollLeft > 0, hiddenR: s.scrollLeft + s.clientWidth < s.scrollWidth - 1, activeShown: ar.left >= sr.left - 1 && ar.right <= sr.right + 1 }; })()`);
+    const pos = await page.eval(`(() => { const p = document.querySelector('[data-cmd=tab-prev]').getBoundingClientRect(), n = document.querySelector('[data-cmd=tab-next]').getBoundingClientRect(), s = document.querySelector('.tab-strip').getBoundingClientRect(); return { gap: n.left - p.right, rightOfStrip: p.left >= s.right - 1 }; })()`);
+    assert(Math.abs(pos.gap) <= 1 && pos.rightOfStrip, `< and > side by side at the right end (${JSON.stringify(pos)})`);
     let s = await st();
     assert(s.hiddenL, 'tabs overflow to the left (the newest is active, at the end)');
     eq([s.prev, s.next, s.activeShown], [true, false, true], 'at the end: < on, > off');
@@ -562,6 +565,77 @@ async function main() {
     await page.eval("window.__mtm.applySettings({ sidebarWidth: 250, panelWidth: 300 })");
     for (let i = 0; i < 14; i++) await page.eval("(async () => { await window.__mtm.run('close'); })()");
     await page.sleep(300);
+  });
+  await step('a context menu closes when anything else is pressed — the map (empty or a topic), the panes, the toolbar, the tabs', async () => {
+    const node = (k) => page.eval(`(() => { const L = window.__mtm.layout(); const v = window.__mtm.canvas().getView(); const c = document.querySelector('.map-canvas').getBoundingClientRect(); const n = [...L.nodes.values()][${k}]; return { x: c.left + v.x + (n.x + n.w / 2) * v.k, y: c.top + v.y + (n.y + n.h / 2) * v.k }; })()`);
+    const away = {
+      'empty map': () => page.eval('(() => { const b = document.querySelector(".map-canvas").getBoundingClientRect(); return { x: b.left + 30, y: b.bottom - 30 }; })()'),
+      'another topic': () => page.eval(`(() => { const m = document.querySelector('.ctx-menu').getBoundingClientRect(); const L = window.__mtm.layout(); const v = window.__mtm.canvas().getView(); const c = document.querySelector('.map-canvas').getBoundingClientRect(); for (const n of L.nodes.values()) { const x = c.left + v.x + (n.x + n.w / 2) * v.k, y = c.top + v.y + (n.y + n.h / 2) * v.k; if ((x < m.left - 10 || x > m.right + 10 || y < m.top - 10 || y > m.bottom + 10) && x > c.left && x < c.right && y > c.top && y < c.bottom) return { x, y }; } return null; })()`),
+      'left pane': () => page.eval('(() => { const b = document.querySelector(".sidebar").getBoundingClientRect(); return { x: b.left + 60, y: b.bottom - 40 }; })()'),
+      'toolbar': () => page.eval('(() => { const b = document.querySelector("[data-cmd=\\"toggle:showGrid\\"]").getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()'),
+      // the active tab: pressing another one would switch maps under the steps that follow
+      'tab bar': () => page.eval('(() => { const b = document.querySelector(".tab.active .tab-name").getBoundingClientRect(); return { x: b.left + 10, y: b.top + b.height / 2 }; })()'),
+    };
+    const still = [];
+    for (const [name, where] of Object.entries(away)) {
+      await page.eval("window.__mtm.run('fit')"); await page.sleep(300);
+      const t = await node(1);
+      await page.click(t.x, t.y, { button: 'right', buttons: 2 }); await page.sleep(250);
+      assert(await page.eval('document.querySelectorAll(".ctx-menu").length') === 1, `${name}: the menu opened`);
+      const q = await where();
+      assert(q, `${name}: a place to press`);
+      await page.click(q.x, q.y); await page.sleep(250);
+      if (await page.eval('document.querySelectorAll(".ctx-menu").length')) { still.push(name); await page.key('Escape'); await page.sleep(100); }
+    }
+    eq(still, [], 'menus left open after pressing');
+  });
+  await step('print window: the page settings on the left, the preview on the right', async () => {
+    await page.eval("window.__mtm.run('print')");
+    await page.waitFor('!!document.querySelector(".print-preview .print-pv-side")');
+    const r = await page.eval(`(() => { const s = document.querySelector('.print-pv-side').getBoundingClientRect(); const p = document.querySelector('.print-pv-stage').getBoundingClientRect(); return { sideRight: s.right, stageLeft: p.left, sideFirst: !!document.querySelector('.print-pv-side + .print-pv-stage'), border: getComputedStyle(document.querySelector('.print-pv-side')).borderRightWidth }; })()`);
+    assert(r.sideRight <= r.stageLeft + 1, `settings left of the preview (${r.sideRight} / ${r.stageLeft})`);
+    eq([r.sideFirst, r.border], [true, '1px'], 'settings first, a divider on their right');
+    await page.key('Escape'); await page.sleep(200);
+  });
+  await step('elbow lines: one trunk per parent; its ◆ handle moves the bend, Format › Bend position resets it', async () => {
+    await page.eval("window.__mtm.run('sample:marketing-4p')");
+    await page.sleep(500);
+    // Map tab › line style: elbow (꺾은 선), picked like a person does
+    await page.eval("window.__mtm.run('tour:pane:map')");
+    await page.sleep(200);
+    await page.eval(`document.querySelector('.task-pane .icon-select[data-name="lineStyle"]').scrollIntoView({ block: 'center' })`);
+    await page.sleep(150);
+    await page.clickSel('.task-pane .icon-select[data-name="lineStyle"]');
+    await page.sleep(200);
+    const items = await page.eval('[...document.querySelectorAll(".select-menu .ctx-item")].map((b) => b.textContent)');
+    const at = items.findIndex((x) => /꺾은 ?선|Elbow/i.test(x) && !/둥근|Rounded/i.test(x));
+    assert(at >= 0, `an elbow entry among ${items.join(' / ')}`);
+    await page.eval(`document.querySelectorAll('.select-menu .ctx-item')[${at}].click()`);
+    await page.sleep(300);
+    eq(await page.eval('window.__mtm.doc().map.lineStyle'), 'elbow', 'line style');
+    const pid = await page.eval('window.__mtm.doc().map.root.children[0].id');
+    await page.eval(`window.__mtm.select([${JSON.stringify(pid)}])`);
+    await page.eval("window.__mtm.run('fit')");
+    await page.sleep(400);
+    const trunk = () => page.eval(`(() => { const n = window.__mtm.layout().nodes.get(${JSON.stringify(pid)}); const t = Object.values(n.trunks)[0]; return { ...t, turns: n.kids.map((k) => { const d = window.__mtm.layout().lines.find((l) => l.id === k.id).d; const m = /H(-?[\\d.]+) V/.exec(d); return m ? +m[1] : null; }) }; })()`);
+    const t0 = await trunk();
+    assert(t0.turns.every((v) => Math.abs(v - t0.at) < 0.6), `all lines on the trunk ${t0.at}: ${t0.turns}`);
+    // drag the handle toward the subtopics
+    const h = await page.eval('(() => { const r = document.querySelector(".tm-bend-handle").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()');
+    const k = await page.eval('window.__mtm.canvas().getView().k');
+    await page.drag(h.x, h.y, h.x + t0.sign * t0.gap * 0.3 * k, h.y, 10);
+    await page.sleep(300);
+    const bend = await page.eval(`window.__mtm.doc().map.root.children[0].bend`);
+    assert(bend > 0.7 && bend < 0.9, `bend after the drag: ${bend}`);
+    const t1 = await trunk();
+    assert(Math.abs(t1.at - (t1.edge + t1.sign * t1.gap * bend)) < 0.6 && t1.turns.every((v) => Math.abs(v - t1.at) < 0.6), 'the trunk moved, every line with it');
+    // Format › Bend position: the slider shows it, the button puts it back in the middle
+    await page.eval("window.__mtm.run('tour:pane:format')");
+    await page.sleep(200);
+    eq(await page.eval('document.querySelector(".task-pane input[name=bend]").value'), String(Math.round(bend * 100)), 'slider');
+    await page.clickSel('.task-pane [data-cmd="bend-reset"]');
+    await page.sleep(200);
+    eq(await page.eval(`'bend' in window.__mtm.doc().map.root.children[0]`), false, 'reset');
   });
   await step('Format pane: copy / paste / clear format buttons line up with the subtopic layout buttons', async () => {
     await page.eval("window.__mtm.run('tour:pane:format')");
@@ -621,8 +695,8 @@ async function main() {
     }
     const a = await page.eval(centerOf('운영'));
     await page.drag(a.x, a.y, a.x + 20, a.y + 160);
-    await page.sleep(150);
-    assert(await page.eval("!!window.__mtm.doc().map.root.children.find((c) => c.text === '운영').offset"), 'moved');
+    const moved = await page.waitFor("!!window.__mtm.doc().map.root.children.find((c) => c.text === '운영').offset", 2000).then(() => true, () => false);
+    assert(moved, 'moved');
     await page.clickSel('[data-cmd="arrange"]');
     await page.sleep(150);
     assert(await page.eval("!window.__mtm.doc().map.root.children.find((c) => c.text === '운영').offset"), 'arranged');

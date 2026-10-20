@@ -58,6 +58,8 @@ A map style sets the background, topic boxes, lines and branch colours at once. 
 On top of the style, per map:
 
 - **Line shape**: curve · straight · elbow · rounded elbow
+  - With elbow lines all the lines from a topic to its subtopics branch off **one trunk** (a vertical one beside it in the map, right and left layouts, a horizontal bus in org charts) — topics in a boundary, moved by hand or just added join the same trunk.
+  - **Bend position**: select a topic and a ◆ handle appears on its trunk; drag it to move where the lines turn, from next to the parent (5 %) to next to the subtopics (95 %). Task pane › Format › Bend position has a slider and a **Back to the middle** button. The bend is saved with each topic in the map file.
 - **Branch colours**: a colour per main topic or not
 - **Background**: the map's background colour
 - **Spacing**: across and down (50% – 250%)

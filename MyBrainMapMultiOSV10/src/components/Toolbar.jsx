@@ -21,6 +21,7 @@ const GROUPS = [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
     { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
     { id: 'save', icon: 'fileSave', tip: 'tip_save', needs: 'dirty' },
+    { id: 'saveAs', icon: 'fileSaveAs', tip: 'tip_save_as', needs: 'hasDoc' },
   ],
   [
     { id: 'export', icon: 'export', tip: 'tip_export', needs: 'hasDoc' },

@@ -4,7 +4,8 @@
 
 Maps are saved as **.tmap** files (JSON). Pictures, notes and formats all go into the one file.
 
-- `Ctrl+S` saves, `Ctrl+Shift+S` saves as, File › Save all.
+- `Ctrl+S` saves, `Ctrl+Shift+S` saves as, File › Save all. The **Save** and **Save as** buttons at the left of the toolbar do the same.
+- Quitting (the window's ×, File › Exit) with unsaved maps asks: **Save all · Don't save · Cancel**. Closing one tab asks about that map (Settings › Ask to save when closing).
 - `Ctrl+O` opens .tmap files and every format below. Recent files are in the File menu and on the start page.
 - Drop files on the window to open them — .tmap and every format below (FreeMind, XMind, MindManager, OPML, Markdown, text), several at once if you like. The web version does the same. On the desktop a double-click on a .tmap file opens it too.
 - A picture dropped on a topic becomes its picture; other files become attachments.

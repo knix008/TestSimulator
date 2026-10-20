@@ -57,6 +57,8 @@ const paths = {
   fileOpen: <><path d="M14 3H7a2 2 0 0 0-2 2v4M5 19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5" />{docCorner}<path d="M2 14h9M8 11l3 3-3 3" /></>,
   filePlus: <>{doc}{docCorner}<path d="M12 11v6M9 14h6" /></>,
   fileSave: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><path d="M17 21v-8H7v8M7 3v5h8" /></>,
+  // a floppy with a pencil: save under another name
+  fileSaveAs: <><path d="M12 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v3" /><path d="M7 3v5h8M7 21v-6h5" /><path d="M14 22v-2.5l5.5-5.5 2.5 2.5-5.5 5.5z" /></>,
   saveAll: <><path d="M17 20H6a2 2 0 0 1-2-2V7" /><path d="M20 17H9a2 2 0 0 1-2-2V4a1 1 0 0 1 1-1h8l4 4v9a1 1 0 0 1-1 1z" /><path d="M15 3v4h4M11 17v-5h5v5" /></>,
   undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>,
   redo: <><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h3" /></>,
