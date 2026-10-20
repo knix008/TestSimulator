@@ -156,7 +156,7 @@ impl DeskApp {
                     self.show_window(ctx);
                     self.open_settings();
                 }
-                TrayAction::Exit => self.quit(ctx),
+                TrayAction::Exit => crate::tray::exit_immediately(),
             }
         }
         loop {
@@ -229,13 +229,6 @@ impl DeskApp {
         self.hidden = false;
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-    }
-
-    fn quit(&mut self, ctx: &egui::Context) {
-        self.exit_requested = true;
-        let _ = self.commands.send(Command::Shutdown);
-        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        std::process::exit(0);
     }
 
     fn hide_window(&mut self, ctx: &egui::Context) {

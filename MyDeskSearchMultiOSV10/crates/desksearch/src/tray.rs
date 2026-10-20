@@ -1,8 +1,12 @@
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Mutex, Once};
+
 use tray_icon::menu::{Icon, IconMenuItem, Menu, MenuEvent};
 use tray_icon::{Icon as TrayIconImage, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 pub struct Tray {
     _icon: TrayIcon,
+    actions: Receiver<TrayAction>,
     show: IconMenuItem,
     hide: IconMenuItem,
     settings: IconMenuItem,
@@ -57,8 +61,11 @@ impl Tray {
             .with_tooltip(format!("MyDeskSearch {}", desksearch_core::VERSION))
             .with_icon(app_icon())
             .build()?;
+        let (sender, actions) = mpsc::channel();
+        install_menu_watcher(sender);
         Ok(Self {
             _icon: icon,
+            actions,
             show,
             hide,
             settings,
@@ -75,17 +82,11 @@ impl Tray {
 
     pub fn poll(&self) -> Option<TrayAction> {
         let mut action = None;
-        while let Ok(event) = MenuEvent::receiver().try_recv() {
-            action = match event.id.0.as_str() {
-                "show" => Some(TrayAction::Show),
-                "hide" => Some(TrayAction::Hide),
-                "settings" => Some(TrayAction::Settings),
-                "exit" => Some(TrayAction::Exit),
-                _ => action,
-            };
-        }
-        if matches!(action, Some(TrayAction::Exit)) {
-            return action;
+        while let Ok(next) = self.actions.try_recv() {
+            if next == TrayAction::Exit {
+                exit_immediately();
+            }
+            action = Some(next);
         }
         while let Ok(event) = TrayIconEvent::receiver().try_recv() {
             let show = match event {
@@ -106,6 +107,53 @@ impl Tray {
         }
         action
     }
+}
+
+fn install_menu_watcher(sender: Sender<TrayAction>) {
+    static SENDER: Mutex<Option<Sender<TrayAction>>> = Mutex::new(None);
+    static START: Once = Once::new();
+    if let Ok(mut slot) = SENDER.lock() {
+        *slot = Some(sender);
+    }
+    START.call_once(|| {
+        std::thread::Builder::new()
+            .name("mydesksearch-tray".to_string())
+            .spawn(|| {
+                while let Ok(event) = MenuEvent::receiver().recv() {
+                    if event.id.0 == "exit" {
+                        exit_immediately();
+                    }
+                    let Ok(slot) = SENDER.lock() else {
+                        continue;
+                    };
+                    let Some(sender) = slot.as_ref() else {
+                        continue;
+                    };
+                    let action = match event.id.0.as_str() {
+                        "show" => TrayAction::Show,
+                        "hide" => TrayAction::Hide,
+                        "settings" => TrayAction::Settings,
+                        _ => continue,
+                    };
+                    let _ = sender.send(action);
+                }
+            })
+            .ok();
+    });
+}
+
+pub fn exit_immediately() -> ! {
+    #[cfg(windows)]
+    unsafe {
+        TerminateProcess(GetCurrentProcess(), 0);
+    }
+    std::process::exit(0);
+}
+
+#[cfg(windows)]
+unsafe extern "system" {
+    fn GetCurrentProcess() -> *mut core::ffi::c_void;
+    fn TerminateProcess(process: *mut core::ffi::c_void, exit_code: u32) -> i32;
 }
 
 fn label(language: &str, key: &str) -> String {
