@@ -74,9 +74,12 @@ export function bindSteppers(root, onChange) {
     clearInterval(repeat?.interval);
     repeat = null;
   };
+  // Only steppers made by stepperHtml (data-stepper + limits). The properties
+  // panel's fields look the same but handle their own buttons and typed values.
+  const own = (element) => Boolean(element?.hasAttribute('data-stepper'));
   const step = (button) => {
     const element = button.closest('.stepper');
-    if (!element || element.classList.contains('disabled')) return;
+    if (!own(element) || element.classList.contains('disabled')) return;
     const { step: size } = limits(element);
     const value = clampStep(stepperValue(element) + Number(button.dataset.stepDir) * size, limits(element));
     show(element, value);
@@ -99,6 +102,7 @@ export function bindSteppers(root, onChange) {
   root.addEventListener('change', (event) => {
     if (!event.target.classList?.contains('stepper-value')) return;
     const element = event.target.closest('.stepper');
+    if (!own(element)) return;
     const value = stepperValue(element);
     show(element, value);
     onChange(element.dataset.stepper, outward(element, value), element);

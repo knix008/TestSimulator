@@ -75,6 +75,26 @@ function copyContent() {
   };
 }
 
+// Pyodide and the OpenCascade build import node:fs, node:url, … only when they
+// run under Node (`await import(...)` behind an IN_NODE check), never in the
+// app's page. Those imports get an empty module on purpose, instead of Vite
+// externalizing them with a warning per import on every build.
+const NODE_ONLY_IMPORTERS = /[\\/]node_modules[\\/](pyodide|replicad-opencascadejs)[\\/]/;
+const NODE_STUB = '\0mycad-node-stub';
+function nodeOnlyImports() {
+  return {
+    name: 'mycad-node-only-imports',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      if (source.startsWith('node:') && importer && NODE_ONLY_IMPORTERS.test(importer)) return NODE_STUB;
+      return null;
+    },
+    load(id) {
+      return id === NODE_STUB ? 'export default {};' : null;
+    },
+  };
+}
+
 // Tauri expects a fixed dev server port (tauri.conf.json → build.devUrl).
 // The web build is relative (base './') so dist/ can be served from any folder.
 export default defineConfig(async ({ command }) => ({
@@ -91,7 +111,9 @@ export default defineConfig(async ({ command }) => ({
   // three.js (the 3D view) is a lazily loaded chunk of its own.
   // three.js is one 750 kB module that cannot be split; every chunk of our own stays far below this.
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 800 },
-  plugins: [copyContent()],
+  plugins: [nodeOnlyImports(), copyContent()],
+  // Workers are bundled on their own (the OpenCascade worker imports it too).
+  worker: { plugins: () => [nodeOnlyImports()] },
   // Pyodide finds its own files (indexURL): not pre-bundled by the dev server.
   optimizeDeps: { exclude: ['pyodide'] },
 }));

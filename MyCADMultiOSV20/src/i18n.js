@@ -34,7 +34,7 @@ const ko = {
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': '실행 취소: {label}', 'tip.redoWith': '다시 실행: {label}', 'tip.language': '언어 전환 (English로)',
   'tip.themeNext': '테마: {current} → {next}', 'tip.zoomValue': '확대 비율 (실제 크기 = 100%) — 입력하거나 두 번 클릭하면 100%',
-  'tip.resize': '끌어서 창 크기 바꾸기', 'tip.command': '좌표 입력: x,y · @dx,dy · @거리<각도 · 거리 — Enter로 적용',
+  'tip.resize': '끌어서 창 크기 바꾸기', 'window.minimize': '최소화', 'window.maximize': '최대화', 'window.restore': '이전 크기로 복원', 'window.close': '닫기','tip.command': '좌표 입력: x,y · @dx,dy · @거리<각도 · 거리 — Enter로 적용',
 
   'tool.select': '선택', 'tool.pan': '화면 이동', 'tool.line': '선', 'tool.polyline': '폴리선', 'tool.rect': '사각형', 'tool.circle': '원', 'tool.arc': '호 (3점)',
   'tool.ellipse': '타원', 'tool.polygon': '정다각형', 'tool.text': '문자', 'tool.centerline': '중심선', 'tool.dimLinear': '선형 치수', 'tool.dimAligned': '정렬 치수',
@@ -359,7 +359,7 @@ const en = {
 
   'tip.withKey': '{label} ({key})', 'tip.undoWith': 'Undo: {label}', 'tip.redoWith': 'Redo: {label}', 'tip.language': 'Switch language (to Korean)',
   'tip.themeNext': 'Theme: {current} → {next}', 'tip.zoomValue': 'Zoom (actual size = 100%) — type a value or double-click for 100%',
-  'tip.resize': 'Drag to resize the window', 'tip.command': 'Coordinates: x,y · @dx,dy · @distance<angle · distance — press Enter',
+  'tip.resize': 'Drag to resize the window', 'window.minimize': 'Minimize', 'window.maximize': 'Maximize', 'window.restore': 'Restore down', 'window.close': 'Close','tip.command': 'Coordinates: x,y · @dx,dy · @distance<angle · distance — press Enter',
 
   'tool.select': 'Select', 'tool.pan': 'Pan', 'tool.line': 'Line', 'tool.polyline': 'Polyline', 'tool.rect': 'Rectangle', 'tool.circle': 'Circle', 'tool.arc': 'Arc (3 points)',
   'tool.ellipse': 'Ellipse', 'tool.polygon': 'Polygon', 'tool.text': 'Text', 'tool.centerline': 'Center line', 'tool.dimLinear': 'Linear dimension', 'tool.dimAligned': 'Aligned dimension',
