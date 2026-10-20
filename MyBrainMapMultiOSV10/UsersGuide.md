@@ -101,7 +101,10 @@
 
 - `.tmap` 저장(`Ctrl+S`, `Ctrl+Shift+S`), 열기(`Ctrl+O`), 최근 파일, 세션 복원, 자동 저장.
 - 가져오기: FreeMind `.mm`, XMind `.xmind`, MindManager `.mmap`, OPML, Markdown, 텍스트.
-- 내보내기(`Ctrl+E`): PNG · JPEG · SVG · PDF · Word · HTML · Markdown · OPML · 텍스트 · FreeMind · XMind · CSV. `Ctrl+Shift+C` 맵을 그림으로 복사.
+- 내보내기(`Ctrl+E`): PNG · JPEG · WebP · BMP · TIFF · SVG · PDF · Word · HTML · Markdown · OPML · 텍스트 · FreeMind · XMind · CSV. `Ctrl+Shift+C` 맵을 그림으로 복사.
+  - 그림 크기는 맵의 모든 도형을 포함하는 영역에 여백(기본 20px, 0~80px)을 더한 크기입니다.
+  - **배경 투명**은 투명 배경을 저장할 수 있는 형식(PNG · WebP · TIFF · SVG)에서만 고를 수 있습니다.
+- 다른 프로그램의 맵 파일(FreeMind · XMind · MindManager · OPML · Markdown · 텍스트)과 .tmap 은 창에 끌어 놓으면 열립니다.
 - 인쇄(`Ctrl+P`): 미리보기, 용지 · 방향 · 여백, 한 쪽 맞추기 / 여러 쪽 나누기, 머리글 · 바닥글, 컬러.
 
 ## 12. 템플릿

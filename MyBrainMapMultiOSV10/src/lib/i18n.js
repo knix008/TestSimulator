@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 const ko = {
   shape_group_basic: '기본 도형', shape_group_flowchart: '순서도', shape_group_symbol: '기호 · 메모', shape_octagon: '팔각형', shape_pentagon: '오각형', shape_triangle: '삼각형', shape_parallelogram: '평행사변형', shape_trapezoid: '사다리꼴', shape_star: '별', shape_cloud: '구름', shape_cube: '정육면체', shape_document: '문서', shape_cylinder: '데이터베이스 (원통)', shape_predefined: '정의된 처리', shape_delay: '지연', shape_manualInput: '수동 입력', shape_arrow: '화살표', shape_chevron: '갈매기형 (단계)', shape_speech: '말풍선', shape_note: '메모지', shape_snip: '모서리 잘린 사각형', shape_tag: '태그',
-  tab_prev: '이전 탭 (Ctrl+Shift+Tab)', tab_next: '다음 탭 (Ctrl+Tab)', center_map: '정중앙에 보기', tip_center_map: '정중앙에 보기 — 지금 배율로 맵을 화면 가운데에 (Ctrl+Alt+C)',
+  tab_prev: '왼쪽에 가려진 탭 보기 (탭 전환: Ctrl+Shift+Tab)', tab_next: '오른쪽에 가려진 탭 보기 (탭 전환: Ctrl+Tab)', center_map: '정중앙에 보기', tip_center_map: '정중앙에 보기 — 지금 배율로 맵을 화면 가운데에 (Ctrl+Alt+C)',
   tour_title: '튜토리얼 안내', tour_step: '{n} / {total} 단계', tour_end: '안내 끝내기 (Esc)', tour_show: '직접 보기', tour_show_again: '다시 보기', tour_playing: '보여 주는 중…', tour_back: '이전', tour_next: '다음', tour_finish: '시작하기', tour_map_only: '튜토리얼 맵만 열기',
   summary: '요약', summary_remove: '요약 없애기', summary_rename: '요약 이름 바꾸기', summary_label_hint: '하위 토픽 옆 괄호에 붙일 요약 글', tip_summary: '요약 — 하위 토픽을 괄호로 묶고 요약을 붙입니다 (Ctrl+])', msg_summary_needs_kids: '요약은 하위 토픽이 있는 토픽에 붙입니다',
   view_kanban: '칸반 보드', tip_view_kanban: '칸반 보드 — 주 토픽은 열, 하위 토픽은 카드', kanban_hint: '카드를 다른 열이나 카드 사이로 끌어 옮깁니다. 맵에서도 똑같이 바뀝니다.', kanban_add_card: '카드 추가', kanban_card_ph: '카드 이름을 입력하고 Enter', kanban_add_column: '열 추가', kanban_new_column: '새 열',
@@ -125,7 +125,7 @@ const ko = {
   quick_title: '빠른 입력', quick_hint: '"{topic}" 아래에 넣을 토픽을 한 줄에 하나씩 쓰세요. Tab 으로 들여쓰면 그 위 토픽의 하위 토픽이 됩니다.', quick_ph: '아이디어 1\n\t세부 내용\n아이디어 2', quick_count: '토픽 {n}개',
   tpl_title: '템플릿에서 새 맵', tpl_create: '만들기',
   samples_title: '예제 맵', samples_open: '열기', samples_menu: '예제 맵…', start_samples_text: '실제 주제로 완성된 예제 16가지',
-  export_title: '내보내기', export_go: '내보내기…', export_options: '옵션', export_scale: '배율', export_transparent: '배경 투명', export_padding: '여백', export_paper_fit: '맵 크기에 맞춤',
+  export_title: '내보내기', export_go: '내보내기…', export_options: '옵션', export_scale: '배율', export_transparent: '배경 투명', export_padding: '여백', export_padding_none: '여백 없음', export_size_tight: '그림 크기: 모든 도형에 꼭 맞게 (여백 없음)', export_size_margin: '그림 크기: 모든 도형을 포함하고 사방에 {n}px 여백', export_paper_fit: '맵 크기에 맞춤',
   export_note_docx: '첫 쪽에 맵 그림, 이어서 토픽이 제목(1~6단계)과 목록으로, 메모와 작업 정보가 그 아래에 들어갑니다.',
   export_note_html: '맵 그림과 접고 펼 수 있는 개요가 한 파일에 들어갑니다. 메모는 서식이 적용됩니다.',
   export_note_md: '토픽은 제목(1~4단계)과 목록, 메모는 본문이 됩니다. 이 앱이나 Markdown 을 읽는 프로그램에서 다시 가져올 수 있습니다.',
@@ -186,7 +186,7 @@ const ko = {
 
 const en = {
   shape_group_basic: 'Basic', shape_group_flowchart: 'Flowchart', shape_group_symbol: 'Symbols and notes', shape_octagon: 'Octagon', shape_pentagon: 'Pentagon', shape_triangle: 'Triangle', shape_parallelogram: 'Parallelogram', shape_trapezoid: 'Trapezoid', shape_star: 'Star', shape_cloud: 'Cloud', shape_cube: 'Cube', shape_document: 'Document', shape_cylinder: 'Database (cylinder)', shape_predefined: 'Predefined process', shape_delay: 'Delay', shape_manualInput: 'Manual input', shape_arrow: 'Arrow', shape_chevron: 'Chevron (step)', shape_speech: 'Speech bubble', shape_note: 'Note', shape_snip: 'Snipped rectangle', shape_tag: 'Tag',
-  tab_prev: 'Previous tab (Ctrl+Shift+Tab)', tab_next: 'Next tab (Ctrl+Tab)', center_map: 'Center the map', tip_center_map: 'Center the map — move it to the middle at the current zoom (Ctrl+Alt+C)',
+  tab_prev: 'Show the tabs hidden on the left (switch tabs: Ctrl+Shift+Tab)', tab_next: 'Show the tabs hidden on the right (switch tabs: Ctrl+Tab)', center_map: 'Center the map', tip_center_map: 'Center the map — move it to the middle at the current zoom (Ctrl+Alt+C)',
   tour_title: 'Tutorial guide', tour_step: 'Step {n} of {total}', tour_end: 'End the guide (Esc)', tour_show: 'Show me', tour_show_again: 'Play again', tour_playing: 'Playing…', tour_back: 'Back', tour_next: 'Next', tour_finish: 'Get started', tour_map_only: 'Open the tutorial map only',
   summary: 'Summary', summary_remove: 'Remove summary', summary_rename: 'Rename summary', summary_label_hint: 'The text beside the brace around the subtopics', tip_summary: 'Summary — a brace around the subtopics with a summary (Ctrl+])', msg_summary_needs_kids: 'A summary goes on a topic that has subtopics',
   view_kanban: 'Kanban board', tip_view_kanban: 'Kanban board — main topics are columns, subtopics are cards', kanban_hint: 'Drag a card onto another column or between cards. The map changes the same way.', kanban_add_card: 'Add card', kanban_card_ph: 'Type the card name, then Enter', kanban_add_column: 'Add column', kanban_new_column: 'New column',
@@ -290,7 +290,7 @@ const en = {
   quick_title: 'Quick entry', quick_hint: 'Type the topics to add under "{topic}", one per line. Indent with Tab to make a line a subtopic of the one above.', quick_ph: 'Idea 1\n\tdetail\nIdea 2', quick_count: '{n} topics',
   tpl_title: 'New map from a template', tpl_create: 'Create',
   samples_title: 'Sample maps', samples_open: 'Open', samples_menu: 'Sample maps…', start_samples_text: '16 finished maps on real subjects',
-  export_title: 'Export', export_go: 'Export…', export_options: 'Options', export_scale: 'Scale', export_transparent: 'Transparent background', export_padding: 'Margin', export_paper_fit: 'Fit to the map',
+  export_title: 'Export', export_go: 'Export…', export_options: 'Options', export_scale: 'Scale', export_transparent: 'Transparent background', export_padding: 'Margin', export_padding_none: 'no margin', export_size_tight: 'Picture size: flush with the shapes (no margin)', export_size_margin: 'Picture size: every shape, with {n}px of room all round', export_paper_fit: 'Fit to the map',
   export_note_docx: 'The map picture on the first page, then the topics as headings (levels 1–6) and lists, with notes and task info under them.',
   export_note_html: 'The map picture and a foldable outline in one file. Notes keep their formatting.',
   export_note_md: 'Topics become headings (levels 1–4) and lists, notes become paragraphs. It can be imported back.',

@@ -12,8 +12,8 @@
 ![내보내기](images/export-dialog.png)
 
 - **저장**(`Ctrl+S`) — `.tmap` 파일(JSON). 그림, 메모, 댓글, 속성, 손으로 옮긴 자리까지 한 파일에 들어갑니다. 자동 저장(창을 떠날 때 / 몇 초 뒤)을 설정할 수 있고, 열려 있던 맵은 다음 실행 때 다시 열립니다.
-- **열기 · 가져오기** — FreeMind(.mm), XMind(.xmind), MindManager(.mmap), OPML, Markdown, 텍스트 개요. 파일을 창에 끌어 놓아도 됩니다.
-- **내보내기**(`Ctrl+E`) — PNG, JPEG, SVG, PDF, Word(.docx), HTML, Markdown, OPML, 텍스트, FreeMind, XMind, CSV 작업 목록. 그림은 배율 · 투명 배경 · 여백을 고릅니다. `Ctrl+Shift+C` 는 맵을 그림으로 복사.
+- **열기 · 가져오기** — FreeMind(.mm), XMind(.xmind), MindManager(.mmap), OPML, Markdown, 텍스트 개요. 파일을 창에 끌어 놓아도 열립니다(여러 개 한 번에, 데스크톱과 웹 모두 — 웹에서는 XMind · MindManager 도 서버가 풀어 줍니다).
+- **내보내기**(`Ctrl+E`) — PNG, JPEG, WebP, BMP, TIFF, SVG, PDF, Word(.docx), HTML, Markdown, OPML, 텍스트, FreeMind, XMind, CSV 작업 목록. 그림은 배율 · 여백을 고르고, 투명 배경을 저장할 수 있는 형식(PNG · WebP · TIFF · SVG)에서는 **배경 투명**을 고릅니다. 그림 크기는 모든 도형을 포함하는 영역 + 여백(기본 20px)입니다. `Ctrl+Shift+C` 는 맵을 그림으로 복사.
 
 ![인쇄 미리 보기](images/print-preview.png)
 

@@ -25,11 +25,9 @@ import { cmdAddChild, cmdAddSibling, cmdAddParent, cmdAddCallout, cmdAddFloating
 import { layoutMap } from './lib/layout';
 import { resolveMapStyle, MAP_STYLES, SHAPES, mapStyleById } from './lib/mapstyles';
 import { measureText, themeTokens } from './lib/measure';
-import { readMapFile, writeMapFile, serializeMap, openFilters, importFilters, saveFilters, exportMap, exportById, extOf, baseName, MAP_EXT, OPEN_EXT } from './lib/formats/index';
+import { readMapFile, readDroppedMap, writeMapFile, serializeMap, openFilters, importFilters, saveFilters, exportMap, exportById, extOf, baseName, MAP_EXT, OPEN_EXT } from './lib/formats/index';
 import { mapFromTemplate } from './lib/templates';
 import { mapFromSample } from './lib/samples';
-import { importOpml, importMarkdown, importTextOutline } from './lib/formats/outline';
-import { importFreeMind } from './lib/formats/freemind';
 import { mapPngDataUrl } from './lib/exportimg';
 import { markerLabel } from './lib/markers';
 import { MenuBar } from './components/MenuBar';
@@ -545,7 +543,7 @@ export default function App() {
       flash(t('msg_exporting'));
       await exportMap(opts.id, d.map, path, call, { ...opts, lang: getLanguage(), settings: settingsRef.current });
       flash(t('msg_exported', { name: baseName(path) }));
-      applySettings({ exportScale: opts.scale, exportTransparent: !!opts.transparent, exportPadding: opts.padding });
+      applySettings({ exportScale: opts.scale, exportMargin: opts.padding, ...(fmt.alpha ? { exportTransparent: !!opts.transparent } : {}) });
     } catch (err) { showError(t('err_export'), err); }
   }, [flash, showError, applySettings]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1070,7 +1068,7 @@ export default function App() {
       canvas: () => canvas.current,
       dialog: () => (dialog ? dialog.kind : null),
       menus: () => menus,
-      export: (id, path) => exportMap(id, activeDoc().map, path, call, { lang: getLanguage(), settings: settingsRef.current, scale: 1 }),
+      export: (id, path, opts = {}) => exportMap(id, activeDoc().map, path, call, { lang: getLanguage(), settings: settingsRef.current, scale: 1, ...opts }),
     };
   });
 
@@ -1115,15 +1113,14 @@ export default function App() {
           const image = await topicImage(await readFileAsDataUrl(file));
           const target = d.sel[d.sel.length - 1] || d.map.root.id;
           edit((m) => setField(m, [target], 'image', image));
-        } else if (['tmap', 'json', 'mm', 'opml', 'md', 'markdown', 'txt'].includes(ext)) {
+        } else if (OPEN_EXT.includes(ext)) {
+          // every format the app opens — XMind and MindManager too
           try {
-            const text = await file.text();
-
-
-            const map = ext === 'tmap' || ext === 'json' ? normalizeMap(JSON.parse(text)) : ext === 'mm' ? importFreeMind(text, file.name) : ext === 'opml' ? importOpml(text, file.name) : ext === 'txt' ? importTextOutline(text, file.name) : importMarkdown(text, file.name);
+            const map = await readDroppedMap(file, call);
             addDoc(createDoc(map, { name: file.name, kind: 'import' }));
+            flash(t('msg_imported', { name: file.name }));
           } catch (err) { showError(t('err_open'), err); }
-        }
+        } else flash(t('msg_unsupported', { name: file.name }));
       }
     };
     window.addEventListener('dragover', over);
@@ -1435,7 +1432,7 @@ export default function App() {
 
   return (
     <div className="app" onContextMenu={(e) => { if (!e.target.closest('input, textarea, .map-canvas')) e.preventDefault(); }}>
-      <MenuBar menus={menus} onAction={runAction} theme={settings.theme} controls={!settings.toolbarVisible} startOpen={startOpen} />
+      <MenuBar menus={menus} onAction={runAction} theme={settings.theme} startOpen={startOpen} />
       {settings.toolbarVisible && <Toolbar onAction={runAction} settings={settings} state={tbState} />}
       <div className="body">
         <div className="body-row">

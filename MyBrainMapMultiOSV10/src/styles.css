@@ -79,7 +79,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .menu-btn:hover .menu-icon, .menu-btn.open .menu-icon { color: inherit; }
 .app-controls { display: inline-flex; align-items: center; gap: 2px; flex: none; margin-left: 4px; }
 .toolbar.menubar .app-controls { margin-right: 8px; }
-.icon-toolbar .app-controls .tb-btn { padding: 3px 6px; }
+.toolbar.menubar .app-controls .tb-btn { padding: 3px 6px; }
 /* labels that keep the width of their widest text (components/Widest.jsx) */
 .widest { display: inline-grid; }
 .widest > span { grid-area: 1 / 1; white-space: nowrap; text-align: start; }   /* the text stays next to its icon; the slack is on the right */
@@ -95,7 +95,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .tb-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 5px 10px; border-radius: 4px; color: var(--fg); white-space: nowrap; flex: none; }
 .tb-btn:hover { background: var(--bg-hover); }
 .tb-btn:active { background: var(--bg-sel); }
-.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
+.tb-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 3px; }
 .tb-spacer { flex: 1; }
 .tb-btn.tb-icon-only { padding: 4px 7px; }
 .tb-btn .flag { display: block; border-radius: 3px; }
@@ -106,11 +106,11 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 /* ── Icon toolbar ── */
 /* One line only — the window's minimum width follows a measurement of this row. */
-.icon-toolbar { display: flex; flex-wrap: wrap; row-gap: 2px; overflow: hidden; align-items: center; gap: 1px; padding: 3px 16px 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
+.icon-toolbar { display: flex; flex-wrap: nowrap; overflow: hidden; align-items: center; justify-content: safe center; gap: 1px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
 .icon-toolbar .tb-spacer { flex: 1; min-width: 2px; }
 /* a group of buttons wraps to the next row as a whole when the window is narrow */
 .icon-toolbar .tb-group { display: inline-flex; align-items: center; gap: 1px; flex: none; }
-.icon-toolbar .tb-sep { margin: 0 2px; }
+.icon-toolbar .tb-sep { margin: 0 4px; }
 .tool-btn { background: none; border: 1px solid transparent; padding: 3px; border-radius: 4px; color: var(--fg); display: inline-flex; }
 .tool-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .tb-font { display: inline-flex; align-items: center; gap: 4px; }
@@ -769,6 +769,8 @@ body.dragging-y { cursor: row-resize; }
 .layout-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 10.5px; min-width: 0; }
 .layout-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .layout-btn:hover { border-color: var(--accent); }
+.layout-btn:disabled { opacity: 0.45; cursor: default; border-color: var(--border); }
+.layout-grid.fmt-actions { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; }
 .layout-btn.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg)); color: var(--accent); }
 .style-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .style-card { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 4px 3px; border: 2px solid var(--border); border-radius: 7px; min-width: 0; }

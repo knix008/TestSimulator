@@ -8,6 +8,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { launch, root } from './cdp.mjs';
 import { createReport } from './gui-report.mjs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const sharp = require('sharp');
+sharp.cache(false);   // no open file handles: the work folder is removed at the end
+const { writeZip } = require('../core/zip.js');
+const zipOf = (files) => writeZip(files);
 
 const shots = process.env.SMOKE_SHOTS || '';
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'mtm-smoke-files-'));
@@ -400,6 +407,171 @@ async function main() {
       assert(fs.existsSync(file) && fs.statSync(file).size > 100, `${file} written`);
     });
   }
+
+  // ── picture exports: every format, the smallest size, the transparent background ──
+  const out = (name) => path.join(work, name).replace(/\\/g, '/');
+  const exportPic = (id, file, opts) => page.eval(`window.__mtm.export(${JSON.stringify(id)}, ${JSON.stringify(out(file))}, ${JSON.stringify(opts)})`);
+  // the rows / columns at the picture's edges that have something drawn on them
+  const edges = async (file) => {
+    const { data, info } = await sharp(path.join(work, file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const a = (x, y) => data[(y * info.width + x) * info.channels + 3];
+    const rowHas = (y) => { for (let x = 0; x < info.width; x++) if (a(x, y)) return true; return false; };
+    const colHas = (x) => { for (let y = 0; y < info.height; y++) if (a(x, y)) return true; return false; };
+    let first = 0; while (first < info.height && !rowHas(first)) first++;
+    let minA = 255; for (let i = 3; i < data.length; i += info.channels) if (data[i] < minA) minA = data[i];
+    return { w: info.width, h: info.height, top: rowHas(0), bottom: rowHas(info.height - 1), left: colHas(0), right: colHas(info.width - 1), firstRow: first, minA, channels: info.channels };
+  };
+  await step('picture exports: PNG, JPEG, WebP, BMP, TIFF and SVG files, all the same size', async () => {
+    await page.eval("window.__mtm.run('sample:churn-fishbone')");
+    await page.sleep(500);
+    const webp = await page.eval("document.createElement('canvas').toDataURL('image/webp').startsWith('data:image/webp')");
+    for (const [id, file] of [['png', 'pic.png'], ['jpeg', 'pic.jpg'], ['bmp', 'pic.bmp'], ['tiff', 'pic.tif'], ['svg', 'pic.svg'], ...(webp ? [['webp', 'pic.webp']] : [])]) {
+      await exportPic(id, file, { padding: 0 });
+      assert(fs.existsSync(path.join(work, file)) && fs.statSync(path.join(work, file)).size > 100, `${file} written`);
+    }
+    const png = await edges('pic.png');
+    const magic = (f, n) => fs.readFileSync(path.join(work, f)).subarray(0, n);
+    eq([...magic('pic.png', 4)], [0x89, 0x50, 0x4e, 0x47], 'PNG signature');
+    eq([...magic('pic.jpg', 2)], [0xff, 0xd8], 'JPEG signature');
+    eq(magic('pic.bmp', 2).toString('latin1'), 'BM', 'BMP signature');
+    eq(magic('pic.tif', 4).toString('latin1'), 'II*\0', 'TIFF signature');
+    const bmp = fs.readFileSync(path.join(work, 'pic.bmp'));
+    eq([bmp.readInt32LE(18), bmp.readInt32LE(22)], [png.w, png.h], 'BMP size = PNG size');
+    for (const f of ['pic.jpg', 'pic.tif', ...(webp ? ['pic.webp'] : [])]) { const m = await sharp(path.join(work, f)).metadata(); eq([m.width, m.height], [png.w, png.h], `${f} size = PNG size`); }
+    const svg = fs.readFileSync(path.join(work, 'pic.svg'), 'utf8');
+    const [, sw, sh] = /<svg[^>]* width="(\d+)" height="(\d+)"/.exec(svg);
+    eq([+sw, +sh], [png.w, png.h], 'SVG size = PNG size (scale 1)');
+  });
+  await step('a picture is framed to its shapes: flush at margin 0 (drawn pixels on all four edges), the margin added outside them, 20 px by default', async () => {
+    await exportPic('png', 'tight.png', { padding: 0, transparent: true });
+    const t = await edges('tight.png');
+    eq([t.top, t.bottom, t.left, t.right], [true, true, true, true], 'something drawn on every edge');
+    await exportPic('png', 'margin.png', { padding: 20, transparent: true });
+    const m = await edges('margin.png');
+    eq([m.w - t.w, m.h - t.h], [40, 40], '20 px all round');
+    eq(m.firstRow, 20, 'the first 20 rows are empty');
+    eq([m.top, m.bottom, m.left, m.right], [false, false, false, false], 'nothing on the edges');
+    // by default (no margin asked): every shape with 20 px of room all round, not cut flush
+    await page.eval(`window.__mtm.applySettings({ exportMargin: 20 })`);
+    await exportPic('png', 'default.png', { transparent: true });
+    const d = await edges('default.png');
+    eq([d.w - t.w, d.h - t.h, d.firstRow], [40, 40, 20], 'default: 20 px of room');
+  });
+  await step('a transparent background only when asked, in the formats that have one (PNG, WebP, TIFF, SVG)', async () => {
+    eq((await edges('pic.png')).minA, 255, 'PNG on its background: no see-through pixel');
+    eq((await edges('tight.png')).minA, 0, 'PNG transparent: see-through pixels');
+    await exportPic('tiff', 'clear.tif', { padding: 0, transparent: true });
+    eq((await sharp(path.join(work, 'clear.tif')).metadata()).channels, 4, 'TIFF transparent: RGBA');
+    eq((await sharp(path.join(work, 'pic.tif')).metadata()).channels, 3, 'TIFF on its background: RGB');
+    if (await page.eval("document.createElement('canvas').toDataURL('image/webp').startsWith('data:image/webp')")) {
+      await exportPic('webp', 'clear.webp', { padding: 0, transparent: true });
+      eq((await edges('clear.webp')).minA, 0, 'WebP transparent');
+      eq((await edges('pic.webp')).minA, 255, 'WebP on its background');
+    }
+    await exportPic('svg', 'clear.svg', { padding: 0, transparent: true });
+    const opaque = fs.readFileSync(path.join(work, 'pic.svg'), 'utf8'), clear = fs.readFileSync(path.join(work, 'clear.svg'), 'utf8');
+    const bgRect = (s) => { const [, x, y, w, h] = /viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(s); return s.includes(`<rect x="${x}" y="${y}" width="${w}" height="${h}"`); };
+    eq([bgRect(opaque), bgRect(clear)], [true, false], 'SVG background rectangle only when not transparent');
+    // JPEG and BMP cannot be transparent: asking changes nothing
+    await exportPic('jpeg', 'ask.jpg', { padding: 0, transparent: true });
+    eq((await sharp(path.join(work, 'ask.jpg')).metadata()).hasAlpha, false, 'JPEG has no alpha');
+  });
+  await step('the export dialog asks about a transparent background only for the formats that have one, and says the size', async () => {
+    await page.eval("window.__mtm.run('export')");
+    await page.waitFor('!!document.querySelector(".export-dialog")');
+    const seen = {};
+    for (const id of await page.eval('[...document.querySelectorAll(".export-item")].map((b) => b.dataset.export)')) {
+      await page.clickSel(`.export-item[data-export="${id}"]`);
+      await page.sleep(80);
+      seen[id] = await page.eval('!!document.querySelector(".export-opts input[name=transparent]")');
+    }
+    eq(Object.keys(seen).filter((k) => seen[k]).sort(), ['png', 'svg', 'tiff', ...(seen.webp !== undefined ? ['webp'] : [])].sort(), 'formats with the transparent option');
+    for (const id of ['png', 'jpeg', 'bmp', 'tiff', 'svg', 'pdf']) assert(id in seen, `${id} offered`);
+    await page.clickSel('.export-item[data-export="png"]');
+    await page.sleep(80);
+    assert(/20px 여백|20px of room/.test(await page.eval('document.querySelector("[data-note=size]").textContent')), 'the size note');
+    await page.key('Escape');
+    await page.sleep(150);
+  });
+
+  // ── map files dropped on the page (the browser): every format the app opens ──
+  await step('map files dragged onto the page open — XMind, MindManager, FreeMind, OPML, Markdown', async () => {
+    const files = [['app.xmind', fs.readFileSync(path.join(work, 'out.xmind'))], ['app.mm', fs.readFileSync(path.join(work, 'out.mm'))], ['app.opml', fs.readFileSync(path.join(work, 'out.opml'))], ['app.md', fs.readFileSync(path.join(work, 'out.md'))],
+      ['plan.mmap', zipOf([{ name: 'Document.xml', data: '<?xml version="1.0"?><ap:Map xmlns:ap="http://schemas.mindjet.com/MindManager/Application/2003"><ap:OneTopic><ap:Topic><ap:SubTopics><ap:Topic><ap:Text PlainText="A"/></ap:Topic><ap:Topic><ap:Text PlainText="B"/></ap:Topic></ap:SubTopics><ap:Text PlainText="Plan"/></ap:Topic></ap:OneTopic></ap:Map>' }])]];
+    const before = await page.eval('window.__mtm.docs().length');
+    const list = JSON.stringify(files.map(([n, b]) => [n, b.toString('base64')]));
+    await page.eval(`(() => { const dt = new DataTransfer(); for (const [n, b] of ${list}) { const bin = atob(b); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); dt.items.add(new File([u], n)); } const at = document.querySelector('.map-canvas').getBoundingClientRect(); const o = { bubbles: true, cancelable: true, dataTransfer: dt, clientX: at.left + 200, clientY: at.top + 200 }; const el = document.elementFromPoint(o.clientX, o.clientY); el.dispatchEvent(new DragEvent('dragover', o)); el.dispatchEvent(new DragEvent('drop', o)); })()`);
+    await page.waitFor(`window.__mtm.docs().length >= ${before + files.length}`, 8000).catch(() => {});
+    const docs = await page.eval(`window.__mtm.docs().slice(${before}).map((d) => [d.name, d.map.root.children.length])`);
+    eq(docs.map((d) => d[0]), files.map((f) => f[0]), 'every file opened, in order');
+    for (const [name, n] of docs) assert(n >= 2, `${name}: ${n} main topics`);
+  });
+
+  // ── the window's top: app controls on the menu bar, one-row toolbar with even margins ──
+  await step('theme, language, settings and info sit right-aligned on the menu bar; the toolbar is one row with equal margins', async () => {
+    const r = await page.eval(`(() => { const mb = document.querySelector('.menubar').getBoundingClientRect(); const ac = document.querySelector('.menubar .app-controls'); const it = document.querySelector('.icon-toolbar'); const tr = it.getBoundingClientRect(); const gs = [...it.querySelectorAll('.tb-group')]; const a = gs[0].getBoundingClientRect(), b = gs[gs.length - 1].getBoundingClientRect(); const next = ac.nextElementSibling; return { inToolbar: !!it.querySelector('.app-controls'), right: Math.round(mb.right - ac.getBoundingClientRect().right), after: next ? next.className : '', buttons: ac.querySelectorAll('button').length, rows: new Set(gs.map((g) => { const b = g.getBoundingClientRect(); return Math.round((b.top + b.bottom) / 20); })).size, left: Math.round(a.left - tr.left), rightGap: Math.round(tr.right - b.right) }; })()`);
+    eq(r.inToolbar, false, 'no app controls on the toolbar');
+    assert(r.right <= 12, `right-aligned on the menu bar (${r.right} px from the end)`);
+    assert(r.after === '' || /win-buttons/.test(r.after), `followed only by the window buttons (${r.after})`);
+    eq(r.buttons, 5, 'theme, theme list, language, settings, info');
+    eq(r.rows, 1, 'toolbar rows');
+    assert(Math.abs(r.left - r.rightGap) <= 1, `toolbar margins ${r.left} / ${r.rightGap}`);
+  });
+  await step('toolbar: one group per kind of command, a visible separator between groups', async () => {
+    const groups = await page.eval(`[...document.querySelectorAll('.icon-toolbar .tb-group')].map((g) => [...g.querySelectorAll('[data-cmd]')].map((b) => b.dataset.cmd))`);
+    eq(groups, [
+      ['new', 'open', 'save'], ['export', 'print'], ['undo', 'redo'],
+      ['addChild', 'addSibling', 'addParent', 'addCallout', 'addFloating'], ['relationship', 'boundary', 'summary'],
+      ['pane:markers', 'pane:notes', 'pane:links', 'pane:task'], ['layoutMenu', 'styleMenu'],
+      ['redraw:orgDown', 'redraw:right', 'redraw:left', 'redraw:map', 'arrange'], ['expandAll', 'collapseAll', 'focusBranch'],
+      ['zoomOut', 'zoomIn', 'fit', 'centerMap'], ['view:map', 'view:outline', 'view:gantt', 'view:kanban', 'presentation'],
+      ['toggle:showGrid', 'toggle:showRulers', 'toggle:overviewVisible'], ['toggle:sidebarVisible', 'toggle:panelVisible'],
+    ], 'groups');
+    const seps = await page.eval(`[...document.querySelectorAll('.icon-toolbar .tb-sep')].map((s) => { const r = s.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(s).backgroundColor]; })`);
+    eq(seps.length, groups.length - 1, 'a separator between every two groups');
+    assert(seps.every(([w, h, c]) => w >= 1 && h >= 16 && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)), `separators visible: ${JSON.stringify(seps[0])}`);
+  });
+  await step('theme drop-down hangs straight down from its button', async () => {
+    await page.clickSel('.menubar .tb-split-caret');
+    await page.sleep(300);
+    const r = await page.eval(`(() => { const s = document.querySelector('.menubar .tb-split').getBoundingClientRect(); const m = document.querySelector('.theme-menu').getBoundingClientRect(); return { sl: s.left, sr: s.right, sb: s.bottom, ml: m.left, mr: m.right, mt: m.top, vw: innerWidth }; })()`);
+    await page.key('Escape');
+    // starts under the button's left edge, or — no room to the right — ends under its right edge
+    const left = Math.abs(r.ml - r.sl) <= 1, right = Math.abs(r.mr - r.sr) <= 1 && r.sl + (r.mr - r.ml) > r.vw - 8;
+    assert(left || right, `menu ${Math.round(r.ml)}–${Math.round(r.mr)}, button ${Math.round(r.sl)}–${Math.round(r.sr)}`);
+    assert(r.mt >= r.sb && r.mt - r.sb <= 4, 'right under the button');
+  });
+  await step('tabs: "<" / ">" are enabled exactly while tabs are hidden on their side, and bring them into view', async () => {
+    for (let i = 0; i < 14; i++) await page.eval("window.__mtm.run('new')");
+    await page.sleep(400);
+    const st = () => page.eval(`(() => { const s = document.querySelector('.tab-strip'); const a = s.querySelector('.tab.active'); const sr = s.getBoundingClientRect(), ar = a.getBoundingClientRect(); return { prev: !document.querySelector('[data-cmd=tab-prev]').disabled, next: !document.querySelector('[data-cmd=tab-next]').disabled, hiddenL: s.scrollLeft > 0, hiddenR: s.scrollLeft + s.clientWidth < s.scrollWidth - 1, activeShown: ar.left >= sr.left - 1 && ar.right <= sr.right + 1 }; })()`);
+    let s = await st();
+    assert(s.hiddenL, 'tabs overflow to the left (the newest is active, at the end)');
+    eq([s.prev, s.next, s.activeShown], [true, false, true], 'at the end: < on, > off');
+    for (let k = 0; k < 30 && (await st()).prev; k++) { await page.clickSel('[data-cmd=tab-prev]'); await page.sleep(60); }
+    s = await st();
+    eq([s.hiddenL, s.prev, s.next], [false, false, true], 'scrolled to the start: < off, > on');
+    await page.clickSel('[data-cmd=tab-next]'); await page.sleep(80);
+    eq((await st()).prev, true, 'one step right: < on again');
+    // a narrower window: the active tab stays in view and the arrows follow
+    await page.eval("window.__mtm.applySettings({ sidebarWidth: 520, panelWidth: 520 })");
+    await page.sleep(400);
+    s = await st();
+    eq(s.activeShown, true, 'active tab still shown after narrowing');
+    eq([s.prev, s.next], [s.hiddenL, s.hiddenR], 'arrows match what is hidden');
+    await page.eval("window.__mtm.applySettings({ sidebarWidth: 250, panelWidth: 300 })");
+    for (let i = 0; i < 14; i++) await page.eval("(async () => { await window.__mtm.run('close'); })()");
+    await page.sleep(300);
+  });
+  await step('Format pane: copy / paste / clear format buttons line up with the subtopic layout buttons', async () => {
+    await page.eval("window.__mtm.run('tour:pane:format')");
+    await page.eval('window.__mtm.select([window.__mtm.doc().map.root.children[0].id])');
+    await page.sleep(250);
+    const r = await page.eval(`(() => { const g = document.querySelector('.task-pane .layout-grid.small').getBoundingClientRect(); const bs = [...document.querySelectorAll('.task-pane .fmt-actions button')].map((b) => b.getBoundingClientRect()); return { n: bs.length, rows: new Set(bs.map((b) => Math.round(b.top))).size, left: Math.round(bs[0].left - g.left), right: Math.round(g.right - bs[bs.length - 1].right), widths: bs.map((b) => Math.round(b.width)) }; })()`);
+    eq([r.n, r.rows], [3, 1], 'three buttons on one row');
+    eq([r.left, r.right], [0, 0], 'same edges as the layout buttons');
+    assert(Math.max(...r.widths) - Math.min(...r.widths) <= 1, `even widths ${r.widths}`);
+  });
 
   await step('import: the exported files open again', async () => {
     for (const ext of ['mm', 'xmind', 'opml', 'md']) {

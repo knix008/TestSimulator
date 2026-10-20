@@ -175,8 +175,10 @@ export function renderMapBody(map, L, ms, opts = {}) {
 }
 
 // A standalone SVG document of the whole map (export / print).
-export function renderMapSvg(map, L, ms, { padding = 40, transparent = false, measure, title = '' } = {}) {
-  const b = L.bounds;
+// box: the area to frame (map coordinates) instead of the layout's bounds — the painted area for
+// an export at its smallest; padding is added around it
+export function renderMapSvg(map, L, ms, { padding = 40, transparent = false, measure, title = '', box = null } = {}) {
+  const b = box || L.bounds;
   const x = Math.floor(b.x0 - padding), y = Math.floor(b.y0 - padding);
   const w = Math.ceil(b.x1 - b.x0 + padding * 2), h = Math.ceil(b.y1 - b.y0 + padding * 2);
   const bg = transparent ? '' : `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(ms.bg)}"/>`;

@@ -249,14 +249,14 @@ async function toolbar() {
   }
   // the zoom label (resets to 100%) and the app controls at the right end
   await check('Toolbar', 'zoom ratio (back to 100%)', async () => { const c = await center("document.querySelector('.tb-zoom')"); await p.click(c.x, c.y); return true; }, { pre: ['zoomIn'] });
-  const ctl = await p.eval("[...document.querySelectorAll('.icon-toolbar .app-controls button')].map((b, i) => ({ i, title: b.title || b.getAttribute('aria-label') || b.textContent }))");
+  const ctl = await p.eval("[...document.querySelectorAll('.menubar .app-controls button')].map((b, i) => ({ i, title: b.title || b.getAttribute('aria-label') || b.textContent }))");
   for (const c of ctl) {
-    await check('App controls', c.title, async () => { const q = await center(`document.querySelectorAll('.icon-toolbar .app-controls button')[${c.i}]`); await p.click(q.x, q.y); return true; });
+    await check('App controls', c.title, async () => { const q = await center(`document.querySelectorAll('.menubar .app-controls button')[${c.i}]`); await p.click(q.x, q.y); return true; });
   }
   // the theme list: the first dark and the first light theme
   for (const k of [0, 20]) {
     await check('App controls', `theme list: ${k ? 'first light theme' : 'first dark theme'}`, async () => {
-      const q = await center("document.querySelector('.icon-toolbar .tb-split-caret')"); await p.click(q.x, q.y); await sleep(250);
+      const q = await center("document.querySelector('.menubar .tb-split-caret')"); await p.click(q.x, q.y); await sleep(250);
       const r = await p.eval(`(() => { const b = [...document.querySelectorAll('.ctx-menu .ctx-item')].filter((x) => !x.classList.contains('checked'))[${k}]; const q = b.getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2 }; })()`);
       await p.click(r.x, r.y);
       return true;

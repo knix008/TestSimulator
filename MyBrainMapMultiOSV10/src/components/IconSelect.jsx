@@ -6,6 +6,7 @@
 //   default for entries without one. onChange gets the chosen option's value (its own type).
 import React, { useRef, useState } from 'react';
 import { Icon } from './Icons';
+import { t } from '../lib/i18n';
 import { ContextMenu } from './ContextMenu';
 import { markerSvgDoc } from '../lib/markers';
 
@@ -87,7 +88,8 @@ export const progressOptions = (noneLabel, current) => [{ value: '', label: none
 
 // export / print choices shared by the export dialog, print preview and Settings
 export const scaleOptions = () => [1, 1.5, 2, 3, 4].map((s) => ({ value: s, label: `${s}×`, iconEl: badgeIcon(`${s}×`) }));
-export const paddingOptions = () => [0, 20, 40, 80].map((p) => ({ value: p, label: `${p}px`, icon: p ? 'fit' : 'minus' }));
+// room around the shapes of an exported picture (0: flush with them)
+export const paddingOptions = () => [0, 10, 20, 40, 80].map((p) => ({ value: p, label: p ? `${p}px` : `0px — ${t('export_padding_none')}`, icon: p ? 'fit' : 'minus' }));
 export const paperOptions = (papers, fitLabel) => [...(fitLabel ? [{ value: 'fit', label: fitLabel, icon: 'fit' }] : []), ...papers.map((p) => ({ value: p, label: p.toUpperCase(), icon: 'fileText' }))];
 export const orientOptions = (labels) => Object.entries(labels).map(([value, label]) => ({ value, label, ...(value === 'auto' ? { icon: 'refresh' } : { iconEl: orientIcon(value === 'landscape') }) }));
 export const tilesOptions = (label) => [1, 2, 4, 6, 9].map((n) => ({ value: n, label: label(n), iconEl: tilesIcon(n) }));

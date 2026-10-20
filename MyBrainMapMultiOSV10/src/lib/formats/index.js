@@ -7,7 +7,8 @@ import { importXmind, exportXmind } from './xmind.js';
 import { importMmap } from './mmap.js';
 import { exportDocx } from './docx.js';
 import { buildPdf, paperPoints, mmToPt, bytesToBase64 } from './pdf.js';
-import { mapPicture, svgToCanvas, canvasBytes } from '../exportimg.js';
+import { tightPicture, svgToCanvas, canvasBytes, canWriteWebp } from '../exportimg.js';
+import { encodeBmp, encodeTiff } from './image.js';
 import { renderMarkdown } from '../markdown.js';
 
 export const MAP_EXT = 'tmap';
@@ -52,20 +53,36 @@ export async function readMapFile(path, call) {
     return { map, kind: 'import', mtime: st.mtime || 0, readonly: false, path: z.path };
   }
   const r = await call('file.readText', { path });
-  let map;
-  let kind = 'import';
+  const map = parseMapText(ext, r.text, name);
+  return { map, kind: ext === MAP_EXT ? 'tmap' : 'import', mtime: r.mtime, readonly: !!r.readonly, path: r.path };
+}
+
+// A text format's map: .tmap / .json, FreeMind, OPML, Markdown, a text outline.
+export function parseMapText(ext, text, name = '') {
   if (ext === MAP_EXT || ext === 'json') {
     let obj;
-    try { obj = JSON.parse(r.text); } catch (e) { const err = new Error(`Not a MyBrainMap file: ${e.message}`); err.code = 'EFORMAT'; throw err; }
+    try { obj = JSON.parse(text); } catch (e) { const err = new Error(`Not a MyBrainMap file: ${e.message}`); err.code = 'EFORMAT'; throw err; }
     if (!obj || typeof obj !== 'object' || !obj.root) { const err = new Error('Not a MyBrainMap file'); err.code = 'EFORMAT'; throw err; }
-    map = normalizeMap(obj);
-    kind = ext === MAP_EXT ? 'tmap' : 'import';
-  } else if (ext === 'mm') map = importFreeMind(r.text, name);
-  else if (ext === 'opml') map = importOpml(r.text, name);
-  else if (ext === 'md' || ext === 'markdown') map = importMarkdown(r.text, name);
-  else if (ext === 'txt') map = importTextOutline(r.text, name);
-  else { const err = new Error(`Unsupported file type: .${ext}`); err.code = 'EFORMAT'; throw err; }
-  return { map, kind, mtime: r.mtime, readonly: !!r.readonly, path: r.path };
+    return normalizeMap(obj);
+  }
+  if (ext === 'mm') return importFreeMind(text, name);
+  if (ext === 'opml') return importOpml(text, name);
+  if (ext === 'md' || ext === 'markdown') return importMarkdown(text, name);
+  if (ext === 'txt') return importTextOutline(text, name);
+  const err = new Error(`Unsupported file type: .${ext}`); err.code = 'EFORMAT'; throw err;
+}
+
+// A map file dropped on the browser page (a File, not a path): every format the app opens,
+// the ZIP ones (XMind, MindManager) unpacked by the host. → the map
+export async function readDroppedMap(file, call) {
+  const name = file.name || '';
+  const ext = extOf(name);
+  if (ext === 'xmind' || ext === 'mmap') {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const z = await call('zip.readData', { base64: bytesToBase64(bytes), name });
+    return ext === 'xmind' ? importXmind(z.entries, name) : importMmap(z.entries, name);
+  }
+  return parseMapText(ext, await file.text(), name);
 }
 
 export const serializeMap = (map) => JSON.stringify(map, null, 1);
@@ -76,11 +93,16 @@ export async function writeMapFile(path, map, call) {
 
 // ── exports ──
 
+// picture: the map drawn as a picture; raster: pixels (a scale applies); alpha: the format can keep
+// a transparent background, so the export asks whether to
 export const EXPORTS = [
-  { id: 'png', ext: 'png', icon: 'image', label: ['PNG 그림', 'PNG picture'], desc: ['투명 배경 가능, 배율 선택', 'Transparent background, any scale'], picture: true },
-  { id: 'jpeg', ext: 'jpg', icon: 'image', label: ['JPEG 그림', 'JPEG picture'], desc: ['작은 파일', 'Smaller files'], picture: true },
-  { id: 'svg', ext: 'svg', icon: 'image', label: ['SVG 벡터 그림', 'SVG vector picture'], desc: ['확대해도 선명', 'Sharp at any size'], picture: true },
-  { id: 'pdf', ext: 'pdf', icon: 'filePdf', label: ['PDF 문서', 'PDF document'], desc: ['맵 한 장 (용지 크기 선택)', 'The map on a page (paper size)'], picture: true },
+  { id: 'png', ext: 'png', icon: 'image', label: ['PNG 그림', 'PNG picture'], desc: ['투명 배경 가능, 배율 선택', 'Transparent background, any scale'], picture: true, raster: true, alpha: true, mime: 'image/png' },
+  { id: 'jpeg', ext: 'jpg', icon: 'image', label: ['JPEG 그림', 'JPEG picture'], desc: ['작은 파일', 'Smaller files'], picture: true, raster: true, mime: 'image/jpeg' },
+  { id: 'webp', ext: 'webp', icon: 'image', label: ['WebP 그림', 'WebP picture'], desc: ['작은 파일, 투명 배경 가능', 'Small files, transparent background'], picture: true, raster: true, alpha: true, mime: 'image/webp', needs: 'webp' },
+  { id: 'bmp', ext: 'bmp', icon: 'image', label: ['BMP 그림', 'BMP picture'], desc: ['압축하지 않은 비트맵', 'Uncompressed bitmap'], picture: true, raster: true },
+  { id: 'tiff', ext: 'tif', icon: 'image', label: ['TIFF 그림', 'TIFF picture'], desc: ['인쇄 · 편집용, 투명 배경 가능', 'For print and editing, transparent background'], picture: true, raster: true, alpha: true },
+  { id: 'svg', ext: 'svg', icon: 'image', label: ['SVG 벡터 그림', 'SVG vector picture'], desc: ['확대해도 선명, 투명 배경 가능', 'Sharp at any size, transparent background'], picture: true, alpha: true },
+  { id: 'pdf', ext: 'pdf', icon: 'filePdf', label: ['PDF 문서', 'PDF document'], desc: ['맵 한 장 (용지 크기 선택)', 'The map on a page (paper size)'], picture: true, raster: true },
   { id: 'docx', ext: 'docx', icon: 'fileText', label: ['Word 문서', 'Word document'], desc: ['맵 그림 + 제목 개요 + 메모', 'Map picture, heading outline, notes'] },
   { id: 'html', ext: 'html', icon: 'fileMarkup', label: ['웹 페이지 (HTML)', 'Web page (HTML)'], desc: ['맵 그림과 접히는 개요', 'Map picture and a foldable outline'] },
   { id: 'md', ext: 'md', icon: 'fileText', label: ['Markdown', 'Markdown'], desc: ['제목·목록·메모', 'Headings, lists, notes'] },
@@ -93,29 +115,44 @@ export const EXPORTS = [
 
 export const exportById = (id) => EXPORTS.find((e) => e.id === id);
 
+// The exports this engine can write (WebP only where the canvas encodes it).
+export const availableExports = (can = { webp: canWriteWebp() }) => EXPORTS.filter((e) => !e.needs || can[e.needs]);
+
 // Writes the export `id` of the map to `path`.
-// opts: { lang, settings, scale, transparent, padding, paper, landscape, margin }
+// opts: { lang, settings, scale, transparent, padding (px of room around every shape — the picture
+//         is the area the shapes cover plus that, 0 = flush; settings.exportMargin when not given),
+//         paper, landscape, margin (mm, PDF) }
 export async function exportMap(id, map, path, call, opts = {}) {
   const lang = opts.lang || 'ko';
-  const pictureOpts = { lang, settings: opts.settings || {}, padding: opts.padding ?? 40 };
+  const fmt = exportById(id);
+  const picture = (transparent = false) => tightPicture(map, { lang, settings: opts.settings || {}, margin: opts.padding ?? (opts.settings && opts.settings.exportMargin) ?? 20, transparent });
+  // a raster format: the picture on a canvas, on the map's background unless it is kept transparent
+  const raster = async (scale = opts.scale || 2) => {
+    const clear = !!(fmt && fmt.alpha && opts.transparent);
+    const pic = await picture(clear);
+    return { pic, canvas: await svgToCanvas(pic.svg, pic.width, pic.height, scale, clear ? null : pic.ms.bg), clear };
+  };
+  const pixels = (canvas) => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
   switch (id) {
-    case 'png': {
-      const pic = mapPicture(map, { ...pictureOpts, transparent: !!opts.transparent });
-      const canvas = await svgToCanvas(pic.svg, pic.width, pic.height, opts.scale || 2, opts.transparent ? null : pic.ms.bg);
-      return call('file.writeBase64', { path, base64: bytesToBase64(await canvasBytes(canvas, 'image/png')) });
+    case 'png': case 'jpeg': case 'webp': {
+      const { canvas } = await raster();
+      const bytes = await canvasBytes(canvas, fmt.mime, 0.92);
+      return call('file.writeBase64', { path, base64: bytesToBase64(bytes) });
     }
-    case 'jpeg': {
-      const pic = mapPicture(map, pictureOpts);
-      const canvas = await svgToCanvas(pic.svg, pic.width, pic.height, opts.scale || 2, pic.ms.bg);
-      return call('file.writeBase64', { path, base64: bytesToBase64(await canvasBytes(canvas, 'image/jpeg', 0.92)) });
+    case 'bmp': {
+      const { canvas } = await raster();
+      return call('file.writeBase64', { path, base64: bytesToBase64(encodeBmp(pixels(canvas), canvas.width, canvas.height)) });
+    }
+    case 'tiff': {
+      const { canvas, clear } = await raster();
+      return call('file.writeBase64', { path, base64: bytesToBase64(encodeTiff(pixels(canvas), canvas.width, canvas.height, { alpha: clear })) });
     }
     case 'svg': {
-      const pic = mapPicture(map, { ...pictureOpts, transparent: !!opts.transparent });
+      const pic = await picture(!!opts.transparent);
       return call('file.writeText', { path, text: `<?xml version="1.0" encoding="UTF-8"?>\n${pic.svg}\n` });
     }
     case 'pdf': {
-      const pic = mapPicture(map, pictureOpts);
-      const canvas = await svgToCanvas(pic.svg, pic.width, pic.height, Math.max(2, opts.scale || 2), pic.ms.bg);
+      const { pic, canvas } = await raster(Math.max(2, opts.scale || 2));
       const jpeg = await canvasBytes(canvas, 'image/jpeg', 0.93);
       const landscape = opts.landscape ?? pic.width >= pic.height;
       const paper = opts.paper === 'fit' ? null : paperPoints(opts.paper || 'a4', landscape);
@@ -123,14 +160,14 @@ export async function exportMap(id, map, path, call, opts = {}) {
       return call('file.writeBase64', { path, base64: bytesToBase64(bytes) });
     }
     case 'docx': {
-      const pic = mapPicture(map, pictureOpts);
+      const pic = await picture();
       const canvas = await svgToCanvas(pic.svg, pic.width, pic.height, 2, pic.ms.bg);
       const png = bytesToBase64(await canvasBytes(canvas, 'image/png'));
       const files = exportDocx(map, { image: { base64: png, width: pic.width, height: pic.height }, lang });
       return call('zip.write', { path, files });
     }
     case 'html': {
-      const pic = mapPicture(map, pictureOpts);
+      const pic = await picture();
       return call('file.writeText', { path, text: exportHtml(map, { svg: pic.svg, lang, renderNotes: renderMarkdown }) });
     }
     case 'md': return call('file.writeText', { path, text: exportMarkdown(map, { lang }) });

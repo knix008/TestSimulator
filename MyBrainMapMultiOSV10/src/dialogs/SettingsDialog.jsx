@@ -242,7 +242,7 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
                 <label>{t('export_scale')}</label>
                 <IconSelect name="exportScale" value={settings.exportScale} options={scaleOptions()} onChange={(v) => onChange({ exportScale: Number(v) })} />
                 <label>{t('export_padding')}</label>
-                <Stepper value={settings.exportPadding} onChange={(n) => onChange({ exportPadding: n })} min={0} max={200} step={10} unit="px" />
+                <Stepper value={settings.exportMargin} onChange={(n) => onChange({ exportMargin: n })} min={0} max={200} step={10} unit="px" />
                 <label />
                 <Check id="exportTransparent" label={t('export_transparent')} settings={settings} onChange={onChange} />
               </div>

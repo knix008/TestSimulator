@@ -155,10 +155,11 @@ function FormatTab({ map, topics, edit, ms, primaryNode, clipStyle, setClipStyle
           ))}
         </div>
       </Section>
-      <div className="pane-btns end">
-        <button type="button" className="btn small" title={t('fmt_copy_tip')} onClick={() => setClipStyle(first.style ? { ...first.style } : {})}><Icon name="copy" size={13} /> {t('fmt_copy')}</button>
-        <button type="button" className="btn small" disabled={!clipStyle} title={t('fmt_paste_tip')} onClick={() => edit((m) => { let out = clearStyle(m, ids); if (clipStyle && Object.keys(clipStyle).length) out = setStyle(out, ids, clipStyle); return out; }, '')}><Icon name="brush" size={13} /> {t('fmt_paste')}</button>
-        <button type="button" className="btn small" onClick={() => edit((m) => clearStyle(m, ids), '')}><Icon name="eraser" size={13} /> {t('fmt_clear')}</button>
+      {/* three even columns, lined up with the subtopic layout buttons above */}
+      <div className="layout-grid fmt-actions">
+        <button type="button" className="layout-btn" title={t('fmt_copy_tip')} onClick={() => setClipStyle(first.style ? { ...first.style } : {})}><Icon name="copy" size={18} /><span>{t('fmt_copy')}</span></button>
+        <button type="button" className="layout-btn" disabled={!clipStyle} title={t('fmt_paste_tip')} onClick={() => edit((m) => { let out = clearStyle(m, ids); if (clipStyle && Object.keys(clipStyle).length) out = setStyle(out, ids, clipStyle); return out; }, '')}><Icon name="brush" size={18} /><span>{t('fmt_paste')}</span></button>
+        <button type="button" className="layout-btn" title={t('fmt_clear')} onClick={() => edit((m) => clearStyle(m, ids), '')}><Icon name="eraser" size={18} /><span>{t('fmt_clear')}</span></button>
       </div>
     </>
   );

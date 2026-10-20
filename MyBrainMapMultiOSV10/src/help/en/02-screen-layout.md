@@ -12,25 +12,35 @@ At the top: the app icon and name, the **Start** button, and the File · Edit ·
 
 ![Toolbar](images/toolbar.png)
 
-*From the left: file, undo, adding topics, topic content, layout and style, expand / collapse, zoom, views, panes.*
+*From the left: file, output, edit, adding topics, structure, topic content, layout and style, redraw, branches, zoom, views, screen, panes.*
 
 | Group | Buttons |
 | --- | --- |
-| File | New map, open, save, export, print |
-| Topics | Sub, sibling and parent topic, callout, floating topic, relationship, boundary |
-| Content | Icons, notes, links, task — they open that tab of the task pane (Format is its first tab) |
-| Map | Layout picker, map style picker |
-| Arrange | Redraw top→bottom, left→right, right→left, both sides; auto arrange |
-| View | Expand / collapse all, branch only, zoom, fit, map · outline · Gantt · Kanban, presentation |
-| Screen | Grid, rulers, overview window on/off; fold / unfold the left and right panes |
+| File | New map, open, save |
+| Output | Export, print |
+| Edit | Undo, redo |
+| Add topics | Sub, sibling and parent topic, callout, floating topic |
+| Structure | Relationship, boundary, summary |
+| Topic content | Icons, notes, links, task — they open that tab of the task pane (Format is its first tab) |
+| Layout and style | Layout picker, map style picker |
+| Redraw | Redraw top→bottom, left→right, right→left, both sides; auto arrange |
+| Branches | Expand all, collapse all, focus on a branch |
+| Zoom | Zoom out, the ratio (click for 100%), zoom in, fit the map, center the map |
+| Views | Map, outline, Gantt, Kanban, presentation |
+| Screen | Grid, rulers, overview window |
+| Panes | Left pane, right pane |
 
-In a narrow window the toolbar wraps onto a second row, a whole group at a time. Hover a button for its name and shortcut.
+Buttons of one kind are grouped, with a separator between groups. The toolbar is always one row, its groups centred so the left and right margins are equal.
 
-At the right end: theme (click for the next one, ▾ for the list), language (the flag), settings and about.
+The window never gets narrower than the toolbar with all its buttons on one row. Hover a button for its name and shortcut.
+
+At the right end of the menu bar, just left of the minimize button: theme (click for the next one, ▾ for the list), language (the flag), settings and about.
 
 ## Tabs
 
 One tab per map. An unsaved map has an italic name and a ●. Drag tabs to reorder, middle-click to close, right-click for the tab menu.
+
+When the tabs do not all fit, `<` / `>` at the two ends bring the next hidden tab on that side into view; each is on only while tabs are hidden on its side. The current tab stays in view when the window gets narrower. `Ctrl+Tab` / `Ctrl+Shift+Tab` switch tabs.
 
 ## Sidebar
 

@@ -68,7 +68,9 @@ export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, 
       if (above) top = anchorEl.getBoundingClientRect().top - h - 2;
     }
     const w = el.offsetWidth;
-    if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+    // too wide for the room right of its button: it ends where the button ends (a drop-down at the
+    // right of the window lines up with its button rather than with the window's edge)
+    if (left + w > window.innerWidth - 8) left = anchorEl ? Math.max(8, Math.min(anchorEl.getBoundingClientRect().right - w, window.innerWidth - w - 8)) : Math.max(8, window.innerWidth - w - 8);
     if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
     setRows(n);
     setDense(d);

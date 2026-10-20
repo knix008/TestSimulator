@@ -11,7 +11,7 @@ import { TEMPLATES, mapFromTemplate } from '../lib/templates';
 import { SAMPLES, mapFromSample } from '../lib/samples';
 import { mapPicture } from '../lib/exportimg';
 import { topicsFromText } from '../lib/model';
-import { EXPORTS } from '../lib/formats/index';
+import { availableExports } from '../lib/formats/index';
 
 // Every dialog can be dragged by its title bar (kept inside the window). A
 // non-modal one (modal={false}: settings, info, shortcuts) leaves the map
@@ -225,18 +225,19 @@ export function ExportDialog({ settings, initial = 'png', onResult }) {
   const [id, setId] = useState(initial);
   const [scale, setScale] = useState(settings.exportScale || 2);
   const [transparent, setTransparent] = useState(!!settings.exportTransparent);
-  const [padding, setPadding] = useState(settings.exportPadding ?? 40);
+  const [padding, setPadding] = useState(settings.exportMargin ?? 20);
   const [paper, setPaper] = useState(settings.printPaper || 'a4');
   const [orient, setOrient] = useState('auto');
-  const fmt = EXPORTS.find((e) => e.id === id) || EXPORTS[0];
-  const go = () => onResult({ id, scale, transparent, padding, paper, landscape: orient === 'auto' ? undefined : orient === 'landscape', margin: settings.printMargin ?? 10 });
+  const formats = availableExports();
+  const fmt = formats.find((e) => e.id === id) || formats[0];
+  const go = () => onResult({ id: fmt.id, scale, transparent: !!fmt.alpha && transparent, padding, paper, landscape: orient === 'auto' ? undefined : orient === 'landscape', margin: settings.printMargin ?? 10 });
   return (
     <Dialog title={t('export_title')} icon="export" kind="info" className="export-dialog" width={940} onClose={() => onResult(null)} onEnter={go}
       footer={<><button className="btn" onClick={() => onResult(null)}>{t('cancel')}</button><button className="btn primary" onClick={go}>{t('export_go')}</button></>}>
       <div className="export-layout">
         <div className="export-list" role="listbox">
-          {EXPORTS.map((e) => (
-            <button key={e.id} type="button" role="option" aria-selected={id === e.id} className={`export-item ${id === e.id ? 'on' : ''}`} data-export={e.id} onClick={() => setId(e.id)} onDoubleClick={() => { setId(e.id); onResult({ id: e.id, scale, transparent, padding, paper, margin: settings.printMargin ?? 10 }); }}>
+          {formats.map((e) => (
+            <button key={e.id} type="button" role="option" aria-selected={fmt.id === e.id} className={`export-item ${fmt.id === e.id ? 'on' : ''}`} data-export={e.id} onClick={() => setId(e.id)} onDoubleClick={() => { setId(e.id); onResult({ id: e.id, scale, transparent: !!e.alpha && transparent, padding, paper, margin: settings.printMargin ?? 10 }); }}>
               <Icon name={e.icon} size={16} />
               <span className="export-text"><b>{e.label[lang === 'ko' ? 0 : 1]}</b><small>{e.desc[lang === 'ko' ? 0 : 1]}</small></span>
               <span className="export-ext mono">.{e.ext}</span>
@@ -245,18 +246,22 @@ export function ExportDialog({ settings, initial = 'png', onResult }) {
         </div>
         <div className="export-opts">
           <h4 className="pane-h">{t('export_options')}</h4>
-          {(fmt.id === 'png' || fmt.id === 'jpeg' || fmt.id === 'pdf') && (
+          {fmt.raster && (
             <label className="form-row"><span className="muted small">{t('export_scale')}</span>
               <IconSelect name="scale" value={scale} options={scaleOptions()} onChange={(v) => setScale(Number(v))} />
             </label>
           )}
-          {(fmt.id === 'png' || fmt.id === 'svg') && (
-            <label className="check"><input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} /><span>{t('export_transparent')}</span></label>
+          {/* only the formats that can keep a transparent background ask whether to */}
+          {fmt.alpha && (
+            <label className="check"><input type="checkbox" name="transparent" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} /><span>{t('export_transparent')}</span></label>
           )}
           {fmt.picture && (
-            <label className="form-row"><span className="muted small">{t('export_padding')}</span>
-              <IconSelect name="padding" value={padding} options={paddingOptions()} onChange={(v) => setPadding(Number(v))} />
-            </label>
+            <>
+              <label className="form-row"><span className="muted small">{t('export_padding')}</span>
+                <IconSelect name="padding" value={padding} options={paddingOptions()} onChange={(v) => setPadding(Number(v))} />
+              </label>
+              <p className="muted small" data-note="size">{t(padding ? 'export_size_margin' : 'export_size_tight', { n: padding })}</p>
+            </>
           )}
           {fmt.id === 'pdf' && (
             <>

@@ -123,8 +123,9 @@ export function syncWindowMinWidth() {
   minWidthRaf = requestAnimationFrame(() => {
     minWidthRaf = 0;
     let need = 0;
-    // the icon toolbar wraps its groups onto a second row, so only the menu bar sets the minimum
-    for (const el of document.querySelectorAll('.toolbar.menubar')) {
+    // the menu bar, and the icon toolbar with all its groups on one row (narrower, it would wrap
+    // buttons onto a second row and cut them off)
+    for (const el of document.querySelectorAll('.toolbar.menubar, .icon-toolbar')) {
       const cs = getComputedStyle(el);
       let w = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
       const gap = parseFloat(cs.columnGap) || 0;
@@ -141,7 +142,8 @@ export function syncWindowMinWidth() {
     }
     const app = document.querySelector('.app');
     if (app) need += Math.max(0, document.documentElement.clientWidth - app.getBoundingClientRect().width);
-    need = Math.ceil(need) + 1;
+    // on Windows the frameless window's minimum counts its invisible 8 px resize borders as well
+    need = Math.ceil(need) + 1 + (platform === 'win32' ? 16 : 0);
     if (need > lastMinWidth) { lastMinWidth = need; tauri.setMinContentWidth(need); }
   });
 }

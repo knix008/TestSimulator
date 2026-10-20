@@ -34,7 +34,7 @@ export const SETTINGS_DEFAULTS = {
   spellCheck: true,
   view: 'map',
   exportScale: 2,
-  exportPadding: 40,
+  exportMargin: 20,   // px around the shapes of an exported picture
   exportTransparent: false,
   printPaper: 'a4',
   printLandscape: true,
@@ -53,7 +53,7 @@ export const SETTING_KEYS = Object.keys(SETTINGS_DEFAULTS);
 // edits — not the UI language and not the window layout (panes, bars).
 export const RESET_KEYS = [
   'theme', 'mapFont', 'mapFontSize', 'defaultLayout', 'defaultMapStyle', 'restoreSession', 'showStartOnLaunch', 'autoSave', 'autoSaveDelay',
-  'reloadChangedFiles', 'confirmClose', 'showGrid', 'showRulers', 'animate', 'wheelZoom', 'autoBalance', 'spellCheck', 'exportScale', 'exportPadding',
+  'reloadChangedFiles', 'confirmClose', 'showGrid', 'showRulers', 'animate', 'wheelZoom', 'autoBalance', 'spellCheck', 'exportScale', 'exportMargin',
   'exportTransparent', 'printPaper', 'printLandscape', 'printMargin', 'printHeader', 'printFooter', 'printColor', 'printPages',
 ];
 export const resetPatch = () => Object.fromEntries(RESET_KEYS.map((k) => [k, SETTINGS_DEFAULTS[k]]));

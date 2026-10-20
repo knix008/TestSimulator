@@ -2,24 +2,27 @@
 // parent / callout / floating / relationship / boundary) · topic content
 // (markers, notes, link, picture, task — they open the task pane on that
 // tab) · layout and map style pickers · expand / collapse / focus · zoom ·
-// the three views and the presentation · the side panes. The app controls
-// (theme, language, settings, info) sit at the right end. Hidden with
-// 보기 › 도구 모음.
+// the three views and the presentation · the side panes. Hidden with
+// 보기 › 도구 모음. (The app controls — theme, language, settings, info — are
+// on the menu bar.)
 import React, { useLayoutEffect, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { syncWindowMinWidth } from '../lib/backend';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
-import { AppControls } from './MenuBar';
 import { Widest } from './Widest';
 
 export const LAYOUT_ICONS = { map: 'layoutMap', right: 'layoutRight', left: 'layoutLeft', orgDown: 'layoutOrgDown', orgUp: 'layoutOrgUp', treeRight: 'layoutTreeRight', treeLeft: 'layoutTreeLeft', timeline: 'layoutTimeline', fishbone: 'layoutFishbone' };
 
+// One group per kind of command, a separator between groups: file · output · edit · add topics ·
+// structure · topic content · layout and style · redraw · branches · zoom · views · screen · panes.
 const GROUPS = [
   [
     { id: 'new', icon: 'filePlus', tip: 'tip_new' },
     { id: 'open', icon: 'fileOpen', tip: 'tip_open' },
     { id: 'save', icon: 'fileSave', tip: 'tip_save', needs: 'dirty' },
+  ],
+  [
     { id: 'export', icon: 'export', tip: 'tip_export', needs: 'hasDoc' },
     { id: 'print', icon: 'print', tip: 'tip_print', needs: 'hasDoc' },
   ],
@@ -33,6 +36,8 @@ const GROUPS = [
     { id: 'addParent', icon: 'parentTopic', tip: 'tip_add_parent', needs: 'canParent' },
     { id: 'addCallout', icon: 'callout', tip: 'tip_add_callout', needs: 'canEdit' },
     { id: 'addFloating', icon: 'floating', tip: 'tip_add_floating', needs: 'hasDoc' },
+  ],
+  [
     { id: 'relationship', icon: 'relationship', tip: 'tip_relationship', needs: 'canEdit', on: (st) => st.linking },
     { id: 'boundary', icon: 'boundary', tip: 'tip_boundary', needs: 'canEdit', on: (st) => st.hasBoundary },
     { id: 'summary', icon: 'summary', tip: 'tip_summary', needs: 'canEdit', on: (st) => st.hasSummary },
@@ -122,8 +127,6 @@ export function Toolbar({ onAction, settings, state }) {
           )))}
         </span>
       ))}
-      <span className="tb-spacer" />
-      <AppControls onAction={onAction} theme={settings.theme} compact />
       {menu && items && (
         <ContextMenu anchorEl={menu.el} x={0} y={0} items={items} className={menu.kind === 'style' ? 'style-menu' : 'st-menu'} onClose={() => setMenu(null)}
           onPick={(id) => { setMenu(null); onAction(id); }} />

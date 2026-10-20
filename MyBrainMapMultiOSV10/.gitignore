@@ -32,6 +32,17 @@ public/icon.svg
 *.mp4
 *.webm
 !/MyBrainMap-Tutorial.mp4
+# pictures and documents exported by hand to try File › Export (PNG, JPEG, WebP, BMP, TIFF, SVG, PDF);
+# only the project root — assets/, public/, doc/images/ and src/help/ keep theirs
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.bmp
+/*.tif
+/*.tiff
+/*.svg
+/*.pdf
 # an ffmpeg dropped into the project to record the tutorial (use FFMPEG=path instead)
 ffmpeg
 ffmpeg.exe

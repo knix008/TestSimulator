@@ -422,8 +422,8 @@ const FEATURES = [
   } },
 
   // ── files ──
-  { tools: [MM, ED, SD, LC], name: 'export: PNG, JPEG, SVG, PDF, Word, HTML, Markdown, OPML, text, FreeMind, XMind, CSV', check() {
-    assert.deepEqual(EXPORTS.map((e) => e.id), ['png', 'jpeg', 'svg', 'pdf', 'docx', 'html', 'md', 'opml', 'txt', 'mm', 'xmind', 'csv']);
+  { tools: [MM, ED, SD, LC], name: 'export: PNG, JPEG, WebP, BMP, TIFF, SVG, PDF, Word, HTML, Markdown, OPML, text, FreeMind, XMind, CSV', check() {
+    assert.deepEqual(EXPORTS.map((e) => e.id), ['png', 'jpeg', 'webp', 'bmp', 'tiff', 'svg', 'pdf', 'docx', 'html', 'md', 'opml', 'txt', 'mm', 'xmind', 'csv']);
     const { map } = project();
     assert.ok(exportHtml(map, { lang: 'en' }).includes('<html'));
     assert.ok(exportMarkdown(map).includes('A1'));

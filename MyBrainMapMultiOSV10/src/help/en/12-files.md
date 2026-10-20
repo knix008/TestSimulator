@@ -6,7 +6,8 @@ Maps are saved as **.tmap** files (JSON). Pictures, notes and formats all go int
 
 - `Ctrl+S` saves, `Ctrl+Shift+S` saves as, File › Save all.
 - `Ctrl+O` opens .tmap files and every format below. Recent files are in the File menu and on the start page.
-- On the desktop, drop files on the window or double-click a .tmap file.
+- Drop files on the window to open them — .tmap and every format below (FreeMind, XMind, MindManager, OPML, Markdown, text), several at once if you like. The web version does the same. On the desktop a double-click on a .tmap file opens it too.
+- A picture dropped on a topic becomes its picture; other files become attachments.
 - When another program changes a map, it is read again as you come back to the window (you are asked if you changed it here).
 
 ## Importing
@@ -32,8 +33,10 @@ The original file is never changed; saving an imported map makes a new .tmap fil
 
 `Ctrl+E` (File › Export): pick the format and press **Export…** to choose where.
 
-- **PNG · JPEG** — scale (1× – 4×), margin, a transparent background for PNG.
-- **SVG** — a vector picture, sharp at any size.
+- **Pictures: PNG · JPEG · WebP · BMP · TIFF · SVG** — scale (1× – 4×; SVG is a vector picture and needs none).
+  - **Transparent background**: offered only by the formats that can store one (PNG, WebP, TIFF, SVG); on, the picture has no map background. JPEG and BMP are always painted on the map's background.
+  - **Size**: the picture is the area covered by every shape on the map (topics, lines, relationships, boundaries, summaries, shadows) plus the **margin** — 20px by default, or 0, 10, 40 or 80px (0: flush with the shapes).
+  - WebP is listed only where it can be written (the Windows desktop app, Chrome, Edge).
 - **PDF** — paper (A4, A3, A5, Letter, Legal or the map's size) and orientation.
 - **Word** — the map picture first, then a heading outline with the notes.
 - **HTML** — one web page with the map picture and a foldable outline.

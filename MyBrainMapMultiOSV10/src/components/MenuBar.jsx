@@ -1,8 +1,8 @@
 // The top of the window, two rows:
 //   menu bar   — app icon and name (MyBrainMap V1.0) on the left, then the menus
 //                (파일 · 편집 · 삽입 · 서식 · 보기 · 도구 · 도움말, each
-//                with an icon), and on the desktop minimize / maximize / close
-//                on the right. The icon, name and the empty stretch are the
+//                with an icon), then, right-aligned, the app controls and on
+//                the desktop minimize / maximize / close. The icon, name and the empty stretch are the
 //                frameless window's drag region (double-click maximizes).
 //                On the desktop a click opens a native OS menu (it may reach
 //                beyond the window); on the web the in-page ContextMenu, which
@@ -13,8 +13,8 @@
 // AppControls — theme picker (split button: main part cycles, caret lists
 // them all, dark and light side by side), language toggle (the flag of the
 // language you switch TO),
-// Settings and Info — sit at the right end of the toolbar row (Toolbar.jsx),
-// or here when the toolbar is hidden.
+// Settings and Info — sit at the right end of the menu bar, just left of the
+// window buttons.
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { allThemes, themeById, nextThemeId } from '../themes';
@@ -81,7 +81,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
         <button className="tb-btn tb-split-main" data-cmd="nextTheme" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
           <Icon name="palette" /><Widest texts={[themeLabel(theme), ...allThemes().flatMap((th) => [th.label, th.labelEn])]} />
         </button>
-        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
+        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget.closest('.tb-split'))}>
           <Icon name="chevronDown" size={14} />
         </button>
       </span>
@@ -104,9 +104,9 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
 }
 
 // menus: [{ id, label, icon, items: () => [...] }]
-export function MenuBar({ menus, onAction, theme, controls = false, startOpen = false }) {
+export function MenuBar({ menus, onAction, theme, startOpen = false }) {
   useLanguage();
-  // The window must stay wide enough for the menus (and the app controls when the icon toolbar is hidden).
+  // The window must stay wide enough for the menus, the app controls and the icon toolbar on one row.
   useLayoutEffect(() => { syncWindowMinWidth(); });
   const [open, setOpen] = useState(null);        // { id, el }
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
@@ -155,7 +155,7 @@ export function MenuBar({ menus, onAction, theme, controls = false, startOpen = 
         ))}
       </span>
       <span className="tb-spacer" data-tauri-drag-region />
-      {controls && <AppControls onAction={onAction} theme={theme} />}
+      <AppControls onAction={onAction} theme={theme} compact />
       {isDesktop && <WindowButtons />}
       {current && (
         <ContextMenu anchorEl={open.el} x={0} y={0} items={current.items()} className="menu-drop" onClose={() => setOpen(null)}

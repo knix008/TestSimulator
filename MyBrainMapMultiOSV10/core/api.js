@@ -30,6 +30,12 @@ function serializeError(err) {
 
 const TEXT_IN_ZIP = /\.(xml|json|rels|txt|html?|md|opml|mm|css)$/i;
 const MAX_ZIP_ENTRIES = 5000;
+const MAX_ZIP_BYTES = 64 * 1024 * 1024;
+
+// the entries of a ZIP container, text ones as text
+function zipEntries(buf) {
+  return readZip(buf).slice(0, MAX_ZIP_ENTRIES).map((e) => (TEXT_IN_ZIP.test(e.name) ? { name: e.name, text: files.decodeText(e.data) } : { name: e.name, base64: e.data.toString('base64') }));
+}
 
 function createApi({ name = 'web', version = '', buildInfo = null, configDir, openPath, revealPath, clipboard, writeImage } = {}) {
   const session = createSession(configDir);
@@ -68,12 +74,13 @@ function createApi({ name = 'web', version = '', buildInfo = null, configDir, op
     // A ZIP container (XMind, MindManager): the entries, text ones as text.
     'zip.read': async ({ path: p }) => {
       const { buf } = await files.readBuffer(p);
-      const entries = readZip(buf).slice(0, MAX_ZIP_ENTRIES);
-      return {
-        path: path.resolve(p),
-        name: path.basename(p),
-        entries: entries.map((e) => (TEXT_IN_ZIP.test(e.name) ? { name: e.name, text: files.decodeText(e.data) } : { name: e.name, base64: e.data.toString('base64') })),
-      };
+      return { path: path.resolve(p), name: path.basename(p), entries: zipEntries(buf) };
+    },
+    // The same for a container the page already holds (a file dropped on the browser page).
+    'zip.readData': async ({ base64, name = '' }) => {
+      const buf = Buffer.from(String(base64 || ''), 'base64');
+      if (buf.length > MAX_ZIP_BYTES) { const e = new Error('The file is too large'); e.code = 'ETOOBIG'; throw e; }
+      return { path: '', name: path.basename(String(name)), entries: zipEntries(buf) };
     },
     // files: [{ name, text } | { name, base64 }, store?] → a ZIP file at `path`
     'zip.write': async ({ path: p, files: list }) => {

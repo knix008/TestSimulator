@@ -27,8 +27,8 @@ MyBrainMapMultiOSV10/
 │  ├ lib/mapstyles.js   맵 스타일 16종 → 토픽별 색·모양 계산 ('auto' 는 앱 테마 토큰에서)
 │  ├ lib/markers.js     아이콘 정의와 SVG (우선순위·진행률·깃발·표정·화살표·기호)
 │  ├ lib/templates.js   템플릿 14종 (ko/en, 튜토리얼 맵 포함) — samples 도 여기서
-│  ├ lib/formats/       형식: index(열기·저장·내보내기 등록), outline(OPML·Markdown·텍스트·HTML·CSV), freemind, xmind, mmap, docx, pdf, xml(작은 파서)
-│  ├ lib/exportimg.js   SVG → canvas (PNG/JPEG), 캔버스 크기 제한
+│  ├ lib/formats/       형식: index(열기·저장·내보내기 등록, 끌어 놓은 파일 읽기), outline(OPML·Markdown·텍스트·HTML·CSV), freemind, xmind, mmap, docx, pdf, image(BMP·TIFF 인코더), xml(작은 파서)
+│  ├ lib/exportimg.js   SVG → canvas (PNG/JPEG/WebP), 캔버스 크기 제한, 그려진 영역 찾기(paintedBox)와 도형에 맞춘 그림(tightPicture)
 │  ├ lib/print.js       인쇄 HTML: 한 쪽 맞추기 / 타일 나누기, 머리글·바닥글
 │  ├ lib/backend.js · tauri-host.js   전송 스위치, 창·대화상자·메뉴·팝업 (MyEditor 와 같은 구조)
 │  ├ components/        MenuBar · Toolbar · TabBar · MapCanvas(격자 · 눈금자) · Overview · Sidebar · TaskPane(댓글 · 사용자 속성) · OutlineView · GanttView · KanbanView · Presentation · GuidedTour · StartPage · StartScreenControls · HelpWindow · ColorPicker · ContextMenu · Icons
@@ -73,7 +73,9 @@ MyBrainMapMultiOSV10/
 ## 4. 파일 형식
 
 - 텍스트 형식(OPML · FreeMind · Markdown · 텍스트 · HTML · CSV)과 ZIP 형식의 내용(XMind content.json / content.xml, MindManager Document.xml, Word)은 렌더러의 `lib/formats/` 에서 변환합니다. XML 은 브라우저와 Node 테스트 양쪽에서 도는 작은 파서(`xml.js`)로 읽습니다.
-- ZIP 압축·해제와 파일 쓰기는 core 가 합니다(`zip.read`, `zip.write`, `file.writeBase64`).
+- ZIP 압축·해제와 파일 쓰기는 core 가 합니다(`zip.read`, `zip.write`, `file.writeBase64`). 웹 페이지에 끌어 놓은 XMind · MindManager 파일은 경로가 없으므로 바이트를 base64 로 보내 `zip.readData` 가 풉니다.
+- 내보내는 그림의 크기: 레이아웃의 경계는 어림값(관계선 · 축 · 그림자는 정확히 모름)이라, 여유 있게 투명 캔버스에 한 번 그린 뒤 그려진 픽셀의 상자(`paintedBox`)를 찾아 SVG 의 viewBox 를 그 상자 + 여백으로 다시 잡습니다(`tightPicture` → `renderMapSvg({ box })`). 래스터 형식은 그 SVG 를 캔버스에 그려 PNG · JPEG · WebP(`canvas.toBlob`)나 BMP · TIFF(`formats/image.js`, 순수 함수)로 저장합니다. 투명 배경은 `alpha: true` 인 형식(PNG · WebP · TIFF · SVG)만 받습니다.
+- 창의 최소 너비: `syncWindowMinWidth` 가 메뉴 막대와 도구 모음(한 줄)의 실제 너비를 재서 Tauri 의 `setMinSize` 로 보냅니다. Windows 의 프레임 없는 창은 보이지 않는 8px 크기 조절 테두리까지 최소 크기에 들어가므로 16px 를 더합니다.
 - PDF 는 맵 그림(JPEG)을 용지에 맞춰 넣는 최소 PDF 작성기, Word 는 맵 그림 + 제목 스타일 개요의 OOXML 입니다.
 
 ## 5. 세션과 창

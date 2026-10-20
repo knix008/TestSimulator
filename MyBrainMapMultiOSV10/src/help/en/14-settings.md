@@ -1,6 +1,6 @@
 # Settings and themes
 
-`Ctrl+,` or the gear at the right end of the toolbar opens the settings — a window of its own on the desktop. Changes apply at once and are saved. **Restore defaults** resets everything but the language and the window layout.
+`Ctrl+,` or the gear at the right end of the menu bar opens the settings — a window of its own on the desktop. Changes apply at once and are saved. **Restore defaults** resets everything but the language and the window layout.
 
 ![Settings](images/settings.png)
 
