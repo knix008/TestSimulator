@@ -8,14 +8,14 @@ English notes are included in each section.
 
 Windows에서는 프로젝트 루트의 `MyWeather_1.0.0_x64-setup.exe`(약 2MB)를 실행합니다. 설치 파일의 아이콘은 프로그램 아이콘과 같은 `assets/icon.ico`입니다. 화면 표시는 Windows에 들어 있는 WebView2를 쓰므로, WebView2가 없는 PC에서는 설치 중에 내려받습니다.
 
-1. 설치 언어를 고릅니다. English 또는 한국어입니다.
+1. 설치 언어를 고릅니다. English 또는 한국어입니다. Windows 표시 언어와 관계없이 둘 다 나오며, 다시 설치할 때도 다시 고릅니다.
 2. 이미 설치된 MyWeather가 있으면 프로그램 폴더와 이전 바로가기를 완전히 지운 뒤 다시 설치합니다. 예전 Electron 판(`MyWeather-Setup-1.0.0.exe`로 설치한 것)도 이때 찾아서 지웁니다.
 3. 이전에 저장한 설정이나 날씨 파일이 있으면 삭제할지 물어봅니다. 아니오를 고르면 그 데이터는 남고, 새 판이 그대로 이어서 씁니다. Electron 판이 남긴 브라우저 캐시 폴더만 정리합니다.
 4. 바탕화면 바로가기와 시작 메뉴 바로가기를 각각 선택할 수 있습니다. 둘 다 만들지 않을 수도 있습니다. 만들어지는 바로가기는 프로그램 아이콘 파일을 그대로 사용합니다.
 
 Linux와 macOS의 `installer/linux/install.sh`, `installer/macos/install.sh`도 같은 질문을 합니다. 언어, 기존 설치 삭제, 사용자 데이터 삭제, 바탕화면 바로가기, 시작 메뉴에 해당하는 바로가기를 사용자가 결정합니다. 이 스크립트는 먼저 `npm run build`로 만든 실행 파일을 복사합니다. `npm run build:linux`, `npm run build:mac`으로 deb·AppImage·dmg 설치 파일을 만들 수도 있습니다.
 
-The Windows setup file (about 2 MB) asks for the language first. An existing installation, including the older Electron build, is removed completely and installed again. Saved data is deleted only if you answer yes; otherwise the new build keeps using it. Desktop and Start menu shortcuts are separate checkboxes and use the program icon.
+The Windows setup file (about 2 MB) asks for English or Korean first, on every install, whichever language Windows itself uses. An existing installation, including the older Electron build, is removed completely and installed again. Saved data is deleted only if you answer yes; otherwise the new build keeps using it. Desktop and Start menu shortcuts are separate checkboxes and use the program icon.
 
 ## 실행
 

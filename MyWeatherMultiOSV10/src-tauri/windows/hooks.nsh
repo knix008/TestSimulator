@@ -8,6 +8,13 @@
 ;
 ; Tauri includes this file before it defines PRODUCTNAME, UNINSTKEY and its own variables,
 ; so the names below are spelled out. test/suites/logic.js checks them against tauri.conf.json.
+;
+; LangDLL's default filter keeps only the language that matches the Windows code page,
+; so a Korean PC would not offer English. ALLLANGUAGES lists both. ALWAYSSHOW asks again
+; on the next install instead of reusing a language saved in the registry.
+
+!define /IfNDef MUI_LANGDLL_ALLLANGUAGES
+!define /IfNDef MUI_LANGDLL_ALWAYSSHOW
 
 !include nsDialogs.nsh
 
@@ -158,13 +165,22 @@ Function MW_PageShortcuts
   ${If} $R0 == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 24u "Choose shortcuts. They use the MyWeather program icon.$\n바로가기를 선택하세요. 프로그램 아이콘과 같은 파일을 사용합니다."
-  Pop $R0
-  ${NSD_CreateCheckbox} 0 30u 100% 12u "Create a desktop shortcut / 바탕화면 바로가기 만들기"
-  Pop $MW_DesktopBox
+  ${If} $LANGUAGE = 1042
+    ${NSD_CreateLabel} 0 0 100% 24u "바로가기를 선택하세요. 프로그램 아이콘과 같은 파일을 사용합니다."
+    Pop $R0
+    ${NSD_CreateCheckbox} 0 30u 100% 12u "바탕화면 바로가기 만들기"
+    Pop $MW_DesktopBox
+    ${NSD_CreateCheckbox} 0 46u 100% 12u "시작 메뉴 바로가기 만들기"
+    Pop $MW_StartMenuBox
+  ${Else}
+    ${NSD_CreateLabel} 0 0 100% 24u "Choose shortcuts. They use the MyWeather program icon."
+    Pop $R0
+    ${NSD_CreateCheckbox} 0 30u 100% 12u "Create a desktop shortcut"
+    Pop $MW_DesktopBox
+    ${NSD_CreateCheckbox} 0 46u 100% 12u "Create a Start menu shortcut"
+    Pop $MW_StartMenuBox
+  ${EndIf}
   ${NSD_SetState} $MW_DesktopBox $MW_DesktopState
-  ${NSD_CreateCheckbox} 0 46u 100% 12u "Create a Start menu shortcut / 시작 메뉴 바로가기 만들기"
-  Pop $MW_StartMenuBox
   ${NSD_SetState} $MW_StartMenuBox $MW_StartMenuState
   nsDialogs::Show
 FunctionEnd

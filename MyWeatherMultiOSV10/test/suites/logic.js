@@ -1025,8 +1025,12 @@ export function registerLogic(h) {
     assert.match(nsis, /이전에 설치한 프로그램의 저장 데이터가 있습니다/);
     assert.match(nsis, /완전히 삭제/);
     assert.match(nsis, /file\.ico/);
+    assert.match(nsis, /MUI_LANGDLL_ALLLANGUAGES/);
+    assert.match(nsis, /MUI_LANGDLL_ALWAYSSHOW/);
     assert.match(nsis, /바탕화면 바로가기/);
     assert.match(nsis, /시작 메뉴 바로가기/);
+    assert.match(nsis, /Create a desktop shortcut/);
+    assert.match(nsis, /Create a Start menu shortcut/);
     assert.match(nsis, /\$INSTDIR\\icon\.ico/);
     assert.match(nsis, /CreateShortCut/);
     // The Electron build it replaces is found by its own uninstall key and removed first.
