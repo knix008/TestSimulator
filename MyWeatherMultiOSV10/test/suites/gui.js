@@ -445,9 +445,42 @@ export function registerGui(h) {
         app.doc.tabs = [app.doc.tabs[0]];
         app.afterStructure();
         assert.equal(app.content.querySelector("[data-scene-advance]"), null, "one city offers nothing to advance to");
+        assert.equal(app.content.querySelector(".city-nav"), null, "one city shows no side buttons");
       },
       { platform },
     );
+  });
+  h.test("the side buttons step to the previous and next city", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo"), findCity("FR", "Paris")];
+      app.syncTabsToCities();
+      app.afterStructure();
+      const prev = app.content.querySelector('[data-gui="city-prev"]');
+      const next = app.content.querySelector('[data-gui="city-next"]');
+      assert.equal(prev.dataset.cityStep, "-1");
+      assert.equal(next.dataset.cityStep, "1");
+      assert.equal(prev.title, "이전 도시 보기");
+      assert.equal(next.title, "다음 도시 보기");
+      assert.equal(getComputedStyle(prev.querySelector(".city-nav-face")).opacity, "0");
+      const shown = [...document.styleSheets[0].cssRules].find((rule) => String(rule.selectorText || "").includes(".city-nav:hover .city-nav-face"));
+      assert.equal(shown.style.opacity, "1");
+      const held = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".content.is-pointer-down .city-nav-face");
+      assert.equal(held.style.opacity, "0");
+      document.dispatchEvent(new window.MouseEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
+      assert.equal(app.content.classList.contains("is-pointer-down"), true);
+      document.dispatchEvent(new window.MouseEvent("pointerup", { bubbles: true, button: 0, buttons: 0 }));
+      assert.equal(app.content.classList.contains("is-pointer-down"), false);
+      const step = (side) => app.content.querySelector(`[data-gui="city-${side}"]`).click();
+      step("next");
+      assert.equal(app.root.querySelector(".scene-city").textContent, "도쿄");
+      step("next");
+      assert.equal(app.root.querySelector(".scene-city").textContent, "파리");
+      step("prev");
+      assert.equal(app.root.querySelector(".scene-city").textContent, "도쿄");
+      app.showCity(0);
+      step("prev");
+      assert.equal(app.root.querySelector(".scene-city").textContent, "파리", "the previous button wraps to the last city");
+    });
   });
   h.test("a forecast follows the city even when its weather arrives later", async () => {
     await withApp(async ({ app }) => {

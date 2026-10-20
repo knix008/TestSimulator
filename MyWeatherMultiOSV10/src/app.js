@@ -320,6 +320,11 @@ class WeatherApp {
         return;
       }
       if (this.suppressSceneClick) return;
+      const step = event.target.closest("[data-city-step]");
+      if (step) {
+        this.nextCity(Number(step.dataset.cityStep));
+        return;
+      }
       if (event.target.closest("[data-cmd], button, input, select, textarea, a")) return;
       this.nextCity();
     };
@@ -337,12 +342,24 @@ class WeatherApp {
     this.shell.addEventListener("contextmenu", onContext);
     this.root.querySelector(".shell-top").addEventListener("dblclick", onTopDouble);
     this.grip.addEventListener("pointerdown", onGripDown);
+    const onPointerButtons = (event) => {
+      this.content?.classList.toggle("is-pointer-down", event.buttons > 0);
+    };
+    const onPointerRelease = () => {
+      this.content?.classList.remove("is-pointer-down");
+    };
     this.content.addEventListener("click", onContentClick);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("pointerdown", onPointerButtons);
+    document.addEventListener("pointerup", onPointerButtons);
+    document.addEventListener("pointercancel", onPointerRelease);
     this.unbind = () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("pointerdown", onPointerButtons);
+      document.removeEventListener("pointerup", onPointerButtons);
+      document.removeEventListener("pointercancel", onPointerRelease);
     };
   }
 

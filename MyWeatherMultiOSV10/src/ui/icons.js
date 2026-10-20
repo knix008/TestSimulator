@@ -33,6 +33,7 @@ const PATHS = {
   grip: '<path d="M5 8h14M5 12h14M5 16h14"/>',
   arrowLeft: '<path d="M15 5l-7 7 7 7"/>',
   arrowRight: '<path d="M9 5l7 7-7 7"/>',
+  prev: '<circle cx="12" cy="12" r="9"/><path d="M13.5 8.5 10 12l3.5 3.5"/>',
   next: '<circle cx="12" cy="12" r="9"/><path d="M10.5 8.5 14 12l-3.5 3.5"/>',
   font: '<path d="M5 19L12 5l7 14M8 14h8"/>',
   image: '<path d="M4 5h16v14H4zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4M4 16l5-4 3 3 2-2 6 5"/>',
@@ -97,6 +98,7 @@ const COLOR = {
   show: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="#2f94ff"/><path d="M3.5 9h17" stroke="#fff" stroke-width="2"/><rect x="6" y="12" width="8" height="4" rx="1" fill="#fff"/>',
   search: '<path d="M14.6 14.6 20.4 20.4" fill="none" stroke="#ffba30" stroke-width="3.2" stroke-linecap="round"/><circle cx="10.2" cy="10.2" r="6.4" fill="#eaf4ff" stroke="#2470e6" stroke-width="2"/><path d="M7.4 8.6a3.6 3.6 0 0 1 3-1.8" fill="none" stroke="#2f94ff" stroke-width="1.6" stroke-linecap="round"/>',
   city: '<path d="M12 21.2c0 0 6.2-6 6.2-10.4a6.2 6.2 0 1 0-12.4 0c0 4.4 6.2 10.4 6.2 10.4z" fill="#e5484d"/><circle cx="12" cy="10.4" r="2.5" fill="#fff"/>',
+  prev: '<circle cx="12" cy="12" r="9" fill="#20b060"/><path d="M13.8 8 9.8 12l4 4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   next: '<circle cx="12" cy="12" r="9" fill="#20b060"/><path d="M10.2 8 14.2 12l-4 4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
   window: '<rect x="2.5" y="4" width="14" height="12" rx="2" fill="#2f94ff"/><path d="M2.5 8h14" stroke="#fff" stroke-width="1.8"/><circle cx="18" cy="17" r="5" fill="#20b060"/><path d="M18 14.4v5.2M15.4 17h5.2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>',
 };

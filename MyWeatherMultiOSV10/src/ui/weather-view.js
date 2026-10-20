@@ -1,4 +1,5 @@
 import { esc } from "./html.js";
+import { icon } from "./icons.js";
 import { presentWeather } from "../weather/aggregate.js";
 import { dustAt, dustBrief, dustText, worseGrade } from "../weather/air.js";
 import { formatTemp, isoDate } from "../weather/format.js";
@@ -14,6 +15,7 @@ export function renderWeatherHtml({ tab, language, units, today, t, priority = "
   const dust = dustAt(shown?.weather?.air, reading?.day?.date, reading?.hour?.time);
   const advance = cityCount > 1 ? ` data-scene-advance="1" title="${esc(t("tip.nextCity"))}"` : "";
   const dustLine = dust ? `<div class="scene-dust" data-gui="scene-dust">${esc(dustText(dust, t))}</div>` : "";
+  const nav = cityCount > 1 ? cityNav(t) : "";
   const scene = `<section class="weather-scene" data-gui="scene"${advance}>
       <span class="scene-art-wrap">${sceneArt(art)}${dust ? dustArt(worseGrade(dust.pm10, dust.pm25)) : ""}</span>
       <div class="scene-copy">
@@ -25,7 +27,13 @@ export function renderWeatherHtml({ tab, language, units, today, t, priority = "
         ${dustLine}
       </div>
     </section>`;
-  return `<div class="weather">${scene}</div>`;
+  return `<div class="weather">${nav}${scene}</div>`;
+}
+
+function cityNav(t) {
+  const button = (step, side, name, tip) =>
+    `<button type="button" class="city-nav city-nav-${side}" data-city-step="${step}" data-gui="city-${side}" title="${esc(t(tip))}"><span class="city-nav-face">${icon(name, { colorful: true })}</span></button>`;
+  return `${button(-1, "prev", "prev", "tip.prevCity")}${button(1, "next", "next", "tip.nextCity")}`;
 }
 
 export function renderForecastHtml({ range, tab, language, units, today, t, priority = "average", dateFormat = "long", anchor = "" }) {

@@ -36,6 +36,7 @@ const ROWS = [
   ["tip.clearRecent", "최근 항목 모두 삭제", "Clear recent items"],
   ["tip.addCity", "고른 도시를 목록에 추가", "Add the chosen city to the list"],
   ["tip.removeCity", "목록에서 이 도시 제거", "Remove this city from the list"],
+  ["tip.prevCity", "이전 도시 보기", "Show the previous city"],
   ["tip.nextCity", "다음 도시 보기", "Show the next city"],
   ["cmd.new", "새로 만들기", "New"],
   ["cmd.open", "열기", "Open"],

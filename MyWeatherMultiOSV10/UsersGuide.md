@@ -51,13 +51,13 @@ The window stays off the taskbar and the close button only hides it; Exit in the
 
 보여 줄 도시는 한 줄에 하나씩 나오고, 많아지면 세로로 스크롤합니다. 휴지통 단추로 하나씩 뺄 수 있고, 마지막 한 개는 남습니다. 줄 오른쪽의 세 줄 단추를 마우스로 끌면 보여 주는 차례가 바뀝니다. 끄는 동안 옮기는 도시는 테두리가 밝아져 눈에 띄고, 지나간 도시들은 부드럽게 자리를 비켜 줍니다.
 
-메인 창의 날씨 그림을 마우스로 누르면 다음 도시의 날씨로 넘어가고, 마지막 도시 다음에는 처음 도시로 돌아옵니다. 창을 끌어서 옮긴 뒤의 클릭은 도시를 바꾸지 않습니다. 트레이 메뉴의 도시 목록에서 특정 도시를 바로 고를 수도 있습니다.
+메인 창의 날씨 그림을 마우스로 누르면 다음 도시의 날씨로 넘어가고, 마지막 도시 다음에는 처음 도시로 돌아옵니다. 날씨 창의 왼쪽이나 오른쪽에 마우스 버튼을 뗀 채로 올리면 이전 도시와 다음 도시 단추가 나타납니다. 버튼을 누른 동안에는 나타나지 않습니다. 단추를 누르면 그 방향으로 바뀝니다. 창을 끌어서 옮긴 뒤의 클릭은 도시를 바꾸지 않습니다. 트레이 메뉴의 도시 목록에서 특정 도시를 바로 고를 수도 있습니다.
 
 설정의 일반 탭에 있는 도시 자동 전환 주기를 고르면 그 간격마다 다음 도시로 저절로 넘어갑니다. 3초마다, 5초마다, 10초마다, 30초마다, 1분마다, 5분마다, 10분마다 중에서 고르고, 끔을 고르면 보고 있는 도시가 그대로 유지됩니다. 도시를 직접 바꾸면 그 시점부터 다시 셉니다.
 
 새 날씨 창을 고르면 이 창에 있는 도시가 나옵니다. 그 중 하나를 고르면 그 도시만 담은 창이 새로 열리고, 원래 창에서는 그 도시가 빠집니다. 도시가 하나뿐이면 그 도시는 이 창에 남습니다. 프로그램을 다시 실행하면 저장해 둔 날씨 창이 모두 다시 열립니다. 새로 연 창의 닫기 단추는 그 창만 닫습니다. 오른쪽 단추 메뉴의 창 없애기는 보고 있는 날씨 창을 지우고, 다시 실행해도 그 창은 열리지 않습니다. 날씨 창이 하나만 남으면 더 이상 없앨 수 없습니다.
 
-Several cities can be listed. Click the weather picture to step to the next one, pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own. Restarting opens every saved weather window. Remove window, on the right-click menu, deletes the weather window you are looking at. The last remaining window cannot be removed.
+Several cities can be listed. Click the weather picture to step to the next one. The previous and next buttons show at the left and right edges only while the mouse button is up. Pick one from the tray menu, or let the chosen interval change it for you. New weather window takes a chosen city out of this window and shows it on its own. Restarting opens every saved weather window. Remove window, on the right-click menu, deletes the weather window you are looking at. The last remaining window cannot be removed.
 
 ## 도시 고르기
 
