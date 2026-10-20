@@ -1,5 +1,5 @@
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Mutex, Once};
+use std::sync::{Arc, Mutex, Once};
 
 use eframe::egui;
 use tray_icon::menu::{Icon, IconMenuItem, Menu, MenuEvent};
@@ -135,24 +135,54 @@ fn install_menu_watcher(sender: Sender<TrayAction>, ctx: egui::Context) {
             let ctx = ctx.clone();
             drop(slot);
             let _ = sender.send(action);
-            show_root_now(&ctx, action);
-            ctx.request_repaint();
+            apply_root_now(action);
+            ctx.request_repaint_of(egui::ViewportId::ROOT);
         }));
     });
 }
 
-fn show_root_now(ctx: &egui::Context, action: TrayAction) {
-    let root = egui::ViewportId::ROOT;
-    match action {
-        TrayAction::Show | TrayAction::Settings => {
-            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Visible(true));
-            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Minimized(false));
-            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Focus);
-        }
-        TrayAction::Hide => {
-            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Visible(false));
-        }
-        TrayAction::Exit => {}
+type WindowFn = Arc<dyn Fn() + Send + Sync>;
+
+static SHOW_WINDOW: Mutex<Option<WindowFn>> = Mutex::new(None);
+static HIDE_WINDOW: Mutex<Option<WindowFn>> = Mutex::new(None);
+
+pub fn remember_root_window(frame: &eframe::Frame) {
+    if SHOW_WINDOW
+        .lock()
+        .ok()
+        .and_then(|slot| slot.as_ref().map(|_| ()))
+        .is_some()
+    {
+        return;
+    }
+    let Some(window) = frame.winit_window().cloned() else {
+        return;
+    };
+    let show = window.clone();
+    let hide = window;
+    if let Ok(mut slot) = SHOW_WINDOW.lock() {
+        *slot = Some(Arc::new(move || {
+            show.set_minimized(false);
+            show.set_visible(true);
+            let _ = show.focus_window();
+            show.request_redraw();
+        }));
+    }
+    if let Ok(mut slot) = HIDE_WINDOW.lock() {
+        *slot = Some(Arc::new(move || {
+            hide.set_visible(false);
+        }));
+    }
+}
+
+fn apply_root_now(action: TrayAction) {
+    let callback = match action {
+        TrayAction::Show | TrayAction::Settings => SHOW_WINDOW.lock().ok().and_then(|slot| slot.clone()),
+        TrayAction::Hide => HIDE_WINDOW.lock().ok().and_then(|slot| slot.clone()),
+        TrayAction::Exit => None,
+    };
+    if let Some(callback) = callback {
+        callback();
     }
 }
 

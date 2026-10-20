@@ -23,6 +23,19 @@ use crate::tray::{Tray, TrayAction};
 use crate::worker::{self, Command, UiEvent};
 use crate::{copy_text, reveal_or_open};
 
+#[derive(Clone, Copy)]
+enum ContextKind {
+    Window,
+    Result(usize),
+}
+
+#[derive(Clone, Copy)]
+struct ContextPopup {
+    screen_pos: egui::Pos2,
+    kind: ContextKind,
+    seen_focus: bool,
+}
+
 const MIN_WIDTH: f32 = 280.0;
 const MAX_WIDTH: f32 = 720.0;
 
@@ -59,6 +72,7 @@ pub struct DeskApp {
     results_layout_dirty: bool,
     search_pending: bool,
     search_id: u64,
+    context_menu: Option<ContextPopup>,
     _lock: InstanceLock,
 }
 
@@ -112,6 +126,7 @@ impl DeskApp {
             results_layout_dirty: false,
             search_pending: false,
             search_id: 0,
+            context_menu: None,
             _lock: lock,
         };
         app
@@ -148,8 +163,10 @@ impl DeskApp {
         } else if self.tray.take().is_some() && self.hidden {
             self.show_window(ctx);
         }
+        let mut tray_acted = false;
         if let Some(tray) = self.tray.as_ref() {
             for action in tray.poll() {
+                tray_acted = true;
                 match action {
                     TrayAction::Show => self.show_window(ctx),
                     TrayAction::Hide => self.hide_window(ctx),
@@ -225,17 +242,23 @@ impl DeskApp {
             self.start_index(true);
         }
         ctx.request_repaint_after(Duration::from_millis(200));
+        if tray_acted {
+            ctx.request_repaint();
+        }
     }
 
     fn show_window(&mut self, ctx: &egui::Context) {
         self.hidden = false;
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        ctx.send_viewport_cmd_to(egui::ViewportId::ROOT, egui::ViewportCommand::Visible(true));
+        ctx.send_viewport_cmd_to(egui::ViewportId::ROOT, egui::ViewportCommand::Focus);
     }
 
     fn hide_window(&mut self, ctx: &egui::Context) {
         self.hidden = true;
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        ctx.send_viewport_cmd_to(
+            egui::ViewportId::ROOT,
+            egui::ViewportCommand::Visible(false),
+        );
     }
 
     fn open_settings(&mut self) {
@@ -243,7 +266,30 @@ impl DeskApp {
         self.settings_open = true;
     }
 
-    fn window_context_menu(&mut self, ui: &mut egui::Ui) {
+    fn open_context_menu(&mut self, ui: &egui::Ui, response: &egui::Response, kind: ContextKind) {
+        if !response.secondary_clicked() {
+            return;
+        }
+        let local = ui
+            .input(|input| input.pointer.interact_pos())
+            .unwrap_or(response.rect.left_bottom());
+        let screen = ui.ctx().input(|input| {
+            input
+                .viewport()
+                .outer_rect
+                .map(|rect| rect.min)
+                .unwrap_or_default()
+                + local.to_vec2()
+        });
+        self.context_menu = Some(ContextPopup {
+            screen_pos: screen,
+            kind,
+            seen_focus: false,
+        });
+        ui.ctx().request_repaint();
+    }
+
+    fn window_context_menu(&mut self, ui: &mut egui::Ui) -> bool {
         ui.set_min_width(228.0);
         let clear = self.tr("Menu_ClearSearch");
         let refresh = self.tr("Menu_RefreshIndex");
@@ -254,22 +300,23 @@ impl DeskApp {
         let hide = self.tr("Menu_Hide");
         let exit = self.tr("Menu_Exit");
         let above_on = self.appearance().always_on_top;
+        let mut acted = false;
         if icon_menu_item(ui, "\u{E894}", &clear, false) {
             self.query.clear();
             self.results.clear();
             self.search_pending = false;
-            ui.close();
+            acted = true;
         }
         if icon_menu_item(ui, "\u{E72C}", &refresh, false) {
             self.start_index(true);
-            ui.close();
+            acted = true;
         }
         ui.separator();
         if icon_menu_item(ui, "\u{E8B7}", &desktop, false) {
             if let Some(path) = desksearch_core::paths::desktop_dir() {
                 reveal_or_open(&path, false);
             }
-            ui.close();
+            acted = true;
         }
         if icon_menu_item(ui, "\u{E7A7}", &reset, false) {
             let (monitor, size) = ui.ctx().input(|input| {
@@ -280,31 +327,128 @@ impl DeskApp {
             });
             if let (Some(monitor), Some(size)) = (monitor, size) {
                 let x = ((monitor.x - size.x) / 2.0).max(0.0);
-                ui.ctx()
-                    .send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(x, 8.0)));
+                ui.ctx().send_viewport_cmd_to(
+                    egui::ViewportId::ROOT,
+                    egui::ViewportCommand::OuterPosition(egui::pos2(x, 8.0)),
+                );
             }
-            ui.close();
+            acted = true;
         }
         if icon_menu_item(ui, "\u{E7C1}", &above, above_on) {
             let enabled = !above_on;
             self.saved.always_on_top = enabled;
             self.draft.always_on_top = enabled;
             let _ = save_settings_file(&settings_file(&self.data_dir), &self.saved);
-            ui.close();
+            acted = true;
         }
         ui.separator();
         if icon_menu_item(ui, "\u{E713}", &settings, false) {
             self.open_settings();
-            ui.close();
+            acted = true;
         }
         ui.separator();
         if icon_menu_item(ui, "\u{E921}", &hide, false) {
             self.hide_window(ui.ctx());
-            ui.close();
+            acted = true;
         }
         if icon_menu_item(ui, "\u{E711}", &exit, false) {
             crate::tray::exit_immediately();
         }
+        acted
+    }
+
+    fn draw_context_menu(&mut self, ctx: &egui::Context) {
+        let Some(popup) = self.context_menu else {
+            return;
+        };
+        let (width, height) = match popup.kind {
+            ContextKind::Window => (240.0, 276.0),
+            ContextKind::Result(_) => (220.0, 136.0),
+        };
+        let mut close = false;
+        ctx.show_viewport_immediate(
+            egui::ViewportId::from_hash_of("mydesksearch-context"),
+            egui::ViewportBuilder::default()
+                .with_title("MyDeskSearch")
+                .with_position(popup.screen_pos)
+                .with_inner_size([width, height])
+                .with_min_inner_size([width, height])
+                .with_resizable(false)
+                .with_decorations(false)
+                .with_transparent(true)
+                .with_always_on_top()
+                .with_active(true)
+                .with_taskbar(false),
+            |ui, _class| {
+                if ui.input(|input| {
+                    input.viewport().close_requested() || input.key_pressed(egui::Key::Escape)
+                }) {
+                    close = true;
+                }
+                let focused = ui.input(|input| input.viewport().focused.unwrap_or(false));
+                if let Some(menu) = self.context_menu.as_mut() {
+                    if focused {
+                        menu.seen_focus = true;
+                    } else if menu.seen_focus {
+                        close = true;
+                    }
+                }
+                apply_dialog_theme(ui.ctx());
+                ui.spacing_mut().item_spacing = egui::vec2(0.0, 2.0);
+                let full = ui.max_rect();
+                ui.painter().rect_filled(full, 8.0, egui::Color32::WHITE);
+                ui.painter().rect_stroke(
+                    full,
+                    8.0,
+                    egui::Stroke::new(1.0, RULE),
+                    egui::StrokeKind::Inside,
+                );
+                let body = full.shrink(6.0);
+                let mut menu_ui = ui.new_child(egui::UiBuilder::new().max_rect(body));
+                menu_ui.set_min_width(body.width());
+                let acted = match popup.kind {
+                    ContextKind::Window => self.window_context_menu(&mut menu_ui),
+                    ContextKind::Result(index) => self.result_context_menu(&mut menu_ui, index),
+                };
+                if acted {
+                    close = true;
+                }
+            },
+        );
+        if close {
+            self.context_menu = None;
+            ctx.request_repaint();
+        }
+    }
+
+    fn result_context_menu(&mut self, ui: &mut egui::Ui, index: usize) -> bool {
+        let Some(entry) = self.results.get(index).cloned() else {
+            return true;
+        };
+        ui.set_min_width(196.0);
+        let open_label = self.tr("Menu_Open");
+        let reveal_label = self.tr("Menu_ShowInFolder");
+        let copy_path = self.tr("Menu_CopyPath");
+        let copy_name = self.tr("Menu_CopyFileName");
+        if icon_menu_item(ui, "\u{E8A5}", &open_label, false) {
+            self.selected = index;
+            self.open_selected(false);
+            return true;
+        }
+        if icon_menu_item(ui, "\u{E838}", &reveal_label, false) {
+            self.selected = index;
+            self.open_selected(true);
+            return true;
+        }
+        if icon_menu_item(ui, "\u{E8C8}", &copy_path, false) {
+            copy_text(ui.ctx(), entry.full_path);
+            return true;
+        }
+        if icon_menu_item(ui, "\u{E8AC}", &copy_name, false) {
+            copy_text(ui.ctx(), entry.file_name);
+            return true;
+        }
+        false
     }
 
     fn submit_search(&mut self) {
@@ -399,6 +543,10 @@ impl eframe::App for DeskApp {
     }
 
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.viewport_id() != egui::ViewportId::ROOT {
+            return;
+        }
+        crate::tray::remember_root_window(_frame);
         self.poll(ctx);
         if self.exit_requested {
             let _ = self.commands.send(Command::Shutdown);
@@ -419,7 +567,13 @@ impl eframe::App for DeskApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if ui.ctx().viewport_id() != egui::ViewportId::ROOT {
+            return;
+        }
         let ctx = ui.ctx().clone();
+        if self.context_menu.is_some() && ctx.input(|input| input.pointer.primary_clicked()) {
+            self.context_menu = None;
+        }
         ctx.set_visuals(egui::Visuals::light());
         let appearance = self.appearance().clone();
         let query_open = !self.query.trim().is_empty();
@@ -460,21 +614,21 @@ impl eframe::App for DeskApp {
                     egui::Sense::click(),
                 );
                 paint_pill(ui.painter(), bar, bg, stroke);
-                bar_response.context_menu(|ui| self.window_context_menu(ui));
+                self.open_context_menu(ui, &bar_response, ContextKind::Window);
                 let mut row = ui.new_child(
                     egui::UiBuilder::new().max_rect(bar.shrink2(egui::vec2(8.0, 8.0))),
                 );
                 row.horizontal(|ui| {
                     let grip =
                         ui.allocate_response(egui::vec2(18.0, 30.0), egui::Sense::click_and_drag());
-                    grip.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &grip, ContextKind::Window);
                     glyph(ui, "\u{E700}", 13.0, sub, grip.rect.center());
                     if grip.dragged() {
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                     }
                     let search_icon =
                         ui.allocate_response(egui::vec2(18.0, 30.0), egui::Sense::click());
-                    search_icon.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &search_icon, ContextKind::Window);
                     glyph(ui, "\u{E721}", 15.0, icon, search_icon.rect.center());
                     ui.add_space(6.0);
                     let hint = self.tr("Search_Placeholder");
@@ -488,7 +642,7 @@ impl eframe::App for DeskApp {
                             .desired_width(search_width)
                             .vertical_align(egui::Align::Center),
                     );
-                    response.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &response, ContextKind::Window);
                     if response.changed() {
                         self.query_dirty = true;
                         self.search_pending = !self.query.trim().is_empty();
@@ -529,7 +683,7 @@ impl eframe::App for DeskApp {
                         }
                     }
                     let settings = ui.allocate_response(egui::vec2(28.0, 30.0), egui::Sense::click());
-                    settings.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &settings, ContextKind::Window);
                     glyph(ui, "\u{E713}", 17.0, icon, settings.rect.center());
                     if settings.clicked() {
                         self.open_settings();
@@ -543,7 +697,7 @@ impl eframe::App for DeskApp {
                         egui::vec2(ui.available_width(), self.results_height),
                         egui::Sense::click(),
                     );
-                    list_response.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &list_response, ContextKind::Window);
                     paint_pill(ui.painter(), list, bg, stroke);
                     let mut list_ui = ui.new_child(
                         egui::UiBuilder::new().max_rect(list.shrink2(egui::vec2(8.0, 6.0))),
@@ -556,7 +710,7 @@ impl eframe::App for DeskApp {
                         egui::vec2(ui.available_width(), 8.0),
                         egui::Sense::click_and_drag(),
                     );
-                    grip_response.context_menu(|ui| self.window_context_menu(ui));
+                    self.open_context_menu(ui, &grip_response, ContextKind::Window);
                     if grip_response.hovered() || grip_response.dragged() {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
                     }
@@ -568,6 +722,7 @@ impl eframe::App for DeskApp {
             });
 
         self.draw_settings(&ctx);
+        self.draw_context_menu(&ctx);
     }
 }
 
@@ -642,29 +797,7 @@ impl DeskApp {
                             self.selected = index;
                         }
                     }
-                    let open_label = self.tr("Menu_Open");
-                    let reveal_label = self.tr("Menu_ShowInFolder");
-                    let copy_path = self.tr("Menu_CopyPath");
-                    let copy_name = self.tr("Menu_CopyFileName");
-                    response.context_menu(|ui| {
-                        ui.set_min_width(196.0);
-                        if icon_menu_item(ui, "\u{E8A5}", &open_label, false) {
-                            open_index = Some(index);
-                            ui.close();
-                        }
-                        if icon_menu_item(ui, "\u{E838}", &reveal_label, false) {
-                            reveal_index = Some(index);
-                            ui.close();
-                        }
-                        if icon_menu_item(ui, "\u{E8C8}", &copy_path, false) {
-                            copy_text(ui.ctx(), entry.full_path.clone());
-                            ui.close();
-                        }
-                        if icon_menu_item(ui, "\u{E8AC}", &copy_name, false) {
-                            copy_text(ui.ctx(), entry.file_name.clone());
-                            ui.close();
-                        }
-                    });
+                    self.open_context_menu(ui, &response, ContextKind::Result(index));
                 }
             });
         if let Some(index) = open_index {
