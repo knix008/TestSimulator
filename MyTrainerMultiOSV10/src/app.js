@@ -308,6 +308,12 @@ async function prepareTfNow({ force = false, key }) {
   if (!state.prepared) throw new Error(state.dataError ?? t('data.none'));
   await engine.start();
   state.backend = engine.backend;
+  // The model may have been edited while the engine started (a cut right after opening a sample): never build a
+  // graph with errors, and remember the model that is actually built.
+  const errors = state.problems.filter((p) => p.level === 'error').length;
+  if (errors) throw new Error(t('train.fixProblems', { n: errors }));
+  key = `${signature()}|${JSON.stringify(state.project.train)}|${JSON.stringify(state.project.dataset)}`;
+  if (!force && state.engineKey === key) return engine;
   await engine.prepare({ graph: cloneModel(model()), inputShape: state.prepared.inputShape, task: state.task, train: state.project.train, prepared: state.prepared });
   state.engineKey = key;
   state.run = { ...state.run, epoch: 0, canContinue: false, history: [] };

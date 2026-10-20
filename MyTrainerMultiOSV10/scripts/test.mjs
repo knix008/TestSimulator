@@ -266,7 +266,9 @@ if (failed.length) {
   const suiteWidth = Math.max(...failed.map((f) => f.suite.length));
   for (const f of failed) {
     out(`  ${c.red('✖')} ${c.magenta(padEnd(f.suite, suiteWidth))}  ${c.red(f.name)}`);
-    const first = String(f.error ?? '').split(/\r?\n/).find((l) => l.trim());
+    // The first line that says something (not assert's "Expected values to be …" / "+ actual - expected" header).
+    const lines = String(f.error ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const first = lines.find((l) => !/^(Expected values|\+ actual - expected|[+-] \[|[+-]$)/.test(l)) ?? lines[0];
     if (first) out(`    ${' '.repeat(suiteWidth)}  ${c.dim(first.trim().slice(0, width() - suiteWidth - 8))}`);
   }
 }
