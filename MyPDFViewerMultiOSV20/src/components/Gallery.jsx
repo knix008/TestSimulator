@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconPlus, IconGallery, IconSearch,
+  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconPlus, IconGallery, IconSearch, IconLibrary,
 } from './Icons.jsx';
 import {
   sortGallery, filterGallery, isCurrent, favoritesOf, TILE_MIN, TILE_MAX, GALLERY_SORTS,
@@ -46,7 +46,7 @@ export function GalleryThumb({ entry, onNeedThumb, className = 'gal-thumb' }) {
   );
 }
 
-function fmtDate(ts, lang) {
+export function fmtDate(ts, lang) {
   if (!ts) return '—';
   try {
     return new Date(ts).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', {
@@ -61,7 +61,7 @@ function fmtDate(ts, lang) {
 // its name (tiles, resizable) or as a sortable table (details).
 export default function Gallery({
   entries = [], currentPath = '', view = 'tiles', tileSize = 168,
-  onView, onTileSize, onOpen, onRemove, onFavorite, onAdd, onNeedThumb, onClose, onCardMenu,
+  onView, onTileSize, onOpen, onRemove, onFavorite, onAdd, onNeedThumb, onClose, onCardMenu, onShowLibrary,
 }) {
   const { t, i18n } = useTranslation();
   const [only, setOnly] = useState('all');
@@ -192,6 +192,11 @@ export default function Gallery({
         {onAdd ? (
           <button type="button" className="btn" onClick={onAdd} title={t('gallery.addTip')}>
             <IconPlus size={15} /> {t('gallery.add')}
+          </button>
+        ) : null}
+        {onShowLibrary ? (
+          <button type="button" className="btn icon-only" onClick={onShowLibrary} title={t('library.open')} aria-label={t('library.open')}>
+            <IconLibrary size={15} />
           </button>
         ) : null}
         <button type="button" className="btn icon-only" onClick={onClose} title={t('gallery.close')} aria-label={t('gallery.close')}>

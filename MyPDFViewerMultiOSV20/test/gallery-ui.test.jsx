@@ -50,7 +50,7 @@ describe('Gallery', () => {
     const card = container.querySelectorAll('.gal-card')[1];
     fireEvent.click(card);
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'b.pdf' }));
-    fireEvent.click(within(card).getByLabelText('즐겨찾기에 추가'));
+    fireEvent.click(within(card).getByLabelText('서재에 추가'));
     expect(onFavorite).toHaveBeenCalledWith(expect.objectContaining({ name: 'b.pdf' }), true);
     fireEvent.click(within(card).getByLabelText(/갤러리에서 제거/));
     expect(onRemove).toHaveBeenCalledWith('C:\\d\\b.pdf');
@@ -84,7 +84,7 @@ describe('Gallery', () => {
 
   it('filters favorites and searches by name or folder', () => {
     const { container } = renderGallery();
-    fireEvent.click(screen.getByRole('button', { name: /즐겨찾기 1/ }));
+    fireEvent.click(screen.getByRole('button', { name: /서재 1/ }));
     expect(container.querySelectorAll('.gal-card')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
     fireEvent.change(screen.getByLabelText('이름이나 폴더로 찾기'), { target: { value: 'C:\\e' } });
@@ -210,12 +210,47 @@ describe('Favorites panel', () => {
     expect(row.querySelector('.ol-title').textContent).toBe('a.pdf');
     fireEvent.click(row.querySelector('.side-item'));
     expect(onOpenGalleryEntry).toHaveBeenCalled();
-    fireEvent.click(row.querySelector('.fav-off'));
+    fireEvent.click(row.querySelector('.row-del'));
     expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a.pdf' }), false);
-    fireEvent.click(screen.getByTitle('현재 문서를 즐겨찾기에 추가'));
+    fireEvent.click(screen.getByTitle('현재 문서를 서재에 추가'));
     expect(onToggleFavorite).toHaveBeenLastCalledWith(current, true);
     fireEvent.click(screen.getByTitle('갤러리 열기'));
     expect(onShowGallery).toHaveBeenCalled();
+  });
+});
+
+describe('Library panel on the left', () => {
+  beforeEach(async () => { await setLanguage('ko'); });
+
+  it('has the bookshelf icon on its tab', () => {
+    const { container } = renderSide({ panel: 'none' });
+    const tab = screen.getByLabelText('서재');
+    expect(tab.closest('.side-rail')).toBe(container.querySelector('.side-rail'));
+    // The tab draws the bookshelf (three books on a board), not the old star.
+    expect(tab.querySelectorAll('svg rect').length).toBe(2);
+  });
+
+  it('removes one entry or all of them at once, without asking', () => {
+    const onClearLibrary = vi.fn();
+    const favs = entries.map((e) => ({ ...e, favorite: true }));
+    const { container, onToggleFavorite, onContextMenuItems } = renderSide({ panel: 'favorites', favorites: favs, onClearLibrary });
+    expect(container.querySelector('.side-section').textContent).toBe('3권');
+    const rows = container.querySelectorAll('.fav-list li');
+    fireEvent.click(rows[1].querySelector('.row-del'));
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'b.pdf' }), false);
+    fireEvent.click(screen.getByRole('button', { name: '전체 삭제' }));
+    expect(onClearLibrary).toHaveBeenCalledWith(favs);
+    expect(document.querySelector('[role=dialog]')).toBeNull();
+    fireEvent.contextMenu(rows[0]);
+    const items = onContextMenuItems.mock.calls.at(-1)[1];
+    expect(items.filter((i) => !i.separator).every((i) => typeof i.icon === 'function')).toBe(true);
+    items.find((i) => i.label === '서재 모두 비우기').onClick();
+    expect(onClearLibrary).toHaveBeenCalledTimes(2);
+  });
+
+  it('cannot clear an empty library', () => {
+    renderSide({ panel: 'favorites', favorites: [], onClearLibrary: vi.fn() });
+    expect(screen.getByRole('button', { name: '전체 삭제' }).disabled).toBe(true);
   });
 });
 

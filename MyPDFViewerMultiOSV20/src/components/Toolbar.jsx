@@ -9,7 +9,7 @@ import {
   IconSettings, IconInfo, IconFlag, IconTheme, IconTrash, IconDown, IconFolder,
   IconSelectText, IconPrint, IconPageSingle, IconPageContinuous, IconPageSpread,
   IconEffectNone, IconEffectFade, IconEffectSlide, IconEffectFlip,
-  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar,
+  IconFitPage, IconFitWidth, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary,
 } from './Icons.jsx';
 import { nextTheme } from '../lib/themes.js';
 import { ThemeMenu } from './ThemePicker.jsx';
@@ -284,7 +284,7 @@ export default function Toolbar({
   onHighlight, onComment, onComments, onBookmarks, onBookmark,
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout, onPageEffect,
   onSearch, onTogglePanel, onToggleInfo, onTheme, onLang, onSettings, onAbout, onPrint,
-  galleryOpen = false, onGallery, favoritesOpen = false, onFavorites,
+  galleryOpen = false, onGallery, favoritesOpen = false, onFavorites, libraryOpen = false, onLibrary,
 }) {
   const { t, i18n } = useTranslation();
   const [pageInput, setPageInput] = useState(String(pageNumber));
@@ -638,6 +638,9 @@ export default function Toolbar({
         ) : null}
         {onFavorites ? (
           <ToolButton icon={IconStar} label={t('toolbar.favorites')} tip={t('tip.favorites')} onClick={onFavorites} active={favoritesOpen} />
+        ) : null}
+        {onLibrary ? (
+          <ToolButton icon={IconLibrary} label={t('toolbar.library')} tip={t('tip.library')} onClick={onLibrary} active={libraryOpen} />
         ) : null}
         <ToolButton icon={IconSidebar} label={t('toolbar.sidebar')} tip={t('tip.sidebar')} onClick={onTogglePanel} active={panel !== 'none'} />
         <ToolButton

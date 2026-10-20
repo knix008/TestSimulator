@@ -563,7 +563,7 @@ describe('Toolbar panel buttons', () => {
     expect(screen.queryByRole('button', { name: 'Bookmarks' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Find' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Library list' }));
     expect(onGallery).toHaveBeenCalledTimes(1);
     expect(onFavorites).toHaveBeenCalledTimes(1);
     expect(onComments).not.toHaveBeenCalled();
