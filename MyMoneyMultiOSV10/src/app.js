@@ -361,6 +361,11 @@ class MoneyApp {
     const onContentClick = (event) => {
       // The quote area is also the drag handle, so the click that ends a drag is not a choice.
       if (this.suppressSceneClick) return;
+      const step = event.target.closest("[data-symbol-step]");
+      if (step) {
+        this.cycleSymbol(Number(step.dataset.symbolStep));
+        return;
+      }
       if (event.target.closest("[data-scene-advance]")) {
         this.cycleSymbol(1);
         return;
@@ -387,13 +392,25 @@ class MoneyApp {
     this.shell.addEventListener("contextmenu", onContext);
     this.root.querySelector(".shell-top").addEventListener("dblclick", onTopDouble);
     this.grip.addEventListener("pointerdown", onGripDown);
+    const onPointerButtons = (event) => {
+      this.content?.classList.toggle("is-pointer-down", event.buttons > 0);
+    };
+    const onPointerRelease = () => {
+      this.content?.classList.remove("is-pointer-down");
+    };
     this.content.addEventListener("click", onContentClick);
     this.tabStrip.addEventListener("click", onTabClick);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("pointerdown", onPointerButtons);
+    document.addEventListener("pointerup", onPointerButtons);
+    document.addEventListener("pointercancel", onPointerRelease);
     this.unbind = () => {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("pointerdown", onPointerButtons);
+      document.removeEventListener("pointerup", onPointerButtons);
+      document.removeEventListener("pointercancel", onPointerRelease);
     };
   }
 

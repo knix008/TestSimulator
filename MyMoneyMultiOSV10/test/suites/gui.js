@@ -1724,6 +1724,7 @@ export function registerGui(h) {
       assert.equal(app.currentTab().board.symbols.length, 1);
       app.renderMarket();
       assert.equal(app.root.querySelector("[data-gui='scene']").dataset.sceneAdvance, undefined);
+      assert.equal(app.content.querySelector(".symbol-nav"), null, "one symbol shows no side buttons");
       assert.equal(app.cycleSymbol(1), "005930.KS");
     });
   });
@@ -1741,6 +1742,38 @@ export function registerGui(h) {
       await new Promise((resolve) => setTimeout(resolve, 200));
       app.root.querySelector("[data-gui='scene']").click();
       assert.notEqual(app.root.querySelector(".scene-name").textContent, before);
+    });
+  });
+  h.test("the side buttons step to the previous and next symbol", async () => {
+    await withApp(async ({ app }) => {
+      await app.refreshMarket();
+      const prev = app.content.querySelector('[data-gui="symbol-prev"]');
+      const next = app.content.querySelector('[data-gui="symbol-next"]');
+      const name = () => app.root.querySelector(".scene-name").textContent;
+      assert.equal(prev.dataset.symbolStep, "-1");
+      assert.equal(next.dataset.symbolStep, "1");
+      assert.equal(prev.title, "이전 종목 보기");
+      assert.equal(next.title, "다음 종목 보기");
+      assert.equal(getComputedStyle(prev.querySelector(".symbol-nav-face")).opacity, "0");
+      const shown = [...document.styleSheets[0].cssRules].find((rule) => String(rule.selectorText || "").includes(".symbol-nav:hover .symbol-nav-face"));
+      assert.equal(shown.style.opacity, "1");
+      const held = [...document.styleSheets[0].cssRules].find((rule) => rule.selectorText === ".content.is-pointer-down .symbol-nav-face");
+      assert.equal(held.style.opacity, "0");
+      document.dispatchEvent(new window.MouseEvent("pointerdown", { bubbles: true, button: 0, buttons: 1 }));
+      assert.equal(app.content.classList.contains("is-pointer-down"), true);
+      document.dispatchEvent(new window.MouseEvent("pointerup", { bubbles: true, button: 0, buttons: 0 }));
+      assert.equal(app.content.classList.contains("is-pointer-down"), false);
+      const step = (side) => app.content.querySelector(`[data-gui="symbol-${side}"]`).click();
+      assert.equal(name(), "삼성전자");
+      step("next");
+      assert.equal(name(), "SK하이닉스");
+      step("next");
+      assert.equal(name(), "NAVER");
+      step("prev");
+      assert.equal(name(), "SK하이닉스");
+      app.selectSymbol("005930.KS");
+      step("prev");
+      assert.equal(name(), "NAVER", "the previous button wraps to the last symbol");
     });
   });
   h.test("the context menu advances the symbol without a click on the scene", async () => {
@@ -1831,6 +1864,7 @@ export function registerGui(h) {
       const board = app.root.querySelector("[data-gui='board']");
       assert.ok(board);
       assert.equal(app.root.querySelector(".market-scene"), null);
+      assert.equal(app.content.querySelector(".symbol-nav"), null, "the whole watchlist has no side buttons");
       // Three symbols plus the index.
       const rows = board.querySelectorAll(".quote-row");
       assert.equal(rows.length, 4);

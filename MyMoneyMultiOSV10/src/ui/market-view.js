@@ -9,6 +9,7 @@ import { trendOf, trendText, trendTone } from "../market/trend.js";
 /**
  * The window either shows one symbol large, or the whole watchlist as rows.
  * In the single view the scene itself advances to the next symbol on a click.
+ * With more than one symbol, the left and right edges reveal previous and next.
  */
 export function renderMarketHtml({ tab, language, units, baseCurrency, today, t, priority = "average", mode = "single" }) {
   const shown = preferTab(tab, priority);
@@ -25,6 +26,7 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
   const noteText = quote
     ? [priced.currency || "", trendText(trend, language), quote.date || "", updated].filter(Boolean).join(" · ")
     : "";
+  const nav = many ? symbolNav(t) : "";
   const scene = `<section class="market-scene" data-gui="scene" data-symbol="${esc(quote?.symbol || "")}"${advance}>
       ${sceneArt(trend)}
       <div class="scene-copy">
@@ -36,7 +38,13 @@ export function renderMarketHtml({ tab, language, units, baseCurrency, today, t,
         <div class="scene-note" data-font-role="note" title="${esc(noteText)}">${esc(noteText || " ")}</div>
       </div>
     </section>`;
-  return `<div class="market">${scene}</div>`;
+  return `<div class="market">${nav}${scene}</div>`;
+}
+
+function symbolNav(t) {
+  const button = (step, side, name, tip) =>
+    `<button type="button" class="symbol-nav symbol-nav-${side}" data-symbol-step="${step}" data-gui="symbol-${side}" title="${esc(t(tip))}"><span class="symbol-nav-face">${icon(name, { colorful: true })}</span></button>`;
+  return `${button(-1, "prev", "prev", "tip.prevSymbol")}${button(1, "next", "next", "tip.nextSymbolSide")}`;
 }
 
 function renderBoardHtml(shown, language, units, baseCurrency, t) {

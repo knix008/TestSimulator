@@ -284,6 +284,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 
 /* Quote scene. The picture follows --art-scale. The labels follow --font-scale, which is 1 at the smallest window. */
 .market {
+  position: relative;
   height: 100%;
   max-height: 100%;
   min-height: 0;
@@ -294,6 +295,37 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   align-items: center;
   justify-content: center;
 }
+.symbol-nav {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 64px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.01);
+  cursor: pointer;
+}
+.symbol-nav-prev { left: 0; justify-items: start; padding-left: 6px; }
+.symbol-nav-next { right: 0; justify-items: end; padding-right: 6px; }
+.symbol-nav-face {
+  width: 36px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 16px var(--shadow);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.symbol-nav .ico { width: 22px; height: 22px; }
+.symbol-nav:hover .symbol-nav-face,
+.symbol-nav:focus-visible .symbol-nav-face { opacity: 1; }
+.content.is-pointer-down .symbol-nav-face { opacity: 0; }
 .market-scene {
   display: flex;
   visibility: hidden;
