@@ -36,7 +36,7 @@ import { namedActionPage } from './lib/nav.js';
 import {
   loadSettings, persistSettings, DEFAULT_SETTINGS, addRecentFile, removeRecentFile,
   clampSidebarWidth, clampInfoPanelWidth, openDefaultDir,
-  addRecentDir, applyFontSettings, applyTheme,
+  addRecentDir, applyFontSettings, applyTheme, publishThemePalette,
 } from './lib/settings.js';
 import { useHistory, EMPTY_WORKSPACE, newId } from './lib/history.js';
 import {
@@ -239,6 +239,14 @@ export default function App() {
     applyFontSettings(settings);
     if (settingsReady) persistSettings(settings);
   }, [settings, settingsReady]);
+
+  // Windows outside the React app (the program guide) wear the same theme:
+  // its page reads the published palette, and the host sets the native title
+  // bar to dark or light.
+  useEffect(() => {
+    const dark = publishThemePalette(settings.theme, settings.customThemes);
+    if (isDesktop) api.win?.setThemeKind?.(dark)?.catch?.(() => {});
+  }, [settings.theme, settings.customThemes]);
 
   const captureSession = useCallback(() => ({
     file,
