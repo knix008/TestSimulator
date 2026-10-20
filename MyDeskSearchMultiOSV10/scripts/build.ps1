@@ -1,4 +1,4 @@
-# Build the Windows release binary and a zip the user can install.
+# Build the Windows release binary and mydesksearch<version>_setup.exe.
 # If Inno Setup 6 is installed, also build MyDeskSearch-*-windows-x64-setup.exe.
 # Run from the repository root: .\build.ps1   or   .\scripts\build.ps1
 $ErrorActionPreference = 'Stop'
@@ -25,17 +25,21 @@ $Stage = Join-Path $Root "dist\windows\$StageName"
 if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
 New-Item -ItemType Directory -Path $Stage -Force | Out-Null
 Copy-Item -LiteralPath $Exe -Destination (Join-Path $Stage 'mydesksearch.exe')
-foreach ($name in @('install.ps1', 'uninstall.ps1', 'install.cmd')) {
+foreach ($name in @('install.ps1', 'uninstall.ps1', 'install.cmd', 'mydesksearch.ico')) {
     Copy-Item -LiteralPath (Join-Path $Packaging $name) -Destination (Join-Path $Stage $name)
 }
 $utf8 = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText((Join-Path $Stage 'version.txt'), $Version, $utf8)
 
-$Zip = Join-Path $Root "dist\$StageName.zip"
+$Zip = Join-Path $env:TEMP ("mydesksearch-payload-" + [guid]::NewGuid().ToString('n') + '.zip')
 if (Test-Path -LiteralPath $Zip) { Remove-Item -LiteralPath $Zip -Force }
 Compress-Archive -Path (Join-Path $Stage '*') -DestinationPath $Zip
-$RootZip = Join-Path $Root "$StageName.zip"
-Copy-Item -LiteralPath $Zip -Destination $RootZip -Force
+foreach ($old in @(
+        (Join-Path $Root "dist\$StageName.zip"),
+        (Join-Path $Root "$StageName.zip")
+    )) {
+    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
+}
 
 function New-SetupExe([string]$ZipPath, [string]$Destination, [string]$StubSource, [string]$Version, [string]$IconPath) {
     $csc = @(
@@ -114,7 +118,11 @@ $SetupName = "mydesksearch${Version}_setup.exe"
 $Dist = Join-Path $Root 'dist'
 New-Item -ItemType Directory -Path $Dist -Force | Out-Null
 $Setup = Join-Path $Dist $SetupName
-New-SetupExe -ZipPath $Zip -Destination $Setup -StubSource (Join-Path $Packaging 'SetupStub.cs') -Version $Version -IconPath (Join-Path $Packaging 'mydesksearch.ico')
+try {
+    New-SetupExe -ZipPath $Zip -Destination $Setup -StubSource (Join-Path $Packaging 'SetupStub.cs') -Version $Version -IconPath (Join-Path $Packaging 'mydesksearch.ico')
+} finally {
+    if (Test-Path -LiteralPath $Zip) { Remove-Item -LiteralPath $Zip -Force }
+}
 $RootSetup = Join-Path $Root $SetupName
 Copy-Item -LiteralPath $Setup -Destination $RootSetup -Force
 
@@ -131,5 +139,4 @@ if ($Iscc) {
 }
 
 Write-Host "Installer directory: $Stage"
-Write-Host "Zip installer: $RootZip"
 Write-Host "Setup executable: $RootSetup"

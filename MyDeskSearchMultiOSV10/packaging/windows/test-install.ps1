@@ -245,6 +245,23 @@ try {
         if (Test-Path -LiteralPath (Join-Path $menu 'MyDeskSearch.lnk')) { throw 'Start menu shortcut was created' }
         if (Test-Path -LiteralPath (Join-Path $desktop 'MyDeskSearch.lnk')) { throw 'desktop shortcut was created' }
     }
+
+    Invoke-Case 'Installer continues when an older program folder cannot be removed' {
+        $legacy = Join-Path $root 'Locked\DeskSearch'
+        New-Item -ItemType Directory -Path $legacy -Force | Out-Null
+        $lockedFile = Join-Path $legacy 'keep.txt'
+        [System.IO.File]::WriteAllText($lockedFile, 'keep')
+        $stream = [System.IO.File]::Open($lockedFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+        try {
+            Invoke-Quiet ($common + @('-Language', 'en', '-UserData', 'keep', '-LegacyDir', $legacy))
+            if ($script:lastCode -ne 0) { throw "installer failed ($($script:lastCode))" }
+            if (-not (Test-Path -LiteralPath $lockedFile)) { throw 'locked legacy folder was removed' }
+            if (-not (Test-Path -LiteralPath (Join-Path $installDir 'mydesksearch.exe'))) { throw 'program was not installed' }
+        } finally {
+            $stream.Dispose()
+        }
+        if ([System.IO.File]::ReadAllText($lockedFile) -ne 'keep') { throw 'locked legacy file changed' }
+    }
 } finally {
     foreach ($key in @($product, $startup)) {
         if (Test-Path -LiteralPath $key) { Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction SilentlyContinue }

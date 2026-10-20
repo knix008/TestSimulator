@@ -41,9 +41,10 @@ internal static class SetupStub
 
             ProcessStartInfo start = new ProcessStartInfo();
             start.FileName = "powershell.exe";
-            start.Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + installer + "\"";
+            start.Arguments = "-NoProfile -STA -ExecutionPolicy Bypass -File \"" + installer + "\"";
             start.WorkingDirectory = files;
             start.UseShellExecute = false;
+            start.CreateNoWindow = true;
             Process process = Process.Start(start);
             process.WaitForExit();
             return process.ExitCode;

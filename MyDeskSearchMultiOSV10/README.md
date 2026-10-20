@@ -47,11 +47,11 @@ powershell -ExecutionPolicy Bypass -File .\clean.ps1
 
 | OS | 빌드 | 설치 파일 |
 |----|------|-----------|
-| Windows | `.\build.ps1` 또는 `build.cmd` | `mydesksearch<version>_setup.exe`. 더블클릭하면 설치가 시작됩니다. 같은 내용의 zip도 만들어집니다. |
+| Windows | `.\build.ps1` 또는 `build.cmd` | `mydesksearch<version>_setup.exe`. 더블클릭하면 설치가 시작됩니다. |
 | Linux | `./build.sh` | `MyDeskSearch-<version>-linux-<arch>.tar.gz`. `dpkg-deb`가 있으면 `.deb` |
 | macOS | `./build.sh` | `MyDeskSearch-<version>-macos-<arch>.tar.gz`. `pkgbuild`가 있으면 `.pkg` |
 
-Windows에서는 `mydesksearch<version>_setup.exe`를 실행합니다. zip을 쓰는 경우에는 압축을 푼 뒤 `install.cmd`로 설치합니다. Linux·macOS tar는 압축을 푼 뒤 `./install.sh`를 실행합니다. `.deb`는 `sudo dpkg -i`, `.pkg`는 설치 프로그램으로 엽니다.
+Windows에서는 `mydesksearch<version>_setup.exe`를 실행합니다. Linux·macOS tar는 압축을 푼 뒤 `./install.sh`를 실행합니다. `.deb`는 `sudo dpkg -i`, `.pkg`는 설치 프로그램으로 엽니다.
 
 설치할 때 **한국어** 또는 **English**를 고릅니다. 같은 언어는 프로그램 설정의 **언어**에서도 바꿀 수 있습니다. 바탕화면과 시작 메뉴 바로가기를 만들지는 설치 중에 물어 보며, 만들면 프로그램 아이콘과 같은 아이콘을 사용합니다. 이미 설치되어 있으면 프로그램 파일을 지운 다음 새로 설치합니다. 설정과 검색 인덱스를 지울지는 따로 물어 보며, 유지하면 앱에 저장한 언어도 그대로 남습니다.
 

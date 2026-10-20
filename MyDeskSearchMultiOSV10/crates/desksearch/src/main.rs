@@ -1,3 +1,5 @@
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod app;
 mod app_icon;
 mod tray;
@@ -46,8 +48,8 @@ fn main() -> eframe::Result<()> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_title(format!("MyDeskSearch {}", desksearch_core::VERSION))
         .with_inner_size([
-            settings.window_width.unwrap_or(480.0).clamp(280.0, 720.0) as f32,
-            56.0,
+            settings.window_width.unwrap_or(340.0).clamp(280.0, 720.0) as f32,
+            48.0,
         ])
         .with_min_inner_size([280.0, 48.0])
         .with_resizable(true)
@@ -75,6 +77,8 @@ fn main() -> eframe::Result<()> {
         "MyDeskSearch",
         options,
         Box::new(move |cc| {
+            install_ui_font(&cc.egui_ctx);
+            install_icon_font(&cc.egui_ctx);
             cc.egui_ctx.request_repaint();
             Ok(Box::new(DeskApp::new(
                 cc,
@@ -86,6 +90,86 @@ fn main() -> eframe::Result<()> {
             )))
         }),
     )
+}
+
+fn install_ui_font(ctx: &egui::Context) {
+    let Some(bytes) = load_ui_font() else {
+        return;
+    };
+    ctx.add_font(egui::epaint::text::FontInsert::new(
+        "MyDeskSearchUI",
+        egui::FontData::from_owned(bytes),
+        vec![
+            egui::epaint::text::InsertFontFamily {
+                family: egui::FontFamily::Proportional,
+                priority: egui::epaint::text::FontPriority::Highest,
+            },
+            egui::epaint::text::InsertFontFamily {
+                family: egui::FontFamily::Monospace,
+                priority: egui::epaint::text::FontPriority::Highest,
+            },
+        ],
+    ));
+}
+
+fn load_ui_font() -> Option<Vec<u8>> {
+    for path in ui_font_candidates() {
+        if let Ok(bytes) = std::fs::read(&path) {
+            if bytes.len() > 1024 {
+                return Some(bytes);
+            }
+        }
+    }
+    None
+}
+
+fn install_icon_font(ctx: &egui::Context) {
+    let Some(bytes) = load_icon_font() else {
+        return;
+    };
+    ctx.add_font(egui::epaint::text::FontInsert::new(
+        "mdl2",
+        egui::FontData::from_owned(bytes),
+        vec![egui::epaint::text::InsertFontFamily {
+            family: egui::FontFamily::Name("mdl2".into()),
+            priority: egui::epaint::text::FontPriority::Highest,
+        }],
+    ));
+}
+
+fn load_icon_font() -> Option<Vec<u8>> {
+    let mut paths = Vec::new();
+    if let Ok(windir) = std::env::var("WINDIR") {
+        paths.push(std::path::PathBuf::from(windir).join("Fonts").join("segmdl2.ttf"));
+    }
+    paths.push(std::path::PathBuf::from(r"C:\Windows\Fonts\segmdl2.ttf"));
+    for path in paths {
+        if let Ok(bytes) = std::fs::read(&path) {
+            if bytes.len() > 1024 {
+                return Some(bytes);
+            }
+        }
+    }
+    None
+}
+
+fn ui_font_candidates() -> Vec<std::path::PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(windir) = std::env::var("WINDIR") {
+        let fonts = std::path::PathBuf::from(windir).join("Fonts");
+        paths.push(fonts.join("malgun.ttf"));
+        paths.push(fonts.join("malgunsl.ttf"));
+    }
+    paths.push(std::path::PathBuf::from(r"C:\Windows\Fonts\malgun.ttf"));
+    paths.extend([
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    ].into_iter().map(std::path::PathBuf::from));
+    paths
 }
 
 pub fn copy_text(ctx: &egui::Context, text: impl Into<String>) {

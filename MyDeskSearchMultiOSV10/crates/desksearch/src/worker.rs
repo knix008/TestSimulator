@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-use desksearch_core::model::{FileEntry, IndexOutcome, IndexProgress};
+use desksearch_core::model::{FileEntry, IndexOutcome, IndexPhase, IndexProgress};
 use desksearch_core::sort::SearchResultSortOrder;
 use desksearch_core::watch::{apply_fs_event, FsEvent};
 use desksearch_core::{
@@ -17,6 +17,7 @@ use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 pub enum Command {
     Search {
         query: String,
+        generation: u64,
         case_sensitive: bool,
         use_regex: bool,
         sort: SearchResultSortOrder,
@@ -37,7 +38,10 @@ pub enum Command {
 }
 
 pub enum UiEvent {
-    Results(Vec<FileEntry>),
+    Results {
+        generation: u64,
+        entries: Vec<FileEntry>,
+    },
     Progress(IndexProgress),
     Outcome(IndexOutcome),
     Error(String),
@@ -85,10 +89,11 @@ fn worker_loop(
 ) {
     let mut watcher = install_watcher(&scope.roots);
     let startup = prepare_startup(&data_dir);
+    publish_ready_count(&data_dir, &events);
     if !matches!(startup, StartupPlan::Ready) && !scope.roots.is_empty() {
         run_job(
             &data_dir,
-            &scope,
+            &mut scope,
             true,
             &cancel,
             &commands,
@@ -137,7 +142,7 @@ fn worker_loop(
         {
             run_job(
                 &data_dir,
-                &scope,
+                &mut scope,
                 true,
                 &cancel,
                 &commands,
@@ -164,7 +169,10 @@ fn handle_command(
         Command::ResetIndex => {
             cancel.store(true, Ordering::Relaxed);
             reset_databases(data_dir);
-            let _ = events.send(UiEvent::Results(Vec::new()));
+            let _ = events.send(UiEvent::Results {
+                generation: 0,
+                entries: Vec::new(),
+            });
         }
         Command::Configure {
             roots,
@@ -178,10 +186,19 @@ fn handle_command(
         }
         Command::Search {
             query,
+            generation,
             case_sensitive,
             use_regex,
             sort,
-        } => perform_search(data_dir, &query, case_sensitive, use_regex, sort, events),
+        } => perform_search(
+            data_dir,
+            &query,
+            generation,
+            case_sensitive,
+            use_regex,
+            sort,
+            events,
+        ),
         Command::StartIndex {
             roots,
             excluded,
@@ -202,13 +219,17 @@ fn handle_command(
 fn perform_search(
     data_dir: &std::path::Path,
     query: &str,
+    generation: u64,
     case_sensitive: bool,
     use_regex: bool,
     sort: SearchResultSortOrder,
     events: &Sender<UiEvent>,
 ) {
     if query.trim().is_empty() {
-        let _ = events.send(UiEvent::Results(Vec::new()));
+        let _ = events.send(UiEvent::Results {
+            generation,
+            entries: Vec::new(),
+        });
         return;
     }
     let options = SearchOptions {
@@ -219,7 +240,10 @@ fn perform_search(
     };
     match search(data_dir, query, &options) {
         Ok(results) => {
-            let _ = events.send(UiEvent::Results(results));
+            let _ = events.send(UiEvent::Results {
+                generation,
+                entries: results,
+            });
         }
         Err(error) => {
             let _ = events.send(UiEvent::Error(error.to_string()));
@@ -229,65 +253,116 @@ fn perform_search(
 
 fn run_job(
     data_dir: &std::path::Path,
-    scope: &Scope,
-    fresh: bool,
+    scope: &mut Scope,
+    mut fresh: bool,
     cancel: &Arc<AtomicBool>,
     commands: &Receiver<Command>,
     events: &Sender<UiEvent>,
     watcher: &mut Option<(RecommendedWatcher, Receiver<Vec<PathBuf>>)>,
 ) {
-    cancel.store(false, Ordering::Relaxed);
-    let using_previous = data_dir.join("index.db").is_file();
-    let _ = events.send(UiEvent::UsingPrevious(using_previous && fresh));
-    let job = IndexJob {
-        data_dir: data_dir.to_path_buf(),
-        roots: scope.roots.clone(),
-        excluded: scope.excluded.clone(),
-        fresh,
-        retry_rounds: 3,
-        retry_delay: Duration::from_secs(2),
-        case_insensitive: cfg!(windows),
-        cancel: Arc::clone(cancel),
-    };
-    let mut pending = Vec::new();
-    let outcome = run_index_job(&job, |progress| {
-        let _ = events.send(UiEvent::Progress(progress.clone()));
-        while let Ok(command) = commands.try_recv() {
-            match command {
-                Command::Pause | Command::Shutdown => {
-                    cancel.store(true, Ordering::Relaxed);
-                    return false;
-                }
-                Command::Search {
-                    query,
-                    case_sensitive,
-                    use_regex,
-                    sort,
-                } => perform_search(data_dir, &query, case_sensitive, use_regex, sort, events),
-                Command::ResetIndex => {
-                    cancel.store(true, Ordering::Relaxed);
-                    return false;
-                }
-                other => {
-                    let _ = other;
+    loop {
+        cancel.store(false, Ordering::Relaxed);
+        let using_previous = data_dir.join("index.db").is_file();
+        let _ = events.send(UiEvent::UsingPrevious(using_previous && fresh));
+        let job = IndexJob {
+            data_dir: data_dir.to_path_buf(),
+            roots: scope.roots.clone(),
+            excluded: scope.excluded.clone(),
+            fresh,
+            retry_rounds: 3,
+            retry_delay: Duration::from_secs(2),
+            case_insensitive: cfg!(windows),
+            cancel: Arc::clone(cancel),
+        };
+        let mut pending = Vec::new();
+        let mut restart = None;
+        let outcome = run_index_job(&job, |progress| {
+            let _ = events.send(UiEvent::Progress(progress.clone()));
+            while let Ok(command) = commands.try_recv() {
+                match command {
+                    Command::Pause | Command::Shutdown => {
+                        cancel.store(true, Ordering::Relaxed);
+                        return false;
+                    }
+                    Command::Search {
+                        query,
+                        generation,
+                        case_sensitive,
+                        use_regex,
+                        sort,
+                    } => perform_search(
+                        data_dir,
+                        &query,
+                        generation,
+                        case_sensitive,
+                        use_regex,
+                        sort,
+                        events,
+                    ),
+                    Command::ResetIndex => {
+                        cancel.store(true, Ordering::Relaxed);
+                        return false;
+                    }
+                    Command::Configure {
+                        roots,
+                        excluded,
+                        resync_hours,
+                    } => {
+                        scope.roots = roots;
+                        scope.excluded = excluded;
+                        scope.resync_hours = resync_hours;
+                        *watcher = install_watcher(&scope.roots);
+                    }
+                    Command::StartIndex {
+                        roots,
+                        excluded,
+                        fresh: again,
+                    } => {
+                        restart = Some((roots, excluded, again));
+                        cancel.store(true, Ordering::Relaxed);
+                        return false;
+                    }
                 }
             }
+            drain_external_watch(watcher, &mut pending);
+            !cancel.load(Ordering::Relaxed)
+        });
+        let _ = pending;
+        if let Some((roots, excluded, again)) = restart {
+            scope.roots = roots;
+            scope.excluded = excluded;
+            *watcher = install_watcher(&scope.roots);
+            fresh = again;
+            continue;
         }
-        drain_external_watch(watcher, &mut pending);
-        !cancel.load(Ordering::Relaxed)
-    });
-    match outcome {
-        Ok(outcome) => {
-            if matches!(outcome, IndexOutcome::Incomplete { .. }) {
-                // The full retry is scheduled by the UI after this outcome.
+        match outcome {
+            Ok(outcome) => {
+                let _ = events.send(UiEvent::Outcome(outcome));
             }
-            let _ = events.send(UiEvent::Outcome(outcome));
+            Err(error) => {
+                let _ = events.send(UiEvent::Error(error.to_string()));
+            }
         }
-        Err(error) => {
-            let _ = events.send(UiEvent::Error(error.to_string()));
-        }
+        break;
     }
-    let _ = pending;
+}
+
+fn publish_ready_count(data_dir: &std::path::Path, events: &Sender<UiEvent>) {
+    let Some(path) = active_search_db(data_dir) else {
+        return;
+    };
+    let Ok(store) = desksearch_core::store::IndexStore::open_reader(&path) else {
+        return;
+    };
+    let Ok(count) = store.count() else {
+        return;
+    };
+    let _ = events.send(UiEvent::Progress(IndexProgress {
+        phase: IndexPhase::Applying,
+        indexed: count,
+        updated: 0,
+        percent: 100,
+    }));
 }
 
 fn install_watcher(roots: &[PathBuf]) -> Option<(RecommendedWatcher, Receiver<Vec<PathBuf>>)> {

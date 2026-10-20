@@ -74,24 +74,37 @@ impl Tray {
     }
 
     pub fn poll(&self) -> Option<TrayAction> {
-        while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-            if matches!(
-                event,
-                TrayIconEvent::DoubleClick { .. } | TrayIconEvent::Click { .. }
-            ) {
-                return Some(TrayAction::Show);
-            }
-        }
-        match MenuEvent::receiver().try_recv() {
-            Ok(event) => match event.id.0.as_str() {
+        let mut action = None;
+        while let Ok(event) = MenuEvent::receiver().try_recv() {
+            action = match event.id.0.as_str() {
                 "show" => Some(TrayAction::Show),
                 "hide" => Some(TrayAction::Hide),
                 "settings" => Some(TrayAction::Settings),
                 "exit" => Some(TrayAction::Exit),
-                _ => None,
-            },
-            Err(_) => None,
+                _ => action,
+            };
         }
+        if matches!(action, Some(TrayAction::Exit)) {
+            return action;
+        }
+        while let Ok(event) = TrayIconEvent::receiver().try_recv() {
+            let show = match event {
+                TrayIconEvent::DoubleClick {
+                    button: tray_icon::MouseButton::Left,
+                    ..
+                } => true,
+                TrayIconEvent::Click {
+                    button: tray_icon::MouseButton::Left,
+                    button_state: tray_icon::MouseButtonState::Up,
+                    ..
+                } => true,
+                _ => false,
+            };
+            if show && action.is_none() {
+                action = Some(TrayAction::Show);
+            }
+        }
+        action
     }
 }
 

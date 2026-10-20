@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use walkdir::WalkDir;
 
@@ -91,11 +91,14 @@ pub fn index_into<S: RootScan>(
             }
             let batch = std::cell::RefCell::new(Vec::<FileEntry>::new());
             let error = std::cell::RefCell::new(None::<DeskError>);
+            let last_report = std::cell::Cell::new(Instant::now() - Duration::from_secs(1));
+            let indexed_in_root = std::cell::Cell::new(0_u64);
             let scan_result = scanner.scan_root(&root, cancel, &mut |entry| {
-                if error.borrow().is_some() {
+                if error.borrow().is_some() || cancel.load(Ordering::Relaxed) {
                     return;
                 }
                 indexed += 1;
+                indexed_in_root.set(indexed_in_root.get() + 1);
                 let ready = {
                     let mut batch = batch.borrow_mut();
                     batch.push(entry);
@@ -109,6 +112,17 @@ pub fn index_into<S: RootScan>(
                     match store.upsert(&ready) {
                         Ok(changed) => updated += changed,
                         Err(err) => *error.borrow_mut() = Some(err),
+                    }
+                }
+                if last_report.get().elapsed() >= Duration::from_millis(200) {
+                    last_report.set(Instant::now());
+                    if !progress(&IndexProgress {
+                        phase: crate::model::IndexPhase::Scanning,
+                        indexed,
+                        updated,
+                        percent: scan_percent(completed, total, indexed_in_root.get()),
+                    }) {
+                        cancel.store(true, Ordering::Relaxed);
                     }
                 }
             });
@@ -240,6 +254,15 @@ pub fn file_entry_from_path(path: &Path) -> Option<FileEntry> {
         meta.is_dir(),
         modified,
     ))
+}
+
+fn scan_percent(completed_roots: u64, total_roots: u64, indexed_in_root: u64) -> u8 {
+    let total_roots = total_roots.max(1);
+    let start = (completed_roots * 90) / total_roots;
+    let end = ((completed_roots + 1) * 90) / total_roots;
+    let room = end.saturating_sub(start).saturating_sub(1);
+    let bump = (indexed_in_root / 4_000).min(room);
+    (start + bump).min(89) as u8
 }
 
 fn is_excluded(path: &str, excluded: &[String], case_insensitive: bool) -> bool {

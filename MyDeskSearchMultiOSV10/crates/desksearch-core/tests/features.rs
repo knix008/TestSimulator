@@ -245,6 +245,38 @@ fn sqlite_matches_memory_and_keeps_a_result_cap() {
 }
 
 #[test]
+fn substring_search_does_not_require_regex() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = IndexStore::create(&dir.path().join("index.db")).unwrap();
+    store
+        .upsert(&[
+            entry(
+                "/data/검토결과-권수호.docx",
+                "검토결과-권수호.docx",
+                1,
+                false,
+            ),
+            entry("/data/other.pdf", "other.pdf", 2, false),
+        ])
+        .unwrap();
+    store.rebuild_fts().unwrap();
+    drop(store);
+    let options = SearchOptions {
+        use_regex: false,
+        ..SearchOptions::default()
+    };
+    assert_eq!(
+        names(&search(dir.path(), "수호", &options).unwrap()),
+        vec!["검토결과-권수호.docx"]
+    );
+    assert_eq!(
+        names(&search(dir.path(), "권수호", &options).unwrap()),
+        vec!["검토결과-권수호.docx"]
+    );
+    assert!(search(dir.path(), "없는이름", &options).unwrap().is_empty());
+}
+
+#[test]
 fn dual_database_search_uses_live_until_promotion() {
     let dir = tempfile::tempdir().unwrap();
     let live = IndexStore::create(&dir.path().join("index.db")).unwrap();
