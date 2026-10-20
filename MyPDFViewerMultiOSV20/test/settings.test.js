@@ -6,6 +6,7 @@ import {
   INFO_PANEL_WIDTH_MIN, INFO_PANEL_WIDTH_DEFAULT, clampInfoPanelWidth,
   normalize, addRecentFile, removeRecentFile, addRecentDir, openDefaultDir,
   applyFontSettings, applyTheme, persistSettings, loadSettingsSync,
+  publishThemePalette, THEME_PALETTE_KEY,
 } from '../src/lib/settings.js';
 
 describe('defaults', () => {
@@ -312,6 +313,24 @@ describe('applyFontSettings / applyTheme', () => {
     applyTheme('nord', [custom]);
     expect(document.documentElement.getAttribute('data-theme')).toBe('nord');
     expect(document.documentElement.style.getPropertyValue('--bg')).toBe('');
+  });
+
+  it('publishes the resolved palette for the guide window', () => {
+    const custom = {
+      id: 'custom-pub',
+      name: 'Paper',
+      kind: 'light',
+      colors: { bg: '#fafafa', panel: '#ffffff', text: '#202020', accent: '#d04030' },
+    };
+    applyTheme(custom.id, [custom]);
+    expect(publishThemePalette(custom.id, [custom])).toBe(false);
+    const p = JSON.parse(localStorage.getItem(THEME_PALETTE_KEY));
+    expect(p).toMatchObject({ id: 'custom-pub', dark: false });
+    expect(p.vars['--bg']).toBe('#fafafa');
+    expect(p.vars['--accent']).toBe('#d04030');
+    applyTheme('nord');
+    expect(publishThemePalette('nord')).toBe(true);
+    expect(JSON.parse(localStorage.getItem(THEME_PALETTE_KEY)).id).toBe('nord');
   });
 });
 

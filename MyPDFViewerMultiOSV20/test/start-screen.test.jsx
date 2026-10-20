@@ -230,6 +230,18 @@ describe('program guide (doc/)', () => {
     expect(fs.existsSync(path.join(root, 'scripts', 'sync-doc.mjs'))).toBe(true);
   });
 
+  it('wears the app theme: loads theme.js, which follows the published palette', () => {
+    for (const page of ['Guide.html', 'Guide.en.html']) {
+      expect(fs.readFileSync(path.join(root, 'doc', page), 'utf8'), page).toContain('<script src="theme.js"></script>');
+    }
+    const script = fs.readFileSync(path.join(root, 'doc', 'theme.js'), 'utf8');
+    expect(script).toContain("'mypdfviewer-theme-palette'");
+    expect(script).toContain("addEventListener('storage'");
+    const host = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+    expect(host).toMatch(/fn win_set_theme_kind/);
+    expect(host).toContain('.theme(theme)');
+  });
+
   it('opens from the desktop host in a window of its own', () => {
     const host = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
     expect(host).toMatch(/async fn win_open_guide/);

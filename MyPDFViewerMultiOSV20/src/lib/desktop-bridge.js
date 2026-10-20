@@ -256,6 +256,8 @@ export function createDesktopApi({
       pickTheme: (id) => call('win_pick_theme', { id: String(id || '') }),
       // The program guide (doc/…html) in an ordinary window of its own.
       openGuide: (page) => call('win_open_guide', { page: String(page || 'Guide.html') }),
+      // Dark or light native title bars for the app's ordinary windows.
+      setThemeKind: (dark) => call('win_set_theme_kind', { dark: Boolean(dark) }),
       onThemePicked: on('theme-picked'),
     },
   };

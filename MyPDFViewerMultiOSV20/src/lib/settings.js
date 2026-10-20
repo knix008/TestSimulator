@@ -12,7 +12,7 @@ import {
   normalizeGallery, normalizeGalleryView, seedGallery, clampTileSize, clampBookSize, normalizeLibraryView,
 } from './gallery.js';
 import {
-  applyCustomThemeVars, clearCustomThemeVars, isCustomThemeId, normalizeCustomThemes,
+  applyCustomThemeVars, clearCustomThemeVars, isCustomThemeId, isDarkTheme, normalizeCustomThemes,
 } from './themes.js';
 
 export const MAX_RECENT_FILES = 10;
@@ -215,4 +215,22 @@ export function applyTheme(id, customThemes) {
   }
   clearCustomThemeVars(root);
   root.setAttribute('data-theme', id || 'dark');
+}
+
+// Pages that are not part of the React app (the program guide in doc/) can't
+// read App.css, so the resolved palette is published to localStorage. They
+// read it when they load and follow the `storage` event while open.
+export const THEME_PALETTE_KEY = 'mypdfviewer-theme-palette';
+export const PALETTE_VARS = ['--bg', '--bg-2', '--bg-3', '--panel', '--border', '--text', '--text-dim', '--muted', '--accent'];
+
+export function publishThemePalette(id, customThemes) {
+  const dark = isDarkTheme(id, customThemes);
+  try {
+    const css = getComputedStyle(document.documentElement);
+    const vars = {};
+    for (const key of PALETTE_VARS) vars[key] = css.getPropertyValue(key).trim();
+    const next = JSON.stringify({ id: id || 'dark', dark, vars });
+    if (localStorage.getItem(THEME_PALETTE_KEY) !== next) localStorage.setItem(THEME_PALETTE_KEY, next);
+  } catch { /* no storage — the guide falls back to the OS colour scheme */ }
+  return dark;
 }

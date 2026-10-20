@@ -42,6 +42,9 @@ struct AppState {
   min_size: Mutex<(f64, f64)>,
   clipboard: Mutex<Option<arboard::Clipboard>>,
   popup: Mutex<Option<PopupAnchor>>,
+  /// The app theme's kind (dark or light), for the native title bar of the
+  /// decorated guide window. `None` until the page has said.
+  theme_kind: Mutex<Option<tauri::Theme>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -817,8 +820,10 @@ async fn win_open_guide(app: AppHandle, page: String) -> Result<bool, String> {
     return Ok(true);
   }
   let handle = app.clone();
+  let theme = *state(&app).theme_kind.lock().unwrap();
   WebviewWindowBuilder::new(&app, GUIDE, WebviewUrl::App(format!("doc/{page}").into()))
     .title("MyPDFViewer — 프로그램 설명 / Guide")
+    .theme(theme)
     .inner_size(1100.0, 860.0)
     .min_inner_size(640.0, 480.0)
     .center()
@@ -834,6 +839,18 @@ async fn win_open_guide(app: AppHandle, page: String) -> Result<bool, String> {
     .build()
     .map_err(err)?;
   Ok(true)
+}
+
+/// The app's theme changed: the guide's native title bar follows it (its page
+/// follows the palette the main page publishes to localStorage).
+#[tauri::command]
+fn win_set_theme_kind(app: AppHandle, dark: bool) -> bool {
+  let theme = if dark { tauri::Theme::Dark } else { tauri::Theme::Light };
+  *state(&app).theme_kind.lock().unwrap() = Some(theme);
+  if let Some(w) = app.get_webview_window(GUIDE) {
+    let _ = w.set_theme(Some(theme));
+  }
+  true
 }
 
 // ── Main window ──────────────────────────────────────────────
@@ -979,6 +996,7 @@ pub fn run() {
       win_close_theme_popup,
       win_pick_theme,
       win_open_guide,
+      win_set_theme_kind,
     ])
     .build(tauri::generate_context!())
     .expect("error while building MyPDFViewer");
