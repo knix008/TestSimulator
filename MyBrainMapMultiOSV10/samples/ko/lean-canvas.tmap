@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cvt0tu7o",
+  "id": "tmvg5mfp8bkrs7o",
   "text": "반려견 산책 매칭 앱",
   "children": [
    {
-    "id": "tmvftn8cvpucv74",
+    "id": "tmvg5mfp8a00w74",
     "text": "문제",
     "children": [
      {
-      "id": "tmvftn8cvde3p72",
+      "id": "tmvg5mfp8ixyf72",
       "text": "야근 때 산책 못 함",
       "children": []
      },
      {
-      "id": "tmvftn8cvund373",
+      "id": "tmvg5mfp88pgu73",
       "text": "믿을 만한 산책인 찾기 어려움",
       "children": []
      }
@@ -24,11 +24,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cvv8sd76",
+    "id": "tmvg5mfp8ckb876",
     "text": "고객",
     "children": [
      {
-      "id": "tmvftn8cvdi4775",
+      "id": "tmvg5mfp83fqy75",
       "text": "1인 가구 견주",
       "children": []
      }
@@ -36,11 +36,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cvel7j78",
+    "id": "tmvg5mfp8re4t78",
     "text": "가치 제안",
     "children": [
      {
-      "id": "tmvftn8cv7ivk77",
+      "id": "tmvg5mfp8dkne77",
       "text": "검증된 이웃이 30분 산책",
       "children": [],
       "icons": [
@@ -51,16 +51,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cvgowb7b",
+    "id": "tmvg5mfp8frx77b",
     "text": "해결책",
     "children": [
      {
-      "id": "tmvftn8cvsz1279",
+      "id": "tmvg5mfp8tch879",
       "text": "실시간 위치 공유",
       "children": []
      },
      {
-      "id": "tmvftn8cvqff47a",
+      "id": "tmvg5mfp873717a",
       "text": "산책 사진 리포트",
       "children": []
      }
@@ -68,11 +68,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cvuxbz7d",
+    "id": "tmvg5mfp8rlwc7d",
     "text": "채널",
     "children": [
      {
-      "id": "tmvftn8cvccs17c",
+      "id": "tmvg5mfp83uqn7c",
       "text": "동물병원 제휴",
       "children": []
      }
@@ -80,16 +80,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cvqgrd7g",
+    "id": "tmvg5mfp8iw417g",
     "text": "수익",
     "children": [
      {
-      "id": "tmvftn8cvesdz7e",
+      "id": "tmvg5mfp8ajn27e",
       "text": "산책 1회 15,000원",
       "children": []
      },
      {
-      "id": "tmvftn8cvbyre7f",
+      "id": "tmvg5mfp86o7i7f",
       "text": "수수료 20%",
       "children": []
      }
@@ -100,16 +100,16 @@
     ]
    },
    {
-    "id": "tmvftn8cv19l97j",
+    "id": "tmvg5mfp8wiw37j",
     "text": "비용",
     "children": [
      {
-      "id": "tmvftn8cv1b6h7h",
+      "id": "tmvg5mfp8di887h",
       "text": "보험",
       "children": []
      },
      {
-      "id": "tmvftn8cvg5457i",
+      "id": "tmvg5mfp82sj17i",
       "text": "광고",
       "children": []
      }
@@ -117,11 +117,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cvfgp37l",
+    "id": "tmvg5mfp85qvj7l",
     "text": "핵심 지표",
     "children": [
      {
-      "id": "tmvftn8cvd4rx7k",
+      "id": "tmvg5mfp8qvcn7k",
       "text": "재이용률",
       "children": [],
       "icons": [
@@ -132,11 +132,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cvkwmh7n",
+    "id": "tmvg5mfp8bwdk7n",
     "text": "경쟁 우위",
     "children": [
      {
-      "id": "tmvftn8cvlw3c7m",
+      "id": "tmvg5mfp82b3d7m",
       "text": "동네 커뮤니티",
       "children": []
      }
@@ -162,7 +162,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.951Z",
-  "modified": "2026-10-19T22:24:07.951Z"
+  "created": "2026-10-20T03:59:26.204Z",
+  "modified": "2026-10-20T03:59:26.204Z"
  }
 }

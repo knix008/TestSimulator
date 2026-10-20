@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
@@ -77,7 +77,12 @@ fn normalize(path: &Path) -> PathBuf {
             other => out.push(other.as_os_str()),
         }
     }
+    // Windows verbatim paths (\\?\C:\…, \\?\UNC\server\…) become plain ones: Node cannot start a
+    // script given as \\?\C:\… (it fails with EISDIR on lstat 'C:'), and resource_dir() returns them.
     let text = out.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
     PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text))
 }
 
@@ -147,7 +152,7 @@ fn project_root(app: &tauri::App) -> Result<PathBuf, String> {
     }
     app.path()
         .resource_dir()
-        .map(|dir| dir.join("app"))
+        .map(|dir| normalize(&dir.join("app")))
         .map_err(|err| err.to_string())
 }
 
@@ -171,12 +176,24 @@ fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16,
         cmd.creation_flags(0x08000000);
     }
     let mut child = cmd.spawn().map_err(|err| format!("Could not start Node.js: {err}"))?;
+    // the last lines Node wrote to stderr: shown in the error dialog if it stops before it is ready
+    let tail: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     if let Some(stderr) = child.stderr.take() {
+        let tail = Arc::clone(&tail);
         std::thread::spawn(move || {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
             while reader.read_line(&mut line).unwrap_or(0) > 0 {
                 eprint!("[brainmap] {line}");
+                if let Ok(mut t) = tail.lock() {
+                    let text = line.trim_end();
+                    if !text.trim().is_empty() {
+                        t.push(text.to_string());
+                        if t.len() > 12 {
+                            t.remove(0);
+                        }
+                    }
+                }
                 line.clear();
             }
         });
@@ -209,7 +226,17 @@ fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16,
     let ready = rx.recv_timeout(Duration::from_secs(30)).map_err(|_| {
         let _ = child.kill();
         "The BrainMap service did not start in time".to_string()
-    })??;
+    })?;
+    let ready = ready.map_err(|err| {
+        // give stderr a moment to arrive, then add what Node said
+        std::thread::sleep(Duration::from_millis(300));
+        let said = tail.lock().map(|t| t.join("\n")).unwrap_or_default();
+        if said.is_empty() {
+            err
+        } else {
+            format!("{err}\n\nNode.js: {}\nScript: {}", said, script.display())
+        }
+    })?;
     let value: Value = serde_json::from_str(&ready).map_err(|err| format!("Bad ready message: {err}"))?;
     let port = value.get("port").and_then(|v| v.as_u64()).ok_or("The BrainMap service did not report a port")? as u16;
     let token = value.get("token").and_then(|v| v.as_str()).unwrap_or("").to_string();

@@ -3,31 +3,31 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d0lw4gdj",
+  "id": "tmvg5mfpl4q2he1",
   "text": "2027 로드맵",
   "children": [
    {
-    "id": "tmvftn8d07sv0db",
+    "id": "tmvg5mfpld0hcdt",
     "text": "1분기",
     "children": [
      {
-      "id": "tmvftn8d0c6rad9",
+      "id": "tmvg5mfplkxwrdr",
       "text": "베타 출시",
       "children": []
      },
      {
-      "id": "tmvftn8d0f68eda",
+      "id": "tmvg5mfpl4egtds",
       "text": "피드백 수집",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d01g9jde",
+    "id": "tmvg5mfplcoz3dw",
     "text": "2분기",
     "children": [
      {
-      "id": "tmvftn8d0ryledc",
+      "id": "tmvg5mfplsuo7du",
       "text": "정식 출시",
       "children": [],
       "icons": [
@@ -35,29 +35,29 @@
       ]
      },
      {
-      "id": "tmvftn8d0bdz3dd",
+      "id": "tmvg5mfplx8qfdv",
       "text": "모바일 앱",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d03w4mdg",
+    "id": "tmvg5mfplx21kdy",
     "text": "3분기",
     "children": [
      {
-      "id": "tmvftn8d07udgdf",
+      "id": "tmvg5mfplwwwfdx",
       "text": "해외 진출",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d05c92di",
+    "id": "tmvg5mfplhy30e0",
     "text": "4분기",
     "children": [
      {
-      "id": "tmvftn8d0js5vdh",
+      "id": "tmvg5mfplnibgdz",
       "text": "연간 회고",
       "children": []
      }
@@ -82,7 +82,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.956Z",
-  "modified": "2026-10-19T22:24:07.956Z"
+  "created": "2026-10-20T03:59:26.217Z",
+  "modified": "2026-10-20T03:59:26.217Z"
  }
 }

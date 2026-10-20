@@ -3,46 +3,46 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8csdr2c4a",
+  "id": "tmvg5mfp33sq44a",
   "text": "홈",
   "children": [
    {
-    "id": "tmvftn8cso0gl3v",
+    "id": "tmvg5mfp3zt7k3v",
     "text": "회사 소개",
     "children": [
      {
-      "id": "tmvftn8csri013s",
+      "id": "tmvg5mfp3zuli3s",
       "text": "비전",
       "children": []
      },
      {
-      "id": "tmvftn8cs2ygi3t",
+      "id": "tmvg5mfp3cyq93t",
       "text": "연혁",
       "children": []
      },
      {
-      "id": "tmvftn8csxl173u",
+      "id": "tmvg5mfp3byyt3u",
       "text": "오시는 길",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cswnz73z",
+    "id": "tmvg5mfp3xy1w3z",
     "text": "제품",
     "children": [
      {
-      "id": "tmvftn8cs0p803w",
+      "id": "tmvg5mfp32kzx3w",
       "text": "스마트 조명",
       "children": []
      },
      {
-      "id": "tmvftn8cs6zhd3x",
+      "id": "tmvg5mfp354nm3x",
       "text": "센서",
       "children": []
      },
      {
-      "id": "tmvftn8csz2ve3y",
+      "id": "tmvg5mfp3skua3y",
       "text": "비교하기",
       "children": [],
       "tags": [
@@ -52,53 +52,53 @@
     ]
    },
    {
-    "id": "tmvftn8cszjkf43",
+    "id": "tmvg5mfp33zi843",
     "text": "고객 지원",
     "children": [
      {
-      "id": "tmvftn8cs8xwq40",
+      "id": "tmvg5mfp38b8o40",
       "text": "FAQ",
       "children": []
      },
      {
-      "id": "tmvftn8csz7tj41",
+      "id": "tmvg5mfp3ub0441",
       "text": "문의하기",
       "children": []
      },
      {
-      "id": "tmvftn8cs5gs442",
+      "id": "tmvg5mfp3xpjb42",
       "text": "매뉴얼 다운로드",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8csrgef46",
+    "id": "tmvg5mfp345s346",
     "text": "블로그",
     "children": [
      {
-      "id": "tmvftn8cso17z44",
+      "id": "tmvg5mfp3q3tf44",
       "text": "공지",
       "children": []
      },
      {
-      "id": "tmvftn8csz4vu45",
+      "id": "tmvg5mfp36u3z45",
       "text": "사용 팁",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cs7yqc49",
+    "id": "tmvg5mfp35pg449",
     "text": "쇼핑몰",
     "children": [
      {
-      "id": "tmvftn8cs6sss47",
+      "id": "tmvg5mfp3ilzz47",
       "text": "장바구니",
       "children": []
      },
      {
-      "id": "tmvftn8cs1t5h48",
+      "id": "tmvg5mfp35lkb48",
       "text": "결제",
       "children": [],
       "icons": [
@@ -126,7 +126,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.948Z",
-  "modified": "2026-10-19T22:24:07.948Z"
+  "created": "2026-10-20T03:59:26.199Z",
+  "modified": "2026-10-20T03:59:26.199Z"
  }
 }

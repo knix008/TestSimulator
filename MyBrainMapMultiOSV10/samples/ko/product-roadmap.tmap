@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cq2sw72g",
+  "id": "tmvg5mfp1acbk2g",
   "text": "스마트 홈 허브 로드맵",
   "children": [
    {
-    "id": "tmvftn8cqwzey26",
+    "id": "tmvg5mfp13re226",
     "text": "1분기",
     "children": [
      {
-      "id": "tmvftn8cqt6k424",
+      "id": "tmvg5mfp1v0eq24",
       "text": "음성 명령 한국어 지원",
       "children": [],
       "task": {
@@ -19,7 +19,7 @@
       }
      },
      {
-      "id": "tmvftn8cqwywm25",
+      "id": "tmvg5mfp1yfmn25",
       "text": "앱 다크 모드",
       "children": [],
       "task": {
@@ -29,11 +29,11 @@
     ]
    },
    {
-    "id": "tmvftn8cqtly729",
+    "id": "tmvg5mfp1hl4k29",
     "text": "2분기",
     "children": [
      {
-      "id": "tmvftn8cqr0k327",
+      "id": "tmvg5mfp12mvd27",
       "text": "Matter 표준 지원",
       "children": [],
       "icons": [
@@ -44,7 +44,7 @@
       }
      },
      {
-      "id": "tmvftn8cq71fl28",
+      "id": "tmvg5mfp1a9cr28",
       "text": "에너지 사용량 리포트",
       "children": [],
       "task": {
@@ -54,16 +54,16 @@
     ]
    },
    {
-    "id": "tmvftn8cq2d7k2c",
+    "id": "tmvg5mfp1fvn82c",
     "text": "3분기",
     "children": [
      {
-      "id": "tmvftn8cq2dqp2a",
+      "id": "tmvg5mfp15kz12a",
       "text": "자동화 레시피 공유",
       "children": []
      },
      {
-      "id": "tmvftn8cq2ld72b",
+      "id": "tmvg5mfp1avxb2b",
       "text": "카메라 연동",
       "children": [],
       "icons": [
@@ -73,11 +73,11 @@
     ]
    },
    {
-    "id": "tmvftn8cq635v2f",
+    "id": "tmvg5mfp1qai02f",
     "text": "4분기",
     "children": [
      {
-      "id": "tmvftn8cqb5w22d",
+      "id": "tmvg5mfp1a8jn2d",
       "text": "2세대 하드웨어",
       "children": [],
       "icons": [
@@ -85,7 +85,7 @@
       ]
      },
      {
-      "id": "tmvftn8cq0y0o2e",
+      "id": "tmvg5mfp16rda2e",
       "text": "해외 출시 (일본)",
       "children": []
      }
@@ -110,7 +110,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.946Z",
-  "modified": "2026-10-19T22:24:07.946Z"
+  "created": "2026-10-20T03:59:26.197Z",
+  "modified": "2026-10-20T03:59:26.197Z"
  }
 }

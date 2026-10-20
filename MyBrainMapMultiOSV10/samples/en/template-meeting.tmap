@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8de19cfqp",
+  "id": "tmvg5mfqes6q2rp",
   "text": "Weekly meeting 2026-10-20",
   "children": [
    {
-    "id": "tmvftn8dehy48qd",
+    "id": "tmvg5mfqezzr6rd",
     "text": "Attendees",
     "children": [
      {
-      "id": "tmvftn8debibpqb",
+      "id": "tmvg5mfqewu0mrb",
       "text": "Pat",
       "children": [],
       "icons": [
@@ -19,7 +19,7 @@
       ]
      },
      {
-      "id": "tmvftn8del4hlqc",
+      "id": "tmvg5mfqe0rf3rc",
       "text": "Lee",
       "children": [],
       "icons": [
@@ -29,32 +29,32 @@
     ]
    },
    {
-    "id": "tmvftn8de5jb7qh",
+    "id": "tmvg5mfqed1zlrh",
     "text": "Agenda",
     "children": [
      {
-      "id": "tmvftn8de5t4iqe",
+      "id": "tmvg5mfqefaydre",
       "text": "Last week",
       "children": []
      },
      {
-      "id": "tmvftn8dejlhpqf",
+      "id": "tmvg5mfqerxs3rf",
       "text": "Priorities",
       "children": []
      },
      {
-      "id": "tmvftn8dezeelqg",
+      "id": "tmvg5mfqefchdrg",
       "text": "Other",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8depqmcqj",
+    "id": "tmvg5mfqekonqrj",
     "text": "Decisions",
     "children": [
      {
-      "id": "tmvftn8de5yz7qi",
+      "id": "tmvg5mfqe8gddri",
       "text": "Launch date fixed",
       "children": [],
       "icons": [
@@ -64,11 +64,11 @@
     ]
    },
    {
-    "id": "tmvftn8demxhnqm",
+    "id": "tmvg5mfqehighrm",
     "text": "Action items",
     "children": [
      {
-      "id": "tmvftn8de30qoqk",
+      "id": "tmvg5mfqekmrbrk",
       "text": "Write the report",
       "children": [],
       "task": {
@@ -79,7 +79,7 @@
       }
      },
      {
-      "id": "tmvftn8de3lmnql",
+      "id": "tmvg5mfqekg88rl",
       "text": "Ask for quotes",
       "children": [],
       "task": {
@@ -95,11 +95,11 @@
     ]
    },
    {
-    "id": "tmvftn8def8glqo",
+    "id": "tmvg5mfqef5qxro",
     "text": "Next meeting",
     "children": [
      {
-      "id": "tmvftn8de4xwhqn",
+      "id": "tmvg5mfqe89etrn",
       "text": "2026-10-27",
       "children": [],
       "icons": [
@@ -127,7 +127,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.970Z",
-  "modified": "2026-10-19T22:24:07.970Z"
+  "created": "2026-10-20T03:59:26.246Z",
+  "modified": "2026-10-20T03:59:26.246Z"
  }
 }

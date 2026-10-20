@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { Dialog } from './Dialogs';
 import { Icon } from '../components/Icons';
+import { IconSelect, scaleOptions, paddingOptions, paperOptions, orientOptions, tilesOptions, modeIcon } from '../components/IconSelect';
 import { isDesktop, listPrinters, printHtml } from '../lib/backend';
 import { printDocument, PRINT_PAPERS } from '../lib/print';
 import { mapPicture } from '../lib/exportimg';
@@ -65,26 +66,17 @@ export function PrintPreviewDialog({ map, settings, onSettings, onClose, onDone 
         <div className="print-pv-side">
           {isDesktop && (<>
             <label>{t('print_printer')}</label>
-            <select value={printer} onChange={(e) => setPrinter(e.target.value)}>
-              {!printers.length && <option value="">{t('print_default_printer')}</option>}
-              {printers.map((p) => <option key={p.name} value={p.name}>{p.displayName}{p.isDefault ? ` (${t('print_default')})` : ''}</option>)}
-            </select>
+            <IconSelect name="printer" value={printer} icon="print" onChange={setPrinter}
+              options={printers.length ? printers.map((p) => ({ value: p.name, label: `${p.displayName}${p.isDefault ? ` (${t('print_default')})` : ''}` })) : [{ value: '', label: t('print_default_printer') }]} />
             <label>{t('print_copies')}</label>
             <input type="number" min={1} max={99} value={copies} onChange={(e) => setCopies(Math.max(1, Math.min(99, Number(e.target.value) || 1)))} />
           </>)}
           <label>{t('print_paper')}</label>
-          <select value={o.paper} onChange={(e) => onSettings({ printPaper: e.target.value })}>
-            {PRINT_PAPERS.map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}
-          </select>
+          <IconSelect name="paper" value={o.paper} options={paperOptions(PRINT_PAPERS)} onChange={(v) => onSettings({ printPaper: v })} />
           <label>{t('print_orientation')}</label>
-          <select value={o.landscape ? 'landscape' : 'portrait'} onChange={(e) => onSettings({ printLandscape: e.target.value === 'landscape' })}>
-            <option value="portrait">{t('print_portrait')}</option>
-            <option value="landscape">{t('print_landscape')}</option>
-          </select>
+          <IconSelect name="orientation" value={o.landscape ? 'landscape' : 'portrait'} options={orientOptions({ portrait: t('print_portrait'), landscape: t('print_landscape') })} onChange={(v) => onSettings({ printLandscape: v === 'landscape' })} />
           <label>{t('print_pages')}</label>
-          <select value={o.pages} onChange={(e) => onSettings({ printPages: Number(e.target.value) })}>
-            {[1, 2, 4, 6, 9].map((n) => <option key={n} value={n}>{n === 1 ? t('print_fit_one') : t('print_tiles', { n })}</option>)}
-          </select>
+          <IconSelect name="pages" value={o.pages} options={tilesOptions((n) => (n === 1 ? t('print_fit_one') : t('print_tiles', { n })))} onChange={(v) => onSettings({ printPages: Number(v) })} />
           <label>{t('print_margin')}</label>
           <input type="number" min={0} max={40} value={o.margin} onChange={(e) => onSettings({ printMargin: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })} />
           <div className="print-pv-checks">

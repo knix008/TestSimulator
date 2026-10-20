@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cwuawi9v",
+  "id": "tmvg5mfpeoqijad",
   "text": "신제품 출시 프로젝트",
   "children": [
    {
-    "id": "tmvftn8cw4qtl9k",
+    "id": "tmvg5mfpeywera2",
     "text": "1. 기획",
     "children": [
      {
-      "id": "tmvftn8cwccdh9h",
+      "id": "tmvg5mfpeh3vm9z",
       "text": "시장 조사",
       "children": [],
       "task": {
@@ -23,7 +23,7 @@
       }
      },
      {
-      "id": "tmvftn8cwnj0n9i",
+      "id": "tmvg5mfpebikxa0",
       "text": "요구사항 정리",
       "children": [],
       "task": {
@@ -35,7 +35,7 @@
       }
      },
      {
-      "id": "tmvftn8cwdt1l9j",
+      "id": "tmvg5mfpecnbya1",
       "text": "예산 승인",
       "children": [],
       "task": {
@@ -48,11 +48,11 @@
     ]
    },
    {
-    "id": "tmvftn8cw154y9o",
+    "id": "tmvg5mfpeamt9a6",
     "text": "2. 개발",
     "children": [
      {
-      "id": "tmvftn8cwauw39l",
+      "id": "tmvg5mfpe4a79a3",
       "text": "디자인",
       "children": [],
       "task": {
@@ -63,7 +63,7 @@
       }
      },
      {
-      "id": "tmvftn8cws13e9m",
+      "id": "tmvg5mfpetrwxa4",
       "text": "구현",
       "children": [],
       "task": {
@@ -75,7 +75,7 @@
       }
      },
      {
-      "id": "tmvftn8cwv33m9n",
+      "id": "tmvg5mfperqeoa5",
       "text": "테스트",
       "children": [],
       "task": {
@@ -89,11 +89,11 @@
     ]
    },
    {
-    "id": "tmvftn8cwwhy39r",
+    "id": "tmvg5mfpevu29a9",
     "text": "3. 출시",
     "children": [
      {
-      "id": "tmvftn8cwr9cu9p",
+      "id": "tmvg5mfpeguwwa7",
       "text": "마케팅 자료",
       "children": [],
       "task": {
@@ -105,7 +105,7 @@
       }
      },
      {
-      "id": "tmvftn8cwntj09q",
+      "id": "tmvg5mfpek5gpa8",
       "text": "출시 행사",
       "children": [],
       "task": {
@@ -121,11 +121,11 @@
     ]
    },
    {
-    "id": "tmvftn8cwnvcl9u",
+    "id": "tmvg5mfpe0khxac",
     "text": "위험 요소",
     "children": [
      {
-      "id": "tmvftn8cwjpum9s",
+      "id": "tmvg5mfpedi6gaa",
       "text": "일정 지연",
       "children": [],
       "icons": [
@@ -133,7 +133,7 @@
       ]
      },
      {
-      "id": "tmvftn8cw7g639t",
+      "id": "tmvg5mfpekxspab",
       "text": "인력 부족",
       "children": [],
       "icons": [
@@ -169,7 +169,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.952Z",
-  "modified": "2026-10-19T22:24:07.952Z"
+  "created": "2026-10-20T03:59:26.210Z",
+  "modified": "2026-10-20T03:59:26.210Z"
  }
 }

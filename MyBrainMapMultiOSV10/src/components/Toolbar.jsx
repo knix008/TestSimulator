@@ -64,6 +64,7 @@ const GROUPS = [
     { widget: 'zoom' },
     { id: 'zoomIn', icon: 'zoomIn', tip: 'tip_zoom_in', needs: 'isMap' },
     { id: 'fit', icon: 'fit', tip: 'tip_fit', needs: 'isMap' },
+    { id: 'centerMap', icon: 'center', tip: 'tip_center_map', needs: 'isMap' },
   ],
   [
     { id: 'view:map', icon: 'mapView', tip: 'tip_view_map', needs: 'hasDoc', on: (st, s) => s.view === 'map' },

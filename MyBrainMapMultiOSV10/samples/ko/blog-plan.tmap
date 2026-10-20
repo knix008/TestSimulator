@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8csgcpo4t",
+  "id": "tmvg5mfp4glga4t",
   "text": "재택근무 1년, 배운 것들",
   "children": [
    {
-    "id": "tmvftn8csb3214e",
+    "id": "tmvg5mfp4bfvw4e",
     "text": "들어가며",
     "children": [
      {
-      "id": "tmvftn8cs4wzk4d",
+      "id": "tmvg5mfp4ttin4d",
       "text": "처음의 기대와 걱정",
       "children": []
      }
@@ -19,11 +19,11 @@
     "notes": "짧은 일화로 시작: 첫날 잠옷 차림으로 화상회의에 들어간 이야기."
    },
    {
-    "id": "tmvftn8csj5ob4h",
+    "id": "tmvg5mfp4j1ga4h",
     "text": "좋았던 점",
     "children": [
      {
-      "id": "tmvftn8csnc5s4f",
+      "id": "tmvg5mfp45dh74f",
       "text": "출퇴근 시간 0분",
       "children": [],
       "icons": [
@@ -31,18 +31,18 @@
       ]
      },
      {
-      "id": "tmvftn8csvrsy4g",
+      "id": "tmvg5mfp40fbb4g",
       "text": "집중 시간 확보",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cs1k7i4k",
+    "id": "tmvg5mfp4h40k4k",
     "text": "힘들었던 점",
     "children": [
      {
-      "id": "tmvftn8csnnmb4i",
+      "id": "tmvg5mfp49ix94i",
       "text": "일과 생활의 경계",
       "children": [],
       "icons": [
@@ -50,38 +50,38 @@
       ]
      },
      {
-      "id": "tmvftn8cs7x5m4j",
+      "id": "tmvg5mfp4k2nx4j",
       "text": "외로움",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8csr7494q",
+    "id": "tmvg5mfp43hbz4q",
     "text": "나만의 규칙 5가지",
     "children": [
      {
-      "id": "tmvftn8csj3zw4l",
+      "id": "tmvg5mfp45dy24l",
       "text": "출근 의식 만들기",
       "children": []
      },
      {
-      "id": "tmvftn8cs4pow4m",
+      "id": "tmvg5mfp4duz44m",
       "text": "책상은 일만",
       "children": []
      },
      {
-      "id": "tmvftn8csn7wy4n",
+      "id": "tmvg5mfp43y5s4n",
       "text": "점심은 밖에서",
       "children": []
      },
      {
-      "id": "tmvftn8cs3n2o4o",
+      "id": "tmvg5mfp4z8cp4o",
       "text": "알림 끄는 시간",
       "children": []
      },
      {
-      "id": "tmvftn8csslth4p",
+      "id": "tmvg5mfp46oxc4p",
       "text": "금요일 회고",
       "children": []
      }
@@ -92,11 +92,11 @@
     "notes": "각 규칙마다 사진 한 장과 3~4문장."
    },
    {
-    "id": "tmvftn8csvc2w4s",
+    "id": "tmvg5mfp4hv4t4s",
     "text": "마치며",
     "children": [
      {
-      "id": "tmvftn8csu5ac4r",
+      "id": "tmvg5mfp4awfy4r",
       "text": "독자에게 질문 던지기",
       "children": []
      }
@@ -122,7 +122,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.948Z",
-  "modified": "2026-10-19T22:24:07.948Z"
+  "created": "2026-10-20T03:59:26.200Z",
+  "modified": "2026-10-20T03:59:26.200Z"
  }
 }

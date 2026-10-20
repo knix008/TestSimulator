@@ -5,13 +5,14 @@
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, baseColorsOf, setCustomThemes, CUSTOM_COLOR_KEYS } from '../themes';
-import { Icon } from '../components/Icons';
+import { Icon, Flag } from '../components/Icons';
+import { IconSelect, scaleOptions, paddingOptions, paperOptions, orientOptions, tilesOptions, modeIcon } from '../components/IconSelect';
 import { StartScreenControls, screenOf } from '../components/StartScreenControls';
 import { LAYOUT_ICONS } from '../components/Toolbar';
 import { Dialog, ConfirmDialog } from './Dialogs';
 import { resetPatch, FONT_SUGGESTIONS } from '../lib/settings';
 import { LAYOUTS } from '../lib/model';
-import { MAP_STYLES } from '../lib/mapstyles';
+import { MAP_STYLES, mapStyleById } from '../lib/mapstyles';
 
 function Stepper({ value, onChange, step = 1, min = 0, max = 100, digits = 0, width = 70, unit }) {
   const clamp = (n) => Math.max(min, Math.min(max, Number(n.toFixed(digits))));
@@ -69,10 +70,8 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
               <legend>{t('set_grp_ui')}</legend>
               <div className="form-grid settings-grid">
                 <label>{t('set_language')}</label>
-                <select value={settings.language} onChange={(e) => onChange({ language: e.target.value })}>
-                  <option value="ko">한국어</option>
-                  <option value="en">English</option>
-                </select>
+                <IconSelect name="language" value={settings.language} onChange={(v) => onChange({ language: v })}
+                  options={[{ value: 'ko', label: '한국어', iconEl: <Flag country="kr" width={18} /> }, { value: 'en', label: 'English', iconEl: <Flag country="gb" width={18} /> }]} />
                 <label>{t('set_layout')}</label>
                 <span className="row" style={{ flexWrap: 'wrap', gap: 10 }}>
                   <Check id="toolbarVisible" label={t('toolbar')} settings={settings} onChange={onChange} />
@@ -108,11 +107,8 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
                 <Check id="reloadChangedFiles" label={t('set_reload')} settings={settings} onChange={onChange} />
                 <label>{t('set_auto_save')}</label>
                 <span className="row">
-                  <select value={settings.autoSave || 'off'} onChange={(e) => onChange({ autoSave: e.target.value })}>
-                    <option value="off">{t('set_auto_save_off')}</option>
-                    <option value="blur">{t('set_auto_save_blur')}</option>
-                    <option value="delay">{t('set_auto_save_delay')}</option>
-                  </select>
+                  <IconSelect name="autoSave" value={settings.autoSave || 'off'} onChange={(v) => onChange({ autoSave: v })}
+                    options={[{ value: 'off', label: t('set_auto_save_off'), icon: 'close' }, { value: 'blur', label: t('set_auto_save_blur'), icon: 'save' }, { value: 'delay', label: t('set_auto_save_delay'), icon: 'clock' }]} />
                 </span>
                 {settings.autoSave === 'delay' && (<>
                   <label>{t('set_auto_save_after')}</label>
@@ -131,13 +127,11 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
               <legend>{t('set_grp_new_map')}</legend>
               <div className="form-grid settings-grid">
                 <label>{t('set_default_layout')}</label>
-                <select value={settings.defaultLayout} onChange={(e) => onChange({ defaultLayout: e.target.value })}>
-                  {LAYOUTS.map((l) => <option key={l} value={l}>{t(`layout_${l}`)}</option>)}
-                </select>
+                <IconSelect name="defaultLayout" value={settings.defaultLayout} onChange={(v) => onChange({ defaultLayout: v })}
+                  options={LAYOUTS.map((l) => ({ value: l, label: t(`layout_${l}`), icon: LAYOUT_ICONS[l] }))} />
                 <label>{t('set_default_style')}</label>
-                <select value={settings.defaultMapStyle} onChange={(e) => onChange({ defaultMapStyle: e.target.value })}>
-                  {MAP_STYLES.map((s) => <option key={s.id} value={s.id}>{s.label[lang === 'ko' ? 0 : 1]}</option>)}
-                </select>
+                <IconSelect name="defaultMapStyle" value={settings.defaultMapStyle} onChange={(v) => onChange({ defaultMapStyle: v })}
+                  options={MAP_STYLES.map((s) => { const r = s.auto ? null : mapStyleById(s.id); return { value: s.id, label: s.label[lang === 'ko' ? 0 : 1], ...(r ? { swatch: [r.bg, r.branch ? r.branch[0] : r.root.fill] } : { icon: 'mapStyle' }) }; })} />
                 <label>{t('set_map_font')}</label>
                 <span>
                   <input list="tm-set-fonts" value={settings.mapFont || ''} placeholder={t('auto')} onChange={(e) => onChange({ mapFont: e.target.value })} />
@@ -195,10 +189,8 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
         <div className="custom-theme">
           <div className="pe-quick">
             <button type="button" className="btn small" onClick={addCustom}><Icon name="plus" size={13} /> {t('set_custom_add', { name: themeLabel(settings.theme) })}</button>
-            <select value={customCur ? customCur.id : ''} disabled={!customList.length} onChange={(e) => { if (e.target.value) onChange({ theme: e.target.value }); }} style={{ minWidth: 200, width: 'auto' }}>
-              {!customList.length && <option value="">{t('set_custom_none')}</option>}
-              {(settings.customThemes || []).map((c) => <option key={c.id} value={c.id}>★ {c.label}</option>)}
-            </select>
+            <IconSelect name="customTheme" value={customCur ? customCur.id : ''} disabled={!customList.length} onChange={(v) => { if (v) onChange({ theme: v }); }} style={{ minWidth: 200 }}
+              options={customList.length ? [...(customCur ? [] : [{ value: '', label: t('set_custom_pick'), icon: 'palette' }]), ...customList.map((c) => ({ value: c.id, label: `★ ${c.label}`, swatch: [c.tokens['--bg'], c.tokens['--accent']] }))] : [{ value: '', label: t('set_custom_none'), icon: 'palette' }]} />
             <button type="button" className="btn small" disabled={!customCur} onClick={removeCustom}><Icon name="close" size={13} /> {t('set_custom_remove')}</button>
             {!customCur && <span className="muted small">{t('set_custom_hint')}</span>}
           </div>
@@ -207,10 +199,8 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
               <label>{t('set_custom_name')}</label>
               <div className="row">
                 <input value={customCur ? customCur.label : ''} disabled={!customCur} onChange={(e) => editCustom({ label: e.target.value })} style={{ flex: 1, minWidth: 0 }} />
-                <select value={customCur ? customCur.mode : 'dark'} disabled={!customCur} onChange={(e) => editCustom({ mode: e.target.value })} style={{ flex: 'none', width: 160 }}>
-                  <option value="dark">{t('set_custom_dark')}</option>
-                  <option value="light">{t('set_custom_light')}</option>
-                </select>
+                <IconSelect name="customMode" value={customCur ? customCur.mode : 'dark'} disabled={!customCur} onChange={(v) => editCustom({ mode: v })} style={{ flex: 'none', width: 160 }}
+                  options={[{ value: 'dark', label: t('set_custom_dark'), iconEl: modeIcon('dark') }, { value: 'light', label: t('set_custom_light'), iconEl: modeIcon('light') }]} />
               </div>
             </div>
             <div className="custom-colors">
@@ -250,9 +240,7 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
               <legend>{t('set_grp_export')}</legend>
               <div className="form-grid settings-grid">
                 <label>{t('export_scale')}</label>
-                <select value={settings.exportScale} onChange={(e) => onChange({ exportScale: Number(e.target.value) })}>
-                  {[1, 1.5, 2, 3, 4].map((s) => <option key={s} value={s}>{`${s}×`}</option>)}
-                </select>
+                <IconSelect name="exportScale" value={settings.exportScale} options={scaleOptions()} onChange={(v) => onChange({ exportScale: Number(v) })} />
                 <label>{t('export_padding')}</label>
                 <Stepper value={settings.exportPadding} onChange={(n) => onChange({ exportPadding: n })} min={0} max={200} step={10} unit="px" />
                 <label />
@@ -265,20 +253,13 @@ export function SettingsDialog({ settings, onChange, onClose, embedded = false, 
               <legend>{t('set_grp_print')}</legend>
               <div className="form-grid settings-grid">
                 <label>{t('print_paper')}</label>
-                <select value={settings.printPaper} onChange={(e) => onChange({ printPaper: e.target.value })}>
-                  {['a4', 'a3', 'a5', 'letter', 'legal'].map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}
-                </select>
+                <IconSelect name="printPaper" value={settings.printPaper} options={paperOptions(['a4', 'a3', 'a5', 'letter', 'legal'])} onChange={(v) => onChange({ printPaper: v })} />
                 <label>{t('print_orientation')}</label>
-                <select value={settings.printLandscape ? 'landscape' : 'portrait'} onChange={(e) => onChange({ printLandscape: e.target.value === 'landscape' })}>
-                  <option value="portrait">{t('print_portrait')}</option>
-                  <option value="landscape">{t('print_landscape')}</option>
-                </select>
+                <IconSelect name="printOrientation" value={settings.printLandscape ? 'landscape' : 'portrait'} options={orientOptions({ portrait: t('print_portrait'), landscape: t('print_landscape') })} onChange={(v) => onChange({ printLandscape: v === 'landscape' })} />
                 <label>{t('print_margin')}</label>
                 <Stepper value={settings.printMargin} onChange={(n) => onChange({ printMargin: n })} min={0} max={40} unit="mm" />
                 <label>{t('print_pages')}</label>
-                <select value={settings.printPages} onChange={(e) => onChange({ printPages: Number(e.target.value) })}>
-                  {[1, 2, 4, 6, 9].map((n) => <option key={n} value={n}>{n === 1 ? t('print_fit_one') : t('print_tiles', { n })}</option>)}
-                </select>
+                <IconSelect name="printPages" value={settings.printPages} options={tilesOptions((n) => (n === 1 ? t('print_fit_one') : t('print_tiles', { n })))} onChange={(v) => onChange({ printPages: Number(v) })} />
                 <label />
                 <Check id="printHeader" label={t('print_header')} settings={settings} onChange={onChange} />
                 <label />

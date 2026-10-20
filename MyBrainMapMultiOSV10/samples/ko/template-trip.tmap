@@ -3,25 +3,25 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d22rf8f2",
+  "id": "tmvg5mfpp88kyfk",
   "text": "제주 여행",
   "children": [
    {
-    "id": "tmvftn8d2oz46er",
+    "id": "tmvg5mfppbx30f9",
     "text": "일정",
     "children": [
      {
-      "id": "tmvftn8d2kfyoeo",
+      "id": "tmvg5mfpp70wdf6",
       "text": "1일차",
       "children": []
      },
      {
-      "id": "tmvftn8d27vb9ep",
+      "id": "tmvg5mfppqsvpf7",
       "text": "2일차",
       "children": []
      },
      {
-      "id": "tmvftn8d2i0cqeq",
+      "id": "tmvg5mfppcmkuf8",
       "text": "3일차",
       "children": []
      }
@@ -31,11 +31,11 @@
     ]
    },
    {
-    "id": "tmvftn8d2uzhget",
+    "id": "tmvg5mfpp4xdrfb",
     "text": "숙소",
     "children": [
      {
-      "id": "tmvftn8d2yukees",
+      "id": "tmvg5mfppk79xfa",
       "text": "예약 확인",
       "children": [],
       "icons": [
@@ -48,21 +48,21 @@
     ]
    },
    {
-    "id": "tmvftn8d2in5aex",
+    "id": "tmvg5mfpphfxyff",
     "text": "준비물",
     "children": [
      {
-      "id": "tmvftn8d28w10eu",
+      "id": "tmvg5mfppbzh6fc",
       "text": "여권/신분증",
       "children": []
      },
      {
-      "id": "tmvftn8d2nr8qev",
+      "id": "tmvg5mfppn2elfd",
       "text": "충전기",
       "children": []
      },
      {
-      "id": "tmvftn8d2nw5pew",
+      "id": "tmvg5mfppqrz2fe",
       "text": "상비약",
       "children": []
      }
@@ -72,21 +72,21 @@
     ]
    },
    {
-    "id": "tmvftn8d23txjf1",
+    "id": "tmvg5mfppaw9kfj",
     "text": "예산",
     "children": [
      {
-      "id": "tmvftn8d2o8ftey",
+      "id": "tmvg5mfppxaucfg",
       "text": "교통",
       "children": []
      },
      {
-      "id": "tmvftn8d2uopyez",
+      "id": "tmvg5mfppgitcfh",
       "text": "식비",
       "children": []
      },
      {
-      "id": "tmvftn8d2z8lzf0",
+      "id": "tmvg5mfppbf6lfi",
       "text": "숙박",
       "children": []
      }
@@ -114,7 +114,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.958Z",
-  "modified": "2026-10-19T22:24:07.958Z"
+  "created": "2026-10-20T03:59:26.221Z",
+  "modified": "2026-10-20T03:59:26.221Z"
  }
 }

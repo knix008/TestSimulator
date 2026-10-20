@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d9ggnhir",
+  "id": "tmvg5mfpzm70wj9",
   "text": "Fall finals",
   "children": [
    {
-    "id": "tmvftn8d9i6t0if",
+    "id": "tmvg5mfpzxj0rix",
     "text": "Calculus",
     "children": [
      {
-      "id": "tmvftn8d9sohric",
+      "id": "tmvg5mfpze1nkiu",
       "text": "Integration techniques",
       "children": [],
       "task": {
@@ -20,7 +20,7 @@
       }
      },
      {
-      "id": "tmvftn8d97av3id",
+      "id": "tmvg5mfpzbh4piv",
       "text": "Two past papers",
       "children": [],
       "task": {
@@ -29,7 +29,7 @@
       }
      },
      {
-      "id": "tmvftn8d9h5yuie",
+      "id": "tmvg5mfpz2ucniw",
       "text": "Error log",
       "children": [],
       "task": {
@@ -43,11 +43,11 @@
     }
    },
    {
-    "id": "tmvftn8d9u21oii",
+    "id": "tmvg5mfpzv81hj0",
     "text": "Data structures",
     "children": [
      {
-      "id": "tmvftn8d9gklcig",
+      "id": "tmvg5mfpz5g3iiy",
       "text": "Trees and graphs",
       "children": [],
       "task": {
@@ -56,7 +56,7 @@
       }
      },
      {
-      "id": "tmvftn8d9vmu3ih",
+      "id": "tmvg5mfpzwka2iz",
       "text": "30 coding problems",
       "children": [],
       "task": {
@@ -70,11 +70,11 @@
     }
    },
    {
-    "id": "tmvftn8d9hzhtil",
+    "id": "tmvg5mfpza16fj3",
     "text": "Economics",
     "children": [
      {
-      "id": "tmvftn8d9i0irij",
+      "id": "tmvg5mfpzxznnj1",
       "text": "Summaries ch. 5–9",
       "children": [],
       "task": {
@@ -83,7 +83,7 @@
       }
      },
      {
-      "id": "tmvftn8d96xm1ik",
+      "id": "tmvg5mfpzz6jjj2",
       "text": "Graph questions",
       "children": [],
       "task": {
@@ -94,11 +94,11 @@
     ]
    },
    {
-    "id": "tmvftn8d96cf1in",
+    "id": "tmvg5mfpz3n01j5",
     "text": "English",
     "children": [
      {
-      "id": "tmvftn8d9ghspim",
+      "id": "tmvg5mfpzk1qbj4",
       "text": "Presentation",
       "children": [],
       "task": {
@@ -112,11 +112,11 @@
     ]
    },
    {
-    "id": "tmvftn8d9az3ciq",
+    "id": "tmvg5mfpzqcwlj8",
     "text": "Wellbeing",
     "children": [
      {
-      "id": "tmvftn8d9l2qrio",
+      "id": "tmvg5mfpzltp5j6",
       "text": "Sleep 7 hours",
       "children": [],
       "icons": [
@@ -124,7 +124,7 @@
       ]
      },
      {
-      "id": "tmvftn8d979odip",
+      "id": "tmvg5mfpzl8ewj7",
       "text": "30-minute walk",
       "children": []
      }
@@ -152,7 +152,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.965Z",
-  "modified": "2026-10-19T22:24:07.965Z"
+  "created": "2026-10-20T03:59:26.231Z",
+  "modified": "2026-10-20T03:59:26.231Z"
  }
 }

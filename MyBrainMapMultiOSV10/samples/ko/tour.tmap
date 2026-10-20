@@ -3,42 +3,60 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cwjsgs9b",
-  "text": "My BrainMap 둘러보기",
+  "id": "tmvg5mfpc3da69t",
+  "text": "My BrainMap 튜토리얼",
   "children": [
    {
-    "id": "tmvftn8cw7a918t",
-    "text": "토픽 만들기",
+    "id": "tmvg5mfpczjza8v",
+    "text": "기본 조작",
     "children": [
      {
-      "id": "tmvftn8cwxz3a8p",
-      "text": "Enter: 형제 토픽",
+      "id": "tmvg5mfpcwuq08p",
+      "text": "Enter: 형제 토픽 만들기",
       "children": [],
+      "notes": "**해 보기:** 이 토픽을 누르고 Enter 를 누르세요. 바로 아래에 새 토픽이 생기고 글자를 입력할 수 있습니다.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8cwbbu58q",
+      "id": "tmvg5mfpcg7p78q",
       "text": "Tab / Insert: 하위 토픽",
       "children": [],
+      "notes": "**해 보기:** Tab 을 누르면 선택한 토픽 아래에 하위 토픽이 생깁니다. Shift+Tab 은 상위 토픽으로 갑니다.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8cw5dca8r",
+      "id": "tmvg5mfpcv9qe8r",
       "text": "F2 또는 바로 입력: 편집",
       "children": [],
+      "notes": "토픽을 고르고 글자를 치면 바로 편집됩니다. Shift+Enter 는 줄바꿈, Esc 는 취소입니다.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8cw9wbf8s",
-      "text": "끌어서 옮기기",
+      "id": "tmvg5mfpckk2h8s",
+      "text": "끌어서 옮기기 — 연결은 유지",
       "children": [],
-      "notes": "다른 토픽 위에 놓으면 하위 토픽, 위·아래 가장자리에 놓으면 형제 토픽, 빈 곳에 놓으면 플로팅 토픽이 됩니다."
+      "notes": "다른 토픽 위에 놓으면 그 하위 토픽, 위·아래 가장자리에 놓으면 형제 토픽이 됩니다. **빈 곳에 놓으면 연결된 채로 그 자리로 옮겨집니다.** Alt 를 누른 채 놓으면 떼어서 자유(플로팅) 토픽이 됩니다.",
+      "icons": [
+       "star"
+      ]
+     },
+     {
+      "id": "tmvg5mfpcry2a8t",
+      "text": "Ctrl+Z / Ctrl+Y: 실행 취소 · 다시 실행",
+      "children": [],
+      "notes": "모든 편집은 하나씩 되돌릴 수 있습니다. 바꾼 맵을 닫으면 저장할지 묻습니다."
+     },
+     {
+      "id": "tmvg5mfpcry5g8u",
+      "text": "오른쪽 클릭: 컨텍스트 메뉴",
+      "children": [],
+      "notes": "토픽, 빈 곳, 관계선, 왼쪽 패널의 항목에서 오른쪽 클릭하면 아이콘이 붙은 메뉴가 나옵니다."
      }
     ],
     "icons": [
@@ -47,44 +65,115 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cwhgp08x",
-    "text": "레이아웃",
+    "id": "tmvg5mfpctrfn90",
+    "text": "화면",
     "children": [
      {
-      "id": "tmvftn8cw006a8u",
-      "text": "맵 · 오른쪽 · 왼쪽",
-      "children": []
+      "id": "tmvg5mfpc4qg48w",
+      "text": "격자와 눈금자",
+      "children": [],
+      "notes": "도구 모음의 격자·눈금자 단추(Ctrl+Alt+G / Ctrl+Alt+R)로 켜고 끕니다. 눈금자의 0 은 중심 토픽입니다."
      },
      {
-      "id": "tmvftn8cw8ier8v",
-      "text": "조직도 · 트리",
-      "children": []
+      "id": "tmvg5mfpckjh08x",
+      "text": "전체 보기 창",
+      "children": [],
+      "notes": "오른쪽 아래 작은 창이 맵 전체와 지금 보이는 부분을 보여 줍니다. 눌러서 그곳으로 이동합니다. Ctrl+Alt+O 로 켜고 끕니다."
      },
      {
-      "id": "tmvftn8cw3mlk8w",
-      "text": "타임라인 · 피시본",
-      "children": []
+      "id": "tmvg5mfpcpdm18y",
+      "text": "왼쪽·오른쪽 패널 접기",
+      "children": [],
+      "notes": "패널 경계의 작은 화살표(또는 경계를 두 번 누르기, Ctrl+Alt+S / Ctrl+Alt+P)로 접고, 화면 가장자리의 탭으로 다시 펍니다."
+     },
+     {
+      "id": "tmvg5mfpcpxwm8z",
+      "text": "확대 · 축소 · 맞추기",
+      "children": [],
+      "notes": "Ctrl+휠, Ctrl+= / Ctrl+-, Ctrl+0 (맵 전체), Ctrl+1 (100%)."
+     }
+    ],
+    "icons": [
+     "eye"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvg5mfpcf13i95",
+    "text": "레이아웃 · 정리",
+    "children": [
+     {
+      "id": "tmvg5mfpcff4p91",
+      "text": "위→아래 · 왼→오 · 오→왼 · 양쪽",
+      "children": [],
+      "notes": "도구 모음의 다시 그리기 단추 네 개(Ctrl+Alt+↓ → ← M)로 방향을 바꿔 다시 그립니다."
+     },
+     {
+      "id": "tmvg5mfpcu9lv92",
+      "text": "자동 정리",
+      "children": [],
+      "notes": "손으로 옮긴 토픽을 제자리로 돌리고 양쪽 균형을 맞춥니다 (Ctrl+Shift+L)."
+     },
+     {
+      "id": "tmvg5mfpcbebk93",
+      "text": "조직도 · 트리 · 타임라인 · 피쉬본",
+      "children": [],
+      "notes": "레이아웃 메뉴에서 맵 전체를, 작업 창 › 서식 › 하위 토픽 배치에서 가지 하나를 바꿉니다."
+     },
+     {
+      "id": "tmvg5mfpcdac894",
+      "text": "맵 스타일 · 테마",
+      "children": [],
+      "notes": "맵 스타일 단추로 색 구성을, 설정 › 테마에서 40가지 화면 테마를 고릅니다."
      }
     ],
     "icons": [
      "star"
     ],
-    "side": "right"
+    "side": "right",
+    "summary": {
+     "text": "보기 좋게"
+    }
    },
    {
-    "id": "tmvftn8cwkg6d92",
+    "id": "tmvg5mfpc2xcy9c",
     "text": "토픽에 담는 것",
     "children": [
      {
-      "id": "tmvftn8cw1sbp8y",
-      "text": "메모",
+      "id": "tmvg5mfpcqe1m96",
+      "text": "메모 (Markdown)",
       "children": [],
-      "notes": "**Markdown** 으로 쓰는 메모입니다.\n- 목록\n- [링크](https://example.com)"
+      "notes": "**굵게**, 목록, [링크](https://example.com) 를 쓸 수 있는 메모입니다. Ctrl+T 로 엽니다."
      },
      {
-      "id": "tmvftn8cw7uj58z",
+      "id": "tmvg5mfpcuedw98",
+      "text": "댓글과 사용자 속성",
+      "children": [],
+      "notes": "작업 창 › 메모 아래에서 작성자와 날짜가 남는 댓글을 달고, \"담당 = 김기획\" 같은 속성을 붙입니다.",
+      "comments": [
+       {
+        "id": "tmvg5mfpccpou97",
+        "author": "튜토리얼",
+        "text": "이 토픽에는 댓글이 있습니다 — 말풍선 표시를 눌러 보세요.",
+        "date": "2026-10-20T03:59:26.208Z"
+       }
+      ],
+      "props": [
+       {
+        "key": "담당",
+        "value": "나"
+       },
+       {
+        "key": "예산",
+        "value": "1,200"
+       }
+      ]
+     },
+     {
+      "id": "tmvg5mfpcvsv399",
       "text": "아이콘과 태그",
       "children": [],
+      "notes": "작업 창 › 아이콘에서 우선순위, 진행률, 깃발, 기호와 태그를 붙입니다.",
       "icons": [
        "flag-green",
        "smiley-happy"
@@ -95,9 +184,10 @@
       ]
      },
      {
-      "id": "tmvftn8cwz68g90",
+      "id": "tmvg5mfpcrot89a",
       "text": "작업 정보",
       "children": [],
+      "notes": "시작·마감일, 진행률, 담당, 작업량. 날짜가 있으면 간트 차트에 막대로 나옵니다.",
       "task": {
        "start": "2026-10-20",
        "due": "2026-10-26",
@@ -107,9 +197,10 @@
       }
      },
      {
-      "id": "tmvftn8cw3w6j91",
-      "text": "하이퍼링크",
+      "id": "tmvg5mfpcyine9b",
+      "text": "링크 · 첨부 · 그림",
       "children": [],
+      "notes": "Ctrl+K 로 하이퍼링크, 파일을 끌어 놓으면 첨부, 그림을 붙여 넣으면 토픽 그림이 됩니다.",
       "link": {
        "url": "https://github.com/knix008/TestSimulator"
       }
@@ -121,23 +212,71 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cw5w2396",
+    "id": "tmvg5mfpcdwb19n",
     "text": "보기",
     "children": [
      {
-      "id": "tmvftn8cw2evw93",
+      "id": "tmvg5mfpc3n0n9j",
       "text": "개요 보기",
-      "children": []
+      "children": [],
+      "notes": "맵을 들여 쓴 목록으로 보고 편집합니다."
      },
      {
-      "id": "tmvftn8cw5s7g94",
+      "id": "tmvg5mfpcctsm9k",
       "text": "간트 차트",
-      "children": []
+      "children": [],
+      "notes": "날짜가 있는 토픽을 막대로 보고, 끌어서 날짜를 바꿉니다.",
+      "task": {
+       "start": "2026-10-22",
+       "due": "2026-10-29",
+       "progress": 20
+      }
      },
      {
-      "id": "tmvftn8cw20r095",
-      "text": "프레젠테이션 (F5)",
-      "children": []
+      "id": "tmvg5mfpcxcfn9l",
+      "text": "칸반 보드",
+      "children": [],
+      "notes": "주 토픽이 열, 하위 토픽이 카드입니다. 카드를 다른 열로 끌면 맵에서도 옮겨집니다."
+     },
+     {
+      "id": "tmvg5mfpc073e9m",
+      "text": "프레젠테이션 (F5) · 가지만 보기 (F4)",
+      "children": [],
+      "notes": "가지마다 한 장씩 보여 주고, F4 는 선택한 가지만 남깁니다."
+     }
+    ],
+    "icons": [
+     "chart"
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvg5mfpc3mad9i",
+    "text": "구조 표현",
+    "children": [
+     {
+      "id": "tmvg5mfpcxg659d",
+      "text": "관계선",
+      "children": [],
+      "notes": "Ctrl+Shift+R 후 다른 토픽을 누릅니다. 손잡이로 곡선을 바꾸고 이름·색·화살표를 고릅니다."
+     },
+     {
+      "id": "tmvg5mfpc6sm19e",
+      "text": "경계",
+      "children": [],
+      "notes": "가지 하나를 테두리로 묶습니다 (Ctrl+Shift+B). 구름 모양과 이름도 있습니다."
+     },
+     {
+      "id": "tmvg5mfpcyzw99f",
+      "text": "요약",
+      "children": [],
+      "notes": "하위 토픽 옆에 괄호와 요약을 붙입니다 (Ctrl+]). \"레이아웃 · 정리\" 가지에 예가 있습니다."
+     },
+     {
+      "id": "tmvg5mfpc83sb9g",
+      "text": "설명선 · 플로팅 토픽",
+      "children": [],
+      "notes": "Ctrl+Shift+Enter 로 설명선, 빈 곳을 두 번 눌러 플로팅 토픽을 만듭니다."
      }
     ],
     "icons": [
@@ -146,60 +285,74 @@
     "side": "left",
     "boundary": {
      "shape": "rounded",
-     "label": "보기 전환"
-    }
+     "label": "구조"
+    },
+    "callouts": [
+     {
+      "id": "tmvg5mfpcl3wj9h",
+      "text": "삽입 메뉴에 모두 있습니다",
+      "children": []
+     }
+    ]
    },
    {
-    "id": "tmvftn8cw1n8q9a",
-    "text": "가져오기 · 내보내기",
+    "id": "tmvg5mfpc4h709s",
+    "text": "찾기 · 파일",
     "children": [
      {
-      "id": "tmvftn8cwv1i097",
-      "text": "FreeMind · XMind · MindManager · OPML · Markdown",
-      "children": []
+      "id": "tmvg5mfpcvnnc9o",
+      "text": "찾기 · 바꾸기 · 필터",
+      "children": [],
+      "notes": "Ctrl+F 로 찾고 바꾸며, 왼쪽 패널 › 필터에서 우선순위·아이콘·태그로 거릅니다."
      },
      {
-      "id": "tmvftn8cwddns98",
-      "text": "PNG · SVG · PDF · Word · HTML",
-      "children": []
+      "id": "tmvg5mfpcmkl39p",
+      "text": "저장 · 가져오기 · 내보내기 · 인쇄",
+      "children": [],
+      "notes": ".tmap 으로 저장하고, FreeMind · XMind · MindManager · OPML · Markdown 을 가져오며, PNG · SVG · PDF · Word · HTML · CSV 로 내보냅니다."
+     },
+     {
+      "id": "tmvg5mfpcnkz69q",
+      "text": "설정 · 시작 화면 배경",
+      "children": [],
+      "notes": "Ctrl+, 로 설정을 엽니다. 시작 화면 배경은 마인드맵을 주제로 한 3D 장면 21가지 중에서 고릅니다."
+     },
+     {
+      "id": "tmvg5mfpcbvtq9r",
+      "text": "F1: 도움말",
+      "children": [],
+      "notes": "모든 기능의 설명이 그림과 함께 별도 창으로 열립니다."
      }
     ],
     "icons": [
      "rocket"
     ],
-    "side": "left",
-    "callouts": [
-     {
-      "id": "tmvftn8cwdlfq99",
-      "text": "파일 › 내보내기",
-      "children": []
-     }
-    ]
+    "side": "left"
    }
   ],
-  "notes": "이 맵은 기능을 보여 주는 예제입니다. 마음대로 고쳐 보세요 — 실행 취소는 Ctrl+Z 입니다."
+  "notes": "위에서부터 차례로 따라 해 보세요. 각 토픽의 메모에 해 볼 일이 적혀 있습니다. 마음대로 고쳐도 됩니다 — Ctrl+Z 로 되돌립니다."
  },
  "floating": [
   {
-   "id": "tmvftn8cwcp189c",
+   "id": "tmvg5mfpcq45v9u",
    "text": "플로팅 토픽",
    "children": [],
-   "notes": "빈 곳을 두 번 누르면 만들어집니다.",
-   "x": 520,
-   "y": 280
+   "notes": "빈 곳을 두 번 누르거나, 토픽을 Alt 를 누른 채 빈 곳에 놓으면 만들어집니다.",
+   "x": 980,
+   "y": -150
   }
  ],
  "relationships": [
   {
-   "id": "tmvftn8cweasy9e",
-   "from": "tmvftn8cw9wbf8s",
-   "to": "tmvftn8cwcp189c",
-   "label": "빈 곳에 놓기"
+   "id": "tmvg5mfpck7ab9w",
+   "from": "tmvg5mfpckk2h8s",
+   "to": "tmvg5mfpcq45v9u",
+   "label": "Alt + 놓기"
   },
   {
-   "id": "tmvftn8cwmfhy9f",
-   "from": "tmvftn8cwz68g90",
-   "to": "tmvftn8cw5s7g94",
+   "id": "tmvg5mfpcrhh59x",
+   "from": "tmvg5mfpcrot89a",
+   "to": "tmvg5mfpcctsm9k",
    "label": "날짜 → 막대"
   }
  ],
@@ -218,7 +371,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.952Z",
-  "modified": "2026-10-19T22:24:07.952Z"
+  "created": "2026-10-20T03:59:26.208Z",
+  "modified": "2026-10-20T03:59:26.208Z"
  }
 }

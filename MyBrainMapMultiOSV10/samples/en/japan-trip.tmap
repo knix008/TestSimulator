@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d95l8yji",
+  "id": "tmvg5mfq0rnrhk0",
   "text": "5 days in Tokyo",
   "children": [
    {
-    "id": "tmvftn8d996hbix",
+    "id": "tmvg5mfq0at4ijf",
     "text": "Day 1 · Shinjuku",
     "children": [
      {
-      "id": "tmvftn8d94nqriu",
+      "id": "tmvg5mfq0sv5fjc",
       "text": "Hotel check-in",
       "children": []
      },
      {
-      "id": "tmvftn8d9od8hiv",
+      "id": "tmvg5mfq0uw1sjd",
       "text": "City hall observatory",
       "children": [],
       "link": {
@@ -24,7 +24,7 @@
       }
      },
      {
-      "id": "tmvftn8d902a8iw",
+      "id": "tmvg5mfq0phz4je",
       "text": "Omoide Yokocho",
       "children": [],
       "icons": [
@@ -35,21 +35,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8d9emlwj1",
+    "id": "tmvg5mfq0qufljj",
     "text": "Day 2 · Asakusa",
     "children": [
      {
-      "id": "tmvftn8d9tms0iy",
+      "id": "tmvg5mfq0sp94jg",
       "text": "Sensō-ji",
       "children": []
      },
      {
-      "id": "tmvftn8d9y6q3iz",
+      "id": "tmvg5mfq08pn9jh",
       "text": "Sumida river cruise",
       "children": []
      },
      {
-      "id": "tmvftn8d94c2vj0",
+      "id": "tmvg5mfq0dgt0ji",
       "text": "Skytree",
       "children": [],
       "icons": [
@@ -60,16 +60,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8d97p61j5",
+    "id": "tmvg5mfq069qpjn",
     "text": "Day 3 · Hakone day trip",
     "children": [
      {
-      "id": "tmvftn8d9e3tcj2",
+      "id": "tmvg5mfq0zce7jk",
       "text": "Romancecar",
       "children": []
      },
      {
-      "id": "tmvftn8d9xh53j3",
+      "id": "tmvg5mfq0crygjl",
       "text": "Hot spring",
       "children": [],
       "icons": [
@@ -80,28 +80,28 @@
     "side": "right",
     "callouts": [
      {
-      "id": "tmvftn8d97ps6j4",
+      "id": "tmvg5mfq07xuqjm",
       "text": "Buy the pass in advance!",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d9hy32j9",
+    "id": "tmvg5mfq0fnekjr",
     "text": "Budget (per person)",
     "children": [
      {
-      "id": "tmvftn8d9ewehj6",
+      "id": "tmvg5mfq0q1uzjo",
       "text": "Flights $260",
       "children": []
      },
      {
-      "id": "tmvftn8d9actwj7",
+      "id": "tmvg5mfq0q87rjp",
       "text": "Hotel $300",
       "children": []
      },
      {
-      "id": "tmvftn8d9iy2lj8",
+      "id": "tmvg5mfq095y2jq",
       "text": "Food & travel $220",
       "children": []
      }
@@ -112,11 +112,11 @@
     ]
    },
    {
-    "id": "tmvftn8d9vwgmjd",
+    "id": "tmvg5mfq027myjv",
     "text": "Packing",
     "children": [
      {
-      "id": "tmvftn8d9kiygja",
+      "id": "tmvg5mfq07b1ljs",
       "text": "Passport",
       "children": [],
       "icons": [
@@ -124,7 +124,7 @@
       ]
      },
      {
-      "id": "tmvftn8d9f6e0jb",
+      "id": "tmvg5mfq04nmkjt",
       "text": "Suica card",
       "children": [],
       "icons": [
@@ -132,7 +132,7 @@
       ]
      },
      {
-      "id": "tmvftn8d9nqwfjc",
+      "id": "tmvg5mfq0gfviju",
       "text": "Power adapter",
       "children": []
      }
@@ -140,21 +140,21 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8d9olwnjh",
+    "id": "tmvg5mfq0eovkjz",
     "text": "Food list",
     "children": [
      {
-      "id": "tmvftn8d9lfcnje",
+      "id": "tmvg5mfq0blv2jw",
       "text": "Omakase sushi",
       "children": []
      },
      {
-      "id": "tmvftn8d9bfd5jf",
+      "id": "tmvg5mfq0z2iejx",
       "text": "Ramen",
       "children": []
      },
      {
-      "id": "tmvftn8d909i2jg",
+      "id": "tmvg5mfq0rpvojy",
       "text": "Monjayaki",
       "children": []
      }
@@ -183,7 +183,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.965Z",
-  "modified": "2026-10-19T22:24:07.965Z"
+  "created": "2026-10-20T03:59:26.232Z",
+  "modified": "2026-10-20T03:59:26.232Z"
  }
 }

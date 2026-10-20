@@ -3,85 +3,85 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8df6ql0sm",
+  "id": "tmvg5mfqnw2eitm",
   "text": "Rising defect rate",
   "children": [
    {
-    "id": "tmvftn8dfdjims9",
+    "id": "tmvg5mfqnrxq5t9",
     "text": "People",
     "children": [
      {
-      "id": "tmvftn8dfzisgs7",
+      "id": "tmvg5mfqnshm4t7",
       "text": "Not enough training",
       "children": []
      },
      {
-      "id": "tmvftn8df7qdds8",
+      "id": "tmvg5mfqndlj3t8",
       "text": "Shift handover",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8df03x6sc",
+    "id": "tmvg5mfqng86rtc",
     "text": "Machines",
     "children": [
      {
-      "id": "tmvftn8df68zgsa",
+      "id": "tmvg5mfqnzn4lta",
       "text": "Old equipment",
       "children": []
      },
      {
-      "id": "tmvftn8dfa7ymsb",
+      "id": "tmvg5mfqnn5cmtb",
       "text": "Maintenance gaps",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8df8yvdsf",
+    "id": "tmvg5mfqnq0j1tf",
     "text": "Materials",
     "children": [
      {
-      "id": "tmvftn8dfgo1csd",
+      "id": "tmvg5mfqnj1mitd",
       "text": "New supplier",
       "children": []
      },
      {
-      "id": "tmvftn8dfxs5vse",
+      "id": "tmvg5mfqndrskte",
       "text": "Storage",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dfht4lsh",
+    "id": "tmvg5mfqncb1uth",
     "text": "Methods",
     "children": [
      {
-      "id": "tmvftn8df33jqsg",
+      "id": "tmvg5mfqnozxktg",
       "text": "No standard work",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dfrnsosj",
+    "id": "tmvg5mfqncvrhtj",
     "text": "Measurement",
     "children": [
      {
-      "id": "tmvftn8dfk3sosi",
+      "id": "tmvg5mfqn3m8bti",
       "text": "Unclear checks",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dfrdy2sl",
+    "id": "tmvg5mfqn0c7atl",
     "text": "Environment",
     "children": [
      {
-      "id": "tmvftn8dfi6crsk",
+      "id": "tmvg5mfqnjm20tk",
       "text": "Temperature, humidity",
       "children": []
      }
@@ -110,7 +110,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.971Z",
-  "modified": "2026-10-19T22:24:07.971Z"
+  "created": "2026-10-20T03:59:26.255Z",
+  "modified": "2026-10-20T03:59:26.255Z"
  }
 }

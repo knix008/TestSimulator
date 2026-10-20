@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dbk4dnnh",
+  "id": "tmvg5mfq6jfudnz",
   "text": "Dog-walking match app",
   "children": [
    {
-    "id": "tmvftn8dbg802mx",
+    "id": "tmvg5mfq6b8ivnf",
     "text": "Problem",
     "children": [
      {
-      "id": "tmvftn8dbrw4emv",
+      "id": "tmvg5mfq6tte6nd",
       "text": "No walks on late workdays",
       "children": []
      },
      {
-      "id": "tmvftn8dbkz7umw",
+      "id": "tmvg5mfq6pewune",
       "text": "Hard to find trusted walkers",
       "children": []
      }
@@ -24,11 +24,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8db0o9zmz",
+    "id": "tmvg5mfq63mainh",
     "text": "Customers",
     "children": [
      {
-      "id": "tmvftn8dbwytrmy",
+      "id": "tmvg5mfq63508ng",
       "text": "Single dog owners",
       "children": []
      }
@@ -36,11 +36,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8dbrwvln1",
+    "id": "tmvg5mfq6r7ghnj",
     "text": "Value",
     "children": [
      {
-      "id": "tmvftn8dbqmp7n0",
+      "id": "tmvg5mfq6zlqlni",
       "text": "30-minute walks by vetted neighbours",
       "children": [],
       "icons": [
@@ -51,16 +51,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8dbotqbn4",
+    "id": "tmvg5mfq6wib7nm",
     "text": "Solution",
     "children": [
      {
-      "id": "tmvftn8dbsl3wn2",
+      "id": "tmvg5mfq67mxqnk",
       "text": "Live location",
       "children": []
      },
      {
-      "id": "tmvftn8db93t1n3",
+      "id": "tmvg5mfq6q866nl",
       "text": "Photo reports",
       "children": []
      }
@@ -68,11 +68,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8dbolsgn6",
+    "id": "tmvg5mfq6ef12no",
     "text": "Channels",
     "children": [
      {
-      "id": "tmvftn8db12ntn5",
+      "id": "tmvg5mfq600bmnn",
       "text": "Vet partnerships",
       "children": []
      }
@@ -80,16 +80,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8dbe4scn9",
+    "id": "tmvg5mfq6j02znr",
     "text": "Revenue",
     "children": [
      {
-      "id": "tmvftn8dbp7t7n7",
+      "id": "tmvg5mfq6s0zbnp",
       "text": "$12 a walk",
       "children": []
      },
      {
-      "id": "tmvftn8dbncy9n8",
+      "id": "tmvg5mfq6cc6enq",
       "text": "20% fee",
       "children": []
      }
@@ -100,16 +100,16 @@
     ]
    },
    {
-    "id": "tmvftn8dbi1xdnc",
+    "id": "tmvg5mfq6k7k6nu",
     "text": "Costs",
     "children": [
      {
-      "id": "tmvftn8dbewc3na",
+      "id": "tmvg5mfq64m9bns",
       "text": "Insurance",
       "children": []
      },
      {
-      "id": "tmvftn8db87rlnb",
+      "id": "tmvg5mfq61w27nt",
       "text": "Ads",
       "children": []
      }
@@ -117,11 +117,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8dbq89qne",
+    "id": "tmvg5mfq6k74vnw",
     "text": "Key metrics",
     "children": [
      {
-      "id": "tmvftn8dbaczrnd",
+      "id": "tmvg5mfq622cqnv",
       "text": "Repeat rate",
       "children": [],
       "icons": [
@@ -132,11 +132,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8dbtv6gng",
+    "id": "tmvg5mfq6xs4zny",
     "text": "Unfair advantage",
     "children": [
      {
-      "id": "tmvftn8db6qngnf",
+      "id": "tmvg5mfq6lx92nx",
       "text": "Neighbourhood community",
       "children": []
      }
@@ -162,7 +162,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.967Z",
-  "modified": "2026-10-19T22:24:07.967Z"
+  "created": "2026-10-20T03:59:26.238Z",
+  "modified": "2026-10-20T03:59:26.238Z"
  }
 }

@@ -11,8 +11,8 @@ const RAINBOW = ['#e8505b', '#f5a623', '#2bb673', '#2d9cdb', '#9b51e0', '#f06292
 const RAINBOW_DARK = ['#ff6b6b', '#ffb547', '#3ddc84', '#4cc9f0', '#b388ff', '#ff80ab', '#26d0ce', '#bcaaa4'];
 const PASTEL = ['#f4a6a6', '#f7c59f', '#b5e3a1', '#a0d2eb', '#cdb4f2', '#f6b8d1', '#9ee0d8', '#e6ccb2'];
 
-// shape: rounded · rect · capsule · ellipse · underline · hexagon · none · circle · diamond
-export const SHAPES = ['rounded', 'rect', 'capsule', 'ellipse', 'underline', 'hexagon', 'diamond', 'circle', 'none'];
+// shapes: src/lib/shapes.js (basic, flowchart and symbol shapes)
+export { SHAPES, SHAPE_GROUPS, SHAPE_DEFS } from './shapes.js';
 export const LINE_STYLES = ['curve', 'straight', 'elbow', 'rounded'];
 
 const P = (o) => o;

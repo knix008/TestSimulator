@@ -3,42 +3,42 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dgoi47tr",
+  "id": "tmvg5mfqqemetur",
   "text": "Book title",
   "children": [
    {
-    "id": "tmvftn8dggu8htg",
+    "id": "tmvg5mfqqzuw2ug",
     "text": "In one line",
     "children": [
      {
-      "id": "tmvftn8dgmuk9tf",
+      "id": "tmvg5mfqq00sjuf",
       "text": "...",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dg5kf7tj",
+    "id": "tmvg5mfqqkwizuj",
     "text": "Key ideas",
     "children": [
      {
-      "id": "tmvftn8dgpptgth",
+      "id": "tmvg5mfqqn9jluh",
       "text": "Chapter 1",
       "children": []
      },
      {
-      "id": "tmvftn8dg18l9ti",
+      "id": "tmvg5mfqq5my9ui",
       "text": "Chapter 2",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dg4dqntl",
+    "id": "tmvg5mfqqi7fful",
     "text": "Quotes",
     "children": [
      {
-      "id": "tmvftn8dgdu0rtk",
+      "id": "tmvg5mfqqk4lquk",
       "text": "\"...\"",
       "children": [],
       "icons": [
@@ -48,11 +48,11 @@
     ]
    },
    {
-    "id": "tmvftn8dg9n5fto",
+    "id": "tmvg5mfqquno0uo",
     "text": "My thoughts",
     "children": [
      {
-      "id": "tmvftn8dgyecltm",
+      "id": "tmvg5mfqqit87um",
       "text": "Agree",
       "children": [],
       "icons": [
@@ -60,7 +60,7 @@
       ]
      },
      {
-      "id": "tmvftn8dgk1ritn",
+      "id": "tmvg5mfqqp78cun",
       "text": "Doubts",
       "children": [],
       "icons": [
@@ -70,11 +70,11 @@
     ]
    },
    {
-    "id": "tmvftn8dgtp1xtq",
+    "id": "tmvg5mfqqxuwjuq",
     "text": "To apply",
     "children": [
      {
-      "id": "tmvftn8dg4193tp",
+      "id": "tmvg5mfqqumxyup",
       "text": "...",
       "children": [],
       "task": {
@@ -105,7 +105,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.972Z",
-  "modified": "2026-10-19T22:24:07.972Z"
+  "created": "2026-10-20T03:59:26.258Z",
+  "modified": "2026-10-20T03:59:26.258Z"
  }
 }

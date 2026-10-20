@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8com0f015",
+  "id": "tmvg5mfoynqvn15",
   "text": "수제 그래놀라 브랜드 마케팅",
   "children": [
    {
-    "id": "tmvftn8co7jmvs",
+    "id": "tmvg5mfoy0ho2s",
     "text": "제품 (Product)",
     "children": [
      {
-      "id": "tmvftn8cog404p",
+      "id": "tmvg5mfoyh8f9p",
       "text": "무설탕 3종",
       "children": [],
       "icons": [
@@ -19,12 +19,12 @@
       ]
      },
      {
-      "id": "tmvftn8coktd8q",
+      "id": "tmvg5mfoyl4mgq",
       "text": "재활용 파우치",
       "children": []
      },
      {
-      "id": "tmvftn8coycicr",
+      "id": "tmvg5mfoyhvhzr",
       "text": "정기 구독",
       "children": [],
       "tags": [
@@ -35,21 +35,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cog0ivw",
+    "id": "tmvg5mfoyz79lw",
     "text": "가격 (Price)",
     "children": [
      {
-      "id": "tmvftn8co6h2tt",
+      "id": "tmvg5mfoyb2abt",
       "text": "개당 8,900원",
       "children": []
      },
      {
-      "id": "tmvftn8covk9ju",
+      "id": "tmvg5mfoytvclu",
       "text": "구독 15% 할인",
       "children": []
      },
      {
-      "id": "tmvftn8cohaeqv",
+      "id": "tmvg5mfoypr7ov",
       "text": "경쟁사보다 10% 높게",
       "children": [],
       "icons": [
@@ -61,21 +61,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cos9u410",
+    "id": "tmvg5mfoyg5nq10",
     "text": "유통 (Place)",
     "children": [
      {
-      "id": "tmvftn8cozf09x",
+      "id": "tmvg5mfoyr65kx",
       "text": "자사몰",
       "children": []
      },
      {
-      "id": "tmvftn8cov3c1y",
+      "id": "tmvg5mfoyot0ky",
       "text": "동네 카페 입점",
       "children": []
      },
      {
-      "id": "tmvftn8co1iubz",
+      "id": "tmvg5mfoyd1erz",
       "text": "마켓컬리",
       "children": [],
       "icons": [
@@ -86,11 +86,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cozh6g14",
+    "id": "tmvg5mfoyujbf14",
     "text": "홍보 (Promotion)",
     "children": [
      {
-      "id": "tmvftn8cogzic11",
+      "id": "tmvg5mfoy8ks011",
       "text": "인스타그램 레시피",
       "children": [],
       "icons": [
@@ -98,12 +98,12 @@
       ]
      },
      {
-      "id": "tmvftn8coofjp12",
+      "id": "tmvg5mfoy6j9y12",
       "text": "체험단 100명",
       "children": []
      },
      {
-      "id": "tmvftn8coxo5u13",
+      "id": "tmvg5mfoyfgu013",
       "text": "요가 스튜디오 제휴",
       "children": []
      }
@@ -130,7 +130,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.944Z",
-  "modified": "2026-10-19T22:24:07.944Z"
+  "created": "2026-10-20T03:59:26.194Z",
+  "modified": "2026-10-20T03:59:26.194Z"
  }
 }

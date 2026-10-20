@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { hostName, writeClipboardText, isMac } from '../lib/backend';
 import { Icon } from '../components/Icons';
+import { IconSelect, scaleOptions, paddingOptions, paperOptions, orientOptions, tilesOptions, modeIcon } from '../components/IconSelect';
 import { TEMPLATES, mapFromTemplate } from '../lib/templates';
 import { SAMPLES, mapFromSample } from '../lib/samples';
 import { mapPicture } from '../lib/exportimg';
@@ -246,9 +247,7 @@ export function ExportDialog({ settings, initial = 'png', onResult }) {
           <h4 className="pane-h">{t('export_options')}</h4>
           {(fmt.id === 'png' || fmt.id === 'jpeg' || fmt.id === 'pdf') && (
             <label className="form-row"><span className="muted small">{t('export_scale')}</span>
-              <select value={scale} onChange={(e) => setScale(Number(e.target.value))}>
-                {[1, 1.5, 2, 3, 4].map((s) => <option key={s} value={s}>{`${s}×`}</option>)}
-              </select>
+              <IconSelect name="scale" value={scale} options={scaleOptions()} onChange={(v) => setScale(Number(v))} />
             </label>
           )}
           {(fmt.id === 'png' || fmt.id === 'svg') && (
@@ -256,26 +255,17 @@ export function ExportDialog({ settings, initial = 'png', onResult }) {
           )}
           {fmt.picture && (
             <label className="form-row"><span className="muted small">{t('export_padding')}</span>
-              <select value={padding} onChange={(e) => setPadding(Number(e.target.value))}>
-                {[0, 20, 40, 80].map((p) => <option key={p} value={p}>{`${p}px`}</option>)}
-              </select>
+              <IconSelect name="padding" value={padding} options={paddingOptions()} onChange={(v) => setPadding(Number(v))} />
             </label>
           )}
           {fmt.id === 'pdf' && (
             <>
               <label className="form-row"><span className="muted small">{t('print_paper')}</span>
-                <select value={paper} onChange={(e) => setPaper(e.target.value)}>
-                  <option value="fit">{t('export_paper_fit')}</option>
-                  {['a4', 'a3', 'a5', 'letter', 'legal'].map((p) => <option key={p} value={p}>{p.toUpperCase()}</option>)}
-                </select>
+                <IconSelect name="paper" value={paper} options={paperOptions(['a4', 'a3', 'a5', 'letter', 'legal'], t('export_paper_fit'))} onChange={setPaper} />
               </label>
               {paper !== 'fit' && (
                 <label className="form-row"><span className="muted small">{t('print_orientation')}</span>
-                  <select value={orient} onChange={(e) => setOrient(e.target.value)}>
-                    <option value="auto">{t('auto')}</option>
-                    <option value="portrait">{t('print_portrait')}</option>
-                    <option value="landscape">{t('print_landscape')}</option>
-                  </select>
+                  <IconSelect name="orientation" value={orient} options={orientOptions({ auto: t('auto'), portrait: t('print_portrait'), landscape: t('print_landscape') })} onChange={setOrient} />
                 </label>
               )}
             </>
@@ -297,7 +287,7 @@ const SHORTCUTS = [
   ['Ctrl+Shift+1 … 9 / 0', 'sc_priority'], ['Ctrl+B / I / U', 'sc_font'], ['Ctrl+T', 'notes'], ['Ctrl+K', 'hyperlink'], ['Ctrl+Shift+R', 'relationship'], ['Ctrl+Shift+B', 'boundary'], ['Ctrl+Shift+Q', 'quick_entry'],
   ['Ctrl+F / Ctrl+H', 'sc_find'], ['F3', 'find_next'], ['F4', 'focus_branch'], ['F5', 'presentation'], ['F11', 'fullscreen'],
   ['Ctrl+= / Ctrl+-', 'sc_zoom'], ['Ctrl+0', 'fit_map'], ['Ctrl+1', 'zoom_100'], ['key_ctrl_wheel', 'sc_zoom'], ['Ctrl+,', 'settings'], ['F1', 'help_menu'],
-  ['Ctrl+Alt+↓ / → / ← / M', 'sc_redraw'], ['Ctrl+Shift+L', 'sc_arrange'], ['Ctrl+]', 'summary'], ['Ctrl+Alt+G / R / O', 'sc_view_toggles'], ['Ctrl+Alt+S / P', 'sc_panels'],
+  ['Ctrl+Alt+↓ / → / ← / M', 'sc_redraw'], ['Ctrl+Shift+L', 'sc_arrange'], ['Ctrl+Alt+C', 'center_map'], ['Ctrl+]', 'summary'], ['Ctrl+Alt+G / R / O', 'sc_view_toggles'], ['Ctrl+Alt+S / P', 'sc_panels'],
   ['key_drag', 'sc_drag'], ['key_marquee', 'sc_marquee'], ['key_dblclick', 'sc_dblclick'], ['key_alt_drop', 'sc_detach'],
 ];
 

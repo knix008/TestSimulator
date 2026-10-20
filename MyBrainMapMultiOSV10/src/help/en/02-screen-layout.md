@@ -50,8 +50,8 @@ Drag the edge of the sidebar or the task pane to resize it. The small arrow in t
 
 Where the map is drawn. Drag empty space to move around, the wheel scrolls, `Ctrl+wheel` zooms.
 
-- **Grid** — thin lines every 24 units and strong ones every 120; the cells grow when you zoom far out. `Ctrl+Alt+G`.
-- **Rulers** — along the top and left edge. 0 is the centre of the central topic; the spacing follows the zoom. `Ctrl+Alt+R`.
+- **Grid** — 5 × 5 blocks (at 100% a block is 100 units, a cell 20). Zooming keeps a block 80–160 pixels on screen: past that range its size in units halves or doubles, so it comes back to its original size. `Ctrl+Alt+G`.
+- **Rulers** — along the top and left edge. 0 is the centre of the central topic. A numbered tick on every block line and a short tick on every cell line: the ticks sit exactly on the grid lines. `Ctrl+Alt+R`.
 - **Overview window** — at the bottom right, the whole map with a frame around the part on screen. While it is on it always shows; click or drag in it to go there. `Ctrl+Alt+O`.
 
 All three are switched with the toolbar buttons, the View menu, the right-click menu of empty space and Settings › Map.

@@ -3,36 +3,36 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dcbv5goc",
+  "id": "tmvg5mfq71v4dou",
   "text": "A name for the new café",
   "children": [
    {
-    "id": "tmvftn8dcb32jo3",
+    "id": "tmvg5mfq7e3xtol",
     "text": "Mood",
     "children": [
      {
-      "id": "tmvftn8dcfqako0",
+      "id": "tmvg5mfq7qmvooi",
       "text": "Cosy",
       "children": []
      },
      {
-      "id": "tmvftn8dcojdlo1",
+      "id": "tmvg5mfq77lddoj",
       "text": "Books",
       "children": []
      },
      {
-      "id": "tmvftn8dc9y5wo2",
+      "id": "tmvg5mfq7e581ok",
       "text": "Sunlight",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dcht5jo7",
+    "id": "tmvg5mfq7k0unop",
     "text": "Candidates",
     "children": [
      {
-      "id": "tmvftn8dchys4o4",
+      "id": "tmvg5mfq74gd7om",
       "text": "Sunny Shelf",
       "children": [],
       "icons": [
@@ -43,7 +43,7 @@
       }
      },
      {
-      "id": "tmvftn8dcj04do5",
+      "id": "tmvg5mfq75kqron",
       "text": "Slow Afternoon",
       "children": [],
       "task": {
@@ -51,23 +51,23 @@
       }
      },
      {
-      "id": "tmvftn8dc3oy1o6",
+      "id": "tmvg5mfq7yadeoo",
       "text": "One Sip",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dcn77rob",
+    "id": "tmvg5mfq7wy9cot",
     "text": "Criteria",
     "children": [
      {
-      "id": "tmvftn8dcuaibo8",
+      "id": "tmvg5mfq7zvryoq",
       "text": "Easy to say",
       "children": []
      },
      {
-      "id": "tmvftn8dcgig4o9",
+      "id": "tmvg5mfq73316or",
       "text": "Domain free",
       "children": [],
       "icons": [
@@ -75,7 +75,7 @@
       ]
      },
      {
-      "id": "tmvftn8dcsap0oa",
+      "id": "tmvg5mfq7a2pbos",
       "text": "Works on a sign",
       "children": []
      }
@@ -85,27 +85,27 @@
  },
  "floating": [
   {
-   "id": "tmvftn8dcignxod",
+   "id": "tmvg5mfq74fbcov",
    "text": "Let customers vote!",
    "children": [],
    "icons": [
     "people"
    ],
-   "x": 420,
-   "y": 230
+   "x": -230,
+   "y": 125
   }
  ],
  "relationships": [
   {
-   "id": "tmvftn8dc5ox5of",
-   "from": "tmvftn8dcojdlo1",
-   "to": "tmvftn8dchys4o4",
+   "id": "tmvg5mfq7gcd0ox",
+   "from": "tmvg5mfq77lddoj",
+   "to": "tmvg5mfq74gd7om",
    "label": "inspired"
   },
   {
-   "id": "tmvftn8dcq4hiog",
-   "from": "tmvftn8dcignxod",
-   "to": "tmvftn8dcht5jo7",
+   "id": "tmvg5mfq7pc24oy",
+   "from": "tmvg5mfq74fbcov",
+   "to": "tmvg5mfq7k0unop",
    "label": ""
   }
  ],
@@ -124,7 +124,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.968Z",
-  "modified": "2026-10-19T22:24:07.968Z"
+  "created": "2026-10-20T03:59:26.239Z",
+  "modified": "2026-10-20T03:59:26.239Z"
  }
 }

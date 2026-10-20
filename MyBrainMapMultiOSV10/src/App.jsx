@@ -8,7 +8,7 @@
 // and brought back on the next start.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, setLanguage, getLanguage } from './lib/i18n';
-import { applyTheme, setCustomThemes, nextThemeId } from './themes';
+import { applyTheme, setCustomThemes, nextThemeId, themeById, baseColorsOf } from './themes';
 import {
   call, isDesktop, nativeDialog, setDialogFallback, setWindowTitle, onOpenFiles, rendererReady, onOsFileDrop, onCloseRequest, replyClose,
   onWindowFocus, onWindowBlur, openPopup, openHelp, warmPopups, sendSettingsPatch, onSettingsPatch, openExternal, quitApp, windowControl,
@@ -39,7 +39,8 @@ import { StatusBar } from './components/StatusBar';
 import { MapCanvas } from './components/MapCanvas';
 import { Overview } from './components/Overview';
 import { Sidebar } from './components/Sidebar';
-import { TaskPane } from './components/TaskPane';
+import { TaskPane, ShapeIcon } from './components/TaskPane';
+import { LevelIcon } from './components/IconSelect';
 import { OutlineView } from './components/OutlineView';
 import { GanttView } from './components/GanttView';
 import { KanbanView } from './components/KanbanView';
@@ -852,6 +853,7 @@ export default function App() {
       case 'zoomOut': if (canvas.current) canvas.current.zoomOut(); return;
       case 'zoom100': if (canvas.current) canvas.current.zoomTo(1); return;
       case 'fit': if (canvas.current) canvas.current.fit(); return;
+      case 'centerMap': if (canvas.current) canvas.current.centerMap(); return;
       case 'fitSelection': if (canvas.current && d) canvas.current.fitSelection(sel); return;
       case 'expandAll': if (d) edit((m) => expandAll(m)); return;
       case 'collapseAll': if (d) edit((m) => expandToLevel(m, 1)); return;
@@ -873,6 +875,15 @@ export default function App() {
       case 'shortcuts': if (!openPopup('shortcuts')) setDialog({ kind: 'shortcuts' }); return;
       case 'openHelp': openHelp(typeof arg === 'string' ? arg : ''); return;
       case 'nextTheme': applySettings({ theme: nextThemeId(s.theme) }); return;
+      // a copy of the current theme becomes a new custom theme, ready to edit in Settings › Theme
+      case 'themeCustomNew': {
+        const base = themeById(s.theme);
+        const id = `custom-${Date.now().toString(36)}`;
+        applySettings({ customThemes: [...(s.customThemes || []), { id, label: `${getLanguage() === 'ko' ? base.label : base.labelEn} ${t('set_custom_copy')}`, mode: base.mode, colors: baseColorsOf(base) }], theme: id });
+        setTimeout(() => runActionRef.current && runActionRef.current('settings', 'theme'), 0);
+        return;
+      }
+      case 'themeCustomEdit': if (!openPopup('settings', 'theme')) setDialog({ kind: 'settings', tab: 'theme' }); return;
       case 'toggleLanguage': applySettings({ language: s.language === 'ko' ? 'en' : 'ko' }); return;
       case 'layoutMenu': case 'styleMenu': return;
       default:
@@ -899,7 +910,7 @@ export default function App() {
     const d = activeDoc();
     // view and layout keys (Ctrl+Alt)
     if (ctrl && e.altKey && !e.shiftKey && !inField) {
-      const byCode = { KeyG: 'toggle:showGrid', KeyR: 'toggle:showRulers', KeyO: 'toggle:overviewVisible', KeyS: 'toggle:sidebarVisible', KeyP: 'toggle:panelVisible', KeyM: 'redraw:map' }[e.code];
+      const byCode = { KeyC: 'centerMap', KeyG: 'toggle:showGrid', KeyR: 'toggle:showRulers', KeyO: 'toggle:overviewVisible', KeyS: 'toggle:sidebarVisible', KeyP: 'toggle:panelVisible', KeyM: 'redraw:map' }[e.code];
       if (byCode) return run(byCode);
       if (k === 'ArrowDown') return run('redraw:orgDown');
       if (k === 'ArrowRight') return run('redraw:right');
@@ -1001,6 +1012,7 @@ export default function App() {
       docs: () => docsRef.current,
       layout: () => L,
       settings: () => settingsRef.current,
+      applySettings: (patch) => applySettings(patch),
       editing: () => editingRef.current,
       select: (ids) => select(ids),
       canvas: () => canvas.current,
@@ -1082,7 +1094,7 @@ export default function App() {
       { id: 'import', label: t('import_file'), icon: 'import' },
       { sep: true },
       { header: t('recent') },
-      ...(recent.length ? recent.slice(0, 10).map((p) => ({ id: `recent:${p}`, label: baseName(p), icon: 'mapView', meta: p, remove: `recent-remove:${p}`, removeTip: t('recent_remove') })) : [{ id: 'none', label: t('recent_empty'), disabled: true }]),
+      ...(recent.length ? recent.slice(0, 10).map((p) => ({ id: `recent:${p}`, label: baseName(p), icon: 'mapView', meta: p, remove: `recent-remove:${p}`, removeTip: t('recent_remove') })) : [{ id: 'none', label: t('recent_empty'), icon: 'clock', disabled: true }]),
       ...(recent.length ? [{ id: 'recentClear', label: t('recent_clear'), icon: 'trash' }] : []),
       { sep: true },
       { id: 'save', label: t('save'), icon: 'fileSave', shortcut: sc('Ctrl+S'), disabled: !hasDoc },
@@ -1153,11 +1165,11 @@ export default function App() {
       { id: 'shrinkFont', label: t('shrink_font'), icon: 'fontSize', disabled: !primaryTopic },
       { sep: true },
       { header: t('fmt_shape') },
-      ...SHAPES.map((sh) => ({ id: `shape:${sh}`, label: t(`shape_${sh}`), radio: true, checked: !!(primaryTopic && primaryTopic.style && primaryTopic.style.shape === sh), disabled: !primaryTopic })),
+      ...SHAPES.map((sh) => ({ id: `shape:${sh}`, label: t(`shape_${sh}`), iconEl: <ShapeIcon shape={sh} scale={0.54} />, radio: true, checked: !!(primaryTopic && primaryTopic.style && primaryTopic.style.shape === sh), disabled: !primaryTopic })),
       { sep: true },
       { header: t('mk_priority') },
       ...[1, 2, 3, 4, 5].map((p) => ({ id: `priority:${p}`, label: markerLabel(`priority-${p}`, lang), marker: `priority-${p}`, checked: !!(primaryTopic && primaryTopic.task && primaryTopic.task.priority === p), disabled: !primaryTopic })),
-      { id: 'priority:0', label: t('priority_clear'), disabled: !primaryTopic },
+      { id: 'priority:0', label: t('priority_clear'), icon: 'priority', disabled: !primaryTopic },
       { sep: true },
       { id: 'clearFormat', label: t('fmt_clear'), icon: 'eraser', disabled: !primaryTopic },
     ] },
@@ -1180,11 +1192,12 @@ export default function App() {
       { id: 'zoomOut', label: t('zoom_out'), icon: 'zoomOut', shortcut: sc('Ctrl+-'), disabled: !hasDoc },
       { id: 'zoom100', label: t('zoom_100'), icon: 'zoomReset', shortcut: sc('Ctrl+1'), disabled: !hasDoc },
       { id: 'fit', label: t('fit_map'), icon: 'fit', shortcut: sc('Ctrl+0'), disabled: !hasDoc },
+      { id: 'centerMap', label: t('center_map'), icon: 'center', shortcut: sc('Ctrl+Alt+C'), disabled: !hasDoc },
       { id: 'fitSelection', label: t('fit_selection'), icon: 'focus', disabled: !hasDoc },
       { sep: true },
       { id: 'expandAll', label: t('expand_all'), icon: 'expandAll', disabled: !hasDoc },
       { id: 'collapseAll', label: t('collapse_all'), icon: 'collapseAll', disabled: !hasDoc },
-      ...[1, 2, 3].map((n) => ({ id: `level:${n}`, label: t('show_levels', { n }), disabled: !hasDoc })),
+      ...[1, 2, 3].map((n) => ({ id: `level:${n}`, label: t('show_levels', { n }), iconEl: <LevelIcon n={n} />, disabled: !hasDoc })),
       { sep: true },
       { id: 'focusBranch', label: t('focus_branch'), icon: 'focus', shortcut: 'F4', checked: !!(active && active.focusId), disabled: !hasDoc },
       { id: 'presentation', label: t('presentation'), icon: 'presentation', shortcut: 'F5', disabled: !hasDoc },
@@ -1286,6 +1299,7 @@ export default function App() {
     { id: 'paste', label: t('paste'), icon: 'paste' },
     { sep: true },
     { id: 'fit', label: t('fit_map'), icon: 'fit' },
+    { id: 'centerMap', label: t('center_map'), icon: 'center', shortcut: 'Ctrl+Alt+C' },
     { id: 'expandAll', label: t('expand_all'), icon: 'expandAll' },
     { id: 'collapseAll', label: t('collapse_all'), icon: 'collapseAll' },
     { sep: true },
@@ -1371,12 +1385,6 @@ export default function App() {
     <div className="app" onContextMenu={(e) => { if (!e.target.closest('input, textarea, .map-canvas')) e.preventDefault(); }}>
       <MenuBar menus={menus} onAction={runAction} theme={settings.theme} controls={!settings.toolbarVisible} startOpen={startOpen} />
       {settings.toolbarVisible && <Toolbar onAction={runAction} settings={settings} state={tbState} />}
-      {docs.length > 0 && (
-        <TabBar docs={docs.map((x) => ({ id: x.id, name: x.name, path: x.path || x.source, dirty: isDirty(x), readonly: x.readonly, kind: x.kind }))} activeId={activeId}
-          onActivate={(id) => { finishEdit(); setActiveId(id); setStartOpen(false); }} onClose={(id) => closeDocs([id])} onNew={() => runAction('new')}
-          onReorder={(from, to) => { const list = docsRef.current.slice(); const i = list.findIndex((x) => x.id === from); const j = list.findIndex((x) => x.id === to); const [m] = list.splice(i, 1); list.splice(j, 0, m); setDocs(list); }}
-          onAction={(id, tabId) => runAction(id, tabId)} onContextItems={tabMenu} />
-      )}
       <div className="body">
         <div className="body-row">
           {settings.sidebarVisible && !startOpen && (
@@ -1390,6 +1398,12 @@ export default function App() {
           )}
           {settings.sidebarVisible && !startOpen && <PaneSplitter side="left" width={settings.sidebarWidth} min={180} max={560} onChange={(w) => applySettings({ sidebarWidth: w }, { broadcast: false })} onToggle={() => runAction('toggle:sidebarVisible')} />}
           <main className="main-area">
+            {docs.length > 0 && (
+              <TabBar docs={docs.map((x) => ({ id: x.id, name: x.name, path: x.path || x.source, dirty: isDirty(x), readonly: x.readonly, kind: x.kind }))} activeId={activeId}
+                onActivate={(id) => { finishEdit(); setActiveId(id); setStartOpen(false); }} onClose={(id) => closeDocs([id])} onNew={() => runAction('new')}
+                onReorder={(from, to) => { const list = docsRef.current.slice(); const i = list.findIndex((x) => x.id === from); const j = list.findIndex((x) => x.id === to); const [m] = list.splice(i, 1); list.splice(j, 0, m); setDocs(list); }}
+                onAction={(id, tabId) => runAction(id, tabId)} onContextItems={tabMenu} />
+            )}
             {!startOpen && !settings.sidebarVisible && <button type="button" className="pane-expander left" data-cmd="expand-left" title={t('tip_sidebar_toggle')} onClick={() => runAction('toggle:sidebarVisible')}><Icon name="chevronRight" size={14} /></button>}
             {!startOpen && !settings.panelVisible && <button type="button" className="pane-expander right" data-cmd="expand-right" title={t('tip_panel_toggle')} onClick={() => runAction('toggle:panelVisible')}><Icon name="chevronLeft" size={14} /></button>}
             {mainView === 'map' && L && (
@@ -1402,7 +1416,7 @@ export default function App() {
                 onMove={(ids, target, zone) => { const r = edit((m) => cmdMove(m, ids, target, zone, { autoBalance: settings.autoBalance })); if (!r) flash(t('msg_move_refused')); }}
                 onFloat={(ids, c) => edit((m) => cmdFloat(m, ids, c))}
                 onNudge={(ids, dx, dy) => edit((m) => cmdNudge(m, ids, dx, dy))}
-                onRelControl={(relId, which, p) => edit((m) => { const rel = (m.relationships || []).find((x) => x.id === relId); if (!rel) return null; const n = L.nodes.get(which === 'c1' ? rel.from : rel.to); if (!n) return null; return updateRelationship(m, relId, { [which]: { x: Math.round(p.x - (n.x + n.w / 2)), y: Math.round(p.y - (n.y + n.h / 2)) } }); })}
+                onRelControl={(relId, which, p) => edit((m) => { const rel = (m.relationships || []).find((x) => x.id === relId); if (!rel) return null; const n = L.nodes.get(which === 'c1' ? rel.from : rel.to); if (!n) return null; const auto = !rel.c1 && !rel.c2 && L.relBends ? L.relBends.get(relId) : null; const keep = auto ? { c1: { x: Math.round(auto.c1.x), y: Math.round(auto.c1.y) }, c2: { x: Math.round(auto.c2.x), y: Math.round(auto.c2.y) } } : {}; return updateRelationship(m, relId, { ...keep, [which]: { x: Math.round(p.x - (n.x + n.w / 2)), y: Math.round(p.y - (n.y + n.h / 2)) } }); })}
                 onLink={finishLink} onViewChange={onCanvasView}
                 onContextMenu={(c) => setCtx({ ...c, items: c.kind === 'topic' ? topicMenu(c.id) : c.kind === 'rel' ? relMenu(c.id) : canvasMenu(c.world) })}
                 onBadge={(id, badge) => { select([id]); if (badge === 'notes' || badge === 'comments') runAction('pane:notes', true); else if (badge === 'link') openLink(id); else if (badge === 'attachments') runAction('pane:links', true); }}

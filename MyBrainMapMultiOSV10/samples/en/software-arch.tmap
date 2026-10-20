@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8db8pbvm4",
+  "id": "tmvg5mfq4bgxcmm",
   "text": "Shop service",
   "children": [
    {
-    "id": "tmvftn8dbvp3slo",
+    "id": "tmvg5mfq474t4m6",
     "text": "Frontend",
     "children": [
      {
-      "id": "tmvftn8db8uwflm",
+      "id": "tmvg5mfq4qz62m4",
       "text": "Web (React)",
       "children": []
      },
      {
-      "id": "tmvftn8dbpdizln",
+      "id": "tmvg5mfq4c48hm5",
       "text": "Mobile app",
       "children": []
      }
@@ -24,11 +24,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8db70jqlr",
+    "id": "tmvg5mfq4lg1cm9",
     "text": "API gateway",
     "children": [
      {
-      "id": "tmvftn8db7kl8lp",
+      "id": "tmvg5mfq4arlrm7",
       "text": "Auth (OAuth)",
       "children": [],
       "icons": [
@@ -36,7 +36,7 @@
       ]
      },
      {
-      "id": "tmvftn8dbyjmtlq",
+      "id": "tmvg5mfq4ru4wm8",
       "text": "Rate limiting",
       "children": []
      }
@@ -44,16 +44,16 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8dblq6blw",
+    "id": "tmvg5mfq4d9b2me",
     "text": "Backend services",
     "children": [
      {
-      "id": "tmvftn8dbu08lls",
+      "id": "tmvg5mfq404c5ma",
       "text": "Orders",
       "children": []
      },
      {
-      "id": "tmvftn8dbdx5mlt",
+      "id": "tmvg5mfq4bkb0mb",
       "text": "Payments",
       "children": [],
       "icons": [
@@ -61,12 +61,12 @@
       ]
      },
      {
-      "id": "tmvftn8db0pi4lu",
+      "id": "tmvg5mfq4nrm8mc",
       "text": "Inventory",
       "children": []
      },
      {
-      "id": "tmvftn8db5jn9lv",
+      "id": "tmvg5mfq4cf1jmd",
       "text": "Notifications",
       "children": []
      }
@@ -78,21 +78,21 @@
     }
    },
    {
-    "id": "tmvftn8dbcfpvm0",
+    "id": "tmvg5mfq45dv1mi",
     "text": "Data",
     "children": [
      {
-      "id": "tmvftn8db8tuklx",
+      "id": "tmvg5mfq4uoxmmf",
       "text": "PostgreSQL",
       "children": []
      },
      {
-      "id": "tmvftn8dbd69oly",
+      "id": "tmvg5mfq4idxomg",
       "text": "Redis cache",
       "children": []
      },
      {
-      "id": "tmvftn8dbfe5ylz",
+      "id": "tmvg5mfq48cmomh",
       "text": "Event queue (Kafka)",
       "children": []
      }
@@ -100,11 +100,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8db6yqnm3",
+    "id": "tmvg5mfq45l7tml",
     "text": "Operations",
     "children": [
      {
-      "id": "tmvftn8db37jzm1",
+      "id": "tmvg5mfq404gkmj",
       "text": "Monitoring",
       "children": [],
       "icons": [
@@ -112,7 +112,7 @@
       ]
      },
      {
-      "id": "tmvftn8db8ru0m2",
+      "id": "tmvg5mfq4y2h7mk",
       "text": "Logging",
       "children": []
      }
@@ -124,21 +124,21 @@
  "floating": [],
  "relationships": [
   {
-   "id": "tmvftn8dbig44m6",
-   "from": "tmvftn8db8uwflm",
-   "to": "tmvftn8db7kl8lp",
+   "id": "tmvg5mfq4juhjmo",
+   "from": "tmvg5mfq4qz62m4",
+   "to": "tmvg5mfq4arlrm7",
    "label": "HTTPS"
   },
   {
-   "id": "tmvftn8dbuo7zm7",
-   "from": "tmvftn8dbu08lls",
-   "to": "tmvftn8dbfe5ylz",
+   "id": "tmvg5mfq47e87mp",
+   "from": "tmvg5mfq404c5ma",
+   "to": "tmvg5mfq48cmomh",
    "label": "order events"
   },
   {
-   "id": "tmvftn8dbmopym8",
-   "from": "tmvftn8dbdx5mlt",
-   "to": "tmvftn8db8tuklx",
+   "id": "tmvg5mfq4ejzjmq",
+   "from": "tmvg5mfq4bkb0mb",
+   "to": "tmvg5mfq4uoxmmf",
    "label": ""
   }
  ],
@@ -157,7 +157,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.967Z",
-  "modified": "2026-10-19T22:24:07.967Z"
+  "created": "2026-10-20T03:59:26.236Z",
+  "modified": "2026-10-20T03:59:26.236Z"
  }
 }

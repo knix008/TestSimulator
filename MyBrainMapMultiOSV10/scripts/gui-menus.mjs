@@ -174,7 +174,10 @@ async function check(group, label, click, { pre = [], expect = null } = {}) {
 // ── the menu bar ──
 // a filter on the map (the first entry of the map index)
 const FILTER = "js:(() => { window.__mtm.run('side:filter'); return new Promise((r) => setTimeout(() => { const b = document.querySelector('.index-item'); if (b) b.click(); r(!!b); }, 250)); })()";
+// the view panned away from the middle, so centering moves it back
+const PAN = 'js:(() => { const c = window.__mtm.canvas(), v = c.getView(); c.setView({ ...v, x: v.x + 160, y: v.y + 90 }); return true; })()';
 const PRE = {
+  centerMap: [PAN],
   undo: ['bold'], redo: ['bold', 'undo'], saveAll: ['bold'], filterClear: [FILTER], findNext: [FILTER], balance: ['redraw:map'], expandAll: ['collapseAll'],
   'view:map': ['view:outline'], 'level:3': ['collapseAll'], comment: ['pane:format'], props: ['pane:format'],
 };
@@ -236,7 +239,7 @@ async function toolbar() {
       }
       continue;
     }
-    const pre = { undo: ['bold'], redo: ['bold', 'undo'], save: ['bold'], expandAll: ['collapseAll'], 'view:map': ['view:outline'], zoomOut: [], fit: ['zoom100'] }[cmd] || [];
+    const pre = { undo: ['bold'], redo: ['bold', 'undo'], save: ['bold'], expandAll: ['collapseAll'], 'view:map': ['view:outline'], zoomOut: [], fit: ['zoom100'], centerMap: [PAN] }[cmd] || [];
     await check('Toolbar', cmd, async () => {
       const c = await center(`document.querySelector('.icon-toolbar [data-cmd="${cmd}"]')`);
       if (!c || await p.eval(`document.querySelector('.icon-toolbar [data-cmd="${cmd}"]').disabled`)) return false;

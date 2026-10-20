@@ -3,25 +3,25 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cxdxuiaf",
+  "id": "tmvg5mfpf2ckbax",
   "text": "아이디어 회의",
   "children": [
    {
-    "id": "tmvftn8cxgphxa1",
+    "id": "tmvg5mfpf9ohiaj",
     "text": "문제 정의",
     "children": [
      {
-      "id": "tmvftn8cxfce09y",
+      "id": "tmvg5mfpfsgtcag",
       "text": "무엇이 문제인가?",
       "children": []
      },
      {
-      "id": "tmvftn8cxdgne9z",
+      "id": "tmvg5mfpf7qf6ah",
       "text": "누가 겪는가?",
       "children": []
      },
      {
-      "id": "tmvftn8cxmlkya0",
+      "id": "tmvg5mfpf8vp4ai",
       "text": "왜 지금인가?",
       "children": []
      }
@@ -31,11 +31,11 @@
     ]
    },
    {
-    "id": "tmvftn8cxyf7ba5",
+    "id": "tmvg5mfpflj2san",
     "text": "아이디어",
     "children": [
      {
-      "id": "tmvftn8cxdgksa2",
+      "id": "tmvg5mfpffcleak",
       "text": "아이디어 1",
       "children": [],
       "icons": [
@@ -43,7 +43,7 @@
       ]
      },
      {
-      "id": "tmvftn8cxm4cwa3",
+      "id": "tmvg5mfpf5fr9al",
       "text": "아이디어 2",
       "children": [],
       "icons": [
@@ -51,7 +51,7 @@
       ]
      },
      {
-      "id": "tmvftn8cxl9rya4",
+      "id": "tmvg5mfpfmqwoam",
       "text": "아이디어 3",
       "children": [],
       "icons": [
@@ -61,11 +61,11 @@
     ]
    },
    {
-    "id": "tmvftn8cxh54ya8",
+    "id": "tmvg5mfpff1sjaq",
     "text": "좋은 점",
     "children": [
      {
-      "id": "tmvftn8cxmgira6",
+      "id": "tmvg5mfpfjheuao",
       "text": "빠르다",
       "children": [],
       "icons": [
@@ -73,7 +73,7 @@
       ]
      },
      {
-      "id": "tmvftn8cxp5mga7",
+      "id": "tmvg5mfpfp1s5ap",
       "text": "싸다",
       "children": [],
       "icons": [
@@ -83,11 +83,11 @@
     ]
    },
    {
-    "id": "tmvftn8cxuk85ab",
+    "id": "tmvg5mfpfuuueat",
     "text": "걱정되는 점",
     "children": [
      {
-      "id": "tmvftn8cxj8p6a9",
+      "id": "tmvg5mfpfns2oar",
       "text": "위험",
       "children": [],
       "icons": [
@@ -95,7 +95,7 @@
       ]
      },
      {
-      "id": "tmvftn8cx63qgaa",
+      "id": "tmvg5mfpfl8wuas",
       "text": "비용",
       "children": [],
       "icons": [
@@ -105,11 +105,11 @@
     ]
    },
    {
-    "id": "tmvftn8cxphofae",
+    "id": "tmvg5mfpfg2d7aw",
     "text": "다음 단계",
     "children": [
      {
-      "id": "tmvftn8cxskmgac",
+      "id": "tmvg5mfpfzriiau",
       "text": "담당자 정하기",
       "children": [],
       "task": {
@@ -117,7 +117,7 @@
       }
      },
      {
-      "id": "tmvftn8cx9rg9ad",
+      "id": "tmvg5mfpf8i8jav",
       "text": "일정 잡기",
       "children": [],
       "task": {
@@ -149,7 +149,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.953Z",
-  "modified": "2026-10-19T22:24:07.953Z"
+  "created": "2026-10-20T03:59:26.211Z",
+  "modified": "2026-10-20T03:59:26.211Z"
  }
 }

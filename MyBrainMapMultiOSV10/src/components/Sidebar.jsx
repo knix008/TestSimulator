@@ -35,7 +35,7 @@ function OutlineTree({ map, sel, onPick, onContext, filterText }) {
       {rows.map(({ tp, depth, kind, kids, open }) => {
         const mk = topicMarkers(tp)[0];
         return (
-          <div key={tp.id} className={`tree-row ${sel.includes(tp.id) ? 'active' : ''} ${kind}`} style={{ paddingLeft: 6 + depth * 14 }} title={tp.text}
+          <div key={tp.id} className={`tree-row ${sel.includes(tp.id) ? 'active' : ''} ${kind}`} style={{ paddingLeft: 12 + depth * 14 }} title={tp.text}
             onClick={() => onPick(tp.id)} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if (onContext) onContext(tp.id, e.clientX, e.clientY); }}>
             <span className="tree-expander" onClick={(e) => { e.stopPropagation(); if (kids) toggle(tp.id); }}>
               {kids ? <Icon name={open ? 'chevronDown' : 'chevronRight'} size={12} /> : <span className="tree-leaf" />}

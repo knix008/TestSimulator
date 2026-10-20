@@ -3,42 +3,60 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dcmwyvp4",
-  "text": "My BrainMap tour",
+  "id": "tmvg5mfq8etw2q4",
+  "text": "My BrainMap tutorial",
   "children": [
    {
-    "id": "tmvftn8dc3sevom",
-    "text": "Making topics",
+    "id": "tmvg5mfq8k3swp6",
+    "text": "Basics",
     "children": [
      {
-      "id": "tmvftn8dcay3roi",
-      "text": "Enter: sibling topic",
+      "id": "tmvg5mfq8wts7p0",
+      "text": "Enter: a sibling topic",
       "children": [],
+      "notes": "**Try it:** click this topic and press Enter. A new topic appears below it, ready to type in.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8dc0xepoj",
-      "text": "Tab / Insert: subtopic",
+      "id": "tmvg5mfq8for7p1",
+      "text": "Tab / Insert: a subtopic",
       "children": [],
+      "notes": "**Try it:** Tab adds a subtopic under the selected one. Shift+Tab goes to its parent.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8dcv3atok",
+      "id": "tmvg5mfq8874kp2",
       "text": "F2 or just type: edit",
       "children": [],
+      "notes": "Select a topic and type to edit it. Shift+Enter breaks the line, Esc cancels.",
       "icons": [
        "check"
       ]
      },
      {
-      "id": "tmvftn8dc7ahjol",
-      "text": "Drag to move",
+      "id": "tmvg5mfq8gge3p3",
+      "text": "Drag to move — it stays connected",
       "children": [],
-      "notes": "Drop on a topic: subtopic. On its upper / lower edge: sibling. On empty space: floating topic."
+      "notes": "Drop on a topic: its subtopic. On its upper / lower edge: a sibling. **On empty space it moves there and stays connected.** Hold Alt while dropping to detach it as a floating topic.",
+      "icons": [
+       "star"
+      ]
+     },
+     {
+      "id": "tmvg5mfq893wmp4",
+      "text": "Ctrl+Z / Ctrl+Y: undo / redo",
+      "children": [],
+      "notes": "Every edit can be undone one by one. Closing a changed map asks whether to save it."
+     },
+     {
+      "id": "tmvg5mfq8u5r5p5",
+      "text": "Right-click: the context menu",
+      "children": [],
+      "notes": "Right-click a topic, empty space, a relationship or an item in the left pane for a menu with icons."
      }
     ],
     "icons": [
@@ -47,44 +65,115 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8dcyi8yoq",
-    "text": "Layouts",
+    "id": "tmvg5mfq8funtpb",
+    "text": "The screen",
     "children": [
      {
-      "id": "tmvftn8dcuelgon",
-      "text": "Map, right, left",
-      "children": []
+      "id": "tmvg5mfq8z18lp7",
+      "text": "Grid and rulers",
+      "children": [],
+      "notes": "The grid and ruler buttons on the toolbar (Ctrl+Alt+G / Ctrl+Alt+R) turn them on and off. 0 on the rulers is the central topic."
      },
      {
-      "id": "tmvftn8dcta48oo",
-      "text": "Org chart, tree",
-      "children": []
+      "id": "tmvg5mfq83qssp8",
+      "text": "The overview window",
+      "children": [],
+      "notes": "The small window at the bottom right shows the whole map and the part on screen; click it to go there. Ctrl+Alt+O turns it on and off."
      },
      {
-      "id": "tmvftn8dcxkdlop",
-      "text": "Timeline, fishbone",
-      "children": []
+      "id": "tmvg5mfq8pxicp9",
+      "text": "Fold the left / right pane",
+      "children": [],
+      "notes": "The small arrow on a pane border (or a double-click on it, Ctrl+Alt+S / Ctrl+Alt+P) folds it; the tab at the edge brings it back."
+     },
+     {
+      "id": "tmvg5mfq8i4rhpa",
+      "text": "Zoom and fit",
+      "children": [],
+      "notes": "Ctrl+wheel, Ctrl+= / Ctrl+-, Ctrl+0 (whole map), Ctrl+1 (100%)."
+     }
+    ],
+    "icons": [
+     "eye"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvg5mfq8hb63pg",
+    "text": "Layouts and arranging",
+    "children": [
+     {
+      "id": "tmvg5mfq8dumdpc",
+      "text": "Top→bottom, left→right, right→left, both sides",
+      "children": [],
+      "notes": "The four redraw buttons on the toolbar (Ctrl+Alt+↓ → ← M) redraw the map in that direction."
+     },
+     {
+      "id": "tmvg5mfq8rfkkpd",
+      "text": "Auto arrange",
+      "children": [],
+      "notes": "Puts topics moved by hand back in place and balances the sides (Ctrl+Shift+L)."
+     },
+     {
+      "id": "tmvg5mfq8cmd8pe",
+      "text": "Org chart, tree, timeline, fishbone",
+      "children": [],
+      "notes": "The layout menu changes the whole map; Task pane › Format › Subtopic layout changes one branch."
+     },
+     {
+      "id": "tmvg5mfq8h56jpf",
+      "text": "Map styles and themes",
+      "children": [],
+      "notes": "The map style button picks the colours; Settings › Theme has 40 screen themes."
      }
     ],
     "icons": [
      "star"
     ],
-    "side": "right"
+    "side": "right",
+    "summary": {
+     "text": "Make it tidy"
+    }
    },
    {
-    "id": "tmvftn8dcfs4fov",
+    "id": "tmvg5mfq8fvx3pn",
     "text": "What a topic holds",
     "children": [
      {
-      "id": "tmvftn8dc5r2for",
-      "text": "Notes",
+      "id": "tmvg5mfq8ubjtph",
+      "text": "Notes (Markdown)",
       "children": [],
-      "notes": "Notes are **Markdown**.\n- lists\n- [links](https://example.com)"
+      "notes": "Notes support **bold**, lists and [links](https://example.com). Ctrl+T opens them."
      },
      {
-      "id": "tmvftn8dckvetos",
+      "id": "tmvg5mfq8z9p4pj",
+      "text": "Comments and custom properties",
+      "children": [],
+      "notes": "Under Task pane › Notes, add comments (with author and date) and properties such as \"Owner = Kim\".",
+      "comments": [
+       {
+        "id": "tmvg5mfq89uqapi",
+        "author": "Tutorial",
+        "text": "This topic has a comment — click the speech-bubble badge.",
+        "date": "2026-10-20T03:59:26.240Z"
+       }
+      ],
+      "props": [
+       {
+        "key": "Owner",
+        "value": "Me"
+       },
+       {
+        "key": "Budget",
+        "value": "1,200"
+       }
+      ]
+     },
+     {
+      "id": "tmvg5mfq8hqwupk",
       "text": "Icons and tags",
       "children": [],
+      "notes": "Task pane › Icons adds priorities, progress, flags, symbols and tags.",
       "icons": [
        "flag-green",
        "smiley-happy"
@@ -95,9 +184,10 @@
       ]
      },
      {
-      "id": "tmvftn8dcpg59ot",
+      "id": "tmvg5mfq8gqu7pl",
       "text": "Task info",
       "children": [],
+      "notes": "Start and due dates, progress, resources, effort. Dated topics show as bars in the Gantt chart.",
       "task": {
        "start": "2026-10-20",
        "due": "2026-10-26",
@@ -107,9 +197,10 @@
       }
      },
      {
-      "id": "tmvftn8dcscddou",
-      "text": "Hyperlink",
+      "id": "tmvg5mfq886lhpm",
+      "text": "Links, attachments, pictures",
       "children": [],
+      "notes": "Ctrl+K adds a hyperlink, dropping a file attaches it, pasting a picture puts it on the topic.",
       "link": {
        "url": "https://github.com/knix008/TestSimulator"
       }
@@ -121,23 +212,71 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8dcpzinoz",
+    "id": "tmvg5mfq8sojopy",
     "text": "Views",
     "children": [
      {
-      "id": "tmvftn8dc2fivow",
+      "id": "tmvg5mfq87fojpu",
       "text": "Outline view",
-      "children": []
+      "children": [],
+      "notes": "The map as an indented list you can edit."
      },
      {
-      "id": "tmvftn8dc3wczox",
+      "id": "tmvg5mfq8d86rpv",
       "text": "Gantt chart",
-      "children": []
+      "children": [],
+      "notes": "Dated topics as bars; drag to change the dates.",
+      "task": {
+       "start": "2026-10-22",
+       "due": "2026-10-29",
+       "progress": 20
+      }
      },
      {
-      "id": "tmvftn8dcdg5xoy",
-      "text": "Presentation (F5)",
-      "children": []
+      "id": "tmvg5mfq848m0pw",
+      "text": "Kanban board",
+      "children": [],
+      "notes": "Main topics are columns, subtopics are cards. Dragging a card to another column moves it on the map too."
+     },
+     {
+      "id": "tmvg5mfq88m6wpx",
+      "text": "Presentation (F5), focus (F4)",
+      "children": [],
+      "notes": "One slide per branch; F4 shows only the selected branch."
+     }
+    ],
+    "icons": [
+     "chart"
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvg5mfq8vo4upt",
+    "text": "Showing structure",
+    "children": [
+     {
+      "id": "tmvg5mfq8a1jgpo",
+      "text": "Relationships",
+      "children": [],
+      "notes": "Ctrl+Shift+R, then click another topic. Drag the handles to bend it; give it a label, a colour, arrows."
+     },
+     {
+      "id": "tmvg5mfq8fcpbpp",
+      "text": "Boundaries",
+      "children": [],
+      "notes": "A frame around a branch (Ctrl+Shift+B), also cloud-shaped, with a label."
+     },
+     {
+      "id": "tmvg5mfq8jde8pq",
+      "text": "Summaries",
+      "children": [],
+      "notes": "A brace with a summary beside the subtopics (Ctrl+]). The \"Layouts and arranging\" branch has one."
+     },
+     {
+      "id": "tmvg5mfq8a1gypr",
+      "text": "Callouts and floating topics",
+      "children": [],
+      "notes": "Ctrl+Shift+Enter adds a callout; double-click empty space for a floating topic."
      }
     ],
     "icons": [
@@ -146,60 +285,74 @@
     "side": "left",
     "boundary": {
      "shape": "rounded",
-     "label": "Switch views"
-    }
+     "label": "Structure"
+    },
+    "callouts": [
+     {
+      "id": "tmvg5mfq8ocb2ps",
+      "text": "All in the Insert menu",
+      "children": []
+     }
+    ]
    },
    {
-    "id": "tmvftn8dc5z5kp3",
-    "text": "Import · export",
+    "id": "tmvg5mfq8ax2eq3",
+    "text": "Find and files",
     "children": [
      {
-      "id": "tmvftn8dcx6w7p0",
-      "text": "FreeMind, XMind, MindManager, OPML, Markdown",
-      "children": []
+      "id": "tmvg5mfq8hvxbpz",
+      "text": "Find, replace, filter",
+      "children": [],
+      "notes": "Ctrl+F finds and replaces; Left pane › Filter narrows by priority, icon, tag."
      },
      {
-      "id": "tmvftn8dcvbpkp1",
-      "text": "PNG, SVG, PDF, Word, HTML",
-      "children": []
+      "id": "tmvg5mfq86rtaq0",
+      "text": "Save, import, export, print",
+      "children": [],
+      "notes": "Save as .tmap; import FreeMind, XMind, MindManager, OPML, Markdown; export PNG, SVG, PDF, Word, HTML, CSV."
+     },
+     {
+      "id": "tmvg5mfq87l1kq1",
+      "text": "Settings and the start page",
+      "children": [],
+      "notes": "Ctrl+, opens Settings. The start page background is one of 21 mind-map 3D scenes."
+     },
+     {
+      "id": "tmvg5mfq8a2ejq2",
+      "text": "F1: Help",
+      "children": [],
+      "notes": "Every feature explained with pictures, in a window of its own."
      }
     ],
     "icons": [
      "rocket"
     ],
-    "side": "left",
-    "callouts": [
-     {
-      "id": "tmvftn8dc34h8p2",
-      "text": "File › Export",
-      "children": []
-     }
-    ]
+    "side": "left"
    }
   ],
-  "notes": "This map shows the features. Change anything — Ctrl+Z undoes."
+  "notes": "Follow the lessons from the top. Each topic's note says what to try. Change anything — Ctrl+Z undoes it."
  },
  "floating": [
   {
-   "id": "tmvftn8dcigrxp5",
+   "id": "tmvg5mfq8yxdcq5",
    "text": "Floating topic",
    "children": [],
-   "notes": "Double-click empty space to make one.",
-   "x": 520,
-   "y": 280
+   "notes": "Double-click empty space, or Alt-drop a topic on empty space.",
+   "x": 980,
+   "y": -150
   }
  ],
  "relationships": [
   {
-   "id": "tmvftn8dczynap7",
-   "from": "tmvftn8dc7ahjol",
-   "to": "tmvftn8dcigrxp5",
-   "label": "drop on empty space"
+   "id": "tmvg5mfq8xnvfq7",
+   "from": "tmvg5mfq8gge3p3",
+   "to": "tmvg5mfq8yxdcq5",
+   "label": "Alt + drop"
   },
   {
-   "id": "tmvftn8dc1zk5p8",
-   "from": "tmvftn8dcpg59ot",
-   "to": "tmvftn8dc3wczox",
+   "id": "tmvg5mfq8915xq8",
+   "from": "tmvg5mfq8gqu7pl",
+   "to": "tmvg5mfq8d86rpv",
    "label": "dates → bars"
   }
  ],
@@ -218,7 +371,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.968Z",
-  "modified": "2026-10-19T22:24:07.968Z"
+  "created": "2026-10-20T03:59:26.240Z",
+  "modified": "2026-10-20T03:59:26.240Z"
  }
 }

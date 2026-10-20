@@ -3,46 +3,46 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d9psj0k3",
+  "id": "tmvg5mfq1j5vqkl",
   "text": "Home",
   "children": [
    {
-    "id": "tmvftn8d9il36jo",
+    "id": "tmvg5mfq1nw77k6",
     "text": "About",
     "children": [
      {
-      "id": "tmvftn8d9a2h6jl",
+      "id": "tmvg5mfq1ellek3",
       "text": "Vision",
       "children": []
      },
      {
-      "id": "tmvftn8d946ocjm",
+      "id": "tmvg5mfq1b063k4",
       "text": "History",
       "children": []
      },
      {
-      "id": "tmvftn8d94sm8jn",
+      "id": "tmvg5mfq1g6yok5",
       "text": "Location",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d9dohxjs",
+    "id": "tmvg5mfq1o5xska",
     "text": "Products",
     "children": [
      {
-      "id": "tmvftn8d99q8yjp",
+      "id": "tmvg5mfq15d1xk7",
       "text": "Smart lights",
       "children": []
      },
      {
-      "id": "tmvftn8d9fb9zjq",
+      "id": "tmvg5mfq1zmx3k8",
       "text": "Sensors",
       "children": []
      },
      {
-      "id": "tmvftn8d9fj3njr",
+      "id": "tmvg5mfq1ziodk9",
       "text": "Compare",
       "children": [],
       "tags": [
@@ -52,53 +52,53 @@
     ]
    },
    {
-    "id": "tmvftn8d916ipjw",
+    "id": "tmvg5mfq11746ke",
     "text": "Support",
     "children": [
      {
-      "id": "tmvftn8d9dqdbjt",
+      "id": "tmvg5mfq1mebdkb",
       "text": "FAQ",
       "children": []
      },
      {
-      "id": "tmvftn8d9uk2lju",
+      "id": "tmvg5mfq19i7dkc",
       "text": "Contact",
       "children": []
      },
      {
-      "id": "tmvftn8d9emnujv",
+      "id": "tmvg5mfq1qavokd",
       "text": "Manuals",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d99olmjz",
+    "id": "tmvg5mfq1rv8nkh",
     "text": "Blog",
     "children": [
      {
-      "id": "tmvftn8d98wv0jx",
+      "id": "tmvg5mfq19e0jkf",
       "text": "News",
       "children": []
      },
      {
-      "id": "tmvftn8d9qaz1jy",
+      "id": "tmvg5mfq1u7u8kg",
       "text": "Tips",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d9fzvpk2",
+    "id": "tmvg5mfq1yo1ukk",
     "text": "Shop",
     "children": [
      {
-      "id": "tmvftn8d9bpmlk0",
+      "id": "tmvg5mfq11h3mki",
       "text": "Cart",
       "children": []
      },
      {
-      "id": "tmvftn8d900kik1",
+      "id": "tmvg5mfq1krjvkj",
       "text": "Checkout",
       "children": [],
       "icons": [
@@ -126,7 +126,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.965Z",
-  "modified": "2026-10-19T22:24:07.965Z"
+  "created": "2026-10-20T03:59:26.233Z",
+  "modified": "2026-10-20T03:59:26.233Z"
  }
 }

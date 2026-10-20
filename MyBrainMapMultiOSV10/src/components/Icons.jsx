@@ -112,7 +112,7 @@ const paths = {
   splitCols: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></>,
   splitRows: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 12h18" /></>,
   splitGrid: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16M3 12h18" /></>,
-  grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  grid: <><rect x="3" y="3" width="18" height="18" rx="1" /><path d="M6.6 3v18M10.2 3v18M13.8 3v18M17.4 3v18M3 6.6h18M3 10.2h18M3 13.8h18M3 17.4h18" strokeWidth="0.9" opacity="0.75" /></>,
   nextPane: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /><path d="M6 12h4M8.5 10l1.5 2-1.5 2" /></>,
   download: <><path d="M12 3v12M6 9l6 6 6-6" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></>,
   print: <><path d="M6 9V3h12v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M6 14h12v7H6z" /></>,

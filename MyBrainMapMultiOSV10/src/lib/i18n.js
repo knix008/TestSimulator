@@ -2,6 +2,8 @@
 import { useSyncExternalStore } from 'react';
 
 const ko = {
+  shape_group_basic: '기본 도형', shape_group_flowchart: '순서도', shape_group_symbol: '기호 · 메모', shape_octagon: '팔각형', shape_pentagon: '오각형', shape_triangle: '삼각형', shape_parallelogram: '평행사변형', shape_trapezoid: '사다리꼴', shape_star: '별', shape_cloud: '구름', shape_cube: '정육면체', shape_document: '문서', shape_cylinder: '데이터베이스 (원통)', shape_predefined: '정의된 처리', shape_delay: '지연', shape_manualInput: '수동 입력', shape_arrow: '화살표', shape_chevron: '갈매기형 (단계)', shape_speech: '말풍선', shape_note: '메모지', shape_snip: '모서리 잘린 사각형', shape_tag: '태그',
+  tab_prev: '이전 탭 (Ctrl+Shift+Tab)', tab_next: '다음 탭 (Ctrl+Tab)', center_map: '정중앙에 보기', tip_center_map: '정중앙에 보기 — 지금 배율로 맵을 화면 가운데에 (Ctrl+Alt+C)',
   tour_title: '튜토리얼 안내', tour_step: '{n} / {total} 단계', tour_end: '안내 끝내기 (Esc)', tour_show: '직접 보기', tour_show_again: '한 번 더', tour_back: '이전', tour_next: '다음', tour_finish: '시작하기', tour_map_only: '튜토리얼 맵만 열기',
   summary: '요약', summary_remove: '요약 없애기', summary_rename: '요약 이름 바꾸기', summary_label_hint: '하위 토픽 옆 괄호에 붙일 요약 글', tip_summary: '요약 — 하위 토픽을 괄호로 묶고 요약을 붙입니다 (Ctrl+])', msg_summary_needs_kids: '요약은 하위 토픽이 있는 토픽에 붙입니다',
   view_kanban: '칸반 보드', tip_view_kanban: '칸반 보드 — 주 토픽은 열, 하위 토픽은 카드', kanban_hint: '카드를 다른 열이나 카드 사이로 끌어 옮깁니다. 맵에서도 똑같이 바뀝니다.', kanban_add_card: '카드 추가', kanban_card_ph: '카드 이름을 입력하고 Enter', kanban_add_column: '열 추가', kanban_new_column: '새 열',
@@ -148,8 +150,8 @@ const ko = {
   set_auto_save_hint: '자동 저장은 이미 이름이 있는 .tmap 파일에만 적용됩니다. 저장하지 않은 새 맵은 세션에 그대로 남습니다.',
   set_grp_new_map: '새 맵', set_default_layout: '레이아웃', set_default_style: '맵 스타일', set_map_font: '토픽 글꼴', set_map_font_size: '기본 글자 크기', set_default_hint: '새로 만드는 빈 맵에 적용됩니다. 열린 맵은 작업 창의 맵 탭에서 바꿉니다.',
   set_grp_canvas: '맵 화면', set_animate: '부드러운 화면 이동', set_wheel_zoom: '마우스 휠로 확대/축소 (끄면 Ctrl+휠)', set_grid: '배경에 격자', set_overview: '오른쪽 아래 전체 보기',
-  set_theme_dark: '어두운 테마', set_theme_light: '밝은 테마', set_custom_themes: '사용자 테마', set_custom_add: '"{name}" 복사해서 만들기', set_custom_copy: '복사본', set_custom_none: '(없음)',
-  set_custom_remove: '삭제', set_custom_hint: '목록에서 사용자 테마를 고르면 색을 바꿀 수 있습니다.', set_custom_name: '이름', set_custom_dark: '어두운 테마', set_custom_light: '밝은 테마',
+  set_theme_dark: '어두운 테마', set_theme_light: '밝은 테마', set_custom_themes: '사용자 정의 테마', theme_custom_new: '"{name}"(으)로 새 사용자 정의 테마 만들기…', theme_custom_edit: '사용자 정의 테마 편집…', set_custom_add: '"{name}" 복사해서 만들기', set_custom_copy: '복사본', set_custom_none: '(없음)', set_custom_pick: '사용자 정의 테마 고르기',
+  set_custom_remove: '삭제', set_custom_hint: '목록에서 사용자 정의 테마를 고르면 색을 바꿀 수 있습니다.', set_custom_name: '이름', set_custom_dark: '어두운 테마', set_custom_light: '밝은 테마',
   set_color_bg: '배경', set_color_panel: '패널', set_color_raised: '도구 막대', set_color_hover: '가리킴', set_color_active: '선택 (비활성)', set_color_border: '테두리', set_color_borderStrong: '진한 테두리',
   set_color_text: '글자', set_color_textDim: '흐린 글자', set_color_accent: '강조', set_color_accentStrong: '진한 강조', set_color_accentText: '강조 위 글자', set_color_folder: '노랑 강조', set_color_file: '보조색', set_color_danger: '위험',
   set_grp_start_launch: '시작할 때', set_start_always: '시작할 때 항상 시작 화면 보기', set_start_always_hint: '끄면 이전에 열었던 맵이 있을 때 시작 화면을 건너뜁니다. 열린 맵이 없으면 항상 보입니다.',
@@ -183,6 +185,8 @@ const ko = {
 };
 
 const en = {
+  shape_group_basic: 'Basic', shape_group_flowchart: 'Flowchart', shape_group_symbol: 'Symbols and notes', shape_octagon: 'Octagon', shape_pentagon: 'Pentagon', shape_triangle: 'Triangle', shape_parallelogram: 'Parallelogram', shape_trapezoid: 'Trapezoid', shape_star: 'Star', shape_cloud: 'Cloud', shape_cube: 'Cube', shape_document: 'Document', shape_cylinder: 'Database (cylinder)', shape_predefined: 'Predefined process', shape_delay: 'Delay', shape_manualInput: 'Manual input', shape_arrow: 'Arrow', shape_chevron: 'Chevron (step)', shape_speech: 'Speech bubble', shape_note: 'Note', shape_snip: 'Snipped rectangle', shape_tag: 'Tag',
+  tab_prev: 'Previous tab (Ctrl+Shift+Tab)', tab_next: 'Next tab (Ctrl+Tab)', center_map: 'Center the map', tip_center_map: 'Center the map — move it to the middle at the current zoom (Ctrl+Alt+C)',
   tour_title: 'Tutorial guide', tour_step: 'Step {n} of {total}', tour_end: 'End the guide (Esc)', tour_show: 'Show me', tour_show_again: 'Again', tour_back: 'Back', tour_next: 'Next', tour_finish: 'Get started', tour_map_only: 'Open the tutorial map only',
   summary: 'Summary', summary_remove: 'Remove summary', summary_rename: 'Rename summary', summary_label_hint: 'The text beside the brace around the subtopics', tip_summary: 'Summary — a brace around the subtopics with a summary (Ctrl+])', msg_summary_needs_kids: 'A summary goes on a topic that has subtopics',
   view_kanban: 'Kanban board', tip_view_kanban: 'Kanban board — main topics are columns, subtopics are cards', kanban_hint: 'Drag a card onto another column or between cards. The map changes the same way.', kanban_add_card: 'Add card', kanban_card_ph: 'Type the card name, then Enter', kanban_add_column: 'Add column', kanban_new_column: 'New column',
@@ -310,7 +314,7 @@ const en = {
   set_auto_save_hint: 'Auto save writes .tmap files that already have a name. New maps stay in the session until you save them.',
   set_grp_new_map: 'New maps', set_default_layout: 'Layout', set_default_style: 'Map style', set_map_font: 'Topic font', set_map_font_size: 'Base text size', set_default_hint: 'Used for new blank maps. An open map is changed on the Map tab of the task pane.',
   set_grp_canvas: 'Map view', set_animate: 'Smooth camera moves', set_wheel_zoom: 'Mouse wheel zooms (off: Ctrl+wheel)', set_grid: 'Grid behind the map', set_overview: 'Overview at the bottom right',
-  set_theme_dark: 'Dark themes', set_theme_light: 'Light themes', set_custom_themes: 'Custom themes', set_custom_add: 'Copy "{name}"', set_custom_copy: 'copy', set_custom_none: '(none)',
+  set_theme_dark: 'Dark themes', set_theme_light: 'Light themes', set_custom_themes: 'Custom themes', theme_custom_new: 'New custom theme from "{name}"…', theme_custom_edit: 'Edit custom themes…', set_custom_add: 'Copy "{name}"', set_custom_copy: 'copy', set_custom_none: '(none)', set_custom_pick: 'Pick a custom theme',
   set_custom_remove: 'Delete', set_custom_hint: 'Pick a custom theme in the list to change its colours.', set_custom_name: 'Name', set_custom_dark: 'Dark theme', set_custom_light: 'Light theme',
   set_color_bg: 'Background', set_color_panel: 'Panel', set_color_raised: 'Bars', set_color_hover: 'Hover', set_color_active: 'Selection (inactive)', set_color_border: 'Border', set_color_borderStrong: 'Strong border',
   set_color_text: 'Text', set_color_textDim: 'Dim text', set_color_accent: 'Accent', set_color_accentStrong: 'Strong accent', set_color_accentText: 'Text on accent', set_color_folder: 'Yellow accent', set_color_file: 'Secondary', set_color_danger: 'Danger',

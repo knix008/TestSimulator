@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cysnnlbb",
+  "id": "tmvg5mfpgo8etbt",
   "text": "SWOT 분석",
   "children": [
    {
-    "id": "tmvftn8cygup8b1",
+    "id": "tmvg5mfpgkh5rbj",
     "text": "강점 (S)",
     "children": [
      {
-      "id": "tmvftn8cysgauaz",
+      "id": "tmvg5mfpgz25fbh",
       "text": "기술력",
       "children": []
      },
      {
-      "id": "tmvftn8cyss7ib0",
+      "id": "tmvg5mfpgkxocbi",
       "text": "충성 고객",
       "children": []
      }
@@ -29,16 +29,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cykd58b4",
+    "id": "tmvg5mfpgkz6ebm",
     "text": "약점 (W)",
     "children": [
      {
-      "id": "tmvftn8cy8iixb2",
+      "id": "tmvg5mfpgvow9bk",
       "text": "좁은 유통망",
       "children": []
      },
      {
-      "id": "tmvftn8cyv127b3",
+      "id": "tmvg5mfpgoakqbl",
       "text": "높은 원가",
       "children": []
      }
@@ -51,16 +51,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cyz4oob7",
+    "id": "tmvg5mfpg5scvbp",
     "text": "기회 (O)",
     "children": [
      {
-      "id": "tmvftn8cyi51zb5",
+      "id": "tmvg5mfpgv6x7bn",
       "text": "새 시장",
       "children": []
      },
      {
-      "id": "tmvftn8cyvk4ob6",
+      "id": "tmvg5mfpgzswwbo",
       "text": "규제 완화",
       "children": []
      }
@@ -73,16 +73,16 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cy7k84ba",
+    "id": "tmvg5mfpgh47ubs",
     "text": "위협 (T)",
     "children": [
      {
-      "id": "tmvftn8cyrooob8",
+      "id": "tmvg5mfpgoo2dbq",
       "text": "경쟁사",
       "children": []
      },
      {
-      "id": "tmvftn8cyif36b9",
+      "id": "tmvg5mfpgfj02br",
       "text": "환율",
       "children": []
      }
@@ -113,7 +113,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.954Z",
-  "modified": "2026-10-19T22:24:07.954Z"
+  "created": "2026-10-20T03:59:26.212Z",
+  "modified": "2026-10-20T03:59:26.212Z"
  }
 }

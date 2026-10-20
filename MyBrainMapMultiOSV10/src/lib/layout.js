@@ -20,6 +20,7 @@
 import { topicStyle } from './mapstyles.js';
 import { topicMarkers } from './markers.js';
 import { numberingOf } from './model.js';
+import { shapeGrow, SHAPE_DEFS, ROUND_SHAPES } from './shapes.js';
 
 export const FOLD_R = 7;
 const BOUNDARY_PAD = 12;
@@ -104,8 +105,14 @@ export function measureTopic(topic, st, { measure, prefix = '', lang = 'ko', mir
   const font = fontString(st);
   const lineH = Math.round(fs * 1.32 * 10) / 10;
   const role = st.role;
-  const maxW = st.width || (role === 'root' ? 300 : role === 'main' ? 250 : 230);
+  let maxW = st.width || (role === 'root' ? 300 : role === 'main' ? 250 : 230);
   const text = `${prefix ? `${prefix} ` : ''}${topic.text || ''}`;
+  // round and pointed shapes (circle, ellipse, diamond, star …) wrap their text into a squarer block,
+  // or one long line makes the whole shape huge
+  if (!st.width && ROUND_SHAPES.has(st.shape)) {
+    const one = cachedMeasure(measure, text.replace(/\n/g, ' '), font);
+    maxW = Math.min(maxW, Math.max(fs * 5, Math.sqrt(one * lineH * (st.shape === 'circle' ? 1.2 : 2.6))));
+  }
   let lines = wrapText(text, maxW, font, measure);
   const empty = !String(topic.text || '').trim() && !prefix;
   if (empty) lines = [{ text: '', w: 0 }];
@@ -148,20 +155,18 @@ export function measureTopic(topic, st, { measure, prefix = '', lang = 'ko', mir
   else { px = Math.round(fs * 0.65); py = Math.round(fs * 0.32); }
   let w = contentW + px * 2;
   let h = contentH + py * 2 + (st.shape === 'underline' ? st.borderWidth : 0);
-  if (st.shape === 'capsule') w += h * 0.35;
-  if (st.shape === 'hexagon') w += h * 0.55;
-  if (st.shape === 'ellipse') { w = w * 1.16 + 6; h = h * 1.3 + 4; }
-  if (st.shape === 'diamond') { w = w * 1.5 + 8; h = h * 1.6 + 6; }
-  if (st.shape === 'circle') { const d = Math.max(w * 1.12, h * 1.12); w = d; h = d; }
+  [w, h] = shapeGrow(st.shape, w, h);
   const minW = role === 'root' ? 96 : role === 'main' ? 44 : 28;
   w = Math.max(minW, w);
   h = Math.max(lineH + (st.shape === 'underline' || st.shape === 'none' ? 6 : 8), h);
   w = Math.ceil(w); h = Math.ceil(h);
 
   // place the content in the box
-  const cx0 = (w - contentW) / 2;
-  let y = (h - contentH) / 2 - (st.shape === 'underline' ? st.borderWidth / 2 : 0);
-  const round = ['ellipse', 'circle', 'diamond'].includes(st.shape);
+  // a shape may hold its text off the centre (the body of a speech bubble, the front of a cube …)
+  const tx = (SHAPE_DEFS[st.shape] && SHAPE_DEFS[st.shape].text) || { dx: 0, dy: 0 };
+  const cx0 = (w - contentW) / 2 + tx.dx * w;
+  let y = (h - contentH) / 2 + tx.dy * h - (st.shape === 'underline' ? st.borderWidth / 2 : 0);
+  const round = ROUND_SHAPES.has(st.shape);
   // left-aligned text (underline / plain topics) is right-aligned on a branch growing to the left
   const align = round ? 'center' : st.align === 'left' && mirror && !(topic.style && topic.style.align) ? 'right' : st.align === 'right' ? 'right' : st.align === 'left' ? 'left' : 'center';
   const flat = st.shape === 'underline' || st.shape === 'none';
@@ -232,7 +237,7 @@ export function layoutMap(map, opts) {
   const orgGapV = 38 * V;
   const orgGapH = 16 * H;
   const INDENT = 22 * H;
-  const ROUND = new Set(['ellipse', 'circle', 'diamond']);
+  const ROUND = ROUND_SHAPES;
   // a tree leaves a round topic from its bottom centre, a box near its left (right) edge
   const treeStart = (n, dir) => (ROUND.has(n.st.shape) ? n.w / 2 : dir === 'treeRight' ? Math.min(INDENT / 2, n.w / 2) : Math.max(n.w - INDENT / 2, n.w / 2));
   const treeIndent = (n, dir) => (ROUND.has(n.st.shape) ? (dir === 'treeRight' ? n.w / 2 + INDENT / 2 : n.w / 2 - INDENT / 2) : dir === 'treeRight' ? INDENT : n.w - INDENT);
@@ -453,6 +458,29 @@ export function layoutMap(map, opts) {
     const blocks = kids.map((c, i) => {
       const cn = addKid(n, c, i);
       const top = i % 2 === 0;
+      cn.fishTop = top;
+      if (c.layout) {
+        // a cause with a subtopic layout of its own: its subtopics grow that way and a bone runs
+        // from the cause to the spine past its whole block — straight down (up) from the cause, or,
+        // when the subtopics lie between the cause and the spine, round the side of the block
+        let b = build(cn, c.layout, false);
+        const y = top ? b.y1 + 22 : b.y0 - 22;
+        const between = top ? ['down', 'treeRight', 'treeLeft'].includes(c.layout) : c.layout === 'up';
+        if (!between) {
+          cn.boneStart = { x: cn.w / 2, y: top ? cn.h : 0 };
+          cn.boneVia = [];
+          cn.boneEnd = { x: cn.w / 2, y };
+        } else {
+          const right = c.layout === 'treeLeft';
+          const sx = right ? b.x1 + 14 : b.x0 - 14;
+          cn.boneStart = { x: right ? cn.w : 0, y: anchorY(cn) };
+          cn.boneVia = [{ x: sx, y: anchorY(cn) }];
+          cn.boneEnd = { x: sx, y };
+        }
+        b = unionBox(b, { x0: cn.boneEnd.x - 2, y0: Math.min(cn.boneEnd.y, 0) - 2, x1: cn.boneEnd.x + 2, y1: Math.max(cn.boneEnd.y, cn.h) + 2 });
+        cn.box = b;
+        return { cn, b, top };
+      }
       let b = build(cn, top ? 'fishTop' : 'fishBottom', false);
       if (!cn.boneEnd) {
         // no (visible) sub-causes: a short bone straight to the spine
@@ -511,8 +539,11 @@ export function layoutMap(map, opts) {
   // a topic moved by hand (topic.offset) keeps its parent; its subtree moves with it
   const place = (n, ox, oy) => {
     const off = n.kind === 'child' && n.topic.offset;
-    n.x = ox + n.dx + (off ? Number(off.x) || 0 : 0);
-    n.y = oy + n.dy + (off ? Number(off.y) || 0 : 0);
+    // offX / offY: how far the topic was moved by hand (its layout place is x − offX, y − offY)
+    n.offX = off ? Number(off.x) || 0 : 0;
+    n.offY = off ? Number(off.y) || 0 : 0;
+    n.x = ox + n.dx + n.offX;
+    n.y = oy + n.dy + n.offY;
     for (const k of n.kids) place(k, n.x, n.y);
     for (const c of n.callouts) place(c, n.x, n.y);
   };
@@ -541,7 +572,9 @@ export function layoutMap(map, opts) {
     const pd = p.dir;
     const pr = p.kind === 'root' && p.level === rootLevel;
     if (pd === 'map' || pd === 'right' || pd === 'left') {
-      const toRight = pd === 'right' || (pd === 'map' && n.side !== 'left');
+      let toRight = pd === 'right' || (pd === 'map' && n.side !== 'left');
+      // a topic moved by hand to the other side of its parent is joined on the side that faces it
+      if (n.offX || n.offY) toRight = n.x + n.w / 2 >= p.x + p.w / 2;
       const a = pr ? { x: p.x + p.w / 2, y: p.y + p.h / 2 } : { x: toRight ? p.x + p.w : p.x, y: p.y + anchorY(p) };
       const b = { x: toRight ? n.x : n.x + n.w, y: n.y + anchorY(n) };
       if (pr && ms.line.taper && (style === 'curve' || style === 'straight')) {
@@ -551,7 +584,8 @@ export function layoutMap(map, opts) {
         lines.push({ id: n.id, d: hPath(style, pr && style === 'curve' ? a : start, b), stroke: color, width: w });
       }
     } else if (pd === 'down' || pd === 'up') {
-      const down = pd === 'down';
+      let down = pd === 'down';
+      if (n.offX || n.offY) down = n.y + n.h / 2 >= p.y + p.h / 2;
       const a = { x: p.x + p.w / 2, y: down ? p.y + p.h : p.y };
       const b = { x: n.x + n.w / 2, y: down ? n.y : n.y + n.h };
       // the bus under the central topic is shared by every branch: neutral colour there
@@ -559,20 +593,38 @@ export function layoutMap(map, opts) {
     } else if (pd === 'treeRight' || pd === 'treeLeft') {
       const x = p.x + treeStart(p, pd);
       const a = { x, y: p.y + p.h };
-      const b = { x: pd === 'treeRight' ? n.x : n.x + n.w, y: n.y + anchorY(n) };
+      // the near side of the topic: its left edge when it is right of the stem (moved or not)
+      const left = (n.offX || n.offY) ? n.x + n.w / 2 >= x : pd === 'treeRight';
+      const b = { x: left ? n.x : n.x + n.w, y: n.y + anchorY(n) };
       lines.push({ id: n.id, d: treePath(a, b), stroke: pr ? ms.line.color : color, width: Math.max(1, w * 0.85) });
     } else if (pd === 'timeline') {
-      // main topics sit on the axis; nothing to draw per topic
+      // main topics sit on the axis; one moved off it by hand is tied back to its place on the axis
+      if (n.offX || n.offY) {
+        const ax = { x: n.x - n.offX + n.w / 2, y: n.y - n.offY + n.h / 2 };
+        const below = n.y + n.h / 2 >= ax.y;
+        const b = { x: n.x + n.w / 2, y: below ? n.y : n.y + n.h };
+        lines.push({ id: n.id, d: `M${r(ax.x)} ${r(ax.y)} L${r(b.x)} ${r(b.y)}`, stroke: color, width: Math.max(1, w * 0.85) });
+      }
     } else if (pd === 'fishbone') {
-      const top = n.dir === 'fishTop';
-      const a = { x: n.x + n.w / 2, y: top ? n.y + n.h : n.y };
+      const top = n.fishTop != null ? n.fishTop : n.dir === 'fishTop';
+      const a = n.boneStart ? { x: n.x + n.boneStart.x, y: n.y + n.boneStart.y } : { x: n.x + n.w / 2, y: top ? n.y + n.h : n.y };
+      const via = (n.boneVia || []).map((v) => ` L${r(n.x + v.x)} ${r(n.y + v.y)}`).join('');
       const b = { x: n.x + n.boneEnd.x, y: n.y + n.boneEnd.y };
-      lines.push({ id: n.id, d: `M${r(a.x)} ${r(a.y)} L${r(b.x)} ${r(b.y)}`, stroke: color, width: lineW * 1.2 });
+      // a cause moved by hand: its bone moves with it, and a line runs on to its place on the spine
+      const moved = n.offX || n.offY;
+      const s = moved ? { x: b.x - n.offX, y: b.y - n.offY } : null;
+      lines.push({ id: n.id, d: `M${r(a.x)} ${r(a.y)}${via} L${r(b.x)} ${r(b.y)}${s ? ` L${r(s.x)} ${r(s.y)}` : ''}`, stroke: color, width: lineW * 1.2 });
     } else if (pd === 'fishTop' || pd === 'fishBottom') {
       const SLOPE = 0.62;
       const y = n.y + anchorY(n);
-      const boneX = p.x + p.w / 2 + Math.abs(y - (pd === 'fishTop' ? p.y + p.h : p.y)) * SLOPE;
-      lines.push({ id: n.id, d: `M${r(n.x + n.w)} ${r(y)} L${r(boneX)} ${r(y)}`, stroke: color, width: Math.max(1, w * 0.85) });
+      // the point of the parent's bone at this height, kept on the bone (a sub-cause moved past
+      // either end of it joins the bone at that end)
+      const top = pd === 'fishTop';
+      const y0 = top ? p.y + p.h : p.y;
+      const y1 = p.boneEnd ? p.y + p.boneEnd.y : y0;
+      const yb = Math.max(Math.min(y0, y1), Math.min(Math.max(y0, y1), y));
+      const boneX = p.x + p.w / 2 + Math.abs(yb - y0) * SLOPE;
+      lines.push({ id: n.id, d: `M${r(n.x + n.w)} ${r(y)} L${r(boneX)} ${r(yb)}`, stroke: color, width: Math.max(1, w * 0.85) });
     }
   }
   // the timeline axis and the fishbone spine
@@ -610,6 +662,66 @@ export function layoutMap(map, opts) {
     summaries.push({ id: n.id, color: n.st.branch || ms.line.color, text: s.text, fs: s.fs, right: s.right, x: n.x + s.bx, y0: n.y + s.y0, y1: n.y + s.y1, lx: n.x + s.lx, ly: n.y + s.ly, w: s.w, h: s.h });
   }
 
+  // ── relationships without a bend of their own: the side and the size of the bend that cross the
+  // fewest topics (and keep their label off them); the choice goes to L.relBends (offsets like c1 / c2)
+  // the width of a relationship label as the renderer draws it (bold 12 px, padding 12)
+  const relLabelW = (text) => cachedMeasure(measure, String(text), fontString({ bold: true }, 12, mapFont)) + 12;
+  const relBends = new Map();
+  const relCurves = [];
+  for (const rel of map.relationships || []) {
+    const a = nodes.get(rel.from), b = nodes.get(rel.to);
+    if (!a || !b) continue;
+    let best = null;
+    if (!rel.c1 && !rel.c2) {
+      // bends in proportion to the length, and fixed ones for the short relationships between neighbours
+      // and one that takes the middle of the curve (the label) clear of both topics, side by side
+      const ddx = (b.x + b.w / 2) - (a.x + a.w / 2), ddy = (b.y + b.h / 2) - (a.y + a.h / 2), dl = Math.hypot(ddx, ddy) || 1;
+      const lw = rel.label ? relLabelW(rel.label) : 0;
+      const clear = Math.round((Math.abs(ddy / dl) * (Math.max(a.w, b.w) + lw) / 2 + Math.abs(ddx / dl) * (Math.max(a.h, b.h) + 22) / 2 + 18) / 0.75);
+      // the curve around the side: both handles straight out to the right / left (topics one above the
+      // other) or up / down (topics side by side), far enough for the label to clear both topics
+      const sideX = Math.round(((Math.max(a.w, b.w) + lw) / 2 + 24) * 1.33);
+      const sideY = Math.round(((Math.max(a.h, b.h) + 22) / 2 + 24) * 1.33);
+      const sides = [[sideX, 0], [-sideX, 0], [0, sideY], [0, -sideY]].map(([x, y]) => ({ c1: { x, y }, c2: { x, y } }));
+      const variants = [0.35, -0.35, 0.18, -0.18, 0.55, -0.55, 0.8, -0.8, 0, '60', '-60', '110', '-110', String(clear), String(-clear)].map((f) => ({ bendFactor: f })).concat(sides);
+      for (const v of variants) {
+        const f = v.bendFactor;
+        const g = relationshipGeometry({ ...rel, ...v }, a, b);
+        let cost = f === undefined ? 0.6 : typeof f === 'string' ? 0.45 : Math.abs(f) * 0.5;   // a gentler curve wins a tie
+        for (let i = 1; i < 24; i++) {
+          const pt = g.at(i / 24);
+          for (const n of order) {
+            if (n === a || n === b) continue;
+            if (pt.x > n.x - 4 && pt.x < n.x + n.w + 4 && pt.y > n.y - 4 && pt.y < n.y + n.h + 4) cost += 1;
+          }
+        }
+        // the label must have room too: the middle of this curve covering a topic counts
+        if (rel.label) { const tw = relLabelW(rel.label); let free = false; for (const t of [0.5, 0.42, 0.58, 0.34, 0.66]) { const pt = g.at(t); if (!order.some((n) => Math.abs(pt.x - (n.x + n.w / 2)) < (tw + n.w) / 2 + 2 && Math.abs(pt.y - (n.y + n.h / 2)) < (22 + n.h) / 2)) { free = true; break; } } if (!free) cost += 4; }
+        if (!best || cost < best.cost - 1e-9) best = { cost, f, g };
+      }
+      best.labelT = 0.5;
+      relBends.set(rel.id, { c1: { x: best.g.c1.x - best.g.ac.x, y: best.g.c1.y - best.g.ac.y }, c2: { x: best.g.c2.x - best.g.bc.x, y: best.g.c2.y - best.g.bc.y } });
+    }
+    // the label: the point along the curve (middle first) where it covers no topic
+    if (rel.label && (best || !rel.labelT)) {
+      const g0 = best ? best.g : relationshipGeometry(rel, a, b);
+      const tw = relLabelW(rel.label);
+      let pick = 0.5, fewest = Infinity;
+      for (const t of [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74]) {
+        const pt = g0.at(t);
+        let hits = 0;
+        for (const n of order) if (Math.abs(pt.x - (n.x + n.w / 2)) < (tw + n.w) / 2 + 2 && Math.abs(pt.y - (n.y + n.h / 2)) < (22 + n.h) / 2) hits++;
+        if (hits < fewest) { fewest = hits; pick = t; }
+        if (!hits) break;
+      }
+      if (best) relBends.get(rel.id).labelT = pick; else relBends.set(rel.id, { labelT: pick });
+      if (best) best.g = relationshipGeometry({ ...rel, ...relBends.get(rel.id) }, a, b);
+    }
+    const g = best ? best.g : relationshipGeometry(rel, a, b, relBends);
+    for (let i = 0; i <= 10; i++) relCurves.push(g.at(i / 10));
+    if (rel.label) relCurves.push({ x: g.mid.x - 60, y: g.mid.y - 12 }, { x: g.mid.x + 60, y: g.mid.y + 12 });
+  }
+
   // ── bounds ──
   let bounds = null;
   for (const n of order) {
@@ -618,12 +730,13 @@ export function layoutMap(map, opts) {
     if (n.fold) bounds = unionBox(bounds, { x0: n.x + n.fold.x - FOLD_R, y0: n.y + n.fold.y - FOLD_R, x1: n.x + n.fold.x + FOLD_R, y1: n.y + n.fold.y + FOLD_R });
   }
   for (const b of boundaries) bounds = unionBox(bounds, b.rect);
+  for (const pt of relCurves) if (bounds) bounds = unionBox(bounds, { x0: pt.x - 8, y0: pt.y - 8, x1: pt.x + 8, y1: pt.y + 8 });
   for (const s of summaries) bounds = unionBox(bounds, { x0: Math.min(s.x, s.lx), y0: Math.min(s.y0, s.ly), x1: Math.max(s.x, s.lx + s.w), y1: Math.max(s.y1, s.ly + s.h) });
   for (const e of extras) {
     const m = /M(-?[\d.]+) (-?[\d.]+) L(-?[\d.]+) (-?[\d.]+)/.exec(e.d);
     if (m) bounds = unionBox(bounds, { x0: Math.min(+m[1], +m[3]) - 12, y0: Math.min(+m[2], +m[4]) - 8, x1: Math.max(+m[1], +m[3]) + 12, y1: Math.max(+m[2], +m[4]) + 8 });
   }
-  return { nodes, order, lines, extras, boundaries, summaries, bounds: bounds || { x0: -50, y0: -20, x1: 50, y1: 20 }, root };
+  return { nodes, order, lines, extras, boundaries, summaries, relBends, bounds: bounds || { x0: -50, y0: -20, x1: 50, y1: 20 }, root };
 }
 
 const r = (v) => Math.round(v * 10) / 10;
@@ -658,7 +771,8 @@ function vPath(style, a, b) {
 function treePath(a, b) {
   const rad = Math.min(6, Math.abs(b.y - a.y) / 2, Math.abs(b.x - a.x) / 2);
   const sx = Math.sign(b.x - a.x) || 1;
-  return `M${r(a.x)} ${r(a.y)} V${r(b.y - rad)} Q${r(a.x)} ${r(b.y)} ${r(a.x + sx * rad)} ${r(b.y)} H${r(b.x)}`;
+  const sy = Math.sign(b.y - a.y) || 1;   // a topic moved above its parent: the corner turns the other way
+  return `M${r(a.x)} ${r(a.y)} V${r(b.y - sy * rad)} Q${r(a.x)} ${r(b.y)} ${r(a.x + sx * rad)} ${r(b.y)} H${r(b.x)}`;
 }
 
 // A filled branch, w0 wide at a and w1 at b, along a horizontal curve (or a straight line).
@@ -697,13 +811,19 @@ export function boxExit(n, tx, ty) {
 
 // The curve of a relationship: ends on the two boxes, control points from rel.c1 / rel.c2
 // (offsets from each box's centre) or a gentle arc by default.
-export function relationshipGeometry(rel, a, b) {
+// rel.c1 / rel.c2: bends set by hand (offsets from the two topics' centres); `auto` (L.relBends) is the
+// layout's choice for a relationship without them; rel.bendFactor tries one (layoutMap).
+export function relationshipGeometry(rel, a, b, auto = null) {
+  const chosen = auto && auto.get ? auto.get(rel.id) : null;
+  if (chosen) rel = !rel.c1 && !rel.c2 ? { ...rel, ...chosen } : { ...rel, labelT: chosen.labelT };
   const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
   const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
   const dx = bc.x - ac.x, dy = bc.y - ac.y;
   const len = Math.hypot(dx, dy) || 1;
   const nx = -dy / len, ny = dx / len;
-  const bend = Math.min(160, len * 0.35);
+  // bendFactor: a share of the length (number) or a fixed bend in px (string, '60' / '-60')
+  const f = rel.bendFactor != null ? rel.bendFactor : 0.35;
+  const bend = typeof f === 'string' ? Number(f) : Math.sign(f) * Math.min(160, len * Math.abs(f));
   const c1 = rel.c1 ? { x: ac.x + rel.c1.x, y: ac.y + rel.c1.y } : { x: ac.x + dx * 0.25 + nx * bend, y: ac.y + dy * 0.25 + ny * bend };
   const c2 = rel.c2 ? { x: bc.x + rel.c2.x, y: bc.y + rel.c2.y } : { x: ac.x + dx * 0.75 + nx * bend, y: ac.y + dy * 0.75 + ny * bend };
   const p0 = boxExit(a, c1.x, c1.y);
@@ -715,8 +835,8 @@ export function relationshipGeometry(rel, a, b) {
       y: u * u * u * p0.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p3.y,
     };
   };
-  const mid = at(0.5);
+  const mid = at(rel.labelT != null ? rel.labelT : 0.5);
   const endDir = Math.atan2(p3.y - c2.y, p3.x - c2.x);
   const startDir = Math.atan2(p0.y - c1.y, p0.x - c1.x);
-  return { p0, c1, c2, p3, mid, endDir, startDir, d: `M${r(p0.x)} ${r(p0.y)} C${r(c1.x)} ${r(c1.y)} ${r(c2.x)} ${r(c2.y)} ${r(p3.x)} ${r(p3.y)}`, ac, bc };
+  return { p0, c1, c2, p3, mid, at, endDir, startDir, d: `M${r(p0.x)} ${r(p0.y)} C${r(c1.x)} ${r(c1.y)} ${r(c2.x)} ${r(c2.y)} ${r(p3.x)} ${r(p3.y)}`, ac, bc };
 }

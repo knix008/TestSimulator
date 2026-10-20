@@ -11,12 +11,17 @@
 // window) is not pushed up over the bar and cut off: its items flow into as
 // many columns as needed to fit, so every item stays visible. The `rows` prop
 // asks for that column layout outright, with a given number of rows (the theme
-// list groups its 40 themes that way: one column of dark, one of light).
+// list groups its 40 themes that way: one column of dark, one of light). In that
+// layout an item marked `wide` is not one of the cells: the wide items run under
+// all the columns, one full-width row each (the custom themes at the bottom).
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icons';
 import { markerSvgDoc } from '../lib/markers';
 
-export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, above = false, className = '', rows: fixedRows = 0 }) {
+// portal: rendered into <body> (a list opened from inside a dialog: above the dialog, and an Escape
+// that closes the list does not close the dialog too)
+export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, above = false, className = '', rows: fixedRows = 0, portal = false }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({ left: x, top: y });
   const [rows, setRows] = useState(0);   // > 0: the items are laid out in columns of this many rows
@@ -77,7 +82,7 @@ export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, 
       if (anchorEl && anchorEl.contains(e.target)) return;
       onClose();
     };
-    const key = (e) => { if (e.key === 'Escape') onClose(); };
+    const key = (e) => { if (e.key === 'Escape') { if (portal) { e.preventDefault(); e.stopPropagation(); } onClose(); } };
     document.addEventListener('mousedown', down, true);
     document.addEventListener('keydown', key, true);
     window.addEventListener('blur', onClose);
@@ -86,17 +91,21 @@ export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, 
       document.removeEventListener('keydown', key, true);
       window.removeEventListener('blur', onClose);
     };
-  }, [onClose, anchorEl]);
+  }, [onClose, anchorEl, portal]);
 
-  return (
+  // the wide rows sit below the columns: row n + 1, n + 2 …, across every column
+  const cols = fixedRows ? Math.max(1, Math.ceil(items.filter((it) => !it.wide).length / fixedRows)) : 1;
+  let wideAt = 0;
+  const place = (it) => (it.wide && fixedRows ? { gridRow: fixedRows + 1 + wideAt++, gridColumn: `1 / span ${cols}` } : undefined);
+  const menu = (
     <div className={`ctx-menu ${className} ${rows ? 'columns' : ''} ${dense ? `dense${dense}` : ''}`} ref={ref}
       style={rows ? { ...pos, gridTemplateRows: `repeat(${rows}, auto)`, ...(maxH ? { maxHeight: maxH, overflowY: 'auto' } : {}) } : pos} role="menu" onContextMenu={(e) => e.preventDefault()}>
       {items.map((it, i) => it.sep
-        ? <div className="ctx-sep" key={`sep${i}`} />
+        ? <div className="ctx-sep" key={`sep${i}`} style={place(it)} />
         : it.spacer ? <div className="ctx-spacer" key={`sp${i}`} aria-hidden="true" />
-        : it.header ? <div className="ctx-header" key={`h${i}`}>{it.header}</div>
+        : it.header ? <div className="ctx-header" key={`h${i}`} style={place(it)}>{it.header}</div>
         : (
-          <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled}
+          <button key={it.id} className={`ctx-item ${it.checked ? 'checked' : ''}`} role="menuitem" disabled={it.disabled} style={place(it)}
             onClick={() => { if (!it.disabled) onPick(it.id); }}>
             <span className="ctx-icon">{it.iconEl ? it.iconEl : it.marker ? <span className="ctx-marker" dangerouslySetInnerHTML={{ __html: markerSvgDoc(it.marker, 15) }} /> : it.icon ? <Icon name={it.icon} size={14} /> : it.checked ? <Icon name={it.radio ? 'circle' : 'check'} size={it.radio ? 10 : 14} /> : null}</span>
             {it.swatch && <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${it.swatchBg} 50%, ${it.swatch} 50%)` }} />}
@@ -109,6 +118,7 @@ export function ContextMenu({ x, y, items, onPick, onAction, onClose, anchorEl, 
         ))}
     </div>
   );
+  return portal ? createPortal(menu, document.body) : menu;
 }
 
 export default ContextMenu;

@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8da08wfkm",
+  "id": "tmvg5mfq2zlsdl4",
   "text": "A year of remote work",
   "children": [
    {
-    "id": "tmvftn8daia11k7",
+    "id": "tmvg5mfq1fd45kp",
     "text": "Intro",
     "children": [
      {
-      "id": "tmvftn8da1gmnk6",
+      "id": "tmvg5mfq16ogcko",
       "text": "Hopes and worries",
       "children": []
      }
@@ -19,11 +19,11 @@
     "notes": "Open with an anecdote: the first video call in pyjamas."
    },
    {
-    "id": "tmvftn8daqihyka",
+    "id": "tmvg5mfq1tvr1ks",
     "text": "The good",
     "children": [
      {
-      "id": "tmvftn8daq11zk8",
+      "id": "tmvg5mfq1ww7tkq",
       "text": "No commute",
       "children": [],
       "icons": [
@@ -31,18 +31,18 @@
       ]
      },
      {
-      "id": "tmvftn8daok06k9",
+      "id": "tmvg5mfq125vtkr",
       "text": "Time to focus",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8daeqh6kd",
+    "id": "tmvg5mfq1me79kv",
     "text": "The hard",
     "children": [
      {
-      "id": "tmvftn8daoc6skb",
+      "id": "tmvg5mfq1k3k5kt",
       "text": "Work–life blur",
       "children": [],
       "icons": [
@@ -50,38 +50,38 @@
       ]
      },
      {
-      "id": "tmvftn8da9043kc",
+      "id": "tmvg5mfq18wbnku",
       "text": "Loneliness",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8daiiwxkj",
+    "id": "tmvg5mfq214egl1",
     "text": "My five rules",
     "children": [
      {
-      "id": "tmvftn8dazvt3ke",
+      "id": "tmvg5mfq1phg3kw",
       "text": "A start-of-day ritual",
       "children": []
      },
      {
-      "id": "tmvftn8da4pg5kf",
+      "id": "tmvg5mfq1boovkx",
       "text": "A desk only for work",
       "children": []
      },
      {
-      "id": "tmvftn8daqxnkkg",
+      "id": "tmvg5mfq2jkarky",
       "text": "Lunch outside",
       "children": []
      },
      {
-      "id": "tmvftn8daeu6skh",
+      "id": "tmvg5mfq25pp2kz",
       "text": "Notification-free hours",
       "children": []
      },
      {
-      "id": "tmvftn8dafrb1ki",
+      "id": "tmvg5mfq2jsdfl0",
       "text": "Friday review",
       "children": []
      }
@@ -92,11 +92,11 @@
     "notes": "One photo and 3–4 sentences per rule."
    },
    {
-    "id": "tmvftn8da87ovkl",
+    "id": "tmvg5mfq2ctvbl3",
     "text": "Closing",
     "children": [
      {
-      "id": "tmvftn8daqrc4kk",
+      "id": "tmvg5mfq2kgfql2",
       "text": "Ask readers a question",
       "children": []
      }
@@ -122,7 +122,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.966Z",
-  "modified": "2026-10-19T22:24:07.966Z"
+  "created": "2026-10-20T03:59:26.234Z",
+  "modified": "2026-10-20T03:59:26.234Z"
  }
 }

@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cpl5mx21",
+  "id": "tmvg5mfp01l5d21",
   "text": "대표이사\n정하늘",
   "children": [
    {
-    "id": "tmvftn8cpgwdq1t",
+    "id": "tmvg5mfp06g7l1t",
     "text": "경영지원본부",
     "children": [
      {
-      "id": "tmvftn8cpzyl21r",
+      "id": "tmvg5mfp0oqf81r",
       "text": "인사팀장\n오민지",
       "children": [],
       "icons": [
@@ -19,7 +19,7 @@
       ]
      },
      {
-      "id": "tmvftn8cp0qdj1s",
+      "id": "tmvg5mfp0y2pj1s",
       "text": "재무팀장\n한도윤",
       "children": [],
       "icons": [
@@ -29,11 +29,11 @@
     ]
    },
    {
-    "id": "tmvftn8cppbq21x",
+    "id": "tmvg5mfp0ta061x",
     "text": "기술본부 (CTO)",
     "children": [
      {
-      "id": "tmvftn8cp7lxy1u",
+      "id": "tmvg5mfp0t0ml1u",
       "text": "플랫폼팀\n서지훈",
       "children": [],
       "icons": [
@@ -41,7 +41,7 @@
       ]
      },
      {
-      "id": "tmvftn8cps89w1v",
+      "id": "tmvg5mfp0xny81v",
       "text": "모바일팀\n윤서아",
       "children": [],
       "icons": [
@@ -49,7 +49,7 @@
       ]
      },
      {
-      "id": "tmvftn8cp0yvv1w",
+      "id": "tmvg5mfp0yo1g1w",
       "text": "데이터팀\n강하준",
       "children": [],
       "icons": [
@@ -63,11 +63,11 @@
     }
    },
    {
-    "id": "tmvftn8cpfv0020",
+    "id": "tmvg5mfp00kaz20",
     "text": "사업본부",
     "children": [
      {
-      "id": "tmvftn8cprrwc1y",
+      "id": "tmvg5mfp06obz1y",
       "text": "영업팀\n임채원",
       "children": [],
       "icons": [
@@ -75,7 +75,7 @@
       ]
      },
      {
-      "id": "tmvftn8cpfz8v1z",
+      "id": "tmvg5mfp0q2331z",
       "text": "마케팅팀\n조은우",
       "children": [],
       "icons": [
@@ -103,7 +103,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.945Z",
-  "modified": "2026-10-19T22:24:07.945Z"
+  "created": "2026-10-20T03:59:26.196Z",
+  "modified": "2026-10-20T03:59:26.196Z"
  }
 }

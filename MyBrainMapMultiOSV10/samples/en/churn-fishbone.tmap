@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d8o57dhh",
+  "id": "tmvg5mfpx9syzhz",
   "text": "Subscription churn up (8%/month)",
   "children": [
    {
-    "id": "tmvftn8d8cf0th3",
+    "id": "tmvg5mfpxovvuhl",
     "text": "Product",
     "children": [
      {
-      "id": "tmvftn8d8hf64h1",
+      "id": "tmvg5mfpxw5hhhj",
       "text": "Slow app",
       "children": [],
       "icons": [
@@ -19,18 +19,18 @@
       ]
      },
      {
-      "id": "tmvftn8d8pmyyh2",
+      "id": "tmvg5mfpxs4t7hk",
       "text": "Too many features",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d8chroh6",
+    "id": "tmvg5mfpxamkxho",
     "text": "Price",
     "children": [
      {
-      "id": "tmvftn8d8ua3eh4",
+      "id": "tmvg5mfpxkxbzhm",
       "text": "Price rise poorly announced",
       "children": [],
       "task": {
@@ -38,34 +38,34 @@
       }
      },
      {
-      "id": "tmvftn8d8uxrch5",
+      "id": "tmvg5mfpxws4shn",
       "text": "No yearly plan",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d8l1zfh9",
+    "id": "tmvg5mfpxn2wohr",
     "text": "Support",
     "children": [
      {
-      "id": "tmvftn8d888sbh7",
+      "id": "tmvg5mfpxrbbkhp",
       "text": "Replies take 48 h+",
       "children": []
      },
      {
-      "id": "tmvftn8d8qwu0h8",
+      "id": "tmvg5mfpxo6athq",
       "text": "Thin FAQ",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d8t8d9hc",
+    "id": "tmvg5mfpxoaedhu",
     "text": "Onboarding",
     "children": [
      {
-      "id": "tmvftn8d8jp36ha",
+      "id": "tmvg5mfpxz89qhs",
       "text": "Low first-week use",
       "children": [],
       "icons": [
@@ -73,29 +73,29 @@
       ]
      },
      {
-      "id": "tmvftn8d8m2efhb",
+      "id": "tmvg5mfpxwtd1ht",
       "text": "Tutorial skipped",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d8ebu9he",
+    "id": "tmvg5mfpx6hiahw",
     "text": "Competition",
     "children": [
      {
-      "id": "tmvftn8d8wuyahd",
+      "id": "tmvg5mfpxol7ghv",
       "text": "Free alternative",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d83a6bhg",
+    "id": "tmvg5mfpx85h2hy",
     "text": "Billing",
     "children": [
      {
-      "id": "tmvftn8d8vqcuhf",
+      "id": "tmvg5mfpx4drihx",
       "text": "Expired card failures",
       "children": []
      }
@@ -124,7 +124,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.964Z",
-  "modified": "2026-10-19T22:24:07.964Z"
+  "created": "2026-10-20T03:59:26.229Z",
+  "modified": "2026-10-20T03:59:26.229Z"
  }
 }

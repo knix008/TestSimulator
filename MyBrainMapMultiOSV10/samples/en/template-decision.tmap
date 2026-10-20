@@ -3,19 +3,19 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8de3hysrn",
+  "id": "tmvg5mfqhv0fusn",
   "text": "Which way to go?",
   "children": [
    {
-    "id": "tmvftn8deg4dkrb",
+    "id": "tmvg5mfqhqofvsb",
     "text": "Option A",
     "children": [
      {
-      "id": "tmvftn8delofyr8",
+      "id": "tmvg5mfqh6f96s8",
       "text": "Pros",
       "children": [
        {
-        "id": "tmvftn8de83zmr7",
+        "id": "tmvg5mfqhiwoos7",
         "text": "Fast",
         "children": [],
         "icons": [
@@ -25,11 +25,11 @@
       ]
      },
      {
-      "id": "tmvftn8deael4ra",
+      "id": "tmvg5mfqhq6gwsa",
       "text": "Cons",
       "children": [
        {
-        "id": "tmvftn8dezbclr9",
+        "id": "tmvg5mfqhqw58s9",
         "text": "Expensive",
         "children": [],
         "icons": [
@@ -41,15 +41,15 @@
     ]
    },
    {
-    "id": "tmvftn8deg68irg",
+    "id": "tmvg5mfqh27h0sg",
     "text": "Option B",
     "children": [
      {
-      "id": "tmvftn8den3jxrd",
+      "id": "tmvg5mfqhn9ngsd",
       "text": "Pros",
       "children": [
        {
-        "id": "tmvftn8de1yzarc",
+        "id": "tmvg5mfqhq76jsc",
         "text": "Cheap",
         "children": [],
         "icons": [
@@ -59,11 +59,11 @@
       ]
      },
      {
-      "id": "tmvftn8de5vsxrf",
+      "id": "tmvg5mfqhu26vsf",
       "text": "Cons",
       "children": [
        {
-        "id": "tmvftn8dect7yre",
+        "id": "tmvg5mfqhk3ugse",
         "text": "Slow",
         "children": [],
         "icons": [
@@ -75,11 +75,11 @@
     ]
    },
    {
-    "id": "tmvftn8dedes3rk",
+    "id": "tmvg5mfqhzke0sk",
     "text": "Criteria",
     "children": [
      {
-      "id": "tmvftn8deb3k3rh",
+      "id": "tmvg5mfqh0c2qsh",
       "text": "Cost",
       "children": [],
       "task": {
@@ -87,7 +87,7 @@
       }
      },
      {
-      "id": "tmvftn8deov6iri",
+      "id": "tmvg5mfqhm57zsi",
       "text": "Time",
       "children": [],
       "task": {
@@ -95,7 +95,7 @@
       }
      },
      {
-      "id": "tmvftn8de5jmorj",
+      "id": "tmvg5mfqh0wkksj",
       "text": "Quality",
       "children": [],
       "task": {
@@ -108,11 +108,11 @@
     ]
    },
    {
-    "id": "tmvftn8dejo3frm",
+    "id": "tmvg5mfqhusytsm",
     "text": "Decision",
     "children": [
      {
-      "id": "tmvftn8de749arl",
+      "id": "tmvg5mfqhw39zsl",
       "text": "...",
       "children": []
      }
@@ -140,7 +140,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.970Z",
-  "modified": "2026-10-19T22:24:07.970Z"
+  "created": "2026-10-20T03:59:26.249Z",
+  "modified": "2026-10-20T03:59:26.249Z"
  }
 }

@@ -3,19 +3,19 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dcv9wpnx",
+  "id": "tmvg5mfq6w0d9of",
   "text": "ERP migration risks",
   "children": [
    {
-    "id": "tmvftn8dc4ijwno",
+    "id": "tmvg5mfq67krho6",
     "text": "High",
     "children": [
      {
-      "id": "tmvftn8dcv7vsnl",
+      "id": "tmvg5mfq6ppmto3",
       "text": "Data migration errors",
       "children": [
        {
-        "id": "tmvftn8dcce4lnk",
+        "id": "tmvg5mfq6vj9ro2",
         "text": "Three dry runs",
         "children": [],
         "icons": [
@@ -31,11 +31,11 @@
       ]
      },
      {
-      "id": "tmvftn8dcrf9nnn",
+      "id": "tmvg5mfq660cpo5",
       "text": "Key people leaving",
       "children": [
        {
-        "id": "tmvftn8dcy8fdnm",
+        "id": "tmvg5mfq6v5qxo4",
         "text": "Docs and backups",
         "children": [],
         "icons": [
@@ -57,15 +57,15 @@
     }
    },
    {
-    "id": "tmvftn8dcgjhrnt",
+    "id": "tmvg5mfq605onob",
     "text": "Medium",
     "children": [
      {
-      "id": "tmvftn8dcjrx6nq",
+      "id": "tmvg5mfq6xqeso8",
       "text": "Two-week slip",
       "children": [
        {
-        "id": "tmvftn8dcasqsnp",
+        "id": "tmvg5mfq61f3ao7",
         "text": "Schedule buffer",
         "children": [],
         "icons": [
@@ -81,11 +81,11 @@
       ]
      },
      {
-      "id": "tmvftn8dcaa0sns",
+      "id": "tmvg5mfq621qroa",
       "text": "Too little training",
       "children": [
        {
-        "id": "tmvftn8dcpzshnr",
+        "id": "tmvg5mfq6kshvo9",
         "text": "Department champions",
         "children": [],
         "icons": [
@@ -107,15 +107,15 @@
     }
    },
    {
-    "id": "tmvftn8dcs48pnw",
+    "id": "tmvg5mfq67b7toe",
     "text": "Low",
     "children": [
      {
-      "id": "tmvftn8dca8y5nv",
+      "id": "tmvg5mfq6df9cod",
       "text": "Licence cost rise",
       "children": [
        {
-        "id": "tmvftn8dctoi9nu",
+        "id": "tmvg5mfq60juroc",
         "text": "Negotiate 3 years",
         "children": [],
         "icons": [
@@ -156,7 +156,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.968Z",
-  "modified": "2026-10-19T22:24:07.968Z"
+  "created": "2026-10-20T03:59:26.238Z",
+  "modified": "2026-10-20T03:59:26.238Z"
  }
 }

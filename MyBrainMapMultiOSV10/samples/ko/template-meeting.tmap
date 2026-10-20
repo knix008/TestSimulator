@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cyh7uxaw",
+  "id": "tmvg5mfpgsftnbe",
   "text": "주간 회의 2026-10-20",
   "children": [
    {
-    "id": "tmvftn8cyzb1jak",
+    "id": "tmvg5mfpgtndpb2",
     "text": "참석자",
     "children": [
      {
-      "id": "tmvftn8cy34tiai",
+      "id": "tmvg5mfpg0bsab0",
       "text": "홍길동",
       "children": [],
       "icons": [
@@ -19,7 +19,7 @@
       ]
      },
      {
-      "id": "tmvftn8cyv6yqaj",
+      "id": "tmvg5mfpg3pwob1",
       "text": "김영희",
       "children": [],
       "icons": [
@@ -29,32 +29,32 @@
     ]
    },
    {
-    "id": "tmvftn8cyij7vao",
+    "id": "tmvg5mfpg930pb6",
     "text": "안건",
     "children": [
      {
-      "id": "tmvftn8cyuxegal",
+      "id": "tmvg5mfpgh6a7b3",
       "text": "지난주 진행 상황",
       "children": []
      },
      {
-      "id": "tmvftn8cy8b1pam",
+      "id": "tmvg5mfpgxbb2b4",
       "text": "이번 주 우선순위",
       "children": []
      },
      {
-      "id": "tmvftn8cyq7a5an",
+      "id": "tmvg5mfpg419jb5",
       "text": "기타",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cymqfjaq",
+    "id": "tmvg5mfpg00u0b8",
     "text": "결정 사항",
     "children": [
      {
-      "id": "tmvftn8cyshpgap",
+      "id": "tmvg5mfpgp1ihb7",
       "text": "출시일 확정",
       "children": [],
       "icons": [
@@ -64,11 +64,11 @@
     ]
    },
    {
-    "id": "tmvftn8cyq6abat",
+    "id": "tmvg5mfpggeupbb",
     "text": "실행 항목",
     "children": [
      {
-      "id": "tmvftn8cy34qgar",
+      "id": "tmvg5mfpgezsub9",
       "text": "보고서 작성",
       "children": [],
       "task": {
@@ -79,7 +79,7 @@
       }
      },
      {
-      "id": "tmvftn8cy7fplas",
+      "id": "tmvg5mfpgghj9ba",
       "text": "견적 요청",
       "children": [],
       "task": {
@@ -95,11 +95,11 @@
     ]
    },
    {
-    "id": "tmvftn8cys3b4av",
+    "id": "tmvg5mfpghcvebd",
     "text": "다음 회의",
     "children": [
      {
-      "id": "tmvftn8cyezccau",
+      "id": "tmvg5mfpglamybc",
       "text": "2026-10-27",
       "children": [],
       "icons": [
@@ -127,7 +127,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.954Z",
-  "modified": "2026-10-19T22:24:07.954Z"
+  "created": "2026-10-20T03:59:26.212Z",
+  "modified": "2026-10-20T03:59:26.212Z"
  }
 }

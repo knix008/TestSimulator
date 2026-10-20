@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cmf113l",
+  "id": "tmvg5mfox5zpfl",
   "text": "가계부 앱 \"머니노트\" 출시",
   "children": [
    {
-    "id": "tmvftn8cmy39a7",
+    "id": "tmvg5mfowj2rl7",
     "text": "기획",
     "children": [
      {
-      "id": "tmvftn8cm2ywy1",
+      "id": "tmvg5mfowalxk1",
       "text": "사용자 인터뷰 20명",
       "children": [],
       "task": {
@@ -24,11 +24,11 @@
       "notes": "대학생·사회초년생 위주. 가장 큰 불편: 영수증 입력이 귀찮다."
      },
      {
-      "id": "tmvftn8cmnm765",
+      "id": "tmvg5mfow1lk65",
       "text": "핵심 기능 정의",
       "children": [
        {
-        "id": "tmvftn8cm2xe12",
+        "id": "tmvg5mfowcchn2",
         "text": "영수증 사진 인식",
         "children": [],
         "icons": [
@@ -36,12 +36,12 @@
         ]
        },
        {
-        "id": "tmvftn8cmpxtz3",
+        "id": "tmvg5mfowtuin3",
         "text": "월 예산 알림",
         "children": []
        },
        {
-        "id": "tmvftn8cmr1xu4",
+        "id": "tmvg5mfow7pkb4",
         "text": "가족 공유",
         "children": [],
         "tags": [
@@ -58,7 +58,7 @@
       }
      },
      {
-      "id": "tmvftn8cml77i6",
+      "id": "tmvg5mfowcm3q6",
       "text": "기획 승인",
       "children": [],
       "task": {
@@ -70,11 +70,11 @@
     ]
    },
    {
-    "id": "tmvftn8cmhnb5b",
+    "id": "tmvg5mfoxrjfsb",
     "text": "디자인",
     "children": [
      {
-      "id": "tmvftn8cmsb2s8",
+      "id": "tmvg5mfow4pqy8",
       "text": "와이어프레임",
       "children": [],
       "task": {
@@ -85,7 +85,7 @@
       }
      },
      {
-      "id": "tmvftn8cmzerz9",
+      "id": "tmvg5mfowakty9",
       "text": "디자인 시스템",
       "children": [],
       "task": {
@@ -96,7 +96,7 @@
       }
      },
      {
-      "id": "tmvftn8cmpgw8a",
+      "id": "tmvg5mfoxo358a",
       "text": "사용성 테스트",
       "children": [],
       "task": {
@@ -110,11 +110,11 @@
     ]
    },
    {
-    "id": "tmvftn8cmlpe7g",
+    "id": "tmvg5mfoxfrnhg",
     "text": "개발",
     "children": [
      {
-      "id": "tmvftn8cmzjnvc",
+      "id": "tmvg5mfoxvdzlc",
       "text": "앱 (iOS · Android)",
       "children": [],
       "task": {
@@ -126,7 +126,7 @@
       }
      },
      {
-      "id": "tmvftn8cmagt2d",
+      "id": "tmvg5mfoxglofd",
       "text": "서버 API",
       "children": [],
       "task": {
@@ -138,7 +138,7 @@
       }
      },
      {
-      "id": "tmvftn8cma7mbe",
+      "id": "tmvg5mfox1ysde",
       "text": "영수증 인식 모델",
       "children": [],
       "task": {
@@ -154,7 +154,7 @@
       "notes": "정확도 95% 이상이 목표. 손글씨 영수증은 1차에서 제외."
      },
      {
-      "id": "tmvftn8cmwl14f",
+      "id": "tmvg5mfoxkns3f",
       "text": "베타 테스트",
       "children": [],
       "task": {
@@ -168,11 +168,11 @@
     ]
    },
    {
-    "id": "tmvftn8cmxv4lk",
+    "id": "tmvg5mfoxt3xgk",
     "text": "마케팅",
     "children": [
      {
-      "id": "tmvftn8cmk2wvh",
+      "id": "tmvg5mfoxvc2lh",
       "text": "랜딩 페이지",
       "children": [],
       "task": {
@@ -186,7 +186,7 @@
       }
      },
      {
-      "id": "tmvftn8cmqnnci",
+      "id": "tmvg5mfoxzaopi",
       "text": "인플루언서 협업",
       "children": [],
       "task": {
@@ -198,7 +198,7 @@
       }
      },
      {
-      "id": "tmvftn8cmm7grj",
+      "id": "tmvg5mfoxutaxj",
       "text": "출시",
       "children": [],
       "task": {
@@ -219,9 +219,9 @@
  "floating": [],
  "relationships": [
   {
-   "id": "tmvftn8cnifmon",
-   "from": "tmvftn8cma7mbe",
-   "to": "tmvftn8cmwl14f",
+   "id": "tmvg5mfoxe7hdn",
+   "from": "tmvg5mfox1ysde",
+   "to": "tmvg5mfoxkns3f",
    "label": "먼저 완료"
   }
  ],
@@ -240,7 +240,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.943Z",
-  "modified": "2026-10-19T22:24:07.943Z"
+  "created": "2026-10-20T03:59:26.193Z",
+  "modified": "2026-10-20T03:59:26.193Z"
  }
 }

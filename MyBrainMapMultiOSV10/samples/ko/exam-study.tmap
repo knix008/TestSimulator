@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8crdgcp2y",
+  "id": "tmvg5mfp2c7in2y",
   "text": "2학기 기말고사",
   "children": [
    {
-    "id": "tmvftn8crscnp2m",
+    "id": "tmvg5mfp29h9d2m",
     "text": "미적분학",
     "children": [
      {
-      "id": "tmvftn8crf27a2j",
+      "id": "tmvg5mfp2udse2j",
       "text": "적분 기법 정리",
       "children": [],
       "task": {
@@ -20,7 +20,7 @@
       }
      },
      {
-      "id": "tmvftn8crdtbd2k",
+      "id": "tmvg5mfp2un6f2k",
       "text": "기출 2개년",
       "children": [],
       "task": {
@@ -29,7 +29,7 @@
       }
      },
      {
-      "id": "tmvftn8cre55p2l",
+      "id": "tmvg5mfp2ue3h2l",
       "text": "오답 노트",
       "children": [],
       "task": {
@@ -43,11 +43,11 @@
     }
    },
    {
-    "id": "tmvftn8cr6rwp2p",
+    "id": "tmvg5mfp2kftv2p",
     "text": "자료구조",
     "children": [
      {
-      "id": "tmvftn8cr2xr22n",
+      "id": "tmvg5mfp22ugi2n",
       "text": "트리·그래프 복습",
       "children": [],
       "task": {
@@ -56,7 +56,7 @@
       }
      },
      {
-      "id": "tmvftn8crn5pi2o",
+      "id": "tmvg5mfp2epab2o",
       "text": "코딩 문제 30개",
       "children": [],
       "task": {
@@ -70,11 +70,11 @@
     }
    },
    {
-    "id": "tmvftn8crtbpg2s",
+    "id": "tmvg5mfp2wng32s",
     "text": "경제학원론",
     "children": [
      {
-      "id": "tmvftn8crccdm2q",
+      "id": "tmvg5mfp2p3z62q",
       "text": "5~9장 요약",
       "children": [],
       "task": {
@@ -83,7 +83,7 @@
       }
      },
      {
-      "id": "tmvftn8crsabw2r",
+      "id": "tmvg5mfp2rcsz2r",
       "text": "그래프 문제",
       "children": [],
       "task": {
@@ -94,11 +94,11 @@
     ]
    },
    {
-    "id": "tmvftn8crx1sz2u",
+    "id": "tmvg5mfp2hz9f2u",
     "text": "영어 회화",
     "children": [
      {
-      "id": "tmvftn8crtckq2t",
+      "id": "tmvg5mfp2diwp2t",
       "text": "발표 준비",
       "children": [],
       "task": {
@@ -112,11 +112,11 @@
     ]
    },
    {
-    "id": "tmvftn8criwni2x",
+    "id": "tmvg5mfp223a22x",
     "text": "컨디션",
     "children": [
      {
-      "id": "tmvftn8cr3c0n2v",
+      "id": "tmvg5mfp2qxj82v",
       "text": "하루 7시간 수면",
       "children": [],
       "icons": [
@@ -124,7 +124,7 @@
       ]
      },
      {
-      "id": "tmvftn8cr1q862w",
+      "id": "tmvg5mfp2jgv82w",
       "text": "산책 30분",
       "children": []
      }
@@ -152,7 +152,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.947Z",
-  "modified": "2026-10-19T22:24:07.947Z"
+  "created": "2026-10-20T03:59:26.198Z",
+  "modified": "2026-10-20T03:59:26.198Z"
  }
 }
