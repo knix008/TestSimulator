@@ -5,6 +5,9 @@
 // a blank page, which would print as blank paper). Rendering here also means
 // the page selection is applied before anything reaches the print dialog.
 import { renderPage } from './pdf.js';
+import { buildPrintHtml } from './print-html.js';
+
+export { buildPrintHtml };
 
 export const PRINT_SCOPES = ['all', 'current', 'custom'];
 export const PRINT_DPI = 150;   // good enough for text, small enough to stay responsive
@@ -119,28 +122,6 @@ export async function renderPreviewPage({
   return { page: pageNumber, width: res.viewport.width, height: res.viewport.height };
 }
 
-// One image per sheet, each on its own piece of paper.
-export function buildPrintHtml(sources, title) {
-  const body = sources.map((s) => (
-    `<div class="sheet"><img src="${s.src}" alt=""></div>`
-  )).join('\n');
-
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${escapeHtml(title || 'Print')}</title>
-<style>
-  @page { size: auto; margin: 8mm; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  .sheet {
-    page-break-after: always; break-after: page;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .sheet img { max-width: 100%; display: block; }
-  @media screen { .sheet img { max-height: 100vh; } }
-</style></head>
-<body>${body}</body></html>`;
-}
-
 // Web: print from a new window, since a browser gives no other handle on the
 // printer. The page selection is already baked into the images.
 export async function printViaBrowser({ doc, pages, rotation = 0, title, onProgress }) {
@@ -166,8 +147,4 @@ function bytesToDataUrl(bytes) {
     binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   }
   return `data:image/jpeg;base64,${btoa(binary)}`;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }

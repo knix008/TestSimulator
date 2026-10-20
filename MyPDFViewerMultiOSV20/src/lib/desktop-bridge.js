@@ -9,6 +9,7 @@
 // `window.desktopAPI` once, when it is first evaluated.
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { buildPrintHtml } from './print-html.js';
 
 export function hasTauri(win = typeof window !== 'undefined' ? window : undefined) {
   return !!(win && win.__TAURI_INTERNALS__ && typeof win.__TAURI_INTERNALS__.invoke === 'function');
@@ -92,7 +93,6 @@ function toBytes(data) {
 // printed from a hidden frame; the system print dialog shows exactly them.
 async function printImages({ images, title } = {}) {
   if (!Array.isArray(images) || !images.length) throw new Error('There are no pages to print.');
-  const { buildPrintHtml } = await import('./print.js');
   const urls = images.map((b) => URL.createObjectURL(new Blob([toBytes(b)], { type: 'image/jpeg' })));
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
