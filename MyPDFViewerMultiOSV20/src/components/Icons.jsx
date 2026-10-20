@@ -96,6 +96,20 @@ export const IconSidebar = (p) => (
 export const IconRightPanel = (p) => (
   <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></S>
 );
+// Panel collapse / expand: the panel outline with an arrow pointing the way
+// the panel moves.
+export const IconPanelLeftClose = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M16 9l-3 3 3 3" /></S>
+);
+export const IconPanelLeftOpen = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M13 9l3 3-3 3" /></S>
+);
+export const IconPanelRightClose = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M8 9l3 3-3 3" /></S>
+);
+export const IconPanelRightOpen = (p) => (
+  <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16M11 9l-3 3 3 3" /></S>
+);
 export const IconHighlight = (p) => (
   <S {...p}><path d="m14 4 6 6-7.5 7.5H7l-1.5-3z" /><path d="M4 21h16" /></S>
 );

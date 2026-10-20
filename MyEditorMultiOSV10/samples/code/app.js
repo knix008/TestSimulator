@@ -18,7 +18,3 @@ export default class Greeter {
   constructor(name = 'world') { this.#name = name; }
   greet() { return `${GREETING} ${this.#name} ${42 * 2}`; }
 }
-
-
-
-sdfasdfasd

@@ -280,6 +280,37 @@ describe('Sidebar splitter', () => {
     expect(split.getAttribute('aria-orientation')).toBe('vertical');
   });
 
+  it('collapses from the rail and the panel head, and expands back to the last panel', async () => {
+    await setLanguage('en');
+    const onPanel = vi.fn();
+    const { getByLabelText, getAllByLabelText, rerender } = renderSide({ panel: 'outline', onPanel });
+    // Open: one collapse button at the foot of the rail, one in the head.
+    expect(getAllByLabelText('Collapse the left panel')).toHaveLength(2);
+    fireEvent.click(getAllByLabelText('Collapse the left panel')[1]);
+    expect(onPanel).toHaveBeenLastCalledWith('none');
+    rerender(
+      <Sidebar
+        panel="none" width={264} onPanel={onPanel} onResize={vi.fn()} pageNumber={1}
+        onGoToPage={vi.fn()} outline={[]} images={[]} search={{ query: '', results: [], busy: false, run: vi.fn() }}
+        bookmarks={[]} clips={[]}
+      />,
+    );
+    const expand = getByLabelText('Expand the left panel');
+    expect(expand.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(expand);
+    expect(onPanel).toHaveBeenLastCalledWith('outline');
+  });
+
+  it('hands the toggle to the host when it gives one', async () => {
+    await setLanguage('en');
+    const onToggle = vi.fn();
+    const onPanel = vi.fn();
+    const { getAllByLabelText } = renderSide({ panel: 'search', onToggle, onPanel });
+    fireEvent.click(getAllByLabelText('Collapse the left panel')[0]);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onPanel).not.toHaveBeenCalled();
+  });
+
   it('hides the separator when the panel is collapsed', () => {
     const { container } = renderSide({ panel: 'none' });
     expect(container.querySelector('.side-splitter')).toBe(null);

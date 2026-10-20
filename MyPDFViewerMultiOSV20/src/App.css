@@ -518,6 +518,21 @@ html.theme-popup, html.theme-popup body, html.theme-popup #root {
   background: var(--bg-2); border-left: 1px solid var(--border);
 }
 .info-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+/* Collapsed: a narrow strip with the expand arrow, the icon and the title
+   written top to bottom. The whole strip is the button. */
+.info-panel.collapsed { width: 36px; }
+.info-strip {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 9px 0; border: 0; background: transparent; color: var(--text-dim);
+  font: inherit; cursor: pointer; min-height: 0; overflow: hidden;
+}
+.info-strip:hover { background: var(--bg-3); color: var(--text); }
+.info-strip svg { flex: none; }
+.info-strip-title {
+  writing-mode: vertical-rl; font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0;
+}
+.side-head-icon { flex: none; color: var(--accent); margin-right: -2px; }
 .info-splitter {
   position: absolute; top: 0; left: -3px; bottom: 0; width: 7px;
   cursor: col-resize; z-index: 8; touch-action: none;
@@ -580,6 +595,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 }
 .rail-btn:hover { background: var(--bg-3); color: var(--text); }
 .rail-btn.active { background: var(--accent); border-color: var(--accent-2); color: var(--accent-fg); }
+.rail-btn.rail-toggle { flex: none; margin-top: auto; }
 
 .side-panel {
   position: relative; display: flex; flex-direction: column;

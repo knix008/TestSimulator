@@ -1561,8 +1561,11 @@ export default function App() {
   const panelsHidden = !!overlay && !overlayInset;
   const panelsHiddenRef = useRef(panelsHidden);
   panelsHiddenRef.current = panelsHidden;
+  // The left panel last shown, so expanding it again brings that one back.
+  const lastSidebarRef = useRef('thumbnails');
+  if (settings.sidebar && settings.sidebar !== 'none') lastSidebarRef.current = settings.sidebar;
   // Toggles a panel; while the panels are hidden it only ever shows one.
-  const toggleSidebar = useCallback((next = (cur) => (cur === 'none' ? 'thumbnails' : 'none')) => {
+  const toggleSidebar = useCallback((next = (cur) => (cur === 'none' ? lastSidebarRef.current : 'none')) => {
     if (panelsHiddenRef.current) {
       setOverlayInset(true);
       setSettings((s) => (s.sidebar === 'none' ? { ...s, sidebar: next('none') } : s));
@@ -2062,6 +2065,7 @@ export default function App() {
           width={settings.sidebarWidth}
           onResize={(w) => setSettings((s) => ({ ...s, sidebarWidth: clampSidebarWidth(w) }))}
           onPanel={(p) => setSettings((s) => ({ ...s, sidebar: p }))}
+          onToggle={() => toggleSidebar()}
           doc={doc}
           pageNumber={pageNumber}
           onGoToPage={goToPage}
@@ -2232,6 +2236,7 @@ export default function App() {
           width={settings.rightPanelWidth}
           onResize={(w) => setSettings((s) => ({ ...s, rightPanelWidth: clampInfoPanelWidth(w) }))}
           onClose={() => setSettings((s) => ({ ...s, rightPanel: false }))}
+          onOpen={() => setSettings((s) => ({ ...s, rightPanel: true }))}
           file={file}
           numPages={doc?.numPages || 0}
           pageNumber={pageNumber}

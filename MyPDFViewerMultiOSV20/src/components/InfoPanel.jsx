@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconClose } from './Icons.jsx';
+import { IconInfo, IconPanelRightClose, IconPanelRightOpen } from './Icons.jsx';
 import { formatBytes } from '../lib/platform.js';
 import { clampInfoPanelWidth } from '../lib/settings.js';
 import { zoomModeLabelKey } from '../lib/view.js';
@@ -16,7 +16,7 @@ function Row({ label, value }) {
 }
 
 export default function InfoPanel({
-  open, width, onResize, onClose,
+  open, width, onResize, onClose, onOpen,
   file, numPages, pageNumber, scale, zoomMode, layout, rotation, info,
   bookmarkCount = 0, commentCount = 0, attachmentCount = 0, outlineCount = 0,
 }) {
@@ -43,7 +43,26 @@ export default function InfoPanel({
     document.body.classList.remove('resizing-sidebar');
   }, []);
 
-  if (!open) return null;
+  // Collapsed, the panel is a narrow strip that still shows what it is —
+  // icon and title — and opens again on a click.
+  if (!open) {
+    return (
+      <aside className="info-panel collapsed" aria-label={t('info.title')}>
+        <button
+          type="button"
+          className="info-strip"
+          onClick={onOpen}
+          title={t('info.expand')}
+          aria-label={t('info.expand')}
+          aria-expanded="false"
+        >
+          <IconPanelRightOpen size={17} />
+          <IconInfo size={17} />
+          <span className="info-strip-title">{t('info.title')}</span>
+        </button>
+      </aside>
+    );
+  }
 
   const zoomLabel = zoomMode === 'custom' || zoomMode === 'actual'
     ? `${Math.round((scale || 1) * 100)}%`
@@ -72,16 +91,18 @@ export default function InfoPanel({
       />
       <div className="info-main">
         <header className="side-head">
+          <IconInfo size={16} className="side-head-icon" />
           <span className="side-head-title">{t('info.title')}</span>
           <div className="side-head-actions">
             <button
               type="button"
               className="icon-btn side-head-action"
               onClick={onClose}
-              title={t('info.close')}
-              aria-label={t('info.close')}
+              title={t('info.collapse')}
+              aria-label={t('info.collapse')}
+              aria-expanded="true"
             >
-              <IconClose size={15} />
+              <IconPanelRightClose size={16} />
             </button>
           </div>
         </header>

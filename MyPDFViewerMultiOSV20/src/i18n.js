@@ -145,6 +145,8 @@ const ko = {
   },
   side: {
     folders: '폴더',
+    collapsePanel: '왼쪽 패널 접기',
+    expandPanel: '왼쪽 패널 펼치기',
     pickFolder: '폴더 열기',
     drive: '드라이브 {{name}}',
     noFolder: '폴더를 선택하면 하위 폴더와 PDF가 여기에 나타납니다.',
@@ -595,6 +597,8 @@ const ko = {
   info: {
     title: '문서 정보',
     close: '패널 닫기',
+    collapse: '문서 정보 패널 접기',
+    expand: '문서 정보 패널 펼치기',
     empty: '열린 문서가 없습니다. PDF를 열면 파일·문서·보기 정보가 여기에 나타납니다.',
     file: '파일',
     document: '문서',
@@ -782,6 +786,8 @@ const en = {
   },
   side: {
     folders: 'Folders',
+    collapsePanel: 'Collapse the left panel',
+    expandPanel: 'Expand the left panel',
     pickFolder: 'Open folder',
     drive: 'Drive {{name}}',
     noFolder: 'Choose a folder to list its subfolders and PDF files here.',
@@ -1232,6 +1238,8 @@ const en = {
   info: {
     title: 'Document info',
     close: 'Close panel',
+    collapse: 'Collapse the document info panel',
+    expand: 'Expand the document info panel',
     empty: 'No document is open. Open a PDF to see file, document and view details here.',
     file: 'File',
     document: 'Document',

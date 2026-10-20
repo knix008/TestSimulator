@@ -1,0 +1,14 @@
+{
+  "name": "mythinkmap",
+  "productName": "mythinkmap",
+  "version": "1.0.0",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "buildTime": "2026-10-19T22:26:07.698Z",
+  "gitCommit": "8ef482da",
+  "gitBranch": "main",
+  "node": "v22.18.0"
+}

@@ -4,13 +4,20 @@ import { setLanguage } from '../src/i18n.js';
 import InfoPanel from '../src/components/InfoPanel.jsx';
 
 describe('InfoPanel', () => {
-  it('renders nothing when closed', async () => {
+  it('collapses to a strip that still shows its icon and title, and expands on a click', async () => {
     await setLanguage('en');
-    const { container } = render(<InfoPanel open={false} width={260} />);
-    expect(container.firstChild).toBeNull();
+    const onOpen = vi.fn();
+    const { container } = render(<InfoPanel open={false} width={260} onOpen={onOpen} />);
+    const strip = container.querySelector('.info-panel.collapsed .info-strip');
+    expect(strip).toBeTruthy();
+    expect(strip.querySelectorAll('svg').length).toBe(2);
+    expect(strip.textContent).toContain('Document info');
+    expect(container.querySelector('.info-body')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand the document info panel' }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('shows document fields and can be closed', async () => {
+  it('shows document fields, with icon and title in its head, and can be collapsed', async () => {
     await setLanguage('en');
     const onClose = vi.fn();
     render(
@@ -40,7 +47,10 @@ describe('InfoPanel', () => {
     expect(screen.getByText('100%')).toBeTruthy();
     expect(screen.getByText('Single page')).toBeTruthy();
     expect(screen.getByText('90°')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+    const head = document.querySelector('.info-panel .side-head');
+    expect(head.querySelector('.side-head-icon')).toBeTruthy();
+    expect(head.querySelector('.side-head-title').textContent).toBe('Document info');
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse the document info panel' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

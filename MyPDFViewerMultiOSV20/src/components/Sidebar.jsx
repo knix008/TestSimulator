@@ -5,6 +5,7 @@ import {
   IconComment, IconCopy, IconDownload, IconTrash, IconChevron, IconFolder, IconFolderOpen,
   IconExpandAll, IconCollapseAll, IconExtract, IconHistory, IconUndo, IconRedo,
   IconStar, IconGallery, IconClose, IconHighlight, IconOpen, IconNext, IconSidebar, IconLibrary,
+  IconPanelLeftClose, IconPanelLeftOpen,
 } from './Icons.jsx';
 import { GalleryThumb } from './Gallery.jsx';
 import { isCurrent } from '../lib/gallery.js';
@@ -47,7 +48,7 @@ const PANELS = [
 // The left panel. One rail of tabs plus the active panel; each tab has a
 // tooltip, like every other control in the app.
 export default function Sidebar({
-  panel, onPanel, width, onResize,
+  panel, onPanel, onToggle, width, onResize,
   doc, pageNumber, onGoToPage,
   outline, images, onExtractImages, extracting,
   search, onGoToSearchHit, bookmarks, activeBookmarkId, onGoToBookmark,
@@ -65,6 +66,13 @@ export default function Sidebar({
 }) {
   const { t } = useTranslation();
   const drag = useRef(null);
+  // Expanding brings back the panel shown last (thumbnails the first time).
+  const lastPanel = useRef(panel !== 'none' ? panel : 'thumbnails');
+  if (panel && panel !== 'none') lastPanel.current = panel;
+  const toggle = () => {
+    if (onToggle) onToggle();
+    else onPanel(panel === 'none' ? lastPanel.current : 'none');
+  };
   const [outlineControls, setOutlineControls] = useState({
     expandable: false,
     expandAll: () => {},
@@ -167,6 +175,17 @@ export default function Sidebar({
             <Icon size={19} />
           </button>
         ))}
+        {/* Collapse / expand, at the foot of the rail where it is always in reach. */}
+        <button
+          type="button"
+          className="rail-btn rail-toggle"
+          onClick={toggle}
+          title={panel === 'none' ? t('side.expandPanel') : t('side.collapsePanel')}
+          aria-label={panel === 'none' ? t('side.expandPanel') : t('side.collapsePanel')}
+          aria-expanded={panel !== 'none'}
+        >
+          {panel === 'none' ? <IconPanelLeftOpen size={19} /> : <IconPanelLeftClose size={19} />}
+        </button>
       </nav>
 
       {panel !== 'none' ? (
@@ -265,6 +284,9 @@ export default function Sidebar({
                   </HeadAction>
                 </>
               ) : null}
+              <HeadAction title={t('side.collapsePanel')} onClick={toggle}>
+                <IconPanelLeftClose size={16} />
+              </HeadAction>
             </span>
           </div>
           <div className="side-body">
