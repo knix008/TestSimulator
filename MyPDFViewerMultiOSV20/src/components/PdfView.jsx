@@ -18,7 +18,7 @@ import {
   shouldCenterSheet, usesDocumentScroll, sheetCountForScroll, sheetSlotHeight,
   pageFromDocumentScroll, documentScrollTopForPage, documentScrollTail, SPREAD_GAP,
   paintsEagerly, pinDocumentScrollTop, centerDocumentSheetTop, documentSheetScrollTop, shiftDocumentScrollTop, wheelPageStep, leafFrontShot, leafBackShot, leafStayShot, leafStayBlank, leafStaySide, turnLeafSize,
-  pageTurnLeafDir, sheetShotBox,
+  pageTurnLeafDir, sheetShotBox, annotationBoxes,
 } from '../lib/view.js';
 import { collectLayerSearchHits, scrollOffsetForHit } from '../lib/search.js';
 import {
@@ -1743,20 +1743,21 @@ const PageView = React.memo(function PageView({
       ) : null}
 
       <div className="annots">
-        {annotations.filter((a) => a.kind !== 'note').map((a) => (
+        {annotations.filter((a) => a.kind !== 'note').flatMap((a) => annotationBoxes(a).map((r, i) => (
           <div
-            key={a.id}
+            key={`${a.id}-${i}`}
             className={`annot ${a.kind}`}
+            data-annot-id={a.id}
             style={{
-              left: `${a.rect.x * 100}%`,
-              top: `${a.rect.y * 100}%`,
-              width: `${a.rect.w * 100}%`,
-              height: `${a.rect.h * 100}%`,
+              left: `${r.x * 100}%`,
+              top: `${r.y * 100}%`,
+              width: `${(r.w ?? r.width) * 100}%`,
+              height: `${(r.h ?? r.height) * 100}%`,
               background: a.color,
             }}
             title={a.text || ''}
           />
-        ))}
+        )))}
       </div>
 
       {comments.length ? (

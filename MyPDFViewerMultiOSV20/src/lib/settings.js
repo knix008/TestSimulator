@@ -5,7 +5,9 @@
 // desktop app, so a restart restores the previous session exactly.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
 import { normalizePageLayout, normalizePageEffect, normalizeZoomMode } from './view.js';
-import { normalizeGallery, normalizeGalleryView, seedGallery, clampTileSize } from './gallery.js';
+import {
+  normalizeGallery, normalizeGalleryView, seedGallery, clampTileSize, clampBookSize, normalizeLibraryView,
+} from './gallery.js';
 import {
   applyCustomThemeVars, clearCustomThemeVars, isCustomThemeId, normalizeCustomThemes,
 } from './themes.js';
@@ -86,6 +88,8 @@ export const DEFAULT_SETTINGS = {
   gallery: [],               // [{ path, name, dir, size, addedAt, openedAt?, favorite? }] — see lib/gallery.js
   galleryView: 'tiles',      // tiles | details
   galleryTileSize: 168,      // px, tile view (96–320)
+  libraryBookSize: 220,      // px, the library's book covers (140–360)
+  libraryView: 'shelf',      // shelf | covers | list | details
   recentDirs: [],            // [path]
   lastSession: null,         // { path, page, zoomMode, zoom, rotation }
 };
@@ -110,6 +114,8 @@ export function normalize(raw) {
   out.gallery = Array.isArray(raw.gallery) ? normalizeGallery(raw.gallery) : seedGallery(out.recentFiles);
   out.galleryView = normalizeGalleryView(out.galleryView);
   out.galleryTileSize = clampTileSize(out.galleryTileSize);
+  out.libraryBookSize = clampBookSize(out.libraryBookSize);
+  out.libraryView = normalizeLibraryView(out.libraryView);
   out.fontSize = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, out.fontSize));
   out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
   out.rightPanelWidth = clampInfoPanelWidth(out.rightPanelWidth);

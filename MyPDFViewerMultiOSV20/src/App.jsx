@@ -49,7 +49,7 @@ import {
   HIGHLIGHT_COLOR, cycleTool, nextZoom, clampPage, normalizeRotation,
   failMessage, windowTitle, bookmarkLabel, nextSidebar, pickCopyText,
   bookmarkRecord, bookmarkAnchorY, normalizePageLayout, stepPage, isPagedLayout, sameSheet,
-  OPEN_ZOOM_MODE, fitButtonDisabled,
+  OPEN_ZOOM_MODE, fitButtonDisabled, highlightFromSelection,
 } from './lib/view.js';
 import { pageOccurrence } from './lib/search.js';
 import { commentAnchorY, mergeCommentList } from './lib/comments.js';
@@ -60,12 +60,13 @@ import {
 } from './lib/pdf-write.js';
 import {
   registerOpened, addPaths, removeFromGallery, setFavorite, isFavorite, renderThumb,
-  recentlyOpened, favoritesOf, clampTileSize, forgetOpened, forgetAllOpened, inGallery,
+  recentlyOpened, favoritesOf, clampTileSize, forgetOpened, forgetAllOpened, inGallery, clampBookSize,
 } from './lib/gallery.js';
 import { setThumb, getThumb, deleteThumb } from './lib/thumb-store.js';
 import { listHighlights, splitHighlightDeletes } from './lib/highlights.js';
 import { startFolderCandidates } from './lib/folders.js';
 import Gallery from './components/Gallery.jsx';
+import Library from './components/Library.jsx';
 
 export default function App() {
   const { t } = useTranslation();
@@ -1192,11 +1193,9 @@ export default function App() {
   // ── Annotations / bookmarks ────────────────────────────
   const applyHighlight = useCallback((sel) => {
     if (!sel?.rects?.length) { toast(t('error.noSelection'), 'warn'); return; }
-    const annots = sel.rects.map((rect) => ({
-      id: newId(), page: sel.page, kind: 'highlight', rect, color: HIGHLIGHT_COLOR,
-      text: String(sel.text || '').slice(0, 200),
-    }));
-    editWorkspace((w) => ({ ...w, annotations: [...w.annotations, ...annots] }), t('toolbar.highlight'));
+    const mark = highlightFromSelection(sel, { id: newId(), color: HIGHLIGHT_COLOR });
+    if (!mark) { toast(t('error.noSelection'), 'warn'); return; }
+    editWorkspace((w) => ({ ...w, annotations: [...w.annotations, mark] }), t('toolbar.highlight'));
     viewRef.current?.clearSelection();
   }, [editWorkspace, t, toast]);
 
@@ -1528,9 +1527,64 @@ export default function App() {
     toast(on ? t('gallery.favorited', { name: entry.name }) : t('gallery.unfavorited', { name: entry.name }), 'ok');
   }, [t, toast]);
 
-  const [showGallery, setShowGallery] = useState(false);
-  // Whatever document comes up next — from the gallery or elsewhere — is shown.
-  useEffect(() => { if (file) setShowGallery(false); }, [file]);
+  // The gallery and the library (favorites on shelves) each fill the document
+  // area; one at a time.
+  const [showGallery, setShowGalleryRaw] = useState(false);
+  const [showLibrary, setShowLibraryRaw] = useState(false);
+  const setShowGallery = useCallback((v) => {
+    setShowGalleryRaw((cur) => {
+      const next = typeof v === 'function' ? v(cur) : v;
+      if (next) setShowLibraryRaw(false);
+      return next;
+    });
+  }, []);
+  const setShowLibrary = useCallback((v) => {
+    setShowLibraryRaw((cur) => {
+      const next = typeof v === 'function' ? v(cur) : v;
+      if (next) setShowGalleryRaw(false);
+      return next;
+    });
+  }, []);
+  // Whatever document comes up next — from the gallery, the library or elsewhere — is shown.
+  useEffect(() => {
+    if (file) { setShowGalleryRaw(false); setShowLibraryRaw(false); }
+  }, [file]);
+
+  // Empties the library at once: every star goes, files and gallery cards stay.
+  const clearLibrary = useCallback((books) => {
+    const n = (books || []).length;
+    if (!n) return;
+    setSettings((s) => ({ ...s, gallery: s.gallery.map((x) => {
+      if (!x.favorite) return x;
+      const { favorite, ...rest } = x;
+      return rest;
+    }) }));
+    toast(t('library.cleared', { n }), 'ok');
+  }, [t, toast]);
+
+  // Files added from the library go in as favorites.
+  const addToLibrary = useCallback(async () => {
+    if (!isDesktop) return;
+    try {
+      const picked = await api.openPdfDialog({
+        defaultDir: openDefaultDir(settings),
+        multi: true,
+        title: t('library.addTitle'),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      });
+      if (!picked) return;
+      const paths = Array.isArray(picked) ? picked : [picked];
+      setSettings((s) => {
+        let g = addPaths(s.gallery, paths).list;
+        for (const p of paths) g = setFavorite(g, { path: p }, true);
+        return { ...s, gallery: g };
+      });
+      toast(t('library.added', { n: paths.length }), 'ok');
+    } catch (err) {
+      fail(err, 'open');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fail, settings.defaultOpenDir, settings.lastDir, t, toast]);
 
   const openGalleryEntry = useCallback(async (entry) => {
     if (!entry?.path) return;
@@ -1539,8 +1593,9 @@ export default function App() {
       return;
     }
     setShowGallery(false);
+    setShowLibrary(false);
     openByPath(entry.path);
-  }, [fail, openByPath, t]);
+  }, [fail, openByPath, setShowGallery, setShowLibrary, t]);
 
   const currentEntry = file?.path
     ? { path: file.path, name: file.name, dir: dirName(file.path), size: file.size }
@@ -1905,6 +1960,8 @@ export default function App() {
         onGallery={() => setShowGallery((v) => !v)}
         favoritesOpen={settings.sidebar === 'favorites'}
         onFavorites={() => setSettings((s) => ({ ...s, sidebar: s.sidebar === 'favorites' ? 'none' : 'favorites' }))}
+        libraryOpen={showLibrary}
+        onLibrary={() => setShowLibrary((v) => !v)}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id }))}
         onLang={changeLang}
         onSettings={() => setShowSettings(true)}
@@ -1985,6 +2042,8 @@ export default function App() {
           onOpenGalleryEntry={openGalleryEntry}
           onToggleFavorite={toggleFavorite}
           onShowGallery={() => setShowGallery(true)}
+          onShowLibrary={() => setShowLibrary(true)}
+          onClearLibrary={clearLibrary}
           onNeedGalleryThumb={requestGalleryThumb}
           onForgetRecent={forgetRecent}
           onForgetAllRecent={forgetAllRecent}
@@ -2078,6 +2137,24 @@ export default function App() {
               </div>
             )}
           />
+          {showLibrary ? (
+            <Library
+              entries={settings.gallery}
+              currentPath={file?.path || ''}
+              bookSize={settings.libraryBookSize}
+              view={settings.libraryView}
+              onView={(v) => setSettings((s) => ({ ...s, libraryView: v }))}
+              onBookSize={(n) => setSettings((s) => ({ ...s, libraryBookSize: clampBookSize(n) }))}
+              onOpen={openGalleryEntry}
+              onUnfavorite={(e) => toggleFavorite(e, false)}
+              onRemoveAll={clearLibrary}
+              onAdd={isDesktop ? addToLibrary : undefined}
+              onNeedThumb={requestGalleryThumb}
+              onBookMenu={galleryCardMenu}
+              onShowGallery={() => setShowGallery(true)}
+              onClose={() => setShowLibrary(false)}
+            />
+          ) : null}
           {showGallery ? (
             <Gallery
               entries={settings.gallery}
@@ -2092,6 +2169,7 @@ export default function App() {
               onAdd={isDesktop ? addToGallery : undefined}
               onNeedThumb={requestGalleryThumb}
               onCardMenu={galleryCardMenu}
+              onShowLibrary={() => setShowLibrary(true)}
               onClose={() => setShowGallery(false)}
             />
           ) : null}

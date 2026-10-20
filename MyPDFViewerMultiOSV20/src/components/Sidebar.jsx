@@ -4,7 +4,7 @@ import {
   IconGrid, IconOutline, IconImage, IconSearch, IconBookmark, IconClip,
   IconComment, IconCopy, IconDownload, IconTrash, IconChevron, IconFolder, IconFolderOpen,
   IconExpandAll, IconCollapseAll, IconExtract, IconHistory, IconUndo, IconRedo,
-  IconStar, IconGallery, IconClose, IconHighlight, IconOpen, IconNext, IconSidebar,
+  IconStar, IconGallery, IconClose, IconHighlight, IconOpen, IconNext, IconSidebar, IconLibrary,
 } from './Icons.jsx';
 import { GalleryThumb } from './Gallery.jsx';
 import { isCurrent } from '../lib/gallery.js';
@@ -40,7 +40,7 @@ const PANELS = [
   { id: 'search', icon: IconSearch, key: 'side.search' },
   { id: 'images', icon: IconImage, key: 'side.images' },
   { id: 'clips', icon: IconClip, key: 'side.clips' },
-  { id: 'favorites', icon: IconStar, key: 'side.favorites' },
+  { id: 'favorites', icon: IconLibrary, key: 'side.favorites' },
   { id: 'history', icon: IconHistory, key: 'side.history' },
 ];
 
@@ -55,8 +55,8 @@ export default function Sidebar({
   onCopyImage, onSaveImage, onRemoveBookmark, onCopyClip, onSaveClip, onRemoveClip,
   history = null,
   recentFiles = [], favorites = [], currentEntry = null, currentIsFavorite = false,
-  onOpenGalleryEntry, onToggleFavorite, onShowGallery, onNeedGalleryThumb,
-  onForgetRecent, onForgetAllRecent, onClearEditHistory,
+  onOpenGalleryEntry, onToggleFavorite, onShowGallery, onShowLibrary, onNeedGalleryThumb,
+  onForgetRecent, onForgetAllRecent, onClearEditHistory, onClearLibrary,
   highlights = [], highlightsBusy = false, onGoToHighlight, onDeleteHighlights,
   onContextMenuItems, onRevealPath, onCopyText,
   isInGallery, isFavoritePath, onAddPathToGallery, onRemoveFromGallery,
@@ -104,6 +104,7 @@ export default function Sidebar({
   // anywhere else in the panel gets the general one, never the browser's.
   const generalItems = () => [
     { icon: IconGallery, label: t('favorites.openGallery'), onClick: () => onShowGallery?.() },
+    onShowLibrary ? { icon: IconLibrary, label: t('library.open'), onClick: () => onShowLibrary() } : null,
     { icon: IconStar, label: t('side.favorites'), onClick: () => onPanel('favorites') },
     { icon: IconHighlight, label: t('side.highlights'), onClick: () => onPanel('highlights') },
     { icon: IconHistory, label: t('side.history'), onClick: () => onPanel('history') },
@@ -122,7 +123,7 @@ export default function Sidebar({
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     menu(generalItems)(e);
   };
-  const fileItems = (f, { forget = false } = {}) => [
+  const fileItems = (f, { forget = false, library = false } = {}) => [
     { icon: IconOpen, label: t('ctx.open'), onClick: () => onOpenGalleryEntry?.(f) },
     {
       icon: IconStar,
@@ -135,6 +136,8 @@ export default function Sidebar({
     onCopyText ? { icon: IconCopy, label: t('ctx.copyPath'), onClick: () => onCopyText(f.path) } : null,
     forget ? { separator: true } : null,
     forget ? { icon: IconTrash, label: t('history.clearAll'), onClick: () => onForgetAllRecent?.(), danger: true } : null,
+    library ? { separator: true } : null,
+    library ? { icon: IconTrash, label: t('library.removeAllMenu'), onClick: () => onClearLibrary?.(favorites), danger: true } : null,
   ];
 
   // The rail stays put; the panel width is --side-width and the splitter on
@@ -233,6 +236,9 @@ export default function Sidebar({
                     disabled={!currentEntry}
                   >
                     <IconStar size={16} filled={currentIsFavorite} />
+                  </HeadAction>
+                  <HeadAction title={t('library.open')} onClick={() => onShowLibrary?.()}>
+                    <IconLibrary size={16} />
                   </HeadAction>
                   <HeadAction title={t('favorites.openGallery')} onClick={() => onShowGallery?.()}>
                     <IconGallery size={16} />
@@ -531,12 +537,26 @@ export default function Sidebar({
             )}
 
             {panel === 'favorites' && (
+              <div className="side-section-row">
+                <h5 className="side-section">{t('library.count', { n: favorites.length })}</h5>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => onClearLibrary?.(favorites)}
+                  disabled={!favorites.length}
+                  title={t('library.removeAllTip')}
+                >
+                  {t('library.removeAll')}
+                </button>
+              </div>
+            )}
+            {panel === 'favorites' && (
               !favorites.length
                 ? <p className="empty">{t('favorites.empty')}</p>
                 : (
                   <ul className="fav-list">
                     {favorites.map((f) => (
-                      <li key={f.path} className="fav-row" onContextMenu={menu(() => fileItems(f))}>
+                      <li key={f.path} className="fav-row" onContextMenu={menu(() => fileItems(f, { library: true }))}>
                         <button
                           type="button"
                           className={`side-item fav-item${isCurrent(f, currentEntry?.path) ? ' active' : ''}`}
@@ -551,12 +571,12 @@ export default function Sidebar({
                         </button>
                         <button
                           type="button"
-                          className="icon-btn fav-off"
-                          title={t('gallery.unfavorite')}
-                          aria-label={t('gallery.unfavorite')}
+                          className="icon-btn row-del"
+                          title={t('library.removeOne')}
+                          aria-label={t('library.removeOne')}
                           onClick={() => onToggleFavorite?.(f, false)}
                         >
-                          <IconStar size={14} filled />
+                          <IconClose size={13} />
                         </button>
                       </li>
                     ))}

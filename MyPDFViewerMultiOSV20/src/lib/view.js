@@ -640,6 +640,41 @@ export function isMeaningfulCapture(rect) {
 
 // A finished region lives as a 0..1 box on its page so zoom / layout
 // changes do not wipe the rectangle the user just drew.
+// One selection is one highlight, however many lines it spans: a box per
+// line in `rects`, and `rect` around them all for anything that wants a
+// single box. Highlighting line by line made a three-line passage three
+// separate highlights to list, find and delete.
+export function highlightFromSelection(sel, { id, color = HIGHLIGHT_COLOR } = {}) {
+  const rects = (sel?.rects || [])
+    .map((r) => ({
+      x: Number(r.x) || 0,
+      y: Number(r.y) || 0,
+      w: Number(r.w ?? r.width) || 0,
+      h: Number(r.h ?? r.height) || 0,
+    }))
+    .filter((r) => r.w > 0 && r.h > 0);
+  if (!rects.length) return null;
+  const x1 = Math.min(...rects.map((r) => r.x));
+  const y1 = Math.min(...rects.map((r) => r.y));
+  const x2 = Math.max(...rects.map((r) => r.x + r.w));
+  const y2 = Math.max(...rects.map((r) => r.y + r.h));
+  return {
+    id,
+    page: sel.page,
+    kind: 'highlight',
+    rects,
+    rect: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
+    color,
+    text: String(sel.text || '').slice(0, 200),
+  };
+}
+
+// The boxes an annotation paints: its lines, or the single box of an older one.
+export function annotationBoxes(annot) {
+  if (annot?.rects?.length) return annot.rects;
+  return annot?.rect ? [annot.rect] : [];
+}
+
 export function regionToFrac(rect, pageW, pageH) {
   const w = Number(pageW) || 0;
   const h = Number(pageH) || 0;

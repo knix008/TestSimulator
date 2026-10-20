@@ -197,6 +197,40 @@ export function normalizeGalleryView(view) {
   return GALLERY_VIEWS.includes(view) ? view : 'tiles';
 }
 
+// ── The library: favorites as books on shelves ──────────
+export const BOOK_MIN = 140;
+export const BOOK_MAX = 360;
+export const BOOK_DEFAULT = 220;
+export const SHELF_GAP = 28;      // px between books on a shelf
+export const SHELF_PAD = 32;      // px of shelf on each side of the books
+// shelf: books on boards · covers: a wall of covers · list: rows · details: a table
+export const LIBRARY_VIEWS = ['shelf', 'covers', 'list', 'details'];
+
+export function normalizeLibraryView(view) {
+  return LIBRARY_VIEWS.includes(view) ? view : 'shelf';
+}
+
+export function clampBookSize(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return BOOK_DEFAULT;
+  return Math.min(BOOK_MAX, Math.max(BOOK_MIN, v));
+}
+
+// How many books of `bookWidth` stand on one shelf of `shelfWidth` (at least one).
+export function booksPerShelf(shelfWidth, bookWidth, { gap = SHELF_GAP, pad = SHELF_PAD } = {}) {
+  const room = Math.max(0, Number(shelfWidth) - 2 * pad);
+  const w = Math.max(1, Number(bookWidth) || BOOK_DEFAULT);
+  return Math.max(1, Math.floor((room + gap) / (w + gap)));
+}
+
+// The books, shelf by shelf.
+export function shelvesOf(items, perShelf) {
+  const n = Math.max(1, Math.floor(Number(perShelf) || 1));
+  const out = [];
+  for (let i = 0; i < (items || []).length; i += n) out.push(items.slice(i, i + n));
+  return out;
+}
+
 export function clampTileSize(n) {
   const v = Math.round(Number(n));
   if (!Number.isFinite(v)) return TILE_DEFAULT;

@@ -9,6 +9,29 @@ export function pdfRefFromId(id) {
   return { num: Number(m[1]), gen: m[2] ? Number(m[2]) : 0 };
 }
 
+// Lines closer than this (share of the page height) belong to one passage.
+const SAME_PASSAGE_GAP = 0.06;
+
+// Highlights made before one selection became one highlight were stored a
+// line at a time: same page, same text, lines right under each other. They
+// are shown — and deleted — as the single passage they were.
+export function groupPassages(items) {
+  const out = [];
+  for (const it of items) {
+    const prev = out[out.length - 1];
+    if (
+      prev && it.text && prev.source === it.source && prev.page === it.page && prev.text === it.text
+      && Math.abs((it.fracY || 0) - (prev.lastY ?? prev.fracY ?? 0)) <= SAME_PASSAGE_GAP
+    ) {
+      prev.ids.push(it.id);
+      prev.lastY = it.fracY || 0;
+      continue;
+    }
+    out.push({ ...it, ids: [it.id], lastY: it.fracY || 0 });
+  }
+  return out.map(({ lastY, ...rest }) => rest);
+}
+
 export function listHighlights(workspaceAnnotations, pdfComments) {
   const mine = (workspaceAnnotations || [])
     .filter((a) => a && a.kind === 'highlight')
@@ -32,7 +55,10 @@ export function listHighlights(workspaceAnnotations, pdfComments) {
       color: c.color,
       rects: c.rects,
     }));
-  return [...saved, ...mine].sort((a, b) => (a.page - b.page) || ((a.fracY || 0) - (b.fracY || 0)));
+  const sorted = [...saved, ...mine].sort((a, b) => (a.page - b.page)
+    || (a.source === b.source ? 0 : (a.source === 'pdf' ? -1 : 1))
+    || ((a.fracY || 0) - (b.fracY || 0)));
+  return groupPassages(sorted);
 }
 
 // What deleting `items` means: workspace ids to drop, and saved annotations
@@ -42,10 +68,13 @@ export function splitHighlightDeletes(items) {
   const pdfRefs = [];
   for (const it of items || []) {
     if (!it) continue;
-    if (it.source === 'workspace') workspaceIds.add(it.id);
-    else if (it.source === 'pdf') {
-      const ref = pdfRefFromId(it.id);
-      if (ref) pdfRefs.push({ page: Number(it.page) || 1, ...ref });
+    const ids = it.ids?.length ? it.ids : [it.id];
+    for (const id of ids) {
+      if (it.source === 'workspace') workspaceIds.add(id);
+      else if (it.source === 'pdf') {
+        const ref = pdfRefFromId(id);
+        if (ref) pdfRefs.push({ page: Number(it.page) || 1, ...ref });
+      }
     }
   }
   return { workspaceIds, pdfRefs };

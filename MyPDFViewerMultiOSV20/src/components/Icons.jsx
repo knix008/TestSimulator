@@ -215,6 +215,10 @@ export const IconStar = ({ filled, ...p }) => (
 export const IconGallery = (p) => (
   <S {...p}><rect x="3" y="6" width="14" height="14" rx="2" /><path d="M7 3h11a3 3 0 0 1 3 3v11" /><path d="m3 16 4-4 4 4 2-2 4 4" /><circle cx="12.5" cy="10" r="1.2" /></S>
 );
+// Books standing on a shelf: the library of favorites.
+export const IconLibrary = (p) => (
+  <S {...p}><path d="M3 21h18" /><rect x="4" y="5" width="4" height="16" rx="0.8" /><rect x="9" y="3" width="4" height="18" rx="0.8" /><path d="m14.5 6.2 3.7-1 3.6 14.8-3.7 1z" /><path d="M4 9h4M9 7h4" /></S>
+);
 export const IconTiles = (p) => (
   <S {...p}><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></S>
 );
