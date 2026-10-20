@@ -5,18 +5,20 @@ import assert from 'node:assert/strict';
 import { startWeb } from './web.harness.mjs';
 import { sleep } from './cdp.mjs';
 
-export async function runWebSuite({ log = console.log } = {}) {
+export async function runWebSuite({ log = console.log, report } = {}) {
   const results = [];
   const { page, close } = await startWeb({ storage: { 'mytrainer.settings.v1': { language: 'ko', showStartPage: true, theme: 'light' } } });
   const step = async (name, fn) => {
     const started = Date.now();
     try {
       await fn();
-      results.push({ name, ok: true, ms: Date.now() - started });
-      log(`  ✔ ${name}`);
+      const result = { name, ok: true, ms: Date.now() - started };
+      results.push(result);
+      if (report) report(result); else log(`  ✔ ${name}`);
     } catch (error) {
-      results.push({ name, ok: false, error: error.message });
-      log(`  ✖ ${name}: ${error.message}`);
+      const result = { name, ok: false, ms: Date.now() - started, error: error.message };
+      results.push(result);
+      if (report) report(result); else log(`  ✖ ${name}: ${error.message}`);
       await page.screenshot(`test-results/fail-web-${name.replace(/[^a-z0-9]+/gi, '_')}.png`).catch(() => {});
     }
   };

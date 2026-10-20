@@ -8,19 +8,22 @@ import path from 'node:path';
 import { App, root } from './desktop.harness.mjs';
 import { sleep } from './cdp.mjs';
 
-export async function runDesktopSuite({ log = console.log } = {}) {
+export async function runDesktopSuite({ log = console.log, report } = {}) {
   const results = [];
   const env = process.env.MYTRAINER_PYTHON ? { MYTRAINER_PYTHON: process.env.MYTRAINER_PYTHON } : {};
-  const app = await new App({ env, storage: { 'mytrainer.settings.v1': { language: 'ko', showStartPage: false, theme: 'light', confirmExit: false } } }).start();
+  const app = await new App({ env, storage: { 'mytrainer.settings.v1': { language: 'ko', showStartPage: false, theme: 'light', confirmExit: false, pythonAutoSetup: false } } }).start();
   const page = app.main;
   const step = async (name, fn) => {
+    const started = Date.now();
     try {
       await fn();
-      results.push({ name, ok: true });
-      log(`  ✔ ${name}`);
+      const result = { name, ok: true, ms: Date.now() - started };
+      results.push(result);
+      if (report) report(result); else log(`  ✔ ${name}`);
     } catch (error) {
-      results.push({ name, ok: false, error: error.message });
-      log(`  ✖ ${name}: ${error.message}`);
+      const result = { name, ok: false, ms: Date.now() - started, error: error.message };
+      results.push(result);
+      if (report) report(result); else log(`  ✖ ${name}: ${error.message}`);
       await page.screenshot(`test-results/fail-desktop-${name.replace(/[^a-z0-9]+/gi, '_')}.png`).catch(() => {});
     }
   };

@@ -13,6 +13,7 @@ import { cleanTrain, effectiveTask } from './src/domain/project.js';
 import { nodeById } from './src/domain/graph.js';
 import { generateOnnx } from './src/domain/export-onnx.js';
 import { soundsFor } from './test/unit/sounds.mjs';
+import { ensureVenvTts } from './scripts/venv-tts.mjs';
 
 const RUNNER = 'C:/Users/shkwon/AppData/Local/Temp/claude/c--Home-Projects-TestSimulator-MyTrainerMultiOSV10/4a3311fe-e6d7-4eac-8c76-f231126536e4/scratchpad/ort_run.py';
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : SAMPLE_IDS;
@@ -38,7 +39,7 @@ for (const id of ids) {
     fs.writeFileSync(path.join(dir, 'case.json'), JSON.stringify({ x: rawX, shape: [1, ...data.inputShape], expected }));
     let line = '';
     try {
-      line = execFileSync('.venv-tts/Scripts/python.exe', [RUNNER, dir], { stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
+      line = execFileSync(ensureVenvTts(['onnxruntime', 'numpy']), [RUNNER, dir], { stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
     } catch (error) {
       line = `ORT ${String(error.stderr).split(/\r?\n/).filter(Boolean).slice(-2).join(' | ')}`;
     }

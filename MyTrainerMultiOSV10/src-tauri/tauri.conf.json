@@ -49,6 +49,7 @@
         "languages": ["Korean", "English"],
         "displayLanguageSelector": true,
         "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh",
         "startMenuFolder": "MyTrainer"
       }
     },

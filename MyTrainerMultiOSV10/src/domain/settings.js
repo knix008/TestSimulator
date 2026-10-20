@@ -53,6 +53,8 @@ export function defaultSettings(language = 'ko') {
     micThreshold: 0.012,
     pythonPath: '',
     torchVariant: 'auto',
+    // The first start installs Python / PyTorch when there are none (once; the Python window can do it again).
+    pythonAutoSetup: true,
     saveWeights: true,
     confirmExit: true,
     startRecentCount: 8,
@@ -100,6 +102,7 @@ export function normalizeSettings(raw = {}, language = 'ko') {
     micThreshold: Number.isFinite(Number(s.micThreshold)) ? Math.min(0.2, Math.max(0.001, Number(s.micThreshold))) : base.micThreshold,
     pythonPath: typeof s.pythonPath === 'string' ? s.pythonPath : '',
     torchVariant: ['auto', 'cpu', 'cuda', 'default'].includes(s.torchVariant) ? s.torchVariant : 'auto',
+    pythonAutoSetup: s.pythonAutoSetup !== false,
     saveWeights: s.saveWeights !== false,
     confirmExit: s.confirmExit !== false,
     startRecentCount: clamp(s.startRecentCount, [0, 10], base.startRecentCount),

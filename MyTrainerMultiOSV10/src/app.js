@@ -1278,6 +1278,26 @@ popups.on('py-install-python', async () => {
   } catch (error) { popups.post('pyenv', { type: 'installFailed', message: native.errorText(error) }); }
 });
 popups.on('py-cancel', () => native.pyCancelInstall());
+
+/** No PyTorch anywhere on the first start (macOS / Linux, or the Windows installer's step failed): install Python and
+ *  PyTorch once, with the progress in the Python window. Afterwards only the Python window installs. */
+async function autoSetupPython() {
+  if (!state.settings.pythonAutoSetup || state.python?.best != null) return;
+  updateSettings({ pythonAutoSetup: false }, { quiet: true });
+  popups.open('pyenv', { detection: state.python, chosen: state.settings.pythonPath, nvidia: state.python?.nvidia ?? false }).then(() => { state.settings = loadSettings(storage); renderAll(); });
+  popups.post('pyenv', { type: 'installing' });
+  log(t('py.autoSetup'));
+  try {
+    const python = await native.pySetup();
+    log(t('py.installed', { path: python }), 'success');
+    state.python = await native.pyDetect();
+    popups.post('pyenv', { type: 'installed', detection: state.python, chosen: python });
+    renderAll();
+  } catch (error) {
+    log(native.errorText(error), 'error');
+    popups.post('pyenv', { type: 'installFailed', message: native.errorText(error) });
+  }
+}
 popups.on('error', (error) => reportError(error, 'popup'));
 popups.on('report-error', (data) => log(`${data.context}: ${data.message}\n${data.detail ?? ''}`, 'error'));
 
@@ -2713,7 +2733,7 @@ async function startApp() {
     appWindow.show().catch(() => {});
     appWindow.setFocus().catch(() => {});
     // The PyTorch environment, quietly in the background (the Train tab shows what was found).
-    setTimeout(() => { if (!state.python) native.pyDetect().then((detection) => { state.python = detection; renderStatus(); if (state.view.tab === 'train') renderCenter(); }).catch(() => {}); }, 1500);
+    setTimeout(() => { if (!state.python) native.pyDetect().then((detection) => { state.python = detection; renderStatus(); if (state.view.tab === 'train') renderCenter(); autoSetupPython(); }).catch(() => {}); }, 1500);
   }
   log(t('log.welcome', { version: VERSION }));
   // Test hook (E2E): the app's state and actions.

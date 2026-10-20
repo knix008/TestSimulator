@@ -1,8 +1,9 @@
 """Korean keyword-spotting data made with Supertonic TTS (Supertone, on-device ONNX TTS).
 
-    py -3.12 -m venv .venv-tts
-    .venv-tts/Scripts/python -m pip install supertonic        (macOS/Linux: .venv-tts/bin/python)
-    .venv-tts/Scripts/python scripts/make-kws-ko.py           (npm run data:kws)
+    npm run data:kws      (= node scripts/venv-tts.mjs --run scripts/make-kws-ko.py)
+
+runs it with .venv-tts, the tools' Python environment, which is made on that first run when it is missing
+(a Python 3.10-3.13 of this computer, or a downloaded portable one, plus supertonic and numpy).
 
 Every built-in voice (M1–M5, F1–F5) says the keywords 출근 / 퇴근 / 경비 / 해제 at several speeds and
 synthesis quality steps, and similar-sounding other words that make the "unknown" class.

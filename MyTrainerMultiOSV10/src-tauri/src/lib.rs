@@ -277,12 +277,76 @@ async fn py_detect(app: AppHandle) -> Result<python::Detection, String> {
 #[tauri::command]
 async fn py_install_torch(app: AppHandle, base: PathBuf, variant: String) -> Result<PathBuf, String> {
     let data = data_dir(&app)?;
-    blocking(move || python::install_torch(&app, &data, &base, &variant)).await
+    blocking(move || python::install_torch(&python::app_log(&app), &data, &base, &variant)).await
 }
 
 #[tauri::command]
 async fn py_install_python(app: AppHandle) -> Result<(), String> {
-    blocking(move || python::install_python(&app)).await
+    let data = data_dir(&app)?;
+    blocking(move || python::install_python(&python::app_log(&app), &data)).await
+}
+
+/// Python and PyTorch in one go (the first start's automatic setup): nothing when PyTorch is already there.
+#[tauri::command]
+async fn py_setup(app: AppHandle) -> Result<PathBuf, String> {
+    let data = data_dir(&app)?;
+    blocking(move || python::setup(&python::app_log(&app), &data)).await
+}
+
+/// `MyTrainer --setup-python [--lang ko|en]` (run by the Windows installer): installs Python and
+/// PyTorch when there are none, printing its progress (the installer shows it), without a window.
+fn setup_python_cli() -> i32 {
+    let args: Vec<String> = std::env::args().collect();
+    let lang = args.iter().position(|arg| arg == "--lang").and_then(|i| args.get(i + 1)).map(String::as_str).unwrap_or("ko");
+    i18n::set_english(lang != "ko");
+    let Some(data) = python::default_data_dir("com.shkwon.mytrainer") else {
+        cli_print("the data folder was not found");
+        return 1;
+    };
+    let _ = std::fs::create_dir_all(&data);
+    let log_file = Mutex::new(std::fs::File::create(data.join("setup-python.log")).ok());
+    let log = |stage: &str, text: &str| {
+        cli_print(&format!("[{stage}] {text}"));
+        if let Some(file) = log_file.lock().unwrap_or_else(|p| p.into_inner()).as_mut() {
+            use std::io::Write;
+            let _ = writeln!(file, "[{stage}] {text}");
+        }
+    };
+    match python::setup(&log, &data) {
+        Ok(_) => 0,
+        Err(error) => {
+            log("error", &error);
+            2
+        }
+    }
+}
+
+/// One line on stdout. On Windows in the system code page, which is what the installer's log reads.
+fn cli_print(text: &str) {
+    use std::io::Write;
+    let mut out = std::io::stdout().lock();
+    #[cfg(windows)]
+    {
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn WideCharToMultiByte(page: u32, flags: u32, wide: *const u16, wide_len: i32, out: *mut u8, out_len: i32, default: *const u8, used: *mut i32) -> i32;
+        }
+        let wide: Vec<u16> = text.encode_utf16().collect();
+        if wide.is_empty() {
+            let _ = out.write_all(b"\r\n");
+            return;
+        }
+        // SAFETY: both buffers are valid for the lengths given; the first call only measures.
+        let size = unsafe { WideCharToMultiByte(0, 0, wide.as_ptr(), wide.len() as i32, std::ptr::null_mut(), 0, std::ptr::null(), std::ptr::null_mut()) };
+        let mut bytes = vec![0u8; size.max(0) as usize];
+        let written = unsafe { WideCharToMultiByte(0, 0, wide.as_ptr(), wide.len() as i32, bytes.as_mut_ptr(), size, std::ptr::null(), std::ptr::null_mut()) };
+        bytes.truncate(written.max(0) as usize);
+        bytes.extend_from_slice(b"\r\n");
+        let _ = out.write_all(&bytes);
+    }
+    #[cfg(not(windows))]
+    let _ = writeln!(out, "{text}");
+    let _ = out.flush();
 }
 
 #[tauri::command]
@@ -535,6 +599,9 @@ fn quit_app(app: AppHandle) {
 }
 
 pub fn run() {
+    if std::env::args().any(|arg| arg == "--setup-python") {
+        std::process::exit(setup_python_cli());
+    }
     let instance = if std::env::var_os("MYTRAINER_MULTI").is_none() { instance::register() } else { None };
     let others = instance.as_ref().map_or(0, |instance| instance.others);
     tauri::Builder::default()
@@ -615,6 +682,7 @@ pub fn run() {
             py_detect,
             py_install_torch,
             py_install_python,
+            py_setup,
             py_cancel_install,
             py_run,
             py_send,

@@ -178,7 +178,7 @@ export default {
   'py.path': '경로', 'py.device': '장치', 'py.where': '찾은 곳', 'py.none': '없음', 'py.own': 'MyTrainer 전용', 'py.use': '이것 사용', 'py.inUse': '사용 중',
   'py.installTitle': 'PyTorch 설치', 'py.alreadyHint': 'PyTorch 가 이미 있으므로 설치하지 않아도 됩니다. 다른 버전을 원할 때만 설치하세요.', 'py.base': '기반 Python', 'py.variant': '종류', 'py.install': 'PyTorch 설치',
   'py.installHint': '{dir} 에 가상 환경을 만들고 pip 로 torch 와 numpy 를 설치합니다 (CPU 판 약 200 MB, CUDA 판 2 GB 이상).', 'py.noBase': 'PyTorch 를 설치할 수 있는 64비트 Python 3.9 이상이 없습니다.',
-  'py.installPython': 'Python 3.12 설치 (winget)', 'py.installPythonManual': 'python.org 또는 패키지 관리자로 Python 3.10~3.13 을 설치한 뒤 다시 찾으세요.', 'py.installDone': 'PyTorch 설치가 끝났습니다. 이제 PyTorch 엔진으로 학습할 수 있습니다.',
+  'py.installPython': 'Python 3.12 설치', 'py.installPythonManual': 'Windows 는 winget 으로, 그 밖에는 (또는 winget 이 실패하면) MyTrainer 전용 휴대용 Python 을 내려받습니다 (약 30 MB). 직접 Python 3.10~3.13 을 설치한 뒤 다시 찾아도 됩니다.', 'py.autoSetup': 'PyTorch 가 없어 Python / PyTorch 를 설치합니다 (처음 시작할 때 한 번).', 'py.installDone': 'PyTorch 설치가 끝났습니다. 이제 PyTorch 엔진으로 학습할 수 있습니다.',
   'py.needTorch': 'PyTorch 엔진에는 PyTorch 가 설치된 Python 이 필요합니다.', 'py.installing': 'PyTorch 설치 시작 ({variant})…', 'py.installed': 'PyTorch 설치 완료: {path}',
   'py.variant.auto': '자동', 'py.variant.cpu': 'CPU 전용 (작음)', 'py.variant.cuda': 'NVIDIA CUDA', 'py.variant.default': 'PyPI 기본',
   'py.source.env': 'MYTRAINER_PYTHON', 'py.source.app': 'MyTrainer 환경', 'py.source.venv': '활성 가상 환경', 'py.source.conda': 'conda', 'py.source.path': 'PATH', 'py.source.launcher': 'py 실행기', 'py.source.folder': '설치 폴더',

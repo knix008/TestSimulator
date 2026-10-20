@@ -19,11 +19,16 @@ import { SAMPLE_IDS, sampleProject } from '../../src/domain/samples.js';
 import { canonicalWeights } from '../../src/engine/tfbuild.js';
 import { Trainer } from '../../src/engine/trainer-core.js';
 import { zipBlob } from '../../src/platform/zip.js';
+import { ensureVenvTts } from '../../scripts/venv-tts.mjs';
 
 tf.setBackend('cpu');
 
 const gcc = ['gcc', 'C:/Msys64/ucrt64/bin/gcc.exe', 'C:/msys64/mingw64/bin/gcc.exe', '/usr/bin/gcc', '/usr/bin/cc'].find((candidate) => spawnSync(candidate, ['--version'], { stdio: 'ignore' }).status === 0);
-const ortPython = [process.env.MYTRAINER_ORT_PYTHON, '.venv-tts/Scripts/python.exe', '.venv-tts/bin/python', 'python', 'python3'].filter(Boolean).find((candidate) => spawnSync(candidate, ['-c', 'import onnxruntime, numpy'], { stdio: 'ignore' }).status === 0);
+// ONNX Runtime: MYTRAINER_ORT_PYTHON, else .venv-tts (made / completed now when it is missing), else a Python on PATH.
+// Absolute paths: the check runs from the project folder, the export from a temporary one.
+const hasOrt = (candidate) => spawnSync(candidate, ['-c', 'import onnxruntime, numpy'], { stdio: 'ignore' }).status === 0;
+const venvOrt = () => { try { return ensureVenvTts(['onnxruntime', 'numpy'], { log: (line) => console.log(line) }); } catch (error) { console.log(`.venv-tts: ${error.message}`); return null; } };
+const ortPython = [process.env.MYTRAINER_ORT_PYTHON].filter(Boolean).find(hasOrt) ?? venvOrt() ?? ['python', 'python3'].find(hasOrt);
 const ORT_RUN = `import json, sys
 import numpy as np, onnxruntime as ort
 case = json.load(open(sys.argv[1]))
@@ -32,10 +37,18 @@ y = session.run(None, {"input": np.array(case["x"], dtype=np.float32).reshape(ca
 print(float(np.abs(y - np.array(case["expected"], dtype=np.float32)).max()))
 `;
 
+/** At most about `n` clips of a sound bank, every label kept (like `n: 160` for generated data). */
+function fewClips(clips, n = 160) {
+  if (!clips) return clips;
+  const byLabel = Map.groupBy(clips, (clip) => clip.label);
+  const each = Math.max(1, Math.ceil(n / byLabel.size));
+  return [...byLabel.values()].flatMap((list) => list.filter((_, i) => i % Math.max(1, Math.floor(list.length / each)) === 0).slice(0, each));
+}
+
 /** A briefly trained sample: weights (canonical), a raw test input and TF.js's output for it. */
 async function trained(id) {
   const project = sampleProject(id, 'en');
-  const data = fromSource(project.dataset.source, { sounds: soundsFor(project.dataset.source), overrides: { n: 160, copies: 1 } });
+  const data = fromSource(project.dataset.source, { sounds: fewClips(soundsFor(project.dataset.source)), overrides: { n: 160, copies: 1 } });
   const prepared = prepare(data, project.dataset.steps, project.dataset.split);
   const task = effectiveTask(prepared.task, project.model, prepared.inputShape);
   const messages = [];

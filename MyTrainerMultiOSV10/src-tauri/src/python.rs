@@ -152,6 +152,10 @@ pub fn candidates(own_env: &Path) -> Vec<(PathBuf, &'static str)> {
         out.push((PathBuf::from(path), "env"));
     }
     out.push((env_python(own_env), "app"));
+    // The portable Python MyTrainer installs when the computer has none (next to its environment).
+    if let Some(data) = own_env.parent() {
+        out.push((portable_python(&portable_dir(data)), "app"));
+    }
     if let Some(prefix) = std::env::var_os("VIRTUAL_ENV") {
         out.push((venv_python(Path::new(&prefix)), "venv"));
     }
@@ -352,6 +356,16 @@ pub fn detect(data: &Path) -> Result<Detection, String> {
 
 // ───────────────────────── installing
 
+/// Where install output goes: (stage, line). The app sends it to the window, `--setup-python` prints it.
+pub type Log<'a> = &'a (dyn Fn(&str, &str) + Sync);
+
+/// The app's log: every line becomes a `py-install` event for the Python popup.
+pub fn app_log(app: &AppHandle) -> impl Fn(&str, &str) + Sync + '_ {
+    move |stage: &str, text: &str| {
+        let _ = app.emit("py-install", InstallLine { stage: stage.into(), text: text.into() });
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InstallLine {
@@ -359,10 +373,10 @@ struct InstallLine {
     text: String,
 }
 
-/// Runs a command, sending every output line to the UI; fails when it exits with an error.
-fn run_logged(app: &AppHandle, stage: &str, command: &mut Command, cancel: &Arc<Mutex<bool>>) -> Result<(), String> {
+/// Runs a command, logging every output line; fails when it exits with an error.
+fn run_logged(log: Log, stage: &str, command: &mut Command, cancel: &Arc<Mutex<bool>>) -> Result<(), String> {
     let shown = format!("{:?}", command).replace('"', "");
-    let _ = app.emit("py-install", InstallLine { stage: stage.into(), text: format!("$ {shown}") });
+    log(stage, &format!("$ {shown}"));
     let mut child = no_window(command)
         .env("PYTHONIOENCODING", "utf-8")
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
@@ -372,34 +386,32 @@ fn run_logged(app: &AppHandle, stage: &str, command: &mut Command, cancel: &Arc<
         .spawn()
         .map_err(|error| tr!("실행할 수 없습니다 ({shown}): {error}", "Could not run ({shown}): {error}"))?;
     let stderr = child.stderr.take();
-    let app2 = app.clone();
-    let stage2 = stage.to_string();
-    let errors = Arc::new(Mutex::new(Vec::<String>::new()));
-    let errors2 = errors.clone();
-    let reader = std::thread::spawn(move || {
-        if let Some(stderr) = stderr {
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                if let Ok(mut list) = errors2.lock() {
-                    list.push(line.clone());
-                    if list.len() > 40 {
-                        list.remove(0);
+    let errors = Mutex::new(Vec::<String>::new());
+    let status = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            if let Some(stderr) = stderr {
+                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                    if let Ok(mut list) = errors.lock() {
+                        list.push(line.clone());
+                        if list.len() > 40 {
+                            list.remove(0);
+                        }
                     }
+                    log(stage, &line);
                 }
-                let _ = app2.emit("py-install", InstallLine { stage: stage2.clone(), text: line });
+            }
+        });
+        if let Some(stdout) = child.stdout.take() {
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                log(stage, &line);
+                if *cancel.lock().unwrap_or_else(|p| p.into_inner()) {
+                    let _ = child.kill();
+                    break;
+                }
             }
         }
-    });
-    if let Some(stdout) = child.stdout.take() {
-        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-            let _ = app.emit("py-install", InstallLine { stage: stage.into(), text: line });
-            if *cancel.lock().unwrap_or_else(|p| p.into_inner()) {
-                let _ = child.kill();
-                break;
-            }
-        }
-    }
-    let status = child.wait().map_err(|error| error.to_string())?;
-    let _ = reader.join();
+        child.wait().map_err(|error| error.to_string())
+    })?;
     if *cancel.lock().unwrap_or_else(|p| p.into_inner()) {
         return Err(tr!("설치를 취소했습니다.", "The installation was cancelled."));
     }
@@ -429,51 +441,171 @@ pub fn cancel_flag() -> Arc<Mutex<bool>> {
     INSTALL_CANCEL.get_or_init(|| Arc::new(Mutex::new(false))).clone()
 }
 
-/// Creates MyTrainer's own environment from `base` and installs PyTorch and NumPy into it. Returns its Python.
-pub fn install_torch(app: &AppHandle, data: &Path, base: &Path, variant: &str) -> Result<PathBuf, String> {
+fn reset_cancel() -> Arc<Mutex<bool>> {
     let cancel = cancel_flag();
     *cancel.lock().unwrap_or_else(|p| p.into_inner()) = false;
+    cancel
+}
+
+/// Creates MyTrainer's own environment from `base` and installs PyTorch and NumPy into it. Returns its Python.
+pub fn install_torch(log: Log, data: &Path, base: &Path, variant: &str) -> Result<PathBuf, String> {
+    let cancel = reset_cancel();
     let dir = env_dir(data);
     let python = env_python(&dir);
     if !python.is_file() {
         if dir.exists() {
             let _ = std::fs::remove_dir_all(&dir);
         }
-        run_logged(app, "venv", Command::new(base).arg("-m").arg("venv").arg(&dir), &cancel)?;
+        run_logged(log, "venv", Command::new(base).arg("-m").arg("venv").arg(&dir), &cancel)?;
     }
-    run_logged(app, "pip", Command::new(&python).args(["-m", "pip", "install", "--upgrade", "pip"]), &cancel)?;
+    run_logged(log, "pip", Command::new(&python).args(["-m", "pip", "install", "--upgrade", "pip"]), &cancel)?;
     let mut torch = Command::new(&python);
     torch.args(["-m", "pip", "install", "--upgrade", "torch"]);
     if let Some(index) = torch_index(variant) {
         torch.args(["--index-url", index]);
     }
-    run_logged(app, "torch", &mut torch, &cancel)?;
-    run_logged(app, "numpy", Command::new(&python).args(["-m", "pip", "install", "--upgrade", "numpy"]), &cancel)?;
+    run_logged(log, "torch", &mut torch, &cancel)?;
+    run_logged(log, "numpy", Command::new(&python).args(["-m", "pip", "install", "--upgrade", "numpy"]), &cancel)?;
     Ok(python)
 }
 
-/// Installs Python itself (Windows: winget, per user). Other systems have their own package managers.
-pub fn install_python(app: &AppHandle) -> Result<(), String> {
-    let cancel = cancel_flag();
-    *cancel.lock().unwrap_or_else(|p| p.into_inner()) = false;
+/// A portable CPython (python-build-standalone) MyTrainer installs for itself when the computer has none.
+pub fn portable_dir(data: &Path) -> PathBuf {
+    data.join("python")
+}
+
+pub fn portable_python(dir: &Path) -> PathBuf {
     if cfg!(windows) {
-        run_logged(
-            app,
+        dir.join("python.exe")
+    } else {
+        dir.join("bin").join("python3")
+    }
+}
+
+const PORTABLE_RELEASE: &str = "20241016";
+const PORTABLE_VERSION: &str = "3.12.7";
+
+/// The python-build-standalone archive for this computer, None when there is none.
+pub fn portable_url() -> Option<String> {
+    let target = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        ("macos", "aarch64") => "aarch64-apple-darwin",
+        ("macos", "x86_64") => "x86_64-apple-darwin",
+        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
+        ("linux", "aarch64") => "aarch64-unknown-linux-gnu",
+        _ => return None,
+    };
+    Some(format!(
+        "https://github.com/astral-sh/python-build-standalone/releases/download/{PORTABLE_RELEASE}/cpython-{PORTABLE_VERSION}+{PORTABLE_RELEASE}-{target}-install_only.tar.gz"
+    ))
+}
+
+/// curl and tar: Windows 10 and newer have both in System32 (preferred over other copies on PATH).
+fn system_tool(name: &str) -> PathBuf {
+    if cfg!(windows) {
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            let path = PathBuf::from(root).join("System32").join(exe(name));
+            if path.is_file() {
+                return path;
+            }
+        }
+    }
+    PathBuf::from(name)
+}
+
+/// Downloads and unpacks the portable Python into data dir/python. Returns its Python.
+fn install_portable(log: Log, data: &Path, cancel: &Arc<Mutex<bool>>) -> Result<PathBuf, String> {
+    let url = portable_url().ok_or_else(|| tr!("이 운영체제용 Python 배포본이 없습니다.", "There is no Python build for this system."))?;
+    let dir = portable_dir(data);
+    let unpack = data.join("python-download");
+    let _ = std::fs::remove_dir_all(&unpack);
+    std::fs::create_dir_all(&unpack).map_err(|error| error.to_string())?;
+    let archive = unpack.join("python.tar.gz");
+    log("python", &tr!("Python {PORTABLE_VERSION} 내려받는 중… (약 30 MB)", "Downloading Python {PORTABLE_VERSION}… (about 30 MB)"));
+    run_logged(log, "python", Command::new(system_tool("curl")).args(["-L", "--fail", "--silent", "--show-error", "--retry", "3", "-o"]).arg(&archive).arg(&url), cancel)?;
+    run_logged(log, "python", Command::new(system_tool("tar")).arg("-xzf").arg(&archive).arg("-C").arg(&unpack), cancel)?;
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::rename(unpack.join("python"), &dir).map_err(|error| error.to_string())?;
+    let _ = std::fs::remove_dir_all(&unpack);
+    let python = portable_python(&dir);
+    if python.is_file() {
+        Ok(python)
+    } else {
+        Err(tr!("Python 을 풀었지만 {} 이(가) 없습니다.", "Python was unpacked but {} is missing.", python.display()))
+    }
+}
+
+/// Installs Python itself: on Windows with winget (per user), otherwise — or when that fails — a portable Python of MyTrainer's own.
+pub fn install_python(log: Log, data: &Path) -> Result<(), String> {
+    let cancel = reset_cancel();
+    if cfg!(windows) {
+        let winget = run_logged(
+            log,
             "python",
             Command::new("winget").args(["install", "--id", "Python.Python.3.12", "-e", "--scope", "user", "--silent", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"]),
             &cancel,
-        )
-    } else if cfg!(target_os = "macos") {
-        Err(tr!(
-            "macOS 에서는 python.org 설치 파일이나 Homebrew(brew install python@3.12)로 Python을 설치한 뒤 다시 검사하세요.",
-            "On macOS install Python with the python.org installer or Homebrew (brew install python@3.12), then detect again."
-        ))
-    } else {
-        Err(tr!(
-            "배포판의 패키지 관리자로 Python 3 와 venv 를 설치한 뒤 다시 검사하세요 (예: sudo apt install python3 python3-venv).",
-            "Install Python 3 and venv with your distribution's package manager, then detect again (e.g. sudo apt install python3 python3-venv)."
-        ))
+        );
+        match winget {
+            Ok(()) => return Ok(()),
+            Err(_) if *cancel.lock().unwrap_or_else(|p| p.into_inner()) => return winget,
+            Err(error) => log("python", &tr!("winget 설치 실패 — 휴대용 Python 으로 대신합니다. ({error})", "winget failed — using a portable Python instead. ({error})")),
+        }
     }
+    install_portable(log, data, &cancel).map(|_| ())
+}
+
+/// The PyTorch variant to install: CUDA when there is an NVIDIA GPU (not on macOS, where the default wheel has MPS).
+pub fn auto_variant(nvidia: bool) -> &'static str {
+    if cfg!(target_os = "macos") {
+        "default"
+    } else if nvidia {
+        "cuda"
+    } else {
+        "cpu"
+    }
+}
+
+/// Makes sure a Python with PyTorch exists: nothing when one does; otherwise installs Python (when
+/// there is none to build on) and PyTorch. Returns the Python to use.
+pub fn setup(log: Log, data: &Path) -> Result<PathBuf, String> {
+    log("detect", &tr!("Python / PyTorch 를 찾는 중…", "Looking for Python / PyTorch…"));
+    let mut detection = detect(data)?;
+    if let Some(best) = detection.best {
+        let info = &detection.pythons[best];
+        log("done", &tr!("PyTorch {} 이(가) 이미 설치되어 있습니다: {}", "PyTorch {} is already installed: {}", info.torch.as_deref().unwrap_or("?"), info.path.display()));
+        return Ok(info.path.clone());
+    }
+    if detection.base.is_none() {
+        log("python", &tr!("PyTorch 를 설치할 Python 이 없어 Python 을 설치합니다.", "There is no Python to install PyTorch for, so Python is installed first."));
+        install_python(log, data)?;
+        detection = detect(data)?;
+    }
+    let base = detection.base.map(|index| detection.pythons[index].path.clone());
+    let base = match base {
+        Some(base) => base,
+        // winget installed a Python that is not visible yet (a new PATH): fall back to the portable one.
+        None => install_portable(log, data, &reset_cancel())?,
+    };
+    let variant = auto_variant(detection.nvidia);
+    log("torch", &tr!("PyTorch ({variant}) 를 설치합니다 — 기준 Python: {}", "Installing PyTorch ({variant}) — base Python: {}", base.display()));
+    let python = install_torch(log, data, &base, variant)?;
+    log("done", &tr!("설치를 마쳤습니다: {}", "Installed: {}", python.display()));
+    Ok(python)
+}
+
+/// The app's data folder without a running app (the same folder Tauri's app_data_dir gives).
+pub fn default_data_dir(identifier: &str) -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("MYTRAINER_DATA_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    let base = if cfg!(windows) {
+        PathBuf::from(std::env::var_os("APPDATA")?)
+    } else if cfg!(target_os = "macos") {
+        home()?.join("Library").join("Application Support")
+    } else {
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).filter(|dir| dir.is_absolute()).or_else(|| home().map(|home| home.join(".local").join("share")))?
+    };
+    Some(base.join(identifier))
 }
 
 // ───────────────────────── runs
@@ -687,5 +819,47 @@ mod tests {
         assert!(safe_name("../x").is_none());
         assert!(safe_name("a\\b").is_none());
         assert!(safe_name("").is_none());
+    }
+
+    #[test]
+    fn a_portable_python_exists_for_this_computer() {
+        let url = portable_url().expect("a python-build-standalone target");
+        assert!(url.starts_with("https://github.com/astral-sh/python-build-standalone/releases/download/"));
+        assert!(url.ends_with("-install_only.tar.gz"));
+        // MyTrainer's portable Python is one of the places detection looks.
+        let data = Path::new("data");
+        assert!(candidates(&env_dir(data)).iter().any(|(path, source)| *path == portable_python(&portable_dir(data)) && *source == "app"));
+    }
+
+    #[test]
+    fn the_setup_variant_follows_the_gpu() {
+        if cfg!(target_os = "macos") {
+            assert_eq!(auto_variant(true), "default");
+        } else {
+            assert_eq!(auto_variant(true), "cuda");
+            assert_eq!(auto_variant(false), "cpu");
+        }
+    }
+
+    /// Downloads the portable Python and installs CPU PyTorch into it (network, ~250 MB):
+    /// `cargo test --lib -- --ignored portable_python_installs_pytorch`.
+    #[test]
+    #[ignore]
+    fn portable_python_installs_pytorch() {
+        let data = tempfile::tempdir().expect("temp dir");
+        let log = |stage: &str, text: &str| println!("[{stage}] {text}");
+        let base = install_portable(&log, data.path(), &reset_cancel()).expect("portable Python");
+        let python = install_torch(&log, data.path(), &base, "cpu").expect("PyTorch");
+        let script = data.path().join("env_probe.py");
+        std::fs::write(&script, PROBE_SCRIPT).expect("probe script");
+        let info = probe(&python, &script).expect("probe");
+        assert!(info.has_torch(), "{info:?}");
+    }
+
+    #[test]
+    fn the_cli_data_folder_ends_with_the_identifier() {
+        if std::env::var_os("MYTRAINER_DATA_DIR").is_none() {
+            assert!(default_data_dir("com.shkwon.mytrainer").expect("a data folder").ends_with("com.shkwon.mytrainer"));
+        }
     }
 }

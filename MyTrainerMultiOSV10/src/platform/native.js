@@ -195,6 +195,7 @@ async function writeHandle(handle, content) {
 export const pyDetect = () => invoke('py_detect');
 export const pyInstallTorch = (base, variant) => invoke('py_install_torch', { base, variant });
 export const pyInstallPython = () => invoke('py_install_python');
+export const pySetup = () => invoke('py_setup');
 export const pyCancelInstall = () => invoke('py_cancel_install').catch(() => {});
 export const pyRun = (python, code, files) => invoke('py_run', { python, code, files });
 export const pySend = (run, line) => invoke('py_send', { run, line });

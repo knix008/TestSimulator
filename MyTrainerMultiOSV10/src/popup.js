@@ -293,7 +293,7 @@ function renderPyEnv() {
       <label>${escapeHtml(t('py.variant'))} <select data-py="variant">${['auto', 'cpu', 'cuda', 'default'].map((v) => `<option value="${v}" ${variant === v ? 'selected' : ''}>${escapeHtml(t(`py.variant.${v}`))}${v === 'auto' ? ` (${detection?.nvidia ? 'CUDA' : 'CPU'})` : ''}</option>`).join('')}</select></label>
       ${state.installing ? button('cancelInstall', t('common.cancel'), 'close', 'danger') : button('install', t('py.install'), 'install', 'primary')}
     </div><p class="muted small">${escapeHtml(t('py.installHint', { dir: detection?.envDir ?? '' }))}</p>`
-      : `<p>${escapeHtml(t('py.noBase'))}</p>${detection?.os === 'windows' ? button('installPython', t('py.installPython'), 'install', 'primary', '', state.installing ? 'disabled' : '') : `<p class="muted">${escapeHtml(t('py.installPythonManual'))}</p>`}`}
+      : `<p>${escapeHtml(t('py.noBase'))}</p>${button('installPython', t('py.installPython'), 'install', 'primary', '', state.installing ? 'disabled' : '')}<p class="muted small">${escapeHtml(t('py.installPythonManual'))}</p>`}
     ${state.message ? `<div class="py-message ${state.message.kind}">${icon(state.message.kind === 'error' ? 'error' : 'check')}<span>${escapeHtml(state.message.text)}</span></div>` : ''}
     <pre class="py-log" ${state.log.length ? '' : 'hidden'}>${escapeHtml(state.log.slice(-400).join('\n'))}</pre></section>`;
   return frame({
@@ -315,6 +315,7 @@ function onHostMessage(message) {
     case 'detecting': state.detecting = true; break;
     case 'detection': state.detecting = false; state.params = { ...state.params, detection: message.detection, chosen: message.chosen }; break;
     case 'log': state.log.push(message.line.text); if (state.log.length > 2000) state.log.splice(0, 500); break;
+    case 'installing': state.installing = true; state.log = []; state.message = null; break;
     case 'installed': state.installing = false; state.params = { ...state.params, detection: message.detection, chosen: message.chosen }; state.message = { kind: 'ok', text: t('py.installDone') }; break;
     case 'installFailed': state.installing = false; state.message = { kind: 'error', text: message.message }; break;
     case 'error': state.detecting = false; state.message = { kind: 'error', text: message.message }; break;

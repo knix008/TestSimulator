@@ -22,7 +22,8 @@
     "build:icons": "node scripts/render-icons.mjs",
     "samples": "node scripts/make-samples.mjs",
     "build:docs": "node scripts/build-docs.mjs",
-    "data": "node scripts/make-data.mjs"
+    "data": "node scripts/make-data.mjs",
+    "data:kws": "node scripts/venv-tts.mjs --run scripts/make-kws-ko.py"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
