@@ -1,8 +1,9 @@
 // The guided tour: a spotlight on one part of the window at a time and a card
-// that explains it, step by step (src/lib/tourSteps.js). "Show me" runs the
-// feature on the tutorial map so it can be seen working; → / Enter next,
-// ← back, Esc ends. Opened by 도움말 › 튜토리얼, the start page's 튜토리얼 card
-// and, once, on the very first launch.
+// that explains it, step by step (src/lib/tourSteps.js). As a step opens its
+// demo plays by itself on the tutorial map — one move at a time, the spotlight
+// following it and a line on the card saying what is happening — and "다시 보기"
+// plays it again; → / Enter next, ← back, Esc ends. Opened by 도움말 › 튜토리얼,
+// the start page's 튜토리얼 card and, once, on the very first launch.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { renderMarkdown } from '../lib/markdown';
@@ -12,6 +13,9 @@ import { Icon } from './Icons';
 const PAD = 8;       // room around the spotlighted element
 const GAP = 14;      // between the spotlight and the card
 const CARD_W = 400;
+
+const PLAY_DELAY = 700;   // after a step opens, before its demo starts
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function targetOf(step) {
   if (!step.target) return null;
@@ -43,23 +47,55 @@ export function GuidedTour({ onAction, onClose, startAt = 0 }) {
   const [i, setI] = useState(startAt);
   const [hole, setHole] = useState(null);
   const [pos, setPos] = useState(null);           // null until measured: the card is hidden, not slid in from afar
-  const [shown, setShown] = useState(false);   // "show me" was pressed on this step
+  const [spot, setSpot] = useState(null);      // the spotlight moved by the demo: { target, group }
+  const [now, setNow] = useState(null);        // what the demo is doing now: [ko, en]
+  const [playing, setPlaying] = useState(false);
+  const [played, setPlayed] = useState(false); // the demo has played to its end at least once
+  const run = useRef(0);                       // the demo running now; a new one (or leaving) stops it
   const card = useRef(null);
   const step = TOUR_STEPS[i];
   const last = i === TOUR_STEPS.length - 1;
 
-  // entering a step runs its `enter` action, leaving it its `leave` action
+  // The step's demo, one item at a time; stops as soon as another starts or the step is left.
+  const play = useCallback(async (replay) => {
+    const items = step.play || [];
+    if (!items.length) return;
+    const me = ++run.current;
+    const live = () => run.current === me;
+    if (replay && step.edits) { onAction('tour:restore'); await sleep(500); if (!live()) return; }
+    if (step.edits) onAction('tour:mark');
+    setPlaying(true); setSpot(null); setNow(null);
+    for (const it of items) {
+      if (!live()) return;
+      if (typeof it === 'number') await sleep(it);
+      else if (typeof it === 'string') { onAction(it); await sleep(120); }
+      else if (it.spot) setSpot({ target: it.spot, group: it.group });
+      else if (it.say) setNow(it.say);
+    }
+    if (!live()) return;
+    setPlaying(false); setPlayed(true);
+  }, [step, onAction]);
+
+  // entering a step runs its `enter` action and, a moment later, its demo; leaving it stops the
+  // demo, puts back what the demo changed and runs the `leave` action
   useEffect(() => {
-    setShown(false);
+    setPlaying(false); setPlayed(false); setSpot(null); setNow(null);
     if (step.enter) onAction(step.enter);
-    return () => { if (step.leave) onAction(step.leave); };
+    const timer = setTimeout(() => play(false), PLAY_DELAY);
+    return () => {
+      clearTimeout(timer);
+      run.current += 1;
+      // once now and once more after any move still on its way (before the next demo marks the map)
+      if (step.edits) { onAction('tour:restore'); setTimeout(() => onAction('tour:restore'), 350); }
+      if (step.leave) onAction(step.leave);
+    };
   }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // the spotlight follows its element (it may appear a moment after `enter`, or move on resize)
   const measure = useCallback(() => {
-    const h = targetOf(step);
+    const h = (spot && targetOf({ target: spot.target, group: spot.group })) || targetOf(step);
     setHole((old) => (old && h && Math.abs(old.x - h.x) < 0.5 && Math.abs(old.y - h.y) < 0.5 && Math.abs(old.w - h.w) < 0.5 && Math.abs(old.h - h.h) < 0.5 ? old : h));
-  }, [step]);
+  }, [step, spot]);
   useEffect(() => {
     measure();
     const id = setInterval(measure, 250);
@@ -70,7 +106,7 @@ export function GuidedTour({ onAction, onClose, startAt = 0 }) {
     const el = card.current;
     if (!el) return;
     setPos(placeCard(hole, el.offsetWidth, el.offsetHeight));
-  }, [hole, i, shown, lang]);
+  }, [hole, i, now, playing, lang]);
 
   const go = useCallback((d) => {
     const n = i + d;
@@ -89,9 +125,9 @@ export function GuidedTour({ onAction, onClose, startAt = 0 }) {
     return () => window.removeEventListener('keydown', key, true);
   }, [go, onClose]);
 
-  const demo = step.demo;
+  const demo = !!(step.play && step.play.length);
   return (
-    <div className="tour" role="dialog" aria-modal="true" aria-label={t('tour_title')} data-step={step.id}>
+    <div className="tour" role="dialog" aria-modal="true" aria-label={t('tour_title')} data-step={step.id} data-playing={playing ? '1' : undefined} data-played={played || !demo ? '1' : undefined}>
       {/* four shades around the spotlight: clicks outside the card do nothing */}
       {hole ? (
         <>
@@ -110,11 +146,12 @@ export function GuidedTour({ onAction, onClose, startAt = 0 }) {
         </div>
         <h3>{step.title[lang]}</h3>
         <div className="tour-text" dangerouslySetInnerHTML={{ __html: renderMarkdown(step.text[lang]) }} />
+        {now && <div className={`tour-now ${playing ? 'live' : ''}`} data-tour="now"><Icon name="play" size={11} /> <span>{now[lang]}</span></div>}
         <div className="tour-progress"><span style={{ width: `${((i + 1) / TOUR_STEPS.length) * 100}%` }} /></div>
         <div className="tour-foot">
           {demo && (
-            <button type="button" className="btn small" data-tour="demo" onClick={() => { onAction(demo); setShown(true); }}>
-              <Icon name="play" size={12} /> {shown ? t('tour_show_again') : t('tour_show')}
+            <button type="button" className="btn small" data-tour="demo" disabled={playing} onClick={() => play(true)}>
+              <Icon name="play" size={12} /> {playing ? t('tour_playing') : t('tour_show_again')}
             </button>
           )}
           <span className="spacer" />

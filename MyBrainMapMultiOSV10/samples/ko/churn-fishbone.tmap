@@ -3,100 +3,238 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvg5mfozh00w1o",
+  "id": "tmvgnwtu05jtp2b",
   "text": "구독 해지율 증가 (월 8%)",
   "children": [
    {
-    "id": "tmvg5mfozn6mq1a",
+    "id": "tmvgnwtu0fb6r1e",
     "text": "제품",
     "children": [
      {
-      "id": "tmvg5mfozg5dc18",
+      "id": "tmvgnwtu03v9s1a",
       "text": "느린 앱 속도",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtu067qn18",
+        "text": "첫 화면 로딩 4초",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtu0iqy319",
+        "text": "이미지 압축 안 함",
+        "children": []
+       }
+      ],
       "icons": [
        "exclamation"
       ]
      },
      {
-      "id": "tmvg5mfozc27g19",
+      "id": "tmvgnwtu0v0zq1c",
       "text": "기능이 너무 많음",
-      "children": []
+      "children": [
+       {
+        "id": "tmvgnwtu0djwa1b",
+        "text": "메뉴 3단계",
+        "children": []
+       }
+      ]
+     },
+     {
+      "id": "tmvgnwtu0s5bc1d",
+      "text": "안드로이드 강제 종료",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfozkhc11d",
+    "id": "tmvgnwtu05wk31k",
     "text": "가격",
     "children": [
      {
-      "id": "tmvg5mfoztr7j1b",
+      "id": "tmvgnwtu0g4ie1h",
       "text": "가격 인상 공지 부족",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtu03n1e1f",
+        "text": "메일 한 통뿐",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtu0wbmz1g",
+        "text": "앱 안 공지 없음",
+        "children": []
+       }
+      ],
       "task": {
        "priority": 1
       }
      },
      {
-      "id": "tmvg5mfoz41s41c",
+      "id": "tmvgnwtu07lpv1i",
       "text": "연간 요금제 없음",
       "children": []
+     },
+     {
+      "id": "tmvgnwtu0n0cq1j",
+      "text": "가족 요금제 없음",
+      "children": [],
+      "tags": [
+       "요청 많음"
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfoziybq1g",
+    "id": "tmvgnwtu0lcvo1p",
     "text": "고객 지원",
     "children": [
      {
-      "id": "tmvg5mfoz9y1x1e",
+      "id": "tmvgnwtu05lw51n",
       "text": "답변 48시간 이상",
-      "children": []
+      "children": [
+       {
+        "id": "tmvgnwtu0mj531l",
+        "text": "상담원 2명",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtu04ynz1m",
+        "text": "주말 휴무",
+        "children": []
+       }
+      ]
      },
      {
-      "id": "tmvg5mfozb60p1f",
+      "id": "tmvgnwtu0pc181o",
       "text": "FAQ 부족",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvg5mfozuvq41j",
+    "id": "tmvgnwtu0w0qf1v",
     "text": "온보딩",
     "children": [
      {
-      "id": "tmvg5mfoz3cye1h",
+      "id": "tmvgnwtu0drto1r",
       "text": "첫 주 사용률 낮음",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtu0c9de1q",
+        "text": "빈 화면에서 시작",
+        "children": []
+       }
+      ],
       "icons": [
        "warning"
       ]
      },
      {
-      "id": "tmvg5mfoz7l331i",
+      "id": "tmvgnwtu0rkp41s",
       "text": "튜토리얼 건너뜀",
       "children": []
+     },
+     {
+      "id": "tmvgnwtu0np9w1u",
+      "text": "가입 단계 7개",
+      "children": [
+       {
+        "id": "tmvgnwtu0ye8e1t",
+        "text": "카드 정보 먼저 요구",
+        "children": []
+       }
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfozd6zl1l",
+    "id": "tmvgnwtu0wso71z",
     "text": "경쟁",
     "children": [
      {
-      "id": "tmvg5mfozbgoa1k",
+      "id": "tmvgnwtu0to8u1x",
       "text": "무료 대안 등장",
+      "children": [
+       {
+        "id": "tmvgnwtu0dr0m1w",
+        "text": "광고 기반 무료",
+        "children": []
+       }
+      ]
+     },
+     {
+      "id": "tmvgnwtu0if6u1y",
+      "text": "대기업 번들 상품",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvg5mfozsxlw1n",
+    "id": "tmvgnwtu0l50423",
     "text": "결제",
     "children": [
      {
-      "id": "tmvg5mfozf11b1m",
+      "id": "tmvgnwtu0f7ww21",
       "text": "카드 만료 실패",
+      "children": [
+       {
+        "id": "tmvgnwtu0ze2720",
+        "text": "재시도 1회뿐",
+        "children": []
+       }
+      ],
+      "icons": [
+       "exclamation"
+      ]
+     },
+     {
+      "id": "tmvgnwtu0ync222",
+      "text": "환율 차이 청구",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvgnwtu02rfz27",
+    "text": "마케팅",
+    "children": [
+     {
+      "id": "tmvgnwtu0pjhd24",
+      "text": "기대보다 과장된 광고",
+      "children": []
+     },
+     {
+      "id": "tmvgnwtu00gbr26",
+      "text": "할인으로 들어온 고객",
+      "children": [
+       {
+        "id": "tmvgnwtu03y3t25",
+        "text": "첫 달 90% 할인",
+        "children": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvgnwtu05ufz2a",
+    "text": "데이터",
+    "children": [
+     {
+      "id": "tmvgnwtu04kx228",
+      "text": "이탈 신호 모름",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     },
+     {
+      "id": "tmvgnwtu0caw929",
+      "text": "해지 사유 설문 없음",
       "children": []
      }
     ]
@@ -124,7 +262,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-20T03:59:26.195Z",
-  "modified": "2026-10-20T03:59:26.195Z"
+  "created": "2026-10-20T12:31:24.168Z",
+  "modified": "2026-10-20T12:31:24.168Z"
  }
 }

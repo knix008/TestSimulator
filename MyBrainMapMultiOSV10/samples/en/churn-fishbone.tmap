@@ -3,100 +3,238 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvg5mfpx9syzhz",
+  "id": "tmvgnwtum4o4nj9",
   "text": "Subscription churn up (8%/month)",
   "children": [
    {
-    "id": "tmvg5mfpxovvuhl",
+    "id": "tmvgnwtum8nfvic",
     "text": "Product",
     "children": [
      {
-      "id": "tmvg5mfpxw5hhhj",
+      "id": "tmvgnwtumsvkqi8",
       "text": "Slow app",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtumof6yi6",
+        "text": "4 s to first screen",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtumfikui7",
+        "text": "Images not compressed",
+        "children": []
+       }
+      ],
       "icons": [
        "exclamation"
       ]
      },
      {
-      "id": "tmvg5mfpxs4t7hk",
+      "id": "tmvgnwtumfyd6ia",
       "text": "Too many features",
-      "children": []
+      "children": [
+       {
+        "id": "tmvgnwtumtpcsi9",
+        "text": "Menus three levels deep",
+        "children": []
+       }
+      ]
+     },
+     {
+      "id": "tmvgnwtumfnr8ib",
+      "text": "Android crashes",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfpxamkxho",
+    "id": "tmvgnwtumo2h3ii",
     "text": "Price",
     "children": [
      {
-      "id": "tmvg5mfpxkxbzhm",
+      "id": "tmvgnwtumxoucif",
       "text": "Price rise poorly announced",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtum6srnid",
+        "text": "A single e-mail",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtumlvgmie",
+        "text": "No in-app notice",
+        "children": []
+       }
+      ],
       "task": {
        "priority": 1
       }
      },
      {
-      "id": "tmvg5mfpxws4shn",
+      "id": "tmvgnwtumpcm3ig",
       "text": "No yearly plan",
       "children": []
+     },
+     {
+      "id": "tmvgnwtum41dqih",
+      "text": "No family plan",
+      "children": [],
+      "tags": [
+       "often asked"
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfpxn2wohr",
+    "id": "tmvgnwtumcezxin",
     "text": "Support",
     "children": [
      {
-      "id": "tmvg5mfpxrbbkhp",
+      "id": "tmvgnwtum1netil",
       "text": "Replies take 48 h+",
-      "children": []
+      "children": [
+       {
+        "id": "tmvgnwtumk7woij",
+        "text": "Two agents",
+        "children": []
+       },
+       {
+        "id": "tmvgnwtum5s7tik",
+        "text": "Closed at weekends",
+        "children": []
+       }
+      ]
      },
      {
-      "id": "tmvg5mfpxo6athq",
+      "id": "tmvgnwtumrzgyim",
       "text": "Thin FAQ",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvg5mfpxoaedhu",
+    "id": "tmvgnwtumi8x8it",
     "text": "Onboarding",
     "children": [
      {
-      "id": "tmvg5mfpxz89qhs",
+      "id": "tmvgnwtumy9tyip",
       "text": "Low first-week use",
-      "children": [],
+      "children": [
+       {
+        "id": "tmvgnwtumtbloio",
+        "text": "Starts on a blank screen",
+        "children": []
+       }
+      ],
       "icons": [
        "warning"
       ]
      },
      {
-      "id": "tmvg5mfpxwtd1ht",
+      "id": "tmvgnwtumenj9iq",
       "text": "Tutorial skipped",
       "children": []
+     },
+     {
+      "id": "tmvgnwtum7wviis",
+      "text": "Seven sign-up steps",
+      "children": [
+       {
+        "id": "tmvgnwtumb901ir",
+        "text": "Card asked for first",
+        "children": []
+       }
+      ]
      }
     ]
    },
    {
-    "id": "tmvg5mfpx6hiahw",
+    "id": "tmvgnwtumkkovix",
     "text": "Competition",
     "children": [
      {
-      "id": "tmvg5mfpxol7ghv",
+      "id": "tmvgnwtumvn2jiv",
       "text": "Free alternative",
+      "children": [
+       {
+        "id": "tmvgnwtum72htiu",
+        "text": "Free with ads",
+        "children": []
+       }
+      ]
+     },
+     {
+      "id": "tmvgnwtumrl4tiw",
+      "text": "Big-tech bundle",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvg5mfpx85h2hy",
+    "id": "tmvgnwtumzdxuj1",
     "text": "Billing",
     "children": [
      {
-      "id": "tmvg5mfpx4drihx",
+      "id": "tmvgnwtums0pliz",
       "text": "Expired card failures",
+      "children": [
+       {
+        "id": "tmvgnwtumrc05iy",
+        "text": "Retried only once",
+        "children": []
+       }
+      ],
+      "icons": [
+       "exclamation"
+      ]
+     },
+     {
+      "id": "tmvgnwtumsh79j0",
+      "text": "Currency surprises",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvgnwtumek7hj5",
+    "text": "Marketing",
+    "children": [
+     {
+      "id": "tmvgnwtum7iiqj2",
+      "text": "Ads overpromise",
+      "children": []
+     },
+     {
+      "id": "tmvgnwtumci79j4",
+      "text": "Discount-only sign-ups",
+      "children": [
+       {
+        "id": "tmvgnwtum8xtoj3",
+        "text": "90% off the first month",
+        "children": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvgnwtumb4ahj8",
+    "text": "Data",
+    "children": [
+     {
+      "id": "tmvgnwtum1e8fj6",
+      "text": "Churn signals unknown",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     },
+     {
+      "id": "tmvgnwtumu684j7",
+      "text": "No exit survey",
       "children": []
      }
     ]
@@ -124,7 +262,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-20T03:59:26.229Z",
-  "modified": "2026-10-20T03:59:26.229Z"
+  "created": "2026-10-20T12:31:24.190Z",
+  "modified": "2026-10-20T12:31:24.190Z"
  }
 }

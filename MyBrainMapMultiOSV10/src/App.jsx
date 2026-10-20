@@ -93,6 +93,7 @@ export default function App() {
   const [linkFrom, setLinkFrom] = useState(null);
   const [presenting, setPresenting] = useState(false);
   const [touring, setTouring] = useState(false);   // the guided tour over the tutorial map
+  const tourMark = useRef(null);   // the tutorial map before a tour step's demo changed it
   const [ctx, setCtx] = useState(null);
   const [findFocus, setFindFocus] = useState(0);
   const [notesFocus, setNotesFocus] = useState(0);
@@ -623,6 +624,57 @@ export default function App() {
     if (id.startsWith('priority:')) { if (needDoc()) { const p = Number(id.slice(9)); edit((m) => setTask(m, sel, { priority: p || null })); } return; }
     if (id.startsWith('progress:')) { if (needDoc()) { const v = id.slice(9); edit((m) => setTask(m, sel, { progress: v === '' ? null : Number(v) })); } return; }
     if (id.startsWith('level:')) { if (needDoc()) edit((m) => expandToLevel(m, Number(id.slice(6)))); return; }
+    // the guided tour's demos (src/lib/tourSteps.js): topics of the tutorial map by their place
+    // ("0/3": main topic 0, its subtopic 3), texts as "한국어|English"
+    if (id.startsWith('tour:') && d) {
+      const [, what, ...rest] = id.split(':');
+      const argStr = rest.join(':');
+      const text = () => { const [ko, en] = argStr.split('|'); return getLanguage() === 'ko' ? ko : (en ?? ko); };
+      const at = (path) => { let tp = d.map.root; if (path === 'root') return tp; for (const k of path.split('/')) { tp = (tp.children || [])[Number(k)]; if (!tp) return null; } return tp; };
+      // the topics (with their branches) brought into view, big enough to read
+      const show = (ids) => setTimeout(() => canvas.current && canvas.current.showBranch(ids), 60);
+      const added = (r) => {
+        if (!r || !r.sel) return;
+        const e = entryOf(activeDoc().map, r.sel[0]);
+        if (!e || e.kind === 'floating') setTimeout(() => canvas.current && canvas.current.fit(), 60); else show([e.parent]);
+      };
+      switch (what) {
+        case 'mark': tourMark.current = { docId: d.id, map: d.map, theme: s.theme }; return;
+        case 'restore': {
+          const mk = tourMark.current;
+          if (!mk || mk.docId !== d.id) return;
+          if (d.map !== mk.map) edit(() => ({ map: mk.map, sel: [] }), 'tour-restore');
+          if (d.focusId) mutate(d.id, (x) => ({ ...x, focusId: null }));
+          if (s.theme !== mk.theme) applySettings({ theme: mk.theme });
+          setTimeout(() => canvas.current && canvas.current.fit(), 60);
+          return;
+        }
+        case 'sel': { const ids = argStr.split(',').map(at).filter(Boolean).map((tp) => tp.id); if (ids.length) { select(ids); show(ids); } return; }
+        case 'add': {
+          const [kind] = rest;
+          const t2 = (() => { const [ko, en] = rest.slice(1).join(':').split('|'); return getLanguage() === 'ko' ? ko : (en ?? ko); })();
+          const fn = kind === 'child' ? cmdAddChild : kind === 'parent' ? cmdAddParent : cmdAddSibling;
+          added(edit((m, doc) => { const r = fn(m, doc.sel, { autoBalance: s.autoBalance }); return r && { map: setText(r.map, r.edit, t2), sel: [r.edit] }; }));
+          return;
+        }
+        case 'rename': if (primary) edit((m) => setText(m, primary, text())); return;
+        case 'nudge': { const [dx, dy] = rest.map(Number); edit((m) => cmdNudge(m, sel, dx, dy), 'tour-nudge'); return; }
+        case 'icon': edit((m) => sel.reduce((acc, x) => { const tp = findTopic(acc, x); return tp && !(tp.icons || []).includes(argStr) ? setField(acc, [x], 'icons', [...(tp.icons || []), argStr]) : acc; }, m)); return;
+        case 'subLayout': edit((m) => setField(m, sel, 'layout', argStr || null)); show(sel); return;
+        case 'summary': edit((m) => setField(m, sel.filter((x) => (findTopic(m, x).children || []).length), 'summary', { text: text() })); return;
+        case 'callout': added(edit((m, doc) => { const r = cmdAddCallout(m, doc.sel); return { map: setText(r.map, r.edit, text()), sel: [r.edit] }; })); return;
+        case 'floating': {
+          // in the empty space above the map
+          const p = L && L.bounds ? { x: (L.bounds.x0 + L.bounds.x1) / 2, y: L.bounds.y0 - 60 } : { x: 0, y: -300 };
+          added(edit((m) => { const r = cmdAddFloating(m, p.x, p.y); return { map: setText(r.map, r.edit, text()), sel: [r.edit] }; }));
+          return;
+        }
+        case 'closeDialog': setDialog(null); return;
+        // a tab of the task pane, opened (pane:… would close it when it is open already)
+        case 'pane': applySettings({ panelVisible: true, panelTab: argStr }); return;
+        default: break;
+      }
+    }
     if (id.startsWith('rel:')) {
       const [, what, relId] = id.split(':');
       const rel = d && (d.map.relationships || []).find((r) => r.id === relId);

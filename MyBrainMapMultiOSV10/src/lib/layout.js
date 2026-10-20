@@ -24,6 +24,7 @@ import { shapeGrow, SHAPE_DEFS, ROUND_SHAPES } from './shapes.js';
 
 export const FOLD_R = 7;
 const BOUNDARY_PAD = 12;
+const FISH_DIRS = new Set(['fishbone', 'fishTop', 'fishBottom']);
 const BADGE_KEYS = ['notes', 'comments', 'link', 'attachments'];
 
 // ── text ──
@@ -220,6 +221,8 @@ export function layoutMap(map, opts) {
     const prefix = kind === 'child' ? numberingOf(map, topic.id) : '';
     const m = measureTopic(topic, st, { measure, prefix, lang, mirror });
     const n = { id: topic.id, topic, level, kind, parent, st, m, w: m.w, h: m.h, x: 0, y: 0, dx: 0, dy: 0, kids: [], callouts: [], dir: null, box: null, fold: null };
+    // a topic anywhere on a fishbone: its lines are always straight
+    n.inFish = !!parent && (!!parent.inFish || FISH_DIRS.has(parent.dir));
     nodes.set(topic.id, n);
     order.push(n);
     return n;
@@ -554,7 +557,34 @@ export function layoutMap(map, opts) {
   const extras = [];
   const lineW = ms.line.width || 2;
   const widthFor = (parent, child) => child.st.lineWidth || (parent.level === 0 && parent.kind === 'root' ? lineW * 1.25 : parent.level === 1 ? lineW : Math.max(1, lineW * 0.72));
-  const style = ms.line.style || 'curve';
+  const mapStyle = ms.line.style || 'curve';
+
+  // the bone of each fishbone cause, absolute: a straight line from the cause to the spine.
+  // A cause moved by hand keeps its slant and runs straight on to wherever it now meets the
+  // spine (the spine grows to reach it); one dragged across the spine runs straight back to
+  // its own place on it. n.bone = { pts: the drawn path, a → e: the stretch the sub-causes join }
+  for (const n of order) {
+    const p = n.parent;
+    if (!p || p.dir !== 'fishbone' || n.kind !== 'child') continue;
+    const top = n.fishTop != null ? n.fishTop : n.dir === 'fishTop';
+    const spineY = p.y + p.h / 2;
+    const a = n.boneStart ? { x: n.x + n.boneStart.x, y: n.y + n.boneStart.y } : { x: n.x + n.w / 2, y: top ? n.y + n.h : n.y };
+    const via = (n.boneVia || []).map((v) => ({ x: n.x + v.x, y: n.y + v.y }));
+    let pts;
+    if (!(n.offX || n.offY)) {
+      pts = [a, ...via, { x: n.x + n.boneEnd.x, y: n.y + n.boneEnd.y }];
+    } else if (top ? n.y + n.h <= spineY : n.y >= spineY) {
+      const last = via.length ? via[via.length - 1] : a;
+      // a cause with a layout of its own drops straight down (up); a plain one keeps its slant
+      const e = n.boneStart ? { x: n.x + n.boneEnd.x, y: spineY } : { x: last.x + Math.abs(spineY - last.y) * 0.62, y: spineY };
+      pts = [a, ...via, e];
+    } else {
+      const s = { x: n.x - n.offX + n.boneEnd.x, y: spineY };
+      pts = [{ x: n.x + n.w / 2, y: n.y + n.h / 2 < spineY ? n.y + n.h : n.y }, s];
+    }
+    n.bone = { pts, a: pts[pts.length - 2], e: pts[pts.length - 1] };
+    p.spineMin = Math.min(p.spineMin != null ? p.spineMin : p.x + p.spineEnd, n.bone.e.x - 6);
+  }
 
   for (const n of order) {
     const p = n.parent;
@@ -571,6 +601,7 @@ export function layoutMap(map, opts) {
     const w = widthFor(p, n);
     const pd = p.dir;
     const pr = p.kind === 'root' && p.level === rootLevel;
+    const style = n.inFish ? 'straight' : mapStyle;
     if (pd === 'map' || pd === 'right' || pd === 'left') {
       let toRight = pd === 'right' || (pd === 'map' && n.side !== 'left');
       // a topic moved by hand to the other side of its parent is joined on the side that faces it
@@ -606,24 +637,15 @@ export function layoutMap(map, opts) {
         lines.push({ id: n.id, d: `M${r(ax.x)} ${r(ax.y)} L${r(b.x)} ${r(b.y)}`, stroke: color, width: Math.max(1, w * 0.85) });
       }
     } else if (pd === 'fishbone') {
-      const top = n.fishTop != null ? n.fishTop : n.dir === 'fishTop';
-      const a = n.boneStart ? { x: n.x + n.boneStart.x, y: n.y + n.boneStart.y } : { x: n.x + n.w / 2, y: top ? n.y + n.h : n.y };
-      const via = (n.boneVia || []).map((v) => ` L${r(n.x + v.x)} ${r(n.y + v.y)}`).join('');
-      const b = { x: n.x + n.boneEnd.x, y: n.y + n.boneEnd.y };
-      // a cause moved by hand: its bone moves with it, and a line runs on to its place on the spine
-      const moved = n.offX || n.offY;
-      const s = moved ? { x: b.x - n.offX, y: b.y - n.offY } : null;
-      lines.push({ id: n.id, d: `M${r(a.x)} ${r(a.y)}${via} L${r(b.x)} ${r(b.y)}${s ? ` L${r(s.x)} ${r(s.y)}` : ''}`, stroke: color, width: lineW * 1.2 });
+      lines.push({ id: n.id, d: n.bone.pts.map((q, i) => `${i ? ' L' : 'M'}${r(q.x)} ${r(q.y)}`).join(''), stroke: color, width: lineW * 1.2 });
     } else if (pd === 'fishTop' || pd === 'fishBottom') {
-      const SLOPE = 0.62;
       const y = n.y + anchorY(n);
       // the point of the parent's bone at this height, kept on the bone (a sub-cause moved past
       // either end of it joins the bone at that end)
-      const top = pd === 'fishTop';
-      const y0 = top ? p.y + p.h : p.y;
-      const y1 = p.boneEnd ? p.y + p.boneEnd.y : y0;
-      const yb = Math.max(Math.min(y0, y1), Math.min(Math.max(y0, y1), y));
-      const boneX = p.x + p.w / 2 + Math.abs(yb - y0) * SLOPE;
+      const y0 = pd === 'fishTop' ? p.y + p.h : p.y;
+      const { a, e } = p.bone || { a: { x: p.x + p.w / 2, y: y0 }, e: p.boneEnd ? { x: p.x + p.boneEnd.x, y: p.y + p.boneEnd.y } : { x: p.x + p.w / 2, y: y0 } };
+      const yb = Math.max(Math.min(a.y, e.y), Math.min(Math.max(a.y, e.y), y));
+      const boneX = Math.abs(e.y - a.y) < 0.5 ? a.x : a.x + ((yb - a.y) / (e.y - a.y)) * (e.x - a.x);
       lines.push({ id: n.id, d: `M${r(n.x + n.w)} ${r(y)} L${r(boneX)} ${r(yb)}`, stroke: color, width: Math.max(1, w * 0.85) });
     }
   }
@@ -636,7 +658,7 @@ export function layoutMap(map, opts) {
     }
     if (n.dir === 'fishbone' && n.kids.length) {
       const y = n.y + n.h / 2;
-      extras.push({ id: `spine-${n.id}`, d: `M${r(n.x + n.spineEnd)} ${r(y)} L${r(n.x)} ${r(y)}`, stroke: ms.line.color, width: lineW * 2.2 });
+      extras.push({ id: `spine-${n.id}`, d: `M${r(n.spineMin != null ? Math.min(n.spineMin, n.x + n.spineEnd) : n.x + n.spineEnd)} ${r(y)} L${r(n.x)} ${r(y)}`, stroke: ms.line.color, width: lineW * 2.2 });
     }
   }
 

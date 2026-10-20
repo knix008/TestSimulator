@@ -223,6 +223,13 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
       if (b) animateTo(fitView(b, { maxK: 2, pad: 80 }));
     },
     fitBounds: (b, maxK = 2) => animateTo(fitView(b, { maxK, pad: 60 })),
+    // topics with everything under them, at a zoom where they can be read (the tutorial's demos)
+    showBranch: (ids, maxK = 1.1) => {
+      let b = null;
+      const add = (n) => { const nb = { x0: n.x, y0: n.y, x1: n.x + n.w, y1: n.y + n.h }; b = b ? { x0: Math.min(b.x0, nb.x0), y0: Math.min(b.y0, nb.y0), x1: Math.max(b.x1, nb.x1), y1: Math.max(b.y1, nb.y1) } : nb; n.kids.forEach(add); n.callouts.forEach(add); };
+      for (const id of ids) { const n = L.nodes.get(id); if (n) add(n); }
+      if (b) animateTo(fitView(b, { maxK, pad: 130 }));
+    },
     zoomIn: () => zoomAt(1.2, undefined, undefined, true),
     zoomOut: () => zoomAt(1 / 1.2, undefined, undefined, true),
     zoomTo: (k) => { const v = viewRef.current; if (v) zoomAt(k / v.k, undefined, undefined, true); },

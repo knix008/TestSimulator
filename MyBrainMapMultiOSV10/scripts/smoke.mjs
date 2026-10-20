@@ -539,6 +539,32 @@ async function main() {
     await page.eval("window.__mtm.run('redraw:map')");
   });
 
+  await step('on the fishbone sample every line stays straight when a cause, a sub-cause or a deeper topic is dragged', async () => {
+    await page.eval("window.__mtm.run('sample:churn-fishbone')");
+    await page.sleep(500);
+    // the drawn path of every line: only M / L, and one segment
+    const BENT = `[...document.querySelectorAll('.tm-layer [data-line]')].map((el) => el.getAttribute('d')).filter((d) => /[CQHVAZ]/i.test(d.slice(1)) || (d.match(/[ML]/g) || []).length !== 2)`;
+    eq(await page.eval(BENT), [], 'bent lines on the sample');
+    const pick = [
+      'window.__mtm.doc().map.root.children[2].text',
+      'window.__mtm.doc().map.root.children[1].children[0].text',
+      'window.__mtm.doc().map.root.children[0].children[0].children[0].text',
+    ];
+    for (const [i, expr] of pick.entries()) {
+      await page.eval("window.__mtm.run('fit')");
+      await page.sleep(350);
+      const t = await page.eval(expr);
+      const a = await page.eval(centerOf(t));
+      const to = await page.eval(`(() => { const L = window.__mtm.layout(); const v = window.__mtm.canvas().getView(); const r = document.querySelector('.map-canvas').getBoundingClientRect(); const free = (sx, sy) => { const x = (sx - r.left - v.x) / v.k, y = (sy - r.top - v.y) / v.k; for (const n of L.nodes.values()) if (x >= n.x - 20 && x <= n.x + n.w + 20 && y >= n.y - 20 && y <= n.y + n.h + 20) return false; return sx > r.left + 40 && sx < r.right - 240 && sy > r.top + 40 && sy < r.bottom - 160; }; for (let d = 40; d < 400; d += 15) for (const [ux, uy] of [[-1, -1], [1, 1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]]) { const x = ${a.x} + ux * d, y = ${a.y} + uy * d; if (free(x, y)) return { x, y }; } return null; })()`);
+      assert(to, `${t}: an empty spot to drop on`);
+      await page.drag(a.x, a.y, to.x, to.y, 16);
+      await page.sleep(250);
+      assert(await page.eval(`(() => { const f = (t) => t.id === ${JSON.stringify(a.id)} ? t : (t.children || []).map(f).find(Boolean); return !!f(window.__mtm.doc().map.root).offset; })()`), `${t}: moved by hand`);
+      eq(await page.eval(BENT), [], `bent lines after dragging "${t}"`);
+      if (shots) await page.shot(path.join(shots, `fishbone-drag-${i}.png`));
+    }
+  });
+
   await step('every menu-bar menu and every drop-down list shows an icon on each entry', async () => {
     const NOICON = "[...document.querySelectorAll('.ctx-menu .ctx-item')].filter((b) => !b.querySelector('.ctx-icon svg, .ctx-icon .ctx-marker, .ctx-icon span, .theme-swatch')).map((b) => b.querySelector('.ctx-label').textContent)";
     const menus = await page.eval("[...document.querySelectorAll('.menus .menu-btn[data-menu]')].map((b) => b.dataset.menu)");

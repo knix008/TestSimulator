@@ -78,7 +78,7 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
   return (
     <span className="app-controls">
       <span className="tb-split">
-        <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
+        <button className="tb-btn tb-split-main" data-cmd="nextTheme" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onMouseDown={keep} onClick={() => onAction('nextTheme')}>
           <Icon name="palette" /><Widest texts={[themeLabel(theme), ...allThemes().flatMap((th) => [th.label, th.labelEn])]} />
         </button>
         <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onMouseDown={keep} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>

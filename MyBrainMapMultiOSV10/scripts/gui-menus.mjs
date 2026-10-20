@@ -342,12 +342,18 @@ async function firstLaunch() {
       n += 1;
       let why = s.ring ? 'spotlight' : 'centred card';
       if (s.demo) {
+        // the demo plays by itself: something changes while it plays, and it comes to an end
         const before = await t.eval(SNAP);
-        await t.clickSel('[data-tour=demo]');
-        await t.sleep(600);
-        const changed = diff(before, await t.eval(SNAP));
-        why += changed.length ? ` · Show me: ${changed.join(', ')}` : ' · Show me: nothing happened';
-        add(`step ${n}: ${s.id}`, s.inside && changed.length > 0, why);
+        const changed = new Set();
+        let ended = false;
+        for (let k = 0; k < 150 && !ended; k++) {
+          await t.sleep(200);
+          diff(before, await t.eval(SNAP)).forEach((x) => changed.add(x));
+          ended = await t.eval('document.querySelector(".tour").dataset.played === "1"');
+        }
+        why += changed.size ? ` · demo: ${[...changed].join(', ')}` : ' · demo: nothing happened';
+        if (!ended) why += ' · the demo never ended';
+        add(`step ${n}: ${s.id}`, s.inside && changed.size > 0 && ended, why);
       } else add(`step ${n}: ${s.id}`, s.inside, why + (s.inside ? '' : ' · the card is outside the window'));
       await t.clickSel('[data-tour=next]');
       await t.sleep(400);

@@ -45,11 +45,24 @@ let p;
 let n = 0;
 let cur = { x: W / 2, y: H / 2 };
 
-async function frame() {
-  const r = await p.send('Page.captureScreenshot', { format: 'jpeg', quality: 82 });
-  fs.writeFileSync(path.join(frames, `${String(n++).padStart(5, '0')}.jpg`), Buffer.from(r.data, 'base64'));
-}
+async function grab() { return Buffer.from((await p.send('Page.captureScreenshot', { format: 'jpeg', quality: 82 })).data, 'base64'); }
+function put(buf) { fs.writeFileSync(path.join(frames, `${String(n++).padStart(5, '0')}.jpg`), buf); }
+async function frame() { put(await grab()); }
 async function hold(sec) { for (let i = 0; i < Math.round(sec * FPS); i++) await frame(); }
+// Records what the page does by itself (the tour's demos) at its real speed: a frame is repeated
+// when a screenshot takes longer than a frame. Stops when `until` (a page expression) is true and
+// at least `minSec` have passed, or after `maxSec`.
+async function live(minSec, until, maxSec = 40) {
+  const t0 = Date.now();
+  let made = 0;
+  for (;;) {
+    const sec = (Date.now() - t0) / 1000;
+    if (sec >= maxSec || (sec >= minSec && (!until || await p.eval(until)))) break;
+    const buf = await grab();
+    const want = Math.max(made + 1, Math.floor(((Date.now() - t0) / 1000) * FPS));
+    while (made < want) { put(buf); made++; }
+  }
+}
 async function overlay() { await p.eval(OVERLAY); await p.eval(`(() => { const c = document.getElementById('tut-cursor'); c.style.left = '${cur.x}px'; c.style.top = '${cur.y}px'; })()`); }
 async function caption(title, sub = '') {
   await overlay();
@@ -128,22 +141,28 @@ async function main() {
   await p.eval("document.querySelector('.start-scroll').scrollTo({ top: 0 })");
   await hold(0.5);
 
-  // ── 2. the tutorial map ──
+  // ── 2. the guided tour, every step: the card explains, the demo plays by itself ──
   await caption('시작하기의 맨 위: 튜토리얼', '설치 후 처음 실행하면 저절로 시작됩니다');
   await clickSel('#start-tour', { after: 1.0 });
   await p.waitFor('!!document.querySelector(".tour-card.placed")');
   await caption('');
   await hold(2.5);
   await still('tour-welcome');
-  // the guided tour: a spotlight and a card per feature, "직접 보기" runs it
-  for (let k = 0; k < 9; k++) {
-    await clickSel('[data-tour=next]', { after: 1.3 });
-    const step = await p.eval('document.querySelector(".tour") && document.querySelector(".tour").dataset.step');
-    if (step === 'redraw') await still('tour-step');
-    if (await p.eval('!!document.querySelector("[data-tour=demo]")') && ['topics', 'canvas', 'rulers', 'redraw'].includes(step)) await clickSel('[data-tour=demo]', { after: 1.6 });
+  const steps = await p.eval('document.querySelector(".tour-count").textContent');
+  console.log(`  tour: ${steps}`);
+  for (;;) {
+    const s = await p.eval('(() => { const t = document.querySelector(".tour"); if (!t) return null; return { id: t.dataset.step, text: document.querySelector(".tour-text").textContent.length, last: !document.querySelector("[data-tour=next] svg") }; })()');
+    if (!s) break;
+    // time to read the card (about 18 characters a second), and the demo played to its end
+    await live(Math.min(9, Math.max(3.2, s.text / 18)), 'document.querySelector(".tour") && document.querySelector(".tour").dataset.played === "1"');
+    await hold(1.2);
+    if (s.id === 'redraw') await still('tour-step');
+    console.log(`    ${s.id}  ${(n / FPS).toFixed(0)} s`);
+    await clickSel('[data-tour=next]', { after: 0.2 });
+    if (s.last) break;
   }
   await caption('안내는 언제든 Esc 로 끝내고, 도움말 › 튜토리얼로 다시 볼 수 있습니다');
-  await key('Escape', { after: 1.2 });
+  await hold(2.5);
   await run('fit');
   await hold(1.5);
   await still('tutorial-map');

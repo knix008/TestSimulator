@@ -65,14 +65,45 @@ export const SAMPLES = [
     id: 'churn-fishbone', icon: 'fishbone', label: ['고객 이탈 원인 분석', 'Why customers leave'], desc: ['피시본 레이아웃으로 원인 찾기', 'Root causes on a fishbone'],
     make: (lang) => {
       const { T } = build(lang);
-      const c = (n, list, extra) => T(n, list.map((x) => (Array.isArray(x[0]) ? T(x[0], [], x[1]) : T(x))), extra);
+      // a sub-cause: [text] · [text, extra] · [text, extra, [why, why…]] (the whys: a third level)
+      const sub = ([text, extra = {}, whys = []]) => T(text, whys.map((w) => T(w)), extra);
+      const c = (n, list, extra) => T(n, list.map(sub), extra);
       const root = T(['구독 해지율 증가 (월 8%)', 'Subscription churn up (8%/month)'], [
-        c(['제품', 'Product'], [[['느린 앱 속도', 'Slow app'], { icons: ['exclamation'] }], ['기능이 너무 많음', 'Too many features']]),
-        c(['가격', 'Price'], [[['가격 인상 공지 부족', 'Price rise poorly announced'], { task: { priority: 1 } }], ['연간 요금제 없음', 'No yearly plan']]),
-        c(['고객 지원', 'Support'], [['답변 48시간 이상', 'Replies take 48 h+'], ['FAQ 부족', 'Thin FAQ']]),
-        c(['온보딩', 'Onboarding'], [[['첫 주 사용률 낮음', 'Low first-week use'], { icons: ['warning'] }], ['튜토리얼 건너뜀', 'Tutorial skipped']]),
-        c(['경쟁', 'Competition'], [['무료 대안 등장', 'Free alternative']]),
-        c(['결제', 'Billing'], [['카드 만료 실패', 'Expired card failures']]),
+        c(['제품', 'Product'], [
+          [['느린 앱 속도', 'Slow app'], { icons: ['exclamation'] }, [['첫 화면 로딩 4초', '4 s to first screen'], ['이미지 압축 안 함', 'Images not compressed']]],
+          [['기능이 너무 많음', 'Too many features'], {}, [['메뉴 3단계', 'Menus three levels deep']]],
+          [['안드로이드 강제 종료', 'Android crashes'], { icons: ['warning'] }],
+        ]),
+        c(['가격', 'Price'], [
+          [['가격 인상 공지 부족', 'Price rise poorly announced'], { task: { priority: 1 } }, [['메일 한 통뿐', 'A single e-mail'], ['앱 안 공지 없음', 'No in-app notice']]],
+          [['연간 요금제 없음', 'No yearly plan']],
+          [['가족 요금제 없음', 'No family plan'], { tags: [['요청 많음', 'often asked']] }],
+        ]),
+        c(['고객 지원', 'Support'], [
+          [['답변 48시간 이상', 'Replies take 48 h+'], {}, [['상담원 2명', 'Two agents'], ['주말 휴무', 'Closed at weekends']]],
+          [['FAQ 부족', 'Thin FAQ']],
+        ]),
+        c(['온보딩', 'Onboarding'], [
+          [['첫 주 사용률 낮음', 'Low first-week use'], { icons: ['warning'] }, [['빈 화면에서 시작', 'Starts on a blank screen']]],
+          [['튜토리얼 건너뜀', 'Tutorial skipped']],
+          [['가입 단계 7개', 'Seven sign-up steps'], {}, [['카드 정보 먼저 요구', 'Card asked for first']]],
+        ]),
+        c(['경쟁', 'Competition'], [
+          [['무료 대안 등장', 'Free alternative'], {}, [['광고 기반 무료', 'Free with ads']]],
+          [['대기업 번들 상품', 'Big-tech bundle']],
+        ]),
+        c(['결제', 'Billing'], [
+          [['카드 만료 실패', 'Expired card failures'], { icons: ['exclamation'] }, [['재시도 1회뿐', 'Retried only once']]],
+          [['환율 차이 청구', 'Currency surprises']],
+        ]),
+        c(['마케팅', 'Marketing'], [
+          [['기대보다 과장된 광고', 'Ads overpromise']],
+          [['할인으로 들어온 고객', 'Discount-only sign-ups'], {}, [['첫 달 90% 할인', '90% off the first month']]],
+        ]),
+        c(['데이터', 'Data'], [
+          [['이탈 신호 모름', 'Churn signals unknown'], { icons: ['question'] }],
+          [['해지 사유 설문 없음', 'No exit survey']],
+        ]),
       ], { style: { fill: '#c62828', color: '#ffffff' } });
       return { layout: 'fishbone', style: 'classic', root };
     },

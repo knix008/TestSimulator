@@ -1017,6 +1017,10 @@ body.dragging-x, body.dragging-x * { cursor: col-resize !important; user-select:
 .tour-card h3 { margin: 8px 0 6px; font-size: 16px; }
 .tour-text { font-size: 13px; line-height: 1.6; color: var(--fg); }
 .tour-text p { margin: 0 0 6px; }
+.tour-now { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--fg); background: color-mix(in srgb, var(--accent) 14%, transparent); border-left: 3px solid var(--accent); }
+.tour-now svg { flex: none; color: var(--accent); }
+.tour-now.live svg { animation: tour-pulse 1s ease-in-out infinite; }
+@keyframes tour-pulse { 50% { opacity: 0.35; } }
 .tour-progress { height: 3px; border-radius: 2px; background: var(--border); margin: 10px 0; overflow: hidden; }
 .tour-progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s ease; }
 .tour-foot { display: flex; align-items: center; gap: 6px; }

@@ -10,7 +10,7 @@
 
 The **first time the program runs after installing, the tutorial starts by itself**. **Tutorial** at the top of **Get started** on the start page, or **Help › Tutorial**, opens it again any time.
 
-The tutorial shows a **step-by-step guide** over the window: in 21 steps it lights up the menus, the toolbar, the map, the panes, the views … one at a time and explains each, and its **Show me** button runs the feature so you see it working. `→` / **Next**, `←` / **Back**, `Esc` ends it. Behind the guide is the tutorial map, a practice map that walks through every feature. It has seven lessons — basics, the screen, layouts and arranging, what a topic holds, showing structure, views, find and files — and each topic's note says what to try. The same tutorial is recorded as `MyBrainMap-Tutorial.mp4` in the program folder.
+The tutorial shows a **step-by-step guide** over the window: in 32 steps it lights up the menus, the toolbar, the map, the panes, the views … one at a time, explains each and **plays the feature by itself, one move at a time** (the card says what is happening, ① ② ③ …; **Play again** repeats it). `→` / **Next**, `←` / **Back**, `Esc` ends it. Behind the guide is the tutorial map, a practice map that walks through every feature. It has seven lessons — basics, the screen, layouts and arranging, what a topic holds, showing structure, views, find and files — and each topic's note says what to try. The same tutorial is recorded as `MyBrainMap-Tutorial.mp4` in the program folder.
 
 The start page also shows all **16 sample maps** under the templates; click one to open it.
 
