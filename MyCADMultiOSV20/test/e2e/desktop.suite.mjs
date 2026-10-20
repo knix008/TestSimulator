@@ -224,7 +224,7 @@ export const cases = [
     await app.main.waitFor(`Boolean(document.querySelector('.start-bg canvas'))`, { timeout: 15000 });
     await app.main.click('.tab[data-doc]');
   } },
-  { group: 'Tutorial', name: 'Watch: every step of the 21 lessons runs in the real window and its result is checked', async run(app) {
+  { group: 'Tutorial', name: 'Watch: every step of the 33 lessons runs in the real window and its result is checked', async run(app) {
     await fresh(app);
     const report = await app.main.eval(`(async () => { const t = await window.__mycad.actions.openTutorial(); const r = await t.runAll(); t.close(); return r; })()`, 600000);
     const bad = report.filter((r) => !r.ok);
@@ -244,7 +244,7 @@ export const cases = [
     await chooseMenuItem(help, 'tutorial');
     // The panel is its own OS window (owned by the main window), not a box inside it.
     const panel = await app.popup('tutorial');
-    await panel.waitFor(`document.querySelectorAll('.tut-lesson option').length === 21`);
+    await panel.waitFor(`document.querySelectorAll('.tut-lesson option').length === 33`);
     assert.equal(await app.main.eval(`Boolean(document.querySelector('.tut-panel'))`), false, 'no panel inside the main window');
     let windows = [];
     for (const until = Date.now() + 10000; Date.now() < until; await sleep(150)) {

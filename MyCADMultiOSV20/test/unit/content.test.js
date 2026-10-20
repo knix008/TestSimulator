@@ -36,8 +36,8 @@ test('start page: every task has a lesson, a sample from the index and its texts
   for (let i = 0; i < TIP_COUNT; i++) assert.ok(ko[`start.tip.${i}`] && en[`start.tip.${i}`], `tip ${i}`);
 });
 
-test('tutorial: 21 lessons, every step with title, text and run; practice texts in both languages', () => {
-  assert.equal(LESSONS.length, 21);
+test('tutorial: 33 lessons, every step with title, text and run; practice texts in both languages', () => {
+  assert.equal(LESSONS.length, 33);
   assert.ok(LESSONS[0].fresh, 'the first lesson starts from scratch');
   let steps = 0;
   for (const lesson of LESSONS) {

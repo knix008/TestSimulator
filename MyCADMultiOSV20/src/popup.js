@@ -2655,7 +2655,9 @@ function refresh() {
 
 if (desktop) {
   native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => refresh());
+  // Sent to one popup window, but listeners hear every window's: only this kind's own refresh counts
+  // (a menu opening must not put the tutorial panel back to the step it was opened with).
+  native.listen('popup-refresh', (target) => { if (target == null || target === kind) refresh(); });
   if (kind === 'progress') {
     native.listen('io-progress', (progress) => {
       if (progress.op !== state.params.op) return;

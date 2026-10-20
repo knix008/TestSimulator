@@ -1643,6 +1643,33 @@ function tutorialApi() {
     openCam: (options) => openCam(options), openPlate: (result) => openPlate(result), openFem3d: (result) => openFem3d(result),
     runScript: (code, options) => runScript(code, options), toggle3d: (on) => toggle3d(on), view3d: () => view3d.instance,
     kernelReady: () => occReady(), addEntity: (type, data) => change(`op.${type}`, (d) => D.addEntity(d, type, data)),
+    // Lessons 22–33 (2D editing, sketches, PartDesign, mesh, BIM, CAM, FEM, scripts, robot, menus).
+    actions: () => window.__mycad.actions,
+    /** Opens a menu bar menu, or one of its submenus (path of group keys), so its commands can be seen. */
+    showMenuGroup(name, path = []) {
+      let items = MENUS[name];
+      let key = null;
+      for (const one of path) {
+        const found = items?.find((item) => item?.group === one);
+        if (!found) return;
+        items = found.items;
+        key = one;
+      }
+      const element = root.querySelector(`[data-menu="${name}"]`);
+      if (!items || !element) return;
+      showMenu(menuItems(items), anchorBelow(element), name, key ? { header: { icon: MENU_ICONS[name], title: t(`menuGroup.${key}`) } } : {});
+    },
+    /** A window or door in the selected wall, as its window would add it. */
+    addOpeningNow(type, width = null) {
+      const wall = selectedWall();
+      if (!wall) return null;
+      const opening = defaultOpening(type);
+      if (width) opening.width = width;
+      opening.at = freeSpot(wall, opening.width);
+      change('op.editSolid', (drawing) => D.updateEntity(drawing, wall.id, { shape: { ...wall.shape, openings: [...(wall.shape?.openings ?? []), opening] } }));
+      select([wall.id]);
+      return D.findEntity(activeDrawing(), wall.id);
+    },
   };
 }
 

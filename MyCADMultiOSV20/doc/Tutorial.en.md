@@ -1,6 +1,6 @@
 # MyCAD 1.0 Tutorial
 
-> 21 lessons, 95 steps — the same order and coordinates as **Help › Interactive tutorial** in the app (the first card of the start page). In the app you can **Watch** (it shows you) or **Practice** (it moves on when you have done the step). A video of the same lessons is `MyCAD-Tutorial.mp4` in the project folder.
+> 33 lessons, 158 steps — the same order and coordinates as **Help › Interactive tutorial** in the app (the first card of the start page). In the app you can **Watch** (it shows you) or **Practice** (it moves on when you have done the step). A video of the same lessons is `MyCAD-Tutorial.mp4` in the project folder.
 
 ## Contents
 
@@ -28,6 +28,18 @@
 | 19 | [CAM in 3D and simulation](#lesson-19-cam-in-3d-and-simulation) | 2 | Help › Interactive tutorial › lesson 19 |
 | 20 | [FEM: plates and solids](#lesson-20-fem-plates-and-solids) | 2 | Help › Interactive tutorial › lesson 20 |
 | 21 | [The Python console and macros](#lesson-21-the-python-console-and-macros) | 2 | Help › Interactive tutorial › lesson 21 |
+| 22 | [2D editing: trim, extend, fillet, chamfer](#lesson-22-2d-editing-trim-extend-fillet-chamfer) | 4 | Help › Interactive tutorial › lesson 22 |
+| 23 | [Sketch constraints and construction lines](#lesson-23-sketch-constraints-and-construction-lines) | 5 | Help › Interactive tutorial › lesson 23 |
+| 24 | [Clones, working plane, problems](#lesson-24-clones-working-plane-problems) | 7 | Help › Interactive tutorial › lesson 24 |
+| 25 | [Production drawings: balloons, GD&T, datums](#lesson-25-production-drawings-balloons-gdt-datums) | 6 | Help › Interactive tutorial › lesson 25 |
+| 26 | [PartDesign: pocket, hole, chamfer, thickness](#lesson-26-partdesign-pocket-hole-chamfer-thickness) | 6 | Help › Interactive tutorial › lesson 26 |
+| 27 | [Check geometry, meshes, reverse engineering](#lesson-27-check-geometry-meshes-reverse-engineering) | 5 | Help › Interactive tutorial › lesson 27 |
+| 28 | [BIM 1: walls, windows, slabs, roofs, spaces](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) | 6 | Help › Interactive tutorial › lesson 28 |
+| 29 | [BIM 2: columns, stairs, levels, rebar, schedules, IFC](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) | 7 | Help › Interactive tutorial › lesson 29 |
+| 30 | [CAM in 2D: profile, pocket, drilling G-code](#lesson-30-cam-in-2d-profile-pocket-drilling-g-code) | 3 | Help › Interactive tutorial › lesson 30 |
+| 31 | [FEM frame analysis](#lesson-31-fem-frame-analysis) | 3 | Help › Interactive tutorial › lesson 31 |
+| 32 | [Spreadsheet, script console, macro recording](#lesson-32-spreadsheet-script-console-macro-recording) | 4 | Help › Interactive tutorial › lesson 32 |
+| 33 | [Robots, views and the tools menu](#lesson-33-robots-views-and-the-tools-menu) | 7 | Help › Interactive tutorial › lesson 33 |
 | | [Appendix A. Keyboard shortcuts](#appendix-a-keyboard-shortcuts) · [B. File formats](#appendix-b-file-formats) · [C. Feature index](#appendix-c-feature-index) | | |
 
 ### How to read this document
@@ -1132,7 +1144,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ### Goal
 
-
+Play an assembly joined with joints; use the play bar and drive values.
 
 ### Steps
 
@@ -1160,6 +1172,14 @@ Help: the feature list, About (file formats), the tutorial and this document.
 - Click the pause button on the play bar.
 - Pick two solids in turn and add a revolute joint.
 
+### Tips
+
+- Gears, belts, racks and screws follow each other by a coupling ratio.
+
+### Common mistakes
+
+- A joint needs two solids picked in turn (the first is the base).
+
 ### Check
 
 - [ ] A moving sample
@@ -1172,7 +1192,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ### Goal
 
-
+Make booleans, fillets and drafts that keep curved faces with OpenCASCADE, and pick edges to fillet in 3D.
 
 ### Steps
 
@@ -1200,6 +1220,10 @@ Help: the feature list, About (file formats), the tutorial and this document.
 - Select a solid and add a fillet or a draft.
 - Select the fillet, click "Pick edges in 3D" and click an edge.
 
+### Tips
+
+- Until the kernel is ready shapes are meshed; then they are rebuilt exactly.
+
 ### Check
 
 - [ ] Booleans on curved faces
@@ -1212,7 +1236,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ### Goal
 
-
+Rough and finish a solid in 3D and check the result in the simulation.
 
 ### Steps
 
@@ -1232,6 +1256,10 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
    *CAM in 3D and simulation · Simulation and the machined stock*
 
+### Tips
+
+- "Machined stock solid" puts the cut stock in the drawing for comparison.
+
 ### Check
 
 - [ ] 3D roughing and finishing
@@ -1243,7 +1271,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ### Goal
 
-
+Solve plane stress in plates and 3D stress in solids with FEM.
 
 ### Steps
 
@@ -1263,6 +1291,10 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
    *Solids (3D) and CalculiX — window*
 
+### Tips
+
+- Saving .inp opens the same model in CalculiX and FreeCAD FEM.
+
 ### Check
 
 - [ ] Plate stress (plane stress)
@@ -1274,7 +1306,7 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 ### Goal
 
-
+Model with Python as in FreeCAD macros and install macros with the addon manager.
 
 ### Steps
 
@@ -1298,10 +1330,752 @@ Help: the feature list, About (file formats), the tutorial and this document.
 
 - Choose Python in the console and run Part.show(Part.makeBox(10, 20, 30)).
 
+### Tips
+
+- Python macros can be stepped line by line with Tools › Macro debugger.
+
 ### Check
 
 - [ ] Making a model in Python
 - [ ] The addon manager
+
+---
+
+## Lesson 22. 2D editing: trim, extend, fillet, chamfer
+
+### Goal
+
+Tidy 2D drawings with trim, extend, fillet and chamfer.
+
+### Steps
+
+1. **Trim (X)** — With the trim tool, clicking a line cuts away the clicked part up to where another line crosses it. Draw a line (0,20)–(100,20) and a line (50,0)–(50,40), then click the right part of the first one at (80,20).
+
+   ![2D editing: trim, extend, fillet, chamfer · Trim (X)](images/en/l22-s1.webp)
+
+   *2D editing: trim, extend, fillet, chamfer · Trim (X)*
+
+2. **Extend (W)** — With the extend tool, clicking near the end of a line stretches it to the next line. Draw a short line (0,35)–(30,35) and click near its right end (28,35): it reaches the vertical line at x = 50.
+
+   ![2D editing: trim, extend, fillet, chamfer · Extend (W)](images/en/l22-s2.webp)
+
+   *2D editing: trim, extend, fillet, chamfer · Extend (W)*
+
+3. **Fillet (J)** — Fillet rounds the corner where two lines meet. Draw two lines meeting at (90,60), type a radius of 10 in the fillet tool, then click the two lines on the sides to keep.
+
+   ![2D editing: trim, extend, fillet, chamfer · Fillet (J)](images/en/l22-s3.webp)
+
+   *2D editing: trim, extend, fillet, chamfer · Fillet (J)*
+
+4. **Chamfer (K)** — Chamfer cuts a corner off at an angle. For a polyline or a rectangle, just click one corner. Click the top right corner of the rectangle (0,60)–(60,100).
+
+   ![2D editing: trim, extend, fillet, chamfer · Chamfer (K)](images/en/l22-s4.webp)
+
+   *2D editing: trim, extend, fillet, chamfer · Chamfer (K)*
+
+### Your turn
+
+- Draw two crossing lines, then click the part to cut away with the trim tool.
+- Click near the end of the short line with the extend tool.
+- Type a radius in the fillet tool and click the two lines.
+- Draw a rectangle and click a corner with the chamfer tool.
+
+### Tips
+
+- Type the fillet radius or chamfer distance into the command box after picking the tool.
+
+### Common mistakes
+
+- Click the sides to keep when filleting — the clicked sides are the ones kept.
+
+### Check
+
+- [ ] Trim (X)
+- [ ] Extend (W)
+- [ ] Fillet (J)
+- [ ] Chamfer (K)
+
+---
+
+## Lesson 23. Sketch constraints and construction lines
+
+### Goal
+
+Fit sketches exactly with construction geometry and geometric and dimensional constraints (FreeCAD Sketcher).
+
+### Steps
+
+1. **Construction geometry** — Construction geometry turns blue and dashed: snaps and constraints use it, but pads, CAM, exports and printing leave it out. Draw a circle and click "Construction" in the sketch group.
+
+   ![Sketch constraints and construction lines · Construction geometry](images/en/l23-s1.webp)
+
+   *Sketch constraints and construction lines · Construction geometry*
+
+2. **Geometric constraints: coincident, perpendicular** — Pick two roughly drawn lines in turn: "Coincident" joins their ends, "Perpendicular" squares the corner. Purple constraint marks appear on the drawing.
+
+   ![Sketch constraints and construction lines · Geometric constraints: coincident, perpendicular](images/en/l23-s2.webp)
+
+   *Sketch constraints and construction lines · Geometric constraints: coincident, perpendicular*
+
+3. **Dimensional constraints: horizontal, distance** — Pick the first line alone, click "Horizontal" and "Distance", then set the distance to 60 in the constraint list of the properties. The solver fits the drawing; the other line follows and stays square.
+
+   ![Sketch constraints and construction lines · Dimensional constraints: horizontal, distance](images/en/l23-s3.webp)
+
+   *Sketch constraints and construction lines · Dimensional constraints: horizontal, distance*
+
+4. **Degrees of freedom and status** — Under the sketch group you see the degrees of freedom: fully constrained, redundant or conflicting. Drag an end point and the rest follows the constraints. Radius, diameter, angle, tangent, concentric, symmetric and lock work the same way.
+
+   ![Sketch constraints and construction lines · Degrees of freedom and status](images/en/l23-s4.webp)
+
+   *Sketch constraints and construction lines · Degrees of freedom and status*
+
+5. **Sketcher and Draft tool menus** — The Modify menu holds all of FreeCAD Sketcher's constraint, selection (diagnostics), B-spline and display commands under Sketch tools, and Draft's stretch, upgrade, path array, organize and snap commands under Draft tools.
+
+   ![Sketch constraints and construction lines · Sketcher and Draft tool menus](images/en/l23-s5.webp)
+
+   *Sketch constraints and construction lines · Sketcher and Draft tool menus*
+
+### Your turn
+
+- Select an object and click "Construction" in the sketch group.
+- Pick two lines in turn and click "Coincident" and "Perpendicular".
+- Pick a line, click "Distance" and change the value in the properties.
+
+### Tips
+
+- Change or delete constraint values in the constraint list of the properties.
+
+### Common mistakes
+
+- On conflicting or redundant constraints, delete the last one you added.
+
+### Check
+
+- [ ] Construction geometry
+- [ ] Geometric constraints: coincident, perpendicular
+- [ ] Dimensional constraints: horizontal, distance
+- [ ] Degrees of freedom and status
+- [ ] Sketcher and Draft tool menus
+
+---
+
+## Lesson 24. Clones, working plane, problems
+
+### Goal
+
+Use clones, the working plane, the problems panel and the rulers.
+
+### Steps
+
+1. **Clones** — A clone is a copy that follows its original's shape (FreeCAD Draft Clone). Select a rectangle, click "Clone", and move the clone to the right with the move tool.
+
+   ![Clones, working plane, problems · Clones](images/en/l24-s1.webp)
+
+   *Clones, working plane, problems · Clones*
+
+2. **Change the original, the clone follows** — Set the original rectangle's width to 60 in the properties: the clone changes too. A clone keeps only its own position, rotation, scale, mirror, colour and layer.
+
+   ![Clones, working plane, problems · Change the original, the clone follows](images/en/l24-s2.webp)
+
+   *Clones, working plane, problems · Change the original, the clone follows*
+
+3. **Making it independent** — A selected clone shows "Select the original" and "Make independent" in the properties. Made independent, it becomes an ordinary object that no longer follows.
+
+   ![Clones, working plane, problems · Making it independent](images/en/l24-s3.webp)
+
+   *Clones, working plane, problems · Making it independent*
+
+4. **The working plane** — Modify › Working plane: click the origin (100,10), then a point the X axis points to (100,60). Typed coordinates, the grid, ortho and the status bar now follow the plane, so @30,0 goes 30 up.
+
+   ![Clones, working plane, problems · The working plane](images/en/l24-s4.webp)
+
+   *Clones, working plane, problems · The working plane*
+
+5. **Back to global** — With nothing selected, the properties show the working plane's origin, angle and height Z (where new solids go). "Back to global" restores the normal axes.
+
+   ![Clones, working plane, problems · Back to global](images/en/l24-s5.webp)
+
+   *Clones, working plane, problems · Back to global*
+
+6. **The problems panel (Ctrl+Shift+M)** — The problems panel lists mistakes — zero-length objects, duplicates, ends that do not meet, almost closed outlines — as errors, warnings and notes. Click a row to go to the object. Draw the same line twice.
+
+   ![Clones, working plane, problems · The problems panel (Ctrl+Shift+M)](images/en/l24-s6.webp)
+
+   *Clones, working plane, problems · The problems panel (Ctrl+Shift+M)*
+
+7. **Rulers (Ctrl+R)** — The rulers above and left of the canvas mark the cursor; the unit is in the top-left corner. The toolbar button switches them.
+
+   ![Clones, working plane, problems · Rulers (Ctrl+R)](images/en/l24-s7.webp)
+
+   *Clones, working plane, problems · Rulers (Ctrl+R)*
+
+### Your turn
+
+- Select an object and click "Clone" in the modify group.
+- Select the original and change its width.
+- Select the clone and click "Make independent" in the properties.
+- Click two points with Working plane in the Modify menu.
+- Click "Back to global" in the properties.
+- Click the problems panel button on the toolbar.
+
+### Tips
+
+- The working plane's height Z is where new solids and pads are placed.
+
+### Check
+
+- [ ] Clones
+- [ ] Change the original, the clone follows
+- [ ] Making it independent
+- [ ] The working plane
+- [ ] Back to global
+- [ ] The problems panel (Ctrl+Shift+M)
+- [ ] Rulers (Ctrl+R)
+
+---
+
+## Lesson 25. Production drawings: balloons, GD&T, datums
+
+### Goal
+
+Add balloons, datums and feature control frames to production drawings and look at the TechDraw commands.
+
+### Steps
+
+1. **Set-up: a plate and a hole** — Draw a plate (0,0)–(100,50) and a hole at (50,25), radius 10, to annotate.
+
+   ![Production drawings: balloons, GD&T, datums · Set-up: a plate and a hole](images/en/l25-s1.webp)
+
+   *Production drawings: balloons, GD&T, datums · Set-up: a plate and a hole*
+
+2. **Balloons** — With the balloon tool click the part (10,50), then where the balloon goes (20,80). Numbers 1, 2, 3… come by themselves. One more: (100,40) → (130,75).
+
+   ![Production drawings: balloons, GD&T, datums · Balloons](images/en/l25-s2.webp)
+
+   *Production drawings: balloons, GD&T, datums · Balloons*
+
+3. **Datums** — With the datum tool click the datum face (50,0), then where its box goes (50,-25). Letters A, B, C… come by themselves.
+
+   ![Production drawings: balloons, GD&T, datums · Datums](images/en/l25-s3.webp)
+
+   *Production drawings: balloons, GD&T, datums · Datums*
+
+4. **Feature control frames** — With the GD&T tool click the face (0,30), then where the frame goes (-15,75). In the properties pick one of 14 symbols, the value, ⌀, Ⓜ/Ⓛ and datums A|B|C. Set the symbol to flatness.
+
+   ![Production drawings: balloons, GD&T, datums · Feature control frames](images/en/l25-s4.webp)
+
+   *Production drawings: balloons, GD&T, datums · Feature control frames*
+
+5. **A production drawing sample** — The sample "Shaft detail" has sections, a keyway, fits, surface roughness and notes. They go to DXF, SVG and print as they are.
+
+   ![Production drawings: balloons, GD&T, datums · A production drawing sample](images/en/l25-s5.webp)
+
+   *Production drawings: balloons, GD&T, datums · A production drawing sample*
+
+6. **The TechDraw menu** — TechDraw in the Draw menu holds views (projection, section, detail, active view), cosmetics (centre lines, threads), dimensions (chain, ordinate, hole and shaft fits) and page tools (title block, clip groups).
+
+   ![Production drawings: balloons, GD&T, datums · The TechDraw menu](images/en/l25-s6.webp)
+
+   *Production drawings: balloons, GD&T, datums · The TechDraw menu*
+
+### Your turn
+
+- Draw the rectangle and the circle.
+- Click two points with the balloon tool.
+- Click two points with the datum tool.
+- Click two points with the GD&T tool and change the symbol in the properties.
+
+### Tips
+
+- A leader's "kind" property switches it between note, balloon, GD&T frame and datum.
+
+### Check
+
+- [ ] Set-up: a plate and a hole
+- [ ] Balloons
+- [ ] Datums
+- [ ] Feature control frames
+- [ ] A production drawing sample
+- [ ] The TechDraw menu
+
+---
+
+## Lesson 26. PartDesign: pocket, hole, chamfer, thickness
+
+### Goal
+
+Shape solids PartDesign-style with pockets, holes, 3D chamfers, thickness and offsets.
+
+### Steps
+
+1. **Pocket** — Select a 2D outline together with a solid and click "Pocket": it cuts down from the top face to a depth (or through all). Pocket the rectangle (10,10)–(40,30) 8 mm into a 100 × 60 × 30 block.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Pocket](images/en/l26-s1.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Pocket*
+
+2. **Hole** — Select circles and a solid and click "Hole": a hole at every circle — the diameter from the circle; depth, simple/counterbore/countersink and a flat or 118° drill point in the window. The result is a cut tree that explode undoes.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Hole](images/en/l26-s2.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Hole*
+
+3. **Chamfer (3D)** — Select one box, pad, prism, cylinder or tube and click "Chamfer (3D)": choose the size and the edges (all, top rim, vertical…). Explode gives the solid back.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Chamfer (3D)](images/en/l26-s3.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Chamfer (3D)*
+
+4. **Thickness and 3D offset** — "Thickness" hollows the solid and opens its top (3 mm walls). "3D offset" grows (+) or shrinks (−) the solid evenly.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Thickness and 3D offset](images/en/l26-s4.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Thickness and 3D offset*
+
+5. **Checking in 3D** — Look at the pocket, the hole, the chamfer and the hollow box in 3D.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Checking in 3D](images/en/l26-s5.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Checking in 3D*
+
+6. **Body and pattern menus** — The 3D solid menu has PartDesign's body and tip, linear and polar patterns, mirrored and multi-transform, subtractive helix, loft and pipe, and binders.
+
+   ![PartDesign: pocket, hole, chamfer, thickness · Body and pattern menus](images/en/l26-s6.webp)
+
+   *PartDesign: pocket, hole, chamfer, thickness · Body and pattern menus*
+
+### Your turn
+
+- Select an outline and a solid, then click "Pocket".
+- Select a circle and a solid, then click "Hole".
+- Select a solid and click "Chamfer (3D)".
+- Select a solid and click "Thickness" or "3D offset".
+- Click the 3D view button.
+
+### Tips
+
+- Results are trees: explode gives the original solids back.
+
+### Common mistakes
+
+- Pocket and hole need a 2D outline and a solid selected together.
+
+### Check
+
+- [ ] Pocket
+- [ ] Hole
+- [ ] Chamfer (3D)
+- [ ] Thickness and 3D offset
+- [ ] Checking in 3D
+- [ ] Body and pattern menus
+
+---
+
+## Lesson 27. Check geometry, meshes, reverse engineering
+
+### Goal
+
+Find problems with check geometry, decimate and repair meshes, and look at the mesh and reverse-engineering commands.
+
+### Steps
+
+1. **Check geometry** — 3D solid › Check geometry reports for each solid whether it is closed, open and non-manifold edges, flipped faces, inside-out shells, self-intersections and degenerate or duplicate triangles. A mesh box without its top and with one face turned over shows up as a problem.
+
+   ![Check geometry, meshes, reverse engineering · Check geometry](images/en/l27-s1.webp)
+
+   *Check geometry, meshes, reverse engineering · Check geometry*
+
+2. **Mesh decimation** — Select a solid and click "Mesh decimation": it becomes a mesh with about half the triangles and almost the same shape (still closed).
+
+   ![Check geometry, meshes, reverse engineering · Mesh decimation](images/en/l27-s2.webp)
+
+   *Check geometry, meshes, reverse engineering · Mesh decimation*
+
+3. **Mesh repair** — "Mesh repair" joins gaps (T-junctions), fills holes and orients the faces into a closed mesh solid. Select the broken mesh box and repair it. You can also tick solids in the check window and repair them there.
+
+   ![Check geometry, meshes, reverse engineering · Mesh repair](images/en/l27-s3.webp)
+
+   *Check geometry, meshes, reverse engineering · Mesh repair*
+
+4. **The mesh tools menu** — 3D solid › Check and FEM › Mesh tools holds FreeCAD Mesh's commands: regular solids, curvature colours, polygon cuts, smoothing, hole filling, visual inspection and more.
+
+   ![Check geometry, meshes, reverse engineering · The mesh tools menu](images/en/l27-s4.webp)
+
+   *Check geometry, meshes, reverse engineering · The mesh tools menu*
+
+5. **Reverse engineering: from points to shapes** — Import a point cloud (.xyz, .ply points), select it, and fit a plane, a sphere or a cylinder, make a mesh, approximate surfaces, take sections or inspect.
+
+   ![Check geometry, meshes, reverse engineering · Reverse engineering: from points to shapes](images/en/l27-s5.webp)
+
+   *Check geometry, meshes, reverse engineering · Reverse engineering: from points to shapes*
+
+### Your turn
+
+- Select a solid and click "Mesh decimation".
+- Select the broken mesh and click "Mesh repair".
+
+### Tips
+
+- BIM objects are checked block by block.
+
+### Check
+
+- [ ] Check geometry
+- [ ] Mesh decimation
+- [ ] Mesh repair
+- [ ] The mesh tools menu
+- [ ] Reverse engineering: from points to shapes
+
+---
+
+## Lesson 28. BIM 1: walls, windows, slabs, roofs, spaces
+
+### Goal
+
+Build with walls, windows, doors, slabs, roofs and spaces and look at it in 3D (FreeCAD BIM).
+
+### Steps
+
+1. **Walls** — Draw lines, a polyline or a rectangle, select it and click BIM › Wall. A closed outline makes a ring of walls with mitred corners. Build 6 × 4 m walls, 200 thick and 2700 high. The plan is a cut 1 m above the floor.
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · Walls](images/en/l28-s1.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · Walls*
+
+2. **Windows and doors** — Select a wall and click "Window" or "Door": the openings editor opens. Choose the type (window, door, double door, sliding, opening), position, width, sill and swing; the wall is cut and frames, glass and leaves go in.
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · Windows and doors](images/en/l28-s2.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · Windows and doors*
+
+3. **Slabs** — Select a closed outline and click "Slab": a floor plate of a thickness. Draw a rectangle 100 larger than the walls and make a 200 thick slab.
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · Slabs](images/en/l28-s3.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · Slabs*
+
+4. **Roofs** — Select a closed outline and click "Roof". Pick gable, hip, shed or flat, the slope, overhang and thickness; the per-edge slope tab gives each edge its own slope (90° makes a gable).
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · Roofs](images/en/l28-s4.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · Roofs*
+
+5. **Spaces** — Select a closed outline and click "Space": a room. Its name (properties) and floor area show on the plan and go into the schedule.
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · Spaces](images/en/l28-s5.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · Spaces*
+
+6. **In 3D** — Switch to 3D: the same model stands up. Walls are coloured, glass translucent and spaces faint volumes.
+
+   ![BIM 1: walls, windows, slabs, roofs, spaces · In 3D](images/en/l28-s6.webp)
+
+   *BIM 1: walls, windows, slabs, roofs, spaces · In 3D*
+
+### Your turn
+
+- Draw and select a rectangle, then click "Wall" in the BIM group.
+- Select the wall and click "Window".
+- Select a closed outline and click "Slab".
+- Select a closed outline and click "Roof".
+- Select a closed outline and click "Space".
+- Click the 3D view button.
+
+### Tips
+
+- At 1:100 dashes and line widths scale to the paper (Drawing › Scale).
+
+### Common mistakes
+
+- Windows and doors need one wall selected.
+
+### Check
+
+- [ ] Walls
+- [ ] Windows and doors
+- [ ] Slabs
+- [ ] Roofs
+- [ ] Spaces
+- [ ] In 3D
+
+---
+
+## Lesson 29. BIM 2: columns, stairs, levels, rebar, schedules, IFC
+
+### Goal
+
+Finish the BIM model with columns, stairs, furniture, grids, levels, rebar, schedules and IFC.
+
+### Steps
+
+1. **Columns, stairs, furniture** — Columns, stairs, furniture and grids come from their insert windows. Column sections: rectangle, round, H, C, L, T, box and pipe, plus standard profiles (IPE, HEA…); stairs: straight, L, U and spiral.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Columns, stairs, furniture](images/en/l29-s1.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Columns, stairs, furniture*
+
+2. **Grids** — Grids are rectangular (counts and spacings) or radial. Insert a 3 × 2 grid at 3 m and 4 m.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Grids](images/en/l29-s2.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Grids*
+
+3. **Levels and the building window** — In the "Building (BIM)" group add levels and choose where new objects go (✓), which level the plan shows and which are visible. The "Building, levels, materials…" window changes names, elevations, heights and materials (colour, hatch).
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Levels and the building window](images/en/l29-s3.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Levels and the building window*
+
+4. **Rebar** — Select columns, beams or slabs and click "Rebar": main bars, ties or two-way mats, with their weight in the schedule. Selected lines give bars bent to their shape.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Rebar](images/en/l29-s4.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Rebar*
+
+5. **Schedules** — "Schedule" puts wall lengths, areas and volumes, window and door counts, slab and roof areas and room areas in a table right of the drawing. "Schedule as CSV" writes one row per object for Excel; "Panel nesting" lays panels out on sheets.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Schedules](images/en/l29-s5.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Schedules*
+
+6. **IFC and 3D export** — 3D export › IFC 4 writes IfcWall, IfcWindow, IfcDoor, IfcSlab, IfcSpace… with openings and quantities. IFC written by MyCAD opens again as parametric objects. FCStd, STEP, STL, 3MF and more are in the same menu.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · IFC and 3D export](images/en/l29-s6.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · IFC and 3D export*
+
+7. **Sample: a two-storey house** — The sample "Two-storey house" shows plans per level, layered walls (brick, insulation, concrete, plaster), an L-shaped roof with per-edge slopes, slab rebar, a truss and corrugated carport, a gas pipe and an arched window from a sketch.
+
+   ![BIM 2: columns, stairs, levels, rebar, schedules, IFC · Sample: a two-storey house](images/en/l29-s7.webp)
+
+   *BIM 2: columns, stairs, levels, rebar, schedules, IFC · Sample: a two-storey house*
+
+### Your turn
+
+- Click "Column" or "Stairs" in the BIM group.
+- Click "Grid" in the BIM group.
+- Click the add-level button in the building group.
+- Select the column and click "Rebar".
+- Click "Schedule" in the BIM group.
+
+### Tips
+
+- Changing a level's elevation moves its objects with it.
+
+### Check
+
+- [ ] Columns, stairs, furniture
+- [ ] Grids
+- [ ] Levels and the building window
+- [ ] Rebar
+- [ ] Schedules
+- [ ] IFC and 3D export
+- [ ] Sample: a two-storey house
+
+---
+
+## Lesson 30. CAM in 2D: profile, pocket, drilling G-code
+
+### Goal
+
+Make profile, pocket, drilling and engraving paths from 2D outlines and save G-code.
+
+### Steps
+
+1. **The CAM window** — Select 2D outlines (or none for everything visible) and open File › CAM — make G-code. Operations: profile (outside or inside), pocket (zigzag plus a finishing pass, islands kept), drilling (G83 peck or G81) and engraving. The path (blue) and rapids (dashed) show on the right, cut length and time below.
+
+   ![CAM in 2D: profile, pocket, drilling G-code · The CAM window](images/en/l30-s1.webp)
+
+   *CAM in 2D: profile, pocket, drilling G-code · The CAM window*
+
+2. **Saving G-code** — Set the tool diameter, depth, step-down, overlap, feeds, spindle speed and safe height, then "Save G-code" writes a .nc file (mm, G21 G90; LinuxCNC, GRBL). The hole comes out as G98 G81 X30 Y25 Z-4.
+
+   ![CAM in 2D: profile, pocket, drilling G-code · Saving G-code](images/en/l30-s2.webp)
+
+   *CAM in 2D: profile, pocket, drilling G-code · Saving G-code*
+
+3. **The CAM job menu** — File › CAM has FreeCAD CAM's job and operations (adaptive, face, thread, V-carve…), dress-ups (holding tags, dogbones…), tools, simulation and the sanity check.
+
+   ![CAM in 2D: profile, pocket, drilling G-code · The CAM job menu](images/en/l30-s3.webp)
+
+   *CAM in 2D: profile, pocket, drilling G-code · The CAM job menu*
+
+### Tips
+
+- Holes are always cut from inside, and islands are kept.
+
+### Check
+
+- [ ] The CAM window
+- [ ] Saving G-code
+- [ ] The CAM job menu
+
+---
+
+## Lesson 31. FEM frame analysis
+
+### Goal
+
+Solve a frame drawn with lines and see its deformation, bending moments and stress.
+
+### Steps
+
+1. **Drawing the frame** — Draw the frame in elevation with lines; where ends meet are the nodes. A portal frame 3 m high and 5 m wide: (0,0) → (0,3000) → (5000,3000) → (5000,0).
+
+   ![FEM frame analysis · Drawing the frame](images/en/l31-s1.webp)
+
+   *FEM frame analysis · Drawing the frame*
+
+2. **The frame analysis window** — 3D solid › FEM — frame analysis: material, section, a uniform load (N/mm) and self-weight, and for every node a support (free, pinned, fixed, roller) and loads give the deformed shape (red dashes), the bending moments (blue), the largest displacement and stress at once. Fix both column feet and load 3 N/mm.
+
+   ![FEM frame analysis · The frame analysis window](images/en/l31-s2.webp)
+
+   *FEM frame analysis · The frame analysis window*
+
+3. **The FEM tools menu** — 3D solid › Check and FEM › FEM tools holds FreeCAD FEM's constraints and loads, thermal, electric, magnetic and flow conditions, equations, materials, meshing, solving and results (colours, filters, charts).
+
+   ![FEM frame analysis · The FEM tools menu](images/en/l31-s3.webp)
+
+   *FEM frame analysis · The FEM tools menu*
+
+### Your turn
+
+- Click the four points with the line tool.
+
+### Tips
+
+- "Save settings" keeps only the supports and loads in the drawing.
+
+### Common mistakes
+
+- Without any support the frame cannot be solved.
+
+### Check
+
+- [ ] Drawing the frame
+- [ ] The frame analysis window
+- [ ] The FEM tools menu
+
+---
+
+## Lesson 32. Spreadsheet, script console, macro recording
+
+### Goal
+
+Drive sizes from a spreadsheet and automate with the script console and macro recording.
+
+### Steps
+
+1. **The spreadsheet** — In Edit › Spreadsheet write values and formulas (=width*3) into cells and give cells aliases (width). Put 40 in A1 and call it width.
+
+   ![Spreadsheet, script console, macro recording · The spreadsheet](images/en/l32-s1.webp)
+
+   *Spreadsheet, script console, macro recording · The spreadsheet*
+
+2. **Binding sizes to the sheet** — Write =width*2 into a number field of the properties and that size follows the sheet. A box length of =width*2 is 80; change width to 25 in the sheet and it becomes 50.
+
+   ![Spreadsheet, script console, macro recording · Binding sizes to the sheet](images/en/l32-s2.webp)
+
+   *Spreadsheet, script console, macro recording · Binding sizes to the sheet*
+
+3. **The script console (JavaScript)** — View › Script console (Ctrl+Shift+J) draws with the cad object: cad.rect, cad.circle, cad.line, cad.solid, cad.move… Run with Ctrl+Enter; every change is one undo step.
+
+   ![Spreadsheet, script console, macro recording · The script console (JavaScript)](images/en/l32-s3.webp)
+
+   *Spreadsheet, script console, macro recording · The script console (JavaScript)*
+
+4. **Recording a macro** — Click "Record macro", draw or run commands, and click it again: cad.* lines appear in the editor. Name it and "Save as macro" to run, load or delete it from the list.
+
+   ![Spreadsheet, script console, macro recording · Recording a macro](images/en/l32-s4.webp)
+
+   *Spreadsheet, script console, macro recording · Recording a macro*
+
+### Your turn
+
+- Open the spreadsheet from the Edit menu.
+- Select a solid and type =width*2 into its length.
+- Run cad.circle(0, 0, 10) in the console.
+
+### Tips
+
+- Ctrl+↑ / Ctrl+↓ recall the console history.
+
+### Check
+
+- [ ] The spreadsheet
+- [ ] Binding sizes to the sheet
+- [ ] The script console (JavaScript)
+- [ ] Recording a macro
+
+---
+
+## Lesson 33. Robots, views and the tools menu
+
+### Goal
+
+Move a robot arm to points and along paths, and look at the View, Edit and Tools menus and the model tree.
+
+### Steps
+
+1. **A robot arm** — 3D solid › Robot › Add robot places a six-axis arm. Change the joint angles A1–A6 in the properties.
+
+   ![Robots, views and the tools menu · A robot arm](images/en/l33-s1.webp)
+
+   *Robots, views and the tools menu · A robot arm*
+
+2. **Moving to a point** — Select the robot and a point and click "Move to point": inverse kinematics brings the tool tip there, pointing down.
+
+   ![Robots, views and the tools menu · Moving to a point](images/en/l33-s2.webp)
+
+   *Robots, views and the tools menu · Moving to a point*
+
+3. **Following a path** — Select the robot and a polyline and click "Trajectory": poses every 20 mm, played back in 3D, and a KRL program.
+
+   ![Robots, views and the tools menu · Following a path](images/en/l33-s3.webp)
+
+   *Robots, views and the tools menu · Following a path*
+
+4. **The View menu: views and cameras** — The View menu has the standard views (front, top, right, rear, bottom, left, isometric, dimetric, trimetric), orthographic and perspective cameras, saved views, axes, clipping, turntable and stereo, and tiled windows.
+
+   ![Robots, views and the tools menu · The View menu: views and cameras](images/en/l33-s4.webp)
+
+   *Robots, views and the tools menu · The View menu: views and cameras*
+
+5. **The Edit menu: visibility, links, placement** — The Edit menu has selection history, show and hide, colour, transparency and materials, groups and recompute, links (from other drawings too), and transform and point-pair alignment.
+
+   ![Robots, views and the tools menu · The Edit menu: visibility, links, placement](images/en/l33-s5.webp)
+
+   *Robots, views and the tools menu · The Edit menu: visibility, links, placement*
+
+6. **The Tools menu** — The Tools menu: units calculator, dependency graph, document utility, the script console, macro folder and recent macros, the addon manager, the macro debugger (breakpoints, stepping), the parameter editor, customise (toolbars, shortcuts) and settings.
+
+   ![Robots, views and the tools menu · The Tools menu](images/en/l33-s6.webp)
+
+   *Robots, views and the tools menu · The Tools menu*
+
+7. **The model tree** — The model tree at the top of the left panel lists the solids, the 2D folder and groups. The eye hides an item, a click selects it, and branches fold and unfold.
+
+   ![Robots, views and the tools menu · The model tree](images/en/l33-s7.webp)
+
+   *Robots, views and the tools menu · The model tree*
+
+### Your turn
+
+- Add a robot from the 3D solid menu.
+
+### Tips
+
+- Robot trajectories are saved as KRL programs.
+
+### Check
+
+- [ ] A robot arm
+- [ ] Moving to a point
+- [ ] Following a path
+- [ ] The View menu: views and cameras
+- [ ] The Edit menu: visibility, links, placement
+- [ ] The Tools menu
+- [ ] The model tree
 
 ---
 
@@ -1464,3 +2238,66 @@ Help: the feature list, About (file formats), the tutorial and this document.
 | Solids (3D) and CalculiX | [Lesson 20](#lesson-20-fem-plates-and-solids) |
 | Making a model in Python | [Lesson 21](#lesson-21-the-python-console-and-macros) |
 | The addon manager | [Lesson 21](#lesson-21-the-python-console-and-macros) |
+| Trim (X) | [Lesson 22](#lesson-22-2d-editing-trim-extend-fillet-chamfer) |
+| Extend (W) | [Lesson 22](#lesson-22-2d-editing-trim-extend-fillet-chamfer) |
+| Fillet (J) | [Lesson 22](#lesson-22-2d-editing-trim-extend-fillet-chamfer) |
+| Chamfer (K) | [Lesson 22](#lesson-22-2d-editing-trim-extend-fillet-chamfer) |
+| Construction geometry | [Lesson 23](#lesson-23-sketch-constraints-and-construction-lines) |
+| Geometric constraints: coincident, perpendicular | [Lesson 23](#lesson-23-sketch-constraints-and-construction-lines) |
+| Dimensional constraints: horizontal, distance | [Lesson 23](#lesson-23-sketch-constraints-and-construction-lines) |
+| Degrees of freedom and status | [Lesson 23](#lesson-23-sketch-constraints-and-construction-lines) |
+| Sketcher and Draft tool menus | [Lesson 23](#lesson-23-sketch-constraints-and-construction-lines) |
+| Clones | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| Change the original, the clone follows | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| Making it independent | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| The working plane | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| Back to global | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| The problems panel (Ctrl+Shift+M) | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| Rulers (Ctrl+R) | [Lesson 24](#lesson-24-clones-working-plane-problems) |
+| Set-up: a plate and a hole | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| Balloons | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| Datums | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| Feature control frames | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| A production drawing sample | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| The TechDraw menu | [Lesson 25](#lesson-25-production-drawings-balloons-gdt-datums) |
+| Pocket | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Hole | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Chamfer (3D) | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Thickness and 3D offset | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Checking in 3D | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Body and pattern menus | [Lesson 26](#lesson-26-partdesign-pocket-hole-chamfer-thickness) |
+| Check geometry | [Lesson 27](#lesson-27-check-geometry-meshes-reverse-engineering) |
+| Mesh decimation | [Lesson 27](#lesson-27-check-geometry-meshes-reverse-engineering) |
+| Mesh repair | [Lesson 27](#lesson-27-check-geometry-meshes-reverse-engineering) |
+| The mesh tools menu | [Lesson 27](#lesson-27-check-geometry-meshes-reverse-engineering) |
+| Reverse engineering: from points to shapes | [Lesson 27](#lesson-27-check-geometry-meshes-reverse-engineering) |
+| Walls | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| Windows and doors | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| Slabs | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| Roofs | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| Spaces | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| In 3D | [Lesson 28](#lesson-28-bim-1-walls-windows-slabs-roofs-spaces) |
+| Columns, stairs, furniture | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| Grids | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| Levels and the building window | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| Rebar | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| Schedules | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| IFC and 3D export | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| Sample: a two-storey house | [Lesson 29](#lesson-29-bim-2-columns-stairs-levels-rebar-schedules-ifc) |
+| The CAM window | [Lesson 30](#lesson-30-cam-in-2d-profile-pocket-drilling-g-code) |
+| Saving G-code | [Lesson 30](#lesson-30-cam-in-2d-profile-pocket-drilling-g-code) |
+| The CAM job menu | [Lesson 30](#lesson-30-cam-in-2d-profile-pocket-drilling-g-code) |
+| Drawing the frame | [Lesson 31](#lesson-31-fem-frame-analysis) |
+| The frame analysis window | [Lesson 31](#lesson-31-fem-frame-analysis) |
+| The FEM tools menu | [Lesson 31](#lesson-31-fem-frame-analysis) |
+| The spreadsheet | [Lesson 32](#lesson-32-spreadsheet-script-console-macro-recording) |
+| Binding sizes to the sheet | [Lesson 32](#lesson-32-spreadsheet-script-console-macro-recording) |
+| The script console (JavaScript) | [Lesson 32](#lesson-32-spreadsheet-script-console-macro-recording) |
+| Recording a macro | [Lesson 32](#lesson-32-spreadsheet-script-console-macro-recording) |
+| A robot arm | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| Moving to a point | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| Following a path | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| The View menu: views and cameras | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| The Edit menu: visibility, links, placement | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| The Tools menu | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |
+| The model tree | [Lesson 33](#lesson-33-robots-views-and-the-tools-menu) |

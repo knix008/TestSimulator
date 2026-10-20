@@ -446,5 +446,257 @@
  "l21-s2-dialog": {
   "file": "images/ko/l21-s2-dialog.webp",
   "caption": "애드온 관리자 — 창"
+ },
+ "l22-s1": {
+  "file": "images/ko/l22-s1.webp",
+  "caption": "2D 편집: 자르기·연장·모깎기·모따기 · 자르기 (X)"
+ },
+ "l22-s2": {
+  "file": "images/ko/l22-s2.webp",
+  "caption": "2D 편집: 자르기·연장·모깎기·모따기 · 연장 (W)"
+ },
+ "l22-s3": {
+  "file": "images/ko/l22-s3.webp",
+  "caption": "2D 편집: 자르기·연장·모깎기·모따기 · 모깎기 (J)"
+ },
+ "l22-s4": {
+  "file": "images/ko/l22-s4.webp",
+  "caption": "2D 편집: 자르기·연장·모깎기·모따기 · 모따기 (K)"
+ },
+ "l23-s1": {
+  "file": "images/ko/l23-s1.webp",
+  "caption": "스케치 구속과 보조선 · 보조선"
+ },
+ "l23-s2": {
+  "file": "images/ko/l23-s2.webp",
+  "caption": "스케치 구속과 보조선 · 기하 구속: 일치·직각"
+ },
+ "l23-s3": {
+  "file": "images/ko/l23-s3.webp",
+  "caption": "스케치 구속과 보조선 · 치수 구속: 수평·거리"
+ },
+ "l23-s4": {
+  "file": "images/ko/l23-s4.webp",
+  "caption": "스케치 구속과 보조선 · 자유도와 구속 상태"
+ },
+ "l23-s5": {
+  "file": "images/ko/l23-s5.webp",
+  "caption": "스케치 구속과 보조선 · 스케치·Draft 도구 메뉴"
+ },
+ "l24-s1": {
+  "file": "images/ko/l24-s1.webp",
+  "caption": "클론·작업 평면·문제 검사 · 클론"
+ },
+ "l24-s2": {
+  "file": "images/ko/l24-s2.webp",
+  "caption": "클론·작업 평면·문제 검사 · 원본을 고치면 클론도"
+ },
+ "l24-s3": {
+  "file": "images/ko/l24-s3.webp",
+  "caption": "클론·작업 평면·문제 검사 · 독립시키기"
+ },
+ "l24-s4": {
+  "file": "images/ko/l24-s4.webp",
+  "caption": "클론·작업 평면·문제 검사 · 작업 평면"
+ },
+ "l24-s5": {
+  "file": "images/ko/l24-s5.webp",
+  "caption": "클론·작업 평면·문제 검사 · 전체 좌표로"
+ },
+ "l24-s6": {
+  "file": "images/ko/l24-s6.webp",
+  "caption": "클론·작업 평면·문제 검사 · 문제 패널 (Ctrl+Shift+M)"
+ },
+ "l24-s7": {
+  "file": "images/ko/l24-s7.webp",
+  "caption": "클론·작업 평면·문제 검사 · 눈금자 (Ctrl+R)"
+ },
+ "l25-s1": {
+  "file": "images/ko/l25-s1.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · 준비: 판과 구멍"
+ },
+ "l25-s2": {
+  "file": "images/ko/l25-s2.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · 풍선"
+ },
+ "l25-s3": {
+  "file": "images/ko/l25-s3.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · 데이텀"
+ },
+ "l25-s4": {
+  "file": "images/ko/l25-s4.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · 기하 공차"
+ },
+ "l25-s5": {
+  "file": "images/ko/l25-s5.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · 제작 도면 샘플"
+ },
+ "l25-s6": {
+  "file": "images/ko/l25-s6.webp",
+  "caption": "제작 도면: 풍선·기하 공차·데이텀 · TechDraw 메뉴"
+ },
+ "l26-s1": {
+  "file": "images/ko/l26-s1.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 포켓"
+ },
+ "l26-s2": {
+  "file": "images/ko/l26-s2.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 구멍"
+ },
+ "l26-s3": {
+  "file": "images/ko/l26-s3.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 3D 모따기"
+ },
+ "l26-s4": {
+  "file": "images/ko/l26-s4.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 두께와 3D 오프셋"
+ },
+ "l26-s5": {
+  "file": "images/ko/l26-s5.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 3D로 확인하기"
+ },
+ "l26-s6": {
+  "file": "images/ko/l26-s6.webp",
+  "caption": "PartDesign: 포켓·구멍·모따기·두께 · 바디 · 패턴 메뉴"
+ },
+ "l27-s1": {
+  "file": "images/ko/l27-s1.webp",
+  "caption": "형상 검사·메시·역설계 · 형상 검사"
+ },
+ "l27-s2": {
+  "file": "images/ko/l27-s2.webp",
+  "caption": "형상 검사·메시·역설계 · 메시 단순화"
+ },
+ "l27-s3": {
+  "file": "images/ko/l27-s3.webp",
+  "caption": "형상 검사·메시·역설계 · 메시 수리"
+ },
+ "l27-s4": {
+  "file": "images/ko/l27-s4.webp",
+  "caption": "형상 검사·메시·역설계 · 메시 도구 메뉴"
+ },
+ "l27-s5": {
+  "file": "images/ko/l27-s5.webp",
+  "caption": "형상 검사·메시·역설계 · 역설계: 점 구름에서 형상으로"
+ },
+ "l28-s1": {
+  "file": "images/ko/l28-s1.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 벽"
+ },
+ "l28-s2": {
+  "file": "images/ko/l28-s2.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 창과 문"
+ },
+ "l28-s3": {
+  "file": "images/ko/l28-s3.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 슬래브"
+ },
+ "l28-s4": {
+  "file": "images/ko/l28-s4.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 지붕"
+ },
+ "l28-s5": {
+  "file": "images/ko/l28-s5.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 실 (공간)"
+ },
+ "l28-s6": {
+  "file": "images/ko/l28-s6.webp",
+  "caption": "건축 (BIM) 1: 벽·창문·슬래브·지붕·실 · 3D로 보기"
+ },
+ "l29-s1": {
+  "file": "images/ko/l29-s1.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 기둥 · 계단 · 가구"
+ },
+ "l29-s2": {
+  "file": "images/ko/l29-s2.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 통심선"
+ },
+ "l29-s3": {
+  "file": "images/ko/l29-s3.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 층과 건물 창"
+ },
+ "l29-s4": {
+  "file": "images/ko/l29-s4.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 철근"
+ },
+ "l29-s5": {
+  "file": "images/ko/l29-s5.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 물량표"
+ },
+ "l29-s6": {
+  "file": "images/ko/l29-s6.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · IFC 와 3D 내보내기"
+ },
+ "l29-s7": {
+  "file": "images/ko/l29-s7.webp",
+  "caption": "건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC · 샘플: 2층 주택"
+ },
+ "l30-s1": {
+  "file": "images/ko/l30-s1.webp",
+  "caption": "CAM 2D: 윤곽·포켓·드릴 G 코드 · CAM 창"
+ },
+ "l30-s2": {
+  "file": "images/ko/l30-s2.webp",
+  "caption": "CAM 2D: 윤곽·포켓·드릴 G 코드 · G 코드 저장"
+ },
+ "l30-s3": {
+  "file": "images/ko/l30-s3.webp",
+  "caption": "CAM 2D: 윤곽·포켓·드릴 G 코드 · CAM 잡 메뉴"
+ },
+ "l31-s1": {
+  "file": "images/ko/l31-s1.webp",
+  "caption": "FEM 골조 해석 · 골조 그리기"
+ },
+ "l31-s2": {
+  "file": "images/ko/l31-s2.webp",
+  "caption": "FEM 골조 해석 · 골조 해석 창"
+ },
+ "l31-s3": {
+  "file": "images/ko/l31-s3.webp",
+  "caption": "FEM 골조 해석 · FEM 해석 도구 메뉴"
+ },
+ "l32-s1": {
+  "file": "images/ko/l32-s1.webp",
+  "caption": "스프레드시트·스크립트 콘솔·매크로 기록 · 스프레드시트"
+ },
+ "l32-s2": {
+  "file": "images/ko/l32-s2.webp",
+  "caption": "스프레드시트·스크립트 콘솔·매크로 기록 · 치수를 시트에 묶기"
+ },
+ "l32-s3": {
+  "file": "images/ko/l32-s3.webp",
+  "caption": "스프레드시트·스크립트 콘솔·매크로 기록 · 스크립트 콘솔 (JavaScript)"
+ },
+ "l32-s4": {
+  "file": "images/ko/l32-s4.webp",
+  "caption": "스프레드시트·스크립트 콘솔·매크로 기록 · 매크로 기록"
+ },
+ "l33-s1": {
+  "file": "images/ko/l33-s1.webp",
+  "caption": "로봇·보기·도구 메뉴 · 로봇 팔"
+ },
+ "l33-s2": {
+  "file": "images/ko/l33-s2.webp",
+  "caption": "로봇·보기·도구 메뉴 · 점으로 움직이기"
+ },
+ "l33-s3": {
+  "file": "images/ko/l33-s3.webp",
+  "caption": "로봇·보기·도구 메뉴 · 경로 따라가기"
+ },
+ "l33-s4": {
+  "file": "images/ko/l33-s4.webp",
+  "caption": "로봇·보기·도구 메뉴 · 보기 메뉴: 시점 · 카메라"
+ },
+ "l33-s5": {
+  "file": "images/ko/l33-s5.webp",
+  "caption": "로봇·보기·도구 메뉴 · 편집 메뉴: 보이기 · 링크 · 배치"
+ },
+ "l33-s6": {
+  "file": "images/ko/l33-s6.webp",
+  "caption": "로봇·보기·도구 메뉴 · 도구 메뉴"
+ },
+ "l33-s7": {
+  "file": "images/ko/l33-s7.webp",
+  "caption": "로봇·보기·도구 메뉴 · 모델 트리"
  }
 }

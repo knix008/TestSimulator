@@ -446,5 +446,257 @@
  "l21-s2-dialog": {
   "file": "images/en/l21-s2-dialog.webp",
   "caption": "The addon manager — window"
+ },
+ "l22-s1": {
+  "file": "images/en/l22-s1.webp",
+  "caption": "2D editing: trim, extend, fillet, chamfer · Trim (X)"
+ },
+ "l22-s2": {
+  "file": "images/en/l22-s2.webp",
+  "caption": "2D editing: trim, extend, fillet, chamfer · Extend (W)"
+ },
+ "l22-s3": {
+  "file": "images/en/l22-s3.webp",
+  "caption": "2D editing: trim, extend, fillet, chamfer · Fillet (J)"
+ },
+ "l22-s4": {
+  "file": "images/en/l22-s4.webp",
+  "caption": "2D editing: trim, extend, fillet, chamfer · Chamfer (K)"
+ },
+ "l23-s1": {
+  "file": "images/en/l23-s1.webp",
+  "caption": "Sketch constraints and construction lines · Construction geometry"
+ },
+ "l23-s2": {
+  "file": "images/en/l23-s2.webp",
+  "caption": "Sketch constraints and construction lines · Geometric constraints: coincident, perpendicular"
+ },
+ "l23-s3": {
+  "file": "images/en/l23-s3.webp",
+  "caption": "Sketch constraints and construction lines · Dimensional constraints: horizontal, distance"
+ },
+ "l23-s4": {
+  "file": "images/en/l23-s4.webp",
+  "caption": "Sketch constraints and construction lines · Degrees of freedom and status"
+ },
+ "l23-s5": {
+  "file": "images/en/l23-s5.webp",
+  "caption": "Sketch constraints and construction lines · Sketcher and Draft tool menus"
+ },
+ "l24-s1": {
+  "file": "images/en/l24-s1.webp",
+  "caption": "Clones, working plane, problems · Clones"
+ },
+ "l24-s2": {
+  "file": "images/en/l24-s2.webp",
+  "caption": "Clones, working plane, problems · Change the original, the clone follows"
+ },
+ "l24-s3": {
+  "file": "images/en/l24-s3.webp",
+  "caption": "Clones, working plane, problems · Making it independent"
+ },
+ "l24-s4": {
+  "file": "images/en/l24-s4.webp",
+  "caption": "Clones, working plane, problems · The working plane"
+ },
+ "l24-s5": {
+  "file": "images/en/l24-s5.webp",
+  "caption": "Clones, working plane, problems · Back to global"
+ },
+ "l24-s6": {
+  "file": "images/en/l24-s6.webp",
+  "caption": "Clones, working plane, problems · The problems panel (Ctrl+Shift+M)"
+ },
+ "l24-s7": {
+  "file": "images/en/l24-s7.webp",
+  "caption": "Clones, working plane, problems · Rulers (Ctrl+R)"
+ },
+ "l25-s1": {
+  "file": "images/en/l25-s1.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · Set-up: a plate and a hole"
+ },
+ "l25-s2": {
+  "file": "images/en/l25-s2.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · Balloons"
+ },
+ "l25-s3": {
+  "file": "images/en/l25-s3.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · Datums"
+ },
+ "l25-s4": {
+  "file": "images/en/l25-s4.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · Feature control frames"
+ },
+ "l25-s5": {
+  "file": "images/en/l25-s5.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · A production drawing sample"
+ },
+ "l25-s6": {
+  "file": "images/en/l25-s6.webp",
+  "caption": "Production drawings: balloons, GD&T, datums · The TechDraw menu"
+ },
+ "l26-s1": {
+  "file": "images/en/l26-s1.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Pocket"
+ },
+ "l26-s2": {
+  "file": "images/en/l26-s2.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Hole"
+ },
+ "l26-s3": {
+  "file": "images/en/l26-s3.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Chamfer (3D)"
+ },
+ "l26-s4": {
+  "file": "images/en/l26-s4.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Thickness and 3D offset"
+ },
+ "l26-s5": {
+  "file": "images/en/l26-s5.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Checking in 3D"
+ },
+ "l26-s6": {
+  "file": "images/en/l26-s6.webp",
+  "caption": "PartDesign: pocket, hole, chamfer, thickness · Body and pattern menus"
+ },
+ "l27-s1": {
+  "file": "images/en/l27-s1.webp",
+  "caption": "Check geometry, meshes, reverse engineering · Check geometry"
+ },
+ "l27-s2": {
+  "file": "images/en/l27-s2.webp",
+  "caption": "Check geometry, meshes, reverse engineering · Mesh decimation"
+ },
+ "l27-s3": {
+  "file": "images/en/l27-s3.webp",
+  "caption": "Check geometry, meshes, reverse engineering · Mesh repair"
+ },
+ "l27-s4": {
+  "file": "images/en/l27-s4.webp",
+  "caption": "Check geometry, meshes, reverse engineering · The mesh tools menu"
+ },
+ "l27-s5": {
+  "file": "images/en/l27-s5.webp",
+  "caption": "Check geometry, meshes, reverse engineering · Reverse engineering: from points to shapes"
+ },
+ "l28-s1": {
+  "file": "images/en/l28-s1.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · Walls"
+ },
+ "l28-s2": {
+  "file": "images/en/l28-s2.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · Windows and doors"
+ },
+ "l28-s3": {
+  "file": "images/en/l28-s3.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · Slabs"
+ },
+ "l28-s4": {
+  "file": "images/en/l28-s4.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · Roofs"
+ },
+ "l28-s5": {
+  "file": "images/en/l28-s5.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · Spaces"
+ },
+ "l28-s6": {
+  "file": "images/en/l28-s6.webp",
+  "caption": "BIM 1: walls, windows, slabs, roofs, spaces · In 3D"
+ },
+ "l29-s1": {
+  "file": "images/en/l29-s1.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Columns, stairs, furniture"
+ },
+ "l29-s2": {
+  "file": "images/en/l29-s2.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Grids"
+ },
+ "l29-s3": {
+  "file": "images/en/l29-s3.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Levels and the building window"
+ },
+ "l29-s4": {
+  "file": "images/en/l29-s4.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Rebar"
+ },
+ "l29-s5": {
+  "file": "images/en/l29-s5.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Schedules"
+ },
+ "l29-s6": {
+  "file": "images/en/l29-s6.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · IFC and 3D export"
+ },
+ "l29-s7": {
+  "file": "images/en/l29-s7.webp",
+  "caption": "BIM 2: columns, stairs, levels, rebar, schedules, IFC · Sample: a two-storey house"
+ },
+ "l30-s1": {
+  "file": "images/en/l30-s1.webp",
+  "caption": "CAM in 2D: profile, pocket, drilling G-code · The CAM window"
+ },
+ "l30-s2": {
+  "file": "images/en/l30-s2.webp",
+  "caption": "CAM in 2D: profile, pocket, drilling G-code · Saving G-code"
+ },
+ "l30-s3": {
+  "file": "images/en/l30-s3.webp",
+  "caption": "CAM in 2D: profile, pocket, drilling G-code · The CAM job menu"
+ },
+ "l31-s1": {
+  "file": "images/en/l31-s1.webp",
+  "caption": "FEM frame analysis · Drawing the frame"
+ },
+ "l31-s2": {
+  "file": "images/en/l31-s2.webp",
+  "caption": "FEM frame analysis · The frame analysis window"
+ },
+ "l31-s3": {
+  "file": "images/en/l31-s3.webp",
+  "caption": "FEM frame analysis · The FEM tools menu"
+ },
+ "l32-s1": {
+  "file": "images/en/l32-s1.webp",
+  "caption": "Spreadsheet, script console, macro recording · The spreadsheet"
+ },
+ "l32-s2": {
+  "file": "images/en/l32-s2.webp",
+  "caption": "Spreadsheet, script console, macro recording · Binding sizes to the sheet"
+ },
+ "l32-s3": {
+  "file": "images/en/l32-s3.webp",
+  "caption": "Spreadsheet, script console, macro recording · The script console (JavaScript)"
+ },
+ "l32-s4": {
+  "file": "images/en/l32-s4.webp",
+  "caption": "Spreadsheet, script console, macro recording · Recording a macro"
+ },
+ "l33-s1": {
+  "file": "images/en/l33-s1.webp",
+  "caption": "Robots, views and the tools menu · A robot arm"
+ },
+ "l33-s2": {
+  "file": "images/en/l33-s2.webp",
+  "caption": "Robots, views and the tools menu · Moving to a point"
+ },
+ "l33-s3": {
+  "file": "images/en/l33-s3.webp",
+  "caption": "Robots, views and the tools menu · Following a path"
+ },
+ "l33-s4": {
+  "file": "images/en/l33-s4.webp",
+  "caption": "Robots, views and the tools menu · The View menu: views and cameras"
+ },
+ "l33-s5": {
+  "file": "images/en/l33-s5.webp",
+  "caption": "Robots, views and the tools menu · The Edit menu: visibility, links, placement"
+ },
+ "l33-s6": {
+  "file": "images/en/l33-s6.webp",
+  "caption": "Robots, views and the tools menu · The Tools menu"
+ },
+ "l33-s7": {
+  "file": "images/en/l33-s7.webp",
+  "caption": "Robots, views and the tools menu · The model tree"
  }
 }

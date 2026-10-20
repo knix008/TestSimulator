@@ -609,6 +609,14 @@ export class TutorialPlayer {
         }
         return apply ? apply() : undefined;
       },
+      /** Opens a menu (or one of its submenus) for a moment so its commands can be seen; tests skip it. */
+      async menu(name, path = [], ms = 2600) {
+        if (player.instant) return;
+        api.showMenuGroup(name, path);
+        await player.wait(ms);
+        api.closeMenu();
+        await player.wait(250);
+      },
       select(ids) { api.select(ids); },
       async fresh(title = null) {
         await api.newDrawing(title);

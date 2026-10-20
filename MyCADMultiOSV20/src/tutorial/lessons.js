@@ -967,7 +967,759 @@ const python = {
   ],
 };
 
-export const LESSONS = [tour, drawing, precise, modify, annotate, props, parts, solids, features, booleans, views, view3d, files, printing, settings, help, assembly, exact, cam3d, femLesson, python];
+// ───────────────────────── 22. trim, extend, fillet, chamfer
+const horizontalAt = (ctx, y) => ctx.entities('line').filter((l) => near(l.y1, y) && near(l.y2, y));
+const edit2d = {
+  title: T('2D 편집: 자르기·연장·모깎기·모따기', '2D editing: trim, extend, fillet, chamfer'),
+  fresh: true,
+  steps: [
+    {
+      title: T('자르기 (X)', 'Trim (X)'),
+      text: T('자르기 도구로 선을 누르면 다른 선과 만나는 곳까지 누른 쪽이 잘려 나갑니다. 가로선 (0,20)–(100,20)과 세로선 (50,0)–(50,40)을 그리고 가로선의 오른쪽 (80,20)을 누릅니다.', 'With the trim tool, clicking a line cuts away the clicked part up to where another line crosses it. Draw a line (0,20)–(100,20) and a line (50,0)–(50,40), then click the right part of the first one at (80,20).'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.tool('line'); await ctx.clicks([[0, 20], [100, 20]]); await ctx.key('Escape'); await ctx.key('Escape');
+        await ctx.tool('line'); await ctx.clicks([[50, 0], [50, 40]]); await ctx.key('Escape'); await ctx.key('Escape');
+        await ctx.tool('trim'); await ctx.clickAt(80, 20); await ctx.key('Escape'); selectTool(ctx);
+        ctx.expect(horizontalAt(ctx, 20).some((l) => near(Math.max(l.x1, l.x2), 50)), 'the line should end at x = 50');
+      },
+      practice: { todo: T('두 선을 엇갈리게 그리고, 자르기 도구로 잘라 낼 부분을 누르세요.', 'Draw two crossing lines, then click the part to cut away with the trim tool.'), check: (ctx) => horizontalAt(ctx, 20).some((l) => near(Math.max(l.x1, l.x2), 50)), targets: () => [tile('trim'), ...pts([80, 20])] },
+    },
+    {
+      title: T('연장 (W)', 'Extend (W)'),
+      text: T('연장 도구로 선의 끝 가까이를 누르면 다음 선까지 늘어납니다. 짧은 선 (0,35)–(30,35)를 그리고 오른쪽 끝 (28,35)를 누르면 세로선 x = 50까지 닿습니다.', 'With the extend tool, clicking near the end of a line stretches it to the next line. Draw a short line (0,35)–(30,35) and click near its right end (28,35): it reaches the vertical line at x = 50.'),
+      run: async (ctx) => {
+        await ctx.tool('line'); await ctx.clicks([[0, 35], [30, 35]]); await ctx.key('Escape'); await ctx.key('Escape');
+        await ctx.tool('extend'); await ctx.clickAt(28, 35); await ctx.key('Escape'); selectTool(ctx);
+        ctx.expect(horizontalAt(ctx, 35).some((l) => near(Math.max(l.x1, l.x2), 50)), 'the line should reach x = 50');
+      },
+      practice: { todo: T('연장 도구로 짧은 선의 끝 가까이를 누르세요.', 'Click near the end of the short line with the extend tool.'), check: (ctx) => horizontalAt(ctx, 35).some((l) => near(Math.max(l.x1, l.x2), 50)), targets: () => [tile('extend'), ...pts([28, 35])] },
+    },
+    {
+      title: T('모깎기 (J)', 'Fillet (J)'),
+      text: T('모깎기는 두 선이 만나는 모서리를 호로 둥글게 합니다. 모서리 (90,60)에서 만나는 두 선을 그리고, 모깎기 도구에서 반지름 10을 입력한 뒤 남길 쪽의 두 선을 차례로 누릅니다.', 'Fillet rounds the corner where two lines meet. Draw two lines meeting at (90,60), type a radius of 10 in the fillet tool, then click the two lines on the sides to keep.'),
+      run: async (ctx) => {
+        await ctx.tool('line'); await ctx.clicks([[150, 60], [90, 60], [90, 100]]); await ctx.key('Escape'); await ctx.key('Escape');
+        await ctx.tool('fillet'); await ctx.type('10'); await ctx.clickAt(130, 60); await ctx.clickAt(90, 85); await ctx.key('Escape'); selectTool(ctx);
+        const arc = ctx.last('arc');
+        ctx.expect(arc && near(arc.r, 10) && near(arc.cx, 100) && near(arc.cy, 70), 'a fillet arc r = 10 expected');
+      },
+      practice: { todo: T('모깎기 도구에서 반지름을 입력하고 두 선을 차례로 누르세요.', 'Type a radius in the fillet tool and click the two lines.'), check: (ctx, mem) => has(ctx, mem, 'arc'), targets: () => [tile('fillet'), { el: '#command-input' }, ...pts([130, 60], [90, 85])] },
+    },
+    {
+      title: T('모따기 (K)', 'Chamfer (K)'),
+      text: T('모따기는 모서리를 비스듬히 잘라 냅니다. 폴리선이나 사각형은 모서리 하나만 누르면 됩니다. 사각형 (0,60)–(60,100)의 오른쪽 위 모서리를 누릅니다.', 'Chamfer cuts a corner off at an angle. For a polyline or a rectangle, just click one corner. Click the top right corner of the rectangle (0,60)–(60,100).'),
+      run: async (ctx) => {
+        await ctx.tool('rect'); await ctx.clicks([[0, 60], [60, 100]]);
+        await ctx.tool('chamfer'); await ctx.clickAt(60, 100); await ctx.key('Escape'); selectTool(ctx);
+        ctx.expect(ctx.entities('polyline').some((p) => p.points.length === 5), 'a five-corner outline expected');
+      },
+      practice: { todo: T('사각형을 그리고 모따기 도구로 모서리를 누르세요.', 'Draw a rectangle and click a corner with the chamfer tool.'), check: (ctx) => ctx.entities('polyline').some((p) => p.points.length === 5), targets: () => [tile('chamfer'), ...pts([60, 100])] },
+    },
+  ],
+};
+
+// ───────────────────────── 23. sketch constraints
+const sketch = {
+  title: T('스케치 구속과 보조선', 'Sketch constraints and construction lines'),
+  fresh: true,
+  steps: [
+    {
+      title: T('보조선', 'Construction geometry'),
+      text: T('보조선은 파란 점선으로 바뀌어 스냅과 구속에는 쓰이지만 돌출·CAM·내보내기·인쇄에서는 빠집니다. 원을 그리고 스케치 구속 묶음의 "보조선"을 누릅니다.', 'Construction geometry turns blue and dashed: snaps and constraints use it, but pads, CAM, exports and printing leave it out. Draw a circle and click "Construction" in the sketch group.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.tool('circle'); await ctx.clicks([[20, 80], [32, 80]]); await ctx.key('Escape'); selectTool(ctx);
+        ctx.select([ctx.last('circle').id]);
+        await ctx.command('construction');
+        ctx.expect(ctx.last('circle').construction === true, 'construction circle expected');
+      },
+      practice: { todo: T('객체를 선택하고 스케치 구속 묶음의 "보조선"을 누르세요.', 'Select an object and click "Construction" in the sketch group.'), check: (ctx) => ctx.entities().some((e) => e.construction), targets: () => [cmd('construction')] },
+    },
+    {
+      title: T('기하 구속: 일치·직각', 'Geometric constraints: coincident, perpendicular'),
+      text: T('대충 그린 두 선을 차례로 고르고 "일치"를 누르면 끝점이 만나고, "직각"을 누르면 직각이 됩니다. 도면에 보라색 구속 표시가 붙습니다.', 'Pick two roughly drawn lines in turn: "Coincident" joins their ends, "Perpendicular" squares the corner. Purple constraint marks appear on the drawing.'),
+      run: async (ctx) => {
+        ctx.api.addEntity('line', { x1: 60, y1: 10, x2: 110, y2: 14 });
+        ctx.api.addEntity('line', { x1: 112, y1: 12, x2: 125, y2: 50 });
+        const [a, b] = ctx.entities('line').slice(-2);
+        ctx.select([a.id, b.id]);
+        await ctx.wait(500);
+        await ctx.command('constrain:coincident');
+        await ctx.command('constrain:perpendicular');
+        const types = (ctx.drawing().constraints ?? []).map((c) => c.type);
+        ctx.expect(types.includes('coincident') && types.includes('perpendicular'), 'coincident and perpendicular expected');
+      },
+      practice: { todo: T('두 선을 차례로 고르고 "일치"와 "직각"을 누르세요.', 'Pick two lines in turn and click "Coincident" and "Perpendicular".'), check: (ctx) => (ctx.drawing().constraints ?? []).some((c) => c.type === 'perpendicular'), targets: () => [cmd('constrain:coincident'), cmd('constrain:perpendicular')] },
+    },
+    {
+      title: T('치수 구속: 수평·거리', 'Dimensional constraints: horizontal, distance'),
+      text: T('첫 선만 골라 "수평"과 "거리"를 누르고, 속성 패널의 구속 조건 목록에서 거리 값을 60으로 고칩니다. 풀이기가 도형을 맞추고 다른 선은 직각을 지키며 따라옵니다.', 'Pick the first line alone, click "Horizontal" and "Distance", then set the distance to 60 in the constraint list of the properties. The solver fits the drawing; the other line follows and stays square.'),
+      run: async (ctx) => {
+        const first = ctx.entities('line').at(-2);
+        ctx.select([first.id]);
+        await ctx.command('constrain:horizontal');
+        await ctx.command('constrain:distance');
+        await ctx.field('#right-panel [data-constraint-value]', 60);
+        const l = ctx.entities('line').find((e) => e.id === first.id);
+        ctx.expect(near(Math.hypot(l.x2 - l.x1, l.y2 - l.y1), 60, 1e-3) && near(l.y1, l.y2, 1e-6), 'a horizontal line 60 long expected');
+      },
+      practice: { todo: T('선을 고르고 "거리"를 누른 뒤 속성 패널에서 값을 바꾸세요.', 'Pick a line, click "Distance" and change the value in the properties.'), check: (ctx) => (ctx.drawing().constraints ?? []).some((c) => c.type === 'distance'), targets: () => [cmd('constrain:distance'), { el: '#right-panel [data-constraint-value]' }] },
+    },
+    {
+      title: T('자유도와 구속 상태', 'Degrees of freedom and status'),
+      text: T('스케치 구속 묶음 아래에 자유도 n · 완전 구속 · 중복 구속 · 충돌이 나옵니다. 끝점을 끌면 구속을 지키며 나머지가 따라옵니다. 반지름 · 지름 · 각도 · 접선 · 동심 · 대칭 · 고정도 같은 방법으로 겁니다.', 'Under the sketch group you see the degrees of freedom: fully constrained, redundant or conflicting. Drag an end point and the rest follows the constraints. Radius, diameter, angle, tangent, concentric, symmetric and lock work the same way.'),
+      run: async (ctx) => { ctx.api.openSection('sketch'); await ctx.wait(1500); ctx.expect((ctx.drawing().constraints ?? []).length >= 4, 'four constraints expected'); },
+      practice: { todo: T('스케치 구속 묶음의 상태 표시를 확인하세요.', 'Look at the status under the sketch group.'), targets: () => [{ el: '#left-panel [data-section="sketch"]' }] },
+    },
+    {
+      title: T('스케치·Draft 도구 메뉴', 'Sketcher and Draft tool menus'),
+      text: T('수정 메뉴의 스케치 도구에는 FreeCAD Sketcher 의 구속 · 선택(진단) · B-스플라인 · 표시 명령이, Draft 도구에는 늘이기 · 업그레이드 · 경로 배열 · 정리 · 스냅이 모두 있습니다.', 'The Modify menu holds all of FreeCAD Sketcher\'s constraint, selection (diagnostics), B-spline and display commands under Sketch tools, and Draft\'s stretch, upgrade, path array, organize and snap commands under Draft tools.'),
+      run: async (ctx) => { await ctx.menu('modify', ['sketchTools']); await ctx.menu('modify', ['draftTools']); },
+      practice: { todo: T('수정 메뉴에서 스케치 도구와 Draft 도구를 펼쳐 보세요.', 'Open Sketch tools and Draft tools in the Modify menu.'), targets: () => [{ el: '[data-menu="modify"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 24. clones, working plane, problems
+const helpers = {
+  title: T('클론·작업 평면·문제 검사', 'Clones, working plane, problems'),
+  fresh: true,
+  steps: [
+    {
+      title: T('클론', 'Clones'),
+      text: T('클론은 원본을 따라 모양이 바뀌는 복사본입니다(FreeCAD Draft Clone). 사각형을 선택해 "클론"을 누르고, 클론을 이동 도구로 오른쪽으로 옮깁니다.', 'A clone is a copy that follows its original\'s shape (FreeCAD Draft Clone). Select a rectangle, click "Clone", and move the clone to the right with the move tool.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.tool('rect'); await ctx.clicks([[0, 0], [40, 20]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id]);
+        await ctx.command('clone');
+        const clone = ctx.entities().find((e) => e.clone);
+        ctx.expect(clone, 'a clone expected');
+        ctx.select([clone.id]);
+        await ctx.tool('move'); await ctx.clicks([[0, 0], [70, 0]]); selectTool(ctx);
+      },
+      practice: { todo: T('객체를 선택하고 수정 묶음의 "클론"을 누르세요.', 'Select an object and click "Clone" in the modify group.'), check: (ctx) => ctx.entities().some((e) => e.clone), targets: () => [cmd('clone')] },
+    },
+    {
+      title: T('원본을 고치면 클론도', 'Change the original, the clone follows'),
+      text: T('원본 사각형의 폭을 속성 패널에서 60으로 바꾸면 클론도 같이 바뀝니다. 클론은 위치 · 회전 · 크기 · 대칭과 색 · 레이어만 따로 갖습니다.', 'Set the original rectangle\'s width to 60 in the properties: the clone changes too. A clone keeps only its own position, rotation, scale, mirror, colour and layer.'),
+      run: async (ctx) => {
+        const source = ctx.entities('rect').find((e) => !e.clone);
+        ctx.select([source.id]);
+        await ctx.field('#right-panel [data-prop="width"]', 60);
+        const clone = ctx.entities().find((e) => e.clone);
+        ctx.expect(clone && near(clone.width, 60), 'the clone should follow (width 60)');
+      },
+      practice: { todo: T('원본을 선택하고 폭을 바꾸세요.', 'Select the original and change its width.'), setup: (ctx, mem) => { mem.w = ctx.entities().find((e) => e.clone)?.width; }, check: (ctx, mem) => ctx.entities().some((e) => e.clone && !near(e.width, mem.w ?? -1)), targets: () => [{ el: '#right-panel [data-prop="width"]' }] },
+    },
+    {
+      title: T('독립시키기', 'Making it independent'),
+      text: T('클론을 선택하면 속성 패널에 "원본 선택"과 "독립시키기"가 나옵니다. 독립시키면 보통 객체가 되어 원본을 더 이상 따르지 않습니다.', 'A selected clone shows "Select the original" and "Make independent" in the properties. Made independent, it becomes an ordinary object that no longer follows.'),
+      run: async (ctx) => {
+        ctx.select([ctx.entities().find((e) => e.clone).id]);
+        await ctx.click('#right-panel [data-command="unlinkClone"]');
+        ctx.expect(!ctx.entities().some((e) => e.clone), 'no clone left expected');
+      },
+      practice: { todo: T('클론을 선택하고 속성 패널의 "독립시키기"를 누르세요.', 'Select the clone and click "Make independent" in the properties.'), check: (ctx) => !ctx.entities().some((e) => e.clone), targets: () => [{ el: '#right-panel [data-command="unlinkClone"]' }] },
+    },
+    {
+      title: T('작업 평면', 'The working plane'),
+      text: T('수정 › 작업 평면: 원점 (100,10)을 누르고 X 축이 향할 점 (100,60)을 누릅니다. 이제 좌표 입력 · 격자 · 직교 · 상태 표시줄이 이 평면 기준이라 @30,0은 위쪽으로 30입니다.', 'Modify › Working plane: click the origin (100,10), then a point the X axis points to (100,60). Typed coordinates, the grid, ortho and the status bar now follow the plane, so @30,0 goes 30 up.'),
+      run: async (ctx) => {
+        await ctx.command('tool:workPlane');
+        await ctx.clicks([[100, 10], [100, 60]]);
+        selectTool(ctx);
+        await ctx.tool('line'); await ctx.type('0,0'); await ctx.type('@30,0'); await ctx.key('Escape'); selectTool(ctx);
+        const l = ctx.last('line');
+        ctx.expect(ctx.drawing().workPlane && l && near(l.x2, 100) && near(l.y2, 40), 'a line up to (100,40) expected');
+      },
+      practice: { todo: T('수정 메뉴의 작업 평면에서 두 점을 누르세요.', 'Click two points with Working plane in the Modify menu.'), check: (ctx) => Boolean(ctx.drawing().workPlane), targets: () => [{ el: '[data-menu="modify"]' }, ...pts([100, 10], [100, 60])] },
+    },
+    {
+      title: T('전체 좌표로', 'Back to global'),
+      text: T('아무것도 고르지 않으면 속성 패널에 작업 평면의 원점 · 각도 · 높이 Z(새 솔리드가 놓이는 높이)가 나옵니다. "전체 좌표로"를 누르면 원래대로 돌아갑니다.', 'With nothing selected, the properties show the working plane\'s origin, angle and height Z (where new solids go). "Back to global" restores the normal axes.'),
+      run: async (ctx) => {
+        ctx.select([]);
+        await ctx.wait(600);
+        await ctx.click('#right-panel [data-command="workPlaneReset"]');
+        ctx.expect(!ctx.drawing().workPlane, 'working plane should be reset');
+      },
+      practice: { todo: T('속성 패널의 "전체 좌표로"를 누르세요.', 'Click "Back to global" in the properties.'), check: (ctx) => !ctx.drawing().workPlane, targets: () => [{ el: '#right-panel [data-command="workPlaneReset"]' }] },
+    },
+    {
+      title: T('문제 패널 (Ctrl+Shift+M)', 'The problems panel (Ctrl+Shift+M)'),
+      text: T('문제 패널은 길이 0인 객체 · 겹친 객체 · 맞닿지 않은 끝점 · 거의 닫힌 윤곽 같은 실수를 오류 · 경고 · 참고로 보여 줍니다. 줄을 누르면 그 객체로 갑니다. 같은 자리에 선을 두 번 그려 봅니다.', 'The problems panel lists mistakes — zero-length objects, duplicates, ends that do not meet, almost closed outlines — as errors, warnings and notes. Click a row to go to the object. Draw the same line twice.'),
+      run: async (ctx) => {
+        ctx.api.addEntity('line', { x1: 0, y1: 80, x2: 50, y2: 80 });
+        ctx.api.addEntity('line', { x1: 0, y1: 80, x2: 50, y2: 80 });
+        if (!ctx.settings().showProblems) await ctx.command('problems');
+        await ctx.wait(2200);
+        ctx.expect(ctx.settings().showProblems, 'problems panel expected');
+        await ctx.command('problems');
+      },
+      practice: { todo: T('툴바의 문제 패널 버튼을 누르세요.', 'Click the problems panel button on the toolbar.'), check: (ctx) => ctx.settings().showProblems, targets: () => [cmd('problems')] },
+    },
+    {
+      title: T('눈금자 (Ctrl+R)', 'Rulers (Ctrl+R)'),
+      text: T('캔버스 위와 왼쪽의 눈금자는 커서 위치를 표시하고, 왼쪽 위 모서리에 단위가 나옵니다. 툴바 버튼으로 끄고 켭니다.', 'The rulers above and left of the canvas mark the cursor; the unit is in the top-left corner. The toolbar button switches them.'),
+      run: async (ctx) => { await ctx.command('rulers'); await ctx.wait(700); await ctx.command('rulers'); ctx.expect(ctx.settings().showRulers, 'rulers hidden'); },
+      practice: { todo: T('툴바의 눈금자 버튼을 눌러 보세요.', 'Click the rulers button on the toolbar.'), targets: () => [cmd('rulers')] },
+    },
+  ],
+};
+
+// ───────────────────────── 25. drawing annotations (TechDraw)
+const techdraw = {
+  title: T('제작 도면: 풍선·기하 공차·데이텀', 'Production drawings: balloons, GD&T, datums'),
+  fresh: true,
+  steps: [
+    {
+      title: T('준비: 판과 구멍', 'Set-up: a plate and a hole'),
+      text: T('주석을 달 판 (0,0)–(100,50)과 구멍 (50,25) 반지름 10을 그립니다.', 'Draw a plate (0,0)–(100,50) and a hole at (50,25), radius 10, to annotate.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.view({ minX: -20, minY: -40, maxX: 170, maxY: 100 });
+        await ctx.tool('rect'); await ctx.clicks([[0, 0], [100, 50]]);
+        await ctx.tool('circle'); await ctx.clicks([[50, 25], [60, 25]]); await ctx.key('Escape'); selectTool(ctx);
+      },
+      practice: { todo: T('사각형과 원을 그리세요.', 'Draw the rectangle and the circle.'), check: (ctx) => ctx.entities('rect').length >= 1 && ctx.entities('circle').length >= 1, targets: () => pts([0, 0], [100, 50], [50, 25]) },
+    },
+    {
+      title: T('풍선', 'Balloons'),
+      text: T('풍선 도구로 가리킬 부품 (10,50)을 누르고 풍선 자리 (20,80)를 누릅니다. 번호는 1, 2, 3 … 저절로 붙습니다. 하나 더 (100,40) → (130,75).', 'With the balloon tool click the part (10,50), then where the balloon goes (20,80). Numbers 1, 2, 3… come by themselves. One more: (100,40) → (130,75).'),
+      run: async (ctx) => {
+        await ctx.tool('balloon'); await ctx.clicks([[10, 50], [20, 80]]);
+        await ctx.tool('balloon'); await ctx.clicks([[100, 40], [130, 75]]); selectTool(ctx);
+        ctx.expect(ctx.entities('leader').filter((e) => e.style === 'balloon').map((e) => e.text).join() === '1,2', 'balloons 1 and 2 expected');
+      },
+      practice: { todo: T('풍선 도구로 두 점을 누르세요.', 'Click two points with the balloon tool.'), check: (ctx) => ctx.entities('leader').some((e) => e.style === 'balloon'), targets: () => [tile('balloon')] },
+    },
+    {
+      title: T('데이텀', 'Datums'),
+      text: T('데이텀 도구로 데이텀 면 (50,0)을 누르고 문자 상자 자리 (50,-25)를 누릅니다. 글자는 A, B, C … 저절로 붙습니다.', 'With the datum tool click the datum face (50,0), then where its box goes (50,-25). Letters A, B, C… come by themselves.'),
+      run: async (ctx) => {
+        await ctx.tool('datum'); await ctx.clicks([[50, 0], [50, -25]]); selectTool(ctx);
+        ctx.expect(ctx.entities('leader').some((e) => e.style === 'datum' && e.text === 'A'), 'datum A expected');
+      },
+      practice: { todo: T('데이텀 도구로 두 점을 누르세요.', 'Click two points with the datum tool.'), check: (ctx) => ctx.entities('leader').some((e) => e.style === 'datum'), targets: () => [tile('datum')] },
+    },
+    {
+      title: T('기하 공차', 'Feature control frames'),
+      text: T('기하 공차 도구로 공차를 줄 면 (0,30)을 누르고 틀 자리 (-15,75)를 누릅니다. 속성 패널에서 기호 14종 · 공차 값 · ⌀ · Ⓜ/Ⓛ · 데이텀 A|B|C를 정합니다. 기호를 평면도로 바꿉니다.', 'With the GD&T tool click the face (0,30), then where the frame goes (-15,75). In the properties pick one of 14 symbols, the value, ⌀, Ⓜ/Ⓛ and datums A|B|C. Set the symbol to flatness.'),
+      run: async (ctx) => {
+        await ctx.tool('gdt'); await ctx.clicks([[0, 30], [-15, 75]]); selectTool(ctx);
+        ctx.select([ctx.last('leader').id]);
+        await ctx.field('#right-panel [data-prop="symbol"]', 'flatness');
+        await ctx.field('#right-panel [data-prop="datums"]', 'A');
+        const frame = ctx.last('leader');
+        ctx.expect(frame.style === 'gdt' && frame.symbol === 'flatness', 'flatness frame expected');
+      },
+      practice: { todo: T('기하 공차 도구로 두 점을 누르고 속성에서 기호를 바꾸세요.', 'Click two points with the GD&T tool and change the symbol in the properties.'), check: (ctx) => ctx.entities('leader').some((e) => e.style === 'gdt'), targets: () => [tile('gdt')] },
+    },
+    {
+      title: T('제작 도면 샘플', 'A production drawing sample'),
+      text: T('샘플 "축 제작 도면"에는 단면 · 키홈 · 끼워맞춤 공차 · 표면 거칠기 · 주기가 모두 들어 있습니다. DXF · SVG · 인쇄에도 그대로 나옵니다.', 'The sample "Shaft detail" has sections, a keyway, fits, surface roughness and notes. They go to DXF, SVG and print as they are.'),
+      run: async (ctx) => { await ctx.api.openSample('21-shaft-detail.mcad'); await ctx.api.waitIdle(); ctx.api.zoomFit(); await ctx.wait(1800); ctx.expect(ctx.entities().length > 10, 'sample not open'); },
+      practice: { todo: T('시작 페이지에서 "축 제작 도면" 샘플을 여세요.', 'Open the "Shaft detail" sample from the start page.'), targets: () => [{ el: '.sample-card[data-sample="21-shaft-detail.mcad"]' }] },
+    },
+    {
+      title: T('TechDraw 메뉴', 'The TechDraw menu'),
+      text: T('그리기 메뉴의 TechDraw 에는 뷰(투상 · 단면 · 상세 · 활성 뷰) · 장식선(중심선 · 나사선) · 치수(연쇄 · 좌표 · 구멍/축 공차) · 페이지(표제란 · 클립 그룹)가 모두 있습니다.', 'TechDraw in the Draw menu holds views (projection, section, detail, active view), cosmetics (centre lines, threads), dimensions (chain, ordinate, hole and shaft fits) and page tools (title block, clip groups).'),
+      run: async (ctx) => { await ctx.menu('draw', ['techDraw']); await ctx.menu('draw', ['techDraw', 'tdDims']); },
+      practice: { todo: T('그리기 메뉴에서 TechDraw 를 펼쳐 보세요.', 'Open TechDraw in the Draw menu.'), targets: () => [{ el: '[data-menu="draw"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 26. PartDesign: pocket, hole, dress-ups
+const partDesign = {
+  title: T('PartDesign: 포켓·구멍·모따기·두께', 'PartDesign: pocket, hole, chamfer, thickness'),
+  fresh: true,
+  steps: [
+    {
+      title: T('포켓', 'Pocket'),
+      text: T('2D 윤곽과 솔리드를 함께 고르고 "포켓"을 누르면 솔리드 윗면에서 깊이만큼(또는 관통) 파냅니다. 100 × 60 × 30 블록에 사각형 (10,10)–(40,30)을 8 mm 깊이로 파냅니다.', 'Select a 2D outline together with a solid and click "Pocket": it cuts down from the top face to a depth (or through all). Pocket the rectangle (10,10)–(40,30) 8 mm into a 100 × 60 × 30 block.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        const block = ctx.api.insertSolid('box', { length: 100, width: 60, height: 30 }, { x: 0, y: 0, z: 0 });
+        await ctx.tool('rect'); await ctx.clicks([[10, 10], [40, 30]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id, block.id]);
+        await ctx.dialog('solid', () => ctx.api.run('solid:pocket'), () => ctx.api.applyFeature('pocket', { depth: 8 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'boolean' && e.shape?.op === 'cut'), 'pocket expected');
+      },
+      practice: { todo: T('윤곽과 솔리드를 함께 고르고 "포켓"을 누르세요.', 'Select an outline and a solid, then click "Pocket".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'boolean'), targets: () => [{ el: '#left-panel [data-command="solid:pocket"]' }] },
+    },
+    {
+      title: T('구멍', 'Hole'),
+      text: T('원과 솔리드를 고르고 "구멍"을 누르면 원마다 구멍이 뚫립니다: 지름은 원에서, 깊이 · 단순/자리파기/접시머리 · 평평/드릴 끝 118°는 창에서. 결과는 빼기 트리라 분해하면 원래대로입니다.', 'Select circles and a solid and click "Hole": a hole at every circle — the diameter from the circle; depth, simple/counterbore/countersink and a flat or 118° drill point in the window. The result is a cut tree that explode undoes.'),
+      run: async (ctx) => {
+        await ctx.tool('circle'); await ctx.clicks([[70, 30], [76, 30]]); await ctx.key('Escape'); selectTool(ctx);
+        ctx.select([ctx.last('circle').id, ctx.entities('solid')[0].id]);
+        await ctx.dialog('solid', () => ctx.api.run('solid:hole'), () => ctx.api.applyFeature('hole', { depth: 30 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.shape?.parts?.at(-1)?.kind === 'hole'), 'hole expected');
+      },
+      practice: { todo: T('원과 솔리드를 고르고 "구멍"을 누르세요.', 'Select a circle and a solid, then click "Hole".'), check: (ctx) => ctx.entities('solid').some((e) => e.shape?.parts?.some((p) => p.kind === 'hole')), targets: () => [{ el: '#left-panel [data-command="solid:hole"]' }] },
+    },
+    {
+      title: T('3D 모따기', 'Chamfer (3D)'),
+      text: T('상자 · 돌출 · 각기둥 · 원기둥 · 튜브를 하나 고르고 "모따기 (3D)"를 누르면 크기와 모서리(모두 · 윗면 둘레 · 세로 …)를 정해 깎습니다. 분해하면 원래 솔리드로 돌아갑니다.', 'Select one box, pad, prism, cylinder or tube and click "Chamfer (3D)": choose the size and the edges (all, top rim, vertical…). Explode gives the solid back.'),
+      run: async (ctx) => {
+        const block = ctx.api.insertSolid('box', { length: 40, width: 30, height: 20 }, { x: 120, y: 0, z: 0 });
+        ctx.select([block.id]);
+        await ctx.dialog('solid', () => ctx.api.run('dress:chamfer'), () => ctx.api.dressUp('chamfer', { size: 4 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'chamfer'), 'chamfer expected');
+      },
+      practice: { todo: T('솔리드를 고르고 "모따기 (3D)"를 누르세요.', 'Select a solid and click "Chamfer (3D)".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'chamfer'), targets: () => [{ el: '#left-panel [data-command="dress:chamfer"]' }] },
+    },
+    {
+      title: T('두께와 3D 오프셋', 'Thickness and 3D offset'),
+      text: T('"두께"는 속을 비우고 윗면을 엽니다(벽 두께 3). "3D 오프셋"은 솔리드를 고르게 키우거나(+) 줄입니다(−).', '"Thickness" hollows the solid and opens its top (3 mm walls). "3D offset" grows (+) or shrinks (−) the solid evenly.'),
+      run: async (ctx) => {
+        const cup = ctx.api.insertSolid('box', { length: 40, width: 30, height: 25 }, { x: 120, y: 50, z: 0 });
+        ctx.select([cup.id]);
+        await ctx.dialog('solid', () => ctx.api.run('dress:thickness'), () => ctx.api.dressUp('thickness', { thickness: 3 }));
+        const grow = ctx.api.insertSolid('box', { length: 20, width: 20, height: 20 }, { x: 0, y: 80, z: 0 });
+        ctx.select([grow.id]);
+        await ctx.api.dressUp('offset3d', { distance: 3 });
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'thickness') && ctx.entities('solid').some((e) => e.kind === 'offset3d'), 'thickness and offset expected');
+      },
+      practice: { todo: T('솔리드를 고르고 "두께"나 "3D 오프셋"을 누르세요.', 'Select a solid and click "Thickness" or "3D offset".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'thickness' || e.kind === 'offset3d'), targets: () => [{ el: '#left-panel [data-command="dress:thickness"]' }, { el: '#left-panel [data-command="dress:offset3d"]' }] },
+    },
+    {
+      title: T('3D로 확인하기', 'Checking in 3D'),
+      text: T('3D 보기에서 포켓 · 구멍 · 모따기 · 속 빈 상자를 확인합니다.', 'Look at the pocket, the hole, the chamfer and the hollow box in 3D.'),
+      run: async (ctx) => { await ctx.command('view3d'); await ctx.api.waitIdle(800); ctx.expect(ctx.api.state().view3d, '3D view not shown'); await ctx.wait(2500); await ctx.command('view3d'); },
+      practice: { todo: T('3D 보기 버튼을 누르세요.', 'Click the 3D view button.'), check: (ctx) => ctx.api.state().view3d, targets: () => [cmd('view3d')] },
+    },
+    {
+      title: T('바디 · 패턴 메뉴', 'Body and pattern menus'),
+      text: T('3D 솔리드 메뉴에는 FreeCAD PartDesign 처럼 바디 · 팁, 선형 · 원형 패턴 · 대칭 · 다중 변환, 빼는 나선 · 로프트 · 파이프, 바인더 명령이 있습니다.', 'The 3D solid menu has PartDesign\'s body and tip, linear and polar patterns, mirrored and multi-transform, subtractive helix, loft and pipe, and binders.'),
+      run: async (ctx) => { await ctx.menu('solid', ['body']); await ctx.menu('solid', ['patterns']); await ctx.menu('solid', ['subtractive']); },
+      practice: { todo: T('3D 솔리드 메뉴에서 패턴을 펼쳐 보세요.', 'Open Patterns in the 3D solid menu.'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 27. check geometry, mesh, reverse engineering
+/** A 20 mm mesh box at (x, 0) with its top missing and one face turned over (for check and repair). */
+const brokenBox = (x) => {
+  const s = 20;
+  const P = (px, py, pz) => [px + x, py, pz];
+  const quads = [[P(0, 0, 0), P(0, s, 0), P(s, s, 0), P(s, 0, 0)], [P(0, 0, 0), P(s, 0, 0), P(s, 0, s), P(0, 0, s)], [P(s, 0, 0), P(s, s, 0), P(s, s, s), P(s, 0, s)], [P(s, s, 0), P(0, s, 0), P(0, s, s), P(s, s, s)], [P(0, s, 0), P(0, 0, 0), P(0, 0, s), P(0, s, s)]];
+  const tris = quads.flatMap(([p, q, r, t]) => [[p, q, r], [p, r, t]]);
+  tris[2] = [tris[2][0], tris[2][2], tris[2][1]];
+  return tris.flat(2);
+};
+const meshLesson = {
+  title: T('형상 검사·메시·역설계', 'Check geometry, meshes, reverse engineering'),
+  fresh: true,
+  steps: [
+    {
+      title: T('형상 검사', 'Check geometry'),
+      text: T('3D 솔리드 › 형상 검사는 솔리드마다 닫혔는지, 열린 · 비다양체 모서리, 방향이 어긋난 곳, 뒤집힌 껍질, 자기 교차, 퇴화 · 중복 삼각형을 보여 줍니다. 윗면이 없고 면 하나가 뒤집힌 메시 상자가 문제로 나옵니다.', '3D solid › Check geometry reports for each solid whether it is closed, open and non-manifold edges, flipped faces, inside-out shells, self-intersections and degenerate or duplicate triangles. A mesh box without its top and with one face turned over shows up as a problem.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.api.insertSolid('box', { length: 40, width: 30, height: 20 }, { x: 0, y: 0, z: 0 });
+        ctx.api.insertSolid('sphere', { radius: 20 }, { x: 100, y: 40, z: 0 });
+        ctx.api.addEntity('solid', { kind: 'mesh', name: ctx.lang === 'ko' ? '깨진 메시' : 'broken mesh', shape: { tris: brokenBox(60) } });
+        ctx.select([]);
+        await ctx.dialog('check', () => ctx.api.run('checkGeometry'), null, 2800);
+      },
+      practice: { todo: T('"형상 검사"를 누르세요.', 'Click "Check geometry".'), targets: () => [{ el: '#left-panel [data-command="checkGeometry"]' }] },
+    },
+    {
+      title: T('메시 단순화', 'Mesh decimation'),
+      text: T('솔리드를 고르고 "메시 단순화"를 누르면 모양은 거의 그대로, 삼각형은 절반쯤으로 줄어든 메시가 됩니다(닫힌 메시 유지).', 'Select a solid and click "Mesh decimation": it becomes a mesh with about half the triangles and almost the same shape (still closed).'),
+      run: async (ctx) => {
+        ctx.select([ctx.entities('solid').find((e) => e.kind === 'sphere').id]);
+        await ctx.command('meshDecimate');
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'mesh'), 'mesh solid expected');
+      },
+      practice: { todo: T('솔리드를 고르고 "메시 단순화"를 누르세요.', 'Select a solid and click "Mesh decimation".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'mesh'), targets: () => [{ el: '#left-panel [data-command="meshDecimate"]' }] },
+    },
+    {
+      title: T('메시 수리', 'Mesh repair'),
+      text: T('"메시 수리"는 틈(T 접점)을 잇고, 구멍을 메우고, 면 방향을 맞춘 닫힌 메시 솔리드를 만듭니다. 깨진 메시 상자를 고르고 수리합니다. 형상 검사 창에서 체크하고 수리해도 됩니다.', '"Mesh repair" joins gaps (T-junctions), fills holes and orients the faces into a closed mesh solid. Select the broken mesh box and repair it. You can also tick solids in the check window and repair them there.'),
+      run: async (ctx) => {
+        const broken = () => ctx.entities('solid').find((e) => e.kind === 'mesh' && /깨진|broken/.test(e.name ?? ''));
+        const before = broken().shape.tris.length;
+        ctx.select([broken().id]);
+        await ctx.command('meshRepair');
+        ctx.expect(broken().shape.tris.length > before, 'the repaired mesh should have its top filled');
+        await ctx.command('view3d'); await ctx.api.waitIdle(800); await ctx.command('view3dStyle:mesh'); await ctx.wait(2200); await ctx.command('view3dStyle:asis'); await ctx.command('view3d');
+      },
+      practice: { todo: T('깨진 메시를 고르고 "메시 수리"를 누르세요.', 'Select the broken mesh and click "Mesh repair".'), setup: (ctx, mem) => { mem.tris = ctx.entities('solid').filter((e) => e.kind === 'mesh').map((e) => e.shape.tris.length).join(); }, check: (ctx, mem) => ctx.entities('solid').filter((e) => e.kind === 'mesh').map((e) => e.shape.tris.length).join() !== mem.tris, targets: () => [{ el: '#left-panel [data-command="meshRepair"]' }] },
+    },
+    {
+      title: T('메시 도구 메뉴', 'The mesh tools menu'),
+      text: T('3D 솔리드 › 검사 · FEM 해석 › 메시 도구에는 FreeCAD Mesh 워크벤치의 정규 도형 · 곡률 색 · 다각형 자르기 · 평활화 · 구멍 메우기 · 육안 검사 같은 명령이 모두 있습니다.', '3D solid › Check and FEM › Mesh tools holds FreeCAD Mesh\'s commands: regular solids, curvature colours, polygon cuts, smoothing, hole filling, visual inspection and more.'),
+      run: async (ctx) => { await ctx.menu('solid', ['analysis']); await ctx.menu('solid', ['analysis', 'meshTools']); },
+      practice: { todo: T('3D 솔리드 메뉴에서 메시 도구를 펼쳐 보세요.', 'Open Mesh tools in the 3D solid menu.'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+    {
+      title: T('역설계: 점 구름에서 형상으로', 'Reverse engineering: from points to shapes'),
+      text: T('점 구름(.xyz · .ply 점)을 가져와 고르면 평면 · 구 · 원기둥 맞춤과 메시 만들기, 곡면 근사 · 단면 · 검사 명령을 씁니다.', 'Import a point cloud (.xyz, .ply points), select it, and fit a plane, a sphere or a cylinder, make a mesh, approximate surfaces, take sections or inspect.'),
+      run: async (ctx) => { await ctx.menu('solid', ['reverse']); },
+      practice: { todo: T('3D 솔리드 메뉴에서 역설계를 펼쳐 보세요.', 'Open Reverse engineering in the 3D solid menu.'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 28. BIM: walls, openings, slab, roof, space
+const HOUSE = { minX: -1500, minY: -1500, maxX: 8000, maxY: 5500 };
+const bimWalls = {
+  title: T('건축 (BIM) 1: 벽·창문·슬래브·지붕·실', 'BIM 1: walls, windows, slabs, roofs, spaces'),
+  fresh: true,
+  steps: [
+    {
+      title: T('벽', 'Walls'),
+      text: T('선 · 폴리선 · 사각형을 그려 고르고 건축 › 벽을 누릅니다. 닫힌 윤곽은 모서리가 맞춰진 고리 벽이 됩니다. 두께 200 · 높이 2700으로 6 × 4 m 벽을 세웁니다. 평면은 바닥에서 1 m 높이로 자른 단면입니다.', 'Draw lines, a polyline or a rectangle, select it and click BIM › Wall. A closed outline makes a ring of walls with mitred corners. Build 6 × 4 m walls, 200 thick and 2700 high. The plan is a cut 1 m above the floor.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.view(HOUSE);
+        await ctx.tool('rect'); await ctx.clicks([[0, 0], [6000, 4000]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:wall'), () => ctx.api.actions().archFeature('wall', { width: 200, height: 2700 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'wall'), 'wall expected');
+      },
+      practice: { todo: T('사각형을 그려 고르고 건축 묶음의 "벽"을 누르세요.', 'Draw and select a rectangle, then click "Wall" in the BIM group.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'wall'), targets: () => [{ el: '#left-panel [data-command="arch:wall"]' }] },
+    },
+    {
+      title: T('창과 문', 'Windows and doors'),
+      text: T('벽을 고르고 "창 넣기" / "문 넣기"를 누르면 창 · 문 · 개구부 편집 창이 열립니다. 종류(창 · 문 · 양개문 · 미닫이 · 개구부) · 위치 · 폭 · 창대 높이 · 여는 쪽을 정하면 벽이 뚫리고 창틀 · 유리 · 문짝이 들어갑니다.', 'Select a wall and click "Window" or "Door": the openings editor opens. Choose the type (window, door, double door, sliding, opening), position, width, sill and swing; the wall is cut and frames, glass and leaves go in.'),
+      run: async (ctx) => {
+        const wall = ctx.entities('solid').find((e) => e.kind === 'wall');
+        ctx.select([wall.id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:window'), () => { ctx.api.addOpeningNow('window', 1500); ctx.api.addOpeningNow('door', 900); });
+        ctx.expect((ctx.entities('solid').find((e) => e.kind === 'wall').shape.openings ?? []).length >= 2, 'a window and a door expected');
+      },
+      practice: { todo: T('벽을 고르고 "창 넣기"를 누르세요.', 'Select the wall and click "Window".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'wall' && e.shape?.openings?.length), targets: () => [{ el: '#left-panel [data-command="arch:window"]' }, { el: '#left-panel [data-command="arch:door"]' }] },
+    },
+    {
+      title: T('슬래브', 'Slabs'),
+      text: T('닫힌 윤곽을 고르고 "슬래브"를 누르면 두께만큼의 바닥판이 됩니다. 벽 바깥으로 100씩 큰 사각형을 그려 두께 200 슬래브를 만듭니다.', 'Select a closed outline and click "Slab": a floor plate of a thickness. Draw a rectangle 100 larger than the walls and make a 200 thick slab.'),
+      run: async (ctx) => {
+        await ctx.tool('rect'); await ctx.clicks([[-100, -100], [6100, 4100]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:slab'), () => ctx.api.actions().archFeature('slab', { thickness: 200 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'slab'), 'slab expected');
+      },
+      practice: { todo: T('닫힌 윤곽을 고르고 "슬래브"를 누르세요.', 'Select a closed outline and click "Slab".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'slab'), targets: () => [{ el: '#left-panel [data-command="arch:slab"]' }] },
+    },
+    {
+      title: T('지붕', 'Roofs'),
+      text: T('닫힌 윤곽을 고르고 "지붕"을 누릅니다. 박공 · 모임 · 외쪽 · 평지붕과 경사 · 처마 길이 · 두께를 정하고, 지붕 편집 창의 변별 경사 탭에서 변마다 경사를 줍니다(90°면 박공).', 'Select a closed outline and click "Roof". Pick gable, hip, shed or flat, the slope, overhang and thickness; the per-edge slope tab gives each edge its own slope (90° makes a gable).'),
+      run: async (ctx) => {
+        await ctx.tool('rect'); await ctx.clicks([[0, 0], [6000, 4000]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:roof'), () => ctx.api.actions().archFeature('roof', { roofType: 1, slope: 30, overhang: 400, thickness: 200 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'roof'), 'roof expected');
+      },
+      practice: { todo: T('닫힌 윤곽을 고르고 "지붕"을 누르세요.', 'Select a closed outline and click "Roof".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'roof'), targets: () => [{ el: '#left-panel [data-command="arch:roof"]' }] },
+    },
+    {
+      title: T('실 (공간)', 'Spaces'),
+      text: T('닫힌 윤곽을 고르고 "공간"을 누르면 실이 됩니다. 이름(속성 패널)과 바닥 면적이 평면도에 표시되고 물량표에 들어갑니다.', 'Select a closed outline and click "Space": a room. Its name (properties) and floor area show on the plan and go into the schedule.'),
+      run: async (ctx) => {
+        await ctx.tool('rect'); await ctx.clicks([[100, 100], [5900, 3900]]); selectTool(ctx);
+        ctx.select([ctx.last('rect').id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:space'), () => ctx.api.actions().archFeature('space', { height: 2400 }));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'space'), 'space expected');
+      },
+      practice: { todo: T('닫힌 윤곽을 고르고 "공간"을 누르세요.', 'Select a closed outline and click "Space".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'space'), targets: () => [{ el: '#left-panel [data-command="arch:space"]' }] },
+    },
+    {
+      title: T('3D로 보기', 'In 3D'),
+      text: T('3D 보기로 바꾸면 같은 모델이 입체로 보입니다. 벽은 색으로, 유리는 반투명으로, 실은 옅은 부피로 보입니다.', 'Switch to 3D: the same model stands up. Walls are coloured, glass translucent and spaces faint volumes.'),
+      run: async (ctx) => { await ctx.command('view3d'); await ctx.api.waitIdle(800); ctx.expect(ctx.api.state().view3d, '3D view not shown'); await ctx.wait(3000); await ctx.command('view3d'); },
+      practice: { todo: T('3D 보기 버튼을 누르세요.', 'Click the 3D view button.'), check: (ctx) => ctx.api.state().view3d, targets: () => [cmd('view3d')] },
+    },
+  ],
+};
+
+// ───────────────────────── 29. BIM: structure, levels, schedules, IFC
+const bimMore = {
+  title: T('건축 (BIM) 2: 기둥·계단·층·철근·물량표·IFC', 'BIM 2: columns, stairs, levels, rebar, schedules, IFC'),
+  steps: [
+    {
+      title: T('기둥 · 계단 · 가구', 'Columns, stairs, furniture'),
+      text: T('기둥 · 계단 · 가구·설비 · 통심선은 바로 넣기 창에서 만듭니다. 기둥 단면은 사각 · 원 · H · ㄷ · ㄱ · T · 각관 · 원형관과 규격 단면(IPE · HEA …), 계단은 일자 · ㄱ자 · ㄷ자 · 나선입니다.', 'Columns, stairs, furniture and grids come from their insert windows. Column sections: rectangle, round, H, C, L, T, box and pipe, plus standard profiles (IPE, HEA…); stairs: straight, L, U and spiral.'),
+      run: async (ctx) => {
+        ctx.view(HOUSE);
+        await ctx.dialog('solid', () => ctx.api.openSolidDialog({ kind: 'column' }), () => ctx.api.insertSolid('column', { width: 300, depth: 300, height: 2700 }, { x: 3000, y: 2000 }));
+        ctx.api.insertSolid('stairs', { length: 3000, width: 1000, height: 2700, steps: 15 }, { x: 500, y: 500 });
+        ctx.api.insertSolid('equipment', { equipment: 0, length: 2000, width: 1500, height: 900 }, { x: 3500, y: 500 });
+        const kinds = ctx.entities('solid').map((e) => e.kind);
+        ctx.expect(['column', 'stairs', 'equipment'].every((k) => kinds.includes(k)), 'column, stairs and furniture expected');
+      },
+      practice: { todo: T('건축 묶음의 "기둥"이나 "계단"을 누르세요.', 'Click "Column" or "Stairs" in the BIM group.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'column' || e.kind === 'stairs'), targets: () => [{ el: '#left-panel [data-command="arch:column"]' }, { el: '#left-panel [data-command="arch:stairs"]' }] },
+    },
+    {
+      title: T('통심선', 'Grids'),
+      text: T('통심선은 격자(가로 · 세로 개수와 간격) 또는 방사형으로 놓입니다. 3 × 2 통심선을 3 m · 4 m 간격으로 넣습니다.', 'Grids are rectangular (counts and spacings) or radial. Insert a 3 × 2 grid at 3 m and 4 m.'),
+      run: async (ctx) => {
+        ctx.api.insertSolid('axis', { countX: 3, spacingX: 3000, countY: 2, spacingY: 4000 }, {});
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'axis'), 'grid expected');
+        await ctx.wait(1000);
+      },
+      practice: { todo: T('건축 묶음의 "통심선"을 누르세요.', 'Click "Grid" in the BIM group.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'axis'), targets: () => [{ el: '#left-panel [data-command="arch:axis"]' }] },
+    },
+    {
+      title: T('층과 건물 창', 'Levels and the building window'),
+      text: T('왼쪽 "건물 (BIM)" 묶음에서 층을 추가하고, 새 객체를 놓을 층(✓) · 평면도에 보일 층 · 층 보이기를 정합니다. "건물·층·재료…" 창에서 층 이름 · 표고 · 층고와 재료(색 · 해칭)를 바꿉니다.', 'In the "Building (BIM)" group add levels and choose where new objects go (✓), which level the plan shows and which are visible. The "Building, levels, materials…" window changes names, elevations, heights and materials (colour, hatch).'),
+      run: async (ctx) => {
+        ctx.api.openSection('building');
+        await ctx.click('#left-panel [data-level-add]');
+        ctx.expect(ctx.drawing().bim?.levels.length >= 2, 'a second level expected');
+        await ctx.dialog('bim', () => ctx.api.run('bimManager'), null, 2600);
+        await ctx.click('#left-panel [data-level-active="L1"]').catch(() => {});
+      },
+      practice: { todo: T('건물 묶음의 층 추가 버튼을 누르세요.', 'Click the add-level button in the building group.'), check: (ctx) => (ctx.drawing().bim?.levels.length ?? 0) >= 2, targets: () => [{ el: '#left-panel [data-level-add]' }] },
+    },
+    {
+      title: T('철근', 'Rebar'),
+      text: T('기둥 · 보 · 슬래브를 고르고 "철근"을 누르면 주근 · 띠철근 · 2방향 배근이 들어가고 무게가 물량표에 잡힙니다. 선을 고르면 그 모양대로 굽힌 철근이 됩니다.', 'Select columns, beams or slabs and click "Rebar": main bars, ties or two-way mats, with their weight in the schedule. Selected lines give bars bent to their shape.'),
+      run: async (ctx) => {
+        ctx.select([ctx.entities('solid').find((e) => e.kind === 'column').id]);
+        await ctx.dialog('solid', () => ctx.api.run('arch:rebar'), () => ctx.api.actions().addRebar({}));
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'rebar'), 'rebar expected');
+      },
+      practice: { todo: T('기둥을 고르고 "철근"을 누르세요.', 'Select the column and click "Rebar".'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'rebar'), targets: () => [{ el: '#left-panel [data-command="arch:rebar"]' }] },
+    },
+    {
+      title: T('물량표', 'Schedules'),
+      text: T('"물량표"는 벽 길이 · 면적 · 체적, 창 · 문 개수, 슬래브 · 지붕 면적, 실별 면적을 도면 오른쪽에 표로 넣습니다. "물량표를 CSV 로"는 객체마다 한 줄씩 Excel 용 파일로, "패널 재단"은 패널을 판에 배치합니다.', '"Schedule" puts wall lengths, areas and volumes, window and door counts, slab and roof areas and room areas in a table right of the drawing. "Schedule as CSV" writes one row per object for Excel; "Panel nesting" lays panels out on sheets.'),
+      run: async (ctx) => {
+        await ctx.command('archSchedule');
+        ctx.api.zoomFit();
+        await ctx.wait(1500);
+        ctx.expect(ctx.last('text')?.text.includes('BIM'), 'schedule expected');
+      },
+      practice: { todo: T('건축 묶음의 "물량표"를 누르세요.', 'Click "Schedule" in the BIM group.'), check: (ctx, mem) => has(ctx, mem, 'text'), targets: () => [{ el: '#left-panel [data-command="archSchedule"]' }] },
+    },
+    {
+      title: T('IFC 와 3D 내보내기', 'IFC and 3D export'),
+      text: T('3D 내보내기 › IFC 4 로 IfcWall · IfcWindow · IfcDoor · IfcSlab · IfcSpace … 를 개구부 · 물량과 함께 씁니다. MyCAD 가 만든 IFC 는 다시 열면 매개변수 객체 그대로입니다. FCStd · STEP · STL · 3MF 등도 같은 메뉴에 있습니다.', '3D export › IFC 4 writes IfcWall, IfcWindow, IfcDoor, IfcSlab, IfcSpace… with openings and quantities. IFC written by MyCAD opens again as parametric objects. FCStd, STEP, STL, 3MF and more are in the same menu.'),
+      run: async (ctx) => { await ctx.command('export3dMenu'); await ctx.wait(2400); ctx.api.closeMenu(); },
+      practice: { todo: T('파일 › 내보내기 › 3D 내보내기를 열어 보세요.', 'Open File › Export › 3D export.'), targets: () => [{ el: '[data-menu="file"]' }] },
+    },
+    {
+      title: T('샘플: 2층 주택', 'Sample: a two-storey house'),
+      text: T('샘플 "2층 주택"은 층별 평면도, 다층 벽(벽돌 · 단열 · 콘크리트 · 석고), 변별 경사 L자 지붕, 슬래브 철근, 트러스 · 골판 카포트, 가스관, 스케치로 만든 아치 창을 모두 보여 줍니다.', 'The sample "Two-storey house" shows plans per level, layered walls (brick, insulation, concrete, plaster), an L-shaped roof with per-edge slopes, slab rebar, a truss and corrugated carport, a gas pipe and an arched window from a sketch.'),
+      run: async (ctx) => {
+        await ctx.api.openSample('24-two-storey-house.mcad');
+        await ctx.api.waitIdle();
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'wall'), 'house sample not open');
+        await ctx.command('view3d'); await ctx.api.waitIdle(800); await ctx.wait(3000); await ctx.command('view3d');
+      },
+      practice: { todo: T('시작 페이지에서 "2층 주택" 샘플을 여세요.', 'Open the "Two-storey house" sample from the start page.'), targets: () => [{ el: '.sample-card[data-sample="24-two-storey-house.mcad"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 30. CAM in 2D (G-code)
+const cam2d = {
+  title: T('CAM 2D: 윤곽·포켓·드릴 G 코드', 'CAM in 2D: profile, pocket, drilling G-code'),
+  fresh: true,
+  steps: [
+    {
+      title: T('CAM 창', 'The CAM window'),
+      text: T('2D 윤곽을 고르고(없으면 보이는 것 전부) 파일 › CAM — G 코드 만들기를 엽니다. 가공: 윤곽(바깥/안쪽) · 포켓(지그재그 + 마무리, 섬은 남김) · 드릴(G83 펙 / G81) · 각인. 오른쪽에 경로(파랑)와 빠른 이동(점선), 아래에 절삭 길이와 예상 시간이 나옵니다.', 'Select 2D outlines (or none for everything visible) and open File › CAM — make G-code. Operations: profile (outside or inside), pocket (zigzag plus a finishing pass, islands kept), drilling (G83 peck or G81) and engraving. The path (blue) and rapids (dashed) show on the right, cut length and time below.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.tool('rect'); await ctx.clicks([[0, 0], [100, 50]]);
+        await ctx.tool('circle'); await ctx.clicks([[30, 25], [38, 25]]); await ctx.key('Escape'); selectTool(ctx);
+        ctx.select([]);
+        await ctx.dialog('cam', () => ctx.api.run('cam'), null, 3000);
+      },
+      practice: { todo: T('윤곽을 그리고 CAM 을 여세요.', 'Draw an outline and open CAM.'), targets: () => [cmd('cam'), { el: '[data-menu="file"]' }] },
+    },
+    {
+      title: T('G 코드 저장', 'Saving G-code'),
+      text: T('공구 지름 · 깊이 · 한 번 깊이 · 겹침 · 이송 · 주축 회전 · 안전 높이를 정하고 "G 코드 저장"을 누르면 .nc (mm, G21 G90; LinuxCNC · GRBL) 파일이 됩니다. 구멍은 G98 G81 X30 Y25 Z-4 처럼 나옵니다.', 'Set the tool diameter, depth, step-down, overlap, feeds, spindle speed and safe height, then "Save G-code" writes a .nc file (mm, G21 G90; LinuxCNC, GRBL). The hole comes out as G98 G81 X30 Y25 Z-4.'),
+      run: async (ctx) => {
+        const gcode = await ctx.api.openCam({ operation: 'drill', depth: 4, peck: 0 });
+        ctx.expect(/G81/.test(gcode ?? ''), 'drilling G-code expected');
+        await ctx.wait(1200);
+      },
+      practice: { todo: T('CAM 창에서 드릴을 고르고 G 코드를 저장해 보세요.', 'Pick drilling in the CAM window and save the G-code.'), targets: () => [cmd('cam')] },
+    },
+    {
+      title: T('CAM 잡 메뉴', 'The CAM job menu'),
+      text: T('파일 › CAM 에는 FreeCAD CAM 처럼 잡 · 적응형 · 면 가공 · 나사 · V 조각 같은 작업, 홀딩 탭 · 도그본 같은 드레스업, 공구 · 시뮬레이션 · 점검 명령이 있습니다.', 'File › CAM has FreeCAD CAM\'s job and operations (adaptive, face, thread, V-carve…), dress-ups (holding tags, dogbones…), tools, simulation and the sanity check.'),
+      run: async (ctx) => { await ctx.menu('file', ['cam']); await ctx.menu('file', ['cam', 'camOps']); await ctx.menu('file', ['cam', 'camDressups']); },
+      practice: { todo: T('파일 메뉴에서 CAM 을 펼쳐 보세요.', 'Open CAM in the File menu.'), targets: () => [{ el: '[data-menu="file"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 31. FEM frame analysis
+const femFrame = {
+  title: T('FEM 골조 해석', 'FEM frame analysis'),
+  fresh: true,
+  steps: [
+    {
+      title: T('골조 그리기', 'Drawing the frame'),
+      text: T('골조를 선으로 입면에 그립니다. 끝이 만나는 곳이 절점입니다. 높이 3 m, 폭 5 m 문형 골조: (0,0) → (0,3000) → (5000,3000) → (5000,0).', 'Draw the frame in elevation with lines; where ends meet are the nodes. A portal frame 3 m high and 5 m wide: (0,0) → (0,3000) → (5000,3000) → (5000,0).'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.view({ minX: -800, minY: -800, maxX: 5800, maxY: 3800 });
+        await ctx.tool('line'); await ctx.clicks([[0, 0], [0, 3000], [5000, 3000], [5000, 0]]); await ctx.key('Escape'); await ctx.key('Escape'); selectTool(ctx);
+        ctx.expect(ctx.entities('line').length === 3, 'three members expected');
+      },
+      practice: { todo: T('선 도구로 네 점을 차례로 누르세요.', 'Click the four points with the line tool.'), check: (ctx, mem) => has(ctx, mem, 'line', 3), targets: () => [tile('line')] },
+    },
+    {
+      title: T('골조 해석 창', 'The frame analysis window'),
+      text: T('3D 솔리드 › FEM — 골조 해석: 재료 · 단면, 보의 등분포 하중(N/mm) · 자중, 절점마다 지지(자유 · 핀 · 고정 · 롤러)와 하중을 정하면 변형(빨간 점선) · 휨 모멘트도(파랑) · 최대 변위 · 응력이 바로 나옵니다. 두 기둥 발을 고정하고 3 N/mm 를 겁니다.', '3D solid › FEM — frame analysis: material, section, a uniform load (N/mm) and self-weight, and for every node a support (free, pinned, fixed, roller) and loads give the deformed shape (red dashes), the bending moments (blue), the largest displacement and stress at once. Fix both column feet and load 3 N/mm.'),
+      run: async (ctx) => {
+        await ctx.dialog('fem', () => ctx.api.run('fem'), () => ctx.api.actions().openFem({ action: 'draw', fem: { supports: { '0,0': 'fixed', '5000,0': 'fixed' }, q: 3 } }), 2800);
+        ctx.expect(ctx.entities().some((e) => e.layer === 'fem'), 'results on the FEM layer expected');
+        ctx.api.zoomFit();
+        await ctx.wait(1500);
+      },
+      practice: { todo: T('골조를 그리고 "FEM — 골조 해석"을 여세요.', 'Draw a frame and open "FEM — frame analysis".'), targets: () => [{ el: '#left-panel [data-command="fem"]' }] },
+    },
+    {
+      title: T('FEM 해석 도구 메뉴', 'The FEM tools menu'),
+      text: T('3D 솔리드 › 검사 · FEM 해석 › FEM 해석 도구에는 FreeCAD FEM 의 구속 · 하중, 열 · 전기 · 자기 · 유동 조건, 방정식, 재료, 메시, 풀이, 결과(색 · 필터 · 그래프) 명령이 있습니다.', '3D solid › Check and FEM › FEM tools holds FreeCAD FEM\'s constraints and loads, thermal, electric, magnetic and flow conditions, equations, materials, meshing, solving and results (colours, filters, charts).'),
+      run: async (ctx) => { await ctx.menu('solid', ['analysis', 'femTools']); await ctx.menu('solid', ['analysis', 'femTools', 'femConstraints']); },
+      practice: { todo: T('3D 솔리드 메뉴에서 FEM 해석 도구를 펼쳐 보세요.', 'Open FEM tools in the 3D solid menu.'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 32. spreadsheet, JavaScript console, macros
+const scripting = {
+  title: T('스프레드시트·스크립트 콘솔·매크로 기록', 'Spreadsheet, script console, macro recording'),
+  fresh: true,
+  steps: [
+    {
+      title: T('스프레드시트', 'The spreadsheet'),
+      text: T('편집 › 스프레드시트 창에서 셀에 값 · 계산식(=width*3)을 쓰고 셀에 별칭(width)을 붙입니다. A1 에 40, 별칭 width.', 'In Edit › Spreadsheet write values and formulas (=width*3) into cells and give cells aliases (width). Put 40 in A1 and call it width.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        await ctx.dialog('spreadsheet', () => ctx.api.run('spreadsheet'), () => ctx.api.actions().openSpreadsheet({ action: 'apply', sheet: { cells: { A1: '40', B1: '=width*3' }, aliases: { width: 'A1' } } }), 2600);
+        ctx.expect(ctx.drawing().spreadsheet?.aliases?.width === 'A1', 'alias width expected');
+      },
+      practice: { todo: T('편집 메뉴에서 스프레드시트를 여세요.', 'Open the spreadsheet from the Edit menu.'), check: (ctx) => Boolean(ctx.drawing().spreadsheet), targets: () => [{ el: '[data-menu="edit"]' }] },
+    },
+    {
+      title: T('치수를 시트에 묶기', 'Binding sizes to the sheet'),
+      text: T('속성 패널의 숫자 칸에 =width*2 처럼 쓰면 그 치수가 시트를 따릅니다. 상자의 길이를 =width*2 로 하면 80, 시트에서 width 를 25 로 바꾸면 50 이 됩니다.', 'Write =width*2 into a number field of the properties and that size follows the sheet. A box length of =width*2 is 80; change width to 25 in the sheet and it becomes 50.'),
+      run: async (ctx) => {
+        const box = ctx.api.insertSolid('box', { length: 10, width: 10, height: 10 }, { x: 0, y: 0, z: 0 });
+        ctx.select([box.id]);
+        await ctx.field('#right-panel [data-solid-param="length"]', '=width*2');
+        ctx.expect(near(ctx.last('solid').params.length, 80), 'length 80 expected');
+        await ctx.api.actions().openSpreadsheet({ action: 'apply', sheet: { cells: { A1: '25', B1: '=width*3' }, aliases: { width: 'A1' } } });
+        await ctx.wait(900);
+        ctx.expect(near(ctx.last('solid').params.length, 50), 'length 50 expected');
+      },
+      practice: { todo: T('솔리드를 고르고 길이 칸에 =width*2 를 쓰세요.', 'Select a solid and type =width*2 into its length.'), check: (ctx) => ctx.entities('solid').some((e) => near(e.params?.length ?? 0, 80) || near(e.params?.length ?? 0, 50)), targets: () => [{ el: '#right-panel [data-solid-param="length"]' }] },
+    },
+    {
+      title: T('스크립트 콘솔 (JavaScript)', 'The script console (JavaScript)'),
+      text: T('보기 › 스크립트 콘솔(Ctrl+Shift+J)에서 cad 객체로 그립니다: cad.rect · cad.circle · cad.line · cad.solid · cad.move … 실행은 Ctrl+Enter, 고친 것마다 실행 취소 한 단계입니다.', 'View › Script console (Ctrl+Shift+J) draws with the cad object: cad.rect, cad.circle, cad.line, cad.solid, cad.move… Run with Ctrl+Enter; every change is one undo step.'),
+      run: async (ctx) => {
+        ctx.api.updateSettings({ showConsole: true, consoleLanguage: 'js' });
+        await ctx.wait(600);
+        await ctx.api.runScript('cad.rect(40, 0, 60, 40);\nfor (let i = 0; i < 3; i++) cad.circle(55 + i * 15, 20, 5);\nprint(cad.entities().length)', { language: 'js' });
+        ctx.expect(ctx.entities('circle').length >= 3, 'circles from the script expected');
+        await ctx.wait(1500);
+      },
+      practice: { todo: T('콘솔에서 cad.circle(0, 0, 10) 을 실행하세요.', 'Run cad.circle(0, 0, 10) in the console.'), check: (ctx, mem) => has(ctx, mem, 'circle'), targets: () => [{ el: '[data-console="run"]' }] },
+    },
+    {
+      title: T('매크로 기록', 'Recording a macro'),
+      text: T('"매크로 기록"을 누르고 그리거나 명령을 실행한 뒤 다시 누르면 cad.* 줄이 편집기에 들어옵니다. 이름을 붙여 "매크로로 저장"하면 목록에서 실행 · 불러오기 · 지우기를 합니다.', 'Click "Record macro", draw or run commands, and click it again: cad.* lines appear in the editor. Name it and "Save as macro" to run, load or delete it from the list.'),
+      run: async (ctx) => {
+        await ctx.click('[data-console="record"]');
+        await ctx.tool('line'); await ctx.clicks([[0, 60], [100, 60]]); await ctx.key('Escape'); await ctx.key('Escape'); selectTool(ctx);
+        await ctx.command('zoomFit');
+        await ctx.click('[data-console="record"]');
+        await ctx.wait(1500);
+        ctx.expect(/cad\./.test(ctx.api.actions().consoleState.code ?? ''), 'recorded lines expected');
+        ctx.api.updateSettings({ showConsole: false });
+      },
+      practice: { todo: T('콘솔의 "매크로 기록"을 누르고 무언가 그린 뒤 다시 누르세요.', 'Click "Record macro" in the console, draw something and click it again.'), targets: () => [{ el: '[data-console="record"]' }] },
+    },
+  ],
+};
+
+// ───────────────────────── 33. robot, views, tools
+const robotTools = {
+  title: T('로봇·보기·도구 메뉴', 'Robots, views and the tools menu'),
+  fresh: true,
+  steps: [
+    {
+      title: T('로봇 팔', 'A robot arm'),
+      text: T('3D 솔리드 › 로봇 › 로봇 추가로 6축 로봇 팔을 놓습니다. 속성 패널에서 관절 A1–A6 각도를 바꿉니다.', '3D solid › Robot › Add robot places a six-axis arm. Change the joint angles A1–A6 in the properties.'),
+      run: async (ctx) => {
+        await ctx.fresh();
+        ctx.view({ minX: -400, minY: -500, maxX: 900, maxY: 500 });
+        await ctx.command('robot:add');
+        ctx.expect(ctx.entities('solid').some((e) => e.kind === 'robot'), 'robot expected');
+      },
+      practice: { todo: T('3D 솔리드 메뉴에서 로봇을 추가하세요.', 'Add a robot from the 3D solid menu.'), check: (ctx) => ctx.entities('solid').some((e) => e.kind === 'robot'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+    {
+      title: T('점으로 움직이기', 'Moving to a point'),
+      text: T('로봇과 점을 함께 고르고 "점으로 이동"을 누르면 역기구학으로 공구 끝이 그 점에 아래를 향해 닿습니다.', 'Select the robot and a point and click "Move to point": inverse kinematics brings the tool tip there, pointing down.'),
+      run: async (ctx) => {
+        ctx.api.addEntity('point', { x: 600, y: 200 });
+        const robot = ctx.entities('solid').find((e) => e.kind === 'robot');
+        ctx.select([robot.id, ctx.last('point').id]);
+        await ctx.command('robot:moveTo');
+        ctx.expect(ctx.entities('solid').find((e) => e.kind === 'robot').params.a1 !== 0, 'joint 1 should turn');
+      },
+      practice: { todo: T('로봇과 점을 고르고 "점으로 이동"을 누르세요.', 'Select the robot and a point and click "Move to point".'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+    {
+      title: T('경로 따라가기', 'Following a path'),
+      text: T('로봇과 폴리선을 고르고 "경로"를 누르면 20 mm 마다 자세를 구해 3D 에서 재생하고 KRL 프로그램을 만듭니다.', 'Select the robot and a polyline and click "Trajectory": poses every 20 mm, played back in 3D, and a KRL program.'),
+      run: async (ctx) => {
+        ctx.api.addEntity('polyline', { points: [{ x: 450, y: -150 }, { x: 650, y: -150 }, { x: 650, y: 150 }, { x: 450, y: 150 }], closed: true });
+        const robot = ctx.entities('solid').find((e) => e.kind === 'robot');
+        ctx.select([robot.id, ctx.last('polyline').id]);
+        await ctx.api.toggle3d(true);
+        await ctx.api.waitIdle(600);
+        const run = await ctx.api.actions().robotTrajectory({ save: false, animate: !ctx.api.state().tutorial?.instant });
+        ctx.expect(run?.reached, 'every point within reach expected');
+        await ctx.wait(4000);
+        await ctx.api.toggle3d(false);
+      },
+      practice: { todo: T('로봇과 폴리선을 고르고 "경로"를 누르세요.', 'Select the robot and a polyline and click "Trajectory".'), targets: () => [{ el: '[data-menu="solid"]' }] },
+    },
+    {
+      title: T('보기 메뉴: 시점 · 카메라', 'The View menu: views and cameras'),
+      text: T('보기 메뉴에는 표준 시점(정면 · 평면 · 우측 · 배면 · 저면 · 좌측 · 등각 · 이등각 · 삼등각), 정사영 · 원근 카메라, 저장한 시점, 축 · 절단면 · 회전대 · 입체 보기, 창 나란히 보기가 있습니다.', 'The View menu has the standard views (front, top, right, rear, bottom, left, isometric, dimetric, trimetric), orthographic and perspective cameras, saved views, axes, clipping, turntable and stereo, and tiled windows.'),
+      run: async (ctx) => { await ctx.menu('view', ['standardViews']); await ctx.menu('view', ['camera']); await ctx.menu('view', ['viewTools']); },
+      practice: { todo: T('보기 메뉴의 표준 시점을 펼쳐 보세요.', 'Open Standard views in the View menu.'), targets: () => [{ el: '[data-menu="view"]' }] },
+    },
+    {
+      title: T('편집 메뉴: 보이기 · 링크 · 배치', 'The Edit menu: visibility, links, placement'),
+      text: T('편집 메뉴에는 선택 기록, 보이기 · 숨기기, 색 · 투명도 · 재료, 그룹 · 다시 계산, 링크(다른 도면에서도), 변환 · 점 맞춤 정렬이 있습니다.', 'The Edit menu has selection history, show and hide, colour, transparency and materials, groups and recompute, links (from other drawings too), and transform and point-pair alignment.'),
+      run: async (ctx) => { await ctx.menu('edit', ['visibility']); await ctx.menu('edit', ['links']); await ctx.menu('edit', ['placement']); },
+      practice: { todo: T('편집 메뉴를 펼쳐 보세요.', 'Open the Edit menu.'), targets: () => [{ el: '[data-menu="edit"]' }] },
+    },
+    {
+      title: T('도구 메뉴', 'The Tools menu'),
+      text: T('도구 메뉴: 단위 계산기, 의존성 그래프, 문서 정리, 스크립트 콘솔과 매크로 폴더 · 최근 매크로, 애드온 관리자, 매크로 디버거(중단점 · 한 줄씩), 매개변수 편집기, 사용자 정의(툴바 · 단축키), 설정.', 'The Tools menu: units calculator, dependency graph, document utility, the script console, macro folder and recent macros, the addon manager, the macro debugger (breakpoints, stepping), the parameter editor, customise (toolbars, shortcuts) and settings.'),
+      run: async (ctx) => { await ctx.menu('tools', [], 3200); },
+      practice: { todo: T('도구 메뉴를 펼쳐 보세요.', 'Open the Tools menu.'), targets: () => [{ el: '[data-menu="tools"]' }] },
+    },
+    {
+      title: T('모델 트리', 'The model tree'),
+      text: T('왼쪽 패널 맨 위의 모델 트리는 솔리드와 2D 폴더, 그룹을 보여 줍니다. 눈 아이콘으로 숨기고, 누르면 선택되며, 접고 펼 수 있습니다.', 'The model tree at the top of the left panel lists the solids, the 2D folder and groups. The eye hides an item, a click selects it, and branches fold and unfold.'),
+      run: async (ctx) => { ctx.api.insertSolid('box', { length: 200, width: 100, height: 50 }, { x: -300, y: -300, z: 0 }); ctx.api.openSection('model'); await ctx.wait(2000); },
+      practice: { todo: T('왼쪽 패널의 모델 트리를 살펴보세요.', 'Look at the model tree in the left panel.'), targets: () => [{ el: '#left-panel [data-section="model"]' }] },
+    },
+  ],
+};
+
+export const LESSONS = [tour, drawing, precise, modify, annotate, props, parts, solids, features, booleans, views, view3d, files, printing, settings, help, assembly, exact, cam3d, femLesson, python, edit2d, sketch, helpers, techdraw, partDesign, meshLesson, bimWalls, bimMore, cam2d, femFrame, scripting, robotTools];
 
 /**
  * Pictures of dialog windows for the documentation (scripts/docs-shots.mjs):
