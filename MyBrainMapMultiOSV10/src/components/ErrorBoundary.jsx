@@ -12,7 +12,7 @@ export class ErrorBoundary extends React.Component {
     if (!error) return this.props.children;
     return (
       <div className="crash">
-        <h2>My BrainMap — 오류가 발생했습니다 / Something went wrong</h2>
+        <h2>MyBrainMap — 오류가 발생했습니다 / Something went wrong</h2>
         <p>화면을 그리는 중 오류가 나서 다시 열어야 합니다. 열려 있던 맵은 세션에서 복원됩니다.<br />A rendering error occurred; reload — the open maps come back from the session.</p>
         <pre className="selectable">{String(error && (error.stack || error.message || error))}</pre>
         <button className="btn primary" onClick={() => window.location.reload()}>다시 열기 / Reload</button>

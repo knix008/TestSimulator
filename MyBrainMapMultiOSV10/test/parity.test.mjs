@@ -3,7 +3,7 @@
 // apply to a mind map. Every row of FEATURES names the tools that have the
 // feature and checks it against the real code (model, commands, layout,
 // renderer, import / export, undo history). doc/feature-parity.md lists the
-// same rows, and the features of those tools that My BrainMap does not have.
+// same rows, and the features of those tools that MyBrainMap does not have.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -15,7 +15,7 @@ import {
 } from '../src/lib/model.js';
 import { cmdMove, cmdFloat, cmdNudge, cmdDelete, cmdAddSibling, cmdToggleFold, navigate } from '../src/lib/commands.js';
 import { createDoc, commit, undo, redo, isDirty } from '../src/lib/docs.js';
-import { layoutMap } from '../src/lib/layout.js';
+import { layoutMap, relationshipGeometry } from '../src/lib/layout.js';
 import { resolveMapStyle, MAP_STYLES, SHAPES, LINE_STYLES } from '../src/lib/mapstyles.js';
 import { renderMapSvg } from '../src/lib/render.js';
 import { MARKERS, toggleIcon, topicMarkers } from '../src/lib/markers.js';
@@ -27,7 +27,8 @@ import { importFreeMind, exportFreeMind } from '../src/lib/formats/freemind.js';
 import { importXmind, exportXmind } from '../src/lib/formats/xmind.js';
 import { exportDocx } from '../src/lib/formats/docx.js';
 import { buildPdf } from '../src/lib/formats/pdf.js';
-import { gridCell, rulerStep } from '../src/lib/canvasgrid.js';
+import { gridBlock, gridLines, GRID_DIV, BLOCK_MIN, BLOCK_MAX } from '../src/lib/canvasgrid.js';
+import { pathPoints } from '../src/lib/pathpoints.js';
 
 const require = createRequire(import.meta.url);
 const { readZip, writeZip } = require('../core/zip.js');
@@ -177,11 +178,100 @@ const FEATURES = [
   { tools: [MM, ED, SD, LC], name: 'map styles / themes, shapes and line styles', check() {
     assert.ok(MAP_STYLES.length >= 8);
     assert.ok(SHAPES.includes('ellipse') && SHAPES.includes('diamond') && SHAPES.includes('hexagon'));
+    assert.ok(SHAPES.length >= 28, `shapes: ${SHAPES.length}`);
+    for (const extra of ['parallelogram', 'trapezoid', 'triangle', 'octagon', 'star', 'cloud', 'cube', 'document', 'cylinder', 'predefined', 'delay', 'manualInput', 'arrow', 'chevron', 'speech', 'note', 'snip', 'tag']) assert.ok(SHAPES.includes(extra), extra);
     assert.ok(LINE_STYLES.includes('elbow') && LINE_STYLES.includes('straight'));
     const { map, ids } = project();
     for (const st of MAP_STYLES) assert.ok(svgOf({ ...map, style: st.id }).length > 100, st.id);
     const styled = setStyle(map, [ids.A], { shape: 'diamond', fill: '#ff0000', bold: true });
     assert.ok(svgOf(styled).includes('#ff0000'));
+  } },
+  { tools: [SD, LC, ED, MM], name: 'basic, flowchart and symbol shapes (28) drawn around their text', check() {
+    const { map, ids } = project();
+    for (const shape of SHAPES) {
+      const m = setStyle(map, [ids.A], { shape });
+      const L = lay(m);
+      const n = L.nodes.get(ids.A);
+      assert.ok(Number.isFinite(n.w) && Number.isFinite(n.h) && n.w >= n.m.textW && n.h > 0, `${shape}: ${n.w} × ${n.h}`);
+      const svg = svgOf(m);
+      assert.ok(!/NaN|undefined/.test(svg), `${shape}: a bad number in the outline`);
+      if (shape !== 'underline' && shape !== 'none') assert.ok(svg.includes('tm-shape'), `${shape}: no outline`);
+    }
+  } },
+  { tools: [MM, ED], name: 'a cause moved in a fishbone, or a topic moved off a timeline, stays connected', check() {
+    const { map, ids } = project('fishbone');
+    let m = cmdNudge(map, [ids.A], -60, -40).map;
+    m = cmdNudge(m, [ids.B1], -30, 200).map;
+    const L = lay(m);
+    const a = L.nodes.get(ids.A), b1 = L.nodes.get(ids.B1), b = L.nodes.get(ids.B);
+    const lineA = L.lines.find((l) => l.id === ids.A).d;
+    const pts = [...lineA.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((x) => [+x[1], +x[2]]);
+    const end = pts[pts.length - 1];
+    const spineY = L.nodes.get(map.root.id).y + L.nodes.get(map.root.id).h / 2;
+    assert.ok(Math.abs(end[1] - spineY) < 1, `the moved cause's line ends on the spine (${end[1]} vs ${spineY})`);
+    assert.ok(Math.abs(end[0] - (a.x - a.offX + a.boneEnd.x)) < 1, 'at its own place on the spine');
+    const lineB1 = L.lines.find((l) => l.id === ids.B1).d;
+    const q = [...lineB1.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((x) => [+x[1], +x[2]]);
+    const y0 = b.dir === 'fishTop' ? b.y + b.h : b.y, y1 = b.y + b.boneEnd.y;
+    const last = q[q.length - 1];
+    assert.ok(last[1] >= Math.min(y0, y1) - 0.5 && last[1] <= Math.max(y0, y1) + 0.5, 'a sub-cause moved past the bone still meets the bone');
+    const tp = project('timeline');
+    const t = cmdNudge(tp.map, [tp.ids.A], 0, -120).map;
+    const tl = lay(t);
+    const id = t.root.children[0].id;
+    assert.ok(tl.lines.some((l) => l.id === id), 'a timeline topic moved off the axis gets a line back to it');
+    assert.ok(!lay(tp.map).lines.some((l) => l.id === id), 'one on the axis needs none');
+  } },
+  { tools: [MM, ED, SD, LC], name: 'in every layout and line style a topic moved anywhere stays joined to its parent', check() {
+    const near = (q, n, pad) => q[0] >= n.x - pad && q[0] <= n.x + n.w + pad && q[1] >= n.y - pad && q[1] <= n.y + n.h + pad;
+    const problems = [];
+    for (const layout of LAYOUTS) {
+      for (const lineStyle of LINE_STYLES) {
+        let map = newMap({ title: 'Root', layout });
+        map = { ...map, lineStyle };
+        for (let i = 0; i < 3; i++) {
+          const a = addChild(map, map.root.id, makeTopic(`Main ${i}`)); map = a.map;
+          const b = addChild(map, a.id, makeTopic(`Sub ${i}`)); map = b.map;
+          map = addChild(map, b.id, makeTopic('leaf')).map;
+        }
+        const ids = [];
+        const walk = (t) => { for (const c of t.children) { ids.push(c.id); walk(c); } };
+        walk(map.root);
+        for (const id of ids) {
+          for (const [dx, dy] of [[90, 70], [-110, -80], [0, 160], [180, 0], [-200, 40]]) {
+            const L = lay(cmdNudge(map, [id], dx, dy).map);
+            const n = L.nodes.get(id), p = n.parent;
+            const line = L.lines.find((l) => l.id === id);
+            if (!line) { problems.push(`${layout}/${lineStyle} ${n.topic.text} ${dx},${dy}: no line`); continue; }
+            const ps = pathPoints(line.d);
+            const child = ps.some((q) => near(q, n, 4));
+            let parent = ps.some((q) => near(q, p, 6));
+            if (!parent && (p.dir === 'fishbone' || p.dir === 'timeline')) parent = ps.some((q) => Math.abs(q[1] - (p.y + p.h / 2)) < 2);
+            if (!parent && (p.dir === 'fishTop' || p.dir === 'fishBottom')) parent = true;   // the bone: checked by the fishbone test
+            if (!parent && (p.dir === 'treeRight' || p.dir === 'treeLeft')) parent = ps.some((q) => Math.abs(q[1] - (p.y + p.h)) < 2);
+            if (!child || !parent) problems.push(`${layout}/${lineStyle} ${n.topic.text} ${dx},${dy}: ${child ? '' : 'off the topic '}${parent ? '' : 'off the parent'}`);
+          }
+        }
+      }
+    }
+    assert.deepEqual(problems.slice(0, 10), []);
+  } },
+  { tools: [MM, ED, SD, LC], name: 'relationships, boundaries and summaries follow a topic moved by hand', check() {
+    const { map, ids } = project('right');
+    let m = addRelationship(map, ids.A1, ids.B1, { label: 'r' }).map;
+    m = setField(m, [ids.A], 'boundary', { shape: 'rounded' });
+    m = setField(m, [ids.A], 'summary', { text: 'S' });
+    const before = lay(m);
+    const moved = cmdNudge(m, [ids.A], 120, -90).map;
+    const L = lay(moved);
+    const a1 = L.nodes.get(ids.A1), b1 = L.nodes.get(ids.B1);
+    const rel = moved.relationships[0];
+    const g = relationshipGeometry(rel, a1, b1);
+    const touches = (pt, n) => pt.x >= n.x - 3 && pt.x <= n.x + n.w + 3 && pt.y >= n.y - 3 && pt.y <= n.y + n.h + 3;
+    assert.ok(touches(g.p0, a1) && touches(g.p3, b1), 'the relationship still runs from A1 to B1');
+    const bb = L.boundaries[0].rect, was = before.boundaries[0].rect;
+    assert.deepEqual([Math.round(bb.x0 - was.x0), Math.round(bb.y0 - was.y0)], [120, -90], 'the boundary moved with the branch');
+    assert.deepEqual([Math.round(L.summaries[0].x - before.summaries[0].x), Math.round(L.summaries[0].y0 - before.summaries[0].y0)], [120, -90], 'the summary moved with the branch');
   } },
   { tools: [ED], name: 'rainbow branch colours and numbering', check() {
     const { map, ids } = project();
@@ -284,11 +374,29 @@ const FEATURES = [
     assert.ok(exportCsv(m, { lang: 'en' }).split('\n').some((row) => row.includes('A1') && row.includes('2026-02-03')));
   } },
   { tools: [MM, ED, SD, LC], name: 'grid and rulers on the canvas', check() {
-    assert.equal(gridCell(1), 24);
-    assert.equal(gridCell(0.2), 120, 'cells grow when zoomed out');
-    assert.equal(rulerStep(1), 100);
-    assert.equal(rulerStep(2), 50);
-    assert.equal(rulerStep(0.25), 500);
+    assert.equal(gridBlock(1), 100, 'a 5 × 5 block is 100 map units at 100%');
+    // at every zoom the block stays BLOCK_MIN … BLOCK_MAX pixels: past the range it comes back to its size
+    for (let k = 0.1; k <= 4.0001; k *= 1.07) {
+      const px = gridBlock(k) * k;
+      assert.ok(px >= BLOCK_MIN && px < BLOCK_MAX, `k ${k.toFixed(2)}: block ${px.toFixed(1)} px`);
+    }
+    // the levels nest 5 × 5: past the range a block becomes the cell (or a cell the block)
+    assert.equal(gridBlock(2), 100);
+    assert.equal(gridBlock(3), 20);
+    assert.equal(gridBlock(0.4), 500);
+    for (let k = 0.1; k <= 4; k *= 1.21) {
+      const ratio = Math.max(gridBlock(k), gridBlock(k * 1.21)) / Math.min(gridBlock(k), gridBlock(k * 1.21));
+      assert.ok(ratio === 1 || ratio === GRID_DIV, `k ${k.toFixed(2)}: step ×${ratio}`);
+    }
+    // the rulers and the grid use the same lines: every 5th is a block line, on map 0 too
+    const lines = gridLines(333.3, 1.37, 1200);
+    const zero = lines.find((l) => l.value === 0);
+    assert.ok(zero && zero.major && zero.axis && zero.px === Math.round(333.3) + 0.5, 'map 0 is the axis, a block line at the origin pixel');
+    assert.equal(lines.filter((l) => l.axis).length, 1, 'one axis line');
+    const block = gridBlock(1.37);
+    for (const l of lines) assert.equal(l.major, Math.abs(l.value / block - Math.round(l.value / block)) < 1e-9, `line ${l.value}`);
+    const cells = lines.filter((l) => !l.major).length, blocks = lines.filter((l) => l.major).length;
+    assert.ok(Math.abs(cells - blocks * (GRID_DIV - 1)) <= GRID_DIV, `${cells} cell lines, ${blocks} block lines`);
   } },
 
   // ── find, filter, templates ──

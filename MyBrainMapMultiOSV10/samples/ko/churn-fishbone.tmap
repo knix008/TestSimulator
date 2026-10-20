@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cpnzrw1o",
+  "id": "tmvg5mfozh00w1o",
   "text": "구독 해지율 증가 (월 8%)",
   "children": [
    {
-    "id": "tmvftn8cpudf31a",
+    "id": "tmvg5mfozn6mq1a",
     "text": "제품",
     "children": [
      {
-      "id": "tmvftn8cpjqt518",
+      "id": "tmvg5mfozg5dc18",
       "text": "느린 앱 속도",
       "children": [],
       "icons": [
@@ -19,18 +19,18 @@
       ]
      },
      {
-      "id": "tmvftn8cpanv919",
+      "id": "tmvg5mfozc27g19",
       "text": "기능이 너무 많음",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cp88mj1d",
+    "id": "tmvg5mfozkhc11d",
     "text": "가격",
     "children": [
      {
-      "id": "tmvftn8cp3gha1b",
+      "id": "tmvg5mfoztr7j1b",
       "text": "가격 인상 공지 부족",
       "children": [],
       "task": {
@@ -38,34 +38,34 @@
       }
      },
      {
-      "id": "tmvftn8cpufyl1c",
+      "id": "tmvg5mfoz41s41c",
       "text": "연간 요금제 없음",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cpoc6b1g",
+    "id": "tmvg5mfoziybq1g",
     "text": "고객 지원",
     "children": [
      {
-      "id": "tmvftn8cpsw2k1e",
+      "id": "tmvg5mfoz9y1x1e",
       "text": "답변 48시간 이상",
       "children": []
      },
      {
-      "id": "tmvftn8cp89pv1f",
+      "id": "tmvg5mfozb60p1f",
       "text": "FAQ 부족",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cpih8j1j",
+    "id": "tmvg5mfozuvq41j",
     "text": "온보딩",
     "children": [
      {
-      "id": "tmvftn8cpz1a71h",
+      "id": "tmvg5mfoz3cye1h",
       "text": "첫 주 사용률 낮음",
       "children": [],
       "icons": [
@@ -73,29 +73,29 @@
       ]
      },
      {
-      "id": "tmvftn8cp196z1i",
+      "id": "tmvg5mfoz7l331i",
       "text": "튜토리얼 건너뜀",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cp8lve1l",
+    "id": "tmvg5mfozd6zl1l",
     "text": "경쟁",
     "children": [
      {
-      "id": "tmvftn8cpm8p01k",
+      "id": "tmvg5mfozbgoa1k",
       "text": "무료 대안 등장",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cpdbaw1n",
+    "id": "tmvg5mfozsxlw1n",
     "text": "결제",
     "children": [
      {
-      "id": "tmvftn8cp15671m",
+      "id": "tmvg5mfozf11b1m",
       "text": "카드 만료 실패",
       "children": []
      }
@@ -124,7 +124,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.945Z",
-  "modified": "2026-10-19T22:24:07.945Z"
+  "created": "2026-10-20T03:59:26.195Z",
+  "modified": "2026-10-20T03:59:26.195Z"
  }
 }

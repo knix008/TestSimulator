@@ -1,7 +1,7 @@
 {
   "name": "mybrainmap",
   "version": "1.0.0",
-  "description": "My BrainMap — mind mapping for Windows, macOS, Linux and the web (Tauri desktop shell): map / org chart / tree / timeline / fishbone layouts, topics with notes, markers, tasks, links and images, relationships, boundaries, callouts, outline and Gantt views, filters, presentation mode, import / export (OPML, Markdown, FreeMind, XMind, MindManager, PNG, SVG, PDF, Word), 40 themes, Korean / English UI.",
+  "description": "MyBrainMap — mind mapping for Windows, macOS, Linux and the web (Tauri desktop shell): map / org chart / tree / timeline / fishbone layouts, topics with notes, markers, tasks, links and images, relationships, boundaries, callouts, outline and Gantt views, filters, presentation mode, import / export (OPML, Markdown, FreeMind, XMind, MindManager, PNG, SVG, PDF, Word), 40 themes, Korean / English UI.",
   "author": {
     "name": "SHKWON",
     "email": "knix008@naver.com"

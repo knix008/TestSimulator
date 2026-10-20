@@ -42,7 +42,7 @@ async function main() {
   if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) { console.error('dist/ is missing — run npm run build first'); process.exit(1); }
   page = await launch({ lang: 'ko' });
   await page.waitFor('!!window.__mtm && !!document.querySelector(".start-page")');
-  report = createReport('My BrainMap — GUI smoke test');
+  report = createReport('MyBrainMap — GUI smoke test');
   report.section('Start page');
 
   await step('start page shows the templates', async () => {
@@ -514,6 +514,103 @@ async function main() {
     await page.waitFor('!!document.querySelector(".kanban-card")');
     eq(await page.eval('document.querySelectorAll(".kanban-col[data-col]").length'), 5, 'columns');
     await page.eval("window.__mtm.run('view:map')");
+  });
+
+  await step('dragging a topic carries its line along in the map, org chart and fishbone layouts', async () => {
+    for (const layout of ['map', 'orgDown', 'fishbone']) {
+      await page.eval(`window.__mtm.run('redraw:${layout}')`);
+      await page.sleep(300);
+      await page.eval("window.__mtm.run('fit')");
+      await page.sleep(350);
+      const t = await page.eval("(() => { const d = window.__mtm.doc(); return d.map.root.children[1].text; })()");
+      const a = await page.eval(centerOf(t));
+      // an empty spot near the topic (dropping on another topic would make it that topic's child)
+      const to = await page.eval(`(() => { const L = window.__mtm.layout(); const v = window.__mtm.canvas().getView(); const r = document.querySelector('.map-canvas').getBoundingClientRect(); const free = (sx, sy) => { const x = (sx - r.left - v.x) / v.k, y = (sy - r.top - v.y) / v.k; for (const n of L.nodes.values()) if (x >= n.x - 30 && x <= n.x + n.w + 30 && y >= n.y - 30 && y <= n.y + n.h + 30) return false; return sx > r.left + 40 && sx < r.right - 240 && sy > r.top + 40 && sy < r.bottom - 160; }; for (let d = 60; d < 400; d += 20) for (const [ux, uy] of [[1, 1], [-1, 1], [1, -1], [-1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]]) { const x = ${a.x} + ux * d, y = ${a.y} + uy * d; if (free(x, y)) return { x, y }; } return null; })()`);
+      assert(to, `${layout}: an empty spot to drop on`);
+      await page.drag(a.x, a.y, to.x, to.y, 16);
+      await page.sleep(250);
+      const r = await page.eval(`(() => { const L = window.__mtm.layout(); const d = window.__mtm.doc(); const id = d.map.root.children[1].id; const n = L.nodes.get(id); const el = document.querySelector('.tm-layer [data-line="' + CSS.escape(id) + '"]'); if (!el) return { line: false }; const len = el.getTotalLength(); const ends = Array.from({ length: 41 }, (_, i) => el.getPointAtLength((len * i) / 40)); const on = ends.some((q) => q.x >= n.x - 4 && q.x <= n.x + n.w + 4 && q.y >= n.y - 4 && q.y <= n.y + n.h + 4); return { line: true, moved: !!d.map.root.children[1].offset, on }; })()`);
+      assert(r.line, `${layout}: the line is drawn`);
+      assert(r.moved, `${layout}: the topic was moved`);
+      assert(r.on, `${layout}: the drawn line reaches the moved topic`);
+      await page.eval("window.__mtm.run('undo')");
+      await page.sleep(150);
+    }
+    await page.eval("window.__mtm.run('redraw:map')");
+  });
+
+  await step('every menu-bar menu and every drop-down list shows an icon on each entry', async () => {
+    const NOICON = "[...document.querySelectorAll('.ctx-menu .ctx-item')].filter((b) => !b.querySelector('.ctx-icon svg, .ctx-icon .ctx-marker, .ctx-icon span, .theme-swatch')).map((b) => b.querySelector('.ctx-label').textContent)";
+    const menus = await page.eval("[...document.querySelectorAll('.menus .menu-btn[data-menu]')].map((b) => b.dataset.menu)");
+    const missing = [];
+    for (const m of menus) {
+      await page.clickSel(`.menu-btn[data-menu="${m}"]`); await page.sleep(200);
+      missing.push(...(await page.eval(NOICON)).map((l) => `${m}: ${l}`));
+      await page.key('Escape'); await page.sleep(120);
+    }
+    eq(missing, [], 'menu items without an icon');
+    eq(await page.eval('document.querySelectorAll("select").length'), 0, 'plain <select> elements (no icons possible)');
+    await page.eval("void window.__mtm.run('pane:format', true)");
+    await page.eval('window.__mtm.select([window.__mtm.doc().map.root.children[0].id])');
+    await page.sleep(250);
+    const names = await page.eval('[...document.querySelectorAll(".icon-select")].filter((b) => b.offsetParent && !b.disabled).map((b) => b.dataset.name)');
+    assert(names.length >= 3, `drop-downs: ${names.join(', ')}`);
+    for (const n of names) {
+      await page.eval(`document.querySelector('.icon-select[data-name="${n}"]').scrollIntoView({ block: 'center' })`);
+      await page.clickSel(`.icon-select[data-name="${n}"]`); await page.sleep(200);
+      const r = await page.eval(`[document.querySelectorAll('.select-menu .ctx-item').length, ${NOICON}]`);
+      assert(r[0] > 1, `${n}: ${r[0]} entries`);
+      eq(r[1], [], `${n}: entries without an icon`);
+      await page.key('Escape'); await page.sleep(120);
+    }
+  });
+
+  await step('Format › Subtopic layout: on the central topic it changes the map layout, on a branch that branch', async () => {
+    const before = await page.eval('window.__mtm.doc().map.layout || "map"');
+    await page.eval("void window.__mtm.run('pane:format', true)");
+    await page.eval('window.__mtm.select([window.__mtm.doc().map.root.id])');
+    await page.sleep(250);
+    await page.eval('document.querySelector(".layout-btn[data-sublayout=\\"down\\"]").scrollIntoView({ block: "center" })');
+    await page.sleep(100);
+    await page.clickSel('.layout-btn[data-sublayout="down"]');
+    await page.sleep(300);
+    eq(await page.eval('[window.__mtm.doc().map.layout, document.querySelector(".layout-btn[data-sublayout=\\"down\\"]").classList.contains("on")]'), ['orgDown', true], 'central topic → org chart');
+    const branch = await page.eval('window.__mtm.doc().map.root.children[0].id');
+    await page.eval(`window.__mtm.select([${JSON.stringify(branch)}])`);
+    await page.sleep(250);
+    await page.eval('document.querySelector(".layout-btn[data-sublayout=\\"treeRight\\"]").scrollIntoView({ block: "center" })');
+    await page.sleep(100);
+    await page.clickSel('.layout-btn[data-sublayout="treeRight"]');
+    await page.sleep(300);
+    eq(await page.eval(`window.__mtm.layout().nodes.get(${JSON.stringify(branch)}).dir`), 'treeRight', 'the branch as a list');
+    await page.eval("void window.__mtm.run('undo')"); await page.sleep(150);
+    await page.eval("void window.__mtm.run('undo')"); await page.sleep(250);
+    eq(await page.eval('window.__mtm.doc().map.layout || "map"'), before, 'undone');
+  });
+
+  await step('the theme drop-down ends with the custom themes; a new one opens Settings › Theme', async () => {
+    const before = await page.eval('({ theme: window.__mtm.settings().theme, custom: window.__mtm.settings().customThemes || [] })');
+    const open = async () => { await page.clickSel('.tb-split-caret'); await page.sleep(250); };
+    await open();
+    // the last rows run under both columns: the header, then the two commands
+    const rows = await page.eval('(() => { const m = document.querySelector(".ctx-menu.theme-menu"); const w = m.getBoundingClientRect().width; const items = [...m.querySelectorAll(".ctx-item")]; return { wide: items.slice(-2).map((b) => b.getBoundingClientRect().width > w * 0.8), icons: items.slice(-2).filter((b) => b.querySelector(".ctx-icon svg")).length, header: [...m.querySelectorAll(".ctx-header")].pop().textContent }; })()');
+    eq(rows.wide, [true, true], 'full-width rows');
+    eq(rows.icons, 2, 'icons on the commands');
+    assert(/사용자 정의|custom/i.test(rows.header), rows.header);
+    await page.eval('document.querySelectorAll(".ctx-menu.theme-menu .ctx-item")[document.querySelectorAll(".ctx-menu.theme-menu .ctx-item").length - 2].click()');
+    await page.sleep(500);
+    const after = await page.eval('({ theme: window.__mtm.settings().theme, custom: (window.__mtm.settings().customThemes || []).length, tab: (document.querySelector(".settings-tab.active") || {}).dataset?.tab || "" })');
+    eq(after.custom, before.custom.length + 1, 'custom themes');
+    assert(after.theme.startsWith('custom-'), after.theme);
+    eq(after.tab, 'theme', 'Settings tab');
+    await page.eval('document.querySelector(".dlg .btn.primary").click()');
+    await page.sleep(200);
+    await open();
+    const listed = await page.eval('[...document.querySelectorAll(".ctx-menu.theme-menu .ctx-item")].some((b) => b.dataset && b.classList.contains("checked") && b.textContent.includes("★"))');
+    assert(listed, 'the new custom theme is listed and checked');
+    await page.key('Escape');
+    await page.eval(`window.__mtm.applySettings({ theme: ${JSON.stringify(before.theme)}, customThemes: ${JSON.stringify(before.custom)} })`);
+    await page.sleep(200);
   });
 
   await step('closing a changed map asks to save; cancel keeps it', async () => {

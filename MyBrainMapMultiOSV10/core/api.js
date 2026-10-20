@@ -1,4 +1,4 @@
-// The host-agnostic API of My BrainMap. Both hosts wrap it:
+// The host-agnostic API of MyBrainMap. Both hosts wrap it:
 //
 //   host/desktop.js      → POST /api/<name>   (the Tauri sidecar)
 //   server/server.js     → POST /api/<name>   (the web host)

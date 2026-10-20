@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dg52ecu2",
+  "id": "tmvg5mfqr4mdkv2",
   "text": "This year",
   "children": [
    {
-    "id": "tmvftn8dg42rptw",
+    "id": "tmvg5mfqr97eouw",
     "text": "Happier customers",
     "children": [
      {
-      "id": "tmvftn8dg8puntu",
+      "id": "tmvg5mfqr8u7fuu",
       "text": "Reply within 4 h",
       "children": [],
       "task": {
@@ -19,7 +19,7 @@
       }
      },
      {
-      "id": "tmvftn8dg9zrhtv",
+      "id": "tmvg5mfqrzl5zuv",
       "text": "Score 4.5",
       "children": [],
       "task": {
@@ -32,11 +32,11 @@
     ]
    },
    {
-    "id": "tmvftn8dgicn4tz",
+    "id": "tmvg5mfqr7lizuz",
     "text": "Grow revenue",
     "children": [
      {
-      "id": "tmvftn8dgz700tx",
+      "id": "tmvg5mfqrzjdnux",
       "text": "100 new customers",
       "children": [],
       "task": {
@@ -44,7 +44,7 @@
       }
      },
      {
-      "id": "tmvftn8dg6rb5ty",
+      "id": "tmvg5mfqreflfuy",
       "text": "40% repeat buyers",
       "children": [],
       "task": {
@@ -57,11 +57,11 @@
     ]
    },
    {
-    "id": "tmvftn8dgbso1u1",
+    "id": "tmvg5mfqrejogv1",
     "text": "Team skills",
     "children": [
      {
-      "id": "tmvftn8dgurazu0",
+      "id": "tmvg5mfqrxdu5v0",
       "text": "12 trainings",
       "children": [],
       "task": {
@@ -92,7 +92,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.972Z",
-  "modified": "2026-10-19T22:24:07.972Z"
+  "created": "2026-10-20T03:59:26.259Z",
+  "modified": "2026-10-20T03:59:26.259Z"
  }
 }

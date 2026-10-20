@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d8n9xki9",
+  "id": "tmvg5mfpyn6i7ir",
   "text": "Smart home hub roadmap",
   "children": [
    {
-    "id": "tmvftn8d8yg1chz",
+    "id": "tmvg5mfpykufiih",
     "text": "Q1",
     "children": [
      {
-      "id": "tmvftn8d8t4pyhx",
+      "id": "tmvg5mfpyzunyif",
       "text": "Korean voice commands",
       "children": [],
       "task": {
@@ -19,7 +19,7 @@
       }
      },
      {
-      "id": "tmvftn8d8n9yphy",
+      "id": "tmvg5mfpybc76ig",
       "text": "App dark mode",
       "children": [],
       "task": {
@@ -29,11 +29,11 @@
     ]
    },
    {
-    "id": "tmvftn8d8y9xgi2",
+    "id": "tmvg5mfpyvsdxik",
     "text": "Q2",
     "children": [
      {
-      "id": "tmvftn8d86w20i0",
+      "id": "tmvg5mfpyddizii",
       "text": "Matter support",
       "children": [],
       "icons": [
@@ -44,7 +44,7 @@
       }
      },
      {
-      "id": "tmvftn8d8dm49i1",
+      "id": "tmvg5mfpyzzzpij",
       "text": "Energy reports",
       "children": [],
       "task": {
@@ -54,16 +54,16 @@
     ]
    },
    {
-    "id": "tmvftn8d8xu83i5",
+    "id": "tmvg5mfpyg3ymin",
     "text": "Q3",
     "children": [
      {
-      "id": "tmvftn8d8nkm2i3",
+      "id": "tmvg5mfpyjafdil",
       "text": "Shared automation recipes",
       "children": []
      },
      {
-      "id": "tmvftn8d8gb4xi4",
+      "id": "tmvg5mfpyxu5iim",
       "text": "Camera support",
       "children": [],
       "icons": [
@@ -73,11 +73,11 @@
     ]
    },
    {
-    "id": "tmvftn8d86314i8",
+    "id": "tmvg5mfpy1e35iq",
     "text": "Q4",
     "children": [
      {
-      "id": "tmvftn8d879b1i6",
+      "id": "tmvg5mfpyjjytio",
       "text": "Hub gen 2",
       "children": [],
       "icons": [
@@ -85,7 +85,7 @@
       ]
      },
      {
-      "id": "tmvftn8d80hhwi7",
+      "id": "tmvg5mfpyat9bip",
       "text": "Launch in Japan",
       "children": []
      }
@@ -110,7 +110,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.964Z",
-  "modified": "2026-10-19T22:24:07.964Z"
+  "created": "2026-10-20T03:59:26.230Z",
+  "modified": "2026-10-20T03:59:26.230Z"
  }
 }

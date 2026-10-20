@@ -1,4 +1,4 @@
-# My BrainMap (MultiOS)
+# MyBrainMap (MultiOS)
 
 MindManager 처럼 쓰는 마인드맵 프로그램입니다. 중심 토픽에서 가지를 펼쳐 생각을 정리하고, 아이콘 · 태그 · 메모 · 작업 정보를 붙이고, 개요와 간트 차트로 보고, 프레젠테이션까지 합니다.
 **Windows · macOS · Linux** 데스크톱 앱(Tauri)과 **웹 브라우저**에서 같은 화면, 같은 기능으로 동작합니다.
@@ -86,9 +86,9 @@ npm run tutorial:video           # 튜토리얼 영상 MyBrainMap-Tutorial.mp4 �
 
 | OS | 폴더 |
 | --- | --- |
-| Windows | `%APPDATA%\My BrainMap` |
-| macOS | `~/Library/Application Support/My BrainMap` |
-| Linux | `~/.config/My BrainMap` (웹 서버 기본값은 `~/.config/my-brainmap`) |
+| Windows | `%APPDATA%\MyBrainMap` |
+| macOS | `~/Library/Application Support/MyBrainMap` |
+| Linux | `~/.config/MyBrainMap` (웹 서버 기본값은 `~/.config/my-brainmap`) |
 
 `session.json` 에 설정, 열린 맵, 저장하지 않은 맵, 최근 파일이 있습니다. `MTM_USER_DATA` 환경 변수로 데스크톱 앱의 폴더를 바꿀 수 있습니다(테스트용).
 

@@ -3,85 +3,85 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d0t1g8ct",
+  "id": "tmvg5mfpjd4s3db",
   "text": "불량률 증가",
   "children": [
    {
-    "id": "tmvftn8d03xzscg",
+    "id": "tmvg5mfpjis5vcy",
     "text": "사람",
     "children": [
      {
-      "id": "tmvftn8d0a9gyce",
+      "id": "tmvg5mfpjcskscw",
       "text": "숙련도 부족",
       "children": []
      },
      {
-      "id": "tmvftn8d0h6yxcf",
+      "id": "tmvg5mfpjg90icx",
       "text": "교대 인수인계",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d0thnpcj",
+    "id": "tmvg5mfpjybl3d1",
     "text": "설비",
     "children": [
      {
-      "id": "tmvftn8d0nn8uch",
+      "id": "tmvg5mfpj3vs4cz",
       "text": "노후 장비",
       "children": []
      },
      {
-      "id": "tmvftn8d0skjhci",
+      "id": "tmvg5mfpjb8jud0",
       "text": "정비 주기",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d0d91mcm",
+    "id": "tmvg5mfpjkd5jd4",
     "text": "재료",
     "children": [
      {
-      "id": "tmvftn8d0g75bck",
+      "id": "tmvg5mfpj7ztld2",
       "text": "공급사 변경",
       "children": []
      },
      {
-      "id": "tmvftn8d079zqcl",
+      "id": "tmvg5mfpj5ey2d3",
       "text": "보관 상태",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d0hhfhco",
+    "id": "tmvg5mfpj64dxd6",
     "text": "방법",
     "children": [
      {
-      "id": "tmvftn8d0wpbqcn",
+      "id": "tmvg5mfpjmgvrd5",
       "text": "작업 표준 없음",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d0t55wcq",
+    "id": "tmvg5mfpjeh4hd8",
     "text": "측정",
     "children": [
      {
-      "id": "tmvftn8d0a3kkcp",
+      "id": "tmvg5mfpjoymdd7",
       "text": "검사 기준 모호",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d04ag0cs",
+    "id": "tmvg5mfpj2mtkda",
     "text": "환경",
     "children": [
      {
-      "id": "tmvftn8d0g7rvcr",
+      "id": "tmvg5mfpj8thdd9",
       "text": "온도·습도",
       "children": []
      }
@@ -110,7 +110,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.956Z",
-  "modified": "2026-10-19T22:24:07.956Z"
+  "created": "2026-10-20T03:59:26.215Z",
+  "modified": "2026-10-20T03:59:26.215Z"
  }
 }

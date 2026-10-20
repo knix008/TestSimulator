@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d1jt4we9",
+  "id": "tmvg5mfpn0oi7er",
   "text": "올해 목표",
   "children": [
    {
-    "id": "tmvftn8d1y7nye3",
+    "id": "tmvg5mfpn3nddel",
     "text": "고객 만족도 높이기",
     "children": [
      {
-      "id": "tmvftn8d102sbe1",
+      "id": "tmvg5mfpnuh81ej",
       "text": "응답 시간 4시간 이내",
       "children": [],
       "task": {
@@ -19,7 +19,7 @@
       }
      },
      {
-      "id": "tmvftn8d1xg5ae2",
+      "id": "tmvg5mfpn2y8xek",
       "text": "만족도 4.5점",
       "children": [],
       "task": {
@@ -32,11 +32,11 @@
     ]
    },
    {
-    "id": "tmvftn8d1hn6he6",
+    "id": "tmvg5mfpnhpfreo",
     "text": "매출 성장",
     "children": [
      {
-      "id": "tmvftn8d1fmyge4",
+      "id": "tmvg5mfpn8ri4em",
       "text": "신규 고객 100명",
       "children": [],
       "task": {
@@ -44,7 +44,7 @@
       }
      },
      {
-      "id": "tmvftn8d1o5d9e5",
+      "id": "tmvg5mfpn49kken",
       "text": "재구매율 40%",
       "children": [],
       "task": {
@@ -57,11 +57,11 @@
     ]
    },
    {
-    "id": "tmvftn8d1ps8he8",
+    "id": "tmvg5mfpnwpkveq",
     "text": "팀 역량",
     "children": [
      {
-      "id": "tmvftn8d1amlde7",
+      "id": "tmvg5mfpnmnv8ep",
       "text": "교육 12회",
       "children": [],
       "task": {
@@ -92,7 +92,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.957Z",
-  "modified": "2026-10-19T22:24:07.957Z"
+  "created": "2026-10-20T03:59:26.219Z",
+  "modified": "2026-10-20T03:59:26.219Z"
  }
 }

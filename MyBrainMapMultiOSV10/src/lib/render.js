@@ -9,20 +9,13 @@
 import { markerSvg } from './markers.js';
 import { relationshipGeometry, FOLD_R } from './layout.js';
 import { mix } from './mapstyles.js';
+import { shapeOutline, cloudPath } from './shapes.js';
 
 export const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const r = (v) => Math.round(v * 10) / 10;
 
 function shapePath(shape, w, h, role) {
-  switch (shape) {
-    case 'rect': return `<rect width="${w}" height="${h}" rx="2"/>`;
-    case 'capsule': return `<rect width="${w}" height="${h}" rx="${r(h / 2)}"/>`;
-    case 'ellipse':
-    case 'circle': return `<ellipse cx="${r(w / 2)}" cy="${r(h / 2)}" rx="${r(w / 2)}" ry="${r(h / 2)}"/>`;
-    case 'hexagon': { const k = Math.min(w / 4, h * 0.3); return `<path d="M${r(k)} 0 H${r(w - k)} L${w} ${r(h / 2)} L${r(w - k)} ${h} H${r(k)} L0 ${r(h / 2)} Z"/>`; }
-    case 'diamond': return `<path d="M${r(w / 2)} 0 L${w} ${r(h / 2)} L${r(w / 2)} ${h} L0 ${r(h / 2)} Z"/>`;
-    default: { const rx = role === 'root' ? Math.min(h / 2, 12) : Math.min(h / 2, 7); return `<rect width="${w}" height="${h}" rx="${r(rx)}"/>`; }
-  }
+  return `<path d="${shapeOutline(shape, w, h, role)}"/>`;
 }
 
 const BADGES = {
@@ -102,20 +95,6 @@ export function fontFamily(st) {
   return st.font || "-apple-system, 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', Roboto, sans-serif";
 }
 
-function cloudPath(x0, y0, x1, y1) {
-  const bump = 18;
-  const seg = (ax, ay, bx, by) => {
-    const len = Math.hypot(bx - ax, by - ay);
-    const n = Math.max(1, Math.round(len / bump));
-    const dx = (bx - ax) / n, dy = (by - ay) / n;
-    const rr = Math.hypot(dx, dy) / 2 * 1.05;
-    let s = '';
-    for (let i = 0; i < n; i++) s += ` a${r(rr)} ${r(rr)} 0 0 1 ${r(dx)} ${r(dy)}`;
-    return s;
-  };
-  return `M${r(x0)} ${r(y0)}${seg(x0, y0, x1, y0)}${seg(x1, y0, x1, y1)}${seg(x1, y1, x0, y1)}${seg(x0, y1, x0, y0)} Z`;
-}
-
 function boundaryMarkup(b, ms, opts) {
   const { x0, y0, x1, y1 } = b.rect;
   const c = esc(b.color);
@@ -147,7 +126,7 @@ function arrowHead(p, angle, size, color) {
 export function relationshipMarkup(rel, L, ms, opts = {}) {
   const a = L.nodes.get(rel.from), b = L.nodes.get(rel.to);
   if (!a || !b) return '';
-  const g = relationshipGeometry(rel, a, b);
+  const g = relationshipGeometry(rel, a, b, L.relBends);
   const color = esc(rel.color || ms.rel || ms.line.color);
   const width = Number(rel.width) || 1.8;
   const dash = rel.dash === false ? '' : ` stroke-dasharray="${rel.dash === 'dot' ? '2 4' : '7 5'}"`;

@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dd9z3cpo",
+  "id": "tmvg5mfqa10seqo",
   "text": "Product launch project",
   "children": [
    {
-    "id": "tmvftn8ddf1hhpd",
+    "id": "tmvg5mfqaeciwqd",
     "text": "1. Planning",
     "children": [
      {
-      "id": "tmvftn8ddidfipa",
+      "id": "tmvg5mfqadspfqa",
       "text": "Market research",
       "children": [],
       "task": {
@@ -23,7 +23,7 @@
       }
      },
      {
-      "id": "tmvftn8dd7b1opb",
+      "id": "tmvg5mfqahk9pqb",
       "text": "Requirements",
       "children": [],
       "task": {
@@ -35,7 +35,7 @@
       }
      },
      {
-      "id": "tmvftn8ddlz5ypc",
+      "id": "tmvg5mfqaqai1qc",
       "text": "Budget approval",
       "children": [],
       "task": {
@@ -48,11 +48,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddwlgbph",
+    "id": "tmvg5mfqatzypqh",
     "text": "2. Development",
     "children": [
      {
-      "id": "tmvftn8ddjnx5pe",
+      "id": "tmvg5mfqa1a2sqe",
       "text": "Design",
       "children": [],
       "task": {
@@ -63,7 +63,7 @@
       }
      },
      {
-      "id": "tmvftn8dduezgpf",
+      "id": "tmvg5mfqaucpuqf",
       "text": "Build",
       "children": [],
       "task": {
@@ -75,7 +75,7 @@
       }
      },
      {
-      "id": "tmvftn8ddks6gpg",
+      "id": "tmvg5mfqab94oqg",
       "text": "Testing",
       "children": [],
       "task": {
@@ -89,11 +89,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddhr19pk",
+    "id": "tmvg5mfqa21rnqk",
     "text": "3. Launch",
     "children": [
      {
-      "id": "tmvftn8ddlflkpi",
+      "id": "tmvg5mfqa08xyqi",
       "text": "Marketing kit",
       "children": [],
       "task": {
@@ -105,7 +105,7 @@
       }
      },
      {
-      "id": "tmvftn8ddh1e4pj",
+      "id": "tmvg5mfqaeyecqj",
       "text": "Launch event",
       "children": [],
       "task": {
@@ -121,11 +121,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddipvepn",
+    "id": "tmvg5mfqaplp8qn",
     "text": "Risks",
     "children": [
      {
-      "id": "tmvftn8ddsdmlpl",
+      "id": "tmvg5mfqa9418ql",
       "text": "Schedule slip",
       "children": [],
       "icons": [
@@ -133,7 +133,7 @@
       ]
      },
      {
-      "id": "tmvftn8ddzihgpm",
+      "id": "tmvg5mfqatea0qm",
       "text": "Not enough people",
       "children": [],
       "icons": [
@@ -169,7 +169,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.969Z",
-  "modified": "2026-10-19T22:24:07.969Z"
+  "created": "2026-10-20T03:59:26.242Z",
+  "modified": "2026-10-20T03:59:26.242Z"
  }
 }

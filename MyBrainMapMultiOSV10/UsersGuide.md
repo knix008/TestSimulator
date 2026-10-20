@@ -1,12 +1,12 @@
-# My BrainMap — 사용자 가이드
+# MyBrainMap — 사용자 가이드
 
 프로그램 안의 **도움말 › 도움말**(F1)에 스크린샷이 들어간 자세한 설명(16장)이 있습니다. 이 문서는 그 요약입니다.
 
 ## 0. 설치
 
-- **Windows**: `My BrainMap_1.0.0_x64-setup.exe` 를 실행합니다. 처음 화면에서 설치 언어를 고릅니다.
+- **Windows**: `MyBrainMap_1.0.0_x64-setup.exe` 를 실행합니다. 처음 화면에서 설치 언어를 고릅니다.
 - **macOS**: `.dmg` 를 열고 앱을 응용 프로그램 폴더로 끌어 놓습니다.
-- **Linux**: `.deb` (`sudo apt install ./My BrainMap_….deb`) 또는 `.AppImage` 를 씁니다.
+- **Linux**: `.deb` (`sudo apt install ./MyBrainMap_….deb`) 또는 `.AppImage` 를 씁니다.
 - **웹**: `npm run web` — 자세한 내용은 [README](README.md#실행).
 
 ## 튜토리얼 — 처음 실행할 때

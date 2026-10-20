@@ -9,9 +9,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
+import { IconSelect, lineWidthIcon, widthIcon, lineStyleIcon, priorityOptions } from './IconSelect';
 import { ColorPicker } from './ColorPicker';
 import { LAYOUT_ICONS } from './Toolbar';
-import { MAP_STYLES, SHAPES, LINE_STYLES, resolveMapStyle } from '../lib/mapstyles';
+import { MAP_STYLES, SHAPES, SHAPE_GROUPS, SHAPE_DEFS, LINE_STYLES, resolveMapStyle } from '../lib/mapstyles';
+import { shapeOutline } from '../lib/shapes';
 import { MARKER_GROUPS, markersOfGroup, markerSvgDoc, markerLabel, PROGRESS_STEPS, toggleIcon } from '../lib/markers';
 import { LAYOUTS, SUB_LAYOUTS, findTopic, setStyle, clearStyle, setField, setTask, usage, allTopics, mapTitle, countTopics, addComment, removeComment, setProps } from '../lib/model';
 import { renderMarkdown } from '../lib/markdown';
@@ -28,22 +30,20 @@ export const PANE_TABS = [
 
 const Svg = ({ html, size = 18 }) => <span className="mk-svg" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: html }} />;
 
-function ShapeIcon({ shape }) {
-  const w = 30, h = 18;
-  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 };
-  let el;
-  switch (shape) {
-    case 'rect': el = <rect x="2" y="3" width={w - 4} height={h - 6} rx="1" {...common} />; break;
-    case 'capsule': el = <rect x="2" y="3" width={w - 4} height={h - 6} rx={(h - 6) / 2} {...common} />; break;
-    case 'ellipse': el = <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 2} ry={h / 2 - 2} {...common} />; break;
-    case 'circle': el = <circle cx={w / 2} cy={h / 2} r={h / 2 - 1.5} {...common} />; break;
-    case 'hexagon': el = <path d={`M7 3H23L28 9L23 15H7L2 9Z`} {...common} />; break;
-    case 'diamond': el = <path d={`M15 1.5L28 9L15 16.5L2 9Z`} {...common} />; break;
-    case 'underline': el = <><path d="M3 15H27" {...common} strokeWidth={2} /><path d="M7 10h16" stroke="currentColor" strokeWidth="1" opacity="0.5" /></>; break;
-    case 'none': el = <path d="M7 10h16" stroke="currentColor" strokeWidth="1.2" opacity="0.6" />; break;
-    default: el = <rect x="2" y="3" width={w - 4} height={h - 6} rx="4" {...common} />;
-  }
-  return <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">{el}</svg>;
+// scale: drawn smaller (a menu entry's icon) with the same outline
+export function ShapeIcon({ shape, scale = 1 }) {
+  const w = 30, h = 18, sw = Math.round(w * scale), sh = Math.round(h * scale);
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinejoin: 'round' };
+  if (shape === 'underline') return <svg width={sw} height={sh} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><path d="M3 15H27" {...common} strokeWidth={2} /><path d="M7 10h16" stroke="currentColor" strokeWidth="1" opacity="0.5" /></svg>;
+  if (shape === 'none') return <svg width={sw} height={sh} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><path d="M7 10h16" stroke="currentColor" strokeWidth="1.2" opacity="0.6" /></svg>;
+  // the real outline (shapes.js) in the icon's box, a square one for shapes that are
+  const square = shape === 'circle' || shape === 'star' || shape === 'triangle' || shape === 'pentagon' || shape === 'octagon';
+  const bw = square ? 15 : 26, bh = 15;
+  return (
+    <svg width={sw} height={sh} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <path transform={`translate(${(w - bw) / 2} ${(h - bh) / 2})`} d={shapeOutline(shape, bw, bh, 'sub')} {...common} />
+    </svg>
+  );
 }
 
 function Row({ label, children, wide = false }) {
@@ -64,7 +64,10 @@ function Section({ title, children, right }) {
   );
 }
 
-const dayDiff = (a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000);
+const MAP_OF_SUB = { right: 'right', left: 'left', down: 'orgDown', up: 'orgUp', treeRight: 'treeRight', treeLeft: 'treeLeft' };
+const SUB_OF_MAP = Object.fromEntries(Object.entries(MAP_OF_SUB).map(([k, v]) => [v, k]));
+
+const dayDiff =(a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000);
 const addDays = (s, n) => { const d = new Date(`${s}T12:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 
@@ -78,34 +81,41 @@ function FormatTab({ map, topics, edit, ms, primaryNode, clipStyle, setClipStyle
   useEffect(() => { setFontSize(st.fontSize ? String(st.fontSize) : ''); }, [first && first.id, st.fontSize]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!first) return <p className="pane-empty muted">{t('pane_no_selection')}</p>;
   const toggle = (k) => set({ [k]: st[k] ? null : true }, k);
-  const subLayout = first.layout || '';
+  // the central topic's subtopics are the whole map: its layout buttons set the map's layout
+  const rootSel = ids.includes(map.root.id);
+  const subLayout = first.id === map.root.id ? (!map.layout || map.layout === 'map' ? '' : SUB_OF_MAP[map.layout] || null) : first.layout || '';
+  const pickSub = (l) => edit((m) => {
+    const x = setField(m, ids.filter((id) => id !== m.root.id), 'layout', l);
+    return rootSel ? { ...x, layout: l ? MAP_OF_SUB[l] : 'map' } : x;
+  });   // each pick its own undo step
   return (
     <>
       <Section title={t('fmt_shape')}>
-        <div className="shape-grid">
-          {SHAPES.map((s) => (
-            <button key={s} type="button" className={`shape-btn ${(st.shape || '') === s ? 'on' : ''} ${!st.shape && resolved && resolved.shape === s ? 'auto' : ''}`} title={t(`shape_${s}`)} onClick={() => set({ shape: st.shape === s ? null : s }, 'shape')}>
-              <ShapeIcon shape={s} />
-            </button>
-          ))}
-        </div>
+        {SHAPE_GROUPS.map((g) => (
+          <React.Fragment key={g}>
+            <div className="shape-group-h">{t(`shape_group_${g}`)}</div>
+            <div className="shape-grid" data-group={g}>
+              {SHAPES.filter((s) => SHAPE_DEFS[s].group === g).map((s) => (
+                <button key={s} type="button" data-shape={s} className={`shape-btn ${(st.shape || '') === s ? 'on' : ''} ${!st.shape && resolved && resolved.shape === s ? 'auto' : ''}`} title={t(`shape_${s}`)} onClick={() => set({ shape: st.shape === s ? null : s }, 'shape')}>
+                  <ShapeIcon shape={s} />
+                </button>
+              ))}
+            </div>
+          </React.Fragment>
+        ))}
       </Section>
       <Section title={t('fmt_colors')}>
         <Row label={t('fmt_fill')}><ColorPicker value={st.fill || ''} allowNone onChange={(v) => set({ fill: v }, 'fill')} /></Row>
         <Row label={t('fmt_text_color')}><ColorPicker value={st.color || ''} onChange={(v) => set({ color: v }, 'color')} /></Row>
         <Row label={t('fmt_border')}>
           <ColorPicker value={st.border || ''} onChange={(v) => set({ border: v }, 'border')} />
-          <select value={st.borderWidth != null ? String(st.borderWidth) : ''} onChange={(e) => set({ borderWidth: e.target.value === '' ? null : Number(e.target.value) }, 'bw')} className="pane-select-sm">
-            <option value="">{t('auto')}</option>
-            {[0, 1, 1.5, 2, 3, 4, 6].map((w) => <option key={w} value={w}>{w === 0 ? t('fmt_no_border') : `${w}px`}</option>)}
-          </select>
+          <IconSelect name="borderWidth" className="pane-select-sm" value={st.borderWidth != null ? String(st.borderWidth) : ''} onChange={(v) => set({ borderWidth: v === '' ? null : Number(v) }, 'bw')}
+            options={[{ value: '', label: t('auto'), icon: 'refresh' }, ...[0, 1, 1.5, 2, 3, 4, 6].map((w) => ({ value: String(w), label: w === 0 ? t('fmt_no_border') : `${w}px`, iconEl: lineWidthIcon(w) }))]} />
         </Row>
         <Row label={t('fmt_line')}>
           <ColorPicker value={st.line || ''} onChange={(v) => set({ line: v }, 'line')} />
-          <select value={st.lineWidth ? String(st.lineWidth) : ''} onChange={(e) => set({ lineWidth: e.target.value === '' ? null : Number(e.target.value) }, 'lw')} className="pane-select-sm">
-            <option value="">{t('auto')}</option>
-            {[1, 1.5, 2, 3, 4, 6].map((w) => <option key={w} value={w}>{`${w}px`}</option>)}
-          </select>
+          <IconSelect name="lineWidth" className="pane-select-sm" value={st.lineWidth ? String(st.lineWidth) : ''} onChange={(v) => set({ lineWidth: v === '' ? null : Number(v) }, 'lw')}
+            options={[{ value: '', label: t('auto'), icon: 'refresh' }, ...[1, 1.5, 2, 3, 4, 6].map((w) => ({ value: String(w), label: `${w}px`, iconEl: lineWidthIcon(w) }))]} />
         </Row>
       </Section>
       <Section title={t('fmt_text')}>
@@ -131,17 +141,15 @@ function FormatTab({ map, topics, edit, ms, primaryNode, clipStyle, setClipStyle
           ))}
         </div>
         <Row label={t('fmt_width')}>
-          <select value={st.width ? String(st.width) : ''} onChange={(e) => set({ width: e.target.value === '' ? null : Number(e.target.value) }, 'width')}>
-            <option value="">{t('auto')}</option>
-            {[120, 160, 200, 260, 320, 400, 520].map((w) => <option key={w} value={w}>{`${w}px`}</option>)}
-          </select>
+          <IconSelect name="width" value={st.width ? String(st.width) : ''} onChange={(v) => set({ width: v === '' ? null : Number(v) }, 'width')}
+            options={[{ value: '', label: t('auto'), icon: 'refresh' }, ...[120, 160, 200, 260, 320, 400, 520].map((w) => ({ value: String(w), label: `${w}px`, iconEl: widthIcon(w, 520) }))]} />
         </Row>
       </Section>
       <Section title={t('fmt_sub_layout')}>
         <div className="layout-grid small">
-          <button type="button" className={`layout-btn ${!subLayout ? 'on' : ''}`} onClick={() => edit((m) => setField(m, ids, 'layout', ''), 'layout')} title={t('auto')}><Icon name="refresh" size={18} /><span>{t('auto')}</span></button>
+          <button type="button" className={`layout-btn ${subLayout === '' ? 'on' : ''}`} onClick={() => pickSub('')} title={t('auto')}><Icon name="refresh" size={18} /><span>{t('auto')}</span></button>
           {SUB_LAYOUTS.map((l) => (
-            <button key={l} type="button" className={`layout-btn ${subLayout === l ? 'on' : ''}`} onClick={() => edit((m) => setField(m, ids, 'layout', l), 'layout')} title={t(`sublayout_${l}`)}>
+            <button key={l} type="button" className={`layout-btn ${subLayout === l ? 'on' : ''}`} onClick={() => pickSub(l)} title={t(`sublayout_${l}`)} data-sublayout={l}>
               <Icon name={LAYOUT_ICONS[l === 'down' ? 'orgDown' : l === 'up' ? 'orgUp' : l] || 'layoutRight'} size={18} /><span>{t(`sublayout_${l}`)}</span>
             </button>
           ))}
@@ -341,10 +349,7 @@ function TaskTab({ topics, edit }) {
       </Section>
       <Section title={t('task_work')}>
         <Row label={t('mk_priority')}>
-          <select value={task.priority || ''} onChange={(e) => set({ priority: e.target.value ? Number(e.target.value) : null })}>
-            <option value="">{t('none')}</option>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <IconSelect name="priority" value={task.priority || ''} options={priorityOptions(t('none'))} onChange={(v) => set({ priority: v ? Number(v) : null })} />
         </Row>
         <Row label={t('mk_progress')}>
           <input type="range" min={0} max={100} step={5} value={task.progress ?? 0} onChange={(e) => set({ progress: Number(e.target.value) }, 'progress')} />
@@ -389,10 +394,8 @@ function LinksTab({ map, topics, edit, onAction }) {
           <button type="button" className="btn small" disabled={!first.link} onClick={() => { setUrl(''); edit((m) => setField(m, ids, 'link', null), ''); }}><Icon name="close" size={12} /> {t('remove')}</button>
         </div>
         <Row label={t('link_topic')}>
-          <select value={topicLink} onChange={(e) => { const v = e.target.value ? `topic:${e.target.value}` : ''; setUrl(v); edit((m) => setField(m, ids, 'link', v ? { url: v } : null), ''); }}>
-            <option value="">{t('none')}</option>
-            {others.map((o) => <option key={o.id} value={o.id}>{String(o.text).split('\n')[0].slice(0, 60)}</option>)}
-          </select>
+          <IconSelect name="topicLink" value={topicLink} icon="goTo" onChange={(id) => { const v = id ? `topic:${id}` : ''; setUrl(v); edit((m) => setField(m, ids, 'link', v ? { url: v } : null), ''); }}
+            options={[{ value: '', label: t('none'), icon: 'close' }, ...others.map((o) => ({ value: o.id, label: String(o.text).split('\n')[0].slice(0, 60) }))]} />
         </Row>
       </Section>
       <Section title={t('link_attachments')}>
@@ -475,17 +478,12 @@ function MapTab({ map, edit, onAction }) {
       </Section>
       <Section title={t('map_lines')}>
         <Row label={t('map_line_style')}>
-          <select value={map.lineStyle || ''} onChange={(e) => set({ lineStyle: e.target.value })}>
-            <option value="">{t('map_by_style')}</option>
-            {LINE_STYLES.map((s) => <option key={s} value={s}>{t(`line_${s}`)}</option>)}
-          </select>
+          <IconSelect name="lineStyle" value={map.lineStyle || ''} onChange={(v) => set({ lineStyle: v })}
+            options={[{ value: '', label: t('map_by_style'), icon: 'mapStyle' }, ...LINE_STYLES.map((s) => ({ value: s, label: t(`line_${s}`), iconEl: lineStyleIcon(s) }))]} />
         </Row>
         <Row label={t('map_branch_colors')}>
-          <select value={map.branchColors == null ? '' : map.branchColors ? 'on' : 'off'} onChange={(e) => set({ branchColors: e.target.value === '' ? null : e.target.value === 'on' })}>
-            <option value="">{t('map_by_style')}</option>
-            <option value="on">{t('on')}</option>
-            <option value="off">{t('off')}</option>
-          </select>
+          <IconSelect name="branchColors" value={map.branchColors == null ? '' : map.branchColors ? 'on' : 'off'} onChange={(v) => set({ branchColors: v === '' ? null : v === 'on' })}
+            options={[{ value: '', label: t('map_by_style'), icon: 'mapStyle' }, { value: 'on', label: t('on'), icon: 'palette' }, { value: 'off', label: t('off'), icon: 'circle' }]} />
         </Row>
         <Row label={t('map_background')}><ColorPicker value={map.background || ''} autoLabel={t('map_by_style')} onChange={(v) => set({ background: v }, 'bg')} /></Row>
       </Section>
@@ -502,13 +500,10 @@ function MapTab({ map, edit, onAction }) {
       <Section title={t('map_numbering')}>
         <label className="check"><input type="checkbox" checked={!!(map.numbering && map.numbering.enabled)} onChange={(e) => set({ numbering: { ...(map.numbering || {}), enabled: e.target.checked } })} /><span>{t('map_numbering_on')}</span></label>
         <Row label={t('map_numbering_style')}>
-          <select value={(map.numbering && map.numbering.style) || 'decimal'} onChange={(e) => set({ numbering: { ...(map.numbering || {}), style: e.target.value } })}>
-            <option value="decimal">1. 1.1. 1.1.1.</option>
-            <option value="roman">I. I.A. I.A.1.</option>
-          </select>
-          <select value={(map.numbering && map.numbering.depth) || 3} onChange={(e) => set({ numbering: { ...(map.numbering || {}), depth: Number(e.target.value) } })} className="pane-select-sm">
-            {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{t('map_numbering_depth', { n: d })}</option>)}
-          </select>
+          <IconSelect name="numberingStyle" value={(map.numbering && map.numbering.style) || 'decimal'} onChange={(v) => set({ numbering: { ...(map.numbering || {}), style: v } })}
+            options={[{ value: 'decimal', label: '1. 1.1. 1.1.1.', icon: 'listOrdered' }, { value: 'roman', label: 'I. I.A. I.A.1.', icon: 'numbering' }]} />
+          <IconSelect name="numberingDepth" className="pane-select-sm" value={(map.numbering && map.numbering.depth) || 3} icon="listTree" onChange={(v) => set({ numbering: { ...(map.numbering || {}), depth: Number(v) } })}
+            options={[1, 2, 3, 4, 5].map((d) => ({ value: d, label: t('map_numbering_depth', { n: d }) }))} />
         </Row>
       </Section>
       <Section title={t('map_stats')}>

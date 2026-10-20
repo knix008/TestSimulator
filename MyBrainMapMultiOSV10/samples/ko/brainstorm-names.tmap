@@ -3,36 +3,36 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cviukn8j",
+  "id": "tmvg5mfpbtv1s8j",
   "text": "새 카페 이름",
   "children": [
    {
-    "id": "tmvftn8cvexn18a",
+    "id": "tmvg5mfpbxlzx8a",
     "text": "분위기",
     "children": [
      {
-      "id": "tmvftn8cvgira87",
+      "id": "tmvg5mfpbhvgs87",
       "text": "아늑함",
       "children": []
      },
      {
-      "id": "tmvftn8cv8mco88",
+      "id": "tmvg5mfpbhqqb88",
       "text": "책",
       "children": []
      },
      {
-      "id": "tmvftn8cv9vlq89",
+      "id": "tmvg5mfpbc1hc89",
       "text": "햇살",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cvww298e",
+    "id": "tmvg5mfpbf9oy8e",
     "text": "후보",
     "children": [
      {
-      "id": "tmvftn8cveu468b",
+      "id": "tmvg5mfpbf4ws8b",
       "text": "햇살서재",
       "children": [],
       "icons": [
@@ -43,7 +43,7 @@
       }
      },
      {
-      "id": "tmvftn8cv2t9f8c",
+      "id": "tmvg5mfpboxln8c",
       "text": "느린오후",
       "children": [],
       "task": {
@@ -51,23 +51,23 @@
       }
      },
      {
-      "id": "tmvftn8cvaz1t8d",
+      "id": "tmvg5mfpbr3v18d",
       "text": "한모금",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cv930l8i",
+    "id": "tmvg5mfpb2h268i",
     "text": "기준",
     "children": [
      {
-      "id": "tmvftn8cvfar68f",
+      "id": "tmvg5mfpb8uis8f",
       "text": "부르기 쉬움",
       "children": []
      },
      {
-      "id": "tmvftn8cvp24y8g",
+      "id": "tmvg5mfpbxesy8g",
       "text": "도메인 가능",
       "children": [],
       "icons": [
@@ -75,7 +75,7 @@
       ]
      },
      {
-      "id": "tmvftn8cvjjk68h",
+      "id": "tmvg5mfpbf0rd8h",
       "text": "간판에 어울림",
       "children": []
      }
@@ -85,27 +85,27 @@
  },
  "floating": [
   {
-   "id": "tmvftn8cvgt0f8k",
+   "id": "tmvg5mfpbmoxk8k",
    "text": "손님 투표로 결정!",
    "children": [],
    "icons": [
     "people"
    ],
-   "x": 420,
-   "y": 230
+   "x": -230,
+   "y": 125
   }
  ],
  "relationships": [
   {
-   "id": "tmvftn8cv6noa8m",
-   "from": "tmvftn8cv8mco88",
-   "to": "tmvftn8cveu468b",
+   "id": "tmvg5mfpbwd2g8m",
+   "from": "tmvg5mfpbhqqb88",
+   "to": "tmvg5mfpbf4ws8b",
    "label": "영감"
   },
   {
-   "id": "tmvftn8cvl76c8n",
-   "from": "tmvftn8cvgt0f8k",
-   "to": "tmvftn8cvww298e",
+   "id": "tmvg5mfpb9ikh8n",
+   "from": "tmvg5mfpbmoxk8k",
+   "to": "tmvg5mfpbf9oy8e",
    "label": ""
   }
  ],
@@ -124,7 +124,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.951Z",
-  "modified": "2026-10-19T22:24:07.951Z"
+  "created": "2026-10-20T03:59:26.207Z",
+  "modified": "2026-10-20T03:59:26.207Z"
  }
 }

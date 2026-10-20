@@ -265,7 +265,7 @@ export const SAMPLES = [
         T(['후보', 'Candidates'], [T(['햇살서재', 'Sunny Shelf'], [], { icons: ['star'], task: { priority: 1 } }), T(['느린오후', 'Slow Afternoon'], [], { task: { priority: 2 } }), T(['한모금', 'One Sip'])]),
         T(['기준', 'Criteria'], [T(['부르기 쉬움', 'Easy to say']), T(['도메인 가능', 'Domain free'], [], { icons: ['question'] }), T(['간판에 어울림', 'Works on a sign'])]),
       ]);
-      const floating = [{ ...T(['손님 투표로 결정!', 'Let customers vote!'], [], { icons: ['people'] }), x: 420, y: 230 }];
+      const floating = [{ ...T(['손님 투표로 결정!', 'Let customers vote!'], [], { icons: ['people'] }), x: -230, y: 125 }];
       const map = { layout: 'map', style: 'auto', root, floating };
       map.relationships = [rel(root, floating, L(['책', 'Books']), L(['햇살서재', 'Sunny Shelf']), L(['영감', 'inspired'])), rel(root, floating, L(['손님 투표로 결정!', 'Let customers vote!']), L(['후보', 'Candidates']))].filter(Boolean);
       return map;

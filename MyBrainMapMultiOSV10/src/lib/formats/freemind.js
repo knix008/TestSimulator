@@ -110,5 +110,5 @@ export function exportFreeMind(map) {
   // FreeMind has no floating topics: they join the central topic as main topics.
   const root = { ...map.root, children: [...(map.root.children || []), ...(map.floating || []).map((f) => ({ ...f }))] };
   walk(root, 1, 0);
-  return `<map version="1.0.1">\n<!-- My BrainMap export -->\n${out.join('\n')}\n</map>\n`;
+  return `<map version="1.0.1">\n<!-- MyBrainMap export -->\n${out.join('\n')}\n</map>\n`;
 }

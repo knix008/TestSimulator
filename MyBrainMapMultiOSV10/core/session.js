@@ -66,9 +66,15 @@ const MAX_RECENT = 12;
 const MAX_DRAFT = 8 * 1024 * 1024;   // an unsaved map larger than this (embedded pictures) is not kept across restarts
 
 function defaultConfigDir() {
-  if (process.platform === 'win32') return path.join(process.env.APPDATA || os.homedir(), 'My BrainMap');
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'My BrainMap');
-  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'my-brainmap');
+  let base;
+  if (process.platform === 'win32') base = process.env.APPDATA || os.homedir();
+  else if (process.platform === 'darwin') base = path.join(os.homedir(), 'Library', 'Application Support');
+  else return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'my-brainmap');
+  const dir = path.join(base, 'MyBrainMap');
+  // Settings written before the rename ("My BrainMap") move to the new folder once.
+  const legacy = path.join(base, 'My BrainMap');
+  try { if (!fs.existsSync(dir) && fs.statSync(legacy).isDirectory()) fs.renameSync(legacy, dir); } catch { /* no legacy folder */ }
+  return dir;
 }
 
 function createSession(configDir) {

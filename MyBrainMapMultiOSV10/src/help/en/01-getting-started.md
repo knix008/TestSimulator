@@ -1,6 +1,6 @@
 # Getting started
 
-My BrainMap is a mind-mapping program: you start from a central topic and branch out. It works the same as a desktop app on Windows, macOS and Linux and in a web browser.
+MyBrainMap is a mind-mapping program: you start from a central topic and branch out. It works the same as a desktop app on Windows, macOS and Linux and in a web browser.
 
 ![Start page](images/start-page.png)
 

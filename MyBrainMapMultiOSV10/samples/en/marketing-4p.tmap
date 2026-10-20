@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d73k2jgy",
+  "id": "tmvg5mfpwcppmhg",
   "text": "Craft granola brand marketing",
   "children": [
    {
-    "id": "tmvftn8d7xuakgl",
+    "id": "tmvg5mfpwwt6jh3",
     "text": "Product",
     "children": [
      {
-      "id": "tmvftn8d7xt3kgi",
+      "id": "tmvg5mfpwgsiih0",
       "text": "Three sugar-free kinds",
       "children": [],
       "icons": [
@@ -19,12 +19,12 @@
       ]
      },
      {
-      "id": "tmvftn8d7h20zgj",
+      "id": "tmvg5mfpwh451h1",
       "text": "Recyclable pouch",
       "children": []
      },
      {
-      "id": "tmvftn8d7p3zpgk",
+      "id": "tmvg5mfpwum0gh2",
       "text": "Subscription",
       "children": [],
       "tags": [
@@ -35,21 +35,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8d7fuq4gp",
+    "id": "tmvg5mfpwua84h7",
     "text": "Price",
     "children": [
      {
-      "id": "tmvftn8d7ka1xgm",
+      "id": "tmvg5mfpwb52dh4",
       "text": "$7.90 a pack",
       "children": []
      },
      {
-      "id": "tmvftn8d76klggn",
+      "id": "tmvg5mfpwpvqrh5",
       "text": "15% off when subscribed",
       "children": []
      },
      {
-      "id": "tmvftn8d7fytigo",
+      "id": "tmvg5mfpwx8v7h6",
       "text": "10% above competitors",
       "children": [],
       "icons": [
@@ -61,21 +61,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8d7tneigt",
+    "id": "tmvg5mfpwfrrrhb",
     "text": "Place",
     "children": [
      {
-      "id": "tmvftn8d7addtgq",
+      "id": "tmvg5mfpw74oth8",
       "text": "Own web shop",
       "children": []
      },
      {
-      "id": "tmvftn8d7rsuigr",
+      "id": "tmvg5mfpwonlqh9",
       "text": "Local cafés",
       "children": []
      },
      {
-      "id": "tmvftn8d7cop9gs",
+      "id": "tmvg5mfpwl6u3ha",
       "text": "Online grocery",
       "children": [],
       "icons": [
@@ -86,11 +86,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8d7hujjgx",
+    "id": "tmvg5mfpwxwkohf",
     "text": "Promotion",
     "children": [
      {
-      "id": "tmvftn8d75fepgu",
+      "id": "tmvg5mfpw8l8dhc",
       "text": "Instagram recipes",
       "children": [],
       "icons": [
@@ -98,12 +98,12 @@
       ]
      },
      {
-      "id": "tmvftn8d7rr2rgv",
+      "id": "tmvg5mfpw808hhd",
       "text": "100 testers",
       "children": []
      },
      {
-      "id": "tmvftn8d7tst0gw",
+      "id": "tmvg5mfpw7mt0he",
       "text": "Yoga studio partnership",
       "children": []
      }
@@ -130,7 +130,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.963Z",
-  "modified": "2026-10-19T22:24:07.963Z"
+  "created": "2026-10-20T03:59:26.228Z",
+  "modified": "2026-10-20T03:59:26.228Z"
  }
 }

@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8crmsso3p",
+  "id": "tmvg5mfp311oy3p",
   "text": "도쿄 4박 5일",
   "children": [
    {
-    "id": "tmvftn8crp96t34",
+    "id": "tmvg5mfp3lx9o34",
     "text": "1일차 · 신주쿠",
     "children": [
      {
-      "id": "tmvftn8crfscs31",
+      "id": "tmvg5mfp37lvc31",
       "text": "숙소 체크인",
       "children": []
      },
      {
-      "id": "tmvftn8crqx0532",
+      "id": "tmvg5mfp3a2xa32",
       "text": "도쿄도청 전망대",
       "children": [],
       "link": {
@@ -24,7 +24,7 @@
       }
      },
      {
-      "id": "tmvftn8crabyv33",
+      "id": "tmvg5mfp3fnus33",
       "text": "오모이데 요코초",
       "children": [],
       "icons": [
@@ -35,21 +35,21 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8crnzfi38",
+    "id": "tmvg5mfp3p9lv38",
     "text": "2일차 · 아사쿠사",
     "children": [
      {
-      "id": "tmvftn8crwqz835",
+      "id": "tmvg5mfp3fqly35",
       "text": "센소지",
       "children": []
      },
      {
-      "id": "tmvftn8crtjd736",
+      "id": "tmvg5mfp35yqn36",
       "text": "스미다 강 유람선",
       "children": []
      },
      {
-      "id": "tmvftn8crbw7y37",
+      "id": "tmvg5mfp3cq4y37",
       "text": "스카이트리",
       "children": [],
       "icons": [
@@ -60,16 +60,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8crk10q3c",
+    "id": "tmvg5mfp3sy9y3c",
     "text": "3일차 · 하코네 당일치기",
     "children": [
      {
-      "id": "tmvftn8crf6ur39",
+      "id": "tmvg5mfp3wtpa39",
       "text": "로망스카",
       "children": []
      },
      {
-      "id": "tmvftn8cr6nnf3a",
+      "id": "tmvg5mfp39ejo3a",
       "text": "온천",
       "children": [],
       "icons": [
@@ -80,28 +80,28 @@
     "side": "right",
     "callouts": [
      {
-      "id": "tmvftn8crlkeu3b",
+      "id": "tmvg5mfp345f53b",
       "text": "패스 미리 구매!",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8cr3eyr3g",
+    "id": "tmvg5mfp3adwn3g",
     "text": "예산 (1인)",
     "children": [
      {
-      "id": "tmvftn8crtqvb3d",
+      "id": "tmvg5mfp3x1163d",
       "text": "항공 35만원",
       "children": []
      },
      {
-      "id": "tmvftn8crk5o43e",
+      "id": "tmvg5mfp3b7rd3e",
       "text": "숙박 40만원",
       "children": []
      },
      {
-      "id": "tmvftn8crz4ur3f",
+      "id": "tmvg5mfp3nwa23f",
       "text": "식비·교통 30만원",
       "children": []
      }
@@ -112,11 +112,11 @@
     ]
    },
    {
-    "id": "tmvftn8cr1ypw3k",
+    "id": "tmvg5mfp3r2py3k",
     "text": "준비물",
     "children": [
      {
-      "id": "tmvftn8crpbo73h",
+      "id": "tmvg5mfp3x8x13h",
       "text": "여권",
       "children": [],
       "icons": [
@@ -124,7 +124,7 @@
       ]
      },
      {
-      "id": "tmvftn8crr8uv3i",
+      "id": "tmvg5mfp3ivlx3i",
       "text": "교통카드 (Suica)",
       "children": [],
       "icons": [
@@ -132,7 +132,7 @@
       ]
      },
      {
-      "id": "tmvftn8cri1u93j",
+      "id": "tmvg5mfp3wiep3j",
       "text": "110V 어댑터",
       "children": []
      }
@@ -140,21 +140,21 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8crptv23o",
+    "id": "tmvg5mfp3lb8u3o",
     "text": "맛집 리스트",
     "children": [
      {
-      "id": "tmvftn8crxx7z3l",
+      "id": "tmvg5mfp3qx733l",
       "text": "스시 오마카세",
       "children": []
      },
      {
-      "id": "tmvftn8crmtaj3m",
+      "id": "tmvg5mfp3wzy73m",
       "text": "라멘",
       "children": []
      },
      {
-      "id": "tmvftn8crmdip3n",
+      "id": "tmvg5mfp379f73n",
       "text": "몬자야키",
       "children": []
      }
@@ -183,7 +183,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.947Z",
-  "modified": "2026-10-19T22:24:07.947Z"
+  "created": "2026-10-20T03:59:26.199Z",
+  "modified": "2026-10-20T03:59:26.199Z"
  }
 }

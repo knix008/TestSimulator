@@ -3,42 +3,42 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d1qo54dy",
+  "id": "tmvg5mfpm7nkpeg",
   "text": "책 제목",
   "children": [
    {
-    "id": "tmvftn8d1i8rmdn",
+    "id": "tmvg5mfpmy9gqe5",
     "text": "한 줄 요약",
     "children": [
      {
-      "id": "tmvftn8d1jiktdm",
+      "id": "tmvg5mfpmbwg7e4",
       "text": "...",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d1xfggdq",
+    "id": "tmvg5mfpml4yze8",
     "text": "핵심 내용",
     "children": [
      {
-      "id": "tmvftn8d17cn9do",
+      "id": "tmvg5mfpmda5re6",
       "text": "1장",
       "children": []
      },
      {
-      "id": "tmvftn8d1sr9jdp",
+      "id": "tmvg5mfpmgmzqe7",
       "text": "2장",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8d1x2mhds",
+    "id": "tmvg5mfpm7jfpea",
     "text": "인상 깊은 문장",
     "children": [
      {
-      "id": "tmvftn8d1rpzndr",
+      "id": "tmvg5mfpm6cvze9",
       "text": "\"...\"",
       "children": [],
       "icons": [
@@ -48,11 +48,11 @@
     ]
    },
    {
-    "id": "tmvftn8d106ujdv",
+    "id": "tmvg5mfpmwu87ed",
     "text": "내 생각",
     "children": [
      {
-      "id": "tmvftn8d1us3sdt",
+      "id": "tmvg5mfpm2p9keb",
       "text": "동의",
       "children": [],
       "icons": [
@@ -60,7 +60,7 @@
       ]
      },
      {
-      "id": "tmvftn8d11qntdu",
+      "id": "tmvg5mfpmqrgmec",
       "text": "의문",
       "children": [],
       "icons": [
@@ -70,11 +70,11 @@
     ]
    },
    {
-    "id": "tmvftn8d1g37ddx",
+    "id": "tmvg5mfpm8ajgef",
     "text": "적용할 점",
     "children": [
      {
-      "id": "tmvftn8d1lccfdw",
+      "id": "tmvg5mfpmstoqee",
       "text": "...",
       "children": [],
       "task": {
@@ -105,7 +105,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.957Z",
-  "modified": "2026-10-19T22:24:07.957Z"
+  "created": "2026-10-20T03:59:26.218Z",
+  "modified": "2026-10-20T03:59:26.218Z"
  }
 }

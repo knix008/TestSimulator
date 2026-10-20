@@ -1,13 +1,11 @@
 // Map tabs: click to activate, middle-click or × to close, drag to reorder,
-// right-click for the tab menu. "+" makes a new map; "<" / ">" scroll the
-// strip when the tabs overflow (there is no scrollbar). The active tab is
-// always scrolled into view; the mouse wheel scrolls the strip as well.
+// right-click for the tab menu. "<" / ">" at the two ends go to the previous /
+// next tab (Ctrl+Shift+Tab / Ctrl+Tab); "+" makes a new map. The active tab is
+// always scrolled into view; the mouse wheel scrolls the strip.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
-
-const SCROLL_STEP = 180;
 
 export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, onAction, onContextItems }) {
   useLanguage();
@@ -45,11 +43,13 @@ export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, 
     return () => { ro.disconnect(); el.removeEventListener('scroll', measure); };
   }, [measure]);
 
-  const scrollBy = (dx) => { const el = stripRef.current; if (el) el.scrollBy({ left: dx, behavior: 'smooth' }); };
+  const at = docs.findIndex((d) => d.id === activeId);
+  const step = (d) => { const n = docs[at + d]; if (n) onActivate(n.id); };
   const onWheel = (e) => { const el = stripRef.current; if (el && e.deltaY) el.scrollLeft += e.deltaY; };
 
   return (
     <div className="tabbar">
+      <button className="tab-ctl tab-prev" data-cmd="tab-prev" title={t('tab_prev')} aria-label={t('tab_prev')} disabled={at <= 0} onMouseDown={(e) => e.preventDefault()} onClick={() => step(-1)}><Icon name="chevronLeft" size={14} /></button>
       <div className="tab-strip" ref={stripRef} onWheel={onWheel}>
         {docs.map((d) => (
           <div key={d.id} data-tab={d.id}
@@ -74,13 +74,8 @@ export function TabBar({ docs, activeId, onActivate, onClose, onNew, onReorder, 
         ))}
       </div>
       <div className="tab-controls">
-        <button className="tab-ctl" title={t('tab_new')} aria-label={t('tab_new')} onMouseDown={(e) => e.preventDefault()} onClick={onNew}><Icon name="plus" size={14} /></button>
-        {scroll.overflow && (
-          <>
-            <button className="tab-ctl" title={t('tab_scroll_left')} aria-label={t('tab_scroll_left')} disabled={!scroll.left} onMouseDown={(e) => e.preventDefault()} onClick={() => scrollBy(-SCROLL_STEP)}><Icon name="chevronLeft" size={14} /></button>
-            <button className="tab-ctl" title={t('tab_scroll_right')} aria-label={t('tab_scroll_right')} disabled={!scroll.right} onMouseDown={(e) => e.preventDefault()} onClick={() => scrollBy(SCROLL_STEP)}><Icon name="chevronRight" size={14} /></button>
-          </>
-        )}
+        <button className="tab-ctl tab-next" data-cmd="tab-next" title={t('tab_next')} aria-label={t('tab_next')} disabled={at < 0 || at >= docs.length - 1} onMouseDown={(e) => e.preventDefault()} onClick={() => step(1)}><Icon name="chevronRight" size={14} /></button>
+        <button className="tab-ctl" data-cmd="tab-new" title={t('tab_new')} aria-label={t('tab_new')} onMouseDown={(e) => e.preventDefault()} onClick={onNew}><Icon name="plus" size={14} /></button>
       </div>
       {ctx && (
         <ContextMenu x={ctx.x} y={ctx.y} items={onContextItems(ctx.id)} onClose={() => setCtx(null)}

@@ -22,7 +22,7 @@ const L = (lang, ko, en) => (lang === 'ko' ? ko : en);
 export function openFilters(lang = 'ko') {
   return [
     { name: L(lang, '모든 마인드맵', 'All mind maps'), extensions: OPEN_EXT },
-    { name: 'My BrainMap (*.tmap)', extensions: [MAP_EXT] },
+    { name: 'MyBrainMap (*.tmap)', extensions: [MAP_EXT] },
     { name: 'FreeMind / Freeplane (*.mm)', extensions: ['mm'] },
     { name: 'XMind (*.xmind)', extensions: ['xmind'] },
     { name: 'MindManager (*.mmap)', extensions: ['mmap'] },
@@ -39,7 +39,7 @@ export function importFilters(lang = 'ko') {
   return [{ name: L(lang, '가져올 수 있는 모든 형식', 'All importable formats'), extensions: IMPORT_EXT }, ...rest];
 }
 
-export const saveFilters = () => [{ name: 'My BrainMap (*.tmap)', extensions: [MAP_EXT] }];
+export const saveFilters = () => [{ name: 'MyBrainMap (*.tmap)', extensions: [MAP_EXT] }];
 
 // Reads a map file of any supported format. → { map, kind: 'tmap' | 'import', mtime, readonly }
 export async function readMapFile(path, call) {
@@ -56,8 +56,8 @@ export async function readMapFile(path, call) {
   let kind = 'import';
   if (ext === MAP_EXT || ext === 'json') {
     let obj;
-    try { obj = JSON.parse(r.text); } catch (e) { const err = new Error(`Not a My BrainMap file: ${e.message}`); err.code = 'EFORMAT'; throw err; }
-    if (!obj || typeof obj !== 'object' || !obj.root) { const err = new Error('Not a My BrainMap file'); err.code = 'EFORMAT'; throw err; }
+    try { obj = JSON.parse(r.text); } catch (e) { const err = new Error(`Not a MyBrainMap file: ${e.message}`); err.code = 'EFORMAT'; throw err; }
+    if (!obj || typeof obj !== 'object' || !obj.root) { const err = new Error('Not a MyBrainMap file'); err.code = 'EFORMAT'; throw err; }
     map = normalizeMap(obj);
     kind = ext === MAP_EXT ? 'tmap' : 'import';
   } else if (ext === 'mm') map = importFreeMind(r.text, name);

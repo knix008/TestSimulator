@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// My BrainMap — web version.
+// MyBrainMap — web version.
 //
 // Serves the built UI (dist/) and exposes core/api.js over HTTP, so the same
 // app runs in a browser. The maps it opens and saves are those of the
@@ -115,7 +115,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
   const urlStr = `http://${shown}:${PORT}/${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`;
-  console.log(`[web] My BrainMap web version: ${urlStr}`);
+  console.log(`[web] MyBrainMap web version: ${urlStr}`);
   if (!fs.existsSync(path.join(distDir, 'index.html'))) console.log('[web] dist/ is missing — run `npm run build` (or `npm run web`).');
   if (HOST !== '127.0.0.1' && HOST !== 'localhost' && !TOKEN) console.log('[web] WARNING: listening on a non-loopback interface without --token.');
   if (OPEN && !process.env.MTM_SMOKE) openBrowser(urlStr);

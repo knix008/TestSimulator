@@ -38,8 +38,8 @@ Defaults for exporting (scale, margin, transparent background) and printing (pap
 
 | System | Folder |
 | --- | --- |
-| Windows | `%APPDATA%\My BrainMap` |
-| macOS | `~/Library/Application Support/My BrainMap` |
-| Linux | `~/.config/My BrainMap` |
+| Windows | `%APPDATA%\MyBrainMap` |
+| macOS | `~/Library/Application Support/MyBrainMap` |
+| Linux | `~/.config/MyBrainMap` |
 
 `session.json` in that folder holds the settings, the open maps, unsaved maps and recent files.

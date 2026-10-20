@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d76xhzge",
+  "id": "tmvg5mfpvutv2gw",
   "text": "Budget app \"MoneyNote\" launch",
   "children": [
    {
-    "id": "tmvftn8d7a2g7g0",
+    "id": "tmvg5mfpv6dpkgi",
     "text": "Planning",
     "children": [
      {
-      "id": "tmvftn8d7z6jufu",
+      "id": "tmvg5mfpv0ltjgc",
       "text": "20 user interviews",
       "children": [],
       "task": {
@@ -24,11 +24,11 @@
       "notes": "Mostly students and new workers. Biggest pain: typing receipts."
      },
      {
-      "id": "tmvftn8d7stlxfy",
+      "id": "tmvg5mfpvebnqgg",
       "text": "Core features",
       "children": [
        {
-        "id": "tmvftn8d7vc8ffv",
+        "id": "tmvg5mfpvlwcvgd",
         "text": "Receipt photo scan",
         "children": [],
         "icons": [
@@ -36,12 +36,12 @@
         ]
        },
        {
-        "id": "tmvftn8d78pkafw",
+        "id": "tmvg5mfpvwshxge",
         "text": "Monthly budget alerts",
         "children": []
        },
        {
-        "id": "tmvftn8d7vu1afx",
+        "id": "tmvg5mfpvubcmgf",
         "text": "Family sharing",
         "children": [],
         "tags": [
@@ -58,7 +58,7 @@
       }
      },
      {
-      "id": "tmvftn8d754qffz",
+      "id": "tmvg5mfpvksyhgh",
       "text": "Plan approved",
       "children": [],
       "task": {
@@ -70,11 +70,11 @@
     ]
    },
    {
-    "id": "tmvftn8d7ap4ng4",
+    "id": "tmvg5mfpvw6gjgm",
     "text": "Design",
     "children": [
      {
-      "id": "tmvftn8d73v04g1",
+      "id": "tmvg5mfpvum1kgj",
       "text": "Wireframes",
       "children": [],
       "task": {
@@ -85,7 +85,7 @@
       }
      },
      {
-      "id": "tmvftn8d7urspg2",
+      "id": "tmvg5mfpv09t9gk",
       "text": "Design system",
       "children": [],
       "task": {
@@ -96,7 +96,7 @@
       }
      },
      {
-      "id": "tmvftn8d73vyhg3",
+      "id": "tmvg5mfpvtwougl",
       "text": "Usability test",
       "children": [],
       "task": {
@@ -110,11 +110,11 @@
     ]
    },
    {
-    "id": "tmvftn8d7n6wcg9",
+    "id": "tmvg5mfpvoo7sgr",
     "text": "Development",
     "children": [
      {
-      "id": "tmvftn8d74ezhg5",
+      "id": "tmvg5mfpvb117gn",
       "text": "App (iOS, Android)",
       "children": [],
       "task": {
@@ -126,7 +126,7 @@
       }
      },
      {
-      "id": "tmvftn8d7x23jg6",
+      "id": "tmvg5mfpv10cqgo",
       "text": "Server API",
       "children": [],
       "task": {
@@ -138,7 +138,7 @@
       }
      },
      {
-      "id": "tmvftn8d7jovvg7",
+      "id": "tmvg5mfpvptbbgp",
       "text": "Receipt OCR model",
       "children": [],
       "task": {
@@ -154,7 +154,7 @@
       "notes": "Target: 95% accuracy. Handwritten receipts are out of scope for v1."
      },
      {
-      "id": "tmvftn8d7bd2wg8",
+      "id": "tmvg5mfpvnm7mgq",
       "text": "Beta test",
       "children": [],
       "task": {
@@ -168,11 +168,11 @@
     ]
    },
    {
-    "id": "tmvftn8d79fsfgd",
+    "id": "tmvg5mfpvbwj9gv",
     "text": "Marketing",
     "children": [
      {
-      "id": "tmvftn8d724zsga",
+      "id": "tmvg5mfpv6desgs",
       "text": "Landing page",
       "children": [],
       "task": {
@@ -186,7 +186,7 @@
       }
      },
      {
-      "id": "tmvftn8d76yfwgb",
+      "id": "tmvg5mfpvtt2bgt",
       "text": "Influencer deals",
       "children": [],
       "task": {
@@ -198,7 +198,7 @@
       }
      },
      {
-      "id": "tmvftn8d7o0bjgc",
+      "id": "tmvg5mfpvxvm6gu",
       "text": "Launch",
       "children": [],
       "task": {
@@ -219,9 +219,9 @@
  "floating": [],
  "relationships": [
   {
-   "id": "tmvftn8d7hfmjgg",
-   "from": "tmvftn8d7jovvg7",
-   "to": "tmvftn8d7bd2wg8",
+   "id": "tmvg5mfpv11uegy",
+   "from": "tmvg5mfpvptbbgp",
+   "to": "tmvg5mfpvnm7mgq",
    "label": "must finish first"
   }
  ],
@@ -240,7 +240,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.963Z",
-  "modified": "2026-10-19T22:24:07.963Z"
+  "created": "2026-10-20T03:59:26.227Z",
+  "modified": "2026-10-20T03:59:26.227Z"
  }
 }

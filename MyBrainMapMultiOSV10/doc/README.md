@@ -1,6 +1,6 @@
-# My BrainMap 기능 문서
+# MyBrainMap 기능 문서
 
-My BrainMap 은 생각을 중심 토픽에서 가지로 펼쳐 정리하는 마인드맵 프로그램입니다. Windows · macOS · Linux 데스크톱 앱(Tauri)과 웹 브라우저에서 똑같이 동작합니다.
+MyBrainMap 은 생각을 중심 토픽에서 가지로 펼쳐 정리하는 마인드맵 프로그램입니다. Windows · macOS · Linux 데스크톱 앱(Tauri)과 웹 브라우저에서 똑같이 동작합니다.
 
 ![시작 화면](images/start-page.png)
 

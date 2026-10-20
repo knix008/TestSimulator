@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8de90v2r4",
+  "id": "tmvg5mfqg042ls4",
   "text": "SWOT analysis",
   "children": [
    {
-    "id": "tmvftn8dey0j0qu",
+    "id": "tmvg5mfqgegpiru",
     "text": "Strengths",
     "children": [
      {
-      "id": "tmvftn8depq81qs",
+      "id": "tmvg5mfqgun6ers",
       "text": "Technology",
       "children": []
      },
      {
-      "id": "tmvftn8demhqtqt",
+      "id": "tmvg5mfqg0m6drt",
       "text": "Loyal customers",
       "children": []
      }
@@ -29,16 +29,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8deazoiqx",
+    "id": "tmvg5mfqgn21grx",
     "text": "Weaknesses",
     "children": [
      {
-      "id": "tmvftn8debs8uqv",
+      "id": "tmvg5mfqg9a8prv",
       "text": "Small reach",
       "children": []
      },
      {
-      "id": "tmvftn8decp57qw",
+      "id": "tmvg5mfqguwxdrw",
       "text": "High cost",
       "children": []
      }
@@ -51,16 +51,16 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8debu8br0",
+    "id": "tmvg5mfqgw0jbs0",
     "text": "Opportunities",
     "children": [
      {
-      "id": "tmvftn8de55sbqy",
+      "id": "tmvg5mfqgbb1yry",
       "text": "New markets",
       "children": []
      },
      {
-      "id": "tmvftn8de7tvmqz",
+      "id": "tmvg5mfqg0sw4rz",
       "text": "Deregulation",
       "children": []
      }
@@ -73,16 +73,16 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8deqajqr3",
+    "id": "tmvg5mfqgz4has3",
     "text": "Threats",
     "children": [
      {
-      "id": "tmvftn8dev5x0r1",
+      "id": "tmvg5mfqg7kfcs1",
       "text": "Competitors",
       "children": []
      },
      {
-      "id": "tmvftn8dedkwer2",
+      "id": "tmvg5mfqg7kt0s2",
       "text": "Exchange rates",
       "children": []
      }
@@ -113,7 +113,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.970Z",
-  "modified": "2026-10-19T22:24:07.970Z"
+  "created": "2026-10-20T03:59:26.248Z",
+  "modified": "2026-10-20T03:59:26.248Z"
  }
 }

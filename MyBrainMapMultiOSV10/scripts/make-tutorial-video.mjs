@@ -113,7 +113,7 @@ async function main() {
   await overlay();
 
   // ── 1. the start page ──
-  await caption('My BrainMap — 생각을 가지로 펼치는 마인드맵 프로그램', 'Windows · macOS · Linux 데스크톱과 웹 브라우저에서 똑같이 동작합니다');
+  await caption('MyBrainMap — 생각을 가지로 펼치는 마인드맵 프로그램', 'Windows · macOS · Linux 데스크톱과 웹 브라우저에서 똑같이 동작합니다');
   await hold(3.5);
   await still('start-page');
   await caption('시작 화면 — 튜토리얼, 새 맵, 템플릿, 예제 맵 16가지', '아래로 내리면 최근 파일과 배경 효과가 있습니다');
@@ -374,7 +374,7 @@ async function main() {
   await caption('도움말 창 — 왼쪽 목차, 검색, 앞뒤 이동');
   await hold(2.5);
   await still('help-window');
-  await caption('My BrainMap — 이제 직접 맵을 만들어 보세요!', '튜토리얼 맵은 시작 화면 › 시작하기 › 튜토리얼에서 언제든 다시 열 수 있습니다');
+  await caption('MyBrainMap — 이제 직접 맵을 만들어 보세요!', '튜토리얼 맵은 시작 화면 › 시작하기 › 튜토리얼에서 언제든 다시 열 수 있습니다');
   await hold(3.5);
   if (p.errors.length) console.log('page errors:', p.errors);
   await p.close();

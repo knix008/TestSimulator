@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cuz9i86b",
+  "id": "tmvg5mfp6o2nu6b",
   "text": "쇼핑몰 서비스",
   "children": [
    {
-    "id": "tmvftn8cu36al5v",
+    "id": "tmvg5mfp61nkt5v",
     "text": "프론트엔드",
     "children": [
      {
-      "id": "tmvftn8cusqqo5t",
+      "id": "tmvg5mfp67jvo5t",
       "text": "웹 (React)",
       "children": []
      },
      {
-      "id": "tmvftn8cuhekf5u",
+      "id": "tmvg5mfp6vrzn5u",
       "text": "모바일 앱",
       "children": []
      }
@@ -24,11 +24,11 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cum3fb5y",
+    "id": "tmvg5mfp6l68b5y",
     "text": "API 게이트웨이",
     "children": [
      {
-      "id": "tmvftn8cu0w9n5w",
+      "id": "tmvg5mfp6wqk55w",
       "text": "인증 (OAuth)",
       "children": [],
       "icons": [
@@ -36,7 +36,7 @@
       ]
      },
      {
-      "id": "tmvftn8cuvizv5x",
+      "id": "tmvg5mfp6kl1b5x",
       "text": "요청 제한",
       "children": []
      }
@@ -44,16 +44,16 @@
     "side": "left"
    },
    {
-    "id": "tmvftn8cuz33263",
+    "id": "tmvg5mfp69m1e63",
     "text": "백엔드 서비스",
     "children": [
      {
-      "id": "tmvftn8cu6yv05z",
+      "id": "tmvg5mfp6tlrv5z",
       "text": "주문",
       "children": []
      },
      {
-      "id": "tmvftn8cuv36u60",
+      "id": "tmvg5mfp6594960",
       "text": "결제",
       "children": [],
       "icons": [
@@ -61,12 +61,12 @@
       ]
      },
      {
-      "id": "tmvftn8cuymqo61",
+      "id": "tmvg5mfp6yt9161",
       "text": "재고",
       "children": []
      },
      {
-      "id": "tmvftn8cup2bn62",
+      "id": "tmvg5mfp67evk62",
       "text": "알림",
       "children": []
      }
@@ -78,21 +78,21 @@
     }
    },
    {
-    "id": "tmvftn8cutr5467",
+    "id": "tmvg5mfp6626j67",
     "text": "데이터",
     "children": [
      {
-      "id": "tmvftn8cuqaos64",
+      "id": "tmvg5mfp6a31f64",
       "text": "PostgreSQL",
       "children": []
      },
      {
-      "id": "tmvftn8cuwemq65",
+      "id": "tmvg5mfp63z5d65",
       "text": "Redis 캐시",
       "children": []
      },
      {
-      "id": "tmvftn8cuwb5o66",
+      "id": "tmvg5mfp6e3st66",
       "text": "이벤트 큐 (Kafka)",
       "children": []
      }
@@ -100,11 +100,11 @@
     "side": "right"
    },
    {
-    "id": "tmvftn8cujol36a",
+    "id": "tmvg5mfp61rju6a",
     "text": "운영",
     "children": [
      {
-      "id": "tmvftn8cuy78q68",
+      "id": "tmvg5mfp6kvzr68",
       "text": "모니터링",
       "children": [],
       "icons": [
@@ -112,7 +112,7 @@
       ]
      },
      {
-      "id": "tmvftn8cuomm569",
+      "id": "tmvg5mfp633ha69",
       "text": "로그 수집",
       "children": []
      }
@@ -124,21 +124,21 @@
  "floating": [],
  "relationships": [
   {
-   "id": "tmvftn8cu5rob6d",
-   "from": "tmvftn8cusqqo5t",
-   "to": "tmvftn8cu0w9n5w",
+   "id": "tmvg5mfp6jhla6d",
+   "from": "tmvg5mfp67jvo5t",
+   "to": "tmvg5mfp6wqk55w",
    "label": "HTTPS"
   },
   {
-   "id": "tmvftn8cuhnkd6e",
-   "from": "tmvftn8cu6yv05z",
-   "to": "tmvftn8cuwb5o66",
+   "id": "tmvg5mfp60iis6e",
+   "from": "tmvg5mfp6tlrv5z",
+   "to": "tmvg5mfp6e3st66",
    "label": "주문 이벤트"
   },
   {
-   "id": "tmvftn8cubeyb6f",
-   "from": "tmvftn8cuv36u60",
-   "to": "tmvftn8cuqaos64",
+   "id": "tmvg5mfp6l6686f",
+   "from": "tmvg5mfp6594960",
+   "to": "tmvg5mfp6a31f64",
    "label": ""
   }
  ],
@@ -157,7 +157,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.950Z",
-  "modified": "2026-10-19T22:24:07.950Z"
+  "created": "2026-10-20T03:59:26.202Z",
+  "modified": "2026-10-20T03:59:26.202Z"
  }
 }

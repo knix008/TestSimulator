@@ -19,7 +19,7 @@ import { measureText } from '../lib/measure';
 import { isWithin, findTopic } from '../lib/model';
 import { fontFamily } from '../lib/render';
 import { t } from '../lib/i18n';
-import { gridCell, rulerStep } from '../lib/canvasgrid';
+import { gridLines, rulerLabel } from '../lib/canvasgrid';
 
 const MIN_K = 0.1, MAX_K = 4;
 const clampK = (k) => Math.max(MIN_K, Math.min(MAX_K, k));
@@ -49,44 +49,72 @@ function dropZone(n, x, y) {
   return 'child';
 }
 
-const RULER = 20;
+const RULER = 22;
 
-// Rulers along the top and the left edge, in map units (0 is the central topic's centre).
-function Rulers({ v, size }) {
-  const step = rulerStep(v.k);
-  const minor = step / 5;
-  const ticks = (len, origin) => {
-    const out = [];
-    const first = Math.floor((0 - origin) / v.k / minor) * minor;
-    for (let w = first; (w * v.k + origin) <= len; w += minor) {
-      const px = Math.round(w * v.k + origin) + 0.5;
-      if (px < RULER) continue;
-      const major = Math.abs(Math.round(w / step) * step - w) < minor / 2;
-      out.push({ px, major, label: major ? String(Math.round(w)) : '' });
-    }
-    return out;
-  };
-  const xs = ticks(size.w, v.x);
-  const ys = ticks(size.h, v.y);
+// the grid's tones, as in MyCAD: the map's background with a little of its text colour mixed in
+// (more for the block lines, more again for the axis; a little stronger on a dark background)
+function gridTones(ms) {
+  const fg = ms.dark ? '#ffffff' : '#000000';
+  const mix = (p) => `color-mix(in srgb, ${fg} ${p}%, ${ms.bg})`;
+  return { '--grid': mix(ms.dark ? 12 : 8), '--grid-major': mix(ms.dark ? 22 : 17), '--grid-axis': mix(30) };
+}
+
+// The grid behind the map (drawn as in MyCAD): thin cell lines, stronger block lines every 5th,
+// and the axis through map 0 — from the same gridLines() as the rulers, so every ruler tick sits
+// on a grid line.
+function GridLayer({ v, size, from }) {
+  const xs = gridLines(v.x, v.k, size.w, from);
+  const ys = gridLines(v.y, v.k, size.h, from);
+  const lines = (list, cls) => list.map((l) => (cls === 'x'
+    ? <line key={`x${l.px}`} x1={l.px} x2={l.px} y1={0} y2={size.h} />
+    : <line key={`y${l.px}`} y1={l.px} y2={l.px} x1={0} x2={size.w} />));
+  return (
+    <svg className="grid-layer" width={size.w} height={size.h} aria-hidden="true">
+      <g className="grid-cells">{lines(xs.filter((l) => !l.major), 'x')}{lines(ys.filter((l) => !l.major), 'y')}</g>
+      <g className="grid-blocks">{lines(xs.filter((l) => l.major && !l.axis), 'x')}{lines(ys.filter((l) => l.major && !l.axis), 'y')}</g>
+      <g className="grid-axis">{lines(xs.filter((l) => l.axis), 'x')}{lines(ys.filter((l) => l.axis), 'y')}</g>
+    </svg>
+  );
+}
+
+// Rulers along the top and the left edge, in map units (0 is the central topic's centre), drawn as
+// in MyCAD: ticks grow from the inner edge — a long, labelled one on every block line of the grid,
+// a short one on every cell line — the left ruler's labels run upward, the corner names the unit,
+// and an orange mark on each ruler follows the pointer.
+function Rulers({ v, size, hostRef }) {
+  const xs = gridLines(v.x, v.k, size.w, RULER);
+  const ys = gridLines(v.y, v.k, size.h, RULER);
+  const [cur, setCur] = useState(null);
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return undefined;
+    const move = (e) => { const r = el.getBoundingClientRect(); setCur({ x: e.clientX - r.left, y: e.clientY - r.top }); };
+    const leave = () => setCur(null);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerleave', leave);
+    return () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerleave', leave); };
+  }, [hostRef]);
   return (
     <>
       <svg className="ruler ruler-x" width={size.w} height={RULER} aria-hidden="true">
         {xs.map((tk) => (
-          <g key={tk.px}>
-            <line x1={tk.px} x2={tk.px} y1={tk.major ? 6 : 14} y2={RULER} />
-            {tk.label && <text x={tk.px + 3} y={10}>{tk.label}</text>}
+          <g key={tk.px} className={tk.major ? 'major' : ''}>
+            <line x1={tk.px} x2={tk.px} y1={RULER - (tk.major ? 12 : 5)} y2={RULER} />
+            {tk.major && <text x={tk.px + 3} y={2}>{rulerLabel(tk.value)}</text>}
           </g>
         ))}
+        {cur && cur.x > RULER && <line className="ruler-cursor" x1={cur.x} x2={cur.x} y1={0} y2={RULER} />}
       </svg>
       <svg className="ruler ruler-y" width={RULER} height={size.h} aria-hidden="true">
         {ys.map((tk) => (
-          <g key={tk.px}>
-            <line y1={tk.px} y2={tk.px} x1={tk.major ? 6 : 14} x2={RULER} />
-            {tk.label && <text x={10} y={tk.px + 3} transform={`rotate(-90 10 ${tk.px + 3})`}>{tk.label}</text>}
+          <g key={tk.px} className={tk.major ? 'major' : ''}>
+            <line y1={tk.px} y2={tk.px} x1={RULER - (tk.major ? 12 : 5)} x2={RULER} />
+            {tk.major && <text x={2} y={tk.px - 3} transform={`rotate(-90 2 ${tk.px - 3})`}>{rulerLabel(tk.value)}</text>}
           </g>
         ))}
+        {cur && cur.y > RULER && <line className="ruler-cursor" y1={cur.y} y2={cur.y} x1={0} x2={RULER} />}
       </svg>
-      <div className="ruler-corner" aria-hidden="true" />
+      <div className="ruler-corner" aria-hidden="true">px</div>
     </>
   );
 }
@@ -117,21 +145,29 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
   }, [onViewChange]);
 
   // ── size ──
+  // `measured`: the real size is known (the first view must not be fitted to the 800 × 600 placeholder)
+  const [measured, setMeasured] = useState(false);
   useLayoutEffect(() => {
     const el = host.current;
     const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
     ro.observe(el);
     setSize({ w: el.clientWidth, h: el.clientHeight });
+    setMeasured(true);
     return () => ro.disconnect();
   }, []);
 
   // ── camera helpers ──
-  const fitView = useCallback((bounds = L.bounds, { maxK = 1, pad = 40 } = {}) => {
-    const w = Math.max(50, size.w - pad * 2), h = Math.max(50, size.h - pad * 2);
+  // The camera that shows `bounds` in the middle of the visible canvas (the rulers' strips left out).
+  // keepK: the zoom stays as it is and the map is only moved to the centre.
+  const fitView = useCallback((bounds = L.bounds, { maxK = 1, pad = 40, keepK = false } = {}) => {
+    const inset = settings.showRulers ? RULER : 0;
+    const aw = size.w - inset, ah = size.h - inset;
+    const w = Math.max(50, aw - pad * 2), h = Math.max(50, ah - pad * 2);
     const bw = Math.max(1, bounds.x1 - bounds.x0), bh = Math.max(1, bounds.y1 - bounds.y0);
-    const k = clampK(Math.min(maxK, w / bw, h / bh));
-    return { k, x: size.w / 2 - (bounds.x0 + bw / 2) * k, y: size.h / 2 - (bounds.y0 + bh / 2) * k };
-  }, [L, size]);
+    const cur = viewRef.current;
+    const k = keepK && cur ? cur.k : clampK(Math.min(maxK, w / bw, h / bh));
+    return { k, x: inset + aw / 2 - (bounds.x0 + bw / 2) * k, y: inset + ah / 2 - (bounds.y0 + bh / 2) * k };
+  }, [L, size, settings.showRulers]);
 
   const animateTo = useCallback((target) => {
     cancelAnimationFrame(anim.current);
@@ -151,9 +187,10 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
 
   // first show: the saved camera, or the whole map centred
   useEffect(() => {
-    if (!viewRef.current && size.w > 60) setView(fitView(L.bounds, { maxK: 1 }));
-    else if (viewRef.current && onViewChange) onViewChange(viewRef.current);
-  }, [size.w > 60]);   // eslint-disable-line react-hooks/exhaustive-deps
+    if (!measured) return;
+    if (!viewRef.current) setView(fitView(L.bounds, { maxK: 1 }));
+    else if (onViewChange) onViewChange(viewRef.current);
+  }, [measured]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const ensureVisible = useCallback((id, { center = false } = {}) => {
     const n = L.nodes.get(id);
@@ -178,6 +215,8 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
 
   useImperativeHandle(ref, () => ({
     fit: () => animateTo(fitView(L.bounds, { maxK: 1.5 })),
+    // the whole map in the middle of the canvas, at the zoom it has
+    centerMap: () => animateTo(fitView(L.bounds, { keepK: true })),
     fitSelection: (ids) => {
       let b = null;
       for (const id of ids) { const n = L.nodes.get(id); if (!n) continue; const nb = { x0: n.x, y0: n.y, x1: n.x + n.w, y1: n.y + n.h }; b = b ? { x0: Math.min(b.x0, nb.x0), y0: Math.min(b.y0, nb.y0), x1: Math.max(b.x1, nb.x1), y1: Math.max(b.y1, nb.y1) } : nb; }
@@ -236,7 +275,12 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
     // no mouse-down default: it would take the focus from the key catcher / topic editor (and select text)
     e.preventDefault();
     const p = toWorld(e);
-    const target = e.target.closest ? e.target.closest('[data-handle],[data-fold],[data-badge],[data-id],[data-rel]') : null;
+    let target = e.target.closest ? e.target.closest('[data-handle],[data-fold],[data-badge],[data-id],[data-rel]') : null;
+    // a relationship drawn across a topic: the topic under the pointer wins (the line is picked where no topic is)
+    if (target && target.dataset.rel && !target.dataset.handle) {
+      const under = nodeAt(L, p.x, p.y);
+      if (under) target = { dataset: { id: under.id } };
+    }
     if (editing && !(target && target.dataset.id === editing.id && !target.dataset.badge && !target.dataset.fold)) {
       // a click elsewhere finishes the edit first
       onEditCommit();
@@ -394,8 +438,9 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
 
   const onContext = (e) => {
     e.preventDefault();
-    const target = e.target.closest ? e.target.closest('[data-id],[data-rel]') : null;
+    let target = e.target.closest ? e.target.closest('[data-id],[data-rel]') : null;
     const p = toWorld(e);
+    if (target && target.dataset.rel) { const under = nodeAt(L, p.x, p.y); if (under) target = { dataset: { id: under.id } }; }
     if (target && target.dataset.id) {
       const id = target.dataset.id;
       if (!(doc.sel || []).includes(id)) onSelect([id], id);
@@ -494,14 +539,15 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
   const selRel = doc.selRel ? (map.relationships || []).find((r) => r.id === doc.selRel) : null;
   let relHandles = null;
   if (selRel && L.nodes.get(selRel.from) && L.nodes.get(selRel.to)) {
-    let rel = selRel;
+    // a relationship with the layout's automatic bend: its handles start from that bend
+    let rel = !selRel.c1 && !selRel.c2 && L.relBends && L.relBends.get(selRel.id) ? { ...selRel, ...L.relBends.get(selRel.id) } : selRel;
     if (overlay && overlay.relEdit && overlay.relEdit.rel === selRel.id) {
       const a = L.nodes.get(rel.from), b = L.nodes.get(rel.to);
       const p = overlay.relEdit.p;
       if (overlay.relEdit.which === 'c1') rel = { ...rel, c1: { x: p.x - (a.x + a.w / 2), y: p.y - (a.y + a.h / 2) } };
       else rel = { ...rel, c2: { x: p.x - (b.x + b.w / 2), y: p.y - (b.y + b.h / 2) } };
     }
-    const g = relationshipGeometry(rel, L.nodes.get(rel.from), L.nodes.get(rel.to));
+    const g = relationshipGeometry(rel, L.nodes.get(rel.from), L.nodes.get(rel.to), L.relBends);
     relHandles = { g, rel };
   }
   const hideText = editing ? `.tm-layer [data-id="${CSS.escape(editing.id)}"] .tm-text{opacity:0}` : '';
@@ -513,8 +559,9 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
 
   return (
     <div className={`map-canvas ${settings.showGrid ? 'grid' : ''} ${settings.showRulers ? 'rulers' : ''} ${linkFrom ? 'linking' : ''}`} ref={host}
-      style={{ backgroundColor: ms.bg, '--grid': ms.grid, '--grid-major': `color-mix(in srgb, ${ms.grid} 88%, ${ms.dark ? '#ffffff' : '#000000'})`, '--grid-size': `${gridCell(k) * k}px`, '--grid-major-size': `${gridCell(k) * 5 * k}px`, '--grid-x': `${v.x}px`, '--grid-y': `${v.y}px` }}
+      style={{ backgroundColor: ms.bg, ...gridTones(ms) }}
       onContextMenu={onContext}>
+      {settings.showGrid && <GridLayer v={v} size={size} from={0} />}
       <svg className="map-svg" width={size.w} height={size.h} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         style={{ '--sel': ms.dark ? '#7cc4ff' : '#1a73e8' }}>
         <style>{`${hideText}${showFold}${presentCss}`}</style>
@@ -564,7 +611,7 @@ export const MapCanvas = forwardRef(function MapCanvas(props, ref) {
         onKeyDown={onEditorKeyDown} onInput={onEditorInput} onCompositionStart={onCompositionStart} onCompositionEnd={onCompositionEnd}
         onCopy={onClipboard} onCut={onClipboard} onPaste={onClipboard}
         onBlur={() => { if (editing && !composing.current) setTimeout(() => { if (document.activeElement !== editor.current) onEditCommit(); }, 0); }} />
-      {settings.showRulers && <Rulers v={v} size={size} />}
+      {settings.showRulers && <Rulers v={v} size={size} hostRef={host} />}
       {linkFrom && <div className="map-hint">{t('link_hint')}</div>}
       {doc.focusId && findTopic(map, doc.focusId) && <button type="button" className="map-hint focus" onClick={() => onAction('focusOff')}>{t('focus_hint')}</button>}
     </div>

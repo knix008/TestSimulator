@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "My BrainMap desktop windows",
+  "description": "MyBrainMap desktop windows",
   "windows": ["*"],
   "remote": {
     "urls": [

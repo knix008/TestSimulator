@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cti4ls5q",
+  "id": "tmvg5mfp55l0x5q",
   "text": "사내 송년회 (80명)",
   "children": [
    {
-    "id": "tmvftn8ct6c635g",
+    "id": "tmvg5mfp5rbzx5g",
     "text": "D-30",
     "children": [
      {
-      "id": "tmvftn8ctmeqd5e",
+      "id": "tmvg5mfp5hajh5e",
       "text": "장소 예약",
       "children": [],
       "task": {
@@ -21,7 +21,7 @@
       }
      },
      {
-      "id": "tmvftn8cto26p5f",
+      "id": "tmvg5mfp5rdtj5f",
       "text": "예산 승인",
       "children": [],
       "task": {
@@ -33,11 +33,11 @@
     ]
    },
    {
-    "id": "tmvftn8ctxv435j",
+    "id": "tmvg5mfp54hml5j",
     "text": "D-14",
     "children": [
      {
-      "id": "tmvftn8ctnpzf5h",
+      "id": "tmvg5mfp5bjm45h",
       "text": "초대장 발송",
       "children": [],
       "task": {
@@ -47,7 +47,7 @@
       }
      },
      {
-      "id": "tmvftn8ctir8h5i",
+      "id": "tmvg5mfp5b5dw5i",
       "text": "케이터링 계약",
       "children": [],
       "task": {
@@ -59,11 +59,11 @@
     ]
    },
    {
-    "id": "tmvftn8ct21f05m",
+    "id": "tmvg5mfp5xm3q5m",
     "text": "D-7",
     "children": [
      {
-      "id": "tmvftn8ctlra25k",
+      "id": "tmvg5mfp5s9rj5k",
       "text": "경품 구매",
       "children": [],
       "task": {
@@ -73,7 +73,7 @@
       }
      },
      {
-      "id": "tmvftn8cte00i5l",
+      "id": "tmvg5mfp53kor5l",
       "text": "진행 대본",
       "children": [],
       "task": {
@@ -85,11 +85,11 @@
     ]
    },
    {
-    "id": "tmvftn8ct9gab5p",
+    "id": "tmvg5mfp5e5bl5p",
     "text": "D-day",
     "children": [
      {
-      "id": "tmvftn8ctntwy5n",
+      "id": "tmvg5mfp57hlf5n",
       "text": "음향 점검",
       "children": [],
       "task": {
@@ -99,7 +99,7 @@
       }
      },
      {
-      "id": "tmvftn8ctjbg45o",
+      "id": "tmvg5mfp5lx3j5o",
       "text": "사진 촬영",
       "children": [],
       "task": {
@@ -135,7 +135,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.949Z",
-  "modified": "2026-10-19T22:24:07.949Z"
+  "created": "2026-10-20T03:59:26.201Z",
+  "modified": "2026-10-20T03:59:26.201Z"
  }
 }

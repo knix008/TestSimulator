@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8d876qjhu",
+  "id": "tmvg5mfpxkvtyic",
   "text": "CEO\nRiley Chen",
   "children": [
    {
-    "id": "tmvftn8d86phchm",
+    "id": "tmvg5mfpxr5cfi4",
     "text": "Operations",
     "children": [
      {
-      "id": "tmvftn8d8s139hk",
+      "id": "tmvg5mfpxv59mi2",
       "text": "HR lead\nAva Brown",
       "children": [],
       "icons": [
@@ -19,7 +19,7 @@
       ]
      },
      {
-      "id": "tmvftn8d8smf1hl",
+      "id": "tmvg5mfpx1e6zi3",
       "text": "Finance lead\nLeo Park",
       "children": [],
       "icons": [
@@ -29,11 +29,11 @@
     ]
    },
    {
-    "id": "tmvftn8d8ef7dhq",
+    "id": "tmvg5mfpx8ibei8",
     "text": "Engineering (CTO)",
     "children": [
      {
-      "id": "tmvftn8d8d5dzhn",
+      "id": "tmvg5mfpxg980i5",
       "text": "Platform\nMax Ito",
       "children": [],
       "icons": [
@@ -41,7 +41,7 @@
       ]
      },
      {
-      "id": "tmvftn8d8ilstho",
+      "id": "tmvg5mfpx27smi6",
       "text": "Mobile\nMia Novak",
       "children": [],
       "icons": [
@@ -49,7 +49,7 @@
       ]
      },
      {
-      "id": "tmvftn8d8gub9hp",
+      "id": "tmvg5mfpxbxfoi7",
       "text": "Data\nSam Diaz",
       "children": [],
       "icons": [
@@ -63,11 +63,11 @@
     }
    },
    {
-    "id": "tmvftn8d8w2deht",
+    "id": "tmvg5mfpxryvzib",
     "text": "Business",
     "children": [
      {
-      "id": "tmvftn8d8qhxnhr",
+      "id": "tmvg5mfpxz765i9",
       "text": "Sales\nZoe Kim",
       "children": [],
       "icons": [
@@ -75,7 +75,7 @@
       ]
      },
      {
-      "id": "tmvftn8d8jhx5hs",
+      "id": "tmvg5mfpxu5fkia",
       "text": "Marketing\nIan Ross",
       "children": [],
       "icons": [
@@ -103,7 +103,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.964Z",
-  "modified": "2026-10-19T22:24:07.964Z"
+  "created": "2026-10-20T03:59:26.229Z",
+  "modified": "2026-10-20T03:59:26.229Z"
  }
 }

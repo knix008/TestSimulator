@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "My BrainMap",
+  "productName": "MyBrainMap",
   "version": "1.0.0",
   "identifier": "com.shkwon.mybrainmap",
   "build": {
@@ -69,8 +69,8 @@
     "fileAssociations": [
       {
         "ext": ["tmap"],
-        "name": "My BrainMap map",
-        "description": "My BrainMap map",
+        "name": "MyBrainMap map",
+        "description": "MyBrainMap map",
         "role": "Editor"
       },
       {

@@ -1,4 +1,4 @@
-/* My BrainMap — 40 themes set from src/themes.js as CSS variables on :root.
+/* MyBrainMap — 40 themes set from src/themes.js as CSS variables on :root.
    The values here are the "midnight" defaults shown until the session loads. */
 :root {
   --bg: #12161c;
@@ -651,7 +651,7 @@ body.dragging-y { cursor: row-resize; }
 .start-speed-value { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; font-size: 11px; font-weight: 600; pointer-events: none; }
 @media (max-width: 860px) { .start { padding: 16px; } .start-board { grid-template-columns: minmax(0, 1fr); grid-template-areas: "begin" "tasks" "recent" "scenes"; } .task-grid { grid-template-columns: minmax(0, 1fr); } }
 
-/* ══ My BrainMap ══════════════════════════════════════════════════════════ */
+/* ══ MyBrainMap ══════════════════════════════════════════════════════════ */
 
 .main-area { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
 .empty-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--fg-muted); }
@@ -670,19 +670,24 @@ body.dragging-y { cursor: row-resize; }
 
 /* ── the map canvas ── */
 .map-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; outline: none; cursor: default; touch-action: none; }
-.map-canvas.grid { background-image: linear-gradient(to right, var(--grid-major) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px), linear-gradient(to right, var(--grid) 1px, transparent 1px), linear-gradient(to bottom, var(--grid) 1px, transparent 1px); background-size: var(--grid-major-size) var(--grid-major-size), var(--grid-major-size) var(--grid-major-size), var(--grid-size) var(--grid-size), var(--grid-size) var(--grid-size); background-position: var(--grid-x) var(--grid-y); }
-/* rulers along the top and left edge of the map (map units; 0 = the central topic) */
-.ruler { position: absolute; z-index: 3; pointer-events: none; background: color-mix(in srgb, var(--bg-elev) 92%, transparent); }
-.ruler-x { left: 0; top: 0; border-bottom: 1px solid var(--border-strong); }
-.ruler-y { left: 0; top: 0; border-right: 1px solid var(--border-strong); }
+/* the grid: an SVG under the map, drawn from the same lines as the rulers (src/lib/canvasgrid.js) */
+.grid-layer { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; }
+/* as in MyCAD: tones blended from the map background and its text colour (see MapCanvas) */
+.grid-layer .grid-cells line { stroke: var(--grid); stroke-width: 1; }
+.grid-layer .grid-blocks line { stroke: var(--grid-major); stroke-width: 1.4; }
+.grid-layer .grid-axis line { stroke: var(--grid-axis); stroke-width: 1; }
+.ruler { position: absolute; z-index: 3; pointer-events: none; background: var(--bg-panel); }
+.ruler-x { left: 0; top: 0; border-bottom: 1px solid var(--border); }
+.ruler-y { left: 0; top: 0; border-right: 1px solid var(--border); }
 .ruler line { stroke: var(--fg-muted); stroke-width: 1; }
-.ruler text { fill: var(--fg-muted); font-size: 9px; font-family: var(--mono); }
-.ruler-corner { position: absolute; z-index: 3; left: 0; top: 0; width: 20px; height: 20px; background: var(--bg-elev); border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); pointer-events: none; }
-.map-canvas.rulers .map-hint:not(.focus) { top: 28px; }
+.ruler text { fill: var(--fg-muted); font-size: 10px; font-family: "Segoe UI", system-ui, sans-serif; dominant-baseline: hanging; }
+.ruler .ruler-cursor { stroke: #f5a524; stroke-width: 1.5; }
+.ruler-corner { position: absolute; z-index: 3; left: 0; top: 0; width: 22px; height: 22px; box-sizing: border-box; display: grid; place-items: center; font-size: 9px; color: var(--fg-muted); background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); pointer-events: none; }
+.map-canvas.rulers .map-hint:not(.focus) { top: 30px; }
 .map-canvas.panning, .map-canvas.panning * { cursor: grabbing !important; }
 .map-canvas.linking, .map-canvas.linking * { cursor: crosshair !important; }
 .map-canvas.dragging-topic, .map-canvas.dragging-topic * { cursor: grabbing !important; }
-.map-svg { display: block; user-select: none; }
+.map-svg { display: block; position: relative; z-index: 1; user-select: none; }
 .tm-layer .tm-area { pointer-events: all; }
 .tm-layer .tm-topic { cursor: pointer; }
 .tm-layer .tm-topic:hover .tm-shape, .tm-layer .tm-topic:hover .tm-area { filter: brightness(1.06); }
@@ -708,8 +713,10 @@ body.dragging-y { cursor: row-resize; }
 .tm-overlay .tm-ghost text { fill: var(--sel); font-weight: 700; }
 .tm-overlay .tm-marquee { fill: color-mix(in srgb, var(--sel) 10%, transparent); stroke: var(--sel); stroke-dasharray: 4 3; }
 .tm-overlay .tm-linking { stroke: var(--sel); stroke-dasharray: 6 4; fill: none; }
-.tm-overlay .tm-relsel-path { fill: none; stroke: var(--sel); stroke-opacity: 0.3; }
-.tm-overlay .tm-relsel-arm { fill: none; stroke: var(--sel); stroke-dasharray: 3 3; }
+/* overlay decorations never catch the pointer: only the relationship handles (.tm-handle) do */
+.tm-overlay .tm-sel, .tm-overlay .tm-drop, .tm-overlay .tm-drop-line, .tm-overlay .tm-ghost, .tm-overlay .tm-marquee, .tm-overlay .tm-linking { pointer-events: none; }
+.tm-overlay .tm-relsel-path { fill: none; stroke: var(--sel); stroke-opacity: 0.3; pointer-events: none; }   /* the highlight of a selected relationship must not catch clicks meant for the topics under it */
+.tm-overlay .tm-relsel-arm { fill: none; stroke: var(--sel); stroke-dasharray: 3 3; pointer-events: none; }
 .tm-overlay .tm-handle { fill: #fff; stroke: var(--sel); pointer-events: all; cursor: move; }
 /* the topic editor: invisible key catcher while not editing, the text box while editing */
 .tm-editor { position: absolute; z-index: 5; resize: none; overflow: hidden; border: 0; outline: none; padding: 2px 4px; margin: 0; white-space: pre-wrap; word-break: break-word; }
@@ -751,6 +758,8 @@ body.dragging-y { cursor: row-resize; }
 .pane-btns .btn.small, .pane-section .btn.small { margin-left: 0; padding: 3px 8px; min-width: 0; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
 .pane-body .tool-btn { padding: 4px; }
 .shape-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.shape-group-h { font-size: 11px; color: var(--fg-muted); margin: 6px 0 3px; }
+.shape-group-h:first-child { margin-top: 0; }
 .shape-btn { display: inline-flex; align-items: center; justify-content: center; height: 30px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg); padding: 0; }
 .shape-btn:hover { border-color: var(--accent); }
 .shape-btn.auto { border-style: dashed; border-color: var(--fg-muted); }
@@ -1012,3 +1021,32 @@ body.dragging-x, body.dragging-x * { cursor: col-resize !important; user-select:
 .tour-progress > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s ease; }
 .tour-foot { display: flex; align-items: center; gap: 6px; }
 .tour-foot .btn { display: inline-flex; align-items: center; gap: 4px; }
+
+/* the left pane: content keeps a margin from the pane's edge (the filter tab is also an .sb-body,
+   whose padding: 4px 0 above would otherwise win) */
+.sidebar .sb-filter { padding: 6px 12px; }
+.sidebar .search-form { padding: 8px 12px 6px; }
+.sidebar .sr-hit { padding: 4px 12px; }
+.sidebar .filter-tab.sb-body { padding: 8px 12px; }
+.sidebar .index-empty { margin: 0 0 4px 2px; }
+.sidebar .sb-empty { padding: 30px 16px; }
+/* the tab strip sits over the map only: its < and > go to the previous / next tab */
+.main-area > .tabbar { flex: none; }
+.tabbar .tab-prev { border-right: 1px solid var(--border); }
+.tabbar .tab-ctl:disabled { opacity: 0.35; }
+
+/* IconSelect: a drop-down list with an icon on every entry (stands in for <select>) */
+.icon-select { display: inline-flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); text-align: left; cursor: pointer; outline: none; line-height: 1.3; }
+.icon-select:hover:not(:disabled) { border-color: var(--border-strong, var(--accent)); }
+.icon-select:focus-visible, .icon-select.open { border-color: var(--accent); }
+.icon-select:disabled { opacity: 0.55; cursor: default; }
+.icon-select .is-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 16px; color: var(--fg-muted); }
+.icon-select .is-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-select .is-caret { flex: none; opacity: 0.7; }
+.is-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 14px; padding: 0 2px; border: 1px solid currentColor; border-radius: 3px; font-size: 9px; font-weight: 700; line-height: 1; }
+.ctx-menu.select-menu { z-index: 2600; }
+.format-grid .icon-select, .pane-ctl .icon-select { padding: 4px 6px; font-size: 12px; flex: 1; }
+.pane-ctl .icon-select.pane-select-sm { flex: none; }
+.ov-row .icon-select { padding: 2px 4px; font-size: 12px; height: 26px; }
+.print-pv-side .icon-select { height: 30px; padding: 0 8px; }
+.pe-quick .icon-select { max-width: 220px; width: auto; }

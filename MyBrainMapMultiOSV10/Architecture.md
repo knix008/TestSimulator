@@ -1,4 +1,4 @@
-# My BrainMap — 아키텍처
+# MyBrainMap — 아키텍처
 
 구조는 [My Editor (MyEditorMultiOSV20)](../MyEditorMultiOSV20/Architecture.md) 와 같습니다: 렌더러(React) → 전송(데스크톱은 Tauri 가 띄운 Node 서비스의 HTTP `/api`, 웹은 같은 HTTP) → 호스트(`src-tauri/` + `host/` · `server/`) → core(Node, 두 호스트가 공유). 렌더러의 모든 백엔드 호출은 `src/lib/backend.js` 의 `call(name, args)` 하나를 거쳐 `core/api.js` 의 같은 메서드 테이블에 닿습니다.
 
@@ -59,7 +59,7 @@ MyBrainMapMultiOSV10/
 4. 맵 레이아웃의 좌우는 `side` 가 없으면 보이는 잎 수로 균형을 맞춥니다(새 주 토픽은 만들 때 `side` 를 받아 자리가 고정됩니다).
 5. 절대 좌표를 만들 때 `offset` 을 더해 손으로 옮긴 가지를 통째로 옮깁니다. 요약은 하위 토픽 블록의 오른쪽(왼쪽)에 괄호와 이름표 상자를 두고 `L.summaries` 로 돌려줍니다.
 
-캔버스의 격자와 눈금자 간격은 `lib/canvasgrid.js`(확대 비율에 따라 24 · 120 … 단위, 눈금 1 · 2 · 5 × 10ⁿ)가 정합니다. 칸반 보드(`KanbanView`)는 주 토픽을 열로 그리고, 카드 끌어 놓기를 지도의 `cmdMove` 로 바꿔 실행 취소 기록을 공유합니다.
+캔버스의 격자와 눈금자는 `lib/canvasgrid.js` 의 같은 `gridLines()` 로 그립니다: 칸(100% 에서 20 단위)이 화면에서 10 ~ 50 픽셀이 되도록 단위를 5배 / 1/5 로 고르고(MyCAD 의 `gridStepFor` 와 같은 규칙, 5 × 5 묶음이 정확히 다음 단계와 겹침), 선 위치를 픽셀 중앙에 맞춰 격자(SVG, 맵 아래)와 눈금이 같은 픽셀에 놓입니다. 칸반 보드(`KanbanView`)는 주 토픽을 열로 그리고, 카드 끌어 놓기를 지도의 `cmdMove` 로 바꿔 실행 취소 기록을 공유합니다.
 
 `npm test` 는 9가지 레이아웃 모두에서 토픽이 겹치지 않는지, 접힌 · 빈 가지에서도 좌표가 유한한지 확인합니다.
 

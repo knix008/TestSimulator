@@ -3,15 +3,15 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dfzkgvsz",
+  "id": "tmvg5mfqo8fgwtz",
   "text": "CEO",
   "children": [
    {
-    "id": "tmvftn8dfomnosr",
+    "id": "tmvg5mfqoeu91tr",
     "text": "Operations",
     "children": [
      {
-      "id": "tmvftn8dfbs6ksp",
+      "id": "tmvg5mfqo0gq1tp",
       "text": "HR",
       "children": [],
       "icons": [
@@ -19,7 +19,7 @@
       ]
      },
      {
-      "id": "tmvftn8dfia1msq",
+      "id": "tmvg5mfqor7xutq",
       "text": "Finance",
       "children": [],
       "icons": [
@@ -29,11 +29,11 @@
     ]
    },
    {
-    "id": "tmvftn8dflfalsv",
+    "id": "tmvg5mfqogxsstv",
     "text": "Engineering",
     "children": [
      {
-      "id": "tmvftn8dfsbv0ss",
+      "id": "tmvg5mfqoeywtts",
       "text": "Frontend",
       "children": [],
       "icons": [
@@ -41,7 +41,7 @@
       ]
      },
      {
-      "id": "tmvftn8dfalcust",
+      "id": "tmvg5mfqoths5tt",
       "text": "Backend",
       "children": [],
       "icons": [
@@ -49,7 +49,7 @@
       ]
      },
      {
-      "id": "tmvftn8dfz4azsu",
+      "id": "tmvg5mfqob09rtu",
       "text": "QA",
       "children": [],
       "icons": [
@@ -59,11 +59,11 @@
     ]
    },
    {
-    "id": "tmvftn8df5z09sy",
+    "id": "tmvg5mfqo8mgoty",
     "text": "Sales",
     "children": [
      {
-      "id": "tmvftn8dfw00zsw",
+      "id": "tmvg5mfqofh1qtw",
       "text": "Domestic",
       "children": [],
       "icons": [
@@ -71,7 +71,7 @@
       ]
      },
      {
-      "id": "tmvftn8dfxzq6sx",
+      "id": "tmvg5mfqohgv8tx",
       "text": "Overseas",
       "children": [],
       "icons": [
@@ -99,7 +99,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.971Z",
-  "modified": "2026-10-19T22:24:07.971Z"
+  "created": "2026-10-20T03:59:26.256Z",
+  "modified": "2026-10-20T03:59:26.256Z"
  }
 }

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- My BrainMap — the same thick 3D squircle as the sibling apps (extruded,
+  <!-- MyBrainMap — the same thick 3D squircle as the sibling apps (extruded,
        lit from the top-left) with a recessed well. In the well a small mind
        map: a glowing central topic and four tapered branches ending in
        coloured topics. Rasterized by scripts/generate-icons.mjs (sharp). -->

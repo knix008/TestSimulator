@@ -3,20 +3,20 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dbis4fms",
+  "id": "tmvg5mfq5c7x9na",
   "text": "Small habits, big change",
   "children": [
    {
-    "id": "tmvftn8db4kiimc",
+    "id": "tmvg5mfq513n4mu",
     "text": "Key ideas",
     "children": [
      {
-      "id": "tmvftn8dboee9ma",
+      "id": "tmvg5mfq5b6e2ms",
       "text": "Get 1% better",
       "children": []
      },
      {
-      "id": "tmvftn8db5goomb",
+      "id": "tmvg5mfq5m52vmt",
       "text": "Identity-based habits",
       "children": [],
       "icons": [
@@ -26,52 +26,52 @@
     ]
    },
    {
-    "id": "tmvftn8dbv8qamh",
+    "id": "tmvg5mfq5f5mkmz",
     "text": "Four steps of a habit",
     "children": [
      {
-      "id": "tmvftn8dbuih0md",
+      "id": "tmvg5mfq506d7mv",
       "text": "Cue",
       "children": []
      },
      {
-      "id": "tmvftn8dbmtzrme",
+      "id": "tmvg5mfq593i0mw",
       "text": "Craving",
       "children": []
      },
      {
-      "id": "tmvftn8dbu55nmf",
+      "id": "tmvg5mfq5rolnmx",
       "text": "Response",
       "children": []
      },
      {
-      "id": "tmvftn8dbtm60mg",
+      "id": "tmvg5mfq5ipv4my",
       "text": "Reward",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dbq5qmmm",
+    "id": "tmvg5mfq5br6bn4",
     "text": "How to apply",
     "children": [
      {
-      "id": "tmvftn8db192vmi",
+      "id": "tmvg5mfq5m3aln0",
       "text": "Make it obvious",
       "children": []
      },
      {
-      "id": "tmvftn8dbobicmj",
+      "id": "tmvg5mfq5mm4jn1",
       "text": "Make it attractive",
       "children": []
      },
      {
-      "id": "tmvftn8db7p8dmk",
+      "id": "tmvg5mfq5j2xbn2",
       "text": "Make it easy",
       "children": []
      },
      {
-      "id": "tmvftn8dbtl1fml",
+      "id": "tmvg5mfq5j6nqn3",
       "text": "Make it satisfying",
       "children": []
      }
@@ -81,11 +81,11 @@
     ]
    },
    {
-    "id": "tmvftn8dbydy7mo",
+    "id": "tmvg5mfq52pz2n6",
     "text": "Quotes",
     "children": [
      {
-      "id": "tmvftn8db3hi2mn",
+      "id": "tmvg5mfq5k8r7n5",
       "text": "\"Systems, not goals\"",
       "children": [],
       "icons": [
@@ -95,11 +95,11 @@
     ]
    },
    {
-    "id": "tmvftn8dbg7d9mr",
+    "id": "tmvg5mfq5zzrrn9",
     "text": "Questions",
     "children": [
      {
-      "id": "tmvftn8dbuqtwmp",
+      "id": "tmvg5mfq59ltln7",
       "text": "Which habit would I drop?",
       "children": [],
       "icons": [
@@ -107,7 +107,7 @@
       ]
      },
      {
-      "id": "tmvftn8dbzd89mq",
+      "id": "tmvg5mfq5th9hn8",
       "text": "Where could the 2-minute rule help?",
       "children": [],
       "icons": [
@@ -135,7 +135,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.967Z",
-  "modified": "2026-10-19T22:24:07.967Z"
+  "created": "2026-10-20T03:59:26.237Z",
+  "modified": "2026-10-20T03:59:26.237Z"
  }
 }

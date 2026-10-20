@@ -3,25 +3,25 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dhdvm9uv",
+  "id": "tmvg5mfqt1zzcvv",
   "text": "Trip to the coast",
   "children": [
    {
-    "id": "tmvftn8dhzcqjuk",
+    "id": "tmvg5mfqth45svk",
     "text": "Itinerary",
     "children": [
      {
-      "id": "tmvftn8dh1rttuh",
+      "id": "tmvg5mfqtqb57vh",
       "text": "Day 1",
       "children": []
      },
      {
-      "id": "tmvftn8dhv9feui",
+      "id": "tmvg5mfqt3a6bvi",
       "text": "Day 2",
       "children": []
      },
      {
-      "id": "tmvftn8dh14htuj",
+      "id": "tmvg5mfqtnhg8vj",
       "text": "Day 3",
       "children": []
      }
@@ -31,11 +31,11 @@
     ]
    },
    {
-    "id": "tmvftn8dhuqelum",
+    "id": "tmvg5mfqthwkhvm",
     "text": "Stay",
     "children": [
      {
-      "id": "tmvftn8dh1z1kul",
+      "id": "tmvg5mfqtaraevl",
       "text": "Booking",
       "children": [],
       "icons": [
@@ -48,21 +48,21 @@
     ]
    },
    {
-    "id": "tmvftn8dhjag6uq",
+    "id": "tmvg5mfqt81z4vq",
     "text": "Packing",
     "children": [
      {
-      "id": "tmvftn8dhi17aun",
+      "id": "tmvg5mfqtkbcjvn",
       "text": "ID",
       "children": []
      },
      {
-      "id": "tmvftn8dhozk8uo",
+      "id": "tmvg5mfqt9mgovo",
       "text": "Charger",
       "children": []
      },
      {
-      "id": "tmvftn8dhh0hvup",
+      "id": "tmvg5mfqtbwo9vp",
       "text": "Medicine",
       "children": []
      }
@@ -72,21 +72,21 @@
     ]
    },
    {
-    "id": "tmvftn8dhf8txuu",
+    "id": "tmvg5mfqtpuo0vu",
     "text": "Budget",
     "children": [
      {
-      "id": "tmvftn8dh9s3uur",
+      "id": "tmvg5mfqt9d3hvr",
       "text": "Travel",
       "children": []
      },
      {
-      "id": "tmvftn8dhpf7zus",
+      "id": "tmvg5mfqtd6kavs",
       "text": "Food",
       "children": []
      },
      {
-      "id": "tmvftn8dh7dtaut",
+      "id": "tmvg5mfqtvtstvt",
       "text": "Lodging",
       "children": []
      }
@@ -114,7 +114,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.973Z",
-  "modified": "2026-10-19T22:24:07.973Z"
+  "created": "2026-10-20T03:59:26.261Z",
+  "modified": "2026-10-20T03:59:26.261Z"
  }
 }

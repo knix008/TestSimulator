@@ -6,6 +6,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from './Icons';
+import { IconSelect, priorityOptions, progressOptions } from './IconSelect';
 import { topicMarkers, markerSvgDoc } from '../lib/markers';
 import { setText, addSibling, addChild, makeTopic, indentTopic, outdentTopic, shiftTopic, removeTopics, setCollapsed, setTask } from '../lib/model';
 
@@ -127,16 +128,10 @@ export function OutlineView({ doc, map, settings, edit, onSelect, readonly }) {
                 {tp.collapsed && kids > 0 && <span className="tree-count">{kids}</span>}
               </span>
               <span className="ov-c-pri">
-                <select value={task.priority || ''} disabled={readonly} onChange={(e) => edit((m) => setTask(m, [tp.id], { priority: e.target.value ? Number(e.target.value) : null }), '')}>
-                  <option value="">—</option>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <IconSelect name="priority" value={task.priority || ''} disabled={readonly} options={priorityOptions('—')} onChange={(v) => edit((m) => setTask(m, [tp.id], { priority: v ? Number(v) : null }), '')} />
               </span>
               <span className="ov-c-prog">
-                <select value={task.progress ?? ''} disabled={readonly} onChange={(e) => edit((m) => setTask(m, [tp.id], { progress: e.target.value === '' ? null : Number(e.target.value) }), '')}>
-                  <option value="">—</option>
-                  {[0, 25, 50, 75, 100].concat(task.progress != null && ![0, 25, 50, 75, 100].includes(task.progress) ? [task.progress] : []).map((p) => <option key={p} value={p}>{`${p}%`}</option>)}
-                </select>
+                <IconSelect name="progress" value={task.progress ?? ''} disabled={readonly} options={progressOptions('—', task.progress)} onChange={(v) => edit((m) => setTask(m, [tp.id], { progress: v === '' ? null : Number(v) }), '')} />
               </span>
               <span className="ov-c-date"><input type="date" value={task.start || ''} disabled={readonly} onChange={(e) => edit((m) => setTask(m, [tp.id], { start: e.target.value }), '')} /></span>
               <span className="ov-c-date"><input type="date" value={task.due || ''} disabled={readonly} onChange={(e) => edit((m) => setTask(m, [tp.id], { due: e.target.value }), '')} /></span>

@@ -3,31 +3,31 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dfpg6etc",
+  "id": "tmvg5mfqpvc28uc",
   "text": "2027 roadmap",
   "children": [
    {
-    "id": "tmvftn8df2ivdt4",
+    "id": "tmvg5mfqp9wdyu4",
     "text": "Q1",
     "children": [
      {
-      "id": "tmvftn8df2phet2",
+      "id": "tmvg5mfqp9ze9u2",
       "text": "Beta release",
       "children": []
      },
      {
-      "id": "tmvftn8dftftdt3",
+      "id": "tmvg5mfqpsne0u3",
       "text": "Collect feedback",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8df93p2t7",
+    "id": "tmvg5mfqp0wd9u7",
     "text": "Q2",
     "children": [
      {
-      "id": "tmvftn8dfsv9et5",
+      "id": "tmvg5mfqpwkdmu5",
       "text": "GA release",
       "children": [],
       "icons": [
@@ -35,29 +35,29 @@
       ]
      },
      {
-      "id": "tmvftn8dfuught6",
+      "id": "tmvg5mfqph1wvu6",
       "text": "Mobile app",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dfiwkjt9",
+    "id": "tmvg5mfqppu16u9",
     "text": "Q3",
     "children": [
      {
-      "id": "tmvftn8dfpz6ut8",
+      "id": "tmvg5mfqppcsou8",
       "text": "Go global",
       "children": []
      }
     ]
    },
    {
-    "id": "tmvftn8dfpmk1tb",
+    "id": "tmvg5mfqp9sm3ub",
     "text": "Q4",
     "children": [
      {
-      "id": "tmvftn8dfthj4ta",
+      "id": "tmvg5mfqppacdua",
       "text": "Year review",
       "children": []
      }
@@ -82,7 +82,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.971Z",
-  "modified": "2026-10-19T22:24:07.971Z"
+  "created": "2026-10-20T03:59:26.257Z",
+  "modified": "2026-10-20T03:59:26.257Z"
  }
 }

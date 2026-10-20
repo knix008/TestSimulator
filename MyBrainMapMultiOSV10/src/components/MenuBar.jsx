@@ -1,5 +1,5 @@
 // The top of the window, two rows:
-//   menu bar   — app icon and name (My BrainMap V1.0) on the left, then the menus
+//   menu bar   — app icon and name (MyBrainMap V1.0) on the left, then the menus
 //                (파일 · 편집 · 삽입 · 서식 · 보기 · 도구 · 도움말, each
 //                with an icon), and on the desktop minimize / maximize / close
 //                on the right. The icon, name and the empty stretch are the
@@ -53,15 +53,27 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
   const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
   // The list is grouped by mode: the dark themes first, then the light ones, each
   // in a single column of THEME_ROWS rows (a header + its 20 themes), so the two
-  // modes stand side by side and the custom ones (★, in their own mode's group)
-  // follow their mode. Spacers pad a group so the next one starts a new column.
+  // modes stand side by side. Spacers pad a group so the next one starts a new column.
+  // The custom themes (★) come last, in full-width rows under both columns, with the
+  // commands that make a new one and open the editor in Settings › Theme.
+  const themeCell = (th, wide = false) => ({ id: `theme:${th.id}`, label: `${th.custom ? '★ ' : ''}${lang === 'ko' ? th.label : th.labelEn}`, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'], wide, ...(wide ? { meta: t(th.mode === 'light' ? 'set_custom_light' : 'set_custom_dark') } : {}) });
   const themeGroup = (title, list) => {
     if (!list.length) return [];
-    const cells = [{ header: title }, ...list.map((th) => ({ id: `theme:${th.id}`, label: `${th.custom ? '★ ' : ''}${lang === 'ko' ? th.label : th.labelEn}`, checked: th.id === theme, swatch: th.tokens['--accent'], swatchBg: th.tokens['--bg'] }))];
+    const cells = [{ header: title }, ...list.map((th) => themeCell(th))];
     while (cells.length % THEME_ROWS) cells.push({ spacer: true });
     return cells;
   };
-  const themeItems = [...themeGroup(t('set_theme_dark'), allThemes().filter((th) => th.mode === 'dark')), ...themeGroup(t('set_theme_light'), allThemes().filter((th) => th.mode === 'light'))];
+  const builtIn = allThemes().filter((th) => !th.custom);
+  const custom = allThemes().filter((th) => th.custom);
+  const themeItems = [
+    ...themeGroup(t('set_theme_dark'), builtIn.filter((th) => th.mode === 'dark')),
+    ...themeGroup(t('set_theme_light'), builtIn.filter((th) => th.mode === 'light')),
+    { sep: true, wide: true },
+    { header: t('set_custom_themes'), wide: true },
+    ...custom.map((th) => themeCell(th, true)),
+    { id: 'themeCustomNew', label: t('theme_custom_new', { name: themeLabel(theme) }), icon: 'plus', wide: true },
+    { id: 'themeCustomEdit', label: t('theme_custom_edit'), icon: 'palette', wide: true },
+  ];
   const keep = (e) => e.preventDefault();   // keep the editor focused
   return (
     <span className="app-controls">

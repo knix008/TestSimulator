@@ -3,25 +3,25 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8dd35raq8",
+  "id": "tmvg5mfqdwruhr8",
   "text": "Idea session",
   "children": [
    {
-    "id": "tmvftn8ddb5tfpu",
+    "id": "tmvg5mfqd5n97qu",
     "text": "The problem",
     "children": [
      {
-      "id": "tmvftn8dd5zcnpr",
+      "id": "tmvg5mfqduoguqr",
       "text": "What is wrong?",
       "children": []
      },
      {
-      "id": "tmvftn8ddjgovps",
+      "id": "tmvg5mfqdqeawqs",
       "text": "Who has it?",
       "children": []
      },
      {
-      "id": "tmvftn8ddp22zpt",
+      "id": "tmvg5mfqdg6fyqt",
       "text": "Why now?",
       "children": []
      }
@@ -31,11 +31,11 @@
     ]
    },
    {
-    "id": "tmvftn8dd5lzcpy",
+    "id": "tmvg5mfqd0jeqqy",
     "text": "Ideas",
     "children": [
      {
-      "id": "tmvftn8dd3m3ypv",
+      "id": "tmvg5mfqdgovzqv",
       "text": "Idea 1",
       "children": [],
       "icons": [
@@ -43,7 +43,7 @@
       ]
      },
      {
-      "id": "tmvftn8ddzvvepw",
+      "id": "tmvg5mfqdkmiuqw",
       "text": "Idea 2",
       "children": [],
       "icons": [
@@ -51,7 +51,7 @@
       ]
      },
      {
-      "id": "tmvftn8dd1tdipx",
+      "id": "tmvg5mfqdk47bqx",
       "text": "Idea 3",
       "children": [],
       "icons": [
@@ -61,11 +61,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddvc98q1",
+    "id": "tmvg5mfqdbbmnr1",
     "text": "Pros",
     "children": [
      {
-      "id": "tmvftn8ddck6ipz",
+      "id": "tmvg5mfqdose5qz",
       "text": "Fast",
       "children": [],
       "icons": [
@@ -73,7 +73,7 @@
       ]
      },
      {
-      "id": "tmvftn8dd623sq0",
+      "id": "tmvg5mfqdppv6r0",
       "text": "Cheap",
       "children": [],
       "icons": [
@@ -83,11 +83,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddzva3q4",
+    "id": "tmvg5mfqdjoi0r4",
     "text": "Concerns",
     "children": [
      {
-      "id": "tmvftn8ddb0zmq2",
+      "id": "tmvg5mfqdi054r2",
       "text": "Risks",
       "children": [],
       "icons": [
@@ -95,7 +95,7 @@
       ]
      },
      {
-      "id": "tmvftn8ddjzu1q3",
+      "id": "tmvg5mfqdvkiwr3",
       "text": "Cost",
       "children": [],
       "icons": [
@@ -105,11 +105,11 @@
     ]
    },
    {
-    "id": "tmvftn8ddc6zeq7",
+    "id": "tmvg5mfqdbhuur7",
     "text": "Next steps",
     "children": [
      {
-      "id": "tmvftn8ddwc5qq5",
+      "id": "tmvg5mfqdhwwur5",
       "text": "Pick owners",
       "children": [],
       "task": {
@@ -117,7 +117,7 @@
       }
      },
      {
-      "id": "tmvftn8ddpkvpq6",
+      "id": "tmvg5mfqd6edar6",
       "text": "Set dates",
       "children": [],
       "task": {
@@ -149,7 +149,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.969Z",
-  "modified": "2026-10-19T22:24:07.969Z"
+  "created": "2026-10-20T03:59:26.245Z",
+  "modified": "2026-10-20T03:59:26.245Z"
  }
 }

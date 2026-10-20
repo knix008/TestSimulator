@@ -3,19 +3,19 @@
  "version": 1,
  "title": "",
  "root": {
-  "id": "tmvftn8cyilq7bu",
+  "id": "tmvg5mfphiu7icc",
   "text": "어떤 방법을 고를까?",
   "children": [
    {
-    "id": "tmvftn8cygdocbi",
+    "id": "tmvg5mfphxpngc0",
     "text": "선택지 A",
     "children": [
      {
-      "id": "tmvftn8cy9q1ebf",
+      "id": "tmvg5mfphwbwwbx",
       "text": "장점",
       "children": [
        {
-        "id": "tmvftn8cynvkvbe",
+        "id": "tmvg5mfph88y5bw",
         "text": "빠름",
         "children": [],
         "icons": [
@@ -25,11 +25,11 @@
       ]
      },
      {
-      "id": "tmvftn8cyn0wpbh",
+      "id": "tmvg5mfphvsiabz",
       "text": "단점",
       "children": [
        {
-        "id": "tmvftn8cy6elvbg",
+        "id": "tmvg5mfph542mby",
         "text": "비쌈",
         "children": [],
         "icons": [
@@ -41,15 +41,15 @@
     ]
    },
    {
-    "id": "tmvftn8cymc9ubn",
+    "id": "tmvg5mfphmk8nc5",
     "text": "선택지 B",
     "children": [
      {
-      "id": "tmvftn8cyskyybk",
+      "id": "tmvg5mfphjxvyc2",
       "text": "장점",
       "children": [
        {
-        "id": "tmvftn8cyqph2bj",
+        "id": "tmvg5mfphthivc1",
         "text": "저렴함",
         "children": [],
         "icons": [
@@ -59,11 +59,11 @@
       ]
      },
      {
-      "id": "tmvftn8cyo485bm",
+      "id": "tmvg5mfphg9r8c4",
       "text": "단점",
       "children": [
        {
-        "id": "tmvftn8cyhdvlbl",
+        "id": "tmvg5mfphmbhpc3",
         "text": "느림",
         "children": [],
         "icons": [
@@ -75,11 +75,11 @@
     ]
    },
    {
-    "id": "tmvftn8cyk15bbr",
+    "id": "tmvg5mfphjyf8c9",
     "text": "판단 기준",
     "children": [
      {
-      "id": "tmvftn8cyzb77bo",
+      "id": "tmvg5mfphyof9c6",
       "text": "비용",
       "children": [],
       "task": {
@@ -87,7 +87,7 @@
       }
      },
      {
-      "id": "tmvftn8cy9tczbp",
+      "id": "tmvg5mfphugb2c7",
       "text": "시간",
       "children": [],
       "task": {
@@ -95,7 +95,7 @@
       }
      },
      {
-      "id": "tmvftn8cyc2yqbq",
+      "id": "tmvg5mfphp5qdc8",
       "text": "품질",
       "children": [],
       "task": {
@@ -108,11 +108,11 @@
     ]
    },
    {
-    "id": "tmvftn8cyvxo0bt",
+    "id": "tmvg5mfphxpstcb",
     "text": "결론",
     "children": [
      {
-      "id": "tmvftn8cy2c3mbs",
+      "id": "tmvg5mfphpjzoca",
       "text": "...",
       "children": []
      }
@@ -140,7 +140,7 @@
  },
  "background": "",
  "meta": {
-  "created": "2026-10-19T22:24:07.954Z",
-  "modified": "2026-10-19T22:24:07.954Z"
+  "created": "2026-10-20T03:59:26.213Z",
+  "modified": "2026-10-20T03:59:26.213Z"
  }
 }
