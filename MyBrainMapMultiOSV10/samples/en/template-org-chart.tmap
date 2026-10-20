@@ -1,0 +1,105 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dfzkgvsz",
+  "text": "CEO",
+  "children": [
+   {
+    "id": "tmvftn8dfomnosr",
+    "text": "Operations",
+    "children": [
+     {
+      "id": "tmvftn8dfbs6ksp",
+      "text": "HR",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8dfia1msq",
+      "text": "Finance",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dflfalsv",
+    "text": "Engineering",
+    "children": [
+     {
+      "id": "tmvftn8dfsbv0ss",
+      "text": "Frontend",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8dfalcust",
+      "text": "Backend",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8dfz4azsu",
+      "text": "QA",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8df5z09sy",
+    "text": "Sales",
+    "children": [
+     {
+      "id": "tmvftn8dfw00zsw",
+      "text": "Domestic",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8dfxzq6sx",
+      "text": "Overseas",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "orgDown",
+ "style": "business",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.971Z",
+  "modified": "2026-10-19T22:24:07.971Z"
+ }
+}

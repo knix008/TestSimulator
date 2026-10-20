@@ -1,0 +1,158 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8crdgcp2y",
+  "text": "2학기 기말고사",
+  "children": [
+   {
+    "id": "tmvftn8crscnp2m",
+    "text": "미적분학",
+    "children": [
+     {
+      "id": "tmvftn8crf27a2j",
+      "text": "적분 기법 정리",
+      "children": [],
+      "task": {
+       "due": "2026-10-23",
+       "progress": 75
+      }
+     },
+     {
+      "id": "tmvftn8crdtbd2k",
+      "text": "기출 2개년",
+      "children": [],
+      "task": {
+       "due": "2026-10-28",
+       "progress": 25
+      }
+     },
+     {
+      "id": "tmvftn8cre55p2l",
+      "text": "오답 노트",
+      "children": [],
+      "task": {
+       "due": "2026-11-01",
+       "progress": 0
+      }
+     }
+    ],
+    "task": {
+     "priority": 1
+    }
+   },
+   {
+    "id": "tmvftn8cr6rwp2p",
+    "text": "자료구조",
+    "children": [
+     {
+      "id": "tmvftn8cr2xr22n",
+      "text": "트리·그래프 복습",
+      "children": [],
+      "task": {
+       "due": "2026-10-25",
+       "progress": 50
+      }
+     },
+     {
+      "id": "tmvftn8crn5pi2o",
+      "text": "코딩 문제 30개",
+      "children": [],
+      "task": {
+       "due": "2026-10-30",
+       "progress": 10
+      }
+     }
+    ],
+    "task": {
+     "priority": 2
+    }
+   },
+   {
+    "id": "tmvftn8crtbpg2s",
+    "text": "경제학원론",
+    "children": [
+     {
+      "id": "tmvftn8crccdm2q",
+      "text": "5~9장 요약",
+      "children": [],
+      "task": {
+       "due": "2026-10-26",
+       "progress": 100
+      }
+     },
+     {
+      "id": "tmvftn8crsabw2r",
+      "text": "그래프 문제",
+      "children": [],
+      "task": {
+       "due": "2026-10-29",
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8crx1sz2u",
+    "text": "영어 회화",
+    "children": [
+     {
+      "id": "tmvftn8crtckq2t",
+      "text": "발표 준비",
+      "children": [],
+      "task": {
+       "due": "2026-10-24",
+       "progress": 50
+      },
+      "icons": [
+       "people"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8criwni2x",
+    "text": "컨디션",
+    "children": [
+     {
+      "id": "tmvftn8cr3c0n2v",
+      "text": "하루 7시간 수면",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     },
+     {
+      "id": "tmvftn8cr1q862w",
+      "text": "산책 30분",
+      "children": []
+     }
+    ],
+    "icons": [
+     "heart"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "treeRight",
+ "style": "candy",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.947Z",
+  "modified": "2026-10-19T22:24:07.947Z"
+ }
+}

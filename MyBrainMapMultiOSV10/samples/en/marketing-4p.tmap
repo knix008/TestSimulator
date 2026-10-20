@@ -1,0 +1,136 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d73k2jgy",
+  "text": "Craft granola brand marketing",
+  "children": [
+   {
+    "id": "tmvftn8d7xuakgl",
+    "text": "Product",
+    "children": [
+     {
+      "id": "tmvftn8d7xt3kgi",
+      "text": "Three sugar-free kinds",
+      "children": [],
+      "icons": [
+       "star"
+      ]
+     },
+     {
+      "id": "tmvftn8d7h20zgj",
+      "text": "Recyclable pouch",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d7p3zpgk",
+      "text": "Subscription",
+      "children": [],
+      "tags": [
+       "new"
+      ]
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8d7fuq4gp",
+    "text": "Price",
+    "children": [
+     {
+      "id": "tmvftn8d7ka1xgm",
+      "text": "$7.90 a pack",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d76klggn",
+      "text": "15% off when subscribed",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d7fytigo",
+      "text": "10% above competitors",
+      "children": [],
+      "icons": [
+       "question"
+      ],
+      "notes": "Keep the premium image; a first-order coupon lowers the barrier."
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8d7tneigt",
+    "text": "Place",
+    "children": [
+     {
+      "id": "tmvftn8d7addtgq",
+      "text": "Own web shop",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d7rsuigr",
+      "text": "Local cafés",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d7cop9gs",
+      "text": "Online grocery",
+      "children": [],
+      "icons": [
+       "flag-orange"
+      ]
+     }
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8d7hujjgx",
+    "text": "Promotion",
+    "children": [
+     {
+      "id": "tmvftn8d75fepgu",
+      "text": "Instagram recipes",
+      "children": [],
+      "icons": [
+       "heart"
+      ]
+     },
+     {
+      "id": "tmvftn8d7rr2rgv",
+      "text": "100 testers",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d7tst0gw",
+      "text": "Yoga studio partnership",
+      "children": []
+     }
+    ],
+    "side": "left"
+   }
+  ],
+  "notes": "Target: office workers aged 25–39 who want a healthy breakfast."
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "rainbow",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.963Z",
+  "modified": "2026-10-19T22:24:07.963Z"
+ }
+}

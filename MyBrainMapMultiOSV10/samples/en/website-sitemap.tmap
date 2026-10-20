@@ -1,0 +1,132 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d9psj0k3",
+  "text": "Home",
+  "children": [
+   {
+    "id": "tmvftn8d9il36jo",
+    "text": "About",
+    "children": [
+     {
+      "id": "tmvftn8d9a2h6jl",
+      "text": "Vision",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d946ocjm",
+      "text": "History",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d94sm8jn",
+      "text": "Location",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d9dohxjs",
+    "text": "Products",
+    "children": [
+     {
+      "id": "tmvftn8d99q8yjp",
+      "text": "Smart lights",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d9fb9zjq",
+      "text": "Sensors",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d9fj3njr",
+      "text": "Compare",
+      "children": [],
+      "tags": [
+       "new"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d916ipjw",
+    "text": "Support",
+    "children": [
+     {
+      "id": "tmvftn8d9dqdbjt",
+      "text": "FAQ",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d9uk2lju",
+      "text": "Contact",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d9emnujv",
+      "text": "Manuals",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d99olmjz",
+    "text": "Blog",
+    "children": [
+     {
+      "id": "tmvftn8d98wv0jx",
+      "text": "News",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d9qaz1jy",
+      "text": "Tips",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d9fzvpk2",
+    "text": "Shop",
+    "children": [
+     {
+      "id": "tmvftn8d9bpmlk0",
+      "text": "Cart",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d900kik1",
+      "text": "Checkout",
+      "children": [],
+      "icons": [
+       "lock"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "orgDown",
+ "style": "blueprint",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.965Z",
+  "modified": "2026-10-19T22:24:07.965Z"
+ }
+}

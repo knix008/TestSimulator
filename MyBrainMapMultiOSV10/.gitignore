@@ -1,0 +1,49 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (reproducible: npm install && npm run tauri:build) ──
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/sidecar/
+src-tauri/icons/
+build/icons/
+src/build-info.json
+public/icon.svg
+
+# ── Installer packages left in the project root ────────
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+
+# ── Generated previews / logs ──
+.icons-preview.png
+.npm-install.log
+
+# ── Test and recorder output ──
+# scratch screenshots / logs of the GUI tests and checks (npm run smoke, npm run test:gui)
+.smoke/
+# videos: only the finished tutorial (npm run tutorial:video) is kept; its frames go to the OS temp folder
+*.mp4
+*.webm
+!/MyBrainMap-Tutorial.mp4
+# an ffmpeg dropped into the project to record the tutorial (use FFMPEG=path instead)
+ffmpeg
+ffmpeg.exe
+ffprobe
+ffprobe.exe
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

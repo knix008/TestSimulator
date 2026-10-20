@@ -1,0 +1,168 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dbk4dnnh",
+  "text": "Dog-walking match app",
+  "children": [
+   {
+    "id": "tmvftn8dbg802mx",
+    "text": "Problem",
+    "children": [
+     {
+      "id": "tmvftn8dbrw4emv",
+      "text": "No walks on late workdays",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbkz7umw",
+      "text": "Hard to find trusted walkers",
+      "children": []
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8db0o9zmz",
+    "text": "Customers",
+    "children": [
+     {
+      "id": "tmvftn8dbwytrmy",
+      "text": "Single dog owners",
+      "children": []
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dbrwvln1",
+    "text": "Value",
+    "children": [
+     {
+      "id": "tmvftn8dbqmp7n0",
+      "text": "30-minute walks by vetted neighbours",
+      "children": [],
+      "icons": [
+       "star"
+      ]
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dbotqbn4",
+    "text": "Solution",
+    "children": [
+     {
+      "id": "tmvftn8dbsl3wn2",
+      "text": "Live location",
+      "children": []
+     },
+     {
+      "id": "tmvftn8db93t1n3",
+      "text": "Photo reports",
+      "children": []
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dbolsgn6",
+    "text": "Channels",
+    "children": [
+     {
+      "id": "tmvftn8db12ntn5",
+      "text": "Vet partnerships",
+      "children": []
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dbe4scn9",
+    "text": "Revenue",
+    "children": [
+     {
+      "id": "tmvftn8dbp7t7n7",
+      "text": "$12 a walk",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbncy9n8",
+      "text": "20% fee",
+      "children": []
+     }
+    ],
+    "side": "left",
+    "icons": [
+     "money"
+    ]
+   },
+   {
+    "id": "tmvftn8dbi1xdnc",
+    "text": "Costs",
+    "children": [
+     {
+      "id": "tmvftn8dbewc3na",
+      "text": "Insurance",
+      "children": []
+     },
+     {
+      "id": "tmvftn8db87rlnb",
+      "text": "Ads",
+      "children": []
+     }
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8dbq89qne",
+    "text": "Key metrics",
+    "children": [
+     {
+      "id": "tmvftn8dbaczrnd",
+      "text": "Repeat rate",
+      "children": [],
+      "icons": [
+       "chart"
+      ]
+     }
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8dbtv6gng",
+    "text": "Unfair advantage",
+    "children": [
+     {
+      "id": "tmvftn8db6qngnf",
+      "text": "Neighbourhood community",
+      "children": []
+     }
+    ],
+    "side": "left"
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "neon",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.967Z",
+  "modified": "2026-10-19T22:24:07.967Z"
+ }
+}

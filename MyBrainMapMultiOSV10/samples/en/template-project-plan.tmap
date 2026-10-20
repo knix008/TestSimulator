@@ -1,0 +1,175 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dd9z3cpo",
+  "text": "Product launch project",
+  "children": [
+   {
+    "id": "tmvftn8ddf1hhpd",
+    "text": "1. Planning",
+    "children": [
+     {
+      "id": "tmvftn8ddidfipa",
+      "text": "Market research",
+      "children": [],
+      "task": {
+       "start": "2026-10-20",
+       "due": "2026-10-26",
+       "progress": 100,
+       "resources": "Alex",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8dd7b1opb",
+      "text": "Requirements",
+      "children": [],
+      "task": {
+       "start": "2026-10-25",
+       "due": "2026-11-01",
+       "progress": 75,
+       "resources": "Sam",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8ddlz5ypc",
+      "text": "Budget approval",
+      "children": [],
+      "task": {
+       "due": "2026-11-03",
+       "milestone": true,
+       "priority": 2,
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddwlgbph",
+    "text": "2. Development",
+    "children": [
+     {
+      "id": "tmvftn8ddjnx5pe",
+      "text": "Design",
+      "children": [],
+      "task": {
+       "start": "2026-11-02",
+       "due": "2026-11-13",
+       "progress": 25,
+       "resources": "Jo"
+      }
+     },
+     {
+      "id": "tmvftn8dduezgpf",
+      "text": "Build",
+      "children": [],
+      "task": {
+       "start": "2026-11-09",
+       "due": "2026-12-04",
+       "progress": 0,
+       "resources": "Dev team",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8ddks6gpg",
+      "text": "Testing",
+      "children": [],
+      "task": {
+       "start": "2026-11-29",
+       "due": "2026-12-11",
+       "progress": 0,
+       "resources": "QA team",
+       "priority": 2
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddhr19pk",
+    "text": "3. Launch",
+    "children": [
+     {
+      "id": "tmvftn8ddlflkpi",
+      "text": "Marketing kit",
+      "children": [],
+      "task": {
+       "start": "2026-12-01",
+       "due": "2026-12-14",
+       "progress": 0,
+       "resources": "Kim",
+       "priority": 3
+      }
+     },
+     {
+      "id": "tmvftn8ddh1e4pj",
+      "text": "Launch event",
+      "children": [],
+      "task": {
+       "due": "2026-12-19",
+       "milestone": true,
+       "priority": 1,
+       "progress": 0
+      },
+      "icons": [
+       "rocket"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ddipvepn",
+    "text": "Risks",
+    "children": [
+     {
+      "id": "tmvftn8ddsdmlpl",
+      "text": "Schedule slip",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
+     },
+     {
+      "id": "tmvftn8ddzihgpm",
+      "text": "Not enough people",
+      "children": [],
+      "icons": [
+       "people"
+      ]
+     }
+    ],
+    "icons": [
+     "flag-red"
+    ],
+    "boundary": {
+     "shape": "rounded",
+     "label": "Watch"
+    }
+   }
+  ],
+  "notes": "View › Gantt chart shows the dates as bars you can drag."
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "right",
+ "style": "business",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.969Z",
+  "modified": "2026-10-19T22:24:07.969Z"
+ }
+}

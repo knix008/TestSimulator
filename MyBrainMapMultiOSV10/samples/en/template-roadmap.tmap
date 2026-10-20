@@ -1,0 +1,88 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dfpg6etc",
+  "text": "2027 roadmap",
+  "children": [
+   {
+    "id": "tmvftn8df2ivdt4",
+    "text": "Q1",
+    "children": [
+     {
+      "id": "tmvftn8df2phet2",
+      "text": "Beta release",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dftftdt3",
+      "text": "Collect feedback",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8df93p2t7",
+    "text": "Q2",
+    "children": [
+     {
+      "id": "tmvftn8dfsv9et5",
+      "text": "GA release",
+      "children": [],
+      "icons": [
+       "rocket"
+      ]
+     },
+     {
+      "id": "tmvftn8dfuught6",
+      "text": "Mobile app",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfiwkjt9",
+    "text": "Q3",
+    "children": [
+     {
+      "id": "tmvftn8dfpz6ut8",
+      "text": "Go global",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dfpmk1tb",
+    "text": "Q4",
+    "children": [
+     {
+      "id": "tmvftn8dfthj4ta",
+      "text": "Year review",
+      "children": []
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "rainbow",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.971Z",
+  "modified": "2026-10-19T22:24:07.971Z"
+ }
+}

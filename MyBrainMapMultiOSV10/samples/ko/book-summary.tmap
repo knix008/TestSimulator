@@ -1,0 +1,141 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cumhhq6z",
+  "text": "작은 습관이 만드는 큰 변화",
+  "children": [
+   {
+    "id": "tmvftn8cuva5z6j",
+    "text": "핵심 개념",
+    "children": [
+     {
+      "id": "tmvftn8cu1dhs6h",
+      "text": "1%씩 나아지기",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cuw45f6i",
+      "text": "정체성 중심 습관",
+      "children": [],
+      "icons": [
+       "idea"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cuwtna6o",
+    "text": "습관의 4단계",
+    "children": [
+     {
+      "id": "tmvftn8cu2znf6k",
+      "text": "신호",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cuxdw36l",
+      "text": "욕구",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cuuuwr6m",
+      "text": "반응",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cuax1u6n",
+      "text": "보상",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8culnnf6t",
+    "text": "실천 방법",
+    "children": [
+     {
+      "id": "tmvftn8cuqp026p",
+      "text": "분명하게 만들기",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cuxnxs6q",
+      "text": "매력적으로",
+      "children": []
+     },
+     {
+      "id": "tmvftn8curz7b6r",
+      "text": "쉽게",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cujndi6s",
+      "text": "만족스럽게",
+      "children": []
+     }
+    ],
+    "icons": [
+     "check"
+    ]
+   },
+   {
+    "id": "tmvftn8cutxfq6v",
+    "text": "인상 깊은 문장",
+    "children": [
+     {
+      "id": "tmvftn8cuexdq6u",
+      "text": "\"목표가 아니라 시스템이다\"",
+      "children": [],
+      "icons": [
+       "bookmark"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cuiqdc6y",
+    "text": "토론 질문",
+    "children": [
+     {
+      "id": "tmvftn8cuhdnz6w",
+      "text": "내가 없애고 싶은 습관은?",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     },
+     {
+      "id": "tmvftn8cu7rju6x",
+      "text": "2분 규칙을 적용해 본다면?",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "sketch",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.950Z",
+  "modified": "2026-10-19T22:24:07.950Z"
+ }
+}

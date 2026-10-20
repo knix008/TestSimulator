@@ -1,0 +1,120 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dhdvm9uv",
+  "text": "Trip to the coast",
+  "children": [
+   {
+    "id": "tmvftn8dhzcqjuk",
+    "text": "Itinerary",
+    "children": [
+     {
+      "id": "tmvftn8dh1rttuh",
+      "text": "Day 1",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dhv9feui",
+      "text": "Day 2",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dh14htuj",
+      "text": "Day 3",
+      "children": []
+     }
+    ],
+    "icons": [
+     "calendar"
+    ]
+   },
+   {
+    "id": "tmvftn8dhuqelum",
+    "text": "Stay",
+    "children": [
+     {
+      "id": "tmvftn8dh1z1kul",
+      "text": "Booking",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     }
+    ],
+    "icons": [
+     "home"
+    ]
+   },
+   {
+    "id": "tmvftn8dhjag6uq",
+    "text": "Packing",
+    "children": [
+     {
+      "id": "tmvftn8dhi17aun",
+      "text": "ID",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dhozk8uo",
+      "text": "Charger",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dhh0hvup",
+      "text": "Medicine",
+      "children": []
+     }
+    ],
+    "icons": [
+     "bookmark"
+    ]
+   },
+   {
+    "id": "tmvftn8dhf8txuu",
+    "text": "Budget",
+    "children": [
+     {
+      "id": "tmvftn8dh9s3uur",
+      "text": "Travel",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dhpf7zus",
+      "text": "Food",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dh7dtaut",
+      "text": "Lodging",
+      "children": []
+     }
+    ],
+    "icons": [
+     "money"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "ocean",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.973Z",
+  "modified": "2026-10-19T22:24:07.973Z"
+ }
+}

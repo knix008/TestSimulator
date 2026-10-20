@@ -1,0 +1,141 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cti4ls5q",
+  "text": "사내 송년회 (80명)",
+  "children": [
+   {
+    "id": "tmvftn8ct6c635g",
+    "text": "D-30",
+    "children": [
+     {
+      "id": "tmvftn8ctmeqd5e",
+      "text": "장소 예약",
+      "children": [],
+      "task": {
+       "due": "2026-10-18",
+       "progress": 100,
+       "resources": "HR"
+      }
+     },
+     {
+      "id": "tmvftn8cto26p5f",
+      "text": "예산 승인",
+      "children": [],
+      "task": {
+       "due": "2026-10-20",
+       "progress": 100,
+       "resources": "HR"
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ctxv435j",
+    "text": "D-14",
+    "children": [
+     {
+      "id": "tmvftn8ctnpzf5h",
+      "text": "초대장 발송",
+      "children": [],
+      "task": {
+       "due": "2026-11-03",
+       "progress": 50,
+       "resources": "HR"
+      }
+     },
+     {
+      "id": "tmvftn8ctir8h5i",
+      "text": "케이터링 계약",
+      "children": [],
+      "task": {
+       "due": "2026-11-05",
+       "progress": 25,
+       "resources": "GA"
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ct21f05m",
+    "text": "D-7",
+    "children": [
+     {
+      "id": "tmvftn8ctlra25k",
+      "text": "경품 구매",
+      "children": [],
+      "task": {
+       "due": "2026-11-12",
+       "progress": 0,
+       "resources": "GA"
+      }
+     },
+     {
+      "id": "tmvftn8cte00i5l",
+      "text": "진행 대본",
+      "children": [],
+      "task": {
+       "due": "2026-11-13",
+       "progress": 0,
+       "resources": "HR"
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8ct9gab5p",
+    "text": "D-day",
+    "children": [
+     {
+      "id": "tmvftn8ctntwy5n",
+      "text": "음향 점검",
+      "children": [],
+      "task": {
+       "due": "2026-11-19",
+       "progress": 0,
+       "resources": "IT"
+      }
+     },
+     {
+      "id": "tmvftn8ctjbg45o",
+      "text": "사진 촬영",
+      "children": [],
+      "task": {
+       "due": "2026-11-19",
+       "progress": 0,
+       "resources": "PR"
+      },
+      "icons": [
+       "star"
+      ]
+     }
+    ],
+    "icons": [
+     "flag-red"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "treeRight",
+ "style": "pastel",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.949Z",
+  "modified": "2026-10-19T22:24:07.949Z"
+ }
+}

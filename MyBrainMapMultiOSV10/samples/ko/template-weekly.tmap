@@ -1,0 +1,129 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cz5e5gcb",
+  "text": "이번 주",
+  "children": [
+   {
+    "id": "tmvftn8czkq98by",
+    "text": "월",
+    "children": [
+     {
+      "id": "tmvftn8czzclsbx",
+      "text": "할 일",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8czh4qsc0",
+    "text": "화",
+    "children": [
+     {
+      "id": "tmvftn8cz2to7bz",
+      "text": "할 일",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cz1avdc2",
+    "text": "수",
+    "children": [
+     {
+      "id": "tmvftn8czp0zpc1",
+      "text": "할 일",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8czxnjzc4",
+    "text": "목",
+    "children": [
+     {
+      "id": "tmvftn8czvmazc3",
+      "text": "할 일",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8czou2yc6",
+    "text": "금",
+    "children": [
+     {
+      "id": "tmvftn8czpnjyc5",
+      "text": "할 일",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8czc7xlc8",
+    "text": "토",
+    "children": [
+     {
+      "id": "tmvftn8czd5nuc7",
+      "text": "휴식",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cz4016ca",
+    "text": "일",
+    "children": [
+     {
+      "id": "tmvftn8czltcqc9",
+      "text": "휴식",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "pastel",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.955Z",
+  "modified": "2026-10-19T22:24:07.955Z"
+ }
+}

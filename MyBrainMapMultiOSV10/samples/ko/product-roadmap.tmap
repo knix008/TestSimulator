@@ -1,0 +1,116 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cq2sw72g",
+  "text": "스마트 홈 허브 로드맵",
+  "children": [
+   {
+    "id": "tmvftn8cqwzey26",
+    "text": "1분기",
+    "children": [
+     {
+      "id": "tmvftn8cqt6k424",
+      "text": "음성 명령 한국어 지원",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     },
+     {
+      "id": "tmvftn8cqwywm25",
+      "text": "앱 다크 모드",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cqtly729",
+    "text": "2분기",
+    "children": [
+     {
+      "id": "tmvftn8cqr0k327",
+      "text": "Matter 표준 지원",
+      "children": [],
+      "icons": [
+       "star"
+      ],
+      "task": {
+       "progress": 50
+      }
+     },
+     {
+      "id": "tmvftn8cq71fl28",
+      "text": "에너지 사용량 리포트",
+      "children": [],
+      "task": {
+       "progress": 25
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cq2d7k2c",
+    "text": "3분기",
+    "children": [
+     {
+      "id": "tmvftn8cq2dqp2a",
+      "text": "자동화 레시피 공유",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cq2ld72b",
+      "text": "카메라 연동",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cq635v2f",
+    "text": "4분기",
+    "children": [
+     {
+      "id": "tmvftn8cqb5w22d",
+      "text": "2세대 하드웨어",
+      "children": [],
+      "icons": [
+       "rocket"
+      ]
+     },
+     {
+      "id": "tmvftn8cq0y0o2e",
+      "text": "해외 출시 (일본)",
+      "children": []
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "ocean",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.946Z",
+  "modified": "2026-10-19T22:24:07.946Z"
+ }
+}

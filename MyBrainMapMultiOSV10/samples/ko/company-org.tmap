@@ -1,0 +1,109 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cpl5mx21",
+  "text": "대표이사\n정하늘",
+  "children": [
+   {
+    "id": "tmvftn8cpgwdq1t",
+    "text": "경영지원본부",
+    "children": [
+     {
+      "id": "tmvftn8cpzyl21r",
+      "text": "인사팀장\n오민지",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8cp0qdj1s",
+      "text": "재무팀장\n한도윤",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cppbq21x",
+    "text": "기술본부 (CTO)",
+    "children": [
+     {
+      "id": "tmvftn8cp7lxy1u",
+      "text": "플랫폼팀\n서지훈",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8cps89w1v",
+      "text": "모바일팀\n윤서아",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8cp0yvv1w",
+      "text": "데이터팀\n강하준",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ],
+    "boundary": {
+     "shape": "rounded",
+     "label": "채용 중"
+    }
+   },
+   {
+    "id": "tmvftn8cpfv0020",
+    "text": "사업본부",
+    "children": [
+     {
+      "id": "tmvftn8cprrwc1y",
+      "text": "영업팀\n임채원",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     },
+     {
+      "id": "tmvftn8cpfz8v1z",
+      "text": "마케팅팀\n조은우",
+      "children": [],
+      "icons": [
+       "person"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "orgDown",
+ "style": "business",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.945Z",
+  "modified": "2026-10-19T22:24:07.945Z"
+ }
+}

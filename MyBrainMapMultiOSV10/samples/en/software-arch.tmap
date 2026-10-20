@@ -1,0 +1,163 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8db8pbvm4",
+  "text": "Shop service",
+  "children": [
+   {
+    "id": "tmvftn8dbvp3slo",
+    "text": "Frontend",
+    "children": [
+     {
+      "id": "tmvftn8db8uwflm",
+      "text": "Web (React)",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbpdizln",
+      "text": "Mobile app",
+      "children": []
+     }
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8db70jqlr",
+    "text": "API gateway",
+    "children": [
+     {
+      "id": "tmvftn8db7kl8lp",
+      "text": "Auth (OAuth)",
+      "children": [],
+      "icons": [
+       "lock"
+      ]
+     },
+     {
+      "id": "tmvftn8dbyjmtlq",
+      "text": "Rate limiting",
+      "children": []
+     }
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8dblq6blw",
+    "text": "Backend services",
+    "children": [
+     {
+      "id": "tmvftn8dbu08lls",
+      "text": "Orders",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbdx5mlt",
+      "text": "Payments",
+      "children": [],
+      "icons": [
+       "money"
+      ]
+     },
+     {
+      "id": "tmvftn8db0pi4lu",
+      "text": "Inventory",
+      "children": []
+     },
+     {
+      "id": "tmvftn8db5jn9lv",
+      "text": "Notifications",
+      "children": []
+     }
+    ],
+    "side": "right",
+    "boundary": {
+     "shape": "rect",
+     "label": "Kubernetes"
+    }
+   },
+   {
+    "id": "tmvftn8dbcfpvm0",
+    "text": "Data",
+    "children": [
+     {
+      "id": "tmvftn8db8tuklx",
+      "text": "PostgreSQL",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbd69oly",
+      "text": "Redis cache",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dbfe5ylz",
+      "text": "Event queue (Kafka)",
+      "children": []
+     }
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8db6yqnm3",
+    "text": "Operations",
+    "children": [
+     {
+      "id": "tmvftn8db37jzm1",
+      "text": "Monitoring",
+      "children": [],
+      "icons": [
+       "chart"
+      ]
+     },
+     {
+      "id": "tmvftn8db8ru0m2",
+      "text": "Logging",
+      "children": []
+     }
+    ],
+    "side": "right"
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [
+  {
+   "id": "tmvftn8dbig44m6",
+   "from": "tmvftn8db8uwflm",
+   "to": "tmvftn8db7kl8lp",
+   "label": "HTTPS"
+  },
+  {
+   "id": "tmvftn8dbuo7zm7",
+   "from": "tmvftn8dbu08lls",
+   "to": "tmvftn8dbfe5ylz",
+   "label": "order events"
+  },
+  {
+   "id": "tmvftn8dbmopym8",
+   "from": "tmvftn8dbdx5mlt",
+   "to": "tmvftn8db8tuklx",
+   "label": ""
+  }
+ ],
+ "layout": "map",
+ "style": "midnight",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.967Z",
+  "modified": "2026-10-19T22:24:07.967Z"
+ }
+}

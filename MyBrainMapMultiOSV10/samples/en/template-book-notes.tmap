@@ -1,0 +1,111 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dgoi47tr",
+  "text": "Book title",
+  "children": [
+   {
+    "id": "tmvftn8dggu8htg",
+    "text": "In one line",
+    "children": [
+     {
+      "id": "tmvftn8dgmuk9tf",
+      "text": "...",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dg5kf7tj",
+    "text": "Key ideas",
+    "children": [
+     {
+      "id": "tmvftn8dgpptgth",
+      "text": "Chapter 1",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dg18l9ti",
+      "text": "Chapter 2",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dg4dqntl",
+    "text": "Quotes",
+    "children": [
+     {
+      "id": "tmvftn8dgdu0rtk",
+      "text": "\"...\"",
+      "children": [],
+      "icons": [
+       "bookmark"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dg9n5fto",
+    "text": "My thoughts",
+    "children": [
+     {
+      "id": "tmvftn8dgyecltm",
+      "text": "Agree",
+      "children": [],
+      "icons": [
+       "thumbsUp"
+      ]
+     },
+     {
+      "id": "tmvftn8dgk1ritn",
+      "text": "Doubts",
+      "children": [],
+      "icons": [
+       "question"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dgtp1xtq",
+    "text": "To apply",
+    "children": [
+     {
+      "id": "tmvftn8dg4193tp",
+      "text": "...",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ],
+    "icons": [
+     "target"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "map",
+ "style": "paper",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.972Z",
+  "modified": "2026-10-19T22:24:07.972Z"
+ }
+}

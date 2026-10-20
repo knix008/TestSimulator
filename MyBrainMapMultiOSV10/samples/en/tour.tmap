@@ -1,0 +1,224 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dcmwyvp4",
+  "text": "My BrainMap tour",
+  "children": [
+   {
+    "id": "tmvftn8dc3sevom",
+    "text": "Making topics",
+    "children": [
+     {
+      "id": "tmvftn8dcay3roi",
+      "text": "Enter: sibling topic",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8dc0xepoj",
+      "text": "Tab / Insert: subtopic",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8dcv3atok",
+      "text": "F2 or just type: edit",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8dc7ahjol",
+      "text": "Drag to move",
+      "children": [],
+      "notes": "Drop on a topic: subtopic. On its upper / lower edge: sibling. On empty space: floating topic."
+     }
+    ],
+    "icons": [
+     "idea"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dcyi8yoq",
+    "text": "Layouts",
+    "children": [
+     {
+      "id": "tmvftn8dcuelgon",
+      "text": "Map, right, left",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dcta48oo",
+      "text": "Org chart, tree",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dcxkdlop",
+      "text": "Timeline, fishbone",
+      "children": []
+     }
+    ],
+    "icons": [
+     "star"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8dcfs4fov",
+    "text": "What a topic holds",
+    "children": [
+     {
+      "id": "tmvftn8dc5r2for",
+      "text": "Notes",
+      "children": [],
+      "notes": "Notes are **Markdown**.\n- lists\n- [links](https://example.com)"
+     },
+     {
+      "id": "tmvftn8dckvetos",
+      "text": "Icons and tags",
+      "children": [],
+      "icons": [
+       "flag-green",
+       "smiley-happy"
+      ],
+      "tags": [
+       "key",
+       "review"
+      ]
+     },
+     {
+      "id": "tmvftn8dcpg59ot",
+      "text": "Task info",
+      "children": [],
+      "task": {
+       "start": "2026-10-20",
+       "due": "2026-10-26",
+       "progress": 50,
+       "priority": 2,
+       "resources": "Me"
+      }
+     },
+     {
+      "id": "tmvftn8dcscddou",
+      "text": "Hyperlink",
+      "children": [],
+      "link": {
+       "url": "https://github.com/knix008/TestSimulator"
+      }
+     }
+    ],
+    "icons": [
+     "bookmark"
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8dcpzinoz",
+    "text": "Views",
+    "children": [
+     {
+      "id": "tmvftn8dc2fivow",
+      "text": "Outline view",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dc3wczox",
+      "text": "Gantt chart",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dcdg5xoy",
+      "text": "Presentation (F5)",
+      "children": []
+     }
+    ],
+    "icons": [
+     "chart"
+    ],
+    "side": "left",
+    "boundary": {
+     "shape": "rounded",
+     "label": "Switch views"
+    }
+   },
+   {
+    "id": "tmvftn8dc5z5kp3",
+    "text": "Import · export",
+    "children": [
+     {
+      "id": "tmvftn8dcx6w7p0",
+      "text": "FreeMind, XMind, MindManager, OPML, Markdown",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dcvbpkp1",
+      "text": "PNG, SVG, PDF, Word, HTML",
+      "children": []
+     }
+    ],
+    "icons": [
+     "rocket"
+    ],
+    "side": "left",
+    "callouts": [
+     {
+      "id": "tmvftn8dc34h8p2",
+      "text": "File › Export",
+      "children": []
+     }
+    ]
+   }
+  ],
+  "notes": "This map shows the features. Change anything — Ctrl+Z undoes."
+ },
+ "floating": [
+  {
+   "id": "tmvftn8dcigrxp5",
+   "text": "Floating topic",
+   "children": [],
+   "notes": "Double-click empty space to make one.",
+   "x": 520,
+   "y": 280
+  }
+ ],
+ "relationships": [
+  {
+   "id": "tmvftn8dczynap7",
+   "from": "tmvftn8dc7ahjol",
+   "to": "tmvftn8dcigrxp5",
+   "label": "drop on empty space"
+  },
+  {
+   "id": "tmvftn8dc1zk5p8",
+   "from": "tmvftn8dcpg59ot",
+   "to": "tmvftn8dc3wczox",
+   "label": "dates → bars"
+  }
+ ],
+ "layout": "map",
+ "style": "auto",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.968Z",
+  "modified": "2026-10-19T22:24:07.968Z"
+ }
+}

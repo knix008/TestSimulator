@@ -1,0 +1,175 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cwuawi9v",
+  "text": "신제품 출시 프로젝트",
+  "children": [
+   {
+    "id": "tmvftn8cw4qtl9k",
+    "text": "1. 기획",
+    "children": [
+     {
+      "id": "tmvftn8cwccdh9h",
+      "text": "시장 조사",
+      "children": [],
+      "task": {
+       "start": "2026-10-20",
+       "due": "2026-10-26",
+       "progress": 100,
+       "resources": "김지원",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8cwnj0n9i",
+      "text": "요구사항 정리",
+      "children": [],
+      "task": {
+       "start": "2026-10-25",
+       "due": "2026-11-01",
+       "progress": 75,
+       "resources": "이서준",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8cwdt1l9j",
+      "text": "예산 승인",
+      "children": [],
+      "task": {
+       "due": "2026-11-03",
+       "milestone": true,
+       "priority": 2,
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cw154y9o",
+    "text": "2. 개발",
+    "children": [
+     {
+      "id": "tmvftn8cwauw39l",
+      "text": "디자인",
+      "children": [],
+      "task": {
+       "start": "2026-11-02",
+       "due": "2026-11-13",
+       "progress": 25,
+       "resources": "박하은"
+      }
+     },
+     {
+      "id": "tmvftn8cws13e9m",
+      "text": "구현",
+      "children": [],
+      "task": {
+       "start": "2026-11-09",
+       "due": "2026-12-04",
+       "progress": 0,
+       "resources": "개발팀",
+       "priority": 1
+      }
+     },
+     {
+      "id": "tmvftn8cwv33m9n",
+      "text": "테스트",
+      "children": [],
+      "task": {
+       "start": "2026-11-29",
+       "due": "2026-12-11",
+       "progress": 0,
+       "resources": "QA팀",
+       "priority": 2
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cwwhy39r",
+    "text": "3. 출시",
+    "children": [
+     {
+      "id": "tmvftn8cwr9cu9p",
+      "text": "마케팅 자료",
+      "children": [],
+      "task": {
+       "start": "2026-12-01",
+       "due": "2026-12-14",
+       "progress": 0,
+       "resources": "최유나",
+       "priority": 3
+      }
+     },
+     {
+      "id": "tmvftn8cwntj09q",
+      "text": "출시 행사",
+      "children": [],
+      "task": {
+       "due": "2026-12-19",
+       "milestone": true,
+       "priority": 1,
+       "progress": 0
+      },
+      "icons": [
+       "rocket"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cwnvcl9u",
+    "text": "위험 요소",
+    "children": [
+     {
+      "id": "tmvftn8cwjpum9s",
+      "text": "일정 지연",
+      "children": [],
+      "icons": [
+       "warning"
+      ]
+     },
+     {
+      "id": "tmvftn8cw7g639t",
+      "text": "인력 부족",
+      "children": [],
+      "icons": [
+       "people"
+      ]
+     }
+    ],
+    "icons": [
+     "flag-red"
+    ],
+    "boundary": {
+     "shape": "rounded",
+     "label": "관리 필요"
+    }
+   }
+  ],
+  "notes": "보기 › 간트 차트에서 일정을 막대로 보고 끌어서 바꿀 수 있습니다."
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "right",
+ "style": "business",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.952Z",
+  "modified": "2026-10-19T22:24:07.952Z"
+ }
+}

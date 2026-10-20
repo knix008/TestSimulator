@@ -1,0 +1,224 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8cwjsgs9b",
+  "text": "My BrainMap 둘러보기",
+  "children": [
+   {
+    "id": "tmvftn8cw7a918t",
+    "text": "토픽 만들기",
+    "children": [
+     {
+      "id": "tmvftn8cwxz3a8p",
+      "text": "Enter: 형제 토픽",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8cwbbu58q",
+      "text": "Tab / Insert: 하위 토픽",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8cw5dca8r",
+      "text": "F2 또는 바로 입력: 편집",
+      "children": [],
+      "icons": [
+       "check"
+      ]
+     },
+     {
+      "id": "tmvftn8cw9wbf8s",
+      "text": "끌어서 옮기기",
+      "children": [],
+      "notes": "다른 토픽 위에 놓으면 하위 토픽, 위·아래 가장자리에 놓으면 형제 토픽, 빈 곳에 놓으면 플로팅 토픽이 됩니다."
+     }
+    ],
+    "icons": [
+     "idea"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8cwhgp08x",
+    "text": "레이아웃",
+    "children": [
+     {
+      "id": "tmvftn8cw006a8u",
+      "text": "맵 · 오른쪽 · 왼쪽",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cw8ier8v",
+      "text": "조직도 · 트리",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cw3mlk8w",
+      "text": "타임라인 · 피시본",
+      "children": []
+     }
+    ],
+    "icons": [
+     "star"
+    ],
+    "side": "right"
+   },
+   {
+    "id": "tmvftn8cwkg6d92",
+    "text": "토픽에 담는 것",
+    "children": [
+     {
+      "id": "tmvftn8cw1sbp8y",
+      "text": "메모",
+      "children": [],
+      "notes": "**Markdown** 으로 쓰는 메모입니다.\n- 목록\n- [링크](https://example.com)"
+     },
+     {
+      "id": "tmvftn8cw7uj58z",
+      "text": "아이콘과 태그",
+      "children": [],
+      "icons": [
+       "flag-green",
+       "smiley-happy"
+      ],
+      "tags": [
+       "중요",
+       "검토"
+      ]
+     },
+     {
+      "id": "tmvftn8cwz68g90",
+      "text": "작업 정보",
+      "children": [],
+      "task": {
+       "start": "2026-10-20",
+       "due": "2026-10-26",
+       "progress": 50,
+       "priority": 2,
+       "resources": "나"
+      }
+     },
+     {
+      "id": "tmvftn8cw3w6j91",
+      "text": "하이퍼링크",
+      "children": [],
+      "link": {
+       "url": "https://github.com/knix008/TestSimulator"
+      }
+     }
+    ],
+    "icons": [
+     "bookmark"
+    ],
+    "side": "left"
+   },
+   {
+    "id": "tmvftn8cw5w2396",
+    "text": "보기",
+    "children": [
+     {
+      "id": "tmvftn8cw2evw93",
+      "text": "개요 보기",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cw5s7g94",
+      "text": "간트 차트",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cw20r095",
+      "text": "프레젠테이션 (F5)",
+      "children": []
+     }
+    ],
+    "icons": [
+     "chart"
+    ],
+    "side": "left",
+    "boundary": {
+     "shape": "rounded",
+     "label": "보기 전환"
+    }
+   },
+   {
+    "id": "tmvftn8cw1n8q9a",
+    "text": "가져오기 · 내보내기",
+    "children": [
+     {
+      "id": "tmvftn8cwv1i097",
+      "text": "FreeMind · XMind · MindManager · OPML · Markdown",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cwddns98",
+      "text": "PNG · SVG · PDF · Word · HTML",
+      "children": []
+     }
+    ],
+    "icons": [
+     "rocket"
+    ],
+    "side": "left",
+    "callouts": [
+     {
+      "id": "tmvftn8cwdlfq99",
+      "text": "파일 › 내보내기",
+      "children": []
+     }
+    ]
+   }
+  ],
+  "notes": "이 맵은 기능을 보여 주는 예제입니다. 마음대로 고쳐 보세요 — 실행 취소는 Ctrl+Z 입니다."
+ },
+ "floating": [
+  {
+   "id": "tmvftn8cwcp189c",
+   "text": "플로팅 토픽",
+   "children": [],
+   "notes": "빈 곳을 두 번 누르면 만들어집니다.",
+   "x": 520,
+   "y": 280
+  }
+ ],
+ "relationships": [
+  {
+   "id": "tmvftn8cweasy9e",
+   "from": "tmvftn8cw9wbf8s",
+   "to": "tmvftn8cwcp189c",
+   "label": "빈 곳에 놓기"
+  },
+  {
+   "id": "tmvftn8cwmfhy9f",
+   "from": "tmvftn8cwz68g90",
+   "to": "tmvftn8cw5s7g94",
+   "label": "날짜 → 막대"
+  }
+ ],
+ "layout": "map",
+ "style": "auto",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.952Z",
+  "modified": "2026-10-19T22:24:07.952Z"
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dg52ecu2",
+  "text": "This year",
+  "children": [
+   {
+    "id": "tmvftn8dg42rptw",
+    "text": "Happier customers",
+    "children": [
+     {
+      "id": "tmvftn8dg8puntu",
+      "text": "Reply within 4 h",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     },
+     {
+      "id": "tmvftn8dg9zrhtv",
+      "text": "Score 4.5",
+      "children": [],
+      "task": {
+       "progress": 25
+      }
+     }
+    ],
+    "icons": [
+     "target"
+    ]
+   },
+   {
+    "id": "tmvftn8dgicn4tz",
+    "text": "Grow revenue",
+    "children": [
+     {
+      "id": "tmvftn8dgz700tx",
+      "text": "100 new customers",
+      "children": [],
+      "task": {
+       "progress": 75
+      }
+     },
+     {
+      "id": "tmvftn8dg6rb5ty",
+      "text": "40% repeat buyers",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     }
+    ],
+    "icons": [
+     "money"
+    ]
+   },
+   {
+    "id": "tmvftn8dgbso1u1",
+    "text": "Team skills",
+    "children": [
+     {
+      "id": "tmvftn8dgurazu0",
+      "text": "12 trainings",
+      "children": [],
+      "task": {
+       "progress": 100
+      }
+     }
+    ],
+    "icons": [
+     "people"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "right",
+ "style": "forest",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.972Z",
+  "modified": "2026-10-19T22:24:07.972Z"
+ }
+}

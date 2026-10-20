@@ -1,0 +1,88 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8d0lw4gdj",
+  "text": "2027 로드맵",
+  "children": [
+   {
+    "id": "tmvftn8d07sv0db",
+    "text": "1분기",
+    "children": [
+     {
+      "id": "tmvftn8d0c6rad9",
+      "text": "베타 출시",
+      "children": []
+     },
+     {
+      "id": "tmvftn8d0f68eda",
+      "text": "피드백 수집",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d01g9jde",
+    "text": "2분기",
+    "children": [
+     {
+      "id": "tmvftn8d0ryledc",
+      "text": "정식 출시",
+      "children": [],
+      "icons": [
+       "rocket"
+      ]
+     },
+     {
+      "id": "tmvftn8d0bdz3dd",
+      "text": "모바일 앱",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d03w4mdg",
+    "text": "3분기",
+    "children": [
+     {
+      "id": "tmvftn8d07udgdf",
+      "text": "해외 진출",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8d05c92di",
+    "text": "4분기",
+    "children": [
+     {
+      "id": "tmvftn8d0js5vdh",
+      "text": "연간 회고",
+      "children": []
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "timeline",
+ "style": "rainbow",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.956Z",
+  "modified": "2026-10-19T22:24:07.956Z"
+ }
+}

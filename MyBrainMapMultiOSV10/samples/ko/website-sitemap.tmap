@@ -1,0 +1,132 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8csdr2c4a",
+  "text": "홈",
+  "children": [
+   {
+    "id": "tmvftn8cso0gl3v",
+    "text": "회사 소개",
+    "children": [
+     {
+      "id": "tmvftn8csri013s",
+      "text": "비전",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cs2ygi3t",
+      "text": "연혁",
+      "children": []
+     },
+     {
+      "id": "tmvftn8csxl173u",
+      "text": "오시는 길",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cswnz73z",
+    "text": "제품",
+    "children": [
+     {
+      "id": "tmvftn8cs0p803w",
+      "text": "스마트 조명",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cs6zhd3x",
+      "text": "센서",
+      "children": []
+     },
+     {
+      "id": "tmvftn8csz2ve3y",
+      "text": "비교하기",
+      "children": [],
+      "tags": [
+       "신규"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cszjkf43",
+    "text": "고객 지원",
+    "children": [
+     {
+      "id": "tmvftn8cs8xwq40",
+      "text": "FAQ",
+      "children": []
+     },
+     {
+      "id": "tmvftn8csz7tj41",
+      "text": "문의하기",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cs5gs442",
+      "text": "매뉴얼 다운로드",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8csrgef46",
+    "text": "블로그",
+    "children": [
+     {
+      "id": "tmvftn8cso17z44",
+      "text": "공지",
+      "children": []
+     },
+     {
+      "id": "tmvftn8csz4vu45",
+      "text": "사용 팁",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8cs7yqc49",
+    "text": "쇼핑몰",
+    "children": [
+     {
+      "id": "tmvftn8cs6sss47",
+      "text": "장바구니",
+      "children": []
+     },
+     {
+      "id": "tmvftn8cs1t5h48",
+      "text": "결제",
+      "children": [],
+      "icons": [
+       "lock"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "orgDown",
+ "style": "blueprint",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.948Z",
+  "modified": "2026-10-19T22:24:07.948Z"
+ }
+}

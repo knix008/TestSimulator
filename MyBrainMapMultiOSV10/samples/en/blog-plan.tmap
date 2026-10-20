@@ -1,0 +1,128 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8da08wfkm",
+  "text": "A year of remote work",
+  "children": [
+   {
+    "id": "tmvftn8daia11k7",
+    "text": "Intro",
+    "children": [
+     {
+      "id": "tmvftn8da1gmnk6",
+      "text": "Hopes and worries",
+      "children": []
+     }
+    ],
+    "notes": "Open with an anecdote: the first video call in pyjamas."
+   },
+   {
+    "id": "tmvftn8daqihyka",
+    "text": "The good",
+    "children": [
+     {
+      "id": "tmvftn8daq11zk8",
+      "text": "No commute",
+      "children": [],
+      "icons": [
+       "smiley-happy"
+      ]
+     },
+     {
+      "id": "tmvftn8daok06k9",
+      "text": "Time to focus",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8daeqh6kd",
+    "text": "The hard",
+    "children": [
+     {
+      "id": "tmvftn8daoc6skb",
+      "text": "Work–life blur",
+      "children": [],
+      "icons": [
+       "smiley-sad"
+      ]
+     },
+     {
+      "id": "tmvftn8da9043kc",
+      "text": "Loneliness",
+      "children": []
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8daiiwxkj",
+    "text": "My five rules",
+    "children": [
+     {
+      "id": "tmvftn8dazvt3ke",
+      "text": "A start-of-day ritual",
+      "children": []
+     },
+     {
+      "id": "tmvftn8da4pg5kf",
+      "text": "A desk only for work",
+      "children": []
+     },
+     {
+      "id": "tmvftn8daqxnkkg",
+      "text": "Lunch outside",
+      "children": []
+     },
+     {
+      "id": "tmvftn8daeu6skh",
+      "text": "Notification-free hours",
+      "children": []
+     },
+     {
+      "id": "tmvftn8dafrb1ki",
+      "text": "Friday review",
+      "children": []
+     }
+    ],
+    "icons": [
+     "idea"
+    ],
+    "notes": "One photo and 3–4 sentences per rule."
+   },
+   {
+    "id": "tmvftn8da87ovkl",
+    "text": "Closing",
+    "children": [
+     {
+      "id": "tmvftn8daqrc4kk",
+      "text": "Ask readers a question",
+      "children": []
+     }
+    ]
+   }
+  ],
+  "notes": "About 1,200 words · publish on Friday · tags: remote, productivity"
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "right",
+ "style": "paper",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.966Z",
+  "modified": "2026-10-19T22:24:07.966Z"
+ }
+}

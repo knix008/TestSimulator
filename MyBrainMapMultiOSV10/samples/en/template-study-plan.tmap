@@ -1,0 +1,101 @@
+{
+ "format": "mybrainmap",
+ "version": 1,
+ "title": "",
+ "root": {
+  "id": "tmvftn8dgu88bue",
+  "text": "Exam prep",
+  "children": [
+   {
+    "id": "tmvftn8dgughtu7",
+    "text": "Math",
+    "children": [
+     {
+      "id": "tmvftn8dg410qu5",
+      "text": "Calculus review",
+      "children": [],
+      "task": {
+       "due": "2026-10-27",
+       "progress": 25
+      }
+     },
+     {
+      "id": "tmvftn8dg3x83u6",
+      "text": "Past papers",
+      "children": [],
+      "task": {
+       "due": "2026-11-03",
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dgchv5u9",
+    "text": "English",
+    "children": [
+     {
+      "id": "tmvftn8dge71xu8",
+      "text": "500 words",
+      "children": [],
+      "task": {
+       "progress": 50
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dgtr9jub",
+    "text": "Science",
+    "children": [
+     {
+      "id": "tmvftn8dgj0xmua",
+      "text": "Lab notes",
+      "children": [],
+      "task": {
+       "progress": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "tmvftn8dgtp0oud",
+    "text": "Review",
+    "children": [
+     {
+      "id": "tmvftn8dgsut4uc",
+      "text": "Mock exam",
+      "children": [],
+      "task": {
+       "due": "2026-11-09",
+       "milestone": true
+      }
+     }
+    ],
+    "icons": [
+     "check"
+    ]
+   }
+  ]
+ },
+ "floating": [],
+ "relationships": [],
+ "layout": "treeRight",
+ "style": "candy",
+ "lineStyle": "",
+ "branchColors": null,
+ "spacing": {
+  "h": 1,
+  "v": 1
+ },
+ "numbering": {
+  "enabled": false,
+  "style": "decimal",
+  "depth": 3
+ },
+ "background": "",
+ "meta": {
+  "created": "2026-10-19T22:24:07.972Z",
+  "modified": "2026-10-19T22:24:07.972Z"
+ }
+}
