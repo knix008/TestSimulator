@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyPDFViewer 프로그램 설명서</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.7 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  }
+  .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 22px 16px;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-weight: 700; font-size: 17px; }
+  nav .brand img { width: 34px; height: 34px; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 5px 10px; border-radius: 7px; color: var(--dim); text-decoration: none; font-size: 13.5px;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  nav .lang { margin-top: 18px; font-size: 13px; }
+  nav .lang a { color: var(--accent); }
+  main { max-width: 980px; padding: 34px 44px 80px; }
+  header.hero {
+    display: flex; gap: 20px; align-items: center; padding: 22px 24px; margin-bottom: 30px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  }
+  header.hero img { width: 72px; height: 72px; }
+  header.hero h1 { margin: 0; font-size: 28px; }
+  header.hero p { margin: 4px 0 0; color: var(--dim); }
+  h2 { margin: 46px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); font-size: 22px; scroll-margin-top: 16px; }
+  h3 { margin: 26px 0 6px; font-size: 17px; scroll-margin-top: 16px; }
+  p, li { color: var(--text); }
+  ul, ol.steps { padding-left: 22px; }
+  li + li { margin-top: 3px; }
+  figure { margin: 18px 0 22px; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 10px;
+    border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 420px; }
+  figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 12.5px/1.6 Consolas, monospace;
+  }
+  code { padding: 1px 5px; border-radius: 4px; background: var(--code); font: 13px Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 14px 0; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  footer { margin-top: 60px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 24px 18px 60px; }
+    .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="brand"><img src="images/icon.svg" alt=""><span>MyPDFViewer</span></div>
+    <ol>
+      <li><a href="#intro">1. 소개</a></li>
+      <li><a href="#start">2. 시작 화면</a></li>
+      <li><a href="#open">3. 문서 열기</a></li>
+      <li><a href="#view">4. 보기 맞춤과 확대</a></li>
+      <li><a href="#copy">5. 텍스트 · 그림 복사</a></li>
+      <li><a href="#highlight">6. 형광펜</a></li>
+      <li><a href="#save">7. 저장</a></li>
+      <li><a href="#gallery">8. 갤러리</a></li>
+      <li><a href="#library">9. 서재</a></li>
+      <li><a href="#panels">10. 좌측 패널</a></li>
+      <li><a href="#menus">11. 오른쪽 클릭 메뉴</a></li>
+      <li><a href="#print">12. 인쇄</a></li>
+      <li><a href="#settings">13. 설정</a></li>
+      <li><a href="#keys">14. 단축키</a></li>
+      <li><a href="#install">15. 설치와 데이터</a></li>
+    </ol>
+    <div class="lang"><a href="./Guide.en.html">English guide →</a></div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>MyPDFViewer 프로그램 설명서</h1>
+        <p>PDF를 읽고, 형광펜을 칠해 PDF에 저장하고, 글자와 그림을 꺼내 쓰는 뷰어 — Windows · macOS · Linux · 웹 브라우저</p>
+      </div>
+    </header>
+
+    <h2 id="intro">1. 소개</h2>
+    <p>MyPDFViewer는 PDF를 빠르게 열어 읽고, 필요한 부분에 <b>형광펜</b>을 칠해 <b>PDF 파일 안에 저장</b>하며, 문서 속 텍스트와 그림을 손쉽게 복사하는 프로그램입니다.
+      열어 본 문서는 <b>갤러리</b>에 저절로 모이고, 아끼는 문서는 <b>서재</b>에 꽂아 두고 책장처럼 크게 볼 수 있습니다.</p>
+    <ul>
+      <li>문서를 열면 항상 <b>화면 맞춤</b>으로 쪽 전체가 보입니다. 툴바 버튼으로 원본 · 폭 · 높이 맞춤을 바로 바꿉니다.</li>
+      <li>형광펜은 PDF 표준 주석으로 저장되어 다른 PDF 프로그램에서도 그대로 보입니다.</li>
+      <li>프린터 · 매수 · 용지 방향을 고르고 [인쇄] 를 누르면 시스템 인쇄 창 없이 바로 인쇄됩니다.</li>
+      <li>시작 화면의 움직이는 3D 배경 21가지 가운데 하나를 고르고, 투명도와 속도를 조절할 수 있습니다.</li>
+    </ul>
+
+    <h2 id="start">2. 시작 화면</h2>
+    <p>프로그램을 켜면 시작 화면이 나옵니다. 툴바 맨 왼쪽의 <b>홈</b> 버튼으로 언제든 다시 열 수 있습니다.
+      시작 화면은 좌측 패널까지 덮어 화면 전체를 씁니다.</p>
+    <figure><img src="images/start.png" alt="시작 화면"><figcaption>시작 화면 — 위쪽 소개, 아래 왼쪽부터 시작하기 · 내 서재 · 시작 화면 배경</figcaption></figure>
+    <ul>
+      <li><b>위쪽 카드</b> — 프로그램 이름과 버전, <b>[프로그램 설명]</b>(이 설명서를 새 창으로 엽니다), <b>[서재로 크게 보기]</b>.</li>
+      <li><b>시작하기</b> — 열기, URL 열기, 갤러리. 아래에는 <b>최근 연 파일</b>이 있고 각 줄의 ✕ 로 기록에서 지웁니다.</li>
+      <li><b>내 서재</b> — 서재에 넣은 문서가 책장에 꽂혀 보입니다. 책을 누르면 그 문서가 열립니다.</li>
+      <li><b>시작 화면 배경</b> — 움직이는 3D 배경을 고르고 조절합니다(아래).</li>
+      <li>맨 아래 <b>시작할 때 이 화면 보이기</b> 를 끄면 다음부터는 빈 화면으로 시작합니다.</li>
+    </ul>
+    <h3>시작 화면 배경</h3>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/start-background.png" alt="배경 고르기"><figcaption>21가지 배경 버튼, 무작위 배경, 투명도, 움직임 속도, 자동 변경</figcaption></figure>
+      <div>
+        <p>책 구름 · 낱장 · 별빛 · 글자 비 · 비행기 · 책 터널 · 물결 · 은하 · 큐브 · 나선 · 매듭 · 구체 · 물방울 · 눈 · 반딧불 · 별자리 · 오로라 · 벌집 · 궤도 · 언덕 · 잉크 — 읽기와 책, 종이를 주제로 한 21가지 3D 장면입니다.
+          버튼에 마우스를 올리면 어떤 장면인지 설명이 나옵니다.</p>
+        <ul>
+          <li><b>무작위 배경</b> — 다른 배경을 아무거나 고릅니다.</li>
+          <li><b>투명도</b> — 배경이 얼마나 진하게 보일지 (10 % ~ 100 %).</li>
+          <li><b>움직임 속도</b> — 10 % ~ 300 %.</li>
+          <li><b>자동 변경</b> — 15초 ~ 5분마다 배경을 저절로 바꿉니다. <b>무작위 순서</b> 를 켜면 순서 없이 바뀝니다.</li>
+        </ul>
+        <p>같은 설정은 <b>설정 → 시작 화면</b> 에도 있습니다. 배경 색은 지금 테마를 따릅니다.</p>
+      </div>
+    </div>
+
+    <h2 id="open">3. 문서 열기</h2>
+    <ul>
+      <li><b>열기</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) — PDF 또는 작업 파일(<code>.pdfvw</code>)을 고릅니다. 여러 개를 한꺼번에 고르면 탭으로 열립니다.</li>
+      <li><b>URL 열기</b> — 인터넷 주소의 PDF를 내려받아 엽니다.</li>
+      <li><b>끌어 놓기</b> — 탐색기에서 PDF를 창으로 끌어 오면 열립니다.</li>
+      <li><b>폴더 패널</b> — 마지막으로 파일을 연 폴더에서 시작하고, 그 폴더가 없으면 홈 폴더를 보여 줍니다.</li>
+      <li>설치 후에는 PDF와 <code>.pdfvw</code> 를 두 번 눌러 바로 열 수 있습니다.</li>
+    </ul>
+    <figure><img src="images/viewer.png" alt="문서 보기"><figcaption>문서를 연 화면 — 위쪽 툴바, 왼쪽 패널(축소판), 가운데 문서</figcaption></figure>
+
+    <h2 id="view">4. 보기 맞춤과 확대</h2>
+    <figure><img src="images/toolbar.png" alt="툴바"><figcaption>툴바 — 왼쪽부터 홈 · 파일 · 실행 취소 · 선택 도구 · 복사 · 쪽 이동 · 페이지 배치 · 확대 · 보기 맞춤 · 회전, 오른쪽에 갤러리 · 서재 · 사이드바 · 테마 · 언어 · 도움말 · 설정</figcaption></figure>
+    <table>
+      <tr><th>버튼</th><th>보이는 모양</th></tr>
+      <tr><td>화면 맞춤</td><td>쪽 전체가 창 안에 들어옵니다. 문서를 열 때 항상 이 모양입니다.</td></tr>
+      <tr><td>원본 크기</td><td>100 % — PDF에 적힌 크기 그대로 (<kbd>Ctrl</kbd>+<kbd>0</kbd>).</td></tr>
+      <tr><td>폭 맞춤</td><td>쪽의 폭을 창 폭에 맞춥니다.</td></tr>
+      <tr><td>높이 맞춤</td><td>쪽의 높이를 창 높이에 맞춥니다.</td></tr>
+    </table>
+    <p>확대 · 축소는 툴바 버튼, <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd>, 또는 <kbd>Ctrl</kbd>+마우스 휠로 합니다. 페이지 배치는 한 쪽 · 연속 · 두 쪽 보기 가운데 고릅니다.</p>
+
+    <h2 id="copy">5. 텍스트 · 그림 복사</h2>
+    <ul>
+      <li><b>텍스트 도구</b> (<kbd>Ctrl</kbd>+<kbd>1</kbd>) — 끌어서 선택하고 <kbd>Ctrl</kbd>+<kbd>C</kbd>.</li>
+      <li><b>이미지 도구</b> (<kbd>Ctrl</kbd>+<kbd>2</kbd>) — 그림을 눌러 고른 뒤 오른쪽 클릭으로 원본 해상도로 복사 · 저장.</li>
+      <li><b>영역 도구</b> (<kbd>Ctrl</kbd>+<kbd>3</kbd>) — 사각형으로 끌어 그 부분을 그림으로 잘라냅니다 (PNG · JPEG · WebP · GIF · BMP).</li>
+    </ul>
+
+    <h2 id="highlight">6. 형광펜</h2>
+    <ol class="steps">
+      <li>텍스트 도구로 칠할 글자를 끌어 선택합니다. 여러 줄도 됩니다.</li>
+      <li>복사 버튼 옆 ▾ 메뉴나 오른쪽 클릭 메뉴에서 <b>형광펜</b> 을 누릅니다. 선택한 부분 전체가 <b>형광펜 하나</b>로 칠해집니다.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>S</kbd> 로 저장하면 PDF 안에 표준 형광펜 주석으로 들어갑니다.</li>
+    </ol>
+    <figure><img src="images/highlights.png" alt="형광펜 목록"><figcaption>좌측 패널의 형광펜 탭 — 쪽 순서 목록, 누르면 그 위치로 이동, ✕ 로 하나 · 휴지통으로 모두 지우기</figcaption></figure>
+    <ul>
+      <li><b>형광펜 탭</b> 에 문서의 모든 형광펜이 나옵니다. "PDF에 저장됨" 과 "저장 전" 이 구분되어 보입니다.</li>
+      <li>✕ 를 누르면 하나, 제목 옆 휴지통을 누르면 모두 지워집니다. 확인 창 없이 바로 지워지고, 저장되어 있던 형광펜도 지울 수 있습니다 (<kbd>Ctrl</kbd>+<kbd>S</kbd> 로 파일에 반영).</li>
+    </ul>
+
+    <h2 id="save">7. 저장</h2>
+    <ul>
+      <li><b>PDF로 저장</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) — 형광펜 · 주석 · 책갈피 · 첨부를 <b>열린 PDF 파일에 바로</b> 저장합니다.</li>
+      <li><b>PDF 다른 이름으로 저장</b> — 원본은 두고 새 파일로 저장합니다. 기본 이름은 <code>문서이름-annotated.pdf</code>.</li>
+      <li><b>작업 파일로 저장</b> — <code>.pdfvw</code> 에 원본 경로, 보던 쪽, 형광펜 · 책갈피 · 클립을 담습니다.</li>
+      <li>저장하지 않은 변경이 있으면 창이나 탭을 닫기 전에 저장할지 묻습니다.</li>
+    </ul>
+
+    <h2 id="gallery">8. 갤러리</h2>
+    <p>툴바의 <b>갤러리</b> 버튼으로 엽니다. 열어 본 PDF가 <b>저절로 등록</b>되어 첫 쪽 그림과 이름으로 모입니다.</p>
+    <figure><img src="images/gallery.png" alt="갤러리 타일"><figcaption>타일 보기 — 크기 슬라이더로 카드 크기를 조절, ☆ 로 서재에 추가, ✕ 로 등록 해제</figcaption></figure>
+    <figure><img src="images/gallery-details.png" alt="갤러리 자세히"><figcaption>자세히 보기 — 이름 · 폴더 · 크기 · 마지막으로 연 날 · 등록한 날, 머리글을 누르면 정렬</figcaption></figure>
+    <ul>
+      <li><b>[파일 추가]</b> — 열지 않고 갤러리에 등록합니다. 페이지 오른쪽 클릭의 <b>갤러리에 등록</b> 도 같은 일을 합니다.</li>
+      <li>✕ 로 등록을 해제해도 파일은 지워지지 않습니다.</li>
+      <li>이름이나 폴더로 찾기, 전체 / 서재 보기, 최근 연 순 · 이름 · 추가한 순 · 크기 정렬을 지원합니다.</li>
+    </ul>
+
+    <h2 id="library">9. 서재</h2>
+    <p>아끼는 문서를 <b>서재에 추가</b>(갤러리 카드의 ☆, 오른쪽 클릭 메뉴)하면 툴바의 <b>서재</b> 버튼으로 책장처럼 크게 볼 수 있습니다. 서재는 화면 전체를 씁니다. 툴바의 <b>사이드바</b> · <b>문서 정보</b> 버튼(<kbd>F9</kbd> · <kbd>F8</kbd>)을 누르면 좌우 패널이 서재 옆에 열립니다.</p>
+    <figure><img src="images/library.png" alt="서재 책장"><figcaption>책장 보기 — 책 크기 슬라이더, 정렬, 찾기, 전체 삭제, 파일 추가</figcaption></figure>
+    <div class="grid2">
+      <figure><img src="images/library-covers.png" alt="서재 표지"><figcaption>표지 보기</figcaption></figure>
+      <figure><img src="images/library-list.png" alt="서재 목록"><figcaption>목록 보기</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>책장 · 표지 · 목록 · 자세히</b> 네 가지 보기 — 크기 슬라이더 하나가 모든 보기의 크기를 함께 바꿉니다 (아주 작게도 볼 수 있습니다).</li>
+      <li>책 제목은 한 줄로 줄여(…) 보여 주어 책들이 수평으로 고르게 섭니다.</li>
+      <li>책마다 ✕ 로 서재에서 빼고, <b>전체 삭제</b> 로 서재를 비웁니다. 파일과 갤러리 카드는 그대로입니다.</li>
+    </ul>
+
+    <h2 id="panels">10. 좌측 패널</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/history-panel.png" alt="기록 패널"><figcaption>기록 — 최근 연 파일과 편집 기록, 각각 ✕ 와 전체 삭제</figcaption></figure>
+      <figure class="narrow"><img src="images/library-panel.png" alt="서재 패널"><figcaption>서재 — 권수, 전체 삭제, 항목마다 ✕</figcaption></figure>
+    </div>
+    <table>
+      <tr><th>탭</th><th>내용</th></tr>
+      <tr><td>폴더</td><td>드라이브와 폴더 트리, PDF 파일</td></tr>
+      <tr><td>축소판 · 목차</td><td>쪽 그림과 접히는 목차</td></tr>
+      <tr><td>형광펜</td><td>형광펜 목록, 이동 · 개별 삭제 · 모두 지우기</td></tr>
+      <tr><td>주석 · 책갈피 · 찾기 · 이미지 · 첨부</td><td>각 항목 목록과 이동</td></tr>
+      <tr><td>서재</td><td>서재에 넣은 문서, 개별 · 전체 삭제, 서재로 크게 보기</td></tr>
+      <tr><td>기록</td><td>최근 연 파일과 편집 기록, 개별 · 전체 삭제</td></tr>
+    </table>
+
+    <h2 id="menus">11. 오른쪽 클릭 메뉴</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/context-menu.png" alt="오른쪽 클릭 메뉴"><figcaption>페이지 위 오른쪽 클릭</figcaption></figure>
+      <div>
+        <p>페이지, 좌측 패널의 모든 항목, 갤러리와 서재의 카드마다 아이콘이 붙은 메뉴가 있습니다.</p>
+        <ul>
+          <li>페이지 — 복사, 형광펜, 코멘트, 도구, 이미지 추출, 책갈피, 첨부, <b>갤러리에 등록 / 제거</b>, <b>서재에 추가</b>, 쪽 이동, 확대, 보기 맞춤, 회전</li>
+          <li>파일 항목 — 열기, 서재에 추가 / 빼기, 폴더에서 보기, 경로 복사</li>
+          <li>형광펜 · 책갈피 · 주석 — 이동, 글자 복사, 지우기</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="print">12. 인쇄</h2>
+    <figure><img src="images/print.png" alt="인쇄 창"><figcaption>인쇄 범위, 프린터, 매수, 용지 방향과 미리보기</figcaption></figure>
+    <ul>
+      <li>전체 · 현재 페이지 · 사용자 지정(<code>1-5, 8, 11-13</code>) 가운데 범위를 고릅니다.</li>
+      <li>프린터 · 매수 · 용지 방향(자동 · 세로 · 가로)을 고르고 <b>[인쇄]</b> 를 누르면 <b>바로 인쇄</b>됩니다. 마지막에 쓴 프린터와 방향은 기억됩니다.</li>
+      <li>용지 · 양면 같은 세부 설정이 필요하면 <b>[시스템 인쇄 창…]</b> 을 누르세요.</li>
+      <li>"Microsoft Print to PDF" 처럼 파일 이름을 묻는 프린터에서 그 창을 취소하면 인쇄도 취소됩니다.</li>
+    </ul>
+
+    <h2 id="settings">13. 설정</h2>
+    <figure><img src="images/settings-start.png" alt="설정 시작 화면"><figcaption>설정 → 시작 화면 — 시작할 때 보이기, 배경 21가지, 투명도 · 속도 · 자동 변경</figcaption></figure>
+    <ul>
+      <li><b>모양</b> — 테마 40가지와 사용자 정의 테마, 글꼴과 크기.</li>
+      <li><b>보기</b> — 기본 확대 방식, 페이지 배치, 페이지 넘김 효과.</li>
+      <li><b>시작 화면</b> — 위 그림과 같습니다.</li>
+      <li><b>복사</b> — 선택하면 바로 복사, 그림 저장 형식과 품질.</li>
+      <li><b>파일</b> — 기본 열기 폴더, 최근 폴더 지우기, 설정 파일 위치.</li>
+    </ul>
+
+    <h2 id="keys">14. 단축키</h2>
+    <table>
+      <tr><th>키</th><th>동작</th><th>키</th><th>동작</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>열기</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>열린 PDF에 저장</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td><td><kbd>F1</kbd></td><td>이 설명서 열기</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>탭 닫기</td><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>다음 탭</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>선택 복사</td><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>페이지 전체 선택</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></td><td>텍스트 / 이미지 / 영역 도구</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>실행 취소 / 다시 실행</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>찾기</td><td><kbd>F9</kbd></td><td>사이드바</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd></td><td>확대 / 축소</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>원본 크기</td></tr>
+      <tr><td><kbd>PageUp</kbd> / <kbd>PageDown</kbd></td><td>이전 · 다음 쪽</td><td><kbd>Esc</kbd></td><td>갤러리 · 서재 닫기</td></tr>
+    </table>
+
+    <h2 id="install">15. 설치와 데이터</h2>
+    <ul>
+      <li>Windows 설치 파일은 <code>npm run build:win</code> 으로 만듭니다 (macOS <code>build:mac</code>, Linux <code>build:linux</code>).</li>
+      <li>설치할 때 바로 가기와 PDF 기본 뷰어 설정을 고를 수 있습니다. 예전 Electron 판은 먼저 지우고, 남은 설정을 지울지 묻습니다.</li>
+      <li>설정 · 최근 파일 · 갤러리 · 서재는 <code>%APPDATA%\MyPDFViewer\settings.json</code> 에 저장됩니다. 갤러리 그림은 앱 데이터 안에 따로 보관됩니다.</li>
+    </ul>
+    <div class="tip">문제가 생기면 오류 창의 <b>오류 내용 복사</b> 로 전체 내용을 한 번에 복사해 전달하세요.</div>
+
+    <footer>MyPDFViewer · © SHKWON (knix008@naver.com) · MIT License</footer>
+  </main>
+</div>
+</body>
+</html>

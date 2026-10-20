@@ -9,8 +9,9 @@ import { DEFAULT_SETTINGS, FONT_SIZE_MAX, FONT_SIZE_MIN, stepFontSize } from '..
 import { IMAGE_FORMATS } from '../lib/image.js';
 import { isDesktop, appInfo } from '../lib/platform.js';
 import { FIT_ZOOM_MODES, zoomModeLabelKey } from '../lib/view.js';
+import BackgroundPicker from './BackgroundPicker.jsx';
 
-const TABS = ['appearance', 'viewer', 'copy', 'files'];
+const TABS = ['appearance', 'viewer', 'start', 'copy', 'files'];
 
 // Every application setting lives here. Changes apply immediately (and are
 // persisted by App), so there is no OK/Apply dance.
@@ -323,6 +324,24 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
               <p className="hint">{t('settings.autoCopyHint')}</p>
             </section>
           </div>
+        </div>
+
+        <div className={`settings-panel${tab === 'start' ? ' on' : ''}`} aria-hidden={tab !== 'start'} {...(tab !== 'start' ? { inert: '' } : {})} data-settings-start>
+            <section className="sgroup">
+              <h4>{t('start.title')}</h4>
+              <label className="bg-check">
+                <input
+                  type="checkbox"
+                  checked={settings.showStartPage !== false}
+                  onChange={(e) => set({ showStartPage: e.target.checked })}
+                />
+                <span>{t('start.showOnStart')}</span>
+              </label>
+            </section>
+            <section className="sgroup">
+              <h4>{t('startbg.title')}</h4>
+              <BackgroundPicker settings={settings} onChange={set} compact />
+            </section>
         </div>
 
         <div className={`settings-panel${tab === 'files' ? ' on' : ''}`} aria-hidden={tab !== 'files'} {...(tab !== 'files' ? { inert: '' } : {})}>

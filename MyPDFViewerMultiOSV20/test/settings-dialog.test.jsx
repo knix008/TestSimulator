@@ -71,7 +71,7 @@ describe('SettingsDialog', () => {
 
   it('keeps every tab mounted so switching tabs does not resize the window', async () => {
     await renderSettings();
-    expect(document.querySelectorAll('.settings-panel')).toHaveLength(4);
+    expect(document.querySelectorAll('.settings-panel')).toHaveLength(5);
     expect(screen.getByTitle('nord')).toBeTruthy();
     fireEvent.click(screen.getByTitle('Viewer'));
     expect(screen.getByTitle('nord')).toBeTruthy();

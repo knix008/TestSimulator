@@ -506,13 +506,13 @@ describe('Toolbar language flags', () => {
 });
 
 describe('Toolbar panel buttons', () => {
-  it('leaves comments, bookmarks and search to the left panel and offers gallery and favorites', async () => {
+  it('leaves comments, bookmarks and search to the left panel and offers gallery and library, with no separate favorites button', async () => {
     await setLanguage('en');
     const onComments = vi.fn();
     const onBookmarks = vi.fn();
     const onSearch = vi.fn();
     const onGallery = vi.fn();
-    const onFavorites = vi.fn();
+    const onLibrary = vi.fn();
     const noop = () => {};
     render(
       <Toolbar
@@ -556,16 +556,17 @@ describe('Toolbar panel buttons', () => {
         onAbout={noop}
         onPrint={noop}
         onGallery={onGallery}
-        onFavorites={onFavorites}
+        onLibrary={onLibrary}
       />,
     );
     expect(screen.queryByRole('button', { name: 'Comments' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Bookmarks' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Find' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Library list' }));
+    expect(screen.queryByRole('button', { name: 'Library list' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Library' }));
     expect(onGallery).toHaveBeenCalledTimes(1);
-    expect(onFavorites).toHaveBeenCalledTimes(1);
+    expect(onLibrary).toHaveBeenCalledTimes(1);
     expect(onComments).not.toHaveBeenCalled();
     expect(onBookmarks).not.toHaveBeenCalled();
     expect(onSearch).not.toHaveBeenCalled();
@@ -921,5 +922,42 @@ describe('theme swatches stay unique', () => {
   it('does not reuse the same 3-stop bar triple', () => {
     const keys = THEMES.map((t) => t.bars.join(','));
     expect(new Set(keys).size).toBe(THEMES.length);
+  });
+});
+
+describe('Toolbar recent files', () => {
+  it('adds a recent PDF to the library, or takes it out, from the File menu', async () => {
+    await setLanguage('ko');
+    const noop = () => {};
+    const onToggleFavorite = vi.fn();
+    const recentFiles = [
+      { path: 'C:\\d\\a.pdf', name: 'a.pdf', dir: 'C:\\d' },
+      { path: 'C:\\d\\b.pdf', name: 'b.pdf', dir: 'C:\\d' },
+      { path: 'C:\\d\\w.pdfvw', name: 'w.pdfvw', dir: 'C:\\d' },
+    ];
+    render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark', recentFiles }}
+        doc={null} pageNumber={1} numPages={0} scale={1} hasSelection={false} dirty={false}
+        history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text" onTool={noop} panel="none"
+        onOpen={noop} onOpenUrl={noop} onOpenRecent={noop} onRemoveRecent={noop} onClearRecent={noop}
+        onSave={noop} onSaveAs={noop} onCopyText={noop} onSelectPage={noop} onExtractImages={noop}
+        onExportText={noop} onHighlight={noop} onComment={noop} onBookmark={noop} onGoToPage={noop}
+        onZoom={noop} onZoomMode={noop} onRotate={noop} onLayout={noop} onTogglePanel={noop}
+        onTheme={noop} onLang={noop} onSettings={noop} onAbout={noop} onPrint={noop}
+        isFavoritePath={(p) => p.endsWith('a.pdf')}
+        onToggleFavorite={onToggleFavorite}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '파일' }));
+    const stars = document.querySelectorAll('.dd-list .row-fav');
+    expect(stars).toHaveLength(2); // not for the .pdfvw workspace
+    expect(stars[0].getAttribute('aria-label')).toBe('서재에서 빼기');
+    expect(stars[1].getAttribute('aria-label')).toBe('서재에 추가');
+    fireEvent.click(stars[1]);
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'b.pdf' }), true);
+    fireEvent.click(stars[0]);
+    expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a.pdf' }), false);
   });
 });

@@ -102,7 +102,18 @@ export default function Sidebar({
 
   // Right-click menus. Every row has its own (with an icon on every item);
   // anywhere else in the panel gets the general one, never the browser's.
+  // Add to / remove from the library: both always listed, only the one
+  // that applies enabled.
+  const libraryPair = (entry, inLibrary, { add = t('gallery.favorite'), remove = t('gallery.unfavorite') } = {}) => [
+    { icon: IconStar, label: add, disabled: inLibrary, onClick: () => onToggleFavorite?.(entry, true) },
+    { icon: IconLibrary, label: remove, disabled: !inLibrary, onClick: () => onToggleFavorite?.(entry, false) },
+  ];
+  const currentLibraryItems = () => (currentEntry
+    ? libraryPair(currentEntry, !!currentIsFavorite, { add: t('favorites.addCurrent'), remove: t('favorites.removeCurrent') })
+    : []);
   const generalItems = () => [
+    ...currentLibraryItems(),
+    currentEntry ? { separator: true } : null,
     { icon: IconGallery, label: t('favorites.openGallery'), onClick: () => onShowGallery?.() },
     onShowLibrary ? { icon: IconLibrary, label: t('library.open'), onClick: () => onShowLibrary() } : null,
     { icon: IconStar, label: t('side.favorites'), onClick: () => onPanel('favorites') },
@@ -125,11 +136,7 @@ export default function Sidebar({
   };
   const fileItems = (f, { forget = false, library = false } = {}) => [
     { icon: IconOpen, label: t('ctx.open'), onClick: () => onOpenGalleryEntry?.(f) },
-    {
-      icon: IconStar,
-      label: f.favorite ? t('gallery.unfavorite') : t('gallery.favorite'),
-      onClick: () => onToggleFavorite?.(f, !f.favorite),
-    },
+    ...libraryPair(f, !!f.favorite),
     forget ? { icon: IconClose, label: t('history.removeOne'), onClick: () => onForgetRecent?.(f.path) } : null,
     { separator: true },
     desktop && onRevealPath ? { icon: IconFolderOpen, label: t('ctx.reveal'), onClick: () => onRevealPath(f.path) } : null,
@@ -280,11 +287,7 @@ export default function Sidebar({
                     isInGallery?.(node.path)
                       ? { icon: IconGallery, label: t('ctx.removeFromGallery'), onClick: () => onRemoveFromGallery?.(node.path) }
                       : { icon: IconGallery, label: t('ctx.addToGallery'), onClick: () => onAddPathToGallery?.(node.path) },
-                    {
-                      icon: IconStar,
-                      label: isFavoritePath?.(node.path) ? t('gallery.unfavorite') : t('gallery.favorite'),
-                      onClick: () => onToggleFavorite?.({ path: node.path, name: node.name, size: node.size }, !isFavoritePath?.(node.path)),
-                    },
+                    ...libraryPair({ path: node.path, name: node.name, size: node.size }, !!isFavoritePath?.(node.path)),
                     { separator: true },
                     onRevealPath ? { icon: IconFolderOpen, label: t('ctx.reveal'), onClick: () => onRevealPath(node.path) } : null,
                     onCopyText ? { icon: IconCopy, label: t('ctx.copyPath'), onClick: () => onCopyText(node.path) } : null,
@@ -612,7 +615,16 @@ export default function Sidebar({
                           >
                             <GalleryThumb entry={f} onNeedThumb={onNeedGalleryThumb} className="gal-thumb mini" />
                             <span className="ol-title">{f.name}</span>
-                            {f.favorite ? <IconStar size={12} filled className="fav-mark" /> : null}
+                          </button>
+                          <button
+                            type="button"
+                            className={`icon-btn row-fav${f.favorite ? ' on' : ''}`}
+                            title={f.favorite ? t('gallery.unfavorite') : t('gallery.favorite')}
+                            aria-label={f.favorite ? t('gallery.unfavorite') : t('gallery.favorite')}
+                            aria-pressed={!!f.favorite}
+                            onClick={() => onToggleFavorite?.(f, !f.favorite)}
+                          >
+                            <IconStar size={13} filled={!!f.favorite} />
                           </button>
                           <button
                             type="button"
@@ -657,6 +669,8 @@ export default function Sidebar({
                         key={`past-${item.index}`}
                         onContextMenu={menu(() => [
                           { icon: IconUndo, label: t('ctx.undoTo'), onClick: () => history.jumpToPast?.(item.index) },
+                          currentEntry ? { separator: true } : null,
+                          ...currentLibraryItems(),
                           { separator: true },
                           { icon: IconTrash, label: t('history.clearAll'), onClick: () => onClearEditHistory?.(), danger: true },
                         ])}

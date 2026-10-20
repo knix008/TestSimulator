@@ -215,6 +215,57 @@ export const IconStar = ({ filled, ...p }) => (
 export const IconGallery = (p) => (
   <S {...p}><rect x="3" y="6" width="14" height="14" rx="2" /><path d="M7 3h11a3 3 0 0 1 3 3v11" /><path d="m3 16 4-4 4 4 2-2 4 4" /><circle cx="12.5" cy="10" r="1.2" /></S>
 );
+export const IconHome = (p) => (
+  <S {...p}><path d="M3 11 12 4l9 7" /><path d="M5.5 9.5V20h13V9.5" /><path d="M10 20v-5.5h4V20" /></S>
+);
+export const IconHelp = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.6" /><path d="M12 16.8v.2" /></S>
+);
+// An open book: the program guide.
+export const IconGuide = (p) => (
+  <S {...p}><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z" /><path d="M12 6.5v13" /></S>
+);
+export const IconSparkles = (p) => (
+  <S {...p}><path d="m12 3 1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></S>
+);
+export const IconDice = (p) => (
+  <S {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="3.5" /><circle cx="8.5" cy="8.5" r="1" fill="currentColor" /><circle cx="15.5" cy="15.5" r="1" fill="currentColor" /><circle cx="15.5" cy="8.5" r="1" fill="currentColor" /><circle cx="8.5" cy="15.5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></S>
+);
+export const IconSpeed = (p) => (
+  <S {...p}><path d="M4 17a8 8 0 1 1 16 0" /><path d="m12 17 4-5" /><circle cx="12" cy="17" r="1" /></S>
+);
+export const IconOpacity = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5v17" /><path d="M12 6h4M12 9.5h6.5M12 13h7M12 16.5h5.5" /></S>
+);
+export const IconClock = (p) => (
+  <S {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></S>
+);
+
+// One small picture per start-screen background (src/lib/startbg.js).
+export const BG_ICONS = {
+  books: (p) => (<S {...p}><rect x="4" y="5" width="6" height="13" rx="1" transform="rotate(-12 7 11.5)" /><rect x="12" y="4" width="7" height="14" rx="1" transform="rotate(9 15.5 11)" /></S>),
+  pages: (p) => (<S {...p}><path d="M6 4h8l4 4v12H6z" transform="rotate(-10 12 12)" /><path d="M8 11h7M8 14h5" transform="rotate(-10 12 12)" /></S>),
+  stars: (p) => (<S {...p}><path d="M12 12 4 6M12 12l8-5M12 12l-7 7M12 12l8 6M12 12v-9" /><circle cx="12" cy="12" r="1.2" /></S>),
+  letters: (p) => (<S {...p}><path d="M4 18 8 6l4 12M5.5 14h5" /><path d="M15 9h5M17.5 9v9" /></S>),
+  planes: (p) => (<S {...p}><path d="m3 11 18-7-6 16-3-7z" /><path d="m12 13 9-9" /></S>),
+  tunnel: (p) => (<S {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5.5" /><circle cx="12" cy="12" r="2.2" /></S>),
+  waves: (p) => (<S {...p}><path d="M2 9c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1" /><path d="M2 15c2.5-3 5-3 7.5 0s5 3 7.5 0 3.5-2 5-1" /></S>),
+  galaxy: (p) => (<S {...p}><path d="M12 12c3-3 7-1 7 2s-4 6-8 5-7-6-4-10 9-4 11 0" /><circle cx="12" cy="12" r="1" fill="currentColor" /></S>),
+  cubes: (p) => (<S {...p}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" /><path d="m4 7.5 8 4.5 8-4.5M12 12v9" /></S>),
+  helix: (p) => (<S {...p}><path d="M8 3c0 4 8 5 8 9s-8 5-8 9" /><path d="M16 3c0 4-8 5-8 9s8 5 8 9" /><path d="M9 6.5h6M9 17.5h6" /></S>),
+  knot: (p) => (<S {...p}><path d="M12 4c4 0 6 3 4 6s-8 2-8 6 6 5 8 2-2-6-4-8-6-6 0-6z" /></S>),
+  sphere: (p) => (<S {...p}><circle cx="12" cy="12" r="8.5" /><ellipse cx="12" cy="12" rx="3.5" ry="8.5" /><path d="M3.5 12h17" /></S>),
+  bubbles: (p) => (<S {...p}><circle cx="8" cy="15" r="4" /><circle cx="16" cy="8" r="3" /><circle cx="17" cy="16.5" r="1.6" /></S>),
+  snow: (p) => (<S {...p}><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" /><path d="m9.5 4.5 2.5 2 2.5-2M9.5 19.5l2.5-2 2.5 2" /></S>),
+  fireflies: (p) => (<S {...p}><circle cx="7" cy="8" r="1.6" fill="currentColor" /><circle cx="16" cy="6" r="1.1" fill="currentColor" /><circle cx="14" cy="15" r="2" fill="currentColor" /><circle cx="6" cy="17" r="1" fill="currentColor" /><circle cx="14" cy="15" r="4.5" /></S>),
+  constellation: (p) => (<S {...p}><path d="m4 17 5-6 4 3 4-8 3 4" /><circle cx="4" cy="17" r="1.3" /><circle cx="9" cy="11" r="1.3" /><circle cx="13" cy="14" r="1.3" /><circle cx="17" cy="6" r="1.3" /><circle cx="20" cy="10" r="1.3" /></S>),
+  aurora: (p) => (<S {...p}><path d="M3 15c3-6 6-6 9-2s6 3 9-4" /><path d="M5 19v-4M9 19v-6M13 19v-4M17 19v-7M21 19V9" /></S>),
+  hexgrid: (p) => (<S {...p}><path d="m7 4 4 2.3v4.6L7 13.2 3 10.9V6.3zM17 4l4 2.3v4.6l-4 2.3-4-2.3V6.3zM12 12.8l4 2.3v4.6L12 22l-4-2.3v-4.6z" /></S>),
+  orbits: (p) => (<S {...p}><ellipse cx="12" cy="12" rx="9.5" ry="3.8" /><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(60 12 12)" /><ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-60 12 12)" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /></S>),
+  terrain: (p) => (<S {...p}><path d="m2 18 5-7 4 4 3-5 8 8z" /><path d="m14 10 2-3 2 3" /></S>),
+  ink: (p) => (<S {...p}><path d="M12 3c2.5 3.2 4 5.3 4 7.2A4 4 0 0 1 8 10.2C8 8.3 9.5 6.2 12 3z" /><ellipse cx="12" cy="18.5" rx="8.5" ry="2.5" /><ellipse cx="12" cy="18.5" rx="4" ry="1.1" /></S>),
+};
+
 // Books standing on a shelf: the library of favorites.
 export const IconLibrary = (p) => (
   <S {...p}><path d="M3 21h18" /><rect x="4" y="5" width="4" height="16" rx="0.8" /><rect x="9" y="3" width="4" height="18" rx="0.8" /><path d="m14.5 6.2 3.7-1 3.6 14.8-3.7 1z" /><path d="M4 9h4M9 7h4" /></S>

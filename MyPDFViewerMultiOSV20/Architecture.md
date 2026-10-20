@@ -275,7 +275,7 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
 
 ---
 
-## 7.55 갤러리 · 즐겨찾기 · 형광펜 목록 · 직접 인쇄
+## 7.55 갤러리 · 서재 · 형광펜 목록 · 직접 인쇄
 
 * **갤러리** — [src/lib/gallery.js](src/lib/gallery.js) 의 순수 함수가 `settings.gallery`(`{ path, name, dir, size, addedAt, openedAt?, favorite? }`)를
   다룹니다. 문서를 열면 `registerOpened`, 손으로 넣으면 `addPaths`, 빼면 `removeFromGallery`. 경로는 대소문자·구분자를
@@ -284,6 +284,12 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
   localStorage 에 들어가지 않습니다. 열 때 `renderThumb` 로 다시 그리므로 저장한 형광펜도 그림에 보이고,
   열지 않고 등록한 파일은 카드가 화면에 들어올 때 앱이 하나씩 읽어 그립니다.
   [Gallery.jsx](src/components/Gallery.jsx) 는 문서 영역을 덮는 화면입니다(타일 · 자세히, 크기 `galleryTileSize`).
+* **서재** — 갤러리 항목의 `favorite` 표시입니다. [Library.jsx](src/components/Library.jsx) 는 책장 · 표지 · 목록 · 자세히 보기이고,
+  책장 한 칸에 몇 권 들어가는지는 `booksPerShelf` / `shelvesOf`, 책 사이 간격은 `shelfGap(크기)` 로 CSS 의
+  `calc(var(--book) * 0.12 + 8px)` 와 같습니다. 제목은 한 줄(`text-overflow: ellipsis`) — 두 줄 제목이 표지를 위로 밀어 줄이 들쭉날쭉했습니다.
+* **겹쳐 보이는 화면** — 시작 화면 · 갤러리 · 서재는 App 의 `overlay` 상태 하나로 고릅니다(`setShowGallery` / `setShowLibrary` 는
+  그 위의 얇은 래퍼). 둘을 따로 두고 한쪽 updater 안에서 다른 쪽 setState 를 부르면 툴바 버튼이 가끔 듣지 않았습니다.
+  셋 다 `.workarea` 끝에 절대 위치로 그려 **좌측 패널까지** 덮습니다. 문서를 열면 `overlay` 와 홈 화면이 닫힙니다.
 * **기록 패널의 최근 연 파일**은 갤러리 중 `openedAt` 이 있는 것입니다. 지우기는 `forgetOpened` — `openedAt` 만 지워
   갤러리 카드는 남깁니다. 편집 기록 지우기는 `history.reset(현재 상태)` 입니다.
 * **형광펜 목록** — [highlights.js](src/lib/highlights.js) 가 작업 공간 형광펜과 PDF에 저장된 형광펜(pdf.js 주석 id `12R`)을 합칩니다.
@@ -297,6 +303,24 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
   `StretchDIBits` 로 인쇄 가능 영역에 맞춰 가운데), macOS · Linux 에서는 CUPS `lp` 로 보냅니다. 매수는 묶음(collated)으로
   반복합니다 — dmCopies 를 무시하는 드라이버가 있어서입니다. 드라이버가 스스로 띄운 창(Print to PDF 의 파일 이름)을
   취소하면 `PRINT_CANCELLED` 로 돌아와 오류 없이 "인쇄 취소" 로 끝납니다.
+
+## 7.57 시작 화면과 프로그램 설명서
+
+* [StartScreen.jsx](src/components/StartScreen.jsx) — 제목 카드 · 시작하기(최근 파일) · 내 서재 · 배경 고르기 카드. 처음 표시 조건은
+  `!doc && settings.showStartPage`, 툴바 홈 버튼은 `homeOpen` 으로 문서가 있어도 엽니다.
+* [startbg.js](src/lib/startbg.js) — 배경 21가지. 장면마다 `{ init(w, h, rand), draw(ctx, state, { t, dt, w, h, c }) }` 이고,
+  3D 는 WebGL 없이 `project(x, y, z)` 원근 투영 + Canvas 2D 입니다(셰이더 컴파일 지연이 없고 가볍습니다).
+  `depthAlpha` 는 멀리서뿐 아니라 **카메라 바로 앞**에서도 흐려져, 가까이 온 물체가 화면을 덮지 않습니다.
+  [StartBackground.jsx](src/components/StartBackground.jsx) 가 30fps 로 그리고, 창이 숨으면 멈추며, 테마 색(`--accent`, `--text`)을
+  30프레임마다 다시 읽습니다. 설정은 `startBg` · `startBgOpacity`(0.1~1) · `startBgSpeed`(0.1~3) · `startBgRandom` · `startBgInterval`(0/15/30/60/120/300초).
+  [BackgroundPicker.jsx](src/components/BackgroundPicker.jsx) 를 시작 화면과 설정 → 시작 화면이 같이 씁니다.
+* **설명서** — `doc/Guide.html`(한국어) · `doc/Guide.en.html`(영어)와 `doc/images/`. [scripts/sync-doc.mjs](scripts/sync-doc.mjs) 가
+  `postinstall` · `prepare:assets` 때 `public/doc` 으로 복사해(git 에서는 무시) 빌드에 들어갑니다.
+  데스크톱은 `win_open_guide(page)` 가 `doc-guide` 라벨의 창을 `WebviewUrl::App("doc/…")` 로 만들고(있으면 주소만 바꿔 앞으로),
+  `guide_page` 로 두 파일 이름만 허용합니다. 설명서 안의 외부 링크는 기본 브라우저로 엽니다.
+  웹 판은 `window.open("./doc/…")` 입니다. 툴바 도움말 · F1 · 시작 화면 [프로그램 설명] 이 모두 `openGuide` 하나를 부릅니다.
+
+---
 
 ## 7.6 테마 목록이 창 밖으로 나가는 이유
 

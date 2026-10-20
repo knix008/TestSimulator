@@ -10,8 +10,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
-    "prepare:assets": "node scripts/ensure-deps.mjs && node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "postinstall": "node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/sync-doc.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/ensure-deps.mjs && node scripts/copy-pdfjs-assets.mjs && node scripts/sync-public-svgs.mjs && node scripts/sync-doc.mjs && node scripts/generate-build-info.mjs",
     "ensure:deps": "node scripts/ensure-deps.mjs",
     "clean": "node scripts/clean.mjs",
     "clean:all": "node scripts/clean.mjs --all",
@@ -45,7 +45,8 @@
     "test:js": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "pretest:watch": "node scripts/ensure-deps.mjs",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync:doc": "node scripts/sync-doc.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
