@@ -1,5 +1,5 @@
 <map version="1.0.1">
-<!-- My BrainMap export -->
+<!-- MyBrainMap export -->
   <node TEXT="Budget app &quot;MoneyNote&quot; launch" ID="ID_1">
     <richcontent TYPE="NOTE"><html><head/><body><p>Goal: 50,000 sign-ups within three months of launch.</p><p>&#160;</p><p>Open View › **Gantt chart** to see the dates as bars and drag them.</p></body></html></richcontent>
     <node TEXT="Planning" ID="ID_2">

@@ -79,7 +79,7 @@ function tour(lang, today) {
     step(['설정 · 시작 화면 배경', 'Settings and the start page'], ['Ctrl+, 로 설정을 엽니다. 시작 화면 배경은 마인드맵을 주제로 한 3D 장면 21가지 중에서 고릅니다.', 'Ctrl+, opens Settings. The start page background is one of 21 mind-map 3D scenes.']),
     step(['F1: 도움말', 'F1: Help'], ['모든 기능의 설명이 그림과 함께 별도 창으로 열립니다.', 'Every feature explained with pictures, in a window of its own.']),
   ], { icons: ['rocket'], side: 'left' });
-  const root = T(['My BrainMap 튜토리얼', 'My BrainMap tutorial'], [basics, screen, layouts, content, views, structure, files], {
+  const root = T(['MyBrainMap 튜토리얼', 'MyBrainMap tutorial'], [basics, screen, layouts, content, views, structure, files], {
     notes: ['위에서부터 차례로 따라 해 보세요. 각 토픽의 메모에 해 볼 일이 적혀 있습니다. 마음대로 고쳐도 됩니다 — Ctrl+Z 로 되돌립니다.', 'Follow the lessons from the top. Each topic\'s note says what to try. Change anything — Ctrl+Z undoes it.'],
   });
   const floating = { ...T(['플로팅 토픽', 'Floating topic'], [], { notes: ['빈 곳을 두 번 누르거나, 토픽을 Alt 를 누른 채 빈 곳에 놓으면 만들어집니다.', 'Double-click empty space, or Alt-drop a topic on empty space.'] }), x: 980, y: -150 };

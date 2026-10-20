@@ -10,7 +10,7 @@
 export const TOUR_STEPS = [
   {
     id: 'welcome',
-    title: ['My BrainMap 에 오신 것을 환영합니다', 'Welcome to My BrainMap'],
+    title: ['MyBrainMap 에 오신 것을 환영합니다', 'Welcome to MyBrainMap'],
     text: ['이 안내는 화면의 각 부분을 차례로 짚으며 기능을 설명합니다. 뒤에 열린 **튜토리얼 맵**에는 단원마다 직접 해 볼 일이 적혀 있습니다.\n\n→ 다음 · ← 이전 · Esc 끝내기', 'This guide walks through each part of the window and explains what it does. The **tutorial map** behind it has something to try in every lesson.\n\n→ next · ← back · Esc ends'],
   },
   {

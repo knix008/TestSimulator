@@ -3,7 +3,7 @@
 // apply to a mind map. Every row of FEATURES names the tools that have the
 // feature and checks it against the real code (model, commands, layout,
 // renderer, import / export, undo history). doc/feature-parity.md lists the
-// same rows, and the features of those tools that My BrainMap does not have.
+// same rows, and the features of those tools that MyBrainMap does not have.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';

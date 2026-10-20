@@ -38,8 +38,8 @@
 
 | 운영체제 | 폴더 |
 | --- | --- |
-| Windows | `%APPDATA%\My BrainMap` |
-| macOS | `~/Library/Application Support/My BrainMap` |
-| Linux | `~/.config/My BrainMap` |
+| Windows | `%APPDATA%\MyBrainMap` |
+| macOS | `~/Library/Application Support/MyBrainMap` |
+| Linux | `~/.config/MyBrainMap` |
 
 폴더의 `session.json` 에 설정, 열린 맵, 저장하지 않은 맵, 최근 파일이 들어 있습니다.

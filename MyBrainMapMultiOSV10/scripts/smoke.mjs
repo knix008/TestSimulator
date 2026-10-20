@@ -42,7 +42,7 @@ async function main() {
   if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) { console.error('dist/ is missing — run npm run build first'); process.exit(1); }
   page = await launch({ lang: 'ko' });
   await page.waitFor('!!window.__mtm && !!document.querySelector(".start-page")');
-  report = createReport('My BrainMap — GUI smoke test');
+  report = createReport('MyBrainMap — GUI smoke test');
   report.section('Start page');
 
   await step('start page shows the templates', async () => {

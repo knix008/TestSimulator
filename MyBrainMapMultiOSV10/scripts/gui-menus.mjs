@@ -374,7 +374,7 @@ async function main() {
   base.docIds = await p.eval('window.__mtm.docs().map((x) => x.id)');
   base.snap = await p.eval(SNAP);
   await p.eval(`(() => { const all = window.__mtm.menus ? window.__mtm.menus() : null; if (all) for (const m of all) window.__menuIds[m.id] = m.items().filter((x) => !x.sep && !x.header && !x.spacer).map((x) => x.id); })()`);
-  report = createReport('My BrainMap — every menu, toolbar and context-menu command');
+  report = createReport('MyBrainMap — every menu, toolbar and context-menu command');
   if (!ONLY.length || ONLY.includes('menus')) await menus();
   if (!ONLY.length || ONLY.includes('toolbar')) await toolbar();
   if (!ONLY.length || ONLY.includes('context')) await contexts();

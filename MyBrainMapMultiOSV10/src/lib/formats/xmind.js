@@ -152,7 +152,7 @@ export function exportXmind(map) {
     rootTopic: conv(map.root, true),
     relationships: (map.relationships || []).map((r) => ({ id: r.id, end1Id: r.from, end2Id: r.to, title: r.label || undefined })),
   };
-  const metadata = { creator: { name: 'My BrainMap', version: '1.0.0' } };
+  const metadata = { creator: { name: 'MyBrainMap', version: '1.0.0' } };
   const manifest = { 'file-entries': { 'content.json': {}, 'metadata.json': {} } };
   return [
     { name: 'content.json', text: JSON.stringify([sheet]) },

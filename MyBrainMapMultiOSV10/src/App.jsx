@@ -1,4 +1,4 @@
-// My BrainMap — the main window.
+// MyBrainMap — the main window.
 //
 // Maps are tabs (src/lib/docs.js: map + undo history + camera + selection).
 // The active map is laid out (src/lib/layout.js) and drawn by MapCanvas, or
@@ -395,7 +395,7 @@ export default function App() {
   // ── window title ──
   const active = docs.find((d) => d.id === activeId) || null;
   useEffect(() => {
-    setWindowTitle(active ? `${active.name}${isDirty(active) ? ' •' : ''} — My BrainMap` : 'My BrainMap');
+    setWindowTitle(active ? `${active.name}${isDirty(active) ? ' •' : ''} — MyBrainMap` : 'MyBrainMap');
   }, [active && active.name, active && isDirty(active)]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── closing the window ──
@@ -643,7 +643,7 @@ export default function App() {
       case 'samples': setDialog({ kind: 'samples' }); return;
       case 'tour': {
         // the tutorial map (one tab, reused) and the step-by-step tour on it
-        const open = docsRef.current.find((x) => x.tutorial || (!x.path && /^My BrainMap (튜토리얼|tutorial)$/.test(x.name)));
+        const open = docsRef.current.find((x) => x.tutorial || (!x.path && /^My ?BrainMap (튜토리얼|tutorial)$/.test(x.name)));
         if (open) { setActiveId(open.id); setStartOpen(false); } else { const doc = newMapDoc('tour'); mutate(doc.id, (x) => ({ ...x, tutorial: true })); }
         applySettings({ view: 'map', sidebarVisible: true, panelVisible: true, showGrid: true, showRulers: true, overviewVisible: true });
         setTimeout(() => { if (canvas.current) canvas.current.fit(); setTouring(true); }, 350);

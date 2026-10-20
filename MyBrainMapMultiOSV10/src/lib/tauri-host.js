@@ -135,7 +135,7 @@ export function setMinContentWidth(w) {
 }
 
 export function setTitle(title) {
-  getCurrentWindow().setTitle(title || 'My BrainMap').catch(() => {});
+  getCurrentWindow().setTitle(title || 'MyBrainMap').catch(() => {});
 }
 
 async function readNormal() {
@@ -294,7 +294,7 @@ async function openPopupWindow(kind, tab, { warm = false } = {}) {
   }
   const win = new WebviewWindow(kind, {
     url: popupUrl(kind, warm ? '' : tab),
-    title: 'My BrainMap',
+    title: 'MyBrainMap',
     width: spec.width,
     height: spec.height,
     resizable: !!spec.resizable,

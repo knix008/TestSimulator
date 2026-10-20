@@ -30,7 +30,7 @@ export function buildPdf(pages, { paper = null, margin = 28, title = '' } = {}) 
   obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
   obj(2, `<< /Type /Pages /Count ${n} /Kids [${pages.map((_, i) => `${pageObj(i)} 0 R`).join(' ')}] >>`);
   const titleHex = Array.from(title || 'Map').map((ch) => ch.codePointAt(0)).flatMap((c) => (c > 0xffff ? [0xd800 + ((c - 0x10000) >> 10), 0xdc00 + ((c - 0x10000) & 0x3ff)] : [c])).map((c) => c.toString(16).padStart(4, '0')).join('');
-  obj(3, `<< /Title <FEFF${titleHex}> /Producer (My BrainMap) /Creator (My BrainMap) >>`);
+  obj(3, `<< /Title <FEFF${titleHex}> /Producer (MyBrainMap) /Creator (MyBrainMap) >>`);
   pages.forEach((pg, i) => {
     const pw = paper ? paper.w : pg.width * 0.75 + margin * 2;
     const ph = paper ? paper.h : pg.height * 0.75 + margin * 2;

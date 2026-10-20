@@ -1,5 +1,5 @@
 <map version="1.0.1">
-<!-- My BrainMap export -->
+<!-- MyBrainMap export -->
   <node TEXT="가계부 앱 &quot;머니노트&quot; 출시" ID="ID_1">
     <richcontent TYPE="NOTE"><html><head/><body><p>목표: 출시 3개월 안에 가입자 5만 명.</p><p>&#160;</p><p>보기 › **간트 차트**에서 일정을 막대로 보고, 막대를 끌어 일정을 바꿀 수 있습니다.</p></body></html></richcontent>
     <node TEXT="기획" ID="ID_2">

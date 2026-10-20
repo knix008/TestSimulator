@@ -1,4 +1,4 @@
-# My BrainMap — 아키텍처
+# MyBrainMap — 아키텍처
 
 구조는 [My Editor (MyEditorMultiOSV20)](../MyEditorMultiOSV20/Architecture.md) 와 같습니다: 렌더러(React) → 전송(데스크톱은 Tauri 가 띄운 Node 서비스의 HTTP `/api`, 웹은 같은 HTTP) → 호스트(`src-tauri/` + `host/` · `server/`) → core(Node, 두 호스트가 공유). 렌더러의 모든 백엔드 호출은 `src/lib/backend.js` 의 `call(name, args)` 하나를 거쳐 `core/api.js` 의 같은 메서드 테이블에 닿습니다.
 

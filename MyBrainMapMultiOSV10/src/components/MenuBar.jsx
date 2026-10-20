@@ -1,5 +1,5 @@
 // The top of the window, two rows:
-//   menu bar   — app icon and name (My BrainMap V1.0) on the left, then the menus
+//   menu bar   — app icon and name (MyBrainMap V1.0) on the left, then the menus
 //                (파일 · 편집 · 삽입 · 서식 · 보기 · 도구 · 도움말, each
 //                with an icon), and on the desktop minimize / maximize / close
 //                on the right. The icon, name and the empty stretch are the

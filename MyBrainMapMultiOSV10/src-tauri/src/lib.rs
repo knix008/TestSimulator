@@ -1,4 +1,4 @@
-// Tauri shell for My BrainMap.
+// Tauri shell for MyBrainMap.
 //
 // The window and dialogs live here. File and session
 // work stays in the Node service this process starts
@@ -51,19 +51,24 @@ fn default_config_dir() -> PathBuf {
     if let Some(over) = std::env::var_os("MTM_USER_DATA") {
         return PathBuf::from(over);
     }
-    if cfg!(windows) {
-        let base = std::env::var_os("APPDATA")
+    let base = if cfg!(windows) {
+        std::env::var_os("APPDATA")
             .map(PathBuf::from)
-            .unwrap_or_else(|| home_dir().join("AppData").join("Roaming"));
-        base.join("My BrainMap")
+            .unwrap_or_else(|| home_dir().join("AppData").join("Roaming"))
     } else if cfg!(target_os = "macos") {
-        home_dir().join("Library").join("Application Support").join("My BrainMap")
+        home_dir().join("Library").join("Application Support")
     } else {
-        let base = std::env::var_os("XDG_CONFIG_HOME")
+        std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
-            .unwrap_or_else(|| home_dir().join(".config"));
-        base.join("My BrainMap")
+            .unwrap_or_else(|| home_dir().join(".config"))
+    };
+    let dir = base.join("MyBrainMap");
+    // Settings written before the rename ("My BrainMap") move to the new folder once.
+    let legacy = base.join("My BrainMap");
+    if !dir.exists() && legacy.is_dir() {
+        let _ = std::fs::rename(&legacy, &dir);
     }
+    dir
 }
 
 fn normalize(path: &Path) -> PathBuf {
@@ -143,7 +148,7 @@ fn node_binary(root: &Path) -> Result<PathBuf, String> {
     if bundled.is_file() {
         return Ok(bundled);
     }
-    node_on_path().ok_or_else(|| "Node.js was not found. Install Node.js, or build My BrainMap so the runtime is bundled.".into())
+    node_on_path().ok_or_else(|| "Node.js was not found. Install Node.js, or build MyBrainMap so the runtime is bundled.".into())
 }
 
 fn project_root(app: &tauri::App) -> Result<PathBuf, String> {
@@ -324,7 +329,7 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     let height = bounds.get("height").and_then(|v| v.as_f64()).unwrap_or(840.0).max(600.0);
     let maximized = bounds.get("maximized").and_then(|v| v.as_bool()).unwrap_or(false);
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("My BrainMap")
+        .title("MyBrainMap")
         .inner_size(width, height)
         .min_inner_size(640.0, 600.0)
         .decorations(false)
@@ -359,13 +364,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![host_info, renderer_ready])
         .setup(|app| {
             if let Err(err) = boot(app) {
-                let _ = app.dialog().message(&err).title("My BrainMap").blocking_show();
+                let _ = app.dialog().message(&err).title("MyBrainMap").blocking_show();
                 return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, err)));
             }
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building My BrainMap")
+        .expect("error while building MyBrainMap")
         .run(|app, event| match event {
             RunEvent::Exit => kill_host(app),
             RunEvent::WindowEvent { label, event: WindowEvent::Destroyed, .. } if label == "main" => {
