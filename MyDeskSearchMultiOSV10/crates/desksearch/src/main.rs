@@ -1,4 +1,5 @@
 mod app;
+mod app_icon;
 mod tray;
 mod worker;
 
@@ -54,7 +55,12 @@ fn main() -> eframe::Result<()> {
         .with_transparent(true)
         .with_always_on_top()
         .with_taskbar(false)
-        .with_app_id("MyDeskSearch");
+        .with_app_id("MyDeskSearch")
+        .with_icon(std::sync::Arc::new(egui::IconData {
+            rgba: app_icon::render(256),
+            width: 256,
+            height: 256,
+        }));
     if let (Some(left), Some(top)) = (settings.window_left, settings.window_top) {
         viewport = viewport.with_position([left as f32, top as f32]);
     }

@@ -37,7 +37,7 @@ Compress-Archive -Path (Join-Path $Stage '*') -DestinationPath $Zip
 $RootZip = Join-Path $Root "$StageName.zip"
 Copy-Item -LiteralPath $Zip -Destination $RootZip -Force
 
-function New-SetupExe([string]$ZipPath, [string]$Destination, [string]$StubSource, [string]$Version) {
+function New-SetupExe([string]$ZipPath, [string]$Destination, [string]$StubSource, [string]$Version, [string]$IconPath) {
     $csc = @(
         (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
         (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
@@ -54,7 +54,10 @@ function New-SetupExe([string]$ZipPath, [string]$Destination, [string]$StubSourc
     $numbers = @($Version.Split('.'))
     while ($numbers.Count -lt 3) { $numbers += '0' }
     $fileVersion = '{0},{1},{2},0' -f $numbers[0], $numbers[1], $numbers[2]
+    if (-not (Test-Path -LiteralPath $IconPath)) { throw "program icon was not found: $IconPath" }
+    $iconRc = $IconPath.Replace('\', '\\')
     $rcText = @"
+1 ICON "$iconRc"
 1 VERSIONINFO
 FILEVERSION $fileVersion
 PRODUCTVERSION $fileVersion
@@ -111,7 +114,7 @@ $SetupName = "mydesksearch${Version}_setup.exe"
 $Dist = Join-Path $Root 'dist'
 New-Item -ItemType Directory -Path $Dist -Force | Out-Null
 $Setup = Join-Path $Dist $SetupName
-New-SetupExe -ZipPath $Zip -Destination $Setup -StubSource (Join-Path $Packaging 'SetupStub.cs') -Version $Version
+New-SetupExe -ZipPath $Zip -Destination $Setup -StubSource (Join-Path $Packaging 'SetupStub.cs') -Version $Version -IconPath (Join-Path $Packaging 'mydesksearch.ico')
 $RootSetup = Join-Path $Root $SetupName
 Copy-Item -LiteralPath $Setup -Destination $RootSetup -Force
 

@@ -15,6 +15,9 @@ param(
     [string]$StartupRegistry = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run',
     [string]$StartupValueName = 'MyDeskSearch',
     [string]$StartMenuDir,
+    [string]$DesktopDir,
+    [ValidateSet('ask', 'yes', 'no')]
+    [string]$Shortcuts = 'ask',
     [switch]$NonInteractive,
     [switch]$UninstallOnly,
     [switch]$Isolated,
@@ -46,6 +49,10 @@ if (-not $DataDir) {
 if (-not $StartMenuDir) {
     $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
 }
+if (-not $DesktopDir) {
+    if ($Isolated) { throw 'Isolated mode requires -DesktopDir.' }
+    $DesktopDir = [Environment]::GetFolderPath('Desktop')
+}
 if (-not $SourceExe) {
     $SourceExe = Join-Path $PSScriptRoot 'mydesksearch.exe'
 }
@@ -71,6 +78,9 @@ function Get-Text([string]$Name) {
         Done     = 'MyDeskSearch를 설치했습니다.'
         Removed  = 'MyDeskSearch를 제거했습니다.'
         Cancel   = '취소'
+        AskShortcuts = '바탕화면과 시작 메뉴에 바로가기를 만들까요?'
+        Create   = '만들기'
+        Skip     = '만들지 않음'
         NeedFile = '설치할 mydesksearch.exe 를 찾지 못했습니다.'
         Denied   = '프로그램 파일을 지우지 못했습니다. 관리자 권한으로 설치 프로그램을 다시 실행하세요.'
     }
@@ -82,6 +92,9 @@ function Get-Text([string]$Name) {
         Done     = 'MyDeskSearch is installed.'
         Removed  = 'MyDeskSearch was removed.'
         Cancel   = 'Cancel'
+        AskShortcuts = 'Create shortcuts on the Desktop and in the Start menu?'
+        Create   = 'Create'
+        Skip     = 'Do not create'
         NeedFile = 'mydesksearch.exe was not found.'
         Denied   = 'The program files could not be removed. Run the installer again as administrator.'
     }
@@ -231,6 +244,39 @@ function Show-DataDialog {
     exit 1
 }
 
+function Show-ShortcutDialog {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'MyDeskSearch'
+    $form.ClientSize = New-Object System.Drawing.Size(480, 160)
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.StartPosition = 'CenterScreen'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = Get-Text 'AskShortcuts'
+    $label.Location = New-Object System.Drawing.Point(16, 20)
+    $label.Size = New-Object System.Drawing.Size(448, 48)
+    $create = New-Object System.Windows.Forms.Button
+    $create.Text = Get-Text 'Create'
+    $create.Location = New-Object System.Drawing.Point(210, 100)
+    $create.Size = New-Object System.Drawing.Size(120, 28)
+    $create.DialogResult = [System.Windows.Forms.DialogResult]::Yes
+    $skip = New-Object System.Windows.Forms.Button
+    $skip.Text = Get-Text 'Skip'
+    $skip.Location = New-Object System.Drawing.Point(340, 100)
+    $skip.Size = New-Object System.Drawing.Size(120, 28)
+    $skip.DialogResult = [System.Windows.Forms.DialogResult]::No
+    $form.Controls.AddRange(@($label, $create, $skip))
+    $form.AcceptButton = $create
+    $result = $form.ShowDialog()
+    $form.Dispose()
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) { return 'yes' }
+    if ($result -eq [System.Windows.Forms.DialogResult]::No) { return 'no' }
+    exit 1
+}
+
 function Resolve-Choices {
     if ($UninstallOnly -and -not $Language) {
         $saved = Read-SavedLanguage
@@ -246,6 +292,11 @@ function Resolve-Choices {
         $script:UserData = Show-DataDialog
     } elseif ($UserData -eq 'ask') {
         $script:UserData = 'keep'
+    }
+    if ($NoShortcuts) { $script:Shortcuts = 'no' }
+    if (-not $UninstallOnly -and $script:Shortcuts -eq 'ask') {
+        if ($NonInteractive) { throw 'Pass -Shortcuts yes or -Shortcuts no.' }
+        $script:Shortcuts = Show-ShortcutDialog
     }
 }
 
@@ -293,12 +344,27 @@ function Remove-StartupEntry {
 }
 
 function Remove-Shortcuts {
-    foreach ($name in @('MyDeskSearch.lnk', 'DeskSearch.lnk')) {
-        $link = Join-Path $StartMenuDir $name
-        if (Test-Path -LiteralPath $link) {
-            Remove-Item -LiteralPath $link -Force
+    foreach ($dir in @($StartMenuDir, $DesktopDir)) {
+        if (-not $dir) { continue }
+        foreach ($name in @('MyDeskSearch.lnk', 'DeskSearch.lnk')) {
+            $link = Join-Path $dir $name
+            if (Test-Path -LiteralPath $link) {
+                Remove-Item -LiteralPath $link -Force
+            }
         }
     }
+}
+
+function New-ProgramShortcut([string]$Directory) {
+    New-Item -ItemType Directory -Path $Directory -Force | Out-Null
+    $exe = Join-Path $InstallDir 'mydesksearch.exe'
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut((Join-Path $Directory 'MyDeskSearch.lnk'))
+    $shortcut.TargetPath = $exe
+    $shortcut.WorkingDirectory = $InstallDir
+    $shortcut.Description = 'MyDeskSearch'
+    $shortcut.IconLocation = "$exe,0"
+    $shortcut.Save()
 }
 
 function Remove-ProgramFiles {
@@ -366,14 +432,9 @@ function Register-Install {
     Set-ItemProperty -LiteralPath $UninstallRegistry -Name NoModify -Value 1 -Type DWord
     Set-ItemProperty -LiteralPath $UninstallRegistry -Name NoRepair -Value 1 -Type DWord
 
-    if (-not $NoShortcuts) {
-        New-Item -ItemType Directory -Path $StartMenuDir -Force | Out-Null
-        $shell = New-Object -ComObject WScript.Shell
-        $shortcut = $shell.CreateShortcut((Join-Path $StartMenuDir 'MyDeskSearch.lnk'))
-        $shortcut.TargetPath = Join-Path $InstallDir 'mydesksearch.exe'
-        $shortcut.WorkingDirectory = $InstallDir
-        $shortcut.Description = 'MyDeskSearch'
-        $shortcut.Save()
+    if ($Shortcuts -eq 'yes') {
+        New-ProgramShortcut $StartMenuDir
+        New-ProgramShortcut $DesktopDir
     }
 }
 

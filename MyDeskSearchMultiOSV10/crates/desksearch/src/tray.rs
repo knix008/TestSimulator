@@ -100,20 +100,8 @@ fn label(language: &str, key: &str) -> String {
 }
 
 fn app_icon() -> TrayIconImage {
-    glyph(32, |x, y| {
-        let center = 15.5;
-        let dx = x as f32 - center;
-        let dy = y as f32 - center;
-        let distance = (dx * dx + dy * dy).sqrt();
-        let ring = distance < 11.0 && distance > 6.5;
-        let handle = dx > 4.0 && dy > 4.0 && (dy - dx).abs() < 2.2 && distance < 16.0;
-        if ring || handle {
-            [40, 110, 220, 255]
-        } else {
-            [0, 0, 0, 0]
-        }
-    })
-    .into_tray()
+    let rgba = crate::app_icon::render(32);
+    TrayIconImage::from_rgba(rgba, 32, 32).expect("tray icon")
 }
 
 fn show_icon() -> Icon {
@@ -193,9 +181,5 @@ fn glyph(size: u32, pixel: impl Fn(u32, u32) -> [u8; 4]) -> RgbaIcon {
 impl RgbaIcon {
     fn into_menu(self) -> Icon {
         Icon::from_rgba(self.rgba, self.size, self.size).expect("menu icon")
-    }
-
-    fn into_tray(self) -> TrayIconImage {
-        TrayIconImage::from_rgba(self.rgba, self.size, self.size).expect("tray icon")
     }
 }

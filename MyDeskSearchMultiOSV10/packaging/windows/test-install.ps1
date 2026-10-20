@@ -5,10 +5,11 @@ $guid = [guid]::NewGuid().ToString('n')
 $product = "HKCU:\Software\DeskSearchInstallTest\$guid"
 $startup = "HKCU:\Software\DeskSearchInstallTest\$guid-Run"
 $menu = Join-Path $root 'StartMenu'
+$desktop = Join-Path $root 'Desktop'
 $installDir = Join-Path $root 'Programs\MyDeskSearch'
 $dataDir = Join-Path $root 'Roaming\MyDeskSearch'
 $source = Join-Path $root 'payload'
-New-Item -ItemType Directory -Force -Path $source, $menu | Out-Null
+New-Item -ItemType Directory -Force -Path $source, $menu, $desktop | Out-Null
 [System.IO.File]::WriteAllText((Join-Path $source 'mydesksearch.exe'), 'new-binary')
 
 function Snap([string]$Path) {
@@ -21,6 +22,22 @@ $realLegacyInstall = Join-Path $env:LOCALAPPDATA 'Programs\DeskSearch'
 $realData = Join-Path $env:APPDATA 'MyDeskSearch'
 $realLegacyData = Join-Path $env:APPDATA 'DeskSearch'
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$realDesktop = [Environment]::GetFolderPath('Desktop')
+$realMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+function Snap-Links([string]$Dir) {
+    $parts = @()
+    foreach ($name in @('MyDeskSearch.lnk', 'DeskSearch.lnk')) {
+        $path = Join-Path $Dir $name
+        if (Test-Path -LiteralPath $path) {
+            $parts += ($name + ':' + (Get-Item -LiteralPath $path).Length)
+        } else {
+            $parts += ($name + ':<missing>')
+        }
+    }
+    return ($parts -join '|')
+}
+$beforeDesktop = Snap-Links $realDesktop
+$beforeMenu = Snap-Links $realMenu
 $beforeInstall = Snap $realInstall
 $beforeLegacyInstall = Snap $realLegacyInstall
 $beforeData = Snap $realData
@@ -75,8 +92,23 @@ $common = @(
     '-UninstallRegistry', "$product\Uninstall",
     '-StartupRegistry', $startup,
     '-StartMenuDir', $menu,
+    '-DesktopDir', $desktop,
+    '-Shortcuts', 'yes',
     '-Version', '1.0.1'
 )
+
+function Assert-ProgramShortcut([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { throw "shortcut missing: $Path" }
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut($Path)
+    $exe = [System.IO.Path]::GetFullPath((Join-Path $installDir 'mydesksearch.exe'))
+    $target = [System.IO.Path]::GetFullPath([string]$link.TargetPath)
+    if ($target -ne $exe) { throw "shortcut target was [$target]" }
+    $icon = [string]$link.IconLocation
+    if ($icon -notmatch 'mydesksearch\.exe,0$') { throw "shortcut icon was [$icon]" }
+    $iconPath = [System.IO.Path]::GetFullPath(($icon -replace ',0$', ''))
+    if ($iconPath -ne $exe) { throw "shortcut icon path was [$iconPath]" }
+}
 
 try {
     Invoke-Case 'Installer offers Korean and English' {
@@ -96,7 +128,9 @@ try {
             '-ProductRegistry', $product,
             '-UninstallRegistry', "$product\Uninstall",
             '-StartupRegistry', $startup,
-            '-StartMenuDir', $menu
+            '-StartMenuDir', $menu,
+            '-DesktopDir', $desktop,
+            '-Shortcuts', 'yes'
         )
         if ($script:lastCode -eq 0) { throw 'an install directory that is not MyDeskSearch was accepted' }
     }
@@ -104,7 +138,7 @@ try {
     Invoke-Case 'Installer rejects a missing language' {
         Invoke-Quiet @(
             '-NonInteractive', '-Isolated', '-InstallDir', $installDir,
-            '-DataDir', $dataDir, '-UserData', 'keep'
+            '-DataDir', $dataDir, '-UserData', 'keep', '-DesktopDir', $desktop
         )
         if ($script:lastCode -eq 0) { throw 'missing language was accepted' }
     }
@@ -120,7 +154,8 @@ try {
             throw 'settings.json was written with a BOM'
         }
         if (-not (Test-Path -LiteralPath (Join-Path $installDir 'mydesksearch.exe'))) { throw 'binary missing' }
-        if (-not (Test-Path -LiteralPath (Join-Path $menu 'MyDeskSearch.lnk'))) { throw 'shortcut missing' }
+        Assert-ProgramShortcut (Join-Path $menu 'MyDeskSearch.lnk')
+        Assert-ProgramShortcut (Join-Path $desktop 'MyDeskSearch.lnk')
         $recorded = [System.IO.Path]::GetFullPath((Get-ItemProperty -LiteralPath $product).InstallDir)
         if ($recorded -ne [System.IO.Path]::GetFullPath($installDir)) { throw "install directory was not recorded: $recorded" }
     }
@@ -165,12 +200,13 @@ try {
             '-NonInteractive', '-UserData', 'keep', '-Isolated',
             '-InstallDir', $installDir, '-DataDir', $dataDir,
             '-ProductRegistry', $product, '-UninstallRegistry', "$product\Uninstall",
-            '-StartupRegistry', $startup, '-StartMenuDir', $menu
+            '-StartupRegistry', $startup, '-StartMenuDir', $menu, '-DesktopDir', $desktop
         )
         if ($script:lastCode -ne 0) { throw "uninstall keep failed ($($script:lastCode))" }
         if (Test-Path -LiteralPath $installDir) { throw 'program directory remained after uninstall' }
         if (-not (Test-Path -LiteralPath $settings)) { throw 'settings were removed while keeping data' }
-        if (Test-Path -LiteralPath (Join-Path $menu 'MyDeskSearch.lnk')) { throw 'shortcut remained after uninstall' }
+        if (Test-Path -LiteralPath (Join-Path $menu 'MyDeskSearch.lnk')) { throw 'Start menu shortcut remained after uninstall' }
+        if (Test-Path -LiteralPath (Join-Path $desktop 'MyDeskSearch.lnk')) { throw 'desktop shortcut remained after uninstall' }
         if (Test-Path -LiteralPath $product) { throw 'product registry remained after uninstall' }
     }
 
@@ -181,10 +217,33 @@ try {
             '-NonInteractive', '-UserData', 'delete', '-Isolated',
             '-InstallDir', $installDir, '-DataDir', $dataDir,
             '-ProductRegistry', $product, '-UninstallRegistry', "$product\Uninstall",
-            '-StartupRegistry', $startup, '-StartMenuDir', $menu
+            '-StartupRegistry', $startup, '-StartMenuDir', $menu, '-DesktopDir', $desktop
         )
         if ($script:lastCode -ne 0) { throw "uninstall delete failed ($($script:lastCode))" }
         if (Test-Path -LiteralPath $dataDir) { throw 'data remained after uninstall delete' }
+    }
+
+    Invoke-Case 'Installer requires a shortcut choice when noninteractive' {
+        $without = @()
+        for ($i = 0; $i -lt $common.Count; $i++) {
+            if ($common[$i] -eq '-Shortcuts') { $i++; continue }
+            $without += $common[$i]
+        }
+        Invoke-Quiet ($without + @('-Language', 'en', '-UserData', 'keep'))
+        if ($script:lastCode -eq 0) { throw 'a missing shortcut choice was accepted' }
+    }
+
+    Invoke-Case 'Skipping shortcuts leaves the Desktop and Start menu empty' {
+        $without = @()
+        for ($i = 0; $i -lt $common.Count; $i++) {
+            if ($common[$i] -eq '-Shortcuts') { $i++; continue }
+            $without += $common[$i]
+        }
+        Invoke-Quiet ($without + @('-Language', 'en', '-UserData', 'keep', '-Shortcuts', 'no'))
+        if ($script:lastCode -ne 0) { throw "installer failed ($($script:lastCode))" }
+        if (-not (Test-Path -LiteralPath (Join-Path $installDir 'mydesksearch.exe'))) { throw 'binary missing' }
+        if (Test-Path -LiteralPath (Join-Path $menu 'MyDeskSearch.lnk')) { throw 'Start menu shortcut was created' }
+        if (Test-Path -LiteralPath (Join-Path $desktop 'MyDeskSearch.lnk')) { throw 'desktop shortcut was created' }
     }
 } finally {
     foreach ($key in @($product, $startup)) {
@@ -208,6 +267,8 @@ Invoke-Case 'Real profile and startup entries stay unchanged' {
     if ($beforeInstall -ne $afterInstall -or $beforeLegacyInstall -ne $afterLegacyInstall) { throw 'a real install directory changed' }
     if ($beforeData -ne $afterData -or $beforeLegacyData -ne $afterLegacyData) { throw 'a real data directory changed' }
     if ($beforeRun -ne $afterRun -or $beforeLegacyRun -ne $afterLegacyRun) { throw 'a real Run key changed' }
+    if ((Snap-Links $realDesktop) -ne $beforeDesktop) { throw 'a real desktop shortcut changed' }
+    if ((Snap-Links $realMenu) -ne $beforeMenu) { throw 'a real Start menu shortcut changed' }
 }
 
 if ($script:failures -gt 0) { exit 1 }

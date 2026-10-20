@@ -1,8 +1,12 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[path = "src/app_icon.rs"]
+mod app_icon;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/app_icon.rs");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os != "windows" {
@@ -10,10 +14,28 @@ fn main() {
     }
     let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "1.0.1".to_string());
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
+    let icon_path = out_dir.join("mydesksearch.ico");
+    write_ico(
+        &icon_path,
+        &[16, 24, 32, 48, 64, 256]
+            .into_iter()
+            .map(|size| (size, app_icon::render(size)))
+            .collect::<Vec<_>>(),
+    );
+    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let shared_icon = manifest_dir.join("../../packaging/windows/mydesksearch.ico");
+    if let Some(parent) = shared_icon.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::copy(&icon_path, &shared_icon).expect("copy program icon");
     let rc_path = out_dir.join("mydesksearch.rc");
     let res_path = out_dir.join("mydesksearch.res");
-    std::fs::write(&rc_path, version_resource(&version, "mydesksearch.exe", "MyDeskSearch"))
-        .expect("write version resource");
+    let icon_rc = icon_path.display().to_string().replace('\\', "\\\\");
+    let rc = format!(
+        "1 ICON \"{icon_rc}\"\n{}",
+        version_resource(&version, "mydesksearch.exe", "MyDeskSearch")
+    );
+    std::fs::write(&rc_path, rc).expect("write version resource");
     let rc = find_rc();
     let status = Command::new(&rc)
         .args([
@@ -66,6 +88,64 @@ BEGIN
 END
 "#
     )
+}
+
+fn write_ico(path: &Path, images: &[(u32, Vec<u8>)]) {
+    let mut file = Vec::new();
+    file.extend_from_slice(&0_u16.to_le_bytes());
+    file.extend_from_slice(&1_u16.to_le_bytes());
+    file.extend_from_slice(&(images.len() as u16).to_le_bytes());
+    let mut offset = 6 + 16 * images.len() as u32;
+    let mut blobs = Vec::new();
+    for (size, rgba) in images {
+        let dib = dib_image(*size, rgba);
+        let byte = if *size >= 256 { 0 } else { *size as u8 };
+        file.push(byte);
+        file.push(byte);
+        file.push(0);
+        file.push(0);
+        file.extend_from_slice(&1_u16.to_le_bytes());
+        file.extend_from_slice(&32_u16.to_le_bytes());
+        file.extend_from_slice(&(dib.len() as u32).to_le_bytes());
+        file.extend_from_slice(&offset.to_le_bytes());
+        offset += dib.len() as u32;
+        blobs.push(dib);
+    }
+    for blob in blobs {
+        file.extend_from_slice(&blob);
+    }
+    std::fs::write(path, file).expect("write icon");
+}
+
+fn dib_image(size: u32, rgba: &[u8]) -> Vec<u8> {
+    let mut dib = Vec::new();
+    dib.extend_from_slice(&40_u32.to_le_bytes());
+    dib.extend_from_slice(&(size as i32).to_le_bytes());
+    dib.extend_from_slice(&(size as i32 * 2).to_le_bytes());
+    dib.extend_from_slice(&1_u16.to_le_bytes());
+    dib.extend_from_slice(&32_u16.to_le_bytes());
+    dib.extend_from_slice(&[0_u8; 24]);
+    for y in (0..size).rev() {
+        for x in 0..size {
+            let index = ((y * size + x) * 4) as usize;
+            dib.push(rgba[index + 2]);
+            dib.push(rgba[index + 1]);
+            dib.push(rgba[index]);
+            dib.push(rgba[index + 3]);
+        }
+    }
+    let stride = ((size + 31) / 32) * 4;
+    for y in (0..size).rev() {
+        let mut row = vec![0_u8; stride as usize];
+        for x in 0..size {
+            let alpha = rgba[((y * size + x) * 4 + 3) as usize];
+            if alpha < 128 {
+                row[(x / 8) as usize] |= 1 << (7 - (x % 8));
+            }
+        }
+        dib.extend_from_slice(&row);
+    }
+    dib
 }
 
 fn find_rc() -> PathBuf {
