@@ -1,0 +1,105 @@
+# Rust
+/target/
+/dist/
+
+# Installers copied to the repository root by the build scripts
+/MyDeskSearch-*.zip
+/MyDeskSearch-*-setup.exe
+/MyDeskSearch-*.tar.gz
+/MyDeskSearch-*.pkg
+/mydesksearch_*.deb
+/mydesksearch*_setup.exe
+/mydesksearch*.msi
+/DeskSearch-*.zip
+/DeskSearch-*-setup.exe
+
+
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.binlog
+
+# Visual Studio / Rider / VS Code / Cursor
+.vs/
+.vscode/
+.cursor/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.rsuser
+*.DotSettings.user
+UpgradeLog*.htm
+UpgradeLog*.XML
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+packages/
+artifacts/
+
+# WiX installer (소스 .wxs/.wxl은 추적, bin/obj·MSI 산출물은 제외)
+DeskSearch.Installer/bin/
+DeskSearch.Installer/obj/
+*.msi
+*.msm
+*.msp
+*.cab
+*.wixpdb
+*.wixobj
+*.wixmst
+
+# dotnet publish (Release self-contained 배포물)
+**/publish/
+
+# 로컬 publish 실험·용량 테스트 출력
+_publish_*/
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# OS / editor
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~
+*.tmp
+*.bak
+
+# 로컬 설정·런타임 (커밋 금지)
+appsettings.local.json
+**/settings.json
+
+# SQLite 인덱스 (실제 위치: %AppData%\MyDeskSearch\; 워크스페이스에 복사된 경우 대비)
+index.db
+index.db-shm
+index.db-wal
+index.db-*
+index.db.previous
+index.db.previous-*
+index.building.db
+index.building.db-shm
+index.building.db-wal
+index.building.db-*
+
+# Claude Code 로컬 설정
+.claude/
+.claude/settings.local.json

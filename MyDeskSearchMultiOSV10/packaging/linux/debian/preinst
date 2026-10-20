@@ -1,0 +1,48 @@
+#!/bin/sh
+# Stop MyDeskSearch and remove the previous program files before the new package is unpacked.
+set -eu
+
+stop_exact() {
+    target=$1
+    if ! command -v ps >/dev/null 2>&1; then
+        return 0
+    fi
+    ps -eo pid=,args= 2>/dev/null | while read -r pid args; do
+        case "$args" in
+            "$target"|"$target "*)
+                kill "$pid" 2>/dev/null || true
+                ;;
+        esac
+    done || true
+}
+
+installer_home() {
+    user=${SUDO_USER:-}
+    if [ -z "$user" ] || [ "$user" = root ]; then
+        user=$(logname 2>/dev/null || true)
+    fi
+    if [ -z "$user" ] || [ "$user" = root ]; then
+        return 0
+    fi
+    getent passwd "$user" 2>/dev/null | cut -d: -f6 || true
+}
+
+stop_exact /opt/mydesksearch/mydesksearch
+stop_exact /opt/desksearch/desksearch
+stop_exact /usr/local/bin/mydesksearch
+stop_exact /usr/local/bin/desksearch
+home=$(installer_home || true)
+if [ -n "${home:-}" ]; then
+    stop_exact "$home/.local/opt/mydesksearch/mydesksearch"
+    stop_exact "$home/.local/opt/desksearch/desksearch"
+    stop_exact "$home/.local/bin/mydesksearch"
+    stop_exact "$home/.local/bin/desksearch"
+    rm -f "$home/.local/bin/mydesksearch" "$home/.local/bin/desksearch"
+    rm -rf "$home/.local/opt/mydesksearch" "$home/.local/opt/desksearch"
+    rm -f "$home/.local/share/applications/mydesksearch.desktop" "$home/.local/share/applications/desksearch.desktop"
+    rm -f "$home/.config/autostart/mydesksearch.desktop" "$home/.config/autostart/desksearch.desktop"
+fi
+rm -f /usr/local/bin/mydesksearch /usr/local/bin/desksearch
+rm -f /usr/share/applications/mydesksearch.desktop /usr/share/applications/desksearch.desktop
+rm -rf /opt/mydesksearch /opt/desksearch
+exit 0

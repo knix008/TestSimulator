@@ -1,0 +1,18 @@
+Template: mydesksearch/language
+Type: select
+Choices: 한국어, English
+Default: 한국어
+Description: Language for MyDeskSearch
+ Korean or English. You can change this later in the program settings.
+ If MyDeskSearch is already installed, the program is removed and installed again.
+Description-ko.UTF-8: MyDeskSearch 언어
+ 한국어 또는 영어입니다. 프로그램 설정에서도 바꿀 수 있습니다.
+ 이미 설치되어 있으면 프로그램을 지운 뒤 새로 설치합니다.
+
+Template: mydesksearch/purge-data
+Type: boolean
+Default: false
+Description: Delete MyDeskSearch settings and the search index?
+ The program files are always replaced. Choose No to keep settings and the search index. The language saved in the app stays as it is. Choose Yes to start in the language selected above.
+Description-ko.UTF-8: MyDeskSearch 설정과 검색 인덱스를 삭제할까요?
+ 프로그램 파일은 항상 새로 설치됩니다. 아니오를 고르면 설정과 검색 인덱스를 유지하고, 앱에 저장된 언어도 남습니다. 예를 고르면 위에서 고른 언어로 시작합니다.

@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+if [ "${1:-}" != configure ]; then
+    exit 0
+fi
+. /usr/share/debconf/confmodule
+
+db_get mydesksearch/language || true
+case "${RET:-}" in
+    English|en) code=en ;;
+    *) code=ko ;;
+esac
+db_get mydesksearch/purge-data || true
+mode=keep
+if [ "${RET:-}" = true ]; then
+    mode=delete
+fi
+
+user=${SUDO_USER:-}
+if [ -z "$user" ] || [ "$user" = root ]; then
+    user=$(logname 2>/dev/null || true)
+fi
+if [ -n "$user" ] && [ "$user" != root ] && [ -x /opt/mydesksearch/install.sh ]; then
+    home=$(getent passwd "$user" 2>/dev/null | cut -d: -f6 || true)
+    if [ -n "${home:-}" ]; then
+        bash /opt/mydesksearch/install.sh --os linux --phase data --non-interactive --no-sudo \
+            --language "$code" --user-data "$mode" --home "$home" --prefix /
+    fi
+fi
+if [ -f /opt/mydesksearch/mydesksearch ]; then
+    chmod 755 /opt/mydesksearch/mydesksearch || true
+fi
+exit 0

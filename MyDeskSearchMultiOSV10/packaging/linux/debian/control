@@ -1,0 +1,11 @@
+Package: mydesksearch
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: @ARCH@
+Maintainer: MyDeskSearch <mydesksearch@example.com>
+Depends: bash, debconf (>= 0.5) | debconf-2.0
+Description: Search file and folder names
+ Always-on-top widget that indexes file and folder names.
+ Choose Korean or English while installing. The same choice is in the program settings.
+ An existing installation is removed before the new files are installed.

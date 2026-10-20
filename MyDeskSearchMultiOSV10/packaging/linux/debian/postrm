@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+if [ "${1:-}" = remove ] || [ "${1:-}" = purge ]; then
+    rm -f /usr/local/bin/mydesksearch /usr/local/bin/desksearch
+    rm -f /usr/share/applications/mydesksearch.desktop /usr/share/applications/desksearch.desktop
+    rm -rf /opt/mydesksearch /opt/desksearch
+fi
+exit 0

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Remove the previous DeskSearch app before the package copies a new one.
+set -euo pipefail
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+console_user=$(stat -f '%Su' /dev/console)
+console_home=$(dscl . -read "/Users/${console_user}" NFSHomeDirectory | awk '{print $2}')
+answer=/tmp/desksearch-install.env
+rm -f "$answer"
+bash "$here/install.sh" --os macos --phase prompts --no-sudo --home "$console_home" --answer-file "$answer"
+# shellcheck disable=SC1090
+. "$answer"
+bash "$here/install.sh" --os macos --phase remove --non-interactive --no-sudo \
+    --language "$LANGUAGE" --user-data "$USER_DATA" --home "$console_home"

@@ -1,0 +1,19 @@
+#!/bin/bash
+# Apply the language and the user's choice about settings and the search index.
+set -euo pipefail
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+answer=/tmp/desksearch-install.env
+if [ ! -f "$answer" ]; then
+    echo "DeskSearch install answers were not found." >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+. "$answer"
+console_user=$(stat -f '%Su' /dev/console)
+console_home=$(dscl . -read "/Users/${console_user}" NFSHomeDirectory | awk '{print $2}')
+bash "$here/install.sh" --os macos --phase data --non-interactive --no-sudo \
+    --language "$LANGUAGE" --user-data "$USER_DATA" --home "$console_home"
+rm -f "$answer"
+if [ -f /Applications/MyDeskSearch.app/Contents/MacOS/mydesksearch ]; then
+    chmod 755 /Applications/MyDeskSearch.app/Contents/MacOS/mydesksearch
+fi

@@ -1,0 +1,34 @@
+#!/bin/sh
+set -eu
+. /usr/share/debconf/confmodule
+
+db_input high mydesksearch/language || true
+db_go || true
+
+user=${SUDO_USER:-}
+if [ -z "$user" ] || [ "$user" = root ]; then
+    user=$(logname 2>/dev/null || true)
+fi
+
+ask_data=0
+if [ -d /opt/mydesksearch ] || [ -e /usr/local/bin/mydesksearch ] || [ -e /usr/share/applications/mydesksearch.desktop ]; then
+    ask_data=1
+fi
+if [ -d /opt/desksearch ] || [ -e /usr/local/bin/desksearch ] || [ -e /usr/share/applications/desksearch.desktop ]; then
+    ask_data=1
+fi
+if [ -n "$user" ] && [ "$user" != root ]; then
+    home=$(getent passwd "$user" 2>/dev/null | cut -d: -f6 || true)
+    if [ -n "${home:-}" ]; then
+        if [ -d "$home/.config/MyDeskSearch" ] || [ -d "$home/.config/DeskSearch" ] || [ -e "$home/.local/opt/mydesksearch/mydesksearch" ] || [ -e "$home/.local/opt/desksearch/desksearch" ] || [ -e "$home/.local/bin/mydesksearch" ] || [ -e "$home/.local/bin/desksearch" ]; then
+            ask_data=1
+        fi
+    fi
+fi
+if [ "$ask_data" -eq 1 ]; then
+    db_input high mydesksearch/purge-data || true
+    db_go || true
+else
+    db_set mydesksearch/purge-data false
+fi
+exit 0
