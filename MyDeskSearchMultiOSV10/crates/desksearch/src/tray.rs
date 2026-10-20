@@ -1,6 +1,7 @@
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Mutex, Once};
+use std::sync::{Arc, Mutex, Once};
 
+use eframe::egui;
 use tray_icon::menu::{Icon, IconMenuItem, Menu, MenuEvent};
 use tray_icon::{Icon as TrayIconImage, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
@@ -22,7 +23,7 @@ pub enum TrayAction {
 }
 
 impl Tray {
-    pub fn install(language: &str) -> tray_icon::Result<Self> {
+    pub fn install(language: &str, ctx: &egui::Context) -> tray_icon::Result<Self> {
         let show = IconMenuItem::with_id(
             "show",
             label(language, "Tray_ShowWindow"),
@@ -62,7 +63,7 @@ impl Tray {
             .with_icon(app_icon())
             .build()?;
         let (sender, actions) = mpsc::channel();
-        install_menu_watcher(sender);
+        install_menu_watcher(sender, ctx.clone());
         Ok(Self {
             _icon: icon,
             actions,
@@ -80,13 +81,10 @@ impl Tray {
         self.exit.set_text(label(language, "Menu_Exit"));
     }
 
-    pub fn poll(&self) -> Option<TrayAction> {
-        let mut action = None;
+    pub fn poll(&self) -> Vec<TrayAction> {
+        let mut actions = Vec::new();
         while let Ok(next) = self.actions.try_recv() {
-            if next == TrayAction::Exit {
-                exit_immediately();
-            }
-            action = Some(next);
+            actions.push(next);
         }
         while let Ok(event) = TrayIconEvent::receiver().try_recv() {
             let show = match event {
@@ -101,45 +99,91 @@ impl Tray {
                 } => true,
                 _ => false,
             };
-            if show && action.is_none() {
-                action = Some(TrayAction::Show);
+            if show {
+                actions.push(TrayAction::Show);
             }
         }
-        action
+        actions
     }
 }
 
-fn install_menu_watcher(sender: Sender<TrayAction>) {
-    static SENDER: Mutex<Option<Sender<TrayAction>>> = Mutex::new(None);
+fn install_menu_watcher(sender: Sender<TrayAction>, ctx: egui::Context) {
+    static SLOT: Mutex<Option<(Sender<TrayAction>, egui::Context)>> = Mutex::new(None);
     static START: Once = Once::new();
-    if let Ok(mut slot) = SENDER.lock() {
-        *slot = Some(sender);
+    if let Ok(mut slot) = SLOT.lock() {
+        *slot = Some((sender, ctx));
     }
     START.call_once(|| {
-        std::thread::Builder::new()
-            .name("mydesksearch-tray".to_string())
-            .spawn(|| {
-                while let Ok(event) = MenuEvent::receiver().recv() {
-                    if event.id.0 == "exit" {
-                        exit_immediately();
-                    }
-                    let Ok(slot) = SENDER.lock() else {
-                        continue;
-                    };
-                    let Some(sender) = slot.as_ref() else {
-                        continue;
-                    };
-                    let action = match event.id.0.as_str() {
-                        "show" => TrayAction::Show,
-                        "hide" => TrayAction::Hide,
-                        "settings" => TrayAction::Settings,
-                        _ => continue,
-                    };
-                    let _ = sender.send(action);
-                }
-            })
-            .ok();
+        MenuEvent::set_event_handler(Some(|event: MenuEvent| {
+            let action = match event.id.0.as_str() {
+                "show" => TrayAction::Show,
+                "hide" => TrayAction::Hide,
+                "settings" => TrayAction::Settings,
+                "exit" => TrayAction::Exit,
+                _ => return,
+            };
+            if action == TrayAction::Exit {
+                exit_immediately();
+            }
+            let Ok(slot) = SLOT.lock() else {
+                return;
+            };
+            let Some((sender, ctx)) = slot.as_ref() else {
+                return;
+            };
+            let sender = sender.clone();
+            let ctx = ctx.clone();
+            drop(slot);
+            let _ = sender.send(action);
+            apply_root_now(action);
+            ctx.request_repaint_of(egui::ViewportId::ROOT);
+        }));
     });
+}
+
+type WindowFn = Arc<dyn Fn() + Send + Sync>;
+
+static SHOW_WINDOW: Mutex<Option<WindowFn>> = Mutex::new(None);
+static HIDE_WINDOW: Mutex<Option<WindowFn>> = Mutex::new(None);
+
+pub fn remember_root_window(frame: &eframe::Frame) {
+    if SHOW_WINDOW
+        .lock()
+        .ok()
+        .and_then(|slot| slot.as_ref().map(|_| ()))
+        .is_some()
+    {
+        return;
+    }
+    let Some(window) = frame.winit_window().cloned() else {
+        return;
+    };
+    let show = window.clone();
+    let hide = window;
+    if let Ok(mut slot) = SHOW_WINDOW.lock() {
+        *slot = Some(Arc::new(move || {
+            show.set_minimized(false);
+            show.set_visible(true);
+            let _ = show.focus_window();
+            show.request_redraw();
+        }));
+    }
+    if let Ok(mut slot) = HIDE_WINDOW.lock() {
+        *slot = Some(Arc::new(move || {
+            hide.set_visible(false);
+        }));
+    }
+}
+
+fn apply_root_now(action: TrayAction) {
+    let callback = match action {
+        TrayAction::Show | TrayAction::Settings => SHOW_WINDOW.lock().ok().and_then(|slot| slot.clone()),
+        TrayAction::Hide => HIDE_WINDOW.lock().ok().and_then(|slot| slot.clone()),
+        TrayAction::Exit => None,
+    };
+    if let Some(callback) = callback {
+        callback();
+    }
 }
 
 pub fn exit_immediately() -> ! {
