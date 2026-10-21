@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyDCMViewer",
+  "mainBinaryName": "MyDCMViewer",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mydcmviewer",
+  "build": {
+    "beforeDevCommand": {
+      "script": "node scripts/dev-server.mjs",
+      "wait": false
+    },
+    "devUrl": "http://localhost:5193",
+    "beforeBuildCommand": "node scripts/stage-samples.mjs && node scripts/build-web.js --app",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "license": "MIT",
+    "category": "Utility",
+    "shortDescription": "DICOM viewer",
+    "longDescription": "View DICOM and medical images: window/level, presets, colour maps, cine, series, DICOMDIR, MPR/MIP, measurements, tag editing, structured reports, waveforms, encapsulated PDFs, RT plans and structures, and export to images, video, PDF and DICOM.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/dcmfile.ico": "dcmfile.ico",
+      "resources/samples/": "samples/"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["dcm", "dicm", "dicom"],
+        "name": "MyDCMViewer.DICOM",
+        "description": "DICOM Image",
+        "mimeType": "application/dicom",
+        "role": "Viewer"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}
