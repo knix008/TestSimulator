@@ -193,11 +193,11 @@ describe("Desktop", () => {
   it("never shrinks the window below the calendar, the events toggle, and one event", async () => {
     const config = JSON.parse(readFileSync(resolve("src-tauri/tauri.conf.json"), "utf8"));
     const main = config.app.windows.find((window: { label: string }) => window.label === "main");
-    // Toolbar 46, weekdays 25, square 7x5 grid at the narrowest width, collapsed footer 45, 1px border top and bottom.
-    const collapsed = 46 + 25 + ((main.minWidth - 2) * 5) / 7 + 45 + 2;
+    // Toolbar 46, weekdays 25, square 7x5 grid at the narrowest width, collapsed footer 39, 1px border top and bottom.
+    const collapsed = 46 + 25 + ((main.minWidth - 2) * 5) / 7 + 39 + 2;
     expect(main.minWidth).toBe(desktop.MIN_WINDOW_WIDTH);
     // The minimum leaves the app's name out; it follows the toolbar measured for the language and format.
-    expect(desktop.MIN_WINDOW_WIDTH).toBe(400);
+    expect(desktop.MIN_WINDOW_WIDTH).toBe(340);
     const screenSource = readFileSync(resolve("src/ui/CalendarScreen.tsx"), "utf8");
     expect(screenSource).toContain("toolbarWidth(toolbarRef.current, panel)");
     expect(screenSource).toContain("[settings.language, titleFormat]");
@@ -259,7 +259,7 @@ describe("Desktop", () => {
     expect(app).toContain('kind === "settings" || kind === "events"');
     // The print preview is a wide, resizable window of its own.
     expect(rust).toContain('"print" => (include_bytes!("../icons/tray/print-64.png"), 1040.0, 720.0, 760.0, 520.0, true)');
-    expect(rust).toContain('_ => (include_bytes!("../icons/tray/settings-64.png"), 600.0, 760.0, 380.0, 420.0, false)');
+    expect(rust).toContain('_ => (include_bytes!("../icons/tray/settings-64.png"), 380.0, 704.0, 380.0, 420.0, false)');
     // The event editor is a resizable window of its own, kept above a calendar that stays on top.
     expect(rust).toContain('"editor" => (include_bytes!("../icons/tray/events-64.png"), 460.0, 492.0, 380.0, EDITOR_MIN_HEIGHT, true)');
     // Its height then follows the form, inside the work area, so no space is left under the buttons.

@@ -174,6 +174,34 @@ export function transparencyFromOpacity(opacity: number): number {
   return Math.round(((1 - clampOpacity(opacity)) / (1 - MIN_OPACITY)) * 100);
 }
 
+/** What the settings window edits: Cancel puts these back, Reset returns them (all but the language) to the defaults. */
+export const DIALOG_KEYS = [
+  "language",
+  "themeId",
+  "opacity",
+  "countryCode",
+  "weekStartsOn",
+  "showLunar",
+  "alwaysOnTop",
+  "autostart",
+  "dateFontScale",
+  "dateFontFamily",
+  "dateFontWeight",
+  "dateFontItalic",
+  "fullscreenDateFont",
+  "backgroundImageOpacity",
+  "monthTitleFormats",
+] as const satisfies ReadonlyArray<keyof Settings>;
+
+export function pickDialogSettings(source: Settings): Partial<Settings> {
+  return Object.fromEntries(DIALOG_KEYS.map((key) => [key, source[key]])) as Partial<Settings>;
+}
+
+export function dialogDefaults(): Partial<Settings> {
+  const { language: _language, ...rest } = pickDialogSettings(DEFAULT_SETTINGS);
+  return rest;
+}
+
 export function normalizeSettings(input: Partial<Settings> | null | undefined): Settings {
   const themeId =
     typeof input?.themeId === "string" && themes.some((theme) => theme.id === input.themeId)

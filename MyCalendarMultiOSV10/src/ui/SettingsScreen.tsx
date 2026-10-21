@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { readBackgroundImage, writeBackgroundImage } from "../domain/backgroundImage";
 import { MONTH_TITLE_FORMATS, monthTitle } from "../domain/calendar";
 import { countryName, sortCountries } from "../domain/countries";
 import { requestHolidayRefresh } from "../domain/holidays";
@@ -10,11 +11,13 @@ import {
   dateFontFor,
   dateFontPatch,
   DEFAULT_SETTINGS,
+  dialogDefaults,
   FULLSCREEN_KEY,
   MAX_DATE_FONT_SCALE,
   MIN_DATE_FONT_SCALE,
   opacityFromTransparency,
   pickDateFont,
+  pickDialogSettings,
   readFullscreen,
   sameDateFont,
   transparencyFromOpacity,
@@ -38,7 +41,6 @@ import {
   ImageIcon,
   InfoIcon,
   KoreaFlag,
-  LocationIcon,
   MoonIcon,
   PaletteIcon,
   PinIcon,
@@ -71,6 +73,48 @@ export function SettingsScreen({
   const transparency = transparencyFromOpacity(settings.opacity);
   const [tab, setTab] = useState<SettingsTab>(() => takeRequestedTab() ?? "general");
   const [today] = useState(() => new Date());
+
+  // Changes show at once; Cancel, Escape, the close button, or a click beside the web dialog put back what the
+  // window opened with, and only OK keeps them.
+  const [initial] = useState(() => ({ settings: pickDialogSettings(settings), image: readBackgroundImage() }));
+  const finished = useRef(false);
+  const revert = () => {
+    update(initial.settings);
+    if (readBackgroundImage() !== initial.image) writeBackgroundImage(initial.image);
+  };
+  const revertRef = useRef(revert);
+  revertRef.current = revert;
+  const cancel = () => {
+    if (finished.current) return;
+    finished.current = true;
+    revert();
+    onClose();
+  };
+  const confirm = () => {
+    finished.current = true;
+    onClose();
+  };
+  const reset = () => {
+    update(dialogDefaults());
+    if (readBackgroundImage() !== null) writeBackgroundImage(null);
+  };
+  const cancelRef = useRef(cancel);
+  cancelRef.current = cancel;
+  useEffect(() => {
+    // Ahead of the window's own Escape, which would close without putting anything back. An open dropdown keeps
+    // Escape for itself.
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector('.dropdown[aria-expanded="true"]')) return;
+      event.preventDefault();
+      cancelRef.current();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      if (!finished.current) revertRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -132,7 +176,7 @@ export function SettingsScreen({
 
   return (
     <section className="panel screen settings-screen">
-      <WindowChrome icon={<GearIcon />} title={t.settings} closeLabel={t.close} onClose={onClose} onMouseDown={onMouseDown} />
+      <WindowChrome icon={<GearIcon />} title={t.settings} closeLabel={t.close} onClose={cancel} onMouseDown={onMouseDown} />
       <div className="tabs" role="tablist">
         {tabs.map((item) => (
           <button
@@ -192,13 +236,9 @@ export function SettingsScreen({
               <FlagIcon />
               {t.holidaysSection}
             </h2>
-            <p className="hint">{t.countryHint}</p>
-            <label className="field with-icon" htmlFor="country-search">
-              <LocationIcon />
-              {t.country}
-            </label>
             <input
               id="country-search"
+              aria-label={t.country}
               className="text-input"
               value={query}
               placeholder={t.searchCountry}
@@ -215,9 +255,7 @@ export function SettingsScreen({
               onChange={(countryCode) => update({ countryCode })}
             />
             {countryOptions.length === 0 && <p className="hint">{t.noCountry}</p>}
-            <p className="hint">
-              {source === "loading" ? t.countriesLoading : source === "live" ? t.countriesLive : t.countriesFallback}
-            </p>
+            {source === "fallback" && <p className="hint">{t.countriesFallback}</p>}
             <button
               type="button"
               className="text-btn solid"
@@ -300,7 +338,6 @@ export function SettingsScreen({
                 update({ monthTitleFormats: { ...settings.monthTitleFormats, [settings.language]: format } })
               }
             />
-            <p className="hint">{t.monthTitleFormatHint}</p>
             <label className="field with-icon" id="week-start-label">
               <WeekStartIcon />
               {t.weekStart}
@@ -319,13 +356,12 @@ export function SettingsScreen({
                 </button>
               ))}
             </div>
-            <p className="hint">{t.weekStartHint}</p>
             <label className="check">
               <input type="checkbox" checked={settings.showLunar} onChange={(event) => update({ showLunar: event.target.checked })} />
               <MoonIcon />
               <span>{t.showLunar}</span>
             </label>
-            <p className="hint">{lunarSupported() ? t.lunarHint : t.lunarUnavailable}</p>
+            {!lunarSupported() && <p className="hint">{t.lunarUnavailable}</p>}
             <div className="font-head">
               <label className="field with-icon" htmlFor="date-font-size">
                 <FontIcon />
@@ -410,12 +446,22 @@ export function SettingsScreen({
                 <b key={day}>{day}</b>
               ))}
             </div>
-            <p className="hint">{t.dateFontSizeHint}</p>
-            {desktop && <p className="hint">{t.dateFontTargetHint}</p>}
           </>
         )}
         {tab === "about" && <AboutInfo t={t} />}
       </div>
+      <footer className="settings-actions">
+        <button type="button" className="text-btn" onClick={reset}>
+          {t.resetSettings}
+        </button>
+        <span className="grow" />
+        <button type="button" className="text-btn primary" onClick={confirm}>
+          {t.ok}
+        </button>
+        <button type="button" className="text-btn" onClick={cancel}>
+          {t.cancel}
+        </button>
+      </footer>
     </section>
   );
 }

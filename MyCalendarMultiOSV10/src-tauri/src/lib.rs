@@ -1,3 +1,5 @@
+mod window_state;
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -155,10 +157,12 @@ fn build_main(app: &tauri::AppHandle) -> Result<(), String> {
         .find(|window| window.label == "main")
         .cloned()
         .ok_or("missing main window config")?;
-    WebviewWindowBuilder::from_config(app, &config)
+    let window = WebviewWindowBuilder::from_config(app, &config)
         .map_err(|error| error.to_string())?
         .build()
         .map_err(|error| error.to_string())?;
+    // Still hidden here, so the calendar first appears where it was left.
+    window_state::restore(&window);
     Ok(())
 }
 
@@ -273,10 +277,11 @@ fn open_aux(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
         "print" => (include_bytes!("../icons/tray/print-64.png"), 1040.0, 720.0, 760.0, 520.0, true),
         // The height of a plain new event; the window then follows the form as fields come and go.
         "editor" => (include_bytes!("../icons/tray/events-64.png"), 460.0, 492.0, 380.0, EDITOR_MIN_HEIGHT, true),
-        // Tall enough for the longest tab (the general one, with holidays and the background) in either language.
-        _ => (include_bytes!("../icons/tray/settings-64.png"), 600.0, 760.0, 380.0, 420.0, false),
+        // Tall enough for the longest tab (the themes) in either language, with Reset, OK and Cancel below it.
+        _ => (include_bytes!("../icons/tray/settings-64.png"), 380.0, 704.0, 380.0, 420.0, false),
     };
-    WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+    let remembered = window_state::saved(app, label).is_some();
+    let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(aux_title(app, label))
         .icon(Image::from_bytes(icon).map_err(|error| error.to_string())?)
         .map_err(|error| error.to_string())?
@@ -289,10 +294,16 @@ fn open_aux(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
         .skip_taskbar(true)
         .always_on_top(on_top)
         .center()
-        .visible(true)
+        // A remembered window is moved into place before it is shown, so it never flashes at the centre first.
+        .visible(!remembered)
         .background_color(tauri::window::Color(0, 0, 0, 0))
         .build()
         .map_err(|error| error.to_string())?;
+    if remembered {
+        window_state::restore(&window);
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
+    }
     Ok(())
 }
 
@@ -897,7 +908,10 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 let _ = set_language_item(&state, next, language_switch_label(next));
                 let _ = app.emit("tray-language", next);
             }
-            "quit" => app.exit(0),
+            "quit" => {
+                window_state::flush(app);
+                app.exit(0)
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -941,6 +955,13 @@ pub fn run() {
                 .build(),
         )
         .on_window_event(|window, event| {
+            if matches!(event, WindowEvent::Moved(_) | WindowEvent::Resized(_)) && window_state::is_tracked(window.label()) {
+                // A context menu grows the calendar for a moment; that geometry is not where the user left it.
+                let menu_held = window.label() == "main" && MENU_WINDOW.lock().map(|held| held.is_some()).unwrap_or(true);
+                if !menu_held {
+                    window_state::record(window);
+                }
+            }
             if window.label() != "main" {
                 return;
             }
