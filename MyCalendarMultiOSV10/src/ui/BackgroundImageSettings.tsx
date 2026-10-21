@@ -54,10 +54,6 @@ export function BackgroundImageSettings({
 
   return (
     <>
-      <label className="field with-icon" htmlFor="background-image-file">
-        <ImageIcon />
-        {t.backgroundImage}
-      </label>
       <div className="background-image-row">
         <span
           className="background-image-thumb"
@@ -104,7 +100,6 @@ export function BackgroundImageSettings({
         t={t}
         onChange={(value) => update({ backgroundImageOpacity: backgroundImageOpacityFromTransparency(value) })}
       />
-      <p className="hint">{t.backgroundImageHint}</p>
     </>
   );
 }

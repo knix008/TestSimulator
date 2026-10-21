@@ -116,9 +116,9 @@ html[data-platform="web"] .app-frame {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   height: 46px;
-  padding: 0 8px;
+  padding: 0 4px;
   background: var(--toolbar);
   cursor: grab;
   min-width: 0;
@@ -127,7 +127,7 @@ html[data-platform="web"] .app-frame {
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   flex: 0 0 auto;
   height: 32px;
 }
@@ -147,7 +147,7 @@ html[data-platform="web"] .app-frame {
   justify-content: center;
 }
 
-.app-brand { display: flex; align-items: center; flex: none; padding: 0 6px 0 4px; }
+.app-brand { display: flex; align-items: center; flex: none; padding: 0 4px 0 4px; }
 .app-icon { flex: none; width: 20px; height: 20px; border-radius: 5px; }
 .app-name {
   flex: none;
@@ -226,7 +226,7 @@ html[data-platform="web"] .app-frame {
 
 .today-btn { color: var(--accent); }
 
-.window-controls { gap: 0; margin-left: -4px; }
+.window-controls { gap: 0; margin-left: -2px; }
 .window-controls .icon-btn { width: 28px; }
 .window-controls .icon { width: 16px; height: 16px; }
 .icon-btn.close-btn:hover, .icon-btn.close-btn:focus-visible { background: #e5484d; color: #fff; }
@@ -402,7 +402,7 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 30px 12px 12px;
+  padding: 6px 30px 8px 12px;
   border-top: 1px solid var(--border);
 }
 
@@ -415,18 +415,21 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
   font-size: 12px;
 }
 
-.status-row span:nth-child(3) { color: var(--text); }
 /* Pushed to the footer's right inset in both rows, so collapsing never moves these buttons. */
 .footer-actions { flex: none; display: flex; align-items: center; gap: 2px; margin-left: auto; }
 .footer-actions .icon-btn { width: 24px; height: 24px; flex: none; }
 .footer-actions .icon { width: 16px; height: 16px; }
 
+.status-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.status-country { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
 .dot.live { background: #2f9e68; }
 .dot.cached { background: #d39a22; }
 .dot.builtin { background: #3b82c4; }
 .dot.error { background: var(--holiday); }
-.dot.checking { background: var(--accent); }
+.dot.checking { background: #2f9e68; animation: sync-blink 0.8s ease-in-out infinite; }
+@keyframes sync-blink { 50% { opacity: 0.15; } }
+@media (prefers-reduced-motion: reduce) { .dot.checking { animation-duration: 1.6s; } }
 
 .selected-date { font-weight: 700; }
 .selected-holiday { color: var(--holiday); }
@@ -611,6 +614,58 @@ html[data-platform="desktop"] .panel.calendar.maximized .events { flex: none; he
 .day-menu-icon { flex: none; display: inline-flex; width: 16px; height: 16px; color: var(--accent); }
 .day-menu-icon .icon { width: 16px; height: 16px; }
 .day-menu-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The month title opens the year and month popup; a press that travels still drags the window. */
+.toolbar h1 { padding: 0; }
+.month-title-btn {
+  height: 32px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.month-title-btn:hover, .month-title-btn[aria-expanded="true"] { background: var(--surface); }
+.month-title-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.month-picker {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 232px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-solid, #14181f);
+  color: var(--text);
+  box-shadow: 0 10px 28px var(--shadow, rgba(0, 0, 0, 0.35));
+  font-size: 13px;
+}
+.month-picker-year { display: flex; align-items: center; justify-content: space-between; }
+.month-picker-year .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.month-picker-year-label { font-size: 15px; font-weight: 720; font-variant-numeric: tabular-nums; }
+.month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.month-picker-month, .month-picker-today {
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.month-picker-month:hover, .month-picker-month:focus-visible, .month-picker-today:hover, .month-picker-today:focus-visible {
+  outline: none;
+  background: var(--surface);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.month-picker-month.this-month { border-color: var(--accent); color: var(--accent); }
+.month-picker-month.current { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.month-picker-today { height: 30px; color: var(--accent); font-weight: 600; }
 /* The desktop menu is its own window, so it can sit past the calendar. The page is only the menu. */
 html[data-window="menu"],
 html[data-window="menu"] body,
@@ -638,8 +693,8 @@ html[data-window="menu"] .menu-popup .day-menu {
   flex: none;
   display: grid;
   place-items: center;
-  width: 160px;
-  height: 100px;
+  width: 96px;
+  height: 60px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface) center / cover no-repeat;
@@ -649,15 +704,15 @@ html[data-window="menu"] .menu-popup .day-menu {
 .background-image-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 /* The light and the dark themes are shown together, one group above the other. */
 .theme-group { display: flex; flex-direction: column; gap: 6px; }
-.theme-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .swatch {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 4px;
+  padding: 3px 4px;
   border-radius: 8px;
   text-align: center;
 }
@@ -671,14 +726,14 @@ html[data-window="menu"] .menu-popup .day-menu {
 }
 .chip {
   align-self: stretch;
-  height: 24px;
-  border-radius: 5px;
+  height: 12px;
+  border-radius: 4px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   border: 1px solid rgba(0, 0, 0, 0.16);
 }
-.chip i { width: 10px; height: 10px; border-radius: 50%; }
+.chip i { width: 8px; height: 8px; border-radius: 50%; }
 
 .gate { justify-content: center; padding: 28px 22px; gap: 8px; }
 .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: 0.04em; }
@@ -734,7 +789,7 @@ html[data-window="menu"] .menu-popup .day-menu {
   height: auto;
   margin-block: auto;
 }
-.modal.settings-modal { width: min(600px, calc(100vw - 24px)); }
+.modal.settings-modal { width: min(380px, calc(100vw - 24px)); }
 .modal.notice-modal { width: min(340px, calc(100vw - 24px)); }
 .panel.notice { gap: 10px; padding: 16px 18px; }
 .panel.notice h2 { margin: 0; font-size: 15px; }
@@ -745,7 +800,7 @@ html[data-window="menu"] .menu-popup .day-menu {
   height: auto;
 }
 /* One size for every tab, the same as the desktop settings window; a screen too short for it scrolls the tab. */
-.modal.settings-modal .panel { height: min(760px, calc(100vh - 32px)); }
+.modal.settings-modal .panel { height: min(704px, calc(100vh - 32px)); }
 
 .resize { position: absolute; z-index: 3; }
 .resize.e { top: 18px; right: 0; bottom: 18px; width: 8px; cursor: ew-resize; }
@@ -1004,6 +1059,10 @@ html[data-platform="desktop"] .events-screen > .screen-body { flex: 1 1 0; min-h
 /* A screen too short for the tab scrolls it; nothing in it is squeezed to make room. */
 .settings-screen > .screen-body > * { flex-shrink: 0; }
 .settings-screen > .screen-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+/* Reset on the left, OK and Cancel on the right, always below the scrolling tab. */
+.settings-actions { flex: none; display: flex; align-items: center; gap: 6px; padding: 10px 14px 12px; border-top: 1px solid var(--border); }
+.settings-actions .text-btn { font-size: 13px; }
+.settings-actions .text-btn:not(.primary) { padding: 0 12px; background: var(--surface); }
 html[data-platform="desktop"] .events-screen .manage-list { flex: 1 1 0; max-height: none; min-height: 0; }
 .manage-list > li { display: flex; align-items: center; gap: 2px; border-radius: 10px; }
 .manage-list > li:hover { background: var(--surface); }

@@ -2128,6 +2128,7 @@ version = "1.0.0"
 dependencies = [
  "open",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",

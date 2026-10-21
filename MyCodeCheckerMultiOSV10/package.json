@@ -1,0 +1,48 @@
+{
+  "name": "mycodechecker",
+  "version": "1.0.0",
+  "description": "MyCodeChecker — a local code-quality workbench for Windows, macOS, Linux and the web (Tauri desktop shell): bugs, vulnerabilities, code smells and security hotspots, ratings, quality gates and profiles, duplications, coverage, portfolios and a CI scanner. Korean / English UI, 40 themes.",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "prepare:assets": "node scripts/generate-icons.mjs --if-needed && node scripts/stage-sidecar.mjs",
+    "predev": "node scripts/free-port.mjs 5210 && npm run prepare:assets",
+    "dev": "vite --port 5210",
+    "prestart": "node scripts/free-port.mjs 5210 && npm run prepare:assets",
+    "start": "tauri dev",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build": "vite build",
+    "build:web": "npm run build && node server/server.js",
+    "build:win": "node scripts/platform-build.mjs win",
+    "build:linux": "node scripts/platform-build.mjs linux",
+    "build:mac": "node scripts/platform-build.mjs mac",
+    "web": "npm run build:web",
+    "web:serve": "node server/server.js",
+    "scan": "node scripts/scan.mjs",
+    "cov": "node scripts/cov.mjs",
+    "test": "node --test test/*.test.mjs",
+    "generate:icons": "node scripts/generate-icons.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-opener": "^2.7.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  }
+}

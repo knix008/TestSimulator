@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyCodeChecker",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.mycodechecker",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5210",
+    "beforeDevCommand": "node scripts/generate-icons.mjs --if-needed && node scripts/stage-sidecar.mjs && npm run dev",
+    "beforeBuildCommand": "node scripts/generate-icons.mjs --if-needed && node scripts/stage-sidecar.mjs --with-deps && npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "deb", "appimage", "app", "dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "sidecar/": "app/"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "displayLanguageSelector": true,
+        "languages": [
+          "Korean", "English", "Japanese", "SimpChinese", "TradChinese",
+          "Spanish", "French", "German", "Italian", "Portuguese", "PortugueseBR",
+          "Russian", "Dutch", "Swedish", "Turkish", "Ukrainian"
+        ]
+      }
+    },
+    "category": "DeveloperTool",
+    "shortDescription": "Local code quality workbench",
+    "longDescription": "Bugs, vulnerabilities, code smells, security hotspots, duplications, coverage, quality gates and profiles.",
+    "copyright": "Copyright © 2026 SHKWON",
+    "publisher": "SHKWON"
+  }
+}

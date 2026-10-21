@@ -1,0 +1,32 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "MyCodeChecker desktop window",
+  "windows": ["*"],
+  "remote": {
+    "urls": [
+      "http://localhost:5210",
+      "http://localhost:5210/",
+      "http://localhost:5210/*",
+      "http://127.0.0.1:5210",
+      "http://127.0.0.1:5210/*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-set-title",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "dialog:default",
+    "opener:default",
+    "allow-host-info",
+    "allow-renderer-ready"
+  ]
+}

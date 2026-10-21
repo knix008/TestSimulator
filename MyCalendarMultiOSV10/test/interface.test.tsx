@@ -190,6 +190,51 @@ describe("Interface", () => {
     await view.unmount();
   });
 
+  it("picks the year and month from a popup opened by the month title", async () => {
+    const view = await render(<CalendarHarness />);
+    const today = new Date();
+    const heading = () => view.host.querySelector(".toolbar h1")?.textContent;
+    const picker = () => document.querySelector<HTMLElement>(".month-picker");
+    const title = view.host.querySelector<HTMLButtonElement>(".month-title-btn")!;
+    expect(title.getAttribute("aria-haspopup")).toBe("dialog");
+    click(title);
+    expect(picker()?.getAttribute("aria-label")).toBe(messages.ko.pickMonth);
+    expect(title.getAttribute("aria-expanded")).toBe("true");
+    const months = [...picker()!.querySelectorAll<HTMLButtonElement>(".month-picker-month")];
+    expect(months.map((item) => item.textContent)).toEqual(messages.ko.months);
+    expect(months[today.getMonth()].getAttribute("aria-current")).toBe("date");
+    expect(picker()!.querySelector(".month-picker-year-label")?.textContent).toBe(`${today.getFullYear()}년`);
+
+    // The year alone changes only the popup; a month then moves the calendar and closes it.
+    click(picker()!.querySelector<HTMLButtonElement>(`[aria-label="${messages.ko.nextYear}"]`)!);
+    click(picker()!.querySelector<HTMLButtonElement>(`[aria-label="${messages.ko.nextYear}"]`)!);
+    click(picker()!.querySelector<HTMLButtonElement>(`[aria-label="${messages.ko.prevYear}"]`)!);
+    expect(heading()).toBe(monthTitle(today.getFullYear(), today.getMonth(), "ko", messages.ko.months));
+    click(picker()!.querySelectorAll<HTMLButtonElement>(".month-picker-month")[2]);
+    expect(picker()).toBeNull();
+    expect(heading()).toBe(monthTitle(today.getFullYear() + 1, 2, "ko", messages.ko.months));
+    expect(view.host.querySelector(".day.selected")?.getAttribute("aria-label")).toContain(`${today.getFullYear() + 1}년 3월`);
+
+    // Escape closes without moving; "this month" comes back to today.
+    click(title);
+    act(() => {
+      picker()!.querySelector(".month-picker-month")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(picker()).toBeNull();
+    expect(heading()).toBe(monthTitle(today.getFullYear() + 1, 2, "ko", messages.ko.months));
+    click(title);
+    click(picker()!.querySelector<HTMLButtonElement>(".month-picker-today")!);
+    expect(heading()).toBe(monthTitle(today.getFullYear(), today.getMonth(), "ko", messages.ko.months));
+
+    // A press outside closes it.
+    click(title);
+    act(() => {
+      view.host.querySelector(".days")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
+    expect(picker()).toBeNull();
+    await view.unmount();
+  });
+
   it("moves the calendar when the month title is dragged", async () => {
     const view = await render(<CalendarHarness />);
     const title = view.host.querySelector(".toolbar h1")!;
@@ -257,8 +302,14 @@ describe("Interface", () => {
     expect(text).toContain("개천절");
     expect(text).toContain("한글날");
     expect(text).not.toContain("기념일");
-    expect(text).toContain("대한민국");
-    expect(text).toContain(messages.ko.holidayLive);
+    const light = view.host.querySelector(".status-row .dot");
+    // Green, and blinking for a moment after each check.
+    expect(["live", "checking"]).toContain(light?.classList[1]);
+    const css = readFileSync(resolve("src/styles.css"), "utf8");
+    expect(css).toContain(".dot.checking { background: #2f9e68; animation: sync-blink");
+    expect(light?.getAttribute("aria-label")).toContain("대한민국");
+    expect(light?.getAttribute("aria-label")).toContain(messages.ko.holidayLive);
+    expect(view.host.querySelector(".status-country")?.textContent).toBe("대한민국 휴일");
     const holiday = view.host.querySelector(`[aria-label*="개천절"]`);
     expect(holiday?.className).toContain("holiday");
     await view.unmount();
@@ -301,12 +352,12 @@ describe("Interface", () => {
     expect(tabCss).toMatch(/\.tabs \{[^}]*display: flex;/);
     expect(tabCss).toMatch(/\.tabs button \{[^}]*flex: 1 1 auto;[^}]*flex-direction: row;[^}]*border: 1px solid transparent;/);
     expect(tabCss).toMatch(/\.tabs button\[aria-selected="true"\] \{[^}]*border-color: var\(--border\);/);
-    expect(tabCss).toContain(".modal.settings-modal { width: min(600px, calc(100vw - 24px)); }");
+    expect(tabCss).toContain(".modal.settings-modal { width: min(380px, calc(100vw - 24px)); }");
     // The desktop settings window fits every tab; only a screen shorter than the window makes its content scroll.
     expect(view.host.querySelector("section.panel.screen.settings-screen > .screen-body")).not.toBeNull();
     expect(tabCss).toContain(".settings-screen > .screen-body { flex: 1 1 0; min-height: 0; overflow-y: auto; }");
     // The web dialog keeps one height whichever tab is open, like the desktop window.
-    expect(tabCss).toContain(".modal.settings-modal .panel { height: min(760px, calc(100vh - 32px)); }");
+    expect(tabCss).toContain(".modal.settings-modal .panel { height: min(704px, calc(100vh - 32px)); }");
     // Every setting is written at one size, a little under the rest of the app.
     expect(tabCss).toContain(
       ".settings-screen > .screen-body :not(.font-preview b, .about-name) { font-size: 12px; }",
@@ -347,8 +398,8 @@ describe("Interface", () => {
     click(groups[0].querySelector(".swatch")!);
     expect(view.host.querySelector('.swatch[aria-pressed="true"] .swatch-name')?.textContent).toBe("종이");
     expect(view.host.querySelectorAll('.swatch[aria-pressed="true"]')).toHaveLength(1);
-    expect(tabCss).toContain(".theme-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }");
-    expect(tabCss).toMatch(/\.chip \{\s*align-self: stretch;\s*height: 24px;/);
+    expect(tabCss).toContain(".theme-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }");
+    expect(tabCss).toMatch(/\.chip \{\s*align-self: stretch;\s*height: 12px;/);
 
     click([...view.host.querySelectorAll('[role="tab"]')][2]!);
     const weekdayButtons = [...view.host.querySelectorAll<HTMLButtonElement>(".weekday-segment button")];
@@ -363,7 +414,6 @@ describe("Interface", () => {
     expect(lunar.closest("label")?.textContent).toBe(messages.ko.showLunar);
     click(lunar);
     expect((view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(false);
-    expect(view.host.textContent).toContain(messages.ko.lunarHint);
 
     click([...view.host.querySelectorAll('[role="tab"]')][0]!);
     expect(view.host.querySelector(".weekday-segment")).toBeNull();
@@ -381,6 +431,68 @@ describe("Interface", () => {
     await view.unmount();
   });
 
+  it("keeps settings with OK, puts them back with Cancel or Escape, and resets them to the defaults", async () => {
+    const seen: { settings: Settings; closed: number } = { settings: { ...DEFAULT_SETTINGS, language: "ko", weekStartsOn: 1 }, closed: 0 };
+    function Dialog() {
+      const [settings, setSettings] = useState<Settings>(seen.settings);
+      const [open, setOpen] = useState(true);
+      seen.settings = { ...settings, language: "ko" };
+      const ctx: ReadyContext = {
+        settings: { ...settings, language: "ko" },
+        update: (patch) => setSettings((current) => normalizeSettings({ ...current, ...patch })),
+        desktopError: null,
+        t: messages.ko,
+      };
+      return (
+        <>
+          {open && (
+            <SettingsScreen
+              ctx={ctx}
+              onClose={() => {
+                seen.closed += 1;
+                setOpen(false);
+              }}
+            />
+          )}
+          <button type="button" className="reopen" onClick={() => setOpen(true)} />
+        </>
+      );
+    }
+    const view = await render(<Dialog />);
+    const actions = () => [...view.host.querySelectorAll(".settings-actions button")] as HTMLButtonElement[];
+    expect(actions().map((button) => button.textContent)).toEqual([messages.ko.resetSettings, messages.ko.ok, messages.ko.cancel]);
+    const calendarTab = () => [...view.host.querySelectorAll('[role="tab"]')][2] as HTMLButtonElement;
+    const pickDay = (label: string) => click(view.host.querySelector(`.weekday-segment [aria-label="${label}"]`)!);
+
+    // Cancel puts back what the window opened with.
+    click(calendarTab());
+    pickDay("수요일");
+    expect(seen.settings.weekStartsOn).toBe(3);
+    click(actions()[2]);
+    expect(seen.closed).toBe(1);
+    expect(seen.settings.weekStartsOn).toBe(1);
+
+    // OK keeps the change.
+    click(view.host.querySelector(".reopen")!);
+    click(calendarTab());
+    pickDay("금요일");
+    click(actions()[1]);
+    expect(seen.closed).toBe(2);
+    expect(seen.settings.weekStartsOn).toBe(5);
+
+    // Reset returns to the defaults, which Escape then takes back.
+    click(view.host.querySelector(".reopen")!);
+    click(actions()[0]);
+    expect(seen.settings.weekStartsOn).toBe(DEFAULT_SETTINGS.weekStartsOn);
+    expect(seen.settings.language).toBe("ko");
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+    });
+    expect(seen.closed).toBe(3);
+    expect(seen.settings.weekStartsOn).toBe(5);
+    await view.unmount();
+  });
+
   it("shows the program information as the last settings tab, without a calendar button", async () => {
     const calendar = await render(<CalendarHarness />);
     expect(calendar.host.querySelector(`[aria-label="${messages.ko.about}"]`)).toBeNull();
@@ -395,15 +507,14 @@ describe("Interface", () => {
     click(tabs[3]!);
     expect(tabs[3]?.getAttribute("aria-selected")).toBe("true");
     expect(view.host.textContent).toContain(APP_VERSION);
-    expect(view.host.textContent).toContain("Web, Linux, macOS, Windows");
-    expect(view.host.textContent).toContain("date.nager.at");
+    expect(view.host.textContent).toContain(messages.ko.openSourcePage);
     // The app icon sits beside the name and description, and every item below is a label/value row.
     const head = view.host.querySelector(".about-head");
     expect(head?.querySelector("img.about-icon")?.getAttribute("src")).toBe("/favicon.png");
     expect(head?.querySelector(".about-name")?.textContent).toBe(messages.ko.appName);
     expect(head?.textContent).toContain(messages.ko.aboutBody);
     const labels = [...view.host.querySelectorAll(".about-grid > dt")].map((dt) => dt.textContent);
-    expect(labels).toEqual([messages.ko.version, messages.ko.featuresTitle, messages.ko.aboutPlatformsLabel, messages.ko.language, messages.ko.holidaysSection]);
+    expect(labels).toEqual([messages.ko.version, messages.ko.holidaysSection]);
     expect(view.host.querySelectorAll(".about-grid > dd")).toHaveLength(labels.length);
     await view.unmount();
   });
@@ -424,7 +535,9 @@ describe("Interface", () => {
     await app.settle();
     expect(document.body.querySelector(`[aria-label="${messages.ko.today}"]`)).not.toBeNull();
     expect(document.documentElement.lang).toBe("ko");
-    click(document.body.querySelector(`[aria-label="${messages.ko.settings}"]`)!);
+    act(() => {
+      document.body.querySelector(".panel.calendar")!.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: ",", ctrlKey: true }));
+    });
     expect(document.body.textContent).toContain(messages.ko.general);
     await act(async () => {
       document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
@@ -521,7 +634,9 @@ describe("Interface", () => {
     expect(toggle().getAttribute("aria-label")).toBe(messages.ko.expandEvents);
     expect(view.host.querySelector("#calendar-events")).toBeNull();
     expect(view.host.querySelector(".footer")?.className).toContain("collapsed");
-    expect(view.host.querySelector(".status-row")?.textContent).toContain("대한민국");
+    // The row shows the status light and the holiday country; the state and check time are in the tooltip.
+    expect(view.host.querySelector(".status-row")?.textContent).toBe("대한민국 휴일");
+    expect(view.host.querySelector(".status-row .status-label")?.getAttribute("title")).toContain("대한민국");
 
     click(toggle());
     expect(view.host.querySelector("#calendar-events")?.textContent).toContain("한글날");
@@ -668,7 +783,7 @@ describe("Interface", () => {
     expect(value).toBe("a");
     click(combo);
     act(() => {
-      document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     });
     expect(list()).toBeNull();
     await view.unmount();
@@ -737,7 +852,7 @@ describe("Interface", () => {
     expect(events().style.height).toBe("160px");
     expect(panel.style.transform).toBe("translate(30px, 0px)");
     await pointer("pointermove", 100, 0);
-    expect(panel.style.width).toBe("400px");
+    expect(panel.style.width).toBe("340px");
     expect(grid()).toBe("");
     expect(events().style.height).toBe(`${MIN_EVENTS_HEIGHT}px`);
     await pointer("pointermove", 520, 700);
@@ -1023,7 +1138,7 @@ describe("Interface", () => {
   it("keeps the footer buttons in one right-aligned column whether the events are open or closed", async () => {
     const css = readFileSync(resolve("src/styles.css"), "utf8");
     // One right inset for every footer row: collapsing the events cannot shift the status row.
-    expect(css).toMatch(/\.footer \{[^}]*padding: 8px 30px 12px 12px;/s);
+    expect(css).toMatch(/\.footer \{[^}]*padding: 6px 30px 8px 12px;/s);
     expect(css).toContain(".footer.collapsed { gap: 0; padding-bottom: 8px; }");
     expect(css).not.toMatch(/\.footer\.collapsed \{[^}]*padding-right/);
     expect(css).not.toMatch(/\.events \{[^}]*padding-right/);
@@ -1038,11 +1153,12 @@ describe("Interface", () => {
       [...(row?.querySelectorAll(".footer-actions .icon-btn") ?? [])].map((button) => button.getAttribute("aria-label"));
     expect(labels(status())).toEqual([messages.ko.collapseEvents]);
     expect(labels(head())).toEqual([messages.ko.addEvent, messages.ko.manageEvents]);
-    // The holiday refresh sits in the title bar, just left of the settings button.
+    // The holiday refresh is the only button at the end of the title bar; settings open from the menus and Ctrl+,.
     const end = [...(view.host.querySelector(".toolbar-end")?.querySelectorAll(".icon-btn") ?? [])].map((button) =>
       button.getAttribute("aria-label"),
     );
-    expect(end).toEqual([messages.ko.refreshHolidays, messages.ko.settings]);
+    expect(end).toEqual([messages.ko.refreshHolidays]);
+    expect(view.host.querySelector(`.toolbar [aria-label="${messages.ko.settings}"]`)).toBeNull();
     // Both rows end with the same right-aligned group, so the buttons share one column.
     expect(status()?.lastElementChild?.className).toBe("footer-actions");
     expect(head()?.lastElementChild?.className).toBe("footer-actions");

@@ -16,10 +16,13 @@ export interface Messages {
   showHide: string;
   prevMonth: string;
   nextMonth: string;
+  pickMonth: string;
+  prevYear: string;
+  nextYear: string;
+  thisMonth: string;
   transparency: string;
   transparencyHint: string;
   monthTitleFormat: string;
-  monthTitleFormatHint: string;
   backgroundImage: string;
   chooseBackgroundImage: string;
   changeBackgroundImage: string;
@@ -27,7 +30,6 @@ export interface Messages {
   noBackgroundImage: string;
   backgroundImageTransparency: string;
   backgroundImageTransparencyHint: string;
-  backgroundImageHint: string;
   backgroundImageUnreadable: string;
   backgroundImageTooLarge: string;
   theme: string;
@@ -35,7 +37,6 @@ export interface Messages {
   dark: string;
   language: string;
   country: string;
-  countryHint: string;
   searchCountry: string;
   noCountry: string;
   weekStart: string;
@@ -55,8 +56,6 @@ export interface Messages {
   checking: string;
   noHoliday: string;
   aboutBody: string;
-  aboutPlatformsLabel: string;
-  aboutPlatforms: string;
   aboutHolidaySource: string;
   holidaySourceLink: string;
   version: string;
@@ -67,31 +66,21 @@ export interface Messages {
   /** Tray item that switches to the other language, written in that language. */
   languageSwitch: string;
   webBanner: string;
-  featuresTitle: string;
-  featureTransparent: string;
-  featureThemes: string;
-  featureHolidays: string;
   featurePlatforms: string;
-  featureTray: string;
-  closeToTray: string;
   appearance: string;
   holidaysSection: string;
+  /** The status row's label, e.g. "대한민국 휴일". */
+  holidayCountryLabel: string;
   general: string;
-  countriesLive: string;
   countriesFallback: string;
-  countriesLoading: string;
-  installLanguageHelp: string;
   openSourcePage: string;
-  aboutDataNote: string;
   startup: string;
   monthHolidays: string;
   collapseEvents: string;
   expandEvents: string;
   resizeWindow: string;
   calendarSection: string;
-  weekStartHint: string;
   showLunar: string;
-  lunarHint: string;
   lunarUnavailable: string;
   lunarShort: string;
   lunarLeapShort: string;
@@ -140,6 +129,8 @@ export interface Messages {
   customColor: string;
   save: string;
   cancel: string;
+  ok: string;
+  resetSettings: string;
   deleteEvent: string;
   deleteSeries: string;
   deleteOccurrence: string;
@@ -198,7 +189,6 @@ export interface Messages {
   resetFont: string;
   dateFontTarget: string;
   dateFontTargets: { window: string; fullscreen: string };
-  dateFontTargetHint: string;
   print: string;
   printTitle: string;
   printSetup: string;

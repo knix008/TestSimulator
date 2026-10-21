@@ -45,12 +45,12 @@ import { blankEvent, eventsOn, type CalendarEvent } from "../domain/events";
 import { PanelBackdrop } from "./BackgroundImage";
 import { EventEditor, reminderLabel, repeatLabel } from "./EventEditor";
 import { useEventEditor } from "./useEventEditor";
+import { MonthPicker } from "./MonthPicker";
 import {
   BellIcon,
   ChevronIcon,
   CollapseIcon,
   CloseIcon,
-  GearIcon,
   ListIcon,
   MaximizeIcon,
   MinimizeIcon,
@@ -77,6 +77,9 @@ interface SyncStatus {
   state: SyncState;
   fetchedAt?: number;
 }
+
+/** Milliseconds the status light keeps blinking after a holiday check starts. */
+const MIN_SYNC_BLINK = 1200;
 
 function formatWhen(timestamp: number, language: Language): string {
   return new Intl.DateTimeFormat(language === "ko" ? "ko-KR" : "en-US", {
@@ -545,6 +548,23 @@ export function CalendarScreen({
     }
     return rows;
   }, [viewYear, viewMonth, map, eventsByDay, settings.language]);
+  // A check that answers at once would only flicker, so the light blinks for at least a moment.
+  const [syncing, setSyncing] = useState(false);
+  const syncStart = useRef(0);
+  useEffect(() => {
+    if (status.state === "checking") {
+      syncStart.current = Date.now();
+      setSyncing(true);
+      return;
+    }
+    const left = MIN_SYNC_BLINK - (Date.now() - syncStart.current);
+    if (left <= 0) {
+      setSyncing(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSyncing(false), left);
+    return () => window.clearTimeout(timer);
+  }, [status.state]);
   const selectedKey = formatISODate(selected);
   // The event of the selected day waiting for its delete to be confirmed; another day starts with none.
   const [confirmingDelete, setConfirmingDelete] = useState<{ id: string; day: string } | null>(null);
@@ -566,13 +586,24 @@ export function CalendarScreen({
     setSelected(date);
     setView({ year: date.getFullYear(), month: date.getMonth() });
   };
+  /** From the month title popup: the same day of the chosen month, or today in the current month. */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const titleButtonRef = useRef<HTMLButtonElement>(null);
+  const closePicker = useCallback(() => setPickerOpen(false), []);
+  const pickMonth = (year: number, month: number) => {
+    setPickerOpen(false);
+    const now = new Date();
+    if (year === now.getFullYear() && month === now.getMonth()) selectDate(now);
+    else selectDate(new Date(year, month, Math.min(selected.getDate(), new Date(year, month + 1, 0).getDate())));
+    titleButtonRef.current?.focus({ preventScroll: true });
+  };
   const shiftMonth = (delta: number) => {
     const inView = selected.getFullYear() === viewYear && selected.getMonth() === viewMonth;
     selectDate(addMonths(inView ? selected : new Date(viewYear, viewMonth, 1), delta));
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLElement && event.target.closest("input, select, textarea, .sheet-back")) return;
+    if (event.target instanceof HTMLElement && event.target.closest("input, select, textarea, .sheet-back, .month-picker")) return;
     if (event.key === "n" || event.key === "N") {
       event.preventDefault();
       editor.open(blankEvent(selected, settings.defaultReminder));
@@ -744,7 +775,16 @@ export function CalendarScreen({
     openContextMenu(event.clientX, event.clientY);
   };
 
-  const statusText =
+  const statusTip = [
+    countryLabel,
+    statusText(),
+    status.fetchedAt ? formatMessage(t.checkedAt, { time: formatWhen(status.fetchedAt, settings.language) }) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  function statusText() {
+    return (
     status.state === "checking"
       ? t.checking
       : status.state === "error"
@@ -753,7 +793,9 @@ export function CalendarScreen({
           ? t.holidayCached
           : status.state === "builtin"
             ? t.holidayBuiltin
-            : t.holidayLive;
+            : t.holidayLive
+    );
+  }
 
   return (
     <section
@@ -784,7 +826,19 @@ export function CalendarScreen({
             <ChevronIcon direction="left" />
           </button>
           <div className="month-title">
-            <h1>{monthTitle(viewYear, viewMonth, settings.language, t.months, titleFormat)}</h1>
+            <h1>
+              <button
+                ref={titleButtonRef}
+                type="button"
+                className="month-title-btn"
+                title={t.pickMonth}
+                aria-haspopup="dialog"
+                aria-expanded={pickerOpen}
+                onClick={() => setPickerOpen((open) => !open)}
+              >
+                {monthTitle(viewYear, viewMonth, settings.language, t.months, titleFormat)}
+              </button>
+            </h1>
             {titleSizers.map((sample) => (
               <span key={sample} className="month-title-sizer" aria-hidden="true">
                 {sample}
@@ -814,9 +868,6 @@ export function CalendarScreen({
           >
             <RefreshIcon />
           </button>
-          <button type="button" className="icon-btn" aria-label={t.settings} onClick={() => onOpenSettings()}>
-            <GearIcon />
-          </button>
         </div>
         {desktop && (
           <div className="toolbar-group window-controls">
@@ -838,6 +889,17 @@ export function CalendarScreen({
           </div>
         )}
       </header>
+      {pickerOpen && titleButtonRef.current && (
+        <MonthPicker
+          anchor={titleButtonRef.current}
+          year={viewYear}
+          month={viewMonth}
+          t={t}
+          language={settings.language}
+          onPick={pickMonth}
+          onClose={closePicker}
+        />
+      )}
       <div className="weekdays" aria-hidden="true">
         {labels.map((label, index) => {
           const dow = (index + settings.weekStartsOn) % 7;
@@ -923,10 +985,12 @@ export function CalendarScreen({
       </div>
       <footer className={collapsed ? "footer collapsed" : "footer"}>
         <div className="status-row">
-          <span className={`dot ${status.state}`} />
-          <span>{countryLabel}</span>
-          <span aria-live="polite">{statusText}</span>
-          {status.fetchedAt ? <span>{formatMessage(t.checkedAt, { time: formatWhen(status.fetchedAt, settings.language) })}</span> : null}
+          {/* The light and the holiday country: green when the holidays are live, blinking while they sync. The state
+              and the time of the last check are in the tooltip. */}
+          <span className="status-label" title={statusTip}>
+            <span className={`dot ${syncing ? "checking" : status.state}`} role="status" aria-label={statusTip} />
+            <span className="status-country">{formatMessage(t.holidayCountryLabel, { country: countryLabel })}</span>
+          </span>
           {/* The same right-hand column as the events head below, so the toggle lines up with its buttons. */}
           <span className="footer-actions">
             <button

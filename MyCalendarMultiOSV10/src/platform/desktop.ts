@@ -170,7 +170,7 @@ export async function setWindowSize(width: number, height: number): Promise<void
  * Matches `minWidth` in tauri.conf.json, the width the default Korean toolbar needs. The calendar measures its
  * toolbar after layout and raises or lowers the minimum for the language and year-month format on screen.
  */
-export const MIN_WINDOW_WIDTH = 400;
+export const MIN_WINDOW_WIDTH = 340;
 
 /** Ignored while maximized, where the minimum measured from the screen-wide grid would outlast the full screen. */
 export async function setWindowMinSize(width: number, height: number): Promise<void> {

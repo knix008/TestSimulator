@@ -1,0 +1,10 @@
+{
+  "name": "demo",
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "dependencies": {
+    "leftpad": "*",
+    "tools": "git+http://example.com/tools.git"
+  }
+}
