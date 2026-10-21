@@ -88,11 +88,11 @@ export function AppControls({ onAction, theme, compact = false }) {   // compact
       <button className="tb-btn tb-icon-only" title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'} aria-label={t('tip_language')} onMouseDown={keep} onClick={() => onAction('toggleLanguage')}>
         <Flag country={lang === 'ko' ? 'gb' : 'kr'} width={22} />
       </button>
+      {/* no separators among the app controls: theme, language, settings, about side by side */}
       <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} data-cmd="settings" title={t('tip_settings')} onMouseDown={keep} onClick={() => onAction('settings')}>
         <Icon name="settings" />{!compact && <Widest k="settings" />}
       </button>
-      <span className="tb-sep" />
-      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} title={t('tip_about')} onMouseDown={keep} onClick={() => onAction('about')}>
+      <button className={`tb-btn ${compact ? 'tb-icon-only' : ''}`} data-cmd="about" title={t('tip_about')} onMouseDown={keep} onClick={() => onAction('about')}>
         <Icon name="info" />{!compact && <Widest k="menu_info" />}
       </button>
       {themeMenu && (

@@ -514,6 +514,9 @@ async function main() {
     assert(r.right <= 12, `right-aligned on the menu bar (${r.right} px from the end)`);
     assert(r.after === '' || /win-buttons/.test(r.after), `followed only by the window buttons (${r.after})`);
     eq(r.buttons, 5, 'theme, theme list, language, settings, info');
+    // theme, language, settings and about side by side, no separator among or after them
+    const order = await page.eval(`[...document.querySelector('.menubar .app-controls').children].filter((e) => !e.classList.contains('ctx-menu')).map((e) => e.classList.contains('tb-sep') ? '|' : e.classList.contains('tb-split') ? 'theme' : e.dataset.cmd || 'lang')`);
+    eq(order, ['theme', 'lang', 'settings', 'about'], 'app controls');
     eq(r.rows, 1, 'toolbar rows');
     eq(r.left, 6, 'the first button group starts at the left padding (left-aligned)');
     assert(r.rightGap >= 6, `nothing cut off on the right (${r.rightGap} px left over)`);
