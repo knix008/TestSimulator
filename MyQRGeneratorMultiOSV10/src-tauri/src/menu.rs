@@ -14,7 +14,6 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 pub const LABEL: &str = "menu";
-const MAX_HEIGHT: f64 = 440.0;
 
 /// The button the list belongs to, in the main window's logical (CSS) pixels.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -35,7 +34,7 @@ pub struct MenuState {
 /// Creates the (hidden) popup window once, next to the main window.
 pub fn create(app: &AppHandle, browser_args: Option<&str>) -> tauri::Result<WebviewWindow> {
   let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("menu.html".into()))
-    .title("QR Generator menu")
+    .title("MyQRGenerator menu")
     .decorations(false)
     .shadow(true)
     .resizable(false)
@@ -101,7 +100,7 @@ pub fn menu_ready(app: AppHandle, width: f64, height: f64) -> Result<(), String>
   let scale = main.scale_factor().map_err(|e| e.to_string())?;
   let origin = main.inner_position().map_err(|e| e.to_string())?;
   let w = width.max(anchor.width).ceil();
-  let h = height.min(MAX_HEIGHT).ceil();
+  let h = height.ceil();
 
   let mut x = origin.x as f64 + anchor.x * scale;
   let below = origin.y as f64 + (anchor.y + anchor.height + 4.0) * scale;

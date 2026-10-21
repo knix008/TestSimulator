@@ -137,4 +137,17 @@ test("raster formats come out of qrimage.wasm with the right signature", async (
     assert.ok(hex.startsWith(magic[f.id]), `${f.id}: ${hex}`);
   }
   assert.throws(() => encode(new Uint8Array(8), 4, 4, "png"), /expected 4×4/);
+  for (const id of ["png", "webp", "bmp", "tiff"]) {
+    const back = encode.decode(encode(new Uint8Array(img.data.buffer), img.width, img.height, id, 90, 0xffffff));
+    assert.equal(back.width, img.width, id);
+    assert.equal(back.height, img.height, id);
+    assert.equal(Buffer.compare(Buffer.from(back.rgba), Buffer.from(img.data.buffer)), 0, `${id} pixels`);
+  }
+  const ico = encode.decode(encode(new Uint8Array(img.data.buffer), img.width, img.height, "ico", 90, 0xffffff));
+  assert.ok(ico.width > 0 && ico.width <= 256 && ico.rgba.length === ico.width * ico.height * 4);
+  const wide = new Uint8Array(520 * 8 * 4).fill(255);
+  const capped = encode.decode(encode(wide, 520, 8, "tiff", 90, 0xffffff));
+  assert.equal(capped.width, 512);
+  assert.ok(capped.height < 8 && capped.height >= 1);
+  assert.throws(() => encode.decode(new Uint8Array([1, 2, 3, 4])), /./);
 });

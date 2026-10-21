@@ -16,17 +16,17 @@ const walk = (dir) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!entry.name.endsWith(".app")) walk(full);
-    } else if (entry.name.startsWith("QRGenerator") && extensionOf(entry.name)) {
+    } else if (entry.name.startsWith("MyQRGenerator") && extensionOf(entry.name)) {
       found.push({ full, time: fs.statSync(full).mtimeMs });
     }
   }
 };
 if (fs.existsSync(bundle)) walk(bundle);
-if (!found.length) throw new Error(`No QRGenerator installer under ${bundle}. Run a desktop build first.`);
+if (!found.length) throw new Error(`No MyQRGenerator installer under ${bundle}. Run a desktop build first.`);
 const newest = found.sort((a, b) => b.time - a.time)[0];
 
 for (const name of fs.readdirSync(root)) {
-  if (name.startsWith("QRGenerator") && extensionOf(name)) fs.rmSync(path.join(root, name));
+  if ((name.startsWith("MyQRGenerator") || name.startsWith("QRGenerator")) && extensionOf(name)) fs.rmSync(path.join(root, name));
 }
 const copy = path.join(root, path.basename(newest.full));
 fs.copyFileSync(newest.full, copy);

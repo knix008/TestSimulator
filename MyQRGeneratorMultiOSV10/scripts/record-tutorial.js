@@ -1,5 +1,5 @@
 // `npm run tutorial`: films the desktop app being used, slowly, as a tutorial video
-// (QRGenerator-Tutorial.mp4 in the project root).
+// (MyQRGenerator-Tutorial.mp4 in the project root).
 //
 // It runs the latest code as a separate instance (own settings, save folder and WebView2
 // profile, so a copy the user has open is not touched), drives it with real mouse and
@@ -15,7 +15,7 @@ import { Page, waitFor } from "../test/cdp.js";
 import { freePort } from "./free-port.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUTPUT = path.join(root, "QRGenerator-Tutorial.mp4");
+const OUTPUT = path.join(root, "MyQRGenerator-Tutorial.mp4");
 const FPS_INTERVAL = 66; // ~15 captures per second; the video is encoded at 30 fps
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -240,7 +240,7 @@ async function run() {
     await d.mouse("mouseMoved", d.x, d.y);
 
     const recorder = new Recorder(page, frames);
-    await tut(`title("QR Generator 사용법", "Rust 인코더 + JavaScript 디자이너\\nWindows · macOS · Linux · 웹")`);
+    await tut(`title("MyQRGenerator 사용법", "Rust 인코더 + JavaScript 디자이너\\nWindows · macOS · Linux · 웹")`);
     recorder.start();
     await sleep(3000);
     await tut("hideTitle()");
@@ -307,15 +307,20 @@ async function run() {
     await d.click("#layout-reset", { pause: 1000 });
 
     // 6. Export
-    await caption("6", "내보내기 형식: 이미지 7종 + 벡터 3종", "PNG · JPEG · WebP · GIF · BMP · TIFF · ICO · SVG · PDF · EPS");
-    await d.pick("format-select", "pdf");
+    await caption("6", "저장을 누르면 형식을 고릅니다", "PNG · JPEG · WebP · GIF · BMP · TIFF · ICO · SVG · PDF · EPS");
+    await d.click("#save", { pause: 500 });
+    await d.click('#modal [data-format="pdf"]', { pause: 700 });
+    await d.click("#modal-close", { pause: 400 });
     await caption("6", "PDF·EPS는 인쇄 크기(mm)를 정합니다");
     await d.click('.step[data-for="print-size"][data-step="1"]', { pause: 400 });
     await d.click('.step[data-for="print-size"][data-step="1"]', { pause: 800 });
-    await d.pick("format-select", "png", 700);
+    await d.click("#save", { pause: 400 });
+    await d.click('#modal [data-format="png"]', { pause: 500 });
+    await d.click("#modal-close", { pause: 300 });
     await caption("6", "크기를 고르고 저장 (Ctrl+S)", "결과는 아래 상태 표시줄에 나옵니다");
     await d.click('#size-chips button:nth-child(4)', { pause: 600 });
-    await d.click("#save", { pause: 1800 });
+    await d.click("#save", { pause: 400 });
+    await d.click("#modal .modal-actions button", { pause: 1800 });
 
     // 7. Language and theme
     await caption("7", "언어와 테마", "한국어(ㅎㆍㄴ) · English(Aa) · 시스템 · 라이트 · 다크");

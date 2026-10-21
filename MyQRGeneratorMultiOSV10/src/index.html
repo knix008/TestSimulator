@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>QR Generator</title>
+    <title>MyQRGenerator</title>
     <link rel="icon" href="icon.png" />
     <link rel="stylesheet" href="styles.css" />
     <script>
@@ -54,6 +54,7 @@
         <symbol id="i-win-restore" viewBox="0 0 24 24"><rect x="5.5" y="8.5" width="10" height="10" rx="1" /><path d="M8.5 8.5V6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" /></symbol>
         <symbol id="i-win-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M17.5 6.5l-11 11" /></symbol>
         <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5" /><circle cx="12" cy="7.8" r="0.6" /></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></symbol>
         <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3" /></symbol>
         <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
         <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 7.6-1.7" /></symbol>
@@ -90,23 +91,24 @@
     <header class="toolbar main-bar" data-tauri-drag-region>
       <div class="brand" data-tauri-drag-region>
         <img class="brand-mark" src="icon.png" alt="" data-tauri-drag-region />
-        <span class="brand-title" data-i18n="app.title" data-tauri-drag-region>QR 코드 생성기</span>
+        <span class="brand-title" data-i18n="app.title" data-tauri-drag-region>MyQRGenerator</span>
       </div>
       <div class="tb-group">
-        <button type="button" class="tb" id="undo" data-i18n-title="tb.undoTip"><svg class="i"><use href="#i-undo" /></svg><span data-i18n="tb.undo">실행 취소</span></button>
-        <button type="button" class="tb" id="redo" data-i18n-title="tb.redoTip"><svg class="i"><use href="#i-redo" /></svg><span data-i18n="tb.redo">다시 실행</span></button>
+        <button type="button" class="tb" id="undo" data-i18n-title="tb.undoTip"><svg class="i"><use href="#i-undo" /></svg><span data-i18n="tb.undo">취소</span></button>
+        <button type="button" class="tb" id="redo" data-i18n-title="tb.redoTip"><svg class="i"><use href="#i-redo" /></svg><span data-i18n="tb.redo">다시</span></button>
       </div>
       <span class="tb-sep"></span>
       <div class="tb-group">
-        <div id="format-select"></div>
-        <button type="button" class="tb primary" id="save" data-i18n-title="tb.saveTip"><svg class="i"><use href="#i-save" /></svg><span id="save-label">저장</span></button>
-        <button type="button" class="tb" id="copy-image" data-i18n-title="export.copyImage"><svg class="i"><use href="#i-image" /></svg><span data-i18n="export.copyImage">이미지 복사</span></button>
-        <button type="button" class="tb" id="copy-text" data-i18n-title="export.copyText"><svg class="i"><use href="#i-clipboard" /></svg><span data-i18n="export.copyText">데이터 복사</span></button>
+        <button type="button" class="tb primary" id="save" data-i18n-title="tb.saveTip"><svg class="i"><use href="#i-save" /></svg><span id="save-label" data-i18n="tb.save">저장</span></button>
+        <button type="button" class="tb" id="copy-image" data-i18n-title="export.copyImage"><svg class="i"><use href="#i-image" /></svg><span data-i18n="tb.copyImage">그림</span></button>
+        <button type="button" class="tb" id="copy-text" data-i18n-title="export.copyText"><svg class="i"><use href="#i-clipboard" /></svg><span data-i18n="tb.copyText">데이터</span></button>
       </div>
       <div class="tb-spacer" data-tauri-drag-region></div>
       <div class="tb-group">
         <div id="lang-select"></div>
         <div id="theme-select"></div>
+        <button type="button" class="tb app-btn" id="app-settings" data-i18n-title="settings.open"><svg class="i"><use href="#i-settings" /></svg><span data-i18n="settings.short">설정</span></button>
+        <button type="button" class="tb app-btn" id="app-about" data-i18n-title="about.open"><svg class="i"><use href="#i-info" /></svg><span data-i18n="about.short">정보</span></button>
       </div>
       <div class="window-controls" id="window-controls" hidden>
         <button type="button" class="win" id="win-min" data-i18n-title="win.minimize"><svg class="i"><use href="#i-win-min" /></svg></button>
@@ -116,14 +118,14 @@
     </header>
 
     <nav class="toolbar option-bar" aria-label="options">
-      <button type="button" class="tb toggle" id="eyeSame" data-i18n-title="tb.eyeSameTip"><svg class="i"><use href="#i-eye" /></svg><span data-i18n="tb.eyeSame">눈 = 전경색</span></button>
-      <button type="button" class="tb toggle" id="transparent" data-i18n-title="design.transparent"><svg class="i"><use href="#i-transparent" /></svg><span data-i18n="design.transparent">투명 배경</span></button>
-      <button type="button" class="tb toggle" id="logo-clear" data-i18n-title="logo.clear"><svg class="i"><use href="#i-logo-clear" /></svg><span data-i18n="tb.logoClear">로고 뒤 비우기</span></button>
-      <button type="button" class="tb toggle" id="boost" data-i18n-title="adv.boost"><svg class="i"><use href="#i-boost" /></svg><span data-i18n="tb.boost">오류 정정 자동 상향</span></button>
-      <button type="button" class="tb toggle" id="eci" data-i18n-title="adv.eci"><svg class="i"><use href="#i-utf8" /></svg><span data-i18n="tb.eci">UTF-8 ECI</span></button>
-      <button type="button" class="tb" id="swap" data-i18n-title="design.swap"><svg class="i"><use href="#i-swap" /></svg><span data-i18n="design.swap">색 바꾸기</span></button>
-      <button type="button" class="tb" id="layout-reset" data-i18n-title="layout.resetTip"><svg class="i"><use href="#i-layout" /></svg><span data-i18n="layout.reset">배치 초기화</span></button>
-      <button type="button" class="tb" id="reset" data-i18n-title="design.reset"><svg class="i"><use href="#i-reset" /></svg><span data-i18n="design.reset">디자인 초기화</span></button>
+      <button type="button" class="tb toggle" id="eyeSame" data-i18n-title="tb.eyeSameTip"><svg class="i"><use href="#i-eye" /></svg><span data-i18n="tb.eyeSame">눈색</span></button>
+      <button type="button" class="tb toggle" id="transparent" data-i18n-title="design.transparent"><svg class="i"><use href="#i-transparent" /></svg><span data-i18n="tb.transparent">투명</span></button>
+      <button type="button" class="tb toggle" id="logo-clear" data-i18n-title="logo.clear"><svg class="i"><use href="#i-logo-clear" /></svg><span data-i18n="tb.logoClear">비움</span></button>
+      <button type="button" class="tb toggle" id="boost" data-i18n-title="adv.boost"><svg class="i"><use href="#i-boost" /></svg><span data-i18n="tb.boost">상향</span></button>
+      <button type="button" class="tb toggle" id="eci" data-i18n-title="adv.eci"><svg class="i"><use href="#i-utf8" /></svg><span data-i18n="tb.eci">ECI</span></button>
+      <button type="button" class="tb" id="swap" data-i18n-title="design.swap"><svg class="i"><use href="#i-swap" /></svg><span data-i18n="tb.swap">교체</span></button>
+      <button type="button" class="tb" id="layout-reset" data-i18n-title="layout.resetTip"><svg class="i"><use href="#i-layout" /></svg><span data-i18n="layout.reset">배치</span></button>
+      <button type="button" class="tb" id="reset" data-i18n-title="design.reset"><svg class="i"><use href="#i-reset" /></svg><span data-i18n="tb.design">디자인</span></button>
     </nav>
 
     <main class="layout">
@@ -146,7 +148,7 @@
               <div class="logo-thumb" id="logo-thumb"><svg class="i"><use href="#i-image" /></svg></div>
               <button type="button" class="small" id="logo-choose"><svg class="i"><use href="#i-folder" /></svg><span data-i18n="logo.choose">이미지 선택…</span></button>
               <button type="button" class="small" id="logo-remove"><svg class="i"><use href="#i-trash" /></svg><span data-i18n="logo.remove">제거</span></button>
-              <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif" hidden />
+              <input type="file" id="logo-file" accept="image/*,image/avif,image/bmp,image/gif,image/jpeg,image/png,image/svg+xml,image/tiff,image/webp,image/x-icon,image/vnd.microsoft.icon,.apng,.avif,.bmp,.dib,.gif,.ico,.jfif,.jpeg,.jpg,.pjpeg,.png,.svg,.tif,.tiff,.webp" hidden />
             </div>
           </div>
           <div class="row">
@@ -260,6 +262,18 @@
       <span class="status-item"><svg class="i"><use href="#i-chip" /></svg><span id="engine"></span></span>
       <span class="resize-grip" id="resize-grip" data-i18n-title="win.resize" hidden></span>
     </footer>
+
+    <div id="modal" class="modal" hidden>
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-head">
+          <h2 id="modal-title"></h2>
+          <button type="button" class="tb icon-btn" id="modal-close" data-i18n-title="win.close"><svg class="i"><use href="#i-win-close" /></svg></button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+        <div id="modal-actions" class="modal-actions"></div>
+      </div>
+    </div>
 
     <script type="module" src="js/app.js"></script>
   </body>

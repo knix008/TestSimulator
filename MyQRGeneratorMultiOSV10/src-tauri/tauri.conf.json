@@ -1,6 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "QRGenerator",
+  "productName": "MyQRGenerator",
+  "mainBinaryName": "MyQRGenerator",
   "version": "1.0.0",
   "identifier": "com.shkwon.qrgenerator",
   "build": {
@@ -21,8 +22,8 @@
     "publisher": "SHKWON",
     "copyright": "SHKWON <knix008@naver.com>",
     "category": "Utility",
-    "shortDescription": "QR Generator",
-    "longDescription": "QR code generator with a Rust encoder and a JavaScript designer: text, URL, Wi-Fi, contact, email, SMS, phone and location codes, custom styles, logos, PNG and SVG export.",
+    "shortDescription": "MyQRGenerator",
+    "longDescription": "MyQRGenerator creates QR codes with a Rust encoder and a JavaScript designer: text, URL, Wi-Fi, contact, email, SMS, phone and location codes, custom styles, logos, PNG and SVG export.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "windows": {
       "webviewInstallMode": {

@@ -20,6 +20,7 @@ export const CATEGORIES = {
   "payload.test.js": ["내용 형식", "Wi-Fi · vCard · mailto · SMS · tel · geo 문자열과 이스케이프"],
   "render.test.js": ["렌더러", "모듈·눈 모양 경로, SVG, 로고 판독성, 스캔 경고"],
   "export.test.js": ["내보내기", "PDF·EPS → Ghostscript 렌더링 후 판독, 래스터 형식 서명"],
+  "logo.test.js": ["로고 입력", "파일 선택과 끌어다 놓기가 받는 그림 형식. AVIF 포함"],
   "history.test.js": ["실행 취소", "Undo/Redo 기록과 합치기"],
   "layout.test.js": ["카드 배치", "저장된 배치 검증"],
   "web.test.js": ["브라우저 판", "헤드리스 Edge에서 실제 페이지 조작 (WebAssembly 인코더)"],

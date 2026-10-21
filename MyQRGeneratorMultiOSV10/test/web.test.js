@@ -9,7 +9,7 @@ import test from "node:test";
 import { freePort } from "../scripts/free-port.js";
 import { createServer } from "../scripts/serve-web.js";
 import { Page, waitFor } from "./cdp.js";
-import { checkContentTypes, checkEditing, checkExports, checkLayout, checkLogo, checkStartup, checkStyles, checkTooLong, checkToolbar, checkToolbarFit } from "./scenario.js";
+import { checkContentTypes, checkEditing, checkExports, checkLayout, checkLogo, checkLogoInputs, checkStartup, checkStyles, checkTooLong, checkToolbar, checkToolbarFit } from "./scenario.js";
 import { root } from "./support.js";
 
 const BROWSERS = [
@@ -36,9 +36,14 @@ test("browser build (headless Edge, WebAssembly)", { skip: !browser && "no Chrom
     await t.test("8 content types scan from the preview", () => checkContentTypes(page));
     await t.test("16 style combinations scan", () => checkStyles(page));
     await t.test("gradient, eye colour and logo scan", () => checkLogo(page));
+    await t.test("logo files: PNG JPEG WebP GIF BMP ICO SVG AVIF TIFF, others refused", () => checkLogoInputs(page));
     await t.test("too much data shows an error", () => checkTooLong(page));
     await t.test("settings kept in localStorage", async () => {
-      const saved = await waitFor(() => page.eval("localStorage.getItem('qrgenerator.settings')"), { what: "saved settings" });
+      // Saving is debounced, and an older save may already be in localStorage.
+      const saved = await waitFor(async () => {
+        const raw = await page.eval("localStorage.getItem('qrgenerator.settings')");
+        return raw && JSON.parse(raw).type === "text" ? raw : false;
+      }, { what: "saved settings" });
       assert.equal(JSON.parse(saved).type, "text");
     });
     await t.test("10 export formats (WebAssembly raster, JS vector) decode and scan", () =>
@@ -54,7 +59,7 @@ test("browser build (headless Edge, WebAssembly)", { skip: !browser && "no Chrom
     await t.test("steppers, default size, undo and redo", () => checkEditing(page));
     await t.test("cards move by dragging; layout resets", () => checkLayout(page));
     await t.test("English and dark theme", async () => {
-      assert.equal(await page.eval("document.querySelector('.brand-title').textContent"), "QR Generator");
+      assert.equal(await page.eval("document.querySelector('.brand-title').textContent"), "MyQRGenerator");
       assert.equal(await page.eval("document.documentElement.dataset.theme"), "dark");
       await page.screenshot("web-dark-en.png");
     });

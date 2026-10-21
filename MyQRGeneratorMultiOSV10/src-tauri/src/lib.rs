@@ -265,7 +265,7 @@ pub fn run() {
     ])
     .setup(|app| {
       let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-        .title("QR Generator")
+        .title("MyQRGenerator")
         .inner_size(placement::DEFAULT_SIZE.0, placement::DEFAULT_SIZE.1)
         .min_inner_size(placement::MIN_SIZE.0, placement::MIN_SIZE.1)
         .decorations(false)
@@ -296,7 +296,7 @@ pub fn run() {
       Ok(())
     })
     .run(tauri::generate_context!())
-    .expect("error while running QR Generator");
+    .expect("error while running MyQRGenerator");
 }
 
 #[cfg(test)]

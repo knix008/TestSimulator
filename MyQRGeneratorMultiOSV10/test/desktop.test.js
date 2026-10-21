@@ -10,7 +10,7 @@ import path from "node:path";
 import test from "node:test";
 import { freePort } from "../scripts/free-port.js";
 import { Page, waitFor } from "./cdp.js";
-import { checkContentTypes, checkEditing, checkExports, checkLayout, checkLogo, checkStartup, checkStyles, checkTooLong, checkToolbar } from "./scenario.js";
+import { checkContentTypes, checkEditing, checkExports, checkLayout, checkLogo, checkLogoInputs, checkStartup, checkStyles, checkTooLong, checkToolbar } from "./scenario.js";
 import { root } from "./support.js";
 
 const targetDir = path.join(root, "src-tauri", "target", "e2e");
@@ -80,6 +80,7 @@ test("desktop app (real exe, native Rust)", { skip: process.platform !== "win32"
     await t.test("8 content types scan from the preview", () => checkContentTypes(page));
     await t.test("16 style combinations scan", () => checkStyles(page));
     await t.test("gradient, eye colour and logo scan", () => checkLogo(page));
+    await t.test("logo files: PNG JPEG WebP GIF BMP ICO SVG AVIF TIFF, others refused", () => checkLogoInputs(page));
     await t.test("too much data shows an error", () => checkTooLong(page));
     await t.test("10 export formats saved (native Rust raster) decode and scan", async () => {
       const EXT = { png: "png", jpeg: "jpg", webp: "webp", gif: "gif", bmp: "bmp", tiff: "tif", ico: "ico", svg: "svg", pdf: "pdf", eps: "eps" };

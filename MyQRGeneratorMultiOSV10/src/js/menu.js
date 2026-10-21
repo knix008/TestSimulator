@@ -19,6 +19,7 @@ function show({ options, value, vars, scheme, font, sprite }) {
   if (font) document.body.style.font = font;
 
   list.classList.remove("fill");
+  list.classList.toggle("wide", options.length > 14);
   list.replaceChildren();
   let group = null;
   for (const option of options) {

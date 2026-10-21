@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 /// Default inner size (logical px): no scrolling for the starting content.
 pub const DEFAULT_SIZE: (f64, f64) = (1320.0, 800.0);
 /// Smallest size (logical px). Below the full-label width the toolbars drop labels and keep
-/// icons; language, theme and the window buttons always stay visible (test/web.test.js).
+/// icons; language, theme, program settings, program info and the window buttons always stay
+/// visible (test/web.test.js).
 pub const MIN_SIZE: (f64, f64) = (960.0, 640.0);
 /// How much of the window must lie on a monitor for a saved position to be reused.
 const MIN_VISIBLE: i32 = 120;

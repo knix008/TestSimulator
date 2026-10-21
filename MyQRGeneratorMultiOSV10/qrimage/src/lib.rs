@@ -157,6 +157,30 @@ pub fn encode(rgba: &[u8], width: u32, height: u32, format: Format, quality: u8,
     Ok(out)
 }
 
+/// Reads a PNG, JPEG, GIF, WebP, BMP, ICO or TIFF file into RGBA.
+/// The long side is capped at 512 px, which is what a logo is stored as.
+pub fn decode_rgba(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), String> {
+    let mut reader = image::ImageReader::new(Cursor::new(bytes)).with_guessed_format().map_err(|e| e.to_string())?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(16384);
+    limits.max_image_height = Some(16384);
+    limits.max_alloc = Some(128 * 1024 * 1024);
+    reader.limits(limits);
+    let image = reader.decode().map_err(|e| e.to_string())?.to_rgba8();
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return Err("empty image".into());
+    }
+    let longest = width.max(height);
+    if longest <= 512 {
+        return Ok((width, height, image.into_raw()));
+    }
+    let scaled_w = ((width as u64 * 512) / longest as u64).max(1) as u32;
+    let scaled_h = ((height as u64 * 512) / longest as u64).max(1) as u32;
+    let scaled = imageops::resize(&image, scaled_w, scaled_h, imageops::FilterType::Lanczos3);
+    Ok((scaled_w, scaled_h, scaled.into_raw()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +268,36 @@ mod tests {
     #[test]
     fn wrong_buffer_sizes_are_rejected() {
         assert!(encode(&[0; 10], 2, 2, Format::Png, 90, [0; 3]).is_err());
+    }
+
+    #[test]
+    fn decode_rgba_reads_tiff_and_caps_the_long_side() {
+        let px = sample(64, true);
+        let bytes = encode(&px, 64, 64, Format::Tiff, 90, [255, 255, 255]).unwrap();
+        let (w, h, rgba) = decode_rgba(&bytes).unwrap();
+        assert_eq!((w, h), (64, 64));
+        assert_eq!(rgba, px);
+        let big = encode(&sample(600, false), 600, 600, Format::Png, 90, [255, 255, 255]).unwrap();
+        let (w, h, rgba) = decode_rgba(&big).unwrap();
+        assert_eq!((w, h), (512, 512));
+        assert_eq!(rgba.len(), 512 * 512 * 4);
+        assert!(decode_rgba(b"not an image").is_err());
+    }
+
+    #[test]
+    fn decode_rgba_round_trips_lossless_formats() {
+        let px = sample(32, false);
+        for format in [Format::Png, Format::Webp, Format::Bmp, Format::Tiff, Format::Ico] {
+            let bytes = encode(&px, 32, 32, format, 90, [255, 255, 255]).unwrap();
+            let (w, h, rgba) = decode_rgba(&bytes).unwrap();
+            assert_eq!((w, h), (32, 32), "{format:?}");
+            assert_eq!(rgba, px, "{format:?}");
+        }
+        let wide = vec![225, 29, 72, 255].repeat(520 * 8);
+        let (w, h, rgba) = decode_rgba(&encode(&wide, 520, 8, Format::Tiff, 90, [255, 255, 255]).unwrap()).unwrap();
+        assert_eq!(w, 512);
+        assert!(h < 8 && h >= 1, "height scaled with the width, got {h}");
+        let mid = ((h / 2) * w + w / 2) as usize * 4;
+        assert_eq!(&rgba[mid..mid + 4], &[225, 29, 72, 255]);
     }
 }

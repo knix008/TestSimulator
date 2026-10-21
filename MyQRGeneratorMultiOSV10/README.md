@@ -1,6 +1,6 @@
-# QR Generator (QRGeneratorMultiOSV10)
+# MyQRGenerator (MyQRGeneratorMultiOSV10)
 
-QR 코드 생성기. QR 인코더와 이미지 인코더는 **Rust**, 화면과 디자인·벡터 출력은 **JavaScript**입니다.
+MyQRGenerator. QR 인코더와 이미지 인코더는 **Rust**, 화면과 디자인·벡터 출력은 **JavaScript**입니다.
 
 - **데스크톱** (Windows · macOS · Linux): Tauri 2. Rust 코드를 네이티브로 호출합니다.
 - **웹 브라우저**: 같은 Rust 크레이트를 WebAssembly로 컴파일해 사용합니다 (`qrcore.wasm` 37 KB, `qrimage.wasm` 360 KB — 내보낼 때만 로드).
@@ -33,11 +33,11 @@ WebAssembly 파일은 실행·빌드 때마다 `scripts/build-wasm.js`가 다시
 ## 빌드
 
 ```bash
-npm run build:win    # Windows 설치 파일(NSIS) → 루트에 QRGenerator_1.0.0_x64-setup.exe
+npm run build:win    # Windows 설치 파일(NSIS) → 루트에 MyQRGenerator_1.0.0_x64-setup.exe
 npm run build:mac    # macOS .dmg
 npm run build:linux  # .deb, .AppImage
 npm run icons        # 앱 아이콘 다시 그리기 (아이콘 속 QR도 이 앱의 인코더로 생성)
-npm run tutorial     # 튜토리얼 영상 → 루트에 QRGenerator-Tutorial.mp4 (ffmpeg: PATH 또는 FFMPEG=경로)
+npm run tutorial     # 튜토리얼 영상 → 루트에 MyQRGenerator-Tutorial.mp4 (ffmpeg: PATH 또는 FFMPEG=경로)
 ```
 
 ## 테스트

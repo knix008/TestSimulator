@@ -1,8 +1,9 @@
 //! C-style ABI for the browser build (same shape as qrcore's).
 //!
-//! JS: `p = qri_alloc(n)`, copy RGBA in, `len = qri_encode(p, n, w, h, format, quality, bg)`,
-//! `qri_free(p, n)`. `len >= 0`: the file is `len` bytes at `qri_output_ptr()`;
+//! JS: `p = qri_alloc(n)`, copy bytes in, then `qri_encode` or `qri_decode`, then `qri_free(p, n)`.
+//! `len >= 0`: the result is `len` bytes at `qri_output_ptr()`;
 //! `len < 0`: an error message of `-len` bytes is there instead.
+//! `qri_decode` returns 8 header bytes (width, height, little-endian) followed by RGBA.
 
 use std::cell::RefCell;
 
@@ -42,6 +43,31 @@ pub unsafe extern "C" fn qri_encode(ptr: *const u8, len: usize, width: u32, heig
         match result {
             Ok(bytes) => {
                 *out = bytes;
+                out.len() as isize
+            }
+            Err(message) => {
+                *out = message.into_bytes();
+                -(out.len() as isize)
+            }
+        }
+    })
+}
+
+/// Decodes a PNG, JPEG, GIF, WebP, BMP, ICO or TIFF file into RGBA.
+///
+/// # Safety
+/// `ptr` must point at `len` initialised bytes.
+#[no_mangle]
+pub unsafe extern "C" fn qri_decode(ptr: *const u8, len: usize) -> isize {
+    let bytes = std::slice::from_raw_parts(ptr, len);
+    OUTPUT.with(|out| {
+        let mut out = out.borrow_mut();
+        match crate::decode_rgba(bytes) {
+            Ok((width, height, rgba)) => {
+                out.clear();
+                out.extend_from_slice(&width.to_le_bytes());
+                out.extend_from_slice(&height.to_le_bytes());
+                out.extend_from_slice(&rgba);
                 out.len() as isize
             }
             Err(message) => {

@@ -17,8 +17,6 @@
   --checker-a: #ffffff;
   --checker-b: #eceff4;
   --radius: 10px;
-  /* One size for every toolbar button and dropdown, so they line up. */
-  --tb-width: 118px;
   --tb-height: 30px;
   --label-col: 84px;
   --step: 28px;
@@ -140,11 +138,12 @@ textarea {
 }
 
 .option-bar {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 4px 8px;
   min-height: 0;
+  overflow: hidden;
   background: var(--panel-2);
 }
 
@@ -224,12 +223,14 @@ textarea {
 }
 
 .main-bar .tb,
-.main-bar .iselect {
-  width: var(--tb-width);
+.main-bar .iselect,
+.main-bar .iselect-button {
+  width: auto;
 }
 
 .option-bar .tb {
-  width: 100%;
+  width: auto;
+  flex: none;
 }
 
 .tb:hover:not(:disabled),
@@ -265,8 +266,27 @@ textarea {
   background: var(--panel-2);
 }
 
+/* Settings and about sit beside theme. Labels stay when there is room; compact keeps the icon. */
+.main-bar .tb.app-btn {
+  width: auto;
+  min-width: 34px;
+  padding: 0 8px;
+}
+
+.main-bar.compact .tb.app-btn {
+  width: 34px;
+  padding: 0;
+}
+
+.icon-btn {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+
 /* Not enough room for labels: buttons keep their icons (tooltips keep the names). The
-   format, language and theme dropdowns and the window buttons are never reduced. */
+   format, language and theme dropdowns, the settings and about buttons, and the window
+   buttons are never pushed off screen. */
 .main-bar.compact .tb {
   width: 34px;
   padding: 0;
@@ -279,6 +299,7 @@ textarea {
 }
 
 .option-bar.compact .tb {
+  width: 34px;
   padding: 0;
 }
 
@@ -345,8 +366,8 @@ textarea {
   top: calc(100% + 4px);
   left: 0;
   min-width: 100%;
-  max-height: 70vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 9px;
@@ -364,6 +385,19 @@ textarea {
 .iselect-list.align-right {
   left: auto;
   right: 0;
+}
+
+/* Long lists (the version menu) wrap into columns so the popup stays on screen without a scrollbar. */
+.iselect-list.wide,
+.iselect.full .iselect-list.wide {
+  display: flex;
+  flex-flow: column wrap;
+  align-content: flex-start;
+  align-items: stretch;
+  height: calc(14 * 30px + 12px);
+  width: max-content;
+  max-height: none;
+  overflow: visible;
 }
 
 .iselect-group {
@@ -741,6 +775,23 @@ body.dragging-card * {
 .stepper output {
   text-align: left;
   font-variant-numeric: tabular-nums;
+}
+
+/* Quiet zone uses the same box as the controls above it, so the bar, buttons and value share their edges. */
+#card-design .stepper {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  grid-template-columns: var(--bar) minmax(0, 1fr) var(--bar) 2.2ch;
+}
+
+#card-design .stepper output {
+  text-align: right;
+  line-height: 1;
 }
 
 .numstep {
@@ -1251,10 +1302,6 @@ button.small:disabled {
     flex-wrap: wrap;
   }
 
-  .option-bar {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-  }
-
   .brand-title,
   .tb-sep {
     display: none;
@@ -1295,8 +1342,7 @@ button.small:disabled {
 
 body.menu-host {
   background: var(--panel);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   height: auto;
   min-height: 100%;
 }
@@ -1316,4 +1362,207 @@ body.menu-host {
 .menu-list.fill {
   display: flex;
   width: 100%;
+}
+
+.menu-list.wide,
+.menu-list.wide.fill {
+  display: flex;
+  width: max-content;
+}
+
+/* ---- Program settings and about ---- */
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(16 24 40 / 38%);
+}
+
+.modal-card {
+  position: relative;
+  width: min(440px, 100%);
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  resize: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--popup-shadow);
+  padding: 14px 16px 16px;
+}
+
+.modal-body {
+  overflow: visible;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.modal-head h2 {
+  margin: 0;
+  flex: 1;
+  font-size: 15px;
+}
+
+#modal-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.setting-row > span {
+  width: 84px;
+  flex: none;
+  color: var(--muted);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.format-row {
+  align-items: flex-start;
+}
+
+.format-row > span {
+  padding-top: 6px;
+}
+
+.format-row .choices {
+  flex: 1;
+  min-width: 0;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--hover);
+}
+
+.choice[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.about-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.about-lead img {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.about-lead h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.about-lead p,
+.about-text,
+.about-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.about-text {
+  margin: 8px 0 12px;
+}
+
+.about-sub {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+
+.about-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.about-list dt {
+  color: var(--muted);
+}
+
+.about-list dd {
+  margin: 0;
+}
+
+.about-list a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.about-list a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-top: 12px;
+}
+
+.shortcut-list kbd {
+  font: 12px/1.4 "Segoe UI", system-ui, sans-serif;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 5px;
+  background: var(--panel-2);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  flex: none;
 }

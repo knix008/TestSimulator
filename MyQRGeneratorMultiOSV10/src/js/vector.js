@@ -257,7 +257,7 @@ export async function toPdf(qr, design, { sizeMm = 50, logo = null, title = "QR 
   }
   objects[pageIndex][0] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${num(W)} ${num(W)}] /Resources << ${resources.join(" ")} >> /Contents ${contents} 0 R >>`;
   const safeTitle = String(title).replace(/[^\x20-\x7e]/g, "?").replace(/([()\\])/g, "\\$1");
-  const info = add(`<< /Title (${safeTitle}) /Producer (QR Generator) /Creator (QR Generator) >>`);
+  const info = add(`<< /Title (${safeTitle}) /Producer (MyQRGenerator) /Creator (MyQRGenerator) >>`);
 
   const parts = [latin1("%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")];
   let offset = parts[0].length;
@@ -310,7 +310,7 @@ export function toEps(qr, design, { sizeMm = 50, logo = null, title = "QR code" 
     `%%BoundingBox: 0 0 ${W} ${W}`,
     `%%HiResBoundingBox: 0 0 ${W} ${W}`,
     `%%Title: ${String(title).replace(/[^\x20-\x7e]/g, "?")}`,
-    "%%Creator: QR Generator",
+    "%%Creator: MyQRGenerator",
     `%%LanguageLevel: ${sc.bodyFill.gradient ? 3 : 2}`,
     "%%Pages: 1",
     "%%EndComments",

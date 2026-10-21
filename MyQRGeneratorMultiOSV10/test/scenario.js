@@ -1,7 +1,11 @@
 // The end-to-end checks both builds share: whatever the page draws on screen must scan
 // back (jsQR on the real canvas pixels) to exactly the payload it shows.
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import jsQR from "jsqr";
+import { LOGO_ACCEPT } from "../src/js/logo.js";
 import { previewImage, waitFor } from "./cdp.js";
 
 const SAMPLES = [
@@ -72,6 +76,167 @@ export async function checkLogo(page) {
   assert.equal(await page.eval("document.getElementById('warnings').children.length"), 0, "no warnings for the default logo");
 }
 
+const RED = [225, 29, 72];
+
+/**
+ * Logo files chosen in the picker and dropped on the window. AVIF is a real fixture
+ * (the browser under test may not encode AVIF). TIFF is decoded by qrimage.wasm.
+ * A file that is not an image is refused and the current logo stays.
+ */
+export async function checkLogoInputs(page) {
+  assert.equal(await page.eval("document.getElementById('logo-file').accept"), LOGO_ACCEPT);
+  const avif = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "logo.avif")).toString("base64");
+  const rows = await page.eval(`(async () => {
+    const avifBytes = Uint8Array.from(atob(${JSON.stringify(avif)}), (c) => c.charCodeAt(0));
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const input = document.getElementById("logo-file");
+    async function sample(dataUrl) {
+      const img = new Image();
+      img.src = dataUrl;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext("2d");
+      g.drawImage(img, 0, 0);
+      const p = g.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data;
+      return { w: c.width, h: c.height, px: [p[0], p[1], p[2], p[3]] };
+    }
+    async function pick(file) {
+      // Two different files can become the same stored PNG (a flat red square). Plant a
+      // different logo first so a successful decode is visible as a change.
+      await window.__qrgen.setLogo("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+      const prev = window.__qrgen.state.design.logo;
+      const statusBefore = document.getElementById("status-text").textContent;
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change"));
+      const start = performance.now();
+      while (performance.now() - start < 8000) {
+        const logo = window.__qrgen.state.design.logo;
+        let status = document.getElementById("status-text").textContent;
+        if (logo && logo !== prev) {
+          const until = performance.now() + 500;
+          while (!/준비|Ready/.test(status) && performance.now() < until) {
+            await sleep(20);
+            status = document.getElementById("status-text").textContent;
+          }
+          const seen = await sample(window.__qrgen.state.design.logo);
+          return { ok: true, ...seen, ecc: window.__qrgen.state.encoding.ecc, status, thumb: document.getElementById("logo-thumb").classList.contains("has-logo"), cleared: input.value === "" };
+        }
+        if (status !== statusBefore && /열 수 없|can't be opened/.test(status)) return { ok: false, refused: true, status, unchanged: logo === prev };
+        await sleep(25);
+      }
+      return { ok: false, timeout: true, status: document.getElementById("status-text").textContent };
+    }
+    async function drop(file, maxMs) {
+      const prev = window.__qrgen.state.design.logo;
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      document.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      const start = performance.now();
+      while (performance.now() - start < maxMs) {
+        if (window.__qrgen.state.design.logo !== prev) {
+          let status = document.getElementById("status-text").textContent;
+          const until = performance.now() + 500;
+          while (!/준비|Ready/.test(status) && performance.now() < until) {
+            await sleep(20);
+            status = document.getElementById("status-text").textContent;
+          }
+          return { changed: true, status };
+        }
+        await sleep(25);
+      }
+      return { changed: false, status: document.getElementById("status-text").textContent };
+    }
+    function solid(w, h) {
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      const g = c.getContext("2d");
+      g.fillStyle = "#e11d48";
+      g.fillRect(0, 0, w, h);
+      return c;
+    }
+    const blob = (canvas, type) => new Promise((resolve) => canvas.toBlob(resolve, type));
+    await window.__qrgen.setEncoding({ ecc: "M" });
+    const square = solid(32, 32);
+    const rows = [];
+    for (const [id, type, name] of [["png", "image/png", "a.png"], ["jpeg", "image/jpeg", "a.jpg"], ["webp", "image/webp", "a.webp"]]) {
+      const file = await blob(square, type);
+      rows.push({ id, ...(file ? await pick(new File([file], name, { type })) : { ok: false, error: "toBlob returned null" }) });
+    }
+    const mod = await import(new URL("js/exporters.js", document.baseURI).href);
+    const encode = await mod.loadWasmImageEncoder(new URL("wasm/qrimage.wasm", document.baseURI).href);
+    const pixels = new Uint8Array(square.getContext("2d").getImageData(0, 0, 32, 32).data.buffer);
+    for (const [id, name] of [["gif", "a.gif"], ["bmp", "a.bmp"], ["ico", "a.ico"], ["tiff", "scan.tif"]]) {
+      const bytes = encode(pixels, 32, 32, id, 90, 0xffffff);
+      rows.push({ id, ...await pick(new File([bytes], name, { type: "" })) });
+    }
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#e11d48"/></svg>';
+    rows.push({ id: "svg", ...await pick(new File([svg], "a.svg", { type: "image/svg+xml" })) });
+    rows.push({ id: "avif", ...await pick(new File([avifBytes], "photo.AVIF", { type: "" })) });
+    const wide = new Uint8Array(520 * 8 * 4);
+    for (let i = 0; i < wide.length; i += 4) { wide[i] = 225; wide[i + 1] = 29; wide[i + 2] = 72; wide[i + 3] = 255; }
+    const wideTiff = encode(wide, 520, 8, "tiff", 90, 0xffffff);
+    rows.push({ id: "tiff-wide", ...await pick(new File([wideTiff], "wide.tiff", { type: "image/tiff" })) });
+    const large = await blob(solid(640, 40), "image/png");
+    rows.push({ id: "png-large", ...await pick(new File([large], "large.png", { type: "image/png" })) });
+    document.getElementById("status-text").textContent = "준비";
+    rows.push({ id: "txt", ...await pick(new File(["hello"], "notes.txt", { type: "text/plain" })) });
+    document.getElementById("status-text").textContent = "준비";
+    rows.push({ id: "pdf", ...await pick(new File(["%PDF"], "page.pdf", { type: "application/pdf" })) });
+    const again = await blob(square, "image/png");
+    rows.push({ id: "png-after-reject", ...await pick(new File([again], "b.png", { type: "image/png" })) });
+    const beforeDrop = window.__qrgen.state.design.logo;
+    const droppedText = await drop(new File(["nope"], "notes.txt", { type: "text/plain" }), 300);
+    rows.push({ id: "drop-txt", ok: !droppedText.changed && window.__qrgen.state.design.logo === beforeDrop, status: droppedText.status });
+    const dropped = await drop(new File([avifBytes], "drop.avif", { type: "" }), 8000);
+    rows.push({ id: "drop-avif", ok: dropped.changed, status: dropped.status });
+    return rows;
+  })()`);
+
+  const tol = { png: 1, jpeg: 24, webp: 1, gif: 16, bmp: 1, ico: 8, tiff: 1, "tiff-wide": 1, svg: 1, avif: 16, "png-large": 1, "png-after-reject": 1 };
+  for (const row of rows) {
+    if (row.id === "txt" || row.id === "pdf") {
+      assert.equal(row.refused, true, `${row.id} refused: ${JSON.stringify(row)}`);
+      assert.equal(row.unchanged, true, `${row.id} left the logo in place`);
+      assert.match(row.status, /열 수 없|can't be opened/);
+      continue;
+    }
+    if (row.id === "drop-txt") {
+      assert.equal(row.ok, true, JSON.stringify(row));
+      continue;
+    }
+    if (row.id === "drop-avif") {
+      assert.equal(row.ok, true, JSON.stringify(row));
+      assert.match(row.status, /준비|Ready/);
+      continue;
+    }
+    assert.equal(row.ok, true, `${row.id}: ${JSON.stringify(row)}`);
+    assert.equal(row.thumb, true, row.id);
+    assert.equal(row.cleared, true, `${row.id} input cleared so the same file can be chosen again`);
+    assert.equal(row.ecc, "H", `${row.id} switches to error correction H`);
+    assert.match(row.status, /준비|Ready/, `${row.id} clears an earlier error`);
+    assert.ok(row.w > 0 && row.h > 0 && row.w <= 512 && row.h <= 512, `${row.id} size ${row.w}×${row.h}`);
+    if (row.id === "png-large") {
+      assert.equal(row.w, 512, "a wide logo is scaled so the long side is 512");
+      assert.equal(row.h, 32);
+    }
+    if (row.id === "tiff-wide") {
+      assert.equal(row.w, 512);
+      assert.ok(row.h < 8, `tiff long side capped, height ${row.h}`);
+    }
+    if (row.id === "avif") assert.equal(row.w, 64, "AVIF keeps its size when it is already small");
+    const slack = tol[row.id];
+    if (slack != null) {
+      RED.forEach((channel, i) => assert.ok(Math.abs(row.px[i] - channel) <= slack, `${row.id} pixel ${row.px} near ${RED}`));
+      assert.equal(row.px[3], 255, row.id);
+    }
+  }
+}
+
 /** Too much data for a forced small version shows an error instead of a stale code. */
 export async function checkTooLong(page) {
   await page.eval("(async () => { await window.__qrgen.setEncoding({ version: 1 }); await window.__qrgen.setType('text'); await window.__qrgen.setValue('text', 'x'.repeat(200)); })()");
@@ -139,8 +304,8 @@ export async function pickInPage(page, root, value) {
 }
 
 /**
- * At each width (both languages): language, theme and window buttons fully visible; every
- * toolbar button keeps a visible icon; nothing overlaps.
+ * At each width (both languages): language, theme, program settings, program info and window
+ * buttons fully visible; every toolbar button keeps a visible icon; nothing overlaps.
  */
 export async function checkToolbarFit(page, widths) {
   await page.eval("document.getElementById('window-controls').hidden = false");
@@ -152,7 +317,7 @@ export async function checkToolbarFit(page, widths) {
       const report = await page.eval(`(() => {
         const vw = document.documentElement.clientWidth;
         const box = (el) => el.getBoundingClientRect();
-        const must = ["#lang-select", "#theme-select", "#win-min", "#win-max", "#win-close"].map((s) => [s, box(document.querySelector(s))]);
+        const must = ["#lang-select", "#theme-select", "#app-settings", "#app-about", "#win-min", "#win-max", "#win-close"].map((s) => [s, box(document.querySelector(s))]);
         const outside = must.filter(([, b]) => b.left < 0 || b.right > vw + 0.5 || b.width < 20).map(([s]) => s);
         const labels = ["#lang-select .iselect-label", "#theme-select .iselect-label"].filter((s) => { const e = document.querySelector(s); return !e || e.offsetWidth === 0 || e.scrollWidth > e.clientWidth + 0.5; });
         const icons = [...document.querySelectorAll(".toolbar .tb")].filter((b) => { const i = b.querySelector("svg"); return !i || box(i).width < 10 || box(b).right > vw + 0.5; }).map((b) => b.id);
@@ -177,19 +342,38 @@ export async function checkToolbar(page, pick = pickInPage) {
     assert.equal(await page.eval(`document.getElementById("${id}").getAttribute("aria-pressed")`), String(!before), `${id} shows its state`);
     await page.eval(`document.getElementById("${id}").click()`);
   }
-  // Dropdowns: open, every option has an icon, pick one.
-  for (const [root, value] of [["theme-select", "dark"], ["format-select", "pdf"], ["lang-select", "en"]]) await pick(page, root, value);
+  // Dropdowns: open, every option has an icon, pick one. Format is chosen in the save dialog.
+  for (const [root, value] of [["theme-select", "dark"], ["lang-select", "en"]]) await pick(page, root, value);
   assert.equal(await page.eval("document.documentElement.dataset.theme"), "dark");
+  await page.eval("document.getElementById('save').click()");
+  assert.equal(await page.eval("document.getElementById('modal').hidden"), false, "save format dialog opens");
+  assert.equal(await page.eval("document.getElementById('modal-title').textContent"), "Format");
+  await page.eval("document.querySelector('#modal [data-format=\"pdf\"]').click()");
   assert.equal(await page.eval("window.__qrgen.state.export.format"), "pdf");
-  assert.equal(await page.eval("document.getElementById('save-label').textContent"), "Save PDF");
+  assert.equal(await page.eval("document.getElementById('save-label').textContent"), "Save");
   assert.equal(await page.eval("document.getElementById('print-field').classList.contains('off')"), false, "PDF enables the print size");
   assert.equal(await page.eval("document.getElementById('quality-field').classList.contains('off')"), true, "PDF has no JPEG quality");
   assert.equal(await page.eval("document.querySelector('#size-field .size-grid').classList.contains('off')"), true);
+  await page.eval("document.getElementById('modal-close').click()");
 
   // Every button in the left panel and the status bar items carry an icon.
   const bare = await page.eval(`[...document.querySelectorAll(".column .card:not(#card-export) button, #card-export button.step")].filter((b) => !b.querySelector("svg")).map((b) => b.id || b.textContent)`);
   assert.deepEqual(bare, [], "left-panel buttons without an icon");
   assert.notEqual(await page.eval("document.querySelector('#lang-select .iselect-button use').getAttribute('href')"), "#i-lang-ko", "English shows its own icon");
+
+  await page.eval("document.getElementById('app-settings').click()");
+  assert.equal(await page.eval("document.getElementById('modal').hidden"), false, "settings opens");
+  assert.equal(await page.eval("document.getElementById('modal-title').textContent"), await page.eval("document.getElementById('app-settings').title"));
+  await page.eval("document.querySelector('#modal [data-setting=\"theme\"][data-value=\"light\"]').click()");
+  assert.equal(await page.eval("document.documentElement.dataset.theme"), "light", "settings changes the theme");
+  await page.eval("document.querySelector('#modal [data-setting=\"theme\"][data-value=\"dark\"]').click()");
+  await page.eval("document.getElementById('modal-close').click()");
+  assert.equal(await page.eval("document.getElementById('modal').hidden"), true, "settings closes");
+  await page.eval("document.getElementById('app-about').click()");
+  assert.equal(await page.eval("document.getElementById('modal-title').textContent"), await page.eval("document.getElementById('app-about').title"));
+  assert.match(await page.eval("document.getElementById('modal-body').textContent"), /MyQRGenerator/);
+  await page.eval("document.querySelector('#modal .modal-actions button').click()");
+  assert.equal(await page.eval("document.getElementById('modal').hidden"), true, "about closes");
 }
 
 /** Cards move by dragging their heading; "reset layout" brings back the default. */

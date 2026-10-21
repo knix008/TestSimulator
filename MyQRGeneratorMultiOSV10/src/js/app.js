@@ -5,6 +5,7 @@ import { History } from "./history.js";
 import { applyTranslations, LANGUAGES, setLanguage, t } from "./i18n.js";
 import { icon, IconSelect, useNativeMenus } from "./iconselect.js";
 import { applyLayout, DEFAULT_LAYOUT, enableCardDragging, normalizeLayout } from "./layout.js";
+import { isLogoFile, LOGO_ACCEPT } from "./logo.js";
 import { buildPayload, CONTENT_TYPES, DEFAULT_VALUES } from "./payload.js";
 import * as platform from "./platform.js";
 import { DEFAULT_DESIGN, designWarnings, drawToCanvas, EYE_BALL_STYLES, EYE_FRAME_STYLES, MODULE_STYLES, toSvg } from "./render.js";
@@ -246,10 +247,6 @@ function segmented(container, options, get, set) {
   }
 }
 
-function formatOptions() {
-  return FORMATS.map((f) => ({ value: f.id, label: f.id.toUpperCase(), icon: f.kind === "vector" ? "i-vector" : "i-image", group: t(`format.${f.kind}`) }));
-}
-
 function renderControls() {
   const design = state.design;
   const styleIcons = { moduleStyle: "i-mod", eyeFrame: "i-frame", eyeBall: "i-ball" };
@@ -293,8 +290,6 @@ function renderControls() {
   // Dropdowns: every option shows an icon.
   selects.gradient.setOptions(GRADIENTS.map((g) => ({ value: g, label: t(`gradient.${g}`), icon: `i-grad-${g}` })), design.gradient);
   selects.gradient.setTitle(t("design.gradient"));
-  selects.format.setOptions(formatOptions(), state.export.format);
-  selects.format.setTitle(t("tb.format"));
   selects.lang.setOptions(Object.entries(LANGUAGES).map(([value, label]) => ({ value, label, icon: `i-lang-${value}` })), state.lang);
   selects.lang.setTitle(t("ui.language"));
   selects.theme.setOptions(["system", "light", "dark"].map((value) => ({ value, label: t(`theme.${value}`), icon: THEME_ICONS[value] })), state.theme);
@@ -319,13 +314,6 @@ function createSelects() {
       state.design.gradient = value;
       syncControls();
       redraw();
-    },
-  });
-  selects.format = new IconSelect($("format-select"), {
-    onChange(value) {
-      state.export.format = value;
-      syncControls();
-      persist();
     },
   });
   selects.lang = new IconSelect($("lang-select"), {
@@ -391,8 +379,6 @@ function syncControls() {
   // Export settings follow the chosen format.
   const x = state.export;
   const format = formatById(x.format);
-  selects.format.setValue(format.id);
-  $("save-label").textContent = t("tb.save", { format: format.id.toUpperCase() });
   if (document.querySelector(".main-bar.compact") === null) requestAnimationFrame(fitToolbars);
   $("size-field").querySelector(".size-grid").classList.toggle("off", Boolean(format.print));
   $("size-chips").classList.toggle("off", Boolean(format.print));
@@ -494,6 +480,7 @@ function bindControls() {
   $("undo").addEventListener("click", undo);
   $("redo").addEventListener("click", redo);
 
+  $("logo-file").accept = LOGO_ACCEPT;
   $("logo-choose").addEventListener("click", () => $("logo-file").click());
   $("logo-file").addEventListener("change", async () => {
     const file = $("logo-file").files[0];
@@ -518,16 +505,27 @@ function bindControls() {
   onExport("print-size", "change", (e) => (state.export.printMm = clampPrint(e.value)));
   bindSteppers();
 
-  $("save").addEventListener("click", () => exportAs().catch(() => {}));
+  $("save").addEventListener("click", () => openDialog("save", $("save")));
   $("copy-image").addEventListener("click", () => copyImage());
   $("copy-text").addEventListener("click", () => copyPayload());
 
+  $("app-settings").addEventListener("click", () => openDialog("settings", $("app-settings")));
+  $("app-about").addEventListener("click", () => openDialog("about", $("app-about")));
+  $("modal-close").addEventListener("click", closeDialog);
+  $("modal-backdrop").addEventListener("click", closeDialog);
+
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("modal").hidden) {
+      event.preventDefault();
+      closeDialog();
+      return;
+    }
     if (!(event.ctrlKey || event.metaKey)) return;
     const key = event.key.toLowerCase();
     if (key === "s") {
       event.preventDefault();
-      exportAs(event.shiftKey ? "svg" : state.export.format).catch(() => {});
+      if (event.shiftKey) exportAs("svg").catch(() => {});
+      else if ($("modal").hidden) openDialog("save", $("save"));
     } else if (key === "z" && !event.shiftKey) {
       event.preventDefault();
       undo();
@@ -540,7 +538,7 @@ function bindControls() {
   // Dropping an image anywhere sets it as the logo.
   document.addEventListener("dragover", (event) => event.preventDefault());
   document.addEventListener("drop", (event) => {
-    const file = [...(event.dataTransfer?.files || [])].find((f) => f.type.startsWith("image/"));
+    const file = [...(event.dataTransfer?.files || [])].find(isLogoFile);
     if (!file) return;
     event.preventDefault();
     setLogoFromFile(file);
@@ -549,7 +547,7 @@ function bindControls() {
 
 /**
  * Toolbars drop button labels (icons stay) when the window is too narrow for them, so the
- * language and theme dropdowns and the window buttons are never pushed out of view.
+ * language and theme dropdowns, program settings, program info and the window buttons are never pushed out of view.
  */
 function fitToolbars() {
   const main = document.querySelector(".main-bar");
@@ -558,8 +556,7 @@ function fitToolbars() {
   if (main.scrollWidth > main.clientWidth) main.classList.add("compact-2");
   const options = document.querySelector(".option-bar");
   options.classList.remove("compact");
-  const clipped = [...options.querySelectorAll(".tb > span")].some((s) => s.scrollWidth > s.clientWidth + 0.5);
-  if (clipped) options.classList.add("compact");
+  if (options.scrollWidth > options.clientWidth + 0.5) options.classList.add("compact");
 }
 
 /** Frameless desktop window: our own minimise/maximise/close and the resize grip. */
@@ -584,8 +581,176 @@ function bindWindow() {
   refresh();
 }
 
+// ---- Program settings and about ----
+
+const APP_VERSION = "1.0.0";
+let dialogKind = null;
+let dialogOpener = null;
+let saveFormat = "png";
+
+function hostLabel() {
+  const ua = navigator.userAgent;
+  const os = /Windows/i.test(ua) ? "Windows" : /Mac OS|Macintosh/i.test(ua) ? "macOS" : /Linux/i.test(ua) ? "Linux" : "";
+  if (!platform.isDesktop) return os ? `Web · ${os}` : "Web";
+  return os || "Desktop";
+}
+
+function choiceButton(setting, value, label, iconId) {
+  const current = setting === "lang" ? state.lang : state.theme;
+  const button = el("button", { type: "button", className: "choice" }, icon(iconId), el("span", { textContent: label }));
+  button.dataset.setting = setting;
+  button.dataset.value = value;
+  button.setAttribute("aria-pressed", String(current === value));
+  button.addEventListener("click", () => {
+    if (setting === "lang") {
+      state.lang = value;
+      setLanguage(value);
+      translateAll();
+    } else {
+      state.theme = value;
+      applyTheme();
+      selects.theme.setValue(value);
+      renderDialog();
+    }
+    persist();
+  });
+  return button;
+}
+
+function settingsBody() {
+  const lang = el(
+    "div",
+    { className: "setting-row" },
+    el("span", { textContent: t("ui.language") }),
+    el("div", { className: "choices" }, ...Object.entries(LANGUAGES).map(([value, label]) => choiceButton("lang", value, label, `i-lang-${value}`))),
+  );
+  const theme = el(
+    "div",
+    { className: "setting-row" },
+    el("span", { textContent: t("ui.theme") }),
+    el("div", { className: "choices" }, ...["system", "light", "dark"].map((value) => choiceButton("theme", value, t(`theme.${value}`), THEME_ICONS[value]))),
+  );
+  return el("div", {}, lang, theme);
+}
+
+function aboutBody() {
+  const lead = el(
+    "div",
+    { className: "about-lead" },
+    el("img", { src: "icon.png", alt: "" }),
+    el("div", {}, el("h3", { textContent: "MyQRGenerator" }), el("p", { textContent: APP_VERSION })),
+  );
+  const facts = el("dl", { className: "about-list" });
+  const author = el("a", { href: "mailto:knix008@naver.com", textContent: "SHKWON(knix008@naver.com)" });
+  for (const [label, value] of [
+    [t("about.version"), APP_VERSION],
+    [t("about.author"), author],
+    [t("about.platform"), hostLabel()],
+    [t("about.engine"), t(`engine.${encoder.backend}`)],
+    [t("about.formats"), FORMATS.map((f) => f.id.toUpperCase()).join(" · ")],
+  ]) {
+    const dd = el("dd");
+    if (typeof value === "string") dd.textContent = value;
+    else dd.append(value);
+    facts.append(el("dt", { textContent: label }), dd);
+  }
+  const shortcuts = el("div", { className: "shortcut-list" });
+  for (const [keys, label] of [
+    ["Ctrl+S", t("sc.save")],
+    ["Ctrl+Z", t("sc.undo")],
+    ["Ctrl+Y", t("sc.redo")],
+  ]) {
+    shortcuts.append(el("kbd", { textContent: keys }), el("span", { textContent: label }));
+  }
+  return el(
+    "div",
+    {},
+    lead,
+    el("p", { className: "about-text", textContent: t("about.text") }),
+    facts,
+    el("h3", { className: "about-sub", textContent: t("about.shortcuts") }),
+    shortcuts,
+    el("p", { className: "about-copy", textContent: t("about.copy") }),
+  );
+}
+
+function formatChoice(format) {
+  const button = el("button", { type: "button", className: "choice" }, icon(format.kind === "vector" ? "i-vector" : "i-image"), el("span", { textContent: format.id.toUpperCase() }));
+  button.dataset.format = format.id;
+  button.setAttribute("aria-pressed", String(format.id === saveFormat));
+  button.addEventListener("click", () => {
+    saveFormat = format.id;
+    state.export.format = format.id;
+    for (const item of $("modal").querySelectorAll("[data-format]")) item.setAttribute("aria-pressed", String(item.dataset.format === saveFormat));
+    syncControls();
+    persist();
+  });
+  return button;
+}
+
+function saveBody() {
+  saveFormat = state.export.format;
+  const groups = ["raster", "vector"].map((kind) => el(
+    "div",
+    { className: "setting-row format-row" },
+    el("span", { textContent: t(`format.${kind}`) }),
+    el("div", { className: "choices" }, ...FORMATS.filter((format) => format.kind === kind).map(formatChoice)),
+  ));
+  return el("div", {}, ...groups);
+}
+
+function dialogClose() {
+  const button = el("button", { type: "button", className: "tb primary", textContent: t("dlg.close") });
+  button.addEventListener("click", closeDialog);
+  return button;
+}
+
+function dialogSave() {
+  const button = el("button", { type: "button", className: "tb primary", textContent: t("tb.save") });
+  button.addEventListener("click", () => {
+    const formatId = saveFormat;
+    closeDialog();
+    exportAs(formatId).catch(() => {});
+  });
+  return button;
+}
+
+function renderDialog() {
+  if (!dialogKind) return;
+  const titles = { settings: "settings.open", about: "about.open", save: "tb.format" };
+  $("modal-title").textContent = t(titles[dialogKind]);
+  const body = dialogKind === "settings" ? settingsBody() : dialogKind === "about" ? aboutBody() : saveBody();
+  $("modal-body").replaceChildren(body);
+  $("modal-actions").replaceChildren(dialogKind === "save" ? dialogSave() : dialogClose());
+}
+
+function openDialog(kind, opener) {
+  dialogKind = kind;
+  dialogOpener = opener || null;
+  $("modal").hidden = false;
+  document.body.classList.add("modal-open");
+  renderDialog();
+  $("modal-close").focus();
+}
+
+function closeDialog() {
+  dialogKind = null;
+  $("modal").hidden = true;
+  document.body.classList.remove("modal-open");
+  $("modal-body").replaceChildren();
+  $("modal-actions").replaceChildren();
+  dialogOpener?.focus?.();
+  dialogOpener = null;
+}
+
 function translateAll() {
   applyTranslations();
+  renderDialog();
+  if (payload) {
+    const bytes = new TextEncoder().encode(payload).length;
+    $("payload-count").textContent = t("payload.chars", { chars: [...payload].length, bytes });
+    $("payload").textContent = payload;
+  }
   requestAnimationFrame(fitToolbars);
   renderTypeTabs();
   renderFields();
@@ -607,24 +772,67 @@ function loadImage(src) {
   });
 }
 
+/** Draws `img` (an Image, ImageBitmap or canvas) down to at most 512 px. */
+function paintLogo(img) {
+  const w = img.naturalWidth || img.width || LOGO_MAX_PX;
+  const h = img.naturalHeight || img.height || LOGO_MAX_PX;
+  const k = Math.min(1, LOGO_MAX_PX / Math.max(w, h));
+  const canvas = el("canvas", { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) });
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+  img.close?.();
+  return canvas;
+}
+
+/**
+ * AVIF, PNG, JPEG, GIF, WebP, BMP, ICO and SVG are decoded by the browser
+ * (`createImageBitmap` keeps AVIF alpha and applies the photo's orientation).
+ * TIFF, which the browser cannot open, goes through qrimage.
+ */
+async function decodeLogoFile(file) {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      if (bitmap.width > 0 && bitmap.height > 0) return paintLogo(bitmap);
+      bitmap.close?.();
+    } catch {
+      /* This browser has no decoder for the file. */
+    }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    if ((img.naturalWidth || img.width) > 0) return paintLogo(img);
+  } catch {
+    /* Try the Rust decoder (TIFF, and BMP/ICO variants the browser rejects). */
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  const { wasmImageDecoder } = await import("./exporters.js");
+  const { width, height, rgba } = (await wasmImageDecoder())(new Uint8Array(await file.arrayBuffer()));
+  const canvas = el("canvas", { width, height });
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  pixels.set(rgba);
+  canvas.getContext("2d").putImageData(new ImageData(pixels, width, height), 0, 0);
+  return paintLogo(canvas);
+}
+
 /** Downscales to at most 512 px PNG so the logo stays small in settings and exports. */
 async function setLogoFromFile(file) {
+  if (!isLogoFile(file)) {
+    status(t("logo.unsupported"), "error");
+    return;
+  }
   try {
-    const url = URL.createObjectURL(file);
-    const img = await loadImage(url).finally(() => URL.revokeObjectURL(url));
-    const w = img.naturalWidth || LOGO_MAX_PX;
-    const h = img.naturalHeight || LOGO_MAX_PX;
-    const k = Math.min(1, LOGO_MAX_PX / Math.max(w, h));
-    const canvas = el("canvas", { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) });
-    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const canvas = await decodeLogoFile(file);
     await setLogo(canvas.toDataURL("image/png"));
     if (state.encoding.ecc !== "H") {
       state.encoding.ecc = "H";
       syncControls();
       update();
     }
-  } catch (error) {
-    status(t("toast.failed", { message: error.message }), "error");
+    status(t("status.ready"));
+  } catch {
+    status(t("logo.unsupported"), "error");
   }
 }
 
@@ -893,6 +1101,6 @@ async function init() {
 
 init().catch((error) => {
   console.error(error);
-  document.body.prepend(el("pre", { className: "fatal", textContent: `QR Generator failed to start: ${error?.stack || error}` }));
+  document.body.prepend(el("pre", { className: "fatal", textContent: `MyQRGenerator failed to start: ${error?.stack || error}` }));
   platform.ready();
 });

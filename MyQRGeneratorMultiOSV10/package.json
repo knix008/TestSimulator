@@ -1,6 +1,6 @@
 {
   "name": "qrgenerator",
-  "productName": "QRGenerator",
+  "productName": "MyQRGenerator",
   "version": "1.0.0",
   "description": "QR code generator: Rust encoder (native in Tauri, WebAssembly in the browser) with a JavaScript designer.",
   "author": "SHKWON <knix008@naver.com>",

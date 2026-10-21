@@ -56,6 +56,7 @@ export class IconSelect {
 
   setOptions(options, value = this.value) {
     this.options = options;
+    this.list.classList.toggle("wide", options.length > 14);
     this.list.replaceChildren();
     let group = null;
     for (const option of options) {

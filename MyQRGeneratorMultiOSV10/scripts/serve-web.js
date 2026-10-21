@@ -34,5 +34,5 @@ export function createServer() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = await freePort(Number(process.env.PORT) || 4180);
-  createServer().listen(port, "127.0.0.1", () => console.log(`QRGenerator (web): http://127.0.0.1:${port}/`));
+  createServer().listen(port, "127.0.0.1", () => console.log(`MyQRGenerator (web): http://127.0.0.1:${port}/`));
 }

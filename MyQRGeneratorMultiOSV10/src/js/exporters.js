@@ -22,21 +22,44 @@ export function hexToInt(hex) {
   return /^#[0-9a-f]{6}$/i.test(hex) ? parseInt(hex.slice(1), 16) : 0xffffff;
 }
 
-/** Instantiates qrimage.wasm (qrimage/src/wasm.rs). Returns encode(rgba, w, h, formatId, quality, bg). */
+function wasmBytes(ex, ptr) {
+  return new Uint8Array(ex.memory.buffer, ptr);
+}
+
+function wasmResult(ex, len) {
+  const out = new Uint8Array(ex.memory.buffer, ex.qri_output_ptr(), Math.abs(len)).slice();
+  if (len < 0) throw new Error(new TextDecoder().decode(out));
+  return out;
+}
+
+/** Instantiates qrimage.wasm (qrimage/src/wasm.rs). Returns encode(rgba, w, h, formatId, quality, bg). The function also has decode(fileBytes) → { width, height, rgba }. */
 export async function loadWasmImageEncoder(source) {
   const bytes = source instanceof ArrayBuffer || ArrayBuffer.isView(source) ? source : await (await fetch(source)).arrayBuffer();
   const { instance } = await WebAssembly.instantiate(bytes, {});
   const ex = instance.exports;
-  return (rgba, width, height, format, quality = 92, background = 0xffffff) => {
+  const encode = (rgba, width, height, format, quality = 92, background = 0xffffff) => {
     const f = typeof format === "string" ? formatById(format) : format;
     const ptr = ex.qri_alloc(rgba.length);
-    new Uint8Array(ex.memory.buffer, ptr, rgba.length).set(rgba);
+    wasmBytes(ex, ptr).set(rgba);
     const len = ex.qri_encode(ptr, rgba.length, width, height, f.wasmId, quality, background);
     ex.qri_free(ptr, rgba.length);
-    const out = new Uint8Array(ex.memory.buffer, ex.qri_output_ptr(), Math.abs(len)).slice();
-    if (len < 0) throw new Error(new TextDecoder().decode(out));
-    return out;
+    return wasmResult(ex, len);
   };
+  // PNG, JPEG, GIF, WebP, BMP, ICO and TIFF. AVIF and SVG are decoded by the browser.
+  encode.decode = (fileBytes) => {
+    const ptr = ex.qri_alloc(fileBytes.length);
+    wasmBytes(ex, ptr).set(fileBytes);
+    const len = ex.qri_decode(ptr, fileBytes.length);
+    ex.qri_free(ptr, fileBytes.length);
+    const out = wasmResult(ex, len);
+    const view = new DataView(out.buffer, out.byteOffset, out.byteLength);
+    const width = view.getUint32(0, true);
+    const height = view.getUint32(4, true);
+    const rgba = out.subarray(8);
+    if (!width || !height || rgba.length !== width * height * 4) throw new Error("image");
+    return { width, height, rgba };
+  };
+  return encode;
 }
 
 let wasmEncoder;
@@ -44,4 +67,9 @@ let wasmEncoder;
 export function wasmImageEncoder() {
   wasmEncoder ??= loadWasmImageEncoder(new URL("../wasm/qrimage.wasm", import.meta.url));
   return wasmEncoder;
+}
+
+/** Same module as the encoder. Decodes logo files the browser cannot (TIFF, and odd BMP/ICO). */
+export function wasmImageDecoder() {
+  return wasmImageEncoder().then((encode) => encode.decode);
 }
