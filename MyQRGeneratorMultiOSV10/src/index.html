@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QR Generator</title>
+    <link rel="icon" href="icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Apply the saved theme before first paint (the browser build keeps it in localStorage).
+      try {
+        const saved = JSON.parse(localStorage.getItem("qrgenerator.settings") || "{}").theme;
+        if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h9" /></symbol>
+        <symbol id="i-url" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></symbol>
+        <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9 16a4 4 0 0 1 6 0" /><circle cx="12" cy="19.2" r="0.6" /></symbol>
+        <symbol id="i-vcard" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2.2" /><path d="M5.8 16.2a3.6 3.6 0 0 1 6.4 0M14.5 10h4M14.5 13.5h3" /></symbol>
+        <symbol id="i-email" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2" /><path d="m4 7 8 6 8-6" /></symbol>
+        <symbol id="i-sms" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9.5h8M8 12.5h5" /></symbol>
+        <symbol id="i-tel" viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2z" /></symbol>
+        <symbol id="i-geo" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></symbol>
+        <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" /><path d="M8 4v5h7V4M8 20v-6h8v6" /></symbol>
+        <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16" rx="2" /><path d="M9 4.5V3.8a.8.8 0 0 1 .8-.8h4.4a.8.8 0 0 1 .8.8v.7M9 10h6M9 13.5h6M9 17h4" /></symbol>
+        <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 4 7l3 3M4 7h12M17 14l3 3-3 3M20 17H8" /></symbol>
+        <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4" /></symbol>
+        <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="m4 18 5-5 4 4 2.5-2.5L20 19" /></symbol>
+        <symbol id="i-vector" viewBox="0 0 24 24"><path d="M12 3.5 6 12l6 8.5 6-8.5z" /><circle cx="12" cy="12" r="1.6" /><path d="M3 21h6M15 21h6" /></symbol>
+        <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4zM12 10v4.5" /><circle cx="12" cy="17" r="0.5" /></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5" /><rect x="6.5" y="6.5" width="3" height="3" /><path d="M15 9h5.5M15 13h5.5M4 16.5h16.5M4 20h16.5" /></symbol>
+        <symbol id="i-transparent" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9.2h5.7V3.5M9.2 9.2h5.6v5.6H9.2zM14.8 14.8h5.7M14.8 14.8v5.7M14.8 9.2V3.5M3.5 14.8h5.7v5.7" /></symbol>
+        <symbol id="i-logo-clear" viewBox="0 0 24 24"><path d="M4 4h4M4 4v4M20 4h-4M20 4v4M4 20h4M4 20v-4M20 20h-4M20 20v-4" /><rect x="8.5" y="8.5" width="7" height="7" rx="1.5" stroke-dasharray="2 2" /></symbol>
+        <symbol id="i-boost" viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.2 2.9 7.7 7 9.5 4.1-1.8 7-5.3 7-9.5V6z" /><path d="m9 12.5 3-3 3 3M12 9.5v6" /></symbol>
+        <symbol id="i-utf8" viewBox="0 0 24 24"><path d="M4 5h8M8 5v3M5 8.5c1.5 3.5 4 5.5 7 6.5M11 8.5c-1 3-3.2 5.6-6.5 7" /><path d="m13.5 20 3.5-9 3.5 9M14.8 17h4.4" /></symbol>
+        <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.4 3.6 8.5S14.5 17.9 12 20.5c-2.5-2.6-3.6-5.4-3.6-8.5S9.5 6.1 12 3.5z" /></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" /></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" /></symbol>
+        <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12.5" rx="1.5" /><path d="M9 20.5h6M12 16.5v4" /></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z" /></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M10 4h4M6.5 7l1 13h9l1-13M10 10.5v6M14 10.5v6" /></symbol>
+
+        <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 4.5 11.5 9 16" /><path d="M5 11.5h9.5a4.5 4.5 0 0 1 0 9H11" /></symbol>
+        <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 7 4.5 4.5L15 16" /><path d="M19 11.5H9.5a4.5 4.5 0 0 0 0 9H13" /></symbol>
+        <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12" /></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M6 12h12M12 6v12" /></symbol>
+        <symbol id="i-win-min" viewBox="0 0 24 24"><path d="M6 12.5h12" /></symbol>
+        <symbol id="i-win-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" /></symbol>
+        <symbol id="i-win-restore" viewBox="0 0 24 24"><rect x="5.5" y="8.5" width="10" height="10" rx="1" /><path d="M8.5 8.5V6.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2" /></symbol>
+        <symbol id="i-win-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11M17.5 6.5l-11 11" /></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5" /><circle cx="12" cy="7.8" r="0.6" /></symbol>
+        <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3" /></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
+        <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8 10.5V8a4 4 0 0 1 7.6-1.7" /></symbol>
+        <symbol id="i-mod-square" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M4 4h8v8H4zM12 12h8v8h-8zM4 12h8v8H4zM15 4h5v5h-5z" /></symbol>
+        <symbol id="i-mod-rounded" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M8 4a4 4 0 0 1 4 4v4h4a4 4 0 0 1 4 4 4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" /><circle fill="currentColor" stroke="none" cx="17.5" cy="6.5" r="2.5" /></symbol>
+        <symbol id="i-mod-dots" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="7.5" cy="7.5" r="3.3" /><circle cx="16.5" cy="7.5" r="3.3" /><circle cx="7.5" cy="16.5" r="3.3" /><circle cx="16.5" cy="16.5" r="3.3" /></g></symbol>
+        <symbol id="i-mod-bars" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><rect x="4.5" y="4" width="5.5" height="16" rx="2.75" /><rect x="14" y="4" width="5.5" height="9" rx="2.75" /><rect x="14" y="15" width="5.5" height="5" rx="2.5" /></g></symbol>
+        <symbol id="i-frame-square" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M3 3h18v18H3zM6 6v12h12V6z" /></symbol>
+        <symbol id="i-frame-rounded" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M8 3h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5zM8.5 6A2.5 2.5 0 0 0 6 8.5v7A2.5 2.5 0 0 0 8.5 18h7a2.5 2.5 0 0 0 2.5-2.5v-7A2.5 2.5 0 0 0 15.5 6z" /></symbol>
+        <symbol id="i-frame-circle" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 3a6 6 0 1 0 0 12 6 6 0 0 0 0-12z" /></symbol>
+        <symbol id="i-frame-leaf" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M3 10.5A7.5 7.5 0 0 1 10.5 3H21v10.5a7.5 7.5 0 0 1-7.5 7.5H3zM6 10.3V18h7.4a4.6 4.6 0 0 0 4.6-4.6V6h-7.7A4.3 4.3 0 0 0 6 10.3z" /></symbol>
+        <symbol id="i-ball-square" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1" stroke-dasharray="2 2.2" opacity="0.5" /><rect fill="currentColor" stroke="none" x="7.5" y="7.5" width="9" height="9" /></symbol>
+        <symbol id="i-ball-rounded" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1" stroke-dasharray="2 2.2" opacity="0.5" /><rect fill="currentColor" stroke="none" x="7.5" y="7.5" width="9" height="9" rx="2.8" /></symbol>
+        <symbol id="i-ball-circle" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1" stroke-dasharray="2 2.2" opacity="0.5" /><circle fill="currentColor" stroke="none" cx="12" cy="12" r="4.8" /></symbol>
+        <symbol id="i-ball-leaf" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1" stroke-dasharray="2 2.2" opacity="0.5" /><path fill="currentColor" stroke="none" d="M7.5 11.5a4 4 0 0 1 4-4h5v5a4 4 0 0 1-4 4h-5z" /></symbol>
+        <symbol id="i-ecc-L" viewBox="0 0 24 24"><rect fill="currentColor" stroke="none" x="3" y="15" width="3.6" height="5" rx="0.8" /><rect x="8.7" y="11.5" width="2.6" height="8.5" rx="0.6" /><rect x="13.9" y="7.5" width="2.6" height="12.5" rx="0.6" /><rect x="19.1" y="3.5" width="2.6" height="16.5" rx="0.6" /></symbol>
+        <symbol id="i-ecc-M" viewBox="0 0 24 24"><rect fill="currentColor" stroke="none" x="3" y="15" width="3.6" height="5" rx="0.8" /><rect fill="currentColor" stroke="none" x="8.2" y="11" width="3.6" height="9" rx="0.8" /><rect x="13.9" y="7.5" width="2.6" height="12.5" rx="0.6" /><rect x="19.1" y="3.5" width="2.6" height="16.5" rx="0.6" /></symbol>
+        <symbol id="i-ecc-Q" viewBox="0 0 24 24"><rect fill="currentColor" stroke="none" x="3" y="15" width="3.6" height="5" rx="0.8" /><rect fill="currentColor" stroke="none" x="8.2" y="11" width="3.6" height="9" rx="0.8" /><rect fill="currentColor" stroke="none" x="13.4" y="7" width="3.6" height="13" rx="0.8" /><rect x="19.1" y="3.5" width="2.6" height="16.5" rx="0.6" /></symbol>
+        <symbol id="i-ecc-H" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><rect x="3" y="15" width="3.6" height="5" rx="0.8" /><rect x="8.2" y="11" width="3.6" height="9" rx="0.8" /><rect x="13.4" y="7" width="3.6" height="13" rx="0.8" /><rect x="18.6" y="3" width="3.6" height="17" rx="0.8" /></g></symbol>
+        <symbol id="i-grad-none" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M5 19 19 5" /></symbol>
+        <symbol id="i-grad-vertical" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M12 7.5v9m0 0-3-3m3 3 3-3" /></symbol>
+        <symbol id="i-grad-diagonal" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="m8 8 8 8m0 0v-4.5m0 4.5h-4.5" /></symbol>
+        <symbol id="i-grad-radial" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="12" r="5" /></symbol>
+        <symbol id="i-version" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></symbol>
+        <symbol id="i-mask" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M4 9h16M4 14h16M9 4v16M14 4v16" opacity="0.55" /><path d="M6 6.5h1M11 11.5h1M16 16.5h1M6 16.5h1M16 6.5h1" stroke-width="2.4" /></symbol>
+        <symbol id="i-auto" viewBox="0 0 24 24"><path d="M12 3.5 14 9l5.5 2-5.5 2-2 5.5-2-5.5L4.5 11 10 9z" /><path d="M18.5 3.5v3M17 5h3" /></symbol>
+        <symbol id="i-grip" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></g></symbol>
+        <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M9.5 4.5v15M15 4.5v15M3.5 11h6M9.5 13h5.5" /></symbol>
+        <symbol id="i-lang-en" viewBox="0 0 24 24"><text x="12" y="17" text-anchor="middle" font-size="13.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" fill="currentColor" stroke="none">Aa</text></symbol>
+        <symbol id="i-lang-ko" viewBox="0 0 24 24"><path d="M10 2.8h4M7.2 5.2h9.6" /><circle cx="12" cy="8.6" r="2.2" /><circle cx="12" cy="13.2" r="1.25" fill="currentColor" stroke="none" /><path d="M7.8 15.6v4.6h9" /></symbol>
+      </defs>
+    </svg>
+
+    <header class="toolbar main-bar" data-tauri-drag-region>
+      <div class="brand" data-tauri-drag-region>
+        <img class="brand-mark" src="icon.png" alt="" data-tauri-drag-region />
+        <span class="brand-title" data-i18n="app.title" data-tauri-drag-region>QR 코드 생성기</span>
+      </div>
+      <div class="tb-group">
+        <button type="button" class="tb" id="undo" data-i18n-title="tb.undoTip"><svg class="i"><use href="#i-undo" /></svg><span data-i18n="tb.undo">실행 취소</span></button>
+        <button type="button" class="tb" id="redo" data-i18n-title="tb.redoTip"><svg class="i"><use href="#i-redo" /></svg><span data-i18n="tb.redo">다시 실행</span></button>
+      </div>
+      <span class="tb-sep"></span>
+      <div class="tb-group">
+        <div id="format-select"></div>
+        <button type="button" class="tb primary" id="save" data-i18n-title="tb.saveTip"><svg class="i"><use href="#i-save" /></svg><span id="save-label">저장</span></button>
+        <button type="button" class="tb" id="copy-image" data-i18n-title="export.copyImage"><svg class="i"><use href="#i-image" /></svg><span data-i18n="export.copyImage">이미지 복사</span></button>
+        <button type="button" class="tb" id="copy-text" data-i18n-title="export.copyText"><svg class="i"><use href="#i-clipboard" /></svg><span data-i18n="export.copyText">데이터 복사</span></button>
+      </div>
+      <div class="tb-spacer" data-tauri-drag-region></div>
+      <div class="tb-group">
+        <div id="lang-select"></div>
+        <div id="theme-select"></div>
+      </div>
+      <div class="window-controls" id="window-controls" hidden>
+        <button type="button" class="win" id="win-min" data-i18n-title="win.minimize"><svg class="i"><use href="#i-win-min" /></svg></button>
+        <button type="button" class="win" id="win-max" data-i18n-title="win.maximize"><svg class="i"><use href="#i-win-max" /></svg></button>
+        <button type="button" class="win close" id="win-close" data-i18n-title="win.close"><svg class="i"><use href="#i-win-close" /></svg></button>
+      </div>
+    </header>
+
+    <nav class="toolbar option-bar" aria-label="options">
+      <button type="button" class="tb toggle" id="eyeSame" data-i18n-title="tb.eyeSameTip"><svg class="i"><use href="#i-eye" /></svg><span data-i18n="tb.eyeSame">눈 = 전경색</span></button>
+      <button type="button" class="tb toggle" id="transparent" data-i18n-title="design.transparent"><svg class="i"><use href="#i-transparent" /></svg><span data-i18n="design.transparent">투명 배경</span></button>
+      <button type="button" class="tb toggle" id="logo-clear" data-i18n-title="logo.clear"><svg class="i"><use href="#i-logo-clear" /></svg><span data-i18n="tb.logoClear">로고 뒤 비우기</span></button>
+      <button type="button" class="tb toggle" id="boost" data-i18n-title="adv.boost"><svg class="i"><use href="#i-boost" /></svg><span data-i18n="tb.boost">오류 정정 자동 상향</span></button>
+      <button type="button" class="tb toggle" id="eci" data-i18n-title="adv.eci"><svg class="i"><use href="#i-utf8" /></svg><span data-i18n="tb.eci">UTF-8 ECI</span></button>
+      <button type="button" class="tb" id="swap" data-i18n-title="design.swap"><svg class="i"><use href="#i-swap" /></svg><span data-i18n="design.swap">색 바꾸기</span></button>
+      <button type="button" class="tb" id="layout-reset" data-i18n-title="layout.resetTip"><svg class="i"><use href="#i-layout" /></svg><span data-i18n="layout.reset">배치 초기화</span></button>
+      <button type="button" class="tb" id="reset" data-i18n-title="design.reset"><svg class="i"><use href="#i-reset" /></svg><span data-i18n="design.reset">디자인 초기화</span></button>
+    </nav>
+
+    <main class="layout">
+      <section class="column" data-col="0" aria-label="column 1">
+        <div class="card" id="card-content">
+          <h2 data-i18n="section.content">내용</h2>
+          <div class="type-tabs" id="type-tabs" role="tablist"></div>
+          <form class="fields" id="fields" autocomplete="off"></form>
+          <details class="payload" id="payload-box">
+            <summary><span data-i18n="payload.title">인코딩될 데이터</span><span class="muted" id="payload-count"></span></summary>
+            <pre id="payload"></pre>
+          </details>
+        </div>
+
+        <div class="card" id="card-logo">
+          <h2 data-i18n="section.logo">로고</h2>
+          <div class="row">
+            <span class="row-label" data-i18n="logo.image">이미지</span>
+            <div class="logo-row">
+              <div class="logo-thumb" id="logo-thumb"><svg class="i"><use href="#i-image" /></svg></div>
+              <button type="button" class="small" id="logo-choose"><svg class="i"><use href="#i-folder" /></svg><span data-i18n="logo.choose">이미지 선택…</span></button>
+              <button type="button" class="small" id="logo-remove"><svg class="i"><use href="#i-trash" /></svg><span data-i18n="logo.remove">제거</span></button>
+              <input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif" hidden />
+            </div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="logo.scale">크기</span>
+            <div class="stepper"><button type="button" class="step" data-step="-1" data-for="logo-scale" data-i18n-title="ui.decrease"><svg class="i"><use href="#i-minus" /></svg></button><input type="range" id="logo-scale" min="0.1" max="0.35" step="0.01" /><button type="button" class="step" data-step="1" data-for="logo-scale" data-i18n-title="ui.increase"><svg class="i"><use href="#i-plus" /></svg></button><output id="logo-scale-out"></output></div>
+          </div>
+          <p class="hint" data-i18n="logo.hint">로고를 넣으면 오류 정정 H를 권장합니다.</p>
+        </div>
+
+        <div class="card" id="card-design">
+          <h2 data-i18n="section.design">디자인</h2>
+          <div class="row">
+            <span class="row-label" data-i18n="design.moduleStyle">모듈 모양</span>
+            <div class="seg" data-design="moduleStyle"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="design.eyeFrame">눈 테두리</span>
+            <div class="seg" data-design="eyeFrame"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="design.eyeBall">눈 중심</span>
+            <div class="seg" data-design="eyeBall"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="design.colors">색상</span>
+            <div class="colors">
+              <label class="color"><input type="color" id="fg" /><span data-i18n="design.fg">전경색</span></label>
+              <label class="color"><input type="color" id="bg" /><span data-i18n="design.bg">배경색</span></label>
+              <label class="color"><input type="color" id="eyeColor" /><span data-i18n="design.eyeColor">눈 색상</span></label>
+              <label class="color" id="fg2-wrap"><input type="color" id="fg2" /><span data-i18n="design.fg2">끝 색상</span></label>
+            </div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="design.gradient">그라데이션</span>
+            <div id="gradient-select" class="full"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="design.margin">여백</span>
+            <div class="stepper"><button type="button" class="step" data-step="-1" data-for="margin" data-i18n-title="ui.decrease"><svg class="i"><use href="#i-minus" /></svg></button><input type="range" id="margin" min="0" max="10" step="1" /><button type="button" class="step" data-step="1" data-for="margin" data-i18n-title="ui.increase"><svg class="i"><use href="#i-plus" /></svg></button><output id="margin-out"></output></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="column" data-col="1" aria-label="column 2">
+        <div class="card" id="card-encoding">
+          <h2 data-i18n="section.advanced">인코딩</h2>
+          <div class="row">
+            <span class="row-label" data-i18n="adv.ecc">오류 정정</span>
+            <div class="seg" id="ecc"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="adv.version">버전</span>
+            <div id="version-select" class="full"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="adv.mask">마스크</span>
+            <div id="mask-select" class="full"></div>
+          </div>
+        </div>
+
+        <div class="card export" id="card-export">
+          <h2 data-i18n="section.export">내보내기</h2>
+          <div class="row" id="size-field">
+            <span class="row-label" data-i18n="export.size">크기 (px)</span>
+            <div class="size-grid">
+              <div class="numstep wide"><button type="button" class="step" data-step="-1" data-for="export-size" data-i18n-title="ui.decrease"><svg class="i"><use href="#i-minus" /></svg></button><input type="number" id="export-size" min="64" max="8192" step="64" /><button type="button" class="step" data-step="1" data-for="export-size" data-i18n-title="ui.increase"><svg class="i"><use href="#i-plus" /></svg></button></div>
+              <button type="button" class="step" id="size-default" data-i18n-title="export.defaultTip"><svg class="i"><use href="#i-reset" /></svg></button>
+            </div>
+          </div>
+          <div class="row" id="preset-row">
+            <span class="row-label" data-i18n="export.presets">프리셋</span>
+            <div class="chips" id="size-chips"></div>
+          </div>
+          <div class="row">
+            <span class="row-label" data-i18n="export.options">품질 · 인쇄</span>
+            <div class="pair">
+              <div class="stepper" id="quality-field" data-i18n-title="export.quality"><button type="button" class="step" data-step="-1" data-for="quality" data-i18n-title="ui.decrease"><svg class="i"><use href="#i-minus" /></svg></button><input type="range" id="quality" min="50" max="100" step="1" /><button type="button" class="step" data-step="1" data-for="quality" data-i18n-title="ui.increase"><svg class="i"><use href="#i-plus" /></svg></button><output id="quality-out"></output></div>
+              <div class="numstep unit" id="print-field" data-i18n-title="export.printSize"><button type="button" class="step" data-step="-1" data-for="print-size" data-i18n-title="ui.decrease"><svg class="i"><use href="#i-minus" /></svg></button><label class="unit-box"><input type="number" id="print-size" min="5" max="2000" step="1" /><span>mm</span></label><button type="button" class="step" data-step="1" data-for="print-size" data-i18n-title="ui.increase"><svg class="i"><use href="#i-plus" /></svg></button></div>
+            </div>
+          </div>
+          <p class="hint" id="format-hint"></p>
+        </div>
+      </section>
+
+      <section class="column" data-col="2" aria-label="column 3">
+        <div class="card preview-card" id="card-preview">
+          <h2 data-i18n="section.preview">QR 코드</h2>
+          <div class="stage" id="stage">
+            <canvas id="preview" aria-label="QR code"></canvas>
+            <div class="stage-message" id="message" hidden></div>
+          </div>
+          <ul class="warnings" id="warnings"></ul>
+          <dl class="info" id="info">
+            <div><dt data-i18n="info.version">버전</dt><dd id="info-version">–</dd></div>
+            <div><dt data-i18n="info.ecc">오류 정정</dt><dd id="info-ecc">–</dd></div>
+            <div><dt data-i18n="info.mask">마스크</dt><dd id="info-mask">–</dd></div>
+            <div><dt data-i18n="info.mode">모드</dt><dd id="info-mode">–</dd></div>
+          </dl>
+          <div class="capacity">
+            <div class="capacity-head"><span><span data-i18n="info.capacity">용량</span> <span id="capacity-text"></span></span></div>
+            <div class="bar"><span id="capacity-bar"></span></div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span class="status-message" id="status" role="status" aria-live="polite"><svg class="i"><use href="#i-info" /></svg><span id="status-text"></span></span>
+      <span class="status-item" id="status-format"><svg class="i"><use href="#i-save" /></svg><span id="status-format-text"></span></span>
+      <span class="status-item"><svg class="i"><use href="#i-chip" /></svg><span id="engine"></span></span>
+      <span class="resize-grip" id="resize-grip" data-i18n-title="win.resize" hidden></span>
+    </footer>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "qrgenerator",
+  "productName": "QRGenerator",
+  "version": "1.0.0",
+  "description": "QR code generator: Rust encoder (native in Tauri, WebAssembly in the browser) with a JavaScript designer.",
+  "author": "SHKWON <knix008@naver.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.js",
+    "icons": "node scripts/make-icon.js",
+    "start": "node scripts/dev.js",
+    "start:web": "node scripts/build-wasm.js && node scripts/serve-web.js",
+    "test": "node test/run-all.js",
+    "test:rust": "cargo test --manifest-path qrcore/Cargo.toml",
+    "build": "tauri build",
+    "build:win": "node scripts/build-win.js",
+    "build:linux": "tauri build --bundles deb,appimage && node scripts/copy-installer.js",
+    "build:mac": "tauri build --bundles dmg && node scripts/copy-installer.js",
+    "tutorial": "node scripts/record-tutorial.js"
+  },
+  "devDependencies": {
+    "@jspawn/ghostscript-wasm": "^0.0.2",
+    "@tauri-apps/cli": "^2.12.3",
+    "jsqr": "^1.4.0"
+  }
+}
