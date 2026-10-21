@@ -67,7 +67,8 @@ try {
     const t0 = Date.now();
     const demo = await record(900, async () => !(await page.eval('Tour.playing')), 40000);
     const demoMs = Date.now() - t0;
-    const read = Math.min(9000, 2500 + s.ko[1].length * 30);
+    // time to read the card: about 22 Korean characters a second, plus a moment to look at the picture
+    const read = Math.min(12000, 3500 + s.ko[1].length * 45);
     const rest = await record(Math.max(1200, read - demoMs));
     const pool = demo.length > 3 ? demo : demo.concat(rest);
     const still = pool[Math.min(pool.length - 1, Math.floor(pool.length * 0.6))];

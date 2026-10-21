@@ -87,11 +87,26 @@ app.renderDicom ─▶ fusion.compose(겹침 영상) ─▶ frameCanvas ─▶ v
 - 코덱 파일은 처음 쓸 때 `vendor/<패키지>/…` 에서 읽습니다. `server.js` 가 `/vendor/` 로 `node_modules` 를 내주고, `scripts/build-web.js` 가 필요한 파일만 `dist/vendor/` 로 복사합니다(Tauri 는 `node_modules` 라는 폴더를 프런트엔드에 넣지 못함).
 - **진행률**: 저장·내보내기·복사 동작은 `runAction` 에서 `Progress` 팝업으로 감싸고, `Platform.saveFile` 은 저장 대화상자 동안 팝업을 숨겼다가 쓰는 동안 다시 띄웁니다. 대화상자 창에서 저장하면 `popup.js` 가 메인 창에 `__progress` 이벤트를 보내 같은 팝업을 띄웁니다. `Progress` 는 한 번에 하나: 닫히는 중이면 닫힘(`closed`)을 기다렸다 새로 엽니다.
 
+## 6.1 DICOM 동영상
+
+- 전송 구문 MPEG-2(.100/.101) · MPEG-4 AVC/H.264(.102–.106) · HEVC(.107/.108): 픽셀 데이터 조각을 이어 붙인 것이 동영상 기본 스트림입니다.
+- `dicomVideo.js`: Annex B 를 NAL 단위로 나누고, SPS/PPS(VPS)로 `avcC`/`hvcC` 를 만들고, 접근 단위(AU)로 묶은 뒤 **POC(화면 순서)** 를 계산해 B-프레임의 표시 순서(`ctts` + `elst`)까지 맞춘 MP4 를 씁니다(ffmpeg 로 원래 스트림과 프레임 단위로 같음을 테스트).
+- 디코더: `image.video` 가 있으면 프레임은 `player.frame(i)` — 숨은 `<video>` 를 그 시각으로 옮겨 캔버스에서 읽은 RGB — 이고 캐시하지 않습니다. 재생은 `requestVideoFrameCallback` 으로 동영상 엔진의 속도를 따릅니다(`app.js` 의 `startVideo`). 재생 · 잠시 멈춤 · 멈춤은 `cine-play / cine-pause / cine-stop`.
+- 엔진이 풀 수 없는 동영상(MPEG-2, 디코더 없는 HEVC)은 `docKind: 'video'` 로 열려 문서 보기에서 추출(`DicomDecoder.extractVideo`)을 제안합니다.
+
+## 6.2 도움말 · 튜토리얼 · 문서
+
+- 원본은 `doc/help/*.md`(그림은 `doc/images/`). `scripts/make-help.mjs` 가 작은 Markdown 변환기로 `src/help/help-data.js`(`window.HELP_PAGES`)와 `src/help/images/` 를 만들고, `help.js` 의 도움말 창이 보여 줍니다. 페이지의 `<!-- tour: id -->` 는 튜토리얼 단계로 가는 단추가 됩니다.
+- `tour.js`: 장(CHAPTERS)과 단계(STEPS: 대상 선택자 · 한/영 문구 · 데모 명령). 데모는 앱의 `runAction` 명령(`demo-measure`, `demo-fusion`, `close-dialog` 포함)만 씁니다(`test/tour.test.js`).
+- `scripts/make-help-media.mjs`: 실제 앱(웹 + 데스크톱 · mini PACS)에서 도움말 그림을 찍습니다. `scripts/make-tutorial-video.mjs`: 튜토리얼을 실제 속도로 녹화해 `MyDCMViewer-Tutorial.mp4`, `doc/tutorial.md`, 단계별 그림을 만듭니다.
+- 오른쪽 단추 메뉴: 영상 · 폴더 트리 · 파일 탭은 `index.html` 의 `.ctx-menu`, 그 밖의 곳은 `contextMenu.js` 가 아이콘 있는 편집 메뉴를 띄우고 브라우저 엔진의 기본 메뉴를 막습니다. 번역(`i18n.js`)은 아이콘이 있는 요소의 글자만 바꿉니다.
+- 오른쪽 아래 크기 변경 표시는 `win_start_resize`(Tauri `start_resize_dragging`)를 부릅니다.
+
 ## 7. 테스트
 
 | 종류 | 명령 | 내용 |
 | ---- | ---- | ---- |
-| 단위 | `npm test` | `test/*.test.js` (node:test, `test/reporter.js` 요약 표): 디코더·합성 DICOM·더 많은 전송 구문(`samples/more`)·DICOM 쓰기(pydicom 독립 검증)·문서·네트워크(실제 TCP, 단편화, 거절·시간 초과, transcode, Docker 있으면 Orthanc)·필터·3D·융합·시작 장면·UI 모듈·데스크톱 계약(명령·이벤트·설정·설치 훅)·영상 내보내기(45형식 × sharp/ffmpeg/Pillow/OpenCV/tifffile/명세 리더) |
+| 단위 | `npm test` | `test/*.test.js` (동영상 MP4 변환 · 튜토리얼 · 도움말 데이터 포함) (node:test, `test/reporter.js` 요약 표): 디코더·합성 DICOM·더 많은 전송 구문(`samples/more`)·DICOM 쓰기(pydicom 독립 검증)·문서·네트워크(실제 TCP, 단편화, 거절·시간 초과, transcode, Docker 있으면 Orthanc)·필터·3D·융합·시작 장면·UI 모듈·데스크톱 계약(명령·이벤트·설정·설치 훅)·영상 내보내기(45형식 × sharp/ffmpeg/Pillow/OpenCV/tifffile/명세 리더) |
 | Rust | `npm run test:rust` | 파일 도우미, 인쇄 분할, 소켓 루프백 |
 | GUI 스모크 | `npm run smoke` / `smoke:desktop` | `scripts/smoke.mjs` + `scripts/cdp.mjs`(Node 22 WebSocket CDP 드라이버): 시작 화면·예제 18종·보기·측정(실제 마우스 끌기)·필터·대화상자(MPR·3D 그림 확인·융합·PACS)·모든 내보내기(진행률 팝업 확인)·문서·튜토리얼 전 단계·두 언어, 데스크톱은 팝업 창·인쇄·PACS(`scripts/mini-pacs.cjs`) 추가. 내보낸 파일은 `scripts/validate-exports.py`(Pillow·pydicom·ffprobe·pdfinfo·명세 리더)로 다시 엽니다 |
 

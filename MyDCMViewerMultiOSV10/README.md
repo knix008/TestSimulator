@@ -7,11 +7,12 @@ RadiAnt DICOM Viewer · MicroDicom 수준의 기능(시작 화면, 튜토리얼,
 
 | 분류 | 기능 |
 | ---- | ---- |
-| 시작 | **시작 화면**(파일·폴더·DICOMDIR 열기, 일괄 변환, 설정, 최근 파일, 3D 움직이는 배경 15종, 투명도·속도 조절), **예제 영상 18종**(CT·MR·Enhanced MR/CT·컬러 도플러·XA·CR·초음파·오버레이·팔레트·Modality LUT·RT 선량/구조/계획·SR·심전도·DICOMDIR), **튜토리얼**(단계마다 데모가 저절로 실행되는 18단계 안내, 도움말 › 튜토리얼) |
+| 시작 | **시작 화면**(파일·폴더·DICOMDIR 열기, 일괄 변환, 설정, 최근 파일, 3D 움직이는 배경 18종, 투명도·속도 조절), **예제 영상 21종**(CT·MR·Enhanced MR/CT·컬러 도플러·XA·CR·초음파·오버레이·팔레트·Modality LUT·RT 선량/구조/계획·SR·심전도·DICOM 동영상 3종·DICOMDIR), **튜토리얼**(11장 42단계 — 모든 기능을 데모로 하나씩 실행, 장 선택 · 다시 실행, 도움말 › 튜토리얼), **도움말 창**(모든 기능을 그림과 함께 설명 · 찾기 · 해당 튜토리얼 단계로 바로 가기, Ctrl+F1), **튜토리얼 동영상** `MyDCMViewer-Tutorial.mp4` |
 | 파일 | 파일마다 **탭**, DICOM(.dcm/.dicm/.dicom, 확장자 없는 파일·메타 없는 데이터셋 자동 감지) + JPEG/PNG/GIF/WebP/AVIF/BMP/ICO/SVG, TIFF(다중 페이지·16-bit), HEIF/HEIC, JPEG 2000, **DICOMDIR**(환자 › 검사 › 시리즈), **ZIP 압축 파일**, 폴더 트리, 끌어 놓기, `.dcm` 파일 연결 |
 | 디코딩 | 비압축(LE/BE), Deflated(데이터셋·프레임), RLE, JPEG Baseline/Extended/Process 6·10, JPEG Lossless, JPEG-LS, JPEG 2000 / HTJ2K · MONOCHROME1/2, RGB, YBR_FULL/422, PALETTE COLOR · 8/12/16/32-bit, float · 다중 프레임, Enhanced(functional groups), Modality/VOI/Presentation LUT, 오버레이(60xx) |
 | 보기 | 확대·이동·회전·반전·보간, 눈금자·격자, 모서리 정보, 방향 표시, 픽셀 값, **뷰포트 배치**(1×1 ~ 3×3), **동기 스크롤**(같은 슬라이스 위치), **기준선**, 실행 취소/다시 실행 |
 | 윈도우 | 마우스 W/L, W/L 입력, 파일 윈도우, CT 프리셋, VOI LUT, LINEAR/LINEAR_EXACT/SIGMOID, 반전, 컬러맵, 히스토그램 |
+| 시네 · 동영상 | 여러 프레임 영상 **재생 · 잠시 멈춤 · 멈춤**(Space · S), 한 프레임씩, fps · 반복, **DICOM 동영상**(MPEG-4 AVC/H.264 · HEVC 를 브라우저 동영상 엔진으로 재생, MPEG-2 는 추출), 동영상 추출(MP4 · M2V) |
 | 측정 | 길이, 각도, **Cobb 각**, 사각형/타원/**다각형/자유곡선 ROI**(면적·둘레·평균·SD·최소·최대, HU), **점**(값), **화살표**, 텍스트, **돋보기**, 길이 보정, 측정값 CSV |
 | 고급 | **MPR / MIP / MinIP / 평균**(축상·관상·시상, 슬랩, 십자선), **곡면 MPR**, **3D 볼륨 렌더링**(VR 프리셋: CT 뼈·연부 조직·폐·혈관, MR / MIP / MinIP / 평균 / 등위면, 자르기 상자, 앞·뒤·좌·우·위·아래 보기, PNG 내보내기), **영상 필터**(부드럽게·선명하게·잡음 제거·중앙값·윤곽선·엠보스·라플라시안·히스토그램 평활화·반전·임계값, 여러 개 연결), **영상 융합**(PET/CT 등 환자 좌표로 재표본화) |
 | DICOM 도구 | **태그 편집**(새 파일로 저장), **익명화**(PHI·private 태그, UID 새로 만들기), **압축 해제 저장**(전송 구문 변환), **Secondary Capture** 저장, DICOMDIR 내보내기(CD/USB) |
@@ -19,7 +20,7 @@ RadiAnt DICOM Viewer · MicroDicom 수준의 기능(시작 화면, 튜토리얼,
 | PACS | **C-ECHO**(연결 확인), **C-FIND**(환자·검사·시리즈 검색, 날짜 범위·와일드카드), **C-GET**, **C-MOVE**(우리 Storage SCP로), **C-STORE**(현재 파일·시리즈 보내기), **Storage SCP**(다른 장비가 보내는 영상 받기), 압축 영상 자동 변환(transcode) |
 | 내보내기 | **45가지 영상 형식**(아래), 16-bit TIFF, 모든 프레임 ZIP, 애니메이션 GIF, **동영상 MP4/WebM**, **PDF 보고서**, DICOM, 태그 TXT/JSON/CSV, 클립보드, **인쇄**(미리보기 → 프린터) |
 | 일괄 변환 | 폴더의 DCM을 선택 형식으로 변환(`converted_<형식>`) |
-| UI | 아이콘 메뉴·툴바, 테마 20종, 한국어/영어, 설정, 대화상자는 데스크톱에서 독립된 창 |
+| UI | 아이콘 메뉴·툴바, **모든 오른쪽 단추 메뉴에 아이콘**(영상 · 폴더 트리 · 파일 탭 · 입력 칸 편집 메뉴), 오른쪽 아래 **크기 변경 표시**, 테마 20종, 한국어/영어, 설정, 프로그램 정보(아이콘 + 설명, 항목 · 설명 정렬), 대화상자는 데스크톱에서 독립된 창, 저장 · 내보내기 중 **진행률 창** |
 
 ### 내보내기 형식 (파일 › 영상 내보내기 › 다른 형식으로 내보내기)
 
@@ -41,6 +42,10 @@ npm install
 npm start              # 데스크톱(Tauri) 개발 실행 — 페이지는 http://localhost:5193 (src/ 수정 후 Ctrl+R)
 npm run web            # 웹 모드: http://127.0.0.1:8080 (PORT=… HOST=0.0.0.0 로 변경)
 npm run mini-pacs      # PACS 창을 시험할 작은 PACS (samples/ 의 DICOM, AE MINIPACS, 포트 11113)
+npm run help:media     # 도움말 그림(doc/images)을 실제 프로그램에서 다시 찍고 도움말 창 데이터(src/help) 만들기
+npm run help:build     # doc/help/*.md 만 고쳤을 때 도움말 창 데이터 다시 만들기
+npm run tutorial:video # 튜토리얼 전체 녹화 → MyDCMViewer-Tutorial.mp4, doc/tutorial.md
+npm run video-samples  # samples/video/ 의 DICOM 동영상(H.264 · HEVC · MPEG-2) 다시 만들기 (ffmpeg + pydicom)
 ```
 
 > 데스크톱 실행·빌드에는 Rust(cargo)가 필요합니다. 웹 모드는 Node만 있으면 됩니다.
@@ -110,9 +115,14 @@ MyDCMViewerMultiOSV10/
 │       ├── imageFilters.js    영상 필터
 │       ├── imageExport.js     45가지 영상 형식 인코더
 │       ├── fusion.js          영상 융합
+│       ├── dicomVideo.js      DICOM 동영상: H.264 / HEVC 스트림 → MP4, 재생기
+│       ├── help.js, contextMenu.js  도움말 창, 편집 오른쪽 단추 메뉴
 │       ├── tour.js            튜토리얼
 │       ├── start/             시작 화면과 3D 배경
 │       └── …                  platform.js(파일 시스템 추상화), desktop-bridge.js(Tauri 명령), encoders.js, zipReader.js …
+├── doc/                   도움말(help/*.md, images/), 튜토리얼(tutorial.md) — 도움말 창의 원본
+├── src/help/              도움말 창 데이터(help-data.js)와 그림 — npm run help:build 로 생성
+├── MyDCMViewer-Tutorial.mp4  튜토리얼 동영상
 ├── scripts/                   dev, build-web, platform-build, smoke(GUI 테스트), cdp(CDP 드라이버),
 │                              validate-exports.py(외부 검증), mini-pacs.cjs, create-icons, stage-samples
 ├── test/                      node --test 단위 테스트 + reporter.js
@@ -121,6 +131,7 @@ MyDCMViewerMultiOSV10/
 
 ## 문서
 
+- [doc/README.md](doc/README.md) — 기능별 도움말(그림 포함)과 [튜토리얼](doc/tutorial.md)
 - [UsersGuide.md](UsersGuide.md) — 사용자 가이드
 - [Architecture.md](Architecture.md) — 구조·데이터 흐름·테스트
 

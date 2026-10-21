@@ -148,19 +148,60 @@ window.Viewer = (function () {
       c.restore();
     }
 
-    /* Grid in image space (10 mm cells when the pixel spacing is known, else 50 px), so it follows rotation / flip. */
-    function drawGrid(c) {
+    /* Scale shared by the rulers and the grid: the unit (cm / in / mm from the pixel spacing, else px), which
+     * image axis runs along each screen axis, and a "nice" major step (1-2-5 ladder) whose ticks stay 60–150
+     * screen px apart; minor ticks are a fifth of it. Both follow rotation / flip (90° steps). */
+    const RULER_STEPS_PX = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    const RULER_STEPS_UNIT = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    function axisScale() {
       const sp = source.spacing;
-      let stepX = sp ? 10 / sp[1] : 50, stepY = sp ? 10 / sp[0] : 50;
-      const screenStep = () => Math.min(stepX, stepY) * view.scale;
-      while (screenStep() < 12) { stepX *= 2; stepY *= 2; }   // never denser than 12 px on screen
+      const unit = (sp && measureUnit !== 'px' && UNIT_FROM_MM[measureUnit]) ? measureUnit : 'px';
+      const scale = unit === 'px' ? 1 : UNIT_FROM_MM[unit];
+      const o = clientToImage(0, 0), px = clientToImage(1, 0), py = clientToImage(0, 1);
+      const axisOf = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y');
+      const ax = axisOf(px.x - o.x, px.y - o.y), ay = axisOf(py.x - o.x, py.y - o.y);
+      const unitPerImgPx = (axis) => (unit === 'px' || !sp ? 1 : (axis === 'x' ? sp[1] : sp[0]) * scale);
+      const valueAt = (axis, cx, cy) => { const p = clientToImage(cx, cy); return (axis === 'x' ? p.x : p.y) * unitPerImgPx(axis); };
+      const steps = unit === 'px' ? RULER_STEPS_PX : RULER_STEPS_UNIT;
+      const pick = (screenPerUnit) => { let st = steps[steps.length - 1]; for (const x of steps) { if (x * screenPerUnit >= 60) { st = x; break; } } return st; };
+      // one screen axis: value at its start, screen px per unit, direction, major and minor steps
+      const along = (horizontal) => {
+        const axis = horizontal ? ax : ay;
+        const v0 = valueAt(axis, 0, 0), v1 = horizontal ? valueAt(axis, vw, 0) : valueAt(axis, 0, vh);
+        const len = horizontal ? vw : vh;
+        const perUnit = len / Math.max(1e-9, Math.abs(v1 - v0));
+        const step = pick(perUnit);
+        return { v0, v1, perUnit, dir: v1 >= v0 ? 1 : -1, step, minor: step / 5, at: (v) => (v - v0) * (v1 >= v0 ? 1 : -1) * perUnit };
+      };
+      return { unit, along };
+    }
+
+    /* Grid over the whole viewport (not just the image), on the ruler's ticks: a faint line every minor tick and a
+     * stronger one every major tick, so each major cell holds 5 × 5 small ones. Zooming changes the ruler's step,
+     * and the grid is subdivided again with it. */
+    function drawGrid(c) {
+      const { along } = axisScale();
+      const H = along(true), V = along(false);
+      const lines = (g, len, cross, major) => {
+        const lo = Math.min(g.v0, g.v1), hi = Math.max(g.v0, g.v1);
+        const out = [];
+        for (let k = Math.floor(lo / g.minor); k * g.minor <= hi + 1e-9; k++) {
+          const isMajor = k % 5 === 0;
+          if (isMajor !== major) continue;
+          const p = Math.round(g.at(k * g.minor)) + 0.5;
+          if (p >= 0 && p <= len) out.push(p);
+        }
+        return out;
+      };
       c.save();
-      c.strokeStyle = 'rgba(56, 189, 248, 0.45)';
       c.lineWidth = 1;
-      c.beginPath();
-      for (let x = 0; x <= source.width + 1e-6; x += stepX) { const a = imageToClient(x, 0), b = imageToClient(x, source.height); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }
-      for (let y = 0; y <= source.height + 1e-6; y += stepY) { const a = imageToClient(0, y), b = imageToClient(source.width, y); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); }
-      c.stroke();
+      for (const major of [false, true]) {
+        c.strokeStyle = major ? 'rgba(148, 197, 255, 0.24)' : 'rgba(148, 197, 255, 0.09)';
+        c.beginPath();
+        for (const x of lines(H, vw, vh, major)) { c.moveTo(x, 0); c.lineTo(x, vh); }
+        for (const y of lines(V, vh, vw, major)) { c.moveTo(0, y); c.lineTo(vw, y); }
+        c.stroke();
+      }
       c.restore();
     }
 
@@ -169,28 +210,17 @@ window.Viewer = (function () {
      * adapts to the zoom so that major ticks stay 60–150 screen px apart. The hovered position is marked. */
     const RULER_H = 22, RULER_W = 34;
     function drawRuler(c) {
-      const sp = source.spacing;
-      const unit = (sp && measureUnit !== 'px' && UNIT_FROM_MM[measureUnit]) ? measureUnit : 'px';
-      const scale = unit === 'px' ? 1 : UNIT_FROM_MM[unit];
-      // which image axis runs along each screen axis, and the scale (screen px per unit) along it
-      const o = clientToImage(0, 0), px = clientToImage(1, 0), py = clientToImage(0, 1);
-      const axisOf = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y');
-      const ax = axisOf(px.x - o.x, px.y - o.y), ay = axisOf(py.x - o.x, py.y - o.y);
-      const unitPerImgPx = (axis) => (unit === 'px' || !sp ? 1 : (axis === 'x' ? sp[1] : sp[0]) * scale);
-      const valueAt = (axis, cx, cy) => { const p = clientToImage(cx, cy); return (axis === 'x' ? p.x : p.y) * unitPerImgPx(axis); };
-      const steps = unit === 'px' ? [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000] : [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-      const pick = (screenPerUnit) => { let s = steps[steps.length - 1]; for (const st of steps) { if (st * screenPerUnit >= 60) { s = st; break; } } return s; };
+      const { unit, along } = axisScale();
       const fmtV = (v) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : String(+v.toFixed(2)));
+      const HA = along(true), VA = along(false);
 
       c.save();
       c.font = '10px "Segoe UI", system-ui, sans-serif';
       c.lineWidth = 1;
       // ── top ruler (screen x) ──
       {
-        const v0 = valueAt(ax, RULER_W, RULER_H), v1 = valueAt(ax, vw, RULER_H);
-        const perUnit = Math.abs(vw - RULER_W) / Math.max(1e-9, Math.abs(v1 - v0));
-        const step = pick(perUnit);
-        const minor = step / (step / Math.pow(10, Math.floor(Math.log10(step))) === 2 ? 4 : 5);
+        const { step, minor } = HA;
+        const v0 = HA.v0 + HA.dir * RULER_W / HA.perUnit, v1 = HA.v1, perUnit = HA.perUnit;
         c.fillStyle = 'rgba(15, 23, 42, 0.78)';
         c.fillRect(0, 0, vw, RULER_H);
         c.strokeStyle = '#facc15'; c.fillStyle = '#fde68a';
@@ -198,8 +228,8 @@ window.Viewer = (function () {
         const lo = Math.min(v0, v1), hi = Math.max(v0, v1);
         const dir = v1 >= v0 ? 1 : -1;
         const xOf = (v) => RULER_W + (v - v0) * dir * perUnit;
-        for (let v = Math.floor(lo / minor) * minor; v <= hi + 1e-9; v += minor) {
-          const major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
+        for (let k = Math.floor(lo / minor); k * minor <= hi + 1e-9; k++) {
+          const v = k * minor, major = k % 5 === 0;
           const x = Math.round(xOf(v)) + 0.5;
           if (x < RULER_W) continue;
           c.moveTo(x, RULER_H); c.lineTo(x, RULER_H - (major ? 10 : 5));
@@ -210,10 +240,8 @@ window.Viewer = (function () {
       }
       // ── left ruler (screen y) ──
       {
-        const v0 = valueAt(ay, RULER_W, RULER_H), v1 = valueAt(ay, RULER_W, vh);
-        const perUnit = Math.abs(vh - RULER_H) / Math.max(1e-9, Math.abs(v1 - v0));
-        const step = pick(perUnit);
-        const minor = step / (step / Math.pow(10, Math.floor(Math.log10(step))) === 2 ? 4 : 5);
+        const { step, minor } = VA;
+        const v0 = VA.v0 + VA.dir * RULER_H / VA.perUnit, v1 = VA.v1, perUnit = VA.perUnit;
         c.fillStyle = 'rgba(15, 23, 42, 0.78)';
         c.fillRect(0, 0, RULER_W, vh);
         c.strokeStyle = '#facc15'; c.fillStyle = '#fde68a';
@@ -221,8 +249,8 @@ window.Viewer = (function () {
         const lo = Math.min(v0, v1), hi = Math.max(v0, v1);
         const dir = v1 >= v0 ? 1 : -1;
         const yOf = (v) => RULER_H + (v - v0) * dir * perUnit;
-        for (let v = Math.floor(lo / minor) * minor; v <= hi + 1e-9; v += minor) {
-          const major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
+        for (let k = Math.floor(lo / minor); k * minor <= hi + 1e-9; k++) {
+          const v = k * minor, major = k % 5 === 0;
           const y = Math.round(yOf(v)) + 0.5;
           if (y < RULER_H) continue;
           c.moveTo(RULER_W, y); c.lineTo(RULER_W - (major ? 10 : 5), y);

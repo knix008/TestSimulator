@@ -73,8 +73,8 @@ window.Tour = (function () {
     { id: 'colour', chapter: 'view', target: '#colormapSelect', ko: ['컬러맵 · 반전', '회색 대신 핫 아이언, PET, 제트 등 컬러맵으로 보거나 반전(I)합니다.'],
       en: ['Colour maps and invert', 'View with hot iron, PET, jet and other colour maps instead of grey, or invert it (I).'],
       play: [['colormap', { value: 'hotiron' }], W(1000), ['colormap', { value: 'gray' }], W(300), ['toggle', { key: 'invert' }], W(900), ['toggle', { key: 'invert' }]] },
-    { id: 'overlays', chapter: 'view', target: '#viewport', ko: ['모서리 정보 · 눈금자 · 격자', '보기 메뉴에서 모서리 정보, 방향 표시, 오버레이 평면, 눈금자(K), 10 mm 격자(G)를 켜고 끕니다.'],
-      en: ['Corner text · ruler · grid', 'The View menu turns the corner text, orientation markers, overlay planes, the ruler (K) and the 10 mm grid (G) on and off.'],
+    { id: 'overlays', chapter: 'view', target: '#viewport', ko: ['모서리 정보 · 눈금자 · 격자', '보기 메뉴에서 모서리 정보, 방향 표시, 오버레이 평면, 눈금자(K), 눈금에 맞춘 5×5 격자(G)를 켜고 끕니다.'],
+      en: ['Corner text · ruler · grid', 'The View menu turns the corner text, orientation markers, overlay planes, the ruler (K) and the 5 × 5 grid on its ticks (G) on and off.'],
       play: [['toggle', { key: 'ruler' }], W(700), ['toggle', { key: 'grid' }], W(1100), ['toggle', { key: 'grid' }], ['toggle', { key: 'ruler' }]] },
     // ── 측정 ──
     { id: 'length', chapter: 'measure', target: '#toolButtons', ko: ['길이', '길이 도구(6)로 두 점을 잇습니다. Pixel Spacing 이 있으면 mm · cm 로, 없으면 화소로 표시하고 [이 길이를 실측값으로 보정] 할 수 있습니다.'],

@@ -10,7 +10,7 @@ window.I18N_DATA.ko = {
   "view.rotateLeft": "왼쪽으로 회전", "view.rotateRight": "오른쪽으로 회전", "view.flipH": "좌우 반전", "view.flipV": "상하 반전", "view.resetView": "보기 초기화",
   "view.invert": "반전 (네거티브)", "view.interpolation": "부드러운 보간", "view.cornerInfo": "모서리 정보 표시", "view.orientationMarkers": "방향 표시 (R/L/A/P)",
   "view.overlays": "DICOM 오버레이 평면", "view.measurements": "측정 표시", "view.burnAnnotations": "내보내기에 주석 포함",
-  "view.zoomLabel": "현재 배율 (클릭: 실제 크기 100%)",   "view.ruler": "눈금자 (스케일 바)", "view.grid": "격자 (10 mm)",
+  "view.zoomLabel": "현재 배율 (클릭: 실제 크기 100%)",   "view.ruler": "눈금자 (스케일 바)", "view.grid": "격자 (눈금에 맞춘 5×5)",
   "view.sidebar": "사이드바", "view.fullscreen": "전체 화면", "view.themeNext": "다음 테마로 전환 (클릭)", "view.theme": "테마", "view.themeDark": "다크", "view.themeLight": "라이트",
   "view.language": "언어", "view.devtools": "개발자 도구",
 

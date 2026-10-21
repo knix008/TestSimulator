@@ -10,7 +10,7 @@ window.I18N_DATA.en = {
   "view.rotateLeft": "Rotate Left", "view.rotateRight": "Rotate Right", "view.flipH": "Flip Horizontal", "view.flipV": "Flip Vertical", "view.resetView": "Reset View",
   "view.invert": "Invert", "view.interpolation": "Smooth interpolation", "view.cornerInfo": "Corner information", "view.orientationMarkers": "Orientation markers",
   "view.overlays": "DICOM overlay planes", "view.measurements": "Show measurements", "view.burnAnnotations": "Include annotations in export",
-  "view.zoomLabel": "Current zoom (click: actual size 100%)",   "view.ruler": "Scale ruler", "view.grid": "Grid (10 mm)",
+  "view.zoomLabel": "Current zoom (click: actual size 100%)",   "view.ruler": "Scale ruler", "view.grid": "Grid (5 × 5 on the ruler ticks)",
   "view.sidebar": "Sidebar", "view.fullscreen": "Full Screen", "view.themeNext": "Switch to the next theme (click)", "view.theme": "Theme", "view.themeDark": "Dark", "view.themeLight": "Light",
   "view.language": "Language", "view.devtools": "Developer Tools",
 
