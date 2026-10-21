@@ -1,0 +1,17 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+src-tauri/sidecar/
+build/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.log
+.DS_Store
+Thumbs.db
+.vite/
+.mcc/

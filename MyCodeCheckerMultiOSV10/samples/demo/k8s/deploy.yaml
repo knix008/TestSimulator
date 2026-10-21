@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+spec:
+  hostNetwork: true
+  containers:
+    - name: app
+      image: demo/app:latest
+      securityContext:
+        privileged: true
+        runAsUser: 0
