@@ -157,10 +157,18 @@ fn build_main(app: &tauri::AppHandle) -> Result<(), String> {
         .find(|window| window.label == "main")
         .cloned()
         .ok_or("missing main window config")?;
-    let window = WebviewWindowBuilder::from_config(app, &config)
-        .map_err(|error| error.to_string())?
-        .build()
-        .map_err(|error| error.to_string())?;
+    let mut builder = WebviewWindowBuilder::from_config(app, &config).map_err(|error| error.to_string())?;
+    // The page reads this before its own settings, which a shutdown can kill before they reach disk.
+    if let Some(geometry) = window_state::saved(app, "main") {
+        if let (Some(width), Some(height)) = (geometry.width, geometry.height) {
+            if width.is_finite() && height.is_finite() {
+                builder = builder.initialization_script(format!(
+                    "window.__MYCAL_WINDOW_SIZE__={{width:{width},height:{height}}};"
+                ));
+            }
+        }
+    }
+    let window = builder.build().map_err(|error| error.to_string())?;
     // Still hidden here, so the calendar first appears where it was left.
     window_state::restore(&window);
     Ok(())
@@ -909,7 +917,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
                 let _ = app.emit("tray-language", next);
             }
             "quit" => {
-                window_state::flush(app);
+                window_state::save_session(app);
                 app.exit(0)
             }
             _ => {}
@@ -1020,6 +1028,12 @@ pub fn run() {
             place_menu_window,
             finish_menu
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running My Calendar");
+        .build(tauri::generate_context!())
+        .expect("error while running My Calendar")
+        .run(|app, event| {
+            // Windows shutdown delivers this and then ends the process. The place has to be on disk first.
+            if matches!(event, tauri::RunEvent::Exit) {
+                window_state::save_session(app);
+            }
+        });
 }

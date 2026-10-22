@@ -184,6 +184,13 @@ function normalWindowSize(size: Settings["windowSize"]): Settings["windowSize"] 
   return size;
 }
 
+/** Size written by the shell on the previous shutdown. It wins over the page settings, which may not have been flushed. */
+function nativeWindowSize(): Settings["windowSize"] {
+  const native = (window as Window & { __MYCAL_WINDOW_SIZE__?: { width?: unknown; height?: unknown } }).__MYCAL_WINDOW_SIZE__;
+  if (!native || typeof native.width !== "number" || typeof native.height !== "number") return null;
+  return normalWindowSize({ width: native.width, height: native.height });
+}
+
 /** The narrowest panel that fits the toolbar's groups side by side; 0 before layout. */
 function toolbarWidth(toolbar: HTMLElement | null, panel: HTMLElement | null): number {
   if (!toolbar || !panel) return 0;
@@ -296,7 +303,7 @@ export function CalendarScreen({
   const fitting = useRef(false);
   const minHeightRef = useRef(0);
   // Kept until it has been applied: a repeated first effect (React's strict mode) must restore it too.
-  const restoring = useRef(normalWindowSize(settings.windowSize));
+  const restoring = useRef(nativeWindowSize() ?? normalWindowSize(settings.windowSize));
   const maximizedRef = useRef(false);
   const leavingMaximized = useRef(false);
   maximizedRef.current = maximized;

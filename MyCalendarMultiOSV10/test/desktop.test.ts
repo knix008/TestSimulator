@@ -234,6 +234,15 @@ describe("Desktop", () => {
     // The events height saved by the same resize re-renders first; reading through refs keeps that from
     // cancelling the pending window size save.
     expect(screen).toContain("updateRef.current({ windowSize: { width, height } });");
+    // Shutdown ends the process before the page can store its settings, so the shell writes the size itself.
+    expect(screen).toContain("nativeWindowSize() ?? normalWindowSize(settings.windowSize)");
+    const state = readFileSync(resolve("src-tauri/src/window_state.rs"), "utf8");
+    expect(state).toContain('const SIZED: [&str; 2] = ["main", "print"];');
+    expect(state).toContain("pub fn save_session(");
+    expect(state).toContain("file.sync_all()");
+    const rust = readFileSync(resolve("src-tauri/src/lib.rs"), "utf8");
+    expect(rust).toContain("RunEvent::Exit");
+    expect(rust).toContain("window_state::save_session(app)");
   });
 
   it("resizes and closes the current desktop window", async () => {
