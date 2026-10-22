@@ -29,6 +29,7 @@
   <data name="Index_Indexing" xml:space="preserve"><value>Indexing...</value></data>
   <data name="Menu_ClearSearch" xml:space="preserve"><value>Clear search</value></data>
   <data name="Search_NoResults" xml:space="preserve"><value>No matching items.</value></data>
+  <data name="Search_IndexBuilding" xml:space="preserve"><value>Building the search index. Results will appear when it is ready.</value></data>
   <data name="Menu_RefreshIndex" xml:space="preserve"><value>Refresh index</value></data>
   <data name="Menu_OpenDesktop" xml:space="preserve"><value>Open Desktop folder</value></data>
   <data name="Menu_ResetPosition" xml:space="preserve"><value>Reset position</value></data>

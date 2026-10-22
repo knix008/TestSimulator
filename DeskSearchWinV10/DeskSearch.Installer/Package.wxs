@@ -19,15 +19,39 @@
     <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
     <Property Id="USERDATAPROMPTSHOWN" Value="0" Secure="yes" />
 
+    <!-- Set when %AppData%\DeskSearch is left over (e.g. uninstalled earlier keeping user data):
+         a fresh install then also asks whether to delete it. -->
+    <Property Id="USERDATAEXISTS" Secure="yes">
+      <DirectorySearch Id="UserDataFolderSearch" Path="[AppDataFolder]DeskSearch" Depth="0" />
+    </Property>
+
     <InstallUISequence>
       <Show Dialog="UserDataDlg"
             Before="ProgressDlg"
             Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT USERDATAPROMPTSHOWN" />
     </InstallUISequence>
 
+    <!-- Immediate, before InstallValidate: MajorUpgrade removes the old version right after
+         InstallValidate, so a running DeskSearch.exe must be gone by then or its files stay. -->
     <CustomAction Id="KillDeskSearch"
                   Directory="SystemFolder"
                   ExeCommand="taskkill /IM DeskSearch.exe /F"
+                  Execute="immediate"
+                  Return="ignore" />
+
+    <!-- Deletes whatever is left in the install folder (files the old version created or
+         failed to remove) so the new version starts from an empty folder. Only scheduled
+         when the folder is named ...\DeskSearch\ (see the condition below). -->
+    <CustomAction Id="PurgeInstallFolder"
+                  Directory="SystemFolder"
+                  ExeCommand="cmd.exe /c if exist &quot;[INSTALLFOLDER]&quot; rmdir /s /q &quot;[INSTALLFOLDER]&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <CustomAction Id="RemoveAutostartEntry"
+                  Directory="SystemFolder"
+                  ExeCommand="reg.exe delete &quot;HKCU\Software\Microsoft\Windows\CurrentVersion\Run&quot; /v DeskSearch /f"
                   Execute="deferred"
                   Impersonate="yes"
                   Return="ignore" />
@@ -48,14 +72,20 @@
 
     <InstallExecuteSequence>
       <Custom Action="KillDeskSearch"
-              After="InstallInitialize"
+              Before="InstallValidate"
               Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
       <Custom Action="RemoveStartupTask"
-              After="KillDeskSearch"
+              After="InstallInitialize"
               Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
       <Custom Action="RemoveUserData"
               After="RemoveStartupTask"
-              Condition="REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;)" />
+              Condition="REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS OR REMOVE~=&quot;ALL&quot;)" />
+      <Custom Action="RemoveAutostartEntry"
+              After="RemoveUserData"
+              Condition="(REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE) OR (REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS))" />
+      <Custom Action="PurgeInstallFolder"
+              After="RemoveAutostartEntry"
+              Condition="(WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;) AND INSTALLFOLDER ~&gt;&gt; &quot;\DeskSearch\&quot;" />
     </InstallExecuteSequence>
 
     <ui:WixUI Id="DeskSearch_FeatureTree" InstallDirectory="INSTALLFOLDER" />

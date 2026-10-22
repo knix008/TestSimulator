@@ -8,7 +8,8 @@ DeskSearch is a .NET 8 WPF desktop application that keeps a lightweight search w
 
 ### App bootstrap
 
-- `DeskSearch/App.xaml.cs` creates the application and exposes a shared `SettingsService` instance.
+- `DeskSearch/App.xaml.cs` creates the application and exposes a shared `SettingsService` instance. When started with `--autostart` it creates the main window only after `StartupService.WaitForInteractiveDesktop` sees the shell (`Shell_TrayWnd`) and the text input service (`ctfmon`) in the session, plus a short grace delay.
+- `DeskSearch/Services/StartupService.cs` owns the HKCU `Run` entry (`"<exe>" --autostart`). An entry whose value differs (older versions without the flag, another path) is rewritten on the next launch.
 - `DeskSearch/MainWindow.xaml.cs` is the runtime composition root for UI, indexing, watcher startup, tray setup, and search behavior.
 
 ### Main search UI
@@ -44,7 +45,7 @@ DeskSearch is a .NET 8 WPF desktop application that keeps a lightweight search w
 2. `MainWindow` loads persisted settings and applies visual state.
 3. `SystemIndexService` opens or builds the active search store.
 4. `SystemWatcherService` starts watching configured roots for live file changes.
-5. Search box input is debounced, then queries the active index.
+5. Search box input is debounced, then queries the active index. The search box is always enabled and focused on load; until a stable `index.db` exists (`IsSearchEnabled`), a search shows the `Search_IndexBuilding` message, and the `SearchEnabled` event re-runs the pending query.
 6. `ResultsWindow` shows matching items and follows the main window position and theme.
 
 ## Indexing Design
@@ -65,3 +66,15 @@ DeskSearch is a .NET 8 WPF desktop application that keeps a lightweight search w
 
 - `DeskSearch.Installer` contains WiX authoring for MSI output.
 - The installer project builds localized MSI packages and can install optional shortcuts while app data remains under the user profile.
+- Upgrades are major upgrades scheduled `afterInstallValidate`, so the old product is fully removed before files are installed. Custom actions in `Package.wxs`:
+  - `KillDeskSearch` (immediate, before `InstallValidate`) closes a running copy so the old version's files are not in use when it is removed.
+  - `PurgeInstallFolder` deletes anything left in the install folder; it is only scheduled when `INSTALLFOLDER` ends with `\DeskSearch\`.
+  - `RemoveUserData` deletes `%AppData%\DeskSearch` when the user ticks the box in `UserDataDlg`.
+  - `RemoveAutostartEntry` deletes the HKCU `Run` value on uninstall, or when user data is deleted.
+- `UserDataDlg` appears on upgrade, on uninstall, and on a fresh install when `USERDATAEXISTS` (an `AppSearch` for `%AppData%\DeskSearch`) finds leftover data. Install-path transitions in `WixUI_FeatureTree_Custom.wxs` are guarded with `NOT Installed`, because `USERDATAEXISTS` is usually also true during uninstall.
+
+## Build Scripts
+
+- `build.cmd` / `build.ps1` builds `DeskSearch.csproj` in Release by default; its `BuildInstallerOnRelease` target builds the MSI once, and the script copies both MSIs to the repository root. Building the `.slnx` in Release is avoided because it builds the WiX project twice in parallel (`#cab1.cab` in use).
+- The script restores the solution first (the nested WiX build does not restore) and refuses to build while a DeskSearch built from the repository is running (`-Stop` closes it).
+- `clean.cmd` / `clean.ps1` removes `bin/`, `obj/` of both projects and the root MSIs, retrying briefly on locked files; user data is never touched.

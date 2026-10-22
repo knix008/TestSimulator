@@ -17,6 +17,8 @@ bld/
 [Ll]og/
 [Ll]ogs/
 *.binlog
+msbuild*.log
+build*.log
 
 # Visual Studio / Rider / VS Code / Cursor
 .vs/
@@ -43,10 +45,9 @@ artifacts/
 # WiX installer (소스 .wxs/.wxl은 추적, bin/obj·MSI 산출물은 제외)
 DeskSearch.Installer/bin/
 DeskSearch.Installer/obj/
+# build.cmd 가 루트에 복사하는 설치 파일 (DeskSearchSetup.msi, DeskSearchSetup.en-US.msi)
+/DeskSearchSetup*.msi
 *.msi
-
-# build.ps1 이 루트에 복사하는 단일 파일 실행 파일
-/DeskSearch.exe
 *.msm
 *.msp
 *.cab

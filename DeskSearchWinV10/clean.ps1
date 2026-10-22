@@ -3,8 +3,8 @@
     Removes DeskSearch build outputs (bin/, obj/, publish, MSI).
 
 .DESCRIPTION
-    Deletes bin/ and obj/ of DeskSearch and DeskSearch.Installer, and the DeskSearch.exe /
-    DeskSearchSetup*.msi copies that build.ps1 places in the repository root.
+    Deletes bin/ and obj/ of DeskSearch and DeskSearch.Installer, and the
+    DeskSearchSetup*.msi installers that build.ps1 copies to the repository root.
     User data in %AppData%\DeskSearch (settings.json, index.db) is never touched.
     If DeskSearch.exe from this folder is running, the script stops and asks you
     to quit it first instead of killing it.
@@ -20,7 +20,6 @@ $targets = @(
     'DeskSearch\obj',
     'DeskSearch.Installer\bin',
     'DeskSearch.Installer\obj',
-    'DeskSearch.exe',
     'DeskSearchSetup.msi',
     'DeskSearchSetup.en-US.msi'
 ) | ForEach-Object { Join-Path $root $_ }
@@ -38,15 +37,25 @@ Write-Host '== DeskSearch clean ==' -ForegroundColor Cyan
 $failed = $false
 foreach ($dir in $targets) {
     if (-not (Test-Path $dir)) { continue }
-    try {
-        Remove-Item -LiteralPath $dir -Recurse -Force
-        Write-Host "  removed $dir"
-    }
-    catch {
-        Write-Host "  could not remove ${dir}: $($_.Exception.Message)" -ForegroundColor Red
-        $failed = $true
+    # Freshly built files are often held for a moment (antivirus scan, build nodes): retry.
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            Remove-Item -LiteralPath $dir -Recurse -Force
+            Write-Host "  removed $dir"
+            break
+        }
+        catch {
+            if ($attempt -eq 5) {
+                Write-Host "  could not remove ${dir}: $($_.Exception.Message)" -ForegroundColor Red
+                $failed = $true
+            }
+            else {
+                Start-Sleep -Seconds 2
+            }
+        }
     }
 }
 
 if ($failed) { exit 1 }
 Write-Host 'Clean done.' -ForegroundColor Green
+exit 0

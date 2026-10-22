@@ -66,7 +66,8 @@ public partial class MainWindow
                 return;
             }
 
-            resultsWindow.ShowNoResults(LocalizationService.T("Search_NoResults"));
+            resultsWindow.ShowNoResults(LocalizationService.T(
+                _indexService.IsSearchEnabled ? "Search_NoResults" : "Search_IndexBuilding"));
             resultsWindow.ConfigureForResultCount(0, MinVisibleResults);
             resultsWindow.Height = ClampResultsWindowHeight(ResultsMinHeight);
 

@@ -1,27 +1,25 @@
 <#
 .SYNOPSIS
-    Builds DeskSearch.
+    Builds the DeskSearch installer and copies it to the repository root.
 
 .DESCRIPTION
-    Debug   : builds DeskSearch/bin/Debug/net8.0-windows/DeskSearch.exe
-    Release : self-contained publish + MSI installers
-              (DeskSearch.Installer/bin/Release/DeskSearchSetup.msi, DeskSearchSetup.en-US.msi)
+    Default : Release build (self-contained publish) + MSI installers, then copies
+                DeskSearchSetup.msi        (installer UI: Korean)
+                DeskSearchSetup.en-US.msi  (installer UI: English)
+              to the repository root.
               Note: a Release build closes a running DeskSearch.exe (it locks the publish files).
-
-    Both then copy the results to the repository root:
-      DeskSearch.exe                                  self-contained single file (runs alone)
-      DeskSearchSetup.msi, DeskSearchSetup.en-US.msi  Release with MSI only
+    -Debug  : development build only (DeskSearch/bin/Debug/net8.0-windows/DeskSearch.exe),
+              no installer.
 
 .EXAMPLE
-    .\build.ps1                  # Debug build
-    .\build.ps1 -Release         # Release build + MSI
-    .\build.ps1 -Release -NoMsi  # Release build without MSI
-    .\build.ps1 -Clean           # clean first, then build
-    .\build.ps1 -Run             # Debug build, then launch
+    .\build.ps1                  # installer -> repository root
+    .\build.ps1 -Clean           # clean first, then build the installer
+    .\build.ps1 -NoMsi           # Release build without installer
+    .\build.ps1 -Debug -Run      # development build, then launch
     .\build.ps1 -Stop            # close a running DeskSearch built here, then build
 #>
 param(
-    [switch]$Release,
+    [switch]$Debug,
     [switch]$NoMsi,
     [switch]$Clean,
     [switch]$Run,
@@ -30,7 +28,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$configuration = if ($Release) { 'Release' } else { 'Debug' }
+$configuration = if ($Debug) { 'Debug' } else { 'Release' }
+$buildInstaller = -not $Debug -and -not $NoMsi
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host 'dotnet SDK not found. Install the .NET 8 SDK.' -ForegroundColor Red
@@ -57,18 +56,29 @@ if ($running.Count -gt 0) {
 }
 
 if ($Clean) {
+    # $LASTEXITCODE is $null until a native command runs; clean.ps1 always sets it via exit.
     & (Join-Path $root 'clean.ps1')
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
 }
 
 $stopwatch = [Diagnostics.Stopwatch]::StartNew()
-Write-Host "== DeskSearch $configuration build ==" -ForegroundColor Cyan
+$label = if ($buildInstaller) { 'Release build + installer' } else { "$configuration build" }
+Write-Host "== DeskSearch $label ==" -ForegroundColor Cyan
 
-if ($Release -and $NoMsi) {
-    $buildArgs = @('build', (Join-Path $root 'DeskSearch\DeskSearch.csproj'), '-c', 'Release', '-p:SkipInstaller=true')
+# Build only the app project: in Release its BuildInstallerOnRelease target builds the MSI.
+# Building the .slnx would also build the installer project directly, and the two parallel
+# WiX runs collide on obj\Release\<culture>\#cab1.cab ("file in use", WIX0001).
+$buildArgs = @('build', (Join-Path $root 'DeskSearch\DeskSearch.csproj'), '-c', $configuration)
+if (-not $buildInstaller) {
+    $buildArgs += '-p:SkipInstaller=true'
 }
 else {
-    $buildArgs = @('build', (Join-Path $root 'DeskSearchWinV10.slnx'), '-c', $configuration)
+    # That nested installer build does not restore the WiX project itself.
+    & dotnet restore (Join-Path $root 'DeskSearchWinV10.slnx') -nologo
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Restore FAILED (exit $LASTEXITCODE)" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
 }
 
 & dotnet @buildArgs -nologo
@@ -77,47 +87,33 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# The regular build output is DeskSearch.exe plus dozens of DLLs, so the exe alone cannot
-# be copied. Publish a self-contained single-file exe (runtime + Assets bundled) for the root.
-Write-Host '== Single-file DeskSearch.exe ==' -ForegroundColor Cyan
-$singleDir = Join-Path $root "DeskSearch\bin\$configuration\single-file"
-& dotnet publish (Join-Path $root 'DeskSearch\DeskSearch.csproj') -c $configuration -r win-x64 `
-    --self-contained true -o $singleDir -nologo `
-    -p:PublishSingleFile=true `
-    -p:IncludeAllContentForSelfExtract=true `
-    -p:EnableCompressionInSingleFile=true `
-    -p:SkipInstaller=true
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Single-file publish FAILED (exit $LASTEXITCODE)" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-
-$artifacts = @(Join-Path $singleDir 'DeskSearch.exe')
-if ($Release -and -not $NoMsi) {
-    $artifacts += Join-Path $root 'DeskSearch.Installer\bin\Release\DeskSearchSetup.msi'
-    $artifacts += Join-Path $root 'DeskSearch.Installer\bin\Release\DeskSearchSetup.en-US.msi'
-}
-
 $copied = @()
-foreach ($path in $artifacts) {
-    if (-not (Test-Path $path)) {
-        Write-Host "  missing: $path" -ForegroundColor Red
-        exit 1
+if ($buildInstaller) {
+    $installerDir = Join-Path $root 'DeskSearch.Installer\bin\Release'
+    foreach ($name in 'DeskSearchSetup.msi', 'DeskSearchSetup.en-US.msi') {
+        $path = Join-Path $installerDir $name
+        if (-not (Test-Path $path)) {
+            Write-Host "  installer missing: $path" -ForegroundColor Red
+            exit 1
+        }
+        Copy-Item -LiteralPath $path -Destination $root -Force
+        $copied += Join-Path $root $name
     }
-    Copy-Item -LiteralPath $path -Destination $root -Force
-    $copied += Join-Path $root (Split-Path $path -Leaf)
 }
 
 $stopwatch.Stop()
-Write-Host ("Build succeeded in {0:N1}s. Copied to {1}:" -f $stopwatch.Elapsed.TotalSeconds, $root) -ForegroundColor Green
+Write-Host ("Build succeeded in {0:N1}s" -f $stopwatch.Elapsed.TotalSeconds) -ForegroundColor Green
 foreach ($path in $copied) {
     $size = (Get-Item $path).Length / 1MB
-    Write-Host ("  {0}  ({1:N1} MB)" -f (Split-Path $path -Leaf), $size)
+    Write-Host ("  {0}  ({1:N1} MB)" -f $path, $size)
 }
 
-$exe = Join-Path $root 'DeskSearch.exe'
-
 if ($Run) {
+    $exe = if ($Debug) {
+        Join-Path $root 'DeskSearch\bin\Debug\net8.0-windows\DeskSearch.exe'
+    } else {
+        Join-Path $root 'DeskSearch\bin\Release\net8.0-windows\win-x64\DeskSearch.exe'
+    }
     Write-Host "Launching $exe"
     Start-Process -FilePath $exe
 }

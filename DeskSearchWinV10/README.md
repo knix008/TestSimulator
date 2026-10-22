@@ -8,8 +8,9 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 
 | 기능 | 설명 |
 |------|------|
-| 전체 시스템 인덱싱 | 모든 준비된 드라이브·디렉터리·파일을 백그라운드 스캔 (관리자 권한, 배치 병합, 드라이브별 병렬 스캔) |
-| 인덱싱 중 검색 | 인덱싱이 끝나기 전에도 검색 가능; 인덱스가 늘어나면 결과 자동 갱신; SQLite 트라이그램(trigram) FTS5 인덱스로 즉시 응답 |
+| 전체 시스템 인덱싱 | 모든 준비된 드라이브·디렉터리·파일을 백그라운드 스캔 (일반 사용자 권한, 배치 병합, 드라이브별 병렬 스캔) |
+| 인덱싱 중 검색 | 재인덱싱 중에도 기존 `index.db`로 검색; 인덱스가 늘어나면 결과 자동 갱신; SQLite 트라이그램(trigram) FTS5 인덱스로 즉시 응답 |
+| 항상 입력 가능한 검색창 | 실행 직후부터 검색창에 입력 가능. 첫 인덱스가 아직 없으면 결과 창에 *검색 인덱스를 만드는 중* 안내를 표시하고, 인덱스가 준비되면 입력해 둔 검색어로 자동 검색 |
 | 인덱싱 중 시스템 영향 최소화 | Windows 백그라운드 모드(CPU·디스크 I/O·메모리 우선순위 하향)로 인덱싱이 GUI·시스템 반응성을 거의 침범하지 않음 |
 | 이중 DB 인덱싱 | **모든 전체 인덱싱**은 `index.building.db`에 구축. 완료 시 `index.db`로 교체. `index.db`가 있으면 **항상 검색 가능** (재인덱싱 중에도 기존 DB 사용) |
 | 끊김 없는 재인덱싱 | 재인덱싱 완료 시 새 DB로 교체. 재인덱싱 중 검색·GUI는 **기존 `index.db`** 로 정상 동작 |
@@ -27,12 +28,12 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 | 설정 | 배경/테두리/글자/아이콘 색, 테두리 두께, 불투명도, 대소문자 구분, 정규식, **검색 결과 정렬**, 검색 제외, 항상 위 |
 | 인덱싱 진행률 | 설정 창에서 단계(스캔·분석·인덱스 적용), 진행률(%)·항목 수 확인; **인덱싱** / **멈춤** / **초기화** / **데이터 폴더** |
 | 검색 인덱스 업그레이드 | 검색 구조 개선이 필요하면 확인 대화상자 후 진행률(%) 표시 (최초 1회, 건너뛰기 가능) |
-| Windows 시작 시 실행 | HKCU `Run` 레지스트리(`DeskSearch.exe --autostart`)로 로그온 시 자동 시작. 셸과 입력 서비스(ctfmon/TSF)가 준비될 때까지 기다린 뒤 창을 띄워 부팅 직후에도 검색창 입력 가능 (레거시 예약 작업 자동 제거) |
+| Windows 시작 시 실행 | HKCU `Run` 레지스트리(`DeskSearch.exe --autostart`)로 로그온 시 자동 시작. 셸과 입력 서비스(ctfmon/TSF)가 준비될 때까지(최대 90초) 기다린 뒤 창을 띄워 부팅 직후에도 검색창 입력 가능. 플래그 없이 등록된 이전 항목은 다음 실행 때 자동 갱신 (레거시 예약 작업 자동 제거) |
 | 단일 인스턴스 | 이미 실행 중이면 새 창 대신 기존 검색창 표시 |
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
 | 다국어 UI | 한국어 / English; 설정에서 **언어 변경 시 즉시 반영** (취소 시 복원) |
 | 시스템 트레이 | 작업 표시줄 미표시, 트레이에서 표시·숨기기·설정·종료 |
-| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (~52MB, self-contained, per-machine·관리자 권한, 한국어·영어 UI) |
+| MSI 설치 | Release 빌드 시 WiX 기반 설치 패키지 (~52MB, self-contained, per-machine 설치 시 관리자 승인, 한국어·영어 UI). 재설치 시 기존 프로그램 완전 삭제 후 설치, 사용자 데이터 삭제 여부 확인 |
 
 ## 빌드 및 실행
 
@@ -45,36 +46,42 @@ dotnet run --project DeskSearch/DeskSearch.csproj
 
 | 명령 | 동작 |
 |------|------|
-| `build.cmd` | Debug 빌드 |
-| `build.cmd -Release` | Release 빌드 + MSI (실행 중인 DeskSearch.exe는 종료됨) |
-| `build.cmd -Release -NoMsi` | Release 빌드만 (MSI 생략) |
+| `build.cmd` | Release 빌드 + 설치 파일 생성 후 **저장소 루트에 복사** (실행 중인 DeskSearch.exe는 종료됨) |
+| `build.cmd -NoMsi` | Release 빌드만 (설치 파일 생략) |
+| `build.cmd -Debug` | 개발용 Debug 빌드만 (설치 파일 없음) |
 | `build.cmd -Clean` / `-Run` | 정리 후 빌드 / 빌드 후 실행 (조합 가능) |
 | `build.cmd -Stop` | 이 폴더에서 빌드한 DeskSearch가 실행 중이면 종료한 뒤 빌드 (없으면 실행 중일 때 안내 후 중단 — 실행 파일이 잠겨 빌드가 실패하므로) |
-| `clean.cmd` | `DeskSearch`·`DeskSearch.Installer`의 `bin/`·`obj/` 삭제 (사용자 데이터 `%AppData%\DeskSearch`는 유지; 이 폴더의 DeskSearch.exe가 실행 중이면 중단) |
+| `clean.cmd` | `DeskSearch`·`DeskSearch.Installer`의 `bin/`·`obj/`와 루트의 설치 파일 삭제 (사용자 데이터 `%AppData%\DeskSearch`는 유지; 이 폴더의 DeskSearch.exe가 실행 중이면 중단) |
 
-빌드가 끝나면 결과물이 **저장소 루트**에 복사됩니다.
+`build.cmd`가 루트에 복사하는 설치 파일:
 
 | 파일 | 설명 |
 |------|------|
-| `DeskSearch.exe` | self-contained 단일 파일 (런타임·아이콘 포함, 이 파일 하나로 실행) |
-| `DeskSearchSetup.msi`, `DeskSearchSetup.en-US.msi` | `-Release` 빌드 시 (`-NoMsi` 제외) |
+| `DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어) |
+| `DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
 
-PowerShell에서는 `.\build.ps1 -Release`, `.\clean.ps1`로 직접 실행할 수 있습니다.
+PowerShell에서는 `.\build.ps1`, `.\clean.ps1`로 직접 실행할 수 있습니다.
 
 **요구사항:** .NET 8 SDK, Windows 10 이상
 
-> 실행 시 **관리자 권한(UAC)** 이 필요합니다. 전체 디스크를 인덱싱하기 위해 `app.manifest`에 `requireAdministrator` 및 `longPathAware`가 설정되어 있습니다.
+> 프로그램은 **일반 사용자 권한**(`app.manifest`: `asInvoker`, `longPathAware`)으로 실행되며 UAC 승인이 필요 없습니다. 권한 없이 열 수 없는 경로만 인덱싱에서 건너뜁니다.
 
 ## MSI 설치 패키지 생성
 
-Release 구성에서만 MSI가 빌드됩니다.
+Release 구성에서만 MSI가 빌드됩니다. `build.cmd`를 사용하세요 (결과 MSI를 루트에 복사).
+
+직접 빌드할 때는 **앱 프로젝트만** 빌드합니다. Release 빌드의 `BuildInstallerOnRelease` 대상이 MSI를 만듭니다.
 
 ```bash
-dotnet build DeskSearchWinV10.slnx -c Release
+dotnet restore DeskSearchWinV10.slnx
+dotnet build DeskSearch/DeskSearch.csproj -c Release
 ```
+
+> `DeskSearchWinV10.slnx`를 Release로 빌드하면 설치 프로젝트가 **두 번 동시에** 빌드되어 `obj\Release\<culture>\#cab1.cab` 충돌(`WIX0001`, 파일 사용 중)이 날 수 있습니다. 또한 MSI 검증(ICE)에 **Windows Installer 서비스**가 필요하므로, 이 서비스에 접근할 수 없는 샌드박스 환경에서는 `MsiException (1631)`이 발생합니다.
 
 | 출력 | 설명 |
 |------|------|
+| `DeskSearchSetup.msi`, `DeskSearchSetup.en-US.msi` (루트) | `build.cmd`가 아래 MSI를 복사한 것 |
 | `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어, ~52MB) |
 | `DeskSearch.Installer/bin/Release/DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
 | `DeskSearch/bin/Release/net8.0-windows/win-x64/publish/` | self-contained 배포 파일 (~141MB, 디버그·HTTP3 등 불필요 런타임 파일 제외 후) |
@@ -89,8 +96,9 @@ Release publish 시 `PruneUnnecessaryPublishFiles` 대상으로 디버그/덤프
 
 | 상황 | 동작 |
 |------|------|
-| 업그레이드·재설치 | 기존 프로그램 파일을 **완전히 제거**한 뒤 새로 설치. **사용자 데이터 삭제 여부**를 선택할 수 있음 |
-| 제거 | 프로그램 파일 **완전 제거**. **사용자 데이터 삭제 여부**를 항상 선택할 수 있음 |
+| 업그레이드·재설치 | 실행 중인 DeskSearch를 먼저 종료하고 기존 프로그램을 제거한 뒤, 설치 폴더(`…\DeskSearch\`)에 남은 파일까지 **완전히 삭제**하고 새로 설치. **사용자 데이터 삭제 여부**를 묻는 화면 표시 |
+| 새 설치 (이전 데이터 남음) | 이전에 데이터를 유지한 채 제거해 `%AppData%\DeskSearch`가 남아 있으면 **사용자 데이터 삭제 여부**를 묻는 화면 표시 |
+| 제거 | 프로그램 파일 **완전 제거**, 자동 시작 등록(`HKCU\…\Run`) 삭제. **사용자 데이터 삭제 여부**를 항상 선택할 수 있음 |
 
 삭제 대상(선택 시): `%AppData%\DeskSearch\` (`settings.json`, `index.db` 등). 체크하지 않으면 사용자 데이터는 유지됩니다.
 
@@ -259,14 +267,17 @@ DeskSearchWinV10/
 │   │   └── IndexResourcePolicy.cs / IndexStoragePolicy.cs # 스캔·감시·DB 정책
 │   ├── Resources/                    # LocStrings.resx (다국어)
 │   ├── Assets/                       # app.ico, app.png, CreateIcon.ps1
-│   └── app.manifest                  # requireAdministrator, longPathAware
-└── DeskSearch.Installer/             # WiX MSI 프로젝트
-    ├── Package.wxs                   # 패키지·사용자 데이터 제거 CA
-    ├── UserDataDlg.wxs               # 사용자 데이터 선택 대화상자
-    ├── WixUI_FeatureTree_Custom.wxs  # 설치 UI 흐름
-    ├── UiStrings.wxl                 # 설치 UI 문자열 (ko-kr)
-    ├── UiStrings.en-us.wxl           # 설치 UI 문자열 (en-us)
-    └── DeskSearch.Installer.wixproj
+│   ├── Services/StartupService.cs    # 자동 시작(HKCU Run, --autostart)·로그온 직후 입력 서비스 대기
+│   └── app.manifest                  # asInvoker, longPathAware
+├── DeskSearch.Installer/             # WiX MSI 프로젝트
+│   ├── Package.wxs                   # 패키지·업그레이드·완전 삭제·사용자 데이터 제거 CA
+│   ├── UserDataDlg.wxs               # 사용자 데이터 선택 대화상자
+│   ├── WixUI_FeatureTree_Custom.wxs  # 설치 UI 흐름
+│   ├── UiStrings.wxl                 # 설치 UI 문자열 (ko-kr)
+│   ├── UiStrings.en-us.wxl           # 설치 UI 문자열 (en-us)
+│   └── DeskSearch.Installer.wixproj
+├── build.cmd / build.ps1             # 빌드 (기본: Release + MSI → 루트에 복사)
+└── clean.cmd / clean.ps1             # bin/obj·루트 MSI 정리
 ```
 
 ## 설정·인덱스 파일
@@ -282,8 +293,9 @@ DeskSearchWinV10/
 ### 인덱싱 DB 동작
 
 ```
-[첫 실행·초기화 후]  기존 DB 삭제 → 스캔 ──► index.building.db ──► 검색(구축 중 DB 또는 index.db)
-                완료 ──► building → index.db 교체
+[첫 실행·초기화 후]  기존 DB 삭제 → 스캔 ──► index.building.db
+                검색창 입력은 가능, 결과 창에 "검색 인덱스를 만드는 중" 안내
+                완료 ──► building → index.db 교체 → 입력해 둔 검색어로 자동 검색
 
 [재인덱싱]      스캔 ──► index.building.db
                 검색 ──► index.db (기존 완료 DB, 변경 없음)

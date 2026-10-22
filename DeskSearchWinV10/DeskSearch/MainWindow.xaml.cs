@@ -123,6 +123,7 @@ public partial class MainWindow : Window
 
         RegisterSessionEndingHandler();
         RestoreWindowLayout();
+        SearchBox.Focus();
 
         _watcherService.Start();
 
@@ -172,8 +173,10 @@ public partial class MainWindow : Window
     {
         SafeBeginInvoke(() =>
         {
-            SearchBox.IsEnabled = true;
-            UpdateIndexUi();
+            // Text typed while the first index was being built gets its results now.
+            if (!string.IsNullOrWhiteSpace(SearchBox.Text))
+                PerformSearch();
+
             if (IsAnyContextMenuOpen())
                 return;
 
@@ -233,9 +236,12 @@ public partial class MainWindow : Window
 
 
 
+    // The search box always accepts typing. Until the first index exists, a search shows
+    // the "building index" message instead of results; refresh it (e.g. after a language change).
     private void UpdateIndexUi()
     {
-        SearchBox.IsEnabled = _indexService.IsSearchEnabled;
+        if (!_indexService.IsSearchEnabled && !string.IsNullOrWhiteSpace(SearchBox.Text))
+            PerformSearch();
     }
 
 
