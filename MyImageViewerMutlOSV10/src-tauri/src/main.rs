@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod window_icon;
+
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -11,16 +13,37 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 
 static HOST: Mutex<Option<Child>> = Mutex::new(None);
 
+// Each running copy of the app has its own Node host on its own port, so several copies
+// can run side by side: a file opened in one never shows up in another, and closing one
+// does not take the others' host away. (In `tauri dev` the page itself still comes from
+// the dev server on 17810; only the IPC goes to this copy's host.)
+static HOST_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
+
+fn host_port_value() -> u16 {
+    use std::sync::atomic::Ordering;
+    let cur = HOST_PORT.load(Ordering::SeqCst);
+    if cur != 0 {
+        return cur;
+    }
+    let chosen = std::env::var("MYIMAGEVIEWER_HOST_PORT")
+        .ok()
+        .and_then(|v| v.parse::<u16>().ok())
+        .or_else(|| std::net::TcpListener::bind("127.0.0.1:0").ok().and_then(|l| l.local_addr().ok()).map(|a| a.port()))
+        .unwrap_or(17810);
+    HOST_PORT.store(chosen, Ordering::SeqCst);
+    chosen
+}
+
+fn host_addr() -> std::net::SocketAddr {
+    std::net::SocketAddr::from(([127, 0, 0, 1], host_port_value()))
+}
+
 fn project_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
 fn port_open() -> bool {
-    TcpStream::connect_timeout(
-        &"127.0.0.1:17810".parse().unwrap(),
-        Duration::from_millis(250),
-    )
-    .is_ok()
+    TcpStream::connect_timeout(&host_addr(), Duration::from_millis(250)).is_ok()
 }
 
 fn spawn_host(exe: &std::path::Path) {
@@ -38,6 +61,7 @@ fn spawn_host(exe: &std::path::Path) {
         .current_dir(&root)
         .env("MYIMAGEVIEWER_RUNTIME", "tauri")
         .env("MYIMAGEVIEWER_EXE", exe)
+        .env("MYIMAGEVIEWER_HOST_PORT", host_port_value().to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
@@ -55,15 +79,13 @@ fn spawn_host(exe: &std::path::Path) {
 }
 
 fn post_ipc(body: &str) {
-    let Ok(mut stream) = TcpStream::connect_timeout(
-        &"127.0.0.1:17810".parse().unwrap(),
-        Duration::from_millis(800),
-    ) else {
+    let Ok(mut stream) = TcpStream::connect_timeout(&host_addr(), Duration::from_millis(800)) else {
         return;
     };
     let _ = stream.set_read_timeout(Some(Duration::from_millis(800)));
     let req = format!(
-        "POST /ipc HTTP/1.1\r\nHost: 127.0.0.1:17810\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        "POST /ipc HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        host_port_value(),
         body.len(),
         body
     );
@@ -273,6 +295,11 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
             NewWindowResponse::Deny
         })
         .build()?;
+    // Big + small icon from the exe itself: taskbar / Alt+Tab show the same icon as
+    // the shortcuts and the installer (tao only sets a small one)
+    if let Some(main) = app.get_webview_window(MAIN) {
+        window_icon::apply(&main);
+    }
     Ok(())
 }
 
@@ -311,7 +338,10 @@ fn dialog_window(app: &AppHandle, url: &tauri::Url, features: NewWindowFeatures)
         };
     }
     match b.build() {
-        Ok(window) => NewWindowResponse::Create { window },
+        Ok(window) => {
+            window_icon::apply(&window);
+            NewWindowResponse::Create { window }
+        }
         Err(_) => NewWindowResponse::Deny,
     }
 }
@@ -383,6 +413,12 @@ fn close_dialog(app: AppHandle, label: String) -> bool {
 #[tauri::command]
 fn dialog_start_dragging(app: AppHandle, label: String) -> bool {
     app.get_webview_window(&label).is_some_and(|w| w.start_dragging().is_ok())
+}
+
+/// The port of this copy's Node host (the page sends its IPC there).
+#[tauri::command]
+fn host_port() -> u16 {
+    host_port_value()
 }
 
 /// The page lost the Node host (it crashed or was killed): start it again. True when the
@@ -461,11 +497,19 @@ fn main() {
             popup_menu_visible,
             start_file_drag,
             ensure_host,
+            host_port,
             fit_dialog,
             close_dialog,
             dialog_start_dragging,
         ])
         .on_window_event(|window, event| {
+            if cfg!(debug_assertions) {
+                match event {
+                    tauri::WindowEvent::CloseRequested { .. } => eprintln!("[window] close requested: {}", window.label()),
+                    tauri::WindowEvent::Destroyed => eprintln!("[window] destroyed: {}", window.label()),
+                    _ => {}
+                }
+            }
             // The overlay is a second window: without this the app would outlive its main window.
             if window.label() == MAIN && matches!(event, tauri::WindowEvent::Destroyed) {
                 window.app_handle().exit(0);
@@ -497,6 +541,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building MyImageViewer")
         .run(|_app, event| {
+            if cfg!(debug_assertions) {
+                if let tauri::RunEvent::ExitRequested { code, .. } = &event {
+                    eprintln!("[app] exit requested, code {code:?}");
+                }
+            }
             if let tauri::RunEvent::Exit = event {
                 if let Ok(mut slot) = HOST.lock() {
                     if let Some(child) = slot.as_mut() {

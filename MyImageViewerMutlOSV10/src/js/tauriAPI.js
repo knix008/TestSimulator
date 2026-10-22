@@ -7,8 +7,14 @@
   const tauri = window.__TAURI__;
   if (!tauri || window.electronAPI) return;
 
-  const HOST = 'http://127.0.0.1:17810';
   const invoke = tauri.core && typeof tauri.core.invoke === 'function' ? tauri.core.invoke : null;
+  // This copy's own Node host (several copies of the app can run at once, each with its
+  // own host and port). Every call waits for the port; 17810 is the old fixed fallback.
+  let HOST = 'http://127.0.0.1:17810';
+  const hostReady = (invoke ? invoke('host_port') : Promise.resolve(0))
+    .then((port) => { if (port) HOST = `http://127.0.0.1:${port}`; })
+    .catch(() => { /* older shell: fixed port */ })
+    .then(() => { window.__MIV_HOST__ = HOST; });
   const listeners = {};
   let unsaved = false;
   let closing = false;
@@ -77,6 +83,7 @@
   }
 
   async function call(channel, ...args) {
+    await hostReady;
     const body = JSON.stringify({ channel, args: args.map(encodeArg) });
     const post = () => fetch(`${HOST}/ipc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     let res;
@@ -103,13 +110,15 @@
     });
   }
 
-  const es = new EventSource(`${HOST}/events`);
-  es.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      dispatch(msg.channel, msg.payload);
-    } catch { /* keepalive or noise */ }
-  };
+  hostReady.then(() => {
+    const es = new EventSource(`${HOST}/events`);
+    es.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        dispatch(msg.channel, msg.payload);
+      } catch { /* keepalive or noise */ }
+    };
+  });
 
   function getWin() {
     const w = tauri.window;

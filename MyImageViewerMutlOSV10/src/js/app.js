@@ -259,6 +259,9 @@
   let _startBgLoading = null;
   let _startSyncing = false;
   const HOME_TASKS = [
+    // Explorer (first of "What you can do"): straight to the main view — explorer on the left,
+    // the folder's images in the middle
+    { icon: 'explorer', title: 'home.explorer', desc: 'home.desc.explorer', run: () => _homeExplorer() },
     { icon: 'openFolder', title: 'menu.openFolder', desc: 'home.desc.openFolder', primary: true, run: () => _pickOpenFolder() },
     { icon: 'openFile', title: 'menu.openFile', desc: 'home.desc.openFile', run: () => _pickOpenFile() },
     { icon: 'viewGrid', title: 'menu.browseMode', desc: 'home.desc.browse', run: () => _homeBrowse() },
@@ -693,8 +696,11 @@
   selCanvas.style.cursor = 'grab';
 
   /* ─── Restore last opened folder ─── */
-  // Draw the start screen before drive listing. Opening a launch file or a restored folder hides it.
-  _showHome();
+  // "Show this screen at startup" decides what the user sees first: on → the start screen
+  // with the chosen background scene (the last folder is still restored underneath, so Home
+  // goes straight to it); off → the restored folder. A file the app was opened with wins.
+  const homeAtStart = _startScreen().showOnStart;
+  if (homeAtStart) _showHome();
   await FileTree.loadDrives();
   // Web mode: virtual FS is empty until user opens files/folder — skip path restore
   let showHome = true;
@@ -764,6 +770,8 @@
         }
         // Warm the other recent folders' thumbnail DB in the background (host side)
         Thumbs.warmDirs?.(_getRecentDirs().filter((d) => _normDirKey(d) !== _normDirKey(lastDir)));
+        // Opening the folder closed the start screen; the setting asks for it on top
+        if (homeAtStart) showHome = true;
       }
     }
   }
@@ -1268,9 +1276,13 @@
      Home (start page) and the feature guide
   ════════════════════════════════════════════ */
   function _initHome() {
-    const icon = document.getElementById('menubar-home-icon');
-    if (icon) icon.innerHTML = Icons.home || '';
+    for (const id of ['menubar-home-icon', 'ew-menubar-home-icon']) {
+      const icon = document.getElementById(id);
+      if (icon) icon.innerHTML = Icons.home || '';
+    }
     document.getElementById('menubar-home')?.addEventListener('click', () => _goHome());
+    // Edit window: the same Home — _goHome closes the editor first (unsaved edits are asked about)
+    document.getElementById('ew-menubar-home')?.addEventListener('click', () => _goHome());
     document.getElementById('help-shortcuts')?.addEventListener('click', () => _showDialog('shortcuts-overlay'));
     document.getElementById('help-about')?.addEventListener('click', () => _showDialog('about-overlay'));
   }
@@ -1323,6 +1335,22 @@
       _hideHome();
       fn();
     };
+  }
+
+  /**
+   * Start screen ▸ Explorer: the main view with the explorer open and the current folder's
+   * images as thumbnails — the folder already shown, else the last one, else the home folder.
+   */
+  async function _homeExplorer() {
+    _hideHome();
+    if (!_layout.left) _toggleLeftPanel(true);
+    let dir = Browse.getDir?.() || '';
+    if (!dir && state.currentFile) dir = (await window.electronAPI.pathDirname(state.currentFile).catch(() => '')) || '';
+    if (!dir) dir = localStorage.getItem('lastOpenedDir') || '';
+    if (!dir && window.electronAPI.getLastOpenDir) dir = (await window.electronAPI.getLastOpenDir().catch(() => '')) || '';
+    if (!dir) { _pickOpenFolder(); return; }
+    await FileTree.revealPath?.(dir).catch?.(() => {});
+    _showFolderInCenter(dir);
   }
 
   async function _homeBrowse() {
@@ -5881,6 +5909,7 @@
     ProgressDialog.startCreep(88);
     await ProgressDialog.yieldFrame();
 
+    let retry = false;   // "Retry" after a failed model download → run again (fresh download)
     const dataUrl = Editor.exportAsDataUrl('image/png');
     if (!dataUrl) {
       ProgressDialog.hide();
@@ -5903,6 +5932,21 @@
       ProgressDialog.stopCreep();
       if (result?.error) {
         ProgressDialog.hide();
+        if (result.code === 'MODEL_DOWNLOAD_FAILED') {
+          // Tell the user, and let them try again — a retry downloads from the start
+          const t = I18n.t.bind(I18n);
+          const answer = await window.electronAPI.showMessageBox({
+            type: 'error',
+            title: t('bgAlgo.modelDownloadFailed'),
+            message: t('bgAlgo.modelDownloadFailed'),
+            detail: `${result.error}\n\n${t('bgAlgo.modelDownloadHint')}`,
+            buttons: [t('bgAlgo.retryDownload'), t('bgAlgo.close')],
+            defaultId: 0,
+            cancelId: 1,
+          });
+          if (answer && answer.response === 0) retry = true;
+          return;
+        }
         _showError(
           I18n.t('bgAlgo.rembgFailed') || 'AI background removal failed',
           result.hint ? `${result.error}\n${result.hint}` : result.error
@@ -5933,10 +5977,19 @@
       _setChromeBtn(btn, true);
       _setChromeBtn(sel, true);
       _ewUpdateSelBtns();
+      // (in finally: the failure branch above returns from inside the try)
+      if (retry) setTimeout(() => { _runRembg(algo); }, 0);
     }
   }
 
   function _progressMessage(code, algoLabel) {
+    // "downloading_model|<got MB>|<total MB>"
+    const [kind, got, total] = String(code || '').split('|');
+    if (kind === 'downloading_model') {
+      const base = I18n.t('progress.downloadingModel') || 'Downloading the AI model…';
+      const size = got != null && total ? `  ${got} / ${total} MB` : '';
+      return `${base}${size}${algoLabel ? ` (${algoLabel})` : ''}`;
+    }
     const map = {
       preparing: 'progress.preparing',
       downloading_python: 'progress.downloadingPython',

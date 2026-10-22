@@ -16,7 +16,9 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": ["**"],
+          "allow": [
+            "**"
+          ],
           "deny": []
         }
       }
@@ -35,6 +37,23 @@
       "../host",
       "../doc",
       "../scripts/rembg_worker.py"
-    ]
+    ],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) 2024-2026 SHKWON (knix008@naver.com)",
+    "shortDescription": "Image viewer and editor",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "MyImageViewer",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
   }
 }

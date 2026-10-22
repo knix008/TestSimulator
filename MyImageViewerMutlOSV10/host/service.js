@@ -218,9 +218,10 @@ function _saveLastOpenDir(dir) {
   } catch {}
 }
 
+// No folder opened yet (fresh install / user data deleted): the user's home folder
 function _dialogDefaultPath() {
   if (lastOpenDir && fs.existsSync(lastOpenDir)) return lastOpenDir;
-  return app.getPath('documents');
+  return os.homedir();
 }
 
 function _resolveAsset(...parts) {
@@ -2011,54 +2012,169 @@ function _managedPythonExe() {
   return path.join(app.getPath('userData'), 'python', 'python.exe');
 }
 
+/** Run a command; `timeoutMs` kills it (and reports timedOut) instead of waiting forever. */
 function _runCmd(cmd, args, opts = {}) {
   const { spawn } = require('child_process');
+  const { timeoutMs, onLine, ...spawnOpts } = opts;
   return new Promise((resolve) => {
-    let out = '', err = '', child;
+    let out = '', err = '', child, timer = null, timedOut = false;
     try {
-      child = spawn(cmd, args, { windowsHide: true, ...opts });
+      child = spawn(cmd, args, { windowsHide: true, ...spawnOpts });
     } catch (e) {
       return resolve({ code: -1, out: '', err: e.message });
     }
-    if (child.stdout) child.stdout.on('data', (d) => { const s = d.toString(); out += s; if (opts.onLine) opts.onLine(s); });
-    if (child.stderr) child.stderr.on('data', (d) => { const s = d.toString(); err += s; if (opts.onLine) opts.onLine(s); });
-    child.on('error', (e) => resolve({ code: -1, out, err: err || e.message }));
-    child.on('close', (code) => resolve({ code, out, err }));
+    if (timeoutMs) {
+      timer = setTimeout(() => { timedOut = true; try { child.kill(); } catch { /* gone */ } }, timeoutMs);
+    }
+    if (child.stdout) child.stdout.on('data', (d) => { const s = d.toString(); out += s; if (onLine) onLine(s); });
+    if (child.stderr) child.stderr.on('data', (d) => { const s = d.toString(); err += s; if (onLine) onLine(s); });
+    child.on('error', (e) => { clearTimeout(timer); resolve({ code: -1, out, err: err || e.message, timedOut }); });
+    child.on('close', (code) => { clearTimeout(timer); resolve({ code, out, err, timedOut }); });
   });
 }
 
 async function _pythonWorks(py) {
   if (!py) return false;
-  const r = await _runCmd(py, ['--version']);
+  const r = await _runCmd(py, ['--version'], { timeoutMs: 15000 });
   return r.code === 0 && /Python\s+3\./.test(`${r.out}${r.err}`);
 }
 
-function _downloadFile(fileUrl, destPath, onProgress, redirects = 0) {
-  const https = require('https');
-  return new Promise((resolve, reject) => {
+/**
+ * Download `fileUrl` to `destPath` — never waits forever, never leaves half a file:
+ *  - goes to `destPath.part` first; only a complete (and, with `hash`, verified) file is
+ *    renamed into place, so a retry always starts from zero;
+ *  - fails after `connectMs` without a response, or `stallMs` without a single byte;
+ *  - a dropped connection, a short body or a checksum mismatch rejects (and deletes the part).
+ * hash: { algo: 'md5' | 'sha256', hex }.  onProgress(fraction, doneBytes, totalBytes).
+ */
+function _downloadFile(fileUrl, destPath, onProgress, opts = {}) {
+  const { connectMs = 20000, stallMs = 30000, hash = null } = opts;
+  const part = `${destPath}.part`;
+  const fail = (err) => fs.promises.unlink(part).catch(() => {}).then(() => { throw err; });
+  const fetchOnce = (u, redirects) => new Promise((resolve, reject) => {
     if (redirects > 5) return reject(new Error('Too many redirects'));
-    const file = fs.createWriteStream(destPath);
-    const req = https.get(fileUrl, { headers: { 'User-Agent': 'ImageViewer' } }, (res) => {
+    let settled = false, stallTimer = null;
+    const done = (fn, v) => { if (settled) return; settled = true; clearTimeout(stallTimer); fn(v); };
+    const lib = /^http:/i.test(u) ? require('http') : require('https');   // (http: local tests only)
+    const req = lib.get(u, { headers: { 'User-Agent': 'MyImageViewer' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        file.close(() => fs.unlink(destPath, () => {
-          _downloadFile(res.headers.location, destPath, onProgress, redirects + 1).then(resolve, reject);
-        }));
+        const next = new URL(res.headers.location, u).toString();
+        fetchOnce(next, redirects + 1).then((v) => done(resolve, v), (e) => done(reject, e));
         return;
       }
       if (res.statusCode !== 200) {
         res.resume();
-        file.close(() => fs.unlink(destPath, () => reject(new Error(`HTTP ${res.statusCode} for ${fileUrl}`))));
-        return;
+        return done(reject, new Error(`HTTP ${res.statusCode}`));
       }
+      req.setTimeout(0);   // the stall timer takes over once data flows
       const total = parseInt(res.headers['content-length'] || '0', 10);
-      let done = 0;
-      res.on('data', (chunk) => { done += chunk.length; if (total && onProgress) onProgress(done / total); });
+      const digest = hash ? require('crypto').createHash(hash.algo) : null;
+      const file = fs.createWriteStream(part);
+      let got = 0;
+      const armStall = () => {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+          req.destroy(new Error(`no data for ${Math.round(stallMs / 1000)} s`));
+        }, stallMs);
+      };
+      armStall();
+      res.on('data', (chunk) => {
+        got += chunk.length;
+        if (digest) digest.update(chunk);
+        armStall();
+        if (onProgress) onProgress(total ? got / total : 0, got, total);
+      });
+      res.on('aborted', () => req.destroy(new Error('connection closed by the server')));
+      res.on('error', (e) => done(reject, e));
       res.pipe(file);
-      file.on('finish', () => file.close(() => resolve(destPath)));
+      file.on('error', (e) => done(reject, e));
+      file.on('finish', () => file.close(() => {
+        if (total && got !== total) return done(reject, new Error(`incomplete download (${got} of ${total} bytes)`));
+        if (digest && digest.digest('hex').toLowerCase() !== String(hash.hex).toLowerCase()) {
+          return done(reject, new Error('checksum mismatch (damaged download)'));
+        }
+        done(resolve);
+      }));
     });
-    req.on('error', (err) => { file.close(() => fs.unlink(destPath, () => reject(err))); });
+    req.setTimeout(connectMs, () => req.destroy(new Error(`no response for ${Math.round(connectMs / 1000)} s`)));
+    req.on('error', (e) => done(reject, e));
   });
+  return fs.promises.mkdir(path.dirname(destPath), { recursive: true })
+    .then(() => fs.promises.unlink(part).catch(() => {}))   // a retry starts from zero
+    .then(() => fetchOnce(fileUrl, 0))
+    .then(() => fs.promises.rename(part, destPath))
+    .then(() => destPath, fail);
+}
+
+/* ── rembg models: present → used; missing → downloaded by the host (progress, timeouts,
+   checksum) before the worker starts, so the worker never downloads (or hangs) itself.
+   Folder: MYIMAGEVIEWER_MODEL_DIR (tests) → U2NET_HOME → ~/.u2net (rembg's own). ── */
+// (MYIMAGEVIEWER_MODEL_URL_BASE: tests point it at a dead / silent server)
+const MODEL_URL_BASE = process.env.MYIMAGEVIEWER_MODEL_URL_BASE || 'https://github.com/danielgatis/rembg/releases/download/v0.0.0';
+const REMBG_MODELS = {
+  rembg1: { label: 'U2Net', file: 'u2net.onnx', alias: ['u2net.onnx'],
+    url: `${MODEL_URL_BASE}/u2net.onnx`,
+    hash: { algo: 'md5', hex: '60024c5c889badc19c04ad937298a77b' }, mb: 168 },
+  rembg2: { label: 'RMBG-2.0', file: 'bria-rmbg.onnx', alias: ['rembg2.onnx', 'bria-rmbg.onnx', 'bria-rmbg-2.0.onnx'],
+    url: `${MODEL_URL_BASE}/bria-rmbg-2.0.onnx`,
+    hash: { algo: 'sha256', hex: '5b486f08200f513f460da46dd701db5fbb47d79b4be4b708a19444bcd4e79958' }, mb: 977 },
+  rembg3: { label: 'ISNet', file: 'isnet-general-use.onnx', alias: ['isnet-general-use.onnx', 'isnet.onnx'],
+    url: `${MODEL_URL_BASE}/isnet-general-use.onnx`,
+    hash: { algo: 'md5', hex: 'fc16ebd8b0c10d971d3513d564d01e29' }, mb: 170 },
+};
+const _modelDownloads = new Map();   // model key → Promise (one download per model)
+
+function _rembgModelDirs() {
+  if (process.env.MYIMAGEVIEWER_MODEL_DIR) return [process.env.MYIMAGEVIEWER_MODEL_DIR];
+  const local = process.env.LOCALAPPDATA || '';
+  return [
+    process.env.U2NET_HOME || path.join(os.homedir(), '.u2net'),
+    local && path.join(local, 'ImageRembgWinV10', 'models'),
+    path.join(ROOT, 'models'),
+    local && path.join(local, 'Programs', 'Image Rembg', 'Assets', 'Models'),
+  ].filter(Boolean);
+}
+
+function _findRembgModel(key) {
+  const m = REMBG_MODELS[key];
+  if (!m) return null;
+  for (const dir of _rembgModelDirs()) {
+    for (const name of m.alias) {
+      const p = path.join(dir, name);
+      try { if (fs.statSync(p).size > 1_000_000) return p; } catch { /* not here */ }
+    }
+  }
+  return null;
+}
+
+/** The model file for `key`, downloading it first if it is not on this computer. */
+async function _ensureRembgModel(key, emit, from = 44, to = 88) {
+  const found = _findRembgModel(key);
+  if (found) return found;
+  const m = REMBG_MODELS[key];
+  if (!m) throw new Error(`unknown model ${key}`);
+  if (_modelDownloads.has(key)) return _modelDownloads.get(key);
+  const dest = path.join(_rembgModelDirs()[0], m.file);
+  const job = (async () => {
+    emit(from, 'downloading_model');
+    let lastMb = -1;
+    try {
+      await _downloadFile(m.url, dest, (frac, got, total) => {
+        const mb = (n) => Math.floor(n / 1048576);
+        if (mb(got) === lastMb) return;   // one event per MB, not per network chunk
+        lastMb = mb(got);
+        emit(from + Math.round(frac * (to - from)), `downloading_model|${mb(got)}|${mb(total || m.mb * 1048576)}`);
+      }, { hash: m.hash });
+    } catch (err) {
+      const e = new Error(`model download failed: ${m.label} (${m.file}, about ${m.mb} MB) — ${err.message}`);
+      e.code = 'MODEL_DOWNLOAD_FAILED';
+      throw e;
+    }
+    return dest;
+  })().finally(() => _modelDownloads.delete(key));
+  _modelDownloads.set(key, job);
+  return job;
 }
 
 // Download and silently install a per-user Python into userData/python.
@@ -2083,7 +2199,8 @@ async function _installManagedPython(emit) {
     '/quiet', 'InstallAllUsers=0', 'PrependPath=0', 'Include_launcher=0',
     'Include_test=0', 'Include_pip=1', 'AssociateFiles=0', 'Shortcuts=0',
     `TargetDir=${targetDir}`,
-  ]);
+  ], { timeoutMs: 10 * 60000 });
+  if (r.timedOut) throw new Error('Installing Python took longer than 10 minutes and was stopped.');
   const exe = _managedPythonExe();
   if (!fs.existsSync(exe)) {
     throw new Error(`Python installation failed (exit ${r.code}). ${(r.err || '').trim()}`.trim());
@@ -2095,11 +2212,11 @@ async function _installManagedPython(emit) {
 
 // Ensure rembg + onnxruntime are importable by `py`; pip-install if not.
 async function _ensureRembgPackages(py, emit) {
-  const chk = await _runCmd(py, ['-c', 'import rembg, onnxruntime']);
+  const chk = await _runCmd(py, ['-c', 'import rembg, onnxruntime'], { timeoutMs: 60000 });
   if (chk.code === 0) return;
 
   emit(44, 'installing_deps');
-  await _runCmd(py, ['-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', 'pip']);
+  await _runCmd(py, ['-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', '--timeout', '30', 'pip'], { timeoutMs: 5 * 60000 });
 
   let creep = 46;
   const bump = (s) => {
@@ -2109,11 +2226,12 @@ async function _ensureRembgPackages(py, emit) {
     }
   };
   const r = await _runCmd(py, [
-    '-m', 'pip', 'install', '--upgrade', '--no-warn-script-location',
+    '-m', 'pip', 'install', '--upgrade', '--no-warn-script-location', '--timeout', '30',
     'rembg', 'onnxruntime',
-  ], { onLine: bump });
+  ], { onLine: bump, timeoutMs: 15 * 60000 });
+  if (r.timedOut) throw new Error('Installing rembg / onnxruntime took longer than 15 minutes — check the network and try again.');
 
-  const verify = await _runCmd(py, ['-c', 'import rembg, onnxruntime']);
+  const verify = await _runCmd(py, ['-c', 'import rembg, onnxruntime'], { timeoutMs: 60000 });
   if (verify.code !== 0) {
     const tail = (r.err || r.out || verify.err || '').split(/\r?\n/).filter(Boolean).slice(-4).join(' ');
     throw new Error(`Failed to install rembg/onnxruntime: ${tail || `pip exit ${r.code}`}`);
@@ -2169,16 +2287,24 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
 
   // Run the Python worker; remap its own 0–100 progress into [base..100]
   // so the inference phase keeps advancing from wherever provisioning ended.
-  const runWorker = (py, base) => new Promise((resolve) => {
+  // The worker gets the exact model file (it never downloads by itself) and a hard
+  // time limit, so a stuck run reports instead of keeping the progress bar forever.
+  const WORKER_LIMIT_MS = 10 * 60000;
+  const runWorker = (py, base, modelPath) => new Promise((resolve) => {
     const remap = (p) => base + ((100 - base) * Math.max(0, Math.min(100, p))) / 100;
-    let child;
+    let child, limit = null;
     try {
       child = spawn(py, [worker, (model || 'rembg1').toString(), inPath, outPath], {
-        windowsHide: true, env: { ...process.env },
+        windowsHide: true, env: { ...process.env, MYIMAGEVIEWER_MODEL_PATH: modelPath || '' },
       });
     } catch (e) {
       return resolve({ code: -1, stderr: e.message });
     }
+    limit = setTimeout(() => {
+      try { child.kill(); } catch { /* gone */ }
+      resolve({ code: -1, stderr: `AI background removal did not finish within ${WORKER_LIMIT_MS / 60000} minutes and was stopped.` });
+    }, WORKER_LIMIT_MS);
+    child.on('close', () => clearTimeout(limit));
     let stderr = '', buf = '';
     child.stderr.on('data', (d) => {
       const chunk = d.toString();
@@ -2219,9 +2345,19 @@ ipcMain.handle('rembg-remove', async (event, { dataUrl, model }) => {
     //    (Fast path: if already importable, this returns immediately.)
     await _ensureRembgPackages(py, emit);
 
-    // 3) Run the actual background removal.
+    // 3) The model: found on this computer, or downloaded now (progress, timeouts,
+    //    checksum; a failure is reported and a retry downloads from the start).
+    const modelKey = REMBG_MODELS[model] ? model : 'rembg1';
+    let modelPath;
+    try {
+      modelPath = await _ensureRembgModel(modelKey, emit, Math.max(lastPct, 44), 88);
+    } catch (err) {
+      return { error: err.message, code: err.code || 'MODEL_DOWNLOAD_FAILED', retry: true };
+    }
+
+    // 4) Run the actual background removal.
     const base = Math.max(lastPct, 8);
-    const result = await runWorker(py, base);
+    const result = await runWorker(py, base, modelPath);
     if (result.code === 0 && fs.existsSync(outPath)) {
       emit(96, 'applying');
       const outBuf = await fs.promises.readFile(outPath);

@@ -2046,7 +2046,9 @@ window.Editor = (() => {
     const data = workingPixels.data;
     for (let i = 0; i < selMask.length; i++) {
       const inside = selMask[i] > 0;
-      if (inside !== removeInside) {
+      // removeInside = false: the selection is the subject, everything outside goes.
+      // (This was `!==`, which erased the subject itself and kept the background.)
+      if (inside === removeInside) {
         data[i * 4 + 3] = 0;
       }
     }

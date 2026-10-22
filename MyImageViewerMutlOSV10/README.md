@@ -27,7 +27,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Algorithmic: corner/border flood, color key, chroma, brightness, selection-guided
   - **AI (rembg)**: `rembg1` (U2Net), `rembg2` (RMBG-2.0), `rembg3` (ISNet)
   - AI requires Python + `rembg`/`onnxruntime`. Missing packages are **auto-installed on demand** into your existing Python, with a **progress bar**; if no Python exists at all, an official Python is downloaded and installed as a last resort (Windows). See [rembg_worker.py](scripts/rembg_worker.py).
-  - First AI run also downloads the model file (~170 MB) once, cached under `~/.u2net`.
+  - A missing AI model is **downloaded automatically** by the app (U2Net ~168 MB, ISNet ~170 MB, RMBG-2.0 ~977 MB) with MB progress and checksum check, into `~/.u2net`. It never waits forever (20 s without a response or 30 s without data = failure; a removal is stopped after 10 min); a failure says why and offers **Retry**, which downloads again from the start (partial files are never kept).
+  - Rectangle / lasso / polygon selections: the "selection" method keeps exactly the selection; the other methods remove the background and keep what is inside the selection.
 
 - **Effects & Adjustments / 효과 및 조정**
   - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert, Grain, Posterize, Solarize
@@ -122,8 +123,10 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
-  - Windows NSIS can register MyImageViewer as the default app for supported **image** formats
-  - Double-clicking an associated file opens it in a single app instance
+  - Windows NSIS installer in **Korean / English** (chosen at start); setup.exe, uninstaller, shortcuts and the running window all use the program icon
+  - Start-menu shortcut optional (Start-menu page: "do not create shortcuts"), desktop shortcut optional (finish page)
+  - On Install: asks whether to delete saved user data, then removes any previous MyImageViewer **and** the older Electron "Image Viewer" completely before installing; the uninstaller's "delete app data" box covers the same folders
+  - The default image viewer can be registered from Settings ▸ General; double-clicking an associated file opens it in the app
 
 - **Run modes / 실행 모드**
   - **Desktop**: Tauri (`npm start`)

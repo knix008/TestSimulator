@@ -234,7 +234,7 @@
   function _vendorBase() {
     if (vendorBase) return vendorBase;
     // Desktop (Tauri): the Node host serves the packages, whatever origin the page has.
-    if (typeof window !== 'undefined' && window.__TAURI__) return 'http://127.0.0.1:17810/node_modules/';
+    if (typeof window !== 'undefined' && window.__TAURI__) return `${window.__MIV_HOST__ || 'http://127.0.0.1:17810'}/node_modules/`;
     if (typeof document !== 'undefined') {
       try { return new URL('../node_modules/', document.baseURI).href; } catch { /* fall through */ }
     }

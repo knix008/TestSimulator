@@ -414,7 +414,7 @@ module.exports = {
         assertIncludes(host, `'${pkg}'`, pkg);
       }
       assertIncludes(host, "app.use('/node_modules/' + pkg", 'mounted under /node_modules');
-      assertIncludes(h.read('src/js/dicomDecoder.js'), "'http://127.0.0.1:17810/node_modules/'", 'Tauri vendor base');
+      assertIncludes(h.read('src/js/dicomDecoder.js'), "${window.__MIV_HOST__ || 'http://127.0.0.1:17810'}/node_modules/", 'Tauri vendor base = the host of this copy');
     });
   },
 };

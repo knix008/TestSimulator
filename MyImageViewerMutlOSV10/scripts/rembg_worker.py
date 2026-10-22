@@ -69,6 +69,10 @@ def _candidate_dirs() -> list[Path]:
 
 
 def _find_local_model(session_name: str) -> Path | None:
+    # The app's host provides (downloads if needed) the exact model file
+    given = os.environ.get("MYIMAGEVIEWER_MODEL_PATH")
+    if given and Path(given).is_file() and Path(given).stat().st_size > 1_000_000:
+        return Path(given)
     names = MODEL_ALIASES.get(session_name, [f"{session_name}.onnx"])
     for directory in _candidate_dirs():
         if not directory or not directory.is_dir():
@@ -97,6 +101,10 @@ def _create_session(session_name: str, model_path: Path | None):
     import onnxruntime as ort
 
     if model_path is None:
+        if os.environ.get("MYIMAGEVIEWER_MODEL_PATH") is not None:
+            # Started by the app: the host downloads models (with timeouts and progress);
+            # a silent, unbounded download here is exactly what must not happen.
+            raise RuntimeError(f"model file for {session_name} not found")
         from rembg import new_session
 
         return new_session(session_name)

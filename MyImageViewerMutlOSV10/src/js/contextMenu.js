@@ -58,7 +58,11 @@ window.ContextMenu = (() => {
         if (ev.type === 'title') {
           // Pointer over / pressed on a menu bar title under the overlay: replay it here
           const el = _hotEls[ev.index];
-          if (el) el.dispatchEvent(new MouseEvent(ev.click ? 'mousedown' : 'mouseenter', { bubbles: !!ev.click, cancelable: true, button: 0 }));
+          if (!el) return;
+          if (!ev.click) { el.dispatchEvent(new MouseEvent('mouseenter', { cancelable: true })); return; }
+          // Menu titles act on mousedown; plain buttons on the bar (Home) act on click
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+          if (!el.hasAttribute('aria-haspopup')) el.click();
           return;
         }
         const fn = _actions.get(ev.id);

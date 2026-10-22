@@ -101,6 +101,9 @@ async function getPrintersAsync() {
 const bounds = { x: 80, y: 60, width: 1400, height: 900 };
 const webContents = {
   isLoading: () => false,
+  // Progress senders check this first; without it every rembg / open / convert progress
+  // event threw (and was swallowed), so the bars never moved.
+  isDestroyed: () => false,
   send: (channel, payload) => emit(channel, payload),
   getPrintersAsync,
   print: (_opts, cb) => { if (typeof cb === 'function') cb(false, 'printed-in-webview'); },

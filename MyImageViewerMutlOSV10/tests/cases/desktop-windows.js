@@ -192,6 +192,86 @@ module.exports = {
       for (const s of ['position: relative !important;', 'order: 1;', 'flex: 0 0 104px;', 'border-top: 2px solid', 'min-width: 0;']) assertIncludes(film, s, s);
     });
 
+    /* ── Background removal ── */
+
+    test('"Selection" background removal keeps the selection (the subject), clears the rest', () => {
+      const fn = src.editor.slice(src.editor.indexOf('function removeBackground(removeInside = false)'), src.editor.indexOf('function listBgAlgorithms'));
+      assertIncludes(fn, 'if (inside === removeInside) {', 'outside is cleared when removeInside is false');
+    });
+
+    test('AI models: provided by the host (download with timeouts, .part file, checksum), never by the worker', () => {
+      for (const s of ['function _downloadFile(fileUrl, destPath, onProgress, opts = {})', "const part = `${destPath}.part`;",
+        'connectMs = 20000, stallMs = 30000', "'checksum mismatch (damaged download)'", 'async function _ensureRembgModel(key, emit',
+        "hex: '60024c5c889badc19c04ad937298a77b'", "code: err.code || 'MODEL_DOWNLOAD_FAILED', retry: true", 'const WORKER_LIMIT_MS = 10 * 60000;']) {
+        assertIncludes(host, s, s);
+      }
+      const worker = h.read('scripts/rembg_worker.py');
+      assertIncludes(worker, 'MYIMAGEVIEWER_MODEL_PATH', 'worker uses the given model');
+      assertIncludes(worker, 'a silent, unbounded download here is exactly what must not happen', 'no worker download when run by the app');
+    });
+
+    test('A failed model download is reported with Retry (a fresh download) / Close', () => {
+      assertIncludes(app, "if (result.code === 'MODEL_DOWNLOAD_FAILED') {", 'failure branch');
+      assertIncludes(app, "buttons: [t('bgAlgo.retryDownload'), t('bgAlgo.close')],", 'Retry / Close');
+      assertIncludes(app, 'if (retry) setTimeout(() => { _runRembg(algo); }, 0);', 'retry runs again (from finally)');
+    });
+
+    test('Host progress events are actually sent (webContents.isDestroyed exists)', () => {
+      assertIncludes(h.read('host/electron-shim.js'), 'isDestroyed: () => false,', 'shim method');
+    });
+
+    /* ── Installer ── */
+
+    test('Installer: Korean / English choice, same icon everywhere, optional shortcuts, hooks', () => {
+      const nsis = conf.bundle.windows.nsis;
+      assert(nsis.displayLanguageSelector === true && nsis.languages.join() === 'Korean,English', 'languages');
+      assert(nsis.installerIcon === 'icons/icon.ico' && nsis.uninstallerIcon === 'icons/icon.ico', 'installer / uninstaller icon');
+      assert(nsis.startMenuFolder === 'MyImageViewer', 'Start-menu page (with "do not create shortcuts")');
+      assert(nsis.installerHooks === 'windows/hooks.nsh', 'hooks');
+      assertIncludes(rust, 'window_icon::apply(&main);', 'taskbar icon from the exe');
+    });
+
+    test('Installer hooks: ask about user data, remove previous Tauri and Electron installs', () => {
+      const raw = require('fs').readFileSync(require('path').join(h.ROOT, 'src-tauri', 'windows', 'hooks.nsh'));
+      assert(raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf, 'UTF-8 with BOM (Korean text)');
+      const nsh = raw.toString('utf8');
+      for (const s of ['!macro NSIS_HOOK_PREINSTALL', 'MessageBox MB_YESNO', '$LANGUAGE == 1042', 'ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""',
+        '53fff549-80b5-525f-a34e-7d99abc7f4b6', 'ExecShellWait "open"', '!macro NSIS_HOOK_POSTUNINSTALL', '$DeleteAppDataCheckboxState = 1']) {
+        assertIncludes(nsh, s, s);
+      }
+    });
+
+    test('Edit window: Home button left of File', () => {
+      const bar = html.slice(html.indexOf('<div id="ew-menubar"'), html.indexOf('<div id="ew-win-gutter">'));
+      assert(bar.indexOf('id="ew-menubar-home"') > 0 && bar.indexOf('id="ew-menubar-home"') < bar.indexOf('id="ew-menubar-menus"'), 'Home before the menus');
+      assertIncludes(app, "document.getElementById('ew-menubar-home')?.addEventListener('click', () => _goHome());", 'wired');
+    });
+
+    /* ── Start-up, start screen, several copies ── */
+
+    test('Start-up honours "show this screen at startup"; no saved folder → the home folder', () => {
+      assertIncludes(app, 'const homeAtStart = _startScreen().showOnStart;', 'setting read at start-up');
+      assertIncludes(app, 'if (homeAtStart) showHome = true;', 'start screen on top of the restored folder');
+      assertIncludes(host, 'return os.homedir();', 'default folder = home');
+    });
+
+    test('Start screen: Explorer is the first card of "What you can do" and opens the main view', () => {
+      const tasks = app.slice(app.indexOf('const HOME_TASKS = ['), app.indexOf('const HOME_TASKS = [') + 600);
+      assert(tasks.indexOf("title: 'home.explorer'") > 0 && tasks.indexOf("title: 'home.explorer'") < tasks.indexOf("title: 'menu.openFolder'"), 'first card');
+      assert(!/title: 'home.explorer'[^\n]*primary: true/.test(tasks), 'not in the Start group');
+      assertIncludes(app, 'async function _homeExplorer()', 'handler');
+      assertIncludes(app, '_showFolderInCenter(dir);', 'main view with the folder sheet');
+    });
+
+    test('Several copies can run at once: each has its own host on its own port', () => {
+      assertIncludes(rust, 'static HOST_PORT: std::sync::atomic::AtomicU16', 'per-copy port');
+      assertIncludes(rust, 'TcpListener::bind("127.0.0.1:0")', 'free port');
+      assertIncludes(rust, '.env("MYIMAGEVIEWER_HOST_PORT", host_port_value().to_string())', 'port handed to the host');
+      assertIncludes(bridge, "invoke('host_port')", 'page asks for its host');
+      assertIncludes(bridge, 'await hostReady;', 'calls wait for the port');
+      assert(!/requestSingleInstanceLock\(\)\s*\)\s*\{?\s*app\.quit/.test(host), 'no single-instance quit');
+    });
+
     /* ── Edit window extras ── */
 
     test('Edit window: About button right of Settings, colour wheel at the top of Adjustments', () => {

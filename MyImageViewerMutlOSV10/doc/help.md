@@ -57,7 +57,7 @@ The collapse button on the panel title, or the left-panel button on the toolbar,
 
 In the browser (`npm run web`) you only see folders the browser was allowed to read. Rename, delete and Show in Explorer are desktop-only.
 
-At startup the last folder you opened appears as a thumbnail sheet, with the last picture selected. If that folder is gone, the newest recent folder that still exists opens instead. Settings › General can turn this off.
+At startup the last folder you opened appears as a thumbnail sheet, with the last picture selected. When the start screen is set to show at startup, it comes first with its background scene and the folder waits behind it; when it is not, the folder shows straight away. With no saved settings, your home folder opens. Explorer, the first card of What you can do, goes to that main view. Several copies of the program can run at once. If that folder is gone, the newest recent folder that still exists opens instead. Settings › General can turn this off.
 
 ## Viewing images
 
