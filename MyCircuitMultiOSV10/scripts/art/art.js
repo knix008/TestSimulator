@@ -1,7 +1,8 @@
 // Renders the program artwork as real 3D scenes with three.js (the same
 // component models the 3D viewer uses): the application icon (a lit, bevelled
-// circuit-board tile with an IC, capacitors and an LED, floating over a soft
-// shadow), the document icon, and the installer sidebar / header images.
+// tile with a circuit board — IC, capacitors and an LED — lifted off it,
+// turned and leaned toward the viewer so it reads as 3D, over a soft shadow),
+// the document icon, and the installer sidebar / header images.
 // scripts/render-art.mjs loads this page in a hidden Electron window and
 // collects the PNG data URLs from window.__art.
 
@@ -56,10 +57,30 @@ function boardTexture(size = 1024) {
   return new THREE.CanvasTexture(c);
 }
 
+// Soft round shadow for the board floating over the icon tile.
+function shadowTexture(size = 256) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  const grd = g.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size / 2);
+  grd.addColorStop(0, "rgba(0,0,0,0.55)");
+  grd.addColorStop(0.55, "rgba(0,0,0,0.25)");
+  grd.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
 function scene3d({ withParts = true, tile = true } = {}) {
   const scene = new THREE.Scene();
   const root = new THREE.Group();
   scene.add(root);
+  // The board and its parts: "spin" turns them in the board plane, "tilt"
+  // leans them toward the viewer (the icon view sets both).
+  const tilt = new THREE.Group();
+  const spin = new THREE.Group();
+  tilt.add(spin);
+  root.add(tilt);
   // Rounded tile (the icon background), bevelled for a 3D edge.
   if (tile) {
     const tileGeo = new THREE.ExtrudeGeometry(roundedRect(46, 46, 9), { depth: 3, bevelEnabled: true, bevelThickness: 1.6, bevelSize: 1.6, bevelSegments: 6, curveSegments: 24 });
@@ -81,14 +102,14 @@ function scene3d({ withParts = true, tile = true } = {}) {
   boardGeo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
   const board = new THREE.Mesh(boardGeo, [new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45, metalness: 0.1 }), new THREE.MeshStandardMaterial({ color: 0xc9b37a, roughness: 0.7 })]);
   board.position.y = -1.6;
-  root.add(board);
+  spin.add(board);
   if (withParts) {
     const place = (model3d, x, z, rot = 0, scale = 1) => {
       const m = buildModel(model3d, THREE, { boardThickness: 1.6 });
       m.position.set(x, 0, z);
       m.rotation.y = rot;
       m.scale.setScalar(scale);
-      root.add(m);
+      spin.add(m);
       return m;
     };
     // A big IC in the middle, a capacitor, a resistor and an LED.
@@ -109,7 +130,7 @@ function scene3d({ withParts = true, tile = true } = {}) {
   const rim = new THREE.DirectionalLight(0xffffff, 1.4);
   rim.position.set(0, 30, -60);
   scene.add(rim);
-  return { scene, root };
+  return { scene, root, tilt, spin };
 }
 
 function render(width, height, { view = "icon", tile = true, parts = true, background = null } = {}) {
@@ -122,7 +143,22 @@ function render(width, height, { view = "icon", tile = true, parts = true, backg
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
-  const { scene, root } = scene3d({ tile, withParts: parts });
+  const { scene, root, tilt, spin } = scene3d({ tile, withParts: parts });
+  // Icon: the board is lifted off the tile, turned and leaned toward the
+  // viewer, so its edge and the parts' heights and sides show in 3D, with a
+  // soft shadow on the tile under it.
+  if (view === "icon") {
+    spin.rotation.y = 0.55;
+    spin.scale.setScalar(0.8);
+    tilt.rotation.x = -0.62;
+    tilt.position.set(0, 12, -1);
+    if (tile) {
+      const sh = new THREE.Mesh(new THREE.PlaneGeometry(42, 36), new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }));
+      sh.rotation.x = -Math.PI / 2;
+      sh.position.set(2.5, 0.15, 3.5);
+      root.add(sh);
+    }
+  }
   if (background) scene.background = new THREE.Color(background);
   // The icon looks straight down on the board (a narrow lens keeps the parts'
   // sides from leaning outwards); the bevel and lighting still give it depth.
