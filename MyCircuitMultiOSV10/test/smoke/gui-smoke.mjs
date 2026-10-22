@@ -633,6 +633,91 @@ try {
     await ev(`window.mycircuitApp.setTab("sch"); return 1`);
     return bad.length ? fail(bad) : true;
   });
+  await step("menu bar: Start + an icon on every menu; tab bar: no Start tab, < > at the right end; version in the title bar", async () => {
+    const r = await ev(`const a = window.mycircuitApp; a.setTab("sch");
+      const start = document.getElementById("menu-start");
+      const roots = [...document.querySelectorAll("#menubar > button")];
+      const tabbar = document.getElementById("tabbar"); const nav = tabbar.querySelector(".tab-nav");
+      const startTab = [...tabbar.querySelectorAll(".doc-tab")].some((b) => b.textContent.trim() === a.t("Start"));
+      // Measure before clicking Start: switching tabs rebuilds the tab bar.
+      const navRight = Math.abs(nav.getBoundingClientRect().right - (tabbar.getBoundingClientRect().right - parseFloat(getComputedStyle(tabbar).paddingRight))) <= 2;
+      start.click();
+      const opened = a.tab === "start" && document.getElementById("menu-start").classList.contains("on") && document.getElementById("menu-start").getAttribute("aria-pressed") === "true";
+      document.getElementById("menu-start").click(); // toggle: back to the work tab
+      const back = a.tab === "sch" && document.getElementById("menu-start").getAttribute("aria-pressed") === "false";
+      a.setTab("sch");
+      return { first: roots[0] === start, icons: roots.every((b) => b.querySelector("svg")), startTab, opened, back, navRight,
+        version: document.getElementById("brand-ver").textContent };`);
+    return r.first && r.icons && !r.startTab && r.opened && r.back && r.navRight && r.version === "v1.0" ? true : fail(r);
+  });
+  await step("start page: 25 backgrounds in full rows of 5, transparency / motion steppers, always-show switch", async () => {
+    const r = await ev(`const a = window.mycircuitApp; a.setTab("start"); await new Promise((res) => setTimeout(res, 300));
+      const before = { ...a.start.screen() }; const show = a.settings.showStartOnLaunch;
+      const tiles = document.querySelectorAll(".start-scene").length;
+      const cols = getComputedStyle(document.querySelector(".start-scenes")).gridTemplateColumns.split(" ").length;
+      document.querySelector('.start-scene[data-scene="scope"]').click();
+      const picked = a.start.screen().scene === "scope" && document.querySelector(".start-scene.on").dataset.scene === "scope";
+      document.querySelector('.stepper[data-start-setting="transparency"] [data-step="-1"]').click();
+      const veil = +getComputedStyle(document.querySelector(".start-bg"), "::after").opacity;
+      const tr = a.start.screen().transparency;
+      document.getElementById("start-always").click(); const off = a.settings.showStartOnLaunch === false;
+      document.getElementById("start-always").click();
+      a.start.setScreen(before); a.setSetting("showStartOnLaunch", show);
+      const big = document.querySelector(".sample-card").getBoundingClientRect().width;
+      return { tiles, cols, picked, tr, veil, off, big };`);
+    return r.tiles >= 20 && r.tiles % r.cols === 0 && r.picked && Math.abs(r.veil - (1 - r.tr / 100)) < 0.01 && r.off && r.big >= 200 ? `${r.tiles} scenes` : fail(r);
+  });
+  await step("3D: axes never drawn over parts, light on/off button, light & axes edited in Properties", async () => {
+    await ev(`window.mycircuitApp.setTab("3d"); return 1`);
+    await sleep(1500);
+    const r = await ev(`const a = window.mycircuitApp, v = a.v3d;
+      const info = () => v.viewer.helperInfo();
+      const depth = info().axesDepthTest;
+      const btn = () => document.querySelector("#toolbar [data-light3d]");
+      const was = info().lights.on; btn().click(); const toggled = info().lights.on !== was;
+      const hiddenOff = !info().sunVisible; btn().click(); const shownOn = info().sunVisible;
+      const line = info().sunLine; // sun -> axes origin
+      const toOrigin = !!line && Math.abs(line[3]) < 0.01 && Math.abs(line[5]) < 0.01;
+      v.selectHelper("light");
+      const lightRows = [...document.querySelectorAll('.side.right .stepper[data-scene]')].map((s) => s.dataset.scene);
+      const axisRows = [...document.querySelectorAll('.side.right .stepper[data-light-axis]')].map((s) => s.dataset.lightAxis);
+      const x0 = info().lightPos.x;
+      document.querySelector('.side.right .stepper[data-light-axis="x"] [data-step="1"]').click();
+      const movedX = Math.abs(info().lightPos.x - (x0 + 1)) < 0.05;
+      v.setScene({ lightPos: null });
+      const st = document.querySelector('.side.right .stepper[data-scene="lightIntensity"]'); const k0 = info().lights.key;
+      st.querySelector('[data-step="1"]').click(); const brighter = info().lights.key > k0;
+      document.querySelector('.side.right .stepper[data-scene="lightIntensity"] [data-step="-1"]').click();
+      v.selectHelper("axes");
+      const axesRows = [...document.querySelectorAll('.side.right .stepper[data-scene]')].map((s) => s.dataset.scene);
+      v.selectHelper(null);
+      return { depth, toggled, hiddenOff, shownOn, toOrigin, lightRows, axisRows, movedX, brighter, axesRows, selected: info().selected };`);
+    if (!(r.depth === true && r.toggled && r.hiddenOff && r.shownOn && r.toOrigin && r.brighter && r.axisRows.join() === "x,y,z" && r.movedX && r.axesRows.includes("axesScale"))) return fail(r);
+    // Drag the sun with the mouse: the light moves and the position is saved.
+    const before = await ev(`return window.mycircuitApp.v3d.viewer.helperInfo()`);
+    const p = before.sun;
+    await move(p.x, p.y);
+    await mouse("mousePressed", p.x, p.y);
+    for (let i = 1; i <= 5; i++) await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: p.x - 16 * i, y: p.y + 6 * i, buttons: 1 });
+    await mouse("mouseReleased", p.x - 80, p.y + 30);
+    await sleep(200);
+    const after = await ev(`const a = window.mycircuitApp; const i = a.v3d.viewer.helperInfo(); const saved = a.settings.scene3d.lightPos; a.v3d.setScene({ lightPos: null }); return { pos: i.lightPos, saved, helper: a.v3d.pickedHelper }`);
+    const moved = Math.hypot(after.pos.x - before.lightPos.x, after.pos.y - before.lightPos.y, after.pos.z - before.lightPos.z) > 1;
+    return moved && after.saved && after.helper === "light" ? `dragged to ${after.pos.x}, ${after.pos.y}, ${after.pos.z}` : fail({ before: before.lightPos, after });
+  });
+  await step("every number field in a dialog is a −/+ stepper (no bare number inputs)", async () => {
+    await ev(`window.mycircuitApp.run("tools.boardSetup"); return 1`);
+    await sleep(400);
+    const r = await ev(`const out = { bare: 0, steppers: 0 };
+      for (const tab of document.querySelectorAll(".modal .tab")) { tab.click(); await new Promise((res) => setTimeout(res, 30));
+        out.bare += document.querySelectorAll('.modal input[type="number"]').length; out.steppers += document.querySelectorAll(".modal .stepper").length; }
+      document.querySelector(".modal-backdrop")?.remove(); return out;`);
+    return r.bare === 0 && r.steppers > 5 ? `${r.steppers} steppers` : fail(r);
+  });
+  await step("window minimum width covers the widest toolbar, the menus and the tab bar", async () => {
+    const r = await ev(`const a = window.mycircuitApp; const m = a.measureMinWidth(); return { need: m.need, parts: m.parts, set: +document.documentElement.dataset.minWidth };`);
+    return r.set > 0 && r.need === Math.max(...Object.values(r.parts)) ? `${r.set}px (${Object.entries(r.parts).map(([k, v]) => k + " " + v).join(", ")})` : fail(r);
+  });
   await step("theme gallery: 20 dark + 20 light themes, each applies", async () => {
     await ev(`window.mycircuitApp.run("view.themes"); return 1`);
     await sleep(300);

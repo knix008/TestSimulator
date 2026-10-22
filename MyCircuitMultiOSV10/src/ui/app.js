@@ -56,6 +56,14 @@ class App {
     if (saved && (saved.gridVersion || 1) < 2) { this.settings.gridStyle = "lines"; this.settings.gridVersion = 2; }
     // v3 navigation: dragging empty canvas moves the drawing (Shift+drag boxes).
     if (saved && (saved.navVersion || 1) < 3) { this.settings.emptyDrag = "pan"; this.settings.navVersion = 3; }
+    // "startup" used to choose start page / last project; now a separate
+    // switch says whether the start page shows, startup says what opens if not.
+    if (saved && saved.showStartOnLaunch === undefined) {
+      this.settings.showStartOnLaunch = saved.startup !== "last";
+      this.settings.startup = "last";
+    }
+    // Start page motion was rescaled (×3): the old speeds start again at 50 %.
+    if (saved && saved.startScreen && !saved.startScreen.motionV2) this.settings.startScreen = { ...saved.startScreen, motion: 50, motionV2: true };
     setCustomThemes(this.settings.customThemes);
     if (!saved) this.settings.lang = (navigator.language || "ko").startsWith("ko") ? "ko" : "en";
     setLanguage(this.settings.lang);
@@ -96,7 +104,12 @@ class App {
     this.checkAutosave();
     this.applySettings();
     if (!this.settings.onboarded || this.settings.showWelcome) setTimeout(() => dialogs.showWelcome(this), 400);
-    else if (this.settings.startup === "last" && platform.isDesktop && this.settings.recent && this.settings.recent[0]) setTimeout(() => this.openPath(this.settings.recent[0].path), 300);
+    else if (this.settings.showStartOnLaunch === false) {
+      // No start page: reopen the last project if there is one, else an empty project.
+      const last = this.settings.startup !== "new" && platform.isDesktop && this.settings.recent && this.settings.recent[0];
+      if (last) setTimeout(() => this.openPath(last.path), 300);
+      else this.setTab("sch");
+    }
   }
 
   // ---------------------------------------------------------------- theme & settings
@@ -189,9 +202,19 @@ class App {
     if (id && this.sch.pageId !== id) this.sch.setPage(id);
   }
 
+  // Start works as a toggle: pressed while the start page shows; pressing it
+  // again goes back to the tab that was open (the schematic if none was).
+  toggleStart() {
+    if (this.tab !== "start") { this.setTab("start"); return; }
+    const back = this.returnTab && this.returnTab !== "start" ? this.returnTab : "sch";
+    this.setTab(back);
+  }
+
   setTab(tab) {
     if (this.tab === "sch" && tab !== "sch" && this.sch.wire) this.sch.finishWire();
     if (this.tab === "pcb" && tab !== "pcb" && this.pcb.route) this.pcb.finishRoute();
+    // Remember the work tab so the Start toggle can return to it.
+    if (tab === "start" && this.tab && this.tab !== "start") this.returnTab = this.tab;
     this.tab = tab;
     for (const id of ["start", "sch", "pcb", "3d", "sim"]) this.$(`view-${id}`).classList.toggle("on", id === tab);
     if (tab === "sch") this.sch.activate();
@@ -199,6 +222,8 @@ class App {
     if (tab === "3d") this.v3d.activate();
     if (tab === "sim") this.simView.activate();
     if (tab === "start") { this.start.render(); this.setHint(""); }
+    const startBtn = document.getElementById("menu-start");
+    if (startBtn) { startBtn.classList.toggle("on", tab === "start"); startBtn.setAttribute("aria-pressed", String(tab === "start")); startBtn.title = t(tab === "start" ? "Back to your work" : "Start page"); }
     this.applyPanels();
     this.renderTabs();
     this.renderToolbar();
@@ -225,7 +250,6 @@ class App {
       const warnN = list.length - errN;
       return errN ? [String(errN), ""] : warnN ? [String(warnN), "warn"] : null;
     };
-    items.push({ icon: "home", label: t("Start"), title: t("Start"), on: this.tab === "start", go: () => this.setTab("start") });
     if (!pages.length) {
       items.push({
         icon: "resistor", label: t("Schematic"), title: `${t("Schematic")} (F2)`,
@@ -274,17 +298,19 @@ class App {
       e.preventDefault();
     }, { passive: false });
 
+    // The start page has no tab (the menu bar's Start button opens it); from
+    // there "next" goes to the first tab and "previous" has nowhere to go.
     const active = items.findIndex((it) => it.on);
     const step = (dir) => {
       const i = items.findIndex((it) => it.on);
-      const n = (i < 0 ? 0 : i) + dir;
+      const n = i < 0 ? (dir > 0 ? 0 : -1) : i + dir;
       if (n < 0 || n >= items.length) return;
       items[n].go();
     };
     const nav = h("div", { class: "tab-nav" },
-      h("button", { class: "tab-nav-btn", type: "button", title: t("Previous tab"), "aria-label": t("Previous tab"), disabled: active <= 0, onclick: () => step(-1) }, "<"),
-      h("button", { class: "tab-nav-btn", type: "button", title: t("Next tab"), "aria-label": t("Next tab"), disabled: active < 0 || active >= items.length - 1, onclick: () => step(1) }, ">"));
-    bar.append(h("div", { class: "tab-group" }, strip, nav));
+      h("button", { class: "tab-nav-btn", type: "button", title: t("Previous tab"), "aria-label": t("Previous tab"), disabled: active <= 0, html: icon("chevronLeft", 15), onclick: () => step(-1) }),
+      h("button", { class: "tab-nav-btn", type: "button", title: t("Next tab"), "aria-label": t("Next tab"), disabled: active >= items.length - 1, html: icon("chevronRight", 15), onclick: () => step(1) }));
+    bar.append(h("div", { class: "tab-group" }, strip));
     const wasQuery = document.activeElement && document.activeElement.id === "palette-query";
     const caret = wasQuery ? document.activeElement.selectionStart : null;
     const query = h("input", {
@@ -301,7 +327,7 @@ class App {
       class: "icon-btn palette-find", type: "button", title: t("Search"), "aria-label": t("Search"),
       html: icon("search", 14), onclick: () => this.openPalette(query.value),
     });
-    bar.append(h("div", { class: "palette-btn" }, query, find, h("kbd", {}, "Ctrl+K")));
+    bar.append(h("div", { class: "palette-btn" }, query, find, h("kbd", {}, "Ctrl+K")), nav);
     if (wasQuery) {
       query.focus();
       if (caret != null) query.setSelectionRange(caret, caret);
@@ -332,6 +358,9 @@ class App {
     ws.classList.toggle("collapse-left", leftOn && !!this.settings.leftCollapsed);
     ws.classList.toggle("collapse-right", rightOn && !!this.settings.rightCollapsed);
     requestAnimationFrame(() => this.layout());
+    // Panel widths count toward the window minimum; while a splitter is being
+    // dragged wait for the drop so the window does not grow under the mouse.
+    if (!this.splitterDrag) this.scheduleMinWidth();
   }
 
   togglePanel(side) {
@@ -355,6 +384,7 @@ class App {
       sp.addEventListener("pointerdown", (e) => {
         sp.setPointerCapture(e.pointerId);
         sp.classList.add("drag");
+        this.splitterDrag = true;
         const side = sp.dataset.side;
         const startX = e.clientX;
         const start = side === "left" ? this.settings.leftW : this.settings.rightW;
@@ -368,7 +398,9 @@ class App {
           sp.classList.remove("drag");
           sp.removeEventListener("pointermove", move);
           sp.removeEventListener("pointerup", up);
+          this.splitterDrag = false;
           this.saveSettings();
+          this.scheduleMinWidth();
         };
         sp.addEventListener("pointermove", move);
         sp.addEventListener("pointerup", up);
@@ -427,7 +459,9 @@ class App {
     const el = this.$("doc-title");
     el.innerHTML = "";
     el.append(h("span", {}, `${this.store.project.meta.title || name}`), h("span", { class: "dirty" }, this.store.dirty ? " ●" : ""), h("span", {}, `  —  ${name}`));
-    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyCircuit V1.0`);
+    platform.setWindowTitle(`${this.store.dirty ? "● " : ""}${name} — MyCircuit v${VERSION.split(".").slice(0, 2).join(".")}`);
+    const ver = this.$("brand-ver");
+    if (ver) { ver.textContent = `v${VERSION.split(".").slice(0, 2).join(".")}`; ver.title = `${t("Version")} ${VERSION}`; }
   }
 
   // ---------------------------------------------------------------- hint & status
@@ -847,7 +881,7 @@ class App {
     C("edit.find", "Find…", "search", "Ctrl+F", () => dialogs.findDialog(this));
     C("edit.history", "Undo history…", "history", "", () => dialogs.historyDialog(this));
     // View
-    C("view.start", "Start page", "home", "", () => this.setTab("start"));
+    C("view.start", "Start page", "home", "", () => this.toggleStart(), { checked: () => this.tab === "start" });
     C("view.sch", "Schematic editor", "resistor", "F2", () => this.setTab("sch"));
     C("view.pcb", "PCB editor", "chip", "F3", () => this.setTab("pcb"));
     C("view.3d", "3D viewer", "cube", "F4", () => this.setTab("3d"));
@@ -944,11 +978,16 @@ class App {
       Simulate: ["sim.run", "-", "sim.op", "sim.tran", "sim.ac", "sim.dc", "-", "sim.spice", "sim.clear"],
       Help: ["help.tutorial", "help.manual", "help.keys", "help.tour", "-", "help.about"],
     };
+    const ROOT_ICONS = { File: "file", Edit: "edit", View: "eye", Place: "resistor", Route: "route", Inspect: "erc", Tools: "tools", Simulate: "sim", Help: "help" };
     this.menuMap = M;
     const bar = this.$("menubar");
     bar.innerHTML = "";
+    // Start sits left of the menus, as in MyDCMViewer; it is the only way to the
+    // start page besides View → Start page (the tab bar has no Start tab).
+    bar.append(h("button", { id: "menu-start", class: `menu-start${this.tab === "start" ? " on" : ""}`, "aria-pressed": String(this.tab === "start"), title: t(this.tab === "start" ? "Back to your work" : "Start page"), onclick: () => this.run("view.start") },
+      h("span", { class: "mr-ico", html: icon("home", 15) }), h("span", {}, t("Start"))));
     for (const [name, ids] of Object.entries(M)) {
-      const btn = h("button", { class: "menu-root", "data-menu": name }, t(name));
+      const btn = h("button", { class: "menu-root", "data-menu": name }, h("span", { class: "mr-ico", html: icon(ROOT_ICONS[name], 15) }), h("span", {}, t(name)));
       const open = () => {
         document.querySelectorAll(".menu-root.open").forEach((b) => b.classList.remove("open"));
         btn.classList.add("open");
@@ -984,7 +1023,7 @@ class App {
       }
       const c = this.commands.get(id);
       if (!c) continue;
-      out.push({ label: t(c.label), icon: c.checked ? null : c.icon, shortcut: c.key, checked: c.checked ? c.checked() : false, disabled: c.enabled ? !c.enabled() : false, action: () => this.run(id) });
+      out.push({ label: t(c.label), icon: c.icon, shortcut: c.key, checked: c.checked ? c.checked() : false, disabled: c.enabled ? !c.enabled() : false, action: () => this.run(id) });
     }
     return out;
   }
@@ -1007,59 +1046,135 @@ class App {
   }
 
   // ---------------------------------------------------------------- toolbar
-  // Every toolbar button must stay visible: the window may not become
-  // narrower than the widest toolbar seen so far.
+  // Width a flex row needs to show every child at its natural size.
+  rowNeed(row, extra = 0) {
+    const cs = getComputedStyle(row);
+    const kids = [...row.children];
+    let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * Math.max(0, kids.length - 1) + extra;
+    for (const k of kids) {
+      if (k.classList.contains("grow")) continue;
+      const st = getComputedStyle(k);
+      need += k.getBoundingClientRect().width + parseFloat(st.marginLeft) + parseFloat(st.marginRight);
+    }
+    return Math.ceil(need);
+  }
+
+  screenWidth() {
+    const z = platform.isDesktop ? +this.settings.uiScale || 1 : 1;
+    return Math.floor(((window.screen && window.screen.availWidth) || 1920) / z) - 16;
+  }
+
+  // On a narrow screen the labelled buttons drop their text (icons and
+  // tooltips stay) so the whole toolbar still fits.
   fitToolbar(bar) {
     requestAnimationFrame(() => {
-      const measure = () => {
-        const cs = getComputedStyle(bar);
-        const kids = [...bar.children];
-        let need = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + (parseFloat(cs.columnGap) || 0) * Math.max(0, kids.length - 1) + 12;
-        for (const k of kids) {
-          if (k.classList.contains("grow")) continue;
-          const st = getComputedStyle(k);
-          need += k.getBoundingClientRect().width + parseFloat(st.marginLeft) + parseFloat(st.marginRight);
-        }
-        return Math.ceil(need);
-      };
-      const z = platform.isDesktop ? +this.settings.uiScale || 1 : 1;
-      // On a narrow screen the labelled buttons drop their text (icons and
-      // tooltips stay) so the whole toolbar still fits.
-      const screenW = Math.floor(((window.screen && window.screen.availWidth) || 1920) / z) - 16;
+      const screenW = this.screenWidth();
       bar.classList.remove("compact", "wrap");
       document.documentElement.classList.remove("toolbar-wrap");
-      let need = measure();
-      if (need > screenW || need > bar.clientWidth + 1 && !platform.isDesktop) { bar.classList.add("compact"); need = measure(); }
+      let need = this.rowNeed(bar, 12);
+      if (need > screenW || need > bar.clientWidth + 1 && !platform.isDesktop) { bar.classList.add("compact"); need = this.rowNeed(bar, 12); }
       // Still too wide for the screen: let the toolbar take a second row.
       if (need > screenW) { bar.classList.add("wrap"); document.documentElement.classList.add("toolbar-wrap"); need = Math.min(need, screenW); }
       bar.dataset.need = String(need);
-      const w = Math.ceil(need * z);
-      if (w > (this.toolbarMinWidth || 0)) { this.toolbarMinWidth = w; platform.setMinSize(w, 700); }
+      this.scheduleMinWidth();
     });
   }
 
-  renderToolbar() {
-    const bar = this.$("toolbar");
+  // The window may not get narrower than what the widest screen needs: every
+  // tab's toolbar (each rendered off-screen, so the minimum is right before
+  // the tab is ever opened), the title bar with all menus and the window
+  // buttons, and the tab bar with the search box and the < > buttons.
+  scheduleMinWidth() {
+    if (this.minWidthPending) return;
+    this.minWidthPending = true;
+    requestAnimationFrame(() => { this.minWidthPending = false; this.updateMinWidth(); });
+  }
+
+  measureMinWidth() {
+    const screenW = this.screenWidth();
+    const probe = h("div", { class: "toolbar", "aria-hidden": "true", style: { position: "fixed", left: "-20000px", top: "0", width: "max-content", height: "var(--toolbar-h)", visibility: "hidden" } });
+    document.body.append(probe);
+    const parts = {};
+    try {
+      for (const tab of ["start", "sch", "pcb", "3d", "sim"]) {
+        this.renderToolbar(probe, tab);
+        let need = this.rowNeed(probe, 12);
+        if (need > screenW) { probe.classList.add("compact"); need = Math.min(this.rowNeed(probe, 12), screenW); probe.classList.remove("compact"); }
+        parts[tab] = need;
+      }
+    } finally {
+      probe.remove();
+    }
+    // Title bar: the centred document title keeps at least 120 px.
+    const title = this.$("titlebar");
+    const menus = this.$("menubar");
+    const titleCs = getComputedStyle(title);
+    const menuW = this.rowNeed(menus);
+    const gap = parseFloat(titleCs.columnGap) || 0;
+    parts.titlebar = Math.ceil(parseFloat(titleCs.paddingLeft) + parseFloat(titleCs.paddingRight) + gap * 3
+      + title.querySelector(".brand").getBoundingClientRect().width + parseFloat(getComputedStyle(title.querySelector(".brand")).marginRight)
+      + menuW + 120 + this.$("title-right").getBoundingClientRect().width);
+    // Tab bar: room for two tabs next to the search box (min width) and < >.
+    const tabbar = this.$("tabbar");
+    const tabCs = getComputedStyle(tabbar);
+    const pal = tabbar.querySelector(".palette-btn");
+    const nav = tabbar.querySelector(".tab-nav");
+    const tabNeed = Math.ceil(parseFloat(tabCs.paddingLeft) + parseFloat(tabCs.paddingRight) + (parseFloat(tabCs.columnGap) || 0) * 2
+      + 2 * 150 + (pal ? parseFloat(getComputedStyle(pal).minWidth) || 200 : 200) + (nav ? nav.getBoundingClientRect().width : 0));
+    // The tab bar and the canvas sit between the side panels, so the editors
+    // need the panels (as they are now: open, folded to a rail, or hidden)
+    // plus the tab bar or a usable canvas (360 px), whichever is wider. The
+    // simulation tab has no right panel and the start page none at all.
+    const st = this.settings;
+    const side = (show, collapsed, w) => (show ? (collapsed ? 44 : +w || 0) + 4 : 0);
+    const leftW = side(st.showLeft, st.leftCollapsed, st.leftW);
+    const rightW = side(st.showRight, st.rightCollapsed, st.rightW);
+    const center = Math.max(tabNeed, 360);
+    parts.tabbar = tabNeed;
+    parts.editor = leftW + rightW + center;
+    parts.simulation = leftW + center;
+    // Start page: the left column (280) and two sample columns (2 × 220 + 12),
+    // with the page's side padding and column gap (the cards drop to two
+    // columns below 1180 px, so two is the narrowest layout that still reads).
+    parts.startPage = 56 + 280 + 28 + 2 * 220 + 12;
+    return { need: Math.max(...Object.values(parts)), parts };
+  }
+
+  updateMinWidth() {
+    if (!this.store || !this.$("titlebar")) return;
+    const { need } = this.measureMinWidth();
+    const z = platform.isDesktop ? +this.settings.uiScale || 1 : 1;
+    const w = Math.ceil(Math.min(need, this.screenWidth()) * z);
+    document.documentElement.dataset.minWidth = String(w);
+    if (w !== this.toolbarMinWidth) { this.toolbarMinWidth = w; platform.setMinSize(w, 700); }
+  }
+
+  renderToolbar(target = null, tab = this.tab) {
+    const bar = target || this.$("toolbar");
     bar.innerHTML = "";
-    const btn = (id, { label = false } = {}) => {
+    const btn = (id, { label = false, text = null, enabled = null } = {}) => {
       const c = this.commands.get(id);
       if (!c) return null;
       const on = c.checked ? c.checked() : false;
-      const b = h("button", { class: `icon-btn ${on ? "on" : ""}`, "data-cmd": id, title: `${t(c.label)}${c.key ? `  (${c.key})` : ""}`, disabled: c.enabled ? !c.enabled() : false, onclick: () => this.run(id) },
-        h("span", { html: icon(c.icon, 18) }), label ? h("span", { class: "lbl" }, t(c.label)) : null);
+      const name = t(text || c.label);
+      const off = enabled ? !enabled() : c.enabled ? !c.enabled() : false;
+      const b = h("button", { class: `icon-btn ${on ? "on" : ""}`, "data-cmd": id, title: `${name}${c.key ? `  (${c.key})` : ""}`, disabled: off, onclick: () => this.run(id) },
+        h("span", { html: icon(c.icon, 18) }), label ? h("span", { class: "lbl" }, name) : null);
       return b;
     };
     const sep = () => h("div", { class: "sep" });
     const add = (...els) => bar.append(...els.filter(Boolean));
+    // 3D view of the board as built so far: needs at least one footprint on it.
+    const view3d = () => btn("view.3d", { label: true, text: "3D View", enabled: () => (this.store.project.pcb.footprints || []).length > 0 });
     add(btn("file.new"), btn("file.open"), btn("file.save"), btn("file.print"), sep(), btn("edit.undo"), btn("edit.redo"), sep());
-    if (this.tab === "start") {
-      add(btn("file.samples", { label: true }), btn("view.sch", { label: true }), btn("view.pcb", { label: true }), btn("help.manual", { label: true }));
-    } else if (this.tab === "sch") {
+    if (tab === "start") {
+      add(btn("file.samples", { label: true }), btn("view.sch", { label: true }), btn("view.pcb", { label: true }), view3d(), btn("help.manual", { label: true }));
+    } else if (tab === "sch") {
       add(btn("sch.select"), btn("sch.place"), btn("sch.power"), btn("sch.wire"), btn("sch.bus"), btn("sch.label"), btn("sch.global"), btn("sch.noconnect"), btn("sch.junction"), btn("sch.text"), btn("sch.hlabel"), btn("sch.sheet"), btn("sch.measure"), btn("sch.dimension"), sep(),
         btn("edit.rotate"), btn("edit.mirror"), btn("edit.mirrorV"), btn("edit.delete"), sep(),
-        btn("tools.annotate"), btn("inspect.erc"), btn("tools.footprints"), btn("tools.updatePcb", { label: true }), sep(), btn("sim.run"),
+        btn("tools.annotate"), btn("inspect.erc"), btn("tools.footprints"), btn("tools.updatePcb", { label: true }), view3d(), sep(), btn("sim.run"),
         sep(), btn("view.pan"), btn("view.grid"), btn("view.rulers"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
-    } else if (this.tab === "pcb") {
+    } else if (tab === "pcb") {
       const cu = copperLayers(this.store.project.pcb);
       const layerSel = h("select", { class: "input", title: t("Active layer (PgUp / PgDn)"), onchange: (e) => this.pcb.setActiveLayer(e.target.value) });
       for (const l of [...cu, "F.SilkS", "B.SilkS", "Edge.Cuts", "Dwgs.User"]) {
@@ -1070,15 +1185,15 @@ class App {
       add(btn("pcb.select"), btn("pcb.route"), btn("pcb.via"), btn("pcb.zone"), btn("pcb.outline"), btn("pcb.text"), btn("pcb.line"), btn("pcb.dimension"), btn("pcb.measure"), sep(),
         h("span", { class: "group-label" }, t("Layer")), layerSel, sep(),
         btn("edit.rotate"), btn("edit.flip"), btn("edit.delete"), sep(),
-        btn("inspect.drc"), btn("pcb.autoroute", { label: true }), btn("pcb.groundPour"), btn("tools.boardSetup"), btn("file.fab"), sep(), btn("view.contrast"), btn("view.ratsnest"),
+        btn("inspect.drc"), btn("pcb.autoroute", { label: true }), btn("pcb.groundPour"), btn("tools.boardSetup"), btn("file.fab"), view3d(), sep(), btn("view.contrast"), btn("view.ratsnest"),
         sep(), btn("view.pan"), btn("view.grid"), btn("view.rulers"), btn("view.boardSize"), sep(), btn("view.zoomOut"), btn("view.zoomIn"), btn("view.fit"));
-    } else if (this.tab === "3d") {
+    } else if (tab === "3d") {
       this.v3d.renderToolbar(bar, btn, sep);
-    } else if (this.tab === "sim") {
+    } else if (tab === "sim") {
       this.simView.renderToolbar(bar, btn, sep);
     }
     add(sep(), btn("help.tutorial"), btn("help.keys"));
-    this.fitToolbar(bar);
+    if (!target) this.fitToolbar(bar);
   }
 
   // ---------------------------------------------------------------- keyboard

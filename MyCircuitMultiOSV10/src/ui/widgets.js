@@ -262,6 +262,7 @@ export function contextMenu(items, x, y) {
     if (!it) continue;
     const row = h("button", { class: `menu-item ${it.danger ? "danger" : ""} ${it.checked ? "checked" : ""}`, disabled: it.disabled, role: "menuitem" },
       h("span", { class: "mi-icon", html: it.icon ? icon(it.icon, 16) : it.checked ? icon("check", 14) : "" }),
+      it.icon && it.checked ? h("span", { class: "mi-check", html: icon("check", 12) }) : null,
       h("span", { class: "mi-label" }, it.label),
       h("span", { class: "mi-key" }, it.shortcut || ""));
     row.addEventListener("click", () => { closeMenus(); if (it.action) it.action(); });
@@ -385,9 +386,56 @@ export function field(label, control, hint) {
 }
 
 export function input(value, { type = "text", step, min, max, placeholder, onInput, onChange, list, cls = "" } = {}) {
+  if (type === "number") return numberInput(value, { step, min, max, placeholder, onInput, onChange, cls });
   const el = h("input", { class: `input ${cls}`, type, value: value ?? "", step, min, max, placeholder, list });
   if (onInput) el.addEventListener("input", () => onInput(el.value, el));
   if (onChange) el.addEventListener("change", () => onChange(el.value, el));
+  return el;
+}
+
+// Every number field is [−] value [+] with the value centred and still
+// typeable. It behaves like an <input> for its callers: `.value` reads and
+// writes the text, and input/change events bubble from the inner field (the
+// buttons fire both, as typing and leaving the field would).
+function numberInput(value, { step, min, max, placeholder, onInput, onChange, cls = "" }) {
+  const st = parseFloat(step) || 1;
+  const dec = String(step ?? "1").includes(".") ? String(step).split(".")[1].length : 0;
+  const lo = min == null || min === "" ? -Infinity : Number(min);
+  const hi = max == null || max === "" ? Infinity : Number(max);
+  const field = h("input", { class: "stepper-val", type: "text", inputmode: "decimal", spellcheck: "false", value: value ?? "", placeholder });
+  const dn = h("button", { class: "stepper-btn", type: "button", tabindex: "-1", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1" }, "−");
+  const up = h("button", { class: "stepper-btn", type: "button", tabindex: "-1", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1" }, "+");
+  const el = h("div", { class: `stepper editable number-input ${cls}`, role: "spinbutton" }, dn, field, up);
+  const num = () => parseFloat(String(field.value).replace(",", "."));
+  const sync = () => { const n = num(); dn.disabled = Number.isFinite(n) && n <= lo + 1e-9; up.disabled = Number.isFinite(n) && n >= hi - 1e-9; };
+  const move = (dir) => {
+    const n = Number.isFinite(num()) ? num() : 0;
+    const nv = Math.min(hi, Math.max(lo, n + dir * st));
+    field.value = String(+nv.toFixed(dec || 6));
+    sync();
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  for (const [b, dir] of [[dn, -1], [up, 1]]) {
+    let timer = null;
+    const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+    b.addEventListener("click", (e) => { if (e.detail === 0 || !b.dataset.held) move(dir); delete b.dataset.held; });
+    b.addEventListener("pointerdown", () => { stop(); timer = setTimeout(() => { b.dataset.held = "1"; timer = setInterval(() => move(dir), 90); }, 450); });
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+  }
+  field.addEventListener("keydown", (e) => {
+    const d = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+    if (d) { e.preventDefault(); move(d); }
+  });
+  field.addEventListener("input", sync);
+  if (onInput) field.addEventListener("input", () => onInput(field.value, el));
+  if (onChange) field.addEventListener("change", () => onChange(field.value, el));
+  Object.defineProperty(el, "value", { get: () => field.value, set: (v) => { field.value = v ?? ""; sync(); } });
+  el.getValue = () => num();
+  el.setValue = (v) => { el.value = v; };
+  el.focus = () => field.focus();
+  el.select = () => field.select();
+  sync();
   return el;
 }
 

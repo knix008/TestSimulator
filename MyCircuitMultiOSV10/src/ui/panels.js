@@ -162,12 +162,13 @@ function renderRail(app, host, side, items) {
     html: icon(foldIcon(side, true), 16),
     onclick: () => app.togglePanel(side),
   }));
+  // A folded panel still shows what it holds: each section's icon and title
+  // (written vertically so the rail stays narrow).
   for (const it of items) {
     rail.append(h("button", {
-      class: "icon-btn", type: "button", title: it.title, "aria-label": it.title,
-      html: icon(it.icon, 16),
+      class: "rail-item", type: "button", title: it.title, "aria-label": it.title,
       onclick: () => app.togglePanel(side),
-    }));
+    }, h("span", { class: "rail-ico", html: icon(it.icon, 16) }), h("span", { class: "rail-title" }, it.title)));
   }
   host.append(rail);
 }

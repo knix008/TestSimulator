@@ -6,6 +6,7 @@ import { t, getLanguage } from "./i18n.js";
 import { icon } from "./icons.js";
 import { h, modal, toast, quickPick, field, input, select, checkbox, tabs, confirmDialog, pager, stepper } from "./widgets.js";
 import * as platform from "./platform.js";
+import { START_SCENES, START_SCREEN_DEFAULTS, startScreenOf } from "./startscenes.js";
 import { allSymbols, getSymbol } from "../lib/symbols.js";
 import { allFootprints, getFootprint, searchFootprints } from "../lib/footprints.js";
 import { copperLayers, defaultRules, parseValue, formatValue } from "../core/project.js";
@@ -204,7 +205,7 @@ export async function partProperties(app, part) {
   const general = h("div", { class: "form-grid" },
     !isPower && field(t("Reference"), ref),
     field(t("Value"), h("div", {}, value, valueHint)),
-    field(t("Rotation"), select(String(draft.rot || 0), [["0", "0°"], ["90", "90°"], ["180", "180°"], ["270", "270°"]], { onChange: (v) => { draft.rot = +v; } })),
+    field(t("Rotation"), stepper(draft.rot || 0, { values: [0, 90, 180, 270], format: (v) => `${v}°`, onChange: (v) => { draft.rot = v; } })),
     field(t("Options"), h("div", { style: { display: "flex", gap: "14px", flexWrap: "wrap" } },
       checkbox(draft.mirror, t("Mirrored"), { onChange: (v) => { draft.mirror = v; } }),
       checkbox(draft.dnp, t("Do not populate"), { onChange: (v) => { draft.dnp = v; } }),
@@ -284,7 +285,7 @@ export async function projectProperties(app) {
 }
 
 export const SETTING_DEFAULTS = {
-  units: "mm", startup: "start", autosave: true, autosaveSeconds: 30, recentLimit: 10, showWelcome: false,
+  units: "mm", showStartOnLaunch: true, startup: "last", autosave: true, autosaveSeconds: 30, recentLimit: 10, showWelcome: false,
   uiScale: 1, animations: true, showHints: true, hintSeconds: 7,
   schGrid: 50, gridStyle: "lines", showGrid: true, showRulers: true, showBoardSize: true, emptyDrag: "pan", snapPins: true, crossProbe: true, showDangling: true, liveErc: true, showSimOverlay: true,
   pcbGrid: 0.635, showRatsnest: true, showCourtyards: true, padLabels: true, clearancePreview: true, liveDrc: true, routeMode: "highlight", autorouteLayers: "outer", autorouteGrid: 0.25, outlineRadius: 0,
@@ -300,10 +301,14 @@ export async function settingsDialog(app) {
   // Every number is a stepper: − on the left, + on the right, value centred.
   const num = (k, o) => { const el = stepper(s[k], { ...o, onChange: (v) => { s[k] = v; } }); el.dataset.setting = k; return el; };
   const unit = (u) => (v) => `${v} ${u}`;
+  const scr = startScreenOf(s);
+  s.startScreen = scr;
+  const scrNum = (k, o) => { const el = stepper(scr[k], { ...o, onChange: (v) => { scr[k] = v; } }); el.dataset.setting = `startScreen.${k}`; return el; };
   const secs = (v) => (v >= 60 ? `${v / 60} min` : `${v} s`);
   const general = h("div", { class: "form-grid" },
     field(t("Language"), sel("lang", [["ko", "한국어"], ["en", "English"]])),
-    field(t("On start-up"), sel("startup", [["start", t("Show the start page")], ["last", t("Reopen the last project")]])),
+    field(t("Start page"), chk("showStartOnLaunch", t("Always show the start page on launch"))),
+    field(t("Otherwise open"), sel("startup", [["last", t("Reopen the last project")], ["new", t("An empty project")]])),
     field(t("Recent files to remember"), num("recentLimit", { min: 1, max: 30, step: 1 })),
     field(t("Welcome"), chk("showWelcome", t("Show the welcome window at start-up"))),
     field(t("Autosave"), chk("autosave", t("Keep a recovery copy"))),
@@ -315,6 +320,10 @@ export async function settingsDialog(app) {
     field(t("Animations"), chk("animations", t("Animate dialogs, menus and the tutorial"))),
     field(t("Hints"), chk("showHints", t("Show tool hints on the canvas"))),
     field(t("Hint duration"), num("hintSeconds", { values: [0, 3, 5, 7, 10, 15, 30], format: (v) => (v ? `${v} s` : t("Always")) })),
+    // Start page background: kept as one object, settings.startScreen.
+    field(t("Start page background"), select(scr.scene, START_SCENES.map((x) => [x.id, x.name[getLanguage() === "ko" ? 0 : 1]]), { onChange: (v) => { scr.scene = v; } })),
+    field(t("Background transparency"), scrNum("transparency", { min: 0, max: 100, step: 5, format: (v) => `${v}%` })),
+    field(t("Background motion speed"), scrNum("motion", { min: 0, max: 100, step: 10, format: (v) => (v ? `${v}%` : t("Still")) })),
   );
   const unitsGrid = h("div", { class: "form-grid" },
     field(t("Editor units"), sel("units", [["mm", "mm"], ["mil", "mil"]])),
@@ -374,8 +383,9 @@ export async function settingsDialog(app) {
   });
   if (ok === "reset") {
     if (await confirmDialog(t("Reset all settings to their defaults?"))) {
-      app.settings = { ...app.settings, ...SETTING_DEFAULTS, theme: "midnight" };
+      app.settings = { ...app.settings, ...SETTING_DEFAULTS, theme: "midnight", startScreen: { ...START_SCREEN_DEFAULTS } };
       app.applySettings();
+      if (app.tab === "start") app.start.render();
     }
     return;
   }
@@ -384,6 +394,7 @@ export async function settingsDialog(app) {
   app.settings = { ...app.settings, ...s };
   if (langChanged) app.setSetting("lang", s.lang);
   app.applySettings();
+  if (app.tab === "start") app.start.render();
 }
 
 // ---------------------------------------------------------------- board setup
@@ -394,8 +405,8 @@ export async function boardSetup(app) {
   const board = { w: +(b.x2 - b.x1).toFixed(3), h: +(b.y2 - b.y1).toFixed(3), r: app.settings.outlineRadius || 0, layers: pcb.layerCount, thickness: pcb.thickness, mask: pcb.maskColor, silk: pcb.silkColor, finish: pcb.finish, reshape: false };
   const num = (obj, k, step = "0.01") => input(obj[k], { type: "number", step, onInput: (v) => { obj[k] = parseFloat(v); } });
   const stackup = h("div", { class: "form-grid" },
-    field(t("Copper layers"), select(String(board.layers), [["2", "2"], ["4", "4"], ["6", "6"]], { onChange: (v) => { board.layers = +v; } })),
-    field(t("Thickness (mm)"), select(String(board.thickness), ["0.8", "1.0", "1.2", "1.6", "2.0"].map((x) => [x, x]), { onChange: (v) => { board.thickness = +v; } })),
+    field(t("Copper layers"), stepper(board.layers, { values: [2, 4, 6], onChange: (v) => { board.layers = v; } })),
+    field(t("Thickness (mm)"), stepper(Number(board.thickness) || 1.6, { values: [0.8, 1.0, 1.2, 1.6, 2.0], format: (v) => v.toFixed(1), onChange: (v) => { board.thickness = v; } })),
     field(t("Solder mask"), select(board.mask, ["green", "red", "blue", "black", "white", "purple", "yellow"].map((c) => [c, t(c)]), { onChange: (v) => { board.mask = v; } })),
     field(t("Silkscreen"), select(board.silk, [["white", t("white")], ["black", t("black")], ["yellow", t("yellow")]], { onChange: (v) => { board.silk = v; } })),
     field(t("Surface finish"), select(board.finish, [["HASL", "HASL"], ["ENIG", "ENIG"], ["OSP", "OSP"]], { onChange: (v) => { board.finish = v; } })),

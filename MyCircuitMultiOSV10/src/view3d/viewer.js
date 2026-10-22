@@ -25,7 +25,14 @@ export const DEFAULT_OPTIONS = {
   components: true, silkscreen: true, soldermask: true, copper: true, zones: true,
   boardBody: true, axes: true, grid: true, gizmo: true, dimensions: true, units3d: "cm", transparentBoard: false,
   background: "gradient", maskColor: null, silkColor: null, shadows: true,
+  // Light: the key (sun) light with shadows plus a fill and a camera headlight.
+  // Off leaves only the ambient sky light, so the board stays visible.
+  lights: true, lightIntensity: 100, lightAzimuth: 56, lightElevation: 56, lightPos: null, lightColor: "#ffffff", ambient: 100, headlight: 100,
+  // Axes: length (% of the board), tick values on/off and label size (%).
+  axesScale: 100, axesValues: true, axesLabelSize: 100,
 };
+export const LIGHT_OPTIONS = ["lights", "lightIntensity", "lightAzimuth", "lightElevation", "lightColor", "ambient", "headlight", "shadows"];
+export const AXES_OPTIONS = ["axes", "axesScale", "axesValues", "axesLabelSize"];
 
 // Direction from target to camera for each preset. Tiny offsets keep the
 // orbit math away from the poles and pick which way is "up" on screen:
@@ -166,6 +173,28 @@ export function createViewer(container, options = {}) {
   headlight.target.position.set(0, 0, -1);
   camera.add(headlight, headlight.target);
   scene.add(camera);
+  const BASE = { hemi: 0.9, key: 1.9, fill: 0.35, head: 0.7 };
+  const pct = (v, d = 100) => (Number.isFinite(+v) ? +v : d) / 100;
+  // Light switch and settings (intensity, colour, direction, ambient, headlight).
+  function applyLights() {
+    const on = opts.lights !== false;
+    key.visible = fill.visible = headlight.visible = on;
+    key.intensity = BASE.key * pct(opts.lightIntensity);
+    key.color.set(opts.lightColor || "#ffffff");
+    fill.intensity = BASE.fill * pct(opts.lightIntensity);
+    headlight.intensity = BASE.head * pct(opts.headlight);
+    // With the lights off the sky light alone keeps the board readable.
+    hemi.intensity = BASE.hemi * pct(opts.ambient) * (on ? 1 : 1.6);
+    key.castShadow = on && opts.shadows !== false;
+    dirty = true;
+  }
+  // Unit vector from the board toward the key light (azimuth from +X toward
+  // the viewer, elevation above the board).
+  function lightDir() {
+    const az = (Number(opts.lightAzimuth) || 0) * DEG;
+    const el = Math.min(89.9, Math.max(-89.9, Number(opts.lightElevation) || 0)) * DEG;
+    return new THREE.Vector3(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az));
+  }
 
   const content = new THREE.Group(); // board + parts: what gets exported
   content.name = "board3d";
@@ -363,7 +392,7 @@ export function createViewer(container, options = {}) {
   }
 
   // Text that always faces the camera (axis names, grid scale).
-  function labelSprite(text, color, height) {
+  function labelSprite(text, color, height, depthTest = false) {
     const c = document.createElement("canvas");
     const fs = 64;
     const g = c.getContext("2d");
@@ -380,9 +409,9 @@ export function createViewer(container, options = {}) {
     g.fillText(text, c.width / 2, c.height / 2);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, toneMapped: false }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest, depthWrite: false, transparent: true, toneMapped: false }));
     sp.scale.set((height * c.width) / c.height, height, 1);
-    sp.renderOrder = 10;
+    sp.renderOrder = depthTest ? 0 : 10;
     return sp;
   }
   function disposeGroup(gr) {
@@ -413,14 +442,20 @@ export function createViewer(container, options = {}) {
 
   // Grid cell: a fifth of the unit (2 mm / 0.2 in) times a power of 5, picked
   // from the camera distance, so the 5×5 pattern looks the same at any zoom.
+  // Hysteresis: zooming out keeps the current grid until its lines are three
+  // times denser than at the old switch point (target ≥ 15 cells instead of
+  // 5), zooming in still switches as soon as a cell is wider than the target,
+  // so a cell holds over a 15× range of distance and never flickers.
+  const GRID_GROW = 15;
   let gridCell = 0;
+  let gridCellUnit = "";
   function wantedCell() {
     const dist = camera.position.distanceTo(controls.target) || 100;
     const base = unit3d().mm / 5;
     const target = dist / 40;
-    let cell = base;
+    let cell = gridCell && gridCellUnit === unit3d().name ? gridCell : base;
     let guard = 0;
-    while (cell * 5 <= target && guard++ < 20) cell *= 5;
+    while (cell * GRID_GROW <= target && guard++ < 20) cell *= 5;
     while (cell > target && cell / 5 >= base / 25 && guard++ < 40) cell /= 5;
     return cell;
   }
@@ -432,8 +467,9 @@ export function createViewer(container, options = {}) {
     const sz = box.getSize(new THREE.Vector3());
     const cell = wantedCell();
     gridCell = cell;
+    gridCellUnit = unit3d().name;
     const major = cell * 5;
-    const half = Math.max(Math.max(sz.x, sz.z) * 0.9, cell * 60);
+    const half = Math.max(Math.max(sz.x, sz.z) * 0.9, cell * 120); // wide enough for the zoom-out range a cell now covers
     const n = Math.min(500, Math.ceil(half / major) * 5); // cells each side, a multiple of 5
     // Lines sit on multiples of the cell measured from the board origin.
     const cx = Math.round(c.x / major) * major;
@@ -450,7 +486,11 @@ export function createViewer(container, options = {}) {
     grid = new THREE.Group();
     grid.name = "grid";
     grid.userData = { cell, major, unit: unit3d().name };
-    grid.add(lineSegs(minor, 0x5a6070, 0.4), lineSegs(majorPts, 0x8f99b0, 0.85));
+    // 5 × 5 blocks: very faint inner lines and soft single major lines, so
+    // the pattern reads without the grid drawing the eye away from the board.
+    const bgCol = new THREE.Color(typeof opts.background === "object" && opts.background ? opts.background.bottom : opts.background === "gradient" || !opts.background ? "#14171c" : opts.background);
+    const lightBg = bgCol.r * 0.3 + bgCol.g * 0.59 + bgCol.b * 0.11 > 0.55;
+    grid.add(lineSegs(minor, lightBg ? 0x8a93a6 : 0x56607a, lightBg ? 0.16 : 0.13), lineSegs(majorPts, lightBg ? 0x5a6578 : 0x8d99b0, lightBg ? 0.38 : 0.36));
     // Values (in the display unit) along two edges at the major lines.
     const h0 = major * 0.32;
     const count = (2 * n) / 5 + 1;
@@ -480,16 +520,21 @@ export function createViewer(container, options = {}) {
   }
 
   // Axes with scales: X (board x), Y (board y, toward the viewer), Z (up),
-  // ticks and values in cm or inch, plus the board's width / depth / height.
+  // ticks and values in cm or inch. Lines and labels are depth-tested, so a
+  // part or the board in front of an axis always hides it.
   function buildAxes(box) {
     const g = new THREE.Group();
     g.name = "axes";
-    const top = thickness + 0.02;
-    const lenX = Math.max(10, box.max.x) * 1.08;
-    const lenY = Math.max(10, box.max.z) * 1.08;
-    const lenZ = Math.max(5, box.max.y - top) * 1.3 + 2;
+    g.userData.helper = "axes";
+    // Lifted a little above the board top so the lines don't z-fight with it.
+    const top = thickness + 0.08;
+    const k = Math.max(0.2, pct(opts.axesScale));
+    const lenX = Math.max(10, box.max.x) * 1.08 * k;
+    const lenY = Math.max(10, box.max.z) * 1.08 * k;
+    const lenZ = (Math.max(5, box.max.y - top) * 1.3 + 2) * k;
     const tick = Math.max(0.6, Math.max(lenX, lenY) / 70);
-    const h0 = tick * 2.2;
+    const h0 = tick * 2.2 * Math.max(0.3, pct(opts.axesLabelSize));
+    const lines = [];
     const axis = (dir, len, color, css, name) => {
       const pts = [0, 0, 0, dir[0] * len, dir[1] * len, dir[2] * len];
       const step = niceStep(len);
@@ -498,26 +543,142 @@ export function createViewer(container, options = {}) {
       for (let d = step; d <= len + 1e-6; d += step) {
         const p = [dir[0] * d, dir[1] * d, dir[2] * d];
         pts.push(p[0], p[1], p[2], p[0] + td[0] * tick, p[1] + td[1] * tick, p[2] + td[2] * tick);
-        const lbl = labelSprite(fmtLen(d), css, h0 * 0.8);
+        if (opts.axesValues === false) continue;
+        const lbl = labelSprite(fmtLen(d), css, h0 * 0.8, true);
         lbl.position.set(p[0] + td[0] * tick * 2.6, p[1] + td[1] * tick * 2.6 + (dir[1] ? 0 : h0 * 0.3), p[2] + td[2] * tick * 2.6);
         g.add(lbl);
       }
       const line = lineSegs(pts, color);
-      line.material.depthTest = false;
-      line.renderOrder = 9;
+      line.userData.baseColor = color;
+      lines.push(line);
       g.add(line);
-      const end = labelSprite(`${name} (${unit3d().name})`, css, h0);
+      const end = labelSprite(`${name} (${unit3d().name})`, css, h0, true);
       end.position.set(dir[0] * (len + h0 * 1.6), dir[1] * (len + h0 * 0.9), dir[2] * (len + h0 * 1.6));
       g.add(end);
     };
     axis([1, 0, 0], lenX, 0xff5252, "#ff5252", "X");
     axis([0, 0, 1], lenY, 0x448aff, "#448aff", "Y");
     axis([0, 1, 0], lenZ, 0x69f0ae, "#69f0ae", "Z");
-    const o = labelSprite("0", "#ffffff", h0 * 0.8);
+    const o = labelSprite("0", "#ffffff", h0 * 0.8, true);
     o.position.set(-h0 * 0.8, 0, -h0 * 0.8);
     g.add(o);
     g.position.y = top;
+    g.userData.lines = lines;
+    g.userData.size = Math.max(lenX, lenY, lenZ);
     return g;
+  }
+
+  // The key light shown as a sun with rays. It is there only while the light
+  // is on; a faint dashed line joins it to the axes origin. Drag it with the
+  // mouse, or set opts.lightPos = {x, y, z} (mm, board axes: X right, Y toward
+  // the viewer, Z up). Without lightPos it sits in the azimuth / elevation
+  // direction, a little beyond the board.
+  let sun = null;
+  let sunBox = null;
+  function sunTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d");
+    const glow = g.createRadialGradient(128, 128, 10, 128, 128, 126);
+    glow.addColorStop(0, "rgba(255,240,180,0.85)");
+    glow.addColorStop(0.45, "rgba(255,200,80,0.25)");
+    glow.addColorStop(1, "rgba(255,190,60,0)");
+    g.fillStyle = glow;
+    g.beginPath(); g.arc(128, 128, 126, 0, Math.PI * 2); g.fill();
+    // rays: long and short spikes alternating
+    g.fillStyle = "rgba(255,206,70,0.95)";
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const len = i % 2 ? 84 : 118;
+      const w = i % 2 ? 0.09 : 0.12;
+      g.beginPath();
+      g.moveTo(128 + Math.cos(a - w) * 46, 128 + Math.sin(a - w) * 46);
+      g.lineTo(128 + Math.cos(a) * len, 128 + Math.sin(a) * len);
+      g.lineTo(128 + Math.cos(a + w) * 46, 128 + Math.sin(a + w) * 46);
+      g.closePath(); g.fill();
+    }
+    const disc = g.createRadialGradient(118, 118, 4, 128, 128, 44);
+    disc.addColorStop(0, "#fffbe6");
+    disc.addColorStop(0.6, "#ffd54a");
+    disc.addColorStop(1, "#f5a623");
+    g.fillStyle = disc;
+    g.beginPath(); g.arc(128, 128, 42, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(150,90,0,0.9)"; g.lineWidth = 4;
+    g.stroke();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  // Board axes (mm) <-> scene: X = x, Y = z, Z = up (y).
+  const toScene = (p) => new THREE.Vector3(p.x, p.z, p.y);
+  const toBoard = (v) => ({ x: +v.x.toFixed(2), y: +v.z.toFixed(2), z: +v.y.toFixed(2) });
+  const axesOrigin = () => new THREE.Vector3(0, thickness + 0.08, 0);
+  function defaultSunPos(box) {
+    const size = box.getSize(new THREE.Vector3());
+    const r = Math.max(size.x, size.z) * 0.5 + 4;
+    return box.getCenter(new THREE.Vector3()).addScaledVector(lightDir(), r * 1.15);
+  }
+  function sunScenePos() {
+    const p = opts.lightPos;
+    if (p && [p.x, p.y, p.z].every((v) => Number.isFinite(+v))) return toScene({ x: +p.x, y: +p.y, z: +p.z });
+    return defaultSunPos(sunBox || sceneBox());
+  }
+  function buildSun(box) {
+    sunBox = box;
+    const grp = new THREE.Group();
+    grp.name = "light";
+    grp.userData.helper = "light";
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTexture(), depthTest: true, depthWrite: false, transparent: true, toneMapped: false }));
+    const size = box.getSize(new THREE.Vector3());
+    const s = Math.max(4, (Math.max(size.x, size.z) * 0.5 + 4) * 0.2);
+    sp.scale.set(s, s, 1);
+    sp.userData.helper = "light";
+    sp.userData.size = s;
+    grp.add(sp);
+    const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const dash = Math.max(0.6, s * 0.12);
+    const line = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: 0xffe7a3, transparent: true, opacity: 0.45, dashSize: dash, gapSize: dash * 0.8, depthWrite: false, toneMapped: false }));
+    line.userData.noPick = true;
+    grp.add(line);
+    grp.userData.sprite = sp;
+    grp.userData.line = line;
+    return grp;
+  }
+  // Put the sun (and the key light's direction) at a scene position.
+  function placeSun(pos) {
+    if (sun) {
+      const { sprite, line } = sun.userData;
+      sprite.position.copy(pos);
+      line.geometry.setFromPoints([pos, axesOrigin()]);
+      line.computeLineDistances();
+    }
+    const c = (sunBox || sceneBox()).getCenter(new THREE.Vector3());
+    const dir = pos.clone().sub(c);
+    if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0);
+    dir.normalize();
+    key.position.copy(c).addScaledVector(dir, keyDistance);
+    key.target.position.copy(c);
+    dirty = true;
+  }
+  let keyDistance = 100;
+  function lightPosition() { return toBoard(sunScenePos()); }
+
+  // Selected helper ("light" | "axes" | null): drawn brighter / larger.
+  let selectedHelper = null;
+  function applyHelperSelection() {
+    if (sun) { const sp = sun.userData.sprite; const s = sp.userData.size * (selectedHelper === "light" ? 1.35 : 1); sp.scale.set(s, s, 1); }
+    if (axes) {
+      for (const l of axes.userData.lines) {
+        const col = new THREE.Color(l.userData.baseColor);
+        if (selectedHelper === "axes") col.lerp(new THREE.Color(0xffffff), 0.45);
+        l.material.color.copy(col);
+      }
+    }
+    dirty = true;
+  }
+  function selectHelper(kind) {
+    selectedHelper = kind === "light" || kind === "axes" ? kind : null;
+    applyHelperSelection();
   }
   function buildDimensions() {
     const g = new THREE.Group();
@@ -563,18 +724,21 @@ export function createViewer(container, options = {}) {
     buildGrid();
     if (opts.axes) { axes = buildAxes(box); helpers.add(axes); }
     if (opts.dimensions !== false) { dims = buildDimensions(); helpers.add(dims); }
+    if (sun) { helpers.remove(sun); disposeGroup(sun); sun = null; }
+    sunBox = box;
+    if (opts.lightMarker !== false && opts.lights !== false) { sun = buildSun(box); helpers.add(sun); }
+    applyHelperSelection();
     // Shadow camera hugs the board so the shadow map resolution isn't wasted.
     const r = Math.max(sz.x, sz.y, sz.z) * 0.8 + 5;
-    key.position.set(c.x + r * 0.6, c.y + r * 1.6, c.z + r * 0.9);
-    key.target.position.copy(c);
+    keyDistance = r * 1.9;
+    placeSun(sunScenePos());
     fill.position.set(c.x - r, c.y + r * 0.5, c.z - r * 0.8);
     fill.target.position.copy(c);
     const sc = key.shadow.camera;
     sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r;
     sc.near = 0.5; sc.far = r * 5;
     sc.updateProjectionMatrix();
-    key.castShadow = opts.shadows !== false;
-    dirty = true;
+    applyLights();
   }
 
   function applyBackground() {
@@ -650,26 +814,95 @@ export function createViewer(container, options = {}) {
     const targets = [];
     if (boardMesh && boardMesh.visible && !opts.transparentBoard) targets.push(boardMesh);
     if (componentsGroup.visible) targets.push(componentsGroup);
+    if (sun) targets.push(sun.userData.sprite);
+    if (axes) targets.push(axes);
+    // Lines are thin: accept clicks within a small world distance of an axis.
+    raycaster.params.Line = { threshold: axes ? Math.max(0.4, axes.userData.size / 90) : 1 };
     return raycaster.intersectObjects(targets, true)[0] || null;
   }
   function refOf(obj) {
     for (let o = obj; o; o = o.parent) if (o.userData && o.userData.ref !== undefined && o.userData.fpId) return o.userData.ref;
     return null;
   }
+  function helperOf(obj) {
+    for (let o = obj; o; o = o.parent) if (o.userData && o.userData.helper) return o.userData.helper;
+    return null;
+  }
   let down = null;
   function onPointerDown(e) { down = { x: e.clientX, y: e.clientY, button: e.button }; }
+
+  // Dragging the sun moves the light in the plane facing the camera through
+  // its current position. Runs in the capture phase so the orbit controls
+  // never see the press.
+  const lightMoveCallbacks = new Set();
+  let sunDrag = null;
+  function hitSun(clientX, clientY) {
+    if (!sun) return false;
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    return raycaster.intersectObject(sun.userData.sprite, false).length > 0;
+  }
+  function onSunDown(e) {
+    if (e.button !== 0 || !hitSun(e.clientX, e.clientY)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    controls.enabled = false;
+    const normal = camera.getWorldDirection(new THREE.Vector3());
+    sunDrag = { x: e.clientX, y: e.clientY, moved: false, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(normal, sun.userData.sprite.position.clone()), id: e.pointerId };
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic */ }
+    canvas.style.cursor = "grabbing";
+    selectHelper("light");
+  }
+  function onSunMove(e) {
+    if (!sunDrag) {
+      if (sun && e.buttons === 0) canvas.style.cursor = hitSun(e.clientX, e.clientY) ? "grab" : opts.navMode === "pan" ? "grab" : "";
+      return;
+    }
+    if (Math.hypot(e.clientX - sunDrag.x, e.clientY - sunDrag.y) > 2) sunDrag.moved = true;
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    const p = raycaster.ray.intersectPlane(sunDrag.plane, new THREE.Vector3());
+    if (!p) return;
+    p.y = Math.max(p.y, thickness + 1); // stay above the board
+    opts.lightPos = toBoard(p);
+    placeSun(toScene(opts.lightPos));
+    for (const cb of lightMoveCallbacks) { try { cb(opts.lightPos, false); } catch (err) { console.error(err); } }
+  }
+  function onSunUp(e) {
+    if (!sunDrag) return;
+    const moved = sunDrag.moved;
+    try { canvas.releasePointerCapture(sunDrag.id); } catch { /* synthetic */ }
+    sunDrag = null;
+    controls.enabled = true;
+    canvas.style.cursor = "grab";
+    down = null;
+    e.stopImmediatePropagation();
+    if (moved) for (const cb of lightMoveCallbacks) { try { cb(opts.lightPos, true); } catch (err) { console.error(err); } }
+    for (const cb of pickCallbacks) { try { cb(null, "light"); } catch (err) { console.error(err); } }
+  }
+  canvas.addEventListener("pointerdown", onSunDown, true);
+  canvas.addEventListener("pointermove", onSunMove, true);
+  canvas.addEventListener("pointerup", onSunUp, true);
+  function onLightMove(cb) {
+    lightMoveCallbacks.add(cb);
+    return () => lightMoveCallbacks.delete(cb);
+  }
   function onPointerUp(e) {
     if (!down || down.button !== 0) { down = null; return; }
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
     down = null;
     if (moved > 4 || !pickCallbacks.size) return;
     const hit = raycastAt(e.clientX, e.clientY);
-    const ref = hit ? refOf(hit.object) : null;
-    for (const cb of pickCallbacks) { try { cb(ref); } catch (err) { console.error(err); } }
+    const helper = hit ? helperOf(hit.object) : null;
+    const ref = hit && !helper ? refOf(hit.object) : null;
+    selectHelper(helper);
+    for (const cb of pickCallbacks) { try { cb(ref, helper); } catch (err) { console.error(err); } }
   }
   function onDblClick(e) {
     const hit = raycastAt(e.clientX, e.clientY);
-    if (!hit) return;
+    if (!hit || helperOf(hit.object)) return;
     const dir = camera.position.clone().sub(controls.target);
     const dist = dir.length();
     const f = framing(dir);
@@ -803,11 +1036,13 @@ export function createViewer(container, options = {}) {
     if (["silkscreen", "soldermask", "copper", "zones", "maskColor", "silkColor"].some(changed)) paintFaces();
     if (changed("components")) componentsGroup.visible = opts.components !== false;
     if (["transparentBoard", "boardBody", "copper"].some(changed)) applyBoardMaterialMode();
-    if (["axes", "grid", "components", "shadows", "units3d", "dimensions"].some(changed)) updateHelpers();
+    if (["axes", "grid", "components", "shadows", "units3d", "dimensions", "axesScale", "axesValues", "axesLabelSize", "lightAzimuth", "lightElevation", "lights", "lightMarker"].some(changed)) updateHelpers();
+    else if (["lightIntensity", "lightColor", "ambient", "headlight"].some(changed)) applyLights();
+    if (changed("lightPos") && !sunDrag) placeSun(sunScenePos());
     if (changed("navMode")) setNavMode(opts.navMode);
     if (changed("fov") && opts.fov > 5) { camera.fov = opts.fov; camera.updateProjectionMatrix(); }
     if (changed("rotateSpeed")) controls.rotateSpeed = opts.rotateSpeed || 1;
-    if (changed("background")) applyBackground();
+    if (changed("background")) { applyBackground(); buildGrid(); }
     dirty = true;
   }
 
@@ -821,9 +1056,15 @@ export function createViewer(container, options = {}) {
     return () => pickCallbacks.delete(cb);
   }
 
+  // The sun marker is a control, not part of the picture.
   function screenshot() {
+    const was = sun ? sun.visible : false;
+    if (sun) sun.visible = false;
     renderer.render(scene, camera);
-    return canvas.toDataURL("image/png");
+    const url = canvas.toDataURL("image/png");
+    if (sun) sun.visible = was;
+    dirty = true;
+    return url;
   }
 
   // Export what is visible (hidden layers are left out of the file).
@@ -872,6 +1113,9 @@ export function createViewer(container, options = {}) {
     renderer.setAnimationLoop(null);
     if (ro) ro.disconnect();
     canvas.removeEventListener("pointerdown", onPointerDown);
+    canvas.removeEventListener("pointerdown", onSunDown, true);
+    canvas.removeEventListener("pointermove", onSunMove, true);
+    canvas.removeEventListener("pointerup", onSunUp, true);
     canvas.removeEventListener("pointerup", onPointerUp);
     canvas.removeEventListener("dblclick", onDblClick);
     controls.dispose();
@@ -885,6 +1129,7 @@ export function createViewer(container, options = {}) {
     if (grid) disposeGroup(grid);
     if (axes) disposeGroup(axes);
     if (dims) disposeGroup(dims);
+    if (sun) disposeGroup(sun);
     if (bgTexture) bgTexture.dispose();
     if (scene.environment) scene.environment.dispose();
     renderer.dispose();
@@ -899,10 +1144,17 @@ export function createViewer(container, options = {}) {
   controls.rotateSpeed = opts.rotateSpeed || 1;
 
   const viewer = {
-    setProject, setOptions, setView, zoomToFit, highlight, onPick, screenshot, orbit, pan, setNavMode,
+    setProject, setOptions, setView, zoomToFit, highlight, onPick, onLightMove, lightPosition, screenshot, orbit, pan, setNavMode, selectHelper,
     exportSTL, exportGLB, resize, dispose, stats,
     getOptions: () => ({ ...opts }),
-    helperInfo: () => ({ grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: !!axes, format: fmtLen }),
+    helperInfo: () => ({
+      grid: grid ? { ...grid.userData } : null, dimensions: dims ? { ...dims.userData } : null, axes: !!axes, format: fmtLen,
+      selected: selectedHelper, lights: { on: key.visible, key: key.intensity, ambient: hemi.intensity, head: headlight.intensity, shadows: key.castShadow },
+      axesDepthTest: axes ? axes.userData.lines.every((l) => l.material.depthTest) && axes.children.every((o) => !o.isSprite || o.material.depthTest) : null,
+      lightPos: lightPosition(), sunVisible: !!sun && sun.visible,
+      sunLine: sun ? sun.userData.line.geometry.attributes.position.array.slice(0, 6).map((v) => +v.toFixed(2)) : null,
+      sun: sun ? (() => { const v = sun.userData.sprite.position.clone().project(camera); const r = canvas.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height }; })() : null,
+    }),
     get three() { return { THREE, scene, camera, renderer, controls, content }; },
   };
   return viewer;
